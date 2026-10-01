@@ -1516,7 +1516,7 @@ components:
     PullRequestDraft:
       type: object
       description: A pull request composed for the branch, editable before opening.
-      required: [title, body, base, head, draft, needs_push]
+      required: [title, body, base, head, draft, needs_push, reviewers]
       properties:
         title:
           type: string
@@ -1536,6 +1536,17 @@ components:
         needs_push:
           type: boolean
           description: Whether the branch must be pushed first; the open pushes it.
+        reviewers:
+          type: array
+          items:
+            type: string
+          description: >-
+            The proposed reviewers: the code owners of the paths the branch
+            changes, as CODEOWNERS on the base names them, without the author.
+            People come first, then teams as org/team (a GitLab group as
+            group/subgroup). Empty when no CODEOWNERS covers the changes or it
+            cannot be read.
+          example: [ana, acme/control-plane]
       additionalProperties: false
 
     OpenPullRequestRequest:
@@ -1561,7 +1572,10 @@ components:
           type: array
           items:
             type: string
-          description: Usernames to request a review from.
+          description: >-
+            Usernames to request a review from. A name holding a slash is a
+            team, org/team, requested as a team on GitHub; on GitLab a
+            group/subgroup stands for its direct members.
         assignees:
           type: array
           items:

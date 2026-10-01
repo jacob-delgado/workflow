@@ -339,6 +339,8 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		FindPull:      deps.Forge.FindPullRequest,
 		CreatePull:    deps.Forge.CreatePullRequest,
 		Templates:     deps.Forge.Templates,
+		ChangedPaths:  deps.Git.ChangedPaths,
+		CodeOwnersAt:  deps.Git.CodeOwnersAt,
 		CheckCI:       deps.Forge.CheckStatus,
 		JobLog:        deps.Forge.JobLog,
 		Author:        deps.Forge.Author,

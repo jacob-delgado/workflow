@@ -20,6 +20,7 @@ function draftFor({ pushed }: { pushed: boolean }): PullRequestDraft {
     head: 'fix/PROJ-412',
     draft: false,
     needs_push: !pushed,
+    reviewers: [],
   }
 }
 

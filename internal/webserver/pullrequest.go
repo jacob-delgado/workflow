@@ -134,7 +134,8 @@ func (s *server) canOpenPull() bool {
 }
 
 // composePullRequest builds the pull request to propose for the checked-out
-// branch from its commits, the branch's issue, and the repository's template.
+// branch from its commits, the branch's issue, the repository's template, and
+// the code owners of its changes.
 // It fails with the loop's refusal when there is nothing to open — the tree is
 // not on a branch, the branch has no commits, or a pull request is already open
 // for it — and with the read's own error when the branch cannot be read.
@@ -147,6 +148,7 @@ func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, err
 		Templates: s.deps.Templates,
 		Issue:     s.deps.Issue,
 		BrowseURL: s.deps.BrowseURL,
+		Owners:    s.ownerSeams(),
 	}, loop.PullOptions{
 		Project:     cfg.Jira.Project,
 		TitleSource: convention.TitleSource(cfg.PullRequest.TitleSource),
@@ -155,9 +157,21 @@ func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, err
 	return draft, branch, err
 }
 
+// ownerSeams read the code owners of the branch's changes, leaving out the
+// author the server already knows once it has asked.
+func (s *server) ownerSeams() loop.OwnerSeams {
+	owners := loop.OwnerSeams{ChangedPaths: s.deps.ChangedPaths, CodeOwnersAt: s.deps.CodeOwnersAt, Author: nil}
+	if s.deps.Author != nil {
+		owners.Author = s.cachedAuthor
+	}
+
+	return owners
+}
+
 // pullFromRequest builds the pull request to open from the request body and the
 // checked-out branch, whose name is always the head — the caller does not choose
-// it. It reports false when the title or the base is missing.
+// it. A reviewer named org/team is requested as a team. It reports false when
+// the title or the base is missing.
 func pullFromRequest(body api.OpenPullRequestRequest, branch gitrepo.Branch) (forge.NewPullRequest, bool) {
 	title := strings.TrimSpace(body.Title)
 	base := strings.TrimSpace(body.Base)
@@ -166,15 +180,18 @@ func pullFromRequest(body api.OpenPullRequestRequest, branch gitrepo.Branch) (fo
 		return forge.NewPullRequest{}, false
 	}
 
+	users, teams := loop.SplitReviewers(trimmedList(body.Reviewers))
+
 	return forge.NewPullRequest{
-		Title:     title,
-		Body:      orZero(body.Body),
-		Head:      branch.Name,
-		Base:      base,
-		Draft:     orZero(body.Draft),
-		Reviewers: trimmedList(body.Reviewers),
-		Assignees: trimmedList(body.Assignees),
-		Labels:    trimmedList(body.Labels),
+		Title:         title,
+		Body:          orZero(body.Body),
+		Head:          branch.Name,
+		Base:          base,
+		Draft:         orZero(body.Draft),
+		Reviewers:     users,
+		TeamReviewers: teams,
+		Assignees:     trimmedList(body.Assignees),
+		Labels:        trimmedList(body.Labels),
 	}, true
 }
 
@@ -193,7 +210,8 @@ func trimmedList(list *[]string) []string {
 	return cleaned
 }
 
-// draftDTO maps the composed draft and its branch onto the wire.
+// draftDTO maps the composed draft and its branch onto the wire, its reviewers
+// people then teams, as one list the page edits.
 func draftDTO(draft forge.NewPullRequest, branch gitrepo.Branch) api.PullRequestDraft {
 	return api.PullRequestDraft{
 		Title:     draft.Title,
@@ -202,6 +220,8 @@ func draftDTO(draft forge.NewPullRequest, branch gitrepo.Branch) api.PullRequest
 		Head:      draft.Head,
 		Draft:     draft.Draft,
 		NeedsPush: !branch.Pushed(),
+		Reviewers: append(append(make([]string, 0, len(draft.Reviewers)+len(draft.TeamReviewers)),
+			draft.Reviewers...), draft.TeamReviewers...),
 	}
 }
 

@@ -58,6 +58,7 @@ const draft = {
   head: 'fix/PROJ-1',
   draft: false,
   needs_push: false,
+  reviewers: [],
 }
 
 const opened = {

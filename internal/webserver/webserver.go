@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -59,7 +60,12 @@ type Deps struct {
 	// branch to its issue adds the line naming it.
 	EditPull  func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)
 	Templates func() []forge.Template
-	CheckCI   func(pull forge.PullRequest, head string) (forge.CI, error)
+	// ChangedPaths and CodeOwnersAt read the code owners of the branch's
+	// changes, proposed as the pull request draft's reviewers. Nil proposes
+	// nobody.
+	ChangedPaths func(base string) ([]string, error)
+	CodeOwnersAt func(base string) (codeowners.File, bool, error)
+	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)
 	// JobLog reads the end of a failed check's log.
 	JobLog func(check forge.Check) (forge.JobLog, error)
 	Author func() (string, error)

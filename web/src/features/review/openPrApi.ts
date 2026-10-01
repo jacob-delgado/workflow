@@ -20,6 +20,7 @@ export async function previewPullRequest(): Promise<PullRequestDraft> {
       head: 'fix/PROJ-412',
       draft: false,
       needs_push: true,
+      reviewers: [],
     }
   }
 

@@ -113,7 +113,8 @@ export const zPullRequestDraft = z.object({
     base: z.string(),
     head: z.string(),
     draft: z.boolean(),
-    needs_push: z.boolean()
+    needs_push: z.boolean(),
+    reviewers: z.array(z.string())
 });
 
 /**
