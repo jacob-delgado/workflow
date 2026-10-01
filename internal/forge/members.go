@@ -84,19 +84,26 @@ func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]git
 }
 
 // gitlabReviewers is a new merge request's reviewers as GitLab sets them, by
-// id, each once, and those that could not be resolved, with why.
+// id, each once, and those that could not be resolved, with why; author is the
+// id a team's members are added without, or zero for none.
 type gitlabReviewers struct {
 	ids    []int64
 	missed []string
 	cause  error
+	author int64
 }
 
 // gitlabResolveReviewers resolves each named reviewer by looking the user up,
 // and each team reviewer to its active members by the ids the listing gives.
 // It is best effort: a name GitLab does not know, a lookup that fails, or a
-// team whose members cannot be read is missed, and the rest still review.
+// team whose members cannot be read is missed, and the rest still review. The
+// author is left out of every team they are in, as nobody reviews their own
+// merge request.
 func gitlabResolveReviewers(ctx context.Context, client Client, request NewPullRequest) gitlabReviewers {
 	var resolved gitlabReviewers
+	if len(request.TeamReviewers) > 0 {
+		resolved.author = gitlabAuthorID(ctx, client)
+	}
 
 	for _, username := range request.Reviewers {
 		resolved.addUser(ctx, client, username)
@@ -134,8 +141,22 @@ func (r *gitlabReviewers) addTeam(ctx context.Context, client Client, team strin
 	}
 
 	for _, member := range members {
-		r.add(member.ID)
+		if member.ID != r.author {
+			r.add(member.ID)
+		}
 	}
+}
+
+// gitlabAuthorID is the id of the user the token is, or zero when GitLab does
+// not say: the author is then left in a team rather than the merge request
+// held back for it.
+func gitlabAuthorID(ctx context.Context, client Client) int64 {
+	self, err := call[gitlabUser](ctx, client, http.MethodGet, userPath, nil)
+	if err != nil {
+		return 0
+	}
+
+	return self.ID
 }
 
 // add adds a reviewer's id, unless it is already there.
