@@ -255,8 +255,26 @@ func (m Model) reviewQueueKeys() []key.Binding {
 	}
 
 	keys := m.linkKeys(m.selectedReviewURL())
+	if m.reviewQueue.sortable() {
+		keys = append(keys, m.keys.sortReviews)
+	}
 
-	return append(keys, m.keys.sortReviews, m.keys.filterReviews, m.keys.refresh)
+	if m.reviewQueue.narrowable() {
+		keys = append(keys, m.keys.filterReviews)
+	}
+
+	return append(keys, m.keys.refresh)
+}
+
+// sortable reports a queue read back, which an order chosen now holds for.
+func (s reviewQueueState) sortable() bool {
+	return s.loaded && s.err == nil
+}
+
+// narrowable reports a queue read back holding requests to narrow, even when
+// the facets already picked leave none of them listed.
+func (s reviewQueueState) narrowable() bool {
+	return s.sortable() && len(s.all) > 0
 }
 
 // selectedReviewURL is the selected request's URL, or empty when none is.
@@ -271,13 +289,13 @@ func (m Model) selectedReviewURL() string {
 // handleReviewQueueKey answers the Reviews pane's own keys.
 func (m Model) handleReviewQueueKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.sortReviews) && m.reviewQueue.loaded:
+	case key.Matches(msg, m.keys.sortReviews) && m.reviewQueue.sortable():
 		previous, _ := m.reviewQueue.current()
 		m.reviewQueue.order = m.reviewQueue.order.next()
 		m.reviewQueue = m.reviewQueue.listed(previous, m.detailRows())
 
 		return m, nil
-	case key.Matches(msg, m.keys.filterReviews) && m.reviewQueue.loaded:
+	case key.Matches(msg, m.keys.filterReviews) && m.reviewQueue.narrowable():
 		return m.openFacetPicker()
 	case key.Matches(msg, m.keys.up, m.keys.down):
 		return m.moveReviewSelection(msg), nil
