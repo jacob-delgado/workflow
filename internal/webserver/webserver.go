@@ -90,6 +90,9 @@ type Deps struct {
 	LinkPullRequest func(issueKey jira.Key, pullURL, title string) error
 	Transitions     func(issueKey jira.Key) ([]jira.Transition, error)
 	Transition      func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
+	// Comment posts a comment on a Jira issue and answers it as Jira stored
+	// it; nil where no Jira is configured.
+	Comment func(issueKey jira.Key, text string) (jira.Comment, error)
 	// Stage and Unstage move one change into and out of the index: a change as
 	// Changes read it, carrying a rename's original path — never a path a
 	// request names.

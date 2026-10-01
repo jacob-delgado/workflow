@@ -318,6 +318,13 @@ export const zIssueDetail = z.object({
     comment_total: z.int()
 });
 
+/**
+ * A comment to post on an issue.
+ */
+export const zCommentRequest = z.object({
+    text: z.string().min(1)
+});
+
 export const zCommit = z.object({
     hash: z.string(),
     subject: z.string()
@@ -726,6 +733,17 @@ export const zTransitionIssuePath = z.object({
  * The issue, now in the review status.
  */
 export const zTransitionIssueResponse = zMovedIssue;
+
+export const zAddCommentBody = zCommentRequest;
+
+export const zAddCommentPath = z.object({
+    key: z.string()
+});
+
+/**
+ * The comment, as Jira stored it.
+ */
+export const zAddCommentResponse = zComment;
 
 /**
  * The branch.

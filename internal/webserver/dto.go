@@ -62,16 +62,17 @@ func issuesPageDTO(result jira.SearchResult, startAt int) api.IssuesPage {
 	return api.IssuesPage{Issues: issues, Total: result.Total, StartAt: startAt, Unavailable: unavailable}
 }
 
+// commentDTO maps a comment on an issue.
+func commentDTO(comment jira.Comment) api.Comment {
+	return api.Comment{Author: comment.Author, Body: comment.Body, Created: comment.Created}
+}
+
 // issueDetailDTO maps an issue read in full, with its comments oldest first and
 // link, the issue's page in the tracker ("" when there is none to give).
 func issueDetailDTO(detail jira.IssueDetail, link string) api.IssueDetail {
 	comments := make([]api.Comment, 0, len(detail.Comments))
 	for _, comment := range detail.Comments {
-		comments = append(comments, api.Comment{
-			Author:  comment.Author,
-			Body:    comment.Body,
-			Created: comment.Created,
-		})
+		comments = append(comments, commentDTO(comment))
 	}
 
 	return api.IssueDetail{
