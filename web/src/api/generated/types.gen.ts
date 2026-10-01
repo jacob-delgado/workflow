@@ -109,6 +109,128 @@ export type LocalDataHeld = {
 };
 
 /**
+ * A Slack user or user group, by its ID and the name Slack shows for it.
+ */
+export type SlackTarget = {
+    /**
+     * A user ID (U or W…) or a user group ID (S…).
+     */
+    id: string;
+    /**
+     * The name to show for it.
+     */
+    label: string;
+};
+
+/**
+ * A forge owner as CODEOWNERS names it, without its @ — a user, or org/team.
+ */
+export type OwnerName = string;
+
+/**
+ * A code owner and what is known of them on Slack: linked (to a user, or a team to a user group), decided not on Slack, or not asked yet.
+ */
+export type OwnerTag = {
+    owner: OwnerName;
+    kind: 'user' | 'team';
+    state: 'linked' | 'not_on_slack' | 'unlinked';
+    slack?: SlackTarget;
+};
+
+/**
+ * A user group an announcement offers to tag.
+ */
+export type GroupTag = {
+    slack: SlackTarget;
+    /**
+     * Whether it starts checked — a team owning the changed paths links it, or it was chosen last time.
+     */
+    checked: boolean;
+    /**
+     * Whether it is offered because a team owning the changed paths is linked to it.
+     */
+    from_owners: boolean;
+};
+
+/**
+ * Whom a ready-for-review announcement proposes to tag on Slack: the code owners of the branch's changes, and the user groups it offers.
+ */
+export type AnnouncementTagging = {
+    /**
+     * Whether this announcement can tag anyone: only a ready-for-review announcement does, and only with the store on. When false, owners and groups are empty.
+     */
+    available: boolean;
+    /**
+     * A scope the Slack token lacks to offer the people or groups an owner not yet linked could be linked to, such as users:read. The announcement still posts, tagging whom it can.
+     */
+    missing_scope?: string;
+    owners: Array<OwnerTag>;
+    groups: Array<GroupTag>;
+};
+
+/**
+ * Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; groups name the user groups checked, each one the announcement offered.
+ */
+export type AnnounceMentions = {
+    groups: Array<string>;
+};
+
+/**
+ * People or user groups read from Slack, or the scope the token lacks to read them.
+ */
+export type SlackDirectory = {
+    entries: Array<SlackTarget>;
+    /**
+     * The scope to add to the Slack token for this read; entries are empty then.
+     */
+    missing_scope?: string;
+};
+
+/**
+ * Every code owner decided on this forge host, then the branch's undecided owners.
+ */
+export type People = {
+    owners: Array<OwnerTag>;
+};
+
+/**
+ * Whom a code owner is on Slack: slack_id, or not_on_slack true — one or the other.
+ */
+export type PersonLink = {
+    owner: OwnerName;
+    /**
+     * A user ID for a user owner, a user group ID for a team.
+     */
+    slack_id?: string;
+    /**
+     * Mark the owner not on Slack, so they are not asked again.
+     */
+    not_on_slack: boolean;
+    /**
+     * The channel whose members a user was picked from, so the label is read from there; the configured channel when left out.
+     */
+    channel?: string;
+};
+
+/**
+ * The Slack user groups a repository's announcements may tag.
+ */
+export type RepoGroups = {
+    /**
+     * The repository's name, as its forge path or its directory.
+     */
+    repository: string;
+    groups: Array<SlackTarget>;
+};
+
+/**
+ * The user groups, by ID, this repository may tag from now on.
+ */
+export type RepoGroupsRequest = {
+    ids: Array<string>;
+};
+
+/**
  * The branch to check out.
  */
 export type CheckoutRequest = {
@@ -170,6 +292,7 @@ export type Announcement = {
      * The channel it posts to, or empty for a webhook's own channel.
      */
     channel: string;
+    tagging?: AnnouncementTagging;
 };
 
 /**
@@ -184,6 +307,7 @@ export type AnnounceRequest = {
      * The announcement as GET /api/announcement showed it. When given, the post is refused with 409 unless the announcement composed now reads the same; when left out, the announcement composed now is posted.
      */
     text?: string;
+    mentions?: AnnounceMentions;
 };
 
 /**
@@ -1593,6 +1717,219 @@ export type GetLocalDataResponses = {
 
 export type GetLocalDataResponse = GetLocalDataResponses[keyof GetLocalDataResponses];
 
+export type GetSlackMembersData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * The channel, by name or ID; the configured channel when left out.
+         */
+        channel?: string;
+    };
+    url: '/api/slack/members';
+};
+
+export type GetSlackMembersErrors = {
+    /**
+     * There is no Slack user token to read with, or no channel of yours has that name.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetSlackMembersError = GetSlackMembersErrors[keyof GetSlackMembersErrors];
+
+export type GetSlackMembersResponses = {
+    /**
+     * The channel's members, or the scope the token lacks.
+     */
+    200: SlackDirectory;
+};
+
+export type GetSlackMembersResponse = GetSlackMembersResponses[keyof GetSlackMembersResponses];
+
+export type GetSlackGroupsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/slack/groups';
+};
+
+export type GetSlackGroupsErrors = {
+    /**
+     * There is no Slack user token to read with.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetSlackGroupsError = GetSlackGroupsErrors[keyof GetSlackGroupsErrors];
+
+export type GetSlackGroupsResponses = {
+    /**
+     * The user groups, or the scope the token lacks.
+     */
+    200: SlackDirectory;
+};
+
+export type GetSlackGroupsResponse = GetSlackGroupsResponses[keyof GetSlackGroupsResponses];
+
+export type ForgetPersonData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * The forge owner, a user or org/team.
+         */
+        owner: OwnerName;
+    };
+    url: '/api/people';
+};
+
+export type ForgetPersonErrors = {
+    /**
+     * There is no store to keep people in; nothing was written.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type ForgetPersonError = ForgetPersonErrors[keyof ForgetPersonErrors];
+
+export type ForgetPersonResponses = {
+    /**
+     * The owners as they stand after the change.
+     */
+    200: People;
+};
+
+export type ForgetPersonResponse = ForgetPersonResponses[keyof ForgetPersonResponses];
+
+export type GetPeopleData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/people';
+};
+
+export type GetPeopleErrors = {
+    /**
+     * There is no store to keep people in.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetPeopleError = GetPeopleErrors[keyof GetPeopleErrors];
+
+export type GetPeopleResponses = {
+    /**
+     * The owners and what is known of each on Slack.
+     */
+    200: People;
+};
+
+export type GetPeopleResponse = GetPeopleResponses[keyof GetPeopleResponses];
+
+export type LinkPersonData = {
+    body: PersonLink;
+    path?: never;
+    query?: never;
+    url: '/api/people';
+};
+
+export type LinkPersonErrors = {
+    /**
+     * The link names both a Slack ID and not on Slack, or neither; an ID of the wrong kind for the owner (a user for a team, a group for a user) or one the channel's members or the workspace's user groups do not hold; or there is no Slack user token or no store. Nothing was written.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type LinkPersonError = LinkPersonErrors[keyof LinkPersonErrors];
+
+export type LinkPersonResponses = {
+    /**
+     * The owners as they stand after the change.
+     */
+    200: People;
+};
+
+export type LinkPersonResponse = LinkPersonResponses[keyof LinkPersonResponses];
+
+export type GetRepoGroupsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/repo-groups';
+};
+
+export type GetRepoGroupsErrors = {
+    /**
+     * There is no store to keep groups in.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetRepoGroupsError = GetRepoGroupsErrors[keyof GetRepoGroupsErrors];
+
+export type GetRepoGroupsResponses = {
+    /**
+     * The repository and its groups.
+     */
+    200: RepoGroups;
+};
+
+export type GetRepoGroupsResponse = GetRepoGroupsResponses[keyof GetRepoGroupsResponses];
+
+export type SetRepoGroupsData = {
+    body: RepoGroupsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/repo-groups';
+};
+
+export type SetRepoGroupsErrors = {
+    /**
+     * An ID names no user group of the workspace, the token lacks the scope to read them, or there is no Slack user token or no store. Nothing was written.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type SetRepoGroupsError = SetRepoGroupsErrors[keyof SetRepoGroupsErrors];
+
+export type SetRepoGroupsResponses = {
+    /**
+     * The repository and its groups after the change.
+     */
+    200: RepoGroups;
+};
+
+export type SetRepoGroupsResponse = SetRepoGroupsResponses[keyof SetRepoGroupsResponses];
+
 export type UnlinkBranchIssueData = {
     body?: never;
     path?: never;
@@ -1801,7 +2138,7 @@ export type AnnounceErrors = {
      */
     409: Problem;
     /**
-     * The announcement could not be posted.
+     * The announcement could not be posted, or its mentions name a group it does not offer.
      */
     422: Problem;
     /**

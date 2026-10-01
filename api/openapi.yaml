@@ -53,6 +53,11 @@ tags:
     description: The configuration file, read and written.
   - name: local-data
     description: The local databases workflow keeps between sessions, listed and cleaned.
+  - name: people
+    description: >-
+      Whom each code owner is on Slack, and the user groups a repository
+      may tag, kept between sessions; and the Slack directory they are
+      picked from.
   - name: events
     description: >-
       A live stream of state snapshots, pushed on connect and then every few
@@ -580,6 +585,198 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/slack/members:
+    get:
+      operationId: getSlackMembers
+      summary: The people in a Slack channel, to link a code owner to.
+      description: >-
+        Everyone in the channel, labeled by the name Slack shows for them —
+        the people a code owner who is a user can be linked to. Read only
+        with a Slack user token, and kept for the session for ten minutes. A
+        token without a scope the read needs is not a failure: the answer is
+        empty and names the scope to add.
+      tags: [people]
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          description: The channel, by name or ID; the configured channel when left out.
+          schema: {type: string, maxLength: 200}
+      responses:
+        "200":
+          description: The channel's members, or the scope the token lacks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlackDirectory"
+        "422":
+          description: >-
+            There is no Slack user token to read with, or no channel of yours
+            has that name.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/slack/groups:
+    get:
+      operationId: getSlackGroups
+      summary: The Slack workspace's user groups, to tag or to link a team to.
+      description: >-
+        Every enabled user group in the workspace. Read only with a Slack user
+        token, and kept for the session for ten minutes. A token without the
+        scope the read needs is not a failure: the answer is empty and names
+        the scope to add. A workspace with no user groups answers none.
+      tags: [people]
+      responses:
+        "200":
+          description: The user groups, or the scope the token lacks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlackDirectory"
+        "422":
+          description: There is no Slack user token to read with.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/people:
+    get:
+      operationId: getPeople
+      summary: Whom each code owner is on Slack, on this repository's forge host.
+      description: >-
+        Every code owner decided on this forge host — linked to a Slack user
+        (a team, to a user group) or marked not on Slack — then the owners of
+        the branch's changes not decided yet. Kept in kept.db, which survives
+        the cache's schema changes. Reading works under --dry-run.
+      tags: [people]
+      responses:
+        "200":
+          description: The owners and what is known of each on Slack.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/People"
+        "422":
+          description: There is no store to keep people in.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: linkPerson
+      summary: Record whom a code owner is on Slack, or that they are not on it.
+      description: >-
+        Links an owner to a Slack user — a team to a user group — or marks
+        them not on Slack, so they are not asked again. The label kept is the
+        one Slack's directory gives the ID, never the caller's. Refused with
+        403 under --dry-run, by the guard every write passes.
+      tags: [people]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonLink"
+      responses:
+        "200":
+          description: The owners as they stand after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/People"
+        "422":
+          description: >-
+            The link names both a Slack ID and not on Slack, or neither; an ID
+            of the wrong kind for the owner (a user for a team, a group for a
+            user) or one the channel's members or the workspace's user groups
+            do not hold; or there is no Slack user token or no store. Nothing
+            was written.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: forgetPerson
+      summary: Forget what was decided for a code owner, so they are asked again.
+      description: >-
+        The owner is a query parameter, since a team's name holds a slash.
+        Refused with 403 under --dry-run, by the guard every write passes.
+      tags: [people]
+      parameters:
+        - name: owner
+          in: query
+          required: true
+          description: The forge owner, a user or org/team.
+          schema: {$ref: "#/components/schemas/OwnerName"}
+      responses:
+        "200":
+          description: The owners as they stand after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/People"
+        "422":
+          description: There is no store to keep people in; nothing was written.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/repo-groups:
+    get:
+      operationId: getRepoGroups
+      summary: The Slack user groups this repository's announcements may tag.
+      description: >-
+        The user groups chosen for this repository, which a ready-for-review
+        announcement offers to tag. Reading works under --dry-run.
+      tags: [people]
+      responses:
+        "200":
+          description: The repository and its groups.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepoGroups"
+        "422":
+          description: There is no store to keep groups in.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: setRepoGroups
+      summary: Replace the Slack user groups this repository may tag.
+      description: >-
+        Replaces the list with the groups named, by ID. Each label is read
+        from Slack's directory, never taken from the caller. Refused with 403
+        under --dry-run, by the guard every write passes.
+      tags: [people]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepoGroupsRequest"
+      responses:
+        "200":
+          description: The repository and its groups after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepoGroups"
+        "422":
+          description: >-
+            An ID names no user group of the workspace, the token lacks the
+            scope to read them, or there is no Slack user token or no store.
+            Nothing was written.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
   /api/branch/issue:
     put:
       operationId: linkBranchIssue
@@ -758,7 +955,9 @@ paths:
       description: >-
         Composes the announcement for the checked-out branch's pull request —
         author, title, link, and the issue — from the configured template,
-        without posting it. Answered 409 when there is no pull request to
+        without posting it. With a Slack user token, tagging says whom it
+        proposes to tag: the code owners of the branch's changes and the user
+        groups it offers. Answered 409 when there is no pull request to
         announce, or the server is not running in a git repository.
       tags: [messaging]
       responses:
@@ -790,7 +989,10 @@ paths:
         posted and the answer is 409, so the caller previews it again. Refused
         with 409 too when there is no pull request to announce or the server is
         not running in a git repository, and 422 when the service refuses the
-        post or is not set up; a service that cannot be reached, or asks to
+        post or is not set up. Given mentions, it tags the linked user owners
+        and the groups named on a line after the text; a group the
+        announcement did not offer, or mentions where it tags no one, is a
+        422 and nothing is posted; a service that cannot be reached, or asks to
         wait, is a 502. No answer carries the service's own error, which can
         name the webhook.
       tags: [messaging]
@@ -816,7 +1018,9 @@ paths:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
         "422":
-          description: The announcement could not be posted.
+          description: >-
+            The announcement could not be posted, or its mentions name a
+            group it does not offer.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -1506,6 +1710,178 @@ components:
           minimum: 0
       additionalProperties: false
 
+    SlackTarget:
+      type: object
+      description: A Slack user or user group, by its ID and the name Slack shows for it.
+      required: [id, label]
+      properties:
+        id:
+          type: string
+          pattern: "^[UWS][A-Z0-9]{2,}$"
+          description: A user ID (U or W…) or a user group ID (S…).
+          example: U024BE7LH
+        label:
+          type: string
+          description: The name to show for it.
+      additionalProperties: false
+
+    OwnerName:
+      type: string
+      description: A forge owner as CODEOWNERS names it, without its @ — a user, or org/team.
+      pattern: "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)*$"
+      maxLength: 200
+      example: acme/control-plane
+
+    OwnerTag:
+      type: object
+      description: >-
+        A code owner and what is known of them on Slack: linked (to a user,
+        or a team to a user group), decided not on Slack, or not asked yet.
+      required: [owner, kind, state]
+      properties:
+        owner: {$ref: "#/components/schemas/OwnerName"}
+        kind:
+          type: string
+          enum: [user, team]
+        state:
+          type: string
+          enum: [linked, not_on_slack, unlinked]
+        slack:
+          $ref: "#/components/schemas/SlackTarget"
+      additionalProperties: false
+
+    GroupTag:
+      type: object
+      description: A user group an announcement offers to tag.
+      required: [slack, checked, from_owners]
+      properties:
+        slack: {$ref: "#/components/schemas/SlackTarget"}
+        checked:
+          type: boolean
+          description: Whether it starts checked — a team owning the changed paths links it, or it was chosen last time.
+        from_owners:
+          type: boolean
+          description: Whether it is offered because a team owning the changed paths is linked to it.
+      additionalProperties: false
+
+    AnnouncementTagging:
+      type: object
+      description: >-
+        Whom a ready-for-review announcement proposes to tag on Slack: the
+        code owners of the branch's changes, and the user groups it offers.
+      required: [available, owners, groups]
+      properties:
+        available:
+          type: boolean
+          description: >-
+            Whether this announcement can tag anyone: only a ready-for-review
+            announcement does, and only with the store on. When false, owners
+            and groups are empty.
+        missing_scope:
+          type: string
+          description: >-
+            A scope the Slack token lacks to offer the people or groups an
+            owner not yet linked could be linked to, such as users:read. The
+            announcement still posts, tagging whom it can.
+          example: usergroups:read
+        owners:
+          type: array
+          items: {$ref: "#/components/schemas/OwnerTag"}
+        groups:
+          type: array
+          items: {$ref: "#/components/schemas/GroupTag"}
+      additionalProperties: false
+
+    AnnounceMentions:
+      type: object
+      description: >-
+        Whom to tag with the post. The linked user owners are tagged from what
+        is kept, not from the request; groups name the user groups checked,
+        each one the announcement offered.
+      required: [groups]
+      properties:
+        groups:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            pattern: "^S[A-Z0-9]+$"
+      additionalProperties: false
+
+    SlackDirectory:
+      type: object
+      description: People or user groups read from Slack, or the scope the token lacks to read them.
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items: {$ref: "#/components/schemas/SlackTarget"}
+        missing_scope:
+          type: string
+          description: The scope to add to the Slack token for this read; entries are empty then.
+          example: users:read
+      additionalProperties: false
+
+    People:
+      type: object
+      description: Every code owner decided on this forge host, then the branch's undecided owners.
+      required: [owners]
+      properties:
+        owners:
+          type: array
+          items: {$ref: "#/components/schemas/OwnerTag"}
+      additionalProperties: false
+
+    PersonLink:
+      type: object
+      description: >-
+        Whom a code owner is on Slack: slack_id, or not_on_slack true — one or
+        the other.
+      required: [owner, not_on_slack]
+      properties:
+        owner: {$ref: "#/components/schemas/OwnerName"}
+        slack_id:
+          type: string
+          pattern: "^[UWS][A-Z0-9]{2,}$"
+          description: A user ID for a user owner, a user group ID for a team.
+        not_on_slack:
+          type: boolean
+          description: Mark the owner not on Slack, so they are not asked again.
+        channel:
+          type: string
+          maxLength: 200
+          description: >-
+            The channel whose members a user was picked from, so the label is
+            read from there; the configured channel when left out.
+      additionalProperties: false
+
+    RepoGroups:
+      type: object
+      description: The Slack user groups a repository's announcements may tag.
+      required: [repository, groups]
+      properties:
+        repository:
+          type: string
+          description: The repository's name, as its forge path or its directory.
+          example: acme/widgets
+        groups:
+          type: array
+          items: {$ref: "#/components/schemas/SlackTarget"}
+      additionalProperties: false
+
+    RepoGroupsRequest:
+      type: object
+      description: The user groups, by ID, this repository may tag from now on.
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            pattern: "^S[A-Z0-9]{2,}$"
+      additionalProperties: false
+
     CheckoutRequest:
       type: object
       description: The branch to check out.
@@ -1574,6 +1950,8 @@ components:
         channel:
           type: string
           description: The channel it posts to, or empty for a webhook's own channel.
+        tagging:
+          $ref: "#/components/schemas/AnnouncementTagging"
       additionalProperties: false
 
     AnnounceRequest:
@@ -1592,6 +1970,8 @@ components:
             the post is refused with 409 unless the announcement composed now
             reads the same; when left out, the announcement composed now is
             posted.
+        mentions:
+          $ref: "#/components/schemas/AnnounceMentions"
       additionalProperties: false
 
     StagingRequest:

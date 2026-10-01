@@ -78,6 +78,15 @@ type ServerInterface interface {
 	// GetMessaging The service, channel, its alternates, and who a post would come from.
 	// (GET /api/messaging)
 	GetMessaging(w http.ResponseWriter, r *http.Request)
+	// ForgetPerson Forget what was decided for a code owner, so they are asked again.
+	// (DELETE /api/people)
+	ForgetPerson(w http.ResponseWriter, r *http.Request, params ForgetPersonParams)
+	// GetPeople Whom each code owner is on Slack, on this repository's forge host.
+	// (GET /api/people)
+	GetPeople(w http.ResponseWriter, r *http.Request)
+	// LinkPerson Record whom a code owner is on Slack, or that they are not on it.
+	// (PUT /api/people)
+	LinkPerson(w http.ResponseWriter, r *http.Request)
 	// OpenPullRequest Open a pull request for the current branch, pushing it first if needed.
 	// (POST /api/pull-request)
 	OpenPullRequest(w http.ResponseWriter, r *http.Request)
@@ -87,6 +96,12 @@ type ServerInterface interface {
 	// Push Push the current branch to its remote, setting upstream.
 	// (POST /api/push)
 	Push(w http.ResponseWriter, r *http.Request)
+	// GetRepoGroups The Slack user groups this repository's announcements may tag.
+	// (GET /api/repo-groups)
+	GetRepoGroups(w http.ResponseWriter, r *http.Request)
+	// SetRepoGroups Replace the Slack user groups this repository may tag.
+	// (PUT /api/repo-groups)
+	SetRepoGroups(w http.ResponseWriter, r *http.Request)
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(w http.ResponseWriter, r *http.Request)
@@ -96,6 +111,12 @@ type ServerInterface interface {
 	// ListReviews The pull requests on the forge that wait on your review.
 	// (GET /api/reviews)
 	ListReviews(w http.ResponseWriter, r *http.Request)
+	// GetSlackGroups The Slack workspace's user groups, to tag or to link a team to.
+	// (GET /api/slack/groups)
+	GetSlackGroups(w http.ResponseWriter, r *http.Request)
+	// GetSlackMembers The people in a Slack channel, to link a code owner to.
+	// (GET /api/slack/members)
+	GetSlackMembers(w http.ResponseWriter, r *http.Request, params GetSlackMembersParams)
 	// Stage Stage a changed file, or every change the index does not hold yet.
 	// (POST /api/stage)
 	Stage(w http.ResponseWriter, r *http.Request)
@@ -559,6 +580,67 @@ func (siw *ServerInterfaceWrapper) GetMessaging(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ForgetPerson operation middleware
+func (siw *ServerInterfaceWrapper) ForgetPerson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ForgetPersonParams
+
+	// ------------- Required query parameter "owner" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "owner", r.URL.Query(), &params.Owner, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "owner"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "owner", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ForgetPerson(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPeople operation middleware
+func (siw *ServerInterfaceWrapper) GetPeople(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPeople(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LinkPerson operation middleware
+func (siw *ServerInterfaceWrapper) LinkPerson(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LinkPerson(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // OpenPullRequest operation middleware
 func (siw *ServerInterfaceWrapper) OpenPullRequest(w http.ResponseWriter, r *http.Request) {
 
@@ -592,6 +674,34 @@ func (siw *ServerInterfaceWrapper) Push(w http.ResponseWriter, r *http.Request) 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Push(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRepoGroups operation middleware
+func (siw *ServerInterfaceWrapper) GetRepoGroups(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRepoGroups(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetRepoGroups operation middleware
+func (siw *ServerInterfaceWrapper) SetRepoGroups(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetRepoGroups(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -646,6 +756,53 @@ func (siw *ServerInterfaceWrapper) ListReviews(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListReviews(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSlackGroups operation middleware
+func (siw *ServerInterfaceWrapper) GetSlackGroups(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSlackGroups(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSlackMembers operation middleware
+func (siw *ServerInterfaceWrapper) GetSlackMembers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSlackMembersParams
+
+	// ------------- Optional query parameter "channel" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "channel", r.URL.Query(), &params.Channel, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "channel"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channel", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSlackMembers(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1035,6 +1192,13 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/local-data", wrapper.CleanLocalData)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/local-data", wrapper.GetLocalData)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/slack/members", wrapper.GetSlackMembers)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/slack/groups", wrapper.GetSlackGroups)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/people", wrapper.ForgetPerson)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/people", wrapper.GetPeople)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/people", wrapper.LinkPerson)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/repo-groups", wrapper.GetRepoGroups)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/repo-groups", wrapper.SetRepoGroups)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/branch/issue", wrapper.UnlinkBranchIssue)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/branch/issue", wrapper.LinkBranchIssue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch/issue/preview", wrapper.PreviewBranchIssue)
@@ -2229,6 +2393,164 @@ func (response GetMessagingdefaultApplicationProblemPlusJSONResponse) VisitGetMe
 	return err
 }
 
+type ForgetPersonRequestObject struct {
+	Params ForgetPersonParams
+}
+
+type ForgetPersonResponseObject interface {
+	VisitForgetPersonResponse(w http.ResponseWriter) error
+}
+
+type ForgetPerson200JSONResponse People
+
+func (response ForgetPerson200JSONResponse) VisitForgetPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ForgetPerson422ApplicationProblemPlusJSONResponse Problem
+
+func (response ForgetPerson422ApplicationProblemPlusJSONResponse) VisitForgetPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ForgetPersondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ForgetPersondefaultApplicationProblemPlusJSONResponse) VisitForgetPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPeopleRequestObject struct {
+}
+
+type GetPeopleResponseObject interface {
+	VisitGetPeopleResponse(w http.ResponseWriter) error
+}
+
+type GetPeople200JSONResponse People
+
+func (response GetPeople200JSONResponse) VisitGetPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPeople422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPeople422ApplicationProblemPlusJSONResponse) VisitGetPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPeopledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetPeopledefaultApplicationProblemPlusJSONResponse) VisitGetPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkPersonRequestObject struct {
+	Body *LinkPersonJSONRequestBody
+}
+
+type LinkPersonResponseObject interface {
+	VisitLinkPersonResponse(w http.ResponseWriter) error
+}
+
+type LinkPerson200JSONResponse People
+
+func (response LinkPerson200JSONResponse) VisitLinkPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkPerson422ApplicationProblemPlusJSONResponse Problem
+
+func (response LinkPerson422ApplicationProblemPlusJSONResponse) VisitLinkPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkPersondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LinkPersondefaultApplicationProblemPlusJSONResponse) VisitLinkPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type OpenPullRequestRequestObject struct {
 	Body *OpenPullRequestJSONRequestBody
 }
@@ -2414,6 +2736,111 @@ func (response PushdefaultApplicationProblemPlusJSONResponse) VisitPushResponse(
 	return err
 }
 
+type GetRepoGroupsRequestObject struct {
+}
+
+type GetRepoGroupsResponseObject interface {
+	VisitGetRepoGroupsResponse(w http.ResponseWriter) error
+}
+
+type GetRepoGroups200JSONResponse RepoGroups
+
+func (response GetRepoGroups200JSONResponse) VisitGetRepoGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRepoGroups422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetRepoGroups422ApplicationProblemPlusJSONResponse) VisitGetRepoGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRepoGroupsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetRepoGroupsdefaultApplicationProblemPlusJSONResponse) VisitGetRepoGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetRepoGroupsRequestObject struct {
+	Body *SetRepoGroupsJSONRequestBody
+}
+
+type SetRepoGroupsResponseObject interface {
+	VisitSetRepoGroupsResponse(w http.ResponseWriter) error
+}
+
+type SetRepoGroups200JSONResponse RepoGroups
+
+func (response SetRepoGroups200JSONResponse) VisitSetRepoGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetRepoGroups422ApplicationProblemPlusJSONResponse Problem
+
+func (response SetRepoGroups422ApplicationProblemPlusJSONResponse) VisitSetRepoGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetRepoGroupsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SetRepoGroupsdefaultApplicationProblemPlusJSONResponse) VisitSetRepoGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetReviewRequestObject struct {
 }
 
@@ -2546,6 +2973,111 @@ type ListReviewsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListReviewsdefaultApplicationProblemPlusJSONResponse) VisitListReviewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSlackGroupsRequestObject struct {
+}
+
+type GetSlackGroupsResponseObject interface {
+	VisitGetSlackGroupsResponse(w http.ResponseWriter) error
+}
+
+type GetSlackGroups200JSONResponse SlackDirectory
+
+func (response GetSlackGroups200JSONResponse) VisitGetSlackGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSlackGroups422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetSlackGroups422ApplicationProblemPlusJSONResponse) VisitGetSlackGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSlackGroupsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSlackGroupsdefaultApplicationProblemPlusJSONResponse) VisitGetSlackGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSlackMembersRequestObject struct {
+	Params GetSlackMembersParams
+}
+
+type GetSlackMembersResponseObject interface {
+	VisitGetSlackMembersResponse(w http.ResponseWriter) error
+}
+
+type GetSlackMembers200JSONResponse SlackDirectory
+
+func (response GetSlackMembers200JSONResponse) VisitGetSlackMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSlackMembers422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetSlackMembers422ApplicationProblemPlusJSONResponse) VisitGetSlackMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSlackMembersdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSlackMembersdefaultApplicationProblemPlusJSONResponse) VisitGetSlackMembersResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3404,6 +3936,15 @@ type StrictServerInterface interface {
 	// GetMessaging The service, channel, its alternates, and who a post would come from.
 	// (GET /api/messaging)
 	GetMessaging(ctx context.Context, request GetMessagingRequestObject) (GetMessagingResponseObject, error)
+	// ForgetPerson Forget what was decided for a code owner, so they are asked again.
+	// (DELETE /api/people)
+	ForgetPerson(ctx context.Context, request ForgetPersonRequestObject) (ForgetPersonResponseObject, error)
+	// GetPeople Whom each code owner is on Slack, on this repository's forge host.
+	// (GET /api/people)
+	GetPeople(ctx context.Context, request GetPeopleRequestObject) (GetPeopleResponseObject, error)
+	// LinkPerson Record whom a code owner is on Slack, or that they are not on it.
+	// (PUT /api/people)
+	LinkPerson(ctx context.Context, request LinkPersonRequestObject) (LinkPersonResponseObject, error)
 	// OpenPullRequest Open a pull request for the current branch, pushing it first if needed.
 	// (POST /api/pull-request)
 	OpenPullRequest(ctx context.Context, request OpenPullRequestRequestObject) (OpenPullRequestResponseObject, error)
@@ -3413,6 +3954,12 @@ type StrictServerInterface interface {
 	// Push Push the current branch to its remote, setting upstream.
 	// (POST /api/push)
 	Push(ctx context.Context, request PushRequestObject) (PushResponseObject, error)
+	// GetRepoGroups The Slack user groups this repository's announcements may tag.
+	// (GET /api/repo-groups)
+	GetRepoGroups(ctx context.Context, request GetRepoGroupsRequestObject) (GetRepoGroupsResponseObject, error)
+	// SetRepoGroups Replace the Slack user groups this repository may tag.
+	// (PUT /api/repo-groups)
+	SetRepoGroups(ctx context.Context, request SetRepoGroupsRequestObject) (SetRepoGroupsResponseObject, error)
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(ctx context.Context, request GetReviewRequestObject) (GetReviewResponseObject, error)
@@ -3422,6 +3969,12 @@ type StrictServerInterface interface {
 	// ListReviews The pull requests on the forge that wait on your review.
 	// (GET /api/reviews)
 	ListReviews(ctx context.Context, request ListReviewsRequestObject) (ListReviewsResponseObject, error)
+	// GetSlackGroups The Slack workspace's user groups, to tag or to link a team to.
+	// (GET /api/slack/groups)
+	GetSlackGroups(ctx context.Context, request GetSlackGroupsRequestObject) (GetSlackGroupsResponseObject, error)
+	// GetSlackMembers The people in a Slack channel, to link a code owner to.
+	// (GET /api/slack/members)
+	GetSlackMembers(ctx context.Context, request GetSlackMembersRequestObject) (GetSlackMembersResponseObject, error)
 	// Stage Stage a changed file, or every change the index does not hold yet.
 	// (POST /api/stage)
 	Stage(ctx context.Context, request StageRequestObject) (StageResponseObject, error)
@@ -4038,6 +4591,87 @@ func (sh *strictHandler) GetMessaging(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ForgetPerson operation middleware
+func (sh *strictHandler) ForgetPerson(w http.ResponseWriter, r *http.Request, params ForgetPersonParams) {
+	var request ForgetPersonRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ForgetPerson(ctx, request.(ForgetPersonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ForgetPerson")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ForgetPersonResponseObject); ok {
+		if err := validResponse.VisitForgetPersonResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPeople operation middleware
+func (sh *strictHandler) GetPeople(w http.ResponseWriter, r *http.Request) {
+	var request GetPeopleRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPeople(ctx, request.(GetPeopleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPeople")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPeopleResponseObject); ok {
+		if err := validResponse.VisitGetPeopleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LinkPerson operation middleware
+func (sh *strictHandler) LinkPerson(w http.ResponseWriter, r *http.Request) {
+	var request LinkPersonRequestObject
+
+	var body LinkPersonJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkPerson(ctx, request.(LinkPersonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkPerson")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LinkPersonResponseObject); ok {
+		if err := validResponse.VisitLinkPersonResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // OpenPullRequest operation middleware
 func (sh *strictHandler) OpenPullRequest(w http.ResponseWriter, r *http.Request) {
 	var request OpenPullRequestRequestObject
@@ -4117,6 +4751,61 @@ func (sh *strictHandler) Push(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetRepoGroups operation middleware
+func (sh *strictHandler) GetRepoGroups(w http.ResponseWriter, r *http.Request) {
+	var request GetRepoGroupsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRepoGroups(ctx, request.(GetRepoGroupsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRepoGroups")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRepoGroupsResponseObject); ok {
+		if err := validResponse.VisitGetRepoGroupsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetRepoGroups operation middleware
+func (sh *strictHandler) SetRepoGroups(w http.ResponseWriter, r *http.Request) {
+	var request SetRepoGroupsRequestObject
+
+	var body SetRepoGroupsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetRepoGroups(ctx, request.(SetRepoGroupsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetRepoGroups")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetRepoGroupsResponseObject); ok {
+		if err := validResponse.VisitSetRepoGroupsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetReview operation middleware
 func (sh *strictHandler) GetReview(w http.ResponseWriter, r *http.Request) {
 	var request GetReviewRequestObject
@@ -4184,6 +4873,56 @@ func (sh *strictHandler) ListReviews(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListReviewsResponseObject); ok {
 		if err := validResponse.VisitListReviewsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSlackGroups operation middleware
+func (sh *strictHandler) GetSlackGroups(w http.ResponseWriter, r *http.Request) {
+	var request GetSlackGroupsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSlackGroups(ctx, request.(GetSlackGroupsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSlackGroups")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSlackGroupsResponseObject); ok {
+		if err := validResponse.VisitGetSlackGroupsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSlackMembers operation middleware
+func (sh *strictHandler) GetSlackMembers(w http.ResponseWriter, r *http.Request, params GetSlackMembersParams) {
+	var request GetSlackMembersRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSlackMembers(ctx, request.(GetSlackMembersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSlackMembers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSlackMembersResponseObject); ok {
+		if err := validResponse.VisitGetSlackMembersResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

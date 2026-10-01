@@ -130,8 +130,11 @@ internal/tui 49
 # branchlink.go, linking the branch to an issue and previewing what that writes
 # in its pull request; 22 is localdata.go, Settings' Local data area, which
 # lists the store's database files and cleans the cache or everything, as
-# `workflow db-clean` does. Frozen here so that growth stays deliberate.
-internal/webserver 22
+# `workflow db-clean` does; 23 is people.go, Settings' People and groups area
+# and the Slack directory reads it and the announcement preview pick from —
+# whom each code owner is on Slack, and the user groups a repository tags.
+# Frozen here so that growth stays deliberate.
+internal/webserver 23
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and

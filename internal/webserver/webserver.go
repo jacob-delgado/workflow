@@ -27,6 +27,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/store"
@@ -137,6 +138,26 @@ type Deps struct {
 	LocalData      func(ctx context.Context) (string, []store.DataFile, error)
 	CleanLocalData func(scope store.CleanScope) error
 
+	// OwnerLinks, LinkOwner and ForgetOwner are whom each code owner on this
+	// repository's forge host is on Slack, kept between sessions; RepoGroups
+	// and SetRepoGroups the Slack user groups this repository may tag; and
+	// LastGroups and RecordGroups the groups its last announcement chose — as
+	// seams.Store binds them. A nil OwnerLinks or RepoGroups answers People and
+	// groups as not available, and an announcement as tagging no one.
+	OwnerLinks    func() ([]loop.OwnerLink, error)
+	LinkOwner     func(owner string, target *loop.SlackTarget) error
+	ForgetOwner   func(owner string) error
+	RepoGroups    func() ([]loop.SlackTarget, error)
+	SetRepoGroups func(groups []loop.SlackTarget) error
+	LastGroups    func() ([]string, bool)
+	RecordGroups  func(ids []string) error
+
+	// ChannelMembers and UserGroups read the Slack directory an owner is
+	// linked from. They are bound only for a Slack user token; nil means an
+	// announcement offers no tags.
+	ChannelMembers func(channel string) ([]loop.SlackTarget, error)
+	UserGroups     func() ([]loop.SlackTarget, error)
+
 	// Clock tells the time, for when the event stream last asked the forge.
 	// Nil means the system clock.
 	Clock func() time.Time
@@ -153,6 +174,10 @@ type Info struct {
 	// carries the words and the sigil to the page. The raw config kind is unset
 	// for self-identifying hosts (gitlab.com), so it cannot answer this.
 	ForgeKind forge.Kind
+
+	// Repository names the repository the server runs in, as its forge path
+	// or its directory, for the groups Settings keeps for it.
+	Repository string
 
 	// StreamInterval is how often the event stream re-pushes a snapshot. A zero
 	// or negative value takes defaultStreamInterval.

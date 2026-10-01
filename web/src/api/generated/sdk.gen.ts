@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CleanLocalDataData, CleanLocalDataErrors, CleanLocalDataResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetCheckLogData, GetCheckLogErrors, GetCheckLogResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetLocalDataData, GetLocalDataErrors, GetLocalDataResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, LinkBranchIssueData, LinkBranchIssueErrors, LinkBranchIssueResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PreviewBranchIssueData, PreviewBranchIssueErrors, PreviewBranchIssueResponses, PushData, PushErrors, PushResponses, StageData, StageErrors, StageResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnlinkBranchIssueData, UnlinkBranchIssueErrors, UnlinkBranchIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zCheckoutResponse, zCleanLocalDataResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetCheckLogResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetLocalDataResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zLinkBranchIssueResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListTasksResponse, zListViewsResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPreviewBranchIssueResponse, zPushResponse, zStageResponse, zStartTaskResponse, zStopTaskResponse, zStreamEventsResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnlinkBranchIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CleanLocalDataData, CleanLocalDataErrors, CleanLocalDataResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, ForgetPersonData, ForgetPersonErrors, ForgetPersonResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetCheckLogData, GetCheckLogErrors, GetCheckLogResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetLocalDataData, GetLocalDataErrors, GetLocalDataResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPeopleData, GetPeopleErrors, GetPeopleResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetRepoGroupsData, GetRepoGroupsErrors, GetRepoGroupsResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackGroupsData, GetSlackGroupsErrors, GetSlackGroupsResponses, GetSlackMembersData, GetSlackMembersErrors, GetSlackMembersResponses, LinkBranchIssueData, LinkBranchIssueErrors, LinkBranchIssueResponses, LinkPersonData, LinkPersonErrors, LinkPersonResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PreviewBranchIssueData, PreviewBranchIssueErrors, PreviewBranchIssueResponses, PushData, PushErrors, PushResponses, SetRepoGroupsData, SetRepoGroupsErrors, SetRepoGroupsResponses, StageData, StageErrors, StageResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnlinkBranchIssueData, UnlinkBranchIssueErrors, UnlinkBranchIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zCheckoutResponse, zCleanLocalDataResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zForgetPersonResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetCheckLogResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetLocalDataResponse, zGetMessagingResponse, zGetPeopleResponse, zGetPullRequestDraftResponse, zGetRepoGroupsResponse, zGetReviewResponse, zGetSlackGroupsResponse, zGetSlackMembersResponse, zLinkBranchIssueResponse, zLinkPersonResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListTasksResponse, zListViewsResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPreviewBranchIssueResponse, zPushResponse, zSetRepoGroupsResponse, zStageResponse, zStartTaskResponse, zStopTaskResponse, zStreamEventsResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnlinkBranchIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -214,6 +214,91 @@ export const getLocalData = <ThrowOnError extends boolean = false>(options?: Opt
 });
 
 /**
+ * The people in a Slack channel, to link a code owner to.
+ *
+ * Everyone in the channel, labeled by the name Slack shows for them — the people a code owner who is a user can be linked to. Read only with a Slack user token, and kept for the session for ten minutes. A token without a scope the read needs is not a failure: the answer is empty and names the scope to add.
+ */
+export const getSlackMembers = <ThrowOnError extends boolean = false>(options?: Options<GetSlackMembersData, ThrowOnError>): RequestResult<GetSlackMembersResponses, GetSlackMembersErrors, ThrowOnError> => (options?.client ?? client).get<GetSlackMembersResponses, GetSlackMembersErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetSlackMembersResponse.parseAsync(data),
+    url: '/api/slack/members',
+    ...options
+});
+
+/**
+ * The Slack workspace's user groups, to tag or to link a team to.
+ *
+ * Every enabled user group in the workspace. Read only with a Slack user token, and kept for the session for ten minutes. A token without the scope the read needs is not a failure: the answer is empty and names the scope to add. A workspace with no user groups answers none.
+ */
+export const getSlackGroups = <ThrowOnError extends boolean = false>(options?: Options<GetSlackGroupsData, ThrowOnError>): RequestResult<GetSlackGroupsResponses, GetSlackGroupsErrors, ThrowOnError> => (options?.client ?? client).get<GetSlackGroupsResponses, GetSlackGroupsErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetSlackGroupsResponse.parseAsync(data),
+    url: '/api/slack/groups',
+    ...options
+});
+
+/**
+ * Forget what was decided for a code owner, so they are asked again.
+ *
+ * The owner is a query parameter, since a team's name holds a slash. Refused with 403 under --dry-run, by the guard every write passes.
+ */
+export const forgetPerson = <ThrowOnError extends boolean = false>(options: Options<ForgetPersonData, ThrowOnError>): RequestResult<ForgetPersonResponses, ForgetPersonErrors, ThrowOnError> => (options.client ?? client).delete<ForgetPersonResponses, ForgetPersonErrors, ThrowOnError>({
+    responseValidator: async (data) => await zForgetPersonResponse.parseAsync(data),
+    url: '/api/people',
+    ...options
+});
+
+/**
+ * Whom each code owner is on Slack, on this repository's forge host.
+ *
+ * Every code owner decided on this forge host — linked to a Slack user (a team, to a user group) or marked not on Slack — then the owners of the branch's changes not decided yet. Kept in kept.db, which survives the cache's schema changes. Reading works under --dry-run.
+ */
+export const getPeople = <ThrowOnError extends boolean = false>(options?: Options<GetPeopleData, ThrowOnError>): RequestResult<GetPeopleResponses, GetPeopleErrors, ThrowOnError> => (options?.client ?? client).get<GetPeopleResponses, GetPeopleErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetPeopleResponse.parseAsync(data),
+    url: '/api/people',
+    ...options
+});
+
+/**
+ * Record whom a code owner is on Slack, or that they are not on it.
+ *
+ * Links an owner to a Slack user — a team to a user group — or marks them not on Slack, so they are not asked again. The label kept is the one Slack's directory gives the ID, never the caller's. Refused with 403 under --dry-run, by the guard every write passes.
+ */
+export const linkPerson = <ThrowOnError extends boolean = false>(options: Options<LinkPersonData, ThrowOnError>): RequestResult<LinkPersonResponses, LinkPersonErrors, ThrowOnError> => (options.client ?? client).put<LinkPersonResponses, LinkPersonErrors, ThrowOnError>({
+    responseValidator: async (data) => await zLinkPersonResponse.parseAsync(data),
+    url: '/api/people',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * The Slack user groups this repository's announcements may tag.
+ *
+ * The user groups chosen for this repository, which a ready-for-review announcement offers to tag. Reading works under --dry-run.
+ */
+export const getRepoGroups = <ThrowOnError extends boolean = false>(options?: Options<GetRepoGroupsData, ThrowOnError>): RequestResult<GetRepoGroupsResponses, GetRepoGroupsErrors, ThrowOnError> => (options?.client ?? client).get<GetRepoGroupsResponses, GetRepoGroupsErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetRepoGroupsResponse.parseAsync(data),
+    url: '/api/repo-groups',
+    ...options
+});
+
+/**
+ * Replace the Slack user groups this repository may tag.
+ *
+ * Replaces the list with the groups named, by ID. Each label is read from Slack's directory, never taken from the caller. Refused with 403 under --dry-run, by the guard every write passes.
+ */
+export const setRepoGroups = <ThrowOnError extends boolean = false>(options: Options<SetRepoGroupsData, ThrowOnError>): RequestResult<SetRepoGroupsResponses, SetRepoGroupsErrors, ThrowOnError> => (options.client ?? client).put<SetRepoGroupsResponses, SetRepoGroupsErrors, ThrowOnError>({
+    responseValidator: async (data) => await zSetRepoGroupsResponse.parseAsync(data),
+    url: '/api/repo-groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Forget the issue the checked-out branch was linked to.
  */
 export const unlinkBranchIssue = <ThrowOnError extends boolean = false>(options?: Options<UnlinkBranchIssueData, ThrowOnError>): RequestResult<UnlinkBranchIssueResponses, UnlinkBranchIssueErrors, ThrowOnError> => (options?.client ?? client).delete<UnlinkBranchIssueResponses, UnlinkBranchIssueErrors, ThrowOnError>({
@@ -279,7 +364,7 @@ export const createBranch = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * The announcement message that would be posted, for a preview.
  *
- * Composes the announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. Answered 409 when there is no pull request to announce, or the server is not running in a git repository.
+ * Composes the announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. With a Slack user token, tagging says whom it proposes to tag: the code owners of the branch's changes and the user groups it offers. Answered 409 when there is no pull request to announce, or the server is not running in a git repository.
  */
 export const getAnnouncement = <ThrowOnError extends boolean = false>(options?: Options<GetAnnouncementData, ThrowOnError>): RequestResult<GetAnnouncementResponses, GetAnnouncementErrors, ThrowOnError> => (options?.client ?? client).get<GetAnnouncementResponses, GetAnnouncementErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetAnnouncementResponse.parseAsync(data),
@@ -290,7 +375,7 @@ export const getAnnouncement = <ThrowOnError extends boolean = false>(options?: 
 /**
  * Post the pull request announcement to the configured service.
  *
- * Posts the composed announcement (see GET /api/announcement) to the configured service — to the given channel, or the configured one when none is given, or the webhook's own channel. Given the text a preview showed, it posts only that text: when the announcement composed now reads differently (CI turned red, the pull request merged), nothing is posted and the answer is 409, so the caller previews it again. Refused with 409 too when there is no pull request to announce or the server is not running in a git repository, and 422 when the service refuses the post or is not set up; a service that cannot be reached, or asks to wait, is a 502. No answer carries the service's own error, which can name the webhook.
+ * Posts the composed announcement (see GET /api/announcement) to the configured service — to the given channel, or the configured one when none is given, or the webhook's own channel. Given the text a preview showed, it posts only that text: when the announcement composed now reads differently (CI turned red, the pull request merged), nothing is posted and the answer is 409, so the caller previews it again. Refused with 409 too when there is no pull request to announce or the server is not running in a git repository, and 422 when the service refuses the post or is not set up. Given mentions, it tags the linked user owners and the groups named on a line after the text; a group the announcement did not offer, or mentions where it tags no one, is a 422 and nothing is posted; a service that cannot be reached, or asks to wait, is a 502. No answer carries the service's own error, which can name the webhook.
  */
 export const announce = <ThrowOnError extends boolean = false>(options: Options<AnnounceData, ThrowOnError>): RequestResult<AnnounceResponses, AnnounceErrors, ThrowOnError> => (options.client ?? client).post<AnnounceResponses, AnnounceErrors, ThrowOnError>({
     responseValidator: async (data) => await zAnnounceResponse.parseAsync(data),
