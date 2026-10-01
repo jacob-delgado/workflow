@@ -23,7 +23,7 @@ func TestSwitchingToAStalePaneReloadsIt(t *testing.T) {
 			// Arrange
 			reading := newWorld()
 			model := reading.live(t, 120, 40)
-			reading.advance(stale)
+			reading.goStale()
 			before := len(reading.asked("reviews"))
 
 			// Act
@@ -78,7 +78,7 @@ func TestSwitchingBackToIssuesWithMorePagesLoadedKeepsThem(t *testing.T) {
 	paged := newWorld()
 	paged.pageSize = 1
 	model := typing(t, paged.live(t, 120, 40), "ctrl+n", "2")
-	paged.advance(stale)
+	paged.goStale()
 	before := len(paged.asked("search"))
 
 	// Act
@@ -96,7 +96,7 @@ func TestSwitchingBackToIssuesOnTheFirstPageReloadsThem(t *testing.T) {
 	// Arrange
 	reading := newWorld()
 	model := typing(t, reading.live(t, 120, 40), "2")
-	reading.advance(stale)
+	reading.goStale()
 	reading.issues = append(reading.issues, jira.Issue{Key: "PROJ-77", Summary: "Arrived since", Status: "Selected"})
 
 	// Act
@@ -131,7 +131,7 @@ func TestTabbingThroughThePanesTheBranchFeedsLooksForThePullRequestOnce(t *testi
 	// Arrange
 	reading := newWorld()
 	model := reading.live(t, 120, 40)
-	reading.advance(stale)
+	reading.goStale()
 	before := len(reading.asked("find "))
 
 	// Act
