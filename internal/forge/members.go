@@ -87,9 +87,9 @@ func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]git
 // id, each once, and those that could not be resolved, with why. author is the
 // id a group's members are added without, zero for none, once authorAsked.
 type gitlabReviewers struct {
+	missedReviewers
+
 	ids         []int64
-	missed      []string
-	cause       error
 	author      int64
 	authorAsked bool
 }
@@ -185,25 +185,6 @@ func (r *gitlabReviewers) add(id int64) {
 	if !slices.Contains(r.ids, id) {
 		r.ids = append(r.ids, id)
 	}
-}
-
-// miss records a reviewer that could not be added, and why.
-func (r *gitlabReviewers) miss(name string, cause error) {
-	r.missed = append(r.missed, name)
-
-	if !errors.Is(r.cause, cause) {
-		r.cause = errors.Join(r.cause, cause)
-	}
-}
-
-// err is ErrSomeReviewersNotAdded naming every reviewer missed, or nil when
-// every one was added.
-func (r *gitlabReviewers) err() error {
-	if len(r.missed) == 0 {
-		return nil
-	}
-
-	return reviewersNotAdded(r.cause, r.missed)
 }
 
 // gitlabUser is a user as GitLab's user lookup sends one; only the id is read,

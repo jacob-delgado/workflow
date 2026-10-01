@@ -23,6 +23,9 @@ const (
 	teamNobody = "example/nobody"
 )
 
+// apiSlug is the slug of the example organization's api team.
+const apiSlug = "api"
+
 // githubUnprocessable is GitHub's 422 for a reviewer it cannot request.
 const githubUnprocessable = `{"message":"Reviews may only be requested from collaborators."}`
 
@@ -121,7 +124,7 @@ func TestCreatePullRequestOnGitHubAddsEveryReviewerItCanWhenOneIsTurnedDown(t *t
 		}
 	}
 
-	want := [][]string{{userAna, userGhost, "api", "nobody"}, {userAna}, {userGhost}, {"api"}, {"nobody"}}
+	want := [][]string{{userAna, userGhost, apiSlug, "nobody"}, {userAna}, {userGhost}, {apiSlug}, {"nobody"}}
 	if !reflect.DeepEqual(accepted, want) {
 		t.Errorf("reviewer requests = %v, want the combined one then each alone", accepted)
 	}

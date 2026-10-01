@@ -541,7 +541,9 @@ nobody.
   ignored, since no forge can be asked to review as one, as are GitLab's
   `@@role` owners. You are left out: nobody is asked to review their own pull
   request.
-- **Teams.** GitHub is asked for a team as a team reviewer. On GitLab a
+- **Teams.** GitHub is asked for a team as a team reviewer when the team is
+  the repository's own organization's; a team of another organization cannot
+  be asked there, and is reported as not added. On GitLab a
   `@group/subgroup` owner stands for the group's active direct members with
   the Developer role or above, who are each asked when the merge request
   opens; members inherited from a parent group are not, and neither are
