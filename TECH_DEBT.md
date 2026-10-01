@@ -141,6 +141,8 @@ fill exactly, so the next file in either is a first entry with its WHY.
 
 **Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
 2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
+The detail's and the queue's minute became `freshFor`'s 30 seconds on
+2026-09-30, to match the terminal's refresh on switch.
 
 **Cost.** Any change adding a file there must carry its budget row in the
 same commit or fail `task check`.
@@ -198,12 +200,16 @@ FEATURES.md entry or a user's report.
 
 ### TRADE-4 `staleTime: Infinity`, with the event stream as the sole freshness source
 
-`web/src/queryClient.ts:17`. Correct for a pushed snapshot. Three queries
-set their own `staleTime`. The issue detail's and the review queue's are a
-minute (`web/src/features/issues/issueApi.ts:23`,
-`web/src/features/reviewqueue/reviewQueueApi.ts:23`): the stream carries
+`web/src/queryClient.ts:17`. Correct for a pushed snapshot. Four queries
+set their own `staleTime`. The issue detail's and the review queue's are
+`freshFor`, 30 seconds (`web/src/queryClient.ts`, used in
+`web/src/features/issues/issueApi.ts` and
+`web/src/features/reviewqueue/reviewQueueApi.ts`), the same span after which
+the terminal reads a pane again when it is switched to: the stream carries
 only the list's slim issues and never the queue, so each is read again when
-reopened after a minute, and the queue's Refresh reads it at once. The
+reopened after it, and the queue's Refresh reads it at once. The tasks' is 0
+(`web/src/features/tasks/tasksApi.ts`): Taskwarrior is local and has no
+rate limit, so the section reads it each time it opens. The
 configuration's is 0 (`web/src/features/settings/configApi.ts:65`): the
 file can change on disk, which no event reports, so Settings reads it again
 each time it opens. The commit form's types come from the snapshot and,

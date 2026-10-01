@@ -18,3 +18,8 @@ export const queryClient = new QueryClient({
     },
   },
 })
+
+// freshFor is how long a read the stream does not carry is taken as current, as
+// the terminal takes a pane: opening its section after this reads it again, and
+// opening it sooner spends none of the forge's or Jira's requests.
+export const freshFor = 30_000

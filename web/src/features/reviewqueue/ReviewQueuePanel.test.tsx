@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { listReviewsQueryKey } from '@/api/generated/@tanstack/react-query.gen.ts'
@@ -8,7 +8,7 @@ import { useHealthStore } from '@/api/health.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth, makeReviewRequest } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
-import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { ReviewQueuePanel } from './ReviewQueuePanel.tsx'
 
 const reviewsPath = '/api/reviews'
@@ -482,4 +482,54 @@ test('a copy the browser refuses says how to get the address instead', async () 
   expect((await screen.findByRole('alert')).textContent).toBe(
     'The URL of #42 could not be copied; open it, and copy it from the address bar.',
   )
+})
+
+// openedTwice opens the Reviews section, closes it, moves the clock on by
+// seconds, and opens it again, all over one client, as switching sections does.
+async function openedTwice(seconds: number): Promise<Request[]> {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-30T12:00:00Z'))
+  const requests = fakeApi({ [reviewsPath]: () => queueOf(waitingLongest) })
+  const client = appQueryClient()
+  const view = render(
+    <QueryClientProvider client={client}>
+      <ReviewQueuePanel />
+    </QueryClientProvider>,
+  )
+  await screen.findByText('1 pull request waits on your review, oldest first.')
+  view.unmount()
+  vi.setSystemTime(new Date(Date.parse('2026-09-30T12:00:00Z') + seconds * 1000))
+  render(
+    <QueryClientProvider client={client}>
+      <ReviewQueuePanel />
+    </QueryClientProvider>,
+  )
+  await screen.findByText('1 pull request waits on your review, oldest first.')
+
+  return requests
+}
+
+test('reads the queue again when the section opens after 30 seconds', async () => {
+  // Act
+  const requests = await openedTwice(31)
+
+  // Assert
+  await waitFor(() => {
+    expect(readsOf(requests)).toBe(2)
+  })
+})
+
+test('does not read the queue again when the section opens within 30 seconds', async () => {
+  // Act
+  const requests = await openedTwice(29)
+
+  // Assert
+  // Let a read the reopening might start reach fetch before counting.
+  await act(
+    () =>
+      new Promise((resolve) => {
+        setTimeout(resolve, 0)
+      }),
+  )
+  expect(readsOf(requests)).toBe(1)
 })

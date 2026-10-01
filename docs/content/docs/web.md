@@ -148,7 +148,7 @@ the new one.
 The pull requests on your forge that wait on your review, the longest-waiting
 first: where each is, who asks, how long it has waited, whether it is a draft,
 and how its CI stands, each with a link to open it and **Copy URL**. The section
-asks the forge when you open it, unless it asked within the last minute, and
+asks the forge when you open it, unless it asked within the last 30 seconds, and
 **Refresh** asks again.
 
 ### Tasks
