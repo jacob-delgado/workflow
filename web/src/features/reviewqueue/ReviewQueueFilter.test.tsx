@@ -169,3 +169,29 @@ test('the filter holds when the order changes', async () => {
   // Assert
   expect(listedNumbers()).toEqual(['12', '5'])
 })
+
+test('unpicking the only value left takes focus to Sort as the filter goes', async () => {
+  // Arrange
+  let reads = 0
+  fakeApi({
+    [reviewsPath]: () => {
+      reads += 1
+
+      return reads === 1
+        ? { available: true, requests: [requestNumbered(1, { author: 'kwan' })] }
+        : { available: true, requests: [] }
+    },
+  })
+  renderWithClient(<ReviewQueuePanel />)
+  await screen.findByRole('group', { name: 'Filter' })
+  await press('by kwan 1')
+  await userEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+  await screen.findByRole('button', { name: 'by kwan 0' })
+
+  // Act
+  await press('by kwan 0')
+
+  // Assert
+  expect(screen.queryByRole('group', { name: 'Filter' })).toBeNull()
+  expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Sort' }))
+})
