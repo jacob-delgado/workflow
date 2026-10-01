@@ -26,11 +26,21 @@ import (
 )
 
 // fakeSlack is a stand-in Slack Web API answering each directory read from a
-// body keyed by its path, and counting the requests made to each.
+// body keyed by its path, and counting the requests made to each. A path it
+// holds answers only once released.
 type fakeSlack struct {
 	lock   sync.Mutex
 	bodies map[string]string
 	asked  map[string]int
+	held   map[string]*gate
+}
+
+// gate holds a path's answers: arrived closes on the first request to it, and
+// its answers wait until release closes.
+type gate struct {
+	arrived chan struct{}
+	release chan struct{}
+	once    sync.Once
 }
 
 // directoryBodies are the answers a small workspace gives: one channel, three
@@ -52,14 +62,8 @@ func directoryBodies() map[string]string {
 func startSlack(t *testing.T, bodies map[string]string) (*fakeSlack, messaging.Client) {
 	t.Helper()
 
-	slack := &fakeSlack{bodies: bodies, asked: map[string]int{}}
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		slack.lock.Lock()
-		defer slack.lock.Unlock()
-
-		slack.asked[request.URL.Path]++
-		_, _ = writer.Write([]byte(slack.bodies[request.URL.Path]))
-	}))
+	slack := &fakeSlack{bodies: bodies, asked: map[string]int{}, held: map[string]*gate{}}
+	server := httptest.NewServer(http.HandlerFunc(slack.answer))
 	t.Cleanup(server.Close)
 
 	settings := config.Messaging{Kind: config.KindSlack, ClientID: "1234.5678", Channel: "#dev"}
@@ -67,6 +71,44 @@ func startSlack(t *testing.T, bodies map[string]string) (*fakeSlack, messaging.C
 		func(context.Context, config.Secret) (config.Secret, error) { return "slack-token-for-tests", nil })
 
 	return slack, client
+}
+
+// answer counts the request, waits while its path is held, and answers from
+// the body for its path — or for its path and user, when it names one.
+func (s *fakeSlack) answer(writer http.ResponseWriter, request *http.Request) {
+	key := request.URL.Path
+	if user := request.URL.Query().Get("user"); user != "" {
+		key += "?user=" + user
+	}
+
+	s.lock.Lock()
+	s.asked[request.URL.Path]++
+	held, body := s.held[request.URL.Path], s.bodies[key]
+	s.lock.Unlock()
+
+	if held != nil {
+		held.once.Do(func() { close(held.arrived) })
+		<-held.release
+	}
+
+	_, _ = writer.Write([]byte(body))
+}
+
+// hold makes path's answers wait until the test ends or release is called,
+// and returns a channel closed once path is first asked.
+func (s *fakeSlack) hold(t *testing.T, path string) (<-chan struct{}, func()) {
+	t.Helper()
+
+	held := &gate{arrived: make(chan struct{}), release: make(chan struct{}), once: sync.Once{}}
+	release := sync.OnceFunc(func() { close(held.release) })
+	t.Cleanup(release)
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.held[path] = held
+
+	return held.arrived, release
 }
 
 // requests is how many requests the fake has answered, over every path.
@@ -379,5 +421,69 @@ func TestSettingsSwitchedAwayFromSlackStopReadingTheDirectory(t *testing.T) {
 	// Assert
 	if !errors.Is(err, messaging.ErrNoCredential) || errors.Is(err, slackauth.ErrNotLoggedIn) {
 		t.Errorf("UserGroups after switching to Teams = %v, want ErrNoCredential without asking for a token", err)
+	}
+}
+
+func TestConcurrentReadsOfAChannelShareOneSetOfRequests(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack, client := startSlack(t, directoryBodies())
+	arrived, release := slack.hold(t, "/users.conversations")
+	directory, _ := directoryOver(client)
+
+	var readers sync.WaitGroup
+
+	for range 2 {
+		readers.Go(func() { _, _ = directory.ChannelMembers(t.Context(), "dev") })
+	}
+
+	<-arrived
+	// The second reader has had time to ask too, while the first read waits.
+	time.Sleep(50 * time.Millisecond)
+
+	// Act
+	release()
+	readers.Wait()
+
+	// Assert
+	if asked := slack.requests(); asked != 3 {
+		t.Errorf("Slack was asked %d times, want one channel, one members and one users.list read", asked)
+	}
+}
+
+func TestRefreshDoesNotWaitForASlowReadNorKeepItsResult(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack, client := startSlack(t, directoryBodies())
+	arrived, release := slack.hold(t, "/users.list")
+	directory, _ := directoryOver(client)
+
+	var reader sync.WaitGroup
+
+	reader.Go(func() { _, _ = directory.ChannelMembers(t.Context(), "dev") })
+
+	<-arrived
+
+	refreshed := make(chan struct{})
+
+	// Act
+	go func() { directory.Refresh(); close(refreshed) }()
+
+	// Assert
+	select {
+	case <-refreshed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Refresh waited for the read in flight")
+	}
+
+	release()
+	reader.Wait()
+
+	_, _ = directory.ChannelMembers(t.Context(), "dev")
+
+	if asked := slack.count("/users.list"); asked != 2 {
+		t.Errorf("users.list was asked %d times, want the read begun before Refresh not kept", asked)
 	}
 }
