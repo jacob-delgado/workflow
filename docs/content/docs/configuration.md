@@ -541,7 +541,9 @@ nobody.
   reads it: on GitHub `.github/CODEOWNERS`, then `CODEOWNERS`, then
   `docs/CODEOWNERS`, with GitHub's rules (the last matching line wins); on
   GitLab `CODEOWNERS`, `docs/CODEOWNERS`, then `.gitlab/CODEOWNERS`, with
-  GitLab's sections, default owners and `!` exclusions. The base is read as
+  GitLab's sections, default owners and `!` exclusions. On GitLab the lines
+  before the first header are the section named `codeowners`, and a later
+  `[codeowners]` header adds to them. The base is read as
   `origin`'s copy when one has been fetched, so a stale `origin/<base>` gives
   stale owners — `git fetch` brings them up to date.
 - **Which patterns.** Each forge's patterns read as that forge reads them. On

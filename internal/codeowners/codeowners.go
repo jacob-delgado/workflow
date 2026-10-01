@@ -24,7 +24,8 @@ const (
 	GitHub Dialect = iota
 	// GitLab adds sections, each with its own last match and default owners,
 	// and !pattern exclusions; a pattern repeated in a section keeps only its
-	// later line. A pattern matches the whole path, as GitLab's fnmatch does:
+	// later line. The lines before the first header are the section named
+	// codeowners. A pattern matches the whole path, as GitLab's fnmatch does:
 	// an unanchored one at any depth, and only one ending in a slash covers a
 	// directory's contents, so docs and /docs name a file and docs/* a
 	// directory's direct children.
@@ -138,7 +139,7 @@ func (c *collector) addNew(into, names []string) []string {
 // Parse reads content as dialect reads it. A line the dialect cannot read is
 // skipped, as the forge skips it, rather than failing the whole file.
 func Parse(content string, dialect Dialect) File {
-	reading := parser{dialect: dialect, file: File{sections: []section{{name: "", rules: nil}}}}
+	reading := parser{dialect: dialect, file: File{sections: []section{{name: defaultSection, rules: nil}}}}
 	if dialect == GitLab {
 		reading.header = regexp.MustCompile(gitLabHeader)
 	}
