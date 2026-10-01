@@ -6,9 +6,11 @@ package store_test
 // The kept database, kept.db, sits beside workflow.db and holds what the user
 // decided rather than what a session saw. It migrates forward and is never
 // discarded: a schema bump of the cache leaves it alone, a file from a newer
-// build reads as empty and refuses writes, and a dry run never makes it.
+// build reads as empty and refuses writes, one that is not a database is
+// reported and left for the user to clean, and a dry run never makes it.
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"io/fs"
@@ -197,6 +199,59 @@ func TestAKeptFileFromANewerBuildRefusesWritesAndIsLeftAlone(t *testing.T) {
 
 	if got := keptPragma(t, dir, "application_id"); got != 42 {
 		t.Errorf("the newer file's application_id is %d, want the file that was there", got)
+	}
+}
+
+// writeNotADatabase puts a kept.db in dir that is not a database, and returns
+// what it holds.
+func writeNotADatabase(t *testing.T, dir string) []byte {
+	t.Helper()
+
+	notADatabase := bytes.Repeat([]byte("this is not a database\n"), 45)
+
+	err := os.WriteFile(keptPath(dir), notADatabase, 0o600)
+	if err != nil {
+		t.Fatalf("writing a kept.db that is not a database: %v", err)
+	}
+
+	return notADatabase
+}
+
+func TestAKeptFileThatIsNotADatabaseRefusesWritesAndIsLeftAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	notADatabase := writeNotADatabase(t, dir)
+
+	// Act
+	err := store.New(dir, false).LinkOwner(t.Context(), forgeHost, anaOwner, ana(), theTime())
+
+	// Assert
+	if err == nil {
+		t.Error("LinkOwner over a kept.db that is not a database = nil, want it refused")
+	}
+
+	left, readErr := os.ReadFile(keptPath(dir))
+	if readErr != nil || !bytes.Equal(left, notADatabase) {
+		t.Errorf("kept.db now holds %d bytes (err %v), want its %d bytes left for the user to clean",
+			len(left), readErr, len(notADatabase))
+	}
+}
+
+func TestAKeptFileThatIsNotADatabaseReadsAsNothingAndSaysWhy(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	writeNotADatabase(t, dir)
+
+	// Act
+	links, err := store.New(dir, false).OwnerLinks(t.Context(), forgeHost)
+
+	// Assert
+	if len(links) != 0 || err == nil {
+		t.Errorf("OwnerLinks from a kept.db that is not a database = %+v, %v; want nothing, and why", links, err)
 	}
 }
 
