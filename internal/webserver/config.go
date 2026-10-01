@@ -14,6 +14,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 // GetConfig reads the configuration file, taking up an edit made to it since
@@ -77,17 +78,34 @@ func (s *server) reread() (config.Config, basis, error) {
 // placeSlackCredentials hands Slack user-token secrets that differ from the
 // ones stored — typed into Settings, not sent back as they were read — to be
 // kept where the configuration keeps them, and answers the configuration to
-// write. A file that already keeps them goes on keeping them.
-func (s *server) placeSlackCredentials(incoming config.Config) (config.Config, error) {
+// write. A file that already keeps them goes on keeping them, with no access
+// token, so the next post refreshes with what was typed.
+func (s *server) placeSlackCredentials(incoming config.Config, over basis) (config.Config, error) {
 	typed := incoming.Messaging.ClientSecret != s.cfg.Messaging.ClientSecret ||
 		incoming.Messaging.RefreshToken != s.cfg.Messaging.RefreshToken
-	keptInFile := s.cfg.Messaging.HoldsUserTokenSecrets()
-
-	if s.deps.PlaceSlackCredentials == nil || !typed || keptInFile || !incoming.Messaging.HoldsUserTokenSecrets() {
+	if !typed {
 		return incoming, nil
 	}
 
-	return s.deps.PlaceSlackCredentials(incoming)
+	if s.deps.PlaceSlackCredentials == nil || s.cfg.Messaging.HoldsUserTokenSecrets() {
+		incoming.Messaging.AccessToken, incoming.Messaging.ExpiresAt = "", ""
+
+		return incoming, nil
+	}
+
+	// Placing spends the typed refresh token, so it is done only over the file
+	// the write that follows will find.
+	current, err := config.RevisionOf(s.path)
+	if err != nil || current != over.file() {
+		return config.Config{}, fmt.Errorf("placing the Slack secrets: %w", config.ErrChangedOnDisk)
+	}
+
+	placed, err := s.deps.PlaceSlackCredentials(incoming)
+	if errors.Is(err, messaging.ErrRejected) {
+		return config.Config{}, fmt.Errorf("%w: %w", errSlackRefused, err)
+	}
+
+	return placed, err
 }
 
 // adoptMessaging hands messaging settings newly in effect to every post after
@@ -106,6 +124,10 @@ func (s *server) adoptForge(settings config.Forge) {
 		s.forgeKind = s.deps.UseForgeSettings(settings)
 	}
 }
+
+// errSlackRefused reports Slack refusing the user token's secrets typed into
+// Settings, as distinct from refusing an announcement.
+var errSlackRefused = errors.New("slack refused the typed user token")
 
 // UpdateConfig writes the configuration file, but only over the revision
 // If-Match names, so a change made since that read, on disk or by another
@@ -154,6 +176,11 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 	if errors.Is(err, config.ErrChangedOnDisk) {
 		return api.UpdateConfig409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
 			"the configuration changed since Settings read it; reload Settings and apply your change again"))
+	}
+
+	if errors.Is(err, errSlackRefused) {
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+			"Slack refused the client ID, client secret or refresh token; check them, then save again"))
 	}
 
 	if err != nil {
@@ -218,7 +245,7 @@ func (s *server) save(incoming config.Config, over basis) (config.Config, config
 	incoming = preserveSecrets(incoming, s.cfg)
 	incoming.Path = s.path
 
-	incoming, err := s.placeSlackCredentials(incoming)
+	incoming, err := s.placeSlackCredentials(incoming, over)
 	if err != nil {
 		return config.Config{}, config.Revision{}, err
 	}

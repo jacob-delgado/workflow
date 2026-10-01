@@ -318,8 +318,15 @@ minutes left, and once more if Slack still calls it expired. Two workflows
 running at once — the terminal and `--web`, say — take turns through a lock
 file beside the store, so they never spend the same refresh token twice.
 `workflow doctor --online` refreshes it if it is due, and says whose it is,
-where it is kept and when it expires. The web's Settings takes the same three
-answers and keeps them the same way.
+where it is kept and when it expires. Under `--dry-run` it uses the token as
+held, and leaves one due a refresh unchecked rather than write a new one.
+
+The web's Settings takes the same three answers. Where the keychain keeps the
+token, a save refreshes it once with what you typed — a field left blank keeps
+the keychain's — and keeps the new pair there, never in the file; Slack
+refusing them is said at once, and nothing is written. Where the file keeps
+the token, what you type is written to it, and the next post refreshes with
+it, which is when a refusal shows.
 
 #### Incoming webhook — the two-minute option
 

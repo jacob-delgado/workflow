@@ -271,8 +271,8 @@ func messagingFaults() []faultClass {
 		{
 			causes: []error{messaging.ErrNoCredential},
 			code:   api.Unprocessable,
-			detail: "messaging has no credential; add a token or a webhook URL in Settings, " +
-				"or check that messaging.token_command or messaging.token_env gives one",
+			detail: "messaging has no credential; " +
+				"set up the Slack user token or a webhook URL in Settings, or run workflow slack login",
 		},
 		{
 			causes: []error{messaging.ErrInsecureWebhook},

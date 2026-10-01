@@ -157,9 +157,9 @@ func (m Model) messagingState() string {
 // messagingDetail previews the announcement, or says what it needs first.
 func (m Model) messagingDetail(width int) string {
 	if m.cfg.Messaging.Mode() == config.MessagingNone {
-		return wrap(m.cfg.Messaging.Service()+" is not set up.\n\nAdd messaging.webhook_url (or, for Slack, "+
-			"messaging.token and\nmessaging.channel) to ~/"+config.FileName+
-			". `workflow doctor` checks the file; `--online` also asks Slack about a bot token.", width)
+		return wrap(m.cfg.Messaging.Service()+" is not set up.\n\nAdd messaging.webhook_url to ~/"+config.FileName+
+			", or, for Slack, set messaging.channel and run `workflow slack login`. `workflow doctor` checks "+
+			"the file; `--online` also asks Slack about your user token.", width)
 	}
 
 	if !m.review.found {

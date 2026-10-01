@@ -165,7 +165,7 @@ func credentialFacts(ctx context.Context, run doctorRun, remote string) (credent
 	}{
 		{service: "jira", run: func(out io.Writer) error { return checkJira(ctx, out, doers.jira, cfg.Jira) }},
 		{service: strings.ToLower(cfg.Messaging.Service()), run: func(out io.Writer) error {
-			return checkMessaging(ctx, out, doers.messaging, cfg)
+			return checkMessaging(ctx, out, doers.messaging, run)
 		}},
 		{service: "forge", run: func(out io.Writer) error { return checkForge(ctx, out, run, remote) }},
 	}

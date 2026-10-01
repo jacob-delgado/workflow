@@ -195,3 +195,25 @@ func TestRedactTextMasksTheSlackUserTokensSecrets(t *testing.T) {
 		}
 	}
 }
+
+func TestAnUnknownTokenFieldOutsideMessagingIsNotBlamedOnSlack(t *testing.T) {
+	t.Parallel()
+
+	for name, file := range map[string]string{
+		"forge":  `{"forge":{"token_command":"pass forge"}}`,
+		"ui":     `{"ui":{"token":"x"}}`,
+		"timing": `{"timing":{"token_env":"X"}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			_, err := config.Parse(strings.NewReader(file))
+
+			// Assert
+			if err == nil || errors.Is(err, config.ErrSlackBotTokenRemoved) {
+				t.Errorf("Parse = %v, want the unknown field refused in its own words", err)
+			}
+		})
+	}
+}

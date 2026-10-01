@@ -332,7 +332,7 @@ func TestMessagingNotConfiguredNamesTheKeysAndDoctor(t *testing.T) {
 	_, err := run(t, t.TempDir(), "announce")
 
 	// Assert
-	for _, next := range []string{"messaging.kind", "messaging.webhook_url", "messaging.token", "workflow doctor"} {
+	for _, next := range []string{"messaging.kind", "messaging.webhook_url", "workflow slack login", "workflow doctor"} {
 		if err == nil || !strings.Contains(err.Error(), next) {
 			t.Errorf("announce = %v, want the refusal to name %s", err, next)
 		}

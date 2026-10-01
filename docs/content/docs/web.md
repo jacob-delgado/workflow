@@ -208,6 +208,12 @@ commits, branches, pull requests, the store and Taskwarrior — and
 unless you type a new one. A change to the forge part — its token, host,
 kind or CLI — applies at once: the next call to the forge uses it, and the
 page names the forge it points at, with no restart. A change to the
+messaging part applies to the next announcement. Slack's user token is
+three fields — Client ID, Client secret and Refresh token; on macOS a save
+refreshes the token with them and keeps the secrets in the keychain rather
+than the file, and where the file already keeps them it keeps what you type
+(see [Configuration]({{< relref "/docs/configuration" >}})). The access token
+and its expiry have no field: workflow writes them. A change to the
 Taskwarrior part applies when workflow restarts, as the part says: workflow finds Taskwarrior as it starts,
 and until the restart the Tasks section says to restart rather than read
 Taskwarrior. What the form has no field for yet is kept unchanged

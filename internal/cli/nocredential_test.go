@@ -4,6 +4,7 @@
 package cli_test
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -43,5 +44,31 @@ func TestASlackUserTokenNotLoggedInNamesTheLogin(t *testing.T) {
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "workflow slack login") {
 		t.Errorf("announce = %v, want the error to name workflow slack login", err)
+	}
+}
+
+func TestDoctorUnderDryRunHoldsBackARefreshThatWouldWrite(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	path := writeFile(t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999",`+
+		`"refresh_token":"slack-refresh-8888","access_token":"xoxe.xoxp-old","expires_at":"2020-01-01T00:00:00Z",`+
+		`"channel":"#dev"}}`)
+
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading the fixture: %v", err)
+	}
+
+	// Act
+	output, _ := run(t, dir, "doctor", "--online", "--dry-run")
+
+	// Assert
+	if !strings.Contains(output, "--dry-run") {
+		t.Errorf("doctor does not say the refresh was held back for --dry-run:\n%s", output)
+	}
+
+	after, err := os.ReadFile(path)
+	if err != nil || string(after) != string(before) {
+		t.Errorf("the configuration file changed under --dry-run (%v)", err)
 	}
 }

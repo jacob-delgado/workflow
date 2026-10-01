@@ -15,7 +15,7 @@ func TestTheUnsetMessagingPaneSaysWhatDoctorChecks(t *testing.T) {
 
 	// Arrange
 	// Doctor cannot check a webhook without posting to it, so the hint promises
-	// only the file offline and a bot token online. The screen is wide enough to
+	// only the file offline and a user token online. The screen is wide enough to
 	// keep each phrase on one line.
 	cfg := completeConfig()
 	cfg.Messaging = config.Messaging{}
@@ -26,6 +26,6 @@ func TestTheUnsetMessagingPaneSaysWhatDoctorChecks(t *testing.T) {
 	view := typing(t, model, "5").View().Content
 
 	// Assert
-	requireScreen(t, view, "`workflow doctor` checks the file;", "`--online` also asks Slack about a bot token.")
+	requireScreen(t, view, "`workflow doctor` checks the file;", "`--online` also asks Slack about your user token.")
 	refuseScreen(t, view, "`workflow doctor --online` checks it")
 }

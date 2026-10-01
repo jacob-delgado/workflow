@@ -60,7 +60,7 @@ func (s Source) Token(ctx context.Context, expired config.Secret) (config.Secret
 		return "", err
 	}
 
-	err = s.Store.Save(ctx, renewed)
+	err = s.Store.Keep(ctx, renewed)
 	if err != nil {
 		return "", err
 	}

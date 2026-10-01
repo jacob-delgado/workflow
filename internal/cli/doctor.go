@@ -35,8 +35,13 @@ var (
 	// service that never answered.
 	errCredentialRejected = errors.New("a credential was rejected")
 	// errCredentialMissing reports a service doctor had no credential to ask
-	// about: none is configured, or its token_command or token_env gave none.
+	// about: none is configured, Jira's token_command or token_env gave none,
+	// or the Slack user token was never logged in.
 	errCredentialMissing = errors.New("a credential is missing")
+	// errRefreshHeldBack reports a Slack user token due a refresh that a dry
+	// run holds back, since the refresh writes the new pair where it is kept.
+	errRefreshHeldBack = errors.New("the Slack user token is due a refresh, which --dry-run holds back; " +
+		"run doctor --online without it to check the token")
 	// errUnreachable reports a service that never answered, as distinct from one
 	// that answered by refusing the credential.
 	errUnreachable = errors.New("the service could not be reached")
@@ -76,7 +81,9 @@ func newDoctorCmd() *cobra.Command {
 			defer closeLog()
 
 			cfg, loadErr := loadFromEnvironment()
-			run := doctorRun{cfg: cfg, loadErr: loadErr, online: online, log: requestLog}
+			run := doctorRun{
+				cfg: cfg, loadErr: loadErr, online: online, dryRun: dryRunRequested(cmd), log: requestLog,
+			}
 
 			if asJSON {
 				return runDoctorJSON(cmd.Context(), cmd.OutOrStdout(), run)
@@ -99,7 +106,9 @@ type doctorRun struct {
 	cfg     config.Config
 	loadErr error
 	online  bool
-	log     *wiring.RequestLog
+	// dryRun holds back a refresh of the Slack user token, which writes.
+	dryRun bool
+	log    *wiring.RequestLog
 }
 
 // runDoctor writes the report. Every section runs even when an earlier one found
