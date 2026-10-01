@@ -10,6 +10,7 @@
 package codeowners
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -138,6 +139,9 @@ func (c *collector) addNew(into, names []string) []string {
 // skipped, as the forge skips it, rather than failing the whole file.
 func Parse(content string, dialect Dialect) File {
 	reading := parser{dialect: dialect, file: File{sections: []section{{name: "", rules: nil}}}}
+	if dialect == GitLab {
+		reading.header = regexp.MustCompile(gitLabHeader)
+	}
 
 	for line := range strings.SplitSeq(content, "\n") {
 		reading.read(line)
@@ -153,56 +157,23 @@ type parser struct {
 	file     File
 	current  int
 	defaults Owners
+	// header is GitLab's section header; nil on GitHub, which has none.
+	header *regexp.Regexp
 }
 
 func (p *parser) read(line string) {
+	if p.dialect == GitLab {
+		p.readGitLab(line)
+
+		return
+	}
+
 	line = strings.TrimLeft(line, " \t")
 	if line == "" || line[0] == '#' {
 		return
 	}
 
-	if p.dialect == GitLab && (line[0] == '[' || strings.HasPrefix(line, "^[")) {
-		p.enterSection(line)
-
-		return
-	}
-
 	p.addRule(fields(line))
-}
-
-// enterSection reads a GitLab section header — [Name], ^[Optional Name] or
-// [Name][approvals] — with its default owners. A section named again is the
-// same section, by name without case.
-func (p *parser) enterSection(header string) {
-	name, defaults, ok := sectionHeader(strings.TrimPrefix(header, "^"))
-	if !ok {
-		return
-	}
-
-	key := strings.ToLower(name)
-
-	index := slices.IndexFunc(p.file.sections, func(known section) bool { return known.name == key })
-	if index < 0 {
-		p.file.sections = append(p.file.sections, section{name: key, rules: nil})
-		index = len(p.file.sections) - 1
-	}
-
-	p.current, p.defaults = index, ownersFrom(fields(defaults))
-}
-
-// sectionHeader splits "[Name][2] @a @b" into its name and the text after the
-// header, which holds the default owners.
-func sectionHeader(header string) (string, string, bool) {
-	name, rest, found := strings.Cut(strings.TrimPrefix(header, "["), "]")
-	if !found || strings.TrimSpace(name) == "" {
-		return "", "", false
-	}
-
-	if strings.HasPrefix(rest, "[") {
-		_, rest, found = strings.Cut(rest, "]")
-	}
-
-	return name, rest, found
 }
 
 // addRule adds a pattern line to the current section. A GitLab line naming no
