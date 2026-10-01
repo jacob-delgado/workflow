@@ -228,10 +228,20 @@ is posted: `enter` posts it, `e` edits it again, `esc` discards it.
 tracker: the pane lists the open issues assigned to you on the repository's
 GitHub or GitLab project. A branch for one is named by its number rather than
 a key, as in `feat/42-fix-typo`, and that number is how workflow finds the
-issue again. **Change status** (`t`) offers only Close. Comment, assign and
-log work (`c`, `a`, `w`), linking the pull request on the issue, the
-`jira.views` issue lists (`v`), and opening or copying the issue's URL
-(`o` / `y`) do not apply. `workflow doctor` names the tracker in effect.
+issue again. **Change status** (`t`) offers only Close. Assigning (`a`) and
+opening or copying the issue's page (`o` / `y`) work as for Jira; comment and
+log work (`c`, `w`), linking the pull request on the issue and the
+`jira.views` issue lists (`v`) do not apply. `workflow doctor` names the
+tracker in effect.
+
+**Beside Jira**, a repository whose project tracks its work on GitHub or
+GitLab can list those issues too: `{"issues": {"forge": true}}` in that
+repository's `.workflow.json`, layered over your home file, puts the issues
+assigned to you on its forge at the head of the first issue list, numbered
+(`#42`) where Jira's are keyed (`PROJ-12`). Each issue goes to its own tracker:
+a forge issue offers what one does without Jira, and a Jira issue everything
+it always has. When the forge cannot be read, Jira's issues are listed and the
+list says the forge's are missing.
 
 ### Branch
 

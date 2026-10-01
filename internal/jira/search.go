@@ -69,6 +69,9 @@ type Issue struct {
 type SearchResult struct {
 	Issues []Issue
 	Total  int
+	// Unavailable names each tracker whose issues a list drawing on more than
+	// one could not read, so what is listed is not taken for all there is.
+	Unavailable []string
 }
 
 // searchAnswer is the wire shape, decoded and then flattened into Issues.
