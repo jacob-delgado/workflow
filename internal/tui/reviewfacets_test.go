@@ -86,9 +86,15 @@ func TestFOpensTheReviewsFilterWithCounts(t *testing.T) {
 	view := typing(t, facetsWorld().live(t, 120, 40), "6", filterKey).View().Content
 
 	// Assert
-	requireScreen(t, view, "Filter", "no repository  1", "example/other  1", "example/repo  2",
-		"CI failed  1", "CI passed  1", "CI running  1", "CI none  1", "draft  1", "ready  3",
-		"by kwan  2", "by mira  2")
+	offered := []string{
+		"no repository  1", "example/other  1", "example/repo  2", "CI failed  1", "CI passed  1", "CI running  1",
+		"CI none  1", "draft  1", "ready  3", "by kwan  2", "by mira  2",
+	}
+	for index := 1; index < len(offered); index++ {
+		if screenRow(t, view, offered[index]) != screenRow(t, view, offered[index-1])+1 {
+			t.Errorf("%q is not offered on the row after %q:\n%s", offered[index], offered[index-1], plain(view))
+		}
+	}
 }
 
 func TestFacetsWidenWithinAndNarrowTogether(t *testing.T) {
