@@ -112,7 +112,7 @@ func (r Repository) Diff(ctx context.Context, change Change) ([]string, error) {
 		return []string{untrackedNote}, nil
 	}
 
-	args := append([]string{"-C", r.dir, literalPathspecs, "diff", "HEAD", "--"}, change.paths()...)
+	args := append([]string{"-C", r.dir, literalPathspecs, "diff", headRef, "--"}, change.paths()...)
 
 	out, err := r.run(ctx, gitProgram, args...)
 	if err != nil {
