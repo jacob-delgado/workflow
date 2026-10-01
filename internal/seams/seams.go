@@ -198,7 +198,8 @@ type Store struct {
 	// LastGroups is the group IDs last chosen for this repository's
 	// announcement, and whether a choice was recorded at all.
 	LastGroups func() ([]string, bool)
-	// RecordGroups remembers the groups just chosen, each one of RepoGroups.
+	// RecordGroups remembers the groups just chosen; one not among RepoGroups,
+	// such as a group linked to an owning team, is left out of the choice.
 	RecordGroups func(ids []string) error
 }
 
