@@ -1,49 +1,12 @@
-import { AxeBuilder } from '@axe-core/playwright'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import type { Issue, PullRequestDraft, Snapshot } from '../src/api/generated/types.gen.ts'
 import { height, openCockpit, openSection, sectionNames, themes, widths } from './cockpit.ts'
-import { streams, walkTabOrder } from './tabwalk.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from './tabwalk.ts'
 
 // The populated cockpit at a narrow, a middling and a wide window, in both
 // themes: nothing scrolls sideways, the page does not scroll at all, every
 // control the keyboard can reach is in view once it has focus, and axe finds
 // nothing.
-
-// sidewaysScrollers names what scrolls sideways: the page, or any part of it.
-function sidewaysScrollers(): string[] {
-  const scrollers: string[] = []
-  const page = document.scrollingElement
-  if (page !== null && page.scrollWidth > window.innerWidth) {
-    scrollers.push(`the page (${String(page.scrollWidth)} px in ${String(window.innerWidth)})`)
-  }
-
-  for (const element of document.querySelectorAll<HTMLElement>('body *')) {
-    const { overflowX } = getComputedStyle(element)
-    const scrolls = overflowX === 'auto' || overflowX === 'scroll'
-    if (scrolls && element.scrollWidth > element.clientWidth) {
-      const label = element.getAttribute('aria-label') ?? element.id
-      scrollers.push(
-        `<${element.localName}> ${label} (${String(element.scrollWidth)} px in ${String(element.clientWidth)})`,
-      )
-    }
-  }
-
-  return scrollers
-}
-
-// pageScrolls says whether the page itself scrolls down, which the shell never
-// does: the content, or a pane in it, scrolls instead.
-function pageScrolls(): boolean {
-  return (document.scrollingElement?.scrollHeight ?? 0) > window.innerHeight
-}
-
-async function axeViolations(page: Page): Promise<string> {
-  const { violations } = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-    .analyze()
-
-  return violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
-}
 
 for (const theme of themes) {
   for (const width of widths) {
