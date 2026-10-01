@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -147,6 +148,39 @@ func (s *server) transitionRefusal(err error, issueKey jira.Key, status string) 
 
 		return api.TransitionIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}
+}
+
+// AddComment posts a comment on a Jira issue, as the terminal's c does, and
+// answers it as Jira stored it. A forge issue is refused here rather than
+// handed to the seam, which would answer an error no fault class knows; blank
+// text is refused before Jira is asked.
+func (s *server) AddComment(
+	_ context.Context, request api.AddCommentRequestObject,
+) (api.AddCommentResponseObject, error) {
+	issueKey := jira.Key(request.Key)
+
+	switch {
+	case s.deps.Comment == nil:
+		return commentRefusal("commenting on an issue is not available; configure Jira to comment"), nil
+	case trackerOf(issueKey) == api.Forge:
+		return commentRefusal(string(issueKey) + " is the forge's issue; only Jira issues take a comment here"), nil
+	case strings.TrimSpace(request.Body.Text) == "":
+		return commentRefusal("a comment needs text"), nil
+	}
+
+	posted, err := s.deps.Comment(issueKey, request.Body.Text)
+	if err != nil {
+		body, code := s.fault(err)
+
+		return api.AddCommentdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+	}
+
+	return api.AddComment200JSONResponse(commentDTO(posted)), nil
+}
+
+// commentRefusal is a comment that was not posted, and why.
+func commentRefusal(detail string) api.AddCommentResponseObject {
+	return api.AddComment422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, detail))
 }
 
 // followUps are what the page can offer once a pull request is open, in the

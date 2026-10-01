@@ -356,9 +356,9 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		LinkPullRequest: deps.Jira.LinkPullRequest,
 		Transitions:     deps.Jira.Transitions,
 		Transition:      deps.Jira.Transition,
-
-		Stage:   deps.Git.Stage,
-		Unstage: deps.Git.Unstage,
+		Comment:         deps.Jira.Comment,
+		Stage:           deps.Git.Stage,
+		Unstage:         deps.Git.Unstage,
 
 		RemoteBranches: deps.Git.RemoteBranches,
 		IssueLinks:     deps.Git.IssueLinks,
