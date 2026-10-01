@@ -119,8 +119,8 @@ accept, a `forge.kind` set without its `forge.host`, a forge address with no
 forge API behind it, and a request the forge refused. A token the forge turned
 down is told in the words the terminal uses: which forge, the scope it asks
 for, and the forge's own reason. A pull request the forge turned down is answered here with
-the forge's own reason, and so is one naming a reviewer or assignee GitLab does
-not know; any other open that fails is answered as a read's failure is, under
+the forge's own reason, while a reviewer or assignee GitLab does not know
+never stops one opening; any other open that fails is answered as a read's failure is, under
 the code its cause belongs to. An announcement the messaging service refused,
 or one that could not be sent because messaging has no credential (none set, or
 a token its command or variable did not give) or its webhook is not https, is

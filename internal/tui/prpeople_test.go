@@ -242,7 +242,7 @@ func TestAPullThatOpensButCannotAddReviewersIsNotLost(t *testing.T) {
 	// Arrange
 	// The pull opens, but the forge knows no reviewer by that name.
 	opening := withoutPull()
-	opening.reviewerErr = fmt.Errorf("%w (ana): %w", forge.ErrSomeReviewersNotAdded, forge.ErrNoUser)
+	opening.reviewerErr = fmt.Errorf("%w (ana): %w", forge.ErrSomePeopleNotAdded, forge.ErrNoUser)
 	model := opening.live(t, 200, 40)
 
 	keys := append([]string{"4", "n", keyTab, keyTab}, letters("ana")...)

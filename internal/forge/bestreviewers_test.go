@@ -107,8 +107,8 @@ func TestCreatePullRequestOnGitHubAddsEveryReviewerItCanWhenOneIsTurnedDown(t *t
 	})
 
 	// Assert
-	if created.Number != 43 || !errors.Is(err, forge.ErrSomeReviewersNotAdded) {
-		t.Fatalf("CreatePullRequest = %+v, %v; want pull 43 and ErrSomeReviewersNotAdded", created, err)
+	if created.Number != 43 || !errors.Is(err, forge.ErrSomePeopleNotAdded) {
+		t.Fatalf("CreatePullRequest = %+v, %v; want pull 43 and ErrSomePeopleNotAdded", created, err)
 	}
 
 	if !strings.Contains(err.Error(), userGhost) || !strings.Contains(err.Error(), teamNobody) ||
@@ -189,81 +189,70 @@ func gitlabKnowing(ids, members map[string]string) func(asked recorded) (int, st
 	}
 }
 
-func TestCreateMergeRequestOnGitLabOpensWithTheReviewersItKnows(t *testing.T) {
+func TestCreateMergeRequestOnGitLabOpensWithThePeopleItKnows(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	client, seen := scriptedForge(t, gitlabKnowing(map[string]string{userAna: "7"}, nil))
-
-	// Act
-	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{userGhost, userAna},
-	})
-
-	// Assert
-	if created.Number != 8 {
-		t.Fatalf("CreatePullRequest = %+v, %v; want merge request 8 opened", created, err)
-	}
-
-	if !errors.Is(err, forge.ErrSomeReviewersNotAdded) || !errors.Is(err, forge.ErrNoUser) ||
-		!strings.Contains(err.Error(), userGhost) {
-		t.Errorf("error = %v, want ErrSomeReviewersNotAdded and ErrNoUser naming ghost", err)
-	}
-
-	opened := requestTo(*seen, gitlabMergesPath)
-	if !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(7)}) {
-		t.Errorf("reviewer_ids = %v, want only ana's id", opened.body["reviewer_ids"])
-	}
-}
-
-func TestCreateMergeRequestOnGitLabOpensWhenAReviewerLookupFails(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// Looking ghost up fails outright; ana is found.
+	// Looking ghost up either finds nobody or fails outright; ana is found.
 	knowing := gitlabKnowing(map[string]string{userAna: "7"}, nil)
-	client, seen := scriptedForge(t, func(asked recorded) (int, string) {
+	failingForGhost := func(asked recorded) (int, string) {
 		if asked.path == gitlabUsersPath && strings.Contains(asked.query, userGhost) {
 			return http.StatusBadGateway, `{"message":"502 Bad Gateway"}`
 		}
 
 		return knowing(asked)
-	})
-
-	// Act
-	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{userGhost, userAna},
-	})
-
-	// Assert
-	if created.Number != 8 || !errors.Is(err, forge.ErrSomeReviewersNotAdded) ||
-		!strings.Contains(err.Error(), userGhost) {
-		t.Fatalf("CreatePullRequest = %+v, %v; want it opened, naming ghost as left off", created, err)
 	}
 
-	opened := requestTo(*seen, gitlabMergesPath)
-	if !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(7)}) {
-		t.Errorf("reviewer_ids = %v, want ana's alone", opened.body["reviewer_ids"])
+	cases := []struct {
+		name    string
+		answer  func(recorded) (int, string)
+		cause   error
+		field   string
+		request forge.NewPullRequest
+	}{
+		{
+			name: "an unknown reviewer", answer: knowing, cause: forge.ErrNoUser, field: "reviewer_ids",
+			request: forge.NewPullRequest{Reviewers: []string{userGhost, userAna}},
+		},
+		{
+			name: "a reviewer whose lookup fails", answer: failingForGhost, cause: forge.ErrRejected, field: "reviewer_ids",
+			request: forge.NewPullRequest{Reviewers: []string{userGhost, userAna}},
+		},
+		{
+			name: "an unknown assignee", answer: knowing, cause: forge.ErrNoUser, field: "assignee_ids",
+			request: forge.NewPullRequest{Assignees: []string{userGhost, userAna}},
+		},
+		{
+			name: "an assignee whose lookup fails", answer: failingForGhost, cause: forge.ErrRejected, field: "assignee_ids",
+			request: forge.NewPullRequest{Assignees: []string{userGhost, userAna}},
+		},
 	}
-}
 
-func TestCreateMergeRequestOnGitLabStillRefusesAnUnknownAssignee(t *testing.T) {
-	t.Parallel()
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	// Arrange
-	client, seen := scriptedForge(t, gitlabKnowing(nil, nil))
+			// Arrange
+			client, seen := scriptedForge(t, test.answer)
+			request := test.request
+			request.Title, request.Head, request.Base = prTitle, featureBranch, baseBranch
 
-	// Act
-	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, Assignees: []string{userGhost},
-	})
+			// Act
+			created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), request)
 
-	// Assert
-	if !errors.Is(err, forge.ErrNoUser) || errors.Is(err, forge.ErrSomeReviewersNotAdded) || created.Opened() {
-		t.Errorf("CreatePullRequest = %+v, %v; want nothing opened and ErrNoUser", created, err)
-	}
+			// Assert
+			if created.Number != 8 {
+				t.Fatalf("CreatePullRequest = %+v, %v; want merge request 8 opened", created, err)
+			}
 
-	if got := requestTo(*seen, gitlabMergesPath); got.method != "" {
-		t.Errorf("posted a merge request without its assignee: %+v", got)
+			if !errors.Is(err, forge.ErrSomePeopleNotAdded) || !errors.Is(err, test.cause) ||
+				!strings.Contains(err.Error(), userGhost) {
+				t.Errorf("error = %v, want ErrSomePeopleNotAdded and %v naming ghost", err, test.cause)
+			}
+
+			opened := requestTo(*seen, gitlabMergesPath)
+			if !reflect.DeepEqual(opened.body[test.field], []any{float64(7)}) {
+				t.Errorf("%s = %v, want only ana's id", test.field, opened.body[test.field])
+			}
+		})
 	}
 }

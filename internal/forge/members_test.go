@@ -200,7 +200,7 @@ func TestCreateMergeRequestOnGitLabOpensWithoutATeamItCannotRead(t *testing.T) {
 	})
 
 	// Assert
-	if created.Number != 8 || !errors.Is(err, forge.ErrSomeReviewersNotAdded) ||
+	if created.Number != 8 || !errors.Is(err, forge.ErrSomePeopleNotAdded) ||
 		!strings.Contains(err.Error(), groupControlPlane) {
 		t.Fatalf("CreatePullRequest = %+v, %v; want it opened, naming the team left off", created, err)
 	}

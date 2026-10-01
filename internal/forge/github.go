@@ -351,7 +351,7 @@ func githubAddPeople(ctx context.Context, client Client, repo Repo, number int, 
 	issue := githubRepoPath(repo) + issuesSegment + "/" + strconv.Itoa(number)
 
 	reviewersErr := githubRequestReviewers(ctx, client, repo, pull, request)
-	if reviewersErr != nil && !errors.Is(reviewersErr, ErrSomeReviewersNotAdded) {
+	if reviewersErr != nil && !errors.Is(reviewersErr, ErrSomePeopleNotAdded) {
 		return reviewersErr
 	}
 
@@ -389,7 +389,7 @@ type githubTeam struct {
 func githubRequestReviewers(ctx context.Context, client Client, repo Repo, pull string, request NewPullRequest) error {
 	teams, foreign := githubTeamsOf(repo, request.TeamReviewers)
 
-	missed := missedReviewers{}
+	missed := missedPeople{}
 	for _, team := range foreign {
 		missed.miss(team, ErrTeamOfAnotherOrg)
 	}
@@ -415,7 +415,7 @@ func githubRequestReviewers(ctx context.Context, client Client, repo Repo, pull 
 // reports the ones turned down with those already missed.
 func githubReviewersOneByOne(
 	ctx context.Context, client Client, repo Repo, pull string, users []string, teams []githubTeam,
-	missed missedReviewers,
+	missed missedPeople,
 ) error {
 	ask := func(name string, body githubReviewersBody) {
 		err := githubAskReviewers(ctx, client, repo, pull, body)

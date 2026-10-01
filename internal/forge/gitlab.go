@@ -302,16 +302,12 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 // gitlabCreate opens a merge request, with its reviewers, assignees and labels
 // set at creation as GitLab takes them. Reviewers and assignees are resolved
 // from usernames to ids first, each team reviewer standing for its group's
-// active members. An unknown assignee fails before any merge request is
-// opened; a reviewer that cannot be resolved, for whatever reason, is left off
-// the one opened and returned beside it as ErrSomeReviewersNotAdded.
+// active members. A reviewer or assignee that cannot be resolved, for whatever
+// reason, is left off the merge request opened and returned beside it as
+// ErrSomePeopleNotAdded.
 func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (PullRequest, error) {
 	reviewers := gitlabResolveReviewers(ctx, client, request)
-
-	assigneeIDs, err := gitlabUserIDs(ctx, client, request.Assignees)
-	if err != nil {
-		return PullRequest{}, err
-	}
+	assigneeIDs := gitlabResolveAssignees(ctx, client, request.Assignees, &reviewers.missedPeople)
 
 	payload := gitlabNewMerge{
 		Title: gitlabTitle(request), Description: request.Body, SourceBranch: request.Head, TargetBranch: request.Base,
