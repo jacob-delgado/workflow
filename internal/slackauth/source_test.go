@@ -5,6 +5,7 @@ package slackauth_test
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -15,11 +16,12 @@ import (
 )
 
 // memory is a Store kept in memory, safe to share between goroutines, counting
-// its saves.
+// its saves; the first failing saves fail.
 type memory struct {
-	lock  sync.Mutex
-	held  slackauth.Credentials
-	saves int
+	lock    sync.Mutex
+	held    slackauth.Credentials
+	saves   int
+	failing int
 }
 
 func (m *memory) store() slackauth.Store {
@@ -34,11 +36,20 @@ func (m *memory) store() slackauth.Store {
 			m.lock.Lock()
 			defer m.lock.Unlock()
 
+			if m.failing > 0 {
+				m.failing--
+
+				return errSaveFailed
+			}
+
 			m.held, m.saves = credentials, m.saves+1
 
 			return nil
 		})
 }
+
+// errSaveFailed is a store that could not keep what it was given.
+var errSaveFailed = errors.New("the store could not keep it")
 
 // sourceOver is a Source over held, refreshing through server, locking with a
 // lock file in a directory of the test's own.
@@ -137,5 +148,37 @@ func TestTwoAskingAtOnceRefreshOnce(t *testing.T) {
 	if len(seen()) != 1 || tokens[0] != newAccess || tokens[1] != newAccess {
 		t.Errorf("%d refreshes gave %q and %q, want one, both using its token",
 			len(seen()), tokens[0].Reveal(), tokens[1].Reveal())
+	}
+}
+
+func TestASaveThatFailsOnceIsTriedAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	server, _ := fakeSlack(t, rotated)
+	held := &memory{held: pairExpiringIn(0), failing: 1}
+
+	// Act
+	token, err := sourceOver(t, held, refresherFor(server)).Token(t.Context(), "")
+
+	// Assert
+	if err != nil || token != newAccess || held.held.RefreshToken != newRefresh {
+		t.Errorf("Token = %q, %v, kept %+v; want the new pair kept on the second try", token.Reveal(), err, held.held)
+	}
+}
+
+func TestARefreshThatCannotBeKeptSaysToLogInAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	server, _ := fakeSlack(t, rotated)
+	held := &memory{held: pairExpiringIn(0), failing: 100}
+
+	// Act
+	_, err := sourceOver(t, held, refresherFor(server)).Token(t.Context(), "")
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrNotKept) || !errors.Is(err, errSaveFailed) {
+		t.Errorf("Token = %v, want ErrNotKept carrying why the save failed", err)
 	}
 }

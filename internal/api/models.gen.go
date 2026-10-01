@@ -664,7 +664,7 @@ type MessagingDestination struct {
 	// Channels The default first, then the alternates.
 	Channels []string `json:"channels"`
 
-	// Configured Whether a transport is set up to post — a bot token or a webhook. A webhook service has no channel, so channel presence cannot stand in for this.
+	// Configured Whether a transport is set up to post — a user token or a webhook. A webhook service has no channel, so channel presence cannot stand in for this.
 	Configured bool `json:"configured"`
 
 	// Service The service posts go to — Slack, Teams, Discord or webhook.

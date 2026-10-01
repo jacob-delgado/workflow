@@ -18,6 +18,15 @@ import (
 // configuration says it is kept; `workflow slack login` sets one up.
 var ErrNotLoggedIn = errors.New("no Slack user token is set up; run `workflow slack login`")
 
+// ErrNotKept reports a new pair Slack gave that could not be kept: the refresh
+// token it replaced is spent, so only a fresh login brings posting back.
+var ErrNotKept = errors.New("slack gave a new token that could not be kept; run `workflow slack login` again")
+
+// keepTries is how many times a new pair is saved before it is given up: the
+// file's save is refused when an edit lands between its read and its write,
+// and a try after that reads the file again.
+const keepTries = 3
+
 // KeychainService is the name the credentials are kept under in the keychain.
 const KeychainService = "workflow-slack"
 
@@ -45,6 +54,21 @@ func (s Store) Load(ctx context.Context) (Credentials, error) {
 // Save keeps credentials in place of any kept before.
 func (s Store) Save(ctx context.Context, credentials Credentials) error {
 	return s.save(ctx, credentials)
+}
+
+// Keep saves a pair Slack just gave, trying again where a save fails, since
+// the refresh token it replaced is already spent; ErrNotKept says it could not.
+func (s Store) Keep(ctx context.Context, renewed Credentials) error {
+	var err error
+
+	for range keepTries {
+		err = s.Save(ctx, renewed)
+		if err == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%w (in %s): %w", ErrNotKept, s.where, err)
 }
 
 // Where says where the credentials are kept, for doctor and the login to say.
@@ -143,7 +167,7 @@ func loadKeychain(ctx context.Context, item keychain.Item) (Credentials, error) 
 	var held stored
 
 	err = json.Unmarshal([]byte(line), &held)
-	if err != nil {
+	if err != nil || held.RefreshToken == "" || held.ClientSecret == "" {
 		return Credentials{}, fmt.Errorf("the keychain's %s entry is not workflow's: %w", KeychainService, ErrNotLoggedIn)
 	}
 

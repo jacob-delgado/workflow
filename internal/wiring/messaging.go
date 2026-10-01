@@ -124,12 +124,15 @@ func SlackToken(cfg config.Config, do httpx.Doer) messaging.TokenSource {
 }
 
 // asMessagingError is a token source's failure as the messaging client's error.
+// A lock held elsewhere is no refusal of the token, so it keeps its own words.
 func asMessagingError(err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, slackauth.ErrNotLoggedIn):
+	case errors.Is(err, slackauth.ErrNotLoggedIn), errors.Is(err, slackauth.ErrNotKept):
 		return fmt.Errorf("%w: %w", messaging.ErrNoCredential, err)
+	case errors.Is(err, slackauth.ErrLocked):
+		return err
 	case errors.Is(err, slackauth.ErrUnreachable):
 		return fmt.Errorf("%w: %w", messaging.ErrUnreachable, err)
 	default:
@@ -150,30 +153,51 @@ func slackLockPath(configPath string) string {
 
 // placeSlackCredentials is Controls.PlaceSlackCredentials, refreshing through
 // transport.
+//
+// Trade-off TRADE-17: no test sees a placement Slack accepts; that takes Slack itself.
 func placeSlackCredentials(ctx context.Context, transport httpx.Doer) func(config.Config) (config.Config, error) {
 	return func(cfg config.Config) (config.Config, error) {
 		if runtime.GOOS != "darwin" {
 			return cfg, nil
 		}
 
-		starting := slackauth.Credentials{
-			ClientSecret: cfg.Messaging.ClientSecret, RefreshToken: cfg.Messaging.RefreshToken,
-		}
-
 		without := cfg
 		without.Messaging.ClientSecret, without.Messaging.RefreshToken = "", ""
 		without.Messaging.AccessToken, without.Messaging.ExpiresAt = "", ""
+
+		starting := keptUnlessTyped(ctx, SlackStore(without), cfg.Messaging)
 
 		renewed, err := SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(ctx, starting)
 		if err != nil {
 			return config.Config{}, asMessagingError(err)
 		}
 
-		err = SlackStore(without).Save(ctx, renewed)
+		err = SlackStore(without).Keep(ctx, renewed)
 		if err != nil {
 			return config.Config{}, err
 		}
 
 		return without, nil
 	}
+}
+
+// keptUnlessTyped is the secrets typed into settings, each one left blank
+// taken from those keychain already keeps, so changing one leaves the other.
+func keptUnlessTyped(ctx context.Context, keychain slackauth.Store, settings config.Messaging) slackauth.Credentials {
+	starting := slackauth.Credentials{ClientSecret: settings.ClientSecret, RefreshToken: settings.RefreshToken}
+
+	kept, err := keychain.Load(ctx)
+	if err != nil {
+		return starting
+	}
+
+	if starting.ClientSecret == "" {
+		starting.ClientSecret = kept.ClientSecret
+	}
+
+	if starting.RefreshToken == "" {
+		starting.RefreshToken = kept.RefreshToken
+	}
+
+	return starting
 }

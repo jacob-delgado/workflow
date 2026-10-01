@@ -14,7 +14,7 @@ import (
 
 // ErrLocked reports a refresh lock another process held for as long as this one
 // would wait.
-var ErrLocked = errors.New("another workflow is refreshing the Slack token")
+var ErrLocked = errors.New("another workflow is refreshing the Slack token; try again in a minute")
 
 const (
 	// lockWait is how long a refresh waits on a lock before giving up.
@@ -68,6 +68,7 @@ func tryLock(path string) (func(), bool) {
 		return func() { _ = os.Remove(path) }, true
 	}
 
+	// Trade-off TRADE-22: two waiters can both take over a stale lock; see there.
 	info, statErr := os.Stat(path)
 	if statErr == nil && time.Since(info.ModTime()) > lockStale {
 		_ = os.Remove(path)

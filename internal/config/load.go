@@ -167,18 +167,23 @@ func parseFile(path string, r io.Reader) (Config, error) {
 // configuration written over the web API is held to exactly the standard a file
 // on disk is. It does not set Path; that belongs to the file it came from.
 func Parse(r io.Reader) (Config, error) {
-	decoder := json.NewDecoder(r)
+	contents, err := io.ReadAll(r)
+	if err != nil {
+		return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.DisallowUnknownFields()
 
 	cfg := Default()
 
-	err := decoder.Decode(&cfg)
+	err = decoder.Decode(&cfg)
 	if err != nil {
 		if isRenamedSlackBlock(err) {
 			return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackRenamed)
 		}
 
-		if isRemovedBotToken(err) {
+		if namesRemovedBotToken(contents) {
 			return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackBotTokenRemoved)
 		}
 
@@ -202,11 +207,22 @@ func isRenamedSlackBlock(err error) bool {
 	return strings.Contains(err.Error(), `unknown field "slack"`)
 }
 
-// isRemovedBotToken reports the decoder's complaint about a field the Slack bot
-// token used. Jira and the forge still have a token, so "token" and the two
-// ways to find one can be unknown in the messaging block alone.
-func isRemovedBotToken(err error) bool {
-	removed := []string{`unknown field "token"`, `unknown field "token_command"`, `unknown field "token_env"`}
+// namesRemovedBotToken reports a configuration whose messaging block names a
+// field the Slack bot token used. The decoder's complaint names the field but
+// not its block, and Jira and the forge still have a token, so the block is
+// read for itself.
+func namesRemovedBotToken(contents []byte) bool {
+	var blocks struct {
+		Messaging map[string]json.RawMessage `json:"messaging"`
+	}
 
-	return slices.ContainsFunc(removed, func(complaint string) bool { return strings.Contains(err.Error(), complaint) })
+	if json.Unmarshal(contents, &blocks) != nil {
+		return false
+	}
+
+	return slices.ContainsFunc([]string{"token", "token_command", "token_env"}, func(field string) bool {
+		_, named := blocks.Messaging[field]
+
+		return named
+	})
 }

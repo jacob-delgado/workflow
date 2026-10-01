@@ -667,7 +667,7 @@ export type MessagingDestination = {
      */
     service: string;
     /**
-     * Whether a transport is set up to post — a bot token or a webhook. A webhook service has no channel, so channel presence cannot stand in for this.
+     * Whether a transport is set up to post — a user token or a webhook. A webhook service has no channel, so channel presence cannot stand in for this.
      */
     configured: boolean;
     /**

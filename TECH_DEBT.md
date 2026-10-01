@@ -459,12 +459,14 @@ calls lets a test fail the second without the first.
 
 ### TRADE-17 A Slack user token only Slack itself accepts
 
-Two paths are only ever seen failing, because success needs a service no
+Three paths are only ever seen failing, because success needs a service no
 test can stand in for: `workflow doctor --online` accepting a user token
-(`checkMessaging`, `internal/cli/doctor_credentials.go`), and `workflow
-slack login` accepting the refresh it makes (`keepFirstToken`,
-`internal/cli/slack_cmd.go`), both of which ask Slack itself, at
-`messaging.APIBase`, which nothing configures. The token check and the
+(`checkMessaging`, `internal/cli/doctor_credentials.go`), `workflow slack
+login` accepting the refresh it makes (`keepFirstToken`,
+`internal/cli/slack_cmd.go`), and the web's Settings placing typed secrets
+in the keychain (`placeSlackCredentials`, `internal/wiring/messaging.go`),
+each of which asks Slack itself, at `messaging.APIBase`, which nothing
+configures — and the last writes the real keychain, which no test may. The token check and the
 refresh are tested against local servers in `internal/messaging` and
 `internal/slackauth`; the commands' own handling of an accepted token is
 not.
@@ -472,9 +474,10 @@ not.
 **Decided.** 2026-09-26, in #146; widened on 2026-09-30 when the Slack bot
 token gave way to the rotating user token and `workflow slack login`.
 
-**Cost.** The user and team doctor prints for an accepted token, and what
-the login says and keeps once Slack accepts it, are never checked through
-the commands.
+**Cost.** The user and team doctor prints for an accepted token, what the
+login says and keeps once Slack accepts it, and the keychain Settings fills
+are never checked end to end; the web server's side of a Settings save is
+tested against a fake placement.
 
 **Reopen when.** The messaging address becomes configurable for another
 reason, such as a self-hosted service, or doctor's line for an accepted
@@ -579,3 +582,25 @@ to one copy alone passes that copy's tests.
 
 **Reopen when.** The snapshot comes to carry each issue's marks for another
 reason, or the two copies are found to disagree.
+
+### TRADE-22 A stale refresh lock can be taken over twice
+
+The Slack refresh lock (`internal/slackauth/lock.go`) is a file made with
+`O_CREATE|O_EXCL`, and one older than a minute is taken as left behind by
+a process that ended mid-refresh and is removed. Two processes that both
+find it stale at the same moment can both remove it, and the second's
+remove can take the fresh lock the first just made, so both refresh.
+
+**Decided.** 2026-09-30, in #162: the race needs a lock left behind by a
+crash and two workflows waiting on it in the same instant, and its harm is
+bounded — the second refresh spends a refresh token already spent, Slack
+refuses it, and nothing is saved, so the pair the first kept stands and
+the next post uses it. An operating-system lock (`flock`, `LockFileEx`)
+would end the race and the minute's wait, at the cost of a lock written
+per platform.
+
+**Cost.** In that rare case one post fails, saying the refresh was refused,
+and a lock left behind blocks every refresh for up to a minute.
+
+**Reopen when.** A refused refresh is traced to two refreshes at once, or
+the lock wait is seen to block a post.

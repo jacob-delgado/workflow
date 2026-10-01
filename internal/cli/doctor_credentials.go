@@ -41,7 +41,7 @@ func reportCredentials(ctx context.Context, out io.Writer, run doctorRun, remote
 
 	return credentialVerdict(
 		checkJira(ctx, out, doers.jira, run.cfg.Jira),
-		checkMessaging(ctx, out, doers.messaging, run.cfg),
+		checkMessaging(ctx, out, doers.messaging, run),
 		checkForge(ctx, out, run, remote),
 	)
 }
@@ -230,19 +230,21 @@ func unansweredBecause(ctx context.Context, err error) string {
 // belongs to, refreshing the token first when it is about to run out, as a
 // post would. Only a Slack user token can be checked; a webhook is
 // uncheckable.
-func checkMessaging(ctx context.Context, out io.Writer, doer messaging.Doer, cfg config.Config) error {
+func checkMessaging(ctx context.Context, out io.Writer, doer messaging.Doer, run doctorRun) error {
+	cfg := run.cfg
 	label := strings.ToLower(cfg.Messaging.Service())
 
 	client := messaging.New(doer, messaging.APIBase, cfg.Messaging)
 	if cfg.Messaging.Mode() == config.MessagingUser {
-		client = client.WithToken(wiring.SlackToken(cfg, doer))
+		client = client.WithToken(userTokenSource(cfg, doer, run.dryRun))
 	}
 
 	identity, err := client.AuthTest(ctx)
 	// A webhook that cannot be checked is not a failed check. Nothing is wrong
 	// with the configuration; there is simply nothing to ask, because the only
-	// way to test a webhook is to post into somebody's channel.
-	if errors.Is(err, messaging.ErrWebhookUncheckable) {
+	// way to test a webhook is to post into somebody's channel. A token due a
+	// refresh under --dry-run is the same: asking would mean writing.
+	if errors.Is(err, messaging.ErrWebhookUncheckable) || errors.Is(err, errRefreshHeldBack) {
 		return credentialUnchecked(out, label, err.Error())
 	}
 
@@ -256,6 +258,30 @@ func checkMessaging(ctx context.Context, out io.Writer, doer messaging.Doer, cfg
 	fmt.Fprintf(out, "  %-10s %s in %s (%s)\n", label, identity.User, identity.Team, userTokenNote(ctx, cfg))
 
 	return nil
+}
+
+// userTokenSource is the user token doctor asks Slack about: the one a post
+// would use, or under a dry run the one held, without the refresh that would
+// write a new one where it is kept.
+func userTokenSource(cfg config.Config, doer messaging.Doer, dryRun bool) messaging.TokenSource {
+	if !dryRun {
+		return wiring.SlackToken(cfg, doer)
+	}
+
+	store := wiring.SlackStore(cfg)
+
+	return func(ctx context.Context, _ config.Secret) (config.Secret, error) {
+		held, err := store.Load(ctx)
+		if err != nil {
+			return "", fmt.Errorf("%w: %w", messaging.ErrNoCredential, err)
+		}
+
+		if held.AccessToken == "" || !time.Now().Before(held.ExpiresAt) {
+			return "", errRefreshHeldBack
+		}
+
+		return held.AccessToken, nil
+	}
 }
 
 // userTokenNote says where cfg keeps its user token and how long it has left,

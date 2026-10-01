@@ -134,8 +134,8 @@ func everySeamFailure() map[string]spoken {
 		},
 		"messaging no credential": {
 			fmt.Errorf("posting: %w", messaging.ErrNoCredential), "messaging has no credential",
-			"Messaging has no credential. Set `messaging.webhook_url` or `messaging.token`, or check that " +
-				"`messaging.token_command` or `messaging.token_env` gives one.",
+			"Messaging has no credential. Run `workflow slack login` to post to Slack with your user token, " +
+				"or set `messaging.webhook_url`.",
 		},
 		"messaging insecure webhook": {
 			fmt.Errorf("posting: %w", messaging.ErrInsecureWebhook), "the webhook is not https",
@@ -143,8 +143,8 @@ func everySeamFailure() map[string]spoken {
 		},
 		"messaging rejected": {
 			fmt.Errorf("%w: invalid_token", messaging.ErrRejected), "the announcement was refused",
-			"The messaging service refused the announcement: check the token, that the bot is in the channel, " +
-				"or that the webhook is current.",
+			"The messaging service refused the announcement: run `workflow slack login` again, " +
+				"check that you are in the channel, or that the webhook is current.",
 		},
 		"messaging post refused": {
 			fmt.Errorf("%w: #dev is archived", messaging.ErrPostRefused), "the message was refused",

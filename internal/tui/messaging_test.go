@@ -542,7 +542,7 @@ func TestTheSlackPaneNamesWhatItNeedsWhenUnset(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "Slack is not set up", "messaging.webhook_url",
-		"messaging.token and", "messaging.channel", ".workflow.json")
+		"workflow slack login", "messaging.channel", ".workflow.json")
 	refuseScreen(t, footerLine(view), "p announce")
 }
 

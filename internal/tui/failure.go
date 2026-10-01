@@ -241,8 +241,8 @@ func messagingErrors() []knownError {
 	return []knownError{
 		{messaging.ErrNoCredential, wording{
 			brief: "messaging has no credential",
-			full: "Messaging has no credential. Set `messaging.webhook_url` or `messaging.token`, or check that " +
-				"`messaging.token_command` or `messaging.token_env` gives one.",
+			full: "Messaging has no credential. Run `workflow slack login` to post to Slack with your user token, " +
+				"or set `messaging.webhook_url`.",
 		}},
 		{messaging.ErrInsecureWebhook, wording{
 			brief: "the webhook is not https",
@@ -250,8 +250,8 @@ func messagingErrors() []knownError {
 		}},
 		{messaging.ErrRejected, wording{
 			brief: "the announcement was refused",
-			full: "The messaging service refused the announcement: check the token, that the bot is in the channel, " +
-				"or that the webhook is current.",
+			full: "The messaging service refused the announcement: run `workflow slack login` again, " +
+				"check that you are in the channel, or that the webhook is current.",
 		}},
 		{messaging.ErrPostRefused, ownWords()},
 		{messaging.ErrUnexpectedStatus, wording{

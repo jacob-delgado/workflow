@@ -164,3 +164,34 @@ func TestChooseKeepsThePairWhereItBelongs(t *testing.T) {
 		})
 	}
 }
+
+func TestAKeychainEntryMissingItsSecretsSaysToLogIn(t *testing.T) {
+	t.Parallel()
+
+	for name, entry := range map[string]string{
+		"empty":            `{}`,
+		"null":             `null`,
+		"no client secret": `{"refresh_token":"xoxe-1-x"}`,
+		"no refresh token": `{"client_secret":"s"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			item := keychainHolding(t)
+
+			err := item.Store(t.Context(), entry)
+			if err != nil {
+				t.Fatalf("Store = %v", err)
+			}
+
+			// Act
+			_, err = slackauth.KeychainStore(item).Load(t.Context())
+
+			// Assert
+			if !errors.Is(err, slackauth.ErrNotLoggedIn) {
+				t.Errorf("Load = %v, want ErrNotLoggedIn", err)
+			}
+		})
+	}
+}

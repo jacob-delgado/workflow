@@ -188,9 +188,9 @@ func keepFirstToken(ctx context.Context, out io.Writer, cfg config.Config, start
 		return err
 	}
 
-	err = store.Save(ctx, renewed)
+	err = store.Keep(ctx, renewed)
 	if err != nil {
-		return fmt.Errorf("keeping the token in %s: %w", store.Where(), err)
+		return err
 	}
 
 	identity, err := messaging.New(transport, messaging.APIBase, cfg.Messaging).

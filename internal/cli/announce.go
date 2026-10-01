@@ -104,8 +104,8 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 // repeat it unasked.
 func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	if seams.Post == nil {
-		return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url — or messaging.token, for a "+
-			"Slack bot — in %s, then check them with workflow doctor", errMessagingNotConfigured, config.FileName)
+		return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, for Slack, run "+
+			"workflow slack login — then check them with workflow doctor", errMessagingNotConfigured, config.FileName)
 	}
 
 	announcement, pull, err := loop.ComposeAnnouncement(seams.Compose, seams.Messaging, seams.Project, seams.Kind)
