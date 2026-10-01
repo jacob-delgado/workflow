@@ -230,3 +230,38 @@ func TestARefusedGroupSaveShowsWhatIsKept(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "slack is down", "○ @control-plane-pod", "● @api-reviewers")
 }
+
+func TestTheSelectionFollowsAnOwnerAfterAChange(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		keys []string
+		want string
+	}{
+		"forgetting an owner of the changes stays on them": {
+			keys: []string{"d", "x"}, want: "link-owner " + ownerCarla + " nobody",
+		},
+		"forgetting anyone else moves to the next": {
+			keys: []string{downAction, "d", "x"}, want: "link-owner " + podTeam + " nobody",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// carla, dan and the team were decided; carla owns the changes
+			tagging := taggingWorld()
+			tagging.codeOwners = []string{ownerCarla}
+
+			// Act
+			typing(t, openPeople(t, tagging), tt.keys...)
+
+			// Assert
+			if calls := tagging.asked("link-owner "); len(calls) != 1 || calls[0] != tt.want {
+				t.Errorf("links = %q, want %q", calls, tt.want)
+			}
+		})
+	}
+}

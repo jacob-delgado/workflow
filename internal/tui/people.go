@@ -156,14 +156,22 @@ type peopleListed struct {
 	err    error
 }
 
-// apply lists them, the selection held where it was.
+// apply lists them, the selection held on the owner it was on, or, where
+// they are no longer listed, on the one after.
 func (msg peopleListed) apply(m Model) (Model, tea.Cmd) {
 	open, isOpen := beneath[peopleOverlay](m, msg.opened)
 	if !isOpen {
 		return m, nil
 	}
 
-	open.people = pickList[person]{items: msg.people, selected: open.people.selected}.moved(0)
+	selected := open.people.selected
+	if was, listed := open.people.chosen(); listed {
+		if index := slices.IndexFunc(msg.people, func(row person) bool { return row.owner == was.owner }); index >= 0 {
+			selected = index
+		}
+	}
+
+	open.people = pickList[person]{items: msg.people, selected: selected}.moved(0)
 	open.reading, open.readErr = false, msg.err
 
 	return m.withBeneath(open), nil
