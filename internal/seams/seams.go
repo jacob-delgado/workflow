@@ -171,6 +171,26 @@ type Store struct {
 	CachedIssues func(view string) ([]jira.Issue, bool)
 	// CacheIssues remembers the issue list just seen for a view.
 	CacheIssues func(view string, issues []jira.Issue)
+	// OwnerLinks is every forge owner decided on this repository's forge host:
+	// whom each is on Slack, or that they are not. Kept data survives the
+	// cache's schema changes; a file from a newer build reads as none.
+	OwnerLinks func() ([]loop.OwnerLink, error)
+	// LinkOwner records whom a forge owner is on this forge host's Slack — a
+	// user for a user owner, a user group for a team — and nil that they are
+	// not on Slack, so they are not asked again.
+	LinkOwner func(owner string, target *loop.SlackTarget) error
+	// ForgetOwner drops what was decided for a forge owner, so they are asked
+	// again.
+	ForgetOwner func(owner string) error
+	// RepoGroups is the Slack user groups this repository may tag.
+	RepoGroups func() ([]loop.SlackTarget, error)
+	// SetRepoGroups replaces the Slack user groups this repository may tag.
+	SetRepoGroups func(groups []loop.SlackTarget) error
+	// LastGroups is the group IDs last chosen for this repository's
+	// announcement, and whether a choice was recorded at all.
+	LastGroups func() ([]string, bool)
+	// RecordGroups remembers the groups just chosen, each one of RepoGroups.
+	RecordGroups func(ids []string) error
 }
 
 // Hooks is what a surface asks of lefthook.
