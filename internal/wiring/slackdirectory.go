@@ -6,6 +6,7 @@ package wiring
 import (
 	"cmp"
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -22,10 +23,12 @@ const DirectoryTTL = 10 * time.Minute
 
 // SlackDirectory is the Slack directory as this session has read it: the
 // channels named so far, their members, the workspace's users and its user
-// groups. A read that fails is not held, so it is asked again. While the
-// settings in effect post with no Slack user token, every read answers
-// messaging.ErrNoCredential and nothing is held, so a surface reads tagging as
-// unavailable until a token is set up, and then reads the directory afresh.
+// groups. Each is read once however many ask for it at a time, and no lock is
+// held while Slack answers, so Refresh never waits on a read. A read that
+// fails is not held, so it is asked again. While the settings in effect post
+// with no Slack user token, every read answers messaging.ErrNoCredential and
+// nothing is held, so a surface reads tagging as unavailable until a token is
+// set up, and then reads the directory afresh.
 //
 // Trade-off TRADE-26: users.list is read whole, once a session, to label a
 // channel's members, rather than each member looked up on its own.
@@ -35,10 +38,28 @@ type SlackDirectory struct {
 
 	lock     sync.Mutex
 	readFrom time.Time
-	channels map[string]string
-	members  map[string][]messaging.SlackUserID
-	users    []messaging.SlackTarget
-	groups   []messaging.SlackTarget
+	held     *heldReads
+}
+
+// heldReads is one generation of the directory: every read begun since it was
+// last forgotten, each finished or in flight. Forgetting replaces it whole, so
+// a read in flight then lands in a generation no one reads from any more.
+type heldReads struct {
+	channels map[string]*flight[string]
+	members  map[string]*flight[[]messaging.SlackUserID]
+	users    map[string]*flight[map[string]string]
+	groups   map[string]*flight[[]messaging.SlackTarget]
+}
+
+// wholeDirectory is the key of a read that has only one answer.
+const wholeDirectory = ""
+
+// flight is one read from Slack, shared by everyone who asks while it runs
+// and after: value and err are set before done closes.
+type flight[V any] struct {
+	done  chan struct{}
+	value V
+	err   error
 }
 
 // NewSlackDirectory is an empty directory reading through client, which is
@@ -52,7 +73,8 @@ func NewSlackDirectory(client func() (messaging.Client, error), now func() time.
 	return directory
 }
 
-// Refresh drops everything read so far, so the next read asks Slack again.
+// Refresh drops everything read so far, so the next read asks Slack again. A
+// read in flight finishes for those already waiting on it, and is not held.
 func (d *SlackDirectory) Refresh() {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -64,22 +86,28 @@ func (d *SlackDirectory) Refresh() {
 // an ID — who users.list says can be tagged, labeled by their Slack name and
 // ordered by it.
 func (d *SlackDirectory) ChannelMembers(ctx context.Context, channel string) ([]loop.SlackTarget, error) {
-	// The lock is held across Slack's answer on purpose: two surfaces asking at
-	// once wait for one read rather than paging the directory twice.
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	slack, err := d.slack()
+	slack, held, err := d.begin()
 	if err != nil {
 		return nil, err
 	}
 
-	members, err := d.membersOf(ctx, slack, channel)
+	channelID, err := shared(ctx, d, held.channels, channel, func(ctx context.Context) (string, error) {
+		return slack.ChannelID(ctx, channel)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	users, err := d.everyone(ctx, slack)
+	members, err := shared(ctx, d, held.members, channelID, func(ctx context.Context) ([]messaging.SlackUserID, error) {
+		return slack.ChannelMembers(ctx, channelID)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	users, err := shared(ctx, d, held.users, wholeDirectory, func(ctx context.Context) (map[string]string, error) {
+		return byID(slack.Users(ctx))
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -89,123 +117,119 @@ func (d *SlackDirectory) ChannelMembers(ctx context.Context, channel string) ([]
 
 // UserGroups is every enabled user group in the workspace.
 func (d *SlackDirectory) UserGroups(ctx context.Context) ([]loop.SlackTarget, error) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	slack, err := d.slack()
+	slack, held, err := d.begin()
 	if err != nil {
 		return nil, err
 	}
 
-	d.expire()
-
-	if d.groups == nil {
-		groups, err := slack.UserGroups(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		d.groups = groups
+	groups, err := shared(ctx, d, held.groups, wholeDirectory, slack.UserGroups)
+	if err != nil {
+		return nil, err
 	}
 
-	return asLoopTargets(d.groups), nil
+	return asLoopTargets(groups), nil
 }
 
-// slack is the client to read with, or why there is none — when everything
-// held is forgotten, since it was read under other settings. The caller holds
-// the lock.
-func (d *SlackDirectory) slack() (messaging.Client, error) {
+// begin is the client to read with and the generation to read into, or why
+// there is none — when everything held is forgotten, since it was read under
+// other settings.
+func (d *SlackDirectory) begin() (messaging.Client, *heldReads, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	client, err := d.client()
 	if err != nil {
 		d.forget()
 
-		return messaging.Client{}, err
+		return messaging.Client{}, nil, err
 	}
 
-	return client, nil
-}
-
-// membersOf is the user ID of everyone in channel, read once.
-func (d *SlackDirectory) membersOf(
-	ctx context.Context, slack messaging.Client, channel string,
-) ([]messaging.SlackUserID, error) {
-	d.expire()
-
-	channelID, err := d.channelID(ctx, slack, channel)
-	if err != nil {
-		return nil, err
-	}
-
-	if members, held := d.members[channelID]; held {
-		return members, nil
-	}
-
-	members, err := slack.ChannelMembers(ctx, channelID)
-	if err != nil {
-		return nil, err
-	}
-
-	d.members[channelID] = members
-
-	return members, nil
-}
-
-// channelID is the ID of the channel named, read once.
-func (d *SlackDirectory) channelID(ctx context.Context, slack messaging.Client, channel string) (string, error) {
-	if known, held := d.channels[channel]; held {
-		return known, nil
-	}
-
-	found, err := slack.ChannelID(ctx, channel)
-	if err != nil {
-		return "", err
-	}
-
-	d.channels[channel] = found
-
-	return found, nil
-}
-
-// everyone is every taggable user in the workspace, read once.
-func (d *SlackDirectory) everyone(ctx context.Context, slack messaging.Client) ([]messaging.SlackTarget, error) {
-	if d.users == nil {
-		users, err := slack.Users(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		d.users = users
-	}
-
-	return d.users, nil
-}
-
-// expire forgets everything once DirectoryTTL has passed since the reads
-// began. The caller holds the lock.
-func (d *SlackDirectory) expire() {
 	if d.now().Sub(d.readFrom) >= DirectoryTTL {
 		d.forget()
 	}
+
+	return client, d.held, nil
 }
 
-// forget empties the directory and starts its time over. The caller holds the
-// lock.
+// shared is what read answers for key, read once: the first to ask reads, and
+// everyone asking meanwhile waits on that read without holding the lock. A
+// failure is dropped once it is answered, so the next ask reads again.
+func shared[V any](
+	ctx context.Context, directory *SlackDirectory, held map[string]*flight[V], key string,
+	read func(context.Context) (V, error),
+) (V, error) {
+	directory.lock.Lock()
+	current, inFlight := held[key]
+
+	if !inFlight {
+		current = &flight[V]{done: make(chan struct{})}
+		held[key] = current
+	}
+	directory.lock.Unlock()
+
+	if !inFlight {
+		current.value, current.err = read(ctx)
+		close(current.done)
+
+		if current.err != nil {
+			drop(directory, held, key, current)
+		}
+	}
+
+	select {
+	case <-current.done:
+		return current.value, current.err
+	case <-ctx.Done():
+		var none V
+
+		return none, fmt.Errorf("reading the Slack directory: %w", ctx.Err())
+	}
+}
+
+// drop removes the failed read from held, unless another has taken its place.
+func drop[V any](directory *SlackDirectory, held map[string]*flight[V], key string, failed *flight[V]) {
+	directory.lock.Lock()
+	defer directory.lock.Unlock()
+
+	if held[key] == failed {
+		delete(held, key)
+	}
+}
+
+// forget starts a new generation, empty, and its time over. The caller holds
+// the lock.
 func (d *SlackDirectory) forget() {
 	d.readFrom = d.now()
-	d.channels = map[string]string{}
-	d.members = map[string][]messaging.SlackUserID{}
-	d.users, d.groups = nil, nil
+	d.held = &heldReads{
+		channels: map[string]*flight[string]{},
+		members:  map[string]*flight[[]messaging.SlackUserID]{},
+		users:    map[string]*flight[map[string]string]{},
+		groups:   map[string]*flight[[]messaging.SlackTarget]{},
+	}
+}
+
+// byID is each user's label by their ID.
+func byID(users []messaging.SlackTarget, err error) (map[string]string, error) {
+	if err != nil {
+		return nil, err
+	}
+
+	labels := make(map[string]string, len(users))
+	for _, user := range users {
+		labels[user.ID] = user.Label
+	}
+
+	return labels, nil
 }
 
 // labeled is each member users names, under that name, ordered by it. A member
 // users leaves out — a bot, a deactivated account — is not someone to tag.
-func labeled(members []messaging.SlackUserID, users []messaging.SlackTarget) []loop.SlackTarget {
+func labeled(members []messaging.SlackUserID, users map[string]string) []loop.SlackTarget {
 	targets := make([]loop.SlackTarget, 0, len(members))
 
 	for _, member := range members {
-		index := slices.IndexFunc(users, func(user messaging.SlackTarget) bool { return user.ID == member.String() })
-		if index >= 0 {
-			targets = append(targets, loop.SlackTarget{ID: users[index].ID, Label: users[index].Label})
+		if label, known := users[member.String()]; known {
+			targets = append(targets, loop.SlackTarget{ID: member.String(), Label: label})
 		}
 	}
 
