@@ -138,6 +138,10 @@ type Forge struct {
 	// stand for its people. Nil on GitHub, whose teams review as teams, and
 	// with no forge.
 	GroupMembers func(group string) ([]string, error)
+	// IsGroup reports whether a bare CODEOWNERS name, @acme, is a top-level
+	// GitLab group rather than a user, so it is tagged as a team. Nil on
+	// GitHub, whose teams are spelled org/team, and with no forge.
+	IsGroup func(name string) (bool, error)
 	// Kind is the forge the remote points at, so a surface can call a change a
 	// "pull request" or a "merge request".
 	Kind forge.Kind
@@ -200,10 +204,11 @@ type Store struct {
 	// key them by. Each refuses an empty workspace with store.ErrNoWorkspace,
 	// but LinkOwner's "not on Slack", which is about the person.
 	OwnerLinks func(workspace string) ([]loop.OwnerLink, error)
-	// LinkOwner records whom a forge owner is on this forge host's Slack in a
-	// workspace — a user for a user owner, a user group for a team — and nil
-	// that they are not on Slack in any, so they are not asked again.
-	LinkOwner func(workspace, owner string, target *loop.SlackTarget) error
+	// LinkOwner records what was decided for a forge owner on this forge
+	// host, and whether they are a person or a team: whom they are on Slack
+	// in a workspace — a user for a person, a user group for a team — or that
+	// they are not on Slack in any, so they are not asked again.
+	LinkOwner func(workspace string, decision loop.OwnerLink) error
 	// ForgetOwner drops what was decided for a forge owner in a workspace, so
 	// they are asked again there.
 	ForgetOwner func(workspace, owner string) error

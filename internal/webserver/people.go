@@ -174,27 +174,40 @@ func (s *server) people() (api.People, error) {
 		return api.People{}, err
 	}
 
-	names := make([]string, 0, len(links))
-	for _, link := range links {
-		names = append(names, link.Owner)
-	}
-
-	branchOwners := s.branchOwners()
-	for _, owner := range slices.Concat(branchOwners.Users, branchOwners.Teams) {
-		if !slices.ContainsFunc(names, func(name string) bool { return loop.SameOwner(name, owner) }) {
-			names = append(names, owner)
-		}
-	}
-
-	users, teams := loop.SplitReviewers(names)
-	tags := loop.ProposeTags(codeowners.Owners{Users: users, Teams: teams}, links, nil, nil, false,
-		messaging.MomentReady)
+	tags := loop.ProposeTags(peopleOwners(links, s.branchOwners()), links, nil, nil, false, messaging.MomentReady)
 
 	return api.People{Owners: ownerTagsDTO(tags.Owners)}, nil
 }
 
-// branchOwners is who owns the branch's changes, or nobody when they cannot
-// be read: People lists them only to be decided ahead of an announcement.
+// peopleOwners is every owner decided, as the kind each was decided as, then
+// each of the branch's owners not decided, as the forge tells them apart.
+func peopleOwners(links []loop.OwnerLink, branchOwners codeowners.Owners) codeowners.Owners {
+	var owners codeowners.Owners
+
+	add := func(owner string, team bool) {
+		if team {
+			owners.Teams = append(owners.Teams, owner)
+		} else {
+			owners.Users = append(owners.Users, owner)
+		}
+	}
+
+	for _, link := range links {
+		add(link.Owner, link.Team)
+	}
+
+	for _, owner := range slices.Concat(branchOwners.Users, branchOwners.Teams) {
+		if !slices.ContainsFunc(links, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner, owner) }) {
+			add(owner, slices.Contains(branchOwners.Teams, owner))
+		}
+	}
+
+	return owners
+}
+
+// branchOwners is who owns the branch's changes, a bare name the forge knows
+// as a group among the teams, or nobody when they cannot be read: People
+// lists them only to be decided ahead of an announcement.
 func (s *server) branchOwners() codeowners.Owners {
 	if s.deps.Branch == nil {
 		return codeowners.Owners{}
@@ -205,7 +218,10 @@ func (s *server) branchOwners() codeowners.Owners {
 		return codeowners.Owners{}
 	}
 
-	owners, err := loop.OwnersOf(s.ownerSeams(), branch.Base)
+	seams := s.ownerSeams()
+	seams.IsGroup = s.deps.IsGroup
+
+	owners, err := loop.OwnersOf(seams, branch.Base)
 	if err != nil {
 		return codeowners.Owners{}
 	}
@@ -223,18 +239,42 @@ func (s *server) linkPerson(link api.PersonLink) error {
 		return errOneOrTheOther
 	}
 
+	team, err := s.isTeam(link.Owner)
+	if err != nil {
+		return err
+	}
+
 	return s.inWorkspace(func(workspace string) error {
-		if link.NotOnSlack {
-			return s.keptWrite(func() error { return s.deps.LinkOwner(workspace, link.Owner, nil) })
+		decision := loop.OwnerLink{Owner: link.Owner, Team: team, OnSlack: false, Slack: loop.SlackTarget{}}
+		if !link.NotOnSlack {
+			target, err := s.slackTarget(*link.SlackID, team, orZero(link.Channel))
+			if err != nil {
+				return err
+			}
+
+			decision.OnSlack, decision.Slack = true, target
 		}
 
-		target, err := s.slackTarget(*link.SlackID, strings.Contains(link.Owner, "/"), orZero(link.Channel))
-		if err != nil {
-			return err
-		}
-
-		return s.keptWrite(func() error { return s.deps.LinkOwner(workspace, link.Owner, &target) })
+		return s.keptWrite(func() error { return s.deps.LinkOwner(workspace, decision) })
 	})
+}
+
+// isTeam reports whether owner is a team, as People lists them: as it was
+// decided, or as the forge tells the branch's owners apart, and otherwise as
+// CODEOWNERS spells a team, with a slash.
+func (s *server) isTeam(owner string) (bool, error) {
+	people, err := s.people()
+	if err != nil {
+		return false, err
+	}
+
+	for _, listed := range people.Owners {
+		if loop.SameOwner(listed.Owner, owner) {
+			return listed.Kind == api.Team, nil
+		}
+	}
+
+	return strings.Contains(owner, "/"), nil
 }
 
 // inWorkspace makes use of the kept associations in the Slack workspace the

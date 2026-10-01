@@ -20,10 +20,13 @@ type SlackTarget struct {
 	Label string
 }
 
-// OwnerLink is what was decided for one forge owner: whether they are on Slack,
-// and if so, as whom — a user for a user owner, a user group for a team.
+// OwnerLink is what was decided for one forge owner: whether they are a team
+// or a person, as the forge told them apart when they were decided; whether
+// they are on Slack; and if so, as whom — a user for a person, a user group
+// for a team.
 type OwnerLink struct {
 	Owner   string
+	Team    bool
 	OnSlack bool
 	Slack   SlackTarget
 }

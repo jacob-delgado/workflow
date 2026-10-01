@@ -19,6 +19,16 @@ import (
 // read of them filters by one, so it needs the file migrated at least this far.
 const workspacesKeptIn = 3
 
+// ownerKindsKeptIn is the migration that keeps whether an owner is a person or
+// a team: a read of the owner links needs the file migrated this far.
+const ownerKindsKeptIn = 4
+
+// The kinds of forge owner a decision keeps.
+const (
+	kindUser = "user"
+	kindTeam = "team"
+)
+
 // The Slack ID prefixes a forge owner may link to: a user (U, or W in an
 // Enterprise Grid) for a user owner, and a user group (S) for a team owner.
 const (
@@ -50,10 +60,12 @@ type SlackTarget struct {
 	Label string
 }
 
-// OwnerLink is what was decided for one forge owner: whether they are on Slack,
-// and if so, as whom.
+// OwnerLink is what was decided for one forge owner: whether they are a team,
+// which links to a Slack user group, or a person, who links to a Slack user;
+// whether they are on Slack; and if so, as whom.
 type OwnerLink struct {
 	Owner   string
+	Team    bool
 	OnSlack bool
 	Slack   SlackTarget
 }
@@ -113,6 +125,19 @@ func workspacesMigration() []string {
 	}
 }
 
+// ownerKindsMigration keeps whether each owner is a person or a team with the
+// decision, which the caller says: CODEOWNERS spells a top-level GitLab group
+// @acme, as it spells a user, so the name cannot. Every decision kept before
+// was made by the name, a team holding a slash, so that is the kind each is
+// given.
+func ownerKindsMigration() []string {
+	return []string{
+		`ALTER TABLE owner_decision ADD COLUMN owner_kind TEXT NOT NULL DEFAULT 'user'
+			CHECK (owner_kind IN ('user', 'team'))`,
+		`UPDATE owner_decision SET owner_kind = 'team' WHERE instr(owner, '/') > 0`,
+	}
+}
+
 // OwnerLinks is every owner decided on a forge host as a Slack workspace sees
 // them, by owner in lower case: linked there, or not on Slack anywhere. An
 // owner linked only in other workspaces is left out, so they read as never
@@ -128,14 +153,14 @@ func (s Store) OwnerLinks(ctx context.Context, forgeHost, workspace string) ([]O
 		return nil, ErrNoWorkspace
 	}
 
-	database, found, err := s.readKept(ctx, workspacesKeptIn)
+	database, found, err := s.readKept(ctx, ownerKindsKeptIn)
 	if err != nil || !found {
 		return nil, err
 	}
 	defer func() { _ = database.Close() }()
 
 	rows, err := database.QueryContext(ctx,
-		`SELECT decision.owner, here.slack_id, here.label
+		`SELECT decision.owner, decision.owner_kind, here.slack_id, here.label
 			FROM owner_decision AS decision
 			LEFT JOIN (SELECT link.forge_host, link.owner, link.slack_id, entity.label
 				FROM owner_slack AS link JOIN slack_entity AS entity USING (slack_id)
@@ -153,16 +178,16 @@ func (s Store) OwnerLinks(ctx context.Context, forgeHost, workspace string) ([]O
 
 	for rows.Next() {
 		var (
-			owner          string
+			owner, kind    string
 			slackID, label sql.NullString
 		)
 
-		err = rows.Scan(&owner, &slackID, &label)
+		err = rows.Scan(&owner, &kind, &slackID, &label)
 		if err != nil {
 			return nil, fmt.Errorf("reading an owner link: %w", err)
 		}
 
-		link, valid := ownerLinkFrom(owner, slackID, label)
+		link, valid := ownerLinkFrom(owner, kind, slackID, label)
 		if valid {
 			links = append(links, link)
 		}
@@ -176,20 +201,36 @@ func (s Store) OwnerLinks(ctx context.Context, forgeHost, workspace string) ([]O
 	return links, nil
 }
 
-// ownerLinkFrom validates one row read back: an owner of the wrong shape, or a
-// link to a Slack ID of the wrong shape or kind for it, or to no Slack entity,
-// is no link at all.
-func ownerLinkFrom(owner string, slackID, label sql.NullString) (OwnerLink, bool) {
-	linkedWell := isSlackIDFor(owner, slackID.String) && label.Valid
-	if !isOwner(owner) || slackID.Valid && !linkedWell {
+// ownerLinkFrom validates one row read back: an owner of the wrong shape or
+// kind, or a link to a Slack ID of the wrong shape or kind for it, or to no
+// Slack entity, is no link at all.
+func ownerLinkFrom(owner, kind string, slackID, label sql.NullString) (OwnerLink, bool) {
+	team := kind == kindTeam
+	linkedWell := isSlackIDFor(team, slackID.String) && label.Valid
+
+	if !isOwnerOfKind(owner, kind) || slackID.Valid && !linkedWell {
 		return OwnerLink{}, false
 	}
 
 	return OwnerLink{
 		Owner:   strings.ToLower(owner),
+		Team:    team,
 		OnSlack: slackID.Valid,
 		Slack:   SlackTarget{ID: slackID.String, Label: cleanLabel(label.String)},
 	}, true
+}
+
+// isOwnerOfKind reports an owner of the shape its kind takes: a person's
+// name, or a team's, which a slash may divide.
+func isOwnerOfKind(owner, kind string) bool {
+	switch kind {
+	case kindUser:
+		return isOwner(owner) && !strings.Contains(owner, "/")
+	case kindTeam:
+		return isOwner(owner)
+	default:
+		return false
+	}
 }
 
 // ownerIn is one forge owner on a host, as a Slack workspace sees them.
@@ -199,31 +240,31 @@ type ownerIn struct {
 	owner     string
 }
 
-// LinkOwner records what was decided for a forge owner on a host: target is
-// whom they are on Slack in workspace, replacing only that workspace's link,
-// and nil that they are not on Slack in any. It refuses an owner or Slack ID
-// of the wrong shape with ErrInvalidOwner or ErrInvalidSlackID, and a link
-// under no workspace with ErrNoWorkspace. The owner is kept in lower case,
-// since both forges read user and team names without regard to case. A
-// disabled or read-only store records nothing.
-func (s Store) LinkOwner(
-	ctx context.Context, forgeHost, workspace, owner string, target *SlackTarget, now time.Time,
-) error {
+// LinkOwner records what was decided for a forge owner on a host, and
+// whether they are a person or a team, as the caller tells: whom they are on
+// Slack in workspace, replacing only that workspace's link, or that they are
+// not on Slack in any. It refuses an owner of the wrong shape for its kind
+// with ErrInvalidOwner, a Slack ID of the wrong shape or kind — a user group
+// for a team, a user for a person — with ErrInvalidSlackID, and a link under
+// no workspace with ErrNoWorkspace. The owner is kept in lower case, since
+// both forges read user and team names without regard to case. A disabled or
+// read-only store records nothing.
+func (s Store) LinkOwner(ctx context.Context, forgeHost, workspace string, decision OwnerLink, now time.Time) error {
 	switch {
 	case forgeHost == "":
 		return nil
-	case !isOwner(owner):
+	case !isOwnerOfKind(decision.Owner, kindOf(decision.Team)):
 		return ErrInvalidOwner
-	case target != nil && !isSlackIDFor(owner, target.ID):
+	case decision.OnSlack && !isSlackIDFor(decision.Team, decision.Slack.ID):
 		return ErrInvalidSlackID
-	case target != nil && workspace == "":
+	case decision.OnSlack && workspace == "":
 		return ErrNoWorkspace
 	}
 
-	where := ownerIn{forgeHost: forgeHost, workspace: workspace, owner: strings.ToLower(owner)}
+	where := ownerIn{forgeHost: forgeHost, workspace: workspace, owner: strings.ToLower(decision.Owner)}
 
 	return s.keptWithin(ctx, func(transaction *sql.Tx) error {
-		err := writeOwnerLink(ctx, transaction, where, target, now)
+		err := writeOwnerLink(ctx, transaction, where, decision, now)
 		if err != nil {
 			return err
 		}
@@ -265,18 +306,24 @@ func (s Store) ForgetOwner(ctx context.Context, forgeHost, workspace, owner stri
 	})
 }
 
+// kindOf is the kind an owner is kept as.
+func kindOf(team bool) string {
+	return map[bool]string{false: kindUser, true: kindTeam}[team]
+}
+
 // writeOwnerLink upserts the decision and replaces its Slack link in the
 // workspace, or every link when the owner is not on Slack.
-func writeOwnerLink(ctx context.Context, transaction *sql.Tx, where ownerIn, target *SlackTarget, now time.Time) error {
+func writeOwnerLink(ctx context.Context, transaction *sql.Tx, where ownerIn, decision OwnerLink, now time.Time) error {
 	_, err := transaction.ExecContext(ctx,
-		`INSERT INTO owner_decision (forge_host, owner, decided_at) VALUES (?, ?, ?)
-			ON CONFLICT(forge_host, owner) DO UPDATE SET decided_at = excluded.decided_at`,
-		where.forgeHost, where.owner, timestamp(now))
+		`INSERT INTO owner_decision (forge_host, owner, decided_at, owner_kind) VALUES (?, ?, ?, ?)
+			ON CONFLICT(forge_host, owner) DO UPDATE
+				SET decided_at = excluded.decided_at, owner_kind = excluded.owner_kind`,
+		where.forgeHost, where.owner, timestamp(now), kindOf(decision.Team))
 	if err != nil {
 		return fmt.Errorf("recording the owner decision: %w", err)
 	}
 
-	if target == nil {
+	if !decision.OnSlack {
 		return unlinkEverywhere(ctx, transaction, where)
 	}
 
@@ -285,14 +332,14 @@ func writeOwnerLink(ctx context.Context, transaction *sql.Tx, where ownerIn, tar
 		return err
 	}
 
-	err = keepSlackEntity(ctx, transaction, *target, where.workspace, now)
+	err = keepSlackEntity(ctx, transaction, decision.Slack, where.workspace, now)
 	if err != nil {
 		return err
 	}
 
 	_, err = transaction.ExecContext(ctx,
 		`INSERT INTO owner_slack (forge_host, owner, slack_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`,
-		where.forgeHost, where.owner, target.ID)
+		where.forgeHost, where.owner, decision.Slack.ID)
 	if err != nil {
 		return fmt.Errorf("linking the owner to Slack: %w", err)
 	}
@@ -373,18 +420,10 @@ func isUpperOrDigit(character rune) bool {
 	return 'A' <= character && character <= 'Z' || '0' <= character && character <= '9'
 }
 
-// isSlackIDFor reports a Slack ID of the kind owner links to: a user's for a
-// user owner, and a user group's for a team owner, whose name holds a slash.
-//
-// Trade-off TRADE-27: a top-level GitLab group has no slash, so it links like
-// a person.
-func isSlackIDFor(owner, slackID string) bool {
-	prefixes := userIDPrefixes
-	if strings.Contains(owner, "/") {
-		prefixes = groupIDPrefixes
-	}
-
-	return isSlackID(slackID, prefixes)
+// isSlackIDFor reports a Slack ID of the kind an owner links to: a user
+// group's for a team, a user's for a person.
+func isSlackIDFor(team bool, slackID string) bool {
+	return isSlackID(slackID, map[bool]string{false: userIDPrefixes, true: groupIDPrefixes}[team])
 }
 
 // isSlackID reports an ID that starts with one of prefixes and goes on with at

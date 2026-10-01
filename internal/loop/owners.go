@@ -12,13 +12,16 @@ import (
 )
 
 // OwnerSeams are what the owners of a pull request's changes are read through:
-// the paths the branch changes since base, the CODEOWNERS file base holds, and
-// who is opening the pull request. A nil ChangedPaths or CodeOwnersAt means
-// there are no owners to read; a nil Author leaves nobody out.
+// the paths the branch changes since base, the CODEOWNERS file base holds, who
+// is opening the pull request, and whether a bare name is a group. A nil
+// ChangedPaths or CodeOwnersAt means there are no owners to read; a nil Author
+// leaves nobody out; a nil IsGroup, as on GitHub, where every team is
+// org/team, takes every bare name for a person.
 type OwnerSeams struct {
 	ChangedPaths func(base string) ([]string, error)
 	CodeOwnersAt func(base string) (codeowners.File, bool, error)
 	Author       func() (string, error)
+	IsGroup      func(name string) (bool, error)
 }
 
 // OwnersOf is who owns the paths the branch changes since base, as CODEOWNERS
@@ -44,7 +47,40 @@ func OwnersOf(seams OwnerSeams, base string) (codeowners.Owners, error) {
 		return codeowners.Owners{}, nil
 	}
 
-	return withoutAuthor(file.OwnersOf(paths), seams.Author)
+	owners, err := withoutAuthor(file.OwnersOf(paths), seams.Author)
+	if err != nil {
+		return codeowners.Owners{}, err
+	}
+
+	return groupsAmongTeams(owners, seams.IsGroup)
+}
+
+// groupsAmongTeams moves each bare name the forge knows as a group from the
+// people to the teams: CODEOWNERS spells a top-level GitLab group @acme, as it
+// spells a user, and a group links to a Slack user group, not to a person.
+func groupsAmongTeams(owners codeowners.Owners, isGroup func(name string) (bool, error)) (codeowners.Owners, error) {
+	if isGroup == nil {
+		return owners, nil
+	}
+
+	people := make([]string, 0, len(owners.Users))
+
+	for _, name := range owners.Users {
+		group, err := isGroup(name)
+		if err != nil {
+			return codeowners.Owners{}, fmt.Errorf("telling whether %s is a group: %w", name, err)
+		}
+
+		if group {
+			owners.Teams = append(owners.Teams, name)
+		} else {
+			people = append(people, name)
+		}
+	}
+
+	owners.Users = people
+
+	return owners, nil
 }
 
 // withoutAuthor leaves the author out of owners' people, compared without

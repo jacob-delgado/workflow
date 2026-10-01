@@ -60,8 +60,8 @@ func bindOwnerLinks(ctx context.Context, kept store.Store, host string, bound se
 
 		return fromStoreLinks(links), err
 	}
-	bound.LinkOwner = func(workspace, owner string, target *loop.SlackTarget) error {
-		return kept.LinkOwner(ctx, host, workspace, owner, toStoreTarget(target), time.Now())
+	bound.LinkOwner = func(workspace string, decision loop.OwnerLink) error {
+		return kept.LinkOwner(ctx, host, workspace, toStoreLink(decision), time.Now())
 	}
 	bound.ForgetOwner = func(workspace, owner string) error { return kept.ForgetOwner(ctx, host, workspace, owner) }
 
@@ -87,23 +87,18 @@ func fromStoreLinks(links []store.OwnerLink) []loop.OwnerLink {
 	mapped := make([]loop.OwnerLink, 0, len(links))
 	for _, link := range links {
 		mapped = append(mapped, loop.OwnerLink{
-			Owner: link.Owner, OnSlack: link.OnSlack, Slack: loop.SlackTarget(link.Slack),
+			Owner: link.Owner, Team: link.Team, OnSlack: link.OnSlack, Slack: loop.SlackTarget(link.Slack),
 		})
 	}
 
 	return mapped
 }
 
-// toStoreTarget maps a Slack target to the store's, keeping nil as "not on
-// Slack".
-func toStoreTarget(target *loop.SlackTarget) *store.SlackTarget {
-	if target == nil {
-		return nil
+// toStoreLink maps a decision about an owner to the store's.
+func toStoreLink(decision loop.OwnerLink) store.OwnerLink {
+	return store.OwnerLink{
+		Owner: decision.Owner, Team: decision.Team, OnSlack: decision.OnSlack, Slack: store.SlackTarget(decision.Slack),
 	}
-
-	mapped := store.SlackTarget(*target)
-
-	return &mapped
 }
 
 // fromStoreTargets maps the store's Slack targets to the loop's.

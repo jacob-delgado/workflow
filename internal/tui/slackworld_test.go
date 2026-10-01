@@ -193,10 +193,10 @@ func (w *world) ownerLinks(workspace string) ([]loop.OwnerLink, error) {
 
 // linkOwner records a decision, replacing any earlier one, unless it is
 // refused.
-func (w *world) linkOwner(workspace, owner string, target *loop.SlackTarget) error {
-	call, link := "link-owner "+owner+" nobody", loop.OwnerLink{Owner: owner}
-	if target != nil {
-		call, link = "link-owner "+owner+" "+target.ID, loop.OwnerLink{Owner: owner, OnSlack: true, Slack: *target}
+func (w *world) linkOwner(workspace string, link loop.OwnerLink) error {
+	owner, call := link.Owner, "link-owner "+link.Owner+" nobody"
+	if link.OnSlack {
+		call = "link-owner " + owner + " " + link.Slack.ID
 	}
 
 	w.record(call)

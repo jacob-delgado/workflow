@@ -31,17 +31,14 @@ const (
 )
 
 // person is a forge owner as People and groups lists them: decided, with what
-// was decided, or one of this branch's owners not asked about yet.
+// was decided, or one of this branch's owners not asked about yet; and
+// whether they are a team (org/team, a GitLab group), which links to a user
+// group rather than a person.
 type person struct {
 	owner   string
+	team    bool
 	decided bool
 	link    loop.OwnerLink
-}
-
-// team reports an owner that is a team (org/team, a GitLab group/subgroup),
-// which links to a user group rather than a person.
-func (p person) team() bool {
-	return strings.Contains(p.owner, "/")
 }
 
 // peopleOverlay manages what the announcements tag: whom each forge owner is
@@ -108,9 +105,7 @@ func (m Model) openPeople() (Model, tea.Cmd) {
 // branch's changes, who may not have been asked about yet, for the overlay
 // opened as opened.
 func (m Model) readPeople(opened int) tea.Cmd {
-	owners := loop.OwnerSeams{
-		ChangedPaths: m.deps.Git.ChangedPaths, CodeOwnersAt: m.deps.Git.CodeOwnersAt, Author: m.deps.Forge.Author,
-	}
+	owners := m.taggedOwnerSeams()
 	links, base, readWorkspace := m.deps.Store.OwnerLinks, m.branch.branch.BaseName(), m.deps.Messaging.Workspace
 
 	return func() tea.Msg {
@@ -133,12 +128,14 @@ func (m Model) readPeople(opened int) tea.Cmd {
 func peopleFrom(decided []loop.OwnerLink, owners codeowners.Owners) []person {
 	people := make([]person, 0, len(decided))
 	for _, link := range decided {
-		people = append(people, person{owner: link.Owner, decided: true, link: link})
+		people = append(people, person{owner: link.Owner, team: link.Team, decided: true, link: link})
 	}
 
 	for _, owner := range slices.Concat(owners.Users, owners.Teams) {
 		if !slices.ContainsFunc(decided, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner, owner) }) {
-			people = append(people, person{owner: owner, decided: false, link: loop.OwnerLink{Owner: owner}})
+			team := slices.Contains(owners.Teams, owner)
+			link := loop.OwnerLink{Owner: owner, Team: team, OnSlack: false, Slack: loop.SlackTarget{}}
+			people = append(people, person{owner: owner, team: team, decided: false, link: link})
 		}
 	}
 
@@ -267,7 +264,7 @@ func (p peopleOverlay) personRow(row person) string {
 
 	switch {
 	case row.decided && row.link.OnSlack:
-		state = strings.TrimSpace(p.marks.arrow) + " " + slackName(row.link.Slack, row.team())
+		state = strings.TrimSpace(p.marks.arrow) + " " + slackName(row.link.Slack, row.team)
 	case row.decided:
 		state = p.marks.unknown + " not on Slack"
 	}
@@ -379,11 +376,11 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 	case !ok:
 		return m, nil
 	case key.Matches(msg, m.keys.confirm):
-		m.overlay = newOwnerPicker(m, selected.owner, selected.team(), p)
+		m.overlay = newOwnerPicker(m, selected.owner, selected.team, p)
 
 		return m, nil
 	case key.Matches(msg, m.keys.notOnSlack):
-		return p.saving(m, m.saveLink(selected.owner, nil, p.opened))
+		return p.saving(m, m.saveLink(decided(selected.owner, selected.team, nil), p.opened))
 	case key.Matches(msg, m.keys.forgetOwner):
 		forget, owner, opened, readWorkspace := m.deps.Store.ForgetOwner, selected.owner, p.opened,
 			m.deps.Messaging.Workspace

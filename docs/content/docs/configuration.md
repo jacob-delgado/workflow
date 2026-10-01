@@ -556,8 +556,9 @@ nobody.
   opens; members inherited from a parent group are not, and neither are
   Guests, Planners or Reporters, who cannot approve. A top-level group is
   written `@group`, just as a user is: a name GitLab knows no user by is
-  tried as a group and expanded the same way. On Slack such a group can only
-  be linked as a person.
+  tried as a group and expanded the same way. For tagging on Slack, GitLab is
+  asked the same of each bare owner: one it knows as a group is a team, and
+  links to a Slack user group like any other.
 
 A proposal that cannot be read — the diff fails, or the file cannot be read —
 proposes nobody rather than holding the pull request back. Either way the

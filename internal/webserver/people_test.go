@@ -48,9 +48,10 @@ func podGroup() loop.SlackTarget { return loop.SlackTarget{ID: "S0POD", Label: "
 // apiReviews() is the repository's own user group.
 func apiReviews() loop.SlackTarget { return loop.SlackTarget{ID: apiGroupID, Label: "api-reviewers"} }
 
-// ownerLinkedTo is owner linked to target on Slack.
+// ownerLinkedTo is owner linked to target on Slack, a team when the name
+// holds a slash.
 func ownerLinkedTo(owner string, target loop.SlackTarget) loop.OwnerLink {
-	return loop.OwnerLink{Owner: owner, OnSlack: true, Slack: target}
+	return loop.OwnerLink{Owner: owner, Team: strings.Contains(owner, "/"), OnSlack: true, Slack: target}
 }
 
 // fakeKept is the kept associations and the Slack directory, as a server
@@ -134,13 +135,8 @@ func (f *fakeKept) wire(deps *webserver.Deps) {
 }
 
 // link records whom owner is, replacing what was decided.
-func (f *fakeKept) link(workspace, owner string, target *loop.SlackTarget) error {
-	link := loop.OwnerLink{Owner: owner, OnSlack: target != nil, Slack: loop.SlackTarget{}}
-	if target != nil {
-		link.Slack = *target
-	}
-
-	f.links = append(f.without(owner), link)
+func (f *fakeKept) link(workspace string, link loop.OwnerLink) error {
+	f.links = append(f.without(link.Owner), link)
 
 	return f.in(workspace)
 }
