@@ -51,7 +51,15 @@ const confirmSteps = [
     section: 'Slack',
     opener: 'Announce to Slack',
     group: 'Announcement preview',
-    adds: ['Channel', 'Cancel', 'Announce now'],
+    // The mockup's announcement tags: an owner to link, and a group to check.
+    adds: [
+      'Channel',
+      'Slack user for ben',
+      'ben is not on Slack',
+      '@api-reviewers',
+      'Cancel',
+      'Announce now',
+    ],
   },
 ]
 

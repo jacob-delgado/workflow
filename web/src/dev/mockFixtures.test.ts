@@ -1,8 +1,10 @@
 import { vi } from 'vitest'
+import { zAnnouncementTagging, zPeople, zSlackDirectory } from '@/api/generated/zod.gen.ts'
 import { previewAnnouncement } from '@/features/messaging/announceApi.ts'
 import { mockConfig } from './mockConfig.ts'
 import { mockIssueDetail } from './mockIssues.ts'
 import { mockSnapshot } from './mockSnapshot.ts'
+import { mockPeople, mockSlackGroups, mockSlackMembers, mockTagging } from './mockSlack.ts'
 
 // The mockup is only worth reading if its fixtures take the shapes the server
 // sends: a value no real answer could hold shows a reader an inconsistency, or
@@ -70,4 +72,22 @@ test('the mock preview is the mock announcement filled from the mock snapshot', 
   // Assert
   expect(preview.text).toBe(filled)
   expect(placeholdersIn(preview.text)).toEqual([])
+})
+
+test('the mock Slack takes the shapes the server sends', () => {
+  // Act
+  const answers = [
+    zAnnouncementTagging.safeParse(mockTagging()),
+    zSlackDirectory.safeParse(mockSlackMembers()),
+    zSlackDirectory.safeParse(mockSlackGroups()),
+    zPeople.safeParse(mockPeople()),
+  ]
+
+  // Assert
+  expect(answers.map((answer) => answer.error?.message)).toEqual([
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+  ])
 })
