@@ -151,7 +151,7 @@ func TestTheLastChoiceOfGroupsRoundTrips(t *testing.T) {
 	}
 }
 
-func TestAChoiceOfAGroupNotListedIsRefused(t *testing.T) {
+func TestAChosenGroupNotListedIsLeftOutOfTheChoice(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -163,11 +163,16 @@ func TestAChoiceOfAGroupNotListedIsRefused(t *testing.T) {
 	}
 
 	// Act
-	err = kept.RecordGroups(t.Context(), repo, []string{podID}, theTime())
+	err = kept.RecordGroups(t.Context(), repo, []string{apiID, podID}, theTime())
+	if err != nil {
+		t.Fatalf("RecordGroups returned %v, want nil", err)
+	}
+
+	ids, chosen, err := kept.LastGroups(t.Context(), repo)
 
 	// Assert
-	if !errors.Is(err, store.ErrGroupNotListed) {
-		t.Errorf("RecordGroups with an unlisted group = %v, want ErrGroupNotListed", err)
+	if err != nil || !chosen || !slices.Equal(ids, []string{apiID}) {
+		t.Errorf("LastGroups = %v, %v, %v; want only the listed group chosen", ids, chosen, err)
 	}
 }
 

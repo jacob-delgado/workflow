@@ -6,7 +6,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -15,10 +14,6 @@ import (
 // groupsKeptIn is the migration that makes the repository group tables: a read
 // needs the file migrated at least this far.
 const groupsKeptIn = 2
-
-// ErrGroupNotListed reports a chosen group that is not one of the repository's
-// groups.
-var ErrGroupNotListed = errors.New("the group is not one of the repository's groups")
 
 // groupsMigration makes the repository group tables. A repository's groups are
 // the Slack user groups it may tag, by ID, their labels living in slack_entity;
@@ -237,9 +232,11 @@ func chosenGroupIDs(ctx context.Context, database *sql.DB, repo string) ([]strin
 }
 
 // RecordGroups remembers the groups just chosen for a repository's
-// announcement, replacing the last choice in one transaction. Every ID must be
-// one of the repository's groups, or the choice is refused with
-// ErrGroupNotListed. A disabled or read-only store records nothing.
+// announcement, replacing the last choice in one transaction. Only the
+// repository's own groups are remembered: an announcement also tags groups
+// linked to owning teams, which need not be listed, and refusing the whole
+// choice over one of those would lose the rest of it. A disabled or read-only
+// store records nothing.
 func (s Store) RecordGroups(ctx context.Context, repo string, ids []string, now time.Time) error {
 	if repo == "" {
 		return nil
@@ -263,8 +260,8 @@ func (s Store) RecordGroups(ctx context.Context, repo string, ids []string, now 
 	})
 }
 
-// chooseGroups records each chosen group, refusing one the repository does not
-// list.
+// chooseGroups records each chosen group the repository lists, leaving out any
+// other.
 func chooseGroups(ctx context.Context, transaction *sql.Tx, repo string, ids []string) error {
 	listed, err := listedGroupIDs(ctx, transaction, repo)
 	if err != nil {
@@ -273,7 +270,7 @@ func chooseGroups(ctx context.Context, transaction *sql.Tx, repo string, ids []s
 
 	for _, slackID := range ids {
 		if !slices.Contains(listed, slackID) {
-			return ErrGroupNotListed
+			continue
 		}
 
 		_, err = transaction.ExecContext(ctx,
