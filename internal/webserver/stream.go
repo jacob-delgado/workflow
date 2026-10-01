@@ -259,7 +259,7 @@ func issueKeys(names []string, project string) []jira.Key {
 
 	for _, name := range names {
 		if key, named := convention.IssueKey(name, project); named {
-			keys = append(keys, jira.Key(key))
+			keys = append(keys, jira.Key(key.Key))
 		}
 	}
 

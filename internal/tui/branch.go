@@ -142,8 +142,8 @@ func (m Model) branchDetail(width int) string {
 	}
 
 	if branchKey, named := convention.IssueKey(branch.Name, m.cfg.Jira.Project); named {
-		issue, listed := m.issues.find(jira.Key(branchKey))
-		lines = append(lines, m.styles.label.Render("issue     ")+branchKey+" "+issue.Summary+m.unlisted(listed))
+		issue, listed := m.issues.find(jira.Key(branchKey.Key))
+		lines = append(lines, m.styles.label.Render("issue     ")+branchKey.Key+" "+issue.Summary+m.unlisted(listed))
 	}
 
 	return wrap(strings.Join(lines, "\n"), width)
@@ -234,7 +234,7 @@ func (m Model) previewRebase() (Model, tea.Cmd) {
 func (m Model) branchIssue() (jira.Key, bool) {
 	key, ok := convention.IssueKey(m.branch.branch.Name, m.cfg.Jira.Project)
 
-	return jira.Key(key), ok
+	return jira.Key(key.Key), ok
 }
 
 // handleBranchKey answers the Branch pane's own keys.

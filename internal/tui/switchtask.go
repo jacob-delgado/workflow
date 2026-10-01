@@ -92,12 +92,12 @@ func (m Model) taskBranches(listed branchesListed) []taskBranch {
 
 	for _, branch := range listed.candidates() {
 		key, named := convention.IssueKey(branch.name, m.cfg.Jira.Project)
-		if !named || branch.name == current || !listed.yours(jira.Key(key)) {
+		if !named || branch.name == current || !listed.yours(jira.Key(key.Key)) {
 			continue
 		}
 
-		issue, _ := m.issues.find(jira.Key(key))
-		branch.issueKey, branch.summary = jira.Key(key), issue.Summary
+		issue, _ := m.issues.find(jira.Key(key.Key))
+		branch.issueKey, branch.summary = jira.Key(key.Key), issue.Summary
 		branches = append(branches, branch)
 	}
 
@@ -182,7 +182,7 @@ func (l branchLister) issueKeys(names []string) []jira.Key {
 
 	for _, name := range names {
 		if key, named := convention.IssueKey(name, l.project); named {
-			keys = append(keys, jira.Key(key))
+			keys = append(keys, jira.Key(key.Key))
 		}
 	}
 
@@ -366,7 +366,7 @@ func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.done + " switched to " + msg.name)
 	if issueKey, named := convention.IssueKey(msg.name, m.cfg.Jira.Project); named {
-		m.followUp = m.offerStart(m.listedIssue(jira.Key(issueKey)))
+		m.followUp = m.offerStart(m.listedIssue(jira.Key(issueKey.Key)))
 	}
 
 	return m, tea.Batch(m.loadBranch(), m.loadChanges())

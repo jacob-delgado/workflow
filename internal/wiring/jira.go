@@ -9,9 +9,9 @@ import (
 	"fmt"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
@@ -121,7 +121,7 @@ func tellJira(jiraClient func() (jira.Client, error), tell func(jira.Client) err
 func readJiraIssue(
 	ctx context.Context, jiraClient func() (jira.Client, error), issueKey jira.Key,
 ) (jira.IssueDetail, error) {
-	if !loop.IsJiraKey(issueKey) {
+	if !isJiraKey(issueKey) {
 		return jira.IssueDetail{}, fmt.Errorf("%w: %w: %q", jira.ErrNotFound, errNotAJiraKey, issueKey)
 	}
 
@@ -131,9 +131,18 @@ func readJiraIssue(
 // browseJiraIssue links an issue for someone to click, or is empty for a key
 // with no project part, which has no page of its own on Jira.
 func browseJiraIssue(client jira.Client, issueKey jira.Key) string {
-	if !loop.IsJiraKey(issueKey) {
+	if !isJiraKey(issueKey) {
 		return ""
 	}
 
 	return client.BrowseURL(issueKey)
+}
+
+// isJiraKey reports a key shaped like Jira's, PROJ-42, rather than the bare
+// forge issue number a branch can carry instead, which Jira would refuse or
+// read as the id of an unrelated issue.
+func isJiraKey(issueKey jira.Key) bool {
+	ref, known := convention.RefOf(string(issueKey))
+
+	return known && ref.Tracker == convention.TrackerJira
 }

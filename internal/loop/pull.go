@@ -6,7 +6,6 @@ package loop
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -121,7 +120,7 @@ func refuseAnOpenPull(find func(branch string) (forge.PullRequest, bool, error),
 // draft composes the pull request for branch.
 func draft(seams PullSeams, opts PullOptions, branch gitrepo.Branch) forge.NewPullRequest {
 	key, _ := convention.IssueKey(branch.Name, opts.Project)
-	issueKey := jira.Key(key)
+	issueKey := jira.Key(key.Key)
 
 	title, body := Draft(DraftInput{
 		Subjects:     Subjects(branch.Commits),
@@ -174,25 +173,16 @@ func firstTemplate(read func() []forge.Template) string {
 	return templates[0].Body
 }
 
-// JiraIssue is the Jira issue the branch names, and whether it names one: a key
-// that IsJiraKey accepts.
+// JiraIssue is the Jira issue the branch names, and whether it names one. The
+// bare forge issue number a branch can carry instead, 42, is no Jira issue
+// even with Jira as the tracker.
 func JiraIssue(branch gitrepo.Branch, project string) (jira.Key, bool) {
 	key, named := convention.IssueKey(branch.Name, project)
-	issueKey := jira.Key(key)
-
-	if !named || !IsJiraKey(issueKey) {
+	if !named || key.Tracker != convention.TrackerJira {
 		return "", false
 	}
 
-	return issueKey, true
-}
-
-// IsJiraKey reports whether key names a Jira issue: a key with its project,
-// PROJ-42. The bare forge issue number a branch can carry instead, 42, is no
-// Jira issue even with Jira as the tracker: Jira would refuse that number, or
-// read it as the id of an unrelated issue.
-func IsJiraKey(key jira.Key) bool {
-	return strings.Contains(string(key), "-")
+	return jira.Key(key.Key), true
 }
 
 // Why no move to the review status is offered, for a surface that answers a

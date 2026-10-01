@@ -90,13 +90,14 @@ func TestIssueKeyReadsAForgeNumberFromABranch(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		text string
-		want string
+		text    string
+		want    string
+		tracker convention.Tracker
 	}{
-		"a forge branch":           {text: "fix/42-fix-typo", want: "42"},
-		"no prefix":                {text: "7-add-retries", want: "7"},
-		"an empty slug":            {text: "feat/13", want: "13"},
-		"a Jira key still wins":    {text: "fix/PROJ-1-thing", want: "PROJ-1"},
+		"a forge branch":           {text: "fix/42-fix-typo", want: "42", tracker: convention.TrackerForge},
+		"no prefix":                {text: "7-add-retries", want: "7", tracker: convention.TrackerForge},
+		"an empty slug":            {text: "feat/13", want: "13", tracker: convention.TrackerForge},
+		"a Jira key still wins":    {text: "fix/PROJ-1-thing", want: "PROJ-1", tracker: convention.TrackerJira},
 		"a slug number is no key":  {text: "fix/add-256-colors", want: ""},
 		"a hash is no forge key":   {text: "chore/bump-sha-256", want: ""},
 		"a leading zero is no key": {text: "fix/0-nope", want: ""},
@@ -110,8 +111,8 @@ func TestIssueKeyReadsAForgeNumberFromABranch(t *testing.T) {
 			got, ok := convention.IssueKey(tt.text, "")
 
 			// Assert
-			if got != tt.want || ok != (tt.want != "") {
-				t.Errorf("IssueKey(%q) = %q, %v, want %q", tt.text, got, ok, tt.want)
+			if got.Key != tt.want || ok != (tt.want != "") || (ok && got.Tracker != tt.tracker) {
+				t.Errorf("IssueKey(%q) = %+v, %v, want %q of tracker %v", tt.text, got, ok, tt.want, tt.tracker)
 			}
 		})
 	}
@@ -152,8 +153,8 @@ func TestIssueKeyIsFoundWhereJiraWouldFindIt(t *testing.T) {
 			got, ok := convention.IssueKey(tt.text, tt.project)
 
 			// Assert
-			if got != tt.want || ok != (tt.want != "") {
-				t.Errorf("IssueKey(%q, %q) = %q, %v, want %q", tt.text, tt.project, got, ok, tt.want)
+			if got.Key != tt.want || ok != (tt.want != "") {
+				t.Errorf("IssueKey(%q, %q) = %q, %v, want %q", tt.text, tt.project, got.Key, ok, tt.want)
 			}
 		})
 	}
@@ -473,9 +474,52 @@ func TestIssueKeyRestrictsToTheConfiguredProject(t *testing.T) {
 			got, found := convention.IssueKey(tt.text, tt.project)
 
 			// Assert
-			if got != tt.want || found != tt.found {
-				t.Errorf("IssueKey(%q, %q) = %q, %v; want %q, %v", tt.text, tt.project, got, found, tt.want, tt.found)
+			if got.Key != tt.want || found != tt.found {
+				t.Errorf("IssueKey(%q, %q) = %q, %v; want %q, %v", tt.text, tt.project, got.Key, found, tt.want, tt.found)
 			}
 		})
+	}
+}
+
+func TestRefOfTellsAKeysTracker(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		key     string
+		tracker convention.Tracker
+		known   bool
+	}{
+		"a Jira key":           {key: projKey, tracker: convention.TrackerJira, known: true},
+		"a forge number":       {key: "42", tracker: convention.TrackerForge, known: true},
+		"a hash-marked number": {key: "#42", tracker: convention.TrackerForge, known: true},
+		"a leading zero":       {key: "042", known: false},
+		"a word":               {key: "develop", known: false},
+		"nothing":              {key: "", known: false},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			ref, known := convention.RefOf(tt.key)
+
+			// Assert
+			if known != tt.known || (known && ref.Tracker != tt.tracker) {
+				t.Errorf("RefOf(%q) = %+v, %v; want tracker %v, %v", tt.key, ref, known, tt.tracker, tt.known)
+			}
+		})
+	}
+}
+
+func TestRefOfDropsTheHashFromAForgeNumber(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	ref, _ := convention.RefOf("#42")
+
+	// Assert
+	if ref.Key != "42" {
+		t.Errorf("RefOf(#42).Key = %q, want 42", ref.Key)
 	}
 }

@@ -249,7 +249,8 @@ func statusFromSeams(seams statusSeams) (statusFacts, error) {
 // A service that will not answer leaves its stage not-started rather than
 // failing the whole line.
 func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
-	issueKey, named := convention.IssueKey(branch.Name, seams.Project)
+	issueRef, named := convention.IssueKey(branch.Name, seams.Project)
+	issueKey := issueRef.Key
 	facts := statusFacts{issue: issueKey}
 
 	if named {

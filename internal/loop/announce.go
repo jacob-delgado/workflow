@@ -65,7 +65,7 @@ func ComposeAnnouncement(
 	}
 
 	key, _ := convention.IssueKey(branch.Name, project)
-	issueKey := jira.Key(key)
+	issueKey := jira.Key(key.Key)
 
 	return Announcement(AnnouncementFacts{
 		Author:       authorName(seams.Author),

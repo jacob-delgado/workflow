@@ -203,7 +203,7 @@ func (m Model) listIssueBranches() tea.Cmd {
 
 		for _, name := range slices.Concat(listed.local, listed.remote) {
 			if issueKey, named := convention.IssueKey(name, lister.project); named {
-				keys[jira.Key(issueKey)] = true
+				keys[jira.Key(issueKey.Key)] = true
 			}
 		}
 
