@@ -21,9 +21,10 @@ var ErrNotSupported = errors.New("the forge does not offer this")
 // blocked, deactivated, or invited and not yet accepted.
 const gitlabActive = "active"
 
-// gitlabMember is a group member as GitLab lists one: the user's name and
-// state, and where the membership itself stands.
+// gitlabMember is a group member as GitLab lists one: the user's id and name
+// and state, and where the membership itself stands.
 type gitlabMember struct {
+	ID              int64  `json:"id"`
 	Username        string `json:"username"`
 	State           string `json:"state"`
 	MembershipState string `json:"membership_state"`
@@ -44,12 +45,22 @@ func (c Client) GroupMembers(ctx context.Context, group string) ([]string, error
 		return nil, ErrNotSupported
 	}
 
-	return gitlabGroupMembers(ctx, c, group)
+	members, err := gitlabGroupMembers(ctx, c, group)
+	if err != nil {
+		return nil, err
+	}
+
+	usernames := make([]string, 0, len(members))
+	for _, member := range members {
+		usernames = append(usernames, member.Username)
+	}
+
+	return usernames, nil
 }
 
 // gitlabGroupMembers reads every page of a group's direct members, as far as
-// the page cap, and keeps the active ones' usernames.
-func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]string, error) {
+// the page cap, and keeps the active ones.
+func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]gitlabMember, error) {
 	path := "/groups/" + url.PathEscape(group) + "/members?"
 
 	members, err := readPages(func(page int) ([]gitlabMember, int, error) {
@@ -61,55 +72,88 @@ func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]str
 		return nil, err
 	}
 
-	usernames := make([]string, 0, len(members))
-
-	for _, member := range members {
-		if member.active() {
-			usernames = append(usernames, member.Username)
-		}
-	}
-
-	return usernames, nil
+	return slices.DeleteFunc(members, func(member gitlabMember) bool { return !member.active() }), nil
 }
 
-// gitlabTeamsExpanded is the reviewers named with each team's active members
-// added after them, each once. A team whose members cannot be read is left
-// out and named in unread, with why the first one could not be.
-func gitlabTeamsExpanded(ctx context.Context, client Client, request NewPullRequest) ([]string, []string, error) {
-	names := slices.Clone(request.Reviewers)
+// gitlabReviewers is a new merge request's reviewers as GitLab sets them, by
+// id, each once, and those that could not be resolved, with why.
+type gitlabReviewers struct {
+	ids    []int64
+	missed []string
+	cause  error
+}
 
-	var (
-		unread []string
-		cause  error
-	)
+// gitlabResolveReviewers resolves each named reviewer by looking the user up,
+// and each team reviewer to its active members by the ids the listing gives.
+// It is best effort: a name GitLab does not know, a lookup that fails, or a
+// team whose members cannot be read is missed, and the rest still review.
+func gitlabResolveReviewers(ctx context.Context, client Client, request NewPullRequest) gitlabReviewers {
+	var resolved gitlabReviewers
+
+	for _, username := range request.Reviewers {
+		resolved.addUser(ctx, client, username)
+	}
 
 	for _, team := range request.TeamReviewers {
-		members, err := gitlabGroupMembers(ctx, client, team)
-		if err == nil {
-			names = withNew(names, members)
-
-			continue
-		}
-
-		unread = append(unread, team)
-
-		if cause == nil {
-			cause = err
-		}
+		resolved.addTeam(ctx, client, team)
 	}
 
-	return names, unread, cause
+	return resolved
 }
 
-// withNew is names with each of more not already in it added, in order.
-func withNew(names, more []string) []string {
-	for _, name := range more {
-		if !slices.Contains(names, name) {
-			names = append(names, name)
-		}
+// addUser looks a reviewer up by username and adds their id.
+func (r *gitlabReviewers) addUser(ctx context.Context, client Client, username string) {
+	found, err := call[[]gitlabUser](ctx, client, http.MethodGet,
+		"/users?"+url.Values{"username": {username}}.Encode(), nil)
+
+	switch {
+	case err != nil:
+		r.miss(username, err)
+	case len(found) == 0:
+		r.miss(username, ErrNoUser)
+	default:
+		r.add(found[0].ID)
+	}
+}
+
+// addTeam adds the ids of a team's active members.
+func (r *gitlabReviewers) addTeam(ctx context.Context, client Client, team string) {
+	members, err := gitlabGroupMembers(ctx, client, team)
+	if err != nil {
+		r.miss(team, err)
+
+		return
 	}
 
-	return names
+	for _, member := range members {
+		r.add(member.ID)
+	}
+}
+
+// add adds a reviewer's id, unless it is already there.
+func (r *gitlabReviewers) add(id int64) {
+	if !slices.Contains(r.ids, id) {
+		r.ids = append(r.ids, id)
+	}
+}
+
+// miss records a reviewer that could not be added, and why.
+func (r *gitlabReviewers) miss(name string, cause error) {
+	r.missed = append(r.missed, name)
+
+	if !errors.Is(r.cause, cause) {
+		r.cause = errors.Join(r.cause, cause)
+	}
+}
+
+// err is ErrSomeReviewersNotAdded naming every reviewer missed, or nil when
+// every one was added.
+func (r *gitlabReviewers) err() error {
+	if len(r.missed) == 0 {
+		return nil
+	}
+
+	return reviewersNotAdded(r.cause, r.missed)
 }
 
 // gitlabUser is a user as GitLab's user lookup sends one; only the id is read,
@@ -162,21 +206,4 @@ func gitlabKnownIDs(ctx context.Context, client Client, usernames []string) ([]i
 	}
 
 	return ids, unknown, nil
-}
-
-// gitlabMissedReviewers is ErrSomeReviewersNotAdded for the teams whose
-// members could not be read, for teamCause, and the reviewers GitLab does not
-// know; or nil when every one was added.
-func gitlabMissedReviewers(unread []string, teamCause error, unknown []string) error {
-	var noUser error
-	if len(unknown) > 0 {
-		noUser = ErrNoUser
-	}
-
-	cause := errors.Join(teamCause, noUser)
-	if cause == nil {
-		return nil
-	}
-
-	return reviewersNotAdded(cause, append(unread, unknown...))
 }
