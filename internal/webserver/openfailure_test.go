@@ -101,7 +101,7 @@ func TestOpenPullRequestKeepsTheWordsTheCallerCanActOn(t *testing.T) {
 	cases := map[string]error{
 		"a pull request the forge turned down": fmt.Errorf("%w: A pull request already exists for acme:%s",
 			forge.ErrRejected, testBranchName),
-		"a reviewer GitLab does not know": fmt.Errorf("%w: octocatt", forge.ErrNoUser),
+		"an assignee GitLab does not know": fmt.Errorf("%w: octocatt", forge.ErrNoUser),
 	}
 
 	for name, err := range cases {

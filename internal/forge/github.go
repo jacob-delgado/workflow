@@ -6,6 +6,7 @@ package forge
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -338,22 +339,28 @@ func githubCreate(ctx context.Context, client Client, repo Repo, request NewPull
 // githubAddPeople requests reviewers and adds assignees and labels to a pull
 // request already opened. GitHub names each list by the same key it reads it
 // back under, and takes reviewers on the pull while assignees and labels go on
-// its issue side.
+// its issue side. Reviewers it would not add are reported only once the
+// assignees and labels are in, so a mistyped name costs nothing else.
 func githubAddPeople(ctx context.Context, client Client, repo Repo, number int, request NewPullRequest) error {
 	pull := githubPullPath(repo, number)
 	issue := githubRepoPath(repo) + issuesSegment + "/" + strconv.Itoa(number)
 
-	err := githubRequestReviewers(ctx, client, repo, pull, request)
+	reviewersErr := githubRequestReviewers(ctx, client, repo, pull, request)
+	if reviewersErr != nil && !errors.Is(reviewersErr, ErrSomeReviewersNotAdded) {
+		return reviewersErr
+	}
+
+	err := githubPostList(ctx, client, repo, issue+"/assignees", "assignees", request.Assignees)
 	if err != nil {
 		return err
 	}
 
-	err = githubPostList(ctx, client, repo, issue+"/assignees", "assignees", request.Assignees)
+	err = githubPostList(ctx, client, repo, issue+"/labels", "labels", request.Labels)
 	if err != nil {
 		return err
 	}
 
-	return githubPostList(ctx, client, repo, issue+"/labels", "labels", request.Labels)
+	return reviewersErr
 }
 
 // githubReviewersBody is the body that requests reviewers: users by login and
@@ -364,13 +371,63 @@ type githubReviewersBody struct {
 }
 
 // githubRequestReviewers requests a pull request's reviewers, users and teams in
-// one call, doing nothing when nobody is named.
+// one call, doing nothing when nobody is named. GitHub turns the whole call down
+// for one name it cannot request, so a call turned down is asked again a name at
+// a time, and only the names still turned down are reported.
 func githubRequestReviewers(ctx context.Context, client Client, repo Repo, pull string, request NewPullRequest) error {
 	body := githubReviewersBody{Reviewers: request.Reviewers, TeamReviewers: teamSlugs(request.TeamReviewers)}
 	if len(body.Reviewers)+len(body.TeamReviewers) == 0 {
 		return nil
 	}
 
+	err := githubAskReviewers(ctx, client, repo, pull, body)
+	if !errors.Is(err, ErrRejected) && !errors.Is(err, ErrUnexpectedStatus) {
+		return err
+	}
+
+	return githubReviewersOneByOne(ctx, client, repo, pull, request)
+}
+
+// githubReviewersOneByOne requests each user, then each team, alone, and
+// reports the ones turned down.
+func githubReviewersOneByOne(
+	ctx context.Context, client Client, repo Repo, pull string, request NewPullRequest,
+) error {
+	var (
+		missed []string
+		cause  error
+	)
+
+	ask := func(name string, body githubReviewersBody) {
+		err := githubAskReviewers(ctx, client, repo, pull, body)
+		if err == nil {
+			return
+		}
+
+		missed = append(missed, name)
+
+		if cause == nil {
+			cause = err
+		}
+	}
+
+	for _, user := range request.Reviewers {
+		ask(user, githubReviewersBody{Reviewers: []string{user}})
+	}
+
+	for index, slug := range teamSlugs(request.TeamReviewers) {
+		ask(request.TeamReviewers[index], githubReviewersBody{TeamReviewers: []string{slug}})
+	}
+
+	if cause == nil {
+		return nil
+	}
+
+	return reviewersNotAdded(cause, missed)
+}
+
+// githubAskReviewers sends one request for reviewers.
+func githubAskReviewers(ctx context.Context, client Client, repo Repo, pull string, body githubReviewersBody) error {
 	_, err := repoCall[json.RawMessage](ctx, client, repo, http.MethodPost, pull+"/requested_reviewers", body)
 
 	return err

@@ -344,6 +344,12 @@ would, so stage something first.
 `enter` pushes the branch first if it is not pushed — pre-push hooks stream just
 as commit hooks do — and opens the pull request only if the push succeeded.
 
+Reviewers are added best effort. A reviewer the forge will not take — a name
+GitLab does not know, or someone GitHub cannot ask — does not stop the pull
+request: it opens with every reviewer the forge took, and a note names the ones
+it left off. An assignee GitLab does not know still stops the merge request
+before it opens.
+
 The Review pane then follows CI while checks run, asking every twenty seconds
 by default (`timing.ci_interval`).
 `c` lists the checks and opens the selected one's page; `l` on a failed one

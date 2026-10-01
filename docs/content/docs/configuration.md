@@ -505,6 +505,16 @@ The scope is only half of it: GitLab also checks your role in the project.
 | Whichever role the target branch's protection allows to merge (Maintainer by default) | Merging a merge request |
 | Reporter, or the issue's author or assignee | Closing a GitLab issue |
 
+#### Reviewers the forge will not take
+
+Reviewers are added best effort on both forges. GitHub turns down the whole
+request when it cannot ask one name, such as someone who is not a collaborator,
+so workflow asks again one name at a time. GitLab sets reviewers by id, and a
+username it does not know has none, so the merge request opens with the
+reviewers it found. Either way the pull request opens, and a note names the
+reviewers left off; before, an unknown GitLab reviewer stopped the merge request
+from opening. An unknown assignee still does.
+
 ### On-premises forges need `forge.kind` and `forge.host`
 
 workflow reads the forge from your git remote. `github.com`, an Enterprise Cloud

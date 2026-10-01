@@ -205,33 +205,6 @@ func TestCreateMergeRequestOnGitLabSetsReviewersAssigneesAndLabels(t *testing.T)
 	}
 }
 
-func TestCreateMergeRequestOnGitLabRefusesAnUnknownReviewer(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// GitLab's user lookup finds nobody, so there is no id to set and no merge
-	// request is opened.
-	client, seen := forgeConversation(t, map[string]string{gitlabUsersPath: `[]`}, nil)
-
-	// Act
-	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{"ghost"},
-	})
-
-	// Assert
-	if !errors.Is(err, forge.ErrNoUser) {
-		t.Errorf("error = %v, want ErrNoUser", err)
-	}
-
-	if created.Opened() {
-		t.Errorf("opened a merge request despite the unknown reviewer: %+v", created)
-	}
-
-	if got := requestTo(*seen, gitlabMergesPath); got.method != "" {
-		t.Errorf("posted a merge request anyway: %+v", got)
-	}
-}
-
 func TestCreatePullRequestOnGitHubStopsAtAssigneesTheForgeRefuses(t *testing.T) {
 	t.Parallel()
 
