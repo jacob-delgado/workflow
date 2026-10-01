@@ -228,18 +228,6 @@ func writeOwnerLink(
 	return nil
 }
 
-// pruneSlackEntities drops every Slack user or group nothing links to any
-// more, so the file keeps no one it has no use for.
-func pruneSlackEntities(ctx context.Context, transaction *sql.Tx) error {
-	_, err := transaction.ExecContext(ctx,
-		`DELETE FROM slack_entity WHERE slack_id NOT IN (SELECT slack_id FROM owner_slack)`)
-	if err != nil {
-		return fmt.Errorf("pruning the Slack entities: %w", err)
-	}
-
-	return nil
-}
-
 // keepSlackEntity upserts a Slack user or group with the label it was just seen
 // with, sanitized on the way in as well as on the way out.
 func keepSlackEntity(ctx context.Context, transaction *sql.Tx, target SlackTarget, now time.Time) error {
