@@ -138,3 +138,43 @@ test('the order chosen holds across a refresh', async () => {
     older.url,
   ])
 })
+
+test("each repository's heading sits under the queue's own, a level up", async () => {
+  // Arrange
+  fakeApi({ [reviewsPath]: queueOf(oldestInRepo, older, nowhere, newer) })
+  renderWithClient(<ReviewQueuePanel />)
+  await screen.findByRole('list', { name: 'Review requests' })
+
+  // Act
+  await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'By repository')
+
+  // Assert
+  expect(screen.getByRole('heading', { level: 2, name: 'Review requests' })).toBeTruthy()
+  expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual([
+    'Review requests',
+    'No repository',
+    'example/other',
+    'example/repo',
+  ])
+})
+
+test('a repository named as no repository is grouped apart from requests with none', async () => {
+  // Arrange
+  const named = makeReviewRequest({
+    number: 8,
+    url: 'https://example.com/pull/8',
+    repository: 'No repository',
+    opened_at: hoursAgo(5),
+  })
+  fakeApi({ [reviewsPath]: queueOf(nowhere, named) })
+  renderWithClient(<ReviewQueuePanel />)
+  await screen.findByRole('list', { name: 'Review requests' })
+
+  // Act
+  await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'By repository')
+
+  // Assert
+  expect(
+    screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent),
+  ).toEqual(['No repository', 'No repository'])
+})

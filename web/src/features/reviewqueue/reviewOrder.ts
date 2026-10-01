@@ -11,15 +11,18 @@ export const orderWords: Record<ReviewOrder, string> = {
   repository: 'By repository',
 }
 
-// RepositoryGroup is a repository's requests, under the name its heading
-// shows.
+// RepositoryGroup is a repository's requests, by the repository as the forge
+// named it: empty for none.
 export interface RepositoryGroup {
   repository: string
   requests: ReviewRequest[]
 }
 
-// noRepository heads the requests the forge named no repository for.
-const noRepository = 'No repository'
+// repositoryHeading heads a repository's requests: by its name, or as having
+// none when the forge named none.
+export function repositoryHeading(repository: string): string {
+  return repository === '' ? 'No repository' : repository
+}
 
 // ordered is the queue in order, as forge.OldestFirst, NewestFirst and
 // ByRepository have it: requests opened at the same moment keep the server's
@@ -43,12 +46,11 @@ export function byRepository(requests: ReviewRequest[]): RepositoryGroup[] {
   const groups: RepositoryGroup[] = []
 
   for (const request of requests) {
-    const repository = request.repository === '' ? noRepository : request.repository
     const last = groups.at(-1)
-    if (last?.repository === repository) {
+    if (last?.repository === request.repository) {
       last.requests.push(request)
     } else {
-      groups.push({ repository, requests: [request] })
+      groups.push({ repository: request.repository, requests: [request] })
     }
   }
 

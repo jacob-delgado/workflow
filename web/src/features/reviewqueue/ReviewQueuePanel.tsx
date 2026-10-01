@@ -10,7 +10,13 @@ import { EmptyState } from '@/shell/EmptyState.tsx'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
 import { FacetChips } from './FacetChips.tsx'
 import { admits, facetChoices, toggleFacet, type Facet } from './reviewFacets.ts'
-import { byRepository, ordered, orderWords, type ReviewOrder } from './reviewOrder.ts'
+import {
+  byRepository,
+  ordered,
+  orderWords,
+  repositoryHeading,
+  type ReviewOrder,
+} from './reviewOrder.ts'
 import { useReviewQueue } from './reviewQueueApi.ts'
 
 // ciLabel says how CI stands on a request, in words: the queue is read without
@@ -136,6 +142,9 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
         />
       )}
       <OutcomeLine said={outcome.said} />
+      {/* The queue's own heading, unseen, so each repository's h3 does not
+          skip a level under the section's h1. */}
+      <h2 className="sr-only">Review requests</h2>
       {requests === undefined || shown === undefined ? null : (
         <Requests
           requests={ordered(shown, order)}
@@ -232,9 +241,9 @@ function Requests({ requests, filtered, grouped, readAt, teller }: RequestsProps
 
   return byRepository(requests).map(({ repository, requests: inRepository }) => (
     <section key={repository} className="flex flex-col gap-item">
-      <h3 className="font-medium">{repository}</h3>
+      <h3 className="font-medium">{repositoryHeading(repository)}</h3>
       <RequestList
-        label={`Review requests in ${repository}`}
+        label={`Review requests in ${repositoryHeading(repository)}`}
         requests={inRepository}
         readAt={readAt}
         teller={teller}
