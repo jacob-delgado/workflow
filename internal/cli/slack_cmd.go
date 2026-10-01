@@ -183,7 +183,6 @@ func keepFirstToken(ctx context.Context, out io.Writer, cfg config.Config, start
 	transport := onlineDoer(cfg)
 	store := wiring.SlackStore(cfg)
 
-	// Trade-off TRADE-17: no test sees a refresh accepted; that takes Slack itself.
 	renewed, err := wiring.SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(ctx, starting)
 	if err != nil {
 		return err

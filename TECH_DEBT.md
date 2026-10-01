@@ -468,31 +468,28 @@ is lost is read rather than checked.
 **Reopen when.** One of these failures is reported, or a change to the
 calls lets a test fail the second without the first.
 
-### TRADE-17 A Slack user token only Slack itself accepts
+### TRADE-17 The keychain the web's Settings fills is never seen filled
 
-Three paths are only ever seen failing, because success needs a service no
-test can stand in for: `workflow doctor --online` accepting a user token
-(`checkMessaging`, `internal/cli/doctor_credentials.go`), `workflow slack
-login` accepting the refresh it makes (`keepFirstToken`,
-`internal/cli/slack_cmd.go`), and the web's Settings placing typed secrets
-in the keychain (`placeSlackCredentials`, `internal/wiring/messaging.go`),
-each of which asks Slack itself, at `messaging.APIBase`, which nothing
-configures — and the last writes the real keychain, which no test may. The token check and the
-refresh are tested against local servers in `internal/messaging` and
-`internal/slackauth`; the commands' own handling of an accepted token is
-not.
+One Slack path is only ever seen failing: the web's Settings placing typed
+secrets in the macOS keychain (`placeSlackCredentials`,
+`internal/wiring/messaging.go`). It runs only on macOS and writes the
+real keychain, which no test may. The refresh it makes is tested against
+a local server in `internal/slackauth`, and the web server's side of a
+Settings save against a fake placement. `workflow doctor --online`
+accepting a user token and `workflow slack login` keeping what Slack
+gives back are tested against a fake Slack, which `WORKFLOW_SLACK_API`
+points them at.
 
 **Decided.** 2026-09-26, in #146; widened on 2026-09-30 when the Slack bot
-token gave way to the rotating user token and `workflow slack login`.
+token gave way to the rotating user token and `workflow slack login`;
+narrowed on 2026-10-01, in #166, once `WORKFLOW_SLACK_API` let tests
+stand a fake in for Slack.
 
-**Cost.** The user and team doctor prints for an accepted token, what the
-login says and keeps once Slack accepts it, and the keychain Settings fills
-are never checked end to end; the web server's side of a Settings save is
-tested against a fake placement.
+**Cost.** What a Settings save leaves in the keychain once Slack accepts
+the secrets is never checked end to end.
 
-**Reopen when.** The messaging address becomes configurable for another
-reason, such as a self-hosted service, or doctor's line for an accepted
-token is reported wrong.
+**Reopen when.** The keychain can be pointed at a store a test owns, or
+a Settings save on macOS is reported to keep the wrong secrets.
 
 ### TRADE-18 Conditions only Linux's tests reach
 
