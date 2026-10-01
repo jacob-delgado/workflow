@@ -6,6 +6,7 @@ package gitrepo_test
 import (
 	"errors"
 	"maps"
+	"slices"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -74,6 +75,24 @@ func TestClearIssueLinkForgetsALinkThatIsThere(t *testing.T) {
 	// Assert
 	if err != nil {
 		t.Errorf("ClearIssueLink = %v", err)
+	}
+}
+
+func TestClearIssueLinkForgetsALinkTooOddToShow(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run, ran := recordingRunner(t, map[string]reply{
+		readLink: {out: []byte("\x1b]8;;http://x\aPROJ-7\n")}, clearLink: {},
+	})
+	repo := gitrepo.At(run, workDir)
+
+	// Act
+	err := repo.ClearIssueLink(t.Context(), "my-thing")
+
+	// Assert
+	if err != nil || !slices.Contains(*ran, clearLink) {
+		t.Errorf("ClearIssueLink = %v, ran %q; want the stored value unset", err, *ran)
 	}
 }
 

@@ -18,7 +18,7 @@ const issueLinkKey = "workflow-issue"
 // IssueLink is the issue branch was linked to, or empty when it was never
 // linked — or when what git holds there is not text to show.
 func (r Repository) IssueLink(ctx context.Context, branch string) string {
-	link := optional(ctx, r.run, "-C", r.dir, "config", "--get", linkVariable(branch))
+	link := r.storedLink(ctx, branch)
 	if shownAsTheyAre(link) != nil {
 		return ""
 	}
@@ -36,9 +36,10 @@ func (r Repository) SetIssueLink(ctx context.Context, branch, issueKey string) e
 	return nil
 }
 
-// ClearIssueLink forgets the issue branch was linked to, if it was.
+// ClearIssueLink forgets the issue branch was linked to, if it was — even a
+// value IssueLink will not show, since it is the one way to be rid of it.
 func (r Repository) ClearIssueLink(ctx context.Context, branch string) error {
-	if r.IssueLink(ctx, branch) == "" {
+	if r.storedLink(ctx, branch) == "" {
 		return nil
 	}
 
@@ -68,6 +69,11 @@ func (r Repository) IssueLinks(ctx context.Context) map[string]string {
 	}
 
 	return links
+}
+
+// storedLink is what git holds as branch's link, whether or not it can be shown.
+func (r Repository) storedLink(ctx context.Context, branch string) string {
+	return optional(ctx, r.run, "-C", r.dir, "config", "--get", linkVariable(branch))
 }
 
 // linkVariable is the configuration variable holding branch's link.
