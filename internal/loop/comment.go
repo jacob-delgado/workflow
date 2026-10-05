@@ -38,7 +38,7 @@ func (m CommentMarkup) Stored(text string) string {
 		return jira.WikiFromMarkdown(text)
 	case MarkupWiki:
 		return text
-	default:
-		return text
 	}
+
+	return text
 }
