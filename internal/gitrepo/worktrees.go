@@ -20,6 +20,13 @@ type Worktree struct {
 	Missing  bool
 }
 
+// shortHashLength is how much of a hash names a commit, as git abbreviates
+// one by default.
+const shortHashLength = 7
+
+// ShortHead is the worktree's HEAD abbreviated as git abbreviates a hash.
+func (w Worktree) ShortHead() string { return w.Head[:min(len(w.Head), shortHashLength)] }
+
 // Worktrees is every working tree of the repository, the main one first, as
 // git lists them. A bare repository's entry has no working tree and is left
 // out.
