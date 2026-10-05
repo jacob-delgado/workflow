@@ -9,6 +9,8 @@ import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
 import { IssueStatus } from './IssueStatus.tsx'
 import { WorkStory } from './WorkStory.tsx'
+import { CommentComposer } from './CommentComposer.tsx'
+import { WikiText } from './wiki/WikiText.tsx'
 
 const sectionHeading = 'text-base font-semibold'
 
@@ -64,7 +66,7 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
       </section>
       <IssueTasks issueKey={issueKey} />
       {data ? <Description text={data.description} /> : null}
-      {data ? <Comments comments={data.comments} total={data.comment_total} /> : null}
+      {data ? <Comments detail={data} /> : null}
     </article>
   )
 }
@@ -191,17 +193,27 @@ function Description({ text }: { text: string }) {
   )
 }
 
-// Comments lists the comments the tracker sent, oldest first, and says how many
-// more the issue holds when the tracker sent only some.
-function Comments({ comments, total }: { comments: Comment[]; total: number }) {
+// Comments is the issue's thread: the comments the tracker sent, oldest
+// first, how many more it holds when it sent only some, and — on a Jira
+// issue — a composer under it for the next one.
+function Comments({ detail }: { detail: IssueDetail }) {
+  const { comments, comment_total: total } = detail
+
   return (
     <section aria-labelledby="comments-heading" className="flex flex-col gap-group">
-      <h3 id="comments-heading" className={sectionHeading}>
-        Comments
-      </h3>
-      {total === 0 ? <p className="text-sm text-muted-foreground">No comments.</p> : null}
+      <div className="flex items-baseline gap-item">
+        <h3 id="comments-heading" className={sectionHeading}>
+          Comments
+        </h3>
+        {total > 0 ? (
+          <span className="rounded-sm bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
+            {total}
+          </span>
+        ) : null}
+      </div>
+      {total === 0 ? <p className="text-sm text-muted-foreground">No comments yet.</p> : null}
       {comments.length > 0 ? (
-        <ol aria-labelledby="comments-heading" className="flex flex-col gap-group">
+        <ol aria-labelledby="comments-heading" className="flex flex-col gap-block">
           {comments.map((comment, index) => (
             <CommentItem key={`${String(index)}-${comment.created}`} comment={comment} />
           ))}
@@ -212,38 +224,91 @@ function Comments({ comments, total }: { comments: Comment[]; total: number }) {
           Showing {comments.length} of {total} comments.
         </p>
       ) : null}
+      {detail.tracker === 'jira' ? <CommentComposer issueKey={detail.key} /> : null}
     </section>
   )
 }
 
+// CommentItem is one comment: who wrote it, beside their initials, when, and
+// what, drawn from Jira's wiki markup.
 function CommentItem({ comment }: { comment: Comment }) {
-  const written = commentDate(comment.created)
-
   return (
-    <li className="flex flex-col gap-tight text-sm">
-      <p className="text-muted-foreground">
-        <span className="text-foreground">{comment.author}</span>
-        {written === null ? null : (
-          <>
-            {' · '}
-            <time dateTime={comment.created}>{written}</time>
-          </>
-        )}
-      </p>
-      <p className="whitespace-pre-wrap">{comment.body}</p>
+    <li className="flex gap-group">
+      <span
+        aria-hidden
+        className="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground"
+      >
+        {initialsOf(comment.author)}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-tight">
+        <p className="flex flex-wrap items-baseline gap-x-item text-sm">
+          <span className="font-medium text-foreground">{comment.author}</span>
+          <WrittenAt created={comment.created} />
+        </p>
+        <div className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-card-foreground">
+          <WikiText markup={comment.body} />
+        </div>
+      </div>
     </li>
   )
 }
 
-// commentDate is when a comment was written, for reading, or null for the zero
-// time the server sends when the tracker's date was unreadable.
-function commentDate(created: string): string | null {
+// initialsOf is the first letters of a name's first and last words.
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  const first = words.at(0)?.at(0) ?? '?'
+  const last = words.length > 1 ? (words.at(-1)?.at(0) ?? '') : ''
+
+  return (first + last).toUpperCase()
+}
+
+// WrittenAt says when a comment was written: how long ago within the week,
+// and the day after; the exact moment shows on hover. The zero time the server
+// sends for a date the tracker could not give says nothing.
+function WrittenAt({ created }: { created: string }) {
   const written = new Date(created)
   if (written.getUTCFullYear() <= 1) {
     return null
   }
 
-  return written.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  return (
+    <time
+      dateTime={created}
+      title={written.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })}
+      className="text-xs text-muted-foreground"
+    >
+      {sinceWritten(written, new Date())}
+    </time>
+  )
+}
+
+const minute = 60_000
+const hour = 60 * minute
+const day = 24 * hour
+
+// sinceWritten is how long ago written was, within the week, and its date
+// after that.
+function sinceWritten(written: Date, now: Date): string {
+  const ago = now.getTime() - written.getTime()
+  const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+
+  if (ago < minute) {
+    return 'just now'
+  }
+
+  if (ago < hour) {
+    return relative.format(-Math.floor(ago / minute), 'minute')
+  }
+
+  if (ago < day) {
+    return relative.format(-Math.floor(ago / hour), 'hour')
+  }
+
+  if (ago < 7 * day) {
+    return relative.format(-Math.floor(ago / day), 'day')
+  }
+
+  return written.toLocaleDateString(undefined, { dateStyle: 'medium' })
 }
 
 // useTrackerName names where an issue lives, for its link: Jira, or the forge

@@ -179,7 +179,7 @@ function Piece({ match }: { match: RegExpExecArray }) {
   const { code, bold, italic, strike } = match.groups ?? {}
 
   if (code !== undefined) {
-    return <code className="rounded bg-muted px-1 text-[0.85em]">{code}</code>
+    return <code className="rounded-sm bg-muted px-1 text-xs">{code}</code>
   }
 
   if (bold !== undefined) {

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { IssueDetail } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
+import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
@@ -433,7 +434,13 @@ test('a Retry in flight beside an issue already read keeps its focus and is not 
     Promise.resolve(Response.json(detailOf())),
     Promise.resolve(Response.json({}, { status: 500 })),
   ]
-  const fetch = vi.fn(() => answers.shift() ?? new Promise<Response>(() => undefined))
+  // The comment composer reads the configuration beside the issue; only the
+  // issue's reads are scripted.
+  const fetch = vi.fn((request: Request) =>
+    new URL(request.url).pathname === '/api/config'
+      ? Promise.resolve(Response.json(mockConfig))
+      : (answers.shift() ?? new Promise<Response>(() => undefined)),
+  )
   vi.stubGlobal('fetch', fetch)
   const user = userEvent.setup()
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
@@ -453,7 +460,10 @@ test('a Retry in flight beside an issue already read keeps its focus and is not 
   expect(retry.getAttribute('aria-disabled')).toBe('true')
   expect(retry.hasAttribute('disabled')).toBe(false)
   expect(document.activeElement).toBe(retry)
-  expect(fetch).toHaveBeenCalledTimes(3)
+  const issueReads = fetch.mock.calls.filter(
+    ([request]) => new URL(request.url).pathname === '/api/issues/PROJ-1',
+  )
+  expect(issueReads).toHaveLength(3)
 })
 
 test('a forge issue opens on its forge, not in Jira', async () => {
