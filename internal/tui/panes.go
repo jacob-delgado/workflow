@@ -22,6 +22,7 @@ const (
 	paneMessaging
 	paneReviews
 	paneTasks
+	paneSummary
 )
 
 // paneFresh is how long after a pane began loading a switch to it leaves it as
@@ -31,13 +32,13 @@ const paneFresh = 30 * time.Second
 
 // paneCount is untyped on purpose: typed as pane, the exhaustive linter would
 // count it as a member and demand a case for it in every switch.
-const paneCount = 7
+const paneCount = 8
 
 // title names a pane. A lookup rather than a switch, because a switch over every
 // pane leaves a final arm that can never be false. The messaging pane is named
 // for the service in use — Slack, Teams, Discord or Webhook.
 func (p pane) title(messaging string) string {
-	titles := [paneCount]string{"Issues", "Branch", "Commits", "Review", messaging, "Reviews", "Tasks"}
+	titles := [paneCount]string{"Issues", "Branch", "Commits", "Review", messaging, "Reviews", "Tasks", "Summary"}
 
 	return titles[p]
 }
@@ -141,6 +142,12 @@ func behaviorOf(target pane) behavior {
 			keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask,
 			refresh: func(m Model) (Model, tea.Cmd) { return m, m.loadTasks() },
 			scroll:  func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
+		},
+		paneSummary: {
+			rail: Model.summaryRail, detail: Model.summaryDetail, narrow: nil,
+			keys: Model.summaryKeys, handle: Model.handleSummaryKey, pick: nil,
+			refresh: Model.refreshSummary,
+			scroll:  func(m *Model) *int { return &m.summary.scroll }, listInDetail: true,
 		},
 	}[target]
 }

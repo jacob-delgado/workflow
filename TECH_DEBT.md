@@ -828,3 +828,23 @@ older comments do too.
 
 **Reopen when.** A legitimate comment is found drawn plain, or the markup
 is parsed by something linear.
+
+### TRADE-32 The Summary is read back each time, not journaled
+
+The Summary (`internal/tui/summary.go`, and the web's section) is read
+again from git, Taskwarrior, Jira and the forge whenever it is shown;
+nothing about what you did is written to the store.
+
+**Decided.** 2026-10-05, in #175: every source already keeps what it
+knows, with its own times, and a journal of workflow's own would record
+only what was done through workflow, missing the commit made in a shell
+or the issue moved in Jira's own page. Reading back keeps the store free
+of a second copy that could disagree with the first.
+
+**Cost.** A period is as slow to show as its slowest source, and a source
+that is down shows nothing for it. What a source does not keep — a Jira
+comment on an issue you touched in no other way, a GitLab event's
+repository — the Summary cannot show.
+
+**Reopen when.** A source the Summary needs keeps no history to read
+back, or reading a long period back proves too slow to be useful.

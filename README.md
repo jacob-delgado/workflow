@@ -221,10 +221,11 @@ an address. Nothing in this repo will print a credential in full.
 
 ## Use
 
-Run `workflow` in a repository. Seven panes run down the left — Issues, Branch,
+Run `workflow` in a repository. Eight panes run down the left — Issues, Branch,
 Commits, Review and your messaging service, named for it, in the order the work
-goes, then Reviews, the pull requests waiting on your review, and Tasks, your
-Taskwarrior list — and the one in focus fills the right. The bottom row shows
+goes, then Reviews, the pull requests waiting on your review, Tasks, your
+Taskwarrior list, and Summary, what you did yesterday or over any range of
+days — and the one in focus fills the right. The bottom row shows
 only the keys that do something right now.
 
 | Key | Where | Does |

@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
 )
 
 // Summary is what every source read for a period.
@@ -86,7 +84,7 @@ func (s Summary) notes() []string {
 	var notes []string
 
 	for _, read := range s.Reads {
-		name := capitalized(read.Source.Name())
+		name := read.Source.Title()
 
 		if read.Failed != nil {
 			notes = append(notes, name+" could not be read.")
@@ -116,11 +114,4 @@ func nonEmpty(words ...string) []string {
 // twoDigits is a month's number written with two digits.
 func twoDigits(number int) string {
 	return fmt.Sprintf("%02d", number)
-}
-
-// capitalized is text with its first letter upper case.
-func capitalized(text string) string {
-	first, size := utf8.DecodeRuneInString(text)
-
-	return string(unicode.ToUpper(first)) + text[size:]
 }

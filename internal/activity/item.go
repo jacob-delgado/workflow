@@ -7,6 +7,8 @@ import (
 	"cmp"
 	"slices"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Source is a place work leaves a trace.
@@ -37,6 +39,14 @@ func (s Source) Name() string {
 	}
 
 	return "a source"
+}
+
+// Title is the source as a sentence starts with it.
+func (s Source) Title() string {
+	name := s.Name()
+	first, size := utf8.DecodeRuneInString(name)
+
+	return string(unicode.ToUpper(first)) + name[size:]
 }
 
 // Kind is what was done.
