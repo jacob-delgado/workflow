@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -128,11 +129,17 @@ func placeOf(where Workspace, files config.Files) seams.Place {
 	return seams.Place{Dir: where.Dir, Root: root, Remote: remote, Config: files}
 }
 
+// readsAtOnce is how many repositories the Summary reads side by side: enough
+// that one slow favorite does not hold the rest back, few enough not to crowd
+// the machine. Reading eight repositories four at a time took a quarter of
+// the time reading them one by one did.
+const readsAtOnce = 4
+
 // yourCommits reads the commits you wrote in the repository where is in and in
 // every favorite that is a repository, each repository once, however many of
-// its directories are favorites. A repository is named only when more than one
-// is read. With none, where is read regardless, so git says why there is
-// nothing to read.
+// its directories are favorites, side by side and listed in that order. A
+// repository is named only when more than one is read. With none, where is
+// read regardless, so git says why there is nothing to read.
 func yourCommits(
 	ctx context.Context, where Workspace, favorites func() ([]string, error),
 ) func(start, end time.Time) []loop.RepositoryCommits {
@@ -142,52 +149,84 @@ func yourCommits(
 			repositories = []Workspace{where}
 		}
 
-		read := make([]loop.RepositoryCommits, 0, len(repositories))
 		names := distinctNames(repositories)
+		read := make([]loop.RepositoryCommits, len(repositories))
 
-		for at, repository := range repositories {
-			commits, err := gitrepo.At(gitRunner, repository.Root).CommitsBetween(ctx, start, end)
-			read = append(read, loop.RepositoryCommits{Repository: names[at], Commits: commits, Failed: err})
-		}
+		eachAtOnce(len(repositories), func(at int) {
+			commits, err := gitrepo.At(gitRunner, repositories[at].Root).CommitsBetween(ctx, start, end)
+			read[at] = loop.RepositoryCommits{Repository: names[at], Commits: commits, Failed: err}
+		})
 
 		return read
 	}
 }
 
 // commitRepositories is the repository where is in, when it is in one, then
-// each favorite's that is not already listed. Repositories are told apart by
-// the git directory their worktrees share, since each worktree has a root of
-// its own. A favorites list that cannot be read reads as none: the
-// Repositories pane says why, and the commits here are still yours to see.
+// each favorite's that is not already listed, in that order. Repositories are
+// told apart by the git directory their worktrees share, since each worktree
+// has a root of its own. A favorites list that cannot be read reads as none:
+// the Repositories pane says why, and the commits here are still yours to see.
 func commitRepositories(ctx context.Context, where Workspace, favorites func() ([]string, error)) []Workspace {
+	dirs, _ := favorites()
+	candidates := make([]Workspace, 1+len(dirs))
+	shared := make([]string, len(candidates))
+
+	eachAtOnce(len(candidates), func(candidate int) {
+		candidates[candidate] = where
+		if candidate > 0 {
+			candidates[candidate] = Locate(ctx, dirs[candidate-1])
+		}
+
+		shared[candidate] = sharedDir(ctx, candidates[candidate])
+	})
+
 	var repositories []Workspace
 
 	seen := map[string]bool{}
-	add := func(candidate Workspace) {
-		if !candidate.Repository {
-			return
-		}
 
-		shared, err := gitrepo.At(gitRunner, candidate.Root).SharedDir(ctx)
-		if err != nil {
-			shared = candidate.Root
-		}
-
-		if !seen[shared] {
-			seen[shared] = true
+	for at, candidate := range candidates {
+		if candidate.Repository && !seen[shared[at]] {
+			seen[shared[at]] = true
 
 			repositories = append(repositories, candidate)
 		}
 	}
 
-	add(where)
+	return repositories
+}
 
-	dirs, _ := favorites()
-	for _, dir := range dirs {
-		add(Locate(ctx, dir))
+// sharedDir is the git directory a repository's worktrees share, or its root
+// when that cannot be read, and "" outside a repository.
+func sharedDir(ctx context.Context, candidate Workspace) string {
+	if !candidate.Repository {
+		return ""
 	}
 
-	return repositories
+	shared, err := gitrepo.At(gitRunner, candidate.Root).SharedDir(ctx)
+	if err != nil {
+		return candidate.Root
+	}
+
+	return shared
+}
+
+// eachAtOnce runs each for every index below count, readsAtOnce at a time,
+// and returns once all have run. Each writes only its own index.
+func eachAtOnce(count int, each func(index int)) {
+	var running sync.WaitGroup
+
+	slots := make(chan struct{}, readsAtOnce)
+
+	for at := range count {
+		running.Go(func() {
+			slots <- struct{}{}
+			defer func() { <-slots }()
+
+			each(at)
+		})
+	}
+
+	running.Wait()
 }
 
 // distinctNames names each repository read so no two read alike: by Name,

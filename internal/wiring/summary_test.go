@@ -366,6 +366,32 @@ func TestRepositoriesThatShareANameAreToldApartByTheirDirectories(t *testing.T) 
 	}
 }
 
+func TestManyFavoritesAreReadInTheOrderTheyAreKept(t *testing.T) {
+	// Arrange
+	// Favorites are kept in the order of their directories; reading them
+	// side by side must not change it.
+	favorites := make([]string, 0, 6)
+	for _, name := range []string{"a", "b", "c", "d", "e", "f"} {
+		favorites = append(favorites, committedAt(t, name, "repo"))
+	}
+
+	gitSeams := favoring(t, committedOn(t, "me@example.com"), favorites...).Git
+
+	// Act
+	read := gitSeams.CommitsBetween(summaryDay())
+
+	// Assert
+	names := make([]string, 0, len(read))
+	for _, repository := range read[1:] {
+		names = append(names, repository.Repository)
+	}
+
+	want := []string{"…/a/repo", "…/b/repo", "…/c/repo", "…/d/repo", "…/e/repo", "…/f/repo"}
+	if !slices.Equal(names, want) {
+		t.Errorf("the favorites read as %q, want %q", names, want)
+	}
+}
+
 // forgedPath is a forge repository's path a directory could also end with.
 const forgedPath = "acme/api"
 
