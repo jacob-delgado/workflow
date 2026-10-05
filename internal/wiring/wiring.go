@@ -42,13 +42,6 @@ import (
 // a pane loading forever.
 const RequestTimeout = 10 * time.Second
 
-// Workspace is where the interface runs: the repository's root, or the directory
-// it was started in when there is no repository, and origin's URL.
-type Workspace struct {
-	Root   string
-	Remote string
-}
-
 // gitRunner runs git with its terminal prompts turned off. What it runs is quick
 // and local — the fetch, pull and push that reach the network stream through
 // proc.Start instead — but nothing inside the interface could answer a
@@ -56,17 +49,6 @@ type Workspace struct {
 // terminal. It is the Runner every repository this package builds goes through.
 func gitRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
 	return proc.RunCommand(ctx, proc.Command{Name: name, Args: args, Env: []string{"GIT_TERMINAL_PROMPT=0"}})
-}
-
-// Locate reads the repository dir is in. Outside one, every git action fails on
-// its own and says why, so this is not an error.
-func Locate(ctx context.Context, dir string) Workspace {
-	repo, err := gitrepo.At(gitRunner, dir).Describe(ctx)
-	if err != nil {
-		return Workspace{Root: dir, Remote: ""}
-	}
-
-	return Workspace{Root: repo.Root, Remote: repo.Remote}
 }
 
 // Deps connects the interface to the real Jira, repository, forge, messaging
@@ -406,35 +388,6 @@ func instanceKey(baseURL string) string {
 	sum := sha256.Sum256([]byte(baseURL))
 
 	return hex.EncodeToString(sum[:])
-}
-
-// repoKey names the repository the store keys its state by: the origin remote's
-// host and path where there is one, so the same repository shares it across
-// clones, and the working tree's root otherwise. The remote is parsed to its
-// host and path, never used raw, because an HTTPS remote can carry a credential
-// in its userinfo and the store must never hold a secret.
-func repoKey(where Workspace) string {
-	repo, parsed := parsedRemote(where)
-	if !parsed {
-		return where.Root
-	}
-
-	return repo.Host + "/" + repo.Path
-}
-
-// parsedRemote is the origin remote parsed to its host and path, and whether
-// there is one that parses.
-func parsedRemote(where Workspace) (forge.Repo, bool) {
-	if where.Remote == "" {
-		return forge.Repo{}, false
-	}
-
-	repo, err := forge.ParseRemote(where.Remote)
-	if err != nil {
-		return forge.Repo{}, false
-	}
-
-	return repo, true
 }
 
 // hookDeps is what a surface asks of lefthook — nothing at all when lefthook
