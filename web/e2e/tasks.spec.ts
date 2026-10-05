@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import type { Snapshot, Task, TaskList, TasksSummary } from '../src/api/generated/types.gen.ts'
-import { height, openSection } from './cockpit.ts'
-import { streams } from './tabwalk.ts'
+import { height, openSection, pinTheme, themes, widths } from './cockpit.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from './tabwalk.ts'
 
 // Your Taskwarrior tasks as the browser draws them, against answers given
 // here: where a refusal sits against its row's buttons, how the header's task
@@ -276,4 +276,54 @@ for (const { of, act } of refusals) {
     const said = page.getByRole('alert').filter({ hasText: 'on-add hook' })
     expect(await said.innerText()).toBe(twoLines)
   })
+}
+
+// renew is a task for no issue, with a priority and a tag, to narrow to.
+const renew = {
+  ...tracking,
+  uuid: '6a2e8b4d-0c3f-4d9e-b7a1-4f2c3d5e6b7a',
+  id: 2,
+  description: 'Renew the staging certificate',
+  priority: 'H',
+  tags: ['ops'],
+  urgency: 4.1,
+  issue_key: '',
+} satisfies Task
+
+for (const theme of themes) {
+  for (const width of widths) {
+    test(`a narrowed, sorted task list fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
+      page,
+    }) => {
+      // Arrange: two tasks, in this theme, at this width.
+      await pinTheme(page, theme)
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.setViewportSize({ width, height })
+      await streams(page, withTasks({ available: true, reason: '', linked: [tracking] }))
+      await page.route('**/api/tasks', (route) => route.fulfill({ json: listOf(tracking, renew) }))
+      await page.goto('/')
+      await openSection(page, 'Tasks')
+
+      // Act: narrow to priority H, sort by tag, type a filter, and Tab once
+      // round the page.
+      const narrow = page.getByRole('group', { name: 'Narrow' })
+      await narrow.getByRole('button', { name: 'priority H 1' }).click()
+      await page.getByRole('combobox', { name: 'Sort' }).selectOption('By tag')
+      await page.getByRole('searchbox', { name: 'Filter' }).fill('staging')
+      await expect(page.getByText('1 of 2 tasks match, by tag.')).toBeVisible()
+      const { reached, missed, hidden } = await walkTabOrder(page)
+
+      // Assert: nothing scrolls sideways, nor the page down; Tab reaches the
+      // sort, the filter and the pressed chip, each in view; and axe finds
+      // nothing, a pressed chip's contrast included.
+      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
+      expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
+      expect(reached, 'reached by Tab').toEqual(
+        expect.arrayContaining(['Sort', 'Filter', 'priority H 1']),
+      )
+      expect(missed, 'never reached by Tab').toEqual([])
+      expect(hidden, 'out of view with focus').toEqual([])
+      expect(await axeViolations(page), 'axe').toBe('')
+    })
+  }
 }
