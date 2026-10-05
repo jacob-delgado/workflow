@@ -263,7 +263,7 @@ func (g gitlabNote) comment() IssueComment {
 // gitlabIssueComments reads one page of an issue's notes, newest first, and
 // turns it oldest first, leaving out the system notes.
 func gitlabIssueComments(ctx context.Context, client Client, repo Repo, number, _ int) ([]IssueComment, error) {
-	query := url.Values{"sort": {"desc"}, "order_by": {"created_at"}}
+	query := url.Values{sortParameter: {"desc"}, "order_by": {"created_at"}}
 	path := gitlabProjectPath(repo) + issuesSegment + "/" + strconv.Itoa(number) + notesSegment + "?"
 
 	read, err := repoCall[[]gitlabNote](ctx, client, repo, http.MethodGet, path+pageQuery(query, 1), nil)
