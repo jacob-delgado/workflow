@@ -5,10 +5,8 @@ package tui
 
 import (
 	"slices"
-	"strconv"
 	"strings"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -36,13 +34,6 @@ const (
 type facet struct {
 	kind  facetKind
 	value string
-}
-
-// facetChoice is a facet value the filter offers, with how many queued
-// requests hold it.
-type facetChoice struct {
-	facet facet
-	count int
 }
 
 // facetsOf is the value a request holds in each facet.
@@ -110,7 +101,7 @@ func filteredReviews(picked []facet, requests []forge.ReviewRequest) []forge.Rev
 // repositories by name, the CI states and draft or ready in a fixed order,
 // then authors by name — and every picked value none holds, at zero, so it can
 // still be unpicked.
-func facetChoices(requests []forge.ReviewRequest, picked []facet) []facetChoice {
+func facetChoices(requests []forge.ReviewRequest, picked []facet) []offered[facet] {
 	counts := map[facet]int{}
 
 	for _, request := range requests {
@@ -119,11 +110,11 @@ func facetChoices(requests []forge.ReviewRequest, picked []facet) []facetChoice 
 		}
 	}
 
-	var choices []facetChoice
+	var choices []offered[facet]
 
-	for _, offered := range offeredFacets(counts, picked) {
-		if counts[offered] > 0 || slices.Contains(picked, offered) {
-			choices = append(choices, facetChoice{facet: offered, count: counts[offered]})
+	for _, offering := range offeredFacets(counts, picked) {
+		if counts[offering] > 0 || slices.Contains(picked, offering) {
+			choices = append(choices, offered[facet]{value: offering, count: counts[offering]})
 		}
 	}
 
@@ -183,111 +174,29 @@ func facetsLine(picked []facet) string {
 	return "filters: " + strings.Join(labels, ", ")
 }
 
-// facetPicker is the checklist of facet values to narrow the queue to.
-type facetPicker struct {
-	marks   glyphs
-	choices pickList[facetChoice]
-	chosen  []facet
-}
-
 var (
-	_ overlay   = facetPicker{}
-	_ clickable = facetPicker{}
-	_ steppable = facetPicker{}
+	_ overlay   = checklist[facet]{}
+	_ clickable = checklist[facet]{}
+	_ steppable = checklist[facet]{}
 )
 
 // openFacetPicker opens the checklist on the values the queue holds, with
-// those already picked checked.
+// those already picked checked. Applying it keeps the selection on the request
+// it was on while that is still listed.
 func (m Model) openFacetPicker() (Model, tea.Cmd) {
-	choices := facetChoices(m.reviewQueue.all, m.reviewQueue.facets)
-	m.overlay = facetPicker{
-		marks: m.marks, choices: pickList[facetChoice]{items: choices}, chosen: slices.Clone(m.reviewQueue.facets),
+	m.overlay = checklist[facet]{
+		marks: m.marks, title: filterTitle, none: "no request to narrow",
+		choices: pickList[offered[facet]]{items: facetChoices(m.reviewQueue.all, m.reviewQueue.facets)},
+		chosen:  slices.Clone(m.reviewQueue.facets),
+		label:   facet.label,
+		apply: func(m Model, chosen []facet) (Model, tea.Cmd) {
+			previous, _ := m.reviewQueue.current()
+			m.reviewQueue.facets = chosen
+			m.reviewQueue = m.reviewQueue.listed(previous, m.detailRows())
+
+			return m, nil
+		},
 	}
-
-	return m, nil
-}
-
-// view draws the checklist in as many rows as fit.
-func (p facetPicker) view(_, rows int) (string, string) {
-	return filterTitle, strings.Join(p.choices.rows(p.marks, rows, p.choiceRow), "\n")
-}
-
-// choiceRow is a facet value, checked when it is picked, with how many
-// requests hold it.
-func (p facetPicker) choiceRow(choice facetChoice) string {
-	return p.marks.checkbox(slices.Contains(p.chosen, choice.facet)) + choice.facet.label() + "  " +
-		strconv.Itoa(choice.count)
-}
-
-// footer offers moving, checking a value, applying and canceling.
-func (facetPicker) footer(keys keyMap) []key.Binding {
-	return []key.Binding{
-		keys.up, keys.down, keys.toggleOption,
-		relabel(keys.confirm, "apply"), relabel(keys.closeOverlay, "cancel"),
-	}
-}
-
-// handleKey answers a key while the checklist has the keyboard.
-func (p facetPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.confirm):
-		return p.apply(m), nil
-	case key.Matches(msg, m.keys.toggleOption):
-		p = p.toggled()
-	case key.Matches(msg, m.keys.down):
-		return p.step(m, 1), nil
-	case key.Matches(msg, m.keys.up):
-		return p.step(m, -1), nil
-	}
-
-	m.overlay = p
-
-	return m, nil
-}
-
-// toggled is the checklist with the value under the cursor picked, or
-// unpicked when it was.
-func (p facetPicker) toggled() facetPicker {
-	choice, ok := p.choices.chosen()
-	if !ok {
-		return p
-	}
-
-	if index := slices.Index(p.chosen, choice.facet); index >= 0 {
-		p.chosen = slices.Delete(slices.Clone(p.chosen), index, index+1)
-
-		return p
-	}
-
-	p.chosen = append(slices.Clone(p.chosen), choice.facet)
-
-	return p
-}
-
-// apply narrows the queue to the checked values and closes the checklist,
-// keeping the selection on the request it was on while that is still listed.
-func (p facetPicker) apply(m Model) Model {
-	previous, _ := m.reviewQueue.current()
-	m.reviewQueue.facets = p.chosen
-	m.reviewQueue = m.reviewQueue.listed(previous, m.detailRows())
-
-	return m.closeOverlay()
-}
-
-// step moves the cursor by delta.
-func (p facetPicker) step(m Model, delta int) Model {
-	p.choices = p.choices.moved(delta)
-	m.overlay = p
-
-	return m
-}
-
-// click moves the cursor to the clicked value.
-func (p facetPicker) click(m Model, line int) (Model, tea.Cmd) {
-	p.choices = p.choices.clicked(line, m.detailRows())
-	m.overlay = p
 
 	return m, nil
 }

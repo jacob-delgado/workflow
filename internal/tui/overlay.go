@@ -4,6 +4,8 @@
 package tui
 
 import (
+	"slices"
+	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -298,4 +300,102 @@ func oneLine(text string) string {
 // the terminal controls the paste carries keeps its words apart.
 func pastedText(content string) string {
 	return sanitize.Text(strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(content))
+}
+
+// offered is a value a checklist offers, with how many listed things hold it.
+type offered[F comparable] struct {
+	value F
+	count int
+}
+
+// checklist narrows a list to the values checked in it: each value is listed
+// with how many things hold it, space checks or unchecks the one under the
+// cursor, and enter applies the checked set. Every list that narrows by values
+// — the Issues list by place, the review queue by facet, the Tasks list — opens
+// one, and says through apply what applying it changes.
+type checklist[F comparable] struct {
+	marks       glyphs
+	title, none string
+	choices     pickList[offered[F]]
+	chosen      []F
+	label       func(F) string
+	apply       func(Model, []F) (Model, tea.Cmd)
+}
+
+// view draws the checklist in as many rows as fit.
+func (c checklist[F]) view(_, rows int) (string, string) {
+	if len(c.choices.items) == 0 {
+		return c.title, c.none
+	}
+
+	return c.title, strings.Join(c.choices.rows(c.marks, rows, c.choiceRow), "\n")
+}
+
+// choiceRow is a value, checked when it is picked, with how many hold it.
+func (c checklist[F]) choiceRow(choice offered[F]) string {
+	return c.marks.checkbox(slices.Contains(c.chosen, choice.value)) + c.label(choice.value) + "  " +
+		strconv.Itoa(choice.count)
+}
+
+// footer offers moving, checking a value, applying and canceling.
+func (checklist[F]) footer(keys keyMap) []key.Binding {
+	return []key.Binding{
+		keys.up, keys.down, keys.toggleOption,
+		relabel(keys.confirm, "apply"), relabel(keys.closeOverlay, "cancel"),
+	}
+}
+
+// handleKey answers a key while the checklist has the keyboard.
+func (c checklist[F]) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.closeOverlay):
+		return m.closeOverlay(), nil
+	case key.Matches(msg, m.keys.confirm):
+		return c.apply(m.closeOverlay(), c.chosen)
+	case key.Matches(msg, m.keys.toggleOption):
+		c = c.toggled()
+	case key.Matches(msg, m.keys.down):
+		return c.step(m, 1), nil
+	case key.Matches(msg, m.keys.up):
+		return c.step(m, -1), nil
+	}
+
+	m.overlay = c
+
+	return m, nil
+}
+
+// toggled is the checklist with the value under the cursor picked, or unpicked
+// when it was.
+func (c checklist[F]) toggled() checklist[F] {
+	choice, ok := c.choices.chosen()
+	if !ok {
+		return c
+	}
+
+	if index := slices.Index(c.chosen, choice.value); index >= 0 {
+		c.chosen = slices.Delete(slices.Clone(c.chosen), index, index+1)
+
+		return c
+	}
+
+	c.chosen = append(slices.Clone(c.chosen), choice.value)
+
+	return c
+}
+
+// step moves the cursor by delta.
+func (c checklist[F]) step(m Model, delta int) Model {
+	c.choices = c.choices.moved(delta)
+	m.overlay = c
+
+	return m
+}
+
+// click moves the cursor to the clicked value.
+func (c checklist[F]) click(m Model, line int) (Model, tea.Cmd) {
+	c.choices = c.choices.clicked(line, m.detailRows())
+	m.overlay = c
+
+	return m, nil
 }
