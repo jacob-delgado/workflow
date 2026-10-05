@@ -7,6 +7,30 @@ import (
 	"time"
 )
 
+// Defines values for ActivitySourceName.
+const (
+	ActivitySourceNameForge ActivitySourceName = "forge"
+	ActivitySourceNameGit   ActivitySourceName = "git"
+	ActivitySourceNameJira  ActivitySourceName = "jira"
+	ActivitySourceNameTasks ActivitySourceName = "tasks"
+)
+
+// Valid indicates whether the value is a known member of the ActivitySourceName enum.
+func (e ActivitySourceName) Valid() bool {
+	switch e {
+	case ActivitySourceNameForge:
+		return true
+	case ActivitySourceNameGit:
+		return true
+	case ActivitySourceNameJira:
+		return true
+	case ActivitySourceNameTasks:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CIState.
 const (
 	Failed  CIState = "failed"
@@ -105,16 +129,16 @@ func (e ForgeConfigKind) Valid() bool {
 
 // Defines values for IssueTracker.
 const (
-	Forge IssueTracker = "forge"
-	Jira  IssueTracker = "jira"
+	IssueTrackerForge IssueTracker = "forge"
+	IssueTrackerJira  IssueTracker = "jira"
 )
 
 // Valid indicates whether the value is a known member of the IssueTracker enum.
 func (e IssueTracker) Valid() bool {
 	switch e {
-	case Forge:
+	case IssueTrackerForge:
 		return true
-	case Jira:
+	case IssueTrackerJira:
 		return true
 	default:
 		return false
@@ -419,6 +443,96 @@ func (e CleanLocalDataParamsScope) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// Activity defines model for Activity.
+type Activity struct {
+	// From The period's first day, YYYY-MM-DD.
+	From string `json:"from"`
+
+	// Sources Each source asked, in a fixed order, and how its read went.
+	Sources []ActivitySource `json:"sources"`
+
+	// Text The summary as Markdown, ready to copy.
+	Text string `json:"text"`
+
+	// To The period's last day, YYYY-MM-DD.
+	To string `json:"to"`
+
+	// Today The day it is where the server runs, YYYY-MM-DD, so a later period is not offered.
+	Today string         `json:"today"`
+	Years []ActivityYear `json:"years"`
+}
+
+// ActivityDay defines model for ActivityDay.
+type ActivityDay struct {
+	// Date The day, YYYY-MM-DD.
+	Date  string         `json:"date"`
+	Hours []ActivityHour `json:"hours"`
+
+	// Weekday The day of the week, such as Friday.
+	Weekday string `json:"weekday"`
+}
+
+// ActivityHour defines model for ActivityHour.
+type ActivityHour struct {
+	Items []ActivityItem `json:"items"`
+
+	// Label The hour as the clock showed it, such as 09:00, with its zone added when the clocks showed it twice that day.
+	Label string `json:"label"`
+}
+
+// ActivityItem defines model for ActivityItem.
+type ActivityItem struct {
+	At time.Time `json:"at"`
+
+	// Ref What it was done to, such as a commit's hash, PROJ-412 or o/r#42.
+	Ref        string `json:"ref"`
+	Repository string `json:"repository"`
+
+	// Source A place work leaves a trace.
+	Source ActivitySourceName `json:"source"`
+	Title  string             `json:"title"`
+
+	// URL A link to it, or empty where there is none.
+	URL string `json:"url"`
+
+	// Verb What was done, such as "committed" or "moved".
+	Verb string `json:"verb"`
+}
+
+// ActivityMonth defines model for ActivityMonth.
+type ActivityMonth struct {
+	Days  []ActivityDay `json:"days"`
+	Month int           `json:"month"`
+
+	// Name The month's name, such as October.
+	Name string `json:"name"`
+}
+
+// ActivitySource defines model for ActivitySource.
+type ActivitySource struct {
+	// Detail Why the source could not be read, in words that never name a host; empty when it was.
+	Detail string `json:"detail"`
+	Failed bool   `json:"failed"`
+
+	// Name The source as a sentence starts with it, such as "Jira".
+	Name string `json:"name"`
+
+	// Source A place work leaves a trace.
+	Source ActivitySourceName `json:"source"`
+
+	// Truncated The source had more than it gave.
+	Truncated bool `json:"truncated"`
+}
+
+// ActivitySourceName A place work leaves a trace.
+type ActivitySourceName string
+
+// ActivityYear defines model for ActivityYear.
+type ActivityYear struct {
+	Months []ActivityMonth `json:"months"`
+	Year   int             `json:"year"`
 }
 
 // AnnounceMentions Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; users are the ones the preview showed tagged, so a post whose kept links changed since is refused rather than tagging someone else. groups name the user groups checked, each one the announcement offered.
@@ -1447,6 +1561,15 @@ type ViewList struct {
 
 // TaskUUID Example: 5f3c9a1e-8b2d-4c6f-9e7a-1d2b3c4d5e6f
 type TaskUUID = string
+
+// GetActivityParams defines parameters for GetActivity.
+type GetActivityParams struct {
+	// From The first day, written as YYYY-MM-DD.
+	From *string `form:"from,omitempty" json:"from,omitempty"`
+
+	// To The last day, written as YYYY-MM-DD.
+	To *string `form:"to,omitempty" json:"to,omitempty"`
+}
 
 // GetAnnouncementParams defines parameters for GetAnnouncement.
 type GetAnnouncementParams struct {

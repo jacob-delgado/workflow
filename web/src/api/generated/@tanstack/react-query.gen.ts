@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getAnnouncement, getBranch, getCheckLog, getConfig, getHealth, getIssue, getLocalData, getMessaging, getPeople, getPullRequestDraft, getRepoGroups, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
-import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
+import { getActivity, getAnnouncement, getBranch, getCheckLog, getConfig, getHealth, getIssue, getLocalData, getMessaging, getPeople, getPullRequestDraft, getRepoGroups, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -419,4 +419,24 @@ export const listTasksOptions = (options?: Options<ListTasksData>) => queryOptio
         return data;
     },
     queryKey: listTasksQueryKey(options)
+});
+
+export const getActivityQueryKey = (options?: Options<GetActivityData>) => createQueryKey('getActivity', options);
+
+/**
+ * What you did over a period, grouped by year, month, day and hour.
+ *
+ * Reads back what you did from start to end of the days from and to, both included, in the server's own time zone: the commits you wrote in the repository the server runs in, the Taskwarrior tasks you added, annotated and completed and the ones you started that are still going, what you did to Jira issues, and the pull or merge requests you opened, had merged and reviewed on the forge, in any repository. Nothing is kept: every request reads the sources again. With neither day given it is the previous working day; with one, that day alone. Each source answers on its own, so one that cannot be read is named in sources with why, and the rest still answer. The period is refused with 422 when it runs backwards or is longer than a year and a day, or a day is not written as YYYY-MM-DD.
+ */
+export const getActivityOptions = (options?: Options<GetActivityData>) => queryOptions<GetActivityResponse, GetActivityError, GetActivityResponse, ReturnType<typeof getActivityQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getActivity({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getActivityQueryKey(options)
 });

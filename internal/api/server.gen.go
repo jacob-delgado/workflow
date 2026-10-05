@@ -18,6 +18,9 @@ import (
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetActivity What you did over a period, grouped by year, month, day and hour.
+	// (GET /api/activity)
+	GetActivity(w http.ResponseWriter, r *http.Request, params GetActivityParams)
 	// Announce Post the pull request announcement to the configured service.
 	// (POST /api/announce)
 	Announce(w http.ResponseWriter, r *http.Request)
@@ -169,6 +172,52 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetActivity operation middleware
+func (siw *ServerInterfaceWrapper) GetActivity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetActivityParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetActivity(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // Announce operation middleware
 func (siw *ServerInterfaceWrapper) Announce(w http.ResponseWriter, r *http.Request) {
@@ -1269,11 +1318,65 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/{uuid}/done", wrapper.CompleteTask)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/{uuid}/annotations", wrapper.AnnotateTask)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/{uuid}/modify", wrapper.ModifyTask)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/activity", wrapper.GetActivity)
 
 	return m
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type GetActivityRequestObject struct {
+	Params GetActivityParams
+}
+
+type GetActivityResponseObject interface {
+	VisitGetActivityResponse(w http.ResponseWriter) error
+}
+
+type GetActivity200JSONResponse Activity
+
+func (response GetActivity200JSONResponse) VisitGetActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActivity422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetActivity422ApplicationProblemPlusJSONResponse) VisitGetActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActivitydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetActivitydefaultApplicationProblemPlusJSONResponse) VisitGetActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type AnnounceRequestObject struct {
 	Body *AnnounceJSONRequestBody
@@ -3994,6 +4097,9 @@ func (response ListViewsdefaultApplicationProblemPlusJSONResponse) VisitListView
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// GetActivity What you did over a period, grouped by year, month, day and hour.
+	// (GET /api/activity)
+	GetActivity(ctx context.Context, request GetActivityRequestObject) (GetActivityResponseObject, error)
 	// Announce Post the pull request announcement to the configured service.
 	// (POST /api/announce)
 	Announce(ctx context.Context, request AnnounceRequestObject) (AnnounceResponseObject, error)
@@ -4174,6 +4280,32 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// GetActivity operation middleware
+func (sh *strictHandler) GetActivity(w http.ResponseWriter, r *http.Request, params GetActivityParams) {
+	var request GetActivityRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetActivity(ctx, request.(GetActivityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetActivity")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetActivityResponseObject); ok {
+		if err := validResponse.VisitGetActivityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // Announce operation middleware

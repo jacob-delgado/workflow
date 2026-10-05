@@ -329,7 +329,7 @@ func WebServerAt(addr string) RunWeb {
 // available. The server also takes the interface's keymap check, so Settings
 // never saves a ui.keys map the interface would refuse to start on.
 func WebDeps(deps tui.Deps) webserver.Deps {
-	return webserver.Deps{
+	return withSummarySources(webserver.Deps{
 		Search:        deps.Jira.Search,
 		SearchLenient: deps.Jira.SearchLenient,
 		Issue:         deps.Jira.Issue,
@@ -388,7 +388,17 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 
 		CheckKeys: tui.CheckKeys,
 		Clock:     deps.Clock,
-	}
+	}, deps)
+}
+
+// withSummarySources gives the web server the reads the Summary asks of git,
+// Jira and the forge, Taskwarrior's coming with its seams.
+func withSummarySources(web webserver.Deps, deps tui.Deps) webserver.Deps {
+	web.CommitsBetween = deps.Git.CommitsBetween
+	web.JiraActivity = deps.Jira.Activity
+	web.ForgeActivity = deps.Forge.Activity
+
+	return web
 }
 
 // serveWeb serves the web interface over conn through serve, first saying when
