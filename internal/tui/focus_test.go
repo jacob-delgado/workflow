@@ -57,13 +57,14 @@ func TestKeysMoveFocusAlongTheRail(t *testing.T) {
 		// shift+tab from the first pane lands on the last rather than stopping. The
 		// last pane's list lives in the detail, so its focus shows as the detail
 		// title rather than the rail's.
-		"shift+tab from the first wraps to the last": {keys: []string{keyShiftTab}, want: summaryTitle},
-		"eight tabs is a full lap": {
-			keys: []string{keyTab, keyTab, keyTab, keyTab, keyTab, keyTab, keyTab, keyTab}, want: issuesPane,
+		"shift+tab from the first wraps to the last": {keys: []string{keyShiftTab}, want: reposTitle},
+		"nine tabs is a full lap": {
+			keys: []string{keyTab, keyTab, keyTab, keyTab, keyTab, keyTab, keyTab, keyTab, keyTab}, want: issuesPane,
 		},
-		"a number jumps straight to its pane": {keys: []string{"4"}, want: "4 Review"},
-		"7 jumps to Tasks":                    {keys: []string{tasksPane}, want: tasksTitle},
-		"the last number jumps to Summary":    {keys: []string{summaryKey}, want: summaryTitle},
+		"a number jumps straight to its pane":   {keys: []string{"4"}, want: "4 Review"},
+		"7 jumps to Tasks":                      {keys: []string{tasksPane}, want: tasksTitle},
+		"8 jumps to Summary":                    {keys: []string{summaryKey}, want: summaryTitle},
+		"the last number jumps to Repositories": {keys: []string{reposKey}, want: reposTitle},
 	}
 
 	for name, tt := range cases {
@@ -85,21 +86,21 @@ func TestKeysMoveFocusAlongTheRail(t *testing.T) {
 	}
 }
 
-func TestTheRailHasSevenPanesAndTasksIsLast(t *testing.T) {
+func TestTheRailHasNinePanesAndRepositoriesIsLast(t *testing.T) {
 	t.Parallel()
 
 	// Act
 	view := fresh(t).View().Content
 
 	// Assert
-	requireInOrder(t, view, issuesPane, "5 Slack", "6 Reviews", "7 Tasks")
+	requireInOrder(t, view, issuesPane, "5 Slack", "6 Reviews", "7 Tasks", "8 Summary", "9 Repositories")
 }
 
 func TestALeftClickOnTheRailFocusesThatPane(t *testing.T) {
 	t.Parallel()
 
 	// At 120x40, with Issues focused and so taking the spare height, the Commits
-	// rail pane's content sits on rows 21 and 22.
+	// rail pane's content sits on rows 18 and 19.
 	cases := map[string]struct {
 		msg  tea.MouseMsg
 		want string
@@ -107,13 +108,13 @@ func TestALeftClickOnTheRailFocusesThatPane(t *testing.T) {
 		// The Commits pane's heavy border is on its detail, where the cursor is,
 		// so focus shows as the detail title rather than the rail's.
 		"a left click on Commits": {
-			msg: tea.MouseClickMsg{X: 5, Y: 21, Button: tea.MouseLeft}, want: "Commits",
+			msg: tea.MouseClickMsg{X: 5, Y: 18, Button: tea.MouseLeft}, want: "Commits",
 		},
 		"a release": {
-			msg: tea.MouseReleaseMsg{X: 5, Y: 22, Button: tea.MouseLeft}, want: issuesPane,
+			msg: tea.MouseReleaseMsg{X: 5, Y: 19, Button: tea.MouseLeft}, want: issuesPane,
 		},
 		"a right click": {
-			msg: tea.MouseClickMsg{X: 5, Y: 22, Button: tea.MouseRight}, want: issuesPane,
+			msg: tea.MouseClickMsg{X: 5, Y: 19, Button: tea.MouseRight}, want: issuesPane,
 		},
 		"a click on the detail": {
 			msg: tea.MouseClickMsg{X: 80, Y: 28, Button: tea.MouseLeft}, want: issuesPane,

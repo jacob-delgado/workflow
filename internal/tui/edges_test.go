@@ -361,7 +361,7 @@ func TestClicksThatLandOnNothingDoNothing(t *testing.T) {
 		keys        []string
 		column, row int
 	}{
-		"below the issues in the rail": {column: 5, row: 15},
+		"below the issues in the rail": {column: 5, row: 12},
 		"on the spine":                 {column: 50, row: 0},
 		"on the Branch pane's detail":  {keys: []string{"2"}, column: 60, row: 5},
 	}
