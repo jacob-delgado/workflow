@@ -124,8 +124,10 @@ internal/forge 15
 # moved by [ and ] once the keys rest); and calendar.go (the calendar the
 # Summary's period is picked in: Year, Month and Day columns, and a range); and
 # repositories.go (the Repositories pane: where you work, in full, and the
-# favorite directories with what is there now).
-internal/tui 56
+# favorite directories with what is there now); and reposwitch.go (switching
+# directory: what goes with the switch and what it would lose, and the go-to
+# prompt with its tab completion).
+internal/tui 57
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of

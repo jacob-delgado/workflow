@@ -36,24 +36,37 @@ const (
 type rootRun struct {
 	interfaces int
 	model      tui.Model
-	servers    int
-	addr       string
-	cfg        config.Config
-	info       webserver.Info
-	stdout     string
-	stderr     string
-	err        error
+	// models are every interface opened, in order; nexts are where each in
+	// turn asks to go when it ends, none past the last.
+	models  []tui.Model
+	nexts   []tui.Next
+	servers int
+	addr    string
+	cfg     config.Config
+	info    webserver.Info
+	stdout  string
+	stderr  string
+	err     error
 }
 
 // runInterface stands in for tui.Run, keeping the model it was handed and
-// writing interfaceWrote where the interface draws.
-func (r *rootRun) runInterface(_ context.Context, model tui.Model, out io.Writer) error {
+// writing interfaceWrote where the interface draws, then ending where nexts
+// says, in turn.
+func (r *rootRun) runInterface(_ context.Context, model tui.Model, out io.Writer) (tui.Next, error) {
 	r.interfaces++
 	r.model = model
+	r.models = append(r.models, model)
 
 	fmt.Fprint(out, interfaceWrote)
 
-	return nil
+	if len(r.nexts) == 0 {
+		return tui.Next{}, nil
+	}
+
+	next := r.nexts[0]
+	r.nexts = r.nexts[1:]
+
+	return next, nil
 }
 
 // serveWebAt stands in for WebServerAt, keeping the address it was handed.
@@ -112,7 +125,15 @@ func runRoot(t *testing.T, dir string, args ...string) *rootRun {
 func runRootAt(t *testing.T, where place, args ...string) *rootRun {
 	t.Helper()
 
-	var ran rootRun
+	return runRootSwitching(t, where, nil, args...)
+}
+
+// runRootSwitching is runRootAt over interfaces that end asking to go where
+// nexts says, in turn.
+func runRootSwitching(t *testing.T, where place, nexts []tui.Next, args ...string) *rootRun {
+	t.Helper()
+
+	ran := rootRun{nexts: nexts}
 
 	ran.stdout, ran.stderr, ran.err = executeRoot(t, where, ran.runInterface, ran.serveWebAt, args...)
 
@@ -475,10 +496,10 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 
 			// Act
 			_, _, err = executeRoot(t, place{dir: dir, home: t.TempDir()},
-				func(context.Context, tui.Model, io.Writer) error {
+				func(context.Context, tui.Model, io.Writer) (tui.Next, error) {
 					countRuns()
 
-					return nil
+					return tui.Next{}, nil
 				},
 				func(string) cli.RunWeb {
 					return func(context.Context, config.Config, webserver.Deps, webserver.Info, io.Writer) error {

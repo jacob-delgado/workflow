@@ -101,6 +101,8 @@ type Model struct {
 	summary     summaryState
 	// repositories is the Repositories pane's favorites and cursor.
 	repositories repositoriesState
+	// next is where the interface was asked to go when it ends.
+	next Next
 	// commentDrafts are the comments written and not posted, one per issue,
 	// kept for the session.
 	commentDrafts commentDrafts
@@ -164,21 +166,24 @@ func (m Model) WithoutColor() Model {
 	return m
 }
 
-// Run starts the interface and blocks until the user quits. The context cancels
+// Run starts the interface and blocks until the user quits, or switches
+// directory, which Next says. The context cancels
 // the program, so a caller can shut the interface down. The alternate screen
 // and mouse mode are set declaratively in View, as v2 asks.
 //
 // Trade-off TRADE-12: no test calls Run, since the program it starts takes over
 // the terminal the tests run in.
-func Run(ctx context.Context, model Model, out io.Writer) error {
+func Run(ctx context.Context, model Model, out io.Writer) (Next, error) {
 	options := append([]tea.ProgramOption{tea.WithOutput(out), tea.WithContext(ctx)}, model.programOptions...)
 
-	_, err := tea.NewProgram(model, options...).Run()
+	ended, err := tea.NewProgram(model, options...).Run()
 	if err != nil {
-		return fmt.Errorf("running the interface: %w", err)
+		return Next{}, fmt.Errorf("running the interface: %w", err)
 	}
 
-	return nil
+	final, _ := ended.(Model)
+
+	return final.next, nil
 }
 
 // Init implements tea.Model: it starts every load the panes need. Each runs

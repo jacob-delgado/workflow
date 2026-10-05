@@ -187,7 +187,9 @@ every key `?` lists, by where it works.
 | | `Y` | Copy the summary as Markdown |
 | | `o` / `y` | Open the selected item in the browser, or copy its URL |
 | | `r` | Read the period again |
-| Repositories | `f` | Add the selected directory to your favorites, or remove it |
+| Repositories | `enter` | Switch to the selected directory |
+| | `f` | Add the selected directory to your favorites, or remove it |
+| | `g` | Type a directory to switch to; `tab` completes it |
 | | `r` | Read the favorites again |
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
 | | `←` / `→` | Change the commit's type; in the announcement preview, change the channel |
@@ -686,6 +688,27 @@ it. Favorites are kept in the store's `kept.db`, by path alone; whether one is
 still there is read from the disk each time the pane is opened, and they are
 not read at startup. Under `--dry-run` the pane lists them and says what `f`
 would have done; with `store.disabled` there are none to keep.
+
+`enter` switches to the directory the cursor is on, and `g` to one you type:
+from where you work, as `../web`, or from your home after a `~`, as
+`~/src/web`. In the prompt every key types, `j` and `q` included; `tab`
+completes the path from the directories there, a hidden one once you type its
+dot, typing what several share and
+naming them, and `enter` goes once the path is checked to be a directory that
+is there. A switch ends the interface and opens it again in that directory,
+wired to it as if workflow had been started there: its repository, its forge,
+the configuration files that apply there and the store's keys all follow. A
+directory not there, or a configuration whose `ui.keys` the interface would
+refuse, leaves it where it was, saying why.
+
+What belongs to the session rather than the repository goes with you: the
+comments you were writing on Jira issues, when the directory switched to uses
+the same Jira, how the Tasks list is sorted and narrowed, and the Summary's
+period. What belongs to the repository left — a
+commit message or a pull request being written, a comment on one of its forge
+issues, an announcement waiting for CI — would be lost, so the switch names it
+and asks first; and while an announcement or a change to a task is being sent,
+the switch waits for it.
 
 ## Dry run
 

@@ -4,6 +4,8 @@
 package tui_test
 
 import (
+	"strings"
+
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -26,8 +28,15 @@ type dirsWorld struct {
 	here      seams.Place
 	places    map[string]seams.Place
 	favorites []string
+	// listings are the directories in each directory, by its path.
+	listings map[string][]string
 	// keepsNothing binds no favorites, as a store turned off does.
 	keepsNothing bool
+	// failing is why reading and changing the favorites fails, or nil.
+	failing error
+	// cannotLook binds no Look, as a surface given no way to read a
+	// directory has.
+	cannotLook bool
 }
 
 // apiPlace is the api repository, worked in from its cmd directory.
@@ -39,6 +48,11 @@ func apiPlace() seams.Place {
 	}
 }
 
+// webPlace is the web repository, worked in from its root.
+func webPlace() seams.Place {
+	return seams.Place{Dir: webRoot, Root: webRoot, Remote: forge.Repo{Host: "github.com", Path: "acme/web"}}
+}
+
 // reposWorld is a world working in api's cmd directory, with web and a
 // directory since removed as favorites.
 func reposWorld() *world {
@@ -47,7 +61,7 @@ func reposWorld() *world {
 		here: apiPlace(),
 		places: map[string]seams.Place{
 			apiCmd:  apiPlace(),
-			webRoot: {Dir: webRoot, Root: webRoot, Remote: forge.Repo{Host: "github.com", Path: "acme/web"}},
+			webRoot: webPlace(),
 		},
 		favorites: []string{webRoot, oldDir},
 	}
@@ -73,7 +87,26 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 
 			return place, nil
 		},
-		Subdirectories: nil,
+		Subdirectories: func(dir, prefix string) (workdirs.Listing, error) {
+			names, found := dirs.listings[dir]
+			if !found {
+				return workdirs.Listing{}, workdirs.ErrNotFound
+			}
+
+			listing := workdirs.Listing{}
+
+			for _, name := range names {
+				if strings.HasPrefix(name, prefix) {
+					listing.Entries = append(listing.Entries, workdirs.Entry{Name: name})
+				}
+			}
+
+			return listing, nil
+		},
+	}
+
+	if dirs.cannotLook {
+		deps.Repositories.Look = nil
 	}
 
 	if dirs.keepsNothing {
@@ -86,7 +119,7 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
-		return append([]string(nil), dirs.favorites...), nil
+		return append([]string(nil), dirs.favorites...), dirs.failing
 	}
 	deps.Store.Favor = func(dir string) error {
 		w.record("favor " + dir)
@@ -96,7 +129,7 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 
 		dirs.favorites = append(dirs.favorites, dir)
 
-		return nil
+		return dirs.failing
 	}
 	deps.Store.Unfavor = func(dir string) error {
 		w.record("unfavor " + dir)
