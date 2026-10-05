@@ -320,7 +320,9 @@ why. A switch is refused while the working tree holds uncommitted changes,
 rather than carrying them onto the other branch. git will not check out a
 branch another worktree has checked out, so such a branch is marked with that
 worktree, as `(worktree at ~/src/api-feat-x)`, and switching to it goes there
-instead, as a switch from the Repositories pane does.
+instead, as a switch from the Repositories pane does; one held by a worktree
+whose directory is gone is marked `(worktree gone)`, and choosing it says that
+`git worktree prune` frees it.
 
 `i` on the Branch pane links the branch to an issue, for work begun outside
 workflow on a branch whose name names none. It offers the issue selected in the
@@ -622,7 +624,7 @@ unasked.
 
 | Moment | Offer |
 | --- | --- |
-| A branch created for an issue with `b` — not one made in a worktree with `ctrl+w` — or switched to with `s` | Start the issue's task, or, with none, track the issue and start the new task |
+| A branch created for an issue with `b` — not one made in a worktree with `ctrl+w` — or switched to with `s` — not one another worktree has, which `s` leaves for | Start the issue's task, or, with none, track the issue and start the new task |
 | A pull request opened for the branch's Jira issue | Annotate its task with the pull request's number and URL |
 | That pull request merged with `M` | Complete the task |
 | The issue moved to a done status with `t` | Complete the task |
@@ -694,16 +696,17 @@ files that apply there — the repository's over your home's — each written
 from your home, as `~/src/api`. Outside a repository it says so, and the
 panes that need one say what they have no data for.
 
-Below that are the repository's other worktrees, as `git worktree list`
-lists them, each with the branch it has checked out — or the commit, when its
-HEAD is detached — and whether git keeps it locked, or finds its directory
-gone. They are read again each time the pane is opened, so one made or removed
-since shows.
+Below that is the directory you work in, as the list's first row, then the
+repository's other worktrees, as `git worktree list` lists them, each with the
+branch it has checked out — or the commit, when its HEAD is detached — and
+whether git keeps it locked, or finds its directory gone, a locked one's
+included. They are read again each time the pane is opened, so one made or
+removed since shows.
 
-Then come your favorites: the directory you work in first, then every
-directory you marked, each with what is there now — a repository and its
-origin, a directory that is not a repository, or one that is not there any
-more. `f` adds the directory the cursor is on to your favorites, or removes
+Then come your favorites: every other directory you marked, each with what is
+there now — a repository and its origin, a directory that is not a repository,
+or one that is not there any more. A favorite that is one of the worktrees is
+starred there rather than listed twice. `f` adds the directory the cursor is on to your favorites, or removes
 it. Favorites are kept in the store's `kept.db`, by path alone; whether one is
 still there is read from the disk each time the pane is opened, and they are
 not read at startup. Under `--dry-run` the pane lists them and says what `f`

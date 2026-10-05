@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -177,11 +178,55 @@ func TestArrivingInAnotherWorktreeListsTheWorktreesAtOnce(t *testing.T) {
 	// rest rather than only when it is next looked at.
 	left, _ := pressed(t, typing(t, worktreesWorld().live(t, 120, 40), reposKey, "j"), keyEnter)
 	arriving := worktreesWorld()
+	arriving.dirs.here = seams.Place{Dir: apiFeature, Root: apiFeature}
 	model := sized(t, tui.New(arriving.cfg, nil, arriving.deps()).Arrived(left.Destination()), 120, 40)
 
 	// Act
 	arrived := drain(t, model, model.Init())
 
 	// Assert
-	requireScreen(t, arrived.View().Content, "Worktrees", "worktree on feat/x")
+	// Arrived in the feature's worktree, it is where you work, and api's own
+	// is the other.
+	view := arrived.View().Content
+	requireScreen(t, view, "Worktrees", "worktree on main")
+	refuseScreen(t, view, "worktree on feat/x")
+}
+
+func TestAFavoriteThatIsAWorktreeIsListedOnceAsAWorktree(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := worktreesWorld()
+	working.dirs.favorites = append(working.dirs.favorites, apiFeature)
+
+	// Act
+	view := typing(t, working.live(t, 120, 40), reposKey).View().Content
+
+	// Assert
+	if listed := strings.Count(view, "~/src/api-feat-x"); listed != 1 {
+		t.Errorf("~/src/api-feat-x is listed %d times, want once, as a worktree:\n%s", listed, view)
+	}
+
+	requireScreen(t, view, "★ ~/src/api-feat-x")
+}
+
+func TestABranchWhoseWorktreeIsGoneSaysHowToFreeIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// git will not check out a branch a worktree holds, even one gone, until
+	// the worktree is pruned.
+	working := retriesInAWorktree()
+	working.dirs.worktrees[1].Missing = true
+	opened := typing(t, working.live(t, 160, 40), "2", "s")
+
+	// Act
+	stayed, cmd := pressed(t, opened, keyEnter)
+
+	// Assert
+	if quits(cmd) || len(working.asked("checkout")) != 0 {
+		t.Errorf("enter: quit %v, checkouts %v; want neither", quits(cmd), working.asked("checkout"))
+	}
+
+	requireScreen(t, stayed.View().Content, "(worktree gone)", "git worktree prune")
 }

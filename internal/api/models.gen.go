@@ -1611,6 +1611,9 @@ type TaskBranch struct {
 	// Worktree The directory of another worktree of the repository that has the branch checked out, as an absolute path; empty when none does. git will not check such a branch out here, so it is switched to there instead.
 	Worktree *string `json:"worktree,omitempty"`
 
+	// WorktreeMissing Whether that worktree's directory is gone: git holds the branch for it until it is pruned, so it can be neither checked out nor switched to.
+	WorktreeMissing *bool `json:"worktree_missing,omitempty"`
+
 	// WorktreeShown That worktree's directory written from your home; empty when none.
 	WorktreeShown *string `json:"worktree_shown,omitempty"`
 }

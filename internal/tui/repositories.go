@@ -133,6 +133,11 @@ func (m Model) repositoryRows() []repositoryRow {
 	rows := append([]repositoryRow{here}, m.worktreeRows()...)
 
 	for _, favorite := range m.repositories.favorites {
+		if m.isOtherWorktree(favorite.dir) {
+			// Listed, starred, among the worktrees.
+			continue
+		}
+
 		if favorite.here {
 			// Kept by the name it was marked under, which may be another
 			// way to reach where you work; that is the name to forget.
@@ -166,6 +171,13 @@ func (m Model) worktreeRows() []repositoryRow {
 	}
 
 	return rows
+}
+
+// isOtherWorktree reports dir one of the worktrees listed beside where you
+// work.
+func (m Model) isOtherWorktree(dir string) bool {
+	return dir != m.deps.Repositories.Here.Root &&
+		slices.ContainsFunc(m.repositories.worktrees, func(worktree gitrepo.Worktree) bool { return worktree.Dir == dir })
 }
 
 // isFavorite reports a favorite kept by exactly dir.

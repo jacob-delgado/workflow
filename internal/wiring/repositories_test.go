@@ -253,3 +253,30 @@ func TestOutsideARepositoryThereAreNoWorktreesToList(t *testing.T) {
 		t.Error("Worktrees outside a repository is set, want nil")
 	}
 }
+
+func TestALockedWorktreeWhoseDirectoryIsGoneReadsAsGone(t *testing.T) {
+	// Arrange
+	// git never marks a locked worktree prunable, as on a drive since
+	// unmounted, so its directory is looked for.
+	isolateGit(t)
+
+	root := repository(t)
+	linked := filepath.Join(t.TempDir(), "usb")
+	git(t, root, "worktree", "add", "--quiet", "-b", "usb", linked)
+	git(t, root, "worktree", "lock", linked)
+
+	err := os.RemoveAll(linked)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repositories := wired(t, config.Default(), wiring.Locate(t.Context(), root), nil).Repositories
+
+	// Act
+	worktrees, err := repositories.Worktrees()
+
+	// Assert
+	if err != nil || len(worktrees) != 2 || !worktrees[1].Missing || !worktrees[1].Locked {
+		t.Errorf("Worktrees = %+v, %v; want the locked one read as gone", worktrees, err)
+	}
+}

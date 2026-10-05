@@ -2703,6 +2703,13 @@ components:
           type: string
           default: ""
           description: That worktree's directory written from your home; empty when none.
+        worktree_missing:
+          type: boolean
+          default: false
+          description: >-
+            Whether that worktree's directory is gone: git holds the branch
+            for it until it is pruned, so it can be neither checked out nor
+            switched to.
       additionalProperties: false
 
     IssuesPage:
