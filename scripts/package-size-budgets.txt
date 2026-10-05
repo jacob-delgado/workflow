@@ -164,6 +164,14 @@ internal/webserver 23
 # file, as doctor's did.
 internal/cli 16
 
+# internal/loop — the loop composed once for the command line, the terminal
+# and the web: which issue a branch names, the pull request draft, the
+# announcement, the comment's markup, and summary.go, the Summary's reads of
+# git, Taskwarrior, Jira and the forge as activity items, so the terminal and
+# the web turn each source's answer into the same lines. One responsibility —
+# say what the loop means, over the seams' answers — spelled concern-per-file.
+internal/loop 13
+
 # web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
 # `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by
 # gen:check; its file count is the code generator's business, not a concern

@@ -1,0 +1,221 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package loop_test
+
+import (
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/jacob-delgado/workflow/internal/activity"
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+)
+
+var errNotRead = errors.New("not read")
+
+// fixSubject and doneStatus are what the cases' commit and issue say.
+const (
+	fixSubject = "Fix it"
+	doneStatus = "Done"
+)
+
+// summaryStart is the start of the one-day period every case reads.
+func summaryStart() time.Time { return time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC) }
+
+func TestYourCommitsReadAsCommitted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	read := func(time.Time, time.Time) ([]gitrepo.DatedCommit, error) {
+		return []gitrepo.DatedCommit{{Hash: "abc1234ffff", Short: "abc1234", Subject: fixSubject, Authored: start}}, nil
+	}
+
+	// Act
+	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+
+	// Assert
+	want := activity.Item{At: start, Kind: activity.Committed, Ref: "abc1234", Title: fixSubject}
+	if got.Source != activity.SourceGit || len(got.Items) != 1 || got.Items[0] != want {
+		t.Errorf("CommitsRead = %+v, want %+v from git", got, want)
+	}
+}
+
+func TestATaskReadsAsEachThingDoneToItInThePeriod(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	task := taskwarrior.Task{
+		UUID: "8f1c2d3e-0000", ID: 0, Status: "completed", Description: "Ship it",
+		Entry: start.Add(-48 * time.Hour), Start: start.Add(time.Hour), End: start.Add(3 * time.Hour),
+		Annotations: []taskwarrior.Annotation{{Entry: start.Add(2 * time.Hour), Description: "half way"}},
+	}
+	read := func(time.Time) ([]taskwarrior.Task, error) { return []taskwarrior.Task{task}, nil }
+
+	// Act
+	got := loop.TasksRead(read, start, start.Add(24*time.Hour))
+
+	// Assert
+	// Added before the period, so not counted; a completed task has no id,
+	// so it is named by the start of its UUID.
+	kinds := []activity.Kind{activity.TaskStarted, activity.TaskAnnotated, activity.TaskCompleted}
+	if len(got.Items) != len(kinds) {
+		t.Fatalf("TasksRead = %+v, want %d items", got.Items, len(kinds))
+	}
+
+	for index, item := range activity.Merge(got.Items) {
+		if item.Kind != kinds[index] || item.Ref != "8f1c2d3e" || item.Title != "Ship it" {
+			t.Errorf("item %d = %+v, want %v of 8f1c2d3e Ship it", index, item, kinds[index])
+		}
+	}
+}
+
+func TestJirasEventsReadAsIssueItemsWithTheirLinks(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	read := func(time.Time, time.Time) (jira.Activity, error) {
+		return jira.Activity{Truncated: true, Events: []jira.Event{
+			{At: start, Kind: jira.EventMoved, Key: issueKey, Summary: fixSubject, Detail: doneStatus},
+		}}, nil
+	}
+	browse := func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) }
+
+	// Act
+	got := loop.JiraRead(read, browse, start, start.Add(24*time.Hour))
+
+	// Assert
+	want := activity.Item{
+		At: start, Kind: activity.IssueMoved, Ref: issueKey, Title: fixSubject + ", to " + doneStatus,
+		URL: "https://jira.example.com/browse/" + issueKey,
+	}
+	if !got.Truncated || len(got.Items) != 1 || got.Items[0] != want {
+		t.Errorf("JiraRead = %+v, want %+v, truncated", got, want)
+	}
+}
+
+func TestForgeEventsReadByTheirRepositoryAndNumber(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	read := func(time.Time, time.Time) (forge.Activity, error) {
+		return forge.Activity{Events: []forge.Event{
+			{At: start, Kind: forge.EventMerged, Number: 42, Title: "Redact", URL: "https://x/42", Repository: "o/r"},
+			{At: start, Kind: forge.EventOpened, Number: 5, Title: "Lint"},
+		}}, nil
+	}
+
+	// Act
+	got := loop.ForgeRead(read, forge.KindGitLab, start, start.Add(24*time.Hour))
+
+	// Assert
+	if len(got.Items) != 2 || got.Items[0].Ref != "o/r!42" || got.Items[0].Kind != activity.PullMerged ||
+		got.Items[1].Ref != "!5" || got.Items[1].Kind != activity.PullOpened {
+		t.Errorf("ForgeRead = %+v, want o/r!42 merged and !5 opened", got.Items)
+	}
+}
+
+func TestEveryJiraEventReadsAsItsOwnKind(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		event jira.Event
+		kind  activity.Kind
+		title string
+	}{
+		"created": {jira.Event{Kind: jira.EventCreated, Summary: fixSubject}, activity.IssueCreated, fixSubject},
+		"worked": {
+			jira.Event{Kind: jira.EventWorked, Summary: fixSubject, Detail: "2h"}, activity.IssueWorked, fixSubject + ", 2h",
+		},
+		"commented": {jira.Event{Kind: jira.EventCommented, Summary: fixSubject}, activity.IssueCommented, fixSubject},
+	}
+
+	for name, happened := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			start := summaryStart()
+			event := happened.event
+			event.At, event.Key = start, issueKey
+			read := func(time.Time, time.Time) (jira.Activity, error) {
+				return jira.Activity{Events: []jira.Event{event}}, nil
+			}
+
+			// Act
+			got := loop.JiraRead(read, func(jira.Key) string { return "" }, start, start.Add(24*time.Hour))
+
+			// Assert
+			if len(got.Items) != 1 || got.Items[0].Kind != happened.kind || got.Items[0].Title != happened.title {
+				t.Errorf("JiraRead = %+v, want one %v titled %q", got.Items, happened.kind, happened.title)
+			}
+		})
+	}
+}
+
+func TestAPendingTaskIsNamedByItsIDAndNotCompleted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	task := taskwarrior.Task{
+		UUID: "8f1c2d3e-0000", ID: 12, Status: "pending", Description: "Write it",
+		Entry: start.Add(time.Hour), End: start.Add(2 * time.Hour),
+	}
+	read := func(time.Time) ([]taskwarrior.Task, error) { return []taskwarrior.Task{task}, nil }
+
+	// Act
+	got := loop.TasksRead(read, start, start.Add(24*time.Hour))
+
+	// Assert
+	// A pending task's end is when it stopped waiting, not when it was done.
+	if len(got.Items) != 1 || got.Items[0].Kind != activity.TaskAdded || got.Items[0].Ref != "12" {
+		t.Errorf("TasksRead = %+v, want task 12 added and nothing else", got.Items)
+	}
+}
+
+func TestEverySourceThatCannotBeReadIsNamedAsFailed(t *testing.T) {
+	t.Parallel()
+
+	start := summaryStart()
+	end := start.Add(24 * time.Hour)
+	cases := map[activity.Source]func() activity.Read{
+		activity.SourceGit: func() activity.Read {
+			return loop.CommitsRead(func(time.Time, time.Time) ([]gitrepo.DatedCommit, error) { return nil, errNotRead },
+				start, end)
+		},
+		activity.SourceTasks: func() activity.Read {
+			return loop.TasksRead(func(time.Time) ([]taskwarrior.Task, error) { return nil, errNotRead }, start, end)
+		},
+		activity.SourceJira: func() activity.Read {
+			return loop.JiraRead(func(time.Time, time.Time) (jira.Activity, error) { return jira.Activity{}, errNotRead },
+				func(jira.Key) string { return "" }, start, end)
+		},
+		activity.SourceForge: func() activity.Read {
+			return loop.ForgeRead(func(time.Time, time.Time) (forge.Activity, error) { return forge.Activity{}, errNotRead },
+				forge.KindGitHub, start, end)
+		},
+	}
+
+	for source, read := range cases {
+		t.Run(source.Name(), func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := read()
+
+			// Assert
+			if !errors.Is(got.Failed, errNotRead) || got.Source != source {
+				t.Errorf("read = %+v, want %s named as failed", got, source.Name())
+			}
+		})
+	}
+}
