@@ -45,6 +45,9 @@ type keyMap struct {
 	startStop, completeTask, addTask, annotateTask, modifyTask, undoTask, syncTasks key.Binding
 	filterTasks, narrowTasks, sortTasks                                             key.Binding
 
+	// Summary.
+	earlier, later, today, copySummary key.Binding
+
 	// Reviews.
 	sortReviews, filterReviews key.Binding
 
@@ -86,6 +89,7 @@ const (
 	groupReviewMessaging
 	groupReviews
 	groupTasks
+	groupSummary
 	groupComposer
 	groupWriting
 	groupRunning
@@ -188,6 +192,7 @@ func compileKeys(marks glyphs, reviewNoun, messagingService string, overrides ma
 	reviewAndMessagingKeys(&builder, &keys, reviewNoun, messagingService)
 	reviewKeys(&builder, &keys)
 	taskKeys(&builder, &keys)
+	summaryKeys(&builder, &keys)
 	composerKeys(&builder, &keys, marks)
 	writingKeys(&builder, &keys, marks)
 	runningKeys(&builder, &keys)
@@ -284,6 +289,15 @@ func taskKeys(builder *helpBuilder, into *keyMap) {
 	into.sortTasks = builder.bind(groupTasks, "sort-tasks", "sort", "O")
 }
 
+// summaryKeys are the Summary pane's bindings: the period before and after the
+// one shown, today, and the summary copied as text.
+func summaryKeys(builder *helpBuilder, into *keyMap) {
+	into.earlier = builder.bind(groupSummary, "earlier", "earlier", "[")
+	into.later = builder.bind(groupSummary, "later", "later", "]")
+	into.today = builder.bind(groupSummary, "today", "today", "t")
+	into.copySummary = builder.bind(groupSummary, "copy-summary", "copy as text", "Y")
+}
+
 // composerKeys are the composer, preview and field-form bindings, the branch
 // creator's and the messaging preview's own keys among them: only those overlays
 // answer them, so they are listed where they work rather than under the pane
@@ -357,7 +371,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 func helpGroups(messagingService string) []string {
 	return []string{
 		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService, "Reviews", "Tasks",
-		"In a composer or preview", "Writing a comment", "While a command runs", "Everywhere",
+		"Summary", "In a composer or preview", "Writing a comment", "While a command runs", "Everywhere",
 	}
 }
 

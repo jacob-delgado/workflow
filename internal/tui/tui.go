@@ -98,6 +98,7 @@ type Model struct {
 	messaging   messagingState
 	reviewQueue reviewQueueState
 	tasks       tasksState
+	summary     summaryState
 	// commentDrafts are the comments written and not posted, one per issue,
 	// kept for the session.
 	commentDrafts commentDrafts
@@ -128,9 +129,13 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 	}
 	model.issues = model.seededIssues()
 
-	// Init loads every pane, so each starts fresh.
+	// Init loads every pane but the Summary, so each starts fresh; the
+	// Summary is read the first time it is looked at, which costs a startup
+	// that never looks at it nothing.
 	for index := range model.refreshed {
-		model.refreshed[index] = deps.now()
+		if pane(index) != paneSummary {
+			model.refreshed[index] = deps.now()
+		}
 	}
 
 	return model

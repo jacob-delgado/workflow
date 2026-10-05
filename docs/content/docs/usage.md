@@ -65,7 +65,7 @@ can rely on from them: exit codes, which stream carries what, `--json`,
   is done once the branch names an issue, Review follows the pull request's CI.
   The last stage is named for your messaging service, as its pane is. At its
   right end is the Taskwarrior task you have started and how long it has run.
-- **The rail** on the left is the seven panes in one box, a light rule between
+- **The rail** on the left is the eight panes in one box, a light rule between
   them. The focused one is drawn with heavy rules and a bold title, and takes
   the most room; the rest keep a few rows each. The first five follow the
   work — the fifth is named for your messaging service, Slack above — and the
@@ -75,7 +75,8 @@ can rely on from them: exit codes, which stream carries what, `--json`,
   author — values in one of those widen the list, and the four narrow it
   together — and a line above the queue names the sort and the filters while
   either is not the usual. The seventh, Tasks, is
-  your own [Taskwarrior](#track-it-in-taskwarrior) list.
+  your own [Taskwarrior](#track-it-in-taskwarrior) list, and the eighth,
+  [Summary](#summary), what you did over a day or a range of them.
 - **The detail pane** on the right shows the focused pane in full. Pickers,
   composers and previews open here too, and take the keyboard until they close.
 - **The bottom row** shows what the focused pane can do right now; it changes
@@ -92,13 +93,15 @@ the Issues pane, and the repository panes carry on.
 The layout follows the terminal. Below 80 columns the rail and the detail pane
 take turns rather than sharing the width; the detail pane drops its border once
 it has fewer than 60 columns; below 24 rows the top row shrinks to a short form,
-each stage its initial and glyph. Seven panes share the rail's rows, so the
-focused one takes the spare rows only from 26 rows up; on a shorter terminal
-every pane gets an even share.
+each stage its initial and glyph. Eight panes share the rail's rows: each
+pane but the focused one keeps one row, a line of what it holds, until the
+focused one has eight; rows past that give the others a second row each, top
+first, and then go to the focused one, so a taller terminal never gives it
+fewer. A terminal too short even for that splits the rows evenly.
 
 ## Keys
 
-`tab` and `shift+tab` move between panes, and `1`–`7` jump straight to one.
+`tab` and `shift+tab` move between panes, and `1`–`8` jump straight to one.
 Moving to a pane, by key or by click, reads it again when it last did so more
 than 30 seconds ago, so flicking between panes asks Jira and the forge
 nothing. Branch, Commits, Review and the messaging pane all read the branch,
@@ -115,7 +118,7 @@ every key `?` lists, by where it works.
 | Where | Key | Does |
 | --- | --- | --- |
 | Moving around | `tab` / `shift+tab` | Next pane, previous pane |
-| | `1`–`7` | Jump to a pane |
+| | `1`–`8` | Jump to a pane |
 | | `j`/`k` or `↓`/`↑` | Move within a list |
 | | `J`/`K` or `pgdn`/`pgup` | Scroll the detail pane |
 | 1 Issues | `t` | Change the selected issue's status |
@@ -173,6 +176,11 @@ every key `?` lists, by where it works.
 | | `enter` | Go to its issue, when the Issues pane lists that issue |
 | | `o` / `y` | Open its issue in the browser, or copy its URL |
 | | `r` | Read the tasks again |
+| Summary | `[` / `]` | The period before or after, read once the key rests |
+| | `t` | Today |
+| | `Y` | Copy the summary as Markdown |
+| | `o` / `y` | Open the selected item in the browser, or copy its URL |
+| | `r` | Read the period again |
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
 | | `←` / `→` | Change the commit's type; in the announcement preview, change the channel |
 | | `ctrl+o` | Write the commit's body, the pull request's description, or a comment, in your editor |
@@ -203,14 +211,14 @@ every key `?` lists, by where it works.
 | | `?` | Every key |
 | | `q` | Quit (`ctrl+c` works even with a preview open) |
 
-Every key here but the pane numbers, `1`–`7`, can be rebound with `ui.keys`;
-see [Configuration]({{< relref "/docs/configuration" >}}). `7` is new with the
-Tasks pane: a `ui.keys` map that moved an action live on a pane, or while a
-command runs, to `7` worked before and now stops workflow from starting
-(`workflow doctor` names it), as a map using `1`–`6` always did. Likewise, a
-map that gave the Tasks pane's keys (`s`, `d`, `a`, `A`, `e`, `u`, `S`) or the
-Issues pane's `T` to another action live there is now refused; rebinding the
-new action settles it.
+Every key here but the pane numbers, `1`–`8`, can be rebound with `ui.keys`;
+see [Configuration]({{< relref "/docs/configuration" >}}). `8` is new with the
+Summary pane, as `7` was with the Tasks pane: a `ui.keys` map that moved an
+action live on a pane, or while a command runs, to `8` worked before and now
+stops workflow from starting (`workflow doctor` names it), as a map using
+`1`–`7` always did. Likewise, a map that gave the Summary pane's keys (`[`,
+`]`, `t`, `Y`) to another action live there is now refused; rebinding the new
+action settles it.
 
 ## The loop
 
@@ -616,6 +624,32 @@ asked — the status picker after a new branch, the link and review-status offer
 after a pull request — opens once that closes. Starting a task runs
 Taskwarrior's hooks, as `task start` in a shell does, so a Timewarrior hook
 starts timing too.
+
+## Summary
+
+The Summary pane (`8`) is what you did, read back from where the work left a
+trace: the commits you wrote in this repository, the Taskwarrior tasks you
+added, started, annotated and completed, the Jira issues you reported, moved,
+logged work on and commented on, and the pull or merge requests you opened,
+had merged and reviewed on your forge, in any repository. Nothing is kept: it
+is read again each time, and only when you look, never at startup.
+
+It opens on the previous working day — yesterday, or on a Monday, Friday and
+the weekend after it — grouped by year, month, day and hour, oldest first.
+`[` and `]` move to the period before or after, a period's length at a time,
+and read it once the key has rested, so holding one reads only where it stops;
+`t` shows today. Each source fills in as it answers, and one that cannot be
+read says so above the rest, as does one that had more than it gave. A period
+that has ended and has been read in full is not read again when you come back
+to the pane; `r` reads it again. `Y` copies it as Markdown, ready to paste into
+a standup, and `o` or `y` opens or copies the link of the item the cursor is
+on.
+
+Commits are your own, told by the `user.email` git commits under, and placed
+by when you wrote them, so a commit rebased since keeps its hour; a repository
+with no `user.email` says so rather than showing everyone's. Jira finds the
+issues you touched by JQL, which cannot ask for a comment alone, so a comment
+on an issue you did nothing else to is not listed.
 
 ## Dry run
 

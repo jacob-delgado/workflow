@@ -69,11 +69,13 @@ type world struct {
 	// elapsed is how far the clock has moved on from testNow.
 	elapsed time.Duration
 
-	cfg           config.Config
-	issues        []jira.Issue
-	viewIssues    map[string][]jira.Issue
-	pageSize      int
-	detail        jira.IssueDetail
+	cfg        config.Config
+	issues     []jira.Issue
+	viewIssues map[string][]jira.Issue
+	pageSize   int
+	detail     jira.IssueDetail
+	// done is what each source answers for the Summary, or nil for none.
+	done          *activityWorld
 	detailErr     error
 	moves         []jira.Transition
 	transitionErr error
@@ -306,7 +308,7 @@ func output(lines []string, err error) proc.Output {
 
 // deps wires the world to the interface.
 func (w *world) deps() tui.Deps {
-	return tui.Deps{
+	return w.withActivity(tui.Deps{
 		Jira:       w.jiraDeps(),
 		Git:        w.gitDeps(),
 		Forge:      w.forgeDeps(),
@@ -334,7 +336,7 @@ func (w *world) deps() tui.Deps {
 				return nil
 			}
 		},
-	}
+	})
 }
 
 // storeDeps fakes the on-disk store: it reports learnedScope as the last one used
