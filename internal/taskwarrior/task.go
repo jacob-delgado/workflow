@@ -4,10 +4,8 @@
 package taskwarrior
 
 import (
-	"cmp"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -64,22 +62,6 @@ func (t Task) Waiting(now time.Time) bool {
 // Linked reports a task that names a Jira issue.
 func (t Task) Linked() bool {
 	return t.IssueKey != ""
-}
-
-// ByUrgency orders most urgent first, then by id, then by uuid, so a refresh
-// keeps a stable order.
-func ByUrgency(tasks []Task) []Task {
-	ordered := slices.Clone(tasks)
-
-	slices.SortFunc(ordered, func(first, second Task) int {
-		return cmp.Or(
-			cmp.Compare(second.Urgency, first.Urgency),
-			cmp.Compare(first.ID, second.ID),
-			strings.Compare(first.UUID, second.UUID),
-		)
-	})
-
-	return ordered
 }
 
 // IssueLink is what a task created from an issue carries.
