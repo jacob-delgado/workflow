@@ -126,6 +126,26 @@ func TestAPeriodThatHasEndedIsNotReadAgainOnComingBack(t *testing.T) {
 	}
 }
 
+func TestASourceThatFailedIsReadAgainOnComingBack(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A period that has ended is kept only once every source has said what it
+	// did there; one that failed has not, so coming back asks it again.
+	busy := summaryWorld()
+	busy.done.jiraErr = errJiraDown
+	opened := typing(t, busy.live(t, 120, 40), summaryKey)
+	busy.goStale()
+
+	// Act
+	typing(t, opened, "1", summaryKey)
+
+	// Assert
+	if reads := busy.asked("summary jira "); len(reads) != 2 {
+		t.Errorf("Jira read %d times, want twice: it failed the first time", len(reads))
+	}
+}
+
 func TestShiftYCopiesTheSummaryAsMarkdown(t *testing.T) {
 	t.Parallel()
 
@@ -159,4 +179,96 @@ func TestOOpensTheSelectedItemsLink(t *testing.T) {
 	if browsed := busy.asked("browse "); len(browsed) != 1 || browsed[0] != "browse "+pullURL {
 		t.Errorf("browsed %q, want the pull request", browsed)
 	}
+}
+
+func TestLaterMovesOnButNeverPastToday(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Tuesday moves on to today, Wednesday; Thursday has not happened.
+	opened := typing(t, summaryWorld().live(t, 120, 40), summaryKey)
+
+	// Act
+	view := typing(t, opened, "]", "]").View().Content
+
+	// Assert
+	requireScreen(t, view, "2026-09-16")
+	refuseScreen(t, view, "2026-09-17")
+}
+
+func TestTodayIsReadAtOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	busy := summaryWorld()
+	opened := typing(t, busy.live(t, 120, 40), summaryKey)
+
+	// Act
+	typing(t, opened, "t")
+
+	// Assert
+	if reads := busy.asked(summaryRead("git", time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC))); len(reads) != 1 {
+		t.Errorf("today read %d times, want once, without waiting for the keys to rest", len(reads))
+	}
+}
+
+func TestRefreshReadsAPeriodThatHasEndedAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	busy := summaryWorld()
+	opened := typing(t, busy.live(t, 120, 40), summaryKey)
+
+	// Act
+	typing(t, opened, "r")
+
+	// Assert
+	if reads := busy.asked("summary git "); len(reads) != 2 {
+		t.Errorf("git read %d times, want twice: r reads even a period that has ended", len(reads))
+	}
+}
+
+func TestYCopiesTheSelectedItemsLink(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	busy := summaryWorld()
+	opened := typing(t, busy.live(t, 120, 40), summaryKey)
+
+	// Act
+	typing(t, opened, "j", "j", "y")
+
+	// Assert
+	if copied := busy.asked("copy "); len(copied) != 1 || copied[0] != "copy "+pullURL {
+		t.Errorf("copied %q, want the pull request's link", copied)
+	}
+}
+
+func TestASourceWithMoreThanItGaveSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	busy := summaryWorld()
+	busy.done.jira.Truncated = true
+
+	// Act
+	view := typing(t, busy.live(t, 120, 40), summaryKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "Jira had more than this shows.")
+}
+
+func TestTheRailCountsOneThingDoneInTheSingular(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	busy := summaryWorld()
+	busy.done.jira, busy.done.forge = jira.Activity{}, forge.Activity{}
+	opened := typing(t, busy.live(t, 120, 40), summaryKey)
+
+	// Act
+	view := typing(t, opened, "1").View().Content
+
+	// Assert
+	requireScreen(t, view, "2026-09-15: 1 thing done")
 }
