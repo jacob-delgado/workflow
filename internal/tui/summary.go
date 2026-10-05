@@ -112,13 +112,21 @@ func (m Model) summaryPeriod() activity.Period {
 }
 
 // refreshSummary reads the period shown, unless it has ended and every source
-// has answered for it already: what was done then will not change.
+// has read it in full: what was done then will not change.
 func (m Model) refreshSummary() (Model, tea.Cmd) {
-	if m.summary.complete && m.summary.period.To.Before(m.today()) {
+	if m.summaryReadInFull() && m.summary.period.To.Before(m.today()) {
 		return m, nil
 	}
 
 	return m.readSummary()
+}
+
+// summaryReadInFull reports every source answered for the period shown, and
+// none of them with a failure.
+func (m Model) summaryReadInFull() bool {
+	return m.summary.complete && !slices.ContainsFunc(m.summary.reads, func(read activity.Read) bool {
+		return read.Failed != nil
+	})
 }
 
 // readSummary asks every source the deps reach for the period shown, each on
@@ -201,13 +209,11 @@ func (m Model) summaryItems() []activity.Item {
 	return items
 }
 
-// moveSummaryBy shows the period days later, or earlier when days is
-// negative, and reads it once the keys rest; never one that starts after
-// today.
-func (m Model) moveSummaryBy(days int) (Model, tea.Cmd) {
-	period := m.summaryPeriod()
-
-	moved := activity.Period{From: period.From.AddDays(days), To: period.To.AddDays(days)}
+// stepSummary shows the period steps of its own length later, or earlier when
+// steps is negative, and reads it once the keys rest; never one that starts
+// after today.
+func (m Model) stepSummary(steps int) (Model, tea.Cmd) {
+	moved := m.summaryPeriod().Step(steps)
 	if m.today().Before(moved.From) {
 		return m, nil
 	}
@@ -230,19 +236,31 @@ func (m Model) showToday() (Model, tea.Cmd) {
 	return m.readSummary()
 }
 
-// handleSummaryKey answers the Summary pane's keys.
+// handleSummaryKey answers the Summary pane's keys: those that choose the
+// period, and those that act on what it lists.
 func (m Model) handleSummaryKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.earlier):
+		return m.stepSummary(-1)
+	case key.Matches(msg, m.keys.later):
+		return m.stepSummary(1)
+	case key.Matches(msg, m.keys.today):
+		return m.showToday()
+	case key.Matches(msg, m.keys.calendar):
+		return m.openCalendar()
+	case key.Matches(msg, m.keys.refresh):
+		return m.readSummary()
+	}
+
+	return m.handleSummaryListKey(msg)
+}
+
+// handleSummaryListKey answers the keys that act on what the Summary lists:
+// moving the cursor, copying it all, and the selected item's link.
+func (m Model) handleSummaryListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	selected := m.selectedSummaryItem()
 
 	switch {
-	case key.Matches(msg, m.keys.earlier):
-		return m.moveSummaryBy(-m.summaryPeriod().Days())
-	case key.Matches(msg, m.keys.later):
-		return m.moveSummaryBy(m.summaryPeriod().Days())
-	case key.Matches(msg, m.keys.today):
-		return m.showToday()
-	case key.Matches(msg, m.keys.refresh):
-		return m.readSummary()
 	case key.Matches(msg, m.keys.copySummary):
 		return m.copySummary()
 	case key.Matches(msg, m.keys.up):
@@ -282,7 +300,7 @@ func (m Model) copySummary() (Model, tea.Cmd) {
 // summaryKeys is what the pane offers: moving the period, today, copying, and
 // the selected item's link.
 func (m Model) summaryKeys() []key.Binding {
-	keys := []key.Binding{m.keys.earlier, m.keys.later, m.keys.today}
+	keys := []key.Binding{m.keys.earlier, m.keys.later, m.keys.today, m.keys.calendar}
 	if m.deps.Copy != nil && len(m.summaryItems()) > 0 {
 		keys = append(keys, m.keys.copySummary)
 	}

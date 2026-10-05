@@ -46,7 +46,7 @@ type keyMap struct {
 	filterTasks, narrowTasks, sortTasks                                             key.Binding
 
 	// Summary.
-	earlier, later, today, copySummary key.Binding
+	earlier, later, today, calendar, copySummary key.Binding
 
 	// Reviews.
 	sortReviews, filterReviews key.Binding
@@ -295,7 +295,8 @@ func summaryKeys(builder *helpBuilder, into *keyMap) {
 	into.earlier = builder.bind(groupSummary, "earlier", "earlier", "[")
 	into.later = builder.bind(groupSummary, "later", "later", "]")
 	into.today = builder.bind(groupSummary, "today", "today", "t")
-	into.copySummary = builder.bind(groupSummary, "copy-summary", "copy as text", "Y")
+	into.calendar = builder.bind(groupSummary, "calendar", "calendar", "c")
+	into.copySummary = builder.bind(groupSummary, "copy-summary", "copy as Markdown", "Y")
 }
 
 // composerKeys are the composer, preview and field-form bindings, the branch

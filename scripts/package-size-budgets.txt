@@ -121,8 +121,9 @@ internal/forge 15
 # kept per issue, and the hand-off to $EDITOR, which comment.go's preview
 # opens from and returns to); and summary.go (the Summary pane: the period
 # shown, each source's read of it filling in as it answers, and the period
-# moved by [ and ] once the keys rest).
-internal/tui 54
+# moved by [ and ] once the keys rest); and calendar.go (the calendar the
+# Summary's period is picked in: Year, Month and Day columns, and a range).
+internal/tui 55
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of

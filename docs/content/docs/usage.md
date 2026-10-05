@@ -178,6 +178,7 @@ every key `?` lists, by where it works.
 | | `r` | Read the tasks again |
 | Summary | `[` / `]` | The period before or after, read once the key rests |
 | | `t` | Today |
+| | `c` | Pick a day, a month, a year or a range in the calendar |
 | | `Y` | Copy the summary as Markdown |
 | | `o` / `y` | Open the selected item in the browser, or copy its URL |
 | | `r` | Read the period again |
@@ -217,7 +218,7 @@ Summary pane, as `7` was with the Tasks pane: a `ui.keys` map that moved an
 action live on a pane, or while a command runs, to `8` worked before and now
 stops workflow from starting (`workflow doctor` names it), as a map using
 `1`–`7` always did. Likewise, a map that gave the Summary pane's keys (`[`,
-`]`, `t`, `Y`) to another action live there is now refused; rebinding the new
+`]`, `t`, `c`, `Y`) to another action live there is now refused; rebinding the new
 action settles it.
 
 ## The loop
@@ -629,27 +630,37 @@ starts timing too.
 
 The Summary pane (`8`) is what you did, read back from where the work left a
 trace: the commits you wrote in this repository, the Taskwarrior tasks you
-added, started, annotated and completed, the Jira issues you reported, moved,
-logged work on and commented on, and the pull or merge requests you opened,
-had merged and reviewed on your forge, in any repository. Nothing is kept: it
-is read again each time, and only when you look, never at startup.
+added, annotated and completed, and the ones you started that are still
+going, the Jira issues you reported, moved, logged work on and commented on,
+and the pull or merge requests you opened, had merged and reviewed on your
+forge, in any repository. Nothing is kept: it is read again each time, and only
+when you look, never at startup.
 
 It opens on the previous working day — yesterday, or on a Monday, Friday and
 the weekend after it — grouped by year, month, day and hour, oldest first.
-`[` and `]` move to the period before or after, a period's length at a time,
-and read it once the key has rested, so holding one reads only where it stops;
-`t` shows today. Each source fills in as it answers, and one that cannot be
-read says so above the rest, as does one that had more than it gave. A period
-that has ended and has been read in full is not read again when you come back
-to the pane; `r` reads it again. `Y` copies it as Markdown, ready to paste into
-a standup, and `o` or `y` opens or copies the link of the item the cursor is
-on.
+`[` and `]` move to the period before or after — a whole month to the month,
+a whole year to the year, any other period by its own length — and read it
+once the key has rested, so holding one reads only where it stops; `t` shows
+today. `c` opens a calendar of three columns, Year, Month and Day: `tab` moves
+between them and `j`/`k` within one, and `enter` shows what the column the
+cursor is in names — the whole year, the whole month, or the day; `space`
+marks the cursor's day as one end of a range, and `enter` then shows from it
+to the cursor, up to a year and a day. Each source fills in as it answers, and
+one that cannot be read says so above the rest, as does one that had more
+than it gave. A period that has ended and has been read in full — every
+source answered, none failed — is not read again when you come back to the
+pane; `r` reads it again. `Y` copies it as Markdown, ready to paste into a
+standup, and `o` or `y` opens or copies the link of the item the cursor is on.
 
 Commits are your own, told by the `user.email` git commits under, and placed
 by when you wrote them, so a commit rebased since keeps its hour; a repository
 with no `user.email` says so rather than showing everyone's. Jira finds the
 issues you touched by JQL, which cannot ask for a comment alone, so a comment
-on an issue you did nothing else to is not listed.
+on an issue you did nothing else to is not listed. Jira and GitHub are asked
+for the issues and pull requests touched earliest first, so a period some way
+back is found among them; one with more than is read says so. Taskwarrior
+forgets when a task was started once it is stopped or done, so a start shows
+only while the task is still going.
 
 ## Dry run
 
