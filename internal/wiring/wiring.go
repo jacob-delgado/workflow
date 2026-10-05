@@ -227,8 +227,11 @@ func gitDeps(ctx context.Context, root string, kind func() forge.Kind) seams.Git
 	repo := gitrepo.At(gitRunner, root)
 
 	return seams.Git{
-		Branch:         func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
-		Changes:        func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
+		Branch:  func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
+		Changes: func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
+		CommitsBetween: func(start, end time.Time) ([]gitrepo.DatedCommit, error) {
+			return repo.CommitsBetween(ctx, start, end)
+		},
 		Diff:           func(change gitrepo.Change) ([]string, error) { return repo.Diff(ctx, change) },
 		Stage:          func(change gitrepo.Change) error { return repo.Stage(ctx, change) },
 		Unstage:        func(change gitrepo.Change) error { return repo.Unstage(ctx, change) },

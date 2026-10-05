@@ -18,6 +18,8 @@
 package seams
 
 import (
+	"time"
+
 	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -53,12 +55,18 @@ type Jira struct {
 	LinkPullRequest func(issueKey jira.Key, pullURL, title string) error
 	// BrowseURL links an issue for someone to click.
 	BrowseURL func(issueKey jira.Key) string
+	// Activity is what you did to Jira issues from start up to end, for the
+	// Summary. Nil without Jira: a forge issue's is the Forge seam's.
+	Activity func(start, end time.Time) (jira.Activity, error)
 }
 
 // Git is what a surface asks of the repository.
 type Git struct {
 	Branch  func() (gitrepo.Branch, error)
 	Changes func() ([]gitrepo.Change, error)
+	// CommitsBetween is the commits you wrote from start up to end, for the
+	// Summary.
+	CommitsBetween func(start, end time.Time) ([]gitrepo.DatedCommit, error)
 	// Diff reads a changed file's diff against HEAD, line by line, so it can be
 	// read before staging. Nil when there is no repository.
 	Diff         func(change gitrepo.Change) ([]string, error)
@@ -149,6 +157,9 @@ type Forge struct {
 	// Kind is the forge the remote points at, so a surface can call a change a
 	// "pull request" or a "merge request".
 	Kind forge.Kind
+	// Activity is what you did on the forge from start up to end, in any
+	// repository, for the Summary.
+	Activity func(start, end time.Time) (forge.Activity, error)
 }
 
 // Messaging is what a surface asks of the messaging service.
@@ -258,6 +269,9 @@ type Tasks struct {
 	Install func() (taskwarrior.Install, error)
 	// Pending is the pending tasks of the active context, most urgent first.
 	Pending func() (taskwarrior.List, error)
+	// Touched is every task of the active context that changed since a time,
+	// whatever its status but deleted, for the Summary.
+	Touched func(since time.Time) ([]taskwarrior.Task, error)
 	// Linked is every task linked to an issue and not deleted, whatever the
 	// active context hides.
 	Linked func() ([]taskwarrior.Task, error)
