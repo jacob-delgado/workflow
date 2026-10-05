@@ -124,6 +124,11 @@ test.each([
     want: 'before\n{code:go}\nx := **notBold**\n{code}\nafter',
   },
   {
+    name: 'a line ending in a carriage return',
+    markdown: '# Title\r\nsome **bold**\r',
+    want: 'h1. Title\r\nsome *bold*\r',
+  },
+  {
     name: 'an indented fence is not read as a fence',
     markdown: 'text\n    ```go\nmore **bold**',
     want: 'text\n    ```go\nmore *bold*',

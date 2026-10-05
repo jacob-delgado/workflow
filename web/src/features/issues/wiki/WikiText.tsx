@@ -28,13 +28,14 @@ const headingLine = /^h[1-6]\. (.*)$/
 const quoteLine = /^bq\. (.*)$/
 const listLine = /^([*#])[*#]* (.*)$/
 
-// blocksOf cuts markup into its blocks, line by line. A code block runs to its
-// closing fence, or to the end when it has none.
+// blocksOf cuts markup into its blocks, line by line, whether Jira ended its
+// lines with \n or \r\n. A code block runs to its closing fence, or to the
+// end when it has none.
 function blocksOf(markup: string): Block[] {
   const blocks: Block[] = []
   let code: string[] | null = null
 
-  for (const line of markup.split('\n')) {
+  for (const line of markup.split(/\r?\n/)) {
     if (codeFence.test(line.trim())) {
       code = code === null ? [] : (blocks.push({ kind: 'code', lines: code }), null)
     } else if (code !== null) {
@@ -145,10 +146,12 @@ function withBreaks(lines: string[]): ReactNode[] {
 }
 
 // inlineMarkup matches one piece of inline markup. Emphasis markers count only
-// at a word's edge, so snake_case, a hyphenated-word and 2 * 3 stay text.
+// at a word's edge, so snake_case, a hyphenated-word and 2 * 3 stay text. Code
+// holds no brace, so an opener that never closes is passed over at once rather
+// than read to the line's end from each one.
 const inlineMarkup = new RegExp(
   [
-    String.raw`\{\{(?<code>.+?)\}\}`,
+    String.raw`\{\{(?<code>[^{}]+)\}\}`,
     String.raw`\[(?<label>[^\]|]+)\|(?<href>[^\]\s]+)\]`,
     String.raw`\[(?<bare>[^\]\s|]+)\]`,
     String.raw`!(?<image>[^!\s]+)!`,

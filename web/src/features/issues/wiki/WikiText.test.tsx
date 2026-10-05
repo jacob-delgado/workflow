@@ -136,3 +136,33 @@ test('emphasis inside a link label is drawn too', () => {
   const link = screen.getByRole('link', { name: 'bold docs' })
   expect(within(link).getByRole('strong').textContent).toBe('bold')
 })
+
+test('a comment full of markup that never closes is drawn at once, as text', () => {
+  // Arrange
+  // A hostile or pasted comment must not hang the page: every opener here is
+  // left open, which a pattern that rescans from each one would pay for
+  // again and again.
+  const unclosed = '{{'.repeat(50_000)
+  const started = performance.now()
+
+  // Act
+  renderWiki(unclosed)
+
+  // Assert
+  expect(performance.now() - started).toBeLessThan(500)
+  expect(paragraphs().map((line) => line.textContent)).toEqual([unclosed])
+})
+
+test('a comment Jira sends with Windows line endings is drawn the same', () => {
+  // Act
+  renderWiki('h2. Plan\r\n* one\r\n* two\r\n{code}\r\nx := 1\r\n{code}')
+
+  // Assert
+  expect(paragraphs().map((line) => line.textContent)).toEqual(['Plan'])
+  expect(
+    within(screen.getByRole('list'))
+      .getAllByRole('listitem')
+      .map((item) => item.textContent),
+  ).toEqual(['one', 'two'])
+  expect(screen.getByRole('code').textContent).toBe('x := 1')
+})
