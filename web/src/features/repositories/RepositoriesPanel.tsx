@@ -8,6 +8,7 @@ import { DirectoryPicker } from './DirectoryPicker.tsx'
 import { FavoritesList } from './FavoritesList.tsx'
 import { useFavorite, useRepositories, useSwitchTo } from './repositoriesApi.ts'
 import { WorkingIn } from './WorkingIn.tsx'
+import { WorktreesList } from './WorktreesList.tsx'
 
 // Destination is a directory a switch was asked for, before it is confirmed.
 interface Destination {
@@ -16,7 +17,7 @@ interface Destination {
 }
 
 // RepositoriesPanel is where the server works, relative to what it changes;
-// your favorite directories; and a picker to open another, each switch asked
+// the repository's worktrees; your favorite directories; and a picker to open another, each switch asked
 // once more before it is made, since every section is read again after it.
 export function RepositoriesPanel() {
   const read = useRepositories()
@@ -106,6 +107,13 @@ function Read({
           }}
         />
       )}
+      <WorktreesList
+        worktrees={repositories.worktrees}
+        error={repositories.worktrees_error}
+        onSwitch={(chosen) => {
+          setDestination({ dir: chosen.dir, shown: chosen.shown })
+        }}
+      />
       <FavoritesList
         favorites={repositories.favorites}
         kept={repositories.favorites_kept}

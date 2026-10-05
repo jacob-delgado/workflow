@@ -69,6 +69,79 @@ test('each favorite says what is there now, and one not there cannot be switched
   expect(within(favorites).queryByRole('button', { name: 'Switch to ~/old-site' })).toBeNull()
 })
 
+test('each worktree says what it has checked out, and only another one there can be switched to', async () => {
+  // Arrange
+  serving()
+
+  // Act
+  renderWithClient(<RepositoriesPanel />)
+
+  // Assert
+  const worktrees = await screen.findByRole('list', { name: 'Worktrees' })
+  const said = within(worktrees)
+    .getAllByRole('listitem')
+    .map((row) => row.textContent)
+  expect(said).toEqual([
+    '~/src/apiWhere you work, on main',
+    '~/src/api-feat-PROJ-7-rate-limitsOn feat/PROJ-7-rate-limits, lockedSwitch',
+    '~/src/api-reviewAt 5e0b7aa, detachedSwitch',
+    '~/src/api-spikeNot there any more',
+  ])
+  expect(within(worktrees).getByRole('button', { name: 'Switch to ~/src/api-review' })).toBeTruthy()
+  expect(within(worktrees).queryByRole('button', { name: 'Switch to ~/src/api' })).toBeNull()
+  expect(within(worktrees).queryByRole('button', { name: 'Switch to ~/src/api-spike' })).toBeNull()
+})
+
+test('switching to a worktree asks first, then switches', async () => {
+  // Arrange
+  const asked = serving()
+  const user = userEvent.setup()
+  renderWithClient(<RepositoriesPanel />)
+  const worktrees = await screen.findByRole('list', { name: 'Worktrees' })
+  await user.click(within(worktrees).getByRole('button', { name: 'Switch to ~/src/api-review' }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Switch' }))
+
+  // Assert
+  expect(await screen.findByText('Switched to ~/src/web.')).toBeTruthy()
+  const switched = asked.find((request) => request.url.endsWith('/api/repositories/here'))
+  expect(await switched?.json()).toEqual({ dir: '/home/ana/src/api-review' })
+})
+
+test('worktrees that cannot be read say why, and the favorites still list', async () => {
+  // Arrange
+  const unread = mockRepositories()
+  unread.worktrees = []
+  unread.worktrees_error = 'the server is not running in a git repository'
+  serving(unread)
+
+  // Act
+  renderWithClient(<RepositoriesPanel />)
+
+  // Assert
+  expect(
+    await screen.findByText(
+      'The worktrees could not be read: the server is not running in a git repository',
+    ),
+  ).toBeTruthy()
+  expect(screen.getByRole('list', { name: 'Favorites' })).toBeTruthy()
+})
+
+test('with no worktrees to list there is no Worktrees heading', async () => {
+  // Arrange
+  const none = mockRepositories()
+  none.worktrees = []
+  serving(none)
+
+  // Act
+  renderWithClient(<RepositoriesPanel />)
+
+  // Assert
+  await screen.findByRole('list', { name: 'Favorites' })
+  expect(screen.queryByRole('heading', { name: 'Worktrees' })).toBeNull()
+})
+
 test('adding where you work to the favorites says so', async () => {
   // Arrange
   const asked = serving()

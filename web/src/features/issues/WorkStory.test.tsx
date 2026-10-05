@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useHealthStore } from '@/api/health.ts'
@@ -7,7 +7,7 @@ import { gitLabWords, makeBranch, makeHealth, makeSnapshot } from '@/test/fixtur
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
-import { startWork } from './startWorkApi.ts'
+import { startWork, startWorkInWorktree } from './startWorkApi.ts'
 import { WorkStory } from './WorkStory.tsx'
 
 vi.mock('./checkoutApi.ts', async (importOriginal) => ({
@@ -16,8 +16,23 @@ vi.mock('./checkoutApi.ts', async (importOriginal) => ({
 }))
 const mockCheckout = vi.mocked(checkoutBranch)
 
-vi.mock('./startWorkApi.ts', () => ({ startWork: vi.fn(() => Promise.resolve(makeBranch())) }))
+vi.mock('./startWorkApi.ts', () => ({
+  startWork: vi.fn(() => Promise.resolve(makeBranch())),
+  startWorkInWorktree: vi.fn(() =>
+    Promise.resolve({
+      dir: '/home/ana/src/api-feat-PROJ-999',
+      shown: '~/src/api-feat-PROJ-999',
+      branch: 'feat/PROJ-999',
+    }),
+  ),
+}))
 const mockStartWork = vi.mocked(startWork)
+const mockStartInWorktree = vi.mocked(startWorkInWorktree)
+
+const mockSwitchTo = vi.fn((dir: string) =>
+  Promise.resolve({ here: { shown: dir.replace('/home/ana', '~') } }),
+)
+vi.mock('@/features/repositories/repositoriesApi.ts', () => ({ useSwitchTo: () => mockSwitchTo }))
 
 // offHead is a snapshot with PROJ-2 in flight on a branch that is not on HEAD.
 function offHead() {
@@ -317,6 +332,122 @@ test('shows the reason when starting work is refused', async () => {
 
   // Assert
   expect(await screen.findByText(/already exists/i)).toBeTruthy()
+})
+
+test('offers to start work in a new worktree beside the repository', () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-999" />)
+
+  // Assert
+  expect(screen.getByRole('button', { name: 'Start in a new worktree' })).toBeTruthy()
+})
+
+test('work started in a new worktree offers to switch to it, and switches', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  render(<WorkStory issueKey="PROJ-999" />)
+
+  // Act: start work in a worktree
+  await user.click(screen.getByRole('button', { name: 'Start in a new worktree' }))
+
+  // Assert: it says where, and nothing is switched yet
+  const offer = await screen.findByRole('region', {
+    name: 'Started PROJ-999 in ~/src/api-feat-PROJ-999',
+  })
+  expect(mockStartInWorktree).toHaveBeenCalledWith('PROJ-999')
+  expect(mockSwitchTo).not.toHaveBeenCalled()
+
+  // Act: switch to it
+  await user.click(within(offer).getByRole('button', { name: 'Switch to it' }))
+
+  // Assert: switched
+  expect(mockSwitchTo).toHaveBeenCalledWith('/home/ana/src/api-feat-PROJ-999')
+  expect(await screen.findByText('Switched to ~/src/api-feat-PROJ-999.')).toBeTruthy()
+})
+
+test('the offer to switch stays once the snapshot shows the new branch', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  render(<WorkStory issueKey="PROJ-999" />)
+  await user.click(screen.getByRole('button', { name: 'Start in a new worktree' }))
+  await screen.findByRole('button', { name: 'Switch to it' })
+
+  // Act
+  act(() => {
+    useSnapshotStore.setState({
+      status: 'live',
+      snapshot: makeSnapshot({
+        branches: [
+          {
+            name: 'feat/PROJ-999',
+            issue_key: 'PROJ-999',
+            current: false,
+            worktree: '/home/ana/src/api-feat-PROJ-999',
+            worktree_shown: '~/src/api-feat-PROJ-999',
+          },
+        ],
+      }),
+    })
+  })
+
+  // Assert
+  expect(screen.getByRole('button', { name: 'Switch to it' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Start work' })).toBeNull()
+  expect(screen.queryByRole('button', { name: /switch to its worktree/i })).toBeNull()
+})
+
+test('a branch another worktree has checked out is switched to there, not checked out', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: [
+        { name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true },
+        {
+          name: 'feat/PROJ-2-metrics',
+          issue_key: 'PROJ-2',
+          current: false,
+          worktree: '/home/ana/src/api-feat-PROJ-2-metrics',
+          worktree_shown: '~/src/api-feat-PROJ-2-metrics',
+        },
+      ],
+    }),
+  })
+  render(<WorkStory issueKey="PROJ-2" />)
+
+  // Act
+  await user.click(
+    screen.getByRole('button', { name: 'Switch to its worktree, ~/src/api-feat-PROJ-2-metrics' }),
+  )
+
+  // Assert
+  expect(screen.queryByRole('button', { name: 'Check out this branch' })).toBeNull()
+  expect(mockSwitchTo).toHaveBeenCalledWith('/home/ana/src/api-feat-PROJ-2-metrics')
+  expect(await screen.findByText('Switched to ~/src/api-feat-PROJ-2-metrics.')).toBeTruthy()
+})
+
+test('a worktree that could not be made says why', async () => {
+  // Arrange
+  mockStartInWorktree.mockRejectedValueOnce({
+    code: 'conflict',
+    detail: 'a branch for this issue already exists',
+  })
+  const user = userEvent.setup()
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  render(<WorkStory issueKey="PROJ-999" />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Start in a new worktree' }))
+
+  // Assert
+  expect(await screen.findByText(/already exists/i)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Switch to it' })).toBeNull()
 })
 
 test.each([
