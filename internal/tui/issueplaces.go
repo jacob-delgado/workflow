@@ -5,10 +5,8 @@ package tui
 
 import (
 	"slices"
-	"strconv"
 	"strings"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -47,13 +45,6 @@ type place struct {
 	name string
 }
 
-// placeChoice is a place the picker offers, with how many loaded issues are in
-// it.
-type placeChoice struct {
-	place place
-	count int
-}
-
 // admits reports whether an issue in status, with marks, is in the picked
 // places: in any picked status, when a status is picked, and holding any picked
 // mark, when a mark is picked.
@@ -85,7 +76,7 @@ func admitsIn(picked []place, kind placeKind, names []string) bool {
 // each — statuses by category, not started first, then as they first appear,
 // then the marks in their fixed order — and every picked place no loaded issue
 // is in, at zero, so it can still be unpicked.
-func placeChoices(issues []jira.Issue, marksOf func(jira.Key) []string, picked []place) []placeChoice {
+func placeChoices(issues []jira.Issue, marksOf func(jira.Key) []string, picked []place) []offered[place] {
 	counts := map[place]int{}
 
 	for _, issue := range issues {
@@ -96,11 +87,11 @@ func placeChoices(issues []jira.Issue, marksOf func(jira.Key) []string, picked [
 		}
 	}
 
-	var choices []placeChoice
+	var choices []offered[place]
 
-	for _, offered := range slices.Concat(statusPlaces(issues), pickedStatusesGone(issues, picked), markPlaces()) {
-		if counts[offered] > 0 || slices.Contains(picked, offered) {
-			choices = append(choices, placeChoice{place: offered, count: counts[offered]})
+	for _, offering := range slices.Concat(statusPlaces(issues), pickedStatusesGone(issues, picked), markPlaces()) {
+		if counts[offering] > 0 || slices.Contains(picked, offering) {
+			choices = append(choices, offered[place]{value: offering, count: counts[offering]})
 		}
 	}
 
@@ -271,117 +262,31 @@ func (l issueList) keepingSelection(change func(issueList) issueList) issueList 
 	return l.clampSelection()
 }
 
-// placePicker is the checklist of places to narrow the Issues list to.
-type placePicker struct {
-	marks   glyphs
-	choices pickList[placeChoice]
-	chosen  []place
-}
-
 var (
-	_ overlay   = placePicker{}
-	_ clickable = placePicker{}
-	_ steppable = placePicker{}
+	_ overlay   = checklist[place]{}
+	_ clickable = checklist[place]{}
+	_ steppable = checklist[place]{}
 )
 
 // openPlacePicker opens the checklist on the places the loaded issues are in,
-// with those already picked checked.
+// with those already picked checked. Applying it keeps the selection on the
+// issue it was on while that issue is still listed.
 func (m Model) openPlacePicker() (Model, tea.Cmd) {
-	choices := placeChoices(m.issues.found.Issues, m.issues.marksOf, m.issues.places)
-	m.overlay = placePicker{
-		marks: m.marks, choices: pickList[placeChoice]{items: choices}, chosen: slices.Clone(m.issues.places),
+	m.overlay = checklist[place]{
+		marks: m.marks, title: placeTitle, none: "no issue to narrow",
+		choices: pickList[offered[place]]{items: placeChoices(m.issues.found.Issues, m.issues.marksOf, m.issues.places)},
+		chosen:  slices.Clone(m.issues.places),
+		label:   func(picked place) string { return picked.name },
+		apply: func(m Model, chosen []place) (Model, tea.Cmd) {
+			m.issues = m.issues.keepingSelection(func(l issueList) issueList {
+				l.places = chosen
+
+				return l
+			})
+
+			return m.loadDetail()
+		},
 	}
-
-	return m, nil
-}
-
-// view draws the checklist in as many rows as fit.
-func (p placePicker) view(_, rows int) (string, string) {
-	if len(p.choices.items) == 0 {
-		return placeTitle, "no issue to narrow"
-	}
-
-	return placeTitle, strings.Join(p.choices.rows(p.marks, rows, p.choiceRow), "\n")
-}
-
-// choiceRow is a place, checked when it is picked, with how many issues are in
-// it.
-func (p placePicker) choiceRow(choice placeChoice) string {
-	return p.marks.checkbox(slices.Contains(p.chosen, choice.place)) + choice.place.name + "  " +
-		strconv.Itoa(choice.count)
-}
-
-// footer offers moving, checking a place, applying and canceling.
-func (placePicker) footer(keys keyMap) []key.Binding {
-	return []key.Binding{
-		keys.up, keys.down, keys.toggleOption,
-		relabel(keys.confirm, "apply"), relabel(keys.closeOverlay, "cancel"),
-	}
-}
-
-// handleKey answers a key while the checklist has the keyboard.
-func (p placePicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.confirm):
-		return p.apply(m)
-	case key.Matches(msg, m.keys.toggleOption):
-		p = p.toggled()
-	case key.Matches(msg, m.keys.down):
-		return p.step(m, 1), nil
-	case key.Matches(msg, m.keys.up):
-		return p.step(m, -1), nil
-	}
-
-	m.overlay = p
-
-	return m, nil
-}
-
-// toggled is the checklist with the place under the cursor picked, or unpicked
-// when it was.
-func (p placePicker) toggled() placePicker {
-	choice, ok := p.choices.chosen()
-	if !ok {
-		return p
-	}
-
-	if index := slices.Index(p.chosen, choice.place); index >= 0 {
-		p.chosen = slices.Delete(slices.Clone(p.chosen), index, index+1)
-
-		return p
-	}
-
-	p.chosen = append(slices.Clone(p.chosen), choice.place)
-
-	return p
-}
-
-// apply narrows the list to the checked places and closes the checklist.
-func (p placePicker) apply(m Model) (Model, tea.Cmd) {
-	m.issues = m.issues.keepingSelection(func(l issueList) issueList {
-		l.places = p.chosen
-
-		return l
-	})
-	m = m.closeOverlay()
-
-	return m.loadDetail()
-}
-
-// step moves the cursor by delta.
-func (p placePicker) step(m Model, delta int) Model {
-	p.choices = p.choices.moved(delta)
-	m.overlay = p
-
-	return m
-}
-
-// click moves the cursor to the clicked place.
-func (p placePicker) click(m Model, line int) (Model, tea.Cmd) {
-	p.choices = p.choices.clicked(line, m.detailRows())
-	m.overlay = p
 
 	return m, nil
 }
