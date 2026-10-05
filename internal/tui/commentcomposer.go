@@ -111,7 +111,7 @@ func (m Model) startComment() (Model, tea.Cmd) {
 	m.overlay = commentComposer{
 		marks: m.marks, styles: m.styles, issue: selected, mode: modeNormal,
 		text:   newCommentText(m.commentDrafts.on(selected.Key)),
-		markup: loop.CommentMarkupOf(m.cfg.Jira), editor: m.deps.Editor.Edit != nil,
+		markup: loop.CommentMarkupOf(m.cfg.Jira, selected.Key), editor: m.deps.Editor.Edit != nil,
 		hint: "press " + m.keys.insert.Help().Key + " to write",
 	}
 
@@ -210,6 +210,8 @@ func markupCheat(markup loop.CommentMarkup) string {
 		return "**bold** *italic* `code` [text](https://…) - list · converted to Jira's markup when posted"
 	case loop.MarkupWiki:
 		return "*bold* _italic_ {{code}} [text|https://…] * list · Jira's own markup"
+	case loop.MarkupForgeMarkdown:
+		return "**bold** *italic* `code` [text](https://…) - list · posted as written; the forge renders it"
 	}
 
 	return ""
@@ -280,7 +282,7 @@ func (c commentComposer) handleNormalKey(m Model, msg tea.KeyPressMsg) (Model, t
 	case key.Matches(msg, m.keys.editBody) && c.editor:
 		m.overlay = c
 
-		return m, m.deps.Editor.Edit(c.text.Value(), m.commentHelp(), func(text string, err error) tea.Msg {
+		return m, m.deps.Editor.Edit(c.text.Value(), commentHelp(c.markup), func(text string, err error) tea.Msg {
 			return textEdited{text: text, err: err}
 		})
 	}
