@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/progress"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
@@ -43,11 +45,59 @@ func (m Model) spine(shape layout.Layout) string {
 		joined = " " + strings.Join(parts, " ")
 	}
 
+	joined = m.ledByPlace(joined, shape.Spine.Width)
+
 	if m.dryRun {
 		joined = " " + m.styles.strong.Render("DRY RUN") + m.marks.separator + strings.TrimLeft(joined, " ")
 	}
 
 	return ansi.Truncate(joined+m.activeTaskTail(shape, joined), shape.Spine.Width, "")
+}
+
+// ledByPlace leads the stages with where you work, faint, when there is room
+// for both and for DRY RUN; the place is the first thing to give way, since
+// the Repositories pane says it in full.
+func (m Model) ledByPlace(stages string, width int) string {
+	place := m.placeLabel()
+	if place == "" {
+		return stages
+	}
+
+	led := " " + m.styles.label.Render(place) + m.marks.separator + strings.TrimLeft(stages, " ")
+
+	room := width
+	if m.dryRun {
+		room -= ansi.StringWidth("DRY RUN" + m.marks.separator)
+	}
+
+	if ansi.StringWidth(led) > room {
+		return stages
+	}
+
+	return led
+}
+
+// placeLabel is where you work, briefly: the repository's name and the path
+// within it, or the directory's own name outside one; nothing when the
+// interface was not told.
+func (m Model) placeLabel() string {
+	here := m.deps.Repositories.Here
+	if here.Dir == "" {
+		return ""
+	}
+
+	if here.Root == "" {
+		return sanitize.Line(filepath.Base(here.Dir))
+	}
+
+	label := filepath.Base(here.Root)
+
+	path, err := filepath.Rel(here.Root, here.Dir)
+	if err == nil && path != "." {
+		label += "/" + filepath.ToSlash(path)
+	}
+
+	return sanitize.Line(label)
 }
 
 // describedAtLeast is the fewest columns of the active task's description the

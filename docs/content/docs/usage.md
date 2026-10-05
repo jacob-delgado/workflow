@@ -63,8 +63,11 @@ can rely on from them: exit codes, which stream carries what, `--json`,
 - **The top row** is how far along the loop the work is. `○` not started, `◐`
   in flight, `●` done, `✗` failed. It is derived, not recorded: the Issue stage
   is done once the branch names an issue, Review follows the pull request's CI.
-  The last stage is named for your messaging service, as its pane is. At its
-  right end is the Taskwarrior task you have started and how long it has run.
+  The last stage is named for your messaging service, as its pane is. It
+  starts with where you work, faint — the repository's name and the path
+  within it, as `api/cmd` — which gives way first when the row is short; the
+  [Repositories](#repositories) pane says it in full. At its right end is the
+  Taskwarrior task you have started and how long it has run.
 - **The rail** on the left is the nine panes in one box, a light rule between
   them. The focused one is drawn with heavy rules and a bold title, and takes
   the most room; the rest keep a few rows each. The first five follow the
