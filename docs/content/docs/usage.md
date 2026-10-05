@@ -536,7 +536,8 @@ active context, as the pane's title does.
 `O` sorts the tasks within each group, cycling from most urgent first through
 by state (started, then pending, then waiting), by id, by tag, by issue (in
 natural order, so `PROJ-2` comes before `PROJ-10`, with unlinked tasks last)
-and by priority (`H`, `M`, `L`, then none). A faint line above the rows names
+and by priority (`H`, `M`, `L`, any other value your taskrc allows, then
+none). A faint line above the rows names
 the order, every tie stays most urgent first, and when the order is by tag or
 by priority each row's tail shows it. The order lasts for the session, through
 every read.
@@ -545,7 +546,8 @@ every read.
 its description, project, a tag written `+tag`, its issue key or its `#id`
 holds the text, ignoring case; `enter` keeps the filter and `esc` clears it.
 `f` opens **Narrow**, a checklist of every state, priority, project and tag the
-tasks hold, and whether they have an issue, each with how many tasks hold it:
+tasks hold, and whether they have an issue, each with how many tasks hold it
+(a waiting task counts only toward its state):
 values checked in one group widen the list, and the groups narrow it
 together. Checking **waiting** lists the waiting tasks, each saying until
 when. The faint line above the rows names what narrows the list; the rail

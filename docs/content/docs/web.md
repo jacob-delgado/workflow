@@ -212,7 +212,7 @@ forge when you open it, unless it asked within the last 30 seconds, and
 
 ### Tasks
 
-Your pending Taskwarrior tasks, most urgent first — what the terminal's Tasks
+Your pending Taskwarrior tasks, most urgent first unless you sort them — what the terminal's Tasks
 pane lists, in Taskwarrior's violet: those for an issue the Issues list holds
 first, then the rest, under **For my issues** and **Other tasks** when there
 are both. A waiting task is counted below rather than listed, and an active
