@@ -238,7 +238,10 @@ type ownerPicker struct {
 	back   linksOwners
 }
 
-var _ overlay = ownerPicker{}
+var (
+	_ overlay   = ownerPicker{}
+	_ pasteable = ownerPicker{}
+)
 
 // newOwnerPicker opens the picker on owner, over the overlay it goes back to.
 func newOwnerPicker(m Model, owner string, team bool, back linksOwners) ownerPicker {
@@ -333,6 +336,14 @@ func (p ownerPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 
 	m.overlay = p
+
+	return m, nil
+}
+
+// pasted types a paste into the filter, its lines joined by spaces, as typing
+// it would.
+func (p ownerPicker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
+	m.overlay = p.filtered(p.filter + oneLine(paste.Content))
 
 	return m, nil
 }

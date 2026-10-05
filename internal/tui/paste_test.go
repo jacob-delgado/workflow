@@ -29,11 +29,18 @@ func TestAPasteIsTypedIntoTheFieldThatHasTheKeyboard(t *testing.T) {
 	repo := newWorld()
 	form := typing(t, repo.live(t, 120, 40), "a")
 
-	// Act
+	// Act: paste a username into the assign form
 	pasted := pasting(t, form, "fred")
 
-	// Assert
+	// Assert: nothing is sent before it is confirmed
+	if got := repo.asked("assign "); len(got) != 0 {
+		t.Errorf("assigned on a paste: %v", got)
+	}
+
+	// Act: confirm
 	confirmed := typing(t, pasted, keyEnter)
+
+	// Assert: the pasted username is the one sent
 	if got := repo.asked("assign " + issueKey + " fred"); len(got) != 1 {
 		t.Errorf("assign calls = %v, want the pasted username sent; screen:\n%s", got, confirmed.View().Content)
 	}
@@ -85,4 +92,18 @@ func TestAPasteWithNowhereToGoChangesNothing(t *testing.T) {
 	if after != before {
 		t.Errorf("a paste with no text field open changed the screen:\n%s", after)
 	}
+}
+
+func TestAPasteFiltersTheOwnerPicker(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	picking := typing(t, onlyBen().live(t, 140, 40), "5", "p", "a")
+
+	// Act
+	view := pasting(t, picking, "qq\r\nzz").View().Content
+
+	// Assert
+	requireScreen(t, view, "filter  qq zz ", "Not on Slack")
+	refuseScreen(t, view, carlaName)
 }
