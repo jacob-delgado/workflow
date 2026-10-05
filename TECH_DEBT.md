@@ -722,6 +722,13 @@ unread: tagging stops, and nothing can be decided, until the user runs
 **Reopen when.** workflow is installed where kept data must outlive a
 schema change, or a kept table needs to change at all.
 
+**Revisited.** 2026-10-05, in #176: the trigger fired when favorite
+directories joined the kept data (`favorite_dir`), and the decision held —
+`keptSchemaVersion` went from 1 to 2 with no migration, since workflow is
+still only installed fresh. A file the first version made reads as empty
+until `workflow db-clean --all`, so its owners and groups are asked about
+again once.
+
 ### TRADE-26 The Slack directory is read whole, once a session
 
 Tagging a code owner means picking them from the announcement channel's
