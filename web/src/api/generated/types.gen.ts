@@ -1161,6 +1161,105 @@ export type JiraView = {
     jql: string;
 };
 
+export type Activity = {
+    /**
+     * The period's first day, YYYY-MM-DD.
+     */
+    from: string;
+    /**
+     * The period's last day, YYYY-MM-DD.
+     */
+    to: string;
+    /**
+     * The day it is where the server runs, YYYY-MM-DD, so a later period is not offered.
+     */
+    today: string;
+    /**
+     * Each source asked, in a fixed order, and how its read went.
+     */
+    sources: Array<ActivitySource>;
+    years: Array<ActivityYear>;
+    /**
+     * The summary as Markdown, ready to copy.
+     */
+    text: string;
+};
+
+export type ActivitySource = {
+    source: ActivitySourceName;
+    /**
+     * The source as a sentence starts with it, such as "Jira".
+     */
+    name: string;
+    failed: boolean;
+    /**
+     * The source had more than it gave.
+     */
+    truncated: boolean;
+    /**
+     * Why the source could not be read, in words that never name a host; empty when it was.
+     */
+    detail: string;
+};
+
+export type ActivityYear = {
+    year: number;
+    months: Array<ActivityMonth>;
+};
+
+export type ActivityMonth = {
+    month: number;
+    /**
+     * The month's name, such as October.
+     */
+    name: string;
+    days: Array<ActivityDay>;
+};
+
+export type ActivityDay = {
+    /**
+     * The day, YYYY-MM-DD.
+     */
+    date: string;
+    /**
+     * The day of the week, such as Friday.
+     */
+    weekday: string;
+    hours: Array<ActivityHour>;
+};
+
+export type ActivityHour = {
+    /**
+     * The hour as the clock showed it, such as 09:00, with its zone added when the clocks showed it twice that day.
+     */
+    label: string;
+    items: Array<ActivityItem>;
+};
+
+export type ActivityItem = {
+    at: string;
+    source: ActivitySourceName;
+    /**
+     * What was done, such as "committed" or "moved".
+     */
+    verb: string;
+    /**
+     * What it was done to, such as a commit's hash, PROJ-412 or o/r#42.
+     */
+    ref: string;
+    title: string;
+    /**
+     * A link to it, or empty where there is none.
+     */
+    url: string;
+    repository: string;
+};
+
+/**
+ * A place work leaves a trace.
+ */
+export type ActivitySourceName = 'git' | 'tasks' | 'jira' | 'forge';
+
 /**
  * The task's uuid, as the task list gives it.
  */
@@ -2682,6 +2781,44 @@ export type ModifyTaskResponses = {
 };
 
 export type ModifyTaskResponse = ModifyTaskResponses[keyof ModifyTaskResponses];
+
+export type GetActivityData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * The first day, written as YYYY-MM-DD.
+         */
+        from?: string;
+        /**
+         * The last day, written as YYYY-MM-DD.
+         */
+        to?: string;
+    };
+    url: '/api/activity';
+};
+
+export type GetActivityErrors = {
+    /**
+     * The period could not be read as asked.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetActivityError = GetActivityErrors[keyof GetActivityErrors];
+
+export type GetActivityResponses = {
+    /**
+     * The period, what each source said, the items nested oldest first, and the same as Markdown to copy.
+     */
+    200: Activity;
+};
+
+export type GetActivityResponse = GetActivityResponses[keyof GetActivityResponses];
 
 export type StreamEventsData = {
     body?: never;

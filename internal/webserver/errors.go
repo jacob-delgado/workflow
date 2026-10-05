@@ -167,6 +167,11 @@ func gitFaults() []faultClass {
 			detail: "the server is not running in a git repository; start workflow --web from a repository's work tree",
 		},
 		{
+			causes: []error{gitrepo.ErrNoIdentity},
+			code:   api.Unprocessable,
+			detail: "git has no user.email to tell your commits by; set it with git config user.email",
+		},
+		{
 			causes: []error{gitrepo.ErrIssueLinkNotSaved},
 			code:   api.Unprocessable,
 			detail: "the link could not be kept: git could not change the repository's configuration; " +
@@ -254,6 +259,14 @@ func forgeFaults() []faultClass {
 		{
 			causes: []error{forge.ErrKindNeedsHost},
 			code:   api.Unprocessable, detail: "forge.kind is set without forge.host; set the host it describes",
+		},
+		{
+			causes: []error{forge.ErrUnknownForge},
+			code:   api.Unprocessable, detail: "cannot tell which forge this repository is on; set forge.kind and forge.host",
+		},
+		{
+			causes: []error{forge.ErrNotARemote},
+			code:   api.Unprocessable, detail: "origin does not name a repository on a forge; point it at the repository",
 		},
 		{
 			causes: []error{forge.ErrNoAPI, forge.ErrNotJSON},

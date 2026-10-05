@@ -276,7 +276,8 @@ func TestListIssuesSaysEachIssuesTrackerAndWhichCouldNotBeRead(t *testing.T) {
 	page := decode[api.IssuesPage](t, get(t, serve(t, deps, config.Default()), "/api/issues?start_at=0"))
 
 	// Assert
-	if len(page.Issues) != 2 || page.Issues[0].Tracker != api.Forge || page.Issues[1].Tracker != api.Jira {
+	if len(page.Issues) != 2 || page.Issues[0].Tracker != api.IssueTrackerForge ||
+		page.Issues[1].Tracker != api.IssueTrackerJira {
 		t.Errorf("issues = %+v, want 57 from the forge and %s from Jira", page.Issues, testKey)
 	}
 

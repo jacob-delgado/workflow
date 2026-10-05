@@ -41,10 +41,10 @@ func issueDTO(issue jira.Issue) api.Issue {
 func trackerOf(issueKey jira.Key) api.IssueTracker {
 	ref, known := convention.RefOf(string(issueKey))
 	if known && ref.Tracker == convention.TrackerForge {
-		return api.Forge
+		return api.IssueTrackerForge
 	}
 
-	return api.Jira
+	return api.IssueTrackerJira
 }
 
 // issuesPageDTO maps a page of search results, keeping the caller's start index.
