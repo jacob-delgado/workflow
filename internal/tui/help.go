@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -127,4 +128,91 @@ func (m Model) openHelp() (Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// helpColumnGap is the space between the help's two columns.
+const helpColumnGap = 4
+
+// helpView lists every key, grouped by where it works, in two columns so the
+// whole set fits a short pane with less scrolling.
+func (m Model) helpView() string {
+	groups := m.keys.FullHelp()
+	split := balancedSplit(groups)
+	left := m.helpColumn(0, split)
+	right := m.helpColumn(split, len(groups))
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, lipgloss.NewStyle().PaddingLeft(helpColumnGap).Render(right))
+}
+
+// balancedSplit is the group the help's second column starts at: the one that
+// leaves the taller column shortest, worked out from the bindings themselves so
+// a key added to either side moves the split with it.
+func balancedSplit(groups [][]key.Binding) int {
+	heights := make([]int, len(groups))
+	for index, group := range groups {
+		heights[index] = helpGroupLines(group)
+	}
+
+	best, tallest := 1, columnLines(heights)
+
+	for split := 1; split < len(heights); split++ {
+		taller := max(columnLines(heights[:split]), columnLines(heights[split:]))
+		if taller < tallest {
+			best, tallest = split, taller
+		}
+	}
+
+	return best
+}
+
+// helpGroupLines is how many lines a group takes: its name, and a line for each
+// binding with help of its own.
+func helpGroupLines(group []key.Binding) int {
+	lines := 1
+
+	for _, binding := range group {
+		if binding.Help().Key != "" {
+			lines++
+		}
+	}
+
+	return lines
+}
+
+// columnLines is how tall a column of groups stands, a blank line between each.
+func columnLines(heights []int) int {
+	total := max(0, len(heights)-1)
+	for _, height := range heights {
+		total += height
+	}
+
+	return total
+}
+
+// helpColumn renders the help groups in a range, one key a line under each
+// group's name. A binding with no help text of its own is left out; it rides
+// another's line.
+func (m Model) helpColumn(first, last int) string {
+	groups := m.keys.FullHelp()
+	names := helpGroups(m.cfg.Messaging.Service())
+
+	var lines []string
+
+	for index := first; index < last; index++ {
+		if index > first {
+			lines = append(lines, "")
+		}
+
+		lines = append(lines, m.styles.strong.Render(names[index]))
+
+		for _, binding := range groups[index] {
+			if binding.Help().Key == "" {
+				continue
+			}
+
+			lines = append(lines, "  "+fmt.Sprintf("%-10s", binding.Help().Key)+binding.Help().Desc)
+		}
+	}
+
+	return strings.Join(lines, "\n")
 }
