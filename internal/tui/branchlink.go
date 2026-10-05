@@ -40,7 +40,10 @@ type branchLinker struct {
 	problem error
 }
 
-var _ failable[branchLinker] = branchLinker{}
+var (
+	_ failable[branchLinker] = branchLinker{}
+	_ pasteable              = branchLinker{}
+)
 
 // canLinkIssue reports a checked-out branch and a repository that can keep a
 // link for it.
@@ -134,6 +137,19 @@ func (l branchLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		return m, nil
 	}
+}
+
+// pasted types a paste into the issue key, as typing it would.
+func (l branchLinker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
+	if l.send.sending {
+		return m, nil
+	}
+
+	l.input, _ = l.input.Update(paste)
+	l.problem, l.body = nil, ""
+	m.overlay = l
+
+	return m, nil
 }
 
 // choose reads the issue typed, then shows the description it needs adding

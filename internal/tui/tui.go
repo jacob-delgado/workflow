@@ -195,6 +195,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		handled, cmd := m.handleKey(msg)
 
 		return handled.settled(cmd)
+	case tea.PasteMsg:
+		handled, cmd := m.pasted(msg)
+
+		return handled.settled(cmd)
 	case tea.MouseMsg:
 		return m.handleMouse(msg)
 	case applier:

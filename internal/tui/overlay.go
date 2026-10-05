@@ -8,6 +8,8 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // overlay is something that takes the keyboard until it is closed: a picker, a
@@ -36,6 +38,12 @@ type clickable interface {
 // without pressing a key that ui.keys may have moved elsewhere.
 type steppable interface {
 	step(m Model, delta int) Model
+}
+
+// pasteable is an overlay with a text field that takes a paste: pasted types
+// text into the field that has the keyboard, as typing it would.
+type pasteable interface {
+	pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd)
 }
 
 // scrollable is an overlay that can be taller than the pane it is drawn in. It
@@ -260,4 +268,28 @@ func (l lastLook) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+}
+
+// pasted types a bracketed paste into whatever is taking text: the open
+// overlay's field, or the Issues filter. Elsewhere a paste does nothing, as an
+// unbound key does.
+func (m Model) pasted(paste tea.PasteMsg) (Model, tea.Cmd) {
+	paste.Content = pastedText(paste.Content)
+
+	if into, ok := m.overlay.(pasteable); ok {
+		return into.pasted(m, paste)
+	}
+
+	if m.overlay == nil && m.filteringIssues() {
+		return m.extendFilterBy(strings.Join(strings.Fields(paste.Content), " "))
+	}
+
+	return m, nil
+}
+
+// pastedText is a paste made safe to type: a carriage return, which terminals
+// often send for a pasted line break, becomes a line feed first, so neutralizing
+// the terminal controls the paste carries keeps its words apart.
+func pastedText(content string) string {
+	return sanitize.Text(strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(content))
 }

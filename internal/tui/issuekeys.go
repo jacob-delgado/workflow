@@ -137,7 +137,12 @@ func (Model) filterKeys() []key.Binding {
 // extendFilterWith adds a key's text to the filter when it types something,
 // and does nothing for a key that does not.
 func (m Model) extendFilterWith(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	text := typedText(msg)
+	return m.extendFilterBy(typedText(msg))
+}
+
+// extendFilterBy adds text to the filter, typed or pasted, and does nothing
+// when there is none.
+func (m Model) extendFilterBy(text string) (Model, tea.Cmd) {
 	if text == "" {
 		return m, nil
 	}

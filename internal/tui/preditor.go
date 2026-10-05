@@ -33,6 +33,7 @@ type prEditor struct {
 var (
 	_ editable           = prEditor{}
 	_ failable[prEditor] = prEditor{}
+	_ pasteable          = prEditor{}
 )
 
 // openPullRequestEditor opens the editor on the branch's pull request, seeded
@@ -95,6 +96,19 @@ func (p prEditor) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		p.send.err = nil
 	}
 
+	m.overlay = p
+
+	return m, nil
+}
+
+// pasted types a paste into the title, as typing it would.
+func (p prEditor) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
+	if p.send.sending {
+		return m, nil
+	}
+
+	p.title, _ = p.title.Update(paste)
+	p.send.err = nil
 	m.overlay = p
 
 	return m, nil

@@ -248,6 +248,19 @@ func (p statusPicker) handleFormKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cm
 	return m, nil
 }
 
+// pasted types a paste into a transition's text field while one is filled in.
+func (p statusPicker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
+	if p.send.sending || !p.form.open() || !p.form.textual() {
+		return m, nil
+	}
+
+	p.form.input, _ = p.form.input.Update(paste)
+	p.form.problem = nil
+	m.overlay = p
+
+	return m, nil
+}
+
 // step moves the choice by delta: through the field's options while a
 // transition's fields are filled in, and through the transitions otherwise.
 // Nothing moves while a change is being sent.
