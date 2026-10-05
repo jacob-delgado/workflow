@@ -120,3 +120,80 @@ func TestATaskNarrowedOutStillTracksItsIssue(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "tracked by task 12", "narrowing hides")
 }
+
+func TestAListOfOnlyWaitingTasksSortedSaysNoneArePending(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Sorting narrows nothing, so a list with only waiting tasks has none
+	// pending to show, not none matching a filter.
+	repo := withTasks()
+	repo.tasks.pending = onlyTasks(repo.tasks.pending, waitingTaskUUID)
+	tasks := typing(t, repo.live(t, 120, 40), tasksPane)
+
+	// Act
+	view := typing(t, tasks, sortTasksKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "No pending tasks.")
+	refuseScreen(t, view, "No task matches the filters.")
+}
+
+func TestTheDownArrowMovesDownWhileFilteringWhateverDownIsBoundTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// With down moved to n, the arrow is no longer down's key, but while a
+	// filter is typed it still moves the cursor down, as on Issues.
+	repo := withTasks()
+	repo.cfg.UI.Keys = map[string]string{downAction: "n", "up": "p"}
+	filtering := typing(t, repo.live(t, 120, 40), tasksPane, filterTasksKey)
+
+	// Act
+	view := typing(t, filtering, downAction).View().Content
+
+	// Assert
+	requireScreen(t, view, "▸ ○   3 "+secondIssue)
+}
+
+func TestGoingToATrackingTaskPrefersOneTheListShows(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Two tasks track the issue; the narrowing to +web hides the first and
+	// shows the second, so T goes to the second rather than say one is hidden.
+	repo := withTasks()
+	second := taskwarrior.Task{
+		UUID: "5f1c2b3a-7d4e-4f60-8a9b-000000000021", ID: 21, Description: issueKey + ": follow up",
+		Status: taskwarrior.Pending, Tags: []string{"web"}, Urgency: 1, IssueKey: issueKey,
+	}
+	repo.tasks.pending = append(repo.tasks.pending, second)
+	repo.tasks.linked = append(repo.tasks.linked, second)
+	// The checklist offers started, pending, waiting, no priority, project
+	// workflow, no project, +jira, then +web: seven rows down.
+	narrowed := typing(t, repo.live(t, 120, 40), tasksPane, narrowTasksKey,
+		downAction, downAction, downAction, downAction, downAction, downAction, downAction, keySpace, keyEnter)
+
+	// Act
+	view := typing(t, narrowed, "1", "T").View().Content
+
+	// Assert
+	requireScreen(t, view, "▸ ○  21 "+issueKey+": follow up")
+	refuseScreen(t, view, "narrowing hides")
+}
+
+func TestTheCursorComesBackToItsTaskWhenAFilterThatHidItIsCleared(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// On task 3, the second row, a filter that matches nothing hides every
+	// task; clearing it shows the list again with the cursor where it was.
+	moved := typing(t, withTasks().live(t, 120, 40), tasksPane, downAction)
+	hidden := typing(t, moved, append([]string{filterTasksKey}, letters("zzz")...)...)
+
+	// Act
+	view := typing(t, hidden, keyEsc).View().Content
+
+	// Assert
+	requireScreen(t, view, "▸ ○   3 "+secondIssue)
+}

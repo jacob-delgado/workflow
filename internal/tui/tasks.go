@@ -230,7 +230,7 @@ func (m Model) tasksDetail(width int) string {
 		return "looking" + m.marks.ellipsis
 	case m.tasks.err != nil:
 		return m.failureBlock(m.tasks.err, width)
-	case len(groups.listed()) == 0 && len(m.tasks.pending) > 0 && m.tasks.listing.titled():
+	case len(groups.listed()) == 0 && len(m.tasks.pending) > 0 && m.tasks.listing.narrows():
 		return strings.Join(append(m.taskRows(groups, width), "No task matches the filters."), "\n")
 	case len(groups.listed()) == 0:
 		return strings.Join(append([]string{"No pending tasks."}, m.waitingRow(groups)...), "\n")
@@ -444,13 +444,24 @@ func (m Model) moveTaskSelection(msg tea.KeyPressMsg) Model {
 		return m
 	}
 
-	index := groups.indexOf(m.tasks.selected)
 	if key.Matches(msg, m.keys.down) {
-		index = min(index+1, len(listed)-1)
-	} else {
-		index = max(0, index-1)
+		return m.moveTaskBy(1)
 	}
 
+	return m.moveTaskBy(-1)
+}
+
+// moveTaskBy moves the cursor delta rows down the listed tasks, or up for a
+// negative delta, stopping at either end.
+func (m Model) moveTaskBy(delta int) Model {
+	groups := m.taskGroups()
+	listed := groups.listed()
+
+	if len(listed) == 0 {
+		return m
+	}
+
+	index := max(0, min(groups.indexOf(m.tasks.selected)+delta, len(listed)-1))
 	m.tasks.selected = listed[index].UUID
 	m.tasks = m.tasks.following(groups, m.detailRows())
 
