@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Facet } from '@/features/reviewqueue/reviewFacets.ts'
 import type { ReviewOrder } from '@/features/reviewqueue/reviewOrder.ts'
+import type { TaskFacet } from '@/features/tasks/taskFacets.ts'
 import type { TaskOrder } from '@/features/tasks/taskOrder.ts'
 
 // The cockpit's sections, in nav order: the interface's panes, in its order —
@@ -34,13 +35,15 @@ interface UiState {
   setReviewOrder: (order: ReviewOrder) => void
   reviewFilter: Facet[]
   pickReviewFilter: (pick: (picked: Facet[]) => Facet[]) => void
-  // How the Tasks list is sorted, kept the same way.
+  // How the Tasks list is sorted and narrowed, kept the same way.
   taskOrder: TaskOrder
   setTaskOrder: (order: TaskOrder) => void
+  taskFilter: TaskFacet[]
+  pickTaskFilter: (pick: (picked: TaskFacet[]) => TaskFacet[]) => void
 }
 
 // Client UI state (which section is showing, which issue is selected, which
-// view the list is of, how the review queue is sorted and filtered, how the Tasks list is sorted), shared by the nav rail and the content panes without
+// view the list is of, how the review queue is sorted and filtered, how the Tasks list is sorted and narrowed), shared by the nav rail and the content panes without
 // threading props between them.
 export const useUiStore = create<UiState>((set) => ({
   section: 'issues',
@@ -66,5 +69,9 @@ export const useUiStore = create<UiState>((set) => ({
   taskOrder: 'urgency',
   setTaskOrder: (taskOrder) => {
     set({ taskOrder })
+  },
+  taskFilter: [],
+  pickTaskFilter: (pick) => {
+    set((state) => ({ taskFilter: pick(state.taskFilter) }))
   },
 }))

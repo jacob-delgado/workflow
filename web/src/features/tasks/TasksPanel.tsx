@@ -11,6 +11,7 @@ import { TaskDetail, Verb } from './TaskDetail.tsx'
 import { TaskLineForm } from './TaskLineForm.tsx'
 import { groupTasks, listedOf, TaskList, WaitingCount, type TaskGroups } from './TaskList.tsx'
 import { TaskListControls } from './TaskListControls.tsx'
+import { narrows } from './taskFacets.ts'
 import { taskOrderWords, type TaskOrder } from './taskOrder.ts'
 import { useTasks, useTaskWrites } from './tasksApi.ts'
 import { addedName, addedTask, saidWords, taskName } from './taskWords.ts'
@@ -94,10 +95,14 @@ function Board({ list, failure, failed, reading, onReadAgain }: BoardProps) {
   const issues = useSnapshotStore((state) => state.snapshot?.issues.issues) ?? []
   const order = useUiStore((state) => state.taskOrder)
   const setOrder = useUiStore((state) => state.setTaskOrder)
+  const picked = useUiStore((state) => state.taskFilter)
+  const pick = useUiStore((state) => state.pickTaskFilter)
+  const [text, setText] = useState('')
+  const listing = { order, picked, text }
   const groups =
     list === undefined
       ? undefined
-      : groupTasks(list.tasks, new Set(issues.map((issue) => issue.key)), now, order)
+      : groupTasks(list.tasks, new Set(issues.map((issue) => issue.key)), now, listing)
 
   return (
     <div className="flex flex-col gap-group lg:min-h-0 lg:flex-1">
@@ -106,17 +111,35 @@ function Board({ list, failure, failed, reading, onReadAgain }: BoardProps) {
         <Controls
           list={list}
           groups={groups}
+          narrowed={narrows(listing)}
           failure={failure}
           failed={failed}
           reading={reading}
           onReadAgain={onReadAgain}
           teller={outcome}
         />
-        {list === undefined ? null : <TaskListControls order={order} onOrder={setOrder} />}
+        {list === undefined ? null : (
+          <TaskListControls
+            tasks={list.tasks}
+            now={now}
+            order={order}
+            onOrder={setOrder}
+            text={text}
+            onText={setText}
+            picked={picked}
+            onPick={pick}
+          />
+        )}
         <OutcomeLine said={outcome.said} />
       </div>
       {groups === undefined ? null : (
-        <Listing groups={groups} issues={issues} teller={outcome} now={now} />
+        <Listing
+          groups={groups}
+          issues={issues}
+          teller={outcome}
+          now={now}
+          narrowed={list !== undefined && list.tasks.length > 0 && narrows(listing)}
+        />
       )}
     </div>
   )
@@ -153,6 +176,8 @@ function addedWords(list: Tasks): string {
 
 interface ControlsProps extends BoardProps {
   groups: TaskGroups | undefined
+  // narrowed is a list a filter or a narrowing leaves tasks out of.
+  narrowed: boolean
   teller: Teller
 }
 
@@ -161,13 +186,24 @@ interface ControlsProps extends BoardProps {
 // reads it again and the writes that name no task: undo, and sync where the
 // taskrc names a backend. The read's control stays the same button whether it
 // says Retry or Refresh, so the read it starts never takes its focus away.
-function Controls({ list, groups, failure, failed, reading, onReadAgain, teller }: ControlsProps) {
+function Controls({
+  list,
+  groups,
+  narrowed,
+  failure,
+  failed,
+  reading,
+  onReadAgain,
+  teller,
+}: ControlsProps) {
   const writes = useTaskWrites()
 
   return (
     <div className="flex flex-col gap-item">
       <p role="status" className="text-sm text-muted-foreground">
-        {groups === undefined ? '' : listSummary(listedOf(groups).length, groups.order)}
+        {groups === undefined || list === undefined
+          ? ''
+          : listSummary(listedOf(groups).length, list.tasks.length, groups.order, narrowed)}
       </p>
       {list === undefined || list.context === '' ? null : (
         <p className="text-sm text-muted-foreground">
@@ -219,14 +255,26 @@ function Controls({ list, groups, failure, failed, reading, onReadAgain, teller 
 // listSummary says how many tasks the list shows. An empty list says so on
 // screen below, in the list's place, so here it is said only to a screen
 // reader.
-function listSummary(listed: number, order: TaskOrder): ReactNode {
+function listSummary(
+  listed: number,
+  total: number,
+  order: TaskOrder,
+  narrowed: boolean,
+): ReactNode {
   if (listed === 0) {
-    return <span className="sr-only">No pending tasks.</span>
+    return (
+      <span className="sr-only">
+        {narrowed ? 'No task matches the filters.' : 'No pending tasks.'}
+      </span>
+    )
   }
 
-  const count = listed === 1 ? '1 task' : `${String(listed)} tasks`
+  const tasks = (count: number) => (count === 1 ? '1 task' : `${String(count)} tasks`)
+  const how = taskOrderWords[order].toLowerCase()
 
-  return `${count}, ${taskOrderWords[order].toLowerCase()}.`
+  return narrowed
+    ? `${String(listed)} of ${tasks(total)} match, ${how}.`
+    : `${tasks(listed)}, ${how}.`
 }
 
 // readAgainLabel names the control that reads the list again: Retry after a
@@ -241,6 +289,8 @@ function readAgainLabel(failed: boolean, reading: boolean): string {
 
 interface ListingProps {
   groups: TaskGroups
+  // narrowed is a list read with tasks that the narrowing has emptied.
+  narrowed: boolean
   // issues are those the Issues list holds, for the selected task's issue.
   issues: Issue[]
   teller: Teller
@@ -256,7 +306,7 @@ interface ListingProps {
 // scrolling on its own. The detail is keyed on its task, so a write that takes
 // the task away takes its controls with it, rather than leaving them on the
 // next task under the pointer.
-function Listing({ groups, issues, teller, now }: ListingProps) {
+function Listing({ groups, issues, teller, now, narrowed }: ListingProps) {
   const [held, setHeld] = useState<string | null>(null)
   const listed = listedOf(groups)
   const selected = listed.find((task) => task.uuid === held) ?? listed[0]
@@ -267,7 +317,11 @@ function Listing({ groups, issues, teller, now }: ListingProps) {
   if (selected === undefined) {
     return (
       <div className="flex flex-col gap-group">
-        <EmptyState>No pending tasks. Add one above, or track an issue from Issues.</EmptyState>
+        <EmptyState>
+          {narrowed
+            ? 'No task matches the filters.'
+            : 'No pending tasks. Add one above, or track an issue from Issues.'}
+        </EmptyState>
         <WaitingCount waiting={groups.waiting} />
       </div>
     )

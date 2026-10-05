@@ -11,6 +11,9 @@ import (
 )
 
 // FacetKind is one of the ways the Tasks list can be narrowed.
+//
+// Trade-off TRADE-29: the narrowing below is written again in
+// web/src/features/tasks/taskFacets.ts, and twin-named tests pin the two.
 type FacetKind int
 
 // The kinds, in the order the list offers them.

@@ -220,7 +220,11 @@ context says it narrows the list. Each row marks whether the task is started,
 then its id, what it is, and quietly its issue, when it is due and its
 urgency. **Sort** orders each group by urgency, state, ID, tag, issue or
 priority, as the terminal's `O` does, and sorted by tag or priority each row
-shows its tags or priority; the order stays while you visit other sections.
+shows its tags or priority. **Filter** keeps the tasks whose description,
+project, `+tag`, issue key or `#id` holds what you type, and the **Narrow**
+chips narrow the list by state, priority, project, tag and whether a task has
+an issue, each with its count; pressing **waiting** lists the waiting tasks.
+The order and the chips stay while you visit other sections.
 The section reads Taskwarrior when you open it and when **Refresh**
 asks, rather than from the stream. It needs Taskwarrior 3.5.0 or newer, found
 as [Configuration]({{< relref "/docs/configuration#taskwarrior" >}})
