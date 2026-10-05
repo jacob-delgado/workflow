@@ -175,22 +175,16 @@ func (s *server) AddComment(
 
 // commentFailure answers a comment that was not posted. One the forge turned
 // down keeps the forge's reason, such as a body too long, which the caller can
-// act on; a remote whose forge cannot be told, or that names no repository,
-// says what to fix in fixed words, since the wiring's own name the host. Every
-// other failure is classified by fault, whose detail names no host.
+// act on. Every other failure is classified by fault, whose detail names no
+// host.
 func (s *server) commentFailure(err error) api.AddCommentResponseObject {
-	switch {
-	case errors.Is(err, forge.ErrRejected):
+	if errors.Is(err, forge.ErrRejected) {
 		return commentRefusal(err.Error())
-	case errors.Is(err, forge.ErrUnknownForge):
-		return commentRefusal("cannot tell which forge this repository is on; set forge.kind and forge.host")
-	case errors.Is(err, forge.ErrNotARemote):
-		return commentRefusal("origin does not name a repository on a forge; point it at the repository")
-	default:
-		body, code := s.fault(err)
-
-		return api.AddCommentdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}
+
+	body, code := s.fault(err)
+
+	return api.AddCommentdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 }
 
 // commentRefusal is a comment that was not posted, and why.

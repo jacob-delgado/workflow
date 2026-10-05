@@ -149,8 +149,9 @@ internal/tui 55
 # `workflow db-clean` does; 23 is people.go, Settings' People and groups area
 # and the Slack directory reads it and the announcement preview pick from —
 # whom each code owner is on Slack, and the user groups a repository tags.
+# activity.go reads back what you did over a period for the Summary section.
 # Frozen here so that growth stays deliberate.
-internal/webserver 23
+internal/webserver 24
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and

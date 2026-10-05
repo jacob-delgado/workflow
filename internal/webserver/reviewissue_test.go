@@ -43,7 +43,7 @@ func TestTheReviewNamesTheIssueTheBranchWasLinkedTo(t *testing.T) {
 
 	// Assert
 	issue := review.Issue
-	if issue == nil || issue.Key != "PROJ-7" || issue.Tracker != api.Jira ||
+	if issue == nil || issue.Key != "PROJ-7" || issue.Tracker != api.IssueTrackerJira ||
 		issue.URL != "https://tracker.example/PROJ-7" || issue.Origin != api.LinkedIssueOriginByHand {
 		t.Errorf("issue = %+v, want PROJ-7 from the link, with its page", issue)
 	}
@@ -58,7 +58,7 @@ func TestTheReviewFindsTheIssueThePullRequestNames(t *testing.T) {
 
 	// Assert
 	issue := review.Issue
-	if issue == nil || issue.Key != "42" || issue.Tracker != api.Forge ||
+	if issue == nil || issue.Key != "42" || issue.Tracker != api.IssueTrackerForge ||
 		issue.Origin != api.LinkedIssueOriginPullRequest {
 		t.Errorf("issue = %+v, want the forge's 42 from the pull request", issue)
 	}

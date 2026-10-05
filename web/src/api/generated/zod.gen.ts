@@ -683,6 +683,65 @@ export const zConfig = z.object({
 });
 
 /**
+ * A place work leaves a trace.
+ */
+export const zActivitySourceName = z.enum([
+    'git',
+    'tasks',
+    'jira',
+    'forge'
+]);
+
+export const zActivitySource = z.object({
+    source: zActivitySourceName,
+    name: z.string(),
+    failed: z.boolean(),
+    truncated: z.boolean(),
+    detail: z.string()
+});
+
+export const zActivityItem = z.object({
+    at: z.iso.datetime({ offset: true }),
+    source: zActivitySourceName,
+    verb: z.string(),
+    ref: z.string(),
+    title: z.string(),
+    url: z.string(),
+    repository: z.string()
+});
+
+export const zActivityHour = z.object({
+    label: z.string(),
+    items: z.array(zActivityItem)
+});
+
+export const zActivityDay = z.object({
+    date: z.string(),
+    weekday: z.string(),
+    hours: z.array(zActivityHour)
+});
+
+export const zActivityMonth = z.object({
+    month: z.int().gte(1).lte(12),
+    name: z.string(),
+    days: z.array(zActivityDay)
+});
+
+export const zActivityYear = z.object({
+    year: z.int(),
+    months: z.array(zActivityMonth)
+});
+
+export const zActivity = z.object({
+    from: z.string(),
+    to: z.string(),
+    today: z.string(),
+    sources: z.array(zActivitySource),
+    years: z.array(zActivityYear),
+    text: z.string()
+});
+
+/**
  * The task's uuid, as the task list gives it.
  */
 export const zTaskUuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
@@ -1022,6 +1081,16 @@ export const zModifyTaskPath = z.object({
  * The pending list, with the task changed.
  */
 export const zModifyTaskResponse = zTaskList;
+
+export const zGetActivityQuery = z.object({
+    from: z.string().optional(),
+    to: z.string().optional()
+});
+
+/**
+ * The period, what each source said, the items nested oldest first, and the same as Markdown to copy.
+ */
+export const zGetActivityResponse = zActivity;
 
 export const zStreamEventsQuery = z.object({
     view: z.string().optional()
