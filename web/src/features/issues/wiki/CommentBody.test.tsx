@@ -1,24 +1,18 @@
 import { render, screen } from '@testing-library/react'
 import { CommentBody } from './WikiText.tsx'
 
-// hostile is a body of openers that never close: each pattern that rescans
-// from every opener makes it quadratic, which a thread written by anyone who
-// can comment on the repository must not be able to reach.
-const hostile = '[a|'.repeat(25_000)
+// Past the sizes the markup patterns are kept within, a comment is drawn as
+// the text it is: each guard is shown by markup left undrawn, not by a time.
 
-test.each([
-  ['wiki markup', false],
-  ['Markdown', true],
-])('a %s comment too large to parse safely is drawn as plain text, fast', (_, markdown) => {
+test('a body too long to parse safely is drawn as plain text, though its lines are short', () => {
   // Arrange
-  const started = performance.now()
+  const body = 'Ship **it** today.\n'.repeat(4_000)
 
   // Act
-  render(<CommentBody body={hostile} markdown={markdown} />)
+  render(<CommentBody body={body} markdown={true} />)
 
   // Assert
-  expect(performance.now() - started).toBeLessThan(500)
-  expect(screen.getByText(hostile)).toBeTruthy()
+  expect(screen.queryByRole('strong')).toBeNull()
 })
 
 test('a line too long to parse safely is drawn as plain text, though the body is short', () => {
@@ -39,4 +33,12 @@ test('a comment of ordinary size is drawn with its markup', () => {
 
   // Assert
   expect(screen.getByRole('strong').textContent).toBe('it')
+})
+
+test('a comment the thread has no parsing left for is drawn as plain text', () => {
+  // Act
+  render(<CommentBody body="Ship **it**" markdown={true} plain={true} />)
+
+  // Assert
+  expect(screen.queryByRole('strong')).toBeNull()
 })

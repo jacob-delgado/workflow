@@ -668,6 +668,12 @@ a change made to one copy alone passes that copy's tests.
 **Reopen when.** The server comes to render comments itself, or the two
 copies are found to disagree.
 
+**Revisited.** 2026-10-05, in #174: the web's copy now also draws a forge
+issue's thread and Preview, converting its Markdown to wiki markup for
+`WikiText` to draw. That reuses the drawing every Jira comment already has
+rather than adding a Markdown renderer, at the cost of Markdown the
+conversion does not know, such as a table, showing as text.
+
 ### TRADE-24 The combined tracker reads its settings once
 
 With Jira configured and `issues.forge` on, the Issues list draws on both
@@ -805,7 +811,9 @@ surface wants a box of its own.
 The web draws a comment through `CommentBody`
 (`web/src/features/issues/wiki/WikiText.tsx`). A body over 65,536
 characters, or with a line over 1,000, is shown as plain text, its markup
-unread.
+unread, and so is each older comment in a thread once the newer ones add up
+to 65,536 characters. That size is GitHub's own limit on a comment, so on
+GitHub it is the line length and the thread's total that bind.
 
 **Decided.** 2026-10-05, in #174: forge threads are written by anyone who
 can comment on the repository, and several of the markup patterns (a
@@ -815,7 +823,8 @@ stalls the page. Bounding the input keeps every pattern as it is, where
 rewriting each as a linear scanner would be a parser of its own to keep.
 
 **Cost.** A real comment past either size, such as a pasted log, loses its
-formatting, and a link in it is text, not a link.
+formatting, and a link in it is text, not a link; on a long, busy thread the
+older comments do too.
 
 **Reopen when.** A legitimate comment is found drawn plain, or the markup
 is parsed by something linear.
