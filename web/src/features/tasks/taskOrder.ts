@@ -149,7 +149,7 @@ function compareRuns(first: string, second: string): number {
 // codePointOrder compares by code point, which is the order Go's byte-wise
 // compare of UTF-8 gives; JavaScript's own < compares UTF-16 code units, which
 // differ for a character outside the Basic Multilingual Plane.
-function codePointOrder(first: string, second: string): number {
+export function codePointOrder(first: string, second: string): number {
   const a = codePoints(first)
   const b = codePoints(second)
 

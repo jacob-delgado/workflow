@@ -754,13 +754,13 @@ ten minutes is not offered until a refresh.
 a large channel's first read through `users.info` is too slow to wait for:
 lower `UserListPages`, or label members concurrently within Tier 4.
 
-### TRADE-29 The Tasks list's orders are written twice
+### TRADE-29 The Tasks list's orders and narrowing are written twice
 
-The Tasks list sorts by urgency, state, id, tag, issue or priority in the
-terminal (`internal/taskwarrior/order.go`) and in the browser
-(`web/src/features/tasks/taskOrder.ts`). The two are pinned by
-twin-named cases in `internal/taskwarrior/order_test.go` and
-`web/src/features/tasks/taskOrder.test.ts`.
+The Tasks list sorts by urgency, state, id, tag, issue or priority, and is
+narrowed by facet and typed text, in the terminal
+(`internal/taskwarrior/order.go`, `narrow.go`) and in the browser
+(`web/src/features/tasks/taskOrder.ts`, `taskFacets.ts`). Each pair is
+pinned by twin-named cases in its tests.
 
 **Decided.** 2026-10-05, in #172: the web holds the whole list already,
 and an order changed in a select should apply at once. Asking the server
@@ -770,8 +770,9 @@ changes again before one lands. Taskwarrior's own report sort was no
 alternative: state as the list words it and natural issue-key order are
 not keys it has.
 
-**Cost.** A change to how an order breaks a tie, or ranks a value, is made
-twice, and a change to one copy alone passes that copy's tests.
+**Cost.** A change to how an order breaks a tie, how a value ranks, or what
+typed text matches is made twice, and a change to one copy alone passes
+that copy's tests.
 
 **Reopen when.** The server comes to order the list itself, or the two
 copies are found to disagree.

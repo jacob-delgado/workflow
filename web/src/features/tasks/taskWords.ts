@@ -102,6 +102,19 @@ export function dueWords(due: string, now: number): string {
   return left <= 0 ? 'overdue' : `due in ${spanWords(left)}`
 }
 
+// waitsUntilWords says until which day a waiting task waits, in the browser's
+// zone, as the terminal says it in the clock's.
+export function waitsUntilWords(task: Task): string {
+  if (task.wait === undefined) {
+    return 'waiting'
+  }
+
+  const until = new Date(task.wait)
+  const day = (part: number) => String(part).padStart(2, '0')
+
+  return `waits until ${String(until.getFullYear())}-${day(until.getMonth() + 1)}-${day(until.getDate())}`
+}
+
 // taskNumber is a task's working-set id, or '' where the id means nothing: only
 // a pending or waiting task has one, and reads skip the garbage collection that
 // would clear a finished task's stale id.

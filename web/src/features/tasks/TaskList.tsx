@@ -1,8 +1,9 @@
 import type { Task } from '@/api/generated/types.gen.ts'
 import { cn } from '@/lib/utils.ts'
 import { StateMark } from '@/shell/StateMark.tsx'
+import { listsWaiting, matchesNarrowing, type TaskNarrowing } from './taskFacets.ts'
 import { orderedTasks, type TaskOrder } from './taskOrder.ts'
-import { dueWords, markOf, statusWords, taskNumber, waitsAt } from './taskWords.ts'
+import { dueWords, markOf, statusWords, taskNumber, waitsAt, waitsUntilWords } from './taskWords.ts'
 
 // TaskGroups is the pending tasks as the section lists them: those for an
 // issue the Issues list holds, then the others, each in the chosen order, and
@@ -15,19 +16,29 @@ export interface TaskGroups {
   order: TaskOrder
 }
 
+// TaskListing is how the list is listed: its order and what narrows it.
+export interface TaskListing extends TaskNarrowing {
+  order: TaskOrder
+}
+
 // groupTasks sorts the pending tasks into the section's groups, as the
-// terminal's Tasks pane does: a waiting task is counted, not listed, and each
-// group is in order.
+// terminal's Tasks pane does: a task the narrowing leaves out is not listed, a
+// waiting task is counted rather than listed unless waiting is picked, and
+// each group is in order.
 export function groupTasks(
   tasks: Task[],
   issueKeys: Set<string>,
   now: number,
-  order: TaskOrder,
+  listing: TaskListing,
 ): TaskGroups {
-  const groups: TaskGroups = { forIssues: [], others: [], waiting: 0, order }
+  const groups: TaskGroups = { forIssues: [], others: [], waiting: 0, order: listing.order }
 
   for (const task of tasks) {
-    if (waitsAt(task, now)) {
+    if (!matchesNarrowing(listing, task, now)) {
+      continue
+    }
+
+    if (waitsAt(task, now) && !listsWaiting(listing.picked)) {
       groups.waiting++
     } else if (task.issue_key !== '' && issueKeys.has(task.issue_key)) {
       groups.forIssues.push(task)
@@ -36,8 +47,8 @@ export function groupTasks(
     }
   }
 
-  groups.forIssues = orderedTasks(groups.forIssues, order, now)
-  groups.others = orderedTasks(groups.others, order, now)
+  groups.forIssues = orderedTasks(groups.forIssues, listing.order, now)
+  groups.others = orderedTasks(groups.others, listing.order, now)
 
   return groups
 }
@@ -182,6 +193,10 @@ function rowTail(task: Task, now: number, order: TaskOrder): string {
 
   if (task.due !== undefined) {
     tail.push(dueWords(task.due, now))
+  }
+
+  if (waitsAt(task, now)) {
+    tail.push(waitsUntilWords(task))
   }
 
   const sortedBy = sortKeyWords(task, order)
