@@ -104,6 +104,17 @@ answered, a **Tasks** card sits between the story and the description;
 [Tasks](#tasks) says what it holds. Below a large width the list sits over the
 detail rather than beside it.
 
+The comments are drawn from Jira's wiki markup: bold, italic, struck and code
+text, links, headings, quotes, lists and code blocks. Anything else, such as a
+table, a panel or a color, shows as the text it is, and an image is offered as
+a link rather than loaded. Under a Jira issue's thread, a box takes a comment.
+With `jira.markdown_comments` on, the comment is Markdown: **Write** and
+**Preview** are tabs, Preview shows it as Jira will, and the buttons beside
+them write bold, italic, code, a link or a list around what is selected. With
+it off, the comment is posted as typed, and Jira reads it as wiki markup.
+**Comment** posts it and reads the issue again, so the thread shows it as Jira
+keeps it. A forge issue takes no comment here.
+
 ### Branch
 
 The checked-out branch, its base, its upstream and how far it is ahead or
@@ -318,8 +329,8 @@ or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
 - **Re-running failed CI, merging, finishing a merged branch and editing an
   open pull request** — the terminal's `R`, `M`, `F` and `e`
   ([FEAT-79](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md#feat-79-review-actions-on-the-web)).
-- **Moving an issue to any status but the review status, commenting,
-  assigning and logging work** — the terminal's `t`, `c`, `a` and `w`
+- **Moving an issue to any status but the review status, assigning and
+  logging work** — the terminal's `t`, `a` and `w`
   ([FEAT-80](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md#feat-80-issue-writes-on-the-web)).
 - **Editing an announcement before it is sent, and announcing once CI
   passes** — the terminal's `e` and `w` in the announcement preview.

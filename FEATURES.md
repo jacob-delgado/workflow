@@ -114,23 +114,23 @@ Impact: medium · Effort: large
   offers after opening a pull request: it links the pull request on the
   issue (`LinkPullRequest`, `internal/webserver/issuewrite.go:33`) and moves
   the issue to the configured review status, fields-less and nowhere else
-  (`TransitionIssue`, `internal/webserver/issuewrite.go:104`). Beyond those
-  it has no transition with its field form, no comment, no assign, no log
-  work — all of which the interface offers from the Issues pane
-  (`openStatusPicker`, `internal/tui/picker.go:208`; `startComment`,
-  `internal/tui/comment.go:41`; `openAssign`,
+  (`TransitionIssue`, `internal/webserver/issuewrite.go:104`), and takes a
+  comment (`AddComment`, beside them). Beyond those it has no transition
+  with its field form, no assign, no log work — all of which the interface
+  offers from the Issues pane (`openStatusPicker`,
+  `internal/tui/picker.go:208`; `openAssign`,
   `internal/tui/issuewrite.go:74`). This is the rest.
 - Touches: `api/openapi.yaml` (operations for a transition with fields,
-  comment, assign, worklog), `internal/webserver`
+  assign, worklog), `internal/webserver`
   (`internal/webserver/issuewrite.go` holds the post-open link and move; each
   new write grows it or earns its own file and budget row),
   `web/src/features/issues`, the shared composition (`internal/loop`).
-- Done when: a transition that needs a field shows its form and applies; a
-  comment posted from the browser appears among the issue's comments; the
+- Done when: a transition that needs a field shows its form and applies; the
   handler tests answer each new write path 403 under `--dry-run` (every write
   is a non-GET, so `refuseWritesInDryRun`,
   `internal/webserver/guard.go:48`, covers it, as
-  `TestDryRunRefusesTheIssueWrites` asserts for the two writes today); and a
+  `TestDryRunRefusesTheIssueWrites` asserts for the link and the move, and
+  `TestDryRunRefusesAComment` for the comment); and a
   write's problem `detail` omits the tracker's host.
 
 ### FEAT-85 The web paints from the cached issue list
