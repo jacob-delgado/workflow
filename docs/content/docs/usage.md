@@ -689,7 +689,13 @@ files that apply there — the repository's over your home's — each written
 from your home, as `~/src/api`. Outside a repository it says so, and the
 panes that need one say what they have no data for.
 
-Below that are your favorites: the directory you work in first, then every
+Below that are the repository's other worktrees, as `git worktree list`
+lists them, each with the branch it has checked out — or the commit, when its
+HEAD is detached — and whether git keeps it locked, or finds its directory
+gone. They are read again each time the pane is opened, so one made or removed
+since shows.
+
+Then come your favorites: the directory you work in first, then every
 directory you marked, each with what is there now — a repository and its
 origin, a directory that is not a repository, or one that is not there any
 more. `f` adds the directory the cursor is on to your favorites, or removes
@@ -698,7 +704,8 @@ still there is read from the disk each time the pane is opened, and they are
 not read at startup. Under `--dry-run` the pane lists them and says what `f`
 would have done; with `store.disabled` there are none to keep.
 
-`enter` switches to the directory the cursor is on, and `g` to one you type:
+`enter` switches to the worktree or directory the cursor is on — not to a
+worktree whose directory is gone — and `g` to one you type:
 from where you work, as `../web`, or from your home after a `~`, as
 `~/src/web`. In the prompt every key types, `j` and `q` included; `tab`
 completes the path from the directories there, a hidden one once you type its

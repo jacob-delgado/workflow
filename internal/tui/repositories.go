@@ -4,7 +4,9 @@
 package tui
 
 import (
+	"errors"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -12,17 +14,20 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
-// repositoriesState is the Repositories pane: the favorites as last read,
-// each with what is there now, and the row the cursor is on, where you work
-// first.
+// repositoriesState is the Repositories pane: the worktrees and favorites as
+// last read, each favorite with what is there now, and the row the cursor is
+// on, where you work first.
 type repositoriesState struct {
-	favorites []favoritePlace
-	err       error
+	worktrees    []gitrepo.Worktree
+	worktreesErr error
+	favorites    []favoritePlace
+	err          error
 	// read reports the favorites read at least once, as they are not at
 	// startup.
 	read     bool
@@ -40,19 +45,27 @@ type favoritePlace struct {
 }
 
 // repositoryRow is one row of the pane: a directory, what is there, and
-// whether it is a favorite and where you work.
+// whether it is a favorite and where you work; worktree is set on a row for
+// one of the repository's other worktrees.
 type repositoryRow struct {
 	dir      string
 	place    seams.Place
 	err      error
 	favorite bool
 	here     bool
+	worktree *gitrepo.Worktree
 }
 
-// repositoriesRead is the favorites as the store and the disk answered.
+// errWorktreeGone is a worktree git still lists whose directory is gone.
+var errWorktreeGone = errors.New("the worktree's directory is gone")
+
+// repositoriesRead is the worktrees as git answered, and the favorites as the
+// store and the disk did.
 type repositoriesRead struct {
-	favorites []favoritePlace
-	err       error
+	worktrees    []gitrepo.Worktree
+	worktreesErr error
+	favorites    []favoritePlace
+	err          error
 }
 
 var _ applier = repositoriesRead{}
@@ -60,19 +73,36 @@ var _ applier = repositoriesRead{}
 // apply keeps the favorites read, the cursor kept on a row there still is.
 func (msg repositoriesRead) apply(m Model) (Model, tea.Cmd) {
 	m.repositories.favorites, m.repositories.err, m.repositories.read = msg.favorites, msg.err, true
+	m.repositories.worktrees, m.repositories.worktreesErr = msg.worktrees, msg.worktreesErr
 	m.repositories.selected = min(m.repositories.selected, len(m.repositoryRows())-1)
 
 	return m, nil
 }
 
-// loadRepositories reads the favorites, then each one's place, off the update
-// loop: a favorite is a directory on disk, read again each time.
+// loadRepositories reads the worktrees, then the favorites and each one's
+// place, off the update loop: both are on disk, read again each time.
 func (m Model) loadRepositories() tea.Cmd {
-	read, look, here := m.deps.Store.Favorites, m.deps.Repositories.Look, m.deps.Repositories.Here.Dir
+	worktrees, favorites := m.deps.Repositories.Worktrees, m.favoritePlaces()
 
 	return func() tea.Msg {
+		read := repositoriesRead{}
+		if worktrees != nil {
+			read.worktrees, read.worktreesErr = worktrees()
+		}
+
+		read.favorites, read.err = favorites()
+
+		return read
+	}
+}
+
+// favoritePlaces reads the favorites, then each one's place.
+func (m Model) favoritePlaces() func() ([]favoritePlace, error) {
+	read, look, here := m.deps.Store.Favorites, m.deps.Repositories.Look, m.deps.Repositories.Here.Dir
+
+	return func() ([]favoritePlace, error) {
 		if read == nil {
-			return repositoriesRead{}
+			return nil, nil
 		}
 
 		dirs, err := read()
@@ -87,7 +117,7 @@ func (m Model) loadRepositories() tea.Cmd {
 			favorites = append(favorites, favorite)
 		}
 
-		return repositoriesRead{favorites: favorites, err: err}
+		return favorites, err
 	}
 }
 
@@ -96,10 +126,11 @@ func (m Model) refreshRepositories() (Model, tea.Cmd) {
 	return m, m.loadRepositories()
 }
 
-// repositoryRows are where you work, then every other favorite, as kept.
+// repositoryRows are where you work, then the repository's other worktrees
+// as git lists them, then every other favorite, as kept.
 func (m Model) repositoryRows() []repositoryRow {
 	here := repositoryRow{dir: m.deps.Repositories.Here.Dir, place: m.deps.Repositories.Here, here: true}
-	rows := []repositoryRow{here}
+	rows := append([]repositoryRow{here}, m.worktreeRows()...)
 
 	for _, favorite := range m.repositories.favorites {
 		if favorite.here {
@@ -114,6 +145,32 @@ func (m Model) repositoryRows() []repositoryRow {
 	}
 
 	return rows
+}
+
+// worktreeRows are the repository's worktrees but the one where you work, each
+// a favorite when one is kept by its directory.
+func (m Model) worktreeRows() []repositoryRow {
+	var rows []repositoryRow
+
+	for at, worktree := range m.repositories.worktrees {
+		if worktree.Dir == m.deps.Repositories.Here.Root {
+			continue
+		}
+
+		row := repositoryRow{dir: worktree.Dir, worktree: &m.repositories.worktrees[at], favorite: m.isFavorite(worktree.Dir)}
+		if worktree.Missing {
+			row.err = errWorktreeGone
+		}
+
+		rows = append(rows, row)
+	}
+
+	return rows
+}
+
+// isFavorite reports a favorite kept by exactly dir.
+func (m Model) isFavorite(dir string) bool {
+	return slices.ContainsFunc(m.repositories.favorites, func(favorite favoritePlace) bool { return favorite.dir == dir })
 }
 
 // selectedRepository is the row the cursor is on.
@@ -143,7 +200,7 @@ func (m Model) repositoriesRail(rows int) string {
 // favoritesCount says how many favorites there are, or that they are read
 // when the pane is opened.
 func (m Model) favoritesCount() string {
-	switch count := len(m.repositoryRows()) - 1; {
+	switch count := len(m.repositoryRows()) - 1 - len(m.worktreeRows()); {
 	case !m.repositories.read:
 		return "favorites, read when opened"
 	case count == 1:
@@ -153,16 +210,32 @@ func (m Model) favoritesCount() string {
 	}
 }
 
-// repositoriesDetail is where you work, in full, then the favorites, the
-// cursor's marked.
+// repositoriesDetail is where you work, in full, then the other worktrees and
+// the favorites, the cursor's row marked.
 func (m Model) repositoriesDetail(width int) string {
-	lines := append(m.workingIn(m.deps.Repositories.Here), "", m.styles.strong.Render("Favorites"))
+	rows, worktrees := m.repositoryRows(), len(m.worktreeRows())
+	line := func(index int) string { return m.repositoryLine(rows[index], index == m.repositories.selected) }
+
+	lines := append(m.workingIn(m.deps.Repositories.Here), "", line(0))
+
+	if worktrees > 0 || m.repositories.worktreesErr != nil {
+		lines = append(lines, "", m.styles.strong.Render("Worktrees"))
+		if m.repositories.worktreesErr != nil {
+			lines = append(lines, m.failureSummary(m.repositories.worktreesErr))
+		}
+
+		for index := 1; index <= worktrees; index++ {
+			lines = append(lines, line(index))
+		}
+	}
+
+	lines = append(lines, "", m.styles.strong.Render("Favorites"))
 	if m.repositories.err != nil {
 		lines = append(lines, m.failureSummary(m.repositories.err))
 	}
 
-	for index, row := range m.repositoryRows() {
-		lines = append(lines, m.repositoryLine(row, index == m.repositories.selected))
+	for index := 1 + worktrees; index < len(rows); index++ {
+		lines = append(lines, line(index))
 	}
 
 	return wrap(strings.Join(lines, "\n"), width)
@@ -230,6 +303,8 @@ func (m Model) repositoryLine(row repositoryRow, selected bool) string {
 // repositoryState is what is at a row's directory now.
 func (m Model) repositoryState(row repositoryRow) string {
 	switch {
+	case row.worktree != nil:
+		return worktreeState(*row.worktree)
 	case row.here:
 		return "where you work"
 	case row.err != nil:
@@ -241,6 +316,25 @@ func (m Model) repositoryState(row repositoryRow) string {
 	default:
 		return "repository " + origin(row.place)
 	}
+}
+
+// worktreeState is what a worktree has checked out, and whether git keeps it
+// or finds it gone; its branch is anyone's to name, so neutralized.
+func worktreeState(worktree gitrepo.Worktree) string {
+	state := "worktree on " + sanitize.Line(worktree.Branch)
+
+	switch {
+	case worktree.Missing:
+		return "worktree gone"
+	case worktree.Detached:
+		state = "worktree at " + sanitize.Line(worktree.ShortHead())
+	}
+
+	if worktree.Locked {
+		state += ", locked"
+	}
+
+	return state
 }
 
 // repositoriesKeys is what the pane offers.

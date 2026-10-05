@@ -8,6 +8,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
@@ -37,6 +38,11 @@ type dirsWorld struct {
 	// cannotLook binds no Look, as a surface given no way to read a
 	// directory has.
 	cannotLook bool
+	// worktrees is the repository's working trees, the main one first, or
+	// why they could not be read; neither binds no Worktrees, as outside a
+	// repository.
+	worktrees    []gitrepo.Worktree
+	worktreesErr error
 }
 
 // apiPlace is the api repository, worked in from its cmd directory.
@@ -107,6 +113,12 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 
 	if dirs.cannotLook {
 		deps.Repositories.Look = nil
+	}
+
+	if dirs.worktrees != nil || dirs.worktreesErr != nil {
+		deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+			return dirs.worktrees, dirs.worktreesErr
+		}
 	}
 
 	if dirs.keepsNothing {
