@@ -91,6 +91,22 @@ func (k Kind) Verb() string {
 	return cmp.Or(verbs[k], "did")
 }
 
+// Source is where a kind of thing done leaves its trace.
+func (k Kind) Source() Source {
+	switch k {
+	case Committed:
+		return SourceGit
+	case TaskAdded, TaskStarted, TaskAnnotated, TaskCompleted:
+		return SourceTasks
+	case IssueCreated, IssueMoved, IssueWorked, IssueCommented:
+		return SourceJira
+	case PullOpened, PullMerged, PullReviewed:
+		return SourceForge
+	}
+
+	return SourceGit
+}
+
 // Item is one thing done: when, what, and what it was done to — a commit's
 // hash, a task's id, an issue's key or a pull request's number — with a link
 // to it where there is one, and the repository it was in when the summary
