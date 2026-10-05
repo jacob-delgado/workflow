@@ -62,6 +62,7 @@ linters:
             - "!$test"
           allow:
             - $gostd
+            - github.com/jacob-delgado/workflow/internal/activity
             - github.com/jacob-delgado/workflow/internal/codeowners
             - github.com/jacob-delgado/workflow/internal/config
             - github.com/jacob-delgado/workflow/internal/convention
@@ -70,6 +71,7 @@ linters:
             - github.com/jacob-delgado/workflow/internal/jira
             - github.com/jacob-delgado/workflow/internal/messaging
             - github.com/jacob-delgado/workflow/internal/proc
+            - github.com/jacob-delgado/workflow/internal/taskwarrior
         # internal/activity groups and words what was done over a period from
         # what each source read, which a caller hands it: it holds no clock and
         # does no I/O, so a test can pin any day and any zone. strict mode
