@@ -76,13 +76,33 @@ func (d Date) Weekday() time.Weekday { return d.noon().Weekday() }
 // AddDays is the date days later, or earlier when days is negative.
 func (d Date) AddDays(days int) Date { return DateOf(d.noon().AddDate(0, 0, days)) }
 
+// AddMonths is the date months later, or earlier when months is negative, on
+// the same day of the month, or the month's last where it has no such day.
+func (d Date) AddMonths(months int) Date {
+	first := time.Date(d.year, d.month, 1, 12, 0, 0, 0, time.UTC).AddDate(0, months, 0)
+	year, month, _ := first.Date()
+
+	return Date{year: year, month: month, day: min(d.day, daysIn(year, month))}
+}
+
+// daysIn is how many days a month of a year has.
+func daysIn(year int, month time.Month) int {
+	return time.Date(year, month+1, 0, 12, 0, 0, 0, time.UTC).Day()
+}
+
 // Before reports d earlier on the calendar than other.
 func (d Date) Before(other Date) bool { return d.noon().Before(other.noon()) }
 
 // Start is the date's first instant in loc: its midnight, or the first hour
-// the clocks show when they skip midnight.
+// the clocks show when they skip midnight. Go places a midnight that never
+// happened an hour before it, on the day before, so it is stepped forward.
 func (d Date) Start(loc *time.Location) time.Time {
-	return time.Date(d.year, d.month, d.day, 0, 0, 0, 0, loc)
+	start := time.Date(d.year, d.month, d.day, 0, 0, 0, 0, loc)
+	for DateOf(start).Before(d) {
+		start = start.Add(time.Hour)
+	}
+
+	return start
 }
 
 // noon is the date at noon in UTC, an instant no clock change moves off it.
@@ -109,6 +129,22 @@ func NewPeriod(from, to Date) (Period, error) {
 	return period, nil
 }
 
+// MonthOf is the whole month a date falls in.
+func MonthOf(date Date) Period {
+	return Period{
+		From: Date{year: date.year, month: date.month, day: 1},
+		To:   Date{year: date.year, month: date.month, day: daysIn(date.year, date.month)},
+	}
+}
+
+// YearOf is the whole year a date falls in.
+func YearOf(date Date) Period {
+	return Period{
+		From: Date{year: date.year, month: time.January, day: 1},
+		To:   Date{year: date.year, month: time.December, day: daysIn(date.year, time.December)},
+	}
+}
+
 // PreviousWorkingDay is the last working day before today through yesterday,
 // so a Monday reads back Friday and the weekend after it.
 func PreviousWorkingDay(today Date) Period {
@@ -124,6 +160,25 @@ func PreviousWorkingDay(today Date) Period {
 
 // Days is how many days the period holds.
 func (p Period) Days() int { return int(p.To.noon().Sub(p.From.noon())/day) + 1 }
+
+// monthsInYear is how many months a whole year steps by.
+const monthsInYear = 12
+
+// Step is the period moved on by steps of its own length, or back when steps
+// is negative. A whole year steps a year, and a whole month a month, so a month
+// stays a month whatever its days.
+func (p Period) Step(steps int) Period {
+	switch p {
+	case YearOf(p.From):
+		return YearOf(p.From.AddMonths(steps * monthsInYear))
+	case MonthOf(p.From):
+		return MonthOf(p.From.AddMonths(steps))
+	default:
+		days := steps * p.Days()
+
+		return Period{From: p.From.AddDays(days), To: p.To.AddDays(days)}
+	}
+}
 
 // Bounds are the period's first instant in loc and the first instant after
 // it, so an instant is in the period when it is at or after the one and
