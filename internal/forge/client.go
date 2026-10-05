@@ -77,6 +77,10 @@ var (
 	// ErrRejected reports a request the forge turned down and explained; the
 	// explanation follows it in the message.
 	ErrRejected = errors.New("the forge rejected the request")
+	// errAccepted is a 202: the forge took the request and has not finished
+	// it. Only a GitLab note reads it as done, since GitLab answers one made
+	// only of quick actions by running them and keeping no note.
+	errAccepted = errors.New("the forge accepted the request without finishing it")
 	// ErrNoRepository reports a repository the forge will not show this token:
 	// both forges answer 404 rather than 403, so as not to confirm it exists.
 	ErrNoRepository = errors.New("the repository was not found, or the token cannot see it")
@@ -307,6 +311,10 @@ func (c Client) answerError(response *http.Response) error {
 		reason, _ := reasonIn(response.Body)
 
 		return &RefusalError{Kind: c.kind, Status: status, Reason: reason}
+	case response.StatusCode >= http.StatusInternalServerError:
+		// A server error's body is whatever answered, often a gateway in front
+		// of the forge, and can name a host behind it: it explains nothing.
+		return status
 	default:
 		return explained(status, response.Body)
 	}
@@ -336,6 +344,8 @@ func statusError(status int) error {
 	switch status {
 	case http.StatusOK, http.StatusCreated:
 		return nil
+	case http.StatusAccepted:
+		return errAccepted
 	case http.StatusUnauthorized:
 		return ErrUnauthorized
 	case http.StatusForbidden:

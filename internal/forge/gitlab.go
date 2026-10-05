@@ -207,6 +207,7 @@ type gitlabIssue struct {
 	Author      struct {
 		Username string `json:"username"`
 	} `json:"author"`
+	UserNotesCount int `json:"user_notes_count"`
 }
 
 func (g gitlabIssue) issue() Issue {
@@ -214,7 +215,10 @@ func (g gitlabIssue) issue() Issue {
 }
 
 func (g gitlabIssue) detail() IssueDetail {
-	return IssueDetail{Issue: g.issue(), Body: g.Description, Author: g.Author.Username, Closed: g.State == wireClosed}
+	return IssueDetail{
+		Issue: g.issue(), Body: g.Description, Author: g.Author.Username, Closed: g.State == wireClosed,
+		CommentCount: g.UserNotesCount,
+	}
 }
 
 // gitlabIssues lists the open issues in the project assigned to the token owner.
