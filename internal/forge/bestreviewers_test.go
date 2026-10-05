@@ -214,7 +214,8 @@ func TestCreateMergeRequestOnGitLabOpensWithThePeopleItKnows(t *testing.T) {
 			request: forge.NewPullRequest{Reviewers: []string{userGhost, userAna}},
 		},
 		{
-			name: "a reviewer whose lookup fails", answer: failingForGhost, cause: forge.ErrRejected, field: "reviewer_ids",
+			name: "a reviewer whose lookup fails", answer: failingForGhost, cause: forge.ErrUnexpectedStatus,
+			field:   "reviewer_ids",
 			request: forge.NewPullRequest{Reviewers: []string{userGhost, userAna}},
 		},
 		{
@@ -222,7 +223,8 @@ func TestCreateMergeRequestOnGitLabOpensWithThePeopleItKnows(t *testing.T) {
 			request: forge.NewPullRequest{Assignees: []string{userGhost, userAna}},
 		},
 		{
-			name: "an assignee whose lookup fails", answer: failingForGhost, cause: forge.ErrRejected, field: "assignee_ids",
+			name: "an assignee whose lookup fails", answer: failingForGhost, cause: forge.ErrUnexpectedStatus,
+			field:   "assignee_ids",
 			request: forge.NewPullRequest{Assignees: []string{userGhost, userAna}},
 		},
 	}
