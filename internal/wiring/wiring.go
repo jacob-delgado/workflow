@@ -382,43 +382,12 @@ func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where W
 				return nil, false
 			}
 
-			return fromCachedIssues(cached), true
+			return jiraRows(fromCachedIssues(cached)), true
 		},
 		CacheIssues: func(view string, issues []jira.Issue) {
-			_ = kept.CacheIssues(ctx, instance, view, toCachedIssues(issues), time.Now())
+			_ = kept.CacheIssues(ctx, instance, view, toCachedIssues(jiraRows(issues)), time.Now())
 		},
 	})
-}
-
-// toCachedIssues reduces the tracker's issues to the store's shape, neutralizing
-// terminal control in each field so nothing hostile is written to the file.
-func toCachedIssues(issues []jira.Issue) []store.CachedIssue {
-	cached := make([]store.CachedIssue, len(issues))
-	for index, issue := range issues {
-		cached[index] = store.CachedIssue{
-			Key: sanitize.Line(string(issue.Key)), Summary: sanitize.Line(issue.Summary),
-			Status: sanitize.Line(issue.Status), StatusCategory: sanitize.Line(string(issue.StatusCategory)),
-			Type: sanitize.Line(issue.Type), Priority: sanitize.Line(issue.Priority),
-		}
-	}
-
-	return cached
-}
-
-// fromCachedIssues rebuilds the tracker's issues from the store, sanitizing each
-// field again: the store is a file on disk, so what it reads back is untrusted
-// and must not reach the terminal as a control sequence.
-func fromCachedIssues(cached []store.CachedIssue) []jira.Issue {
-	issues := make([]jira.Issue, len(cached))
-	for index, issue := range cached {
-		issues[index] = jira.Issue{
-			Key: jira.Key(sanitize.Line(issue.Key)), Summary: sanitize.Line(issue.Summary),
-			Status: sanitize.Line(issue.Status), StatusCategory: jira.StatusCategory(sanitize.Line(issue.StatusCategory)),
-			Type: sanitize.Line(issue.Type), Priority: sanitize.Line(issue.Priority),
-		}
-	}
-
-	return issues
 }
 
 // instanceKey identifies a Jira instance for the store without keeping its URL:

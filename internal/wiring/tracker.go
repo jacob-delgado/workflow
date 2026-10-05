@@ -11,7 +11,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/store"
 )
 
 // errJiraOnly is something only a Jira issue takes, asked of a forge issue.
@@ -169,4 +171,50 @@ func (f *forgeRows) laterPage(
 	page.Total += count
 
 	return page, nil
+}
+
+// jiraRows is a list without the forge's issues. The issue cache is keyed by
+// the Jira instance and the view, and a forge issue's number means an issue
+// only within its repository, which that key does not hold: kept there, one
+// repository's #42 would open another's list as an issue it does not have.
+func jiraRows(issues []jira.Issue) []jira.Issue {
+	kept := make([]jira.Issue, 0, len(issues))
+	for _, issue := range issues {
+		if !isForgeKey(issue.Key) {
+			kept = append(kept, issue)
+		}
+	}
+
+	return kept
+}
+
+// toCachedIssues reduces the tracker's issues to the store's shape, neutralizing
+// terminal control in each field so nothing hostile is written to the file.
+func toCachedIssues(issues []jira.Issue) []store.CachedIssue {
+	cached := make([]store.CachedIssue, len(issues))
+	for index, issue := range issues {
+		cached[index] = store.CachedIssue{
+			Key: sanitize.Line(string(issue.Key)), Summary: sanitize.Line(issue.Summary),
+			Status: sanitize.Line(issue.Status), StatusCategory: sanitize.Line(string(issue.StatusCategory)),
+			Type: sanitize.Line(issue.Type), Priority: sanitize.Line(issue.Priority),
+		}
+	}
+
+	return cached
+}
+
+// fromCachedIssues rebuilds the tracker's issues from the store, sanitizing each
+// field again: the store is a file on disk, so what it reads back is untrusted
+// and must not reach the terminal as a control sequence.
+func fromCachedIssues(cached []store.CachedIssue) []jira.Issue {
+	issues := make([]jira.Issue, len(cached))
+	for index, issue := range cached {
+		issues[index] = jira.Issue{
+			Key: jira.Key(sanitize.Line(issue.Key)), Summary: sanitize.Line(issue.Summary),
+			Status: sanitize.Line(issue.Status), StatusCategory: jira.StatusCategory(sanitize.Line(issue.StatusCategory)),
+			Type: sanitize.Line(issue.Type), Priority: sanitize.Line(issue.Priority),
+		}
+	}
+
+	return issues
 }
