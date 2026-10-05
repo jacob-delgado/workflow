@@ -5,6 +5,8 @@ package loop_test
 
 import (
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +26,15 @@ const (
 	doneStatus = "Done"
 )
 
+// apiRepository and webRepository name the two repositories a read across
+// several finds; headHash is the full hash headCommit shortens.
+const (
+	apiRepository = "acme/api"
+	webRepository = "acme/web"
+	headHash      = headCommit + "ffff"
+	styleSubject  = "Style it"
+)
+
 // summaryStart is the start of the one-day period every case reads.
 func summaryStart() time.Time { return time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC) }
 
@@ -32,17 +43,115 @@ func TestYourCommitsReadAsCommitted(t *testing.T) {
 
 	// Arrange
 	start := summaryStart()
-	read := func(time.Time, time.Time) ([]gitrepo.DatedCommit, error) {
-		return []gitrepo.DatedCommit{{Hash: "abc1234ffff", Short: "abc1234", Subject: fixSubject, Authored: start}}, nil
+	read := func(time.Time, time.Time) []loop.RepositoryCommits {
+		return []loop.RepositoryCommits{{Commits: []gitrepo.DatedCommit{
+			{Hash: headHash, Short: headCommit, Subject: fixSubject, Authored: start},
+		}}}
 	}
 
 	// Act
 	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
 
 	// Assert
-	want := activity.Item{At: start, Kind: activity.Committed, Ref: "abc1234", Title: fixSubject}
+	want := activity.Item{At: start, Kind: activity.Committed, Ref: headCommit, Title: fixSubject}
 	if got.Source != activity.SourceGit || len(got.Items) != 1 || got.Items[0] != want {
 		t.Errorf("CommitsRead = %+v, want %+v from git", got, want)
+	}
+}
+
+// twoRepositories answers a read as api's commits and web's, at start.
+func twoRepositories(start time.Time, web loop.RepositoryCommits) func(time.Time, time.Time) []loop.RepositoryCommits {
+	return func(time.Time, time.Time) []loop.RepositoryCommits {
+		return []loop.RepositoryCommits{
+			{Repository: apiRepository, Commits: []gitrepo.DatedCommit{
+				{Hash: headHash, Short: headCommit, Subject: fixSubject, Authored: start},
+			}},
+			web,
+		}
+	}
+}
+
+func TestCommitsInSeveralRepositoriesAreNamedByTheirRepository(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	read := twoRepositories(start, loop.RepositoryCommits{Repository: webRepository, Commits: []gitrepo.DatedCommit{
+		{Hash: "def5678ffff", Short: "def5678", Subject: styleSubject, Authored: start},
+	}})
+
+	// Act
+	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+
+	// Assert
+	want := []activity.Item{
+		{
+			At: start, Kind: activity.Committed, Ref: apiRepository + "@" + headCommit, Title: fixSubject,
+			Repository: apiRepository,
+		},
+		{
+			At: start, Kind: activity.Committed, Ref: webRepository + "@def5678", Title: styleSubject,
+			Repository: webRepository,
+		},
+	}
+	if got.Failed != nil || !slices.Equal(got.Items, want) {
+		t.Errorf("CommitsRead = %+v, want %+v", got, want)
+	}
+}
+
+func TestACommitInTwoRepositoriesIsReadOnceFromTheFirst(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A fork, or a second clone, holds the same commit under the same hash.
+	start := summaryStart()
+	read := twoRepositories(start, loop.RepositoryCommits{Repository: "acme/api-fork", Commits: []gitrepo.DatedCommit{
+		{Hash: headHash, Short: headCommit, Subject: fixSubject, Authored: start},
+	}})
+
+	// Act
+	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+
+	// Assert
+	if len(got.Items) != 1 || got.Items[0].Repository != apiRepository {
+		t.Errorf("CommitsRead = %+v, want the commit once, in acme/api", got.Items)
+	}
+}
+
+func TestCommitsWithNoHashAreNeverTakenForOneAnother(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	read := func(time.Time, time.Time) []loop.RepositoryCommits {
+		return []loop.RepositoryCommits{{Commits: []gitrepo.DatedCommit{
+			{Short: "1111111", Subject: fixSubject, Authored: start},
+			{Short: "2222222", Subject: styleSubject, Authored: start},
+		}}}
+	}
+
+	// Act
+	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+
+	// Assert
+	if len(got.Items) != 2 {
+		t.Errorf("CommitsRead = %+v, want both commits", got.Items)
+	}
+}
+
+func TestARepositoryThatCannotBeReadIsNamedAndTheOthersStillRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	read := twoRepositories(start, loop.RepositoryCommits{Repository: webRepository, Failed: errNotRead})
+
+	// Act
+	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+
+	// Assert
+	if !errors.Is(got.Failed, errNotRead) || !strings.Contains(got.Failed.Error(), webRepository) || len(got.Items) != 1 {
+		t.Errorf("CommitsRead = %+v, want acme/web named as failed beside acme/api's commit", got)
 	}
 }
 
@@ -189,8 +298,9 @@ func TestEverySourceThatCannotBeReadIsNamedAsFailed(t *testing.T) {
 	end := start.Add(24 * time.Hour)
 	cases := map[activity.Source]func() activity.Read{
 		activity.SourceGit: func() activity.Read {
-			return loop.CommitsRead(func(time.Time, time.Time) ([]gitrepo.DatedCommit, error) { return nil, errNotRead },
-				start, end)
+			return loop.CommitsRead(func(time.Time, time.Time) []loop.RepositoryCommits {
+				return []loop.RepositoryCommits{{Failed: errNotRead}}
+			}, start, end)
 		},
 		activity.SourceTasks: func() activity.Read {
 			return loop.TasksRead(func(time.Time) ([]taskwarrior.Task, error) { return nil, errNotRead }, start, end)

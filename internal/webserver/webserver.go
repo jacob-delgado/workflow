@@ -178,7 +178,7 @@ type Deps struct {
 	// CommitsBetween, JiraActivity and ForgeActivity read back what you did
 	// over a period, for the Summary, beside Tasks' Touched. A nil one is a
 	// source the Summary does not ask.
-	CommitsBetween func(start, end time.Time) ([]gitrepo.DatedCommit, error)
+	CommitsBetween func(start, end time.Time) []loop.RepositoryCommits
 	JiraActivity   func(start, end time.Time) (jira.Activity, error)
 	ForgeActivity  func(start, end time.Time) (forge.Activity, error)
 	// Clock tells the time, for when the event stream last asked the forge.

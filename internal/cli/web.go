@@ -9,18 +9,15 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/web"
 	"github.com/jacob-delgado/workflow/internal/webserver"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // WebServerAt is the web server, built over the seams and served on addr until
@@ -195,7 +192,7 @@ func reachFrom(cmd *cobra.Command, conn connection, dir string, dryRun bool) (we
 func webWorld(cmd *cobra.Command, conn connection, dryRun bool) webserver.World {
 	info := webserver.Info{
 		Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind,
-		Taskwarrior: conn.cfg.Taskwarrior, Repository: repositoryName(conn.where),
+		Taskwarrior: conn.cfg.Taskwarrior, Repository: conn.where.Name(),
 	}
 
 	deps := WebDeps(conn.deps)
@@ -207,17 +204,6 @@ func webWorld(cmd *cobra.Command, conn connection, dryRun bool) webserver.World 
 	}
 
 	return webserver.World{Deps: deps, Config: conn.cfg, Info: info}
-}
-
-// repositoryName names the repository for Settings' groups: its forge path,
-// which carries no credential, or else its directory's name.
-func repositoryName(where wiring.Workspace) string {
-	repo, err := forge.ParseRemote(where.Remote)
-	if where.Remote == "" || err != nil {
-		return filepath.Base(where.Root)
-	}
-
-	return repo.Path
 }
 
 // portFlag names the root's flag that picks the port --web serves on.

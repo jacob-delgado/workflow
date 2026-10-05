@@ -4,6 +4,8 @@
 package loop
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -18,21 +20,68 @@ import (
 // itself shortens one.
 const shortUUID = 8
 
-// CommitsRead is your commits from start up to end as the Summary reads them.
-func CommitsRead(read func(start, end time.Time) ([]gitrepo.DatedCommit, error), start, end time.Time) activity.Read {
-	commits, err := read(start, end)
-	if err != nil {
-		return activity.Read{Source: activity.SourceGit, Failed: err}
+// RepositoryCommits is one repository's commits for the Summary, or why they
+// could not be read. Repository names it when the Summary reads more than one,
+// and is "" when it reads only the repository workflow is in.
+type RepositoryCommits struct {
+	Repository string
+	Commits    []gitrepo.DatedCommit
+	Failed     error
+}
+
+// CommitsRead is your commits from start up to end as the Summary reads them,
+// each named by its repository when there is more than one. A commit two
+// repositories share — a fork, a second clone — is read once, from the first;
+// a repository that cannot be read is named in the failure, and the others'
+// commits are still read.
+func CommitsRead(read func(start, end time.Time) []RepositoryCommits, start, end time.Time) activity.Read {
+	var (
+		items    []activity.Item
+		failures []error
+	)
+
+	seen := map[string]bool{}
+
+	for _, repository := range read(start, end) {
+		if repository.Failed != nil {
+			failures = append(failures, repository.failure())
+		}
+
+		for _, commit := range repository.Commits {
+			if commit.Hash != "" && seen[commit.Hash] {
+				continue
+			}
+
+			seen[commit.Hash] = true
+
+			items = append(items, repository.item(commit))
+		}
 	}
 
-	items := make([]activity.Item, 0, len(commits))
-	for _, commit := range commits {
-		items = append(items, activity.Item{
-			At: commit.Authored, Kind: activity.Committed, Ref: commit.Short, Title: commit.Subject,
-		})
+	return activity.Read{Source: activity.SourceGit, Items: items, Failed: errors.Join(failures...)}
+}
+
+// item is one commit as the Summary lists it, its hash written as GitHub
+// writes a commit in another repository when the repository is named.
+func (r RepositoryCommits) item(commit gitrepo.DatedCommit) activity.Item {
+	ref := commit.Short
+	if r.Repository != "" {
+		ref = r.Repository + "@" + commit.Short
 	}
 
-	return activity.Read{Source: activity.SourceGit, Items: items}
+	return activity.Item{
+		At: commit.Authored, Kind: activity.Committed, Ref: ref, Title: commit.Subject, Repository: r.Repository,
+	}
+}
+
+// failure is why the repository could not be read, naming it when it has a
+// name.
+func (r RepositoryCommits) failure() error {
+	if r.Repository == "" {
+		return r.Failed
+	}
+
+	return fmt.Errorf("%s: %w", r.Repository, r.Failed)
 }
 
 // TasksRead is what you did to tasks from start up to end: each task touched
