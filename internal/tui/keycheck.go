@@ -24,10 +24,10 @@ var (
 	// ErrKeyNotRebindable reports a ui.keys entry moving an action whose keys
 	// cannot be one key: jump-to-pane answers the pane numbers, one per pane.
 	ErrKeyNotRebindable = errors.New("ui.keys moves an action whose keys cannot be rebound")
-	// ErrInterruptTypes reports interrupt moved onto a key that types text.
-	// Interrupt is answered before any filter, prompt or text box, so on such a
-	// key it would quit mid-sentence and lose what was written.
-	ErrInterruptTypes = errors.New("ui.keys moves interrupt onto a key that types")
+	// ErrInterruptEdits reports interrupt moved onto a key that types or edits
+	// text. Interrupt is answered before any filter, prompt or text box, so on
+	// such a key it would quit mid-sentence and lose what was written.
+	ErrInterruptEdits = errors.New("ui.keys moves interrupt onto a key that types or edits text")
 )
 
 // actionInterrupt is the action every context answers first, even while text
@@ -53,8 +53,8 @@ func CheckKeys(overrides map[string]string) error {
 		return fmt.Errorf("%w: %q", ErrKeyNotRebindable, actionJumpToPane)
 	}
 
-	if moved, ok := overrides[actionInterrupt]; ok && typesText(moved) {
-		return fmt.Errorf("%w: %s on %q", ErrInterruptTypes, actionInterrupt, moved)
+	if moved, ok := overrides[actionInterrupt]; ok && editsText(moved) {
+		return fmt.Errorf("%w: %s on %q", ErrInterruptEdits, actionInterrupt, moved)
 	}
 
 	return builder.conflicts()
@@ -163,14 +163,27 @@ func (b *helpBuilder) conflictIn(context keyContext) error {
 	return nil
 }
 
-// typesText reports a key name that a text field would take as typing: space,
-// or a single printable character.
-func typesText(name string) bool {
-	if name == "space" {
+// editsText reports a key name a text field takes as editing: space,
+// backspace or delete, or one character as typed — a letter, digit or symbol,
+// with any accent or variation selector that rides on it.
+func editsText(name string) bool {
+	switch name {
+	case "space", "backspace", "delete":
 		return true
+	case "":
+		return false
 	}
 
-	only, size := utf8.DecodeRuneInString(name)
+	first, size := utf8.DecodeRuneInString(name)
+	if !unicode.IsPrint(first) {
+		return false
+	}
 
-	return size == len(name) && unicode.IsPrint(only)
+	for _, riding := range name[size:] {
+		if !unicode.In(riding, unicode.Mn, unicode.Me, unicode.Variation_Selector) {
+			return false
+		}
+	}
+
+	return true
 }

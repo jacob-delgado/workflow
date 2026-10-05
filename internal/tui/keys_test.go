@@ -318,10 +318,14 @@ func TestCheckKeysRefusesMovingJumpToPane(t *testing.T) {
 	}
 }
 
-func TestCheckKeysRefusesMovingInterruptOntoAKeyThatTypes(t *testing.T) {
+func TestCheckKeysRefusesMovingInterruptOntoAKeyThatTypesOrEdits(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]string{"a letter": "x", "a digit": "5", "a space": "space", "a symbol": "/"}
+	cases := map[string]string{
+		"a letter": "x", "a digit": "5", "a space": "space", "a symbol": "/",
+		"a letter with an accent": "é", "an emoji with its variation selector": "\u2764\ufe0f",
+		"backspace, which edits text": "backspace", "delete, which edits text": "delete",
+	}
 
 	for name, typed := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -333,8 +337,8 @@ func TestCheckKeysRefusesMovingInterruptOntoAKeyThatTypes(t *testing.T) {
 			err := tui.CheckKeys(map[string]string{"interrupt": typed})
 
 			// Assert
-			if !errors.Is(err, tui.ErrInterruptTypes) {
-				t.Fatalf("CheckKeys = %v, want ErrInterruptTypes", err)
+			if !errors.Is(err, tui.ErrInterruptEdits) {
+				t.Fatalf("CheckKeys = %v, want ErrInterruptEdits", err)
 			}
 
 			if got := err.Error(); !strings.Contains(got, "interrupt") {
@@ -344,7 +348,7 @@ func TestCheckKeysRefusesMovingInterruptOntoAKeyThatTypes(t *testing.T) {
 	}
 }
 
-func TestCheckKeysAcceptsInterruptOnAControlKey(t *testing.T) {
+func TestCheckKeysAcceptsInterruptOnAKeyThatTypesNothing(t *testing.T) {
 	t.Parallel()
 
 	// Act

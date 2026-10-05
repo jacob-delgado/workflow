@@ -691,8 +691,9 @@ A key is named as its terminal name: a letter (`C`), or a combination such as
 `ctrl+e` or `shift+tab`.
 
 `interrupt` quits from anywhere, even while you type into a filter or a
-comment, so it must stay on a key that types nothing, such as `ctrl+q`: a map
-that moves it onto a letter, a digit, a symbol or `space` is refused.
+comment, so it must stay on a key that neither types nor edits text, such as
+`ctrl+q`: a map that moves it onto a letter, a digit, a symbol, `space`,
+`backspace` or `delete` is refused.
 
 ## Timing
 
