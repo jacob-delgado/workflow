@@ -68,7 +68,8 @@ func (m Model) StayedAfter(next Next, err error) Model {
 	return m.noticedFailureLedBy("could not switch to "+m.shownDir(next.Dir)+": ", err)
 }
 
-// carryIn takes what a switch carried, and focuses the pane it was made from.
+// carryIn takes what a switch carried, and focuses the pane it was made from,
+// which Init then reads.
 func (m Model) carryIn(session carried) Model {
 	if session.jiraURL == m.cfg.Jira.BaseURL {
 		m.commentDrafts = session.commentDrafts
@@ -76,6 +77,8 @@ func (m Model) carryIn(session carried) Model {
 
 	m.tasks.listing = session.listing
 	m.summary.period, m.summary.chosen = session.period, session.periodChosen
+	// Init reads the pane it opens on.
+	m.refreshed[paneRepositories] = m.deps.now()
 
 	return m.focusOn(paneRepositories)
 }
