@@ -98,19 +98,20 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 	}
 
 	return tui.Deps{
-		Jira:       trackerDeps(ctx, cfg, jiraClient, connect),
-		Git:        gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
-		Forge:      forgeDeps(ctx, setup, connect),
-		Messaging:  messagingDeps(ctx, messagingSet, directory),
-		Hooks:      hookDeps(ctx, where.Root),
-		Editor:     editorDeps(where.Root),
-		Store:      storeDeps(ctx, onDisk(cfg), cfg, where),
-		Tasks:      taskDeps(ctx, cfg.Taskwarrior),
-		Clock:      nil,
-		CIInterval: cfg.CIInterval(),
-		Notify:     ringTerminal,
-		OpenURL:    func(url string) error { return openInBrowser(ctx, url) },
-		Copy:       tea.SetClipboard,
+		Jira:         trackerDeps(ctx, cfg, jiraClient, connect),
+		Git:          gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
+		Forge:        forgeDeps(ctx, setup, connect),
+		Messaging:    messagingDeps(ctx, messagingSet, directory),
+		Hooks:        hookDeps(ctx, where.Root),
+		Editor:       editorDeps(where.Root),
+		Store:        storeDeps(ctx, onDisk(cfg), cfg, where),
+		Tasks:        taskDeps(ctx, cfg.Taskwarrior),
+		Repositories: repositoriesDeps(ctx, cfg, where),
+		Clock:        nil,
+		CIInterval:   cfg.CIInterval(),
+		Notify:       ringTerminal,
+		OpenURL:      func(url string) error { return openInBrowser(ctx, url) },
+		Copy:         tea.SetClipboard,
 	}, controls
 }
 

@@ -33,7 +33,8 @@ type Deps struct {
 	Store     seams.Store
 	// Tasks is nil-fielded when no task program is found or the integration is
 	// disabled; see seams.Tasks.
-	Tasks seams.Tasks
+	Tasks        seams.Tasks
+	Repositories seams.Repositories
 	// Clock tells the time, for how long ago a comment was written. Nil means
 	// time.Now.
 	Clock func() time.Time

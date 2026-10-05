@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/codeowners"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
@@ -29,6 +30,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
 // Jira is what a surface asks of the issue tracker.
@@ -243,6 +245,41 @@ type Store struct {
 	// among RepoGroups, such as a group linked to an owning team, is left out
 	// of the choice.
 	RecordGroups func(workspace string, ids []string) error
+	// Favorites is the directories you marked, by path. It, Favor and Unfavor
+	// are nil when the store keeps nothing; a dry run keeps Favorites alone.
+	Favorites func() ([]string, error)
+	// Favor marks a directory, an absolute path, a favorite.
+	Favor func(dir string) error
+	// Unfavor forgets a directory as a favorite.
+	Unfavor func(dir string) error
+}
+
+// Place is a directory a surface can work in, as it is now: the directory,
+// the root of the repository it is in, origin's host and path, and the
+// configuration files that apply there.
+type Place struct {
+	Dir string
+	// Root is the repository's root, or "" outside a repository.
+	Root string
+	// Remote is origin's host and path, or zero when origin is missing or
+	// names no repository on a forge.
+	Remote forge.Repo
+	Config config.Files
+}
+
+// Repositories is what a surface asks of the directories it can work in.
+type Repositories struct {
+	// Here is where this session works.
+	Here Place
+	// Home is your home directory, or "" when there is none, which a
+	// directory under it is written from.
+	Home string
+	// Look reads a directory as a Place, refusing one that is not an absolute
+	// path to a directory that is there with workdirs' sentinels.
+	Look func(dir string) (Place, error)
+	// Subdirectories is the directories in one whose names start with a
+	// prefix, all of them for "".
+	Subdirectories func(dir, prefix string) (workdirs.Listing, error)
 }
 
 // Hooks is what a surface asks of lefthook.

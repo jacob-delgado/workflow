@@ -174,3 +174,29 @@ func TestADisabledStoreKeepsNoFavorite(t *testing.T) {
 		t.Errorf("Favor = %v, Favorites = %v; want nothing kept and no error", err, got)
 	}
 }
+
+func TestOnlyAStoreThatIsOnAndWritableWrites(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	cases := map[string]struct {
+		kept store.Store
+		want bool
+	}{
+		"on":        {kept: store.New(dir, false), want: true},
+		"read-only": {kept: store.New(dir, false).ReadOnly(), want: false},
+		"off":       {kept: store.New(dir, true), want: false},
+		"nowhere":   {kept: store.New("", false), want: false},
+	}
+
+	for name, which := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := which.kept.Writes(); got != which.want {
+				t.Errorf("Writes = %v, want %v", got, which.want)
+			}
+		})
+	}
+}
