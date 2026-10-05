@@ -1,4 +1,4 @@
-import type { Config } from '@/api/generated/types.gen.ts'
+import type { Config } from '../api/generated/types.gen.ts'
 
 // The configuration `task web:mockup` shows in Settings, shaped like a real read:
 // secrets already masked (the server never sends them in the clear), collections
