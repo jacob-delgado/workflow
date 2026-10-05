@@ -238,8 +238,9 @@ only the keys that do something right now.
 | `p` | messaging | Preview the announcement; announce now or once CI passes |
 | `?` | anywhere | Every key |
 
-Comments, commit bodies, pull request descriptions and announcements are written
-in `$EDITOR` and previewed before they send. `workflow --dry-run` holds every
+Commit bodies, pull request descriptions and announcements are written in
+`$EDITOR`, comments in a vim-style box beside the issue, and each is previewed
+before it sends. `workflow --dry-run` holds every
 write back. The
 [usage guide](https://jacob-delgado.github.io/workflow/docs/usage/) has the
 whole loop.

@@ -113,8 +113,11 @@ internal/forge 14
 # target as four planned features add their own); and tasklist.go (which tasks
 # the Tasks pane lists and in what order: its groups, its sort and its
 # narrowing, and the task that tracks an issue whatever the narrowing, out of
-# tasks.go and taskactions.go, both past 600 lines).
-internal/tui 52
+# tasks.go and taskactions.go, both past 600 lines); and commentcomposer.go
+# (the comment box: a text area with vim's normal and insert modes, the draft
+# kept per issue, and the hand-off to $EDITOR, which comment.go's preview
+# opens from and returns to).
+internal/tui 53
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of

@@ -98,7 +98,10 @@ type Model struct {
 	messaging   messagingState
 	reviewQueue reviewQueueState
 	tasks       tasksState
-	hookgen     hookgenState
+	// commentDrafts are the comments written and not posted, one per issue,
+	// kept for the session.
+	commentDrafts commentDrafts
+	hookgen       hookgenState
 
 	// programOptions are what Run adds to the program it starts, so a choice
 	// made on the model, such as dropping color, reaches the terminal too.

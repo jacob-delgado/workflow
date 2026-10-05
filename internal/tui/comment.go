@@ -22,11 +22,12 @@ var errEmptyComment = errors.New("nothing to post: the comment was empty")
 // sentence names which markup the text is read as, which depends on whether the
 // instance is configured to rewrite a Markdown comment before posting it.
 const (
-	commentHelpWiki = "Write the comment above this line. Save and quit to preview it before it is\n" +
-		"posted; leave it empty to post nothing. Jira's own markup works here."
-	commentHelpMarkdown = "Write the comment above this line. Save and quit to preview it before it is\n" +
-		"posted; leave it empty to post nothing. Markdown works here; it is\n" +
-		"converted to Jira's markup when posted."
+	commentHelpWiki = "Write the comment above this line. Save and quit to take it back to the\n" +
+		"comment you are writing; it is shown to you before it is posted.\n" +
+		"Jira's own markup works here."
+	commentHelpMarkdown = "Write the comment above this line. Save and quit to take it back to the\n" +
+		"comment you are writing; it is shown to you before it is posted.\n" +
+		"Markdown works here; it is converted to Jira's markup when posted."
 )
 
 // commentHelp is the editor guidance matching whether the instance rewrites a
@@ -39,65 +40,17 @@ func (m Model) commentHelp() string {
 	return commentHelpWiki
 }
 
-// startComment hands the user's editor an empty comment on the selected issue.
-func (m Model) startComment() (Model, tea.Cmd) {
-	selected, ok := m.issues.current()
-	if !ok || m.deps.Editor.Edit == nil || m.deps.Jira.Comment == nil || isForgeKey(selected.Key) {
-		return m, nil
-	}
-
-	return m, m.editComment(selected, "")
-}
-
-// editComment opens the editor on a comment's text.
-func (m Model) editComment(issue jira.Issue, text string) tea.Cmd {
-	return m.deps.Editor.Edit(text, m.commentHelp(), func(edited string, err error) tea.Msg {
-		return commentEdited{issue: issue, text: edited, err: err}
-	})
-}
-
-// commentEdited is a comment back from the editor.
-type commentEdited struct {
-	issue jira.Issue
-	text  string
-	err   error
-}
-
-// apply shows the comment for a last look before it is posted. Nothing outward
-// facing is sent without one.
-func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
-	switch {
-	case msg.err != nil:
-		// A re-edit that failed keeps the preview it came from, so the comment
-		// written the first time is not lost to the editor.
-		if _, editing := m.overlay.(commentPreview); editing {
-			return keepOpenWith[commentPreview](m, msg.err), nil
-		}
-
-		return m.closeOverlay().noticedFailure(msg.err), nil
-	case strings.TrimSpace(msg.text) == "":
-		return m.closeOverlay().noticedGuidance(errEmptyComment), nil
-	}
-
-	m.overlay = commentPreview{
-		marks: m.marks, styles: m.styles, issue: msg.issue, text: msg.text,
-		markup: loop.CommentMarkupOf(m.cfg.Jira),
-	}
-
-	return m, nil
-}
-
-// commentPreview is a comment about to be posted. text stays the source the user
-// typed, so a re-edit reopens it, while markup says what the tracker stores of
-// it: post sends that stored form, and the preview shows it with any terminal
-// control neutralized, as every text the screen draws is.
+// commentPreview is a comment about to be posted, shown for a last look:
+// nothing outward facing is sent without one. It holds the composer it was
+// opened from, so esc goes back to the draft as it was, and the comment is the
+// composer's text: post sends what the tracker stores of it, and the preview
+// shows that with any terminal control neutralized, as every text the screen
+// draws is.
 type commentPreview struct {
-	marks  glyphs
-	styles styles
-	issue  jira.Issue
-	text   string
-	markup loop.CommentMarkup
-	send   sendState
+	marks    glyphs
+	styles   styles
+	composer commentComposer
+	send     sendState
 }
 
 var _ failable[commentPreview] = commentPreview{}
@@ -106,25 +59,26 @@ var _ failable[commentPreview] = commentPreview{}
 // and what post sends, so the two differ only where the screen must not draw a
 // control the text holds.
 func (p commentPreview) stored() string {
-	return p.markup.Stored(p.text)
+	return p.composer.markup.Stored(p.composer.text.Value())
 }
 
 // view shows the comment as it will be stored, its outcome pinned under the
 // title so a long refusal is seen rather than clipped below the fold.
 func (p commentPreview) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
-	lines = append(lines, string(p.issue.Key)+" "+p.issue.Summary, "", wrap(sanitize.Text(p.stored()), width))
+	issue := p.composer.issue
+	lines = append(lines, string(issue.Key)+" "+issue.Summary, "", wrap(sanitize.Text(p.stored()), width))
 
-	return "Comment on " + string(p.issue.Key), strings.Join(lines, "\n")
+	return "Comment on " + string(issue.Key), strings.Join(lines, "\n")
 }
 
-// footer offers posting, another edit, or discarding.
+// footer offers posting, or going back to the draft.
 func (p commentPreview) footer(keys keyMap) []key.Binding {
 	if p.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{relabel(keys.confirm, "post"), keys.edit, relabel(keys.closeOverlay, "discard")}
+	return []key.Binding{relabel(keys.confirm, "post"), relabel(keys.closeOverlay, "back")}
 }
 
 // handleKey answers a key while the comment is previewed.
@@ -133,9 +87,9 @@ func (p commentPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 	case p.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay().noticed("comment discarded"), nil
-	case key.Matches(msg, m.keys.edit):
-		return m, m.editComment(p.issue, p.text)
+		m.overlay = p.composer
+
+		return m, nil
 	case key.Matches(msg, m.keys.confirm):
 		return p.post(m)
 	default:
@@ -145,13 +99,16 @@ func (p commentPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 
 // post sends the comment.
 func (p commentPreview) post(m Model) (Model, tea.Cmd) {
+	issueKey := p.composer.issue.Key
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would comment on " + string(p.issue.Key)), nil
+		m.commentDrafts = m.commentDrafts.keeping(issueKey, p.composer.text.Value())
+
+		return m.closeOverlay().noticed("dry run: would comment on " + string(issueKey)), nil
 	}
 
 	p.send = starting()
 	m.overlay = p
-	comment, issueKey, text := m.deps.Jira.Comment, p.issue.Key, p.stored()
+	comment, text := m.deps.Jira.Comment, p.stored()
 
 	return m, func() tea.Msg {
 		_, err := comment(issueKey, text)
@@ -173,6 +130,7 @@ func (msg commentPosted) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[commentPreview](m, msg.err), nil
 	}
 
+	m.commentDrafts = m.commentDrafts.keeping(msg.issueKey, "")
 	m = m.closeOverlay().noticed(m.marks.done + " commented on " + string(msg.issueKey))
 
 	return m.reloadDetail(msg.issueKey)

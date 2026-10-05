@@ -111,7 +111,7 @@ func TestAGuidanceNoticeStaysPlain(t *testing.T) {
 		},
 		"a comment saved empty": {
 			prepare: func(w *world) { w.edited = "   " },
-			keys:    []string{"c"},
+			keys:    []string{"c", keyCtrlO, keyEnter},
 			want:    "nothing to post: the comment was empty",
 		},
 		"a message emptied": {

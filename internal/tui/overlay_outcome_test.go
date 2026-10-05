@@ -39,7 +39,7 @@ func TestAnOverlayShowsAFailureFully(t *testing.T) {
 	}{
 		"comment preview": {
 			prepare: func(w *world) { w.edited, w.commentErr = shortComment, errLongReason },
-			keys:    []string{"c", keyEnter},
+			keys:    []string{"c", keyCtrlO, keyEnter, keyEnter},
 		},
 		"branch creator": {
 			prepare: func(w *world) { w.createErr = errLongReason },
@@ -108,17 +108,16 @@ func TestAnOverlayShowsAFailureFully(t *testing.T) {
 	}
 }
 
-func TestAFailedReEditShowsItsReasonFully(t *testing.T) {
+func TestAFailedEditorShowsItsReasonFully(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	commenting := newWorld()
-	commenting.edited = shortComment
-	preview := typing(t, commenting.live(t, 80, 24), "c")
 	commenting.editErr = errLongReason
+	composer := typing(t, commenting.live(t, 80, 24), "c")
 
 	// Act
-	view := typing(t, preview, "e").View().Content
+	view := typing(t, composer, keyCtrlO).View().Content
 
 	// Assert
 	requireScreen(t, view, "Comment on "+issueKey, outcomeTail)

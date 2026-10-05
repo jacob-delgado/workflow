@@ -110,7 +110,6 @@ var (
 	_ applier = detailDue{}
 	_ applier = transitionsListed{}
 	_ applier = transitionApplied{}
-	_ applier = commentEdited{}
 	_ applier = commentPosted{}
 	_ applier = branchLoaded{}
 	_ applier = branchCreated{}

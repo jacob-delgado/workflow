@@ -413,9 +413,11 @@ func TestASCIIStaysASCIIInEveryOverlay(t *testing.T) {
 			prepare: func(w *world) { w.moves = []jira.Transition{blocked} },
 			keys:    []string{"t", keyEnter},
 		},
-		"the new-branch overlay":    {keys: []string{"2", "b"}},
-		"the commit composer":       {keys: []string{"3", "c"}},
-		"the comment preview":       {prepare: func(w *world) { w.edited = "Looks good" }, keys: []string{"c"}},
+		"the new-branch overlay": {keys: []string{"2", "b"}},
+		"the commit composer":    {keys: []string{"3", "c"}},
+		"the comment preview": {
+			prepare: func(w *world) { w.edited = "Looks good" }, keys: []string{"c", keyCtrlO, keyEnter},
+		},
 		"the pull-request composer": {prepare: func(w *world) { w.pullFound = false }, keys: []string{"4", "n"}},
 		"the messaging preview":     {keys: []string{"5", "p"}},
 		// commandRun is excluded on purpose: its body is a tool's own output, not

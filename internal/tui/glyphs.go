@@ -21,10 +21,10 @@ type glyphs struct {
 	arrow, separator, rule                      string
 	ellipsis, ahead, behind                     string
 	chosenOpen, chosenClose                     string
-	// helpSeparator separates keys in the footer; upKey, downKey and
-	// sideways name the arrow keys in it.
-	helpSeparator, upKey, downKey, sideways string
-	border                                  frame.Style
+	// helpSeparator separates keys in the footer; upKey, downKey, leftKey,
+	// rightKey and sideways name the arrow keys in it.
+	helpSeparator, upKey, downKey, leftKey, rightKey, sideways string
+	border                                                     frame.Style
 }
 
 // unicodeGlyphs is the default set.
@@ -34,7 +34,7 @@ func unicodeGlyphs() glyphs {
 		selected: "▸ ", unselected: "  ",
 		arrow: " → ", separator: " · ", rule: " ─ ",
 		ellipsis: "…", ahead: "↑", behind: "↓", chosenOpen: "‹", chosenClose: "›",
-		helpSeparator: " • ", upKey: "↑", downKey: "↓", sideways: "←/→",
+		helpSeparator: " • ", upKey: "↑", downKey: "↓", leftKey: "←", rightKey: "→", sideways: "←/→",
 		border: frame.Light,
 	}
 }
@@ -46,7 +46,7 @@ func asciiGlyphs() glyphs {
 		selected: "> ", unselected: "  ",
 		arrow: " -> ", separator: " - ", rule: " - ",
 		ellipsis: "...", ahead: "+", behind: "-", chosenOpen: "<", chosenClose: ">",
-		helpSeparator: " | ", upKey: "up", downKey: "down", sideways: "left/right",
+		helpSeparator: " | ", upKey: "up", downKey: "down", leftKey: "left", rightKey: "right", sideways: "left/right",
 		border: frame.LightASCII,
 	}
 }

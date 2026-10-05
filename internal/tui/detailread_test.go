@@ -25,7 +25,7 @@ func TestAnAnswerToASupersededReadIsDropped(t *testing.T) {
 	late := firstRead()
 
 	repo.detail.Description = "after the comment"
-	commented := typing(t, reading, "c", keyEnter)
+	commented := typing(t, reading, "c", keyCtrlO, keyEnter, keyEnter)
 
 	// Act
 	updated, _ := commented.Update(late)

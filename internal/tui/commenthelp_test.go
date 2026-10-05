@@ -28,7 +28,7 @@ func TestCommentEditorNamesTheMarkupTheInstanceUses(t *testing.T) {
 			world.cfg.Jira.MarkdownComments = testCase.markdown
 
 			// Act
-			typing(t, world.live(t, 120, 40), "c")
+			typing(t, world.live(t, 120, 40), "c", keyCtrlO, keyEnter)
 
 			// Assert
 			if !strings.Contains(world.editHelp, testCase.want) {

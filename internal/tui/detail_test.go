@@ -303,11 +303,11 @@ func TestCommentingPreviewsBeforeItPosts(t *testing.T) {
 	model := commenting.live(t, 120, 40)
 
 	// Act: write the comment
-	screen := typing(t, model, "c")
+	screen := typing(t, model, "c", keyCtrlO, keyEnter)
 
 	// Assert: it is previewed, and not yet posted
 	requireScreen(t, screen.View().Content,
-		"┏━ Comment on PROJ-412", "Patch up shortly", "enter post", "e edit", "esc discard")
+		"┏━ Comment on PROJ-412", "Patch up shortly", "enter post", "esc back")
 
 	if posted := commenting.asked("comment"); len(posted) != 0 {
 		t.Errorf("posted before the preview was confirmed: %q", posted)
@@ -331,35 +331,28 @@ func TestCommentingPreviewsBeforeItPosts(t *testing.T) {
 	}
 }
 
-func TestACommentCanBeEditedAgainOrDiscarded(t *testing.T) {
+func TestEscFromThePreviewGoesBackToTheDraftAndThenKeepsIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	commenting := newWorld()
 	commenting.edited = "first draft"
-	screen := typing(t, commenting.live(t, 120, 40), "c")
-	commenting.edited = "second draft"
+	preview := typing(t, commenting.live(t, 120, 40), "c", keyCtrlO, keyEnter)
 
-	// Act: edit it again
-	edited := typing(t, screen, "e")
+	// Act: leave the preview
+	drafting := typing(t, preview, keyEsc)
 
-	// Assert: the second edit started from the first draft
-	requireScreen(t, edited.View().Content,
-		"second draft")
+	// Assert: the draft is back in the composer, in normal mode
+	requireScreen(t, drafting.View().Content, "┏━ Comment on "+issueKey, normalMode, "first draft")
 
-	if edits := commenting.asked("edit first draft"); len(edits) != 1 {
-		t.Errorf("the second edit did not start from the first draft: %q", commenting.asked("edit"))
-	}
+	// Act: leave the composer
+	closed := typing(t, drafting, keyEsc)
 
-	// Act: discard it
-	discarded := typing(t, edited, keyEsc)
-
-	// Assert: nothing posted
-	requireScreen(t, discarded.View().Content,
-		"comment discarded")
+	// Assert: nothing posted, and the draft is kept for the issue
+	requireScreen(t, closed.View().Content, "draft kept for "+issueKey)
 
 	if posted := commenting.asked("comment"); len(posted) != 0 {
-		t.Errorf("a discarded comment was posted: %q", posted)
+		t.Errorf("a comment left in its draft was posted: %q", posted)
 	}
 }
 
@@ -373,11 +366,13 @@ func TestACommentThatCannotBePostedSaysWhy(t *testing.T) {
 		keys       []string
 		want       string
 	}{
-		"empty":         {edited: "   ", keys: []string{"c"}, want: "nothing to post: the comment was empty"},
-		"editor failed": {editErr: errEditorFailed, keys: []string{"c"}, want: "✗ the editor exited with an error"},
+		"empty": {
+			edited: "   ", keys: []string{"c", keyCtrlO, keyEnter}, want: "nothing to post: the comment was empty",
+		},
+		"editor failed": {editErr: errEditorFailed, keys: []string{"c", keyCtrlO}, want: "✗ the editor exited with an error"},
 		// Refused, the preview stays open with Jira's reason.
 		"refused": {
-			edited: greeting, commentErr: errNotVisible, keys: []string{"c", keyEnter},
+			edited: greeting, commentErr: errNotVisible, keys: []string{"c", keyCtrlO, keyEnter, keyEnter},
 			want: "✗ jira rejected the request",
 		},
 	}
@@ -409,7 +404,7 @@ func TestNothingInterruptsACommentBeingPosted(t *testing.T) {
 			// Arrange
 			commenting := newWorld()
 			commenting.edited = "hello"
-			sending, _ := pressed(t, typing(t, commenting.live(t, 120, 40), "c"), keyEnter)
+			sending, _ := pressed(t, typing(t, commenting.live(t, 120, 40), "c", keyCtrlO, keyEnter), keyEnter)
 
 			// Act
 			after, cmd := pressed(t, sending, key)
@@ -432,7 +427,7 @@ func TestTheFooterOffersNoWayOutWhileACommentIsPosted(t *testing.T) {
 	// Arrange
 	commenting := newWorld()
 	commenting.edited = "hello"
-	screen := typing(t, commenting.live(t, 120, 40), "c")
+	screen := typing(t, commenting.live(t, 120, 40), "c", keyCtrlO, keyEnter)
 
 	// Act
 	sending, _ := pressed(t, screen, keyEnter)
@@ -443,17 +438,16 @@ func TestTheFooterOffersNoWayOutWhileACommentIsPosted(t *testing.T) {
 	refuseScreen(t, footerLine(sending.View().Content), keyEsc)
 }
 
-func TestAFailedReEditKeepsThePreview(t *testing.T) {
+func TestAFailedEditorKeepsTheDraft(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	commenting := newWorld()
-	commenting.edited = "keep me"
-	screen := typing(t, commenting.live(t, 120, 40), "c")
+	drafted := typing(t, writing(t, commenting.live(t, 120, 40), "keep me"), keyEsc)
 	commenting.edited, commenting.editErr = "lost in the editor", errEditorFailed
 
 	// Act
-	failed := typing(t, screen, "e")
+	failed := typing(t, drafted, keyCtrlO)
 
 	// Assert
 	requireScreen(t, failed.View().Content,

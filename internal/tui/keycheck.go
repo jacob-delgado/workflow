@@ -124,7 +124,8 @@ func keyContexts() []keyContext {
 			[]string{actionOpenLink, actionCopyLink, actionRefresh},
 		},
 		{"a running command", []int{groupMoving, groupEverywhere, groupRunning}, nil},
-		{"a composer or preview", []int{groupEverywhere, groupComposer}, []string{"up", "down", actionRefresh}},
+		{"a composer or preview", []int{groupEverywhere, groupComposer}, []string{actionUp, actionDown, actionRefresh}},
+		{"the comment composer", []int{groupEverywhere, groupWriting}, []string{actionUp, actionDown, "edit-body"}},
 	}
 }
 

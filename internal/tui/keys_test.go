@@ -28,20 +28,19 @@ func TestAKeyOverrideRebindsAnActionAndShowsItInTheHelp(t *testing.T) {
 	// Issues pane uses.
 	rebound := newWorld()
 	rebound.cfg.UI.Keys = map[string]string{"comment": "C"}
-	rebound.edited = greeting
 	started := rebound.live(t, 120, 50)
 
 	// Act: press the new key on the Issues pane
 	onNewKey := typing(t, started, "C").View().Content
 
 	// Assert: the comment composer opened, so the action fired on its new key
-	requireScreen(t, onNewKey, greeting)
+	requireScreen(t, onNewKey, "Comment on "+issueKey)
 
 	// Act: press the key it used to be bound to
 	onOldKey := typing(t, started, "c").View().Content
 
 	// Assert: nothing happens — c no longer comments
-	refuseScreen(t, onOldKey, greeting)
+	refuseScreen(t, onOldKey, "Comment on "+issueKey)
 
 	// Act: open the help
 	helpView := typing(t, started, "?").View().Content

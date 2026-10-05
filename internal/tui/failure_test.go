@@ -63,7 +63,7 @@ func TestAPinnedRefusalSpeaksTheSentence(t *testing.T) {
 	unanswered.commentErr = fmt.Errorf("posting the comment: %w", jira.ErrUnreachable)
 
 	// Act
-	view := typing(t, unanswered.live(t, 200, 40), "c", keyEnter).View().Content
+	view := typing(t, unanswered.live(t, 200, 40), "c", keyCtrlO, keyEnter, keyEnter).View().Content
 
 	// Assert
 	// The sentence leads, with the way out; the raw chain stays beneath it. It
