@@ -48,7 +48,7 @@ type keyMap struct {
 	// Summary.
 	earlier, later, today, calendar, copySummary key.Binding
 	// Repositories.
-	favoriteDir key.Binding
+	favoriteDir, goToDir key.Binding
 
 	// Reviews.
 	sortReviews, filterReviews key.Binding
@@ -294,9 +294,11 @@ func taskKeys(builder *helpBuilder, into *keyMap) {
 }
 
 // repositoryKeys are the Repositories pane's bindings: marking the directory
-// the cursor is on a favorite, or forgetting it.
+// the cursor is on a favorite, or forgetting it, and typing a directory to go
+// to.
 func repositoryKeys(builder *helpBuilder, into *keyMap) {
 	into.favoriteDir = builder.bind(groupRepositories, "favorite-directory", "favorite", "f")
+	into.goToDir = builder.bind(groupRepositories, "go-to-directory", "go to", "g")
 }
 
 // summaryKeys are the Summary pane's bindings: the period before and after the

@@ -99,10 +99,10 @@ the bundle `wiring` returns is still a `tui.Deps`. The
 `internal/seams` only the domain packages and `internal/loop` its bundles speak,
 so it sits below the surfaces and above `internal/loop`.
 
-- `Workspace{Root, Remote}` tells wiring where it is running — the repository
-  root (or the start directory when there is no repo) and the origin remote URL.
-  It is discovered once, up front, by `Locate`.
-- The CLI builds this bundle once in its root `RunE`; `--web` reuses **the same
+- `Workspace` tells wiring where it is running — the directory it was started
+  in, the repository root (or that directory when there is no repo) and the
+  origin remote URL. `Locate` reads it for a directory, once per interface.
+- The CLI builds this bundle in its root `RunE`; `--web` reuses **the same
   bundle**, adapted to the web server's shape. That shared construction is one
   half of why there is one implementation behind three front doors;
   `internal/loop`, below, is the other. Before the interface or `--web` starts,
@@ -110,6 +110,13 @@ so it sits below the surfaces and above `internal/loop`.
   token command that prompts on the terminal can be answered before either
   takes the terminal over. A token not found then is looked for again on first
   use, where its failure is reported.
+- **Switching directory.** The Repositories pane's switch ends the running
+  program with a `tui.Next` naming the directory; the CLI checks it, wires it
+  through the same `connectAt` the first directory went through, refuses it if
+  its `ui.keys` would be, and only then moves the process there and opens the
+  next interface, handing it what of the session the switch carried. A switch
+  that cannot be made reopens the interface where it was. So a bundle is still
+  built once per interface, never rewired under a running one (TRADE-34).
 
 A seam speaks the interface's own domain types, and wiring translates at the
 boundary. The store seam is the clearest example: `seams.Store.CachedIssues`
@@ -215,9 +222,11 @@ goes to the server-fixed path, never one a request supplies.
   `ui`, `timing`, `branch`, `commit`, `pull_request`, `store`.
 - **Discovery and precedence**: `config.Load(workDir, homeDir)` looks in the
   working tree first — walking **up to the repository root** (the directory
-  holding `.git`), never past it — and then in the home directory. A repo-local
-  file **replaces** the home file; the two are not merged, so what a repo
-  declares is exactly what that repo gets.
+  holding `.git`), never past it — and then in the home directory. The
+  repository's file is **layered over** the home file: an object in both is
+  merged key by key, and anything else the repository sets — a list, a string,
+  an explicit `false` — replaces the home file's. A section the repository
+  points somewhere else inherits none of the home file's credentials for it.
 - **Strictness**: the decoder rejects unknown keys, so a misspelled field is an
   error rather than a silently unset credential; the file is decoded *over* the
   defaults, so an omitted field keeps its default. A short validation chain

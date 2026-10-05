@@ -26,6 +26,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/web"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/wiring"
+	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
 const longHelp = `workflow ties Jira, your Git forge and your team's messaging service into one
@@ -152,11 +153,13 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 	return fmt.Errorf("workflow: %w", err)
 }
 
-// RunInterface starts the interface and blocks until the user quits. It is
-// tui.Run in production and a fake in tests, so the root command's own wiring —
-// loading the configuration, building the model, applying dry run and color
-// off — can be exercised without a real terminal.
-type RunInterface func(ctx context.Context, model tui.Model, out io.Writer) error
+// RunInterface starts the interface and blocks until the user quits, or asks
+// to switch directory, which the Next it returns says. It is tui.Run in
+// production and a fake in tests, so the root command's own wiring — loading
+// the configuration, building the model, applying dry run and color off, and
+// opening the next interface where a switch asks — can be exercised without a
+// real terminal.
+type RunInterface func(ctx context.Context, model tui.Model, out io.Writer) (tui.Next, error)
 
 // RunWeb starts the local web server and blocks until the context is canceled.
 // What it says about the server goes to notes, stderr: the server has no
@@ -207,10 +210,7 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Co
 				return serveWeb(cmd, conn, serveAt(webserver.LoopbackAddr(port)), dryRun)
 			}
 
-			return openInterface(cmd.Context(), run, interfaceInput{
-				cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.controls.ResolveAhead,
-				dryRun: dryRun, noColorEnv: os.Getenv("NO_COLOR"), out: cmd.OutOrStdout(),
-			})
+			return runInterfaces(cmd, run, conn, dryRun)
 		},
 	}
 
@@ -240,6 +240,72 @@ type interfaceInput struct {
 	dryRun       bool
 	noColorEnv   string
 	out          io.Writer
+	// arrive is what the model is told before it runs: nothing for the first
+	// interface, and where a switch went, or why it could not, after one.
+	arrive func(tui.Model) tui.Model
+}
+
+// inputFor is what opening the interface wired by conn needs.
+func inputFor(cmd *cobra.Command, conn connection, dryRun bool) interfaceInput {
+	return interfaceInput{
+		cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.controls.ResolveAhead,
+		dryRun: dryRun, noColorEnv: os.Getenv("NO_COLOR"), out: cmd.OutOrStdout(),
+		arrive: func(model tui.Model) tui.Model { return model },
+	}
+}
+
+// runInterfaces opens the interface where conn is wired, and again wherever it
+// asks to switch to, until one ends by quitting. A switch that cannot be made
+// reopens the interface where it was, saying why, so it never exits.
+//
+// Trade-off TRADE-34: a switch ends one program and starts the next, wired
+// afresh, rather than rewiring the one running.
+func runInterfaces(cmd *cobra.Command, run RunInterface, conn connection, dryRun bool) error {
+	input := inputFor(cmd, conn, dryRun)
+
+	for {
+		next, err := openInterface(cmd.Context(), run, input)
+		if err != nil || next.Dir == "" {
+			return err
+		}
+
+		moved, err := switchTo(cmd, conn, next.Dir)
+		if err != nil {
+			input.arrive = func(model tui.Model) tui.Model { return model.StayedAfter(next, err) }
+
+			continue
+		}
+
+		conn = moved
+		input = inputFor(cmd, conn, dryRun)
+		input.arrive = func(model tui.Model) tui.Model { return model.Arrived(next) }
+	}
+}
+
+// switchTo wires the directory a switch asked for, and moves there once its
+// configuration is one the interface can open on: a directory not there, or
+// keys the interface would refuse, leave the working directory as it was.
+func switchTo(cmd *cobra.Command, from connection, dir string) (connection, error) {
+	err := workdirs.Check(dir)
+	if err != nil {
+		return connection{}, err
+	}
+
+	conn := connectAt(cmd, dir, configHome(), from.requestLog)
+
+	err = tui.CheckKeys(conn.cfg.UI.Keys)
+	if err != nil {
+		return connection{}, err
+	}
+
+	err = os.Chdir(dir)
+	if err != nil {
+		return connection{}, fmt.Errorf("moving to the directory: %w", err)
+	}
+
+	conn.closeLog = from.closeLog
+
+	return conn, nil
 }
 
 // openInterface refuses a broken ui.keys map before building anything — a keymap
@@ -247,10 +313,10 @@ type interfaceInput struct {
 // open an interface that answers the wrong keys — then builds the model, applies
 // dry run and color off, finds the services' tokens while a token command can
 // still ask on the terminal, and runs it.
-func openInterface(ctx context.Context, run RunInterface, input interfaceInput) error {
+func openInterface(ctx context.Context, run RunInterface, input interfaceInput) (tui.Next, error) {
 	err := tui.CheckKeys(input.cfg.UI.Keys)
 	if err != nil {
-		return err
+		return tui.Next{}, err
 	}
 
 	deps := input.deps
@@ -277,7 +343,7 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 
 	input.resolveAhead()
 
-	return run(ctx, model, input.out)
+	return run(ctx, input.arrive(model), input.out)
 }
 
 // subcommands are every `workflow` subcommand: the read commands, the guided

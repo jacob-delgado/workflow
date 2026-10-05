@@ -4,6 +4,8 @@
 package tui_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -189,4 +191,103 @@ func TestOutsideARepositoryTheTopRowNamesTheDirectory(t *testing.T) {
 
 	// Assert
 	requireScreen(t, spineLine(view), "old ")
+}
+
+func TestFWhereYouWorkForgetsTheFavoriteAsItWasKept(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A favorite kept through a link is where you work under another name;
+	// forgetting it forgets the name it was kept by.
+	target := t.TempDir()
+	link := filepath.Join(t.TempDir(), "linked")
+
+	err := os.Symlink(target, link)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	working := reposWorld()
+	working.dirs.here = seams.Place{Dir: target}
+	working.dirs.places[link] = seams.Place{Dir: target}
+	working.dirs.favorites = []string{link}
+	opened := typing(t, working.live(t, 120, 40), reposKey)
+
+	// Act
+	typing(t, opened, "f")
+
+	// Assert
+	if forgot := working.asked("unfavor "); len(forgot) != 1 || forgot[0] != "unfavor "+link {
+		t.Errorf("forgot %q, want the favorite as it was kept, %s", forgot, link)
+	}
+}
+
+func TestEachFavoriteSaysWhatKindOfDirectoryItIs(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := reposWorld()
+	working.dirs.places["/home/ana/notes"] = seams.Place{Dir: "/home/ana/notes"}
+	scratch := anaHome + "/scratch"
+	working.dirs.places[scratch] = seams.Place{Dir: scratch, Root: scratch}
+	working.dirs.favorites = []string{"/home/ana/notes", scratch}
+
+	// Act
+	view := typing(t, working.live(t, 120, 40), reposKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "~/notes · not a repository", "~/scratch · repository")
+}
+
+func TestWorkingAtTheRootSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := reposWorld()
+	working.dirs.here = webPlace()
+
+	// Act
+	view := typing(t, working.live(t, 120, 40), reposKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "the repository's root")
+}
+
+func TestKMovesBackUpAndRReadsTheFavoritesAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := reposWorld()
+	opened := typing(t, working.live(t, 120, 40), reposKey, "j", "k")
+
+	// Act
+	typing(t, opened, "r", "f")
+
+	// Assert
+	if reads := working.asked("favorites"); len(reads) < 2 {
+		t.Errorf("favorites read %d times, want again on r", len(reads))
+	}
+
+	if marked := working.asked("favor "); len(marked) != 1 || marked[0] != "favor "+apiCmd {
+		t.Errorf("marked %q, want where you work, back under the cursor", marked)
+	}
+}
+
+func TestFavoritesThatCannotBeReadOrChangedSayWhy(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := reposWorld()
+	working.dirs.failing = errJiraDown
+	opened := typing(t, working.live(t, 120, 40), reposKey)
+
+	// Act
+	view := typing(t, opened, "f").View().Content
+
+	// Assert
+	requireScreen(t, view, "jira is down")
+
+	if marked := working.asked("favor "); len(marked) != 1 {
+		t.Errorf("marked %q, want the one refused", marked)
+	}
 }

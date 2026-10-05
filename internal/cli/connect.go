@@ -27,7 +27,10 @@ type connection struct {
 	// controls are the wiring's own: finding tokens ahead, and applying
 	// settings the web's Settings saves.
 	controls wiring.Controls
-	closeLog func()
+	// requestLog records each request, or is nil; a switch wires the next
+	// directory to the same log.
+	requestLog *wiring.RequestLog
+	closeLog   func()
 }
 
 // connect wires a command to its working directory, recording each request in
@@ -86,7 +89,8 @@ func connectAt(cmd *cobra.Command, dir, home string, requestLog *wiring.RequestL
 	}
 
 	return connection{
-		cfg: cfg, loadErr: loadErr, where: where, deps: deps, controls: controls, closeLog: func() {},
+		cfg: cfg, loadErr: loadErr, where: where, deps: deps, controls: controls,
+		requestLog: requestLog, closeLog: func() {},
 	}
 }
 

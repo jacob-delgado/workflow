@@ -103,7 +103,9 @@ func (m Model) repositoryRows() []repositoryRow {
 
 	for _, favorite := range m.repositories.favorites {
 		if favorite.here {
-			rows[0].favorite = true
+			// Kept by the name it was marked under, which may be another
+			// way to reach where you work; that is the name to forget.
+			rows[0].favorite, rows[0].dir = true, favorite.dir
 
 			continue
 		}
@@ -243,7 +245,9 @@ func (m Model) repositoryState(row repositoryRow) string {
 
 // repositoriesKeys is what the pane offers.
 func (m Model) repositoriesKeys() []key.Binding {
-	return []key.Binding{m.keys.up, m.keys.down, m.keys.favoriteDir, m.keys.refresh}
+	return []key.Binding{
+		m.keys.up, m.keys.down, relabel(m.keys.confirm, "switch"), m.keys.favoriteDir, m.keys.goToDir, m.keys.refresh,
+	}
 }
 
 // handleRepositoriesKey moves the cursor, or marks or forgets a favorite.
@@ -255,6 +259,10 @@ func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.repositories.selected = min(len(m.repositoryRows())-1, m.repositories.selected+1)
 	case key.Matches(msg, m.keys.favoriteDir):
 		return m.toggleFavorite(m.selectedRepository())
+	case key.Matches(msg, m.keys.confirm):
+		return m.switchToSelected()
+	case key.Matches(msg, m.keys.goToDir):
+		return m.openDirPrompt()
 	case key.Matches(msg, m.keys.refresh):
 		return m.refreshRepositories()
 	}

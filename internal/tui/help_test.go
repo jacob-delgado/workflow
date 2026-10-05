@@ -104,7 +104,8 @@ func placedBindings() []helpGroup {
 			"calendar          c          calendar",
 			"copy-summary      Y          copy as Markdown"),
 		placed("Repositories",
-			"favorite-directory f         favorite"),
+			"favorite-directory f         favorite",
+			"go-to-directory   g          go to"),
 		placed("In a composer or preview",
 			"edit              e          edit",
 			"edit-body         ctrl+o     edit body",
@@ -418,8 +419,8 @@ func TestTheWholeHelpFitsATallTerminal(t *testing.T) {
 
 	// Act
 	// At 120 columns the whole help, the Tasks and Reviews keys and the
-	// tagging keys, the Summary's and the Repositories' among it, needs 63 rows.
-	view := typing(t, newWorld().live(t, 120, 64), "?").View().Content
+	// tagging keys, the Summary's and the Repositories' among it, needs 64 rows.
+	view := typing(t, newWorld().live(t, 120, 65), "?").View().Content
 
 	// Assert
 	requireScreen(t, view, "Everywhere")

@@ -767,6 +767,11 @@ ten minutes is not offered until a refresh.
 a large channel's first read through `users.info` is too slow to wait for:
 lower `UserListPages`, or label members concurrently within Tier 4.
 
+**Revisited.** 2026-10-05, in #176: switching directory from the
+Repositories pane starts a new session (TRADE-34), which reads the
+directory again. A switch is rare and deliberate, so the read it costs is
+not held across it.
+
 ### TRADE-29 The Tasks list's orders and narrowing are written twice
 
 The Tasks list sorts by urgency, state, id, tag, issue or priority, and is
@@ -875,3 +880,28 @@ is made twice, and a change to one copy alone passes that copy's tests.
 
 **Reopen when.** The browser's calendar comes to ask the server for its
 moves, or the two copies are found to disagree.
+
+### TRADE-34 Switching directory starts the interface again
+
+The Repositories pane's switch ends the running program and starts a
+fresh one in the directory chosen, wired as the first was
+(`internal/cli/cli.go`, `runInterfaces`; `internal/tui/reposwitch.go`).
+Only the session's own choices go with it: comments written on Jira
+issues, how the Tasks list is seen, and the Summary's period.
+
+**Decided.** 2026-10-05, in #176: every seam — the repository, its forge,
+the configuration that applies, the store's keys — is bound to a
+directory when the interface is built. Rebinding them in a running
+program would mean every pane and overlay noticing its world change under
+it; starting again gets the same answer as starting there, by the same
+code. A spike showed two programs in one process leave the terminal as
+they found it.
+
+**Cost.** A switch reads every pane again, and drops what belonged to the
+repository left — a commit message, a pull request or a forge issue's
+comment being written, an announcement waiting for CI — which is why it
+asks first when any of those would be lost, and refuses while a write is
+in flight.
+
+**Reopen when.** A switch is found slow enough to notice, or the terminal
+is found left changed by one in practice.
