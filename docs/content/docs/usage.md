@@ -317,7 +317,10 @@ A branch whose issue is finished, or reassigned — to QA, say — leaves the li
 even one you have locally. When the tracker cannot be asked which issues are
 yours, the list holds every branch that names an issue, under a line saying
 why. A switch is refused while the working tree holds uncommitted changes,
-rather than carrying them onto the other branch.
+rather than carrying them onto the other branch. git will not check out a
+branch another worktree has checked out, so such a branch is marked with that
+worktree, as `(worktree at ~/src/api-feat-x)`, and switching to it goes there
+instead, as a switch from the Repositories pane does.
 
 `i` on the Branch pane links the branch to an issue, for work begun outside
 workflow on a branch whose name names none. It offers the issue selected in the
