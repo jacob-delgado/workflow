@@ -61,3 +61,37 @@ func TestCommitsBetweenRefusesToGuessWhoYouAre(t *testing.T) {
 		t.Errorf("CommitsBetween error = %v, want ErrNoIdentity", err)
 	}
 }
+
+func TestSharedDirIsWhereEveryWorktreeKeepsItsHistory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := fakeRunner(t, map[string]reply{
+		"git -C /work rev-parse --path-format=absolute --git-common-dir": {out: []byte("/src/api/.git\n")},
+	})
+
+	// Act
+	shared, err := gitrepo.At(run, workDir).SharedDir(t.Context())
+
+	// Assert
+	if err != nil || shared != "/src/api/.git" {
+		t.Errorf("SharedDir = %q, %v; want /src/api/.git", shared, err)
+	}
+}
+
+func TestSharedDirOutsideARepositorySaysWhy(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := fakeRunner(t, map[string]reply{
+		"git -C /work rev-parse --path-format=absolute --git-common-dir": {err: errNotARepository},
+	})
+
+	// Act
+	_, err := gitrepo.At(run, workDir).SharedDir(t.Context())
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrNotARepository) {
+		t.Errorf("SharedDir outside a repository = %v, want ErrNotARepository", err)
+	}
+}

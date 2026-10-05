@@ -144,6 +144,17 @@ func (r Repository) Describe(ctx context.Context) (Repo, error) {
 	}, nil
 }
 
+// SharedDir is the git directory every worktree of the repository shares,
+// which tells one repository from another where each worktree's root differs.
+func (r Repository) SharedDir(ctx context.Context) (string, error) {
+	out, err := r.run(ctx, "git", "-C", r.dir, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	if err != nil {
+		return "", notInWorkTree(r.dir, err)
+	}
+
+	return text(out), nil
+}
+
 // originURL reads origin's URL. A repository without an origin is unusual but
 // not broken — everything except opening a pull request still works — so the
 // failure reads as "no remote" rather than becoming Describe's error.
