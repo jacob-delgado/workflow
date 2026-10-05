@@ -173,6 +173,16 @@ func (f *forgeRows) laterPage(
 	return page, nil
 }
 
+// cacheableRows is the part of a list the issue cache may keep, and whether
+// there is a list to keep at all: a list that was all forge issues leaves
+// nothing, which is not the same as a view seen empty, and is neither written
+// nor read back as one.
+func cacheableRows(issues []jira.Issue) ([]jira.Issue, bool) {
+	rows := jiraRows(issues)
+
+	return rows, len(rows) > 0 || len(issues) == 0
+}
+
 // jiraRows is a list without the forge's issues. The issue cache is keyed by
 // the Jira instance and the view, and a forge issue's number means an issue
 // only within its repository, which that key does not hold: kept there, one

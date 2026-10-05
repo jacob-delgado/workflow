@@ -78,3 +78,47 @@ func TestAForgeRowAlreadyInTheCacheIsNotReadBack(t *testing.T) {
 		t.Errorf("CachedIssues = %v, %v; want only PROJ-2, never the seeded forge #7", cached, found)
 	}
 }
+
+func TestAListOfOnlyForgeIssuesIsNotCachedAsAnEmptyOne(t *testing.T) {
+	// Arrange
+	// A view cached as empty opens the next session on "no issues", settled; a
+	// view whose every row was the forge's has nothing to keep, which is not
+	// the same as having been seen empty.
+	deps := wired(t, cachedJiraConfig(t), wiring.Workspace{Root: t.TempDir()}, nil)
+
+	// Act
+	deps.Store.CacheIssues("assigned", []jira.Issue{{Key: "42", Summary: "the forge's issue"}})
+
+	// Assert
+	if cached, found := deps.Store.CachedIssues("assigned"); found {
+		t.Errorf("CachedIssues = %v, true; want nothing cached", cached)
+	}
+}
+
+func TestACachedListOfOnlyForgeRowsReadsAsNotCached(t *testing.T) {
+	// Arrange
+	cfg := cachedJiraConfig(t)
+	sum := sha256.Sum256([]byte(jiraAddress))
+
+	dir, err := store.DefaultDir()
+	if err != nil {
+		t.Fatalf("resolving the store directory: %v", err)
+	}
+
+	seeded := []store.CachedIssue{{Key: "#7", Summary: "another repository's issue"}}
+
+	err = store.New(dir, false).CacheIssues(t.Context(), hex.EncodeToString(sum[:]), "assigned", seeded, time.Now())
+	if err != nil {
+		t.Fatalf("seeding the store: %v", err)
+	}
+
+	deps := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil)
+
+	// Act
+	cached, found := deps.Store.CachedIssues("assigned")
+
+	// Assert
+	if found {
+		t.Errorf("CachedIssues = %v, true; want the view read as never cached", cached)
+	}
+}

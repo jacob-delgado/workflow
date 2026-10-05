@@ -382,10 +382,13 @@ func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where W
 				return nil, false
 			}
 
-			return jiraRows(fromCachedIssues(cached)), true
+			return cacheableRows(fromCachedIssues(cached))
 		},
 		CacheIssues: func(view string, issues []jira.Issue) {
-			_ = kept.CacheIssues(ctx, instance, view, toCachedIssues(jiraRows(issues)), time.Now())
+			rows, keep := cacheableRows(issues)
+			if keep {
+				_ = kept.CacheIssues(ctx, instance, view, toCachedIssues(rows), time.Now())
+			}
 		},
 	})
 }
