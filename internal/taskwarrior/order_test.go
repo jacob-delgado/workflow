@@ -74,6 +74,14 @@ func TestEachOrderPutsTasksWhereItsKeySays(t *testing.T) {
 			},
 			want: []string{"abc", "two", "ten", "unlinked"},
 		},
+		"issue: keys equal but for leading zeros fall back to most urgent first": {
+			order: taskwarrior.ByIssue,
+			tasks: []taskwarrior.Task{
+				{UUID: "z2", IssueKey: "PROJ-1", Urgency: 1},
+				{UUID: "z1", IssueKey: "PROJ-01", Urgency: 5},
+			},
+			want: []string{"z1", "z2"},
+		},
 		"priority: high, medium, low, anything else, then none": {
 			order: taskwarrior.ByPriority,
 			tasks: []taskwarrior.Task{
