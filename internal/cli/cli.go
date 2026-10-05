@@ -258,9 +258,11 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 		// A dry-run interface opens no cache, and New would seed the issue
 		// list from it before WithDryRun could drop it. It keeps the kept
 		// reads, bound to the read-only store, so the announcement preview
-		// says whom a post would tag.
+		// says whom a post would tag and the Repositories pane lists the
+		// favorites.
 		deps.Store = seams.Store{
 			OwnerLinks: deps.Store.OwnerLinks, RepoGroups: deps.Store.RepoGroups, LastGroups: deps.Store.LastGroups,
+			Favorites: deps.Store.Favorites,
 		}
 	}
 

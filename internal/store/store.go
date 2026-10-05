@@ -165,6 +165,12 @@ func (s Store) Keeps() bool {
 	return !s.off()
 }
 
+// Writes reports a store that records what it is told: kept on, somewhere to
+// keep it, and not read-only.
+func (s Store) Writes() bool {
+	return !s.writesNothing()
+}
+
 // off reports a store that should do nothing: disabled, or with nowhere to write.
 func (s Store) off() bool {
 	return s.disabled || s.dir == ""

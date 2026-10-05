@@ -45,7 +45,32 @@ func bindKept(ctx context.Context, kept store.Store, where Workspace, bound seam
 		return kept.RecordGroups(ctx, repo, workspace, ids, time.Now())
 	}
 
-	return bindOwnerLinks(ctx, kept, forgeHostKey(where), bound)
+	return bindOwnerLinks(ctx, kept, forgeHostKey(where), bindFavorites(ctx, kept, bound))
+}
+
+// bindFavorites binds the directories you marked: read wherever the store
+// keeps anything, and marked or forgotten only where it writes, so a dry run
+// lists them and offers no change it would not keep.
+func bindFavorites(ctx context.Context, kept store.Store, bound seams.Store) seams.Store {
+	bound.Favorites = func() ([]string, error) {
+		favorites, err := kept.Favorites(ctx)
+
+		dirs := make([]string, 0, len(favorites))
+		for _, favorite := range favorites {
+			dirs = append(dirs, favorite.Dir)
+		}
+
+		return dirs, err
+	}
+
+	if !kept.Writes() {
+		return bound
+	}
+
+	bound.Favor = func(dir string) error { return kept.Favor(ctx, dir, time.Now()) }
+	bound.Unfavor = func(dir string) error { return kept.Unfavor(ctx, dir) }
+
+	return bound
 }
 
 // bindOwnerLinks binds whom each forge owner on host is on Slack, unless there
