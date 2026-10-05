@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.5.1](https://github.com/jacob-delgado/workflow/compare/v0.5.0...v0.5.1) (2026-10-05)
+
+
+### Features
+
+* **web:** comment on a Jira issue from its detail ([ba30014](https://github.com/jacob-delgado/workflow/commit/ba300140ab01d04ea616004cb3d50d0b0e6168f8))
+* **web:** render Jira wiki markup in comments ([5511d7a](https://github.com/jacob-delgado/workflow/commit/5511d7a1cc630cce8e488025943ab5fb3c693c66))
+* **webserver:** post a comment on a Jira issue ([d762861](https://github.com/jacob-delgado/workflow/commit/d762861825102b0753cc170c0bc89324571e9294))
+* **web:** turn Markdown into wiki markup as Jira will ([7d74380](https://github.com/jacob-delgado/workflow/commit/7d743806d887279e42e84dd4cdcea47b85119374))
+
+
+### Bug Fixes
+
+* **web:** keep hostile comment markup linear and read Jira's CRLF ([17dec73](https://github.com/jacob-delgado/workflow/commit/17dec73b350ea9cb3bbe60e1c40216856938d363))
+
+
+### Documentation
+
+* comment on Jira issues from the web ([416a779](https://github.com/jacob-delgado/workflow/commit/416a779b71e5b44c71283abfaca8914ad54eafbe))
+
+
+### Tests
+
+* **web:** drive commenting end to end ([7146b48](https://github.com/jacob-delgado/workflow/commit/7146b482e1239cea45e3aced27a0b2795f98b4f9))
+
 ## [0.5.0](https://github.com/jacob-delgado/workflow/compare/v0.4.3...v0.5.0) (2026-10-01)
 
 
