@@ -4,9 +4,11 @@
 package tui
 
 import (
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // createCommand is the command that creates the branch: in a worktree beside the
@@ -101,15 +103,59 @@ type worktreeCreated struct {
 
 // apply says where the worktree is, or keeps the creator open with git's reason.
 // The panes do not reload: the current checkout is untouched, and the worktree
-// is a separate directory to move to. Its branch is new, though, so the issues
-// are marked in flight again.
+// is a separate directory to move to, which is offered once nothing else is
+// being asked. Its branch is new, though, so the issues are marked in flight
+// again, and a Repositories pane already read lists the worktree.
 func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[branchCreator](m, msg.err), nil
 	}
 
-	return m.closeOverlay().noticed(m.marks.done + " worktree for " + msg.name + " at " + msg.path),
-		m.listIssueBranches()
+	offer := worktreeOffer{dir: msg.path, shown: m.shownDir(msg.path)}
+	m = m.closeOverlay().noticed(m.marks.done + " worktree for " + sanitize.Line(msg.name) + " at " + offer.shown)
+	m.followUp = func(m Model) (Model, tea.Cmd) {
+		m.overlay = offer
+
+		return m, nil
+	}
+
+	reload := m.listIssueBranches()
+	if m.repositories.read {
+		reload = tea.Batch(reload, m.loadRepositories())
+	}
+
+	return m, reload
+}
+
+// worktreeOffer offers to switch to a worktree just made.
+type worktreeOffer struct {
+	dir, shown string
+}
+
+var _ overlay = worktreeOffer{}
+
+// view says where the worktree is and what switching does.
+func (o worktreeOffer) view(width, _ int) (string, string) {
+	return "Switch to the new worktree",
+		wrap("Switch to "+o.shown+"? workflow opens again there, on the worktree's branch.", width)
+}
+
+// footer offers switching or staying.
+func (worktreeOffer) footer(keys keyMap) []key.Binding {
+	return []key.Binding{relabel(keys.confirm, "switch"), relabel(keys.closeOverlay, "stay")}
+}
+
+// handleKey switches, asking first as any switch does when something would be
+// lost, or stays.
+func (o worktreeOffer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.confirm):
+		return m.closeOverlay().leaveFor(o.dir)
+	case key.Matches(msg, m.keys.closeOverlay):
+		return m.closeOverlay(), nil
+	default:
+		return m, nil
+	}
 }
 
 // failed is the creator kept open with the reason it could not create what was

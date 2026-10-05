@@ -6,6 +6,8 @@ package tui_test
 import (
 	"errors"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // keyCtrlW toggles the branch creator between a branch here and a worktree.
@@ -82,4 +84,49 @@ func TestAWorktreeUnderDryRunCreatesNothing(t *testing.T) {
 	if made := repo.asked("worktree"); len(made) != 0 {
 		t.Errorf("worktree calls = %v, want none under a dry run", made)
 	}
+}
+
+// madeWorktree is a world whose branch creator has just made a worktree
+// for featureName, and the model as it was left.
+func madeWorktree(t *testing.T) tui.Model {
+	t.Helper()
+
+	return typing(t, newWorld().live(t, 120, 40), "2", "b", keyCtrlW, keyEnter)
+}
+
+func TestANewWorktreeOffersToSwitchToIt(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := madeWorktree(t).View().Content
+
+	// Assert
+	requireScreen(t, view, "Switch to the new worktree", "/work-"+featureName, "switch", "stay")
+}
+
+func TestEnterOnTheNewWorktreeOfferLeavesForIt(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	left, cmd := pressed(t, madeWorktree(t), keyEnter)
+
+	// Assert
+	if !quits(cmd) || left.Destination().Dir != "/work-"+featureName {
+		t.Errorf("enter on the offer: quit %v, destination %q; want the program ended for the worktree",
+			quits(cmd), left.Destination().Dir)
+	}
+}
+
+func TestEscOnTheNewWorktreeOfferStays(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	stayed, cmd := pressed(t, madeWorktree(t), keyEsc)
+
+	// Assert
+	if quits(cmd) || stayed.Destination().Dir != "" {
+		t.Errorf("esc on the offer: quit %v, destination %q; want to stay", quits(cmd), stayed.Destination().Dir)
+	}
+
+	refuseScreen(t, stayed.View().Content, "Switch to the new worktree")
 }
