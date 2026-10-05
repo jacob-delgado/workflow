@@ -3,14 +3,22 @@ import { wikiFromMarkdown } from './wikiFromMarkdown.ts'
 
 // Trade-off TRADE-31: past these sizes a comment is drawn as plain text, its
 // markup unread, rather than parsed by patterns that rescan from each opener.
-const largestParsedBody = 65_536
+export const largestParsedBody = 65_536
 const longestParsedLine = 1_000
+
+interface CommentBodyProps {
+  body: string
+  markdown: boolean
+  // plain draws the body as text whatever its size, for a comment its thread
+  // has no parsing left for.
+  plain?: boolean
+}
 
 // CommentBody draws a comment written in wiki markup, or in Markdown that is
 // first converted to it, unless it is too large to parse safely: anyone who
 // can comment can write one, so it is then shown as the text it is.
-export function CommentBody({ body, markdown }: { body: string; markdown: boolean }) {
-  if (tooLargeToParse(body)) {
+export function CommentBody({ body, markdown, plain = false }: CommentBodyProps) {
+  if (plain || tooLargeToParse(body)) {
     return <p className="break-words whitespace-pre-wrap">{body}</p>
   }
 

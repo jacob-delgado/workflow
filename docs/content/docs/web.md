@@ -107,15 +107,22 @@ detail rather than beside it.
 The comments are drawn from Jira's wiki markup: bold, italic, struck and code
 text, links, headings, quotes, lists and code blocks. Anything else, such as a
 table, a panel or a color, shows as the text it is, and an image is offered as
-a link rather than loaded. Under a Jira issue's thread, a box takes a comment.
-The comment is Markdown, as `jira.markdown_comments` is on by default: **Write** and
-**Preview** are tabs, Preview shows it as Jira will, and the buttons beside
-them write bold, italic, code, a link or a list around what is selected. With
-it off, the comment is posted as typed, and Jira reads it as wiki markup.
-Turning it on or off in Settings applies to the next comment, with no
-restart.
-**Comment** posts it and reads the issue again, so the thread shows it as Jira
-keeps it. A forge issue takes no comment here.
+a link rather than loaded. Under the thread, a box takes a comment. On a Jira
+issue the comment is Markdown, as `jira.markdown_comments` is on by default:
+**Write** and **Preview** are tabs, Preview shows it as Jira will, and the
+buttons beside them write bold, italic, code, a link or a list around what is
+selected. With it off, the comment is posted as typed, and Jira reads it as
+wiki markup. Turning it on or off in Settings applies to the next comment,
+with no restart. **Comment** posts it and reads the issue again, so the thread
+shows it as Jira keeps it.
+
+A forge issue, numbered such as `#57`, takes a comment too. Its thread and its
+comment are always Markdown, which the forge renders itself, so the box always
+has Write and Preview, and the comment is posted as written. On GitLab the box
+also says that a line starting with `/`, such as `/close`, runs as a quick
+action rather than being posted. A comment over 65,536 characters, or with a
+line over 1,000, is shown as plain text in the thread and in Preview, and so
+are a thread's older comments once the newer ones add up to that many.
 
 ### Branch
 

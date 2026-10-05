@@ -10,7 +10,7 @@ import { useIssue } from './issueApi.ts'
 import { IssueStatus } from './IssueStatus.tsx'
 import { WorkStory } from './WorkStory.tsx'
 import { CommentComposer } from './CommentComposer.tsx'
-import { CommentBody } from './wiki/WikiText.tsx'
+import { CommentBody, largestParsedBody } from './wiki/WikiText.tsx'
 
 const sectionHeading = 'text-base font-semibold'
 
@@ -194,10 +194,11 @@ function Description({ text }: { text: string }) {
 }
 
 // Comments is the issue's thread: the comments the tracker sent, oldest
-// first, how many more it holds when it sent only some, and — on a Jira
-// issue — a composer under it for the next one.
+// first, how many more it holds when it sent only some, and a composer under
+// it for the next one.
 function Comments({ detail }: { detail: IssueDetail }) {
   const { comments, comment_total: total } = detail
+  const unparsed = beyondParsing(comments)
 
   return (
     <section aria-labelledby="comments-heading" className="flex flex-col gap-group">
@@ -215,7 +216,12 @@ function Comments({ detail }: { detail: IssueDetail }) {
       {comments.length > 0 ? (
         <ol aria-labelledby="comments-heading" className="flex flex-col gap-block">
           {comments.map((comment, index) => (
-            <CommentItem key={`${String(index)}-${comment.created}`} comment={comment} />
+            <CommentItem
+              plain={unparsed[index] ?? true}
+              key={`${String(index)}-${comment.created}`}
+              comment={comment}
+              markdown={detail.tracker === 'forge'}
+            />
           ))}
         </ol>
       ) : null}
@@ -224,14 +230,41 @@ function Comments({ detail }: { detail: IssueDetail }) {
           Showing {comments.length} of {total} comments.
         </p>
       ) : null}
-      {detail.tracker === 'jira' ? <CommentComposer issueKey={detail.key} /> : null}
+      <CommentComposer issueKey={detail.key} tracker={detail.tracker} />
     </section>
   )
 }
 
+// Trade-off TRADE-31: past the budget below, a comment is drawn unparsed.
+//
+// beyondParsing marks the comments a thread draws as plain text: each one past
+// the first, counting back from the newest, that takes the thread's bodies over
+// the size one comment is parsed at. Each comment is bounded on its own, but a
+// thread of many near the bound would still stall the page.
+function beyondParsing(comments: Comment[]): boolean[] {
+  let parsed = 0
+
+  return comments
+    .toReversed()
+    .map((comment) => {
+      parsed += comment.body.length
+
+      return parsed > largestParsedBody
+    })
+    .toReversed()
+}
+
 // CommentItem is one comment: who wrote it, beside their initials, when, and
-// what, drawn from Jira's wiki markup.
-function CommentItem({ comment }: { comment: Comment }) {
+// what, drawn from Jira's wiki markup, or from Markdown on a forge issue.
+function CommentItem({
+  comment,
+  markdown,
+  plain,
+}: {
+  comment: Comment
+  markdown: boolean
+  plain: boolean
+}) {
   return (
     <li className="flex gap-group">
       <span
@@ -246,7 +279,7 @@ function CommentItem({ comment }: { comment: Comment }) {
           <WrittenAt created={comment.created} />
         </p>
         <div className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-card-foreground">
-          <CommentBody body={comment.body} markdown={false} />
+          <CommentBody body={comment.body} markdown={markdown} plain={plain} />
         </div>
       </div>
     </li>

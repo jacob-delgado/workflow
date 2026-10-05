@@ -1,24 +1,38 @@
 import { Bold, Code, Italic, Link, List, type LucideIcon } from 'lucide-react'
 import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import type { IssueDetail } from '@/api/generated/types.gen.ts'
+import { useHealthStore } from '@/api/health.ts'
 import { useConfigRead } from '@/features/settings/configApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { usePostComment } from './commentApi.ts'
+import { shownKey } from './issuePlaces.ts'
 import { applyFormat, type Edit, type Format } from './wiki/markdownFormat.ts'
 import { CommentBody } from './wiki/WikiText.tsx'
 
 type Tab = 'write' | 'preview'
 
-// CommentComposer writes a comment on a Jira issue under its thread. With
-// jira.markdown_comments on, the comment is Markdown: a toolbar writes its
-// marks, and Preview draws it as Jira will once the server turns it into
-// wiki markup. Otherwise it is posted as typed, and Jira reads it as wiki
-// markup. A posted comment clears the box and keeps focus in it, for the
-// next; a refused one stays, beside why.
-export function CommentComposer({ issueKey }: { issueKey: string }) {
-  const markdown = useConfigRead().data?.config.jira.markdown_comments === true
+interface CommentComposerProps {
+  issueKey: string
+  tracker: IssueDetail['tracker']
+}
+
+// CommentComposer writes a comment on an issue under its thread. A forge
+// issue's comment is always Markdown, which the forge renders; a Jira issue's
+// is Markdown with jira.markdown_comments on, and the server turns it into
+// wiki markup, or is otherwise posted as typed for Jira to read as wiki
+// markup. Markdown brings a toolbar that writes its marks and a Preview. On
+// GitLab the box says a line starting with / runs as a quick action. A posted
+// comment clears the box and keeps focus in it, for the next; a refused one
+// stays, beside why.
+export function CommentComposer({ issueKey, tracker }: CommentComposerProps) {
+  const jiraMarkdown = useConfigRead().data?.config.jira.markdown_comments === true
+  const onGitLab = useHealthStore((state) => state.health?.forge_noun === gitLabNoun)
+  const forgeIssue = tracker === 'forge'
+  const markdown = forgeIssue || jiraMarkdown
+  const shown = shownKey({ key: issueKey, tracker })
   const [text, setText] = useState('')
   const [tab, setTab] = useState<Tab>('write')
   const [blank, setBlank] = useState(false)
@@ -26,8 +40,8 @@ export function CommentComposer({ issueKey }: { issueKey: string }) {
   const ids = useComposerIds()
   const outcome = useOutcome()
   const post = useAsyncAction(usePostComment(issueKey), {
-    fallback: `The comment could not be posted on ${issueKey}.`,
-    done: () => `Commented on ${issueKey}.`,
+    fallback: `The comment could not be posted on ${shown}.`,
+    done: () => `Commented on ${shown}.`,
     onStart: outcome.clear,
     onDone: (said) => {
       outcome.say(said)
@@ -69,8 +83,9 @@ export function CommentComposer({ issueKey }: { issueKey: string }) {
         ) : null}
         <WritePanel
           ids={ids}
-          issueKey={issueKey}
+          issueKey={shown}
           markdown={markdown}
+          quickActions={forgeIssue && onGitLab}
           shown={!markdown || tab === 'write'}
           box={box}
           text={text}
@@ -83,7 +98,8 @@ export function CommentComposer({ issueKey }: { issueKey: string }) {
         {markdown && tab === 'preview' ? <PreviewPanel ids={ids} text={text} /> : null}
         <ComposerFooter
           ids={ids}
-          markdown={markdown}
+          hint={hintFor(forgeIssue, markdown)}
+          quickActions={forgeIssue && onGitLab}
           length={text.length}
           busy={busy}
           onSend={send}
@@ -99,6 +115,7 @@ interface WritePanelProps {
   ids: Ids
   issueKey: string
   markdown: boolean
+  quickActions: boolean
   shown: boolean
   box: RefObject<HTMLTextAreaElement | null>
   text: string
@@ -109,7 +126,17 @@ interface WritePanelProps {
 // WritePanel is the box a comment is written in: Write's panel when the
 // comment is Markdown, and the whole composer's body otherwise. It is kept
 // while Preview shows, so the selection and the undo history stay.
-function WritePanel({ ids, issueKey, markdown, shown, box, text, busy, onText }: WritePanelProps) {
+function WritePanel({
+  ids,
+  issueKey,
+  markdown,
+  quickActions,
+  shown,
+  box,
+  text,
+  busy,
+  onText,
+}: WritePanelProps) {
   return (
     <div
       {...(markdown
@@ -127,7 +154,9 @@ function WritePanel({ ids, issueKey, markdown, shown, box, text, busy, onText }:
         readOnly={busy}
         rows={4}
         placeholder={markdown ? 'Write a comment in Markdown…' : 'Write a comment…'}
-        aria-describedby={`${ids.hint} ${ids.count}`}
+        aria-describedby={
+          quickActions ? `${ids.hint} ${ids.quick} ${ids.count}` : `${ids.hint} ${ids.count}`
+        }
         onChange={(event) => {
           onText(event.target.value)
         }}
@@ -163,6 +192,7 @@ function useComposerIds() {
     writePanel: `${id}-write`,
     previewPanel: `${id}-preview`,
     hint: `${id}-hint`,
+    quick: `${id}-quick`,
     count: `${id}-count`,
   }
 }
@@ -315,21 +345,37 @@ function PreviewPanel({ ids, text }: { ids: Ids; text: string }) {
 
 interface ComposerFooterProps {
   ids: Ids
-  markdown: boolean
+  hint: string
+  quickActions: boolean
   length: number
   busy: boolean
   onSend: () => void
 }
 
+// gitLabNoun is what the server's health calls a proposed change on GitLab,
+// the one forge whose comments run slash lines as quick actions.
+const gitLabNoun = 'merge request'
+
+// hintFor says how a comment is read: by the forge, as Markdown, or by Jira,
+// as Markdown converted or as wiki markup.
+function hintFor(forgeIssue: boolean, markdown: boolean): string {
+  if (forgeIssue) {
+    return 'Markdown is supported; the forge renders it.'
+  }
+
+  return markdown ? 'Markdown is supported.' : 'Jira reads this as wiki markup.'
+}
+
 // ComposerFooter says how the comment is read and how long it is, beside the
 // button that posts it.
-function ComposerFooter({ ids, markdown, length, busy, onSend }: ComposerFooterProps) {
+function ComposerFooter({ ids, hint, quickActions, length, busy, onSend }: ComposerFooterProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-item border-t border-border px-3 py-2">
       <p className="flex flex-wrap gap-x-group text-xs text-muted-foreground">
-        <span id={ids.hint}>
-          {markdown ? 'Markdown is supported.' : 'Jira reads this as wiki markup.'}
-        </span>
+        <span id={ids.hint}>{hint}</span>
+        {quickActions ? (
+          <span id={ids.quick}>A line starting with / runs as a GitLab quick action.</span>
+        ) : null}
         <span id={ids.count} className="tabular-nums">
           {length === 1 ? '1 character' : `${String(length)} characters`}
         </span>

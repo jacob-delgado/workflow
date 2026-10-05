@@ -144,3 +144,80 @@ for (const theme of themes) {
     })
   }
 }
+
+const forgeIssue = {
+  key: '57',
+  tracker: 'forge',
+  summary: 'Typo in the README',
+  status: 'Open',
+  status_category: 'new',
+  type: '',
+} as const
+
+// opensForgeIssue serves forge issue 57 on a GitLab remote, its thread written
+// in Markdown, and opens its detail.
+async function opensForgeIssue(page: Page): Promise<void> {
+  await streams(page, { ...snapshot, issues: { ...snapshot.issues, issues: [forgeIssue] } })
+  await page.route('**/api/health', (route) =>
+    route.fulfill({
+      json: { version: '1.2.3', dry_run: false, forge_noun: 'merge request', forge_sigil: '!' },
+    }),
+  )
+  await page.route('**/api/config', (route) =>
+    route.fulfill({
+      json: { ...mockConfig, jira: { ...mockConfig.jira, markdown_comments: false } },
+    }),
+  )
+  await page.route('**/api/issues/57', (route) =>
+    route.fulfill({
+      json: {
+        ...forgeIssue,
+        reporter: 'octo',
+        description: 'The install line is wrong.',
+        comments: [
+          {
+            author: 'octo',
+            body: 'Fixed in **main**, see `README.md`.',
+            created: '2026-09-18T15:04:00Z',
+          },
+        ],
+        comment_total: 1,
+        url: 'https://gitlab.com/group/repo/-/issues/57',
+      } satisfies IssueDetail,
+    }),
+  )
+  await page.goto('/')
+  await page.getByRole('button', { name: /typo in the readme/i }).click()
+  await expect(page.getByRole('list', { name: 'Comments' })).toBeVisible()
+}
+
+for (const theme of themes) {
+  test(`a GitLab issue's thread and composer are reachable and clean in the ${theme} theme`, async ({
+    page,
+  }) => {
+    // Arrange: a forge issue on GitLab, whose composer is always Markdown and
+    // says a slash line is a quick action.
+    await pinTheme(page, theme)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.setViewportSize({ width: widths[0], height })
+    await opensForgeIssue(page)
+    await page.getByRole('textbox', { name: 'Comment on #57' }).fill('/close')
+
+    // Act: Tab once round the page.
+    const { reached, missed, hidden } = await walkTabOrder(page)
+
+    // Assert: the thread is drawn from Markdown, the hint is on screen, Tab
+    // reaches the tabs, the formatting and the button, and axe finds nothing.
+    await expect(page.getByRole('list', { name: 'Comments' }).getByRole('strong')).toHaveText(
+      'main',
+    )
+    await expect(
+      page.getByText('A line starting with / runs as a GitLab quick action.'),
+    ).toBeVisible()
+    expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
+    expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(['Write', 'Bold', 'Comment']))
+    expect(missed, 'never reached by Tab').toEqual([])
+    expect(hidden, 'out of view with focus').toEqual([])
+    expect(await axeViolations(page), 'axe').toBe('')
+  })
+}

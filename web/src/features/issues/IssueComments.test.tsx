@@ -3,7 +3,9 @@ import userEvent from '@testing-library/user-event'
 import type { Comment, IssueDetail } from '@/api/generated/types.gen.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
+import { gitLabWords, makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { useHealthStore } from '@/api/health.ts'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 
 // Commenting on an issue from its detail: the composer under the thread, what
@@ -265,17 +267,96 @@ test('the count says how many characters the comment holds', async () => {
   expect(described).toContain('5 characters')
 })
 
-test('a forge issue offers no comment box', async () => {
-  // Arrange
+// forgeIssue serves forge issue 42, holding the comments given, and keeps each
+// comment posted to it, with Jira's Markdown setting off.
+function forgeIssue(comments: Comment[] = []) {
+  const sent: string[] = []
   fakeApi({
-    '/api/issues/42': detailWith([], { key: '42', tracker: 'forge' }),
+    '/api/issues/42': detailWith(comments, { key: '42', tracker: 'forge' }),
     '/api/config': configWith(false),
+    '/api/issues/42/comment': async (_: URL, request: Request) => {
+      const { text } = (await request.json()) as { text: string }
+      sent.push(text)
+
+      return { author: 'octo', body: text, created: '2026-10-05T09:00:00Z' }
+    },
   })
+
+  return sent
+}
+
+test('a forge issue takes a comment in Markdown, whatever Jira says', async () => {
+  // Arrange
+  const sent = forgeIssue()
+  const user = userEvent.setup()
+  renderWithClient(<IssueDetailPanel issueKey="42" />)
+  const box = await screen.findByRole('textbox', { name: 'Comment on #42' })
+  await user.type(box, 'Ship **it**')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Comment' }))
+
+  // Assert
+  await waitFor(() => {
+    expect(sent).toEqual(['Ship **it**'])
+  })
+  expect(screen.getByRole('tab', { name: 'Preview' })).toBeTruthy()
+  expect(await screen.findByText('Commented on #42.')).toBeTruthy()
+})
+
+test("a forge issue's thread is drawn from Markdown", async () => {
+  // Arrange
+  forgeIssue([{ author: 'octo', body: 'Ship **it**', created: '2026-10-01T10:00:00Z' }])
 
   // Act
   renderWithClient(<IssueDetailPanel issueKey="42" />)
 
   // Assert
-  await screen.findByRole('heading', { name: 'Comments' })
-  expect(screen.queryByRole('textbox')).toBeNull()
+  const thread = await screen.findByRole('list', { name: 'Comments' })
+  expect(within(thread).getByRole('strong').textContent).toBe('it')
+})
+
+test.each([
+  ['GitLab', gitLabWords, true],
+  ['GitHub', {}, false],
+])('on %s the box says whether a slash line is a quick action', async (_, words, said) => {
+  // Arrange
+  useHealthStore.setState({ health: makeHealth(words) })
+  forgeIssue()
+
+  // Act
+  renderWithClient(<IssueDetailPanel issueKey="42" />)
+
+  // Assert
+  const box = await screen.findByRole('textbox', { name: 'Comment on #42' })
+  const described = (box.getAttribute('aria-describedby') ?? '')
+    .split(' ')
+    .map((id) => document.getElementById(id)?.textContent ?? '')
+    .join(' ')
+  expect(described.includes('quick action')).toBe(said)
+})
+
+test('a thread past its parsing budget draws its older comments as plain text', async () => {
+  // Arrange
+  // Each comment is within the sizes one is parsed at, but a thread of many
+  // could stall the page, so the newest are parsed and the rest are not.
+  const big = (n: number) => `${'word '.repeat(10)}\n`.repeat(900) + `newer ${String(n)}`
+  forgeIssue([
+    { author: 'octo', body: 'Ship **old**', created: '2026-10-01T09:00:00Z' },
+    { author: 'octo', body: big(1), created: '2026-10-01T10:00:00Z' },
+    { author: 'octo', body: big(2), created: '2026-10-01T11:00:00Z' },
+    { author: 'octo', body: 'Ship **new**', created: '2026-10-01T12:00:00Z' },
+  ])
+
+  // Act
+  renderWithClient(<IssueDetailPanel issueKey="42" />)
+
+  // Assert
+  const thread = await screen.findByRole('list', { name: 'Comments' })
+  expect(
+    within(thread)
+      .getAllByRole('strong')
+      .map((strong) => strong.textContent),
+  ).toEqual(['new'])
+  expect(within(thread).getByText('Ship **old**')).toBeTruthy()
 })
