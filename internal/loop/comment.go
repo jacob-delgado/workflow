@@ -5,6 +5,7 @@ package loop
 
 import (
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -18,11 +19,19 @@ const (
 	// MarkupJiraMarkdown is Markdown, posted to Jira as the wiki markup
 	// jira.WikiFromMarkdown makes of it.
 	MarkupJiraMarkdown
+	// MarkupForgeMarkdown is Markdown posted to a forge as typed, since the
+	// forge renders Markdown itself.
+	MarkupForgeMarkdown
 )
 
-// CommentMarkupOf is the markup a comment is written in under settings, as the
-// surface asking reads them now: a Settings save applies to the next comment.
-func CommentMarkupOf(settings config.Jira) CommentMarkup {
+// CommentMarkupOf is the markup a comment on issueKey is written in: Markdown
+// on a forge issue, and on a Jira issue as settings say, read as the surface
+// asking reads them now, so a Settings save applies to the next comment.
+func CommentMarkupOf(settings config.Jira, issueKey jira.Key) CommentMarkup {
+	if ref, known := convention.RefOf(string(issueKey)); known && ref.Tracker == convention.TrackerForge {
+		return MarkupForgeMarkdown
+	}
+
 	if settings.MarkdownComments {
 		return MarkupJiraMarkdown
 	}
@@ -36,7 +45,7 @@ func (m CommentMarkup) Stored(text string) string {
 	switch m {
 	case MarkupJiraMarkdown:
 		return jira.WikiFromMarkdown(text)
-	case MarkupWiki:
+	case MarkupWiki, MarkupForgeMarkdown:
 		return text
 	}
 

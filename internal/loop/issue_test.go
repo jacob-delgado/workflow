@@ -11,11 +11,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// namedBranch is a branch named for its issue, and unnamedBranch one named
-// for nothing, as work begun outside workflow often is.
+// namedBranch is a branch named for its issue, jiraKey, and unnamedBranch one
+// named for nothing, as work begun outside workflow often is.
 const (
-	namedBranch   = "fix/PROJ-1-thing"
+	namedBranch   = "fix/" + jiraKey + "-thing"
 	unnamedBranch = "my-thing"
+	jiraKey       = "PROJ-1"
 )
 
 func TestBranchIssueFindsTheIssueWhereverItWasNamed(t *testing.T) {
@@ -32,13 +33,13 @@ func TestBranchIssueFindsTheIssueWhereverItWasNamed(t *testing.T) {
 			want:   "PROJ-7", origin: loop.OriginLink,
 		},
 		"the name wins over the pull request": {
-			source: loop.IssueSource{Branch: namedBranch, Pull: pull}, want: "PROJ-1", origin: loop.OriginBranch,
+			source: loop.IssueSource{Branch: namedBranch, Pull: pull}, want: jiraKey, origin: loop.OriginBranch,
 		},
 		"the pull request when nothing else names one": {
 			source: loop.IssueSource{Branch: unnamedBranch, Pull: pull}, want: "42", origin: loop.OriginPull,
 		},
 		"a link that names no issue is passed over": {
-			source: loop.IssueSource{Branch: namedBranch, Link: "soon"}, want: "PROJ-1", origin: loop.OriginBranch,
+			source: loop.IssueSource{Branch: namedBranch, Link: "soon"}, want: jiraKey, origin: loop.OriginBranch,
 		},
 		"nothing names one": {source: loop.IssueSource{Branch: unnamedBranch}, want: ""},
 	}

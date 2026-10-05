@@ -28,13 +28,20 @@ const (
 	commentHelpMarkdown = "Write the comment above this line. Save and quit to take it back to the\n" +
 		"comment you are writing; it is shown to you before it is posted.\n" +
 		"Markdown works here; it is converted to Jira's markup when posted."
+	commentHelpForge = "Write the comment above this line. Save and quit to take it back to the\n" +
+		"comment you are writing; it is shown to you before it is posted.\n" +
+		"Markdown works here; the forge renders it."
 )
 
-// commentHelp is the editor guidance matching whether the instance rewrites a
-// Markdown comment before posting it.
-func (m Model) commentHelp() string {
-	if loop.CommentMarkupOf(m.cfg.Jira) == loop.MarkupJiraMarkdown {
+// commentHelp is the editor guidance for the markup a comment is written in.
+func commentHelp(markup loop.CommentMarkup) string {
+	switch markup {
+	case loop.MarkupJiraMarkdown:
 		return commentHelpMarkdown
+	case loop.MarkupForgeMarkdown:
+		return commentHelpForge
+	case loop.MarkupWiki:
+		return commentHelpWiki
 	}
 
 	return commentHelpWiki
