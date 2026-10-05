@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -52,6 +53,11 @@ func taskSeams(ctx context.Context, install func() (taskwarrior.Install, error))
 		Install: install,
 		Pending: func() (taskwarrior.List, error) {
 			return askTaskwarrior(client, func(tasks taskwarrior.Client) (taskwarrior.List, error) { return tasks.Pending(ctx) })
+		},
+		Touched: func(since time.Time) ([]taskwarrior.Task, error) {
+			return askTaskwarrior(client, func(tasks taskwarrior.Client) ([]taskwarrior.Task, error) {
+				return tasks.Touched(ctx, since)
+			})
 		},
 		Linked: func() ([]taskwarrior.Task, error) {
 			return askTaskwarrior(client, func(tasks taskwarrior.Client) ([]taskwarrior.Task, error) {

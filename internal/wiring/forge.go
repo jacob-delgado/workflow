@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -82,6 +83,7 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 			return connection.client.FindPullRequest(ctx, connection.repo, branch)
 		},
 		CreatePullRequest: createPullSeam(ctx, connect),
+		Activity:          activitySeam(ctx, connect),
 		EditPullRequest:   editPullSeam(ctx, connect),
 		CheckStatus: func(pull forge.PullRequest, head string) (forge.CI, error) {
 			connection, err := connect()
@@ -462,4 +464,19 @@ func templatesFor(settings config.Forge, where Workspace) []forge.Template {
 	}
 
 	return forge.FindTemplates(os.DirFS(where.Root), repo.Kind)
+}
+
+// activitySeam reads what you did on the forge the repository's remote names,
+// in any repository on it.
+func activitySeam(
+	ctx context.Context, connect func() (forgeConnection, error),
+) func(start, end time.Time) (forge.Activity, error) {
+	return func(start, end time.Time) (forge.Activity, error) {
+		connection, err := connect()
+		if err != nil {
+			return forge.Activity{}, err
+		}
+
+		return connection.client.Activity(ctx, connection.repo.Kind, start, end)
+	}
 }
