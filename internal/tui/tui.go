@@ -191,8 +191,18 @@ func Run(ctx context.Context, model Model, out io.Writer) (Next, error) {
 // service never freezes the screen — and each pane fills in, or fails, on its
 // own.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.searchIssues(), m.listIssueBranches(), m.loadBranch(), m.loadChanges(), m.findHooks(),
-		m.loadReviewQueue(), m.loadAnnounces(), m.loadTasks())
+	loads := []tea.Cmd{
+		m.searchIssues(), m.listIssueBranches(), m.loadBranch(), m.loadChanges(), m.findHooks(),
+		m.loadReviewQueue(), m.loadAnnounces(), m.loadTasks(),
+	}
+
+	// Opened on the Repositories pane, after a switch made from it, that pane
+	// is looked at from the start, so it is read with the rest.
+	if m.focus == paneRepositories {
+		loads = append(loads, m.loadRepositories())
+	}
+
+	return tea.Batch(loads...)
 }
 
 // Update implements tea.Model. Every load and result is an applier, which knows

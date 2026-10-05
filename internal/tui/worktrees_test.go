@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // The api repository's other worktrees, beside its root.
@@ -165,4 +166,22 @@ func TestSwitchingToABranchAnotherWorktreeHasLeavesForThatWorktree(t *testing.T)
 		t.Errorf("enter: quit %v, destination %q, checkouts %v; want the program ended for %s, nothing checked out",
 			quits(cmd), left.Destination().Dir, working.asked("checkout"), apiRetries)
 	}
+}
+
+func TestArrivingInAnotherWorktreeListsTheWorktreesAtOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The command line opens the interface after a switch on the pane it was
+	// made from, before the program starts, so that pane is read with the
+	// rest rather than only when it is next looked at.
+	left, _ := pressed(t, typing(t, worktreesWorld().live(t, 120, 40), reposKey, "j"), keyEnter)
+	arriving := worktreesWorld()
+	model := sized(t, tui.New(arriving.cfg, nil, arriving.deps()).Arrived(left.Destination()), 120, 40)
+
+	// Act
+	arrived := drain(t, model, model.Init())
+
+	// Assert
+	requireScreen(t, arrived.View().Content, "Worktrees", "worktree on feat/x")
 }
