@@ -188,14 +188,10 @@ func (w wireIssue) detail() IssueDetail {
 	}
 }
 
-// AddComment posts a comment on an issue and returns it as Jira stored it. When
-// the instance is configured for Markdown comments, the text is rewritten as
-// Jira's wiki markup first.
+// AddComment posts text on an issue as Jira's wiki markup, exactly as given,
+// and returns it as Jira stored it. A surface converts a comment written in
+// Markdown first (loop.CommentMarkup), so what it showed is what is posted.
 func (c Client) AddComment(ctx context.Context, issueKey Key, text string) (Comment, error) {
-	if c.settings.MarkdownComments {
-		text = WikiFromMarkdown(text)
-	}
-
 	request, err := c.newJSONRequest(ctx, http.MethodPost, issuePath(issueKey)+"/comment", struct {
 		Body string `json:"body"`
 	}{Body: text})

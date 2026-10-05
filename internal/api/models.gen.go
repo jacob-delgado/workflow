@@ -612,7 +612,7 @@ type Comment struct {
 
 // CommentRequest A comment to post on an issue.
 type CommentRequest struct {
-	// Text The comment, written as Markdown when jira.markdown_comments is on and as Jira wiki markup otherwise.
+	// Text The comment, written as Markdown when jira.markdown_comments is on as last saved, and as Jira wiki markup otherwise.
 	Text string `json:"text"`
 }
 

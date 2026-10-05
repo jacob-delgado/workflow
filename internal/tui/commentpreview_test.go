@@ -5,13 +5,17 @@ package tui_test
 
 import "testing"
 
+// markdownComment is a comment written in Markdown, which Jira stores as
+// "See *the docs* at {{run()}}.".
+const markdownComment = "See **the docs** at `run()`."
+
 func TestCommentPreviewShowsTheConvertedMarkupWhenMarkdownIsOn(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	world := newWorld()
 	world.cfg.Jira.MarkdownComments = true
-	world.edited = "See **the docs** at `run()`."
+	world.edited = markdownComment
 
 	// Act
 	view := typing(t, world.live(t, 120, 40), "c").View().Content
@@ -27,11 +31,31 @@ func TestCommentPreviewShowsTheTextVerbatimByDefault(t *testing.T) {
 
 	// Arrange
 	world := newWorld()
-	world.edited = "See **the docs** at `run()`."
+	world.edited = markdownComment
 
 	// Act
 	view := typing(t, world.live(t, 120, 40), "c").View().Content
 
 	// Assert
 	requireScreen(t, view, "See **the docs** at `run()`.")
+}
+
+func TestPostingSendsTheMarkupThePreviewShowed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newWorld()
+	world.cfg.Jira.MarkdownComments = true
+	world.edited = markdownComment
+	previewed := typing(t, world.live(t, 120, 40), "c")
+
+	// Act
+	typing(t, previewed, "enter")
+
+	// Assert
+	// What the preview showed is what is sent: the conversion happens before the
+	// last look, never after it, in a client that read the setting once.
+	if got := world.asked("comment "); len(got) != 1 || got[0] != "comment "+issueKey+" See *the docs* at {{run()}}." {
+		t.Errorf("posted %q, want the wiki markup the preview showed", got)
+	}
 }

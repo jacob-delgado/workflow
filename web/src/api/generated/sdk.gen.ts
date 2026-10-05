@@ -80,7 +80,7 @@ export const transitionIssue = <ThrowOnError extends boolean = false>(options: O
 /**
  * Comment on a Jira issue.
  *
- * Posts a comment on the issue, as the terminal interface's c does, and answers the comment as Jira stored it. With jira.markdown_comments on, the text is written as Markdown and posted as Jira's wiki markup; otherwise it is posted as it is, and Jira reads it as wiki markup. It is refused with 404 when Jira has no such issue, and 422 when no Jira is configured, the key names one of the forge's issues, the text is blank, or Jira refuses the comment. Under --dry-run it is refused with a plain-text 403 and nothing is sent.
+ * Posts a comment on the issue, as the terminal interface's c does, and answers the comment as Jira stored it. With jira.markdown_comments on as last saved — a Settings save applies to the next comment, with no restart — the text is written as Markdown and posted as Jira's wiki markup; otherwise it is posted as it is, and Jira reads it as wiki markup. It is refused with 404 when Jira has no such issue, and 422 when no Jira is configured, the key names one of the forge's issues, the text is blank, or Jira refuses the comment. Under --dry-run it is refused with a plain-text 403 and nothing is sent.
  */
 export const addComment = <ThrowOnError extends boolean = false>(options: Options<AddCommentData, ThrowOnError>): RequestResult<AddCommentResponses, AddCommentErrors, ThrowOnError> => (options.client ?? client).post<AddCommentResponses, AddCommentErrors, ThrowOnError>({
     responseValidator: async (data) => await zAddCommentResponse.parseAsync(data),

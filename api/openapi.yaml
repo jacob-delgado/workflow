@@ -236,9 +236,11 @@ paths:
       summary: Comment on a Jira issue.
       description: >-
         Posts a comment on the issue, as the terminal interface's c does, and
-        answers the comment as Jira stored it. With jira.markdown_comments on,
-        the text is written as Markdown and posted as Jira's wiki markup;
-        otherwise it is posted as it is, and Jira reads it as wiki markup. It
+        answers the comment as Jira stored it. With jira.markdown_comments on
+        as last saved — a Settings save applies to the next comment, with no
+        restart — the text is written as Markdown and posted as Jira's wiki
+        markup; otherwise it is posted as it is, and Jira reads it as wiki
+        markup. It
         is refused with 404 when Jira has no such issue, and 422 when no Jira
         is configured, the key names one of the forge's issues, the text is
         blank, or Jira refuses the comment. Under --dry-run it is refused with
@@ -2388,7 +2390,7 @@ components:
           minLength: 1
           description: >-
             The comment, written as Markdown when jira.markdown_comments is on
-            and as Jira wiki markup otherwise.
+            as last saved, and as Jira wiki markup otherwise.
       additionalProperties: false
 
     Branch:

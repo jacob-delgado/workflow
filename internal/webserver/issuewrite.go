@@ -168,7 +168,7 @@ func (s *server) AddComment(
 		return commentRefusal("a comment needs text"), nil
 	}
 
-	posted, err := s.deps.Comment(issueKey, request.Body.Text)
+	posted, err := s.deps.Comment(issueKey, loop.CommentMarkupOf(s.config().Jira).Stored(request.Body.Text))
 	if err != nil {
 		body, code := s.fault(err)
 
