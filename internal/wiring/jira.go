@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
@@ -53,6 +54,11 @@ func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira
 		},
 		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
 			return commentOnJira(ctx, jiraClient, issueKey, text)
+		},
+		Activity: func(start, end time.Time) (jira.Activity, error) {
+			return askJira(jiraClient, func(client jira.Client) (jira.Activity, error) {
+				return client.Activity(ctx, start, end)
+			})
 		},
 		Assign: func(issueKey jira.Key, assignee string) error {
 			return tellJira(jiraClient, func(client jira.Client) error { return client.Assign(ctx, issueKey, assignee) })

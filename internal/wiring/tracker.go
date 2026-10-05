@@ -66,6 +66,7 @@ func combinedTracker(settings config.Jira, jiraSide, forgeSide seams.Jira) seams
 		BrowseURL: func(issueKey jira.Key) string {
 			return pick(issueKey, jiraSide.BrowseURL, forgeSide.BrowseURL)(issueKey)
 		},
+		Activity: jiraSide.Activity,
 	}
 }
 
