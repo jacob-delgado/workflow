@@ -122,8 +122,10 @@ internal/forge 15
 # opens from and returns to); and summary.go (the Summary pane: the period
 # shown, each source's read of it filling in as it answers, and the period
 # moved by [ and ] once the keys rest); and calendar.go (the calendar the
-# Summary's period is picked in: Year, Month and Day columns, and a range).
-internal/tui 55
+# Summary's period is picked in: Year, Month and Day columns, and a range); and
+# repositories.go (the Repositories pane: where you work, in full, and the
+# favorite directories with what is there now).
+internal/tui 56
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of

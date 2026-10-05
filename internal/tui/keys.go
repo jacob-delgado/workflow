@@ -47,6 +47,8 @@ type keyMap struct {
 
 	// Summary.
 	earlier, later, today, calendar, copySummary key.Binding
+	// Repositories.
+	favoriteDir key.Binding
 
 	// Reviews.
 	sortReviews, filterReviews key.Binding
@@ -90,6 +92,7 @@ const (
 	groupReviews
 	groupTasks
 	groupSummary
+	groupRepositories
 	groupComposer
 	groupWriting
 	groupRunning
@@ -193,6 +196,7 @@ func compileKeys(marks glyphs, reviewNoun, messagingService string, overrides ma
 	reviewKeys(&builder, &keys)
 	taskKeys(&builder, &keys)
 	summaryKeys(&builder, &keys)
+	repositoryKeys(&builder, &keys)
 	composerKeys(&builder, &keys, marks)
 	writingKeys(&builder, &keys, marks)
 	runningKeys(&builder, &keys)
@@ -289,6 +293,12 @@ func taskKeys(builder *helpBuilder, into *keyMap) {
 	into.sortTasks = builder.bind(groupTasks, "sort-tasks", "sort", "O")
 }
 
+// repositoryKeys are the Repositories pane's bindings: marking the directory
+// the cursor is on a favorite, or forgetting it.
+func repositoryKeys(builder *helpBuilder, into *keyMap) {
+	into.favoriteDir = builder.bind(groupRepositories, "favorite-directory", "favorite", "f")
+}
+
 // summaryKeys are the Summary pane's bindings: the period before and after the
 // one shown, today, and the summary copied as text.
 func summaryKeys(builder *helpBuilder, into *keyMap) {
@@ -372,7 +382,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 func helpGroups(messagingService string) []string {
 	return []string{
 		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService, "Reviews", "Tasks",
-		"Summary", "In a composer or preview", "Writing a comment", "While a command runs", "Everywhere",
+		"Summary", "Repositories", "In a composer or preview", "Writing a comment", "While a command runs", "Everywhere",
 	}
 }
 

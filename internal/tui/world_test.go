@@ -75,7 +75,10 @@ type world struct {
 	pageSize   int
 	detail     jira.IssueDetail
 	// done is what each source answers for the Summary, or nil for none.
-	done          *activityWorld
+	done *activityWorld
+	// dirs is where the session works and the favorites kept, or nil for
+	// none.
+	dirs          *dirsWorld
 	detailErr     error
 	moves         []jira.Transition
 	transitionErr error
@@ -308,7 +311,7 @@ func output(lines []string, err error) proc.Output {
 
 // deps wires the world to the interface.
 func (w *world) deps() tui.Deps {
-	return w.withActivity(tui.Deps{
+	return w.withRepositories(w.withActivity(tui.Deps{
 		Jira:       w.jiraDeps(),
 		Git:        w.gitDeps(),
 		Forge:      w.forgeDeps(),
@@ -336,7 +339,7 @@ func (w *world) deps() tui.Deps {
 				return nil
 			}
 		},
-	})
+	}))
 }
 
 // storeDeps fakes the on-disk store: it reports learnedScope as the last one used

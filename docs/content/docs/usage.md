@@ -65,7 +65,7 @@ can rely on from them: exit codes, which stream carries what, `--json`,
   is done once the branch names an issue, Review follows the pull request's CI.
   The last stage is named for your messaging service, as its pane is. At its
   right end is the Taskwarrior task you have started and how long it has run.
-- **The rail** on the left is the eight panes in one box, a light rule between
+- **The rail** on the left is the nine panes in one box, a light rule between
   them. The focused one is drawn with heavy rules and a bold title, and takes
   the most room; the rest keep a few rows each. The first five follow the
   work — the fifth is named for your messaging service, Slack above — and the
@@ -75,8 +75,10 @@ can rely on from them: exit codes, which stream carries what, `--json`,
   author — values in one of those widen the list, and the four narrow it
   together — and a line above the queue names the sort and the filters while
   either is not the usual. The seventh, Tasks, is
-  your own [Taskwarrior](#track-it-in-taskwarrior) list, and the eighth,
-  [Summary](#summary), what you did over a day or a range of them.
+  your own [Taskwarrior](#track-it-in-taskwarrior) list, the eighth,
+  [Summary](#summary), what you did over a day or a range of them, and the
+  ninth, [Repositories](#repositories), where you work and the directories
+  you keep as favorites.
 - **The detail pane** on the right shows the focused pane in full. Pickers,
   composers and previews open here too, and take the keyboard until they close.
 - **The bottom row** shows what the focused pane can do right now; it changes
@@ -93,7 +95,7 @@ the Issues pane, and the repository panes carry on.
 The layout follows the terminal. Below 80 columns the rail and the detail pane
 take turns rather than sharing the width; the detail pane drops its border once
 it has fewer than 60 columns; below 24 rows the top row shrinks to a short form,
-each stage its initial and glyph. Eight panes share the rail's rows: each
+each stage its initial and glyph. Nine panes share the rail's rows: each
 pane but the focused one keeps one row, a line of what it holds, until the
 focused one has eight; rows past that give the others a second row each, top
 first, and then go to the focused one, so a taller terminal never gives it
@@ -101,7 +103,7 @@ fewer. A terminal too short even for that splits the rows evenly.
 
 ## Keys
 
-`tab` and `shift+tab` move between panes, and `1`–`8` jump straight to one.
+`tab` and `shift+tab` move between panes, and `1`–`9` jump straight to one.
 Moving to a pane, by key or by click, reads it again when it last did so more
 than 30 seconds ago, so flicking between panes asks Jira and the forge
 nothing. Branch, Commits, Review and the messaging pane all read the branch,
@@ -118,7 +120,7 @@ every key `?` lists, by where it works.
 | Where | Key | Does |
 | --- | --- | --- |
 | Moving around | `tab` / `shift+tab` | Next pane, previous pane |
-| | `1`–`8` | Jump to a pane |
+| | `1`–`9` | Jump to a pane |
 | | `j`/`k` or `↓`/`↑` | Move within a list |
 | | `J`/`K` or `pgdn`/`pgup` | Scroll the detail pane |
 | 1 Issues | `t` | Change the selected issue's status |
@@ -182,6 +184,8 @@ every key `?` lists, by where it works.
 | | `Y` | Copy the summary as Markdown |
 | | `o` / `y` | Open the selected item in the browser, or copy its URL |
 | | `r` | Read the period again |
+| Repositories | `f` | Add the selected directory to your favorites, or remove it |
+| | `r` | Read the favorites again |
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
 | | `←` / `→` | Change the commit's type; in the announcement preview, change the channel |
 | | `ctrl+o` | Write the commit's body, the pull request's description, or a comment, in your editor |
@@ -212,14 +216,14 @@ every key `?` lists, by where it works.
 | | `?` | Every key |
 | | `q` | Quit (`ctrl+c` works even with a preview open) |
 
-Every key here but the pane numbers, `1`–`8`, can be rebound with `ui.keys`;
-see [Configuration]({{< relref "/docs/configuration" >}}). `8` is new with the
-Summary pane, as `7` was with the Tasks pane: a `ui.keys` map that moved an
-action live on a pane, or while a command runs, to `8` worked before and now
-stops workflow from starting (`workflow doctor` names it), as a map using
-`1`–`7` always did. Likewise, a map that gave the Summary pane's keys (`[`,
-`]`, `t`, `c`, `Y`) to another action live there is now refused; rebinding the new
-action settles it.
+Every key here but the pane numbers, `1`–`9`, can be rebound with `ui.keys`;
+see [Configuration]({{< relref "/docs/configuration" >}}). `9` is new with the
+Repositories pane, as `8` was with the Summary pane: a `ui.keys` map that
+moved an action live on a pane, or while a command runs, to `9` worked before
+and now stops workflow from starting (`workflow doctor` names it), as a map
+using `1`–`8` always did. Likewise, a map that gave the Repositories pane's
+`f` to another action live there is now refused; rebinding the new action
+settles it.
 
 ## The loop
 
@@ -661,6 +665,24 @@ for the issues and pull requests touched earliest first, so a period some way
 back is found among them; one with more than is read says so. Taskwarrior
 forgets when a task was started once it is stopped or done, so a start shows
 only while the task is still going.
+
+## Repositories
+
+The Repositories pane (`9`) is where workflow works, relative to what it
+changes: the directory it was started in, the repository that directory is
+in and the path within it, origin's host and path, and the configuration
+files that apply there — the repository's over your home's — each written
+from your home, as `~/src/api`. Outside a repository it says so, and the
+panes that need one say what they have no data for.
+
+Below that are your favorites: the directory you work in first, then every
+directory you marked, each with what is there now — a repository and its
+origin, a directory that is not a repository, or one that is not there any
+more. `f` adds the directory the cursor is on to your favorites, or removes
+it. Favorites are kept in the store's `kept.db`, by path alone; whether one is
+still there is read from the disk each time the pane is opened, and they are
+not read at startup. Under `--dry-run` the pane lists them and says what `f`
+would have done; with `store.disabled` there are none to keep.
 
 ## Dry run
 

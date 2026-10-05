@@ -654,11 +654,12 @@ pane and commits on the Commits pane — so each meaning is a separate action yo
 rebind on its own. workflow refuses to start, `workflow doctor` reports the
 problem, and Settings in `workflow --web` refuses to save it, when a map names
 an action that does not exist, moves `jump-to-pane` — its keys are the pane
-numbers, `1`–`8`, which no one key can stand in for — or binds two actions
+numbers, `1`–`9`, which no one key can stand in for — or binds two actions
 that are live at the same time to one key. The pane numbers work on every pane
 and while a command runs, so an action live there cannot take one; `7` joined
-them with the Tasks pane and `8` with the Summary pane, so a map that moved
-such an action to either before then is refused now.
+them with the Tasks pane, `8` with the Summary pane and `9` with the
+Repositories pane, so a map that moved such an action to any of them before
+then is refused now.
 
 The actions you can rebind, grouped by where they work, are:
 
@@ -678,6 +679,7 @@ The actions you can rebind, grouped by where they work, are:
   `modify-task`, `undo-task`, `sync-tasks`, `filter-tasks`, `narrow-tasks`,
   `sort-tasks`.
 - **Summary:** `earlier`, `later`, `today`, `calendar`, `copy-summary`.
+- **Repositories:** `favorite-directory`.
 - **In a composer or preview:** `edit`, `edit-body`, `next-template`,
   `toggle-draft`, `toggle-breaking`, `verbatim`, `next-field`,
   `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,

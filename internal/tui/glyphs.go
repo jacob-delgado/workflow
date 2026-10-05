@@ -21,6 +21,8 @@ type glyphs struct {
 	arrow, separator, rule                      string
 	ellipsis, ahead, behind                     string
 	chosenOpen, chosenClose                     string
+	// favorite marks a directory kept as a favorite.
+	favorite string
 	// helpSeparator separates keys in the footer; upKey, downKey, leftKey,
 	// rightKey and sideways name the arrow keys in it.
 	helpSeparator, upKey, downKey, leftKey, rightKey, sideways string
@@ -33,7 +35,7 @@ func unicodeGlyphs() glyphs {
 		notStarted: "○", inFlight: "◐", done: "●", failed: "✗", unknown: "·",
 		selected: "▸ ", unselected: "  ",
 		arrow: " → ", separator: " · ", rule: " ─ ",
-		ellipsis: "…", ahead: "↑", behind: "↓", chosenOpen: "‹", chosenClose: "›",
+		ellipsis: "…", ahead: "↑", behind: "↓", chosenOpen: "‹", chosenClose: "›", favorite: "★",
 		helpSeparator: " • ", upKey: "↑", downKey: "↓", leftKey: "←", rightKey: "→", sideways: "←/→",
 		border: frame.Light,
 	}
@@ -45,7 +47,7 @@ func asciiGlyphs() glyphs {
 		notStarted: "o", inFlight: "*", done: "#", failed: "x", unknown: ".",
 		selected: "> ", unselected: "  ",
 		arrow: " -> ", separator: " - ", rule: " - ",
-		ellipsis: "...", ahead: "+", behind: "-", chosenOpen: "<", chosenClose: ">",
+		ellipsis: "...", ahead: "+", behind: "-", chosenOpen: "<", chosenClose: ">", favorite: "^",
 		helpSeparator: " | ", upKey: "up", downKey: "down", leftKey: "left", rightKey: "right", sideways: "left/right",
 		border: frame.LightASCII,
 	}

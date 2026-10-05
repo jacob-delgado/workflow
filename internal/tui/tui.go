@@ -99,6 +99,8 @@ type Model struct {
 	reviewQueue reviewQueueState
 	tasks       tasksState
 	summary     summaryState
+	// repositories is the Repositories pane's favorites and cursor.
+	repositories repositoriesState
 	// commentDrafts are the comments written and not posted, one per issue,
 	// kept for the session.
 	commentDrafts commentDrafts
@@ -129,11 +131,11 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 	}
 	model.issues = model.seededIssues()
 
-	// Init loads every pane but the Summary, so each starts fresh; the
-	// Summary is read the first time it is looked at, which costs a startup
-	// that never looks at it nothing.
+	// Init loads every pane but the Summary and Repositories, so each starts
+	// fresh; those two are read the first time they are looked at, which
+	// costs a startup that never looks at them nothing.
 	for index := range model.refreshed {
-		if pane(index) != paneSummary {
+		if pane(index) != paneSummary && pane(index) != paneRepositories {
 			model.refreshed[index] = deps.now()
 		}
 	}

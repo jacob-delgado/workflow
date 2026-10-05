@@ -128,6 +128,11 @@ func keyContexts() []keyContext {
 			[]int{groupMoving, groupEverywhere, groupSummary},
 			[]string{actionOpenLink, actionCopyLink, actionRefresh},
 		},
+		{
+			"the Repositories pane",
+			[]int{groupMoving, groupEverywhere, groupRepositories},
+			[]string{actionUp, actionDown, actionRefresh},
+		},
 		{"a running command", []int{groupMoving, groupEverywhere, groupRunning}, nil},
 		{"a composer or preview", []int{groupEverywhere, groupComposer}, []string{actionUp, actionDown, actionRefresh}},
 		{"the comment composer", []int{groupEverywhere, groupWriting}, []string{actionUp, actionDown, "edit-body"}},
