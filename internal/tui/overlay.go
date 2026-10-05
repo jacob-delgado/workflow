@@ -281,10 +281,16 @@ func (m Model) pasted(paste tea.PasteMsg) (Model, tea.Cmd) {
 	}
 
 	if m.overlay == nil && m.filteringIssues() {
-		return m.extendFilterBy(strings.Join(strings.Fields(paste.Content), " "))
+		return m.extendFilterBy(oneLine(paste.Content))
 	}
 
 	return m, nil
+}
+
+// oneLine is text with every run of spaces and line breaks one space, for a
+// one-line filter that takes a paste.
+func oneLine(text string) string {
+	return strings.Join(strings.Fields(text), " ")
 }
 
 // pastedText is a paste made safe to type: a carriage return, which terminals
