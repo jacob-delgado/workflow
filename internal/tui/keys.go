@@ -311,7 +311,7 @@ func everywhereKeys(builder *helpBuilder, into *keyMap) {
 	into.toggleMouse = builder.bind(groupEverywhere, "toggle-mouse", "toggle mouse", "m")
 	into.toggleHelp = builder.bind(groupEverywhere, "toggle-help", "keys", "?")
 	into.quit = builder.bind(groupEverywhere, "quit", "quit", "q")
-	into.interrupt = builder.bind(groupEverywhere, "interrupt", "quit", "ctrl+c")
+	into.interrupt = builder.bind(groupEverywhere, actionInterrupt, "quit", "ctrl+c")
 }
 
 // ShortHelp is the footer's tail: enough to move around and to find the rest,
