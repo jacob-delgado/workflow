@@ -7,10 +7,8 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
@@ -708,57 +706,4 @@ func (m Model) trackKey(issueKey jira.Key) key.Binding {
 	}
 
 	return m.keys.trackIssue
-}
-
-// trackingTask is a task that tracks an issue — linked to it and still to do, as
-// the issue's mark counts it — one the Tasks pane lists where there is one, and
-// whether any task tracks it.
-func (m Model) trackingTask(issueKey jira.Key) (taskwarrior.Task, bool) {
-	tracking := slices.DeleteFunc(m.linkedTo(issueKey), func(task taskwarrior.Task) bool { return !stillToDo(task) })
-	if len(tracking) == 0 {
-		return taskwarrior.Task{}, false
-	}
-
-	groups := m.taskGroups()
-	listed := slices.IndexFunc(tracking, func(task taskwarrior.Task) bool { return groups.lists(task.UUID) })
-
-	return tracking[max(0, listed)], true
-}
-
-// goToTrackingTask focuses the Tasks pane on the task that tracks an issue, or,
-// where the pane does not list it, says which task it is and why.
-func (m Model) goToTrackingTask(issueKey jira.Key, task taskwarrior.Task) Model {
-	groups := m.taskGroups()
-	if !groups.lists(task.UUID) {
-		return m.noticed(string(issueKey) + " is tracked by task " + taskName(task) + ", " + m.unlistedBecause(task))
-	}
-
-	m = m.focusOn(paneTasks)
-	m.tasks.selected = task.UUID
-	m.tasks = m.tasks.following(groups, m.detailRows())
-
-	return m
-}
-
-// unlistedBecause is why the Tasks pane does not list a task still to do: it
-// waits, until a day in the clock's zone; it is the template a recurring task's
-// instances are made from; a track has just added it, and no read since has
-// held it; the active context hides it; or, with no context to hide it, it
-// changed between the pending read and the linked one, which reading them
-// again settles.
-func (m Model) unlistedBecause(task taskwarrior.Task) string {
-	now := m.deps.now()
-
-	switch {
-	case task.Waiting(now):
-		return "which waits until " + task.Wait.In(now.Location()).Format(time.DateOnly)
-	case task.Status == taskwarrior.Recurring:
-		return "a recurring template"
-	case m.tasks.stubbed(task.UUID):
-		return "just added; " + m.keys.refresh.Help().Key + " in the Tasks pane reads it"
-	case m.tasks.context == "":
-		return "not among the tasks just read; " + m.keys.refresh.Help().Key + " in the Tasks pane reads them again"
-	default:
-		return "outside context " + m.tasks.context
-	}
 }
