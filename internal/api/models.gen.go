@@ -88,6 +88,30 @@ func (e ChangeKind) Valid() bool {
 	}
 }
 
+// Defines values for FavoriteState.
+const (
+	FavoriteDirectory  FavoriteState = "directory"
+	FavoriteHere       FavoriteState = "here"
+	FavoriteMissing    FavoriteState = "missing"
+	FavoriteRepository FavoriteState = "repository"
+)
+
+// Valid indicates whether the value is a known member of the FavoriteState enum.
+func (e FavoriteState) Valid() bool {
+	switch e {
+	case FavoriteDirectory:
+		return true
+	case FavoriteHere:
+		return true
+	case FavoriteMissing:
+		return true
+	case FavoriteRepository:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FollowUpAction.
 const (
 	Link       FollowUpAction = "link"
@@ -796,6 +820,57 @@ type CreateBranchRequest struct {
 	IssueKey string `json:"issue_key"`
 }
 
+// DirectoryChoice A directory, as an absolute path.
+type DirectoryChoice struct {
+	Dir string `json:"dir"`
+}
+
+// DirectoryEntry A directory in another.
+type DirectoryEntry struct {
+	Name string `json:"name"`
+
+	// Path The directory, as an absolute path.
+	Path string `json:"path"`
+
+	// Repository Whether it is a repository's root.
+	Repository bool `json:"repository"`
+}
+
+// DirectoryListing A directory and the directories in it, by name.
+type DirectoryListing struct {
+	Entries []DirectoryEntry `json:"entries"`
+
+	// Parent The directory above it, or empty at the root.
+	Parent string `json:"parent"`
+
+	// Path The directory listed, as an absolute path.
+	Path string `json:"path"`
+
+	// Shown The directory written from your home.
+	Shown string `json:"shown"`
+
+	// Truncated Whether there were more than a thousand.
+	Truncated bool `json:"truncated"`
+}
+
+// Favorite A directory you keep as a favorite, and what is there now.
+type Favorite struct {
+	// Dir The directory, as an absolute path.
+	Dir string `json:"dir"`
+
+	// Origin Origin's host and path, or empty.
+	Origin string `json:"origin"`
+
+	// Shown The directory written from your home.
+	Shown string `json:"shown"`
+
+	// State here is where the server works; repository is a repository's directory; directory is one in no repository; missing is not there.
+	State FavoriteState `json:"state"`
+}
+
+// FavoriteState here is where the server works; repository is a repository's directory; directory is one in no repository; missing is not there.
+type FavoriteState string
+
 // FollowUp One offer after opening: to link the pull request on the branch's issue (POST /api/issues/{key}/link), or to move that issue to the review status (POST /api/issues/{key}/transition). A move is offered only when Jira offers one that needs no fields.
 type FollowUp struct {
 	Action FollowUpAction `json:"action"`
@@ -1165,6 +1240,30 @@ type PersonLink struct {
 	SlackID *string `json:"slack_id,omitempty"`
 }
 
+// Place A directory the server works in, as it is now. Each path is also written from your home, as ~/src/api, for showing.
+type Place struct {
+	// Config The configuration files that apply, each written from your home, the repository's first; empty when the defaults apply.
+	Config []string `json:"config"`
+
+	// Dir The directory, as an absolute path.
+	Dir string `json:"dir"`
+
+	// Origin Origin's host and path, as github.com/acme/api, or empty when there is none.
+	Origin string `json:"origin"`
+
+	// Root The repository's root, or empty outside a repository.
+	Root string `json:"root"`
+
+	// RootShown The root written from your home, or empty.
+	RootShown string `json:"root_shown"`
+
+	// Shown The directory written from your home.
+	Shown string `json:"shown"`
+
+	// Within The path from the root to the directory, or empty at the root or outside a repository.
+	Within string `json:"within"`
+}
+
 // Problem An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
 type Problem struct {
 	// Code A stable, machine-readable reason.
@@ -1257,6 +1356,18 @@ type RepoGroupsRequest struct {
 	Ids []string `json:"ids"`
 }
 
+// Repositories Where the server works, and your favorite directories.
+type Repositories struct {
+	// Favorites Your favorites, by path.
+	Favorites []Favorite `json:"favorites"`
+
+	// FavoritesKept Whether a favorite can be marked or forgotten here: false when the store keeps nothing, or under --dry-run.
+	FavoritesKept bool `json:"favorites_kept"`
+
+	// Here A directory the server works in, as it is now. Each path is also written from your home, as ~/src/api, for showing.
+	Here Place `json:"here"`
+}
+
 // Review defines model for Review.
 type Review struct {
 	// Ci The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read.
@@ -1334,10 +1445,13 @@ type Snapshot struct {
 	// CommitTypes The commit types a new commit may take, in the order to offer them — the terminal composer's list: commit.types, trimmed, when the configuration names any, else the built-in Conventional Commit types. A commit whose type is not among them is refused.
 	//
 	// Example: ["feat","fix","docs"]
-	CommitTypes []string             `json:"commit_types"`
-	Issues      IssuesPage           `json:"issues"`
-	Messaging   MessagingDestination `json:"messaging"`
-	Review      Review               `json:"review"`
+	CommitTypes []string `json:"commit_types"`
+
+	// Here The directory the server works in, as an absolute path, so a page notices a switch made elsewhere and reads again.
+	Here      string               `json:"here"`
+	Issues    IssuesPage           `json:"issues"`
+	Messaging MessagingDestination `json:"messaging"`
+	Review    Review               `json:"review"`
 
 	// SuggestedScope The scope a new commit opens on — the terminal composer's rule: the scope last committed with in this repository, else commit.default_scope, else empty. The server reads the learned one from its store once, and once more after a commit here records one, not on every message, and never under --dry-run, when the default alone applies.
 	//
@@ -1589,6 +1703,12 @@ type UpdateConfigParams struct {
 	IfMatch *string `json:"If-Match,omitempty"`
 }
 
+// GetDirectoriesParams defines parameters for GetDirectories.
+type GetDirectoriesParams struct {
+	// Path The directory to list.
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+}
+
 // StreamEventsParams defines parameters for StreamEvents.
 type StreamEventsParams struct {
 	// View The configured view's name whose issues to include; the default view when omitted.
@@ -1617,6 +1737,12 @@ type CleanLocalDataParamsScope string
 type ForgetPersonParams struct {
 	// Owner The forge owner, a user or org/team.
 	Owner OwnerName `form:"owner" json:"owner"`
+}
+
+// RemoveFavoriteParams defines parameters for RemoveFavorite.
+type RemoveFavoriteParams struct {
+	// Dir The directory, as an absolute path.
+	Dir string `form:"dir" json:"dir"`
 }
 
 // GetSlackMembersParams defines parameters for GetSlackMembers.
@@ -1654,6 +1780,12 @@ type OpenPullRequestJSONRequestBody = OpenPullRequestRequest
 
 // SetRepoGroupsJSONRequestBody defines body for SetRepoGroups for application/json ContentType.
 type SetRepoGroupsJSONRequestBody = RepoGroupsRequest
+
+// AddFavoriteJSONRequestBody defines body for AddFavorite for application/json ContentType.
+type AddFavoriteJSONRequestBody = DirectoryChoice
+
+// SwitchRepositoryJSONRequestBody defines body for SwitchRepository for application/json ContentType.
+type SwitchRepositoryJSONRequestBody = DirectoryChoice
 
 // StageJSONRequestBody defines body for Stage for application/json ContentType.
 type StageJSONRequestBody = StagingRequest

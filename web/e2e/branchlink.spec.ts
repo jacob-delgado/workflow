@@ -30,6 +30,7 @@ const snapshot = {
   commit_types: ['feat', 'fix'],
   suggested_scope: '',
   tasks: { available: true, reason: '', linked: [] },
+  here: '/home/ana/src/api',
 } satisfies Snapshot
 
 // The description linking PROJ-7 would leave on the branch's pull request.

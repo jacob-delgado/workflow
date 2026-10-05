@@ -216,6 +216,7 @@ const issuesSnapshot = {
   commit_types: ['feat', 'fix'],
   suggested_scope: '',
   tasks: { available: true, reason: '', linked: [] },
+  here: '/home/ana/src/api',
 } satisfies Snapshot
 
 const issueDetail = {
@@ -396,6 +397,7 @@ const workingTreeSnapshot = {
       },
     ],
   },
+  here: '/home/ana/src/api',
 } satisfies Snapshot
 
 for (const theme of themes) {

@@ -43,6 +43,7 @@ type rootRun struct {
 	servers int
 	addr    string
 	cfg     config.Config
+	deps    webserver.Deps
 	info    webserver.Info
 	stdout  string
 	stderr  string
@@ -79,10 +80,11 @@ func (r *rootRun) serveWebAt(addr string) cli.RunWeb {
 // serveWeb stands in for the web server, keeping the configuration and the
 // facts about the run it was handed and writing serverWrote to its notes.
 func (r *rootRun) serveWeb(
-	_ context.Context, cfg config.Config, _ webserver.Deps, info webserver.Info, notes io.Writer,
+	_ context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
 ) error {
 	r.servers++
 	r.cfg = cfg
+	r.deps = deps
 	r.info = info
 
 	fmt.Fprint(notes, serverWrote)

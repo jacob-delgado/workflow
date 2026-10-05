@@ -5,6 +5,122 @@ export type ClientOptions = {
 };
 
 /**
+ * A directory the server works in, as it is now. Each path is also written from your home, as ~/src/api, for showing.
+ */
+export type Place = {
+    /**
+     * The directory, as an absolute path.
+     */
+    dir: string;
+    /**
+     * The directory written from your home.
+     */
+    shown: string;
+    /**
+     * The repository's root, or empty outside a repository.
+     */
+    root: string;
+    /**
+     * The root written from your home, or empty.
+     */
+    root_shown: string;
+    /**
+     * The path from the root to the directory, or empty at the root or outside a repository.
+     */
+    within: string;
+    /**
+     * Origin's host and path, as github.com/acme/api, or empty when there is none.
+     */
+    origin: string;
+    /**
+     * The configuration files that apply, each written from your home, the repository's first; empty when the defaults apply.
+     */
+    config: Array<string>;
+};
+
+/**
+ * A directory you keep as a favorite, and what is there now.
+ */
+export type Favorite = {
+    /**
+     * The directory, as an absolute path.
+     */
+    dir: string;
+    /**
+     * The directory written from your home.
+     */
+    shown: string;
+    /**
+     * here is where the server works; repository is a repository's directory; directory is one in no repository; missing is not there.
+     */
+    state: 'here' | 'repository' | 'directory' | 'missing';
+    /**
+     * Origin's host and path, or empty.
+     */
+    origin: string;
+};
+
+/**
+ * Where the server works, and your favorite directories.
+ */
+export type Repositories = {
+    here: Place;
+    /**
+     * Your favorites, by path.
+     */
+    favorites: Array<Favorite>;
+    /**
+     * Whether a favorite can be marked or forgotten here: false when the store keeps nothing, or under --dry-run.
+     */
+    favorites_kept: boolean;
+};
+
+/**
+ * A directory, as an absolute path.
+ */
+export type DirectoryChoice = {
+    dir: string;
+};
+
+/**
+ * A directory in another.
+ */
+export type DirectoryEntry = {
+    name: string;
+    /**
+     * The directory, as an absolute path.
+     */
+    path: string;
+    /**
+     * Whether it is a repository's root.
+     */
+    repository: boolean;
+};
+
+/**
+ * A directory and the directories in it, by name.
+ */
+export type DirectoryListing = {
+    /**
+     * The directory listed, as an absolute path.
+     */
+    path: string;
+    /**
+     * The directory written from your home.
+     */
+    shown: string;
+    /**
+     * The directory above it, or empty at the root.
+     */
+    parent: string;
+    entries: Array<DirectoryEntry>;
+    /**
+     * Whether there were more than a thousand.
+     */
+    truncated: boolean;
+};
+
+/**
  * An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
  */
 export type Problem = {
@@ -450,6 +566,10 @@ export type ViewList = {
  * The full read state carried by one event-stream message: everything the cockpit shows, together.
  */
 export type Snapshot = {
+    /**
+     * The directory the server works in, as an absolute path, so a page notices a switch made elsewhere and reads again.
+     */
+    here: string;
     issues: IssuesPage;
     branch: Branch;
     changes: ChangeList;
@@ -2853,3 +2973,166 @@ export type StreamEventsResponses = {
 };
 
 export type StreamEventsResponse = StreamEventsResponses[keyof StreamEventsResponses];
+
+export type GetRepositoriesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/repositories';
+};
+
+export type GetRepositoriesErrors = {
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetRepositoriesError = GetRepositoriesErrors[keyof GetRepositoriesErrors];
+
+export type GetRepositoriesResponses = {
+    /**
+     * Where the server works and your favorites.
+     */
+    200: Repositories;
+};
+
+export type GetRepositoriesResponse = GetRepositoriesResponses[keyof GetRepositoriesResponses];
+
+export type SwitchRepositoryData = {
+    body: DirectoryChoice;
+    path?: never;
+    query?: never;
+    url: '/api/repositories/here';
+};
+
+export type SwitchRepositoryErrors = {
+    /**
+     * The directory is not there.
+     */
+    404: Problem;
+    /**
+     * A write is in flight.
+     */
+    409: Problem;
+    /**
+     * The directory cannot be switched to.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type SwitchRepositoryError = SwitchRepositoryErrors[keyof SwitchRepositoryErrors];
+
+export type SwitchRepositoryResponses = {
+    /**
+     * The directory now worked in, and your favorites.
+     */
+    200: Repositories;
+};
+
+export type SwitchRepositoryResponse = SwitchRepositoryResponses[keyof SwitchRepositoryResponses];
+
+export type RemoveFavoriteData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * The directory, as an absolute path.
+         */
+        dir: string;
+    };
+    url: '/api/repositories/favorites';
+};
+
+export type RemoveFavoriteErrors = {
+    /**
+     * The favorite cannot be forgotten.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type RemoveFavoriteError = RemoveFavoriteErrors[keyof RemoveFavoriteErrors];
+
+export type RemoveFavoriteResponses = {
+    /**
+     * Where the server works, and your favorites now.
+     */
+    200: Repositories;
+};
+
+export type RemoveFavoriteResponse = RemoveFavoriteResponses[keyof RemoveFavoriteResponses];
+
+export type AddFavoriteData = {
+    body: DirectoryChoice;
+    path?: never;
+    query?: never;
+    url: '/api/repositories/favorites';
+};
+
+export type AddFavoriteErrors = {
+    /**
+     * The favorite cannot be kept.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type AddFavoriteError = AddFavoriteErrors[keyof AddFavoriteErrors];
+
+export type AddFavoriteResponses = {
+    /**
+     * Where the server works, and your favorites now.
+     */
+    200: Repositories;
+};
+
+export type AddFavoriteResponse = AddFavoriteResponses[keyof AddFavoriteResponses];
+
+export type GetDirectoriesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * The directory to list.
+         */
+        path?: string;
+    };
+    url: '/api/directories';
+};
+
+export type GetDirectoriesErrors = {
+    /**
+     * The directory is not there.
+     */
+    404: Problem;
+    /**
+     * The path names something that cannot be listed.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetDirectoriesError = GetDirectoriesErrors[keyof GetDirectoriesErrors];
+
+export type GetDirectoriesResponses = {
+    /**
+     * The directory and the directories in it.
+     */
+    200: DirectoryListing;
+};
+
+export type GetDirectoriesResponse = GetDirectoriesResponses[keyof GetDirectoriesResponses];

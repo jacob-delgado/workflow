@@ -49,6 +49,10 @@ tags:
     description: Your Taskwarrior tasks, and the writes that change them.
   - name: summary
     description: What you did over a period, read back from git, Taskwarrior, Jira and the forge.
+  - name: repositories
+    description: >-
+      Where the server works, the directories you keep as favorites, and
+      switching to another.
   - name: messaging
     description: Where and as whom an announcement would post.
   - name: config
@@ -1603,11 +1607,11 @@ paths:
         the repository the server runs in, the Taskwarrior tasks you added,
         annotated and completed and the ones you started that are still
         going, what you did to Jira issues, and the pull or merge requests you
-        opened, had merged and reviewed on the forge, in any repository. Nothing is kept: every request reads the
-        sources again. With neither day given it is the previous working day;
-        with one, that day alone. Each source answers on its own, so one that
-        cannot be read is named in sources with why, and the rest still
-        answer. The period is refused with 422 when it runs backwards or is
+        opened, had merged and reviewed on the forge, in any repository.
+        Nothing is kept: every request reads the sources again. With neither
+        day given it is the previous working day; with one, that day alone.
+        Each source answers on its own, so one that cannot be read is named in
+        sources with why, and the rest still answer. The period is refused with 422 when it runs backwards or is
         longer than a year and a day, or a day is not written as YYYY-MM-DD.
       tags: [summary]
       parameters:
@@ -1683,6 +1687,161 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/repositories:
+    get:
+      operationId: getRepositories
+      summary: Where the server works, and your favorite directories.
+      description: >-
+        The directory the server works in, the repository it is in and the
+        path within it, origin's host and path, and the configuration files
+        that apply there; then your favorite directories, each with what is
+        there now. Each directory is also written from your home, as
+        ~/src/api. Favorites are read from the store's kept file and looked at
+        on disk each time.
+      tags: [repositories]
+      responses:
+        "200":
+          description: Where the server works and your favorites.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Repositories"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/repositories/here:
+    put:
+      operationId: switchRepository
+      summary: Switch the directory the server works in.
+      description: >-
+        Wires the directory named as the server's first was wired — its
+        repository, forge, the configuration files that apply there and the
+        store's keys — and serves from it from then on; open event streams
+        end, asking the page to reconnect, and every read after answers for
+        the new directory. Refused with 404 when the directory is not there,
+        422 when it is not a directory or its configuration's ui.keys would
+        be refused, and 409 while a write is in flight, which the switch
+        would leave unknown. A write that carries a Workflow-Here header
+        naming another directory than the server's is refused with 409, so a
+        page still showing the old directory cannot write to the new one.
+        Refused with 403 under --dry-run, by the guard every write passes.
+      tags: [repositories]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/DirectoryChoice"}
+      responses:
+        "200":
+          description: The directory now worked in, and your favorites.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Repositories"}
+        "404":
+          description: The directory is not there.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "409":
+          description: A write is in flight.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: The directory cannot be switched to.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/repositories/favorites:
+    put:
+      operationId: addFavorite
+      summary: Keep a directory as a favorite.
+      description: >-
+        Marks the directory named a favorite in the store's kept file, keeping
+        when it was first marked. Refused with 422 when the store keeps
+        nothing or the path is not absolute, and with 403 under --dry-run.
+      tags: [repositories]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/DirectoryChoice"}
+      responses:
+        "200":
+          description: Where the server works, and your favorites now.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Repositories"}
+        "422":
+          description: The favorite cannot be kept.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: removeFavorite
+      summary: Forget a directory as a favorite.
+      description: >-
+        Forgets the directory named as a favorite; one that was not is left as
+        it is. Refused with 422 when the store keeps nothing, and with 403
+        under --dry-run.
+      tags: [repositories]
+      parameters:
+        - name: dir
+          in: query
+          required: true
+          description: The directory, as an absolute path.
+          schema: {type: string, minLength: 1}
+      responses:
+        "200":
+          description: Where the server works, and your favorites now.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Repositories"}
+        "422":
+          description: The favorite cannot be forgotten.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/directories:
+    get:
+      operationId: getDirectories
+      summary: The directories in one, to browse for a directory to switch to.
+      description: >-
+        Lists the directories in the one path names — from where the server
+        works, or from your home after a ~ — or in where the server works
+        when path is not given. A directory linked to is listed with them; a
+        hidden one is not, and is reached by naming it. Each says whether it
+        is a repository's root. At most a thousand are listed. Refused with
+        404 when the directory is not there and 422 when it cannot be listed;
+        neither detail repeats the path. Reading works under --dry-run.
+      tags: [repositories]
+      parameters:
+        - name: path
+          in: query
+          required: false
+          description: The directory to list.
+          schema: {type: string}
+      responses:
+        "200":
+          description: The directory and the directories in it.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/DirectoryListing"}
+        "404":
+          description: The directory is not there.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: The path names something that cannot be listed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
 components:
   parameters:
     TaskUUID:
@@ -1714,6 +1873,105 @@ components:
       schema: {type: string}
 
   schemas:
+    Place:
+      type: object
+      description: >-
+        A directory the server works in, as it is now. Each path is also
+        written from your home, as ~/src/api, for showing.
+      required: [dir, shown, root, root_shown, within, origin, config]
+      properties:
+        dir: {type: string, description: "The directory, as an absolute path."}
+        shown: {type: string, description: "The directory written from your home."}
+        root:
+          type: string
+          description: The repository's root, or empty outside a repository.
+        root_shown: {type: string, description: "The root written from your home, or empty."}
+        within:
+          type: string
+          description: The path from the root to the directory, or empty at the root or outside a repository.
+        origin:
+          type: string
+          description: Origin's host and path, as github.com/acme/api, or empty when there is none.
+        config:
+          type: array
+          description: >-
+            The configuration files that apply, each written from your home,
+            the repository's first; empty when the defaults apply.
+          items: {type: string}
+      additionalProperties: false
+
+    Favorite:
+      type: object
+      description: A directory you keep as a favorite, and what is there now.
+      required: [dir, shown, state, origin]
+      properties:
+        dir: {type: string, description: "The directory, as an absolute path."}
+        shown: {type: string, description: "The directory written from your home."}
+        state:
+          type: string
+          description: >-
+            here is where the server works; repository is a repository's
+            directory; directory is one in no repository; missing is not there.
+          enum: [here, repository, directory, missing]
+          x-enum-varnames: [FavoriteHere, FavoriteRepository, FavoriteDirectory, FavoriteMissing]
+        origin:
+          type: string
+          description: Origin's host and path, or empty.
+      additionalProperties: false
+
+    Repositories:
+      type: object
+      description: Where the server works, and your favorite directories.
+      required: [here, favorites, favorites_kept]
+      properties:
+        here: {$ref: "#/components/schemas/Place"}
+        favorites:
+          type: array
+          description: Your favorites, by path.
+          items: {$ref: "#/components/schemas/Favorite"}
+        favorites_kept:
+          type: boolean
+          description: >-
+            Whether a favorite can be marked or forgotten here: false when the
+            store keeps nothing, or under --dry-run.
+      additionalProperties: false
+
+    DirectoryChoice:
+      type: object
+      description: A directory, as an absolute path.
+      required: [dir]
+      properties:
+        dir: {type: string, minLength: 1}
+      additionalProperties: false
+
+    DirectoryEntry:
+      type: object
+      description: A directory in another.
+      required: [name, path, repository]
+      properties:
+        name: {type: string}
+        path: {type: string, description: "The directory, as an absolute path."}
+        repository: {type: boolean, description: "Whether it is a repository's root."}
+      additionalProperties: false
+
+    DirectoryListing:
+      type: object
+      description: A directory and the directories in it, by name.
+      required: [path, shown, parent, entries, truncated]
+      properties:
+        path: {type: string, description: "The directory listed, as an absolute path."}
+        shown: {type: string, description: "The directory written from your home."}
+        parent:
+          type: string
+          description: The directory above it, or empty at the root.
+        entries:
+          type: array
+          items: {$ref: "#/components/schemas/DirectoryEntry"}
+        truncated:
+          type: boolean
+          description: Whether there were more than a thousand.
+      additionalProperties: false
+
     Problem:
       type: object
       description: >-
@@ -2267,8 +2525,13 @@ components:
       description: >-
         The full read state carried by one event-stream message: everything the
         cockpit shows, together.
-      required: [issues, branch, changes, review, messaging, branches, commit_types, suggested_scope, tasks]
+      required: [issues, branch, changes, review, messaging, branches, commit_types, suggested_scope, tasks, here]
       properties:
+        here:
+          type: string
+          description: >-
+            The directory the server works in, as an absolute path, so a page
+            notices a switch made elsewhere and reads again.
         issues: {$ref: "#/components/schemas/IssuesPage"}
         branch: {$ref: "#/components/schemas/Branch"}
         changes: {$ref: "#/components/schemas/ChangeList"}

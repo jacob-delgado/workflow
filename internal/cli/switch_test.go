@@ -9,6 +9,7 @@ package cli_test
 // why.
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
 // twoDirectories are a directory to start in and one to switch to, each named
@@ -126,5 +128,68 @@ func TestASwitchThatCannotBeMadeStaysWhereItWasAndSaysWhy(t *testing.T) {
 				t.Errorf("working directory = %q, %v; want it left in %s", here, err, start)
 			}
 		})
+	}
+}
+
+func TestTheWebServerReachesAnotherDirectoryWiredAsTheFirst(t *testing.T) {
+	// Arrange
+	start, other := twoDirectories(t)
+	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
+
+	// Act
+	world, err := ran.deps.Reach(other)
+
+	// Assert
+	if err != nil || world.Info.Repository != "elsewhere" || world.Deps.Repositories.Here.Dir != other ||
+		world.Deps.Reach == nil {
+		t.Fatalf("Reach = %+v, %v; want elsewhere, able to switch again", world.Info, err)
+	}
+
+	here, err := os.Getwd()
+	if err != nil || here != other {
+		t.Errorf("working directory = %q, %v; want %s", here, err, other)
+	}
+}
+
+func TestTheWebServerCannotReachADirectoryWhoseKeysWouldBeRefused(t *testing.T) {
+	// Arrange
+	start, other := twoDirectories(t)
+
+	err := os.WriteFile(filepath.Join(other, ".workflow.json"), []byte(`{"ui": {"keys": {"no-such-action": "x"}}}`), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
+
+	// Act
+	_, err = ran.deps.Reach(other)
+
+	// Assert
+	if !errors.Is(err, webserver.ErrConfigurationRefused) {
+		t.Errorf("Reach = %v, want webserver.ErrConfigurationRefused", err)
+	}
+}
+
+func TestTheWebServerCannotReachADirectoryWhoseConfigurationCannotBeRead(t *testing.T) {
+	// Arrange
+	// A configuration file there that cannot be read would fail the switch
+	// after the process had moved; it is refused before.
+	start, other := twoDirectories(t)
+
+	err := os.WriteFile(filepath.Join(other, ".workflow.json"), []byte("{}\n"), 0o000)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
+
+	// Act
+	_, err = ran.deps.Reach(other)
+
+	// Assert
+	here, getErr := os.Getwd()
+	if !errors.Is(err, webserver.ErrConfigurationUnreadable) || getErr != nil || here != start {
+		t.Errorf("Reach = %v, now in %q; want ErrConfigurationUnreadable, still in %s", err, here, start)
 	}
 }

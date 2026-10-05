@@ -287,6 +287,7 @@ const pagedSnapshot = {
   commit_types: ['feat', 'fix'],
   suggested_scope: '',
   tasks: { available: true, reason: '', linked: [] },
+  here: '/home/ana/src/api',
 } satisfies Snapshot
 
 test('a loaded page hands focus to its first issue, in view in the list, at 640 px', async ({
@@ -339,6 +340,7 @@ const unbrokenSnapshot = {
       },
     ],
   },
+  here: '/home/ana/src/api',
 } satisfies Snapshot
 
 // A source build's health: its version is a commit marked dirty, the widest

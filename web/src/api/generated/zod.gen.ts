@@ -3,6 +3,70 @@
 import * as z from 'zod';
 
 /**
+ * A directory the server works in, as it is now. Each path is also written from your home, as ~/src/api, for showing.
+ */
+export const zPlace = z.object({
+    dir: z.string(),
+    shown: z.string(),
+    root: z.string(),
+    root_shown: z.string(),
+    within: z.string(),
+    origin: z.string(),
+    config: z.array(z.string())
+});
+
+/**
+ * A directory you keep as a favorite, and what is there now.
+ */
+export const zFavorite = z.object({
+    dir: z.string(),
+    shown: z.string(),
+    state: z.enum([
+        'here',
+        'repository',
+        'directory',
+        'missing'
+    ]),
+    origin: z.string()
+});
+
+/**
+ * Where the server works, and your favorite directories.
+ */
+export const zRepositories = z.object({
+    here: zPlace,
+    favorites: z.array(zFavorite),
+    favorites_kept: z.boolean()
+});
+
+/**
+ * A directory, as an absolute path.
+ */
+export const zDirectoryChoice = z.object({
+    dir: z.string().min(1)
+});
+
+/**
+ * A directory in another.
+ */
+export const zDirectoryEntry = z.object({
+    name: z.string(),
+    path: z.string(),
+    repository: z.boolean()
+});
+
+/**
+ * A directory and the directories in it, by name.
+ */
+export const zDirectoryListing = z.object({
+    path: z.string(),
+    shown: z.string(),
+    parent: z.string(),
+    entries: z.array(zDirectoryEntry),
+    truncated: z.boolean()
+});
+
+/**
  * An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
  */
 export const zProblem = z.object({
@@ -556,6 +620,7 @@ export const zMessagingDestination = z.object({
  * The full read state carried by one event-stream message: everything the cockpit shows, together.
  */
 export const zSnapshot = z.object({
+    here: z.string(),
     issues: zIssuesPage,
     branch: zBranch,
     changes: zChangeList,
@@ -1100,3 +1165,40 @@ export const zStreamEventsQuery = z.object({
  * The event stream; each message's data is a Snapshot.
  */
 export const zStreamEventsResponse = zSnapshot;
+
+/**
+ * Where the server works and your favorites.
+ */
+export const zGetRepositoriesResponse = zRepositories;
+
+export const zSwitchRepositoryBody = zDirectoryChoice;
+
+/**
+ * The directory now worked in, and your favorites.
+ */
+export const zSwitchRepositoryResponse = zRepositories;
+
+export const zRemoveFavoriteQuery = z.object({
+    dir: z.string().min(1)
+});
+
+/**
+ * Where the server works, and your favorites now.
+ */
+export const zRemoveFavoriteResponse = zRepositories;
+
+export const zAddFavoriteBody = zDirectoryChoice;
+
+/**
+ * Where the server works, and your favorites now.
+ */
+export const zAddFavoriteResponse = zRepositories;
+
+export const zGetDirectoriesQuery = z.object({
+    path: z.string().optional()
+});
+
+/**
+ * The directory and the directories in it.
+ */
+export const zGetDirectoriesResponse = zDirectoryListing;
