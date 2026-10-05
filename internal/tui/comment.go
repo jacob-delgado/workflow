@@ -4,7 +4,10 @@
 package tui
 
 import (
+	"cmp"
 	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -74,9 +77,9 @@ func (p commentPreview) stored() string {
 func (p commentPreview) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
 	issue := p.composer.issue
-	lines = append(lines, string(issue.Key)+" "+issue.Summary, "", wrap(sanitize.Text(p.stored()), width))
+	lines = append(lines, shownKey(issue.Key)+" "+issue.Summary, "", wrap(sanitize.Text(p.stored()), width))
 
-	return "Comment on " + string(issue.Key), strings.Join(lines, "\n")
+	return "Comment on " + shownKey(issue.Key), strings.Join(lines, "\n")
 }
 
 // footer offers posting, or going back to the draft.
@@ -110,7 +113,7 @@ func (p commentPreview) post(m Model) (Model, tea.Cmd) {
 	if m.dryRun {
 		m.commentDrafts = m.commentDrafts.keeping(issueKey, p.composer.text.Value())
 
-		return m.closeOverlay().noticed("dry run: would comment on " + string(issueKey)), nil
+		return m.closeOverlay().noticed("dry run: would comment on " + shownKey(issueKey)), nil
 	}
 
 	p.send = starting()
@@ -138,7 +141,7 @@ func (msg commentPosted) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m.commentDrafts = m.commentDrafts.keeping(msg.issueKey, "")
-	m = m.closeOverlay().noticed(m.marks.done + " commented on " + string(msg.issueKey))
+	m = m.closeOverlay().noticed(m.marks.done + " commented on " + shownKey(msg.issueKey))
 
 	return m.reloadDetail(msg.issueKey)
 }
@@ -148,4 +151,23 @@ func (p commentPreview) failed(err error) commentPreview {
 	p.send = p.send.failed(err)
 
 	return p
+}
+
+// comments draws the most recent comments, oldest of them first.
+func (m Model) comments(detail jira.IssueDetail) []string {
+	if detail.CommentTotal == 0 {
+		return nil
+	}
+
+	shown := detail.Comments[max(0, len(detail.Comments)-cmp.Or(m.cfg.UI.CommentsShown, defaultCommentsShown)):]
+	heading := fmt.Sprintf("Comments %s of %s", strconv.Itoa(len(shown)), strconv.Itoa(detail.CommentTotal))
+	lines := []string{"", m.styles.strong.Render(heading)}
+
+	for _, comment := range shown {
+		lines = append(lines, "",
+			m.styles.label.Render(sanitize.Line(comment.Author)+m.marks.separator+age(m.deps.now(), comment.Created)),
+			sanitize.Text(comment.Body))
+	}
+
+	return lines
 }

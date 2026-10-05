@@ -35,7 +35,7 @@ func TestAForgeIssueIsListedByItsNumber(t *testing.T) {
 	requireScreen(t, view, "#57 ")
 }
 
-func TestAForgeIssueOffersNoCommentOrLogWork(t *testing.T) {
+func TestAForgeIssueOffersACommentButNoLogWork(t *testing.T) {
 	t.Parallel()
 
 	// Act
@@ -43,9 +43,8 @@ func TestAForgeIssueOffersNoCommentOrLogWork(t *testing.T) {
 
 	// Assert
 	footer := footerLine(view)
-	refuseScreen(t, footer, "c comment")
+	requireScreen(t, footer, "c comment", "a assign")
 	refuseScreen(t, footer, "w log work")
-	requireScreen(t, footer, "a assign")
 }
 
 func TestAssigningAForgeIssueStartsWithYourForgeName(t *testing.T) {

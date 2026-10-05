@@ -4,8 +4,6 @@
 package tui
 
 import (
-	"cmp"
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -212,7 +210,7 @@ func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
 		binding key.Binding
 	}{
 		{m.deps.Jira.Transitions != nil, m.keys.changeStatus},
-		{m.deps.Jira.Comment != nil && !isForgeKey(selected.Key), m.keys.comment},
+		{m.deps.Jira.Comment != nil, m.keys.comment},
 		{m.canCreateBranch(), relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))},
 		{m.deps.Jira.Assign != nil, m.keys.assign},
 		{m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key), m.keys.logWork},
@@ -458,25 +456,6 @@ func (m Model) issueRelations(detail jira.IssueDetail) []string {
 			lines = append(lines, m.styles.label.Render("  "+link.Relation+" "+link.Issue.Key+" "+
 				link.Issue.Summary+m.marks.separator+link.Issue.Status))
 		}
-	}
-
-	return lines
-}
-
-// comments draws the most recent comments, oldest of them first.
-func (m Model) comments(detail jira.IssueDetail) []string {
-	if detail.CommentTotal == 0 {
-		return nil
-	}
-
-	shown := detail.Comments[max(0, len(detail.Comments)-cmp.Or(m.cfg.UI.CommentsShown, defaultCommentsShown)):]
-	heading := fmt.Sprintf("Comments %s of %s", strconv.Itoa(len(shown)), strconv.Itoa(detail.CommentTotal))
-	lines := []string{"", m.styles.strong.Render(heading)}
-
-	for _, comment := range shown {
-		lines = append(lines, "",
-			m.styles.label.Render(comment.Author+m.marks.separator+age(m.deps.now(), comment.Created)),
-			comment.Body)
 	}
 
 	return lines

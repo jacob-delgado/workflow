@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
@@ -88,7 +89,10 @@ type commentComposer struct {
 	text   textarea.Model
 	mode   writingMode
 	markup loop.CommentMarkup
-	editor bool
+	// quickActions is a comment GitLab reads its slash lines from as
+	// commands, which the box says under the markup line.
+	quickActions bool
+	editor       bool
 	// hint is what the empty box says in normal mode: the key that starts
 	// typing, as ui.keys binds it.
 	hint string
@@ -104,15 +108,17 @@ var (
 // it where there is one.
 func (m Model) startComment() (Model, tea.Cmd) {
 	selected, ok := m.issues.current()
-	if !ok || m.deps.Jira.Comment == nil || isForgeKey(selected.Key) {
+	if !ok || m.deps.Jira.Comment == nil {
 		return m, nil
 	}
 
+	markup := loop.CommentMarkupOf(m.cfg.Jira, selected.Key)
 	m.overlay = commentComposer{
 		marks: m.marks, styles: m.styles, issue: selected, mode: modeNormal,
 		text:   newCommentText(m.commentDrafts.on(selected.Key)),
-		markup: loop.CommentMarkupOf(m.cfg.Jira, selected.Key), editor: m.deps.Editor.Edit != nil,
-		hint: "press " + m.keys.insert.Help().Key + " to write",
+		markup: markup, quickActions: markup == loop.MarkupForgeMarkdown && m.deps.Forge.Kind == forge.KindGitLab,
+		editor: m.deps.Editor.Edit != nil,
+		hint:   "press " + m.keys.insert.Help().Key + " to write",
 	}
 
 	return m, nil
@@ -163,7 +169,7 @@ func (c commentComposer) view(width, rows int) (string, string) {
 	above, below, height := c.layout(width, rows)
 	c = c.fitted(width, height)
 
-	return "Comment on " + string(c.issue.Key), strings.Join(slices.Concat(above, []string{c.text.View()}, below), "\n")
+	return "Comment on " + shownKey(c.issue.Key), strings.Join(slices.Concat(above, []string{c.text.View()}, below), "\n")
 }
 
 // layout is the lines above the box, the lines below it, and the box's height
@@ -171,8 +177,12 @@ func (c commentComposer) view(width, rows int) (string, string) {
 func (c commentComposer) layout(width, rows int) ([]string, []string, int) {
 	above := pinnedOutcome(c.styles, c.marks, c.send, "", width)
 	above = append(above, c.styles.strong.Render(c.mode.line()),
-		wrap(string(c.issue.Key)+" "+c.issue.Summary, width), "")
+		wrap(shownKey(c.issue.Key)+" "+c.issue.Summary, width), "")
+
 	below := []string{"", c.styles.label.Render(wrap(markupCheat(c.markup), width))}
+	if c.quickActions {
+		below = append(below, c.styles.label.Render(wrap(quickActionNote, width)))
+	}
 
 	height := rows - rowsOf(above) - rowsOf(below)
 	if height < minCommentRows {
@@ -203,6 +213,10 @@ func (c commentComposer) fitted(width, height int) commentComposer {
 	return c
 }
 
+// quickActionNote warns that GitLab runs a comment's slash lines, such as
+// /close, as commands rather than posting them.
+const quickActionNote = "GitLab runs a line starting with / as a quick action"
+
 // markupCheat is a line of the markup a comment is written in.
 func markupCheat(markup loop.CommentMarkup) string {
 	switch markup {
@@ -211,7 +225,7 @@ func markupCheat(markup loop.CommentMarkup) string {
 	case loop.MarkupWiki:
 		return "*bold* _italic_ {{code}} [text|https://…] * list · Jira's own markup"
 	case loop.MarkupForgeMarkdown:
-		return "**bold** *italic* `code` [text](https://…) - list · posted as written; the forge renders it"
+		return "**bold** *italic* `code` [text](https://…) - list · the forge renders it"
 	}
 
 	return ""
@@ -325,7 +339,7 @@ func (c commentComposer) close(m Model) Model {
 		return m
 	}
 
-	return m.noticed("draft kept for " + string(c.issue.Key) + "; " + m.keys.comment.Help().Key + " picks it up again")
+	return m.noticed("draft kept for " + shownKey(c.issue.Key) + "; " + m.keys.comment.Help().Key + " picks it up again")
 }
 
 // preview shows the comment for a last look before it is posted, or says there
