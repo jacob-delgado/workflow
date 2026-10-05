@@ -30,17 +30,20 @@ const boldSentinel = '\u0000'
 // as indented content instead.
 const maxFenceIndent = 3
 
+// Go's . matches anything but a newline, a carriage return among it, where
+// JavaScript's stops at both, so every . here is written [^\n].
+
 // Neither whitespace nor an asterisk, with Go's \s, which is ASCII
 // whitespace alone, where JavaScript's is Unicode's.
 const notSpaceOrStar = '[^\\t\\n\\f\\r *]'
 
-const heading = /^(#{1,6}) (.*)$/
-const unordered = /^[-*+] (.*)$/
-const ordered = /^\d+\. (.*)$/
-const strike = /~~(.+?)~~/g
-const boldItalic = /\*\*\*(.+?)\*\*\*/g
-const boldStar = /\*\*(.+?)\*\*/g
-const boldUnder = /(^|\W)__(.+?)__(\W|$)/g
+const heading = /^(#{1,6}) ([^\n]*)$/
+const unordered = /^[-*+] ([^\n]*)$/
+const ordered = /^\d+\. ([^\n]*)$/
+const strike = /~~([^\n]+?)~~/g
+const boldItalic = /\*\*\*([^\n]+?)\*\*\*/g
+const boldStar = /\*\*([^\n]+?)\*\*/g
+const boldUnder = /(^|\W)__([^\n]+?)__(\W|$)/g
 const italicStar = new RegExp(`\\*(${notSpaceOrStar}(?:[^*]*?${notSpaceOrStar})?)\\*`, 'g')
 const inlineCode = /`([^`]+)`/g
 const link = /(!?)\[([^\]]*)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g

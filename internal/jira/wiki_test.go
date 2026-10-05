@@ -115,6 +115,10 @@ func TestWikiFromMarkdown(t *testing.T) {
 			in:   "before\n```go\nx := **notBold**\n```\nafter",
 			want: "before\n{code:go}\nx := **notBold**\n{code}\nafter",
 		},
+		"a line ending in a carriage return": {
+			in:   "# Title\r\nsome **bold**\r",
+			want: "h1. Title\r\nsome *bold*\r",
+		},
 		"an indented fence is not read as a fence": {
 			in:   "text\n    ```go\nmore **bold**",
 			want: "text\n    ```go\nmore *bold*",
