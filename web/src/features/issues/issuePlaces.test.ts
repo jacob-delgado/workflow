@@ -70,7 +70,7 @@ test('offers statuses by category, then the marks, each with its count', () => {
   const choices = placeChoices(issues, (issue) => marksOf(issue, branchKeys, tasks), [])
 
   // Assert
-  expect(choices.map((choice) => `${choice.place.name} ${String(choice.count)}`)).toEqual([
+  expect(choices.map((choice) => `${choice.value.name} ${String(choice.count)}`)).toEqual([
     'Intake 1',
     'Fixing 2',
     'In development 2',
@@ -87,7 +87,7 @@ test('a picked place with no issues stays offered at zero', () => {
   ])
 
   // Assert
-  expect(choices.map((choice) => `${choice.place.name} ${String(choice.count)}`)).toContain(
+  expect(choices.map((choice) => `${choice.value.name} ${String(choice.count)}`)).toContain(
     'Fixing 0',
   )
 })
@@ -101,7 +101,7 @@ test('without Taskwarrior no task places are offered', () => {
   const choices = placeChoices(issues, (issue) => marksOf(issue, branchKeys, none), [])
 
   // Assert
-  expect(choices.map((choice) => choice.place.name)).not.toContain('task active')
+  expect(choices.map((choice) => choice.value.name)).not.toContain('task active')
 })
 
 test('toggling a picked place unpicks it', () => {
@@ -128,7 +128,7 @@ test('a status outside the three categories is still offered', () => {
   )
 
   // Assert
-  expect(choices.map((choice) => `${choice.place.name} ${String(choice.count)}`)).toContain(
+  expect(choices.map((choice) => `${choice.value.name} ${String(choice.count)}`)).toContain(
     'Parked 1',
   )
 })
@@ -142,7 +142,7 @@ test("the Where picker offers the forge's issues", () => {
   const choices = placeChoices([forgeIssue], (issue) => marksOf(issue, new Set(), tasks), [])
 
   // Assert
-  expect(choices.map((choice) => `${choice.place.name} ${String(choice.count)}`)).toContain(
+  expect(choices.map((choice) => `${choice.value.name} ${String(choice.count)}`)).toContain(
     'forge issue 1',
   )
 })

@@ -3,6 +3,7 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Issue, IssuesPage, TaskBranch, TasksSummary } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot, useSnapshotStore } from '@/api/snapshot.ts'
 import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
+import { FilterChips } from '@/lib/FilterChips.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
@@ -14,8 +15,15 @@ import { useMoreIssues } from './issueApi.ts'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 import { IssueListControls } from './IssueListControls.tsx'
 import { IssueStatus } from './IssueStatus.tsx'
-import { admits, marksOf, placeChoices, shownKey, togglePlace, type Place } from './issuePlaces.ts'
-import { PlaceChips } from './PlaceChips.tsx'
+import {
+  admits,
+  marksOf,
+  placeChoices,
+  samePlace,
+  shownKey,
+  togglePlace,
+  type Place,
+} from './issuePlaces.ts'
 
 export function IssuesPanel() {
   const snapshot = useLiveSnapshot()
@@ -78,9 +86,12 @@ function IssueBrowser({ streamed, branches, tasks }: IssueBrowserProps) {
     <div className="flex flex-col gap-group lg:min-h-0 lg:flex-1">
       <div className="flex flex-col gap-item">
         <IssueListControls filter={filter} onFilter={setFilter} />
-        <PlaceChips
+        <FilterChips
+          label="Where"
           choices={placeChoices(loaded, marksFor, places)}
-          picked={places}
+          isPicked={(place) => places.some((picked) => samePlace(picked, place))}
+          nameOf={(place) => place.name}
+          keyOf={(place) => `${place.kind}:${place.name}`}
           onToggle={(place) => {
             setPicked({ view, places: togglePlace(places, place) })
           }}

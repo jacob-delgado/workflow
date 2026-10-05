@@ -65,7 +65,7 @@ test('offers repositories, CI states, draft or ready, then authors, each with it
   const choices = facetChoices(requests, [])
 
   // Assert
-  expect(choices.map((choice) => `${facetLabel(choice.facet)}  ${String(choice.count)}`)).toEqual([
+  expect(choices.map((choice) => `${facetLabel(choice.value)}  ${String(choice.count)}`)).toEqual([
     'no repository  1',
     'example/other  1',
     'example/repo  2',
@@ -85,7 +85,7 @@ test('a picked value no request holds is still offered, at zero', () => {
   const choices = facetChoices(requests, [author('ana')])
 
   // Assert
-  expect(choices.map((choice) => `${facetLabel(choice.facet)}  ${String(choice.count)}`)).toContain(
+  expect(choices.map((choice) => `${facetLabel(choice.value)}  ${String(choice.count)}`)).toContain(
     'by ana  0',
   )
 })

@@ -4,13 +4,13 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
+import { FilterChips } from '@/lib/FilterChips.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
-import { FacetChips } from './FacetChips.tsx'
-import { admits, facetChoices, toggleFacet } from './reviewFacets.ts'
+import { admits, facetChoices, facetLabel, isPicked, toggleFacet } from './reviewFacets.ts'
 import {
   byRepository,
   ordered,
@@ -137,10 +137,13 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
       </div>
       <OrderSelect ref={sort} order={order} onOrder={setOrder} />
       {requests === undefined ? null : (
-        <FacetChips
+        <FilterChips
+          label="Filter"
           choices={facetChoices(requests, picked)}
-          picked={picked}
-          afterFilter={sort}
+          isPicked={(facet) => isPicked(picked, facet)}
+          nameOf={facetLabel}
+          keyOf={(facet) => `${facet.kind}:${facet.value}`}
+          afterLast={sort}
           onToggle={(facet) => {
             pick((now) => toggleFacet(now, facet))
           }}
