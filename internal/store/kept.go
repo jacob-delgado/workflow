@@ -30,7 +30,7 @@ const keptPragmas = dsnPragmas + "&_txlock=immediate"
 // version is left for the user to remove.
 //
 // Trade-off TRADE-25: kept data has one schema and is never migrated.
-const keptSchemaVersion = 1
+const keptSchemaVersion = 2
 
 // ErrKeptSchemaDiffers reports a kept database written at another schema
 // version than this build's. It is left as it is: it reads as empty, and a
@@ -42,7 +42,7 @@ var ErrKeptSchemaDiffers = errors.New(
 // keptSchema is every table the kept database holds, made once in a fresh
 // file.
 func keptSchema() []string {
-	return slices.Concat(ownersSchema(), groupsSchema())
+	return slices.Concat(ownersSchema(), groupsSchema(), favoritesSchema())
 }
 
 // keptWithin runs write in one transaction on the kept database, at this

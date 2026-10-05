@@ -898,7 +898,8 @@ announced — in the interface or with `workflow announce`, and at which moment,
 so neither announces the same one twice unasked — and the last issue list it
 saw, so the interface opens on it while the live one loads. It also keeps what
 you decided and could not be seen again: whom each code owner is on Slack, or
-that they are not, and the Slack user groups each repository offers. It lives
+that they are not, the Slack user groups each repository offers, and the
+directories you marked as favorites in the Repositories pane. It lives
 in two small SQLite databases under your platform's data directory:
 
 - macOS — `~/Library/Application Support/workflow`
@@ -907,7 +908,9 @@ in two small SQLite databases under your platform's data directory:
 
 `workflow.db` is the cache: the conveniences above, which a session makes
 again. `kept.db`, beside it, is what you decided — the people and group
-associations — and is never thrown away on its own.
+associations, and your favorite directories — and is never thrown away on its
+own. A favorite is kept as the directory's path alone; whether it is still
+there, and whether it is a repository, is read from the disk each time.
 
 Those associations are what tagging an announcement reads. Whom a code owner
 is on Slack is kept per forge host (`github.com`, say), since an owner is the
