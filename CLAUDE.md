@@ -45,6 +45,7 @@ internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, templat
 internal/messaging/   posting to Slack, Teams, Discord or a plain webhook
 internal/httpx/       the redirect-refusing HTTP transport the clients share
 internal/gitrepo/     reading and changing the repository through git
+internal/workdirs/    the directories workflow can work in: listing, checking, naming
 internal/codeowners/  who owns which paths, as GitHub or GitLab reads CODEOWNERS
 internal/hooks/       lefthook: output, config, and generating lefthook.yml
 internal/convention/  branch names, Conventional Commits, pull request text
