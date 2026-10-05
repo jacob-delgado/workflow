@@ -184,7 +184,9 @@ func (m Model) tasksRail(_ int) string {
 		return m.marks.inFlight + " sending" + m.marks.ellipsis
 	}
 
-	listed := m.taskGroups().listed()
+	// The rail counts the pane's tasks whatever narrows the list, as the Reviews
+	// rail counts the whole queue.
+	listed := m.taskGroupsBy(taskListing{}).listed()
 	counts := []string{strconv.Itoa(len(listed)) + " pending"}
 
 	active := 0
@@ -228,6 +230,8 @@ func (m Model) tasksDetail(width int) string {
 		return "looking" + m.marks.ellipsis
 	case m.tasks.err != nil:
 		return m.failureBlock(m.tasks.err, width)
+	case len(groups.listed()) == 0 && len(m.tasks.pending) > 0 && m.tasks.listing.titled():
+		return strings.Join(append(m.taskRows(groups, width), "No task matches the filters."), "\n")
 	case len(groups.listed()) == 0:
 		return strings.Join(append([]string{"No pending tasks."}, m.waitingRow(groups)...), "\n")
 	}
@@ -244,7 +248,7 @@ func (m Model) taskRows(groups taskGroups, width int) []string {
 	rows := make([]string, 0, groups.lines()+1)
 
 	if groups.lead > 0 {
-		heading := ansi.Truncate(sanitize.Line(m.tasks.listing.heading()), width, m.marks.ellipsis)
+		heading := ansi.Truncate(sanitize.Line(m.tasks.listing.heading(m.marks)), width, m.marks.ellipsis)
 		rows = append(rows, m.styles.label.Render(heading), "")
 	}
 
@@ -284,6 +288,10 @@ func (m Model) taskRow(task taskwarrior.Task, selected bool, now time.Time) stri
 
 	if !task.Due.IsZero() {
 		tail = append(tail, dueIn(task.Due, now))
+	}
+
+	if task.Waiting(now) {
+		tail = append(tail, "waits until "+task.Wait.In(now.Location()).Format(time.DateOnly))
 	}
 
 	if sortedBy := m.taskSortKey(task); sortedBy != "" {

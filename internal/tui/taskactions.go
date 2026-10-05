@@ -52,7 +52,7 @@ func (m Model) tasksKeys() []key.Binding {
 	}
 
 	keys = append(keys, m.linkKeys(m.taskIssueURL())...)
-	keys = append(keys, m.keys.sortTasks)
+	keys = append(keys, m.taskListKeys()...)
 
 	return append(append(keys, m.keys.refresh), m.syncKeys()...)
 }

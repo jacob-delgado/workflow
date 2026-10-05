@@ -167,6 +167,8 @@ every key `?` lists, by where it works.
 | | `e` | Modify it, typed in Taskwarrior's grammar |
 | | `u` | Undo Taskwarrior's last change |
 | | `S` | Sync Taskwarrior, when its taskrc names a sync backend |
+| | `/` | Filter them as you type: description, project, `+tag`, issue key or `#id` |
+| | `f` | Narrow them by state, priority, project, tag, and whether they have an issue |
 | | `O` | Sort them by urgency, state, id, tag, issue or priority |
 | | `enter` | Go to its issue, when the Issues pane lists that issue |
 | | `o` / `y` | Open its issue in the browser, or copy its URL |
@@ -538,6 +540,18 @@ and by priority (`H`, `M`, `L`, then none). A faint line above the rows names
 the order, every tie stays most urgent first, and when the order is by tag or
 by priority each row's tail shows it. The order lasts for the session, through
 every read.
+
+`/` filters the list as you type, as the Issues filter does: a task stays when
+its description, project, a tag written `+tag`, its issue key or its `#id`
+holds the text, ignoring case; `enter` keeps the filter and `esc` clears it.
+`f` opens **Narrow**, a checklist of every state, priority, project and tag the
+tasks hold, and whether they have an issue, each with how many tasks hold it:
+values checked in one group widen the list, and the groups narrow it
+together. Checking **waiting** lists the waiting tasks, each saying until
+when. The faint line above the rows names what narrows the list; the rail
+still counts every pending task, and a task the list hides still tracks its
+issue, so `T` on that issue names it and why it is hidden. A narrowing that
+leaves nothing says "No task matches the filters."
 
 The pane sends one change at a time, so an undo never races the change before
 it. While one is on its way the rail reads `◐ sending…`, and the keys that

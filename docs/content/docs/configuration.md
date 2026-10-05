@@ -675,7 +675,8 @@ The actions you can rebind, grouped by where they work, are:
   `post`, `people-and-groups`.
 - **Reviews:** `sort-reviews`, `filter-reviews`.
 - **Tasks:** `start-stop`, `complete-task`, `add-task`, `annotate-task`,
-  `modify-task`, `undo-task`, `sync-tasks`, `sort-tasks`.
+  `modify-task`, `undo-task`, `sync-tasks`, `filter-tasks`, `narrow-tasks`,
+  `sort-tasks`.
 - **In a composer or preview:** `edit`, `edit-body`, `next-template`,
   `toggle-draft`, `toggle-breaking`, `verbatim`, `next-field`,
   `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,

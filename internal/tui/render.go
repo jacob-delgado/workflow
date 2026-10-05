@@ -70,6 +70,10 @@ func (m Model) noticeLine(width int) string {
 		return ansi.Truncate(" "+sanitize.Text(m.issues.narrowingLine(m.marks)), width, m.marks.ellipsis)
 	}
 
+	if m.filteringTasks() {
+		return ansi.Truncate(" "+sanitize.Text("filter: "+m.tasks.listing.narrowing.Text), width, m.marks.ellipsis)
+	}
+
 	return m.noticeRow(width)
 }
 
@@ -327,7 +331,7 @@ func (m Model) capturedKeys() ([]key.Binding, bool) {
 	switch {
 	case m.overlay != nil:
 		return m.overlayKeys(), true
-	case m.filteringIssues():
+	case m.filteringIssues(), m.filteringTasks():
 		return m.filterKeys(), true
 	default:
 		return nil, false
