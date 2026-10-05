@@ -127,11 +127,7 @@ function naturalOrder(first: string, second: string): number {
   const firstRuns = first.match(runs) ?? []
   const secondRuns = second.match(runs) ?? []
 
-  return (
-    firstDifference(firstRuns, secondRuns, compareRuns) ||
-    firstRuns.length - secondRuns.length ||
-    first.length - second.length
-  )
+  return firstDifference(firstRuns, secondRuns, compareRuns) || firstRuns.length - secondRuns.length
 }
 
 function compareRuns(first: string, second: string): number {

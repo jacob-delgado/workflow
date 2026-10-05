@@ -56,6 +56,15 @@ const cases: [string, TaskOrder, Task[], string[]][] = [
     ['k1', 'k2', 'k3', 'k4'],
   ],
   [
+    'issue: keys equal but for leading zeros fall back to most urgent first',
+    'issue',
+    [
+      task('z2', { issue_key: 'PROJ-1', urgency: 1 }),
+      task('z1', { issue_key: 'PROJ-01', urgency: 5 }),
+    ],
+    ['z1', 'z2'],
+  ],
+  [
     'priority: high, medium, low, anything else, then none',
     'priority',
     [
