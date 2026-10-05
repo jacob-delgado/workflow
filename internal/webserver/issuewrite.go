@@ -150,10 +150,9 @@ func (s *server) transitionRefusal(err error, issueKey jira.Key, status string) 
 	}
 }
 
-// AddComment posts a comment on a Jira issue, as the terminal's c does, and
-// answers it as Jira stored it. A forge issue is refused here rather than
-// handed to the seam, which would answer an error no fault class knows; blank
-// text is refused before Jira is asked.
+// AddComment posts a comment on an issue, in Jira or on the forge, as the
+// terminal's c does, and answers it as its tracker stored it. Blank text is
+// refused before the tracker is asked.
 func (s *server) AddComment(
 	_ context.Context, request api.AddCommentRequestObject,
 ) (api.AddCommentResponseObject, error) {
@@ -161,21 +160,37 @@ func (s *server) AddComment(
 
 	switch {
 	case s.deps.Comment == nil:
-		return commentRefusal("commenting on an issue is not available; configure Jira to comment"), nil
-	case trackerOf(issueKey) == api.Forge:
-		return commentRefusal(string(issueKey) + " is the forge's issue; only Jira issues take a comment here"), nil
+		return commentRefusal("commenting on an issue is not available; configure Jira or a forge to comment"), nil
 	case strings.TrimSpace(request.Body.Text) == "":
 		return commentRefusal("a comment needs text"), nil
 	}
 
 	posted, err := s.deps.Comment(issueKey, loop.CommentMarkupOf(s.config().Jira, issueKey).Stored(request.Body.Text))
 	if err != nil {
-		body, code := s.fault(err)
-
-		return api.AddCommentdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return s.commentFailure(err), nil
 	}
 
 	return api.AddComment200JSONResponse(commentDTO(posted)), nil
+}
+
+// commentFailure answers a comment that was not posted. One the forge turned
+// down keeps the forge's reason, such as a body too long, which the caller can
+// act on; a remote whose forge cannot be told, or that names no repository,
+// says what to fix in fixed words, since the wiring's own name the host. Every
+// other failure is classified by fault, whose detail names no host.
+func (s *server) commentFailure(err error) api.AddCommentResponseObject {
+	switch {
+	case errors.Is(err, forge.ErrRejected):
+		return commentRefusal(err.Error())
+	case errors.Is(err, forge.ErrUnknownForge):
+		return commentRefusal("cannot tell which forge this repository is on; set forge.kind and forge.host")
+	case errors.Is(err, forge.ErrNotARemote):
+		return commentRefusal("origin does not name a repository on a forge; point it at the repository")
+	default:
+		body, code := s.fault(err)
+
+		return api.AddCommentdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+	}
 }
 
 // commentRefusal is a comment that was not posted, and why.

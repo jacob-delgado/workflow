@@ -1368,7 +1368,7 @@ export type AddCommentData = {
     body: CommentRequest;
     path: {
         /**
-         * The Jira issue to comment on, such as PROJ-412.
+         * The issue to comment on, a Jira key such as PROJ-412 or a forge issue's number such as 42.
          */
         key: string;
     };
@@ -1378,11 +1378,11 @@ export type AddCommentData = {
 
 export type AddCommentErrors = {
     /**
-     * Jira has no such issue; nothing was posted.
+     * The tracker has no such issue; nothing was posted.
      */
     404: Problem;
     /**
-     * Commenting is not available, the issue is the forge's, the text is blank, or Jira refused the comment; nothing was posted.
+     * Commenting is not available, the text is blank, the forge cannot be told, or the tracker refused the comment; nothing was posted.
      */
     422: Problem;
     /**
@@ -1395,7 +1395,7 @@ export type AddCommentError = AddCommentErrors[keyof AddCommentErrors];
 
 export type AddCommentResponses = {
     /**
-     * The comment, as Jira stored it.
+     * The comment, as its tracker stored it.
      */
     200: Comment;
 };

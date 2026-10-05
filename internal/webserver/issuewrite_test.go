@@ -480,8 +480,7 @@ func TestACommentIsRefusedWhereItCannotBePosted(t *testing.T) {
 		path   string
 		body   string
 	}{
-		"blank text":    {path: commentPath, body: `{"text":"  \n\t "}`},
-		"a forge issue": {path: "/api/issues/42/comment", body: `{"text":"hi"}`},
+		"blank text": {path: commentPath, body: `{"text":"  \n\t "}`},
 		"no Jira to reach": {
 			unwire: func(deps *webserver.Deps) { deps.Comment = nil },
 			path:   commentPath,
@@ -570,5 +569,86 @@ func TestDryRunRefusesAComment(t *testing.T) {
 	// Assert
 	if recorder.Code != http.StatusForbidden || len(comments) != 0 {
 		t.Errorf("status = %d, comments = %+v; want 403 and nothing posted", recorder.Code, comments)
+	}
+}
+
+// forgeCommentPath is where a comment on forge issue 42 is posted.
+const forgeCommentPath = "/api/issues/42/comment"
+
+func TestAForgeIssuesCommentIsPostedAsWrittenWithMarkdownOn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The forge renders Markdown itself; Jira's conversion would post its
+	// wiki markup there.
+	var comments []commentCall
+
+	cfg := config.Default()
+	cfg.Jira.MarkdownComments = true
+	handler := serve(t, commentingDeps(&comments), cfg)
+
+	// Act
+	recorder := send(t, handler, http.MethodPost, forgeCommentPath, `{"text":"Ship **it**"}`)
+
+	// Assert
+	want := commentCall{issueKey: "42", text: "Ship **it**"}
+	if recorder.Code != http.StatusOK || len(comments) != 1 || comments[0] != want {
+		t.Errorf("status %d, comments = %+v; want %+v posted once", recorder.Code, comments, want)
+	}
+}
+
+func TestACommentTheForgeCannotTakeSaysWhyWithoutItsHost(t *testing.T) {
+	t.Parallel()
+
+	const forgeHost = "git.internal.example"
+
+	cases := map[string]struct {
+		err    error
+		status int
+		detail string
+	}{
+		"turned down with a reason": {
+			err:    fmt.Errorf("%w: Body is too long", forge.ErrRejected),
+			status: http.StatusUnprocessableEntity, detail: "Body is too long",
+		},
+		"a forge that cannot be told": {
+			err:    fmt.Errorf("%w: %s", forge.ErrUnknownForge, forgeHost),
+			status: http.StatusUnprocessableEntity, detail: "set forge.kind and forge.host",
+		},
+		"a remote naming no repository": {
+			err:    fmt.Errorf("%w: https://%s/", forge.ErrNotARemote, forgeHost),
+			status: http.StatusUnprocessableEntity, detail: "origin",
+		},
+		"a repository the forge does not have": {
+			err:    fmt.Errorf("%w: %s/42", forge.ErrNoRepository, forgeHost),
+			status: http.StatusNotFound, detail: "not found",
+		},
+		"unreachable": {
+			err:    fmt.Errorf("%w: https://%s", forge.ErrUnreachable, forgeHost),
+			status: http.StatusBadGateway, detail: "",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := filledDeps()
+			deps.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
+
+			// Act
+			recorder := postComment(t, deps, forgeCommentPath, `{"text":"hi"}`)
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != tt.status || !strings.Contains(failure.Detail, tt.detail) {
+				t.Errorf("status %d, detail %q; want %d naming %q", recorder.Code, failure.Detail, tt.status, tt.detail)
+			}
+
+			if strings.Contains(recorder.Body.String(), forgeHost) {
+				t.Errorf("body = %q, leaks the forge's host", recorder.Body.String())
+			}
+		})
 	}
 }

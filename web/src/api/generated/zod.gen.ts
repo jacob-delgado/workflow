@@ -741,7 +741,7 @@ export const zAddCommentPath = z.object({
 });
 
 /**
- * The comment, as Jira stored it.
+ * The comment, as its tracker stored it.
  */
 export const zAddCommentResponse = zComment;
 
