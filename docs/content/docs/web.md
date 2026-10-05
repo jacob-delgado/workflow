@@ -289,7 +289,8 @@ The day reads as a timeline: each hour down the left, and what was done in it
 beside it, the verb in the hue of the system it was done in — git's, Taskwarrior's,
 Jira's or the forge's — then what it was done to, linked where it has a page,
 and its title. A period of several days or months is headed by month and by
-day. A source that could not be read says why above it, in words that never
+day. A source that could not be read says why above it — naming the
+repository, when one of several could not be read — in words that never
 name a host, and one that had more than it gave says so. **Copy as Markdown**
 puts the summary on the clipboard, ready for a standup.
 

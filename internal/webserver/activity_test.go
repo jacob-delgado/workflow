@@ -292,3 +292,57 @@ func TestASourceThatCannotBeReadSaysWhatToDo(t *testing.T) {
 		})
 	}
 }
+
+func TestARepositoryThatCannotBeReadIsNamedInWhatToDo(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		failed error
+		want   []string
+		never  string
+	}{
+		"a favorite with no user.email": {
+			failed: gitrepo.ErrNoIdentity,
+			want:   []string{"acme/web: ", "git config user.email"},
+			never:  "",
+		},
+		"a favorite that is a repository no longer": {
+			// The server runs in a repository; only the favorite is not one.
+			failed: fmt.Errorf("%w: /home/me/src/web", gitrepo.ErrNotARepository),
+			want:   []string{"acme/web is no longer a git repository"},
+			never:  "the server",
+		},
+	}
+
+	for name, failing := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var starts []time.Time
+
+			deps := activityDeps(&starts)
+			read := deps.CommitsBetween
+			deps.CommitsBetween = func(start, end time.Time) []loop.RepositoryCommits {
+				here := read(start, end)
+				here[0].Repository = "acme/api"
+
+				return append(here, loop.RepositoryCommits{Repository: "acme/web", Commits: nil, Failed: failing.failed})
+			}
+
+			// Act
+			detail := sourceDetail(t, deps, api.ActivitySourceNameGit)
+
+			// Assert
+			for _, want := range failing.want {
+				if !strings.Contains(detail, want) {
+					t.Errorf("detail = %q, want it to say %q", detail, want)
+				}
+			}
+
+			if failing.never != "" && strings.Contains(detail, failing.never) || strings.Contains(detail, "/home/me") {
+				t.Errorf("detail = %q, want neither %q nor the favorite's path", detail, failing.never)
+			}
+		})
+	}
+}

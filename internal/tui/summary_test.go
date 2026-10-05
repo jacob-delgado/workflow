@@ -5,6 +5,7 @@ package tui_test
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // summaryKey jumps to the Summary pane, whose list is in its detail, so its
@@ -21,7 +24,10 @@ const (
 	summaryTitle = "Summary"
 )
 
-var errJiraDown = errors.New("jira is down")
+var (
+	errJiraDown     = errors.New("jira is down")
+	errTokenCommand = errors.New("the token command exited 1")
+)
 
 // tuesday is the day before the world's Wednesday, the period the Summary
 // opens on.
@@ -84,6 +90,42 @@ func TestASourceThatCannotBeReadIsNamedAndTheRestStillShow(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "Jira could not be read", "committed abc1234")
+}
+
+func TestARepositoryThatCannotBeReadIsNamedBesideTheOthersCommits(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A timeout is worded the TUI's own way, which must not lose which
+	// repository timed out.
+	busy := summaryWorld()
+	busy.done.repositories = []loop.RepositoryCommits{
+		{Repository: "acme/api", Commits: busy.done.commits},
+		{Repository: "acme/web", Failed: proc.ErrTimedOut},
+	}
+
+	// Act
+	view := typing(t, busy.live(t, 120, 40), summaryKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "Git could not be read in acme/web", "committed acme/api@abc1234")
+}
+
+func TestAFailureWrappingTwoCausesIsOneNote(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// fmt.Errorf with two %w is one failure, though errors can unwrap it in two.
+	busy := summaryWorld()
+	busy.done.jiraErr = fmt.Errorf("%w: %w", errJiraDown, errTokenCommand)
+
+	// Act
+	view := typing(t, busy.live(t, 120, 40), summaryKey).View().Content
+
+	// Assert
+	if notes := strings.Count(view, "Jira could not be read"); notes != 1 {
+		t.Errorf("Jira's failure is noted %d times, want once:\n%s", notes, view)
+	}
 }
 
 func TestABracketMovesThePeriodAndReadsItOnceTheKeysRest(t *testing.T) {

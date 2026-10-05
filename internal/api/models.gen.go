@@ -536,7 +536,7 @@ type ActivityMonth struct {
 
 // ActivitySource defines model for ActivitySource.
 type ActivitySource struct {
-	// Detail Why the source could not be read, in words that never name a host; empty when it was.
+	// Detail Why the source could not be read, in words that never name a host or a path; empty when it was. When several repositories were read, each that could not be is named in its own clause.
 	Detail string `json:"detail"`
 	Failed bool   `json:"failed"`
 
