@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeTask, makeTaskList } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { useUiStore } from '@/shell/uiStore.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
 const leak = makeTask({
@@ -51,7 +52,9 @@ test('typing a filter narrows the list and says how many match', async () => {
 
   // Assert
   expect(rows()).toEqual([expect.stringMatching(/Renew the cert/)])
-  expect(screen.getByText('1 of 3 tasks match, most urgent first.')).toBeTruthy()
+  // The count is of the tasks the list shows unnarrowed, so the waiting one is
+  // not among them.
+  expect(screen.getByText('1 of 2 tasks match, most urgent first.')).toBeTruthy()
 })
 
 test('a narrow chip narrows the list to the value it names', async () => {
@@ -93,4 +96,20 @@ test('a filter matching nothing says so', async () => {
   // Assert
   // Said on screen in the list's place, and to a screen reader in the status.
   expect(screen.getAllByText('No task matches the filters.')).toHaveLength(2)
+})
+
+test('unpicking the last chip, which no task holds, leaves focus on the filter', async () => {
+  // Arrange
+  // A pick kept from earlier, with no task holding it any more: its chip is
+  // the group's last, and goes when it is unpicked.
+  useUiStore.setState({ taskFilter: [{ kind: 'project', value: 'gone' }] })
+  fakeApi({ '/api/tasks': makeTaskList([]) })
+  renderWithClient(<TasksPanel />)
+  const chip = await screen.findByRole('button', { name: 'project gone 0' })
+
+  // Act
+  await userEvent.click(chip)
+
+  // Assert
+  expect(document.activeElement).toBe(screen.getByRole('searchbox', { name: 'Filter' }))
 })
