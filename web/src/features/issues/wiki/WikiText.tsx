@@ -1,4 +1,30 @@
 import type { ReactNode } from 'react'
+import { wikiFromMarkdown } from './wikiFromMarkdown.ts'
+
+// Trade-off TRADE-31: past these sizes a comment is drawn as plain text, its
+// markup unread, rather than parsed by patterns that rescan from each opener.
+const largestParsedBody = 65_536
+const longestParsedLine = 1_000
+
+// CommentBody draws a comment written in wiki markup, or in Markdown that is
+// first converted to it, unless it is too large to parse safely: anyone who
+// can comment can write one, so it is then shown as the text it is.
+export function CommentBody({ body, markdown }: { body: string; markdown: boolean }) {
+  if (tooLargeToParse(body)) {
+    return <p className="break-words whitespace-pre-wrap">{body}</p>
+  }
+
+  return <WikiText markup={markdown ? wikiFromMarkdown(body) : body} />
+}
+
+// tooLargeToParse is a body over the size, or with a line over the length,
+// that the markup patterns are kept within.
+function tooLargeToParse(body: string): boolean {
+  return (
+    body.length > largestParsedBody ||
+    body.split('\n').some((line) => line.length > longestParsedLine)
+  )
+}
 
 // WikiText draws a comment body written in Jira's wiki markup: bold, italic,
 // struck and code text, links, headings, quotes, lists and code blocks. It

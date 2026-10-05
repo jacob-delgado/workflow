@@ -7,8 +7,7 @@ import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { usePostComment } from './commentApi.ts'
 import { applyFormat, type Edit, type Format } from './wiki/markdownFormat.ts'
-import { wikiFromMarkdown } from './wiki/wikiFromMarkdown.ts'
-import { WikiText } from './wiki/WikiText.tsx'
+import { CommentBody } from './wiki/WikiText.tsx'
 
 type Tab = 'write' | 'preview'
 
@@ -308,7 +307,7 @@ function PreviewPanel({ ids, text }: { ids: Ids; text: string }) {
       {text.trim() === '' ? (
         <p className="text-muted-foreground">Nothing to preview yet.</p>
       ) : (
-        <WikiText markup={wikiFromMarkdown(text)} />
+        <CommentBody body={text} markdown={true} />
       )}
     </div>
   )
