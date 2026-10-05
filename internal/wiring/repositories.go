@@ -113,7 +113,18 @@ func repositoriesDeps(ctx context.Context, cfg config.Config, where Workspace) s
 			return placeOf(Locate(ctx, dir), files), nil
 		},
 		Subdirectories: workdirs.List,
+		Worktrees:      worktreesOf(ctx, where),
 	}
+}
+
+// worktreesOf reads the working trees of the repository where is in, or is
+// nil outside one.
+func worktreesOf(ctx context.Context, where Workspace) func() ([]gitrepo.Worktree, error) {
+	if !where.Repository {
+		return nil
+	}
+
+	return func() ([]gitrepo.Worktree, error) { return gitrepo.At(gitRunner, where.Root).Worktrees(ctx) }
 }
 
 // placeOf is a workspace as a surface reads it, with the configuration files

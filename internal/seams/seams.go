@@ -281,6 +281,10 @@ type Repositories struct {
 	// Subdirectories is the directories in one whose names start with a
 	// prefix, all of them for "".
 	Subdirectories func(dir, prefix string) (workdirs.Listing, error)
+	// Worktrees is the working trees of the repository this session works
+	// in, the main one first, read each time it is asked. Nil outside a
+	// repository.
+	Worktrees func() ([]gitrepo.Worktree, error)
 }
 
 // Hooks is what a surface asks of lefthook.
