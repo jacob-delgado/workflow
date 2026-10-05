@@ -18,7 +18,7 @@ func TestCommentPreviewShowsTheConvertedMarkupWhenMarkdownIsOn(t *testing.T) {
 	world.edited = markdownComment
 
 	// Act
-	view := typing(t, world.live(t, 120, 40), "c").View().Content
+	view := typing(t, world.live(t, 120, 40), "c", keyCtrlO, keyEnter).View().Content
 
 	// Assert
 	// The preview is the one gate before a comment is posted, so with conversion
@@ -34,7 +34,7 @@ func TestCommentPreviewShowsTheTextVerbatimByDefault(t *testing.T) {
 	world.edited = markdownComment
 
 	// Act
-	view := typing(t, world.live(t, 120, 40), "c").View().Content
+	view := typing(t, world.live(t, 120, 40), "c", keyCtrlO, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "See **the docs** at `run()`.")
@@ -47,7 +47,7 @@ func TestPostingSendsTheMarkupThePreviewShowed(t *testing.T) {
 	world := newWorld()
 	world.cfg.Jira.MarkdownComments = true
 	world.edited = markdownComment
-	previewed := typing(t, world.live(t, 120, 40), "c")
+	previewed := typing(t, world.live(t, 120, 40), "c", keyCtrlO, keyEnter)
 
 	// Act
 	typing(t, previewed, "enter")
@@ -68,7 +68,7 @@ func TestACommentIsPostedAsWrittenThoughThePreviewNeutralizesControls(t *testing
 	// but it belongs to the text: Jira gets it as it was written.
 	world := newWorld()
 	world.edited = "\u05e9\u05dc\u05d5\u05dd \u202bworld\u202c"
-	previewed := typing(t, world.live(t, 120, 40), "c")
+	previewed := typing(t, world.live(t, 120, 40), "c", keyCtrlO, keyEnter)
 
 	// Act
 	typing(t, previewed, "enter")

@@ -44,7 +44,6 @@ func TestTheIssuesFooterOffersAVerbOnlyWhereItsSeamIsWired(t *testing.T) {
 	}{
 		"no transitions":       {unwire: func(deps *tui.Deps) { deps.Jira.Transitions = nil }, absent: changeStatusHint},
 		"no comment write":     {unwire: func(deps *tui.Deps) { deps.Jira.Comment = nil }, absent: "c comment"},
-		"no editor":            {unwire: func(deps *tui.Deps) { deps.Editor.Edit = nil }, absent: "c comment"},
 		"no assign write":      {unwire: func(deps *tui.Deps) { deps.Jira.Assign = nil }, absent: "a assign"},
 		"no worklog write":     {unwire: func(deps *tui.Deps) { deps.Jira.AddWorklog = nil }, absent: "w log work"},
 		"no branch creator":    {unwire: func(deps *tui.Deps) { deps.Git.CreateBranch = nil }, absent: "b branch for"},

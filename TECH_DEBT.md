@@ -776,3 +776,26 @@ that copy's tests.
 
 **Reopen when.** The server comes to order the list itself, or the two
 copies are found to disagree.
+
+### TRADE-30 A comment is written in a box drawn inside the interface
+
+A comment is typed in the comment box (`internal/tui/commentcomposer.go`), a
+text area with vim's normal and insert modes, rather than in `$EDITOR` as a
+commit body, a pull request and an announcement are. ctrl+o still hands the
+draft to `$EDITOR` and back.
+
+**Decided.** 2026-10-05, in #173: a comment is short and written beside
+the issue it answers, which a full-screen editor hides; the box keeps the
+issue in view and needs no editor configured. It understands only moving
+and entering insert mode (`h`, `l`, `j`, `k`, `i`, `a`, `A`, `o`), so a
+key that types is never mistaken for a command.
+
+**Cost.** The box is a worse editor than the user's own: no operators,
+no undo, no search. A user who expects vim's `dd` or `u` finds nothing
+happens, and the text area is one more thing to keep working as Bubbles
+changes. Everything that enters the box passes the text area's own filter:
+a tab becomes four spaces and a control character is dropped, so a comment
+written in `$EDITOR` with tabs is posted with spaces.
+
+**Reopen when.** Users ask for editing commands the box lacks, or a second
+surface wants a box of its own.

@@ -212,7 +212,7 @@ func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
 		binding key.Binding
 	}{
 		{m.deps.Jira.Transitions != nil, m.keys.changeStatus},
-		{m.deps.Jira.Comment != nil && m.deps.Editor.Edit != nil && !isForgeKey(selected.Key), m.keys.comment},
+		{m.deps.Jira.Comment != nil && !isForgeKey(selected.Key), m.keys.comment},
 		{m.canCreateBranch(), relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))},
 		{m.deps.Jira.Assign != nil, m.keys.assign},
 		{m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key), m.keys.logWork},

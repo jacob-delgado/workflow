@@ -684,6 +684,8 @@ The actions you can rebind, grouped by where they work, are:
   preview), `link-to-slack` and `not-on-slack` (in the announcement preview
   and in People and groups), `forget-owner` (in People and groups),
   `show-log` (in the checks list).
+- **Writing a comment** (in the comment box's normal mode): `insert`,
+  `append`, `append-line`, `open-line`, `cursor-left`, `cursor-right`.
 - **While a command runs:** `stop`, `run-again`, `full-output`.
 - **Everywhere:** `apply`, `close`, `toggle-mouse`, `toggle-help`, `quit`,
   `interrupt`.

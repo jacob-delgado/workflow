@@ -201,7 +201,7 @@ func failureChannels() map[string]failureChannel {
 		"pane": {put: func(w *world, err error) { w.detailErr = err }},
 		"pinned overlay": {
 			put:  func(w *world, err error) { w.edited, w.commentErr = shortComment, err },
-			keys: []string{"c", keyEnter},
+			keys: []string{"c", keyCtrlO, keyEnter, keyEnter},
 		},
 		"notice": {put: func(w *world, err error) { w.stageErr = err }, keys: []string{"3", keySpace}},
 		"rail": {

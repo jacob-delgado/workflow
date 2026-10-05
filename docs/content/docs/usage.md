@@ -175,11 +175,11 @@ every key `?` lists, by where it works.
 | | `r` | Read the tasks again |
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
 | | `←` / `→` | Change the commit's type; in the announcement preview, change the channel |
-| | `ctrl+o` | Write the commit's body, or the pull request's description, in your editor |
+| | `ctrl+o` | Write the commit's body, the pull request's description, or a comment, in your editor |
 | | `ctrl+b` | Mark the commit a breaking change |
 | | `ctrl+t` | Use the repository's next pull request template |
 | | `ctrl+r` | Open the pull request as a draft, or not |
-| | `e` | Edit a comment or an announcement in your editor before it is sent |
+| | `e` | Edit an announcement in your editor before it is sent |
 | | `space` | Pick an option in a field that takes several |
 | | `v` | Keep every existing hook whole as a script, in the lefthook offer |
 | | `ctrl+w` | In the branch creator, create the branch in a new git worktree rather than switching to it |
@@ -189,6 +189,11 @@ every key `?` lists, by where it works.
 | | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group |
 | | `x` | In the announcement preview, remember that the selected code owner is not on Slack |
 | | `d` | In People and groups, forget what was decided for the selected owner, so they are asked again |
+| Writing a comment | `i` / `a` | Type before or after the cursor |
+| | `A` / `o` | Type at the end of the line, or on a new line below it |
+| | `h`/`l` or `←`/`→`, `j`/`k` or `↓`/`↑` | Move the cursor |
+| | `esc` | Back to normal mode; in normal mode, close the box and keep the draft |
+| | `enter` | Preview the comment |
 | While a command runs | `s` | Stop it |
 | | `r` | Run it again, once it has ended |
 | | `o` | Show its full output, or every place a failed hook reported |
@@ -240,8 +245,15 @@ user by username and a date as year-month-day, such as `2026-09-21`. A field of
 any other kind, such as a cascading select, is named with a pointer to Jira's
 own screen, because guessing at it would send something you did not choose.
 
-**Comment** (`c`) opens your editor. The comment is shown back to you before it
-is posted: `enter` posts it, `e` edits it again, `esc` discards it.
+**Comment** (`c`) opens the comment box beside the issue, in normal mode, as
+vim starts: keys there are commands, not text. `i`, `a`, `A` or `o` start
+typing, and from then every key types — `q`, `j` and digits included — until
+`esc` goes back to normal mode. In normal mode `enter` shows the comment as it
+will be posted, `ctrl+o` hands the draft to your editor and back, and `esc`
+closes the box. The draft is kept for that issue until you quit, so `c` picks
+it up again; a filter or a prompt elsewhere drops its text on `esc`, but the
+comment box never does. In the preview `enter` posts it and `esc` goes back to
+the draft.
 
 **Without Jira**, when `jira.base_url` is empty, your forge's issues are the
 tracker: the pane lists the open issues assigned to you on the repository's
@@ -659,8 +671,8 @@ appears when `lefthook` is installed.
 
 ## Editor
 
-Comments, commit bodies, pull request descriptions and announcements are
-written in `$GIT_EDITOR`, else `$VISUAL`, else `$EDITOR`, else `vi` (`notepad`
+Commit bodies, pull request descriptions and announcements — and a comment,
+when `ctrl+o` hands it over — are written in `$GIT_EDITOR`, else `$VISUAL`, else `$EDITOR`, else `vi` (`notepad`
 on Windows) — git's own order, though git's `core.editor` setting is not read.
 Everything below the scissors line (a `>8` cut mark) is help and is not kept.
 An editor that has to be told to wait needs saying so: `EDITOR="code --wait"`.

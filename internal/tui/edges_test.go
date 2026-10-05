@@ -90,7 +90,7 @@ func TestOverlaysIgnoreKeysThatMeanNothingInThem(t *testing.T) {
 		keys     []string
 	}{
 		"the lefthook offer": {gitHooks: legacyHooks(), keys: []string{"3", "g"}},
-		"a comment preview":  {edited: greeting, keys: []string{"c"}},
+		"a comment preview":  {edited: greeting, keys: []string{"c", keyCtrlO, keyEnter}},
 		"the announcement":   {keys: []string{"5", "p"}},
 		"the rebase's look":  {keys: []string{"2", "u"}},
 		// The type is chosen with arrows, so typing on it changes nothing.
@@ -142,7 +142,7 @@ func TestADryRunCommentIsOnlyDescribed(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "c", keyEnter).View().Content
+	view := typing(t, model, "c", keyCtrlO, keyEnter, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would comment on PROJ-412")

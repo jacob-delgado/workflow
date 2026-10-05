@@ -51,6 +51,9 @@ type keyMap struct {
 	// Opening and copying a link, on the Issues, Review, Reviews and Tasks panes.
 	openLink, copyLink key.Binding
 
+	// Writing a comment, in the composer's normal mode.
+	insert, appendAfter, appendLine, openLine, cursorLeft, cursorRight key.Binding
+
 	// In composers and previews.
 	edit, editBody, nextTemplate, toggleDraft, toggleBreaking, verbatim, fullOutput, showLog key.Binding
 
@@ -84,6 +87,7 @@ const (
 	groupReviews
 	groupTasks
 	groupComposer
+	groupWriting
 	groupRunning
 	groupEverywhere
 )
@@ -93,6 +97,8 @@ const (
 // live in — the conflict check reads them everywhere they answer a press.
 const (
 	actionRefresh  = "refresh"
+	actionUp       = "up"
+	actionDown     = "down"
 	actionOpenLink = "open-link"
 	actionCopyLink = "copy-link"
 )
@@ -183,6 +189,7 @@ func compileKeys(marks glyphs, reviewNoun, messagingService string, overrides ma
 	reviewKeys(&builder, &keys)
 	taskKeys(&builder, &keys)
 	composerKeys(&builder, &keys, marks)
+	writingKeys(&builder, &keys, marks)
 	runningKeys(&builder, &keys)
 	everywhereKeys(&builder, &keys)
 
@@ -205,8 +212,8 @@ func movingKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.previous = builder.bind(groupMoving, "previous-pane", "previous pane", "shift+tab")
 	into.jump = builder.bindShown(groupMoving, actionJumpToPane,
 		"1-"+strconv.Itoa(paneCount), "jump to pane", paneNumbers()...)
-	into.up = builder.bindShown(groupMoving, "up", marks.upKey+"/k", "up", "up", "k")
-	into.down = builder.bindShown(groupMoving, "down", marks.downKey+"/j", "down", "down", "j")
+	into.up = builder.bindShown(groupMoving, actionUp, marks.upKey+"/k", "up", "up", "k")
+	into.down = builder.bindShown(groupMoving, actionDown, marks.downKey+"/j", "down", "down", "j")
 	into.scrollUp = builder.bindShown(groupMoving, "scroll-up", "pgup/K", "scroll up", "pgup", "K")
 	into.scrollDown = builder.bindShown(groupMoving, "scroll-down", "pgdn/J", "scroll down", "pgdown", "J")
 }
@@ -301,6 +308,18 @@ func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.forgetOwner = builder.bind(groupComposer, "forget-owner", "forget", "d")
 }
 
+// writingKeys are the comment composer's normal-mode commands, vim's: those
+// that start typing, and moving across a line. Up and down are the shared
+// movement keys, k and j among them.
+func writingKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
+	into.insert = builder.bind(groupWriting, "insert", "insert", "i")
+	into.appendAfter = builder.bind(groupWriting, "append", "append", "a")
+	into.appendLine = builder.bind(groupWriting, "append-line", "append at line end", "A")
+	into.openLine = builder.bind(groupWriting, "open-line", "new line below", "o")
+	into.cursorLeft = builder.bindShown(groupWriting, "cursor-left", marks.leftKey+"/h", "left", "left", "h")
+	into.cursorRight = builder.bindShown(groupWriting, "cursor-right", marks.rightKey+"/l", "right", "right", "l")
+}
+
 // runningKeys are the bindings available while a command runs.
 func runningKeys(builder *helpBuilder, into *keyMap) {
 	into.stopRun = builder.bind(groupRunning, "stop", "stop", "s")
@@ -338,7 +357,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 func helpGroups(messagingService string) []string {
 	return []string{
 		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService, "Reviews", "Tasks",
-		"In a composer or preview", "While a command runs", "Everywhere",
+		"In a composer or preview", "Writing a comment", "While a command runs", "Everywhere",
 	}
 }
 
