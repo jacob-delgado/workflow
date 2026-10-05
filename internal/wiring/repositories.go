@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -142,15 +143,11 @@ func yourCommits(
 		}
 
 		read := make([]loop.RepositoryCommits, 0, len(repositories))
+		names := distinctNames(repositories)
 
-		for _, repository := range repositories {
-			name := ""
-			if len(repositories) > 1 {
-				name = sanitize.Line(repository.Name())
-			}
-
+		for at, repository := range repositories {
 			commits, err := gitrepo.At(gitRunner, repository.Root).CommitsBetween(ctx, start, end)
-			read = append(read, loop.RepositoryCommits{Repository: name, Commits: commits, Failed: err})
+			read = append(read, loop.RepositoryCommits{Repository: names[at], Commits: commits, Failed: err})
 		}
 
 		return read
@@ -191,4 +188,61 @@ func commitRepositories(ctx context.Context, where Workspace, favorites func() (
 	}
 
 	return repositories
+}
+
+// distinctNames names each repository read so no two read alike: by Name,
+// unless that is another's too, when each that clashes is named by as much of
+// the end of its root as tells them apart, marked as a directory so it never
+// passes for a forge repository — …/work/api beside …/oss/api. Every name is
+// sanitized before it is compared. With one repository, none is named.
+func distinctNames(repositories []Workspace) []string {
+	names := make([]string, len(repositories))
+	if len(repositories) <= 1 {
+		return names
+	}
+
+	ends := make([][]string, len(repositories))
+	deepest := 0
+
+	for at, repository := range repositories {
+		names[at] = sanitize.Line(repository.Name())
+		ends[at] = sanitizedElements(repository.Root)
+		deepest = max(deepest, len(ends[at]))
+	}
+
+	for count := 2; count <= deepest; count++ {
+		for _, at := range clashing(names) {
+			names[at] = "…/" + strings.Join(ends[at][max(0, len(ends[at])-count):], "/")
+		}
+	}
+
+	return names
+}
+
+// sanitizedElements is root's path elements, each sanitized.
+func sanitizedElements(root string) []string {
+	elements := strings.FieldsFunc(filepath.ToSlash(root), func(r rune) bool { return r == '/' })
+	for at, element := range elements {
+		elements[at] = sanitize.Line(element)
+	}
+
+	return elements
+}
+
+// clashing is the index of every name another shares.
+func clashing(names []string) []int {
+	counts := map[string]int{}
+	for _, name := range names {
+		counts[name]++
+	}
+
+	var clashes []int
+
+	for at, name := range names {
+		if counts[name] > 1 {
+			clashes = append(clashes, at)
+		}
+	}
+
+	return clashes
 }

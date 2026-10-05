@@ -309,3 +309,116 @@ func TestADryRunsSummaryMakesNoStore(t *testing.T) {
 		t.Errorf("reading the Summary made %v, want favorites read only from a store already there", made)
 	}
 }
+
+// committedAt is a repository like committedOn's, moved to within/name
+// under a directory of its own, so two can share a name.
+func committedAt(t *testing.T, within, name string) string {
+	t.Helper()
+
+	parent := filepath.Join(t.TempDir(), within)
+
+	err := os.Mkdir(parent, 0o750)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	root := filepath.Join(parent, name)
+
+	err = os.Rename(committedOn(t, "me@example.com"), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return root
+}
+
+func TestRepositoriesThatShareANameAreToldApartByTheirDirectories(t *testing.T) {
+	cases := map[string]string{
+		"no origin":                    "",
+		"two clones of one repository": "git@github.com:acme/api.git",
+	}
+
+	for name, origin := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			work, oss := committedAt(t, "work", "api"), committedAt(t, "oss", "api")
+			for _, root := range []string{work, oss} {
+				if origin != "" {
+					git(t, root, "remote", "add", "origin", origin)
+				}
+			}
+
+			gitSeams := favoring(t, committedOn(t, "me@example.com"), work, oss).Git
+
+			// Act
+			read := gitSeams.CommitsBetween(summaryDay())
+
+			// Assert
+			names := make([]string, 0, len(read))
+			for _, repository := range read[1:] {
+				names = append(names, repository.Repository)
+			}
+
+			if want := []string{"…/work/api", "…/oss/api"}; !slices.Equal(names, want) {
+				t.Errorf("the favorites read as %q, want %q", names, want)
+			}
+		})
+	}
+}
+
+// forgedPath is a forge repository's path a directory could also end with.
+const forgedPath = "acme/api"
+
+// readNames is the name each repository of a read is listed by.
+func readNames(read []loop.RepositoryCommits) []string {
+	names := make([]string, 0, len(read))
+	for _, repository := range read {
+		names = append(names, repository.Repository)
+	}
+
+	return names
+}
+
+func TestARepositoryWithinACopyOfAnotherIsNamedWithoutItsFullPath(t *testing.T) {
+	// Arrange
+	// One root ends with the whole of the other: a backup of a home directory.
+	original := committedAt(t, "src", "api")
+	backup := filepath.Join(t.TempDir(), "backup", original)
+
+	err := os.MkdirAll(filepath.Dir(backup), 0o750)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.Rename(committedAt(t, "spare", "web"), backup)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gitSeams := favoring(t, original, backup).Git
+
+	// Act
+	names := readNames(gitSeams.CommitsBetween(summaryDay()))
+
+	// Assert
+	if len(names) != 2 || names[0] == names[1] || strings.HasPrefix(names[0], "/") || strings.HasPrefix(names[1], "/") {
+		t.Errorf("read as %q, want two names apart, neither a full path", names)
+	}
+}
+
+func TestTheNameOfADirectoryNeverPassesForAForgeRepository(t *testing.T) {
+	// Arrange
+	// acme/api and other/api have no origin; a third is acme/api on GitHub.
+	mine, other := committedAt(t, "acme", "api"), committedAt(t, "other", "api")
+	forged := committedOn(t, "me@example.com")
+	git(t, forged, "remote", "add", "origin", "git@github.com:acme/api.git")
+	gitSeams := favoring(t, forged, mine, other).Git
+
+	// Act
+	names := readNames(gitSeams.CommitsBetween(summaryDay()))
+
+	// Assert
+	if want := []string{forgedPath, "…/" + forgedPath, "…/other/api"}; !slices.Equal(names, want) {
+		t.Errorf("read as %q, want %q", names, want)
+	}
+}
