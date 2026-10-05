@@ -5,6 +5,7 @@ import { mockTasksSummary } from './mockTasks.ts'
 // navigate the whole cockpit without a real Jira, forge, or Slack. Dev-only —
 // loaded only when VITE_MOCK is set, and code-split out of a production build.
 export const mockSnapshot: Snapshot = {
+  here: '/home/ana/src/api',
   issues: {
     total: 7,
     start_at: 0,

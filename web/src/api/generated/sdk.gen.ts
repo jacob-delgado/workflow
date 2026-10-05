@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddCommentData, AddCommentErrors, AddCommentResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CleanLocalDataData, CleanLocalDataErrors, CleanLocalDataResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, ForgetPersonData, ForgetPersonErrors, ForgetPersonResponses, GetActivityData, GetActivityErrors, GetActivityResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetCheckLogData, GetCheckLogErrors, GetCheckLogResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetLocalDataData, GetLocalDataErrors, GetLocalDataResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPeopleData, GetPeopleErrors, GetPeopleResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetRepoGroupsData, GetRepoGroupsErrors, GetRepoGroupsResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackGroupsData, GetSlackGroupsErrors, GetSlackGroupsResponses, GetSlackMembersData, GetSlackMembersErrors, GetSlackMembersResponses, LinkBranchIssueData, LinkBranchIssueErrors, LinkBranchIssueResponses, LinkPersonData, LinkPersonErrors, LinkPersonResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PreviewBranchIssueData, PreviewBranchIssueErrors, PreviewBranchIssueResponses, PushData, PushErrors, PushResponses, SetRepoGroupsData, SetRepoGroupsErrors, SetRepoGroupsResponses, StageData, StageErrors, StageResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnlinkBranchIssueData, UnlinkBranchIssueErrors, UnlinkBranchIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zAddCommentResponse, zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zCheckoutResponse, zCleanLocalDataResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zForgetPersonResponse, zGetActivityResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetCheckLogResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetLocalDataResponse, zGetMessagingResponse, zGetPeopleResponse, zGetPullRequestDraftResponse, zGetRepoGroupsResponse, zGetReviewResponse, zGetSlackGroupsResponse, zGetSlackMembersResponse, zLinkBranchIssueResponse, zLinkPersonResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListTasksResponse, zListViewsResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPreviewBranchIssueResponse, zPushResponse, zSetRepoGroupsResponse, zStageResponse, zStartTaskResponse, zStopTaskResponse, zStreamEventsResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnlinkBranchIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
+import type { AddCommentData, AddCommentErrors, AddCommentResponses, AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CleanLocalDataData, CleanLocalDataErrors, CleanLocalDataResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, ForgetPersonData, ForgetPersonErrors, ForgetPersonResponses, GetActivityData, GetActivityErrors, GetActivityResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetCheckLogData, GetCheckLogErrors, GetCheckLogResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetDirectoriesData, GetDirectoriesErrors, GetDirectoriesResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetLocalDataData, GetLocalDataErrors, GetLocalDataResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPeopleData, GetPeopleErrors, GetPeopleResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetRepoGroupsData, GetRepoGroupsErrors, GetRepoGroupsResponses, GetRepositoriesData, GetRepositoriesErrors, GetRepositoriesResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackGroupsData, GetSlackGroupsErrors, GetSlackGroupsResponses, GetSlackMembersData, GetSlackMembersErrors, GetSlackMembersResponses, LinkBranchIssueData, LinkBranchIssueErrors, LinkBranchIssueResponses, LinkPersonData, LinkPersonErrors, LinkPersonResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PreviewBranchIssueData, PreviewBranchIssueErrors, PreviewBranchIssueResponses, PushData, PushErrors, PushResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, SetRepoGroupsData, SetRepoGroupsErrors, SetRepoGroupsResponses, StageData, StageErrors, StageResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SwitchRepositoryData, SwitchRepositoryErrors, SwitchRepositoryResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnlinkBranchIssueData, UnlinkBranchIssueErrors, UnlinkBranchIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zAddCommentResponse, zAddFavoriteResponse, zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zCheckoutResponse, zCleanLocalDataResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zForgetPersonResponse, zGetActivityResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetCheckLogResponse, zGetConfigResponse, zGetDirectoriesResponse, zGetHealthResponse, zGetIssueResponse, zGetLocalDataResponse, zGetMessagingResponse, zGetPeopleResponse, zGetPullRequestDraftResponse, zGetRepoGroupsResponse, zGetRepositoriesResponse, zGetReviewResponse, zGetSlackGroupsResponse, zGetSlackMembersResponse, zLinkBranchIssueResponse, zLinkPersonResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListTasksResponse, zListViewsResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPreviewBranchIssueResponse, zPushResponse, zRemoveFavoriteResponse, zSetRepoGroupsResponse, zStageResponse, zStartTaskResponse, zStopTaskResponse, zStreamEventsResponse, zSwitchRepositoryResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnlinkBranchIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -599,5 +599,68 @@ export const getActivity = <ThrowOnError extends boolean = false>(options?: Opti
 export const streamEvents = <ThrowOnError extends boolean = false>(options?: Options<StreamEventsData, ThrowOnError, StreamEventsResponse>): Promise<ServerSentEventsResult<StreamEventsResponses>> => (options?.client ?? client).sse.get<StreamEventsResponses, StreamEventsErrors, ThrowOnError>({
     responseValidator: async (data) => await zStreamEventsResponse.parseAsync(data),
     url: '/api/events',
+    ...options
+});
+
+/**
+ * Where the server works, and your favorite directories.
+ *
+ * The directory the server works in, the repository it is in and the path within it, origin's host and path, and the configuration files that apply there; then your favorite directories, each with what is there now. Each directory is also written from your home, as ~/src/api. Favorites are read from the store's kept file and looked at on disk each time.
+ */
+export const getRepositories = <ThrowOnError extends boolean = false>(options?: Options<GetRepositoriesData, ThrowOnError>): RequestResult<GetRepositoriesResponses, GetRepositoriesErrors, ThrowOnError> => (options?.client ?? client).get<GetRepositoriesResponses, GetRepositoriesErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetRepositoriesResponse.parseAsync(data),
+    url: '/api/repositories',
+    ...options
+});
+
+/**
+ * Switch the directory the server works in.
+ *
+ * Wires the directory named as the server's first was wired — its repository, forge, the configuration files that apply there and the store's keys — and serves from it from then on; open event streams end, asking the page to reconnect, and every read after answers for the new directory. Refused with 404 when the directory is not there, 422 when it is not a directory or its configuration's ui.keys would be refused, and 409 while a write is in flight, which the switch would leave unknown. A write that carries a Workflow-Here header naming another directory than the server's is refused with 409, so a page still showing the old directory cannot write to the new one. Refused with 403 under --dry-run, by the guard every write passes.
+ */
+export const switchRepository = <ThrowOnError extends boolean = false>(options: Options<SwitchRepositoryData, ThrowOnError>): RequestResult<SwitchRepositoryResponses, SwitchRepositoryErrors, ThrowOnError> => (options.client ?? client).put<SwitchRepositoryResponses, SwitchRepositoryErrors, ThrowOnError>({
+    responseValidator: async (data) => await zSwitchRepositoryResponse.parseAsync(data),
+    url: '/api/repositories/here',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Forget a directory as a favorite.
+ *
+ * Forgets the directory named as a favorite; one that was not is left as it is. Refused with 422 when the store keeps nothing, and with 403 under --dry-run.
+ */
+export const removeFavorite = <ThrowOnError extends boolean = false>(options: Options<RemoveFavoriteData, ThrowOnError>): RequestResult<RemoveFavoriteResponses, RemoveFavoriteErrors, ThrowOnError> => (options.client ?? client).delete<RemoveFavoriteResponses, RemoveFavoriteErrors, ThrowOnError>({
+    responseValidator: async (data) => await zRemoveFavoriteResponse.parseAsync(data),
+    url: '/api/repositories/favorites',
+    ...options
+});
+
+/**
+ * Keep a directory as a favorite.
+ *
+ * Marks the directory named a favorite in the store's kept file, keeping when it was first marked. Refused with 422 when the store keeps nothing or the path is not absolute, and with 403 under --dry-run.
+ */
+export const addFavorite = <ThrowOnError extends boolean = false>(options: Options<AddFavoriteData, ThrowOnError>): RequestResult<AddFavoriteResponses, AddFavoriteErrors, ThrowOnError> => (options.client ?? client).put<AddFavoriteResponses, AddFavoriteErrors, ThrowOnError>({
+    responseValidator: async (data) => await zAddFavoriteResponse.parseAsync(data),
+    url: '/api/repositories/favorites',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * The directories in one, to browse for a directory to switch to.
+ *
+ * Lists the directories in the one path names — from where the server works, or from your home after a ~ — or in where the server works when path is not given. A directory linked to is listed with them; a hidden one is not, and is reached by naming it. Each says whether it is a repository's root. At most a thousand are listed. Refused with 404 when the directory is not there and 422 when it cannot be listed; neither detail repeats the path. Reading works under --dry-run.
+ */
+export const getDirectories = <ThrowOnError extends boolean = false>(options?: Options<GetDirectoriesData, ThrowOnError>): RequestResult<GetDirectoriesResponses, GetDirectoriesErrors, ThrowOnError> => (options?.client ?? client).get<GetDirectoriesResponses, GetDirectoriesErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetDirectoriesResponse.parseAsync(data),
+    url: '/api/directories',
     ...options
 });

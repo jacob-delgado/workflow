@@ -31,6 +31,7 @@ export function makeBranch(overrides: Partial<Branch> = {}): Branch {
 // the stream actually pushes.
 export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   return {
+    here: '/home/ana/src/api',
     issues: { issues: [], total: 0, start_at: 0, unavailable: [] },
     branch: makeBranch(),
     changes: { changes: [] },

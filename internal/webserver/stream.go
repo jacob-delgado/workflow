@@ -146,6 +146,14 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 		select {
 		case <-request.Context().Done():
 			return
+		case <-s.retired:
+			// The directory was switched: the page reconnects in a second,
+			// to the server for the directory switched to.
+			_, _ = fmt.Fprint(w, "retry: 1000\n\n")
+
+			flusher.Flush()
+
+			return
 		case <-time.After(interval):
 		}
 	}
@@ -190,6 +198,7 @@ func (s *server) snapshot(view string) api.Snapshot {
 		SuggestedScope: s.suggestedScope(),
 
 		Tasks: s.snapshotTasks(),
+		Here:  s.deps.Repositories.Here.Dir,
 	}
 }
 

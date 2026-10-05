@@ -416,6 +416,10 @@ describes each answer's fields, and every other request the API serves.
 | `GET /api/review` | The branch's pull request and its CI |
 | `GET /api/messaging` | The messaging service, and where and as whom an announcement would post |
 | `GET /api/activity` | What you did from one day to another, or on the previous working day, nested by year, month, day and hour, with the Markdown to copy |
+| `GET /api/repositories` | Where the server works — the directory, its repository and the path within, origin and the configuration files — and your favorite directories, each with what is there now |
+| `PUT /api/repositories/here` | Switch the directory the server works in; refused while a write is in flight |
+| `PUT` / `DELETE /api/repositories/favorites` | Keep a directory as a favorite, or forget it |
+| `GET /api/directories` | The directories in one, to browse for one to switch to |
 | `GET /api/tasks` | Your pending Taskwarrior tasks, most urgent first, waiting ones included, with the active context and whether a sync backend is set |
 
 ```sh

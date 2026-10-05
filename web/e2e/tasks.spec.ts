@@ -31,6 +31,7 @@ const started = { ...tracking, start: '2026-09-28T09:00:00Z' } satisfies Task
 // withTasks is a stream frame of one issue, PROJ-1, and of your tasks as given.
 function withTasks(tasks: TasksSummary): Snapshot {
   return {
+    here: '/home/ana/src/api',
     issues: {
       total: 1,
       start_at: 0,

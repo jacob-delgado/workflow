@@ -57,6 +57,9 @@ type ServerInterface interface {
 	// UpdateConfig Write the configuration file.
 	// (PUT /api/config)
 	UpdateConfig(w http.ResponseWriter, r *http.Request, params UpdateConfigParams)
+	// GetDirectories The directories in one, to browse for a directory to switch to.
+	// (GET /api/directories)
+	GetDirectories(w http.ResponseWriter, r *http.Request, params GetDirectoriesParams)
 	// GetHealth Server and build information.
 	// (GET /api/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -108,6 +111,18 @@ type ServerInterface interface {
 	// SetRepoGroups Replace the Slack user groups this repository may tag.
 	// (PUT /api/repo-groups)
 	SetRepoGroups(w http.ResponseWriter, r *http.Request)
+	// GetRepositories Where the server works, and your favorite directories.
+	// (GET /api/repositories)
+	GetRepositories(w http.ResponseWriter, r *http.Request)
+	// RemoveFavorite Forget a directory as a favorite.
+	// (DELETE /api/repositories/favorites)
+	RemoveFavorite(w http.ResponseWriter, r *http.Request, params RemoveFavoriteParams)
+	// AddFavorite Keep a directory as a favorite.
+	// (PUT /api/repositories/favorites)
+	AddFavorite(w http.ResponseWriter, r *http.Request)
+	// SwitchRepository Switch the directory the server works in.
+	// (PUT /api/repositories/here)
+	SwitchRepository(w http.ResponseWriter, r *http.Request)
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(w http.ResponseWriter, r *http.Request)
@@ -443,6 +458,39 @@ func (siw *ServerInterfaceWrapper) UpdateConfig(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateConfig(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDirectories operation middleware
+func (siw *ServerInterfaceWrapper) GetDirectories(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetDirectoriesParams
+
+	// ------------- Optional query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "path", r.URL.Query(), &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDirectories(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -799,6 +847,81 @@ func (siw *ServerInterfaceWrapper) SetRepoGroups(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetRepoGroups(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRepositories operation middleware
+func (siw *ServerInterfaceWrapper) GetRepositories(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRepositories(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveFavorite operation middleware
+func (siw *ServerInterfaceWrapper) RemoveFavorite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemoveFavoriteParams
+
+	// ------------- Required query parameter "dir" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "dir", r.URL.Query(), &params.Dir, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "dir"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "dir", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveFavorite(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddFavorite operation middleware
+func (siw *ServerInterfaceWrapper) AddFavorite(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddFavorite(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SwitchRepository operation middleware
+func (siw *ServerInterfaceWrapper) SwitchRepository(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SwitchRepository(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1319,6 +1442,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/{uuid}/annotations", wrapper.AnnotateTask)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/{uuid}/modify", wrapper.ModifyTask)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/activity", wrapper.GetActivity)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/repositories", wrapper.GetRepositories)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/repositories/here", wrapper.SwitchRepository)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/repositories/favorites", wrapper.RemoveFavorite)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/repositories/favorites", wrapper.AddFavorite)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/directories", wrapper.GetDirectories)
 
 	return m
 }
@@ -2100,6 +2228,73 @@ type UpdateConfigdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response UpdateConfigdefaultApplicationProblemPlusJSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDirectoriesRequestObject struct {
+	Params GetDirectoriesParams
+}
+
+type GetDirectoriesResponseObject interface {
+	VisitGetDirectoriesResponse(w http.ResponseWriter) error
+}
+
+type GetDirectories200JSONResponse DirectoryListing
+
+func (response GetDirectories200JSONResponse) VisitGetDirectoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDirectories404ApplicationProblemPlusJSONResponse Problem
+
+func (response GetDirectories404ApplicationProblemPlusJSONResponse) VisitGetDirectoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDirectories422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetDirectories422ApplicationProblemPlusJSONResponse) VisitGetDirectoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDirectoriesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetDirectoriesdefaultApplicationProblemPlusJSONResponse) VisitGetDirectoriesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3051,6 +3246,231 @@ type SetRepoGroupsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response SetRepoGroupsdefaultApplicationProblemPlusJSONResponse) VisitSetRepoGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRepositoriesRequestObject struct {
+}
+
+type GetRepositoriesResponseObject interface {
+	VisitGetRepositoriesResponse(w http.ResponseWriter) error
+}
+
+type GetRepositories200JSONResponse Repositories
+
+func (response GetRepositories200JSONResponse) VisitGetRepositoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRepositoriesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetRepositoriesdefaultApplicationProblemPlusJSONResponse) VisitGetRepositoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFavoriteRequestObject struct {
+	Params RemoveFavoriteParams
+}
+
+type RemoveFavoriteResponseObject interface {
+	VisitRemoveFavoriteResponse(w http.ResponseWriter) error
+}
+
+type RemoveFavorite200JSONResponse Repositories
+
+func (response RemoveFavorite200JSONResponse) VisitRemoveFavoriteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFavorite422ApplicationProblemPlusJSONResponse Problem
+
+func (response RemoveFavorite422ApplicationProblemPlusJSONResponse) VisitRemoveFavoriteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFavoritedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RemoveFavoritedefaultApplicationProblemPlusJSONResponse) VisitRemoveFavoriteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddFavoriteRequestObject struct {
+	Body *AddFavoriteJSONRequestBody
+}
+
+type AddFavoriteResponseObject interface {
+	VisitAddFavoriteResponse(w http.ResponseWriter) error
+}
+
+type AddFavorite200JSONResponse Repositories
+
+func (response AddFavorite200JSONResponse) VisitAddFavoriteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddFavorite422ApplicationProblemPlusJSONResponse Problem
+
+func (response AddFavorite422ApplicationProblemPlusJSONResponse) VisitAddFavoriteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddFavoritedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AddFavoritedefaultApplicationProblemPlusJSONResponse) VisitAddFavoriteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SwitchRepositoryRequestObject struct {
+	Body *SwitchRepositoryJSONRequestBody
+}
+
+type SwitchRepositoryResponseObject interface {
+	VisitSwitchRepositoryResponse(w http.ResponseWriter) error
+}
+
+type SwitchRepository200JSONResponse Repositories
+
+func (response SwitchRepository200JSONResponse) VisitSwitchRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SwitchRepository404ApplicationProblemPlusJSONResponse Problem
+
+func (response SwitchRepository404ApplicationProblemPlusJSONResponse) VisitSwitchRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SwitchRepository409ApplicationProblemPlusJSONResponse Problem
+
+func (response SwitchRepository409ApplicationProblemPlusJSONResponse) VisitSwitchRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SwitchRepository422ApplicationProblemPlusJSONResponse Problem
+
+func (response SwitchRepository422ApplicationProblemPlusJSONResponse) VisitSwitchRepositoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SwitchRepositorydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SwitchRepositorydefaultApplicationProblemPlusJSONResponse) VisitSwitchRepositoryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -4136,6 +4556,9 @@ type StrictServerInterface interface {
 	// UpdateConfig Write the configuration file.
 	// (PUT /api/config)
 	UpdateConfig(ctx context.Context, request UpdateConfigRequestObject) (UpdateConfigResponseObject, error)
+	// GetDirectories The directories in one, to browse for a directory to switch to.
+	// (GET /api/directories)
+	GetDirectories(ctx context.Context, request GetDirectoriesRequestObject) (GetDirectoriesResponseObject, error)
 	// GetHealth Server and build information.
 	// (GET /api/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -4187,6 +4610,18 @@ type StrictServerInterface interface {
 	// SetRepoGroups Replace the Slack user groups this repository may tag.
 	// (PUT /api/repo-groups)
 	SetRepoGroups(ctx context.Context, request SetRepoGroupsRequestObject) (SetRepoGroupsResponseObject, error)
+	// GetRepositories Where the server works, and your favorite directories.
+	// (GET /api/repositories)
+	GetRepositories(ctx context.Context, request GetRepositoriesRequestObject) (GetRepositoriesResponseObject, error)
+	// RemoveFavorite Forget a directory as a favorite.
+	// (DELETE /api/repositories/favorites)
+	RemoveFavorite(ctx context.Context, request RemoveFavoriteRequestObject) (RemoveFavoriteResponseObject, error)
+	// AddFavorite Keep a directory as a favorite.
+	// (PUT /api/repositories/favorites)
+	AddFavorite(ctx context.Context, request AddFavoriteRequestObject) (AddFavoriteResponseObject, error)
+	// SwitchRepository Switch the directory the server works in.
+	// (PUT /api/repositories/here)
+	SwitchRepository(ctx context.Context, request SwitchRepositoryRequestObject) (SwitchRepositoryResponseObject, error)
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(ctx context.Context, request GetReviewRequestObject) (GetReviewResponseObject, error)
@@ -4644,6 +5079,32 @@ func (sh *strictHandler) UpdateConfig(w http.ResponseWriter, r *http.Request, pa
 	}
 }
 
+// GetDirectories operation middleware
+func (sh *strictHandler) GetDirectories(w http.ResponseWriter, r *http.Request, params GetDirectoriesParams) {
+	var request GetDirectoriesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDirectories(ctx, request.(GetDirectoriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDirectories")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDirectoriesResponseObject); ok {
+		if err := validResponse.VisitGetDirectoriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealth operation middleware
 func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	var request GetHealthRequestObject
@@ -5087,6 +5548,118 @@ func (sh *strictHandler) SetRepoGroups(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SetRepoGroupsResponseObject); ok {
 		if err := validResponse.VisitSetRepoGroupsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRepositories operation middleware
+func (sh *strictHandler) GetRepositories(w http.ResponseWriter, r *http.Request) {
+	var request GetRepositoriesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRepositories(ctx, request.(GetRepositoriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRepositories")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRepositoriesResponseObject); ok {
+		if err := validResponse.VisitGetRepositoriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveFavorite operation middleware
+func (sh *strictHandler) RemoveFavorite(w http.ResponseWriter, r *http.Request, params RemoveFavoriteParams) {
+	var request RemoveFavoriteRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveFavorite(ctx, request.(RemoveFavoriteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveFavorite")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveFavoriteResponseObject); ok {
+		if err := validResponse.VisitRemoveFavoriteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddFavorite operation middleware
+func (sh *strictHandler) AddFavorite(w http.ResponseWriter, r *http.Request) {
+	var request AddFavoriteRequestObject
+
+	var body AddFavoriteJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddFavorite(ctx, request.(AddFavoriteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddFavorite")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddFavoriteResponseObject); ok {
+		if err := validResponse.VisitAddFavoriteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SwitchRepository operation middleware
+func (sh *strictHandler) SwitchRepository(w http.ResponseWriter, r *http.Request) {
+	var request SwitchRepositoryRequestObject
+
+	var body SwitchRepositoryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SwitchRepository(ctx, request.(SwitchRepositoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SwitchRepository")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SwitchRepositoryResponseObject); ok {
+		if err := validResponse.VisitSwitchRepositoryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

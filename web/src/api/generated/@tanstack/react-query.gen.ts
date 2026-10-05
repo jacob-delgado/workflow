@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getActivity, getAnnouncement, getBranch, getCheckLog, getConfig, getHealth, getIssue, getLocalData, getMessaging, getPeople, getPullRequestDraft, getRepoGroups, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
-import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
+import { getActivity, getAnnouncement, getBranch, getCheckLog, getConfig, getDirectories, getHealth, getIssue, getLocalData, getMessaging, getPeople, getPullRequestDraft, getRepoGroups, getRepositories, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -439,4 +439,44 @@ export const getActivityOptions = (options?: Options<GetActivityData>) => queryO
         return data;
     },
     queryKey: getActivityQueryKey(options)
+});
+
+export const getRepositoriesQueryKey = (options?: Options<GetRepositoriesData>) => createQueryKey('getRepositories', options);
+
+/**
+ * Where the server works, and your favorite directories.
+ *
+ * The directory the server works in, the repository it is in and the path within it, origin's host and path, and the configuration files that apply there; then your favorite directories, each with what is there now. Each directory is also written from your home, as ~/src/api. Favorites are read from the store's kept file and looked at on disk each time.
+ */
+export const getRepositoriesOptions = (options?: Options<GetRepositoriesData>) => queryOptions<GetRepositoriesResponse, GetRepositoriesError, GetRepositoriesResponse, ReturnType<typeof getRepositoriesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getRepositories({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getRepositoriesQueryKey(options)
+});
+
+export const getDirectoriesQueryKey = (options?: Options<GetDirectoriesData>) => createQueryKey('getDirectories', options);
+
+/**
+ * The directories in one, to browse for a directory to switch to.
+ *
+ * Lists the directories in the one path names — from where the server works, or from your home after a ~ — or in where the server works when path is not given. A directory linked to is listed with them; a hidden one is not, and is reached by naming it. Each says whether it is a repository's root. At most a thousand are listed. Refused with 404 when the directory is not there and 422 when it cannot be listed; neither detail repeats the path. Reading works under --dry-run.
+ */
+export const getDirectoriesOptions = (options?: Options<GetDirectoriesData>) => queryOptions<GetDirectoriesResponse, GetDirectoriesError, GetDirectoriesResponse, ReturnType<typeof getDirectoriesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getDirectories({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getDirectoriesQueryKey(options)
 });

@@ -20,7 +20,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
 // problemBase is where a problem's type URI points: one anchor per code on the
@@ -153,7 +155,7 @@ type faultClass struct {
 // 404 that carries a reason is a missing resource before it is a refusal.
 func faultClasses() []faultClass {
 	return slices.Concat(gitFaults(), transportFaults(), jiraFaults(), forgeFaults(), messagingFaults(),
-		taskwarriorFaults())
+		taskwarriorFaults(), directoryFaults())
 }
 
 // gitFaults are the repository's failures fault can name. Any other read git
@@ -511,4 +513,36 @@ func refusalWords(err error) string {
 	_, words, _ := strings.Cut(err.Error(), taskwarrior.ErrRefused.Error()+": ")
 
 	return words
+}
+
+// directoryFaults are a directory's failures, in words that never repeat its
+// path, which the error itself carries.
+func directoryFaults() []faultClass {
+	return []faultClass{
+		{causes: []error{workdirs.ErrNotFound}, code: api.NotFound, detail: "there is no such directory"},
+		{
+			causes: []error{workdirs.ErrNotADirectory, workdirs.ErrNotAbsolute, store.ErrNotADirectoryPath},
+			code:   api.Unprocessable, detail: "that is not an absolute path to a directory",
+		},
+		{
+			causes: []error{workdirs.ErrUnreadable}, code: api.Unprocessable,
+			detail: "that directory cannot be read; check its permissions",
+		},
+		{
+			causes: []error{errFavoritesNotKept, errNoSwitching}, code: api.Unprocessable,
+			detail: "that is not available here: the store is turned off, or the server cannot switch",
+		},
+		{
+			causes: []error{store.ErrKeptSchemaDiffers}, code: api.Unprocessable,
+			detail: store.ErrKeptSchemaDiffers.Error(),
+		},
+		{
+			causes: []error{ErrConfigurationUnreadable}, code: api.Unprocessable,
+			detail: "the configuration there did not load; workflow doctor there says why",
+		},
+		{
+			causes: []error{ErrConfigurationRefused}, code: api.Unprocessable,
+			detail: "the configuration there binds keys workflow refuses; workflow doctor there names them",
+		},
+	}
 }

@@ -154,8 +154,11 @@ internal/tui 57
 # and the Slack directory reads it and the announcement preview pick from —
 # whom each code owner is on Slack, and the user groups a repository tags.
 # activity.go reads back what you did over a period for the Summary section.
+# repositories.go says where the server works and keeps your favorites, and
+# world.go holds the server for that directory and swaps it for another's on
+# a switch, refusing it while a write runs.
 # Frozen here so that growth stays deliberate.
-internal/webserver 24
+internal/webserver 26
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and
@@ -166,12 +169,14 @@ internal/webserver 24
 # announce.go) with their shared preview/confirm/dry-run helper (scriptable.go),
 # slack_cmd.go for `workflow slack login`, which sets up the Slack user token,
 # dbclean_cmd.go for `workflow db-clean`, which lists and removes the local
-# databases, and connect.go, which wires a command to the directory it runs
-# in, as the Repositories pane's switch wires another. One responsibility — turn a command line into a wiring seam call
+# databases, connect.go, which wires a command to the directory it runs in,
+# as the Repositories pane's switch wires another, and web.go, which wires
+# the web server over the same seams and reaches another directory for its
+# switch. One responsibility — turn a command line into a wiring seam call
 # and printed output — spelled command-per-file; it grows when the tool gains a command,
 # which the docs reference records, or when one command's sections outgrow a
 # file, as doctor's did.
-internal/cli 17
+internal/cli 18
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the

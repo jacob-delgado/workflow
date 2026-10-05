@@ -184,6 +184,17 @@ type Deps struct {
 	// Clock tells the time, for when the event stream last asked the forge.
 	// Nil means the system clock.
 	Clock func() time.Time
+
+	// Repositories is where the server works and any other directory read the
+	// same way. Favorites, Favor and Unfavor are the favorite directories the
+	// store keeps; Favor and Unfavor are nil where it keeps nothing.
+	Repositories seams.Repositories
+	Favorites    func() ([]string, error)
+	Favor        func(dir string) error
+	Unfavor      func(dir string) error
+	// Reach wires another directory as this one was wired, for a switch; nil
+	// where switching is not offered.
+	Reach func(dir string) (World, error)
 }
 
 // Info is the build and run facts the API reports and the server needs.
@@ -278,6 +289,11 @@ type server struct {
 
 	// detection is the stream's last search for Taskwarrior, when it found none.
 	detection detectionCache
+
+	// worlds holds this server, and replaces it on a switch, closing retired
+	// so its event streams end and the page reconnects to the next.
+	worlds  *worlds
+	retired chan struct{}
 }
 
 // authorCache is who the forge says a post would come from, kept from its first
@@ -321,35 +337,15 @@ func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handle
 		return nil, err
 	}
 
-	inEffect, seen, err := startingPoint(cfg)
+	held, err := newWorlds(World{Deps: deps, Config: cfg, Info: info}, validator)
 	if err != nil {
-		return nil, fmt.Errorf("reading the configuration file: %w", err)
+		return nil, err
 	}
-
-	srv := &server{
-		deps: deps, info: info, files: cfg.Layers(), cfg: inEffect, seen: seen, forgeKind: info.ForgeKind,
-	}
-
-	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
-		RequestErrorHandlerFunc:  writeRequestError,
-		ResponseErrorHandlerFunc: srv.writeResponseError,
-	})
-
-	apiMux := http.NewServeMux()
-
-	// The event stream is a streaming response the strict, one-response-object
-	// interface cannot express, so it is registered by hand rather than generated.
-	apiMux.HandleFunc("GET /api/events", srv.streamEvents)
-
-	apiHandler := api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
-		BaseRouter:       apiMux,
-		ErrorHandlerFunc: writeRequestError,
-	})
 
 	// The API is validated against the contract; the app is not, since its paths
 	// are not in the spec, so only the /api subtree passes through the validator.
 	root := http.NewServeMux()
-	root.Handle("/api/", validator(apiHandler))
+	root.Handle("/api/", held)
 	root.Handle("/", spaHandler(assets))
 
 	return guardLoopback(refuseWritesInDryRun(info.DryRun, root)), nil
