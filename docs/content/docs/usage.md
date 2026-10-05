@@ -259,10 +259,13 @@ the draft.
 tracker: the pane lists the open issues assigned to you on the repository's
 GitHub or GitLab project. A branch for one is named by its number rather than
 a key, as in `feat/42-fix-typo`, and that number is how workflow finds the
-issue again. **Change status** (`t`) offers only Close. Assigning (`a`) and
-opening or copying the issue's page (`o` / `y`) work as for Jira; comment and
-log work (`c`, `w`), linking the pull request on the issue and the
-`jira.views` issue lists (`v`) do not apply. `workflow doctor` names the
+issue again. **Change status** (`t`) offers only Close. Assigning (`a`),
+commenting (`c`) and opening or copying the issue's page (`o` / `y`) work as
+for Jira. A comment on a forge issue is posted as written, since the forge
+renders Markdown itself, whatever `jira.markdown_comments` says; on GitLab a
+line starting with `/`, such as `/close`, runs as a quick action rather than
+being posted, and the comment box says so. Log work (`w`), linking the pull
+request on the issue and the `jira.views` issue lists (`v`) do not apply. `workflow doctor` names the
 tracker in effect.
 
 **Beside Jira**, a repository whose project tracks its work on GitHub or
