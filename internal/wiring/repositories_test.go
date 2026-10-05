@@ -221,3 +221,35 @@ func TestADirectoryReachedThroughALinkIsReadWhereItIs(t *testing.T) {
 		t.Errorf("Locate = %+v, want %s in %s", where, within, root)
 	}
 }
+
+func TestTheWorktreesOfTheRepositoryHereAreListed(t *testing.T) {
+	// Arrange
+	isolateGit(t)
+
+	root := repository(t)
+	linked := filepath.Join(t.TempDir(), "hotfix")
+	git(t, root, "worktree", "add", "--quiet", "-b", "hotfix", linked)
+
+	repositories := wired(t, config.Default(), wiring.Locate(t.Context(), root), nil).Repositories
+
+	// Act
+	worktrees, err := repositories.Worktrees()
+
+	// Assert
+	if err != nil || len(worktrees) != 2 || worktrees[0].Dir != root || worktrees[1].Branch != "hotfix" {
+		t.Errorf("Worktrees = %+v, %v; want %s on main, then hotfix", worktrees, err, root)
+	}
+}
+
+func TestOutsideARepositoryThereAreNoWorktreesToList(t *testing.T) {
+	// Arrange
+	where := wiring.Locate(t.Context(), t.TempDir())
+
+	// Act
+	repositories := wired(t, config.Default(), where, nil).Repositories
+
+	// Assert
+	if repositories.Worktrees != nil {
+		t.Error("Worktrees outside a repository is set, want nil")
+	}
+}
