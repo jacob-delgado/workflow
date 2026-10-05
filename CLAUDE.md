@@ -32,6 +32,7 @@ internal/seams/       the seams every surface shares, over domain and loop types
 internal/wiring/      connects every surface's seams to the real clients
 internal/loop/        the loop composed once for every surface, over their seams
 internal/progress/    how far along the loop the work is, derived each time
+internal/activity/    what was done over a period, grouped by year, month, day and hour
 internal/tui/         the Bubble Tea interface; every outside call is a Deps seam
 internal/tui/frame/   a titled, bordered box of an exact size
 internal/tui/layout/  where each region of the interface goes, per terminal size

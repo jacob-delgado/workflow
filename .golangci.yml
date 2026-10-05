@@ -70,6 +70,25 @@ linters:
             - github.com/jacob-delgado/workflow/internal/jira
             - github.com/jacob-delgado/workflow/internal/messaging
             - github.com/jacob-delgado/workflow/internal/proc
+        # internal/activity groups and words what was done over a period from
+        # what each source read, which a caller hands it: it holds no clock and
+        # does no I/O, so a test can pin any day and any zone. strict mode
+        # allows only the standard packages that keep it so.
+        activity-without-io:
+          list-mode: strict
+          files:
+            - "**/internal/activity/**"
+            - "!$test"
+          allow:
+            - cmp
+            - errors
+            - fmt
+            - slices
+            - strconv
+            - strings
+            - time
+            - unicode
+            - unicode/utf8
         # internal/seams declares the seam bundles the surfaces share, so it sits
         # below all three and above internal/loop, whose Announced record
         # seams.Store speaks (loop can therefore never take a bundle: that would be
