@@ -80,7 +80,7 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m.overlay = commentPreview{
-		marks: m.marks, styles: m.styles, issue: msg.issue, text: sanitize.Text(msg.text),
+		marks: m.marks, styles: m.styles, issue: msg.issue, text: msg.text,
 		markup: loop.CommentMarkupOf(m.cfg.Jira),
 	}
 
@@ -89,7 +89,8 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 
 // commentPreview is a comment about to be posted. text stays the source the user
 // typed, so a re-edit reopens it, while markup says what the tracker stores of
-// it: the preview shows that stored form and post sends exactly it.
+// it: post sends that stored form, and the preview shows it with any terminal
+// control neutralized, as every text the screen draws is.
 type commentPreview struct {
 	marks  glyphs
 	styles styles
@@ -102,7 +103,8 @@ type commentPreview struct {
 var _ failable[commentPreview] = commentPreview{}
 
 // stored is the comment as its tracker will store it: what the preview shows
-// and what post sends, so the two cannot differ.
+// and what post sends, so the two differ only where the screen must not draw a
+// control the text holds.
 func (p commentPreview) stored() string {
 	return p.markup.Stored(p.text)
 }
@@ -111,7 +113,7 @@ func (p commentPreview) stored() string {
 // title so a long refusal is seen rather than clipped below the fold.
 func (p commentPreview) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
-	lines = append(lines, string(p.issue.Key)+" "+p.issue.Summary, "", wrap(p.stored(), width))
+	lines = append(lines, string(p.issue.Key)+" "+p.issue.Summary, "", wrap(sanitize.Text(p.stored()), width))
 
 	return "Comment on " + string(p.issue.Key), strings.Join(lines, "\n")
 }

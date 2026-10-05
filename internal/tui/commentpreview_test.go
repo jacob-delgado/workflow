@@ -59,3 +59,22 @@ func TestPostingSendsTheMarkupThePreviewShowed(t *testing.T) {
 		t.Errorf("posted %q, want the wiki markup the preview showed", got)
 	}
 }
+
+func TestACommentIsPostedAsWrittenThoughThePreviewNeutralizesControls(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A right-to-left mark is a terminal hazard, so the screen neutralizes it,
+	// but it belongs to the text: Jira gets it as it was written.
+	world := newWorld()
+	world.edited = "\u05e9\u05dc\u05d5\u05dd \u202bworld\u202c"
+	previewed := typing(t, world.live(t, 120, 40), "c")
+
+	// Act
+	typing(t, previewed, "enter")
+
+	// Assert
+	if got := world.asked("comment "); len(got) != 1 || got[0] != "comment "+issueKey+" "+world.edited {
+		t.Errorf("posted %q, want the comment exactly as written", got)
+	}
+}
