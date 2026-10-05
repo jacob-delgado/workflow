@@ -52,6 +52,7 @@ func (m Model) tasksKeys() []key.Binding {
 	}
 
 	keys = append(keys, m.linkKeys(m.taskIssueURL())...)
+	keys = append(keys, m.keys.sortTasks)
 
 	return append(append(keys, m.keys.refresh), m.syncKeys()...)
 }
@@ -101,6 +102,10 @@ func (m Model) handleTasksKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		if next, cmd, handled := m.handleTaskVerbKey(msg); handled {
 			return next, cmd
 		}
+	}
+
+	if next, handled := m.handleTaskListKey(msg); handled {
+		return next, nil
 	}
 
 	switch {

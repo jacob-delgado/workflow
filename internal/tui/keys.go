@@ -42,7 +42,7 @@ type keyMap struct {
 	newPullRequest, checks, rerun, merge, finish, compose, peopleAndGroups key.Binding
 
 	// Tasks.
-	startStop, completeTask, addTask, annotateTask, modifyTask, undoTask, syncTasks key.Binding
+	startStop, completeTask, addTask, annotateTask, modifyTask, undoTask, syncTasks, sortTasks key.Binding
 
 	// Reviews.
 	sortReviews, filterReviews key.Binding
@@ -271,6 +271,7 @@ func taskKeys(builder *helpBuilder, into *keyMap) {
 	into.modifyTask = builder.bind(groupTasks, "modify-task", "modify", "e")
 	into.undoTask = builder.bind(groupTasks, "undo-task", "undo", "u")
 	into.syncTasks = builder.bind(groupTasks, "sync-tasks", "sync", "S")
+	into.sortTasks = builder.bind(groupTasks, "sort-tasks", "sort", "O")
 }
 
 // composerKeys are the composer, preview and field-form bindings, the branch

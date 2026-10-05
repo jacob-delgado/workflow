@@ -7,20 +7,87 @@ import (
 	"slices"
 	"time"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
+// taskOrder is how the Tasks pane orders the tasks within each of its groups.
+type taskOrder int
+
+const (
+	taskOrderUrgency taskOrder = iota
+	taskOrderState
+	taskOrderID
+	taskOrderTag
+	taskOrderIssue
+	taskOrderPriority
+)
+
+// taskOrderCount is untyped on purpose: typed as taskOrder, the exhaustive
+// linter would count it as an order and demand a case for it.
+const taskOrderCount = 6
+
+// next is the order after o, back to the first after the last.
+func (o taskOrder) next() taskOrder {
+	return (o + 1) % taskOrderCount
+}
+
+// title names the order where the list says how it is sorted.
+func (o taskOrder) title() string {
+	titles := [taskOrderCount]string{"most urgent first", "by state", "by id", "by tag", "by issue", "by priority"}
+
+	return titles[o]
+}
+
+// sorted is tasks in the order, judged at now where the order is by state.
+func (o taskOrder) sorted(tasks []taskwarrior.Task, now time.Time) []taskwarrior.Task {
+	orders := [taskOrderCount]func([]taskwarrior.Task) []taskwarrior.Task{
+		taskwarrior.ByUrgency,
+		func(tasks []taskwarrior.Task) []taskwarrior.Task { return taskwarrior.ByState(tasks, now) },
+		taskwarrior.ByID, taskwarrior.ByTag, taskwarrior.ByIssue, taskwarrior.ByPriority,
+	}
+
+	return orders[o](tasks)
+}
+
+// taskListing is how the user has chosen to see the Tasks list for the
+// session: its order. Changing it reads nothing again.
+type taskListing struct {
+	order taskOrder
+}
+
+// titled reports a list that says how it is listed, above its rows: any order
+// but the most urgent first the pane opens on.
+func (l taskListing) titled() bool {
+	return l.order != taskOrderUrgency
+}
+
+// heading says how the list is listed.
+func (l taskListing) heading() string {
+	return l.order.title()
+}
+
 // taskGroups is the pending tasks as the pane lists them: those for an issue the
-// Issues pane has loaded, then the others, each most urgent first, and how many
-// wait unlisted.
+// Issues pane has loaded, then the others, each in the listing's order, and how
+// many wait unlisted. lead is how many lines the list's heading takes above the
+// rows.
 type taskGroups struct {
 	forIssues, others []taskwarrior.Task
 	waiting           int
+	lead              int
 }
 
-// taskGroups sorts the pending tasks into the pane's groups.
+// taskGroups sorts the pending tasks into the pane's groups, as listed now.
 func (m Model) taskGroups() taskGroups {
+	return m.taskGroupsBy(m.tasks.listing)
+}
+
+// taskGroupsBy sorts the pending tasks into the pane's groups, in listing's
+// order.
+func (m Model) taskGroupsBy(listing taskListing) taskGroups {
 	now := m.deps.now()
 
 	var groups taskGroups
@@ -38,6 +105,13 @@ func (m Model) taskGroups() taskGroups {
 		}
 	}
 
+	groups.forIssues = listing.order.sorted(groups.forIssues, now)
+	groups.others = listing.order.sorted(groups.others, now)
+
+	if listing.titled() {
+		groups.lead = 2
+	}
+
 	return groups
 }
 
@@ -52,27 +126,29 @@ func (g taskGroups) headed() bool {
 	return len(g.forIssues) > 0 && len(g.others) > 0
 }
 
-// lines is how many lines the list takes: a row per task, and the heading.
+// lines is how many lines the list takes: the list's heading, a row per task,
+// and the heading over the other tasks.
 func (g taskGroups) lines() int {
 	if g.headed() {
-		return len(g.listed()) + 1
+		return g.lead + len(g.listed()) + 1
 	}
 
-	return len(g.listed())
+	return g.lead + len(g.listed())
 }
 
-// lineOf is the line of the list a listed task is drawn on, past the heading.
+// lineOf is the line of the list a listed task is drawn on, past the headings.
 func (g taskGroups) lineOf(index int) int {
 	if g.headed() && index >= len(g.forIssues) {
-		return index + 1
+		return g.lead + index + 1
 	}
 
-	return index
+	return g.lead + index
 }
 
 // indexAt is the listed task drawn on a line of the list, and whether a task is
-// drawn there rather than the heading or nothing.
+// drawn there rather than a heading or nothing.
 func (g taskGroups) indexAt(line int) (int, bool) {
+	line -= g.lead
 	if !g.headed() || line < len(g.forIssues) {
 		return line, line >= 0 && line < len(g.listed())
 	}
@@ -162,5 +238,38 @@ func (m Model) unlistedBecause(task taskwarrior.Task) string {
 		return "not among the tasks just read; " + m.keys.refresh.Help().Key + " in the Tasks pane reads them again"
 	default:
 		return "outside context " + m.tasks.context
+	}
+}
+
+// relistTasks lists the tasks again as the listing now says, keeping the
+// cursor on its task while that task is listed, and the task in view.
+func (m Model) relistTasks() Model {
+	groups := m.taskGroups()
+	m.tasks.selected = groups.at(m.tasks.selected).UUID
+	m.tasks = m.tasks.following(groups, m.detailRows())
+
+	return m
+}
+
+// sortTasks moves the Tasks list on to its next order.
+func (m Model) sortTasks() Model {
+	m.tasks.listing.order = m.tasks.listing.order.next()
+
+	return m.relistTasks()
+}
+
+// handleTaskListKey answers the keys that change how the list is listed, once
+// Taskwarrior has answered: none of them writes, so a write on its way does
+// not hold them back. It reports whether it claimed the key.
+func (m Model) handleTaskListKey(msg tea.KeyPressMsg) (Model, bool) {
+	if !m.tasks.answered() {
+		return m, false
+	}
+
+	switch {
+	case key.Matches(msg, m.keys.sortTasks):
+		return m.sortTasks(), true
+	default:
+		return m, false
 	}
 }

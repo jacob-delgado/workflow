@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
@@ -43,6 +44,9 @@ type tasksState struct {
 	// its add's answer.
 	tracked int
 	stubs   []trackStub
+	// listing is how the user has chosen to see the list, kept for the session
+	// across every read.
+	listing taskListing
 }
 
 // trackStub is a task a track added, known from its add's answer and its
@@ -120,7 +124,7 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 	m.tasks = tasksState{
 		install: msg.install, pending: msg.pending.Tasks, linked: linked, context: msg.pending.Context,
 		loaded: true, err: msg.err, selected: m.tasks.selected, writing: m.tasks.writing,
-		tracked: m.tasks.tracked, stubs: stubs,
+		tracked: m.tasks.tracked, stubs: stubs, listing: m.tasks.listing,
 	}
 
 	groups := m.taskGroups()
@@ -228,15 +232,21 @@ func (m Model) tasksDetail(width int) string {
 		return strings.Join(append([]string{"No pending tasks."}, m.waitingRow(groups)...), "\n")
 	}
 
-	return strings.Join(append(m.taskRows(groups), "", m.selectedTaskDetail(width)), "\n")
+	return strings.Join(append(m.taskRows(groups, width), "", m.selectedTaskDetail(width)), "\n")
 }
 
-// taskRows draws the listed tasks one a row: those for listed issues, a faint
-// heading over the others when there are both, then how many wait unlisted.
-func (m Model) taskRows(groups taskGroups) []string {
+// taskRows draws the listed tasks one a row: how the list is listed, when that
+// is not most urgent first, then those for listed issues, a faint heading over
+// the others when there are both, then how many wait unlisted.
+func (m Model) taskRows(groups taskGroups, width int) []string {
 	now := m.deps.now()
 	selected := groups.indexOf(m.tasks.selected)
 	rows := make([]string, 0, groups.lines()+1)
+
+	if groups.lead > 0 {
+		heading := ansi.Truncate(sanitize.Line(m.tasks.listing.heading()), width, m.marks.ellipsis)
+		rows = append(rows, m.styles.label.Render(heading), "")
+	}
 
 	for index, task := range groups.listed() {
 		if groups.headed() && index == len(groups.forIssues) {
@@ -276,9 +286,41 @@ func (m Model) taskRow(task taskwarrior.Task, selected bool, now time.Time) stri
 		tail = append(tail, dueIn(task.Due, now))
 	}
 
+	if sortedBy := m.taskSortKey(task); sortedBy != "" {
+		tail = append(tail, sortedBy)
+	}
+
 	tail = append(tail, fmt.Sprintf("%.1f", task.Urgency))
 
 	return head + noteGap + m.styles.label.Render(strings.Join(tail, m.marks.separator))
+}
+
+// taskSortKey is what a row adds to its tail so the order it is listed in can
+// be read off it: its priority, or its tags, when the list is sorted by that.
+func (m Model) taskSortKey(task taskwarrior.Task) string {
+	switch m.tasks.listing.order {
+	case taskOrderPriority:
+		return priorityWords(task.Priority)
+	case taskOrderTag:
+		if len(task.Tags) == 0 {
+			return "no tags"
+		}
+
+		return "+" + strings.Join(task.Tags, " +")
+	case taskOrderUrgency, taskOrderState, taskOrderID, taskOrderIssue:
+		return ""
+	}
+
+	return ""
+}
+
+// priorityWords is a task's priority as the list words it.
+func priorityWords(priority string) string {
+	if priority == "" {
+		return "no priority"
+	}
+
+	return "priority " + priority
 }
 
 // selectedTaskDetail describes the selected task: what it is, its facts, the
@@ -314,6 +356,10 @@ func (m Model) taskFacts(task taskwarrior.Task) string {
 
 	if task.Project != "" {
 		facts = append(facts, task.Project)
+	}
+
+	if task.Priority != "" {
+		facts = append(facts, priorityWords(task.Priority))
 	}
 
 	if len(task.Tags) > 0 {

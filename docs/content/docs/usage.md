@@ -167,6 +167,7 @@ every key `?` lists, by where it works.
 | | `e` | Modify it, typed in Taskwarrior's grammar |
 | | `u` | Undo Taskwarrior's last change |
 | | `S` | Sync Taskwarrior, when its taskrc names a sync backend |
+| | `O` | Sort them by urgency, state, id, tag, issue or priority |
 | | `enter` | Go to its issue, when the Issues pane lists that issue |
 | | `o` / `y` | Open its issue in the browser, or copy its URL |
 | | `r` | Read the tasks again |
@@ -529,6 +530,14 @@ the list is the selected task: its facts, the issue it tracks — with the
 branch and its pull request when the checked-out branch names that issue — and
 its annotations. The rail counts what is pending and started, and names the
 active context, as the pane's title does.
+
+`O` sorts the tasks within each group, cycling from most urgent first through
+by state (started, then pending, then waiting), by id, by tag, by issue (in
+natural order, so `PROJ-2` comes before `PROJ-10`, with unlinked tasks last)
+and by priority (`H`, `M`, `L`, then none). A faint line above the rows names
+the order, every tie stays most urgent first, and when the order is by tag or
+by priority each row's tail shows it. The order lasts for the session, through
+every read.
 
 The pane sends one change at a time, so an undo never races the change before
 it. While one is on its way the rail reads `◐ sending…`, and the keys that
