@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { Task } from '@/api/generated/types.gen.ts'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import {
@@ -34,6 +35,7 @@ export function TaskListControls({
   picked,
   onPick,
 }: TaskListControlsProps) {
+  const filter = useRef<HTMLInputElement>(null)
   return (
     <div className="flex flex-col gap-item">
       <div className="flex flex-wrap items-center gap-group">
@@ -56,6 +58,7 @@ export function TaskListControls({
         <label className="flex items-center gap-item text-sm">
           <span className="text-muted-foreground">Filter</span>
           <input
+            ref={filter}
             type="search"
             value={text}
             placeholder="Text, +tag, issue or #id"
@@ -73,8 +76,9 @@ export function TaskListControls({
         nameOf={taskFacetLabel}
         keyOf={(facet) => `${facet.kind}:${facet.value}`}
         onToggle={(facet) => {
-          onPick((now) => toggleTaskFacet(now, facet))
+          onPick((current) => toggleTaskFacet(current, facet))
         }}
+        afterLast={filter}
       />
     </div>
   )

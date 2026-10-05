@@ -99,10 +99,15 @@ function Board({ list, failure, failed, reading, onReadAgain }: BoardProps) {
   const pick = useUiStore((state) => state.pickTaskFilter)
   const [text, setText] = useState('')
   const listing = { order, picked, text }
-  const groups =
+  const linked = new Set(issues.map((issue) => issue.key))
+  const groups = list === undefined ? undefined : groupTasks(list.tasks, linked, now, listing)
+  // The count a narrowed list is out of is what the list shows unnarrowed,
+  // which leaves out the waiting tasks only a narrowing lists.
+  const unnarrowed =
     list === undefined
-      ? undefined
-      : groupTasks(list.tasks, new Set(issues.map((issue) => issue.key)), now, listing)
+      ? 0
+      : listedOf(groupTasks(list.tasks, linked, now, { order, picked: [], text: '' })).length
+  const narrowed = list !== undefined && list.tasks.length > 0 && narrows(listing)
 
   return (
     <div className="flex flex-col gap-group lg:min-h-0 lg:flex-1">
@@ -111,7 +116,8 @@ function Board({ list, failure, failed, reading, onReadAgain }: BoardProps) {
         <Controls
           list={list}
           groups={groups}
-          narrowed={narrows(listing)}
+          unnarrowed={unnarrowed}
+          narrowed={narrowed}
           failure={failure}
           failed={failed}
           reading={reading}
@@ -133,13 +139,7 @@ function Board({ list, failure, failed, reading, onReadAgain }: BoardProps) {
         <OutcomeLine said={outcome.said} />
       </div>
       {groups === undefined ? null : (
-        <Listing
-          groups={groups}
-          issues={issues}
-          teller={outcome}
-          now={now}
-          narrowed={list !== undefined && list.tasks.length > 0 && narrows(listing)}
-        />
+        <Listing groups={groups} issues={issues} teller={outcome} now={now} narrowed={narrowed} />
       )}
     </div>
   )
@@ -178,6 +178,7 @@ interface ControlsProps extends BoardProps {
   groups: TaskGroups | undefined
   // narrowed is a list a filter or a narrowing leaves tasks out of.
   narrowed: boolean
+  unnarrowed: number
   teller: Teller
 }
 
@@ -190,6 +191,7 @@ function Controls({
   list,
   groups,
   narrowed,
+  unnarrowed,
   failure,
   failed,
   reading,
@@ -203,7 +205,7 @@ function Controls({
       <p role="status" className="text-sm text-muted-foreground">
         {groups === undefined || list === undefined
           ? ''
-          : listSummary(listedOf(groups).length, list.tasks.length, groups.order, narrowed)}
+          : listSummary(listedOf(groups).length, unnarrowed, groups.order, narrowed)}
       </p>
       {list === undefined || list.context === '' ? null : (
         <p className="text-sm text-muted-foreground">
