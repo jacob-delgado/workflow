@@ -6,10 +6,12 @@ package webserver
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/activity"
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
@@ -117,8 +119,7 @@ func (s *server) activityDTO(summary activity.Summary, today activity.Date, loc 
 			Truncated: read.Truncated, Detail: "",
 		}
 		if read.Failed != nil {
-			body, _ := s.fault(read.Failed)
-			source.Detail = body.Detail
+			source.Detail = s.failureDetail(read.Failed)
 		}
 
 		sources = append(sources, source)
@@ -188,4 +189,37 @@ func sourceName(source activity.Source) api.ActivitySourceName {
 	}
 
 	return api.ActivitySourceNameGit
+}
+
+// failureDetail words why a source could not be read as fault words each of
+// its failures, naming the repository a failure was in.
+func (s *server) failureDetail(failed error) string {
+	failures := loop.Failures(failed)
+
+	details := make([]string, 0, len(failures))
+	for _, failure := range failures {
+		details = append(details, s.repositoryDetail(failure))
+	}
+
+	return strings.Join(details, "; ")
+}
+
+// repositoryDetail is one failure's detail, prefixed by the repository it was
+// in when it was one of several. A repository that is one no longer is said
+// so plainly: fault's wording for it is about where the server runs.
+func (s *server) repositoryDetail(failure error) string {
+	repository, named := errors.AsType[loop.RepositoryError](failure)
+	if !named {
+		body, _ := s.fault(failure)
+
+		return body.Detail
+	}
+
+	if errors.Is(repository.Err, gitrepo.ErrNotARepository) {
+		return repository.Repository + " is no longer a git repository"
+	}
+
+	body, _ := s.fault(repository.Err)
+
+	return repository.Repository + ": " + body.Detail
 }

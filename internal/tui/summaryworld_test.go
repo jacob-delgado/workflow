@@ -20,10 +20,13 @@ import (
 type activityWorld struct {
 	commits    []gitrepo.DatedCommit
 	commitsErr error
-	touched    []taskwarrior.Task
-	jira       jira.Activity
-	jiraErr    error
-	forge      forge.Activity
+	// repositories, when set, is git's answer across several repositories,
+	// in place of commits and commitsErr.
+	repositories []loop.RepositoryCommits
+	touched      []taskwarrior.Task
+	jira         jira.Activity
+	jiraErr      error
+	forge        forge.Activity
 }
 
 // summaryRead is how a read of a source over a period is recorded.
@@ -41,6 +44,10 @@ func (w *world) withActivity(deps tui.Deps) tui.Deps {
 	done := w.done
 	deps.Git.CommitsBetween = func(start, _ time.Time) []loop.RepositoryCommits {
 		w.record(summaryRead("git", start))
+
+		if done.repositories != nil {
+			return done.repositories
+		}
 
 		return []loop.RepositoryCommits{{Repository: "", Commits: done.commits, Failed: done.commitsErr}}
 	}

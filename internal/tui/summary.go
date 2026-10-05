@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"errors"
 	"maps"
 	"slices"
 	"strconv"
@@ -377,8 +378,8 @@ func (m Model) summaryNotes() []string {
 	for _, read := range m.summary.reads {
 		name := read.Source.Title()
 
-		if read.Failed != nil {
-			notes = append(notes, m.failedGlyph()+" "+name+" could not be read: "+briefly(read.Failed))
+		for _, failure := range loop.Failures(read.Failed) {
+			notes = append(notes, m.failedGlyph()+" "+failedSourceLine(name, failure))
 		}
 
 		if read.Truncated {
@@ -391,6 +392,16 @@ func (m Model) summaryNotes() []string {
 	}
 
 	return notes
+}
+
+// failedSourceLine says a source could not be read and why, naming the
+// repository when it was one of several.
+func failedSourceLine(name string, failure error) string {
+	if repository, named := errors.AsType[loop.RepositoryError](failure); named {
+		return name + " could not be read in " + sanitize.Line(repository.Repository) + ": " + briefly(repository.Err)
+	}
+
+	return name + " could not be read: " + briefly(failure)
 }
 
 // itemLine is what was done, to what, as one line, neutralized: the items are

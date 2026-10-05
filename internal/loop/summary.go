@@ -5,7 +5,6 @@ package loop
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -58,7 +57,7 @@ func CommitsRead(read func(start, end time.Time) []RepositoryCommits, start, end
 		}
 	}
 
-	return activity.Read{Source: activity.SourceGit, Items: items, Failed: errors.Join(failures...)}
+	return activity.Read{Source: activity.SourceGit, Items: items, Failed: repositoryErrors(failures)}
 }
 
 // item is one commit as the Summary lists it, its hash written as GitHub
@@ -81,7 +80,56 @@ func (r RepositoryCommits) failure() error {
 		return r.Failed
 	}
 
-	return fmt.Errorf("%s: %w", r.Repository, r.Failed)
+	return RepositoryError{Repository: r.Repository, Err: r.Failed}
+}
+
+// RepositoryError is why one repository of several could not be read, with
+// the name it is listed by, so a surface that words the failure its own way
+// can still say which repository it was.
+type RepositoryError struct {
+	Repository string
+	Err        error
+}
+
+// Error is the failure prefixed by the repository's name.
+func (f RepositoryError) Error() string { return f.Repository + ": " + f.Err.Error() }
+
+// Unwrap is the failure itself, so errors.Is still classifies it.
+func (f RepositoryError) Unwrap() error { return f.Err }
+
+// RepositoryErrors is why each repository of a read could not be read, one
+// failure apiece. It is its own type, rather than errors.Join's, so Failures
+// splits it and never an error that merely wraps two causes.
+type RepositoryErrors []error
+
+// Error is every failure, one to a line.
+func (e RepositoryErrors) Error() string { return errors.Join(e...).Error() }
+
+// Unwrap is the failures, so errors.Is and errors.As still classify each.
+func (e RepositoryErrors) Unwrap() []error { return e }
+
+// repositoryErrors is failures as one error, or nil when there are none.
+func repositoryErrors(failures []error) error {
+	if len(failures) == 0 {
+		return nil
+	}
+
+	return RepositoryErrors(failures)
+}
+
+// Failures is each failure a read's error holds: each repository's when
+// CommitsRead read several, the error itself otherwise, none when there is
+// none.
+func Failures(err error) []error {
+	if err == nil {
+		return nil
+	}
+
+	if each, several := errors.AsType[RepositoryErrors](err); several {
+		return each
+	}
+
+	return []error{err}
 }
 
 // TasksRead is what you did to tasks from start up to end: each task touched

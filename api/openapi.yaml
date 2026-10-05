@@ -3468,7 +3468,9 @@ components:
           description: The source had more than it gave.
         detail:
           type: string
-          description: Why the source could not be read, in words that never name a host; empty when it was.
+          description: >-
+            Why the source could not be read, in words that never name a host or a path; empty when it was.
+            When several repositories were read, each that could not be is named in its own clause.
       additionalProperties: false
 
     ActivityYear:

@@ -669,7 +669,8 @@ is read once, however many of its directories or worktrees are favorites, and
 a commit two of them share — a fork, a second clone — is listed once. When more
 than one is read, a commit is named as GitHub names one in another repository,
 `acme/web@abc1234`, by its origin's path or else its directory's name. One that
-cannot be read marks git as not read in full, and the others are listed still. Jira finds the
+cannot be read is named in why git could not be read, and the others are
+listed still. Jira finds the
 issues you touched by JQL, which cannot ask for a comment alone, so a comment
 on an issue you did nothing else to is not listed. Jira and GitHub are asked
 for the issues and pull requests touched earliest first, so a period some way

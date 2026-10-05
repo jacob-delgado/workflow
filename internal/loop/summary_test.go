@@ -155,6 +155,57 @@ func TestARepositoryThatCannotBeReadIsNamedAndTheOthersStillRead(t *testing.T) {
 	}
 }
 
+func TestEachRepositoryThatFailedIsNamedInItsOwnFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	read := func(time.Time, time.Time) []loop.RepositoryCommits {
+		return []loop.RepositoryCommits{
+			{Repository: apiRepository, Failed: errNotRead},
+			{Repository: webRepository, Failed: errNotRead},
+		}
+	}
+
+	// Act
+	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+
+	// Assert
+	var named []string
+
+	for _, failure := range loop.Failures(got.Failed) {
+		repository, isNamed := errors.AsType[loop.RepositoryError](failure)
+		if isNamed && errors.Is(repository.Err, errNotRead) {
+			named = append(named, repository.Repository)
+		}
+	}
+
+	if !slices.Equal(named, []string{apiRepository, webRepository}) {
+		t.Errorf("failures named %q, want %q", named, []string{apiRepository, webRepository})
+	}
+}
+
+func TestFailuresOfOneErrorIsThatError(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	got := loop.Failures(errNotRead)
+
+	// Assert
+	if len(got) != 1 || !errors.Is(got[0], errNotRead) {
+		t.Errorf("Failures(errNotRead) = %v, want it alone", got)
+	}
+}
+
+func TestFailuresOfNoErrorIsNone(t *testing.T) {
+	t.Parallel()
+
+	// Act & Assert
+	if got := loop.Failures(nil); got != nil {
+		t.Errorf("Failures(nil) = %v, want none", got)
+	}
+}
+
 func TestATaskReadsAsEachThingDoneToItInThePeriod(t *testing.T) {
 	t.Parallel()
 
