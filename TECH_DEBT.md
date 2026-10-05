@@ -844,7 +844,27 @@ of a second copy that could disagree with the first.
 **Cost.** A period is as slow to show as its slowest source, and a source
 that is down shows nothing for it. What a source does not keep — a Jira
 comment on an issue you touched in no other way, a GitLab event's
-repository — the Summary cannot show.
+repository, when a Taskwarrior task was started once it is stopped — the
+Summary cannot show.
 
 **Reopen when.** A source the Summary needs keeps no history to read
 back, or reading a long period back proves too slow to be useful.
+
+### TRADE-33 The calendar's dates are written twice
+
+The Summary's dates — moving a day, a month or a period's length, a
+month's and a year's days, a month as weeks — are worked out in
+`internal/activity/period.go` and again in the browser
+(`web/src/features/summary/civilDate.ts`), pinned by twin-named cases in
+`period_test.go` and `civilDate.test.ts`.
+
+**Decided.** 2026-10-05, in #175: the calendar moves on every key, and a
+request for each move would make it wait on the server for arithmetic.
+The server still decides the default period and reads every period, so
+only the moves are twinned, never which days were worked.
+
+**Cost.** A change to how a date moves — a month's last day, a leap year —
+is made twice, and a change to one copy alone passes that copy's tests.
+
+**Reopen when.** The browser's calendar comes to ask the server for its
+moves, or the two copies are found to disagree.
