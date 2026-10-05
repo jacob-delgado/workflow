@@ -218,7 +218,10 @@ first, then the rest, under **For my issues** and **Other tasks** when there
 are both. A waiting task is counted below rather than listed, and an active
 context says it narrows the list. Each row marks whether the task is started,
 then its id, what it is, and quietly its issue, when it is due and its
-urgency. The section reads Taskwarrior when you open it and when **Refresh**
+urgency. **Sort** orders each group by urgency, state, ID, tag, issue or
+priority, as the terminal's `O` does, and sorted by tag or priority each row
+shows its tags or priority; the order stays while you visit other sections.
+The section reads Taskwarrior when you open it and when **Refresh**
 asks, rather than from the stream. It needs Taskwarrior 3.5.0 or newer, found
 as [Configuration]({{< relref "/docs/configuration#taskwarrior" >}})
 describes; without one it says why — and, where the `task` on `PATH` is
