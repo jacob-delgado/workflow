@@ -9,6 +9,7 @@ package wiring_test
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -244,7 +245,7 @@ func TestTheTrackerPicksJiraWhenConfiguredAndTheForgeOtherwise(t *testing.T) {
 
 	cases := map[string]struct {
 		cfg         config.Config
-		jiraBackend bool // the Jira-only Comment seam is present for the Jira backend alone
+		jiraBackend bool // the Jira-only AddWorklog seam is present for the Jira backend alone
 	}{
 		"Jira when it is configured": {
 			cfg: config.Config{Jira: config.Jira{BaseURL: jiraAddress}}, jiraBackend: true,
@@ -267,9 +268,61 @@ func TestTheTrackerPicksJiraWhenConfiguredAndTheForgeOtherwise(t *testing.T) {
 				t.Fatalf("the tracker for %q has no search", name)
 			}
 
-			if got := tracker.Comment != nil; got != tt.jiraBackend {
-				t.Errorf("the tracker for %q has the Jira-only Comment seam = %v, want %v", name, got, tt.jiraBackend)
+			if got := tracker.AddWorklog != nil; got != tt.jiraBackend {
+				t.Errorf("the tracker for %q has the Jira-only AddWorklog seam = %v, want %v", name, got, tt.jiraBackend)
 			}
 		})
+	}
+}
+
+func TestTheForgeTrackerReadsAnIssuesThread(t *testing.T) {
+	// Arrange
+	counted := strings.TrimSuffix(theBugDetail, "}") + `,"comments":2}`
+	installForgeCLI(t, "gh", forgeReplies{issue: counted, comments: `[` +
+		`{"user":{"login":"ana"},"body":"seen it","created_at":"2026-10-01T10:00:00Z"},` +
+		`{"user":{"login":"ben"},"body":"me too","created_at":"2026-10-01T11:00:00Z"}]`})
+	tracker := forgeTracker(t)
+
+	// Act
+	detail, err := tracker.Issue("42")
+
+	// Assert
+	if err != nil || detail.CommentTotal != 2 || len(detail.Comments) != 2 ||
+		detail.Comments[0].Author != "ana" || detail.Comments[1].Body != "me too" {
+		t.Errorf("Issue = %+v, %v; want both comments, oldest first, of 2", detail.Comments, err)
+	}
+}
+
+func TestTheForgeTrackerAsksForNoThreadWhenThereIsNone(t *testing.T) {
+	// Arrange
+	ghStub := installForgeCLI(t, "gh", forgeReplies{issue: theBugDetail})
+	tracker := forgeTracker(t)
+
+	// Act
+	detail, err := tracker.Issue("42")
+
+	// Assert
+	if err != nil || detail.CommentTotal != 0 || slices.ContainsFunc(ghStub.args(), func(arg string) bool {
+		return strings.Contains(arg, "/comments")
+	}) {
+		t.Errorf("Issue = %+v, %v, gh called as %v; want no thread asked for", detail, err, ghStub.args())
+	}
+}
+
+func TestJiraAloneRefusesACommentOnAForgeNumber(t *testing.T) {
+	// Arrange
+	// Jira's REST API takes an issue's numeric id as well as its key, so 42
+	// sent there would post on whichever issue has that id.
+	stand := &fakeJira{}
+	cfg := config.Default()
+	cfg.Jira = config.Jira{BaseURL: stand.serve(t), Token: jiraToken}
+	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil).Jira
+
+	// Act
+	_, err := tracker.Comment("42", "on it")
+
+	// Assert
+	if err == nil || len(stand.requests()) != 0 {
+		t.Errorf("Comment(42) = %v, Jira asked %v; want it refused before Jira is asked", err, stand.requests())
 	}
 }

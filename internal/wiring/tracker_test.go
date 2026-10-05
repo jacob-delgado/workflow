@@ -219,19 +219,25 @@ func TestAForgeThatCannotBeReadLeavesJirasIssues(t *testing.T) {
 	}
 }
 
-func TestACommentOnAForgeIssueIsRefusedWithoutAskingJira(t *testing.T) {
+func TestACommentOnAForgeIssueGoesToTheForgeNotJira(t *testing.T) {
 	// Arrange
-	installForgeCLI(t, "gh", forgeReplies{})
+	ghStub := installForgeCLI(t, "gh", forgeReplies{comments: `{"user":{"login":"octo"},"body":"on it"}`})
 
 	stand := &fakeJira{}
 	tracker := bothTrackers(t, stand)
 
 	// Act
-	_, err := tracker.Comment("42", "on it")
+	posted, err := tracker.Comment("42", "on it")
 
 	// Assert
-	if err == nil || len(stand.requests()) != 0 {
-		t.Errorf("Comment(42) = %v, Jira asked %v; want it refused before Jira is asked", err, stand.requests())
+	if err != nil || posted.Author != "octo" || posted.Body != "on it" || len(stand.requests()) != 0 {
+		t.Errorf("Comment(42) = %+v, %v, Jira asked %v; want it posted on the forge alone",
+			posted, err, stand.requests())
+	}
+
+	if args := ghStub.args(); !strings.Contains(args[len(args)-1], "/issues/42/comments") ||
+		!strings.Contains(ghStub.stdin(), "on it") {
+		t.Errorf("gh was called as %v with %q, want the comment posted to issue 42", args, ghStub.stdin())
 	}
 }
 

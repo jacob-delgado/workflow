@@ -47,11 +47,12 @@ func githubCLIWorkspace(t *testing.T) (config.Config, wiring.Workspace) {
 // falls back to a benign default. The two bools shape a transport failure
 // instead of a route's answer.
 type forgeReplies struct {
-	create  string // POST .../pulls          — the opened pull request
-	search  string // GET .../search/issues    — the issue or review search
-	issue   string // GET/PATCH .../issues/{n} — a single issue read or close
-	garbage bool   // emit a non-HTTP reply and exit 0 → an unreadable response
-	fail    bool   // emit garbage and exit non-zero  → a command failure
+	create   string // POST .../pulls          — the opened pull request
+	search   string // GET .../search/issues    — the issue or review search
+	issue    string // GET/PATCH .../issues/{n} — a single issue read or close
+	comments string // GET/POST .../issues/{n}/comments — a thread, or a comment posted
+	garbage  bool   // emit a non-HTTP reply and exit 0 → an unreadable response
+	fail     bool   // emit garbage and exit non-zero  → a command failure
 }
 
 // forgeCLI is a stand-in gh or glab. It records every invocation's arguments
@@ -73,16 +74,17 @@ func installForgeCLI(t *testing.T, program string, replies forgeReplies) *forgeC
 	defaultCreate := `{"number":7,"html_url":"https://github.com/owner/repo/pull/7","title":"work","state":"open"}`
 
 	bodies := map[string]string{
-		"pulls":   "[]",
-		"create":  orDefault(replies.create, defaultCreate),
-		"pull":    `{"mergeable":true}`,
-		"reviews": "[]",
-		"status":  `{"total_count":0,"statuses":[]}`,
-		"checks":  `{"total_count":0,"check_runs":[]}`,
-		"user":    `{"login":"octo"}`,
-		"search":  orDefault(replies.search, `{"items":[]}`),
-		"issue":   orDefault(replies.issue, `{"number":42}`),
-		"merges":  "[]",
+		"pulls":    "[]",
+		"create":   orDefault(replies.create, defaultCreate),
+		"pull":     `{"mergeable":true}`,
+		"reviews":  "[]",
+		"status":   `{"total_count":0,"statuses":[]}`,
+		"checks":   `{"total_count":0,"check_runs":[]}`,
+		"user":     `{"login":"octo"}`,
+		"search":   orDefault(replies.search, `{"items":[]}`),
+		"issue":    orDefault(replies.issue, `{"number":42}`),
+		"comments": orDefault(replies.comments, "[]"),
+		"merges":   "[]",
 		"members": `[{"username":"dan","state":"active","access_level":30},` +
 			`{"username":"eve","state":"blocked","access_level":30}]`,
 		"default": "{}",
@@ -123,6 +125,7 @@ func forgeScript(dir string, replies forgeReplies) string {
 			"for a in \"$@\"; do url=\"$a\"; done\n" +
 			"case \"$url\" in\n" +
 			"  *\"/search/issues\"*) f=search ;;\n" +
+			"  *\"/issues/\"*\"/comments\"*) f=comments ;;\n" +
 			"  *\"/issues/\"*) f=issue ;;\n" +
 			"  *\"/pulls?\"*) f=pulls ;;\n" +
 			"  *\"/pulls/\"*\"/reviews\"*) f=reviews ;;\n" +
