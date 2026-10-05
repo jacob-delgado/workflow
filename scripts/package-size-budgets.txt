@@ -60,8 +60,11 @@ internal/config 16
 # spelled concern-per-file; 13 is cijobs.go, kept out of gitlab.go (near the
 # 500-line target) when CI began to say why a pipeline failed; 14 is
 # members.go, which lets a CODEOWNERS group review as its people and took the
-# user lookups out of gitlab.go with it, for the same reason.
-internal/forge 14
+# user lookups out of gitlab.go with it, for the same reason; 15 is
+# activity.go, what you did on the forge over a period for the Summary, read
+# by searches on GitHub and from your events on GitLab, beside the issues and
+# pull requests it reads them out of rather than inside either file.
+internal/forge 15
 
 # internal/tui — the Bubble Tea interface, one file per pane, overlay and
 # composer. It is a single responsibility (drive the terminal UI) spelled
