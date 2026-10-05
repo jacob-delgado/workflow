@@ -1,0 +1,111 @@
+import { expect, test, type Page } from '@playwright/test'
+import { mockDirectories, mockRepositories } from '../../src/dev/mockRepositories.ts'
+import { height, pinTheme, themes, widths } from '../cockpit.ts'
+import { axeViolations, sidewaysScrollers, walkTabOrder } from '../tabwalk.ts'
+
+// The Repositories section: where the server works, the favorites, the
+// directory picker, and a switch asked once more before it is made.
+
+// opensRepositories answers the section's reads as the mockup does, keeps
+// each switch asked, and opens the section.
+async function opensRepositories(page: Page): Promise<string[]> {
+  const switched: string[] = []
+  await page.route('**/api/repositories', (route) => route.fulfill({ json: mockRepositories() }))
+  await page.route('**/api/directories**', (route) => {
+    const path = new URL(route.request().url()).searchParams.get('path') ?? '/home/ana/src/api/cmd'
+
+    return route.fulfill({ json: mockDirectories(path) })
+  })
+  await page.route('**/api/repositories/here', (route) => {
+    const asked = route.request().postDataJSON() as { dir: string }
+    switched.push(asked.dir)
+    const after = mockRepositories()
+
+    return route.fulfill({
+      json: { ...after, here: { ...after.here, dir: asked.dir, shown: '~/src/web' } },
+    })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Repositories', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Working in' })).toBeVisible()
+
+  return switched
+}
+
+test('a favorite is switched to once the switch is confirmed', async ({ page }) => {
+  // Arrange
+  const switched = await opensRepositories(page)
+  await page.getByRole('button', { name: 'Switch to ~/src/web' }).click()
+
+  // Act
+  await page
+    .getByRole('region', { name: 'Switch to ~/src/web?' })
+    .getByRole('button', { name: 'Switch' })
+    .click()
+
+  // Assert
+  await expect(page.getByText('Switched to ~/src/web.')).toBeVisible()
+  expect(switched).toEqual(['/home/ana/src/web'])
+})
+
+test('a directory browsed to is offered to switch to', async ({ page }) => {
+  // Arrange
+  await opensRepositories(page)
+  await page.getByRole('button', { name: 'Up' }).click()
+  await page.getByRole('button', { name: 'Up' }).click()
+  await page.getByRole('button', { name: 'Open web' }).click()
+
+  // Act
+  await page.getByRole('button', { name: 'Switch here' }).click()
+
+  // Assert
+  await expect(page.getByRole('region', { name: 'Switch to ~/src/web?' })).toBeVisible()
+})
+
+test('the header says where the server works and opens the section', async ({ page }) => {
+  // Arrange
+  await opensRepositories(page)
+  await page.getByRole('button', { name: 'Issues', exact: true }).click()
+
+  // Act
+  await page.getByRole('button', { name: 'Working in ~/src/api/cmd: open Repositories' }).click()
+
+  // Assert
+  await expect(page.getByRole('heading', { level: 1, name: 'Repositories' })).toBeVisible()
+})
+
+for (const theme of themes) {
+  for (const width of widths) {
+    test(`Repositories fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
+      page,
+    }) => {
+      // Arrange
+      await pinTheme(page, theme)
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.setViewportSize({ width, height })
+      await opensRepositories(page)
+
+      // Act: Tab once round the page.
+      const { reached, missed, hidden } = await walkTabOrder(page)
+
+      // Assert: nothing scrolls sideways; Tab reaches the favorite, each
+      // favorite's switch and removal, and the picker, each in view; and axe
+      // finds nothing.
+      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
+      expect(reached, 'reached by Tab').toEqual(
+        expect.arrayContaining([
+          'Add to favorites',
+          'Switch to ~/src/web',
+          'Remove ~/old-site from favorites',
+          'Directory',
+          'Show',
+          'Up',
+          'Switch here',
+        ]),
+      )
+      expect(missed, 'never reached by Tab').toEqual([])
+      expect(hidden, 'out of view with focus').toEqual([])
+      expect(await axeViolations(page), 'axe').toBe('')
+    })
+  }
+}

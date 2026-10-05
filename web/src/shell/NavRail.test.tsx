@@ -38,7 +38,7 @@ test('calls the messaging section Messaging until the stream names the service',
   expect(screen.getByRole('button', { name: 'Messaging' })).toBeTruthy()
 })
 
-test("offers the interface's eight sections, in its order, Settings last", () => {
+test("offers the interface's nine sections, in its order, Settings last", () => {
   // Act
   render(<NavRail />)
 
@@ -55,6 +55,7 @@ test("offers the interface's eight sections, in its order, Settings last", () =>
     'Reviews',
     'Tasks',
     'Summary',
+    'Repositories',
     'Settings',
   ])
 })

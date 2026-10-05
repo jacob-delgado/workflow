@@ -15,6 +15,7 @@ const sectionNames = [
   'Reviews',
   'Tasks',
   'Summary',
+  'Repositories',
   'Settings',
 ]
 
@@ -26,11 +27,11 @@ test.beforeEach(async ({ page }) => {
 })
 
 // settled is what shows once a section has drawn what it will with no API to
-// answer it: Reviews, Tasks, Summary and Settings each read their own endpoint
+// answer it: Reviews, Tasks, Summary, Repositories and Settings each read their own endpoint
 // after their heading appears, and the read fails here, so the scan waits on
 // its Retry; every other section settles with its heading.
 function settled(page: Page, name: string): Locator {
-  return name === 'Reviews' || name === 'Tasks' || name === 'Summary' || name === 'Settings'
+  return ['Reviews', 'Tasks', 'Summary', 'Repositories', 'Settings'].includes(name)
     ? page.getByRole('button', { name: 'Retry' })
     : page.getByRole('heading', { level: 1, name })
 }
@@ -75,6 +76,7 @@ for (const theme of themes) {
     // populated build scans the queue, the tasks and the form themselves.
     await page.route('**/api/reviews', (route) => route.fulfill(unreachable))
     await page.route('**/api/tasks', (route) => route.fulfill(unreachable))
+    await page.route('**/api/repositories', (route) => route.fulfill(unreachable))
     await page.route('**/api/config', (route) => route.fulfill(unreachable))
     await page.goto('/')
     await expect(page.getByText(/every write is held back/i)).toBeVisible()

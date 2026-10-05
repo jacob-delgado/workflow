@@ -15,6 +15,7 @@ export const sectionNames = [
   'Reviews',
   'Tasks',
   'Summary',
+  'Repositories',
   'Settings',
 ]
 

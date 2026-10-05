@@ -3,6 +3,8 @@ import { useEffect, useRef } from 'react'
 import { useHealth, useHealthStore } from '@/api/health.ts'
 import { useEventStream, useSnapshotStore } from '@/api/snapshot.ts'
 import { useRefreshViews } from '@/features/issues/issueApi.ts'
+import { HereBadge } from '@/features/repositories/HereBadge.tsx'
+import { useFollowSwitch } from '@/features/repositories/useFollowSwitch.ts'
 import { ActiveTask } from '@/features/tasks/ActiveTask.tsx'
 import { cn } from '@/lib/utils.ts'
 import { NavRail } from './NavRail.tsx'
@@ -25,6 +27,7 @@ export function AppShell() {
   })
   useHealth()
   useApplyTheme()
+  useFollowSwitch()
   const health = useHealthStore((state) => state.health)
   const section = useUiStore((state) => state.section)
   const main = useSectionFocus(section)
@@ -58,6 +61,7 @@ export function AppShell() {
             </span>
           ) : null}
         </span>
+        <HereBadge />
         <ActiveTask />
         <div className="flex items-center gap-item">
           <ThemeToggle />

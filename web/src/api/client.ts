@@ -1,6 +1,7 @@
 import { HeldBack } from './apiError.ts'
 import { client } from './generated/client.gen.ts'
 import { useHealthStore } from './health.ts'
+import { useSnapshotStore } from './snapshot.ts'
 
 // The SPA is served same-origin — by `workflow --web` in production, and through
 // the Vite dev proxy in development — so API requests are relative. The
@@ -25,6 +26,19 @@ const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
 client.interceptors.request.use((request) => {
   if (useHealthStore.getState().health?.dry_run === true && !safeMethods.has(request.method)) {
     throw new HeldBack(dryRunHold)
+  }
+
+  return request
+})
+
+// Every write names the directory the page shows, so a write made before the
+// page has noticed a switch is refused rather than made in the directory
+// switched to. A header carries bytes, not text, so the path goes escaped and
+// the server unescapes it.
+client.interceptors.request.use((request) => {
+  const here = useSnapshotStore.getState().snapshot?.here
+  if (here !== undefined && here !== '' && !safeMethods.has(request.method)) {
+    request.headers.set('Workflow-Here', encodeURIComponent(here))
   }
 
   return request

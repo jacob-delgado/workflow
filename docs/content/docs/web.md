@@ -35,9 +35,9 @@ web does not narrate what a held-back write would have done.
 
 ## The page
 
-The header holds the version, the theme and the stream's state, and the
-Taskwarrior task you have started, when there is one. The rail down the left
-holds the eight sections; the one you are in, and its heading, take the hue of
+The header holds the version, where the server works, the theme and the
+stream's state, and the Taskwarrior task you have started, when there is one.
+The rail down the left holds the nine sections; the one you are in, and its heading, take the hue of
 the system it belongs to. Below a medium width the rail keeps its icons
 alone; each still has its name, shown on hover and read by a screen reader.
 
@@ -299,6 +299,33 @@ a week, Page Up and Page Down a month, and Home and End to the week's ends;
 Enter or a click shows that day, and with Shift, the days from the first one
 shown to it. **Whole month** and **Whole year** show the month or the year the
 calendar shows. A period runs up to a year and a day.
+
+### Repositories
+
+Where the server works, relative to what it changes: the repository it is in,
+then the path within it, muted, as `~/src/api/cmd`; origin's host and path;
+and the configuration files that apply there, the repository's over your
+home's. The header carries the same place, briefly, as `api/cmd`, and opens
+this section.
+
+**Favorites** are the directories you keep, each with what is there now — a
+repository and its origin, a directory in no repository, or one not there any
+more. **Add to favorites** keeps where the server works, **Remove** forgets
+one, and **Switch** offers to switch to it. **Open another directory** browses
+for one: type a path — from where the server works, or from your home after
+`~` — and **Show** lists the directories in it; open one by its name, **Up**
+goes to the one above, and **Switch here** offers to switch to the one shown.
+
+A switch is asked once more, then made: the server wires the directory as it
+wired the first, and every section is read again for it. A directory whose
+configuration did not load, or binds keys workflow refuses, is refused rather
+than served on the defaults. The section you are
+in, the views' orders and narrowing and the Summary's period stay; the issue
+shown stays when it is a Jira issue, which is the same wherever you work. A
+page that has not yet noticed a switch — another tab, say — has its writes
+refused until it reads again, and a switch is refused while a write is being
+made. Under `--dry-run` the switch and the favorites are held back with every
+other write, and browsing still works.
 
 ### Settings
 
