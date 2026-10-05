@@ -668,7 +668,9 @@ with no `user.email` says so rather than showing everyone's. Each repository
 is read once, however many of its directories or worktrees are favorites, and
 a commit two of them share — a fork, a second clone — is listed once. When more
 than one is read, a commit is named as GitHub names one in another repository,
-`acme/web@abc1234`, by its origin's path or else its directory's name. One that
+`acme/web@abc1234`, by its origin's path or else its directory's name; two
+that would read alike are told apart by the end of their directories,
+`…/work/api` and `…/oss/api`, marked so neither passes for a forge repository. One that
 cannot be read is named in why git could not be read, and the others are
 listed still. Jira finds the
 issues you touched by JQL, which cannot ask for a comment alone, so a comment
