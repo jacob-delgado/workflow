@@ -2691,6 +2691,18 @@ components:
           type: boolean
           default: false
           description: Whether only the remote has the branch.
+        worktree:
+          type: string
+          default: ""
+          description: >-
+            The directory of another worktree of the repository that has the
+            branch checked out, as an absolute path; empty when none does.
+            git will not check such a branch out here, so it is switched to
+            there instead.
+        worktree_shown:
+          type: string
+          default: ""
+          description: That worktree's directory written from your home; empty when none.
       additionalProperties: false
 
     IssuesPage:

@@ -232,7 +232,10 @@ func (s *server) snapshotBranches(checkedOut string) []api.TaskBranch {
 	}
 
 	project := s.config().Jira.Project
-	listing := branchListing{names: slices.Clone(local), remote: map[string]bool{}, links: s.issueLinks()}
+	listing := branchListing{
+		names: slices.Clone(local), remote: map[string]bool{}, links: s.issueLinks(),
+		worktrees: s.otherWorktrees(), home: s.deps.Repositories.Home,
+	}
 
 	for _, name := range s.remoteBranches() {
 		if !slices.Contains(local, name) {
@@ -244,6 +247,29 @@ func (s *server) snapshotBranches(checkedOut string) []api.TaskBranch {
 	listing.mine = s.yourIssues(issueKeys(listing.names, listing.links, project))
 
 	return taskBranchesDTO(listing, checkedOut, project)
+}
+
+// otherWorktrees is the directory of each other worktree still there, by the
+// branch it has checked out: none outside a repository or when the read
+// fails, since a branch then reads as one to check out, as it did before.
+func (s *server) otherWorktrees() map[string]string {
+	byBranch := map[string]string{}
+	if s.deps.Repositories.Worktrees == nil {
+		return byBranch
+	}
+
+	worktrees, err := s.deps.Repositories.Worktrees()
+	if err != nil {
+		return byBranch
+	}
+
+	for _, worktree := range worktrees {
+		if worktree.Branch != "" && !worktree.Missing && worktree.Dir != s.deps.Repositories.Here.Root {
+			byBranch[worktree.Branch] = worktree.Dir
+		}
+	}
+
+	return byBranch
 }
 
 // remoteBranches lists the remote's branches, or none outside a repository or

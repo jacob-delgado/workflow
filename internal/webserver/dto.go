@@ -11,6 +11,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
 // optional carries an empty string to the wire as an absent field rather than an
@@ -122,14 +123,19 @@ type branchListing struct {
 	mine   map[jira.Key]bool
 	// links are the branches linked to an issue by hand, by name.
 	links map[string]string
+	// worktrees are the directories of the other worktrees, by the branch
+	// each has checked out, and home what they are written from.
+	worktrees map[string]string
+	home      string
 }
 
 // taskBranchesDTO maps branch names to the issues they are named for, keeping
 // only the branches that name one of yours and the checked-out branch, whoever
 // its issue is assigned to — the work story reads the issue being worked on
 // from it — marking the checked-out branch, and saying of each whether only
-// the remote has it — false too, as the client's schema defaults it, so a frame
-// reads back as it was sent. The slice is non-nil so the wire value is an empty
+// the remote has it and which other worktree has it checked out — false and
+// empty too, as the client's schema defaults them, so a frame reads back as it
+// was sent. The slice is non-nil so the wire value is an empty
 // array rather than null, matching the snapshot's other collections.
 func taskBranchesDTO(listing branchListing, current, project string) []api.TaskBranch {
 	branches := make([]api.TaskBranch, 0, len(listing.names))
@@ -139,12 +145,18 @@ func taskBranchesDTO(listing branchListing, current, project string) []api.TaskB
 			continue
 		}
 
-		remote := listing.remote[name]
+		remote, worktree, shown := listing.remote[name], listing.worktrees[name], ""
+		if worktree != "" {
+			shown = workdirs.Shown(worktree, listing.home)
+		}
+
 		branches = append(branches, api.TaskBranch{
-			Name:     name,
-			IssueKey: key.Key,
-			Current:  name == current,
-			Remote:   &remote,
+			Name:          name,
+			IssueKey:      key.Key,
+			Current:       name == current,
+			Remote:        &remote,
+			Worktree:      &worktree,
+			WorktreeShown: &shown,
 		})
 	}
 

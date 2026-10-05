@@ -1607,6 +1607,12 @@ type TaskBranch struct {
 
 	// Remote Whether only the remote has the branch.
 	Remote *bool `json:"remote,omitempty"`
+
+	// Worktree The directory of another worktree of the repository that has the branch checked out, as an absolute path; empty when none does. git will not check such a branch out here, so it is switched to there instead.
+	Worktree *string `json:"worktree,omitempty"`
+
+	// WorktreeShown That worktree's directory written from your home; empty when none.
+	WorktreeShown *string `json:"worktree_shown,omitempty"`
 }
 
 // TaskLine A line in Taskwarrior's own grammar: words, with attributes such as project:web, due:friday or +tag among them.

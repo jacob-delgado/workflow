@@ -676,6 +676,14 @@ export type TaskBranch = {
      * Whether only the remote has the branch.
      */
     remote?: boolean;
+    /**
+     * The directory of another worktree of the repository that has the branch checked out, as an absolute path; empty when none does. git will not check such a branch out here, so it is switched to there instead.
+     */
+    worktree?: string;
+    /**
+     * That worktree's directory written from your home; empty when none.
+     */
+    worktree_shown?: string;
 };
 
 export type IssuesPage = {

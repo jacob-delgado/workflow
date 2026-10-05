@@ -6,6 +6,7 @@ package webserver_test
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -205,4 +206,45 @@ func TestCreateWorktreeIsRefusedInDryRun(t *testing.T) {
 	if recorder.Code != http.StatusForbidden || called {
 		t.Errorf("status %d, created %v; want 403 and nothing made", recorder.Code, called)
 	}
+}
+
+func TestASnapshotBranchSaysWhichOtherWorktreeHasItCheckedOut(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// git refuses to check out a branch another worktree has, so the page
+	// offers a switch there instead, and needs to know where it is.
+	deps := worktreeDeps()
+	deps.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+		return []gitrepo.Worktree{
+			{Dir: apiRoot, Branch: testBranchName, Head: worktreeHead},
+			{Dir: apiFeature, Branch: targetBranch, Head: worktreeHead},
+		}, nil
+	}
+	cfg := config.Default()
+	cfg.Jira.Project = testProject
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+
+	// Assert
+	worktrees := map[string]string{}
+	for _, branch := range snap.Branches {
+		worktrees[branch.Name] = valueOf(branch.Worktree) + " " + valueOf(branch.WorktreeShown)
+	}
+
+	want := map[string]string{testBranchName: " ", targetBranch: apiFeature + " ~/src/api-feat-x"}
+	if !maps.Equal(worktrees, want) {
+		t.Errorf("worktrees by branch = %q, want %q: the one here none, the other its own", worktrees, want)
+	}
+}
+
+// valueOf is what an optional string holds, or "" when it holds nothing.
+func valueOf(optional *string) string {
+	if optional == nil {
+		return ""
+	}
+
+	return *optional
 }
