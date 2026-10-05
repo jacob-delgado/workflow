@@ -1,4 +1,5 @@
 import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
+import type { FilterChoice } from '@/lib/FilterChips.tsx'
 
 // A facet is one value a request can hold in one of four: its repository, how
 // its CI stands, whether it is a draft, or who asks. Values picked in one
@@ -14,10 +15,7 @@ export interface Facet {
 }
 
 // FacetChoice is a facet value on offer, with how many requests hold it.
-export interface FacetChoice {
-  facet: Facet
-  count: number
-}
+export type FacetChoice = FilterChoice<Facet>
 
 // The CI states and draft or ready, in the order they are offered.
 const ciOrder: CiState[] = ['failed', 'passed', 'running', 'none']
@@ -80,8 +78,8 @@ export function facetChoices(requests: ReviewRequest[], picked: Facet[]): FacetC
   ]
 
   return offered
-    .map((facet) => ({ facet, count: countOf(facet) }))
-    .filter((choice) => choice.count > 0 || isPicked(picked, choice.facet))
+    .map((facet) => ({ value: facet, count: countOf(facet) }))
+    .filter((choice) => choice.count > 0 || isPicked(picked, choice.value))
 }
 
 // isPicked reports whether facet is among the picked.

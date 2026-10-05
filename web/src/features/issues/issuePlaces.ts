@@ -1,3 +1,4 @@
+import type { FilterChoice } from '@/lib/FilterChips.tsx'
 import type { Issue, StatusCategory, TasksSummary } from '@/api/generated/types.gen.ts'
 import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
 
@@ -15,10 +16,7 @@ export interface Place {
 }
 
 // PlaceChoice is a place on offer, with how many loaded issues are in it.
-export interface PlaceChoice {
-  place: Place
-  count: number
-}
+export type PlaceChoice = FilterChoice<Place>
 
 const inFlight = 'in flight'
 
@@ -104,8 +102,8 @@ export function placeChoices(
   ]
 
   return offered
-    .map((place) => ({ place, count: counts.get(placeId(place)) ?? 0 }))
-    .filter((choice) => choice.count > 0 || picked.some((place) => samePlace(place, choice.place)))
+    .map((place) => ({ value: place, count: counts.get(placeId(place)) ?? 0 }))
+    .filter((choice) => choice.count > 0 || picked.some((place) => samePlace(place, choice.value)))
 }
 
 // togglePlace picks a place, or unpicks it when it is already picked.
