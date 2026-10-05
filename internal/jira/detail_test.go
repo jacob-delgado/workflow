@@ -308,7 +308,7 @@ func TestAddCommentPostsTheBodyAndReturnsTheComment(t *testing.T) {
 	}
 }
 
-func TestAddCommentRewritesMarkdownWhenTheInstanceIsConfiguredFor(t *testing.T) {
+func TestAddCommentPostsItsTextUnconvertedEvenWithMarkdownOn(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -334,41 +334,10 @@ func TestAddCommentRewritesMarkdownWhenTheInstanceIsConfiguredFor(t *testing.T) 
 	}
 
 	// Assert
-	if got := sent.Load(); got != "See *the docs* at {{run()}}." {
-		t.Errorf("sent body %q, want the wiki markup", got)
-	}
-}
-
-func TestAddCommentPostsMarkdownVerbatimByDefault(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	var sent atomic.Value
-
-	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
-		var body struct {
-			Body string `json:"body"`
-		}
-
-		_ = json.NewDecoder(request.Body).Decode(&body)
-		sent.Store(body.Body)
-
-		writer.WriteHeader(http.StatusCreated)
-		_, _ = writer.Write([]byte(`{"author":{"displayName":"Fred"},"body":"x",` +
-			`"created":"2026-09-16T08:00:00.000-0600"}`))
-	})
-
-	// Act
-	_, err := client.AddComment(t.Context(), "OPS-1", "See **the docs** at `run()`.")
-	if err != nil {
-		t.Fatalf("AddComment returned %v, want nil", err)
-	}
-
-	// Assert
-	// The default leaves the text untouched, so an instance that already writes
-	// wiki markup is not mangled by a conversion it never asked for.
+	// The surface converts before its last look, so the client posts what it
+	// is given: converting again here would post what nobody was shown.
 	if got := sent.Load(); got != "See **the docs** at `run()`." {
-		t.Errorf("sent body %q, want the Markdown unchanged", got)
+		t.Errorf("sent body %q, want the text exactly as given", got)
 	}
 }
 

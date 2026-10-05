@@ -11,6 +11,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // errEmptyComment turns back a comment saved empty: guidance, not a failure.
@@ -30,7 +32,7 @@ const (
 // commentHelp is the editor guidance matching whether the instance rewrites a
 // Markdown comment before posting it.
 func (m Model) commentHelp() string {
-	if m.cfg.Jira.MarkdownComments {
+	if loop.CommentMarkupOf(m.cfg.Jira) == loop.MarkupJiraMarkdown {
 		return commentHelpMarkdown
 	}
 
@@ -78,39 +80,38 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m.overlay = commentPreview{
-		marks: m.marks, styles: m.styles, issue: msg.issue, text: msg.text,
-		markdown: m.cfg.Jira.MarkdownComments,
+		marks: m.marks, styles: m.styles, issue: msg.issue, text: sanitize.Text(msg.text),
+		markup: loop.CommentMarkupOf(m.cfg.Jira),
 	}
 
 	return m, nil
 }
 
 // commentPreview is a comment about to be posted. text stays the source the user
-// typed — post sends it and a re-edit reopens it — while markdown records
-// whether it will be converted to wiki markup, so the preview can show that
-// converted form.
+// typed, so a re-edit reopens it, while markup says what the tracker stores of
+// it: the preview shows that stored form and post sends exactly it.
 type commentPreview struct {
-	marks    glyphs
-	styles   styles
-	issue    jira.Issue
-	text     string
-	markdown bool
-	send     sendState
+	marks  glyphs
+	styles styles
+	issue  jira.Issue
+	text   string
+	markup loop.CommentMarkup
+	send   sendState
 }
 
 var _ failable[commentPreview] = commentPreview{}
 
-// view shows the comment as it will be stored — the wiki markup when Markdown
-// conversion is on, otherwise the text verbatim — its outcome pinned under the
+// stored is the comment as its tracker will store it: what the preview shows
+// and what post sends, so the two cannot differ.
+func (p commentPreview) stored() string {
+	return p.markup.Stored(p.text)
+}
+
+// view shows the comment as it will be stored, its outcome pinned under the
 // title so a long refusal is seen rather than clipped below the fold.
 func (p commentPreview) view(width, _ int) (string, string) {
-	body := p.text
-	if p.markdown {
-		body = jira.WikiFromMarkdown(p.text)
-	}
-
 	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
-	lines = append(lines, string(p.issue.Key)+" "+p.issue.Summary, "", wrap(body, width))
+	lines = append(lines, string(p.issue.Key)+" "+p.issue.Summary, "", wrap(p.stored(), width))
 
 	return "Comment on " + string(p.issue.Key), strings.Join(lines, "\n")
 }
@@ -148,7 +149,7 @@ func (p commentPreview) post(m Model) (Model, tea.Cmd) {
 
 	p.send = starting()
 	m.overlay = p
-	comment, issueKey, text := m.deps.Jira.Comment, p.issue.Key, p.text
+	comment, issueKey, text := m.deps.Jira.Comment, p.issue.Key, p.stored()
 
 	return m, func() tea.Msg {
 		_, err := comment(issueKey, text)

@@ -576,7 +576,7 @@ export type Comment = {
  */
 export type CommentRequest = {
     /**
-     * The comment, written as Markdown when jira.markdown_comments is on and as Jira wiki markup otherwise.
+     * The comment, written as Markdown when jira.markdown_comments is on as last saved, and as Jira wiki markup otherwise.
      */
     text: string;
 };

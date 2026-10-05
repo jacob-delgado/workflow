@@ -112,6 +112,8 @@ With `jira.markdown_comments` on, the comment is Markdown: **Write** and
 **Preview** are tabs, Preview shows it as Jira will, and the buttons beside
 them write bold, italic, code, a link or a list around what is selected. With
 it off, the comment is posted as typed, and Jira reads it as wiki markup.
+Turning it on or off in Settings applies to the next comment, with no
+restart.
 **Comment** posts it and reads the issue again, so the thread shows it as Jira
 keeps it. A forge issue takes no comment here.
 

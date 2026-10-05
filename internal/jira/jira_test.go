@@ -62,8 +62,8 @@ func serve(t *testing.T, handler http.HandlerFunc) jira.Client {
 	return jira.New(server.Client().Do, bearerConfig(server.URL))
 }
 
-// serveMarkdown is serve with the client set to rewrite a Markdown comment as
-// Jira's wiki markup before posting it.
+// serveMarkdown is serve with the client's settings saying comments are written
+// in Markdown, which the client itself must not act on.
 func serveMarkdown(t *testing.T, handler http.HandlerFunc) jira.Client {
 	t.Helper()
 
