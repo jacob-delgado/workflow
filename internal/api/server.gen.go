@@ -63,7 +63,7 @@ type ServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(w http.ResponseWriter, r *http.Request, key string)
-	// AddComment Comment on a Jira issue.
+	// AddComment Comment on an issue, in Jira or on the forge.
 	// (POST /api/issues/{key}/comment)
 	AddComment(w http.ResponseWriter, r *http.Request, key string)
 	// LinkPullRequest Link the checked-out branch's pull request on its issue.
@@ -4039,7 +4039,7 @@ type StrictServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(ctx context.Context, request GetIssueRequestObject) (GetIssueResponseObject, error)
-	// AddComment Comment on a Jira issue.
+	// AddComment Comment on an issue, in Jira or on the forge.
 	// (POST /api/issues/{key}/comment)
 	AddComment(ctx context.Context, request AddCommentRequestObject) (AddCommentResponseObject, error)
 	// LinkPullRequest Link the checked-out branch's pull request on its issue.
