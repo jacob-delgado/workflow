@@ -121,3 +121,27 @@ func equal(got, want []string) bool {
 
 	return true
 }
+
+func TestEachKindIsDoneInOneSource(t *testing.T) {
+	t.Parallel()
+
+	cases := map[activity.Kind]activity.Source{
+		activity.Committed: activity.SourceGit, activity.TaskAdded: activity.SourceTasks,
+		activity.TaskStarted: activity.SourceTasks, activity.TaskAnnotated: activity.SourceTasks,
+		activity.TaskCompleted: activity.SourceTasks, activity.IssueCreated: activity.SourceJira,
+		activity.IssueMoved: activity.SourceJira, activity.IssueWorked: activity.SourceJira,
+		activity.IssueCommented: activity.SourceJira, activity.PullOpened: activity.SourceForge,
+		activity.PullMerged: activity.SourceForge, activity.PullReviewed: activity.SourceForge,
+	}
+
+	for kind, want := range cases {
+		t.Run(kind.Verb(), func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := kind.Source(); got != want {
+				t.Errorf("%s.Source() = %s, want %s", kind.Verb(), got.Name(), want.Name())
+			}
+		})
+	}
+}
