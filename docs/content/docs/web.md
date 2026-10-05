@@ -99,7 +99,11 @@ done once there is a commit, and the pull request is done once its CI passes
 or it merges, and failed on a CI failure or changes asked for. The story never
 marks the announcement done, because the web keeps no record of one. From the
 story, **Start work** creates and checks out a branch named for the issue, and
-**Check out this branch** switches to one it already has. Once Taskwarrior has
+**Check out this branch** switches to one it already has. **Start in a new
+worktree** creates the branch in a new git worktree beside the repository
+instead, leaving the checkout here as it is, then says where and offers
+**Switch to it**. A branch another worktree has checked out, which git will not
+check out twice, offers **Switch to its worktree** in place of the checkout. Once Taskwarrior has
 answered, a **Tasks** card sits between the story and the description;
 [Tasks](#tasks) says what it holds. Below a large width the list sits over the
 detail rather than beside it.
@@ -310,6 +314,12 @@ then the path within it, muted, as `~/src/api/cmd`; origin's host and path;
 and the configuration files that apply there, the repository's over your
 home's. The header carries the same place, briefly, as `api/cmd`, and opens
 this section.
+
+**Worktrees** are the repository's working trees, as git lists them, each
+with the branch it has checked out — or the commit, when detached — and
+whether git keeps it locked, or finds its directory gone; **Switch** offers to
+switch to one, other than where the server works and one gone. With none to
+list, outside a repository, the list is left out.
 
 **Favorites** are the directories you keep, each with what is there now — a
 repository and its origin, a directory in no repository, or one not there any

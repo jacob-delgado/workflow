@@ -1,4 +1,9 @@
-import type { DirectoryListing, Favorite, Repositories } from '../api/generated/types.gen.ts'
+import type {
+  DirectoryListing,
+  Favorite,
+  Repositories,
+  Worktree,
+} from '../api/generated/types.gen.ts'
 
 // The mockup's directories, for `task web:mockup` and the end-to-end specs:
 // api worked in from its cmd directory, with web, the notes and a removed
@@ -24,7 +29,46 @@ const mockFavorites: Favorite[] = [
   { dir: '/home/ana/old-site', shown: '~/old-site', state: 'missing', origin: '' },
 ]
 
-// mockRepositories is where the mockup works, and its favorites.
+// mockWorktrees are api's worktrees: its own, where the mockup works; one for
+// a feature git keeps locked; one detached for a review; and one whose
+// directory is gone.
+const mockWorktrees: Worktree[] = [
+  {
+    dir: '/home/ana/src/api',
+    shown: '~/src/api',
+    branch: 'main',
+    head: '300a7be',
+    state: 'here',
+    locked: false,
+  },
+  {
+    dir: '/home/ana/src/api-feat-PROJ-7-rate-limits',
+    shown: '~/src/api-feat-PROJ-7-rate-limits',
+    branch: 'feat/PROJ-7-rate-limits',
+    head: '9c41d02',
+    state: 'worktree',
+    locked: true,
+  },
+  {
+    dir: '/home/ana/src/api-review',
+    shown: '~/src/api-review',
+    branch: '',
+    head: '5e0b7aa',
+    state: 'worktree',
+    locked: false,
+  },
+  {
+    dir: '/home/ana/src/api-spike',
+    shown: '~/src/api-spike',
+    branch: 'spike/cache',
+    head: 'd1f8e30',
+    state: 'missing',
+    locked: false,
+  },
+]
+
+// mockRepositories is where the mockup works, its worktrees, and its
+// favorites.
 export function mockRepositories(): Repositories {
   return {
     here: {
@@ -36,7 +80,7 @@ export function mockRepositories(): Repositories {
       origin: 'github.com/acme/api',
       config: ['~/src/api/.workflow.json', '~/.workflow.json'],
     },
-    worktrees: [],
+    worktrees: mockWorktrees,
     worktrees_error: '',
     favorites: mockFavorites,
     favorites_kept: true,

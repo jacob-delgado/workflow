@@ -1,4 +1,5 @@
-import type { Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
+import { useState } from 'react'
+import type { CreatedWorktree, Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useForgeWords, type ForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
@@ -9,6 +10,11 @@ import { sectionMeta } from '@/shell/sections.ts'
 import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
+import {
+  StartInWorktreeButton,
+  SwitchToWorktreeButton,
+  WorktreeMadeOffer,
+} from './StartInWorktree.tsx'
 import { startWork } from './startWorkApi.ts'
 
 type StageState = 'done' | 'failed' | 'active' | 'upcoming'
@@ -208,6 +214,48 @@ function storyNote(branch: TaskBranch | undefined, noun: string): string | null 
   return null
 }
 
+interface StoryActionProps {
+  issueKey: string
+  branch: TaskBranch | undefined
+  outcome: Teller
+}
+
+// StoryAction is what moves an issue along from here: starting work on it, in
+// place or in a new worktree; checking its branch out; or switching to the
+// worktree that has it checked out, since git will not check it out twice. A
+// worktree just made is offered to switch to, and stays offered when the
+// snapshot then shows its branch.
+function StoryAction({ issueKey, branch, outcome }: StoryActionProps) {
+  const [made, setMade] = useState<CreatedWorktree | null>(null)
+
+  if (made !== null) {
+    return <WorktreeMadeOffer issueKey={issueKey} worktree={made} outcome={outcome} />
+  }
+
+  if (branch === undefined) {
+    return (
+      <div className="flex flex-wrap items-start gap-item">
+        <StartWorkButton issueKey={issueKey} outcome={outcome} />
+        <StartInWorktreeButton issueKey={issueKey} outcome={outcome} onMade={setMade} />
+      </div>
+    )
+  }
+
+  if (branch.current) {
+    return null
+  }
+
+  return branch.worktree ? (
+    <SwitchToWorktreeButton
+      dir={branch.worktree}
+      shown={branch.worktree_shown ?? branch.worktree}
+      outcome={outcome}
+    />
+  ) : (
+    <CheckoutButton branch={branch.name} outcome={outcome} />
+  )
+}
+
 // WorkStory is an issue's stages, with the start or the check-out that moves it
 // along and the line that says what that did — which stays when the snapshot
 // showing the new branch takes the button away.
@@ -229,8 +277,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
   return (
     <div className="flex flex-col gap-group">
       {note === null ? null : <p className="text-sm text-muted-foreground">{note}</p>}
-      {branch === undefined ? <StartWorkButton issueKey={issueKey} outcome={outcome} /> : null}
-      {branch && !branch.current ? <CheckoutButton branch={branch.name} outcome={outcome} /> : null}
+      <StoryAction issueKey={issueKey} branch={branch} outcome={outcome} />
       <OutcomeLine said={outcome.said} />
       <ol className="flex flex-col">
         {stages.map((stage, index) => {

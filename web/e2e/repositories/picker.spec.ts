@@ -48,6 +48,25 @@ test('a favorite is switched to once the switch is confirmed', async ({ page }) 
   expect(switched).toEqual(['/home/ana/src/web'])
 })
 
+test('another worktree is switched to once the switch is confirmed', async ({ page }) => {
+  // Arrange
+  const switched = await opensRepositories(page)
+  await page
+    .getByRole('list', { name: 'Worktrees' })
+    .getByRole('button', { name: 'Switch to ~/src/api-review' })
+    .click()
+
+  // Act
+  await page
+    .getByRole('region', { name: 'Switch to ~/src/api-review?' })
+    .getByRole('button', { name: 'Switch' })
+    .click()
+
+  // Assert
+  await expect(page.getByText('Switched to ~/src/web.')).toBeVisible()
+  expect(switched).toEqual(['/home/ana/src/api-review'])
+})
+
 test('a directory browsed to is offered to switch to', async ({ page }) => {
   // Arrange
   await opensRepositories(page)
