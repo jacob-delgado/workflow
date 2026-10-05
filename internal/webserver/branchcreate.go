@@ -7,11 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
 // errBranchExists refuses creating a branch for an issue that already has one —
@@ -49,21 +51,27 @@ func (s *server) CreateBranch(
 	return api.CreateBranch200JSONResponse(branchDTO(branch)), nil
 }
 
-// createBranchFailure answers a start of work that made no branch: a branch
-// already there, git's refusal, saying how to see its reason, or a read that
-// failed — the issue from the tracker, the branch list from git — classified by
-// fault, so neither's own words reach the wire.
+// createBranchFailure answers a start of work that made no branch, as
+// startRefusal words it.
 func (s *server) createBranchFailure(err error, key string) api.CreateBranchResponseObject {
+	body, code := s.startRefusal(err, key)
+
+	return api.CreateBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+}
+
+// startRefusal words a start of work that made nothing: a branch already
+// there, git's refusal, saying how to see its reason, or a read that failed —
+// the issue from the tracker, the branch list from git — classified by fault,
+// so neither's own words reach the wire.
+func (s *server) startRefusal(err error, key string) (api.Problem, int) {
 	switch {
 	case errors.Is(err, errBranchExists):
-		return api.CreateBranch409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errBranchExists.Error()))
+		return problem(api.Conflict, errBranchExists.Error()), http.StatusConflict
 	case errors.Is(err, errCreateRefused):
-		return createBranchUnprocessable("git would not create the branch for " + key +
-			"; run workflow branch " + key + " from a terminal to see git's reason")
+		return problem(api.Unprocessable, "git would not create the branch for "+key+
+			"; run workflow branch "+key+" from a terminal to see git's reason"), http.StatusUnprocessableEntity
 	default:
-		body, code := s.fault(err)
-
-		return api.CreateBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+		return s.fault(err)
 	}
 }
 
@@ -72,18 +80,9 @@ func (s *server) createBranchFailure(err error, key string) api.CreateBranchResp
 // cannot be read back, one of the created name, since the branch read before
 // the create is the one it left.
 func (s *server) startWork(issueKey string) (gitrepo.Branch, error) {
-	name, err := s.branchNameFor(issueKey)
+	name, err := s.newBranchFor(issueKey)
 	if err != nil {
 		return gitrepo.Branch{}, err
-	}
-
-	exists, err := s.branchExists(name)
-	if err != nil {
-		return gitrepo.Branch{}, err
-	}
-
-	if exists {
-		return gitrepo.Branch{}, errBranchExists
 	}
 
 	err = s.createAndSwitch(name)
@@ -92,6 +91,26 @@ func (s *server) startWork(issueKey string) (gitrepo.Branch, error) {
 	}
 
 	return s.branchAfter(gitrepo.Branch{Name: name}), nil
+}
+
+// newBranchFor is the branch the convention names for the issue, refused when
+// a branch already goes by that name.
+func (s *server) newBranchFor(issueKey string) (string, error) {
+	name, err := s.branchNameFor(issueKey)
+	if err != nil {
+		return "", err
+	}
+
+	exists, err := s.branchExists(name)
+	if err != nil {
+		return "", err
+	}
+
+	if exists {
+		return "", errBranchExists
+	}
+
+	return name, nil
 }
 
 // branchNameFor is the branch the convention names for the issue, from its type
@@ -144,4 +163,45 @@ func (s *server) createAndSwitch(name string) error {
 	defer s.indexWrites.Unlock()
 
 	return s.deps.CreateBranch(name, s.currentBranchBase())
+}
+
+// CreateWorktree names a branch for an issue as CreateBranch does and creates
+// it off the base branch in a new worktree beside the repository, leaving the
+// server's own checkout where it is: switching there is SwitchRepository's.
+// It is refused as CreateBranch is, and answers the worktree's directory.
+func (s *server) CreateWorktree(
+	_ context.Context, request api.CreateWorktreeRequestObject,
+) (api.CreateWorktreeResponseObject, error) {
+	key := request.Body.IssueKey
+
+	switch {
+	case key == "":
+		return createWorktreeUnprocessable("an issue is required"), nil
+	case s.deps.CreateWorktree == nil || s.deps.Issue == nil || s.deps.Branch == nil:
+		return createWorktreeUnprocessable("creating a worktree is not available"), nil
+	}
+
+	name, err := s.newBranchFor(key)
+	if err == nil {
+		var dir string
+
+		dir, err = s.deps.CreateWorktree(name, s.currentBranchBase())
+		if err == nil {
+			shown := workdirs.Shown(dir, s.deps.Repositories.Home)
+
+			return api.CreateWorktree200JSONResponse{Dir: dir, Shown: shown, Branch: name}, nil
+		}
+
+		err = fmt.Errorf("%w: a worktree for %s: %w", errCreateRefused, name, err)
+	}
+
+	body, code := s.startRefusal(err, key)
+
+	return api.CreateWorktreedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+}
+
+// createWorktreeUnprocessable is the 422 response for a worktree the server
+// will not create.
+func createWorktreeUnprocessable(message string) api.CreateWorktree422ApplicationProblemPlusJSONResponse {
+	return api.CreateWorktree422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
 }

@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
@@ -146,10 +147,56 @@ func listingDTO(dir, home string, listing workdirs.Listing) api.DirectoryListing
 func (s *server) repositoriesDTO() api.Repositories {
 	repositories := s.deps.Repositories
 
+	worktrees, worktreesErr := s.worktreesDTO()
+
 	return api.Repositories{
-		Here:          placeDTO(repositories.Here, repositories.Home),
-		Favorites:     s.favoritesDTO(),
-		FavoritesKept: s.deps.Favor != nil && !s.info.DryRun,
+		Here:           placeDTO(repositories.Here, repositories.Home),
+		Worktrees:      worktrees,
+		WorktreesError: worktreesErr,
+		Favorites:      s.favoritesDTO(),
+		FavoritesKept:  s.deps.Favor != nil && !s.info.DryRun,
+	}
+}
+
+// worktreesDTO is the repository's worktrees, each with what it has checked
+// out, or why they could not be read, worded by fault so no path or host
+// reaches the wire. Outside a repository there are none.
+func (s *server) worktreesDTO() ([]api.Worktree, string) {
+	repositories := s.deps.Repositories
+
+	worktrees := []api.Worktree{}
+	if repositories.Worktrees == nil {
+		return worktrees, ""
+	}
+
+	read, err := repositories.Worktrees()
+	if err != nil {
+		body, _ := s.fault(err)
+
+		return worktrees, body.Detail
+	}
+
+	for _, worktree := range read {
+		worktrees = append(worktrees, api.Worktree{
+			Dir: worktree.Dir, Shown: workdirs.Shown(worktree.Dir, repositories.Home), Branch: worktree.Branch,
+			Head: worktree.ShortHead(), State: worktreeState(worktree, repositories.Here.Root),
+			Locked: worktree.Locked,
+		})
+	}
+
+	return worktrees, ""
+}
+
+// worktreeState is whether a worktree is the one the server works in,
+// another, or one whose directory is gone.
+func worktreeState(worktree gitrepo.Worktree, here string) api.WorktreeState {
+	switch {
+	case worktree.Missing:
+		return api.WorktreeMissing
+	case worktree.Dir == here:
+		return api.WorktreeHere
+	default:
+		return api.WorktreeOther
 	}
 }
 

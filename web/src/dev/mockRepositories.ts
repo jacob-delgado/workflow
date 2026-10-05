@@ -36,6 +36,8 @@ export function mockRepositories(): Repositories {
       origin: 'github.com/acme/api',
       config: ['~/src/api/.workflow.json', '~/.workflow.json'],
     },
+    worktrees: [],
+    worktrees_error: '',
     favorites: mockFavorites,
     favorites_kept: true,
   }

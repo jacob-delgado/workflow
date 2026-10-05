@@ -451,6 +451,27 @@ func (e UIConfigColor) Valid() bool {
 	}
 }
 
+// Defines values for WorktreeState.
+const (
+	WorktreeHere    WorktreeState = "here"
+	WorktreeMissing WorktreeState = "missing"
+	WorktreeOther   WorktreeState = "worktree"
+)
+
+// Valid indicates whether the value is a known member of the WorktreeState enum.
+func (e WorktreeState) Valid() bool {
+	switch e {
+	case WorktreeHere:
+		return true
+	case WorktreeMissing:
+		return true
+	case WorktreeOther:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CleanLocalDataParamsScope.
 const (
 	CleanLocalDataParamsScopeAll   CleanLocalDataParamsScope = "all"
@@ -818,6 +839,26 @@ type CreateBranchRequest struct {
 	//
 	// Example: PROJ-412
 	IssueKey string `json:"issue_key"`
+}
+
+// CreateWorktreeRequest The issue to start work on in a new worktree.
+type CreateWorktreeRequest struct {
+	// IssueKey The issue to name and create a branch for.
+	//
+	// Example: PROJ-412
+	IssueKey string `json:"issue_key"`
+}
+
+// CreatedWorktree A worktree just created for an issue's branch.
+type CreatedWorktree struct {
+	// Branch The branch created and checked out there.
+	Branch string `json:"branch"`
+
+	// Dir The worktree's directory, as an absolute path.
+	Dir string `json:"dir"`
+
+	// Shown The directory written from your home.
+	Shown string `json:"shown"`
 }
 
 // DirectoryChoice A directory, as an absolute path.
@@ -1356,7 +1397,7 @@ type RepoGroupsRequest struct {
 	Ids []string `json:"ids"`
 }
 
-// Repositories Where the server works, and your favorite directories.
+// Repositories Where the server works, the repository's worktrees, and your favorite directories.
 type Repositories struct {
 	// Favorites Your favorites, by path.
 	Favorites []Favorite `json:"favorites"`
@@ -1366,6 +1407,12 @@ type Repositories struct {
 
 	// Here A directory the server works in, as it is now. Each path is also written from your home, as ~/src/api, for showing.
 	Here Place `json:"here"`
+
+	// Worktrees The working trees of the repository the server works in, the main one first, as git lists them; empty outside a repository.
+	Worktrees []Worktree `json:"worktrees"`
+
+	// WorktreesError Why the worktrees could not be read, in words that never name a path or a host; empty when they were.
+	WorktreesError string `json:"worktrees_error"`
 }
 
 // Review defines model for Review.
@@ -1673,6 +1720,30 @@ type ViewList struct {
 	Views []JiraView `json:"views"`
 }
 
+// Worktree One working tree of the repository the server works in.
+type Worktree struct {
+	// Branch The branch it has checked out, or empty when its HEAD is detached.
+	Branch string `json:"branch"`
+
+	// Dir The worktree's directory, as an absolute path.
+	Dir string `json:"dir"`
+
+	// Head The commit it has checked out, abbreviated.
+	Head string `json:"head"`
+
+	// Locked Whether git keeps it from being removed or pruned.
+	Locked bool `json:"locked"`
+
+	// Shown The directory written from your home.
+	Shown string `json:"shown"`
+
+	// State here is the worktree the server works in; worktree is another; missing is one git still lists whose directory is gone.
+	State WorktreeState `json:"state"`
+}
+
+// WorktreeState here is the worktree the server works in; worktree is another; missing is one git still lists whose directory is gone.
+type WorktreeState string
+
 // TaskUUID Example: 5f3c9a1e-8b2d-4c6f-9e7a-1d2b3c4d5e6f
 type TaskUUID = string
 
@@ -1804,3 +1875,6 @@ type ModifyTaskJSONRequestBody = TaskLine
 
 // UnstageJSONRequestBody defines body for Unstage for application/json ContentType.
 type UnstageJSONRequestBody = StagingRequest
+
+// CreateWorktreeJSONRequestBody defines body for CreateWorktree for application/json ContentType.
+type CreateWorktreeJSONRequestBody = CreateWorktreeRequest

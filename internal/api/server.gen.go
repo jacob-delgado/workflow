@@ -177,6 +177,9 @@ type ServerInterface interface {
 	// ListViews The configured issue views (saved JQL), in order.
 	// (GET /api/views)
 	ListViews(w http.ResponseWriter, r *http.Request)
+	// CreateWorktree Create a branch for an issue in a new worktree — start work on it there.
+	// (POST /api/worktrees)
+	CreateWorktree(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1274,6 +1277,20 @@ func (siw *ServerInterfaceWrapper) ListViews(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// CreateWorktree operation middleware
+func (siw *ServerInterfaceWrapper) CreateWorktree(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateWorktree(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1425,6 +1442,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch/issue/preview", wrapper.PreviewBranchIssue)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/checkout", wrapper.Checkout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/branches", wrapper.CreateBranch)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/worktrees", wrapper.CreateWorktree)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/announcement", wrapper.GetAnnouncement)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/announce", wrapper.Announce)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/push", wrapper.Push)
@@ -4515,6 +4533,73 @@ func (response ListViewsdefaultApplicationProblemPlusJSONResponse) VisitListView
 	return err
 }
 
+type CreateWorktreeRequestObject struct {
+	Body *CreateWorktreeJSONRequestBody
+}
+
+type CreateWorktreeResponseObject interface {
+	VisitCreateWorktreeResponse(w http.ResponseWriter) error
+}
+
+type CreateWorktree200JSONResponse CreatedWorktree
+
+func (response CreateWorktree200JSONResponse) VisitCreateWorktreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWorktree409ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateWorktree409ApplicationProblemPlusJSONResponse) VisitCreateWorktreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWorktree422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateWorktree422ApplicationProblemPlusJSONResponse) VisitCreateWorktreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWorktreedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateWorktreedefaultApplicationProblemPlusJSONResponse) VisitCreateWorktreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// GetActivity What you did over a period, grouped by year, month, day and hour.
@@ -4676,6 +4761,9 @@ type StrictServerInterface interface {
 	// ListViews The configured issue views (saved JQL), in order.
 	// (GET /api/views)
 	ListViews(ctx context.Context, request ListViewsRequestObject) (ListViewsResponseObject, error)
+	// CreateWorktree Create a branch for an issue in a new worktree — start work on it there.
+	// (POST /api/worktrees)
+	CreateWorktree(ctx context.Context, request CreateWorktreeRequestObject) (CreateWorktreeResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -6148,6 +6236,37 @@ func (sh *strictHandler) ListViews(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListViewsResponseObject); ok {
 		if err := validResponse.VisitListViewsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateWorktree operation middleware
+func (sh *strictHandler) CreateWorktree(w http.ResponseWriter, r *http.Request) {
+	var request CreateWorktreeRequestObject
+
+	var body CreateWorktreeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateWorktree(ctx, request.(CreateWorktreeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateWorktree")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateWorktreeResponseObject); ok {
+		if err := validResponse.VisitCreateWorktreeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

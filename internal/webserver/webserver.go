@@ -53,11 +53,14 @@ type Deps struct {
 	Branches      func() ([]string, error)
 	Checkout      func(name string) error
 	CreateBranch  func(name, start string) error
-	Commit        func(message string) (proc.Output, error)
-	Push          func(branch string) (proc.Output, error)
-	Changes       func() ([]gitrepo.Change, error)
-	FindPull      func(branch string) (forge.PullRequest, bool, error)
-	CreatePull    func(request forge.NewPullRequest) (forge.PullRequest, error)
+	// CreateWorktree creates a branch from start in a new worktree beside the
+	// repository, and says where.
+	CreateWorktree func(name, start string) (string, error)
+	Commit         func(message string) (proc.Output, error)
+	Push           func(branch string) (proc.Output, error)
+	Changes        func() ([]gitrepo.Change, error)
+	FindPull       func(branch string) (forge.PullRequest, bool, error)
+	CreatePull     func(request forge.NewPullRequest) (forge.PullRequest, error)
 	// EditPull changes a pull request's title and description, as linking a
 	// branch to its issue adds the line naming it.
 	EditPull  func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)
