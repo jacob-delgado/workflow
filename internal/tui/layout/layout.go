@@ -39,6 +39,9 @@ const (
 	// content rows evenly is the better use of a short terminal.
 	compactContent = 2
 	focusedMinimum = 4
+	// focusedComfort is how many rows the focused pane grows to before the
+	// others grow past one: enough to read a list in.
+	focusedComfort = 8
 
 	// railRules is the rules a shared rail spends: one around and one between
 	// the panes, so N panes take N+1 rule rows rather than 2N borders.
@@ -149,18 +152,34 @@ func stack(width, body, panes, focused int) []Box {
 	return boxes
 }
 
-// allocateContent splits the content rows: compact for the unfocused panes and
-// the rest to the focused one, or evenly when there is too little to spare.
+// allocateContent splits the content rows between the panes. Each unfocused
+// pane keeps one row, a line of what it holds; the focused pane grows to
+// focusedComfort; the unfocused panes then grow to compactContent, top first;
+// and the focused one takes whatever is left. Rows are only ever added, so a
+// taller terminal never gives the focused pane fewer. With not even a row each
+// and focusedMinimum for the focused one, the rows are split evenly.
 func allocateContent(total, panes, focused int) []int {
-	rows := evenHeights(total, panes)
-
-	if total >= compactContent*(panes-1)+focusedMinimum {
-		for index := range rows {
-			rows[index] = compactContent
-		}
-
-		rows[focused] = total - compactContent*(panes-1)
+	if total < (panes-1)+focusedMinimum {
+		return evenHeights(total, panes)
 	}
+
+	rows := make([]int, panes)
+	for index := range rows {
+		rows[index] = 1
+	}
+
+	focusedRows := min(total-(panes-1), focusedComfort)
+	spare := total - (panes - 1) - focusedRows
+
+	for index := range rows {
+		if index != focused && spare > 0 {
+			grown := min(compactContent-1, spare)
+			rows[index] += grown
+			spare -= grown
+		}
+	}
+
+	rows[focused] = focusedRows + spare
 
 	return rows
 }

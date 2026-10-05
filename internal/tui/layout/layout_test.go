@@ -4,6 +4,7 @@
 package layout_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
@@ -153,18 +154,21 @@ func TestTheFocusedPaneTakesTheRoomTheOthersDoNotNeed(t *testing.T) {
 	}
 }
 
-func TestSevenPanesNeedTwentySixRowsBeforeTheFocusedOneGrows(t *testing.T) {
+func TestTheFocusedPaneGrowsFirstThenTheOthersThenItAgain(t *testing.T) {
 	t.Parallel()
 
-	// Seven panes spend eight rule rows, so 80x24 leaves 14 content rows: short
-	// of the 16 that six compact panes and a useful focused one need, so every
-	// pane gets two. Two more rows, and the focused pane takes them.
+	// Seven panes spend eight rule rows, so 80x24 leaves 14 content rows: the
+	// others keep one each and the focused pane takes eight. Rows past that go
+	// to the others, top first, until each has two, and then to the focused one.
 	cases := map[string]struct {
 		height int
 		want   []int
 	}{
-		"80x24 gives every pane two rows": {height: 24, want: []int{3, 3, 3, 3, 3, 3, 3}},
-		"80x26 grows the focused one":     {height: 26, want: []int{5, 3, 3, 3, 3, 3, 3}},
+		"80x24 gives the others a row":    {height: 24, want: []int{9, 2, 2, 2, 2, 2, 2}},
+		"80x26 grows the top two others":  {height: 26, want: []int{9, 3, 3, 2, 2, 2, 2}},
+		"80x30 gives the others two each": {height: 30, want: []int{9, 3, 3, 3, 3, 3, 3}},
+		"80x32 grows the focused one":     {height: 32, want: []int{11, 3, 3, 3, 3, 3, 3}},
+		"80x15 splits what it has evenly": {height: 15, want: []int{2, 2, 2, 2, 2, 1, 1}},
 	}
 
 	for name, tt := range cases {
@@ -292,4 +296,62 @@ func TestRailAt(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPanesPastSevenShrinkTheOthersToARowSoTheFocusedOneStaysUseful(t *testing.T) {
+	t.Parallel()
+
+	// At 80x24 an even split of eight or nine panes leaves the focused one a
+	// row or two, too few to read; the others drop to one row, a line of what
+	// each holds, and the focused one keeps at least four.
+	cases := map[string]struct {
+		panes int
+		want  []int
+	}{
+		"eight panes": {panes: 8, want: []int{7, 2, 2, 2, 2, 2, 2, 2}},
+		"nine panes":  {panes: 9, want: []int{5, 2, 2, 2, 2, 2, 2, 2, 2}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			requireStacked(t, layout.Compute(80, 24, tt.panes, 0), tt.want, 21)
+		})
+	}
+}
+
+func TestATallerTerminalNeverGivesTheFocusedPaneFewerRows(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	drops := focusedDrops(10, 60, 7, 8, 9)
+
+	// Assert
+	for _, drop := range drops {
+		t.Error(drop)
+	}
+}
+
+// focusedDrops says each height, from shortest to tallest, at which a rail of
+// each count of panes gives the focused pane fewer rows than a row shorter.
+func focusedDrops(shortest, tallest int, counts ...int) []string {
+	var drops []string
+
+	for _, panes := range counts {
+		previous := 0
+
+		for height := shortest; height <= tallest; height++ {
+			focused := layout.Compute(80, height, panes, 0).Rail[0].Height
+			if focused < previous {
+				drops = append(drops, fmt.Sprintf("%d panes at %d rows give the focused one %d rows, fewer than %d",
+					panes, height, focused, previous))
+			}
+
+			previous = focused
+		}
+	}
+
+	return drops
 }
