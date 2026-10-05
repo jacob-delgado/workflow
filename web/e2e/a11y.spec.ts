@@ -7,7 +7,16 @@ import { streams } from './tabwalk.ts'
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are
 // the nav buttons' accessible names and the content heading's text.
-const sectionNames = ['Issues', 'Branch', 'Review', 'Messaging', 'Reviews', 'Tasks', 'Settings']
+const sectionNames = [
+  'Issues',
+  'Branch',
+  'Review',
+  'Messaging',
+  'Reviews',
+  'Tasks',
+  'Summary',
+  'Settings',
+]
 
 // Scan the resting state, not mid-animation frames: reduced motion collapses
 // transitions to instant, so axe never samples a half-faded element (whose
@@ -17,11 +26,11 @@ test.beforeEach(async ({ page }) => {
 })
 
 // settled is what shows once a section has drawn what it will with no API to
-// answer it: Reviews, Tasks and Settings each read their own endpoint after
-// their heading appears, and the read fails here, so the scan waits on its
-// Retry; every other section settles with its heading.
+// answer it: Reviews, Tasks, Summary and Settings each read their own endpoint
+// after their heading appears, and the read fails here, so the scan waits on
+// its Retry; every other section settles with its heading.
 function settled(page: Page, name: string): Locator {
-  return name === 'Reviews' || name === 'Tasks' || name === 'Settings'
+  return name === 'Reviews' || name === 'Tasks' || name === 'Summary' || name === 'Settings'
     ? page.getByRole('button', { name: 'Retry' })
     : page.getByRole('heading', { level: 1, name })
 }

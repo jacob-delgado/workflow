@@ -1,46 +1,45 @@
+import type { ComponentType } from 'react'
 import { BranchPanel } from '@/features/branch/BranchPanel.tsx'
 import { IssuesPanel } from '@/features/issues/IssuesPanel.tsx'
 import { ReviewPanel } from '@/features/review/ReviewPanel.tsx'
 import { ReviewQueuePanel } from '@/features/reviewqueue/ReviewQueuePanel.tsx'
 import { SettingsPanel } from '@/features/settings/SettingsPanel.tsx'
 import { MessagingPanel } from '@/features/messaging/MessagingPanel.tsx'
+import { SummaryPanel } from '@/features/summary/SummaryPanel.tsx'
 import { TasksPanel } from '@/features/tasks/TasksPanel.tsx'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { EmptyState } from './EmptyState.tsx'
 import type { Section } from './uiStore.ts'
 
-// Routes the active section to its panel. The switch is exhaustive over Section,
-// so adding a section without a panel is a type error rather than a blank pane.
-// Every section that reads the stream waits on its first snapshot; until it
-// lands they share one line, rather than each saying it in its own words.
+// panels are each section's panel. A record over Section, so adding a section
+// without a panel is a type error rather than a blank pane.
+const panels: Record<Section, ComponentType> = {
+  issues: IssuesPanel,
+  branch: BranchPanel,
+  review: ReviewPanel,
+  messaging: MessagingPanel,
+  reviews: ReviewQueuePanel,
+  tasks: TasksPanel,
+  summary: SummaryPanel,
+  settings: SettingsPanel,
+}
+
+// readsOnItsOwn are the sections that do not read the stream: Settings reads
+// the configuration, Reviews the forge's queue, Tasks Taskwarrior's list and
+// Summary what you did, each on its own, so none of them waits on it.
+const readsOnItsOwn = new Set<Section>(['settings', 'reviews', 'tasks', 'summary'])
+
+// Routes the active section to its panel. Every section that reads the stream
+// waits on its first snapshot; until it lands they share one line, rather than
+// each saying it in its own words.
 export function SectionPanel({ section }: { section: Section }) {
   const connected = useSnapshotStore((state) => state.snapshot !== null)
 
-  if (!connected && waitsOnStream(section)) {
+  if (!connected && !readsOnItsOwn.has(section)) {
     return <EmptyState>Connecting to workflow…</EmptyState>
   }
 
-  switch (section) {
-    case 'issues':
-      return <IssuesPanel />
-    case 'branch':
-      return <BranchPanel />
-    case 'review':
-      return <ReviewPanel />
-    case 'messaging':
-      return <MessagingPanel />
-    case 'reviews':
-      return <ReviewQueuePanel />
-    case 'tasks':
-      return <TasksPanel />
-    case 'settings':
-      return <SettingsPanel />
-  }
-}
+  const Panel = panels[section]
 
-// waitsOnStream reports a section that reads the stream, so waits on its first
-// snapshot. Settings reads the configuration, Reviews the forge's queue and
-// Tasks Taskwarrior's list, each on its own, so none of them waits.
-function waitsOnStream(section: Section): boolean {
-  return section !== 'settings' && section !== 'reviews' && section !== 'tasks'
+  return <Panel />
 }

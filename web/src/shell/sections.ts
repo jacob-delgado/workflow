@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   CircleDot,
   GitBranch,
   GitPullRequest,
@@ -14,8 +15,8 @@ import type { Section } from './uiStore.ts'
 // rail and by the content area's heading. The hue is the system the section
 // belongs to, as the terminal's spine colors its stages (internal/tui/spine.go):
 // Jira's issues, git's branch, the forge's pull requests, the messaging
-// service, and Taskwarrior's tasks. Settings belongs to none of them, so it
-// stays in the ink.
+// service, and Taskwarrior's tasks. The Summary reads them all and Settings
+// belongs to none of them, so both stay in the ink.
 export const sectionMeta: Record<Section, { label: string; Icon: LucideIcon; hue: string }> = {
   issues: { label: 'Issues', Icon: CircleDot, hue: 'text-jira' },
   branch: { label: 'Branch', Icon: GitBranch, hue: 'text-git' },
@@ -23,6 +24,7 @@ export const sectionMeta: Record<Section, { label: string; Icon: LucideIcon; hue
   messaging: { label: 'Messaging', Icon: Send, hue: 'text-messaging' },
   reviews: { label: 'Reviews', Icon: Inbox, hue: 'text-forge' },
   tasks: { label: 'Tasks', Icon: ListTodo, hue: 'text-taskwarrior' },
+  summary: { label: 'Summary', Icon: CalendarDays, hue: 'text-foreground' },
   settings: { label: 'Settings', Icon: Settings, hue: 'text-foreground' },
 }
 

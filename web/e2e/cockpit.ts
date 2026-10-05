@@ -7,7 +7,16 @@ export const themes = ['dark', 'light'] as const
 export const widths = [640, 1024, 1440] as const
 export const height = 900
 // The mockup's messaging service is Slack, so its section is named for it.
-export const sectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Reviews', 'Tasks', 'Settings']
+export const sectionNames = [
+  'Issues',
+  'Branch',
+  'Review',
+  'Slack',
+  'Reviews',
+  'Tasks',
+  'Summary',
+  'Settings',
+]
 
 // pinTheme saves a theme choice before the app paints, so the whole run is in
 // it from the first frame.
