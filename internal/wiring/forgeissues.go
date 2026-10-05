@@ -53,9 +53,9 @@ func trackerDeps(
 }
 
 // forgeIssuesDeps adapts the forge's issues to the tracker seam the Issues pane
-// reads. The pane, the detail, the status change, assigning and the link run
-// unchanged; a comment, logged work and a remote link, which a forge issue has
-// no equivalent for here, are left nil so those features simply do not appear.
+// reads. The pane, the detail, the status change, assigning, commenting and the
+// link run unchanged; logged work and a remote link, which a forge issue has no
+// equivalent for here, are left nil so those features simply do not appear.
 func forgeIssuesDeps(ctx context.Context, connect func() (forgeConnection, error)) seams.Jira {
 	return seams.Jira{
 		Search:        func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
@@ -68,8 +68,34 @@ func forgeIssuesDeps(ctx context.Context, connect func() (forgeConnection, error
 		Assign: func(issueKey jira.Key, assignee string) error {
 			return assignForgeIssue(ctx, connect, issueKey, assignee)
 		},
+		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
+			return commentOnForgeIssue(ctx, connect, issueKey, text)
+		},
 		BrowseURL: func(issueKey jira.Key) string { return browseForgeIssue(connect, issueKey) },
 	}
+}
+
+// commentOnForgeIssue posts text as a comment on the issue behind a tracker
+// key.
+func commentOnForgeIssue(
+	ctx context.Context, connect func() (forgeConnection, error), issueKey jira.Key, text string,
+) (jira.Comment, error) {
+	connection, number, err := connectToIssue(connect, issueKey)
+	if err != nil {
+		return jira.Comment{}, err
+	}
+
+	posted, err := connection.client.CommentOnIssue(ctx, connection.repo, number, text)
+	if err != nil {
+		return jira.Comment{}, err
+	}
+
+	return forgeComment(posted), nil
+}
+
+// forgeComment is a forge issue's comment as the tracker seam carries one.
+func forgeComment(comment forge.IssueComment) jira.Comment {
+	return jira.Comment{Author: comment.Author, Body: comment.Body, Created: comment.Created}
 }
 
 // assignForgeIssue gives the issue behind a tracker key to assignee.
@@ -130,10 +156,36 @@ func readForgeIssue(
 	}
 
 	return jira.IssueDetail{
-		Issue:       forgeDetailRow(detail),
-		Description: detail.Body,
-		Reporter:    detail.Author,
+		Issue:        forgeDetailRow(detail),
+		Description:  detail.Body,
+		Reporter:     detail.Author,
+		Comments:     forgeThread(ctx, connection, number, detail.CommentCount),
+		CommentTotal: detail.CommentCount,
 	}, nil
+}
+
+// forgeThread reads an issue's most recent comments, best effort: the issue is
+// what every caller needs and the thread only the detail, so a thread that
+// cannot be read is an empty one under the forge's own count, and an issue with
+// no comments asks for none. Reading at most a page or two keeps a caller that
+// wants only the issue, such as the branch or the announcement, from paging
+// through a long thread against the forge's rate limit.
+func forgeThread(ctx context.Context, connection forgeConnection, number, count int) []jira.Comment {
+	if count == 0 {
+		return nil
+	}
+
+	read, err := connection.client.RecentIssueComments(ctx, connection.repo, number, count)
+	if err != nil {
+		return nil
+	}
+
+	thread := make([]jira.Comment, 0, len(read))
+	for _, comment := range read {
+		thread = append(thread, forgeComment(comment))
+	}
+
+	return thread
 }
 
 // closeForgeIssue closes the issue behind a tracker key.

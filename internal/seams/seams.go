@@ -39,9 +39,12 @@ type Jira struct {
 	Issue         func(issueKey jira.Key) (jira.IssueDetail, error)
 	Transitions   func(issueKey jira.Key) ([]jira.Transition, error)
 	Transition    func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
-	Comment       func(issueKey jira.Key, text string) (jira.Comment, error)
-	// Assign sets an issue's assignee by username. Nil when Jira is not
-	// configured.
+	// Comment posts text on an issue, in Jira or on the forge as its key says,
+	// exactly as given: what a surface converts it to first is
+	// loop.CommentMarkupOf's to decide.
+	Comment func(issueKey jira.Key, text string) (jira.Comment, error)
+	// Assign sets an issue's assignee by username, in Jira or on the forge as
+	// its key says.
 	Assign func(issueKey jira.Key, assignee string) error
 	// AddWorklog logs work against an issue: a duration and an optional note.
 	AddWorklog func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error)

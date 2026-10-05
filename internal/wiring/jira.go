@@ -52,9 +52,7 @@ func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira
 			})
 		},
 		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
-			return askJira(jiraClient, func(client jira.Client) (jira.Comment, error) {
-				return client.AddComment(ctx, issueKey, text)
-			})
+			return commentOnJira(ctx, jiraClient, issueKey, text)
 		},
 		Assign: func(issueKey jira.Key, assignee string) error {
 			return tellJira(jiraClient, func(client jira.Client) error { return client.Assign(ctx, issueKey, assignee) })
@@ -126,6 +124,21 @@ func readJiraIssue(
 	}
 
 	return askJira(jiraClient, func(client jira.Client) (jira.IssueDetail, error) { return client.Issue(ctx, issueKey) })
+}
+
+// commentOnJira posts a comment on a Jira issue. A key with no project part is
+// refused without asking, since Jira also reads an issue by its numeric id and
+// a forge issue's number would post on whichever Jira issue has it.
+func commentOnJira(
+	ctx context.Context, jiraClient func() (jira.Client, error), issueKey jira.Key, text string,
+) (jira.Comment, error) {
+	if !isJiraKey(issueKey) {
+		return jira.Comment{}, fmt.Errorf("%w: %w: %q", jira.ErrNotFound, errNotAJiraKey, issueKey)
+	}
+
+	return askJira(jiraClient, func(client jira.Client) (jira.Comment, error) {
+		return client.AddComment(ctx, issueKey, text)
+	})
 }
 
 // browseJiraIssue links an issue for someone to click, or is empty for a key

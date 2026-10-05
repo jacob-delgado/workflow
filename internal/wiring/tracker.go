@@ -48,7 +48,7 @@ func combinedTracker(settings config.Jira, jiraSide, forgeSide seams.Jira) seams
 			return pick(issueKey, jiraSide.Transition, forgeSide.Transition)(issueKey, to, values)
 		},
 		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
-			return jiraOnly(issueKey, func() (jira.Comment, error) { return jiraSide.Comment(issueKey, text) })
+			return pick(issueKey, jiraSide.Comment, forgeSide.Comment)(issueKey, text)
 		},
 		Assign: func(issueKey jira.Key, assignee string) error {
 			return pick(issueKey, jiraSide.Assign, forgeSide.Assign)(issueKey, assignee)
