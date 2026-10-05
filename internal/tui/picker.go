@@ -202,6 +202,7 @@ var (
 	_ failable[statusPicker] = statusPicker{}
 	_ clickable              = statusPicker{}
 	_ steppable              = statusPicker{}
+	_ pasteable              = statusPicker{}
 )
 
 // openStatusPicker opens the picker on the selected issue and starts listing its

@@ -294,7 +294,10 @@ type branchCreator struct {
 	canWorktree bool
 }
 
-var _ failable[branchCreator] = branchCreator{}
+var (
+	_ failable[branchCreator] = branchCreator{}
+	_ pasteable               = branchCreator{}
+)
 
 // openBranchCreator proposes a branch for the selected issue, started from the
 // branch work merges into.
@@ -425,6 +428,19 @@ func (c branchCreator) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) 
 	}
 
 	c.input, _ = c.input.Update(msg)
+	c.send.err = convention.ValidateBranchName(c.input.Value())
+	m.overlay = c
+
+	return m, nil
+}
+
+// pasted types a paste into the branch name, which is checked as typing is.
+func (c branchCreator) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
+	if c.send.sending {
+		return m, nil
+	}
+
+	c.input, _ = c.input.Update(paste)
 	c.send.err = convention.ValidateBranchName(c.input.Value())
 	m.overlay = c
 

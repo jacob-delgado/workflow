@@ -80,6 +80,7 @@ type prComposer struct {
 var (
 	_ editable             = prComposer{}
 	_ failable[prComposer] = prComposer{}
+	_ pasteable            = prComposer{}
 )
 
 // openPullRequestComposer proposes a pull request for the branch, or reopens the
@@ -423,7 +424,7 @@ func (c prComposer) focusOn(field int) prComposer {
 }
 
 // typed hands a key to the field with focus.
-func (c prComposer) typed(msg tea.KeyPressMsg) prComposer {
+func (c prComposer) typed(msg tea.Msg) prComposer {
 	switch c.focus {
 	case prFieldBase:
 		c.base, _ = c.base.Update(msg)
@@ -442,6 +443,17 @@ func (c prComposer) typed(msg tea.KeyPressMsg) prComposer {
 	c.send.err = nil
 
 	return c
+}
+
+// pasted types a paste into the field with focus, as typing it would.
+func (c prComposer) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
+	if c.send.sending {
+		return m, nil
+	}
+
+	m.overlay = c.typed(paste)
+
+	return m, nil
 }
 
 // editBody opens the editor on the body.

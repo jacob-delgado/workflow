@@ -68,7 +68,10 @@ type issueWrite struct {
 	problem error
 }
 
-var _ failable[issueWrite] = issueWrite{}
+var (
+	_ failable[issueWrite] = issueWrite{}
+	_ pasteable            = issueWrite{}
+)
 
 // openAssign opens the assign form on the selected issue. A forge issue's form
 // starts with the forge's name for you, when it is known: assigning one to
@@ -160,6 +163,19 @@ func (w issueWrite) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		return m, nil
 	}
+}
+
+// pasted types a paste into the form's one field, as typing it would.
+func (w issueWrite) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
+	if w.send.sending {
+		return m, nil
+	}
+
+	w.input, _ = w.input.Update(paste)
+	w.problem = nil
+	m.overlay = w
+
+	return m, nil
 }
 
 // confirm sends the typed value, refusing an empty one, and holding it back in a

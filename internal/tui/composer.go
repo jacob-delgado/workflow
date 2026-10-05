@@ -64,7 +64,10 @@ type commitComposer struct {
 	send     sendState
 }
 
-var _ editable = commitComposer{}
+var (
+	_ editable  = commitComposer{}
+	_ pasteable = commitComposer{}
+)
 
 // openCommitComposer opens the composer on the last draft, if a commit failed,
 // or on a fresh one.
@@ -291,6 +294,24 @@ func (c commitComposer) typed(m Model, msg tea.KeyPressMsg) commitComposer {
 	c.send.err = nil
 
 	return c
+}
+
+// pasted types a paste into the scope or the subject, whichever has focus; the
+// type, which cycles, takes none.
+func (c commitComposer) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
+	switch c.focus {
+	case fieldScope:
+		c.scope, _ = c.scope.Update(paste)
+	case fieldSubject:
+		c.subject, _ = c.subject.Update(paste)
+	default:
+		return m, nil
+	}
+
+	c.send.err = nil
+	m.overlay = c
+
+	return m, nil
 }
 
 // focusOn moves focus to a part, and the text cursor with it.

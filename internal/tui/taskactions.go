@@ -357,7 +357,10 @@ type taskLine struct {
 	sending sendState
 }
 
-var _ failable[taskLine] = taskLine{}
+var (
+	_ failable[taskLine] = taskLine{}
+	_ pasteable          = taskLine{}
+)
 
 // openTaskLine opens a line to type for a task command, starting from prefill.
 // The input is sized to the overlay before prefill is set, so a line wider than
@@ -476,6 +479,19 @@ func (l taskLine) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		return m, nil
 	}
+}
+
+// pasted types a paste into the line, as typing it would.
+func (l taskLine) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
+	if l.sending.sending {
+		return m, nil
+	}
+
+	l.input, _ = sizedInput(l.input, m.detailWidth()).Update(paste)
+	l.problem = nil
+	m.overlay = l
+
+	return m, nil
 }
 
 // confirm sends the typed line, refusing an empty one in place, and holding it
