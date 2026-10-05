@@ -161,12 +161,13 @@ internal/webserver 24
 # root wiring, and the scriptable write commands from FEAT-41 (branch.go, pr.go,
 # announce.go) with their shared preview/confirm/dry-run helper (scriptable.go),
 # slack_cmd.go for `workflow slack login`, which sets up the Slack user token,
-# and dbclean_cmd.go for `workflow db-clean`, which lists and removes the local
-# databases. One responsibility — turn a command line into a wiring seam call
+# dbclean_cmd.go for `workflow db-clean`, which lists and removes the local
+# databases, and connect.go, which wires a command to the directory it runs
+# in, as the Repositories pane's switch wires another. One responsibility — turn a command line into a wiring seam call
 # and printed output — spelled command-per-file; it grows when the tool gains a command,
 # which the docs reference records, or when one command's sections outgrow a
 # file, as doctor's did.
-internal/cli 16
+internal/cli 17
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the
