@@ -197,53 +197,6 @@ func (m Model) loading(p pane) bool {
 	return false
 }
 
-// helpColumnSplit is the group after which the help wraps into a second column.
-// At the keys bound today the three groups on the left take 35 lines and the
-// five on the right 43; a split after four would only swap the two. It is
-// counted rather than computed, so a key added to one side is the time to count
-// again.
-const helpColumnSplit = 3
-
-// helpColumnGap is the space between the help's two columns.
-const helpColumnGap = 4
-
-// helpView lists every key, grouped by where it works, in two columns so the
-// whole set fits a short pane with less scrolling.
-func (m Model) helpView() string {
-	left := m.helpColumn(0, helpColumnSplit)
-	right := m.helpColumn(helpColumnSplit, len(helpGroups(m.cfg.Messaging.Service())))
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, lipgloss.NewStyle().PaddingLeft(helpColumnGap).Render(right))
-}
-
-// helpColumn renders the help groups in a range, one key a line under each
-// group's name. A binding with no help text of its own is left out; it rides
-// another's line.
-func (m Model) helpColumn(first, last int) string {
-	groups := m.keys.FullHelp()
-	names := helpGroups(m.cfg.Messaging.Service())
-
-	var lines []string
-
-	for index := first; index < last; index++ {
-		if index > first {
-			lines = append(lines, "")
-		}
-
-		lines = append(lines, m.styles.strong.Render(names[index]))
-
-		for _, binding := range groups[index] {
-			if binding.Help().Key == "" {
-				continue
-			}
-
-			lines = append(lines, "  "+fmt.Sprintf("%-10s", binding.Help().Key)+binding.Help().Desc)
-		}
-	}
-
-	return strings.Join(lines, "\n")
-}
-
 // detailRows is how many rows of content the detail pane holds.
 func (m Model) detailRows() int {
 	shape := m.shape()

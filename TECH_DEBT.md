@@ -158,6 +158,14 @@ same commit or fail `task check`.
 `scripts/package-size-budget-history.md` dated after 2026-09-25, with no
 row lowering it between them.
 
+**Revisited.** 2026-10-05, in #170: the trigger had fired for
+`internal/tui` (45 → 50 in #164 and #165), and seven more files are
+planned there — `keycheck.go`, then the Tasks listing, the comment
+composer, the Summary pane and its calendar, and the Repositories pane and
+its directory prompt. Each is a pane or an overlay of the one interface
+CLAUDE.md says must not be split to chase a number, so each rises with its
+own row and WHY rather than reopening how the package is budgeted.
+
 ### TRADE-2 Seven test files stay past the 500-line soft target
 
 All seven are under the 800 ceiling (`scripts/check-file-length.sh
