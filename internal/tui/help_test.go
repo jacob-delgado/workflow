@@ -94,6 +94,8 @@ func placedBindings() []helpGroup {
 			"modify-task       e          modify",
 			"undo-task         u          undo",
 			"sync-tasks        S          sync",
+			"filter-tasks      /          filter",
+			"narrow-tasks      f          narrow",
 			"sort-tasks        O          sort"),
 		placed("In a composer or preview",
 			"edit              e          edit",

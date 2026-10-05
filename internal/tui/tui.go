@@ -228,6 +228,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.overlay.handleKey(m, msg)
 	case m.filteringIssues():
 		return m.handleIssueFilterKey(msg)
+	case m.filteringTasks():
+		return m.handleTaskFilterKey(msg)
 	default:
 		return m.handleGlobalKey(msg)
 	}
@@ -305,7 +307,7 @@ func (m Model) focusOn(target pane) Model {
 	m.focus = target
 	m.issues = m.issues.clearFilter()
 
-	return m
+	return m.withoutTaskFilter()
 }
 
 // toggleMouse gives the terminal its own click-drag selection back, or takes it
@@ -336,7 +338,7 @@ const minNoticeHeight = 4
 // showsNotice reports a notice — or the issue filter — that has room for its own
 // row above the hints.
 func (m Model) showsNotice() bool {
-	return (m.notice.text != "" || m.showsFilter()) && m.height >= minNoticeHeight
+	return (m.notice.text != "" || m.showsFilter() || m.filteringTasks()) && m.height >= minNoticeHeight
 }
 
 // showsFilter reports that the Issues pane's filter should be shown on its own

@@ -5,7 +5,9 @@ package tui
 
 import (
 	"slices"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -54,20 +56,68 @@ func (o taskOrder) sorted(tasks []taskwarrior.Task, now time.Time) []taskwarrior
 }
 
 // taskListing is how the user has chosen to see the Tasks list for the
-// session: its order. Changing it reads nothing again.
+// session: its order, what narrows it, and whether a filter is being typed.
+// Changing it reads nothing again.
 type taskListing struct {
-	order taskOrder
+	order     taskOrder
+	narrowing taskwarrior.Narrowing
+	filtering bool
 }
 
 // titled reports a list that says how it is listed, above its rows: any order
-// but the most urgent first the pane opens on.
+// but the most urgent first the pane opens on, or a narrowing.
 func (l taskListing) titled() bool {
-	return l.order != taskOrderUrgency
+	return l.order != taskOrderUrgency || l.narrowing.Narrows() || l.filtering
 }
 
-// heading says how the list is listed.
-func (l taskListing) heading() string {
-	return l.order.title()
+// heading says how the list is listed: its order, the values it is narrowed
+// to, and the filter, typed or applied.
+func (l taskListing) heading(marks glyphs) string {
+	parts := []string{l.order.title()}
+
+	if len(l.narrowing.Picked) > 0 {
+		labels := make([]string, 0, len(l.narrowing.Picked))
+		for _, picked := range l.narrowing.Picked {
+			labels = append(labels, picked.Label())
+		}
+
+		parts = append(parts, "narrowed to "+strings.Join(labels, ", "))
+	}
+
+	if l.filtering || l.narrowing.Text != "" {
+		parts = append(parts, "filter: "+l.narrowing.Text)
+	}
+
+	return strings.Join(parts, marks.separator)
+}
+
+// beginFilter starts typing a filter afresh.
+func (l taskListing) beginFilter() taskListing {
+	l.filtering, l.narrowing.Text = true, ""
+
+	return l
+}
+
+// extendFilter adds text to the filter being typed.
+func (l taskListing) extendFilter(text string) taskListing {
+	l.narrowing.Text += text
+
+	return l
+}
+
+// trimFilter takes the last character off the filter being typed.
+func (l taskListing) trimFilter() taskListing {
+	_, size := utf8.DecodeLastRuneInString(l.narrowing.Text)
+	l.narrowing.Text = l.narrowing.Text[:len(l.narrowing.Text)-size]
+
+	return l
+}
+
+// clearFilter stops typing and drops the filter; picked values stay.
+func (l taskListing) clearFilter() taskListing {
+	l.filtering, l.narrowing.Text = false, ""
+
+	return l
 }
 
 // taskGroups is the pending tasks as the pane lists them: those for an issue the
@@ -96,7 +146,9 @@ func (m Model) taskGroupsBy(listing taskListing) taskGroups {
 		_, listed := m.issues.find(jira.Key(task.IssueKey))
 
 		switch {
-		case task.Waiting(now):
+		case !listing.narrowing.Matches(task, now):
+			continue
+		case task.Waiting(now) && !listing.narrowing.ListsWaiting():
 			groups.waiting++
 		case task.Linked() && listed:
 			groups.forIssues = append(groups.forIssues, task)
@@ -197,7 +249,9 @@ func (m Model) trackingTask(issueKey jira.Key) (taskwarrior.Task, bool) {
 		return taskwarrior.Task{}, false
 	}
 
-	groups := m.taskGroups()
+	// The list as the pane would show it with nothing narrowing it, so what the
+	// user has narrowed the view to never changes which task a write targets.
+	groups := m.taskGroupsBy(taskListing{})
 	listed := slices.IndexFunc(tracking, func(task taskwarrior.Task) bool { return groups.lists(task.UUID) })
 
 	return tracking[max(0, listed)], true
@@ -228,6 +282,8 @@ func (m Model) unlistedBecause(task taskwarrior.Task) string {
 	now := m.deps.now()
 
 	switch {
+	case m.taskGroupsBy(taskListing{}).lists(task.UUID):
+		return "which the Tasks pane's narrowing hides; " + m.keys.narrowTasks.Help().Key + " there changes it"
 	case task.Waiting(now):
 		return "which waits until " + task.Wait.In(now.Location()).Format(time.DateOnly)
 	case task.Status == taskwarrior.Recurring:
@@ -269,7 +325,92 @@ func (m Model) handleTaskListKey(msg tea.KeyPressMsg) (Model, bool) {
 	switch {
 	case key.Matches(msg, m.keys.sortTasks):
 		return m.sortTasks(), true
+	case key.Matches(msg, m.keys.filterTasks) && len(m.tasks.pending) > 0:
+		m.tasks.listing = m.tasks.listing.beginFilter()
+
+		return m.relistTasks(), true
+	case key.Matches(msg, m.keys.narrowTasks) && len(m.tasks.pending) > 0:
+		return m.openTaskNarrowing(), true
 	default:
 		return m, false
 	}
+}
+
+// taskListKeys are the footer's keys that change how the list is listed.
+func (m Model) taskListKeys() []key.Binding {
+	if len(m.tasks.pending) == 0 {
+		return []key.Binding{m.keys.sortTasks}
+	}
+
+	return []key.Binding{m.keys.filterTasks, m.keys.narrowTasks, m.keys.sortTasks}
+}
+
+// filteringTasks reports the Tasks pane capturing keystrokes into its filter,
+// which takes every key, q and the digits included, until it closes.
+func (m Model) filteringTasks() bool {
+	return m.focus == paneTasks && m.tasks.listing.filtering
+}
+
+// handleTaskFilterKey types the Tasks filter as the Issues filter is typed:
+// enter keeps it, esc clears it, the arrows move the cursor, and every other
+// key extends it. It reads enter and esc themselves, so a printable key ui.keys
+// moved onto either still types.
+func (m Model) handleTaskFilterKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch msg.Code {
+	case tea.KeyEscape:
+		m.tasks.listing = m.tasks.listing.clearFilter()
+	case tea.KeyEnter:
+		m.tasks.listing.filtering = false
+	case tea.KeyDown, tea.KeyUp:
+		return m.moveTaskSelection(msg), nil
+	case tea.KeyBackspace:
+		m.tasks.listing = m.tasks.listing.trimFilter()
+	default:
+		m.tasks.listing = m.tasks.listing.extendFilter(typedText(msg))
+	}
+
+	return m.relistTasks(), nil
+}
+
+// withoutTaskFilter drops a typed filter when focus leaves the pane, as the
+// Issues filter is dropped; picked values stay for the session.
+func (m Model) withoutTaskFilter() Model {
+	if !m.tasks.listing.filtering && m.tasks.listing.narrowing.Text == "" {
+		return m
+	}
+
+	m.tasks.listing = m.tasks.listing.clearFilter()
+
+	return m.relistTasks()
+}
+
+var (
+	_ overlay   = checklist[taskwarrior.Facet]{}
+	_ clickable = checklist[taskwarrior.Facet]{}
+	_ steppable = checklist[taskwarrior.Facet]{}
+)
+
+// openTaskNarrowing opens the checklist of values the pending tasks hold, with
+// those already picked checked.
+func (m Model) openTaskNarrowing() Model {
+	picked := m.tasks.listing.narrowing.Picked
+	choices := taskwarrior.Choices(m.tasks.pending, picked, m.deps.now())
+	offers := make([]offered[taskwarrior.Facet], 0, len(choices))
+
+	for _, choice := range choices {
+		offers = append(offers, offered[taskwarrior.Facet]{value: choice.Facet, count: choice.Count})
+	}
+
+	m.overlay = checklist[taskwarrior.Facet]{
+		marks: m.marks, title: "Narrow", none: "no task to narrow",
+		choices: pickList[offered[taskwarrior.Facet]]{items: offers}, chosen: slices.Clone(picked),
+		label: taskwarrior.Facet.Label,
+		apply: func(m Model, chosen []taskwarrior.Facet) (Model, tea.Cmd) {
+			m.tasks.listing.narrowing.Picked = chosen
+
+			return m.relistTasks(), nil
+		},
+	}
+
+	return m
 }

@@ -282,8 +282,15 @@ func (m Model) pasted(paste tea.PasteMsg) (Model, tea.Cmd) {
 		return into.pasted(m, paste)
 	}
 
-	if m.overlay == nil && m.filteringIssues() {
+	switch {
+	case m.overlay != nil:
+		return m, nil
+	case m.filteringIssues():
 		return m.extendFilterBy(oneLine(paste.Content))
+	case m.filteringTasks():
+		m.tasks.listing = m.tasks.listing.extendFilter(oneLine(paste.Content))
+
+		return m.relistTasks(), nil
 	}
 
 	return m, nil
