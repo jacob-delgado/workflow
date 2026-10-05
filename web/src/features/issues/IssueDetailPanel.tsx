@@ -10,7 +10,7 @@ import { useIssue } from './issueApi.ts'
 import { IssueStatus } from './IssueStatus.tsx'
 import { WorkStory } from './WorkStory.tsx'
 import { CommentComposer } from './CommentComposer.tsx'
-import { WikiText } from './wiki/WikiText.tsx'
+import { CommentBody } from './wiki/WikiText.tsx'
 
 const sectionHeading = 'text-base font-semibold'
 
@@ -246,7 +246,7 @@ function CommentItem({ comment }: { comment: Comment }) {
           <WrittenAt created={comment.created} />
         </p>
         <div className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-card-foreground">
-          <WikiText markup={comment.body} />
+          <CommentBody body={comment.body} markdown={false} />
         </div>
       </div>
     </li>

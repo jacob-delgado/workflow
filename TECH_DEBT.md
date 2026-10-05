@@ -799,3 +799,23 @@ written in `$EDITOR` with tabs is posted with spaces.
 
 **Reopen when.** Users ask for editing commands the box lacks, or a second
 surface wants a box of its own.
+
+### TRADE-31 A comment too large to parse safely is shown unformatted
+
+The web draws a comment through `CommentBody`
+(`web/src/features/issues/wiki/WikiText.tsx`). A body over 65,536
+characters, or with a line over 1,000, is shown as plain text, its markup
+unread.
+
+**Decided.** 2026-10-05, in #174: forge threads are written by anyone who
+can comment on the repository, and several of the markup patterns (a
+link's label, a bare link, Markdown's links and underscores) rescan from
+every opener that never closes, so a long run of them is quadratic and
+stalls the page. Bounding the input keeps every pattern as it is, where
+rewriting each as a linear scanner would be a parser of its own to keep.
+
+**Cost.** A real comment past either size, such as a pasted log, loses its
+formatting, and a link in it is text, not a link.
+
+**Reopen when.** A legitimate comment is found drawn plain, or the markup
+is parsed by something linear.
