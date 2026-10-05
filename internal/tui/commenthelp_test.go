@@ -15,7 +15,7 @@ func TestCommentEditorNamesTheMarkupTheInstanceUses(t *testing.T) {
 		markdown bool
 		want     string
 	}{
-		"wiki markup by default":        {markdown: false, want: "Jira's own markup works here."},
+		"wiki markup when it is off":    {markdown: false, want: "Jira's own markup works here."},
 		"Markdown note when configured": {markdown: true, want: "Markdown works here"},
 	}
 

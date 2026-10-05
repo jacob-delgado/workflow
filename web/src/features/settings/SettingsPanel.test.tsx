@@ -261,7 +261,8 @@ test('toggling Markdown comments rides back through a save', async () => {
     </QueryClientProvider>,
   )
   const toggle = await screen.findByRole('checkbox', { name: /markdown/i })
-  expect((toggle as HTMLInputElement).checked).toBe(false)
+  // On by default, so the save carries it off.
+  expect((toggle as HTMLInputElement).checked).toBe(true)
   await user.click(toggle)
 
   // Act: save, then reopen against the same client
@@ -276,7 +277,7 @@ test('toggling Markdown comments rides back through a save', async () => {
 
   // Assert
   const reopened = await screen.findByRole('checkbox', { name: /markdown/i })
-  expect((reopened as HTMLInputElement).checked).toBe(true)
+  expect((reopened as HTMLInputElement).checked).toBe(false)
 })
 
 test('a save updates the cache so reopening Settings shows the change', async () => {

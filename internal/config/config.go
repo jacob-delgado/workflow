@@ -78,8 +78,8 @@ type Jira struct {
 	Project string `json:"project"`
 	// MarkdownComments rewrites a comment written in Markdown as the wiki markup
 	// Jira renders before posting it, so headings, emphasis, code and links come
-	// out formatted rather than literal. Off by default: a comment that is
-	// already wiki markup, or means its asterisks literally, is posted unchanged.
+	// out formatted rather than literal. On by default; false posts a comment
+	// unchanged, for one already written in wiki markup.
 	MarkdownComments bool `json:"markdown_comments"`
 	// ReviewStatus is the status an issue moves to once its pull request is open,
 	// e.g. "In Review". Opening a pull request offers the change to this status by
@@ -195,7 +195,7 @@ type Config struct {
 func Default() Config {
 	return Config{
 		Version:   CurrentVersion,
-		Jira:      Jira{BaseURL: "", Token: "", User: ""},
+		Jira:      Jira{BaseURL: "", Token: "", User: "", MarkdownComments: true},
 		Messaging: Messaging{ClientID: "", WebhookURL: "", Channel: ""},
 		Forge:     Forge{Kind: "", Host: "", Token: ""},
 		UI:        UI{Mouse: true, ASCII: false},
@@ -208,9 +208,10 @@ func Template() Config {
 	return Config{
 		Version: CurrentVersion,
 		Jira: Jira{
-			BaseURL: "https://jira.example.com",
-			Token:   "",
-			User:    "",
+			BaseURL:          "https://jira.example.com",
+			Token:            "",
+			User:             "",
+			MarkdownComments: true,
 		},
 		Messaging: Messaging{
 			Kind:       KindSlack,

@@ -455,14 +455,14 @@ func TestACommentIsPostedAndAnsweredAsJiraStoredIt(t *testing.T) {
 	deps := commentingDeps(&comments)
 
 	// Act
-	recorder := postComment(t, deps, commentPath, `{"text":"Looks good *to me*"}`)
+	recorder := postComment(t, deps, commentPath, `{"text":"Looks good to me"}`)
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d (%s), want 200", recorder.Code, recorder.Body.String())
 	}
 
-	want := commentCall{issueKey: testKey, text: "Looks good *to me*"}
+	want := commentCall{issueKey: testKey, text: "Looks good to me"}
 	if len(comments) != 1 || comments[0] != want {
 		t.Errorf("comments = %+v, want %+v posted once", comments, want)
 	}

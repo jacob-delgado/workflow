@@ -20,6 +20,7 @@ func TestACommentFollowsMarkdownTurnedOnInSettings(t *testing.T) {
 	var comments []commentCall
 
 	cfg := config.Default()
+	cfg.Jira.MarkdownComments = false
 	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
 	handler := serve(t, commentingDeps(&comments), cfg)
 
