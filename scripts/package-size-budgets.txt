@@ -71,7 +71,7 @@ internal/forge 14
 # CLAUDE.md names as one that must not be split to chase a number; the entry
 # freezes the count so a new concern is a decision, not drift, not a target to
 # shrink toward. layout/ and frame/ are already the pure leaves that could leave.
-# 51 = the panes, overlays and composers, including issuewrite.go (the assign
+# 52 = the panes, overlays and composers, including issuewrite.go (the assign
 # and log-work forms), issuekeys.go (the Issues pane's key routing, split out of
 # detail.go when it crossed the 500-line file ceiling), scopesuggest.go (the
 # commit scope's completion from the staged directory and the log) and diff.go
@@ -110,8 +110,11 @@ internal/forge 14
 # neither overlay passes the 500-line target); and keycheck.go (CheckKeys:
 # which ui.keys maps the interface refuses, and the keyboard contexts it checks
 # them in, out of keys.go so the bindings themselves stay under the 500-line
-# target as four planned features add their own).
-internal/tui 51
+# target as four planned features add their own); and tasklist.go (which tasks
+# the Tasks pane lists and in what order: its groups, its sort and its
+# narrowing, and the task that tracks an issue whatever the narrowing, out of
+# tasks.go and taskactions.go, both past 600 lines).
+internal/tui 52
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of
