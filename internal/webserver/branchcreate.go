@@ -25,6 +25,10 @@ var errBranchExists = errors.New("a branch for this issue already exists")
 // a partial clone fetches from the remote, and a fetch that fails names it.
 var errCreateRefused = errors.New("git refused the new branch")
 
+// errWorktreeRefused is git declining to make the new worktree, its own words
+// kept off the wire as errCreateRefused's are.
+var errWorktreeRefused = errors.New("git refused the new worktree")
+
 // CreateBranch names a branch for an issue by the branch-name convention,
 // creates it off the base branch, and switches to it — how a not-started issue
 // is picked up. A branch that already exists is a 409, git refusing the branch
@@ -70,6 +74,10 @@ func (s *server) startRefusal(err error, key string) (api.Problem, int) {
 	case errors.Is(err, errCreateRefused):
 		return problem(api.Unprocessable, "git would not create the branch for "+key+
 			"; run workflow branch "+key+" from a terminal to see git's reason"), http.StatusUnprocessableEntity
+	case errors.Is(err, errWorktreeRefused):
+		return problem(api.Unprocessable, "git would not make a worktree for "+key+
+				"; make it with ctrl+w in the terminal interface's branch creator to see git's reason"),
+			http.StatusUnprocessableEntity
 	default:
 		return s.fault(err)
 	}
@@ -80,37 +88,19 @@ func (s *server) startRefusal(err error, key string) (api.Problem, int) {
 // cannot be read back, one of the created name, since the branch read before
 // the create is the one it left.
 func (s *server) startWork(issueKey string) (gitrepo.Branch, error) {
-	name, err := s.newBranchFor(issueKey)
+	name, err := s.branchNameFor(issueKey)
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
 
-	err = s.createAndSwitch(name)
+	err = s.createUnlessTaken(name, errCreateRefused, func() error {
+		return s.deps.CreateBranch(name, s.currentBranchBase())
+	})
 	if err != nil {
-		return gitrepo.Branch{}, fmt.Errorf("%w: creating %s: %w", errCreateRefused, name, err)
+		return gitrepo.Branch{}, err
 	}
 
 	return s.branchAfter(gitrepo.Branch{Name: name}), nil
-}
-
-// newBranchFor is the branch the convention names for the issue, refused when
-// a branch already goes by that name.
-func (s *server) newBranchFor(issueKey string) (string, error) {
-	name, err := s.branchNameFor(issueKey)
-	if err != nil {
-		return "", err
-	}
-
-	exists, err := s.branchExists(name)
-	if err != nil {
-		return "", err
-	}
-
-	if exists {
-		return "", errBranchExists
-	}
-
-	return name, nil
 }
 
 // branchNameFor is the branch the convention names for the issue, from its type
@@ -156,13 +146,29 @@ func createBranchUnprocessable(message string) api.CreateBranch422ApplicationPro
 	return api.CreateBranch422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
 }
 
-// createAndSwitch creates name from the base and switches to it, holding the
-// index so it never meets a stage under way.
-func (s *server) createAndSwitch(name string) error {
+// createUnlessTaken makes the branch name with create, unless a branch already
+// goes by it, holding the index throughout: a stage never meets the new
+// branch, and two starts of work on one issue at once make it once, the other
+// refused as taken. git refusing it is refused, wrapped in refused.
+func (s *server) createUnlessTaken(name string, refused error, create func() error) error {
 	s.indexWrites.Lock()
 	defer s.indexWrites.Unlock()
 
-	return s.deps.CreateBranch(name, s.currentBranchBase())
+	exists, err := s.branchExists(name)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		return errBranchExists
+	}
+
+	err = create()
+	if err != nil {
+		return fmt.Errorf("%w: creating %s: %w", refused, name, err)
+	}
+
+	return nil
 }
 
 // CreateWorktree names a branch for an issue as CreateBranch does and creates
@@ -181,18 +187,23 @@ func (s *server) CreateWorktree(
 		return createWorktreeUnprocessable("creating a worktree is not available"), nil
 	}
 
-	name, err := s.newBranchFor(key)
+	var dir string
+
+	name, err := s.branchNameFor(key)
 	if err == nil {
-		var dir string
+		err = s.createUnlessTaken(name, errWorktreeRefused, func() error {
+			var made error
 
-		dir, err = s.deps.CreateWorktree(name, s.currentBranchBase())
-		if err == nil {
-			shown := workdirs.Shown(dir, s.deps.Repositories.Home)
+			dir, made = s.deps.CreateWorktree(name, s.currentBranchBase())
 
-			return api.CreateWorktree200JSONResponse{Dir: dir, Shown: shown, Branch: name}, nil
-		}
+			return made
+		})
+	}
 
-		err = fmt.Errorf("%w: a worktree for %s: %w", errCreateRefused, name, err)
+	if err == nil {
+		shown := workdirs.Shown(dir, s.deps.Repositories.Home)
+
+		return api.CreateWorktree200JSONResponse{Dir: dir, Shown: shown, Branch: name}, nil
 	}
 
 	body, code := s.startRefusal(err, key)

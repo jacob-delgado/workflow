@@ -123,9 +123,9 @@ type branchListing struct {
 	mine   map[jira.Key]bool
 	// links are the branches linked to an issue by hand, by name.
 	links map[string]string
-	// worktrees are the directories of the other worktrees, by the branch
-	// each has checked out, and home what they are written from.
-	worktrees map[string]string
+	// worktrees are the other worktrees, by the branch each has checked
+	// out, and home what their directories are written from.
+	worktrees map[string]gitrepo.Worktree
 	home      string
 }
 
@@ -145,18 +145,21 @@ func taskBranchesDTO(listing branchListing, current, project string) []api.TaskB
 			continue
 		}
 
-		remote, worktree, shown := listing.remote[name], listing.worktrees[name], ""
-		if worktree != "" {
-			shown = workdirs.Shown(worktree, listing.home)
+		remote, worktree := listing.remote[name], listing.worktrees[name]
+
+		shown := ""
+		if worktree.Dir != "" {
+			shown = workdirs.Shown(worktree.Dir, listing.home)
 		}
 
 		branches = append(branches, api.TaskBranch{
-			Name:          name,
-			IssueKey:      key.Key,
-			Current:       name == current,
-			Remote:        &remote,
-			Worktree:      &worktree,
-			WorktreeShown: &shown,
+			Name:            name,
+			IssueKey:        key.Key,
+			Current:         name == current,
+			Remote:          &remote,
+			Worktree:        &worktree.Dir,
+			WorktreeShown:   &shown,
+			WorktreeMissing: &worktree.Missing,
 		})
 	}
 

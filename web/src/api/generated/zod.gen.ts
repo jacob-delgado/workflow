@@ -365,7 +365,8 @@ export const zTaskBranch = z.object({
     current: z.boolean(),
     remote: z.boolean().optional().default(false),
     worktree: z.string().optional().default(''),
-    worktree_shown: z.string().optional().default('')
+    worktree_shown: z.string().optional().default(''),
+    worktree_missing: z.boolean().optional().default(false)
 });
 
 export const zStatusCategory = z.enum([

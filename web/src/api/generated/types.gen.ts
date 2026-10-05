@@ -684,6 +684,10 @@ export type TaskBranch = {
      * That worktree's directory written from your home; empty when none.
      */
     worktree_shown?: string;
+    /**
+     * Whether that worktree's directory is gone: git holds the branch for it until it is pruned, so it can be neither checked out nor switched to.
+     */
+    worktree_missing?: boolean;
 };
 
 export type IssuesPage = {

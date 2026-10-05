@@ -11,7 +11,9 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -25,6 +27,7 @@ const (
 	apiGone      = "/home/ana/src/api-gone"
 	worktreeHead = "300a7be68d29eb9302518fd80f1cf20267d6feba"
 	worktreesAt  = "/api/worktrees"
+	branchesAt   = "/api/branches"
 	shortHead    = "300a7be"
 )
 
@@ -169,9 +172,12 @@ func TestCreateWorktreeNeverForwardsGitsOwnWords(t *testing.T) {
 	recorder := postWorktree(t, deps, webserver.Info{Version: testVersion})
 
 	// Assert
+	// workflow branch makes the branch in place, the opposite of what was
+	// asked, so the reason is shown where a worktree is made in the terminal.
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusUnprocessableEntity || strings.Contains(failure.Detail, "/home") {
-		t.Errorf("status %d, detail %q; want 422 in fixed words", recorder.Code, failure.Detail)
+	if recorder.Code != http.StatusUnprocessableEntity || strings.Contains(failure.Detail, "/home") ||
+		!strings.Contains(failure.Detail, "ctrl+w") || strings.Contains(failure.Detail, "workflow branch") {
+		t.Errorf("status %d, detail %q; want 422 in fixed words naming ctrl+w", recorder.Code, failure.Detail)
 	}
 }
 
@@ -247,4 +253,87 @@ func valueOf(optional *string) string {
 	}
 
 	return *optional
+}
+
+func TestTwoStartsOfWorkAtOnceMakeOneBranch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Start work and Start in a new worktree, pressed together, each check
+	// that no branch goes by the name before making it: only one may.
+	var (
+		guard sync.Mutex
+		made  []string
+	)
+
+	deps := worktreeDeps()
+	deps.Branches = func() ([]string, error) {
+		guard.Lock()
+		defer guard.Unlock()
+
+		return slices.Clone(made), nil
+	}
+	create := func(name string) {
+		time.Sleep(20 * time.Millisecond)
+		guard.Lock()
+		defer guard.Unlock()
+
+		made = append(made, name)
+	}
+	deps.CreateBranch = func(name, _ string) error {
+		create(name)
+
+		return nil
+	}
+	deps.CreateWorktree = func(name, _ string) (string, error) {
+		create(name)
+
+		return apiFeature, nil
+	}
+	handler := serve(t, deps, config.Default())
+	codes := make(chan int, 2)
+
+	// Act
+	for _, path := range []string{branchesAt, worktreesAt} {
+		go func() {
+			codes <- send(t, handler, http.MethodPost, path, `{"issue_key":"`+startIssue+`"}`).Code
+		}()
+	}
+
+	// Assert
+	got := []int{<-codes, <-codes}
+	slices.Sort(got)
+
+	if !slices.Equal(got, []int{http.StatusOK, http.StatusConflict}) || len(made) != 1 {
+		t.Errorf("statuses %v, made %v; want one made and the other refused as taken", got, made)
+	}
+}
+
+func TestASnapshotBranchHeldByAWorktreeThatIsGoneSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// git will not check out a branch a worktree holds, even one gone, until
+	// the worktree is pruned, so the page says so rather than offering either.
+	deps := worktreeDeps()
+	deps.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+		return []gitrepo.Worktree{
+			{Dir: apiRoot, Branch: testBranchName, Head: worktreeHead},
+			{Dir: apiGone, Branch: targetBranch, Head: worktreeHead, Missing: true},
+		}, nil
+	}
+	cfg := config.Default()
+	cfg.Jira.Project = testProject
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+
+	// Assert
+	for _, branch := range snap.Branches {
+		gone := branch.WorktreeMissing != nil && *branch.WorktreeMissing
+		if branch.Name == targetBranch && (!gone || valueOf(branch.Worktree) != apiGone) {
+			t.Errorf("%s = %+v, want it held by %s, gone", targetBranch, branch, apiGone)
+		}
+	}
 }

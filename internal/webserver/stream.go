@@ -249,11 +249,11 @@ func (s *server) snapshotBranches(checkedOut string) []api.TaskBranch {
 	return taskBranchesDTO(listing, checkedOut, project)
 }
 
-// otherWorktrees is the directory of each other worktree still there, by the
-// branch it has checked out: none outside a repository or when the read
-// fails, since a branch then reads as one to check out, as it did before.
-func (s *server) otherWorktrees() map[string]string {
-	byBranch := map[string]string{}
+// otherWorktrees is each other worktree, gone or not, by the branch it has
+// checked out: none outside a repository or when the read fails, since a
+// branch then reads as one to check out, as it did before.
+func (s *server) otherWorktrees() map[string]gitrepo.Worktree {
+	byBranch := map[string]gitrepo.Worktree{}
 	if s.deps.Repositories.Worktrees == nil {
 		return byBranch
 	}
@@ -264,8 +264,8 @@ func (s *server) otherWorktrees() map[string]string {
 	}
 
 	for _, worktree := range worktrees {
-		if worktree.Branch != "" && !worktree.Missing && worktree.Dir != s.deps.Repositories.Here.Root {
-			byBranch[worktree.Branch] = worktree.Dir
+		if worktree.Branch != "" && worktree.Dir != s.deps.Repositories.Here.Root {
+			byBranch[worktree.Branch] = worktree
 		}
 	}
 

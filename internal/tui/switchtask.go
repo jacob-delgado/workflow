@@ -24,6 +24,10 @@ const switchTitle = "Switch task"
 // to the person, so the reason says what to do rather than doing it.
 var errDirtyTree = errors.New("uncommitted changes — commit or stash them before switching tasks")
 
+// errBranchHeldByGone is a branch a worktree whose directory is gone still holds:
+// git will not check it out anywhere until that worktree is pruned.
+var errBranchHeldByGone = errors.New("its worktree is gone; git worktree prune frees the branch to switch to")
+
 // taskBranch is a branch that names an issue, offered to switch to: a local
 // one, or one only the remote has, which switching to creates here. worktree
 // is the directory of another worktree that has it checked out, where
@@ -36,6 +40,8 @@ type taskBranch struct {
 	worktree string
 	// worktreeShown is worktree written from your home, neutralized.
 	worktreeShown string
+	// worktreeGone reports the worktree's directory gone.
+	worktreeGone bool
 }
 
 // branchesListed carries the local and remote branches back into the update
@@ -47,9 +53,8 @@ type branchesListed struct {
 	mine          map[jira.Key]bool
 	// links are the branches linked to an issue by hand, by name.
 	links map[string]string
-	// worktrees are the directories of the other worktrees, by the branch
-	// each has checked out.
-	worktrees map[string]string
+	// worktrees are the other worktrees, by the branch each has checked out.
+	worktrees map[string]gitrepo.Worktree
 	notAsked  error
 	err       error
 }
@@ -109,7 +114,8 @@ func (m Model) taskBranches(listed branchesListed) []taskBranch {
 		branch.issueKey, branch.summary = jira.Key(key.Key), issue.Summary
 
 		if worktree, elsewhere := listed.worktrees[branch.name]; elsewhere {
-			branch.worktree, branch.worktreeShown = worktree, m.shownDir(worktree)
+			branch.worktree, branch.worktreeShown = worktree.Dir, m.shownDir(worktree.Dir)
+			branch.worktreeGone = worktree.Missing
 		}
 
 		branches = append(branches, branch)
@@ -165,19 +171,19 @@ type branchLister struct {
 	here string
 }
 
-// otherWorktrees is the directory of each other worktree still there, by the
-// branch it has checked out: none outside a repository or when the read
-// fails, when each branch is checked out as before.
-func (l branchLister) otherWorktrees() map[string]string {
-	byBranch := map[string]string{}
+// otherWorktrees is each other worktree, gone or not, by the branch it has
+// checked out: none outside a repository or when the read fails, when each
+// branch is checked out as before.
+func (l branchLister) otherWorktrees() map[string]gitrepo.Worktree {
+	byBranch := map[string]gitrepo.Worktree{}
 	if l.worktrees == nil {
 		return byBranch
 	}
 
 	worktrees, _ := l.worktrees()
 	for _, worktree := range worktrees {
-		if worktree.Branch != "" && !worktree.Missing && worktree.Dir != l.here {
-			byBranch[worktree.Branch] = worktree.Dir
+		if worktree.Branch != "" && worktree.Dir != l.here {
+			byBranch[worktree.Branch] = worktree
 		}
 	}
 
@@ -293,6 +299,8 @@ func (p branchPicker) label(branch taskBranch) string {
 	named += p.marks.separator + branch.name
 
 	switch {
+	case branch.worktreeGone:
+		named += " (worktree gone)"
 	case branch.worktree != "":
 		named += " (worktree at " + branch.worktreeShown + ")"
 	case branch.remote:
@@ -360,14 +368,18 @@ func (p branchPicker) step(m Model, delta int) Model {
 // the web does, so a file edited since the Commits pane last loaded is refused
 // rather than carried across. With no way to read the tree it reads as clean.
 // A branch another worktree has checked out is switched to by leaving for that
-// worktree, which carries nothing across.
+// worktree, which carries nothing across, or refused when that worktree is
+// gone, saying how to free the branch.
 func (p branchPicker) choose(m Model) (Model, tea.Cmd) {
 	branch, ok := p.branches.chosen()
 	if !ok {
 		return m, nil
 	}
 
-	if branch.worktree != "" {
+	switch {
+	case branch.worktreeGone:
+		return keepOpenWith[branchPicker](m, errBranchHeldByGone), nil
+	case branch.worktree != "":
 		return m.closeOverlay().leaveFor(branch.worktree)
 	}
 
