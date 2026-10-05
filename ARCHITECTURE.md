@@ -167,6 +167,7 @@ HTTP transport and one subprocess seam.
 | `internal/slackauth` | Keeps a Slack user token posting: refreshes it, keeps each pair in the keychain or the file, under a lock |
 | `internal/httpx` | The shared one-method `Doer` seam and a **redirect-refusing** HTTP client |
 | `internal/gitrepo` | Reads and changes the repository through git, via a caller-supplied `Runner` |
+| `internal/taskwarrior` | Your Taskwarrior tasks — read them, change them, and the Tasks list's orders and narrowing |
 | `internal/proc` | The one place a subprocess is spawned |
 | `internal/store` | The on-disk state database (this document's second half) |
 
