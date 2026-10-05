@@ -25,12 +25,17 @@ const switchTitle = "Switch task"
 var errDirtyTree = errors.New("uncommitted changes — commit or stash them before switching tasks")
 
 // taskBranch is a branch that names an issue, offered to switch to: a local
-// one, or one only the remote has, which switching to creates here.
+// one, or one only the remote has, which switching to creates here. worktree
+// is the directory of another worktree that has it checked out, where
+// switching to it goes instead, since git will not check it out twice.
 type taskBranch struct {
 	name     string
 	issueKey jira.Key
 	summary  string
 	remote   bool
+	worktree string
+	// worktreeShown is worktree written from your home, neutralized.
+	worktreeShown string
 }
 
 // branchesListed carries the local and remote branches back into the update
@@ -41,9 +46,12 @@ type branchesListed struct {
 	local, remote []string
 	mine          map[jira.Key]bool
 	// links are the branches linked to an issue by hand, by name.
-	links    map[string]string
-	notAsked error
-	err      error
+	links map[string]string
+	// worktrees are the directories of the other worktrees, by the branch
+	// each has checked out.
+	worktrees map[string]string
+	notAsked  error
+	err       error
 }
 
 // yours reports whether key names one of your issues.
@@ -99,6 +107,11 @@ func (m Model) taskBranches(listed branchesListed) []taskBranch {
 
 		issue, _ := m.issues.find(jira.Key(key.Key))
 		branch.issueKey, branch.summary = jira.Key(key.Key), issue.Summary
+
+		if worktree, elsewhere := listed.worktrees[branch.name]; elsewhere {
+			branch.worktree, branch.worktreeShown = worktree, m.shownDir(worktree)
+		}
+
 		branches = append(branches, branch)
 	}
 
@@ -127,20 +140,48 @@ func (m Model) openBranchPicker() (Model, tea.Cmd) {
 	lister := branchLister{
 		local: m.deps.Git.Branches, remote: m.deps.Git.RemoteBranches, links: m.deps.Git.IssueLinks,
 		search: m.deps.Jira.SearchLenient, project: m.cfg.Jira.Project,
+		worktrees: m.deps.Repositories.Worktrees, here: m.deps.Repositories.Here.Root,
 	}
 
-	return m, func() tea.Msg { return lister.list() }
+	return m, func() tea.Msg {
+		listed := lister.list()
+		listed.worktrees = lister.otherWorktrees()
+
+		return listed
+	}
 }
 
 // branchLister lists the branches the switcher offers and asks the tracker which
 // of the issues they name are yours. A nil remote lists none there; a nil search
 // asks nothing, and a failed one answers nothing, so every issue counts.
 type branchLister struct {
-	local   func() ([]string, error)
-	remote  func() ([]string, error)
-	links   func() map[string]string
-	search  func(jql string, startAt int) (jira.SearchResult, error)
-	project string
+	local     func() ([]string, error)
+	remote    func() ([]string, error)
+	links     func() map[string]string
+	search    func(jql string, startAt int) (jira.SearchResult, error)
+	project   string
+	worktrees func() ([]gitrepo.Worktree, error)
+	// here is the root of the worktree this session works in.
+	here string
+}
+
+// otherWorktrees is the directory of each other worktree still there, by the
+// branch it has checked out: none outside a repository or when the read
+// fails, when each branch is checked out as before.
+func (l branchLister) otherWorktrees() map[string]string {
+	byBranch := map[string]string{}
+	if l.worktrees == nil {
+		return byBranch
+	}
+
+	worktrees, _ := l.worktrees()
+	for _, worktree := range worktrees {
+		if worktree.Branch != "" && !worktree.Missing && worktree.Dir != l.here {
+			byBranch[worktree.Branch] = worktree.Dir
+		}
+	}
+
+	return byBranch
 }
 
 // list is the local branches, then the remote ones, then which issues are yours.
@@ -250,7 +291,11 @@ func (p branchPicker) label(branch taskBranch) string {
 	}
 
 	named += p.marks.separator + branch.name
-	if branch.remote {
+
+	switch {
+	case branch.worktree != "":
+		named += " (worktree at " + branch.worktreeShown + ")"
+	case branch.remote:
 		named += " (remote)"
 	}
 
@@ -314,10 +359,16 @@ func (p branchPicker) step(m Model, delta int) Model {
 // choose reads the working tree before switching to the selected branch, as
 // the web does, so a file edited since the Commits pane last loaded is refused
 // rather than carried across. With no way to read the tree it reads as clean.
+// A branch another worktree has checked out is switched to by leaving for that
+// worktree, which carries nothing across.
 func (p branchPicker) choose(m Model) (Model, tea.Cmd) {
 	branch, ok := p.branches.chosen()
 	if !ok {
 		return m, nil
+	}
+
+	if branch.worktree != "" {
+		return m.closeOverlay().leaveFor(branch.worktree)
 	}
 
 	p.send = starting()

@@ -120,3 +120,49 @@ func TestAWorktreesBranchCannotDriveTheTerminal(t *testing.T) {
 		t.Errorf("a branch's escape reached the screen:\n%q", view)
 	}
 }
+
+// apiRetries is the worktree that has otherTaskBranch checked out.
+const apiRetries = "/home/ana/src/api-retries"
+
+// retriesInAWorktree is a world whose other issue's branch is checked out
+// in a worktree of its own, beside api's.
+func retriesInAWorktree() *world {
+	working := reposWorld()
+	working.changes = nil
+	working.branches = []string{featureName, otherTaskBranch}
+	working.dirs.worktrees = []gitrepo.Worktree{
+		{Dir: apiRoot, Branch: featureName, Head: worktreeHead},
+		{Dir: apiRetries, Branch: otherTaskBranch, Head: worktreeHead},
+	}
+
+	return working
+}
+
+func TestTheTaskSwitcherSaysWhichBranchAnotherWorktreeHas(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	opened := typing(t, retriesInAWorktree().live(t, 160, 40), "2", "s")
+
+	// Assert
+	requireScreen(t, opened.View().Content, "PROJ-388", "(worktree at ~/src/api-retries)")
+}
+
+func TestSwitchingToABranchAnotherWorktreeHasLeavesForThatWorktree(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// git will not check a branch out twice, so the worktree that has it is
+	// where its work goes on.
+	working := retriesInAWorktree()
+	opened := typing(t, working.live(t, 120, 40), "2", "s")
+
+	// Act
+	left, cmd := pressed(t, opened, keyEnter)
+
+	// Assert
+	if !quits(cmd) || left.Destination().Dir != apiRetries || len(working.asked("checkout")) != 0 {
+		t.Errorf("enter: quit %v, destination %q, checkouts %v; want the program ended for %s, nothing checked out",
+			quits(cmd), left.Destination().Dir, working.asked("checkout"), apiRetries)
+	}
+}
