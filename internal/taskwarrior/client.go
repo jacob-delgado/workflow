@@ -53,14 +53,9 @@ const pendingOrWaiting = "( status:pending or status:waiting )"
 // context and its read filter from _show and puts the filter before the status
 // filter, in parentheses as one word, so an or inside it stays inside it.
 func (c Client) Pending(ctx context.Context) (List, error) {
-	name, readFilter, err := c.activeContext(ctx)
+	name, filter, err := c.contextFilter(ctx)
 	if err != nil {
 		return List{}, err
-	}
-
-	var filter []string
-	if readFilter != "" {
-		filter = []string{"( " + readFilter + " )"}
 	}
 
 	tasks, err := c.export(ctx, append(filter, pendingOrWaiting)...)
@@ -71,10 +66,37 @@ func (c Client) Pending(ctx context.Context) (List, error) {
 	return List{Tasks: ByUrgency(tasks), Context: name}, nil
 }
 
+// Touched is every task the active context shows that changed after since,
+// whatever its status but deleted: a task completed is work done. Taskwarrior
+// keeps a task's times to the second and reads after as strictly after, so
+// the second before since is asked for.
+func (c Client) Touched(ctx context.Context, since time.Time) ([]Task, error) {
+	_, filter, err := c.contextFilter(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	after := since.UTC().Truncate(time.Second).Add(-time.Second).Format(time.RFC3339)
+
+	return c.export(ctx, append(filter, "modified.after:"+after, "status.not:deleted")...)
+}
+
 // Linked is every task that names a Jira issue and is not deleted, whatever
 // the active context hides.
 func (c Client) Linked(ctx context.Context) ([]Task, error) {
 	return c.export(ctx, "rc.context=", LinkUDA+".any:", "status.not:deleted")
+}
+
+// contextFilter is the active context's name and its read filter as a filter
+// word to put first, in parentheses as one word, so an or inside it stays
+// inside it; or no word for no context.
+func (c Client) contextFilter(ctx context.Context) (string, []string, error) {
+	name, readFilter, err := c.activeContext(ctx)
+	if err != nil || readFilter == "" {
+		return name, nil, err
+	}
+
+	return name, []string{"( " + readFilter + " )"}, nil
 }
 
 // activeContext is the active context's name, made safe to show on one line,
