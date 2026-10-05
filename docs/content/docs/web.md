@@ -108,7 +108,7 @@ The comments are drawn from Jira's wiki markup: bold, italic, struck and code
 text, links, headings, quotes, lists and code blocks. Anything else, such as a
 table, a panel or a color, shows as the text it is, and an image is offered as
 a link rather than loaded. Under a Jira issue's thread, a box takes a comment.
-With `jira.markdown_comments` on, the comment is Markdown: **Write** and
+The comment is Markdown, as `jira.markdown_comments` is on by default: **Write** and
 **Preview** are tabs, Preview shows it as Jira will, and the buttons beside
 them write bold, italic, code, a link or a list around what is selected. With
 it off, the comment is posted as typed, and Jira reads it as wiki markup.

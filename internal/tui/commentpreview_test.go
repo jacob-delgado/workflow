@@ -26,11 +26,12 @@ func TestCommentPreviewShowsTheConvertedMarkupWhenMarkdownIsOn(t *testing.T) {
 	requireScreen(t, view, "See *the docs* at {{run()}}.")
 }
 
-func TestCommentPreviewShowsTheTextVerbatimByDefault(t *testing.T) {
+func TestCommentPreviewShowsTheTextVerbatimWhenMarkdownIsOff(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	world := newWorld()
+	world.cfg.Jira.MarkdownComments = false
 	world.edited = markdownComment
 
 	// Act
