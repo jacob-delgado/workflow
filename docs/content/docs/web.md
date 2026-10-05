@@ -103,7 +103,9 @@ story, **Start work** creates and checks out a branch named for the issue, and
 worktree** creates the branch in a new git worktree beside the repository
 instead, leaving the checkout here as it is, then says where and offers
 **Switch to it**. A branch another worktree has checked out, which git will not
-check out twice, offers **Switch to its worktree** in place of the checkout. Once Taskwarrior has
+check out twice, offers **Switch to its worktree** in place of the checkout;
+one held by a worktree whose directory is gone says that `git worktree prune`
+frees it. Once Taskwarrior has
 answered, a **Tasks** card sits between the story and the description;
 [Tasks](#tasks) says what it holds. Below a large width the list sits over the
 detail rather than beside it.
@@ -422,7 +424,7 @@ or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
   `workflow announce` already made
   ([FEAT-84](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md#feat-84-the-web-remembers-what-was-announced)).
 - **Rebasing onto the base, amending, fixing up, reading a file's diff,
-  choosing among pull request templates, creating a branch in a worktree,
+  choosing among pull request templates,
   running the pre-commit hook on its own and generating a `lefthook.yml`** —
   the terminal alone.
 - **Offering a task change at the loop's moments** — starting the issue's

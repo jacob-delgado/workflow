@@ -222,13 +222,16 @@ interface StoryActionProps {
 
 // StoryAction is what moves an issue along from here: starting work on it, in
 // place or in a new worktree; checking its branch out; or switching to the
-// worktree that has it checked out, since git will not check it out twice. A
-// worktree just made is offered to switch to, and stays offered when the
-// snapshot then shows its branch.
+// worktree that has it checked out, since git will not check it out twice,
+// or saying how to free it when that worktree is gone. A worktree just made is
+// offered to switch to, and stays offered when the snapshot then shows its
+// branch, until a switch makes that branch the one checked out.
 function StoryAction({ issueKey, branch, outcome }: StoryActionProps) {
   const [made, setMade] = useState<CreatedWorktree | null>(null)
 
-  if (made !== null) {
+  // Once the switch has made the branch the one checked out, there is nothing
+  // left to offer.
+  if (made !== null && branch?.current !== true) {
     return <WorktreeMadeOffer issueKey={issueKey} worktree={made} outcome={outcome} />
   }
 
@@ -243,6 +246,16 @@ function StoryAction({ issueKey, branch, outcome }: StoryActionProps) {
 
   if (branch.current) {
     return null
+  }
+
+  if (branch.worktree && branch.worktree_missing) {
+    return (
+      <p className="text-sm text-foreground">
+        Its worktree at <span className="font-mono">{branch.worktree_shown}</span> is gone, and git
+        holds the branch for it until <span className="font-mono">git worktree prune</span> frees
+        it.
+      </p>
+    )
   }
 
   return branch.worktree ? (
