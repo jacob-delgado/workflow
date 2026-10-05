@@ -1,5 +1,111 @@
 # Changelog
 
+## [0.6.0](https://github.com/jacob-delgado/workflow/compare/v0.5.1...v0.6.0) (2026-10-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **store:** the kept schema's version goes from 1 to 2, with no migration. A kept.db an earlier build made reads as empty, and refuses writes, until `workflow db-clean --all` starts it fresh; its owners and groups are then asked about again once.
+* **config:** a configuration that leaves out jira.markdown_comments now converts comments from Markdown; set it to false to keep posting them as typed.
+
+### Features
+
+* **activity:** group what was done by year, month, day and hour ([0011cc3](https://github.com/jacob-delgado/workflow/commit/0011cc3b5b44ff8d41eab9ee1dd477de8482a07c))
+* **activity:** move a date by months, and take its month or year ([79a9bec](https://github.com/jacob-delgado/workflow/commit/79a9becdb4c4fe766a71a506c2351274ab061313))
+* **activity:** say which source each kind of thing done is from ([0b5a6f8](https://github.com/jacob-delgado/workflow/commit/0b5a6f8b9998c5a0c1c7d5967c44a7ca1fd6335a))
+* **api:** comment on a forge issue from the web ([94a0019](https://github.com/jacob-delgado/workflow/commit/94a001986f559ef693341071fd995ad1ba96262d))
+* **api:** list worktrees and start work in a new one from the web ([d9336c0](https://github.com/jacob-delgado/workflow/commit/d9336c043d060a92699b12868de394b10fa61f9b))
+* **api:** read back what you did over a period from the web ([6c89346](https://github.com/jacob-delgado/workflow/commit/6c89346874c597997f664fd3ccd2c7e3ccb9ec01))
+* **api:** say which worktree has an issue's branch checked out ([e40ab72](https://github.com/jacob-delgado/workflow/commit/e40ab723404078ba7ea8156ad95cfecf78fe4d93))
+* **api:** switch directory and keep favorites from the web ([d8d7e9b](https://github.com/jacob-delgado/workflow/commit/d8d7e9bfff44a4d147263d923584a72bfaca8c4f))
+* **config:** write comments in Markdown by default ([f1893a0](https://github.com/jacob-delgado/workflow/commit/f1893a0a1fef7b6254d34ca167c3c6bffc47ad6a))
+* **forge:** read and post a forge issue's comments ([01c7d43](https://github.com/jacob-delgado/workflow/commit/01c7d4340472b0968249cc9337417b52972da693))
+* **forge:** read what you did on the forge over a period ([1b33567](https://github.com/jacob-delgado/workflow/commit/1b33567b2d91af38e2d4f57e2c060c20fb5bc437))
+* **gitrepo:** read a repository's worktrees ([364bce7](https://github.com/jacob-delgado/workflow/commit/364bce735a92dba84b0359f304415eb60491e65a))
+* **gitrepo:** read the git directory a repository's worktrees share ([ab43c85](https://github.com/jacob-delgado/workflow/commit/ab43c8546fef1d4befd702c3f70caba7e721910b))
+* **gitrepo:** read your commits by when you wrote them ([7277b54](https://github.com/jacob-delgado/workflow/commit/7277b54c74c5f13d86f37a5802a800c865584074))
+* **jira:** read what you did to issues over a period ([19c64f1](https://github.com/jacob-delgado/workflow/commit/19c64f148838764361408c1bb9181e8e9105c5f2))
+* **loop:** turn each source's answer into the Summary's items ([c11663a](https://github.com/jacob-delgado/workflow/commit/c11663a9b47b84bc3047a3107c8fc442bc7569da))
+* read the Summary's commits across your favorite repositories ([3858426](https://github.com/jacob-delgado/workflow/commit/3858426a492f3d9b50766a16a7b8cffb5e726d84))
+* **store:** keep the directories you mark as favorites ([978cb83](https://github.com/jacob-delgado/workflow/commit/978cb836b1f7e7b85c85f00573c7dd8420771728))
+* **taskwarrior:** narrow tasks by facet and typed text ([571baef](https://github.com/jacob-delgado/workflow/commit/571baef90ba26a5800c788c3b702f423118a8a7e))
+* **taskwarrior:** order tasks by state, id, tag, issue and priority ([e87147e](https://github.com/jacob-delgado/workflow/commit/e87147ec6778a6ce3aafb1798494e7e2bac033d4))
+* **taskwarrior:** read the tasks you touched since a time ([ff96be0](https://github.com/jacob-delgado/workflow/commit/ff96be091d8731bc75833b22f0bf620af9b42c34))
+* **tui:** comment on a forge issue ([428b56e](https://github.com/jacob-delgado/workflow/commit/428b56e561dd38e693c1f6b85b619dae3cc7b7dd))
+* **tui:** filter and narrow the Tasks pane ([c55c40e](https://github.com/jacob-delgado/workflow/commit/c55c40eaabe0b1e0550976b6343275577b7aaad1))
+* **tui:** keep the focused pane readable with more panes than fit ([88f4588](https://github.com/jacob-delgado/workflow/commit/88f4588f2d385abafd5cab2f15bf7c3da72fb565))
+* **tui:** lead the top row with where you work ([c9c5298](https://github.com/jacob-delgado/workflow/commit/c9c52982af6403f553a8d22a307543a3dd7d1a52))
+* **tui:** list the repository's worktrees in the Repositories pane ([5c8f2cf](https://github.com/jacob-delgado/workflow/commit/5c8f2cff5e0a6d34ee42eaaab82e05753cc26d7e))
+* **tui:** offer to switch into a worktree just made ([df06b29](https://github.com/jacob-delgado/workflow/commit/df06b29acf64f7c12c7de5f412610e8f3d282688))
+* **tui:** pick the Summary's period in a calendar ([5d6a828](https://github.com/jacob-delgado/workflow/commit/5d6a8284b8b34813077ee3fb3a8f2ba1b30ab51e))
+* **tui:** say where you work and keep favorites in a Repositories pane ([6c0db9c](https://github.com/jacob-delgado/workflow/commit/6c0db9cd02c79de9fb9a6c04c370de9a3f85085f))
+* **tui:** show what you did in a Summary pane ([3118545](https://github.com/jacob-delgado/workflow/commit/311854507f80604a0492cfb80ec58857e1dccdd2))
+* **tui:** sort the Tasks pane with O ([dbf9595](https://github.com/jacob-delgado/workflow/commit/dbf95953d5e60157c7d3c5319c8f72448e45d860))
+* **tui:** switch the directory you work in from the Repositories pane ([d47c143](https://github.com/jacob-delgado/workflow/commit/d47c143d5e8f84de52cb8797d2de3a8ec3a305d9))
+* **tui:** switch to a branch's worktree from the task switcher ([fd67665](https://github.com/jacob-delgado/workflow/commit/fd67665ee37100d8fd095e5c76751eae663e5525))
+* **tui:** write a comment in a box with vim's normal and insert modes ([1359dec](https://github.com/jacob-delgado/workflow/commit/1359decba6691c16fe39ee7e99bbe4df9dcbf950))
+* **web:** comment on a forge issue from its detail ([ec2009b](https://github.com/jacob-delgado/workflow/commit/ec2009b1c5a818ed8a457e00dcd376d033417fef))
+* **web:** filter and narrow the Tasks section ([eabe11a](https://github.com/jacob-delgado/workflow/commit/eabe11a9ef2a4867576c2a5612988e14cb6f9627))
+* **web:** list worktrees, start work in one, and switch to it ([0b45ee1](https://github.com/jacob-delgado/workflow/commit/0b45ee14bc3c80553633db6a841b196683952eca))
+* **web:** say where you work and switch from a Repositories section ([7eecae3](https://github.com/jacob-delgado/workflow/commit/7eecae36a2aa29c6dcd52bae62c083b3a887d3d6))
+* **web:** show what you did in a Summary section ([056778d](https://github.com/jacob-delgado/workflow/commit/056778dbb6ca2d969c3ba99b1704cc8269dd3aa8))
+* **web:** sort the Tasks section ([6233a18](https://github.com/jacob-delgado/workflow/commit/6233a18ca9df1a2fbcc181df7fc63eafdb433e48))
+* **wiring:** comment on forge issues and read their threads ([974fedd](https://github.com/jacob-delgado/workflow/commit/974fedd9b1c036ea17df663a38b8e949b1abe382))
+* **wiring:** list the worktrees of the repository you work in ([f64f79d](https://github.com/jacob-delgado/workflow/commit/f64f79d5ad555b2b10e36ca74ba662242b17400b))
+* **wiring:** reach git, Taskwarrior, Jira and the forge for the Summary ([3965858](https://github.com/jacob-delgado/workflow/commit/396585883c5491ffe414a1a517cf8699f4ae8eb6))
+* **wiring:** read where you work and the directories you can switch to ([1d591a7](https://github.com/jacob-delgado/workflow/commit/1d591a7fe49a7aa7e2a339567e339ad298494529))
+* **workdirs:** read the directories workflow can work in ([1cbd4c7](https://github.com/jacob-delgado/workflow/commit/1cbd4c7955435889c828bda5a28f8fc65d56cd06))
+
+
+### Bug Fixes
+
+* convert a Markdown comment by the setting in effect ([5e5c524](https://github.com/jacob-delgado/workflow/commit/5e5c5241d99786eac40394b03f75246a1cf4af15))
+* harden worktrees against gone ones, twin starts and repeats ([6d8d31f](https://github.com/jacob-delgado/workflow/commit/6d8d31f188ef3be26ca91f08e8a59e4cf086c91d))
+* name the repository whose commits could not be read ([52d731d](https://github.com/jacob-delgado/workflow/commit/52d731dfb3122eea85f1ccb263d0842625829d8e))
+* **tui:** count editing keys and whole characters against interrupt ([bfb0159](https://github.com/jacob-delgado/workflow/commit/bfb0159b52b25854a455ccde51f60fcb6be3fe2c))
+* **tui:** narrow the Tasks list as it says, wherever the cursor goes ([6faada8](https://github.com/jacob-delgado/workflow/commit/6faada8890100d184892ab4963f14a9ca62799ff))
+* **tui:** paste into the focused text field ([78f05fc](https://github.com/jacob-delgado/workflow/commit/78f05fc121dad7678de67f7a1495492aa8962f82))
+* **tui:** paste into the owner picker's filter ([d33bc67](https://github.com/jacob-delgado/workflow/commit/d33bc67fec6239fdc93e4c30eac23fb9666fab0a))
+* **tui:** post a comment as written; neutralize controls on screen only ([b70e372](https://github.com/jacob-delgado/workflow/commit/b70e37271c6c8e2198699ea8323cf47b033f39ab))
+* **tui:** read the Repositories pane when a switch opens on it ([7e48747](https://github.com/jacob-delgado/workflow/commit/7e4874725fc0ed0b1e8e2108b80c1f6fba5d8372))
+* **tui:** refuse a keymap that puts interrupt on a key that types ([352d436](https://github.com/jacob-delgado/workflow/commit/352d43658f7eaa734a0f42fcfe3096ef4372cfa9))
+* **web:** close the worktree offer once switched, and say what fails ([990f333](https://github.com/jacob-delgado/workflow/commit/990f333ad104b4ea5f0cdf9258ce5d9bbd197592))
+* **web:** count a narrowed Tasks list out of what it shows, keep focus ([539f823](https://github.com/jacob-delgado/workflow/commit/539f8234fd6f57d172090280f2fddc18a961d177))
+* **web:** draw a comment too large to parse safely as plain text ([997c668](https://github.com/jacob-delgado/workflow/commit/997c66830a300a541559e6621916529217438de6))
+* **web:** order issue keys equal but for leading zeros as Go does ([1fa69fb](https://github.com/jacob-delgado/workflow/commit/1fa69fbb1ed91bde5232139249785c45c37908e5))
+* **wiring:** keep forge issues out of the issue cache ([535fdd7](https://github.com/jacob-delgado/workflow/commit/535fdd7dca618528012f541dd72aded20b0c6d88))
+* **wiring:** leave a view of only forge issues uncached ([03bc705](https://github.com/jacob-delgado/workflow/commit/03bc705874d2fdc6e7e00f8816fe722b0679274d))
+* **wiring:** tell apart repositories the Summary would name alike ([bb51709](https://github.com/jacob-delgado/workflow/commit/bb517091bfb3b58c81617afaf1ff6c71581a30d7))
+
+
+### Performance
+
+* **wiring:** read the Summary's repositories side by side ([de47f6c](https://github.com/jacob-delgado/workflow/commit/de47f6c38346a31ad43a708d74c5888c5314a821))
+
+
+### Refactors
+
+* **cli:** wire a command to its directory in connect.go ([3fa719e](https://github.com/jacob-delgado/workflow/commit/3fa719e15862ea6c383b9f5649378ff30c2a0057))
+* **loop:** drop a comment markup arm that repeated its last case ([f537e93](https://github.com/jacob-delgado/workflow/commit/f537e939b78a96990a0cb7d8e232cf3ca4e9b4ba))
+* **loop:** post a forge issue's comment as Markdown, as written ([faf395e](https://github.com/jacob-delgado/workflow/commit/faf395e829072e1a3f87d0544d12e5f96791a5f8))
+* **tui:** move the keymap check out of keys.go and balance the help ([67ffe53](https://github.com/jacob-delgado/workflow/commit/67ffe53737364b6095159776a47134d5624cd4d9))
+* **tui:** move the Tasks pane's listing into tasklist.go ([f4eb145](https://github.com/jacob-delgado/workflow/commit/f4eb145729113e4fa0033667ebb38d987eb4c2fe))
+* **tui:** share one checklist overlay for every list narrowing ([2ba3e1b](https://github.com/jacob-delgado/workflow/commit/2ba3e1b62ea0ec0ec26d261735d946dfe2a69ec0))
+* **web:** share one chip group for every list narrowing ([2b12a36](https://github.com/jacob-delgado/workflow/commit/2b12a3683956a2c1fbb9370bc9ffcc500ec95d70))
+* **wiring:** read where the interface runs in repositories.go ([fe7b318](https://github.com/jacob-delgado/workflow/commit/fe7b3188543f508ae5aede1202ae6a6ef3f5f74a))
+
+
+### Documentation
+
+* name the Taskwarrior client in the architecture's map ([13df9e2](https://github.com/jacob-delgado/workflow/commit/13df9e280899f99a822fc4273d7f111368ebbf3f))
+* point UX.md at where the moved and grown code now sits ([9b573fd](https://github.com/jacob-delgado/workflow/commit/9b573fd96f0c24f392087b59709e3ebf1c8aa306))
+* say what the Tasks orders and facet counts leave out ([30f9666](https://github.com/jacob-delgado/workflow/commit/30f966652296ed4864ad9cf7c8a86a4cc27dfd45))
+
+
+### Tests
+
+* **web:** sort, filter and narrow tasks end to end ([d125a3a](https://github.com/jacob-delgado/workflow/commit/d125a3aaf6106aa3f19dae01d578fa8869bc64ac))
+
 ## [0.5.1](https://github.com/jacob-delgado/workflow/compare/v0.5.0...v0.5.1) (2026-10-05)
 
 
