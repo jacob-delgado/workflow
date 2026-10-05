@@ -432,6 +432,72 @@ test('a branch another worktree has checked out is switched to there, not checke
   expect(await screen.findByText('Switched to ~/src/api-feat-PROJ-2-metrics.')).toBeTruthy()
 })
 
+test('the offer goes once the switch has made the branch the one checked out', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  render(<WorkStory issueKey="PROJ-999" />)
+  await user.click(screen.getByRole('button', { name: 'Start in a new worktree' }))
+  await user.click(await screen.findByRole('button', { name: 'Switch to it' }))
+
+  // Act
+  act(() => {
+    useSnapshotStore.setState({
+      status: 'live',
+      snapshot: makeSnapshot({
+        here: '/home/ana/src/api-feat-PROJ-999',
+        branches: [{ name: 'feat/PROJ-999', issue_key: 'PROJ-999', current: true }],
+      }),
+    })
+  })
+
+  // Assert
+  expect(screen.queryByRole('button', { name: 'Switch to it' })).toBeNull()
+})
+
+test('a refused switch from the offer is announced', async () => {
+  // Arrange
+  mockSwitchTo.mockRejectedValueOnce({ code: 'conflict', detail: 'a write is being made' })
+  const user = userEvent.setup()
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  render(<WorkStory issueKey="PROJ-999" />)
+  await user.click(screen.getByRole('button', { name: 'Start in a new worktree' }))
+
+  // Act
+  await user.click(await screen.findByRole('button', { name: 'Switch to it' }))
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toMatch(/a write is being made/)
+})
+
+test('a branch held by a worktree that is gone says how to free it', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: [
+        { name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true },
+        {
+          name: 'feat/PROJ-2-metrics',
+          issue_key: 'PROJ-2',
+          current: false,
+          worktree: '/home/ana/src/api-gone',
+          worktree_shown: '~/src/api-gone',
+          worktree_missing: true,
+        },
+      ],
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-2" />)
+
+  // Assert
+  expect(screen.getByText(/git worktree prune/)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Check out this branch' })).toBeNull()
+  expect(screen.queryByRole('button', { name: /switch to its worktree/i })).toBeNull()
+})
+
 test('a worktree that could not be made says why', async () => {
   // Arrange
   mockStartInWorktree.mockRejectedValueOnce({

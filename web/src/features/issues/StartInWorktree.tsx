@@ -86,7 +86,11 @@ export function WorktreeMadeOffer({ issueKey, worktree, outcome }: WorktreeMadeO
         On <span className="font-mono">{worktree.branch}</span>. Switch to it to work there; every
         section is read again.
       </p>
-      {go.state === 'error' ? <p className="text-sm text-foreground">{go.error}</p> : null}
+      {go.state === 'error' ? (
+        <p role="alert" className="text-sm text-destructive">
+          {go.error}
+        </p>
+      ) : null}
       <div>
         <Button
           variant="primary"
@@ -97,7 +101,7 @@ export function WorktreeMadeOffer({ issueKey, worktree, outcome }: WorktreeMadeO
             }
           }}
         >
-          Switch to it
+          {go.state === 'running' ? 'Switching…' : 'Switch to it'}
         </Button>
       </div>
     </section>
