@@ -152,3 +152,41 @@ func TestADirectoryNameCannotDriveTheTerminal(t *testing.T) {
 	// Assert
 	refuseScreen(t, view, "\x1b]0;owned")
 }
+
+func TestTheTopRowNamesWhereYouWork(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := reposWorld().live(t, 120, 40).View().Content
+
+	// Assert
+	// The repository and the path within it, on the row that says how far
+	// along the loop the work is, whatever pane has focus.
+	requireScreen(t, spineLine(view), "api/cmd", "Issue", "Branch")
+}
+
+func TestTheTopRowGivesUpThePlaceBeforeAnyStage(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := reposWorld().live(t, 56, 40).View().Content
+
+	// Assert
+	spine := spineLine(view)
+	requireScreen(t, spine, "Issue", "Slack")
+	refuseScreen(t, spine, "api/cmd")
+}
+
+func TestOutsideARepositoryTheTopRowNamesTheDirectory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := reposWorld()
+	working.dirs.here = seams.Place{Dir: oldDir}
+
+	// Act
+	view := working.live(t, 120, 40).View().Content
+
+	// Assert
+	requireScreen(t, spineLine(view), "old ")
+}
