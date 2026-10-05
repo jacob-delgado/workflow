@@ -97,7 +97,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		PlaceSlackCredentials: placeSlackCredentials(ctx, log.Wrap("slack", httpTransport)),
 	}
 
-	return tui.Deps{
+	deps := tui.Deps{
 		Jira:         trackerDeps(ctx, cfg, jiraClient, connect),
 		Git:          gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
 		Forge:        forgeDeps(ctx, setup, connect),
@@ -112,7 +112,12 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Notify:       ringTerminal,
 		OpenURL:      func(url string) error { return openInBrowser(ctx, url) },
 		Copy:         tea.SetClipboard,
-	}, controls
+	}
+	// Favorites are read from the store as it is, never made, so a dry run's
+	// Summary reads them as well.
+	deps.Git.CommitsBetween = yourCommits(ctx, where, readFavorites(ctx, onDisk(cfg).ReadOnly()))
+
+	return deps, controls
 }
 
 // Controls are what a surface asks of the wiring itself, beside the seams.
@@ -210,11 +215,8 @@ func gitDeps(ctx context.Context, root string, kind func() forge.Kind) seams.Git
 	repo := gitrepo.At(gitRunner, root)
 
 	return seams.Git{
-		Branch:  func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
-		Changes: func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
-		CommitsBetween: func(start, end time.Time) ([]gitrepo.DatedCommit, error) {
-			return repo.CommitsBetween(ctx, start, end)
-		},
+		Branch:         func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
+		Changes:        func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
 		Diff:           func(change gitrepo.Change) ([]string, error) { return repo.Diff(ctx, change) },
 		Stage:          func(change gitrepo.Change) error { return repo.Stage(ctx, change) },
 		Unstage:        func(change gitrepo.Change) error { return repo.Unstage(ctx, change) },

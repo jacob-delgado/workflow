@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
@@ -32,12 +33,13 @@ func wednesday() time.Time { return time.Date(2026, 9, 16, 16, 0, 0, 0, time.UTC
 func activityDeps(starts *[]time.Time) webserver.Deps {
 	deps := filledDeps()
 	deps.Clock = wednesday
-	deps.CommitsBetween = func(start, _ time.Time) ([]gitrepo.DatedCommit, error) {
+	deps.CommitsBetween = func(start, _ time.Time) []loop.RepositoryCommits {
 		*starts = append(*starts, start)
 
-		return []gitrepo.DatedCommit{{
-			Short: "abc1234", Subject: "Fix the leak", Authored: time.Date(2026, 9, 15, 9, 30, 0, 0, time.UTC),
-		}}, nil
+		return []loop.RepositoryCommits{{Repository: "", Failed: nil, Commits: []gitrepo.DatedCommit{{
+			Hash: "abc1234ffff", Short: "abc1234", Subject: "Fix the leak",
+			Authored: time.Date(2026, 9, 15, 9, 30, 0, 0, time.UTC),
+		}}}}
 	}
 	deps.ForgeActivity = func(time.Time, time.Time) (forge.Activity, error) {
 		return forge.Activity{}, fmt.Errorf("%w: https://git.internal.example", forge.ErrUnreachable)
@@ -244,8 +246,8 @@ func TestASourceThatCannotBeReadSaysWhatToDo(t *testing.T) {
 		"git with no user.email": {
 			source: api.ActivitySourceNameGit,
 			fail: func(deps *webserver.Deps) {
-				deps.CommitsBetween = func(time.Time, time.Time) ([]gitrepo.DatedCommit, error) {
-					return nil, gitrepo.ErrNoIdentity
+				deps.CommitsBetween = func(time.Time, time.Time) []loop.RepositoryCommits {
+					return []loop.RepositoryCommits{{Repository: "", Commits: nil, Failed: gitrepo.ErrNoIdentity}}
 				}
 			},
 			want: "git config user.email",

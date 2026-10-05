@@ -7,10 +7,13 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
@@ -44,6 +47,17 @@ func Locate(ctx context.Context, dir string) Workspace {
 	}
 
 	return Workspace{Root: repo.Root, Remote: repo.Remote, Dir: dir, Repository: true}
+}
+
+// Name names the repository as a person reads it: its forge path, which
+// carries no credential, or else its directory's name.
+func (w Workspace) Name() string {
+	repo, parsed := parsedRemote(w)
+	if !parsed {
+		return filepath.Base(w.Root)
+	}
+
+	return repo.Path
 }
 
 // repoKey names the repository the store keys its state by: the origin remote's
@@ -111,4 +125,70 @@ func placeOf(where Workspace, files config.Files) seams.Place {
 	remote, _ := parsedRemote(where)
 
 	return seams.Place{Dir: where.Dir, Root: root, Remote: remote, Config: files}
+}
+
+// yourCommits reads the commits you wrote in the repository where is in and in
+// every favorite that is a repository, each repository once, however many of
+// its directories are favorites. A repository is named only when more than one
+// is read. With none, where is read regardless, so git says why there is
+// nothing to read.
+func yourCommits(
+	ctx context.Context, where Workspace, favorites func() ([]string, error),
+) func(start, end time.Time) []loop.RepositoryCommits {
+	return func(start, end time.Time) []loop.RepositoryCommits {
+		repositories := commitRepositories(ctx, where, favorites)
+		if len(repositories) == 0 {
+			repositories = []Workspace{where}
+		}
+
+		read := make([]loop.RepositoryCommits, 0, len(repositories))
+
+		for _, repository := range repositories {
+			name := ""
+			if len(repositories) > 1 {
+				name = sanitize.Line(repository.Name())
+			}
+
+			commits, err := gitrepo.At(gitRunner, repository.Root).CommitsBetween(ctx, start, end)
+			read = append(read, loop.RepositoryCommits{Repository: name, Commits: commits, Failed: err})
+		}
+
+		return read
+	}
+}
+
+// commitRepositories is the repository where is in, when it is in one, then
+// each favorite's that is not already listed. Repositories are told apart by
+// the git directory their worktrees share, since each worktree has a root of
+// its own. A favorites list that cannot be read reads as none: the
+// Repositories pane says why, and the commits here are still yours to see.
+func commitRepositories(ctx context.Context, where Workspace, favorites func() ([]string, error)) []Workspace {
+	var repositories []Workspace
+
+	seen := map[string]bool{}
+	add := func(candidate Workspace) {
+		if !candidate.Repository {
+			return
+		}
+
+		shared, err := gitrepo.At(gitRunner, candidate.Root).SharedDir(ctx)
+		if err != nil {
+			shared = candidate.Root
+		}
+
+		if !seen[shared] {
+			seen[shared] = true
+
+			repositories = append(repositories, candidate)
+		}
+	}
+
+	add(where)
+
+	dirs, _ := favorites()
+	for _, dir := range dirs {
+		add(Locate(ctx, dir))
+	}
+
+	return repositories
 }

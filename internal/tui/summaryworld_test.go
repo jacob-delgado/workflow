@@ -9,6 +9,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -38,10 +39,10 @@ func (w *world) withActivity(deps tui.Deps) tui.Deps {
 	}
 
 	done := w.done
-	deps.Git.CommitsBetween = func(start, _ time.Time) ([]gitrepo.DatedCommit, error) {
+	deps.Git.CommitsBetween = func(start, _ time.Time) []loop.RepositoryCommits {
 		w.record(summaryRead("git", start))
 
-		return done.commits, done.commitsErr
+		return []loop.RepositoryCommits{{Repository: "", Commits: done.commits, Failed: done.commitsErr}}
 	}
 	deps.Tasks.Touched = func(since time.Time) ([]taskwarrior.Task, error) {
 		w.record(summaryRead("tasks", since))

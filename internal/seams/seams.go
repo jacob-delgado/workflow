@@ -67,8 +67,9 @@ type Git struct {
 	Branch  func() (gitrepo.Branch, error)
 	Changes func() ([]gitrepo.Change, error)
 	// CommitsBetween is the commits you wrote from start up to end, for the
-	// Summary.
-	CommitsBetween func(start, end time.Time) ([]gitrepo.DatedCommit, error)
+	// Summary: in the repository workflow is in and in every favorite that is
+	// a repository, each read once.
+	CommitsBetween func(start, end time.Time) []loop.RepositoryCommits
 	// Diff reads a changed file's diff against HEAD, line by line, so it can be
 	// read before staging. Nil when there is no repository.
 	Diff         func(change gitrepo.Change) ([]string, error)

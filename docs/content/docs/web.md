@@ -276,7 +276,9 @@ rather than a claim that no task tracks the issue.
 ### Summary
 
 What you did, read back each time from where the work left a trace: the
-commits you wrote in the repository the server runs in, the Taskwarrior tasks
+commits you wrote in the repository the server runs in and in every favorite
+that is one — each named, `acme/web@abc1234`, when there is more than one —
+the Taskwarrior tasks
 you added, annotated and completed and the ones you started that are still
 going, what you did to Jira issues, and
 the pull or merge requests you opened, had merged and reviewed on the forge,
