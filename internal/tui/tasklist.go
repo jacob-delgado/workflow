@@ -91,6 +91,12 @@ func (l taskListing) heading(marks glyphs) string {
 	return strings.Join(parts, marks.separator)
 }
 
+// narrows reports a listing that leaves tasks out: values picked, or a filter
+// typed or being typed. An order alone leaves none out.
+func (l taskListing) narrows() bool {
+	return l.narrowing.Narrows() || l.filtering
+}
+
 // beginFilter starts typing a filter afresh.
 func (l taskListing) beginFilter() taskListing {
 	l.filtering, l.narrowing.Text = true, ""
@@ -261,6 +267,10 @@ func (m Model) trackingTask(issueKey jira.Key) (taskwarrior.Task, bool) {
 // where the pane does not list it, says which task it is and why.
 func (m Model) goToTrackingTask(issueKey jira.Key, task taskwarrior.Task) Model {
 	groups := m.taskGroups()
+	if shown, ok := m.listedTrackingTask(issueKey, groups); ok {
+		task = shown
+	}
+
 	if !groups.lists(task.UUID) {
 		return m.noticed(string(issueKey) + " is tracked by task " + taskName(task) + ", " + m.unlistedBecause(task))
 	}
@@ -270,6 +280,19 @@ func (m Model) goToTrackingTask(issueKey jira.Key, task taskwarrior.Task) Model 
 	m.tasks = m.tasks.following(groups, m.detailRows())
 
 	return m
+}
+
+// listedTrackingTask is a task that tracks an issue and that the pane lists as
+// it is narrowed now, so going to the issue's task lands on one in view
+// whenever there is one.
+func (m Model) listedTrackingTask(issueKey jira.Key, groups taskGroups) (taskwarrior.Task, bool) {
+	for _, task := range m.linkedTo(issueKey) {
+		if stillToDo(task) && groups.lists(task.UUID) {
+			return task, true
+		}
+	}
+
+	return taskwarrior.Task{}, false
 }
 
 // unlistedBecause is why the Tasks pane does not list a task still to do: it
@@ -301,7 +324,13 @@ func (m Model) unlistedBecause(task taskwarrior.Task) string {
 // cursor on its task while that task is listed, and the task in view.
 func (m Model) relistTasks() Model {
 	groups := m.taskGroups()
-	m.tasks.selected = groups.at(m.tasks.selected).UUID
+
+	// A narrowing that lists nothing leaves the cursor's task as it was, so
+	// the cursor is back on it once the narrowing lets it through again.
+	if len(groups.listed()) > 0 {
+		m.tasks.selected = groups.at(m.tasks.selected).UUID
+	}
+
 	m.tasks = m.tasks.following(groups, m.detailRows())
 
 	return m
@@ -361,8 +390,10 @@ func (m Model) handleTaskFilterKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.tasks.listing = m.tasks.listing.clearFilter()
 	case tea.KeyEnter:
 		m.tasks.listing.filtering = false
-	case tea.KeyDown, tea.KeyUp:
-		return m.moveTaskSelection(msg), nil
+	case tea.KeyDown:
+		return m.moveTaskBy(1), nil
+	case tea.KeyUp:
+		return m.moveTaskBy(-1), nil
 	case tea.KeyBackspace:
 		m.tasks.listing = m.tasks.listing.trimFilter()
 	default:
