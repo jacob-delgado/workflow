@@ -5,10 +5,13 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { EmptyState } from '@/shell/EmptyState.tsx'
+import { useUiStore } from '@/shell/uiStore.ts'
 import { useNow } from './ActiveTask.tsx'
 import { TaskDetail, Verb } from './TaskDetail.tsx'
 import { TaskLineForm } from './TaskLineForm.tsx'
 import { groupTasks, listedOf, TaskList, WaitingCount, type TaskGroups } from './TaskList.tsx'
+import { TaskListControls } from './TaskListControls.tsx'
+import { taskOrderWords, type TaskOrder } from './taskOrder.ts'
 import { useTasks, useTaskWrites } from './tasksApi.ts'
 import { addedName, addedTask, saidWords, taskName } from './taskWords.ts'
 
@@ -89,10 +92,12 @@ function Board({ list, failure, failed, reading, onReadAgain }: BoardProps) {
   const outcome = useOutcome()
   const now = useNow()
   const issues = useSnapshotStore((state) => state.snapshot?.issues.issues) ?? []
+  const order = useUiStore((state) => state.taskOrder)
+  const setOrder = useUiStore((state) => state.setTaskOrder)
   const groups =
     list === undefined
       ? undefined
-      : groupTasks(list.tasks, new Set(issues.map((issue) => issue.key)), now)
+      : groupTasks(list.tasks, new Set(issues.map((issue) => issue.key)), now, order)
 
   return (
     <div className="flex flex-col gap-group lg:min-h-0 lg:flex-1">
@@ -107,6 +112,7 @@ function Board({ list, failure, failed, reading, onReadAgain }: BoardProps) {
           onReadAgain={onReadAgain}
           teller={outcome}
         />
+        {list === undefined ? null : <TaskListControls order={order} onOrder={setOrder} />}
         <OutcomeLine said={outcome.said} />
       </div>
       {groups === undefined ? null : (
@@ -161,7 +167,7 @@ function Controls({ list, groups, failure, failed, reading, onReadAgain, teller 
   return (
     <div className="flex flex-col gap-item">
       <p role="status" className="text-sm text-muted-foreground">
-        {groups === undefined ? '' : listSummary(listedOf(groups).length)}
+        {groups === undefined ? '' : listSummary(listedOf(groups).length, groups.order)}
       </p>
       {list === undefined || list.context === '' ? null : (
         <p className="text-sm text-muted-foreground">
@@ -213,12 +219,14 @@ function Controls({ list, groups, failure, failed, reading, onReadAgain, teller 
 // listSummary says how many tasks the list shows. An empty list says so on
 // screen below, in the list's place, so here it is said only to a screen
 // reader.
-function listSummary(listed: number): ReactNode {
+function listSummary(listed: number, order: TaskOrder): ReactNode {
   if (listed === 0) {
     return <span className="sr-only">No pending tasks.</span>
   }
 
-  return listed === 1 ? '1 task, most urgent first.' : `${String(listed)} tasks, most urgent first.`
+  const count = listed === 1 ? '1 task' : `${String(listed)} tasks`
+
+  return `${count}, ${taskOrderWords[order].toLowerCase()}.`
 }
 
 // readAgainLabel names the control that reads the list again: Retry after a

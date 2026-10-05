@@ -62,6 +62,11 @@ func (t Task) State(now time.Time) State {
 	}
 }
 
+// The orders below are the Tasks list's.
+//
+// Trade-off TRADE-29: they are written again in
+// web/src/features/tasks/taskOrder.ts, and twin-named tests pin the two.
+
 // ByUrgency orders most urgent first, then by id, then by uuid, so a refresh
 // keeps a stable order.
 func ByUrgency(tasks []Task) []Task {

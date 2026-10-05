@@ -753,3 +753,25 @@ ten minutes is not offered until a refresh.
 **Reopen when.** Slack's rate limits are met in practice below the cap, or
 a large channel's first read through `users.info` is too slow to wait for:
 lower `UserListPages`, or label members concurrently within Tier 4.
+
+### TRADE-29 The Tasks list's orders are written twice
+
+The Tasks list sorts by urgency, state, id, tag, issue or priority in the
+terminal (`internal/taskwarrior/order.go`) and in the browser
+(`web/src/features/tasks/taskOrder.ts`). The two are pinned by
+twin-named cases in `internal/taskwarrior/order_test.go` and
+`web/src/features/tasks/taskOrder.test.ts`.
+
+**Decided.** 2026-10-05, in #172: the web holds the whole list already,
+and an order changed in a select should apply at once. Asking the server
+for each order would carry it through the read and all ten task writes,
+each of which answers with the list, and race the answers when the order
+changes again before one lands. Taskwarrior's own report sort was no
+alternative: state as the list words it and natural issue-key order are
+not keys it has.
+
+**Cost.** A change to how an order breaks a tie, or ranks a value, is made
+twice, and a change to one copy alone passes that copy's tests.
+
+**Reopen when.** The server comes to order the list itself, or the two
+copies are found to disagree.
