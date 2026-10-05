@@ -119,8 +119,10 @@ internal/forge 15
 # tasks.go and taskactions.go, both past 600 lines); and commentcomposer.go
 # (the comment box: a text area with vim's normal and insert modes, the draft
 # kept per issue, and the hand-off to $EDITOR, which comment.go's preview
-# opens from and returns to).
-internal/tui 53
+# opens from and returns to); and summary.go (the Summary pane: the period
+# shown, each source's read of it filling in as it answers, and the period
+# moved by [ and ] once the keys rest).
+internal/tui 54
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of
