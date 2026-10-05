@@ -37,7 +37,7 @@ web does not narrate what a held-back write would have done.
 
 The header holds the version, the theme and the stream's state, and the
 Taskwarrior task you have started, when there is one. The rail down the left
-holds the seven sections; the one you are in, and its heading, take the hue of
+holds the eight sections; the one you are in, and its heading, take the hue of
 the system it belongs to. Below a medium width the rail keeps its icons
 alone; each still has its name, shown on hover and read by a screen reader.
 
@@ -273,6 +273,33 @@ annotated with the issue's page, and says which task now tracks it. Until
 Taskwarrior has answered, and where it could not, none of them is drawn,
 rather than a claim that no task tracks the issue.
 
+### Summary
+
+What you did, read back each time from where the work left a trace: the
+commits you wrote in the repository the server runs in, the Taskwarrior tasks
+you added, annotated and completed and the ones you started that are still
+going, what you did to Jira issues, and
+the pull or merge requests you opened, had merged and reviewed on the forge,
+in any repository. It opens on the previous working day — yesterday, or on a
+Monday, Friday and the weekend after it — in the time zone the server runs in.
+
+The day reads as a timeline: each hour down the left, and what was done in it
+beside it, the verb in the hue of the system it was done in — git's, Taskwarrior's,
+Jira's or the forge's — then what it was done to, linked where it has a page,
+and its title. A period of several days or months is headed by month and by
+day. A source that could not be read says why above it, in words that never
+name a host, and one that had more than it gave says so. **Copy as Markdown**
+puts the summary on the clipboard, ready for a standup.
+
+**Earlier** and **Later** move a period back or on — a whole month to the
+month, a whole year to the year, any other period by its own length — and
+**Today** shows today. The calendar below them — beside them on a wide window —
+shows a month, chosen by year and month, in which the arrow keys move a day or
+a week, Page Up and Page Down a month, and Home and End to the week's ends;
+Enter or a click shows that day, and with Shift, the days from the first one
+shown to it. **Whole month** and **Whole year** show the month or the year the
+calendar shows. A period runs up to a year and a day.
+
 ### Settings
 
 The configuration file in effect, in eight parts — Jira, messaging, the forge,
@@ -388,6 +415,7 @@ describes each answer's fields, and every other request the API serves.
 | `GET /api/changes` | The working tree's changes |
 | `GET /api/review` | The branch's pull request and its CI |
 | `GET /api/messaging` | The messaging service, and where and as whom an announcement would post |
+| `GET /api/activity` | What you did from one day to another, or on the previous working day, nested by year, month, day and hour, with the Markdown to copy |
 | `GET /api/tasks` | Your pending Taskwarrior tasks, most urgent first, waiting ones included, with the active context and whether a sync backend is set |
 
 ```sh

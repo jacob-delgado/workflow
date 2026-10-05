@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Facet } from '@/features/reviewqueue/reviewFacets.ts'
 import type { ReviewOrder } from '@/features/reviewqueue/reviewOrder.ts'
 import type { TaskFacet } from '@/features/tasks/taskFacets.ts'
+import type { Period } from '@/features/summary/civilDate.ts'
 import type { TaskOrder } from '@/features/tasks/taskOrder.ts'
 
 // The cockpit's sections, in nav order: the interface's panes, in its order —
@@ -15,6 +16,7 @@ export const sections = [
   'messaging',
   'reviews',
   'tasks',
+  'summary',
   'settings',
 ] as const
 
@@ -40,11 +42,17 @@ interface UiState {
   setTaskOrder: (order: TaskOrder) => void
   taskFilter: TaskFacet[]
   pickTaskFilter: (pick: (picked: TaskFacet[]) => TaskFacet[]) => void
+  // The period the Summary shows, or null for the previous working day, which
+  // the server picks: kept while you visit other sections, as the terminal's
+  // pane keeps its period.
+  summaryPeriod: Period | null
+  setSummaryPeriod: (period: Period | null) => void
 }
 
-// Client UI state (which section is showing, which issue is selected, which
-// view the list is of, how the review queue is sorted and filtered, how the Tasks list is sorted and narrowed), shared by the nav rail and the content panes without
-// threading props between them.
+// Client UI state — which section is showing, which issue is selected, which
+// view the list is of, how the review queue and the Tasks list are sorted and
+// narrowed, and the period the Summary shows — shared by the nav rail and the
+// content panes without threading props between them.
 export const useUiStore = create<UiState>((set) => ({
   section: 'issues',
   setSection: (section) => {
@@ -73,5 +81,9 @@ export const useUiStore = create<UiState>((set) => ({
   taskFilter: [],
   pickTaskFilter: (pick) => {
     set((state) => ({ taskFilter: pick(state.taskFilter) }))
+  },
+  summaryPeriod: null,
+  setSummaryPeriod: (summaryPeriod) => {
+    set({ summaryPeriod })
   },
 }))

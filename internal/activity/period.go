@@ -32,6 +32,9 @@ var (
 	ErrNotADate = errors.New("not a date written as YYYY-MM-DD")
 )
 
+// Trade-off TRADE-33: the web's calendar works these dates out again in
+// civilDate.ts, so it moves with no request.
+
 // Date is a day on the calendar, wherever it is: no time and no zone, so a
 // period means the same days whichever clock reads it.
 type Date struct {
