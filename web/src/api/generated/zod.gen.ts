@@ -31,10 +31,28 @@ export const zFavorite = z.object({
 });
 
 /**
- * Where the server works, and your favorite directories.
+ * One working tree of the repository the server works in.
+ */
+export const zWorktree = z.object({
+    dir: z.string(),
+    shown: z.string(),
+    branch: z.string(),
+    head: z.string(),
+    state: z.enum([
+        'here',
+        'worktree',
+        'missing'
+    ]),
+    locked: z.boolean()
+});
+
+/**
+ * Where the server works, the repository's worktrees, and your favorite directories.
  */
 export const zRepositories = z.object({
     here: zPlace,
+    worktrees: z.array(zWorktree),
+    worktrees_error: z.string(),
     favorites: z.array(zFavorite),
     favorites_kept: z.boolean()
 });
@@ -221,6 +239,22 @@ export const zRepoGroupsRequest = z.object({
  * The branch to check out.
  */
 export const zCheckoutRequest = z.object({
+    branch: z.string()
+});
+
+/**
+ * The issue to start work on in a new worktree.
+ */
+export const zCreateWorktreeRequest = z.object({
+    issue_key: z.string()
+});
+
+/**
+ * A worktree just created for an issue's branch.
+ */
+export const zCreatedWorktree = z.object({
+    dir: z.string(),
+    shown: z.string(),
     branch: z.string()
 });
 
@@ -1028,6 +1062,13 @@ export const zCreateBranchBody = zCreateBranchRequest;
  * The branch that was created and is now checked out. If it cannot be read back after it was created, only its name is set.
  */
 export const zCreateBranchResponse = zBranch;
+
+export const zCreateWorktreeBody = zCreateWorktreeRequest;
+
+/**
+ * The worktree that was created.
+ */
+export const zCreateWorktreeResponse = zCreatedWorktree;
 
 export const zGetAnnouncementQuery = z.object({
     channel: z.string().max(200).optional()

@@ -61,10 +61,48 @@ export type Favorite = {
 };
 
 /**
- * Where the server works, and your favorite directories.
+ * One working tree of the repository the server works in.
+ */
+export type Worktree = {
+    /**
+     * The worktree's directory, as an absolute path.
+     */
+    dir: string;
+    /**
+     * The directory written from your home.
+     */
+    shown: string;
+    /**
+     * The branch it has checked out, or empty when its HEAD is detached.
+     */
+    branch: string;
+    /**
+     * The commit it has checked out, abbreviated.
+     */
+    head: string;
+    /**
+     * here is the worktree the server works in; worktree is another; missing is one git still lists whose directory is gone.
+     */
+    state: 'here' | 'worktree' | 'missing';
+    /**
+     * Whether git keeps it from being removed or pruned.
+     */
+    locked: boolean;
+};
+
+/**
+ * Where the server works, the repository's worktrees, and your favorite directories.
  */
 export type Repositories = {
     here: Place;
+    /**
+     * The working trees of the repository the server works in, the main one first, as git lists them; empty outside a repository.
+     */
+    worktrees: Array<Worktree>;
+    /**
+     * Why the worktrees could not be read, in words that never name a path or a host; empty when they were.
+     */
+    worktrees_error: string;
     /**
      * Your favorites, by path.
      */
@@ -357,6 +395,34 @@ export type RepoGroupsRequest = {
 export type CheckoutRequest = {
     /**
      * The local branch to switch the working tree to.
+     */
+    branch: string;
+};
+
+/**
+ * The issue to start work on in a new worktree.
+ */
+export type CreateWorktreeRequest = {
+    /**
+     * The issue to name and create a branch for.
+     */
+    issue_key: string;
+};
+
+/**
+ * A worktree just created for an issue's branch.
+ */
+export type CreatedWorktree = {
+    /**
+     * The worktree's directory, as an absolute path.
+     */
+    dir: string;
+    /**
+     * The directory written from your home.
+     */
+    shown: string;
+    /**
+     * The branch created and checked out there.
      */
     branch: string;
 };
@@ -2367,6 +2433,39 @@ export type CreateBranchResponses = {
 };
 
 export type CreateBranchResponse = CreateBranchResponses[keyof CreateBranchResponses];
+
+export type CreateWorktreeData = {
+    body: CreateWorktreeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/worktrees';
+};
+
+export type CreateWorktreeErrors = {
+    /**
+     * A branch for the issue already exists, or the server is not running in a git repository; nothing was created.
+     */
+    409: Problem;
+    /**
+     * The worktree could not be created.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type CreateWorktreeError = CreateWorktreeErrors[keyof CreateWorktreeErrors];
+
+export type CreateWorktreeResponses = {
+    /**
+     * The worktree that was created.
+     */
+    200: CreatedWorktree;
+};
+
+export type CreateWorktreeResponse = CreateWorktreeResponses[keyof CreateWorktreeResponses];
 
 export type GetAnnouncementData = {
     body?: never;
