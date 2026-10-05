@@ -249,6 +249,8 @@ type dialect struct {
 
 	issueComments  func(ctx context.Context, c Client, repo Repo, number, total int) ([]IssueComment, error)
 	commentOnIssue func(ctx context.Context, c Client, repo Repo, number int, text string) (IssueComment, error)
+
+	activity func(ctx context.Context, c Client, start, end time.Time) (Activity, error)
 }
 
 // dialectFor is the dialect of a forge, or ErrUnknownForge for a host whose
@@ -261,12 +263,14 @@ func dialectFor(kind Kind) (dialect, error) {
 			merge: githubMergePull, methods: githubMergeMethods,
 			reviews: githubReviews, issues: githubIssues, readIssue: githubReadIssue, closeIssue: githubCloseIssue,
 			assign: githubAssignIssue, issueComments: githubIssueComments, commentOnIssue: githubCommentOnIssue,
+			activity: githubActivity,
 		},
 		KindGitLab: {
 			find: gitlabFind, create: gitlabCreate, update: gitlabUpdate, status: gitlabStatus, rerun: gitlabRerun,
 			merge: gitlabMergePull, methods: gitlabMergeMethods,
 			reviews: gitlabReviews, issues: gitlabIssues, readIssue: gitlabReadIssue, closeIssue: gitlabCloseIssue,
 			assign: gitlabAssignIssue, issueComments: gitlabIssueComments, commentOnIssue: gitlabCommentOnIssue,
+			activity: gitlabActivity,
 		},
 	}
 

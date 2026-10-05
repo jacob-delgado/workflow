@@ -252,8 +252,9 @@ type githubDetail struct {
 
 // githubReview is one review on a pull request: whose it is and where it stands.
 type githubReview struct {
-	State string                 `json:"state"`
-	User  struct{ Login string } `json:"user"`
+	State       string                 `json:"state"`
+	User        struct{ Login string } `json:"user"`
+	SubmittedAt time.Time              `json:"submitted_at"`
 }
 
 // githubReviewState fills in a pull request's approvals, requested changes and
