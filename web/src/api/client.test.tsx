@@ -82,3 +82,54 @@ test('lets a read through under dry run', async () => {
   // Assert
   expect(methods).toEqual(['GET'])
 })
+
+test('a write names the directory the page shows', async () => {
+  // Arrange
+  const headers: (string | null)[] = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((request: Request) => {
+      headers.push(request.headers.get('Workflow-Here'))
+
+      return Promise.resolve(Response.json(makeSnapshot().branch))
+    }),
+  )
+  useHealthStore.setState({ health: makeHealth({ dry_run: false }) })
+
+  // Act
+  await pushTheBranch()
+
+  // Assert
+  // The server refuses a write naming another directory than it works in,
+  // so a page that has not noticed a switch cannot write to the new one. A
+  // header carries bytes, so the path goes escaped.
+  await vi.waitFor(() => {
+    expect(headers).toEqual(['%2Fhome%2Fana%2Fsrc%2Fapi'])
+  })
+})
+
+test('a directory named outside ASCII still names itself on a write', async () => {
+  // Arrange
+  const headers: (string | null)[] = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((request: Request) => {
+      headers.push(request.headers.get('Workflow-Here'))
+
+      return Promise.resolve(Response.json(makeSnapshot().branch))
+    }),
+  )
+  useHealthStore.setState({ health: makeHealth({ dry_run: false }) })
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot({ here: '/home/josé/日本' }) })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /push branch/i }))
+  await user.click(screen.getByRole('button', { name: /^push$/i }))
+
+  // Assert
+  await vi.waitFor(() => {
+    expect(headers).toEqual([encodeURIComponent('/home/josé/日本')])
+  })
+})

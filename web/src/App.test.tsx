@@ -104,10 +104,18 @@ test('drops the read-only banner when the stream comes back from a server that w
   // Arrange
   // The server restarts at the same address, this time without --dry-run;
   // the stream drops and reconnects to it.
+  // Each health read takes the next answer; the header's read of where the
+  // server works finds nothing.
   const dryRuns = [true, false]
   vi.stubGlobal(
     'fetch',
-    vi.fn(() => Promise.resolve(Response.json(makeHealth({ dry_run: dryRuns.shift() ?? false })))),
+    vi.fn((request: Request) =>
+      Promise.resolve(
+        new URL(request.url).pathname === '/api/health'
+          ? Response.json(makeHealth({ dry_run: dryRuns.shift() ?? false }))
+          : Response.json({ detail: 'no such route' }, { status: 404 }),
+      ),
+    ),
   )
   renderWithClient(<App />)
   await screen.findByText(/every write is held back/i)

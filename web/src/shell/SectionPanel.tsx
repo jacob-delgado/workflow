@@ -5,6 +5,7 @@ import { ReviewPanel } from '@/features/review/ReviewPanel.tsx'
 import { ReviewQueuePanel } from '@/features/reviewqueue/ReviewQueuePanel.tsx'
 import { SettingsPanel } from '@/features/settings/SettingsPanel.tsx'
 import { MessagingPanel } from '@/features/messaging/MessagingPanel.tsx'
+import { RepositoriesPanel } from '@/features/repositories/RepositoriesPanel.tsx'
 import { SummaryPanel } from '@/features/summary/SummaryPanel.tsx'
 import { TasksPanel } from '@/features/tasks/TasksPanel.tsx'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -21,13 +22,15 @@ const panels: Record<Section, ComponentType> = {
   reviews: ReviewQueuePanel,
   tasks: TasksPanel,
   summary: SummaryPanel,
+  repositories: RepositoriesPanel,
   settings: SettingsPanel,
 }
 
 // readsOnItsOwn are the sections that do not read the stream: Settings reads
-// the configuration, Reviews the forge's queue, Tasks Taskwarrior's list and
-// Summary what you did, each on its own, so none of them waits on it.
-const readsOnItsOwn = new Set<Section>(['settings', 'reviews', 'tasks', 'summary'])
+// the configuration, Reviews the forge's queue, Tasks Taskwarrior's list,
+// Summary what you did and Repositories where the server works, each on its
+// own, so none of them waits on it.
+const readsOnItsOwn = new Set<Section>(['settings', 'reviews', 'tasks', 'summary', 'repositories'])
 
 // Routes the active section to its panel. Every section that reads the stream
 // waits on its first snapshot; until it lands they share one line, rather than

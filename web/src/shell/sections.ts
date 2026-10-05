@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   CircleDot,
+  FolderGit2,
   GitBranch,
   GitPullRequest,
   Inbox,
@@ -15,7 +16,7 @@ import type { Section } from './uiStore.ts'
 // rail and by the content area's heading. The hue is the system the section
 // belongs to, as the terminal's spine colors its stages (internal/tui/spine.go):
 // Jira's issues, git's branch, the forge's pull requests, the messaging
-// service, and Taskwarrior's tasks. The Summary reads them all and Settings
+// service, and Taskwarrior's tasks, and git's repositories. The Summary reads them all and Settings
 // belongs to none of them, so both stay in the ink.
 export const sectionMeta: Record<Section, { label: string; Icon: LucideIcon; hue: string }> = {
   issues: { label: 'Issues', Icon: CircleDot, hue: 'text-jira' },
@@ -25,6 +26,7 @@ export const sectionMeta: Record<Section, { label: string; Icon: LucideIcon; hue
   reviews: { label: 'Reviews', Icon: Inbox, hue: 'text-forge' },
   tasks: { label: 'Tasks', Icon: ListTodo, hue: 'text-taskwarrior' },
   summary: { label: 'Summary', Icon: CalendarDays, hue: 'text-foreground' },
+  repositories: { label: 'Repositories', Icon: FolderGit2, hue: 'text-git' },
   settings: { label: 'Settings', Icon: Settings, hue: 'text-foreground' },
 }
 

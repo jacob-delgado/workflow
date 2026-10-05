@@ -17,6 +17,7 @@ export const sections = [
   'reviews',
   'tasks',
   'summary',
+  'repositories',
   'settings',
 ] as const
 
