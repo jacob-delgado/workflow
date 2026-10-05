@@ -176,6 +176,15 @@ internal/cli 16
 # say what the loop means, over the seams' answers — spelled concern-per-file.
 internal/loop 13
 
+# internal/wiring — connects every surface's seams to the real clients: one
+# file per service it reaches (Jira, the forge and its CLI, Taskwarrior, the
+# Slack directory, the store) and repositories.go, where the interface runs —
+# the workspace a directory is in, and the key the store names a repository
+# by — so the directory a surface works in is read in one place. One
+# responsibility — build the seams over the real clients — spelled
+# service-per-file.
+internal/wiring 13
+
 # web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
 # `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by
 # gen:check; its file count is the code generator's business, not a concern
