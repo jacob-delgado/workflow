@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Errors CheckKeys returns for a ui.keys map that cannot be used. Callers
@@ -22,7 +24,15 @@ var (
 	// ErrKeyNotRebindable reports a ui.keys entry moving an action whose keys
 	// cannot be one key: jump-to-pane answers the pane numbers, one per pane.
 	ErrKeyNotRebindable = errors.New("ui.keys moves an action whose keys cannot be rebound")
+	// ErrInterruptTypes reports interrupt moved onto a key that types text.
+	// Interrupt is answered before any filter, prompt or text box, so on such a
+	// key it would quit mid-sentence and lose what was written.
+	ErrInterruptTypes = errors.New("ui.keys moves interrupt onto a key that types")
 )
+
+// actionInterrupt is the action every context answers first, even while text
+// is typed.
+const actionInterrupt = "interrupt"
 
 // CheckKeys reports whether a ui.keys override map is usable: every entry names a
 // real action that one key can trigger, and no two actions that are live at the
@@ -41,6 +51,10 @@ func CheckKeys(overrides map[string]string) error {
 
 	if _, moved := overrides[actionJumpToPane]; moved {
 		return fmt.Errorf("%w: %q", ErrKeyNotRebindable, actionJumpToPane)
+	}
+
+	if moved, ok := overrides[actionInterrupt]; ok && typesText(moved) {
+		return fmt.Errorf("%w: %s on %q", ErrInterruptTypes, actionInterrupt, moved)
 	}
 
 	return builder.conflicts()
@@ -147,4 +161,16 @@ func (b *helpBuilder) conflictIn(context keyContext) error {
 	}
 
 	return nil
+}
+
+// typesText reports a key name that a text field would take as typing: space,
+// or a single printable character.
+func typesText(name string) bool {
+	if name == "space" {
+		return true
+	}
+
+	only, size := utf8.DecodeRuneInString(name)
+
+	return size == len(name) && unicode.IsPrint(only)
 }

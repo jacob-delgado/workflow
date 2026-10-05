@@ -317,3 +317,40 @@ func TestCheckKeysRefusesMovingJumpToPane(t *testing.T) {
 		t.Errorf("CheckKeys error %q does not name the action", got)
 	}
 }
+
+func TestCheckKeysRefusesMovingInterruptOntoAKeyThatTypes(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{"a letter": "x", "a digit": "5", "a space": "space", "a symbol": "/"}
+
+	for name, typed := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			// Interrupt is answered before any filter, prompt or text box, so on a
+			// key that types it would quit mid-sentence and lose what was written.
+			err := tui.CheckKeys(map[string]string{"interrupt": typed})
+
+			// Assert
+			if !errors.Is(err, tui.ErrInterruptTypes) {
+				t.Fatalf("CheckKeys = %v, want ErrInterruptTypes", err)
+			}
+
+			if got := err.Error(); !strings.Contains(got, "interrupt") {
+				t.Errorf("CheckKeys error %q does not name the action", got)
+			}
+		})
+	}
+}
+
+func TestCheckKeysAcceptsInterruptOnAControlKey(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	err := tui.CheckKeys(map[string]string{"interrupt": "ctrl+q"})
+	// Assert
+	if err != nil {
+		t.Errorf("CheckKeys = %v, want a control key accepted for interrupt", err)
+	}
+}

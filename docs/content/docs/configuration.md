@@ -690,6 +690,10 @@ The actions you can rebind, grouped by where they work, are:
 A key is named as its terminal name: a letter (`C`), or a combination such as
 `ctrl+e` or `shift+tab`.
 
+`interrupt` quits from anywhere, even while you type into a filter or a
+comment, so it must stay on a key that types nothing, such as `ctrl+q`: a map
+that moves it onto a letter, a digit, a symbol or `space` is refused.
+
 ## Timing
 
 The waits are set for a nearby network and a forge with room in its rate limit.
