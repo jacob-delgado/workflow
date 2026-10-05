@@ -306,7 +306,9 @@ names with how long ago it last moved, as in
 branch starts from what origin holds now; if the fetch fails, the overlay says
 why, and `enter` again branches from what you already have. The branch is not
 set to track its base, so it reads as unpushed until it is. `ctrl+w` creates it
-in a new git worktree beside the repository instead of switching to it.
+in a new git worktree beside the repository instead of switching to it, and
+then offers to switch to the worktree: `enter` opens workflow again there, as
+a switch from the Repositories pane does, and `esc` stays where you are.
 
 `s` on the Branch pane switches to the branch of another issue. It lists the
 branches that name an issue assigned to you and not done: the local ones, then
