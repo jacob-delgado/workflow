@@ -71,7 +71,7 @@ func (s *server) SetUp(_ context.Context, request api.SetUpRequestObject) (api.S
 
 	who, err := s.checkTyped(answers.Jira, body.KeepUnchecked)
 	if err != nil {
-		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.CheckFailed, checkRefusal(err))), nil
+		return checkFailure(err), nil
 	}
 
 	written, err := s.deps.Setup.Write(setup.Request{
@@ -88,14 +88,14 @@ func (s *server) SetUp(_ context.Context, request api.SetUpRequestObject) (api.S
 }
 
 // checkTyped asks Jira who the token typed is: no one to ask with Jira left
-// out, and a refusal kept unchecked when asked.
+// out, and a refusal kept unchecked when asked and setup lets it be kept.
 func (s *server) checkTyped(settings config.Jira, keepUnchecked bool) (string, error) {
 	if settings.BaseURL == "" {
 		return "", nil
 	}
 
 	who, err := s.deps.Setup.Check(settings)
-	if err != nil && keepUnchecked {
+	if err != nil && keepUnchecked && setup.Keepable(err) {
 		return "", nil
 	}
 
@@ -136,6 +136,18 @@ func (s *server) takeUp() bool {
 	return err == nil
 }
 
+// checkFailure is why a check did not pass: an address that is no address,
+// which is never kept, as unprocessable, and otherwise check_failed, which
+// the page offers to keep anyway.
+func checkFailure(err error) api.SetUpResponseObject {
+	if !setup.Keepable(err) {
+		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+			"Jira's address is not an http or https address without a username or password; type it again"))
+	}
+
+	return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.CheckFailed, checkRefusal(err)))
+}
+
 // checkRefusal says why Jira's check did not pass, in words that name no
 // address and no token, and what to do.
 func checkRefusal(err error) string {
@@ -151,11 +163,6 @@ func checkRefusal(err error) string {
 // checkRefusals are the reasons a check tells apart.
 func checkRefusals() []faultClass {
 	return []faultClass{
-		{
-			causes: []error{config.ErrInvalidBaseURL, config.ErrCredentialInBaseURL},
-			code:   api.CheckFailed,
-			detail: "Jira's address is not an http or https address without a username or password",
-		},
 		{
 			causes: []error{jira.ErrUnauthorized, jira.ErrForbidden, jira.ErrNoCredential},
 			code:   api.CheckFailed, detail: "Jira did not accept the token",

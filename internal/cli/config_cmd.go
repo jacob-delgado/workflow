@@ -402,10 +402,15 @@ func collectMessaging(out io.Writer, prompt Prompt) (config.Secret, error) {
 
 // keepIfChecked decides whether to keep a credential: a passing check keeps it,
 // and a failing one asks, so a service that is merely unreachable right now can
-// still be saved.
+// still be saved. An address that is no address is never kept, so it is not
+// asked about: the setup stops on it.
 func keepIfChecked(prompt Prompt, what string, checkErr error) (bool, error) {
 	if checkErr == nil {
 		return true, nil
+	}
+
+	if !setup.Keepable(checkErr) {
+		return false, checkErr
 	}
 
 	return confirm(prompt, "The "+what+" check did not pass. Save it anyway?")

@@ -34,12 +34,31 @@ const (
 	stepWrite
 )
 
-// The choices offered after a check that did not pass, in order.
+// failedChoice is a choice offered after a check that did not pass.
+type failedChoice int
+
+// The choices offered after a check that did not pass.
 const (
-	failedTypeAgain = iota
+	failedTypeAgain failedChoice = iota
+	failedTypeAddress
 	failedKeep
 	failedLeaveOut
 )
+
+// label is the choice's row.
+func (c failedChoice) label() string {
+	switch c {
+	case failedTypeAgain:
+		return "Type the token again"
+	case failedTypeAddress:
+		return "Type the address again"
+	case failedKeep:
+		return "Keep them anyway"
+	case failedLeaveOut:
+	}
+
+	return "Leave Jira out"
+}
 
 // The keychain's choices, in order.
 const (
@@ -233,8 +252,7 @@ func (f setupForm) asking(width int) []string {
 	case stepPlace:
 		return append(f.choices(f.placeChoices()), f.styles.label.Render(setupQuestions()[f.step].hint))
 	case stepCheckFailed:
-		return append([]string{failureLine(f.styles, f.marks, f.checkErr), ""},
-			f.choices([]string{"Type the token again", "Keep them anyway", "Leave Jira out"})...)
+		return append([]string{failureLine(f.styles, f.marks, f.checkErr), ""}, f.choices(f.failedRows())...)
 	case stepKeychain:
 		return f.choices([]string{"In your keychain, out of the file", "In the file, which only you can read"})
 	case stepWrite:
@@ -247,6 +265,28 @@ func (f setupForm) asking(width int) []string {
 	}
 
 	return nil
+}
+
+// failedChoices are what a check that did not pass offers, in order: an
+// address that is no address is typed again or left out, never kept.
+func (f setupForm) failedChoices() []failedChoice {
+	if !setup.Keepable(f.checkErr) {
+		return []failedChoice{failedTypeAddress, failedLeaveOut}
+	}
+
+	return []failedChoice{failedTypeAgain, failedKeep, failedLeaveOut}
+}
+
+// failedRows are the failed check's choices as rows.
+func (f setupForm) failedRows() []string {
+	choices := f.failedChoices()
+
+	rows := make([]string, 0, len(choices))
+	for _, choice := range choices {
+		rows = append(rows, choice.label())
+	}
+
+	return rows
 }
 
 // placeChoices are the places the file may go, each with what sees it.
@@ -470,11 +510,11 @@ func (f setupForm) chooseKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // choiceCount is how many rows the list asked now has.
 func (f setupForm) choiceCount() int {
-	const failedChoices, keychainChoices = 3, 2
+	const keychainChoices = 2
 
 	switch f.step {
 	case stepCheckFailed:
-		return failedChoices
+		return len(f.failedChoices())
 	case stepKeychain:
 		return keychainChoices
 	case stepPlace, stepJiraURL, stepJiraToken, stepWebhook, stepWrite:
@@ -503,19 +543,22 @@ func (f setupForm) chosen() setupForm {
 	return f
 }
 
-// afterFailedCheck types the token again, keeps Jira's answers unchecked, or
-// leaves Jira out, as chosen.
+// afterFailedCheck types the token or the address again, keeps Jira's
+// answers unchecked, or leaves Jira out, as chosen.
 func (f setupForm) afterFailedCheck() setupForm {
-	switch f.choice {
+	switch f.failedChoices()[f.choice] {
 	case failedTypeAgain:
 		return f.at(stepJiraToken)
+	case failedTypeAddress:
+		return f.at(stepJiraURL)
 	case failedKeep:
 		return f.at(f.afterJira())
-	default:
-		f.answers.Jira = config.Jira{}
-
-		return f.at(stepWebhook)
+	case failedLeaveOut:
 	}
+
+	f.answers.Jira = config.Jira{}
+
+	return f.at(stepWebhook)
 }
 
 // answer takes what was typed as the answer to the question asked now, or

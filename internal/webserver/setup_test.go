@@ -397,7 +397,6 @@ func TestSetupNamesTheCheckThatDidNotPass(t *testing.T) {
 		want    string
 	}{
 		"no Jira there":   {status: http.StatusNotFound, address: setupJira, want: "no Jira answers"},
-		"not an address":  {status: http.StatusOK, address: "jira.example.com", want: "not an http or https address"},
 		"something else":  {status: http.StatusTeapot, address: setupJira, want: "could not check the token"},
 		"Jira is refused": {status: http.StatusForbidden, address: setupJira, want: "Jira did not accept"},
 	}
@@ -417,6 +416,40 @@ func TestSetupNamesTheCheckThatDidNotPass(t *testing.T) {
 			failure := decode[api.Problem](t, recorder)
 			if failure.Code != api.CheckFailed || !strings.Contains(failure.Detail, each.want) {
 				t.Errorf("problem %+v, want check_failed saying %q", failure, each.want)
+			}
+		})
+	}
+}
+
+func TestSetupNeverKeepsAnAddressThatIsNotOne(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"not an address":       "jira.example.com",
+		"a password inside it": "https://fred:hunter2@jira.example.com",
+	}
+
+	for name, address := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			run := newFirstRun(t, http.StatusOK)
+			body := strings.Replace(setupBody(t, false, true), setupJira, address, 1)
+
+			// Act
+			recorder := send(t, run.handler(t), http.MethodPost, setupPath, body)
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			_, statErr := os.Stat(run.where.Path(setup.Repository))
+
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable ||
+				!strings.Contains(failure.Detail, "not an http or https address") ||
+				strings.Contains(failure.Detail, "keep") || strings.Contains(failure.Detail, "hunter2") ||
+				!errors.Is(statErr, os.ErrNotExist) {
+				t.Errorf("status %d, problem %+v, file %v; want 422 unprocessable naming the address, "+
+					"offering no keeping, and nothing written", recorder.Code, failure, statErr)
 			}
 		})
 	}

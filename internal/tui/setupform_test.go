@@ -460,3 +460,35 @@ func TestSetUpWithoutAHomeDirectoryOffersTheRepositoryAlone(t *testing.T) {
 		t.Errorf("the screen names your home directory %d times, want only in the hint:\n%s", rows, view)
 	}
 }
+
+func TestSetUpNeverOffersToKeepAnAddressThatIsNotOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	keys := []string{keyEnter, keyEnter}
+	keys = append(append(keys, letters("https://fred:hunter2@jira.example.com")...), keyEnter)
+	keys = append(append(keys, letters(firstRunToken)...), keyEnter)
+
+	// Act
+	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), keys...)
+
+	// Assert
+	view := asked.View().Content
+	requireScreen(t, view, "The Jira check did not pass", "Type the address again", "Leave Jira out")
+	refuseScreen(t, view, "Keep them anyway")
+}
+
+func TestSetUpTypesTheAddressAgainWhenItIsNotOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	keys := []string{keyEnter, keyEnter}
+	keys = append(append(keys, letters("jira.example.com")...), keyEnter)
+	keys = append(append(keys, letters(firstRunToken)...), keyEnter, keyEnter)
+
+	// Act
+	again := typing(t, newFirstRun(t, http.StatusOK).model(t, false), keys...)
+
+	// Assert
+	requireScreen(t, again.View().Content, "Jira's address, such as")
+}

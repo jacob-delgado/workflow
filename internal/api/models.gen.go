@@ -1969,7 +1969,7 @@ type SetupRequest struct {
 	// JiraToken The Jira personal access token. Never echoed back.
 	JiraToken string `json:"jira_token"`
 
-	// KeepUnchecked Write Jira's address and token even when Jira does not accept them.
+	// KeepUnchecked Write Jira's address and token even when Jira does not accept them, or cannot be asked. An address that is no http or https address, or that carries a username and password, is never kept.
 	KeepUnchecked bool `json:"keep_unchecked"`
 
 	// Keychain Keep the Jira token in the OS keychain rather than in the file.

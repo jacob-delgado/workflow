@@ -216,9 +216,11 @@ names origin.
 
 Status 422. Setting up a first configuration file checks the Jira token with
 Jira before anything is written, as `workflow config init` does, and the check
-did not pass: Jira did not accept the token, could not be reached at the
-address given, or is not an http or https address. Nothing was written. The
-detail says which, naming no address and no token. Settings offers to keep the
+did not pass: Jira did not accept the token, or could not be reached at the
+address given. Nothing was written. The detail says which, naming no address
+and no token. (An address that is not an http or https address, or that
+carries a username and password, is never kept, and is refused as
+[Unprocessable](#unprocessable) instead.) Settings offers to keep the
 address and token anyway, which asks again with `"keep_unchecked": true`, or to
 change them.
 
