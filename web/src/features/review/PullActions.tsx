@@ -316,7 +316,7 @@ function FinishForm({ name, branch, teller, onCancel }: FormProps & { branch: Br
       <p className="text-sm">
         {name} merged; finish <span className="font-mono">{branch.name}</span> by running:
       </p>
-      <pre className="text-xs">
+      <pre className="text-xs [overflow-wrap:anywhere] whitespace-pre-wrap">
         {[`git switch ${base}`, 'git pull --ff-only', `git branch -D ${branch.name}`].join('\n')}
       </pre>
     </WriteForm>

@@ -34,8 +34,8 @@ export async function pinTheme(page: Page, choice: string): Promise<void> {
 // with the checked-out issue's detail open beside, or under, the list. The
 // theme is pinned before the app paints, and motion is reduced, so nothing is
 // caught mid-transition. The detail has settled once its comment box has the
-// Markdown bar the mockup's configuration turns on: the box draws before that
-// read lands, and the bar's Write tab and marks join the Tab order after it.
+// Markdown bar the mockup's configuration turns on: the box waits for that
+// read behind a Reading status, then draws with its bar.
 export async function openCockpit(
   page: Page,
   size: { width: number; height: number },

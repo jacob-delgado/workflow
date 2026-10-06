@@ -107,7 +107,7 @@ function SetupLook({
         aria-label="lefthook.yml that runs them"
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a file that scrolls must be reachable by Tab to be scrolled by keys (WCAG 2.1.1)
         tabIndex={0}
-        className="max-h-60 overflow-auto rounded-md border border-border p-3 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="max-h-60 overflow-auto rounded-md border border-border p-3 text-xs [overflow-wrap:anywhere] whitespace-pre-wrap focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         {offer.config}
       </pre>
