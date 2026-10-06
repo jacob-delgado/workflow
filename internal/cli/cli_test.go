@@ -320,6 +320,8 @@ func TestHelpExplainsBothTokens(t *testing.T) {
 		"LAYERED",
 		"no higher than the repository root",
 		"Jira is optional",
+		"answering the prompts",
+		"--template",
 	}
 
 	for _, want := range wants {

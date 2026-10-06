@@ -45,8 +45,9 @@ format that may still change before 1.0.
   `workflow doctor --online` asks Jira and your forge whether their credentials
   work, and Slack whether your user token does, refreshing it if it is due; a
   webhook cannot be checked without posting, so it is reported unchecked.
-- `workflow config init` writes a starting configuration file — or, with no
-  file, the terminal interface and the web's Settings ask the same questions —
+- `workflow config init` sets up the configuration, answering the prompts
+  (`--template` writes a blank file to edit) — or, with no file, the terminal
+  interface and the web's Settings ask the same questions —
   and `workflow config show` prints the one in effect, credentials masked.
 - `workflow summary` says what you did over a period — the commits you wrote,
   the tasks you touched, what you did to Jira issues and the pull requests you
@@ -102,7 +103,7 @@ anything: `task container:check`.
 ## Configure
 
 ```sh
-workflow config init      # writes .workflow.json here, readable only by you
+workflow config init      # asks, then writes .workflow.json for you alone
 workflow doctor           # says what is still missing
 ```
 
@@ -217,7 +218,9 @@ back to HTTP when the tool is not installed.
 ### Keeping the tokens safe
 
 `.workflow.json` holds live credentials. `config init` writes it at mode `0600`,
-`doctor` fails while anyone else can read it, it is listed in `.gitignore`, and `config show` masks every credential —
+`doctor` fails while anyone else can read it, `config init` warns when the file
+is not ignored by git (add it to `.gitignore`), and `config show` masks every
+credential —
 including `messaging.webhook_url`, which is a password that happens to look like
 an address. Nothing in this repo will print a credential in full.
 
@@ -294,8 +297,9 @@ Found a vulnerability? Please report it privately through a
 rather than opening an issue — see [SECURITY.md](SECURITY.md) for what to
 include and what to expect.
 
-`.workflow.json` holds live credentials. It is written `0600`, gitignored, and
-every path that surfaces a token masks it first.
+`.workflow.json` holds live credentials. It is written `0600`, `config init`
+warns when git does not ignore it (add it to `.gitignore`), and every path that
+surfaces a token masks it first.
 
 ## License
 
