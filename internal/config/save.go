@@ -111,6 +111,19 @@ func Save(path string, cfg Config) error {
 	return err
 }
 
+// Create writes the configuration to a new file at path, at FileMode, and
+// writes nothing when anything is already there, a link included, so a link
+// planted where the file goes cannot steer its credentials elsewhere. The
+// refusal wraps fs.ErrExist.
+func Create(path string, cfg Config) error {
+	encoded, err := encode(cfg)
+	if err != nil {
+		return err
+	}
+
+	return createPrivate(path, encoded)
+}
+
 // SaveOver writes the configuration to path as Save does, but only while the
 // file is still at the revision over; otherwise it writes nothing and returns
 // ErrChangedOnDisk. It returns the revision of what it wrote. The check and the
@@ -189,6 +202,25 @@ func writePrivate(path string, contents []byte) error {
 	err = os.Rename(replacement, target)
 	if err != nil {
 		return errors.Join(fmt.Errorf("putting its replacement in place: %w", err), os.Remove(replacement))
+	}
+
+	return nil
+}
+
+// createPrivate makes the file at path, which must not exist — not even as a
+// link, which the exclusive create does not follow — holding contents and
+// reachable only by its owner. A write that fails part way removes the file
+// it made.
+func createPrivate(path string, contents []byte) error {
+	//nolint:gosec // the path is the user's own config file, by design
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, FileMode)
+	if err != nil {
+		return fmt.Errorf("creating %s: %w", path, err)
+	}
+
+	err = fill(file, contents)
+	if err != nil {
+		return errors.Join(fmt.Errorf("writing %s: %w", path, err), os.Remove(path))
 	}
 
 	return nil

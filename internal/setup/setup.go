@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -75,9 +76,10 @@ func (w Where) Layers(place Place) config.Files {
 	return config.Files{Home: home, Repo: path}
 }
 
-// RefuseExisting refuses a file already at path.
+// RefuseExisting refuses anything already at path: a file, or a link, even
+// one to nothing, which a write would follow to wherever it points.
 func RefuseExisting(path string) error {
-	_, err := os.Stat(path)
+	_, err := os.Lstat(path)
 	if err == nil {
 		return fmt.Errorf("%w: %s", ErrExists, path)
 	}
@@ -196,6 +198,25 @@ func Save(path string, layers config.Files, cfg config.Config, over config.Revis
 	}
 
 	_, err := config.SaveLayers(layers, cfg, over)
+
+	return err
+}
+
+// Create writes cfg to path as Save does, but only as a new file: anything
+// already there, a link included, is refused with ErrExists and nothing is
+// written, so a file made between RefuseExisting and the write is never
+// replaced and a link is never followed.
+func Create(path string, layers config.Files, cfg config.Config, over config.Revision) error {
+	var err error
+	if layers.Home == "" {
+		err = config.Create(path, cfg)
+	} else {
+		err = config.CreateLayers(layers, cfg, over)
+	}
+
+	if errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("%w: %s", ErrExists, path)
+	}
 
 	return err
 }
