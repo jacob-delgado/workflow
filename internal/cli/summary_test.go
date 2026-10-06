@@ -325,3 +325,18 @@ func TestStandupIsNoLongerACommand(t *testing.T) {
 
 	wantExit(t, err, 2)
 }
+
+func TestSummaryPostReportsAFailedPostByItsService(t *testing.T) {
+	// Arrange
+	// The webhook cannot be reached, so the confirmed post fails.
+	repo := workedRepository(t, "Add the widget")
+	writeFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://hooks.teams.example/services/x"}}`)
+
+	// Act
+	_, err := runGuided(t, repo, scripted([]string{"y"}, nil), "summary", "--post")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "posting to Teams") {
+		t.Errorf("summary --post = %v, want the failed post named by its service", err)
+	}
+}
