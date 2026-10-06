@@ -167,25 +167,6 @@ Impact: low · Effort: small
 
 ## Commits
 
-### FEAT-23 Unstage everything, and discard a change
-
-Impact: medium · Effort: small
-
-- Why: `a` in the terminal and Stage all on the web stage every file, and
-  nothing reverses either. A stray edit can only be dropped from a shell.
-- Touches: `internal/gitrepo/status.go`, `internal/tui/commits.go`,
-  `web/src/features/branch/WorkingTree.tsx:36` (`WorkingTree` renders
-  `StageAll` alone) and `web/src/features/branch/stagingApi.ts:34` (no
-  unstage-all beside `stageEverything`). Unstaging all is already
-  `loop.UnstageAll` (`internal/loop/stage.go:42`), which the web server's
-  `POST /api/unstage` answers `{all: true}` with.
-- Constraints: discarding destroys work, so it previews the file and needs
-  `enter`, unlike staging.
-- Done when: one key unstages all, and another discards the selected file's
-  changes after a confirmation; a test in `web/src/features/writes.test.tsx`
-  keeps the requests `fakeApi` returns, clicks Unstage all with two staged
-  files and finds one `POST /api/unstage` whose body is `{all: true}`.
-
 ### FEAT-24 Run any hook, not only pre-commit
 
 Impact: low · Effort: small
