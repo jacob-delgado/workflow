@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
@@ -114,4 +115,62 @@ func (m Model) markDiffLine(line string, width int, inHunk bool) string {
 	default:
 		return clipped
 	}
+}
+
+// discardPreviewLines is how much of a file's diff the discard's last look
+// shows: enough to recognize the change, not to read it all.
+const discardPreviewLines = 12
+
+// previewDiscard holds discarding the selected file's changes for a last look
+// at the file and the start of its diff, since a discard cannot be undone.
+func (m Model) previewDiscard() (Model, tea.Cmd) {
+	change, ok := m.changes.current()
+	if !ok || m.deps.Git.Discard == nil {
+		return m, nil
+	}
+
+	path := sanitize.Line(change.Path)
+	body := "Discard the " + change.Kind() + " file " + path + ", staged and not?"
+
+	if m.diff.path == change.Path {
+		body += "\n\n" + strings.Join(m.diff.lines[:min(len(m.diff.lines), discardPreviewLines)], "\n")
+	}
+
+	return m.lookAt(lastLook{
+		title: "Discard changes", verb: "discard", doing: "discarding",
+		body:    body + "\n\nThis cannot be undone.",
+		proceed: func(m Model) (Model, tea.Cmd) { return m.discardChange(change) },
+	}), nil
+}
+
+// discardChange drops change from the index and the work tree, the look open
+// and in flight until git answers.
+func (m Model) discardChange(change gitrepo.Change) (Model, tea.Cmd) {
+	if m.dryRun {
+		return m.closeOverlay().noticed("dry run: would discard " + sanitize.Line(change.Path)), nil
+	}
+
+	discard := m.deps.Git.Discard
+
+	return m, func() tea.Msg { return discarded{path: change.Path, err: discard(change)} }
+}
+
+// discarded reports how a discard went.
+type discarded struct {
+	path string
+	err  error
+}
+
+// apply closes the look and says so, or keeps it open with git's refusal, and
+// reads the status again either way.
+func (msg discarded) apply(m Model) (Model, tea.Cmd) {
+	m = m.answerLook(msg.err)
+
+	if msg.err != nil {
+		m = m.noticedFailure(msg.err)
+	} else {
+		m = m.noticed(m.marks.done + " discarded " + sanitize.Line(msg.path))
+	}
+
+	return m, m.loadChanges()
 }

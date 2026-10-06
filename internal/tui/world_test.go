@@ -117,6 +117,7 @@ type world struct {
 	changesErr        error
 	noChanges         bool
 	stageErr          error
+	discardErr        error
 	createErr         error
 	worktreeErr       error
 	checkoutErr       error

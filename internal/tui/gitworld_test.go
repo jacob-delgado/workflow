@@ -41,6 +41,11 @@ func (w *world) gitDeps() seams.Git {
 
 			return w.stageErr
 		},
+		Discard: func(change gitrepo.Change) error {
+			w.record("discard " + change.Path)
+
+			return w.discardErr
+		},
 		CreateBranch: func(name, start string) error {
 			w.record("create " + name + " from " + start)
 

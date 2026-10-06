@@ -186,15 +186,7 @@ func (m Model) commitsKeys() []key.Binding {
 		return nil
 	}
 
-	var keys []key.Binding
-
-	if _, hasChange := m.changes.current(); hasChange && m.deps.Git.Stage != nil {
-		keys = append(keys, m.keys.stage)
-	}
-
-	if len(loop.Stageable(m.changes.changes)) > 0 && m.deps.Git.Stage != nil {
-		keys = append(keys, m.keys.stageAll)
-	}
+	keys := m.stagingKeys()
 
 	if m.changes.staged() > 0 && m.deps.Git.Commit != nil {
 		keys = append(keys, m.keys.commit)
@@ -213,15 +205,39 @@ func (m Model) commitsKeys() []key.Binding {
 	return append(keys, m.keys.refresh)
 }
 
+// stagingKeys offers moving the changes into and out of the index, and
+// dropping the selected one, as far as the changes and the seams allow.
+func (m Model) stagingKeys() []key.Binding {
+	var keys []key.Binding
+
+	_, hasChange := m.changes.current()
+
+	if hasChange && m.deps.Git.Stage != nil {
+		keys = append(keys, m.keys.stage)
+	}
+
+	if len(loop.Stageable(m.changes.changes)) > 0 && m.deps.Git.Stage != nil {
+		keys = append(keys, m.keys.stageAll)
+	}
+
+	if m.changes.staged() > 0 && m.deps.Git.Unstage != nil {
+		keys = append(keys, m.keys.unstageAll)
+	}
+
+	if hasChange && m.deps.Git.Discard != nil {
+		keys = append(keys, m.keys.discard)
+	}
+
+	return keys
+}
+
 // handleCommitsKey answers the Commits pane's own keys.
 func (m Model) handleCommitsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.up, m.keys.down):
 		return m.moveChangeSelection(msg)
-	case key.Matches(msg, m.keys.stage):
-		return m.toggleStaged()
-	case key.Matches(msg, m.keys.stageAll):
-		return m.stageAll()
+	case key.Matches(msg, m.keys.stage, m.keys.stageAll, m.keys.unstageAll, m.keys.discard):
+		return m.handleStagingKey(msg)
 	case key.Matches(msg, m.keys.commit, m.keys.amend, m.keys.fixup):
 		return m.handleCommitAction(msg)
 	case key.Matches(msg, m.keys.runHooks) && m.deps.Hooks.Run != nil:
@@ -233,6 +249,21 @@ func (m Model) handleCommitsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// handleStagingKey routes the keys that move changes into and out of the
+// index, or drop them.
+func (m Model) handleStagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.stage):
+		return m.toggleStaged()
+	case key.Matches(msg, m.keys.stageAll):
+		return m.stageAll()
+	case key.Matches(msg, m.keys.unstageAll):
+		return m.unstageAll()
+	default:
+		return m.previewDiscard()
+	}
 }
 
 // moveChangeSelection moves the selection down or up, keeps it on screen, and
@@ -297,6 +328,23 @@ func (m Model) stageAll() (Model, tea.Cmd) {
 	stage := m.deps.Git.Stage
 
 	return m, func() tea.Msg { return staged{err: loop.StageAll(pending, stage)} }
+}
+
+// unstageAll takes every staged change out of the index, by loop's rule, at
+// once: it only undoes staging, which space or a can redo.
+func (m Model) unstageAll() (Model, tea.Cmd) {
+	count := m.changes.staged()
+	if count == 0 || m.deps.Git.Unstage == nil {
+		return m, nil
+	}
+
+	if m.dryRun {
+		return m.noticed("dry run: would unstage " + plural(count, "file")), nil
+	}
+
+	changes, unstage := m.changes.changes, m.deps.Git.Unstage
+
+	return m, func() tea.Msg { return staged{err: loop.UnstageAll(changes, unstage)} }
 }
 
 // staged reports how staging went.

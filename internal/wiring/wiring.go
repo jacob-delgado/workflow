@@ -222,6 +222,7 @@ func gitDeps(ctx context.Context, root string, kind func() forge.Kind) seams.Git
 		Diff:           func(change gitrepo.Change) ([]string, error) { return repo.Diff(ctx, change) },
 		Stage:          func(change gitrepo.Change) error { return repo.Stage(ctx, change) },
 		Unstage:        func(change gitrepo.Change) error { return repo.Unstage(ctx, change) },
+		Discard:        func(change gitrepo.Change) error { return repo.Discard(ctx, change) },
 		CreateBranch:   func(name, start string) error { return repo.CreateBranch(ctx, name, start) },
 		Branches:       func() ([]string, error) { return repo.LocalBranches(ctx) },
 		Checkout:       func(name string) error { return repo.Checkout(ctx, name) },

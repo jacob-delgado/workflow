@@ -669,8 +669,8 @@ The actions you can rebind, grouped by where they work, are:
   `start-work`, `search-issues`, `filter-issues`, `switch-view`, `load-more`,
   `open-link`, `copy-link`, `refresh`, `track-issue`.
 - **Branch and Commits:** `new-branch`, `switch-branch`, `link-issue`, `rebase`,
-  `push`, `stage`, `stage-all`, `commit`, `amend`, `fixup`, `run-pre-commit`,
-  `set-up-lefthook`.
+  `push`, `stage`, `stage-all`, `unstage-all`, `discard-change`, `commit`,
+  `amend`, `fixup`, `run-pre-commit`, `set-up-lefthook`.
 - **Review and your messaging service** (named for it, Slack by default):
   `open-pull-request`, `checks`, `rerun-checks`, `merge`, `finish-branch`,
   `post`, `people-and-groups`.
