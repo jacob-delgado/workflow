@@ -22,6 +22,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -121,6 +122,9 @@ type world struct {
 	checkoutErr       error
 	finishErr         error
 	unlinkErr         error
+	localFiles        []store.DataFile
+	localDataErr      error
+	removeErr         error
 	fetchErr          error
 	commitLines       []string
 	commitErr         error
@@ -252,7 +256,8 @@ func newWorld() *world {
 			{Key: issueKey, Summary: issueSummary, Status: "In Progress", StatusCategory: "indeterminate", Type: "Bug"},
 			{Key: secondIssue, Summary: "Add retries", Status: "To Do", StatusCategory: "new", Type: "Story"},
 		},
-		pageSize: 50,
+		pageSize:   50,
+		localFiles: localFiles(),
 		detail: jira.IssueDetail{
 			Issue: jira.Issue{Key: issueKey}, Reporter: reporter, Description: "Tokens reach the log.",
 			Comments: []jira.Comment{
@@ -322,6 +327,7 @@ func (w *world) deps() tui.Deps {
 		Editor:     w.editorDeps(),
 		Store:      w.storeDeps(),
 		Tasks:      w.taskDeps(),
+		Settings:   w.settingsDeps(),
 		Clock:      w.now,
 		CIInterval: w.ciInterval,
 		After:      fakeAfter,

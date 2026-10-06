@@ -6,12 +6,14 @@ package tui
 import (
 	"errors"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/store"
 )
 
 // errDryRun is what a write seam returns once dry run has held it back, so a
@@ -28,8 +30,25 @@ func heldBack(deps Deps) Deps {
 	deps.Git = heldBackGit(deps.Git)
 	deps.Tasks = heldBackTasks(deps.Tasks)
 	deps.Store = keptReads(deps.Store)
+	deps.Settings = heldBackSettings(deps.Settings)
 
 	return heldBackServices(deps)
+}
+
+// heldBackSettings holds back saving the configuration and removing the local
+// data; both are still read.
+func heldBackSettings(deps seams.Settings) seams.Settings {
+	if deps.Save != nil {
+		deps.Save = func(config.Config, config.Revision) (config.Config, config.Revision, error) {
+			return config.Config{}, config.Revision{}, errDryRun
+		}
+	}
+
+	if deps.RemoveLocalData != nil {
+		deps.RemoveLocalData = func(store.CleanScope) error { return errDryRun }
+	}
+
+	return deps
 }
 
 // keptReads is the store as a dry run uses it: the kept associations read,

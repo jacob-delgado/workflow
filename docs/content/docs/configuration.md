@@ -679,12 +679,13 @@ The actions you can rebind, grouped by where they work, are:
   `modify-task`, `undo-task`, `sync-tasks`, `search-tasks`, `filter-tasks`,
   `sort-tasks`.
 - **Summary:** `earlier`, `later`, `today`, `calendar`, `copy-summary`.
-- **Repositories:** `favorite-directory`, `go-to-directory`.
+- **Repositories:** `favorite-directory`, `go-to-directory`, `local-data`.
 - **In a composer or preview:** `edit`, `edit-body`, `next-template`,
   `toggle-draft`, `toggle-breaking`, `verbatim`, `next-field`,
   `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,
   `worktree` (in the branch creator), `post-when-green` (in the announcement
-  preview), `unlink-issue` (in the link form, on a branch already linked), `link-to-slack` and `not-on-slack` (in the announcement preview
+  preview), `unlink-issue` (in the link form, on a branch already linked),
+  `remove-cache` and `remove-everything` (in Local data), `link-to-slack` and `not-on-slack` (in the announcement preview
   and in People and groups), `forget-owner` (in People and groups),
   `show-log` (in the checks list).
 - **Writing a comment** (in the comment box's normal mode): `insert`,

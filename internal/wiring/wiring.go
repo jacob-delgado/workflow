@@ -107,6 +107,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Store:        storeDeps(ctx, onDisk(cfg), cfg, where),
 		Tasks:        taskDeps(ctx, cfg.Taskwarrior),
 		Repositories: repositoriesDeps(ctx, cfg, where),
+		Settings:     settingsDeps(ctx),
 		Clock:        nil,
 		CIInterval:   cfg.CIInterval(),
 		Notify:       ringTerminal,
