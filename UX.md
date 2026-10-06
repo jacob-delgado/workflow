@@ -177,7 +177,7 @@ them.
 | Favorites | listed by `repositories` | `f` | Add to favorites, Remove |
 | List the worktrees | `repositories [--json]` | the Repositories pane | Worktrees |
 | **Settings and local data** | | | |
-| Set up from nothing | `config init`, `slack login` | — (UX-153) | — (UX-153) |
+| Set up from nothing | `config init`, `slack login` | `enter` on the no-file screen, or `S` | Settings, with no file |
 | Read the configuration | `config show` | Settings: `S` on the Repositories pane | Settings |
 | Change it | edit the file | Settings, `ctrl+s` | Settings, Save changes |
 | Check the setup | `doctor [--online]` | a failure names `workflow doctor` | a failure names `workflow doctor` |
@@ -307,18 +307,19 @@ the two\|listed in .gitignore\|listed in the repository\|gitignored'
 README.md docs/content/docs internal/cli/cli.go` finds nothing, and
 `task docs:check` passes.
 
-### UX-91 Three moments the command line names no next step
+### UX-91 Two moments the command line names no next step
 
 Impact: low · Effort: small
 
 **Today.** The scriptable writes say what to do when stdin is closed:
 "pass --yes", exit 2 (`writeOptions.proceed`,
 `internal/cli/scriptable.go:145`, and `docs/content/docs/scripting.md:297`
-under "Writing without a person"). Three other moments end without a
-pointer.
+under "Writing without a person"). Two other moments end without a
+pointer. (The third, `--web` with no file, now names `workflow config
+init` and the page's own setup.)
 
-- `internal/cli/config_cmd.go:363` (`collectJira`): the guided `init`
-  returns `prompt.Line`'s error raw (`:365`), and so do its other
+- `internal/cli/config_cmd.go:306` (`collectJira`): the guided `init`
+  returns `prompt.Line`'s error raw (`:308`), and so do its other
   questions. Only `confirm` (`internal/cli/prompt.go:47`) and `slack
   login`'s `askFor` (`internal/cli/slack_cmd.go:146`) map `io.EOF` to
   `errNoTerminal`, and `io.EOF` belongs to no family in `exitFamilies`
@@ -327,19 +328,8 @@ pointer.
   `--template`. A final line typed without a newline comes back from
   `terminalPrompt`'s `ReadString` together with `io.EOF`
   (`cmd/workflow/main.go:43`) and is discarded with it.
-- `internal/cli/web.go:179` (`serveWeb`, reached from the root's `--web`
-  branch at `internal/cli/cli.go:206`): every load error, `ErrNotFound`
-  included, prints "configuration did not load cleanly: %v" and then
-  serves. Its siblings branch on `ErrNotFound` and print
-  `NoConfigHeadline`, `InitStep` and `DoctorStep`: `showLoadError`
-  (`internal/cli/config_cmd.go:102`), `reportLoadError`
-  (`internal/cli/doctor.go:286`) and the interface's `configErrorStatus`
-  (`internal/tui/render.go:483`). The web cannot write a first file
-  (`docs/content/docs/web.md:532`, under "What stays in the terminal"),
-  so the one surface that most needs `workflow config init` named is the
-  one whose start never names it.
-- `internal/cli/pr.go:269` (`openPull`): the command ends with `followUp`,
-  so "Moved PROJ-2 to In Review." (`:390`) is its last word, while the
+- `internal/cli/pr.go:249` (`openPull`): the command ends with `followUp`,
+  so "Moved PROJ-2 to In Review." (`:396`) is its last word, while the
   interface's spine keeps "nothing announced" in view
   (`docs/content/docs/usage.md:49`, "The screen") and `announce`'s own
   refusal points the other way, "…; open one with `workflow pr`"
@@ -347,15 +337,11 @@ pointer.
 
 **Instead.** Map `io.EOF` from the guided flow's prompts to
 `errNoTerminal` with "pass --template to write a file to edit by hand",
-exiting 2 like the writes; in `serveWeb`, test `config.ErrNotFound` as
-`showLoadError` does and print the three shared hint constants before the
-serving line; when messaging is configured, end `pr` with a stderr note
+exiting 2 like the writes; when messaging is configured, end `pr` with a stderr note
 "Announce it with workflow announce", so stdout stays the artifact.
 
 **Done when.** A `config init` test whose `Line` returns `io.EOF` gets
-exit 2 and an error naming `--template`; a root test with no file and
-`--web` finds "workflow config init" on stderr and not "did not load
-cleanly"; a `pr --yes` test with messaging configured sees "workflow
+exit 2 and an error naming `--template`; a `pr --yes` test with messaging configured sees "workflow
 announce" on stderr, and one without messaging does not.
 
 ### UX-92 The scriptable output lacks a unique label and a timestamp
@@ -864,7 +850,7 @@ Taskwarrior. There is no guided, credential-checking flow like `workflow
 config init`; the web edits an existing file only.
 
 **Instead.** Fieldsets for the six, with `views`, `prefixes` and
-`channels` as editable lists. A first run from no file is UX-153's.
+`channels` as editable lists.
 
 **Done when.** A view added in the browser appears in the interface's `v`
 cycle, and a channel added there is offered in the announcement preview.
@@ -1885,8 +1871,7 @@ failure wording name the same settings.
 
 ## New ideas
 
-Ideas this edition adds that no surface has begun: a first run that
-starts inside the interface rather than before it, and a mode a screen
+An idea this edition adds that no surface has begun: a mode a screen
 reader can follow. One more is a feature
 rather than a change to how the interface is used, so it lives in
 [FEATURES.md](FEATURES.md) and is only pointed at here:
@@ -1894,48 +1879,6 @@ rather than a change to how the interface is used, so it lives in
 - **FEAT-87 What workflow did, and taking it back** — a session's log of
   every write, with undo where the system allows it; the feature UX-68
   stops short of.
-
-### UX-153 Set up from inside the interface
-
-Impact: medium · Effort: medium
-
-**Today.** The first run happens before the interface, at a prompt.
-`workflow` with no file shows "No .workflow.json found." and "Create one
-with `workflow config init`." (`configErrorStatus`,
-`internal/tui/render.go:483`, from `config.NoConfigHeadline` and
-`config.InitStep`, `internal/config/config.go:22`, `:24`) and nothing
-else to do; `workflow --web` with no file prints "configuration did not
-load cleanly" on stderr (`serveWeb`, `internal/cli/web.go:179`; UX-91)
-and serves a page whose Settings edits a file that exists
-(`docs/content/docs/web.md:532`, "What stays in the terminal"). The
-questions `config init` asks — Jira's address and token, checked
-against Jira before they are kept, then a messaging webhook
-(`runGuidedInit`, `internal/cli/config_cmd.go:268`; `collectJira`,
-`:362`; `collectMessaging`, `:418`) — are asked only on a terminal's
-stdin.
-
-**Instead.** The same questions in both interfaces, over the same
-composition, moved from `internal/cli` to where all three surfaces reach
-it. In the terminal, the no-file screen offers enter to set up: a form of
-the guided init's questions, the token read without echo and stored as
-`config init` stores it (`Prompt.StoreSecret`, the OS keychain), the Jira
-check shown as it runs, then the file written and the panes loaded
-without a restart. On the web, Settings with no file becomes that form,
-with where to write — the repository or the home directory — chosen
-first, and `PUT /api/config` allowed to create the file it names; the
-stderr line names `workflow config init` as UX-91 asks. A credential
-typed in the browser travels only to the loopback server, which the
-same-origin guard already holds, and is masked in every answer.
-`internal/tui` is at its file budget (60 of 60,
-`scripts/package-size-budgets.txt`), so the terminal's form needs a
-budget bump with its reason, or a home in an existing file.
-
-**Done when.** A screen test with no file presses enter, answers the
-questions against a fake Jira that accepts the token, and finds the
-Issues pane loaded and the file written with the token absent from it;
-a web test with no file fills Settings, saves, and finds the stream
-connected; the test that the token never reaches a response or a log
-line ships with it.
 
 ### UX-154 A screen-reader and plain mode
 
@@ -1980,5 +1923,5 @@ None this edition. The nine-pane rail (`paneCount`,
 before the Tasks pane joined it, seven before the Summary and eight
 before Repositories, *is* the decision as built. UX-154's lines mode
 draws the same nine panes one at a time, on request, rather than
-reopening the rail, and UX-153 moves an item off web.md's "What stays in
-the terminal", which lists choices for now, not settled decisions.
+reopening the rail; web.md's "What stays in the terminal" lists
+choices for now, not settled decisions.
