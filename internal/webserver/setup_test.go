@@ -290,3 +290,146 @@ func TestSetupTakesTheFileUpWhereTheServerWorks(t *testing.T) {
 		t.Errorf("reached %q, want the server to take the file up in %s", run.reached, run.where.WorkDir)
 	}
 }
+
+func TestSetupWithJiraLeftOutAsksNoOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusUnauthorized)
+	body := `{"place":"home","jira_base_url":"","jira_token":"","webhook_url":"","keychain":false,"keep_unchecked":false}`
+
+	// Act
+	recorder := send(t, run.handler(t), http.MethodPost, setupPath, body)
+
+	// Assert
+	result := decode[api.SetupResult](t, recorder)
+	if recorder.Code != http.StatusOK || result.JiraUser != "" || result.Path != run.where.Path(setup.Home) {
+		t.Errorf("status %d, result %+v; want the home file written with no Jira", recorder.Code, result)
+	}
+}
+
+func TestSetupNeverWritesOverAFileAtThePathChosen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	path := run.where.Path(setup.Repository)
+
+	err := os.WriteFile(path, []byte(`{}`), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing the file already there: %v", err)
+	}
+
+	// Act
+	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
+
+	// Assert
+	kept, readErr := os.ReadFile(path)
+	if recorder.Code != http.StatusConflict || readErr != nil || string(kept) != `{}` {
+		t.Errorf("status %d, file %q (%v); want 409 and the file kept", recorder.Code, kept, readErr)
+	}
+}
+
+func TestSetupRefusesTheKeychainWhereThereIsNone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	deps := run.deps(t)
+	guide := setup.Guide{Where: run.where, Doer: jira.Doer(run.jira)}
+	deps.Setup.Write = func(request setup.Request) (setup.Written, error) { return guide.Write(t.Context(), request) }
+
+	// Act
+	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, true, false))
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable {
+		t.Errorf("status %d, problem %+v; want 422 unprocessable", recorder.Code, failure)
+	}
+}
+
+func TestSetupWithNoWayToTakeTheFileUpSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	deps := run.deps(t)
+	deps.Reach = nil
+
+	// Act
+	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false, false))
+
+	// Assert
+	result := decode[api.SetupResult](t, recorder)
+	if recorder.Code != http.StatusOK || result.Reopened {
+		t.Errorf("status %d, result %+v; want the file written and not taken up", recorder.Code, result)
+	}
+}
+
+func TestSetupThatCannotBeTakenUpIsNoted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	deps := run.deps(t)
+	deps.Reach = func(string) (webserver.World, error) { return webserver.World{}, errSetupUnreachable }
+
+	// Act
+	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false, false))
+
+	// Assert
+	result := decode[api.SetupResult](t, recorder)
+	if result.Reopened || len(run.noted) != 1 {
+		t.Errorf("result %+v, noted %q; want it not taken up, and why noted", result, run.noted)
+	}
+}
+
+// errSetupUnreachable is a directory the server could not wire again.
+var errSetupUnreachable = errors.New("the directory could not be wired")
+
+func TestSetupNamesTheCheckThatDidNotPass(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		status  int
+		address string
+		want    string
+	}{
+		"no Jira there":   {status: http.StatusNotFound, address: setupJira, want: "no Jira answers"},
+		"not an address":  {status: http.StatusOK, address: "jira.example.com", want: "not an http or https address"},
+		"something else":  {status: http.StatusTeapot, address: setupJira, want: "could not check the token"},
+		"Jira is refused": {status: http.StatusForbidden, address: setupJira, want: "Jira did not accept"},
+	}
+
+	for name, each := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			run := newFirstRun(t, each.status)
+			body := strings.Replace(setupBody(t, false, false), setupJira, each.address, 1)
+
+			// Act
+			recorder := send(t, run.handler(t), http.MethodPost, setupPath, body)
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if failure.Code != api.CheckFailed || !strings.Contains(failure.Detail, each.want) {
+				t.Errorf("problem %+v, want check_failed saying %q", failure, each.want)
+			}
+		})
+	}
+}
+
+func TestSetupOffersNothingWhereItIsNotWired(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	offer := decode[api.SetupOffer](t, get(t, serve(t, webserver.Deps{}, config.Default()), setupPath))
+
+	// Assert
+	if offer.Needed || len(offer.Places) != 0 {
+		t.Errorf("offer = %+v, want nothing offered", offer)
+	}
+}

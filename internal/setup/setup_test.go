@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -289,5 +290,114 @@ func TestOfferNamesBothPlacesAndWhetherTheKeychainCanKeepTheToken(t *testing.T) 
 	if len(offer.Places) != 2 || offer.Places[0].Place != setup.Repository || offer.Places[1].Place != setup.Home ||
 		offer.Places[1].Path != guide.Where.Path(setup.Home) || !offer.Keychain {
 		t.Errorf("Offer = %+v, want the repository then home, and the keychain", offer)
+	}
+}
+
+func TestWriteInARepositoryLiesOverTheHomeFile(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	guide := guideIn(t, acceptingJira())
+	home := guide.Where.Path(setup.Home)
+
+	err := os.WriteFile(home, []byte(`{"jira":{"base_url":"https://home.example.com","project":"HOME"}}`), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing the home file: %v", err)
+	}
+
+	// Act
+	written, err := guide.Write(t.Context(), answered(setup.Repository))
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	// Assert
+	cfg, _, err := config.LoadLayersAt(guide.Where.Layers(setup.Repository))
+	if err != nil || cfg.Jira.Project != "HOME" || cfg.Jira.BaseURL != "https://jira.example.com" {
+		t.Errorf("read %+v (%v) over %s, want the repository's answers over the home file's project",
+			cfg.Jira, err, written.Path)
+	}
+}
+
+func TestWriteIgnoresTheKeychainWithJiraLeftOut(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	guide := guideIn(t, acceptingJira())
+	request := setup.Request{Place: setup.Home, Keychain: true}
+
+	// Act
+	written, err := guide.Write(t.Context(), request)
+
+	// Assert
+	if err != nil || written.Keychain {
+		t.Errorf("Write = %+v, %v; want the file written with nothing for the keychain", written, err)
+	}
+}
+
+func TestWriteNamesAFileGitWouldCommit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	guide := guideIn(t, acceptingJira())
+
+	err := exec.CommandContext(t.Context(), "git", "init", "-q", guide.Where.WorkDir).Run()
+	if err != nil {
+		t.Fatalf("making the repository: %v", err)
+	}
+
+	// Act
+	written, err := guide.Write(t.Context(), answered(setup.Repository))
+
+	// Assert
+	if err != nil || !written.NotIgnored {
+		t.Errorf("Write = %+v, %v; want the file named as one git would commit", written, err)
+	}
+}
+
+func TestCheckNamesALoginWhereJiraWithholdsTheName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	guide := guideIn(t, jiraAnswering(http.StatusOK, `{"name":"fred"}`, nil))
+
+	// Act
+	who, err := guide.Check(t.Context(), answered(setup.Home).Answers.Jira)
+
+	// Assert
+	if err != nil || who != "fred" {
+		t.Errorf("Check = %q, %v; want the login", who, err)
+	}
+}
+
+func TestOfferNamesNoKeychainWhereThereIsNone(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	offer := guideIn(t, acceptingJira()).Offer()
+
+	// Assert
+	if offer.Keychain {
+		t.Errorf("Offer = %+v, want no keychain", offer)
+	}
+}
+
+func TestLayersStandAloneWhereTheRepositoryIsHome(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	home := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(home, config.FileName), []byte(`{}`), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing the home file: %v", err)
+	}
+
+	// Act
+	layers := setup.Where{WorkDir: home, HomeDir: home}.Layers(setup.Repository)
+
+	// Assert
+	if layers != (config.Files{}) {
+		t.Errorf("Layers = %+v, want the file to stand alone", layers)
 	}
 }
