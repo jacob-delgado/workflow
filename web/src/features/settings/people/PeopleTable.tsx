@@ -97,7 +97,8 @@ function OwnerRows({ people, dryRun }: { people: People; dryRun: boolean }) {
               key={owner.owner}
               owner={owner}
               choices={owner.kind === 'team' ? choices.groups : choices.members}
-              disabled={dryRun || link.state === 'running'}
+              disabled={dryRun}
+              held={link.state === 'running'}
               opener={(button) => {
                 setOpener(openers.current, owner.owner, button)
               }}
@@ -196,7 +197,10 @@ function directoryNote(scope: string | undefined, failed: Error | null): string 
 interface OwnerRowProps {
   owner: OwnerTag
   choices: SlackTarget[]
+  // disabled is under --dry-run, which saves nothing; held is while a link
+  // saves, keeping the focus of the control that saves it.
   disabled: boolean
+  held: boolean
   opener: (button: HTMLButtonElement | null) => void
   onLink: (link: PersonLink) => void
   onForget: () => void
@@ -204,7 +208,7 @@ interface OwnerRowProps {
 
 // OwnerRow is one owner: their name, whom they are on Slack as a choice that
 // saves as it changes, and Forget once they are decided.
-function OwnerRow({ owner, choices, disabled, opener, onLink, onForget }: OwnerRowProps) {
+function OwnerRow({ owner, choices, disabled, held, opener, onLink, onForget }: OwnerRowProps) {
   return (
     <tr className="border-t border-border align-middle">
       <td className="py-1 pr-2 font-mono break-all">
@@ -214,7 +218,13 @@ function OwnerRow({ owner, choices, disabled, opener, onLink, onForget }: OwnerR
         ) : null}
       </td>
       <td className="py-1 pr-2">
-        <SlackChoice owner={owner} choices={choices} disabled={disabled} onLink={onLink} />
+        <SlackChoice
+          owner={owner}
+          choices={choices}
+          disabled={disabled}
+          held={held}
+          onLink={onLink}
+        />
       </td>
       <td className="py-1">
         {owner.state === 'unlinked' ? null : (
@@ -222,6 +232,7 @@ function OwnerRow({ owner, choices, disabled, opener, onLink, onForget }: OwnerR
             variant="secondary"
             ref={opener}
             disabled={disabled}
+            held={held}
             aria-label={`Forget ${owner.owner}…`}
             onClick={onForget}
           >
@@ -237,13 +248,14 @@ interface SlackChoiceProps {
   owner: OwnerTag
   choices: SlackTarget[]
   disabled: boolean
+  held: boolean
   onLink: (link: PersonLink) => void
 }
 
 // SlackChoice is whom an owner is on Slack, as a native select: not decided
 // yet, not on Slack, or one of the choices — the one they are linked to among
 // them even when Slack no longer lists it.
-function SlackChoice({ owner, choices, disabled, onLink }: SlackChoiceProps) {
+function SlackChoice({ owner, choices, disabled, held, onLink }: SlackChoiceProps) {
   const current = owner.state === 'linked' ? owner.slack : undefined
   const listed =
     current === undefined || choices.some((choice) => choice.id === current.id)
@@ -259,6 +271,7 @@ function SlackChoice({ owner, choices, disabled, onLink }: SlackChoiceProps) {
         className="w-full"
         value={value}
         disabled={disabled}
+        held={held}
         onChange={(event) => {
           const chosen = event.target.value
           onLink(
@@ -322,7 +335,7 @@ function ForgetConfirm({ owner, forget, tell, onClose }: ForgetConfirmProps) {
       <div className="flex items-center gap-item">
         <Button
           variant="secondary"
-          disabled={forgetting.state === 'running'}
+          held={forgetting.state === 'running'}
           onClick={() => {
             onClose(false)
           }}
@@ -331,7 +344,7 @@ function ForgetConfirm({ owner, forget, tell, onClose }: ForgetConfirmProps) {
         </Button>
         <Button
           variant="primary"
-          disabled={forgetting.state === 'running'}
+          held={forgetting.state === 'running'}
           onClick={() => void forgetting.run(owner)}
         >
           {forgetting.state === 'running' ? 'Forgetting…' : 'Forget'}

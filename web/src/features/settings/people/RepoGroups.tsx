@@ -86,7 +86,8 @@ function GroupChoice({ saved, dryRun }: { saved: Groups; dryRun: boolean }) {
       </fieldset>
       <Button
         variant="secondary"
-        disabled={dryRun || save.state === 'running'}
+        disabled={dryRun}
+        held={save.state === 'running'}
         onClick={() => void save.run(checked)}
       >
         {save.state === 'running' ? 'Saving…' : 'Save groups'}

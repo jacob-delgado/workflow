@@ -209,3 +209,64 @@ test('under --dry-run the changes are explained as held back', async () => {
   )
   expect(screen.getByRole('button', { name: 'Save groups' })).toHaveProperty('disabled', true)
 })
+
+// refusingWrites answers People and groups as read, and refuses every write
+// with the server's reason.
+function refusingWrites() {
+  const refusal = () =>
+    Response.json({ code: 'unprocessable', detail: 'the store refused it' }, { status: 422 })
+  fakeApi({
+    '/api/people': (_: URL, asked: Request) => (asked.method === 'GET' ? people : refusal()),
+    '/api/slack/members': { entries: [ben, carla] },
+    '/api/slack/groups': { entries: [pod, reviewers] },
+    '/api/repo-groups': (_: URL, asked: Request) => (asked.method === 'GET' ? groups : refusal()),
+  })
+}
+
+test('a refused choice says why, with focus still on the select', async () => {
+  // Arrange
+  refusingWrites()
+  const user = userEvent.setup()
+  renderWithClient(<PeopleAndGroups />)
+  const choice = await screen.findByRole('combobox', { name: 'Slack for carla' })
+
+  // Act
+  await user.selectOptions(choice, 'not-on-slack')
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toBe('the store refused it')
+  expect(document.activeElement).toBe(choice)
+})
+
+test('a refused Forget says why, with focus still on it', async () => {
+  // Arrange
+  refusingWrites()
+  const user = userEvent.setup()
+  renderWithClient(<PeopleAndGroups />)
+  await user.click(await screen.findByRole('button', { name: 'Forget dan…' }))
+  const forget = within(screen.getByRole('group', { name: 'Forget dan?' })).getByRole('button', {
+    name: 'Forget',
+  })
+
+  // Act
+  await user.click(forget)
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toBe('the store refused it')
+  expect(document.activeElement).toBe(forget)
+})
+
+test('a refused Save groups says why, with focus still on it', async () => {
+  // Arrange
+  refusingWrites()
+  const user = userEvent.setup()
+  renderWithClient(<PeopleAndGroups />)
+  const save = await screen.findByRole('button', { name: 'Save groups' })
+
+  // Act
+  await user.click(save)
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toBe('the store refused it')
+  expect(document.activeElement).toBe(save)
+})

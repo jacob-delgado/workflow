@@ -71,7 +71,7 @@ export function TagPicker({ tagging, pick, channel, posting, onPick, onLinking }
         <GroupChecks
           groups={pick.groups}
           checked={pick.checked}
-          disabled={posting}
+          held={posting}
           onCheck={(id, checked) => {
             onPick((current) => withGroup(current, id, checked))
           }}
@@ -232,7 +232,8 @@ function OwnerOnSlack({ owner, choices, channel, busy, onLink }: OwnerOnSlackPro
           size="sm"
           className="max-w-full"
           value=""
-          disabled={busy || choices.length === 0}
+          disabled={choices.length === 0}
+          held={busy}
           onChange={(event) => {
             const pickedFrom = owner.kind === 'user' && channel !== '' ? { channel } : {}
             onLink({
@@ -253,7 +254,7 @@ function OwnerOnSlack({ owner, choices, channel, busy, onLink }: OwnerOnSlackPro
       </label>
       <Button
         variant="secondary"
-        disabled={busy}
+        held={busy}
         aria-label={`${owner.owner} is not on Slack`}
         onClick={() => {
           onLink({ owner: owner.owner, not_on_slack: true })
@@ -268,13 +269,14 @@ function OwnerOnSlack({ owner, choices, channel, busy, onLink }: OwnerOnSlackPro
 interface GroupChecksProps {
   groups: GroupTag[]
   checked: string[]
-  disabled: boolean
+  held: boolean
   onCheck: (id: string, checked: boolean) => void
 }
 
 // GroupChecks are the user groups the announcement offers, each a checkbox,
-// noting the ones a team owning the changed paths brings.
-function GroupChecks({ groups, checked, disabled, onCheck }: GroupChecksProps) {
+// noting the ones a team owning the changed paths brings. While the
+// announcement posts they are held, keeping the focus one of them had.
+function GroupChecks({ groups, checked, held, onCheck }: GroupChecksProps) {
   return (
     <fieldset className="flex flex-col gap-tight text-sm">
       <legend className="mb-1 text-sm font-semibold">Tag groups</legend>
@@ -283,9 +285,11 @@ function GroupChecks({ groups, checked, disabled, onCheck }: GroupChecksProps) {
           <input
             type="checkbox"
             checked={checked.includes(group.slack.id)}
-            disabled={disabled}
+            aria-disabled={held || undefined}
             onChange={(event) => {
-              onCheck(group.slack.id, event.target.checked)
+              if (!held) {
+                onCheck(group.slack.id, event.target.checked)
+              }
             }}
           />
           <span>@{group.slack.label}</span>

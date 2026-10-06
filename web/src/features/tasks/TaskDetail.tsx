@@ -302,7 +302,7 @@ export function Verb({
           setAsking(false)
         }}
       >
-        <Button variant="primary" disabled={running} onClick={() => void write.run()}>
+        <Button variant="primary" held={running} onClick={() => void write.run()}>
           {running ? busy : label}
         </Button>
         {refusal}
@@ -316,7 +316,7 @@ export function Verb({
         ref={opener}
         aria-keyshortcuts={keys}
         variant="secondary"
-        disabled={running}
+        held={running}
         onClick={() => {
           if (ask === undefined) {
             void write.run()

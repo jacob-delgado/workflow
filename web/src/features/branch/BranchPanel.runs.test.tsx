@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Run, RunEvent, RunRequest, Snapshot } from '@/api/generated/types.gen.ts'
@@ -194,7 +194,7 @@ test('stops the run going, from the stream, when asked', async () => {
   expect(mockStopRun).toHaveBeenCalled()
 })
 
-test('says why a run was refused before it ran', async () => {
+test('says why a run was refused before it ran, with focus still on Run pre-commit', async () => {
   // Arrange
   mockStartRun.mockRejectedValueOnce({ code: 'conflict', detail: 'a run is already going' })
   foldable()
@@ -206,7 +206,32 @@ test('says why a run was refused before it ran', async () => {
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toContain('a run is already going')
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Run pre-commit' }))
 })
+
+test.each(['Rebase onto main', 'Run pre-commit', 'Amend last commit', 'Fix up a commit'])(
+  '%s is held, keeping its focus, while a run goes',
+  async (name) => {
+    // Arrange
+    foldable()
+    render(<BranchPanel />)
+    const control = screen.getByRole('button', { name })
+    control.focus()
+
+    // Act
+    act(() => {
+      foldable({
+        run: { kind: 'rebase', title: 'git rebase', state: 'in_progress', outcome: '', lines: [] },
+      })
+    })
+
+    // Assert
+    await waitFor(() => {
+      expect(control.getAttribute('aria-disabled')).toBe('true')
+    })
+    expect(document.activeElement).toBe(control)
+  },
+)
 
 test('says why a stop was refused', async () => {
   // Arrange

@@ -367,7 +367,7 @@ function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }
     <div className="flex flex-col gap-tight">
       <Button
         variant="secondary"
-        disabled={state === 'running'}
+        held={state === 'running'}
         onClick={() => {
           void run()
         }}
@@ -399,7 +399,7 @@ function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Tel
     <div className="flex flex-col gap-tight">
       <Button
         variant="primary"
-        disabled={start.state === 'running'}
+        held={start.state === 'running'}
         onClick={() => {
           void start.run(true)
         }}

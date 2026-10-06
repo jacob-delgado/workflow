@@ -168,7 +168,7 @@ function AnnounceControls({
         variant="primary"
         ref={opener}
         aria-keyshortcuts={postKeys}
-        disabled={draft.preview.state === 'running'}
+        held={draft.preview.state === 'running'}
         onClick={() => {
           post.reset()
           hold.reset()

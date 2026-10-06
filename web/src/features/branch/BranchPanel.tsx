@@ -202,7 +202,7 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
           variant="secondary"
           ref={opener}
           aria-keyshortcuts={pushKeys}
-          disabled={push.state === 'running'}
+          held={push.state === 'running'}
           onClick={() => {
             setConfirming(true)
           }}

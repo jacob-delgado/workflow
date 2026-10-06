@@ -177,7 +177,7 @@ test('a webhook-only setup previews the channel its webhook is bound to', async 
   expect(within(preview).queryByRole('combobox', { name: 'Channel' })).toBeNull()
 })
 
-test('a refused post keeps the preview and says why', async () => {
+test('a refused post keeps the preview and the focus, and says why', async () => {
   // Arrange
   messagingTo({})
   fakeApi({
@@ -204,6 +204,7 @@ test('a refused post keeps the preview and says why', async () => {
   // Assert
   expect((await screen.findByRole('alert')).textContent).toContain('refused the post')
   expect(screen.getByRole('group', { name: 'Summary preview' })).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Post' }))
 })
 
 test('with no messaging set up there is nothing to post to', async () => {

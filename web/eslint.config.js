@@ -39,6 +39,21 @@ const noAllCaps = [
   { selector: 'TemplateElement[value.raw=/(^|[\\s:!])uppercase!?(\\s|$)/]', message: allCaps },
 ]
 
+// A control off while its own request or run goes is held (Button's and the
+// fields' held prop, in web/src/lib), never disabled: the disabled attribute
+// drops its focus to the page in Chromium and WebKit, and a keyboard user who
+// pressed it hears the refusal from nowhere (UX-106). disabled stays for a
+// control off for a reason that names no run — nothing chosen yet.
+const runningNames =
+  /^(busy|running|sending|opening|writing|linking|posting|going|retrying|saving|isFetching|isPending)$/
+const heldNotDisabled = [
+  {
+    selector: `JSXAttribute[name.name='disabled'] :matches(Identifier[name=${String(runningNames)}], Literal[value='running'])`,
+    message:
+      'Hold a control while its run goes with held (web/src/lib/Button.tsx, Field.tsx), not disabled, which drops its focus to the page.',
+  },
+]
+
 // Black-box test smells: assert on user-facing semantics, not implementation
 // details. `no-node-access` would catch these but over-fires on the legitimate
 // focus tests (`document.activeElement`) and on the state-mark test that climbs
@@ -115,7 +130,13 @@ export default tseslint.config(
       'max-lines-per-function': ['error', { max: 80, skipBlankLines: true, skipComments: true }],
       // React escapes all interpolated content; never bypass it. Nor dim with
       // opacity, nor head a part in capitals.
-      'no-restricted-syntax': ['error', ...noReactEscapeBypass, ...noOpacityDimming, ...noAllCaps],
+      'no-restricted-syntax': [
+        'error',
+        ...noReactEscapeBypass,
+        ...noOpacityDimming,
+        ...noAllCaps,
+        ...heldNotDisabled,
+      ],
       // A label wrapping one of web/src/lib's fields labels the control it
       // draws, as one wrapping the native element does.
       'jsx-a11y/label-has-associated-control': [

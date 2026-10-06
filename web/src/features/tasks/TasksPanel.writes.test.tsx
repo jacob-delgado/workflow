@@ -261,6 +261,7 @@ test('a change Taskwarrior makes nothing of says why beside its button, and keep
   const alert = await screen.findByRole('alert')
   expect(alert.textContent).toBe(detail)
   expect(alert.parentElement?.contains(start)).toBe(true)
+  expect(document.activeElement).toBe(start)
   expect(within(screen.getByRole('list', { name: 'Tasks' })).getAllByRole('listitem')).toHaveLength(
     2,
   )
@@ -423,6 +424,7 @@ test('a refused line says why and keeps what was typed', async () => {
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe(detail)
   expect((line as HTMLInputElement).value).toBe('due:soon')
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Modify' }))
 })
 
 test('the mockup answers a write without a server', async () => {

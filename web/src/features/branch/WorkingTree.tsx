@@ -146,7 +146,7 @@ function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
           variant="secondary"
           size="sm"
           aria-label={`${state === 'running' ? busy : verb} ${change.path}`}
-          disabled={state === 'running'}
+          held={state === 'running'}
           onClick={() => {
             void run()
           }}
@@ -317,7 +317,8 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
       <Button
         {...shortcut}
         variant="secondary"
-        disabled={!anythingToStage || state === 'running'}
+        disabled={!anythingToStage}
+        held={state === 'running'}
         onClick={() => {
           void run()
         }}
@@ -352,7 +353,8 @@ function UnstageAll({ anythingStaged }: { anythingStaged: boolean }) {
       <Button
         {...shortcut}
         variant="secondary"
-        disabled={!anythingStaged || state === 'running'}
+        disabled={!anythingStaged}
+        held={state === 'running'}
         onClick={() => {
           void run()
         }}
@@ -412,7 +414,7 @@ function DiscardConfirm({ change, teller, onClose }: DiscardConfirmProps) {
       <div className="flex items-center gap-item">
         <Button
           variant="secondary"
-          disabled={discarding.state === 'running'}
+          held={discarding.state === 'running'}
           onClick={() => {
             onClose(false)
           }}
@@ -421,7 +423,7 @@ function DiscardConfirm({ change, teller, onClose }: DiscardConfirmProps) {
         </Button>
         <Button
           variant="primary"
-          disabled={discarding.state === 'running'}
+          held={discarding.state === 'running'}
           onClick={() => void discarding.run()}
         >
           {discarding.state === 'running' ? 'Discarding…' : 'Discard'}

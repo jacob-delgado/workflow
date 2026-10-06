@@ -356,8 +356,50 @@ test('the post waits while a link is being saved', async () => {
   )
 
   // Assert
-  expect(screen.getByRole('button', { name: 'Announce now' })).toHaveProperty('disabled', true)
+  expect(screen.getByRole('button', { name: 'Announce now' }).getAttribute('aria-disabled')).toBe(
+    'true',
+  )
   held.release()
   await screen.findByText(/Saved for next time/)
-  expect(screen.getByRole('button', { name: 'Announce now' })).toHaveProperty('disabled', false)
+  expect(screen.getByRole('button', { name: 'Announce now' }).hasAttribute('aria-disabled')).toBe(
+    false,
+  )
+})
+
+// refusedLink answers a link with the server's refusal.
+function refusedLink(): Promise<People> {
+  return Promise.reject(new Error('refused'))
+}
+
+test('a refused link from the owner select says why, with focus still on the select', async () => {
+  // Arrange
+  const { user } = await opensPreview(
+    { text, channel: '#dev', tagging },
+    { people: () => refusedLink() },
+  )
+  await screen.findByRole('option', { name: 'Ben Ito' })
+  const owner = screen.getByRole('combobox', { name: 'Slack user for ben' })
+
+  // Act
+  await user.selectOptions(owner, 'U0BEN')
+
+  // Assert
+  expect(await screen.findByRole('alert')).toBeTruthy()
+  expect(document.activeElement).toBe(owner)
+})
+
+test('a refused Not on Slack says why, with focus still on it', async () => {
+  // Arrange
+  const { user } = await opensPreview(
+    { text, channel: '#dev', tagging },
+    { people: () => refusedLink() },
+  )
+  const notOnSlack = screen.getByRole('button', { name: 'ben is not on Slack' })
+
+  // Act
+  await user.click(notOnSlack)
+
+  // Assert
+  expect(await screen.findByRole('alert')).toBeTruthy()
+  expect(document.activeElement).toBe(notOnSlack)
 })

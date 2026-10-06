@@ -189,6 +189,26 @@ test('says a forge issue was linked by its number as the forge writes it', async
   expect(await screen.findByText('Linked my-thing to #42.')).toBeTruthy()
 })
 
+test('a refused link says why, with focus still on Link', async () => {
+  // Arrange
+  onBranch()
+  fakeApi({
+    [previewPath]: () =>
+      Response.json({ code: 'unprocessable', detail: 'PROJ-0 is not an issue' }, { status: 422 }),
+  })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Link an issue' }))
+  await user.type(screen.getByRole('textbox', { name: 'Issue' }), 'PROJ-0')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Link' }))
+
+  // Assert
+  expect(await screen.findByRole('alert')).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Link' }))
+})
+
 test('canceling the link hands focus back to Link an issue', async () => {
   // Arrange
   onBranch()

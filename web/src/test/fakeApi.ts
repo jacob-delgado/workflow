@@ -38,3 +38,24 @@ export function fakeApi(routes: Record<string, Answer>): Request[] {
 
   return requests
 }
+
+// Held is an answer a test holds back: the promise a write waits on, and how
+// to settle it once the test has seen the write's control while it runs.
+interface Held<T> {
+  promise: Promise<T>
+  answer: (value: T) => void
+  refuse: (reason: unknown) => void
+}
+
+// held is an answer the test gives — or refuses — when it chooses, so a write
+// is seen running before it is seen refused.
+export function held<T>(): Held<T> {
+  let answer: (value: T) => void = () => {}
+  let refuse: (reason: unknown) => void = () => {}
+  const promise = new Promise<T>((resolve, reject) => {
+    answer = resolve
+    refuse = reject
+  })
+
+  return { promise, answer, refuse }
+}

@@ -417,7 +417,7 @@ test('does not offer to switch to the branch already on HEAD', () => {
   expect(screen.queryByRole('button', { name: 'Switch branch for PROJ-1' })).toBeNull()
 })
 
-test('shows the reason when a list checkout is refused', async () => {
+test('shows the reason when a list checkout is refused, with focus still on it', async () => {
   // Arrange
   mockCheckout.mockRejectedValueOnce({
     code: 'conflict',
@@ -439,6 +439,9 @@ test('shows the reason when a list checkout is refused', async () => {
   // Assert
   const alert = await screen.findByRole('alert')
   expect(alert.textContent).toMatch(/uncommitted changes/i)
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'Switch branch for PROJ-1' }),
+  )
 })
 
 test('is not offered when a branch on HEAD exists among several for one issue', () => {

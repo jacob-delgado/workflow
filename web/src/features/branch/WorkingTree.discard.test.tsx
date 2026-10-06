@@ -78,7 +78,7 @@ test('Unstage all acts at once and says so', async () => {
   expect(mockUnstageEverything).toHaveBeenCalledTimes(1)
 })
 
-test('says why the changes could not all be unstaged', async () => {
+test('says why the changes could not all be unstaged, with focus still on Unstage all', async () => {
   // Arrange
   mockUnstageEverything.mockRejectedValueOnce({ code: 'unprocessable', detail: 'git refused' })
   const user = userEvent.setup()
@@ -90,6 +90,7 @@ test('says why the changes could not all be unstaged', async () => {
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe('git refused')
+  expect(document.activeElement).toBe(unstageAll())
 })
 
 test('Discard asks first, says what it costs, and discards only once confirmed', async () => {
@@ -151,7 +152,7 @@ test.each<[string, Change['kind'], RegExp]>([
   expect(within(question).getByText(cost)).toBeTruthy()
 })
 
-test('a refused discard says why and keeps the question', async () => {
+test('a refused discard says why and keeps the question, with focus on Discard', async () => {
   // Arrange
   mockDiscardFile.mockRejectedValueOnce({
     code: 'unprocessable',
@@ -170,4 +171,5 @@ test('a refused discard says why and keeps the question', async () => {
   expect((await within(question).findByRole('alert')).textContent).toBe(
     'git would not discard a.go',
   )
+  expect(document.activeElement).toBe(within(question).getByRole('button', { name: 'Discard' }))
 })

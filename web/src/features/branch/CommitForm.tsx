@@ -95,7 +95,8 @@ export function CommitForm({ canCommit, waiting, suggestedScope, commitTypes }: 
         <Button
           variant="primary"
           type="submit"
-          disabled={!canCommit || commit.state === 'running'}
+          disabled={!canCommit}
+          held={commit.state === 'running'}
           className="self-start"
         >
           {commit.state === 'running' ? 'Committing…' : 'Commit staged changes'}

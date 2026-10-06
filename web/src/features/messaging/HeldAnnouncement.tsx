@@ -55,7 +55,7 @@ function Waiting({ said, onSaid }: { said: string; onSaid: (said: string) => voi
       <p className="text-sm">{said}</p>
       <Button
         variant="secondary"
-        disabled={stop.state === 'running' || stop.state === 'done'}
+        held={stop.state === 'running' || stop.state === 'done'}
         onClick={() => {
           void stop.run()
         }}

@@ -139,18 +139,25 @@ test('says why the hooks could not be read', async () => {
   expect((await screen.findByRole('alert')).textContent).toContain('not available')
 })
 
-test('says why lefthook.yml was not written, keeping the offer', async () => {
-  // Arrange
-  mockWrite.mockRejectedValueOnce({ code: 'unprocessable', detail: 'lefthook.yml was not written' })
-  withHooks(1)
-  const user = userEvent.setup()
-  render(<BranchPanel />)
-  await user.click(screen.getByRole('button', { name: 'Set up lefthook' }))
-  const offer = await screen.findByRole('region', { name: 'Set up lefthook' })
+test.each(['Write lefthook.yml', 'Write every hook as a script'])(
+  'says why %s wrote nothing, keeping the offer and the focus',
+  async (write) => {
+    // Arrange
+    mockWrite.mockRejectedValueOnce({
+      code: 'unprocessable',
+      detail: 'lefthook.yml was not written',
+    })
+    withHooks(1)
+    const user = userEvent.setup()
+    render(<BranchPanel />)
+    await user.click(screen.getByRole('button', { name: 'Set up lefthook' }))
+    const offer = await screen.findByRole('region', { name: 'Set up lefthook' })
 
-  // Act
-  await user.click(within(offer).getByRole('button', { name: 'Write lefthook.yml' }))
+    // Act
+    await user.click(within(offer).getByRole('button', { name: write }))
 
-  // Assert
-  expect((await within(offer).findByRole('alert')).textContent).toContain('was not written')
-})
+    // Assert
+    expect((await within(offer).findByRole('alert')).textContent).toContain('was not written')
+    expect(document.activeElement).toBe(within(offer).getByRole('button', { name: write }))
+  },
+)

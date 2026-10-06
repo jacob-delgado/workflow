@@ -82,7 +82,7 @@ function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; n
       {state === 'done' ? null : (
         <Button
           variant="secondary"
-          disabled={state === 'running'}
+          held={state === 'running'}
           onClick={() => {
             void run()
           }}
