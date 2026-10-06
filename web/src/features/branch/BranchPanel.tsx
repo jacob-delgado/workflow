@@ -10,6 +10,7 @@ import { cn, definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { RunOutput, useGitRun, type GitRunner } from './GitRun.tsx'
 import { HistoryActions, RebaseAction } from './HistoryActions.tsx'
+import { HookSetup } from './HookSetup.tsx'
 import { IssueLink } from './IssueLink.tsx'
 import { pushBranch } from './pushApi.ts'
 import { WorkingTree } from './WorkingTree.tsx'
@@ -35,7 +36,12 @@ export function BranchPanel() {
     <div className="flex max-w-2xl flex-col gap-section">
       <BranchSummary branch={branch} runner={runner} />
       <RunOutput runner={runner} />
-      <Commits branch={branch} changes={changes.changes} runner={runner} />
+      <Commits
+        branch={branch}
+        changes={changes.changes}
+        runner={runner}
+        unmanagedHooks={snapshot.hooks_unmanaged}
+      />
       <WorkingTree
         changes={changes.changes}
         suggestedScope={snapshot.suggested_scope}
@@ -93,12 +99,15 @@ function Commits({
   branch,
   changes,
   runner,
+  unmanagedHooks,
 }: {
   branch: Branch
   changes: Change[]
   runner: GitRunner
+  unmanagedHooks: number
 }) {
   const { commits } = branch
+  const outcome = useOutcome()
 
   return (
     <section aria-labelledby="commits-heading" className="flex flex-col gap-group">
@@ -118,6 +127,8 @@ function Commits({
         </ul>
       )}
       <HistoryActions branch={branch} changes={changes} runner={runner} />
+      <HookSetup unmanaged={unmanagedHooks} outcome={outcome} />
+      <OutcomeLine said={outcome.said} />
     </section>
   )
 }

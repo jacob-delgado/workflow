@@ -51,6 +51,7 @@ function snapshotHolding(held?: QueuedAnnouncement): Snapshot {
     branches: [],
     commit_types: ['feat', 'fix'],
     suggested_scope: '',
+    hooks_unmanaged: 0,
     tasks: { available: true, reason: '', linked: [] },
     here: '/home/ana/src/api',
   }

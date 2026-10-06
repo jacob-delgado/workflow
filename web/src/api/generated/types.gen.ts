@@ -400,6 +400,50 @@ export type CheckoutRequest = {
 };
 
 /**
+ * The lefthook configuration offered for hooks lefthook does not manage.
+ */
+export type HookSetup = {
+    /**
+     * Whether there is anything to set up.
+     */
+    offered: boolean;
+    /**
+     * The hooks found that lefthook does not manage.
+     */
+    hooks: Array<UnmanagedHook>;
+    /**
+     * The lefthook.yml that would run them; empty when nothing is offered.
+     */
+    config: string;
+    /**
+     * How many hooks it keeps whole as scripts under .lefthook.
+     */
+    scripts: number;
+};
+
+export type UnmanagedHook = {
+    name: string;
+    /**
+     * How many lines its script holds.
+     */
+    lines: number;
+};
+
+export type HookSetupRequest = {
+    /**
+     * Keep every hook whole as a script rather than turning plain commands into lefthook jobs.
+     */
+    verbatim?: boolean;
+};
+
+export type HookSetupWritten = {
+    /**
+     * How many scripts were written under .lefthook beside lefthook.yml.
+     */
+    scripts: number;
+};
+
+/**
  * Which run to start, and for a fixup the commit it fixes up.
  */
 export type RunRequest = {
@@ -745,6 +789,10 @@ export type Snapshot = {
     review: Review;
     messaging: MessagingDestination;
     queued_announcement?: QueuedAnnouncement;
+    /**
+     * How many git hooks the repository's hooks directory holds that lefthook does not manage, while the repository configures no lefthook — which GET /api/hooks/setup offers to set up; 0 otherwise.
+     */
+    hooks_unmanaged: number;
     /**
      * The git run going now (POST /api/runs), with its last 200 lines, so a page opened while it runs sees it; absent when none is going.
      */
@@ -2205,6 +2253,68 @@ export type StartRunResponses = {
 };
 
 export type StartRunResponse = StartRunResponses[keyof StartRunResponses];
+
+export type GetHookSetupData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/hooks/setup';
+};
+
+export type GetHookSetupErrors = {
+    /**
+     * There is no repository whose hooks can be read.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetHookSetupError = GetHookSetupErrors[keyof GetHookSetupErrors];
+
+export type GetHookSetupResponses = {
+    /**
+     * What would be set up, if anything.
+     */
+    200: HookSetup;
+};
+
+export type GetHookSetupResponse = GetHookSetupResponses[keyof GetHookSetupResponses];
+
+export type SetUpHooksData = {
+    body: HookSetupRequest;
+    path?: never;
+    query?: never;
+    url: '/api/hooks/setup';
+};
+
+export type SetUpHooksErrors = {
+    /**
+     * Nothing is offered to set up; nothing was written.
+     */
+    409: Problem;
+    /**
+     * Setting up is not available, or the write or the install failed.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type SetUpHooksError = SetUpHooksErrors[keyof SetUpHooksErrors];
+
+export type SetUpHooksResponses = {
+    /**
+     * What was set up.
+     */
+    200: HookSetupWritten;
+};
+
+export type SetUpHooksResponse = SetUpHooksResponses[keyof SetUpHooksResponses];
 
 export type StopRunData = {
     body?: never;

@@ -593,6 +593,68 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/hooks/setup:
+    get:
+      operationId: getHookSetup
+      summary: The lefthook configuration offered for hooks lefthook does not manage.
+      description: >-
+        The git hooks in the repository's hooks directory that lefthook does
+        not manage, and the lefthook.yml that would run them, as the
+        terminal's g offers it: the configuration a hook's plain commands
+        become, and how many hooks are kept whole as scripts under
+        .lefthook. Nothing is offered once the repository configures
+        lefthook, or holds no such hook. A read; nothing is written.
+      tags: [repository]
+      responses:
+        "200":
+          description: What would be set up, if anything.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HookSetup"
+        "422":
+          description: There is no repository whose hooks can be read.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: setUpHooks
+      summary: Write the offered lefthook.yml and install lefthook.
+      description: >-
+        Writes the lefthook configuration GET /api/hooks/setup offers — or,
+        with verbatim, one that keeps every hook whole as a script, the
+        terminal's other choice — with its scripts under .lefthook, then
+        installs lefthook, which keeps the old hooks as .git/hooks/*.old. A
+        change on this machine alone, which the offer itself previews.
+        Refused with 409 when nothing is offered any more, and 422 when it
+        is not available or the write or the install fails.
+      tags: [repository]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HookSetupRequest"
+      responses:
+        "200":
+          description: What was set up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HookSetupWritten"
+        "409":
+          description: Nothing is offered to set up; nothing was written.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: Setting up is not available, or the write or the install failed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
   /api/runs/current:
     delete:
       operationId: stopRun
@@ -2710,6 +2772,58 @@ components:
           example: fix/PROJ-412-redact-tokens
       additionalProperties: false
 
+    HookSetup:
+      type: object
+      description: The lefthook configuration offered for hooks lefthook does not manage.
+      required: [offered, hooks, config, scripts]
+      properties:
+        offered:
+          type: boolean
+          description: Whether there is anything to set up.
+        hooks:
+          type: array
+          description: The hooks found that lefthook does not manage.
+          items: {$ref: "#/components/schemas/UnmanagedHook"}
+        config:
+          type: string
+          description: The lefthook.yml that would run them; empty when nothing is offered.
+        scripts:
+          type: integer
+          description: How many hooks it keeps whole as scripts under .lefthook.
+      additionalProperties: false
+
+    UnmanagedHook:
+      type: object
+      required: [name, lines]
+      properties:
+        name:
+          type: string
+          example: pre-commit
+        lines:
+          type: integer
+          description: How many lines its script holds.
+      additionalProperties: false
+
+    HookSetupRequest:
+      type: object
+      properties:
+        verbatim:
+          type: boolean
+          default: false
+          description: >-
+            Keep every hook whole as a script rather than turning plain
+            commands into lefthook jobs.
+      additionalProperties: false
+
+    HookSetupWritten:
+      type: object
+      required: [scripts]
+      properties:
+        scripts:
+          type: integer
+          description: How many scripts were written under .lefthook beside lefthook.yml.
+      additionalProperties: false
+
     RunRequest:
       type: object
       description: Which run to start, and for a fixup the commit it fixes up.
@@ -3116,7 +3230,7 @@ components:
       description: >-
         The full read state carried by one event-stream message: everything the
         cockpit shows, together.
-      required: [issues, branch, changes, review, messaging, branches, commit_types, suggested_scope, tasks, here]
+      required: [issues, branch, changes, review, messaging, branches, commit_types, suggested_scope, tasks, here, hooks_unmanaged]
       properties:
         here:
           type: string
@@ -3130,6 +3244,13 @@ components:
         messaging: {$ref: "#/components/schemas/MessagingDestination"}
         queued_announcement:
           $ref: "#/components/schemas/QueuedAnnouncement"
+        hooks_unmanaged:
+          type: integer
+          description: >-
+            How many git hooks the repository's hooks directory holds that
+            lefthook does not manage, while the repository configures no
+            lefthook — which GET /api/hooks/setup offers to set up; 0
+            otherwise.
         run:
           description: >-
             The git run going now (POST /api/runs), with its last 200 lines,

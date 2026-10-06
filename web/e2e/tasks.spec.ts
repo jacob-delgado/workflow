@@ -65,6 +65,7 @@ function withTasks(tasks: TasksSummary): Snapshot {
     branches: [],
     commit_types: ['feat', 'fix'],
     suggested_scope: '',
+    hooks_unmanaged: 0,
     tasks,
   }
 }
