@@ -322,6 +322,20 @@ test('a clean tree keeps the commit form, with nothing to stage', () => {
   expect(screen.queryByRole('button', { name: 'Stage all' })).toBeNull()
 })
 
+test('a clean tree says so under its heading, before the commit form', () => {
+  // Arrange
+  streamTree([])
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert: said once, and before the form, not at its foot
+  const clean = screen.getByText('Clean — nothing to commit.')
+  const form = screen.getByRole('form', { name: 'Commit staged changes' })
+  expect(clean.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(form.contains(clean)).toBe(false)
+})
+
 // streamSuggestion has the stream push a frame suggesting scope for the next
 // commit, with one file staged so the form is live.
 function streamSuggestion(scope: string) {

@@ -17,22 +17,23 @@ interface CommitFields {
   breaking: boolean
 }
 
+interface CommitFormProps {
+  canCommit: boolean
+  // waiting is what the form waits for, said at its foot, when it says so there.
+  waiting?: string
+  suggestedScope: string
+  commitTypes: string[]
+}
+
 // CommitForm commits the staged changes with a Conventional Commit message. The
 // server assembles the message and adds the Refs trailer for the branch's issue;
 // it says which commit it made, and a refusal is shown inline.
-// It stays in place while nothing is staged — blocked says why, in the form,
-// with its button off — so a message can be written before the files are. It
+// It stays in place while nothing is staged, its button off — and waiting, when
+// given, says at its foot what it waits for — so a message can be written
+// before the files are. It
 // offers the commit types the server allows, in its order, and opens on the
 // scope the server suggests, the terminal composer's own.
-export function CommitForm({
-  blocked,
-  suggestedScope,
-  commitTypes,
-}: {
-  blocked: string | null
-  suggestedScope: string
-  commitTypes: string[]
-}) {
+export function CommitForm({ canCommit, waiting, suggestedScope, commitTypes }: CommitFormProps) {
   const { register, handleSubmit, reset, getValues, setValue } = useForm<CommitFields>({
     defaultValues: { type: 'fix', scope: suggestedScope, subject: '', body: '', breaking: false },
   })
@@ -94,12 +95,12 @@ export function CommitForm({
         <Button
           variant="primary"
           type="submit"
-          disabled={blocked !== null || commit.state === 'running'}
+          disabled={!canCommit || commit.state === 'running'}
           className="self-start"
         >
           {commit.state === 'running' ? 'Committing…' : 'Commit staged changes'}
         </Button>
-        {blocked === null ? null : <p className="text-sm text-muted-foreground">{blocked}</p>}
+        {waiting === undefined ? null : <p className="text-sm text-muted-foreground">{waiting}</p>}
         <OutcomeLine said={outcome.said} />
         {commit.state === 'error' ? (
           <p role="alert" className="text-sm whitespace-pre-line text-destructive">
