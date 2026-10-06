@@ -860,6 +860,29 @@ export type Snapshot = {
      */
     suggested_scope: string;
     tasks: TasksSummary;
+    problems?: PanelProblems;
+};
+
+/**
+ * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service there is nothing to ask, such as no repository or no forge the origin names, is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+ */
+export type PanelProblems = {
+    /**
+     * Why the view's first page could not be read.
+     */
+    issues?: Problem;
+    /**
+     * Why the checked-out branch could not be read.
+     */
+    branch?: Problem;
+    /**
+     * Why the working tree's changes could not be read.
+     */
+    changes?: Problem;
+    /**
+     * Why the branch's pull request could not be read: the forge's refusal, or the branch's when the branch could not be read.
+     */
+    review?: Problem;
 };
 
 /**
@@ -1063,9 +1086,13 @@ export type Review = {
      */
     pull?: PullRequest | null;
     /**
-     * The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read.
+     * The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read — unless the event stream holds the CI last read for the same pull request at the same head.
      */
     ci?: Ci | null;
+    /**
+     * Why the open pull request's CI could not be read; absent when it was, or was not asked about. The detail is curated, never a host or a credential.
+     */
+    ci_error?: Problem | null;
     /**
      * The issue the branch and its pull request are for; absent when none is named.
      */

@@ -622,8 +622,10 @@ curl -s http://127.0.0.1:13579/api/activity | jq '{from, to, text}' |
 ```
 
 They are reads, so they answer under `--dry-run` too. When git or the forge
-fails, the branch, changes and review reads answer a problem where the page
-shows an empty panel, so a script can tell a failure from nothing to show. The
+fails, the branch, changes and review reads answer a problem, so a script can
+tell a failure from nothing to show; the event stream carries the same
+problem beside the panel it emptied, in the snapshot's `problems`, and a CI
+read that failed in the review's `ci_error`. The
 tasks read answers `available: false` and why, never a problem, when there is
 no Taskwarrior to ask; a Taskwarrior that is there but fails the read answers
 a problem.

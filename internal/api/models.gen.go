@@ -1607,6 +1607,21 @@ type OwnerTagKind string
 // OwnerTagState defines model for OwnerTag.State.
 type OwnerTagState string
 
+// PanelProblems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service there is nothing to ask, such as no repository or no forge the origin names, is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+type PanelProblems struct {
+	// Branch Why the checked-out branch could not be read.
+	Branch *Problem `json:"branch,omitempty"`
+
+	// Changes Why the working tree's changes could not be read.
+	Changes *Problem `json:"changes,omitempty"`
+
+	// Issues Why the view's first page could not be read.
+	Issues *Problem `json:"issues,omitempty"`
+
+	// Review Why the branch's pull request could not be read: the forge's refusal, or the branch's when the branch could not be read.
+	Review *Problem `json:"review,omitempty"`
+}
+
 // People Every code owner decided on this forge host, then the branch's undecided owners.
 type People struct {
 	Owners []OwnerTag `json:"owners"`
@@ -1802,8 +1817,11 @@ type Review struct {
 	// Announced Whether the pull request was already announced at the moment it is at now — ready for review, its CI red, merged — from the browser, the terminal or workflow announce, as the store remembers. The store is read at most once every timing.ci_interval, and never under --dry-run, when this is always false.
 	Announced bool `json:"announced"`
 
-	// Ci The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read.
+	// Ci The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read — unless the event stream holds the CI last read for the same pull request at the same head.
 	Ci *CI `json:"ci,omitempty"`
+
+	// CiError Why the open pull request's CI could not be read; absent when it was, or was not asked about. The detail is curated, never a host or a credential.
+	CiError *Problem `json:"ci_error,omitempty"`
 
 	// Found Whether a pull request was found for the branch.
 	Found bool `json:"found"`
@@ -1997,6 +2015,9 @@ type Snapshot struct {
 	HooksUnmanaged int                  `json:"hooks_unmanaged"`
 	Issues         IssuesPage           `json:"issues"`
 	Messaging      MessagingDestination `json:"messaging"`
+
+	// Problems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service there is nothing to ask, such as no repository or no forge the origin names, is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+	Problems *PanelProblems `json:"problems,omitempty"`
 
 	// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
 	QueuedAnnouncement *QueuedAnnouncement `json:"queued_announcement,omitempty"`

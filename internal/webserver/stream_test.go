@@ -263,9 +263,11 @@ func TestStreamSnapshotIsEmptyWithoutSeams(t *testing.T) {
 	recorder := streamOnce(t, serve(t, webserver.Deps{}, config.Default()), "/api/events")
 
 	// Assert
+	// Nothing configured is nothing to ask, so no panel says it failed.
 	snap := firstSnapshot(t, recorder.Body.String())
-	if snap.Issues.Total != 0 || snap.Branch.Name != "" || len(snap.Changes.Changes) != 0 || snap.Review.Found {
-		t.Errorf("snapshot = %+v, want empty panels when nothing is configured", snap)
+	if snap.Issues.Total != 0 || snap.Branch.Name != "" || len(snap.Changes.Changes) != 0 || snap.Review.Found ||
+		snap.Problems != nil {
+		t.Errorf("snapshot = %+v, want empty panels and no problem when nothing is configured", snap)
 	}
 }
 
@@ -274,7 +276,7 @@ func TestStreamSnapshotDegradesWhenSeamsFail(t *testing.T) {
 
 	// Arrange
 	// Every read fails; the stream must still push a snapshot, with each failing
-	// panel empty rather than the whole snapshot lost.
+	// panel empty rather than the whole snapshot lost, and saying why beside it.
 	deps := filledDeps()
 	deps.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, errSeam }
 	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
@@ -288,6 +290,26 @@ func TestStreamSnapshotDegradesWhenSeamsFail(t *testing.T) {
 	snap := firstSnapshot(t, recorder.Body.String())
 	if snap.Issues.Total != 0 || snap.Branch.Name != "" || len(snap.Changes.Changes) != 0 || snap.Review.Found {
 		t.Errorf("snapshot = %+v, want empty panels when the seams fail", snap)
+	}
+
+	wantEveryPanelProblem(t, snap.Problems)
+}
+
+// wantEveryPanelProblem fails unless each panel whose read can fail carries a
+// problem, the curated one a seam's unclassified error gets.
+func wantEveryPanelProblem(t *testing.T, problems *api.PanelProblems) {
+	t.Helper()
+
+	if problems == nil {
+		t.Fatal("problems = nil, want one for each panel whose read failed")
+	}
+
+	for panel, prob := range map[string]*api.Problem{
+		"issues": problems.Issues, "branch": problems.Branch, "changes": problems.Changes, "review": problems.Review,
+	} {
+		if prob == nil || prob.Code != api.Internal || prob.Detail == "" {
+			t.Errorf("%s problem = %+v, want the curated internal problem", panel, prob)
+		}
 	}
 }
 

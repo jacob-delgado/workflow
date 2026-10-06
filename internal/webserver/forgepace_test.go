@@ -188,9 +188,14 @@ func TestStreamKeepsTheLastForgeAnswerWhenARefreshFails(t *testing.T) {
 		t.Fatalf("asked the forge for the pull %d times across %d frames, want once a frame", asked, len(pushed))
 	}
 
-	for i, snap := range pushed {
+	for frame, snap := range pushed {
 		if !snap.Review.Found || snap.Review.Pull == nil || snap.Review.Pull.Number != 42 || snap.Review.Ci == nil {
-			t.Errorf("frame %d review = %+v, want #42 and its CI kept from the last answer", i, snap.Review)
+			t.Errorf("frame %d review = %+v, want #42 and its CI kept from the last answer", frame, snap.Review)
+		}
+
+		// The answer kept is the last one held, beside why it was not renewed.
+		if failed := snap.Problems != nil && snap.Problems.Review != nil; failed != (frame > 0) {
+			t.Errorf("frame %d problems = %+v, want a review problem exactly when the read failed", frame, snap.Problems)
 		}
 	}
 }
@@ -221,10 +226,14 @@ func TestStreamKeepsTheLastCIWhenItsReadFails(t *testing.T) {
 		t.Fatalf("asked the forge for CI %d times across %d frames, want once a frame", checked, len(pushed))
 	}
 
-	for i, snap := range pushed {
+	for frame, snap := range pushed {
 		review := snap.Review
 		if review.Pull == nil || review.Pull.Number != 42 || review.Ci == nil || review.Ci.State != api.Passed {
-			t.Errorf("frame %d review = %+v, want #42 and the CI that passed, kept from the last answer", i, review)
+			t.Errorf("frame %d review = %+v, want #42 and the CI that passed, kept from the last answer", frame, review)
+		}
+
+		if failed := review.CiError != nil; failed != (frame > 0) {
+			t.Errorf("frame %d ci_error = %+v, want one exactly when the CI read failed", frame, review.CiError)
 		}
 	}
 }
@@ -333,6 +342,15 @@ func TestStreamWaitsOutTheIntervalAfterAFailedForgeRead(t *testing.T) {
 	// Assert
 	if asked != 1 {
 		t.Errorf("asked a failing forge %d times across %d frames within one interval, want once", asked, len(pushed))
+	}
+
+	// The failure is said for as long as it is served, not on its first frame
+	// alone, so the empty review never reads as no pull request.
+	for i, snap := range pushed {
+		if snap.Problems == nil || snap.Problems.Review == nil || snap.Review.Found {
+			t.Errorf("frame %d = review %+v, problems %+v, want no pull beside the forge's problem",
+				i, snap.Review, snap.Problems)
+		}
 	}
 }
 
