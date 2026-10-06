@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/user"
 	"runtime"
-	"strings"
 
 	"golang.org/x/term"
 
@@ -37,13 +36,7 @@ func terminalPrompt() cli.Prompt {
 	reader := bufio.NewReader(os.Stdin)
 
 	return cli.Prompt{
-		Line: func(prompt string) (string, error) {
-			fmt.Fprint(os.Stderr, prompt)
-
-			line, err := reader.ReadString('\n')
-
-			return strings.TrimRight(line, "\r\n"), err
-		},
+		Line: cli.LineReader(reader, os.Stderr),
 		Secret: func(prompt string) (string, error) {
 			fmt.Fprint(os.Stderr, prompt)
 

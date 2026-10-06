@@ -197,3 +197,38 @@ func TestConfigInitRefusesALinkWhereTheFileWouldGo(t *testing.T) {
 			err, output, statErr)
 	}
 }
+
+func TestGuidedInitWithNothingToReadPointsToTheTemplate(t *testing.T) {
+	cases := map[string]cli.Prompt{
+		"the address": {
+			Line:   answersThenEnds(),
+			Secret: answersThenEnds(),
+		},
+		"the token": {
+			Line:   answersThenEnds("https://jira.example.com"),
+			Secret: answersThenEnds(),
+		},
+		"the webhook": {
+			Line:   answersThenEnds(""),
+			Secret: answersThenEnds(),
+		},
+	}
+
+	for name, prompt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := t.TempDir()
+
+			// Act
+			_, err := runGuided(t, dir, prompt, "config", "init")
+
+			// Assert
+			if err == nil || !strings.Contains(err.Error(), "pass --template") {
+				t.Errorf("config init with %s unread = %v, want it to name --template", name, err)
+			}
+
+			wantExit(t, err, 2)
+			noConfigWritten(t, dir)
+		})
+	}
+}

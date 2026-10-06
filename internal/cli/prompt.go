@@ -4,7 +4,9 @@
 package cli
 
 import (
+	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 )
@@ -55,4 +57,21 @@ func confirm(prompt Prompt, question string) (bool, error) {
 	answer = strings.ToLower(strings.TrimSpace(answer))
 
 	return answer == "y" || answer == "yes", nil
+}
+
+// LineReader is Prompt.Line over input: it prints each prompt to prompts and
+// reads one line from input, without its line ending. A last line typed with
+// no newline after it is an answer, not the end of the input; the read after
+// it is.
+func LineReader(input *bufio.Reader, prompts io.Writer) func(prompt string) (string, error) {
+	return func(prompt string) (string, error) {
+		fmt.Fprint(prompts, prompt)
+
+		line, err := input.ReadString('\n')
+		if errors.Is(err, io.EOF) && line != "" {
+			err = nil
+		}
+
+		return strings.TrimRight(line, "\r\n"), err
+	}
 }
