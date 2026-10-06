@@ -91,10 +91,18 @@ type Deps struct {
 	ChangedPaths func(base string) ([]string, error)
 	CodeOwnersAt func(base string) (codeowners.File, bool, error)
 	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)
-	// JobLog reads the end of a failed check's log.
+	// JobLog reads the end of a check's log, one the forge keeps a log for.
 	JobLog func(check forge.Check) (forge.JobLog, error)
-	Author func() (string, error)
-	Post   func(channel, text string) error
+	// Rerun re-runs the failed CI on a pull request; Merge merges one by a
+	// method MergeMethods says the repository permits; Finish finishes a
+	// merged branch — switch to base, catch it up, delete it — as seams.Forge
+	// and seams.Git bind them. Nil where there is no forge, or no repository.
+	Rerun        func(pull forge.PullRequest, head string) (bool, error)
+	Merge        func(pull forge.PullRequest, method forge.MergeMethod) error
+	MergeMethods func() ([]forge.MergeMethod, error)
+	Finish       func(branch, base string) error
+	Author       func() (string, error)
+	Post         func(channel, text string) error
 	// RemoteBranches lists the branches on the remotes by name, without the
 	// remote's prefix, so a branch only the remote has is in flight too.
 	RemoteBranches func() ([]string, error)

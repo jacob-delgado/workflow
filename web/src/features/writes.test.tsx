@@ -59,6 +59,8 @@ const draft = {
   draft: false,
   needs_push: false,
   reviewers: [],
+  templates: [],
+  template: '',
 }
 
 const opened = {

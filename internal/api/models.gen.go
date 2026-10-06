@@ -226,6 +226,27 @@ func (e LocalDataFileKind) Valid() bool {
 	}
 }
 
+// Defines values for MergeMethod.
+const (
+	MergeMethodMerge  MergeMethod = "merge"
+	MergeMethodRebase MergeMethod = "rebase"
+	MergeMethodSquash MergeMethod = "squash"
+)
+
+// Valid indicates whether the value is a known member of the MergeMethod enum.
+func (e MergeMethod) Valid() bool {
+	switch e {
+	case MergeMethodMerge:
+		return true
+	case MergeMethodRebase:
+		return true
+	case MergeMethodSquash:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MessagingConfigKind.
 const (
 	MessagingConfigKindDiscord MessagingConfigKind = "discord"
@@ -423,22 +444,22 @@ func (e RunState) Valid() bool {
 
 // Defines values for RunKind.
 const (
-	Amend     RunKind = "amend"
-	Fixup     RunKind = "fixup"
-	PreCommit RunKind = "pre_commit"
-	Rebase    RunKind = "rebase"
+	RunKindAmend     RunKind = "amend"
+	RunKindFixup     RunKind = "fixup"
+	RunKindPreCommit RunKind = "pre_commit"
+	RunKindRebase    RunKind = "rebase"
 )
 
 // Valid indicates whether the value is a known member of the RunKind enum.
 func (e RunKind) Valid() bool {
 	switch e {
-	case Amend:
+	case RunKindAmend:
 		return true
-	case Fixup:
+	case RunKindFixup:
 		return true
-	case PreCommit:
+	case RunKindPreCommit:
 		return true
-	case Rebase:
+	case RunKindRebase:
 		return true
 	default:
 		return false
@@ -1363,6 +1384,21 @@ type LoggedWork struct {
 	TimeSpent string `json:"time_spent"`
 }
 
+// MergeMethod How a pull request is merged — a merge commit, squashed, or rebased.
+type MergeMethod string
+
+// MergeOffer The pull request a merge would merge, and the methods its repository permits.
+type MergeOffer struct {
+	Methods []MergeMethod `json:"methods"`
+	Pull    PullRequest   `json:"pull"`
+}
+
+// MergeRequest defines model for MergeRequest.
+type MergeRequest struct {
+	// Method How a pull request is merged — a merge commit, squashed, or rebased.
+	Method MergeMethod `json:"method"`
+}
+
 // MessagingConfig defines model for MessagingConfig.
 type MessagingConfig struct {
 	// AccessToken The user token's current access token (xoxe.xoxp-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value.
@@ -1602,7 +1638,19 @@ type PullRequestDraft struct {
 	// Example: ["ana","acme/control-plane"]
 	Reviewers []string `json:"reviewers"`
 
+	// Template The template the body starts from, by name; empty when there is none.
+	Template string `json:"template"`
+
+	// Templates The repository's pull request templates by name, in the order the terminal's ctrl+t cycles them; empty when it has none.
+	Templates []string `json:"templates"`
+
 	// Title The proposed title, from the first commit or the issue.
+	Title string `json:"title"`
+}
+
+// PullRequestText A pull request's title and description.
+type PullRequestText struct {
+	Body  string `json:"body"`
 	Title string `json:"title"`
 }
 
@@ -1653,6 +1701,12 @@ type Repositories struct {
 
 	// WorktreesError Why the worktrees could not be read, in words that never name a path or a host; empty when they were.
 	WorktreesError string `json:"worktrees_error"`
+}
+
+// Rerun defines model for Rerun.
+type Rerun struct {
+	// Reran Whether the forge re-ran anything; false when the failure had no job to restart.
+	Reran bool `json:"reran"`
 }
 
 // Review defines model for Review.
@@ -2184,6 +2238,12 @@ type ForgetPersonParams struct {
 	Owner OwnerName `form:"owner" json:"owner"`
 }
 
+// GetPullRequestDraftParams defines parameters for GetPullRequestDraft.
+type GetPullRequestDraftParams struct {
+	// Template The template to start the body from, by name; the repository's first when omitted.
+	Template *string `form:"template,omitempty" json:"template,omitempty"`
+}
+
 // RemoveFavoriteParams defines parameters for RemoveFavorite.
 type RemoveFavoriteParams struct {
 	// Dir The directory, as an absolute path.
@@ -2232,8 +2292,14 @@ type LogWorkJSONRequestBody = WorklogRequest
 // LinkPersonJSONRequestBody defines body for LinkPerson for application/json ContentType.
 type LinkPersonJSONRequestBody = PersonLink
 
+// EditPullRequestJSONRequestBody defines body for EditPullRequest for application/json ContentType.
+type EditPullRequestJSONRequestBody = PullRequestText
+
 // OpenPullRequestJSONRequestBody defines body for OpenPullRequest for application/json ContentType.
 type OpenPullRequestJSONRequestBody = OpenPullRequestRequest
+
+// MergePullRequestJSONRequestBody defines body for MergePullRequest for application/json ContentType.
+type MergePullRequestJSONRequestBody = MergeRequest
 
 // SetRepoGroupsJSONRequestBody defines body for SetRepoGroups for application/json ContentType.
 type SetRepoGroupsJSONRequestBody = RepoGroupsRequest

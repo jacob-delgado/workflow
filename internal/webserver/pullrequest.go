@@ -21,14 +21,43 @@ import (
 // confirming. It is a 409 when there is nothing to open; a branch that cannot
 // be read is classified by fault.
 func (s *server) GetPullRequestDraft(
-	_ context.Context, _ api.GetPullRequestDraftRequestObject,
+	_ context.Context, request api.GetPullRequestDraftRequestObject,
 ) (api.GetPullRequestDraftResponseObject, error) {
-	draft, branch, err := s.composePullRequest()
+	template := orZero(request.Params.Template)
+
+	draft, branch, err := s.composePullRequest(template)
+	if errors.Is(err, loop.ErrNoSuchTemplate) {
+		return api.GetPullRequestDraft404ApplicationProblemPlusJSONResponse(problem(api.NotFound,
+			"the repository has no pull request template of that name")), nil
+	}
+
 	if err != nil {
 		return s.draftRefusal(err), nil
 	}
 
-	return api.GetPullRequestDraft200JSONResponse(draftDTO(draft, branch)), nil
+	answer := draftDTO(draft, branch)
+	answer.Templates, answer.Template = s.templateNames(template)
+
+	return api.GetPullRequestDraft200JSONResponse(answer), nil
+}
+
+// templateNames is the repository's pull request templates by name, and the
+// one a draft asked to start from chosen starts from: the first, when it
+// asked for none.
+func (s *server) templateNames(chosen string) ([]string, string) {
+	names := []string{}
+
+	if s.deps.Templates != nil {
+		for _, template := range s.deps.Templates() {
+			names = append(names, template.Name)
+		}
+	}
+
+	if chosen == "" && len(names) > 0 {
+		chosen = names[0]
+	}
+
+	return names, chosen
 }
 
 // OpenPullRequest opens a pull request from the checked-out branch with the
@@ -44,7 +73,7 @@ func (s *server) OpenPullRequest(
 		return openUnprocessable("opening a " + s.noun() + " is not available"), nil
 	}
 
-	_, branch, err := s.composePullRequest()
+	_, branch, err := s.composePullRequest("")
 	if err != nil {
 		return s.openRefusal(err), nil
 	}
@@ -139,7 +168,7 @@ func (s *server) canOpenPull() bool {
 // It fails with the loop's refusal when there is nothing to open — the tree is
 // not on a branch, the branch has no commits, or a pull request is already open
 // for it — and with the read's own error when the branch cannot be read.
-func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, error) {
+func (s *server) composePullRequest(template string) (forge.NewPullRequest, gitrepo.Branch, error) {
 	cfg := s.config()
 
 	draft, branch, err := loop.ComposePull(loop.PullSeams{
@@ -152,6 +181,7 @@ func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, err
 	}, loop.PullOptions{
 		Project:     cfg.Jira.Project,
 		TitleSource: convention.TitleSource(cfg.PullRequest.TitleSource),
+		Template:    template,
 	})
 
 	return draft, branch, err
@@ -222,6 +252,7 @@ func draftDTO(draft forge.NewPullRequest, branch gitrepo.Branch) api.PullRequest
 		Head:      draft.Head,
 		Draft:     draft.Draft,
 		NeedsPush: !branch.Pushed(),
+		Templates: []string{}, Template: "",
 		Reviewers: append(append(make([]string, 0, len(draft.Reviewers)+len(draft.TeamReviewers)),
 			draft.Reviewers...), draft.TeamReviewers...),
 	}

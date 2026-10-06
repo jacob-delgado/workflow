@@ -10,8 +10,9 @@ import type {
 // tests can still stub the module.
 
 // previewPullRequest composes the pull request that would be opened for the
-// branch, for the form to start from. Under VITE_MOCK it returns a canned draft.
-export async function previewPullRequest(): Promise<PullRequestDraft> {
+// branch, for the form to start from — its body from the template named, or
+// the repository's first. Under VITE_MOCK it returns a canned draft.
+export async function previewPullRequest(template?: string): Promise<PullRequestDraft> {
   if (import.meta.env.VITE_MOCK === 'true') {
     return {
       title: 'fix: redact tokens before they reach the request log',
@@ -21,10 +22,13 @@ export async function previewPullRequest(): Promise<PullRequestDraft> {
       draft: false,
       needs_push: true,
       reviewers: ['ana', 'acme/control-plane'],
+      templates: [],
+      template: '',
     }
   }
 
-  const result = await getPullRequestDraft({ throwOnError: true })
+  const query = template === undefined ? {} : { template }
+  const result = await getPullRequestDraft({ query, throwOnError: true })
 
   return result.data
 }

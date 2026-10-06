@@ -226,7 +226,7 @@ func TestComposePullBodyTakesTheFirstTemplate(t *testing.T) {
 	// Arrange
 	seams := pullSeams()
 	seams.Templates = func() []forge.Template {
-		return []forge.Template{{Name: "default", Body: "## Why\n"}, {Name: "other", Body: "## Other\n"}}
+		return []forge.Template{{Name: "default", Body: "## Why\n"}, {Name: otherTemplate, Body: "## Other\n"}}
 	}
 
 	// Act
@@ -235,6 +235,45 @@ func TestComposePullBodyTakesTheFirstTemplate(t *testing.T) {
 	// Assert
 	if err != nil || !strings.HasPrefix(request.Body, "## Why") || strings.Contains(request.Body, "## Commits") {
 		t.Errorf("body = %q (%v), want the first template in place of the commit list", request.Body, err)
+	}
+}
+
+// otherTemplate is a repository's second pull request template.
+const otherTemplate = "other"
+
+func TestComposePullStartsFromTheTemplateChosen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	seams := pullSeams()
+	seams.Templates = func() []forge.Template {
+		return []forge.Template{{Name: "default", Body: "## Why\n"}, {Name: otherTemplate, Body: "## Other\n"}}
+	}
+	opts := options()
+	opts.Template = otherTemplate
+
+	// Act
+	request, _, err := loop.ComposePull(seams, opts)
+
+	// Assert
+	if err != nil || !strings.HasPrefix(request.Body, "## Other") {
+		t.Errorf("body = %q (%v), want the template chosen", request.Body, err)
+	}
+}
+
+func TestComposePullRefusesATemplateTheRepositoryLacks(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	opts := options()
+	opts.Template = "missing"
+
+	// Act
+	_, _, err := loop.ComposePull(pullSeams(), opts)
+
+	// Assert
+	if !errors.Is(err, loop.ErrNoSuchTemplate) {
+		t.Errorf("ComposePull = %v, want ErrNoSuchTemplate", err)
 	}
 }
 

@@ -757,10 +757,142 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/pull-request/merge:
+    get:
+      operationId: getMergeMethods
+      summary: How the branch's pull request may be merged, for the merge's preview.
+      description: >-
+        The merge methods the repository permits — a merge commit, a squash,
+        a rebase — for the checked-out branch's pull request, once it can be
+        merged as the terminal's M asks: open, not a draft, free of
+        conflicts, approved with no changes asked for, and its CI passed. A
+        read, so it answers under --dry-run too. Refused with 409 when the
+        pull request cannot be merged yet, and 422 when merging is not
+        available or the repository permits no method.
+      tags: [review]
+      responses:
+        "200":
+          description: The pull request and the methods permitted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergeOffer"
+        "409":
+          description: There is no pull request that can be merged now.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: Merging is not available, or the repository permits no method.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: mergePullRequest
+      summary: Merge the branch's pull request by a permitted method.
+      description: >-
+        Merges the checked-out branch's pull request by the method asked, one
+        the repository permits, after the preview the page shows — the
+        terminal's M. The pull request is read again first and merged only if
+        it can still be merged. Refused with 409 when it cannot be merged
+        now, and 422 when the method is not one permitted or the forge
+        refuses the merge: a token without the scope a merge needs is told
+        in the forge's words, naming the scope, never its address.
+      tags: [review]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MergeRequest"
+      responses:
+        "200":
+          description: The pull request, merged.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequest"
+        "409":
+          description: There is no pull request that can be merged now; nothing was merged.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: The method is not permitted, merging is not available, or the forge refused.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/branch/finish:
+    post:
+      operationId: finishBranch
+      summary: Finish a merged branch — switch to the base, catch it up, delete the branch.
+      description: >-
+        Runs the three git commands the terminal's F previews — git switch to
+        the base, git pull --ff-only, git branch -D the branch — once the
+        branch's pull request has merged, the branch is checked out with a
+        base to return to, and it holds no commit origin lacks, which the
+        delete would lose. Refused with 409 when it cannot be finished, and
+        422 when finishing is not available or git refuses, whose own words
+        stay off the wire since they name origin.
+      tags: [review]
+      responses:
+        "200":
+          description: The branch now checked out, the base.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+        "409":
+          description: There is no merged branch to finish; nothing was run.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: Finishing is not available, or git refused.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/review/rerun:
+    post:
+      operationId: rerunChecks
+      summary: Re-run the failed CI on the branch's pull request.
+      description: >-
+        Asks the forge to re-run the failed checks of the checked-out
+        branch's open pull request — the terminal's R — after the page's last
+        look. The pull request and its CI are read again first. Answers
+        whether anything was re-run: a failure with no job to restart re-runs
+        nothing. Refused with 409 when the pull request is not open with
+        failed CI, and 422 when re-running is not available or the forge
+        refuses, in its own words, which name the scope, never its address.
+      tags: [review]
+      responses:
+        "200":
+          description: Whether anything was re-run.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rerun"
+        "409":
+          description: There is no failed CI on an open pull request to re-run.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: Re-running is not available, or the forge refused.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
   /api/review/checks/{id}/log:
     get:
       operationId: getCheckLog
-      summary: The end of a failed check's log, read on demand.
+      summary: The end of a check's log, read on demand.
       description: >-
         Reads the last lines of the log of one of the current pull request's
         checks, a GitHub Actions run or a GitLab job, with every terminal
@@ -1630,11 +1762,19 @@ paths:
     get:
       operationId: getPullRequestDraft
       summary: The pull request that would be opened for the branch, for a preview.
+      parameters:
+        - name: template
+          in: query
+          required: false
+          schema: {type: string}
+          description: The template to start the body from, by name; the repository's first when omitted.
       description: >-
         Composes a pull request for the checked-out branch — a title and body
         from its commits, the issue, and the repository's template, with the base
         it would merge into — without opening it, so the browser can edit it
-        before confirming. Answered 409 when there is nothing to open: the tree
+        before confirming. Given a template, by name, the body starts from it
+        rather than the first, as the terminal's ctrl+t chooses one; an
+        unknown name is a 404. Answered 409 when there is nothing to open: the tree
         is not on a branch, the branch has no commits, or a pull request is
         already open for it; and when the server is not running in a git
         repository.
@@ -1646,6 +1786,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PullRequestDraft"
+        "404":
+          description: The repository has no template of that name.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "409":
           description: >-
             There is nothing to open a pull request for, or the server is not
@@ -1656,6 +1801,63 @@ paths:
         default: {$ref: "#/components/responses/Problem"}
 
   /api/pull-request:
+    get:
+      operationId: getPullRequestText
+      summary: The branch's open pull request's title and description, to edit them.
+      description: >-
+        The title and description of the checked-out branch's pull request
+        as the forge holds them now, read afresh for the editor the
+        terminal's e opens. Refused with 409 when the branch has no open
+        pull request.
+      tags: [review]
+      responses:
+        "200":
+          description: The pull request's title and description.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequestText"
+        "409":
+          description: The branch has no open pull request.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+    patch:
+      operationId: editPullRequest
+      summary: Change the branch's open pull request's title and description.
+      description: >-
+        Saves a new title and description on the checked-out branch's open
+        pull request, as the terminal's editor (e) does; the form that sends
+        it is the last look. Refused with 409 when the branch has no open
+        pull request, and 422 when the title is empty, editing is not
+        available, or the forge refuses the edit — a token without the
+        scope, in the forge's own words, which never name its address.
+      tags: [review]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PullRequestText"
+      responses:
+        "200":
+          description: The pull request as the forge now holds it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequest"
+        "409":
+          description: The branch has no open pull request.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: The title is empty, editing is not available, or the forge refused it.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
     post:
       operationId: openPullRequest
       summary: Open a pull request for the current branch, pushing it first if needed.
@@ -3116,10 +3318,51 @@ components:
           description: Whether this is a breaking change, marked with "!".
       additionalProperties: false
 
+    PullRequestText:
+      type: object
+      description: A pull request's title and description.
+      required: [title, body]
+      properties:
+        title: {type: string}
+        body: {type: string}
+      additionalProperties: false
+
+    MergeMethod:
+      type: string
+      description: How a pull request is merged — a merge commit, squashed, or rebased.
+      enum: [merge, squash, rebase]
+
+    MergeOffer:
+      type: object
+      description: The pull request a merge would merge, and the methods its repository permits.
+      required: [pull, methods]
+      properties:
+        pull: {$ref: "#/components/schemas/PullRequest"}
+        methods:
+          type: array
+          items: {$ref: "#/components/schemas/MergeMethod"}
+      additionalProperties: false
+
+    MergeRequest:
+      type: object
+      required: [method]
+      properties:
+        method: {$ref: "#/components/schemas/MergeMethod"}
+      additionalProperties: false
+
+    Rerun:
+      type: object
+      required: [reran]
+      properties:
+        reran:
+          type: boolean
+          description: Whether the forge re-ran anything; false when the failure had no job to restart.
+      additionalProperties: false
+
     PullRequestDraft:
       type: object
       description: A pull request composed for the branch, editable before opening.
-      required: [title, body, base, head, draft, needs_push, reviewers]
+      required: [title, body, base, head, draft, needs_push, reviewers, templates, template]
       properties:
         title:
           type: string
@@ -3150,6 +3393,15 @@ components:
             group/subgroup). Empty when no CODEOWNERS covers the changes or it
             cannot be read.
           example: [ana, acme/control-plane]
+        templates:
+          type: array
+          description: >-
+            The repository's pull request templates by name, in the order the
+            terminal's ctrl+t cycles them; empty when it has none.
+          items: {type: string}
+        template:
+          type: string
+          description: The template the body starts from, by name; empty when there is none.
       additionalProperties: false
 
     OpenPullRequestRequest:

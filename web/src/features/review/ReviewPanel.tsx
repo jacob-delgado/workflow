@@ -1,30 +1,22 @@
-import { useEffect, useState } from 'react'
-import { useForm, type UseFormRegister } from 'react-hook-form'
+import { useState } from 'react'
 import { useForgeWords } from '@/api/health.ts'
 import type {
-  Check,
+  Branch,
   Ci,
-  JobLog,
   LinkedIssue,
   OpenedPullRequest,
-  OpenPullRequestRequest,
   PullRequest,
-  PullRequestDraft,
   Review,
 } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
-import { Button } from '@/lib/Button.tsx'
-import { Input, TextArea } from '@/lib/Field.tsx'
-import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { definitionList, splitList } from '@/lib/utils.ts'
-import { ciMark, StateMark } from '@/shell/StateMark.tsx'
-import { readCheckLog } from './checkLogApi.ts'
+import { definitionList } from '@/lib/utils.ts'
+import { CheckRow } from './Checks.tsx'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
-import { openPr, previewPullRequest } from './openPrApi.ts'
+import { OpenPullRequest } from './OpenPullRequest.tsx'
+import { PullActions } from './PullActions.tsx'
 
 const mergeableLabel: Record<'unknown' | 'clean' | 'conflicts', string> = {
   unknown: 'Mergeability unknown',
@@ -39,12 +31,14 @@ export function ReviewPanel() {
   // open's outcome offers to write to its own branch's issue, and it goes
   // rather than offer a link the server would refuse — or, back on its branch,
   // a second one.
-  return <BranchReview key={snapshot.branch.name} review={snapshot.review} />
+  return (
+    <BranchReview key={snapshot.branch.name} review={snapshot.review} branch={snapshot.branch} />
+  )
 }
 
 // BranchReview is the checked-out branch's pull request, or the offer to open
 // one, beneath what the last open answered.
-function BranchReview({ review }: { review: Review }) {
+function BranchReview({ review, branch }: { review: Review; branch: Branch }) {
   // What the open answered, and the line that says so, held here — above the
   // switch between offering to open and showing the pull request — so the
   // snapshot that brings the new pull request back leaves the outcome and its
@@ -64,6 +58,7 @@ function BranchReview({ review }: { review: Review }) {
           pull={review.pull}
           ci={review.ci ?? null}
           issue={review.issue ?? null}
+          branch={branch}
         />
       ) : (
         <OpenPullRequest
@@ -84,10 +79,12 @@ function PullRequestSummary({
   pull,
   ci,
   issue,
+  branch,
 }: {
   pull: PullRequest
   ci: Ci | null
   issue: LinkedIssue | null
+  branch: Branch
 }) {
   const { sigil } = useForgeWords()
 
@@ -114,6 +111,7 @@ function PullRequestSummary({
           <dd>{stateLabel(pull)}</dd>
           {pull.state === 'open' ? <ReviewRows pull={pull} /> : null}
         </dl>
+        <PullActions pull={pull} ci={ci} branch={branch} />
       </section>
 
       {ci ? (
@@ -169,222 +167,6 @@ function ReviewRows({ pull }: { pull: PullRequest }) {
   )
 }
 
-// OpenPullRequest opens a pull request for a branch that has none yet, behind a
-// preview: it composes the proposal, shows it as an editable form, and opens on
-// confirm — pushing the branch first when it is not yet published. Composing and
-// opening are two steps, each its own action. On success it hands what the open
-// answered, and what to say of it, to the panel, which says so above it, and
-// steps aside until the event stream brings back the new pull request.
-function OpenPullRequest({
-  onOpened,
-}: {
-  onOpened: (opened: OpenedPullRequest, said: string) => void
-}) {
-  const { noun, sigil } = useForgeWords()
-  const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
-  const compose = useAsyncAction(previewPullRequest, {
-    fallback: `The ${noun} could not be composed. Try again, or run workflow pr from a terminal.`,
-  })
-  const open = useAsyncAction(openPr, {
-    fallback: `The ${noun} was not opened. Try again — your edits are still in the form.`,
-    done: (opened) => `Opened ${noun} ${sigil}${String(opened.pull.number)}.`,
-    onDone: (said, opened) => {
-      onOpened(opened, said)
-    },
-  })
-
-  if (open.state === 'done') {
-    return null
-  }
-
-  // A failed open keeps the form up with its reason, so the edits are not lost;
-  // a failed compose has no draft to edit, so it falls through to the retry
-  // button below.
-  if (compose.state === 'done' && compose.result !== undefined) {
-    return (
-      <PullRequestForm
-        draft={compose.result}
-        opening={open.state === 'running'}
-        error={open.state === 'error' ? open.error : ''}
-        onCancel={() => {
-          handBack()
-          open.reset()
-          compose.reset()
-        }}
-        onSubmit={(request) => {
-          void open.run(request)
-        }}
-      />
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-item">
-      <p className="text-sm text-muted-foreground">No open {noun} for this branch yet.</p>
-      <Button
-        variant="primary"
-        ref={opener}
-        disabled={compose.state === 'running'}
-        onClick={() => {
-          void compose.run()
-        }}
-        className="self-start"
-      >
-        {compose.state === 'running' ? 'Preparing…' : `Open a ${noun}`}
-      </Button>
-      {compose.state === 'error' ? (
-        <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-          {compose.error}
-        </p>
-      ) : null}
-    </div>
-  )
-}
-
-interface PullRequestFields {
-  title: string
-  base: string
-  body: string
-  draft: boolean
-  reviewers: string
-  assignees: string
-  labels: string
-}
-
-// PullRequestForm is the composed pull request, editable, opening on its title,
-// its reviewers pre-filled with the code owners the draft proposes, with a
-// confirm that opens it and a cancel. It is disabled while the open is in
-// flight, so a second click cannot open a second pull request.
-function PullRequestForm({
-  draft,
-  opening,
-  error,
-  onCancel,
-  onSubmit,
-}: {
-  draft: PullRequestDraft
-  opening: boolean
-  error: string
-  onCancel: () => void
-  onSubmit: (request: OpenPullRequestRequest) => void
-}) {
-  const { noun } = useForgeWords()
-  const { register, handleSubmit, setFocus } = useForm<PullRequestFields>({
-    defaultValues: {
-      title: draft.title,
-      base: draft.base,
-      body: draft.body,
-      draft: draft.draft,
-      reviewers: draft.reviewers.join(', '),
-      assignees: '',
-      labels: '',
-    },
-  })
-
-  // The form appears only because it was asked for, so focus goes with the
-  // person asking to its first field.
-  useEffect(() => {
-    setFocus('title')
-  }, [setFocus])
-
-  const submit = handleSubmit((fields) => {
-    onSubmit(proposal(fields))
-  })
-
-  return (
-    <form
-      aria-label={`Open a ${noun}`}
-      onSubmit={(event) => {
-        void submit(event)
-      }}
-      className="flex flex-col gap-group rounded-lg border border-border p-4"
-    >
-      <ProposalFields register={register} />
-
-      {draft.needs_push ? (
-        <p className="text-xs text-muted-foreground">
-          The branch is not pushed yet; opening will push it first.
-        </p>
-      ) : null}
-
-      <div className="flex items-center gap-item">
-        <Button variant="secondary" disabled={opening} onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button variant="primary" type="submit" disabled={opening}>
-          {opening ? 'Opening…' : `Open ${noun}`}
-        </Button>
-      </div>
-
-      {error === '' ? null : (
-        <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-          {error}
-        </p>
-      )}
-    </form>
-  )
-}
-
-// proposal is the request the form's fields make, each comma-separated list
-// read into its trimmed entries.
-function proposal(fields: PullRequestFields): OpenPullRequestRequest {
-  return {
-    title: fields.title,
-    base: fields.base,
-    body: fields.body,
-    draft: fields.draft,
-    reviewers: splitList(fields.reviewers),
-    assignees: splitList(fields.assignees),
-    labels: splitList(fields.labels),
-  }
-}
-
-// ProposalFields are what a pull request opens with, each editable: its title
-// and base, the people and labels it asks for, its description, and whether
-// it opens as a draft.
-function ProposalFields({ register }: { register: UseFormRegister<PullRequestFields> }) {
-  return (
-    <>
-      <label className={labelClass}>
-        Title
-        <Input {...register('title')} required />
-      </label>
-
-      <label className={labelClass}>
-        Base branch
-        <Input {...register('base')} required />
-      </label>
-
-      <label className={labelClass}>
-        Reviewers
-        <Input {...register('reviewers')} placeholder="comma-separated usernames or org/team" />
-      </label>
-
-      <label className={labelClass}>
-        Assignees
-        <Input {...register('assignees')} placeholder="comma-separated usernames" />
-      </label>
-
-      <label className={labelClass}>
-        Labels
-        <Input {...register('labels')} placeholder="comma-separated labels" />
-      </label>
-
-      <label className={labelClass}>
-        Description
-        <TextArea {...register('body')} rows={6} />
-      </label>
-
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" {...register('draft')} className="size-4" />
-        Open as a draft
-      </label>
-    </>
-  )
-}
-
-const labelClass = 'flex flex-col gap-tight text-sm text-muted-foreground'
-
 // IssueRow names the issue the pull request is for, by its key as its tracker
 // writes it, linked to its page when the tracker gives one.
 function IssueRow({ issue }: { issue: LinkedIssue }) {
@@ -408,94 +190,5 @@ function IssueRow({ issue }: { issue: LinkedIssue }) {
         )}
       </dd>
     </>
-  )
-}
-
-// CheckRow is one check: how it stands, the stage it ran in for a GitLab job,
-// then its name — unique in its pipeline — linked to its page, and for a
-// failed one, why it failed.
-function CheckRow({ check }: { check: Check }) {
-  return (
-    <li className="flex flex-col gap-1 text-sm">
-      <span className="flex items-center gap-item">
-        <StateMark state={ciMark[check.state]} />
-        <Meta>
-          {check.stage ? <span className="text-muted-foreground">{check.stage}</span> : null}
-          {check.url === '' ? (
-            check.name
-          ) : (
-            <a
-              href={check.url}
-              target="_blank"
-              rel="noreferrer"
-              className="underline-offset-4 hover:underline"
-            >
-              {check.name}
-            </a>
-          )}
-        </Meta>
-        <span className="text-muted-foreground">{check.state}</span>
-      </span>
-      {check.state === 'failed' && check.reason ? (
-        <span className="pl-6 text-muted-foreground">{check.reason}</span>
-      ) : null}
-      {check.state === 'failed' && check.log_available && check.id ? (
-        <CheckLog id={check.id} name={check.name} />
-      ) : null}
-    </li>
-  )
-}
-
-// CheckLog reads a failed check's log when asked, never before: a log can be
-// long, and the forge counts every read. The log takes the place, and the
-// focus, of the control that asked for it, and scrolls by the keyboard.
-function CheckLog({ id, name }: { id: string; name: string }) {
-  const read = useAsyncAction(readCheckLog, { fallback: 'The log could not be read. Try again.' })
-
-  if (read.state === 'done' && read.result) {
-    return <LogText name={name} log={read.result} />
-  }
-
-  return (
-    <span className="flex flex-col gap-1 pl-6">
-      <Button
-        variant="secondary"
-        className="self-start"
-        aria-label={
-          read.state === 'running' ? `Reading the log of ${name}…` : `Show log of ${name}`
-        }
-        aria-disabled={read.state === 'running'}
-        onClick={() => {
-          if (read.state !== 'running') {
-            void read.run(id)
-          }
-        }}
-      >
-        {read.state === 'running' ? 'Reading the log…' : 'Show log'}
-      </Button>
-      {read.state === 'error' ? (
-        <span role="alert" className="text-destructive">
-          {read.error}
-        </span>
-      ) : null}
-    </span>
-  )
-}
-
-function LogText({ name, log }: { name: string; log: JobLog }) {
-  const region = useFocusOnMount<HTMLPreElement>()
-
-  return (
-    <pre
-      ref={region}
-      role="region"
-      aria-label={`Log of ${name}`}
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a log that scrolls must be reachable by Tab to be scrolled by keys (WCAG 2.1.1)
-      tabIndex={0}
-      className="ml-6 max-h-80 overflow-auto rounded-md border border-border p-3 text-xs whitespace-pre-wrap focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-    >
-      {log.truncated ? '… earlier lines are not shown\n' : ''}
-      {log.text}
-    </pre>
   )
 }

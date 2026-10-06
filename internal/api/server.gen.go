@@ -33,6 +33,9 @@ type ServerInterface interface {
 	// GetBranch The current branch and how it stands against its base.
 	// (GET /api/branch)
 	GetBranch(w http.ResponseWriter, r *http.Request)
+	// FinishBranch Finish a merged branch — switch to the base, catch it up, delete the branch.
+	// (POST /api/branch/finish)
+	FinishBranch(w http.ResponseWriter, r *http.Request)
 	// UnlinkBranchIssue Forget the issue the checked-out branch was linked to.
 	// (DELETE /api/branch/issue)
 	UnlinkBranchIssue(w http.ResponseWriter, r *http.Request)
@@ -120,12 +123,24 @@ type ServerInterface interface {
 	// LinkPerson Record whom a code owner is on Slack, or that they are not on it.
 	// (PUT /api/people)
 	LinkPerson(w http.ResponseWriter, r *http.Request)
+	// GetPullRequestText The branch's open pull request's title and description, to edit them.
+	// (GET /api/pull-request)
+	GetPullRequestText(w http.ResponseWriter, r *http.Request)
+	// EditPullRequest Change the branch's open pull request's title and description.
+	// (PATCH /api/pull-request)
+	EditPullRequest(w http.ResponseWriter, r *http.Request)
 	// OpenPullRequest Open a pull request for the current branch, pushing it first if needed.
 	// (POST /api/pull-request)
 	OpenPullRequest(w http.ResponseWriter, r *http.Request)
 	// GetPullRequestDraft The pull request that would be opened for the branch, for a preview.
 	// (GET /api/pull-request/draft)
-	GetPullRequestDraft(w http.ResponseWriter, r *http.Request)
+	GetPullRequestDraft(w http.ResponseWriter, r *http.Request, params GetPullRequestDraftParams)
+	// GetMergeMethods How the branch's pull request may be merged, for the merge's preview.
+	// (GET /api/pull-request/merge)
+	GetMergeMethods(w http.ResponseWriter, r *http.Request)
+	// MergePullRequest Merge the branch's pull request by a permitted method.
+	// (POST /api/pull-request/merge)
+	MergePullRequest(w http.ResponseWriter, r *http.Request)
 	// Push Push the current branch to its remote, setting upstream.
 	// (POST /api/push)
 	Push(w http.ResponseWriter, r *http.Request)
@@ -150,9 +165,12 @@ type ServerInterface interface {
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(w http.ResponseWriter, r *http.Request)
-	// GetCheckLog The end of a failed check's log, read on demand.
+	// GetCheckLog The end of a check's log, read on demand.
 	// (GET /api/review/checks/{id}/log)
 	GetCheckLog(w http.ResponseWriter, r *http.Request, id string)
+	// RerunChecks Re-run the failed CI on the branch's pull request.
+	// (POST /api/review/rerun)
+	RerunChecks(w http.ResponseWriter, r *http.Request)
 	// ListReviews The pull requests on the forge that wait on your review.
 	// (GET /api/reviews)
 	ListReviews(w http.ResponseWriter, r *http.Request)
@@ -330,6 +348,20 @@ func (siw *ServerInterfaceWrapper) GetBranch(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetBranch(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishBranch operation middleware
+func (siw *ServerInterfaceWrapper) FinishBranch(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishBranch(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -995,6 +1027,34 @@ func (siw *ServerInterfaceWrapper) LinkPerson(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetPullRequestText operation middleware
+func (siw *ServerInterfaceWrapper) GetPullRequestText(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPullRequestText(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EditPullRequest operation middleware
+func (siw *ServerInterfaceWrapper) EditPullRequest(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EditPullRequest(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // OpenPullRequest operation middleware
 func (siw *ServerInterfaceWrapper) OpenPullRequest(w http.ResponseWriter, r *http.Request) {
 
@@ -1012,8 +1072,55 @@ func (siw *ServerInterfaceWrapper) OpenPullRequest(w http.ResponseWriter, r *htt
 // GetPullRequestDraft operation middleware
 func (siw *ServerInterfaceWrapper) GetPullRequestDraft(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPullRequestDraftParams
+
+	// ------------- Optional query parameter "template" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "template", r.URL.Query(), &params.Template, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "template"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "template", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetPullRequestDraft(w, r)
+		siw.Handler.GetPullRequestDraft(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMergeMethods operation middleware
+func (siw *ServerInterfaceWrapper) GetMergeMethods(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMergeMethods(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MergePullRequest operation middleware
+func (siw *ServerInterfaceWrapper) MergePullRequest(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MergePullRequest(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1171,6 +1278,20 @@ func (siw *ServerInterfaceWrapper) GetCheckLog(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCheckLog(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RerunChecks operation middleware
+func (siw *ServerInterfaceWrapper) RerunChecks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RerunChecks(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1650,6 +1771,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/runs/current", wrapper.StopRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/stage", wrapper.Stage)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/unstage", wrapper.Unstage)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/pull-request/merge", wrapper.GetMergeMethods)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/pull-request/merge", wrapper.MergePullRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/branch/finish", wrapper.FinishBranch)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/review/rerun", wrapper.RerunChecks)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/review/checks/{id}/log", wrapper.GetCheckLog)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/review", wrapper.GetReview)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/reviews", wrapper.ListReviews)
@@ -1677,6 +1802,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/push", wrapper.Push)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/commit", wrapper.Commit)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/pull-request/draft", wrapper.GetPullRequestDraft)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/pull-request", wrapper.GetPullRequestText)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/pull-request", wrapper.EditPullRequest)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/pull-request", wrapper.OpenPullRequest)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/tasks", wrapper.ListTasks)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks", wrapper.AddTask)
@@ -1960,6 +2087,72 @@ type GetBranchdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetBranchdefaultApplicationProblemPlusJSONResponse) VisitGetBranchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishBranchRequestObject struct {
+}
+
+type FinishBranchResponseObject interface {
+	VisitFinishBranchResponse(w http.ResponseWriter) error
+}
+
+type FinishBranch200JSONResponse Branch
+
+func (response FinishBranch200JSONResponse) VisitFinishBranchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishBranch409ApplicationProblemPlusJSONResponse Problem
+
+func (response FinishBranch409ApplicationProblemPlusJSONResponse) VisitFinishBranchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishBranch422ApplicationProblemPlusJSONResponse Problem
+
+func (response FinishBranch422ApplicationProblemPlusJSONResponse) VisitFinishBranchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishBranchdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response FinishBranchdefaultApplicationProblemPlusJSONResponse) VisitFinishBranchResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3745,6 +3938,125 @@ func (response LinkPersondefaultApplicationProblemPlusJSONResponse) VisitLinkPer
 	return err
 }
 
+type GetPullRequestTextRequestObject struct {
+}
+
+type GetPullRequestTextResponseObject interface {
+	VisitGetPullRequestTextResponse(w http.ResponseWriter) error
+}
+
+type GetPullRequestText200JSONResponse PullRequestText
+
+func (response GetPullRequestText200JSONResponse) VisitGetPullRequestTextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPullRequestText409ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPullRequestText409ApplicationProblemPlusJSONResponse) VisitGetPullRequestTextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPullRequestTextdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetPullRequestTextdefaultApplicationProblemPlusJSONResponse) VisitGetPullRequestTextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditPullRequestRequestObject struct {
+	Body *EditPullRequestJSONRequestBody
+}
+
+type EditPullRequestResponseObject interface {
+	VisitEditPullRequestResponse(w http.ResponseWriter) error
+}
+
+type EditPullRequest200JSONResponse PullRequest
+
+func (response EditPullRequest200JSONResponse) VisitEditPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditPullRequest409ApplicationProblemPlusJSONResponse Problem
+
+func (response EditPullRequest409ApplicationProblemPlusJSONResponse) VisitEditPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditPullRequest422ApplicationProblemPlusJSONResponse Problem
+
+func (response EditPullRequest422ApplicationProblemPlusJSONResponse) VisitEditPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditPullRequestdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response EditPullRequestdefaultApplicationProblemPlusJSONResponse) VisitEditPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type OpenPullRequestRequestObject struct {
 	Body *OpenPullRequestJSONRequestBody
 }
@@ -3813,6 +4125,7 @@ func (response OpenPullRequestdefaultApplicationProblemPlusJSONResponse) VisitOp
 }
 
 type GetPullRequestDraftRequestObject struct {
+	Params GetPullRequestDraftParams
 }
 
 type GetPullRequestDraftResponseObject interface {
@@ -3829,6 +4142,20 @@ func (response GetPullRequestDraft200JSONResponse) VisitGetPullRequestDraftRespo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPullRequestDraft404ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPullRequestDraft404ApplicationProblemPlusJSONResponse) VisitGetPullRequestDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3853,6 +4180,139 @@ type GetPullRequestDraftdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetPullRequestDraftdefaultApplicationProblemPlusJSONResponse) VisitGetPullRequestDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMergeMethodsRequestObject struct {
+}
+
+type GetMergeMethodsResponseObject interface {
+	VisitGetMergeMethodsResponse(w http.ResponseWriter) error
+}
+
+type GetMergeMethods200JSONResponse MergeOffer
+
+func (response GetMergeMethods200JSONResponse) VisitGetMergeMethodsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMergeMethods409ApplicationProblemPlusJSONResponse Problem
+
+func (response GetMergeMethods409ApplicationProblemPlusJSONResponse) VisitGetMergeMethodsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMergeMethods422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetMergeMethods422ApplicationProblemPlusJSONResponse) VisitGetMergeMethodsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMergeMethodsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetMergeMethodsdefaultApplicationProblemPlusJSONResponse) VisitGetMergeMethodsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergePullRequestRequestObject struct {
+	Body *MergePullRequestJSONRequestBody
+}
+
+type MergePullRequestResponseObject interface {
+	VisitMergePullRequestResponse(w http.ResponseWriter) error
+}
+
+type MergePullRequest200JSONResponse PullRequest
+
+func (response MergePullRequest200JSONResponse) VisitMergePullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergePullRequest409ApplicationProblemPlusJSONResponse Problem
+
+func (response MergePullRequest409ApplicationProblemPlusJSONResponse) VisitMergePullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergePullRequest422ApplicationProblemPlusJSONResponse Problem
+
+func (response MergePullRequest422ApplicationProblemPlusJSONResponse) VisitMergePullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergePullRequestdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response MergePullRequestdefaultApplicationProblemPlusJSONResponse) VisitMergePullRequestResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -4354,6 +4814,72 @@ type GetCheckLogdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetCheckLogdefaultApplicationProblemPlusJSONResponse) VisitGetCheckLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RerunChecksRequestObject struct {
+}
+
+type RerunChecksResponseObject interface {
+	VisitRerunChecksResponse(w http.ResponseWriter) error
+}
+
+type RerunChecks200JSONResponse Rerun
+
+func (response RerunChecks200JSONResponse) VisitRerunChecksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RerunChecks409ApplicationProblemPlusJSONResponse Problem
+
+func (response RerunChecks409ApplicationProblemPlusJSONResponse) VisitRerunChecksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RerunChecks422ApplicationProblemPlusJSONResponse Problem
+
+func (response RerunChecks422ApplicationProblemPlusJSONResponse) VisitRerunChecksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RerunChecksdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RerunChecksdefaultApplicationProblemPlusJSONResponse) VisitRerunChecksResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -5423,6 +5949,9 @@ type StrictServerInterface interface {
 	// GetBranch The current branch and how it stands against its base.
 	// (GET /api/branch)
 	GetBranch(ctx context.Context, request GetBranchRequestObject) (GetBranchResponseObject, error)
+	// FinishBranch Finish a merged branch — switch to the base, catch it up, delete the branch.
+	// (POST /api/branch/finish)
+	FinishBranch(ctx context.Context, request FinishBranchRequestObject) (FinishBranchResponseObject, error)
 	// UnlinkBranchIssue Forget the issue the checked-out branch was linked to.
 	// (DELETE /api/branch/issue)
 	UnlinkBranchIssue(ctx context.Context, request UnlinkBranchIssueRequestObject) (UnlinkBranchIssueResponseObject, error)
@@ -5510,12 +6039,24 @@ type StrictServerInterface interface {
 	// LinkPerson Record whom a code owner is on Slack, or that they are not on it.
 	// (PUT /api/people)
 	LinkPerson(ctx context.Context, request LinkPersonRequestObject) (LinkPersonResponseObject, error)
+	// GetPullRequestText The branch's open pull request's title and description, to edit them.
+	// (GET /api/pull-request)
+	GetPullRequestText(ctx context.Context, request GetPullRequestTextRequestObject) (GetPullRequestTextResponseObject, error)
+	// EditPullRequest Change the branch's open pull request's title and description.
+	// (PATCH /api/pull-request)
+	EditPullRequest(ctx context.Context, request EditPullRequestRequestObject) (EditPullRequestResponseObject, error)
 	// OpenPullRequest Open a pull request for the current branch, pushing it first if needed.
 	// (POST /api/pull-request)
 	OpenPullRequest(ctx context.Context, request OpenPullRequestRequestObject) (OpenPullRequestResponseObject, error)
 	// GetPullRequestDraft The pull request that would be opened for the branch, for a preview.
 	// (GET /api/pull-request/draft)
 	GetPullRequestDraft(ctx context.Context, request GetPullRequestDraftRequestObject) (GetPullRequestDraftResponseObject, error)
+	// GetMergeMethods How the branch's pull request may be merged, for the merge's preview.
+	// (GET /api/pull-request/merge)
+	GetMergeMethods(ctx context.Context, request GetMergeMethodsRequestObject) (GetMergeMethodsResponseObject, error)
+	// MergePullRequest Merge the branch's pull request by a permitted method.
+	// (POST /api/pull-request/merge)
+	MergePullRequest(ctx context.Context, request MergePullRequestRequestObject) (MergePullRequestResponseObject, error)
 	// Push Push the current branch to its remote, setting upstream.
 	// (POST /api/push)
 	Push(ctx context.Context, request PushRequestObject) (PushResponseObject, error)
@@ -5540,9 +6081,12 @@ type StrictServerInterface interface {
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(ctx context.Context, request GetReviewRequestObject) (GetReviewResponseObject, error)
-	// GetCheckLog The end of a failed check's log, read on demand.
+	// GetCheckLog The end of a check's log, read on demand.
 	// (GET /api/review/checks/{id}/log)
 	GetCheckLog(ctx context.Context, request GetCheckLogRequestObject) (GetCheckLogResponseObject, error)
+	// RerunChecks Re-run the failed CI on the branch's pull request.
+	// (POST /api/review/rerun)
+	RerunChecks(ctx context.Context, request RerunChecksRequestObject) (RerunChecksResponseObject, error)
 	// ListReviews The pull requests on the forge that wait on your review.
 	// (GET /api/reviews)
 	ListReviews(ctx context.Context, request ListReviewsRequestObject) (ListReviewsResponseObject, error)
@@ -5762,6 +6306,30 @@ func (sh *strictHandler) GetBranch(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetBranchResponseObject); ok {
 		if err := validResponse.VisitGetBranchResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishBranch operation middleware
+func (sh *strictHandler) FinishBranch(w http.ResponseWriter, r *http.Request) {
+	var request FinishBranchRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishBranch(ctx, request.(FinishBranchRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishBranch")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishBranchResponseObject); ok {
+		if err := validResponse.VisitFinishBranchResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -6572,6 +7140,61 @@ func (sh *strictHandler) LinkPerson(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetPullRequestText operation middleware
+func (sh *strictHandler) GetPullRequestText(w http.ResponseWriter, r *http.Request) {
+	var request GetPullRequestTextRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPullRequestText(ctx, request.(GetPullRequestTextRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPullRequestText")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPullRequestTextResponseObject); ok {
+		if err := validResponse.VisitGetPullRequestTextResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EditPullRequest operation middleware
+func (sh *strictHandler) EditPullRequest(w http.ResponseWriter, r *http.Request) {
+	var request EditPullRequestRequestObject
+
+	var body EditPullRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EditPullRequest(ctx, request.(EditPullRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EditPullRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EditPullRequestResponseObject); ok {
+		if err := validResponse.VisitEditPullRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // OpenPullRequest operation middleware
 func (sh *strictHandler) OpenPullRequest(w http.ResponseWriter, r *http.Request) {
 	var request OpenPullRequestRequestObject
@@ -6604,8 +7227,10 @@ func (sh *strictHandler) OpenPullRequest(w http.ResponseWriter, r *http.Request)
 }
 
 // GetPullRequestDraft operation middleware
-func (sh *strictHandler) GetPullRequestDraft(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) GetPullRequestDraft(w http.ResponseWriter, r *http.Request, params GetPullRequestDraftParams) {
 	var request GetPullRequestDraftRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetPullRequestDraft(ctx, request.(GetPullRequestDraftRequestObject))
@@ -6620,6 +7245,61 @@ func (sh *strictHandler) GetPullRequestDraft(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPullRequestDraftResponseObject); ok {
 		if err := validResponse.VisitGetPullRequestDraftResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMergeMethods operation middleware
+func (sh *strictHandler) GetMergeMethods(w http.ResponseWriter, r *http.Request) {
+	var request GetMergeMethodsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMergeMethods(ctx, request.(GetMergeMethodsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMergeMethods")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMergeMethodsResponseObject); ok {
+		if err := validResponse.VisitGetMergeMethodsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// MergePullRequest operation middleware
+func (sh *strictHandler) MergePullRequest(w http.ResponseWriter, r *http.Request) {
+	var request MergePullRequestRequestObject
+
+	var body MergePullRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.MergePullRequest(ctx, request.(MergePullRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "MergePullRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(MergePullRequestResponseObject); ok {
+		if err := validResponse.VisitMergePullRequestResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -6861,6 +7541,30 @@ func (sh *strictHandler) GetCheckLog(w http.ResponseWriter, r *http.Request, id 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCheckLogResponseObject); ok {
 		if err := validResponse.VisitGetCheckLogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RerunChecks operation middleware
+func (sh *strictHandler) RerunChecks(w http.ResponseWriter, r *http.Request) {
+	var request RerunChecksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RerunChecks(ctx, request.(RerunChecksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RerunChecks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RerunChecksResponseObject); ok {
+		if err := validResponse.VisitRerunChecksResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

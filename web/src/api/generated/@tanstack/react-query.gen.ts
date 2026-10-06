@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getActivity, getAnnouncement, getBranch, getChangeDiff, getCheckLog, getConfig, getDirectories, getHealth, getHookSetup, getIssue, getLocalData, getMessaging, getPeople, getPullRequestDraft, getRepoGroups, getRepositories, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listStatusChanges, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
-import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetChangeDiffData, GetChangeDiffError, GetChangeDiffResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetHookSetupData, GetHookSetupError, GetHookSetupResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListStatusChangesData, ListStatusChangesError, ListStatusChangesResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
+import { getActivity, getAnnouncement, getBranch, getChangeDiff, getCheckLog, getConfig, getDirectories, getHealth, getHookSetup, getIssue, getLocalData, getMergeMethods, getMessaging, getPeople, getPullRequestDraft, getPullRequestText, getRepoGroups, getRepositories, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listStatusChanges, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetChangeDiffData, GetChangeDiffError, GetChangeDiffResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetHookSetupData, GetHookSetupError, GetHookSetupResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMergeMethodsData, GetMergeMethodsError, GetMergeMethodsResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetPullRequestTextData, GetPullRequestTextError, GetPullRequestTextResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListStatusChangesData, ListStatusChangesError, ListStatusChangesResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -207,10 +207,30 @@ export const getHookSetupOptions = (options?: Options<GetHookSetupData>) => quer
     queryKey: getHookSetupQueryKey(options)
 });
 
+export const getMergeMethodsQueryKey = (options?: Options<GetMergeMethodsData>) => createQueryKey('getMergeMethods', options);
+
+/**
+ * How the branch's pull request may be merged, for the merge's preview.
+ *
+ * The merge methods the repository permits — a merge commit, a squash, a rebase — for the checked-out branch's pull request, once it can be merged as the terminal's M asks: open, not a draft, free of conflicts, approved with no changes asked for, and its CI passed. A read, so it answers under --dry-run too. Refused with 409 when the pull request cannot be merged yet, and 422 when merging is not available or the repository permits no method.
+ */
+export const getMergeMethodsOptions = (options?: Options<GetMergeMethodsData>) => queryOptions<GetMergeMethodsResponse, GetMergeMethodsError, GetMergeMethodsResponse, ReturnType<typeof getMergeMethodsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMergeMethods({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMergeMethodsQueryKey(options)
+});
+
 export const getCheckLogQueryKey = (options: Options<GetCheckLogData>) => createQueryKey('getCheckLog', options);
 
 /**
- * The end of a failed check's log, read on demand.
+ * The end of a check's log, read on demand.
  *
  * Reads the last lines of the log of one of the current pull request's checks, a GitHub Actions run or a GitLab job, with every terminal control taken out. Only a check the pull request's CI lists now is read; it is never read as CI is polled.
  */
@@ -446,7 +466,7 @@ export const getPullRequestDraftQueryKey = (options?: Options<GetPullRequestDraf
 /**
  * The pull request that would be opened for the branch, for a preview.
  *
- * Composes a pull request for the checked-out branch — a title and body from its commits, the issue, and the repository's template, with the base it would merge into — without opening it, so the browser can edit it before confirming. Answered 409 when there is nothing to open: the tree is not on a branch, the branch has no commits, or a pull request is already open for it; and when the server is not running in a git repository.
+ * Composes a pull request for the checked-out branch — a title and body from its commits, the issue, and the repository's template, with the base it would merge into — without opening it, so the browser can edit it before confirming. Given a template, by name, the body starts from it rather than the first, as the terminal's ctrl+t chooses one; an unknown name is a 404. Answered 409 when there is nothing to open: the tree is not on a branch, the branch has no commits, or a pull request is already open for it; and when the server is not running in a git repository.
  */
 export const getPullRequestDraftOptions = (options?: Options<GetPullRequestDraftData>) => queryOptions<GetPullRequestDraftResponse, GetPullRequestDraftError, GetPullRequestDraftResponse, ReturnType<typeof getPullRequestDraftQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -459,6 +479,26 @@ export const getPullRequestDraftOptions = (options?: Options<GetPullRequestDraft
         return data;
     },
     queryKey: getPullRequestDraftQueryKey(options)
+});
+
+export const getPullRequestTextQueryKey = (options?: Options<GetPullRequestTextData>) => createQueryKey('getPullRequestText', options);
+
+/**
+ * The branch's open pull request's title and description, to edit them.
+ *
+ * The title and description of the checked-out branch's pull request as the forge holds them now, read afresh for the editor the terminal's e opens. Refused with 409 when the branch has no open pull request.
+ */
+export const getPullRequestTextOptions = (options?: Options<GetPullRequestTextData>) => queryOptions<GetPullRequestTextResponse, GetPullRequestTextError, GetPullRequestTextResponse, ReturnType<typeof getPullRequestTextQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPullRequestText({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPullRequestTextQueryKey(options)
 });
 
 export const listTasksQueryKey = (options?: Options<ListTasksData>) => createQueryKey('listTasks', options);
