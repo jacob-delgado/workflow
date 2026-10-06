@@ -196,10 +196,27 @@ func (c calendar) footer(keys keyMap) []key.Binding {
 		mark = relabel(keys.toggleOption, "no range")
 	}
 
-	return []key.Binding{
-		relabel(keys.nextField, "next column"), keys.up, keys.down, mark,
-		relabel(keys.confirm, "show"), relabel(keys.closeOverlay, escClose),
+	bindings := []key.Binding{relabel(keys.nextField, "next column"), relabel(keys.prevField, "previous column")}
+	if c.column == columnDay {
+		bindings = append(bindings, relabel(keys.cycleLeft, "day"))
 	}
+
+	return append(bindings, relabel(keys.up, c.verticalStep()), mark,
+		relabel(keys.confirm, "show"), relabel(keys.closeOverlay, escClose))
+}
+
+// verticalStep names how far up and down move in the cursor's column.
+func (c calendar) verticalStep() string {
+	switch c.column {
+	case columnYear:
+		return "year"
+	case columnMonth:
+		return "month"
+	case columnDay:
+		return "week"
+	}
+
+	return ""
 }
 
 // handleKey moves the cursor, marks a range, or shows what is chosen.
@@ -213,12 +230,10 @@ func (c calendar) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		c.column = (c.column + 1) % calendarColumns
 	case key.Matches(msg, m.keys.prevField):
 		c.column = (c.column + calendarColumns - 1) % calendarColumns
-	case key.Matches(msg, m.keys.up):
-		c.cursor = c.moved(-1)
-	case key.Matches(msg, m.keys.down):
-		c.cursor = c.moved(1)
 	case key.Matches(msg, m.keys.toggleOption):
 		c.mark, c.marked = c.cursor, !c.marked
+	default:
+		c.cursor = c.stepped(m.keys, msg)
 	}
 
 	c.err = nil
@@ -227,7 +242,25 @@ func (c calendar) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// moved is the cursor a step on in its column: a year, a month or a day.
+// stepped is the cursor after a movement key: up and down a step in its
+// column, and, in the day column, left and right a day.
+func (c calendar) stepped(keys keyMap, msg tea.KeyPressMsg) activity.Date {
+	switch {
+	case key.Matches(msg, keys.up):
+		return c.moved(-1)
+	case key.Matches(msg, keys.down):
+		return c.moved(1)
+	case c.column == columnDay && key.Matches(msg, keys.cycleLeft):
+		return c.cursor.AddDays(-1)
+	case c.column == columnDay && key.Matches(msg, keys.cycleRight):
+		return c.cursor.AddDays(1)
+	}
+
+	return c.cursor
+}
+
+// moved is the cursor a step on in its column: a year, a month, or — the day
+// column being drawn as a month of weeks — a week.
 func (c calendar) moved(step int) activity.Date {
 	switch c.column {
 	case columnYear:
@@ -235,7 +268,7 @@ func (c calendar) moved(step int) activity.Date {
 	case columnMonth:
 		return c.cursor.AddMonths(step)
 	case columnDay:
-		return c.cursor.AddDays(step)
+		return c.cursor.AddDays(daysInWeek * step)
 	}
 
 	return c.cursor

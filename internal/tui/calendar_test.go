@@ -55,11 +55,11 @@ func TestEnterShowsWhatTheColumnWithTheCursorNames(t *testing.T) {
 		keys []string
 		want string
 	}{
-		"a day":       {keys: []string{"k", keyEnter}, want: "2026-09-14"},
+		"a day":       {keys: []string{keyLeft, keyEnter}, want: "2026-09-14"},
 		"its month":   {keys: []string{keyShiftTab, keyEnter}, want: "2026-09-01 to 2026-09-30"},
 		"its year":    {keys: []string{keyShiftTab, keyShiftTab, keyEnter}, want: "2026-01-01 to 2026-12-31"},
-		"a range":     {keys: []string{keySpace, "k", "k", "k", keyEnter}, want: "2026-09-12 to 2026-09-15"},
-		"a range too": {keys: []string{"k", keySpace, "j", "j", keyEnter}, want: "2026-09-14 to 2026-09-16"},
+		"a range":     {keys: []string{keySpace, keyLeft, keyLeft, keyLeft, keyEnter}, want: "2026-09-12 to 2026-09-15"},
+		"a range too": {keys: []string{keyLeft, keySpace, keyRight, keyRight, keyEnter}, want: "2026-09-14 to 2026-09-16"},
 	}
 
 	for name, testCase := range cases {
@@ -88,7 +88,7 @@ func TestEscClosesTheCalendarAndKeepsThePeriod(t *testing.T) {
 	opened := typing(t, busy.live(t, 120, 40), calendarOpen()...)
 
 	// Act
-	view := typing(t, opened, "k", keyEsc).View().Content
+	view := typing(t, opened, keyLeft, keyEsc).View().Content
 
 	// Assert
 	requireScreen(t, view, "2026-09-15")
@@ -105,7 +105,7 @@ func TestTheCalendarRefusesADayThatHasNotHappened(t *testing.T) {
 	opened := typing(t, busy.live(t, 120, 40), calendarOpen()...)
 
 	// Act
-	view := typing(t, opened, "j", "j", keyEnter).View().Content
+	view := typing(t, opened, keyRight, keyRight, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "Calendar", "after today")
@@ -113,6 +113,45 @@ func TestTheCalendarRefusesADayThatHasNotHappened(t *testing.T) {
 	if reads := busy.asked(summaryRead("git", time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC))); len(reads) != 0 {
 		t.Errorf("read %v, want nothing read for a day to come", reads)
 	}
+}
+
+func TestTheDayColumnMovesAWeekForDownAndADayForRight(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		arrange, act []string
+		want         string
+	}{
+		"down is a week on":  {arrange: []string{upAction, upAction}, act: []string{downAction}, want: "2026-09-08"},
+		"up is a week back":  {arrange: nil, act: []string{upAction}, want: "2026-09-08"},
+		"right is a day on":  {arrange: []string{upAction}, act: []string{keyRight}, want: "2026-09-09"},
+		"left is a day back": {arrange: nil, act: []string{keyLeft}, want: "2026-09-14"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			opened := typing(t, summaryWorld().live(t, 120, 40), append(calendarOpen(), tt.arrange...)...)
+
+			// Act
+			view := typing(t, opened, append(tt.act, keyEnter)...).View().Content
+
+			// Assert
+			requireScreen(t, view, "8 Summary", tt.want)
+		})
+	}
+}
+
+func TestTheCalendarFooterNamesTheDayStepAndTheWayBack(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, summaryWorld().live(t, 160, 40), calendarOpen()...).View().Content
+
+	// Assert
+	requireScreen(t, footerLine(view), "←/→ day", "↑/k week", "shift+tab previous column")
 }
 
 func TestTabMovesToTheYearColumnWhereAStepIsAYear(t *testing.T) {
@@ -135,7 +174,7 @@ func TestSpaceAgainUnmarksTheRange(t *testing.T) {
 	opened := typing(t, summaryWorld().live(t, 120, 40), calendarOpen()...)
 
 	// Act
-	view := typing(t, opened, keySpace, "k", keySpace, keyEnter).View().Content
+	view := typing(t, opened, keySpace, keyLeft, keySpace, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "8 Summary", "2026-09-14")
