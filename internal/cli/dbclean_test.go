@@ -274,3 +274,13 @@ func TestTheWebListsAndCleansTheStoreDBCleanDoes(t *testing.T) {
 		t.Errorf("listed %s %+v after cleaning the cache, want kept.db alone in %s", listed, files, dir)
 	}
 }
+
+func TestDBCleanIsSummarizedAsRemovingTheLocalData(t *testing.T) {
+	// Act
+	output, err := run(t, t.TempDir(), "--help")
+
+	// Assert
+	if err != nil || !strings.Contains(output, "Remove workflow's local data") {
+		t.Errorf("--help = %v, want db-clean summarized as removing workflow's local data:\n%s", err, output)
+	}
+}

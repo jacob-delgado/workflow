@@ -28,7 +28,7 @@ func newDBCleanCmd(prompt Prompt) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "db-clean",
-		Short: "Remove the local databases workflow keeps between sessions",
+		Short: "Remove workflow's local data, the databases it keeps between sessions",
 		Long: "List the database files workflow keeps between sessions, with each one's size\n" +
 			"and what it holds, then remove the cache (workflow.db) once confirmed: the last\n" +
 			"scope, what was announced and the cached issue lists, which a session makes\n" +
@@ -101,7 +101,7 @@ func removeDataFiles(
 
 	err = cleanLocalData(scope)
 	if err != nil {
-		return fmt.Errorf("cleaning the local data: %w", err)
+		return fmt.Errorf("removing the local data: %w", err)
 	}
 
 	fmt.Fprintln(out.notes, "Removed "+listed+".")

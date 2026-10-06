@@ -109,7 +109,7 @@ workflow [flags]
 * [workflow branch](../workflow_branch/)	 - Start work on an issue: create its branch, named by the convention, and switch to it
 * [workflow completion](../workflow_completion/)	 - Generate the autocompletion script for the specified shell
 * [workflow config](../workflow_config/)	 - Create and inspect the configuration file
-* [workflow db-clean](../workflow_db-clean/)	 - Remove the local databases workflow keeps between sessions
+* [workflow db-clean](../workflow_db-clean/)	 - Remove workflow's local data, the databases it keeps between sessions
 * [workflow doctor](../workflow_doctor/)	 - Report the repository, tooling, and configuration in effect
 * [workflow pr](../workflow_pr/)	 - Open a pull or merge request for the current branch
 * [workflow reviews](../workflow_reviews/)	 - List the pull or merge requests that are waiting on your review
