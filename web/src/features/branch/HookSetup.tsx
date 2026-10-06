@@ -1,5 +1,5 @@
 import type { HookSetup as Offer } from '@/api/generated/types.gen.ts'
-import { useShortcut } from '@/features/keyboard/useShortcut.ts'
+import { useHoldShortcuts, useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
@@ -69,6 +69,7 @@ function SetupLook({
   onClose: () => void
 }) {
   const shown = useFocusOnMount<HTMLElement>()
+  useHoldShortcuts()
   const write = useAsyncAction(writeHookSetup, {
     fallback: 'lefthook.yml was not written. Try again, or set it up with g in the terminal.',
     done: (written) =>

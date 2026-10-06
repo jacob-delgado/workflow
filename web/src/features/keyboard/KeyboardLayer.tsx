@@ -9,7 +9,7 @@ import { CommandPalette, type PaletteEntry } from './CommandPalette.tsx'
 import { opensPalette, plainKey, pressable, takesTyping } from './keyNames.ts'
 import { keysOf, useKeysStore, useReadKeys } from './keysApi.ts'
 import { ShortcutSheet } from './ShortcutSheet.tsx'
-import { answerWith, liveRegistrations } from './useShortcut.ts'
+import { answerWith, liveRegistrations, shortcutsHeld } from './useShortcut.ts'
 
 type Open = 'sheet' | 'palette' | null
 
@@ -92,8 +92,8 @@ function paletteEntries(section: Section, service: string | undefined): PaletteE
 // KeyboardLayer is the page's keyboard beyond Tab: ? opens the sheet of keys,
 // Control+K or Command+K the palette, and — while single-key shortcuts are on
 // — a key the terminal binds does here what it does there. No single key acts
-// while a field, a select or the comment composer has the focus, or while the
-// sheet or the palette is open.
+// while a field, a select or the comment composer has the focus, while the
+// sheet or the palette is open, or while a confirm or a preview is.
 export function KeyboardLayer() {
   useReadKeys()
   const [open, setOpen] = useState<Open>(null)
@@ -127,7 +127,7 @@ export function KeyboardLayer() {
       if (key === helpKey) {
         event.preventDefault()
         setOpen('sheet')
-      } else if (useKeysStore.getState().shortcuts && answerKey(key)) {
+      } else if (useKeysStore.getState().shortcuts && !shortcutsHeld() && answerKey(key)) {
         event.preventDefault()
       }
     }

@@ -19,9 +19,31 @@ export interface Registration {
 }
 
 // useRegistry is every control drawn now that answers an action, in the order
-// they were drawn. Only the section shown draws its controls, so an action is
-// answered where its terminal pane would answer it.
-export const useRegistry = create<{ registered: Registration[] }>(() => ({ registered: [] }))
+// they were drawn, and how many confirms drawn now hold the single keys. Only
+// the section shown draws its controls, so an action is answered where its
+// terminal pane would answer it.
+export const useRegistry = create<{ registered: Registration[]; holds: number }>(() => ({
+  registered: [],
+  holds: 0,
+}))
+
+// useHoldShortcuts holds every single-key shortcut while the confirm or
+// preview calling it is drawn: it asks a question of its own, and a key
+// pressed while it is open would otherwise press a control behind it.
+export function useHoldShortcuts(): void {
+  useEffect(() => {
+    useRegistry.setState(({ holds }) => ({ holds: holds + 1 }))
+
+    return () => {
+      useRegistry.setState(({ holds }) => ({ holds: holds - 1 }))
+    }
+  }, [])
+}
+
+// shortcutsHeld reports a confirm or a preview open, holding the single keys.
+export function shortcutsHeld(): boolean {
+  return useRegistry.getState().holds > 0
+}
 
 // useShortcut registers the control target holds as the one that answers
 // action while it is drawn, and returns its aria-keyshortcuts: the action's

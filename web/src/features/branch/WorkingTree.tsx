@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Change, FileDiff, Problem } from '@/api/generated/types.gen.ts'
-import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
+import { useHoldShortcuts, useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -364,6 +364,7 @@ interface DiscardConfirmProps {
 // opens, so a screen reader hears the question.
 function DiscardConfirm({ change, teller, onClose }: DiscardConfirmProps) {
   const question = useFocusOnMount<HTMLDivElement>()
+  useHoldShortcuts()
   const discarding = useAsyncAction(() => discardFile(change.path), {
     fallback: `${change.path} was not discarded. Try again, or discard it from a terminal to see why.`,
     done: () => `Discarded ${change.path}.`,
