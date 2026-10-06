@@ -690,8 +690,12 @@ cursor is in names — the whole year, the whole month, or the day; `space`
 marks the cursor's day as one end of a range, and `enter` then shows from it
 to the cursor, up to a year and a day. Each source fills in as it answers, and
 one that cannot be read says so above the rest, as does one that had more
-than it gave. A period that has ended and has been read in full — every
-source answered, none failed — is not read again when you come back to the
+than it gave. A source that is not set up — no Jira or forge token, no forge
+the origin names, no Taskwarrior installed, no git `user.email` — is left out,
+and says so in the muted color with the not-started mark `○`, with how to set
+it up, rather than as a failure: nothing was asked, so nothing refused. A
+period that has ended and has been read in full — every source answered, none
+failed or left out — is not read again when you come back to the
 pane; `r` reads it again. `Y` copies it as Markdown, and `o` or `y` opens or
 copies the link of the item the cursor is on.
 

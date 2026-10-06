@@ -266,17 +266,14 @@ func openUnprocessable(message string) api.OpenPullRequest422ApplicationProblemP
 
 // openFailure answers an open the forge did not make. A pull request the forge
 // turned down keeps the forge's reason, which the caller can act on; a
-// reviewer or assignee it does not know never stops one opening. A remote whose
-// forge cannot be told apart says what to set, since the wiring words it with
-// its host. Every other failure is classified by fault, whose detail names no
-// host: an unreachable forge, a redirect the client refused and a missing
-// repository all carry one in their text.
+// reviewer or assignee it does not know never stops one opening. Every other
+// failure is classified by fault, whose detail names no host: an unreachable
+// forge, a redirect the client refused and a missing repository all carry one
+// in their text, and a forge that cannot be told is not set up.
 func (s *server) openFailure(err error) api.OpenPullRequestResponseObject {
 	switch {
 	case errors.Is(err, forge.ErrRejected):
 		return openUnprocessable(err.Error())
-	case errors.Is(err, forge.ErrUnknownForge):
-		return openUnprocessable("cannot tell which forge this repository is on; set forge.kind and forge.host")
 	default:
 		body, code := s.fault(err)
 

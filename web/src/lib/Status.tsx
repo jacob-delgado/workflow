@@ -16,16 +16,44 @@ export function Failure({ children, className }: { children: ReactNode; classNam
   )
 }
 
+interface ReadFailureProps {
+  // What could not be read, as a sentence starts: "The issues could not be read".
+  unread: string
+  // What is not set up, as a sentence starts: "The forge" — said instead when
+  // the problem's code is not_set_up.
+  notSetUp?: string
+  problem: Problem
+}
+
 // ReadFailure is a read the server could not make, shown as that failure
 // rather than as the empty answer it left in its place: the failure mark
 // beside the sentence that says what could not be read, then why, as an
 // alert. The reason is the problem's detail, which the server curates and
-// never lets carry a host.
-export function ReadFailure({ unread, problem }: { unread: string; problem: Problem }) {
+// never lets carry a host. A service that is not set up was never asked, so
+// nothing failed: it is said as NotSetUp's guidance instead.
+export function ReadFailure({ unread, notSetUp, problem }: ReadFailureProps) {
+  if (notSetUp !== undefined && problem.code === 'not_set_up') {
+    return <NotSetUp>{`${notSetUp} is not set up: ${problem.detail}`}</NotSetUp>
+  }
+
   return (
     <div className="flex items-start gap-2">
       <StateMark state="failed" className="mt-0.5" />
       <Failure>{`${unread}: ${problem.detail}`}</Failure>
+    </div>
+  )
+}
+
+// NotSetUp says a service is not set up and how to set it up: guidance, not a
+// failure — the not-started mark beside a plain status line in the muted
+// color, as the terminal draws it, where a refusal takes the failure's.
+export function NotSetUp({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-2">
+      <StateMark state="not-started" className="mt-0.5" />
+      <p role="status" className="text-sm whitespace-pre-line text-muted-foreground">
+        {children}
+      </p>
     </div>
   )
 }

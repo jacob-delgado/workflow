@@ -123,7 +123,7 @@ func TestASourceThatCannotBeReadIsNamedWithoutItsHost(t *testing.T) {
 		}
 	}
 
-	if !forgeSource.Failed || forgeSource.Detail == "" || forgeSource.Name != "The forge" {
+	if forgeSource.State != api.ActivitySourceFailed || forgeSource.Detail == "" || forgeSource.Name != "The forge" {
 		t.Errorf("sources = %+v, want the forge named as failed, with why", got.Sources)
 	}
 }
@@ -290,6 +290,41 @@ func TestASourceThatCannotBeReadSaysWhatToDo(t *testing.T) {
 				t.Errorf("detail = %q, want it to say %q and never the host", detail, failing.want)
 			}
 		})
+	}
+}
+
+func TestASourceNotSetUpIsMarkedApartFromOneThatFailed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var starts []time.Time
+
+	deps := activityDeps(&starts)
+	deps.CommitsBetween = func(time.Time, time.Time) []loop.RepositoryCommits {
+		return []loop.RepositoryCommits{{Repository: "", Commits: nil, Failed: gitrepo.ErrNoIdentity}}
+	}
+	deps.JiraActivity = func(time.Time, time.Time) (jira.Activity, error) {
+		return jira.Activity{}, fmt.Errorf("%w: reading the token", jira.ErrNoCredential)
+	}
+	deps.Tasks.Touched = func(time.Time) ([]taskwarrior.Task, error) { return nil, taskwarrior.ErrNotInstalled }
+
+	// Act
+	recorder := send(t, serve(t, deps, config.Default()), http.MethodGet, activityPath, "")
+
+	// Assert
+	states := map[api.ActivitySourceName]api.ActivitySourceState{}
+	for _, source := range decode[api.Activity](t, recorder).Sources {
+		states[source.Source] = source.State
+	}
+
+	want := map[api.ActivitySourceName]api.ActivitySourceState{
+		api.ActivitySourceNameGit: api.ActivitySourceNotSetUp, api.ActivitySourceNameTasks: api.ActivitySourceNotSetUp,
+		api.ActivitySourceNameJira: api.ActivitySourceNotSetUp, api.ActivitySourceNameForge: api.ActivitySourceFailed,
+	}
+	for source, state := range want {
+		if states[source] != state {
+			t.Errorf("%s is %q, want %q", source, states[source], state)
+		}
 	}
 }
 

@@ -13,11 +13,11 @@ function tuesday(from = '2026-09-15', to = '2026-09-15'): Activity {
     to,
     today: '2026-09-16',
     sources: [
-      { source: 'git', name: 'Git', failed: false, truncated: false, detail: '' },
+      { source: 'git', name: 'Git', state: 'read', truncated: false, detail: '' },
       {
         source: 'forge',
         name: 'The forge',
-        failed: true,
+        state: 'failed',
         truncated: false,
         detail: 'the forge could not be reached; check the network, then try again',
       },

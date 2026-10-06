@@ -15,7 +15,7 @@ const tuesday: Activity = {
   from: '2026-09-15',
   to: '2026-09-15',
   today: '2026-09-16',
-  sources: [{ source: 'git', name: 'Git', failed: false, truncated: false, detail: '' }],
+  sources: [{ source: 'git', name: 'Git', state: 'read', truncated: false, detail: '' }],
   years: [
     {
       year: 2026,

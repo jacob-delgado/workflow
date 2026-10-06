@@ -110,8 +110,7 @@ as valid (the configuration in effect stands), a request for an issue when no
 tracker is configured, no `jira.review_status` to move an issue to, a change
 Jira refused, a comment with no text or with no tracker to post it to, a
 comment the forge turned down (its own reason, such as a body too long, is in
-the detail), a comment on a repository whose forge cannot be told or whose
-origin names no repository, a file git would not stage or unstage, or a branch git would not
+the detail), a file git would not stage or unstage, or a branch git would not
 switch to or create (git's own words stay off the wire, since a fetch it
 makes on the way can name the remote; the detail says how to see them), or a
 branch's link to an issue that git could not write to, or remove from, the
@@ -125,11 +124,10 @@ a ref the remote rejected, a hook's refusal — is in it, with the remote's URL
 or `user@host:path` address taken out (a bare host git prints — a remote
 written `host:path`, or the host a connection error names — can remain); one
 that could not start says to push from a terminal to see why.
-A Jira token that is not configured, that its command or variable did not give,
-or that Jira did not accept, a `jira.base_url` that is not a usable address,
-and one with no Jira API behind it are answered here too, pointing at
-`workflow doctor` rather than naming the address. So are a forge token that was not found or that the forge did not
-accept, a `forge.kind` set without its `forge.host`, a forge address with no
+A Jira token that Jira did not accept, a `jira.base_url` that is not a usable
+address, and one with no Jira API behind it are answered here too, pointing at
+`workflow doctor` rather than naming the address. So are a forge token that the
+forge did not accept, a `forge.kind` set without its `forge.host`, a forge address with no
 forge API behind it, and a request the forge refused. A token the forge turned
 down is told in the words the terminal uses: which forge, the scope it asks
 for, and the forge's own reason. A pull request the forge turned down is answered here with
@@ -140,9 +138,8 @@ or one that could not be sent because messaging has no credential (none set, or
 a token its command or variable did not give) or its webhook is not https, is
 answered here too — never with the service's own error, which can name the
 webhook. So is a change to your Taskwarrior tasks when there is no Taskwarrior
-to make it — turned off by `taskwarrior.disabled`, not installed, a task
-program that is not Taskwarrior (go-task, most likely), one older than 3.5.0,
-one never run, or one whose taskrc has a malformed line — as is an empty task
+to make it — turned off by `taskwarrior.disabled`, one older than 3.5.0, or
+one whose taskrc has a malformed line — as is an empty task
 line or note, or an issue whose tracker key is not one word. A line Taskwarrior
 refused is answered here too, in Taskwarrior's own words less where its data is
 and any line naming a server; they say what in the line it could not take. A
@@ -171,6 +168,20 @@ mentions that name a user group the announcement did not offer, or that it
 was given where it tags no one — only a ready-for-review announcement with a
 Slack user token in the configuration in effect at the post tags, so a switch
 to a webhook in Settings after the preview lands here — and posts nothing.
+
+## Not set up
+
+Status 422. The service the request needs is not set up, so nothing was asked
+of it: a Jira token that is not configured, or that its command or variable did
+not give; no forge token found (`$GITHUB_TOKEN`, a `gh` sign-in, `$GITLAB_TOKEN`
+or `forge.token`); an origin that names no repository on a forge, or a forge
+workflow cannot tell (set `forge.kind` and `forge.host`); no Taskwarrior
+installed, a task program that is not Taskwarrior (go-task, most likely), or
+one never run; or no git `user.email` to tell your commits by. The detail says
+how to set it up. It is guidance rather than a failure: the event stream
+carries it as a panel's problem, which the page shows as what to set up, and
+the Summary leaves such a source out, marking it `not_set_up` rather than
+`failed`. A service that is set up and refuses is answered under its own code.
 
 ## Precondition required
 

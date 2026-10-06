@@ -12,10 +12,10 @@ export function mockActivity(period: Period | null): Activity {
     to: period?.to ?? from,
     today: '2026-09-16',
     sources: [
-      { source: 'git', name: 'Git', failed: false, truncated: false, detail: '' },
-      { source: 'tasks', name: 'Taskwarrior', failed: false, truncated: false, detail: '' },
-      { source: 'jira', name: 'Jira', failed: false, truncated: true, detail: '' },
-      { source: 'forge', name: 'The forge', failed: false, truncated: false, detail: '' },
+      { source: 'git', name: 'Git', state: 'read', truncated: false, detail: '' },
+      { source: 'tasks', name: 'Taskwarrior', state: 'read', truncated: false, detail: '' },
+      { source: 'jira', name: 'Jira', state: 'read', truncated: true, detail: '' },
+      { source: 'forge', name: 'The forge', state: 'read', truncated: false, detail: '' },
     ],
     years: [
       {

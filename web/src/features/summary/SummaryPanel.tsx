@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Activity } from '@/api/generated/types.gen.ts'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
-import { Failure, Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, NotSetUp, Reading, Unread } from '@/lib/Status.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { Button } from '@/lib/Button.tsx'
 import { headingDay, writtenDay } from '@/lib/dates.ts'
@@ -176,12 +176,19 @@ function Done({ activity, period, reading }: DoneProps) {
   )
 }
 
-// SourceNote says a source could not be read, as a failure, or that it had
-// more than the period shows, as a note; of a source read whole it says
+// SourceNote says a source could not be read, as a failure; that it is not
+// set up, and so was left out, as guidance saying how to set it up; or that it
+// had more than the period shows, as a note. Of a source read whole it says
 // nothing.
 function SourceNote({ source }: { source: Activity['sources'][number] }) {
-  if (source.failed) {
+  if (source.state === 'failed') {
     return <Failure>{`${source.name} could not be read: ${source.detail}`}</Failure>
+  }
+
+  if (source.state === 'not_set_up') {
+    return (
+      <NotSetUp>{`${source.name} is not set up, so it was left out: ${source.detail}`}</NotSetUp>
+    )
   }
 
   return source.truncated ? (

@@ -121,10 +121,11 @@ func (m Model) refreshSummary() (Model, tea.Cmd) {
 }
 
 // summaryReadInFull reports every source answered for the period shown, and
-// none of them with a failure.
+// none of them with a failure or left out as not set up, which may be set up
+// by the next refresh.
 func (m Model) summaryReadInFull() bool {
 	return m.summary.complete && !slices.ContainsFunc(m.summary.reads, func(read activity.Read) bool {
-		return read.Failed != nil
+		return read.Failed != nil || read.NotSetUp != nil
 	})
 }
 
@@ -318,7 +319,7 @@ func (m Model) summaryRail(_ int) string {
 // items nested by year, month, day and hour, the cursor's marked.
 func (m Model) summaryDetail(width int) string {
 	lines := []string{m.styles.strong.Render(m.summaryPeriod().String()), ""}
-	lines = append(lines, m.summaryNotes()...)
+	lines = append(lines, m.summaryNotes(width)...)
 
 	years := activity.Group(m.shownSummary().Items(), m.deps.now().Location())
 	if len(years) == 0 && m.summary.complete {
@@ -349,9 +350,9 @@ func (m Model) summaryDetail(width int) string {
 	return strings.Join(lines, "\n")
 }
 
-// summaryNotes say which sources are still being read, could not be read, or
-// had more than they gave.
-func (m Model) summaryNotes() []string {
+// summaryNotes say which sources are still being read, could not be read, are
+// not set up, or had more than they gave, each within width.
+func (m Model) summaryNotes(width int) []string {
 	var notes []string
 
 	for _, source := range m.summary.asking {
@@ -365,6 +366,10 @@ func (m Model) summaryNotes() []string {
 			notes = append(notes, m.failedGlyph()+" "+failedSourceLine(name, failure))
 		}
 
+		if read.NotSetUp != nil {
+			notes = append(notes, m.notSetUpNote(name, read.NotSetUp, width))
+		}
+
 		if read.Truncated {
 			notes = append(notes, m.styles.label.Render(name+" had more than this shows."))
 		}
@@ -375,6 +380,15 @@ func (m Model) summaryNotes() []string {
 	}
 
 	return notes
+}
+
+// notSetUpNote says a source was left out because it is not set up, and how
+// to set it up, as guidance — the not-started mark and the muted label — not
+// as a failure: nothing was asked, so nothing refused.
+func (m Model) notSetUpNote(name string, why error, width int) string {
+	note := wrap(m.marks.notStarted+" "+name+" is not set up, so it was left out: "+inFull(why), width)
+
+	return m.styles.label.Render(note)
 }
 
 // failedSourceLine says a source could not be read and why, naming the

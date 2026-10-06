@@ -169,7 +169,13 @@ function ListAndDetail(props: ListAndDetailProps) {
   const selected = useUiStore((state) => state.selectedIssue)
 
   if (unread !== null) {
-    return <ReadFailure unread="The issues could not be read" problem={unread} />
+    return (
+      <ReadFailure
+        unread="The issues could not be read"
+        notSetUp="The issue tracker"
+        problem={unread}
+      />
+    )
   }
 
   if (loaded.length === 0) {

@@ -76,6 +76,7 @@ function BranchReview({ review, branch, unread }: BranchReviewProps) {
               ? `The ${noun} could not be read`
               : `The ${noun} could not be read again; shown as last read`
           }
+          notSetUp="The forge"
           problem={unread}
         />
       )}

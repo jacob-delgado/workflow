@@ -179,9 +179,9 @@ export type Problem = {
      */
     detail: string;
     /**
-     * A stable, machine-readable reason.
+     * A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is.
      */
-    code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'precondition_required' | 'unreachable' | 'fetch_failed' | 'check_failed' | 'internal';
+    code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'not_set_up' | 'precondition_required' | 'unreachable' | 'fetch_failed' | 'check_failed' | 'internal';
 };
 
 export type BranchIssueRequest = {
@@ -864,7 +864,7 @@ export type Snapshot = {
 };
 
 /**
- * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service there is nothing to ask, such as no repository or no forge the origin names, is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+ * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the origin names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
  */
 export type PanelProblems = {
     /**
@@ -1916,13 +1916,13 @@ export type ActivitySource = {
      * The source as a sentence starts with it, such as "Jira".
      */
     name: string;
-    failed: boolean;
+    state: ActivitySourceState;
     /**
      * The source had more than it gave.
      */
     truncated: boolean;
     /**
-     * Why the source could not be read, in words that never name a host or a path; empty when it was. When several repositories were read, each that could not be is named in its own clause.
+     * Why the source is not set up and how to set it up, or why it could not be read, in words that never name a host or a path; empty when it was read. When several repositories were read, each that could not be is named in its own clause.
      */
     detail: string;
 };
@@ -1984,6 +1984,11 @@ export type ActivityItem = {
  * A place work leaves a trace.
  */
 export type ActivitySourceName = 'git' | 'tasks' | 'jira' | 'forge';
+
+/**
+ * How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
+ */
+export type ActivitySourceState = 'read' | 'not_set_up' | 'failed';
 
 /**
  * The task's uuid, as the task list gives it.
