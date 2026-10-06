@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/activity"
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
@@ -35,16 +36,75 @@ func (s *server) GetActivity(
 	return api.GetActivity200JSONResponse(ActivityReport(summary, today, now.Location(), s.describe)), nil
 }
 
-// periodRefused is a period that could not be read as asked, and why, in
-// words of its own: a date that could not be read is not repeated back.
+// periodRefused is a period that could not be read as asked, and why.
 func periodRefused(err error) api.GetActivityResponseObject {
+	return api.GetActivity422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, periodReason(err)))
+}
+
+// periodReason says why a period could not be read, in words of its own: a
+// date that could not be read is not repeated back.
+func periodReason(err error) string {
 	reason := err.Error()
 	if errors.Is(err, activity.ErrNotADate) {
 		reason = "from and to are each a date written as YYYY-MM-DD"
 	}
 
-	return api.GetActivity422ApplicationProblemPlusJSONResponse(
-		problem(api.Unprocessable, "the period could not be read: "+reason))
+	return "the period could not be read: " + reason
+}
+
+// Trade-off TRADE-32: a posted Summary is not recorded, as an announcement is.
+
+// PostActivity posts the Summary's Markdown for the period asked, rendered for
+// the service, to the channel asked or the configured one, or a webhook's own.
+// A period that cannot be read and a blank text are refused before anything
+// is posted; a post that fails is classified by fault, whose details never
+// carry the error's own text, which can name the webhook.
+func (s *server) PostActivity(
+	_ context.Context, request api.PostActivityRequestObject,
+) (api.PostActivityResponseObject, error) {
+	if s.deps.Post == nil {
+		return activityPostRefused("posting is not available"), nil
+	}
+
+	body := *request.Body
+
+	period, err := activity.PeriodAsked(body.From, body.To, activity.DateOf(s.now()))
+	if err != nil {
+		return activityPostRefused(periodReason(err)), nil
+	}
+
+	settings, channel := s.config().Messaging, s.channelOr(orZero(body.Channel))
+
+	err = loop.PostSummary(s.deps.Post, settings.Kind, channel, body.Text)
+	if errors.Is(err, loop.ErrEmptySummary) {
+		return activityPostRefused(err.Error()), nil
+	}
+
+	if err != nil {
+		failure, code := s.fault(err)
+
+		return api.PostActivitydefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: code}, nil
+	}
+
+	return api.PostActivity200JSONResponse{
+		From: period.From.String(), To: period.To.String(), Channel: channel,
+		Destination: destination(channel, settings), Text: body.Text,
+	}, nil
+}
+
+// activityPostRefused is the 422 refusing a Summary the server will not post.
+func activityPostRefused(detail string) api.PostActivity422ApplicationProblemPlusJSONResponse {
+	return api.PostActivity422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, detail))
+}
+
+// destination is where a post to channel goes, in words: the channel, or
+// where the configuration sends a post that names none — a webhook's own.
+func destination(channel string, settings config.Messaging) string {
+	if channel != "" {
+		return channel
+	}
+
+	return settings.Target()
 }
 
 // activityReads asks every source the server reaches, one after another.

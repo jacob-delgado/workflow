@@ -563,7 +563,19 @@ curl -s http://127.0.0.1:13579/api/review
 ```
 
 `GET /api/repositories`'s answer needs no server: `workflow repositories
---json` prints the same object from the directory it runs in.
+--json` prints the same object from the directory it runs in, and `workflow
+summary --json` prints what `GET /api/activity` answers for the same period.
+
+`POST /api/activity/post` posts the Summary: `from` and `to`, the period it
+is of, `text`, its Markdown as `GET /api/activity` wrote it or as it was
+edited, and `channel`, or none for the configured one or a webhook's own. The
+server renders the Markdown for the service as it posts it and keeps nothing
+of the post; it answers where the text went, in `destination`.
+
+```sh
+curl -s http://127.0.0.1:13579/api/activity | jq '{from, to, text}' |
+  curl -s -H 'Content-Type: application/json' -d @- http://127.0.0.1:13579/api/activity/post
+```
 
 They are reads, so they answer under `--dry-run` too. When git or the forge
 fails, the branch, changes and review reads answer a problem where the page

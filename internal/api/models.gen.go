@@ -699,6 +699,39 @@ type ActivityMonth struct {
 	Name string `json:"name"`
 }
 
+// ActivityPost A Summary as it was posted.
+type ActivityPost struct {
+	// Channel The channel it was posted to, or empty for a webhook's own channel.
+	Channel string `json:"channel"`
+
+	// Destination Where it went, in words: the channel, or the channel its webhook is bound to.
+	Destination string `json:"destination"`
+
+	// From The period's first day, YYYY-MM-DD.
+	From string `json:"from"`
+
+	// Text The Markdown posted, before it was rendered for the service.
+	Text string `json:"text"`
+
+	// To The period's last day, YYYY-MM-DD.
+	To string `json:"to"`
+}
+
+// ActivityPostRequest The period a Summary is of, its Markdown to post, and where.
+type ActivityPostRequest struct {
+	// Channel The channel to post to; empty or left out uses the configured channel or the webhook.
+	Channel *string `json:"channel,omitempty"`
+
+	// From The period's first day, YYYY-MM-DD.
+	From string `json:"from"`
+
+	// Text The Summary's Markdown, as GET /api/activity wrote it or as it was edited.
+	Text string `json:"text"`
+
+	// To The period's last day, YYYY-MM-DD.
+	To string `json:"to"`
+}
+
 // ActivitySource defines model for ActivitySource.
 type ActivitySource struct {
 	// Detail Why the source could not be read, in words that never name a host or a path; empty when it was. When several repositories were read, each that could not be is named in its own clause.
@@ -2263,6 +2296,9 @@ type GetSlackMembersParams struct {
 	// Channel The channel, by name or ID; the configured channel when left out.
 	Channel *string `form:"channel,omitempty" json:"channel,omitempty"`
 }
+
+// PostActivityJSONRequestBody defines body for PostActivity for application/json ContentType.
+type PostActivityJSONRequestBody = ActivityPostRequest
 
 // AnnounceJSONRequestBody defines body for Announce for application/json ContentType.
 type AnnounceJSONRequestBody = AnnounceRequest

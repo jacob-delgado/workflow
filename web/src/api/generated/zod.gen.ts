@@ -1011,6 +1011,27 @@ export const zConfig = z.object({
 });
 
 /**
+ * The period a Summary is of, its Markdown to post, and where.
+ */
+export const zActivityPostRequest = z.object({
+    from: z.string(),
+    to: z.string(),
+    text: z.string().max(40000),
+    channel: z.string().max(200).optional()
+});
+
+/**
+ * A Summary as it was posted.
+ */
+export const zActivityPost = z.object({
+    from: z.string(),
+    to: z.string(),
+    channel: z.string(),
+    destination: z.string(),
+    text: z.string()
+});
+
+/**
  * A place work leaves a trace.
  */
 export const zActivitySourceName = z.enum([
@@ -1551,6 +1572,13 @@ export const zGetActivityQuery = z.object({
  * The period, what each source said, the items nested oldest first, and the same as Markdown to copy.
  */
 export const zGetActivityResponse = zActivity;
+
+export const zPostActivityBody = zActivityPostRequest;
+
+/**
+ * The Summary as posted, and where it went.
+ */
+export const zPostActivityResponse = zActivityPost;
 
 export const zStreamEventsQuery = z.object({
     view: z.string().optional()
