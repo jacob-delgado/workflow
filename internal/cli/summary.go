@@ -6,6 +6,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -61,7 +62,9 @@ func newSummaryCmd(prompt Prompt) *cobra.Command {
 			"--post previews it and posts it to the configured Slack, Teams, Discord or webhook\n" +
 			"once you confirm, its headings written as the service shows them. Nothing is\n" +
 			"kept: each run reads the sources again. A source that cannot be read is named in\n" +
-			"the summary, and the command exits non-zero once it has printed the rest.",
+			"the summary, and the command exits non-zero once it has printed the rest. A source\n" +
+			"that is not set up — no token, no forge the origin names, no Taskwarrior — is left\n" +
+			"out, with a note on standard error saying how to set it up.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSummaryCommand(cmd, prompt, opts)
@@ -126,13 +129,16 @@ func runSummary(out output, seams summarySeams, opts summaryOptions) error {
 
 	if opts.asJSON {
 		report := webserver.ActivityReport(summary, today, now.Location(), webserver.FaultDetail)
+		err = encodeJSON(out.artifact, report)
+		noteLeftOut(out.notes, summary.Reads)
 
-		return errors.Join(encodeJSON(out.artifact, report), unread)
+		return errors.Join(err, unread)
 	}
 
 	// Every value in it is a source's to write, so none may drive the terminal.
 	text := sanitize.Text(summary.Text(now.Location()))
 	fmt.Fprint(out.artifact, text)
+	noteLeftOut(out.notes, summary.Reads)
 
 	if opts.post {
 		err = postSummary(out, seams, text, opts.write)
@@ -153,6 +159,17 @@ func unreadSources(reads []activity.Read) error {
 	}
 
 	return errors.Join(unread...)
+}
+
+// noteLeftOut says, of each source that is not set up, that it was left out
+// and how to set it up, in the words the web gives it.
+func noteLeftOut(notes io.Writer, reads []activity.Read) {
+	for _, read := range reads {
+		if read.NotSetUp != nil {
+			fmt.Fprintln(notes, read.Source.Title()+" is not set up, so it was left out: "+
+				webserver.FaultDetail(read.NotSetUp))
+		}
+	}
 }
 
 // postSummary says where the summary goes and posts it there once the write

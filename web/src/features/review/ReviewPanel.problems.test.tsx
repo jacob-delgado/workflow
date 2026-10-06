@@ -90,3 +90,27 @@ test('says nothing failed when the forge answered no pull request', () => {
   expect(screen.queryByRole('alert')).toBeNull()
   expect(screen.getByRole('button', { name: 'Open a pull request' })).toBeTruthy()
 })
+
+test('says the forge is not set up, and how, as guidance rather than a failure', () => {
+  // Arrange
+  const noToken: Problem = {
+    type: 'https://jacob-delgado.github.io/workflow/docs/errors/#not-set-up',
+    title: 'Not set up',
+    status: 422,
+    detail: 'no forge token was found; for GitHub set $GITHUB_TOKEN or sign in with gh',
+    code: 'not_set_up',
+  }
+  streamReview({ found: false, announced: false }, noToken)
+
+  // Act
+  render(<ReviewPanel />)
+
+  // Assert
+  const guidance = screen
+    .getAllByRole('status')
+    .find((line) => line.textContent.startsWith('The forge'))
+  expect(guidance?.textContent).toBe(`The forge is not set up: ${noToken.detail}`)
+  expect(markShape(guidance?.parentElement ?? document.body)).toBe(drawnMark('not-started'))
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Open a pull request' })).toBeNull()
+})

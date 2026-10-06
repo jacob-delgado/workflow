@@ -525,7 +525,8 @@ func TestOpenPullRequestDetailOmitsAnUnknownForgesHost(t *testing.T) {
 	// Arrange
 	// A remote on a host that names neither forge cannot connect, and the wiring
 	// words that failure with the host. The forge was never read, so the open is
-	// tried; its 422 must say what to set without naming the host.
+	// tried; its 422 must say the forge is not set up, and what to set, without
+	// naming the host.
 	const host = "git.corp.example"
 
 	unknown := fmt.Errorf("%s — set forge.kind and forge.host: %w", host, forge.ErrUnknownForge)
@@ -539,8 +540,10 @@ func TestOpenPullRequestDetailOmitsAnUnknownForgesHost(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(failure.Detail, "forge.kind") {
-		t.Errorf("status/detail = %d/%q, want 422 saying what to set", recorder.Code, failure.Detail)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.NotSetUp ||
+		!strings.Contains(failure.Detail, "forge.kind") {
+		t.Errorf("status/code/detail = %d/%s/%q, want 422 not_set_up saying what to set",
+			recorder.Code, failure.Code, failure.Detail)
 	}
 
 	if strings.Contains(recorder.Body.String(), host) {

@@ -2868,8 +2868,13 @@ components:
           description: A human-readable explanation specific to this occurrence.
         code:
           type: string
-          description: A stable, machine-readable reason.
-          enum: [bad_request, not_found, method_not_allowed, conflict, unprocessable, precondition_required, unreachable, fetch_failed, check_failed, internal]
+          description: >-
+            A stable, machine-readable reason. not_set_up is a service with
+            nothing set up to ask — no credential, no forge the origin names,
+            no Taskwarrior installed, no git user.email — whose detail says how
+            to set it up; unprocessable is a request or a setting that cannot
+            be used as it is.
+          enum: [bad_request, not_found, method_not_allowed, conflict, unprocessable, not_set_up, precondition_required, unreachable, fetch_failed, check_failed, internal]
       additionalProperties: false
 
     BranchIssueRequest:
@@ -3752,9 +3757,10 @@ components:
         shown as a failure rather than as the panel's empty state; absent
         when every panel read. A failed panel still carries its empty answer
         — or, for the review, the answer the forge last gave for the branch
-        at its head — beside its problem. A service there is nothing to ask,
-        such as no repository or no forge the origin names, is no problem.
-        Each detail is the curated one an error answer carries, never a host,
+        at its head — beside its problem. A service that is not set up — no
+        credential, no forge the origin names — carries a problem whose code
+        is not_set_up, with how to set it up, to be shown as guidance rather
+        than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host,
         a path or a credential.
       properties:
         issues:
@@ -4996,21 +5002,22 @@ components:
 
     ActivitySource:
       type: object
-      required: [source, name, failed, truncated, detail]
+      required: [source, name, state, truncated, detail]
       properties:
         source: {$ref: "#/components/schemas/ActivitySourceName"}
         name:
           type: string
           description: The source as a sentence starts with it, such as "Jira".
-        failed: {type: boolean}
+        state: {$ref: "#/components/schemas/ActivitySourceState"}
         truncated:
           type: boolean
           description: The source had more than it gave.
         detail:
           type: string
           description: >-
-            Why the source could not be read, in words that never name a host or a path; empty when it was.
-            When several repositories were read, each that could not be is named in its own clause.
+            Why the source is not set up and how to set it up, or why it could not be read, in words that
+            never name a host or a path; empty when it was read. When several repositories were read, each
+            that could not be is named in its own clause.
       additionalProperties: false
 
     ActivityYear:
@@ -5082,3 +5089,13 @@ components:
       type: string
       description: A place work leaves a trace.
       enum: [git, tasks, jira, forge]
+
+    ActivitySourceState:
+      type: string
+      description: >-
+        How the source answered: read; not_set_up, when there was nothing set
+        up to ask — no credential, no forge the origin names, no Taskwarrior
+        installed, no git user.email — so it was left out; or failed, when a
+        source that is set up was asked and could not be read.
+      enum: [read, not_set_up, failed]
+      x-enum-varnames: [ActivitySourceRead, ActivitySourceNotSetUp, ActivitySourceFailed]

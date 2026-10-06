@@ -21,7 +21,9 @@ YYYY-MM-DD; one alone is that day, and neither is the previous working day.
 --post previews it and posts it to the configured Slack, Teams, Discord or webhook
 once you confirm, its headings written as the service shows them. Nothing is
 kept: each run reads the sources again. A source that cannot be read is named in
-the summary, and the command exits non-zero once it has printed the rest.
+the summary, and the command exits non-zero once it has printed the rest. A source
+that is not set up — no token, no forge the origin names, no Taskwarrior — is left
+out, with a note on standard error saying how to set it up.
 
 ```
 workflow summary [flags]

@@ -5,6 +5,7 @@ package loop
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -64,7 +65,41 @@ func CommitsRead(read func(start, end time.Time) []RepositoryCommits, start, end
 		}
 	}
 
-	return activity.Read{Source: activity.SourceGit, Items: items, Failed: repositoryErrors(failures)}
+	return unanswered(activity.Read{Source: activity.SourceGit, Items: items}, repositoryErrors(failures))
+}
+
+// NotSetUp reports an error that says a service was never set up to ask, as
+// against one that was asked and refused: Jira or the forge has no
+// credential, origin names no forge workflow reads, no Taskwarrior is
+// installed or it has never run, or git has no user.email. Every surface tells
+// it as guidance — what to set up — rather than as a failure.
+func NotSetUp(err error) bool {
+	for _, missing := range []error{
+		jira.ErrNoCredential, forge.ErrNoToken, forge.ErrNotARemote, forge.ErrUnknownForge, gitrepo.ErrNoIdentity,
+		taskwarrior.ErrNotInstalled, taskwarrior.ErrNotTaskwarrior, taskwarrior.ErrNotConfigured,
+	} {
+		if errors.Is(err, missing) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// unanswered is read with why its source did not answer: NotSetUp when every
+// failure says nothing was set up to ask, Failed when any is a refusal.
+func unanswered(read activity.Read, err error) activity.Read {
+	if err == nil {
+		return read
+	}
+
+	if slices.ContainsFunc(Failures(err), func(failure error) bool { return !NotSetUp(failure) }) {
+		read.Failed = err
+	} else {
+		read.NotSetUp = err
+	}
+
+	return read
 }
 
 // item is one commit as the Summary lists it, its hash written as GitHub
@@ -145,7 +180,7 @@ func Failures(err error) []error {
 func TasksRead(touched func(since time.Time) ([]taskwarrior.Task, error), start, end time.Time) activity.Read {
 	tasks, err := touched(start)
 	if err != nil {
-		return activity.Read{Source: activity.SourceTasks, Failed: err}
+		return unanswered(activity.Read{Source: activity.SourceTasks}, err)
 	}
 
 	var items []activity.Item
@@ -189,7 +224,7 @@ func JiraRead(
 ) activity.Read {
 	done, err := read(start, end)
 	if err != nil {
-		return activity.Read{Source: activity.SourceJira, Failed: err}
+		return unanswered(activity.Read{Source: activity.SourceJira}, err)
 	}
 
 	kinds := map[jira.EventKind]activity.Kind{
@@ -229,7 +264,7 @@ func ForgeRead(
 ) activity.Read {
 	done, err := read(start, end)
 	if err != nil {
-		return activity.Read{Source: activity.SourceForge, Failed: err}
+		return unanswered(activity.Read{Source: activity.SourceForge}, err)
 	}
 
 	kinds := map[forge.EventKind]activity.Kind{

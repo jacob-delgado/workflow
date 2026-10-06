@@ -3,21 +3,22 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Activity } from '@/api/generated/types.gen.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
+import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SummaryPanel } from './SummaryPanel.tsx'
 
 // sources is one source of each kind a day can say: one read, one that could
 // not be, and one that had more than it shows.
 const sources: Activity['sources'] = [
-  { source: 'git', name: 'Git', failed: false, truncated: false, detail: '' },
+  { source: 'git', name: 'Git', state: 'read', truncated: false, detail: '' },
   {
     source: 'forge',
     name: 'The forge',
-    failed: true,
+    state: 'failed',
     truncated: false,
     detail: 'the forge could not be reached',
   },
-  { source: 'jira', name: 'Jira', failed: false, truncated: true, detail: '' },
+  { source: 'jira', name: 'Jira', state: 'read', truncated: true, detail: '' },
 ]
 
 // quietDay is a day with one commit, read from every source but the forge.
@@ -138,4 +139,30 @@ test('a copy that fails is announced as an alert', async () => {
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe('The summary could not be copied.')
+})
+
+test('a source that is not set up says how to set it up, as guidance rather than a failure', async () => {
+  // Arrange
+  const detail = 'Taskwarrior is not installed, or no task program is on PATH.'
+  fakeApi({
+    '/api/activity': {
+      ...quietDay(),
+      sources: [
+        { source: 'git', name: 'Git', state: 'read', truncated: false, detail: '' },
+        { source: 'tasks', name: 'Taskwarrior', state: 'not_set_up', truncated: false, detail },
+      ],
+    },
+  })
+
+  // Act
+  renderWithClient(<SummaryPanel />)
+
+  // Assert
+  await screen.findByRole('list', { name: 'Tuesday, September 15, 2026' })
+  const guidance = screen
+    .getAllByRole('status')
+    .find((line) => line.textContent.startsWith('Taskwarrior'))
+  expect(guidance?.textContent).toBe(`Taskwarrior is not set up, so it was left out: ${detail}`)
+  expect(markShape(guidance?.parentElement ?? document.body)).toBe(drawnMark('not-started'))
+  expect(screen.queryByRole('alert')).toBeNull()
 })

@@ -66,14 +66,14 @@ that is not signed in reads as a forge that could not be reached: 5, not 3.
 | Exit status | Web problem code |
 | --- | --- |
 | 2 usage | `bad_request` (400); `method_not_allowed` (405), for a method the path does not answer; `precondition_required` (428), for a configuration save that names no revision to write over (no `If-Match`) |
-| 3 configuration | `unprocessable` (422), for a missing messaging service, an invalid configuration body or `ui.keys` map, a configuration file on disk that no longer reads as valid, a Jira token not configured or not accepted, or refused with a 403 that says what it may not do, a `jira.base_url` that is not a usable address, a forge token not found or not accepted, and a `forge.kind` set without its `forge.host` |
+| 3 configuration | `not_set_up` (422), for a service with nothing set up to ask: a Jira token not configured, a forge token not found, an origin that names no forge or one workflow cannot tell, no Taskwarrior installed or never run, no git `user.email`; `unprocessable` (422), for a missing messaging service, an invalid configuration body or `ui.keys` map, a configuration file on disk that no longer reads as valid, a Jira token not accepted, or refused with a 403 that says what it may not do, a `jira.base_url` that is not a usable address, a forge token not accepted, and a `forge.kind` set without its `forge.host` |
 | 4 refused precondition | `conflict` (409), a local database file that could not be removed among them |
 | 5 unreachable | `unreachable` (502), for a service that could not be reached, answered with a redirect or asked to wait |
 | 1 failure | `internal` (500); the web also answers `not_found` (404) for a missing issue, `unprocessable` (422) for any other change Jira refused, a `jira.base_url` with no Jira API behind it, a forge address with no forge API behind it, or a request the forge refused for the token's permissions, or a clean of the local data that found something other than the store's own files, and `unreachable` (502) for a status the forge does not document — all of which the command line counts as a plain failure |
 
-The web has no problem code of its own for a missing or rejected credential. A
-Jira or forge credential answers `unprocessable` and points at `workflow
-doctor`, as the command line exits 3 — except a Jira 403 that says what the
+A missing Jira or forge credential answers `not_set_up`, saying how to set it
+up, and a rejected one `unprocessable`, pointing at `workflow doctor`; the
+command line exits 3 for both — except a Jira 403 that says what the
 token may not do, which says Jira refused the request: doctor checks who a
 token is, not what it may do.
 
@@ -96,7 +96,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `doctor` | the report, or the JSON, and with no configuration file how to create one: the report is what a bug report pastes, so its guidance stays in it | |
 | `config show` | the configuration as JSON, credentials masked | the file it came from (`# PATH`); how to create one when there is none |
 | `config init` | with `--dry-run`, the file it would write, as JSON, masked | progress, the checks, "Wrote …", what to do next, a warning when the file is not ignored by git |
-| `summary` | the summary as Markdown, or the JSON; with `--post`, then `to …`, where it goes | the dry-run line, "Not posted.", "Posted to …", and each source that could not be read |
+| `summary` | the summary as Markdown, or the JSON; with `--post`, then `to …`, where it goes | the dry-run line, "Not posted.", "Posted to …", each source left out as not set up — `Taskwarrior is not set up, so it was left out: …`, with how to set it up — and each source that could not be read |
 | `branch` | `Start work on KEY: create NAME from BASE and switch to it`, then `Created NAME`; with `--fetch` the plan opens `fetch origin, then`; with `--worktree` it ends `in a new worktree beside the repository`, and the worktree's directory follows alone on the last line | the dry-run line, "Not created.", and with `--worktree` "Created NAME in a new worktree." |
 | `pr` | `Open TITLE`, `BRANCH → BASE` and the code owners asked to review, a blank line, and the whole body; then `Opened #N URL` (`!N` on GitLab); with `--json`, the JSON alone | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes; with `--json`, the preview and the `Opened` line too |
 | `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …" |
@@ -185,18 +185,24 @@ workflow repositories --json | jq -r '.worktrees[0].dir'
 
 `workflow summary --json` prints the object `GET /api/activity` answers
 for the same period, read through the same seams, so a period gives the
-same items, and names the same sources as unread, here, in the Summary pane
-and in the web's Summary section: `from`, `to` and `today` (`YYYY-MM-DD`); `sources`, each
-source asked (`source` — `git`, `tasks`, `jira` or `forge` — `name`,
-`failed`, `truncated` and `detail`, why it could not be read, in words that
-never name a host); `years`, the items nested by `months`, `days` and
+same items, and names the same sources as unread or not set up, here, in the
+Summary pane and in the web's Summary section: `from`, `to` and `today`
+(`YYYY-MM-DD`); `sources`, each source asked (`source` — `git`, `tasks`,
+`jira` or `forge` — `name`, `state`, `truncated` and `detail`). `state` is
+`read`; `not_set_up`, for a source with nothing set up to ask — no Jira or
+forge token, no forge the origin names, no Taskwarrior installed, no git
+`user.email` — which is left out, its `detail` saying how to set it up; or
+`failed`, for a source that is set up and could not be read, its `detail`
+saying why. A `detail` never names a host; `years`, the items nested by `months`, `days` and
 `hours`, each item with `at`, `source`, `verb`, `ref`, `title`, `url` and
 `repository`; and `text`, the same as Markdown. `--from` and `--to` name the
 first and last day, written `YYYY-MM-DD`; one alone is that day, and neither
 is the previous working day — yesterday, or on a Monday the Friday and the
 weekend after it. A source that could not be read is named in `sources`, and
 the command then exits non-zero after printing, with the first family its
-failures belong to: a Jira token refused exits 3.
+failures belong to: a Jira token refused exits 3. A source that is not set up
+is left out, with a note on standard error, and does not change the exit
+status: with nothing else wrong, `summary` exits 0.
 
 ```sh
 workflow summary --from 2026-10-01 --to 2026-10-02 --json | jq -r '.years[].months[].days[].hours[].items[].title'

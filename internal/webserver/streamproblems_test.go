@@ -68,9 +68,6 @@ func TestStreamSaysNoProblemOfAServiceThereIsNothingToAsk(t *testing.T) {
 		"no repository": func(edit *webserverDepsEdit) {
 			edit.branchErr, edit.changesErr = gitrepo.ErrNotARepository, gitrepo.ErrNotARepository
 		},
-		"an origin on no forge workflow reads": func(edit *webserverDepsEdit) {
-			edit.pullErr = forge.ErrNotARemote
-		},
 	}
 
 	for name, arrange := range cases {
@@ -87,6 +84,38 @@ func TestStreamSaysNoProblemOfAServiceThereIsNothingToAsk(t *testing.T) {
 			// Assert
 			if snap := firstSnapshot(t, recorder.Body.String()); snap.Problems != nil {
 				t.Errorf("problems = %+v, want none when there was nothing to ask", snap.Problems)
+			}
+		})
+	}
+}
+
+func TestStreamSaysAForgeThatIsNotSetUpIsNotSetUp(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		cause error
+		want  string
+	}{
+		"an origin on no forge workflow reads": {cause: forge.ErrNotARemote, want: "origin does not name"},
+		"a forge workflow cannot tell":         {cause: forge.ErrUnknownForge, want: "forge.kind"},
+		"no forge token":                       {cause: forge.ErrNoToken, want: "$GITHUB_TOKEN"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			edit := webserverDepsEdit{pullErr: fmt.Errorf("%w: "+internalHost, tt.cause)}
+
+			// Act
+			recorder := streamOnce(t, serve(t, edit.apply(filledDeps()), config.Default()), "/api/events")
+
+			// Assert
+			problems := firstSnapshot(t, recorder.Body.String()).Problems
+			if problems == nil || problems.Review == nil || problems.Review.Code != api.NotSetUp ||
+				!strings.Contains(problems.Review.Detail, tt.want) || strings.Contains(problems.Review.Detail, internalHost) {
+				t.Errorf("problems = %+v, want the review not set up, saying %q, never the host", problems, tt.want)
 			}
 		})
 	}

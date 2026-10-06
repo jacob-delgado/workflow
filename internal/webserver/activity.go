@@ -126,21 +126,32 @@ func ActivityReport(
 	sources := make([]api.ActivitySource, 0, len(summary.Reads))
 
 	for _, read := range summary.Reads {
-		source := api.ActivitySource{
-			Source: sourceName(read.Source), Name: read.Source.Title(), Failed: read.Failed != nil,
-			Truncated: read.Truncated, Detail: "",
-		}
-		if read.Failed != nil {
-			source.Detail = failureDetail(read.Failed, describe)
-		}
-
-		sources = append(sources, source)
+		sources = append(sources, sourceDTO(read, describe))
 	}
 
 	return api.Activity{
 		From: summary.Period.From.String(), To: summary.Period.To.String(), Today: today.String(),
 		Sources: sources, Years: yearsDTO(activity.Group(summary.Items(), loc)), Text: summary.Text(loc),
 	}
+}
+
+// sourceDTO is how one source answered, as the API says it: read, left out
+// as not set up with how to set it up, or failed with why, each worded by
+// describe.
+func sourceDTO(read activity.Read, describe func(error) string) api.ActivitySource {
+	source := api.ActivitySource{
+		Source: sourceName(read.Source), Name: read.Source.Title(), State: api.ActivitySourceRead,
+		Truncated: read.Truncated, Detail: "",
+	}
+
+	switch {
+	case read.Failed != nil:
+		source.State, source.Detail = api.ActivitySourceFailed, failureDetail(read.Failed, describe)
+	case read.NotSetUp != nil:
+		source.State, source.Detail = api.ActivitySourceNotSetUp, failureDetail(read.NotSetUp, describe)
+	}
+
+	return source
 }
 
 // yearsDTO is the grouping as the API nests it.

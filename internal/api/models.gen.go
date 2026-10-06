@@ -31,6 +31,27 @@ func (e ActivitySourceName) Valid() bool {
 	}
 }
 
+// Defines values for ActivitySourceState.
+const (
+	ActivitySourceFailed   ActivitySourceState = "failed"
+	ActivitySourceNotSetUp ActivitySourceState = "not_set_up"
+	ActivitySourceRead     ActivitySourceState = "read"
+)
+
+// Valid indicates whether the value is a known member of the ActivitySourceState enum.
+func (e ActivitySourceState) Valid() bool {
+	switch e {
+	case ActivitySourceFailed:
+		return true
+	case ActivitySourceNotSetUp:
+		return true
+	case ActivitySourceRead:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AnnounceRequestWhen.
 const (
 	AnnounceNow          AnnounceRequestWhen = "now"
@@ -322,6 +343,7 @@ const (
 	Internal             ProblemCode = "internal"
 	MethodNotAllowed     ProblemCode = "method_not_allowed"
 	NotFound             ProblemCode = "not_found"
+	NotSetUp             ProblemCode = "not_set_up"
 	PreconditionRequired ProblemCode = "precondition_required"
 	Unprocessable        ProblemCode = "unprocessable"
 	Unreachable          ProblemCode = "unreachable"
@@ -343,6 +365,8 @@ func (e ProblemCode) Valid() bool {
 	case MethodNotAllowed:
 		return true
 	case NotFound:
+		return true
+	case NotSetUp:
 		return true
 	case PreconditionRequired:
 		return true
@@ -755,9 +779,8 @@ type ActivityPostRequest struct {
 
 // ActivitySource defines model for ActivitySource.
 type ActivitySource struct {
-	// Detail Why the source could not be read, in words that never name a host or a path; empty when it was. When several repositories were read, each that could not be is named in its own clause.
+	// Detail Why the source is not set up and how to set it up, or why it could not be read, in words that never name a host or a path; empty when it was read. When several repositories were read, each that could not be is named in its own clause.
 	Detail string `json:"detail"`
-	Failed bool   `json:"failed"`
 
 	// Name The source as a sentence starts with it, such as "Jira".
 	Name string `json:"name"`
@@ -765,12 +788,18 @@ type ActivitySource struct {
 	// Source A place work leaves a trace.
 	Source ActivitySourceName `json:"source"`
 
+	// State How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
+	State ActivitySourceState `json:"state"`
+
 	// Truncated The source had more than it gave.
 	Truncated bool `json:"truncated"`
 }
 
 // ActivitySourceName A place work leaves a trace.
 type ActivitySourceName string
+
+// ActivitySourceState How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
+type ActivitySourceState string
 
 // ActivityYear defines model for ActivityYear.
 type ActivityYear struct {
@@ -1607,7 +1636,7 @@ type OwnerTagKind string
 // OwnerTagState defines model for OwnerTag.State.
 type OwnerTagState string
 
-// PanelProblems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service there is nothing to ask, such as no repository or no forge the origin names, is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+// PanelProblems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the origin names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
 type PanelProblems struct {
 	// Branch Why the checked-out branch could not be read.
 	Branch *Problem `json:"branch,omitempty"`
@@ -1670,7 +1699,7 @@ type Place struct {
 
 // Problem An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
 type Problem struct {
-	// Code A stable, machine-readable reason.
+	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is.
 	Code ProblemCode `json:"code"`
 
 	// Detail A human-readable explanation specific to this occurrence.
@@ -1688,7 +1717,7 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
-// ProblemCode A stable, machine-readable reason.
+// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is.
 type ProblemCode string
 
 // PullRequest defines model for PullRequest.
@@ -2016,7 +2045,7 @@ type Snapshot struct {
 	Issues         IssuesPage           `json:"issues"`
 	Messaging      MessagingDestination `json:"messaging"`
 
-	// Problems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service there is nothing to ask, such as no repository or no forge the origin names, is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+	// Problems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the origin names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
 	Problems *PanelProblems `json:"problems,omitempty"`
 
 	// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.

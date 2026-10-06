@@ -98,6 +98,7 @@ export const zProblem = z.object({
         'method_not_allowed',
         'conflict',
         'unprocessable',
+        'not_set_up',
         'precondition_required',
         'unreachable',
         'fetch_failed',
@@ -486,7 +487,7 @@ export const zHealth = z.object({
 });
 
 /**
- * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service there is nothing to ask, such as no repository or no forge the origin names, is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+ * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the origin names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
  */
 export const zPanelProblems = z.object({
     issues: zProblem.optional(),
@@ -1109,14 +1110,6 @@ export const zActivitySourceName = z.enum([
     'forge'
 ]);
 
-export const zActivitySource = z.object({
-    source: zActivitySourceName,
-    name: z.string(),
-    failed: z.boolean(),
-    truncated: z.boolean(),
-    detail: z.string()
-});
-
 export const zActivityItem = z.object({
     at: z.iso.datetime({ offset: true }),
     source: zActivitySourceName,
@@ -1147,6 +1140,23 @@ export const zActivityMonth = z.object({
 export const zActivityYear = z.object({
     year: z.int(),
     months: z.array(zActivityMonth)
+});
+
+/**
+ * How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
+ */
+export const zActivitySourceState = z.enum([
+    'read',
+    'not_set_up',
+    'failed'
+]);
+
+export const zActivitySource = z.object({
+    source: zActivitySourceName,
+    name: z.string(),
+    state: zActivitySourceState,
+    truncated: z.boolean(),
+    detail: z.string()
 });
 
 export const zActivity = z.object({

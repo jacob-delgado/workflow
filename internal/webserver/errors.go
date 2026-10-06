@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/store"
@@ -59,6 +60,7 @@ func codeMeaning(code api.ProblemCode) (int, string) {
 		api.MethodNotAllowed:     {status: http.StatusMethodNotAllowed, title: "Method not allowed"},
 		api.Conflict:             {status: http.StatusConflict, title: "Conflict"},
 		api.Unprocessable:        {status: http.StatusUnprocessableEntity, title: "Unprocessable content"},
+		api.NotSetUp:             {status: http.StatusUnprocessableEntity, title: "Not set up"},
 		api.PreconditionRequired: {status: http.StatusPreconditionRequired, title: "Precondition required"},
 		api.Unreachable:          {status: http.StatusBadGateway, title: "Upstream unreachable"},
 		api.FetchFailed:          {status: http.StatusBadGateway, title: "Fetch failed"},
@@ -137,11 +139,23 @@ func faultProblem(err error) (api.Problem, bool) {
 
 	for _, class := range faultClasses() {
 		if slices.ContainsFunc(class.causes, func(cause error) bool { return errors.Is(err, cause) }) {
-			return problem(class.code, class.detail), true
+			return problem(setUpCode(class.code, err), class.detail), true
 		}
 	}
 
 	return problem(api.Internal, "the request could not be completed; "+tryAgain), false
+}
+
+// setUpCode is code, or not_set_up for an error loop.NotSetUp says found
+// nothing set up to ask, so every answer — an error, a panel's problem, a
+// summary's source — tells setting up apart from a refusal the one way the
+// command line does too. The class still words it, with how to set it up.
+func setUpCode(code api.ProblemCode, err error) api.ProblemCode {
+	if loop.NotSetUp(err) {
+		return api.NotSetUp
+	}
+
+	return code
 }
 
 // faultClass is one kind of seam failure: the sentinels that belong to it, and

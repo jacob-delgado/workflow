@@ -92,6 +92,24 @@ func TestASourceThatCannotBeReadIsNamedAndTheRestStillShow(t *testing.T) {
 	requireScreen(t, view, "Jira could not be read", "committed abc1234")
 }
 
+func TestASourceThatIsNotSetUpSaysHowToSetItUpRatherThanFailing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	busy := summaryWorld()
+	busy.done.jiraErr = fmt.Errorf("%w: %w", jira.ErrNoCredential, errTokenCommand)
+
+	// Act
+	view := typing(t, busy.live(t, 160, 40), summaryKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "○ Jira is not set up, so it was left out", "jira.token", "committed abc1234")
+
+	if strings.Contains(view, "could not be read") || strings.Contains(view, "✗ Jira") {
+		t.Errorf("a Jira that is not set up reads as a failure:\n%s", view)
+	}
+}
+
 func TestARepositoryThatCannotBeReadIsNamedBesideTheOthersCommits(t *testing.T) {
 	t.Parallel()
 

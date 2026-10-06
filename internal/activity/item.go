@@ -121,12 +121,15 @@ type Item struct {
 }
 
 // Read is what one source said for a period: its items, whether it had more
-// than it gave, and why it could not be read when it could not.
+// than it gave, and why it could not be read when it could not — Failed, a
+// source that is set up and refused, or NotSetUp, one with nothing set up to
+// ask, which a summary leaves out rather than calls unread.
 type Read struct {
 	Source    Source
 	Items     []Item
 	Truncated bool
 	Failed    error
+	NotSetUp  error
 }
 
 // Merge is the items of every list, oldest first, with a commit seen more

@@ -394,11 +394,11 @@ func TestTaskFaultsNeverLeakAPath(t *testing.T) {
 		},
 		"not installed": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrNotInstalled,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.NotSetUp,
 		},
 		"not Taskwarrior": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrNotTaskwarrior,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.NotSetUp,
 		},
 		"too old": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrTooOld,
@@ -406,7 +406,7 @@ func TestTaskFaultsNeverLeakAPath(t *testing.T) {
 		},
 		"never run": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrNotConfigured,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.NotSetUp,
 		},
 		"no sync backend": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrNoSync,

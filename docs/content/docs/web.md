@@ -57,8 +57,11 @@ and head commit, and says why beside it. A read that fails shows as a
 failure in its section, with the reason, rather than as an empty one: the
 Issues list does not say no issue matches, the Branch section does not say
 the directory is no repository, and the Review section does not offer to
-open a pull request, while Jira, git or the forge cannot be read. The
-stream's state is beside the theme:
+open a pull request, while Jira, git or the forge cannot be read. A service
+that is not set up — no Jira or forge token, an origin that names no forge —
+is no failure: the section says, in the muted color beside the not-started
+mark, that it is not set up and how to set it up, in place of what it would
+have shown. The stream's state is beside the theme:
 
 - **Connecting** — the page has not had its first update yet.
 - **Live** — updates are arriving.
@@ -425,7 +428,10 @@ Jira's or the forge's — then what it was done to, linked where it has a page,
 and its title. A period of several days or months is headed by month and by
 day. A source that could not be read says why above it — naming the
 repository, when one of several could not be read — in words that never
-name a host, and one that had more than it gave says so. **Copy as Markdown**
+name a host, and one that had more than it gave says so. A source that is
+not set up — no token, no forge the origin names, no Taskwarrior installed,
+no git `user.email` — is left out, and says so as guidance with how to set
+it up rather than as a failure. **Copy as Markdown**
 puts the summary on the clipboard. **Post…**, beside it once messaging is set
 up, opens a preview of the same Markdown and where it goes, as the Messaging
 section previews an announcement: **Edit** changes the text, the channel is
@@ -629,7 +635,11 @@ They are reads, so they answer under `--dry-run` too. When git or the forge
 fails, the branch, changes and review reads answer a problem, so a script can
 tell a failure from nothing to show; the event stream carries the same
 problem beside the panel it emptied, in the snapshot's `problems`, and a CI
-read that failed in the review's `ci_error`. The
+read that failed in the review's `ci_error`. A service that is not set up —
+a Jira or forge token missing, an origin that names no forge — is a problem
+whose `code` is `not_set_up`, its detail saying how to set it up, so a
+script tells it from a refusal; `/api/activity` marks such a source's
+`state` `not_set_up`, apart from `failed`. The
 tasks read answers `available: false` and why, never a problem, when there is
 no Taskwarrior to ask; a Taskwarrior that is there but fails the read answers
 a problem.
