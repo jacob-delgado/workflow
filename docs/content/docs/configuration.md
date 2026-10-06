@@ -85,8 +85,8 @@ still inherits them, and one that moves it may set credentials of its own. A
 Slack user token is only ever sent to Slack, so a repository naming another
 `channel` keeps it; a webhook URL is its own address.
 
-A save writes the repository's file when there is one: the web's Settings
-writes only what differs from your home file, so a token inherited from home is
+A save writes the repository's file when there is one: Settings, the web's or
+the terminal's, writes only what differs from your home file, so a token inherited from home is
 never copied into a file in a working tree, and a later change at home still
 reaches the repository. `workflow config init` in a repository, over a home
 file, starts from the home file's settings — a question left blank keeps the
@@ -679,13 +679,15 @@ The actions you can rebind, grouped by where they work, are:
   `modify-task`, `undo-task`, `sync-tasks`, `search-tasks`, `filter-tasks`,
   `sort-tasks`.
 - **Summary:** `earlier`, `later`, `today`, `calendar`, `copy-summary`.
-- **Repositories:** `favorite-directory`, `go-to-directory`, `local-data`.
+- **Repositories:** `favorite-directory`, `go-to-directory`, `settings`,
+  `local-data`.
 - **In a composer or preview:** `edit`, `edit-body`, `next-template`,
   `toggle-draft`, `toggle-breaking`, `verbatim`, `next-field`,
   `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,
   `worktree` (in the branch creator), `post-when-green` (in the announcement
   preview), `unlink-issue` (in the link form, on a branch already linked),
-  `remove-cache` and `remove-everything` (in Local data), `link-to-slack` and `not-on-slack` (in the announcement preview
+  `remove-cache` and `remove-everything` (in Local data), `save-settings` (in
+  Settings), `link-to-slack` and `not-on-slack` (in the announcement preview
   and in People and groups), `forget-owner` (in People and groups),
   `show-log` (in the checks list).
 - **Writing a comment** (in the comment box's normal mode): `insert`,
@@ -967,7 +969,8 @@ there. That read may leave SQLite's two owner-only companion files,
 session's open removes them.
 
 To see the two files, their sizes and what each holds, and to remove them, run
-`workflow db-clean` (or open **Local data** in the web interface's Settings). It
+`workflow db-clean` (or open **Local data** in the web interface's Settings, or
+with `L` on the terminal's Repositories pane). It
 removes the cache once you confirm; `--all` removes `kept.db` too, and with it
 every people and group association, which workflow then asks for again. Each
 file goes with its `-wal` and `-shm` companions, and a file another program holds

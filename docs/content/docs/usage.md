@@ -194,6 +194,7 @@ every key `?` lists, by where it works.
 | Repositories | `enter` | Switch to the selected directory, after a last look |
 | | `f` | Add the selected directory to your favorites, or remove it |
 | | `g` | Type a directory to switch to; `tab` completes it |
+| | `S` | Settings: read and change the configuration the web's Settings edits |
 | | `L` | Local data: the store's files, and removing them after a last look |
 | | `r` | Read the favorites again |
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
@@ -209,6 +210,7 @@ every key `?` lists, by where it works.
 | | `w` | In the announcement preview, announce once CI passes |
 | | `u` | In the link form, on a branch already linked, unlink its issue |
 | | `c` / `C` | In Local data, remove the cache, or everything, after a last look |
+| | `ctrl+s` | In Settings, save every edit together |
 | | `j`/`k` or `↓`/`↑` | In the announcement preview, move between the code owners and groups it can tag |
 | | `space` | In the announcement preview, tag the selected group, or untag it |
 | | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group |
@@ -755,6 +757,29 @@ commit message or a pull request being written, a comment on one of its forge
 issues, an announcement waiting for CI — would be lost, so the switch's last
 look names it too; and while an announcement or a change to a task is being sent,
 the switch waits for it.
+
+## Settings
+
+`S` on the Repositories pane opens Settings: the configuration the web's
+Settings edits, in the same eight parts — Jira, messaging, the forge, commits,
+branches, pull requests, the store and Taskwarrior — a row per setting, with
+what the selected one does below. A credential is shown masked, as
+`****9999`, and typing a new one shows nothing of it. `enter` edits a row —
+a credential's field starts empty, and left empty keeps the stored one — turns
+a setting on or off, or moves a choice on, as `←` and `→` do; `ctrl+s` saves
+every edit together.
+
+A save is checked as a file on disk is, and as the web's is: a value the
+configuration refuses, or a `ui.keys` map the interface would not start on,
+is named and nothing is written. It writes the file Settings read, the
+repository's over your home's as described in
+[Configuration]({{< relref "/docs/configuration" >}}), and only while that
+file is as Settings found it: one changed since — edited on disk, or saved
+from the web — is not written over, and `r` reads it again in place of your
+edits. Slack's user-token secrets are kept where the web's Settings keeps
+them. What is saved applies when workflow starts again; the session goes on
+with what it started with. `esc` leaves without saving, and under `--dry-run`
+`ctrl+s` says what it would have saved.
 
 ## Dry run
 

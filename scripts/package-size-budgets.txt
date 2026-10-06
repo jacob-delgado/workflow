@@ -128,8 +128,13 @@ internal/forge 15
 # directory: what goes with the switch and what it would lose, and the go-to
 # prompt with its tab completion); and localdata.go (Local data, opened from
 # the Repositories pane: the store's files listed as workflow db-clean lists
-# them, and removing the cache or everything after a last look).
-internal/tui 58
+# them, and removing the cache or everything after a last look); and
+# settings.go (Settings, opened from the Repositories pane: the form, its keys,
+# the check a save is held to and the save) and settingsfields.go (what it
+# edits — every setting the web's Settings edits, with its label, hint and
+# kind — and how a value is shown and read back), kept apart so neither passes
+# the 500-line target.
+internal/tui 60
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of

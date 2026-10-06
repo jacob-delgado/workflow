@@ -54,7 +54,7 @@ type keyMap struct {
 	// Summary.
 	earlier, later, today, calendar, copySummary key.Binding
 	// Repositories.
-	favoriteDir, goToDir, localData key.Binding
+	favoriteDir, goToDir, settings, localData key.Binding
 
 	// Reviews.
 	sortReviews, filterReviews key.Binding
@@ -71,8 +71,8 @@ type keyMap struct {
 	// In the branch creator, the messaging preview and the link form.
 	worktree, postWhenGreen, unlinkIssue key.Binding
 
-	// In Local data.
-	removeCache, removeAll key.Binding
+	// In Local data, and in Settings.
+	removeCache, removeAll, saveSettings key.Binding
 
 	// Tagging in the messaging preview, and in People and groups.
 	linkToSlack, notOnSlack, forgetOwner key.Binding
@@ -304,10 +304,11 @@ func taskKeys(builder *helpBuilder, into *keyMap) {
 
 // repositoryKeys are the Repositories pane's bindings: marking the directory
 // the cursor is on a favorite, or forgetting it, typing a directory to go to,
-// and the local data.
+// and the settings and local data.
 func repositoryKeys(builder *helpBuilder, into *keyMap) {
 	into.favoriteDir = builder.bind(groupRepositories, "favorite-directory", "favorite", "f")
 	into.goToDir = builder.bind(groupRepositories, "go-to-directory", "go to", "g")
+	into.settings = builder.bind(groupRepositories, "settings", "settings", "S")
 	into.localData = builder.bind(groupRepositories, "local-data", "local data", "L")
 }
 
@@ -343,6 +344,7 @@ func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.unlinkIssue = builder.bind(groupComposer, "unlink-issue", "unlink", "u")
 	into.removeCache = builder.bind(groupComposer, "remove-cache", "remove the cache", "c")
 	into.removeAll = builder.bind(groupComposer, "remove-everything", "remove everything", "C")
+	into.saveSettings = builder.bind(groupComposer, "save-settings", "save", "ctrl+s")
 	into.linkToSlack = builder.bind(groupComposer, "link-to-slack", "link to Slack", "a")
 	into.notOnSlack = builder.bind(groupComposer, "not-on-slack", "not on Slack", "x")
 	into.forgetOwner = builder.bind(groupComposer, "forget-owner", "forget", "d")

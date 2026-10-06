@@ -11,7 +11,6 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -28,9 +27,10 @@ type localData struct {
 	styles  styles
 	opened  int
 	reading bool
-	dir     string
-	files   []store.DataFile
-	err     error
+	// dir is where the store is, written from your home.
+	dir   string
+	files []store.DataFile
+	err   error
 }
 
 // canSeeLocalData reports that the store's files can be listed.
@@ -74,7 +74,7 @@ func (msg localDataRead) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	open.reading, open.dir, open.files, open.err = false, msg.dir, msg.files, msg.err
+	open.reading, open.dir, open.files, open.err = false, m.shownDir(msg.dir), msg.files, msg.err
 	m.overlay = open
 
 	return m, nil
@@ -90,9 +90,9 @@ func (d localData) view(width, _ int) (string, string) {
 	case d.err != nil:
 		lines = append(lines, failureBlock(d.styles, d.marks, d.err, width))
 	case len(d.files) == 0:
-		lines = append(lines, "Kept in "+sanitize.Line(d.dir), "", "No local data: there is nothing to remove.")
+		lines = append(lines, "Kept in "+d.dir, "", "No local data: there is nothing to remove.")
 	default:
-		lines = append(lines, "Kept in "+sanitize.Line(d.dir), "")
+		lines = append(lines, "Kept in "+d.dir, "")
 		lines = append(lines, d.fileLines(width)...)
 	}
 

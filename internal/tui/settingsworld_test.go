@@ -4,9 +4,25 @@
 package tui_test
 
 import (
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
+
+// settingsToken is the Jira token in the configuration Settings reads. The
+// fake hands it over unmasked, as the wiring never does, so a test can show
+// the screen masks it all the same.
+const settingsToken = "jira-secret-token-9999"
+
+// settingsFile is the configuration Settings reads and saves.
+func settingsFile() config.Config {
+	cfg := config.Default()
+	cfg.Jira.BaseURL, cfg.Jira.Token, cfg.Jira.Project = "https://jira.example.com", settingsToken, "PROJ"
+	cfg.Messaging.Channel = devChannel
+	cfg.Path = "/home/ana/src/api/.workflow.json"
+
+	return cfg
+}
 
 // anaStore is where the fake keeps its local data.
 const anaStore = "/home/ana/.local/state/workflow"
@@ -22,6 +38,28 @@ func localFiles() []store.DataFile {
 // settingsDeps fakes the configuration files and the local data.
 func (w *world) settingsDeps() seams.Settings {
 	return seams.Settings{
+		Read: func() (config.Config, config.Revision, error) {
+			w.record("read-settings")
+
+			w.mu.Lock()
+			defer w.mu.Unlock()
+
+			return w.settings, config.Revision{}, w.readSettingsErr
+		},
+		Save: func(edited config.Config, _ config.Revision) (config.Config, config.Revision, error) {
+			w.record("save-settings")
+
+			w.mu.Lock()
+			defer w.mu.Unlock()
+
+			if w.saveSettingsErr != nil {
+				return config.Config{}, config.Revision{}, w.saveSettingsErr
+			}
+
+			w.settings = edited
+
+			return edited, config.Revision{}, nil
+		},
 		LocalData: func() (string, []store.DataFile, error) {
 			w.record("local-data")
 
