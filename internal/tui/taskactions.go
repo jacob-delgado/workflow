@@ -68,7 +68,7 @@ func (m Model) taskVerbKeys(task taskwarrior.Task, selected bool) []key.Binding 
 	}
 
 	return []key.Binding{
-		relabel(m.keys.startStop, startOrStop(task)), m.keys.completeTask, m.keys.addTask, m.keys.annotateTask,
+		relabel(m.keys.startStop, startOrStop(task)), m.keys.markDone, m.keys.addTask, m.keys.annotateTask,
 		m.keys.modifyTask, m.keys.undoTask,
 	}
 }
@@ -132,7 +132,7 @@ func (m Model) handleTaskVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	switch {
 	case key.Matches(msg, m.keys.startStop):
 		act = m.toggleTask
-	case key.Matches(msg, m.keys.completeTask):
+	case key.Matches(msg, m.keys.markDone):
 		act = m.completeTask
 	case key.Matches(msg, m.keys.addTask):
 		act = m.openAddLine

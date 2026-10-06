@@ -81,11 +81,11 @@ func (l taskListing) heading(marks glyphs) string {
 			labels = append(labels, picked.Label())
 		}
 
-		parts = append(parts, "narrowed to "+strings.Join(labels, ", "))
+		parts = append(parts, "filtered to "+strings.Join(labels, ", "))
 	}
 
 	if l.filtering || l.narrowing.Text != "" {
-		parts = append(parts, "filter: "+l.narrowing.Text)
+		parts = append(parts, "search: "+l.narrowing.Text)
 	}
 
 	return strings.Join(parts, marks.separator)
@@ -306,7 +306,7 @@ func (m Model) unlistedBecause(task taskwarrior.Task) string {
 
 	switch {
 	case m.taskGroupsBy(taskListing{}).lists(task.UUID):
-		return "which the Tasks pane's narrowing hides; " + m.keys.narrowTasks.Help().Key + " there changes it"
+		return "which the Tasks pane's filter hides; " + m.keys.filterTasks.Help().Key + " there changes it"
 	case task.Waiting(now):
 		return "which waits until " + task.Wait.In(now.Location()).Format(time.DateOnly)
 	case task.Status == taskwarrior.Recurring:
@@ -354,11 +354,11 @@ func (m Model) handleTaskListKey(msg tea.KeyPressMsg) (Model, bool) {
 	switch {
 	case key.Matches(msg, m.keys.sortTasks):
 		return m.sortTasks(), true
-	case key.Matches(msg, m.keys.filterTasks) && len(m.tasks.pending) > 0:
+	case key.Matches(msg, m.keys.searchTasks) && len(m.tasks.pending) > 0:
 		m.tasks.listing = m.tasks.listing.beginFilter()
 
 		return m.relistTasks(), true
-	case key.Matches(msg, m.keys.narrowTasks) && len(m.tasks.pending) > 0:
+	case key.Matches(msg, m.keys.filterTasks) && len(m.tasks.pending) > 0:
 		return m.openTaskNarrowing(), true
 	default:
 		return m, false
@@ -371,7 +371,7 @@ func (m Model) taskListKeys() []key.Binding {
 		return []key.Binding{m.keys.sortTasks}
 	}
 
-	return []key.Binding{m.keys.filterTasks, m.keys.narrowTasks, m.keys.sortTasks}
+	return []key.Binding{m.keys.searchTasks, m.keys.filterTasks, m.keys.sortTasks}
 }
 
 // filteringTasks reports the Tasks pane capturing keystrokes into its filter,
@@ -433,7 +433,7 @@ func (m Model) openTaskNarrowing() Model {
 	}
 
 	m.overlay = checklist[taskwarrior.Facet]{
-		marks: m.marks, title: "Narrow", none: "no task to narrow",
+		marks: m.marks, title: filterTitle, none: "no task to filter",
 		choices: pickList[offered[taskwarrior.Facet]]{items: offers}, chosen: slices.Clone(picked),
 		label: taskwarrior.Facet.Label,
 		apply: func(m Model, chosen []taskwarrior.Facet) (Model, tea.Cmd) {

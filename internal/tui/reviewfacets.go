@@ -12,7 +12,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
-// filterTitle titles the detail pane while the reviews filter is open.
+// filterTitle titles the detail pane while a filter checklist is open, on the
+// Issues, Reviews or Tasks pane.
 const filterTitle = "Filter"
 
 // facetKind is which of the four facets a choice narrows by. Choices in one
@@ -185,7 +186,7 @@ var (
 // it was on while that is still listed.
 func (m Model) openFacetPicker() (Model, tea.Cmd) {
 	m.overlay = checklist[facet]{
-		marks: m.marks, title: filterTitle, none: "no request to narrow",
+		marks: m.marks, title: filterTitle, none: "no request to filter",
 		choices: pickList[offered[facet]]{items: facetChoices(m.reviewQueue.all, m.reviewQueue.facets)},
 		chosen:  slices.Clone(m.reviewQueue.facets),
 		label:   facet.label,

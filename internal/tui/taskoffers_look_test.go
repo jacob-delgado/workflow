@@ -80,7 +80,7 @@ func TestAnOffersChangeReadsTheTasksAgain(t *testing.T) {
 
 	// Arrange
 	repo := withTasks()
-	switching := loopMoments()["switching tasks"]
+	switching := loopMoments()["switching branches"]
 	switching.arrange(repo)
 	offered := typing(t, repo.live(t, 200, 40), switching.keys...)
 	before := len(repo.asked("tasks"))

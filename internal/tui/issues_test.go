@@ -167,7 +167,7 @@ func TestSlashFiltersTheIssueListAsYouType(t *testing.T) {
 	filtered := typing(t, listed, "/", "R", "o", "t")
 
 	// Assert: only the match shows, and the filter is on the bottom row
-	requireScreen(t, filtered.View().Content, "OPS-2 In Progress Rotate", "filter: Rot")
+	requireScreen(t, filtered.View().Content, "OPS-2 In Progress Rotate", "search: Rot")
 	refuseScreen(t, filtered.View().Content, "OPS-1")
 
 	// Act: esc restores the full list
@@ -195,7 +195,7 @@ func TestFilteringToNothingSaysSoAndBackspaceWidensIt(t *testing.T) {
 	widened := typing(t, empty, keyBackspace)
 
 	// Assert: both issues return under the shorter filter
-	requireScreen(t, widened.View().Content, "OPS-1 In Progress Fix issue", "OPS-2 In Progress Fix bug", "filter: Fix")
+	requireScreen(t, widened.View().Content, "OPS-1 In Progress Fix issue", "OPS-2 In Progress Fix bug", "search: Fix")
 }
 
 func TestArrowsMoveAndEnterKeepsTheFilter(t *testing.T) {
@@ -209,7 +209,7 @@ func TestArrowsMoveAndEnterKeepsTheFilter(t *testing.T) {
 	result := typing(t, listed, "/", "F", "i", "x", "down", "enter")
 
 	// Assert
-	requireScreen(t, result.View().Content, "▸ ○ OPS-2 In Progress Fix bug", "filter: Fix")
+	requireScreen(t, result.View().Content, "▸ ○ OPS-2 In Progress Fix bug", "search: Fix")
 }
 
 // manyIssues builds count numbered issue rows.

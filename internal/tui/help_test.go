@@ -52,9 +52,9 @@ func placedBindings() []helpGroup {
 			"comment           c          comment",
 			"assign            a          assign",
 			"log-work          w          log work",
-			"branch-for-issue  b          branch for issue",
-			"filter            /          filter",
-			"filter-place      p          where",
+			"start-work        b          start work",
+			"search-issues     /          search",
+			"filter-issues     f          filter",
 			"switch-view       v          switch view",
 			"load-more         ctrl+n     load more",
 			"open-link         o          open",
@@ -63,7 +63,7 @@ func placedBindings() []helpGroup {
 			"track-issue       T          track in taskwarrior"),
 		placed("Branch and Commits",
 			"new-branch        b          new branch",
-			"switch-task       s          switch task",
+			"switch-branch     s          switch branch",
 			"link-issue        i          link issue",
 			"rebase            u          rebase onto base",
 			"push              P          push",
@@ -83,19 +83,19 @@ func placedBindings() []helpGroup {
 			"post              p          announce to slack",
 			"people-and-groups P          people and groups"),
 		placed("Reviews",
-			"sort-reviews      s          sort",
+			"sort-reviews      O          sort",
 			"filter-reviews    f          filter",
 		),
 		placed("Tasks",
 			"start-stop        s          start/stop",
-			"complete-task     d          done",
+			"mark-done         d          mark done",
 			"add-task          a          add",
 			"annotate-task     A          annotate",
 			"modify-task       e          modify",
 			"undo-task         u          undo",
 			"sync-tasks        S          sync",
-			"filter-tasks      /          filter",
-			"narrow-tasks      f          narrow",
+			"search-tasks      /          search",
+			"filter-tasks      f          filter",
 			"sort-tasks        O          sort"),
 		placed("Summary",
 			"earlier           [          earlier",
@@ -524,4 +524,44 @@ func groupNamed(listing []helpGroup, name string) helpGroup {
 	}
 
 	return helpGroup{name: name}
+}
+
+func TestEachSharedVerbSitsOnOneKeyInEveryGroupThatHasIt(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		verb, key string
+		groups    []string
+	}{
+		{verb: "search", key: "/", groups: []string{"Issues", tasksTitle}},
+		{verb: "filter", key: "f", groups: []string{"Issues", "Reviews", tasksTitle}},
+		{verb: "sort", key: "O", groups: []string{"Reviews", tasksTitle}},
+	}
+
+	for _, verbCase := range cases {
+		t.Run(verbCase.verb, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			want := listedBinding{key: verbCase.key, help: verbCase.verb}
+
+			// Act
+			listing := helpListing(t, openHelp(t, nil))
+
+			// Assert
+			for _, group := range listing {
+				for _, binding := range group.bindings {
+					if binding.help == verbCase.verb && binding.key != verbCase.key {
+						t.Errorf("? lists %q under %s on %q, not %q", verbCase.verb, group.name, binding.key, verbCase.key)
+					}
+				}
+			}
+
+			for _, name := range verbCase.groups {
+				if !slices.Contains(groupNamed(listing, name).bindings, want) {
+					t.Errorf("? does not list %s under %s:\n%v", want, name, groupNamed(listing, name))
+				}
+			}
+		})
+	}
 }

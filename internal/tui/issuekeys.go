@@ -19,7 +19,7 @@ func (m Model) handleIssuesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openLink(m.issueURL())
 	case key.Matches(msg, m.keys.copyLink):
 		return m.copyLink(m.issueURL())
-	case key.Matches(msg, m.keys.filter) && m.issues.filterable():
+	case key.Matches(msg, m.keys.searchIssues) && m.issues.filterable():
 		m.issues = m.issues.beginFilter()
 
 		return m, nil
@@ -48,7 +48,7 @@ func (m Model) handleIssueVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 		act = m.openAssign
 	case key.Matches(msg, m.keys.logWork):
 		act = m.openLogWork
-	case key.Matches(msg, m.keys.branchForIssue):
+	case key.Matches(msg, m.keys.startWork):
 		act = m.openBranchCreator
 	case key.Matches(msg, m.keys.trackIssue):
 		act = m.trackSelectedIssue
@@ -66,7 +66,7 @@ func (m Model) handleIssueVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 // falling through to the keys that read an issue in full.
 func (m Model) handleIssueListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.filterPlace) && m.issues.filterable():
+	case key.Matches(msg, m.keys.filterIssues) && m.issues.filterable():
 		return m.openPlacePicker()
 	case key.Matches(msg, m.keys.nextView):
 		return m.nextIssueView()
@@ -129,8 +129,8 @@ func (m Model) handleIssueFilterKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // binds apply and close to, so a printable key moved onto either still types.
 func (Model) filterKeys() []key.Binding {
 	return []key.Binding{
-		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "keep filter")),
-		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear filter")),
+		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "keep search")),
+		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear search")),
 	}
 }
 

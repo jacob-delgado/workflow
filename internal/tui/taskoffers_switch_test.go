@@ -33,7 +33,7 @@ func TestSwitchingWithNoTaskStartedOffersToStartOne(t *testing.T) {
 
 	// Arrange
 	repo := withTasks()
-	switching := loopMoments()["switching tasks"]
+	switching := loopMoments()["switching branches"]
 	switching.arrange(repo)
 	stopTheStartedTask(repo)
 	model := repo.live(t, 200, 40)
@@ -58,7 +58,7 @@ func TestARefusedSwitchStaysOpenAndStartsNothing(t *testing.T) {
 
 	// Arrange
 	repo := withTasks()
-	switching := loopMoments()["switching tasks"]
+	switching := loopMoments()["switching branches"]
 	switching.arrange(repo)
 	repo.tasks.writeErr = hookRefused()
 	offered := typing(t, repo.live(t, 200, 40), switching.keys...)
@@ -84,7 +84,7 @@ func TestARetriedSwitchStartsTheTaskItsLastTryStopped(t *testing.T) {
 	// Arrange
 	// Task 12 stops but task 3 is refused; tried again, 12 is stopped already.
 	repo := withTasks()
-	switching := loopMoments()["switching tasks"]
+	switching := loopMoments()["switching branches"]
 	switching.arrange(repo)
 	repo.tasks.answers = []error{nil, hookRefused(), taskwarrior.ErrNothingChanged, nil}
 	refused := typing(t, typing(t, repo.live(t, 200, 40), switching.keys...), keyEnter)

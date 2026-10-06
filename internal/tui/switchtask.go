@@ -17,12 +17,12 @@ import (
 )
 
 // switchTitle titles the detail pane while the task switcher is open.
-const switchTitle = "Switch task"
+const switchTitle = "Switch branch"
 
 // errDirtyTree is the interface's words for loop.ErrDirtyTree: a switch refused
 // for the uncommitted work it would carry onto another branch. Stashing is left
 // to the person, so the reason says what to do rather than doing it.
-var errDirtyTree = errors.New("uncommitted changes — commit or stash them before switching tasks")
+var errDirtyTree = errors.New("uncommitted changes — commit or stash them before switching branches")
 
 // errBranchHeldByGone is a branch a worktree whose directory is gone still holds:
 // git will not check it out anywhere until that worktree is pruned.

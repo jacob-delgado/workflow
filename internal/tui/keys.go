@@ -22,6 +22,10 @@ var _ help.KeyMap = keyMap{}
 // A key may mean different things in different panes — c comments on an issue
 // and commits on the Commits pane — so each meaning is its own binding, with
 // its own help, and a pane only ever matches its own.
+//
+// The reverse never holds: a verb that several panes share keeps one key on
+// all of them — / searches, f opens the filter checklist, O sorts, r refreshes,
+// o opens and y copies — so a key learned on one pane works on the next.
 type keyMap struct {
 	// Moving around.
 	next, previous, jump  key.Binding
@@ -33,17 +37,19 @@ type keyMap struct {
 	refresh, retry        key.Binding
 
 	// Issues.
-	changeStatus, comment, assign, logWork, branchForIssue, filter, filterPlace, nextView, loadMore, trackIssue key.Binding
+	changeStatus, comment, assign, logWork, startWork, nextView, loadMore, trackIssue key.Binding
+	searchIssues, filterIssues                                                        key.Binding
 
 	// Branch and Commits.
-	newBranch, switchTask, linkIssue, rebase, push, stage, stageAll, commit, amend, fixup, runHooks, hookConfig key.Binding
+	newBranch, switchBranch, linkIssue, rebase, push, stage, stageAll key.Binding
+	commit, amend, fixup, runHooks, hookConfig                        key.Binding
 
 	// Review and messaging.
 	newPullRequest, checks, rerun, merge, finish, compose, peopleAndGroups key.Binding
 
 	// Tasks.
-	startStop, completeTask, addTask, annotateTask, modifyTask, undoTask, syncTasks key.Binding
-	filterTasks, narrowTasks, sortTasks                                             key.Binding
+	startStop, markDone, addTask, annotateTask, modifyTask, undoTask, syncTasks key.Binding
+	searchTasks, filterTasks, sortTasks                                         key.Binding
 
 	// Summary.
 	earlier, later, today, calendar, copySummary key.Binding
@@ -234,9 +240,9 @@ func issueKeys(builder *helpBuilder, into *keyMap) {
 	into.comment = builder.bind(groupIssues, "comment", "comment", "c")
 	into.assign = builder.bind(groupIssues, "assign", "assign", "a")
 	into.logWork = builder.bind(groupIssues, "log-work", "log work", "w")
-	into.branchForIssue = builder.bind(groupIssues, "branch-for-issue", "branch for issue", "b")
-	into.filter = builder.bind(groupIssues, "filter", "filter", "/")
-	into.filterPlace = builder.bind(groupIssues, "filter-place", "where", "p")
+	into.startWork = builder.bind(groupIssues, "start-work", "start work", "b")
+	into.searchIssues = builder.bind(groupIssues, "search-issues", "search", "/")
+	into.filterIssues = builder.bind(groupIssues, "filter-issues", "filter", "f")
 	into.nextView = builder.bind(groupIssues, "switch-view", "switch view", "v")
 	into.loadMore = builder.bind(groupIssues, "load-more", "load more", "ctrl+n")
 	into.openLink = builder.bind(groupIssues, actionOpenLink, "open", "o")
@@ -248,7 +254,7 @@ func issueKeys(builder *helpBuilder, into *keyMap) {
 // branchAndCommitKeys are the Branch and Commits panes' bindings.
 func branchAndCommitKeys(builder *helpBuilder, into *keyMap) {
 	into.newBranch = builder.bind(groupBranchCommits, "new-branch", "new branch", "b")
-	into.switchTask = builder.bind(groupBranchCommits, "switch-task", "switch task", "s")
+	into.switchBranch = builder.bind(groupBranchCommits, "switch-branch", "switch branch", "s")
 	into.linkIssue = builder.bind(groupBranchCommits, "link-issue", "link issue", "i")
 	into.rebase = builder.bind(groupBranchCommits, "rebase", "rebase onto base", "u")
 	into.push = builder.bind(groupBranchCommits, "push", "push", "P")
@@ -274,7 +280,7 @@ func reviewAndMessagingKeys(builder *helpBuilder, into *keyMap, reviewNoun, mess
 
 // reviewKeys are the Reviews pane's bindings.
 func reviewKeys(builder *helpBuilder, into *keyMap) {
-	into.sortReviews = builder.bind(groupReviews, "sort-reviews", "sort", "s")
+	into.sortReviews = builder.bind(groupReviews, "sort-reviews", "sort", "O")
 	into.filterReviews = builder.bind(groupReviews, "filter-reviews", "filter", "f")
 }
 
@@ -282,14 +288,14 @@ func reviewKeys(builder *helpBuilder, into *keyMap) {
 // modify is e.
 func taskKeys(builder *helpBuilder, into *keyMap) {
 	into.startStop = builder.bind(groupTasks, "start-stop", "start/stop", "s")
-	into.completeTask = builder.bind(groupTasks, "complete-task", "done", "d")
+	into.markDone = builder.bind(groupTasks, "mark-done", "mark done", "d")
 	into.addTask = builder.bind(groupTasks, "add-task", "add", "a")
 	into.annotateTask = builder.bind(groupTasks, "annotate-task", "annotate", "A")
 	into.modifyTask = builder.bind(groupTasks, "modify-task", "modify", "e")
 	into.undoTask = builder.bind(groupTasks, "undo-task", "undo", "u")
 	into.syncTasks = builder.bind(groupTasks, "sync-tasks", "sync", "S")
-	into.filterTasks = builder.bind(groupTasks, "filter-tasks", "filter", "/")
-	into.narrowTasks = builder.bind(groupTasks, "narrow-tasks", "narrow", "f")
+	into.searchTasks = builder.bind(groupTasks, "search-tasks", "search", "/")
+	into.filterTasks = builder.bind(groupTasks, "filter-tasks", "filter", "f")
 	into.sortTasks = builder.bind(groupTasks, "sort-tasks", "sort", "O")
 }
 
