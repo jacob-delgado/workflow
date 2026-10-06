@@ -156,6 +156,9 @@ var (
 	_ applier = taskActed{}
 	_ applier = taskLineSent{}
 	_ applier = nothingToUndo{}
+	_ applier = branchUnlinked{}
+	_ applier = localDataRead{}
+	_ applier = localDataRemoved{}
 )
 
 // notice is the footer's one-line report of something that just happened, and

@@ -126,8 +126,10 @@ internal/forge 15
 # repositories.go (the Repositories pane: where you work, in full, and the
 # favorite directories with what is there now); and reposwitch.go (switching
 # directory: what goes with the switch and what it would lose, and the go-to
-# prompt with its tab completion).
-internal/tui 57
+# prompt with its tab completion); and localdata.go (Local data, opened from
+# the Repositories pane: the store's files listed as workflow db-clean lists
+# them, and removing the cache or everything after a last look).
+internal/tui 58
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of
@@ -194,10 +196,12 @@ internal/loop 13
 # file per service it reaches (Jira, the forge and its CLI, Taskwarrior, the
 # Slack directory, the store) and repositories.go, where the interface runs —
 # the workspace a directory is in, and the key the store names a repository
-# by — so the directory a surface works in is read in one place. One
+# by — so the directory a surface works in is read in one place — and
+# settings.go, the configuration files and the local data the terminal reads
+# and changes, over config.SaveEdit and the store's own listing and clean. One
 # responsibility — build the seams over the real clients — spelled
 # service-per-file.
-internal/wiring 13
+internal/wiring 14
 
 # web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
 # `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by

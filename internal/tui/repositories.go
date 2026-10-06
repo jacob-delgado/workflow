@@ -385,12 +385,16 @@ func worktreeState(worktree gitrepo.Worktree) string {
 
 // repositoriesKeys is what the pane offers.
 func (m Model) repositoriesKeys() []key.Binding {
-	return []key.Binding{
-		m.keys.up, m.keys.down, relabel(m.keys.confirm, verbSwitch), m.keys.favoriteDir, m.keys.goToDir, m.keys.refresh,
+	keys := []key.Binding{m.keys.up, m.keys.down, relabel(m.keys.confirm, verbSwitch), m.keys.favoriteDir, m.keys.goToDir}
+	if m.canSeeLocalData() {
+		keys = append(keys, m.keys.localData)
 	}
+
+	return append(keys, m.keys.refresh)
 }
 
-// handleRepositoriesKey moves the cursor, or marks or forgets a favorite.
+// handleRepositoriesKey moves the cursor, marks or forgets a favorite, or
+// opens what the pane offers.
 func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.up):
@@ -403,6 +407,8 @@ func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.switchToSelected()
 	case key.Matches(msg, m.keys.goToDir):
 		return m.openDirPrompt()
+	case key.Matches(msg, m.keys.localData) && m.canSeeLocalData():
+		return m.openLocalData()
 	case key.Matches(msg, m.keys.refresh):
 		return m.refreshRepositories()
 	}

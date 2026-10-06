@@ -29,6 +29,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
@@ -253,6 +254,27 @@ type Store struct {
 	Favor func(dir string) error
 	// Unfavor forgets a directory as a favorite.
 	Unfavor func(dir string) error
+}
+
+// Settings is what a surface asks of the configuration files and the local
+// data, to read and change them where it runs. The web server keeps its own
+// read of the configuration, for its ETag, and saves through the same
+// config.SaveEdit.
+type Settings struct {
+	// Read reads the configuration files as they are now, every credential
+	// masked, and the revision it found them at.
+	Read func() (config.Config, config.Revision, error)
+	// Save writes an edited configuration over the read made at a revision —
+	// a credential left masked or empty standing for the stored one — and
+	// applies the forge and messaging settings to every call after it. Files
+	// changed since that read are refused with config.ErrChangedOnDisk. It
+	// answers what it wrote, masked, and the revision it left.
+	Save func(edited config.Config, over config.Revision) (config.Config, config.Revision, error)
+	// LocalData is the store's directory and each database file in it, as
+	// workflow db-clean lists them.
+	LocalData func() (string, []store.DataFile, error)
+	// RemoveLocalData removes the files a clean of scope reaches.
+	RemoveLocalData func(scope store.CleanScope) error
 }
 
 // Place is a directory a surface can work in, as it is now: the directory,

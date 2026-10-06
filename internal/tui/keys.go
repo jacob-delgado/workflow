@@ -54,7 +54,7 @@ type keyMap struct {
 	// Summary.
 	earlier, later, today, calendar, copySummary key.Binding
 	// Repositories.
-	favoriteDir, goToDir key.Binding
+	favoriteDir, goToDir, localData key.Binding
 
 	// Reviews.
 	sortReviews, filterReviews key.Binding
@@ -70,6 +70,9 @@ type keyMap struct {
 
 	// In the branch creator, the messaging preview and the link form.
 	worktree, postWhenGreen, unlinkIssue key.Binding
+
+	// In Local data.
+	removeCache, removeAll key.Binding
 
 	// Tagging in the messaging preview, and in People and groups.
 	linkToSlack, notOnSlack, forgetOwner key.Binding
@@ -300,11 +303,12 @@ func taskKeys(builder *helpBuilder, into *keyMap) {
 }
 
 // repositoryKeys are the Repositories pane's bindings: marking the directory
-// the cursor is on a favorite, or forgetting it, and typing a directory to go
-// to.
+// the cursor is on a favorite, or forgetting it, typing a directory to go to,
+// and the local data.
 func repositoryKeys(builder *helpBuilder, into *keyMap) {
 	into.favoriteDir = builder.bind(groupRepositories, "favorite-directory", "favorite", "f")
 	into.goToDir = builder.bind(groupRepositories, "go-to-directory", "go to", "g")
+	into.localData = builder.bind(groupRepositories, "local-data", "local data", "L")
 }
 
 // summaryKeys are the Summary pane's bindings: the period before and after the
@@ -337,6 +341,8 @@ func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.worktree = builder.bind(groupComposer, "worktree", "worktree", "ctrl+g")
 	into.postWhenGreen = builder.bind(groupComposer, "post-when-green", "announce when CI passes", "w")
 	into.unlinkIssue = builder.bind(groupComposer, "unlink-issue", "unlink", "u")
+	into.removeCache = builder.bind(groupComposer, "remove-cache", "remove the cache", "c")
+	into.removeAll = builder.bind(groupComposer, "remove-everything", "remove everything", "C")
 	into.linkToSlack = builder.bind(groupComposer, "link-to-slack", "link to Slack", "a")
 	into.notOnSlack = builder.bind(groupComposer, "not-on-slack", "not on Slack", "x")
 	into.forgetOwner = builder.bind(groupComposer, "forget-owner", "forget", "d")

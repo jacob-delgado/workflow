@@ -35,6 +35,9 @@ type Deps struct {
 	// disabled; see seams.Tasks.
 	Tasks        seams.Tasks
 	Repositories seams.Repositories
+	// Settings reads and saves the configuration files, and lists and removes
+	// the local data.
+	Settings seams.Settings
 	// Clock tells the time, for how long ago a comment was written. Nil means
 	// time.Now.
 	Clock func() time.Time

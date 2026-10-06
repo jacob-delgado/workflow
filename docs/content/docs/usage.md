@@ -194,6 +194,7 @@ every key `?` lists, by where it works.
 | Repositories | `enter` | Switch to the selected directory, after a last look |
 | | `f` | Add the selected directory to your favorites, or remove it |
 | | `g` | Type a directory to switch to; `tab` completes it |
+| | `L` | Local data: the store's files, and removing them after a last look |
 | | `r` | Read the favorites again |
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
 | | `←` / `→` | Change the commit's type; in the announcement preview, change the channel; in the calendar's Day column, move a day |
@@ -207,6 +208,7 @@ every key `?` lists, by where it works.
 | | `ctrl+g` | In the branch creator, create the branch in a new git worktree rather than switching to it |
 | | `w` | In the announcement preview, announce once CI passes |
 | | `u` | In the link form, on a branch already linked, unlink its issue |
+| | `c` / `C` | In Local data, remove the cache, or everything, after a last look |
 | | `j`/`k` or `↓`/`↑` | In the announcement preview, move between the code owners and groups it can tag |
 | | `space` | In the announcement preview, tag the selected group, or untag it |
 | | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group |
@@ -788,7 +790,10 @@ to remove. A database file another program holds open — on Windows, another
 workflow session — fails the clean without removing anything (exit status 4);
 something other than the store's own file where a database belongs, such as a
 symlink, is refused (exit status 1). The web interface's Settings has the same
-two cleans under **Local data**.
+two cleans under **Local data**, and so has the terminal: `L` on the
+Repositories pane lists the same files, and `c` removes the cache, `C`
+everything, each after a last look that says what goes with it, since neither
+can be undone. Under `--dry-run` it says what it would have removed.
 
 ## Existing git hooks
 

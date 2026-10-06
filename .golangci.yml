@@ -115,6 +115,7 @@ linters:
             - github.com/jacob-delgado/workflow/internal/loop
             - github.com/jacob-delgado/workflow/internal/messaging
             - github.com/jacob-delgado/workflow/internal/proc
+            - github.com/jacob-delgado/workflow/internal/store
             - github.com/jacob-delgado/workflow/internal/taskwarrior
             - github.com/jacob-delgado/workflow/internal/workdirs
         # The web server is a surface beside the terminal, not built on it: what
