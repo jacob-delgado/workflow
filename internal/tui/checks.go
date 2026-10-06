@@ -32,6 +32,8 @@ type checkList struct {
 	checks  pickList[forge.Check]
 	outcome string
 	err     error
+	// openKey is the key apply is bound to, which opens a check's page.
+	openKey string
 }
 
 var (
@@ -42,7 +44,10 @@ var (
 // openChecks lists the checks reported on the pull request. Its caller offers it
 // only when canOpenChecks reports there are checks and an opener for their pages.
 func (m Model) openChecks() (Model, tea.Cmd) {
-	m.overlay = checkList{marks: m.marks, styles: m.styles, checks: pickList[forge.Check]{items: m.review.ci.Checks}}
+	m.overlay = checkList{
+		marks: m.marks, styles: m.styles, checks: pickList[forge.Check]{items: m.review.ci.Checks},
+		openKey: m.keys.confirm.Help().Key,
+	}
 
 	return m, nil
 }
@@ -56,7 +61,7 @@ func (m Model) canOpenChecks() bool {
 // view lists the checks, each by its state and name.
 func (c checkList) view(_, rows int) (string, string) {
 	lines := make([]string, 0, len(c.checks.items)+headerAndOutcomeRows)
-	lines = append(lines, "Open a check's page with enter.", "")
+	lines = append(lines, "Open a check's page with "+c.openKey+".", "")
 	lines = append(lines, c.checks.rows(c.marks, rows-len(lines)-outcomeRows, c.checkRow)...)
 	lines = append(lines, c.outcomeLines()...)
 

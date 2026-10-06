@@ -291,7 +291,8 @@ func (m Model) reviewDetail(width int) string {
 		}
 
 		if m.canOpenPullRequest() {
-			lines = append(lines, "", "n opens one from this branch's commits and the repository's template.")
+			lines = append(lines, "", m.keys.newPullRequest.Help().Key+
+				" opens one from this branch's commits and the repository's template.")
 		}
 
 		return wrap(strings.Join(lines, "\n"), width)
@@ -321,7 +322,7 @@ func (m Model) reviewDetail(width int) string {
 	}
 
 	if m.canEditPullRequest() {
-		lines = append(lines, "", "e edits its title and description.")
+		lines = append(lines, "", m.keys.edit.Help().Key+" edits its title and description.")
 	}
 
 	return wrap(strings.Join(lines, "\n"), width)
