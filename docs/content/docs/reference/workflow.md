@@ -107,6 +107,7 @@ workflow [flags]
 
 * [workflow announce](../workflow_announce/)	 - Announce the branch's pull or merge request to your team's chat
 * [workflow branch](../workflow_branch/)	 - Start work on an issue: create its branch, named by the convention, and switch to it
+* [workflow comment](../workflow_comment/)	 - Comment on an issue, in Jira or on the forge, with the text on standard input
 * [workflow completion](../workflow_completion/)	 - Generate the autocompletion script for the specified shell
 * [workflow config](../workflow_config/)	 - Create and inspect the configuration file
 * [workflow db-clean](../workflow_db-clean/)	 - Remove workflow's local data, the databases it keeps between sessions

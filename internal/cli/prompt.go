@@ -14,7 +14,8 @@ import (
 var errNoTerminal = errors.New("no terminal to answer on")
 
 // Prompt is how a command asks the person at the terminal: reading an answer,
-// for the guided init and every scriptable write's yes/no question; keeping a
+// for the guided init and every scriptable write's yes/no question; reading
+// standard input whole, for a comment's text; keeping a
 // secret in the operating system's keychain; and composing a note in the
 // editor. Each is a seam so a test can drive the conversation without a
 // terminal, a real keychain or an editor. The main package wires the two
@@ -36,6 +37,10 @@ type Prompt struct {
 	// returns what was left above it, for a standup note to be edited before it
 	// is posted.
 	Compose func(draft, help string) (string, error)
+	// Input is standard input, read to its end for a comment's text, as `git
+	// commit -F -` reads a message, so a script never quotes it. It shares Line's
+	// reader, so nothing read for one is lost to the other. Nil reads as empty.
+	Input io.Reader
 }
 
 // confirm asks a yes/no question, defaulting to no, so a bare enter is the safe

@@ -356,7 +356,7 @@ func (f exitFamily) holds(err error) bool {
 // package-level variable, which gochecknoglobals forbids.
 func exitFamilies() []exitFamily {
 	return []exitFamily{
-		{status: exitUsage, members: []error{errUsage, errNoTerminal, errLoginBlank}},
+		{status: exitUsage, members: []error{errUsage, errNoTerminal, errLoginBlank, errCommentBlank}},
 		{status: exitConfiguration, members: configurationErrors()},
 		{status: exitRefused, members: refusalErrors()},
 		{status: exitUnreachable, members: unreachableErrors()},

@@ -7,7 +7,7 @@ weight: 22
 
 The steps of the loop that a script or a shell prompt wants also run as
 commands, without the interface: `status`, `reviews`, `standup`, `branch`,
-`pr` and `announce`, beside `doctor`, `config`, `slack login` and
+`pr`, `announce` and `comment`, beside `doctor`, `config`, `slack login` and
 `db-clean`. This page is what a script
 can rely on from them — the exit status, which stream carries what, the JSON shapes, and the
 flags that make a write safe to run unattended. Every command and flag is
@@ -20,6 +20,7 @@ workflow --dry-run pr                  # what pr would push and open
 workflow pr --yes                      # push, open, link and move, without asking
 workflow pr --yes --json | jq .pull.url   # the same, and the address it opened
 workflow standup --no-edit --yes       # post the day's standup, unattended
+git log -1 --format=%B | workflow comment PROJ-7 --yes   # the text on stdin, never quoted
 workflow --log requests.log doctor --online   # a bug report's evidence
 ```
 
@@ -32,7 +33,7 @@ the message, which is prose and may change.
 | --- | --- | --- |
 | 0 | Success. | |
 | 1 | Any other failure. | An issue that is not in the tracker, a push that was rejected, a `branch --fetch` whose fetch failed, git missing, a repository whose branch cannot be read; a `db-clean` that finds a symlink or a directory where a database file belongs. |
-| 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; `standup --days 0`; `reviews --sort` with an order it does not know; `--port` without `--web`, or outside 1 to 65535; a confirmation with no terminal to answer it; a `slack login` answer left blank. |
+| 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; `standup --days 0`; `reviews --sort` with an order it does not know; `--port` without `--web`, or outside 1 to 65535; a confirmation with no terminal to answer it; a `slack login` answer left blank; a `comment` with nothing but white space on standard input. |
 | 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor`, `config show` or `slack login`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; a `ui.keys` map the interface refuses to start on; no messaging configured for `announce`; a `slack login` where Slack posts through a webhook, or `messaging.kind` names another service; no repository remote for `reviews` to find the forge from, or one on a host other than `github.com`, a `ghe.com` tenant, `gitlab.com` or the `forge.host` a `forge.kind` of `github` or `gitlab` describes; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected, a Jira 403 that says what the token may not do among them. |
 | 4 | A refused precondition: the command would not go ahead because of what it found. | A pull request already open; no commits to open one for; no pull request to announce; a branch or configuration file that already exists; a directory that is not a git repository; a `db-clean` that could not remove a database file, as one another program holds open can be on Windows. |
 | 5 | Unreachable: a service did not answer, or asked you to wait. | Jira, the forge or the messaging service could not be reached, or answered with a redirect — a sign-in gateway in front of it, say — which is refused so the credential goes nowhere else; rate limiting. |
@@ -96,6 +97,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `branch` | `Start work on KEY: create NAME from BASE and switch to it`, then `Created NAME`; with `--fetch` the plan opens `fetch origin, then`; with `--worktree` it ends `in a new worktree beside the repository`, and the worktree's directory follows alone on the last line | the dry-run line, "Not created.", and with `--worktree` "Created NAME in a new worktree." |
 | `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab); with `--json`, the JSON alone | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes; with `--json`, the preview and the `Opened` line too |
 | `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …" |
+| `comment` | `Comment on KEY:` and the comment as the tracker will store it | the dry-run line, "Not posted.", "Commented on KEY." |
 | `slack login` | | the dry-run line, "Logged in to Slack as …" |
 | `db-clean` | the store's directory and each database file in it | the warning before `--all` removes `kept.db`, the dry-run line, "Nothing to remove.", "Nothing removed.", "Removed …" |
 | `workflow --web` | | the address it serves on, why the configuration did not load cleanly, and the cause of each failure it answers as `internal`, credentials masked |
@@ -223,8 +225,8 @@ or `forge.kind` fails the configuration instead.
 
 ## Writing without a person: `--yes` and `--dry-run`
 
-`branch`, `pr`, `announce`, `standup` and `db-clean` print a preview and ask
-before they write. Two flags change that:
+`branch`, `pr`, `announce`, `comment`, `standup` and `db-clean` print a
+preview and ask before they write. Two flags change that:
 
 - **`--yes`** goes ahead without asking. On `pr` it answers every question:
   the push, the open, and the offers that follow it — to link the pull request
@@ -250,7 +252,10 @@ before they write. Two flags change that:
   `workflow --dry-run` is the interface with every write held back.
 
 A write run without `--yes` and without a terminal — stdin piped or closed —
-has no way to be answered, so it stops, says to pass `--yes`, and exits 2. Two
+has no way to be answered, so it stops, says to pass `--yes`, and exits 2.
+`comment` reads its text from stdin to the end, so piped it always needs
+`--yes`; at a terminal, end the text with Ctrl+D and the question is asked
+after it. Two
 exceptions say to run it at a terminal instead: `announce` at a moment already
 announced, which `--yes` would leave as it is, and `slack login`, which takes
 no `--yes` because what it asks for are secrets.
