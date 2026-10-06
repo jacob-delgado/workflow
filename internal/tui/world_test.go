@@ -45,6 +45,8 @@ const (
 	keyLeft      = "left"
 	keyCtrlO     = "ctrl+o"
 	keyBackspace = "backspace"
+	keyHome      = "home"
+	keyEnd       = "end"
 	issueKey     = "PROJ-412"
 	secondIssue  = "PROJ-388"
 	issueSummary = "Fix token redaction"

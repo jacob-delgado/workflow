@@ -235,7 +235,7 @@ func (m Model) stagingKeys() []key.Binding {
 func (m Model) handleCommitsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.up, m.keys.down):
-		return m.moveChangeSelection(msg)
+		return m.moveChangeBy(m.keys.stepOf(msg))
 	case key.Matches(msg, m.keys.stage, m.keys.stageAll, m.keys.unstageAll, m.keys.discard):
 		return m.handleStagingKey(msg)
 	case key.Matches(msg, m.keys.commit, m.keys.amend, m.keys.fixup):
@@ -266,14 +266,11 @@ func (m Model) handleStagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
-// moveChangeSelection moves the selection down or up, keeps it on screen, and
-// reads the newly selected file's diff.
-func (m Model) moveChangeSelection(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if key.Matches(msg, m.keys.down) {
-		m.changes.selected = min(m.changes.selected+1, max(0, len(m.changes.changes)-1))
-	} else {
-		m.changes.selected = max(0, m.changes.selected-1)
-	}
+// moveChangeBy moves the selection delta files down, or up for a negative
+// delta, stopping at either end, keeps it on screen, and reads the newly
+// selected file's diff.
+func (m Model) moveChangeBy(delta int) (Model, tea.Cmd) {
+	m.changes.selected = max(0, min(m.changes.selected+delta, len(m.changes.changes)-1))
 
 	m.changes = m.changes.following(m.detailRows())
 

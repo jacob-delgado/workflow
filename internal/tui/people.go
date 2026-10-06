@@ -353,10 +353,8 @@ func (p peopleOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) 
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.nextField):
 		p.tab = 1 - p.tab
-	case key.Matches(msg, m.keys.down):
-		return p.step(m, 1), nil
-	case key.Matches(msg, m.keys.up):
-		return p.step(m, -1), nil
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		return p.step(m, m.keys.stepOf(msg)), nil
 	case p.tab == tabGroups:
 		return p.handleGroupKey(m, msg)
 	default:

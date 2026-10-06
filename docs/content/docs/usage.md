@@ -116,8 +116,9 @@ nothing. Branch, Commits, Review and the messaging pane all read the branch,
 its pull request and CI, so reading one of them again counts for all four;
 the Issues list is left as it is while it holds further pages, which a reload
 would drop. `r` reads the pane again whenever you press it.
-`j`/`k` or the arrow keys move within a list, and `J`/`K` or `pgdn`/`pgup`
-scroll the detail pane. Each pane keeps its own place: come back to one and
+`j`/`k` or the arrow keys move within a list, `home` and `end` or `G` jump
+to its first and last row — or, on a pane with no list, to the top and the
+bottom of the detail — and `J`/`K` or `pgdn`/`pgup` scroll the detail pane. Each pane keeps its own place: come back to one and
 its detail is scrolled where you left it, unless it shows another branch,
 issue or pull request, which starts at the top, or its list reloaded while you
 were away, which scrolls to keep the selection in sight. The table below holds
@@ -128,6 +129,7 @@ every key `?` lists, by where it works.
 | Moving around | `tab` / `shift+tab` | Next pane, previous pane |
 | | `1`–`9` | Jump to a pane |
 | | `j`/`k` or `↓`/`↑` | Move within a list |
+| | `home` / `end` or `G` | Jump to the first or last row of a list, or the top or bottom of a pane's detail |
 | | `J`/`K` or `pgdn`/`pgup` | Scroll the detail pane |
 | 1 Issues | `t` | Change the selected issue's status |
 | | `c` | Comment on it |

@@ -8,6 +8,7 @@ import (
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
@@ -30,7 +31,7 @@ var _ help.KeyMap = keyMap{}
 type keyMap struct {
 	// Moving around.
 	next, previous, jump  key.Binding
-	up, down              key.Binding
+	up, down, first, last key.Binding
 	scrollUp, scrollDown  key.Binding
 	confirm, closeOverlay key.Binding
 	nextField, prevField  key.Binding
@@ -117,6 +118,8 @@ const (
 	actionRefresh  = "refresh"
 	actionUp       = "up"
 	actionDown     = "down"
+	actionFirst    = "first"
+	actionLast     = "last"
 	actionOpenLink = "open-link"
 	actionCopyLink = "copy-link"
 )
@@ -234,6 +237,8 @@ func movingKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 		"1-"+strconv.Itoa(paneCount), "jump to pane", paneNumbers()...)
 	into.up = builder.bindShown(groupMoving, actionUp, marks.upKey+"/k", "up", "up", "k")
 	into.down = builder.bindShown(groupMoving, actionDown, marks.downKey+"/j", "down", "down", "j")
+	into.first = builder.bind(groupMoving, actionFirst, "first", "home")
+	into.last = builder.bindShown(groupMoving, actionLast, "end/G", "last", "end", "G")
 	into.scrollUp = builder.bindShown(groupMoving, "scroll-up", "pgup/K", "scroll up", "pgup", "K")
 	into.scrollDown = builder.bindShown(groupMoving, "scroll-down", "pgdn/J", "scroll down", "pgdown", "J")
 }
@@ -446,6 +451,35 @@ func KeyActions(reviewNoun, messagingService string, overrides map[string]string
 	}
 
 	return listed
+}
+
+// farthest is a step longer than any list or detail runs, which every list
+// and every scroll clamps to its first or last row: the step home and end
+// take.
+const farthest = 1 << 20
+
+// cursorKeys are the keys that move a list's cursor: a row at a time, or to
+// either end.
+func (k keyMap) cursorKeys() []key.Binding {
+	return []key.Binding{k.up, k.down, k.first, k.last}
+}
+
+// stepOf is how far msg moves a list's cursor, down for a positive step: one
+// row for up and down, to the end for first and last, and nowhere for any
+// other key.
+func (k keyMap) stepOf(msg tea.KeyPressMsg) int {
+	switch {
+	case key.Matches(msg, k.down):
+		return 1
+	case key.Matches(msg, k.up):
+		return -1
+	case key.Matches(msg, k.last):
+		return farthest
+	case key.Matches(msg, k.first):
+		return -farthest
+	}
+
+	return 0
 }
 
 // listKeys is the footer of an overlay that is a list to choose from.

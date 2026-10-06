@@ -212,6 +212,9 @@ func TestArrowsMoveAndEnterKeepsTheFilter(t *testing.T) {
 	requireScreen(t, result.View().Content, "▸ ○ OPS-2 In Progress Fix bug", "search: Fix")
 }
 
+// firstOpsRow is the first of manyIssues' rows, selected.
+const firstOpsRow = "▸ ○ OPS-1"
+
 // manyIssues builds count numbered issue rows.
 func manyIssues(count int) []jira.Issue {
 	issues := make([]jira.Issue, 0, count)
@@ -311,9 +314,9 @@ func TestJAndKMoveTheSelectionAndStopAtTheEnds(t *testing.T) {
 		"j moves down":           {keys: []string{"j"}, want: secondSelected},
 		"down arrow moves down":  {keys: []string{"down"}, want: secondSelected},
 		"k moves back up":        {keys: []string{"j", "j", "k"}, want: secondSelected},
-		"up arrow moves up":      {keys: []string{"j", "up"}, want: "▸ ○ OPS-1"},
+		"up arrow moves up":      {keys: []string{"j", "up"}, want: firstOpsRow},
 		"it stops at the bottom": {keys: []string{"j", "j", "j", "j"}, want: "▸ ○ OPS-3"},
-		"it stops at the top":    {keys: []string{"k", "k"}, want: "▸ ○ OPS-1"},
+		"it stops at the top":    {keys: []string{"k", "k"}, want: firstOpsRow},
 	}
 
 	for name, tt := range cases {
@@ -347,7 +350,7 @@ func TestListKeysDoNothingOffTheIssuesPane(t *testing.T) {
 	view := press(t, screen, "2", "j", "1").View().Content
 
 	// Assert
-	requireScreen(t, view, "▸ ○ OPS-1")
+	requireScreen(t, view, firstOpsRow)
 	refuseScreen(t, view, "▸ ○ OPS-2")
 }
 
@@ -459,5 +462,36 @@ func TestRRefreshesTheIssues(t *testing.T) {
 	// Assert
 	if searches := len(refreshing.asked("search")); searches != before+1 {
 		t.Errorf("searched %d times, want once more than the %d before r", searches, before)
+	}
+}
+
+func TestTheEndKeysJumpToTheEndsOfTheIssueList(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		from []string
+		key  string
+		want string
+	}{
+		"end selects the last loaded issue": {key: keyEnd, want: "▸ ○ OPS-5"},
+		"G selects the last loaded issue":   {key: "G", want: "▸ ○ OPS-5"},
+		"home selects the first issue":      {from: []string{"j", "j", "j"}, key: keyHome, want: firstOpsRow},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			world := newWorld()
+			world.issues = manyIssues(5)
+			listed := typing(t, world.live(t, 120, 40), tt.from...)
+
+			// Act
+			jumped := typing(t, listed, tt.key)
+
+			// Assert
+			requireScreen(t, jumped.View().Content, tt.want)
+		})
 	}
 }

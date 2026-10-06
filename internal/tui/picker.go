@@ -325,10 +325,8 @@ func (p statusPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return p.handleFormKey(m, msg)
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.down):
-		return p.step(m, 1), nil
-	case key.Matches(msg, m.keys.up):
-		return p.step(m, -1), nil
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		return p.step(m, m.keys.stepOf(msg)), nil
 	case key.Matches(msg, m.keys.confirm):
 		return p.choose(m)
 	}
@@ -475,10 +473,8 @@ func (p fixupPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.down):
-		return p.step(m, 1), nil
-	case key.Matches(msg, m.keys.up):
-		return p.step(m, -1), nil
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		return p.step(m, m.keys.stepOf(msg)), nil
 	case key.Matches(msg, m.keys.confirm):
 		// The picker opens only over unpushed commits, so one is always chosen.
 		chosen, _ := p.commits.chosen()

@@ -400,14 +400,20 @@ func (m Model) repositoriesKeys() []key.Binding {
 	return append(keys, m.keys.refresh)
 }
 
+// moveRepositoryBy moves the cursor delta rows down, or up for a negative
+// delta, stopping at either end.
+func (m Model) moveRepositoryBy(delta int) Model {
+	m.repositories.selected = max(0, min(m.repositories.selected+delta, len(m.repositoryRows())-1))
+
+	return m
+}
+
 // handleRepositoriesKey moves the cursor, marks or forgets a favorite, or
 // opens what the pane offers.
 func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.up):
-		m.repositories.selected = max(0, m.repositories.selected-1)
-	case key.Matches(msg, m.keys.down):
-		m.repositories.selected = min(len(m.repositoryRows())-1, m.repositories.selected+1)
+	case key.Matches(msg, m.keys.up, m.keys.down):
+		return m.moveRepositoryBy(m.keys.stepOf(msg)), nil
 	case key.Matches(msg, m.keys.favoriteDir):
 		return m.toggleFavorite(m.selectedRepository())
 	case key.Matches(msg, m.keys.confirm):
@@ -417,8 +423,6 @@ func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	default:
 		return m.openFromRepositories(msg)
 	}
-
-	return m, nil
 }
 
 // openFromRepositories opens what the Repositories pane offers: the go-to

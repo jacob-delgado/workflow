@@ -667,8 +667,8 @@ then is refused now.
 
 The actions you can rebind, grouped by where they work, are:
 
-- **Moving around:** `next-pane`, `previous-pane`, `up`, `down`, `scroll-up`,
-  `scroll-down`.
+- **Moving around:** `next-pane`, `previous-pane`, `up`, `down`, `first`,
+  `last`, `scroll-up`, `scroll-down`.
 - **Issues:** `change-status`, `comment`, `assign`, `log-work`,
   `start-work`, `search-issues`, `filter-issues`, `switch-view`, `load-more`,
   `open-link`, `copy-link`, `refresh`, `track-issue`.

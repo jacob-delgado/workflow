@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
@@ -414,4 +415,55 @@ func TestAReloadWhileAwayKeepsTheSelectedReviewInSight(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "▸ · #1 queued change (1)")
+}
+
+func TestEndSelectsTheLastFileOfTheCommitsList(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	crowded := newWorld()
+	crowded.changes = changedFiles("file", 60)
+	onCommits := typing(t, crowded.live(t, 120, 20), "3")
+
+	// Act
+	view := typing(t, onCommits, keyEnd).View().Content
+
+	// Assert
+	requireScreen(t, view, "▸ ○ modified   file59.go")
+}
+
+func TestEndAndHomeScrollADetailWithNoListToItsEnds(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		keys        []string
+		shown, gone string
+	}{
+		"end scrolls to the bottom": {keys: []string{keyEnd}, shown: "check number 59", gone: pullURL},
+		"home scrolls to the top":   {keys: []string{keyEnd, keyHome}, shown: pullURL, gone: "check number 59"},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			failing := newWorld()
+			checks := make([]forge.Check, 0, 60)
+
+			for index := range 60 {
+				checks = append(checks, forge.Check{Name: "check number " + strconv.Itoa(index), State: forge.CIFailed})
+			}
+
+			failing.ci = []forge.CI{{State: forge.CIFailed, Total: 60, Done: 60, Failed: 60, Checks: checks}}
+			onReview := typing(t, failing.live(t, 120, 20), "4")
+
+			// Act
+			view := typing(t, onReview, tt.keys...).View().Content
+
+			// Assert
+			requireScreen(t, view, tt.shown)
+			refuseScreen(t, view, tt.gone)
+		})
+	}
 }

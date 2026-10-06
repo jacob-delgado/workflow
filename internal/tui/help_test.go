@@ -45,6 +45,8 @@ func placedBindings() []helpGroup {
 			"jump-to-pane      1-9        jump to pane",
 			"up                ↑/k        up",
 			"down              ↓/j        down",
+			"first             home       first",
+			"last              end/G      last",
 			"scroll-up         pgup/K     scroll up",
 			"scroll-down       pgdn/J     scroll down"),
 		placed("Issues",
@@ -429,8 +431,8 @@ func TestTheWholeHelpFitsATallTerminal(t *testing.T) {
 	// Act
 	// At 120 columns the whole help, the Tasks and Reviews keys and the
 	// tagging keys, the Summary's and the Repositories' and unlink among it,
-	// needs 67 rows.
-	view := typing(t, newWorld().live(t, 120, 68), "?").View().Content
+	// needs 69 rows.
+	view := typing(t, newWorld().live(t, 120, 70), "?").View().Content
 
 	// Assert
 	requireScreen(t, view, "Everywhere")
