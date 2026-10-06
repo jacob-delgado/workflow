@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -182,5 +183,29 @@ func TestAnnouncedMomentFollowsTheCI(t *testing.T) {
 	// Assert
 	if !snap.Review.Announced {
 		t.Error("a pull request announced with its CI red, still red, does not read as announced")
+	}
+}
+
+func TestTheStoreIsReadAgainOnceTheForgeIntervalHasPassed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	memory := &announceMemory{}
+	deps := memory.wire(filledDeps())
+	now := time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC)
+	deps.Clock = func() time.Time { return now }
+	handler := serve(t, deps, config.Default())
+
+	streamOnce(t, handler, "/api/events")
+	streamOnce(t, handler, "/api/events")
+
+	// Act
+	now = now.Add(time.Minute)
+
+	streamOnce(t, handler, "/api/events")
+
+	// Assert
+	if memory.reads != 2 {
+		t.Errorf("the store was read %d times, want once, then again once the interval passed", memory.reads)
 	}
 }

@@ -360,7 +360,7 @@ func (s *server) announcedAlready(made loop.Announced) bool {
 // moment it is at now, read from its pull request and CI as the terminal reads
 // them.
 func (s *server) reviewAnnounced(review api.Review) bool {
-	if !review.Found || review.Pull == nil {
+	if review.Pull == nil {
 		return false
 	}
 
