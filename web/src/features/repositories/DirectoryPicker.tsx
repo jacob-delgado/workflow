@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { DirectoryListing } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Failure } from '@/lib/Status.tsx'
 import { useDirectories } from './repositoriesApi.ts'
 
 // DirectoryPicker browses for a directory to switch to: a path typed — from
@@ -45,9 +46,9 @@ export function DirectoryPicker({ onChoose }: { onChoose: (dir: string, shown: s
         </Button>
       </form>
       {listing.isError ? (
-        <p className="text-sm text-foreground">
+        <Failure key={listing.errorUpdateCount}>
           {apiErrorMessage(listing.error, 'That directory could not be listed.')}
-        </p>
+        </Failure>
       ) : null}
       {listing.data === undefined ? null : (
         <Listing

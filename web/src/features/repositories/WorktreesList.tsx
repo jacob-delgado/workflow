@@ -1,5 +1,6 @@
 import type { Worktree } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Failure } from '@/lib/Status.tsx'
 
 interface WorktreesListProps {
   worktrees: Worktree[]
@@ -20,9 +21,7 @@ export function WorktreesList({ worktrees, error, onSwitch }: WorktreesListProps
       <h2 id="worktrees" className="text-lg font-semibold">
         Worktrees
       </h2>
-      {error === '' ? null : (
-        <p className="text-sm text-foreground">The worktrees could not be read: {error}</p>
-      )}
+      {error === '' ? null : <Failure>{`The worktrees could not be read: ${error}`}</Failure>}
       {worktrees.length === 0 ? null : (
         <ul aria-labelledby="worktrees" className="flex flex-col divide-y divide-border">
           {worktrees.map((worktree) => (

@@ -5,6 +5,7 @@ import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
+import { Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { type CleanScope, useCleanLocalData, useLocalData } from './localDataApi.ts'
 
@@ -38,20 +39,14 @@ function LocalDataBody() {
 
   if (query.isError) {
     return (
-      <div className="flex flex-col items-start gap-item">
-        <p className="text-sm text-destructive">
-          {apiErrorMessage(query.error, 'The local data could not be read.')}
-        </p>
-        <Button
-          variant="secondary"
-          disabled={query.isFetching}
-          onClick={() => {
-            void query.refetch()
-          }}
-        >
-          Read the local data again
-        </Button>
-      </div>
+      <Unread
+        reason={apiErrorMessage(query.error, 'The local data could not be read.')}
+        refusals={query.errorUpdateCount}
+        retrying={query.isFetching}
+        onRetry={() => {
+          void query.refetch()
+        }}
+      />
     )
   }
 

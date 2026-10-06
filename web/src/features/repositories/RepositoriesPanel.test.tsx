@@ -280,7 +280,7 @@ test('a switch made here tells the page where it works at once', async () => {
   expect(useSnapshotStore.getState().snapshot?.here).toBe('/home/ana/src/web')
 })
 
-test('where the server works that cannot be read says why, and reads again on Retry', async () => {
+test('where the server works that cannot be read says why, and reads again on Try again', async () => {
   // Arrange
   let answers = 0
   fakeApi({
@@ -306,7 +306,7 @@ test('where the server works that cannot be read says why, and reads again on Re
   renderWithClient(<RepositoriesPanel />)
 
   // Act
-  await user.click(await screen.findByRole('button', { name: 'Retry' }))
+  await user.click(await screen.findByRole('button', { name: 'Try again' }))
 
   // Assert
   expect(await screen.findByRole('region', { name: 'Working in' })).toBeTruthy()

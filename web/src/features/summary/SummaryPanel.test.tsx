@@ -178,7 +178,7 @@ test('a period with nothing done invites another', async () => {
   ).toBe('true')
 })
 
-test('a first read that fails says why and reads again on Retry', async () => {
+test('a first read that fails says why and reads again on Try again', async () => {
   // Arrange
   let answers = 0
   fakeApi({
@@ -200,7 +200,7 @@ test('a first read that fails says why and reads again on Retry', async () => {
     },
   })
   renderWithClient(<SummaryPanel />)
-  const retry = await screen.findByRole('button', { name: 'Retry' })
+  const retry = await screen.findByRole('button', { name: 'Try again' })
 
   // Act
   await userEvent.setup().click(retry)
