@@ -228,6 +228,26 @@ func TestClickingBelowTheReviewsKeepsTheSelection(t *testing.T) {
 	}
 }
 
+func TestADraftReviewRequestSaysSoOnItsRow(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := withReviews()
+	repo.reviews[0].Draft = true
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "6").View().Content
+
+	// Assert
+	if draft := railLine(view, "#7"); !strings.HasSuffix(strings.TrimRight(draft, " │┃"), "3h ago · draft") {
+		t.Errorf("the draft's row is %q, want it to end in draft", draft)
+	}
+
+	if ready := railLine(view, "#12"); strings.Contains(ready, "draft") {
+		t.Errorf("the ready request's row is %q, want no draft on it", ready)
+	}
+}
+
 func TestAReviewWithoutARepositoryStillListsItsAuthor(t *testing.T) {
 	t.Parallel()
 

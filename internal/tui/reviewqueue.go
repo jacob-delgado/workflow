@@ -226,9 +226,13 @@ func (m Model) reviewRows() []string {
 }
 
 // reviewTail is the faint metadata after a queued request's title: its
-// repository, who wants the review, and how long it has waited.
+// repository, who wants the review, how long it has waited, and whether it is
+// a draft, as the Review pane labels the branch's own.
 func (m Model) reviewTail(request forge.ReviewRequest, now time.Time) string {
 	tail := "by " + request.Author + m.marks.separator + age(now, request.OpenedAt)
+	if request.Draft {
+		tail += m.marks.separator + "draft"
+	}
 
 	if request.Repository != "" {
 		return request.Repository + m.marks.separator + tail
