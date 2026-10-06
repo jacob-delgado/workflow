@@ -14,10 +14,13 @@ import (
 // the screen masks it all the same.
 const settingsToken = "jira-secret-token-9999"
 
+// readProject is the Jira project in the configuration Settings reads.
+const readProject = "PROJ"
+
 // settingsFile is the configuration Settings reads and saves.
 func settingsFile() config.Config {
 	cfg := config.Default()
-	cfg.Jira.BaseURL, cfg.Jira.Token, cfg.Jira.Project = "https://jira.example.com", settingsToken, "PROJ"
+	cfg.Jira.BaseURL, cfg.Jira.Token, cfg.Jira.Project = "https://jira.example.com", settingsToken, readProject
 	cfg.Messaging.Channel = devChannel
 	cfg.Path = "/home/ana/src/api/.workflow.json"
 

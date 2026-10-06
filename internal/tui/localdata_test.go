@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -163,4 +164,79 @@ func TestLocalDataThatCannotBeReadSaysSoAndOffersAnotherRead(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "permission denied")
 	requireScreen(t, footerLine(view), "r try again")
+}
+
+func TestTryingAgainReadsTheLocalDataAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.localDataErr = errStoreUnreadable
+	refused := typing(t, repo.live(t, 120, 40), reposKey, localDataKey, "c")
+	repo.mu.Lock()
+	repo.localDataErr = nil
+	repo.mu.Unlock()
+
+	// Act
+	view := typing(t, refused, "r").View().Content
+
+	// Assert
+	requireScreen(t, view, "workflow.db")
+}
+
+func TestEscClosesLocalData(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), reposKey, localDataKey, keyEsc).View().Content
+
+	// Assert
+	refuseScreen(t, view, "Kept in")
+}
+
+func TestWithOnlyTheKeptFileThereIsNoCacheToRemove(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.localFiles = []store.DataFile{{Name: "kept.db", Kind: store.DataKept, Bytes: 512}}
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), reposKey, localDataKey, "c").View().Content
+
+	// Assert
+	requireScreen(t, view, "512 B", "not readable as a database")
+	refuseScreen(t, view, "Remove kept.db?")
+}
+
+func TestALargeFileIsSizedInMiB(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.localFiles = []store.DataFile{{Name: "workflow.db", Kind: store.DataCache, Bytes: 3 << 20}}
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), reposKey, localDataKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "3.0 MiB")
+}
+
+func TestKeysLocalDataHasNothingForChangeNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.localFiles = nil
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), reposKey, localDataKey, "r", "C", "c").View().Content
+
+	// Assert
+	if removed := repo.asked("remove-local-data"); len(removed) != 0 {
+		t.Errorf("removed %q with nothing to remove", removed)
+	}
+
+	requireScreen(t, view, "No local data")
 }

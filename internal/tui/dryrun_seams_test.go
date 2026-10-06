@@ -19,6 +19,8 @@ func readOnly(w *world) tui.Deps {
 	deps.Git.Stage, deps.Git.Unstage, deps.Git.CreateBranch, deps.Git.Checkout = nil, nil, nil, nil
 	deps.Git.CreateWorktree, deps.Git.Finish, deps.Git.Commit, deps.Git.Push = nil, nil, nil, nil
 	deps.Git.Amend, deps.Git.Fixup, deps.Git.Rebase = nil, nil, nil
+	deps.Git.LinkIssue, deps.Git.UnlinkIssue = nil, nil
+	deps.Settings.Save, deps.Settings.RemoveLocalData = nil, nil
 	deps.Forge.CreatePullRequest, deps.Forge.EditPullRequest, deps.Forge.Rerun, deps.Forge.Merge = nil, nil, nil, nil
 	deps.Messaging.Post = nil
 	deps.Hooks = seams.Hooks{Run: nil, Existing: deps.Hooks.Existing, Write: nil}
