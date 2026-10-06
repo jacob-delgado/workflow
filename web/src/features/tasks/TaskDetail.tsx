@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import type { Issue, Task, TaskList } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { writtenDate } from '@/lib/dates.ts'
+import { Meta } from '@/lib/Meta.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, definitionList } from '@/lib/utils.ts'
@@ -82,15 +83,20 @@ function TaskFacts({ task, issue, now }: Omit<TaskDetailProps, 'teller'>) {
       )}
       {task.due === undefined ? null : (
         <Fact term="Due">
-          <time dateTime={task.due}>{writtenDate(new Date(task.due))}</time>
-          {` · ${dueWords(task.due, now)}`}
+          <Meta>
+            <time dateTime={task.due}>{writtenDate(new Date(task.due))}</time>
+            {dueWords(task.due, now)}
+          </Meta>
         </Fact>
       )}
       <Fact term="Urgency">{task.urgency.toFixed(1)}</Fact>
       {number === '' ? null : <Fact term="ID">#{number}</Fact>}
       {task.issue_key === '' ? null : (
         <Fact term="Issue">
-          {issue === undefined ? task.issue_key : `${task.issue_key} · ${issue.summary}`}
+          <Meta>
+            {task.issue_key}
+            {issue?.summary}
+          </Meta>
         </Fact>
       )}
     </dl>

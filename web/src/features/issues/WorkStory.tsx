@@ -3,6 +3,7 @@ import type { CreatedWorktree, Snapshot, TaskBranch } from '@/api/generated/type
 import { useForgeWords, type ForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, cn } from '@/lib/utils.ts'
@@ -38,7 +39,8 @@ type Reached = 'done' | 'failed' | 'pending'
 
 interface Stage {
   title: string
-  detail: string
+  // detail is what the stage has come to, as facts said apart.
+  detail: string[]
   section: Section
   reached: Reached
 }
@@ -71,11 +73,11 @@ function notStartedStages(noun: string): Stage[] {
       title: 'Branch',
       section: 'branch',
       reached: 'pending',
-      detail: 'No branch for this issue yet',
+      detail: ['No branch for this issue yet'],
     },
-    { title: 'Changes', section: 'branch', reached: 'pending', detail: 'Nothing committed yet' },
-    { title: capitalized(noun), section: 'review', reached: 'pending', detail: `No ${noun} yet` },
-    { title: 'Announce', section: 'messaging', reached: 'pending', detail: 'Not announced' },
+    { title: 'Changes', section: 'branch', reached: 'pending', detail: ['Nothing committed yet'] },
+    { title: capitalized(noun), section: 'review', reached: 'pending', detail: [`No ${noun} yet`] },
+    { title: 'Announce', section: 'messaging', reached: 'pending', detail: ['Not announced'] },
   ]
 }
 
@@ -86,10 +88,10 @@ function offHeadStages(branchName: string, noun: string): Stage[] {
   const elsewhere = 'Shown for the checked-out branch'
 
   return [
-    { title: 'Branch', section: 'branch', reached: 'done', detail: branchName },
-    { title: 'Changes', section: 'branch', reached: 'pending', detail: elsewhere },
-    { title: capitalized(noun), section: 'review', reached: 'pending', detail: elsewhere },
-    { title: 'Announce', section: 'messaging', reached: 'pending', detail: 'Not announced' },
+    { title: 'Branch', section: 'branch', reached: 'done', detail: [branchName] },
+    { title: 'Changes', section: 'branch', reached: 'pending', detail: [elsewhere] },
+    { title: capitalized(noun), section: 'review', reached: 'pending', detail: [elsewhere] },
+    { title: 'Announce', section: 'messaging', reached: 'pending', detail: ['Not announced'] },
   ]
 }
 
@@ -105,8 +107,8 @@ function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
       reached: branch.name === '' ? 'pending' : 'done',
       detail:
         branch.name === ''
-          ? 'Not on a branch yet'
-          : `${branch.name} · ${String(branch.ahead)} ahead`,
+          ? ['Not on a branch yet']
+          : [branch.name, `${String(branch.ahead)} ahead`],
     },
     {
       title: 'Changes',
@@ -115,7 +117,7 @@ function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
       // commit do not undo one already made, and a fresh branch with nothing
       // committed is still at this stage however clean its tree.
       reached: branch.commits.length > 0 ? 'done' : 'pending',
-      detail: changesDetail(snapshot),
+      detail: [changesDetail(snapshot)],
     },
     {
       title: capitalized(words.noun),
@@ -127,7 +129,7 @@ function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
       title: 'Announce',
       section: 'messaging',
       reached: 'pending',
-      detail: announceDetail(messaging),
+      detail: [announceDetail(messaging)],
     },
   ]
 }
@@ -178,15 +180,15 @@ function changesDetail(snapshot: Snapshot): string {
   return 'Nothing committed yet'
 }
 
-function reviewDetail(snapshot: Snapshot, { noun, sigil }: ForgeWords): string {
+function reviewDetail(snapshot: Snapshot, { noun, sigil }: ForgeWords): string[] {
   const { review } = snapshot
   if (!review.found || !review.pull) {
-    return `No ${noun} yet`
+    return [`No ${noun} yet`]
   }
 
   const number = `${sigil}${String(review.pull.number)}`
 
-  return review.ci ? `${number} · CI ${review.ci.state}` : number
+  return review.ci ? [number, `CI ${review.ci.state}`] : [number]
 }
 
 function stageState(stage: Stage, index: number, activeIndex: number): StageState {
@@ -315,7 +317,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
               >
                 <span className="font-medium">{stage.title}</span>
                 <span className="sr-only">{state}</span>
-                <span className="text-sm text-muted-foreground">{stage.detail}</span>
+                <Meta className="text-sm text-muted-foreground">{stage.detail}</Meta>
               </button>
             </li>
           )

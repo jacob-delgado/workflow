@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { OpenedPullRequest } from '@/api/generated/types.gen.ts'
@@ -104,8 +104,8 @@ test('shows the pull request and its CI checks', () => {
 // The heading counts the checks that are done, and the failed ones only when
 // there are any.
 const ciCounts = [
-  { done: 1, failed: 1, heading: 'CI checks · 1 of 2 done, 1 failed' },
-  { done: 2, failed: 0, heading: 'CI checks · 2 of 2 done' },
+  { done: 1, failed: 1, heading: 'CI checks 1 of 2 done, 1 failed' },
+  { done: 2, failed: 0, heading: 'CI checks 2 of 2 done' },
 ] as const
 
 test.each(ciCounts)(
@@ -136,7 +136,10 @@ test.each(ciCounts)(
     render(<ReviewPanel />)
 
     // Assert
-    expect(screen.getByRole('heading', { level: 3, name: heading })).toBeTruthy()
+    // The count is an element apart, which a browser names after a space and
+    // the test's DOM without one; the dot before it is never named.
+    const name = new RegExp(`^CI checks\\s?${heading.slice('CI checks '.length)}$`)
+    expect(screen.getByRole('heading', { level: 3, name })).toBeTruthy()
   },
 )
 
@@ -586,7 +589,8 @@ test('says why each failed check failed, and the stage it ran in', () => {
 
   // Assert
   const row = screen.getByRole('listitem')
-  expect(row.textContent).toContain('test · unit-race')
+  expect(within(row).getByText('test')).toBeTruthy()
+  expect(within(row).getByRole('link', { name: 'unit-race' })).toBeTruthy()
   expect(row.textContent).toContain('script failure')
 })
 
@@ -661,10 +665,10 @@ test('a log, once read, takes focus from the control that asked for it', async (
   render(<ReviewPanel />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Show log of test · unit-race' }))
+  await user.click(screen.getByRole('button', { name: 'Show log of unit-race' }))
 
   // Assert
-  const log = await screen.findByRole('region', { name: 'Log of test · unit-race' })
+  const log = await screen.findByRole('region', { name: 'Log of unit-race' })
   expect(document.activeElement).toBe(log)
   expect(log.textContent).toContain('--- FAIL: TestRetry')
 })
@@ -677,10 +681,8 @@ test('while the log is read, the control is named by what it says', async () => 
   render(<ReviewPanel />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Show log of test · unit-race' }))
+  await user.click(screen.getByRole('button', { name: 'Show log of unit-race' }))
 
   // Assert
-  expect(
-    await screen.findByRole('button', { name: 'Reading the log of test · unit-race…' }),
-  ).toBeTruthy()
+  expect(await screen.findByRole('button', { name: 'Reading the log of unit-race…' })).toBeTruthy()
 })

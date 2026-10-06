@@ -68,7 +68,7 @@ export function TaskLineForm({
           setLine(event.target.value)
           setEmpty(false)
         }}
-        className="min-w-40 flex-1 rounded-md border border-input bg-transparent px-3 py-1.5 font-mono text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="min-w-40 flex-1 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       />
       <Button variant="secondary" type="submit" disabled={write.state === 'running'}>
         {write.state === 'running' ? busy : verb}

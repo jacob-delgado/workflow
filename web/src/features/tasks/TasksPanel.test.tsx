@@ -122,6 +122,19 @@ test('lists the tasks for your issues apart from the others, and counts those wa
   expect(screen.queryByText(/book the retro room/i)).toBeNull()
 })
 
+test('a row gives each fact after the task an element of its own', async () => {
+  // Arrange
+  fakeApi({ [tasksPath]: makeTaskList([elsewhere]) })
+
+  // Act
+  renderWithClient(<TasksPanel />)
+
+  // Assert
+  const row = within((await screen.findAllByRole('listitem'))[0] ?? document.body)
+  expect(row.getByText('PROJ-9').textContent).toBe('PROJ-9')
+  expect(row.getByText('urgency 3.2').textContent).toBe('urgency 3.2')
+})
+
 test('tasks all of one kind are one list, with no headings over it', async () => {
   // Arrange
   fakeApi({ [tasksPath]: makeTaskList([certificate, elsewhere]) })

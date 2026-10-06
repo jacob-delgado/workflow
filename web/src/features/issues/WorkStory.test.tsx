@@ -148,7 +148,9 @@ test('reads a committed clean tree and a green pull request', () => {
 
   // Assert
   expect(screen.getByText(/working tree clean/i)).toBeTruthy()
-  expect(screen.getByText(/#128 · CI passed/i)).toBeTruthy()
+  expect(screen.getByText('#128')).toBeTruthy()
+  expect(screen.getByText('CI passed')).toBeTruthy()
+  expect(screen.getByText('1 ahead')).toBeTruthy()
 })
 
 test('reads a fresh branch as nothing-committed and a pull request with no CI', () => {
