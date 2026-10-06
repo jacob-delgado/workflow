@@ -14,6 +14,7 @@ import (
 // repository, or in place, switching to it.
 func (c branchCreator) createCommand(m Model, name string) tea.Cmd {
 	base := c.base
+	issue, forIssue := c.issue, c.forIssue
 
 	if c.worktree {
 		add := m.deps.Git.CreateWorktree
@@ -21,12 +22,11 @@ func (c branchCreator) createCommand(m Model, name string) tea.Cmd {
 		return func() tea.Msg {
 			path, err := add(name, base)
 
-			return worktreeCreated{name: name, path: path, err: err}
+			return worktreeCreated{name: name, path: path, issue: issue, forIssue: forIssue, err: err}
 		}
 	}
 
 	createBranch := m.deps.Git.CreateBranch
-	issue, forIssue := c.issue, c.forIssue
 
 	return func() tea.Msg {
 		return branchCreated{name: name, issue: issue, forIssue: forIssue, err: createBranch(name, base)}
@@ -83,28 +83,39 @@ func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 		m.followUp = m.offerStart(msg.issue)
 	}
 
-	if !msg.forIssue || msg.issue.StatusCategory != jira.CategoryNew {
+	return m.offeringInProgress(msg.issue, msg.forIssue, reload)
+}
+
+// offeringInProgress follows reload with the offer to move an issue the new
+// branch is for along, when it is not yet started: the status picker,
+// pre-selected on the first in-progress transition, which the developer
+// confirms or backs out of. It is never applied for them.
+func (m Model) offeringInProgress(issue jira.Issue, forIssue bool, reload tea.Cmd) (Model, tea.Cmd) {
+	if !forIssue || issue.StatusCategory != jira.CategoryNew {
 		return m, reload
 	}
 
-	// Offer the status change, pre-selected on the first in-progress transition;
-	// the developer confirms it or backs out. Never applied for them.
-	picker, offer := m.pickStatusFor(msg.issue, statusOffer{inProgress: true})
+	picker, offer := m.pickStatusFor(issue, statusOffer{inProgress: true})
 
 	return picker, tea.Batch(reload, offer)
 }
 
-// worktreeCreated reports how creating a worktree went.
+// worktreeCreated reports how creating a worktree went, and the issue it was
+// for so its status can be offered once it exists, as branchCreated does.
 type worktreeCreated struct {
 	name, path string
+	issue      jira.Issue
+	forIssue   bool
 	err        error
 }
 
 // apply says where the worktree is, or keeps the creator open with git's reason.
 // The panes do not reload: the current checkout is untouched, and the worktree
 // is a separate directory to move to, which is offered once nothing else is
-// being asked. Its branch is new, though, so the issues are marked in flight
-// again, and a Repositories pane already read lists the worktree.
+// being asked — after the offer to move an issue not yet started along, since
+// its work has as surely begun. Its branch is new, though, so the issues are
+// marked in flight again, and a Repositories pane already read lists the
+// worktree.
 func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[branchCreator](m, msg.err), nil
@@ -125,7 +136,7 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 		reload = tea.Batch(reload, m.loadRepositories())
 	}
 
-	return m, reload
+	return m.offeringInProgress(msg.issue, msg.forIssue, reload)
 }
 
 // failed is the creator kept open with the reason it could not create what was

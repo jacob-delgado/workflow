@@ -33,6 +33,21 @@ func TestBranchingANotStartedIssueOffersItsInProgressStatus(t *testing.T) {
 	requireScreen(t, view, "Change status", secondIssue, "▸ ◐ Start")
 }
 
+func TestAWorktreeForANotStartedIssueOffersItsInProgressStatus(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.moves = startTransitions()
+	creating := typing(t, repo.live(t, 120, 40), "j", "b", keyWorktree)
+
+	// Act
+	view := typing(t, creating, keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "created worktree", "Change status", secondIssue, "▸ ◐ Start")
+}
+
 func TestBranchingAnInProgressIssueOffersNoStatusChange(t *testing.T) {
 	t.Parallel()
 

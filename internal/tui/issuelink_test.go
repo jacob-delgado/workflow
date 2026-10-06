@@ -40,7 +40,26 @@ func TestLinkingAPullRequestThenOffersTheReviewStatus(t *testing.T) {
 	// Assert
 	// In Review shares the indeterminate category with In Progress, so the offer
 	// is pre-selected by name, not by category.
-	requireScreen(t, linked.View().Content, "Change status", "▸ ◐ Start Review")
+	requireScreen(t, linked.View().Content, "Change status", "▸ ◐ Start Review",
+		issueKey+" "+issueSummary, "status  "+statusInProgress)
+}
+
+func TestTheReviewStatusOfferNamesAnIssueTheListDoesNotHoldByItsKey(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	unlisted := withoutPull()
+	unlisted.cfg.Jira.ReviewStatus = statusInReview
+	unlisted.moves = reviewTransitions()
+	unlisted.issues = unlisted.issues[1:]
+	opened := typing(t, unlisted.live(t, 120, 40), "4", "n", keyEnter)
+
+	// Act
+	linked := typing(t, opened, keyEnter)
+
+	// Assert
+	requireScreen(t, linked.View().Content, "Change status", issueKey, "▸ ◐ Start Review")
+	refuseScreen(t, linked.View().Content, issueSummary)
 }
 
 func TestSkippingTheLinkStillOffersTheReviewStatus(t *testing.T) {
