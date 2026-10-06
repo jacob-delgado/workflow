@@ -109,32 +109,6 @@ Impact: medium · Effort: medium
   Review" --yes` applies a fields-less move and refuses one that needs
   fields, naming them.
 
-### FEAT-80 Issue writes on the web
-
-Impact: medium · Effort: large
-
-- Why: The browser can read an issue and comment on it (`AddComment`,
-  `internal/webserver/issuewrite.go:156`), and otherwise changes one only
-  through the two offers after opening a pull request: it links the pull
-  request on the issue (`LinkPullRequest`, `:34`) and moves the issue to the
-  configured review status, fields-less and nowhere else (`TransitionIssue`,
-  `:105`). Beyond those it has no transition with its field form, no
-  assign, no log work — all of which the interface offers from the Issues
-  pane (`openStatusPicker`, `internal/tui/picker.go:210`; `openAssign`,
-  `internal/tui/issuewrite.go:79`). This is the rest.
-- Touches: `api/openapi.yaml` (operations for a transition with fields,
-  assign, worklog), `internal/webserver`
-  (`internal/webserver/issuewrite.go` holds the post-open link and move; each
-  new write grows it or earns its own file and budget row),
-  `web/src/features/issues`, the shared composition (`internal/loop`).
-- Done when: a transition that needs a field shows its form and applies; the
-  handler tests answer each new write path 403 under `--dry-run` (every write
-  is a non-GET, so `refuseWritesInDryRun`,
-  `internal/webserver/guard.go:48`, covers it, as
-  `TestDryRunRefusesTheIssueWrites` asserts for the link and the move, and
-  `TestDryRunRefusesAComment` for the comment); and a
-  write's problem `detail` omits the tracker's host.
-
 ### FEAT-85 The web paints from the cached issue list
 
 Impact: low · Effort: small
@@ -285,21 +259,6 @@ Impact: medium · Effort: medium
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a user token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
-
-### FEAT-82 Announce when CI passes, from the web
-
-Impact: low · Effort: medium
-
-- Why: The interface's preview offers `w` — announce when CI goes
-  green — and keeps the queued announcement until it does or the run fails
-  (`messagingPreview.postWhenGreen`, `internal/tui/messagingpreview.go:169`).
-  The web announces now or not at all.
-- Touches: `internal/webserver` (a queued post needs somewhere to live
-  across requests — the store, or the stream's server state),
-  `api/openapi.yaml`, `web/src/features/messaging`.
-- Done when: "Announce when CI passes" queues the announcement and the
-  section shows it waiting; it is sent on the first snapshot with green CI; a
-  red run drops it with the reason.
 
 ### FEAT-84 The web remembers what was announced
 

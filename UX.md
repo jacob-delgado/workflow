@@ -122,8 +122,8 @@ their own command line, to them.
 | List, search and filter issues | — (FEAT-78) | Issues pane: `/`, `f`, `v`, `ctrl+n` | Issues: View, Search, Filter, Load more |
 | Read an issue and its comments | — (FEAT-78) | the detail | the detail |
 | Comment | `comment KEY`, the text on stdin | `c`, a composer with vim modes | the comment composer, Markdown |
-| Change its status | moves to `jira.review_status` inside `pr` | `t` | to the review status, after opening a pull request (UX-149, FEAT-80) |
-| Assign; log work | — (FEAT-78) | `a`; `w` | — (UX-149, FEAT-80) |
+| Change its status | moves to `jira.review_status` inside `pr` | `t` | Change status, with the transition's fields |
+| Assign; log work | — (FEAT-78) | `a`; `w` | Assign; Log work |
 | Track it in Taskwarrior | not for scripts | `T` | Track in Taskwarrior |
 | **Branch** | | | |
 | Start work | `branch KEY [--fetch]` | `b` | Start work |
@@ -148,8 +148,8 @@ their own command line, to them.
 | Where the work stands | `status [DIR…] --json` | the top row | the work story, the header |
 | **Messaging** | | | |
 | Announce | `announce` | `p` | Announce to SERVICE |
-| Announce when CI passes | — | `w` in the preview | — (FEAT-82) |
-| Edit the announcement first | — | `e` in the preview | — (UX-149) |
+| Announce when CI passes | — | `w` in the preview | Announce when CI passes |
+| Edit the announcement first | — | `e` in the preview | Edit, in the preview |
 | People and groups | — | `P` | Settings: People, Groups |
 | Post a standup | `standup` | — (FEAT-86) | — (FEAT-86) |
 | **Reviews** | | | |
@@ -2191,13 +2191,6 @@ against `api/openapi.yaml`'s operations and `web/src`, these the terminal
 does and the web cannot, by stage. `docs/content/docs/web.md:406`, "What
 stays in the terminal", lists most of them as decisions for now.
 
-- **Jira.** Move an issue to any status, with its fields: the web moves
-  only to `jira.review_status`, only from the open-pull-request offer
-  (`moveToReview`, `web/src/features/review/followUpApi.ts:23`; the
-  operation is "not a general transition", `api/openapi.yaml:206`), where
-  the terminal has `t` (`openStatusPicker`, `internal/tui/picker.go:210`).
-  Assign (`a`, `openAssign`, `internal/tui/issuewrite.go:79`) and log work
-  (`w`). All three: FEAT-80.
 - **Git.** Rebase onto the base (`u`, `previewRebase`,
   `internal/tui/branch.go:229`): no entry yet. Amend and fix up (`A`, `f`,
   `internal/tui/commits.go:374`, `internal/tui/picker.go:438`) and a
@@ -2212,19 +2205,16 @@ stays in the terminal", lists most of them as decisions for now.
   (`internal/tui/checks.go:105`): no entry yet. Choose among the
   repository's pull request templates (`ctrl+t`): UX-88, with UX-62 for
   the command line.
-- **Messaging.** Edit the announcement's text before it goes (`e` in the
-  preview, `messagingPreview.applyEdit`,
-  `internal/tui/messagingpreview.go:211`): no entry yet. Announce when CI
-  passes (`w`, `postWhenGreen`, `:169`): FEAT-82. Know an announcement was
-  already made: FEAT-84.
+- **Messaging.** Know an announcement was already made: FEAT-84.
 - **Everywhere.** A sheet of every key, `?`
   (`internal/tui/help.go`), and reaching any action without the mouse
   beyond Tab: UX-152.
 
 **Instead.** Nothing here beyond the entries named: this list is the
-index, so the next edition can strike a row as its entry ships. Three
+index, so the next edition can strike a row as its entry ships. The issue
+writes and the announcement's edit and wait for CI have shipped. Three
 rows have no entry yet — rebase, pre-commit and lefthook, a log for any
-check, the announcement's text — and each would be a FEATURES.md entry
+check — and each would be a FEATURES.md entry
 in its stage's section, an endpoint and a section control over the seam
 the terminal already calls.
 
@@ -2270,8 +2260,8 @@ in the browser.
   name, its help words, its group and its key with `ui.keys` applied —
   generated from the terminal's `helpBuilder`, handed to the server as a
   seam as `CheckKeys` is, so a rebinding in the file reaches both. The
-  web binds the actions it has (`comment`, `change-status` once FEAT-80
-  lands, `stage`, `commit`, `push`, `open-pull-request`, `filter`, the
+  web binds the actions it has (`comment`, `change-status`, `assign`,
+  `log-work`, `stage`, `commit`, `push`, `open-pull-request`, `filter`, the
   pane numbers to the sections) and leaves the rest unlisted.
 - **A `?` sheet.** A dialog listing the bound actions by group, as the
   terminal's help does, with each control also carrying
