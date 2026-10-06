@@ -13,9 +13,12 @@ Checked against commit `f05ae9f` on 2026-09-24. Its entries were read at
 that commit; every pointer was checked again against the symbol it names
 at `cac1adf` on 2026-10-06, the `docs/ux-refresh` branch, where the web's
 review actions and its memory of what was announced shipped and left this
-file, and an entry a later change touched was checked again in that
-change. Line numbers drift, so every pointer also names the symbol it
-means.
+file, and again at `e5156e3` on 2026-10-06, the
+`claude/wizardly-babbage-lptyxi-ux2` branch, where the Summary's post on
+every surface and the `summary` command shipped and left it too. This edition also tracked the fixes made on that branch
+since, from a Summary refused when too long for its service to the
+terminal telling what was never set up as guidance. Line numbers drift,
+so every pointer also names the symbol it means.
 
 ## How to read an entry
 
@@ -73,7 +76,7 @@ that needs one of them reopened goes in the
   channel's history, so it asks for no scope that would let it.
 - **One process, which ends when the interface closes.** Nothing runs once
   it is gone, which the usage guide lists as a limit: *Nothing outlives the
-  session* (`docs/content/docs/usage.md:883`).
+  session* (`docs/content/docs/usage.md:918`).
 
 ## Issues
 
@@ -91,13 +94,13 @@ Impact: medium · Effort: medium
   with its fields, comment, assign and log work. The command line reads Jira
   only in passing — `workflow branch <key>` reads the issue to name the
   branch (`runBranch`, `internal/cli/branch.go:116`), `status` prints the
-  branch issue's summary (`gather`, `internal/cli/status.go:250`),
+  branch issue's summary (`gather`, `internal/cli/status.go:290`),
   `summary` reads what you did to Jira issues in a period (`runSummary`,
-  `internal/cli/summary.go:114`) and `workflow branch <tab>` completes
-  assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:176`)
+  `internal/cli/summary.go:117`) and `workflow branch <tab>` completes
+  assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:177`)
   — and writes to it only through `workflow comment` (`newCommentCmd`,
   `internal/cli/comment.go:33`) and as `workflow pr`'s side effects,
-  a link and a transition (`followUp`, `internal/cli/pr.go:285`). No
+  a link and a transition (`followUp`, `internal/cli/pr.go:291`). No
   command lists a view, prints an issue in full, or moves, assigns or logs
   work on one. A script that wants "the issues in my view" or "move PROJ-1
   to In Review" has nothing to call.
@@ -121,7 +124,7 @@ Impact: low · Effort: small
   Jira is asked again (`seededIssues`, `internal/tui/issues.go:60`, over
   `Store.CachedIssues`, `internal/store/cache.go:30`). The web's stream reads
   Jira before it sends its first frame (`snapshotIssues`,
-  `internal/webserver/stream.go:354`), so every section says *Connecting to
+  `internal/webserver/stream.go:408`), so every section says *Connecting to
   workflow…* until Jira answers.
 - Touches: `internal/webserver` (the stream's first frame, from a
   cached-issues seam on `Deps`), `internal/store`.
@@ -134,15 +137,19 @@ Impact: low · Effort: small
 
 Impact: medium · Effort: medium
 
-- Why: the remote is `origin` everywhere (`internal/gitrepo/gitrepo.go`,
-  `internal/gitrepo/branch.go`, `internal/tui/branch.go`,
-  `internal/tui/prcomposer.go`). With a fork, the base should come from
+- Why: the base, the fetch and the pull request's repository are read from
+  `origin` everywhere (`DefaultRemote`, `internal/gitrepo/branch.go:34`;
+  the forge's repository from `remote get-url`,
+  `internal/gitrepo/gitrepo.go:162`). Only the
+  push looks further, and only at `remote.pushDefault`
+  (`Repository.PushRemote`, `internal/gitrepo/branch.go:409`), never at
+  `branch.<name>.pushRemote`. With a fork, the base should come from
   `upstream` and the push should go to `origin`, and an open-source
   contributor cannot use the tool at all.
 - Touches: the files above; `internal/forge/pulls.go` (a head on another
   repository).
-- Constraints: read git's own answers first (`remote.pushDefault`,
-  `branch.<name>.pushRemote`) before adding a setting.
+- Constraints: read git's own answers first (`branch.<name>.pushRemote`
+  beside the `remote.pushDefault` already read) before adding a setting.
 - Done when: in a clone with `origin` and `upstream`, the base is
   `upstream/main`, the push goes to the fork, and the pull request opens
   against upstream.
@@ -216,12 +223,12 @@ Impact: medium · Effort: medium
   return the timestamp), the post seam that carries it to the record on
   every surface (`loop.Deliver`'s `post` and `Announced`,
   `internal/loop/announce.go:217`, which the interface's
-  `seams.Messaging.Post`, `internal/seams/seams.go:173`,
+  `seams.Messaging.Post`, `internal/seams/seams.go:177`,
   `announceSeams.Post` in `internal/cli/announce.go` and the web server's
   `Deps.Post`, through `server.Announce`
   (`internal/webserver/announce.go:78`), all post through), and the *Each
   announcement is its own message* limit in
-  `docs/content/docs/usage.md:893`.
+  `docs/content/docs/usage.md:928`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a user token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
@@ -279,7 +286,7 @@ Impact: medium · Effort: large
   assigning the issue to whoever had it, which the record keeps; a
   comment or a worklog, by deleting it; a branch or a worktree just made
   and not yet pushed, by removing it once nothing is uncommitted; a branch
-  link, by unlinking it (`Git.UnlinkIssue`, `internal/seams/seams.go:124`).
+  link, by unlinking it (`Git.UnlinkIssue`, `internal/seams/seams.go:128`).
 - What cannot, said on the row: a push (taking it back would be a force
   push to a shared remote); a merge (its reversal is a revert, a new pull
   request); finishing a branch (`branch -D`; the commits stay reachable
@@ -301,7 +308,7 @@ Impact: medium · Effort: large
   holds no text a user typed — a comment's body, a commit message —
   only what it was done to and the link, and no credential, since
   everything recorded is a credential-free identifier; the test that a
-  token cannot reach a record ships with it. `internal/tui` (60 of 60)
+  token cannot reach a record ships with it. `internal/tui` (62 of 62)
   and `web/src/shell` (12 of 12) are at their file budgets
   (`scripts/package-size-budgets.txt`), so the overlay and the drawer
   each come with a budget bump and its reason, or a home elsewhere.
@@ -371,7 +378,7 @@ Impact: low · Effort: medium
 
 - Why: a view on `sprint in openSprints()` already lists what is left this
   sprint — the configuration guide's *Sprint board* example
-  (`docs/content/docs/configuration.md:229`) — but flat, one row per issue
+  (`docs/content/docs/configuration.md:233`) — but flat, one row per issue
   with a status glyph, in update order (`issueList.render`,
   `internal/tui/issues.go:270`). What is missing is grouping by status: how
   much is to do, in progress or in review is read by scanning glyphs.
