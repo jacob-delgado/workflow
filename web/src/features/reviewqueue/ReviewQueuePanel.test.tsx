@@ -160,7 +160,7 @@ test.each([
 
 test('gives the date of a request that has waited over a month', async () => {
   // Arrange
-  const opened = hoursAgo(40 * 24)
+  const opened = '2025-03-14T12:00:00Z'
   fakeApi({ [reviewsPath]: queueOf(makeReviewRequest({ opened_at: opened })) })
 
   // Act
@@ -168,7 +168,7 @@ test('gives the date of a request that has waited over a month', async () => {
 
   // Assert
   const list = await screen.findByRole('list', { name: 'Review requests' })
-  const time = within(list).getByText(new Date(opened).toLocaleDateString(), { exact: false })
+  const time = within(list).getByText('Mar 14, 2025', { exact: false })
   expect(time.getAttribute('datetime')).toBe(opened)
 })
 

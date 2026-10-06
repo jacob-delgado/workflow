@@ -131,7 +131,7 @@ test('Copy as Markdown puts the summary on the clipboard and says so', async () 
 
   // Assert
   expect(await navigator.clipboard.readText()).toBe(tuesday().text)
-  expect(await screen.findByText('Copied the summary of 2026-09-15.')).toBeTruthy()
+  expect(await screen.findByText('Copied the summary of Sep 15, 2026.')).toBeTruthy()
 })
 
 test('Earlier reads the period before, a period’s length back', async () => {
