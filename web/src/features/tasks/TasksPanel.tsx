@@ -55,22 +55,11 @@ export function TasksPanel() {
 }
 
 // Unavailable says why there is no Taskwarrior to ask, in the server's words,
-// and — where the task on PATH is another program, go-task most likely — which
-// setting finds Taskwarrior instead, which the server takes up when it next
-// starts.
+// which say how to set it up in the words every surface shares.
 function Unavailable({ list }: { list: Tasks }) {
   return (
     <EmptyState>
-      <span>
-        {list.reason}
-        {list.reason_code === 'not_taskwarrior' ? (
-          <>
-            {' '}
-            Set <code className="font-mono">taskwarrior.program</code> in Settings, then restart
-            workflow.
-          </>
-        ) : null}
-      </span>
+      <span>{list.reason}</span>
     </EmptyState>
   )
 }

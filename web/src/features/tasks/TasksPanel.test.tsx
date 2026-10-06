@@ -307,8 +307,8 @@ test.each([
   [
     'go-task on PATH, and names the setting that finds Taskwarrior',
     'not_taskwarrior',
-    'The task on PATH is another program (go-task, most likely), not Taskwarrior.',
-    'The task on PATH is another program (go-task, most likely), not Taskwarrior. Set taskwarrior.program in Settings, then restart workflow.',
+    "The task on PATH is another program (go-task, most likely), not Taskwarrior. Set taskwarrior.program to Taskwarrior's path, then restart workflow; workflow doctor names what it found.",
+    "The task on PATH is another program (go-task, most likely), not Taskwarrior. Set taskwarrior.program to Taskwarrior's path, then restart workflow; workflow doctor names what it found.",
   ],
   [
     'no Taskwarrior at all',
