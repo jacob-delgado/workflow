@@ -209,6 +209,34 @@ func TestTheGitSeamsStageAndUnstageAChange(t *testing.T) {
 	}
 }
 
+func TestTheGitSeamsDiscardAChange(t *testing.T) {
+	cases := map[string]bool{"an untracked file": false, "a staged new file": true}
+
+	for name, stageFirst := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			repo, root, _ := gitSeams(t)
+			write(t, filepath.Join(root, "new.go"), "package x\n", 0o600)
+
+			if stageFirst {
+				err := repo.Stage(onlyChange(t, repo))
+				if err != nil {
+					t.Fatalf("Stage: %v", err)
+				}
+			}
+
+			// Act
+			err := repo.Discard(onlyChange(t, repo))
+
+			// Assert
+			changes, readErr := repo.Changes()
+			if err != nil || readErr != nil || len(changes) != 0 {
+				t.Errorf("Discard = %v; changes after = %+v, %v; want none", err, changes, readErr)
+			}
+		})
+	}
+}
+
 func TestTheGitSeamsCommitWhatIsStagedAndLeaveNoMessageBehind(t *testing.T) {
 	// Arrange
 	repo, root, drafts := gitSeams(t)

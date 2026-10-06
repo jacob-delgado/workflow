@@ -73,9 +73,12 @@ type Git struct {
 	CommitsBetween func(start, end time.Time) []loop.RepositoryCommits
 	// Diff reads a changed file's diff against HEAD, line by line, so it can be
 	// read before staging. Nil when there is no repository.
-	Diff         func(change gitrepo.Change) ([]string, error)
-	Stage        func(change gitrepo.Change) error
-	Unstage      func(change gitrepo.Change) error
+	Diff    func(change gitrepo.Change) ([]string, error)
+	Stage   func(change gitrepo.Change) error
+	Unstage func(change gitrepo.Change) error
+	// Discard drops a change from the index and the work tree, which cannot be
+	// undone. Nil when there is no repository.
+	Discard      func(change gitrepo.Change) error
 	CreateBranch func(name, start string) error
 	// Branches lists the local branches; Checkout switches to one. Nil when
 	// there is no repository.

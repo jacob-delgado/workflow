@@ -101,6 +101,10 @@ func heldBackGit(deps seams.Git) seams.Git {
 		deps.Unstage = func(gitrepo.Change) error { return errDryRun }
 	}
 
+	if deps.Discard != nil {
+		deps.Discard = func(gitrepo.Change) error { return errDryRun }
+	}
+
 	if deps.CreateBranch != nil {
 		deps.CreateBranch = func(string, string) error { return errDryRun }
 	}

@@ -19,7 +19,7 @@ func readOnly(w *world) tui.Deps {
 	deps.Git.Stage, deps.Git.Unstage, deps.Git.CreateBranch, deps.Git.Checkout = nil, nil, nil, nil
 	deps.Git.CreateWorktree, deps.Git.Finish, deps.Git.Commit, deps.Git.Push = nil, nil, nil, nil
 	deps.Git.Amend, deps.Git.Fixup, deps.Git.Rebase = nil, nil, nil
-	deps.Git.LinkIssue, deps.Git.UnlinkIssue = nil, nil
+	deps.Git.LinkIssue, deps.Git.UnlinkIssue, deps.Git.Discard = nil, nil, nil
 	deps.Settings.Save, deps.Settings.RemoveLocalData = nil, nil
 	deps.Forge.CreatePullRequest, deps.Forge.EditPullRequest, deps.Forge.Rerun, deps.Forge.Merge = nil, nil, nil, nil
 	deps.Messaging.Post = nil
@@ -44,7 +44,7 @@ func TestADryRunTurnsOnNoWriteThatIsNotThere(t *testing.T) {
 
 	for pane, unwanted := range map[string][]string{
 		"2": {"push", "rebase"},
-		"3": {"stage", "amend"},
+		"3": {"stage", "amend", "unstage all", "discard"},
 		"4": {"re-run", "merge"},
 		"5": {"announce"},
 	} {

@@ -69,6 +69,8 @@ func placedBindings() []helpGroup {
 			"push              P          push",
 			"stage             space      stage/unstage",
 			"stage-all         a          stage all",
+			"unstage-all       U          unstage all",
+			"discard-change    x          discard",
 			"commit            c          commit",
 			"amend             A          amend",
 			"fixup             f          fix up",
@@ -426,8 +428,8 @@ func TestTheWholeHelpFitsATallTerminal(t *testing.T) {
 	// Act
 	// At 120 columns the whole help, the Tasks and Reviews keys and the
 	// tagging keys, the Summary's and the Repositories' and unlink among it,
-	// needs 65 rows.
-	view := typing(t, newWorld().live(t, 120, 66), "?").View().Content
+	// needs 67 rows.
+	view := typing(t, newWorld().live(t, 120, 68), "?").View().Content
 
 	// Assert
 	requireScreen(t, view, "Everywhere")

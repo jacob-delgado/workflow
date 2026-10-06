@@ -150,6 +150,8 @@ every key `?` lists, by where it works.
 | | `r` | Read the repository again |
 | 3 Commits | `space` | Stage or unstage the selected file |
 | | `a` | Stage every file |
+| | `U` | Unstage every file, at once: the work tree keeps every edit |
+| | `x` | Discard the selected file's changes, staged and not — an untracked file is deleted — after a last look at the file, since it cannot be undone |
 | | `c` | Commit what is staged |
 | | `A` | Amend the last unpushed commit with what is staged, after a preview |
 | | `f` | Record what is staged as a `fixup!` of an unpushed commit you pick |
