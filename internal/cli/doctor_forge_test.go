@@ -71,7 +71,7 @@ func TestDoctorOnlineExplainsWhyNoForgeTokenResolved(t *testing.T) {
 		"gh installed but signed out names the host": {
 			remote: githubSSHRemote,
 			onPath: ghSignedOut,
-			want:   "gh is installed but not signed in to github.com — run `gh auth login`",
+			want:   "gh is installed but not signed in to github.com; run `gh auth login`",
 		},
 		"gh absent lists the sources instead": {
 			remote: githubSSHRemote,

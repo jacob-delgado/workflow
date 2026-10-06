@@ -195,7 +195,7 @@ func TestPRLinksThePullOnTheIssue(t *testing.T) {
 		t.Errorf("Jira was written %q, want the link and then the move", kinds)
 	}
 
-	if !strings.Contains(printed.stderr, "Linked #7 on PROJ-2") {
+	if !strings.Contains(printed.stderr, "Linked #7 on PROJ-2.\n") {
 		t.Errorf("pr does not say it linked the pull request:\nstderr:\n%s", printed.stderr)
 	}
 }
@@ -217,7 +217,7 @@ func TestPRReportsAFailedLinkAndStillMovesTheIssue(t *testing.T) {
 
 	// The link failing is said as it happens, and the status move is still made.
 	if !strings.Contains(printed.stderr, "Could not link #7 on PROJ-2") ||
-		!strings.Contains(printed.stderr, "Moved PROJ-2 to "+statusInReview) || writes.applied() != 1 {
+		!strings.Contains(printed.stderr, "Moved PROJ-2 to "+statusInReview+".\n") || writes.applied() != 1 {
 		t.Errorf("pr did not say the link failed and still move the issue (%d moves):\nstderr:\n%s",
 			writes.applied(), printed.stderr)
 	}

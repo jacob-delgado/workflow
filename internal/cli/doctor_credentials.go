@@ -168,7 +168,7 @@ func checkForge(ctx context.Context, out io.Writer, run doctorRun, remote string
 func noForgeTokenMessage(available func(string) bool, kind forge.Kind, host string) string {
 	switch {
 	case kind == forge.KindGitHub && available("gh"):
-		return fmt.Sprintf("gh is installed but not signed in to %s — run `gh auth login`", host)
+		return fmt.Sprintf("gh is installed but not signed in to %s; run `gh auth login`", host)
 	case kind == forge.KindGitLab && available("glab"):
 		return "none — glab is installed, but its login is not read: " + forge.Sources(kind, host) +
 			", or turn on forge.cli to go through glab"
