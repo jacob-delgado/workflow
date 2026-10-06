@@ -115,11 +115,6 @@ func everySeamFailure() map[string]spoken {
 			fmt.Errorf("%w: ana", forge.ErrNoUser), "the forge has no such user",
 			"The forge has no user by that name. Check the reviewers and assignees.",
 		},
-		"messaging no credential": {
-			fmt.Errorf("posting: %w", messaging.ErrNoCredential), "messaging has no credential",
-			"Messaging has no credential. Run `workflow slack login` to post to Slack with your user token, " +
-				"or set `messaging.webhook_url`.",
-		},
 		"messaging insecure webhook": {
 			fmt.Errorf("posting: %w", messaging.ErrInsecureWebhook), "the webhook is not https",
 			"`messaging.webhook_url` is not an https address. Copy the webhook's https address into it.",
@@ -194,6 +189,11 @@ func everyNotSetUpCause() map[string]spoken {
 		"no git identity": {
 			fmt.Errorf("reading the log: %w", gitrepo.ErrNoIdentity), "git has no user.email",
 			"git has no user.email to tell your commits by; set it with git config user.email",
+		},
+		"messaging no credential": {
+			fmt.Errorf("posting: %w", messaging.ErrNoCredential), "messaging has no credential",
+			"messaging has no credential; run workflow slack login to post to Slack with your user token, " +
+				"or set messaging.webhook_url",
 		},
 	}
 }

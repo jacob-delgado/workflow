@@ -370,7 +370,7 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 	}{
 		"nothing set up": {
 			messaging.ErrNoCredential, unprocessable,
-			"set up the Slack user token or a webhook URL in Settings, or run workflow slack login",
+			"run workflow slack login to post to Slack with your user token, or set messaging.webhook_url",
 		},
 		"a webhook not on https": {messaging.ErrInsecureWebhook, unprocessable, "not an https address"},
 		"the service refused":    {messaging.ErrRejected, unprocessable, "or that the webhook URL is current"},
