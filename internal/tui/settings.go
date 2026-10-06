@@ -36,7 +36,7 @@ const settingsTitle = "Settings"
 
 // settingsAbout is said above the settings: where they are kept, and when they
 // apply.
-const settingsAbout = "A save applies when workflow starts again."
+const settingsAbout = "A save reopens workflow here, so it applies at once."
 
 // settingsForm is Settings: the configuration the web's Settings edits, a row
 // per setting under its section, each credential masked. enter edits a row,
@@ -464,8 +464,8 @@ type settingsSaved struct {
 
 var _ applier = settingsSaved{}
 
-// apply closes Settings saying where it saved, or keeps it open with the
-// refusal: a file changed since the read offers a reload.
+// apply closes Settings and reopens workflow with what it saved, or keeps it
+// open with the refusal: a file changed since the read offers a reload.
 func (msg settingsSaved) apply(m Model) (Model, tea.Cmd) {
 	switch {
 	case errors.Is(msg.err, config.ErrChangedOnDisk):
@@ -476,7 +476,5 @@ func (msg settingsSaved) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[settingsForm](m, msg.err), nil
 	}
 
-	saved := m.marks.done + " saved " + m.shownDir(msg.path) + "; it applies when workflow starts again"
-
-	return m.closeOverlay().noticed(saved), nil
+	return m.reopenWith(msg.path)
 }

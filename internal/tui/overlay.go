@@ -240,7 +240,9 @@ type lastLook struct {
 	// stay at a guard, back for a step inside a flow; empty cancels.
 	leave string
 	// back is the overlay esc goes back to, nil where it closes the look.
-	back    overlay
+	back overlay
+	// stayed is said when esc leaves the look, or nothing is.
+	stayed  string
 	proceed func(m Model) (Model, tea.Cmd)
 	send    sendState
 }
@@ -278,6 +280,9 @@ func (l lastLook) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.overlay = l.back
+		if l.stayed != "" {
+			m = m.noticed(l.stayed)
+		}
 
 		return m, nil
 	case key.Matches(msg, m.keys.confirm):

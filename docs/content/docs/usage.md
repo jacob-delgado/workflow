@@ -777,9 +777,15 @@ repository's over your home's as described in
 file is as Settings found it: one changed since — edited on disk, or saved
 from the web — is not written over, and `r` reads it again in place of your
 edits. Slack's user-token secrets are kept where the web's Settings keeps
-them. What is saved applies when workflow starts again; the session goes on
-with what it started with. `esc` leaves without saving, and under `--dry-run`
-`ctrl+s` says what it would have saved.
+them. Once saved, workflow reopens in the same directory, as a switch to
+another one does, so what was saved applies at once; the session's Jira
+comments, Tasks view and Summary period go with it. When reopening would lose
+work — a commit message or pull request being written, an announcement waiting
+for CI, a comment on a forge issue — it asks first, naming what, and `esc`
+stays, keeping the save for when workflow next opens. A directory that cannot
+be reopened with the new configuration reopens as it was, saying why. `esc`
+leaves Settings without saving, and under `--dry-run` `ctrl+s` says what it
+would have saved.
 
 ## Dry run
 

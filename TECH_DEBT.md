@@ -887,7 +887,9 @@ The Repositories pane's switch ends the running program and starts a
 fresh one in the directory chosen, wired as the first was
 (`internal/cli/cli.go`, `runInterfaces`; `internal/tui/reposwitch.go`).
 Only the session's own choices go with it: comments written on Jira
-issues, how the Tasks list is seen, and the Summary's period.
+issues, how the Tasks list is seen, and the Summary's period. A save in
+Settings reopens the same way, in the directory it was made in, so the
+configuration saved is the one the next program is wired with.
 
 **Decided.** 2026-10-05, in #176: every seam — the repository, its forge,
 the configuration that applies, the store's keys — is bound to a

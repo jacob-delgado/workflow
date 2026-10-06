@@ -18,6 +18,8 @@ import (
 
 // Next is where the interface was asked to go when it ended, and what of the
 // session goes with it; a zero Dir is an interface that ended by quitting.
+// A save in Settings asks for the directory it works in, so the interface
+// opened next is wired with what was saved.
 // The command line opens the next interface there, wired to that directory,
 // and hands this back to Arrived, or to StayedAfter when it could not.
 //
@@ -27,6 +29,9 @@ import (
 type Next struct {
 	Dir     string
 	carried carried
+	// saved is the configuration file a save in Settings wrote, when that is
+	// why the interface ended.
+	saved string
 }
 
 // carried is the session's own state, kept across a switch: the comments
@@ -56,14 +61,20 @@ func (m Model) Destination() Next {
 // carried in, the Repositories pane in focus, and where it is now said.
 func (m Model) Arrived(next Next) Model {
 	m = m.carryIn(next.carried)
+	if next.saved != "" {
+		return m.noticed(m.marks.done + " saved " + m.shownDir(next.saved) + "; reopened with it")
+	}
 
 	return m.noticed(m.marks.done + " switched to " + m.shownDir(next.Dir))
 }
 
 // StayedAfter is the interface reopened where it was after a switch to
-// next.Dir could not be made, saying why.
+// next.Dir, or a reopen with a save, could not be made, saying why.
 func (m Model) StayedAfter(next Next, err error) Model {
 	m = m.carryIn(next.carried)
+	if next.saved != "" {
+		return m.noticedFailureLedBy("saved "+m.shownDir(next.saved)+" but could not reopen with it: ", err)
+	}
 
 	return m.noticedFailureLedBy("could not switch to "+m.shownDir(next.Dir)+": ", err)
 }
@@ -119,7 +130,8 @@ func (m Model) leaveFor(dir string) (Model, tea.Cmd) {
 func (m Model) switchLook(dir string) lastLook {
 	return lastLook{
 		title: "Switch directory", verb: verbSwitch, leave: escStay,
-		body: switchQuestion(m.shownDir(dir), m.lostOnLeaving()),
+		body: leaveQuestion("Switch to "+m.shownDir(dir)+"?\n\nEvery pane is read again there.",
+			"Switching", m.lostOnLeaving()),
 		proceed: func(m Model) (Model, tea.Cmd) {
 			m = m.closeOverlay()
 			if busy := m.writeInFlight(); busy != "" {
@@ -131,16 +143,15 @@ func (m Model) switchLook(dir string) lastLook {
 	}
 }
 
-// switchQuestion asks to switch to shown, naming what switching would lose
-// when anything would be.
-func switchQuestion(shown string, lost []string) string {
-	question := "Switch to " + shown + "?\n\nEvery pane is read again there."
+// leaveQuestion asks question, naming what leaving, as acting names it,
+// would lose when anything would be.
+func leaveQuestion(question, acting string, lost []string) string {
 	if len(lost) == 0 {
 		return question
 	}
 
 	lines := make([]string, 0, len(lost)+3) //nolint:mnd // the question, a blank line and the heading
-	lines = append(lines, question, "", "Switching ends this session's work here, losing:")
+	lines = append(lines, question, "", acting+" ends this session's work here, losing:")
 
 	for _, each := range lost {
 		lines = append(lines, "  "+each)
@@ -152,6 +163,59 @@ func switchQuestion(shown string, lost []string) string {
 // leave ends the interface for dir.
 func (m Model) leave(dir string) (Model, tea.Cmd) {
 	m.next = Next{Dir: dir, carried: m.carryOut()}
+
+	return m, tea.Quit
+}
+
+// reopenWith ends the interface for where you work, so the one opened there
+// is wired with the configuration saved at path, once nothing is being
+// written and nothing would be lost; otherwise a last look asks first, as a
+// switch's does. Without a directory to reopen in, the save waits for the
+// next start.
+func (m Model) reopenWith(path string) (Model, tea.Cmd) {
+	dir := m.deps.Repositories.Here.Dir
+	m = m.closeOverlay()
+
+	switch {
+	case dir == "":
+		return m.noticed(m.savedForLater(path)), nil
+	case m.writeInFlight() == "" && len(m.lostOnLeaving()) == 0:
+		return m.reopen(dir, path)
+	default:
+		return m.lookAt(m.reopenLook(dir, path)), nil
+	}
+}
+
+// reopenLook is the last look at reopening in dir with the configuration
+// saved at path, which names what reopening would lose.
+func (m Model) reopenLook(dir, path string) lastLook {
+	question := "Saved " + m.shownDir(path) + ". Reopen workflow here, so it applies now?\n\n" +
+		"Every pane is read again. Staying keeps it for when workflow next opens."
+
+	return lastLook{
+		title: "Reopen with the settings", verb: "reopen", leave: escStay, stayed: m.savedForLater(path),
+		body: leaveQuestion(question, "Reopening", m.lostOnLeaving()),
+		proceed: func(m Model) (Model, tea.Cmd) {
+			m = m.closeOverlay()
+			if busy := m.writeInFlight(); busy != "" {
+				return m.noticed("wait for " + busy + " to finish before reopening"), nil
+			}
+
+			return m.reopen(dir, path)
+		},
+	}
+}
+
+// savedForLater says the configuration at path was saved, and applies when
+// workflow next opens.
+func (m Model) savedForLater(path string) string {
+	return m.marks.done + " saved " + m.shownDir(path) + "; it applies once workflow reopens"
+}
+
+// reopen ends the interface for dir, the directory it works in, saying the
+// configuration at path was saved.
+func (m Model) reopen(dir, path string) (Model, tea.Cmd) {
+	m.next = Next{Dir: dir, carried: m.carryOut(), saved: path}
 
 	return m, tea.Quit
 }
