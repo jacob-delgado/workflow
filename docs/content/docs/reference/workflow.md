@@ -113,6 +113,7 @@ workflow [flags]
 * [workflow db-clean](../workflow_db-clean/)	 - Remove workflow's local data, the databases it keeps between sessions
 * [workflow doctor](../workflow_doctor/)	 - Report the repository, tooling, and configuration in effect
 * [workflow pr](../workflow_pr/)	 - Open a pull or merge request for the current branch
+* [workflow repositories](../workflow_repositories/)	 - List where workflow works: this directory, its repository's worktrees and your favorites
 * [workflow reviews](../workflow_reviews/)	 - List the pull or merge requests that are waiting on your review
 * [workflow slack](../workflow_slack/)	 - Set up posting to Slack with a rotating user token
 * [workflow standup](../workflow_standup/)	 - Draft what you did — commits, issues and pull or merge requests — to share

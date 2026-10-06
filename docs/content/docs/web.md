@@ -470,6 +470,9 @@ describes each answer's fields, and every other request the API serves.
 curl -s http://127.0.0.1:13579/api/review
 ```
 
+`GET /api/repositories`'s answer needs no server: `workflow repositories
+--json` prints the same object from the directory it runs in.
+
 They are reads, so they answer under `--dry-run` too. When git or the forge
 fails, the branch, changes and review reads answer a problem where the page
 shows an empty panel, so a script can tell a failure from nothing to show. The

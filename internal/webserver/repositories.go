@@ -143,26 +143,58 @@ func listingDTO(dir, home string, listing workdirs.Listing) api.DirectoryListing
 }
 
 // repositoriesDTO is where the server works and your favorites, each looked
-// at on disk now.
+// at on disk now, the worktrees' failure worded by fault so no path or host
+// reaches the wire.
 func (s *server) repositoriesDTO() api.Repositories {
-	repositories := s.deps.Repositories
-
-	worktrees, worktreesErr := s.worktreesDTO()
-
-	return api.Repositories{
-		Here:           placeDTO(repositories.Here, repositories.Home),
-		Worktrees:      worktrees,
-		WorktreesError: worktreesErr,
-		Favorites:      s.favoritesDTO(),
-		FavoritesKept:  s.deps.Favor != nil && !s.info.DryRun,
+	view := RepositoriesView{
+		Repositories: s.deps.Repositories, Favorites: s.deps.Favorites,
+		FavoritesKept: s.deps.Favor != nil && !s.info.DryRun,
 	}
+
+	report, err := view.Report(func(err error) string {
+		body, _ := s.fault(err)
+
+		return body.Detail
+	})
+	if err != nil {
+		s.unexpected(err)
+	}
+
+	return report
 }
 
-// worktreesDTO is the repository's worktrees, each with what it has checked
-// out, or why they could not be read, worded by fault so no path or host
-// reaches the wire. Outside a repository there are none.
-func (s *server) worktreesDTO() ([]api.Worktree, string) {
-	repositories := s.deps.Repositories
+// RepositoriesView is what a surface reads where it works from: the
+// directories it can work in; your favorites, nil when the store keeps none;
+// and whether a favorite can be marked or forgotten there.
+type RepositoriesView struct {
+	Repositories  seams.Repositories
+	Favorites     func() ([]string, error)
+	FavoritesKept bool
+}
+
+// Report is where a surface works, its repository's worktrees and your
+// favorites, each looked at on disk now: what GET /api/repositories answers
+// and `workflow repositories --json` prints. describe words why the worktrees
+// could not be read. Favorites that cannot be read are listed as none, and
+// why is returned beside the rest.
+func (v RepositoriesView) Report(describe func(error) string) (api.Repositories, error) {
+	worktrees, worktreesErr := v.worktrees(describe)
+	favorites, err := v.favorites()
+
+	return api.Repositories{
+		Here:           placeDTO(v.Repositories.Here, v.Repositories.Home),
+		Worktrees:      worktrees,
+		WorktreesError: worktreesErr,
+		Favorites:      favorites,
+		FavoritesKept:  v.FavoritesKept,
+	}, err
+}
+
+// worktrees is the repository's worktrees, each with what it has checked
+// out, or why they could not be read, in describe's words. Outside a
+// repository there are none.
+func (v RepositoriesView) worktrees(describe func(error) string) ([]api.Worktree, string) {
+	repositories := v.Repositories
 
 	worktrees := []api.Worktree{}
 	if repositories.Worktrees == nil {
@@ -171,9 +203,7 @@ func (s *server) worktreesDTO() ([]api.Worktree, string) {
 
 	read, err := repositories.Worktrees()
 	if err != nil {
-		body, _ := s.fault(err)
-
-		return worktrees, body.Detail
+		return worktrees, describe(err)
 	}
 
 	for _, worktree := range read {
@@ -200,39 +230,41 @@ func worktreeState(worktree gitrepo.Worktree, here string) api.WorktreeState {
 	}
 }
 
-// favoritesDTO is your favorites, each with what is there now.
-func (s *server) favoritesDTO() []api.Favorite {
+// favorites is your favorites, each with what is there now, and why they
+// could not be read when they could not.
+func (v RepositoriesView) favorites() ([]api.Favorite, error) {
 	favorites := []api.Favorite{}
-	if s.deps.Favorites == nil {
-		return favorites
+	if v.Favorites == nil {
+		return favorites, nil
 	}
 
-	dirs, err := s.deps.Favorites()
-	if err != nil {
-		s.unexpected(err)
-	}
-
-	repositories := s.deps.Repositories
+	dirs, err := v.Favorites()
 
 	for _, dir := range dirs {
-		favorite := api.Favorite{Dir: dir, Shown: workdirs.Shown(dir, repositories.Home), State: api.FavoriteMissing}
-
-		place, lookErr := lookAt(repositories.Look, dir)
-
-		switch {
-		case dir == repositories.Here.Dir || workdirs.Same(dir, repositories.Here.Dir):
-			favorite.State = api.FavoriteHere
-		case lookErr != nil:
-		case place.Root == "":
-			favorite.State = api.FavoriteDirectory
-		default:
-			favorite.State, favorite.Origin = api.FavoriteRepository, originOf(place)
-		}
-
-		favorites = append(favorites, favorite)
+		favorites = append(favorites, v.favorite(dir))
 	}
 
-	return favorites
+	return favorites, err
+}
+
+// favorite is the favorite dir, with what is there now.
+func (v RepositoriesView) favorite(dir string) api.Favorite {
+	repositories := v.Repositories
+	favorite := api.Favorite{Dir: dir, Shown: workdirs.Shown(dir, repositories.Home), State: api.FavoriteMissing}
+
+	place, lookErr := lookAt(repositories.Look, dir)
+
+	switch {
+	case dir == repositories.Here.Dir || workdirs.Same(dir, repositories.Here.Dir):
+		favorite.State = api.FavoriteHere
+	case lookErr != nil:
+	case place.Root == "":
+		favorite.State = api.FavoriteDirectory
+	default:
+		favorite.State, favorite.Origin = api.FavoriteRepository, originOf(place)
+	}
+
+	return favorite
 }
 
 // lookAt reads dir through look, or says it cannot be read when there is no
