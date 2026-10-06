@@ -12,8 +12,9 @@ Report the repository, tooling, and configuration in effect
 ### Synopsis
 
 Report the git repository this session is in, which external
-programs are installed, which .workflow.json is in effect,
-and which required fields are still empty.
+programs are installed, where the store keeps its files — or why it
+keeps none — which .workflow.json is in effect, and which
+required fields are still empty.
 
 Makes no network calls by default, so it is safe to run anywhere and
 tells you only that a credential is present. Add --online to ask Jira,

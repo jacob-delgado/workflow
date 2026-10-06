@@ -60,10 +60,12 @@ func runStreams(t *testing.T, dir string, prompt cli.Prompt, args ...string) (st
 }
 
 // place is where a run happens: the working directory, and the home directory
-// the test chose, for a test that puts something there first.
+// the test chose, for a test that puts something there first; state, when set,
+// is $XDG_STATE_HOME, which is otherwise empty.
 type place struct {
-	dir  string
-	home string
+	dir   string
+	home  string
+	state string
 }
 
 // runStreamsAt is runStreams in the home directory the test chose.
@@ -73,6 +75,8 @@ func runStreamsAt(t *testing.T, where place, prompt cli.Prompt, args ...string) 
 	for name, value := range isolatedEnvironment(where.home) {
 		t.Setenv(name, value)
 	}
+
+	t.Setenv("XDG_STATE_HOME", where.state)
 
 	t.Chdir(where.dir)
 

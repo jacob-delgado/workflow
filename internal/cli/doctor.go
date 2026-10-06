@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -66,8 +67,9 @@ func newDoctorCmd() *cobra.Command {
 		Use:   "doctor",
 		Short: "Report the repository, tooling, and configuration in effect",
 		Long: "Report the git repository this session is in, which external\n" +
-			"programs are installed, which " + config.FileName + " is in effect,\n" +
-			"and which required fields are still empty.\n\n" +
+			"programs are installed, where the store keeps its files — or why it\n" +
+			"keeps none — which " + config.FileName + " is in effect, and which\n" +
+			"required fields are still empty.\n\n" +
 			"Makes no network calls by default, so it is safe to run anywhere and\n" +
 			"tells you only that a credential is present. Add --online to ask Jira,\n" +
 			"your forge and Slack whether each credential works; a webhook is left\n" +
@@ -125,6 +127,9 @@ func runDoctor(ctx context.Context, out io.Writer, run doctorRun) error {
 	fmt.Fprintln(out)
 
 	toolingErr := reportTooling(ctx, out, run.cfg, repo.Remote)
+	fmt.Fprintln(out)
+
+	field(out, "Store", storeFactsFor(run.cfg).label())
 	fmt.Fprintln(out)
 
 	configErr := reportConfiguration(out, run, repo.Remote)
@@ -298,6 +303,41 @@ func reportLoadError(out io.Writer, loadErr error) error {
 	}
 
 	return loadErr
+}
+
+// storeFacts is where the store keeps what a session can see again, as doctor
+// reports it: its directory, or that the configuration turned it off, or why
+// there is no directory for it, in which case it quietly keeps nothing.
+type storeFacts struct {
+	Dir      string `json:"dir,omitempty"`
+	Disabled bool   `json:"disabled"`
+	Problem  string `json:"problem,omitempty"`
+}
+
+// storeFactsFor finds the store's directory as the store itself does.
+func storeFactsFor(cfg config.Config) storeFacts {
+	if cfg.Store.Disabled {
+		return storeFacts{Disabled: true}
+	}
+
+	dir, err := store.DefaultDir()
+	if err != nil {
+		return storeFacts{Problem: err.Error()}
+	}
+
+	return storeFacts{Dir: dir}
+}
+
+// label is the store's row in the prose report.
+func (facts storeFacts) label() string {
+	switch {
+	case facts.Disabled:
+		return "off (store.disabled)"
+	case facts.Problem != "":
+		return "off (" + facts.Problem + ")"
+	default:
+		return facts.Dir
+	}
 }
 
 // field writes one aligned "Label: value" line.
