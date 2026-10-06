@@ -3,7 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Change } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import type { MarkState } from '@/shell/StateMark.tsx'
 import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
+import { drawnMark, markShape } from '@/test/marks.tsx'
 import { BranchPanel } from './BranchPanel.tsx'
 import { stageEverything, stageFile, unstageFile } from './stagingApi.ts'
 
@@ -86,6 +88,35 @@ test('offers to stage a conflict, which marks it resolved', () => {
   expect(screen.getByRole('button', { name: 'Stage d.go' })).toBeTruthy()
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Stage all' }).disabled).toBe(false)
 })
+
+test.each<{ staging: Partial<Change>; word: string; state: MarkState }>([
+  { staging: {}, word: 'unstaged', state: 'not-started' },
+  {
+    staging: { staged: true, has_unstaged: true },
+    word: 'partly staged',
+    state: 'in-flight',
+  },
+  { staging: wholly, word: 'staged', state: 'done' },
+  {
+    staging: { kind: 'conflicted', staged: false, has_unstaged: false, conflicted: true },
+    word: 'conflicted',
+    state: 'failed',
+  },
+])(
+  'marks how much of a file is staged by shape beside the word $word',
+  ({ staging, word, state }) => {
+    // Arrange
+    streamTree([change('e.go', staging)])
+
+    // Act
+    render(<BranchPanel />)
+
+    // Assert
+    const row = screen.getByRole('listitem')
+    expect(within(row).getAllByText(word).length).toBeGreaterThan(0)
+    expect(markShape(row)).toBe(drawnMark(state))
+  },
+)
 
 test('stages a file by its path and says so', async () => {
   // Arrange
