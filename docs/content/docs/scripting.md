@@ -97,7 +97,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `config init` | with `--dry-run`, the file it would write, as JSON, masked | progress, the checks, "Wrote …", what to do next, a warning when the file is not ignored by git |
 | `standup` | the draft | "Nothing to share.", the dry-run line, "Not posted.", "Posted to …" |
 | `branch` | `Start work on KEY: create NAME from BASE and switch to it`, then `Created NAME`; with `--fetch` the plan opens `fetch origin, then`; with `--worktree` it ends `in a new worktree beside the repository`, and the worktree's directory follows alone on the last line | the dry-run line, "Not created.", and with `--worktree` "Created NAME in a new worktree." |
-| `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab); with `--json`, the JSON alone | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes; with `--json`, the preview and the `Opened` line too |
+| `pr` | `Open TITLE`, `BRANCH → BASE` and the code owners asked to review, a blank line, and the whole body; then `Opened #N URL` (`!N` on GitLab); with `--json`, the JSON alone | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes; with `--json`, the preview and the `Opened` line too |
 | `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …" |
 | `comment` | `Comment on KEY:` and the comment as the tracker will store it | the dry-run line, "Not posted.", "Commented on KEY." |
 | `slack login` | | the dry-run line, "Logged in to Slack as …" |
@@ -183,8 +183,8 @@ workflow repositories --json | jq -r '.worktrees[0].dir'
 ```
 
 `workflow pr --json` prints what it opened as one object, the web's
-`OpenedPullRequest` with the branches the pull request joins, and with
-whether each offer that followed was taken:
+`OpenedPullRequest` with the branches the pull request joins and its
+body, and with whether each offer that followed was taken:
 
 ```json
 {
@@ -194,7 +194,8 @@ whether each offer that followed was taken:
     "title": "fix(config): redact the webhook",
     "draft": false,
     "head": "fix/PROJ-412-redact",
-    "base": "main"
+    "base": "main",
+    "body": "## Summary\n\nRedact the webhook URL.\n\nPROJ-412\n"
   },
   "follow_ups": [
     { "action": "link", "issue_key": "PROJ-412", "done": true },

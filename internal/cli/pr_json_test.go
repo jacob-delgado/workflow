@@ -19,6 +19,7 @@ type prReport struct {
 		Draft  bool   `json:"draft"`
 		Head   string `json:"head"`
 		Base   string `json:"base"`
+		Body   string `json:"body"`
 	} `json:"pull"`
 	Warning   string           `json:"warning"`
 	FollowUps []followUpReport `json:"follow_ups"`
@@ -100,7 +101,10 @@ func TestPRAsJSONSaysAnOfferDeclined(t *testing.T) {
 
 func TestPRAsJSONDryRunPrintsTheDraft(t *testing.T) {
 	// Arrange
-	repo := prRepo(t, "fix/PROJ-2-thing")
+	fakeGh(t, ghResponses{})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n")
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
 	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--json")
@@ -113,6 +117,10 @@ func TestPRAsJSONDryRunPrintsTheDraft(t *testing.T) {
 	if report.Pull.Number != 0 || report.Pull.Title == "" || report.Pull.Head != "fix/PROJ-2-thing" ||
 		report.Pull.Base != "main" {
 		t.Errorf("pull = %+v, want the unopened draft from fix/PROJ-2-thing into main", report.Pull)
+	}
+
+	if !strings.Contains(report.Pull.Body, "## Checklist") {
+		t.Errorf("pull body = %q, want the body composed from the template", report.Pull.Body)
 	}
 
 	if !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing and open") {
