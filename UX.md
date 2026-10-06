@@ -182,7 +182,7 @@ them.
 | Change it | edit the file | Settings, `ctrl+s` | Settings, Save changes |
 | Check the setup | `doctor [--online]` | a failure names `workflow doctor` | a failure names `workflow doctor` |
 | Remove the local data | `db-clean` | Local data: `L` on the Repositories pane | Settings: Local data, Remove |
-| Every key or command | `--help` | `?` | — (UX-152) |
+| Every key or command | `--help` | `?` | `?`, and Ctrl+K or ⌘K to find an action by name |
 | Hold back every write | `--dry-run` | `--dry-run` | `--web --dry-run` |
 
 ## The promises the interface makes
@@ -877,7 +877,7 @@ Impact: low · Effort: small
 pre-commit, edits an open pull request and chooses among the repository's
 pull request templates, as the interface does. The interface still jumps
 to a failure in `$EDITOR` (`openFailure`, `internal/tui/run.go:382`),
-which the web has no equivalent of; the `?` sheet is UX-152's. Four
+which the web has no equivalent of. Four
 smaller things the terminal shows are absent on the web too, none of them
 among what `docs/content/docs/web.md` says stays in the terminal.
 
@@ -1885,67 +1885,15 @@ failure wording name the same settings.
 
 ## New ideas
 
-Ideas this edition adds that no surface has begun: the keyboard reach the
-web lacks, a first run that starts inside the interface rather than
-before it, and a mode a screen reader can follow. One more is a feature
+Ideas this edition adds that no surface has begun: a first run that
+starts inside the interface rather than before it, and a mode a screen
+reader can follow. One more is a feature
 rather than a change to how the interface is used, so it lives in
 [FEATURES.md](FEATURES.md) and is only pointed at here:
 
 - **FEAT-87 What workflow did, and taking it back** — a session's log of
   every write, with undo where the system allows it; the feature UX-68
   stops short of.
-
-### UX-152 Keyboard on the web
-
-Impact: medium · Effort: medium
-
-**Today.** The web is reached by Tab and the mouse alone. No section
-listens for a key outside its own fields — the only `onKeyDown` handlers
-are the comment composer's and the calendar grid's
-(`web/src/features/issues/CommentComposer.tsx:259`,
-`web/src/features/summary/MonthGrid.tsx:159`) — and nothing lists what
-the keyboard can do. The terminal's every action has a name and a key,
-generated into its `?` sheet (`helpBuilder.place`,
-`internal/tui/keys.go:163`; the bindings, `:230`–`:397`), and `ui.keys`
-moves any of them (`UI.Keys`, `internal/config/ui.go:47`), a map the API
-already carries (`UIConfig.keys`, `api/openapi.yaml:4565`) and the web
-server already checks through the terminal's own `tui.CheckKeys`
-(`internal/cli/web.go:120`). Someone fluent in the terminal starts over
-in the browser.
-
-**Instead.** Three parts, one source.
-
-- **The same names, served.** A `keys` list on the API — each action's
-  name, its help words, its group and its key with `ui.keys` applied —
-  generated from the terminal's `helpBuilder`, handed to the server as a
-  seam as `CheckKeys` is, so a rebinding in the file reaches both. The
-  web binds the actions it has (`comment`, `change-status`, `assign`,
-  `log-work`, `stage`, `commit`, `push`, `open-pull-request`, `filter`, the
-  pane numbers to the sections) and leaves the rest unlisted.
-- **A `?` sheet.** A dialog listing the bound actions by group, as the
-  terminal's help does, with each control also carrying
-  `aria-keyshortcuts`.
-- **A command palette.** `ctrl+k` opens a combobox over the current
-  section's actions, by their help words, so an action is reachable by
-  name without its key.
-
-Accessibility shapes it. No single-character shortcut fires while focus
-is in a text field, a textarea or the comment composer. WCAG 2.1.4
-(character key shortcuts) asks that single keys can be turned off or
-remapped: remapping is `ui.keys`, and a "Single-key shortcuts" switch in
-Settings turns them off, leaving `?` behind `shift` and `ctrl+k`. The
-sheet and the palette pass the axe scan and `web/e2e/layout.spec.ts` at
-every width in both themes. `web/src/shell` is at its file budget (12 of
-12, `scripts/package-size-budgets.txt`), so the sheet and the palette
-live under a feature of their own, or the shell's budget is bumped with
-its reason.
-
-**Done when.** A web test presses `?` and finds a dialog listing
-"comment" under Issues with key `c`; with `ui.keys: {"comment": "C"}` the
-same test finds `C`; typing `c` in the filter box opens nothing; with
-single-key shortcuts off, `c` opens nothing and `ctrl+k` still does;
-`ctrl+k`, "stage all", enter stages every change; the a11y spec passes
-with the sheet and the palette open.
 
 ### UX-153 Set up from inside the interface
 
