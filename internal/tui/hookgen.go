@@ -109,7 +109,7 @@ func (o hookgenOffer) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{relabel(keys.confirm, "write lefthook.yml"), keys.verbatim, relabel(keys.closeOverlay, "skip")}
+	return []key.Binding{relabel(keys.confirm, "write lefthook.yml"), keys.verbatim, relabel(keys.closeOverlay, escSkip)}
 }
 
 // handleKey answers a key while the offer is open.

@@ -506,10 +506,10 @@ func TestEscIsLabeledDiscardOnlyWhereTextIsLost(t *testing.T) {
 		keys  []string
 		want  string
 	}{
-		"pull request composer discards":  {world: withoutPull(), keys: []string{"4", "n"}, want: escDiscard},
-		"messaging preview discards":      {world: newWorld(), keys: []string{"5", "p"}, want: escDiscard},
-		"branch overlay discards":         {world: newWorld(), keys: []string{"2", "b"}, want: escDiscard},
-		"commit composer keeps its draft": {world: newWorld(), keys: []string{"3", "c"}, want: "esc close"},
+		"pull request composer keeps its draft": {world: withoutPull(), keys: []string{"4", "n"}, want: "esc close"},
+		"messaging preview discards":            {world: newWorld(), keys: []string{"5", "p"}, want: escDiscard},
+		"branch overlay discards":               {world: newWorld(), keys: []string{"2", "b"}, want: escDiscard},
+		"commit composer keeps its draft":       {world: newWorld(), keys: []string{"3", "c"}, want: "esc close"},
 	}
 
 	for name, tt := range cases {

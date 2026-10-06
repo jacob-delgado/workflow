@@ -91,7 +91,7 @@ func (p messagingPreview) footer(keys keyMap) []key.Binding {
 		buttons = append(buttons, relabel(keys.cycleLeft, "change channel"))
 	}
 
-	buttons = append(buttons, keys.edit, relabel(keys.closeOverlay, "discard"))
+	buttons = append(buttons, keys.edit, relabel(keys.closeOverlay, escDiscard))
 
 	return append(buttons, p.tagging.keys(keys)...)
 }

@@ -333,7 +333,7 @@ func (c prComposer) footer(keys keyMap) []key.Binding {
 	}
 
 	return append(bindings, keys.toggleDraft, keys.editBody, relabel(keys.confirm, "open"),
-		relabel(keys.closeOverlay, "discard"))
+		relabel(keys.closeOverlay, escClose))
 }
 
 // canNextTemplate reports another template to cycle to that would not overwrite
@@ -350,7 +350,7 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.prDraft = c.snapshot()
 
-		return m.closeOverlay(), nil
+		return m.closeOverlay().noticedDraftKept(m.keys.newPullRequest), nil
 	case key.Matches(msg, m.keys.confirm):
 		return c.open(m)
 	case key.Matches(msg, m.keys.editBody):

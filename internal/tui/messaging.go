@@ -75,7 +75,7 @@ func (quitGuard) view(width, _ int) (string, string) {
 
 // footer offers quitting anyway or staying.
 func (quitGuard) footer(keys keyMap) []key.Binding {
-	return []key.Binding{relabel(keys.confirm, "quit"), relabel(keys.closeOverlay, "stay")}
+	return []key.Binding{relabel(keys.confirm, "quit"), relabel(keys.closeOverlay, escStay)}
 }
 
 // handleKey answers a key while the guard is shown.

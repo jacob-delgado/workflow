@@ -125,7 +125,7 @@ func TestRebaseAsksBeforeTheRequest(t *testing.T) {
 
 	// Assert: the look names the branch and its base, and nothing is run yet
 	requireScreen(t, look.View().Content,
-		"Rebase branch", "Rebase "+featureName+" onto "+baseRef+"?", "enter rebase", "esc close")
+		"Rebase branch", "Rebase "+featureName+" onto "+baseRef+"?", "enter rebase", "esc cancel")
 
 	if calls := behind.asked("rebase"); len(calls) != 0 {
 		t.Fatalf("rebased before the look was confirmed: %q", calls)

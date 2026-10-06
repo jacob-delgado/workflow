@@ -378,7 +378,7 @@ func (v jobLogView) view(_, rows int) (string, string) {
 
 // footer offers scrolling the log and going back.
 func (v jobLogView) footer(keys keyMap) []key.Binding {
-	return []key.Binding{keys.up, keys.down, relabel(keys.closeOverlay, "back")}
+	return []key.Binding{keys.up, keys.down, relabel(keys.closeOverlay, escBack)}
 }
 
 // handleKey scrolls the log, or goes back to the checks.

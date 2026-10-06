@@ -216,7 +216,7 @@ every key `?` lists, by where it works.
 | | `r` | Run it again, once it has ended |
 | | `o` | Show its full output, or every place a failed hook reported |
 | Everywhere | `enter` | Do what the bottom row names |
-| | `esc` | Close without doing it |
+| | `esc` | Leave without doing it; the bottom row says how: *discard* drops what you wrote, *close* keeps it — a composer says the draft was kept — *cancel* leaves a form or a last look unsent, *back* steps out of a nested step, *skip* passes an offer up, and *stay* leaves a guard |
 | | `m` | Turn mouse capture off or on, for this session |
 | | `?` | Every key |
 | | `q` | Quit (`ctrl+c` works even with a preview open) |

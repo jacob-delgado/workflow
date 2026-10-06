@@ -156,7 +156,7 @@ func TestRerunAsksBeforeTheRequest(t *testing.T) {
 	look := typing(t, onReview, "R")
 
 	// Assert: the look names the pull request, and the forge is asked nothing yet
-	requireScreen(t, look.View().Content, "Re-run checks", "#42 "+pullTitle, "enter re-run", "esc close")
+	requireScreen(t, look.View().Content, "Re-run checks", "#42 "+pullTitle, "enter re-run", "esc cancel")
 
 	if calls := reviewing.asked("rerun"); len(calls) != 0 {
 		t.Fatalf("re-ran before the look was confirmed: %q", calls)

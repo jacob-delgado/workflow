@@ -75,7 +75,7 @@ func (p prEditor) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{keys.editBody, relabel(keys.confirm, "save"), relabel(keys.closeOverlay, "discard")}
+	return []key.Binding{keys.editBody, relabel(keys.confirm, "save"), relabel(keys.closeOverlay, escDiscard)}
 }
 
 // handleKey answers a key while the pull request is edited.

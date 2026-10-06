@@ -74,7 +74,7 @@ func (l issueLinker) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{relabel(keys.confirm, "link"), relabel(keys.closeOverlay, "skip")}
+	return []key.Binding{relabel(keys.confirm, "link"), relabel(keys.closeOverlay, escSkip)}
 }
 
 // handleKey links the pull request, or skips it, leaving it open in review.

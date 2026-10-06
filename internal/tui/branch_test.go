@@ -394,7 +394,7 @@ func TestPushIsPreviewedBeforeItIsSent(t *testing.T) {
 
 	// Assert: what will be pushed is shown, nothing pushed yet
 	requireScreen(t, preview.View().Content,
-		"Push "+featureName+" to origin?", "enter push")
+		"Push "+featureName+" to origin?", "enter push", "esc cancel")
 
 	if calls := pushing.asked("push"); len(calls) != 0 {
 		t.Errorf("pushed before the preview was confirmed: %q", calls)

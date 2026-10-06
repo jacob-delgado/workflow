@@ -437,7 +437,7 @@ func (p amendPreview) view(width, _ int) (string, string) {
 
 // footer offers amending or leaving.
 func (p amendPreview) footer(keys keyMap) []key.Binding {
-	return []key.Binding{relabel(keys.confirm, "amend"), keys.closeOverlay}
+	return []key.Binding{relabel(keys.confirm, "amend"), relabel(keys.closeOverlay, escCancel)}
 }
 
 // handleKey confirms or discards the amend.

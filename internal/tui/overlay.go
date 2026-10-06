@@ -164,6 +164,12 @@ type notice struct {
 	failed bool
 }
 
+// noticedDraftKept says a closed composer kept what was written, and the key
+// that picks it up again.
+func (m Model) noticedDraftKept(reopen key.Binding) Model {
+	return m.noticed("draft kept; " + reopen.Help().Key + " picks it up again")
+}
+
 // noticed sets the footer's report of what just happened, plainly: a result,
 // or guidance on what a key needs.
 func (m Model) noticed(text string) Model {
@@ -223,7 +229,10 @@ type lastLook struct {
 	verb string
 	// doing is the act in flight, pinned under the title while proceed's request
 	// is out. Empty for a look whose proceed opens a run, which never shows it.
-	doing   string
+	doing string
+	// offered marks a look that follows a done act, as a task offer does, so
+	// esc skips the offer rather than canceling an act asked for.
+	offered bool
 	proceed func(m Model) (Model, tea.Cmd)
 	send    sendState
 }
@@ -251,7 +260,12 @@ func (l lastLook) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{relabel(keys.confirm, l.verb), keys.closeOverlay}
+	leave := escCancel
+	if l.offered {
+		leave = escSkip
+	}
+
+	return []key.Binding{relabel(keys.confirm, l.verb), relabel(keys.closeOverlay, leave)}
 }
 
 // handleKey answers a key while the act waits for its last look.
@@ -347,7 +361,7 @@ func (c checklist[F]) choiceRow(choice offered[F]) string {
 func (checklist[F]) footer(keys keyMap) []key.Binding {
 	return []key.Binding{
 		keys.up, keys.down, keys.toggleOption,
-		relabel(keys.confirm, "apply"), relabel(keys.closeOverlay, "cancel"),
+		relabel(keys.confirm, "apply"), relabel(keys.closeOverlay, escCancel),
 	}
 }
 

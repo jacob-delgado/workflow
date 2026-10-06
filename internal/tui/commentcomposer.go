@@ -239,7 +239,7 @@ func (c commentComposer) footer(keys keyMap) []key.Binding {
 	}
 
 	footer := []key.Binding{
-		keys.insert, relabel(keys.confirm, "preview"), relabel(keys.closeOverlay, "close"), keys.openLine,
+		keys.insert, relabel(keys.confirm, "preview"), relabel(keys.closeOverlay, escClose), keys.openLine,
 	}
 	if c.editor {
 		footer = append(footer, keys.editBody)

@@ -44,7 +44,7 @@ func TestAmendPreviewsBeforeItFolds(t *testing.T) {
 
 	// Assert
 	// The preview names the commit and nothing is folded until it is confirmed.
-	requireScreen(t, view, "Amend the last commit", "Fold the staged changes into "+pullTitle+"?")
+	requireScreen(t, view, "Amend the last commit", "Fold the staged changes into "+pullTitle+"?", "esc cancel")
 
 	if calls := world.asked("amend"); len(calls) != 0 {
 		t.Errorf("amended before the preview was confirmed: %q", calls)

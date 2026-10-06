@@ -117,7 +117,7 @@ func TestANewWorktreeOffersToSwitchToIt(t *testing.T) {
 	view := madeWorktree(t).View().Content
 
 	// Assert
-	requireScreen(t, view, "Switch to the new worktree", "/work-"+featureName, "switch", "stay")
+	requireScreen(t, view, "Switch to the new worktree", "/work-"+featureName, "enter switch", "esc skip")
 }
 
 func TestEnterOnTheNewWorktreeOfferLeavesForIt(t *testing.T) {

@@ -18,6 +18,7 @@ const (
 	mergeAction    = "merge"
 	openLinkAction = "open-link"
 	addTaskAction  = "add-task"
+	worktreeAction = "worktree"
 )
 
 func TestAKeyOverrideRebindsAnActionAndShowsItInTheHelp(t *testing.T) {
@@ -166,7 +167,7 @@ func TestCheckKeysRefusesAnOverlayKeyOnAKeyLiveBesideItInAComposer(t *testing.T)
 		override map[string]string
 		collides string
 	}{
-		{"worktree onto edit", map[string]string{"worktree": "e"}, "edit"},
+		{"worktree onto edit", map[string]string{worktreeAction: "e"}, "edit"},
 		{"post-when-green onto verbatim", map[string]string{"post-when-green": "v"}, "verbatim"},
 	}
 
@@ -198,12 +199,12 @@ func TestCheckKeysRefusesAKeyATextFieldEditsWithWhereOneHasTheFocus(t *testing.T
 	// Each action is answered by an overlay before its focused text field sees
 	// the key, so on a key the field edits with it would take that edit away.
 	cases := map[string]map[string]string{
-		"worktree onto delete a word":            {"worktree": "ctrl+w"},
+		"worktree onto delete a word":            {worktreeAction: "ctrl+w"},
 		"breaking onto back a character":         {"toggle-breaking": "ctrl+b"},
 		"draft onto the line's start":            {"toggle-draft": "ctrl+a"},
 		"the next template onto next suggestion": {"next-template": "ctrl+n"},
 		"edit body onto previous suggestion":     {"edit-body": "ctrl+p"},
-		"worktree onto a letter":                 {"worktree": "s"},
+		"worktree onto a letter":                 {worktreeAction: "s"},
 	}
 
 	for name, rebound := range cases {
