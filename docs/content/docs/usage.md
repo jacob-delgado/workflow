@@ -145,7 +145,7 @@ every key `?` lists, by where it works.
 | | `enter` / `esc` | Below 80 columns, read the selected issue in full, then go back to the list |
 | 2 Branch | `b` | Start a branch |
 | | `s` | Switch branch: to the branch of another of your issues |
-| | `i` | Link the branch to an issue, for work begun outside workflow |
+| | `i` | Link the branch to an issue, for work begun outside workflow, or unlink the one it is linked to |
 | | `u` | Rebase the branch onto its base, after a last look |
 | | `P` | Push a branch that has unpushed commits, after a last look |
 | | `r` | Read the repository again |
@@ -206,6 +206,7 @@ every key `?` lists, by where it works.
 | | `v` | Keep every existing hook whole as a script, in the lefthook offer |
 | | `ctrl+g` | In the branch creator, create the branch in a new git worktree rather than switching to it |
 | | `w` | In the announcement preview, announce once CI passes |
+| | `u` | In the link form, on a branch already linked, unlink its issue |
 | | `j`/`k` or `↓`/`↑` | In the announcement preview, move between the code owners and groups it can tag |
 | | `space` | In the announcement preview, tag the selected group, or untag it |
 | | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group |
@@ -338,6 +339,11 @@ for a forge issue — and `enter` links the branch and updates the description
 together; a Jira issue is then offered the pull request's link, as opening one
 would. The link is kept in the repository's git configuration, as
 `branch.<name>.workflow-issue`, so it goes when git deletes the branch.
+
+On a branch already linked, `i` names the issue instead, and `u` unlinks it at
+once: only the link in git's configuration goes, and the pull request's
+description is left as it is, so nothing leaves the machine and there is no
+last look. Under `--dry-run` it says what it would have unlinked.
 
 Which issue a branch is for is read, in order, from that link, from the
 branch's name, and from its pull request's title or description, so a pull

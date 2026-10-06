@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -11,6 +12,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
+
+// errUnlinkRefused is a repository refusing to forget a link.
+var errUnlinkRefused = errors.New("cannot write the link")
 
 // offConvention is a branch begun outside workflow, named for no issue.
 const offConvention = "my-thing"
@@ -195,4 +199,79 @@ func TestTheReviewPaneSaysWhyEachCheckFailed(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "test · unit-race", "script failure")
 	refuseScreen(t, view, "· build-docs")
+}
+
+// linkedBranch is the world on offConvention, linked by hand to issueKey, with
+// its pull request open.
+func linkedBranch() *world {
+	repo := onOffConventionBranch(true)
+	repo.branch.IssueLink = issueKey
+
+	return repo
+}
+
+func TestILinkedBranchNamesItsIssueAndOffersUnlink(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := linkedBranch()
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "2", "i").View().Content
+
+	// Assert
+	requireScreen(t, view, offConvention+" is linked to "+issueKey, "u unlink")
+}
+
+func TestUnlinkForgetsTheLinkAtOnceAndLeavesTheDescription(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := linkedBranch()
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "2", "i", "u").View().Content
+
+	// Assert
+	if unlinked := repo.asked("unlink-issue"); len(unlinked) != 1 || unlinked[0] != "unlink-issue "+offConvention {
+		t.Errorf("unlinked %q, want %s unlinked once", unlinked, offConvention)
+	}
+
+	if edits := repo.asked("edit 42"); len(edits) != 0 {
+		t.Errorf("edited %q; unlinking leaves the description as it is", edits)
+	}
+
+	requireScreen(t, view, "unlinked "+offConvention+" from "+issueKey)
+}
+
+func TestARefusedUnlinkStaysInTheFormWithItsReason(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := linkedBranch()
+	repo.unlinkErr = errUnlinkRefused
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "2", "i", "u").View().Content
+
+	// Assert
+	requireScreen(t, view, "cannot write the link", offConvention+" is linked to "+issueKey)
+}
+
+func TestADryRunUnlinksNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := linkedBranch()
+	model := sized(t, tui.New(repo.cfg, nil, repo.deps()).WithDryRun(), 120, 40)
+
+	// Act
+	view := typing(t, drain(t, model, model.Init()), "2", "i", "u").View().Content
+
+	// Assert
+	if unlinked := repo.asked("unlink-issue"); len(unlinked) != 0 {
+		t.Errorf("unlinked %q under a dry run", unlinked)
+	}
+
+	requireScreen(t, view, "dry run: would unlink "+offConvention+" from "+issueKey)
 }

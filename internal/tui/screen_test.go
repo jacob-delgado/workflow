@@ -268,7 +268,7 @@ func TestTheHelpListsEveryGroupAndScrolls(t *testing.T) {
 		"pgup/K scroll up", "pgdn/J scroll down", "esc close", "q quit")
 
 	// Act: page down
-	paged := typing(t, short, "pgdown", "pgdown", "pgdown", "pgdown", "pgdown")
+	paged := typing(t, short, "pgdown", "pgdown", "pgdown", "pgdown", "pgdown", "pgdown")
 
 	// Assert: the group that was out of sight is in sight
 	requireScreen(t, paged.View().Content, "Everywhere")

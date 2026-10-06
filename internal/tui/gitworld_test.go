@@ -90,6 +90,17 @@ func (w *world) gitDeps() seams.Git {
 
 			return nil
 		},
+		UnlinkIssue: func(branch string) error {
+			w.record("unlink-issue " + branch)
+
+			if w.unlinkErr != nil {
+				return w.unlinkErr
+			}
+
+			w.branch.IssueLink = ""
+
+			return nil
+		},
 		Finish: func(branch, base string) error {
 			w.record("finish " + branch + " onto " + base)
 
