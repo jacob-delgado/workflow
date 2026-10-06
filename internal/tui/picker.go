@@ -166,7 +166,7 @@ func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + string(msg.issueKey) + " is now " + msg.to.ToStatus)
 	m.followUp = m.offerForMove(msg.issueKey, msg.to)
-	m, detail := m.reloadDetail(msg.issueKey)
+	m, detail := m.searching().reloadDetail(msg.issueKey)
 
 	return m, tea.Batch(m.searchIssues(), detail)
 }

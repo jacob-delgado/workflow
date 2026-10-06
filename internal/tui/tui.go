@@ -131,7 +131,9 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 		focus: paneIssues, mouse: cfg.UI.Mouse,
 		views: issueViews(cfg.Jira.Views), viewIndex: 0,
 	}
+	// Init always searches, so a list seeded from the cache is in flight.
 	model.issues = model.seededIssues()
+	model = model.searching()
 
 	// Init loads every pane but the Summary and Repositories, so each starts
 	// fresh; those two are read the first time they are looked at, which

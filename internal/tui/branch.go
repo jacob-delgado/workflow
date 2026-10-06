@@ -25,6 +25,8 @@ type branchState struct {
 	loaded bool
 	err    error
 	scroll int
+	// loading is a refresh begun and not yet answered.
+	loading bool
 }
 
 // branchLoaded carries the branch as git reports it.
@@ -51,9 +53,23 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	m, detail := m.resumeIssue().loadDetail()
 
+	find := m.findPullRequest()
+	if find == nil {
+		// No pull request is looked for, so a Review refresh waits on nothing more.
+		m.review.loading = false
+	}
+
 	// Your forge name is asked for here, not only once a pull request is
 	// found, because assigning a forge issue starts from it on any branch.
-	return m, tea.Batch(detail, m.findPullRequest(), m.loadAuthor())
+	return m, tea.Batch(detail, find, m.loadAuthor())
+}
+
+// refreshBranch reads the branch again, and the work tree with it.
+func (m Model) refreshBranch() (Model, tea.Cmd) {
+	read := m.loadBranch()
+	m.branch.loading = read != nil
+
+	return m, tea.Batch(read, m.loadChanges())
 }
 
 // loadBranch is the command that reads the branch.
@@ -79,7 +95,7 @@ func (s branchState) onFeatureBranch() bool {
 func (m Model) branchRail(_ int) string {
 	switch {
 	case !m.branch.loaded:
-		return "reading" + m.marks.ellipsis
+		return m.marks.reading()
 	case m.branch.err != nil:
 		return unreadRow(m.styles, m.marks, m.branch.err, "could not read the branch")
 	case m.branch.branch.Detached:

@@ -29,6 +29,8 @@ type reviewQueueState struct {
 	err      error
 	selected int
 	scroll   int
+	// loading is a refresh begun and not yet answered.
+	loading bool
 }
 
 // reviewsLoaded carries the forge's answer about the review queue.
@@ -59,6 +61,14 @@ func (s reviewQueueState) listed(previous forge.ReviewRequest, rows int) reviewQ
 	s.selected = s.indexOf(previous)
 
 	return s.following(rows)
+}
+
+// refreshReviewQueue reads the review queue again.
+func (m Model) refreshReviewQueue() (Model, tea.Cmd) {
+	read := m.loadReviewQueue()
+	m.reviewQueue.loading = read != nil
+
+	return m, read
 }
 
 // loadReviewQueue is the command that reads the review queue from the forge.
@@ -149,7 +159,7 @@ func (m Model) reviewQueueRail(_ int) string {
 	case m.deps.Forge.ReviewRequests == nil:
 		return "no forge for reviews"
 	case !m.reviewQueue.loaded:
-		return "reading" + m.marks.ellipsis
+		return m.marks.reading()
 	case m.reviewQueue.err != nil:
 		return m.failureSummary(m.reviewQueue.err)
 	case len(m.reviewQueue.all) == 0:
@@ -165,7 +175,7 @@ func (m Model) reviewQueueDetail(width int) string {
 	case m.deps.Forge.ReviewRequests == nil:
 		return wrap("This forge does not list the pull requests waiting on your review.", width)
 	case !m.reviewQueue.loaded:
-		return "reading" + m.marks.ellipsis
+		return m.marks.reading()
 	case m.reviewQueue.err != nil:
 		return m.failureBlock(m.reviewQueue.err, width)
 	case len(m.reviewQueue.all) == 0:

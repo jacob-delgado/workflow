@@ -114,6 +114,7 @@ func (m Model) carryIn(session carried) Model {
 	m.summary.period, m.summary.chosen = session.period, session.periodChosen
 	// Init reads the pane it opens on.
 	m.refreshed[paneRepositories] = m.deps.now()
+	m.repositories.loading = true
 
 	return m.focusOn(paneRepositories)
 }

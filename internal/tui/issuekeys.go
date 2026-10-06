@@ -166,7 +166,7 @@ func typedText(msg tea.KeyPressMsg) string {
 // it changed, so r retries a detail load that failed. An issue the selection has
 // only just reached is left to the read its rest will start.
 func (m Model) refreshIssues() (Model, tea.Cmd) {
-	m.issues.loading = true
+	m = m.searching()
 
 	selected, ok := m.issues.current()
 	if !ok {

@@ -196,11 +196,7 @@ func (m Model) paneTitle(p pane, title string) string {
 
 // loading reports a pane waiting on a load it started.
 func (m Model) loading(p pane) bool {
-	if p == paneIssues {
-		return m.issues.loading
-	}
-
-	return false
+	return behaviorOf(p).loading(m)
 }
 
 // detailRows is how many rows of content the detail pane holds.

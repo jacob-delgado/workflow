@@ -79,6 +79,9 @@ type behavior struct {
 	handle func(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 	// refresh loads the pane again, for r and for a switch to a stale pane.
 	refresh func(m Model) (Model, tea.Cmd)
+	// loading reports a refresh, or the pane's first read, begun and not yet
+	// answered, which the pane's title marks in flight.
+	loading func(m Model) bool
 	// move steps the cursor of the pane's list delta rows, down for a positive
 	// delta, stopping at either end; nil for a pane with no list, whose ends
 	// are its detail's.
@@ -104,64 +107,59 @@ func behaviorOf(target pane) behavior {
 	return map[pane]behavior{
 		paneIssues: {
 			rail: Model.issuesRail, detail: Model.issueDetailView, narrow: Model.issuesNarrow,
-			keys: Model.issuesKeys, handle: Model.handleIssuesKey, pick: Model.pickIssue, refresh: Model.refreshIssues,
-			scroll: func(m *Model) *int { return &m.detail.scroll }, move: Model.moveIssue,
+			keys: Model.issuesKeys, handle: Model.handleIssuesKey, pick: Model.pickIssue, move: Model.moveIssue,
+			refresh: Model.refreshIssues, loading: func(m Model) bool { return m.issues.loading },
+			scroll: func(m *Model) *int { return &m.detail.scroll },
 		},
 		paneBranch: {
 			rail: Model.branchRail, detail: Model.branchDetail, narrow: nil,
 			keys: Model.branchKeys, handle: Model.handleBranchKey, pick: nil,
-			refresh: func(m Model) (Model, tea.Cmd) { return m, tea.Batch(m.loadBranch(), m.loadChanges()) },
-			scroll:  func(m *Model) *int { return &m.branch.scroll }, readsBranch: true,
+			refresh: Model.refreshBranch, loading: func(m Model) bool { return m.branch.loading },
+			scroll: func(m *Model) *int { return &m.branch.scroll }, readsBranch: true,
 		},
 		paneCommits: {
 			rail: Model.commitsRail, detail: Model.commitsDetail, narrow: nil,
 			keys: Model.commitsKeys, handle: Model.handleCommitsKey, pick: Model.pickChange, move: Model.moveChangeBy,
-			refresh: func(m Model) (Model, tea.Cmd) {
-				return m, tea.Batch(m.loadChanges(), m.loadBranch(), m.findHooks())
-			},
+			refresh: Model.refreshCommits, loading: func(m Model) bool { return m.changes.loading },
 			scroll: func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,
 		},
 		paneReview: {
 			rail: Model.reviewRail, detail: Model.reviewDetail, narrow: nil,
 			keys: Model.reviewKeys, handle: Model.handleReviewKey, pick: nil,
-			// The branch, once read, looks for its pull request, and the find reads
-			// CI for the one it finds: so a refresh picks up a branch switched in a
-			// shell, and never reads CI for a pull request since replaced.
-			refresh: func(m Model) (Model, tea.Cmd) { return m, m.loadBranch() },
-			scroll:  func(m *Model) *int { return &m.review.scroll }, readsBranch: true,
+			refresh: Model.refreshReview, loading: func(m Model) bool { return m.review.loading },
+			scroll: func(m *Model) *int { return &m.review.scroll }, readsBranch: true,
 		},
 		paneMessaging: {
 			rail: Model.messagingRail, detail: Model.messagingDetail, narrow: nil,
 			keys: Model.messagingKeys, handle: Model.handleMessagingKey, pick: nil,
-			// The announcement is written from the pull request and its CI, so
-			// they are read again with what was announced.
-			refresh: func(m Model) (Model, tea.Cmd) { return m, tea.Batch(m.loadAnnounces(), m.loadBranch()) },
-			scroll:  func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,
+			refresh: Model.refreshMessaging, loading: func(m Model) bool { return m.messaging.loading },
+			scroll: func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,
 		},
 		paneReviews: {
 			rail: Model.reviewQueueRail, detail: Model.reviewQueueDetail, narrow: nil,
 			keys: Model.reviewQueueKeys, handle: Model.handleReviewQueueKey, pick: Model.pickReview,
-			move:    commandless(Model.moveReviewBy),
-			refresh: func(m Model) (Model, tea.Cmd) { return m, m.loadReviewQueue() },
+			move: commandless(Model.moveReviewBy), refresh: Model.refreshReviewQueue,
+			loading: func(m Model) bool { return m.reviewQueue.loading },
 			scroll:  func(m *Model) *int { return &m.reviewQueue.scroll }, listInDetail: true,
 		},
 		paneTasks: {
 			rail: Model.tasksRail, detail: Model.tasksDetail, narrow: nil,
 			keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask, move: commandless(Model.moveTaskBy),
-			refresh: func(m Model) (Model, tea.Cmd) { return m, m.loadTasks() },
-			scroll:  func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
+			refresh: Model.refreshTasks, loading: func(m Model) bool { return m.tasks.loading },
+			scroll: func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
 		},
 		paneSummary: {
 			rail: Model.summaryRail, detail: Model.summaryDetail, narrow: nil,
 			keys: Model.summaryKeys, handle: Model.handleSummaryKey, pick: nil, move: commandless(Model.moveSummaryBy),
-			refresh: Model.refreshSummary,
-			scroll:  func(m *Model) *int { return &m.summary.scroll }, listInDetail: true,
+			refresh: Model.refreshSummary, loading: Model.summaryLoading,
+			scroll: func(m *Model) *int { return &m.summary.scroll }, listInDetail: true,
 		},
 		paneRepositories: {
 			rail: Model.repositoriesRail, detail: Model.repositoriesDetail, narrow: nil,
 			keys: Model.repositoriesKeys, handle: Model.handleRepositoriesKey, pick: nil,
 			move: commandless(Model.moveRepositoryBy), refresh: Model.refreshRepositories,
-			scroll: func(m *Model) *int { return &m.repositories.scroll }, listInDetail: true,
+			loading: func(m Model) bool { return m.repositories.loading },
+			scroll:  func(m *Model) *int { return &m.repositories.scroll }, listInDetail: true,
 		},
 	}[target]
 }

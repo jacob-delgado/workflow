@@ -120,6 +120,12 @@ func (m Model) refreshSummary() (Model, tea.Cmd) {
 	return m.readSummary()
 }
 
+// summaryLoading reports a read of the period shown that some source has not
+// answered yet.
+func (m Model) summaryLoading() bool {
+	return m.summary.chosen && !m.summary.complete
+}
+
 // summaryReadInFull reports every source answered for the period shown, and
 // none of them with a failure or left out as not set up, which may be set up
 // by the next refresh.
@@ -311,7 +317,7 @@ func (m Model) summaryRail(_ int) string {
 
 	switch items := len(m.summaryItems()); {
 	case !m.summary.complete && items == 0:
-		return period + ": reading" + m.marks.ellipsis
+		return period + ": " + m.marks.reading()
 	case items == 0:
 		return period + ": nothing done"
 	case items == 1:

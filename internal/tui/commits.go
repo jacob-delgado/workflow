@@ -29,6 +29,8 @@ type changeList struct {
 	err      error
 	selected int
 	scroll   int
+	// loading is a refresh begun and not yet answered.
+	loading bool
 }
 
 // changesLoaded carries the work tree's status.
@@ -52,6 +54,15 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 	m.diff = diffState{}
 
 	return m, m.loadDiff()
+}
+
+// refreshCommits reads the work tree again, and the branch and the hooks with
+// it.
+func (m Model) refreshCommits() (Model, tea.Cmd) {
+	read := m.loadChanges()
+	m.changes.loading = read != nil
+
+	return m, tea.Batch(read, m.loadBranch(), m.findHooks())
 }
 
 // loadChanges is the command that reads the work tree's status.
@@ -101,7 +112,7 @@ func (l changeList) staged() int {
 func (m Model) commitsRail(_ int) string {
 	switch {
 	case !m.changes.loaded:
-		return "reading" + m.marks.ellipsis
+		return m.marks.reading()
 	case m.changes.err != nil:
 		return unreadRow(m.styles, m.marks, m.changes.err, "status failed")
 	}

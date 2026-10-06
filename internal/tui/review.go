@@ -29,6 +29,9 @@ type reviewState struct {
 	ciErr     error
 	polling   bool
 	scroll    int
+	// loading is a refresh begun and not yet answered: the branch read, its
+	// pull request looked for, and CI read for the one found.
+	loading bool
 }
 
 // beginReview replaces the review with next — another pull request, or none —
@@ -36,6 +39,8 @@ type reviewState struct {
 // Every new review goes through here.
 func (m Model) beginReview(next reviewState) Model {
 	m.reviewsBegun++
+	// A refresh still waits for its answer, whichever pull request it finds.
+	next.loading = m.review.loading
 	m.review = next
 
 	return m
@@ -53,6 +58,16 @@ type reviewVocab struct {
 // forgeVocab is the vocabulary for a forge kind.
 func forgeVocab(kind forge.Kind) reviewVocab {
 	return reviewVocab{noun: kind.Noun(), sigil: kind.Sigil()}
+}
+
+// refreshReview reads the branch again, which looks for its pull request, and
+// the find reads CI for the one it finds: so a refresh picks up a branch
+// switched in a shell, and never reads CI for a pull request since replaced.
+func (m Model) refreshReview() (Model, tea.Cmd) {
+	read := m.loadBranch()
+	m.review.loading = read != nil
+
+	return m, read
 }
 
 // findPullRequest is the command that looks for the branch's open pull request.
@@ -90,7 +105,7 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 		// it and its poll, and read CI again for a head that may have moved.
 		m.review.err = msg.err
 
-		return m, m.checkCI()
+		return m.checkingCI(nil)
 	}
 
 	if m.review.found && msg.found && msg.pull.Number == m.review.pull.Number {
@@ -103,10 +118,23 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	if !m.review.found {
+		m.review.loading = false
+
 		return m, nil
 	}
 
-	return m, tea.Batch(m.checkCI(), m.loadAuthor())
+	return m.checkingCI(m.loadAuthor())
+}
+
+// checkingCI asks how CI stands, with then; with no CI to read, a Review
+// refresh waits on nothing more.
+func (m Model) checkingCI(then tea.Cmd) (Model, tea.Cmd) {
+	check := m.checkCI()
+	if check == nil {
+		m.review.loading = false
+	}
+
+	return m, tea.Batch(check, then)
 }
 
 // checkCI is the command that asks how CI stands on the pull request.
@@ -139,6 +167,7 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 
 	was := m.review.ci.State
 	m.review.ci, m.review.ciErr, m.review.checked = msg.ci, msg.err, true
+	m.review.loading = false
 	m.review.checkedAt = m.deps.now()
 
 	ring := m.ciFinishNotice(was, msg.ci.State)
@@ -260,7 +289,7 @@ func (m Model) reviewRail(_ int) string {
 	case !m.branch.onFeatureBranch():
 		return "on no feature branch"
 	case !m.review.loaded:
-		return "reading" + m.marks.ellipsis
+		return m.marks.reading()
 	case m.review.err != nil:
 		return m.failureSummary(m.review.err)
 	case !m.review.found:

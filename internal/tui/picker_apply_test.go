@@ -44,15 +44,17 @@ func TestEnterMovesTheIssueAndRefreshesTheList(t *testing.T) {
 
 	refuseScreen(t, moved.View().Content, pickerTitle)
 	requireScreen(t, moved.View().Content,
-		"● OPS-1 is now Done")
+		"● OPS-1 is now Done", "1 Issues ◐")
 
 	// Act: the refresh arrives
-	finish(t, moved, refresh)
+	refreshed := drain(t, moved, refresh)
 
-	// Assert: the list was searched again
+	// Assert: the list was searched again, and is no longer marked in flight
 	if searches.Load() != 2 {
 		t.Errorf("searched %d times, want the list refreshed after the move", searches.Load())
 	}
+
+	refuseScreen(t, refreshed.View().Content, "1 Issues ◐")
 }
 
 func TestNothingInterruptsAMoveBeingSent(t *testing.T) {

@@ -83,6 +83,14 @@ func (m Model) searchIssues() tea.Cmd {
 	return m.searchPage(0)
 }
 
+// searching marks the Issues list in flight for a search of its first page
+// about to start, when there is a tracker to search.
+func (m Model) searching() Model {
+	m.issues.loading = m.deps.Jira.Search != nil
+
+	return m
+}
+
 // relistIssues is the command that reads the Issues pane's first page again,
 // with the branches that mark its issues in flight, which may have changed
 // since.

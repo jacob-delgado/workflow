@@ -46,6 +46,8 @@ type tasksState struct {
 	// listing is how the user has chosen to see the list, kept for the session
 	// across every read.
 	listing taskListing
+	// loading is a refresh begun and not yet answered.
+	loading bool
 }
 
 // trackStub is a task a track added, known from its add's answer and its
@@ -135,6 +137,14 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 	return m.withTaskWords().loadDetail()
 }
 
+// refreshTasks asks Taskwarrior again.
+func (m Model) refreshTasks() (Model, tea.Cmd) {
+	read := m.loadTasks()
+	m.tasks.loading = read != nil
+
+	return m, read
+}
+
 // loadTasks is the command that asks Taskwarrior which it is, then its pending
 // tasks, then the tasks linked to issues, in one command; nil when there is no
 // task program to ask.
@@ -176,7 +186,7 @@ func (m Model) tasksRail(_ int) string {
 	case m.deps.Tasks.Install == nil:
 		return m.withoutTaskwarriorRail()
 	case !m.tasks.loaded:
-		return "reading" + m.marks.ellipsis
+		return m.marks.reading()
 	case m.tasks.err != nil:
 		return m.failureSummary(m.tasks.err)
 	case m.tasks.writing:
@@ -235,7 +245,7 @@ func (m Model) tasksDetail(width int) string {
 	case m.deps.Tasks.Install == nil:
 		return m.withoutTaskwarriorDetail(width)
 	case !m.tasks.loaded:
-		return "reading" + m.marks.ellipsis
+		return m.marks.reading()
 	case m.tasks.err != nil:
 		return m.failureBlock(m.tasks.err, width)
 	case len(groups.listed()) == 0 && len(m.tasks.pending) > 0 && m.tasks.listing.narrows():

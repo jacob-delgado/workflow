@@ -10,6 +10,7 @@ package tui_test
 import (
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -96,6 +97,48 @@ func drain(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
 	deadline := time.NewTimer(failsafe)
 	defer deadline.Stop()
 
+	return settle(t, model, cmd, func(next tea.Cmd) (tea.Msg, bool) {
+		return await(t, next, deadline.C), true
+	})
+}
+
+// patience is how long on the wall clock drainPast waits for a command before
+// leaving it out: far longer than any fake takes to answer, and short enough
+// that a test holding one back stays quick.
+const patience = 200 * time.Millisecond
+
+// drainPast is drain leaving out every command that has not answered within
+// patience: a seam a test holds so that it never answers, while the screen is
+// looked at with its answer still out.
+func drainPast(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
+	t.Helper()
+
+	deadline := time.Now().Add(failsafe)
+
+	return settle(t, model, cmd, func(next tea.Cmd) (tea.Msg, bool) {
+		if time.Now().After(deadline) {
+			t.Fatalf("the model had not settled after %v: it never stops asking", failsafe)
+		}
+
+		answer := make(chan tea.Msg, 1)
+
+		go func() { answer <- next() }()
+
+		select {
+		case msg := <-answer:
+			return msg, true
+		case <-time.After(patience):
+			return nil, false
+		}
+	})
+}
+
+// settle runs a command and every command it leads to, as drain describes,
+// asking run for each one's message; a command run leaves unanswered leads to
+// nothing.
+func settle(t *testing.T, model tui.Model, cmd tea.Cmd, run func(tea.Cmd) (tea.Msg, bool)) tui.Model {
+	t.Helper()
+
 	var clock fakeClock
 
 	pending := []tea.Cmd{cmd}
@@ -117,7 +160,12 @@ func drain(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
 			continue
 		}
 
-		switch msg := await(t, next, deadline.C).(type) {
+		msg, answered := run(next)
+		if !answered {
+			continue
+		}
+
+		switch msg := msg.(type) {
 		case tea.BatchMsg:
 			pending = append(pending, msg...)
 		case scheduled:
@@ -150,6 +198,45 @@ func await(t *testing.T, cmd tea.Cmd, deadline <-chan time.Time) tea.Msg {
 
 		return nil
 	}
+}
+
+// hold keeps a seam from answering once it is armed, as a service that has
+// stopped answering does; the test's cleanup lets every held answer go.
+type hold struct {
+	armed   atomic.Bool
+	release chan struct{}
+}
+
+// newHold is a hold not yet armed, released when t ends.
+func newHold(t *testing.T) *hold {
+	t.Helper()
+
+	held := &hold{release: make(chan struct{})}
+
+	t.Cleanup(func() { close(held.release) })
+
+	return held
+}
+
+// wait returns at once until the hold is armed, and after that only once the
+// test has ended.
+func (h *hold) wait() {
+	if h.armed.Load() {
+		<-h.release
+	}
+}
+
+// holding presses keys in order, as typing does, leaving out whatever a held
+// seam keeps from answering.
+func holding(t *testing.T, model tui.Model, keys ...string) tui.Model {
+	t.Helper()
+
+	for _, key := range keys {
+		updated, cmd := model.Update(keyMsg(key))
+		model = drainPast(t, concrete(t, updated), cmd)
+	}
+
+	return model
 }
 
 // live is the world's interface, sized and with everything it loads at start

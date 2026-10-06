@@ -115,14 +115,17 @@ than 30 seconds ago, so flicking between panes asks Jira and the forge
 nothing. Branch, Commits, Review and the messaging pane all read the branch,
 its pull request and CI, so reading one of them again counts for all four;
 the Issues list is left as it is while it holds further pages, which a reload
-would drop. `r` reads the pane again whenever you press it.
+would drop. `r` reads the pane again whenever you press it. While a read is
+out, the pane's title carries `◐` until its answer arrives, and a pane read
+for the first time says `◐ reading…`.
 `j`/`k` or the arrow keys move within a list, `home` and `end` or `G` jump
 to its first and last row — or, on a pane with no list, to the top and the
-bottom of the detail — and `J`/`K` or `pgdn`/`pgup` scroll the detail pane. Each pane keeps its own place: come back to one and
-its detail is scrolled where you left it, unless it shows another branch,
-issue or pull request, which starts at the top, or its list reloaded while you
-were away, which scrolls to keep the selection in sight. The table below holds
-every key `?` lists, by where it works.
+bottom of the detail — and `J`/`K` or `pgdn`/`pgup` scroll the detail pane.
+Each pane keeps its own place: come back to one and its detail is scrolled
+where you left it, unless it shows another branch, issue or pull request,
+which starts at the top, or its list reloaded while you were away, which
+scrolls to keep the selection in sight. The table below holds every key `?`
+lists, by where it works.
 
 | Where | Key | Does |
 | --- | --- | --- |

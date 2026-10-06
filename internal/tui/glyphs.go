@@ -72,6 +72,11 @@ func (g glyphs) marker(selected bool) string {
 	return g.unselected
 }
 
+// reading is a pane's first wait, marked in flight as an overlay's wait is.
+func (g glyphs) reading() string {
+	return g.inFlight + " reading" + g.ellipsis
+}
+
 // checkbox marks whether a multi-select row is one of those chosen. It is the
 // same in both glyph sets, and shares no shape with a state glyph: a chosen
 // row is not a done one, so it never borrows ● and ○. Plain brackets are one
