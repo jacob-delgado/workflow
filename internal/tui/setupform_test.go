@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -302,4 +304,140 @@ func TestSetUpInARepositorySaysToIgnoreTheFile(t *testing.T) {
 
 	// Assert
 	requireScreen(t, arrived.View().Content, "set up; add it to .gitignore")
+}
+
+func TestSetUpsLastLookNamesEveryAnswerButTheCredentials(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), throughEveryQuestion("up")...)
+
+	// Assert
+	view := asked.View().Content
+	requireScreen(t, view, "Write ", "Jira   "+firstRunJira, "Token  in your keychain", "Slack  a webhook")
+	refuseScreen(t, view, firstRunToken, firstRunWebhook)
+
+	if footer := footerLine(view); !strings.Contains(footer, "enter write") || !strings.Contains(footer, "esc back") {
+		t.Errorf("the footer = %q, want write and back", footer)
+	}
+}
+
+func TestSetUpSaysTheCheckRunsWhileJiraIsAsked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	keys := toTheToken()
+	typed := typing(t, newFirstRun(t, http.StatusOK).model(t, false), keys[:len(keys)-1]...)
+
+	// Act
+	asking, _ := pressed(t, typed, keyEnter)
+
+	// Assert
+	requireScreen(t, asking.View().Content, "checking the token with Jira")
+}
+
+func TestSetUpTypesAPasteIntoTheField(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	atURL := typing(t, newFirstRun(t, http.StatusOK).model(t, false), keyEnter, keyEnter)
+
+	// Act
+	updated, _ := atURL.Update(tea.PasteMsg{Content: firstRunJira})
+
+	// Assert
+	requireScreen(t, concrete(t, updated).View().Content, "> "+firstRunJira)
+}
+
+func TestSetUpTypesTheTokenAgainWhenAsked(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	again := typing(t, newFirstRun(t, http.StatusUnauthorized).model(t, false), append(toTheToken(), keyEnter)...)
+
+	// Assert
+	requireScreen(t, again.View().Content, "Your Jira personal access token")
+}
+
+func TestSetUpKeepsAFailedCheckWhenAsked(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	kept := typing(t, newFirstRun(t, http.StatusUnauthorized).model(t, false), append(toTheToken(), "down", keyEnter)...)
+
+	// Assert
+	requireScreen(t, kept.View().Content, "Where should the token be kept?")
+}
+
+func TestSetUpEscWalksBackThroughTheQuestions(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		keys []string
+		want string
+	}{
+		"from the write":           {keys: throughEveryQuestion("up"), want: "A Slack incoming webhook URL"},
+		"from the webhook":         {keys: append(toTheToken(), keyEnter), want: "Where should the token be kept?"},
+		"from the keychain":        {keys: toTheToken(), want: "Your Jira personal access token"},
+		"from a check":             {keys: toTheToken(), want: "Your Jira personal access token"},
+		"with Jira left out":       {keys: []string{keyEnter, keyEnter, keyEnter}, want: "Jira's address"},
+		"from the token":           {keys: []string{keyEnter, keyEnter, "a", keyEnter}, want: "Jira's address"},
+		"cancels at the first one": {keys: []string{keyEnter}, want: "enter sets one up here."},
+	}
+
+	for name, each := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			status := http.StatusOK
+			if name == "from a check" {
+				status = http.StatusUnauthorized
+			}
+
+			asked := typing(t, newFirstRun(t, status).model(t, false), each.keys...)
+
+			// Act
+			back := typing(t, asked, keyEsc)
+
+			// Assert
+			requireScreen(t, back.View().Content, each.want)
+		})
+	}
+}
+
+func TestSetUpSaysWhyAWriteWasRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	answered := typing(t, run.model(t, false), throughEveryQuestion("up")...)
+
+	err := os.WriteFile(run.where.Path(setup.Repository), []byte(`{}`), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing a file meanwhile: %v", err)
+	}
+
+	// Act
+	refused, cmd := pressed(t, answered, keyEnter)
+	refused = drain(t, refused, cmd)
+
+	// Assert
+	requireScreen(t, refused.View().Content, "already exists")
+}
+
+func TestTheNoFileScreenNamesConfigInitWhereSetUpIsNotWired(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := reposWorld()
+	working.issues = nil
+	model := sized(t, tui.New(config.Default(), config.ErrNotFound, working.deps()), 120, 40)
+
+	// Act
+	view := drain(t, model, model.Init()).View().Content
+
+	// Assert
+	requireScreen(t, view, config.InitStep)
+	refuseScreen(t, view, "sets one up here")
 }
