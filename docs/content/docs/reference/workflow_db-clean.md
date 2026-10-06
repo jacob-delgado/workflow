@@ -7,7 +7,7 @@ weight: 20
 
 ## workflow db-clean
 
-Remove the local databases workflow keeps between sessions
+Remove workflow's local data, the databases it keeps between sessions
 
 ### Synopsis
 
