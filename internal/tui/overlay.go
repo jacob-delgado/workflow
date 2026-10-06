@@ -363,7 +363,7 @@ func (c checklist[F]) view(_, rows int) (string, string) {
 
 // choiceRow is a value, checked when it is picked, with how many hold it.
 func (c checklist[F]) choiceRow(choice offered[F]) string {
-	return c.marks.checkbox(slices.Contains(c.chosen, choice.value)) + c.label(choice.value) + "  " +
+	return checkbox(slices.Contains(c.chosen, choice.value)) + c.label(choice.value) + "  " +
 		strconv.Itoa(choice.count)
 }
 

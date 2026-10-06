@@ -177,7 +177,7 @@ func TestGroupsChoosesWhichUserGroupsTheRepositoryTags(t *testing.T) {
 	groups := typing(t, openPeople(t, tagging), keyTab)
 
 	// Assert: the API reviewers are this repository's already
-	requireScreen(t, groups.View().Content, "○ @control-plane-pod", "● @api-reviewers", "space tag",
+	requireScreen(t, groups.View().Content, "[ ] @control-plane-pod", "[x] @api-reviewers", "space tag",
 		"r refresh directory")
 
 	// Act: check the pod
@@ -188,7 +188,7 @@ func TestGroupsChoosesWhichUserGroupsTheRepositoryTags(t *testing.T) {
 		t.Fatalf("saves = %q, want the pod and the API reviewers", calls)
 	}
 
-	requireScreen(t, saved.View().Content, "● @control-plane-pod", "saved the groups")
+	requireScreen(t, saved.View().Content, "[x] @control-plane-pod", "saved the groups")
 }
 
 func TestGroupsKeepsARepositoryGroupSlackNoLongerLists(t *testing.T) {
@@ -206,7 +206,7 @@ func TestGroupsKeepsARepositoryGroupSlackNoLongerLists(t *testing.T) {
 		t.Errorf("saves = %q, want the gone group unchecked and nothing else", calls)
 	}
 
-	requireScreen(t, saved.View().Content, "○ @gone")
+	requireScreen(t, saved.View().Content, "[ ] @gone")
 }
 
 func TestGroupsRefreshesTheDirectory(t *testing.T) {

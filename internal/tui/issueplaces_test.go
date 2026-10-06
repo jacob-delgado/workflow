@@ -91,6 +91,21 @@ func TestPWithIssuesOpensTheWherePickerWithCounts(t *testing.T) {
 	requireScreen(t, view, "Filter", "Intake  1", "Fixing  2", "In development  2", "in flight  1", "task active  1")
 }
 
+func TestTheFilterChecklistMarksAChosenPlaceWithACheckbox(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := placesWorld()
+	opened := typing(t, repo.live(t, placesViewWidth, placesViewHeight), placeKey)
+
+	// Act
+	view := typing(t, opened, downAction, keySpace).View().Content
+
+	// Assert
+	requireScreen(t, view, "[x] Fixing  2", "[ ] Intake  1", "[ ] in flight  1")
+	refuseScreen(t, view, "● Fixing", "○ in flight")
+}
+
 func TestPickingAStatusNarrowsTheList(t *testing.T) {
 	t.Parallel()
 

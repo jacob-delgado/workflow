@@ -295,7 +295,7 @@ func (s tagSection) groupLines(marks glyphs) []string {
 
 	for index, group := range s.tags.Groups {
 		row := marks.marker(len(s.tags.Owners)+index == s.cursor) +
-			marks.checkbox(slices.Contains(s.checked, group.Slack.ID)) + slackName(group.Slack, true)
+			checkbox(slices.Contains(s.checked, group.Slack.ID)) + slackName(group.Slack, true)
 		if group.FromOwners {
 			row += "   owns changed paths"
 		}

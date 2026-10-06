@@ -72,13 +72,16 @@ func (g glyphs) marker(selected bool) string {
 	return g.unselected
 }
 
-// checkbox marks whether a multi-select row is one of those chosen.
-func (g glyphs) checkbox(chosen bool) string {
+// checkbox marks whether a multi-select row is one of those chosen. It is the
+// same in both glyph sets, and shares no shape with a state glyph: a chosen
+// row is not a done one, so it never borrows ● and ○. Plain brackets are one
+// column a character in every font, where a ballot box is not.
+func checkbox(chosen bool) string {
 	if chosen {
-		return g.done + " "
+		return "[x] "
 	}
 
-	return g.notStarted + " "
+	return "[ ] "
 }
 
 // styles is the interface's type. It inherits the terminal's own colors for

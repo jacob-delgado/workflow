@@ -62,7 +62,7 @@ func TestATransitionFillsAUserDateAndSeveralVersions(t *testing.T) {
 	afterDate := typing(t, afterUser, append(letters("2026-09-21"), keyEnter)...)
 
 	// Assert: the versions are next, none chosen yet, and the toggle is offered
-	requireScreen(t, afterDate.View().Content, "Fix Version/s (3 of 3)", "○ 1.0", "○ 1.1")
+	requireScreen(t, afterDate.View().Content, "Fix Version/s (3 of 3)", "[ ] 1.0", "[ ] 1.1")
 	requireScreen(t, footerLine(afterDate.View().Content), "space select")
 
 	// Act: choose both and apply
@@ -131,13 +131,13 @@ func TestAChosenVersionCanBeToggledOff(t *testing.T) {
 	chosen := typing(t, versions, keySpace)
 
 	// Assert: it shows as chosen
-	requireScreen(t, chosen.View().Content, "● 1.0")
+	requireScreen(t, chosen.View().Content, "[x] 1.0")
 
 	// Act: choose it again
 	off := typing(t, chosen, keySpace)
 
 	// Assert: neither version is chosen now
-	requireScreen(t, off.View().Content, "○ 1.0", "○ 1.1")
+	requireScreen(t, off.View().Content, "[ ] 1.0", "[ ] 1.1")
 }
 
 func TestATransitionNeedingFieldsAsksForEachInTurn(t *testing.T) {

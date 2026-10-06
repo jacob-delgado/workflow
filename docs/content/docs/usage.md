@@ -474,8 +474,8 @@ Code owners
   carla                → Carla Diaz
   dan                  · not on Slack
 Groups
-  ○ @api-reviewers
-  ● @control-plane-pod   owns changed paths
+  [ ] @api-reviewers
+  [x] @control-plane-pod   owns changed paths
 tags  @Carla Diaz @control-plane-pod
 ```
 

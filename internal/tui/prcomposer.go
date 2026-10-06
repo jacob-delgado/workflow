@@ -291,7 +291,6 @@ func (c prComposer) view(width, _ int) (string, string) {
 		return c.marks.marker(c.focus == focus) + fmt.Sprintf("%-9s ", label) + input.View()
 	}
 
-	checkbox := map[bool]string{false: "[ ]", true: "[x]"}[c.draft]
 	lines := pinnedOutcome(c.styles, c.marks, c.send, "opening", width)
 	lines = append(lines,
 		field(prFieldTitle, "title", c.title),
@@ -300,7 +299,7 @@ func (c prComposer) view(width, _ int) (string, string) {
 		field(prFieldAssignees, "assignees", c.assignees),
 		field(prFieldLabels, "labels", c.labels),
 		fmt.Sprintf("  %-9s %s", "head", c.head),
-		"  "+c.templateName()+c.marks.separator+checkbox+" draft",
+		"  "+c.templateName()+c.marks.separator+checkbox(c.draft)+"draft",
 		"",
 	)
 
