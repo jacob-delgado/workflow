@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // checksTitle titles the detail pane while the checks are listed.
@@ -183,8 +184,7 @@ func (msg checkOpened) apply(m Model) (Model, tea.Cmd) {
 // request that has merged is left alone even if a stale CI read still reads as
 // failed: there is nothing to re-run once it is in.
 func (m Model) canRerun() bool {
-	return m.review.found && m.review.pull.State == forge.StateOpen &&
-		m.review.ci.State == forge.CIFailed && m.deps.Forge.Rerun != nil
+	return m.review.found && m.deps.Forge.Rerun != nil && loop.CanRerun(m.review.pull, m.review.ci)
 }
 
 // previewRerun holds the re-run of the failed checks for a last look, naming the

@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // mergedDetail describes a merged pull request: that it merged, how to finish
@@ -38,9 +39,8 @@ func (m Model) mergedDetail(pull forge.PullRequest) string {
 // merged, we are on the feature branch with a base to return to, the repository
 // can finish it, and no unpushed commits would be lost to the force delete.
 func (m Model) canFinish() bool {
-	return m.review.found && m.review.pull.State == forge.StateMerged &&
-		m.deps.Git.Finish != nil && m.branch.onFeatureBranch() &&
-		m.branch.branch.Base != "" && !m.branch.branch.HasUnpushedWork()
+	return m.review.found && m.deps.Git.Finish != nil && m.branch.onFeatureBranch() &&
+		loop.CanFinish(m.review.pull, m.branch.branch)
 }
 
 // startFinish opens the finish preview: the three git commands that switch to

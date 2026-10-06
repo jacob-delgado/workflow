@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // errNoMergeMethod reports a repository that permits no way to merge.
@@ -21,16 +22,7 @@ var errNoMergeMethod = errors.New("cannot merge: the repository permits no merge
 // canMerge reports a pull request that can be merged here: found, mergeable,
 // green and approved, with a forge that can merge it.
 func (m Model) canMerge() bool {
-	pull := m.review.pull
-
-	return m.review.found &&
-		pull.State == forge.StateOpen &&
-		m.deps.Forge.Merge != nil &&
-		!pull.Draft &&
-		pull.Mergeable == forge.MergeClean &&
-		pull.Approvals > 0 &&
-		!pull.ChangesRequested &&
-		m.review.ci.State == forge.CIPassed
+	return m.review.found && m.deps.Forge.Merge != nil && loop.CanMerge(m.review.pull, m.review.ci)
 }
 
 // startMerge opens the merge preview at once and reads which merge methods the

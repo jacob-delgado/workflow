@@ -72,9 +72,7 @@ func (m Model) loadBranch() tea.Cmd {
 
 // onFeatureBranch reports a named branch other than the one work merges into.
 func (s branchState) onFeatureBranch() bool {
-	name := s.branch.Name
-
-	return s.loaded && s.err == nil && name != "" && name != s.branch.BaseName()
+	return s.loaded && s.err == nil && loop.OnFeatureBranch(s.branch)
 }
 
 // branchRail is the branch's name and where it stands against its upstream.
@@ -204,7 +202,7 @@ func (m Model) canSwitchTask() bool {
 
 // canRebase reports a feature branch with a base to catch up with.
 func (m Model) canRebase() bool {
-	return m.branch.onFeatureBranch() && m.branch.branch.Base != "" && m.deps.Git.Rebase != nil
+	return m.branch.onFeatureBranch() && loop.CanRebase(m.branch.branch) && m.deps.Git.Rebase != nil
 }
 
 // canPush reports a branch with something to push.

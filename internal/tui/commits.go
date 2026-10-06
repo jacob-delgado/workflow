@@ -334,7 +334,7 @@ func preCommitRun() runKind {
 // commit — amended into the last, or fixed up into a chosen one — which is safe
 // only while those commits are local.
 func (m Model) canFoldStaged() bool {
-	return m.changes.staged() > 0 && len(m.branch.branch.Unpushed()) > 0
+	return len(loop.Foldable(m.changes.changes, m.branch.branch)) > 0
 }
 
 // foldKeys offers amending and fixing up, when there are staged changes and an
