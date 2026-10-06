@@ -159,6 +159,8 @@ var (
 	_ applier = branchUnlinked{}
 	_ applier = localDataRead{}
 	_ applier = localDataRemoved{}
+	_ applier = settingsRead{}
+	_ applier = settingsSaved{}
 )
 
 // notice is the footer's one-line report of something that just happened, and

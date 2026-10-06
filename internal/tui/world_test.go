@@ -125,6 +125,9 @@ type world struct {
 	localFiles        []store.DataFile
 	localDataErr      error
 	removeErr         error
+	settings          config.Config
+	readSettingsErr   error
+	saveSettingsErr   error
 	fetchErr          error
 	commitLines       []string
 	commitErr         error
@@ -258,6 +261,7 @@ func newWorld() *world {
 		},
 		pageSize:   50,
 		localFiles: localFiles(),
+		settings:   settingsFile(),
 		detail: jira.IssueDetail{
 			Issue: jira.Issue{Key: issueKey}, Reporter: reporter, Description: "Tokens reach the log.",
 			Comments: []jira.Comment{

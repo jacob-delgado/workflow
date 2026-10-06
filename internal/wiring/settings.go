@@ -6,18 +6,77 @@ package wiring
 import (
 	"context"
 	"fmt"
+	"sync"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
 // settingsDeps reads and changes the configuration files and the local data,
-// for the terminal's Settings and Local data.
-func settingsDeps(ctx context.Context) seams.Settings {
+// for the terminal's Settings and Local data. Slack user-token secrets typed
+// into Settings are kept where place keeps them.
+func settingsDeps(
+	ctx context.Context, files config.Files, place func(config.Config) (config.Config, error),
+) seams.Settings {
+	editor := &configEditor{files: files, place: place}
+
 	return seams.Settings{
+		Read:            editor.read,
+		Save:            editor.save,
 		LocalData:       func() (string, []store.DataFile, error) { return localData(ctx) },
 		RemoveLocalData: removeLocalData,
 	}
+}
+
+// configEditor is the configuration as the terminal's Settings last read it,
+// unmasked, so a save can keep each credential Settings was shown masked. It
+// never hands a credential to the interface.
+type configEditor struct {
+	files config.Files
+	place func(config.Config) (config.Config, error)
+
+	mu   sync.Mutex
+	last config.Config
+	over config.Revision
+}
+
+// read reads the files as they are now, keeping what was read for the save
+// made over it, and answers it masked.
+func (e *configEditor) read() (config.Config, config.Revision, error) {
+	cfg, over, err := config.LoadLayersAt(e.files)
+	if err != nil {
+		return config.Config{}, config.Revision{}, fmt.Errorf("reading %s: %w", e.files, err)
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.last, e.over = cfg, over
+
+	return cfg.Redacted(), over, nil
+}
+
+// save writes edited over the read at over, which must be the last one made:
+// its masked credentials stand for that read's.
+func (e *configEditor) save(edited config.Config, over config.Revision) (config.Config, config.Revision, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if over != e.over {
+		return config.Config{}, config.Revision{}, fmt.Errorf("%s: %w", e.files, config.ErrChangedOnDisk)
+	}
+
+	saved, written, err := config.SaveEdit(config.Edit{
+		Files: e.files, Read: e.last, Over: over, Edited: edited, PlaceSlackCredentials: e.place,
+	})
+	if err != nil {
+		return config.Config{}, config.Revision{}, err
+	}
+
+	e.last, e.over = saved, written
+
+	return saved.Redacted(), written, nil
 }
 
 // localData is the store's directory and the database files in it, as

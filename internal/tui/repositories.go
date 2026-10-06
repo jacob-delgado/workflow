@@ -386,6 +386,10 @@ func worktreeState(worktree gitrepo.Worktree) string {
 // repositoriesKeys is what the pane offers.
 func (m Model) repositoriesKeys() []key.Binding {
 	keys := []key.Binding{m.keys.up, m.keys.down, relabel(m.keys.confirm, verbSwitch), m.keys.favoriteDir, m.keys.goToDir}
+	if m.canEditSettings() {
+		keys = append(keys, m.keys.settings)
+	}
+
 	if m.canSeeLocalData() {
 		keys = append(keys, m.keys.localData)
 	}
@@ -405,15 +409,28 @@ func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.toggleFavorite(m.selectedRepository())
 	case key.Matches(msg, m.keys.confirm):
 		return m.switchToSelected()
-	case key.Matches(msg, m.keys.goToDir):
-		return m.openDirPrompt()
-	case key.Matches(msg, m.keys.localData) && m.canSeeLocalData():
-		return m.openLocalData()
 	case key.Matches(msg, m.keys.refresh):
 		return m.refreshRepositories()
+	default:
+		return m.openFromRepositories(msg)
 	}
 
 	return m, nil
+}
+
+// openFromRepositories opens what the Repositories pane offers: the go-to
+// prompt, Settings or Local data.
+func (m Model) openFromRepositories(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.goToDir):
+		return m.openDirPrompt()
+	case key.Matches(msg, m.keys.settings) && m.canEditSettings():
+		return m.openSettings()
+	case key.Matches(msg, m.keys.localData) && m.canSeeLocalData():
+		return m.openLocalData()
+	default:
+		return m, nil
+	}
 }
 
 // favoriteToggled is a favorite marked or forgotten, or why it was not.

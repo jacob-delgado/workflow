@@ -107,7 +107,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Store:        storeDeps(ctx, onDisk(cfg), cfg, where),
 		Tasks:        taskDeps(ctx, cfg.Taskwarrior),
 		Repositories: repositoriesDeps(ctx, cfg, where),
-		Settings:     settingsDeps(ctx),
+		Settings:     settingsDeps(ctx, cfg.Layers(), controls.PlaceSlackCredentials),
 		Clock:        nil,
 		CIInterval:   cfg.CIInterval(),
 		Notify:       ringTerminal,
@@ -127,14 +127,15 @@ type Controls struct {
 	ResolveAhead func()
 	// UseForgeSettings applies forge settings saved while workflow runs — the
 	// web's Settings — to every forge call after it, and reports which forge the
-	// remote is on under them. The terminal saves no settings and never calls it.
+	// remote is on under them. The terminal's Settings applies what it saves
+	// from the next start, and never calls it.
 	UseForgeSettings func(settings config.Forge) forge.Kind
 	// UseMessagingSettings applies messaging settings saved while workflow runs
 	// — the web's Settings — to every post and Slack directory read after it,
 	// dropping what the directory read under the old ones.
 	UseMessagingSettings func(settings config.Messaging)
 	// PlaceSlackCredentials keeps a Slack user token's secrets, typed into the
-	// web's Settings, where the configuration keeps them: on macOS it refreshes
+	// web's Settings or the terminal's, where the configuration keeps them: on macOS it refreshes
 	// the token once, saves the pair to the keychain, and answers the
 	// configuration without them; elsewhere the file keeps them, and it answers
 	// the configuration unchanged.
