@@ -103,7 +103,7 @@ func (m Model) commitsRail(_ int) string {
 	case !m.changes.loaded:
 		return "reading" + m.marks.ellipsis
 	case m.changes.err != nil:
-		return m.failedGlyph() + " status failed" + m.marks.separator + "see detail"
+		return unreadRow(m.styles, m.marks, m.changes.err, "status failed")
 	}
 
 	counts := strconv.Itoa(m.changes.staged()) + " of " + strconv.Itoa(len(m.changes.changes)) + " staged"

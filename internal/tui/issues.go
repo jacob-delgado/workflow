@@ -268,7 +268,7 @@ func (l issueList) move(step int) issueList {
 // and marks a failed search beneath the issues it kept. mark, when there is
 // one, is a column after each issue's status glyph.
 func (l issueList) render(marks glyphs, sty styles, rows int, mark func(jira.Key) string) string {
-	failed := failedGlyph(sty, marks) + " failed" + marks.separator + "see detail"
+	failed := unreadRow(sty, marks, l.err, "failed")
 
 	switch {
 	case !l.settled:

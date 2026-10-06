@@ -254,7 +254,7 @@ func TestWithoutTaskwarriorTheTasksPaneSaysSoAndOffersNothing(t *testing.T) {
 	}{
 		"the rail says so": {keys: nil, want: "not installed", refuse: "turned off"},
 		"the detail names the setting, and nothing is offered": {
-			keys: []string{tasksPane}, want: "`taskwarrior.program`", refuse: "taskwarrior.disabled",
+			keys: []string{tasksPane}, want: "○ Taskwarrior is not installed", refuse: "taskwarrior.disabled",
 			footerRefuse: []string{"refresh", "start", "done", "add"},
 		},
 		// Turned off on purpose, Taskwarrior is not missing.
@@ -296,7 +296,7 @@ func TestAGoTaskOnPathIsExplainedInTheTasksPane(t *testing.T) {
 	view := typing(t, repo.live(t, 120, 40), tasksPane).View().Content
 
 	// Assert
-	requireScreen(t, view, "another program (go-task, most likely)", "`taskwarrior.program`")
+	requireScreen(t, view, "another program (go-task, most likely)", "Set taskwarrior.program")
 }
 
 func TestAGoTaskOnPathIsExplainedInASCII(t *testing.T) {
@@ -631,7 +631,7 @@ func TestAFailedTaskReadShowsTheReason(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "Taskwarrior has never run",
-		"Run the Taskwarrior named below once in a terminal so it creates its configuration, then refresh.",
+		"run it once in a terminal so it creates its configuration;",
 		"/opt/homebrew/bin/task")
 	refuseScreen(t, view, "Run `task`")
 }

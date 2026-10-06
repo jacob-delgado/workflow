@@ -175,7 +175,7 @@ func (m Model) selectedTask() taskwarrior.Task {
 func (m Model) tasksRail(_ int) string {
 	switch {
 	case m.deps.Tasks.Install == nil:
-		return m.withoutTaskwarrior().brief
+		return m.withoutTaskwarriorRail()
 	case !m.tasks.loaded:
 		return "reading" + m.marks.ellipsis
 	case m.tasks.err != nil:
@@ -208,15 +208,24 @@ func (m Model) tasksRail(_ int) string {
 	return strings.Join(counts, m.marks.separator)
 }
 
-// withoutTaskwarrior is why there is no Taskwarrior to ask, briefly for the rail
-// and in full for the detail: the integration is turned off, or no task program
-// was found.
-func (m Model) withoutTaskwarrior() wording {
+// withoutTaskwarriorRail is why there is no Taskwarrior to ask, briefly: the
+// integration is turned off, or no task program was found — which is not set
+// up, and told as guidance.
+func (m Model) withoutTaskwarriorRail() string {
 	if m.cfg.Taskwarrior.Disabled {
-		return wording{brief: "turned off", full: "Turned off by taskwarrior.disabled."}
+		return "turned off"
 	}
 
-	return wording{brief: "not installed", full: inFull(taskwarrior.ErrNotInstalled)}
+	return m.failureSummary(taskwarrior.ErrNotInstalled)
+}
+
+// withoutTaskwarriorDetail is withoutTaskwarriorRail in full, for the detail.
+func (m Model) withoutTaskwarriorDetail(width int) string {
+	if m.cfg.Taskwarrior.Disabled {
+		return wrap("Turned off by taskwarrior.disabled.", width)
+	}
+
+	return wrap(m.failureLine(taskwarrior.ErrNotInstalled), width)
 }
 
 // tasksDetail lists the pending tasks, then describes the selected one.
@@ -225,7 +234,7 @@ func (m Model) tasksDetail(width int) string {
 
 	switch {
 	case m.deps.Tasks.Install == nil:
-		return wrap(m.withoutTaskwarrior().full, width)
+		return m.withoutTaskwarriorDetail(width)
 	case !m.tasks.loaded:
 		return "reading" + m.marks.ellipsis
 	case m.tasks.err != nil:
