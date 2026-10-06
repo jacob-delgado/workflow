@@ -146,16 +146,28 @@ func (s *server) checkHeld(round int) {
 	default:
 	}
 
-	branch, known := s.frameBranch()
-	if known {
-		s.settleHeld(branch, s.forgeReview(branch))
-	}
+	s.settleOnRead()
 
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
 	if s.held.round == round && s.held.shown.State == api.QueuedWaiting {
 		s.held.check = s.checkHeldAfter(round)
+	}
+}
+
+// settleOnRead settles the held announcement against what the branch and the
+// forge say now. A read that failed says nothing of the pull request, so it
+// neither posts the announcement nor drops it.
+func (s *server) settleOnRead() {
+	branch, err := s.frameBranch()
+	if err != nil {
+		return
+	}
+
+	review, err := s.forgeReview(branch)
+	if err == nil {
+		s.settleHeld(branch, review)
 	}
 }
 

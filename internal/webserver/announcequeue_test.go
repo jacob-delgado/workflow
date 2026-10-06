@@ -43,14 +43,18 @@ const (
 type forgeWorld struct {
 	mu     sync.Mutex
 	branch string
-	ci     forge.CIState
-	ciErr  error
-	pull   int
-	gone   bool
-	state  forge.PullState
-	now    time.Time
-	posts  []string
-	fail   error
+	// head, when set, is the commit the branch is at, in place of filledDeps'.
+	head string
+	// pullErr, when set, is how the forge fails to find the pull request.
+	pullErr error
+	ci      forge.CIState
+	ciErr   error
+	pull    int
+	gone    bool
+	state   forge.PullState
+	now     time.Time
+	posts   []string
+	fail    error
 }
 
 // newForgeWorld is pull request 42, open, its CI running, at a fixed time.
@@ -73,6 +77,9 @@ func (w *forgeWorld) deps() webserver.Deps {
 		defer w.mu.Unlock()
 
 		branch.Name = w.branch
+		if w.head != "" {
+			branch.Head = w.head
+		}
 
 		return branch, err
 	}
@@ -82,7 +89,7 @@ func (w *forgeWorld) deps() webserver.Deps {
 
 		url := fmt.Sprintf("https://x/%d", w.pull)
 
-		return forge.PullRequest{Number: w.pull, URL: url, Title: "Redact tokens", State: w.state}, !w.gone, nil
+		return forge.PullRequest{Number: w.pull, URL: url, Title: "Redact tokens", State: w.state}, !w.gone, w.pullErr
 	}
 	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
 		w.mu.Lock()

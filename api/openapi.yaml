@@ -3741,6 +3741,36 @@ components:
             default alone applies.
           example: api
         tasks: {$ref: "#/components/schemas/TasksSummary"}
+        problems:
+          $ref: "#/components/schemas/PanelProblems"
+      additionalProperties: false
+
+    PanelProblems:
+      type: object
+      description: >-
+        Why each panel whose read failed was not read, so a failed read is
+        shown as a failure rather than as the panel's empty state; absent
+        when every panel read. A failed panel still carries its empty answer
+        — or, for the review, the answer the forge last gave for the branch
+        at its head — beside its problem. A service there is nothing to ask,
+        such as no repository or no forge the origin names, is no problem.
+        Each detail is the curated one an error answer carries, never a host,
+        a path or a credential.
+      properties:
+        issues:
+          description: Why the view's first page could not be read.
+          allOf: [{$ref: "#/components/schemas/Problem"}]
+        branch:
+          description: Why the checked-out branch could not be read.
+          allOf: [{$ref: "#/components/schemas/Problem"}]
+        changes:
+          description: Why the working tree's changes could not be read.
+          allOf: [{$ref: "#/components/schemas/Problem"}]
+        review:
+          description: >-
+            Why the branch's pull request could not be read: the forge's
+            refusal, or the branch's when the branch could not be read.
+          allOf: [{$ref: "#/components/schemas/Problem"}]
       additionalProperties: false
 
     TaskBranch:
@@ -3994,9 +4024,17 @@ components:
         ci:
           description: >-
             The pull request's CI; absent when none is found, the pull request
-            is not open, or its CI cannot be read.
+            is not open, or its CI cannot be read — unless the event stream
+            holds the CI last read for the same pull request at the same head.
           nullable: true
           allOf: [{$ref: "#/components/schemas/CI"}]
+        ci_error:
+          description: >-
+            Why the open pull request's CI could not be read; absent when it
+            was, or was not asked about. The detail is curated, never a host
+            or a credential.
+          nullable: true
+          allOf: [{$ref: "#/components/schemas/Problem"}]
         issue:
           description: >-
             The issue the branch and its pull request are for; absent when none

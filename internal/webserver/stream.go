@@ -5,6 +5,7 @@ package webserver
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -36,14 +37,17 @@ const defaultForgeInterval = 20 * time.Second
 // read on every frame. It holds the answer for one branch at one head commit:
 // a frame for another asks at once. A read that fails keeps the answer held
 // for the same branch and head until the next read is due, and a CI read that
-// fails keeps the CI held for the same pull request. Its lock is held across
-// the read, so streams that find a read due together make one.
+// fails keeps the CI held for the same pull request; either way the failure is
+// held beside the answer, so every frame until the next read says so. Its lock
+// is held across the read, so streams that find a read due together make one.
 type forgeCache struct {
 	mu     sync.Mutex
 	held   bool
 	key    forgeKey
 	readAt time.Time
 	review api.Review
+	// failed is why the last read did not answer, or nil when it did.
+	failed error
 }
 
 // forgeKey is what a forge answer was read for: a branch, by name, at a head.
@@ -182,22 +186,31 @@ func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, sna
 // snapshot assembles the full read state the stream carries. A seam that is not
 // configured, or that fails, yields an empty panel rather than failing the whole
 // snapshot, so one unreachable upstream does not blank the cockpit; the forge's
-// panel keeps its last answer instead (forgeReview).
+// panel keeps its last answer instead (forgeReview). A seam that fails says so
+// beside its panel, in problems, so the empty panel is not taken for an answer.
 func (s *server) snapshot(view string) api.Snapshot {
-	branch, known := s.frameBranch()
-	review := s.snapshotReview(branch, known)
+	branch, branchErr := s.frameBranch()
+	review, reviewErr := s.snapshotReview(branch, branchErr)
 
-	if known {
+	// A queued announcement waits on what the forge says; a read that failed
+	// says nothing of the pull request, so it neither posts nor drops one.
+	if branchErr == nil && reviewErr == nil {
 		s.settleHeld(branch, review)
 	}
 
 	review.Announced = s.reviewAnnounced(review)
+	issues, issuesErr := s.snapshotIssues(view)
+	changes, changesErr := s.snapshotChanges()
 
 	return api.Snapshot{
-		Issues:             s.snapshotIssues(view),
-		Branch:             branchDTO(branch),
-		Changes:            s.snapshotChanges(),
-		Review:             review,
+		Issues:  issues,
+		Branch:  branchDTO(branch),
+		Changes: changes,
+		Review:  review,
+		Problems: panelProblems(api.PanelProblems{
+			Issues: panelProblem(issuesErr), Branch: panelProblem(branchErr),
+			Changes: panelProblem(changesErr), Review: panelProblem(reviewErr),
+		}),
 		Messaging:          s.readMessaging(),
 		QueuedAnnouncement: s.heldStatus(),
 		Run:                s.runShown(),
@@ -214,15 +227,54 @@ func (s *server) snapshot(view string) api.Snapshot {
 
 // frameBranch is the checked-out branch, read once for the whole frame through
 // readBranch so its branch, review and in-flight panels describe one branch
-// even when a checkout lands mid-frame. It reports false, with an empty branch,
-// when no repository is configured or the read fails.
-func (s *server) frameBranch() (gitrepo.Branch, bool) {
-	branch, err := s.readBranch()
-	if err != nil || s.deps.Branch == nil {
-		return gitrepo.Branch{}, false
+// even when a checkout lands mid-frame. It answers an empty branch with
+// errNoBranch when no repository is configured, and with the read's error when
+// it fails.
+func (s *server) frameBranch() (gitrepo.Branch, error) {
+	if s.deps.Branch == nil {
+		return gitrepo.Branch{}, errNoBranch
 	}
 
-	return branch, true
+	branch, err := s.readBranch()
+	if err != nil {
+		return gitrepo.Branch{}, err
+	}
+
+	return branch, nil
+}
+
+// errNoBranch is the branch of a server with no repository configured: nothing
+// to ask, so no panel's problem.
+var errNoBranch = errors.New("no repository is configured")
+
+// panelProblems is the problems of a frame, or nil when every panel read.
+func panelProblems(problems api.PanelProblems) *api.PanelProblems {
+	if problems == (api.PanelProblems{}) {
+		return nil
+	}
+
+	return &problems
+}
+
+// panelProblem is the curated problem a panel shows for the error its read
+// failed with, or nil when it read, or when there was nothing to ask: no
+// repository, or no forge the origin names. It goes through faultProblem,
+// as an answer's error does, so its detail never carries a host or a
+// credential.
+func panelProblem(err error) *api.Problem {
+	if err == nil || nothingToAsk(err) {
+		return nil
+	}
+
+	prob, _ := faultProblem(err)
+
+	return &prob
+}
+
+// nothingToAsk reports an error that says a read had nothing to ask, rather
+// than that something refused it.
+func nothingToAsk(err error) bool {
+	return errors.Is(err, errNoBranch) || errors.Is(err, gitrepo.ErrNotARepository) || noForgeToAsk(err)
 }
 
 // snapshotBranches lists the branches named for one of your issues, the local
@@ -349,39 +401,41 @@ func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
 }
 
 // snapshotIssues is the first page of the view's issues, or an empty page when
-// the tracker is not configured, the search fails, or a configuration save has
-// removed the view since the stream opened.
-func (s *server) snapshotIssues(view string) api.IssuesPage {
+// the tracker is not configured, the search fails — with its error — or a
+// configuration save has removed the view since the stream opened.
+func (s *server) snapshotIssues(view string) (api.IssuesPage, error) {
 	jql, known := resolveJQL(s.config(), view)
 	if s.deps.Search == nil || !known {
-		return issuesPageDTO(jira.SearchResult{}, 0)
+		return issuesPageDTO(jira.SearchResult{}, 0), nil
 	}
 
 	result, err := s.deps.Search(jql, 0)
 	if err != nil {
-		return issuesPageDTO(jira.SearchResult{}, 0)
+		return issuesPageDTO(jira.SearchResult{}, 0), err
 	}
 
-	return issuesPageDTO(result, 0)
+	return issuesPageDTO(result, 0), nil
 }
 
 // snapshotChanges is the working tree's changes, or none outside a repository or
-// when the read fails.
-func (s *server) snapshotChanges() api.ChangeList {
+// when the read fails, with its error.
+func (s *server) snapshotChanges() (api.ChangeList, error) {
 	changes, err := s.readChanges()
 	if err != nil {
-		return changesDTO(nil)
+		return changesDTO(nil), err
 	}
 
-	return changesDTO(changes)
+	return changesDTO(changes), nil
 }
 
 // snapshotReview is the frame's branch's pull request and CI as the forge last
 // answered for it, or an empty review when the branch is not known, no pull
 // can be found, or the forge has not answered for this branch at this head.
-func (s *server) snapshotReview(branch gitrepo.Branch, known bool) api.Review {
-	if !known {
-		return api.Review{Found: false}
+// Its error is why the forge did not answer, or why the branch it would be
+// asked about could not be read.
+func (s *server) snapshotReview(branch gitrepo.Branch, branchErr error) (api.Review, error) {
+	if branchErr != nil {
+		return api.Review{Found: false}, branchErr
 	}
 
 	return s.forgeReview(branch)
@@ -389,8 +443,8 @@ func (s *server) snapshotReview(branch gitrepo.Branch, known bool) api.Review {
 
 // forgeReview is the branch's review from the forge cache, read again when the
 // cache holds none for the branch at its head, or once the forge interval has
-// passed since the last read.
-func (s *server) forgeReview(branch gitrepo.Branch) api.Review {
+// passed since the last read, with why the last read failed, if it did.
+func (s *server) forgeReview(branch gitrepo.Branch) (api.Review, error) {
 	interval := s.forgeInterval()
 	key := forgeKey{branch: branch.Name, head: branch.Head}
 
@@ -401,14 +455,14 @@ func (s *server) forgeReview(branch gitrepo.Branch) api.Review {
 	held := s.forgeAnswer.held && s.forgeAnswer.key == key
 
 	if held && now.Sub(s.forgeAnswer.readAt) < interval {
-		return s.forgeAnswer.review
+		return s.forgeAnswer.review, s.forgeAnswer.failed
 	}
 
 	read, err := s.readForge(branch)
-	s.forgeAnswer.readAt = now
+	s.forgeAnswer.readAt, s.forgeAnswer.failed = now, err
 
 	if err != nil && held {
-		return s.forgeAnswer.review
+		return s.forgeAnswer.review, err
 	}
 
 	review := read.review
@@ -418,7 +472,7 @@ func (s *server) forgeReview(branch gitrepo.Branch) api.Review {
 
 	s.forgeAnswer.held, s.forgeAnswer.key, s.forgeAnswer.review = true, key, review
 
-	return review
+	return review, err
 }
 
 // forgeInterval is how long a forge answer serves the stream:

@@ -241,7 +241,8 @@ func (s *server) readForge(branch gitrepo.Branch) (forgeRead, error) {
 // review assembles the review state, folding in CI when an open pull request is
 // found and CI can be read. A merged pull request has no live CI, so it is not
 // asked about, as the terminal does not ask. A CI read that fails leaves the pull
-// request without it rather than failing the whole answer, its error beside.
+// request without it rather than failing the whole answer, its error beside and
+// its problem in ci_error.
 func (s *server) review(pull forge.PullRequest, found bool, head string) forgeRead {
 	result := api.Review{Found: found}
 	if !found {
@@ -257,6 +258,8 @@ func (s *server) review(pull forge.PullRequest, found bool, head string) forgeRe
 
 	status, err := s.deps.CheckCI(pull, head)
 	if err != nil {
+		result.CiError = panelProblem(err)
+
 		return forgeRead{review: result, ciErr: err}
 	}
 

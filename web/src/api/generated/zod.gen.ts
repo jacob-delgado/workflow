@@ -486,6 +486,16 @@ export const zHealth = z.object({
 });
 
 /**
+ * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service there is nothing to ask, such as no repository or no forge the origin names, is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+ */
+export const zPanelProblems = z.object({
+    issues: zProblem.optional(),
+    branch: zProblem.optional(),
+    changes: zProblem.optional(),
+    review: zProblem.optional()
+});
+
+/**
  * A branch named for an issue, by the branch-name convention: a local one, or one only the remote has, which checking out creates here.
  */
 export const zTaskBranch = z.object({
@@ -865,6 +875,7 @@ export const zReview = z.object({
     found: z.boolean(),
     pull: zPullRequest.nullish(),
     ci: zCi.nullish(),
+    ci_error: zProblem.nullish(),
     issue: zLinkedIssue.nullish(),
     announced: z.boolean()
 });
@@ -893,7 +904,8 @@ export const zSnapshot = z.object({
     branches: z.array(zTaskBranch),
     commit_types: z.array(z.string()),
     suggested_scope: z.string(),
-    tasks: zTasksSummary
+    tasks: zTasksSummary,
+    problems: zPanelProblems.optional()
 });
 
 /**
