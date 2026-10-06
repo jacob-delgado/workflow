@@ -24,7 +24,7 @@ func (s *server) GetActivity(
 	now := s.now()
 	today := activity.DateOf(now)
 
-	period, err := periodAsked(request.Params, today)
+	period, err := activity.PeriodAsked(orZero(request.Params.From), orZero(request.Params.To), today)
 	if err != nil {
 		return periodRefused(err), nil
 	}
@@ -32,7 +32,7 @@ func (s *server) GetActivity(
 	start, end := period.Bounds(now.Location())
 	summary := activity.Summary{Period: period, Reads: s.activityReads(start, end)}
 
-	return api.GetActivity200JSONResponse(s.activityDTO(summary, today, now.Location())), nil
+	return api.GetActivity200JSONResponse(ActivityReport(summary, today, now.Location(), s.describe)), nil
 }
 
 // periodRefused is a period that could not be read as asked, and why, in
@@ -47,38 +47,6 @@ func periodRefused(err error) api.GetActivityResponseObject {
 		problem(api.Unprocessable, "the period could not be read: "+reason))
 }
 
-// periodAsked is the period from and to name: both days, one day alone, or
-// the previous working day when neither is given.
-func periodAsked(params api.GetActivityParams, today activity.Date) (activity.Period, error) {
-	switch {
-	case params.From == nil && params.To == nil:
-		return activity.PreviousWorkingDay(today), nil
-	case params.From == nil:
-		return dayAlone(*params.To)
-	case params.To == nil:
-		return dayAlone(*params.From)
-	}
-
-	from, err := activity.ParseDate(*params.From)
-	if err != nil {
-		return activity.Period{}, err
-	}
-
-	to, err := activity.ParseDate(*params.To)
-	if err != nil {
-		return activity.Period{}, err
-	}
-
-	return activity.NewPeriod(from, to)
-}
-
-// dayAlone is the period of one day, written year-month-day.
-func dayAlone(text string) (activity.Period, error) {
-	day, err := activity.ParseDate(text)
-
-	return activity.Period{From: day, To: day}, err
-}
-
 // activityReads asks every source the server reaches, one after another.
 func (s *server) activityReads(start, end time.Time) []activity.Read {
 	return loop.ReadAll(loop.SummaryReads(loop.ActivitySeams{
@@ -88,9 +56,13 @@ func (s *server) activityReads(start, end time.Time) []activity.Read {
 	}, start, end))
 }
 
-// activityDTO is the summary as the API answers it. A source's failure is
-// worded as fault words it, so it never names a host.
-func (s *server) activityDTO(summary activity.Summary, today activity.Date, loc *time.Location) api.Activity {
+// ActivityReport is the summary as the API answers it, today being the day it
+// is in loc, so the command line prints the same shape the web reads. Each
+// failure is worded by describe, which the server and the command line both
+// make FaultDetail, so it never names a host.
+func ActivityReport(
+	summary activity.Summary, today activity.Date, loc *time.Location, describe func(error) string,
+) api.Activity {
 	sources := make([]api.ActivitySource, 0, len(summary.Reads))
 
 	for _, read := range summary.Reads {
@@ -99,7 +71,7 @@ func (s *server) activityDTO(summary activity.Summary, today activity.Date, loc 
 			Truncated: read.Truncated, Detail: "",
 		}
 		if read.Failed != nil {
-			source.Detail = s.failureDetail(read.Failed)
+			source.Detail = failureDetail(read.Failed, describe)
 		}
 
 		sources = append(sources, source)
@@ -171,14 +143,14 @@ func sourceName(source activity.Source) api.ActivitySourceName {
 	return api.ActivitySourceNameGit
 }
 
-// failureDetail words why a source could not be read as fault words each of
-// its failures, naming the repository a failure was in.
-func (s *server) failureDetail(failed error) string {
+// failureDetail words why a source could not be read as describe words each
+// of its failures, naming the repository a failure was in.
+func failureDetail(failed error, describe func(error) string) string {
 	failures := loop.Failures(failed)
 
 	details := make([]string, 0, len(failures))
 	for _, failure := range failures {
-		details = append(details, s.repositoryDetail(failure))
+		details = append(details, repositoryDetail(failure, describe))
 	}
 
 	return strings.Join(details, "; ")
@@ -187,19 +159,31 @@ func (s *server) failureDetail(failed error) string {
 // repositoryDetail is one failure's detail, prefixed by the repository it was
 // in when it was one of several. A repository that is one no longer is said
 // so plainly: fault's wording for it is about where the server runs.
-func (s *server) repositoryDetail(failure error) string {
+func repositoryDetail(failure error, describe func(error) string) string {
 	repository, named := errors.AsType[loop.RepositoryError](failure)
 	if !named {
-		body, _ := s.fault(failure)
-
-		return body.Detail
+		return describe(failure)
 	}
 
 	if errors.Is(repository.Err, gitrepo.ErrNotARepository) {
 		return repository.Repository + " is no longer a git repository"
 	}
 
-	body, _ := s.fault(repository.Err)
+	return repository.Repository + ": " + describe(repository.Err)
+}
 
-	return repository.Repository + ": " + body.Detail
+// describe is a failure's detail as fault words it, handing one it does not
+// recognize to Unexpected.
+func (s *server) describe(err error) string {
+	body, _ := s.fault(err)
+
+	return body.Detail
+}
+
+// FaultDetail is a failure's detail as the web's problem words it: the same
+// sentence for the same class of failure, never naming a host or a path.
+func FaultDetail(err error) string {
+	prob, _ := faultProblem(err)
+
+	return prob.Detail
 }

@@ -132,6 +132,40 @@ func NewPeriod(from, to Date) (Period, error) {
 	return period, nil
 }
 
+// PeriodAsked is the period first and last name, each a date written
+// year-month-day or empty when it is not given: both days, one day alone, or
+// the previous working day before today when neither is. Every surface reads
+// a period asked for this way, so each defaults to the same days.
+func PeriodAsked(first, last string, today Date) (Period, error) {
+	switch {
+	case first == "" && last == "":
+		return PreviousWorkingDay(today), nil
+	case first == "":
+		return dayAlone(last)
+	case last == "":
+		return dayAlone(first)
+	}
+
+	from, err := ParseDate(first)
+	if err != nil {
+		return Period{}, err
+	}
+
+	through, err := ParseDate(last)
+	if err != nil {
+		return Period{}, err
+	}
+
+	return NewPeriod(from, through)
+}
+
+// dayAlone is the period of one day, written year-month-day.
+func dayAlone(text string) (Period, error) {
+	date, err := ParseDate(text)
+
+	return Period{From: date, To: date}, err
+}
+
 // MonthOf is the whole month a date falls in.
 func MonthOf(date Date) Period {
 	return Period{
