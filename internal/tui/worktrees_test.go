@@ -230,3 +230,24 @@ func TestABranchWhoseWorktreeIsGoneSaysHowToFreeIt(t *testing.T) {
 
 	requireScreen(t, stayed.View().Content, "(worktree gone)", "git worktree prune")
 }
+
+func TestALongWorktreePathIsCutInTheMiddleToKeepItsRowOnOneLine(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	const lastElement = "api-feature-branch-x"
+
+	deep := worktreesWorld()
+	deep.dirs.worktrees = []gitrepo.Worktree{
+		{Dir: apiRoot, Branch: baseName, Head: worktreeHead},
+		{Dir: "/home/ana/src/checkouts/of/a/rather/long/directory/tree/" + lastElement, Branch: "feat/x", Head: worktreeHead},
+	}
+
+	// Act
+	view := plain(typing(t, deep.live(t, 80, 24), reposKey, "j").View().Content)
+
+	// Assert
+	if row := lineHolding(view, lastElement); !strings.Contains(row, "▸ ") || !strings.Contains(row, "~/src/") {
+		t.Errorf("the worktree's row is %q, want the mark, the root and %s on one line:\n%s", row, lastElement, view)
+	}
+}

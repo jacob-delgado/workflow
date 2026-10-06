@@ -12,6 +12,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -226,7 +227,7 @@ func (m Model) favoritesCount() string {
 // the favorites, the cursor's row marked.
 func (m Model) repositoriesDetail(width int) string {
 	rows, worktrees := m.repositoryRows(), len(m.worktreeRows())
-	line := func(index int) string { return m.repositoryLine(rows[index], index == m.repositories.selected) }
+	line := func(index int) string { return m.repositoryLine(rows[index], index == m.repositories.selected, width) }
 
 	lines := append(m.workingIn(m.deps.Repositories.Here), "", line(0))
 
@@ -309,13 +310,40 @@ func (m Model) shownFiles(files config.Files) string {
 
 // repositoryLine is one row: the cursor, whether it is a favorite, the
 // directory, and what is there.
-func (m Model) repositoryLine(row repositoryRow, selected bool) string {
+func (m Model) repositoryLine(row repositoryRow, selected bool, width int) string {
 	mark := strings.Repeat(" ", len([]rune(m.marks.favorite)))
 	if row.favorite {
 		mark = m.marks.favorite
 	}
 
-	return m.marks.marker(selected) + mark + " " + m.shownDir(row.dir) + m.marks.separator + m.repositoryState(row)
+	lead := m.marks.marker(selected) + mark + " "
+	dir := cutMiddle(m.shownDir(row.dir), width-ansi.StringWidth(lead), m.marks.ellipsis)
+
+	return lead + dir + m.marks.separator + m.repositoryState(row)
+}
+
+// cutMiddle shortens a path wider than width in its middle, keeping its root
+// and its last element — "~/src/…/feature-x" — so the row it heads stays one
+// line; the full path is in the Working in block. A last element too wide on
+// its own keeps its end.
+func cutMiddle(path string, width int, ellipsis string) string {
+	if ansi.StringWidth(path) <= width {
+		return path
+	}
+
+	parts := strings.Split(path, "/")
+	leading, last := parts[:len(parts)-1], parts[len(parts)-1]
+
+	for kept := len(leading) - 1; kept >= 1; kept-- {
+		cut := strings.Join(leading[:kept], "/") + "/" + ellipsis + "/" + last
+		if ansi.StringWidth(cut) <= width {
+			return cut
+		}
+	}
+
+	room := max(0, width-ansi.StringWidth(ellipsis))
+
+	return ellipsis + ansi.TruncateLeft(last, max(0, ansi.StringWidth(last)-room), "")
 }
 
 // repositoryState is what is at a row's directory now.
