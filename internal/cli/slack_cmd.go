@@ -144,7 +144,7 @@ func askForLogin(prompt Prompt) (string, slackauth.Credentials, error) {
 func askFor(ask func(string) (string, error), question, what string) (string, error) {
 	answer, err := ask(question)
 	if errors.Is(err, io.EOF) {
-		return "", errNoTerminal
+		return "", fmt.Errorf("%w; run it at a terminal, since it asks for secrets", errNoTerminal)
 	}
 
 	if err != nil {

@@ -7,7 +7,8 @@ weight: 22
 
 The steps of the loop that a script or a shell prompt wants also run as
 commands, without the interface: `status`, `reviews`, `standup`, `branch`,
-`pr` and `announce`, beside `doctor` and `config`. This page is what a script
+`pr` and `announce`, beside `doctor`, `config`, `slack login` and
+`db-clean`. This page is what a script
 can rely on from them — the exit status, which stream carries what, the JSON shapes, and the
 flags that make a write safe to run unattended. Every command and flag is
 listed in the [command reference]({{< relref "/docs/reference" >}}).
@@ -191,8 +192,8 @@ or `forge.kind` fails the configuration instead.
 
 ## Writing without a person: `--yes` and `--dry-run`
 
-`branch`, `pr`, `announce` and `standup` print a preview and ask before they
-write. Two flags change that:
+`branch`, `pr`, `announce`, `standup` and `db-clean` print a preview and ask
+before they write. Two flags change that:
 
 - **`--yes`** goes ahead without asking. On `pr` it answers every question:
   the push, the open, and the offers that follow it — to link the pull request
@@ -218,9 +219,10 @@ write. Two flags change that:
   `workflow --dry-run` is the interface with every write held back.
 
 A write run without `--yes` and without a terminal — stdin piped or closed —
-has no way to be answered, so it stops, says to pass `--yes`, and exits 2. The
-one exception is `announce` at a moment already announced, which `--yes` would
-leave as it is: it says to run it at a terminal instead.
+has no way to be answered, so it stops, says to pass `--yes`, and exits 2. Two
+exceptions say to run it at a terminal instead: `announce` at a moment already
+announced, which `--yes` would leave as it is, and `slack login`, which takes
+no `--yes` because what it asks for are secrets.
 
 ## A log for a bug report: `--log`
 
