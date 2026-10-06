@@ -217,3 +217,33 @@ func (r Repository) Unstage(ctx context.Context, change Change) error {
 
 	return nil
 }
+
+// Discard drops a file's changes, staged and not, which cannot be undone: a
+// tracked file is restored in the index and the work tree from HEAD — a rename
+// comes back under its old name — and a file git does not track is removed.
+// Before the first commit there is no HEAD to restore from, so the file is
+// removed from both instead.
+func (r Repository) Discard(ctx context.Context, change Change) error {
+	args := r.discardArgs(ctx, change)
+
+	_, err := r.run(ctx, gitProgram, append(args, change.paths()...)...)
+	if err != nil {
+		return fmt.Errorf("discarding %s: %w", sanitize.Line(change.Path), err)
+	}
+
+	return nil
+}
+
+// discardArgs is the git command, up to its paths, that discards change.
+func (r Repository) discardArgs(ctx context.Context, change Change) []string {
+	if change.Untracked() {
+		return []string{"-C", r.dir, literalPathspecs, "clean", "--force", "--"}
+	}
+
+	_, err := r.run(ctx, gitProgram, "-C", r.dir, "rev-parse", "--verify", "--quiet", headRef)
+	if err != nil {
+		return []string{"-C", r.dir, literalPathspecs, "rm", "--force", "--quiet", "--"}
+	}
+
+	return []string{"-C", r.dir, literalPathspecs, "restore", "--source=" + headRef, "--staged", "--worktree", "--"}
+}

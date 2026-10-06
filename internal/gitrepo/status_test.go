@@ -182,6 +182,75 @@ func TestUnstageTakesTheChangeOutOfTheIndexWithoutTouchingTheWorkTree(t *testing
 	}
 }
 
+func TestDiscardPutsTheFileBackAsTheLastCommitHadIt(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		head   reply
+		change gitrepo.Change
+		ran    []string
+	}{
+		// Both the index and the work tree are restored, so a staged edit goes
+		// too, and a rename comes back under its old name.
+		"a tracked change, after a commit": {
+			head:   reply{out: []byte("abc123\n")},
+			change: gitrepo.Change{Path: renamedTo, OriginalPath: renamedFrom, Staged: 'R', Unstaged: 'M'},
+			ran: []string{
+				verifyHead,
+				"git -C /work --literal-pathspecs restore --source=HEAD --staged --worktree -- b.txt a.txt",
+			},
+		},
+		// With no commit there is nothing to restore from, so the new file goes.
+		"a staged file, before the first commit": {
+			head:   reply{err: errDetachedRead},
+			change: gitrepo.Change{Path: "new.go", Staged: 'A', Unstaged: ' '},
+			ran:    []string{verifyHead, "git -C /work --literal-pathspecs rm --force --quiet -- new.go"},
+		},
+		// git has no copy of a file it does not track: the file is removed.
+		"an untracked file": {
+			change: gitrepo.Change{Path: "[id].tsx", Staged: '?', Unstaged: '?'},
+			ran:    []string{"git -C /work --literal-pathspecs clean --force -- [id].tsx"},
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			run, ran := recordingRunner(t, map[string]reply{verifyHead: tt.head, tt.ran[len(tt.ran)-1]: {}})
+
+			// Act
+			err := gitrepo.At(run, workDir).Discard(t.Context(), tt.change)
+
+			// Assert
+			if err != nil || !slices.Equal(*ran, tt.ran) {
+				t.Errorf("Discard ran %q and returned %v, want %q", *ran, err, tt.ran)
+			}
+		})
+	}
+}
+
+func TestDiscardReportsGitsFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := fakeRunner(t, map[string]reply{
+		verifyHead: {out: []byte("abc\n")},
+		"git -C /work --literal-pathspecs restore --source=HEAD --staged --worktree -- a\x1b]0;x\a.go": {
+			err: errIndexLocked,
+		},
+	})
+
+	// Act
+	err := gitrepo.At(run, workDir).Discard(t.Context(), gitrepo.Change{Path: "a\x1b]0;x\a.go", Unstaged: 'M'})
+
+	// Assert
+	if !errors.Is(err, errIndexLocked) || strings.Contains(err.Error(), "\x1b") {
+		t.Errorf("Discard returned %q, want git's error naming the file on one safe line", err)
+	}
+}
+
 func TestStageReportsGitsFailure(t *testing.T) {
 	t.Parallel()
 
