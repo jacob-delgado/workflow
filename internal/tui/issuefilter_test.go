@@ -37,5 +37,5 @@ func TestAKeyThatTypesNothingLeavesTheIssueFilterAsItWas(t *testing.T) {
 	// Still open with the same text: tab neither closed the filter nor typed
 	// a character that would match neither issue.
 	requireScreen(t, after.View().Content, "OPS-1 In Progress Fix issue", "OPS-2 In Progress Fix bug", "search: Fix")
-	refuseScreen(t, after.View().Content, "no issue matches the filter")
+	refuseScreen(t, after.View().Content, "no issue matches the filters")
 }

@@ -189,7 +189,7 @@ func TestFilteringToNothingSaysSoAndBackspaceWidensIt(t *testing.T) {
 	empty := typing(t, listed, "/", "F", "i", "x", "z")
 
 	// Assert: the list says nothing matches
-	requireScreen(t, empty.View().Content, "no issue matches the filter")
+	requireScreen(t, empty.View().Content, "no issue matches the filters")
 
 	// Act: backspace back to a match
 	widened := typing(t, empty, keyBackspace)

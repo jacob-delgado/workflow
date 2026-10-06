@@ -276,7 +276,7 @@ type nothingToUndo struct{}
 func (nothingToUndo) apply(m Model) (Model, tea.Cmd) {
 	m.tasks.writing = false
 
-	return m.noticed("Taskwarrior has nothing to undo."), nil
+	return m.noticed("nothing to undo in Taskwarrior"), nil
 }
 
 // syncTasks syncs Taskwarrior with its backend, or says it would in a dry run.

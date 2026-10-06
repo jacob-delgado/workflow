@@ -242,8 +242,14 @@ func (m Model) repositoriesDetail(width int) string {
 	}
 
 	lines = append(lines, "", m.styles.strong.Render("Favorites"))
-	if m.repositories.err != nil {
+
+	switch {
+	case m.repositories.err != nil:
 		lines = append(lines, m.failureSummary(m.repositories.err))
+	case !m.repositories.read:
+		lines = append(lines, "reading"+m.marks.ellipsis)
+	case len(rows) == 1+worktrees:
+		lines = append(lines, "No favorites yet; "+m.keys.favoriteDir.Help().Key+" marks the directory under the cursor.")
 	}
 
 	for index := 1 + worktrees; index < len(rows); index++ {

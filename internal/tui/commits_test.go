@@ -65,7 +65,7 @@ func TestACleanTreeSaysSo(t *testing.T) {
 	view := typing(t, clean.live(t, 120, 40), "3").View().Content
 
 	// Assert
-	requireScreen(t, view, "nothing changed")
+	requireScreen(t, view, "Nothing has changed.")
 	refuseScreen(t, footerLine(view), "space stage", "c commit")
 }
 
@@ -83,7 +83,7 @@ func TestTheCommitsDetailWaitsForTheStatus(t *testing.T) {
 	// It says it is loading, not that nothing changed. The rail says loading
 	// too; the heavy border is the detail's own.
 	requireScreen(t, view, focused("Commits"), "┃ reading…")
-	refuseScreen(t, view, "nothing changed")
+	refuseScreen(t, view, "Nothing has changed.")
 }
 
 func TestAStatusThatCannotBeReadSaysWhy(t *testing.T) {
