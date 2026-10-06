@@ -173,3 +173,52 @@ func (s *server) stagingProblem(err error, verb string, target stagingTarget) ap
 		return failure
 	}
 }
+
+// GetChangeDiff reads a changed file's diff against HEAD, so it can be read
+// before it is staged — the terminal's diff of the selected file. The change
+// is the one the working tree lists at the path, so a rename reads both of
+// its paths and no path of the request's own reaches git. A path the tree
+// lists no change at is a 404, no repository a 422, and a read git could not
+// make is answered by fault, whose words never name where it is.
+func (s *server) GetChangeDiff(
+	_ context.Context, request api.GetChangeDiffRequestObject,
+) (api.GetChangeDiffResponseObject, error) {
+	if s.deps.Diff == nil || s.deps.Changes == nil {
+		return api.GetChangeDiff422ApplicationProblemPlusJSONResponse(
+			problem(api.Unprocessable, "reading a diff is not available")), nil
+	}
+
+	lines, err := s.diffAt(request.Params.Path)
+	if errors.Is(err, errNotAChange) {
+		return api.GetChangeDiff404ApplicationProblemPlusJSONResponse(
+			problem(api.NotFound, "the working tree lists no change at that path")), nil
+	}
+
+	if err != nil {
+		body, code := s.fault(err)
+
+		return api.GetChangeDiffdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+	}
+
+	if lines == nil {
+		lines = []string{}
+	}
+
+	return api.GetChangeDiff200JSONResponse(api.FileDiff{Path: request.Params.Path, Lines: lines}), nil
+}
+
+// diffAt is the diff of the change the working tree lists at path, or
+// errNotAChange.
+func (s *server) diffAt(path string) ([]string, error) {
+	changes, err := s.deps.Changes()
+	if err != nil {
+		return nil, fmt.Errorf("reading the changes: %w", err)
+	}
+
+	at := slices.IndexFunc(changes, func(change gitrepo.Change) bool { return change.Path == path })
+	if at < 0 {
+		return nil, errNotAChange
+	}
+
+	return s.deps.Diff(changes[at])
+}

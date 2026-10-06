@@ -400,6 +400,20 @@ export type CheckoutRequest = {
 };
 
 /**
+ * A changed file's diff against HEAD.
+ */
+export type FileDiff = {
+    /**
+     * The file, as the working tree's changes list it.
+     */
+    path: string;
+    /**
+     * The diff, line by line, as git writes it — headers, hunks, and each line marked +, - or space — with terminal controls taken out; empty when git reports no difference.
+     */
+    lines: Array<string>;
+};
+
+/**
  * The issue to start work on in a new worktree.
  */
 export type CreateWorktreeRequest = {
@@ -2062,6 +2076,44 @@ export type ListChangesResponses = {
 };
 
 export type ListChangesResponse = ListChangesResponses[keyof ListChangesResponses];
+
+export type GetChangeDiffData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * The changed file's path, as the working tree's changes list it.
+         */
+        path: string;
+    };
+    url: '/api/changes/diff';
+};
+
+export type GetChangeDiffErrors = {
+    /**
+     * No change is at that path.
+     */
+    404: Problem;
+    /**
+     * There is no repository to read a diff from.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetChangeDiffError = GetChangeDiffErrors[keyof GetChangeDiffErrors];
+
+export type GetChangeDiffResponses = {
+    /**
+     * The diff.
+     */
+    200: FileDiff;
+};
+
+export type GetChangeDiffResponse = GetChangeDiffResponses[keyof GetChangeDiffResponses];
 
 export type StageData = {
     body: StagingRequest;

@@ -73,6 +73,7 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		Commit:        deps.Git.Commit,
 		Push:          deps.Git.Push,
 		Changes:       deps.Git.Changes,
+		Diff:          deps.Git.Diff,
 		FindPull:      deps.Forge.FindPullRequest,
 		CreatePull:    deps.Forge.CreatePullRequest,
 		Templates:     deps.Forge.Templates,

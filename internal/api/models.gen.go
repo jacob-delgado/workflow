@@ -1038,6 +1038,15 @@ type FieldOption struct {
 	Name string `json:"name"`
 }
 
+// FileDiff A changed file's diff against HEAD.
+type FileDiff struct {
+	// Lines The diff, line by line, as git writes it — headers, hunks, and each line marked +, - or space — with terminal controls taken out; empty when git reports no difference.
+	Lines []string `json:"lines"`
+
+	// Path The file, as the working tree's changes list it.
+	Path string `json:"path"`
+}
+
 // FollowUp One offer after opening: to link the pull request on the branch's issue (POST /api/issues/{key}/link), or to move that issue to the review status (POST /api/issues/{key}/transition). A move is offered only when Jira offers one that needs no fields.
 type FollowUp struct {
 	Action FollowUpAction `json:"action"`
@@ -1990,6 +1999,12 @@ type GetAnnouncementParams struct {
 type PreviewBranchIssueParams struct {
 	// Key A Jira key, or a forge issue number with or without its
 	Key string `form:"key" json:"key"`
+}
+
+// GetChangeDiffParams defines parameters for GetChangeDiff.
+type GetChangeDiffParams struct {
+	// Path The changed file's path, as the working tree's changes list it.
+	Path string `form:"path" json:"path"`
 }
 
 // UpdateConfigParams defines parameters for UpdateConfig.

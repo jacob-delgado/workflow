@@ -501,6 +501,45 @@ paths:
                 $ref: "#/components/schemas/ChangeList"
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/changes/diff:
+    get:
+      operationId: getChangeDiff
+      summary: A changed file's diff against HEAD, so it can be read before staging.
+      description: >-
+        The diff of one of the working tree's changes against HEAD, staged and
+        unstaged together, line by line with every terminal control taken
+        out — the terminal interface's diff of the selected file. The file is
+        named by the path the working tree's changes list it under, and the
+        server finds that change there, so a rename reads both of its paths
+        and no path of the caller's own reaches git. An untracked file reads
+        as one line saying so. Refused with 404 when no change is at that
+        path, and 422 when there is no repository to read.
+      tags: [repository]
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: {type: string}
+          description: The changed file's path, as the working tree's changes list it.
+      responses:
+        "200":
+          description: The diff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileDiff"
+        "404":
+          description: No change is at that path.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: There is no repository to read a diff from.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
   /api/stage:
     post:
       operationId: stage
@@ -2595,6 +2634,23 @@ components:
           type: string
           description: The local branch to switch the working tree to.
           example: fix/PROJ-412-redact-tokens
+      additionalProperties: false
+
+    FileDiff:
+      type: object
+      description: A changed file's diff against HEAD.
+      required: [path, lines]
+      properties:
+        path:
+          type: string
+          description: The file, as the working tree's changes list it.
+        lines:
+          type: array
+          description: >-
+            The diff, line by line, as git writes it — headers, hunks, and
+            each line marked +, - or space — with terminal controls taken
+            out; empty when git reports no difference.
+          items: {type: string}
       additionalProperties: false
 
     CreateWorktreeRequest:
