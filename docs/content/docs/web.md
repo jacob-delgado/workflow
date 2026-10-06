@@ -212,8 +212,10 @@ old hooks as `.git/hooks/*.old`.
 The branch's pull request — its number, title and state: Draft or Ready for
 review while it is open, Merged or Closed once it is not — and the issue it is
 for, linked to its page. While it is open, the section also shows its
-mergeability, approvals and requested changes, and its CI checks: a failed one
-names the stage it ran in and why it failed, and **Show log** reads the end of
+mergeability, approvals and requested changes, and its CI checks, headed by
+how many are done when the forge counts them and by how CI stands when it does
+not, as for a GitLab pipeline, or "No checks reported." when there are none: a
+failed one names the stage it ran in and why it failed, and **Show log** reads the end of
 any check's log the forge keeps one for, passed or failed.
 
 Under the state, the terminal's Review pane's writes, each offered only when

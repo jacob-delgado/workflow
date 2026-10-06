@@ -10,10 +10,9 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
-import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { definitionList } from '@/lib/utils.ts'
-import { CheckRow } from './Checks.tsx'
+import { CiChecks } from './Checks.tsx'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
 import { OpenPullRequest } from './OpenPullRequest.tsx'
 import { PullActions } from './PullActions.tsx'
@@ -114,24 +113,7 @@ function PullRequestSummary({
         <PullActions pull={pull} ci={ci} branch={branch} />
       </section>
 
-      {ci ? (
-        <section aria-labelledby="ci-heading" className="flex flex-col gap-group">
-          <h3 id="ci-heading" className="text-base font-semibold">
-            <Meta>
-              CI checks
-              <span className="font-normal text-muted-foreground">
-                {ci.done} of {ci.total} done
-                {ci.failed > 0 ? `, ${String(ci.failed)} failed` : ''}
-              </span>
-            </Meta>
-          </h3>
-          <ul className="flex flex-col gap-item">
-            {ci.checks.map((check) => (
-              <CheckRow key={check.id ?? check.name} check={check} />
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      {ci ? <CiChecks ci={ci} /> : null}
     </>
   )
 }
