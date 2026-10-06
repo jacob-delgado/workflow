@@ -6,6 +6,7 @@ import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
+import { ReadFailure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
@@ -21,6 +22,17 @@ export function BranchPanel() {
   const runner = useGitRun(snapshot.run)
 
   const { branch, changes } = snapshot
+  const unread = snapshot.problems ?? {}
+
+  // A branch that could not be read is that failure, not the empty branch the
+  // server left in its place, which would read as no repository.
+  if (unread.branch) {
+    return (
+      <div className="flex max-w-2xl flex-col gap-section">
+        <ReadFailure unread="The branch could not be read" problem={unread.branch} />
+      </div>
+    )
+  }
 
   // An empty name means either no repository or a detached HEAD — the latter
   // still points at a real commit, so only the former is "not a repository".
@@ -45,6 +57,7 @@ export function BranchPanel() {
       />
       <WorkingTree
         changes={changes.changes}
+        unread={unread.changes ?? null}
         suggestedScope={snapshot.suggested_scope}
         commitTypes={snapshot.commit_types}
       />

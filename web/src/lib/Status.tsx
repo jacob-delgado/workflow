@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import type { Problem } from '@/api/generated/types.gen.ts'
+import { StateMark } from '@/shell/StateMark.tsx'
 import { Button } from './Button.tsx'
 import { cn } from './utils.ts'
 
@@ -11,6 +13,20 @@ export function Failure({ children, className }: { children: ReactNode; classNam
     <p role="alert" className={cn('text-sm whitespace-pre-line text-destructive', className)}>
       {children}
     </p>
+  )
+}
+
+// ReadFailure is a read the server could not make, shown as that failure
+// rather than as the empty answer it left in its place: the failure mark
+// beside the sentence that says what could not be read, then why, as an
+// alert. The reason is the problem's detail, which the server curates and
+// never lets carry a host.
+export function ReadFailure({ unread, problem }: { unread: string; problem: Problem }) {
+  return (
+    <div className="flex items-start gap-2">
+      <StateMark state="failed" className="mt-0.5" />
+      <Failure>{`${unread}: ${problem.detail}`}</Failure>
+    </div>
   )
 }
 

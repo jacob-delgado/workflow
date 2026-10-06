@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { useForgeWords } from '@/api/health.ts'
 import type {
   Branch,
-  Ci,
   LinkedIssue,
   OpenedPullRequest,
+  Problem,
   PullRequest,
   Review,
 } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { ReadFailure } from '@/lib/Status.tsx'
 import { definitionList } from '@/lib/utils.ts'
 import { CiChecks } from './Checks.tsx'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
@@ -31,13 +32,27 @@ export function ReviewPanel() {
   // rather than offer a link the server would refuse — or, back on its branch,
   // a second one.
   return (
-    <BranchReview key={snapshot.branch.name} review={snapshot.review} branch={snapshot.branch} />
+    <BranchReview
+      key={snapshot.branch.name}
+      review={snapshot.review}
+      branch={snapshot.branch}
+      unread={snapshot.problems?.review ?? null}
+    />
   )
 }
 
+interface BranchReviewProps {
+  review: Review
+  branch: Branch
+  // Why the forge could not be read for the branch, or null when it was.
+  unread: Problem | null
+}
+
 // BranchReview is the checked-out branch's pull request, or the offer to open
-// one, beneath what the last open answered.
-function BranchReview({ review, branch }: { review: Review; branch: Branch }) {
+// one, beneath what the last open answered. A forge that could not be read
+// says so, above the pull request it last answered with, or in place of the
+// offer: a forge that cannot say is not one with no pull request to show.
+function BranchReview({ review, branch, unread }: BranchReviewProps) {
   // What the open answered, and the line that says so, held here — above the
   // switch between offering to open and showing the pull request — so the
   // snapshot that brings the new pull request back leaves the outcome and its
@@ -46,46 +61,54 @@ function BranchReview({ review, branch }: { review: Review; branch: Branch }) {
   // one's did.
   const [opened, setOpened] = useState<OpenedPullRequest | null>(null)
   const outcome = useOutcome()
+  const { noun } = useForgeWords()
+  const pull = review.found ? (review.pull ?? null) : null
 
   return (
     <div className="flex max-w-2xl flex-col gap-section">
       {/* The line sits close above the offers it introduces. */}
       <OutcomeLine said={outcome.said} className={opened === null ? undefined : '-mb-block'} />
       {opened === null ? null : <OpenedOutcome key={opened.pull.url} opened={opened} />}
-      {review.found && review.pull ? (
-        <PullRequestSummary
-          pull={review.pull}
-          ci={review.ci ?? null}
-          issue={review.issue ?? null}
-          branch={branch}
+      {unread === null ? null : (
+        <ReadFailure
+          unread={
+            pull === null
+              ? `The ${noun} could not be read`
+              : `The ${noun} could not be read again; shown as last read`
+          }
+          problem={unread}
         />
-      ) : (
+      )}
+      {pull === null ? null : <PullRequestSummary pull={pull} review={review} branch={branch} />}
+      {pull === null && unread === null ? (
         <OpenPullRequest
           onOpened={(answered, said) => {
             setOpened(answered)
             outcome.say(said)
           }}
         />
-      )}
+      ) : null}
     </div>
   )
 }
 
 // PullRequestSummary is the branch's pull request — its number in the forge's
 // own mark, its title, state and, while it is open, its reviews — and its CI
-// checks, which the server sends only for an open one.
+// checks, which the server sends only for an open one, or why they could not
+// be read.
 function PullRequestSummary({
   pull,
-  ci,
-  issue,
+  review,
   branch,
 }: {
   pull: PullRequest
-  ci: Ci | null
-  issue: LinkedIssue | null
+  review: Review
   branch: Branch
 }) {
   const { sigil } = useForgeWords()
+  const ci = review.ci ?? null
+  const ciUnread = review.ci_error ?? null
+  const issue = review.issue ?? null
 
   return (
     <>
@@ -113,6 +136,7 @@ function PullRequestSummary({
         <PullActions pull={pull} ci={ci} branch={branch} />
       </section>
 
+      {ciUnread === null ? null : <ReadFailure unread="CI could not be read" problem={ciUnread} />}
       {ci ? <CiChecks ci={ci} /> : null}
     </>
   )
