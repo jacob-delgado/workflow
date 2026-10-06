@@ -1,4 +1,4 @@
-import { getChangeDiff, stage, unstage } from '@/api/generated'
+import { discard, getChangeDiff, stage, unstage } from '@/api/generated'
 import type { FileDiff } from '@/api/generated/types.gen.ts'
 
 // The VITE_MOCK check is read inline (not via a helper) so Vite statically
@@ -37,6 +37,29 @@ export async function stageEverything(): Promise<void> {
   }
 
   await stage({ body: { all: true }, throwOnError: true })
+}
+
+// unstageEverything takes every staged change out of the index, leaving the
+// work tree as it is, as the terminal's `U` does. Under VITE_MOCK it is a
+// no-op.
+export async function unstageEverything(): Promise<void> {
+  if (import.meta.env.VITE_MOCK === 'true') {
+    return
+  }
+
+  await unstage({ body: { all: true }, throwOnError: true })
+}
+
+// discardFile drops a changed file's changes from the index and the work tree,
+// which cannot be undone: a tracked file goes back to the last commit, an
+// untracked one is deleted. The file is named and found as for stageFile.
+// Under VITE_MOCK it is a no-op.
+export async function discardFile(path: string): Promise<void> {
+  if (import.meta.env.VITE_MOCK === 'true') {
+    return
+  }
+
+  await discard({ body: { path }, throwOnError: true })
 }
 
 // readDiff reads a changed file's diff against HEAD, on demand, the file named

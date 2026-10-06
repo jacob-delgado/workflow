@@ -51,6 +51,13 @@ const confirmSteps = [
     adds: ['Cancel', 'Push'],
   },
   {
+    step: 'discard confirmation',
+    section: 'Branch',
+    opener: 'Discard internal/config/redact.go…',
+    group: 'Discard the changes to internal/config/redact.go?',
+    adds: ['Cancel', 'Discard'],
+  },
+  {
     step: 'announcement preview',
     section: 'Slack',
     opener: 'Announce to Slack',

@@ -1,7 +1,7 @@
 import { vi } from 'vitest'
 import type { Run, RunEvent } from '@/api/generated/types.gen.ts'
 import { readHookSetup, startRun, stopRun, writeHookSetup } from '@/features/branch/gitRunApi.ts'
-import { readDiff } from '@/features/branch/stagingApi.ts'
+import { discardFile, readDiff, unstageEverything } from '@/features/branch/stagingApi.ts'
 import { startWorkInWorktree } from '@/features/issues/startWorkApi.ts'
 import { previewPullRequest } from '@/features/review/openPrApi.ts'
 import {
@@ -110,6 +110,8 @@ test.each<[string, () => Promise<unknown>, string, object]>([
   ['reading the lefthook offer', () => readHookSetup(), 'GET /api/hooks/setup', { offered: false }],
   ['writing lefthook.yml', () => writeHookSetup(true), 'POST /api/hooks/setup', { scripts: 1 }],
   ['reading a diff', () => readDiff('a.go'), 'GET /api/changes/diff?path=a.go', { path: 'a.go' }],
+  ['unstaging everything', () => unstageEverything(), 'POST /api/unstage', {}],
+  ['discarding a file', () => discardFile('a.go'), 'POST /api/discard', {}],
   ['reading the text', () => readPullText(), 'GET /api/pull-request', { title: 'Redact' }],
   ['editing it', () => editPull('Redact', 'Why'), 'PATCH /api/pull-request', { number: 42 }],
   [
@@ -142,6 +144,8 @@ test.each<[string, () => Promise<unknown>, string, object]>([
         ? { offered: false, hooks: [], config: '', scripts: 0 }
         : { scripts: 1 },
     '/api/changes/diff': { path: 'a.go', lines: [] },
+    '/api/unstage': { changes: [] },
+    '/api/discard': { changes: [] },
     '/api/pull-request': (_: URL, request: Request) =>
       request.method === 'GET' ? { title: 'Redact', body: '' } : pull,
     '/api/pull-request/merge': (_: URL, request: Request) =>
@@ -177,6 +181,8 @@ test.each<[string, () => Promise<unknown>]>([
   ['the lefthook offer', () => readHookSetup()],
   ['writing it', () => writeHookSetup(false)],
   ['a diff', () => readDiff('a.go')],
+  ['unstaging everything', () => unstageEverything()],
+  ['a discard', () => discardFile('a.go')],
   ['the text', () => readPullText()],
   ['an edit', () => editPull('t', 'b')],
   ['the merge offer', () => readMergeOffer()],

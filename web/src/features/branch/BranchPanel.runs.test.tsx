@@ -48,6 +48,8 @@ vi.mock('./stagingApi.ts', () => ({
   stageFile: vi.fn(() => Promise.resolve()),
   unstageFile: vi.fn(() => Promise.resolve()),
   stageEverything: vi.fn(() => Promise.resolve()),
+  unstageEverything: vi.fn(() => Promise.resolve()),
+  discardFile: vi.fn(() => Promise.resolve()),
   readDiff: vi.fn(() => Promise.resolve({ path: '', lines: [] })),
 }))
 vi.mock('./commitApi.ts', () => ({ commitChanges: vi.fn(() => Promise.resolve(makeBranch())) }))
