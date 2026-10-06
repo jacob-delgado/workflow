@@ -156,6 +156,14 @@ func Check(ctx context.Context, doer jira.Doer, settings config.Jira) (string, e
 	return Identify(user), nil
 }
 
+// Keepable reports whether a check that failed with err may be kept anyway:
+// a Jira that is unreachable or refuses the token now may answer later, but an
+// address that is not one never will, and one carrying a username and password
+// must never reach the file.
+func Keepable(err error) bool {
+	return !errors.Is(err, config.ErrInvalidBaseURL) && !errors.Is(err, config.ErrCredentialInBaseURL)
+}
+
 // Identify names a user, falling back to the login when an instance is
 // configured to withhold display names.
 func Identify(user jira.User) string {

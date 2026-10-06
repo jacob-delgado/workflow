@@ -782,7 +782,9 @@ goes — the repository, so it applies across it, or your home directory, so it
 applies everywhere — then Jira's address and your personal access token, which
 is typed without showing it and checked with Jira while the form says so. A
 check that does not pass names why and offers to type the token again, keep
-both anyway, or leave Jira out. Where the OS keychain is wired (macOS), it then
+both anyway, or leave Jira out; an address that is not an http or https
+address, or that carries a username and password, is never kept, so it offers
+to type the address again or leave Jira out. Where the OS keychain is wired (macOS), it then
 asks where to keep the token: in the keychain, so the file holds only the
 command that reads it back, or in the file, which only you can read. Last comes
 a Slack incoming webhook, saved unchecked, or left blank to post with your Slack

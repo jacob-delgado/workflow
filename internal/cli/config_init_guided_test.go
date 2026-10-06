@@ -94,6 +94,23 @@ func TestGuidedInitKeepsAFailedServiceWhenInsisted(t *testing.T) {
 	}
 }
 
+func TestGuidedInitNeverKeepsAnAddressThatIsNotOne(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	prompt := scripted([]string{"https://fred:hunter2@jira.example.com", "y"}, []string{"insisted-token"})
+
+	// Act
+	output, err := runGuided(t, dir, prompt, "config", "init")
+
+	// Assert
+	_, statErr := os.Stat(filepath.Join(dir, config.FileName))
+	if !errors.Is(err, config.ErrCredentialInBaseURL) || !errors.Is(statErr, os.ErrNotExist) ||
+		strings.Contains(output, "anyway") {
+		t.Errorf("config init = %v (%s), file %v; want the address refused without asking, nothing written",
+			err, output, statErr)
+	}
+}
+
 func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()

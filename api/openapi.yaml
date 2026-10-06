@@ -1206,8 +1206,10 @@ paths:
           description: >-
             Jira did not accept the token, or could not be asked, and the
             request did not say to keep it unchecked (code check_failed; send
-            keep_unchecked to write it anyway); or the keychain was asked for
-            where there is none. Nothing was written.
+            keep_unchecked to write it anyway); or Jira's address is not an
+            http or https address without a username and password, which is
+            never kept, keep_unchecked or not (code unprocessable); or the
+            keychain was asked for where there is none. Nothing was written.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -4661,7 +4663,10 @@ components:
           description: Keep the Jira token in the OS keychain rather than in the file.
         keep_unchecked:
           type: boolean
-          description: Write Jira's address and token even when Jira does not accept them.
+          description: >-
+            Write Jira's address and token even when Jira does not accept them,
+            or cannot be asked. An address that is no http or https address, or
+            that carries a username and password, is never kept.
       additionalProperties: false
 
     SetupResult:

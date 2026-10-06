@@ -165,6 +165,27 @@ test('the refusal of a check is said beside the write', async () => {
   )
 })
 
+test('an address that is no address is never offered to be written anyway', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  firstRun(() =>
+    problem(
+      422,
+      'unprocessable',
+      "Jira's address is not an http or https address without a username or password; type it again",
+    ),
+  )
+  renderWithClient(<SettingsPanel />)
+  await answerJira(user)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Write ~/src/api/.workflow.json' }))
+
+  // Assert
+  await within(screen.getByRole('form', { name: 'Set up workflow' })).findByRole('alert')
+  expect(screen.queryByRole('button', { name: 'Write it anyway' })).toBeNull()
+})
+
 test('the keychain is not offered where there is none', async () => {
   // Arrange
   firstRun(() => Response.json(written), { ...offer, keychain: false })

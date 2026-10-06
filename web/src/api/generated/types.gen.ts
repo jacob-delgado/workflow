@@ -1592,7 +1592,7 @@ export type SetupRequest = {
      */
     keychain: boolean;
     /**
-     * Write Jira's address and token even when Jira does not accept them.
+     * Write Jira's address and token even when Jira does not accept them, or cannot be asked. An address that is no http or https address, or that carries a username and password, is never kept.
      */
     keep_unchecked: boolean;
 };
@@ -3086,7 +3086,7 @@ export type SetUpErrors = {
      */
     409: Problem;
     /**
-     * Jira did not accept the token, or could not be asked, and the request did not say to keep it unchecked (code check_failed; send keep_unchecked to write it anyway); or the keychain was asked for where there is none. Nothing was written.
+     * Jira did not accept the token, or could not be asked, and the request did not say to keep it unchecked (code check_failed; send keep_unchecked to write it anyway); or Jira's address is not an http or https address without a username and password, which is never kept, keep_unchecked or not (code unprocessable); or the keychain was asked for where there is none. Nothing was written.
      */
     422: Problem;
     /**
