@@ -5,16 +5,32 @@ package tui_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// keyCtrlW toggles the branch creator between a branch here and a worktree.
-const keyCtrlW = "ctrl+w"
+// keyWorktree toggles the branch creator between a branch here and a worktree.
+const keyWorktree = "ctrl+g"
 
 // errWorktreeExists is what git says when a worktree path is already taken.
 var errWorktreeExists = errors.New("fatal: '/work-x' already exists")
+
+func TestCtrlWDeletesAWordWhileTheBranchIsNamed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	keys := append([]string{"2", "b"}, slices.Repeat([]string{keyBackspace}, 80)...)
+	named := typing(t, newWorld().live(t, 120, 40), append(keys, letters("feat-x y")...)...)
+
+	// Act
+	view := typing(t, named, "ctrl+w").View().Content
+
+	// Assert
+	requireScreen(t, view, "> feat-x", "enter create")
+	refuseScreen(t, view, "feat-x y", "create worktree")
+}
 
 func TestBranchingCanCreateAWorktreeAndSaysWhereItIs(t *testing.T) {
 	t.Parallel()
@@ -24,7 +40,7 @@ func TestBranchingCanCreateAWorktreeAndSaysWhereItIs(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View().Content
+	view := typing(t, model, "2", "b", keyWorktree, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "created worktree for "+featureName, "/work-"+featureName)
@@ -60,7 +76,7 @@ func TestAFailedWorktreeKeepsTheCreatorOpenWithTheReason(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View().Content
+	view := typing(t, model, "2", "b", keyWorktree, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "Start work on", "already exists")
@@ -75,7 +91,7 @@ func TestAWorktreeUnderDryRunCreatesNothing(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View().Content
+	view := typing(t, model, "2", "b", keyWorktree, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would fetch origin, then create a worktree for "+featureName+" from origin/main")
@@ -91,7 +107,7 @@ func TestAWorktreeUnderDryRunCreatesNothing(t *testing.T) {
 func madeWorktree(t *testing.T) tui.Model {
 	t.Helper()
 
-	return typing(t, newWorld().live(t, 120, 40), "2", "b", keyCtrlW, keyEnter)
+	return typing(t, newWorld().live(t, 120, 40), "2", "b", keyWorktree, keyEnter)
 }
 
 func TestANewWorktreeOffersToSwitchToIt(t *testing.T) {

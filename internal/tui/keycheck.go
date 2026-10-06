@@ -28,6 +28,10 @@ var (
 	// text. Interrupt is answered before any filter, prompt or text box, so on
 	// such a key it would quit mid-sentence and lose what was written.
 	ErrInterruptEdits = errors.New("ui.keys moves interrupt onto a key that types or edits text")
+	// ErrTextFieldKey reports an overlay's key moved onto one its focused text
+	// field edits with — a character, or a readline key such as ctrl+w. The
+	// overlay answers the key first, so the field would lose that edit.
+	ErrTextFieldKey = errors.New("ui.keys moves an overlay's key onto one its text field edits with")
 )
 
 // actionInterrupt is the action every context answers first, even while text
@@ -57,7 +61,50 @@ func CheckKeys(overrides map[string]string) error {
 		return fmt.Errorf("%w: %s on %q", ErrInterruptEdits, actionInterrupt, moved)
 	}
 
-	return builder.conflicts()
+	err = builder.conflicts()
+	if err != nil {
+		return err
+	}
+
+	return builder.textFieldClash()
+}
+
+// textFieldActions are the actions an overlay answers before its focused text
+// field sees the key: the branch creator's worktree, the commit composer's
+// breaking, the pull request composer's draft and template, the body handed to
+// the editor, and moving between fields.
+func textFieldActions() []string {
+	return []string{
+		"worktree", "toggle-breaking", "toggle-draft", "next-template", "edit-body", "next-field", "previous-field",
+	}
+}
+
+// textFieldClash rejects a text field's action bound to a key the field edits
+// with, so the overlay would take the edit for its own.
+func (b *helpBuilder) textFieldClash() error {
+	for _, placed := range b.placements {
+		if !slices.Contains(textFieldActions(), placed.action) {
+			continue
+		}
+
+		for _, boundKey := range placed.binding.Keys() {
+			if editsText(boundKey) || slices.Contains(readlineKeys(), boundKey) {
+				return fmt.Errorf("%w: %s on %q", ErrTextFieldKey, placed.action, boundKey)
+			}
+		}
+	}
+
+	return nil
+}
+
+// readlineKeys are the control keys bubbles' text input edits or moves with,
+// as a terminal's readline does — ctrl+w deletes a word, ctrl+b moves back —
+// and ctrl+n and ctrl+p, which step through a field's suggestions.
+func readlineKeys() []string {
+	return []string{
+		"ctrl+a", "ctrl+b", "ctrl+d", "ctrl+e", "ctrl+f", "ctrl+h", "ctrl+k", "ctrl+u", "ctrl+v", "ctrl+w",
+		"ctrl+n", "ctrl+p",
+	}
 }
 
 // unknownActions rejects an override naming an action the keymap does not define,

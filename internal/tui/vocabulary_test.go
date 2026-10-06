@@ -27,7 +27,7 @@ func TestAnActKeepsItsVerbFromItsKeyToItsNotice(t *testing.T) {
 			label: "enter save", notes: "saved #42",
 		},
 		"starting work in a new worktree": {
-			repo: newWorld, reach: []string{"2", "b", keyCtrlW}, act: keyEnter,
+			repo: newWorld, reach: []string{"2", "b", keyWorktree}, act: keyEnter,
 			label: "enter create worktree", notes: "created worktree for " + featureName,
 		},
 		"linking a branch and its description": {
