@@ -161,6 +161,8 @@ type discarded struct {
 	err  error
 }
 
+var _ applier = discarded{}
+
 // apply closes the look and says so, or keeps it open with git's refusal, and
 // reads the status again either way.
 func (msg discarded) apply(m Model) (Model, tea.Cmd) {
