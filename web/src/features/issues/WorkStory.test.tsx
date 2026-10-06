@@ -258,7 +258,9 @@ test('shows an in-progress-elsewhere story for an issue on a branch not checked 
   render(<WorkStory issueKey="PROJ-2" />)
 
   // Assert
-  expect(screen.getByText(/in progress on feat\/PROJ-2-metrics/i)).toBeTruthy()
+  expect(screen.getByText(/^In progress on/).textContent).toMatch(
+    /^In progress on feat\/PROJ-2-metrics/,
+  )
   // Both the changes and pull-request stages defer to the checked-out branch.
   expect(screen.getAllByText(/shown for the checked-out branch/i)).toHaveLength(2)
 })

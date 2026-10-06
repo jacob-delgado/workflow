@@ -167,3 +167,44 @@ test('reads the announce stage done once the pull request was announced at its m
   // Assert
   expect(storyStage('Announce')).toEqual({ mark: drawnMark('done'), state: 'done' })
 })
+
+// A branch name is what a reader would type into a terminal, so the story sets
+// it in the code face wherever it names one — the Branch stage's detail and
+// the note over an issue in flight elsewhere — and leaves the words around it
+// in the body face.
+test.each([
+  { where: 'the stage of the checked-out branch', current: true },
+  { where: 'the stage of a branch elsewhere', current: false },
+])('sets the branch name in the code face in $where', ({ current }) => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: [{ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current }],
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  const stage = screen.getByRole('button', { name: /^Branch/ })
+  expect(within(stage).getByText('fix/PROJ-1').tagName).toBe('CODE')
+})
+
+test('sets the branch name in the code face in the note over an issue in flight elsewhere', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: [{ name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false }],
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-2" />)
+
+  // Assert
+  const note = screen.getByText(/^In progress on/)
+  expect(within(note).getByText('feat/PROJ-2-metrics').tagName).toBe('CODE')
+})
