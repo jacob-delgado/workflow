@@ -5,8 +5,31 @@ package jira
 
 import (
 	"cmp"
+	"errors"
 	"slices"
+	"strings"
+	"time"
 )
+
+// Why a value cannot be sent for the field it fills. Each reads after the
+// field's name: "Resolution needs a value".
+var (
+	// ErrNeedsValue is a field left empty.
+	ErrNeedsValue = errors.New("needs a value")
+	// ErrNeedsDate is a date field holding something that is not a date.
+	ErrNeedsDate = errors.New("must be a date like 2026-09-21")
+	// ErrNeedsChoice is a list field with nothing chosen.
+	ErrNeedsChoice = errors.New("needs at least one")
+	// ErrNotAnOption is a choice the field does not allow.
+	ErrNotAnOption = errors.New("is not one of its values")
+	// ErrOnlyJira is a field only Jira's own screen can fill, such as a
+	// cascading select. A transition is never sent half-filled, to be refused.
+	ErrOnlyJira = errors.New("which only Jira's own screen can fill; make this change in Jira")
+)
+
+// DateLayout is the calendar date Jira reads and writes, spelled in Go's own
+// reference date.
+const DateLayout = "2006-01-02"
 
 // FieldKind is how a field a transition needs can be filled in.
 type FieldKind int
@@ -47,6 +70,33 @@ func (f Field) Fillable() bool {
 	return f.Kind != FieldUnsupported
 }
 
+// Unfillable is the first field of the transition only Jira's own screen can
+// fill, if it has one: the transition cannot be made from here.
+func (t Transition) Unfillable() (Field, bool) {
+	for _, field := range t.Fields {
+		if !field.Fillable() {
+			return field, true
+		}
+	}
+
+	return Field{}, false
+}
+
+// Field is the field of this id the transition asks for, if it asks for one.
+func (t Transition) Field(fieldID string) (Field, bool) {
+	index := slices.IndexFunc(t.Fields, func(field Field) bool { return field.ID == fieldID })
+	if index < 0 {
+		return Field{}, false
+	}
+
+	return t.Fields[index], true
+}
+
+// allows reports whether the field offers an option of this id.
+func (f Field) allows(optionID string) bool {
+	return slices.ContainsFunc(f.Options, func(option Option) bool { return option.ID == optionID })
+}
+
 // FieldValue is what was chosen or typed for a field.
 type FieldValue struct {
 	Field Field
@@ -56,6 +106,21 @@ type FieldValue struct {
 	OptionIDs []string
 	// Text is what was typed, for a text, user or date field.
 	Text string
+}
+
+// Check says why the value cannot be sent for its field — empty, not a date,
+// not one of the field's options, or a field only Jira can fill — or nil when
+// it can. Typed text counts as empty when it is only spaces. A map, not a
+// switch, as payload's is.
+func (v FieldValue) Check() error {
+	return map[FieldKind]func() error{
+		FieldUnsupported: func() error { return ErrOnlyJira },
+		FieldOption:      v.checkOption,
+		FieldOptionList:  v.checkOptions,
+		FieldText:        v.checkText,
+		FieldUser:        v.checkText,
+		FieldDate:        v.checkText,
+	}[v.Field.Kind]()
 }
 
 // wireField is a field as expand=transitions.fields describes it.
@@ -179,4 +244,51 @@ func fieldsPayload(values []FieldValue) map[string]any {
 	}
 
 	return fields
+}
+
+// checkOption refuses no option chosen, or one the field does not offer.
+func (v FieldValue) checkOption() error {
+	if v.OptionID == "" {
+		return ErrNeedsValue
+	}
+
+	if !v.Field.allows(v.OptionID) {
+		return ErrNotAnOption
+	}
+
+	return nil
+}
+
+// checkOptions refuses nothing chosen, or any choice the field does not offer.
+func (v FieldValue) checkOptions() error {
+	if len(v.OptionIDs) == 0 {
+		return ErrNeedsChoice
+	}
+
+	for _, id := range v.OptionIDs {
+		if !v.Field.allows(id) {
+			return ErrNotAnOption
+		}
+	}
+
+	return nil
+}
+
+// checkText refuses blank text, and a date field's text that is not a date.
+func (v FieldValue) checkText() error {
+	text := strings.TrimSpace(v.Text)
+	if text == "" {
+		return ErrNeedsValue
+	}
+
+	if v.Field.Kind != FieldDate {
+		return nil
+	}
+
+	_, err := time.Parse(DateLayout, text)
+	if err != nil {
+		return ErrNeedsDate
+	}
+
+	return nil
 }
