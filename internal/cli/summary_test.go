@@ -229,10 +229,27 @@ func TestSummaryPostYesPostsTheTextRenderedForTheService(t *testing.T) {
 		t.Errorf("summary --post --yes posted %q, want the summary once, its headings Slack's bold lines", posts)
 	}
 
-	if !strings.Contains(printed.stdout, "to the channel its webhook is bound to") ||
-		!strings.Contains(printed.stderr, "Posted to the channel its webhook is bound to.") {
-		t.Errorf("summary --post --yes said:\nstdout:\n%s\nstderr:\n%s\nwant where it posts, and that it was posted",
+	if !strings.Contains(printed.stderr, "Posted to the channel its webhook is bound to.") {
+		t.Errorf("summary --post --yes said:\nstdout:\n%s\nstderr:\n%s\nwant that it was posted",
 			printed.stdout, printed.stderr)
+	}
+}
+
+func TestSummaryPostPrintsOnlyTheSummaryOnStdout(t *testing.T) {
+	// Arrange
+	hook := newCapturingWebhook(t)
+	repo := workedRepository(t, "Add the widget")
+	writeFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+	read, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay)
+
+	// Act
+	printed, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
+		"--post", "--yes")
+
+	// Assert
+	if printed.stdout != read.stdout || !strings.Contains(printed.stderr, "to the channel its webhook is bound to") {
+		t.Errorf("summary --post --yes printed:\nstdout:\n%s\nstderr:\n%s\nwant the summary alone on stdout, "+
+			"as without --post:\n%s", printed.stdout, printed.stderr, read.stdout)
 	}
 }
 

@@ -183,7 +183,7 @@ func postSummary(out output, seams summarySeams, text string, opts writeOptions)
 	}
 
 	service, target := seams.Messaging.Service(), seams.Messaging.Target()
-	fmt.Fprintln(out.artifact, "to "+target)
+	fmt.Fprintln(out.notes, "to "+target)
 
 	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
 		question: "Post to " + service + "?",
