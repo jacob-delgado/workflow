@@ -82,7 +82,10 @@ breaks one names it.
    while that field has the focus.
 4. **A failure is never drawn as empty or as rest.** The terminal says it in
    the failure voice (`errorSentence`, `internal/tui/failure.go:86`); the
-   web says it in a `role="alert"` line beside what failed.
+   web says it in a `role="alert"` line beside what failed. A service that
+   is not set up is not a failure: every surface says what is missing and
+   how to set it up, beside the not-started mark, as guidance rather than
+   an alarm (`loop.NotSetUp` decides which is which, once).
 5. **Shape carries state, not color.** A glyph's shape, a word or a weight
    tells the state; a hue only repeats it.
 6. **The terminal and the web are equals.** Each can do what the other
@@ -1721,94 +1724,6 @@ before each number on stdout), the Reviews pane and the composer's
 test whose fake Slack answers `not_in_channel` sees the fix on stderr and
 no "press enter"; `docs/content/docs/scripting.md:94` matches the new
 `reviews` note.
-
-### UX-128 Failed reads pass as empty answers in status and the web
-
-Impact: medium · Effort: medium
-
-**Today.** `status` and the web server each drop a seam's read error
-into their "nothing found" path, and nothing says so anywhere: a prompt
-shows "CI none" while CI is red because a token expired and a script
-cannot tell "none" from "unknown"; in the browser three sections carry
-misleading copy during an outage under a header that says Live, with no
-reason and no Retry.
-
-- `issueSummary`, `internal/cli/status.go:278`: `if err != nil` returns
-  `""` (`:280`) — the issue read's error is dropped and the summary left
-  blank.
-- `gatherReview`, `internal/cli/status.go:295`: `err != nil` is folded
-  into the not-found return (`:303`), so an unreachable forge reads `○
-  Review`; at `:314` a `CheckStatus` error becomes `forge.CINone`, the same
-  as no CI.
-- `countChanges`, `internal/cli/status.go:323`: a `Changes` error becomes
-  0 uncommitted files (`:325`).
-- `TestStatusWhenCICannotBeRead`, `internal/cli/status_test.go:405`:
-  asserts "CI none" and nothing about stderr, so the silence is neither
-  pinned nor caught.
-- "Standard output and standard error",
-  `docs/content/docs/scripting.md:82`: "Standard error carries …
-  warnings" (`:86`) — the contract `status` does not meet.
-- `server.snapshot`, `internal/webserver/stream.go:186`: its doc comment
-  codifies the rule — a seam that fails yields an empty panel, the
-  forge's keeping its last answer. `snapshotIssues` (`:354`) returns an
-  empty first page when `Search` fails (`:361`); `frameBranch` (`:219`)
-  answers an empty `gitrepo.Branch{}` when the read fails (`:221`), which
-  `snapshot` hands to `branchDTO` (`:198`) and which makes
-  `snapshotReview` answer not found (`:384`); `snapshotChanges` (`:370`)
-  answers `changesDTO(nil)`. `forgeReview` (`:393`) keeps the answer it
-  holds for the branch at its head when a read fails (`:412`); with none
-  held it keeps and serves `readForge`'s empty review for an interval
-  (`:417`) — indistinguishable from no pull request.
-- `Review`, `api/openapi.yaml:3783`: carries `found`, `pull`, `ci`,
-  `issue` and `announced` only, and `Snapshot`
-  (`api/openapi.yaml:3480`) has no per-panel problem.
-- `server.review`, `internal/webserver/handlers.go:245`: a `CheckCI`
-  error drops `ci` from the answer (`:260`), which the stream fills only
-  with the CI it holds for the same pull request
-  (`internal/webserver/stream.go:414`); `PullRequestSummary`
-  (`web/src/features/review/ReviewPanel.tsx:78`) renders nothing for a
-  null `ci` (`:117`), where the terminal's `Model.reviewDetail`
-  (`internal/tui/review.go:281`) shows the CI failure under the pull
-  request (`:319`).
-- `BranchReview`, `web/src/features/review/ReviewPanel.tsx:41`: `found`
-  false falls through to the `OpenPullRequest` form (`:64`), so a forge
-  outage offers to open a pull request. The offer is wrong copy, not a
-  wrong write: `ComposePull`'s doc comment (`internal/loop/pull.go:76`)
-  lets a forge that cannot say through, and the open lands on the forge's
-  own answer.
-- `BranchPanel`, `web/src/features/branch/BranchPanel.tsx:26`: an empty
-  name with `detached` false says "This directory is not a Git
-  repository", which a failed read also produces; `StreamStatus`
-  (`web/src/shell/StreamStatus.tsx:17`) sets Out of date only for an
-  unreadable frame (`:11`), so a frame with an emptied panel reads Live.
-- `ListAndDetail`, `web/src/features/issues/IssuesPanel.tsx:149`: the
-  emptied first page renders "No issues match this view." (`:154`) — a
-  Jira outage reads as an empty view.
-
-`TestStreamSnapshotDegradesWhenSeamsFail`
-(`internal/webserver/stream_test.go:272`) pins the web's silence (its
-assert at `:289` wants `snap.Issues.Total` zero for a failing `Search`),
-the terminal's "each pane fails on its own" has no web twin, and only the
-opt-in `--log` records the failed request.
-
-**Instead.** Keep degrading, but say so. On the command line, one stderr
-line per service that failed, through the `output.notes` the writes use
-and the sentinel wording the other commands share, leaving stdout as it
-is — telling "nothing to ask" (`jira.ErrNoCredential`, no forge
-configured) from a service that refused. On the wire, an optional problem per panel in the Snapshot (the
-`Problem` shape `fault` already curates) and a `ci_error` on the Review,
-rendered in that section as a failure — the failure `StateMark` and a
-`role=alert` line — rather than as the empty state.
-
-**Done when.** A `status` test with a forge that errors sees "CI none" on
-stdout and a line naming the forge on stderr, and one whose forge answers
-sees an empty stderr; a stream test with a failing `FindPull` sees a review panel
-carrying a problem, beside the last answer held for that branch and head
-when there is one; ReviewPanel, BranchPanel and IssuesPanel tests render
-such snapshots by role alert rather than as the open-a-pull-request
-form, the not-a-repository state or "No issues match this view."; a
-ReviewPanel test with `ci` null and `ci_error` set finds the alert naming
-the reason.
 
 ### UX-130 Four sentences that disagree with a neighbor or a sibling surface
 
