@@ -47,6 +47,10 @@ type worlds struct {
 	mu      sync.RWMutex
 	current *server
 	handler http.Handler
+
+	// setups lets one first-run setup run at a time, so a second waits for
+	// the first to write and take its file up, then finds a file applies.
+	setups sync.Mutex
 }
 
 // newWorlds serves first.
