@@ -3082,7 +3082,7 @@ export type SetUpData = {
 
 export type SetUpErrors = {
     /**
-     * A configuration file already applies where the server works, or one is at the path chosen; nothing was written. Edit it in Settings instead.
+     * A configuration file already applies where the server works, or one is at a path setup offers; nothing was written. A file made since the server started (by hand, by config init, or by a setup that could not be taken up) is taken up, so Settings edits it. One setup runs at a time: of two sent at once, one writes and the other is answered 409.
      */
     409: Problem;
     /**

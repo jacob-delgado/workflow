@@ -9,8 +9,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -288,6 +292,71 @@ func TestSetupTakesTheFileUpWhereTheServerWorks(t *testing.T) {
 	// Assert
 	if len(run.reached) != 1 || run.reached[0] != run.where.WorkDir {
 		t.Errorf("reached %q, want the server to take the file up in %s", run.reached, run.where.WorkDir)
+	}
+}
+
+func TestSetupTakesUpAFileMadeSinceTheServerStarted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	handler := run.handler(t)
+
+	err := os.WriteFile(run.where.Path(setup.Repository), []byte(`{"jira":{"project":"BYHAND"}}`), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing the file by hand: %v", err)
+	}
+
+	// Act
+	recorder := send(t, handler, http.MethodPost, setupPath, setupBody(t, false, false))
+
+	// Assert
+	read := get(t, handler, "/api/config")
+	if recorder.Code != http.StatusConflict || read.Code != http.StatusOK ||
+		!strings.Contains(read.Body.String(), "BYHAND") {
+		t.Errorf("setup = %d, then GET /api/config = %d %s; want 409 and the file made by hand served",
+			recorder.Code, read.Code, read.Body.String())
+	}
+}
+
+func TestTwoSetupsAtOnceWriteOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	deps := run.deps(t)
+	check := deps.Setup.Check
+
+	var asked atomic.Int32
+
+	deps.Setup.Check = func(settings config.Jira) (string, error) {
+		asked.Add(1)
+		time.Sleep(100 * time.Millisecond)
+
+		return check(settings)
+	}
+	handler := serve(t, deps, config.Default())
+
+	// Act
+	codes := make(chan int, 2)
+
+	var both sync.WaitGroup
+	for range 2 {
+		both.Go(func() { codes <- send(t, handler, http.MethodPost, setupPath, setupBody(t, false, false)).Code })
+	}
+
+	both.Wait()
+	close(codes)
+
+	// Assert
+	answered := slices.Sorted(func(yield func(int) bool) {
+		for code := range codes {
+			yield(code)
+		}
+	})
+	if !slices.Equal(answered, []int{http.StatusOK, http.StatusConflict}) || asked.Load() != 1 {
+		t.Errorf("two setups at once answered %v, asking Jira %d times; want one written and one 409, Jira asked once",
+			answered, asked.Load())
 	}
 }
 
