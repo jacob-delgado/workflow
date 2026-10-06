@@ -26,7 +26,7 @@ import (
 )
 
 const longHelp = `workflow ties Jira, your Git forge and your team's messaging service into one
-terminal workflow.
+workflow, in the terminal or a browser.
 
 CONFIGURATION
 
@@ -188,7 +188,7 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Co
 
 	root := &cobra.Command{
 		Use:           "workflow",
-		Short:         "Run your Jira, Git forge and messaging workflow from the terminal",
+		Short:         "Run your Jira, Git forge and messaging workflow, in the terminal or a browser",
 		Long:          longHelp,
 		Version:       buildinfo.Current(),
 		SilenceUsage:  true,
@@ -216,7 +216,7 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Co
 		"hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, "+
 			"and say what it would have done")
 	root.PersistentFlags().String(logFlag, "",
-		"append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report")
+		"append a one-line outline of each request (method, path, status, duration) to `FILE`, for a bug report")
 	root.Flags().BoolVar(&web, "web", false,
 		"serve the web interface on http://127.0.0.1 instead of opening the terminal interface")
 	root.Flags().IntVar(&port, portFlag, webserver.DefaultPort, "the port --web serves on, from 1 to 65535")

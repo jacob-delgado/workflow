@@ -41,7 +41,7 @@ func newReviewsCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "reviews",
-		Short: "List the pull requests that are waiting on your review",
+		Short: "List the pull or merge requests that are waiting on your review",
 		Long: "List the open pull or merge requests on your forge that request your\n" +
 			"review, oldest first, with the author, how CI stands and how long each has\n" +
 			"been waiting. The forge is the one your repository's remote points at.\n" +

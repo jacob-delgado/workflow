@@ -70,7 +70,7 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "announce",
-		Short: "Announce the branch's pull request to your team's chat",
+		Short: "Announce the branch's pull or merge request to your team's chat",
 		Long: "Announce what the messaging pane would — the branch's pull request, its\n" +
 			"issue, and where it stands (ready for review, merged, or CI red) — to the\n" +
 			"configured Slack, Teams, Discord or webhook. A preview is printed and\n" +

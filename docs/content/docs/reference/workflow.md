@@ -7,12 +7,12 @@ weight: 10
 
 ## workflow
 
-Run your Jira, Git forge and messaging workflow from the terminal
+Run your Jira, Git forge and messaging workflow, in the terminal or a browser
 
 ### Synopsis
 
 workflow ties Jira, your Git forge and your team's messaging service into one
-terminal workflow.
+workflow, in the terminal or a browser.
 
 CONFIGURATION
 
@@ -95,25 +95,25 @@ workflow [flags]
 ### Options
 
 ```
-      --dry-run      hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
-  -h, --help         help for workflow
-      --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
-      --port int     the port --web serves on, from 1 to 65535 (default 13579)
-  -v, --version      version for workflow
-      --web          serve the web interface on http://127.0.0.1 instead of opening the terminal interface
+      --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+  -h, --help       help for workflow
+      --log FILE   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
+      --port int   the port --web serves on, from 1 to 65535 (default 13579)
+  -v, --version    version for workflow
+      --web        serve the web interface on http://127.0.0.1 instead of opening the terminal interface
 ```
 
 ### SEE ALSO
 
-* [workflow announce](../workflow_announce/)	 - Announce the branch's pull request to your team's chat
+* [workflow announce](../workflow_announce/)	 - Announce the branch's pull or merge request to your team's chat
 * [workflow branch](../workflow_branch/)	 - Branch for an issue, named by the convention, and switch to it
 * [workflow completion](../workflow_completion/)	 - Generate the autocompletion script for the specified shell
 * [workflow config](../workflow_config/)	 - Create and inspect the configuration file
 * [workflow db-clean](../workflow_db-clean/)	 - Remove the local databases workflow keeps between sessions
 * [workflow doctor](../workflow_doctor/)	 - Report the repository, tooling, and configuration in effect
-* [workflow pr](../workflow_pr/)	 - Open a pull request for the current branch
-* [workflow reviews](../workflow_reviews/)	 - List the pull requests that are waiting on your review
+* [workflow pr](../workflow_pr/)	 - Open a pull or merge request for the current branch
+* [workflow reviews](../workflow_reviews/)	 - List the pull or merge requests that are waiting on your review
 * [workflow slack](../workflow_slack/)	 - Set up posting to Slack with a rotating user token
-* [workflow standup](../workflow_standup/)	 - Draft what you did — commits, issues and pull requests — to share
+* [workflow standup](../workflow_standup/)	 - Draft what you did — commits, issues and pull or merge requests — to share
 * [workflow status](../workflow_status/)	 - Print the current work's issue, stage and CI on one line
 

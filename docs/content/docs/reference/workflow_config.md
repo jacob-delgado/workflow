@@ -22,13 +22,13 @@ workflow config [flags]
 ### Options inherited from parent commands
 
 ```
-      --dry-run      hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
-      --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
+      --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+      --log FILE   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 
 ### SEE ALSO
 
-* [workflow](../workflow/)	 - Run your Jira, Git forge and messaging workflow from the terminal
-* [workflow config init](../workflow_config_init/)	 - Set up the configuration file, asking for each credential and checking the Jira token
+* [workflow](../workflow/)	 - Run your Jira, Git forge and messaging workflow, in the terminal or a browser
+* [workflow config init](../workflow_config_init/)	 - Set up the configuration file, asking for the Jira token and a Slack webhook and checking the Jira token
 * [workflow config show](../workflow_config_show/)	 - Print the configuration in effect, with tokens masked
 
