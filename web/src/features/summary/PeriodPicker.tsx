@@ -1,4 +1,5 @@
 import { useId, useState } from 'react'
+import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Select } from '@/lib/Field.tsx'
 import {
@@ -91,10 +92,14 @@ export function PeriodCalendar({ period, today, onPick }: PeriodPickerProps) {
 // length, and to today; Later is off once the period would start after today.
 export function PeriodSteps({ period, today, onPick }: PeriodPickerProps) {
   const later = shiftPeriod(period, 1)
+  const earlierKeys = useShortcutProps<HTMLButtonElement>('earlier')
+  const laterKeys = useShortcutProps<HTMLButtonElement>('later')
+  const todayKeys = useShortcutProps<HTMLButtonElement>('today')
 
   return (
     <div className="flex flex-wrap gap-item">
       <Button
+        {...earlierKeys}
         variant="secondary"
         onClick={() => {
           onPick(shiftPeriod(period, -1))
@@ -103,6 +108,7 @@ export function PeriodSteps({ period, today, onPick }: PeriodPickerProps) {
         Earlier
       </Button>
       <Button
+        {...laterKeys}
         variant="secondary"
         aria-disabled={later.from > today}
         onClick={() => {
@@ -114,6 +120,7 @@ export function PeriodSteps({ period, today, onPick }: PeriodPickerProps) {
         Later
       </Button>
       <Button
+        {...todayKeys}
         variant="secondary"
         onClick={() => {
           onPick({ from: today, to: today })

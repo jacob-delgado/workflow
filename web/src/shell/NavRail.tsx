@@ -1,4 +1,5 @@
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { usePaneShortcuts } from '@/features/keyboard/useShortcut.ts'
 import { cn } from '@/lib/utils.ts'
 import { sectionLabel, sectionMeta } from './sections.ts'
 import { sections, useUiStore } from './uiStore.ts'
@@ -11,6 +12,7 @@ export function NavRail() {
   const section = useUiStore((state) => state.section)
   const setSection = useUiStore((state) => state.setSection)
   const service = useSnapshotStore((state) => state.snapshot?.messaging.service)
+  const paneKeys = usePaneShortcuts()
 
   return (
     <nav
@@ -27,6 +29,7 @@ export function NavRail() {
             key={key}
             type="button"
             aria-current={active ? 'page' : undefined}
+            aria-keyshortcuts={paneKeys[key]}
             title={name}
             onClick={() => {
               setSection(key)

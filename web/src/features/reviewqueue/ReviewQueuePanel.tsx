@@ -3,6 +3,7 @@ import { useRef, type ReactNode, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { writtenDate } from '@/lib/dates.ts'
 import { Select } from '@/lib/Field.tsx'
@@ -193,12 +194,15 @@ interface OrderSelectProps {
 // OrderSelect chooses the order the queue is listed in, as the terminal's s
 // cycles it.
 function OrderSelect({ ref, order, onOrder }: OrderSelectProps) {
+  const shortcut = useShortcut('sort-reviews', ref, 'focus')
+
   return (
     <label className="flex items-center gap-item text-sm">
       <span className="text-muted-foreground">Sort</span>
       <Select
         size="sm"
         ref={ref}
+        aria-keyshortcuts={shortcut}
         value={order}
         onChange={(event) => {
           onOrder(event.target.value as ReviewOrder)

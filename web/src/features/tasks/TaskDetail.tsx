@@ -1,6 +1,7 @@
 import { ExternalLink } from 'lucide-react'
 import { type ReactNode, useId, useState } from 'react'
 import type { Issue, Task, TaskList } from '@/api/generated/types.gen.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { writtenDate } from '@/lib/dates.ts'
@@ -44,6 +45,7 @@ export function TaskDetail({ task, issue, teller, now }: TaskDetailProps) {
       <Annotations task={task} />
       <div className="flex flex-col gap-group">
         <TaskLineForm
+          shortcut="annotate-task"
           command={`${name} annotate`}
           verb="Annotate"
           busy="Annotating…"
@@ -53,6 +55,7 @@ export function TaskDetail({ task, issue, teller, now }: TaskDetailProps) {
           teller={teller}
         />
         <TaskLineForm
+          shortcut="modify-task"
           command={`${name} modify`}
           verb="Modify"
           busy="Modifying…"
@@ -190,11 +193,14 @@ interface TaskVerbsProps {
 }
 
 // TaskVerbs are the writes a button makes on one task: start it, or stop it
-// once started, and mark it done.
+// once started, and mark it done. Standing alone, for the one task the Tasks
+// section shows, they answer the terminal's s and d; where several tasks'
+// verbs stand together, named, a key could not say which task it meant.
 export function TaskVerbs({ task, teller, named }: TaskVerbsProps) {
   const writes = useTaskWrites()
   const name = taskName(task)
   const active = isActive(task)
+  const alone = named === undefined
 
   return (
     <>
@@ -202,6 +208,7 @@ export function TaskVerbs({ task, teller, named }: TaskVerbsProps) {
         label={active ? 'Stop' : 'Start'}
         busy={active ? 'Stopping…' : 'Starting…'}
         named={named}
+        shortcut={alone ? 'start-stop' : undefined}
         run={() => (active ? writes.stop(task.uuid) : writes.start(task.uuid))}
         done={() => `${active ? 'Stopped' : 'Started'} ${name}.`}
         fallback={`${capitalized(name)} was not ${active ? 'stopped' : 'started'}. Try again, or run ${name} ${active ? 'stop' : 'start'} in a terminal to see why.`}
@@ -211,6 +218,7 @@ export function TaskVerbs({ task, teller, named }: TaskVerbsProps) {
         label="Mark done"
         busy="Marking done…"
         named={named}
+        shortcut={alone ? 'mark-done' : undefined}
         ask={{
           question: `Mark ${name} done?`,
           cost: "Taskwarrior runs the task's hooks; only Undo, while it is the last change, takes it back.",
@@ -235,6 +243,9 @@ interface VerbProps {
   label: string
   busy: string
   named?: string
+  // shortcut is the terminal's action the button answers to, where it answers
+  // one.
+  shortcut?: string
   run: () => Promise<TaskList>
   done: (answered: TaskList) => string
   fallback: string
@@ -247,9 +258,20 @@ interface VerbProps {
 // nothing of, say, which leaves the list as it was — drawn after every button
 // of the row it stands in, so a refusal never parts a row's buttons. A write
 // with a last look opens it first, as Forget… does, and sends only from it.
-export function Verb({ label, busy, named, run, done, fallback, teller, ask }: VerbProps) {
+export function Verb({
+  label,
+  busy,
+  named,
+  shortcut,
+  run,
+  done,
+  fallback,
+  teller,
+  ask,
+}: VerbProps) {
   const [asking, setAsking] = useState(false)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
+  const keys = useShortcut(shortcut, opener)
   const write = useAsyncAction(run, {
     fallback,
     done,
@@ -292,6 +314,7 @@ export function Verb({ label, busy, named, run, done, fallback, teller, ask }: V
     <>
       <Button
         ref={opener}
+        aria-keyshortcuts={keys}
         variant="secondary"
         disabled={running}
         onClick={() => {

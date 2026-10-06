@@ -2,6 +2,7 @@ import { GitBranch } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Branch, Change } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -152,6 +153,7 @@ function Commits({
 function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
   const [confirming, setConfirming] = useState(false)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
+  const pushKeys = useShortcut('push', opener)
   const push = useAsyncAction(pushBranch, {
     fallback: 'The branch was not pushed. Try again, or push from a terminal to see why.',
     done: (published) => `Pushed ${published.name}.`,
@@ -186,6 +188,7 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
         <Button
           variant="secondary"
           ref={opener}
+          aria-keyshortcuts={pushKeys}
           disabled={push.state === 'running'}
           onClick={() => {
             setConfirming(true)

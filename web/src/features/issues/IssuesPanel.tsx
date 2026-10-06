@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Issue, IssuesPage, TaskBranch, TasksSummary } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot, useSnapshotStore } from '@/api/snapshot.ts'
+import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
 import { Button } from '@/lib/Button.tsx'
 import { FilterChips } from '@/lib/FilterChips.tsx'
@@ -375,6 +376,7 @@ interface MoreIssuesProps {
 function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssuesProps) {
   const paged = more.data !== undefined
   const remain = paged ? more.hasNextPage : streamed.issues.length < streamed.total
+  const shortcut = useShortcutProps<HTMLButtonElement>('load-more')
 
   return (
     <>
@@ -384,6 +386,7 @@ function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssu
         </p>
         {remain ? (
           <Button
+            {...shortcut}
             variant="secondary"
             size="sm"
             aria-disabled={more.isFetchingNextPage}

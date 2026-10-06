@@ -17,6 +17,7 @@ import { BranchFieldset } from './fieldsets/BranchFieldset.tsx'
 import { CommitFieldset } from './fieldsets/CommitFieldset.tsx'
 import { ForgeFieldset } from './fieldsets/ForgeFieldset.tsx'
 import { JiraFieldset } from './fieldsets/JiraFieldset.tsx'
+import { KeyboardFieldset } from './fieldsets/KeyboardFieldset.tsx'
 import { MessagingFieldset } from './fieldsets/MessagingFieldset.tsx'
 import { PullRequestFieldset, StoreFieldset } from './fieldsets/PullRequestAndStoreFieldsets.tsx'
 import { TaskwarriorFieldset } from './fieldsets/TaskwarriorFieldset.tsx'
@@ -147,6 +148,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       <PullRequestFieldset register={register} />
       <StoreFieldset register={register} />
       <TaskwarriorFieldset register={register} />
+      <KeyboardFieldset register={register} />
 
       {/* A refusal ChangedSinceRead explains is not said a second time. */}
       <SaveControls state={save.state} error={changed ? '' : save.error} />

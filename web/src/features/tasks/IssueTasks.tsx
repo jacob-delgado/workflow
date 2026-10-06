@@ -1,5 +1,6 @@
 import type { Task, TaskList } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -172,6 +173,7 @@ function TrackIssue({ issueKey, unlinked, teller }: TrackIssueProps) {
     onStart: teller.clear,
     onDone: teller.say,
   })
+  const shortcut = useShortcutProps<HTMLButtonElement>('track-issue')
 
   if (track.state === 'done') {
     return null
@@ -184,6 +186,7 @@ function TrackIssue({ issueKey, unlinked, teller }: TrackIssueProps) {
       ) : null}
       <div className="flex flex-wrap items-center gap-item">
         <Button
+          {...shortcut}
           variant="secondary"
           disabled={track.state === 'running'}
           onClick={() => {

@@ -1,4 +1,5 @@
 import type { HookSetup as Offer } from '@/api/generated/types.gen.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
@@ -12,6 +13,7 @@ import { readHookSetup, writeHookSetup } from './gitRunApi.ts'
 // preview; Write lefthook.yml writes it and installs lefthook.
 export function HookSetup({ unmanaged, outcome }: { unmanaged: number; outcome: Teller }) {
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
+  const setUpKeys = useShortcut('set-up-lefthook', opener)
   const read = useAsyncAction(readHookSetup, {
     fallback: 'The hooks could not be read. Try again, or set lefthook up with g in the terminal.',
   })
@@ -38,6 +40,7 @@ export function HookSetup({ unmanaged, outcome }: { unmanaged: number; outcome: 
       <Button
         variant="secondary"
         ref={opener}
+        aria-keyshortcuts={setUpKeys}
         aria-disabled={read.state === 'running'}
         onClick={() => {
           if (read.state !== 'running') {

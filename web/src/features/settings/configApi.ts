@@ -1,6 +1,10 @@
-import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
+import { type QueryClient, queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getConfig, updateConfig } from '@/api/generated'
-import { getConfigQueryKey, listViewsQueryKey } from '@/api/generated/@tanstack/react-query.gen.ts'
+import {
+  getConfigQueryKey,
+  getKeysQueryKey,
+  listViewsQueryKey,
+} from '@/api/generated/@tanstack/react-query.gen.ts'
 import type { Config } from '@/api/generated/types.gen.ts'
 
 // The VITE_MOCK check is read inline (not via a helper) so Vite statically
@@ -53,11 +57,12 @@ function configQuery() {
     queryFn: async ({ signal, client, queryKey }) => {
       const before = client.getQueryData<ConfigRead>(queryKey)
       const read = await readConfig(signal)
-      // A read takes up an edit made on disk, which can change the issue views,
-      // so one at a revision other than the cached read's (or with none cached,
-      // where it cannot tell) reads their list again, as a save and Reload do.
+      // A read takes up an edit made on disk, which can change the issue views
+      // and the keys, so one at a revision other than the cached read's (or
+      // with none cached, where it cannot tell) reads them again, as a save and
+      // Reload do.
       if (before?.revision !== read.revision) {
-        void client.invalidateQueries({ queryKey: listViewsQueryKey() })
+        readAgainAfter(client)
       }
 
       return read
@@ -95,16 +100,16 @@ async function saveConfig(config: Config, over: string | undefined): Promise<Con
 // useSaveConfig saves the configuration over the revision it was read at, and
 // refreshes the cached copy with the stored result, so a surface that reads the
 // cache before its next read — and every one, under VITE_MOCK, which never
-// reads again — shows the save. The issue views live in the configuration too,
-// so their list is read again: the view select offers only the views the
-// server lists.
+// reads again — shows the save. The issue views and the keys live in the
+// configuration too, so they are read again: the view select offers only the
+// views the server lists, and a key moved or turned on works at once.
 export function useSaveConfig(): (config: Config, over: string | undefined) => Promise<ConfigRead> {
   const queryClient = useQueryClient()
 
   return async (config, over) => {
     const saved = await saveConfig(config, over)
     queryClient.setQueryData(configQuery().queryKey, saved)
-    void queryClient.invalidateQueries({ queryKey: listViewsQueryKey() })
+    readAgainAfter(queryClient)
 
     return saved
   }
@@ -114,18 +119,26 @@ export function useSaveConfig(): (config: Config, over: string | undefined) => P
 // offers when a save finds the file has changed. The read goes around the
 // query, so one that fails leaves the query, and the form it seeded, as they
 // were; one that answers replaces the cached copy every surface shares. A
-// reload can take up an edit to the views, so their list is read again, as
-// after a save.
+// reload can take up an edit to the views or the keys, so they are read again,
+// as after a save.
 export function useReloadConfig(): () => Promise<ConfigRead> {
   const queryClient = useQueryClient()
 
   return async () => {
     const read = await readConfig()
     queryClient.setQueryData(configQuery().queryKey, read)
-    void queryClient.invalidateQueries({ queryKey: listViewsQueryKey() })
+    readAgainAfter(queryClient)
 
     return read
   }
+}
+
+// readAgainAfter reads again what the configuration decides beyond the form:
+// the issue views, which the view select offers, and the keys, which ui.keys
+// moves and ui.web_shortcuts turns on.
+function readAgainAfter(client: QueryClient): void {
+  void client.invalidateQueries({ queryKey: listViewsQueryKey() })
+  void client.invalidateQueries({ queryKey: getKeysQueryKey() })
 }
 
 // changedSinceRead reports a save refused because the file has moved on from

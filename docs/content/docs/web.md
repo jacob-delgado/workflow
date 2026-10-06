@@ -65,6 +65,23 @@ until a read succeeds. The stream's state is beside the theme:
 **The forge's own words.** On GitLab the page says *merge request* and numbers
 one `!12`; on GitHub, *pull request* and `#12` — as the terminal does.
 
+**The keyboard.** Beyond Tab, the page answers the terminal's own keys, read
+from its bindings with `ui.keys` applied, so a key you moved in the file moves
+here too. `?` opens a sheet of the actions the page has a control for, under
+the terminal's groups and in its words, with the key for each; `Escape`
+closes it. `Ctrl+K`, or `⌘K` on a Mac, opens a palette of what the section
+you are in can do, and of the other sections: type part of an action's
+name, choose with the arrow keys, and `Enter` runs it through its own
+button, so a push or a merge still asks first. Single keys — `c` comments,
+`a` stages everything on Branch, `2` opens Branch — are off until you turn
+on **Single-key shortcuts** in Settings (`ui.web_shortcuts`), since a key
+that acts on its own surprises a screen reader or speech user; `?` and the
+palette work either way. Even with them on, a key types into the field that
+has the focus, a search box or the comment box among them, and acts only
+outside one. Each control a key reaches says so to assistive technology
+(`aria-keyshortcuts`). See
+[Keys on the web]({{< relref "/docs/configuration#keys-on-the-web" >}}).
+
 ## The sections
 
 ### Issues
@@ -455,8 +472,8 @@ other write, and browsing still works.
 
 ### Settings
 
-The configuration file in effect, in eight parts — Jira, messaging, the forge,
-commits, branches, pull requests, the store and Taskwarrior — and
+The configuration file in effect, in nine parts — Jira, messaging, the forge,
+commits, branches, pull requests, the store, Taskwarrior and the keyboard — and
 **Save changes** writes it back. A credential is shown masked and kept as it is
 unless you type a new one. A change to the forge part — its token, host,
 kind or CLI — applies at once: the next call to the forge uses it, and the
@@ -470,7 +487,7 @@ and its expiry have no field: workflow writes them. A change to the
 Taskwarrior part applies when workflow restarts, as the part says: workflow finds Taskwarrior as it starts,
 and until the restart the Tasks section says to restart rather than read
 Taskwarrior. What the form has no field for yet is kept unchanged
-when you save: `version`, all of `ui` and `timing`, `jira.token_command`,
+when you save: `version`, all of `ui` but `ui.web_shortcuts`, all of `timing`, `jira.token_command`,
 `jira.token_env`, `jira.headers`, `jira.views`, `messaging.channels` and
 `branch.prefixes`. Settings
 reads the file each time it opens, and a save checks that the file has not
@@ -522,9 +539,6 @@ as ideas in
 [FEATURES.md](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md)
 or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
 
-- **A sheet of every key, and reaching any action without the mouse beyond
-  Tab** — the terminal's `?`
-  ([UX-152](https://github.com/jacob-delgado/workflow/blob/main/UX.md#ux-152-keyboard-on-the-web)).
 - **Offering a task change at the loop's moments** — starting the issue's
   task when its branch is made or checked out, noting the pull request on it,
   completing it on a merge or a move to done; on the web those are the

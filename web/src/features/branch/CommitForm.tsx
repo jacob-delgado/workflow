@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useForm, type UseFormRegister } from 'react-hook-form'
 import type { Branch } from '@/api/generated/types.gen.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input, Select, TextArea } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
@@ -136,13 +137,26 @@ interface MessageFieldsProps {
 
 // MessageFields are the parts of a Conventional Commit message: its type and
 // scope, its subject and body, and whether it breaks anything.
+// The commit's c puts the focus in its first field, Type, as the terminal's c
+// opens the composer there.
 function MessageFields({ register, commitTypes, onScopeTyping }: MessageFieldsProps) {
+  const typeField = register('type')
+  const typeSelect = useRef<HTMLSelectElement>(null)
+  const shortcut = useShortcut('commit', typeSelect, 'focus')
+
   return (
     <>
       <div className="flex gap-item">
         <label className={labelClass}>
           Type
-          <Select {...register('type')}>
+          <Select
+            {...typeField}
+            ref={(select) => {
+              typeField.ref(select)
+              typeSelect.current = select
+            }}
+            aria-keyshortcuts={shortcut}
+          >
             {commitTypes.map((type) => (
               <option key={type} value={type}>
                 {type}

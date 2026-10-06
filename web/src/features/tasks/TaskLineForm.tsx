@@ -1,11 +1,14 @@
 import { useId, useState } from 'react'
 import type { TaskList } from '@/api/generated/types.gen.ts'
+import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input } from '@/lib/Field.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 
 interface TaskLineFormProps {
+  // shortcut is the terminal's action that puts the focus in the line.
+  shortcut: string
   // command is what the line follows in Taskwarrior's grammar — "task add",
   // "task 12 modify" — which names the field.
   command: string
@@ -25,6 +28,7 @@ interface TaskLineFormProps {
 // Taskwarrior would refuse it; a line Taskwarrior refuses stays in the field
 // beside its reason, and one it takes is cleared.
 export function TaskLineForm({
+  shortcut,
   command,
   verb,
   busy,
@@ -34,6 +38,7 @@ export function TaskLineForm({
   teller,
 }: TaskLineFormProps) {
   const field = useId()
+  const input = useShortcutProps<HTMLInputElement>(shortcut, 'focus')
   const [line, setLine] = useState('')
   const [empty, setEmpty] = useState(false)
   const write = useAsyncAction(
@@ -63,6 +68,7 @@ export function TaskLineForm({
         {command}
       </label>
       <Input
+        {...input}
         id={field}
         value={line}
         onChange={(event) => {

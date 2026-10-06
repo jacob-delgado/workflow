@@ -154,6 +154,7 @@ function AddLine({ teller }: { teller: Teller }) {
 
   return (
     <TaskLineForm
+      shortcut="add-task"
       command="task add"
       verb="Add"
       busy="Adding…"
@@ -234,6 +235,7 @@ function Controls({
           <Verb
             label="Undo"
             busy="Undoing…"
+            shortcut="undo-task"
             ask={{
               question: "Undo Taskwarrior's last change?",
               cost: 'Taskwarrior has no redo.',
@@ -248,6 +250,7 @@ function Controls({
           <Verb
             label="Sync"
             busy="Syncing…"
+            shortcut="sync-tasks"
             ask={{
               question: 'Sync Taskwarrior with its server?',
               cost: 'Your tasks are sent there, and its changes taken.',
