@@ -273,7 +273,7 @@ typing, and from then every key types — `q`, `j` and digits included — until
 `esc` goes back to normal mode. In normal mode `enter` shows the comment as it
 will be posted, `ctrl+o` hands the draft to your editor and back, and `esc`
 closes the box. The draft is kept for that issue until you quit, so `c` picks
-it up again; a filter or a prompt elsewhere drops its text on `esc`, but the
+it up again; a search or a prompt elsewhere drops its text on `esc`, but the
 comment box never does. In the preview `enter` posts it and `esc` goes back to
 the draft.
 
