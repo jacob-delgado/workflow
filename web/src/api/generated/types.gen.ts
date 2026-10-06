@@ -1711,6 +1711,54 @@ export type Activity = {
     text: string;
 };
 
+/**
+ * The period a Summary is of, its Markdown to post, and where.
+ */
+export type ActivityPostRequest = {
+    /**
+     * The period's first day, YYYY-MM-DD.
+     */
+    from: string;
+    /**
+     * The period's last day, YYYY-MM-DD.
+     */
+    to: string;
+    /**
+     * The Summary's Markdown, as GET /api/activity wrote it or as it was edited.
+     */
+    text: string;
+    /**
+     * The channel to post to; empty or left out uses the configured channel or the webhook.
+     */
+    channel?: string;
+};
+
+/**
+ * A Summary as it was posted.
+ */
+export type ActivityPost = {
+    /**
+     * The period's first day, YYYY-MM-DD.
+     */
+    from: string;
+    /**
+     * The period's last day, YYYY-MM-DD.
+     */
+    to: string;
+    /**
+     * The channel it was posted to, or empty for a webhook's own channel.
+     */
+    channel: string;
+    /**
+     * Where it went, in words: the channel, or the channel its webhook is bound to.
+     */
+    destination: string;
+    /**
+     * The Markdown posted, before it was rendered for the service.
+     */
+    text: string;
+};
+
 export type ActivitySource = {
     source: ActivitySourceName;
     /**
@@ -3965,6 +4013,35 @@ export type GetActivityResponses = {
 };
 
 export type GetActivityResponse = GetActivityResponses[keyof GetActivityResponses];
+
+export type PostActivityData = {
+    body: ActivityPostRequest;
+    path?: never;
+    query?: never;
+    url: '/api/activity/post';
+};
+
+export type PostActivityErrors = {
+    /**
+     * The period could not be read, the text was blank, or the post could not be made.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type PostActivityError = PostActivityErrors[keyof PostActivityErrors];
+
+export type PostActivityResponses = {
+    /**
+     * The Summary as posted, and where it went.
+     */
+    200: ActivityPost;
+};
+
+export type PostActivityResponse = PostActivityResponses[keyof PostActivityResponses];
 
 export type StreamEventsData = {
     body?: never;
