@@ -6,14 +6,21 @@ package loop
 import (
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/activity"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
+
+// ErrEmptySummary refuses a Summary edited down to nothing: there is nothing
+// to post.
+var ErrEmptySummary = errors.New("nothing to post: the summary was empty")
 
 // shortUUID is how much of a UUID names a task that has no id, as Taskwarrior
 // itself shortens one.
@@ -312,4 +319,17 @@ func ReadAll(reads []SourceRead) []activity.Read {
 	}
 
 	return made
+}
+
+// Trade-off TRADE-32: a posted Summary is not recorded, as an announcement
+// is; what was done is read back from the sources each time.
+
+// PostSummary posts text — the Summary's Markdown, as it was previewed or
+// edited — to channel, rendered for the service kind names.
+func PostSummary(post func(channel, text string) error, kind config.MessagingKind, channel, text string) error {
+	if strings.TrimSpace(text) == "" {
+		return ErrEmptySummary
+	}
+
+	return post(channel, messaging.RenderMarkdown(kind, text))
 }

@@ -4,11 +4,13 @@
 package loop_test
 
 import (
+	"errors"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/activity"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -107,5 +109,47 @@ func TestAJiraReadWithNoWayToBrowseLinksNothing(t *testing.T) {
 	// Assert
 	if len(reads) != 1 || reads[0].Items[0].URL != "" {
 		t.Errorf("ReadAll = %+v, want Jira's one issue with no link", reads)
+	}
+}
+
+func TestASummaryIsPostedRenderedForItsService(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var posted []string
+
+	post := func(channel, text string) error {
+		posted = append(posted, channel+": "+text)
+
+		return nil
+	}
+
+	// Act
+	err := loop.PostSummary(post, config.KindSlack, "#team", "# 2026-10-01\n\n- committed abc1234 Fix it\n")
+
+	// Assert
+	want := []string{"#team: *2026-10-01*\n\n• committed abc1234 Fix it\n"}
+	if err != nil || !slices.Equal(posted, want) {
+		t.Errorf("PostSummary = %v, posted %q; want %q", err, posted, want)
+	}
+}
+
+func TestABlankSummaryIsNotPosted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	posts := 0
+	post := func(string, string) error {
+		posts++
+
+		return nil
+	}
+
+	// Act
+	err := loop.PostSummary(post, config.KindTeams, "", " \n\t")
+
+	// Assert
+	if !errors.Is(err, loop.ErrEmptySummary) || posts != 0 {
+		t.Errorf("PostSummary = %v after %d posts, want ErrEmptySummary and none", err, posts)
 	}
 }
