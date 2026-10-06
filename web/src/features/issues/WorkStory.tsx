@@ -189,7 +189,12 @@ function reviewDetail(snapshot: Snapshot, { noun, sigil }: ForgeWords): string[]
 
   const number = `${sigil}${String(review.pull.number)}`
 
-  return review.ci ? [number, `CI ${review.ci.state}`] : [number]
+  if (!review.ci) {
+    return [number]
+  }
+
+  // A forge that counts no checks says so in words, as the terminal does.
+  return [number, review.ci.state === 'none' ? 'No checks reported' : `CI ${review.ci.state}`]
 }
 
 function stageState(stage: Stage, index: number, activeIndex: number): StageState {

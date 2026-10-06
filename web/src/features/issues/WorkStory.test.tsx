@@ -154,6 +154,51 @@ test('reads a committed clean tree and a green pull request', () => {
   expect(screen.getByText('1 ahead')).toBeTruthy()
 })
 
+test('says no checks reported for a pull request whose forge reports none', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: onHead,
+      branch: {
+        name: 'fix/PROJ-1',
+        issue_link: '',
+        detached: false,
+        head: 'h1h2h3h',
+        upstream: 'origin/fix/PROJ-1',
+        push_remote: 'origin',
+        ahead: 1,
+        behind: 0,
+        base: 'origin/main',
+        commits: [{ hash: 'h1h2h3h4', subject: 'do the work', unpushed: false }],
+      },
+      changes: { changes: [] },
+      review: {
+        found: true,
+        announced: false,
+        pull: {
+          number: 128,
+          url: 'https://x/128',
+          title: 'the change',
+          state: 'open',
+          draft: false,
+          approvals: 1,
+          changes_requested: false,
+          mergeable: 'clean',
+        },
+        ci: { state: 'none', total: 0, done: 0, failed: 0, checks: [] },
+      },
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(screen.getByText('No checks reported')).toBeTruthy()
+  expect(screen.queryByText('CI none')).toBeNull()
+})
+
 test('reads a fresh branch as nothing-committed and a pull request with no CI', () => {
   // Arrange
   useSnapshotStore.setState({
