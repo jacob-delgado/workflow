@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import type { Task } from '@/api/generated/types.gen.ts'
+import { useShortcut, useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { Input, Select } from '@/lib/Field.tsx'
 import {
@@ -37,12 +38,16 @@ export function TaskListControls({
   onPick,
 }: TaskListControlsProps) {
   const filter = useRef<HTMLInputElement>(null)
+  const searchKeys = useShortcut('search-tasks', filter, 'focus')
+  const sort = useShortcutProps<HTMLSelectElement>('sort-tasks', 'focus')
+
   return (
     <div className="flex flex-col gap-item">
       <div className="flex flex-wrap items-center gap-group">
         <label className="flex items-center gap-item text-sm">
           <span className="text-muted-foreground">Sort</span>
           <Select
+            {...sort}
             size="sm"
             value={order}
             onChange={(event) => {
@@ -61,6 +66,7 @@ export function TaskListControls({
           <Input
             size="sm"
             ref={filter}
+            aria-keyshortcuts={searchKeys}
             type="search"
             value={text}
             placeholder="Text, +tag, issue or #id"

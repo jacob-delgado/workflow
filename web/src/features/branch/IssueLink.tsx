@@ -2,6 +2,7 @@ import { useRef, useState, type RefObject } from 'react'
 import type { Branch, BranchIssuePreview } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { shownLinkKey } from '@/features/issues/issuePlaces.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input } from '@/lib/Field.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
@@ -17,6 +18,7 @@ export function IssueLink({ branch, outcome }: { branch: Branch; outcome: Teller
   const [open, setOpen] = useState(false)
   const [held, setHeld] = useState<HeldLink>()
   const [offer, focusOffer] = useFocusHandback<HTMLButtonElement>()
+  const linkKeys = useShortcut('link-issue', offer)
   const [unlinker, focusUnlink] = useFocusHandback<HTMLButtonElement>()
   const settle = (answered: Branch, focusNext: () => void) => {
     setHeld({ link: answered.issue_link, over: branch.issue_link, branch: branch.name })
@@ -53,6 +55,7 @@ export function IssueLink({ branch, outcome }: { branch: Branch; outcome: Teller
     <Button
       variant="secondary"
       ref={offer}
+      aria-keyshortcuts={linkKeys}
       onClick={() => {
         setOpen(true)
       }}

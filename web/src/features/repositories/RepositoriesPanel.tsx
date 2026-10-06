@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Repositories } from '@/api/generated/types.gen.ts'
+import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { Failure, Reading, Unread } from '@/lib/Status.tsx'
@@ -62,6 +63,7 @@ function Read({
   // The favorite that is where the server works, by the name it was kept
   // under, which may reach it through a link: the name to forget.
   const hereKept = repositories.favorites.find((each) => each.state === 'here')
+  const favoriteKeys = useShortcutProps<HTMLButtonElement>('favorite-directory')
 
   return (
     <div className="flex max-w-prose flex-col gap-section">
@@ -70,6 +72,7 @@ function Read({
         {repositories.favorites_kept ? (
           <div>
             <Button
+              {...favoriteKeys}
               variant="secondary"
               onClick={() => {
                 void (hereKept === undefined

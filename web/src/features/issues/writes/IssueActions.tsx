@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { IssueDetail } from '@/api/generated/types.gen.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input, TextArea } from '@/lib/Field.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
@@ -24,6 +25,9 @@ export function IssueActions({ detail }: { detail: IssueDetail }) {
   const [statusButton, statusBack] = useFocusHandback<HTMLButtonElement>()
   const [assignButton, assignBack] = useFocusHandback<HTMLButtonElement>()
   const [worklogButton, worklogBack] = useFocusHandback<HTMLButtonElement>()
+  const statusKeys = useShortcut('change-status', statusButton)
+  const assignKeys = useShortcut('assign', assignButton)
+  const worklogKeys = useShortcut('log-work', worklogButton)
   const key = detail.key
   const shown = shownKey({ key, tracker: detail.tracker })
   const handBack = { status: statusBack, assign: assignBack, worklog: worklogBack, none: () => {} }
@@ -46,6 +50,7 @@ export function IssueActions({ detail }: { detail: IssueDetail }) {
           <Button
             variant="secondary"
             ref={statusButton}
+            aria-keyshortcuts={statusKeys}
             onClick={() => {
               setOpened('status')
             }}
@@ -55,6 +60,7 @@ export function IssueActions({ detail }: { detail: IssueDetail }) {
           <Button
             variant="secondary"
             ref={assignButton}
+            aria-keyshortcuts={assignKeys}
             onClick={() => {
               setOpened('assign')
             }}
@@ -65,6 +71,7 @@ export function IssueActions({ detail }: { detail: IssueDetail }) {
             <Button
               variant="secondary"
               ref={worklogButton}
+              aria-keyshortcuts={worklogKeys}
               onClick={() => {
                 setOpened('worklog')
               }}

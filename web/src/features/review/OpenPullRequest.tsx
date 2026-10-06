@@ -7,6 +7,7 @@ import type {
   OpenPullRequestRequest,
   PullRequestDraft,
 } from '@/api/generated/types.gen.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input, Select, TextArea } from '@/lib/Field.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
@@ -28,6 +29,7 @@ export function OpenPullRequest({
 }) {
   const { noun, sigil } = useForgeWords()
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
+  const openKeys = useShortcut('open-pull-request', opener)
   const compose = useAsyncAction(() => previewPullRequest(), {
     fallback: `The ${noun} could not be composed. Try again, or run workflow pr from a terminal.`,
   })
@@ -70,6 +72,7 @@ export function OpenPullRequest({
       <Button
         variant="primary"
         ref={opener}
+        aria-keyshortcuts={openKeys}
         disabled={compose.state === 'running'}
         onClick={() => {
           void compose.run()

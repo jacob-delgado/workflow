@@ -3,6 +3,8 @@ import { afterEach, beforeEach, vi } from 'vitest'
 import './api/client.ts'
 import { useHealthStore } from './api/health.ts'
 import { useSnapshotStore } from './api/snapshot.ts'
+import { useKeysStore } from './features/keyboard/keysApi.ts'
+import { useRegistry } from './features/keyboard/useShortcut.ts'
 import { useTaskMemo } from './features/tasks/taskMemo.ts'
 import { FakeEventSource } from './test/fakeEventSource.ts'
 import { installMatchMedia, resetMatchMedia } from './test/matchMedia.ts'
@@ -14,6 +16,7 @@ const initialUi = useUiStore.getInitialState()
 const initialSnapshot = useSnapshotStore.getInitialState()
 const initialHealth = useHealthStore.getInitialState()
 const initialTaskMemo = useTaskMemo.getInitialState()
+const initialKeys = useKeysStore.getInitialState()
 
 // jsdom has no EventSource, and the stream hook opens one on mount. Install the
 // controllable fake as the global so components that open the stream render,
@@ -22,6 +25,27 @@ globalThis.EventSource = FakeEventSource as unknown as typeof EventSource
 
 // jsdom has no matchMedia either, and the theme hook queries it on mount.
 installMatchMedia()
+
+// jsdom draws a dialog but cannot open one as a modal: showModal and close
+// only set and clear its open attribute here. The page behind is not made
+// inert, so a test cannot see Tab kept inside; the e2e specs, in a browser,
+// do.
+HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+  this.setAttribute('open', '')
+}
+HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+  this.removeAttribute('open')
+}
+// A browser asks an open modal dialog to close, with a cancel event, when
+// Escape is pressed in it; jsdom does not, so this does.
+document.addEventListener('keydown', (event) => {
+  const shown = document.querySelector('dialog[open]')
+  if (event.key === 'Escape' && shown !== null) {
+    shown.dispatchEvent(new Event('cancel', { cancelable: true }))
+  }
+})
+// jsdom lays nothing out, so it has nothing to scroll into view.
+Element.prototype.scrollIntoView = function scrollIntoView() {}
 
 // jsdom leaves Node's Request in place, which cannot resolve a relative URL; a
 // browser resolves one against the page. The API client builds every request
@@ -53,6 +77,8 @@ afterEach(() => {
   useSnapshotStore.setState(initialSnapshot)
   useHealthStore.setState(initialHealth)
   useTaskMemo.setState(initialTaskMemo)
+  useKeysStore.setState(initialKeys)
+  useRegistry.setState({ registered: [] })
   useThemeStore.setState({ choice: 'system' })
   localStorage.removeItem(themeStorageKey)
   FakeEventSource.reset()

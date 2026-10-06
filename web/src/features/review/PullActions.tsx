@@ -3,6 +3,7 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import { useForgeWords } from '@/api/health.ts'
 import type { Branch, Ci, MergeMethod, PullRequest } from '@/api/generated/types.gen.ts'
 import { baseName, onFeatureBranch } from '@/features/branch/HistoryActions.tsx'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input, TextArea } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -83,7 +84,7 @@ export function PullActions({
       returnTo.current = 'none'
     }
   }, [opened])
-  const offers: { opens: Opened; label: string; can: boolean }[] = [
+  const offers: { opens: Exclude<Opened, 'none'>; label: string; can: boolean }[] = [
     { opens: 'edit', label: `Edit ${noun}`, can: pull.state === 'open' },
     { opens: 'merge', label: 'Merge', can: canMerge(pull, ci) },
     { opens: 'finish', label: 'Finish the branch', can: canFinish(pull, branch) },
@@ -107,18 +108,18 @@ export function PullActions({
           {offers
             .filter((offer) => offer.can)
             .map((offer) => (
-              <Button
+              <OfferButton
                 key={offer.opens}
-                variant="secondary"
-                ref={(button) => {
+                opens={offer.opens}
+                onButton={(button) => {
                   buttons.current[offer.opens] = button
                 }}
-                onClick={() => {
+                onOpen={() => {
                   setOpened(offer.opens)
                 }}
               >
                 {offer.label}
-              </Button>
+              </OfferButton>
             ))}
         </div>
       ) : (
@@ -126,6 +127,43 @@ export function PullActions({
       )}
       <OutcomeLine said={outcome.said} />
     </div>
+  )
+}
+
+// The terminal's action each offer answers to. Edit answers none this page
+// lists: the terminal's e edits in a preview as well as here.
+const offerActions: Record<Exclude<Opened, 'none'>, string | undefined> = {
+  edit: undefined,
+  merge: 'merge',
+  finish: 'finish-branch',
+  rerun: 'rerun-checks',
+}
+
+interface OfferButtonProps {
+  opens: Exclude<Opened, 'none'>
+  onButton: (button: HTMLButtonElement | null) => void
+  onOpen: () => void
+  children: ReactNode
+}
+
+// OfferButton is one offer on the pull request, answering the terminal's key
+// for it, and handing its button up so a form backed out of can focus it.
+function OfferButton({ opens, onButton, onOpen, children }: OfferButtonProps) {
+  const button = useRef<HTMLButtonElement>(null)
+  const shortcut = useShortcut(offerActions[opens], button)
+
+  return (
+    <Button
+      variant="secondary"
+      aria-keyshortcuts={shortcut}
+      ref={(drawn) => {
+        button.current = drawn
+        onButton(drawn)
+      }}
+      onClick={onOpen}
+    >
+      {children}
+    </Button>
   )
 }
 

@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useHealth, useHealthStore } from '@/api/health.ts'
 import { useEventStream, useSnapshotStore } from '@/api/snapshot.ts'
 import { useRefreshViews } from '@/features/issues/issueApi.ts'
+import { KeyboardLayer } from '@/features/keyboard/KeyboardLayer.tsx'
 import { HereBadge } from '@/features/repositories/HereBadge.tsx'
 import { useFollowSwitch } from '@/features/repositories/useFollowSwitch.ts'
 import { ActiveTask } from '@/features/tasks/ActiveTask.tsx'
@@ -92,6 +93,7 @@ export function AppShell() {
           <SectionPanel section={section} />
         </main>
       </div>
+      <KeyboardLayer />
     </div>
   )
 }

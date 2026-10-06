@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Change, FileDiff } from '@/api/generated/types.gen.ts'
+import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -273,10 +274,12 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
     onStart: outcome.clear,
     onDone: outcome.say,
   })
+  const shortcut = useShortcutProps<HTMLButtonElement>('stage-all')
 
   return (
     <div className="flex flex-col gap-tight">
       <Button
+        {...shortcut}
         variant="secondary"
         disabled={!anythingToStage || state === 'running'}
         onClick={() => {
@@ -306,10 +309,12 @@ function UnstageAll({ anythingStaged }: { anythingStaged: boolean }) {
     onStart: outcome.clear,
     onDone: outcome.say,
   })
+  const shortcut = useShortcutProps<HTMLButtonElement>('unstage-all')
 
   return (
     <div className="flex flex-col gap-tight">
       <Button
+        {...shortcut}
         variant="secondary"
         disabled={!anythingStaged || state === 'running'}
         onClick={() => {

@@ -2,6 +2,7 @@ import { Bold, Code, Italic, Link, List, type LucideIcon } from 'lucide-react'
 import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import type { IssueDetail } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { useConfigRead } from '@/features/settings/configApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import { FieldFrame } from '@/lib/Field.tsx'
@@ -62,6 +63,7 @@ function Composer({
   const [text, setText] = useState('')
   const [tab, setTab] = useState<Tab>('write')
   const box = useRef<HTMLTextAreaElement>(null)
+  const shortcut = useShortcut('comment', box, 'focus')
   const ids = useComposerIds()
   const outcome = useOutcome()
   const post = useAsyncAction(usePostComment(issueKey), {
@@ -80,8 +82,10 @@ function Composer({
 
   const { blank, setBlank, send } = useSend(text, busy, post.run)
 
+  // data-typing keeps every single-key shortcut off while the composer, or its
+  // bar, has the focus: a key pressed here is writing.
   return (
-    <div className="mt-item flex flex-col gap-item">
+    <div data-typing className="mt-item flex flex-col gap-item">
       <FieldFrame>
         {markdown ? (
           <ComposerBar
@@ -104,6 +108,7 @@ function Composer({
           quickActions={forgeIssue && onGitLab}
           shown={!markdown || tab === 'write'}
           box={box}
+          shortcut={shortcut}
           text={text}
           busy={busy}
           onText={(typed) => {
@@ -134,6 +139,8 @@ interface WritePanelProps {
   quickActions: boolean
   shown: boolean
   box: RefObject<HTMLTextAreaElement | null>
+  // shortcut is the box's aria-keyshortcuts, the keys that put the focus in it.
+  shortcut: string | undefined
   text: string
   busy: boolean
   onText: (text: string) => void
@@ -149,6 +156,7 @@ function WritePanel({
   quickActions,
   shown,
   box,
+  shortcut,
   text,
   busy,
   onText,
@@ -166,6 +174,7 @@ function WritePanel({
       <textarea
         ref={box}
         id={ids.box}
+        aria-keyshortcuts={shortcut}
         value={text}
         readOnly={busy}
         rows={4}

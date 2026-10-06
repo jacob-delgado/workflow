@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { DirectoryListing } from '@/api/generated/types.gen.ts'
+import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input } from '@/lib/Field.tsx'
 import { Failure } from '@/lib/Status.tsx'
@@ -14,6 +15,7 @@ export function DirectoryPicker({ onChoose }: { onChoose: (dir: string, shown: s
   const [typed, setTyped] = useState('')
   const listing = useDirectories(path)
   const inputId = useId()
+  const directory = useShortcutProps<HTMLInputElement>('go-to-directory', 'focus')
 
   return (
     <section aria-labelledby="open-another" className="flex flex-col gap-item">
@@ -33,6 +35,7 @@ export function DirectoryPicker({ onChoose }: { onChoose: (dir: string, shown: s
         >
           Directory
           <Input
+            {...directory}
             id={inputId}
             value={typed}
             placeholder={listing.data?.shown ?? ''}

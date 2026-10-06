@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Input, Select } from '@/lib/Field.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { useViews } from './issueApi.ts'
@@ -11,14 +12,19 @@ interface ListControlsProps {
 // IssueListControls sits above the issue list: the view it is of, and a filter
 // over the issues already loaded, as the interface's `/` filters its list.
 export function IssueListControls({ filter, onFilter }: ListControlsProps) {
+  const search = useRef<HTMLInputElement>(null)
+  const shortcut = useShortcut('search-issues', search, 'focus')
+
   return (
     <div className="flex flex-wrap items-center gap-group">
       <ViewSelect />
       <label className="flex items-center gap-item text-sm">
         <span className="text-muted-foreground">Search</span>
         <Input
+          ref={search}
           size="sm"
           type="search"
+          aria-keyshortcuts={shortcut}
           value={filter}
           placeholder="Key or summary"
           onChange={(event) => {
@@ -42,6 +48,8 @@ function ViewSelect() {
   const setView = useUiStore((state) => state.setView)
   const names = data?.views.map((listed) => listed.name) ?? []
   const vanished = view !== null && data !== undefined && !names.includes(view)
+  const select = useRef<HTMLSelectElement>(null)
+  const shortcut = useShortcut('switch-view', select, 'focus')
 
   useEffect(() => {
     if (vanished) {
@@ -57,7 +65,9 @@ function ViewSelect() {
     <label className="flex items-center gap-item text-sm">
       <span className="text-muted-foreground">View</span>
       <Select
+        ref={select}
         size="sm"
+        aria-keyshortcuts={shortcut}
         value={view ?? names[0]}
         onChange={(event) => {
           setView(event.target.value)

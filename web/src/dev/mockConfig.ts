@@ -40,6 +40,7 @@ export const mockConfig: Config = {
     color: '',
     notify: true,
     comments_shown: 5,
+    web_shortcuts: true,
   },
   timing: {
     request_timeout: '20s',

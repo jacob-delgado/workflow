@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Branch, Change, Commit } from '@/api/generated/types.gen.ts'
+import { useShortcut, useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { WriteForm } from '@/lib/WriteForm.tsx'
@@ -39,6 +40,7 @@ function foldable(branch: Branch, changes: Change[]): Commit[] {
 export function RebaseAction({ branch, runner }: { branch: Branch; runner: GitRunner }) {
   const [asking, setAsking] = useState(false)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
+  const rebaseKeys = useShortcut('rebase', opener)
   const onto = baseName(branch.base)
 
   if (!canRebase(branch)) {
@@ -76,6 +78,7 @@ export function RebaseAction({ branch, runner }: { branch: Branch; runner: GitRu
     <Button
       variant="secondary"
       ref={opener}
+      aria-keyshortcuts={rebaseKeys}
       disabled={runner.going}
       onClick={() => {
         setAsking(true)
@@ -104,8 +107,11 @@ export function HistoryActions({
 }) {
   const [asked, setAsked] = useState<Asked>('none')
   const [amendButton, amendBack] = useFocusHandback<HTMLButtonElement>()
+  const amendKeys = useShortcut('amend', amendButton)
   const [fixupButton, fixupBack] = useFocusHandback<HTMLButtonElement>()
+  const fixupKeys = useShortcut('fixup', fixupButton)
   const commits = foldable(branch, changes)
+  const preCommit = useShortcutProps<HTMLButtonElement>('run-pre-commit')
   const last = commits.at(-1)
   const cancel = () => {
     if (asked === 'amend') {
@@ -134,6 +140,7 @@ export function HistoryActions({
   return (
     <div role="group" aria-label="Commit runs" className="flex flex-wrap gap-item">
       <Button
+        {...preCommit}
         variant="secondary"
         disabled={runner.going}
         onClick={() => {
@@ -147,6 +154,7 @@ export function HistoryActions({
           <Button
             variant="secondary"
             ref={amendButton}
+            aria-keyshortcuts={amendKeys}
             disabled={runner.going}
             onClick={() => {
               setAsked('amend')
@@ -157,6 +165,7 @@ export function HistoryActions({
           <Button
             variant="secondary"
             ref={fixupButton}
+            aria-keyshortcuts={fixupKeys}
             disabled={runner.going}
             onClick={() => {
               setAsked('fixup')

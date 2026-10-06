@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Activity } from '@/api/generated/types.gen.ts'
 import { apiErrorMessage } from '@/api/apiError.ts'
+import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { Button } from '@/lib/Button.tsx'
@@ -139,11 +140,13 @@ function Done({ activity, period, reading }: DoneProps) {
     onStart: outcome.clear,
     onDone: outcome.say,
   })
+  const copyKeys = useShortcutProps<HTMLButtonElement>('copy-summary')
 
   return (
     <>
       <div className="flex flex-wrap items-start gap-item">
         <Button
+          {...copyKeys}
           variant="secondary"
           aria-disabled={empty}
           onClick={() => {

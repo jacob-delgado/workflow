@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useHealthStore } from '@/api/health.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
+import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
 import { relativeTime, writtenDate, writtenMoment } from '@/lib/dates.ts'
 import { Meta } from '@/lib/Meta.tsx'
@@ -114,6 +115,7 @@ function IssueHeading({ issueKey, issue, heading }: IssueHeadingProps) {
 
 function IssuePeople({ detail }: { detail: IssueDetail }) {
   const tracker = useTrackerName(detail.tracker)
+  const shortcut = useShortcutProps<HTMLAnchorElement>('open-link')
 
   return (
     <div className="flex flex-col gap-group">
@@ -125,6 +127,7 @@ function IssuePeople({ detail }: { detail: IssueDetail }) {
       </dl>
       {detail.url === '' ? null : (
         <a
+          {...shortcut}
           href={detail.url}
           target="_blank"
           rel="noreferrer"

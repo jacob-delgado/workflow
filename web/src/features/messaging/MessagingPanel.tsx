@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { AnnounceMentions, Snapshot } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
@@ -146,6 +147,7 @@ function AnnounceControls({
 }: AnnounceControlsProps) {
   const draft = useDraft(defaultChannel, channels)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
+  const postKeys = useShortcut('post', opener)
   const post = useAnnouncePost(draft.channel, service, onAnnounced)
   const hold = useAnnounceHold(draft.channel, service, onAnnounced)
 
@@ -165,6 +167,7 @@ function AnnounceControls({
       <Button
         variant="primary"
         ref={opener}
+        aria-keyshortcuts={postKeys}
         disabled={draft.preview.state === 'running'}
         onClick={() => {
           post.reset()
