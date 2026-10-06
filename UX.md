@@ -130,7 +130,7 @@ their own command line, to them.
 | Start work in a new worktree | `branch KEY --worktree` | `b`, then `ctrl+g` | Start work in a new worktree |
 | Switch branch | not for scripts | `s` | Switch branch |
 | Link an issue to the branch | — | `i` | Link an issue |
-| Unlink it | — | — (UX-150) | Unlink |
+| Unlink it | — | `i`, then `u` | Unlink |
 | Push | inside `pr` | `P` | Push branch |
 | Rebase onto the base | — | `u` | — (UX-149) |
 | **Commits** | | | |
@@ -167,10 +167,10 @@ their own command line, to them.
 | List the worktrees | `repositories [--json]` | the Repositories pane | Worktrees |
 | **Settings and local data** | | | |
 | Set up from nothing | `config init`, `slack login` | — (UX-153) | — (UX-153) |
-| Read the configuration | `config show` | not in the terminal (UX-150) | Settings |
-| Change it | edit the file | — (UX-150) | Settings |
+| Read the configuration | `config show` | Settings: `S` on the Repositories pane | Settings |
+| Change it | edit the file | Settings, `ctrl+s` | Settings, Save changes |
 | Check the setup | `doctor [--online]` | — | — |
-| Remove the local data | `db-clean` | — (UX-150) | Settings: Local data, Remove |
+| Remove the local data | `db-clean` | Local data: `L` on the Repositories pane | Settings: Local data, Remove |
 | Every key or command | `--help` | `?` | — (UX-152) |
 | Hold back every write | `--dry-run` | `--dry-run` | `--web --dry-run` |
 
@@ -182,10 +182,10 @@ is the shortest summary of how far the screen keeps them, re-counted at
 
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
-| "`?` lists every key" | `docs/content/docs/usage.md:90` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:159`, rendered in two columns split where they balance): 90 placements in 12 groups, on 89 lines, since `cycle-type-right` rides `cycle-type-left`'s line. `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:283`) reads `?` back and holds it to a table of every placement. |
-| "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:58` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/failure.go:86`) and drawn by one of seven helpers: `failureBlock` at 18 sites, `pinnedOutcome` 13, `failureLine` 21, `failureSummary` 7, `noticedFailure` 10, `noticedFailureLedBy` 2 and `noticedGuidance` 3 (plain, since red means something broke). |
-| "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:54` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:224`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
-| "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:321` | **Yes: 16 of 16.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `statusPicker` (with its field form) and `taskLine`. |
+| "`?` lists every key" | `docs/content/docs/usage.md:90` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:162`, rendered in two columns split where they balance): 96 placements in 12 groups, on 95 lines, since `cycle-type-right` rides `cycle-type-left`'s line. `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:289`) reads `?` back and holds it to a table of every placement. |
+| "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:58` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/failure.go:86`) and drawn by one of seven helpers: `failureBlock` at 20 sites, `pinnedOutcome` 14, `failureLine` 22, `failureSummary` 7, `noticedFailure` 10, `noticedFailureLedBy` 3 and `noticedGuidance` 3 (plain, since red means something broke). |
+| "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:54` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:229`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
+| "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:321` | **Yes: 17 of 17.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm`, `statusPicker` (with its field form) and `taskLine`. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:98` | **Yes.** `Init` (`internal/tui/tui.go:193`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:201`); each pane holds and renders its own load's error, the Summary per source. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | **Yes.** `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:33`, `:45`); `NO_COLOR` keeps bold and faint. Two residues: the progress spine's five system hues are color-only, mitigated by each system's name or initial, and `◐` means both "partly staged" and "announces when CI passes" (see the visual system). |
 
@@ -2230,54 +2230,6 @@ the terminal already calls.
 
 **Done when.** Every row names an entry, and web.md's "What stays in the
 terminal" lists the same rows, no more and no fewer.
-
-### UX-150 What the terminal cannot do that the web can
-
-Impact: low · Effort: medium
-
-**Today.** Three things the web does have no key in the terminal,
-checked against `internal/tui`.
-
-- **Editing the settings.** The web's Settings writes the configuration
-  (`PUT /api/config`, `server.UpdateConfig`,
-  `internal/webserver/config.go:139`); the terminal has no settings pane,
-  and with a configuration that will not load shows only what is wrong
-  and the command to run (`configErrorStatus`,
-  `internal/tui/render.go:483`).
-- **Cleaning the local data.** The web's Local data
-  (`web/src/features/settings/people/LocalData.tsx`) and `workflow
-  db-clean` (`internal/cli/dbclean_cmd.go:31`) remove the store's files;
-  the terminal has neither key nor overlay.
-- **Unlinking a branch from its issue.** The web's Unlink
-  (`web/src/features/branch/IssueLink.tsx:109`) calls
-  `Git.UnlinkIssue` (`internal/seams/seams.go:123`, wired at
-  `internal/wiring/wiring.go:250`); the terminal links (`i`,
-  `internal/tui/keys.go:258`) and nothing in `internal/tui` calls
-  `UnlinkIssue`.
-
-Tracking an issue in Taskwarrior is in both (`T`,
-`internal/tui/keys.go:251`; Track in Taskwarrior,
-`web/src/features/tasks/IssueTasks.tsx:193`), as are favorites, worktrees,
-people and groups, and the Summary.
-
-**Instead.** Unlink in the terminal's link overlay (`branchLinker`, a
-second action when the branch is already linked); a Local data overlay
-from the Repositories pane, over the same `db-clean` composition; and
-settings left to the web and `config init`, saying so in usage.md's
-limits rather than building a second form — the terminal's
-configuration screen already names the command, and UX-153 is where a
-first-run flow belongs.
-
-`internal/tui` is at its file budget (57 of 57,
-`scripts/package-size-budgets.txt`), so a new overlay file there needs a
-budget bump with its reason, or a home in an existing file.
-
-**Done when.** A screen test on a linked branch unlinks it at once — a
-last look only when the pull request's description would change — and
-finds the fake `UnlinkIssue` called once; a screen test confirms the
-cache's removal (it cannot be undone), then finds the store's clean seam
-called with the cache scope; usage.md names settings as the web's and
-`config`'s.
 
 ## New ideas
 
