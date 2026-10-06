@@ -129,6 +129,7 @@ func runSummary(out output, seams summarySeams, opts summaryOptions) error {
 
 	if opts.asJSON {
 		report := webserver.ActivityReport(summary, today, now.Location(), webserver.FaultDetail)
+		report.PostLength = webserver.PostLength(seams.Messaging, report.Text)
 		err = encodeJSON(out.artifact, report)
 		noteLeftOut(out.notes, summary.Reads)
 
@@ -175,7 +176,9 @@ func noteLeftOut(notes io.Writer, reads []activity.Read) {
 // postSummary says where the summary goes and posts it there once the write
 // options allow: a dry run says what it would post, --yes posts without
 // asking, and otherwise nothing is sent before the confirmation. A webhook
-// posts to the channel it is bound to, which is said as such.
+// posts to the channel it is bound to, which is said as such. How long the
+// summary is against what the service takes is said beside where it goes, and
+// a summary longer than that is refused before anything is asked or sent.
 func postSummary(out output, seams summarySeams, text string, opts writeOptions) error {
 	if seams.Post == nil {
 		return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, for Slack, run "+
@@ -183,7 +186,13 @@ func postSummary(out output, seams summarySeams, text string, opts writeOptions)
 	}
 
 	service, target := seams.Messaging.Service(), seams.Messaging.Target()
-	fmt.Fprintln(out.notes, "to "+target)
+	length := loop.SummaryLength(seams.Messaging.Kind, text)
+	fmt.Fprintln(out.notes, "to "+target+", "+length.String())
+
+	err := length.Check()
+	if err != nil {
+		return err
+	}
 
 	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
 		question: "Post to " + service + "?",

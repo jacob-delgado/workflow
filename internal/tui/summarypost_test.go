@@ -286,3 +286,35 @@ func TestTheSummaryPreviewHasNoEditWithoutAnEditor(t *testing.T) {
 		t.Errorf("handed %q to an editor there is none of", edits)
 	}
 }
+
+func TestTheSummarysPreviewSaysHowLongItIsAgainstTheServicesLimit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	busy := summaryWorld()
+
+	// Act
+	view := typing(t, busy.live(t, 120, 40), summaryKey, postSummaryKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "┏━ Post to Slack", " of 40000 characters")
+}
+
+func TestASummaryTooLongForTheServiceIsNotPosted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	busy := summaryWorld()
+	busy.cfg.Messaging = config.Messaging{Kind: config.KindDiscord, WebhookURL: "https://discord.example/api/webhooks/1/x"}
+	busy.edited = "# Tuesday\n\n- " + strings.Repeat("x", 2500)
+
+	// Act
+	view := typing(t, busy.live(t, 120, 40), summaryKey, postSummaryKey, "e", keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "┏━ Post to Discord", "too long for Discord (2513 of 2000 characters)")
+
+	if calls := busy.asked("post "); len(calls) != 0 {
+		t.Errorf("a summary too long for Discord posted: %q", calls)
+	}
+}

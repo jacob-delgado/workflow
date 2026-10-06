@@ -381,3 +381,41 @@ func TestARepositoryThatCannotBeReadIsNamedInWhatToDo(t *testing.T) {
 		})
 	}
 }
+
+func TestTheSummarySaysHowLongItIsForTheServiceItPostsTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var starts []time.Time
+
+	cfg := config.Default()
+	cfg.Messaging = config.Messaging{Kind: config.KindDiscord, WebhookURL: "https://discord.example/api/webhooks/1/x"}
+	handler := serve(t, activityDeps(&starts), cfg)
+
+	// Act
+	got := decode[api.Activity](t, send(t, handler, http.MethodGet, activityPath, ""))
+
+	// Assert
+	want := loop.SummaryLength(config.KindDiscord, got.Text)
+	if got.PostLength == nil || got.PostLength.Service != "Discord" || got.PostLength.Count != want.Count ||
+		got.PostLength.Limit != 2000 || got.PostLength.Unit != api.Characters {
+		t.Errorf("post_length = %+v, want the text measured for Discord: %+v", got.PostLength, want)
+	}
+}
+
+func TestTheSummarySaysNoLengthWithNowhereToPost(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var starts []time.Time
+
+	handler := serve(t, activityDeps(&starts), config.Default())
+
+	// Act
+	got := decode[api.Activity](t, send(t, handler, http.MethodGet, activityPath, ""))
+
+	// Assert
+	if got.PostLength != nil {
+		t.Errorf("post_length = %+v, want none with no messaging set up", got.PostLength)
+	}
+}

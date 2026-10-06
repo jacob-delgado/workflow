@@ -4,6 +4,8 @@
 package messaging_test
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -111,5 +113,76 @@ func TestASummarysEscapedTitleReadsAsWrittenWhereMarkdownIsNotRead(t *testing.T)
 				t.Errorf("RenderMarkdown(%q) = %q, want %q", tt.kind, got, tt.want)
 			}
 		})
+	}
+}
+
+// characters is the unit a service that counts characters is measured in.
+const characters = "characters"
+
+func TestAMessageIsMeasuredAsItsServiceMeasuresIt(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		kind config.MessagingKind
+		text string
+		want messaging.Length
+	}{
+		"Discord counts characters, not bytes, up to 2000": {
+			kind: config.KindDiscord, text: strings.Repeat("é", 2001),
+			want: messaging.Length{Service: "Discord", Count: 2001, Limit: 2000, Unit: characters},
+		},
+		"Slack counts characters up to 40000": {
+			kind: config.KindSlack, text: strings.Repeat("a", 12),
+			want: messaging.Length{Service: "Slack", Count: 12, Limit: 40000, Unit: characters},
+		},
+		"Teams counts the bytes of the whole payload up to 28000": {
+			kind: config.KindTeams, text: "é",
+			want: messaging.Length{Service: "Teams", Count: len(`{"text":"é"}`), Limit: 28000, Unit: "bytes"},
+		},
+		"a plain webhook takes any length": {
+			kind: config.KindWebhook, text: strings.Repeat("a", 50000),
+			want: messaging.Length{Service: "Webhook", Count: 50000, Limit: 0, Unit: characters},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := messaging.MessageLength(tt.kind, tt.text)
+
+			// Assert
+			if got != tt.want {
+				t.Errorf("MessageLength(%q) = %+v, want %+v", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestATooLongMessageSaysHowLongAgainstWhat(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	length := messaging.MessageLength(config.KindDiscord, strings.Repeat("a", 2345))
+
+	// Act
+	err := length.Check()
+
+	// Assert
+	want := "too long for Discord (2345 of 2000 characters); pick a shorter period"
+	if !errors.Is(err, messaging.ErrTooLong) || err.Error() != want {
+		t.Errorf("Check = %v, want ErrTooLong saying %q", err, want)
+	}
+}
+
+func TestAMessageWithinItsLimitPasses(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	err := messaging.MessageLength(config.KindDiscord, strings.Repeat("a", 2000)).Check()
+	// Assert
+	if err != nil {
+		t.Errorf("Check at the limit = %v, want nil", err)
 	}
 }

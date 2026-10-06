@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 // GetActivity reads back what you did over the period asked, or the previous
@@ -33,7 +34,28 @@ func (s *server) GetActivity(
 	start, end := period.Bounds(now.Location())
 	summary := activity.Summary{Period: period, Reads: s.activityReads(start, end)}
 
-	return api.GetActivity200JSONResponse(ActivityReport(summary, today, now.Location(), s.describe)), nil
+	report := ActivityReport(summary, today, now.Location(), s.describe)
+	report.PostLength = PostLength(s.config().Messaging, report.Text)
+
+	return api.GetActivity200JSONResponse(report), nil
+}
+
+// PostLength is how long text would be posted through settings, against the
+// most its service takes, or nil where nothing is set up to post to or the
+// service names no limit.
+func PostLength(settings config.Messaging, text string) *api.PostLength {
+	if settings.Mode() == config.MessagingNone {
+		return nil
+	}
+
+	length := loop.SummaryLength(settings.Kind, text)
+	if length.Limit == 0 {
+		return nil
+	}
+
+	return &api.PostLength{
+		Service: length.Service, Count: length.Count, Limit: length.Limit, Unit: api.PostLengthUnit(length.Unit),
+	}
 }
 
 // periodRefused is a period that could not be read as asked, and why.
@@ -78,6 +100,10 @@ func (s *server) PostActivity(
 	err = loop.PostSummary(s.deps.Post, settings.Kind, channel, body.Text)
 	if errors.Is(err, loop.ErrEmptySummary) {
 		return activityPostRefused(err.Error()), nil
+	}
+
+	if errors.Is(err, messaging.ErrTooLong) {
+		return api.PostActivity422ApplicationProblemPlusJSONResponse(problem(api.TooLong, err.Error())), nil
 	}
 
 	if err != nil {

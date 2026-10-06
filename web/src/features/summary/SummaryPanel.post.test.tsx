@@ -218,3 +218,47 @@ test('with no messaging set up there is nothing to post to', async () => {
   await screen.findByRole('button', { name: 'Copy as Markdown' })
   expect(screen.queryByRole('button', { name: 'Post…' })).toBeNull()
 })
+
+test('the preview says how long the summary is against what the service takes', async () => {
+  // Arrange
+  messagingTo({ channel: '', channels: [] })
+  fakeApi({
+    '/api/activity': {
+      ...tuesday,
+      post_length: { service: 'Discord', count: 1234, limit: 2000, unit: 'characters' },
+    },
+  })
+  const user = userEvent.setup()
+  renderWithClient(<SummaryPanel />)
+
+  // Act
+  await user.click(await screen.findByRole('button', { name: 'Post…' }))
+
+  // Assert
+  const preview = screen.getByRole('group', { name: 'Summary preview' })
+  expect(within(preview).getByText('1,234 of 2,000 characters Discord takes')).toBeTruthy()
+})
+
+test('the preview of a summary too long for the service says so before it is posted', async () => {
+  // Arrange
+  messagingTo({ channel: '', channels: [] })
+  fakeApi({
+    '/api/activity': {
+      ...tuesday,
+      post_length: { service: 'Discord', count: 2517, limit: 2000, unit: 'characters' },
+    },
+  })
+  const user = userEvent.setup()
+  renderWithClient(<SummaryPanel />)
+
+  // Act
+  await user.click(await screen.findByRole('button', { name: 'Post…' }))
+
+  // Assert
+  const preview = screen.getByRole('group', { name: 'Summary preview' })
+  expect(
+    within(preview).getByText(
+      'Too long for Discord: 2,517 of 2,000 characters. Pick a shorter period, or edit it down.',
+    ),
+  ).toBeTruthy()
+})

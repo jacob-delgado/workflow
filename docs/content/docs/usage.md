@@ -704,8 +704,12 @@ preview of the Markdown and where it goes — the channel, which `←`/`→` cha
 when Slack offers more than one, or the channel a webhook is bound to — and
 nothing is posted until `enter`; `e` edits the text first, and `esc` discards
 it. The post shows the headings and the list as the service does: on Slack, a
-heading is a bold line and an item a bullet. Nothing about the post is kept,
-as an announcement is. `workflow summary --post` posts the same from a script.
+heading is a bold line and an item a bullet. The preview says how long the
+post is against the most the service takes — 2,000 characters on Discord,
+40,000 on Slack, a 28,000-byte payload on Teams — and a summary longer than
+that is refused with how long it is, and nothing is sent: pick a shorter
+period. Nothing about the post is kept, as an announcement is. `workflow
+summary --post` posts the same from a script.
 
 Commits are your own, told by the `user.email` git commits under, and placed
 by when you wrote them, so a commit rebased since keeps its hour; a repository

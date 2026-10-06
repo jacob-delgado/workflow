@@ -253,6 +253,43 @@ func TestSummaryPostPrintsOnlyTheSummaryOnStdout(t *testing.T) {
 	}
 }
 
+func TestSummaryPostRefusesASummaryTooLongForTheServiceBeforeAsking(t *testing.T) {
+	// Arrange
+	hook := newCapturingWebhook(t)
+	repo := workedRepository(t, strings.Repeat("x", 2100))
+	writeFile(t, repo, `{"messaging":{"kind":"discord","webhook_url":"`+hook.url+`"}}`)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay, "--post")
+
+	// Assert
+	if posts := hook.posted(); len(posts) != 0 || err == nil ||
+		!strings.Contains(err.Error(), "too long for Discord (") ||
+		!strings.Contains(err.Error(), " of 2000 characters); pick a shorter period") {
+		t.Errorf("summary --post = %v after %d posts, said:\n%s\nwant it refused, naming the length, nothing posted",
+			err, len(posts), printed.stderr)
+	}
+
+	wantExit(t, err, 4)
+}
+
+func TestSummaryPostSaysHowLongItIsAgainstTheServicesLimit(t *testing.T) {
+	// Arrange
+	hook := newCapturingWebhook(t)
+	repo := workedRepository(t, "Add the widget")
+	writeFile(t, repo, `{"messaging":{"kind":"discord","webhook_url":"`+hook.url+`"}}`)
+
+	// Act
+	printed, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
+		"--post", "--dry-run")
+
+	// Assert
+	if !strings.Contains(printed.stderr, " of 2000 characters") {
+		t.Errorf("summary --post --dry-run said:\n%s\nwant the length against Discord's 2000 characters",
+			printed.stderr)
+	}
+}
+
 func TestSummaryPostDryRunPostsNothing(t *testing.T) {
 	// Arrange
 	hook := newCapturingWebhook(t)
