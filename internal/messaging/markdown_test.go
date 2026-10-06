@@ -79,3 +79,37 @@ func TestOnlyOneToSixHashesAndASpaceOpenAHeading(t *testing.T) {
 		t.Errorf("RenderMarkdown = %q, want %q", got, want)
 	}
 }
+
+func TestASummarysEscapedTitleReadsAsWrittenWhereMarkdownIsNotRead(t *testing.T) {
+	t.Parallel()
+
+	const escaped = `- committed abc1234 \[Click\]\(https://evil\) a\_b \\ c`
+
+	tests := map[string]struct {
+		kind config.MessagingKind
+		want string
+	}{
+		"Slack reads mrkdwn, not Markdown's escapes": {
+			kind: config.KindSlack, want: `• committed abc1234 [Click](https://evil) a_b \ c`,
+		},
+		"a plain webhook reads no markup": {
+			kind: config.KindWebhook, want: `- committed abc1234 [Click](https://evil) a_b \ c`,
+		},
+		"Teams reads Markdown, so the escapes stay":   {kind: config.KindTeams, want: escaped},
+		"Discord reads Markdown, so the escapes stay": {kind: config.KindDiscord, want: escaped},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := messaging.RenderMarkdown(tt.kind, escaped)
+
+			// Assert
+			if got != tt.want {
+				t.Errorf("RenderMarkdown(%q) = %q, want %q", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
