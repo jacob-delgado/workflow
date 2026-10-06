@@ -100,6 +100,7 @@ export const zProblem = z.object({
         'unprocessable',
         'precondition_required',
         'unreachable',
+        'fetch_failed',
         'internal'
     ])
 });
@@ -246,7 +247,8 @@ export const zCheckoutRequest = z.object({
  * The issue to start work on in a new worktree.
  */
 export const zCreateWorktreeRequest = z.object({
-    issue_key: z.string()
+    issue_key: z.string(),
+    fetch: z.boolean().optional().default(true)
 });
 
 /**
@@ -262,7 +264,8 @@ export const zCreatedWorktree = z.object({
  * The issue to start work on by creating its branch.
  */
 export const zCreateBranchRequest = z.object({
-    issue_key: z.string()
+    issue_key: z.string(),
+    fetch: z.boolean().optional().default(true)
 });
 
 /**

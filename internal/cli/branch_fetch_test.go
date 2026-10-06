@@ -100,7 +100,7 @@ func TestBranchFetchThatFailsCreatesNothing(t *testing.T) {
 
 	// Assert
 	// The way out is the terminal's "branch from what you have".
-	if err == nil || !strings.Contains(err.Error(), "fetching origin") ||
+	if err == nil || !strings.Contains(err.Error(), "origin could not be fetched") ||
 		!strings.Contains(err.Error(), "without --fetch") {
 		t.Errorf("branch --fetch with origin gone = %v, want the fetch named and the way to branch without it", err)
 	}

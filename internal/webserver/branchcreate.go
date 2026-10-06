@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
@@ -47,7 +48,7 @@ func (s *server) CreateBranch(
 		return createBranchUnprocessable("creating a branch is not available"), nil
 	}
 
-	branch, err := s.startWork(request.Body.IssueKey)
+	branch, err := s.startWork(request.Body.IssueKey, s.fetchFor(request.Body.Fetch))
 	if err != nil {
 		return s.createBranchFailure(err, request.Body.IssueKey), nil
 	}
@@ -69,6 +70,9 @@ func (s *server) createBranchFailure(err error, key string) api.CreateBranchResp
 // so neither's own words reach the wire.
 func (s *server) startRefusal(err error, key string) (api.Problem, int) {
 	switch {
+	case errors.Is(err, loop.ErrFetchFailed):
+		return problem(api.FetchFailed, "origin could not be fetched, so nothing was made for "+key+
+			"; start work from what you have, or run git fetch in a terminal to see why"), http.StatusBadGateway
 	case errors.Is(err, errBranchExists):
 		return problem(api.Conflict, errBranchExists.Error()), http.StatusConflict
 	case errors.Is(err, errCreateRefused):
@@ -83,18 +87,18 @@ func (s *server) startRefusal(err error, key string) (api.Problem, int) {
 	}
 }
 
-// startWork names, creates and switches to a branch for the issue, refusing when
-// one already exists, and returns the branch now in effect — or, when that
-// cannot be read back, one of the created name, since the branch read before
-// the create is the one it left.
-func (s *server) startWork(issueKey string) (gitrepo.Branch, error) {
+// startWork names, creates and switches to a branch for the issue, after
+// fetch when there is one, refusing when one already exists, and returns the
+// branch now in effect — or, when that cannot be read back, one of the
+// created name, since the branch read before the create is the one it left.
+func (s *server) startWork(issueKey string, fetch func() error) (gitrepo.Branch, error) {
 	name, err := s.branchNameFor(issueKey)
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
 
-	err = s.createUnlessTaken(name, errCreateRefused, func() error {
-		return s.deps.CreateBranch(name, s.currentBranchBase())
+	err = s.createUnlessTaken(name, errCreateRefused, fetch, func(base string) error {
+		return s.deps.CreateBranch(name, base)
 	})
 	if err != nil {
 		return gitrepo.Branch{}, err
@@ -140,17 +144,31 @@ func (s *server) currentBranchBase() string {
 	return branch.Base
 }
 
+// fetchFor is the fetch a start of work makes first: origin's, unless the
+// request asks to branch from what you have, or there is no fetch seam.
+func (s *server) fetchFor(asked *bool) func() error {
+	if asked != nil && !*asked {
+		return nil
+	}
+
+	return s.deps.Fetch
+}
+
 // createBranchUnprocessable is the 422 response for a branch the server will not
 // create.
 func createBranchUnprocessable(message string) api.CreateBranch422ApplicationProblemPlusJSONResponse {
 	return api.CreateBranch422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
 }
 
-// createUnlessTaken makes the branch name with create, unless a branch already
-// goes by it, holding the index throughout: a stage never meets the new
-// branch, and two starts of work on one issue at once make it once, the other
-// refused as taken. git refusing it is refused, wrapped in refused.
-func (s *server) createUnlessTaken(name string, refused error, create func() error) error {
+// createUnlessTaken makes the branch name from the base with create, unless a
+// branch already goes by it, after fetch when there is a base to refresh,
+// holding the index throughout: a stage never meets the new branch, and two
+// starts of work on one issue at once make it once, the other refused as
+// taken. A fetch that fails makes nothing and is loop.ErrFetchFailed; git
+// refusing the create is refused, wrapped in refused.
+func (s *server) createUnlessTaken(
+	name string, refused error, fetch func() error, create func(base string) error,
+) error {
 	s.indexWrites.Lock()
 	defer s.indexWrites.Unlock()
 
@@ -163,12 +181,19 @@ func (s *server) createUnlessTaken(name string, refused error, create func() err
 		return errBranchExists
 	}
 
-	err = create()
-	if err != nil {
-		return fmt.Errorf("%w: creating %s: %w", refused, name, err)
+	base := s.currentBranchBase()
+	if base == "" {
+		fetch = nil
 	}
 
-	return nil
+	return loop.FetchThen(fetch, func() error {
+		made := create(base)
+		if made != nil {
+			return fmt.Errorf("%w: creating %s: %w", refused, name, made)
+		}
+
+		return nil
+	})
 }
 
 // CreateWorktree names a branch for an issue as CreateBranch does and creates
@@ -191,10 +216,10 @@ func (s *server) CreateWorktree(
 
 	name, err := s.branchNameFor(key)
 	if err == nil {
-		err = s.createUnlessTaken(name, errWorktreeRefused, func() error {
+		err = s.createUnlessTaken(name, errWorktreeRefused, s.fetchFor(request.Body.Fetch), func(base string) error {
 			var made error
 
-			dir, made = s.deps.CreateWorktree(name, s.currentBranchBase())
+			dir, made = s.deps.CreateWorktree(name, base)
 
 			return made
 		})

@@ -61,6 +61,7 @@ func codeMeaning(code api.ProblemCode) (int, string) {
 		api.Unprocessable:        {status: http.StatusUnprocessableEntity, title: "Unprocessable content"},
 		api.PreconditionRequired: {status: http.StatusPreconditionRequired, title: "Precondition required"},
 		api.Unreachable:          {status: http.StatusBadGateway, title: "Upstream unreachable"},
+		api.FetchFailed:          {status: http.StatusBadGateway, title: "Fetch failed"},
 		api.Internal:             {status: http.StatusInternalServerError, title: "Internal error"},
 	}[code]
 

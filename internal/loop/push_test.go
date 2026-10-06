@@ -146,3 +146,41 @@ func TestEnsurePushedPushesAnUnpublishedBranch(t *testing.T) {
 		})
 	}
 }
+
+// errOriginUnreachable is a fetch that could not reach origin.
+var errOriginUnreachable = errors.New("origin is unreachable")
+
+func TestFetchThenCreatesOnlyAfterAFetchThatWent(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		fetch    func() error
+		wantErr  error
+		wantMade bool
+	}{
+		"a fetch that goes":  {fetch: func() error { return nil }, wantErr: nil, wantMade: true},
+		"a fetch that fails": {fetch: func() error { return errOriginUnreachable }, wantErr: loop.ErrFetchFailed},
+		"no fetch to make":   {fetch: nil, wantErr: nil, wantMade: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			made := false
+
+			// Act
+			err := loop.FetchThen(tt.fetch, func() error {
+				made = true
+
+				return nil
+			})
+
+			// Assert
+			if !errors.Is(err, tt.wantErr) || made != tt.wantMade {
+				t.Errorf("FetchThen = %v, created %t; want %v, created %t", err, made, tt.wantErr, tt.wantMade)
+			}
+		})
+	}
+}

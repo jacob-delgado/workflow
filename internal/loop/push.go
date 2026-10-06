@@ -5,6 +5,7 @@ package loop
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -17,6 +18,9 @@ var (
 	ErrPushFailed = errors.New("the push failed")
 	// ErrPushUnavailable refuses a push with no way to make one.
 	ErrPushUnavailable = errors.New("pushing is not available")
+	// ErrFetchFailed is a fetch of origin that failed before a new branch was
+	// made from what it fetched; nothing was made.
+	ErrFetchFailed = errors.New("origin could not be fetched")
 )
 
 // PushFailedError is ErrPushFailed with what the push printed, which is where
@@ -72,4 +76,20 @@ func EnsurePushed(push func(branch string) (proc.Output, error), branch gitrepo.
 	}
 
 	return Push(push, branch.Name)
+}
+
+// FetchThen fetches origin, so a new branch starts from what origin holds now,
+// then makes it through create. A nil fetch — no base to refresh, or the
+// person chose to branch from what they have — makes it at once. A fetch that
+// fails makes nothing and is ErrFetchFailed, wrapping the fetch's own error
+// for a surface that may show it.
+func FetchThen(fetch func() error, create func() error) error {
+	if fetch != nil {
+		err := fetch()
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrFetchFailed, err)
+		}
+	}
+
+	return create()
 }

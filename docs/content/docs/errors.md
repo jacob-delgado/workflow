@@ -181,6 +181,15 @@ not hand it over — a signed address that expired, or a log since deleted —
 which is the storage's failure, not the token's. The request was well formed;
 try again once the service is back.
 
+## Fetch failed
+
+Status 502. Start work fetches origin first, so the new branch starts from
+what origin holds now, and the fetch failed: the network, origin's address or
+your credential for it. Nothing was made. The page offers to branch from what
+you have, which asks again without the fetch (`"fetch": false`); `git fetch`
+in a terminal shows git's own reason, which the detail leaves out because it
+names origin.
+
 ## Internal
 
 Status 500. An unexpected failure the caller cannot act on — among them a

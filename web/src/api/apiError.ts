@@ -42,3 +42,14 @@ function problemReason(caught: unknown): string {
 
   return 'title' in caught && typeof caught.title === 'string' ? caught.title : ''
 }
+
+// problemCode is a problem details object's machine code — fetch_failed, say —
+// for a control that offers its own way out of one refusal; the empty string
+// for anything else thrown.
+export function problemCode(caught: unknown): string {
+  if (typeof caught !== 'object' || caught === null || caught instanceof Error) {
+    return ''
+  }
+
+  return 'code' in caught && typeof caught.code === 'string' ? caught.code : ''
+}

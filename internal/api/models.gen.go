@@ -296,6 +296,7 @@ func (e OwnerTagState) Valid() bool {
 const (
 	BadRequest           ProblemCode = "bad_request"
 	Conflict             ProblemCode = "conflict"
+	FetchFailed          ProblemCode = "fetch_failed"
 	Internal             ProblemCode = "internal"
 	MethodNotAllowed     ProblemCode = "method_not_allowed"
 	NotFound             ProblemCode = "not_found"
@@ -310,6 +311,8 @@ func (e ProblemCode) Valid() bool {
 	case BadRequest:
 		return true
 	case Conflict:
+		return true
+	case FetchFailed:
 		return true
 	case Internal:
 		return true
@@ -934,6 +937,9 @@ type Config struct {
 
 // CreateBranchRequest The issue to start work on by creating its branch.
 type CreateBranchRequest struct {
+	// Fetch Whether to fetch origin first, so the branch starts from what origin holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
+	Fetch *bool `json:"fetch,omitempty"`
+
 	// IssueKey The issue to name and create a branch for.
 	//
 	// Example: PROJ-412
@@ -942,6 +948,9 @@ type CreateBranchRequest struct {
 
 // CreateWorktreeRequest The issue to start work on in a new worktree.
 type CreateWorktreeRequest struct {
+	// Fetch Whether to fetch origin first, so the branch starts from what origin holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
+	Fetch *bool `json:"fetch,omitempty"`
+
 	// IssueKey The issue to name and create a branch for.
 	//
 	// Example: PROJ-412

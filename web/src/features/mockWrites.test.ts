@@ -15,7 +15,7 @@ const writes: [string, () => Promise<unknown>, Record<string, unknown>][] = [
   ],
   ['a push', pushBranch, { ahead: 0 }],
   ['a check-out', () => checkoutBranch('feat/PROJ-418'), { name: 'feat/PROJ-418' }],
-  ['starting work', () => startWork('PROJ-401'), { name: 'feat/PROJ-401', upstream: '' }],
+  ['starting work', () => startWork('PROJ-401', true), { name: 'feat/PROJ-401', upstream: '' }],
   ['an announcement', () => announce('#releases', 'octocat opened #7'), { channel: '#releases' }],
   [
     'an edited announcement',
