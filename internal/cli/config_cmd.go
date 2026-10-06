@@ -277,6 +277,10 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 	}
 
 	answers, err := askAnswers(cmd.Context(), out, prompt, requestLog.Wrap("jira", onlineDoer(config.Config{})))
+	if errors.Is(err, io.EOF) || errors.Is(err, errNoTerminal) {
+		return fmt.Errorf("%w; pass --template to write a file to edit by hand", errNoTerminal)
+	}
+
 	if err != nil {
 		return err
 	}
