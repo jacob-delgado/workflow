@@ -6,10 +6,10 @@ import type { Place } from '@/api/generated/types.gen.ts'
 export function WorkingIn({ place }: { place: Place }) {
   return (
     <section aria-labelledby="working-in" className="flex flex-col gap-item">
-      <h2 id="working-in" className="text-lg font-semibold">
+      <h2 id="working-in" className="text-base font-semibold">
         Working in
       </h2>
-      <p className="font-mono text-2xl wrap-anywhere">
+      <p className="font-mono text-lg wrap-anywhere">
         {place.root === '' ? (
           <span className="font-semibold">{place.shown}</span>
         ) : (

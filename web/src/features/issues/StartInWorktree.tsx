@@ -77,7 +77,7 @@ export function WorktreeMadeOffer({ issueKey, worktree, outcome }: WorktreeMadeO
   return (
     <section
       aria-label={`Started ${issueKey} in ${worktree.shown}`}
-      className="flex flex-col gap-item rounded-md border border-border p-4"
+      className="flex flex-col gap-item rounded-lg border border-border p-4"
     >
       <h3 ref={heading} tabIndex={-1} className="font-semibold focus-visible:outline-none">
         Started {issueKey} in <span className="font-mono">{worktree.shown}</span>

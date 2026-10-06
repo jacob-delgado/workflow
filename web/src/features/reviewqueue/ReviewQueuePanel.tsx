@@ -5,6 +5,7 @@ import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
 import { writtenDate } from '@/lib/dates.ts'
+import { Select } from '@/lib/Field.tsx'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -198,20 +199,20 @@ function OrderSelect({ ref, order, onOrder }: OrderSelectProps) {
   return (
     <label className="flex items-center gap-item text-sm">
       <span className="text-muted-foreground">Sort</span>
-      <select
+      <Select
+        size="sm"
         ref={ref}
         value={order}
         onChange={(event) => {
           onOrder(event.target.value as ReviewOrder)
         }}
-        className="rounded-md border border-input bg-background px-2 py-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         {(Object.keys(orderWords) as ReviewOrder[]).map((choice) => (
           <option key={choice} value={choice}>
             {orderWords[choice]}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   )
 }

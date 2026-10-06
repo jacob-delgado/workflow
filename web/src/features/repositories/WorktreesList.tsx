@@ -18,7 +18,7 @@ export function WorktreesList({ worktrees, error, onSwitch }: WorktreesListProps
 
   return (
     <section aria-labelledby="worktrees" className="flex flex-col gap-item">
-      <h2 id="worktrees" className="text-lg font-semibold">
+      <h2 id="worktrees" className="text-base font-semibold">
         Worktrees
       </h2>
       {error === '' ? null : <Failure>{`The worktrees could not be read: ${error}`}</Failure>}

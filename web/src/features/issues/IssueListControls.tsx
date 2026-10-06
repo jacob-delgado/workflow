@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Input, Select } from '@/lib/Field.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { useViews } from './issueApi.ts'
 
@@ -15,14 +16,15 @@ export function IssueListControls({ filter, onFilter }: ListControlsProps) {
       <ViewSelect />
       <label className="flex items-center gap-item text-sm">
         <span className="text-muted-foreground">Filter</span>
-        <input
+        <Input
+          size="sm"
           type="search"
           value={filter}
           placeholder="Key or summary"
           onChange={(event) => {
             onFilter(event.target.value)
           }}
-          className="w-48 rounded-md border border-input bg-background px-2 py-1 placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="w-64"
         />
       </label>
     </div>
@@ -54,19 +56,19 @@ function ViewSelect() {
   return (
     <label className="flex items-center gap-item text-sm">
       <span className="text-muted-foreground">View</span>
-      <select
+      <Select
+        size="sm"
         value={view ?? names[0]}
         onChange={(event) => {
           setView(event.target.value)
         }}
-        className="rounded-md border border-input bg-background px-2 py-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         {names.map((name) => (
           <option key={name} value={name}>
             {name}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   )
 }

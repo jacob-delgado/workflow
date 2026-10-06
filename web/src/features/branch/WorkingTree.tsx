@@ -1,7 +1,7 @@
 import type { Change } from '@/api/generated/types.gen.ts'
+import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { cn } from '@/lib/utils.ts'
 import { CommitForm } from './CommitForm.tsx'
 import { stageEverything, stageFile, unstageFile } from './stagingApi.ts'
 
@@ -98,17 +98,17 @@ function ChangeRow({ change }: { change: Change }) {
         <span className={change.staged ? 'text-xs text-success' : 'text-xs text-muted-foreground'}>
           {stagedTag(change)}
         </span>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           aria-label={`${verb} ${change.path}`}
           disabled={state === 'running'}
           onClick={() => {
             void run()
           }}
-          className={stagingButtonClass}
         >
           {verb}
-        </button>
+        </Button>
       </div>
       <OutcomeLine said={outcome.said} />
       {state === 'error' ? (
@@ -133,16 +133,16 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
 
   return (
     <div className="flex flex-col gap-tight">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         disabled={!anythingToStage || state === 'running'}
         onClick={() => {
           void run()
         }}
-        className={cn('self-start', stagingButtonClass)}
+        className="self-start"
       >
         {state === 'running' ? 'Staging…' : 'Stage all'}
-      </button>
+      </Button>
       <OutcomeLine said={outcome.said} />
       {state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">
@@ -152,6 +152,3 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
     </div>
   )
 }
-
-const stagingButtonClass =
-  'rounded-sm border border-input px-2 py-1 text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground'

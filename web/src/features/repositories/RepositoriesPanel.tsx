@@ -150,7 +150,7 @@ function ConfirmSwitch({ destination, switchTo, teller, onCancel }: ConfirmSwitc
   return (
     <section
       aria-labelledby="confirm-switch"
-      className="flex flex-col gap-item rounded-md border border-border p-4"
+      className="flex flex-col gap-item rounded-lg border border-border p-4"
     >
       <h2
         id="confirm-switch"

@@ -9,6 +9,7 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { useSlackGroups, useSlackMembers } from '@/features/messaging/slackApi.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Select } from '@/lib/Field.tsx'
 import { Reading, Unread } from '@/lib/Status.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
@@ -18,10 +19,6 @@ import { usePeople, usePeopleWrites } from './peopleApi.ts'
 // notOnSlack is the choice that marks an owner not on Slack; no Slack ID
 // reads like it.
 const notOnSlack = 'not-on-slack'
-
-// selectStyle is how a row's native select is drawn.
-const selectStyle =
-  'w-full min-w-0 rounded-md border border-input bg-transparent px-2 py-1 text-sm disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground'
 
 // PeopleTable is every code owner decided on this forge host, then the
 // branch's undecided ones, each with whom they are on Slack — changed as it
@@ -256,7 +253,9 @@ function SlackChoice({ owner, choices, disabled, onLink }: SlackChoiceProps) {
   return (
     <label className="flex min-w-0">
       <span className="sr-only">Slack for {owner.owner}</span>
-      <select
+      <Select
+        size="sm"
+        className="w-full"
         value={value}
         disabled={disabled}
         onChange={(event) => {
@@ -267,7 +266,6 @@ function SlackChoice({ owner, choices, disabled, onLink }: SlackChoiceProps) {
               : { owner: owner.owner, slack_id: chosen, not_on_slack: false },
           )
         }}
-        className={selectStyle}
       >
         {owner.state === 'unlinked' ? <option value="">Not decided yet</option> : null}
         <option value={notOnSlack}>Not on Slack</option>
@@ -276,7 +274,7 @@ function SlackChoice({ owner, choices, disabled, onLink }: SlackChoiceProps) {
             {choice.label}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   )
 }

@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { Button } from '@/lib/Button.tsx'
+import { Select } from '@/lib/Field.tsx'
 import {
   monthOf,
   shiftPeriod,
@@ -27,9 +28,6 @@ const monthNames = [
 
 // yearsBefore is how many years the Year select offers before the one shown.
 const yearsBefore = 5
-
-const selectStyle =
-  'rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
 
 interface PeriodPickerProps {
   period: Period
@@ -143,37 +141,37 @@ function MonthSelects({ year, month, thisYear, onView }: MonthSelectsProps) {
     <div className="flex flex-wrap items-end gap-item">
       <label htmlFor={ids.year} className="flex flex-col gap-tight text-sm text-muted-foreground">
         Year
-        <select
+        <Select
+          size="sm"
           id={ids.year}
           value={year}
           onChange={(event) => {
             onView(Number(event.target.value), month)
           }}
-          className={selectStyle}
         >
           {yearsAround(year, thisYear).map((each) => (
             <option key={each} value={each}>
               {each}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <label htmlFor={ids.month} className="flex flex-col gap-tight text-sm text-muted-foreground">
         Month
-        <select
+        <Select
+          size="sm"
           id={ids.month}
           value={month}
           onChange={(event) => {
             onView(year, Number(event.target.value))
           }}
-          className={selectStyle}
         >
           {monthNames.map((name, index) => (
             <option key={name} value={index + 1}>
               {name}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
     </div>
   )

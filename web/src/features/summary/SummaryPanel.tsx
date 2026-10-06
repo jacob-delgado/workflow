@@ -103,7 +103,7 @@ interface ShownProps {
 function Shown({ read, period }: ShownProps) {
   return (
     <div className="flex min-w-0 flex-col gap-group">
-      <h2 className="text-lg font-semibold">
+      <h2 className="text-lg">
         {period.from === period.to
           ? headingDay(period.from)
           : `${headingDay(period.from)} to ${headingDay(period.to)}`}

@@ -3,6 +3,7 @@ import type { AnnounceMentions, AnnouncementTagging, Snapshot } from '@/api/gene
 import { useForgeWords } from '@/api/health.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Select } from '@/lib/Field.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
@@ -289,20 +290,20 @@ function AnnouncePreview({
       {channels.length > 0 ? (
         <label className="flex items-center gap-item text-sm">
           <span className="text-muted-foreground">Channel</span>
-          <select
+          <Select
+            size="sm"
             value={channel}
             disabled={posting}
             onChange={(event) => {
               onChannel(event.target.value)
             }}
-            className="rounded-md border border-input bg-transparent px-2 py-1 text-sm disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
           >
             {channels.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       ) : null}
       <UntaggedNote reason={tagging?.unavailable_reason} />

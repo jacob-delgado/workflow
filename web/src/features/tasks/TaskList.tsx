@@ -155,6 +155,7 @@ interface TaskRowProps {
 function TaskRow({ task, current, now, order, onSelect }: TaskRowProps) {
   const number = taskNumber(task)
 
+  // Not a Button: a row of the list that selects its task, drawn as the row.
   return (
     <button
       type="button"

@@ -16,6 +16,7 @@ export function HereBadge() {
   const name = here.root === '' ? baseName(here.dir) : baseName(here.root)
   const label = here.within === '' ? name : `${name}/${here.within}`
 
+  // Not a Button: the header's chip, drawn as the directory it names.
   return (
     <button
       type="button"

@@ -308,6 +308,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
                 />
                 {last ? null : <span className="w-px flex-1 bg-border" />}
               </div>
+              {/* Not a Button: a stage of the story that opens its section, drawn as the stage. */}
               <button
                 type="button"
                 onClick={() => {

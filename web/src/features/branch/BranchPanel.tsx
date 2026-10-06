@@ -6,7 +6,7 @@ import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { definitionList } from '@/lib/utils.ts'
+import { cn, definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { IssueLink } from './IssueLink.tsx'
 import { pushBranch } from './pushApi.ts'
@@ -73,8 +73,10 @@ function BranchSummary({ branch }: { branch: Branch }) {
           {branch.ahead} ahead, {branch.behind} behind
         </dd>
       </dl>
-      {canPush ? <PushButton branch={branch} outcome={outcome} /> : null}
-      {branch.name === '' ? null : <IssueLink branch={branch} outcome={outcome} />}
+      <div className="flex flex-wrap items-start gap-item">
+        {canPush ? <PushButton branch={branch} outcome={outcome} /> : null}
+        {branch.name === '' ? null : <IssueLink branch={branch} outcome={outcome} />}
+      </div>
       <OutcomeLine said={outcome.said} />
     </section>
   )
@@ -124,8 +126,9 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
     }
   }, [push.state, opener])
 
+  // The confirm step is a box of its own, so it takes the row's whole width.
   return (
-    <div className="flex flex-col gap-item">
+    <div className={cn('flex flex-col gap-item', confirming && 'basis-full')}>
       {confirming ? (
         <PushConfirm
           commits={branch.commits.length}
@@ -146,7 +149,6 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
           onClick={() => {
             setConfirming(true)
           }}
-          className="self-start"
         >
           {push.state === 'running' ? 'Pushing…' : 'Push branch'}
         </Button>

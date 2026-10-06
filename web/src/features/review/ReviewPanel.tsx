@@ -15,6 +15,7 @@ import type {
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Input, TextArea } from '@/lib/Field.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
@@ -346,44 +347,32 @@ function ProposalFields({ register }: { register: UseFormRegister<PullRequestFie
     <>
       <label className={labelClass}>
         Title
-        <input {...register('title')} required className={prInputClass} />
+        <Input {...register('title')} required />
       </label>
 
       <label className={labelClass}>
         Base branch
-        <input {...register('base')} required className={prInputClass} />
+        <Input {...register('base')} required />
       </label>
 
       <label className={labelClass}>
         Reviewers
-        <input
-          {...register('reviewers')}
-          placeholder="comma-separated usernames or org/team"
-          className={prInputClass}
-        />
+        <Input {...register('reviewers')} placeholder="comma-separated usernames or org/team" />
       </label>
 
       <label className={labelClass}>
         Assignees
-        <input
-          {...register('assignees')}
-          placeholder="comma-separated usernames"
-          className={prInputClass}
-        />
+        <Input {...register('assignees')} placeholder="comma-separated usernames" />
       </label>
 
       <label className={labelClass}>
         Labels
-        <input
-          {...register('labels')}
-          placeholder="comma-separated labels"
-          className={prInputClass}
-        />
+        <Input {...register('labels')} placeholder="comma-separated labels" />
       </label>
 
       <label className={labelClass}>
         Description
-        <textarea {...register('body')} rows={6} className={prInputClass} />
+        <TextArea {...register('body')} rows={6} />
       </label>
 
       <label className="flex items-center gap-2 text-sm">
@@ -395,9 +384,6 @@ function ProposalFields({ register }: { register: UseFormRegister<PullRequestFie
 }
 
 const labelClass = 'flex flex-col gap-tight text-sm text-muted-foreground'
-
-const prInputClass =
-  'rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
 
 // IssueRow names the issue the pull request is for, by its key as its tracker
 // writes it, linked to its page when the tracker gives one.
