@@ -21,6 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/wiring"
@@ -393,7 +394,7 @@ func refusalErrors() []error {
 		loop.ErrPullAlreadyOpen, loop.ErrNothingToOpen, loop.ErrNoPullRequest,
 		loop.ErrDirtyTree, loop.ErrNothingStaged,
 		errPullAlreadyOpen, errNoCommitsToOpen, errNoPullRequest,
-		errBranchExists, errConfigExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
+		errBranchExists, setup.ErrExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
 	}
 }
 

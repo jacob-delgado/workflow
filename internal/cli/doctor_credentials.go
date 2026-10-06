@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -369,17 +370,7 @@ func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings conf
 		return credentialOutcome(err, "jira")
 	}
 
-	fmt.Fprintf(out, "  %-10s authenticates as %s (token from %s)\n", "jira", identify(user), source)
+	fmt.Fprintf(out, "  %-10s authenticates as %s (token from %s)\n", "jira", setup.Identify(user), source)
 
 	return nil
-}
-
-// identify names a user, falling back to the login when an instance is
-// configured to withhold display names.
-func identify(user jira.User) string {
-	if user.DisplayName == "" {
-		return user.Name
-	}
-
-	return user.DisplayName + " (" + user.Name + ")"
 }
