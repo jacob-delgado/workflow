@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react'
-import { Button } from '@/lib/Button.tsx'
-import { useFocusOnMount } from '@/lib/focus.ts'
-import { Failure } from '@/lib/Status.tsx'
+import { Button } from './Button.tsx'
+import { useFocusOnMount } from './focus.ts'
+import { Failure } from './Status.tsx'
 
 // LabeledInput is a field with its label above it and, given one, a hint
 // below, the hint read as the field's description.
@@ -43,7 +43,7 @@ interface WriteFormFrameProps {
   children: ReactNode
 }
 
-// WriteForm is one of the issue's forms: what will be sent, a refusal beside
+// WriteForm is a form that is the last look at a write: what will be sent, a refusal beside
 // it, and its send and Cancel. It takes focus as it opens, and nothing in it
 // can be sent twice while a send is in flight.
 export function WriteForm({

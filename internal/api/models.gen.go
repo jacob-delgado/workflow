@@ -397,6 +397,54 @@ func (e QueuedAnnouncementState) Valid() bool {
 	}
 }
 
+// Defines values for RunState.
+const (
+	InProgress RunState = "in_progress"
+	Refused    RunState = "refused"
+	Stopped    RunState = "stopped"
+	Succeeded  RunState = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the RunState enum.
+func (e RunState) Valid() bool {
+	switch e {
+	case InProgress:
+		return true
+	case Refused:
+		return true
+	case Stopped:
+		return true
+	case Succeeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunKind.
+const (
+	Amend     RunKind = "amend"
+	Fixup     RunKind = "fixup"
+	PreCommit RunKind = "pre_commit"
+	Rebase    RunKind = "rebase"
+)
+
+// Valid indicates whether the value is a known member of the RunKind enum.
+func (e RunKind) Valid() bool {
+	switch e {
+	case Amend:
+		return true
+	case Fixup:
+		return true
+	case PreCommit:
+		return true
+	case Rebase:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StatusCategory.
 const (
 	StatusCategoryDone          StatusCategory = "done"
@@ -881,6 +929,9 @@ type CommentRequest struct {
 type Commit struct {
 	Hash    string `json:"hash"`
 	Subject string `json:"subject"`
+
+	// Unpushed Whether the commit is one not yet pushed, which alone staged changes can be amended or fixed up into. A branch with more commits than are read marks none.
+	Unpushed bool `json:"unpushed"`
 }
 
 // CommitConfig defines model for CommitConfig.
@@ -1625,6 +1676,48 @@ type ReviewRequest struct {
 	URL        string `json:"url"`
 }
 
+// Run A git run and how it stands: running, or how it ended, with what it wrote.
+type Run struct {
+	// Kind A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
+	Kind RunKind `json:"kind"`
+
+	// Lines What the program wrote, standard output and standard error in the order written, with terminal controls taken out. A run the event stream carries holds its last 200 lines.
+	Lines []string `json:"lines"`
+
+	// Outcome What the run did, once it has ended — Rebased onto main, the pre-commit hook failed — and empty while it runs.
+	Outcome string `json:"outcome"`
+
+	// State How the run stands: in progress, succeeded, refused — the program ended with a failure, a hook that failed or a rebase stopped at a conflict — or stopped by DELETE /api/runs/current.
+	State RunState `json:"state"`
+
+	// Title What is running, as the terminal titles it, such as git rebase.
+	Title string `json:"title"`
+}
+
+// RunState How the run stands: in progress, succeeded, refused — the program ended with a failure, a hook that failed or a rebase stopped at a conflict — or stopped by DELETE /api/runs/current.
+type RunState string
+
+// RunEvent One line of a run's stream: the run itself, as it starts and as it ends, or one line of its output.
+type RunEvent struct {
+	// Line A line the program wrote, with terminal controls taken out.
+	Line *string `json:"line,omitempty"`
+
+	// Run A git run and how it stands: running, or how it ended, with what it wrote.
+	Run *Run `json:"run,omitempty"`
+}
+
+// RunKind A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
+type RunKind string
+
+// RunRequest Which run to start, and for a fixup the commit it fixes up.
+type RunRequest struct {
+	// Commit For fixup, the hash of the commit to record a fixup! of, as the branch lists it; it must be one not yet pushed. Ignored otherwise.
+	Commit *string `json:"commit,omitempty"`
+
+	// Kind A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
+	Kind RunKind `json:"kind"`
+}
+
 // SlackDirectory People or user groups read from Slack, or the scope the token lacks to read them.
 type SlackDirectory struct {
 	Entries []SlackTarget `json:"entries"`
@@ -1667,6 +1760,9 @@ type Snapshot struct {
 	// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
 	QueuedAnnouncement *QueuedAnnouncement `json:"queued_announcement,omitempty"`
 	Review             Review              `json:"review"`
+
+	// Run The git run going now (POST /api/runs), with its last 200 lines, so a page opened while it runs sees it; absent when none is going.
+	Run *Run `json:"run,omitempty"`
 
 	// SuggestedScope The scope a new commit opens on — the terminal composer's rule: the scope last committed with in this repository, else commit.default_scope, else empty. The server reads the learned one from its store once, and once more after a commit here records one, not on every message, and never under --dry-run, when the default alone applies.
 	//
@@ -2105,6 +2201,9 @@ type AddFavoriteJSONRequestBody = DirectoryChoice
 
 // SwitchRepositoryJSONRequestBody defines body for SwitchRepository for application/json ContentType.
 type SwitchRepositoryJSONRequestBody = DirectoryChoice
+
+// StartRunJSONRequestBody defines body for StartRun for application/json ContentType.
+type StartRunJSONRequestBody = RunRequest
 
 // StageJSONRequestBody defines body for Stage for application/json ContentType.
 type StageJSONRequestBody = StagingRequest

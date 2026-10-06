@@ -123,7 +123,7 @@ test('reads a committed clean tree and a green pull request', () => {
         ahead: 1,
         behind: 0,
         base: 'origin/main',
-        commits: [{ hash: 'h1h2h3h4', subject: 'do the work' }],
+        commits: [{ hash: 'h1h2h3h4', subject: 'do the work', unpushed: false }],
       },
       changes: { changes: [] },
       review: {

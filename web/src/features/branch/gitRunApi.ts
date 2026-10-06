@@ -1,0 +1,113 @@
+import { startRun as postRun, stopRun as deleteRun } from '@/api/generated'
+import type { Run, RunEvent, RunRequest } from '@/api/generated/types.gen.ts'
+import { zRunEvent } from '@/api/generated/zod.gen.ts'
+
+// The VITE_MOCK check is read inline (not via a helper) so Vite statically
+// replaces it and drops the SDK call from a production build's mock path, while
+// tests can still stub the module.
+
+// startRun starts a git run — pre-commit, a rebase, an amend or a fixup — and
+// hands each event it streams to onEvent as it lands: the run as it starts,
+// each line of output, the run as it ended, which it answers. A refusal before
+// anything ran throws the API error, whose message is safe to show; an event
+// that does not match the contract is dropped. Under VITE_MOCK it streams a
+// short run that passes.
+export async function startRun(
+  request: RunRequest,
+  onEvent: (event: RunEvent) => void,
+): Promise<Run> {
+  if (import.meta.env.VITE_MOCK === 'true') {
+    return mockRun(request, onEvent)
+  }
+
+  const result = await postRun({ body: request, parseAs: 'stream', throwOnError: true })
+  const body: unknown = result.data
+  if (!(body instanceof ReadableStream)) {
+    throw new Error('the run sent no stream')
+  }
+
+  return readEvents(body as ReadableStream<Uint8Array>, onEvent)
+}
+
+// readEvents reads a run's stream, one JSON event a line, to its end, and
+// answers the last run it carried.
+async function readEvents(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (event: RunEvent) => void,
+): Promise<Run> {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let last: Run | undefined
+
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) {
+      break
+    }
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      const event = parsed(line)
+      if (event !== null) {
+        last = event.run ?? last
+        onEvent(event)
+      }
+    }
+  }
+
+  if (last === undefined) {
+    throw new Error('the run ended without saying how')
+  }
+
+  return last
+}
+
+// parsed is one line of the stream as an event, or null when it is blank or
+// does not match the contract.
+function parsed(line: string): RunEvent | null {
+  if (line.trim() === '') {
+    return null
+  }
+
+  try {
+    const event = zRunEvent.safeParse(JSON.parse(line))
+
+    return event.success ? event.data : null
+  } catch {
+    return null
+  }
+}
+
+// stopRun stops the run going, its program and all it started. A refusal —
+// none is going — throws the API error. Under VITE_MOCK it is a no-op.
+export async function stopRun(): Promise<void> {
+  if (import.meta.env.VITE_MOCK === 'true') {
+    return
+  }
+
+  await deleteRun({ throwOnError: true })
+}
+
+// mockRun is the mockup's run: it writes two lines and passes.
+function mockRun(request: RunRequest, onEvent: (event: RunEvent) => void): Run {
+  const lines = ['lefthook v1.11.0  hook: pre-commit', '✔️ golangci-lint (2.31 seconds)']
+  const run: Run = {
+    kind: request.kind,
+    title: request.kind === 'pre_commit' ? 'pre-commit' : `git ${request.kind}`,
+    state: 'in_progress',
+    outcome: '',
+    lines: [],
+  }
+  onEvent({ run })
+  for (const line of lines) {
+    onEvent({ line })
+  }
+
+  const ended: Run = { ...run, state: 'succeeded', outcome: 'It went through.', lines }
+  onEvent({ run: ended })
+
+  return ended
+}

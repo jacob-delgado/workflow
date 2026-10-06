@@ -104,6 +104,7 @@ func (w *worlds) install(world World) (*server, error) {
 	// The event stream is a streaming response the strict, one-response-object
 	// interface cannot express, so it is registered by hand rather than generated.
 	apiMux.HandleFunc("GET /api/events", srv.streamEvents)
+	apiMux.HandleFunc("POST /api/runs", srv.startRun)
 
 	apiHandler := api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
 		BaseRouter:       apiMux,

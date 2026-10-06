@@ -244,6 +244,48 @@ export const zCheckoutRequest = z.object({
 });
 
 /**
+ * A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
+ */
+export const zRunKind = z.enum([
+    'pre_commit',
+    'rebase',
+    'amend',
+    'fixup'
+]);
+
+/**
+ * Which run to start, and for a fixup the commit it fixes up.
+ */
+export const zRunRequest = z.object({
+    kind: zRunKind,
+    commit: z.string().optional()
+});
+
+/**
+ * A git run and how it stands: running, or how it ended, with what it wrote.
+ */
+export const zRun = z.object({
+    kind: zRunKind,
+    title: z.string(),
+    state: z.enum([
+        'in_progress',
+        'succeeded',
+        'refused',
+        'stopped'
+    ]),
+    lines: z.array(z.string()),
+    outcome: z.string()
+});
+
+/**
+ * One line of a run's stream: the run itself, as it starts and as it ends, or one line of its output.
+ */
+export const zRunEvent = z.object({
+    run: zRun.optional(),
+    line: z.string().optional()
+});
+
+/**
  * A changed file's diff against HEAD.
  */
 export const zFileDiff = z.object({
@@ -457,7 +499,8 @@ export const zCommentRequest = z.object({
 
 export const zCommit = z.object({
     hash: z.string(),
-    subject: z.string()
+    subject: z.string(),
+    unpushed: z.boolean()
 });
 
 export const zBranch = z.object({
@@ -779,6 +822,7 @@ export const zSnapshot = z.object({
     review: zReview,
     messaging: zMessagingDestination,
     queued_announcement: zQueuedAnnouncement.optional(),
+    run: zRun.optional(),
     branches: z.array(zTaskBranch),
     commit_types: z.array(z.string()),
     suggested_scope: z.string(),
@@ -1082,6 +1126,18 @@ export const zGetChangeDiffQuery = z.object({
  * The diff.
  */
 export const zGetChangeDiffResponse = zFileDiff;
+
+export const zStartRunBody = zRunRequest;
+
+/**
+ * The run's events, one JSON object a line.
+ */
+export const zStartRunResponse = zRunEvent;
+
+/**
+ * The run was asked to stop.
+ */
+export const zStopRunResponse = z.void();
 
 export const zStageBody = zStagingRequest;
 

@@ -150,6 +150,9 @@ type ServerInterface interface {
 	// ListReviews The pull requests on the forge that wait on your review.
 	// (GET /api/reviews)
 	ListReviews(w http.ResponseWriter, r *http.Request)
+	// StopRun Stop the run that is going.
+	// (DELETE /api/runs/current)
+	StopRun(w http.ResponseWriter, r *http.Request)
 	// GetSlackGroups The Slack workspace's user groups, to tag or to link a team to.
 	// (GET /api/slack/groups)
 	GetSlackGroups(w http.ResponseWriter, r *http.Request)
@@ -1157,6 +1160,20 @@ func (siw *ServerInterfaceWrapper) ListReviews(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// StopRun operation middleware
+func (siw *ServerInterfaceWrapper) StopRun(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StopRun(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSlackGroups operation middleware
 func (siw *ServerInterfaceWrapper) GetSlackGroups(w http.ResponseWriter, r *http.Request) {
 
@@ -1594,6 +1611,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch", wrapper.GetBranch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes", wrapper.ListChanges)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes/diff", wrapper.GetChangeDiff)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/runs/current", wrapper.StopRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/stage", wrapper.Stage)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/unstage", wrapper.Unstage)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/review/checks/{id}/log", wrapper.GetCheckLog)
@@ -4230,6 +4248,52 @@ func (response ListReviewsdefaultApplicationProblemPlusJSONResponse) VisitListRe
 	return err
 }
 
+type StopRunRequestObject struct {
+}
+
+type StopRunResponseObject interface {
+	VisitStopRunResponse(w http.ResponseWriter) error
+}
+
+type StopRun204Response struct {
+}
+
+func (response StopRun204Response) VisitStopRunResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type StopRun404ApplicationProblemPlusJSONResponse Problem
+
+func (response StopRun404ApplicationProblemPlusJSONResponse) VisitStopRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopRundefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response StopRundefaultApplicationProblemPlusJSONResponse) VisitStopRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSlackGroupsRequestObject struct {
 }
 
@@ -5321,6 +5385,9 @@ type StrictServerInterface interface {
 	// ListReviews The pull requests on the forge that wait on your review.
 	// (GET /api/reviews)
 	ListReviews(ctx context.Context, request ListReviewsRequestObject) (ListReviewsResponseObject, error)
+	// StopRun Stop the run that is going.
+	// (DELETE /api/runs/current)
+	StopRun(ctx context.Context, request StopRunRequestObject) (StopRunResponseObject, error)
 	// GetSlackGroups The Slack workspace's user groups, to tag or to link a team to.
 	// (GET /api/slack/groups)
 	GetSlackGroups(ctx context.Context, request GetSlackGroupsRequestObject) (GetSlackGroupsResponseObject, error)
@@ -6602,6 +6669,30 @@ func (sh *strictHandler) ListReviews(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListReviewsResponseObject); ok {
 		if err := validResponse.VisitListReviewsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StopRun operation middleware
+func (sh *strictHandler) StopRun(w http.ResponseWriter, r *http.Request) {
+	var request StopRunRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StopRun(ctx, request.(StopRunRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StopRun")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StopRunResponseObject); ok {
+		if err := validResponse.VisitStopRunResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

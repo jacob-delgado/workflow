@@ -149,7 +149,7 @@ func TestStartWorkWithNoBaseHasNothingToFetch(t *testing.T) {
 	// Arrange
 	calls := &startCalls{}
 	deps := calls.wire(filledDeps(), errFetch)
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: "main"}, nil }
+	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: prBase}, nil }
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/branches",

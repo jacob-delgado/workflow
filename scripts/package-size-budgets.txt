@@ -166,9 +166,11 @@ internal/tui 60
 # a switch, refusing it while a write runs. 27 is announcequeue.go, the
 # announcement held until its pull request's CI passes: the server's own wait
 # for it, settled from each frame and from timed reads of its own, and the drop
-# of it, which outlive the request that held it.
+# of it, which outlive the request that held it. 28 is runs.go, the git runs
+# that stream their output as the terminal's run overlay does — pre-commit, a
+# rebase, an amend, a fixup — one at a time, and the stop of the one going.
 # Frozen here so that growth stays deliberate.
-internal/webserver 27
+internal/webserver 28
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and
