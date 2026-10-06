@@ -14,6 +14,10 @@ for (const theme of themes) {
       `every section fits ${String(width)} px in the ${theme} theme, reachable and clean`,
       { tag: '@populated' },
       async ({ page }) => {
+        // Nine sections, each walked and scanned by axe, are nine tests' work
+        // in one: the budget for one runs out on a busy machine.
+        test.slow()
+
         // Arrange: the populated cockpit at this width, in this theme.
         await openCockpit(page, { width, height }, theme)
 
