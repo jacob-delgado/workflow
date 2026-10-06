@@ -6,6 +6,7 @@ package webserver
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -302,4 +303,75 @@ func (h *heldAnnouncement) stopWatching() {
 // pullName names a pull request by its number, in the forge's own sigil.
 func (s *server) pullName(number int) string {
 	return s.forgeKindNow().Sigil() + strconv.Itoa(number)
+}
+
+// announcedCache is what the store remembers announcing in this repository,
+// from any surface, read again once the forge's interval has passed — as the
+// review it is told against is — so an announcement made from a terminal
+// shows within one. One made here is added at once. A dry run reads no store,
+// so it holds nothing. Its lock is its own, since every open stream reads it.
+type announcedCache struct {
+	mu     sync.Mutex
+	held   bool
+	readAt time.Time
+	made   []loop.Announced
+}
+
+// recordedAnnouncements is every announcement the store remembers, read again
+// once the forge's interval has passed, or none without a store or under a
+// dry run.
+func (s *server) recordedAnnouncements() []loop.Announced {
+	if s.deps.Announced == nil || s.info.DryRun {
+		return nil
+	}
+
+	s.announced.mu.Lock()
+	defer s.announced.mu.Unlock()
+
+	now := s.now()
+	if !s.announced.held || now.Sub(s.announced.readAt) >= s.forgeInterval() {
+		s.announced.made, s.announced.held, s.announced.readAt = s.deps.Announced(), true, now
+	}
+
+	return slices.Clone(s.announced.made)
+}
+
+// recordAnnouncement remembers an announcement just made, in the store and in
+// what the next frame tells.
+func (s *server) recordAnnouncement(made loop.Announced) {
+	if s.deps.RecordAnnounce == nil {
+		return
+	}
+
+	s.deps.RecordAnnounce(made)
+
+	s.announced.mu.Lock()
+	defer s.announced.mu.Unlock()
+
+	s.announced.made = append(s.announced.made, made)
+}
+
+// announcedAlready reports that made was announced already, from any surface.
+func (s *server) announcedAlready(made loop.Announced) bool {
+	return loop.AnnounceMemory{Recorded: s.recordedAnnouncements}.Holds(made)
+}
+
+// reviewAnnounced reports that the review's pull request was announced at the
+// moment it is at now, read from its pull request and CI as the terminal reads
+// them.
+func (s *server) reviewAnnounced(review api.Review) bool {
+	if !review.Found || review.Pull == nil {
+		return false
+	}
+
+	moment := messaging.MomentReady
+
+	switch {
+	case review.Pull.State == api.Merged:
+		moment = messaging.MomentMerged
+	case review.Ci != nil && review.Ci.State == api.Failed:
+		moment = messaging.MomentCIRed
+	}
+
+	return s.announcedAlready(loop.Announced{Pull: review.Pull.Number, Moment: moment})
 }

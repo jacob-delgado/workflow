@@ -128,8 +128,8 @@ function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
     {
       title: 'Announce',
       section: 'messaging',
-      reached: 'pending',
-      detail: [announceDetail(messaging)],
+      reached: snapshot.review.announced ? 'done' : 'pending',
+      detail: [snapshot.review.announced ? 'Announced' : announceDetail(messaging)],
     },
   ]
 }

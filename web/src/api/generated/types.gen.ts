@@ -892,6 +892,10 @@ export type Review = {
      * The issue the branch and its pull request are for; absent when none is named.
      */
     issue?: LinkedIssue | null;
+    /**
+     * Whether the pull request was already announced at the moment it is at now — ready for review, its CI red, merged — from the browser, the terminal or workflow announce, as the store remembers. The store is read at most once every timing.ci_interval, and never under --dry-run, when this is always false.
+     */
+    announced: boolean;
 };
 
 export type LinkedIssue = {
@@ -2824,7 +2828,7 @@ export type AnnounceData = {
 
 export type AnnounceErrors = {
     /**
-     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or, to post when CI passes, it is not ready for review or its pull request reports no CI.
+     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or it was already announced at this moment; or, to post when CI passes, it is not ready for review or its pull request reports no CI.
      */
     409: Problem;
     /**

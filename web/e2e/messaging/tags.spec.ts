@@ -38,7 +38,7 @@ const snapshot = {
     commits: [],
   },
   changes: { changes: [] },
-  review: { found: true, pull },
+  review: { found: true, announced: false, pull },
   messaging: {
     service: 'Slack',
     configured: true,

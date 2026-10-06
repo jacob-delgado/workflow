@@ -745,7 +745,8 @@ export const zReview = z.object({
     found: z.boolean(),
     pull: zPullRequest.nullish(),
     ci: zCi.nullish(),
-    issue: zLinkedIssue.nullish()
+    issue: zLinkedIssue.nullish(),
+    announced: z.boolean()
 });
 
 export const zMessagingDestination = z.object({

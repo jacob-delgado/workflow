@@ -138,7 +138,7 @@ test.each<{ name: string; pull: PullRequest; ci?: Ci; state: string; mark: MarkS
   // Arrange
   streamOnHead({
     branch: makeBranch({ commits: [{ hash: 'h1h2h3h4', subject: 'do the work' }] }),
-    review: { found: true, pull, ci },
+    review: { found: true, announced: false, pull, ci },
   })
 
   // Act
@@ -146,4 +146,18 @@ test.each<{ name: string; pull: PullRequest; ci?: Ci; state: string; mark: MarkS
 
   // Assert
   expect(storyStage('Pull request')).toEqual({ mark: drawnMark(mark), state })
+})
+
+test('reads the announce stage done once the pull request was announced at its moment', () => {
+  // Arrange
+  streamOnHead({
+    branch: makeBranch({ commits: [{ hash: 'h1h2h3h4', subject: 'do the work' }] }),
+    review: { found: true, pull: openPull, ci: ciOf('passed'), announced: true },
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(storyStage('Announce')).toEqual({ mark: drawnMark('done'), state: 'done' })
 })

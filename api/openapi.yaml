@@ -1309,7 +1309,11 @@ paths:
         waiting announcement in memory and reads the CI for it on its own, on
         timing.ci_interval, whether a page is open or not: it is lost, unposted,
         if the server stops or switches directory first. Announcing now drops
-        a waiting one, so the channel never reads it twice.
+        a waiting one, so the channel never reads it twice. A post that goes
+        is remembered in the store, as the terminal's are, and a moment the
+        store remembers announced already — from here, the terminal or
+        workflow announce — is refused with 409, as the terminal offers no
+        announcement it has made.
       tags: [messaging]
       requestBody:
         required: true
@@ -1335,7 +1339,8 @@ paths:
             There is no pull request to announce, the server is not running in
             a git repository, or the announcement changed since the given text
             was previewed, or whom it tags did since the mentions' users were;
-            or, to post when CI passes, it is not ready for review or its pull
+            or it was already announced at this moment; or, to post when CI
+            passes, it is not ready for review or its pull
             request reports no CI.
           content:
             application/problem+json:
@@ -3178,7 +3183,7 @@ components:
 
     Review:
       type: object
-      required: [found]
+      required: [found, announced]
       properties:
         found:
           type: boolean
@@ -3199,6 +3204,15 @@ components:
             is named.
           nullable: true
           allOf: [{$ref: "#/components/schemas/LinkedIssue"}]
+        announced:
+          type: boolean
+          description: >-
+            Whether the pull request was already announced at the moment it
+            is at now — ready for review, its CI red, merged — from the
+            browser, the terminal or workflow announce, as the store
+            remembers. The store is read at most once every
+            timing.ci_interval, and never under --dry-run, when this is
+            always false.
       additionalProperties: false
 
     LinkedIssue:

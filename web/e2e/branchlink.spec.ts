@@ -24,7 +24,7 @@ const snapshot = {
   issues: { total: 0, start_at: 0, unavailable: [], issues: [] },
   branch,
   changes: { changes: [] },
-  review: { found: false },
+  review: { found: false, announced: false },
   messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
   branches: [],
   commit_types: ['feat', 'fix'],

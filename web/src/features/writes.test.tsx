@@ -120,7 +120,7 @@ const onHead = {
 const started = makeSnapshot({
   branches: [{ name: 'feat/PROJ-3-metrics', issue_key: 'PROJ-3', current: true }],
 })
-const withPull = makeSnapshot({ review: { found: true, pull } })
+const withPull = makeSnapshot({ review: { found: true, announced: false, pull } })
 
 // openThePull opens the pull request the review panel offers.
 async function openThePull(user: User): Promise<void> {

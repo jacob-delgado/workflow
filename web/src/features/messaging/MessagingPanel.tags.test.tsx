@@ -73,7 +73,7 @@ async function opensPreview(announcement: Announcement, answers: Answers = {}) {
     '/api/people': answers.people ?? benLinked,
     '/api/announce': { text, channel: '#dev' },
   })
-  const snapshot = makeSnapshot({ review: { found: true, pull } })
+  const snapshot = makeSnapshot({ review: { found: true, announced: false, pull } })
   snapshot.messaging.channels = answers.channels ?? []
   useSnapshotStore.setState({ status: 'live', snapshot })
   const user = userEvent.setup()

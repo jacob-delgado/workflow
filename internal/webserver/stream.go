@@ -191,6 +191,8 @@ func (s *server) snapshot(view string) api.Snapshot {
 		s.settleHeld(branch, review)
 	}
 
+	review.Announced = s.reviewAnnounced(review)
+
 	return api.Snapshot{
 		Issues:             s.snapshotIssues(view),
 		Branch:             branchDTO(branch),

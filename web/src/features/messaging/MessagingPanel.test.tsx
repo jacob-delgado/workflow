@@ -34,6 +34,7 @@ function withPullRequest(
       messaging,
       review: {
         found: true,
+        announced: false,
         pull: {
           number: 42,
           url: 'https://x/42',
