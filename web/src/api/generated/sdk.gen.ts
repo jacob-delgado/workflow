@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddCommentData, AddCommentErrors, AddCommentResponses, AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, CreateWorktreeData, CreateWorktreeErrors, CreateWorktreeResponses, ForgetPersonData, ForgetPersonErrors, ForgetPersonResponses, GetActivityData, GetActivityErrors, GetActivityResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetCheckLogData, GetCheckLogErrors, GetCheckLogResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetDirectoriesData, GetDirectoriesErrors, GetDirectoriesResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetLocalDataData, GetLocalDataErrors, GetLocalDataResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPeopleData, GetPeopleErrors, GetPeopleResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetRepoGroupsData, GetRepoGroupsErrors, GetRepoGroupsResponses, GetRepositoriesData, GetRepositoriesErrors, GetRepositoriesResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackGroupsData, GetSlackGroupsErrors, GetSlackGroupsResponses, GetSlackMembersData, GetSlackMembersErrors, GetSlackMembersResponses, LinkBranchIssueData, LinkBranchIssueErrors, LinkBranchIssueResponses, LinkPersonData, LinkPersonErrors, LinkPersonResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PreviewBranchIssueData, PreviewBranchIssueErrors, PreviewBranchIssueResponses, PushData, PushErrors, PushResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemoveLocalDataData, RemoveLocalDataErrors, RemoveLocalDataResponses, SetRepoGroupsData, SetRepoGroupsErrors, SetRepoGroupsResponses, StageData, StageErrors, StageResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SwitchRepositoryData, SwitchRepositoryErrors, SwitchRepositoryResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnlinkBranchIssueData, UnlinkBranchIssueErrors, UnlinkBranchIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zAddCommentResponse, zAddFavoriteResponse, zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zCreateWorktreeResponse, zForgetPersonResponse, zGetActivityResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetCheckLogResponse, zGetConfigResponse, zGetDirectoriesResponse, zGetHealthResponse, zGetIssueResponse, zGetLocalDataResponse, zGetMessagingResponse, zGetPeopleResponse, zGetPullRequestDraftResponse, zGetRepoGroupsResponse, zGetRepositoriesResponse, zGetReviewResponse, zGetSlackGroupsResponse, zGetSlackMembersResponse, zLinkBranchIssueResponse, zLinkPersonResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListTasksResponse, zListViewsResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPreviewBranchIssueResponse, zPushResponse, zRemoveFavoriteResponse, zRemoveLocalDataResponse, zSetRepoGroupsResponse, zStageResponse, zStartTaskResponse, zStopTaskResponse, zStreamEventsResponse, zSwitchRepositoryResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnlinkBranchIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
+import type { AddCommentData, AddCommentErrors, AddCommentResponses, AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, AssignIssueData, AssignIssueErrors, AssignIssueResponses, ChangeStatusData, ChangeStatusErrors, ChangeStatusResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, CreateWorktreeData, CreateWorktreeErrors, CreateWorktreeResponses, ForgetPersonData, ForgetPersonErrors, ForgetPersonResponses, GetActivityData, GetActivityErrors, GetActivityResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetCheckLogData, GetCheckLogErrors, GetCheckLogResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetDirectoriesData, GetDirectoriesErrors, GetDirectoriesResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetLocalDataData, GetLocalDataErrors, GetLocalDataResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPeopleData, GetPeopleErrors, GetPeopleResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetRepoGroupsData, GetRepoGroupsErrors, GetRepoGroupsResponses, GetRepositoriesData, GetRepositoriesErrors, GetRepositoriesResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackGroupsData, GetSlackGroupsErrors, GetSlackGroupsResponses, GetSlackMembersData, GetSlackMembersErrors, GetSlackMembersResponses, LinkBranchIssueData, LinkBranchIssueErrors, LinkBranchIssueResponses, LinkPersonData, LinkPersonErrors, LinkPersonResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListStatusChangesData, ListStatusChangesErrors, ListStatusChangesResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, LogWorkData, LogWorkErrors, LogWorkResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PreviewBranchIssueData, PreviewBranchIssueErrors, PreviewBranchIssueResponses, PushData, PushErrors, PushResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemoveLocalDataData, RemoveLocalDataErrors, RemoveLocalDataResponses, SetRepoGroupsData, SetRepoGroupsErrors, SetRepoGroupsResponses, StageData, StageErrors, StageResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SwitchRepositoryData, SwitchRepositoryErrors, SwitchRepositoryResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnlinkBranchIssueData, UnlinkBranchIssueErrors, UnlinkBranchIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zAddCommentResponse, zAddFavoriteResponse, zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zAssignIssueResponse, zChangeStatusResponse, zCheckoutResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zCreateWorktreeResponse, zForgetPersonResponse, zGetActivityResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetCheckLogResponse, zGetConfigResponse, zGetDirectoriesResponse, zGetHealthResponse, zGetIssueResponse, zGetLocalDataResponse, zGetMessagingResponse, zGetPeopleResponse, zGetPullRequestDraftResponse, zGetRepoGroupsResponse, zGetRepositoriesResponse, zGetReviewResponse, zGetSlackGroupsResponse, zGetSlackMembersResponse, zLinkBranchIssueResponse, zLinkPersonResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListStatusChangesResponse, zListTasksResponse, zListViewsResponse, zLogWorkResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPreviewBranchIssueResponse, zPushResponse, zRemoveFavoriteResponse, zRemoveLocalDataResponse, zSetRepoGroupsResponse, zStageResponse, zStartTaskResponse, zStopTaskResponse, zStreamEventsResponse, zSwitchRepositoryResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnlinkBranchIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -69,7 +69,7 @@ export const linkPullRequest = <ThrowOnError extends boolean = false>(options: O
 /**
  * Move an issue to the configured review status.
  *
- * Moves the issue to jira.review_status — the move the terminal interface and `workflow pr` offer once a pull request is open — and only there: it is not a general transition, and it takes no fields. It is refused with 409 when Jira offers no such move from where the issue stands, or wants fields filled for it (move it from the terminal interface, whose status picker asks for them), and 422 when no review status or tracker is configured, or Jira refuses the move.
+ * Moves the issue to jira.review_status — the move the terminal interface and `workflow pr` offer once a pull request is open — and only there, without fields: any other change, or this one with its fields, is POST /api/issues/{key}/transitions. It is refused with 409 when Jira offers no such move from where the issue stands, or wants fields filled for it (change the status from the issue, whose form asks for them), and 422 when no review status or tracker is configured, or Jira refuses the move.
  */
 export const transitionIssue = <ThrowOnError extends boolean = false>(options: Options<TransitionIssueData, ThrowOnError>): RequestResult<TransitionIssueResponses, TransitionIssueErrors, ThrowOnError> => (options.client ?? client).post<TransitionIssueResponses, TransitionIssueErrors, ThrowOnError>({
     responseValidator: async (data) => await zTransitionIssueResponse.parseAsync(data),
@@ -85,6 +85,62 @@ export const transitionIssue = <ThrowOnError extends boolean = false>(options: O
 export const addComment = <ThrowOnError extends boolean = false>(options: Options<AddCommentData, ThrowOnError>): RequestResult<AddCommentResponses, AddCommentErrors, ThrowOnError> => (options.client ?? client).post<AddCommentResponses, AddCommentErrors, ThrowOnError>({
     responseValidator: async (data) => await zAddCommentResponse.parseAsync(data),
     url: '/api/issues/{key}/comment',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * The status changes the tracker offers an issue, with the fields each needs.
+ *
+ * Lists every status change the tracker offers the issue from where it stands — the list the terminal interface's t shows — each with the fields it cannot be made without and, for a field with a fixed set of values, those values. A forge issue offers one change, to close it. A field only Jira's own screen can fill is listed as only_jira, so the page can say so rather than offer a change it cannot make. Answered 404 when the tracker has no such issue, and 422 when no tracker is configured. Reading works under --dry-run.
+ */
+export const listStatusChanges = <ThrowOnError extends boolean = false>(options: Options<ListStatusChangesData, ThrowOnError>): RequestResult<ListStatusChangesResponses, ListStatusChangesErrors, ThrowOnError> => (options.client ?? client).get<ListStatusChangesResponses, ListStatusChangesErrors, ThrowOnError>({
+    responseValidator: async (data) => await zListStatusChangesResponse.parseAsync(data),
+    url: '/api/issues/{key}/transitions',
+    ...options
+});
+
+/**
+ * Change an issue's status, filling the fields the change needs.
+ *
+ * Makes the status change named by its id, with a value for each field it needs, as the terminal interface's t and its field form do. The changes are read again first, so a change the tracker no longer offers from where the issue stands now is refused with 409 and nothing is sent. A field left without a value, a value the field does not take (an option it does not offer, a date that is not one), a field it does not ask for, or a field only Jira's own screen can fill is refused with 422 naming the field, before the tracker is asked. A change the tracker refuses is a 422, and a tracker that cannot be reached a 502; neither answer carries the tracker's address. Under --dry-run it is refused with a plain-text 403 and nothing is sent.
+ */
+export const changeStatus = <ThrowOnError extends boolean = false>(options: Options<ChangeStatusData, ThrowOnError>): RequestResult<ChangeStatusResponses, ChangeStatusErrors, ThrowOnError> => (options.client ?? client).post<ChangeStatusResponses, ChangeStatusErrors, ThrowOnError>({
+    responseValidator: async (data) => await zChangeStatusResponse.parseAsync(data),
+    url: '/api/issues/{key}/transitions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Assign an issue to someone, by username.
+ *
+ * Sets the issue's assignee, as the terminal interface's a does: a Jira username on a Jira issue, the forge's on a forge issue. A blank username is refused with 422 before the tracker is asked, and one the tracker refuses (no such user, or one who cannot be assigned) is a 422 too. Under --dry-run it is refused with a plain-text 403 and nothing is sent.
+ */
+export const assignIssue = <ThrowOnError extends boolean = false>(options: Options<AssignIssueData, ThrowOnError>): RequestResult<AssignIssueResponses, AssignIssueErrors, ThrowOnError> => (options.client ?? client).put<AssignIssueResponses, AssignIssueErrors, ThrowOnError>({
+    responseValidator: async (data) => await zAssignIssueResponse.parseAsync(data),
+    url: '/api/issues/{key}/assignee',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Log time spent on a Jira issue.
+ *
+ * Logs work against a Jira issue, as the terminal interface's w does: a duration in Jira's own words (2h, 30m, 1d 4h) and an optional note. A forge issue keeps no worklog, and is refused with 422, as is a blank duration, before Jira is asked; a duration Jira cannot read is a 422 too. Under --dry-run it is refused with a plain-text 403 and nothing is sent.
+ */
+export const logWork = <ThrowOnError extends boolean = false>(options: Options<LogWorkData, ThrowOnError>): RequestResult<LogWorkResponses, LogWorkErrors, ThrowOnError> => (options.client ?? client).post<LogWorkResponses, LogWorkErrors, ThrowOnError>({
+    responseValidator: async (data) => await zLogWorkResponse.parseAsync(data),
+    url: '/api/issues/{key}/worklog',
     ...options,
     headers: {
         'Content-Type': 'application/json',

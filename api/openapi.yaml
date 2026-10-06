@@ -203,11 +203,12 @@ paths:
       description: >-
         Moves the issue to jira.review_status — the move the terminal
         interface and `workflow pr` offer once a pull request is open — and
-        only there: it is not a general transition, and it takes no fields. It
-        is refused with 409 when Jira offers no such move from where the issue
-        stands, or wants fields filled for it (move it from the terminal
-        interface, whose status picker asks for them), and 422 when no review
-        status or tracker is configured, or Jira refuses the move.
+        only there, without fields: any other change, or this one with its
+        fields, is POST /api/issues/{key}/transitions. It is refused with 409
+        when Jira offers no such move from where the issue stands, or wants
+        fields filled for it (change the status from the issue, whose form asks
+        for them), and 422 when no review status or tracker is configured, or
+        Jira refuses the move.
       tags: [issues]
       parameters:
         - name: key
@@ -284,6 +285,189 @@ paths:
           description: >-
             Commenting is not available, the text is blank, the forge cannot be
             told, or the tracker refused the comment; nothing was posted.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/issues/{key}/transitions:
+    get:
+      operationId: listStatusChanges
+      summary: The status changes the tracker offers an issue, with the fields each needs.
+      description: >-
+        Lists every status change the tracker offers the issue from where it
+        stands — the list the terminal interface's t shows — each with the
+        fields it cannot be made without and, for a field with a fixed set of
+        values, those values. A forge issue offers one change, to close it. A
+        field only Jira's own screen can fill is listed as only_jira, so the
+        page can say so rather than offer a change it cannot make. Answered
+        404 when the tracker has no such issue, and 422 when no tracker is
+        configured. Reading works under --dry-run.
+      tags: [issues]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The issue, a Jira key such as PROJ-412 or a forge issue's number such as 42.
+          schema: {type: string}
+      responses:
+        "200":
+          description: The changes offered, in the tracker's order; empty when it offers none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/StatusChange"}
+        "404":
+          description: The tracker has no such issue.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: No tracker is configured.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: changeStatus
+      summary: Change an issue's status, filling the fields the change needs.
+      description: >-
+        Makes the status change named by its id, with a value for each field
+        it needs, as the terminal interface's t and its field form do. The
+        changes are read again first, so a change the tracker no longer offers
+        from where the issue stands now is refused with 409 and nothing is
+        sent. A field left without a value, a value the field does not take (an
+        option it does not offer, a date that is not one), a field it does not
+        ask for, or a field only Jira's own screen can fill is refused with 422
+        naming the field, before the tracker is asked. A change the tracker
+        refuses is a 422, and a tracker that cannot be reached a 502; neither
+        answer carries the tracker's address. Under --dry-run it
+        is refused with a plain-text 403 and nothing is sent.
+      tags: [issues]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The issue to change, a Jira key such as PROJ-412 or a forge issue's number such as 42.
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusChangeRequest"
+      responses:
+        "200":
+          description: The issue, now in the status the change leads to.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovedIssue"
+        "404":
+          description: The tracker has no such issue; nothing was changed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "409":
+          description: The tracker no longer offers that change from where the issue stands; nothing was changed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            No tracker is configured, a field's value is missing or not one it
+            takes, or the tracker refused the change; nothing was changed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/issues/{key}/assignee:
+    put:
+      operationId: assignIssue
+      summary: Assign an issue to someone, by username.
+      description: >-
+        Sets the issue's assignee, as the terminal interface's a does: a Jira
+        username on a Jira issue, the forge's on a forge issue. A blank
+        username is refused with 422 before the tracker is asked, and one the
+        tracker refuses (no such user, or one who cannot be assigned) is a
+        422 too. Under --dry-run it is refused with a
+        plain-text 403 and nothing is sent.
+      tags: [issues]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The issue to assign, a Jira key such as PROJ-412 or a forge issue's number such as 42.
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignRequest"
+      responses:
+        "200":
+          description: The issue and whom it is now assigned to.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignedIssue"
+        "404":
+          description: The tracker has no such issue; nothing was changed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            Assigning is not available, the username is blank, or the tracker
+            refused it; nothing was changed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/issues/{key}/worklog:
+    post:
+      operationId: logWork
+      summary: Log time spent on a Jira issue.
+      description: >-
+        Logs work against a Jira issue, as the terminal interface's w does: a
+        duration in Jira's own words (2h, 30m, 1d 4h) and an optional note.
+        A forge issue keeps no worklog, and is refused with 422, as is a blank
+        duration, before Jira is asked; a duration Jira cannot read is a 422
+        too. Under --dry-run it is refused with a
+        plain-text 403 and nothing is sent.
+      tags: [issues]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The Jira issue to log work on, such as PROJ-412.
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorklogRequest"
+      responses:
+        "200":
+          description: The work, as Jira logged it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoggedWork"
+        "404":
+          description: Jira has no such issue; nothing was logged.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            Logging work is not available here, the duration is blank, or Jira
+            refused it; nothing was logged.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -3207,6 +3391,148 @@ components:
         status:
           type: string
           example: In Review
+      additionalProperties: false
+
+    StatusChange:
+      type: object
+      description: >-
+        A status change the tracker offers an issue, and the fields it cannot
+        be made without.
+      required: [id, name, to_status, to_status_category, fields]
+      properties:
+        id:
+          type: string
+          description: The change's id, which applying it names.
+          example: "5"
+        name:
+          type: string
+          description: The change's own name, which can differ from where it leads.
+          example: Resolve Issue
+        to_status:
+          type: string
+          example: Resolved
+        to_status_category: {$ref: "#/components/schemas/StatusCategory"}
+        fields:
+          type: array
+          description: The fields the tracker refuses the change without, ordered by name.
+          items: {$ref: "#/components/schemas/StatusChangeField"}
+      additionalProperties: false
+
+    StatusChangeField:
+      type: object
+      description: A field a status change needs, and how it is filled.
+      required: [id, name, kind, options]
+      properties:
+        id:
+          type: string
+          example: resolution
+        name:
+          type: string
+          example: Resolution
+        kind:
+          type: string
+          enum: [option, option_list, text, user, date, only_jira]
+          x-enum-varnames: [FieldOptionKind, FieldOptionListKind, FieldTextKind, FieldUserKind, FieldDateKind, FieldOnlyJiraKind]
+          description: >-
+            How the field is filled: one of its options, any number of them,
+            free text, a username, a date as 2026-09-21, or only_jira for one
+            only Jira's own screen can fill, such as a cascading select, which
+            keeps the change out of reach here.
+        options:
+          type: array
+          description: The values an option or option_list field allows; empty for the others.
+          items: {$ref: "#/components/schemas/FieldOption"}
+      additionalProperties: false
+
+    FieldOption:
+      type: object
+      description: One value a field allows.
+      required: [id, name]
+      properties:
+        id: {type: string, example: "1"}
+        name: {type: string, example: Fixed}
+      additionalProperties: false
+
+    StatusChangeRequest:
+      type: object
+      description: The status change to make, and a value for each field it needs.
+      required: [transition_id, fields]
+      properties:
+        transition_id:
+          type: string
+          minLength: 1
+          description: The change's id, as GET /api/issues/{key}/transitions lists it.
+        fields:
+          type: array
+          description: A value for each field the change needs, and no other.
+          items: {$ref: "#/components/schemas/FieldEntry"}
+      additionalProperties: false
+
+    FieldEntry:
+      type: object
+      description: >-
+        The value given a field: option_id for an option field, option_ids for
+        an option_list field, and text for a text, user or date field.
+      required: [id]
+      properties:
+        id:
+          type: string
+          description: The field's id.
+        option_id:
+          type: string
+        option_ids:
+          type: array
+          items: {type: string}
+        text:
+          type: string
+      additionalProperties: false
+
+    AssignRequest:
+      type: object
+      description: Whom to assign an issue to.
+      required: [assignee]
+      properties:
+        assignee:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: The username, as the issue's tracker knows it.
+      additionalProperties: false
+
+    AssignedIssue:
+      type: object
+      description: An issue just assigned, and to whom.
+      required: [key, assignee]
+      properties:
+        key: {type: string, example: PROJ-412}
+        assignee: {type: string, example: ana.lopez}
+      additionalProperties: false
+
+    WorklogRequest:
+      type: object
+      description: Time spent on a Jira issue, and an optional note.
+      required: [time_spent]
+      properties:
+        time_spent:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: The duration in Jira's words, such as 2h, 30m or 1d 4h.
+        comment:
+          type: string
+          description: A note on the work; left out, the worklog carries none.
+      additionalProperties: false
+
+    LoggedWork:
+      type: object
+      description: Work just logged on an issue, as Jira recorded it.
+      required: [key, time_spent]
+      properties:
+        key: {type: string, example: PROJ-412}
+        time_spent:
+          type: string
+          description: The duration as Jira recorded it.
+          example: 2h
       additionalProperties: false
 
     PullRequest:

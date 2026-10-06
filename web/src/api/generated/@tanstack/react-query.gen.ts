@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getActivity, getAnnouncement, getBranch, getCheckLog, getConfig, getDirectories, getHealth, getIssue, getLocalData, getMessaging, getPeople, getPullRequestDraft, getRepoGroups, getRepositories, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
-import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
+import { getActivity, getAnnouncement, getBranch, getCheckLog, getConfig, getDirectories, getHealth, getIssue, getLocalData, getMessaging, getPeople, getPullRequestDraft, getRepoGroups, getRepositories, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listStatusChanges, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListStatusChangesData, ListStatusChangesError, ListStatusChangesResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -109,6 +109,26 @@ export const getIssueOptions = (options: Options<GetIssueData>) => queryOptions<
         return data;
     },
     queryKey: getIssueQueryKey(options)
+});
+
+export const listStatusChangesQueryKey = (options: Options<ListStatusChangesData>) => createQueryKey('listStatusChanges', options);
+
+/**
+ * The status changes the tracker offers an issue, with the fields each needs.
+ *
+ * Lists every status change the tracker offers the issue from where it stands — the list the terminal interface's t shows — each with the fields it cannot be made without and, for a field with a fixed set of values, those values. A forge issue offers one change, to close it. A field only Jira's own screen can fill is listed as only_jira, so the page can say so rather than offer a change it cannot make. Answered 404 when the tracker has no such issue, and 422 when no tracker is configured. Reading works under --dry-run.
+ */
+export const listStatusChangesOptions = (options: Options<ListStatusChangesData>) => queryOptions<ListStatusChangesResponse, ListStatusChangesError, ListStatusChangesResponse, ReturnType<typeof listStatusChangesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listStatusChanges({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listStatusChangesQueryKey(options)
 });
 
 export const getBranchQueryKey = (options?: Options<GetBranchData>) => createQueryKey('getBranch', options);

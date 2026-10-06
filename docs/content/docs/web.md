@@ -111,6 +111,24 @@ answered, a **Tasks** card sits between the story and the description;
 [Tasks](#tasks) says what it holds. Below a large width the list sits over the
 detail rather than beside it.
 
+Under the people, three buttons change the issue, as the terminal's `t`, `a`
+and `w` do. **Change status** lists every status change the tracker offers
+from where the issue stands, each by where it leads, named when the change
+has a name of its own, and saying which fields it needs. Choosing one shows
+its form: a choice of one value, a box per value for a list such as fix
+versions, a date, or text or a username. **Change to** the status sends the
+change with what was filled, and nothing is sent before that press; a field
+left empty or given something it does not take is named beside the form, and
+nothing changes. A change that needs a field only Jira's own screen can fill,
+such as a cascading select, says so and cannot be sent from here. A forge
+issue offers one change, Close. **Assign** sets the assignee to the username
+typed, as the issue's tracker knows it. **Log work**, on a Jira issue alone,
+logs a duration in Jira's words — `2h`, `30m`, `1d 4h` — with an optional
+note. Each form says what it did once the tracker has it — *Changed PROJ-1 to
+Resolved.*, *Assigned PROJ-1 to ana.*, *Logged 2h on PROJ-1.* — and reads the
+issue again; a refusal stays beside the form, which keeps what was entered.
+**Cancel** sends nothing.
+
 The comments are drawn from Jira's wiki markup: bold, italic, struck and code
 text, links, headings, quotes, lists and code blocks. Anything else, such as a
 table, a panel or a color, shows as the text it is, and an image is offered as
@@ -417,9 +435,6 @@ or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
 - **Re-running failed CI, merging, finishing a merged branch and editing an
   open pull request** — the terminal's `R`, `M`, `F` and `e`
   ([FEAT-79](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md#feat-79-review-actions-on-the-web)).
-- **Moving an issue to any status but the review status, assigning and
-  logging work** — the terminal's `t`, `a` and `w`
-  ([FEAT-80](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md#feat-80-issue-writes-on-the-web)).
 - **Editing an announcement before it is sent, and announcing once CI
   passes** — the terminal's `e` and `w` in the announcement preview.
 - **Knowing an announcement was already made** — the web neither records an
