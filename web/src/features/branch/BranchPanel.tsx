@@ -222,18 +222,22 @@ function PushConfirm({ branch, onCancel, onPush }: PushConfirmProps) {
       role="group"
       aria-labelledby="push-question"
       tabIndex={-1}
-      className="flex items-center gap-item text-sm"
+      className="flex flex-wrap items-center gap-item text-sm"
     >
       <span id="push-question">
         Push <span className="font-mono">{branch.name}</span> to{' '}
         <span className="font-mono">{branch.push_remote}</span>?
       </span>
-      <Button variant="secondary" onClick={onCancel}>
-        Cancel
-      </Button>
-      <Button variant="primary" onClick={onPush}>
-        Push
-      </Button>
+      {/* The buttons keep their words whole: a long branch name wraps them
+          under the question rather than squeeze them. */}
+      <span className="flex shrink-0 gap-item">
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button variant="primary" onClick={onPush}>
+          Push
+        </Button>
+      </span>
     </div>
   )
 }
