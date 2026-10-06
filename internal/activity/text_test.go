@@ -83,3 +83,25 @@ func TestAPeriodOfSeveralDaysIsNamedByItsEnds(t *testing.T) {
 		t.Errorf("Text = %q, want the period named by its ends and nothing done said", text)
 	}
 }
+
+func TestTheCopyableTextEscapesATitlesMarkdown(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	period, err := activity.NewPeriod(day(t, "2026-10-02"), day(t, "2026-10-02"))
+	if err != nil {
+		t.Fatalf("NewPeriod: %v", err)
+	}
+
+	summary := activity.Summary{Period: period, Reads: []activity.Read{{Source: activity.SourceGit, Items: []activity.Item{
+		{At: at(t, "2026-10-02T09:15:00Z"), Kind: activity.Committed, Ref: "def5678", Title: "[Click](https://evil) *now*"},
+	}}}}
+
+	// Act
+	text := summary.Text(time.UTC)
+
+	// Assert
+	if want := `- committed def5678 \[Click\]\(https://evil\) \*now\*`; !strings.Contains(text, want+"\n") {
+		t.Errorf("Text =\n%s\nwant the title's Markdown escaped: %s", text, want)
+	}
+}
