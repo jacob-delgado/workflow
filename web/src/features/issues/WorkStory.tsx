@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { CreatedWorktree, Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useForgeWords, type ForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -40,8 +40,9 @@ type Reached = 'done' | 'failed' | 'pending'
 
 interface Stage {
   title: string
-  // detail is what the stage has come to, as facts said apart.
-  detail: string[]
+  // detail is what the stage has come to, as facts said apart; a branch among
+  // them is set in the code face (BranchName).
+  detail: ReactNode[]
   section: Section
   reached: Reached
 }
@@ -89,7 +90,12 @@ function offHeadStages(branchName: string, noun: string): Stage[] {
   const elsewhere = 'Shown for the checked-out branch'
 
   return [
-    { title: 'Branch', section: 'branch', reached: 'done', detail: [branchName] },
+    {
+      title: 'Branch',
+      section: 'branch',
+      reached: 'done',
+      detail: [<BranchName key="branch" name={branchName} />],
+    },
     { title: 'Changes', section: 'branch', reached: 'pending', detail: [elsewhere] },
     { title: capitalized(noun), section: 'review', reached: 'pending', detail: [elsewhere] },
     { title: 'Announce', section: 'messaging', reached: 'pending', detail: ['Not announced'] },
@@ -109,7 +115,7 @@ function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
       detail:
         branch.name === ''
           ? ['Not on a branch yet']
-          : [branch.name, `${String(branch.ahead)} ahead`],
+          : [<BranchName key="branch" name={branch.name} />, `${String(branch.ahead)} ahead`],
     },
     {
       title: 'Changes',
@@ -208,15 +214,26 @@ function stageState(stage: Stage, index: number, activeIndex: number): StageStat
   return 'upcoming'
 }
 
+// BranchName is a branch as the story names it: in the code face, as the
+// Branch section's heading sets it, since it is what a reader would type.
+function BranchName({ name }: { name: string }) {
+  return <code>{name}</code>
+}
+
 // storyNote explains an issue that is not the checked-out one: never started, or
 // in flight on a branch that is not on HEAD. The issue on HEAD needs no note —
 // its stages speak for themselves.
-function storyNote(branch: TaskBranch | undefined, noun: string): string | null {
+function storyNote(branch: TaskBranch | undefined, noun: string): ReactNode {
   if (!branch) {
     return `Not in progress — its branch, changes, and ${noun} appear here once you start work on it.`
   }
   if (!branch.current) {
-    return `In progress on ${branch.name} — its changes and ${noun} show when it is the branch you are on.`
+    return (
+      <>
+        In progress on <BranchName name={branch.name} /> — its changes and {noun} show when it is
+        the branch you are on.
+      </>
+    )
   }
 
   return null
@@ -322,7 +339,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
                 }}
                 className="flex flex-1 flex-col gap-tight rounded-md px-2 pt-0.5 pb-block text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
-                <span className="font-medium">{stage.title}</span>
+                <span className="text-sm font-medium">{stage.title}</span>
                 <span className="sr-only">{state}</span>
                 <Meta className="text-sm text-muted-foreground">{stage.detail}</Meta>
               </button>

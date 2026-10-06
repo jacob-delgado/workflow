@@ -309,7 +309,7 @@ function RequestRow({ request, readAt, teller }: RequestRowProps) {
     <li className="flex flex-col gap-tight px-4 py-3">
       <p className="flex items-baseline gap-2">
         <span className="text-sm text-muted-foreground tabular-nums">{mark}</span>
-        <span className="font-medium">{request.title}</span>
+        <span className="text-sm font-medium">{request.title}</span>
       </p>
       <Meta className="text-sm text-muted-foreground">
         {request.repository === '' ? null : request.repository}
