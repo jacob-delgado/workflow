@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -46,6 +47,27 @@ func heldBackSettings(deps seams.Settings) seams.Settings {
 
 	if deps.RemoveLocalData != nil {
 		deps.RemoveLocalData = func(store.CleanScope) error { return errDryRun }
+	}
+
+	deps.Setup = heldBackSetup(deps.Setup)
+
+	return deps
+}
+
+// heldBackSetup holds back writing a first file, and offers no keychain,
+// which would store the token; Jira's check is a read, and stays.
+func heldBackSetup(deps seams.Setup) seams.Setup {
+	if deps.Write != nil {
+		deps.Write = func(setup.Request) (setup.Written, error) { return setup.Written{}, errDryRun }
+	}
+
+	if offer := deps.Offer; offer != nil {
+		deps.Offer = func() setup.Offer {
+			offered := offer()
+			offered.Keychain = false
+
+			return offered
+		}
 	}
 
 	return deps

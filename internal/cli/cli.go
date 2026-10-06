@@ -202,6 +202,8 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Co
 			}
 			defer conn.closeLog()
 
+			conn = conn.withSetup(cmd, prompt.StoreSecret)
+
 			if web {
 				return serveWeb(cmd, conn, serveAt(webserver.LoopbackAddr(port)), dryRun)
 			}
@@ -311,7 +313,7 @@ func wireAt(cmd *cobra.Command, from connection, dir string) (connection, error)
 
 	conn.closeLog = from.closeLog
 
-	return conn, nil
+	return conn.withSetup(cmd, from.keychain), nil
 }
 
 // moveTo makes dir the process's working directory, so whatever the new

@@ -386,7 +386,10 @@ func worktreeState(worktree gitrepo.Worktree) string {
 // repositoriesKeys is what the pane offers.
 func (m Model) repositoriesKeys() []key.Binding {
 	keys := []key.Binding{m.keys.up, m.keys.down, relabel(m.keys.confirm, verbSwitch), m.keys.favoriteDir, m.keys.goToDir}
-	if m.canEditSettings() {
+	switch {
+	case m.offersSetup():
+		keys = append(keys, relabel(m.keys.settings, "set up"))
+	case m.canEditSettings():
 		keys = append(keys, m.keys.settings)
 	}
 
@@ -424,6 +427,8 @@ func (m Model) openFromRepositories(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.goToDir):
 		return m.openDirPrompt()
+	case key.Matches(msg, m.keys.settings) && m.offersSetup():
+		return m.openSetup()
 	case key.Matches(msg, m.keys.settings) && m.canEditSettings():
 		return m.openSettings()
 	case key.Matches(msg, m.keys.localData) && m.canSeeLocalData():

@@ -11,6 +11,8 @@ import (
 // handleIssuesKey answers the Issues pane's own keys.
 func (m Model) handleIssuesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
+	case key.Matches(msg, m.keys.confirm) && m.setupShown():
+		return m.openSetup()
 	case key.Matches(msg, m.keys.down):
 		return m.moveIssue(1)
 	case key.Matches(msg, m.keys.up):

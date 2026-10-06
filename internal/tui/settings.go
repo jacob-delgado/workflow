@@ -476,5 +476,5 @@ func (msg settingsSaved) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[settingsForm](m, msg.err), nil
 	}
 
-	return m.reopenWith(msg.path)
+	return m.reopenWith(reopening{path: msg.path})
 }

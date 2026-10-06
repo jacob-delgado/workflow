@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
@@ -31,6 +32,9 @@ type connection struct {
 	// directory to the same log.
 	requestLog *wiring.RequestLog
 	closeLog   func()
+	// keychain keeps a token typed into the first run's form in the OS
+	// keychain; nil where none is wired, or under a dry run.
+	keychain func(secret string) (string, error)
 }
 
 // connect wires a command to its working directory, recording each request in
@@ -92,6 +96,20 @@ func connectAt(cmd *cobra.Command, dir, home string, requestLog *wiring.RequestL
 		cfg: cfg, loadErr: loadErr, where: where, deps: deps, controls: controls,
 		requestLog: requestLog, closeLog: func() {},
 	}
+}
+
+// withSetup is the connection offering a first run where it works, with the
+// token kept through keychain, which a dry run never stores in.
+func (c connection) withSetup(cmd *cobra.Command, keychain func(secret string) (string, error)) connection {
+	if dryRunRequested(cmd) {
+		keychain = nil
+	}
+
+	where := setup.Where{WorkDir: c.where.Dir, HomeDir: configHome()}
+	c.keychain = keychain
+	c.deps.Settings.Setup = wiring.SetupDeps(cmd.Context(), where, c.requestLog, keychain)
+
+	return c
 }
 
 // unreadConfiguration is why the configuration file in effect could not be

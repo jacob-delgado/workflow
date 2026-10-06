@@ -133,11 +133,16 @@ internal/forge 15
 # the check a save is held to and the save) and settingsfields.go (what it
 # edits — every setting the web's Settings edits, with its label, hint and
 # kind — and how a value is shown and read back), kept apart so neither passes
-# the 500-line target; and summarypost.go (FEAT-86: the Summary's Post…, a
+# the 500-line target; summarypost.go (FEAT-86: the Summary's Post…, a
 # preview of its Markdown with the channel cycled and e editing it, as
 # messagingpreview.go is the announcement's, out of summary.go, which it
-# would have pushed past the 500-line target).
-internal/tui 61
+# would have pushed past the 500-line target); and setupform.go (UX-153: the
+# first run's form, offered on the no-file screen and by Settings with no
+# file — config init's questions one at a time, the Jira check shown as it
+# runs, the keychain offered, the file written and workflow reopened with
+# it), a new overlay, since settings.go, which edits a file that is there, is
+# near the 500-line target.
+internal/tui 62
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of
