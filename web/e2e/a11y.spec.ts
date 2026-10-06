@@ -29,10 +29,11 @@ test.beforeEach(async ({ page }) => {
 // settled is what shows once a section has drawn what it will with no API to
 // answer it: Reviews, Tasks, Summary, Repositories and Settings each read their own endpoint
 // after their heading appears, and the read fails here, so the scan waits on
-// its Try again; every other section settles with its heading.
+// its Try again — the first, where Settings offers one for each of its reads;
+// every other section settles with its heading.
 function settled(page: Page, name: string): Locator {
   return ['Reviews', 'Tasks', 'Summary', 'Repositories', 'Settings'].includes(name)
-    ? page.getByRole('button', { name: 'Try again' })
+    ? page.getByRole('button', { name: 'Try again' }).first()
     : page.getByRole('heading', { level: 1, name })
 }
 
