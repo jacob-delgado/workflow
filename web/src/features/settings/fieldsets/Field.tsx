@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import type { Path, UseFormRegister } from 'react-hook-form'
 import type { Config } from '@/api/generated/types.gen.ts'
+import { Input, Select } from '@/lib/Field.tsx'
 
 // Register is the settings form's own register, which each fieldset is handed
 // to put its fields in the form.
@@ -18,9 +19,6 @@ type ReadAs = (value: unknown) => unknown
 function readCount(value: unknown): unknown {
   return value === '' || value === null ? 0 : Number(value)
 }
-
-const inputClass =
-  'rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
 
 // hintId is the id of the hint that describes a field, for its control's
 // aria-describedby.
@@ -94,12 +92,11 @@ interface TextFieldProps {
 export function TextField({ register, name, label, hint, type = 'text', readAs }: TextFieldProps) {
   return (
     <Field name={name} label={label} hint={hint}>
-      <input
+      <Input
         id={name}
         type={type}
         min={type === 'number' ? 0 : undefined}
         aria-describedby={hint ? hintId(name) : undefined}
-        className={inputClass}
         {...register(name, { setValueAs: type === 'number' ? readCount : readAs })}
       />
     </Field>
@@ -119,18 +116,13 @@ interface SelectFieldProps {
 export function SelectField({ register, name, label, hint, choices }: SelectFieldProps) {
   return (
     <Field name={name} label={label} hint={hint}>
-      <select
-        id={name}
-        aria-describedby={hint ? hintId(name) : undefined}
-        className={inputClass}
-        {...register(name)}
-      >
+      <Select id={name} aria-describedby={hint ? hintId(name) : undefined} {...register(name)}>
         {choices.map(([value, words]) => (
           <option key={value} value={value}>
             {words}
           </option>
         ))}
-      </select>
+      </Select>
     </Field>
   )
 }

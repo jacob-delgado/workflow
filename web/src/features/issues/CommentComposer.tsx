@@ -4,6 +4,7 @@ import type { IssueDetail } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { useConfigRead } from '@/features/settings/configApi.ts'
 import { Button } from '@/lib/Button.tsx'
+import { FieldFrame } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
@@ -66,7 +67,7 @@ export function CommentComposer({ issueKey, tracker }: CommentComposerProps) {
 
   return (
     <div className="mt-item flex flex-col gap-item">
-      <div className="flex flex-col overflow-hidden rounded-lg border border-input bg-card focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+      <FieldFrame>
         {markdown ? (
           <ComposerBar
             ids={ids}
@@ -104,7 +105,7 @@ export function CommentComposer({ issueKey, tracker }: CommentComposerProps) {
           busy={busy}
           onSend={send}
         />
-      </div>
+      </FieldFrame>
       <ComposerRefusal blank={blank} error={post.state === 'error' ? post.error : ''} />
       <OutcomeLine said={outcome.said} />
     </div>
@@ -254,6 +255,7 @@ function ComposerBar({ ids, tab, onTab, onFormat }: ComposerBarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-item border-b border-border bg-muted/40 px-2 py-1.5">
       <div role="tablist" aria-label="Comment" className="flex gap-tight rounded-md bg-muted p-0.5">
+        {/* Not a Button: a tab of the tab list, drawn as a tab. */}
         {tabs.map(({ tab: each, label }) => (
           <button
             key={each}
@@ -298,6 +300,7 @@ const formatButtons: { format: Format; label: string; Icon: LucideIcon }[] = [
 function FormatButtons({ onFormat }: { onFormat: (format: Format) => void }) {
   return (
     <div role="group" aria-label="Formatting" className="flex gap-tight">
+      {/* Not a Button: a toolbar's icon, which keeps the selection in the box. */}
       {formatButtons.map(({ format, label, Icon }) => (
         <button
           key={format}

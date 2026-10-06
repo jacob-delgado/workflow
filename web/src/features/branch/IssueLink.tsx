@@ -3,13 +3,11 @@ import type { Branch, BranchIssuePreview } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { shownLinkKey } from '@/features/issues/issuePlaces.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Input } from '@/lib/Field.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { linkIssue, previewLink, unlinkIssue } from './branchIssueApi.ts'
-
-const inputClass =
-  'rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
 
 // IssueLink ties the branch to an issue by hand, for work begun outside
 // workflow on a branch whose name names none: it names the issue a linked
@@ -55,7 +53,6 @@ export function IssueLink({ branch, outcome }: { branch: Branch; outcome: Teller
     <Button
       variant="secondary"
       ref={offer}
-      className="self-start"
       onClick={() => {
         setOpen(true)
       }}
@@ -170,10 +167,10 @@ function LinkForm({ outcome, onLinked, onClose }: LinkFormProps) {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-item">
+    <form onSubmit={submit} className="flex basis-full flex-col gap-item">
       <label className="flex flex-col gap-1 text-sm">
         Issue
-        <input
+        <Input
           ref={field}
           value={key}
           placeholder="PROJ-7 or #42"
@@ -182,7 +179,6 @@ function LinkForm({ outcome, onLinked, onClose }: LinkFormProps) {
             setKey(event.target.value)
             setPreview(undefined)
           }}
-          className={inputClass}
         />
       </label>
       {preview ? (

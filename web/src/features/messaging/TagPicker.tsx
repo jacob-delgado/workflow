@@ -9,14 +9,11 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Select } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { savePerson, useSlackGroups, useSlackMembers } from './slackApi.ts'
 import { linkedPeople, type TagPick, withGroup, withPeople } from './tagPick.ts'
-
-// selectStyle is how a picker's native select is drawn, as the channel's is.
-const selectStyle =
-  'min-w-0 max-w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground'
 
 interface TagPickerProps {
   tagging: AnnouncementTagging
@@ -231,7 +228,9 @@ function OwnerOnSlack({ owner, choices, channel, busy, onLink }: OwnerOnSlackPro
         <span className="sr-only">
           {owner.kind === 'team' ? 'Slack group for' : 'Slack user for'} {owner.owner}
         </span>
-        <select
+        <Select
+          size="sm"
+          className="max-w-full"
           value=""
           disabled={busy || choices.length === 0}
           onChange={(event) => {
@@ -243,7 +242,6 @@ function OwnerOnSlack({ owner, choices, channel, busy, onLink }: OwnerOnSlackPro
               ...pickedFrom,
             })
           }}
-          className={selectStyle}
         >
           <option value="">Not linked yet</option>
           {choices.map((choice) => (
@@ -251,7 +249,7 @@ function OwnerOnSlack({ owner, choices, channel, busy, onLink }: OwnerOnSlackPro
               {choice.label}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <Button
         variant="secondary"

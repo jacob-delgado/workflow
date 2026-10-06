@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useForm, type UseFormRegister } from 'react-hook-form'
 import type { Branch } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Input, Select, TextArea } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
@@ -141,33 +142,32 @@ function MessageFields({ register, commitTypes, onScopeTyping }: MessageFieldsPr
       <div className="flex gap-item">
         <label className={labelClass}>
           Type
-          <select {...register('type')} className={commitInputClass}>
+          <Select {...register('type')}>
             {commitTypes.map((type) => (
               <option key={type} value={type}>
                 {type}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className={cn('min-w-0 flex-1', labelClass)}>
           Scope (optional)
-          <input {...register('scope', { onChange: onScopeTyping })} className={commitInputClass} />
+          <Input {...register('scope', { onChange: onScopeTyping })} />
         </label>
       </div>
 
       <label className={labelClass}>
         Subject
-        <input
+        <Input
           {...register('subject')}
           required
           placeholder="what the change does, in the imperative"
-          className={commitInputClass}
         />
       </label>
 
       <label className={labelClass}>
         Body (optional)
-        <textarea {...register('body')} rows={3} className={commitInputClass} />
+        <TextArea {...register('body')} rows={3} />
       </label>
 
       <label className="flex items-center gap-2 text-sm">
@@ -230,6 +230,3 @@ function useScopeSuggestion(suggested: string, apply: (scope: string) => void) {
 }
 
 const labelClass = 'flex flex-col gap-tight text-sm text-muted-foreground'
-
-const commitInputClass =
-  'rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'

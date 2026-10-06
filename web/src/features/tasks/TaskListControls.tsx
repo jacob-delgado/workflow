@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import type { Task } from '@/api/generated/types.gen.ts'
 import { FilterChips } from '@/lib/FilterChips.tsx'
+import { Input, Select } from '@/lib/Field.tsx'
 import {
   isTaskFacetPicked,
   taskFacetChoices,
@@ -41,23 +42,24 @@ export function TaskListControls({
       <div className="flex flex-wrap items-center gap-group">
         <label className="flex items-center gap-item text-sm">
           <span className="text-muted-foreground">Sort</span>
-          <select
+          <Select
+            size="sm"
             value={order}
             onChange={(event) => {
               onOrder(event.target.value as TaskOrder)
             }}
-            className="rounded-md border border-input bg-background px-2 py-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             {(Object.keys(taskOrderWords) as TaskOrder[]).map((choice) => (
               <option key={choice} value={choice}>
                 {taskOrderWords[choice]}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex items-center gap-item text-sm">
           <span className="text-muted-foreground">Filter</span>
-          <input
+          <Input
+            size="sm"
             ref={filter}
             type="search"
             value={text}
@@ -65,7 +67,7 @@ export function TaskListControls({
             onChange={(event) => {
               onText(event.target.value)
             }}
-            className="w-48 rounded-md border border-input bg-background px-2 py-1 placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="w-64"
           />
         </label>
       </div>

@@ -56,6 +56,7 @@ function Chip({ task }: { task: Task & { start: string } }) {
   const setSection = useUiStore((state) => state.setSection)
   const now = useNow()
 
+  // Not a Button: the header's chip, drawn as the task it names, not as an act.
   return (
     <button
       type="button"

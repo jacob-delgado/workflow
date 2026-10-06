@@ -116,6 +116,12 @@ export default tseslint.config(
       // React escapes all interpolated content; never bypass it. Nor dim with
       // opacity, nor head a part in capitals.
       'no-restricted-syntax': ['error', ...noReactEscapeBypass, ...noOpacityDimming, ...noAllCaps],
+      // A label wrapping one of web/src/lib's fields labels the control it
+      // draws, as one wrapping the native element does.
+      'jsx-a11y/label-has-associated-control': [
+        'error',
+        { controlComponents: ['Input', 'Select', 'TextArea'], depth: 3 },
+      ],
     },
   },
   // Black-box test discipline (the TS analogue of Go's external `_test`

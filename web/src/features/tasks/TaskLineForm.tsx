@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import type { TaskList } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Input } from '@/lib/Field.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 
@@ -61,14 +62,14 @@ export function TaskLineForm({
       <label htmlFor={field} className="font-mono text-sm text-muted-foreground">
         {command}
       </label>
-      <input
+      <Input
         id={field}
         value={line}
         onChange={(event) => {
           setLine(event.target.value)
           setEmpty(false)
         }}
-        className="min-w-40 flex-1 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="min-w-40 flex-1"
       />
       <Button variant="secondary" type="submit" disabled={write.state === 'running'}>
         {write.state === 'running' ? busy : verb}

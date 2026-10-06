@@ -21,7 +21,7 @@ interface FavoritesListProps {
 export function FavoritesList({ favorites, kept, onSwitch, onForget }: FavoritesListProps) {
   return (
     <section aria-labelledby="favorites" className="flex flex-col gap-item">
-      <h2 id="favorites" className="text-lg font-semibold">
+      <h2 id="favorites" className="text-base font-semibold">
         Favorites
       </h2>
       {kept ? null : (

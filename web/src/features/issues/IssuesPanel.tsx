@@ -3,6 +3,7 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Issue, IssuesPage, TaskBranch, TasksSummary } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot, useSnapshotStore } from '@/api/snapshot.ts'
 import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
+import { Button } from '@/lib/Button.tsx'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
@@ -252,6 +253,7 @@ function IssueRows({ issues, branches, tasks, rowRefs, outcome }: IssueRowsProps
 
         return (
           <li key={issue.key} className="flex flex-wrap items-center gap-tight">
+            {/* Not a Button: a row of the list that selects its issue, drawn as the row. */}
             <button
               ref={(element) => {
                 if (element !== null) {
@@ -381,16 +383,16 @@ function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssu
           {loadOutcome(loaded, streamed.total, remain)}
         </p>
         {remain ? (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             aria-disabled={more.isFetchingNextPage}
             onClick={() => {
               void onLoadMore()
             }}
-            className="rounded-sm border border-input px-2 py-1 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             {more.isFetchingNextPage ? 'Loading more…' : 'Load more'}
-          </button>
+          </Button>
         ) : null}
       </div>
       {more.isError ? (
@@ -489,17 +491,18 @@ function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
 
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         aria-label={`Check out ${issueKey}`}
         disabled={state === 'running'}
         onClick={() => {
           void run()
         }}
-        className="shrink-0 rounded-sm border border-input px-2 py-1 text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+        className="shrink-0"
       >
         {state === 'running' ? 'Switching…' : 'Check out'}
-      </button>
+      </Button>
       {state === 'error' ? (
         <p role="alert" className="basis-full text-xs text-destructive">
           {error}
