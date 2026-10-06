@@ -98,7 +98,7 @@ func TestDoneCompletesTheSelectedTaskAndReloads(t *testing.T) {
 
 	// Assert
 	requireTaskWrites(t, repo, "task done "+trackedTaskUUID)
-	requireScreen(t, view, "● completed 3")
+	requireScreen(t, view, "● marked 3 done")
 
 	// Both lists are read at start, and again once the task is done.
 	if got := repo.asked("tasks"); len(got) != 4 {
@@ -418,7 +418,7 @@ func TestTheTasksFooterOffersTheVerbsForTheSelectedTask(t *testing.T) {
 		"a started task for an issue": {
 			keys: []string{tasksPane},
 			want: []string{
-				"s stop", "d mark done", "a add", "A annotate", "e modify", "u undo", "enter go to issue", "o open",
+				"s stop", offersDone, "a add", "A annotate", "e modify", "u undo", "enter go to issue", "o open",
 				"y copy url", "r refresh",
 			},
 			refuse: []string{"s start", "sync"},
@@ -478,7 +478,7 @@ func TestDryRunHoldsBackTaskActionsAndSaysSo(t *testing.T) {
 	}{
 		"stopping":   {keys: []string{tasksPane, "s"}, want: "dry run: would stop task 12"},
 		"starting":   {keys: []string{tasksPane, downAction, "s"}, want: "dry run: would start task 3"},
-		"completing": {keys: []string{tasksPane, "d"}, want: "dry run: would complete task 12"},
+		"completing": {keys: []string{tasksPane, "d"}, want: "dry run: would mark task 12 done"},
 		"adding": {
 			keys: append([]string{tasksPane, "a"}, append(letters("Renew the cert"), keyEnter)...),
 			want: "dry run: task add Renew the cert",

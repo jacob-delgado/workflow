@@ -105,7 +105,7 @@ func TestIssuesPaneSaysLoadingBeforeTheSearchAnswers(t *testing.T) {
 
 	// Assert
 	// Other panes are loading too; the heavy border is the Issues pane's own.
-	requireScreen(t, view, focused("1 Issues"), "┃ loading…")
+	requireScreen(t, view, focused("1 Issues"), "┃ reading…")
 	refuseScreen(t, view, "OPS-1")
 }
 

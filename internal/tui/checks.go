@@ -197,7 +197,7 @@ func (m Model) previewRerun() (Model, tea.Cmd) {
 	pull, head := m.review.pull, m.branch.branch.Head
 	m.overlay = lastLook{
 		marks: m.marks, styles: m.styles, title: "Re-run checks",
-		body: "re-run the failed checks on " + m.vocab.sigil + strconv.Itoa(pull.Number) + " " + pull.Title,
+		body: "Re-run the failed checks on " + m.vocab.sigil + strconv.Itoa(pull.Number) + " " + pull.Title + "?",
 		verb: "re-run", doing: "re-running",
 		proceed: func(m Model) (Model, tea.Cmd) { return m.rerunChecks(pull, head) },
 	}

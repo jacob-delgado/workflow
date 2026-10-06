@@ -31,7 +31,7 @@ func TestThePushPreviewNamesTheRemoteThePushGoesTo(t *testing.T) {
 			preview := typing(t, forked.live(t, 120, 40), "2", "P")
 
 			// Assert
-			requireScreen(t, preview.View().Content, "push "+featureName+" to "+forkRemote)
+			requireScreen(t, preview.View().Content, "Push "+featureName+" to "+forkRemote+"?")
 		})
 	}
 }

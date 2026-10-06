@@ -256,7 +256,7 @@ func (p branchPicker) view(_, rows int) (string, string) {
 
 	switch {
 	case !p.settled:
-		lines = append(lines, "loading branches"+p.marks.ellipsis)
+		lines = append(lines, "reading the branches"+p.marks.ellipsis)
 	case p.listErr != nil:
 		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
 	case len(p.branches.items) == 0:

@@ -11,7 +11,7 @@ import (
 )
 
 // readingMethods is the merge picker while the methods it offers are read.
-const readingMethods = "loading merge methods…"
+const readingMethods = "reading the merge methods…"
 
 // mergeable is newWorld with the pull request green, approved and clean, so it
 // can be merged.

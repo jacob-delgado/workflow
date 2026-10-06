@@ -265,7 +265,7 @@ func (p statusPicker) view(width, rows int) (string, string) {
 
 	switch {
 	case !p.settled:
-		lines = append(lines, "loading statuses"+p.marks.ellipsis)
+		lines = append(lines, "reading the statuses"+p.marks.ellipsis)
 	case p.listErr != nil:
 		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
 	case len(p.transitions.items) == 0:

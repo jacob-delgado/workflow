@@ -81,7 +81,7 @@ func (s branchState) onFeatureBranch() bool {
 func (m Model) branchRail(_ int) string {
 	switch {
 	case !m.branch.loaded:
-		return "loading" + m.marks.ellipsis
+		return "reading" + m.marks.ellipsis
 	case m.branch.err != nil:
 		return m.failedGlyph() + " could not read the branch" + m.marks.separator + "see detail"
 	case m.branch.branch.Detached:
@@ -217,7 +217,7 @@ func (m Model) canPush() bool {
 func (m Model) previewPush() (Model, tea.Cmd) {
 	m.overlay = lastLook{
 		marks: m.marks, styles: m.styles, title: "Push branch",
-		body: "push " + m.branch.branch.Name + " to " + m.branch.branch.PushRemote, verb: "push",
+		body: "Push " + m.branch.branch.Name + " to " + m.branch.branch.PushRemote + "?", verb: "push",
 		proceed: func(m Model) (Model, tea.Cmd) { return m.startPush(nil) },
 	}
 
@@ -229,7 +229,7 @@ func (m Model) previewPush() (Model, tea.Cmd) {
 func (m Model) previewRebase() (Model, tea.Cmd) {
 	m.overlay = lastLook{
 		marks: m.marks, styles: m.styles, title: "Rebase branch",
-		body: "rebase " + m.branch.branch.Name + " onto " + m.branch.branch.Base, verb: "rebase",
+		body: "Rebase " + m.branch.branch.Name + " onto " + m.branch.branch.Base + "?", verb: "rebase",
 		proceed: Model.startRebase,
 	}
 
@@ -358,7 +358,7 @@ func (c branchCreator) view(width, _ int) (string, string) {
 // title names the creator for the issue it is for, when it is for one.
 func (c branchCreator) title() string {
 	if c.forIssue {
-		return "New branch for " + string(c.issue.Key)
+		return "Start work on " + string(c.issue.Key)
 	}
 
 	return "New branch"

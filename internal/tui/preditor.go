@@ -181,7 +181,7 @@ func (msg pullEdited) apply(m Model) (Model, tea.Cmd) {
 
 	m.review.pull.Title, m.review.pull.Body = msg.pull.Title, msg.pull.Body
 
-	return m.closeOverlay().noticed(m.marks.done + " updated " + m.vocab.sigil + strconv.Itoa(msg.pull.Number)), nil
+	return m.closeOverlay().noticed(m.marks.done + " saved " + m.vocab.sigil + strconv.Itoa(msg.pull.Number)), nil
 }
 
 // failed is the editor kept open with the reason the change was turned down.

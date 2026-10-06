@@ -32,7 +32,7 @@ func TestIssuesFooterShowsEveryLiveKey(t *testing.T) {
 
 	// Assert
 	requireScreen(t, footer, changeStatusHint, "c comment", "a assign", "w log work",
-		"b branch for PROJ-412", "/ search", "o open", "y copy url", "r refresh", "? keys")
+		"b start work", "/ search", "o open", "y copy url", "r refresh", "? keys")
 }
 
 func TestTheIssuesFooterOffersAVerbOnlyWhereItsSeamIsWired(t *testing.T) {

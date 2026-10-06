@@ -297,7 +297,7 @@ list says the forge's are missing.
 
 ### Branch
 
-`b` proposes a name from the selected issue: `fix/` for a bug and `feat/` for
+`b`, **Start work on** the issue, proposes a name from the selected issue: `fix/` for a bug and `feat/` for
 anything else, then the key and the summary, as in
 `fix/PROJ-412-token-redaction`. Edit it freely; a name git would refuse says so
 as you type. The branch starts from origin's default branch, which the overlay
@@ -627,8 +627,8 @@ unasked.
 | --- | --- |
 | A branch created for an issue with `b` — not one made in a worktree with `ctrl+w` — or switched to with `s` — not one another worktree has, which `s` leaves for | Start the issue's task, or, with none, track the issue and start the new task |
 | A pull request opened for the branch's Jira issue | Annotate its task with the pull request's number and URL |
-| That pull request merged with `M` | Complete the task |
-| The issue moved to a done status with `t` | Complete the task |
+| That pull request merged with `M` | Mark the task done |
+| The issue moved to a done status with `t` | Mark the task done |
 
 The offers keep one task started at a time: when another is — another
 issue's, or one that tracks no issue — the offer is to **Switch the task**: it

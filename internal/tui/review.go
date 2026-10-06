@@ -230,7 +230,7 @@ func (m Model) ciSummary() string {
 	case m.review.ciErr != nil:
 		return m.failureSummary(m.review.ciErr)
 	case !m.review.checked:
-		return "checking" + m.marks.ellipsis
+		return "reading" + m.marks.ellipsis
 	case reported.State == forge.CINone:
 		return m.ciGlyph() + " no checks reported" + m.checkedAtSuffix()
 	}
@@ -260,7 +260,7 @@ func (m Model) reviewRail(_ int) string {
 	case !m.branch.onFeatureBranch():
 		return "on no feature branch"
 	case !m.review.loaded:
-		return "looking" + m.marks.ellipsis
+		return "reading" + m.marks.ellipsis
 	case m.review.err != nil:
 		return m.failureSummary(m.review.err)
 	case !m.review.found:

@@ -211,7 +211,7 @@ func TestTheBranchPaneSaysSoBeforeTheBranchLoads(t *testing.T) {
 
 	// Assert
 	// Other panes are loading too; the heavy border is the Branch pane's own.
-	requireScreen(t, view, focused("2 Branch"), "┃ loading…")
+	requireScreen(t, view, focused("2 Branch"), "┃ reading…")
 }
 
 func TestBOpensABranchNamedForTheSelectedIssue(t *testing.T) {
@@ -227,7 +227,7 @@ func TestBOpensABranchNamedForTheSelectedIssue(t *testing.T) {
 
 	// Assert: it proposes a name for the issue, from the base
 	requireScreen(t, creator.View().Content,
-		"┏━ New branch", "for PROJ-412 "+issueSummary, "> fix/PROJ-412-fix-token-redaction",
+		"┏━ Start work on", "for PROJ-412 "+issueSummary, "> fix/PROJ-412-fix-token-redaction",
 		"from origin/main", "enter create")
 
 	// Act: create it
@@ -267,7 +267,7 @@ func TestTheBranchNameIsCheckedAsItIsTyped(t *testing.T) {
 
 	// Assert: nothing is created, and the creator stays open
 	requireScreen(t, refused.View().Content,
-		"┏━ New branch")
+		"┏━ Start work on")
 
 	if calls := branching.asked("create"); len(calls) != 0 {
 		t.Errorf("created a branch git would refuse: %q", calls)
@@ -316,13 +316,13 @@ func TestARefusedBranchKeepsTheCreatorOpen(t *testing.T) {
 
 	// Assert: the creator stays open with git's reason
 	requireScreen(t, refused.View().Content,
-		"┏━ New branch", "✗ fatal: a branch named 'fix/x' already exists")
+		"┏━ Start work on", "✗ fatal: a branch named 'fix/x' already exists")
 
 	// Act: close it
 	closed := typing(t, refused, keyEsc).View().Content
 
 	// Assert: the keyboard is back on the pane it came from
-	refuseScreen(t, closed, "┏━ New branch")
+	refuseScreen(t, closed, "┏━ Start work on")
 	requireScreen(t, closed, focused("1 Issues"))
 }
 
@@ -394,7 +394,7 @@ func TestPushIsPreviewedBeforeItIsSent(t *testing.T) {
 
 	// Assert: what will be pushed is shown, nothing pushed yet
 	requireScreen(t, preview.View().Content,
-		"push "+featureName+" to origin", "enter push")
+		"Push "+featureName+" to origin?", "enter push")
 
 	if calls := pushing.asked("push"); len(calls) != 0 {
 		t.Errorf("pushed before the preview was confirmed: %q", calls)

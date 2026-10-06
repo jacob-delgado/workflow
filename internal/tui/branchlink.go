@@ -5,6 +5,7 @@ package tui
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -201,7 +202,7 @@ func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 			err = linkIssue(branch, string(issueKey))
 		}
 
-		return branchLinked{branch: branch, issueKey: issueKey, pull: pull, err: err}
+		return branchLinked{branch: branch, issueKey: issueKey, pull: pull, described: body != "", err: err}
 	}
 }
 
@@ -224,10 +225,11 @@ func (m Model) issueBrowseURL(issueKey jira.Key) string {
 
 // branchLinked reports how linking the branch went.
 type branchLinked struct {
-	branch   string
-	issueKey jira.Key
-	pull     forge.PullRequest
-	err      error
+	branch    string
+	issueKey  jira.Key
+	pull      forge.PullRequest
+	described bool
+	err       error
 }
 
 var _ applier = branchLinked{}
@@ -240,7 +242,7 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[branchLinker](m, msg.err), nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.done + " linked " + msg.branch + " to " + string(msg.issueKey))
+	m = m.closeOverlay().noticed(m.marks.done + " " + msg.said(m.vocab.sigil))
 
 	ref, _ := convention.RefOf(string(msg.issueKey))
 	if ref.Tracker == convention.TrackerJira && msg.pull.Number != 0 && m.deps.Jira.LinkPullRequest != nil {
@@ -248,6 +250,17 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	return m, m.loadBranch()
+}
+
+// said is what the link did, in the words its key offered: the branch linked,
+// and the pull request's description updated when it was.
+func (msg branchLinked) said(sigil string) string {
+	linked := "linked " + msg.branch + " to " + string(msg.issueKey)
+	if !msg.described {
+		return linked
+	}
+
+	return linked + " and updated " + sigil + strconv.Itoa(msg.pull.Number)
 }
 
 // reviewIssue is the line naming the issue the branch and its pull request are
