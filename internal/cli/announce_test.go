@@ -322,7 +322,7 @@ func TestNoPullRequestPointsAtPR(t *testing.T) {
 	_, err := run(t, repo, "announce", "--yes")
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "workflow pr") {
+	if err == nil || !strings.HasSuffix(err.Error(), "; open one with `workflow pr`") {
 		t.Errorf("announce = %v, want the refusal to name the command that opens a pull request", err)
 	}
 }

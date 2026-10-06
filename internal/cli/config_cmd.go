@@ -156,7 +156,7 @@ func targetDir(global bool) (string, error) {
 func refuseOverwrite(path string, force bool) error {
 	_, err := os.Stat(path)
 	if err == nil && !force {
-		return fmt.Errorf("%w: %s (pass --force to overwrite)", errConfigExists, path)
+		return fmt.Errorf("%w: %s; pass --force to overwrite", errConfigExists, path)
 	}
 
 	return nil

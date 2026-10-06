@@ -204,6 +204,10 @@ func TestConfigInitRefusesToOverwriteWithoutForce(t *testing.T) {
 
 	wantExit(t, err, 4)
 
+	if !strings.HasSuffix(err.Error(), "; pass --force to overwrite") {
+		t.Errorf("config init = %v, want the hint after a semicolon", err)
+	}
+
 	// The refusal is the point: that file holds credentials that cannot be
 	// recovered once overwritten.
 	contents, err := os.ReadFile(path)

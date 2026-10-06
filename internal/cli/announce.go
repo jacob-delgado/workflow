@@ -155,7 +155,7 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 
 	announcement, pull, err := loop.ComposeAnnouncement(seams.Compose, seams.Messaging, seams.Project, seams.Kind)
 	if errors.Is(err, loop.ErrNoPullRequest) {
-		return fmt.Errorf("%w (open one with workflow pr)", errNoPullRequest)
+		return fmt.Errorf("%w; open one with `workflow pr`", errNoPullRequest)
 	}
 
 	if err != nil {
@@ -189,7 +189,7 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 		return fmt.Errorf("announcing to %s: %w", service, err)
 	}
 
-	fmt.Fprintln(out.notes, "Announced to "+target)
+	fmt.Fprintln(out.notes, "Announced to "+target+".")
 
 	return nil
 }

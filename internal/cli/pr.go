@@ -224,7 +224,7 @@ func offerLink(notes io.Writer, seams prSeams, opened openedPull, opts writeOpti
 		return fmt.Errorf("linking %s on %s: %w", pull, issue, err)
 	}
 
-	fmt.Fprintln(notes, "Linked "+pull+" on "+issue)
+	fmt.Fprintln(notes, "Linked "+pull+" on "+issue+".")
 
 	return nil
 }
@@ -281,7 +281,7 @@ func offerReviewStatus(notes io.Writer, seams prSeams, issueKey jira.Key, opts w
 		return fmt.Errorf("moving %s to %s: %w", issueKey, target.ToStatus, err)
 	}
 
-	fmt.Fprintln(notes, "Moved "+string(issueKey)+" to "+target.ToStatus)
+	fmt.Fprintln(notes, "Moved "+string(issueKey)+" to "+target.ToStatus+".")
 
 	return nil
 }
