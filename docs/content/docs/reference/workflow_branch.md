@@ -25,6 +25,12 @@ prints the worktree's directory alone on the last line.
 workflow branch <issue> [flags]
 ```
 
+### Examples
+
+```
+  cd "$(workflow branch PROJ-7 --fetch --worktree --yes | tail -n 1)"   # start fresh, beside this checkout
+```
+
 ### Options
 
 ```

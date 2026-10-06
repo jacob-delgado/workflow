@@ -83,6 +83,10 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 			"What it announces is remembered, with what the interface announces: a pull\n" +
 			"request already announced at the moment it is at is said to be, and asked about\n" +
 			"again rather than repeated — with --yes, it is left as it is.",
+		Example: examples(
+			`workflow --dry-run announce   # the announcement, and where it would go`,
+			`workflow announce --yes       # announce it, unattended`,
+		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runAnnounceCommand(cmd, prompt, opts)

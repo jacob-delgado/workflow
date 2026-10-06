@@ -30,6 +30,13 @@ again rather than repeated — with --yes, it is left as it is.
 workflow announce [flags]
 ```
 
+### Examples
+
+```
+  workflow --dry-run announce   # the announcement, and where it would go
+  workflow announce --yes       # announce it, unattended
+```
+
 ### Options
 
 ```

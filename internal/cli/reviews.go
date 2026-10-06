@@ -47,6 +47,10 @@ func newReviewsCmd() *cobra.Command {
 			"been waiting. The forge is the one your repository's remote points at.\n" +
 			"--sort newest lists the latest first, and --sort repo groups them by\n" +
 			"repository, oldest first within each.",
+		Example: examples(
+			`workflow reviews | wc -l      # how many pull requests wait on you`,
+			`workflow reviews --json       # the same, oldest first, as data`,
+		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runReviewsCommand(cmd, opts)

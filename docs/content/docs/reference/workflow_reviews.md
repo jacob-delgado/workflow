@@ -21,6 +21,13 @@ repository, oldest first within each.
 workflow reviews [flags]
 ```
 
+### Examples
+
+```
+  workflow reviews | wc -l      # how many pull requests wait on you
+  workflow reviews --json       # the same, oldest first, as data
+```
+
 ### Options
 
 ```

@@ -80,6 +80,11 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 			"--json prints what was opened, and each offer and whether it was taken, as one\n" +
 			"JSON object on stdout — under --dry-run, the pull request it would open — and\n" +
 			"says everything else, the preview included, on stderr.",
+		Example: examples(
+			`workflow --dry-run pr                     # what pr would push and open`,
+			`workflow pr --yes                         # push, open, link and move, without asking`,
+			`workflow pr --yes --json | jq .pull.url   # the same, and the address it opened`,
+		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runPRCommand(cmd, prompt, opts, asJSON)

@@ -42,6 +42,9 @@ func newCommentCmd(prompt Prompt) *cobra.Command {
 			"posted as Jira's markup when jira.markdown_comments is on, as the interface\n" +
 			"posts one; a forge issue's is Markdown. The comment, as it will be stored, is\n" +
 			"printed and confirmed before it is posted.",
+		Example: examples(
+			`git log -1 --format=%B | workflow comment PROJ-7 --yes   # the text on stdin, never quoted`,
+		),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommentCommand(cmd, prompt, args[0], opts)

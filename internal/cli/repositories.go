@@ -27,6 +27,9 @@ func newRepositoriesCmd() *cobra.Command {
 			"section show it: this directory and its repository, the repository's worktrees,\n" +
 			"the main one first, and the directories you keep as favorites, each with what is\n" +
 			"there now. --json prints the web API's Repositories shape.",
+		Example: examples(
+			`workflow repositories --json | jq -r '.worktrees[].dir'   # this repository's worktrees`,
+		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runRepositoriesCommand(cmd, asJSON)

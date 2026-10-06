@@ -14,7 +14,7 @@ Print the configuration in effect, with tokens masked
 Print the configuration in effect as JSON, with every credential masked.
 The JSON alone goes to stdout, so it pipes into jq; the file it came from is
 named on stderr. With no configuration file it says how to create one and
-fails, as doctor does.
+exits 3, as doctor does.
 
 ```
 workflow config show [flags]

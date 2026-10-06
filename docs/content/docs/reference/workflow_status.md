@@ -21,10 +21,19 @@ is not set up, such as a forge with no token, with how to set it up.
 Given one or more directories, it prints a labeled line for each, so
 `workflow status ~/src/*` reports every repository at once. Each reads its
 own configuration. A directory that cannot be read still gets its line,
-saying why, and the command then fails, as it does outside a repository.
+saying why, and the command then fails, as it does outside a repository: it
+exits 3 when a directory's configuration does not load, otherwise 4 when one
+is not a git repository — as bare status exits 4 outside one — otherwise 1.
 
 ```
 workflow status [directory...] [flags]
+```
+
+### Examples
+
+```
+  workflow status --json        # where the work stands, as data
+  workflow status ~/src/*       # every repository at once, a line each
 ```
 
 ### Options

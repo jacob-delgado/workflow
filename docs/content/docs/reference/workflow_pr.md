@@ -31,6 +31,14 @@ says everything else, the preview included, on stderr.
 workflow pr [flags]
 ```
 
+### Examples
+
+```
+  workflow --dry-run pr                     # what pr would push and open
+  workflow pr --yes                         # push, open, link and move, without asking
+  workflow pr --yes --json | jq .pull.url   # the same, and the address it opened
+```
+
 ### Options
 
 ```

@@ -22,6 +22,12 @@ printed and confirmed before it is posted.
 workflow comment <issue> [flags]
 ```
 
+### Examples
+
+```
+  git log -1 --format=%B | workflow comment PROJ-7 --yes   # the text on stdin, never quoted
+```
+
 ### Options
 
 ```
