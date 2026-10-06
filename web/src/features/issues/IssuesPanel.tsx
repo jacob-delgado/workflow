@@ -280,7 +280,13 @@ function IssueRows({ issues, branches, tasks, rowRefs, outcome }: IssueRowsProps
           : undefined
 
         return (
-          <li key={issue.key} className="flex flex-wrap items-center gap-tight">
+          <li
+            key={issue.key}
+            className={cn(
+              'flex flex-col rounded-md border border-transparent hover:bg-accent motion-safe:transition-colors',
+              issue.key === selected && 'border-border bg-accent',
+            )}
+          >
             {/* Not a Button: a row of the list that selects its issue, drawn as the row. */}
             <button
               ref={(element) => {
@@ -297,11 +303,7 @@ function IssueRows({ issues, branches, tasks, rowRefs, outcome }: IssueRowsProps
               onClick={() => {
                 selectIssue(issue.key)
               }}
-              className={cn(
-                'flex flex-1 flex-col gap-tight rounded-md border border-transparent px-3 py-2 text-left motion-safe:transition-colors',
-                'hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                issue.key === selected && 'border-border bg-accent',
-              )}
+              className="flex flex-col gap-tight rounded-md px-3 py-2 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <span className="flex flex-wrap items-center gap-item">
                 <span className="text-xs text-muted-foreground tabular-nums">
@@ -509,7 +511,9 @@ interface RowCheckoutProps {
 
 // RowCheckout switches to an in-flight issue's branch from the list, so moving
 // between tasks does not need the detail panel first. Where it went is said in
-// the panel's outcome; a refusal — a dirty tree — is shown inline.
+// the panel's outcome; a refusal — a dirty tree — is shown inline. It is the
+// row's bottom line, inside the row's box and under its summary, so a row that
+// offers it is as wide as one that does not and the list keeps one right edge.
 function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
   const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
     fallback:
@@ -520,7 +524,7 @@ function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
   })
 
   return (
-    <>
+    <div className="flex flex-col items-start gap-tight px-3 pb-2">
       <Button
         variant="secondary"
         size="sm"
@@ -529,15 +533,14 @@ function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
         onClick={() => {
           void run()
         }}
-        className="shrink-0"
       >
         {state === 'running' ? 'Switching…' : 'Switch branch'}
       </Button>
       {state === 'error' ? (
-        <p role="alert" className="basis-full text-xs text-destructive">
+        <p role="alert" className="text-xs text-destructive">
           {error}
         </p>
       ) : null}
-    </>
+    </div>
   )
 }
