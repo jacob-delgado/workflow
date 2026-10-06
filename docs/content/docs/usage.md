@@ -190,6 +190,7 @@ every key `?` lists, by where it works.
 | | `t` | Today |
 | | `c` | Pick a day, a month, a year or a range in the calendar |
 | | `Y` | Copy the summary as Markdown |
+| | `p` | Post the summary to your messaging service, after a preview |
 | | `o` / `y` | Open the selected item in the browser, or copy its URL |
 | | `r` | Read the period again |
 | 9 Repositories | `enter` | Switch to the selected directory, after a last look |
@@ -690,8 +691,16 @@ to the cursor, up to a year and a day. Each source fills in as it answers, and
 one that cannot be read says so above the rest, as does one that had more
 than it gave. A period that has ended and has been read in full — every
 source answered, none failed — is not read again when you come back to the
-pane; `r` reads it again. `Y` copies it as Markdown, ready to paste into a
-standup, and `o` or `y` opens or copies the link of the item the cursor is on.
+pane; `r` reads it again. `Y` copies it as Markdown, and `o` or `y` opens or
+copies the link of the item the cursor is on.
+
+Once every source has answered, `p` posts the summary to your team. It opens a
+preview of the Markdown and where it goes — the channel, which `←`/`→` change
+when Slack offers more than one, or the channel a webhook is bound to — and
+nothing is posted until `enter`; `e` edits the text first, and `esc` discards
+it. The post shows the headings and the list as the service does: on Slack, a
+heading is a bold line and an item a bullet. Nothing about the post is kept,
+as an announcement is. `workflow summary --post` posts the same from a script.
 
 Commits are your own, told by the `user.email` git commits under, and placed
 by when you wrote them, so a commit rebased since keeps its hour; a repository

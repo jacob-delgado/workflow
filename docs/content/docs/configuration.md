@@ -678,7 +678,8 @@ The actions you can rebind, grouped by where they work, are:
 - **Tasks:** `start-stop`, `mark-done`, `add-task`, `annotate-task`,
   `modify-task`, `undo-task`, `sync-tasks`, `search-tasks`, `filter-tasks`,
   `sort-tasks`.
-- **Summary:** `earlier`, `later`, `today`, `calendar`, `copy-summary`.
+- **Summary:** `earlier`, `later`, `today`, `calendar`, `copy-summary`,
+  `post-summary`.
 - **Repositories:** `favorite-directory`, `go-to-directory`, `settings`,
   `local-data`.
 - **In a composer or preview:** `edit`, `edit-body`, `next-template`,
