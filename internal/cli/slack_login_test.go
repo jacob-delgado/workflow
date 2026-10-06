@@ -8,6 +8,7 @@ package cli_test
 // (fakeSlack), accepts the refresh it makes.
 
 import (
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -216,4 +217,22 @@ func TestSlackLoginRefusalsExitInTheirFamily(t *testing.T) {
 			wantExit(t, err, tt.want)
 		})
 	}
+}
+
+func TestSlackLoginWithNoTerminalSaysToRunItAtOne(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	writeFile(t, dir, slackUserTokenFile)
+
+	closed := func(string) (string, error) { return "", io.EOF }
+
+	// Act
+	_, err := runGuided(t, dir, cli.Prompt{Line: closed, Secret: closed}, "slack", "login")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "at a terminal") {
+		t.Errorf("slack login with stdin closed = %v, want it to say to run it at a terminal", err)
+	}
+
+	wantExit(t, err, 2)
 }
