@@ -89,7 +89,9 @@ test('a comment posted shows in the thread, and the box is ready for another', a
   const thread = screen.getByRole('list', { name: 'Comments' })
   await within(thread).findByText('Fixed on the branch.')
   expect(writesTo(requests)).toEqual([`POST ${commentPath}`])
-  expect(screen.getByRole('status').textContent).toBe('Commented on PROJ-1.')
+  expect(
+    within(screen.getByRole('region', { name: 'Comments' })).getByRole('status').textContent,
+  ).toBe('Commented on PROJ-1.')
   const box = await commentBox()
   expect((box as HTMLTextAreaElement).value).toBe('')
   expect(document.activeElement).toBe(box)

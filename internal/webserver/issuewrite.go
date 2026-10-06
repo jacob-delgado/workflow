@@ -4,9 +4,11 @@
 package webserver
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -100,8 +102,8 @@ func (s *server) linkRefusal(err error, issueKey jira.Key) api.LinkPullRequestRe
 
 // TransitionIssue moves an issue to the configured review status — the second
 // offer after opening — and nowhere else, without fields. It is not a general
-// transition: a move Jira wants fields for belongs to the terminal's status
-// picker, which asks for them.
+// transition: a move Jira wants fields for is ChangeStatus's, whose form on
+// the page asks for them.
 func (s *server) TransitionIssue(
 	_ context.Context, request api.TransitionIssueRequestObject,
 ) (api.TransitionIssueResponseObject, error) {
@@ -139,7 +141,7 @@ func (s *server) transitionRefusal(err error, issueKey jira.Key, status string) 
 	case errors.Is(err, loop.ErrReviewNeedsFields):
 		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
 			"Jira wants fields filled to move "+string(issueKey)+" to "+status+
-				"; move it from the terminal interface, which asks for them"))
+				"; change its status from the issue, whose form asks for them"))
 	case errors.Is(err, loop.ErrNoReviewTransition):
 		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
 			"Jira offers no move of "+string(issueKey)+" to "+status+" from where it stands"))
@@ -220,4 +222,219 @@ func (s *server) followUps(branch gitrepo.Branch) []api.FollowUp {
 	}
 
 	return offers
+}
+
+// Why a status change's fields cannot be sent as given.
+var (
+	// errNotAsked is a value given for a field the change does not ask for.
+	errNotAsked = errors.New("does not ask for")
+	// errChangeGone is a change the tracker no longer offers from where the
+	// issue stands.
+	errChangeGone = errors.New("that status change is no longer offered")
+)
+
+// ListStatusChanges lists the status changes the tracker offers an issue, each
+// with the fields it needs, as the terminal's status picker lists them.
+func (s *server) ListStatusChanges(
+	_ context.Context, request api.ListStatusChangesRequestObject,
+) (api.ListStatusChangesResponseObject, error) {
+	if s.deps.Transitions == nil {
+		return api.ListStatusChanges422ApplicationProblemPlusJSONResponse(
+			problem(api.Unprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
+	}
+
+	moves, err := s.deps.Transitions(jira.Key(request.Key))
+	if err != nil {
+		body, code := s.fault(err)
+
+		return api.ListStatusChangesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+	}
+
+	return api.ListStatusChanges200JSONResponse(statusChangesDTO(moves)), nil
+}
+
+// ChangeStatus makes the status change the request names with the field values
+// it gives, once each value passes the checks the terminal's field form makes.
+// The changes are read again first, so only one the tracker offers now is made.
+func (s *server) ChangeStatus(
+	_ context.Context, request api.ChangeStatusRequestObject,
+) (api.ChangeStatusResponseObject, error) {
+	if s.deps.Transitions == nil || s.deps.Transition == nil {
+		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(
+			problem(api.Unprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
+	}
+
+	issueKey := jira.Key(request.Key)
+
+	move, values, err := s.statusChange(issueKey, *request.Body)
+	if err != nil {
+		return s.statusChangeRefusal(err, issueKey), nil
+	}
+
+	err = s.deps.Transition(issueKey, move, values)
+	if err != nil {
+		body, code := s.fault(err)
+
+		return api.ChangeStatusdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+	}
+
+	return api.ChangeStatus200JSONResponse{Key: request.Key, Status: move.ToStatus}, nil
+}
+
+// statusChange is the change asked for, as the tracker offers it now, with the
+// value given for each field it needs, each checked against its field.
+func (s *server) statusChange(
+	issueKey jira.Key, asked api.StatusChangeRequest,
+) (jira.Transition, []jira.FieldValue, error) {
+	moves, err := s.deps.Transitions(issueKey)
+	if err != nil {
+		return jira.Transition{}, nil, fmt.Errorf("reading the status changes of %s: %w", issueKey, err)
+	}
+
+	index := slices.IndexFunc(moves, func(move jira.Transition) bool { return move.ID == asked.TransitionID })
+	if index < 0 {
+		return jira.Transition{}, nil, errChangeGone
+	}
+
+	move := moves[index]
+
+	values, err := fieldValues(move, asked.Fields)
+
+	return move, values, err
+}
+
+// fieldValues is the value given for each field move needs, in the order it
+// lists them. It refuses a field only Jira can fill, a field left out or given
+// a value it does not take, and a value for a field move does not ask for —
+// each in words that name the field.
+func fieldValues(move jira.Transition, entries []api.FieldEntry) ([]jira.FieldValue, error) {
+	if field, blocked := move.Unfillable(); blocked {
+		return nil, fmt.Errorf("%s needs %s, %w", move.Name, field.Name, jira.ErrOnlyJira)
+	}
+
+	for _, entry := range entries {
+		if _, asks := move.Field(entry.ID); !asks {
+			return nil, fmt.Errorf("%s %w %s", move.Name, errNotAsked, entry.ID)
+		}
+	}
+
+	values := make([]jira.FieldValue, 0, len(move.Fields))
+
+	for _, field := range move.Fields {
+		value := fieldValue(field, entries)
+
+		err := value.Check()
+		if err != nil {
+			return nil, fmt.Errorf("%s %w", field.Name, err)
+		}
+
+		values = append(values, value)
+	}
+
+	return values, nil
+}
+
+// fieldValue is the value entries give field, empty when they give none.
+func fieldValue(field jira.Field, entries []api.FieldEntry) jira.FieldValue {
+	value := jira.FieldValue{Field: field}
+
+	index := slices.IndexFunc(entries, func(entry api.FieldEntry) bool { return entry.ID == field.ID })
+	if index < 0 {
+		return value
+	}
+
+	entry := entries[index]
+	value.OptionID, value.Text = orZero(entry.OptionID), strings.TrimSpace(orZero(entry.Text))
+
+	if entry.OptionIds != nil {
+		value.OptionIDs = *entry.OptionIds
+	}
+
+	return value
+}
+
+// statusChangeRefusal answers a status change that was not made: a 409 for one
+// no longer offered, a 422 naming the field for a value it cannot take, and
+// the curated fault for a tracker that could not be read.
+func (s *server) statusChangeRefusal(err error, issueKey jira.Key) api.ChangeStatusResponseObject {
+	switch {
+	case errors.Is(err, errChangeGone):
+		return api.ChangeStatus409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+			"that status change is no longer offered for "+string(issueKey)+
+				" from where it stands; read its status changes again"))
+	case isFieldRefusal(err):
+		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, err.Error()))
+	default:
+		body, code := s.fault(err)
+
+		return api.ChangeStatusdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+	}
+}
+
+// isFieldRefusal reports a status change refused for one of its fields, whose
+// words name only the change and the field, never the tracker's address.
+func isFieldRefusal(err error) bool {
+	return slices.ContainsFunc([]error{
+		jira.ErrOnlyJira, jira.ErrNeedsValue, jira.ErrNeedsDate, jira.ErrNeedsChoice, jira.ErrNotAnOption, errNotAsked,
+	}, func(refusal error) bool { return errors.Is(err, refusal) })
+}
+
+// AssignIssue sets an issue's assignee, as the terminal's a does, refusing a
+// blank username before the tracker is asked.
+func (s *server) AssignIssue(
+	_ context.Context, request api.AssignIssueRequestObject,
+) (api.AssignIssueResponseObject, error) {
+	assignee := strings.TrimSpace(request.Body.Assignee)
+
+	switch {
+	case s.deps.Assign == nil:
+		return assignRefusal("assigning an issue is not available; configure Jira or a forge"), nil
+	case assignee == "":
+		return assignRefusal("an assignee needs a username"), nil
+	}
+
+	err := s.deps.Assign(jira.Key(request.Key), assignee)
+	if err != nil {
+		body, code := s.fault(err)
+
+		return api.AssignIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+	}
+
+	return api.AssignIssue200JSONResponse{Key: request.Key, Assignee: assignee}, nil
+}
+
+// assignRefusal is an assignment that was not made, and why.
+func assignRefusal(detail string) api.AssignIssueResponseObject {
+	return api.AssignIssue422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, detail))
+}
+
+// LogWork logs time spent on a Jira issue, as the terminal's w does, with the
+// note given. A forge issue keeps no worklog, and a blank duration is refused,
+// both before Jira is asked.
+func (s *server) LogWork(_ context.Context, request api.LogWorkRequestObject) (api.LogWorkResponseObject, error) {
+	issueKey := jira.Key(request.Key)
+	spent := strings.TrimSpace(request.Body.TimeSpent)
+
+	switch {
+	case s.deps.AddWorklog == nil:
+		return worklogRefusal("logging work is not available; configure Jira to log work"), nil
+	case trackerOf(issueKey) == api.IssueTrackerForge:
+		return worklogRefusal("a forge issue keeps no worklog; log work on a Jira issue"), nil
+	case spent == "":
+		return worklogRefusal("logging work needs a duration, such as 2h or 30m"), nil
+	}
+
+	logged, err := s.deps.AddWorklog(issueKey, spent, strings.TrimSpace(orZero(request.Body.Comment)))
+	if err != nil {
+		body, code := s.fault(err)
+
+		return api.LogWorkdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+	}
+
+	return api.LogWork200JSONResponse{Key: request.Key, TimeSpent: cmp.Or(logged.TimeSpent, spent)}, nil
+}
+
+// worklogRefusal is work that was not logged, and why.
+func worklogRefusal(detail string) api.LogWorkResponseObject {
+	return api.LogWork422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, detail))
 }

@@ -61,7 +61,7 @@ func WebServerAt(addr string) RunWeb {
 // available. The server also takes the interface's keymap check, so Settings
 // never saves a ui.keys map the interface would refuse to start on.
 func WebDeps(deps tui.Deps) webserver.Deps {
-	return withRepositories(withSummarySources(webserver.Deps{
+	return withIssueWrites(withRepositories(withSummarySources(webserver.Deps{
 		Search:        deps.Jira.Search,
 		SearchLenient: deps.Jira.SearchLenient,
 		Issue:         deps.Jira.Issue,
@@ -84,13 +84,9 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		Post:          deps.Messaging.Post,
 		IsGroup:       deps.Forge.IsGroup,
 
-		ReviewRequests:  deps.Forge.ReviewRequests,
-		LinkPullRequest: deps.Jira.LinkPullRequest,
-		Transitions:     deps.Jira.Transitions,
-		Transition:      deps.Jira.Transition,
-		Comment:         deps.Jira.Comment,
-		Stage:           deps.Git.Stage,
-		Unstage:         deps.Git.Unstage,
+		ReviewRequests: deps.Forge.ReviewRequests,
+		Stage:          deps.Git.Stage,
+		Unstage:        deps.Git.Unstage,
 
 		RemoteBranches: deps.Git.RemoteBranches,
 		IssueLinks:     deps.Git.IssueLinks,
@@ -120,7 +116,17 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 
 		CheckKeys: tui.CheckKeys,
 		Clock:     deps.Clock,
-	}, deps), deps)
+	}, deps), deps), deps)
+}
+
+// withIssueWrites gives the web server the tracker's writes: the pull
+// request's link, a status change, a comment, an assignee and a worklog.
+func withIssueWrites(web webserver.Deps, deps tui.Deps) webserver.Deps {
+	web.LinkPullRequest, web.Comment = deps.Jira.LinkPullRequest, deps.Jira.Comment
+	web.Transitions, web.Transition = deps.Jira.Transitions, deps.Jira.Transition
+	web.Assign, web.AddWorklog = deps.Jira.Assign, deps.Jira.AddWorklog
+
+	return web
 }
 
 // withRepositories gives the web server where it works, the directories it

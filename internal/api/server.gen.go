@@ -69,6 +69,9 @@ type ServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(w http.ResponseWriter, r *http.Request, key string)
+	// AssignIssue Assign an issue to someone, by username.
+	// (PUT /api/issues/{key}/assignee)
+	AssignIssue(w http.ResponseWriter, r *http.Request, key string)
 	// AddComment Comment on an issue, in Jira or on the forge.
 	// (POST /api/issues/{key}/comment)
 	AddComment(w http.ResponseWriter, r *http.Request, key string)
@@ -78,6 +81,15 @@ type ServerInterface interface {
 	// TransitionIssue Move an issue to the configured review status.
 	// (POST /api/issues/{key}/transition)
 	TransitionIssue(w http.ResponseWriter, r *http.Request, key string)
+	// ListStatusChanges The status changes the tracker offers an issue, with the fields each needs.
+	// (GET /api/issues/{key}/transitions)
+	ListStatusChanges(w http.ResponseWriter, r *http.Request, key string)
+	// ChangeStatus Change an issue's status, filling the fields the change needs.
+	// (POST /api/issues/{key}/transitions)
+	ChangeStatus(w http.ResponseWriter, r *http.Request, key string)
+	// LogWork Log time spent on a Jira issue.
+	// (POST /api/issues/{key}/worklog)
+	LogWork(w http.ResponseWriter, r *http.Request, key string)
 	// RemoveLocalData Remove the cache, or with scope all the kept associations too.
 	// (DELETE /api/local-data)
 	RemoveLocalData(w http.ResponseWriter, r *http.Request, params RemoveLocalDataParams)
@@ -589,6 +601,32 @@ func (siw *ServerInterfaceWrapper) GetIssue(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// AssignIssue operation middleware
+func (siw *ServerInterfaceWrapper) AssignIssue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AssignIssue(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AddComment operation middleware
 func (siw *ServerInterfaceWrapper) AddComment(w http.ResponseWriter, r *http.Request) {
 
@@ -658,6 +696,84 @@ func (siw *ServerInterfaceWrapper) TransitionIssue(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TransitionIssue(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListStatusChanges operation middleware
+func (siw *ServerInterfaceWrapper) ListStatusChanges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStatusChanges(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangeStatus operation middleware
+func (siw *ServerInterfaceWrapper) ChangeStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangeStatus(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LogWork operation middleware
+func (siw *ServerInterfaceWrapper) LogWork(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LogWork(w, r, key)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1418,6 +1534,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/link", wrapper.LinkPullRequest)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/transition", wrapper.TransitionIssue)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/comment", wrapper.AddComment)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/issues/{key}/transitions", wrapper.ListStatusChanges)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/transitions", wrapper.ChangeStatus)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/issues/{key}/assignee", wrapper.AssignIssue)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/worklog", wrapper.LogWork)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch", wrapper.GetBranch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes", wrapper.ListChanges)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/stage", wrapper.Stage)
@@ -2468,6 +2588,74 @@ func (response GetIssuedefaultApplicationProblemPlusJSONResponse) VisitGetIssueR
 	return err
 }
 
+type AssignIssueRequestObject struct {
+	Key  string `json:"key"`
+	Body *AssignIssueJSONRequestBody
+}
+
+type AssignIssueResponseObject interface {
+	VisitAssignIssueResponse(w http.ResponseWriter) error
+}
+
+type AssignIssue200JSONResponse AssignedIssue
+
+func (response AssignIssue200JSONResponse) VisitAssignIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AssignIssue404ApplicationProblemPlusJSONResponse Problem
+
+func (response AssignIssue404ApplicationProblemPlusJSONResponse) VisitAssignIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AssignIssue422ApplicationProblemPlusJSONResponse Problem
+
+func (response AssignIssue422ApplicationProblemPlusJSONResponse) VisitAssignIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AssignIssuedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AssignIssuedefaultApplicationProblemPlusJSONResponse) VisitAssignIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type AddCommentRequestObject struct {
 	Key  string `json:"key"`
 	Body *AddCommentJSONRequestBody
@@ -2659,6 +2847,223 @@ type TransitionIssuedefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response TransitionIssuedefaultApplicationProblemPlusJSONResponse) VisitTransitionIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStatusChangesRequestObject struct {
+	Key string `json:"key"`
+}
+
+type ListStatusChangesResponseObject interface {
+	VisitListStatusChangesResponse(w http.ResponseWriter) error
+}
+
+type ListStatusChanges200JSONResponse []StatusChange
+
+func (response ListStatusChanges200JSONResponse) VisitListStatusChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStatusChanges404ApplicationProblemPlusJSONResponse Problem
+
+func (response ListStatusChanges404ApplicationProblemPlusJSONResponse) VisitListStatusChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStatusChanges422ApplicationProblemPlusJSONResponse Problem
+
+func (response ListStatusChanges422ApplicationProblemPlusJSONResponse) VisitListStatusChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStatusChangesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListStatusChangesdefaultApplicationProblemPlusJSONResponse) VisitListStatusChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeStatusRequestObject struct {
+	Key  string `json:"key"`
+	Body *ChangeStatusJSONRequestBody
+}
+
+type ChangeStatusResponseObject interface {
+	VisitChangeStatusResponse(w http.ResponseWriter) error
+}
+
+type ChangeStatus200JSONResponse MovedIssue
+
+func (response ChangeStatus200JSONResponse) VisitChangeStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeStatus404ApplicationProblemPlusJSONResponse Problem
+
+func (response ChangeStatus404ApplicationProblemPlusJSONResponse) VisitChangeStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeStatus409ApplicationProblemPlusJSONResponse Problem
+
+func (response ChangeStatus409ApplicationProblemPlusJSONResponse) VisitChangeStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeStatus422ApplicationProblemPlusJSONResponse Problem
+
+func (response ChangeStatus422ApplicationProblemPlusJSONResponse) VisitChangeStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeStatusdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ChangeStatusdefaultApplicationProblemPlusJSONResponse) VisitChangeStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogWorkRequestObject struct {
+	Key  string `json:"key"`
+	Body *LogWorkJSONRequestBody
+}
+
+type LogWorkResponseObject interface {
+	VisitLogWorkResponse(w http.ResponseWriter) error
+}
+
+type LogWork200JSONResponse LoggedWork
+
+func (response LogWork200JSONResponse) VisitLogWorkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogWork404ApplicationProblemPlusJSONResponse Problem
+
+func (response LogWork404ApplicationProblemPlusJSONResponse) VisitLogWorkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogWork422ApplicationProblemPlusJSONResponse Problem
+
+func (response LogWork422ApplicationProblemPlusJSONResponse) VisitLogWorkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogWorkdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogWorkdefaultApplicationProblemPlusJSONResponse) VisitLogWorkResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -4653,6 +5058,9 @@ type StrictServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(ctx context.Context, request GetIssueRequestObject) (GetIssueResponseObject, error)
+	// AssignIssue Assign an issue to someone, by username.
+	// (PUT /api/issues/{key}/assignee)
+	AssignIssue(ctx context.Context, request AssignIssueRequestObject) (AssignIssueResponseObject, error)
 	// AddComment Comment on an issue, in Jira or on the forge.
 	// (POST /api/issues/{key}/comment)
 	AddComment(ctx context.Context, request AddCommentRequestObject) (AddCommentResponseObject, error)
@@ -4662,6 +5070,15 @@ type StrictServerInterface interface {
 	// TransitionIssue Move an issue to the configured review status.
 	// (POST /api/issues/{key}/transition)
 	TransitionIssue(ctx context.Context, request TransitionIssueRequestObject) (TransitionIssueResponseObject, error)
+	// ListStatusChanges The status changes the tracker offers an issue, with the fields each needs.
+	// (GET /api/issues/{key}/transitions)
+	ListStatusChanges(ctx context.Context, request ListStatusChangesRequestObject) (ListStatusChangesResponseObject, error)
+	// ChangeStatus Change an issue's status, filling the fields the change needs.
+	// (POST /api/issues/{key}/transitions)
+	ChangeStatus(ctx context.Context, request ChangeStatusRequestObject) (ChangeStatusResponseObject, error)
+	// LogWork Log time spent on a Jira issue.
+	// (POST /api/issues/{key}/worklog)
+	LogWork(ctx context.Context, request LogWorkRequestObject) (LogWorkResponseObject, error)
 	// RemoveLocalData Remove the cache, or with scope all the kept associations too.
 	// (DELETE /api/local-data)
 	RemoveLocalData(ctx context.Context, request RemoveLocalDataRequestObject) (RemoveLocalDataResponseObject, error)
@@ -5269,6 +5686,39 @@ func (sh *strictHandler) GetIssue(w http.ResponseWriter, r *http.Request, key st
 	}
 }
 
+// AssignIssue operation middleware
+func (sh *strictHandler) AssignIssue(w http.ResponseWriter, r *http.Request, key string) {
+	var request AssignIssueRequestObject
+
+	request.Key = key
+
+	var body AssignIssueJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AssignIssue(ctx, request.(AssignIssueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AssignIssue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AssignIssueResponseObject); ok {
+		if err := validResponse.VisitAssignIssueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // AddComment operation middleware
 func (sh *strictHandler) AddComment(w http.ResponseWriter, r *http.Request, key string) {
 	var request AddCommentRequestObject
@@ -5347,6 +5797,98 @@ func (sh *strictHandler) TransitionIssue(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(TransitionIssueResponseObject); ok {
 		if err := validResponse.VisitTransitionIssueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListStatusChanges operation middleware
+func (sh *strictHandler) ListStatusChanges(w http.ResponseWriter, r *http.Request, key string) {
+	var request ListStatusChangesRequestObject
+
+	request.Key = key
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListStatusChanges(ctx, request.(ListStatusChangesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListStatusChanges")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListStatusChangesResponseObject); ok {
+		if err := validResponse.VisitListStatusChangesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ChangeStatus operation middleware
+func (sh *strictHandler) ChangeStatus(w http.ResponseWriter, r *http.Request, key string) {
+	var request ChangeStatusRequestObject
+
+	request.Key = key
+
+	var body ChangeStatusJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangeStatus(ctx, request.(ChangeStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangeStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ChangeStatusResponseObject); ok {
+		if err := validResponse.VisitChangeStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LogWork operation middleware
+func (sh *strictHandler) LogWork(w http.ResponseWriter, r *http.Request, key string) {
+	var request LogWorkRequestObject
+
+	request.Key = key
+
+	var body LogWorkJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LogWork(ctx, request.(LogWorkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LogWork")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogWorkResponseObject); ok {
+		if err := validResponse.VisitLogWorkResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

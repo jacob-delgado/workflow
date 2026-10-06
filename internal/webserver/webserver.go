@@ -96,6 +96,11 @@ type Deps struct {
 	// Comment posts a comment on a Jira issue and answers it as Jira stored
 	// it; nil where no Jira is configured.
 	Comment func(issueKey jira.Key, text string) (jira.Comment, error)
+	// Assign sets an issue's assignee by username, and AddWorklog logs time
+	// spent on a Jira issue, as seams.Jira binds them; nil where no tracker
+	// takes them.
+	Assign     func(issueKey jira.Key, assignee string) error
+	AddWorklog func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error)
 	// Stage and Unstage move one change into and out of the index: a change as
 	// Changes read it, carrying a rename's original path — never a path a
 	// request names.

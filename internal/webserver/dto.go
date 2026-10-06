@@ -314,3 +314,42 @@ func optionalTrue(flag bool) *bool {
 
 	return &flag
 }
+
+// statusChangesDTO maps the status changes a tracker offers onto the wire,
+// each with the fields it needs; never nil, so it goes to the page as [].
+func statusChangesDTO(moves []jira.Transition) []api.StatusChange {
+	changes := make([]api.StatusChange, 0, len(moves))
+	for _, move := range moves {
+		fields := make([]api.StatusChangeField, 0, len(move.Fields))
+		for _, field := range move.Fields {
+			fields = append(fields, statusChangeFieldDTO(field))
+		}
+
+		changes = append(changes, api.StatusChange{
+			ID: move.ID, Name: move.Name, ToStatus: move.ToStatus,
+			ToStatusCategory: api.StatusCategory(move.ToStatusCategory), Fields: fields,
+		})
+	}
+
+	return changes
+}
+
+// statusChangeFieldDTO maps a field a status change needs, with the values it
+// allows. A map, not a switch, as ciState's is.
+func statusChangeFieldDTO(field jira.Field) api.StatusChangeField {
+	options := make([]api.FieldOption, 0, len(field.Options))
+	for _, option := range field.Options {
+		options = append(options, api.FieldOption{ID: option.ID, Name: option.Name})
+	}
+
+	kind := map[jira.FieldKind]api.StatusChangeFieldKind{
+		jira.FieldUnsupported: api.FieldOnlyJiraKind,
+		jira.FieldOption:      api.FieldOptionKind,
+		jira.FieldOptionList:  api.FieldOptionListKind,
+		jira.FieldText:        api.FieldTextKind,
+		jira.FieldUser:        api.FieldUserKind,
+		jira.FieldDate:        api.FieldDateKind,
+	}[field.Kind]
+
+	return api.StatusChangeField{ID: field.ID, Name: field.Name, Kind: kind, Options: options}
+}

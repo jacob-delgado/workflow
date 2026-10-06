@@ -1,4 +1,4 @@
-import type { IssueDetail, ViewList } from '@/api/generated/types.gen.ts'
+import type { IssueDetail, StatusChange, ViewList } from '@/api/generated/types.gen.ts'
 import { mockSnapshot } from './mockSnapshot.ts'
 
 // mockIssueDetail reads a mock snapshot issue in full for `task web:mockup`:
@@ -39,3 +39,49 @@ export const mockViews: ViewList = {
     { name: 'Team bugs', jql: 'project = PROJ AND type = Bug AND resolution = Unresolved' },
   ],
 }
+
+// mockStatusChanges are the status changes the mockup's issues offer: one
+// that needs nothing, one with a field form, and one only Jira can make.
+export const mockStatusChanges: StatusChange[] = [
+  {
+    id: '11',
+    name: 'Block',
+    to_status: 'Blocked',
+    to_status_category: 'indeterminate',
+    fields: [],
+  },
+  {
+    id: '21',
+    name: 'Resolve Issue',
+    to_status: 'Resolved',
+    to_status_category: 'done',
+    fields: [
+      { id: 'duedate', name: 'Due date', kind: 'date', options: [] },
+      {
+        id: 'fixVersions',
+        name: 'Fix versions',
+        kind: 'option_list',
+        options: [
+          { id: '10', name: '1.4.0' },
+          { id: '11', name: '1.5.0' },
+        ],
+      },
+      {
+        id: 'resolution',
+        name: 'Resolution',
+        kind: 'option',
+        options: [
+          { id: '1', name: 'Fixed' },
+          { id: '2', name: "Won't Fix" },
+        ],
+      },
+    ],
+  },
+  {
+    id: '31',
+    name: 'Split',
+    to_status: 'Split',
+    to_status_category: 'done',
+    fields: [{ id: 'customfield_2', name: 'Component tree', kind: 'only_jira', options: [] }],
+  },
+]

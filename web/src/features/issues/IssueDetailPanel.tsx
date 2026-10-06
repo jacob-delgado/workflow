@@ -11,6 +11,7 @@ import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
 import { IssueStatus } from './IssueStatus.tsx'
 import { WorkStory } from './WorkStory.tsx'
+import { IssueActions } from './writes/IssueActions.tsx'
 import { CommentComposer } from './CommentComposer.tsx'
 import { CommentBody, largestParsedBody } from './wiki/WikiText.tsx'
 
@@ -55,6 +56,7 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
         />
       )}
       {data ? <IssuePeople detail={data} /> : null}
+      {data ? <IssueActions detail={data} /> : null}
       <section aria-labelledby="work-story-heading" className="flex flex-col gap-group">
         <h3 id="work-story-heading" className={sectionHeading}>
           Work story

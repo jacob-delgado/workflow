@@ -564,6 +564,91 @@ export const zMovedIssue = z.object({
     status: z.string()
 });
 
+/**
+ * One value a field allows.
+ */
+export const zFieldOption = z.object({
+    id: z.string(),
+    name: z.string()
+});
+
+/**
+ * A field a status change needs, and how it is filled.
+ */
+export const zStatusChangeField = z.object({
+    id: z.string(),
+    name: z.string(),
+    kind: z.enum([
+        'option',
+        'option_list',
+        'text',
+        'user',
+        'date',
+        'only_jira'
+    ]),
+    options: z.array(zFieldOption)
+});
+
+/**
+ * A status change the tracker offers an issue, and the fields it cannot be made without.
+ */
+export const zStatusChange = z.object({
+    id: z.string(),
+    name: z.string(),
+    to_status: z.string(),
+    to_status_category: zStatusCategory,
+    fields: z.array(zStatusChangeField)
+});
+
+/**
+ * The value given a field: option_id for an option field, option_ids for an option_list field, and text for a text, user or date field.
+ */
+export const zFieldEntry = z.object({
+    id: z.string(),
+    option_id: z.string().optional(),
+    option_ids: z.array(z.string()).optional(),
+    text: z.string().optional()
+});
+
+/**
+ * The status change to make, and a value for each field it needs.
+ */
+export const zStatusChangeRequest = z.object({
+    transition_id: z.string().min(1),
+    fields: z.array(zFieldEntry)
+});
+
+/**
+ * Whom to assign an issue to.
+ */
+export const zAssignRequest = z.object({
+    assignee: z.string().min(1).max(255)
+});
+
+/**
+ * An issue just assigned, and to whom.
+ */
+export const zAssignedIssue = z.object({
+    key: z.string(),
+    assignee: z.string()
+});
+
+/**
+ * Time spent on a Jira issue, and an optional note.
+ */
+export const zWorklogRequest = z.object({
+    time_spent: z.string().min(1).max(64),
+    comment: z.string().optional()
+});
+
+/**
+ * Work just logged on an issue, as Jira recorded it.
+ */
+export const zLoggedWork = z.object({
+    key: z.string(),
+    time_spent: z.string()
+});
+
 export const zPullRequest = z.object({
     number: z.int(),
     url: z.string(),
@@ -905,6 +990,48 @@ export const zAddCommentPath = z.object({
  * The comment, as its tracker stored it.
  */
 export const zAddCommentResponse = zComment;
+
+export const zListStatusChangesPath = z.object({
+    key: z.string()
+});
+
+/**
+ * The changes offered, in the tracker's order; empty when it offers none.
+ */
+export const zListStatusChangesResponse = z.array(zStatusChange);
+
+export const zChangeStatusBody = zStatusChangeRequest;
+
+export const zChangeStatusPath = z.object({
+    key: z.string()
+});
+
+/**
+ * The issue, now in the status the change leads to.
+ */
+export const zChangeStatusResponse = zMovedIssue;
+
+export const zAssignIssueBody = zAssignRequest;
+
+export const zAssignIssuePath = z.object({
+    key: z.string()
+});
+
+/**
+ * The issue and whom it is now assigned to.
+ */
+export const zAssignIssueResponse = zAssignedIssue;
+
+export const zLogWorkBody = zWorklogRequest;
+
+export const zLogWorkPath = z.object({
+    key: z.string()
+});
+
+/**
+ * The work, as Jira logged it.
+ */
+export const zLogWorkResponse = zLoggedWork;
 
 /**
  * The branch.

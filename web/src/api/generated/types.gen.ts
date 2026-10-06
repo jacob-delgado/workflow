@@ -1079,6 +1079,120 @@ export type MovedIssue = {
     status: string;
 };
 
+/**
+ * A status change the tracker offers an issue, and the fields it cannot be made without.
+ */
+export type StatusChange = {
+    /**
+     * The change's id, which applying it names.
+     */
+    id: string;
+    /**
+     * The change's own name, which can differ from where it leads.
+     */
+    name: string;
+    to_status: string;
+    to_status_category: StatusCategory;
+    /**
+     * The fields the tracker refuses the change without, ordered by name.
+     */
+    fields: Array<StatusChangeField>;
+};
+
+/**
+ * A field a status change needs, and how it is filled.
+ */
+export type StatusChangeField = {
+    id: string;
+    name: string;
+    /**
+     * How the field is filled: one of its options, any number of them, free text, a username, a date as 2026-09-21, or only_jira for one only Jira's own screen can fill, such as a cascading select, which keeps the change out of reach here.
+     */
+    kind: 'option' | 'option_list' | 'text' | 'user' | 'date' | 'only_jira';
+    /**
+     * The values an option or option_list field allows; empty for the others.
+     */
+    options: Array<FieldOption>;
+};
+
+/**
+ * One value a field allows.
+ */
+export type FieldOption = {
+    id: string;
+    name: string;
+};
+
+/**
+ * The status change to make, and a value for each field it needs.
+ */
+export type StatusChangeRequest = {
+    /**
+     * The change's id, as GET /api/issues/{key}/transitions lists it.
+     */
+    transition_id: string;
+    /**
+     * A value for each field the change needs, and no other.
+     */
+    fields: Array<FieldEntry>;
+};
+
+/**
+ * The value given a field: option_id for an option field, option_ids for an option_list field, and text for a text, user or date field.
+ */
+export type FieldEntry = {
+    /**
+     * The field's id.
+     */
+    id: string;
+    option_id?: string;
+    option_ids?: Array<string>;
+    text?: string;
+};
+
+/**
+ * Whom to assign an issue to.
+ */
+export type AssignRequest = {
+    /**
+     * The username, as the issue's tracker knows it.
+     */
+    assignee: string;
+};
+
+/**
+ * An issue just assigned, and to whom.
+ */
+export type AssignedIssue = {
+    key: string;
+    assignee: string;
+};
+
+/**
+ * Time spent on a Jira issue, and an optional note.
+ */
+export type WorklogRequest = {
+    /**
+     * The duration in Jira's words, such as 2h, 30m or 1d 4h.
+     */
+    time_spent: string;
+    /**
+     * A note on the work; left out, the worklog carries none.
+     */
+    comment?: string;
+};
+
+/**
+ * Work just logged on an issue, as Jira recorded it.
+ */
+export type LoggedWork = {
+    key: string;
+    /**
+     * The duration as Jira recorded it.
+     */
+    time_spent: string;
+};
+
 export type PullRequest = {
     /**
      * The GitHub number or GitLab IID.
@@ -1698,6 +1812,162 @@ export type AddCommentResponses = {
 };
 
 export type AddCommentResponse = AddCommentResponses[keyof AddCommentResponses];
+
+export type ListStatusChangesData = {
+    body?: never;
+    path: {
+        /**
+         * The issue, a Jira key such as PROJ-412 or a forge issue's number such as 42.
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/issues/{key}/transitions';
+};
+
+export type ListStatusChangesErrors = {
+    /**
+     * The tracker has no such issue.
+     */
+    404: Problem;
+    /**
+     * No tracker is configured.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type ListStatusChangesError = ListStatusChangesErrors[keyof ListStatusChangesErrors];
+
+export type ListStatusChangesResponses = {
+    /**
+     * The changes offered, in the tracker's order; empty when it offers none.
+     */
+    200: Array<StatusChange>;
+};
+
+export type ListStatusChangesResponse = ListStatusChangesResponses[keyof ListStatusChangesResponses];
+
+export type ChangeStatusData = {
+    body: StatusChangeRequest;
+    path: {
+        /**
+         * The issue to change, a Jira key such as PROJ-412 or a forge issue's number such as 42.
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/issues/{key}/transitions';
+};
+
+export type ChangeStatusErrors = {
+    /**
+     * The tracker has no such issue; nothing was changed.
+     */
+    404: Problem;
+    /**
+     * The tracker no longer offers that change from where the issue stands; nothing was changed.
+     */
+    409: Problem;
+    /**
+     * No tracker is configured, a field's value is missing or not one it takes, or the tracker refused the change; nothing was changed.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type ChangeStatusError = ChangeStatusErrors[keyof ChangeStatusErrors];
+
+export type ChangeStatusResponses = {
+    /**
+     * The issue, now in the status the change leads to.
+     */
+    200: MovedIssue;
+};
+
+export type ChangeStatusResponse = ChangeStatusResponses[keyof ChangeStatusResponses];
+
+export type AssignIssueData = {
+    body: AssignRequest;
+    path: {
+        /**
+         * The issue to assign, a Jira key such as PROJ-412 or a forge issue's number such as 42.
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/issues/{key}/assignee';
+};
+
+export type AssignIssueErrors = {
+    /**
+     * The tracker has no such issue; nothing was changed.
+     */
+    404: Problem;
+    /**
+     * Assigning is not available, the username is blank, or the tracker refused it; nothing was changed.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type AssignIssueError = AssignIssueErrors[keyof AssignIssueErrors];
+
+export type AssignIssueResponses = {
+    /**
+     * The issue and whom it is now assigned to.
+     */
+    200: AssignedIssue;
+};
+
+export type AssignIssueResponse = AssignIssueResponses[keyof AssignIssueResponses];
+
+export type LogWorkData = {
+    body: WorklogRequest;
+    path: {
+        /**
+         * The Jira issue to log work on, such as PROJ-412.
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/issues/{key}/worklog';
+};
+
+export type LogWorkErrors = {
+    /**
+     * Jira has no such issue; nothing was logged.
+     */
+    404: Problem;
+    /**
+     * Logging work is not available here, the duration is blank, or Jira refused it; nothing was logged.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type LogWorkError = LogWorkErrors[keyof LogWorkErrors];
+
+export type LogWorkResponses = {
+    /**
+     * The work, as Jira logged it.
+     */
+    200: LoggedWork;
+};
+
+export type LogWorkResponse = LogWorkResponses[keyof LogWorkResponses];
 
 export type GetBranchData = {
     body?: never;

@@ -373,6 +373,36 @@ func (e StatusCategory) Valid() bool {
 	}
 }
 
+// Defines values for StatusChangeFieldKind.
+const (
+	FieldDateKind       StatusChangeFieldKind = "date"
+	FieldOnlyJiraKind   StatusChangeFieldKind = "only_jira"
+	FieldOptionKind     StatusChangeFieldKind = "option"
+	FieldOptionListKind StatusChangeFieldKind = "option_list"
+	FieldTextKind       StatusChangeFieldKind = "text"
+	FieldUserKind       StatusChangeFieldKind = "user"
+)
+
+// Valid indicates whether the value is a known member of the StatusChangeFieldKind enum.
+func (e StatusChangeFieldKind) Valid() bool {
+	switch e {
+	case FieldDateKind:
+		return true
+	case FieldOnlyJiraKind:
+		return true
+	case FieldOptionKind:
+		return true
+	case FieldOptionListKind:
+		return true
+	case FieldTextKind:
+		return true
+	case FieldUserKind:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TaskStatus.
 const (
 	TaskStatusCompleted TaskStatus = "completed"
@@ -626,6 +656,21 @@ type AnnouncementTagging struct {
 	//
 	// Example: can't tell which Slack workspace this token is for: the credential was not accepted
 	UnavailableReason *string `json:"unavailable_reason,omitempty"`
+}
+
+// AssignRequest Whom to assign an issue to.
+type AssignRequest struct {
+	// Assignee The username, as the issue's tracker knows it.
+	Assignee string `json:"assignee"`
+}
+
+// AssignedIssue An issue just assigned, and to whom.
+type AssignedIssue struct {
+	// Assignee Example: ana.lopez
+	Assignee string `json:"assignee"`
+
+	// Key Example: PROJ-412
+	Key string `json:"key"`
 }
 
 // Branch defines model for Branch.
@@ -912,6 +957,24 @@ type Favorite struct {
 // FavoriteState here is where the server works; repository is a repository's directory; directory is one in no repository; missing is not there.
 type FavoriteState string
 
+// FieldEntry The value given a field: option_id for an option field, option_ids for an option_list field, and text for a text, user or date field.
+type FieldEntry struct {
+	// ID The field's id.
+	ID        string    `json:"id"`
+	OptionID  *string   `json:"option_id,omitempty"`
+	OptionIds *[]string `json:"option_ids,omitempty"`
+	Text      *string   `json:"text,omitempty"`
+}
+
+// FieldOption One value a field allows.
+type FieldOption struct {
+	// ID Example: 1
+	ID string `json:"id"`
+
+	// Name Example: Fixed
+	Name string `json:"name"`
+}
+
 // FollowUp One offer after opening: to link the pull request on the branch's issue (POST /api/issues/{key}/link), or to move that issue to the review status (POST /api/issues/{key}/transition). A move is offered only when Jira offers one that needs no fields.
 type FollowUp struct {
 	Action FollowUpAction `json:"action"`
@@ -1137,6 +1200,17 @@ type LocalDataHeld struct {
 
 	// What What is counted, as scopes or repository groups.
 	What string `json:"what"`
+}
+
+// LoggedWork Work just logged on an issue, as Jira recorded it.
+type LoggedWork struct {
+	// Key Example: PROJ-412
+	Key string `json:"key"`
+
+	// TimeSpent The duration as Jira recorded it.
+	//
+	// Example: 2h
+	TimeSpent string `json:"time_spent"`
 }
 
 // MessagingConfig defines model for MessagingConfig.
@@ -1523,6 +1597,53 @@ type StagingRequest struct {
 // StatusCategory defines model for StatusCategory.
 type StatusCategory string
 
+// StatusChange A status change the tracker offers an issue, and the fields it cannot be made without.
+type StatusChange struct {
+	// Fields The fields the tracker refuses the change without, ordered by name.
+	Fields []StatusChangeField `json:"fields"`
+
+	// ID The change's id, which applying it names.
+	//
+	// Example: 5
+	ID string `json:"id"`
+
+	// Name The change's own name, which can differ from where it leads.
+	//
+	// Example: Resolve Issue
+	Name string `json:"name"`
+
+	// ToStatus Example: Resolved
+	ToStatus         string         `json:"to_status"`
+	ToStatusCategory StatusCategory `json:"to_status_category"`
+}
+
+// StatusChangeField A field a status change needs, and how it is filled.
+type StatusChangeField struct {
+	// ID Example: resolution
+	ID string `json:"id"`
+
+	// Kind How the field is filled: one of its options, any number of them, free text, a username, a date as 2026-09-21, or only_jira for one only Jira's own screen can fill, such as a cascading select, which keeps the change out of reach here.
+	Kind StatusChangeFieldKind `json:"kind"`
+
+	// Name Example: Resolution
+	Name string `json:"name"`
+
+	// Options The values an option or option_list field allows; empty for the others.
+	Options []FieldOption `json:"options"`
+}
+
+// StatusChangeFieldKind How the field is filled: one of its options, any number of them, free text, a username, a date as 2026-09-21, or only_jira for one only Jira's own screen can fill, such as a cascading select, which keeps the change out of reach here.
+type StatusChangeFieldKind string
+
+// StatusChangeRequest The status change to make, and a value for each field it needs.
+type StatusChangeRequest struct {
+	// Fields A value for each field the change needs, and no other.
+	Fields []FieldEntry `json:"fields"`
+
+	// TransitionID The change's id, as GET /api/issues/{key}/transitions lists it.
+	TransitionID string `json:"transition_id"`
+}
+
 // StoreConfig defines model for StoreConfig.
 type StoreConfig struct {
 	// Disabled Turn off the on-disk store, keeping nothing between sessions. Off by default: the store is on and never holds a secret.
@@ -1729,6 +1850,15 @@ type ViewList struct {
 	Views []JiraView `json:"views"`
 }
 
+// WorklogRequest Time spent on a Jira issue, and an optional note.
+type WorklogRequest struct {
+	// Comment A note on the work; left out, the worklog carries none.
+	Comment *string `json:"comment,omitempty"`
+
+	// TimeSpent The duration in Jira's words, such as 2h, 30m or 1d 4h.
+	TimeSpent string `json:"time_spent"`
+}
+
 // Worktree One working tree of the repository the server works in.
 type Worktree struct {
 	// Branch The branch it has checked out, or empty when its HEAD is detached.
@@ -1849,8 +1979,17 @@ type CommitJSONRequestBody = CommitRequest
 // UpdateConfigJSONRequestBody defines body for UpdateConfig for application/json ContentType.
 type UpdateConfigJSONRequestBody = Config
 
+// AssignIssueJSONRequestBody defines body for AssignIssue for application/json ContentType.
+type AssignIssueJSONRequestBody = AssignRequest
+
 // AddCommentJSONRequestBody defines body for AddComment for application/json ContentType.
 type AddCommentJSONRequestBody = CommentRequest
+
+// ChangeStatusJSONRequestBody defines body for ChangeStatus for application/json ContentType.
+type ChangeStatusJSONRequestBody = StatusChangeRequest
+
+// LogWorkJSONRequestBody defines body for LogWork for application/json ContentType.
+type LogWorkJSONRequestBody = WorklogRequest
 
 // LinkPersonJSONRequestBody defines body for LinkPerson for application/json ContentType.
 type LinkPersonJSONRequestBody = PersonLink
