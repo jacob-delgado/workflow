@@ -5,6 +5,7 @@ package cli_test
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,9 +13,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/iotest"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 )
+
+// errUnreadableInput is standard input failing part way through a read.
+var errUnreadableInput = errors.New("input: device not ready")
 
 // commentsPosted records the body of each comment a fake Jira was asked to
 // post. A mutex guards it because `task test` runs -race and the handler
@@ -167,5 +172,66 @@ func TestCommentWithNothingToAnswerSaysToPassYes(t *testing.T) {
 
 	if err == nil || !strings.Contains(err.Error(), "--yes") || len(posted.all()) != 0 {
 		t.Errorf("comment = %v, posted %q; want nothing posted and --yes named", err, posted.all())
+	}
+}
+
+func TestCommentWithNoStandardInputRefusesBlankText(t *testing.T) {
+	// Arrange
+	dir, posted := commentJira(t, false)
+	prompt := unusedPrompt(t)
+	prompt.Input = nil
+
+	// Act
+	_, err := runStreams(t, dir, prompt, "comment", "PROJ-7", "--yes")
+
+	// Assert
+	wantExit(t, err, 2)
+
+	if got := posted.all(); len(got) != 0 {
+		t.Errorf("a comment was posted with no input: %q", got)
+	}
+}
+
+func TestCommentWhoseInputCannotBeReadFails(t *testing.T) {
+	// Arrange
+	dir, posted := commentJira(t, false)
+	prompt := unusedPrompt(t)
+	prompt.Input = iotest.ErrReader(errUnreadableInput)
+
+	// Act
+	_, err := runStreams(t, dir, prompt, "comment", "PROJ-7", "--yes")
+
+	// Assert
+	if !errors.Is(err, errUnreadableInput) || len(posted.all()) != 0 {
+		t.Errorf("comment = %v, posted %q; want the read's error and nothing posted", err, posted.all())
+	}
+}
+
+func TestCommentOnAnIssueJiraLacksSaysWhichIssue(t *testing.T) {
+	// Arrange
+	dir, posted := commentJira(t, false)
+
+	// Act
+	printed, err := runStreams(t, dir, typed(t, "hello"), "comment", "PROJ-8", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "commenting on PROJ-8") || len(posted.all()) != 0 ||
+		strings.Contains(printed.stderr, "Commented on") {
+		t.Errorf("comment = %v, posted %q, said %q; want PROJ-8's failure and no success", err, posted.all(),
+			printed.stderr)
+	}
+}
+
+func TestCommentWithAConfigurationItCannotReadPostsNothing(t *testing.T) {
+	// Arrange
+	dir, posted := commentJira(t, false)
+	writeFile(t, dir, `{`)
+
+	// Act
+	_, err := runStreams(t, dir, typed(t, "hello"), "comment", "PROJ-7", "--yes")
+
+	// Assert
+	if err == nil || len(posted.all()) != 0 {
+		t.Errorf("comment = %v, posted %q; want an error and nothing posted", err, posted.all())
 	}
 }

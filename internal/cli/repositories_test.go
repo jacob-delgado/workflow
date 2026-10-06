@@ -137,3 +137,66 @@ func TestRepositoriesOutsideARepositoryHasNoWorktrees(t *testing.T) {
 			printed.stdout)
 	}
 }
+
+func TestRepositoriesNotesADetachedLockedWorktree(t *testing.T) {
+	// Arrange
+	repo, second := repoWithWorktree(t)
+	git(t, second, "switch", "--quiet", "--detach")
+	git(t, repo, "worktree", "lock", second)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "repositories")
+	// Assert
+	if err != nil {
+		t.Fatalf("repositories: %v (%+v)", err, printed)
+	}
+
+	lines := strings.Split(strings.TrimSpace(printed.stdout), "\n")
+	if len(lines) != 3 || !strings.Contains(lines[2], second) || !strings.Contains(lines[2], "(detached)") ||
+		!strings.HasSuffix(lines[2], "locked") {
+		t.Errorf("repositories printed:\n%s\nwant the second worktree detached and locked", printed.stdout)
+	}
+}
+
+func TestRepositoriesSaysFavoritesAreNotKept(t *testing.T) {
+	cases := map[string]struct {
+		config string
+		args   []string
+	}{
+		"in a dry run":          {config: `{}`, args: []string{"repositories", "--json", "--dry-run"}},
+		"with no store to keep": {config: `{"store":{"disabled":true}}`, args: []string{"repositories", "--json"}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			repo, _ := repoWithWorktree(t)
+			writeFile(t, repo, tt.config)
+
+			// Act
+			printed, err := runStreams(t, repo, unusedPrompt(t), tt.args...)
+			// Assert
+			if err != nil {
+				t.Fatalf("repositories: %v (%+v)", err, printed)
+			}
+
+			if report := decodeRepositories(t, printed.stdout); report.FavoritesKept {
+				t.Errorf("favorites_kept = true, want false %s", name)
+			}
+		})
+	}
+}
+
+func TestRepositoriesWithAConfigurationItCannotReadFails(t *testing.T) {
+	// Arrange
+	repo, _ := repoWithWorktree(t)
+	writeFile(t, repo, `{`)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "repositories", "--json")
+
+	// Assert
+	if err == nil || printed.stdout != "" {
+		t.Errorf("repositories = %v, printed %q; want an error and nothing printed", err, printed.stdout)
+	}
+}
