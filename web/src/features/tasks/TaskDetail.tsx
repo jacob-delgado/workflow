@@ -1,7 +1,7 @@
 import { ExternalLink } from 'lucide-react'
 import { type ReactNode, useId, useState } from 'react'
 import type { Issue, Task, TaskList } from '@/api/generated/types.gen.ts'
-import { useShortcut } from '@/features/keyboard/useShortcut.ts'
+import { useHoldShortcuts, useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { writtenDate } from '@/lib/dates.ts'
@@ -352,6 +352,7 @@ function AskFirst({
 }) {
   const question = useFocusOnMount<HTMLDivElement>()
   const questionId = useId()
+  useHoldShortcuts()
 
   return (
     <div

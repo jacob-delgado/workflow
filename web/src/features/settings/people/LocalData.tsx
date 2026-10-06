@@ -8,6 +8,7 @@ import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { type RemoveScope, useRemoveLocalData, useLocalData } from './localDataApi.ts'
+import { useHoldShortcuts } from '@/features/keyboard/useShortcut.ts'
 
 // LocalData is Settings' Local data area: where workflow keeps what it learns
 // between sessions, each database file with its size and what it holds, and
@@ -282,6 +283,7 @@ interface RemoveConfirmProps {
 // kept file.
 function RemoveConfirm({ scope, names, onCancel, onRemove }: RemoveConfirmProps) {
   const question = useFocusOnMount<HTMLDivElement>()
+  useHoldShortcuts()
   const questionId = useId()
 
   return (

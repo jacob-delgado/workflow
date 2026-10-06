@@ -259,6 +259,26 @@ test('Ctrl+K, "stage all", Enter stages every change', async () => {
   expect(screen.queryByRole('dialog')).toBeNull()
 })
 
+test('no single key reaches a control behind an open confirm', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const requests = openOn(withChanges, keysWith(true), 'branch')
+  await waitFor(() => {
+    expect(
+      screen.getByRole('button', { name: 'Stage all' }).getAttribute('aria-keyshortcuts'),
+    ).toBe('a')
+  })
+  await user.click(screen.getByRole('button', { name: 'Discard b.go…' }))
+  screen.getByRole('group', { name: 'Discard the changes to b.go?' })
+
+  // Act
+  await user.keyboard('a')
+
+  // Assert
+  expect(requests.some((request) => new URL(request.url).pathname === '/api/stage')).toBe(false)
+  expect(screen.queryByText('Staged every change.')).toBeNull()
+})
+
 test('the palette lists the section actions on screen by the terminal words, closest first', async () => {
   // Arrange
   const user = userEvent.setup()

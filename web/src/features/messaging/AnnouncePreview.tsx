@@ -5,6 +5,7 @@ import { Select, TextArea } from '@/lib/Field.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { TagPicker } from './TagPicker.tsx'
 import type { TagPick } from './tagPick.ts'
+import { useHoldShortcuts } from '@/features/keyboard/useShortcut.ts'
 
 interface AnnouncePreviewProps {
   text: string
@@ -37,6 +38,7 @@ export function AnnouncePreview(props: AnnouncePreviewProps) {
   const { channel, channels, tagging, pick, sending, onChannel, onPick, onLinking } = props
   const shown = useFocusOnMount<HTMLDivElement>()
   const busy = sending !== null
+  useHoldShortcuts()
 
   return (
     <div

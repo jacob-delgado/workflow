@@ -2,7 +2,7 @@ import { GitBranch } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Branch, Change } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
-import { useShortcut } from '@/features/keyboard/useShortcut.ts'
+import { useHoldShortcuts, useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -231,6 +231,7 @@ interface PushConfirmProps {
 // sends, and without a base it is not known at all.
 function PushConfirm({ branch, onCancel, onPush }: PushConfirmProps) {
   const question = useFocusOnMount<HTMLDivElement>()
+  useHoldShortcuts()
 
   return (
     <div

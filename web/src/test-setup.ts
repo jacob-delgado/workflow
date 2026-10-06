@@ -78,7 +78,7 @@ afterEach(() => {
   useHealthStore.setState(initialHealth)
   useTaskMemo.setState(initialTaskMemo)
   useKeysStore.setState(initialKeys)
-  useRegistry.setState({ registered: [] })
+  useRegistry.setState({ registered: [], holds: 0 })
   useThemeStore.setState({ choice: 'system' })
   localStorage.removeItem(themeStorageKey)
   FakeEventSource.reset()

@@ -7,6 +7,7 @@ import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { ChannelSelect, PreviewText } from '@/features/messaging/AnnouncePreview.tsx'
 import { postSummary } from './summaryApi.ts'
+import { useHoldShortcuts } from '@/features/keyboard/useShortcut.ts'
 
 // webhookChannel is where a post goes that names no channel: a webhook's own.
 const webhookChannel = 'the channel its webhook is bound to'
@@ -66,6 +67,7 @@ interface PostPreviewProps {
 // opens, so what is about to be sent is what a screen reader reads next.
 function PostPreview({ activity, messaging, teller, onClose }: PostPreviewProps) {
   const shown = useFocusOnMount<HTMLDivElement>()
+  useHoldShortcuts()
   const [channel, setChannel] = useState(
     messaging.channel === '' ? (messaging.channels[0] ?? '') : messaging.channel,
   )

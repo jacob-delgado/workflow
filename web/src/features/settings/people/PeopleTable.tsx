@@ -15,6 +15,7 @@ import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { usePeople, usePeopleWrites } from './peopleApi.ts'
+import { useHoldShortcuts } from '@/features/keyboard/useShortcut.ts'
 
 // notOnSlack is the choice that marks an owner not on Slack; no Slack ID
 // reads like it.
@@ -290,6 +291,7 @@ interface ForgetConfirmProps {
 // so a screen reader hears the question.
 function ForgetConfirm({ owner, forget, tell, onClose }: ForgetConfirmProps) {
   const question = useFocusOnMount<HTMLDivElement>()
+  useHoldShortcuts()
   const forgetting = useAsyncAction(forget, {
     fallback: `${owner} was not forgotten. Try again.`,
     done: () => `Forgot ${owner}: they are asked about again.`,

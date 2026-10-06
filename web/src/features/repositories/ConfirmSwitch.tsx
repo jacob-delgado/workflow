@@ -4,6 +4,7 @@ import { Button } from '@/lib/Button.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { Failure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { useHoldShortcuts } from '@/features/keyboard/useShortcut.ts'
 
 // Destination is a directory a switch was asked for, before it is confirmed.
 export interface Destination {
@@ -24,6 +25,7 @@ interface ConfirmSwitchProps {
 export function ConfirmSwitch({ destination, switchTo, teller, onCancel }: ConfirmSwitchProps) {
   const headingId = useId()
   const heading = useRef<HTMLHeadingElement>(null)
+  useHoldShortcuts()
   useEffect(() => {
     heading.current?.focus()
   }, [destination.dir])
