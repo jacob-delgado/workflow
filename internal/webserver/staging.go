@@ -100,7 +100,7 @@ func (s *server) Discard(_ context.Context, request api.DiscardRequestObject) (a
 	return api.Discard200JSONResponse(changesDTO(changes)), nil
 }
 
-// moveChanges moves what the request names// moveChanges moves what the request names in direction and returns the
+// moveChanges moves what the request names in direction and returns the
 // working tree as it then stands. The named file is found among the changes
 // the server reads for itself, and it is that change — never the request's own
 // path — that reaches git. One request moves changes at a time, the rest
