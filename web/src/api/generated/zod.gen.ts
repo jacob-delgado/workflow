@@ -931,7 +931,24 @@ export const zUiConfig = z.object({
     color: z.enum(['', 'never']).optional(),
     notify: z.boolean().optional(),
     comments_shown: z.int().gte(0).optional(),
-    keys: z.record(z.string(), z.string()).nullish()
+    keys: z.record(z.string(), z.string()).nullish(),
+    web_shortcuts: z.boolean().optional()
+});
+
+/**
+ * One action the terminal interface binds, as its help lists it.
+ */
+export const zKeyAction = z.object({
+    action: z.string(),
+    help: z.string(),
+    group: z.string(),
+    shown: z.string(),
+    keys: z.array(z.string())
+});
+
+export const zKeyList = z.object({
+    single_key_shortcuts: z.boolean(),
+    actions: z.array(zKeyAction)
 });
 
 export const zTimingConfig = z.object({
@@ -1320,6 +1337,11 @@ export const zUpdateConfigHeaders = z.object({
  * The configuration as written, redacted.
  */
 export const zUpdateConfigResponse = zConfig;
+
+/**
+ * The actions and the shortcut setting.
+ */
+export const zGetKeysResponse = zKeyList;
 
 export const zRemoveLocalDataQuery = z.object({
     scope: z.enum(['cache', 'all'])

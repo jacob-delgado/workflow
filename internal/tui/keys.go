@@ -9,6 +9,8 @@ import (
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
+
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // keyMap satisfies help.KeyMap, which is what renders it in the footer and the
@@ -419,6 +421,32 @@ func helpGroups(messagingService string) []string {
 		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService, "Reviews", "Tasks",
 		"Summary", "Repositories", "In a composer or preview", "Writing a comment", "While a command runs", "Everywhere",
 	}
+}
+
+// KeyActions is every action the help lists, in its order, with the ui.keys
+// overrides applied: what another surface offers of the interface's keys, read
+// from the same bindings the interface runs, so a rebinding reaches both. The
+// review noun names open-pull-request for the forge, and the messaging service
+// names its group, as the help does; a binding the help draws on another's
+// line, with no words of its own, is left out, as the help leaves it.
+func KeyActions(reviewNoun, messagingService string, overrides map[string]string) []seams.KeyAction {
+	_, builder := compileKeys(unicodeGlyphs(), reviewNoun, messagingService, overrides)
+	groups := helpGroups(messagingService)
+	listed := make([]seams.KeyAction, 0, len(builder.placements))
+
+	for _, placed := range builder.placements {
+		words := placed.binding.Help()
+		if words.Desc == "" {
+			continue
+		}
+
+		listed = append(listed, seams.KeyAction{
+			Action: placed.action, Help: words.Desc, Group: groups[placed.group],
+			Shown: words.Key, Keys: placed.binding.Keys(),
+		})
+	}
+
+	return listed
 }
 
 // listKeys is the footer of an overlay that is a list to choose from.

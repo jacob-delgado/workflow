@@ -58,10 +58,9 @@ func WebServerAt(addr string) RunWeb {
 // one. They are the same seams, which is why the web server is another consumer
 // of the wiring rather than a second implementation. A seam the interface wires
 // is never dropped on the way: the server would answer that write as not
-// available. The server also takes the interface's keymap check, so Settings
-// never saves a ui.keys map the interface would refuse to start on.
+// available. The server also takes the interface's keymap (withKeys).
 func WebDeps(deps tui.Deps) webserver.Deps {
-	return withReviewWrites(withGitRuns(withIssueWrites(withRepositories(withSummarySources(webserver.Deps{
+	return withKeys(withReviewWrites(withGitRuns(withIssueWrites(withRepositories(withSummarySources(webserver.Deps{
 		Search:        deps.Jira.Search,
 		SearchLenient: deps.Jira.SearchLenient,
 		Issue:         deps.Jira.Issue,
@@ -118,9 +117,17 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		LocalData:       localData,
 		RemoveLocalData: cleanLocalData,
 
-		CheckKeys: tui.CheckKeys,
-		Clock:     deps.Clock,
-	}, deps), deps), deps), deps), deps)
+		Clock: deps.Clock,
+	}, deps), deps), deps), deps), deps))
+}
+
+// withKeys gives the web server the interface's keymap: its check, so Settings
+// never saves a ui.keys map the interface would refuse to start on, and its
+// actions, so the page binds the keys the interface's help lists.
+func withKeys(web webserver.Deps) webserver.Deps {
+	web.CheckKeys, web.KeyActions = tui.CheckKeys, tui.KeyActions
+
+	return web
 }
 
 // withReviewWrites gives the web server the review's writes on the forge — a

@@ -1107,6 +1107,26 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/keys:
+    get:
+      operationId: getKeys
+      summary: The terminal interface's key actions, as its help lists them.
+      description: >-
+        Every action the terminal interface's help lists, in its order, with
+        the ui.keys of the configuration in effect applied, so a page binds
+        the same keys the terminal does and a rebinding in the file reaches
+        both; and whether the page's single-key shortcuts are on
+        (ui.web_shortcuts).
+      tags: [config]
+      responses:
+        "200":
+          description: The actions and the shortcut setting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeyList"
+        default: {$ref: "#/components/responses/Problem"}
+
   /api/local-data:
     get:
       operationId: getLocalData
@@ -4567,6 +4587,46 @@ components:
           additionalProperties: {type: string}
           nullable: true
           description: Map from a key action to the key that triggers it; see the configuration docs for the actions.
+        web_shortcuts:
+          type: boolean
+          description: >-
+            Whether the web page's single-key shortcuts are on. Off unless set;
+            ? and the command palette work either way.
+      additionalProperties: false
+
+    KeyList:
+      type: object
+      required: [single_key_shortcuts, actions]
+      properties:
+        single_key_shortcuts:
+          type: boolean
+          description: Whether a single key pressed outside a text field acts (ui.web_shortcuts).
+        actions:
+          type: array
+          items: {$ref: "#/components/schemas/KeyAction"}
+      additionalProperties: false
+
+    KeyAction:
+      type: object
+      description: One action the terminal interface binds, as its help lists it.
+      required: [action, help, group, shown, keys]
+      properties:
+        action:
+          type: string
+          description: The action's name, as ui.keys names it, e.g. comment.
+        help:
+          type: string
+          description: The words the help says it in, e.g. change status.
+        group:
+          type: string
+          description: The help group it is listed under, e.g. Issues.
+        shown:
+          type: string
+          description: The key the help shows, e.g. c, or 1-9 for the pane numbers.
+        keys:
+          type: array
+          items: {type: string}
+          description: Every key that triggers it, in the terminal's names, e.g. c, C, ctrl+e.
       additionalProperties: false
 
     TimingConfig:

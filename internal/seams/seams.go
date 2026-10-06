@@ -359,3 +359,16 @@ type Tasks struct {
 	// Sync syncs with the backend the taskrc names, and says what it printed.
 	Sync func() (string, error)
 }
+
+// KeyAction is one action the terminal interface binds, as its help lists it:
+// the action's name, the words the help says it in, the help group it is
+// listed under, the key the help shows, and every key that triggers it, with
+// ui.keys applied. A surface that offers the same actions reads them here
+// rather than keeping a table of its own.
+type KeyAction struct {
+	Action string
+	Help   string
+	Group  string
+	Shown  string
+	Keys   []string
+}

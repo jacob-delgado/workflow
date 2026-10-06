@@ -209,6 +209,31 @@ func (s *server) keymapRefusal(keys map[string]string) error {
 	return s.deps.CheckKeys(keys)
 }
 
+// GetKeys lists the terminal interface's key actions under the ui.keys of the
+// configuration in effect, and whether the page's single-key shortcuts are on.
+// It takes up an edit made to the file first, as a read of the configuration
+// does, so a rebinding saved by hand reaches a page that reads its keys again;
+// a file that is not valid, or cannot be read, leaves the configuration in
+// effect standing, and its keys with it, as it does for that read.
+func (s *server) GetKeys(_ context.Context, _ api.GetKeysRequestObject) (api.GetKeysResponseObject, error) {
+	cfg, _, err := s.reread()
+	if err != nil {
+		cfg = s.config()
+	}
+
+	actions := []api.KeyAction{}
+
+	if s.deps.KeyActions != nil {
+		for _, listed := range s.deps.KeyActions(s.forgeKindNow().Noun(), cfg.Messaging.Service(), cfg.UI.Keys) {
+			actions = append(actions, api.KeyAction{
+				Action: listed.Action, Help: listed.Help, Group: listed.Group, Shown: listed.Shown, Keys: listed.Keys,
+			})
+		}
+	}
+
+	return api.GetKeys200JSONResponse{SingleKeyShortcuts: cfg.UI.WebShortcuts, Actions: actions}, nil
+}
+
 // save writes incoming over the read over, through config.SaveEdit, and
 // adopts it as the configuration in effect, at the revision it wrote. The
 // secrets it keeps are those of the configuration in effect, which a masked

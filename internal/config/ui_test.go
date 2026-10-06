@@ -37,6 +37,16 @@ func TestUISettingsKeepTheirDefaultsUnlessAValidFileSetsThem(t *testing.T) {
 			contents: `{"ui": {"keys": {"commit": "C", "comment": "ctrl+e"}}}`,
 			want:     config.UI{Mouse: true, ASCII: false, Keys: map[string]string{"commit": "C", "comment": "ctrl+e"}},
 		},
+		// The web's single-key shortcuts are off unless the file turns them on.
+		"web shortcuts turned on": {
+			contents: `{"ui": {"web_shortcuts": true}}`,
+			want:     config.UI{Mouse: true, ASCII: false, WebShortcuts: true},
+		},
+		// Only a true turns them on, so a quoted "true" is refused rather than
+		// read as off.
+		"web shortcuts of the wrong type": {
+			contents: `{"ui": {"web_shortcuts": "true"}}`, want: defaults, wantErr: config.ErrInvalid,
+		},
 		// A file that does not load still leaves the interface its defaults, so
 		// it opens with the mouse working to say what is wrong.
 		"a setting of the wrong type": {contents: `{"ui": {"mouse": "yes"}}`, want: defaults, wantErr: config.ErrInvalid},
