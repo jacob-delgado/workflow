@@ -7,7 +7,7 @@ import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { ChannelSelect, PreviewText } from '@/features/messaging/AnnouncePreview.tsx'
 import { postSummary } from './summaryApi.ts'
-import { useHoldShortcuts } from '@/features/keyboard/useShortcut.ts'
+import { useHoldShortcuts, useShortcut } from '@/features/keyboard/useShortcut.ts'
 
 // webhookChannel is where a post goes that names no channel: a webhook's own.
 const webhookChannel = 'the channel its webhook is bound to'
@@ -22,6 +22,7 @@ export function SummaryPost({ activity, teller }: { activity: Activity; teller: 
   const messaging = useSnapshotStore((state) => state.snapshot?.messaging)
   const [previewing, setPreviewing] = useState(false)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
+  const postKeys = useShortcut('post-summary', opener)
 
   if (messaging === undefined || !messaging.configured) {
     return null
@@ -47,6 +48,7 @@ export function SummaryPost({ activity, teller }: { activity: Activity; teller: 
     <Button
       variant="secondary"
       ref={opener}
+      aria-keyshortcuts={postKeys}
       onClick={() => {
         setPreviewing(true)
       }}
