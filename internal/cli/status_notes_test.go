@@ -86,18 +86,43 @@ func TestStatusNamesTheWorkingTreeWhenItsChangesCannotBeRead(t *testing.T) {
 	}
 }
 
-func TestStatusSaysNothingOfAServiceThereIsNothingToAsk(t *testing.T) {
+func TestStatusSaysTheForgeIsNotSetUpWhenOriginNamesNone(t *testing.T) {
 	// Arrange
-	// Neither Jira nor the forge is configured: there was nothing to ask, so
-	// there is nothing to say on stderr.
+	// No origin, and no Jira: the forge is not set up, and the issue, read
+	// from the forge's issues, is no number it could hold.
 	repo := prRepo(t, "fix/PROJ-9-x")
 
 	// Act
 	printed, err := runStreams(t, repo, unusedPrompt(t), "status")
 
 	// Assert
-	if err != nil || printed.stderr != "" {
-		t.Errorf("status = %v, stderr %q, want no note with nothing to ask", err, printed.stderr)
+	want := "The forge is not set up: origin does not name a repository on a forge; point it at the repository\n"
+	if err != nil || printed.stderr != want {
+		t.Errorf("status = %v, stderr %q, want only %q", err, printed.stderr, want)
+	}
+}
+
+func TestStatusSaysTheForgeIsNotSetUpWhenItHasNoToken(t *testing.T) {
+	// Arrange
+	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	fakeGh(t, ghResponses{signedOut: true})
+	clearForgeEnvironment(t)
+	repo := statusFeatureRepo(t, server.URL)
+	// Not through gh's own transport, so the forge needs a token, and none is
+	// set or signed in.
+	writeFile(t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"},"forge":{"kind":"github","host":"github.com"}}`)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "status")
+
+	// Assert
+	if err != nil || !strings.Contains(printed.stdout, "CI none") {
+		t.Errorf("status = %v, stdout %q, want the line, CI none", err, printed.stdout)
+	}
+
+	if strings.Count(printed.stderr, "\n") != 1 || !strings.HasPrefix(printed.stderr, "GitHub is not set up: ") ||
+		!strings.Contains(printed.stderr, "$GITHUB_TOKEN") {
+		t.Errorf("stderr = %q, want one note saying GitHub is not set up and how to set it up", printed.stderr)
 	}
 }
 

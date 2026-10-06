@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -18,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -53,7 +55,8 @@ func newStatusCmd() *cobra.Command {
 			"the work has got, and how CI stands — the same progress the interface's\n" +
 			"top row shows, for a shell prompt or a status bar. --json prints it as data.\n" +
 			"A service that refuses to answer leaves its stage as though there were nothing\n" +
-			"to say — CI none — and is named on standard error, one line each.\n\n" +
+			"to say — CI none — and is named on standard error, one line each; so is one that\n" +
+			"is not set up, such as a forge with no token, with how to set it up.\n\n" +
 			"Given one or more directories, it prints a labeled line for each, so\n" +
 			"`workflow status ~/src/*` reports every repository at once. Each reads its\n" +
 			"own configuration. A directory that cannot be read still gets its line,\n" +
@@ -113,7 +116,7 @@ func statusAcross(cmd *cobra.Command, dirs []string, asJSON bool) error {
 	}
 
 	for _, status := range statuses {
-		writeUnread(out.notes, status.label+": ", status.facts.unread)
+		writeNotes(out.notes, status.label+": ", status.facts.notes)
 	}
 
 	return errors.Join(err, unreadDirectories(statuses))
@@ -232,25 +235,26 @@ func repoLabel(dir string) string {
 	return base
 }
 
-// statusFacts is everything the line and the JSON are built from, and why
-// each service that refused to answer did not.
+// statusFacts is everything the line and the JSON are built from, and the
+// notes saying why each service that did not answer did not.
 type statusFacts struct {
 	issue   string
 	summary string
 	stages  []progress.Stage
 	ci      forge.CIState
-	unread  []error
+	notes   []string
 }
 
 // runStatus gathers the current state and prints it, as a line or as JSON,
-// with a note on stderr for each service that refused to answer.
+// with a note on stderr for each service that refused to answer or is not set
+// up.
 func runStatus(out output, seams statusSeams, ascii, asJSON bool) error {
 	facts, err := statusFromSeams(seams)
 	if err != nil {
 		return err
 	}
 
-	writeUnread(out.notes, "", facts.unread)
+	writeNotes(out.notes, "", facts.notes)
 
 	if asJSON {
 		return renderStatusJSON(out.artifact, facts)
@@ -261,11 +265,10 @@ func runStatus(out output, seams statusSeams, ascii, asJSON bool) error {
 	return nil
 }
 
-// writeUnread notes each service that refused to answer, one line apiece
-// after label. Its words are the service's, so none may drive the terminal.
-func writeUnread(notes io.Writer, label string, unread []error) {
-	for _, err := range unread {
-		fmt.Fprintln(notes, label+sanitize.Line(err.Error()))
+// writeNotes writes each note on a service, one line apiece after label.
+func writeNotes(out io.Writer, label string, notes []string) {
+	for _, note := range notes {
+		fmt.Fprintln(out, label+note)
 	}
 }
 
@@ -283,7 +286,7 @@ func statusFromSeams(seams statusSeams) (statusFacts, error) {
 // gather reads the issue, the pull request, its CI and whether it was
 // announced, and derives the stages.
 // A service that will not answer leaves its stage not-started rather than
-// failing the whole line, and is named among the facts' unread.
+// failing the whole line, and is named among the facts' notes.
 func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 	issueRef, named := loop.IssueOf(branch, seams.Project)
 	facts := statusFacts{issue: issueRef.Key}
@@ -297,7 +300,7 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 	review := gatherReview(seams, branch, onFeature)
 	changes, changesErr := seams.Changes()
 	facts.ci = review.ci
-	facts.unread = unreadServices([]serviceRead{
+	facts.notes = serviceNotes([]serviceRead{
 		{name: seams.Tracker, err: issueErr},
 		{name: forgeName(seams.Forge), err: review.err},
 		{name: "The working tree", err: changesErr},
@@ -324,35 +327,35 @@ type serviceRead struct {
 	err  error
 }
 
-// unreadServices is why each service that refused to answer did not, in its
-// name. A service there was nothing to ask — no credential set, no forge the
-// origin names — answered nothing because nothing was asked, and one that
-// says the branch's issue does not exist has answered; both are left out.
-func unreadServices(reads []serviceRead) []error {
-	var unread []error
+// serviceNotes says why each service that did not answer did not, in its
+// name: first each that refused, in its own words, which may not drive the
+// terminal; then each that is not set up — no credential, no forge the origin
+// names — with how to set it up, in the words the web gives it, once however
+// many reads met it. A tracker that says the branch's issue does not exist
+// has answered, and is left out.
+func serviceNotes(reads []serviceRead) []string {
+	var unread, notSetUp []string
 
 	for _, read := range reads {
-		if read.err != nil && !answeredOrUnasked(read.err) {
-			unread = append(unread, fmt.Errorf("%s could not be read: %w", read.name, read.err))
+		switch {
+		case read.err == nil || errors.Is(read.err, jira.ErrNotFound):
+		case loop.NotSetUp(read.err):
+			note := notSetUpNote(read.name, read.err)
+			if !slices.Contains(notSetUp, note) {
+				notSetUp = append(notSetUp, note)
+			}
+		default:
+			unread = append(unread, read.name+" could not be read: "+sanitize.Line(read.err.Error()))
 		}
 	}
 
-	return unread
+	return append(unread, notSetUp...)
 }
 
-// answeredOrUnasked reports an error that says a service was never asked —
-// Jira or the forge has no credential, or the origin names no forge workflow
-// reads — or that the tracker answered it holds no such issue.
-func answeredOrUnasked(err error) bool {
-	for _, said := range []error{
-		jira.ErrNoCredential, forge.ErrNoToken, forge.ErrNotARemote, forge.ErrUnknownForge, jira.ErrNotFound,
-	} {
-		if errors.Is(err, said) {
-			return true
-		}
-	}
-
-	return false
+// notSetUpNote says a service is not set up, and how to set it up, in the
+// words the web's problem gives it.
+func notSetUpNote(name string, err error) string {
+	return name + " is not set up: " + webserver.FaultDetail(err)
 }
 
 // forgeName names the forge as the subject of a note: by its name when the
