@@ -48,8 +48,19 @@ export function plainKey(event: KeyboardEvent): string | undefined {
   return pressable(event.key) ? event.key : undefined
 }
 
-// opensPalette reports Control+K or Command+K, the one combination the page
-// takes from the browser.
+// onMac reports a Mac, where Control+K in a text field is the field's own
+// key — delete to the end of the line — and Command+K is the page's.
+function onMac(): boolean {
+  return /mac|iphone|ipad/i.test(navigator.platform)
+}
+
+// opensPalette reports Command+K, or Control+K but in a Mac's text field, the
+// one combination the page takes from the browser; never mid-composition,
+// where the press is the input method's.
 export function opensPalette(event: KeyboardEvent): boolean {
-  return (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k'
+  if (event.isComposing || event.altKey || event.key.toLowerCase() !== 'k') {
+    return false
+  }
+
+  return event.metaKey || (event.ctrlKey && !(onMac() && takesTyping(event.target)))
 }
