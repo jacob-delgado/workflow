@@ -53,8 +53,12 @@ its CI — is asked less often: at most once every `timing.ci_interval` (twenty
 seconds unless set), however many tabs are open, and at once when another
 branch is checked out, its head commit moves, or the page opens a pull
 request. A forge read that fails keeps the last answer for the same branch
-and head commit; with no answer to keep, the page shows no pull request
-until a read succeeds. The stream's state is beside the theme:
+and head commit, and says why beside it. A read that fails shows as a
+failure in its section, with the reason, rather than as an empty one: the
+Issues list does not say no issue matches, the Branch section does not say
+the directory is no repository, and the Review section does not offer to
+open a pull request, while Jira, git or the forge cannot be read. The
+stream's state is beside the theme:
 
 - **Connecting** — the page has not had its first update yet.
 - **Live** — updates are arriving.

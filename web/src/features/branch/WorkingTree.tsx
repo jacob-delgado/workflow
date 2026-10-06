@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import type { Change, FileDiff } from '@/api/generated/types.gen.ts'
+import type { Change, FileDiff, Problem } from '@/api/generated/types.gen.ts'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
-import { Failure } from '@/lib/Status.tsx'
+import { Failure, ReadFailure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { CommitForm } from './CommitForm.tsx'
 import {
@@ -23,20 +23,31 @@ import {
 // What a discard did is said below the list, which outlives the file's row.
 export function WorkingTree({
   changes,
+  unread,
   suggestedScope,
   commitTypes,
 }: {
   changes: Change[]
+  // Why the changes could not be read, or null when they were.
+  unread: Problem | null
   suggestedScope: string
   commitTypes: string[]
 }) {
   const discards = useOutcome()
 
+  // Changes that could not be read are that failure, not a clean tree.
+  if (unread !== null) {
+    return (
+      <section aria-labelledby="changes-heading" className="flex flex-col gap-group">
+        <WorkingTreeHeading />
+        <ReadFailure unread="The working tree could not be read" problem={unread} />
+      </section>
+    )
+  }
+
   return (
     <section aria-labelledby="changes-heading" className="flex flex-col gap-group">
-      <h3 id="changes-heading" className="text-base font-semibold">
-        Working tree
-      </h3>
+      <WorkingTreeHeading />
       {changes.length === 0 ? null : (
         <>
           <ul className="flex flex-col gap-item">
@@ -57,6 +68,14 @@ export function WorkingTree({
         commitTypes={commitTypes}
       />
     </section>
+  )
+}
+
+function WorkingTreeHeading() {
+  return (
+    <h3 id="changes-heading" className="text-base font-semibold">
+      Working tree
+    </h3>
   )
 }
 

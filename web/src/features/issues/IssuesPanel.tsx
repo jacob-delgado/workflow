@@ -1,13 +1,19 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
-import type { Issue, IssuesPage, TaskBranch, TasksSummary } from '@/api/generated/types.gen.ts'
+import type {
+  Issue,
+  IssuesPage,
+  Problem,
+  TaskBranch,
+  TasksSummary,
+} from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot, useSnapshotStore } from '@/api/snapshot.ts'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
 import { Button } from '@/lib/Button.tsx'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
-import { Reading } from '@/lib/Status.tsx'
+import { Reading, ReadFailure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
@@ -32,12 +38,19 @@ export function IssuesPanel() {
   const snapshot = useLiveSnapshot()
 
   return (
-    <IssueBrowser streamed={snapshot.issues} branches={snapshot.branches} tasks={snapshot.tasks} />
+    <IssueBrowser
+      streamed={snapshot.issues}
+      unread={snapshot.problems?.issues ?? null}
+      branches={snapshot.branches}
+      tasks={snapshot.tasks}
+    />
   )
 }
 
 interface IssueBrowserProps {
   streamed: IssuesPage
+  // Why the view's first page could not be read, or null when it was.
+  unread: Problem | null
   branches: TaskBranch[]
   tasks: TasksSummary
 }
@@ -49,7 +62,7 @@ interface IssueBrowserProps {
 // view's first frame lands, the stream's page is the last view's, so none of
 // it is listed under the new name. A check-out from the list says where it
 // went above the list, which outlives the row's button.
-function IssueBrowser({ streamed, branches, tasks }: IssueBrowserProps) {
+function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) {
   const view = useUiStore((state) => state.view)
   const streamedView = useSnapshotStore((state) => state.view)
   const [filter, setFilter] = useState('')
@@ -117,6 +130,7 @@ function IssueBrowser({ streamed, branches, tasks }: IssueBrowserProps) {
           tasks={tasks}
           more={more}
           streamed={streamed}
+          unread={unread}
           focus={focus}
           onLoadMore={loadMore}
           outcome={outcome}
@@ -133,13 +147,15 @@ interface ListAndDetailProps {
   tasks: TasksSummary
   more: ReturnType<typeof useMoreIssues>
   streamed: IssuesPage
+  unread: Problem | null
   focus: ReturnType<typeof useArrivalFocus>
   onLoadMore: () => Promise<void>
   outcome: Teller
 }
 
 // ListAndDetail is the view's list, with its loading of more, beside the
-// selected issue's detail — or the view's empty state when it holds none. Below
+// selected issue's detail — or the view's empty state when it holds none, or
+// why it could not be read, which is not an empty view. Below
 // lg the list sits over the detail, in a pane of a few rows, so the detail it
 // opens starts just beneath; from lg the two sit side by side and fill the
 // window's height, each scrolling on its own. Each pane keeps a few pixels
@@ -148,8 +164,13 @@ interface ListAndDetailProps {
 // positioned, as the content around it is, so the text it keeps for a screen
 // reader scrolls and clips with it rather than growing the content.
 function ListAndDetail(props: ListAndDetailProps) {
-  const { loaded, shown, branches, tasks, more, streamed, focus, onLoadMore, outcome } = props
+  const { loaded, shown, branches, tasks, more, streamed, unread, focus, onLoadMore, outcome } =
+    props
   const selected = useUiStore((state) => state.selectedIssue)
+
+  if (unread !== null) {
+    return <ReadFailure unread="The issues could not be read" problem={unread} />
+  }
 
   if (loaded.length === 0) {
     return <EmptyState>No issues match this view.</EmptyState>
