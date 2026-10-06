@@ -147,6 +147,15 @@ func faultProblem(err error) (api.Problem, bool) {
 	return problem(api.Internal, "the request could not be completed; "+tryAgain), false
 }
 
+// setUpDetail is how to set up what cause says is missing, in the words
+// every surface shares (loop.SetUpAdvice), so the web, the command line and
+// the terminal tell it alike.
+func setUpDetail(cause error) string {
+	advice, _ := loop.SetUpAdvice(cause)
+
+	return advice
+}
+
 // setUpCode is code, or not_set_up for an error loop.NotSetUp says found
 // nothing set up to ask, so every answer — an error, a panel's problem, a
 // summary's source — tells setting up apart from a refusal the one way the
@@ -188,7 +197,7 @@ func gitFaults() []faultClass {
 		{
 			causes: []error{gitrepo.ErrNoIdentity},
 			code:   api.Unprocessable,
-			detail: "git has no user.email to tell your commits by; set it with git config user.email",
+			detail: setUpDetail(gitrepo.ErrNoIdentity),
 		},
 		{
 			causes: []error{gitrepo.ErrIssueLinkNotSaved},
@@ -233,8 +242,7 @@ func jiraFaults() []faultClass {
 		{
 			causes: []error{jira.ErrNoCredential},
 			code:   api.Unprocessable,
-			detail: "Jira has no token; set jira.token, or check that jira.token_command or jira.token_env gives one " +
-				"— workflow doctor --online tests it",
+			detail: setUpDetail(jira.ErrNoCredential),
 		},
 		{
 			causes: []error{config.ErrInvalidBaseURL, config.ErrCredentialInBaseURL},
@@ -272,8 +280,7 @@ func forgeFaults() []faultClass {
 			code:   api.Unprocessable,
 			// Not the resolver's own words: for a host other than github.com or
 			// gitlab.com they name the host, which a detail never does.
-			detail: "no forge token was found; for GitHub set $GITHUB_TOKEN or sign in with gh, for GitLab set " +
-				"$GITLAB_TOKEN, or set forge.token; workflow doctor names where it looks for this repository",
+			detail: setUpDetail(forge.ErrNoToken),
 		},
 		{
 			causes: []error{forge.ErrKindNeedsHost},
@@ -281,11 +288,11 @@ func forgeFaults() []faultClass {
 		},
 		{
 			causes: []error{forge.ErrUnknownForge},
-			code:   api.Unprocessable, detail: "cannot tell which forge this repository is on; set forge.kind and forge.host",
+			code:   api.Unprocessable, detail: setUpDetail(forge.ErrUnknownForge),
 		},
 		{
 			causes: []error{forge.ErrNotARemote},
-			code:   api.Unprocessable, detail: "origin does not name a repository on a forge; point it at the repository",
+			code:   api.Unprocessable, detail: setUpDetail(forge.ErrNotARemote),
 		},
 		{
 			causes: []error{forge.ErrNoAPI, forge.ErrNotJSON},
@@ -397,13 +404,10 @@ type taskwarriorReason struct {
 func taskwarriorReasons() []taskwarriorReason {
 	return []taskwarriorReason{
 		{
-			cause: taskwarrior.ErrNotInstalled, code: api.NotInstalled,
-			text: "Taskwarrior is not installed, or no task program is on PATH. Install Taskwarrior " +
-				taskwarrior.MinimumVersion + " or newer, or set taskwarrior.program.",
+			cause: taskwarrior.ErrNotInstalled, code: api.NotInstalled, text: setUpDetail(taskwarrior.ErrNotInstalled),
 		},
 		{
-			cause: taskwarrior.ErrNotTaskwarrior, code: api.NotTaskwarrior,
-			text: "The task on PATH is another program (go-task, most likely), not Taskwarrior.",
+			cause: taskwarrior.ErrNotTaskwarrior, code: api.NotTaskwarrior, text: setUpDetail(taskwarrior.ErrNotTaskwarrior),
 		},
 		{
 			cause: taskwarrior.ErrTooOld, code: api.TooOld,
@@ -411,9 +415,7 @@ func taskwarriorReasons() []taskwarriorReason {
 				" or newer is needed; workflow doctor shows the version found.",
 		},
 		{
-			cause: taskwarrior.ErrNotConfigured, code: api.NeverRun,
-			text: "Taskwarrior has never been run: run it once in a terminal so it creates its configuration; " +
-				"workflow doctor names the program.",
+			cause: taskwarrior.ErrNotConfigured, code: api.NeverRun, text: setUpDetail(taskwarrior.ErrNotConfigured),
 		},
 	}
 }
