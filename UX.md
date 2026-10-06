@@ -105,7 +105,7 @@ concept that needs a new word adds a row.
 | Changing the directory workflow works in | **Switch** … **Switched to** |
 | The review queue | **Reviews**, headed "Waiting on your review" |
 | The ready, merged or CI-red message | **Announce** … **Announced to** |
-| A standup | **Post** … **Posted to** |
+| The Summary, sent to the team | **Post** … **Posted to** |
 | Narrowing by typing | **Search** (`/` in the terminal) |
 | Narrowing by a checklist | **Filter** (`f` in the terminal) |
 | Ordering | **Sort** (`O` in the terminal) |
@@ -162,15 +162,15 @@ them.
 | Edit the announcement first | not for scripts | `e` in the preview | Edit, in the preview |
 | Know it was announced | `announce` says so, and asks again | "● announced" on the Messaging rail | the section says so |
 | People and groups | not for scripts | `P` | Settings: People, Groups |
-| Post a standup | `standup` | — (FEAT-86) | — (FEAT-86) |
+| Post the summary | `summary --post` | Summary pane: `p` | Summary: Post… |
 | **Reviews** | | | |
 | List what waits on your review | `reviews --json --sort` | Reviews pane: `O`, `f` | Reviews: Sort, Filter |
 | **Tasks** | | | |
 | Add, annotate, modify, start, stop, mark done, undo, sync | not for scripts | Tasks pane: `a`, `A`, `e`, `s`, `d`, `u`, `S` | Tasks: Add, Annotate, Modify, Start, Stop, Mark done…, Undo…, Sync… |
 | Sort, search, filter | not for scripts | `O`, `/`, `f` | Sort, Search, Filter |
 | **Summary** | | | |
-| Read what you did in a period | — (FEAT-86) | Summary pane: `[`, `]`, `t`, `c` | Summary: Earlier, Later, Today, the calendar |
-| Copy it as Markdown | — (FEAT-86) | `Y` | Copy as Markdown |
+| Read what you did in a period | `summary [--from --to] [--json]` | Summary pane: `[`, `]`, `t`, `c` | Summary: Earlier, Later, Today, the calendar |
+| Copy it as Markdown | `summary` (to stdout) | `Y` | Copy as Markdown |
 | **Repositories** | | | |
 | Where workflow works, and what configures it | `doctor`, `config show` | Repositories pane, the top row's place | Repositories, the header's place |
 | Switch the directory | not for scripts | `enter`, `g` | Switch, Switch here |
@@ -189,14 +189,14 @@ them.
 
 The terminal states its own rules, in its docs and in its code. This table
 is the shortest summary of how far the screen keeps them, re-counted at
-`cac1adf`.
+`2e464fa`.
 
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
-| "`?` lists every key" | `docs/content/docs/usage.md:89` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:162`, rendered in two columns split where they balance): 96 placements in 12 groups, on 95 lines, since `cycle-type-right` rides `cycle-type-left`'s line. `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:289`) reads `?` back and holds it to a table of every placement. |
-| "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:58` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/failure.go:86`) and drawn by one of seven helpers: `failureBlock` at 20 sites, `pinnedOutcome` 14, `failureLine` 22, `failureSummary` 7, `noticedFailure` 10, `noticedFailureLedBy` 3 and `noticedGuidance` 3 (plain, since red means something broke). |
+| "`?` lists every key" | `docs/content/docs/usage.md:89` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:163`, rendered in two columns split where they balance): 97 placements in 12 groups, on 96 lines, since `cycle-type-right` rides `cycle-type-left`'s line. `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:292`) reads `?` back and holds it to a table of every placement. |
+| "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:58` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/failure.go:86`) and drawn by one of seven helpers: `failureBlock` at 20 sites, `pinnedOutcome` 15, `failureLine` 22, `failureSummary` 7, `noticedFailure` 11, `noticedFailureLedBy` 3 and `noticedGuidance` 4 (plain, since red means something broke). |
 | "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:54` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:229`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
-| "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:321` | **Yes: 17 of 17.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm`, `statusPicker` (with its field form) and `taskLine`. |
+| "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:321` | **Yes: 18 of 18.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm`, `statusPicker` (with its field form), `summaryPost` and `taskLine`. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:97` | **Yes.** `Init` (`internal/tui/tui.go:193`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:201`); each pane holds and renders its own load's error, the Summary per source. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | **Yes.** `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:33`, `:45`); `NO_COLOR` keeps bold and faint. Two residues: the progress spine's five system hues are color-only, mitigated by each system's name or initial, and `◐` means both "partly staged" and "announces when CI passes" (see the visual system). |
 
@@ -210,10 +210,10 @@ for the help.
 ## The command line
 
 What is open here is a slow command's silence, the flags the scriptable
-commands lack and the JSON a script cannot join, time or get from `pr` and
-`standup`, what `config init` claims and does, three moments that name no
-next step, the body `pr` never shows, the store's fallback `doctor` has no
-row for, and a reference with no example or exit status.
+commands lack and the JSON a script cannot join or time, what `config
+init` claims and does, three moments that name no next step, the body
+`pr` never shows, the store's fallback `doctor` has no row for, and a
+reference with no example or exit status.
 
 ### UX-61 A slow command is silent while it works
 
@@ -221,9 +221,12 @@ Impact: low · Effort: medium
 
 **Today.** No spinner, no elapsed time, no "checking…". `doctor --online`
 makes three round trips in silence (`reportCredentials`,
-`internal/cli/doctor_credentials.go:30`); `standup` fires up to fifteen
-forge requests (`standupBranchLimit`, `internal/cli/standup.go:47`) plus a
-Jira search (`gatherPulls`, `internal/cli/standup.go:190`); `status DIR…`
+`internal/cli/doctor_credentials.go:30`); `summary` reads its four
+sources one after another (`ReadAll`, `internal/loop/summary.go:315`), on
+GitHub two paged searches, a search for what you reviewed and the reviews
+of up to twenty pull requests (`githubActivity`,
+`internal/forge/activity.go:96`; `reviewLookups`, `:19`), on Jira up to
+three requests (`Activity`, `internal/jira/activity.go:67`); `status DIR…`
 visits each directory in series (`statusesOf`,
 `internal/cli/status.go:159`). The only trace is `--log`, which outlines
 each request in a file for a bug report and shows the person waiting
@@ -249,13 +252,13 @@ only through `ui.ascii` in the file, no `--plain`; `pr` declares only
 alone); `pr` names no template, so it takes the repository's first
 (`chosenTemplate`, `internal/loop/pull.go:185`, given an empty name at
 `:192`), where the interface cycles them (`ctrl+t`,
-`internal/tui/keys.go:332`) and the web's pull request form offers a
+`internal/tui/keys.go:336`) and the web's pull request form offers a
 Template select (`TemplateChoice`,
 `web/src/features/review/OpenPullRequest.tsx:246`).
 
 **Instead.** Shorthands for the three common flags; `--plain` on `status`;
 `--draft`, `--base`, `--reviewer`, `--channel`, `--template` where the seam
-already carries the value. `--json` on `standup` is UX-92's.
+already carries the value.
 
 **Done when.** Each flag has a test that it reaches the seam.
 
@@ -277,7 +280,7 @@ while it runs.
   help to the token steps and never to the flow. The generated
   `docs/content/docs/reference/workflow.md:25` and `:29` carry the same
   two lines.
-- `README.md:48` (under "Status"), `README.md:103` (under "Configure") and
+- `README.md:48` (under "Status"), `README.md:104` (under "Configure") and
   `docs/content/docs/install.md:106` and `:110` (under "First run"):
   "writes a starting configuration file", "# writes .workflow.json here",
   "Then fill in the two tokens", the same stale flow, while
@@ -288,8 +291,8 @@ while it runs.
   .gitignore". `warnIfNotIgnored` (`internal/cli/config_cmd.go:450`) only
   warns when it is not, and nothing writes a `.gitignore`; the sentence is
   true of this repository's own `.gitignore:35`, not the user's.
-  `README.md:218` and `docs/content/docs/configuration.md:1000` (both under
-  "Keeping the tokens safe") say the same, and `README.md:295` (under
+  `README.md:219` and `docs/content/docs/configuration.md:1001` (both under
+  "Keeping the tokens safe") say the same, and `README.md:296` (under
   "Security") calls the file "gitignored".
 
 **Instead.** Say what the command does: in `longHelp`, the README and
@@ -310,20 +313,20 @@ Impact: low · Effort: small
 
 **Today.** The scriptable writes say what to do when stdin is closed:
 "pass --yes", exit 2 (`writeOptions.proceed`,
-`internal/cli/scriptable.go:145`, and `docs/content/docs/scripting.md:273`
+`internal/cli/scriptable.go:145`, and `docs/content/docs/scripting.md:297`
 under "Writing without a person"). Three other moments end without a
 pointer.
 
 - `internal/cli/config_cmd.go:363` (`collectJira`): the guided `init`
   returns `prompt.Line`'s error raw (`:365`), and so do its other
-  questions. Only `confirm` (`internal/cli/prompt.go:51`) and `slack
+  questions. Only `confirm` (`internal/cli/prompt.go:47`) and `slack
   login`'s `askFor` (`internal/cli/slack_cmd.go:146`) map `io.EOF` to
   `errNoTerminal`, and `io.EOF` belongs to no family in `exitFamilies`
   (`internal/cli/scriptable.go:357`), so `workflow config init <
   /dev/null` prints "workflow: EOF" and exits 1 with no mention of
   `--template`. A final line typed without a newline comes back from
   `terminalPrompt`'s `ReadString` together with `io.EOF`
-  (`cmd/workflow/main.go:44`) and is discarded with it.
+  (`cmd/workflow/main.go:43`) and is discarded with it.
 - `internal/cli/web.go:179` (`serveWeb`, reached from the root's `--web`
   branch at `internal/cli/cli.go:206`): every load error, `ErrNotFound`
   included, prints "configuration did not load cleanly: %v" and then
@@ -332,7 +335,7 @@ pointer.
   (`internal/cli/config_cmd.go:102`), `reportLoadError`
   (`internal/cli/doctor.go:286`) and the interface's `configErrorStatus`
   (`internal/tui/render.go:483`). The web cannot write a first file
-  (`docs/content/docs/web.md:518`, under "What stays in the terminal"),
+  (`docs/content/docs/web.md:532`, under "What stays in the terminal"),
   so the one surface that most needs `workflow config init` named is the
   one whose start never names it.
 - `internal/cli/pr.go:269` (`openPull`): the command ends with `followUp`,
@@ -355,44 +358,37 @@ exit 2 and an error naming `--template`; a root test with no file and
 cleanly"; a `pr --yes` test with messaging configured sees "workflow
 announce" on stderr, and one without messaging does not.
 
-### UX-92 The scriptable output lacks a unique label, a timestamp and `--json` on `standup`
+### UX-92 The scriptable output lacks a unique label and a timestamp
 
 Impact: low · Effort: small
 
-**Today.** A script reading the JSON has no stable key to join on, no
-time to compare, and no JSON at all from `standup`. (`pr --json` has
-shipped, printing what was opened and the offers that followed.) This
-entry owns `--json` for `standup`; UX-62 keeps the other missing flags.
+**Today.** A script reading the JSON has no stable key to join on and no
+time to compare. (`pr --json` has shipped, printing what was opened and
+the offers that followed.) UX-62 keeps the missing flags.
 
 - `internal/cli/status.go:202` (`repoLabel`): the label is the base name,
   and "." is returned as itself (`:205`), so `status .` labels the row "."
   (`TestStatusAcrossLabelsTheCurrentDirectory`,
   `internal/cli/status_test.go:96`, pins that prefix) and `status ~/a/api
   ~/b/api` gives two rows the same `repository`, the only key
-  `docs/content/docs/scripting.md:146` (under "JSON") offers.
+  `docs/content/docs/scripting.md:147` (under "JSON") offers.
 - `internal/cli/reviews.go:151` (`reviewReport.Age`): a string, filled by
   `renderReviewsJSON` (`:156`) through `humanizeAge` (`:130`), which
   rounds 25 h and 47 h alike to "1d"; `ReviewRequest.OpenedAt`
   (`internal/forge/pulls.go:194`) holds the time and never reaches the
-  JSON. `docs/content/docs/scripting.md:162` documents `"age": "3d"` as
+  JSON. `docs/content/docs/scripting.md:163` documents `"age": "3d"` as
   the shape, so `jq 'map(select(.age > "2d"))'` compares strings.
-- `internal/cli/standup.go:75` (`newStandupCmd`): the command declares
-  `--days` and `--no-edit` and nothing else, so the gathered issues and
-  pull requests reach a script only as the Markdown draft.
 
 **Instead.** Label a `status` row by the cleaned absolute path's base
 name, falling back to the full path when two arguments would share a
 label, and carry the given path in a second `path` field; add `opened_at`
-(RFC3339 UTC, from `OpenedAt`) beside `age` and document it; and give
-`standup` a `--json` printing the gathered sections in place of the
-draft — `standup --json` becomes `summary --json` if FEAT-86 lands.
+(RFC3339 UTC, from `OpenedAt`) beside `age` and document it.
 
 **Done when.** `status .` in a repository labels the row by the
 directory's name and `status a/api b/api --json` yields two distinct
 `repository` values; `TestReviewsAsJSONReportsEachOldestFirstWithItsAge`
 (`internal/cli/reviews_test.go:163`) also parses `opened_at` back into the
-time it seeded; a `standup --json` test parses its stdout as JSON holding
-the seeded issue key.
+time it seeded.
 
 ### UX-94 doctor has no row for the store's silent fallback
 
@@ -454,13 +450,13 @@ the directory matches nothing).
 - `internal/cli/status.go:52` (`newStatusCmd`'s `Long`): "the command
   then fails, as it does outside a repository", the text
   `docs/content/docs/reference/workflow_status.md:21` (its "Synopsis") is
-  generated from, where `docs/content/docs/scripting.md:35` (the "Exit
+  generated from, where `docs/content/docs/scripting.md:40` (the "Exit
   status" table's family 4 row) names "a directory that is not a git
   repository" as exit 4.
 - `internal/cli/config_cmd.go:118`, generated into
   `docs/content/docs/reference/workflow_config_show.md:17` (its
   "Synopsis"): "fails, as doctor does" with no configuration file, where
-  `docs/content/docs/scripting.md:34` (family 3) says exit 3.
+  `docs/content/docs/scripting.md:39` (family 3) says exit 3.
 - `docs/content/docs/reference/_index.md:9` ("Command reference"): says
   every command and flag is here and links nowhere;
   `docs/content/docs/scripting.md:14` links back to the reference, but
@@ -473,7 +469,7 @@ scripting.md already shows, so `--help` and the generated page carry them
 together; have the reference index point at the Scripting page for exit
 status and streams; let a synopsis that says "fails" name the family.
 
-**Done when.** The pages for `status`, `reviews`, `repositories`, `standup`,
+**Done when.** The pages for `status`, `reviews`, `repositories`, `summary`,
 `branch`, `pr`, `announce`, `comment` and `doctor` each have an "###
 Examples" section and `task docs:check` passes;
 `docs/content/docs/reference/_index.md` links `/docs/scripting`; the status
@@ -506,7 +502,7 @@ instead; the command line is the only other way in.
 
 **Instead.** `ui.alt_screen: false` for inline rendering; `ui.color:
 always`, which `Config.validateUI` (`internal/config/ui.go:61`) and the
-`UIConfig.color` enum (`api/openapi.yaml:4465`) refuse until they list it;
+`UIConfig.color` enum (`api/openapi.yaml:4556`) refuse until they list it;
 `ui.detail_delay` in milliseconds.
 
 **Done when.** Each setting is read and honored by a screen test.
@@ -584,7 +580,7 @@ single grep finds all nine.
   `branchAndCommitKeys`).
 - `internal/tui/branch.go:350` `branchCreator.view` says "could not fetch;
   enter branches from what you already have"; apply is rebindable
-  (`internal/tui/keys.go:388`, `everywhereKeys`), and the creator's own
+  (`internal/tui/keys.go:392`, `everywhereKeys`), and the creator's own
   footer already reads it from the binding — `branchCreator.footer`
   (`internal/tui/branch.go:380`) relabels `keys.confirm` to "branch from
   what you have", so a rebound session shows "ctrl+s branch from what you
@@ -598,7 +594,7 @@ single grep finds all nine.
   is rebindable (`internal/tui/keys.go:275`, `reviewAndMessagingKeys`), and
   the pane answers `m.keys.newPullRequest`.
 - `internal/tui/review.go:324` `Model.reviewDetail` says "e edits its title
-  and description."; edit is rebindable (`internal/tui/keys.go:330`,
+  and description."; edit is rebindable (`internal/tui/keys.go:334`,
   `composerKeys`), and the pane answers `m.keys.edit`.
 - `internal/tui/finish.go:28` `Model.mergedDetail` says "F finishes the
   branch: …"; finish-branch is rebindable (`internal/tui/keys.go:279`,
@@ -613,7 +609,7 @@ single grep finds all nine.
 - `internal/tui/composer.go:230` `commitComposer.footnotes` says "no body
   yet: ctrl+o writes one in your editor"; `commitComposer.handleKey`
   (`internal/tui/composer.go:254`) answers `m.keys.editBody` (`:262`), and
-  edit-body is rebindable (`internal/tui/keys.go:331`, `composerKeys`).
+  edit-body is rebindable (`internal/tui/keys.go:335`, `composerKeys`).
 
 **Instead.** Build each sentence from the binding — `m.keys.newBranch`,
 `m.keys.confirm`, `m.keys.hookConfig`, `m.keys.newPullRequest`,
@@ -663,7 +659,7 @@ opens on the cache does the same while `Init`'s search runs.
 A pane's first wait now says "reading…" on every pane — the Issues list
 (`issueList.render`, `internal/tui/issues.go:275`), the rails and details
 (`internal/tui/branch.go:82`, `internal/tui/review.go:263`,
-`internal/tui/tasks.go:180`, `internal/tui/summary.go:324`) — but without
+`internal/tui/tasks.go:180`, `internal/tui/summary.go:307`) — but without
 `◐`, which only the overlays and the Messaging pane put before their
 wait: "◐ announcing…" (`internal/tui/messaging.go:145`), "◐ sending…" on
 the Tasks rail (`internal/tui/tasks.go:184`), "◐ reading the user groups…"
@@ -957,7 +953,7 @@ control. Sixteen of those keep focus or never had it: the push
 openers (`web/src/features/settings/people/LocalData.tsx:183`); the
 announcement preview's channel select, text box, Edit, Cancel, Announce
 when CI passes, Announce now and group checkboxes (`AnnouncePreview`,
-`web/src/features/messaging/AnnouncePreview.tsx:56`–`:156`;
+`web/src/features/messaging/AnnouncePreview.tsx:48`–`:181`;
 `web/src/features/messaging/TagPicker.tsx:286`), whose send hands focus
 back first (`PreviewStep`'s `send`,
 `web/src/features/messaging/MessagingPanel.tsx:248`); and five that did
@@ -1234,7 +1230,7 @@ width above it is open.
   description at 1440 px would be set at roughly 150 characters a line
   where the other sections stop at 672 px. The task detail
   (`web/src/features/tasks/TasksPanel.tsx:346`) and the Summary grid's
-  right column (`web/src/features/summary/SummaryPanel.tsx:41`) are the
+  right column (`web/src/features/summary/SummaryPanel.tsx:42`) are the
   same.
 
 **Instead.** Name one content measure (`max-w-2xl`) and use it in every
@@ -1332,9 +1328,9 @@ now, the terminal's Settings alike — so neither has a way to clear
 saving keeps it, and moving from a user token to a webhook leaves the old
 client secret and refresh token in the file, to be removed by hand. The
 keep is documented — `updateConfig` says an empty or masked secret field
-keeps the stored secret (`api/openapi.yaml:1018`), and the web page says
+keeps the stored secret (`api/openapi.yaml:1057`), and the web page says
 under "Settings" that a credential is "kept as it is unless you type a new
-one" (`docs/content/docs/web.md:446`) — but no clear is offered anywhere.
+one" (`docs/content/docs/web.md:460`) — but no clear is offered anywhere.
 UX-87 covers sections the form cannot show, not clearing a secret.
 
 **Instead.** Accept an explicit clear — a `null` for the secret fields in
@@ -1580,7 +1576,7 @@ Settings is opened rarely, which is why this is low.
   `MarshalIndent` of the whole struct writes the empty value
   (`internal/config/save.go:161`).
 - `MessagingConfig`'s `kind` `enum` is `["", slack, teams, discord,
-  webhook]` (`api/openapi.yaml:4404`), so the spec allows what the select
+  webhook]` (`api/openapi.yaml:4498`), so the spec allows what the select
   cannot show; the mock the screenshots show has `title_source: ''`
   (`web/src/dev/mockConfig.ts:57`).
 
@@ -1700,11 +1696,8 @@ key it does not have.
   waiting on your review." (`:105`) with no forge kind in reach —
   `reviewsSeams` (`:26`) carries none; `reviewLine`, `:118`, writes `#%d`
   before every number (`:124`).
-- `docs/content/docs/scripting.md:93`, the `reviews` row of the stdout and
+- `docs/content/docs/scripting.md:94`, the `reviews` row of the stdout and
   stderr table: quotes that sentence verbatim, so the row moves with it.
-- `draftStandup`, `internal/cli/standup.go:236`: the heading "## Pull
-  requests"; `writePulls`, `:272`: `- #` before each number;
-  `standupSeams` (`:24`) carries no `Kind`.
 - `Model.reviewQueueDetail`, `internal/tui/reviewqueue.go:163`: "pull
   requests" whatever the forge (`:166`, `:172`); `Model.reviewRows`,
   `:214`, writes `" #"` (`:220`) where the Review pane uses
@@ -1715,18 +1708,18 @@ key it does not have.
 - `rejectionReason`, `internal/messaging/post.go:205`: three sentences
   end "then press enter to try again" (`:212`, `:214`, `:215`) inside a
   domain error. `runAnnounce` wraps it with `%w`
-  (`internal/cli/announce.go:189`), as does `offerToPost`
-  (`internal/cli/standup.go:166`), and `main`
-  (`cmd/workflow/main.go:27`) prints it on stderr, key and all — against
+  (`internal/cli/announce.go:189`), as does `postSummary`
+  (`internal/cli/summary.go:182`), and `main`
+  (`cmd/workflow/main.go:26`) prints it on stderr, key and all — against
   the interface's own rule, in the doc comment on `wording`
   (`internal/tui/failure.go:55`), that a full form names no key to press.
-  The web, for its part, drops the reason and says "announce from a
+  The web, for its part, drops the reason and says "post from a
   terminal to see its reason" (`messagingFaults`,
   `internal/webserver/errors.go:328`).
 
-**Instead.** Carry the forge `Kind` on `reviewsSeams` and `standupSeams`
-as `prSeams` and `announceSeams` already do, and word every fixed "pull
-request" and `#` through `Kind.Noun()` / `Kind.Sigil()` on the command
+**Instead.** Carry the forge `Kind` on `reviewsSeams` as `prSeams` and
+`announceSeams` already do, and word every fixed "pull request" and `#`
+through `Kind.Noun()` / `Kind.Sigil()` on the command
 line and `m.vocab` in the terminal and the editor help, keeping the
 sentinels for `errors.Is`. Keep `rejectionReason` to the fix
 (`join #dev`) and leave the key out — the overlay's footer already offers enter
@@ -1736,25 +1729,23 @@ scripting.md with it.
 
 **Done when.** On a GitLab remote, tests of `pr`'s two refusals,
 `announce`'s refusal, `reviews` (the empty-queue note on stderr, `!`
-before each number on stdout), `standup`'s draft (`!7`, "Merge
-requests"), the Reviews pane and the composer's `ctrl+o` help all see
-"merge request" and `!` and never "pull request" or `#`; an `announce`
+before each number on stdout), the Reviews pane and the composer's
+`ctrl+o` help all see "merge request" and `!` and never "pull request" or
+`#`; an `announce`
 test whose fake Slack answers `not_in_channel` sees the fix on stderr and
-no "press enter"; `docs/content/docs/scripting.md:93` matches the new
+no "press enter"; `docs/content/docs/scripting.md:94` matches the new
 `reviews` note.
 
-### UX-128 Failed reads pass as empty answers in status, standup and the web
+### UX-128 Failed reads pass as empty answers in status and the web
 
 Impact: medium · Effort: medium
 
-**Today.** `status`, `standup` and the web server each drop a seam's read
-error into their "nothing found" path, and nothing says so anywhere: a
-prompt shows "CI none" while CI is red because a token expired and a
-script cannot tell "none" from "unknown"; up to fifteen failing forge
-requests are made in silence and the team receives a standup saying
-nothing happened; in the browser three sections carry misleading copy
-during an outage under a header that says Live, with no reason and no
-Retry.
+**Today.** `status` and the web server each drop a seam's read error
+into their "nothing found" path, and nothing says so anywhere: a prompt
+shows "CI none" while CI is red because a token expired and a script
+cannot tell "none" from "unknown"; in the browser three sections carry
+misleading copy during an outage under a header that says Live, with no
+reason and no Retry.
 
 - `issueSummary`, `internal/cli/status.go:278`: `if err != nil` returns
   `""` (`:280`) — the issue read's error is dropped and the summary left
@@ -1771,17 +1762,6 @@ Retry.
 - "Standard output and standard error",
   `docs/content/docs/scripting.md:82`: "Standard error carries …
   warnings" (`:86`) — the contract `status` does not meet.
-- `gatherStandup`, `internal/cli/standup.go:177`: `issues, _ :=
-  seams.Search(…)` (`:183`) discards the search error; its doc comment
-  settles "leaves its section empty rather than failing", not silence.
-- `gatherPulls`, `internal/cli/standup.go:190`: a `Branches` error returns
-  nil with no note, and at `:204` `err == nil && found && pull.IsOpen()`
-  drops every `FindPull` error and keeps looping, up to
-  `standupBranchLimit` (`:47`) failing requests.
-- `writeIssues`, `internal/cli/standup.go:254`, and `writePulls`, `:266`:
-  "- none" whether the service answered or refused; `--no-edit --yes`
-  posts it. If FEAT-86 lands, these reads move to `summary`, and
-  `standup --json` becomes `summary --json`.
 - `server.snapshot`, `internal/webserver/stream.go:186`: its doc comment
   codifies the rule — a seam that fails yields an empty panel, the
   forge's keeping its last answer. `snapshotIssues` (`:354`) returns an
@@ -1827,22 +1807,16 @@ opt-in `--log` records the failed request.
 
 **Instead.** Keep degrading, but say so. On the command line, one stderr
 line per service that failed, through the `output.notes` the writes use
-and the sentinel wording the other commands share, stopping at the first
-forge error in `standup` rather than making fourteen more, and leaving
-stdout and the draft's "- none" as they are — telling "nothing to ask"
-(`jira.ErrNoCredential`, no forge configured) from a service that
-refused. On the wire, an optional problem per panel in the Snapshot (the
+and the sentinel wording the other commands share, leaving stdout as it
+is — telling "nothing to ask" (`jira.ErrNoCredential`, no forge
+configured) from a service that refused. On the wire, an optional problem per panel in the Snapshot (the
 `Problem` shape `fault` already curates) and a `ci_error` on the Review,
 rendered in that section as a failure — the failure `StateMark` and a
 `role=alert` line — rather than as the empty state.
 
 **Done when.** A `status` test with a forge that errors sees "CI none" on
 stdout and a line naming the forge on stderr, and one whose forge answers
-sees an empty stderr; a `standup` test with a 500 from Jira sees the
-draft on stdout and a note naming Jira on stderr, while
-`TestStandupWithNoWorkSaysEachSectionIsEmpty`
-(`internal/cli/standup_test.go:172`) still sees three "- none" and no
-note; a stream test with a failing `FindPull` sees a review panel
+sees an empty stderr; a stream test with a failing `FindPull` sees a review panel
 carrying a problem, beside the last answer held for that branch and head
 when there is one; ReviewPanel, BranchPanel and IssuesPanel tests render
 such snapshots by role alert rather than as the open-a-pull-request
@@ -1913,13 +1887,10 @@ failure wording name the same settings.
 
 Ideas this edition adds that no surface has begun: the keyboard reach the
 web lacks, a first run that starts inside the interface rather than
-before it, and a mode a screen reader can follow. Two more are features
-rather than changes to how the interface is used, so they live in
-[FEATURES.md](FEATURES.md) and are only pointed at here:
+before it, and a mode a screen reader can follow. One more is a feature
+rather than a change to how the interface is used, so it lives in
+[FEATURES.md](FEATURES.md) and is only pointed at here:
 
-- **FEAT-86 One summary, read and posted everywhere** — `standup` and the
-  Summary pane become one read, with `workflow summary --json` and a
-  Post… from the Summary on both interfaces.
 - **FEAT-87 What workflow did, and taking it back** — a session's log of
   every write, with undo where the system allows it; the feature UX-68
   stops short of.
@@ -1935,9 +1906,9 @@ are the comment composer's and the calendar grid's
 `web/src/features/summary/MonthGrid.tsx:159`) — and nothing lists what
 the keyboard can do. The terminal's every action has a name and a key,
 generated into its `?` sheet (`helpBuilder.place`,
-`internal/tui/keys.go:162`; the bindings, `:229`–`:393`), and `ui.keys`
+`internal/tui/keys.go:163`; the bindings, `:230`–`:397`), and `ui.keys`
 moves any of them (`UI.Keys`, `internal/config/ui.go:47`), a map the API
-already carries (`UIConfig.keys`, `api/openapi.yaml:4471`) and the web
+already carries (`UIConfig.keys`, `api/openapi.yaml:4565`) and the web
 server already checks through the terminal's own `tui.CheckKeys`
 (`internal/cli/web.go:120`). Someone fluent in the terminal starts over
 in the browser.
@@ -1988,7 +1959,7 @@ with `workflow config init`." (`configErrorStatus`,
 else to do; `workflow --web` with no file prints "configuration did not
 load cleanly" on stderr (`serveWeb`, `internal/cli/web.go:179`; UX-91)
 and serves a page whose Settings edits a file that exists
-(`docs/content/docs/web.md:518`, "What stays in the terminal"). The
+(`docs/content/docs/web.md:532`, "What stays in the terminal"). The
 questions `config init` asks — Jira's address and token, checked
 against Jira before they are kept, then a messaging webhook
 (`runGuidedInit`, `internal/cli/config_cmd.go:268`; `collectJira`,

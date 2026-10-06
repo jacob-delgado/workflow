@@ -73,7 +73,7 @@ that needs one of them reopened goes in the
   channel's history, so it asks for no scope that would let it.
 - **One process, which ends when the interface closes.** Nothing runs once
   it is gone, which the usage guide lists as a limit: *Nothing outlives the
-  session* (`docs/content/docs/usage.md:874`).
+  session* (`docs/content/docs/usage.md:883`).
 
 ## Issues
 
@@ -91,9 +91,9 @@ Impact: medium · Effort: medium
   with its fields, comment, assign and log work. The command line reads Jira
   only in passing — `workflow branch <key>` reads the issue to name the
   branch (`runBranch`, `internal/cli/branch.go:116`), `status` prints the
-  branch issue's summary (`gather`, `internal/cli/status.go:250`), `standup`
-  lists recently updated assigned issues inside its draft (`gatherStandup`,
-  `internal/cli/standup.go:177`) and `workflow branch <tab>` completes
+  branch issue's summary (`gather`, `internal/cli/status.go:250`),
+  `summary` reads what you did to Jira issues in a period (`runSummary`,
+  `internal/cli/summary.go:114`) and `workflow branch <tab>` completes
   assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:176`)
   — and writes to it only through `workflow comment` (`newCommentCmd`,
   `internal/cli/comment.go:33`) and as `workflow pr`'s side effects,
@@ -221,7 +221,7 @@ Impact: medium · Effort: medium
   `Deps.Post`, through `server.Announce`
   (`internal/webserver/announce.go:78`), all post through), and the *Each
   announcement is its own message* limit in
-  `docs/content/docs/usage.md:884`.
+  `docs/content/docs/usage.md:893`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a user token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
@@ -249,9 +249,9 @@ Impact: medium · Effort: large
   branch, three stages, a commit, a push, a pull request, a link, a move,
   an announcement — nothing shows what was done or where, and nothing
   takes any of it back. UX-68 asks only that each irreversible act say so;
-  this is the feature it stops short of. The Summary (FEAT-86) is not the
-  same list: it reads what the sources keep, so it shows a commit but not
-  a stage, a favorite, a push or a post.
+  this is the feature it stops short of. The Summary (`workflow summary`)
+  is not the same list: it reads what the sources keep, so it shows a
+  commit but not a stage, a favorite, a push or a post.
 - Touches: `internal/loop` (a `Did` record — what was done, to what, the
   link where there is one, when — and an `Undo` func on it where the
   system allows one); `internal/wiring` (each write seam wrapped once, so
@@ -380,74 +380,6 @@ Impact: low · Effort: medium
   name and dates in the heading.
 - Done when: the Sprint view (`jira.views`, `internal/config/config.go:73`)
   renders its issues under status headings.
-
-### FEAT-86 One summary, read and posted everywhere
-
-Impact: medium · Effort: medium
-
-- Why: Two features answer "what did I do?", and they do not agree.
-  `workflow standup` gathers the commits since `--days` ago through `git
-  log`, the Jira issues assigned to you and updated in the window, and the
-  open pull requests on your fifteen most recent local branches
-  (`gatherStandup`, `internal/cli/standup.go:177`; `standupJQL`, `:220`;
-  `gatherPulls`, `:190`), opens the Markdown in `$EDITOR` and offers to
-  post it (`offerToPost`, `:150`). The Summary pane and section read
-  something else for a period of days: the commits you wrote, the tasks
-  you touched, what you did to Jira issues and the pull requests you
-  opened, had merged and reviewed, each through the shared reads
-  (`loop.CommitsRead`, `TasksRead`, `JiraRead`, `ForgeRead`,
-  `internal/loop/summary.go:36`, `:138`, `:180`, `:220`), grouped by year,
-  month, day and hour (`activity.Group`, `internal/activity/group.go:44`)
-  and copied as Markdown (`Summary.Text`, `internal/activity/text.go:32`;
-  `Y` in the terminal, Copy as Markdown on the web). So the standup a
-  team receives misses the reviews and the tasks the Summary shows,
-  counts an issue touched by anyone as yours, and cannot be read for last
-  Thursday; the Summary cannot be posted at all, and a script cannot read
-  it. The two interfaces also assemble the four reads twice, field by
-  field (`Model.summaryReads`, `internal/tui/summary.go:160`;
-  `server.activityReads`, `internal/webserver/activity.go:84`) — a third
-  caller makes it the rule of three.
-- Touches: `internal/loop` (one `SummaryReads` over a struct of the four
-  activity seams, which the terminal, the web server and the command line
-  all call — the two copies above removed); `internal/cli` (a `summary`
-  command: `--from` and `--to` read as `YYYY-MM-DD` by
-  `activity.ParseDate`, `internal/activity/period.go:55`, and defaulting
-  to the previous working day as `GET /api/activity` does,
-  `api/openapi.yaml:2247`; `--json` printing the API's `Activity` shape;
-  `--post`, which previews, asks and posts as `announce` does, `--yes`
-  and `--dry-run` included; `standup` removed, its `--days` gone with
-  it); `internal/tui/summary.go` (a Post… key opening a preview of the
-  text, its channel cycled and `e` editing it, as `messagingPreview`
-  does for an announcement, `internal/tui/messagingpreview.go`);
-  `internal/webserver` and `api/openapi.yaml` (`POST /api/activity/post`
-  taking the period and the text as previewed, refused under `--dry-run`
-  by `refuseWritesInDryRun`, `internal/webserver/guard.go:48`, its
-  refusal worded through `messagingFaults`); `web/src/features/summary`
-  (a Post… beside Copy as Markdown, through the messaging section's
-  preview);
-  `internal/messaging` (the Markdown rendered for the service:
-  `markupFor`, `internal/messaging/post.go:298`, words links and escapes
-  per service, but nothing yet turns `Summary.Text`'s `#` headings into
-  what Slack's mrkdwn shows); `docs/content/docs/scripting.md` and the
-  generated reference.
-- Constraints: Nothing is stored — TRADE-32 holds: the summary is read
-  back from the sources each time, and a post is not recorded as an
-  announcement is. The read is the same on all three surfaces, so a
-  period gives the same items and the same "could not be read" notes in
-  the pane, the section and `--json`. Every value from a service is
-  neutralized before it reaches a terminal or the editor, as
-  `draftStandup` does now. Dropping `standup` is a breaking change: the
-  commit is `feat!` and its body names `workflow summary --post` as the
-  replacement, so release-please bumps the minor. UX-92's `standup
-  --json` and UX-128's standup bullets move to `summary`.
-- Done when: `workflow summary --from 2026-10-01 --to 2026-10-02 --json`
-  prints the same items `GET /api/activity` answers for that period in a
-  test over the same fakes; `workflow summary --post --yes` posts the
-  rendered text and a `--dry-run` posts nothing; the Summary pane's Post…
-  and the web's open a preview, post nothing until confirmed, and a
-  webhook-only setup shows the webhook's channel; `workflow standup` is
-  an unknown command; `grep -rn 'CommitsRead' internal/tui
-  internal/webserver` finds nothing.
 
 ## Build and platform
 
