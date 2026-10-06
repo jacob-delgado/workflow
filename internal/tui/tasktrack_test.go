@@ -28,7 +28,7 @@ const untrackedLine = "jiraid:" + untrackedIssue + " jiraurl:" + untrackedPage +
 const untrackedPriority = "High"
 
 // trackHelp is what the track key's help says it does on an untracked issue.
-const trackHelp = "track in taskwarrior"
+const trackHelp = "track in Taskwarrior"
 
 // untrackedTaskUUID is the uuid of task 44, which a test links to the untracked
 // issue.

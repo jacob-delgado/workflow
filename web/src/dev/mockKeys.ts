@@ -24,7 +24,7 @@ export const mockKeys: KeyList = {
     { action: 'open-link', help: 'open', group: 'Issues', shown: 'o', keys: ['o'] },
     {
       action: 'track-issue',
-      help: 'track in taskwarrior',
+      help: 'track in Taskwarrior',
       group: 'Issues',
       shown: 'T',
       keys: ['T'],
@@ -99,7 +99,7 @@ export const mockKeys: KeyList = {
     },
     {
       action: 'post',
-      help: 'announce to slack',
+      help: 'announce to Slack',
       group: 'Review and Slack',
       shown: 'p',
       keys: ['p'],

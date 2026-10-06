@@ -112,7 +112,7 @@ func TestEachPullRequestIsAnnouncedOnce(t *testing.T) {
 
 	// Assert: its pull request has not been announced, and can be
 	requireScreen(t, second, "state  ○ nothing announced", "○ Slack")
-	requireScreen(t, footerLine(second), "p announce to slack")
+	requireScreen(t, footerLine(second), "p announce to Slack")
 
 	// Act: announce it
 	both := typing(t, first, "2", "r", "5", "p", keyEnter)
