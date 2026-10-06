@@ -1,7 +1,14 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import type { PullRequestDraft, Snapshot } from '../src/api/generated/types.gen.ts'
-import { openSection, pinTheme, sectionNames as populatedSectionNames, themes } from './cockpit.ts'
+import {
+  height,
+  openFirstRun,
+  openSection,
+  pinTheme,
+  sectionNames as populatedSectionNames,
+  themes,
+} from './cockpit.ts'
 import { streams } from './tabwalk.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
@@ -95,6 +102,40 @@ for (const theme of themes) {
       const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
       expect(violations, `${theme} / ${name}: ${summary}`).toEqual([])
     }
+  })
+}
+
+for (const theme of themes) {
+  test(`no accessibility violations in the first-run setup in the ${theme} theme`, async ({
+    page,
+  }) => {
+    // Arrange: a server with no configuration file, which Settings sets up.
+    await openFirstRun(page, { width: 1024, height }, theme)
+
+    // Act: a check that does not pass, which offers to write it anyway.
+    await page.route('**/api/config/setup', (route) =>
+      route.request().method() === 'POST'
+        ? route.fulfill({
+            status: 422,
+            contentType: 'application/problem+json',
+            body: JSON.stringify({
+              type: 'https://jacob-delgado.github.io/workflow/docs/errors/#check-failed',
+              title: 'Check failed',
+              status: 422,
+              detail: 'Jira did not accept the token; check it, or keep it anyway',
+              code: 'check_failed',
+            }),
+          })
+        : route.fallback(),
+    )
+    await page.getByRole('textbox', { name: 'Address' }).fill('https://jira.example.com')
+    await page.getByRole('button', { name: 'Write ~/src/api/.workflow.json' }).click()
+    await expect(page.getByRole('button', { name: 'Write it anyway' })).toBeVisible()
+
+    // Assert: axe finds nothing on the form or its refusal in this theme.
+    const violations = await scan(page)
+    const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
+    expect(violations, `${theme} / first-run setup: ${summary}`).toEqual([])
   })
 }
 

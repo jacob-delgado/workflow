@@ -69,6 +69,12 @@ type ServerInterface interface {
 	// UpdateConfig Write the configuration file.
 	// (PUT /api/config)
 	UpdateConfig(w http.ResponseWriter, r *http.Request, params UpdateConfigParams)
+	// GetSetup Whether a first configuration file is needed here, and where it may go.
+	// (GET /api/config/setup)
+	GetSetup(w http.ResponseWriter, r *http.Request)
+	// SetUp Write a first configuration file, as workflow config init does.
+	// (POST /api/config/setup)
+	SetUp(w http.ResponseWriter, r *http.Request)
 	// GetDirectories The directories in one, to browse for a directory to switch to.
 	// (GET /api/directories)
 	GetDirectories(w http.ResponseWriter, r *http.Request, params GetDirectoriesParams)
@@ -590,6 +596,34 @@ func (siw *ServerInterfaceWrapper) UpdateConfig(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateConfig(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSetup operation middleware
+func (siw *ServerInterfaceWrapper) GetSetup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSetup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetUp operation middleware
+func (siw *ServerInterfaceWrapper) SetUp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetUp(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1834,6 +1868,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/config", wrapper.GetConfig)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/keys", wrapper.GetKeys)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/config/setup", wrapper.GetSetup)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/config/setup", wrapper.SetUp)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/local-data", wrapper.RemoveLocalData)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/local-data", wrapper.GetLocalData)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/slack/members", wrapper.GetSlackMembers)
@@ -2792,6 +2828,20 @@ func (response GetConfig200JSONResponse) VisitGetConfigResponse(w http.ResponseW
 	return err
 }
 
+type GetConfig404ApplicationProblemPlusJSONResponse Problem
+
+func (response GetConfig404ApplicationProblemPlusJSONResponse) VisitGetConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetConfig422ApplicationProblemPlusJSONResponse Problem
 
 func (response GetConfig422ApplicationProblemPlusJSONResponse) VisitGetConfigResponse(w http.ResponseWriter) error {
@@ -2854,6 +2904,20 @@ func (response UpdateConfig200JSONResponse) VisitUpdateConfigResponse(w http.Res
 	return err
 }
 
+type UpdateConfig404ApplicationProblemPlusJSONResponse Problem
+
+func (response UpdateConfig404ApplicationProblemPlusJSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type UpdateConfig409ApplicationProblemPlusJSONResponse Problem
 
 func (response UpdateConfig409ApplicationProblemPlusJSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
@@ -2902,6 +2966,111 @@ type UpdateConfigdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response UpdateConfigdefaultApplicationProblemPlusJSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSetupRequestObject struct {
+}
+
+type GetSetupResponseObject interface {
+	VisitGetSetupResponse(w http.ResponseWriter) error
+}
+
+type GetSetup200JSONResponse SetupOffer
+
+func (response GetSetup200JSONResponse) VisitGetSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSetupdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSetupdefaultApplicationProblemPlusJSONResponse) VisitGetSetupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetUpRequestObject struct {
+	Body *SetUpJSONRequestBody
+}
+
+type SetUpResponseObject interface {
+	VisitSetUpResponse(w http.ResponseWriter) error
+}
+
+type SetUp200JSONResponse SetupResult
+
+func (response SetUp200JSONResponse) VisitSetUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetUp409ApplicationProblemPlusJSONResponse Problem
+
+func (response SetUp409ApplicationProblemPlusJSONResponse) VisitSetUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetUp422ApplicationProblemPlusJSONResponse Problem
+
+func (response SetUp422ApplicationProblemPlusJSONResponse) VisitSetUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetUpdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SetUpdefaultApplicationProblemPlusJSONResponse) VisitSetUpResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -6197,6 +6366,12 @@ type StrictServerInterface interface {
 	// UpdateConfig Write the configuration file.
 	// (PUT /api/config)
 	UpdateConfig(ctx context.Context, request UpdateConfigRequestObject) (UpdateConfigResponseObject, error)
+	// GetSetup Whether a first configuration file is needed here, and where it may go.
+	// (GET /api/config/setup)
+	GetSetup(ctx context.Context, request GetSetupRequestObject) (GetSetupResponseObject, error)
+	// SetUp Write a first configuration file, as workflow config init does.
+	// (POST /api/config/setup)
+	SetUp(ctx context.Context, request SetUpRequestObject) (SetUpResponseObject, error)
 	// GetDirectories The directories in one, to browse for a directory to switch to.
 	// (GET /api/directories)
 	GetDirectories(ctx context.Context, request GetDirectoriesRequestObject) (GetDirectoriesResponseObject, error)
@@ -6863,6 +7038,61 @@ func (sh *strictHandler) UpdateConfig(w http.ResponseWriter, r *http.Request, pa
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateConfigResponseObject); ok {
 		if err := validResponse.VisitUpdateConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSetup operation middleware
+func (sh *strictHandler) GetSetup(w http.ResponseWriter, r *http.Request) {
+	var request GetSetupRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSetup(ctx, request.(GetSetupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSetup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSetupResponseObject); ok {
+		if err := validResponse.VisitGetSetupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetUp operation middleware
+func (sh *strictHandler) SetUp(w http.ResponseWriter, r *http.Request) {
+	var request SetUpRequestObject
+
+	var body SetUpJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetUp(ctx, request.(SetUpRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetUp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetUpResponseObject); ok {
+		if err := validResponse.VisitSetUpResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

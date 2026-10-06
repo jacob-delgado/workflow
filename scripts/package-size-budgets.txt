@@ -181,9 +181,13 @@ internal/tui 62
 # does not manage, and writing it, as the terminal's g does. 30 is
 # reviewwrites.go, the writes on the branch's pull request the terminal's
 # Review pane makes — edit it, merge it, finish its merged branch, re-run its
-# failed CI — each on a fresh read and loop's own rule.
+# failed CI — each on a fresh read and loop's own rule. 31 is setup.go, the
+# first configuration file Settings sets up where none applies, as workflow
+# config init does — the token checked with Jira, the keychain offered, the
+# file written and taken up as a switch is — beside config.go, which reads
+# and writes a file that is there and is near the 500-line target.
 # Frozen here so that growth stays deliberate.
-internal/webserver 30
+internal/webserver 31
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and

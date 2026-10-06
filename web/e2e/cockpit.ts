@@ -50,6 +50,57 @@ export async function openCockpit(
   await expect(page.getByRole('tablist', { name: 'Comment' })).toBeVisible()
 }
 
+// noFile answers the page as a server with no configuration file: the
+// configuration not found, and a setup offered in the repository or the home
+// directory, with a keychain.
+const noFile = {
+  status: 404,
+  contentType: 'application/problem+json',
+  body: JSON.stringify({
+    type: 'https://jacob-delgado.github.io/workflow/docs/errors/#not-found',
+    title: 'Not found',
+    status: 404,
+    detail: 'no .workflow.json applies where the server works; set one up in Settings',
+    code: 'not_found',
+  }),
+}
+
+// openFirstRun opens Settings in a theme in a window of a size, on a server
+// with no configuration file, where it sets one up.
+export async function openFirstRun(
+  page: Page,
+  size: { width: number; height: number },
+  theme: string,
+): Promise<void> {
+  await pinTheme(page, theme)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize(size)
+  await page.route('**/api/config', (route) => route.fulfill(noFile))
+  await page.route('**/api/config/setup', (route) =>
+    route.fulfill({
+      json: {
+        needed: true,
+        keychain: true,
+        places: [
+          {
+            place: 'repository',
+            path: '/home/ana/src/api/.workflow.json',
+            shown: '~/src/api/.workflow.json',
+          },
+          { place: 'home', path: '/home/ana/.workflow.json', shown: '~/.workflow.json' },
+        ],
+      },
+    }),
+  )
+  await page.goto('/')
+  await page
+    .getByRole('navigation', { name: 'Sections' })
+    .getByRole('button', { name: 'Settings', exact: true })
+    .click()
+  await expect(page.getByRole('form', { name: 'Set up workflow' })).toBeVisible()
+  await expect(readings(page)).toHaveCount(0)
+}
+
 // readings are the "Reading …" status lines a section shows while a read of
 // its own is in flight. Every read says one (web/src/lib/Status.tsx), and the
 // controls it fills in draw only as it ends: Summary's period, Settings' code

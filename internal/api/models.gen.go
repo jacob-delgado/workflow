@@ -316,6 +316,7 @@ func (e OwnerTagState) Valid() bool {
 // Defines values for ProblemCode.
 const (
 	BadRequest           ProblemCode = "bad_request"
+	CheckFailed          ProblemCode = "check_failed"
 	Conflict             ProblemCode = "conflict"
 	FetchFailed          ProblemCode = "fetch_failed"
 	Internal             ProblemCode = "internal"
@@ -330,6 +331,8 @@ const (
 func (e ProblemCode) Valid() bool {
 	switch e {
 	case BadRequest:
+		return true
+	case CheckFailed:
 		return true
 	case Conflict:
 		return true
@@ -460,6 +463,24 @@ func (e RunKind) Valid() bool {
 	case RunKindPreCommit:
 		return true
 	case RunKindRebase:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetupPlaceName.
+const (
+	Home       SetupPlaceName = "home"
+	Repository SetupPlaceName = "repository"
+)
+
+// Valid indicates whether the value is a known member of the SetupPlaceName enum.
+func (e SetupPlaceName) Valid() bool {
+	switch e {
+	case Home:
+		return true
+	case Repository:
 		return true
 	default:
 		return false
@@ -1866,6 +1887,75 @@ type RunRequest struct {
 	Kind RunKind `json:"kind"`
 }
 
+// SetupOffer The first-run setup offered where the server works.
+type SetupOffer struct {
+	// Keychain The OS keychain can keep the Jira token out of the file.
+	Keychain bool `json:"keychain"`
+
+	// Needed No configuration file applies where the server works, so one can be set up.
+	Needed bool `json:"needed"`
+
+	// Places Where the file may go, the repository first.
+	Places []SetupPlace `json:"places"`
+}
+
+// SetupPlace defines model for SetupPlace.
+type SetupPlace struct {
+	// Path The file it would be, as an absolute path.
+	Path string `json:"path"`
+
+	// Place repository is the repository's root, or the working directory outside a repository; home is the home directory.
+	Place SetupPlaceName `json:"place"`
+
+	// Shown The file written from your home.
+	Shown string `json:"shown"`
+}
+
+// SetupPlaceName repository is the repository's root, or the working directory outside a repository; home is the home directory.
+type SetupPlaceName string
+
+// SetupRequest defines model for SetupRequest.
+type SetupRequest struct {
+	// JiraBaseURL Jira's address; empty leaves Jira out, and the forge's issues are the tracker.
+	JiraBaseURL string `json:"jira_base_url"`
+
+	// JiraToken The Jira personal access token. Never echoed back.
+	JiraToken string `json:"jira_token"`
+
+	// KeepUnchecked Write Jira's address and token even when Jira does not accept them.
+	KeepUnchecked bool `json:"keep_unchecked"`
+
+	// Keychain Keep the Jira token in the OS keychain rather than in the file.
+	Keychain bool `json:"keychain"`
+
+	// Place repository is the repository's root, or the working directory outside a repository; home is the home directory.
+	Place SetupPlaceName `json:"place"`
+
+	// WebhookURL A Slack incoming webhook, saved unchecked; empty posts with the Slack user token.
+	WebhookURL string `json:"webhook_url"`
+}
+
+// SetupResult defines model for SetupResult.
+type SetupResult struct {
+	// JiraUser Whom the token authenticates as; empty when Jira was left out or kept unchecked.
+	JiraUser string `json:"jira_user"`
+
+	// Keychain The OS keychain keeps the token, and the file the command that reads it back.
+	Keychain bool `json:"keychain"`
+
+	// NotIgnored The file is in a repository that does not ignore it, so it could be committed.
+	NotIgnored bool `json:"not_ignored"`
+
+	// Path The file written, as an absolute path.
+	Path string `json:"path"`
+
+	// Reopened The server works with the file now. False when it could not take it up, which a restart of workflow --web does.
+	Reopened bool `json:"reopened"`
+
+	// Shown The file written from your home.
+	Shown string `json:"shown"`
+}
+
 // SlackDirectory People or user groups read from Slack, or the scope the token lacks to read them.
 type SlackDirectory struct {
 	Entries []SlackTarget `json:"entries"`
@@ -2346,6 +2436,9 @@ type CommitJSONRequestBody = CommitRequest
 
 // UpdateConfigJSONRequestBody defines body for UpdateConfig for application/json ContentType.
 type UpdateConfigJSONRequestBody = Config
+
+// SetUpJSONRequestBody defines body for SetUp for application/json ContentType.
+type SetUpJSONRequestBody = SetupRequest
 
 // DiscardJSONRequestBody defines body for Discard for application/json ContentType.
 type DiscardJSONRequestBody = DiscardRequest

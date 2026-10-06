@@ -21,6 +21,10 @@ import (
 // the server last read or wrote it, and returns the configuration in effect with
 // secrets masked, and what it stands for as its ETag.
 func (s *server) GetConfig(_ context.Context, _ api.GetConfigRequestObject) (api.GetConfigResponseObject, error) {
+	if s.setupNeeded() {
+		return api.GetConfig404ApplicationProblemPlusJSONResponse(problem(api.NotFound, noFileHere)), nil
+	}
+
 	cfg, read, err := s.reread()
 	if errors.Is(err, config.ErrInvalid) {
 		return api.GetConfig422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
@@ -124,6 +128,10 @@ var errSlackRefused = errors.New("slack refused the typed user token")
 func (s *server) UpdateConfig(
 	_ context.Context, request api.UpdateConfigRequestObject,
 ) (api.UpdateConfigResponseObject, error) {
+	if s.setupNeeded() {
+		return api.UpdateConfig404ApplicationProblemPlusJSONResponse(problem(api.NotFound, noFileHere)), nil
+	}
+
 	if request.Params.IfMatch == nil {
 		return api.UpdateConfig428ApplicationProblemPlusJSONResponse(problem(api.PreconditionRequired,
 			"the save did not say which revision of the configuration it was made over; "+

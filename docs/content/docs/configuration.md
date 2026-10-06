@@ -42,7 +42,10 @@ your Slack user token, which `workflow slack login` sets up afterwards. It warns
 not be ignored by git, and writes what passed — nothing is echoed as you type a
 token or the webhook. Add `--global`
 to write it to your home directory, or `--template` to write a blank file to
-fill in by hand instead of being asked.
+fill in by hand instead of being asked. With no file, the terminal interface
+and the web's Settings ask the same questions in a form, where to write it
+first ([Using workflow]({{< relref "/docs/usage#setting-up" >}}),
+[Web]({{< relref "/docs/web#setting-up" >}})).
 
 ## Where it looks, and what wins
 

@@ -425,6 +425,26 @@ func TestTheWebFlagSaysWhyTheConfigurationDidNotLoadAndServesAnyway(t *testing.T
 	}
 }
 
+func TestTheWebFlagWithNoFileNamesTheWaysToSetOneUp(t *testing.T) {
+	// Act
+	ran := runRoot(t, t.TempDir(), "--web")
+
+	// Assert
+	if ran.err != nil || ran.servers != 1 {
+		t.Fatalf("workflow --web = %v, served %d times; want the server started to set one up", ran.err, ran.servers)
+	}
+
+	for _, want := range []string{config.NoConfigHeadline, "workflow config init", "Settings"} {
+		if !strings.Contains(ran.stderr, want) {
+			t.Errorf("workflow --web with no file said %q, want %q", ran.stderr, want)
+		}
+	}
+
+	if strings.Contains(ran.stderr, "did not load cleanly") {
+		t.Errorf("workflow --web called no file a load failure: %q", ran.stderr)
+	}
+}
+
 func TestTheWebServerSaysWhereItServesAndStopsWithItsRun(t *testing.T) {
 	// Arrange
 	// Port 0 takes any free port, so the test never meets a workflow already

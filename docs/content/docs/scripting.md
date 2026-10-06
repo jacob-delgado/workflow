@@ -103,7 +103,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `comment` | `Comment on KEY:` and the comment as the tracker will store it | the dry-run line, "Not posted.", "Commented on KEY." |
 | `slack login` | | the dry-run line, "Logged in to Slack as …" |
 | `db-clean` | the store's directory and each database file in it | the warning before `--all` removes `kept.db`, the dry-run line, "Nothing to remove.", "Nothing removed.", "Removed …" |
-| `workflow --web` | | the address it serves on, why the configuration did not load cleanly, and the cause of each failure it answers as `internal`, credentials masked |
+| `workflow --web` | | the address it serves on; with no configuration file, the ways to set one up (Settings, `workflow config init`); why the configuration did not load cleanly, and the cause of each failure it answers as `internal`, credentials masked |
 
 So `workflow config show | jq .` parses, and `workflow reviews | wc -l` counts
 reviews and nothing else.

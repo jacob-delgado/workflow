@@ -1023,7 +1023,9 @@ paths:
         config init --force`) becomes the configuration in effect. A file that
         has been deleted leaves the configuration in effect as it was, and a
         write puts the file back. The ETag names that configuration, even when
-        its file is gone, and a write sends it back in If-Match.
+        its file is gone, and a write sends it back in If-Match. With no
+        configuration file where the server works, it answers 404: a first one
+        is set up through /api/config/setup.
       tags: [config]
       responses:
         "200":
@@ -1035,6 +1037,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Config"
+        "404":
+          description: >-
+            No configuration file applies where the server works; set one up
+            through /api/config/setup, or with workflow config init.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422":
           description: >-
             The configuration file on disk is not valid; the configuration in
@@ -1057,7 +1066,10 @@ paths:
         or sent back with its masked value keeps the stored secret; a new value
         replaces it. The body is validated the same way a file read is,
         and its ui.keys map is checked as the terminal interface checks one
-        before it starts; a body that fails either is rejected with 422.
+        before it starts; a body that fails either is rejected with 422. With
+        no configuration file where the server works there is none to write
+        over, and it answers 404: a first one is set up through
+        /api/config/setup.
       tags: [config]
       parameters:
         - name: If-Match
@@ -1085,6 +1097,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Config"
+        "404":
+          description: >-
+            No configuration file applies where the server works; nothing was
+            written. Set one up through /api/config/setup.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "409":
           description: >-
             The configuration file changed since the revision If-Match names,
@@ -1125,6 +1144,73 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/KeyList"
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/config/setup:
+    get:
+      operationId: getSetup
+      summary: Whether a first configuration file is needed here, and where it may go.
+      description: >-
+        Says whether no configuration file applies where the server works, so
+        Settings offers to set one up rather than edit one; where the file may
+        go — the repository's root, or the working directory outside a
+        repository, and the home directory — and whether the OS keychain can
+        keep the Jira token out of it. Reading works under --dry-run.
+      tags: [config]
+      responses:
+        "200":
+          description: The setup offered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupOffer"
+        default: {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: setUp
+      summary: Write a first configuration file, as workflow config init does.
+      description: >-
+        Asks what workflow config init asks, in one request: checks the Jira
+        token with Jira over the server's own transport before anything is
+        written, keeps it in the OS keychain when asked — so the file holds
+        the command that reads it back — or in the file, which only you can
+        read, and saves a Slack incoming webhook unchecked. A blank Jira
+        address or webhook leaves that part out. Once the file is written the
+        server works with it, as after a switch: open event streams end,
+        asking the page to reconnect, and every read after answers with it.
+        No answer carries a credential. Refused with 409 while a configuration
+        file applies here or one is at the path chosen, which it never writes
+        over, and with 403 under --dry-run, by the guard every write passes.
+      tags: [config]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetupRequest"
+      responses:
+        "200":
+          description: The file written, and whom the token authenticates as.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupResult"
+        "409":
+          description: >-
+            A configuration file already applies where the server works, or
+            one is at the path chosen; nothing was written. Edit it in
+            Settings instead.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            Jira did not accept the token, or could not be asked, and the
+            request did not say to keep it unchecked (code check_failed; send
+            keep_unchecked to write it anyway); or the keychain was asked for
+            where there is none. Nothing was written.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
   /api/local-data:
@@ -2783,7 +2869,7 @@ components:
         code:
           type: string
           description: A stable, machine-readable reason.
-          enum: [bad_request, not_found, method_not_allowed, conflict, unprocessable, precondition_required, unreachable, fetch_failed, internal]
+          enum: [bad_request, not_found, method_not_allowed, conflict, unprocessable, precondition_required, unreachable, fetch_failed, check_failed, internal]
       additionalProperties: false
 
     BranchIssueRequest:
@@ -4477,6 +4563,83 @@ components:
         store: {$ref: "#/components/schemas/StoreConfig"}
         taskwarrior: {$ref: "#/components/schemas/TaskwarriorConfig"}
         issues: {$ref: "#/components/schemas/IssuesConfig"}
+      additionalProperties: false
+
+    SetupOffer:
+      type: object
+      description: The first-run setup offered where the server works.
+      required: [needed, places, keychain]
+      properties:
+        needed:
+          type: boolean
+          description: No configuration file applies where the server works, so one can be set up.
+        places:
+          type: array
+          description: Where the file may go, the repository first.
+          items: {$ref: "#/components/schemas/SetupPlace"}
+        keychain:
+          type: boolean
+          description: The OS keychain can keep the Jira token out of the file.
+      additionalProperties: false
+
+    SetupPlace:
+      type: object
+      required: [place, path, shown]
+      properties:
+        place: {$ref: "#/components/schemas/SetupPlaceName"}
+        path: {type: string, description: "The file it would be, as an absolute path."}
+        shown: {type: string, description: "The file written from your home."}
+      additionalProperties: false
+
+    SetupPlaceName:
+      type: string
+      description: >-
+        repository is the repository's root, or the working directory outside
+        a repository; home is the home directory.
+      enum: [repository, home]
+
+    SetupRequest:
+      type: object
+      required: [place, jira_base_url, jira_token, webhook_url, keychain, keep_unchecked]
+      properties:
+        place: {$ref: "#/components/schemas/SetupPlaceName"}
+        jira_base_url:
+          type: string
+          description: Jira's address; empty leaves Jira out, and the forge's issues are the tracker.
+        jira_token:
+          type: string
+          description: The Jira personal access token. Never echoed back.
+        webhook_url:
+          type: string
+          description: A Slack incoming webhook, saved unchecked; empty posts with the Slack user token.
+        keychain:
+          type: boolean
+          description: Keep the Jira token in the OS keychain rather than in the file.
+        keep_unchecked:
+          type: boolean
+          description: Write Jira's address and token even when Jira does not accept them.
+      additionalProperties: false
+
+    SetupResult:
+      type: object
+      required: [path, shown, jira_user, keychain, not_ignored, reopened]
+      properties:
+        path: {type: string, description: "The file written, as an absolute path."}
+        shown: {type: string, description: "The file written from your home."}
+        jira_user:
+          type: string
+          description: Whom the token authenticates as; empty when Jira was left out or kept unchecked.
+        keychain:
+          type: boolean
+          description: The OS keychain keeps the token, and the file the command that reads it back.
+        not_ignored:
+          type: boolean
+          description: The file is in a repository that does not ignore it, so it could be committed.
+        reopened:
+          type: boolean
+          description: >-
+            The server works with the file now. False when it could not take
+            it up, which a restart of workflow --web does.
       additionalProperties: false
 
     JiraConfig:

@@ -45,8 +45,9 @@ format that may still change before 1.0.
   `workflow doctor --online` asks Jira and your forge whether their credentials
   work, and Slack whether your user token does, refreshing it if it is due; a
   webhook cannot be checked without posting, so it is reported unchecked.
-- `workflow config init` writes a starting configuration file, and
-  `workflow config show` prints the one in effect, credentials masked.
+- `workflow config init` writes a starting configuration file — or, with no
+  file, the terminal interface and the web's Settings ask the same questions —
+  and `workflow config show` prints the one in effect, credentials masked.
 - `workflow summary` says what you did over a period — the commits you wrote,
   the tasks you touched, what you did to Jira issues and the pull requests you
   opened, had merged and reviewed — as the Summary pane reads it; `--json`

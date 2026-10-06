@@ -244,6 +244,10 @@ type Deps struct {
 	// Reach wires another directory as this one was wired, for a switch; nil
 	// where switching is not offered.
 	Reach func(dir string) (World, error)
+	// Setup sets up a first configuration file where none applies, as
+	// workflow config init does; Settings offers it only where its Write is
+	// wired. A setup takes the file up through Reach, where the server works.
+	Setup seams.Setup
 }
 
 // Info is the build and run facts the API reports and the server needs.

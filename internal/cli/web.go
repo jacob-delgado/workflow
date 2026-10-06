@@ -159,10 +159,12 @@ func withIssueWrites(web webserver.Deps, deps tui.Deps) webserver.Deps {
 	return web
 }
 
-// withRepositories gives the web server where it works, the directories it
-// can switch to, a new worktree to make, and the favorites the store keeps.
+// withRepositories gives the web server where it works, a first
+// configuration file to set up there, the directories it can switch to, a
+// new worktree to make, and the favorites the store keeps.
 func withRepositories(web webserver.Deps, deps tui.Deps) webserver.Deps {
-	web.Repositories, web.CreateWorktree, web.Fetch = deps.Repositories, deps.Git.CreateWorktree, deps.Git.Fetch
+	web.Repositories, web.Setup = deps.Repositories, deps.Settings.Setup
+	web.CreateWorktree, web.Fetch = deps.Git.CreateWorktree, deps.Git.Fetch
 	web.Favorites, web.Favor, web.Unfavor = deps.Store.Favorites, deps.Store.Favor, deps.Store.Unfavor
 
 	return web
@@ -178,12 +180,21 @@ func withSummarySources(web webserver.Deps, deps tui.Deps) webserver.Deps {
 	return web
 }
 
+// webSetupStep names the page's own way to set up a first file, beside
+// config init.
+const webSetupStep = "Set one up in Settings, on the page served below."
+
 // serveWeb serves the web interface over conn through serve, first saying when
-// the configuration did not load cleanly, and hands the server the wiring's
+// the configuration did not load cleanly — or, with no file, the ways to set
+// one up, as every surface names them — and hands the server the wiring's
 // control over the forge settings a save in Settings changes, and a way to
 // reach another directory, wired as this one was, for a switch.
 func serveWeb(cmd *cobra.Command, conn connection, serve RunWeb, dryRun bool) error {
-	if conn.loadErr != nil {
+	switch {
+	case errors.Is(conn.loadErr, config.ErrNotFound):
+		fmt.Fprintf(cmd.ErrOrStderr(), "%s\n\n%s\n%s\n%s\n\n",
+			config.NoConfigHeadline, webSetupStep, config.InitStep, config.DoctorStep)
+	case conn.loadErr != nil:
 		fmt.Fprintf(cmd.ErrOrStderr(), "workflow web: configuration did not load cleanly: %v\n", conn.loadErr)
 	}
 

@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getActivity, getAnnouncement, getBranch, getChangeDiff, getCheckLog, getConfig, getDirectories, getHealth, getHookSetup, getIssue, getKeys, getLocalData, getMergeMethods, getMessaging, getPeople, getPullRequestDraft, getPullRequestText, getRepoGroups, getRepositories, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listStatusChanges, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
-import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetChangeDiffData, GetChangeDiffError, GetChangeDiffResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetHookSetupData, GetHookSetupError, GetHookSetupResponse, GetIssueData, GetIssueError, GetIssueResponse, GetKeysData, GetKeysError, GetKeysResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMergeMethodsData, GetMergeMethodsError, GetMergeMethodsResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetPullRequestTextData, GetPullRequestTextError, GetPullRequestTextResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListStatusChangesData, ListStatusChangesError, ListStatusChangesResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
+import { getActivity, getAnnouncement, getBranch, getChangeDiff, getCheckLog, getConfig, getDirectories, getHealth, getHookSetup, getIssue, getKeys, getLocalData, getMergeMethods, getMessaging, getPeople, getPullRequestDraft, getPullRequestText, getRepoGroups, getRepositories, getReview, getSetup, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listStatusChanges, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetChangeDiffData, GetChangeDiffError, GetChangeDiffResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetHookSetupData, GetHookSetupError, GetHookSetupResponse, GetIssueData, GetIssueError, GetIssueResponse, GetKeysData, GetKeysError, GetKeysResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMergeMethodsData, GetMergeMethodsError, GetMergeMethodsResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetPullRequestTextData, GetPullRequestTextError, GetPullRequestTextResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSetupData, GetSetupError, GetSetupResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListStatusChangesData, ListStatusChangesError, ListStatusChangesResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -308,7 +308,7 @@ export const getConfigQueryKey = (options?: Options<GetConfigData>) => createQue
 /**
  * The configuration in effect, with secrets masked.
  *
- * Reads the configuration file on each request, so an edit made to it on disk since the server last read or wrote it (by hand, or by `workflow config init --force`) becomes the configuration in effect. A file that has been deleted leaves the configuration in effect as it was, and a write puts the file back. The ETag names that configuration, even when its file is gone, and a write sends it back in If-Match.
+ * Reads the configuration file on each request, so an edit made to it on disk since the server last read or wrote it (by hand, or by `workflow config init --force`) becomes the configuration in effect. A file that has been deleted leaves the configuration in effect as it was, and a write puts the file back. The ETag names that configuration, even when its file is gone, and a write sends it back in If-Match. With no configuration file where the server works, it answers 404: a first one is set up through /api/config/setup.
  */
 export const getConfigOptions = (options?: Options<GetConfigData>) => queryOptions<GetConfigResponse, GetConfigError, GetConfigResponse, ReturnType<typeof getConfigQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -341,6 +341,26 @@ export const getKeysOptions = (options?: Options<GetKeysData>) => queryOptions<G
         return data;
     },
     queryKey: getKeysQueryKey(options)
+});
+
+export const getSetupQueryKey = (options?: Options<GetSetupData>) => createQueryKey('getSetup', options);
+
+/**
+ * Whether a first configuration file is needed here, and where it may go.
+ *
+ * Says whether no configuration file applies where the server works, so Settings offers to set one up rather than edit one; where the file may go — the repository's root, or the working directory outside a repository, and the home directory — and whether the OS keychain can keep the Jira token out of it. Reading works under --dry-run.
+ */
+export const getSetupOptions = (options?: Options<GetSetupData>) => queryOptions<GetSetupResponse, GetSetupError, GetSetupResponse, ReturnType<typeof getSetupQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSetup({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSetupQueryKey(options)
 });
 
 export const getLocalDataQueryKey = (options?: Options<GetLocalDataData>) => createQueryKey('getLocalData', options);
