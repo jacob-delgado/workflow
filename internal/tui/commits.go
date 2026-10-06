@@ -127,7 +127,7 @@ func (m Model) commitsDetail(width int) string {
 
 	lines := m.changeRows()
 	if len(lines) == 0 {
-		lines = []string{m.styles.label.Render("nothing changed")}
+		lines = []string{"Nothing has changed."}
 	}
 
 	commits := m.branch.branch.Commits

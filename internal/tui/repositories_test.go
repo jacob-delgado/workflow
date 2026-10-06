@@ -55,6 +55,20 @@ func TestFavoritesAreListedWithWhatIsThereNow(t *testing.T) {
 	requireScreen(t, view, "Favorites", "~/src/web", "github.com/acme/web", "~/old", "not there")
 }
 
+func TestWithNoFavoritesTheHeadingSaysHowToMakeOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := reposWorld()
+	working.dirs.favorites = nil
+
+	// Act
+	view := typing(t, working.live(t, 120, 40), reposKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "Favorites", "No favorites yet; f marks the directory under the cursor.")
+}
+
 func TestFavoritesAreNotReadUntilThePaneIsLookedAt(t *testing.T) {
 	t.Parallel()
 

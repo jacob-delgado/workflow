@@ -312,7 +312,7 @@ func TestNothingChangedIsWordedNotRaw(t *testing.T) {
 		// No task was written, so the sentence for one would mislead, and
 		// nothing failed.
 		"an undo with none to undo": {
-			keys: []string{tasksPane, "u"}, want: "Taskwarrior has nothing to undo.",
+			keys: []string{tasksPane, "u"}, want: "nothing to undo in Taskwarrior",
 			refuse: []string{"✗", "changed nothing"},
 		},
 	}

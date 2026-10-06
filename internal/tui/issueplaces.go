@@ -334,7 +334,7 @@ func (l issueList) anyInFlight() bool {
 func (l issueList) nothingAdmitted() string {
 	switch {
 	case len(l.places) == 0:
-		return "no issue matches the filter"
+		return "no issue matches the filters"
 	case l.filter == "":
 		return "no issue in those places"
 	default:
