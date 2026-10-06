@@ -375,17 +375,32 @@ test('locks the save while it is in flight', async () => {
   await screen.findByText('Saved.')
 })
 
+test('a configuration that cannot be read says why, as an alert', async () => {
+  // Arrange
+  fakeApi({ '/api/config': () => Response.json({}, { status: 500 }) })
+
+  // Act
+  renderWithClient(<SettingsPanel />)
+
+  // Assert
+  const reason = await screen.findByText('The configuration could not be loaded.')
+  expect(reason.getAttribute('role')).toBe('alert')
+})
+
 test('offers to try again when the configuration cannot be loaded', async () => {
   // Arrange
-  // The first read fails; the one Try again asks for answers.
+  // The first read fails; the one Try again asks for answers. The reads below
+  // it fail too, each with a Try again of its own beside its reason.
   const answers = [Response.json({}, { status: 500 }), Response.json(mockConfig)]
   fakeApi({ '/api/config': () => answers.shift() })
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
-  const failure = await screen.findByText(/the configuration could not be loaded/i)
+  const reason = await screen.findByText('The configuration could not be loaded.')
 
   // Act
-  await user.click(within(failure).getByRole('button', { name: 'Try again' }))
+  await user.click(
+    within(reason.parentElement ?? document.body).getByRole('button', { name: 'Try again' }),
+  )
 
   // Assert: the form that took the Try again's place has focus, on its first field
   expect(document.activeElement).toBe(await screen.findByLabelText('Base URL'))

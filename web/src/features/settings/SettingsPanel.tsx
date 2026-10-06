@@ -4,10 +4,9 @@ import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
-import { Reading } from '@/lib/Status.tsx'
+import { Reading, Unread } from '@/lib/Status.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure } from '@/lib/utils.ts'
-import { EmptyState } from '@/shell/EmptyState.tsx'
 import {
   changedSinceRead,
   type ConfigRead,
@@ -61,21 +60,15 @@ function ConfigArea() {
 
   if (query.isError) {
     return (
-      <EmptyState>
-        <span className="flex flex-col items-center gap-group">
-          {apiErrorMessage(query.error, 'The configuration could not be loaded.')}
-          <Button
-            variant="secondary"
-            disabled={query.isFetching}
-            onClick={() => {
-              setRetried(true)
-              void query.refetch()
-            }}
-          >
-            {query.isFetching ? 'Trying again…' : 'Try again'}
-          </Button>
-        </span>
-      </EmptyState>
+      <Unread
+        reason={apiErrorMessage(query.error, 'The configuration could not be loaded.')}
+        refusals={query.errorUpdateCount}
+        retrying={query.isFetching}
+        onRetry={() => {
+          setRetried(true)
+          void query.refetch()
+        }}
+      />
     )
   }
 
