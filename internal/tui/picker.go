@@ -237,13 +237,19 @@ func (m Model) pickStatusFor(issue jira.Issue, offer statusOffer) (Model, tea.Cm
 // offerReviewStatus offers to move an issue to the configured review status once
 // its pull request is open, or closes the overlay when none is configured or
 // Jira does not offer it. The status is chosen by name because it shares a
-// category with "in progress".
+// category with "in progress". The picker names the issue as the list has it,
+// summary and status, and only the key when it is not listed.
 func (m Model) offerReviewStatus(issueKey jira.Key) (Model, tea.Cmd) {
 	if !m.offersReviewStatus() {
 		return m.closeOverlay(), nil
 	}
 
-	return m.pickStatusFor(jira.Issue{Key: issueKey}, statusOffer{status: m.cfg.Jira.ReviewStatus})
+	issue, listed := m.issues.find(issueKey)
+	if !listed {
+		issue = jira.Issue{Key: issueKey}
+	}
+
+	return m.pickStatusFor(issue, statusOffer{status: m.cfg.Jira.ReviewStatus})
 }
 
 // offersReviewStatus reports whether an open pull request is followed by the
