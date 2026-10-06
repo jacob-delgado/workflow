@@ -251,12 +251,26 @@ func (f setupForm) asking(width int) []string {
 
 // placeChoices are the places the file may go, each with what sees it.
 func (f setupForm) placeChoices() []string {
-	width := max(len(f.shown[0]), len(f.shown[1]))
-
-	return []string{
-		fmt.Sprintf("%-*s", width, f.shown[0]) + f.styles.label.Render("  this repository"),
-		fmt.Sprintf("%-*s", width, f.shown[1]) + f.styles.label.Render("  your home directory"),
+	width := 0
+	for _, shown := range f.shown {
+		width = max(width, len(shown))
 	}
+
+	rows := make([]string, 0, len(f.offer.Places))
+	for index, place := range f.offer.Places {
+		rows = append(rows, fmt.Sprintf("%-*s", width, f.shown[index])+f.styles.label.Render("  "+placeSeenBy(place.Place)))
+	}
+
+	return rows
+}
+
+// placeSeenBy is what sees a file put in place.
+func placeSeenBy(place setup.Place) string {
+	if place == setup.Home {
+		return "your home directory"
+	}
+
+	return "this repository"
 }
 
 // choices are rows to choose from, the cursor's marked.
