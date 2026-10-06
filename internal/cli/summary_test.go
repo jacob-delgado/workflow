@@ -18,6 +18,7 @@ import (
 	"testing/fstest"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
@@ -339,4 +340,22 @@ func TestSummaryPostReportsAFailedPostByItsService(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "posting to Teams") {
 		t.Errorf("summary --post = %v, want the failed post named by its service", err)
 	}
+}
+
+func TestSummaryPostStopsAtTheQuestionWhenNothingCanAnswer(t *testing.T) {
+	// Arrange
+	hook := newCapturingWebhook(t)
+	repo := workedRepository(t, "Add the widget")
+	writeFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+
+	// Act
+	_, err := runStreams(t, repo, cli.Prompt{Line: answersThenEnds()}, "summary", "--post")
+
+	// Assert
+	if posts := hook.posted(); err == nil || !strings.Contains(err.Error(), "pass --yes") || len(posts) != 0 {
+		t.Errorf("summary --post = %v after posting %q, want it to stop at the question, saying to pass --yes",
+			err, posts)
+	}
+
+	wantExit(t, err, 2)
 }

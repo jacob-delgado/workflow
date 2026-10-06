@@ -153,3 +153,21 @@ func TestABlankSummaryIsNotPosted(t *testing.T) {
 		t.Errorf("PostSummary = %v after %d posts, want ErrEmptySummary and none", err, posts)
 	}
 }
+
+func TestTheSummaryAsksOnlyTheSourcesItHasSeamsFor(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	seams := everySource(start)
+	seams.Jira, seams.Forge = nil, nil
+
+	// Act
+	reads := loop.SummaryReads(seams, start, start.Add(24*time.Hour))
+
+	// Assert
+	want := []activity.Source{activity.SourceGit, activity.SourceTasks}
+	if got := sourcesOf(reads); !slices.Equal(got, want) {
+		t.Errorf("SummaryReads read %v, want %v", got, want)
+	}
+}
