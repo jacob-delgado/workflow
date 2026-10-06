@@ -53,7 +53,7 @@ type keyMap struct {
 	searchTasks, filterTasks, sortTasks                                         key.Binding
 
 	// Summary.
-	earlier, later, today, calendar, copySummary key.Binding
+	earlier, later, today, calendar, copySummary, postSummary key.Binding
 	// Repositories.
 	favoriteDir, goToDir, settings, localData key.Binding
 
@@ -316,13 +316,14 @@ func repositoryKeys(builder *helpBuilder, into *keyMap) {
 }
 
 // summaryKeys are the Summary pane's bindings: the period before and after the
-// one shown, today, and the summary copied as text.
+// one shown, today, and the summary copied as text or posted.
 func summaryKeys(builder *helpBuilder, into *keyMap) {
 	into.earlier = builder.bind(groupSummary, "earlier", "earlier", "[")
 	into.later = builder.bind(groupSummary, "later", "later", "]")
 	into.today = builder.bind(groupSummary, "today", "today", "t")
 	into.calendar = builder.bind(groupSummary, "calendar", "calendar", "c")
 	into.copySummary = builder.bind(groupSummary, "copy-summary", "copy as Markdown", "Y")
+	into.postSummary = builder.bind(groupSummary, "post-summary", "post", "p")
 }
 
 // composerKeys are the composer, preview and field-form bindings, the branch

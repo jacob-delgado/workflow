@@ -241,6 +241,8 @@ func (m Model) handleSummaryListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.copySummary):
 		return m.copySummary()
+	case key.Matches(msg, m.keys.postSummary) && m.canPostSummary():
+		return m.previewSummaryPost()
 	case key.Matches(msg, m.keys.up):
 		m.summary.selected = max(0, m.summary.selected-1)
 	case key.Matches(msg, m.keys.down):
@@ -275,12 +277,16 @@ func (m Model) copySummary() (Model, tea.Cmd) {
 		copyText(m.shownSummary().Text(m.deps.now().Location()))
 }
 
-// summaryKeys is what the pane offers: moving the period, today, copying, and
-// the selected item's link.
+// summaryKeys is what the pane offers: moving the period, today, copying,
+// posting, and the selected item's link.
 func (m Model) summaryKeys() []key.Binding {
 	keys := []key.Binding{m.keys.earlier, m.keys.later, m.keys.today, m.keys.calendar}
 	if m.deps.Copy != nil && len(m.summaryItems()) > 0 {
 		keys = append(keys, m.keys.copySummary)
+	}
+
+	if m.canPostSummary() {
+		keys = append(keys, m.keys.postSummary)
 	}
 
 	return append(append(keys, m.linkKeys(m.selectedSummaryItem().URL)...), m.keys.refresh)
