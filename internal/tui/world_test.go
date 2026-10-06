@@ -120,6 +120,7 @@ type world struct {
 	worktreeErr       error
 	checkoutErr       error
 	finishErr         error
+	unlinkErr         error
 	fetchErr          error
 	commitLines       []string
 	commitErr         error

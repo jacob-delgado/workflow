@@ -684,7 +684,7 @@ The actions you can rebind, grouped by where they work, are:
   `toggle-draft`, `toggle-breaking`, `verbatim`, `next-field`,
   `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,
   `worktree` (in the branch creator), `post-when-green` (in the announcement
-  preview), `link-to-slack` and `not-on-slack` (in the announcement preview
+  preview), `unlink-issue` (in the link form, on a branch already linked), `link-to-slack` and `not-on-slack` (in the announcement preview
   and in People and groups), `forget-owner` (in People and groups),
   `show-log` (in the checks list).
 - **Writing a comment** (in the comment box's normal mode): `insert`,

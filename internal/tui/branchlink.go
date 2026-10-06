@@ -24,12 +24,17 @@ var errNotAnIssue = errors.New("name an issue: a Jira key like PROJ-7, or a forg
 // branchLinker links the checked-out branch to an issue by hand, for work
 // begun outside workflow on a branch whose name names none. With a pull
 // request open from the branch, it shows the description with the issue's
-// line added before anything is sent, and sends both together.
+// line added before anything is sent, and sends both together. On a branch
+// already linked it names the issue instead, and unlinks it at once: the
+// description is left as it is, so nothing leaves the machine.
 type branchLinker struct {
-	marks   glyphs
-	styles  styles
-	vocab   reviewVocab
-	branch  string
+	marks  glyphs
+	styles styles
+	vocab  reviewVocab
+	branch string
+	// linked is the issue the branch is linked to by hand, or empty when it is
+	// linked to none and the form asks for one.
+	linked  jira.Key
 	pull    forge.PullRequest
 	hasPull bool
 	input   textinput.Model
@@ -71,7 +76,7 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 
 	m.overlay = branchLinker{
 		marks: m.marks, styles: m.styles, vocab: m.vocab, branch: m.branch.branch.Name,
-		pull: pull, hasPull: hasPull, input: newInput(start),
+		linked: jira.Key(m.branch.branch.IssueLink), pull: pull, hasPull: hasPull, input: newInput(start),
 	}
 
 	return m, nil
@@ -80,6 +85,12 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 // view draws the issue being chosen, or the description it will add itself
 // to, and how sending is going.
 func (l branchLinker) view(width, _ int) (string, string) {
+	if l.linked != "" {
+		lines := append([]string{l.branch + " is linked to " + shownKey(l.linked) + "."}, l.outcome()...)
+
+		return "Link " + l.branch, strings.Join(lines, "\n")
+	}
+
 	l.input.SetWidth(max(1, width-len(l.input.Prompt)-1))
 
 	lines := []string{"Link " + l.branch + " to an issue: a Jira key, or a forge number.", "", l.input.View()}
@@ -95,6 +106,8 @@ func (l branchLinker) view(width, _ int) (string, string) {
 // outcome says how sending is going, or why the form cannot send.
 func (l branchLinker) outcome() []string {
 	switch {
+	case l.send.sending && l.linked != "":
+		return []string{"", "unlinking" + l.marks.ellipsis}
 	case l.send.sending:
 		return []string{"", "linking" + l.marks.ellipsis}
 	case l.send.err != nil:
@@ -112,6 +125,10 @@ func (l branchLinker) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
+	if l.linked != "" {
+		return []key.Binding{keys.unlinkIssue, relabel(keys.closeOverlay, escClose)}
+	}
+
 	confirm := relabel(keys.confirm, "link")
 	if l.body != "" {
 		confirm = relabel(keys.confirm, "link and update the description")
@@ -127,6 +144,8 @@ func (l branchLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
+	case l.linked != "":
+		return l.unlinkOn(m, msg)
 	case key.Matches(msg, m.keys.confirm) && l.body != "":
 		return l.link(m)
 	case key.Matches(msg, m.keys.confirm):
@@ -140,9 +159,50 @@ func (l branchLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
+// unlinkOn answers a key on a branch already linked, where unlink is the one
+// act offered.
+func (l branchLinker) unlinkOn(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	if !key.Matches(msg, m.keys.unlinkIssue) {
+		return m, nil
+	}
+
+	if m.dryRun {
+		return m.closeOverlay().noticed("dry run: would unlink " + l.branch + " from " + shownKey(l.linked)), nil
+	}
+
+	l.send, l.problem = starting(), nil
+	m.overlay = l
+	unlink, branch, issueKey := m.deps.Git.UnlinkIssue, l.branch, l.linked
+
+	return m, func() tea.Msg {
+		return branchUnlinked{branch: branch, issueKey: issueKey, err: unlink(branch)}
+	}
+}
+
+// branchUnlinked reports how forgetting the branch's link went.
+type branchUnlinked struct {
+	branch   string
+	issueKey jira.Key
+	err      error
+}
+
+var _ applier = branchUnlinked{}
+
+// apply keeps the form open with the reason the link was kept, or closes it
+// and reads the branch again.
+func (msg branchUnlinked) apply(m Model) (Model, tea.Cmd) {
+	if msg.err != nil {
+		return keepOpenWith[branchLinker](m, msg.err), nil
+	}
+
+	m = m.closeOverlay().noticed(m.marks.done + " unlinked " + msg.branch + " from " + shownKey(msg.issueKey))
+
+	return m, m.loadBranch()
+}
+
 // pasted types a paste into the issue key, as typing it would.
 func (l branchLinker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if l.send.sending {
+	if l.send.sending || l.linked != "" {
 		return m, nil
 	}
 

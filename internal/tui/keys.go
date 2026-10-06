@@ -68,8 +68,8 @@ type keyMap struct {
 	// In composers and previews.
 	edit, editBody, nextTemplate, toggleDraft, toggleBreaking, verbatim, fullOutput, showLog key.Binding
 
-	// In the branch creator, and in the messaging preview.
-	worktree, postWhenGreen key.Binding
+	// In the branch creator, the messaging preview and the link form.
+	worktree, postWhenGreen, unlinkIssue key.Binding
 
 	// Tagging in the messaging preview, and in People and groups.
 	linkToSlack, notOnSlack, forgetOwner key.Binding
@@ -336,6 +336,7 @@ func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.toggleOption = builder.bind(groupComposer, "toggle-option", "select", "space")
 	into.worktree = builder.bind(groupComposer, "worktree", "worktree", "ctrl+g")
 	into.postWhenGreen = builder.bind(groupComposer, "post-when-green", "announce when CI passes", "w")
+	into.unlinkIssue = builder.bind(groupComposer, "unlink-issue", "unlink", "u")
 	into.linkToSlack = builder.bind(groupComposer, "link-to-slack", "link to Slack", "a")
 	into.notOnSlack = builder.bind(groupComposer, "not-on-slack", "not on Slack", "x")
 	into.forgetOwner = builder.bind(groupComposer, "forget-owner", "forget", "d")

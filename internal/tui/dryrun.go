@@ -98,6 +98,14 @@ func heldBackGit(deps seams.Git) seams.Git {
 		deps.Finish = func(string, string) error { return errDryRun }
 	}
 
+	if deps.LinkIssue != nil {
+		deps.LinkIssue = func(string, string) error { return errDryRun }
+	}
+
+	if deps.UnlinkIssue != nil {
+		deps.UnlinkIssue = func(string) error { return errDryRun }
+	}
+
 	return heldBackStreams(deps)
 }
 
