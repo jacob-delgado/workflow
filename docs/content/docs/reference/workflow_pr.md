@@ -21,6 +21,10 @@ them, are asked to review it; the preview lists them.
 Once it is open, it offers — as the interface does — to link it on the branch's
 issue, then to move the issue to the review status (jira.review_status).
 
+--json prints what was opened, and each offer and whether it was taken, as one
+JSON object on stdout — under --dry-run, the pull request it would open — and
+says everything else, the preview included, on stderr.
+
 ```
 workflow pr [flags]
 ```
@@ -29,6 +33,7 @@ workflow pr [flags]
 
 ```
   -h, --help   help for pr
+      --json   print what was opened, and the offers that followed, as JSON
       --yes    go ahead without asking: push the branch when it needs it, open the pull request, link it on the issue and move the issue to the review status
 ```
 
