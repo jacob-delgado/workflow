@@ -88,8 +88,7 @@ Nothing is open here.
 
 Nothing is open here: the interface announces and drafts a pull request
 through `loop`, as the command line and the web do, and remembers what it
-announced through `loop.Deliver`, as the command line does (the web does not
-yet: FEAT-84). What it carries on purpose — the spine's color-only hue,
+announced through `loop.Deliver`, as the command line and the web do. What it carries on purpose — the spine's color-only hue,
 the two composers' field handling written twice, and the editor seam kept
 in `internal/tui` — is in [the register](#the-trade-off-register) as
 TRADE-5, TRADE-6 and TRADE-11.

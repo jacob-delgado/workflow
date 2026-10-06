@@ -11,9 +11,11 @@ when it is done.
 
 Checked against commit `f05ae9f` on 2026-09-24. Its entries were read at
 that commit; every pointer was checked again against the symbol it names
-at `29fad1b7`, main once #145 merged, with #146's commits on top, and an
-entry a later change touched was checked again in that change. Line
-numbers drift, so every pointer also names the symbol it means.
+at `cac1adf` on 2026-10-06, the `docs/ux-refresh` branch, where the web's
+review actions and its memory of what was announced shipped and left this
+file, and an entry a later change touched was checked again in that
+change. Line numbers drift, so every pointer also names the symbol it
+means.
 
 ## How to read an entry
 
@@ -71,7 +73,7 @@ that needs one of them reopened goes in the
   channel's history, so it asks for no scope that would let it.
 - **One process, which ends when the interface closes.** Nothing runs once
   it is gone, which the usage guide lists as a limit: *Nothing outlives the
-  session* (`docs/content/docs/usage.md:355`).
+  session* (`docs/content/docs/usage.md:874`).
 
 ## Issues
 
@@ -88,20 +90,22 @@ Impact: medium · Effort: medium
 - Why: The interface can list a view, read an issue in full, transition it
   with its fields, comment, assign and log work. The command line reads Jira
   only in passing — `workflow branch <key>` reads the issue to name the
-  branch (`runBranch`, `internal/cli/branch.go:79`), `status` prints the
+  branch (`runBranch`, `internal/cli/branch.go:116`), `status` prints the
   branch issue's summary (`gather`, `internal/cli/status.go:250`), `standup`
   lists recently updated assigned issues inside its draft (`gatherStandup`,
   `internal/cli/standup.go:177`) and `workflow branch <tab>` completes
   assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:176`)
-  — and writes to it only as `workflow pr`'s side effects, a link and a
-  transition (`followUp`, `internal/cli/pr.go:191`). No command lists a
-  view, prints an issue in full or writes one on its own. A script that
-  wants "the issues in my view" or "move PROJ-1 to In Review" has nothing to
-  call.
-- Touches: `internal/cli` (new `issues`, `issue`, `transition`, `comment`,
-  `assign` and `worklog` commands over the seams already on `tui.Deps` —
-  `Jira.Search`, `Issue`, `Transitions`, `Transition`, `Comment`, `Assign`,
-  `AddWorklog`), the shared composition layer (`internal/loop`)
+  — and writes to it only through `workflow comment` (`newCommentCmd`,
+  `internal/cli/comment.go:33`) and as `workflow pr`'s side effects,
+  a link and a transition (`followUp`, `internal/cli/pr.go:285`). No
+  command lists a view, prints an issue in full, or moves, assigns or logs
+  work on one. A script that wants "the issues in my view" or "move PROJ-1
+  to In Review" has nothing to call.
+- Touches: `internal/cli` (new `issues`, `issue`, `transition`, `assign`
+  and `worklog` commands over the seams already on `tui.Deps` —
+  `Jira.Search`, `Issue`, `Transitions`, `Transition`, `Assign`,
+  `AddWorklog` — beside `comment`, which shipped), the shared composition
+  layer (`internal/loop`)
   so the transition lookup is the one the other surfaces use,
   `docs/content/docs/reference` (regenerated).
 - Done when: `workflow issues --json` prints the default view; `workflow
@@ -114,10 +118,10 @@ Impact: medium · Effort: medium
 Impact: low · Effort: small
 
 - Why: The interface opens on the view's cached issues, shown at once while
-  Jira is asked again (`seededIssues`, `internal/tui/issues.go:59`, over
+  Jira is asked again (`seededIssues`, `internal/tui/issues.go:60`, over
   `Store.CachedIssues`, `internal/store/cache.go:30`). The web's stream reads
   Jira before it sends its first frame (`snapshotIssues`,
-  `internal/webserver/stream.go:183`), so every section says *Connecting to
+  `internal/webserver/stream.go:354`), so every section says *Connecting to
   workflow…* until Jira answers.
 - Touches: `internal/webserver` (the stream's first frame, from a
   cached-issues seam on `Deps`), `internal/store`.
@@ -150,11 +154,13 @@ Impact: low · Effort: small
 - Why: Finishing a merged branch is three git commands in a fixed order —
   switch to the base, `pull --ff-only`, `branch -D` — that the interface
   composes and previews (`internal/tui/finish.go:48`, the commands at
-  `:76`). On the command line that is three commands to remember and get
+  `:76`), and the web's Finish the branch sends from a last look of its
+  own. On the command line that is three commands to remember and get
   right, with no preview and no check that the branch really merged.
 - Touches: `internal/cli` (a `finish` command over `Git.Finish`, previewed
-  like `branch` and `pr`, with `--dry-run`/`--yes`), the shared composition
-  layer (`internal/loop`).
+  like `branch` and `pr`, with `--dry-run`/`--yes`), gated by the check both
+  interfaces already share (`loop.CanFinish`,
+  `internal/loop/guards.go:79`).
 - Done when: `workflow finish --dry-run` prints the three commands and runs
   none; `--yes` runs them and says the branch is gone; a branch that has not
   merged is refused with the reason.
@@ -168,8 +174,8 @@ Impact: medium · Effort: small
 - Why: `a` in the terminal and Stage all on the web stage every file, and
   nothing reverses either. A stray edit can only be dropped from a shell.
 - Touches: `internal/gitrepo/status.go`, `internal/tui/commits.go`,
-  `web/src/features/branch/WorkingTree.tsx:33` (`WorkingTree` renders
-  `StageAll` alone) and `web/src/features/branch/stagingApi.ts:33` (no
+  `web/src/features/branch/WorkingTree.tsx:36` (`WorkingTree` renders
+  `StageAll` alone) and `web/src/features/branch/stagingApi.ts:34` (no
   unstage-all beside `stageEverything`). Unstaging all is already
   `loop.UnstageAll` (`internal/loop/stage.go:42`), which the web server's
   `POST /api/unstage` answers `{all: true}` with.
@@ -207,28 +213,6 @@ Impact: low · Effort: small
 
 ## Review
 
-### FEAT-79 Review actions on the web
-
-Impact: medium · Effort: large
-
-- Why: The web's Review section shows a pull request and its CI and can
-  open one, but cannot re-run failed checks, merge, finish the merged
-  branch or edit the pull request's title and body — all of which the
-  interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:192`,
-  `internal/tui/merge.go:39`, `internal/tui/finish.go:48`,
-  `internal/tui/preditor.go:41`). The terminal's merge and finish shipped
-  with the web's left for later; this is that later, with the re-run and
-  the edit beside them.
-- Touches: `api/openapi.yaml` (four operations), `internal/webserver` (a
-  handler per action, each a budget row; merge gated exactly as `canMerge`
-  gates it, `internal/tui/merge.go:23`, over the shared composition in
-  `internal/loop`), `web/src/features/review`, `web/e2e/server` (the run
-  that drives writes against a running server, where a merge needs a forge
-  the fixture does not yet stand in for).
-- Done when: a green, approved pull request can be merged from the browser
-  after a preview of the permitted methods; a refused merge names the
-  missing scope; every action is held back under `--dry-run`.
-
 ## Messaging
 
 ### FEAT-81 Reply in the announcement's own thread
@@ -250,36 +234,16 @@ Impact: medium · Effort: medium
   from chat.postMessage's `verdict` and returns only an error, so it must
   return the timestamp), the post seam that carries it to the record on
   every surface (`loop.Deliver`'s `post` and `Announced`,
-  `internal/loop/announce.go:206`, which the interface's
-  `seams.Messaging.Post`, `internal/seams/seams.go:126`, and
-  `announceSeams.Post` in `internal/cli/announce.go` both post through; the
-  web server's `Deps.Post`, which records nothing yet — FEAT-84), and the
-  *Each announcement is its own message* limit in
-  `docs/content/docs/usage.md:365`.
+  `internal/loop/announce.go:217`, which the interface's
+  `seams.Messaging.Post`, `internal/seams/seams.go:173`,
+  `announceSeams.Post` in `internal/cli/announce.go` and the web server's
+  `Deps.Post`, through `server.Announce`
+  (`internal/webserver/announce.go:78`), all post through), and the *Each
+  announcement is its own message* limit in
+  `docs/content/docs/usage.md:884`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a user token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
-
-### FEAT-84 The web remembers what was announced
-
-Impact: low · Effort: small
-
-- Why: The interface and `workflow announce` record each announcement in the
-  store and do not offer again a moment an earlier session announced
-  (`loop.Deliver`, `internal/loop/announce.go:206`; `offerAgain`,
-  `internal/cli/announce.go:162`). The web's `Announce`
-  (`internal/webserver/announce.go:43`) posts through `Deps.Post` and
-  neither records nor reads, so an announcement made in the browser is
-  invisible to the terminal, which offers it again, and the web's work story
-  never marks its Announce step done (`onHeadStages`,
-  `web/src/features/issues/WorkStory.tsx:92`).
-- Touches: `internal/webserver` (post through `loop.Deliver`, with the
-  store's memory on `Deps` as `RecordScope` is), `api/openapi.yaml` (the
-  snapshot carries what was announced), `web/src/features/issues`,
-  `web/src/features/messaging`.
-- Done when: an announcement sent from the web shows as announced in the
-  terminal, and one sent from any surface marks the web's Announce step
-  done.
 
 ## Across the loop
 
@@ -299,7 +263,7 @@ Impact: medium · Effort: medium
 Impact: medium · Effort: large
 
 - Why: Every write workflow makes is told once, in a notice that the next
-  action clears (`Model.noticed`, `internal/tui/overlay.go:169`) or an
+  action clears (`Model.noticed`, `internal/tui/overlay.go:181`) or an
   outcome line beside a button, and then is gone. After a burst — a
   branch, three stages, a commit, a push, a pull request, a link, a move,
   an announcement — nothing shows what was done or where, and nothing
@@ -334,7 +298,7 @@ Impact: medium · Effort: large
   assigning the issue to whoever had it, which the record keeps; a
   comment or a worklog, by deleting it; a branch or a worktree just made
   and not yet pushed, by removing it once nothing is uncommitted; a branch
-  link, by unlinking it (`Git.UnlinkIssue`, `internal/seams/seams.go:123`).
+  link, by unlinking it (`Git.UnlinkIssue`, `internal/seams/seams.go:124`).
 - What cannot, said on the row: a push (taking it back would be a force
   push to a shared remote); a merge (its reversal is a revert, a new pull
   request); finishing a branch (`branch -D`; the commits stay reachable
@@ -356,7 +320,7 @@ Impact: medium · Effort: large
   holds no text a user typed — a comment's body, a commit message —
   only what it was done to and the link, and no credential, since
   everything recorded is a credential-free identifier; the test that a
-  token cannot reach a record ships with it. `internal/tui` (57 of 57)
+  token cannot reach a record ships with it. `internal/tui` (60 of 60)
   and `web/src/shell` (12 of 12) are at their file budgets
   (`scripts/package-size-budgets.txt`), so the overlay and the drawer
   each come with a budget bump and its reason, or a home elsewhere.
@@ -426,9 +390,9 @@ Impact: low · Effort: medium
 
 - Why: a view on `sprint in openSprints()` already lists what is left this
   sprint — the configuration guide's *Sprint board* example
-  (`docs/content/docs/configuration.md:189`) — but flat, one row per issue
+  (`docs/content/docs/configuration.md:229`) — but flat, one row per issue
   with a status glyph, in update order (`issueList.render`,
-  `internal/tui/issues.go:256`). What is missing is grouping by status: how
+  `internal/tui/issues.go:270`). What is missing is grouping by status: how
   much is to do, in progress or in review is read by scanning glyphs.
 - Touches: `internal/tui/issues.go` (status headings in the list), and
   `internal/jira`'s Agile API only for what JQL cannot give — the sprint's
@@ -468,7 +432,7 @@ Impact: medium · Effort: medium
   command: `--from` and `--to` read as `YYYY-MM-DD` by
   `activity.ParseDate`, `internal/activity/period.go:55`, and defaulting
   to the previous working day as `GET /api/activity` does,
-  `api/openapi.yaml:1639`; `--json` printing the API's `Activity` shape;
+  `api/openapi.yaml:2247`; `--json` printing the API's `Activity` shape;
   `--post`, which previews, asks and posts as `announce` does, `--yes`
   and `--dry-run` included; `standup` removed, its `--days` gone with
   it); `internal/tui/summary.go` (a Post… key opening a preview of the

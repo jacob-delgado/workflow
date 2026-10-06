@@ -204,11 +204,11 @@ old hooks as `.git/hooks/*.old`.
 ### Review
 
 The branch's pull request — its number, title and state: Draft or Ready for
-review while it is open, Merged once it has merged. While it is open, the
-section also shows its mergeability, approvals and requested changes, the
-issue it is for, linked to its page, and its CI checks: a failed one names the
-stage it ran in and why it failed, and **Show log** reads the end of any
-check's log the forge keeps one for, passed or failed.
+review while it is open, Merged or Closed once it is not — and the issue it is
+for, linked to its page. While it is open, the section also shows its
+mergeability, approvals and requested changes, and its CI checks: a failed one
+names the stage it ran in and why it failed, and **Show log** reads the end of
+any check's log the forge keeps one for, passed or failed.
 
 Under the state, the terminal's Review pane's writes, each offered only when
 it can go and each sent from a form that is its last look: **Edit pull
