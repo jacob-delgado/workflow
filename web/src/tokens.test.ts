@@ -1,9 +1,9 @@
 import css from './index.css?raw'
 
 // The color tokens are the page's contract with WCAG's contrast floor. axe
-// checks the text it can see, but not a disabled control's, nor an icon's, so
-// the disabled treatment and the identity hues are checked here, from the
-// tokens themselves, in both themes.
+// checks the text it can see, but not a disabled control's, nor an icon's,
+// nor a field's border, so the disabled treatment, the field boundary and the
+// identity hues are checked here, from the tokens themselves, in both themes.
 
 const themes = [
   ['dark', ':root'],
@@ -27,6 +27,9 @@ const minimumHueSeparation = 30
 // Below this chroma a color is near gray and its hue angle means little, so a
 // hue held apart by angle must have at least this much of it.
 const minimumChroma = 0.07
+
+// The grounds a field sits on: the page, and a card on it.
+const grounds = ['--background', '--card'] as const
 
 // tokensOf reads the custom properties the first rule for selector declares.
 function tokensOf(selector: string): Map<string, string> {
@@ -114,6 +117,17 @@ test.each(themes)(
 )
 
 describe.each(themes)('in the %s theme', (_, selector) => {
+  test.each(grounds)("a field's --input boundary holds 3:1 on %s", (ground) => {
+    // Arrange
+    const tokens = tokensOf(selector)
+
+    // Act
+    const ratio = contrast(color(tokens, '--input'), color(tokens, ground))
+
+    // Assert
+    expect(ratio).toBeGreaterThanOrEqual(3)
+  })
+
   test.each(identities)('%s reads as text on the page and on a card', (identity) => {
     // Arrange
     const tokens = tokensOf(selector)
