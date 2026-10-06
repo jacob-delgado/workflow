@@ -22,11 +22,12 @@ CONFIGURATION
   your home directory, setting by setting: the repository's file holds only
   what that repository changes, and inherits the rest, tokens included.
 
-  Write a starting file with:
+  Set it up, answering the prompts, with:
 
       workflow config init
 
-  Then fill in the two credentials below and check your work with:
+  (--template writes a blank file to edit instead, with the credentials
+  below.) Then check your work with:
 
       workflow doctor
 
@@ -84,8 +85,8 @@ MESSAGING — SLACK, TEAMS, DISCORD OR A PLAIN WEBHOOK
 SECURITY
 
   .workflow.json holds live credentials. "workflow config init" writes
-  it readable only by you, it is listed in .gitignore, and "workflow config
-  show" masks every one of them — including messaging.webhook_url, which is a
+  it readable only by you and warns when the file is not ignored by git (add
+  it to .gitignore), and "workflow config show" masks every one of them — including messaging.webhook_url, which is a
   credential in its own right rather than merely an address.
 
 ```

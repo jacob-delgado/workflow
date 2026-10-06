@@ -1030,7 +1030,8 @@ everything out afresh each time:
   `--force` leaves it that way whatever mode the file it replaces had.
 - `workflow doctor` fails while anyone but you can read or write the file, and
   names the `chmod 600` that puts it right.
-- It is listed in the repository's `.gitignore`.
+- `workflow config init` warns when the file is not ignored by git; add it to
+  `.gitignore`.
 - `workflow config show` masks every credential — Jira, Slack, the webhook URL
   and the forge token — printing only the last four characters so you can tell
   two apart.

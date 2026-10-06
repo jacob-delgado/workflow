@@ -103,12 +103,13 @@ Go, the linters, and everything else the build expects. See
 ## First run
 
 ```sh
-workflow config init      # writes .workflow.json here, readable only by you
+workflow config init      # asks, then writes .workflow.json for you alone
 workflow doctor           # says what is still missing
 ```
 
-Then fill in the two tokens — [Configuration]({{< relref "/docs/configuration" >}})
-explains where to get them — and run `workflow` to open the TUI. Or run
+Set it up, answering the prompts, with `workflow config init` (`--template`
+writes a blank file to edit) — [Configuration]({{< relref "/docs/configuration" >}})
+explains where to get the tokens — and run `workflow` to open the TUI. Or run
 `workflow`, or `workflow --web`, with no file at all: each offers to set one
 up, asking the same questions.
 [Using workflow]({{< relref "/docs/usage" >}}) walks through it.
