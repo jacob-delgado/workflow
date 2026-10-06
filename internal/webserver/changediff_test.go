@@ -105,3 +105,49 @@ func TestChangeDiffThatGitCannotReadKeepsItsWordsOff(t *testing.T) {
 		t.Errorf("the refusal %s names where the repository is", recorder.Body)
 	}
 }
+
+func TestChangeDiffWithNoDifferenceIsEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.Diff = func(gitrepo.Change) ([]string, error) { return nil, nil }
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), diffOf("internal/config/config.go"))
+
+	// Assert
+	if diff := decode[api.FileDiff](t, recorder); diff.Lines == nil || len(diff.Lines) != 0 {
+		t.Errorf("lines = %#v, want an empty list", diff.Lines)
+	}
+}
+
+func TestChangeDiffWithNoTreeToReadIsNotAvailable(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.Diff = func(gitrepo.Change) ([]string, error) { return nil, nil }
+	deps.Changes = nil
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), diffOf("a.go"))
+
+	// Assert
+	assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
+}
+
+func TestChangeDiffWhoseTreeCannotBeReadSaysToTryAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.Diff = func(gitrepo.Change) ([]string, error) { return nil, nil }
+	deps.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), diffOf("a.go"))
+
+	// Assert
+	assertProblem(t, recorder, http.StatusInternalServerError, tryAgain)
+}

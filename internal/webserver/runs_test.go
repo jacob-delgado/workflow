@@ -670,3 +670,100 @@ func TestARunGoesToItsEndWhenThePageHasGone(t *testing.T) {
 		t.Errorf("a run after one whose page went is %d after %v, want it to run: the first ended", again.Code, calls.asked())
 	}
 }
+
+func TestEveryRunWithoutABranchSeamIsNotAvailable(t *testing.T) {
+	t.Parallel()
+
+	for _, body := range []string{rebaseRun, amendRun} {
+		t.Run(body, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := runDeps(&runCalls{}, passing)
+			deps.Branch = nil
+
+			// Act
+			recorder := startRun(t, serve(t, deps, config.Default()), body)
+
+			// Assert
+			assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
+		})
+	}
+}
+
+func TestARunWritesToAPageThatCannotFlush(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	calls := &runCalls{}
+	handler := serve(t, runDeps(calls, passing), config.Default())
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, runsAt, strings.NewReader(preCommitRun))
+	request.Host = loopbackHost
+	request.Header.Set("Content-Type", "application/json")
+
+	writer := &unflushableWriter{}
+
+	// Act
+	handler.ServeHTTP(writer, request)
+
+	// Assert
+	if writer.code != 0 && writer.code != http.StatusOK || len(calls.asked()) != 1 {
+		t.Errorf("status %d after %v, want the run made and written unflushed", writer.code, calls.asked())
+	}
+}
+
+func TestARunStoppedBeforeItsProgramStartsEndsStopped(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A stage holds the index, so the run waits for it after it is claimed.
+	release := make(chan struct{})
+	deps := runDeps(&runCalls{}, passing)
+	deps.Changes = func() ([]gitrepo.Change, error) {
+		<-release
+
+		return []gitrepo.Change{{Path: "a.go", Staged: ' ', Unstaged: 'M'}}, nil
+	}
+	deps.Stage = func(gitrepo.Change) error { return nil }
+	handler := serve(t, deps, config.Default())
+	staged := make(chan struct{})
+
+	go func() {
+		defer close(staged)
+
+		send(t, handler, http.MethodPost, "/api/stage", `{"path":"a.go"}`)
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+
+	recorder := newSyncRecorder()
+	ran := make(chan struct{})
+
+	go func() {
+		defer close(ran)
+
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, runsAt, strings.NewReader(preCommitRun))
+		request.Host = loopbackHost
+		request.Header.Set("Content-Type", "application/json")
+		handler.ServeHTTP(recorder, request)
+	}()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for send(t, handler, http.MethodDelete, runningAt, "").Code != http.StatusNoContent {
+		if time.Now().After(deadline) {
+			t.Fatal("the run was never claimed")
+		}
+
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// Act
+	close(release)
+	<-staged
+	<-ran
+
+	// Assert
+	if !strings.Contains(recorder.body(), `"state":"stopped"`) {
+		t.Errorf("the stream %s does not end with the run stopped", recorder.body())
+	}
+}

@@ -129,12 +129,8 @@ func (s *server) planRun(asked api.RunRequest) (plannedRun, error) {
 		api.RunKindFixup:     s.planFixup,
 	}
 
-	plan, known := planners[asked.Kind]
-	if !known {
-		return plannedRun{}, errRunUnavailable
-	}
-
-	return plan(asked)
+	// The contract admits only these kinds, so every request names one.
+	return planners[asked.Kind](asked)
 }
 
 // planPreCommit runs the pre-commit hook on what is staged.

@@ -25,6 +25,12 @@ const (
 	rerunAt  = "/api/review/rerun"
 )
 
+// The bodies of an edit and of a merge by squash.
+const (
+	anEdit   = `{"title":"t","body":""}`
+	bySquash = `{"method":"squash"}`
+)
+
 // pullTitle is #42's title.
 const pullTitle = "redact"
 
@@ -177,9 +183,9 @@ func TestReviewWritesAreRefusedWhenThereIsNothingToWriteTo(t *testing.T) {
 		saying             string
 	}{
 		"reading the text of no pull request": {http.MethodGet, pullAt, "", noPull, "no open"},
-		"editing a merged pull request":       {http.MethodPatch, pullAt, `{"title":"t","body":""}`, merged, "no open"},
+		"editing a merged pull request":       {http.MethodPatch, pullAt, anEdit, merged, "no open"},
 		"merging an unapproved one": {
-			http.MethodPost, mergeAt, `{"method":"squash"}`, unapproved, "cannot be merged",
+			http.MethodPost, mergeAt, bySquash, unapproved, "cannot be merged",
 		},
 		"offering to merge an unapproved one": {http.MethodGet, mergeAt, "", unapproved, "cannot be merged"},
 		"finishing an open one":               {http.MethodPost, finishAt, "", nil, "cannot be finished"},
@@ -302,7 +308,7 @@ func TestARefusedMergeNamesTheMissingScopeAndNoHost(t *testing.T) {
 	deps.Merge = func(forge.PullRequest, forge.MergeMethod) error { return refusedByForge() }
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, mergeAt, `{"method":"squash"}`)
+	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, mergeAt, bySquash)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "the token may lack the repo scope")
@@ -387,8 +393,8 @@ func TestReviewWritesWithoutTheirSeamAreNotAvailable(t *testing.T) {
 		method, path, body string
 		unset              func(*webserver.Deps)
 	}{
-		"an edit":     {http.MethodPatch, pullAt, `{"title":"t","body":""}`, func(d *webserver.Deps) { d.EditPull = nil }},
-		"a merge":     {http.MethodPost, mergeAt, `{"method":"squash"}`, func(d *webserver.Deps) { d.Merge = nil }},
+		"an edit":     {http.MethodPatch, pullAt, anEdit, func(d *webserver.Deps) { d.EditPull = nil }},
+		"a merge":     {http.MethodPost, mergeAt, bySquash, func(d *webserver.Deps) { d.Merge = nil }},
 		"the methods": {http.MethodGet, mergeAt, "", func(d *webserver.Deps) { d.MergeMethods = nil }},
 		"a finish":    {http.MethodPost, finishAt, "", func(d *webserver.Deps) { d.Finish = nil }},
 		"a re-run":    {http.MethodPost, rerunAt, "", func(d *webserver.Deps) { d.Rerun = nil }},
@@ -421,8 +427,8 @@ func TestReviewWritesAreHeldBackUnderADryRun(t *testing.T) {
 
 	// Act
 	codes := []int{
-		send(t, handler, http.MethodPatch, pullAt, `{"title":"t","body":""}`).Code,
-		send(t, handler, http.MethodPost, mergeAt, `{"method":"squash"}`).Code,
+		send(t, handler, http.MethodPatch, pullAt, anEdit).Code,
+		send(t, handler, http.MethodPost, mergeAt, bySquash).Code,
 		send(t, handler, http.MethodPost, finishAt, "").Code,
 		send(t, handler, http.MethodPost, rerunAt, "").Code,
 	}
@@ -456,4 +462,138 @@ func TestTheDraftStartsFromTheTemplateChosen(t *testing.T) {
 
 	unknown := get(t, handler, "/api/pull-request/draft?template=nope")
 	assertProblem(t, unknown, http.StatusNotFound, "no pull request template")
+}
+
+// everyReviewWrite is each of the review's reads and writes, by method, path
+// and body.
+func everyReviewWrite() map[string][3]string {
+	return map[string][3]string{
+		"reading the text":  {http.MethodGet, pullAt, ""},
+		"editing":           {http.MethodPatch, pullAt, anEdit},
+		"reading the offer": {http.MethodGet, mergeAt, ""},
+		"merging":           {http.MethodPost, mergeAt, bySquash},
+		"finishing":         {http.MethodPost, finishAt, ""},
+		"re-running":        {http.MethodPost, rerunAt, ""},
+	}
+}
+
+func TestReviewWritesWhoseReadsFailSayToTryAgain(t *testing.T) {
+	t.Parallel()
+
+	failures := map[string]func(*webserver.Deps){
+		"the branch": func(deps *webserver.Deps) {
+			deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+		},
+		"the pull request": func(deps *webserver.Deps) {
+			deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errSeam }
+		},
+	}
+
+	for failing, fail := range failures {
+		for name, write := range everyReviewWrite() {
+			t.Run(name+" when "+failing+" cannot be read", func(t *testing.T) {
+				t.Parallel()
+
+				// Arrange
+				writes := &reviewWrites{}
+				deps := failedCI(merged(reviewDeps(writes)))
+				fail(&deps)
+
+				// Act
+				recorder := send(t, serve(t, deps, config.Default()), write[0], write[1], write[2])
+
+				// Assert
+				assertProblem(t, recorder, http.StatusInternalServerError, tryAgain)
+
+				if writes.sent() != 0 {
+					t.Errorf("writes = %+v, want none", writes)
+				}
+			})
+		}
+	}
+}
+
+func TestReviewWritesWithNoPullRequestHaveNothingToWriteTo(t *testing.T) {
+	t.Parallel()
+
+	shapes := map[string]func(*webserver.Deps){
+		"none found": func(deps *webserver.Deps) {
+			deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+		},
+		"no forge to ask":  func(deps *webserver.Deps) { deps.FindPull = nil },
+		"no branch to ask": func(deps *webserver.Deps) { deps.Branch = nil },
+	}
+
+	for shape, unset := range shapes {
+		for name, write := range everyReviewWrite() {
+			t.Run(name+" with "+shape, func(t *testing.T) {
+				t.Parallel()
+
+				// Arrange
+				writes := &reviewWrites{}
+				deps := failedCI(reviewDeps(writes))
+				unset(&deps)
+
+				// Act
+				recorder := send(t, serve(t, deps, config.Default()), write[0], write[1], write[2])
+
+				// Assert
+				if recorder.Code != http.StatusConflict || writes.sent() != 0 {
+					t.Errorf("status %d after %+v, want 409 and nothing written: %s", recorder.Code, writes, recorder.Body)
+				}
+			})
+		}
+	}
+}
+
+func TestAMergeWithNoCIToReadCannotGo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	writes := &reviewWrites{}
+	deps := reviewDeps(writes)
+	deps.CheckCI = nil
+
+	// Act
+	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, mergeAt, bySquash)
+
+	// Assert
+	assertProblem(t, recorder, http.StatusConflict, "cannot be merged yet")
+}
+
+func TestReviewWritesTheForgeRefusesSayWhy(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		method, path, body string
+		refuse             func(*webserver.Deps)
+	}{
+		"an edit": {http.MethodPatch, pullAt, anEdit, func(d *webserver.Deps) {
+			d.EditPull = func(forge.PullRequest, forge.PullRequestEdit) (forge.PullRequest, error) {
+				return forge.PullRequest{}, refusedByForge()
+			}
+		}},
+		"the methods' read": {http.MethodGet, mergeAt, "", func(d *webserver.Deps) {
+			d.MergeMethods = func() ([]forge.MergeMethod, error) { return nil, refusedByForge() }
+		}},
+		"a merge's methods": {http.MethodPost, mergeAt, bySquash, func(d *webserver.Deps) {
+			d.MergeMethods = func() ([]forge.MergeMethod, error) { return nil, refusedByForge() }
+		}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := reviewDeps(&reviewWrites{})
+			tt.refuse(&deps)
+
+			// Act
+			recorder := send(t, serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
+
+			// Assert
+			assertProblem(t, recorder, http.StatusUnprocessableEntity, "the token may lack")
+		})
+	}
 }

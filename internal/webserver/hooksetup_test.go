@@ -188,3 +188,17 @@ func TestTheStreamCountsTheHooksLefthookDoesNotManage(t *testing.T) {
 		})
 	}
 }
+
+func TestSettingUpHooksWithNoWayToWriteIsNotAvailable(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := hookDeps(oldHooks(), false, &[]hooks.Generated{})
+	deps.HookWrite = nil
+
+	// Act
+	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, hookSetupAt, `{}`)
+
+	// Assert
+	assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
+}
