@@ -263,3 +263,70 @@ func TestAPeriodStepsByItsOwnLengthAndAWholeMonthOrYearByItself(t *testing.T) {
 		})
 	}
 }
+
+// askedOn is the Monday a period is asked on, and the others the days of the
+// week before it that a period names.
+const (
+	askedOn   = "2026-10-05"
+	monday    = "2026-09-28"
+	wednesday = "2026-09-30"
+	thursday  = "2026-10-01"
+)
+
+func TestThePeriodAskedIsFromToTheDayAloneOrThePreviousWorkingDay(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		from, to string
+		want     string
+	}{
+		"neither day":      {from: "", to: "", want: "2026-10-02 to 2026-10-04"},
+		"from alone":       {from: wednesday, to: "", want: wednesday + " to " + wednesday},
+		"to alone":         {from: "", to: "2026-09-29", want: "2026-09-29 to 2026-09-29"},
+		"from through to":  {from: monday, to: thursday, want: monday + " to " + thursday},
+		"backwards is not": {from: thursday, to: monday, want: "refused"},
+	}
+
+	for name, testCase := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			period, err := activity.PeriodAsked(testCase.from, testCase.to, day(t, askedOn))
+
+			// Assert
+			got := period.From.String() + " to " + period.To.String()
+			if err != nil {
+				got = "refused"
+			}
+
+			if got != testCase.want {
+				t.Errorf("PeriodAsked(%q, %q) = %s (%v), want %s", testCase.from, testCase.to, got, err, testCase.want)
+			}
+		})
+	}
+}
+
+func TestAPeriodAskedWithADayThatIsNoDateIsRefused(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct{ from, to string }{
+		"from":  {from: "tomorrow", to: thursday},
+		"to":    {from: thursday, to: "10/02"},
+		"alone": {from: "", to: "yesterday"},
+	}
+
+	for name, testCase := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			_, err := activity.PeriodAsked(testCase.from, testCase.to, day(t, askedOn))
+
+			// Assert
+			if !errors.Is(err, activity.ErrNotADate) {
+				t.Errorf("PeriodAsked(%q, %q) = %v, want ErrNotADate", testCase.from, testCase.to, err)
+			}
+		})
+	}
+}
