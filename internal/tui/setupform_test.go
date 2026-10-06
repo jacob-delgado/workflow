@@ -441,3 +441,22 @@ func TestTheNoFileScreenNamesConfigInitWhereSetUpIsNotWired(t *testing.T) {
 	requireScreen(t, view, config.InitStep)
 	refuseScreen(t, view, "sets one up here")
 }
+
+func TestSetUpWithoutAHomeDirectoryOffersTheRepositoryAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	run.where.HomeDir = ""
+
+	// Act
+	asked := typing(t, run.model(t, false), keyEnter)
+
+	// Assert
+	view := asked.View().Content
+	requireScreen(t, view, "Where should the file go?", "this repository")
+
+	if rows := strings.Count(view, "your home directory"); rows != 1 {
+		t.Errorf("the screen names your home directory %d times, want only in the hint:\n%s", rows, view)
+	}
+}
