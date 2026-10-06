@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useForgeWords } from '@/api/health.ts'
 import type { Branch, Ci, MergeMethod, PullRequest } from '@/api/generated/types.gen.ts'
-import { baseName } from '@/features/branch/HistoryActions.tsx'
+import { baseName, onFeatureBranch } from '@/features/branch/HistoryActions.tsx'
 import { Button } from '@/lib/Button.tsx'
 import { Input, TextArea } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -36,10 +36,12 @@ function canMerge(pull: PullRequest, ci: Ci | null): boolean {
 // canFinish is loop.CanFinish: merged, on a branch of its own with a base to
 // return to, holding no commit origin lacks.
 function canFinish(pull: PullRequest, branch: Branch): boolean {
-  const ownBranch =
-    branch.name !== '' && branch.base !== '' && branch.name !== baseName(branch.base)
-
-  return pull.state === 'merged' && ownBranch && !(branch.upstream !== '' && branch.ahead > 0)
+  return (
+    pull.state === 'merged' &&
+    onFeatureBranch(branch) &&
+    branch.base !== '' &&
+    !(branch.upstream !== '' && branch.ahead > 0)
+  )
 }
 
 // PullActions are the writes on the branch's pull request the terminal's

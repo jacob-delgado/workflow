@@ -381,7 +381,7 @@ test('shows placeholders for an unpublished branch with a clean tree', () => {
         push_remote: 'origin',
         ahead: 0,
         behind: 0,
-        base: '',
+        base: 'origin/main',
         commits: [],
       },
       changes: { changes: [] },
@@ -466,7 +466,7 @@ test('the confirm takes focus as it opens, and Cancel hands it back', async () =
 
   // Assert: focus is on the question
   expect(document.activeElement).toBe(
-    screen.getByRole('group', { name: /push \d+ commit\(s\) to the remote\?/i }),
+    screen.getByRole('group', { name: 'Push fix/PROJ-1 to origin?' }),
   )
 
   // Act: back out

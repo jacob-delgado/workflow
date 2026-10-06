@@ -132,7 +132,7 @@ func TestCreateWorktreeStartsWorkOnTheIssueBesideTheRepository(t *testing.T) {
 	got := decode[api.CreatedWorktree](t, recorder)
 	wantDir := apiRoot + "-" + strings.ReplaceAll(wantBranchName(t), "/", "-")
 
-	if recorder.Code != http.StatusOK || made != wantBranchName(t) || from != "origin/main" ||
+	if recorder.Code != http.StatusOK || made != wantBranchName(t) || from != testBase ||
 		got.Dir != wantDir || got.Branch != wantBranchName(t) || !strings.HasPrefix(got.Shown, "~/src/api-") {
 		t.Errorf("status %d, made %q from %q, answered %+v; want %s's branch from origin/main at %s",
 			recorder.Code, made, from, got, startIssue, wantDir)

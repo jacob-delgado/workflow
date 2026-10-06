@@ -104,6 +104,12 @@ func TestPushRefusesWhenThereIsNothingToPush(t *testing.T) {
 		// A detached HEAD is not on a branch, so there is nothing to push — and it
 		// must not reach `git push origin ""`.
 		"detached HEAD": {Name: "", Detached: true, Commits: commit},
+		// The base is what work merges into, not a branch to publish, however far
+		// ahead of its upstream it is — the terminal withholds that push too.
+		"the base branch": {
+			Name: "main", Base: testBase, Upstream: testBase, PushRemote: gitrepo.DefaultRemote,
+			Ahead: 1, Commits: commit,
+		},
 	}
 
 	for name, branch := range cases {
@@ -124,9 +130,7 @@ func TestPushRefusesWhenThereIsNothingToPush(t *testing.T) {
 			recorder := doPush(t, deps)
 
 			// Assert
-			if recorder.Code != http.StatusConflict {
-				t.Fatalf("status = %d, want 409 when there is nothing to push", recorder.Code)
-			}
+			assertProblem(t, recorder, http.StatusConflict, "nothing to push")
 
 			if called {
 				t.Error("pushed when there was nothing to push")

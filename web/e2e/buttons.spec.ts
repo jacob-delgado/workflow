@@ -55,7 +55,7 @@ test(
     await opener.click()
 
     // Assert
-    const confirmation = page.getByRole('group', { name: /push .* to the remote/i })
+    const confirmation = page.getByRole('group', { name: /^Push .* to origin\?$/ })
     const push = confirmation.getByRole('button', { name: 'Push', exact: true })
     expect(await heightDrawn(push), 'Push').toBe(primary)
     expect(await heightDrawn(confirmation.getByRole('button', { name: 'Cancel' })), 'Cancel').toBe(

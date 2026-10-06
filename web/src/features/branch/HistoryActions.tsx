@@ -12,10 +12,16 @@ export function baseName(base: string): string {
   return slash < 0 ? base : base.slice(slash + 1)
 }
 
+// onFeatureBranch is loop.OnFeatureBranch: a branch of its own, not a detached
+// HEAD and not the base itself.
+export function onFeatureBranch(branch: Branch): boolean {
+  return branch.name !== '' && branch.name !== baseName(branch.base)
+}
+
 // canRebase is loop.CanRebase: a branch of its own with a base to replay it
 // onto.
 function canRebase(branch: Branch): boolean {
-  return branch.name !== '' && branch.base !== '' && branch.name !== baseName(branch.base)
+  return onFeatureBranch(branch) && branch.base !== ''
 }
 
 // foldable is loop.Foldable: the commits not yet pushed, oldest first, while

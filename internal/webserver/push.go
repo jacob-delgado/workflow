@@ -29,10 +29,10 @@ const pushNotStarted = "the push could not be started; push from a terminal to s
 
 // Push publishes the checked-out branch to its remote, setting upstream if it
 // has none — the first outward step toward a pull request. There is nothing to
-// push, so a 409, when the tree is not on a branch or the branch is not ahead of
-// its upstream on the push remote; a push that fails is a 422 carrying its
-// output with its URLs and user@host:path addresses taken out, one that cannot
-// start a 422 saying how to see why, and a branch that cannot be read is
+// push, so a 409, when the tree is not on a feature branch or the branch is not
+// ahead of its upstream on the push remote; a push that fails is a 422 carrying
+// its output with its URLs and user@host:path addresses taken out, one that
+// cannot start a 422 saying how to see why, and a branch that cannot be read is
 // answered by fault. On success it returns the branch as published.
 func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushResponseObject, error) {
 	if s.deps.Push == nil || s.deps.Branch == nil {
@@ -59,12 +59,13 @@ func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushRespo
 }
 
 // nothingToPush reports whether the branch has nothing to send: the tree is not
-// on a branch (a detached HEAD, which cannot be pushed), or the branch is not
-// ahead of an upstream on the remote a push goes to. A branch with no upstream
-// there can always be published, so its commit count — which the base may make
+// on a feature branch (a detached HEAD, which cannot be pushed, or the base,
+// which work merges into rather than publishes), or the branch is not ahead of
+// an upstream on the remote a push goes to. A branch with no upstream there can
+// always be published, so its commit count — which the base may make
 // unknowable — is not consulted.
 func nothingToPush(branch gitrepo.Branch) bool {
-	if branch.Name == "" {
+	if !loop.OnFeatureBranch(branch) {
 		return true
 	}
 
