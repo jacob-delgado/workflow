@@ -310,3 +310,71 @@ func SharedMode(path string) (os.FileMode, bool) {
 
 	return mode, mode&othersMask != 0
 }
+
+// Edit is a configuration changed in an editor — the web's Settings, or the
+// terminal's — over a read of it, with each credential the editor was shown
+// masked.
+type Edit struct {
+	// Files are the configuration files the read was made from.
+	Files Files
+	// Read is the configuration the editor was seeded from, unmasked.
+	Read Config
+	// Over is the revision of the files the read found.
+	Over Revision
+	// Edited is what the editor holds: a credential left masked or empty
+	// stands for Read's.
+	Edited Config
+	// PlaceSlackCredentials keeps a Slack user token's secrets, typed into the
+	// editor, where the configuration keeps them, and answers the configuration
+	// to write. Nil keeps them in the file.
+	PlaceSlackCredentials func(Config) (Config, error)
+}
+
+// SaveEdit writes an edited configuration over the read it was made from,
+// keeping each credential the editor left masked, and returns what it wrote
+// with the revision it left. Files changed since the read are refused with
+// ErrChangedOnDisk and nothing is written.
+func SaveEdit(edit Edit) (Config, Revision, error) {
+	incoming := KeepStored(edit.Edited, edit.Read)
+	incoming.Path, incoming.Files = edit.Files.Target(), edit.Files
+
+	incoming, err := edit.placeSlackCredentials(incoming)
+	if err != nil {
+		return Config{}, Revision{}, err
+	}
+
+	written, err := SaveLayers(edit.Files, incoming, edit.Over)
+	if err != nil {
+		return Config{}, Revision{}, err
+	}
+
+	return incoming, written, nil
+}
+
+// placeSlackCredentials hands Slack user-token secrets that differ from the
+// ones read — typed into the editor, not sent back as they were shown — to be
+// kept where the configuration keeps them, and answers the configuration to
+// write. A file that already keeps them goes on keeping them, with no access
+// token, so the next post refreshes with what was typed.
+func (edit Edit) placeSlackCredentials(incoming Config) (Config, error) {
+	typed := incoming.Messaging.ClientSecret != edit.Read.Messaging.ClientSecret ||
+		incoming.Messaging.RefreshToken != edit.Read.Messaging.RefreshToken
+	if !typed {
+		return incoming, nil
+	}
+
+	if edit.PlaceSlackCredentials == nil || edit.Read.Messaging.HoldsUserTokenSecrets() {
+		incoming.Messaging.AccessToken, incoming.Messaging.ExpiresAt = "", ""
+
+		return incoming, nil
+	}
+
+	// Placing spends the typed refresh token, so it is done only over the file
+	// the write that follows will find.
+	current, err := RevisionOfLayers(edit.Files)
+	if err != nil || current != edit.Over {
+		return Config{}, fmt.Errorf("placing the Slack secrets: %w", ErrChangedOnDisk)
+	}
+
+	return edit.PlaceSlackCredentials(incoming)
+}

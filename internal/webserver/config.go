@@ -75,37 +75,22 @@ func (s *server) reread() (config.Config, basis, error) {
 	return s.cfg, basis{seen: s.seen, gone: s.gone}, nil
 }
 
-// placeSlackCredentials hands Slack user-token secrets that differ from the
-// ones stored — typed into Settings, not sent back as they were read — to be
-// kept where the configuration keeps them, and answers the configuration to
-// write. A file that already keeps them goes on keeping them, with no access
-// token, so the next post refreshes with what was typed.
-func (s *server) placeSlackCredentials(incoming config.Config, over basis) (config.Config, error) {
-	typed := incoming.Messaging.ClientSecret != s.cfg.Messaging.ClientSecret ||
-		incoming.Messaging.RefreshToken != s.cfg.Messaging.RefreshToken
-	if !typed {
-		return incoming, nil
+// placeSlackCredentials is the wiring's keeping of typed Slack user-token
+// secrets, with Slack's refusal of them told apart from a refused
+// announcement; nil when none is wired, so the file keeps them.
+func (s *server) placeSlackCredentials() func(config.Config) (config.Config, error) {
+	if s.deps.PlaceSlackCredentials == nil {
+		return nil
 	}
 
-	if s.deps.PlaceSlackCredentials == nil || s.cfg.Messaging.HoldsUserTokenSecrets() {
-		incoming.Messaging.AccessToken, incoming.Messaging.ExpiresAt = "", ""
+	return func(incoming config.Config) (config.Config, error) {
+		placed, err := s.deps.PlaceSlackCredentials(incoming)
+		if errors.Is(err, messaging.ErrRejected) {
+			return config.Config{}, fmt.Errorf("%w: %w", errSlackRefused, err)
+		}
 
-		return incoming, nil
+		return placed, err
 	}
-
-	// Placing spends the typed refresh token, so it is done only over the file
-	// the write that follows will find.
-	current, err := config.RevisionOfLayers(s.files)
-	if err != nil || current != over.file() {
-		return config.Config{}, fmt.Errorf("placing the Slack secrets: %w", config.ErrChangedOnDisk)
-	}
-
-	placed, err := s.deps.PlaceSlackCredentials(incoming)
-	if errors.Is(err, messaging.ErrRejected) {
-		return config.Config{}, fmt.Errorf("%w: %w", errSlackRefused, err)
-	}
-
-	return placed, err
 }
 
 // adoptMessaging hands messaging settings newly in effect to every post after
@@ -224,15 +209,14 @@ func (s *server) keymapRefusal(keys map[string]string) error {
 	return s.deps.CheckKeys(keys)
 }
 
-// save preserves the stored secrets into incoming, writes it to the file the
-// configuration was read from while that file is still as the read over found
-// it, and adopts it as the configuration in effect, at the revision it wrote.
-// The secrets it keeps are those of the configuration in effect, which a
-// masked field stands for only when that is the configuration the read showed,
-// so a save is made only over the read of it: a file edited and then put back
-// is at the revision named, but not at the configuration read, and two reads
-// that found no file stand for different configurations when another file came
-// and went between them.
+// save writes incoming over the read over, through config.SaveEdit, and
+// adopts it as the configuration in effect, at the revision it wrote. The
+// secrets it keeps are those of the configuration in effect, which a masked
+// field stands for only when that is the configuration the read showed, so a
+// save is made only over the read of it: a file edited and then put back is at
+// the revision named, but not at the configuration read, and two reads that
+// found no file stand for different configurations when another file came and
+// went between them.
 func (s *server) save(incoming config.Config, over basis) (config.Config, config.Revision, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -242,24 +226,19 @@ func (s *server) save(incoming config.Config, over basis) (config.Config, config
 			"the configuration in effect is not the one read at %s: %w", over.etag(), config.ErrChangedOnDisk)
 	}
 
-	incoming = preserveSecrets(incoming, s.cfg)
-	incoming.Path, incoming.Files = s.files.Target(), s.files
-
-	incoming, err := s.placeSlackCredentials(incoming, over)
+	saved, written, err := config.SaveEdit(config.Edit{
+		Files: s.files, Read: s.cfg, Over: over.file(), Edited: incoming,
+		PlaceSlackCredentials: s.placeSlackCredentials(),
+	})
 	if err != nil {
 		return config.Config{}, config.Revision{}, err
 	}
 
-	written, err := config.SaveLayers(s.files, incoming, over.file())
-	if err != nil {
-		return config.Config{}, config.Revision{}, err
-	}
+	s.cfg, s.seen, s.gone = saved, written, false
+	s.adoptForge(saved.Forge)
+	s.adoptMessaging(saved.Messaging)
 
-	s.cfg, s.seen, s.gone = incoming, written, false
-	s.adoptForge(incoming.Forge)
-	s.adoptMessaging(incoming.Messaging)
-
-	return incoming, written, nil
+	return saved, written, nil
 }
 
 // basis is what a read of the configuration stood for: the revision of the
@@ -349,54 +328,4 @@ func fromDTO(in api.Config) (config.Config, error) {
 	}
 
 	return config.Parse(bytes.NewReader(data))
-}
-
-// preserveSecrets keeps each stored secret when its incoming field is empty or
-// still the masked value the read returned — a config editor sends the masked
-// form back unchanged, and must not overwrite the real secret with the mask.
-func preserveSecrets(incoming, stored config.Config) config.Config {
-	incoming.Jira.BaseURL = keepMaskedURL(incoming.Jira.BaseURL, stored.Jira.BaseURL)
-	incoming.Jira.Token = keepSecret(incoming.Jira.Token, stored.Jira.Token)
-	incoming.Messaging.ClientSecret = keepSecret(incoming.Messaging.ClientSecret, stored.Messaging.ClientSecret)
-	incoming.Messaging.RefreshToken = keepSecret(incoming.Messaging.RefreshToken, stored.Messaging.RefreshToken)
-	incoming.Messaging.AccessToken = keepSecret(incoming.Messaging.AccessToken, stored.Messaging.AccessToken)
-	incoming.Messaging.WebhookURL = keepSecret(incoming.Messaging.WebhookURL, stored.Messaging.WebhookURL)
-	incoming.Forge.Token = keepSecret(incoming.Forge.Token, stored.Forge.Token)
-	incoming.Jira.Headers = keepHeaders(incoming.Jira.Headers, stored.Jira.Headers)
-
-	return incoming
-}
-
-// keepMaskedURL keeps the stored base URL when the incoming one is only its
-// masked form. jira.base_url may carry userinfo (it becomes Basic auth), which
-// the read masks like any other credential; the config editor sends that masked
-// URL back unchanged, and it must not overwrite the real password with the mask.
-// A genuinely edited URL differs from the mask and is taken as sent.
-func keepMaskedURL(incoming, stored string) string {
-	if incoming == config.RedactURL(stored) {
-		return stored
-	}
-
-	return incoming
-}
-
-// keepSecret returns the stored secret when the incoming one is empty or the
-// mask of the stored value, and the incoming one otherwise.
-func keepSecret(incoming, stored config.Secret) config.Secret {
-	value := incoming.Reveal()
-	if value == "" || value == config.Redact(stored.Reveal()) {
-		return stored
-	}
-
-	return incoming
-}
-
-// keepHeaders applies keepSecret to each Jira header value, which is masked on
-// read the same way a token is.
-func keepHeaders(incoming, stored map[string]config.Secret) map[string]config.Secret {
-	for key, value := range incoming {
-		incoming[key] = keepSecret(value, stored[key])
-	}
-
-	return incoming
 }
