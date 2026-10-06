@@ -1,9 +1,12 @@
-import type { Change } from '@/api/generated/types.gen.ts'
+import { useState } from 'react'
+import type { Change, FileDiff } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
+import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { Failure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { CommitForm } from './CommitForm.tsx'
-import { stageEverything, stageFile, unstageFile } from './stagingApi.ts'
+import { readDiff, stageEverything, stageFile, unstageFile } from './stagingApi.ts'
 
 // WorkingTree is the changed files, each with the terminal's space — stage it,
 // or unstage it once it is wholly staged — then its `a`, Stage all, and the
@@ -117,8 +120,107 @@ function ChangeRow({ change }: { change: Change }) {
           {error}
         </p>
       ) : null}
+      <ChangeDiff path={change.path} />
     </li>
   )
+}
+
+// ChangeDiff reads a changed file's diff when asked, never before, as the
+// terminal shows the selected file's: the diff takes the focus as it opens,
+// and Hide diff hands it back to the control that asked.
+function ChangeDiff({ path }: { path: string }) {
+  const [shown, setShown] = useState(false)
+  const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
+  const read = useAsyncAction(readDiff, {
+    fallback: `The diff of ${path} could not be read. Try again, or run git diff from a terminal.`,
+    onDone: () => {
+      setShown(true)
+    },
+  })
+
+  if (shown && read.result !== undefined) {
+    return (
+      <div className="flex flex-col gap-tight">
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={`Hide diff of ${path}`}
+          onClick={() => {
+            handBack()
+            setShown(false)
+          }}
+          className="self-start"
+        >
+          Hide diff
+        </Button>
+        <DiffText diff={read.result} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-tight">
+      <Button
+        variant="secondary"
+        size="sm"
+        ref={opener}
+        aria-label={
+          read.state === 'running' ? `Reading the diff of ${path}…` : `Show diff of ${path}`
+        }
+        aria-disabled={read.state === 'running'}
+        onClick={() => {
+          if (read.state !== 'running') {
+            void read.run(path)
+          }
+        }}
+        className="self-start"
+      >
+        {read.state === 'running' ? 'Reading the diff…' : 'Show diff'}
+      </Button>
+      {read.state === 'error' ? <Failure>{read.error}</Failure> : null}
+    </div>
+  )
+}
+
+// DiffText is a diff, scrolled by the keyboard once Tab reaches it. Each
+// line keeps git's +, - or space, which carries what it is; color repeats it.
+function DiffText({ diff }: { diff: FileDiff }) {
+  const region = useFocusOnMount<HTMLPreElement>()
+
+  return (
+    <pre
+      ref={region}
+      role="region"
+      aria-label={`Diff of ${diff.path}`}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a diff that scrolls must be reachable by Tab to be scrolled by keys (WCAG 2.1.1)
+      tabIndex={0}
+      className="max-h-80 overflow-auto rounded-md border border-border p-3 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
+      {diff.lines.length === 0
+        ? 'git reports no difference.'
+        : diff.lines.map((line, index) => (
+            // A diff's lines repeat, so a line is known by where it is: the diff is
+            // read once and never reordered.
+            <span key={index} className={lineTone(line)}>
+              {line}
+              {'\n'}
+            </span>
+          ))}
+    </pre>
+  )
+}
+
+// lineTone colors an added line and a removed one, never their headers.
+function lineTone(line: string): string | undefined {
+  if (line.startsWith('+') && !line.startsWith('+++')) {
+    return 'text-success'
+  }
+
+  if (line.startsWith('-') && !line.startsWith('---')) {
+    return 'text-destructive'
+  }
+
+  return undefined
 }
 
 // StageAll stages every change the index does not hold yet, as the terminal's

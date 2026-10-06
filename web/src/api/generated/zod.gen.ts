@@ -244,6 +244,14 @@ export const zCheckoutRequest = z.object({
 });
 
 /**
+ * A changed file's diff against HEAD.
+ */
+export const zFileDiff = z.object({
+    path: z.string(),
+    lines: z.array(z.string())
+});
+
+/**
  * The issue to start work on in a new worktree.
  */
 export const zCreateWorktreeRequest = z.object({
@@ -1065,6 +1073,15 @@ export const zGetBranchResponse = zBranch;
  * The changes, which may be empty.
  */
 export const zListChangesResponse = zChangeList;
+
+export const zGetChangeDiffQuery = z.object({
+    path: z.string()
+});
+
+/**
+ * The diff.
+ */
+export const zGetChangeDiffResponse = zFileDiff;
 
 export const zStageBody = zStagingRequest;
 

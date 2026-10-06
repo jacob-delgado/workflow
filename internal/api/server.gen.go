@@ -48,6 +48,9 @@ type ServerInterface interface {
 	// ListChanges The working tree's changes.
 	// (GET /api/changes)
 	ListChanges(w http.ResponseWriter, r *http.Request)
+	// GetChangeDiff A changed file's diff against HEAD, so it can be read before staging.
+	// (GET /api/changes/diff)
+	GetChangeDiff(w http.ResponseWriter, r *http.Request, params GetChangeDiffParams)
 	// Checkout Check out a local branch, switching the working tree to it.
 	// (POST /api/checkout)
 	Checkout(w http.ResponseWriter, r *http.Request)
@@ -407,6 +410,39 @@ func (siw *ServerInterfaceWrapper) ListChanges(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListChanges(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetChangeDiff operation middleware
+func (siw *ServerInterfaceWrapper) GetChangeDiff(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetChangeDiffParams
+
+	// ------------- Required query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "path", r.URL.Query(), &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetChangeDiff(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1557,6 +1593,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/worklog", wrapper.LogWork)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch", wrapper.GetBranch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes", wrapper.ListChanges)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes/diff", wrapper.GetChangeDiff)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/stage", wrapper.Stage)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/unstage", wrapper.Unstage)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/review/checks/{id}/log", wrapper.GetCheckLog)
@@ -2160,6 +2197,73 @@ type ListChangesdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListChangesdefaultApplicationProblemPlusJSONResponse) VisitListChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangeDiffRequestObject struct {
+	Params GetChangeDiffParams
+}
+
+type GetChangeDiffResponseObject interface {
+	VisitGetChangeDiffResponse(w http.ResponseWriter) error
+}
+
+type GetChangeDiff200JSONResponse FileDiff
+
+func (response GetChangeDiff200JSONResponse) VisitGetChangeDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangeDiff404ApplicationProblemPlusJSONResponse Problem
+
+func (response GetChangeDiff404ApplicationProblemPlusJSONResponse) VisitGetChangeDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangeDiff422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetChangeDiff422ApplicationProblemPlusJSONResponse) VisitGetChangeDiffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangeDiffdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetChangeDiffdefaultApplicationProblemPlusJSONResponse) VisitGetChangeDiffResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -5115,6 +5219,9 @@ type StrictServerInterface interface {
 	// ListChanges The working tree's changes.
 	// (GET /api/changes)
 	ListChanges(ctx context.Context, request ListChangesRequestObject) (ListChangesResponseObject, error)
+	// GetChangeDiff A changed file's diff against HEAD, so it can be read before staging.
+	// (GET /api/changes/diff)
+	GetChangeDiff(ctx context.Context, request GetChangeDiffRequestObject) (GetChangeDiffResponseObject, error)
 	// Checkout Check out a local branch, switching the working tree to it.
 	// (POST /api/checkout)
 	Checkout(ctx context.Context, request CheckoutRequestObject) (CheckoutResponseObject, error)
@@ -5563,6 +5670,32 @@ func (sh *strictHandler) ListChanges(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListChangesResponseObject); ok {
 		if err := validResponse.VisitListChangesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetChangeDiff operation middleware
+func (sh *strictHandler) GetChangeDiff(w http.ResponseWriter, r *http.Request, params GetChangeDiffParams) {
+	var request GetChangeDiffRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChangeDiff(ctx, request.(GetChangeDiffRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChangeDiff")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetChangeDiffResponseObject); ok {
+		if err := validResponse.VisitGetChangeDiffResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

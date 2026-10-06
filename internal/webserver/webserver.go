@@ -58,10 +58,13 @@ type Deps struct {
 	CreateWorktree func(name, start string) (string, error)
 	// Fetch updates origin's tracking refs before work starts, so a new branch
 	// starts from what origin holds now. Nil starts from what is there.
-	Fetch      func() error
-	Commit     func(message string) (proc.Output, error)
-	Push       func(branch string) (proc.Output, error)
-	Changes    func() ([]gitrepo.Change, error)
+	Fetch   func() error
+	Commit  func(message string) (proc.Output, error)
+	Push    func(branch string) (proc.Output, error)
+	Changes func() ([]gitrepo.Change, error)
+	// Diff reads a changed file's diff against HEAD, a change as Changes read
+	// it — never a path a request names.
+	Diff       func(change gitrepo.Change) ([]string, error)
 	FindPull   func(branch string) (forge.PullRequest, bool, error)
 	CreatePull func(request forge.NewPullRequest) (forge.PullRequest, error)
 	// EditPull changes a pull request's title and description, as linking a

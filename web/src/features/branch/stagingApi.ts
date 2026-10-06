@@ -1,4 +1,5 @@
-import { stage, unstage } from '@/api/generated'
+import { getChangeDiff, stage, unstage } from '@/api/generated'
+import type { FileDiff } from '@/api/generated/types.gen.ts'
 
 // The VITE_MOCK check is read inline (not via a helper) so Vite statically
 // replaces it and drops the SDK call from a production build's mock path, while
@@ -36,4 +37,28 @@ export async function stageEverything(): Promise<void> {
   }
 
   await stage({ body: { all: true }, throwOnError: true })
+}
+
+// readDiff reads a changed file's diff against HEAD, on demand, the file named
+// by the path the working tree lists it under. A refusal throws the API
+// error, whose message is safe to show. Under VITE_MOCK it answers a short
+// diff, so the mockup can show one.
+export async function readDiff(path: string): Promise<FileDiff> {
+  if (import.meta.env.VITE_MOCK === 'true') {
+    return {
+      path,
+      lines: [
+        `--- a/${path}`,
+        `+++ b/${path}`,
+        '@@ -1,3 +1,3 @@',
+        ' package redact',
+        '-const mask = "***"',
+        '+const mask = "[redacted]"',
+      ],
+    }
+  }
+
+  const result = await getChangeDiff({ query: { path }, throwOnError: true })
+
+  return result.data
 }
