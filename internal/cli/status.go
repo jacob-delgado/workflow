@@ -45,7 +45,7 @@ type statusSeams struct {
 }
 
 // newStatusCmd builds `workflow status [directory...]`.
-func newStatusCmd() *cobra.Command {
+func newStatusCmd(prompt Prompt) *cobra.Command {
 	var asJSON bool
 
 	cmd := &cobra.Command{
@@ -69,7 +69,7 @@ func newStatusCmd() *cobra.Command {
 		),
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStatusCommand(cmd, asJSON, args)
+			return runStatusCommand(cmd, prompt, asJSON, args)
 		},
 	}
 
@@ -79,13 +79,16 @@ func newStatusCmd() *cobra.Command {
 }
 
 // runStatusCommand prints the status of the current repository, or of each
-// named directory.
-func runStatusCommand(cmd *cobra.Command, asJSON bool, dirs []string) error {
+// named directory, noting on a terminal which directory it is reading.
+func runStatusCommand(cmd *cobra.Command, prompt Prompt, asJSON bool, dirs []string) error {
 	if len(dirs) == 0 {
 		return statusHere(cmd, asJSON)
 	}
 
-	return statusAcross(cmd, dirs, asJSON)
+	note := newProgressNote(cmd.ErrOrStderr(), prompt.IsTerminal)
+	defer note.clear()
+
+	return statusAcross(cmd, note, dirs, asJSON)
 }
 
 // statusHere prints the status of the current directory: a bare line, and a
@@ -105,15 +108,15 @@ func statusHere(cmd *cobra.Command, asJSON bool) error {
 // statusAcross prints one labeled status per named directory. A directory that
 // cannot be read is noted in its row rather than stopping the rest, and then
 // fails the command, as bare status fails outside a repository.
-func statusAcross(cmd *cobra.Command, dirs []string, asJSON bool) error {
+func statusAcross(cmd *cobra.Command, note *progressNote, dirs []string, asJSON bool) error {
 	requestLog, closeLog, err := requestLogFor(cmd)
 	if err != nil {
 		return err
 	}
 	defer closeLog()
 
-	out := outputOf(cmd)
-	statuses := statusesOf(cmd, dirs, requestLog)
+	out := note.around(outputOf(cmd))
+	statuses := statusesOf(cmd, note, dirs, requestLog)
 
 	if asJSON {
 		err = statusesJSON(out.artifact, statuses)
@@ -176,12 +179,17 @@ type directoryStatus struct {
 }
 
 // statusesOf gathers the status of the repository at each directory, which
-// reads its own configuration, recording every request in one log.
-func statusesOf(cmd *cobra.Command, dirs []string, requestLog *wiring.RequestLog) []directoryStatus {
+// reads its own configuration, recording every request in one log and noting
+// which directory it is reading.
+func statusesOf(
+	cmd *cobra.Command, note *progressNote, dirs []string, requestLog *wiring.RequestLog,
+) []directoryStatus {
 	home := configHome()
 	statuses := make([]directoryStatus, 0, len(dirs))
 
 	for _, dir := range dirs {
+		note.show("Reading", repoLabel(dir))
+
 		conn := connectAt(cmd, dir, home, requestLog)
 		facts, err := statusOf(conn)
 

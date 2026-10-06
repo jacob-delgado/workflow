@@ -56,8 +56,9 @@ var (
 // labelWidth keeps the report's values in one column so the eye can scan them.
 const labelWidth = 14
 
-// newDoctorCmd builds `workflow doctor`.
-func newDoctorCmd() *cobra.Command {
+// newDoctorCmd builds `workflow doctor`. prompt says whether stderr is a
+// terminal, where --online keeps a note of the service it is asking.
+func newDoctorCmd(prompt Prompt) *cobra.Command {
 	var (
 		online bool
 		asJSON bool
@@ -86,16 +87,20 @@ func newDoctorCmd() *cobra.Command {
 			}
 			defer closeLog()
 
+			note := newProgressNote(cmd.ErrOrStderr(), prompt.IsTerminal)
+			defer note.clear()
+
 			cfg, loadErr := loadFromEnvironment()
 			run := doctorRun{
-				cfg: cfg, loadErr: loadErr, online: online, dryRun: dryRunRequested(cmd), log: requestLog,
+				cfg: cfg, loadErr: loadErr, online: online, dryRun: dryRunRequested(cmd), log: requestLog, note: note,
 			}
+			out := note.around(outputOf(cmd)).artifact
 
 			if asJSON {
-				return runDoctorJSON(cmd.Context(), cmd.OutOrStdout(), run)
+				return runDoctorJSON(cmd.Context(), out, run)
 			}
 
-			return runDoctor(cmd.Context(), cmd.OutOrStdout(), run)
+			return runDoctor(cmd.Context(), out, run)
 		},
 	}
 
@@ -115,6 +120,8 @@ type doctorRun struct {
 	// dryRun holds back a refresh of the Slack user token, which writes.
 	dryRun bool
 	log    *wiring.RequestLog
+	// note names the service --online is asking while it waits for the answer.
+	note *progressNote
 }
 
 // runDoctor writes the report. Every section runs even when an earlier one found

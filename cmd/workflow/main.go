@@ -8,6 +8,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/user"
 	"runtime"
@@ -29,7 +30,8 @@ func main() {
 
 // terminalPrompt answers a command's questions from the terminal: a visible
 // line through a reader shared across prompts, and a secret read without echo
-// through x/term. The two reads live here, in the untested main, because
+// through x/term, and whether a stream is a terminal, by x/term too. The two
+// reads and the check live here, in the untested main, because
 // reading a real terminal is what a test cannot do; keeping a secret in the
 // keychain and composing in the editor come from their own packages.
 func terminalPrompt() cli.Prompt {
@@ -48,5 +50,13 @@ func terminalPrompt() cli.Prompt {
 		},
 		StoreSecret: keychain.Storer(runtime.GOOS, proc.Capture, user.Current, os.Getenv),
 		Input:       reader,
+		IsTerminal:  isTerminal,
 	}
+}
+
+// isTerminal reports whether stream is a terminal: a file x/term says is one.
+func isTerminal(stream io.Writer) bool {
+	file, ok := stream.(*os.File)
+
+	return ok && term.IsTerminal(int(file.Fd()))
 }

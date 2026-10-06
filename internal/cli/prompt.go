@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // errNoTerminal reports a question asked with nothing to answer it: stdin was
@@ -39,6 +41,10 @@ type Prompt struct {
 	// commit -F -` reads a message, so a script never quotes it. It shares Line's
 	// reader, so nothing read for one is lost to the other. Nil reads as empty.
 	Input io.Reader
+	// IsTerminal reports whether a stream is a terminal, so a slow command keeps
+	// a progress note on stderr only where a person is watching it, never in a
+	// pipe or a log. Nil reads every stream as no terminal.
+	IsTerminal func(stream io.Writer) bool
 }
 
 // confirm asks a yes/no question, defaulting to no, so a bare enter is the safe
@@ -74,4 +80,71 @@ func LineReader(input *bufio.Reader, prompts io.Writer) func(prompt string) (str
 
 		return strings.TrimRight(line, "\r\n"), err
 	}
+}
+
+// eraseLine returns the cursor to the start of the line and clears it, so a
+// progress note replaces the one before it in place.
+const eraseLine = "\r\x1b[K"
+
+// progressNote is the one line a slow command keeps on stderr while it reads
+// — "Reading Jira…" — when stderr is a terminal: each note replaces the last in
+// place, and the line is erased before anything else is printed and when the
+// command ends. Off a terminal it writes nothing, so a pipe or a log never
+// holds one. It is a static line, with no spinner and nothing running beside
+// the command.
+type progressNote struct {
+	// terminal is stderr when it is a terminal, and nil otherwise.
+	terminal io.Writer
+	showing  bool
+}
+
+// newProgressNote is a progress note on stderr, kept only when isTerminal says
+// stderr is one.
+func newProgressNote(stderr io.Writer, isTerminal func(io.Writer) bool) *progressNote {
+	if isTerminal == nil || !isTerminal(stderr) {
+		return &progressNote{}
+	}
+
+	return &progressNote{terminal: stderr}
+}
+
+// show replaces the note with "doing what…".
+func (n *progressNote) show(doing, what string) {
+	if n.terminal == nil {
+		return
+	}
+
+	fmt.Fprint(n.terminal, eraseLine+doing+" "+sanitize.Line(what)+"…")
+	n.showing = true
+}
+
+// clear erases the note, if one is showing.
+func (n *progressNote) clear() {
+	if !n.showing {
+		return
+	}
+
+	fmt.Fprint(n.terminal, eraseLine)
+	n.showing = false
+}
+
+// around is out with the note erased before anything is written to either
+// stream, so what the command prints never lands on the note's line.
+func (n *progressNote) around(out output) output {
+	return output{artifact: noteErasing{note: n, out: out.artifact}, notes: noteErasing{note: n, out: out.notes}}
+}
+
+// noteErasing is a stream that erases a progress note before each write.
+type noteErasing struct {
+	note *progressNote
+	out  io.Writer
+}
+
+var _ io.Writer = noteErasing{}
+
+// Write erases the note, then writes p.
+func (w noteErasing) Write(p []byte) (int, error) {
+	w.note.clear()
+
+	return w.out.Write(p) //nolint:wrapcheck // a stream's own error, passed through as the stream gave it
 }
