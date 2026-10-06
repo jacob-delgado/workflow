@@ -78,7 +78,7 @@ func runReviews(out output, seams reviewsSeams, opts reviewsOptions) error {
 		"oldest": forge.OldestFirst, "newest": forge.NewestFirst, "repo": forge.ByRepository,
 	}[opts.sort]
 	if !known {
-		return fmt.Errorf("%w, not %q", errUnknownSort, opts.sort)
+		return fmt.Errorf(`%w %q for "--sort" flag: %w`, errUsage, opts.sort, errUnknownSort)
 	}
 
 	answered, err := seams.List()

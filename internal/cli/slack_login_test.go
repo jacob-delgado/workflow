@@ -182,3 +182,38 @@ func unchanged(t *testing.T, path, contents string) {
 		t.Errorf("%s now holds %q (%v), want it left as it was", path, held, err)
 	}
 }
+
+func TestSlackLoginRefusalsExitInTheirFamily(t *testing.T) {
+	cases := map[string]struct {
+		contents string
+		prompt   func(t *testing.T) cli.Prompt
+		want     int
+	}{
+		"no configuration file": {want: 3, prompt: unusedPrompt},
+		"slack over a webhook": {
+			contents: `{"messaging": {"kind": "slack", "webhook_url": "https://hooks.slack.example/services/not-real"}}`,
+			want:     3, prompt: unusedPrompt,
+		},
+		"another service": {contents: `{"messaging": {"kind": "teams"}}`, want: 3, prompt: unusedPrompt},
+		"a blank client ID": {
+			contents: slackUserTokenFile, want: 2,
+			prompt: func(*testing.T) cli.Prompt { return asking(nil, nil, new([]string), new([]string)) },
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := t.TempDir()
+			if tt.contents != "" {
+				writeFile(t, dir, tt.contents)
+			}
+
+			// Act
+			_, err := runGuided(t, dir, tt.prompt(t), "slack", "login")
+
+			// Assert
+			wantExit(t, err, tt.want)
+		})
+	}
+}

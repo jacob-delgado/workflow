@@ -271,4 +271,6 @@ func TestReviewsRefusesASortItDoesNotKnow(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "oldest, newest or repo") {
 		t.Errorf("reviews --sort loudest = %v, want it refused naming the sorts", err)
 	}
+
+	wantExit(t, err, 2)
 }
