@@ -192,13 +192,48 @@ func TestCheckKeysRefusesAnOverlayKeyOnAKeyLiveBesideItInAComposer(t *testing.T)
 	}
 }
 
+func TestCheckKeysRefusesAKeyATextFieldEditsWithWhereOneHasTheFocus(t *testing.T) {
+	t.Parallel()
+
+	// Each action is answered by an overlay before its focused text field sees
+	// the key, so on a key the field edits with it would take that edit away.
+	cases := map[string]map[string]string{
+		"worktree onto delete a word":            {"worktree": "ctrl+w"},
+		"breaking onto back a character":         {"toggle-breaking": "ctrl+b"},
+		"draft onto the line's start":            {"toggle-draft": "ctrl+a"},
+		"the next template onto next suggestion": {"next-template": "ctrl+n"},
+		"edit body onto previous suggestion":     {"edit-body": "ctrl+p"},
+		"worktree onto a letter":                 {"worktree": "s"},
+	}
+
+	for name, rebound := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			err := tui.CheckKeys(rebound)
+
+			// Assert
+			if !errors.Is(err, tui.ErrTextFieldKey) {
+				t.Fatalf("CheckKeys(%v) = %v, want ErrTextFieldKey", rebound, err)
+			}
+
+			for action := range rebound {
+				if !strings.Contains(err.Error(), action) {
+					t.Errorf("CheckKeys error %q does not name %s", err, action)
+				}
+			}
+		})
+	}
+}
+
 func TestCheckKeysAcceptsAnOverlayKeyOnAKeyOfThePaneBehindIt(t *testing.T) {
 	t.Parallel()
 
 	// The pane behind an open overlay does not answer while it is open, so an
 	// overlay's key may share a key with that pane's own.
 	cases := map[string]map[string]string{
-		"worktree onto switch-branch":         {"worktree": "s"},
+		"verbatim onto switch-branch":         {"verbatim": "s"},
 		"post-when-green onto merge":          {"post-when-green": "M"},
 		"cycle-type-left onto open a request": {"cycle-type-left": "n"},
 	}

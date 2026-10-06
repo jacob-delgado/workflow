@@ -63,7 +63,7 @@ func TestAnOverlayShowsAFailureFully(t *testing.T) {
 		},
 		"worktree creator": {
 			prepare: func(w *world) { w.worktreeErr = errLongReason },
-			keys:    []string{"2", "b", keyCtrlW, keyEnter},
+			keys:    []string{"2", "b", keyWorktree, keyEnter},
 		},
 		"issue linker": {
 			prepare: func(w *world) { w.pullFound, w.linkErr = false, errLongReason },

@@ -111,7 +111,7 @@ func placedBindings() []helpGroup {
 			"edit-body         ctrl+o     edit body",
 			"next-template     ctrl+t     next template",
 			"toggle-draft      ctrl+r     draft",
-			"toggle-breaking   ctrl+b     breaking",
+			"toggle-breaking   ctrl+x     breaking",
 			"verbatim          v          keep scripts whole",
 			"show-log          l          show log",
 			"next-field        tab        next field",
@@ -119,7 +119,7 @@ func placedBindings() []helpGroup {
 			"cycle-type-left   ←/→        change type",
 			"cycle-type-right",
 			"toggle-option     space      select",
-			"worktree          ctrl+w     worktree",
+			"worktree          ctrl+g     worktree",
 			"post-when-green   w          announce when CI passes",
 			"link-to-slack     a          link to Slack",
 			"not-on-slack      x          not on Slack",
@@ -359,7 +359,7 @@ func TestOnAnEightyColumnTerminalTheHelpNamesEveryKeyWhole(t *testing.T) {
 	pages := helpPages(t, newWorld().live(t, 80, 24))
 
 	// Assert
-	requireScreen(t, pages, "In a composer or preview", "ctrl+w    worktree", "w         announce when CI passes")
+	requireScreen(t, pages, "In a composer or preview", "ctrl+g    worktree", "w         announce when CI passes")
 }
 
 func TestTheHelpCutsNoLineShortAtThePanesEdge(t *testing.T) {

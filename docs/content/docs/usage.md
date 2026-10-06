@@ -194,13 +194,13 @@ every key `?` lists, by where it works.
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
 | | `←` / `→` | Change the commit's type; in the announcement preview, change the channel |
 | | `ctrl+o` | Write the commit's body, the pull request's description, or a comment, in your editor |
-| | `ctrl+b` | Mark the commit a breaking change |
+| | `ctrl+x` | Mark the commit a breaking change |
 | | `ctrl+t` | Use the repository's next pull request template |
 | | `ctrl+r` | Open the pull request as a draft, or not |
 | | `e` | Edit an announcement in your editor before it is sent |
 | | `space` | Pick an option in a field that takes several |
 | | `v` | Keep every existing hook whole as a script, in the lefthook offer |
-| | `ctrl+w` | In the branch creator, create the branch in a new git worktree rather than switching to it |
+| | `ctrl+g` | In the branch creator, create the branch in a new git worktree rather than switching to it |
 | | `w` | In the announcement preview, announce once CI passes |
 | | `j`/`k` or `↓`/`↑` | In the announcement preview, move between the code owners and groups it can tag |
 | | `space` | In the announcement preview, tag the selected group, or untag it |
@@ -305,7 +305,7 @@ names with how long ago it last moved, as in
 `from origin/main, fetched 3d ago`. `enter` fetches from origin first, so the
 branch starts from what origin holds now; if the fetch fails, the overlay says
 why, and `enter` again branches from what you already have. The branch is not
-set to track its base, so it reads as unpushed until it is. `ctrl+w` creates it
+set to track its base, so it reads as unpushed until it is. `ctrl+g` creates it
 in a new git worktree beside the repository instead of switching to it, and
 then offers to switch to the worktree: `enter` opens workflow again there, as
 a switch from the Repositories pane does, and `esc` stays where you are.
@@ -351,7 +351,7 @@ it is staged, and says so.
 always a well-formed [Conventional Commit](https://www.conventionalcommits.org/):
 `←`/`→` choose the type, `tab` moves to the scope and the description, and a
 ruler counts against the subject limit, 72 characters by default
-(`commit.subject_limit`). `ctrl+b` marks it a breaking change, and `ctrl+o`
+(`commit.subject_limit`). `ctrl+x` marks it a breaking change, and `ctrl+o`
 writes the body in your editor. A trailer naming the issue — `Refs:` by
 default, relabeled by `commit.refs_trailer` — is added unless the body already
 has one.
@@ -625,7 +625,7 @@ unasked.
 
 | Moment | Offer |
 | --- | --- |
-| A branch created for an issue with `b` — not one made in a worktree with `ctrl+w` — or switched to with `s` — not one another worktree has, which `s` leaves for | Start the issue's task, or, with none, track the issue and start the new task |
+| A branch created for an issue with `b` — not one made in a worktree with `ctrl+g` — or switched to with `s` — not one another worktree has, which `s` leaves for | Start the issue's task, or, with none, track the issue and start the new task |
 | A pull request opened for the branch's Jira issue | Annotate its task with the pull request's number and URL |
 | That pull request merged with `M` | Mark the task done |
 | The issue moved to a done status with `t` | Mark the task done |

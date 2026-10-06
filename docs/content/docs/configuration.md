@@ -701,6 +701,15 @@ comment, so it must stay on a key that neither types nor edits text, such as
 `ctrl+q`: a map that moves it onto a letter, a digit, a symbol, `space`,
 `backspace` or `delete` is refused.
 
+The keys an overlay answers while one of its text fields has the cursor —
+`worktree`, `toggle-breaking`, `toggle-draft`, `next-template`, `edit-body`,
+`next-field` and `previous-field` — cannot take a key that field types or
+edits with: a character, or one of the readline keys `ctrl+a`, `ctrl+b`,
+`ctrl+d`, `ctrl+e`, `ctrl+f`, `ctrl+h`, `ctrl+k`, `ctrl+u`, `ctrl+v` and
+`ctrl+w`, or `ctrl+n` and `ctrl+p`, which step through a field's
+suggestions. Such a map is refused, since the overlay would take the edit
+for its own.
+
 ## Timing
 
 The waits are set for a nearby network and a forge with room in its rate limit.
