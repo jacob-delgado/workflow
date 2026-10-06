@@ -410,14 +410,20 @@ func TestStatusWhenCICannotBeRead(t *testing.T) {
 	repo := statusFeatureRepo(t, server.URL)
 
 	// Act
-	output, err := run(t, repo, "status")
+	printed, err := runStreams(t, repo, unusedPrompt(t), "status")
 	if err != nil {
-		t.Fatalf("status: %v (%s)", err, output)
+		t.Fatalf("status: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	if !strings.Contains(output, "CI none") {
-		t.Errorf("an unreadable CI should read none:\n%s", output)
+	// The line still reads none, so a prompt keeps its shape, but the forge
+	// that would not say is named where a person or a script can see it.
+	if !strings.Contains(printed.stdout, "CI none") || strings.Contains(printed.stdout, "GitHub") {
+		t.Errorf("stdout = %q, want the line with CI none and nothing more", printed.stdout)
+	}
+
+	if !strings.Contains(printed.stderr, "GitHub could not be read") {
+		t.Errorf("stderr = %q, want a note naming GitHub", printed.stderr)
 	}
 }
 

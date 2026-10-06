@@ -90,7 +90,7 @@ asks, and the error itself, prefixed `workflow:`.
 
 | Command | stdout | stderr |
 | --- | --- | --- |
-| `status` | the line, or one row per directory, or the JSON | |
+| `status` | the line, or one row per directory, or the JSON | each service that refused to answer — `Jira could not be read: …`, `GitHub could not be read: …` — labeled with its directory when several are named; nothing for a service with no credential or no forge to ask |
 | `reviews` | one line per review, or the JSON | "No pull requests are waiting on your review." |
 | `repositories` | a line for where it works, then one per worktree and one per favorite, or the JSON | why the worktrees could not be read |
 | `doctor` | the report, or the JSON, and with no configuration file how to create one: the report is what a bug report pastes, so its guidance stays in it | |

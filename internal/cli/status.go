@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/progress"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -34,6 +35,11 @@ type statusSeams struct {
 	Project string
 	// Service is the configured messaging service, which names the last stage.
 	Service string
+	// Forge is the forge the remote points at, which names it in a note.
+	Forge forge.Kind
+	// Tracker names the issue tracker in a note: Jira, or the forge when
+	// its issues stand in for Jira's.
+	Tracker string
 }
 
 // newStatusCmd builds `workflow status [directory...]`.
@@ -45,7 +51,9 @@ func newStatusCmd() *cobra.Command {
 		Short: "Print the current work's issue, stage and CI on one line",
 		Long: "Print, on one line, the issue the branch is for, how far along the loop\n" +
 			"the work has got, and how CI stands — the same progress the interface's\n" +
-			"top row shows, for a shell prompt or a status bar. --json prints it as data.\n\n" +
+			"top row shows, for a shell prompt or a status bar. --json prints it as data.\n" +
+			"A service that refuses to answer leaves its stage as though there were nothing\n" +
+			"to say — CI none — and is named on standard error, one line each.\n\n" +
 			"Given one or more directories, it prints a labeled line for each, so\n" +
 			"`workflow status ~/src/*` reports every repository at once. Each reads its\n" +
 			"own configuration. A directory that cannot be read still gets its line,\n" +
@@ -82,7 +90,7 @@ func statusHere(cmd *cobra.Command, asJSON bool) error {
 	}
 	defer conn.closeLog()
 
-	return runStatus(cmd.OutOrStdout(), seamsFor(conn), conn.cfg.UI.ASCII, asJSON)
+	return runStatus(outputOf(cmd), seamsFor(conn), conn.cfg.UI.ASCII, asJSON)
 }
 
 // statusAcross prints one labeled status per named directory. A directory that
@@ -95,13 +103,17 @@ func statusAcross(cmd *cobra.Command, dirs []string, asJSON bool) error {
 	}
 	defer closeLog()
 
-	out := cmd.OutOrStdout()
+	out := outputOf(cmd)
 	statuses := statusesOf(cmd, dirs, requestLog)
 
 	if asJSON {
-		err = statusesJSON(out, statuses)
+		err = statusesJSON(out.artifact, statuses)
 	} else {
-		statusLines(out, statuses)
+		statusLines(out.artifact, statuses)
+	}
+
+	for _, status := range statuses {
+		writeUnread(out.notes, status.label+": ", status.facts.unread)
 	}
 
 	return errors.Join(err, unreadDirectories(statuses))
@@ -194,7 +206,19 @@ func seamsFor(conn connection) statusSeams {
 		Memory:      loop.AnnounceMemory{Recorded: conn.deps.Store.Announced},
 		Project:     conn.cfg.Jira.Project,
 		Service:     conn.cfg.Messaging.Service(),
+		Forge:       conn.deps.Forge.Kind,
+		Tracker:     trackerName(conn),
 	}
+}
+
+// trackerName names the tracker the issue is read from: Jira when it is
+// configured, and otherwise the forge, whose issues stand in for it.
+func trackerName(conn connection) string {
+	if conn.cfg.Jira.Configured() {
+		return "Jira"
+	}
+
+	return forgeName(conn.deps.Forge.Kind)
 }
 
 // repoLabel names a directory in the output: its base name, or the path itself
@@ -208,28 +232,41 @@ func repoLabel(dir string) string {
 	return base
 }
 
-// statusFacts is everything the line and the JSON are built from.
+// statusFacts is everything the line and the JSON are built from, and why
+// each service that refused to answer did not.
 type statusFacts struct {
 	issue   string
 	summary string
 	stages  []progress.Stage
 	ci      forge.CIState
+	unread  []error
 }
 
-// runStatus gathers the current state and prints it, as a line or as JSON.
-func runStatus(out io.Writer, seams statusSeams, ascii, asJSON bool) error {
+// runStatus gathers the current state and prints it, as a line or as JSON,
+// with a note on stderr for each service that refused to answer.
+func runStatus(out output, seams statusSeams, ascii, asJSON bool) error {
 	facts, err := statusFromSeams(seams)
 	if err != nil {
 		return err
 	}
 
+	writeUnread(out.notes, "", facts.unread)
+
 	if asJSON {
-		return renderStatusJSON(out, facts)
+		return renderStatusJSON(out.artifact, facts)
 	}
 
-	renderStatusLine(out, facts, ascii)
+	renderStatusLine(out.artifact, facts, ascii)
 
 	return nil
+}
+
+// writeUnread notes each service that refused to answer, one line apiece
+// after label. Its words are the service's, so none may drive the terminal.
+func writeUnread(notes io.Writer, label string, unread []error) {
+	for _, err := range unread {
+		fmt.Fprintln(notes, label+sanitize.Line(err.Error()))
+	}
 }
 
 // statusFromSeams reads the branch and derives the facts, or fails when the
@@ -246,42 +283,97 @@ func statusFromSeams(seams statusSeams) (statusFacts, error) {
 // gather reads the issue, the pull request, its CI and whether it was
 // announced, and derives the stages.
 // A service that will not answer leaves its stage not-started rather than
-// failing the whole line.
+// failing the whole line, and is named among the facts' unread.
 func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 	issueRef, named := loop.IssueOf(branch, seams.Project)
-	issueKey := issueRef.Key
-	facts := statusFacts{issue: issueKey}
+	facts := statusFacts{issue: issueRef.Key}
 
+	var issueErr error
 	if named {
-		facts.summary = issueSummary(seams, issueKey)
+		facts.summary, issueErr = issueSummary(seams, issueRef.Key)
 	}
 
 	onFeature := branch.Name != "" && branch.Name != branch.BaseName()
-	pull, review, ciState := gatherReview(seams, branch, onFeature)
-	facts.ci = ciState
+	review := gatherReview(seams, branch, onFeature)
+	changes, changesErr := seams.Changes()
+	facts.ci = review.ci
+	facts.unread = unreadServices([]serviceRead{
+		{name: seams.Tracker, err: issueErr},
+		{name: forgeName(seams.Forge), err: review.err},
+		{name: "The working tree", err: changesErr},
+	})
 
 	facts.stages = progress.Stages(progress.Work{
 		OnFeatureBranch:    onFeature,
 		IssueNamed:         named,
 		Commits:            len(branch.Commits),
-		UncommittedChanges: countChanges(seams),
-		PullRequest:        review,
-		CI:                 ciState,
-		ChangesRequested:   pull.ChangesRequested,
-		Announced:          review != progress.NoPullRequest && announcedNow(seams.Memory, pull, ciState),
+		UncommittedChanges: len(changes),
+		PullRequest:        review.state,
+		CI:                 review.ci,
+		ChangesRequested:   review.pull.ChangesRequested,
+		Announced:          review.state != progress.NoPullRequest && announcedNow(seams.Memory, review.pull, review.ci),
 	}, seams.Service)
 
 	return facts
 }
 
-// issueSummary is the named issue's summary, or none when Jira will not answer.
-func issueSummary(seams statusSeams, issueKey string) string {
-	detail, err := seams.Issue(jira.Key(issueKey))
-	if err != nil {
-		return ""
+// serviceRead is one service's read, by the name a note gives it, and why it
+// failed, or nil.
+type serviceRead struct {
+	name string
+	err  error
+}
+
+// unreadServices is why each service that refused to answer did not, in its
+// name. A service there was nothing to ask — no credential set, no forge the
+// origin names — answered nothing because nothing was asked, and one that
+// says the branch's issue does not exist has answered; both are left out.
+func unreadServices(reads []serviceRead) []error {
+	var unread []error
+
+	for _, read := range reads {
+		if read.err != nil && !answeredOrUnasked(read.err) {
+			unread = append(unread, fmt.Errorf("%s could not be read: %w", read.name, read.err))
+		}
 	}
 
-	return detail.Issue.Summary
+	return unread
+}
+
+// answeredOrUnasked reports an error that says a service was never asked —
+// Jira or the forge has no credential, or the origin names no forge workflow
+// reads — or that the tracker answered it holds no such issue.
+func answeredOrUnasked(err error) bool {
+	for _, said := range []error{
+		jira.ErrNoCredential, forge.ErrNoToken, forge.ErrNotARemote, forge.ErrUnknownForge, jira.ErrNotFound,
+	} {
+		if errors.Is(err, said) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// forgeName names the forge as the subject of a note: by its name when the
+// remote says which, and as the forge otherwise.
+func forgeName(kind forge.Kind) string {
+	if kind == forge.KindUnknown {
+		return "The forge"
+	}
+
+	return kind.String()
+}
+
+// issueSummary is the named issue's summary, or none, with why, when Jira
+// will not answer.
+func issueSummary(seams statusSeams, issueKey string) (string, error) {
+	detail, err := seams.Issue(jira.Key(issueKey))
+	if err != nil {
+		return "", err
+	}
+
+	return detail.Issue.Summary, nil
 }
 
 // announcedNow reports that the store remembers the pull request announced at
@@ -290,43 +382,43 @@ func announcedNow(memory loop.AnnounceMemory, pull forge.PullRequest, ciState fo
 	return memory.Holds(loop.Announced{Pull: pull.Number, Moment: loop.AnnounceMoment(pull, forge.CI{State: ciState})})
 }
 
+// reviewRead is what the forge said of the branch's pull request: the pull,
+// where its review stands, its CI, and why the forge would not say, or nil.
+type reviewRead struct {
+	pull  forge.PullRequest
+	state progress.PullState
+	ci    forge.CIState
+	err   error
+}
+
 // gatherReview looks for the branch's pull request, where it stands and its
-// CI, on a feature branch with a forge to ask.
-func gatherReview(
-	seams statusSeams, branch gitrepo.Branch, onFeature bool,
-) (forge.PullRequest, progress.PullState, forge.CIState) {
+// CI, on a feature branch with a forge to ask. A read that fails reads as no
+// pull request, or no CI, with its error beside.
+func gatherReview(seams statusSeams, branch gitrepo.Branch, onFeature bool) reviewRead {
+	none := reviewRead{state: progress.NoPullRequest, ci: forge.CINone}
 	if !onFeature {
-		return forge.PullRequest{}, progress.NoPullRequest, forge.CINone
+		return none
 	}
 
 	pull, found, err := seams.FindPull(branch.Name)
 	if err != nil || !found {
-		return forge.PullRequest{}, progress.NoPullRequest, forge.CINone
+		none.err = err
+
+		return none
 	}
 
 	if !pull.IsOpen() {
 		// A merged pull request has no live CI to poll: its review is over, as
 		// the interface's spine and rail say too.
-		return pull, progress.PullStateOf(pull.State), forge.CINone
+		return reviewRead{pull: pull, state: progress.PullStateOf(pull.State), ci: forge.CINone}
 	}
 
 	status, err := seams.CheckStatus(pull, branch.Head)
 	if err != nil {
-		return pull, progress.PullRequestOpen, forge.CINone
+		return reviewRead{pull: pull, state: progress.PullRequestOpen, ci: forge.CINone, err: err}
 	}
 
-	return pull, progress.PullRequestOpen, status.State
-}
-
-// countChanges is how many files have uncommitted changes, or zero when they
-// cannot be read.
-func countChanges(seams statusSeams) int {
-	changes, err := seams.Changes()
-	if err != nil {
-		return 0
-	}
-
-	return len(changes)
+	return reviewRead{pull: pull, state: progress.PullRequestOpen, ci: status.State}
 }
 
 // renderStatusLine prints the issue, the stage glyphs and the CI state.
