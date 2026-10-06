@@ -192,7 +192,7 @@ every key `?` lists, by where it works.
 | | `g` | Type a directory to switch to; `tab` completes it |
 | | `r` | Read the favorites again |
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
-| | `←` / `→` | Change the commit's type; in the announcement preview, change the channel |
+| | `←` / `→` | Change the commit's type; in the announcement preview, change the channel; in the calendar's Day column, move a day |
 | | `ctrl+o` | Write the commit's body, the pull request's description, or a comment, in your editor |
 | | `ctrl+x` | Mark the commit a breaking change |
 | | `ctrl+t` | Use the repository's next pull request template |
@@ -659,8 +659,10 @@ the weekend after it — grouped by year, month, day and hour, oldest first.
 `[` and `]` move to the period before or after — a whole month to the month,
 a whole year to the year, any other period by its own length — and read it
 once the key has rested, so holding one reads only where it stops; `t` shows
-today. `c` opens a calendar of three columns, Year, Month and Day: `tab` moves
-between them and `j`/`k` within one, and `enter` shows what the column the
+today. `c` opens a calendar of three columns, Year, Month and Day: `tab` and
+`shift+tab` move between them and `j`/`k` within one — a year, a month, or in
+the Day column, drawn as a month of weeks, a week, where `←`/`→` move a day —
+and `enter` shows what the column the
 cursor is in names — the whole year, the whole month, or the day; `space`
 marks the cursor's day as one end of a range, and `enter` then shows from it
 to the cursor, up to a year and a day. Each source fills in as it answers, and

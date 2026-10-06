@@ -41,6 +41,7 @@ const (
 	keyEsc       = "esc"
 	keySpace     = "space"
 	keyRight     = "right"
+	keyLeft      = "left"
 	keyCtrlO     = "ctrl+o"
 	keyBackspace = "backspace"
 	issueKey     = "PROJ-412"
