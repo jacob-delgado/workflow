@@ -30,6 +30,9 @@ var (
 	// ErrNoKeychain reports the token asked to be kept in a keychain where
 	// none is wired, or under a dry run.
 	ErrNoKeychain = errors.New("there is no keychain here to keep the token in")
+	// ErrNoHome reports a file asked for in a home directory where none is
+	// known.
+	ErrNoHome = errors.New("there is no home directory here to keep the file in")
 )
 
 // Place is where setup writes the file.
@@ -59,12 +62,23 @@ func (w Where) Path(place Place) string {
 	return filepath.Join(config.RepoRoot(w.WorkDir), config.FileName)
 }
 
+// Places are where the file may go here: the repository, and the home
+// directory where one is known.
+func (w Where) Places() []Place {
+	if w.HomeDir == "" {
+		return []Place{Repository}
+	}
+
+	return []Place{Repository, Home}
+}
+
 // Layers are the home file the file for place lies over, and that file; empty
 // when it stands alone: written to the home directory, where the repository's
-// root is the home directory, or with no home file to lie over.
+// root is the home directory, with no home directory known, or with no home
+// file to lie over.
 func (w Where) Layers(place Place) config.Files {
 	path, home := w.Path(place), w.Path(Home)
-	if place == Home || home == path {
+	if place == Home || w.HomeDir == "" || home == path {
 		return config.Files{}
 	}
 

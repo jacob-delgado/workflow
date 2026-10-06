@@ -433,3 +433,25 @@ func TestSetupOffersNothingWhereItIsNotWired(t *testing.T) {
 		t.Errorf("offer = %+v, want nothing offered", offer)
 	}
 }
+
+func TestSetupRefusesHomeWithoutAHomeDirectory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	run.where.HomeDir = ""
+
+	body, err := json.Marshal(api.SetupRequest{Place: api.Home, JiraBaseURL: setupJira, JiraToken: setupToken})
+	if err != nil {
+		t.Fatalf("encoding the request: %v", err)
+	}
+
+	// Act
+	recorder := send(t, run.handler(t), http.MethodPost, setupPath, string(body))
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable {
+		t.Errorf("status %d, problem %+v; want 422 unprocessable", recorder.Code, failure)
+	}
+}
