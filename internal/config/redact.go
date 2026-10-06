@@ -149,3 +149,59 @@ func (c Config) credentialMasks() []credentialMask {
 
 	return masks
 }
+
+// KeepStored keeps each stored secret when its incoming field is empty or
+// still the masked value Redacted gave the editor — a configuration editor,
+// the web's Settings or the terminal's, sends the masked form back unchanged,
+// and must not overwrite the real secret with the mask.
+func KeepStored(incoming, stored Config) Config {
+	incoming.Jira.BaseURL = keepMaskedURL(incoming.Jira.BaseURL, stored.Jira.BaseURL)
+	incoming.Jira.Token = keepSecret(incoming.Jira.Token, stored.Jira.Token)
+	incoming.Messaging.ClientSecret = keepSecret(incoming.Messaging.ClientSecret, stored.Messaging.ClientSecret)
+	incoming.Messaging.RefreshToken = keepSecret(incoming.Messaging.RefreshToken, stored.Messaging.RefreshToken)
+	incoming.Messaging.AccessToken = keepSecret(incoming.Messaging.AccessToken, stored.Messaging.AccessToken)
+	incoming.Messaging.WebhookURL = keepSecret(incoming.Messaging.WebhookURL, stored.Messaging.WebhookURL)
+	incoming.Forge.Token = keepSecret(incoming.Forge.Token, stored.Forge.Token)
+	incoming.Jira.Headers = keepHeaders(incoming.Jira.Headers, stored.Jira.Headers)
+
+	return incoming
+}
+
+// keepMaskedURL keeps the stored base URL when the incoming one is only its
+// masked form. jira.base_url may carry userinfo (it becomes Basic auth), which
+// the read masks like any other credential; the config editor sends that masked
+// URL back unchanged, and it must not overwrite the real password with the mask.
+// A genuinely edited URL differs from the mask and is taken as sent.
+func keepMaskedURL(incoming, stored string) string {
+	if incoming == RedactURL(stored) {
+		return stored
+	}
+
+	return incoming
+}
+
+// keepSecret returns the stored secret when the incoming one is empty or the
+// mask of the stored value, and the incoming one otherwise.
+func keepSecret(incoming, stored Secret) Secret {
+	value := incoming.Reveal()
+	if value == "" || value == Redact(stored.Reveal()) {
+		return stored
+	}
+
+	return incoming
+}
+
+// keepHeaders applies keepSecret to each Jira header value, which is masked on
+// read the same way a token is.
+func keepHeaders(incoming, stored map[string]Secret) map[string]Secret {
+	if incoming == nil {
+		return nil
+	}
+
+	kept := make(map[string]Secret, len(incoming))
+	for key, value := range incoming {
+		kept[key] = keepSecret(value, stored[key])
+	}
+
+	return kept
+}
