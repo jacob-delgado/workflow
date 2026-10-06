@@ -90,7 +90,7 @@ func runBranch(out output, seams branchSeams, issueKey string, opts writeOptions
 	}
 
 	if exists {
-		return fmt.Errorf("%w: %s (switch to it with git switch %s)", errBranchExists, name, name)
+		return fmt.Errorf("%w: %s; switch to it with `git switch %s`", errBranchExists, name, name)
 	}
 
 	// Creating the branch also switches to it, carrying the working tree across,

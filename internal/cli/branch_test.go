@@ -116,7 +116,7 @@ func TestBranchExistsSaysHowToSwitch(t *testing.T) {
 	_, err := run(t, repo, "branch", "PROJ-7", "--yes")
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "git switch fix/PROJ-7-login") {
+	if err == nil || !strings.HasSuffix(err.Error(), "; switch to it with `git switch fix/PROJ-7-login`") {
 		t.Errorf("branch = %v, want the refusal to name the command that switches to the branch", err)
 	}
 }
