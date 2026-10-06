@@ -150,7 +150,7 @@ func (f fieldForm) optionLines(marks glyphs, rows int) []string {
 	for index := first; index < last; index++ {
 		row := marks.marker(index == f.option)
 		if f.multi() {
-			row += marks.checkbox(f.picked(options[index].ID))
+			row += checkbox(f.picked(options[index].ID))
 		}
 
 		lines = append(lines, row+options[index].Name)

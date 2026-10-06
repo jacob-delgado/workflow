@@ -208,7 +208,7 @@ func (f settingsForm) row(field setting, selected bool) string {
 	if field.kind == settingToggle {
 		on, _ := f.value(field.path).(bool)
 
-		return f.marks.marker(selected) + f.marks.checkbox(on) + field.label + edited
+		return f.marks.marker(selected) + checkbox(on) + field.label + edited
 	}
 
 	return f.marks.marker(selected) + fmt.Sprintf("%-15s %s", field.label, f.shown(field)) + edited

@@ -216,7 +216,7 @@ func TestAGroupCheckedIsKeptOnceGroupsCloses(t *testing.T) {
 	view := typing(t, openPeople(t, tagging), keyTab, keySpace, keyEsc, "P", keyTab).View().Content
 
 	// Assert
-	requireScreen(t, view, "● @control-plane-pod", "● @api-reviewers")
+	requireScreen(t, view, "[x] @control-plane-pod", "[x] @api-reviewers")
 }
 
 func TestARefusedGroupSaveShowsWhatIsKept(t *testing.T) {
@@ -230,7 +230,7 @@ func TestARefusedGroupSaveShowsWhatIsKept(t *testing.T) {
 	view := typing(t, openPeople(t, refusing), keyTab, keySpace).View().Content
 
 	// Assert
-	requireScreen(t, view, "slack is down", "○ @control-plane-pod", "● @api-reviewers")
+	requireScreen(t, view, "slack is down", "[ ] @control-plane-pod", "[x] @api-reviewers")
 }
 
 func TestTheSelectionFollowsAnOwnerAfterAChange(t *testing.T) {

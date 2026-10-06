@@ -308,7 +308,7 @@ func (p peopleOverlay) groupLines(width, rows int) []string {
 
 // choiceRow is a group, checked when the repository tags it.
 func (p peopleOverlay) choiceRow(group loop.SlackTarget) string {
-	return p.marks.checkbox(p.isChosen(group.ID)) + slackName(group, true)
+	return checkbox(p.isChosen(group.ID)) + slackName(group, true)
 }
 
 // groupsEditable reports a checklist whose change can be saved: the
