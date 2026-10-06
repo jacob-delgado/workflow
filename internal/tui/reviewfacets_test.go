@@ -214,7 +214,7 @@ func TestTheFilterHoldsAcrossASort(t *testing.T) {
 		slices.Concat([]string{"6", filterKey}, steps(9), []string{keySpace, keyEnter})...)
 
 	// Act
-	view := typing(t, filtered, "s").View().Content
+	view := typing(t, filtered, "O").View().Content
 
 	// Assert
 	if got := listedRequests(view); !slices.Equal(got, []string{"12", "5"}) {
@@ -269,7 +269,7 @@ func TestByRepositoryHeadsARepositoryOnceForAllItsRequests(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := plain(typing(t, facetsWorld().live(t, 120, 40), "6", "s", "s").View().Content)
+	view := plain(typing(t, facetsWorld().live(t, 120, 40), "6", "O", "O").View().Content)
 
 	// Assert
 	headings := 0
@@ -308,7 +308,7 @@ func TestClickingARepositoryHeadingKeepsTheSelection(t *testing.T) {
 	// By repository, with #12, under example/other, selected: the selection
 	// stays on #5, the oldest, across the sorts, and up moves it.
 	repo := facetsWorld()
-	grouped := typing(t, repo.live(t, 120, 40), "6", "s", "s", "up")
+	grouped := typing(t, repo.live(t, 120, 40), "6", "O", "O", "up")
 	row := screenRow(t, grouped.View().Content, exampleRepo)
 
 	// Act
@@ -347,7 +347,7 @@ func TestSortAndFilterWaitForTheQueue(t *testing.T) {
 	model := pressing(t, sized(t, tui.New(repo.cfg, nil, repo.deps()), 120, 40), "6")
 
 	// Act
-	view := plain(pressing(t, model, "s", filterKey).View().Content)
+	view := plain(pressing(t, model, "O", filterKey).View().Content)
 
 	// Assert
 	requireScreen(t, view, "looking")
@@ -405,7 +405,7 @@ func readReviewsFooter(t *testing.T, world *world) string {
 
 // sortOffer and filterOffer are the Reviews footer's sort and filter keys.
 const (
-	sortOffer   = "s sort"
+	sortOffer   = "O sort"
 	filterOffer = "f filter"
 )
 

@@ -294,7 +294,7 @@ func TestTheBranchPaneOffersSwitchingTasks(t *testing.T) {
 	view := typing(t, model, "2").View().Content
 
 	// Assert
-	requireScreen(t, footerLine(view), "s switch task")
+	requireScreen(t, footerLine(view), "s switch branch")
 }
 
 // A dry run switches nothing and says what it would have done.

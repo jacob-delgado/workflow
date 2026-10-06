@@ -73,8 +73,8 @@ can rely on from them: exit codes, which stream carries what, `--json`,
   the most room; the rest keep a few rows each. The first five follow the
   work — the fifth is named for your messaging service, Slack above — and the
   sixth, Reviews, is the other side of it: the pull requests on your forge
-  that wait on your review, the longest-waiting first until `s` sorts them
-  another way. `f` narrows them by repository, CI state, draft or ready, and
+  that wait on your review, the longest-waiting first until `O` sorts them
+  another way. `f` filters them by repository, CI state, draft or ready, and
   author — values in one of those widen the list, and the four narrow it
   together — and a line above the queue names the sort and the filters while
   either is not the usual. The seventh, Tasks, is
@@ -130,17 +130,17 @@ every key `?` lists, by where it works.
 | | `c` | Comment on it |
 | | `a` | Assign it |
 | | `w` | Log work on it |
-| | `b` | Start a branch for it, or a branch for no issue when none is selected |
+| | `b` | Start work on it: a branch for it, or a branch for no issue when none is selected |
 | | `o` / `y` | Open the issue in the browser, or copy its URL |
-| | `/` | Filter the list as you type; `enter` keeps the filter, `esc` clears it |
-| | `p` | Narrow the list to where issues are: a status, in flight, or how their tasks stand |
+| | `/` | Search the list as you type; `enter` keeps the search, `esc` clears it |
+| | `f` | Filter the list by where issues are: a status, in flight, or how their tasks stand |
 | | `v` | Switch which issue list is shown |
 | | `ctrl+n` | Load the next page of the list |
 | | `r` | Search again |
 | | `T` | Track the issue in Taskwarrior, or go to the task that tracks it; offered once Taskwarrior has answered |
 | | `enter` / `esc` | Below 80 columns, read the selected issue in full, then go back to the list |
 | 2 Branch | `b` | Start a branch |
-| | `s` | Switch to the branch of another of your issues |
+| | `s` | Switch branch: to the branch of another of your issues |
 | | `i` | Link the branch to an issue, for work begun outside workflow |
 | | `u` | Rebase the branch onto its base, after a last look |
 | | `P` | Push a branch that has unpushed commits, after a last look |
@@ -165,7 +165,7 @@ every key `?` lists, by where it works.
 | | `P` | People and groups: whom each code owner is on Slack, and the user groups the repository tags; with a Slack user token and a store |
 | | `r` | Read what was announced, and the pull request and its CI, again |
 | 6 Reviews | `o` / `y` | Open the selected request in the browser, or copy its URL |
-| | `s` | Sort them oldest first, newest first, or by repository |
+| | `O` | Sort them oldest first, newest first, or by repository |
 | | `f` | Filter them by repository, CI state, draft or ready, and author |
 | | `r` | Ask the forge again |
 | 7 Tasks | `s` | Start the selected task, or stop it once started |
@@ -175,8 +175,8 @@ every key `?` lists, by where it works.
 | | `e` | Modify it, typed in Taskwarrior's grammar |
 | | `u` | Undo Taskwarrior's last change |
 | | `S` | Sync Taskwarrior, when its taskrc names a sync backend |
-| | `/` | Filter them as you type: description, project, `+tag`, issue key or `#id` |
-| | `f` | Narrow them by state, priority, project, tag, and whether they have an issue |
+| | `/` | Search them as you type: description, project, `+tag`, issue key or `#id` |
+| | `f` | Filter them by state, priority, project, tag, and whether they have an issue |
 | | `O` | Sort them by urgency, state, id, tag, issue or priority |
 | | `enter` | Go to its issue, when the Issues pane lists that issue |
 | | `o` / `y` | Open its issue in the browser, or copy its URL |
@@ -244,15 +244,15 @@ unless its query names the assignee itself, as
 
 Each row shows the issue's status by name, and a second mark once a branch
 names any listed issue: in flight where a local or remote branch names it.
-**Where** (`p`) narrows the list to places: the statuses the loaded issues are
+**Filter** (`f`) narrows the list to places: the statuses the loaded issues are
 in, whatever your Jira workflow calls them, and the marks *in flight*,
 *task active*, *tracked* and *task done*, each with how many issues it holds.
 `space` checks a place and `enter` applies them; `esc` leaves the list as it
 was. Statuses widen each other, as marks do, and the two narrow together, so
 *In development* with *in flight* lists the issues in development that have a
-branch. The places and the `/` filter apply together, both over what is loaded,
+branch. The places and the `/` search apply together, both over what is loaded,
 and the row above the keys names them while they narrow the list. Switching
-view drops them, as it drops the filter.
+view drops them, as it drops the search.
 
 **Change status** (`t`) lists the transitions Jira's workflow offers from the
 issue's status. A transition that needs fields filled in says which. Choosing
@@ -310,7 +310,8 @@ in a new git worktree beside the repository instead of switching to it, and
 then offers to switch to the worktree: `enter` opens workflow again there, as
 a switch from the Repositories pane does, and `esc` stays where you are.
 
-`s` on the Branch pane switches to the branch of another issue. It lists the
+`s` on the Branch pane, **Switch branch**, switches to the branch of another
+issue. It lists the
 branches that name an issue assigned to you and not done: the local ones, then
 those only the remote has, marked `(remote)`, which switching to creates here.
 A branch whose issue is finished, or reassigned — to QA, say — leaves the list,
@@ -582,17 +583,17 @@ the order, every tie stays most urgent first, and when the order is by tag or
 by priority each row's tail shows it. The order lasts for the session, through
 every read.
 
-`/` filters the list as you type, as the Issues filter does: a task stays when
+`/` searches the list as you type, as the Issues search does: a task stays when
 its description, project, a tag written `+tag`, its issue key or its `#id`
-holds the text, ignoring case; `enter` keeps the filter and `esc` clears it.
-`f` opens **Narrow**, a checklist of every state, priority, project and tag the
+holds the text, ignoring case; `enter` keeps the search and `esc` clears it.
+`f` opens **Filter**, a checklist of every state, priority, project and tag the
 tasks hold, and whether they have an issue, each with how many tasks hold it
 (a waiting task counts only toward its state):
 values checked in one group widen the list, and the groups narrow it
 together. Checking **waiting** lists the waiting tasks, each saying until
 when. The faint line above the rows names what narrows the list; the rail
 still counts every pending task, and a task the list hides still tracks its
-issue, so `T` on that issue names it and why it is hidden. A narrowing that
+issue, so `T` on that issue names it and why it is hidden. A filter that
 leaves nothing says "No task matches the filters."
 
 The pane sends one change at a time, so an undo never races the change before

@@ -15,7 +15,7 @@ import (
 // How the footer offers starting and completing a task not started.
 const (
 	offersStart = "s start"
-	offersDone  = "d done"
+	offersDone  = "d mark done"
 )
 
 func TestATaskWriteWaitsForTheOneInFlight(t *testing.T) {

@@ -418,13 +418,13 @@ func TestTheTasksFooterOffersTheVerbsForTheSelectedTask(t *testing.T) {
 		"a started task for an issue": {
 			keys: []string{tasksPane},
 			want: []string{
-				"s stop", "d done", "a add", "A annotate", "e modify", "u undo", "enter go to issue", "o open",
+				"s stop", "d mark done", "a add", "A annotate", "e modify", "u undo", "enter go to issue", "o open",
 				"y copy url", "r refresh",
 			},
 			refuse: []string{"s start", "sync"},
 		},
 		"a task for no issue, not started": {
-			keys: []string{tasksPane, downAction, downAction}, want: []string{"s start", "d done", "r refresh"},
+			keys: []string{tasksPane, downAction, downAction}, want: []string{"s start", "d mark done", "r refresh"},
 			refuse: []string{"go to issue", "open", "copy url"},
 		},
 		// Its page still opens, though no row on the Issues pane is there to go to.

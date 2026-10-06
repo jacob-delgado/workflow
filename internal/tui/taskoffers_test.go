@@ -93,7 +93,7 @@ func loopMoments() map[string]moment {
 			arrange: func(repo *world) { repo.moves = startTransitions() },
 			keys:    append(branchTheSecondIssue(), keyEsc), reached: "transitions " + secondIssue,
 		},
-		"switching tasks": {
+		"switching branches": {
 			arrange: func(repo *world) { switchableTo(repo, otherTaskBranch) },
 			keys:    []string{"2", "s", keyEnter}, reached: "checkout " + otherTaskBranch,
 		},
@@ -203,7 +203,7 @@ func TestSwitchingTasksOffersToStopOneAndStartTheOther(t *testing.T) {
 
 	// Arrange
 	repo := withTasks()
-	switching := loopMoments()["switching tasks"]
+	switching := loopMoments()["switching branches"]
 	switching.arrange(repo)
 	model := repo.live(t, 200, 40)
 

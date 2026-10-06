@@ -32,7 +32,7 @@ func TestIssuesFooterShowsEveryLiveKey(t *testing.T) {
 
 	// Assert
 	requireScreen(t, footer, changeStatusHint, "c comment", "a assign", "w log work",
-		"b branch for PROJ-412", "/ filter", "o open", "y copy url", "r refresh", "? keys")
+		"b branch for PROJ-412", "/ search", "o open", "y copy url", "r refresh", "? keys")
 }
 
 func TestTheIssuesFooterOffersAVerbOnlyWhereItsSeamIsWired(t *testing.T) {
@@ -79,7 +79,7 @@ func TestTheIssuesFooterOffersTheFilterOnlyOverAList(t *testing.T) {
 	footer := wideFooter(t, empty.deps())
 
 	// Assert
-	refuseScreen(t, footer, "/ filter")
+	refuseScreen(t, footer, "/ search")
 }
 
 func TestSlashOpensNoFilterOverAnEmptyList(t *testing.T) {
@@ -104,7 +104,7 @@ func TestAFilterThatMatchesNothingStillOffersANewOne(t *testing.T) {
 	footer := wideFooter(t, newWorld().deps(), "/", "z", "z", keyEnter)
 
 	// Assert
-	requireScreen(t, footer, "/ filter")
+	requireScreen(t, footer, "/ search")
 	refuseScreen(t, footer, changeStatusHint)
 }
 
@@ -189,7 +189,7 @@ func TestWhileTheFilterIsTypedTheFooterOffersOnlyKeepingOrClearingIt(t *testing.
 
 	// Assert
 	// Every other key types into the filter, so the footer offers none of them.
-	requireScreen(t, footer, "enter keep filter", "esc clear filter")
+	requireScreen(t, footer, "enter keep search", "esc clear search")
 	refuseScreen(t, footer, changeStatusHint, "? keys", "q quit")
 }
 
@@ -206,7 +206,7 @@ func TestTheFilterFooterNamesTheKeysTheFilterReadsWhateverApplyAndCloseAreBoundT
 	footer := footerLine(typing(t, rebound.live(t, 200, 40), "/").View().Content)
 
 	// Assert
-	requireScreen(t, footer, "enter keep filter", "esc clear filter")
+	requireScreen(t, footer, "enter keep search", "esc clear search")
 	refuseScreen(t, footer, "ctrl+s", "ctrl+g")
 }
 

@@ -26,7 +26,7 @@ func TestSlashFiltersTheTasksAsYouType(t *testing.T) {
 	view := typing(t, tasks, append([]string{filterTasksKey}, letters("cert")...)...).View().Content
 
 	// Assert
-	requireScreen(t, view, "filter: cert", "Renew the cert")
+	requireScreen(t, view, "search: cert", "Renew the cert")
 	refuseScreen(t, view, secondIssue+": Add retries")
 }
 
@@ -43,7 +43,7 @@ func TestTheTasksFilterIsShownOnTheNoticeRowWhileTyped(t *testing.T) {
 
 	// Assert
 	rows := strings.Split(plain(view), "\n")
-	if notice := rows[len(rows)-2]; !strings.Contains(notice, "filter: ce") {
+	if notice := rows[len(rows)-2]; !strings.Contains(notice, "search: ce") {
 		t.Errorf("the row above the footer is %q, want the filter being typed", notice)
 	}
 }
@@ -59,7 +59,7 @@ func TestEscClearsTheTasksFilter(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "Renew the cert", secondIssue+": Add retries")
-	refuseScreen(t, view, "filter: cert")
+	refuseScreen(t, view, "search: cert")
 }
 
 func TestATasksFilterMatchingNothingSaysSo(t *testing.T) {
@@ -88,7 +88,7 @@ func TestANarrowingPicksTheTasksByPriority(t *testing.T) {
 	view := typing(t, narrowing, "down", "down", "down", keySpace, keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "narrowed to priority H", "Renew the cert")
+	requireScreen(t, view, "filtered to priority H", "Renew the cert")
 	refuseScreen(t, view, secondIssue+": Add retries")
 }
 
@@ -118,7 +118,7 @@ func TestATaskNarrowedOutStillTracksItsIssue(t *testing.T) {
 	view := typing(t, narrowed, "1", "T").View().Content
 
 	// Assert
-	requireScreen(t, view, "tracked by task 12", "narrowing hides")
+	requireScreen(t, view, "tracked by task 12", "filter hides")
 }
 
 func TestAListOfOnlyWaitingTasksSortedSaysNoneArePending(t *testing.T) {
@@ -179,7 +179,7 @@ func TestGoingToATrackingTaskPrefersOneTheListShows(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "▸ ○  21 "+issueKey+": follow up")
-	refuseScreen(t, view, "narrowing hides")
+	refuseScreen(t, view, "filter hides")
 }
 
 func TestTheCursorComesBackToItsTaskWhenAFilterThatHidItIsCleared(t *testing.T) {

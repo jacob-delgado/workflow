@@ -24,7 +24,7 @@ const (
 	statusFixing     = "Fixing"
 	statusInDev      = "In development"
 	searchBranch     = "fix/PROJ-504-speed-up-search"
-	placeKey         = "p"
+	placeKey         = "f"
 	categoryNew      = "new"
 	placesViewWidth  = 120
 	placesViewHeight = 40
@@ -88,7 +88,7 @@ func TestPWithIssuesOpensTheWherePickerWithCounts(t *testing.T) {
 	view := typing(t, repo.live(t, placesViewWidth, placesViewHeight), placeKey).View().Content
 
 	// Assert
-	requireScreen(t, view, "Where", "Intake  1", "Fixing  2", "In development  2", "in flight  1", "task active  1")
+	requireScreen(t, view, "Filter", "Intake  1", "Fixing  2", "In development  2", "in flight  1", "task active  1")
 }
 
 func TestPickingAStatusNarrowsTheList(t *testing.T) {
@@ -249,7 +249,7 @@ func TestTheFooterOffersWhereWithIssuesLoaded(t *testing.T) {
 	view := placesWorld().live(t, wideFooterWidth, placesViewHeight).View().Content
 
 	// Assert
-	requireScreen(t, footerLine(view), "p where")
+	requireScreen(t, footerLine(view), "f filter")
 }
 
 func TestSwitchingViewDropsThePlaces(t *testing.T) {

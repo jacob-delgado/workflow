@@ -13,9 +13,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// placeTitle titles the detail pane while the place picker is open.
-const placeTitle = "Where"
-
 // The marks an issue can be in, in the order the picker lists them, as the web
 // words them.
 //
@@ -273,7 +270,7 @@ var (
 // issue it was on while that issue is still listed.
 func (m Model) openPlacePicker() (Model, tea.Cmd) {
 	m.overlay = checklist[place]{
-		marks: m.marks, title: placeTitle, none: "no issue to narrow",
+		marks: m.marks, title: filterTitle, none: "no issue to filter",
 		choices: pickList[offered[place]]{items: placeChoices(m.issues.found.Issues, m.issues.marksOf, m.issues.places)},
 		chosen:  slices.Clone(m.issues.places),
 		label:   func(picked place) string { return picked.name },
@@ -306,7 +303,7 @@ func (l issueList) narrowingLine(marks glyphs) string {
 	}
 
 	if l.filtering || l.filter != "" {
-		parts = append(parts, "filter: "+l.filter)
+		parts = append(parts, "search: "+l.filter)
 	}
 
 	return strings.Join(parts, marks.separator)

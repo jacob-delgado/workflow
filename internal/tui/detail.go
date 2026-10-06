@@ -211,7 +211,7 @@ func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
 	}{
 		{m.deps.Jira.Transitions != nil, m.keys.changeStatus},
 		{m.deps.Jira.Comment != nil, m.keys.comment},
-		{m.canCreateBranch(), relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))},
+		{m.canCreateBranch(), relabel(m.keys.startWork, "branch for "+string(selected.Key))},
 		{m.deps.Jira.Assign != nil, m.keys.assign},
 		{m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key), m.keys.logWork},
 		{m.canTrack(selected.Key), m.trackKey(selected.Key)},
@@ -235,7 +235,7 @@ func (m Model) newBranchKeys() []key.Binding {
 		return nil
 	}
 
-	return []key.Binding{relabel(m.keys.branchForIssue, "new branch")}
+	return []key.Binding{relabel(m.keys.startWork, "new branch")}
 }
 
 // readingKeys offers, in the collapsed layout where the list and the issue take
@@ -257,7 +257,7 @@ func (m Model) issueListKeys() []key.Binding {
 	var keys []key.Binding
 
 	if m.issues.filterable() {
-		keys = append(keys, m.keys.filter, m.keys.filterPlace)
+		keys = append(keys, m.keys.searchIssues, m.keys.filterIssues)
 	}
 
 	keys = append(keys, m.viewKeys()...)

@@ -71,7 +71,7 @@ func (m Model) noticeLine(width int) string {
 	}
 
 	if m.filteringTasks() {
-		return ansi.Truncate(" "+sanitize.Text("filter: "+m.tasks.listing.narrowing.Text), width, m.marks.ellipsis)
+		return ansi.Truncate(" "+sanitize.Text("search: "+m.tasks.listing.narrowing.Text), width, m.marks.ellipsis)
 	}
 
 	return m.noticeRow(width)

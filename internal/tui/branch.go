@@ -179,7 +179,7 @@ func (m Model) branchKeys() []key.Binding {
 	keys := []key.Binding{m.keys.newBranch}
 
 	if m.canSwitchTask() {
-		keys = append(keys, m.keys.switchTask)
+		keys = append(keys, m.keys.switchBranch)
 	}
 
 	if m.canLinkIssue() {
@@ -256,7 +256,7 @@ type branchOffer struct {
 func (m Model) handleBranchKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	offers := []branchOffer{
 		{m.keys.newBranch, true, m.openBranchCreator},
-		{m.keys.switchTask, m.canSwitchTask(), m.openBranchPicker},
+		{m.keys.switchBranch, m.canSwitchTask(), m.openBranchPicker},
 		{m.keys.linkIssue, m.canLinkIssue(), m.openBranchLink},
 		{m.keys.rebase, m.canRebase(), m.previewRebase},
 		{m.keys.push, m.canPush(), m.previewPush},

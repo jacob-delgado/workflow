@@ -12,7 +12,7 @@ func TestSListsTheReviewsNewestFirst(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := plain(typing(t, withReviews().live(t, 120, 40), "6", "s").View().Content)
+	view := plain(typing(t, withReviews().live(t, 120, 40), "6", "O").View().Content)
 
 	// Assert
 	requireScreen(t, view, "newest first")
@@ -26,7 +26,7 @@ func TestSortingByRepositoryHeadsTheRequestsOfEachRepository(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := plain(typing(t, withReviews().live(t, 120, 40), "6", "s", "s").View().Content)
+	view := plain(typing(t, withReviews().live(t, 120, 40), "6", "O", "O").View().Content)
 
 	// Assert
 	requireScreen(t, view, "by repository")
@@ -46,7 +46,7 @@ func TestMovingThroughReposPassesOverTheirHeadings(t *testing.T) {
 	repo := withReviews()
 
 	// Act
-	typing(t, repo.live(t, 120, 40), "6", "s", "s", downAction, "o")
+	typing(t, repo.live(t, 120, 40), "6", "O", "O", downAction, "o")
 
 	// Assert
 	if opened := repo.asked("browse"); len(opened) != 1 || !strings.Contains(opened[0], reviewNewerURL) {

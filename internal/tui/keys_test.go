@@ -198,7 +198,7 @@ func TestCheckKeysAcceptsAnOverlayKeyOnAKeyOfThePaneBehindIt(t *testing.T) {
 	// The pane behind an open overlay does not answer while it is open, so an
 	// overlay's key may share a key with that pane's own.
 	cases := map[string]map[string]string{
-		"worktree onto switch-task":           {"worktree": "s"},
+		"worktree onto switch-branch":         {"worktree": "s"},
 		"post-when-green onto merge":          {"post-when-green": "M"},
 		"cycle-type-left onto open a request": {"cycle-type-left": "n"},
 	}
