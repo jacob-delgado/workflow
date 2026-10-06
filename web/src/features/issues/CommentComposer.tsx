@@ -6,6 +6,7 @@ import { useConfigRead } from '@/features/settings/configApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import { FieldFrame } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { Reading } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { usePostComment } from './commentApi.ts'
@@ -27,16 +28,39 @@ interface CommentComposerProps {
 // markup. Markdown brings a toolbar that writes its marks and a Preview. On
 // GitLab the box says a line starting with / runs as a quick action. A posted
 // comment clears the box and keeps focus in it, for the next; a refused one
-// stays, beside why.
+// stays, beside why. A Jira issue's box waits for the configuration that says
+// which, behind the shared Reading status, so it is drawn once, in its settled
+// shape, rather than growing its bar when the read lands; a read that fails
+// leaves it wiki markup, as Jira reads a comment by default.
 export function CommentComposer({ issueKey, tracker }: CommentComposerProps) {
-  const jiraMarkdown = useConfigRead().data?.config.jira.markdown_comments === true
+  const config = useConfigRead()
+
+  if (tracker !== 'forge' && config.isPending) {
+    return <Reading>Reading how comments are written…</Reading>
+  }
+
+  return (
+    <Composer
+      issueKey={issueKey}
+      tracker={tracker}
+      jiraMarkdown={config.data?.config.jira.markdown_comments === true}
+    />
+  )
+}
+
+// Composer is the comment box in its settled shape: Markdown, with its bar,
+// or wiki markup.
+function Composer({
+  issueKey,
+  tracker,
+  jiraMarkdown,
+}: CommentComposerProps & { jiraMarkdown: boolean }) {
   const onGitLab = useHealthStore((state) => state.health?.forge_noun === gitLabNoun)
   const forgeIssue = tracker === 'forge'
   const markdown = forgeIssue || jiraMarkdown
   const shown = shownKey({ key: issueKey, tracker })
   const [text, setText] = useState('')
   const [tab, setTab] = useState<Tab>('write')
-  const [blank, setBlank] = useState(false)
   const box = useRef<HTMLTextAreaElement>(null)
   const ids = useComposerIds()
   const outcome = useOutcome()
@@ -54,16 +78,7 @@ export function CommentComposer({ issueKey, tracker }: CommentComposerProps) {
   const busy = post.state === 'running'
   const restoreSelection = useSelection(box)
 
-  const send = () => {
-    if (busy) {
-      return
-    }
-
-    setBlank(text.trim() === '')
-    if (text.trim() !== '') {
-      void post.run(text)
-    }
-  }
+  const { blank, setBlank, send } = useSend(text, busy, post.run)
 
   return (
     <div className="mt-item flex flex-col gap-item">
@@ -388,4 +403,23 @@ function ComposerFooter({ ids, hint, quickActions, length, busy, onSend }: Compo
       </Button>
     </div>
   )
+}
+
+// useSend sends what is typed unless a send is in flight, and refuses a blank
+// comment, saying so until the next keystroke.
+function useSend(text: string, busy: boolean, run: (text: string) => Promise<void>) {
+  const [blank, setBlank] = useState(false)
+
+  const send = () => {
+    if (busy) {
+      return
+    }
+
+    setBlank(text.trim() === '')
+    if (text.trim() !== '') {
+      void run(text)
+    }
+  }
+
+  return { blank, setBlank, send }
 }
