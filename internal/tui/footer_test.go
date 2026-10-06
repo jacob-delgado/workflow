@@ -12,25 +12,29 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
-// escCloses is the footer's esc where what was written is kept.
-const escCloses = "esc close"
+// escCloses is the footer's esc where what was written is kept, and quitHint
+// a pane's way out.
+const (
+	escCloses = "esc close"
+	quitHint  = "q quit"
+)
 
 func TestANarrowFooterGivesUpThePanesVerbsBeforeTheWayToEveryKey(t *testing.T) {
 	t.Parallel()
 
 	// The Issues pane offers more verbs than any of these widths holds beside
-	// ? keys, so its last verbs give way rather than the one key that lists the
-	// rest — down to none of them where ? alone fits.
+	// ? keys and q quit, so its last verbs give way rather than the key that
+	// lists the rest or the way out — down to none of them where ? alone fits.
 	cases := map[string]struct {
 		width int
 		kept  []string
 		cut   []string
 	}{
 		"beside the rail": {
-			width: 80, kept: []string{changeStatusHint, "b start work"}, cut: []string{"/ search"},
+			width: 80, kept: []string{changeStatusHint, "b start work", quitHint}, cut: []string{"/ search"},
 		},
 		"with the rail folded": {
-			width: 40, kept: []string{"enter read issue"}, cut: []string{changeStatusHint},
+			width: 40, kept: []string{"enter read issue", quitHint}, cut: []string{changeStatusHint},
 		},
 		"with room for ? alone": {width: 12, kept: nil, cut: []string{"enter read"}},
 	}
@@ -43,7 +47,7 @@ func TestANarrowFooterGivesUpThePanesVerbsBeforeTheWayToEveryKey(t *testing.T) {
 			footer := strings.TrimRight(footerLine(newWorld().live(t, tt.width, 30).View().Content), " ")
 
 			// Assert
-			requireScreen(t, footer, append(tt.kept, "? keys …")...)
+			requireScreen(t, footer, append(tt.kept, "? keys", " …")...)
 			refuseScreen(t, footer, append(tt.cut, "tab next pane")...)
 		})
 	}
@@ -59,8 +63,8 @@ func TestACutFooterEndsOnAWholeKeyAndAnEllipsis(t *testing.T) {
 		keys []string
 		last string
 	}{
-		"the Review pane":        {keys: []string{"4"}, last: "q quit"},
-		"the Reviews pane":       {keys: []string{"6"}, last: "q quit"},
+		"the Review pane":        {keys: []string{"4"}, last: quitHint},
+		"the Reviews pane":       {keys: []string{"6"}, last: quitHint},
 		"the messaging preview":  {keys: []string{"5", "p"}, last: "esc discard"},
 		"a commit being written": {keys: []string{"3", "c"}, last: escCloses},
 	}

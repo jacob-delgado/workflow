@@ -361,9 +361,17 @@ func (m Model) navigates(msg tea.KeyPressMsg) bool {
 const minNoticeHeight = 4
 
 // showsNotice reports a notice — or the issue filter — that has room for its own
-// row above the hints.
+// row above the hints: a terminal tall enough, where the row does not take the
+// focused pane under the rows it needs to be read.
 func (m Model) showsNotice() bool {
-	return (m.notice.text != "" || m.showsFilter() || m.filteringTasks()) && m.height >= minNoticeHeight
+	return m.hasNotice() && m.height >= minNoticeHeight &&
+		layout.NoticeKeepsFocus(m.width, m.height, paneCount, int(m.focus))
+}
+
+// hasNotice reports something for the notice row to say: a notice, or a search
+// or filter narrowing the list.
+func (m Model) hasNotice() bool {
+	return m.notice.text != "" || m.showsFilter() || m.filteringTasks()
 }
 
 // showsFilter reports that the Issues pane's filter should be shown on its own

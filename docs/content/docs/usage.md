@@ -86,18 +86,22 @@ can rely on from them: exit codes, which stream carries what, `--json`,
   composers and previews open here too, and take the keyboard until they close.
 - **The bottom row** shows what the focused pane can do right now; it changes
   with the pane and with what that pane has loaded. On a narrow terminal the
-  keys that do not fit are dropped whole and an ellipsis says so, but `?` is
-  never among them: it lists every key.
+  keys that do not fit are dropped whole and an ellipsis says so: the keys
+  that only move first, then the pane's verbs from the end; `?`, which lists
+  every key, and the way out — `q`, or `esc` in an overlay — go last.
 - **A result** — a push sent, an announcement made, a change refused — appears
   on its own row above the keys, where it stays while you look around and
-  clears when the next action starts.
+  clears when the next action starts. Where that row would leave the focused
+  pane fewer than four rows, as at 80 by 24, the result takes the bottom row
+  instead, and a search being typed shares it with its keys.
 
 Each pane fails on its own. A Jira that cannot be reached puts its reason in
 the Issues pane, and the repository panes carry on.
 
 The layout follows the terminal. Below 80 columns the rail and the detail pane
 take turns rather than sharing the width; the detail pane drops its border once
-it has fewer than 60 columns; below 24 rows the top row shrinks to a short form,
+it has fewer than 60 columns, and the rail then keeps the focused pane's heavy
+rules, even while an overlay is open; below 24 rows the top row shrinks to a short form,
 each stage its initial and glyph. Nine panes share the rail's rows: each
 pane but the focused one keeps one row, a line of what it holds, until the
 focused one has eight; rows past that give the others a second row each, top
