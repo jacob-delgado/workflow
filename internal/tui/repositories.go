@@ -386,7 +386,7 @@ func worktreeState(worktree gitrepo.Worktree) string {
 // repositoriesKeys is what the pane offers.
 func (m Model) repositoriesKeys() []key.Binding {
 	return []key.Binding{
-		m.keys.up, m.keys.down, relabel(m.keys.confirm, "switch"), m.keys.favoriteDir, m.keys.goToDir, m.keys.refresh,
+		m.keys.up, m.keys.down, relabel(m.keys.confirm, verbSwitch), m.keys.favoriteDir, m.keys.goToDir, m.keys.refresh,
 	}
 }
 

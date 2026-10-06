@@ -211,22 +211,34 @@ func (m Model) toggleTask() (Model, tea.Cmd) {
 	case !ok:
 		return m, nil
 	case task.Active():
-		return m.actOnTask(taskChange{verb: "stop", did: "stopped", after: ""}, m.deps.Tasks.Stop)
+		return m.actOnTask(taskChange{verb: "stop", did: "stopped"}, m.deps.Tasks.Stop)
 	default:
-		return m.actOnTask(taskChange{verb: verbStart, did: "started", after: ""}, m.deps.Tasks.Start)
+		return m.actOnTask(taskChange{verb: verbStart, did: "started"}, m.deps.Tasks.Start)
 	}
 }
 
-// markDone marks the selected task done.
+// markDone asks, through a last look, to mark the selected task done.
 func (m Model) markDone() (Model, tea.Cmd) {
-	return m.actOnTask(taskChange{verb: "mark", did: "marked", after: " done"}, m.deps.Tasks.Done)
+	task, ok := m.currentTask()
+	if !ok {
+		return m, nil
+	}
+
+	return m.lookAt(m.doneAsked(task)), nil
+}
+
+// lookAt opens look, which esc closes.
+func (m Model) lookAt(look lastLook) Model {
+	look.marks, look.styles = m.marks, m.styles
+	m.overlay = look
+
+	return m
 }
 
 // taskChange names one change of a task in its own verb: verb is the change,
-// did how it is told once made, and after what follows the task's name in both
-// — " done" in "mark task 3 done" and "marked 3 done".
+// and did how it is told once made.
 type taskChange struct {
-	verb, did, after string
+	verb, did string
 }
 
 // actOnTask sends one change of the selected task to Taskwarrior or, in a dry
@@ -238,61 +250,59 @@ func (m Model) actOnTask(change taskChange, write func(uuid string) error) (Mode
 	case !ok:
 		return m, nil
 	case m.dryRun:
-		return m.noticed("dry run: would " + change.verb + " task " + taskName(task) + change.after), nil
+		return m.noticed("dry run: would " + change.verb + " task " + taskName(task)), nil
 	}
 
 	uuid, number := task.UUID, task.ID
 	m.tasks.writing = true
 
 	return m, func() tea.Msg {
-		return taskActed{verb: change.did, after: change.after, uuid: uuid, id: number, said: "", err: write(uuid)}
+		return taskActed{verb: change.did, after: "", uuid: uuid, id: number, said: "", err: write(uuid)}
 	}
 }
 
-// undoTasks reverts Taskwarrior's last change, or says it would in a dry run.
+// undoTasks asks, through a last look, to revert Taskwarrior's last change:
+// Taskwarrior has no redo, so an undo cannot itself be taken back.
 func (m Model) undoTasks() (Model, tea.Cmd) {
-	if m.dryRun {
-		return m.noticed("dry run: would undo Taskwarrior's last change"), nil
-	}
-
 	undo := m.deps.Tasks.Undo
-	m.tasks.writing = true
 
-	return m, func() tea.Msg {
+	return m.lookAt(asking(lastLook{
+		title: "Undo in Taskwarrior", verb: "undo", doing: "undoing",
+		body: "Undo Taskwarrior's last change?\n\nTaskwarrior has no redo.",
+	}, "undo Taskwarrior's last change", func() tea.Msg {
 		said, err := undo()
 		if errors.Is(err, taskwarrior.ErrNothingChanged) {
 			return nothingToUndo{}
 		}
 
-		return taskActed{verb: "undone", uuid: "", id: 0, said: said, err: err}
-	}
+		return offerAnswered{acted: taskActed{verb: "undone", uuid: "", id: 0, said: said, err: err}, then: nil}
+	})), nil
 }
 
 // nothingToUndo reports an undo Taskwarrior had nothing to revert for: no task
 // was written, so the sentence for a write that changed nothing would mislead.
 type nothingToUndo struct{}
 
-// apply says there was nothing to undo.
+// apply closes the undo's look and says there was nothing to undo.
 func (nothingToUndo) apply(m Model) (Model, tea.Cmd) {
 	m.tasks.writing = false
 
-	return m.noticed("nothing to undo in Taskwarrior"), nil
+	return m.answerLook(nil).noticed("nothing to undo in Taskwarrior"), nil
 }
 
-// syncTasks syncs Taskwarrior with its backend, or says it would in a dry run.
+// syncTasks asks, through a last look, to sync Taskwarrior with its server,
+// which sends the tasks off the machine.
 func (m Model) syncTasks() (Model, tea.Cmd) {
-	if m.dryRun {
-		return m.noticed("dry run: would sync Taskwarrior"), nil
-	}
-
 	sync := m.deps.Tasks.Sync
-	m.tasks.writing = true
 
-	return m, func() tea.Msg {
+	return m.lookAt(asking(lastLook{
+		title: "Sync Taskwarrior", verb: "sync", doing: "syncing",
+		body: "Sync Taskwarrior with its server?\n\nYour tasks are sent there, and its changes taken.",
+	}, "sync Taskwarrior", func() tea.Msg {
 		said, err := sync()
 
-		return taskActed{verb: "synced", uuid: "", id: 0, said: said, err: err}
-	}
+		return offerAnswered{acted: taskActed{verb: "synced", uuid: "", id: 0, said: said, err: err}, then: nil}
+	})), nil
 }
 
 // taskActed reports how a change of a task went: what was done, to which task —

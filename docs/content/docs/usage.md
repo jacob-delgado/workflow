@@ -173,12 +173,12 @@ every key `?` lists, by where it works.
 | | `f` | Filter them by repository, CI state, draft or ready, and author |
 | | `r` | Ask the forge again |
 | 7 Tasks | `s` | Start the selected task, or stop it once started |
-| | `d` | Mark it done |
+| | `d` | Mark it done, after a last look |
 | | `a` | Add a task, typed in Taskwarrior's own grammar |
 | | `A` | Annotate it |
 | | `e` | Modify it, typed in Taskwarrior's grammar |
-| | `u` | Undo Taskwarrior's last change |
-| | `S` | Sync Taskwarrior, when its taskrc names a sync backend |
+| | `u` | Undo Taskwarrior's last change, after a last look |
+| | `S` | Sync Taskwarrior, when its taskrc names a sync backend, after a last look |
 | | `/` | Search them as you type: description, project, `+tag`, issue key or `#id` |
 | | `f` | Filter them by state, priority, project, tag, and whether they have an issue |
 | | `O` | Sort them by urgency, state, id, tag, issue or priority |
@@ -191,7 +191,7 @@ every key `?` lists, by where it works.
 | | `Y` | Copy the summary as Markdown |
 | | `o` / `y` | Open the selected item in the browser, or copy its URL |
 | | `r` | Read the period again |
-| Repositories | `enter` | Switch to the selected directory |
+| Repositories | `enter` | Switch to the selected directory, after a last look |
 | | `f` | Add the selected directory to your favorites, or remove it |
 | | `g` | Type a directory to switch to; `tab` completes it |
 | | `r` | Read the favorites again |
@@ -210,7 +210,7 @@ every key `?` lists, by where it works.
 | | `space` | In the announcement preview, tag the selected group, or untag it |
 | | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group |
 | | `x` | In the announcement preview, remember that the selected code owner is not on Slack |
-| | `d` | In People and groups, forget what was decided for the selected owner, so they are asked again |
+| | `d` | In People and groups, forget what was decided for the selected owner, after a last look, so they are asked again |
 | Writing a comment | `i` / `a` | Type before or after the cursor |
 | | `A` / `o` | Type at the end of the line, or on a new line below it |
 | | `h`/`l` or `←`/`→`, `j`/`k` or `↓`/`↑` | Move the cursor |
@@ -507,7 +507,8 @@ token and the store on. `tab` switches between its two tabs:
 People lists every owner decided on this forge host, then the owners of this
 branch's changes not asked about yet. `enter` changes whom the selected owner
 is, from the same list the preview offers; `x` says they are not on Slack;
-`d` forgets them, so the next announcement asks again.
+`d` forgets them, after a last look, so the next announcement asks again;
+`esc` on the look goes back to the list.
 
 Groups is a checklist of the workspace's user groups, the ones this
 repository tags checked. `space` checks or unchecks one, and `r` reads
@@ -599,6 +600,11 @@ when. The faint line above the rows names what narrows the list; the rail
 still counts every pending task, and a task the list hides still tracks its
 issue, so `T` on that issue names it and why it is hidden. A filter that
 leaves nothing says "No task matches the filters."
+
+`d` (mark done), `u` (undo) and `S` (sync) each first show a last look and
+do nothing until `enter`: marking done runs the task's hooks, Taskwarrior has
+no redo for an undo, and a sync sends your tasks off the machine. `s` starts
+and stops at once, since the other undoes it.
 
 The pane sends one change at a time, so an undo never races the change before
 it. While one is on its way the rail reads `◐ sending…`, and the keys that
@@ -726,7 +732,8 @@ from where you work, as `../web`, or from your home after a `~`, as
 completes the path from the directories there, a hidden one once you type its
 dot, typing what several share and
 naming them, and `enter` goes once the path is checked to be a directory that
-is there. A switch ends the interface and opens it again in that directory,
+is there. Every switch, from either key, first asks "Switch to DIR?" and does
+nothing until `enter`; `esc` stays. A switch ends the interface and opens it again in that directory,
 wired to it as if workflow had been started there: its repository, its forge,
 the configuration files that apply there and the store's keys all follow. A
 directory not there, or a configuration whose `ui.keys` the interface would
@@ -737,8 +744,8 @@ comments you were writing on Jira issues, when the directory switched to uses
 the same Jira, how the Tasks list is sorted and narrowed, and the Summary's
 period. What belongs to the repository left — a
 commit message or a pull request being written, a comment on one of its forge
-issues, an announcement waiting for CI — would be lost, so the switch names it
-and asks first; and while an announcement or a change to a task is being sent,
+issues, an announcement waiting for CI — would be lost, so the switch's last
+look names it too; and while an announcement or a change to a task is being sent,
 the switch waits for it.
 
 ## Dry run

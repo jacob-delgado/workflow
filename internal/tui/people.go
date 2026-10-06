@@ -395,17 +395,29 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 	case key.Matches(msg, m.keys.notOnSlack):
 		return p.saving(m, m.saveLink(decided(selected.owner, selected.team, nil), p.opened))
 	case key.Matches(msg, m.keys.forgetOwner):
-		forget, owner, opened, readWorkspace := m.deps.Store.ForgetOwner, selected.owner, p.opened,
-			m.deps.Messaging.Workspace
-
-		return p.saving(m, func() tea.Msg {
-			err := inWorkspace(readWorkspace, func(workspace string) error { return forget(workspace, owner) })
-
-			return peopleSaved{opened: opened, err: err}
-		})
+		return p.askToForget(m, selected.owner), nil
 	default:
 		return m, nil
 	}
+}
+
+// askToForget holds forgetting owner for a last look, over People and groups,
+// which esc goes back to: what is forgotten was decided once and is asked again
+// rather than seen again.
+func (p peopleOverlay) askToForget(m Model, owner string) Model {
+	forget, opened, readWorkspace := m.deps.Store.ForgetOwner, p.opened, m.deps.Messaging.Workspace
+
+	return m.lookAt(lastLook{
+		title: "Forget a person", verb: "forget", leave: escBack, back: p,
+		body: "Forget " + owner + "?\n\nThe next ready-for-review announcement asks whom they are on Slack again.",
+		proceed: func(m Model) (Model, tea.Cmd) {
+			return p.saving(m, func() tea.Msg {
+				err := inWorkspace(readWorkspace, func(workspace string) error { return forget(workspace, owner) })
+
+				return peopleSaved{opened: opened, err: err}
+			})
+		},
+	})
 }
 
 // handleGroupKey checks or unchecks a group, or reads the directory again.

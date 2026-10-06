@@ -32,11 +32,14 @@ func onWeb(t *testing.T, working *world) tui.Model {
 	return typing(t, working.live(t, 120, 40), reposKey, "j")
 }
 
-func TestEnterOnAFavoriteLeavesForIt(t *testing.T) {
+func TestConfirmingTheSwitchToAFavoriteLeavesForIt(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
+	asked := typing(t, onWeb(t, reposWorld()), keyEnter)
+
 	// Act
-	left, cmd := pressed(t, onWeb(t, reposWorld()), keyEnter)
+	left, cmd := pressed(t, asked, keyEnter)
 
 	// Assert
 	// The interface ends, and says where to start the next one: the command
@@ -142,7 +145,7 @@ func TestArrivingSaysWhereAndKeepsTheSessionsChoices(t *testing.T) {
 	// Arrange
 	// The Summary's period is the session's, not the repository's.
 	working := reposWorld()
-	moved := typing(t, working.live(t, 120, 40), summaryKey, "[", reposKey, "j")
+	moved := typing(t, working.live(t, 120, 40), summaryKey, "[", reposKey, "j", keyEnter)
 	left, _ := pressed(t, moved, keyEnter)
 	arriving := newWorld()
 	arriving.dirs = &dirsWorld{here: webPlace()}
@@ -159,7 +162,7 @@ func TestAFailedSwitchStaysAndSaysWhy(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	left, _ := pressed(t, onWeb(t, reposWorld()), keyEnter)
+	left, _ := pressed(t, typing(t, onWeb(t, reposWorld()), keyEnter), keyEnter)
 
 	// Act
 	stayed := reposWorld().live(t, 120, 40).StayedAfter(left.Destination(), errJiraDown)
@@ -192,9 +195,10 @@ func TestGoToLeavesForTheDirectoryTyped(t *testing.T) {
 	// Arrange
 	// A path is read from where you work, or your home after a ~.
 	typed := goingTo(t, reposWorld(), "~/src/web")
+	asked, _ := pressedAndAnswered(t, typed, keyEnter)
 
 	// Act
-	left, cmd := pressedAndAnswered(t, typed, keyEnter)
+	left, cmd := pressed(t, asked, keyEnter)
 
 	// Assert
 	if !quits(cmd) || left.Destination().Dir != webRoot {
@@ -349,7 +353,7 @@ func TestACommentBeingWrittenGoesWithASwitchOnlyToTheSameJira(t *testing.T) {
 			working := reposWorld()
 			drafted := typing(t, working.live(t, 120, 40),
 				append(append([]string{"c", "i"}, letters("half done")...), keyEsc, keyEsc)...)
-			left, _ := pressed(t, typing(t, drafted, reposKey, "j"), keyEnter)
+			left, _ := pressed(t, typing(t, drafted, reposKey, "j", keyEnter), keyEnter)
 
 			other := newWorld()
 			if arriving.jira != "" {

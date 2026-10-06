@@ -55,11 +55,11 @@ func TestTheRepositoriesPaneListsTheOtherWorktrees(t *testing.T) {
 	}
 }
 
-func TestEnterOnAWorktreeLeavesForIt(t *testing.T) {
+func TestConfirmingTheSwitchToAWorktreeLeavesForIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	opened := typing(t, worktreesWorld().live(t, 120, 40), reposKey, "j")
+	opened := typing(t, worktreesWorld().live(t, 120, 40), reposKey, "j", keyEnter)
 
 	// Act
 	left, cmd := pressed(t, opened, keyEnter)
@@ -157,7 +157,7 @@ func TestSwitchingToABranchAnotherWorktreeHasLeavesForThatWorktree(t *testing.T)
 	// git will not check a branch out twice, so the worktree that has it is
 	// where its work goes on.
 	working := retriesInAWorktree()
-	opened := typing(t, working.live(t, 120, 40), "2", "s")
+	opened := typing(t, working.live(t, 120, 40), "2", "s", keyEnter)
 
 	// Act
 	left, cmd := pressed(t, opened, keyEnter)

@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"cmp"
 	"slices"
 	"strconv"
 	"strings"
@@ -230,9 +231,11 @@ type lastLook struct {
 	// doing is the act in flight, pinned under the title while proceed's request
 	// is out. Empty for a look whose proceed opens a run, which never shows it.
 	doing string
-	// offered marks a look that follows a done act, as a task offer does, so
-	// esc skips the offer rather than canceling an act asked for.
-	offered bool
+	// leave names esc on the footer: skip for an offer that follows a done act,
+	// stay at a guard, back for a step inside a flow; empty cancels.
+	leave string
+	// back is the overlay esc goes back to, nil where it closes the look.
+	back    overlay
 	proceed func(m Model) (Model, tea.Cmd)
 	send    sendState
 }
@@ -260,12 +263,7 @@ func (l lastLook) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	leave := escCancel
-	if l.offered {
-		leave = escSkip
-	}
-
-	return []key.Binding{relabel(keys.confirm, l.verb), relabel(keys.closeOverlay, leave)}
+	return []key.Binding{relabel(keys.confirm, l.verb), relabel(keys.closeOverlay, cmp.Or(l.leave, escCancel))}
 }
 
 // handleKey answers a key while the act waits for its last look.
@@ -274,7 +272,9 @@ func (l lastLook) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case l.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
+		m.overlay = l.back
+
+		return m, nil
 	case key.Matches(msg, m.keys.confirm):
 		l.send = starting()
 		m.overlay = l
