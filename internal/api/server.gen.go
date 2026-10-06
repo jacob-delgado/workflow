@@ -24,6 +24,9 @@ type ServerInterface interface {
 	// Announce Post the pull request announcement to the configured service.
 	// (POST /api/announce)
 	Announce(w http.ResponseWriter, r *http.Request)
+	// CancelQueuedAnnouncement Drop the announcement waiting for CI to pass, unposted.
+	// (DELETE /api/announce/queued)
+	CancelQueuedAnnouncement(w http.ResponseWriter, r *http.Request)
 	// GetAnnouncement The announcement message that would be posted, for a preview.
 	// (GET /api/announcement)
 	GetAnnouncement(w http.ResponseWriter, r *http.Request, params GetAnnouncementParams)
@@ -254,6 +257,20 @@ func (siw *ServerInterfaceWrapper) Announce(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Announce(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelQueuedAnnouncement operation middleware
+func (siw *ServerInterfaceWrapper) CancelQueuedAnnouncement(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelQueuedAnnouncement(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1565,6 +1582,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/worktrees", wrapper.CreateWorktree)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/announcement", wrapper.GetAnnouncement)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/announce", wrapper.Announce)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/announce/queued", wrapper.CancelQueuedAnnouncement)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/push", wrapper.Push)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/commit", wrapper.Commit)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/pull-request/draft", wrapper.GetPullRequestDraft)
@@ -1666,6 +1684,20 @@ func (response Announce200JSONResponse) VisitAnnounceResponse(w http.ResponseWri
 	return err
 }
 
+type Announce202JSONResponse QueuedAnnouncement
+
+func (response Announce202JSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type Announce409ApplicationProblemPlusJSONResponse Problem
 
 func (response Announce409ApplicationProblemPlusJSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
@@ -1700,6 +1732,52 @@ type AnnouncedefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response AnnouncedefaultApplicationProblemPlusJSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelQueuedAnnouncementRequestObject struct {
+}
+
+type CancelQueuedAnnouncementResponseObject interface {
+	VisitCancelQueuedAnnouncementResponse(w http.ResponseWriter) error
+}
+
+type CancelQueuedAnnouncement204Response struct {
+}
+
+func (response CancelQueuedAnnouncement204Response) VisitCancelQueuedAnnouncementResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type CancelQueuedAnnouncement409ApplicationProblemPlusJSONResponse Problem
+
+func (response CancelQueuedAnnouncement409ApplicationProblemPlusJSONResponse) VisitCancelQueuedAnnouncementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelQueuedAnnouncementdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CancelQueuedAnnouncementdefaultApplicationProblemPlusJSONResponse) VisitCancelQueuedAnnouncementResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -5013,6 +5091,9 @@ type StrictServerInterface interface {
 	// Announce Post the pull request announcement to the configured service.
 	// (POST /api/announce)
 	Announce(ctx context.Context, request AnnounceRequestObject) (AnnounceResponseObject, error)
+	// CancelQueuedAnnouncement Drop the announcement waiting for CI to pass, unposted.
+	// (DELETE /api/announce/queued)
+	CancelQueuedAnnouncement(ctx context.Context, request CancelQueuedAnnouncementRequestObject) (CancelQueuedAnnouncementResponseObject, error)
 	// GetAnnouncement The announcement message that would be posted, for a preview.
 	// (GET /api/announcement)
 	GetAnnouncement(ctx context.Context, request GetAnnouncementRequestObject) (GetAnnouncementResponseObject, error)
@@ -5272,6 +5353,30 @@ func (sh *strictHandler) Announce(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(AnnounceResponseObject); ok {
 		if err := validResponse.VisitAnnounceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelQueuedAnnouncement operation middleware
+func (sh *strictHandler) CancelQueuedAnnouncement(w http.ResponseWriter, r *http.Request) {
+	var request CancelQueuedAnnouncementRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelQueuedAnnouncement(ctx, request.(CancelQueuedAnnouncementRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelQueuedAnnouncement")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelQueuedAnnouncementResponseObject); ok {
+		if err := validResponse.VisitCancelQueuedAnnouncementResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

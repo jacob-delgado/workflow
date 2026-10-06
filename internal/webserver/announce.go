@@ -7,20 +7,23 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 // GetAnnouncement composes the announcement for the checked-out branch's pull
 // request without posting it, for a preview — to the channel asked, or the
-// configured one. It is a 409 when there is no pull request to announce; a
-// branch or a pull request that cannot be read is classified by fault.
+// configured one — saying whether it can wait for the pull request's CI. It
+// is a 409 when there is no pull request to announce; a branch or a pull
+// request that cannot be read is classified by fault.
 func (s *server) GetAnnouncement(
 	_ context.Context, request api.GetAnnouncementRequestObject,
 ) (api.GetAnnouncementResponseObject, error) {
-	announcement, err := s.announcement()
+	announcement, pull, err := s.announcement()
 	if errors.Is(err, loop.ErrNoPullRequest) {
 		return api.GetAnnouncement409ApplicationProblemPlusJSONResponse(s.nothingToAnnounce()), nil
 	}
@@ -32,71 +35,156 @@ func (s *server) GetAnnouncement(
 	}
 
 	channel := orZero(request.Params.Channel)
-	preview := announcementDTO(announcement, s.channelOr(channel))
+	preview := announcementDTO(announcement.Text(), s.channelOr(channel))
 	preview.Tagging = s.tagging(announcement.Moment, channel)
+
+	if s.canWaitForCI(announcement.Moment, pull) {
+		preview.CanWaitForCi = new(true)
+	}
 
 	return api.GetAnnouncement200JSONResponse(preview), nil
 }
 
+// Why an announcement is not posted as asked.
+var (
+	// errEditWithoutPreview is edited text with no word of the announcement
+	// it was edited from, which could have changed since.
+	errEditWithoutPreview = errors.New("an edited announcement needs the text it was edited from; preview it again")
+	// errChangedSincePreview is an announcement composed now that reads
+	// differently from the one previewed.
+	errChangedSincePreview = errors.New("the announcement changed since it was previewed; preview it again")
+)
+
+// announcePost is an announcement ready to go: what it marks, the pull
+// request it announces, the delivery and what posting it remembers.
+type announcePost struct {
+	moment   messaging.Moment
+	pull     forge.PullRequest
+	delivery loop.Delivery
+	memory   loop.AnnounceMemory
+}
+
 // Announce posts the composed announcement to the configured service — to the
-// requested channel, or the configured one when none is given. It is a 409 when
-// there is no pull request to announce, and when the request carries the text a
+// requested channel, or the configured one when none is given — or holds it
+// until the pull request's CI passes when asked to. It is a 409 when there is
+// no pull request to announce, and when the request carries the text a
 // preview showed and the announcement composed now reads differently, so what
-// is posted is only ever what was shown. Given mentions, it tags the linked
-// user owners and the groups named, each one the announcement offers, on a
-// line after the text — and is a 409 too when the linked owners are not the
-// ones the preview showed. A read that fails while composing it,
-// and a post that fails, are classified by fault, whose details never carry the
-// error's own text, which can name the forge or the webhook.
+// is posted is only ever what was shown, or an edit of it. Given mentions, it
+// tags the linked user owners and the groups named, each one the announcement
+// offers, on a line after the text — and is a 409 too when the linked owners
+// are not the ones the preview showed. A read that fails while composing it,
+// and a post that fails, are classified by fault, whose details never carry
+// the error's own text, which can name the forge or the webhook.
 func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) (api.AnnounceResponseObject, error) {
 	if s.deps.Post == nil {
 		return announceUnprocessable("announcing is not available"), nil
 	}
 
-	announcement, err := s.announcement()
+	post, refusal := s.postFor(*request.Body)
+	if refusal != nil {
+		return refusal, nil
+	}
+
+	if orZero(request.Body.When) == api.AnnounceWhenCIPasses {
+		return s.announceWhenGreen(post), nil
+	}
+
+	return s.announceNow(post), nil
+}
+
+// postFor is the announcement the request asks to post — composed now, in the
+// text it was edited to, if it was — or the answer refusing it.
+func (s *server) postFor(body api.AnnounceRequest) (announcePost, api.AnnounceResponseObject) {
+	announcement, pull, err := s.announcement()
 	if errors.Is(err, loop.ErrNoPullRequest) {
-		return api.Announce409ApplicationProblemPlusJSONResponse(s.nothingToAnnounce()), nil
+		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(s.nothingToAnnounce())
 	}
 
 	if err != nil {
-		return s.announceFault(err), nil
+		return announcePost{}, s.announceFault(err)
 	}
 
-	if changedSincePreview(request.Body.Text, announcement) {
-		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
-			"the announcement changed since it was previewed; preview it again")), nil
+	text, err := postedText(body, announcement)
+	if errors.Is(err, errChangedSincePreview) {
+		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict, err.Error()))
 	}
 
-	mentions, memory, err := s.mentions(request.Body.Mentions, announcement.Moment)
+	if err != nil {
+		return announcePost{}, announceUnprocessable(err.Error())
+	}
+
+	mentions, memory, refusal := s.postMentions(body.Mentions, announcement.Moment)
+	if refusal != nil {
+		return announcePost{}, refusal
+	}
+
+	return announcePost{
+		moment: announcement.Moment, pull: pull, memory: memory,
+		delivery: loop.Delivery{
+			Channel: s.channelOr(body.Channel), Text: text, Made: loop.Announced{}, Mentions: mentions,
+		},
+	}, nil
+}
+
+// postedText is the text a post sends: the edit, when the request carries
+// one, of an announcement that reads now as the preview it began from did, and
+// the announcement composed now otherwise.
+func postedText(body api.AnnounceRequest, announcement messaging.Announcement) (string, error) {
+	switch {
+	case body.EditedText != nil && body.Text == nil:
+		return "", errEditWithoutPreview
+	case changedSincePreview(body.Text, announcement):
+		return "", errChangedSincePreview
+	case body.EditedText == nil:
+		return announcement.Text(), nil
+	case strings.TrimSpace(*body.EditedText) == "":
+		return "", loop.ErrEmptyAnnouncement
+	default:
+		return *body.EditedText, nil
+	}
+}
+
+// postMentions is whom a post tags and what it remembers of the choice, or
+// the answer refusing mentions that are not the ones previewed or offered.
+func (s *server) postMentions(
+	asked *api.AnnounceMentions, moment messaging.Moment,
+) (messaging.Mentions, loop.AnnounceMemory, api.AnnounceResponseObject) {
+	mentions, memory, err := s.mentions(asked, moment)
 	if errors.Is(err, errTagsChanged) {
-		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict, err.Error())), nil
+		return messaging.Mentions{}, loop.AnnounceMemory{},
+			api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict, err.Error()))
 	}
 
 	if err != nil {
-		return announceUnprocessable(err.Error()), nil
+		return messaging.Mentions{}, loop.AnnounceMemory{}, announceUnprocessable(err.Error())
 	}
 
-	channel := s.channelOr(request.Body.Channel)
+	return mentions, memory, nil
+}
 
-	err = loop.Deliver(s.deps.Post, memory, loop.Delivery{
-		Channel: channel, Text: announcement.Text(), Made: loop.Announced{}, Mentions: mentions,
-	})
+// announceNow posts the announcement at once, dropping any held for CI, which
+// would otherwise follow it once CI passed, and the channel would read it
+// twice.
+func (s *server) announceNow(post announcePost) api.AnnounceResponseObject {
+	s.dropHeld()
+
+	err := loop.Deliver(s.deps.Post, post.memory, post.delivery)
 	if err != nil {
-		return s.announceFault(err), nil
+		return s.announceFault(err)
 	}
 
-	return api.Announce200JSONResponse(announcementDTO(announcement, channel)), nil
+	return api.Announce200JSONResponse(announcementDTO(post.delivery.Text, post.delivery.Channel))
 }
 
 // announcement is the announcement for the checked-out branch's pull request,
 // composed from the pull request, the branch's issue, and the configured
-// template. It fails with loop.ErrNoPullRequest when there is no pull request
-// to announce, and with the read's own error when the branch or the pull
-// request cannot be read.
-func (s *server) announcement() (messaging.Announcement, error) {
+// template, and the pull request it announces. It fails with
+// loop.ErrNoPullRequest when there is no pull request to announce, and with
+// the read's own error when the branch or the pull request cannot be read.
+func (s *server) announcement() (messaging.Announcement, forge.PullRequest, error) {
 	cfg := s.config()
 
-	announcement, _, err := loop.ComposeAnnouncement(loop.AnnounceSeams{
+	return loop.ComposeAnnouncement(loop.AnnounceSeams{
 		Branch:    s.deps.Branch,
 		FindPull:  s.deps.FindPull,
 		Author:    s.authorSeam(),
@@ -104,8 +192,6 @@ func (s *server) announcement() (messaging.Announcement, error) {
 		BrowseURL: s.deps.BrowseURL,
 		CheckCI:   s.deps.CheckCI,
 	}, cfg.Messaging, cfg.Jira.Project, s.forgeKindNow())
-
-	return announcement, err
 }
 
 // authorSeam is the author read the announcement composes with: the one the
@@ -126,9 +212,9 @@ func changedSincePreview(previewed *string, announcement messaging.Announcement)
 	return previewed != nil && *previewed != announcement.Text()
 }
 
-// announcementDTO maps the composed announcement and its channel onto the wire.
-func announcementDTO(announcement messaging.Announcement, channel string) api.Announcement {
-	return api.Announcement{Text: announcement.Text(), Channel: channel}
+// announcementDTO maps an announcement's text and its channel onto the wire.
+func announcementDTO(text, channel string) api.Announcement {
+	return api.Announcement{Text: text, Channel: channel}
 }
 
 // announceFault answers an announcement that failed, in reading what it

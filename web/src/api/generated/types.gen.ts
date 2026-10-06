@@ -480,10 +480,14 @@ export type Announcement = {
      */
     channel: string;
     tagging?: AnnouncementTagging;
+    /**
+     * Whether a preview's announcement can be held until the pull request's CI passes: it is ready for review and its CI is still running. Left out where it cannot, and on a post.
+     */
+    can_wait_for_ci?: boolean;
 };
 
 /**
- * Where to post the announcement, and the text its preview showed.
+ * Where to post the announcement, the text its preview showed, the text to post in its place when it was edited, and when to post it.
  */
 export type AnnounceRequest = {
     /**
@@ -494,7 +498,34 @@ export type AnnounceRequest = {
      * The announcement as GET /api/announcement showed it. When given, the post is refused with 409 unless the announcement composed now reads the same; when left out, the announcement composed now is posted.
      */
     text?: string;
+    /**
+     * The text to post in place of the composed announcement, as edited in the preview. It needs text, the composed announcement the edit began from, which is still checked against the one composed now.
+     */
+    edited_text?: string;
+    /**
+     * now, the default, posts at once; ci_passes holds a ready-for-review announcement until the pull request's CI passes.
+     */
+    when?: 'now' | 'ci_passes';
     mentions?: AnnounceMentions;
+};
+
+/**
+ * An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
+ */
+export type QueuedAnnouncement = {
+    state: 'waiting' | 'announcing' | 'announced' | 'dropped';
+    /**
+     * The channel it posts to, or empty for a webhook's own channel.
+     */
+    channel: string;
+    /**
+     * The number of the pull request whose CI it waits on.
+     */
+    pull: number;
+    /**
+     * Why a dropped announcement was not posted: the CI failed, the branch's pull request is another one, or the post failed.
+     */
+    reason?: string;
 };
 
 /**
@@ -641,6 +672,7 @@ export type Snapshot = {
     changes: ChangeList;
     review: Review;
     messaging: MessagingDestination;
+    queued_announcement?: QueuedAnnouncement;
     /**
      * The branches named for one of your issues, local ones and those only the remote has — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue of yours that has a branch, so the issues list can mark them all in flight, not the one on HEAD. An issue is yours when the tracker says it is assigned to you and not done; with no tracker to ask, every branch that names an issue is listed.
      */
@@ -2792,7 +2824,7 @@ export type AnnounceData = {
 
 export type AnnounceErrors = {
     /**
-     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were.
+     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or, to post when CI passes, it is not ready for review or its pull request reports no CI.
      */
     409: Problem;
     /**
@@ -2812,9 +2844,42 @@ export type AnnounceResponses = {
      * The announcement as posted.
      */
     200: Announcement;
+    /**
+     * The announcement, held until the pull request's CI passes.
+     */
+    202: QueuedAnnouncement;
 };
 
 export type AnnounceResponse = AnnounceResponses[keyof AnnounceResponses];
+
+export type CancelQueuedAnnouncementData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/announce/queued';
+};
+
+export type CancelQueuedAnnouncementErrors = {
+    /**
+     * No announcement is waiting for CI.
+     */
+    409: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type CancelQueuedAnnouncementError = CancelQueuedAnnouncementErrors[keyof CancelQueuedAnnouncementErrors];
+
+export type CancelQueuedAnnouncementResponses = {
+    /**
+     * The waiting announcement was dropped; nothing was posted.
+     */
+    204: void;
+};
+
+export type CancelQueuedAnnouncementResponse = CancelQueuedAnnouncementResponses[keyof CancelQueuedAnnouncementResponses];
 
 export type PushData = {
     body?: never;

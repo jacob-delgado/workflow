@@ -31,6 +31,24 @@ func (e ActivitySourceName) Valid() bool {
 	}
 }
 
+// Defines values for AnnounceRequestWhen.
+const (
+	AnnounceNow          AnnounceRequestWhen = "now"
+	AnnounceWhenCIPasses AnnounceRequestWhen = "ci_passes"
+)
+
+// Valid indicates whether the value is a known member of the AnnounceRequestWhen enum.
+func (e AnnounceRequestWhen) Valid() bool {
+	switch e {
+	case AnnounceNow:
+		return true
+	case AnnounceWhenCIPasses:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CIState.
 const (
 	Failed  CIState = "failed"
@@ -352,6 +370,30 @@ func (e PullRequestState) Valid() bool {
 	}
 }
 
+// Defines values for QueuedAnnouncementState.
+const (
+	QueuedAnnounced  QueuedAnnouncementState = "announced"
+	QueuedAnnouncing QueuedAnnouncementState = "announcing"
+	QueuedDropped    QueuedAnnouncementState = "dropped"
+	QueuedWaiting    QueuedAnnouncementState = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the QueuedAnnouncementState enum.
+func (e QueuedAnnouncementState) Valid() bool {
+	switch e {
+	case QueuedAnnounced:
+		return true
+	case QueuedAnnouncing:
+		return true
+	case QueuedDropped:
+		return true
+	case QueuedWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StatusCategory.
 const (
 	StatusCategoryDone          StatusCategory = "done"
@@ -616,20 +658,32 @@ type AnnounceMentions struct {
 	Users  []string `json:"users"`
 }
 
-// AnnounceRequest Where to post the announcement, and the text its preview showed.
+// AnnounceRequest Where to post the announcement, the text its preview showed, the text to post in its place when it was edited, and when to post it.
 type AnnounceRequest struct {
 	// Channel The channel to post to; empty uses the configured channel or the webhook.
 	Channel string `json:"channel"`
+
+	// EditedText The text to post in place of the composed announcement, as edited in the preview. It needs text, the composed announcement the edit began from, which is still checked against the one composed now.
+	EditedText *string `json:"edited_text,omitempty"`
 
 	// Mentions Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; users are the ones the preview showed tagged, so a post whose kept links changed since is refused rather than tagging someone else. groups name the user groups checked, each one the announcement offered.
 	Mentions *AnnounceMentions `json:"mentions,omitempty"`
 
 	// Text The announcement as GET /api/announcement showed it. When given, the post is refused with 409 unless the announcement composed now reads the same; when left out, the announcement composed now is posted.
 	Text *string `json:"text,omitempty"`
+
+	// When now, the default, posts at once; ci_passes holds a ready-for-review announcement until the pull request's CI passes.
+	When *AnnounceRequestWhen `json:"when,omitempty"`
 }
+
+// AnnounceRequestWhen now, the default, posts at once; ci_passes holds a ready-for-review announcement until the pull request's CI passes.
+type AnnounceRequestWhen string
 
 // Announcement A composed announcement and where it would post.
 type Announcement struct {
+	// CanWaitForCi Whether a preview's announcement can be held until the pull request's CI passes: it is ready for review and its CI is still running. Left out where it cannot, and on a post.
+	CanWaitForCi *bool `json:"can_wait_for_ci,omitempty"`
+
 	// Channel The channel it posts to, or empty for a webhook's own channel.
 	Channel string `json:"channel"`
 
@@ -1456,6 +1510,22 @@ type PullRequestDraft struct {
 	Title string `json:"title"`
 }
 
+// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
+type QueuedAnnouncement struct {
+	// Channel The channel it posts to, or empty for a webhook's own channel.
+	Channel string `json:"channel"`
+
+	// Pull The number of the pull request whose CI it waits on.
+	Pull int `json:"pull"`
+
+	// Reason Why a dropped announcement was not posted: the CI failed, the branch's pull request is another one, or the post failed.
+	Reason *string                 `json:"reason,omitempty"`
+	State  QueuedAnnouncementState `json:"state"`
+}
+
+// QueuedAnnouncementState defines model for QueuedAnnouncement.State.
+type QueuedAnnouncementState string
+
 // RepoGroups The Slack user groups a repository's announcements may tag.
 type RepoGroups struct {
 	Groups []SlackTarget `json:"groups"`
@@ -1572,7 +1642,10 @@ type Snapshot struct {
 	Here      string               `json:"here"`
 	Issues    IssuesPage           `json:"issues"`
 	Messaging MessagingDestination `json:"messaging"`
-	Review    Review               `json:"review"`
+
+	// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
+	QueuedAnnouncement *QueuedAnnouncement `json:"queued_announcement,omitempty"`
+	Review             Review              `json:"review"`
 
 	// SuggestedScope The scope a new commit opens on — the terminal composer's rule: the scope last committed with in this repository, else commit.default_scope, else empty. The server reads the learned one from its store once, and once more after a commit here records one, not on every message, and never under --dry-run, when the default alone applies.
 	//

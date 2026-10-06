@@ -201,6 +201,27 @@ text shown: when the announcement changed in between — CI turned red, the pull
 request merged — nothing is sent, the page says so, and **Announce to** shows
 the new one.
 
+**Edit**, in the preview, turns the message into a box to change it in, as
+the terminal's `e` opens it in your editor; **Announce now** then sends the
+text as edited. An edit still goes only while the announcement it began from
+is the one composed now: when CI turned red or the pull request merged since,
+nothing is sent, as for an unedited one. An edit emptied of text is refused.
+
+While the pull request's CI is still running, a ready-for-review
+announcement's preview also offers **Announce when CI passes**, the terminal's
+`w`: the server holds the announcement — edited or not, with its tags — and
+the section says *Waiting for CI on #42 to pass, then announcing to #dev.*,
+with **Stop waiting** to drop it unposted. It is posted once the forge reports
+the CI passed, and the section then says it was announced; when the CI fails,
+or the branch's pull request is another one or merged first, it is dropped
+and the section says why in red. **Announce now** drops a held announcement,
+so the channel never reads it twice. The server, not the page, holds it: it
+reads the CI for it every `timing.ci_interval` (twenty seconds unless set)
+whether a page is open or not, and settles it on each frame a page shows. It
+is kept in memory alone, so it is lost, unposted, if `workflow --web` stops
+or switches directory before the CI passes — as one held in the terminal is
+lost when the terminal closes.
+
 With a Slack user token, a ready-for-review announcement's preview also says
 whom it tags. **Tag code owners** lists the code owners of the branch's
 changes: one linked to Slack shows their Slack name, one decided not on Slack
@@ -435,8 +456,6 @@ or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
 - **Re-running failed CI, merging, finishing a merged branch and editing an
   open pull request** — the terminal's `R`, `M`, `F` and `e`
   ([FEAT-79](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md#feat-79-review-actions-on-the-web)).
-- **Editing an announcement before it is sent, and announcing once CI
-  passes** — the terminal's `e` and `w` in the announcement preview.
 - **Knowing an announcement was already made** — the web neither records an
   announcement nor reads one, so it offers one again that the terminal or
   `workflow announce` already made
@@ -512,4 +531,12 @@ an owner not yet linked against that channel's members. `POST /api/announce`
 takes `mentions`: `users`, the people the preview showed tagged, and
 `groups`, the user groups checked. The linked owners it tags are read from
 what is kept, never from the request, and a post whose linked owners are not
-`users` is a `409`.
+`users` is a `409`. It also takes `edited_text`, posted in place of the
+composed announcement beside `text`, the one the edit began from, and
+`when: ci_passes`, which holds it until the CI passes and answers `202`;
+`DELETE /api/announce/queued` drops a held one, and each frame of
+`GET /api/events` carries it as `queued_announcement`.
+
+The issue writes sit under `/api/issues/{key}/`: `GET` and `POST transitions`
+list the status changes with the fields each needs and make one,
+`PUT assignee` assigns it, and `POST worklog` logs work on a Jira issue.

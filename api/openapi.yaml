@@ -1295,7 +1295,21 @@ paths:
         Settings or a terminal since), nothing is posted and the answer is
         409, as for changed text. Tagging needs a Slack user token in the
         configuration in effect at the post. No answer carries the service's
-        own error, which can name the webhook.
+        own error, which can name the webhook. Given edited_text, that text is
+        posted in place of the composed one, as the terminal's e in the
+        preview does — still only when the announcement composed now reads as
+        the given text did, so an edit never goes out over a moment that has
+        passed; blank edited text is a 422. Given when ci_passes, as the
+        terminal's w, a ready-for-review announcement whose pull request's CI
+        is still running is held by the server and answered 202; it is posted
+        once the forge reports the CI passed, and dropped, with the reason,
+        when the CI fails or the branch's pull request is another one. One
+        whose CI has passed already is posted at once (200), and one with no
+        CI to wait for, or not ready for review, is a 409. The server holds a
+        waiting announcement in memory and reads the CI for it on its own, on
+        timing.ci_interval, whether a page is open or not: it is lost, unposted,
+        if the server stops or switches directory first. Announcing now drops
+        a waiting one, so the channel never reads it twice.
       tags: [messaging]
       requestBody:
         required: true
@@ -1310,11 +1324,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Announcement"
+        "202":
+          description: The announcement, held until the pull request's CI passes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueuedAnnouncement"
         "409":
           description: >-
             There is no pull request to announce, the server is not running in
             a git repository, or the announcement changed since the given text
-            was previewed, or whom it tags did since the mentions' users were.
+            was previewed, or whom it tags did since the mentions' users were;
+            or, to post when CI passes, it is not ready for review or its pull
+            request reports no CI.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -1322,6 +1344,26 @@ paths:
           description: >-
             The announcement could not be posted, or its mentions name a
             group it does not offer.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/announce/queued:
+    delete:
+      operationId: cancelQueuedAnnouncement
+      summary: Drop the announcement waiting for CI to pass, unposted.
+      description: >-
+        Drops the announcement POST /api/announce holds until the pull
+        request's CI passes, so it is never posted. Refused with 409 when none
+        is waiting — posted already, dropped, or never held. Under --dry-run it
+        is refused with a plain-text 403, as every write is.
+      tags: [messaging]
+      responses:
+        "204":
+          description: The waiting announcement was dropped; nothing was posted.
+        "409":
+          description: No announcement is waiting for CI.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -1886,7 +1928,11 @@ paths:
         the tracker's answer too, asked again once a minute or when the
         branches name other issues; an ask that fails keeps the last answer,
         and with none lists every branch that names an issue. A search for
-        Taskwarrior that finds none is not made again for a minute.
+        Taskwarrior that finds none is not made again for a minute. An
+        announcement held until CI passes (POST /api/announce with when
+        ci_passes) is settled on each frame from the review it carries —
+        posted once the CI has passed, dropped once it has failed — and the
+        frame's queued_announcement says how it stands.
       tags: [events]
       parameters:
         - name: view
@@ -2626,12 +2672,19 @@ components:
           description: The channel it posts to, or empty for a webhook's own channel.
         tagging:
           $ref: "#/components/schemas/AnnouncementTagging"
+        can_wait_for_ci:
+          type: boolean
+          description: >-
+            Whether a preview's announcement can be held until the pull
+            request's CI passes: it is ready for review and its CI is still
+            running. Left out where it cannot, and on a post.
       additionalProperties: false
 
     AnnounceRequest:
       type: object
       description: >-
-        Where to post the announcement, and the text its preview showed.
+        Where to post the announcement, the text its preview showed, the text
+        to post in its place when it was edited, and when to post it.
       required: [channel]
       properties:
         channel:
@@ -2644,8 +2697,47 @@ components:
             the post is refused with 409 unless the announcement composed now
             reads the same; when left out, the announcement composed now is
             posted.
+        edited_text:
+          type: string
+          maxLength: 40000
+          description: >-
+            The text to post in place of the composed announcement, as edited
+            in the preview. It needs text, the composed announcement the edit
+            began from, which is still checked against the one composed now.
+        when:
+          type: string
+          enum: [now, ci_passes]
+          x-enum-varnames: [AnnounceNow, AnnounceWhenCIPasses]
+          description: >-
+            now, the default, posts at once; ci_passes holds a ready-for-review
+            announcement until the pull request's CI passes.
         mentions:
           $ref: "#/components/schemas/AnnounceMentions"
+      additionalProperties: false
+
+    QueuedAnnouncement:
+      type: object
+      description: >-
+        An announcement held until a pull request's CI passes, and how it
+        stands: waiting for the CI, being posted, posted, or dropped unposted
+        with the reason.
+      required: [state, channel, pull]
+      properties:
+        state:
+          type: string
+          enum: [waiting, announcing, announced, dropped]
+          x-enum-varnames: [QueuedWaiting, QueuedAnnouncing, QueuedAnnounced, QueuedDropped]
+        channel:
+          type: string
+          description: The channel it posts to, or empty for a webhook's own channel.
+        pull:
+          type: integer
+          description: The number of the pull request whose CI it waits on.
+        reason:
+          type: string
+          description: >-
+            Why a dropped announcement was not posted: the CI failed, the
+            branch's pull request is another one, or the post failed.
       additionalProperties: false
 
     StagingRequest:
@@ -2817,6 +2909,8 @@ components:
         changes: {$ref: "#/components/schemas/ChangeList"}
         review: {$ref: "#/components/schemas/Review"}
         messaging: {$ref: "#/components/schemas/MessagingDestination"}
+        queued_announcement:
+          $ref: "#/components/schemas/QueuedAnnouncement"
         branches:
           type: array
           description: >-

@@ -163,9 +163,12 @@ internal/tui 60
 # activity.go reads back what you did over a period for the Summary section.
 # repositories.go says where the server works and keeps your favorites, and
 # world.go holds the server for that directory and swaps it for another's on
-# a switch, refusing it while a write runs.
+# a switch, refusing it while a write runs. 27 is announcequeue.go, the
+# announcement held until its pull request's CI passes: the server's own wait
+# for it, settled from each frame and from timed reads of its own, and the drop
+# of it, which outlive the request that held it.
 # Frozen here so that growth stays deliberate.
-internal/webserver 26
+internal/webserver 27
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and
