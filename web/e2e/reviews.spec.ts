@@ -62,7 +62,7 @@ async function answersQueue(page: Page): Promise<{ reads: number }> {
 }
 
 // listed is the number of each request a list of the queue shows, in order.
-async function listed(page: Page, name = 'Review requests'): Promise<string[]> {
+async function listed(page: Page, name = 'Waiting on your review'): Promise<string[]> {
   const links = page.getByRole('list', { name, exact: true }).getByRole('link')
 
   return (await links.evaluateAll((all) => all.map((link) => link.getAttribute('href') ?? ''))).map(
@@ -92,7 +92,9 @@ test('switching back to Reviews within 30 seconds reads nothing again', async ({
   // Assert
   // A read the reopening starts goes out as the queue is drawn; let the
   // network settle first, so one would have been counted.
-  await expect(page.getByRole('list', { name: 'Review requests', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('list', { name: 'Waiting on your review', exact: true }),
+  ).toBeVisible()
   await page.waitForLoadState('networkidle')
   expect(counted.reads).toBe(1)
 })
@@ -160,7 +162,7 @@ test('by repository heads each repository the filter leaves', async ({ page }) =
     'example/other',
     'example/repo',
   ])
-  expect(await listed(page, 'Review requests in example/repo')).toEqual(['5'])
+  expect(await listed(page, 'Waiting on your review in example/repo')).toEqual(['5'])
 })
 
 for (const theme of themes) {

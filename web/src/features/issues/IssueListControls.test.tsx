@@ -289,7 +289,7 @@ test('the filter narrows the list by key', async () => {
   renderWithClient(<IssuesPanel />)
 
   // Act
-  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'proj-12')
+  await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'proj-12')
 
   // Assert
   expect(listedSummaries()).toEqual(['Write the setup docs'])
@@ -303,7 +303,7 @@ test('the filter narrows the list by summary, whatever the case', async () => {
   renderWithClient(<IssuesPanel />)
 
   // Act
-  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'TOKEN')
+  await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'TOKEN')
 
   // Assert
   expect(listedSummaries()).toEqual(['Fix the token leak'])
@@ -317,7 +317,7 @@ test('says when no loaded issue matches the filter', async () => {
   renderWithClient(<IssuesPanel />)
 
   // Act
-  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'nothing like it')
+  await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'nothing like it')
 
   // Assert
   expect(statusTexts()).toContain('No loaded issue matches the filter.')
@@ -331,7 +331,7 @@ test('says how many loaded issues the filter matches', async () => {
   renderWithClient(<IssuesPanel />)
 
   // Act
-  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'proj-12')
+  await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'proj-12')
 
   // Assert
   expect(statusTexts()).toContain('1 of 2 loaded issues match.')
@@ -346,7 +346,7 @@ test('keeps the selected issue open when the filter hides it', async () => {
   await user.click(screen.getByRole('button', { name: /fix the token leak/i }))
 
   // Act
-  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'setup docs')
+  await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'setup docs')
 
   // Assert
   expect(listedSummaries()).toEqual(['Write the setup docs'])

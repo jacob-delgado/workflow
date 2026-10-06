@@ -89,7 +89,7 @@ function IssueBrowser({ streamed, branches, tasks }: IssueBrowserProps) {
       <div className="flex flex-col gap-item">
         <IssueListControls filter={filter} onFilter={setFilter} />
         <FilterChips
-          label="Where"
+          label="Filter"
           choices={placeChoices(loaded, marksFor, places)}
           isPicked={(place) => places.some((picked) => samePlace(picked, place))}
           nameOf={(place) => place.name}
@@ -483,8 +483,8 @@ interface RowCheckoutProps {
 function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
   const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
     fallback:
-      'The branch was not checked out. Try again, or switch to it from a terminal to see why.',
-    done: (checkedOut) => `Checked out ${checkedOut.name}.`,
+      'The branch was not switched to. Try again, or switch to it from a terminal to see why.',
+    done: (switched) => `Switched to ${switched.name}.`,
     onStart: outcome.clear,
     onDone: outcome.say,
   })
@@ -494,14 +494,14 @@ function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
       <Button
         variant="secondary"
         size="sm"
-        aria-label={`Check out ${issueKey}`}
+        aria-label={`Switch branch for ${issueKey}`}
         disabled={state === 'running'}
         onClick={() => {
           void run()
         }}
         className="shrink-0"
       >
-        {state === 'running' ? 'Switching…' : 'Check out'}
+        {state === 'running' ? 'Switching…' : 'Switch branch'}
       </Button>
       {state === 'error' ? (
         <p role="alert" className="basis-full text-xs text-destructive">

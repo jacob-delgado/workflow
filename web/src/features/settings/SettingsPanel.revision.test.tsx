@@ -251,7 +251,7 @@ test('reopening Settings reads the file again before showing the form', async ()
 const notValidOnDisk =
   'the configuration file on disk is not valid, so the configuration in effect stands; workflow doctor says what is wrong with it'
 
-test('opening Settings over a file that is not valid says why and offers Retry', async () => {
+test('opening Settings over a file that is not valid says why and offers Try again', async () => {
   // Arrange
   configAnswers(refusal(422, 'unprocessable', notValidOnDisk))
 
@@ -259,8 +259,8 @@ test('opening Settings over a file that is not valid says why and offers Retry',
   renderWithClient(<SettingsPanel />)
 
   // Assert
-  expect(await screen.findByText(notValidOnDisk)).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+  const failure = await screen.findByText(notValidOnDisk)
+  expect(within(failure).getByRole('button', { name: 'Try again' })).toBeTruthy()
 })
 
 test('Settings says why a read was refused without first trying it again', async () => {

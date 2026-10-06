@@ -29,10 +29,10 @@ test.beforeEach(async ({ page }) => {
 // settled is what shows once a section has drawn what it will with no API to
 // answer it: Reviews, Tasks, Summary, Repositories and Settings each read their own endpoint
 // after their heading appears, and the read fails here, so the scan waits on
-// its Retry; every other section settles with its heading.
+// its Try again; every other section settles with its heading.
 function settled(page: Page, name: string): Locator {
   return ['Reviews', 'Tasks', 'Summary', 'Repositories', 'Settings'].includes(name)
-    ? page.getByRole('button', { name: 'Retry' })
+    ? page.getByRole('button', { name: 'Try again' })
     : page.getByRole('heading', { level: 1, name })
 }
 
@@ -72,7 +72,7 @@ for (const theme of themes) {
       }),
     )
     // The review queue's read, the task list's and the configuration's fail,
-    // so each reason and its Retry are scanned, whenever the answer comes; the
+    // so each reason and its Try again are scanned, whenever the answer comes; the
     // populated build scans the queue, the tasks and the form themselves.
     await page.route('**/api/reviews', (route) => route.fulfill(unreachable))
     await page.route('**/api/tasks', (route) => route.fulfill(unreachable))
@@ -143,7 +143,7 @@ const confirmSteps = [
   {
     step: 'clean confirmation in Local data',
     section: 'Settings',
-    opener: 'Clean cache…',
+    opener: 'Remove cache…',
     group: 'Remove workflow.db?',
   },
 ]
@@ -257,7 +257,7 @@ for (const theme of themes) {
     // Act: narrow the list to a place, so a pressed Where button is scanned,
     // then open the first issue and let its detail land.
     const inProgress = page
-      .getByRole('group', { name: 'Where' })
+      .getByRole('group', { name: 'Filter' })
       .getByRole('button', { name: /^In Progress/ })
     await inProgress.click()
     await expect(inProgress).toHaveAttribute('aria-pressed', 'true')

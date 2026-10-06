@@ -77,7 +77,7 @@ async function opensIssue(page: Page): Promise<string[]> {
   })
   await page.goto('/')
   await page.getByRole('button', { name: /limit the rate/i }).click()
-  await expect(page.getByRole('button', { name: 'Start in a new worktree' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start work in a new worktree' })).toBeVisible()
 
   return switched
 }
@@ -85,7 +85,7 @@ async function opensIssue(page: Page): Promise<string[]> {
 test('work started in a new worktree offers to switch to it', async ({ page }) => {
   // Arrange
   const switched = await opensIssue(page)
-  await page.getByRole('button', { name: 'Start in a new worktree' }).click()
+  await page.getByRole('button', { name: 'Start work in a new worktree' }).click()
   const offer = page.getByRole('region', { name: `Started PROJ-7 in ${made.shown}` })
   await expect(offer).toBeVisible()
 
@@ -107,7 +107,7 @@ for (const theme of themes) {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
       await opensIssue(page)
-      await page.getByRole('button', { name: 'Start in a new worktree' }).click()
+      await page.getByRole('button', { name: 'Start work in a new worktree' }).click()
       await expect(page.getByRole('button', { name: 'Switch to it' })).toBeVisible()
 
       // Act: Tab once round the page.

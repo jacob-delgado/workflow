@@ -15,7 +15,7 @@ export function IssueListControls({ filter, onFilter }: ListControlsProps) {
     <div className="flex flex-wrap items-center gap-group">
       <ViewSelect />
       <label className="flex items-center gap-item text-sm">
-        <span className="text-muted-foreground">Filter</span>
+        <span className="text-muted-foreground">Search</span>
         <Input
           size="sm"
           type="search"

@@ -332,7 +332,7 @@ function ForgetConfirm({ owner, forget, tell, onClose }: ForgetConfirmProps) {
           disabled={forgetting.state === 'running'}
           onClick={() => void forgetting.run(owner)}
         >
-          Forget
+          {forgetting.state === 'running' ? 'Forgetting…' : 'Forget'}
         </Button>
       </div>
     </div>

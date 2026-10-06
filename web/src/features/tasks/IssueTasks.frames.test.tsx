@@ -193,10 +193,10 @@ test('a task marked done from the card shows done at once, with nothing left to 
   renderWithClient(<IssueTasks issueKey={issueKey} />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Done task 12' }))
+  await user.click(screen.getByRole('button', { name: 'Mark done task 12' }))
 
   // Assert
-  await screen.findByText('Completed task 12.')
+  await screen.findByText('Marked task 12 done.')
   const row = screen.getByRole('listitem')
   expect(markShape(row)).toBe(drawnMark('done'))
   expect(within(row).queryAllByRole('button')).toEqual([])
@@ -209,8 +209,8 @@ test('a card opened again before the stream has the done still shows the task do
   streamLinked(tracking)
   fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
   const { unmount } = renderShared(<IssueTasks issueKey={issueKey} />)
-  await user.click(screen.getByRole('button', { name: 'Done task 12' }))
-  await screen.findByText('Completed task 12.')
+  await user.click(screen.getByRole('button', { name: 'Mark done task 12' }))
+  await screen.findByText('Marked task 12 done.')
   unmount()
 
   // Act
@@ -235,8 +235,8 @@ test.each([
     streamLinked(tracking)
     fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
     renderWithClient(<IssueTasks issueKey={issueKey} />)
-    await user.click(screen.getByRole('button', { name: 'Done task 12' }))
-    await screen.findByText('Completed task 12.')
+    await user.click(screen.getByRole('button', { name: 'Mark done task 12' }))
+    await screen.findByText('Marked task 12 done.')
     act(() => {
       streamTasks({ linked: caughtUp }, Date.now() + 1)
     })
@@ -268,8 +268,8 @@ test('an undo that brings back a task done from the card offers it again, frame 
       <TasksPanel />
     </>,
   )
-  await user.click(screen.getByRole('button', { name: 'Done task 12' }))
-  await screen.findByText('Completed task 12.')
+  await user.click(screen.getByRole('button', { name: 'Mark done task 12' }))
+  await screen.findByText('Marked task 12 done.')
   await user.click(screen.getByRole('button', { name: 'Undo' }))
   await screen.findByText('Undone: reverted 1 operation')
 
@@ -289,8 +289,8 @@ test('the first frame after a done that still has the task to do leaves it done'
   streamLinked(tracking)
   fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
-  await user.click(screen.getByRole('button', { name: 'Done task 12' }))
-  await screen.findByText('Completed task 12.')
+  await user.click(screen.getByRole('button', { name: 'Mark done task 12' }))
+  await screen.findByText('Marked task 12 done.')
 
   // Act
   act(() => {
@@ -312,8 +312,8 @@ test('a frame received in the millisecond of a done does not count toward lettin
   streamLinked(tracking)
   fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
-  await user.click(screen.getByRole('button', { name: 'Done task 12' }))
-  await screen.findByText('Completed task 12.')
+  await user.click(screen.getByRole('button', { name: 'Mark done task 12' }))
+  await screen.findByText('Marked task 12 done.')
   act(() => {
     streamTasks({ linked: [tracking] })
   })
@@ -337,8 +337,8 @@ test('a done undone in a terminal before the next frame shows the task to do aga
   streamLinked(tracking)
   fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
-  await user.click(screen.getByRole('button', { name: 'Done task 12' }))
-  await screen.findByText('Completed task 12.')
+  await user.click(screen.getByRole('button', { name: 'Mark done task 12' }))
+  await screen.findByText('Marked task 12 done.')
   act(() => {
     streamTasks({ linked: [tracking] }, Date.now() + 1)
   })
@@ -353,7 +353,7 @@ test('a done undone in a terminal before the next frame shows the task to do aga
   const row = within(card).getByRole('listitem')
   expect(markShape(row)).toBe(drawnMark('not-started'))
   expect(within(row).getByRole('button', { name: 'Start task 12' })).toBeTruthy()
-  expect(within(row).getByRole('button', { name: 'Done task 12' })).toBeTruthy()
+  expect(within(row).getByRole('button', { name: 'Mark done task 12' })).toBeTruthy()
   expect(within(card).queryByRole('button', { name: 'Track in Taskwarrior' })).toBeNull()
 })
 

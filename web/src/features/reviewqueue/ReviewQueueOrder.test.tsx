@@ -74,7 +74,7 @@ test('lists the queue oldest first until another order is chosen', async () => {
   renderWithClient(<ReviewQueuePanel />)
 
   // Assert
-  const list = await screen.findByRole('list', { name: 'Review requests' })
+  const list = await screen.findByRole('list', { name: 'Waiting on your review' })
   expect(sortChosen()).toBe('Oldest first')
   expect(linksIn(list)).toEqual([oldestInRepo.url, older.url, nowhere.url, newer.url])
 })
@@ -83,13 +83,13 @@ test('Newest first lists the request opened last first, and says so', async () =
   // Arrange
   fakeApi({ [reviewsPath]: queueOf(oldestInRepo, older, nowhere, newer) })
   renderWithClient(<ReviewQueuePanel />)
-  await screen.findByRole('list', { name: 'Review requests' })
+  await screen.findByRole('list', { name: 'Waiting on your review' })
 
   // Act
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'Newest first')
 
   // Assert
-  const list = screen.getByRole('list', { name: 'Review requests' })
+  const list = screen.getByRole('list', { name: 'Waiting on your review' })
   expect(linksIn(list)).toEqual([newer.url, nowhere.url, older.url, oldestInRepo.url])
   expect(
     screen
@@ -102,7 +102,7 @@ test('By repository heads each repository, oldest first within it', async () => 
   // Arrange
   fakeApi({ [reviewsPath]: queueOf(oldestInRepo, older, nowhere, newer) })
   renderWithClient(<ReviewQueuePanel />)
-  await screen.findByRole('list', { name: 'Review requests' })
+  await screen.findByRole('list', { name: 'Waiting on your review' })
 
   // Act
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'By repository')
@@ -111,20 +111,19 @@ test('By repository heads each repository, oldest first within it', async () => 
   expect(
     screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent),
   ).toEqual(['No repository', 'example/other', 'example/repo'])
-  expect(linksIn(screen.getByRole('list', { name: 'Review requests in example/repo' }))).toEqual([
-    oldestInRepo.url,
-    newer.url,
-  ])
-  expect(linksIn(screen.getByRole('list', { name: 'Review requests in No repository' }))).toEqual([
-    nowhere.url,
-  ])
+  expect(
+    linksIn(screen.getByRole('list', { name: 'Waiting on your review in example/repo' })),
+  ).toEqual([oldestInRepo.url, newer.url])
+  expect(
+    linksIn(screen.getByRole('list', { name: 'Waiting on your review in No repository' })),
+  ).toEqual([nowhere.url])
 })
 
 test('the order chosen holds across a refresh', async () => {
   // Arrange
   fakeApi({ [reviewsPath]: queueOf(older, newer) })
   renderWithClient(<ReviewQueuePanel />)
-  await screen.findByRole('list', { name: 'Review requests' })
+  await screen.findByRole('list', { name: 'Waiting on your review' })
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'Newest first')
 
   // Act
@@ -133,7 +132,7 @@ test('the order chosen holds across a refresh', async () => {
   // Assert
   await screen.findByRole('button', { name: 'Refresh' })
   expect(sortChosen()).toBe('Newest first')
-  expect(linksIn(screen.getByRole('list', { name: 'Review requests' }))).toEqual([
+  expect(linksIn(screen.getByRole('list', { name: 'Waiting on your review' }))).toEqual([
     newer.url,
     older.url,
   ])
@@ -143,15 +142,15 @@ test("each repository's heading sits under the queue's own, a level up", async (
   // Arrange
   fakeApi({ [reviewsPath]: queueOf(oldestInRepo, older, nowhere, newer) })
   renderWithClient(<ReviewQueuePanel />)
-  await screen.findByRole('list', { name: 'Review requests' })
+  await screen.findByRole('list', { name: 'Waiting on your review' })
 
   // Act
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'By repository')
 
   // Assert
-  expect(screen.getByRole('heading', { level: 2, name: 'Review requests' })).toBeTruthy()
+  expect(screen.getByRole('heading', { level: 2, name: 'Waiting on your review' })).toBeTruthy()
   expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual([
-    'Review requests',
+    'Waiting on your review',
     'No repository',
     'example/other',
     'example/repo',
@@ -168,7 +167,7 @@ test('a repository named as no repository is grouped apart from requests with no
   })
   fakeApi({ [reviewsPath]: queueOf(nowhere, named) })
   renderWithClient(<ReviewQueuePanel />)
-  await screen.findByRole('list', { name: 'Review requests' })
+  await screen.findByRole('list', { name: 'Waiting on your review' })
 
   // Act
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'By repository')

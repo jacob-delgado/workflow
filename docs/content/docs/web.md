@@ -71,9 +71,9 @@ one `!12`; on GitHub, *pull request* and `#12` — as the terminal does.
 
 The issues in a view — the default is those assigned to you and not done —
 with a **View** select for the views your configuration defines, each scoped
-to your issues unless its query names the assignee, a **Filter** over the
-issues loaded so far, by key or summary, **Where** buttons that narrow them to
-places, and **Load more** while the view holds more. Where offers the statuses
+to your issues unless its query names the assignee, a **Search** over the
+issues loaded so far, by key or summary, **Filter** buttons that narrow them to
+places, and **Load more** while the view holds more. Filter offers the statuses
 the loaded issues are in and the marks *in flight*, *task active*, *tracked*,
 *task done* and *forge issue*, each with how many issues it holds; pressing one narrows the
 list, and pressing it again undoes that. Statuses widen each other, as marks
@@ -82,7 +82,7 @@ that lists its forge's issues beside Jira's (`issues.forge`) numbers them as
 the forge does, `#57`, links each to its page with **Open in GitHub** or
 **Open in GitLab**, and says so above the list, among its controls, when the
 forge's issues could not be read. An issue with a branch is marked *in
-flight*, with **Check out** beside it when that branch is not the one checked out — a local branch, or one
+flight*, with **Switch branch** beside it when that branch is not the one checked out — a local branch, or one
 only the remote has, which checking out creates here. The branches counted are
 those naming an issue assigned to you and not done, so a branch whose issue
 was finished or reassigned no longer marks it; while the tracker cannot be
@@ -99,7 +99,7 @@ done once there is a commit, and the pull request is done once its CI passes
 or it merges, and failed on a CI failure or changes asked for. The story never
 marks the announcement done, because the web keeps no record of one. From the
 story, **Start work** creates and checks out a branch named for the issue, and
-**Check out this branch** switches to one it already has. **Start in a new
+**Switch branch** switches to one it already has. **Start work in a new
 worktree** creates the branch in a new git worktree beside the repository
 instead, leaving the checkout here as it is, then says where and offers
 **Switch to it**. A branch another worktree has checked out, which git will not
@@ -233,8 +233,8 @@ context says it narrows the list. Each row marks whether the task is started,
 then its id, what it is, and quietly its issue, when it is due and its
 urgency. **Sort** orders each group by urgency, state, ID, tag, issue or
 priority, as the terminal's `O` does, and sorted by tag or priority each row
-shows its tags or priority. **Filter** keeps the tasks whose description,
-project, `+tag`, issue key or `#id` holds what you type, and the **Narrow**
+shows its tags or priority. **Search** keeps the tasks whose description,
+project, `+tag`, issue key or `#id` holds what you type, and the **Filter**
 chips narrow the list by state, priority, project, tag and whether a task has
 an issue, each with its count; pressing **waiting** lists the waiting tasks.
 The order and the chips stay while you visit other sections.
@@ -258,7 +258,7 @@ page is the tracker's, as the terminal's `o` opens it; with the forge's
 issues as the tracker, or for a task that names none, it is the task's
 `jiraurl`, and only an http or https address.
 Then come **Start** or **Stop**,
-**Done**, its annotations, and a line each to **Annotate** it and **Modify**
+**Mark done**, its annotations, and a line each to **Annotate** it and **Modify**
 it in the same grammar. **Undo** reverts Taskwarrior's last change, whatever
 made it, and **Sync**, shown when the taskrc names a sync backend, syncs. Each
 write says what it did, and the list redraws from Taskwarrior's answer at
@@ -273,7 +273,7 @@ Once Taskwarrior has answered, the rest of the page shows your tasks too: the
 header carries the task you have started and how long it has run, and opens
 this section; each Issues row marks how its issue's tasks stand; and an
 issue's detail has a **Tasks** card listing each of its tasks, with **Start**
-or **Stop** and **Done** on each still to do. While none is, the card offers
+or **Stop** and **Mark done** on each still to do. While none is, the card offers
 **Track in Taskwarrior**, which adds the task the terminal's `T` would,
 annotated with the issue's page, and says which task now tracks it. Until
 Taskwarrior has answered, and where it could not, none of them is drawn,
@@ -391,15 +391,15 @@ Below that, **Local data** shows where workflow keeps what it learns
 between sessions and a row for each database file: the cache (`workflow.db`)
 and the kept associations (`kept.db`), each with its size and what it holds.
 It is read each time Settings opens and saved apart from the configuration.
-**Clean cache…** and **Clean everything…** each ask first, in place, with
-**Cancel** and **Clean**; cleaning everything says that people and group
+**Remove cache…** and **Remove everything…** each ask first, in place, with
+**Cancel** and **Remove**; removing everything says that people and group
 associations will be asked again, and People and groups above is read again
-to show them gone. What the clean did is said below the buttons, and the
-listing is read again. A file another program holds open fails the clean, and
+to show them gone. What the removal did is said below the buttons, and the
+listing is read again. A file another program holds open fails the removal, and
 the area says why and reads the listing again, since a file that could not be
-deleted after the rest were set aside may leave others gone. A clean waits
+deleted after the rest were set aside may leave others gone. A removal waits
 for a change to People and groups under way, and the other way round. Under
-`--dry-run` the buttons are replaced by a sentence saying cleaning is held
+`--dry-run` the buttons are replaced by a sentence saying removing is held
 back. It is the web's `workflow db-clean`
 (see [Using workflow]({{< relref "/docs/usage#cleaning-the-local-data" >}})).
 
@@ -437,7 +437,9 @@ or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
 ## When a request fails
 
 A failed request says why beside the button that made it, in words meant for
-you, and the button is there to try again. Behind that, the API answers a
+you, and the button is there to try again; a read that fails says why above
+**Try again**. While a section reads, a line beginning *Reading* says what.
+Behind that, the API answers a
 failed request with an RFC 9457 problem details object whose `code` a script
 can rely on; only the loopback, same-origin and `--dry-run` guards, which
 refuse a request before it reaches the API, answer in plain text. [Web API

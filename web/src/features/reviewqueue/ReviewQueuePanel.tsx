@@ -65,10 +65,7 @@ export function ReviewQueuePanel() {
       readAt={query.dataUpdatedAt}
       failure={
         query.isError
-          ? apiErrorMessage(
-              query.error,
-              'The review queue could not be read. Press Retry to try again.',
-            )
+          ? apiErrorMessage(query.error, 'The review queue could not be read. Press Try again.')
           : null
       }
       failed={query.isError || retrying}
@@ -96,7 +93,7 @@ interface QueueProps {
 
 // Queue is the queue beneath the lines that say how it stands — how many wait,
 // and why the last read failed — beside the one control that reads it again.
-// That control stays the same button whether it says Retry or Refresh, so the
+// That control stays the same button whether it says Try again or Refresh, so the
 // read it starts never takes its focus away; a failed refresh leaves the queue
 // last read in view. The summary is a status line that stays mounted, so a
 // screen reader hears what each read found as it lands. The order and the
@@ -156,7 +153,7 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
       <OutcomeLine said={outcome.said} />
       {/* The queue's own heading, unseen, so each repository's h3 does not
           skip a level under the section's h1. */}
-      <h2 className="sr-only">Review requests</h2>
+      <h2 className="sr-only">Waiting on your review</h2>
       {requests === undefined || shown === undefined ? null : (
         <Requests
           requests={ordered(shown, order)}
@@ -217,11 +214,11 @@ function OrderSelect({ ref, order, onOrder }: OrderSelectProps) {
   )
 }
 
-// readAgainLabel names the control that reads the queue again: Retry after a
+// readAgainLabel names the control that reads the queue again: Try again after a
 // failed read, Refresh otherwise, each saying so while the read is in flight.
 function readAgainLabel(failed: boolean, reading: boolean): string {
   if (failed) {
-    return reading ? 'Retrying…' : 'Retry'
+    return reading ? 'Trying again…' : 'Try again'
   }
 
   return reading ? 'Refreshing…' : 'Refresh'
@@ -249,7 +246,12 @@ function Requests({ requests, filtered, grouped, readAt, teller }: RequestsProps
 
   if (!grouped) {
     return (
-      <RequestList label="Review requests" requests={requests} readAt={readAt} teller={teller} />
+      <RequestList
+        label="Waiting on your review"
+        requests={requests}
+        readAt={readAt}
+        teller={teller}
+      />
     )
   }
 
@@ -257,7 +259,7 @@ function Requests({ requests, filtered, grouped, readAt, teller }: RequestsProps
     <section key={repository} className="flex flex-col gap-item">
       <h3 className="font-medium">{repositoryHeading(repository)}</h3>
       <RequestList
-        label={`Review requests in ${repositoryHeading(repository)}`}
+        label={`Waiting on your review in ${repositoryHeading(repository)}`}
         requests={inRepository}
         readAt={readAt}
         teller={teller}

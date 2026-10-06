@@ -45,7 +45,7 @@ function renderPanel() {
 test('typing a filter narrows the list and says how many match', async () => {
   // Arrange
   renderPanel()
-  const filter = await screen.findByRole('searchbox', { name: 'Filter' })
+  const filter = await screen.findByRole('searchbox', { name: 'Search' })
 
   // Act
   await userEvent.type(filter, 'CERT')
@@ -60,7 +60,7 @@ test('typing a filter narrows the list and says how many match', async () => {
 test('a narrow chip narrows the list to the value it names', async () => {
   // Arrange
   renderPanel()
-  const narrow = await screen.findByRole('group', { name: 'Narrow' })
+  const narrow = await screen.findByRole('group', { name: 'Filter' })
 
   // Act
   await userEvent.click(within(narrow).getByRole('button', { name: 'priority H 1' }))
@@ -76,7 +76,7 @@ test('a narrow chip narrows the list to the value it names', async () => {
 test('picking waiting lists the waiting tasks, each saying until when', async () => {
   // Arrange
   renderPanel()
-  const narrow = await screen.findByRole('group', { name: 'Narrow' })
+  const narrow = await screen.findByRole('group', { name: 'Filter' })
 
   // Act
   await userEvent.click(within(narrow).getByRole('button', { name: 'waiting 1' }))
@@ -88,7 +88,7 @@ test('picking waiting lists the waiting tasks, each saying until when', async ()
 test('a filter matching nothing says so', async () => {
   // Arrange
   renderPanel()
-  const filter = await screen.findByRole('searchbox', { name: 'Filter' })
+  const filter = await screen.findByRole('searchbox', { name: 'Search' })
 
   // Act
   await userEvent.type(filter, 'zzz')
@@ -111,5 +111,5 @@ test('unpicking the last chip, which no task holds, leaves focus on the filter',
   await userEvent.click(chip)
 
   // Assert
-  expect(document.activeElement).toBe(screen.getByRole('searchbox', { name: 'Filter' }))
+  expect(document.activeElement).toBe(screen.getByRole('searchbox', { name: 'Search' }))
 })

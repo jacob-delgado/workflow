@@ -58,7 +58,7 @@ async function opensLocalData(page: Page): Promise<void> {
     .getByRole('navigation', { name: 'Sections' })
     .getByRole('button', { name: 'Settings', exact: true })
     .click()
-  await expect(page.getByRole('table', { name: 'Local databases' })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Local data files' })).toBeVisible()
 }
 
 test('lists the store, confirms, cleans the cache and reads the listing again', async ({
@@ -67,16 +67,16 @@ test('lists the store, confirms, cleans the cache and reads the listing again', 
   // Arrange: the Local data area, its cache clean asked for.
   const asked = await answersStore(page)
   await opensLocalData(page)
-  await page.getByRole('button', { name: 'Clean cache…' }).click()
+  await page.getByRole('button', { name: 'Remove cache…' }).click()
   const question = page.getByRole('group', { name: 'Remove workflow.db?' })
   await expect(question).toBeFocused()
 
   // Act
-  await question.getByRole('button', { name: 'Clean' }).click()
+  await question.getByRole('button', { name: 'Remove' }).click()
 
   // Assert: said, removed from the listing, and read again after the clean.
   await expect(page.getByRole('status').filter({ hasText: 'Removed workflow.db.' })).toBeVisible()
-  const table = page.getByRole('table', { name: 'Local databases' })
+  const table = page.getByRole('table', { name: 'Local data files' })
   await expect(table.getByText('workflow.db')).toBeHidden()
   await expect(table.getByText('kept.db')).toBeVisible()
   await expect.poll(() => asked).toEqual(['GET ', 'DELETE ?scope=cache', 'GET '])
@@ -86,7 +86,7 @@ test('cleaning everything warns first, and Cancel sends nothing', async ({ page 
   // Arrange
   const asked = await answersStore(page)
   await opensLocalData(page)
-  await page.getByRole('button', { name: 'Clean everything…' }).click()
+  await page.getByRole('button', { name: 'Remove everything…' }).click()
   const question = page.getByRole('group', { name: 'Remove workflow.db and kept.db?' })
   await expect(question).toContainText('people and group associations will be asked again')
 
@@ -94,7 +94,7 @@ test('cleaning everything warns first, and Cancel sends nothing', async ({ page 
   await question.getByRole('button', { name: 'Cancel' }).click()
 
   // Assert
-  await expect(page.getByRole('button', { name: 'Clean everything…' })).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Remove everything…' })).toBeFocused()
   expect(asked).toEqual(['GET '])
 })
 
@@ -107,10 +107,10 @@ for (const theme of themes) {
         // Arrange: the populated Settings, in this theme, at this width.
         await openCockpit(page, { width, height }, theme)
         await openSection(page, 'Settings')
-        await expect(page.getByRole('table', { name: 'Local databases' })).toBeVisible()
+        await expect(page.getByRole('table', { name: 'Local data files' })).toBeVisible()
 
         // Act: open the confirm step that clears everything, and Tab once round.
-        await page.getByRole('button', { name: 'Clean everything…' }).click()
+        await page.getByRole('button', { name: 'Remove everything…' }).click()
         await expect(page.getByRole('group', { name: /remove workflow\.db/i })).toBeFocused()
         const { reached, missed, hidden } = await walkTabOrder(page)
 
@@ -119,7 +119,7 @@ for (const theme of themes) {
         // finds nothing.
         expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
         expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
-        expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(['Cancel', 'Clean']))
+        expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(['Cancel', 'Remove']))
         expect(missed, 'never reached by Tab').toEqual([])
         expect(hidden, 'out of view with focus').toEqual([])
         expect(await axeViolations(page), 'axe').toBe('')
@@ -136,10 +136,10 @@ test(
     await openCockpit(page, { width: 1440, height }, 'dark')
     await openSection(page, 'Settings')
     await expect(page.getByRole('button', { name: 'Forget dan…' })).toBeVisible()
-    await page.getByRole('button', { name: 'Clean everything…' }).click()
+    await page.getByRole('button', { name: 'Remove everything…' }).click()
 
     // Act
-    await page.getByRole('button', { name: 'Clean', exact: true }).click()
+    await page.getByRole('button', { name: 'Remove', exact: true }).click()
 
     // Assert: the people and groups went with the kept file.
     await expect(page.getByText('Removed workflow.db and kept.db.')).toBeVisible()

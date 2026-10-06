@@ -394,13 +394,13 @@ test('checks out an in-flight branch from the list without opening the detail', 
   renderWithClient(<IssuesPanel />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: /check out PROJ-1/i }))
+  await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-1' }))
 
   // Assert
   expect(mockCheckout).toHaveBeenCalledWith('fix/PROJ-1-leak')
 })
 
-test('does not offer to check out the branch already on HEAD', () => {
+test('does not offer to switch to the branch already on HEAD', () => {
   // Arrange
   withIssues()
   useSnapshotStore.setState((state) => ({
@@ -414,7 +414,7 @@ test('does not offer to check out the branch already on HEAD', () => {
   renderWithClient(<IssuesPanel />)
 
   // Assert
-  expect(screen.queryByRole('button', { name: /check out PROJ-1/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Switch branch for PROJ-1' })).toBeNull()
 })
 
 test('shows the reason when a list checkout is refused', async () => {
@@ -434,7 +434,7 @@ test('shows the reason when a list checkout is refused', async () => {
   renderWithClient(<IssuesPanel />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: /check out PROJ-1/i }))
+  await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-1' }))
 
   // Assert
   const alert = await screen.findByRole('alert')
@@ -460,7 +460,7 @@ test('is not offered when a branch on HEAD exists among several for one issue', 
   renderWithClient(<IssuesPanel />)
 
   // Assert
-  expect(screen.queryByRole('button', { name: /check out PROJ-1/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Switch branch for PROJ-1' })).toBeNull()
 })
 
 test('checks out the most recent branch when several name one issue', async () => {
@@ -481,7 +481,7 @@ test('checks out the most recent branch when several name one issue', async () =
   renderWithClient(<IssuesPanel />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: /check out PROJ-1/i }))
+  await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-1' }))
 
   // Assert
   expect(mockCheckout).toHaveBeenCalledWith('feat/PROJ-1-redo')

@@ -148,7 +148,7 @@ test('opens the Reviews section on the queue waiting on you', async () => {
 
   // Assert
   expect(screen.getByRole('heading', { level: 1, name: 'Reviews' })).toBeTruthy()
-  const list = await screen.findByRole('list', { name: 'Review requests' })
+  const list = await screen.findByRole('list', { name: 'Waiting on your review' })
   expect(within(list).getByRole('link', { name: 'Open #42 (opens in a new tab)' })).toBeTruthy()
   expect(document.activeElement).toBe(screen.getByRole('main'))
 })

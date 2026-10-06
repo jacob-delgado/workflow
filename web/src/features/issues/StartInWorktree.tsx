@@ -48,7 +48,7 @@ export function StartInWorktreeButton({ issueKey, outcome, onMade }: StartInWork
         }}
         className="self-start"
       >
-        {start.state === 'running' ? 'Making the worktree…' : 'Start in a new worktree'}
+        {start.state === 'running' ? 'Starting work…' : 'Start work in a new worktree'}
       </Button>
       {start.state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">

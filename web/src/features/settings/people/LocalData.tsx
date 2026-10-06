@@ -11,7 +11,7 @@ import { type CleanScope, useCleanLocalData, useLocalData } from './localDataApi
 
 // LocalData is Settings' Local data area: where workflow keeps what it learns
 // between sessions, each database file with its size and what it holds, and
-// the two cleans `workflow db-clean` makes, each behind a confirm step.
+// the two removals `workflow db-clean` makes, each behind a confirm step.
 export function LocalData() {
   const headingId = useId()
 
@@ -67,9 +67,9 @@ function Files({ listing }: { listing: Listing }) {
         <code className="font-mono break-all">{listing.dir}</code>
       </p>
       {listing.files.length === 0 ? (
-        <p className="text-muted-foreground">No local data: there is nothing to clean.</p>
+        <p className="text-muted-foreground">No local data: there is nothing to remove.</p>
       ) : (
-        <table aria-label="Local databases" className="w-full table-fixed text-left">
+        <table aria-label="Local data files" className="w-full table-fixed text-left">
           <thead className="text-xs text-muted-foreground">
             <tr>
               <th scope="col" className="w-28 py-1 font-medium">
@@ -127,7 +127,7 @@ function holdings(file: LocalDataFile): string {
   return file.holds.map((held) => `${held.what}: ${String(held.count)}`).join(', ')
 }
 
-// Cleans are the two cleans, each opening its confirm step, or under
+// Cleans are the two removals, each opening its confirm step, or under
 // --dry-run the sentence saying they are held back; and what the last one
 // said.
 function Cleans({ files }: { files: LocalDataFile[] }) {
@@ -142,7 +142,7 @@ function Cleans({ files }: { files: LocalDataFile[] }) {
     <div className="flex flex-col items-start gap-item">
       {dryRun ? (
         <p className="text-sm text-muted-foreground">
-          Cleaning is held back: workflow was started with{' '}
+          Removing is held back: workflow was started with{' '}
           <code className="font-mono">--dry-run</code>, so nothing is removed.
         </p>
       ) : (
@@ -163,7 +163,7 @@ function CleanSteps({ files, tell }: { files: LocalDataFile[]; tell: Teller }) {
   const handBackTo = useRef<CleanScope | null>(null)
   const cleanLocalData = useCleanLocalData()
   const clean = useAsyncAction(cleanLocalData, {
-    fallback: 'The local data was not cleaned. Try again.',
+    fallback: 'The local data was not removed. Try again.',
     done: (_, scope) => `Removed ${namesReached(files, scope)}.`,
     onStart: tell.clear,
     onDone: tell.say,
@@ -242,7 +242,7 @@ function CleanOpeners({ files, running, cacheOpener, allOpener, onOpen }: CleanO
             onOpen('cache')
           }}
         >
-          Clean cache…
+          Remove cache…
         </Button>
       ) : null}
       {files.length > 0 ? (
@@ -254,10 +254,10 @@ function CleanOpeners({ files, running, cacheOpener, allOpener, onOpen }: CleanO
             onOpen('all')
           }}
         >
-          Clean everything…
+          Remove everything…
         </Button>
       ) : null}
-      {running ? <span className="text-sm text-muted-foreground">Cleaning…</span> : null}
+      {running ? <span className="text-sm text-muted-foreground">Removing…</span> : null}
     </div>
   )
 }
@@ -303,7 +303,7 @@ function CleanConfirm({ scope, names, onCancel, onClean }: CleanConfirmProps) {
           Cancel
         </Button>
         <Button variant="primary" onClick={onClean}>
-          Clean
+          Remove
         </Button>
       </div>
     </div>

@@ -44,7 +44,7 @@ async function readConfig(signal?: AbortSignal): Promise<ConfigRead> {
 // would take an open form, and the edits in it, away — and a failed read is
 // not retried on its own: a problem answer, such as a file on disk that is not
 // valid, stands until the file changes, and retrying would only hide its
-// reason behind "Loading…" for seconds. Retry is the user's to press. Under
+// reason behind "Reading…" for seconds. Try again is the user's to press. Under
 // VITE_MOCK there is no file to change, and reading the fixture again would
 // undo a save's echo.
 function configQuery() {

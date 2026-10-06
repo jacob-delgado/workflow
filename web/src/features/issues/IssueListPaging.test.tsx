@@ -306,7 +306,7 @@ test('hands focus to the count when the filter hides every issue the page adds',
   servePages(['PROJ-1', 'PROJ-2', 'PROJ-3', 'PROJ-4'], 2)
   streamFirstPage(['PROJ-1', 'PROJ-2'], 4)
   renderWithClient(<IssuesPanel />)
-  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'proj-1')
+  await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'proj-1')
 
   // Act
   await user.click(screen.getByRole('button', { name: /load more/i }))

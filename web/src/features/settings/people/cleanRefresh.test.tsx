@@ -41,8 +41,8 @@ function keptUntilCleaned(): Request[] {
 
 // cleansEverything confirms a clean of everything and waits for its outcome.
 async function cleansEverything(user: ReturnType<typeof userEvent.setup>): Promise<void> {
-  await user.click(await screen.findByRole('button', { name: 'Clean everything…' }))
-  await user.click(screen.getByRole('button', { name: 'Clean' }))
+  await user.click(await screen.findByRole('button', { name: 'Remove everything…' }))
+  await user.click(screen.getByRole('button', { name: 'Remove' }))
 }
 
 test('cleaning everything shows the people and groups gone', async () => {

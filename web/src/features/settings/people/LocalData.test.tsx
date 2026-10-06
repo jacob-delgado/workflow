@@ -64,7 +64,7 @@ test('lists the directory and each file with its kind, size and what it holds', 
   renderWithClient(<LocalData />)
 
   // Assert
-  const table = await screen.findByRole('table', { name: 'Local databases' })
+  const table = await screen.findByRole('table', { name: 'Local data files' })
   expect(screen.getByText(dir)).toBeTruthy()
   const rows = within(table).getAllByRole('row')
   expect(rows.map((row) => row.textContent)).toEqual([
@@ -86,12 +86,12 @@ test('says when there is no local data', async () => {
   expect(screen.queryByRole('button', { name: /clean/i })).toBeNull()
 })
 
-test('Clean cache… asks first, in a group that takes focus, and Cancel sends nothing', async () => {
+test('Remove cache… asks first, in a group that takes focus, and Cancel sends nothing', async () => {
   // Arrange
   const user = userEvent.setup()
   const requests = storeHolding([cache, kept])
   renderWithClient(<LocalData />)
-  await user.click(await screen.findByRole('button', { name: 'Clean cache…' }))
+  await user.click(await screen.findByRole('button', { name: 'Remove cache…' }))
   const question = screen.getByRole('group', { name: /remove workflow\.db\?/i })
   expect(question.contains(document.activeElement)).toBe(true)
 
@@ -100,21 +100,21 @@ test('Clean cache… asks first, in a group that takes focus, and Cancel sends n
 
   // Assert
   expect(screen.queryByRole('group')).toBeNull()
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Clean cache…' }))
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Remove cache…' }))
   expect(requests.map((request) => request.method)).toEqual(['GET'])
 })
 
-test('Clean everything… warns associations will be asked again, cleans and reads again', async () => {
+test('Remove everything… warns associations will be asked again, removes and reads again', async () => {
   // Arrange
   const user = userEvent.setup()
   const requests = storeHolding([cache, kept])
   renderWithClient(<LocalData />)
-  await user.click(await screen.findByRole('button', { name: 'Clean everything…' }))
+  await user.click(await screen.findByRole('button', { name: 'Remove everything…' }))
   const question = screen.getByRole('group', { name: /remove workflow\.db and kept\.db\?/i })
   expect(question.textContent).toMatch(/people and group associations will be asked again/i)
 
   // Act
-  await user.click(within(question).getByRole('button', { name: 'Clean' }))
+  await user.click(within(question).getByRole('button', { name: 'Remove' }))
 
   // Assert
   expect(await screen.findByRole('status')).toHaveProperty(
@@ -133,16 +133,16 @@ test('cleaning the cache leaves the kept file listed', async () => {
   const user = userEvent.setup()
   storeHolding([cache, kept])
   renderWithClient(<LocalData />)
-  await user.click(await screen.findByRole('button', { name: 'Clean cache…' }))
+  await user.click(await screen.findByRole('button', { name: 'Remove cache…' }))
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Clean' }))
+  await user.click(screen.getByRole('button', { name: 'Remove' }))
 
   // Assert
   await waitFor(() => {
     expect(screen.getByRole('status').textContent).toBe('Removed workflow.db.')
   })
-  const table = screen.getByRole('table', { name: 'Local databases' })
+  const table = screen.getByRole('table', { name: 'Local data files' })
   expect(within(table).queryByText('workflow.db')).toBeNull()
   expect(within(table).getByText('kept.db')).toBeTruthy()
 })
@@ -152,14 +152,14 @@ test('a clean that could not remove a file says why', async () => {
   const user = userEvent.setup()
   refusing()
   renderWithClient(<LocalData />)
-  await user.click(await screen.findByRole('button', { name: 'Clean everything…' }))
+  await user.click(await screen.findByRole('button', { name: 'Remove everything…' }))
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Clean' }))
+  await user.click(screen.getByRole('button', { name: 'Remove' }))
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe('held open')
-  expect(screen.getByRole('table', { name: 'Local databases' })).toBeTruthy()
+  expect(screen.getByRole('table', { name: 'Local data files' })).toBeTruthy()
 })
 
 test('under --dry-run the cleans are held back, and the page says so', async () => {
@@ -171,9 +171,9 @@ test('under --dry-run the cleans are held back, and the page says so', async () 
   renderWithClient(<LocalData />)
 
   // Assert
-  await screen.findByRole('table', { name: 'Local databases' })
+  await screen.findByRole('table', { name: 'Local data files' })
   expect(screen.queryByRole('button', { name: /clean/i })).toBeNull()
-  expect(screen.getByText(/cleaning is held back/i)).toBeTruthy()
+  expect(screen.getByText(/removing is held back/i)).toBeTruthy()
 })
 
 test('a listing that could not be read says so and offers to read again', async () => {
@@ -188,7 +188,7 @@ test('a listing that could not be read says so and offers to read again', async 
   await user.click(again)
 
   // Assert
-  expect(await screen.findByRole('table', { name: 'Local databases' })).toBeTruthy()
+  expect(await screen.findByRole('table', { name: 'Local data files' })).toBeTruthy()
 })
 
 test('the mockup lists its store without a server', async () => {
@@ -199,7 +199,7 @@ test('the mockup lists its store without a server', async () => {
   renderWithClient(<LocalData />)
 
   // Assert
-  const table = await screen.findByRole('table', { name: 'Local databases' })
+  const table = await screen.findByRole('table', { name: 'Local data files' })
   expect(within(table).getByText('kept.db')).toBeTruthy()
   expect(globalThis.fetch).not.toHaveBeenCalled()
 })

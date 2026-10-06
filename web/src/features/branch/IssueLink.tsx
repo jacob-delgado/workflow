@@ -109,7 +109,7 @@ function Linked({ link, unlinker, outcome, onUnlinked }: LinkedProps) {
         <Button
           variant="secondary"
           ref={unlinker}
-          aria-label={`Unlink ${shown}`}
+          aria-label={`${unlink.state === 'running' ? 'Unlinking…' : 'Unlink'} ${shown}`}
           aria-disabled={unlink.state === 'running'}
           onClick={() => {
             if (unlink.state !== 'running') {
@@ -117,7 +117,7 @@ function Linked({ link, unlinker, outcome, onUnlinked }: LinkedProps) {
             }
           }}
         >
-          Unlink
+          {unlink.state === 'running' ? 'Unlinking…' : 'Unlink'}
         </Button>
       </div>
       <Refusal message={refusalOf(unlink)} />
@@ -160,6 +160,9 @@ function LinkForm({ outcome, onLinked, onClose }: LinkFormProps) {
     },
   })
 
+  // Linking asks for the preview, then links when no description changes.
+  const linking = ask.state === 'running' || link.state === 'running'
+
   const submit = (event: { preventDefault: () => void }) => {
     event.preventDefault()
     asked.current = key.trim()
@@ -189,8 +192,8 @@ function LinkForm({ outcome, onLinked, onClose }: LinkFormProps) {
       ) : null}
       <div className="flex gap-item">
         {preview ? null : (
-          <Button variant="primary" type="submit" disabled={ask.state === 'running'}>
-            Link
+          <Button variant="primary" type="submit" disabled={linking}>
+            {linking ? 'Linking…' : 'Link'}
           </Button>
         )}
         <Button variant="secondary" onClick={onClose}>

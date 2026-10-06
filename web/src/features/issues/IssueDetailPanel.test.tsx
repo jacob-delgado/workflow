@@ -226,7 +226,7 @@ test('reads a mock issue under VITE_MOCK', async () => {
   ).toBeTruthy()
 })
 
-test('says to press Retry when a read is refused with no reason', async () => {
+test('says to press Try again when a read is refused with no reason', async () => {
   // Arrange
   serveIssue({}, 500)
 
@@ -235,10 +235,10 @@ test('says to press Retry when a read is refused with no reason', async () => {
 
   // Assert
   const alert = await screen.findByRole('alert')
-  expect(alert.textContent).toBe('PROJ-1 could not be read. Press Retry to try again.')
+  expect(alert.textContent).toBe('PROJ-1 could not be read. Press Try again.')
 })
 
-test('Retry reads a refused issue again', async () => {
+test('Try again reads a refused issue again', async () => {
   // Arrange
   const answers = [Response.json({}, { status: 500 }), Response.json(detailOf())]
   const requests = fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
@@ -247,25 +247,25 @@ test('Retry reads a refused issue again', async () => {
   await screen.findByRole('alert')
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Retry' }))
+  await user.click(screen.getByRole('button', { name: 'Try again' }))
 
   // Assert
-  // The Retry goes once the issue is read, so its focus follows to the issue's
+  // The Try again goes once the issue is read, so its focus follows to the issue's
   // heading rather than falling to the page.
   expect(await screen.findByText('Tokens reach the request log.')).toBeTruthy()
   const reads = requests.filter((request) => new URL(request.url).pathname === '/api/issues/PROJ-1')
   expect(reads).toHaveLength(2)
-  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
   expect(document.activeElement).toBe(
     screen.getByRole('heading', { level: 2, name: detailOf().summary }),
   )
 })
 
-test('a Retry beside an issue never read keeps its focus through a read refused again', async () => {
+test('a Try again beside an issue never read keeps its focus through a read refused again', async () => {
   // Arrange
-  // The issue was never read: its first read was refused, so the Retry stands
-  // beside the reason alone. The read the Retry starts is held until the test
-  // answers it, so the Retry is caught mid-read.
+  // The issue was never read: its first read was refused, so the Try again stands
+  // beside the reason alone. The read the Try again starts is held until the test
+  // answers it, so the Try again is caught mid-read.
   let answer: (response: Response) => void = () => undefined
   const held = new Promise<Response>((resolve) => {
     answer = resolve
@@ -277,37 +277,37 @@ test('a Retry beside an issue never read keeps its focus through a read refused 
   )
   const user = userEvent.setup()
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
-  const retry = await screen.findByRole('button', { name: 'Retry' })
+  const retry = await screen.findByRole('button', { name: 'Try again' })
 
-  // Act: press Retry, and the read it starts is held
+  // Act: press Try again, and the read it starts is held
   await user.click(retry)
 
-  // Assert: the same Retry stays beside the reason, busy, with its focus
-  expect(await screen.findByRole('button', { name: 'Retrying…' })).toBe(retry)
+  // Assert: the same Try again stays beside the reason, busy, with its focus
+  expect(await screen.findByRole('button', { name: 'Trying again…' })).toBe(retry)
   expect(retry.getAttribute('aria-disabled')).toBe('true')
   expect(document.activeElement).toBe(retry)
   const keptAlert = screen.getByRole('alert')
-  expect(keptAlert.textContent).toBe('PROJ-1 could not be read. Press Retry to try again.')
+  expect(keptAlert.textContent).toBe('PROJ-1 could not be read. Press Try again.')
   expect(screen.queryByText(/reading PROJ-1/i)).toBeNull()
 
   // Act: the held read is refused too
   answer(Response.json({}, { status: 500 }))
 
-  // Assert: the same Retry, ready again, still has focus, and the refusal is
+  // Assert: the same Try again, ready again, still has focus, and the refusal is
   // told again in an alert of its own, since an alert that keeps its words is
   // not spoken again
-  expect(await screen.findByRole('button', { name: 'Retry' })).toBe(retry)
+  expect(await screen.findByRole('button', { name: 'Try again' })).toBe(retry)
   expect(retry.getAttribute('aria-disabled')).not.toBe('true')
   expect(document.activeElement).toBe(retry)
   const refusedAgain = screen.getByRole('alert')
   expect(refusedAgain).not.toBe(keptAlert)
-  expect(refusedAgain.textContent).toBe('PROJ-1 could not be read. Press Retry to try again.')
+  expect(refusedAgain.textContent).toBe('PROJ-1 could not be read. Press Try again.')
 })
 
-test('a read nobody pressed Retry for keeps the latest refusal beside an issue never read', async () => {
+test('a read nobody pressed Try again for keeps the latest refusal beside an issue never read', async () => {
   // Arrange
   // The issue was never read: its first read was refused, and so was the read
-  // its Retry started. A reconnect then reads it again on its own, and that
+  // its Try again started. A reconnect then reads it again on its own, and that
   // read is held, so the panel is caught mid-read.
   const refusal = (detail: string) =>
     Promise.resolve(
@@ -323,7 +323,7 @@ test('a read nobody pressed Retry for keeps the latest refusal beside an issue n
   )
   const user = userEvent.setup()
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
-  await user.click(await screen.findByRole('button', { name: 'Retry' }))
+  await user.click(await screen.findByRole('button', { name: 'Try again' }))
   await waitFor(() => {
     expect(screen.getByRole('alert').textContent).toBe('second refusal')
   })
@@ -335,7 +335,7 @@ test('a read nobody pressed Retry for keeps the latest refusal beside an issue n
   })
 
   // Assert
-  expect(await screen.findByRole('button', { name: 'Retrying…' })).toBeTruthy()
+  expect(await screen.findByRole('button', { name: 'Trying again…' })).toBeTruthy()
   expect(screen.getByRole('alert').textContent).toBe('second refusal')
 })
 
@@ -353,7 +353,7 @@ test('a retried issue read again later leaves focus where the user put it', asyn
   fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
   const user = userEvent.setup()
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
-  await user.click(await screen.findByRole('button', { name: 'Retry' }))
+  await user.click(await screen.findByRole('button', { name: 'Try again' }))
   await screen.findByText('Tokens reach the request log.')
   const jira = screen.getByRole('link', { name: /open in jira/i })
   jira.focus()
@@ -369,9 +369,9 @@ test('a retried issue read again later leaves focus where the user put it', asyn
   expect(document.activeElement).toBe(jira)
 })
 
-test('Retry beside an issue already read hands focus to its heading', async () => {
+test('Try again beside an issue already read hands focus to its heading', async () => {
   // Arrange
-  // The issue was read, then read again once stale and refused, so the Retry
+  // The issue was read, then read again once stale and refused, so the Try again
   // stands beside what the first read showed; the retried read answers the
   // same issue.
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -389,7 +389,7 @@ test('Retry beside an issue already read hands focus to its heading', async () =
   act(() => {
     window.dispatchEvent(new Event('visibilitychange'))
   })
-  const retry = await screen.findByRole('button', { name: 'Retry' })
+  const retry = await screen.findByRole('button', { name: 'Try again' })
 
   // Act
   await user.click(retry)
@@ -403,7 +403,7 @@ test('Retry beside an issue already read hands focus to its heading', async () =
   )
 })
 
-test('a Retry refused again beside an issue already read keeps its focus', async () => {
+test('a Try again refused again beside an issue already read keeps its focus', async () => {
   // Arrange
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
@@ -420,7 +420,7 @@ test('a Retry refused again beside an issue already read keeps its focus', async
   act(() => {
     window.dispatchEvent(new Event('visibilitychange'))
   })
-  const retry = await screen.findByRole('button', { name: 'Retry' })
+  const retry = await screen.findByRole('button', { name: 'Try again' })
 
   // Act
   await user.click(retry)
@@ -429,15 +429,15 @@ test('a Retry refused again beside an issue already read keeps its focus', async
   await waitFor(() => {
     expect(answers).toHaveLength(0)
   })
-  expect(await screen.findByRole('button', { name: 'Retry' })).toBe(retry)
+  expect(await screen.findByRole('button', { name: 'Try again' })).toBe(retry)
   expect(document.activeElement).toBe(retry)
 })
 
-test('a Retry in flight beside an issue already read keeps its focus and is not asked twice', async () => {
+test('a Try again in flight beside an issue already read keeps its focus and is not asked twice', async () => {
   // Arrange
-  // The issue was read, then read again once stale and refused, so the Retry
+  // The issue was read, then read again once stale and refused, so the Try again
   // stands beside what the first read showed. The retried read hangs, so the
-  // Retry is caught mid-read: a disabled control would drop the focus a
+  // Try again is caught mid-read: a disabled control would drop the focus a
   // keyboard user pressed it with, so it is marked busy instead, and a press
   // while busy starts nothing.
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -461,9 +461,9 @@ test('a Retry in flight beside an issue already read keeps its focus and is not 
   act(() => {
     window.dispatchEvent(new Event('visibilitychange'))
   })
-  const retry = await screen.findByRole('button', { name: 'Retry' })
+  const retry = await screen.findByRole('button', { name: 'Try again' })
   await user.click(retry)
-  await screen.findByRole('button', { name: 'Retrying…' })
+  await screen.findByRole('button', { name: 'Trying again…' })
 
   // Act
   await user.click(retry)

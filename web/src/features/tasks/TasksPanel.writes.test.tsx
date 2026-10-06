@@ -104,12 +104,12 @@ const verbs: Verb[] = [
     after: () => screen.queryByRole('button', { name: 'Start' }) !== null,
   },
   {
-    name: 'Done',
+    name: 'Mark done',
     shown: [tokenLeak, certificate],
-    act: (user) => user.click(screen.getByRole('button', { name: 'Done' })),
+    act: (user) => user.click(screen.getByRole('button', { name: 'Mark done' })),
     path: `${taskPath}/done`,
     answered: [certificate],
-    said: 'Completed task 1.',
+    said: 'Marked task 1 done.',
     after: () =>
       screen.queryByRole('heading', { level: 2, name: 'Renew the certificate' }) !== null,
   },
@@ -232,11 +232,11 @@ test("Done takes the done task's controls with it, so focus goes to what it said
   renderWithClient(<TasksPanel />)
 
   // Act
-  await user.click(await screen.findByRole('button', { name: 'Done' }))
+  await user.click(await screen.findByRole('button', { name: 'Mark done' }))
 
   // Assert
   await screen.findByRole('heading', { level: 2, name: 'Renew the certificate' })
-  expect(document.activeElement).toBe(statusSaying('Completed task 1.'))
+  expect(document.activeElement).toBe(statusSaying('Marked task 1 done.'))
 })
 
 test('a change Taskwarrior makes nothing of says why beside its button, and keeps the list', async () => {
