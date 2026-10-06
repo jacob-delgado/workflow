@@ -33,7 +33,9 @@ export async function pinTheme(page: Page, choice: string): Promise<void> {
 // openCockpit opens the populated cockpit in a theme in a window of a size,
 // with the checked-out issue's detail open beside, or under, the list. The
 // theme is pinned before the app paints, and motion is reduced, so nothing is
-// caught mid-transition.
+// caught mid-transition. The detail has settled once its comment box has the
+// Markdown bar the mockup's configuration turns on: the box draws before that
+// read lands, and the bar's Write tab and marks join the Tab order after it.
 export async function openCockpit(
   page: Page,
   size: { width: number; height: number },
@@ -45,32 +47,28 @@ export async function openCockpit(
   await page.goto('/')
   await page.getByRole('button', { name: /redact tokens before/i }).click()
   await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
+  await expect(page.getByRole('tablist', { name: 'Comment' })).toBeVisible()
 }
 
-// settled is what shows once a section has drawn what it will: Reviews reads
-// its own queue after its heading appears, Tasks Taskwarrior's list, and
-// Settings the configuration, so each settles with what its read fills in;
-// every other section settles with its heading.
-function settled(page: Page, name: string): Locator {
-  if (name === 'Reviews') {
-    return page.getByRole('list', { name: 'Waiting on your review' })
-  }
-
-  if (name === 'Tasks') {
-    return page.getByRole('list', { name: /tasks/i })
-  }
-
-  return name === 'Settings'
-    ? page.getByRole('button', { name: 'Save changes' })
-    : page.getByRole('heading', { level: 1, name })
+// readings are the "Reading …" status lines a section shows while a read of
+// its own is in flight. Every read says one (web/src/lib/Status.tsx), and the
+// controls it fills in draw only as it ends: Summary's period, Settings' code
+// owners, groups and local data, each after the heading is up. A walk counted
+// before they draw runs out of Tabs before it gets back round to the header.
+function readings(page: Page): Locator {
+  return page
+    .getByRole('main')
+    .getByRole('status')
+    .filter({ hasText: /^Reading/ })
 }
 
-// openSection opens a section from the rail, and waits for it to settle.
+// openSection opens a section from the rail, and waits for it to settle: its
+// heading up, and no read of its own still in flight.
 export async function openSection(page: Page, name: string): Promise<void> {
   await page
     .getByRole('navigation', { name: 'Sections' })
     .getByRole('button', { name, exact: true })
     .click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
-  await expect(settled(page, name)).toBeVisible()
+  await expect(readings(page)).toHaveCount(0)
 }
