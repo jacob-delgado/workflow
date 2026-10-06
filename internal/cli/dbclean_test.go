@@ -262,7 +262,7 @@ func TestTheWebListsAndCleansTheStoreDBCleanDoes(t *testing.T) {
 	web := cli.WebDeps(tui.Deps{})
 
 	// Act
-	cleanErr := web.CleanLocalData(store.CleanCache)
+	cleanErr := web.RemoveLocalData(store.CleanCache)
 	listed, files, listErr := web.LocalData(t.Context())
 
 	// Assert

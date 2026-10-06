@@ -472,18 +472,18 @@ func (e WorktreeState) Valid() bool {
 	}
 }
 
-// Defines values for CleanLocalDataParamsScope.
+// Defines values for RemoveLocalDataParamsScope.
 const (
-	CleanLocalDataParamsScopeAll   CleanLocalDataParamsScope = "all"
-	CleanLocalDataParamsScopeCache CleanLocalDataParamsScope = "cache"
+	RemoveLocalDataParamsScopeAll   RemoveLocalDataParamsScope = "all"
+	RemoveLocalDataParamsScopeCache RemoveLocalDataParamsScope = "cache"
 )
 
-// Valid indicates whether the value is a known member of the CleanLocalDataParamsScope enum.
-func (e CleanLocalDataParamsScope) Valid() bool {
+// Valid indicates whether the value is a known member of the RemoveLocalDataParamsScope enum.
+func (e RemoveLocalDataParamsScope) Valid() bool {
 	switch e {
-	case CleanLocalDataParamsScopeAll:
+	case RemoveLocalDataParamsScopeAll:
 		return true
-	case CleanLocalDataParamsScopeCache:
+	case RemoveLocalDataParamsScopeCache:
 		return true
 	default:
 		return false
@@ -1106,7 +1106,7 @@ type LocalData struct {
 	// Dir The directory the store keeps its files in.
 	Dir string `json:"dir"`
 
-	// DryRun Whether the server runs with --dry-run, which refuses a clean.
+	// DryRun Whether the server runs with --dry-run, which refuses a removal.
 	DryRun *bool `json:"dry_run,omitempty"`
 
 	// Files Each database file there, the cache first; a file not there is left out.
@@ -1121,14 +1121,14 @@ type LocalDataFile struct {
 	// Holds How many of each thing it holds; empty when the file could not be read as a database.
 	Holds []LocalDataHeld `json:"holds"`
 
-	// Kind cache holds conveniences a session makes again; kept holds what the user decided, which a clean of all makes workflow ask again.
+	// Kind cache holds conveniences a session makes again; kept holds what the user decided, which removing all makes workflow ask again.
 	Kind LocalDataFileKind `json:"kind"`
 
 	// Name The file's name in the directory, as workflow.db or kept.db.
 	Name string `json:"name"`
 }
 
-// LocalDataFileKind cache holds conveniences a session makes again; kept holds what the user decided, which a clean of all makes workflow ask again.
+// LocalDataFileKind cache holds conveniences a session makes again; kept holds what the user decided, which removing all makes workflow ask again.
 type LocalDataFileKind string
 
 // LocalDataHeld defines model for LocalDataHeld.
@@ -1804,14 +1804,14 @@ type ListIssuesParams struct {
 	StartAt *int `form:"start_at,omitempty" json:"start_at,omitempty"`
 }
 
-// CleanLocalDataParams defines parameters for CleanLocalData.
-type CleanLocalDataParams struct {
+// RemoveLocalDataParams defines parameters for RemoveLocalData.
+type RemoveLocalDataParams struct {
 	// Scope cache removes workflow.db; all also removes kept.db.
-	Scope CleanLocalDataParamsScope `form:"scope" json:"scope"`
+	Scope RemoveLocalDataParamsScope `form:"scope" json:"scope"`
 }
 
-// CleanLocalDataParamsScope defines parameters for CleanLocalData.
-type CleanLocalDataParamsScope string
+// RemoveLocalDataParamsScope defines parameters for RemoveLocalData.
+type RemoveLocalDataParamsScope string
 
 // ForgetPersonParams defines parameters for ForgetPerson.
 type ForgetPersonParams struct {

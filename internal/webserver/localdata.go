@@ -14,7 +14,7 @@ import (
 // errNoLocalData refuses the Local data area on a server wired with no store.
 var errNoLocalData = errors.New("the local data is not available here")
 
-// What a failed list or clean says, in words that name no path.
+// What a failed list or removal says, in words that name no path.
 const (
 	noStoreDirDetail   = "there is no directory to keep local data in: no home directory is set"
 	notStoreFileDetail = "something other than the store's own file, a symlink or a directory, " +
@@ -38,34 +38,34 @@ func (s *server) GetLocalData(
 	return api.GetLocalData200JSONResponse(data), nil
 }
 
-// CleanLocalData removes the cache, or with scope all the kept file too, and
+// RemoveLocalData removes the cache, or with scope all the kept file too, and
 // answers what is left.
-func (s *server) CleanLocalData(
-	ctx context.Context, request api.CleanLocalDataRequestObject,
-) (api.CleanLocalDataResponseObject, error) {
-	if s.deps.CleanLocalData == nil {
-		return api.CleanLocalData422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+func (s *server) RemoveLocalData(
+	ctx context.Context, request api.RemoveLocalDataRequestObject,
+) (api.RemoveLocalDataResponseObject, error) {
+	if s.deps.RemoveLocalData == nil {
+		return api.RemoveLocalData422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
 			errNoLocalData.Error())), nil
 	}
 
-	scope := map[api.CleanLocalDataParamsScope]store.CleanScope{
-		api.CleanLocalDataParamsScopeCache: store.CleanCache,
-		api.CleanLocalDataParamsScopeAll:   store.CleanAll,
+	scope := map[api.RemoveLocalDataParamsScope]store.CleanScope{
+		api.RemoveLocalDataParamsScopeCache: store.CleanCache,
+		api.RemoveLocalDataParamsScopeAll:   store.CleanAll,
 	}[request.Params.Scope]
 
-	err := s.keptWrite(func() error { return s.deps.CleanLocalData(scope) })
+	err := s.keptWrite(func() error { return s.deps.RemoveLocalData(scope) })
 	if err == nil {
 		var data api.LocalData
 
 		data, err = s.localData(ctx)
 		if err == nil {
-			return api.CleanLocalData200JSONResponse(data), nil
+			return api.RemoveLocalData200JSONResponse(data), nil
 		}
 	}
 
 	prob, code := s.localDataFault(err)
 
-	return api.CleanLocalDatadefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+	return api.RemoveLocalDatadefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
 }
 
 // localData reads the store's directory and files into the answer's shape.
@@ -105,7 +105,7 @@ func localDataFileDTO(file store.DataFile) api.LocalDataFile {
 	}
 }
 
-// localDataFault is the problem a failed list or clean is answered with: a
+// localDataFault is the problem a failed list or removal is answered with: a
 // file held open is a conflict with the state on disk; no store, no directory
 // or something not the store's own in a file's place cannot be carried out.
 func (s *server) localDataFault(err error) (api.Problem, int) {

@@ -302,7 +302,7 @@ func (s *server) inWorkspace(use func(workspace string) error) error {
 	return use(workspace)
 }
 
-// keptWrite runs write, a write to the kept associations or a clean of the
+// keptWrite runs write, a write to the kept associations or a removal of the
 // local data, after any other under way.
 func (s *server) keptWrite(write func() error) error {
 	s.keptWrites.Lock()

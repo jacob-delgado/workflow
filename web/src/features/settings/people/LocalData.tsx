@@ -7,7 +7,7 @@ import { Reading, Unread } from '@/lib/Status.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { type CleanScope, useCleanLocalData, useLocalData } from './localDataApi.ts'
+import { type RemoveScope, useRemoveLocalData, useLocalData } from './localDataApi.ts'
 
 // LocalData is Settings' Local data area: where workflow keeps what it learns
 // between sessions, each database file with its size and what it holds, and
@@ -29,7 +29,7 @@ export function LocalData() {
   )
 }
 
-// LocalDataBody is the listing and its cleans, or why it could not be read.
+// LocalDataBody is the listing and its removals, or why it could not be read.
 function LocalDataBody() {
   const query = useLocalData()
 
@@ -53,7 +53,7 @@ function LocalDataBody() {
   return (
     <>
       <Files listing={query.data} />
-      <Cleans files={query.data.files} />
+      <Removals files={query.data.files} />
     </>
   )
 }
@@ -127,10 +127,10 @@ function holdings(file: LocalDataFile): string {
   return file.holds.map((held) => `${held.what}: ${String(held.count)}`).join(', ')
 }
 
-// Cleans are the two removals, each opening its confirm step, or under
+// Removals are the two removals, each opening its confirm step, or under
 // --dry-run the sentence saying they are held back; and what the last one
 // said.
-function Cleans({ files }: { files: LocalDataFile[] }) {
+function Removals({ files }: { files: LocalDataFile[] }) {
   const dryRun = useHealthStore((state) => state.health?.dry_run === true)
   const outcome = useOutcome()
 
@@ -146,30 +146,30 @@ function Cleans({ files }: { files: LocalDataFile[] }) {
           <code className="font-mono">--dry-run</code>, so nothing is removed.
         </p>
       ) : (
-        <CleanSteps files={files} tell={outcome} />
+        <RemoveSteps files={files} tell={outcome} />
       )}
       <OutcomeLine said={outcome.said} />
     </div>
   )
 }
 
-// CleanSteps are the two openers, or the confirm step one of them opened,
-// and the reason the last clean was refused.
-function CleanSteps({ files, tell }: { files: LocalDataFile[]; tell: Teller }) {
-  const [confirming, setConfirming] = useState<CleanScope | null>(null)
-  const [refusedFrom, setRefusedFrom] = useState<CleanScope>('cache')
+// RemoveSteps are the two openers, or the confirm step one of them opened,
+// and the reason the last removal was refused.
+function RemoveSteps({ files, tell }: { files: LocalDataFile[]; tell: Teller }) {
+  const [confirming, setConfirming] = useState<RemoveScope | null>(null)
+  const [refusedFrom, setRefusedFrom] = useState<RemoveScope>('cache')
   const cacheOpener = useRef<HTMLButtonElement>(null)
   const allOpener = useRef<HTMLButtonElement>(null)
-  const handBackTo = useRef<CleanScope | null>(null)
-  const cleanLocalData = useCleanLocalData()
-  const clean = useAsyncAction(cleanLocalData, {
+  const handBackTo = useRef<RemoveScope | null>(null)
+  const removeLocalData = useRemoveLocalData()
+  const removal = useAsyncAction(removeLocalData, {
     fallback: 'The local data was not removed. Try again.',
     done: (_, scope) => `Removed ${namesReached(files, scope)}.`,
     onStart: tell.clear,
     onDone: tell.say,
   })
 
-  // Focus goes back to the opener a Cancel closed, or to the one whose clean
+  // Focus goes back to the opener a Cancel closed, or to the one whose removal
   // was refused when focus had fallen to the page.
   useEffect(() => {
     const opener = { cache: cacheOpener, all: allOpener, none: null }[handBackTo.current ?? 'none']
@@ -179,24 +179,24 @@ function CleanSteps({ files, tell }: { files: LocalDataFile[]; tell: Teller }) {
     }
   })
   useEffect(() => {
-    if (clean.state === 'error' && document.activeElement === document.body) {
+    if (removal.state === 'error' && document.activeElement === document.body) {
       ;(refusedFrom === 'cache' ? cacheOpener : allOpener).current?.focus()
     }
-  }, [clean.state, refusedFrom])
+  }, [removal.state, refusedFrom])
 
   if (confirming !== null) {
     return (
-      <CleanConfirm
+      <RemoveConfirm
         scope={confirming}
         names={namesReached(files, confirming)}
         onCancel={() => {
           handBackTo.current = confirming
           setConfirming(null)
         }}
-        onClean={() => {
+        onRemove={() => {
           setRefusedFrom(confirming)
           setConfirming(null)
-          void clean.run(confirming)
+          void removal.run(confirming)
         }}
       />
     )
@@ -204,33 +204,33 @@ function CleanSteps({ files, tell }: { files: LocalDataFile[]; tell: Teller }) {
 
   return (
     <>
-      <CleanOpeners
+      <RemoveOpeners
         files={files}
-        running={clean.state === 'running'}
+        running={removal.state === 'running'}
         cacheOpener={cacheOpener}
         allOpener={allOpener}
         onOpen={setConfirming}
       />
-      {clean.state === 'error' ? (
+      {removal.state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">
-          {clean.error}
+          {removal.error}
         </p>
       ) : null}
     </>
   )
 }
 
-interface CleanOpenersProps {
+interface RemoveOpenersProps {
   files: LocalDataFile[]
   running: boolean
   cacheOpener: RefObject<HTMLButtonElement | null>
   allOpener: RefObject<HTMLButtonElement | null>
-  onOpen: (scope: CleanScope) => void
+  onOpen: (scope: RemoveScope) => void
 }
 
-// CleanOpeners are the buttons that open each clean's confirm step: the cache
+// RemoveOpeners are the buttons that open each removal's confirm step: the cache
 // while there is one, and everything while there is anything.
-function CleanOpeners({ files, running, cacheOpener, allOpener, onOpen }: CleanOpenersProps) {
+function RemoveOpeners({ files, running, cacheOpener, allOpener, onOpen }: RemoveOpenersProps) {
   return (
     <div className="flex flex-wrap items-center gap-item">
       {files.some((file) => file.kind === 'cache') ? (
@@ -262,25 +262,25 @@ function CleanOpeners({ files, running, cacheOpener, allOpener, onOpen }: CleanO
   )
 }
 
-// namesReached names the files a clean of scope removes, joined by "and".
-function namesReached(files: LocalDataFile[], scope: CleanScope): string {
+// namesReached names the files a removal of scope removes, joined by "and".
+function namesReached(files: LocalDataFile[], scope: RemoveScope): string {
   return files
     .filter((file) => file.kind === 'cache' || scope === 'all')
     .map((file) => file.name)
     .join(' and ')
 }
 
-interface CleanConfirmProps {
-  scope: CleanScope
+interface RemoveConfirmProps {
+  scope: RemoveScope
   names: string
   onCancel: () => void
-  onClean: () => void
+  onRemove: () => void
 }
 
-// CleanConfirm asks before a clean, and takes focus as it opens, so a screen
-// reader hears the question. Cleaning everything says what is lost with the
+// RemoveConfirm asks before a removal, and takes focus as it opens, so a screen
+// reader hears the question. Removing everything says what is lost with the
 // kept file.
-function CleanConfirm({ scope, names, onCancel, onClean }: CleanConfirmProps) {
+function RemoveConfirm({ scope, names, onCancel, onRemove }: RemoveConfirmProps) {
   const question = useFocusOnMount<HTMLDivElement>()
   const questionId = useId()
 
@@ -302,7 +302,7 @@ function CleanConfirm({ scope, names, onCancel, onClean }: CleanConfirmProps) {
         <Button variant="secondary" onClick={onCancel}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={onClean}>
+        <Button variant="primary" onClick={onRemove}>
           Remove
         </Button>
       </div>

@@ -58,7 +58,7 @@ tags:
   - name: config
     description: The configuration file, read and written.
   - name: local-data
-    description: The local databases workflow keeps between sessions, listed and cleaned.
+    description: The local databases workflow keeps between sessions, listed and removed.
   - name: people
     description: >-
       Whom each code owner is on Slack, and the user groups a repository
@@ -603,7 +603,7 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
     delete:
-      operationId: cleanLocalData
+      operationId: removeLocalData
       summary: Remove the cache, or with scope all the kept associations too.
       description: >-
         Removes the cache's database with its -wal and -shm companions, and
@@ -622,7 +622,7 @@ paths:
             enum: [cache, all]
       responses:
         "200":
-          description: The directory and the database files left after the clean.
+          description: The directory and the database files left after the removal.
           content:
             application/json:
               schema:
@@ -641,7 +641,7 @@ paths:
           description: >-
             Something other than the store's own plain file sits where a
             database file belongs, a symlink or a directory; nothing was
-            removed. Or cleaning is not available here.
+            removed. Or removing is not available here.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -2119,7 +2119,7 @@ components:
           items: {$ref: "#/components/schemas/LocalDataFile"}
         dry_run:
           type: boolean
-          description: Whether the server runs with --dry-run, which refuses a clean.
+          description: Whether the server runs with --dry-run, which refuses a removal.
       additionalProperties: false
 
     LocalDataFile:
@@ -2135,7 +2135,7 @@ components:
           enum: [cache, kept]
           description: >-
             cache holds conveniences a session makes again; kept holds what the
-            user decided, which a clean of all makes workflow ask again.
+            user decided, which removing all makes workflow ask again.
         bytes:
           type: integer
           format: int64

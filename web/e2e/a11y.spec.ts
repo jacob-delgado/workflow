@@ -142,7 +142,7 @@ const confirmSteps = [
     group: 'Forget carla?',
   },
   {
-    step: 'clean confirmation in Local data',
+    step: 'remove confirmation in Local data',
     section: 'Settings',
     opener: 'Remove cache…',
     group: 'Remove workflow.db?',

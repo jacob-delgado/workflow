@@ -41,7 +41,7 @@ func newFakeStore() *fakeStore {
 // wire hands the fake to deps.
 func (f *fakeStore) wire(deps *webserver.Deps) {
 	deps.LocalData = func(context.Context) (string, []store.DataFile, error) { return storeDir, f.files, nil }
-	deps.CleanLocalData = func(scope store.CleanScope) error {
+	deps.RemoveLocalData = func(scope store.CleanScope) error {
 		if f.failure != nil {
 			return f.failure
 		}

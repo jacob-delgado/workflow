@@ -227,7 +227,7 @@ export type LocalData = {
      */
     files: Array<LocalDataFile>;
     /**
-     * Whether the server runs with --dry-run, which refuses a clean.
+     * Whether the server runs with --dry-run, which refuses a removal.
      */
     dry_run?: boolean;
 };
@@ -241,7 +241,7 @@ export type LocalDataFile = {
      */
     name: string;
     /**
-     * cache holds conveniences a session makes again; kept holds what the user decided, which a clean of all makes workflow ask again.
+     * cache holds conveniences a session makes again; kept holds what the user decided, which removing all makes workflow ask again.
      */
     kind: 'cache' | 'kept';
     /**
@@ -2000,7 +2000,7 @@ export type UpdateConfigResponses = {
 
 export type UpdateConfigResponse = UpdateConfigResponses[keyof UpdateConfigResponses];
 
-export type CleanLocalDataData = {
+export type RemoveLocalDataData = {
     body?: never;
     path?: never;
     query: {
@@ -2012,13 +2012,13 @@ export type CleanLocalDataData = {
     url: '/api/local-data';
 };
 
-export type CleanLocalDataErrors = {
+export type RemoveLocalDataErrors = {
     /**
      * A file could not be removed, as one another program holds open can be on Windows. A file that could not be set aside leaves every file in place; one that could not be deleted after the rest were may leave some removed, so read the listing again to see what is left.
      */
     409: Problem;
     /**
-     * Something other than the store's own plain file sits where a database file belongs, a symlink or a directory; nothing was removed. Or cleaning is not available here.
+     * Something other than the store's own plain file sits where a database file belongs, a symlink or a directory; nothing was removed. Or removing is not available here.
      */
     422: Problem;
     /**
@@ -2027,16 +2027,16 @@ export type CleanLocalDataErrors = {
     default: Problem;
 };
 
-export type CleanLocalDataError = CleanLocalDataErrors[keyof CleanLocalDataErrors];
+export type RemoveLocalDataError = RemoveLocalDataErrors[keyof RemoveLocalDataErrors];
 
-export type CleanLocalDataResponses = {
+export type RemoveLocalDataResponses = {
     /**
-     * The directory and the database files left after the clean.
+     * The directory and the database files left after the removal.
      */
     200: LocalData;
 };
 
-export type CleanLocalDataResponse = CleanLocalDataResponses[keyof CleanLocalDataResponses];
+export type RemoveLocalDataResponse = RemoveLocalDataResponses[keyof RemoveLocalDataResponses];
 
 export type GetLocalDataData = {
     body?: never;

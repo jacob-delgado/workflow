@@ -78,9 +78,9 @@ type ServerInterface interface {
 	// TransitionIssue Move an issue to the configured review status.
 	// (POST /api/issues/{key}/transition)
 	TransitionIssue(w http.ResponseWriter, r *http.Request, key string)
-	// CleanLocalData Remove the cache, or with scope all the kept associations too.
+	// RemoveLocalData Remove the cache, or with scope all the kept associations too.
 	// (DELETE /api/local-data)
-	CleanLocalData(w http.ResponseWriter, r *http.Request, params CleanLocalDataParams)
+	RemoveLocalData(w http.ResponseWriter, r *http.Request, params RemoveLocalDataParams)
 	// GetLocalData The local databases workflow keeps, each with its size and what it holds.
 	// (GET /api/local-data)
 	GetLocalData(w http.ResponseWriter, r *http.Request)
@@ -667,14 +667,14 @@ func (siw *ServerInterfaceWrapper) TransitionIssue(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
-// CleanLocalData operation middleware
-func (siw *ServerInterfaceWrapper) CleanLocalData(w http.ResponseWriter, r *http.Request) {
+// RemoveLocalData operation middleware
+func (siw *ServerInterfaceWrapper) RemoveLocalData(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params CleanLocalDataParams
+	var params RemoveLocalDataParams
 
 	// ------------- Required query parameter "scope" -------------
 
@@ -690,7 +690,7 @@ func (siw *ServerInterfaceWrapper) CleanLocalData(w http.ResponseWriter, r *http
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CleanLocalData(w, r, params)
+		siw.Handler.RemoveLocalData(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1428,7 +1428,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/messaging", wrapper.GetMessaging)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/config", wrapper.GetConfig)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/local-data", wrapper.CleanLocalData)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/local-data", wrapper.RemoveLocalData)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/local-data", wrapper.GetLocalData)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/slack/members", wrapper.GetSlackMembers)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/slack/groups", wrapper.GetSlackGroups)
@@ -2670,17 +2670,17 @@ func (response TransitionIssuedefaultApplicationProblemPlusJSONResponse) VisitTr
 	return err
 }
 
-type CleanLocalDataRequestObject struct {
-	Params CleanLocalDataParams
+type RemoveLocalDataRequestObject struct {
+	Params RemoveLocalDataParams
 }
 
-type CleanLocalDataResponseObject interface {
-	VisitCleanLocalDataResponse(w http.ResponseWriter) error
+type RemoveLocalDataResponseObject interface {
+	VisitRemoveLocalDataResponse(w http.ResponseWriter) error
 }
 
-type CleanLocalData200JSONResponse LocalData
+type RemoveLocalData200JSONResponse LocalData
 
-func (response CleanLocalData200JSONResponse) VisitCleanLocalDataResponse(w http.ResponseWriter) error {
+func (response RemoveLocalData200JSONResponse) VisitRemoveLocalDataResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2692,9 +2692,9 @@ func (response CleanLocalData200JSONResponse) VisitCleanLocalDataResponse(w http
 	return err
 }
 
-type CleanLocalData409ApplicationProblemPlusJSONResponse Problem
+type RemoveLocalData409ApplicationProblemPlusJSONResponse Problem
 
-func (response CleanLocalData409ApplicationProblemPlusJSONResponse) VisitCleanLocalDataResponse(w http.ResponseWriter) error {
+func (response RemoveLocalData409ApplicationProblemPlusJSONResponse) VisitRemoveLocalDataResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2706,9 +2706,9 @@ func (response CleanLocalData409ApplicationProblemPlusJSONResponse) VisitCleanLo
 	return err
 }
 
-type CleanLocalData422ApplicationProblemPlusJSONResponse Problem
+type RemoveLocalData422ApplicationProblemPlusJSONResponse Problem
 
-func (response CleanLocalData422ApplicationProblemPlusJSONResponse) VisitCleanLocalDataResponse(w http.ResponseWriter) error {
+func (response RemoveLocalData422ApplicationProblemPlusJSONResponse) VisitRemoveLocalDataResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2720,12 +2720,12 @@ func (response CleanLocalData422ApplicationProblemPlusJSONResponse) VisitCleanLo
 	return err
 }
 
-type CleanLocalDatadefaultApplicationProblemPlusJSONResponse struct {
+type RemoveLocalDatadefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response CleanLocalDatadefaultApplicationProblemPlusJSONResponse) VisitCleanLocalDataResponse(w http.ResponseWriter) error {
+func (response RemoveLocalDatadefaultApplicationProblemPlusJSONResponse) VisitRemoveLocalDataResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -4662,9 +4662,9 @@ type StrictServerInterface interface {
 	// TransitionIssue Move an issue to the configured review status.
 	// (POST /api/issues/{key}/transition)
 	TransitionIssue(ctx context.Context, request TransitionIssueRequestObject) (TransitionIssueResponseObject, error)
-	// CleanLocalData Remove the cache, or with scope all the kept associations too.
+	// RemoveLocalData Remove the cache, or with scope all the kept associations too.
 	// (DELETE /api/local-data)
-	CleanLocalData(ctx context.Context, request CleanLocalDataRequestObject) (CleanLocalDataResponseObject, error)
+	RemoveLocalData(ctx context.Context, request RemoveLocalDataRequestObject) (RemoveLocalDataResponseObject, error)
 	// GetLocalData The local databases workflow keeps, each with its size and what it holds.
 	// (GET /api/local-data)
 	GetLocalData(ctx context.Context, request GetLocalDataRequestObject) (GetLocalDataResponseObject, error)
@@ -5354,25 +5354,25 @@ func (sh *strictHandler) TransitionIssue(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-// CleanLocalData operation middleware
-func (sh *strictHandler) CleanLocalData(w http.ResponseWriter, r *http.Request, params CleanLocalDataParams) {
-	var request CleanLocalDataRequestObject
+// RemoveLocalData operation middleware
+func (sh *strictHandler) RemoveLocalData(w http.ResponseWriter, r *http.Request, params RemoveLocalDataParams) {
+	var request RemoveLocalDataRequestObject
 
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CleanLocalData(ctx, request.(CleanLocalDataRequestObject))
+		return sh.ssi.RemoveLocalData(ctx, request.(RemoveLocalDataRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CleanLocalData")
+		handler = middleware(handler, "RemoveLocalData")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CleanLocalDataResponseObject); ok {
-		if err := validResponse.VisitCleanLocalDataResponse(w); err != nil {
+	} else if validResponse, ok := response.(RemoveLocalDataResponseObject); ok {
+		if err := validResponse.VisitRemoveLocalDataResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

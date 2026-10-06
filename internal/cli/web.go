@@ -115,8 +115,8 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		ChannelMembers: deps.Messaging.ChannelMembers,
 		UserGroups:     deps.Messaging.UserGroups,
 
-		LocalData:      localData,
-		CleanLocalData: cleanLocalData,
+		LocalData:       localData,
+		RemoveLocalData: cleanLocalData,
 
 		CheckKeys: tui.CheckKeys,
 		Clock:     deps.Clock,

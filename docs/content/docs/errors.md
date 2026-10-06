@@ -81,13 +81,13 @@ it — edited on disk, or saved from another tab — which a save refuses rather
 than overwrite, short of an edit landing between the save's check and its write
 ([Web]({{< relref "/docs/web" >}}) names that window). Taskwarrior answers it
 too, for a task it changed nothing on — already started, not started, or no
-longer pending — and for an undo with nothing to undo. Cleaning the local data
+longer pending — and for an undo with nothing to undo. Removing the local data
 in Settings answers it for a database file that could not be removed, as one
 another program holds open can be on Windows. Every file is set aside before
 any is removed, so a file that cannot be set aside leaves them all in place;
 one that cannot be deleted after that may leave others already gone, so the
 area reads the listing again to show what is left. Close other workflow
-sessions and clean again (the command line's `workflow db-clean` exits 4
+sessions and remove again (the command line's `workflow db-clean` exits 4
 there).
 
 ## Unprocessable
@@ -140,7 +140,7 @@ that failed, in fixed words: Taskwarrior's name the sync server, so the detail
 says to run `task sync` in a terminal to see them.
 The Local data area in Settings answers it when there is no directory to keep
 the store in (no home directory is set), for a server wired with no store, and
-for a clean that finds something other than the store's own plain file — a
+for a removal that finds something other than the store's own plain file — a
 symlink or a directory — where a database file belongs, which it refuses
 without removing anything (`workflow db-clean` exits 1 there).
 People and groups answers it when the configuration in effect has no Slack
