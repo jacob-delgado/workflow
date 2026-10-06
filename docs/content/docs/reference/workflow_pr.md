@@ -20,7 +20,8 @@ The code owners of the paths the branch changes, as CODEOWNERS on the base names
 them, are asked to review it; the preview lists them.
 
 Once it is open, it offers — as the interface does — to link it on the branch's
-issue, then to move the issue to the review status (jira.review_status).
+issue, then to move the issue to the review status (jira.review_status). With
+messaging set up, it ends by naming the next step, workflow announce, on stderr.
 
 --json prints what was opened, and each offer and whether it was taken, as one
 JSON object on stdout — under --dry-run, the pull request it would open — and

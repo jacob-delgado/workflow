@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -52,6 +53,9 @@ type prSeams struct {
 	// GitLab — the questions and the result use.
 	Kind    forge.Kind
 	Confirm func(question string) (bool, error)
+	// MessagingSetUp ends an open with the step that follows it, announcing,
+	// which only a configured messaging service can take.
+	MessagingSetUp bool
 }
 
 // newPRCmd builds `workflow pr`.
@@ -71,7 +75,8 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 			"The code owners of the paths the branch changes, as CODEOWNERS on the base names\n" +
 			"them, are asked to review it; the preview lists them.\n\n" +
 			"Once it is open, it offers — as the interface does — to link it on the branch's\n" +
-			"issue, then to move the issue to the review status (jira.review_status).\n\n" +
+			"issue, then to move the issue to the review status (jira.review_status). With\n" +
+			"messaging set up, it ends by naming the next step, workflow announce, on stderr.\n\n" +
 			"--json prints what was opened, and each offer and whether it was taken, as one\n" +
 			"JSON object on stdout — under --dry-run, the pull request it would open — and\n" +
 			"says everything else, the preview included, on stderr.",
@@ -113,14 +118,15 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, asJSON b
 			Project:     cfg.Jira.Project,
 			TitleSource: convention.TitleSource(cfg.PullRequest.TitleSource),
 		},
-		Push:         deps.Git.Push,
-		CreatePull:   deps.Forge.CreatePullRequest,
-		LinkPull:     deps.Jira.LinkPullRequest,
-		Transitions:  deps.Jira.Transitions,
-		Transition:   deps.Jira.Transition,
-		ReviewStatus: cfg.Jira.ReviewStatus,
-		Kind:         deps.Forge.Kind,
-		Confirm:      func(question string) (bool, error) { return confirm(prompt, question) },
+		Push:           deps.Git.Push,
+		CreatePull:     deps.Forge.CreatePullRequest,
+		LinkPull:       deps.Jira.LinkPullRequest,
+		Transitions:    deps.Jira.Transitions,
+		Transition:     deps.Jira.Transition,
+		ReviewStatus:   cfg.Jira.ReviewStatus,
+		Kind:           deps.Forge.Kind,
+		Confirm:        func(question string) (bool, error) { return confirm(prompt, question) },
+		MessagingSetUp: cfg.Messaging.Mode() != config.MessagingNone,
 	}
 
 	out := outputOf(cmd)
@@ -272,7 +278,12 @@ func openPull(
 
 	issueKey, _ := loop.JiraIssue(branch, seams.Options.Project)
 
-	return followUp(out.notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts, report)
+	report, err = followUp(out.notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts, report)
+	if err == nil && seams.MessagingSetUp {
+		fmt.Fprintln(out.notes, "Announce it with workflow announce.")
+	}
+
+	return report, err
 }
 
 // openedPull is a pull request just opened — under a dry run, the one that
