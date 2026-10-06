@@ -96,9 +96,12 @@ story**: the branch, the changes, the pull request and the announcement, each
 step opening the section it belongs to. A step reads done, not yet, or failed
 by the rules of the terminal's top row and `workflow status`: the changes are
 done once there is a commit, and the pull request is done once its CI passes
-or it merges, and failed on a CI failure or changes asked for. The story never
-marks the announcement done, because the web keeps no record of one. From the
-story, **Start work** creates and checks out a branch named for the issue, and
+or it merges, and failed on a CI failure or changes asked for. The
+announcement is done once the pull request was announced at the moment it is
+at now — from the browser, the terminal or `workflow announce`, as the store
+remembers. From the
+story, **Start work** fetches origin, so the branch starts from what origin
+holds now, then creates and checks out a branch named for the issue, and
 **Switch branch** switches to one it already has. **Start work in a new
 worktree** creates the branch in a new git worktree beside the repository
 instead, leaving the checkout here as it is, then says where and offers
@@ -106,7 +109,10 @@ instead, leaving the checkout here as it is, then says where and offers
 check out twice, offers **Switch to its worktree** in place of the checkout.
 Either asks "Switch to DIR?" first, as every switch in Repositories does, and
 switches only on **Switch** there; one held by a worktree whose directory is gone says that `git worktree prune`
-frees it. Once Taskwarrior has
+frees it. When the fetch fails — the network, origin's address, your
+credential — nothing is made, the reason is said, and **Branch from what you
+have** starts the branch from the base as it was last fetched, as the
+terminal's branch creator offers. Once Taskwarrior has
 answered, a **Tasks** card sits between the story and the description;
 [Tasks](#tasks) says what it holds. Below a large width the list sits over the
 detail rather than beside it.
@@ -132,7 +138,9 @@ issue again; a refusal stays beside the form, which keeps what was entered.
 The comments are drawn from Jira's wiki markup: bold, italic, struck and code
 text, links, headings, quotes, lists and code blocks. Anything else, such as a
 table, a panel or a color, shows as the text it is, and an image is offered as
-a link rather than loaded. Under the thread, a box takes a comment. On a Jira
+a link rather than loaded. Under the thread, a box takes a comment; on a Jira
+issue it says it is reading how comments are written until the configuration
+answers, then draws in that shape. On a Jira
 issue the comment is Markdown, as `jira.markdown_comments` is on by default:
 **Write** and **Preview** are tabs, Preview shows it as Jira will, and the
 buttons beside them write bold, italic, code, a link or a list around what is
@@ -158,7 +166,9 @@ name names no issue, to one: a Jira key or a forge number such as `#42`. When
 its pull request's description does not name the issue yet, it is shown with
 the issue's line added first, with **Link and update** or **Link only**. A
 linked branch says so, with **Unlink**; the link is kept in the repository's
-git configuration, as the terminal's `i` keeps it.
+git configuration, as the terminal's `i` keeps it. **Rebase onto** the base
+replays the branch onto it, as the terminal's `u` does, after a last look
+that says its commits are rewritten.
 
 Under **Working tree**, each changed file has its own **Stage** or
 **Unstage**, and **Stage all** stages the rest. The commit form builds a
@@ -166,7 +176,30 @@ Conventional Commit from its type, scope, subject, body and a breaking-change
 box, with the scope the terminal would suggest already filled in; **Commit
 staged changes** commits, adds the trailer naming the branch's issue (`Refs:`
 unless `commit.refs_trailer` relabels it), and runs the repository's own
-hooks. A hook that refuses the commit says why.
+hooks. A hook that refuses the commit says why. **Show diff** under a changed
+file reads its diff against HEAD, staged and unstaged together, and **Hide
+diff** puts it away.
+
+Under the commits, **Run pre-commit** runs the pre-commit hook on what is
+staged without committing, as the terminal's `h` does, at once: it changes
+nothing that leaves the machine. While something is staged and a commit is
+not yet pushed, **Amend last commit** folds the staged changes into the last
+one, keeping its message, and **Fix up a commit** records a `fixup!` of the
+one chosen among those not yet pushed — the terminal's `A` and `f` — each
+after a last look at the commit it rewrites. A rebase, a run of pre-commit, an
+amend and a fixup each show their output as it is written, with **Stop**,
+which stops the program and all it started, then how it ended, with
+**Close**. One goes at a time, and it holds the index, so a stage or a commit
+asked for meanwhile waits for it. It goes on to its end if the page is
+closed, and a page opened meanwhile shows it running with its last lines. A
+conflict stops a rebase midway, for a terminal to finish.
+
+When the repository's `.git/hooks` holds hooks lefthook does not manage, and
+it configures no lefthook, **Set up lefthook** shows the hooks and the
+`lefthook.yml` that runs them, as the terminal's `g` offers it; **Write
+lefthook.yml** writes it and installs lefthook, and **Write every hook as a
+script** keeps each hook whole under `.lefthook` instead. lefthook keeps the
+old hooks as `.git/hooks/*.old`.
 
 ### Review
 
@@ -174,11 +207,29 @@ The branch's pull request — its number, title and state: Draft or Ready for
 review while it is open, Merged once it has merged. While it is open, the
 section also shows its mergeability, approvals and requested changes, the
 issue it is for, linked to its page, and its CI checks: a failed one names the
-stage it ran in and why it failed, and **Show log** reads the end of its log
-when the forge keeps one. With no pull request for the branch, **Open a pull request**
+stage it ran in and why it failed, and **Show log** reads the end of any
+check's log the forge keeps one for, passed or failed.
+
+Under the state, the terminal's Review pane's writes, each offered only when
+it can go and each sent from a form that is its last look: **Edit pull
+request** reads its title and description afresh and **Save**s them, as `e`
+does; **Merge**, once it is ready for review, free of conflicts, approved with
+no changes asked for and green, reads the methods the repository permits and
+merges by the one chosen, as `M` does; **Re-run failed checks**, while its CI
+has failed, restarts the failed jobs, as `R` does, and says when a failure had
+no job to restart; and once it has merged, **Finish the branch** shows the
+three git commands it runs — switch to the base, pull, delete the branch — as
+`F` does, when the branch holds no commit origin lacks. The server reads the
+pull request and its CI again before each, so nothing goes on what the page
+showed a moment ago. A token without the scope a write needs is told in the
+forge's own words, naming the scope.
+
+With no pull request for the branch, **Open a pull request**
 composes one as `workflow pr` would and shows it as a form: the title, the
 base, the reviewers, assignees and labels, the description, and whether it is
-a draft. The reviewers start as the code owners of the paths the branch
+a draft. When the repository has several pull request templates, **Template**
+chooses the one the description starts from, as the terminal's `ctrl+t`
+does, until the description is edited. The reviewers start as the code owners of the paths the branch
 changes, as the base's CODEOWNERS names them, leaving you out; a team is
 written `org/team` and is requested as a team. **Open pull request** pushes the branch first when it is not
 published, then opens it. If the forge would not add every reviewer, assignee
@@ -199,7 +250,11 @@ it, with the channel to send it to where there is a choice; **Announce now**
 sends it. Nothing is sent before that second press, and what is sent is the
 text shown: when the announcement changed in between — CI turned red, the pull
 request merged — nothing is sent, the page says so, and **Announce to** shows
-the new one.
+the new one. Once a pull request was announced at the moment it is at now —
+ready for review, its CI red, merged — from here, the terminal or `workflow
+announce`, the section says so in place of the offer, as the terminal offers
+no announcement it has made; each announcement made here is remembered for
+the terminal and `workflow announce` too.
 
 **Edit**, in the preview, turns the message into a box to change it in, as
 the terminal's `e` opens it in your editor; **Announce now** then sends the
@@ -453,17 +508,9 @@ as ideas in
 [FEATURES.md](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md)
 or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
 
-- **Re-running failed CI, merging, finishing a merged branch and editing an
-  open pull request** — the terminal's `R`, `M`, `F` and `e`
-  ([FEAT-79](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md#feat-79-review-actions-on-the-web)).
-- **Knowing an announcement was already made** — the web neither records an
-  announcement nor reads one, so it offers one again that the terminal or
-  `workflow announce` already made
-  ([FEAT-84](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md#feat-84-the-web-remembers-what-was-announced)).
-- **Rebasing onto the base, amending, fixing up, reading a file's diff,
-  choosing among pull request templates,
-  running the pre-commit hook on its own and generating a `lefthook.yml`** —
-  the terminal alone.
+- **A sheet of every key, and reaching any action without the mouse beyond
+  Tab** — the terminal's `?`
+  ([UX-152](https://github.com/jacob-delgado/workflow/blob/main/UX.md#ux-152-keyboard-on-the-web)).
 - **Offering a task change at the loop's moments** — starting the issue's
   task when its branch is made or checked out, noting the pull request on it,
   completing it on a merge or a move to done; on the web those are the
@@ -522,6 +569,17 @@ task, `/api/tasks/track` to track an issue, `/api/tasks/undo`,
 `/api/tasks/sync`, and `start`, `stop`, `done`, `annotations` and `modify`
 under `/api/tasks/{uuid}/`. Each answers the task list as it stands after the
 write, and a task Taskwarrior changed nothing on answers `409`.
+
+`POST /api/runs` with `{"kind": "pre_commit"}` — or `rebase`, `amend`, or
+`fixup` with the `commit` to fix up — answers newline-delimited JSON as the
+run goes: the run as it starts, a `line` for each line its program writes,
+and the run as it ended, with its `state` and `outcome`. `DELETE
+/api/runs/current` stops it.
+
+```sh
+curl -sN -H 'Content-Type: application/json' -d '{"kind":"pre_commit"}' \
+  http://127.0.0.1:13579/api/runs
+```
 
 People and groups read `GET /api/people` and `GET /api/repo-groups`, and
 write with `PUT` to each and `DELETE /api/people?owner=`; the choices come
