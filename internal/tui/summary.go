@@ -5,7 +5,6 @@ package tui
 
 import (
 	"errors"
-	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,7 +14,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/activity"
-	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
@@ -144,10 +142,9 @@ func (m Model) readSummary() (Model, tea.Cmd) {
 	m.summary.asking = make([]activity.Source, 0, len(reads))
 	commands := make([]tea.Cmd, 0, len(reads))
 
-	for _, source := range slices.Sorted(maps.Keys(reads)) {
-		read := reads[source]
-		m.summary.asking = append(m.summary.asking, source)
-		commands = append(commands, func() tea.Msg { return summaryAnswered{reading: reading, read: read()} })
+	for _, source := range reads {
+		m.summary.asking = append(m.summary.asking, source.Source)
+		commands = append(commands, func() tea.Msg { return summaryAnswered{reading: reading, read: source.Read()} })
 	}
 
 	m.summary.complete = len(reads) == 0
@@ -157,37 +154,17 @@ func (m Model) readSummary() (Model, tea.Cmd) {
 
 // summaryReads are the reads of each source the deps reach, from start up to
 // end.
-func (m Model) summaryReads(start, end time.Time) map[activity.Source]func() activity.Read {
+func (m Model) summaryReads(start, end time.Time) []loop.SourceRead {
 	deps := m.deps
-	reads := map[activity.Source]func() activity.Read{}
 
-	if deps.Git.CommitsBetween != nil {
-		reads[activity.SourceGit] = func() activity.Read { return loop.CommitsRead(deps.Git.CommitsBetween, start, end) }
-	}
-
-	if deps.Tasks.Touched != nil {
-		reads[activity.SourceTasks] = func() activity.Read { return loop.TasksRead(deps.Tasks.Touched, start, end) }
-	}
-
-	if deps.Jira.Activity != nil {
-		browse := deps.Jira.BrowseURL
-		if browse == nil {
-			browse = func(jira.Key) string { return "" }
-		}
-
-		reads[activity.SourceJira] = func() activity.Read { return loop.JiraRead(deps.Jira.Activity, browse, start, end) }
-	}
-
-	if deps.Forge.Activity != nil {
-		reads[activity.SourceForge] = func() activity.Read {
-			return loop.ForgeRead(deps.Forge.Activity, deps.Forge.Kind, start, end)
-		}
-	}
-
-	return reads
+	return loop.SummaryReads(loop.ActivitySeams{
+		Commits: deps.Git.CommitsBetween, Touched: deps.Tasks.Touched,
+		Jira: deps.Jira.Activity, BrowseURL: deps.Jira.BrowseURL,
+		Forge: deps.Forge.Activity, ForgeKind: deps.Forge.Kind,
+	}, start, end)
 }
 
-// summary is what the sources have answered for the period shown.
+// shownSummary is what the sources have answered for the period shown.
 func (m Model) shownSummary() activity.Summary {
 	return activity.Summary{Period: m.summaryPeriod(), Reads: m.summary.reads}
 }

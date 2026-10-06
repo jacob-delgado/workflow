@@ -202,8 +202,10 @@ internal/cli 20
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the
 # announcement, the comment's markup, and summary.go, the Summary's reads of
-# git, Taskwarrior, Jira and the forge as activity items, so the terminal and
-# the web turn each source's answer into the same lines. One responsibility —
+# git, Taskwarrior, Jira and the forge as activity items, and SummaryReads,
+# the one way the terminal, the web and the command line ask them, so each
+# turns each source's answer into the same lines (FEAT-86 folded that here
+# rather than into a fourteenth file). One responsibility —
 # say what the loop means, over the seams' answers — spelled concern-per-file.
 internal/loop 13
 

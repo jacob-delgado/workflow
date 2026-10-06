@@ -12,7 +12,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/activity"
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
-	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
@@ -82,30 +81,11 @@ func dayAlone(text string) (activity.Period, error) {
 
 // activityReads asks every source the server reaches, one after another.
 func (s *server) activityReads(start, end time.Time) []activity.Read {
-	var reads []activity.Read
-
-	if s.deps.CommitsBetween != nil {
-		reads = append(reads, loop.CommitsRead(s.deps.CommitsBetween, start, end))
-	}
-
-	if s.deps.Tasks.Touched != nil {
-		reads = append(reads, loop.TasksRead(s.deps.Tasks.Touched, start, end))
-	}
-
-	if s.deps.JiraActivity != nil {
-		browse := s.deps.BrowseURL
-		if browse == nil {
-			browse = func(jira.Key) string { return "" }
-		}
-
-		reads = append(reads, loop.JiraRead(s.deps.JiraActivity, browse, start, end))
-	}
-
-	if s.deps.ForgeActivity != nil {
-		reads = append(reads, loop.ForgeRead(s.deps.ForgeActivity, s.forgeKindNow(), start, end))
-	}
-
-	return reads
+	return loop.ReadAll(loop.SummaryReads(loop.ActivitySeams{
+		Commits: s.deps.CommitsBetween, Touched: s.deps.Tasks.Touched,
+		Jira: s.deps.JiraActivity, BrowseURL: s.deps.BrowseURL,
+		Forge: s.deps.ForgeActivity, ForgeKind: s.forgeKindNow(),
+	}, start, end))
 }
 
 // activityDTO is the summary as the API answers it. A source's failure is

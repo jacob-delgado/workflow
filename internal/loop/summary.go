@@ -240,3 +240,76 @@ func ForgeRead(
 
 	return activity.Read{Source: activity.SourceForge, Items: items, Truncated: done.Truncated}
 }
+
+// ActivitySeams are what the Summary asks each source: the commits you wrote,
+// the tasks touched since a time, what you did to Jira issues — linked as
+// BrowseURL links an issue — and on the forge, whose changes ForgeKind names.
+// A nil read is a source the Summary does not ask.
+type ActivitySeams struct {
+	Commits   func(start, end time.Time) []RepositoryCommits
+	Touched   func(since time.Time) ([]taskwarrior.Task, error)
+	Jira      func(start, end time.Time) (jira.Activity, error)
+	BrowseURL func(jira.Key) string
+	Forge     func(start, end time.Time) (forge.Activity, error)
+	ForgeKind forge.Kind
+}
+
+// SourceRead is one source's read for the Summary, not yet made, so a surface
+// can make each on its own and show each as it answers.
+type SourceRead struct {
+	Source activity.Source
+	Read   func() activity.Read
+}
+
+// SummaryReads are the reads of every source the seams reach, from start up
+// to end, in the order the sources are listed: the one way every surface asks
+// them, so a period reads the same in each.
+func SummaryReads(seams ActivitySeams, start, end time.Time) []SourceRead {
+	var reads []SourceRead
+
+	if seams.Commits != nil {
+		reads = append(reads, SourceRead{activity.SourceGit, func() activity.Read {
+			return CommitsRead(seams.Commits, start, end)
+		}})
+	}
+
+	if seams.Touched != nil {
+		reads = append(reads, SourceRead{activity.SourceTasks, func() activity.Read {
+			return TasksRead(seams.Touched, start, end)
+		}})
+	}
+
+	if seams.Jira != nil {
+		reads = append(reads, SourceRead{activity.SourceJira, func() activity.Read {
+			return JiraRead(seams.Jira, seams.browse, start, end)
+		}})
+	}
+
+	if seams.Forge != nil {
+		reads = append(reads, SourceRead{activity.SourceForge, func() activity.Read {
+			return ForgeRead(seams.Forge, seams.ForgeKind, start, end)
+		}})
+	}
+
+	return reads
+}
+
+// browse links an issue as BrowseURL does, or not at all without one.
+func (s ActivitySeams) browse(issueKey jira.Key) string {
+	if s.BrowseURL == nil {
+		return ""
+	}
+
+	return s.BrowseURL(issueKey)
+}
+
+// ReadAll makes each read in turn, for a surface that shows the Summary once
+// every source has answered.
+func ReadAll(reads []SourceRead) []activity.Read {
+	made := make([]activity.Read, 0, len(reads))
+	for _, read := range reads {
+		made = append(made, read.Read())
+	}
+
+	return made
+}
