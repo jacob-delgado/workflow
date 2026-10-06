@@ -6,8 +6,8 @@ weight: 22
 # Scripting
 
 The steps of the loop that a script or a shell prompt wants also run as
-commands, without the interface: `status`, `reviews`, `standup`, `branch`,
-`pr`, `announce` and `comment`, beside `doctor`, `config`, `slack login` and
+commands, without the interface: `status`, `reviews`, `repositories`,
+`standup`, `branch`, `pr`, `announce` and `comment`, beside `doctor`, `config`, `slack login` and
 `db-clean`. This page is what a script
 can rely on from them — the exit status, which stream carries what, the JSON shapes, and the
 flags that make a write safe to run unattended. Every command and flag is
@@ -15,6 +15,7 @@ listed in the [command reference]({{< relref "/docs/reference" >}}).
 
 ```sh
 workflow status --json                 # where the work stands, as data
+workflow repositories --json | jq -r '.worktrees[].dir'   # this repository's worktrees
 cd "$(workflow branch PROJ-7 --fetch --worktree --yes | tail -n 1)"   # start fresh, beside this checkout
 workflow --dry-run pr                  # what pr would push and open
 workflow pr --yes                      # push, open, link and move, without asking
@@ -90,6 +91,7 @@ asks, and the error itself, prefixed `workflow:`.
 | --- | --- | --- |
 | `status` | the line, or one row per directory, or the JSON | |
 | `reviews` | one line per review, or the JSON | "No pull requests are waiting on your review." |
+| `repositories` | a line for where it works, then one per worktree and one per favorite, or the JSON | why the worktrees could not be read |
 | `doctor` | the report, or the JSON, and with no configuration file how to create one: the report is what a bug report pastes, so its guidance stays in it | |
 | `config show` | the configuration as JSON, credentials masked | the file it came from (`# PATH`); how to create one when there is none |
 | `config init` | with `--dry-run`, the file it would write, as JSON, masked | progress, the checks, "Wrote …", what to do next, a warning when the file is not ignored by git |
@@ -107,8 +109,8 @@ reviews and nothing else.
 
 ## JSON
 
-`--json` is on the reads: `status`, `reviews` and `doctor`; and on `pr`,
-for what it opened. `config show` prints JSON always. None of them carries a credential: `config show` masks
+`--json` is on the reads: `status`, `reviews`, `repositories` and
+`doctor`; and on `pr`, for what it opened. `config show` prints JSON always. None of them carries a credential: `config show` masks
 each to its last four characters, and the others never print one.
 
 `workflow status --json` prints one object:
@@ -161,6 +163,23 @@ whole array.
     "url": "https://github.com/acme/api/pull/42"
   }
 ]
+```
+
+`workflow repositories --json` prints the object `GET /api/repositories`
+answers (see [Scripting the API]({{< relref "/docs/web#scripting-the-api" >}})):
+`here`, where it runs (`dir`, `shown` — the path written from your home —
+`root`, `root_shown`, `within`, `origin` and `config`, the configuration
+files that apply); `worktrees`, the repository's working trees, the main one
+first (`dir`, `shown`, `branch`, `head`, `state` — `here`, `worktree` or
+`missing` — and `locked`), empty outside a repository; `worktrees_error`, why
+they could not be read, or empty; `favorites` (`dir`, `shown`, `state` —
+`here`, `repository`, `directory` or `missing` — and `origin`); and
+`favorites_kept`, false when the store keeps nothing or under `--dry-run`. A
+store whose favorites cannot be read lists none, and the command then exits
+non-zero after printing.
+
+```sh
+workflow repositories --json | jq -r '.worktrees[0].dir'
 ```
 
 `workflow pr --json` prints what it opened as one object, the web's

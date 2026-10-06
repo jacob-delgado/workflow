@@ -368,6 +368,7 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 func subcommands(prompt Prompt) []*cobra.Command {
 	return []*cobra.Command{
 		newConfigCmd(prompt), newDoctorCmd(), newStatusCmd(), newStandupCmd(prompt), newReviewsCmd(),
+		newRepositoriesCmd(),
 		newBranchCmd(prompt), newPRCmd(prompt), newAnnounceCmd(prompt), newCommentCmd(prompt),
 		newSlackCmd(prompt), newDBCleanCmd(prompt),
 	}

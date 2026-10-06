@@ -164,7 +164,9 @@ internal/webserver 26
 # (doctor, split by section across doctor.go for the command, the repository and
 # the configuration, doctor_requirements.go for the tooling and the
 # configuration review, doctor_credentials.go for the --online checks, and
-# doctor_json.go for --json; status; reviews; standup), the guided config, the
+# doctor_json.go for --json; status; reviews; standup; repositories.go, where
+# workflow works, its worktrees and your favorites, in the web API's shape,
+# UX-151), the guided config, the
 # root wiring, and the scriptable write commands from FEAT-41 (branch.go, pr.go,
 # announce.go) with their shared preview/confirm/dry-run helper (scriptable.go),
 # comment.go for `workflow comment`, which posts the text on standard input on
@@ -178,7 +180,7 @@ internal/webserver 26
 # and printed output — spelled command-per-file; it grows when the tool gains a command,
 # which the docs reference records, or when one command's sections outgrow a
 # file, as doctor's did.
-internal/cli 19
+internal/cli 20
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the
