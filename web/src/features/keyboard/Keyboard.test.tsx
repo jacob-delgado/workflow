@@ -136,6 +136,24 @@ test('? opens a sheet listing comment under Issues on c', async () => {
   expect(within(sheet).queryByText('quit')).toBeNull()
 })
 
+test('? lists post under Summary on p', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const keys = keysWith(true)
+  openOn(withIssue, {
+    ...keys,
+    actions: [...keys.actions, action('post-summary', 'post', 'Summary', 'p')],
+  })
+  await keysRead('c')
+
+  // Act
+  await user.keyboard('?')
+
+  // Assert
+  const summary = within(screen.getByRole('dialog')).getByRole('table', { name: 'Summary' })
+  expect(within(summary).getByRole('row', { name: 'p post' })).toBeTruthy()
+})
+
 test('the sheet shows a key ui.keys moved where it now is', async () => {
   // Arrange
   const user = userEvent.setup()
