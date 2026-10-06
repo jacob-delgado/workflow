@@ -493,10 +493,8 @@ func (f setupForm) at(step setupStep) setupForm {
 // chooseKey moves through a list, or chooses the row the cursor is on.
 func (f setupForm) chooseKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.up):
-		f.choice = max(0, f.choice-1)
-	case key.Matches(msg, m.keys.down):
-		f.choice = min(f.choiceCount()-1, f.choice+1)
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		f.choice = max(0, min(f.choice+m.keys.stepOf(msg), f.choiceCount()-1))
 	case key.Matches(msg, m.keys.confirm):
 		m.overlay = f.chosen()
 

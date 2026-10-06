@@ -13,10 +13,8 @@ func (m Model) handleIssuesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.confirm) && m.setupShown():
 		return m.openSetup()
-	case key.Matches(msg, m.keys.down):
-		return m.moveIssue(1)
-	case key.Matches(msg, m.keys.up):
-		return m.moveIssue(-1)
+	case key.Matches(msg, m.keys.up, m.keys.down):
+		return m.moveIssue(m.keys.stepOf(msg))
 	case key.Matches(msg, m.keys.openLink):
 		return m.openLink(m.issueURL())
 	case key.Matches(msg, m.keys.copyLink):

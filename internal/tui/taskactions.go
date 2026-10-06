@@ -114,7 +114,7 @@ func (m Model) handleTasksKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	switch {
 	case key.Matches(msg, m.keys.up, m.keys.down):
-		return m.moveTaskSelection(msg), nil
+		return m.moveTaskBy(m.keys.stepOf(msg)), nil
 	case key.Matches(msg, m.keys.confirm):
 		return m.goToTaskIssue()
 	case key.Matches(msg, m.keys.openLink):

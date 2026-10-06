@@ -115,10 +115,8 @@ func (c checkList) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.down):
-		return c.step(m, 1), nil
-	case key.Matches(msg, m.keys.up):
-		return c.step(m, -1), nil
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		return c.step(m, m.keys.stepOf(msg)), nil
 	case key.Matches(msg, m.keys.confirm):
 		return c.open(m)
 	case key.Matches(msg, m.keys.showLog):
@@ -388,10 +386,10 @@ func (v jobLogView) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.overlay = v.back
 
 		return m, nil
-	case key.Matches(msg, m.keys.up):
-		v.scroll = min(v.scroll+1, v.topScroll(m.detailRows()))
-	case key.Matches(msg, m.keys.down):
-		v.scroll = max(0, v.scroll-1)
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		// The log is scrolled up from its end, so a step down the log is one
+		// fewer row scrolled.
+		v.scroll = max(0, min(v.scroll-m.keys.stepOf(msg), v.topScroll(m.detailRows())))
 	}
 
 	m.overlay = v

@@ -182,10 +182,8 @@ func (p mergePicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.confirm):
 		return p.confirm(m)
-	case key.Matches(msg, m.keys.down):
-		return p.step(m, 1), nil
-	case key.Matches(msg, m.keys.up):
-		return p.step(m, -1), nil
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		return p.step(m, m.keys.stepOf(msg)), nil
 	}
 
 	m.overlay = p

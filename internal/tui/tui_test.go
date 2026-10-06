@@ -179,7 +179,7 @@ func keyMsg(key string) tea.KeyPressMsg {
 		keyEsc: tea.KeyEscape, "tab": tea.KeyTab, "enter": tea.KeyEnter,
 		keySpace: tea.KeySpace, keyBackspace: tea.KeyBackspace,
 		"down": tea.KeyDown, "up": tea.KeyUp, "left": tea.KeyLeft, keyRight: tea.KeyRight,
-		"pgdown": tea.KeyPgDown, "pgup": tea.KeyPgUp,
+		"pgdown": tea.KeyPgDown, "pgup": tea.KeyPgUp, keyHome: tea.KeyHome, keyEnd: tea.KeyEnd,
 	}
 
 	if code, ok := named[key]; ok {

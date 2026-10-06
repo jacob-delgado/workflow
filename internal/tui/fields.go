@@ -203,10 +203,8 @@ func (p statusPicker) handleFormKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cm
 	case p.form.multi() && key.Matches(msg, m.keys.toggleOption):
 		p.form.chosen = toggleID(p.form.chosen, field.Options[p.form.option].ID)
 		p.form.problem = nil
-	case key.Matches(msg, m.keys.down):
-		return p.step(m, 1), nil
-	case key.Matches(msg, m.keys.up):
-		return p.step(m, -1), nil
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		return p.step(m, m.keys.stepOf(msg)), nil
 	}
 
 	m.overlay = p

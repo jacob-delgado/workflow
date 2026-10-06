@@ -384,10 +384,8 @@ func (c checklist[F]) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return c.apply(m.closeOverlay(), c.chosen)
 	case key.Matches(msg, m.keys.toggleOption):
 		c = c.toggled()
-	case key.Matches(msg, m.keys.down):
-		return c.step(m, 1), nil
-	case key.Matches(msg, m.keys.up):
-		return c.step(m, -1), nil
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		return c.step(m, m.keys.stepOf(msg)), nil
 	}
 
 	m.overlay = c

@@ -298,7 +298,7 @@ func (m Model) handleReviewQueueKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.filterReviews) && m.reviewQueue.narrowable():
 		return m.openFacetPicker()
 	case key.Matches(msg, m.keys.up, m.keys.down):
-		return m.moveReviewSelection(msg), nil
+		return m.moveReviewBy(m.keys.stepOf(msg)), nil
 	case key.Matches(msg, m.keys.openLink):
 		return m.openLink(m.selectedReviewURL())
 	case key.Matches(msg, m.keys.copyLink):
@@ -310,16 +310,11 @@ func (m Model) handleReviewQueueKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// moveReviewSelection moves the selection down or up, stopping at either end,
-// and scrolls the detail so the selected request stays on screen.
-func (m Model) moveReviewSelection(msg tea.KeyPressMsg) Model {
-	last := len(m.reviewQueue.requests) - 1
-
-	if key.Matches(msg, m.keys.down) {
-		m.reviewQueue.selected = min(m.reviewQueue.selected+1, max(0, last))
-	} else {
-		m.reviewQueue.selected = max(0, m.reviewQueue.selected-1)
-	}
+// moveReviewBy moves the selection delta requests down, or up for a negative
+// delta, stopping at either end, and scrolls the detail so the selected
+// request stays on screen.
+func (m Model) moveReviewBy(delta int) Model {
+	m.reviewQueue.selected = max(0, min(m.reviewQueue.selected+delta, len(m.reviewQueue.requests)-1))
 
 	m.reviewQueue = m.reviewQueue.following(m.detailRows())
 

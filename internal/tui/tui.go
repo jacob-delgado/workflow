@@ -296,13 +296,30 @@ func (m Model) handleGlobalKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.switchTo(pane(msg.String()[0] - '1'))
 	case key.Matches(msg, m.keys.toggleMouse):
 		return m.toggleMouse()
+	case key.Matches(msg, m.keys.first, m.keys.last, m.keys.scrollDown, m.keys.scrollUp):
+		return m.handleViewKey(msg)
+	default:
+		return behaviorOf(m.focus).handle(m, msg)
+	}
+}
+
+// handleViewKey answers the keys that move the focused pane's view on every
+// pane: the scroll keys page its detail, and home and end move its list to the
+// first or last row or, on a pane with no list, its detail to the top or the
+// bottom.
+func (m Model) handleViewKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
 	case key.Matches(msg, m.keys.scrollDown):
 		return m.scrollDetail(m.halfPage()), nil
 	case key.Matches(msg, m.keys.scrollUp):
 		return m.scrollDetail(-m.halfPage()), nil
-	default:
-		return behaviorOf(m.focus).handle(m, msg)
 	}
+
+	if move := behaviorOf(m.focus).move; move != nil {
+		return move(m, m.keys.stepOf(msg))
+	}
+
+	return m.scrollDetail(m.keys.stepOf(msg)), nil
 }
 
 // halfPage is how far a scroll key moves the detail.
@@ -352,7 +369,7 @@ func (m Model) toggleMouse() (Model, tea.Cmd) {
 // navigates reports a key that only moves the view, which keeps a notice rather
 // than clearing it.
 func (m Model) navigates(msg tea.KeyPressMsg) bool {
-	return key.Matches(msg, m.keys.up, m.keys.down, m.keys.scrollUp, m.keys.scrollDown,
+	return key.Matches(msg, m.keys.up, m.keys.down, m.keys.first, m.keys.last, m.keys.scrollUp, m.keys.scrollDown,
 		m.keys.next, m.keys.previous, m.keys.jump, m.keys.toggleHelp)
 }
 

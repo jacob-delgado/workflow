@@ -291,13 +291,8 @@ func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // changeKey moves through the settings or changes the selected one.
 func (f settingsForm) changeKey(keys keyMap, msg tea.KeyPressMsg) settingsForm {
-	switch {
-	case key.Matches(msg, keys.up):
-		f.selected = max(0, f.selected-1)
-
-		return f
-	case key.Matches(msg, keys.down):
-		f.selected = min(len(f.fields)-1, f.selected+1)
+	if key.Matches(msg, keys.cursorKeys()...) {
+		f.selected = max(0, min(f.selected+keys.stepOf(msg), len(f.fields)-1))
 
 		return f
 	}

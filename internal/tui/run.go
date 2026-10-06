@@ -328,10 +328,8 @@ func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return r.openFailure(m)
 	case key.Matches(msg, m.keys.fullOutput):
 		r.showOutput = !r.showOutput
-	case key.Matches(msg, m.keys.down):
-		return r.step(m, 1), nil
-	case key.Matches(msg, m.keys.up):
-		return r.step(m, -1), nil
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		return r.step(m, m.keys.stepOf(msg)), nil
 	}
 
 	m.overlay = r

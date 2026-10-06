@@ -89,10 +89,12 @@ func (h helpOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, tea.Quit
 	case key.Matches(msg, m.keys.toggleHelp, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.scrollDown, m.keys.down):
+	case key.Matches(msg, m.keys.scrollDown):
 		return h.step(m, 1), nil
-	case key.Matches(msg, m.keys.scrollUp, m.keys.up):
+	case key.Matches(msg, m.keys.scrollUp):
 		return h.step(m, -1), nil
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		return h.step(m, m.keys.stepOf(msg)), nil
 	}
 
 	m.overlay = h

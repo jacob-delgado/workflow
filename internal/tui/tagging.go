@@ -452,10 +452,8 @@ func (p messagingPreview) handleTagKey(m Model, msg tea.KeyPressMsg) (Model, tea
 	}
 
 	switch {
-	case key.Matches(msg, m.keys.down):
-		p.tagging = p.tagging.moved(1)
-	case key.Matches(msg, m.keys.up):
-		p.tagging = p.tagging.moved(-1)
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		p.tagging = p.tagging.moved(m.keys.stepOf(msg))
 	case key.Matches(msg, m.keys.toggleOption):
 		p.tagging = p.tagging.toggled()
 	case key.Matches(msg, m.keys.linkToSlack):

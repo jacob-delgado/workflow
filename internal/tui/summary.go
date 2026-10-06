@@ -244,10 +244,8 @@ func (m Model) handleSummaryListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.copySummary()
 	case key.Matches(msg, m.keys.postSummary) && m.canPostSummary():
 		return m.previewSummaryPost()
-	case key.Matches(msg, m.keys.up):
-		m.summary.selected = max(0, m.summary.selected-1)
-	case key.Matches(msg, m.keys.down):
-		m.summary.selected = min(m.summary.selected+1, max(0, len(m.summaryItems())-1))
+	case key.Matches(msg, m.keys.up, m.keys.down):
+		return m.moveSummaryBy(m.keys.stepOf(msg)), nil
 	case key.Matches(msg, m.keys.openLink):
 		return m.openLink(selected.URL)
 	case key.Matches(msg, m.keys.copyLink):
@@ -255,6 +253,14 @@ func (m Model) handleSummaryListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// moveSummaryBy moves the cursor delta items down, or up for a negative
+// delta, stopping at either end.
+func (m Model) moveSummaryBy(delta int) Model {
+	m.summary.selected = max(0, min(m.summary.selected+delta, len(m.summaryItems())-1))
+
+	return m
 }
 
 // selectedSummaryItem is the item the cursor is on, or none.

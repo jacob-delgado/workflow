@@ -143,11 +143,10 @@ func (c keyContext) covers(placed placement) bool {
 // the list actions refresh, open-link and copy-link are filed under Issues, yet
 // refresh acts on the Branch, Commits, Review, messaging, review-requests and
 // Tasks panes, and open-link and copy-link on the Review, review-requests and
-// Tasks panes;
-// edit acts on the Review pane as well as in a preview; and a field form reads
-// up and down, which a composer otherwise excludes so that its tab can mean
-// next-field rather than next-pane, and People and groups reads refresh to
-// read the Slack directory again. An overlay's own keys, the branch creator's
+// Tasks panes; edit acts on the Review pane as well as in a preview; and an
+// overlay's list reads up and down, first and last, which a composer otherwise
+// excludes so that its tab can mean next-field rather than next-pane, and
+// People and groups reads refresh to read the Slack directory again. An overlay's own keys, the branch creator's
 // worktree and the messaging preview's wait for CI and channel among them, are
 // filed with the composer's, so they are live there and not on the pane behind
 // it.
@@ -181,7 +180,11 @@ func keyContexts() []keyContext {
 			[]string{actionUp, actionDown, actionRefresh},
 		},
 		{"a running command", []int{groupMoving, groupEverywhere, groupRunning}, nil},
-		{"a composer or preview", []int{groupEverywhere, groupComposer}, []string{actionUp, actionDown, actionRefresh}},
+		{
+			"a composer or preview",
+			[]int{groupEverywhere, groupComposer},
+			[]string{actionUp, actionDown, actionFirst, actionLast, actionRefresh},
+		},
 		{"the comment composer", []int{groupEverywhere, groupWriting}, []string{actionUp, actionDown, "edit-body"}},
 	}
 }

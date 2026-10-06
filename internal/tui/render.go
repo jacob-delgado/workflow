@@ -373,7 +373,7 @@ func (m Model) footerRank(binding key.Binding) footerRank {
 		return rankWayOut
 	case answersAs(binding, m.keys.confirm):
 		return rankAct
-	case answersAs(binding, m.keys.up, m.keys.down, m.keys.scrollUp, m.keys.scrollDown,
+	case answersAs(binding, m.keys.up, m.keys.down, m.keys.first, m.keys.last, m.keys.scrollUp, m.keys.scrollDown,
 		m.keys.next, m.keys.previous, m.keys.jump):
 		return rankMovement
 	}

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
@@ -443,25 +442,9 @@ func (m Model) taskAnnotations(task taskwarrior.Task) []string {
 	return lines
 }
 
-// moveTaskSelection moves the selection down or up, stopping at either end,
-// and scrolls the detail so the selected task stays on screen.
-func (m Model) moveTaskSelection(msg tea.KeyPressMsg) Model {
-	groups := m.taskGroups()
-	listed := groups.listed()
-
-	if len(listed) == 0 {
-		return m
-	}
-
-	if key.Matches(msg, m.keys.down) {
-		return m.moveTaskBy(1)
-	}
-
-	return m.moveTaskBy(-1)
-}
-
 // moveTaskBy moves the cursor delta rows down the listed tasks, or up for a
-// negative delta, stopping at either end.
+// negative delta, stopping at either end, and scrolls the detail so the
+// selected task stays on screen.
 func (m Model) moveTaskBy(delta int) Model {
 	groups := m.taskGroups()
 	listed := groups.listed()

@@ -79,6 +79,10 @@ type behavior struct {
 	handle func(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 	// refresh loads the pane again, for r and for a switch to a stale pane.
 	refresh func(m Model) (Model, tea.Cmd)
+	// move steps the cursor of the pane's list delta rows, down for a positive
+	// delta, stopping at either end; nil for a pane with no list, whose ends
+	// are its detail's.
+	move func(m Model, delta int) (Model, tea.Cmd)
 	// pick selects the row of the pane's list drawn on a line; nil for a pane
 	// with no list to pick from. inRail says which drawing was clicked.
 	pick func(m Model, line, rows int, inRail bool) (Model, tea.Cmd)
@@ -101,7 +105,7 @@ func behaviorOf(target pane) behavior {
 		paneIssues: {
 			rail: Model.issuesRail, detail: Model.issueDetailView, narrow: Model.issuesNarrow,
 			keys: Model.issuesKeys, handle: Model.handleIssuesKey, pick: Model.pickIssue, refresh: Model.refreshIssues,
-			scroll: func(m *Model) *int { return &m.detail.scroll },
+			scroll: func(m *Model) *int { return &m.detail.scroll }, move: Model.moveIssue,
 		},
 		paneBranch: {
 			rail: Model.branchRail, detail: Model.branchDetail, narrow: nil,
@@ -111,7 +115,7 @@ func behaviorOf(target pane) behavior {
 		},
 		paneCommits: {
 			rail: Model.commitsRail, detail: Model.commitsDetail, narrow: nil,
-			keys: Model.commitsKeys, handle: Model.handleCommitsKey, pick: Model.pickChange,
+			keys: Model.commitsKeys, handle: Model.handleCommitsKey, pick: Model.pickChange, move: Model.moveChangeBy,
 			refresh: func(m Model) (Model, tea.Cmd) {
 				return m, tea.Batch(m.loadChanges(), m.loadBranch(), m.findHooks())
 			},
@@ -137,28 +141,35 @@ func behaviorOf(target pane) behavior {
 		paneReviews: {
 			rail: Model.reviewQueueRail, detail: Model.reviewQueueDetail, narrow: nil,
 			keys: Model.reviewQueueKeys, handle: Model.handleReviewQueueKey, pick: Model.pickReview,
+			move:    commandless(Model.moveReviewBy),
 			refresh: func(m Model) (Model, tea.Cmd) { return m, m.loadReviewQueue() },
 			scroll:  func(m *Model) *int { return &m.reviewQueue.scroll }, listInDetail: true,
 		},
 		paneTasks: {
 			rail: Model.tasksRail, detail: Model.tasksDetail, narrow: nil,
-			keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask,
+			keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask, move: commandless(Model.moveTaskBy),
 			refresh: func(m Model) (Model, tea.Cmd) { return m, m.loadTasks() },
 			scroll:  func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
 		},
 		paneSummary: {
 			rail: Model.summaryRail, detail: Model.summaryDetail, narrow: nil,
-			keys: Model.summaryKeys, handle: Model.handleSummaryKey, pick: nil,
+			keys: Model.summaryKeys, handle: Model.handleSummaryKey, pick: nil, move: commandless(Model.moveSummaryBy),
 			refresh: Model.refreshSummary,
 			scroll:  func(m *Model) *int { return &m.summary.scroll }, listInDetail: true,
 		},
 		paneRepositories: {
 			rail: Model.repositoriesRail, detail: Model.repositoriesDetail, narrow: nil,
 			keys: Model.repositoriesKeys, handle: Model.handleRepositoriesKey, pick: nil,
-			refresh: Model.refreshRepositories,
-			scroll:  func(m *Model) *int { return &m.repositories.scroll }, listInDetail: true,
+			move: commandless(Model.moveRepositoryBy), refresh: Model.refreshRepositories,
+			scroll: func(m *Model) *int { return &m.repositories.scroll }, listInDetail: true,
 		},
 	}[target]
+}
+
+// commandless is a list's move that asks for nothing once it has moved, as a
+// pane's move, which may.
+func commandless(move func(Model, int) Model) func(Model, int) (Model, tea.Cmd) {
+	return func(m Model, delta int) (Model, tea.Cmd) { return move(m, delta), nil }
 }
 
 // refreshPane loads target again, noting when, whatever its age, for it and
