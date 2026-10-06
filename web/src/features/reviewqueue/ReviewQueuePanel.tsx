@@ -102,7 +102,6 @@ interface QueueProps {
 // filter chosen hold across reads, and across visits to other sections.
 function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: QueueProps) {
   const { noun } = useForgeWords()
-  const outcome = useOutcome()
   const order = useUiStore((state) => state.reviewOrder)
   const setOrder = useUiStore((state) => state.setReviewOrder)
   const picked = useUiStore((state) => state.reviewFilter)
@@ -152,7 +151,6 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
           }}
         />
       )}
-      <OutcomeLine said={outcome.said} />
       {/* The queue's own heading, unseen, so each repository's h3 does not
           skip a level under the section's h1. */}
       <h2 className="sr-only">Waiting on your review</h2>
@@ -162,7 +160,6 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
           filtered={shown.length < requests.length}
           grouped={order === 'repository'}
           readAt={readAt}
-          teller={outcome}
         />
       )}
     </div>
@@ -237,10 +234,9 @@ interface RequestsProps {
   // does by repository.
   grouped: boolean
   readAt: number
-  teller: Teller
 }
 
-function Requests({ requests, filtered, grouped, readAt, teller }: RequestsProps) {
+function Requests({ requests, filtered, grouped, readAt }: RequestsProps) {
   if (requests.length === 0) {
     return (
       <EmptyState>
@@ -250,14 +246,7 @@ function Requests({ requests, filtered, grouped, readAt, teller }: RequestsProps
   }
 
   if (!grouped) {
-    return (
-      <RequestList
-        label="Waiting on your review"
-        requests={requests}
-        readAt={readAt}
-        teller={teller}
-      />
-    )
+    return <RequestList label="Waiting on your review" requests={requests} readAt={readAt} />
   }
 
   return byRepository(requests).map(({ repository, requests: inRepository }) => (
@@ -267,7 +256,6 @@ function Requests({ requests, filtered, grouped, readAt, teller }: RequestsProps
         label={`Waiting on your review in ${repositoryHeading(repository)}`}
         requests={inRepository}
         readAt={readAt}
-        teller={teller}
       />
     </section>
   ))
@@ -277,17 +265,16 @@ interface RequestListProps {
   label: string
   requests: ReviewRequest[]
   readAt: number
-  teller: Teller
 }
 
-function RequestList({ label, requests, readAt, teller }: RequestListProps) {
+function RequestList({ label, requests, readAt }: RequestListProps) {
   return (
     <ul
       aria-label={label}
       className="flex flex-col divide-y divide-border rounded-lg border border-border"
     >
       {requests.map((request) => (
-        <RequestRow key={request.url} request={request} readAt={readAt} teller={teller} />
+        <RequestRow key={request.url} request={request} readAt={readAt} />
       ))}
     </ul>
   )
@@ -296,14 +283,15 @@ function RequestList({ label, requests, readAt, teller }: RequestListProps) {
 interface RequestRowProps {
   request: ReviewRequest
   readAt: number
-  teller: Teller
 }
 
 // RequestRow is one request: its number in the forge's own mark and its title;
 // where it is, who asks, how long it has waited and whether it is a draft; how
-// its CI stands; and a link to open it and a control to copy its URL.
-function RequestRow({ request, readAt, teller }: RequestRowProps) {
+// its CI stands; a link to open it and a control to copy its URL; and, under
+// them, what the last copy said, in the row whose URL it copied.
+function RequestRow({ request, readAt }: RequestRowProps) {
   const { sigil } = useForgeWords()
+  const copied = useOutcome()
   const mark = `${sigil}${String(request.number)}`
 
   return (
@@ -333,8 +321,9 @@ function RequestRow({ request, readAt, teller }: RequestRowProps) {
           <ExternalLink aria-hidden className="size-3.5" />{' '}
           <span className="sr-only">{mark} (opens in a new tab)</span>
         </a>
-        <CopyURL url={request.url} mark={mark} teller={teller} />
+        <CopyURL url={request.url} mark={mark} teller={copied} />
       </div>
+      <OutcomeLine said={copied.said} />
     </li>
   )
 }
@@ -378,7 +367,7 @@ interface CopyURLProps {
 }
 
 // CopyURL copies a request's URL — the interface's "copy url" — and says so in
-// the panel's outcome line; a copy the browser refuses says, beside it, how to
+// its row's outcome line; a copy the browser refuses says, beside it, how to
 // get the URL.
 function CopyURL({ url, mark, teller }: CopyURLProps) {
   const copy = useAsyncAction(copyAddress, {
