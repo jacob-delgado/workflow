@@ -31,7 +31,7 @@ const kept: LocalDataFile = {
   ],
 }
 
-// held is what the mockup's store still holds, so a clean shows on the read
+// held is what the mockup's store still holds, so a removal shows on the read
 // after it, as it would against a server, until the page loads again.
 const held = { files: [cache, kept] }
 
@@ -40,9 +40,9 @@ export function mockLocalData(): LocalData {
   return { dir, files: [...held.files] }
 }
 
-// mockCleanLocalData forgets what a clean of scope reaches — with the kept
+// mockRemoveLocalData forgets what a removal of scope reaches — with the kept
 // file, the mockup's people and groups — and answers what is left.
-export function mockCleanLocalData(scope: 'cache' | 'all'): LocalData {
+export function mockRemoveLocalData(scope: 'cache' | 'all'): LocalData {
   held.files = scope === 'all' ? [] : held.files.filter((file) => file.kind === 'kept')
   if (scope === 'all') {
     mockForgetAll()

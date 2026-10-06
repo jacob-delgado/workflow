@@ -970,14 +970,14 @@ export const zUpdateConfigHeaders = z.object({
  */
 export const zUpdateConfigResponse = zConfig;
 
-export const zCleanLocalDataQuery = z.object({
+export const zRemoveLocalDataQuery = z.object({
     scope: z.enum(['cache', 'all'])
 });
 
 /**
- * The directory and the database files left after the clean.
+ * The directory and the database files left after the removal.
  */
-export const zCleanLocalDataResponse = zLocalData;
+export const zRemoveLocalDataResponse = zLocalData;
 
 /**
  * The directory and its database files.

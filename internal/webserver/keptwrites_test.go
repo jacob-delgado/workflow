@@ -85,7 +85,7 @@ func TestSetRepoGroupsKeepsASavedGroupTheDirectoryCannotList(t *testing.T) {
 	}
 }
 
-func TestCleanLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
+func TestRemoveLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -99,7 +99,7 @@ func TestCleanLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 		return nil
 	}
 	deps.LocalData = func(context.Context) (string, []store.DataFile, error) { return storeDir, nil, nil }
-	deps.CleanLocalData = func(store.CleanScope) error {
+	deps.RemoveLocalData = func(store.CleanScope) error {
 		close(cleaned)
 
 		return nil
@@ -131,7 +131,7 @@ func TestCleanLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 	requests.Wait()
 }
 
-func TestCleanLocalDataSaysAFileNotRemovedMayLeaveOthersGone(t *testing.T) {
+func TestRemoveLocalDataSaysAFileNotRemovedMayLeaveOthersGone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange

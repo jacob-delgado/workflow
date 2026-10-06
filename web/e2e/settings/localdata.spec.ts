@@ -3,8 +3,8 @@ import type { LocalData } from '../../src/api/generated/types.gen.ts'
 import { height, openCockpit, openSection, themes, widths } from '../cockpit.ts'
 import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../tabwalk.ts'
 
-// Settings' Local data area: the store's files listed, each clean behind a
-// confirm step, and the listing read again once a clean is done. The flows run
+// Settings' Local data area: the store's files listed, each removal behind a
+// confirm step, and the listing read again once a removal is done. The flows run
 // on the hermetic build, whose answers this spec gives and records; the layout
 // runs on the populated build, below the mockup's configuration form.
 
@@ -29,7 +29,7 @@ const listing = {
   ],
 } satisfies LocalData
 
-// answersStore answers the local data from a store that a clean empties as
+// answersStore answers the local data from a store that a removal empties as
 // its scope says, and returns each request's method and query, in order.
 async function answersStore(page: Page): Promise<string[]> {
   const asked: string[] = []
@@ -51,7 +51,7 @@ async function answersStore(page: Page): Promise<string[]> {
 
 // opensLocalData opens Settings and waits for its Local data listing. The
 // hermetic build reads no configuration, so the form above says so; the area
-// reads and cleans on its own.
+// reads and removes on its own.
 async function opensLocalData(page: Page): Promise<void> {
   await page.goto('/')
   await page
@@ -61,10 +61,10 @@ async function opensLocalData(page: Page): Promise<void> {
   await expect(page.getByRole('table', { name: 'Local data files' })).toBeVisible()
 }
 
-test('lists the store, confirms, cleans the cache and reads the listing again', async ({
+test('lists the store, confirms, removes the cache and reads the listing again', async ({
   page,
 }) => {
-  // Arrange: the Local data area, its cache clean asked for.
+  // Arrange: the Local data area, its cache's removal asked for.
   const asked = await answersStore(page)
   await opensLocalData(page)
   await page.getByRole('button', { name: 'Remove cache…' }).click()
@@ -74,7 +74,7 @@ test('lists the store, confirms, cleans the cache and reads the listing again', 
   // Act
   await question.getByRole('button', { name: 'Remove' }).click()
 
-  // Assert: said, removed from the listing, and read again after the clean.
+  // Assert: said, removed from the listing, and read again after the removal.
   await expect(page.getByRole('status').filter({ hasText: 'Removed workflow.db.' })).toBeVisible()
   const table = page.getByRole('table', { name: 'Local data files' })
   await expect(table.getByText('workflow.db')).toBeHidden()
@@ -82,7 +82,7 @@ test('lists the store, confirms, cleans the cache and reads the listing again', 
   await expect.poll(() => asked).toEqual(['GET ', 'DELETE ?scope=cache', 'GET '])
 })
 
-test('cleaning everything warns first, and Cancel sends nothing', async ({ page }) => {
+test('removing everything warns first, and Cancel sends nothing', async ({ page }) => {
   // Arrange
   const asked = await answersStore(page)
   await opensLocalData(page)
@@ -129,7 +129,7 @@ for (const theme of themes) {
 }
 
 test(
-  'the mockup cleans its store and lists what is left',
+  'the mockup removes its store and lists what is left',
   { tag: '@populated' },
   async ({ page }) => {
     // Arrange

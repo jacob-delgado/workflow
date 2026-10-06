@@ -6,8 +6,8 @@ import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { LocalData } from './LocalData.tsx'
 import { PeopleAndGroups } from './PeopleAndGroups.tsx'
 
-// A clean of everything takes the people and groups with the kept file, so
-// Settings shows them gone rather than writing the old ones back; and a clean
+// Removing everything takes the people and groups with the kept file, so
+// Settings shows them gone rather than writing the old ones back; and a removal
 // that fails part way reads the listing again.
 
 const api = { id: 'S0API', label: 'api-reviewers' }
@@ -19,35 +19,35 @@ const kept = {
   holds: [{ what: 'owner decisions', count: 1 }],
 } satisfies Listing['files'][number]
 
-// keptUntilCleaned answers People and groups and Local data as a server whose
-// kept file a clean of everything removes; it returns every request made.
-function keptUntilCleaned(): Request[] {
-  let cleaned = false
+// keptUntilRemoved answers People and groups and Local data as a server whose
+// kept file removing everything removes; it returns every request made.
+function keptUntilRemoved(): Request[] {
+  let removed = false
 
   return fakeApi({
     '/api/local-data': (_: URL, asked: Request) => {
-      cleaned ||= asked.method === 'DELETE'
+      removed ||= asked.method === 'DELETE'
 
-      return { dir: '/d', files: cleaned ? [] : [kept] }
+      return { dir: '/d', files: removed ? [] : [kept] }
     },
     '/api/people': () => ({
-      owners: cleaned ? [] : [{ owner: 'dan', kind: 'user', state: 'not_on_slack' }],
+      owners: removed ? [] : [{ owner: 'dan', kind: 'user', state: 'not_on_slack' }],
     }),
-    '/api/repo-groups': () => ({ repository: 'acme/widgets', groups: cleaned ? [] : [api] }),
+    '/api/repo-groups': () => ({ repository: 'acme/widgets', groups: removed ? [] : [api] }),
     '/api/slack/groups': { entries: [api] },
     '/api/slack/members': { entries: [] },
   })
 }
 
-// cleansEverything confirms a clean of everything and waits for its outcome.
-async function cleansEverything(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+// removesEverything confirms removing everything and waits for its outcome.
+async function removesEverything(user: ReturnType<typeof userEvent.setup>): Promise<void> {
   await user.click(await screen.findByRole('button', { name: 'Remove everything…' }))
   await user.click(screen.getByRole('button', { name: 'Remove' }))
 }
 
-test('cleaning everything shows the people and groups gone', async () => {
+test('removing everything shows the people and groups gone', async () => {
   // Arrange
-  keptUntilCleaned()
+  keptUntilRemoved()
   const user = userEvent.setup()
   renderWithClient(
     <>
@@ -59,7 +59,7 @@ test('cleaning everything shows the people and groups gone', async () => {
   await screen.findByRole('checkbox', { name: '@api-reviewers', checked: true })
 
   // Act
-  await cleansEverything(user)
+  await removesEverything(user)
 
   // Assert
   await screen.findByText('Removed kept.db.')
@@ -69,9 +69,9 @@ test('cleaning everything shows the people and groups gone', async () => {
   await screen.findByRole('checkbox', { name: '@api-reviewers', checked: false })
 })
 
-test('saving groups after cleaning everything does not write the old ones back', async () => {
+test('saving groups after removing everything does not write the old ones back', async () => {
   // Arrange
-  const requests = keptUntilCleaned()
+  const requests = keptUntilRemoved()
   const user = userEvent.setup()
   renderWithClient(
     <>
@@ -80,7 +80,7 @@ test('saving groups after cleaning everything does not write the old ones back',
     </>,
   )
   await screen.findByRole('checkbox', { name: '@api-reviewers', checked: true })
-  await cleansEverything(user)
+  await removesEverything(user)
   await screen.findByRole('checkbox', { name: '@api-reviewers', checked: false })
 
   // Act
@@ -94,7 +94,7 @@ test('saving groups after cleaning everything does not write the old ones back',
   expect(await saved.at(-1)?.clone().json()).toEqual({ ids: [] })
 })
 
-test('a clean that fails reads the listing again, since part may be gone', async () => {
+test('a removal that fails reads the listing again, since part may be gone', async () => {
   // Arrange
   let reads = 0
   fakeApi({
@@ -114,7 +114,7 @@ test('a clean that fails reads the listing again, since part may be gone', async
   renderWithClient(<LocalData />)
 
   // Act
-  await cleansEverything(user)
+  await removesEverything(user)
 
   // Assert
   await screen.findByText('held open')

@@ -27,7 +27,7 @@ const kept = {
   holds: [{ what: 'repository groups', count: 2 }],
 } satisfies Listing['files'][number]
 
-// storeHolding answers the listing with files until a clean removes what its
+// storeHolding answers the listing with files until a removal takes what its
 // scope reaches, recording each request.
 function storeHolding(files: Listing['files']): Request[] {
   let left = files
@@ -43,7 +43,7 @@ function storeHolding(files: Listing['files']): Request[] {
   })
 }
 
-// refusing answers the listing with both files and refuses a clean with a 409.
+// refusing answers the listing with both files and refuses a removal with a 409.
 function refusing(): void {
   fakeApi({
     '/api/local-data': (_: URL, asked: Request) =>
@@ -83,7 +83,7 @@ test('says when there is no local data', async () => {
 
   // Assert
   expect(await screen.findByText(/no local data/i)).toBeTruthy()
-  expect(screen.queryByRole('button', { name: /clean/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: /remove/i })).toBeNull()
 })
 
 test('Remove cache… asks first, in a group that takes focus, and Cancel sends nothing', async () => {
@@ -128,7 +128,7 @@ test('Remove everything… warns associations will be asked again, removes and r
   expect(await screen.findByText(/no local data/i)).toBeTruthy()
 })
 
-test('cleaning the cache leaves the kept file listed', async () => {
+test('removing the cache leaves the kept file listed', async () => {
   // Arrange
   const user = userEvent.setup()
   storeHolding([cache, kept])
@@ -147,7 +147,7 @@ test('cleaning the cache leaves the kept file listed', async () => {
   expect(within(table).getByText('kept.db')).toBeTruthy()
 })
 
-test('a clean that could not remove a file says why', async () => {
+test('a removal that could not remove a file says why', async () => {
   // Arrange
   const user = userEvent.setup()
   refusing()
@@ -162,7 +162,7 @@ test('a clean that could not remove a file says why', async () => {
   expect(screen.getByRole('table', { name: 'Local data files' })).toBeTruthy()
 })
 
-test('under --dry-run the cleans are held back, and the page says so', async () => {
+test('under --dry-run the removals are held back, and the page says so', async () => {
   // Arrange
   useHealthStore.setState({ health: makeHealth({ dry_run: true }) })
   storeHolding([cache, kept])
@@ -172,7 +172,7 @@ test('under --dry-run the cleans are held back, and the page says so', async () 
 
   // Assert
   await screen.findByRole('table', { name: 'Local data files' })
-  expect(screen.queryByRole('button', { name: /clean/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: /remove/i })).toBeNull()
   expect(screen.getByText(/removing is held back/i)).toBeTruthy()
 })
 

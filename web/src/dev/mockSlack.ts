@@ -120,7 +120,7 @@ function listed(link: PersonLink, kind: OwnerTag['kind']): SlackTarget {
 }
 
 // mockForgetAll forgets every decision and the repository's groups, as a
-// clean of everything removes the kept file.
+// removal of everything removes the kept file.
 export function mockForgetAll(): void {
   held.decided = []
   held.repoGroups = []

@@ -102,7 +102,7 @@ function GroupChoice({ saved, dryRun }: { saved: Groups; dryRun: boolean }) {
 }
 
 // useCheckedFrom is the groups checked, which start as saved and start again
-// whenever what is saved changes under them — a clean of everything, a save
+// whenever what is saved changes under them — a removal of everything, a save
 // — so Save never writes back groups no longer kept.
 function useCheckedFrom(saved: SlackTarget[]) {
   const savedIds = saved.map((group) => group.id)

@@ -1,7 +1,7 @@
 import { beforeEach, vi } from 'vitest'
 
 // The mockup's Slack refuses a link the server would, and forgets what a
-// clean of everything removes.
+// removal of everything takes.
 
 // fresh is the mock modules as a page load finds them.
 async function fresh() {
@@ -90,12 +90,12 @@ test('each channel has its own members', async () => {
   expect(releases).toEqual(['Ana Souza', 'Erin Park'])
 })
 
-test('cleaning everything forgets the people and the groups', async () => {
+test('removing everything forgets the people and the groups', async () => {
   // Arrange
-  const { mockCleanLocalData, mockPeople, mockRepoGroups } = await fresh()
+  const { mockRemoveLocalData, mockPeople, mockRepoGroups } = await fresh()
 
   // Act
-  mockCleanLocalData('all')
+  mockRemoveLocalData('all')
 
   // Assert
   expect(mockPeople().owners.every((owner) => owner.state === 'unlinked')).toBe(true)

@@ -138,11 +138,11 @@ type Deps struct {
 	UseMessagingSettings func(settings config.Messaging)
 
 	// LocalData is the store's directory and the database files in it, each
-	// with its size and what it holds, read without writing. CleanLocalData
+	// with its size and what it holds, read without writing. RemoveLocalData
 	// removes the cache, or with store.CleanAll the kept associations too. Nil
 	// answers the Local data area as not available.
-	LocalData      func(ctx context.Context) (string, []store.DataFile, error)
-	CleanLocalData func(scope store.CleanScope) error
+	LocalData       func(ctx context.Context) (string, []store.DataFile, error)
+	RemoveLocalData func(scope store.CleanScope) error
 
 	// OwnerLinks, LinkOwner and ForgetOwner are whom each code owner on this
 	// repository's forge host is on Slack, kept between sessions; RepoGroups
@@ -271,10 +271,10 @@ type server struct {
 	// queue: it refuses the dirty tree any stage leaves.
 	indexWrites sync.Mutex
 
-	// keptWrites queues every write to the kept associations and every clean
-	// of the local data: a clean sets the kept file aside, and a write that
-	// lands between would either be lost with it or remake the file the clean
-	// was removing.
+	// keptWrites queues every write to the kept associations and every
+	// removal of the local data: a removal sets the kept file aside, and a
+	// write that lands between would either be lost with it or remake the file
+	// the removal was taking away.
 	keptWrites sync.Mutex
 
 	// scope is the commit scope learned in this repository, held once read.
