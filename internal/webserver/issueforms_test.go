@@ -23,7 +23,9 @@ const (
 	worklogPath       = "/api/issues/" + testKey + "/worklog"
 	// resolved and blocked are where the two changes testKey offers lead.
 	resolved = "Resolved"
-	blocked  = "Blocked"
+	// noFieldsChange asks for the change to blocked, which needs no field.
+	noFieldsChange = `{"transition_id":"11","fields":[]}`
+	blocked        = "Blocked"
 	// assignAna and logAnHour are an assignment and a worklog that can be made.
 	assignAna = `{"assignee":"ana"}`
 	logAnHour = `{"time_spent":"1h"}`
@@ -214,7 +216,7 @@ func TestAStatusChangeNeedingNoFieldsIsMade(t *testing.T) {
 	handler := serve(t, formDeps(&writes), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, statusChangesPath, `{"transition_id":"11","fields":[]}`)
+	recorder := send(t, handler, http.MethodPost, statusChangesPath, noFieldsChange)
 
 	// Assert
 	if recorder.Code != http.StatusOK || len(writes.changes) != 1 || writes.changes[0].to.ToStatus != blocked ||
@@ -376,8 +378,12 @@ func TestAnIssueWriteIsRefusedWhereItCannotBeMade(t *testing.T) {
 			method: http.MethodPost, path: "/api/issues/42/worklog", body: logAnHour,
 		},
 		"no tracker to change status": {
-			method: http.MethodPost, path: statusChangesPath, body: `{"transition_id":"11","fields":[]}`,
+			method: http.MethodPost, path: statusChangesPath, body: noFieldsChange,
 			unwire: func(deps *webserver.Deps) { deps.Transition = nil },
+		},
+		"no tracker to read the status changes from": {
+			method: http.MethodPost, path: statusChangesPath, body: noFieldsChange,
+			unwire: func(deps *webserver.Deps) { deps.Transitions = nil },
 		},
 	}
 
@@ -454,8 +460,12 @@ func TestAnIssueFormsFailureNeverCarriesTheTrackersHost(t *testing.T) {
 		"listing the changes, unreachable": {
 			method: http.MethodGet, path: statusChangesPath, cause: jira.ErrUnreachable, status: http.StatusBadGateway,
 		},
+		"a change whose offers cannot be read": {
+			method: http.MethodPost, path: statusChangesPath, body: noFieldsChange,
+			cause: jira.ErrUnreachable, status: http.StatusBadGateway,
+		},
 		"a change Jira refuses": {
-			method: http.MethodPost, path: statusChangesPath, body: `{"transition_id":"11","fields":[]}`,
+			method: http.MethodPost, path: statusChangesPath, body: noFieldsChange,
 			cause: jira.ErrRejected, status: http.StatusUnprocessableEntity,
 		},
 		"an assignee Jira refuses": {

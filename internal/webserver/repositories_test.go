@@ -197,6 +197,23 @@ func TestAStoreThatKeepsNothingSaysFavoritesAreNotKept(t *testing.T) {
 	}
 }
 
+func TestWithoutAStoreTheFavoritesAreAnEmptyList(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := repositoryDeps(favoritesKept())
+	deps.Favorites = nil
+	handler := serve(t, deps, config.Default())
+
+	// Act
+	recorder := get(t, handler, reposPath)
+
+	// Assert
+	if body := recorder.Body.String(); recorder.Code != http.StatusOK || !strings.Contains(body, `"favorites":[]`) {
+		t.Errorf("status %d, body %s; want 200 and favorites an empty list, never null", recorder.Code, body)
+	}
+}
+
 func TestAFavoriteIsMarkedAndForgotten(t *testing.T) {
 	t.Parallel()
 

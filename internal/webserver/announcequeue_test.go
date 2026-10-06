@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
@@ -31,25 +32,32 @@ const (
 	textField       = "text"
 	editedTextField = "edited_text"
 	editedText      = "Please review #42 today"
+	// notTheBranchesPull is why a held announcement is dropped once its pull
+	// request is not the branch's open one.
+	notTheBranchesPull = "#42 is no longer this branch's pull request"
 )
 
 // forgeWorld is a forge and a messaging service a test can change under a
 // running server, each read behind a lock, since a held announcement is
 // settled on a goroutine of the server's own as well as on a frame.
 type forgeWorld struct {
-	mu    sync.Mutex
-	ci    forge.CIState
-	pull  int
-	state forge.PullState
-	now   time.Time
-	posts []string
-	fail  error
+	mu     sync.Mutex
+	branch string
+	ci     forge.CIState
+	ciErr  error
+	pull   int
+	gone   bool
+	state  forge.PullState
+	now    time.Time
+	posts  []string
+	fail   error
 }
 
 // newForgeWorld is pull request 42, open, its CI running, at a fixed time.
 func newForgeWorld() *forgeWorld {
 	return &forgeWorld{
-		ci: forge.CIRunning, pull: 42, state: forge.StateOpen, now: time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC),
+		branch: testBranchName, ci: forge.CIRunning, pull: 42, state: forge.StateOpen,
+		now: time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC),
 	}
 }
 
@@ -57,19 +65,30 @@ func newForgeWorld() *forgeWorld {
 // posting into it.
 func (w *forgeWorld) deps() webserver.Deps {
 	deps := filledDeps()
+	checkedOut := deps.Branch
+	deps.Branch = func() (gitrepo.Branch, error) {
+		branch, err := checkedOut()
+
+		w.mu.Lock()
+		defer w.mu.Unlock()
+
+		branch.Name = w.branch
+
+		return branch, err
+	}
 	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
 		url := fmt.Sprintf("https://x/%d", w.pull)
 
-		return forge.PullRequest{Number: w.pull, URL: url, Title: "Redact tokens", State: w.state}, true, nil
+		return forge.PullRequest{Number: w.pull, URL: url, Title: "Redact tokens", State: w.state}, !w.gone, nil
 	}
 	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
-		return forge.CI{State: w.ci, Total: 1}, nil
+		return forge.CI{State: w.ci, Total: 1}, w.ciErr
 	}
 	deps.Clock = func() time.Time {
 		w.mu.Lock()
@@ -208,11 +227,19 @@ func TestAHeldAnnouncementIsDroppedWithTheReason(t *testing.T) {
 		},
 		"another pull request": {
 			change:     func(w *forgeWorld) { w.pull = 43 },
-			wantReason: "#42 is no longer this branch's pull request",
+			wantReason: notTheBranchesPull,
 		},
 		"merged first": {
 			change:     func(w *forgeWorld) { w.state = forge.StateMerged },
 			wantReason: "#42 merged before its CI passed",
+		},
+		"another branch checked out": {
+			change:     func(w *forgeWorld) { w.branch = "feat/PROJ-500" },
+			wantReason: notTheBranchesPull,
+		},
+		"no pull request any more": {
+			change:     func(w *forgeWorld) { w.gone = true },
+			wantReason: notTheBranchesPull,
 		},
 	}
 
@@ -337,6 +364,72 @@ func TestOnlyAReadyAnnouncementWithCIRunningWaits(t *testing.T) {
 					recorder.Code, failure.Code, world.posted())
 			}
 		})
+	}
+}
+
+func TestAHeldAnnouncementWaitsOnWhileItsCICannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newForgeWorld()
+	handler := serve(t, world.deps(), config.Default())
+	cancelHeld(t, handler)
+	announceWhenGreen(t, handler, nil)
+	world.turn(func(w *forgeWorld) { w.ciErr = forge.ErrUnreachable })
+
+	// Act
+	held := heldAnnouncement(t, handler)
+
+	// Assert
+	if held == nil || held.State != api.QueuedWaiting {
+		t.Errorf("frame's held announcement = %+v, want it still waiting", held)
+	}
+
+	if posts := world.posted(); len(posts) != 0 {
+		t.Errorf("posted %q, want nothing", posts)
+	}
+}
+
+func TestAnnouncingWhenCIPassesWithNoCISeamIsAConflict(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newForgeWorld()
+	deps := world.deps()
+	deps.CheckCI = nil
+	handler := serve(t, deps, config.Default())
+
+	// Act
+	recorder := announceWhenGreen(t, handler, nil)
+
+	// Assert
+	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusConflict ||
+		!strings.Contains(failure.Detail, "no running CI") || len(world.posted()) != 0 {
+		t.Errorf("status/detail = %d/%q, posted %q; want 409, no running CI, nothing posted",
+			recorder.Code, failure.Detail, world.posted())
+	}
+}
+
+func TestAnnouncingWhenCIPassesWithCIUnreadableIsUnreachable(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newForgeWorld()
+	world.ciErr = fmt.Errorf("%w: https://forge.internal.example", forge.ErrUnreachable)
+	handler := serve(t, world.deps(), config.Default())
+
+	// Act
+	recorder := announceWhenGreen(t, handler, nil)
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusBadGateway || failure.Code != api.Unreachable || len(world.posted()) != 0 {
+		t.Errorf("status/code = %d/%s, posted %q; want 502/unreachable and nothing posted",
+			recorder.Code, failure.Code, world.posted())
+	}
+
+	if strings.Contains(failure.Detail, "forge.internal.example") {
+		t.Errorf("detail = %q, names the forge's host", failure.Detail)
 	}
 }
 
