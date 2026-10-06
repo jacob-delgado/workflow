@@ -119,3 +119,19 @@ func TestPRAsJSONDryRunPrintsTheDraft(t *testing.T) {
 		t.Errorf("the dry-run line is not on stderr:\n%s", printed.stderr)
 	}
 }
+
+func TestPRAsJSONDeclinedPrintsNoReport(t *testing.T) {
+	// Arrange
+	repo, _ := reviewRepo(t, reviewMoves)
+
+	// Act
+	printed, err := runStreams(t, repo, scripted([]string{"n"}, nil), "pr", "--json")
+	// Assert
+	if err != nil {
+		t.Fatalf("pr --json: %v (%+v)", err, printed)
+	}
+
+	if printed.stdout != "" {
+		t.Errorf("pr --json printed %q, want no report for a pull request never opened", printed.stdout)
+	}
+}
