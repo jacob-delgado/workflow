@@ -130,7 +130,8 @@ func (m Model) branchDetail(width int) string {
 		// what to do about it.
 		return wrap(m.branchRail(0), width) + "\n\n" + m.failureBlock(m.branch.err, width)
 	case m.branch.branch.Detached:
-		return wrap(m.branchRail(0)+"\n\nCheck out a branch, or press b to start one for the selected issue.", width)
+		return wrap(m.branchRail(0)+"\n\nCheck out a branch, or press "+m.keys.newBranch.Help().Key+
+			" to start one for the selected issue.", width)
 	}
 
 	branch := m.branch.branch
@@ -290,6 +291,9 @@ type branchCreator struct {
 	// of switching to it in place; canWorktree records that the repository can.
 	worktree    bool
 	canWorktree bool
+	// applyKey is the key apply is bound to, which the offer after a failed
+	// fetch names.
+	applyKey string
 }
 
 var (
@@ -314,7 +318,7 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 	m.overlay = branchCreator{
 		marks: m.marks, styles: m.styles, input: newInput(name), issue: issue, forIssue: forIssue,
 		base: m.branch.branch.Base, baseAge: m.baseAge(),
-		canWorktree: m.deps.Git.CreateWorktree != nil,
+		canWorktree: m.deps.Git.CreateWorktree != nil, applyKey: m.keys.confirm.Help().Key,
 	}
 
 	return m, nil
@@ -347,7 +351,7 @@ func (c branchCreator) view(width, _ int) (string, string) {
 
 	if c.fetchProblem != nil {
 		lines = append(lines, "", failureLine(c.styles, c.marks, c.fetchProblem),
-			"could not fetch; enter branches from what you already have")
+			"could not fetch; "+c.applyKey+" branches from what you already have")
 	}
 
 	return c.title(), strings.Join(lines, "\n")

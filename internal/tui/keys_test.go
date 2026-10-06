@@ -19,6 +19,7 @@ const (
 	openLinkAction = "open-link"
 	addTaskAction  = "add-task"
 	worktreeAction = "worktree"
+	editAction     = "edit"
 )
 
 func TestAKeyOverrideRebindsAnActionAndShowsItInTheHelp(t *testing.T) {
@@ -124,7 +125,7 @@ func TestCheckKeysCatchesConflictsOnCrossPaneKeys(t *testing.T) {
 		{"checks onto open-link, Review pane", map[string]string{"checks": "o"}, openLinkAction},
 		{"merge onto refresh, Review pane", map[string]string{mergeAction: "r"}, refreshAction},
 		{"rerun onto copy-link, Review pane", map[string]string{"rerun-checks": "y"}, "copy-link"},
-		{"merge onto edit, Review pane", map[string]string{mergeAction: "e"}, "edit"},
+		{"merge onto edit, Review pane", map[string]string{mergeAction: "e"}, editAction},
 		{"open-link onto merge, Review pane", map[string]string{"open-link": "M"}, mergeAction},
 		{"toggle-option onto up, a field form", map[string]string{"toggle-option": "k"}, "up"},
 	}
@@ -167,7 +168,7 @@ func TestCheckKeysRefusesAnOverlayKeyOnAKeyLiveBesideItInAComposer(t *testing.T)
 		override map[string]string
 		collides string
 	}{
-		{"worktree onto edit", map[string]string{worktreeAction: "e"}, "edit"},
+		{"worktree onto edit", map[string]string{worktreeAction: "e"}, editAction},
 		{"post-when-green onto verbatim", map[string]string{"post-when-green": "v"}, "verbatim"},
 	}
 

@@ -140,7 +140,8 @@ func (m Model) commitsDetail(width int) string {
 	}
 
 	if len(m.hookgen.hooks) > 0 {
-		lines = append(lines, "", m.styles.label.Render("A hook is not managed by lefthook. Press g to set up lefthook."))
+		lines = append(lines, "", m.styles.label.Render("A hook is not managed by lefthook. Press "+
+			m.keys.hookConfig.Help().Key+" to set up lefthook."))
 	}
 
 	lines = append(lines, m.diffSection(width)...)

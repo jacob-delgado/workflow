@@ -62,6 +62,9 @@ type commitComposer struct {
 	staged   int
 	breaking bool
 	send     sendState
+	// editBodyKey is the key edit-body is bound to, which the offer of a body
+	// names.
+	editBodyKey string
 }
 
 var (
@@ -90,6 +93,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 		marks: m.marks, styles: m.styles, conv: conv, types: types, kind: m.startingType(conv, draft),
 		focus: fieldSubject, scope: newInput(m.startingScope(draft)), subject: newInput(draft.subject), body: draft.body,
 		issueKey: issueKey, staged: m.changes.staged(), breaking: draft.breaking,
+		editBodyKey: m.keys.editBody.Help().Key,
 	}
 	composer.scope.Blur()
 	composer = composer.withScopeSuggestions(m.stagedPaths(), m.deps.Git.RecentSubjects)
@@ -227,7 +231,7 @@ func (c commitComposer) footnotes() []string {
 	lines := []string{}
 
 	if strings.TrimSpace(c.body) == "" {
-		lines = append(lines, "no body yet: ctrl+o writes one in your editor")
+		lines = append(lines, "no body yet: "+c.editBodyKey+" writes one in your editor")
 	} else {
 		body := strings.Split(strings.TrimSpace(c.body), "\n")
 		lines = append(lines, body[:min(len(body), bodyPreviewLines)]...)

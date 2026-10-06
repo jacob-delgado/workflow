@@ -25,11 +25,13 @@ func (m Model) mergedDetail(pull forge.PullRequest) string {
 	}
 
 	if m.canFinish() {
-		lines = append(lines, "", "F finishes the branch: switch to "+m.branch.branch.BaseName()+", pull, delete it.")
+		lines = append(lines, "", m.keys.finish.Help().Key+" finishes the branch: switch to "+
+			m.branch.branch.BaseName()+", pull, delete it.")
 	}
 
 	if m.canOpenPullRequest() {
-		lines = append(lines, "", "n opens a new "+m.vocab.noun+" from this branch's commits.")
+		lines = append(lines, "", m.keys.newPullRequest.Help().Key+" opens a new "+m.vocab.noun+
+			" from this branch's commits.")
 	}
 
 	return strings.Join(lines, "\n")
