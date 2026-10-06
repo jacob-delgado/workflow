@@ -18,6 +18,7 @@ workflow status --json                 # where the work stands, as data
 cd "$(workflow branch PROJ-7 --fetch --worktree --yes | tail -n 1)"   # start fresh, beside this checkout
 workflow --dry-run pr                  # what pr would push and open
 workflow pr --yes                      # push, open, link and move, without asking
+workflow pr --yes --json | jq .pull.url   # the same, and the address it opened
 workflow standup --no-edit --yes       # post the day's standup, unattended
 workflow --log requests.log doctor --online   # a bug report's evidence
 ```
@@ -93,7 +94,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `config init` | with `--dry-run`, the file it would write, as JSON, masked | progress, the checks, "Wrote …", what to do next, a warning when the file is not ignored by git |
 | `standup` | the draft | "Nothing to share.", the dry-run line, "Not posted.", "Posted to …" |
 | `branch` | `Start work on KEY: create NAME from BASE and switch to it`, then `Created NAME`; with `--fetch` the plan opens `fetch origin, then`; with `--worktree` it ends `in a new worktree beside the repository`, and the worktree's directory follows alone on the last line | the dry-run line, "Not created.", and with `--worktree` "Created NAME in a new worktree." |
-| `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab) | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes |
+| `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab); with `--json`, the JSON alone | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes; with `--json`, the preview and the `Opened` line too |
 | `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …" |
 | `slack login` | | the dry-run line, "Logged in to Slack as …" |
 | `db-clean` | the store's directory and each database file in it | the warning before `--all` removes `kept.db`, the dry-run line, "Nothing to remove.", "Nothing removed.", "Removed …" |
@@ -104,8 +105,8 @@ reviews and nothing else.
 
 ## JSON
 
-`--json` is on the reads: `status`, `reviews` and `doctor`. `config show`
-prints JSON always. None of them carries a credential: `config show` masks
+`--json` is on the reads: `status`, `reviews` and `doctor`; and on `pr`,
+for what it opened. `config show` prints JSON always. None of them carries a credential: `config show` masks
 each to its last four characters, and the others never print one.
 
 `workflow status --json` prints one object:
@@ -159,6 +160,35 @@ whole array.
   }
 ]
 ```
+
+`workflow pr --json` prints what it opened as one object, the web's
+`OpenedPullRequest` with the branches the pull request joins, and with
+whether each offer that followed was taken:
+
+```json
+{
+  "pull": {
+    "number": 7,
+    "url": "https://github.com/acme/api/pull/7",
+    "title": "fix(config): redact the webhook",
+    "draft": false,
+    "head": "fix/PROJ-412-redact",
+    "base": "main"
+  },
+  "follow_ups": [
+    { "action": "link", "issue_key": "PROJ-412", "done": true },
+    { "action": "transition", "issue_key": "PROJ-412", "status": "In Review", "done": true }
+  ]
+}
+```
+
+`warning` is added when the pull request opened but some of its reviewers
+or assignees could not be. `follow_ups` lists the offers made — none when
+the branch names no Jira issue — and `done` is false for one declined or
+one that failed, which also fails the command after the JSON is printed.
+Under `--dry-run` it prints the pull request it would open, with `number`
+`0`, `url` empty and every offer not done. A pull request that was not
+opened — declined, refused or failed — prints nothing.
 
 `workflow doctor --json` prints the report as an object: `version`; `repository`
 (`inside_work_tree`, `root`, `branch`, `detached`, `remote`, `forge`);
