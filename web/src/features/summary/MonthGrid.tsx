@@ -138,7 +138,8 @@ interface DayCellProps {
 
 // DayCell is one day: selected when it is in the period, reached by Tab when
 // it is the day in focus, and picked by a click or a key, with Shift for a
-// range.
+// range. A picked day is filled in the ring's color, so its ring stands off by
+// a page-colored gap.
 function DayCell({ day, inPeriod, focusable, cells, onPick, onKey }: DayCellProps) {
   return (
     <div
@@ -159,7 +160,9 @@ function DayCell({ day, inPeriod, focusable, cells, onPick, onKey }: DayCellProp
       onKeyDown={onKey}
       className={cn(
         'flex h-8 cursor-pointer items-center justify-center rounded-md tabular-nums focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-        inPeriod ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-accent',
+        inPeriod
+          ? 'bg-primary text-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+          : 'text-foreground hover:bg-accent',
       )}
     >
       {Number(day.slice(8))}

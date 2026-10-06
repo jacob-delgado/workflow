@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { height, openCockpit, openSection } from './cockpit.ts'
+import { height, openCockpit, openSection, themes } from './cockpit.ts'
 
 // A section's one outward act is drawn at one size wherever it stands, and
 // every control beside it at the other: a reader learns the two sizes once.
@@ -63,3 +63,50 @@ test(
     )
   },
 )
+
+// A box-shadow layer, as the browser computes it: its color and its spread.
+interface ShadowLayer {
+  color: string
+  spread: number
+}
+
+// focusDrawing is how a control draws keyboard focus once Tab reaches it — the
+// layers of its computed box-shadow — and the page color around it. It steps
+// back and Tabs onto the control, since only focus a key moves is drawn.
+async function focusDrawing(control: Locator): Promise<{ layers: ShadowLayer[]; page: string }> {
+  await control.focus()
+  await control.press('Shift+Tab')
+  await control.page().keyboard.press('Tab')
+
+  return control.evaluate((element) => {
+    const shadow = getComputedStyle(element).boxShadow
+    const layers = [...shadow.matchAll(/(rgba?\([^)]*\))\s+0px 0px 0px (\d+)px/g)].map(
+      ([, color = '', spread = '0']) => ({ color, spread: Number(spread) }),
+    )
+
+    return { layers, page: getComputedStyle(document.body).backgroundColor }
+  })
+}
+
+for (const theme of themes) {
+  test(
+    `a primary act's focus ring stands apart from its fill in the ${theme} theme`,
+    { tag: '@populated' },
+    async ({ page }) => {
+      // Arrange
+      await openCockpit(page, { width: 1024, height }, theme)
+      await openSection(page, 'Settings')
+
+      // Act
+      const { layers, page: pageColor } = await focusDrawing(
+        page.getByRole('button', { name: 'Save changes' }),
+      )
+
+      // Assert: a page-colored gap, and the ring drawn wider than it
+      const gap = layers.find((layer) => layer.color === pageColor && layer.spread > 0)
+      expect(gap, JSON.stringify({ layers, pageColor })).toBeDefined()
+      const ring = layers.find((layer) => layer.spread > (gap?.spread ?? 0))
+      expect(ring, JSON.stringify(layers)).toBeDefined()
+    },
+  )
+}
