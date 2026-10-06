@@ -12,9 +12,9 @@
 // server takes the same functions narrowed into a webserver.Deps by
 // cli.WebDeps — Taskwarrior's bundle whole, since the API uses every function
 // in it — so any surface can import them without importing the terminal.
-// The package therefore imports only the domain packages and internal/loop,
-// and nothing that imports a surface. A depguard rule in .golangci.yml holds
-// that direction.
+// The package therefore imports only the domain packages, internal/loop and
+// internal/setup, and nothing that imports a surface. A depguard rule in
+// .golangci.yml holds that direction.
 package seams
 
 import (
@@ -29,6 +29,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
@@ -279,6 +280,23 @@ type Settings struct {
 	LocalData func() (string, []store.DataFile, error)
 	// RemoveLocalData removes the files a clean of scope reaches.
 	RemoveLocalData func(scope store.CleanScope) error
+	// Setup sets up a first configuration file where none applies.
+	Setup Setup
+}
+
+// Setup is what a surface asks to set up a first configuration file where
+// none applies, as workflow config init does: where the file may go, the Jira
+// token checked, and the file written. Each function is nil where it is not
+// wired.
+type Setup struct {
+	// Offer is where the file may go, and whether the OS keychain can keep
+	// the token.
+	Offer func() setup.Offer
+	// Check asks Jira who the token in settings authenticates as.
+	Check func(settings config.Jira) (string, error)
+	// Write writes the file a request asks for, refusing one already there
+	// with setup.ErrExists.
+	Write func(request setup.Request) (setup.Written, error)
 }
 
 // Place is a directory a surface can work in, as it is now: the directory,

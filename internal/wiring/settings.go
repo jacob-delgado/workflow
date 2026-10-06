@@ -9,7 +9,9 @@ import (
 	"sync"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -26,6 +28,24 @@ func settingsDeps(
 		Save:            editor.save,
 		LocalData:       func() (string, []store.DataFile, error) { return localData(ctx) },
 		RemoveLocalData: removeLocalData,
+	}
+}
+
+// SetupDeps is the first run's seams where it runs: Jira checked over the
+// redirect-refusing client, outlined in log unless it is nil, and the token
+// kept in the keychain through storeSecret, nil where none is wired.
+func SetupDeps(
+	ctx context.Context, where setup.Where, log *RequestLog, storeSecret func(secret string) (string, error),
+) seams.Setup {
+	guide := setup.Guide{
+		//nolint:bodyclose // Wrap only relays the response; the Jira client reads and closes its body.
+		Where: where, Doer: log.Wrap("jira", httpx.Client(RequestTimeout).Do), StoreSecret: storeSecret,
+	}
+
+	return seams.Setup{
+		Offer: guide.Offer,
+		Check: func(settings config.Jira) (string, error) { return guide.Check(ctx, settings) },
+		Write: func(request setup.Request) (setup.Written, error) { return guide.Write(ctx, request) },
 	}
 }
 

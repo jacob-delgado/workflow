@@ -142,6 +142,7 @@ every key `?` lists, by where it works.
 | | `r` | Search again |
 | | `T` | Track the issue in Taskwarrior, or go to the task that tracks it; offered once Taskwarrior has answered |
 | | `enter` / `esc` | Below 80 columns, read the selected issue in full, then go back to the list |
+| | `enter` | With no configuration file, set one up (see [Setting up](#setting-up)) |
 | 2 Branch | `b` | Start a branch |
 | | `s` | Switch branch: to the branch of another of your issues |
 | | `i` | Link the branch to an issue, for work begun outside workflow, or unlink the one it is linked to |
@@ -196,7 +197,7 @@ every key `?` lists, by where it works.
 | 9 Repositories | `enter` | Switch to the selected directory, after a last look |
 | | `f` | Add the selected directory to your favorites, or remove it |
 | | `g` | Type a directory to switch to; `tab` completes it |
-| | `S` | Settings: read and change the configuration the web's Settings edits |
+| | `S` | Settings: read and change the configuration the web's Settings edits; with no file, set one up |
 | | `L` | Local data: the store's files, and removing them after a last look |
 | | `r` | Read the favorites again |
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
@@ -767,6 +768,28 @@ commit message or a pull request being written, a comment on one of its forge
 issues, an announcement waiting for CI — would be lost, so the switch's last
 look names it too; and while an announcement or a change to a task is being sent,
 the switch waits for it.
+
+## Setting up
+
+With no `.workflow.json` to read, the Issues pane says so and `enter` sets one
+up there, as `S` on the Repositories pane does; `workflow config init` asks the
+same questions at a prompt. The form asks them one at a time: where the file
+goes — the repository, so it applies across it, or your home directory, so it
+applies everywhere — then Jira's address and your personal access token, which
+is typed without showing it and checked with Jira while the form says so. A
+check that does not pass names why and offers to type the token again, keep
+both anyway, or leave Jira out. Where the OS keychain is wired (macOS), it then
+asks where to keep the token: in the keychain, so the file holds only the
+command that reads it back, or in the file, which only you can read. Last comes
+a Slack incoming webhook, saved unchecked, or left blank to post with your Slack
+user token after `workflow slack login`. A blank address or webhook skips that
+question, and `esc` goes back one.
+
+`enter` on the last look writes the file and reopens workflow in the same
+directory with it, on the Issues pane, as a save in Settings does; a file in a
+repository that git does not ignore is named, since it holds credentials. A file
+already there is never written over. Under `--dry-run` the last look says what
+it would have written.
 
 ## Settings
 

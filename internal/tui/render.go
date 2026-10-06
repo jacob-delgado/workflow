@@ -478,18 +478,30 @@ func (m Model) status(width int) string {
 }
 
 // configErrorStatus renders the screen shown when no configuration loaded. It
-// names both setup steps, in the one wording every surface shares, and gives
-// each problem an invalid file has a row of its own, wrapped to width.
+// names both setup steps, in the one wording every surface shares — with the
+// key that sets one up here first, where one can be — and gives each problem
+// an invalid file has a row of its own, wrapped to width.
 func (m Model) configErrorStatus(width int) string {
 	if errors.Is(m.loadErr, config.ErrNotFound) {
 		return m.styles.strong.Render(config.NoConfigHeadline) + "\n" +
-			m.styles.label.Render(config.InitStep) + "\n" +
+			m.setupStep() + "\n" +
 			m.styles.label.Render(config.DoctorStep)
 	}
 
 	return m.styles.strong.Render("configuration error") + "\n" +
 		m.failureBlock(m.loadErr, width) + "\n" +
 		m.styles.label.Render("start over with `workflow config init --force`")
+}
+
+// setupStep names how to set up a first file: the key that does it here,
+// where one can be, or config init.
+func (m Model) setupStep() string {
+	if !m.offersSetup() {
+		return m.styles.label.Render(config.InitStep)
+	}
+
+	return m.styles.strong.Render(m.keys.confirm.Help().Key) + " sets one up here.\n" +
+		m.styles.label.Render("Or "+strings.ToLower(config.InitStep[:1])+config.InitStep[1:])
 }
 
 // plural counts things, in words.

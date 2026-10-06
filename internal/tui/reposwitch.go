@@ -29,9 +29,18 @@ import (
 type Next struct {
 	Dir     string
 	carried carried
-	// saved is the configuration file a save in Settings wrote, when that is
-	// why the interface ended.
-	saved string
+	// saved is the configuration file a save in Settings or a first run's
+	// setup wrote, when that is why the interface ended.
+	saved reopening
+}
+
+// reopening is a configuration file written that workflow reopens with: a
+// save in Settings, or a first run's setup, which arrives on the Issues pane
+// it was offered on and says when git would let the file be committed.
+type reopening struct {
+	path       string
+	firstRun   bool
+	notIgnored bool
 }
 
 // carried is the session's own state, kept across a switch: the comments
@@ -61,8 +70,12 @@ func (m Model) Destination() Next {
 // carried in, the Repositories pane in focus, and where it is now said.
 func (m Model) Arrived(next Next) Model {
 	m = m.carryIn(next.carried)
-	if next.saved != "" {
-		return m.noticed(m.marks.done + " saved " + m.shownDir(next.saved) + "; reopened with it")
+	if next.saved.firstRun {
+		return m.arrivedSetUp(next.saved)
+	}
+
+	if next.saved.path != "" {
+		return m.noticed(m.marks.done + " saved " + m.shownDir(next.saved.path) + "; reopened with it")
 	}
 
 	return m.noticed(m.marks.done + " switched to " + m.shownDir(next.Dir))
@@ -72,11 +85,22 @@ func (m Model) Arrived(next Next) Model {
 // next.Dir, or a reopen with a save, could not be made, saying why.
 func (m Model) StayedAfter(next Next, err error) Model {
 	m = m.carryIn(next.carried)
-	if next.saved != "" {
-		return m.noticedFailureLedBy("saved "+m.shownDir(next.saved)+" but could not reopen with it: ", err)
+	if next.saved.path != "" {
+		return m.noticedFailureLedBy("saved "+m.shownDir(next.saved.path)+" but could not reopen with it: ", err)
 	}
 
 	return m.noticedFailureLedBy("could not switch to "+m.shownDir(next.Dir)+": ", err)
+}
+
+// arrivedSetUp is the interface reopened with the file a first run wrote, on
+// the Issues pane it was set up from.
+func (m Model) arrivedSetUp(saved reopening) Model {
+	said := m.marks.done + " set up with " + m.shownDir(saved.path)
+	if saved.notIgnored {
+		said = m.marks.done + " set up; add it to .gitignore, since it holds credentials: " + m.shownDir(saved.path)
+	}
+
+	return m.focusOn(paneIssues).noticed(said)
 }
 
 // carryIn takes what a switch carried, and focuses the pane it was made from,
@@ -168,32 +192,32 @@ func (m Model) leave(dir string) (Model, tea.Cmd) {
 }
 
 // reopenWith ends the interface for where you work, so the one opened there
-// is wired with the configuration saved at path, once nothing is being
+// is wired with the configuration saved, once nothing is being
 // written and nothing would be lost; otherwise a last look asks first, as a
 // switch's does. Without a directory to reopen in, the save waits for the
 // next start.
-func (m Model) reopenWith(path string) (Model, tea.Cmd) {
+func (m Model) reopenWith(saved reopening) (Model, tea.Cmd) {
 	dir := m.deps.Repositories.Here.Dir
 	m = m.closeOverlay()
 
 	switch {
 	case dir == "":
-		return m.noticed(m.savedForLater(path)), nil
+		return m.noticed(m.savedForLater(saved.path)), nil
 	case m.writeInFlight() == "" && len(m.lostOnLeaving()) == 0:
-		return m.reopen(dir, path)
+		return m.reopen(dir, saved)
 	default:
-		return m.lookAt(m.reopenLook(dir, path)), nil
+		return m.lookAt(m.reopenLook(dir, saved)), nil
 	}
 }
 
 // reopenLook is the last look at reopening in dir with the configuration
-// saved at path, which names what reopening would lose.
-func (m Model) reopenLook(dir, path string) lastLook {
-	question := "Saved " + m.shownDir(path) + ". Reopen workflow here, so it applies now?\n\n" +
+// saved, which names what reopening would lose.
+func (m Model) reopenLook(dir string, saved reopening) lastLook {
+	question := "Saved " + m.shownDir(saved.path) + ". Reopen workflow here, so it applies now?\n\n" +
 		"Every pane is read again. Staying keeps it for when workflow next opens."
 
 	return lastLook{
-		title: "Reopen with the settings", verb: "reopen", leave: escStay, stayed: m.savedForLater(path),
+		title: "Reopen with the settings", verb: "reopen", leave: escStay, stayed: m.savedForLater(saved.path),
 		body: leaveQuestion(question, "Reopening", m.lostOnLeaving()),
 		proceed: func(m Model) (Model, tea.Cmd) {
 			m = m.closeOverlay()
@@ -201,7 +225,7 @@ func (m Model) reopenLook(dir, path string) lastLook {
 				return m.noticed("wait for " + busy + " to finish before reopening"), nil
 			}
 
-			return m.reopen(dir, path)
+			return m.reopen(dir, saved)
 		},
 	}
 }
@@ -213,9 +237,9 @@ func (m Model) savedForLater(path string) string {
 }
 
 // reopen ends the interface for dir, the directory it works in, saying the
-// configuration at path was saved.
-func (m Model) reopen(dir, path string) (Model, tea.Cmd) {
-	m.next = Next{Dir: dir, carried: m.carryOut(), saved: path}
+// configuration was saved.
+func (m Model) reopen(dir string, saved reopening) (Model, tea.Cmd) {
+	m.next = Next{Dir: dir, carried: m.carryOut(), saved: saved}
 
 	return m, tea.Quit
 }

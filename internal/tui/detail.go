@@ -192,6 +192,10 @@ func (m Model) issuesNarrow(rows int) string {
 // seams can carry out on the selected issue and its links; then the list's own
 // keys. With no issue selected, a branch can still be started from nothing.
 func (m Model) issuesKeys() []key.Binding {
+	if m.setupShown() {
+		return slices.Concat([]key.Binding{relabel(m.keys.confirm, "set up")}, m.newBranchKeys(), m.issueListKeys())
+	}
+
 	selected, ok := m.issues.current()
 	if !ok {
 		return slices.Concat(m.newBranchKeys(), m.issueListKeys())
