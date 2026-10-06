@@ -16,7 +16,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
-	"github.com/jacob-delgado/workflow/internal/editor"
 	"github.com/jacob-delgado/workflow/internal/keychain"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
@@ -55,9 +54,6 @@ func terminalPrompt() cli.Prompt {
 			return string(secret), err
 		},
 		StoreSecret: keychain.Storer(runtime.GOOS, proc.Capture, user.Current, os.Getenv),
-		Compose: func(draft, help string) (string, error) {
-			return editor.Compose(os.Getenv, draft, help)
-		},
-		Input: reader,
+		Input:       reader,
 	}
 }

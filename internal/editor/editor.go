@@ -158,28 +158,6 @@ func Edit(getenv Getenv, dir, text, help string, done func(string, error) tea.Ms
 	return tea.ExecProcess(command, Collect(path, done))
 }
 
-// Compose is Edit for a command that holds the terminal itself: it hands text
-// to the user's editor on this process's own standard streams, waits for the
-// editor to close, and returns what was left above the scissors line. The
-// draft goes to $TMPDIR as Edit's does, and is gone again when Compose returns.
-func Compose(getenv Getenv, text, help string) (string, error) {
-	path, err := writeDraft(getenv("TMPDIR"), Draft(text, help))
-	if err != nil {
-		return "", err
-	}
-
-	command, err := proc.Interactive(Invocation(getenv, filepath.Dir(path), path, 0))
-	if err != nil {
-		_ = os.Remove(path)
-
-		return "", err
-	}
-
-	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
-
-	return readBack(path, command.Run())
-}
-
 // Collect is what happens once the editor closes: the draft at path is read
 // back, parsed, reported through done, and removed.
 func Collect(path string, done func(string, error) tea.Msg) func(error) tea.Msg {

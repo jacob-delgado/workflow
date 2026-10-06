@@ -89,7 +89,7 @@ type PullRequest struct {
 
 // IsOpen reports whether this pull request is in the open state. FindPullRequest
 // also returns a merged pull request, so a caller that means "is there an open
-// one" — the standup list, the status line, the offer to open a new one — asks
+// one" — the status line, the link offer, the offer to open a new one — asks
 // this rather than trusting found alone. (Opened, below, is the different
 // question of whether the forge created it at all.)
 func (p PullRequest) IsOpen() bool {

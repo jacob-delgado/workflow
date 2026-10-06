@@ -367,7 +367,7 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 // config, and the scriptable write commands.
 func subcommands(prompt Prompt) []*cobra.Command {
 	return []*cobra.Command{
-		newConfigCmd(prompt), newDoctorCmd(), newStatusCmd(), newStandupCmd(prompt), newReviewsCmd(),
+		newConfigCmd(prompt), newDoctorCmd(), newStatusCmd(), newSummaryCmd(prompt), newReviewsCmd(),
 		newRepositoriesCmd(),
 		newBranchCmd(prompt), newPRCmd(prompt), newAnnounceCmd(prompt), newCommentCmd(prompt),
 		newSlackCmd(prompt), newDBCleanCmd(prompt),

@@ -47,9 +47,10 @@ format that may still change before 1.0.
   webhook cannot be checked without posting, so it is reported unchecked.
 - `workflow config init` writes a starting configuration file, and
   `workflow config show` prints the one in effect, credentials masked.
-- `workflow standup` drafts what you did — your recent commits, the issues you
-  touched and the open pull requests on your branches — for you to edit and,
-  optionally, post to your team.
+- `workflow summary` says what you did over a period — the commits you wrote,
+  the tasks you touched, what you did to Jira issues and the pull requests you
+  opened, had merged and reviewed — as the Summary pane reads it; `--json`
+  prints it for a script, and `--post` posts it to your team after a preview.
 - `workflow reviews` lists the pull requests on your forge that are waiting on
   your review — the longest-waiting first, with the author, how CI stands and
   how long each has waited.
