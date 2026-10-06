@@ -32,32 +32,31 @@ can rely on from them: exit codes, which stream carries what, `--json`,
 ## The screen
 
 ```text
- ● Issue ─ ● Branch ─ ● Commits ─ ● Review ─ ○ Slack ◐ PROJ-412: Fix token redaction · 1h12m
+ api/cmd ● Issue ─ ● Branch ─ ● Commits ─ ● Review ─ ○ Slack ◐ PROJ-412: Fix token redaction 1h12m
 ┏━ 1 Issues ━━━━━━━━━━━━━━┓┌─ Issues ──────────────────────────────────────────────────────┐
 ┃ ▸ ◐◐ PROJ-412 Fix toke… ┃│ PROJ-412 Fix token redaction                                  │
 ┃   ○○ PROJ-388 Add retr… ┃│ Bug · In Progress                                             │
 ┃                         ┃│                                                               │
-┃                         ┃│ Tasks                                                         │
-┡━ 2 Branch ━━━━━━━━━━━━━━┩│   ◐ #12 PROJ-412: Fix token redaction  started 1h12m ago      │
-│ fix/PROJ-412-fix-token… ││                                                               │
-│ pushed                  ││ reported by Ana Lopez                                         │
-├─ 3 Commits ─────────────┤│                                                               │
-│ 1 of 1 staged           ││ Tokens reach the log.                                         │
-│ 1 commit on this branch ││                                                               │
-├─ 4 Review ──────────────┤│ Comments 1 of 1                                               │
+┡━ 2 Branch ━━━━━━━━━━━━━━┩│ Tasks                                                         │
+│ fix/PROJ-412-fix-token… ││   ◐ #12 PROJ-412: Fix token redaction  started 1h12m ago      │
+│ pushed                  ││                                                               │
+├─ 3 Commits ─────────────┤│ reported by Ana Lopez                                         │
+│ 1 of 1 staged           ││                                                               │
+├─ 4 Review ──────────────┤│ Tokens reach the log.                                         │
 │ #42 fix(config): redac… ││                                                               │
-│ ● passed (1 of 1 finis… ││ Ana Lopez · 2h ago                                            │
-├─ 5 Slack ───────────────┤│ Repro'd on 8.2.1                                              │
-│ #dev                    ││                                                               │
-│ ○ nothing announced     ││                                                               │
-├─ 6 Reviews ─────────────┤│                                                               │
-│ 2 review requests wait… ││                                                               │
-│                         ││                                                               │
+│ ● passed (1 of 1 finis… ││ Comments 1 of 1                                               │
+├─ 5 Slack ───────────────┤│                                                               │
+│ ○ nothing announced     ││ Ana Lopez · 2h ago                                            │
+├─ 6 Reviews ─────────────┤│ Repro'd on 8.2.1                                              │
+│ 2 waiting               ││                                                               │
 ├─ 7 Tasks ───────────────┤│                                                               │
 │ 3 pending · 1 active    ││                                                               │
-│                         ││                                                               │
+├─ 8 Summary ─────────────┤│                                                               │
+│ 2026-10-02 to 2026-10-… ││                                                               │
+├─ 9 Repositories ────────┤│                                                               │
+│ ~/src/api/cmd           ││                                                               │
 └─────────────────────────┘└───────────────────────────────────────────────────────────────┘
- t change status • c comment • b branch for PROJ-412 • a assign • w log work • ? keys …
+ t change status • c comment • b start work • a assign • w log work • ? keys • q quit
 ```
 
 - **The top row** is how far along the loop the work is. `○` not started, `◐`
@@ -185,13 +184,13 @@ every key `?` lists, by where it works.
 | | `enter` | Go to its issue, when the Issues pane lists that issue |
 | | `o` / `y` | Open its issue in the browser, or copy its URL |
 | | `r` | Read the tasks again |
-| Summary | `[` / `]` | The period before or after, read once the key rests |
+| 8 Summary | `[` / `]` | The period before or after, read once the key rests |
 | | `t` | Today |
 | | `c` | Pick a day, a month, a year or a range in the calendar |
 | | `Y` | Copy the summary as Markdown |
 | | `o` / `y` | Open the selected item in the browser, or copy its URL |
 | | `r` | Read the period again |
-| Repositories | `enter` | Switch to the selected directory, after a last look |
+| 9 Repositories | `enter` | Switch to the selected directory, after a last look |
 | | `f` | Add the selected directory to your favorites, or remove it |
 | | `g` | Type a directory to switch to; `tab` completes it |
 | | `S` | Settings: read and change the configuration the web's Settings edits |
