@@ -88,6 +88,7 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		ReviewRequests: deps.Forge.ReviewRequests,
 		Stage:          deps.Git.Stage,
 		Unstage:        deps.Git.Unstage,
+		Discard:        deps.Git.Discard,
 
 		RemoteBranches: deps.Git.RemoteBranches,
 		IssueLinks:     deps.Git.IssueLinks,

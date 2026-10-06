@@ -407,6 +407,13 @@ export const zStagingRequest = z.object({
 });
 
 /**
+ * The one changed file whose changes to discard.
+ */
+export const zDiscardRequest = z.object({
+    path: z.string().min(1)
+});
+
+/**
  * The parts of a Conventional Commit message for the staged changes.
  */
 export const zCommitRequest = z.object({
@@ -1223,6 +1230,13 @@ export const zUnstageBody = zStagingRequest;
  * The working tree's changes, now unstaged.
  */
 export const zUnstageResponse = zChangeList;
+
+export const zDiscardBody = zDiscardRequest;
+
+/**
+ * The working tree's changes, the file's now gone from them.
+ */
+export const zDiscardResponse = zChangeList;
 
 /**
  * The pull request and the methods permitted.

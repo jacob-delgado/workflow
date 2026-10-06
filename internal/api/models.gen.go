@@ -1074,6 +1074,14 @@ type DirectoryListing struct {
 	Truncated bool `json:"truncated"`
 }
 
+// DiscardRequest The one changed file whose changes to discard.
+type DiscardRequest struct {
+	// Path A changed file, by the path the working tree's changes list it under (a rename's new path).
+	//
+	// Example: internal/config/config.go
+	Path string `json:"path"`
+}
+
 // Favorite A directory you keep as a favorite, and what is there now.
 type Favorite struct {
 	// Dir The directory, as an absolute path.
@@ -2273,6 +2281,9 @@ type CommitJSONRequestBody = CommitRequest
 
 // UpdateConfigJSONRequestBody defines body for UpdateConfig for application/json ContentType.
 type UpdateConfigJSONRequestBody = Config
+
+// DiscardJSONRequestBody defines body for Discard for application/json ContentType.
+type DiscardJSONRequestBody = DiscardRequest
 
 // SetUpHooksJSONRequestBody defines body for SetUpHooks for application/json ContentType.
 type SetUpHooksJSONRequestBody = HookSetupRequest
