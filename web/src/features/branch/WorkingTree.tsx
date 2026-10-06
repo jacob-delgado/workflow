@@ -20,7 +20,8 @@ import {
 // WorkingTree is the changed files, each with the terminal's space — stage it,
 // or unstage it once it is wholly staged — and its x, Discard…, which asks
 // first; then its `a` and `U`, Stage all and Unstage all, and the commit form,
-// which stays in place and says what it waits for until something is staged.
+// which stays in place and says what it waits for until something is staged;
+// a clean tree says so under the heading, before the form.
 // What a discard did is said below the list, which outlives the file's row.
 export function WorkingTree({
   changes,
@@ -35,6 +36,7 @@ export function WorkingTree({
   commitTypes: string[]
 }) {
   const discards = useOutcome()
+  const anythingStaged = changes.some((change) => change.staged)
 
   // Changes that could not be read are that failure, not a clean tree.
   if (unread !== null) {
@@ -49,7 +51,9 @@ export function WorkingTree({
   return (
     <section aria-labelledby="changes-heading" className="flex flex-col gap-group">
       <WorkingTreeHeading />
-      {changes.length === 0 ? null : (
+      {changes.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Clean — nothing to commit.</p>
+      ) : (
         <>
           <ul className="flex flex-col gap-item">
             {changes.map((change) => (
@@ -58,13 +62,18 @@ export function WorkingTree({
           </ul>
           <div className="flex flex-wrap items-start gap-item">
             <StageAll anythingToStage={changes.some(offersStage)} />
-            <UnstageAll anythingStaged={changes.some((change) => change.staged)} />
+            <UnstageAll anythingStaged={anythingStaged} />
           </div>
         </>
       )}
       <OutcomeLine said={discards.said} />
       <CommitForm
-        blocked={commitBlocker(changes)}
+        canCommit={anythingStaged}
+        waiting={
+          changes.length > 0 && !anythingStaged
+            ? 'Nothing staged yet — stage a file above.'
+            : undefined
+        }
         suggestedScope={suggestedScope}
         commitTypes={commitTypes}
       />
@@ -86,18 +95,6 @@ function WorkingTreeHeading() {
 // resolved. What it offers to stage is what Stage all stages.
 function offersStage(change: Change): boolean {
   return !change.staged || change.has_unstaged
-}
-
-// commitBlocker says why there is nothing to commit yet, or null once
-// something is staged.
-function commitBlocker(changes: Change[]): string | null {
-  if (changes.some((change) => change.staged)) {
-    return null
-  }
-
-  return changes.length === 0
-    ? 'Clean — nothing to commit.'
-    : 'Nothing staged yet — stage a file above.'
 }
 
 // stagedTag is how much of a file the index holds, in words and by the mark
