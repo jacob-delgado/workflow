@@ -2,6 +2,7 @@ import { ExternalLink } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { Issue, Task, TaskList } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
+import { writtenDate } from '@/lib/dates.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, definitionList } from '@/lib/utils.ts'
@@ -81,7 +82,7 @@ function TaskFacts({ task, issue, now }: Omit<TaskDetailProps, 'teller'>) {
       )}
       {task.due === undefined ? null : (
         <Fact term="Due">
-          <time dateTime={task.due}>{new Date(task.due).toLocaleDateString()}</time>
+          <time dateTime={task.due}>{writtenDate(new Date(task.due))}</time>
           {` · ${dueWords(task.due, now)}`}
         </Fact>
       )}
@@ -163,7 +164,7 @@ function Annotations({ task }: { task: Task }) {
         {task.annotations.map((note, index) => (
           <li key={`${String(index)}-${note.entry}`}>
             <time dateTime={note.entry} className="text-muted-foreground">
-              {new Date(note.entry).toLocaleDateString()}
+              {writtenDate(new Date(note.entry))}
             </time>{' '}
             {note.description}
           </li>

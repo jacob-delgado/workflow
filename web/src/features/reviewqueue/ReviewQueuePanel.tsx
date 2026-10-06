@@ -4,6 +4,7 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
+import { writtenDate } from '@/lib/dates.ts'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
@@ -360,7 +361,7 @@ function waited(openedAt: string, readAt: number): string {
 
   return elapsed < month
     ? `${String(Math.floor(elapsed / day))}d ago`
-    : new Date(opened).toLocaleDateString()
+    : writtenDate(new Date(opened))
 }
 
 // copyAddress puts an address on the clipboard.

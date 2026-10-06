@@ -5,8 +5,8 @@ import type {
   ActivityMonth,
   ActivityYear,
 } from '@/api/generated/types.gen.ts'
+import { headingDay } from '@/lib/dates.ts'
 import { cn } from '@/lib/utils.ts'
-import { spokenDate } from './civilDate.ts'
 
 // sourceHues color what was done in the hue of the system the terminal's spine
 // colors it: a commit in git's, a task in Taskwarrior's, an issue in Jira's,
@@ -21,8 +21,14 @@ const sourceHues: Record<ActivityItem['source'], string> = {
 
 // ActivityList is what was done, oldest first: a heading for each month and
 // day, and each day a timeline whose left column is the hour and whose items
-// hang off it, each opening with what it is in its system's hue.
-export function ActivityList({ years }: { years: ActivityYear[] }) {
+// hang off it, each opening with what it is in its system's hue. A period of
+// one day is headed above the list already, so its timeline stands alone.
+export function ActivityList({ years, oneDay }: { years: ActivityYear[]; oneDay: boolean }) {
+  const only = years[0]?.months[0]?.days[0]
+  if (oneDay && only !== undefined) {
+    return <DayTimeline day={only} />
+  }
+
   return (
     <div className="flex flex-col gap-section">
       {years.flatMap((year) =>
@@ -59,15 +65,22 @@ function DaySection({ day }: { day: ActivityDay }) {
       <h4 className="text-sm font-semibold text-foreground">
         {day.weekday} {Number(day.date.slice(8))}
       </h4>
-      <ol
-        aria-label={spokenDate(day.date)}
-        className="flex flex-col gap-group border-l border-border"
-      >
-        {day.hours.map((hour) => (
-          <HourRow key={hour.label} hour={hour} />
-        ))}
-      </ol>
+      <DayTimeline day={day} />
     </section>
+  )
+}
+
+// DayTimeline is a day's timeline, an hour to a row, named for its day.
+function DayTimeline({ day }: { day: ActivityDay }) {
+  return (
+    <ol
+      aria-label={headingDay(day.date)}
+      className="flex flex-col gap-group border-l border-border"
+    >
+      {day.hours.map((hour) => (
+        <HourRow key={hour.label} hour={hour} />
+      ))}
+    </ol>
   )
 }
 

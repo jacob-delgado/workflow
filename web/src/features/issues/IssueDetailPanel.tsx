@@ -5,6 +5,7 @@ import { useHealthStore } from '@/api/health.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
 import { Button } from '@/lib/Button.tsx'
+import { relativeTime, writtenDate, writtenMoment } from '@/lib/dates.ts'
 import { Reading } from '@/lib/Status.tsx'
 import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
@@ -306,7 +307,7 @@ function WrittenAt({ created }: { created: string }) {
   return (
     <time
       dateTime={created}
-      title={written.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })}
+      title={writtenMoment(written)}
       className="text-xs text-muted-foreground"
     >
       {sinceWritten(written, new Date())}
@@ -322,25 +323,23 @@ const day = 24 * hour
 // after that.
 function sinceWritten(written: Date, now: Date): string {
   const ago = now.getTime() - written.getTime()
-  const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
-
   if (ago < minute) {
     return 'just now'
   }
 
   if (ago < hour) {
-    return relative.format(-Math.floor(ago / minute), 'minute')
+    return relativeTime(-Math.floor(ago / minute), 'minute')
   }
 
   if (ago < day) {
-    return relative.format(-Math.floor(ago / hour), 'hour')
+    return relativeTime(-Math.floor(ago / hour), 'hour')
   }
 
   if (ago < 7 * day) {
-    return relative.format(-Math.floor(ago / day), 'day')
+    return relativeTime(-Math.floor(ago / day), 'day')
   }
 
-  return written.toLocaleDateString(undefined, { dateStyle: 'medium' })
+  return writtenDate(written)
 }
 
 // useTrackerName names where an issue lives, for its link: Jira, or the forge

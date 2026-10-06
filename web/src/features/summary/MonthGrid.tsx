@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import { headingDay, monthHeading } from '@/lib/dates.ts'
 import { cn } from '@/lib/utils.ts'
 import {
   addDays,
   addMonths,
-  monthName,
   monthWeeks,
-  spokenDate,
   yearMonth,
   type CivilDate,
   type Period,
@@ -86,7 +85,7 @@ export function MonthGrid({ year, month, period, onPick, onView }: MonthGridProp
   return (
     <div
       role="grid"
-      aria-label={monthName(year, month)}
+      aria-label={monthHeading(year, month)}
       className="flex flex-col gap-tight text-sm"
     >
       <div role="row" className="grid grid-cols-7">
@@ -151,7 +150,7 @@ function DayCell({ day, inPeriod, focusable, cells, onPick, onKey }: DayCellProp
         }
       }}
       role="gridcell"
-      aria-label={spokenDate(day)}
+      aria-label={headingDay(day)}
       aria-selected={inPeriod}
       tabIndex={focusable ? 0 : -1}
       onClick={(event) => {

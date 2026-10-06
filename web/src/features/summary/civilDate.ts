@@ -146,30 +146,6 @@ export function monthWeeks(year: number, month: number): (CivilDate | null)[][] 
   return weeks
 }
 
-// spokenDate is a date as a sentence says it, such as Tuesday, September 15,
-// 2026: the accessible name of a day in the calendar and of a day's list.
-export function spokenDate(date: CivilDate): string {
-  const [year, month, day] = parts(date)
-
-  return noon(year, month, day).toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
-}
-
-// monthName is a month (1–12) of a year as a heading names it, such as
-// September 2026.
-export function monthName(year: number, month: number): string {
-  return noon(year, month, 1).toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
-}
-
 // yearMonth is a date's year and month (1–12).
 export function yearMonth(date: CivilDate): [number, number] {
   const [year, month] = parts(date)

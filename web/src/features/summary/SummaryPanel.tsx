@@ -4,10 +4,11 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { Button } from '@/lib/Button.tsx'
+import { headingDay, writtenDay } from '@/lib/dates.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { ActivityList } from './ActivityList.tsx'
-import { spokenDate, type Period } from './civilDate.ts'
+import type { Period } from './civilDate.ts'
 import { PeriodCalendar, PeriodSteps } from './PeriodPicker.tsx'
 import { useActivity } from './summaryApi.ts'
 
@@ -104,8 +105,8 @@ function Shown({ read, period }: ShownProps) {
     <div className="flex min-w-0 flex-col gap-group">
       <h2 className="text-lg font-semibold">
         {period.from === period.to
-          ? spokenDate(period.from)
-          : `${spokenDate(period.from)} to ${spokenDate(period.to)}`}
+          ? headingDay(period.from)
+          : `${headingDay(period.from)} to ${headingDay(period.to)}`}
       </h2>
       {read.isError ? <Refused read={read} /> : null}
       {!read.isError && read.data === undefined ? <ReadingPeriod /> : null}
@@ -126,7 +127,10 @@ interface DoneProps {
 // period's timeline or that nothing was done.
 function Done({ activity, period, reading }: DoneProps) {
   const outcome = useOutcome()
-  const written = period.from === period.to ? period.from : `${period.from} to ${period.to}`
+  const written =
+    period.from === period.to
+      ? writtenDay(period.from)
+      : `${writtenDay(period.from)} to ${writtenDay(period.to)}`
   const empty = activity.years.length === 0
   const copy = useAsyncAction((text: string) => navigator.clipboard.writeText(text), {
     fallback: 'The summary could not be copied.',
@@ -161,7 +165,7 @@ function Done({ activity, period, reading }: DoneProps) {
           Nothing done in this period. Pick another day or range.
         </p>
       ) : (
-        <ActivityList years={activity.years} />
+        <ActivityList years={activity.years} oneDay={period.from === period.to} />
       )}
     </>
   )
