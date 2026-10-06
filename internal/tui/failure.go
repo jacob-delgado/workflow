@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/editor"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -45,8 +47,10 @@ func (s sendState) failed(err error) sendState {
 // wording is how the interface tells an error it recognizes: briefly, for a
 // summary row as narrow as a rail, and in full — with the way out — wherever
 // the failure has room of its own. Every failure on screen is told through it,
-// by failureBlock, failureLine, failureSummary or noticedFailure below: the
-// one way the interface says something broke.
+// by failureBlock, failureLine, failureSummary, unreadRow or noticedFailure
+// below: the one way the interface says something broke — and, through the
+// same helpers, the one way it says something was never set up, as guidance
+// rather than as a failure (see voice).
 //
 // An empty brief keeps the error's own words on a summary row, where they name
 // the thing that failed; an empty full keeps them wherever the failure has
@@ -135,15 +139,20 @@ func localErrors() []knownError {
 	}
 }
 
+// setUp is the wording of a cause that says something was never set up: the
+// brief a rail has room for, and in full the advice every surface shares, so
+// the terminal says how to set it up in the web's and the command line's words.
+func setUp(brief string, cause error) knownError {
+	advice, _ := loop.SetUpAdvice(cause)
+
+	return knownError{cause, wording{brief: brief, full: advice, whole: false}}
+}
+
 // jiraErrors are the tracker's: Jira's own, and a forge-backed tracker's
 // missing issue.
 func jiraErrors() []knownError {
 	return []knownError{
-		{jira.ErrNoCredential, wording{
-			brief: "Jira has no token",
-			full: "Jira has no token. Set `jira.token`, or check that `jira.token_command` or `jira.token_env` gives one; " +
-				"`workflow doctor --online` tests it.",
-		}},
+		setUp("Jira has no token", jira.ErrNoCredential),
 		{config.ErrInvalidBaseURL, wording{
 			brief: "jira.base_url is not a URL",
 			full:  "`jira.base_url` is not an absolute http or https address. Fix it; `workflow doctor` checks it.",
@@ -188,17 +197,13 @@ func forgeErrors() []knownError {
 	notOnAForge := "origin is not GitHub or GitLab"
 
 	return []knownError{
-		// Only the resolver knows the forge and host, so its words say where to
-		// set a token: gh for GitHub, $GITLAB_TOKEN for GitLab.
+		// Not the advice the web shares: only the resolver knows the forge and
+		// host, and the terminal, unlike the web, may name them, so its own words
+		// say where to set this repository's token — gh for GitHub,
+		// $GITLAB_TOKEN for GitLab — rather than naming both.
 		{forge.ErrNoToken, wording{brief: "no forge token", full: ""}},
-		{forge.ErrNotARemote, wording{
-			brief: notOnAForge,
-			full:  "origin is not a remote workflow can read. Check it with `git remote -v`.",
-		}},
-		{forge.ErrUnknownForge, wording{
-			brief: notOnAForge,
-			full:  "workflow cannot tell which forge origin is on. Set `forge.kind` and `forge.host`.",
-		}},
+		setUp(notOnAForge, forge.ErrNotARemote),
+		setUp(notOnAForge, forge.ErrUnknownForge),
 		{forge.ErrKindNeedsHost, wording{
 			brief: "forge.kind needs forge.host",
 			full:  "`forge.kind` is set without `forge.host`. Add the host it describes.",
@@ -275,24 +280,13 @@ func taskwarriorErrors() []knownError {
 			full: "The task was created but the issue's link could not be added as an annotation: " +
 				"`task <id> annotate <url>` adds it.",
 		}},
-		{taskwarrior.ErrNotInstalled, wording{
-			brief: "Taskwarrior is not installed",
-			full: "Taskwarrior is not installed, or no task program is on PATH. Install Taskwarrior 3.5.0 or newer, " +
-				"or set `taskwarrior.program`.",
-		}},
-		{taskwarrior.ErrNotTaskwarrior, wording{
-			brief: "`task` is not Taskwarrior",
-			full: "The `task` on PATH is another program (go-task, most likely). Set `taskwarrior.program` to " +
-				"Taskwarrior's path; `workflow doctor` names what it found.",
-		}},
+		setUp("Taskwarrior is not installed", taskwarrior.ErrNotInstalled),
+		setUp("`task` is not Taskwarrior", taskwarrior.ErrNotTaskwarrior),
 		{taskwarrior.ErrTooOld, wording{
 			brief: "Taskwarrior is too old",
 			full:  "Taskwarrior is too old: 3.5.0 or newer is needed; `workflow doctor` shows the version found.",
 		}},
-		{taskwarrior.ErrNotConfigured, wording{
-			brief: "Taskwarrior has never run",
-			full:  "Run the Taskwarrior named below once in a terminal so it creates its configuration, then refresh.",
-		}},
+		setUp("Taskwarrior has never run", taskwarrior.ErrNotConfigured),
 		{taskwarrior.ErrNothingChanged, wording{
 			brief: "nothing changed",
 			full:  "Taskwarrior changed nothing: the task is already in that state, or is no longer pending. Refresh.",
@@ -326,6 +320,8 @@ func programErrors() []knownError {
 			brief: "not a git repository",
 			full:  "This is not inside a git repository. Start workflow from a repository's work tree.",
 		}},
+		// Its own words are the advice, so they are not told twice.
+		{gitrepo.ErrNoIdentity, wording{brief: "git has no user.email", full: noIdentityAdvice(), whole: true}},
 		{gitrepo.ErrUnshowableName, wording{
 			brief: "a branch name cannot be shown",
 			full:  "A branch name holds characters that cannot be shown as they are. Rename it in your shell.",
@@ -345,6 +341,13 @@ func programErrors() []knownError {
 			full:  "There is no such file to open; it may have moved since the tool named it.",
 		}},
 	}
+}
+
+// noIdentityAdvice is how to give git a user.email, in the shared words.
+func noIdentityAdvice() string {
+	advice, _ := loop.SetUpAdvice(gitrepo.ErrNoIdentity)
+
+	return advice
 }
 
 // ownText is an error's own words, made safe here as well as where they were
@@ -390,13 +393,13 @@ func (m Model) noticedFailure(err error) Model {
 // "re-run failed: " — for a notice no open overlay names: the footer clips a
 // long sentence, and the lead must survive it.
 func (m Model) noticedFailureLedBy(lead string, err error) Model {
-	words := []string{m.marks.failed + " " + lead + inFull(err)}
+	words := []string{markOf(m.marks, err) + " " + lead + inFull(err)}
 	if sentence, known := errorSentence(err); known && !sentence.whole {
 		words = append(words, ownText(err))
 	}
 
 	m = m.noticed(strings.Join(words, "\n"))
-	m.notice.failed = true
+	m.notice.failed = !loop.NotSetUp(err)
 
 	return m
 }
@@ -407,6 +410,36 @@ func (m Model) noticedFailureLedBy(lead string, err error) Model {
 // errorSentence, or in the refusal's own text.
 func (m Model) noticedGuidance(refusal error) Model {
 	return m.noticed(inFull(refusal))
+}
+
+// markOf is the mark a cause opens its row with: the not-started mark for
+// what was never set up, the failure mark for anything that broke. Shape, not
+// color, tells them apart, so they read apart in monochrome as well.
+func markOf(marks glyphs, err error) string {
+	if loop.NotSetUp(err) {
+		return marks.notStarted
+	}
+
+	return marks.failed
+}
+
+// voice is how a cause is drawn — its mark and the style its sentence takes —
+// and the one place the interface decides between the two: what was never set
+// up is guidance, plain, with the not-started mark, since nothing was asked and
+// nothing refused; anything else broke, and is red with the failure mark.
+func voice(sty styles, marks glyphs, err error) (string, lipgloss.Style) {
+	if loop.NotSetUp(err) {
+		return marks.notStarted, lipgloss.NewStyle()
+	}
+
+	return marks.failed, sty.failure
+}
+
+// voicedMark is a cause's mark in its voice's style.
+func voicedMark(sty styles, marks glyphs, err error) string {
+	mark, style := voice(sty, marks, err)
+
+	return style.Render(mark)
 }
 
 // failedGlyph is the failure mark in red, so red always means something broke —
@@ -423,7 +456,18 @@ func (m Model) failedGlyph() string {
 // failureSummary is a failure on a summary row — a rail, and the line a detail
 // repeats from it: the red mark and the error in brief.
 func (m Model) failureSummary(err error) string {
-	return m.failedGlyph() + " " + briefly(err)
+	return voicedMark(m.styles, m.marks, err) + " " + briefly(err)
+}
+
+// unreadRow is a rail's row for a load that did not answer, pointing at the
+// detail that tells why: what failed, in the failure voice, or that it is not
+// set up, as guidance.
+func unreadRow(sty styles, marks glyphs, err error, failed string) string {
+	if loop.NotSetUp(err) {
+		failed = "not set up"
+	}
+
+	return voicedMark(sty, marks, err) + " " + failed + marks.separator + "see detail"
 }
 
 // failureLine is a failure on a row of its own with room to spare — an
@@ -431,7 +475,7 @@ func (m Model) failureSummary(err error) string {
 // error in full, on the one row. The free form serves an overlay, which draws
 // with styles and glyphs but no Model.
 func failureLine(sty styles, marks glyphs, err error) string {
-	return failedGlyph(sty, marks) + " " + inFull(err)
+	return voicedMark(sty, marks, err) + " " + inFull(err)
 }
 
 // failureLine is failureLine for a Model.
@@ -444,16 +488,18 @@ func (m Model) failureLine(err error) string {
 // per row, so every row opens and closes its own color and none runs on into
 // the border beside it.
 func failureBlock(sty styles, marks glyphs, err error, width int) string {
+	mark, style := voice(sty, marks, err)
+
 	words, known := errorSentence(err)
 	if !known {
-		return sty.failure.Render(wrap(marks.failed+" "+ownText(err), width))
+		return style.Render(wrap(mark+" "+ownText(err), width))
 	}
 
 	if words.whole {
-		return sty.failure.Render(wrap(marks.failed+" "+words.full, width))
+		return style.Render(wrap(mark+" "+words.full, width))
 	}
 
-	return sty.failure.Render(wrap(marks.failed+" "+words.full, width)) + "\n" +
+	return style.Render(wrap(mark+" "+words.full, width)) + "\n" +
 		sty.label.Render(wrap(ownText(err), width))
 }
 

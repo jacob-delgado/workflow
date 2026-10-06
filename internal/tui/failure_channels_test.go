@@ -44,11 +44,6 @@ func briefOnly(err error, brief string) spoken {
 // client wraps it, with its wording.
 func everySeamFailure() map[string]spoken {
 	return map[string]spoken{
-		"jira no credential": {
-			fmt.Errorf("searching: %w", jira.ErrNoCredential), "Jira has no token",
-			"Jira has no token. Set `jira.token`, or check that `jira.token_command` or `jira.token_env` gives one; " +
-				"`workflow doctor --online` tests it.",
-		},
 		"jira invalid base URL": {
 			fmt.Errorf("searching: %w", config.ErrInvalidBaseURL), "jira.base_url is not a URL",
 			"`jira.base_url` is not an absolute http or https address. Fix it; `workflow doctor` checks it.",
@@ -81,18 +76,6 @@ func everySeamFailure() map[string]spoken {
 		"jira unreachable": {
 			fmt.Errorf("%w at https://jira.example.com: i/o timeout", jira.ErrUnreachable), "Jira did not answer",
 			"Jira did not answer in time. Check the VPN, then try again.",
-		},
-		"forge no token": briefOnly(
-			fmt.Errorf("connecting: %w", fmt.Errorf("%w: %s", forge.ErrNoToken, forge.Sources(forge.KindGitLab, "gitlab.com"))),
-			"no forge token",
-		),
-		"forge not a remote": {
-			fmt.Errorf("reading origin: %w", forge.ErrNotARemote), "origin is not GitHub or GitLab",
-			"origin is not a remote workflow can read. Check it with `git remote -v`.",
-		},
-		"forge unknown": {
-			fmt.Errorf("reading origin: %w", forge.ErrUnknownForge), "origin is not GitHub or GitLab",
-			"workflow cannot tell which forge origin is on. Set `forge.kind` and `forge.host`.",
 		},
 		"forge kind needs host": {
 			fmt.Errorf("reading origin: %w", forge.ErrKindNeedsHost), "forge.kind needs forge.host",
@@ -186,6 +169,35 @@ func everySeamFailure() map[string]spoken {
 	}
 }
 
+// everyNotSetUpCause is every error that says something was never set up,
+// wrapped the way a client wraps it, with the guidance it is told as: the
+// advice every surface shares, or the forge resolver's own words, which name
+// where this repository's token is looked for.
+func everyNotSetUpCause() map[string]spoken {
+	return map[string]spoken{
+		"jira no credential": {
+			fmt.Errorf("searching: %w", jira.ErrNoCredential), "Jira has no token",
+			"Jira has no token; set jira.token, or check that jira.token_command or jira.token_env gives one",
+		},
+		"forge no token": briefOnly(
+			fmt.Errorf("connecting: %w", fmt.Errorf("%w: %s", forge.ErrNoToken, forge.Sources(forge.KindGitLab, "gitlab.com"))),
+			"no forge token",
+		),
+		"forge not a remote": {
+			fmt.Errorf("reading origin: %w", forge.ErrNotARemote), "origin is not GitHub or GitLab",
+			"origin does not name a repository on a forge; point it at the repository",
+		},
+		"forge unknown": {
+			fmt.Errorf("reading origin: %w", forge.ErrUnknownForge), "origin is not GitHub or GitLab",
+			"cannot tell which forge this repository is on; set forge.kind and forge.host",
+		},
+		"no git identity": {
+			fmt.Errorf("reading the log: %w", gitrepo.ErrNoIdentity), "git has no user.email",
+			"git has no user.email to tell your commits by; set it with git config user.email",
+		},
+	}
+}
+
 // failureChannel is one of the places a failure is shown: how to put the error
 // there, and the keys that bring it on screen.
 type failureChannel struct {
@@ -247,6 +259,51 @@ func TestEveryChannelSpeaksTheFailureSentence(t *testing.T) {
 
 				// Assert
 				requireFailureRow(t, view, want)
+			})
+		}
+	}
+}
+
+// requireGuidanceRow fails the test unless a row of the screen shows want
+// after the not-started mark, and no row draws that mark in the failure color.
+func requireGuidanceRow(t *testing.T, view, want string) {
+	t.Helper()
+
+	if strings.Contains(view, redOpen()+notStartedGlyph) {
+		t.Errorf("a %q is drawn in the failure color:\n%q", notStartedGlyph, view)
+	}
+
+	for row := range strings.SplitSeq(view, "\n") {
+		if strings.Contains(ansi.Strip(row), notStartedGlyph+" "+want) {
+			return
+		}
+	}
+
+	t.Errorf("no row shows %q after a %q:\n%s", want, notStartedGlyph, ansi.Strip(view))
+}
+
+func TestEveryChannelSpeaksNotSetUpAsGuidance(t *testing.T) {
+	t.Parallel()
+
+	for name, cause := range everyNotSetUpCause() {
+		for channelName, channel := range failureChannels() {
+			t.Run(name+" in a "+channelName, func(t *testing.T) {
+				t.Parallel()
+
+				// Arrange
+				faked := newWorld()
+				channel.put(faked, cause.err)
+
+				want := cause.full
+				if channel.brief {
+					want = cause.brief
+				}
+
+				// Act
+				view := typing(t, faked.live(t, 300, 40), channel.keys...).View().Content
+
+				// Assert
+				requireGuidanceRow(t, view, want)
 			})
 		}
 	}
