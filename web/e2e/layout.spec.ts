@@ -80,6 +80,28 @@ for (const theme of themes) {
   }
 }
 
+for (const width of [640, 1440]) {
+  test(
+    `every issue row ends at one right edge at ${String(width)} px, with or without Switch branch`,
+    { tag: '@populated' },
+    async ({ page }) => {
+      // Arrange
+      await openCockpit(page, { width, height }, 'dark')
+      const list = page.getByRole('list', { name: 'Issues' })
+      await expect(list.getByRole('button', { name: /^Switch branch/ }).first()).toBeVisible()
+
+      // Act
+      const edges = await list
+        .getByRole('button')
+        .filter({ hasNotText: 'Switch branch' })
+        .evaluateAll((rows) => rows.map((row) => Math.round(row.getBoundingClientRect().right)))
+
+      // Assert
+      expect(new Set(edges).size, `right edges ${edges.join(', ')}`).toBe(1)
+    },
+  )
+}
+
 // The steps a click opens on the populated build before a write goes out, and
 // the controls each adds, which Tab must reach in view.
 const confirmSteps = [
