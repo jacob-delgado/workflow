@@ -94,10 +94,12 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		UnlinkIssue:    deps.Git.UnlinkIssue,
 		EditPull:       deps.Forge.EditPullRequest,
 
-		LastScope:   deps.Store.LastScope,
-		RecordScope: deps.Store.RecordScope,
-		Tasks:       deps.Tasks,
-		HomeDir:     os.UserHomeDir,
+		LastScope:      deps.Store.LastScope,
+		RecordScope:    deps.Store.RecordScope,
+		Announced:      deps.Store.Announced,
+		RecordAnnounce: deps.Store.RecordAnnounce,
+		Tasks:          deps.Tasks,
+		HomeDir:        os.UserHomeDir,
 
 		OwnerLinks:    deps.Store.OwnerLinks,
 		LinkOwner:     deps.Store.LinkOwner,

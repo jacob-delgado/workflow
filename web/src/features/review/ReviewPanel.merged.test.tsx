@@ -21,7 +21,7 @@ const merged: PullRequest = {
 function showReview(pull: PullRequest) {
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: true, pull } }),
+    snapshot: makeSnapshot({ review: { found: true, announced: false, pull } }),
   })
 }
 

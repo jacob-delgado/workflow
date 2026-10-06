@@ -113,15 +113,23 @@ func (s *server) postFor(body api.AnnounceRequest) (announcePost, api.AnnounceRe
 		return announcePost{}, announceUnprocessable(err.Error())
 	}
 
+	made := loop.Announced{Pull: pull.Number, Moment: announcement.Moment}
+	if s.announcedAlready(made) {
+		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+			s.pullName(pull.Number)+" was already announced at this moment, here or from a terminal"))
+	}
+
 	mentions, memory, refusal := s.postMentions(body.Mentions, announcement.Moment)
 	if refusal != nil {
 		return announcePost{}, refusal
 	}
 
+	memory.Recorded, memory.Record = s.recordedAnnouncements, s.recordAnnouncement
+
 	return announcePost{
 		moment: announcement.Moment, pull: pull, memory: memory,
 		delivery: loop.Delivery{
-			Channel: s.channelOr(body.Channel), Text: text, Made: loop.Announced{}, Mentions: mentions,
+			Channel: s.channelOr(body.Channel), Text: text, Made: made, Mentions: mentions,
 		},
 	}, nil
 }

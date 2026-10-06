@@ -118,6 +118,7 @@ export const mockSnapshot: Snapshot = {
   },
   review: {
     found: true,
+    announced: false,
     pull: {
       number: 128,
       url: 'https://github.com/acme/workflow/pull/128',

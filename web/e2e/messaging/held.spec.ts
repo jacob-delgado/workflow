@@ -42,6 +42,7 @@ function snapshotHolding(held?: QueuedAnnouncement): Snapshot {
     changes: { changes: [] },
     review: {
       found: true,
+      announced: false,
       pull,
       ci: { state: 'running', total: 2, done: 1, failed: 0, checks: [] },
     },

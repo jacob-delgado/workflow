@@ -192,7 +192,7 @@ func TestStreamRefusesAnUnknownViewBeforeUpgrading(t *testing.T) {
 	// Assert
 	// A problem, not an event stream: the refusal comes before the upgrade, so
 	// the browser's EventSource sees a 404 rather than a stream of the wrong view.
-	if ct := recorder.Header().Get("Content-Type"); ct != "application/problem+json" {
+	if ct := recorder.Header().Get("Content-Type"); ct != problemJSON {
 		t.Errorf("Content-Type = %q, want application/problem+json", ct)
 	}
 

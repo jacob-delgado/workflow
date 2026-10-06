@@ -111,6 +111,11 @@ type Deps struct {
 	// terminal's composer learns from. Nil where there is no store.
 	LastScope   func() (string, bool)
 	RecordScope func(scope string)
+	// Announced is every pull request announced in this repository, from any
+	// surface, and RecordAnnounce remembers one just made: the store the
+	// terminal and workflow announce keep it in. Nil where there is no store.
+	Announced      func() []loop.Announced
+	RecordAnnounce func(made loop.Announced)
 	// Tasks is what the server asks of Taskwarrior. A nil Install, or one that
 	// fails, answers the task list and the snapshot's summary as not available —
 	// never a 404 — and a write with a nil function is refused as unprocessable.
@@ -297,6 +302,9 @@ type server struct {
 
 	// held is the announcement held until its pull request's CI passes.
 	held heldAnnouncement
+
+	// announced is what the store remembers announcing, held for an interval.
+	announced announcedCache
 
 	// detection is the stream's last search for Taskwarrior, when it found none.
 	detection detectionCache

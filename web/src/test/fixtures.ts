@@ -35,7 +35,7 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     issues: { issues: [], total: 0, start_at: 0, unavailable: [] },
     branch: makeBranch(),
     changes: { changes: [] },
-    review: { found: false },
+    review: { found: false, announced: false },
     messaging: {
       service: 'Slack',
       configured: true,

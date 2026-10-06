@@ -50,7 +50,7 @@ function serveTheOpen(followUps: FollowUp[], routes: Record<string, unknown> = {
 async function openThePullRequest(user: ReturnType<typeof userEvent.setup>, noun = 'pull request') {
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
   })
   render(<ReviewPanel />)
   await openAgain(user, noun)
@@ -132,7 +132,9 @@ test('the link outcome survives the snapshot that shows the pull request', async
 
   // Act: the next snapshot shows the pull request that was opened
   act(() => {
-    useSnapshotStore.setState({ snapshot: makeSnapshot({ review: { found: true, pull } }) })
+    useSnapshotStore.setState({
+      snapshot: makeSnapshot({ review: { found: true, announced: false, pull } }),
+    })
   })
 
   // Assert: the outcome and the other offer are still there, beside the pull request
@@ -233,10 +235,14 @@ test('a second open offers its own link afresh', async () => {
   await user.click(screen.getByRole('button', { name: 'Link it on PROJ-412' }))
   await screen.findByText('Linked #7 on PROJ-412.')
   act(() => {
-    useSnapshotStore.setState({ snapshot: makeSnapshot({ review: { found: true, pull } }) })
+    useSnapshotStore.setState({
+      snapshot: makeSnapshot({ review: { found: true, announced: false, pull } }),
+    })
   })
   act(() => {
-    useSnapshotStore.setState({ snapshot: makeSnapshot({ review: { found: false } }) })
+    useSnapshotStore.setState({
+      snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    })
   })
 
   // Act
@@ -251,7 +257,7 @@ test('a second open offers its own link afresh', async () => {
 test('the outcome of an open goes when another branch is checked out', async () => {
   // Arrange
   const user = userEvent.setup()
-  const other = makeSnapshot({ review: { found: false } })
+  const other = makeSnapshot({ review: { found: false, announced: false } })
   other.branch = { ...other.branch, name: 'fix/PROJ-9' }
   serveTheOpen([linkOffer, moveOffer])
   await openThePullRequest(user)
@@ -268,7 +274,9 @@ test('the outcome of an open goes when another branch is checked out', async () 
 
   // Act: the first branch is checked out again, its pull request open
   act(() => {
-    useSnapshotStore.setState({ snapshot: makeSnapshot({ review: { found: true, pull } }) })
+    useSnapshotStore.setState({
+      snapshot: makeSnapshot({ review: { found: true, announced: false, pull } }),
+    })
   })
 
   // Assert: its offers do not come back, so nothing can be linked twice

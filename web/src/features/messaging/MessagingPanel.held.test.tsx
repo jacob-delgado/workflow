@@ -27,7 +27,10 @@ const composed = 'octocat opened a pull request: Redact tokens\nhttps://forge.ex
 function withPull(held?: QueuedAnnouncement) {
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: true, pull }, queued_announcement: held }),
+    snapshot: makeSnapshot({
+      review: { found: true, announced: false, pull },
+      queued_announcement: held,
+    }),
   })
 }
 

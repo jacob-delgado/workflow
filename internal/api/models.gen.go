@@ -1561,6 +1561,9 @@ type Repositories struct {
 
 // Review defines model for Review.
 type Review struct {
+	// Announced Whether the pull request was already announced at the moment it is at now — ready for review, its CI red, merged — from the browser, the terminal or workflow announce, as the store remembers. The store is read at most once every timing.ci_interval, and never under --dry-run, when this is always false.
+	Announced bool `json:"announced"`
+
 	// Ci The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read.
 	Ci *CI `json:"ci,omitempty"`
 

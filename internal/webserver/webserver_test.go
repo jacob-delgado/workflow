@@ -347,7 +347,7 @@ func TestAnErrorIsAnRFC9457Problem(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if ct := recorder.Header().Get("Content-Type"); ct != "application/problem+json" {
+	if ct := recorder.Header().Get("Content-Type"); ct != problemJSON {
 		t.Errorf("Content-Type = %q, want application/problem+json", ct)
 	}
 

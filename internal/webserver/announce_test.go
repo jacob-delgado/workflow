@@ -41,7 +41,7 @@ func postAnnounce(t *testing.T, handler http.Handler, fields map[string]string) 
 func doAnnounce(t *testing.T, deps webserver.Deps, cfg config.Config, channel string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return postAnnounce(t, serve(t, deps, cfg), map[string]string{"channel": channel})
+	return postAnnounce(t, serve(t, deps, cfg), map[string]string{channelField: channel})
 }
 
 // announcePreviewed posts the announcement to channel against handler, carrying

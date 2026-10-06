@@ -31,7 +31,7 @@ test('the post carries the text its preview showed', async () => {
   })
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: true, pull } }),
+    snapshot: makeSnapshot({ review: { found: true, announced: false, pull } }),
   })
   const user = userEvent.setup()
   render(<MessagingPanel />)

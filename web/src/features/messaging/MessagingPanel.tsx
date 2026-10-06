@@ -40,11 +40,7 @@ export function MessagingPanel() {
         <dd>{messaging.author === '' ? 'the webhook' : messaging.author}</dd>
       </dl>
 
-      <AnnounceSection
-        messaging={messaging}
-        found={review.found}
-        held={snapshot.queued_announcement}
-      />
+      <AnnounceSection messaging={messaging} review={review} held={snapshot.queued_announcement} />
 
       {messaging.channels.length > 0 ? (
         <section aria-labelledby="channels-heading" className="flex flex-col gap-group">
@@ -79,33 +75,42 @@ function firstNonEmpty(...values: string[]): string {
 }
 
 // AnnounceSection offers to announce the branch's pull request, once there is
-// one, and says where the announcement went — in a line that stays when the
-// controls step aside.
+// one and it was not announced at this moment already — from here, the
+// terminal or workflow announce — and says where the announcement went, in a
+// line that stays when the controls step aside.
 function AnnounceSection({
   messaging,
-  found,
+  review,
   held,
 }: {
   messaging: Snapshot['messaging']
-  found: boolean
+  review: Snapshot['review']
   held: Snapshot['queued_announcement']
 }) {
-  const { noun } = useForgeWords()
+  const { noun, sigil } = useForgeWords()
   const outcome = useOutcome()
+  const found = review.found && review.pull !== undefined && review.pull !== null
 
   return (
     <section aria-labelledby="announce-heading" className="flex flex-col gap-group">
       <h2 id="announce-heading" className="text-base font-semibold">
         Announce
       </h2>
-      {found ? (
+      {found && review.announced ? (
+        <p className="text-sm text-muted-foreground">
+          Announced {sigil}
+          {review.pull?.number} at this point already.
+        </p>
+      ) : null}
+      {found && !review.announced ? (
         <AnnounceControls
           service={messaging.service}
           channels={messaging.channels}
           defaultChannel={messaging.channel}
           onAnnounced={outcome.say}
         />
-      ) : (
+      ) : null}
+      {found ? null : (
         <p className="text-sm text-muted-foreground">
           Open a {noun} first — there is nothing to announce yet.
         </p>
