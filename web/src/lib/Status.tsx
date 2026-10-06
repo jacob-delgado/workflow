@@ -43,3 +43,14 @@ export function Unread({ reason, refusals, retrying, onRetry }: UnreadProps) {
     </div>
   )
 }
+
+// Reading says a read is in flight, in words that begin "Reading": a muted
+// status line, so a screen reader hears the wait as it starts, and the same
+// line for a first read as for a read again.
+export function Reading({ children }: { children: ReactNode }) {
+  return (
+    <p role="status" className="text-sm text-muted-foreground">
+      {children}
+    </p>
+  )
+}

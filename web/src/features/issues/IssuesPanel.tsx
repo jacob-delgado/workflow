@@ -5,6 +5,7 @@ import { useLiveSnapshot, useSnapshotStore } from '@/api/snapshot.ts'
 import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
+import { Reading } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
@@ -105,7 +106,7 @@ function IssueBrowser({ streamed, branches, tasks }: IssueBrowserProps) {
         <OutcomeLine said={outcome.said} />
       </div>
       {switching ? (
-        <EmptyState>Reading the {view ?? 'default'} view…</EmptyState>
+        <Reading>Reading the {view ?? 'default'} view…</Reading>
       ) : (
         <ListAndDetail
           loaded={loaded}

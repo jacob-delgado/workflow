@@ -3,9 +3,9 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import type { LocalData as Listing, LocalDataFile } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Reading, Unread } from '@/lib/Status.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
-import { Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { type CleanScope, useCleanLocalData, useLocalData } from './localDataApi.ts'
 
@@ -34,7 +34,7 @@ function LocalDataBody() {
   const query = useLocalData()
 
   if (query.isPending) {
-    return <p className="text-sm text-muted-foreground">Reading the local data…</p>
+    return <Reading>Reading the local data…</Reading>
   }
 
   if (query.isError) {

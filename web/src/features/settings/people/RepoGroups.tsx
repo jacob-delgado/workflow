@@ -4,7 +4,7 @@ import type { RepoGroups as Groups, SlackTarget } from '@/api/generated/types.ge
 import { useSlackGroups } from '@/features/messaging/slackApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
-import { Unread } from '@/lib/Status.tsx'
+import { Reading, Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { useRepoGroups, useSaveRepoGroups } from './peopleApi.ts'
 
@@ -14,7 +14,7 @@ export function RepoGroups({ dryRun }: { dryRun: boolean }) {
   const query = useRepoGroups()
 
   if (query.isPending) {
-    return <p className="text-sm text-muted-foreground">Reading the repository’s groups…</p>
+    return <Reading>Reading the repository’s groups…</Reading>
   }
 
   if (query.isError) {

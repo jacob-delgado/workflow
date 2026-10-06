@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Reading } from '@/lib/Status.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import {
@@ -45,7 +46,7 @@ function ConfigArea() {
   // Settings opens on a fresh read rather than on the cached one: a form seeded
   // from a read the file has moved on from would only learn so on its save.
   if (query.isPending || (query.isFetching && !query.isFetchedAfterMount)) {
-    return <EmptyState>Loading the configuration…</EmptyState>
+    return <Reading>Reading the configuration…</Reading>
   }
 
   if (query.isError) {

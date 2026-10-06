@@ -5,6 +5,7 @@ import { useHealthStore } from '@/api/health.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
 import { Button } from '@/lib/Button.tsx'
+import { Reading } from '@/lib/Status.tsx'
 import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
 import { IssueStatus } from './IssueStatus.tsx'
@@ -40,9 +41,7 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
   return (
     <article aria-labelledby="issue-detail-heading" className="flex flex-col gap-block">
       <IssueHeading issueKey={issueKey} issue={listed ?? data} heading={heading} />
-      {isPending && refusal === null ? (
-        <p className="text-sm text-muted-foreground">Reading {issueKey}…</p>
-      ) : null}
+      {isPending && refusal === null ? <Reading>Reading {issueKey}…</Reading> : null}
       {refusal === null ? null : (
         <IssueUnread
           reason={apiErrorMessage(
