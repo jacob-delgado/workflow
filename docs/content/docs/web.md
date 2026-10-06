@@ -171,7 +171,12 @@ replays the branch onto it, as the terminal's `u` does, after a last look
 that says its commits are rewritten.
 
 Under **Working tree**, each changed file has its own **Stage** or
-**Unstage**, and **Stage all** stages the rest. The commit form builds a
+**Unstage**, and **Stage all** stages the rest; **Unstage all** beside it
+takes everything out of the index at once, as the terminal's `U` does,
+leaving the work tree as it is. **Discard…** on a file asks first, as the
+terminal's `x` does, since it cannot be undone: **Discard** puts the file
+back as the last commit has it, staged and unstaged changes alike, and
+deletes a file the last commit does not have. The commit form builds a
 Conventional Commit from its type, scope, subject, body and a breaking-change
 box, with the scope the terminal would suggest already filled in; **Commit
 staged changes** commits, adds the trailer naming the branch's issue (`Refs:`

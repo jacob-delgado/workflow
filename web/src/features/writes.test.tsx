@@ -317,7 +317,58 @@ const writes: Write[] = [
     endpoint: '/api/stage',
     fallback: 'Nothing was staged. Try again, or stage from a terminal to see why.',
   },
+  {
+    name: 'unstage all',
+    panel: () => <BranchPanel />,
+    before: withChanges([change('a.go', staged), change('b.go', staged)]),
+    after: withChanges([change('a.go'), change('b.go')]),
+    routes: { '/api/unstage': { changes: [change('a.go'), change('b.go')] } },
+    act: async (user) => {
+      await user.click(screen.getByRole('button', { name: 'Unstage all' }))
+    },
+    said: 'Unstaged every change.',
+    endpoint: '/api/unstage',
+    fallback: 'Nothing was unstaged. Try again, or unstage from a terminal to see why.',
+  },
+  {
+    name: 'discard a file',
+    panel: () => <BranchPanel />,
+    before: withChanges([change('notes.txt')]),
+    after: withChanges([]),
+    routes: { '/api/discard': { changes: [] } },
+    act: async (user) => {
+      await user.click(screen.getByRole('button', { name: 'Discard notes.txt…' }))
+      await user.click(screen.getByRole('button', { name: 'Discard' }))
+    },
+    said: 'Discarded notes.txt.',
+    endpoint: '/api/discard',
+    fallback: 'notes.txt was not discarded. Try again, or discard it from a terminal to see why.',
+  },
 ]
+
+test('Unstage all asks the server once for every staged change', async () => {
+  // Arrange
+  const requests = fakeApi({ '/api/unstage': { changes: [change('a.go'), change('b.go')] } })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: withChanges([change('a.go', staged), change('b.go', staged)]),
+  })
+  const user = userEvent.setup()
+  renderWithClient(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Unstage all' }))
+
+  // Assert
+  await waitFor(() => {
+    expect(statusSaying('Unstaged every change.')).toBeDefined()
+  })
+  const unstaging = requests.filter(
+    (request) => request.method === 'POST' && new URL(request.url).pathname === '/api/unstage',
+  )
+  expect(unstaging).toHaveLength(1)
+  expect(await unstaging[0]?.json()).toEqual({ all: true })
+})
 
 // statusSaying is the live status line that says text, if one does.
 function statusSaying(text: string): HTMLElement | undefined {

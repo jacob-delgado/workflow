@@ -2,16 +2,24 @@ import { useState } from 'react'
 import type { Change, FileDiff } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
-import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Failure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { CommitForm } from './CommitForm.tsx'
-import { readDiff, stageEverything, stageFile, unstageFile } from './stagingApi.ts'
+import {
+  discardFile,
+  readDiff,
+  stageEverything,
+  stageFile,
+  unstageEverything,
+  unstageFile,
+} from './stagingApi.ts'
 
 // WorkingTree is the changed files, each with the terminal's space — stage it,
-// or unstage it once it is wholly staged — then its `a`, Stage all, and the
-// commit form, which stays in place and says what it waits for until something
-// is staged.
+// or unstage it once it is wholly staged — and its x, Discard…, which asks
+// first; then its `a` and `U`, Stage all and Unstage all, and the commit form,
+// which stays in place and says what it waits for until something is staged.
+// What a discard did is said below the list, which outlives the file's row.
 export function WorkingTree({
   changes,
   suggestedScope,
@@ -21,6 +29,8 @@ export function WorkingTree({
   suggestedScope: string
   commitTypes: string[]
 }) {
+  const discards = useOutcome()
+
   return (
     <section aria-labelledby="changes-heading" className="flex flex-col gap-group">
       <h3 id="changes-heading" className="text-base font-semibold">
@@ -30,12 +40,16 @@ export function WorkingTree({
         <>
           <ul className="flex flex-col gap-item">
             {changes.map((change) => (
-              <ChangeRow key={change.path} change={change} />
+              <ChangeRow key={change.path} change={change} discards={discards} />
             ))}
           </ul>
-          <StageAll anythingToStage={changes.some(offersStage)} />
+          <div className="flex flex-wrap items-start gap-item">
+            <StageAll anythingToStage={changes.some(offersStage)} />
+            <UnstageAll anythingStaged={changes.some((change) => change.staged)} />
+          </div>
         </>
       )}
+      <OutcomeLine said={discards.said} />
       <CommitForm
         blocked={commitBlocker(changes)}
         suggestedScope={suggestedScope}
@@ -79,7 +93,9 @@ function stagedTag(change: Change): string {
 // outlives the snapshot that shows the file moved — it is keyed by the path —
 // so what it said stays, and says what was done then, not what the button
 // offers now.
-function ChangeRow({ change }: { change: Change }) {
+function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
+  const [asking, setAsking] = useState(false)
+  const [discardOpener, handBack] = useFocusHandback<HTMLButtonElement>()
   const stage = offersStage(change)
   const verb = stage ? 'Stage' : 'Unstage'
   const busy = stage ? 'Staging…' : 'Unstaging…'
@@ -113,7 +129,31 @@ function ChangeRow({ change }: { change: Change }) {
         >
           {state === 'running' ? busy : verb}
         </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          ref={discardOpener}
+          aria-label={`Discard ${change.path}…`}
+          aria-expanded={asking}
+          onClick={() => {
+            setAsking(true)
+          }}
+        >
+          Discard…
+        </Button>
       </div>
+      {asking ? (
+        <DiscardConfirm
+          change={change}
+          teller={discards}
+          onClose={(discarded) => {
+            if (!discarded) {
+              handBack()
+            }
+            setAsking(false)
+          }}
+        />
+      ) : null}
       <OutcomeLine said={outcome.said} />
       {state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">
@@ -254,4 +294,107 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
       ) : null}
     </div>
   )
+}
+
+// UnstageAll takes every staged change out of the index, as the terminal's `U`
+// does, at once: staging again undoes it. It says how it went.
+function UnstageAll({ anythingStaged }: { anythingStaged: boolean }) {
+  const outcome = useOutcome()
+  const { state, error, run } = useAsyncAction(unstageEverything, {
+    fallback: 'Nothing was unstaged. Try again, or unstage from a terminal to see why.',
+    done: () => 'Unstaged every change.',
+    onStart: outcome.clear,
+    onDone: outcome.say,
+  })
+
+  return (
+    <div className="flex flex-col gap-tight">
+      <Button
+        variant="secondary"
+        disabled={!anythingStaged || state === 'running'}
+        onClick={() => {
+          void run()
+        }}
+        className="self-start"
+      >
+        {state === 'running' ? 'Unstaging…' : 'Unstage all'}
+      </Button>
+      <OutcomeLine said={outcome.said} />
+      {state === 'error' ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+interface DiscardConfirmProps {
+  change: Change
+  teller: Teller
+  onClose: (discarded: boolean) => void
+}
+
+// DiscardConfirm asks before a file's changes are dropped, since a discard
+// cannot be undone — the terminal's last look on x — and takes the focus as it
+// opens, so a screen reader hears the question.
+function DiscardConfirm({ change, teller, onClose }: DiscardConfirmProps) {
+  const question = useFocusOnMount<HTMLDivElement>()
+  const discarding = useAsyncAction(() => discardFile(change.path), {
+    fallback: `${change.path} was not discarded. Try again, or discard it from a terminal to see why.`,
+    done: () => `Discarded ${change.path}.`,
+    onStart: teller.clear,
+    onDone: (said) => {
+      teller.say(said)
+      onClose(true)
+    },
+  })
+
+  return (
+    <div
+      ref={question}
+      role="group"
+      aria-label={`Discard the changes to ${change.path}?`}
+      tabIndex={-1}
+      className="flex flex-col items-start gap-item rounded-lg border border-border p-3 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
+      <p>
+        Discard the changes to <code>{change.path}</code>?
+      </p>
+      <p className="text-muted-foreground">{discardCost(change)}</p>
+      {discarding.state === 'error' ? (
+        <p role="alert" className="text-destructive">
+          {discarding.error}
+        </p>
+      ) : null}
+      <div className="flex items-center gap-item">
+        <Button
+          variant="secondary"
+          disabled={discarding.state === 'running'}
+          onClick={() => {
+            onClose(false)
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          disabled={discarding.state === 'running'}
+          onClick={() => void discarding.run()}
+        >
+          {discarding.state === 'running' ? 'Discarding…' : 'Discard'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// discardCost says what a discard loses: a file the last commit does not hold
+// is deleted, and any other goes back to how that commit has it.
+function discardCost(change: Change): string {
+  if (change.kind === 'untracked' || change.kind === 'new') {
+    return 'The last commit does not have it, so the file is deleted. This cannot be undone.'
+  }
+
+  return 'Every change to it, staged and not, is lost: it goes back to the last commit. This cannot be undone.'
 }

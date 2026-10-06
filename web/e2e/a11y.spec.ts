@@ -130,6 +130,12 @@ for (const theme of themes) {
 const confirmSteps = [
   { step: 'push confirmation', section: 'Branch', opener: 'Push branch', group: /^Push / },
   {
+    step: 'discard confirmation',
+    section: 'Branch',
+    opener: 'Discard internal/config/redact.go…',
+    group: 'Discard the changes to internal/config/redact.go?',
+  },
+  {
     step: 'announcement preview',
     section: 'Slack',
     opener: 'Announce to Slack',
