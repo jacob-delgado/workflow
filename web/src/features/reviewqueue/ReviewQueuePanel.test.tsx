@@ -470,6 +470,22 @@ test('Copy URL puts the address on the clipboard and says so', async () => {
   expect(statusSaying('Copied the URL of #7.')).toBeDefined()
 })
 
+test('Copy URL says it copied inside its own row, beside the button', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ [reviewsPath]: queueOf(waitingLongest, waitingLess) })
+  renderWithClient(<ReviewQueuePanel />)
+  const copy = await screen.findByRole('button', { name: 'Copy URL to #7' })
+
+  // Act
+  await user.click(copy)
+
+  // Assert
+  const row = screen.getAllByRole('listitem').find((item) => item.contains(copy))
+  expect(row).toBeDefined()
+  expect(await within(row as HTMLElement).findByText('Copied the URL of #7.')).toBeTruthy()
+})
+
 test('a copy the browser refuses says how to get the address instead', async () => {
   // Arrange
   const user = userEvent.setup()
