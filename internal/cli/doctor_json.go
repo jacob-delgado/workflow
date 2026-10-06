@@ -162,23 +162,13 @@ func credentialFacts(ctx context.Context, run doctorRun, remote string) (credent
 		return credentialsFacts{Checked: false}, nil
 	}
 
-	cfg, doers := run.cfg, onlineDoers(run.cfg, run.log)
-
-	checks := []struct {
-		service string
-		run     func(io.Writer) error
-	}{
-		{service: "jira", run: func(out io.Writer) error { return checkJira(ctx, out, doers.jira, cfg.Jira) }},
-		{service: strings.ToLower(cfg.Messaging.Service()), run: func(out io.Writer) error {
-			return checkMessaging(ctx, out, doers.messaging, run)
-		}},
-		{service: "forge", run: func(out io.Writer) error { return checkForge(ctx, out, run, remote) }},
-	}
-
+	checks := credentialChecks(ctx, run, remote)
 	results := make([]credentialLine, 0, len(checks))
 	outcomes := make([]error, 0, len(checks))
 
 	for _, check := range checks {
+		run.note.show("Checking", check.name)
+
 		line, err := captureCheck(check.service, check.run)
 		results = append(results, line)
 		outcomes = append(outcomes, err)

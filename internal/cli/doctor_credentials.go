@@ -38,13 +38,52 @@ func reportCredentials(ctx context.Context, out io.Writer, run doctorRun, remote
 
 	fmt.Fprint(out, "\nCredentials:\n")
 
-	doers := onlineDoers(run.cfg, run.log)
+	checks := credentialChecks(ctx, run, remote)
+	outcomes := make([]error, 0, len(checks))
 
-	return credentialVerdict(
-		checkJira(ctx, out, doers.jira, run.cfg.Jira),
-		checkMessaging(ctx, out, doers.messaging, run),
-		checkForge(ctx, out, run, remote),
-	)
+	for _, check := range checks {
+		run.note.show("Checking", check.name)
+		outcomes = append(outcomes, check.run(out))
+	}
+
+	return credentialVerdict(outcomes...)
+}
+
+// credentialCheck is one service doctor --online asks: its key in the JSON
+// report, its name in the progress note, and the check, which writes its
+// already-masked line to the writer it is given.
+type credentialCheck struct {
+	service string
+	name    string
+	run     func(out io.Writer) error
+}
+
+// credentialChecks are the online checks, in the order both reports make
+// them: Jira, the messaging service, then the forge the remote names.
+func credentialChecks(ctx context.Context, run doctorRun, remote string) []credentialCheck {
+	cfg, doers := run.cfg, onlineDoers(run.cfg, run.log)
+
+	return []credentialCheck{
+		{service: "jira", name: "Jira", run: func(out io.Writer) error { return checkJira(ctx, out, doers.jira, cfg.Jira) }},
+		{
+			service: strings.ToLower(cfg.Messaging.Service()), name: cfg.Messaging.Service(),
+			run: func(out io.Writer) error { return checkMessaging(ctx, out, doers.messaging, run) },
+		},
+		{
+			service: "forge", name: forgeNoun(wiring.ForgeKind(cfg.Forge, remote)),
+			run: func(out io.Writer) error { return checkForge(ctx, out, run, remote) },
+		},
+	}
+}
+
+// forgeNoun names a forge mid-sentence: by its own name, or as the forge when
+// the remote does not say which.
+func forgeNoun(kind forge.Kind) string {
+	if kind == forge.KindUnknown {
+		return "the forge"
+	}
+
+	return kind.String()
 }
 
 // credentialVerdict joins the checks' outcomes into the run's verdict, leaving

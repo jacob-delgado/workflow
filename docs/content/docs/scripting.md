@@ -90,6 +90,14 @@ write created. Standard error carries everything said *about* it: dry-run
 lines, declined and done notices, warnings, guidance, the questions a command
 asks, and the error itself, prefixed `workflow:`.
 
+While a slow command waits on a service — `doctor --online` on each
+credential, `summary` on each source, `status DIR…` on each directory — it
+keeps one line on standard error saying what it is reading (`Checking Jira…`,
+`Reading GitHub…`, `Reading DIR…`), each replacing the last in place, and
+erases it before printing anything and when it ends. It writes that line only
+when standard error is a terminal, so a pipe, a redirect or a log never
+holds it.
+
 | Command | stdout | stderr |
 | --- | --- | --- |
 | `status` | the line, or one row per directory, or the JSON | each service that refused to answer — `Jira could not be read: …`, `GitHub could not be read: …` — then each that is not set up, with how to set it up, in the words the web's `not_set_up` problem gives — `GitHub is not set up: no forge token was found; …`, `The forge is not set up: origin does not name a repository on a forge; …` — each labeled with its directory when several are named; neither changes the exit status |

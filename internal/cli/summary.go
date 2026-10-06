@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/activity"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/webserver"
@@ -34,6 +35,8 @@ type summarySeams struct {
 	// Messaging is where a post goes and how it is rendered.
 	Messaging config.Messaging
 	Confirm   func(question string) (bool, error)
+	// Note names the source being read while it answers.
+	Note *progressNote
 }
 
 // summaryOptions are summary's flags: the period, the JSON, the post, and the
@@ -96,6 +99,9 @@ func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) e
 	}
 	defer conn.closeLog()
 
+	note := newProgressNote(cmd.ErrOrStderr(), prompt.IsTerminal)
+	defer note.clear()
+
 	cfg, deps := conn.cfg, conn.deps
 	seams := summarySeams{
 		Activity: loop.ActivitySeams{
@@ -106,13 +112,14 @@ func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) e
 		Now:       time.Now,
 		Messaging: cfg.Messaging,
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
+		Note:      note,
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
 		seams.Post = deps.Messaging.Post
 	}
 
-	return runSummary(outputOf(cmd), seams, opts)
+	return runSummary(note.around(outputOf(cmd)), seams, opts)
 }
 
 // runSummary reads every source for the period asked and prints what they
@@ -128,7 +135,7 @@ func runSummary(out output, seams summarySeams, opts summaryOptions) error {
 	}
 
 	start, end := period.Bounds(now.Location())
-	summary := activity.Summary{Period: period, Reads: loop.ReadAll(loop.SummaryReads(seams.Activity, start, end))}
+	summary := activity.Summary{Period: period, Reads: readNoted(seams, start, end)}
 	unread := unreadSources(summary.Reads)
 
 	if opts.asJSON {
@@ -215,4 +222,28 @@ func postSummary(out output, seams summarySeams, text string, opts writeOptions)
 	fmt.Fprintln(out.notes, "Posted to "+target+".")
 
 	return nil
+}
+
+// readNoted makes each source's read in turn, as loop.ReadAll does, naming on
+// the note the source it is reading — the forge by its own name.
+func readNoted(seams summarySeams, start, end time.Time) []activity.Read {
+	reads := loop.SummaryReads(seams.Activity, start, end)
+	made := make([]activity.Read, 0, len(reads))
+
+	for _, read := range reads {
+		seams.Note.show("Reading", sourceNoun(read.Source, seams.Activity.ForgeKind))
+		made = append(made, read.Read())
+	}
+
+	return made
+}
+
+// sourceNoun names a source mid-sentence, the forge by its own name when the
+// remote says which.
+func sourceNoun(source activity.Source, kind forge.Kind) string {
+	if source == activity.SourceForge {
+		return forgeNoun(kind)
+	}
+
+	return source.Name()
 }
