@@ -9,7 +9,7 @@ import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { RunOutput, useGitRun, type GitRunner } from './GitRun.tsx'
-import { HistoryActions, RebaseAction } from './HistoryActions.tsx'
+import { HistoryActions, onFeatureBranch, RebaseAction } from './HistoryActions.tsx'
 import { HookSetup } from './HookSetup.tsx'
 import { IssueLink } from './IssueLink.tsx'
 import { pushBranch } from './pushApi.ts'
@@ -57,13 +57,13 @@ export function BranchPanel() {
 function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }) {
   const outcome = useOutcome()
   const heading = branch.name === '' ? `Detached HEAD at ${branch.head.slice(0, 7)}` : branch.name
-  // There is something to push on a real branch (not a detached HEAD) that has no
-  // upstream on the remote its push goes to, or that is ahead of the one it has.
-  // Commit count is not used — an undiscoverable base can leave it unknowable
-  // even for an ahead branch.
-  const canPush =
-    branch.name !== '' &&
-    (!branch.upstream.startsWith(`${branch.push_remote}/`) || branch.ahead > 0)
+  // There is something to push on a branch of its own (not a detached HEAD, not
+  // the base) that has no upstream on the remote its push goes to, or that is
+  // ahead of the one it has: nothingToPush, the other way round. Commit count is
+  // not used — an undiscoverable base can leave it unknowable even for an ahead
+  // branch.
+  const published = onPushRemote(branch)
+  const canPush = onFeatureBranch(branch) && (!published || branch.ahead > 0)
 
   return (
     <section aria-labelledby="branch-heading" className="flex flex-col gap-group">
@@ -80,7 +80,9 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
         <dd className="font-mono">{branch.upstream === '' ? 'none' : branch.upstream}</dd>
         <dt className="text-muted-foreground">Tracking</dt>
         <dd>
-          {branch.ahead} ahead, {branch.behind} behind
+          {published
+            ? `${String(branch.ahead)} ahead, ${String(branch.behind)} behind`
+            : 'not pushed yet'}
         </dd>
       </dl>
       <div className="flex flex-wrap items-start gap-item">
@@ -91,6 +93,12 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
       <OutcomeLine said={outcome.said} />
     </section>
   )
+}
+
+// onPushRemote reports an upstream on the remote the branch's push goes to: the
+// one its ahead and behind are counted against, and the one a push updates.
+function onPushRemote(branch: Branch): boolean {
+  return branch.upstream.startsWith(`${branch.push_remote}/`)
 }
 
 // Commits are the branch's commits since its base, and the runs that work on
@@ -115,7 +123,11 @@ function Commits({
         Commits
       </h3>
       {commits.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No commits yet on this branch.</p>
+        <p className="text-sm text-muted-foreground">
+          {branch.base === ''
+            ? 'The base branch is unknown, so the commits since it cannot be listed.'
+            : 'No commits yet on this branch.'}
+        </p>
       ) : (
         <ul className="flex flex-col gap-item">
           {commits.map((commit) => (
@@ -160,7 +172,7 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
     <div className={cn('flex flex-col gap-item', confirming && 'basis-full')}>
       {confirming ? (
         <PushConfirm
-          commits={branch.commits.length}
+          branch={branch}
           onCancel={() => {
             handBack()
             setConfirming(false)
@@ -192,14 +204,16 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
 }
 
 interface PushConfirmProps {
-  commits: number
+  branch: Branch
   onCancel: () => void
   onPush: () => void
 }
 
-// PushConfirm asks before the push, and takes focus as it opens, so a screen
-// reader hears the question.
-function PushConfirm({ commits, onCancel, onPush }: PushConfirmProps) {
+// PushConfirm asks before the push, naming what goes where as the terminal's
+// last look does, and takes focus as it opens, so a screen reader hears the
+// question. It counts no commits: the count since the base is not what the push
+// sends, and without a base it is not known at all.
+function PushConfirm({ branch, onCancel, onPush }: PushConfirmProps) {
   const question = useFocusOnMount<HTMLDivElement>()
 
   return (
@@ -210,7 +224,10 @@ function PushConfirm({ commits, onCancel, onPush }: PushConfirmProps) {
       tabIndex={-1}
       className="flex items-center gap-item text-sm"
     >
-      <span id="push-question">Push {commits} commit(s) to the remote?</span>
+      <span id="push-question">
+        Push <span className="font-mono">{branch.name}</span> to{' '}
+        <span className="font-mono">{branch.push_remote}</span>?
+      </span>
       <Button variant="secondary" onClick={onCancel}>
         Cancel
       </Button>
