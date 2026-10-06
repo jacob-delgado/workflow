@@ -433,3 +433,45 @@ func TestPRDoesNotMoveAForgeIssueNumberOnJira(t *testing.T) {
 		t.Errorf("a forge issue number was moved on Jira (%d transitions):\n%s", writes.applied(), printed.stderr)
 	}
 }
+
+func TestPRPointsToAnnounceOnlyWhenMessagingIsSetUp(t *testing.T) {
+	cases := map[string]struct {
+		configuration string
+		wantPointer   bool
+	}{
+		"messaging set up": {
+			configuration: `{"forge":{"cli":true,"kind":"github","host":"github.com"},` +
+				`"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`,
+			wantPointer: true,
+		},
+		"no messaging": {
+			configuration: `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			fakeGh(t, ghResponses{})
+			repo := githubRepo(t, "fix/PROJ-2-thing")
+			pretendPushed(t, repo)
+			writeFile(t, repo, tt.configuration)
+
+			// Act
+			printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+			// Assert
+			if err != nil {
+				t.Fatalf("pr --yes: %v (%+v)", err, printed)
+			}
+
+			if got := strings.Contains(printed.stderr, "workflow announce"); got != tt.wantPointer {
+				t.Errorf("pr --yes with %s: stderr names workflow announce = %v, want %v\n%s",
+					name, got, tt.wantPointer, printed.stderr)
+			}
+
+			if strings.Contains(printed.stdout, "workflow announce") {
+				t.Errorf("pr --yes put the pointer on stdout, the artifact's stream:\n%s", printed.stdout)
+			}
+		})
+	}
+}
