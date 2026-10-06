@@ -319,13 +319,13 @@ func messagingFaults() []faultClass {
 		{
 			causes: []error{messaging.ErrRejected},
 			code:   api.Unprocessable,
-			detail: "the messaging service refused the announcement; " +
+			detail: "the messaging service refused the post; " +
 				"check the token, or that the webhook URL is current, in Settings",
 		},
 		{
 			causes: []error{messaging.ErrPostRefused},
 			code:   api.Unprocessable,
-			detail: "the messaging service refused the message; announce from a terminal to see its reason",
+			detail: "the messaging service refused the message; post from a terminal to see its reason",
 		},
 		{
 			causes: []error{messaging.ErrUnexpectedStatus},
