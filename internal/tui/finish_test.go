@@ -49,7 +49,7 @@ func TestAMergedBranchDoesNotSitOnCheckingCI(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "● merged")
-	refuseScreen(t, view, "checking")
+	refuseScreen(t, view, "CI     reading")
 }
 
 func TestTheSpineReadsTheReviewOfAMergedBranchAsDone(t *testing.T) {

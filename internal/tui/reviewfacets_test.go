@@ -327,7 +327,7 @@ func TestClickingTheReviewsRailKeepsTheSelection(t *testing.T) {
 	// #12, the second oldest, selected.
 	repo := facetsWorld()
 	moved := typing(t, repo.live(t, 120, 40), "6", downAction)
-	row := screenRow(t, moved.View().Content, "4 review requests waiting")
+	row := screenRow(t, moved.View().Content, "4 waiting")
 
 	// Act
 	typing(t, click(t, moved, 5, row), "o")
@@ -350,7 +350,7 @@ func TestSortAndFilterWaitForTheQueue(t *testing.T) {
 	view := plain(pressing(t, model, "O", filterKey).View().Content)
 
 	// Assert
-	requireScreen(t, view, "looking")
+	requireScreen(t, view, "reading")
 
 	if strings.Contains(view, "newest first") || strings.Contains(view, filterTitleBar) {
 		t.Errorf("sorted or filtered a queue not yet read:\n%s", view)

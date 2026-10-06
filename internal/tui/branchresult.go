@@ -112,7 +112,7 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	offer := worktreeOffer{dir: msg.path, shown: m.shownDir(msg.path)}
-	m = m.closeOverlay().noticed(m.marks.done + " worktree for " + sanitize.Line(msg.name) + " at " + offer.shown)
+	m = m.closeOverlay().noticed(m.marks.done + " created worktree for " + sanitize.Line(msg.name) + " at " + offer.shown)
 	m.followUp = func(m Model) (Model, tea.Cmd) {
 		m.overlay = offer
 

@@ -103,7 +103,7 @@ func TestTheReviewsPaneCountsThePullRequestsWaiting(t *testing.T) {
 	view := repo.live(t, 120, 40).View().Content
 
 	// Assert
-	requireScreen(t, view, "2 review requests waiting")
+	requireScreen(t, view, "2 waiting")
 }
 
 func TestTheReviewsPaneListsEachRequestOldestFirst(t *testing.T) {

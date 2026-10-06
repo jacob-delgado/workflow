@@ -177,7 +177,7 @@ func (m Model) tasksRail(_ int) string {
 	case m.deps.Tasks.Install == nil:
 		return m.withoutTaskwarrior().brief
 	case !m.tasks.loaded:
-		return "looking" + m.marks.ellipsis
+		return "reading" + m.marks.ellipsis
 	case m.tasks.err != nil:
 		return m.failureSummary(m.tasks.err)
 	case m.tasks.writing:
@@ -227,7 +227,7 @@ func (m Model) tasksDetail(width int) string {
 	case m.deps.Tasks.Install == nil:
 		return wrap(m.withoutTaskwarrior().full, width)
 	case !m.tasks.loaded:
-		return "looking" + m.marks.ellipsis
+		return "reading" + m.marks.ellipsis
 	case m.tasks.err != nil:
 		return m.failureBlock(m.tasks.err, width)
 	case len(groups.listed()) == 0 && len(m.tasks.pending) > 0 && m.tasks.listing.narrows():

@@ -263,7 +263,7 @@ func (p dirPrompt) view(width, _ int) (string, string) {
 
 	switch {
 	case p.looking:
-		lines = append(lines, "", "looking"+p.marks.ellipsis)
+		lines = append(lines, "", "reading"+p.marks.ellipsis)
 	case p.problem != nil:
 		lines = append(lines, "", failureLine(p.styles, p.marks, p.problem))
 	case p.note != "":

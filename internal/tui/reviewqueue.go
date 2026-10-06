@@ -149,14 +149,14 @@ func (m Model) reviewQueueRail(_ int) string {
 	case m.deps.Forge.ReviewRequests == nil:
 		return "no forge for reviews"
 	case !m.reviewQueue.loaded:
-		return "looking" + m.marks.ellipsis
+		return "reading" + m.marks.ellipsis
 	case m.reviewQueue.err != nil:
 		return m.failureSummary(m.reviewQueue.err)
 	case len(m.reviewQueue.all) == 0:
 		return "none waiting on you"
 	}
 
-	return plural(len(m.reviewQueue.all), "review request") + " waiting"
+	return strconv.Itoa(len(m.reviewQueue.all)) + " waiting"
 }
 
 // reviewQueueDetail lists the queue, oldest-first, one request to a line.
@@ -165,7 +165,7 @@ func (m Model) reviewQueueDetail(width int) string {
 	case m.deps.Forge.ReviewRequests == nil:
 		return wrap("This forge does not list the pull requests waiting on your review.", width)
 	case !m.reviewQueue.loaded:
-		return "looking" + m.marks.ellipsis
+		return "reading" + m.marks.ellipsis
 	case m.reviewQueue.err != nil:
 		return m.failureBlock(m.reviewQueue.err, width)
 	case len(m.reviewQueue.all) == 0:

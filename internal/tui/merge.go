@@ -99,7 +99,7 @@ func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 
 	merged := m.closeOverlay().noticed(m.marks.done + " merged " + m.vocab.sigil + strconv.Itoa(msg.pull.Number))
 	if issueKey, named := merged.jiraIssue(); named {
-		merged.followUp = merged.offerComplete(issueKey)
+		merged.followUp = merged.offerMarkDone(issueKey)
 	}
 
 	return merged, merged.findPullRequest()
@@ -150,7 +150,7 @@ func (p mergePicker) view(width, _ int) (string, string) {
 
 	switch {
 	case !p.settled:
-		lines = append(lines, "loading merge methods"+p.marks.ellipsis)
+		lines = append(lines, "reading the merge methods"+p.marks.ellipsis)
 	case p.listErr != nil:
 		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
 	default:

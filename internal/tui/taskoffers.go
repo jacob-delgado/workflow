@@ -112,7 +112,7 @@ func (m Model) offerToStart(task taskwarrior.Task) func(Model) (Model, tea.Cmd) 
 	start := m.deps.Tasks.Start
 
 	return offering(lastLook{
-		title: "Start the task", verb: "start", doing: "starting",
+		title: "Start the task", verb: verbStart, doing: "starting",
 		body: "Start task " + describedTask(task) + " in Taskwarrior? Its hooks run, so a timewarrior hook " +
 			"starts too.",
 	}, "start task "+taskName(task), func() taskActed {
@@ -244,9 +244,9 @@ func (m Model) offerAnnotate(issueKey jira.Key, pull forge.PullRequest) func(Mod
 	})
 }
 
-// offerComplete offers, once an issue's pull request is merged or the issue is
+// offerMarkDone offers, once an issue's pull request is merged or the issue is
 // done, to complete the task that tracks it. Nil when no task tracks the issue.
-func (m Model) offerComplete(issueKey jira.Key) func(Model) (Model, tea.Cmd) {
+func (m Model) offerMarkDone(issueKey jira.Key) func(Model) (Model, tea.Cmd) {
 	task, tracked := m.offeredTask(issueKey)
 	if !tracked {
 		return nil
@@ -255,10 +255,10 @@ func (m Model) offerComplete(issueKey jira.Key) func(Model) (Model, tea.Cmd) {
 	done := m.deps.Tasks.Done
 
 	return offering(lastLook{
-		title: "Complete the task", verb: "done", doing: "completing",
+		title: "Mark the task done", verb: "mark done", doing: "marking done",
 		body: "Mark task " + describedTask(task) + " done?",
-	}, "complete task "+taskName(task), func() taskActed {
-		return taskActed{verb: "completed", uuid: task.UUID, id: shownID(task), said: "", err: done(task.UUID)}
+	}, "mark task "+taskName(task)+" done", func() taskActed {
+		return taskActed{verb: "marked", after: " done", uuid: task.UUID, id: shownID(task), said: "", err: done(task.UUID)}
 	})
 }
 
@@ -268,7 +268,7 @@ func (m Model) offerComplete(issueKey jira.Key) func(Model) (Model, tea.Cmd) {
 // start after a branch, the pull request's note — which opens now instead.
 func (m Model) offerForMove(issueKey jira.Key, to jira.Transition) func(Model) (Model, tea.Cmd) {
 	if to.ToStatusCategory == jira.CategoryDone {
-		if offer := m.offerComplete(issueKey); offer != nil {
+		if offer := m.offerMarkDone(issueKey); offer != nil {
 			return offer
 		}
 	}

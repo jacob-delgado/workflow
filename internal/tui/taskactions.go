@@ -80,8 +80,12 @@ func startOrStop(task taskwarrior.Task) string {
 		return "stop"
 	}
 
-	return "start"
+	return verbStart
 }
+
+// verbStart names starting a task, on its key, in its last look and in a dry
+// run's notice alike.
+const verbStart = "start"
 
 // syncKeys offers syncing, where the taskrc names a backend to sync with and no
 // write is on its way.
@@ -133,7 +137,7 @@ func (m Model) handleTaskVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	case key.Matches(msg, m.keys.startStop):
 		act = m.toggleTask
 	case key.Matches(msg, m.keys.markDone):
-		act = m.completeTask
+		act = m.markDone
 	case key.Matches(msg, m.keys.addTask):
 		act = m.openAddLine
 	case key.Matches(msg, m.keys.annotateTask):
@@ -207,34 +211,42 @@ func (m Model) toggleTask() (Model, tea.Cmd) {
 	case !ok:
 		return m, nil
 	case task.Active():
-		return m.actOnTask("stop", "stopped", m.deps.Tasks.Stop)
+		return m.actOnTask(taskChange{verb: "stop", did: "stopped", after: ""}, m.deps.Tasks.Stop)
 	default:
-		return m.actOnTask("start", "started", m.deps.Tasks.Start)
+		return m.actOnTask(taskChange{verb: verbStart, did: "started", after: ""}, m.deps.Tasks.Start)
 	}
 }
 
-// completeTask marks the selected task done.
-func (m Model) completeTask() (Model, tea.Cmd) {
-	return m.actOnTask("complete", "completed", m.deps.Tasks.Done)
+// markDone marks the selected task done.
+func (m Model) markDone() (Model, tea.Cmd) {
+	return m.actOnTask(taskChange{verb: "mark", did: "marked", after: " done"}, m.deps.Tasks.Done)
 }
 
-// actOnTask sends one change of the selected task to Taskwarrior — verb is the
-// change, did how it is told once made — or, in a dry run, says what it would
-// send and sends nothing.
-func (m Model) actOnTask(verb, did string, write func(uuid string) error) (Model, tea.Cmd) {
+// taskChange names one change of a task in its own verb: verb is the change,
+// did how it is told once made, and after what follows the task's name in both
+// — " done" in "mark task 3 done" and "marked 3 done".
+type taskChange struct {
+	verb, did, after string
+}
+
+// actOnTask sends one change of the selected task to Taskwarrior or, in a dry
+// run, says what it would send and sends nothing.
+func (m Model) actOnTask(change taskChange, write func(uuid string) error) (Model, tea.Cmd) {
 	task, ok := m.currentTask()
 
 	switch {
 	case !ok:
 		return m, nil
 	case m.dryRun:
-		return m.noticed("dry run: would " + verb + " task " + taskName(task)), nil
+		return m.noticed("dry run: would " + change.verb + " task " + taskName(task) + change.after), nil
 	}
 
 	uuid, number := task.UUID, task.ID
 	m.tasks.writing = true
 
-	return m, func() tea.Msg { return taskActed{verb: did, uuid: uuid, id: number, said: "", err: write(uuid)} }
+	return m, func() tea.Msg {
+		return taskActed{verb: change.did, after: change.after, uuid: uuid, id: number, said: "", err: write(uuid)}
+	}
 }
 
 // undoTasks reverts Taskwarrior's last change, or says it would in a dry run.
@@ -288,10 +300,12 @@ func (m Model) syncTasks() (Model, tea.Cmd) {
 // it, and why it failed.
 type taskActed struct {
 	verb string
-	uuid string
-	id   int
-	said string
-	err  error
+	// after follows the task's name in the notice, as " done" in "marked 3 done".
+	after string
+	uuid  string
+	id    int
+	said  string
+	err   error
 }
 
 // apply says what was done, or why it failed, then reads the tasks again, which
@@ -303,7 +317,7 @@ func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
 		return m.noticedFailure(msg.err), m.loadTasks()
 	}
 
-	note := taskNote(msg.verb, msg.id, msg.uuid)
+	note := taskNote(msg.verb, msg.id, msg.uuid) + msg.after
 	if msg.said != "" {
 		note += ": " + msg.said
 	}

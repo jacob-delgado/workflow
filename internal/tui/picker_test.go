@@ -134,7 +134,7 @@ func TestTOpensTheStatusPickerForTheSelectedIssue(t *testing.T) {
 	loading, cmd := pressed(t, screen, "t")
 
 	// Assert: the picker opens, loading
-	requireScreen(t, loading.View().Content, pickerTitle, "loading statuses…")
+	requireScreen(t, loading.View().Content, pickerTitle, "reading the statuses…")
 
 	// Act: the listing arrives
 	listed, _ := finish(t, loading, cmd)
@@ -323,7 +323,7 @@ func TestALateListingIsNotShownForTheWrongIssue(t *testing.T) {
 	late, _ := finish(t, screen, forFirst)
 
 	// Assert: OPS-2's picker is still waiting for its own
-	requireScreen(t, late.View().Content, "loading statuses…")
+	requireScreen(t, late.View().Content, "reading the statuses…")
 	refuseScreen(t, late.View().Content, "▸ ◐ Start Review")
 
 	// Act: OPS-2's listing arrives

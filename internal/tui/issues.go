@@ -272,7 +272,7 @@ func (l issueList) render(marks glyphs, sty styles, rows int, mark func(jira.Key
 
 	switch {
 	case !l.settled:
-		return "loading" + marks.ellipsis
+		return "reading" + marks.ellipsis
 	case l.err != nil && len(l.found.Issues) == 0:
 		return failed
 	case len(l.found.Issues) == 0:

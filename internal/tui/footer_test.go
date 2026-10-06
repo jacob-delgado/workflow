@@ -24,7 +24,7 @@ func TestANarrowFooterGivesUpThePanesVerbsBeforeTheWayToEveryKey(t *testing.T) {
 		cut   []string
 	}{
 		"beside the rail": {
-			width: 80, kept: []string{changeStatusHint, "b branch for PROJ-412"}, cut: []string{"w log work"},
+			width: 80, kept: []string{changeStatusHint, "b start work"}, cut: []string{"/ search"},
 		},
 		"with the rail folded": {
 			width: 40, kept: []string{"enter read issue"}, cut: []string{changeStatusHint},

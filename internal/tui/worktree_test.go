@@ -27,7 +27,7 @@ func TestBranchingCanCreateAWorktreeAndSaysWhereItIs(t *testing.T) {
 	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "worktree for "+featureName, "/work-"+featureName)
+	requireScreen(t, view, "created worktree for "+featureName, "/work-"+featureName)
 
 	if made := repo.asked("worktree " + featureName); len(made) != 1 {
 		t.Errorf("worktree calls = %v, want one for the branch", made)
@@ -63,7 +63,7 @@ func TestAFailedWorktreeKeepsTheCreatorOpenWithTheReason(t *testing.T) {
 	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "New branch", "already exists")
+	requireScreen(t, view, "Start work on", "already exists")
 }
 
 func TestAWorktreeUnderDryRunCreatesNothing(t *testing.T) {

@@ -156,7 +156,7 @@ func TestTheDetailFollowsTheSelectionOnceItRests(t *testing.T) {
 
 	// Assert: the header is the new issue, and the full read is on its way
 	requireScreen(t, moved.View().Content,
-		"PROJ-388 Add retries", "loading the description and comments…")
+		"PROJ-388 Add retries", "reading the description and comments…")
 
 	// Act: the selection rests
 	rested := drain(t, moved, rest)

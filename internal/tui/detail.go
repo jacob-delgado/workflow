@@ -211,7 +211,7 @@ func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
 	}{
 		{m.deps.Jira.Transitions != nil, m.keys.changeStatus},
 		{m.deps.Jira.Comment != nil, m.keys.comment},
-		{m.canCreateBranch(), relabel(m.keys.startWork, "branch for "+string(selected.Key))},
+		{m.canCreateBranch(), m.keys.startWork},
 		{m.deps.Jira.Assign != nil, m.keys.assign},
 		{m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key), m.keys.logWork},
 		{m.canTrack(selected.Key), m.trackKey(selected.Key)},
@@ -387,9 +387,9 @@ func (m Model) facts(issue jira.Issue) string {
 func (m Model) fullDetail(issueKey jira.Key, width int) []string {
 	switch {
 	case m.detail.key != issueKey || !m.detail.loaded:
-		return []string{"", m.styles.label.Render("loading the description and comments" + m.marks.ellipsis)}
+		return []string{"", m.styles.label.Render("reading the description and comments" + m.marks.ellipsis)}
 	case m.detail.err != nil:
-		return []string{"", m.failureBlock(m.detail.err, width), "press r to try again"}
+		return []string{"", m.failureBlock(m.detail.err, width), "press " + m.keys.refresh.Help().Key + " to try again"}
 	}
 
 	detail := m.detail.detail

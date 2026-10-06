@@ -17,7 +17,7 @@ const (
 	startLook     = "Start the task"
 	switchLook    = "Switch the task"
 	noteLook      = "Note the pull request"
-	completeLook  = "Complete the task"
+	completeLook  = "Mark the task done"
 	trackAndStart = "Track and start "
 )
 

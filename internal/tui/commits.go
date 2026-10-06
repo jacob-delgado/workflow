@@ -101,7 +101,7 @@ func (l changeList) staged() int {
 func (m Model) commitsRail(_ int) string {
 	switch {
 	case !m.changes.loaded:
-		return "loading" + m.marks.ellipsis
+		return "reading" + m.marks.ellipsis
 	case m.changes.err != nil:
 		return m.failedGlyph() + " status failed" + m.marks.separator + "see detail"
 	}
@@ -432,7 +432,7 @@ var _ overlay = amendPreview{}
 
 // view describes the amend as it will happen.
 func (p amendPreview) view(width, _ int) (string, string) {
-	return "Amend the last commit", wrap("fold the staged changes into "+p.subject, width)
+	return "Amend the last commit", wrap("Fold the staged changes into "+p.subject+"?", width)
 }
 
 // footer offers amending or leaving.

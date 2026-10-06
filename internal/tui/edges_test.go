@@ -256,7 +256,7 @@ func TestTheReviewPaneSaysItIsLookingForAPullRequest(t *testing.T) {
 	view := typing(t, drain(t, model, model.Init()), "4").View().Content
 
 	// Assert
-	requireScreen(t, view, "looking…")
+	requireScreen(t, view, "reading…")
 }
 
 func TestTheReviewPaneSaysCIIsBeingChecked(t *testing.T) {
@@ -271,7 +271,7 @@ func TestTheReviewPaneSaysCIIsBeingChecked(t *testing.T) {
 	view := typing(t, drain(t, model, model.Init()), "4").View().Content
 
 	// Assert
-	requireScreen(t, view, "CI     checking…")
+	requireScreen(t, view, "CI     reading…")
 }
 
 func TestTheReviewPaneSaysWhyCICouldNotBeChecked(t *testing.T) {
