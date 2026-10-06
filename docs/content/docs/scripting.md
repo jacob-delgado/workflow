@@ -91,7 +91,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `config show` | the configuration as JSON, credentials masked | the file it came from (`# PATH`); how to create one when there is none |
 | `config init` | with `--dry-run`, the file it would write, as JSON, masked | progress, the checks, "Wrote …", what to do next, a warning when the file is not ignored by git |
 | `standup` | the draft | "Nothing to share.", the dry-run line, "Not posted.", "Posted to …" |
-| `branch` | `Branch NAME from BASE and switch to it`, then `Created NAME` | the dry-run line, "Not created." |
+| `branch` | `Start work on KEY: create NAME from BASE and switch to it`, then `Created NAME` | the dry-run line, "Not created." |
 | `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab) | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes |
 | `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …" |
 | `slack login` | | the dry-run line, "Logged in to Slack as …" |

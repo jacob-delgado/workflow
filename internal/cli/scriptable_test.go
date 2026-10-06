@@ -73,7 +73,7 @@ func TestDeclineNoticeGoesToStderr(t *testing.T) {
 
 	// Assert
 	// The preview is the artifact a script reads; the decline is said about it.
-	if !strings.Contains(printed.stdout, "Branch fix/PROJ-7-login") ||
+	if !strings.Contains(printed.stdout, "Start work on PROJ-7: create fix/PROJ-7-login") ||
 		!strings.Contains(printed.stderr, "Not created.") || strings.Contains(printed.stdout, "Not created.") {
 		t.Errorf("the preview or the decline is on the wrong stream:\nstdout:\n%s\nstderr:\n%s",
 			printed.stdout, printed.stderr)

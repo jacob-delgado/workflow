@@ -135,9 +135,9 @@ func TestBranchPreviewSaysItSwitchesToTheBranch(t *testing.T) {
 
 	// The working tree moves onto the new branch, which the preview and the dry
 	// run each say rather than leave to be discovered.
-	if !strings.Contains(printed.stdout, "Branch fix/PROJ-7-login from ") ||
+	if !strings.Contains(printed.stdout, "Start work on PROJ-7: create fix/PROJ-7-login from ") ||
 		!strings.HasSuffix(strings.TrimSpace(printed.stdout), " and switch to it") ||
-		!strings.Contains(printed.stderr, "dry run: would create fix/PROJ-7-login from ") ||
+		!strings.Contains(printed.stderr, "dry run: would start work on PROJ-7: create fix/PROJ-7-login from ") ||
 		!strings.HasSuffix(strings.TrimSpace(printed.stderr), " and switch to it") {
 		t.Errorf("branch does not say it switches to the branch it creates:\nstdout:\n%s\nstderr:\n%s",
 			printed.stdout, printed.stderr)
@@ -153,8 +153,9 @@ func TestBranchHelpSaysItSwitchesToTheBranch(t *testing.T) {
 	}
 
 	// Read as prose, whatever the line breaks.
-	if !strings.Contains(strings.Join(strings.Fields(printed.stdout), " "), "base and switch to it") {
-		t.Errorf("branch's help does not say it switches to the branch it creates:\n%s", printed.stdout)
+	prose := strings.Join(strings.Fields(printed.stdout), " ")
+	if !strings.HasPrefix(prose, "Start work on an issue") || !strings.Contains(prose, "base and switch to it") {
+		t.Errorf("branch's help does not say it starts work and switches to the branch it creates:\n%s", printed.stdout)
 	}
 }
 
@@ -171,7 +172,7 @@ func TestBranchDryRunCreatesNothing(t *testing.T) {
 		t.Fatalf("branch --dry-run: %v (%s)", err, output)
 	}
 
-	if !strings.Contains(output, "dry run: would create feat/PROJ-7-login") {
+	if !strings.Contains(output, "dry run: would start work on PROJ-7: create feat/PROJ-7-login") {
 		t.Errorf("output does not describe the dry run:\n%s", output)
 	}
 
@@ -215,7 +216,7 @@ func TestBranchDeclinedCreatesNothing(t *testing.T) {
 	}
 
 	// The question is where consent is given, so it names the switch as well.
-	if len(asked) != 1 || !strings.HasPrefix(asked[0], "Create fix/PROJ-7-login and switch to it?") {
+	if len(asked) != 1 || !strings.HasPrefix(asked[0], "Start work on PROJ-7: create fix/PROJ-7-login and switch to it?") {
 		t.Errorf("branch asked %q, want it to ask to create the branch and switch to it", asked)
 	}
 
