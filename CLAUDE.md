@@ -28,6 +28,7 @@ cmd/workflow/         thin main: cli.Execute, its exit status, the terminal prom
 internal/cli/         the Cobra command tree
 internal/config/      .workflow.json loading, saving, redaction, validation
 internal/keychain/    storing a token in the OS keychain and reading it back
+internal/setup/       the first run: where the file goes, the Jira check, the keychain offer
 internal/seams/       the seams every surface shares, over domain and loop types
 internal/wiring/      connects every surface's seams to the real clients
 internal/loop/        the loop composed once for every surface, over their seams

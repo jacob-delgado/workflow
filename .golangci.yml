@@ -118,6 +118,22 @@ linters:
             - github.com/jacob-delgado/workflow/internal/store
             - github.com/jacob-delgado/workflow/internal/taskwarrior
             - github.com/jacob-delgado/workflow/internal/workdirs
+        # internal/setup is the first run all three surfaces ask for — the
+        # command line at a prompt, the terminal and the web in a form — so it
+        # sits below them, beside the domain packages it composes. strict mode
+        # allows only those, so no surface, and no terminal or web library,
+        # drifts into the shared composition.
+        setup-below-the-surfaces:
+          list-mode: strict
+          files:
+            - "**/internal/setup/**"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/jacob-delgado/workflow/internal/config
+            - github.com/jacob-delgado/workflow/internal/gitrepo
+            - github.com/jacob-delgado/workflow/internal/jira
+            - github.com/jacob-delgado/workflow/internal/proc
         # The web server is a surface beside the terminal, not built on it: what
         # the two share lives in internal/loop and the domain packages. wiring is
         # denied with it, because wiring imports the terminal.

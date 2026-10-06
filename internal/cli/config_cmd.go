@@ -15,13 +15,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/setup"
 )
-
-// errConfigExists reports that init would have overwritten a file.
-var errConfigExists = errors.New("configuration file already exists")
 
 // newConfigCmd builds the `workflow config` subtree.
 func newConfigCmd(prompt Prompt) *cobra.Command {
@@ -72,13 +68,14 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.dryRun = dryRunRequested(cmd)
 
-			dir, err := targetDir(opts.global)
+			where, err := whereInit(opts.global)
 			if err != nil {
 				return err
 			}
 
-			path := filepath.Join(dir, config.FileName)
-			opts.layers = layersFor(path, opts.global)
+			place := placeFor(opts.global)
+			path := where.Path(place)
+			opts.layers = where.Layers(place)
 
 			if opts.template {
 				return runConfigInit(cmd, path, opts)
@@ -128,25 +125,35 @@ func newConfigShowCmd() *cobra.Command {
 	}
 }
 
-// targetDir picks the directory `config init` writes to.
-func targetDir(global bool) (string, error) {
+// whereInit is where `config init` runs: the working directory and home, or
+// the home directory alone for --global.
+func whereInit(global bool) (setup.Where, error) {
 	if global {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return "", fmt.Errorf("determining the home directory: %w", err)
+			return setup.Where{}, fmt.Errorf("determining the home directory: %w", err)
 		}
 
-		return home, nil
+		return setup.Where{HomeDir: home}, nil
 	}
 
 	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
 	// a working directory once it is removed.
 	workDir, err := os.Getwd()
 	if err != nil {
-		return "", fmt.Errorf("determining the working directory: %w", err)
+		return setup.Where{}, fmt.Errorf("determining the working directory: %w", err)
 	}
 
-	return config.RepoRoot(workDir), nil
+	return setup.Where{WorkDir: workDir, HomeDir: configHome()}, nil
+}
+
+// placeFor is where --global says the file goes.
+func placeFor(global bool) setup.Place {
+	if global {
+		return setup.Home
+	}
+
+	return setup.Repository
 }
 
 // refuseOverwrite refuses to clobber an existing file unless force says
@@ -154,9 +161,13 @@ func targetDir(global bool) (string, error) {
 // overwritten. A dry run is refused the same way, since it previews what would
 // happen.
 func refuseOverwrite(path string, force bool) error {
-	_, err := os.Stat(path)
-	if err == nil && !force {
-		return fmt.Errorf("%w: %s; pass --force to overwrite", errConfigExists, path)
+	if force {
+		return nil
+	}
+
+	err := setup.RefuseExisting(path)
+	if err != nil {
+		return fmt.Errorf("%w; pass --force to overwrite", err)
 	}
 
 	return nil
@@ -169,23 +180,6 @@ func previewConfig(cmd *cobra.Command, path string, cfg config.Config) error {
 	fmt.Fprintf(cmd.ErrOrStderr(), "dry run: would write %s (mode %#o)\n", path, config.FileMode)
 
 	return encodeJSON(cmd.OutOrStdout(), cfg.Redacted())
-}
-
-// layersFor is the home file a repository's file at path would lie over, when
-// there is one and path is not it; a file written with --global, or with no
-// home file to lie over, stands alone.
-func layersFor(path string, global bool) config.Files {
-	home := filepath.Join(configHome(), config.FileName)
-	if global || home == path {
-		return config.Files{}
-	}
-
-	_, err := os.Stat(home)
-	if err != nil {
-		return config.Files{}
-	}
-
-	return config.Files{Home: home, Repo: path}
 }
 
 // runConfigInit writes the template, unless the file is already there. Over a
@@ -222,7 +216,7 @@ func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
 // writeEmptyLayer writes the repository's file over the home one with nothing
 // in it yet, and says what belongs there.
 func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
-	beneath, over, err := homeBeneath(opts.layers)
+	beneath, over, err := setup.Beneath(opts.layers)
 	if err != nil {
 		return err
 	}
@@ -241,24 +235,6 @@ func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
 		path, config.FileMode, opts.layers.Home, opts.layers.Home)
 
 	return nil
-}
-
-// homeBeneath is the home file's configuration, which config init starts the
-// repository's file from, at the revision of both files: --force replaces the
-// repository's file rather than building on it, yet the save still has to find
-// the pair as it was read.
-func homeBeneath(layers config.Files) (config.Config, config.Revision, error) {
-	over, err := config.RevisionOfLayers(layers)
-	if err != nil {
-		return config.Default(), config.Revision{}, err
-	}
-
-	beneath, _, err := config.LoadLayersAt(config.Files{Home: layers.Home})
-	if err != nil {
-		return config.Default(), config.Revision{}, err
-	}
-
-	return beneath, over, nil
 }
 
 // runGuidedInit asks for each credential, checks the Jira token, saves a
@@ -284,30 +260,22 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 	out := cmd.ErrOrStderr()
 	fmt.Fprintf(out, "Setting up %s. Leave a prompt blank to skip it.\n\n", path)
 
-	cfg, over, err := homeBeneath(opts.layers)
+	beneath, over, err := setup.Beneath(opts.layers)
 	if err != nil {
 		return err
 	}
 
-	asked, err := collectJira(cmd.Context(), out, prompt, requestLog.Wrap("jira", onlineDoer(config.Config{})))
+	answers, err := askAnswers(cmd.Context(), out, prompt, requestLog.Wrap("jira", onlineDoer(config.Config{})))
 	if err != nil {
 		return err
 	}
 
-	cfg.Jira = withJira(cfg.Jira, asked)
-
-	webhook, err := collectMessaging(out, prompt)
-	if err != nil {
-		return err
-	}
-
-	cfg.Messaging = withWebhook(cfg.Messaging, webhook)
-
+	cfg := answers.Over(beneath)
 	if opts.dryRun {
 		return previewConfig(cmd, path, cfg)
 	}
 
-	err = saveInit(path, opts.layers, cfg, over)
+	err = setup.Save(path, opts.layers, cfg, over)
 	if err != nil {
 		return err
 	}
@@ -318,43 +286,19 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 	return nil
 }
 
-// withJira is jira with the address and token asked for in place of its own,
-// or jira as it was when the question was left blank, so a blank answer over a
-// home file keeps the home file's.
-func withJira(jira, asked config.Jira) config.Jira {
-	if asked.BaseURL == "" {
-		return jira
+// askAnswers asks setup's questions in turn: Jira's, then messaging's.
+func askAnswers(ctx context.Context, out io.Writer, prompt Prompt, doer jira.Doer) (setup.Answers, error) {
+	asked, err := collectJira(ctx, out, prompt, doer)
+	if err != nil {
+		return setup.Answers{}, err
 	}
 
-	jira.BaseURL, jira.Token, jira.TokenCommand, jira.TokenEnv = asked.BaseURL, asked.Token, asked.TokenCommand, ""
-
-	return jira
-}
-
-// withWebhook is messaging posting through the webhook asked for, or messaging
-// as it was when the question was left blank. A webhook stands alone, so a
-// user token it replaces goes with it.
-func withWebhook(messaging, asked config.Messaging) config.Messaging {
-	if asked.WebhookURL == "" {
-		return messaging
+	webhook, err := collectMessaging(out, prompt)
+	if err != nil {
+		return setup.Answers{}, err
 	}
 
-	messaging.Kind, messaging.WebhookURL, messaging.ClientID = asked.Kind, asked.WebhookURL, ""
-	messaging.ClientSecret, messaging.RefreshToken, messaging.AccessToken, messaging.ExpiresAt = "", "", "", ""
-
-	return messaging
-}
-
-// saveInit writes what config init kept: a file of its own, or, over a home
-// file, the layer that differs from it.
-func saveInit(path string, layers config.Files, cfg config.Config, over config.Revision) error {
-	if layers.Home == "" {
-		return config.Save(path, cfg)
-	}
-
-	_, err := config.SaveLayers(layers, cfg, over)
-
-	return err
+	return setup.Answers{Jira: asked, Webhook: webhook}, nil
 }
 
 // collectJira asks for the Jira address and token, checks them over doer, and
@@ -377,7 +321,7 @@ func collectJira(ctx context.Context, out io.Writer, prompt Prompt, doer jira.Do
 
 	settings := config.Jira{BaseURL: baseURL, Token: config.Secret(strings.TrimSpace(token))}
 
-	kept, err := keepIfChecked(prompt, "jira", checkJira(ctx, out, doer, settings))
+	kept, err := keepIfChecked(prompt, "jira", checkTyped(ctx, out, doer, settings))
 	if err != nil || !kept {
 		return config.Jira{}, err
 	}
@@ -385,29 +329,41 @@ func collectJira(ctx context.Context, out io.Writer, prompt Prompt, doer jira.Do
 	return keepTokenSafe(out, prompt, settings)
 }
 
+// checkTyped checks the address and token typed, saying how it went.
+func checkTyped(ctx context.Context, out io.Writer, doer jira.Doer, settings config.Jira) error {
+	who, err := setup.Check(ctx, doer, settings)
+	if err != nil {
+		fmt.Fprintf(out, "  %-10s %v\n", "jira", err)
+
+		return err
+	}
+
+	fmt.Fprintf(out, "  %-10s authenticates as %s\n", "jira", who)
+
+	return nil
+}
+
 // keepTokenSafe offers to move the token into the OS keychain, so the file holds
 // a token_command rather than the secret. It is a no-op where the keychain is
 // not wired for the platform.
-func keepTokenSafe(out io.Writer, prompt Prompt, jira config.Jira) (config.Jira, error) {
+func keepTokenSafe(out io.Writer, prompt Prompt, settings config.Jira) (config.Jira, error) {
 	if prompt.StoreSecret == nil {
-		return jira, nil
+		return settings, nil
 	}
 
 	store, err := confirm(prompt, "Store the Jira token in your keychain, keeping it out of the file?")
 	if err != nil || !store {
-		return jira, err
+		return settings, err
 	}
 
-	tokenCommand, err := prompt.StoreSecret(jira.Token.Reveal())
+	settings, err = setup.Keep(prompt.StoreSecret, settings)
 	if err != nil {
-		return jira, fmt.Errorf("storing the token in the keychain: %w", err)
+		return settings, err
 	}
-
-	jira.Token, jira.TokenCommand = "", tokenCommand
 
 	fmt.Fprintf(out, "  %-10s stored in the keychain; the file will hold a token_command\n", "jira")
 
-	return jira, nil
+	return settings, nil
 }
 
 // collectMessaging asks for a Slack incoming webhook, the setup with nothing to
@@ -415,22 +371,22 @@ func keepTokenSafe(out io.Writer, prompt Prompt, jira config.Jira) (config.Jira,
 // login` sets up, since it needs the app's client ID and a refresh token; the
 // other services' webhooks are left to the docs and a later hand edit of the
 // messaging block.
-func collectMessaging(out io.Writer, prompt Prompt) (config.Messaging, error) {
+func collectMessaging(out io.Writer, prompt Prompt) (config.Secret, error) {
 	webhook, err := prompt.Secret("Slack incoming webhook URL, blank to post with your user token instead: ")
 	if err != nil {
-		return config.Messaging{}, err
+		return "", err
 	}
 
 	webhook = strings.TrimSpace(webhook)
 	if webhook == "" {
 		fmt.Fprintf(out, "  %-10s run `workflow slack login` to post with your Slack user token\n", "slack")
 
-		return config.Messaging{}, nil
+		return "", nil
 	}
 
 	fmt.Fprintf(out, "  %-10s saved (a webhook cannot be checked without posting)\n", "slack")
 
-	return config.Messaging{Kind: config.KindSlack, WebhookURL: config.Secret(webhook)}, nil
+	return config.Secret(webhook), nil
 }
 
 // keepIfChecked decides whether to keep a credential: a passing check keeps it,
@@ -448,8 +404,7 @@ func keepIfChecked(prompt Prompt, what string, checkErr error) (bool, error) {
 // by git, since it is about to hold credentials. Outside a repository there is
 // nothing to warn about.
 func warnIfNotIgnored(ctx context.Context, out io.Writer, path string) {
-	ignored, err := gitrepo.At(proc.Run, filepath.Dir(path)).CheckIgnored(ctx, path)
-	if err != nil || ignored {
+	if !setup.NotIgnored(ctx, path) {
 		return
 	}
 
