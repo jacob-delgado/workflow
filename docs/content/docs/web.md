@@ -79,7 +79,7 @@ from its bindings with `ui.keys` applied, so a key you moved in the file moves
 here too. `?` opens a sheet of the actions the page has a control for, under
 the terminal's groups and in its words, with the key for each; `Escape`
 closes it. `Ctrl+K`, or `⌘K` on a Mac, opens a palette of what the section
-you are in can do, and of the other sections: type part of an action's
+you are in can do (in a Mac's text field `Ctrl+K` stays the field's own key), and of the other sections: type part of an action's
 name, choose with the arrow keys, and `Enter` runs it through its own
 button, so a push or a merge still asks first. Single keys — `c` comments,
 `a` stages everything on Branch, `2` opens Branch — are off until you turn
