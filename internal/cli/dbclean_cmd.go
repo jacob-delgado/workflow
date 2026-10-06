@@ -65,7 +65,7 @@ func runDBClean(
 
 	reached := reachedBy(files, scope)
 	if len(reached) == 0 {
-		fmt.Fprintln(out.artifact, "Nothing to remove.")
+		fmt.Fprintln(out.notes, "Nothing to remove.")
 
 		return nil
 	}
@@ -104,7 +104,7 @@ func removeDataFiles(
 		return fmt.Errorf("cleaning the local data: %w", err)
 	}
 
-	fmt.Fprintln(out.artifact, "Removed "+listed+".")
+	fmt.Fprintln(out.notes, "Removed "+listed+".")
 
 	return nil
 }

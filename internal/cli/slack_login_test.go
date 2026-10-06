@@ -113,11 +113,11 @@ func TestSlackLoginUnderDryRunAsksAndWritesNothing(t *testing.T) {
 	path := writeFile(t, dir, slackUserTokenFile)
 
 	// Act
-	output, err := run(t, dir, "slack", "login", "--dry-run")
+	printed, err := runStreams(t, dir, unusedPrompt(t), "slack", "login", "--dry-run")
 
 	// Assert
-	if err != nil || !strings.Contains(output, "dry run") {
-		t.Errorf("slack login --dry-run = %v, want it to say what it would do:\n%s", err, output)
+	if err != nil || !strings.Contains(printed.stderr, "dry run") || printed.stdout != "" {
+		t.Errorf("slack login --dry-run = %v, want it to say on stderr alone what it would do:\n%+v", err, printed)
 	}
 
 	unchanged(t, path, slackUserTokenFile)
@@ -157,11 +157,11 @@ func TestSlackLoginKeepsWhatSlackGivesBackAndSaysWhoseItIs(t *testing.T) {
 	prompt := asking([]string{slackClientID}, []string{"client-secret-9999", "xoxe-1-first"}, &askedLine, &askedSecret)
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "slack", "login")
+	printed, err := runStreams(t, dir, prompt, "slack", "login")
 
 	// Assert
-	if err != nil || !strings.Contains(output, "Logged in to Slack as ana in Acme.") {
-		t.Fatalf("slack login = %v, want it to say whose the token is:\n%s", err, output)
+	if err != nil || !strings.Contains(printed.stderr, "Logged in to Slack as ana in Acme.") || printed.stdout != "" {
+		t.Fatalf("slack login = %v, want it to say on stderr alone whose the token is:\n%+v", err, printed)
 	}
 
 	held, err := os.ReadFile(path)
