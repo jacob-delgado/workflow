@@ -6,6 +6,7 @@ import { useForgeWords } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
+import { Reading } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
@@ -48,7 +49,7 @@ export function ReviewQueuePanel() {
   const retrying = query.isPending && query.errorUpdateCount > 0
 
   if (query.isPending && !retrying) {
-    return <EmptyState>Reading your review queue…</EmptyState>
+    return <Reading>Reading your review queue…</Reading>
   }
 
   if (query.data?.available === false) {

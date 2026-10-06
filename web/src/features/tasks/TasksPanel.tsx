@@ -4,6 +4,7 @@ import type { Issue, TaskList as Tasks } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
+import { Reading } from '@/lib/Status.tsx'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { useNow } from './ActiveTask.tsx'
@@ -29,7 +30,7 @@ export function TasksPanel() {
   const retrying = query.isPending && query.errorUpdateCount > 0
 
   if (query.isPending && !retrying) {
-    return <EmptyState>Reading your tasks…</EmptyState>
+    return <Reading>Reading your tasks…</Reading>
   }
 
   if (query.data?.available === false) {

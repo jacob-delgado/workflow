@@ -3,7 +3,7 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Repositories } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
-import { Failure, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { DirectoryPicker } from './DirectoryPicker.tsx'
 import { FavoritesList } from './FavoritesList.tsx'
@@ -35,9 +35,7 @@ export function RepositoriesPanel() {
         }}
       />
     ) : (
-      <p role="status" className="text-sm text-muted-foreground">
-        Reading where the server works…
-      </p>
+      <Reading>Reading where the server works…</Reading>
     )
   }
 

@@ -9,7 +9,7 @@ import { gitLabWords, makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
-test('shows a loading state until the configuration arrives', () => {
+test('says it is reading until the configuration arrives', () => {
   // Arrange
   vi.stubEnv('VITE_MOCK', 'true')
 
@@ -17,7 +17,8 @@ test('shows a loading state until the configuration arrives', () => {
   renderWithClient(<SettingsPanel />)
 
   // Assert
-  expect(screen.getByText(/loading the configuration/i)).toBeTruthy()
+  const waits = screen.getAllByRole('status').map((wait) => wait.textContent)
+  expect(waits).toContain('Reading the configuration…')
 })
 
 test('loads the configuration into the form', async () => {

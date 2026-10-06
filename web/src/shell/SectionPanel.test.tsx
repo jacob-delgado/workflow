@@ -33,7 +33,7 @@ test('routes the settings section to the config form', () => {
   renderWithClient(<SectionPanel section="settings" />)
 
   // Assert
-  expect(screen.getByText(/loading the configuration/i)).toBeTruthy()
+  expect(screen.getByText('Reading the configuration…')).toBeTruthy()
 })
 
 test.each(['issues', 'branch', 'review', 'messaging'] as const)(

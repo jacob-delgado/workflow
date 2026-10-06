@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { Activity } from '@/api/generated/types.gen.ts'
 import { apiErrorMessage } from '@/api/apiError.ts'
+import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
-import { Failure, Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { ActivityList } from './ActivityList.tsx'
 import { spokenDate, type Period } from './civilDate.ts'
@@ -70,7 +70,7 @@ type ActivityRead = ReturnType<typeof useActivity>
 // FirstRead is the section before the server has answered once: reading, or
 // why it could not, with another try.
 function FirstRead({ read }: { read: ActivityRead }) {
-  return read.isError ? <Refused read={read} /> : <Reading />
+  return read.isError ? <Refused read={read} /> : <ReadingPeriod />
 }
 
 // Refused is why the period could not be read, with another try.
@@ -87,13 +87,9 @@ function Refused({ read }: { read: ActivityRead }) {
   )
 }
 
-// Reading says a period is being read.
-function Reading() {
-  return (
-    <p role="status" className="text-sm text-muted-foreground">
-      Reading what you did…
-    </p>
-  )
+// ReadingPeriod says a period is being read.
+function ReadingPeriod() {
+  return <Reading>Reading what you did…</Reading>
 }
 
 interface ShownProps {
@@ -112,7 +108,7 @@ function Shown({ read, period }: ShownProps) {
           : `${spokenDate(period.from)} to ${spokenDate(period.to)}`}
       </h2>
       {read.isError ? <Refused read={read} /> : null}
-      {!read.isError && read.data === undefined ? <Reading /> : null}
+      {!read.isError && read.data === undefined ? <ReadingPeriod /> : null}
       {read.data === undefined ? null : (
         <Done activity={read.data} period={period} reading={read.isFetching} />
       )}
@@ -156,7 +152,7 @@ function Done({ activity, period, reading }: DoneProps) {
       </div>
       <OutcomeLine said={outcome.said} />
       {copy.state === 'error' ? <Failure>{copy.error}</Failure> : null}
-      {reading ? <Reading /> : null}
+      {reading ? <ReadingPeriod /> : null}
       {activity.sources.map((source) => (
         <SourceNote key={source.source} source={source} />
       ))}

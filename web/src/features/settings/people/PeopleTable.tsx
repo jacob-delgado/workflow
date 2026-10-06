@@ -9,9 +9,9 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { useSlackGroups, useSlackMembers } from '@/features/messaging/slackApi.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Reading, Unread } from '@/lib/Status.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
-import { Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { usePeople, usePeopleWrites } from './peopleApi.ts'
 
@@ -30,7 +30,7 @@ export function PeopleTable({ dryRun }: { dryRun: boolean }) {
   const query = usePeople()
 
   if (query.isPending) {
-    return <p className="text-sm text-muted-foreground">Reading the code owners…</p>
+    return <Reading>Reading the code owners…</Reading>
   }
 
   if (query.isError) {
