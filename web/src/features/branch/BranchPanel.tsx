@@ -230,7 +230,7 @@ function PushConfirm({ branch, onCancel, onPush }: PushConfirmProps) {
       </span>
       {/* The buttons keep their words whole: a long branch name wraps them
           under the question rather than squeeze them. */}
-      <span className="flex shrink-0 gap-item">
+      <span className="flex shrink-0 items-center gap-item">
         <Button variant="secondary" onClick={onCancel}>
           Cancel
         </Button>
