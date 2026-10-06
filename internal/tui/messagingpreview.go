@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"errors"
 	"slices"
 	"strings"
 
@@ -19,10 +18,6 @@ import (
 // messagingHelp is what the editor shows below a message being composed. The markup
 // depends on the service, so the note stays general rather than naming one.
 const messagingHelp = "Edit the message above this line."
-
-// errEmptyMessage refuses an announcement with nothing in it: guidance, not a
-// failure.
-var errEmptyMessage = errors.New("nothing to announce: the message was empty")
 
 // messagingPreview is an announcement about to be sent.
 type messagingPreview struct {
@@ -143,7 +138,7 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 // post posts the message now.
 func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 	if strings.TrimSpace(p.text) == "" {
-		return m.closeOverlay().noticedGuidance(errEmptyMessage), nil
+		return m.closeOverlay().noticedGuidance(loop.ErrEmptyAnnouncement), nil
 	}
 
 	if m.dryRun {

@@ -185,14 +185,20 @@ func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, sna
 // panel keeps its last answer instead (forgeReview).
 func (s *server) snapshot(view string) api.Snapshot {
 	branch, known := s.frameBranch()
+	review := s.snapshotReview(branch, known)
+
+	if known {
+		s.settleHeld(branch, review)
+	}
 
 	return api.Snapshot{
-		Issues:    s.snapshotIssues(view),
-		Branch:    branchDTO(branch),
-		Changes:   s.snapshotChanges(),
-		Review:    s.snapshotReview(branch, known),
-		Messaging: s.readMessaging(),
-		Branches:  s.snapshotBranches(branch.Name),
+		Issues:             s.snapshotIssues(view),
+		Branch:             branchDTO(branch),
+		Changes:            s.snapshotChanges(),
+		Review:             review,
+		Messaging:          s.readMessaging(),
+		QueuedAnnouncement: s.heldStatus(),
+		Branches:           s.snapshotBranches(branch.Name),
 
 		CommitTypes:    s.commitConvention().Types(),
 		SuggestedScope: s.suggestedScope(),

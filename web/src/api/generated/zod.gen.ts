@@ -292,16 +292,34 @@ export const zTrackIssueRequest = z.object({
 export const zAnnouncement = z.object({
     text: z.string(),
     channel: z.string(),
-    tagging: zAnnouncementTagging.optional()
+    tagging: zAnnouncementTagging.optional(),
+    can_wait_for_ci: z.boolean().optional()
 });
 
 /**
- * Where to post the announcement, and the text its preview showed.
+ * Where to post the announcement, the text its preview showed, the text to post in its place when it was edited, and when to post it.
  */
 export const zAnnounceRequest = z.object({
     channel: z.string(),
     text: z.string().optional(),
+    edited_text: z.string().max(40000).optional(),
+    when: z.enum(['now', 'ci_passes']).optional(),
     mentions: zAnnounceMentions.optional()
+});
+
+/**
+ * An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
+ */
+export const zQueuedAnnouncement = z.object({
+    state: z.enum([
+        'waiting',
+        'announcing',
+        'announced',
+        'dropped'
+    ]),
+    channel: z.string(),
+    pull: z.int(),
+    reason: z.string().optional()
 });
 
 /**
@@ -748,6 +766,7 @@ export const zSnapshot = z.object({
     changes: zChangeList,
     review: zReview,
     messaging: zMessagingDestination,
+    queued_announcement: zQueuedAnnouncement.optional(),
     branches: z.array(zTaskBranch),
     commit_types: z.array(z.string()),
     suggested_scope: z.string(),
@@ -1211,10 +1230,15 @@ export const zGetAnnouncementResponse = zAnnouncement;
 
 export const zAnnounceBody = zAnnounceRequest;
 
+export const zAnnounceResponse = z.union([
+    zAnnouncement,
+    zQueuedAnnouncement
+]);
+
 /**
- * The announcement as posted.
+ * The waiting announcement was dropped; nothing was posted.
  */
-export const zAnnounceResponse = zAnnouncement;
+export const zCancelQueuedAnnouncementResponse = z.void();
 
 /**
  * The branch, now published.

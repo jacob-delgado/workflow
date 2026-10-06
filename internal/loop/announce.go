@@ -21,6 +21,9 @@ var (
 	ErrNoPullRequest = errors.New("there is no pull request to announce")
 	// ErrAnnounceUnavailable refuses an announcement with no way to post one.
 	ErrAnnounceUnavailable = errors.New("announcing is not available")
+	// ErrEmptyAnnouncement refuses an announcement edited down to nothing:
+	// guidance, not a failure.
+	ErrEmptyAnnouncement = errors.New("nothing to announce: the message was empty")
 )
 
 // AnnounceSeams are what composing an announcement reads. A nil Branch or

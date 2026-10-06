@@ -25,4 +25,6 @@ export const mockAnnouncement: Announcement = {
     mockConfig.messaging.announcement ?? '',
   ),
   channel: mockSnapshot.messaging.channel,
+  // The mock pull request's CI is still running, so the preview offers to wait.
+  can_wait_for_ci: mockSnapshot.review.ci?.state === 'running',
 }

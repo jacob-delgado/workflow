@@ -295,6 +295,9 @@ type server struct {
 	// assigned is which of the branches' issues the tracker last said are yours.
 	assigned assignedCache
 
+	// held is the announcement held until its pull request's CI passes.
+	held heldAnnouncement
+
 	// detection is the stream's last search for Taskwarrior, when it found none.
 	detection detectionCache
 
