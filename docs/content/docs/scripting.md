@@ -243,6 +243,9 @@ opened — declined, refused or failed — prints nothing.
 `tooling`, one entry per program (`name`, `found`, `required`, `effect`, and
 `detail` where finding it took more than a look at `PATH`: the Taskwarrior
 version and path found, or why none is usable);
+`store` (`dir`, where the store keeps its files; `disabled`, `true` when
+`store.disabled` turned it off; or `problem`, why no data directory could be
+found, which leaves the store keeping nothing);
 `configuration` (`path`, the file a save writes; `files`, every file read,
 the home directory's before the repository's; `tracker` — `jira`, or `forge` when no `jira.base_url`
 leaves the forge's issues as the tracker — `jira_url`, `jira_auth_mode`,

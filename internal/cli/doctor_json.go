@@ -23,6 +23,7 @@ type doctorReport struct {
 	Version       string           `json:"version"`
 	Repository    repositoryFacts  `json:"repository"`
 	Tooling       []toolFacts      `json:"tooling"`
+	Store         storeFacts       `json:"store"`
 	Configuration *configFacts     `json:"configuration,omitempty"`
 	ConfigProblem string           `json:"config_problem,omitempty"`
 	Credentials   credentialsFacts `json:"credentials"`
@@ -82,7 +83,9 @@ func runDoctorJSON(ctx context.Context, out io.Writer, run doctorRun) error {
 	repository, remote := repositoryFactsFor(ctx)
 	tooling, toolingErr := toolingFacts(ctx, run.cfg, remote)
 
-	report := doctorReport{Version: buildinfo.Current(), Repository: repository, Tooling: tooling}
+	report := doctorReport{
+		Version: buildinfo.Current(), Repository: repository, Tooling: tooling, Store: storeFactsFor(run.cfg),
+	}
 
 	configErr := run.loadErr
 	if run.loadErr != nil {
