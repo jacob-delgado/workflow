@@ -146,7 +146,7 @@ test.each([
   expect(await screen.findByText(words)).toBeTruthy()
 })
 
-test('a track the tracker refuses says why, and can be tried again', async () => {
+test('a track the tracker refuses says why, keeping the focus to try again', async () => {
   // Arrange
   const user = userEvent.setup()
   streamLinked()
@@ -169,7 +169,7 @@ test('a track the tracker refuses says why, and can be tried again', async () =>
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe('issue PROJ-412 was not found')
-  expect(screen.getByRole('button', { name: 'Track in Taskwarrior' })).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Track in Taskwarrior' }))
   expect(screen.getByText('No task tracks PROJ-412.')).toBeTruthy()
 })
 

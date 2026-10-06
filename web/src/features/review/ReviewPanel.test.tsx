@@ -1,10 +1,10 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { fakeApi } from '@/test/fakeApi.ts'
+import { fakeApi, held } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
@@ -361,38 +361,44 @@ test('locks the confirm while the pull request is opening', async () => {
   await screen.findByRole('form', { name: /open a pull request/i })
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
 
-  // Assert: the confirm now reads "Opening…" and is disabled, and only one open fired
+  // Assert: the confirm now reads "Opening…" and is held, and only one open fired
   const opening = await screen.findByRole('button', { name: /opening/i })
-  expect(opening.hasAttribute('disabled')).toBe(true)
+  expect(opening.getAttribute('aria-disabled')).toBe('true')
   expect(mockOpenPr).toHaveBeenCalledTimes(1)
 
   releaseOpen()
   await screen.findByText('Opened pull request #7.')
 })
 
-test('keeps the form and shows the reason when opening is refused', async () => {
+test('keeps the form, the focus and the reason when opening is refused', async () => {
   // Arrange
   // A distinctive forge reason, not the component's generic fallback, so the
   // test fails if the reason is dropped for the fallback.
-  mockOpenPr.mockRejectedValueOnce({
-    code: 'unprocessable',
-    detail: 'the base branch trunk does not exist on the forge',
-  })
+  const opened = held<never>()
+  mockOpenPr.mockReturnValueOnce(opened.promise)
   const user = userEvent.setup()
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({ review: { found: false, announced: false } }),
   })
   render(<ReviewPanel />)
-
-  // Act: open the form and confirm, with the open refused
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
   await screen.findByRole('form', { name: /open a pull request/i })
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
+  await screen.findByRole('button', { name: 'Opening…' })
+
+  // Act: the open is refused once it has been seen going
+  act(() => {
+    opened.refuse({
+      code: 'unprocessable',
+      detail: 'the base branch trunk does not exist on the forge',
+    })
+  })
 
   // Assert: the forge's own reason shows and the form is still there to retry
   expect(await screen.findByText(/base branch trunk does not exist/i)).toBeTruthy()
   expect(screen.getByRole('form', { name: /open a pull request/i })).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open pull request' }))
 })
 
 test('a form opened again after a refused open and a cancel starts without the old reason', async () => {
@@ -469,7 +475,7 @@ test('offers and opens a merge request in GitLab words throughout', async () => 
   expect(document.body.textContent).not.toMatch(/pull request/i)
 })
 
-test('says a merge request could not be composed, on GitLab, when the forge gives no reason', async () => {
+test('says a merge request could not be composed, on GitLab, with focus still on its button', async () => {
   // Arrange
   mockPreview.mockRejectedValueOnce({})
   const user = userEvent.setup()
@@ -489,6 +495,7 @@ test('says a merge request could not be composed, on GitLab, when the forge give
       'The merge request could not be composed. Try again, or run workflow pr from a terminal.',
     ),
   ).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open a merge request' }))
 })
 
 test('says a merge request could not be opened, on GitLab, when the forge gives no reason', async () => {

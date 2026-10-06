@@ -13,7 +13,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/test-setup.ts'],
+    setupFiles: ['./src/test-setup.ts', './src/test/dropFocusOnDisable.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     // Vitest blanks every stylesheet unless told otherwise; the token test reads
     // index.css as text (`?raw`) to check the theme's contrast.

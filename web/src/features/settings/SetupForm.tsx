@@ -1,6 +1,6 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { type Control, type UseFormRegister, useForm, useWatch } from 'react-hook-form'
-import { apiErrorMessage } from '@/api/apiError.ts'
+import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 import type {
   SetupOffer,
   SetupPlace,
@@ -72,10 +72,21 @@ function SetupForm({
     },
   })
   const setUp = useSetUp()
+  // Whether Write it anyway is offered: from a write Jira's check refused until
+  // a write is refused for another reason. A refused write anyway leaves it
+  // offered, so it keeps the focus it was pressed with beside the reason.
+  const [anyway, setAnyway] = useState(false)
   const write = useAsyncAction(
     async (values: SetupValues, keepUnchecked: boolean) => {
       const keychain = offer.keychain && values.keychain
-      onWritten(await setUp({ ...values, keychain, keep_unchecked: keepUnchecked }))
+      try {
+        onWritten(await setUp({ ...values, keychain, keep_unchecked: keepUnchecked }))
+      } catch (caught) {
+        if (!keepUnchecked) {
+          setAnyway(problemCode(caught) === 'check_failed')
+        }
+        throw caught
+      }
     },
     { fallback: 'The file was not written. Try again — your answers are still in the form.' },
   )
@@ -106,7 +117,7 @@ function SetupForm({
           control={control}
           state={write.state}
           error={write.error}
-          code={write.code}
+          anyway={anyway}
           onKeepAnyway={() => {
             void write.run(getValues(), true)
           }}
@@ -199,13 +210,13 @@ interface SetupWriteProps {
   control: Control<SetupValues>
   state: AsyncState
   error: string
-  code: string
+  anyway: boolean
   onKeepAnyway: () => void
 }
 
 // SetupWrite is the write, named for the file it writes — or, under
 // --dry-run, that it is held back.
-function SetupWrite({ places, control, state, error, code, onKeepAnyway }: SetupWriteProps) {
+function SetupWrite({ places, control, state, error, anyway, onKeepAnyway }: SetupWriteProps) {
   const dryRun = useHealthStore((health) => health.health?.dry_run === true)
   const [place, address] = useWatch({ control, name: ['place', 'jira_base_url'] })
   const chosen = places.find((each) => each.place === place)
@@ -223,7 +234,7 @@ function SetupWrite({ places, control, state, error, code, onKeepAnyway }: Setup
       act={`Write ${chosen?.shown ?? '.workflow.json'}`}
       busy={busyWords(state, address.trim() !== '')}
       error={state === 'error' ? error : ''}
-      checkFailed={state === 'error' && code === 'check_failed'}
+      offersAnyway={anyway}
       onKeepAnyway={onKeepAnyway}
     />
   )
@@ -261,21 +272,21 @@ interface WriteControlsProps {
   act: string
   busy: string | null
   error: string
-  checkFailed: boolean
+  offersAnyway: boolean
   onKeepAnyway: () => void
 }
 
 // WriteControls are the write, what stopped the last one, and, when Jira's
 // check is what stopped it, writing it anyway.
-function WriteControls({ act, busy, error, checkFailed, onKeepAnyway }: WriteControlsProps) {
+function WriteControls({ act, busy, error, offersAnyway, onKeepAnyway }: WriteControlsProps) {
   return (
     <div className="flex flex-col items-start gap-item">
-      <Button variant="primary" type="submit" disabled={busy !== null}>
+      <Button variant="primary" type="submit" held={busy !== null}>
         {busy ?? act}
       </Button>
       {error === '' ? null : <Failure>{error}</Failure>}
-      {checkFailed ? (
-        <Button variant="secondary" disabled={busy !== null} onClick={onKeepAnyway}>
+      {offersAnyway ? (
+        <Button variant="secondary" held={busy !== null} onClick={onKeepAnyway}>
           Write it anyway
         </Button>
       ) : null}

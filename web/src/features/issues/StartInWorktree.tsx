@@ -31,7 +31,7 @@ export function StartInWorktreeButton({ issueKey, outcome, onMade }: StartInWork
     <div className="flex flex-col gap-tight">
       <Button
         variant="secondary"
-        disabled={start.state === 'running'}
+        held={start.state === 'running'}
         onClick={() => {
           void start.run(true)
         }}

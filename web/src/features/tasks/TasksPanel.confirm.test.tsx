@@ -77,6 +77,28 @@ test.each(looks)('$opener asks first and sends nothing until $confirm', async (l
   expect(postedPaths(requests)).toEqual([look.path])
 })
 
+test.each(looks)('a refused $confirm says why, with focus still on it', async (look) => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({
+    [tasksPath]: makeTaskList([tokenLeak], { sync_available: true }),
+    [look.path]: () =>
+      Response.json({ code: 'unprocessable', detail: 'Taskwarrior refused' }, { status: 422 }),
+  })
+  renderWithClient(<TasksPanel />)
+  await user.click(await screen.findByRole('button', { name: look.opener }))
+  const confirm = within(screen.getByRole('group', { name: look.question })).getByRole('button', {
+    name: look.confirm,
+  })
+
+  // Act
+  await user.click(confirm)
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toBe('Taskwarrior refused')
+  expect(document.activeElement).toBe(confirm)
+})
+
 test.each(looks)('Cancel on the look $question sends nothing', async (look) => {
   // Arrange
   const user = userEvent.setup()

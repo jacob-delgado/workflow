@@ -126,7 +126,7 @@ function PostPreview({ activity, messaging, teller, onClose }: PostPreviewProps)
       <div className="flex flex-wrap items-center gap-item">
         <Button
           variant="secondary"
-          disabled={busy}
+          held={busy}
           onClick={() => {
             onClose(false)
           }}
@@ -135,7 +135,7 @@ function PostPreview({ activity, messaging, teller, onClose }: PostPreviewProps)
         </Button>
         <Button
           variant="primary"
-          disabled={busy}
+          held={busy}
           onClick={() => {
             void post.run(edited ?? activity.text)
           }}

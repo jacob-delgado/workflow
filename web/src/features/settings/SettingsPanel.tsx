@@ -4,7 +4,8 @@ import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
-import { Reading, Unread } from '@/lib/Status.tsx'
+import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure } from '@/lib/utils.ts'
 import {
@@ -130,6 +131,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   const [focusRequests, setFocusRequests] = useState(takesFocus ? 1 : 0)
   const saveConfig = useSaveConfig()
   const reloadConfig = useReloadConfig()
+  const outcome = useOutcome()
   const seed = (next: ConfigRead) => {
     reset(next.config)
     setRevision(next.revision)
@@ -144,7 +146,12 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
         throw caught
       }
     },
-    { fallback: 'The configuration was not saved. Try again — your edits are still in the form.' },
+    {
+      fallback: 'The configuration was not saved. Try again — your edits are still in the form.',
+      done: () => 'Saved.',
+      onStart: outcome.clear,
+      onDone: outcome.say,
+    },
   )
   // Reload swaps the edits for the file as it is now and clears the refusal,
   // taking the Reload button away, so the focus it had goes to the form.
@@ -183,25 +190,35 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       <KeyboardFieldset register={register} />
 
       {/* A refusal ChangedSinceRead explains is not said a second time. */}
-      <SaveControls state={save.state} error={changed ? '' : save.error} />
+      <SaveControls
+        saving={save.state === 'running'}
+        said={outcome.said}
+        error={changed || save.state !== 'error' ? '' : save.error}
+      />
       {changed ? <ChangedSinceRead reload={reload} /> : null}
     </form>
   )
 }
 
+interface SaveControlsProps {
+  saving: boolean
+  said: Parameters<typeof OutcomeLine>[0]['said']
+  error: string
+}
+
 // SaveControls is the Save button and what the last save said: that it saved,
-// or why it did not — unless the file changed since the form read it, which
-// ChangedSinceRead says instead.
-function SaveControls({ state, error }: { state: AsyncState; error: string }) {
+// on the form's outcome line, or why it did not, as a failure — unless the file
+// changed since the form read it, which ChangedSinceRead says instead.
+function SaveControls({ saving, said, error }: SaveControlsProps) {
   return (
-    <div className="flex items-center gap-item">
-      <Button variant="primary" type="submit" disabled={state === 'running'}>
-        {state === 'running' ? 'Saving…' : 'Save changes'}
-      </Button>
-      <span role="status" className="text-sm">
-        {state === 'done' ? <span className="text-success">Saved.</span> : null}
-        {state === 'error' ? <span className="text-destructive">{error}</span> : null}
-      </span>
+    <div className="flex flex-col items-start gap-item">
+      <div className="flex items-center gap-item">
+        <Button variant="primary" type="submit" held={saving}>
+          {saving ? 'Saving…' : 'Save changes'}
+        </Button>
+        <OutcomeLine said={said} />
+      </div>
+      {error === '' ? null : <Failure>{error}</Failure>}
     </div>
   )
 }
@@ -225,7 +242,7 @@ function ChangedSinceRead({ reload }: { reload: ReloadAction }) {
       </p>
       <Button
         variant="secondary"
-        disabled={reload.state === 'running'}
+        held={reload.state === 'running'}
         onClick={() => {
           void reload.run()
         }}

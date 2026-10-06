@@ -238,7 +238,7 @@ function RemoveOpeners({ files, running, cacheOpener, allOpener, onOpen }: Remov
         <Button
           variant="secondary"
           ref={cacheOpener}
-          disabled={running}
+          held={running}
           onClick={() => {
             onOpen('cache')
           }}
@@ -250,7 +250,7 @@ function RemoveOpeners({ files, running, cacheOpener, allOpener, onOpen }: Remov
         <Button
           variant="secondary"
           ref={allOpener}
-          disabled={running}
+          held={running}
           onClick={() => {
             onOpen('all')
           }}

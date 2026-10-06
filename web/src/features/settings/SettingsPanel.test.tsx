@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useHealthStore } from '@/api/health.ts'
@@ -251,6 +251,38 @@ test('confirms when the configuration is saved', async () => {
   expect(await screen.findByText(/saved/i)).toBeTruthy()
 })
 
+test('a clicked Save keeps the focus it was clicked with once it has saved', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  const user = userEvent.setup()
+  renderWithClient(<SettingsPanel />)
+  await screen.findByLabelText('Base URL')
+  const save = screen.getByRole('button', { name: 'Save changes' })
+
+  // Act
+  await user.click(save)
+
+  // Assert
+  await screen.findByText('Saved.')
+  expect(document.activeElement).toBe(save)
+})
+
+test('a Save clicked by a pointer that gives it no focus hands focus to what it said', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  renderWithClient(<SettingsPanel />)
+  await screen.findByLabelText('Base URL')
+
+  // Act
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+  // Assert
+  const said = await screen.findByText('Saved.')
+  await waitFor(() => {
+    expect(document.activeElement).toBe(said)
+  })
+})
+
 test('toggling Markdown comments rides back through a save', async () => {
   // Arrange
   vi.stubEnv('VITE_MOCK', 'true')
@@ -366,9 +398,9 @@ test('locks the save while it is in flight', async () => {
   // Act
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
-  // Assert: the button reads "Saving…" and is off, and only one save went out
+  // Assert: the button reads "Saving…" and is held, and only one save went out
   const saving = await screen.findByRole('button', { name: 'Saving…' })
-  expect(saving.hasAttribute('disabled')).toBe(true)
+  expect(saving.getAttribute('aria-disabled')).toBe('true')
   expect(saves).toHaveLength(1)
 
   releaseSave()

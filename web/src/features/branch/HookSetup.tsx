@@ -144,12 +144,12 @@ interface SetupButtonsProps {
 function SetupButtons({ writing, onClose, onWrite }: SetupButtonsProps) {
   return (
     <div className="flex flex-wrap items-center gap-item">
-      <Button variant="secondary" disabled={writing} onClick={onClose}>
+      <Button variant="secondary" held={writing} onClick={onClose}>
         Cancel
       </Button>
       <Button
         variant="secondary"
-        disabled={writing}
+        held={writing}
         onClick={() => {
           onWrite(true)
         }}
@@ -158,7 +158,7 @@ function SetupButtons({ writing, onClose, onWrite }: SetupButtonsProps) {
       </Button>
       <Button
         variant="primary"
-        disabled={writing}
+        held={writing}
         onClick={() => {
           onWrite(false)
         }}

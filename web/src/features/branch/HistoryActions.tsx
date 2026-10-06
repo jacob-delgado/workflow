@@ -79,7 +79,7 @@ export function RebaseAction({ branch, runner }: { branch: Branch; runner: GitRu
       variant="secondary"
       ref={opener}
       aria-keyshortcuts={rebaseKeys}
-      disabled={runner.going}
+      held={runner.going}
       onClick={() => {
         setAsking(true)
       }}
@@ -142,7 +142,7 @@ export function HistoryActions({
       <Button
         {...preCommit}
         variant="secondary"
-        disabled={runner.going}
+        held={runner.going}
         onClick={() => {
           runner.start({ kind: 'pre_commit' })
         }}
@@ -155,7 +155,7 @@ export function HistoryActions({
             variant="secondary"
             ref={amendButton}
             aria-keyshortcuts={amendKeys}
-            disabled={runner.going}
+            held={runner.going}
             onClick={() => {
               setAsked('amend')
             }}
@@ -166,7 +166,7 @@ export function HistoryActions({
             variant="secondary"
             ref={fixupButton}
             aria-keyshortcuts={fixupKeys}
-            disabled={runner.going}
+            held={runner.going}
             onClick={() => {
               setAsked('fixup')
             }}

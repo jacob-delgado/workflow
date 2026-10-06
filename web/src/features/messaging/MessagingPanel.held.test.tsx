@@ -145,6 +145,24 @@ test('a held announcement says it waits, and stops waiting on asking', async () 
   expect(await screen.findByText('Stopped waiting; nothing was announced.')).toBeTruthy()
 })
 
+test('a refused Stop waiting says why, with focus still on it', async () => {
+  // Arrange
+  fakeApi({
+    '/api/announce/queued': () =>
+      Response.json({ code: 'unprocessable', detail: 'nothing is waiting' }, { status: 422 }),
+  })
+  withPull({ state: 'waiting', channel: '#dev', pull: 42 })
+  render(<MessagingPanel />)
+  const stop = screen.getByRole('button', { name: 'Stop waiting' })
+
+  // Act
+  await userEvent.click(stop)
+
+  // Assert
+  expect(await screen.findByRole('alert')).toBeTruthy()
+  expect(document.activeElement).toBe(stop)
+})
+
 test('a held announcement that went says so', () => {
   // Arrange
   serverAnswering()

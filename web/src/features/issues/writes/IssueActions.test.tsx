@@ -152,7 +152,7 @@ test('a status change only Jira can make says so and cannot be sent', async () =
   expect(sent).toEqual([])
 })
 
-test('a refused status change keeps the form, beside why', async () => {
+test('a refused status change keeps the form and the focus, beside why', async () => {
   // Arrange
   trackerTakingWrites({
     [changesPath]: (_: URL, request: Request) =>
@@ -178,6 +178,7 @@ test('a refused status change keeps the form, beside why', async () => {
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe('Due date needs a value')
   expect(form('Change the status of PROJ-1')).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Change to Resolved' }))
 })
 
 test('canceling a form sends nothing and hands focus back to its button', async () => {

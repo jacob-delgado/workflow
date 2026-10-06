@@ -181,9 +181,8 @@ test('focus stays on the button that staged, which is still there to hold it', a
 
 test('focus that fell to the page while staging lands on what the stage said', async () => {
   // Arrange
-  // A browser can drop focus from a button once it is disabled, as it is while
-  // its write runs. jsdom will not blur a disabled button, so focus is dropped
-  // to the page through another control.
+  // Focus can fall to the page while a stage runs — a click on nothing — so it
+  // is dropped there through another control.
   let finishStaging = () => {}
   mockStageFile.mockImplementationOnce(
     () =>
@@ -241,7 +240,7 @@ test('staging leaves focus in a subject being typed', async () => {
   expect(document.activeElement).toBe(subject)
 })
 
-test('says why a file could not be staged', async () => {
+test('says why a file could not be staged, with focus still on its Stage', async () => {
   // Arrange
   mockStageFile.mockRejectedValueOnce({
     code: 'unprocessable',
@@ -256,6 +255,7 @@ test('says why a file could not be staged', async () => {
 
   // Assert
   expect(await screen.findByText(/git would not stage b\.go/)).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Stage b.go' }))
 })
 
 test('Stage all makes the commit form live', async () => {
@@ -295,7 +295,7 @@ test('Stage all is off when the index holds everything', () => {
   expect(screen.getByRole('button', { name: 'Stage all' }).hasAttribute('disabled')).toBe(true)
 })
 
-test('says why the changes could not all be staged', async () => {
+test('says why the changes could not all be staged, with focus still on Stage all', async () => {
   // Arrange
   mockStageEverything.mockRejectedValueOnce({ code: 'unprocessable', detail: 'git refused' })
   const user = userEvent.setup()
@@ -307,6 +307,7 @@ test('says why the changes could not all be staged', async () => {
 
   // Assert
   expect(await screen.findByText('git refused')).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Stage all' }))
 })
 
 test('a clean tree keeps the commit form, with nothing to stage', () => {

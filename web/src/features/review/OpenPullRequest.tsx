@@ -73,7 +73,7 @@ export function OpenPullRequest({
         variant="primary"
         ref={opener}
         aria-keyshortcuts={openKeys}
-        disabled={compose.state === 'running'}
+        held={compose.state === 'running'}
         onClick={() => {
           void compose.run()
         }}
@@ -102,7 +102,7 @@ interface PullRequestFields {
 
 // PullRequestForm is the composed pull request, editable, opening on its title,
 // its reviewers pre-filled with the code owners the draft proposes, with a
-// confirm that opens it and a cancel. It is disabled while the open is in
+// confirm that opens it and a cancel. Its buttons are held while the open is in
 // flight, so a second click cannot open a second pull request.
 function PullRequestForm({
   draft,
@@ -166,10 +166,10 @@ function PullRequestForm({
       ) : null}
 
       <div className="flex items-center gap-item">
-        <Button variant="secondary" disabled={opening} onClick={onCancel}>
+        <Button variant="secondary" held={opening} onClick={onCancel}>
           Cancel
         </Button>
-        <Button variant="primary" type="submit" disabled={opening}>
+        <Button variant="primary" type="submit" held={opening}>
           {opening ? 'Opening…' : `Open ${noun}`}
         </Button>
       </div>

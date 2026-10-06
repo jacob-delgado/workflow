@@ -195,7 +195,7 @@ function LinkForm({ outcome, onLinked, onClose }: LinkFormProps) {
       ) : null}
       <div className="flex gap-item">
         {preview ? null : (
-          <Button variant="primary" type="submit" disabled={linking}>
+          <Button variant="primary" type="submit" held={linking}>
             {linking ? 'Linking…' : 'Link'}
           </Button>
         )}

@@ -146,7 +146,7 @@ test('a check that does not pass says why and offers to write it anyway', async 
   expect(sent.map((request) => request.keep_unchecked)).toEqual([false, true])
 })
 
-test('the refusal of a check is said beside the write', async () => {
+test('the refusal of a check is said beside the write, which keeps the focus', async () => {
   // Arrange
   const user = userEvent.setup()
   firstRun(() =>
@@ -163,6 +163,30 @@ test('the refusal of a check is said beside the write', async () => {
   expect((await within(form).findByRole('alert')).textContent).toBe(
     'Jira did not accept the token; check it, or keep it anyway',
   )
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'Write ~/src/api/.workflow.json' }),
+  )
+})
+
+test('a write anyway that is refused says why, with focus still on Write it anyway', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  firstRun((request) =>
+    request.keep_unchecked
+      ? problem(422, 'unprocessable', 'the file could not be written')
+      : problem(422, 'check_failed', 'Jira did not accept the token; check it, or keep it anyway'),
+  )
+  renderWithClient(<SettingsPanel />)
+  await answerJira(user)
+  await user.click(screen.getByRole('button', { name: 'Write ~/src/api/.workflow.json' }))
+  const anyway = await screen.findByRole('button', { name: 'Write it anyway' })
+
+  // Act
+  await user.click(anyway)
+
+  // Assert
+  await screen.findByText('the file could not be written')
+  expect(document.activeElement).toBe(anyway)
 })
 
 test('an address that is no address is never offered to be written anyway', async () => {

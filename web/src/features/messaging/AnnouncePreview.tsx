@@ -92,7 +92,7 @@ export function ChannelSelect({
       <Select
         size="sm"
         value={channel}
-        disabled={busy}
+        held={busy}
         onChange={(event) => {
           onChannel(event.target.value)
         }}
@@ -130,7 +130,7 @@ export function PreviewText({
         <TextArea
           rows={Math.min(12, text.split('\n').length + 2)}
           value={text}
-          disabled={busy}
+          held={busy}
           onChange={(event) => {
             onEdit(event.target.value)
           }}
@@ -147,7 +147,7 @@ export function PreviewText({
       <Button
         variant="secondary"
         size="sm"
-        disabled={busy}
+        held={busy}
         onClick={() => {
           onEdit(text)
         }}
@@ -172,15 +172,15 @@ function PreviewActions({
 
   return (
     <div className="flex flex-wrap items-center gap-item">
-      <Button variant="secondary" disabled={busy} onClick={onCancel}>
+      <Button variant="secondary" held={busy} onClick={onCancel}>
         Cancel
       </Button>
       {canWait ? (
-        <Button variant="secondary" disabled={busy || linking} onClick={onHold}>
+        <Button variant="secondary" held={busy || linking} onClick={onHold}>
           {sending === 'hold' ? 'Announcing when CI passes…' : 'Announce when CI passes'}
         </Button>
       ) : null}
-      <Button variant="primary" disabled={busy || linking} onClick={onPost}>
+      <Button variant="primary" held={busy || linking} onClick={onPost}>
         {sending === 'post' ? 'Announcing…' : 'Announce now'}
       </Button>
     </div>

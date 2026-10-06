@@ -269,9 +269,9 @@ test('locks the confirm while a post is in flight', async () => {
   await screen.findByText('octocat announced the pull request')
   await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
-  // Assert: the confirm now reads "Announcing…" and is disabled, and only one post fired
+  // Assert: the confirm now reads "Announcing…" and is held, and only one post fired
   const posting = await screen.findByRole('button', { name: 'Announcing…' })
-  expect(posting.hasAttribute('disabled')).toBe(true)
+  expect(posting.getAttribute('aria-disabled')).toBe('true')
   expect(mockAnnounce).toHaveBeenCalledTimes(1)
 
   releasePost()
@@ -327,6 +327,24 @@ test('announces again after a refused post', async () => {
 
   // Assert
   expect(await screen.findByRole('button', { name: 'Announce now' })).toBeTruthy()
+})
+
+test('a refused preview says why, with focus still on Announce to', async () => {
+  // Arrange
+  mockPreview.mockRejectedValueOnce({
+    code: 'unprocessable',
+    detail: 'no pull request to announce',
+  })
+  const user = userEvent.setup()
+  withPullRequest()
+  render(<MessagingPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toBe('no pull request to announce')
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Announce to Slack' }))
 })
 
 test('the preview takes focus as it opens, and Cancel hands it back', async () => {

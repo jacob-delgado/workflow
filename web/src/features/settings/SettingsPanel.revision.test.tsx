@@ -185,7 +185,7 @@ test('a save after Reload is made over the revision Reload read', async () => {
   expect(namedRevisions(requests)).toEqual(['"read-1"', '"read-2"'])
 })
 
-test('a Reload that cannot read the file says why and keeps offering Reload', async () => {
+test('a Reload that cannot read the file says why, with focus still on Reload', async () => {
   // Arrange
   const invalid =
     'the configuration file on disk is not valid, so the configuration in effect stands'
@@ -196,7 +196,7 @@ test('a Reload that cannot read the file says why and keeps offering Reload', as
 
   // Assert
   expect(await screen.findByText(invalid)).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Reload' })).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reload' }))
 })
 
 test.each([

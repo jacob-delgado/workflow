@@ -319,7 +319,7 @@ test("a link refused with no reason says so in GitLab's words", async () => {
   ).toBeTruthy()
 })
 
-test('a refused move says why and can be tried again', async () => {
+test('a refused move says why and keeps the focus to be tried again', async () => {
   // Arrange
   const user = userEvent.setup()
   const refusal = {
@@ -343,7 +343,9 @@ test('a refused move says why and can be tried again', async () => {
 
   // Assert
   expect(await screen.findByText(/wants fields filled/i)).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Move PROJ-412 to In Review' })).toBeTruthy()
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'Move PROJ-412 to In Review' }),
+  )
 })
 
 test('a server restarted under --dry-run holds the offer back and says so', async () => {

@@ -188,7 +188,7 @@ function TrackIssue({ issueKey, unlinked, teller }: TrackIssueProps) {
         <Button
           {...shortcut}
           variant="secondary"
-          disabled={track.state === 'running'}
+          held={track.state === 'running'}
           onClick={() => {
             void track.run()
           }}

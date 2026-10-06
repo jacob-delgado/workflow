@@ -142,7 +142,7 @@ test('commits the staged changes when the form is submitted', async () => {
   )
 })
 
-test('shows the reason when a commit is refused', async () => {
+test('shows the reason when a commit is refused, with focus still on the commit', async () => {
   // Arrange
   mockCommit.mockRejectedValueOnce({
     code: 'unprocessable',
@@ -158,6 +158,9 @@ test('shows the reason when a commit is refused', async () => {
 
   // Assert
   expect(await screen.findByText(/nothing is staged/i)).toBeTruthy()
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: /commit staged changes/i }),
+  )
 })
 
 test('locks the commit while it is in flight', async () => {
@@ -181,9 +184,11 @@ test('locks the commit while it is in flight', async () => {
   // Act
   await user.click(screen.getByRole('button', { name: 'Commit staged changes' }))
 
-  // Assert: the button reads "Committing…" and is off, and only one commit went out
+  // Assert: the button reads "Committing…", is held with the focus it was
+  // pressed with, and only one commit went out
   const committing = await screen.findByRole('button', { name: 'Committing…' })
-  expect(committing.hasAttribute('disabled')).toBe(true)
+  expect(committing.getAttribute('aria-disabled')).toBe('true')
+  expect(document.activeElement).toBe(committing)
   expect(mockCommit).toHaveBeenCalledTimes(1)
 
   releaseCommit()
@@ -340,9 +345,9 @@ test('locks the push while it is in flight', async () => {
   await user.click(screen.getByRole('button', { name: 'Push branch' }))
   await user.click(screen.getByRole('button', { name: 'Push' }))
 
-  // Assert: the button reads "Pushing…" and is off, and only one push went out
+  // Assert: the button reads "Pushing…" and is held, and only one push went out
   const pushing = await screen.findByRole('button', { name: 'Pushing…' })
-  expect(pushing.hasAttribute('disabled')).toBe(true)
+  expect(pushing.getAttribute('aria-disabled')).toBe('true')
   expect(mockPush).toHaveBeenCalledTimes(1)
 
   releasePush()

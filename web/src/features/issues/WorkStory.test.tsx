@@ -314,7 +314,7 @@ test('checks out the branch when its button is clicked', async () => {
   expect(mockCheckout).toHaveBeenCalledWith('feat/PROJ-2-metrics')
 })
 
-test('shows the reason when a checkout is refused', async () => {
+test('shows the reason when a checkout is refused, with focus still on Switch branch', async () => {
   // Arrange
   mockCheckout.mockRejectedValueOnce({
     code: 'conflict',
@@ -329,6 +329,7 @@ test('shows the reason when a checkout is refused', async () => {
 
   // Assert
   expect(await screen.findByText(/uncommitted changes/i)).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Switch branch' }))
 })
 
 test('offers to start work on a not-started issue, in the one verb for it', () => {
@@ -368,7 +369,7 @@ test('starts work when its button is clicked', async () => {
   expect(mockStartWork).toHaveBeenCalledWith('PROJ-999', true)
 })
 
-test('shows the reason when starting work is refused', async () => {
+test('shows the reason when starting work is refused, with focus still on Start work', async () => {
   // Arrange
   mockStartWork.mockRejectedValueOnce({
     code: 'conflict',
@@ -383,6 +384,7 @@ test('shows the reason when starting work is refused', async () => {
 
   // Assert
   expect(await screen.findByText(/already exists/i)).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Start work' }))
 })
 
 test('offers to start work in a new worktree beside the repository', () => {
@@ -565,7 +567,7 @@ test('a branch held by a worktree that is gone says how to free it', () => {
   expect(screen.queryByRole('button', { name: /switch to its worktree/i })).toBeNull()
 })
 
-test('a worktree that could not be made says why', async () => {
+test('a worktree that could not be made says why, with focus still on its button', async () => {
   // Arrange
   mockStartInWorktree.mockRejectedValueOnce({
     code: 'conflict',
@@ -581,6 +583,9 @@ test('a worktree that could not be made says why', async () => {
   // Assert
   expect(await screen.findByText(/already exists/i)).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Switch to it' })).toBeNull()
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'Start work in a new worktree' }),
+  )
 })
 
 test.each([

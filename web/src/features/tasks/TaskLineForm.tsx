@@ -77,7 +77,7 @@ export function TaskLineForm({
         }}
         className="min-w-40 flex-1"
       />
-      <Button variant="secondary" type="submit" disabled={write.state === 'running'}>
+      <Button variant="secondary" type="submit" held={write.state === 'running'}>
         {write.state === 'running' ? busy : verb}
       </Button>
       {refusal === '' ? null : (
