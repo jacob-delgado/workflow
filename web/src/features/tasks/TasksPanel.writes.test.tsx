@@ -106,7 +106,10 @@ const verbs: Verb[] = [
   {
     name: 'Mark done',
     shown: [tokenLeak, certificate],
-    act: (user) => user.click(screen.getByRole('button', { name: 'Mark done' })),
+    act: async (user) => {
+      await user.click(screen.getByRole('button', { name: 'Mark done…' }))
+      await user.click(screen.getByRole('button', { name: 'Mark done' }))
+    },
     path: `${taskPath}/done`,
     answered: [certificate],
     said: 'Marked task 1 done.',
@@ -231,8 +234,10 @@ test("Done takes the done task's controls with it, so focus goes to what it said
   })
   renderWithClient(<TasksPanel />)
 
+  await user.click(await screen.findByRole('button', { name: 'Mark done…' }))
+
   // Act
-  await user.click(await screen.findByRole('button', { name: 'Mark done' }))
+  await user.click(screen.getByRole('button', { name: 'Mark done' }))
 
   // Assert
   await screen.findByRole('heading', { level: 2, name: 'Renew the certificate' })
@@ -273,7 +278,7 @@ test.each([
 
   // Assert
   await screen.findByRole('article')
-  expect(screen.queryAllByRole('button', { name: 'Sync' })).toHaveLength(offered)
+  expect(screen.queryAllByRole('button', { name: 'Sync…' })).toHaveLength(offered)
 })
 
 test('Undo is offered even when no task is pending', async () => {
@@ -284,7 +289,7 @@ test('Undo is offered even when no task is pending', async () => {
   renderWithClient(<TasksPanel />)
 
   // Assert
-  expect(await screen.findByRole('button', { name: 'Undo' })).toBeTruthy()
+  expect(await screen.findByRole('button', { name: 'Undo…' })).toBeTruthy()
 })
 
 test.each([
@@ -299,9 +304,10 @@ test.each([
     [`${tasksPath}/${path}`]: makeTaskList([certificate], { sync_available: true, said }),
   })
   renderWithClient(<TasksPanel />)
+  await user.click(await screen.findByRole('button', { name: `${button}…` }))
 
   // Act
-  await user.click(await screen.findByRole('button', { name: button }))
+  await user.click(screen.getByRole('button', { name: button }))
 
   // Assert
   expect(await screen.findByText(words)).toBeTruthy()
@@ -316,7 +322,8 @@ test('Undo with nothing to undo says so beside it', async () => {
     [`${tasksPath}/undo`]: () => refused('Taskwarrior has nothing to undo', 409),
   })
   renderWithClient(<TasksPanel />)
-  const undo = await screen.findByRole('button', { name: 'Undo' })
+  await user.click(await screen.findByRole('button', { name: 'Undo…' }))
+  const undo = screen.getByRole('button', { name: 'Undo' })
 
   // Act
   await user.click(undo)
@@ -424,6 +431,7 @@ test('the mockup answers a write without a server', async () => {
   const user = userEvent.setup()
   renderWithClient(<TasksPanel />)
   await screen.findByRole('article')
+  await user.click(screen.getByRole('button', { name: 'Undo…' }))
 
   // Act
   await user.click(screen.getByRole('button', { name: 'Undo' }))

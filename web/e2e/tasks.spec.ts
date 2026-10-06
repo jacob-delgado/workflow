@@ -123,7 +123,7 @@ test('a refused start sits below its row of buttons, not between them', async ({
 
   // Assert: Start and Done share a row, and the refusal sits below both.
   const start = await edgesOf(page.getByRole('button', { name: 'Start', exact: true }))
-  const done = await edgesOf(page.getByRole('button', { name: 'Mark done', exact: true }))
+  const done = await edgesOf(page.getByRole('button', { name: 'Mark done…', exact: true }))
   const refusal = await edgesOf(page.getByRole('alert'))
   expect(done.top, 'Mark done beside Start').toBe(start.top)
   expect(refusal.top, 'the refusal below both').toBeGreaterThanOrEqual(done.bottom)

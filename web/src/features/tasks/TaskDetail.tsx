@@ -1,7 +1,8 @@
 import { ExternalLink } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { type ReactNode, useId, useState } from 'react'
 import type { Issue, Task, TaskList } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
+import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { writtenDate } from '@/lib/dates.ts'
 import { Meta } from '@/lib/Meta.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
@@ -210,6 +211,10 @@ export function TaskVerbs({ task, teller, named }: TaskVerbsProps) {
         label="Mark done"
         busy="Marking done…"
         named={named}
+        ask={{
+          question: `Mark ${name} done?`,
+          cost: "Taskwarrior runs the task's hooks; only Undo, while it is the last change, takes it back.",
+        }}
         run={() => writes.complete(task.uuid)}
         done={() => `Marked ${name} done.`}
         fallback={`${capitalized(name)} was not marked done. Try again, or run ${name} done in a terminal to see why.`}
@@ -217,6 +222,13 @@ export function TaskVerbs({ task, teller, named }: TaskVerbsProps) {
       />
     </>
   )
+}
+
+// Ask is the last look a write waits on — a write that leaves the machine or
+// cannot be taken back: the question it asks, and what going ahead costs.
+interface Ask {
+  question: string
+  cost: string
 }
 
 interface VerbProps {
@@ -227,29 +239,70 @@ interface VerbProps {
   done: (answered: TaskList) => string
   fallback: string
   teller: Teller
+  // ask is the last look the write waits on, where it has one.
+  ask?: Ask
 }
 
 // Verb is one write's button, and why Taskwarrior refused it — a change it made
 // nothing of, say, which leaves the list as it was — drawn after every button
-// of the row it stands in, so a refusal never parts a row's buttons.
-export function Verb({ label, busy, named, run, done, fallback, teller }: VerbProps) {
+// of the row it stands in, so a refusal never parts a row's buttons. A write
+// with a last look opens it first, as Forget… does, and sends only from it.
+export function Verb({ label, busy, named, run, done, fallback, teller, ask }: VerbProps) {
+  const [asking, setAsking] = useState(false)
+  const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const write = useAsyncAction(run, {
     fallback,
     done,
     onStart: teller.clear,
-    onDone: teller.say,
+    onDone: (said) => {
+      setAsking(false)
+      teller.say(said)
+    },
   })
+  const running = write.state === 'running'
+  const refusal =
+    write.state === 'error' ? (
+      <p
+        role="alert"
+        className="order-last basis-full text-sm whitespace-pre-line text-destructive"
+      >
+        {write.error}
+      </p>
+    ) : null
+
+  if (ask !== undefined && asking) {
+    return (
+      <AskFirst
+        ask={ask}
+        onCancel={() => {
+          write.reset()
+          handBack()
+          setAsking(false)
+        }}
+      >
+        <Button variant="primary" disabled={running} onClick={() => void write.run()}>
+          {running ? busy : label}
+        </Button>
+        {refusal}
+      </AskFirst>
+    )
+  }
 
   return (
     <>
       <Button
+        ref={opener}
         variant="secondary"
-        disabled={write.state === 'running'}
+        disabled={running}
         onClick={() => {
-          void write.run()
+          if (ask === undefined) {
+            void write.run()
+          } else {
+            setAsking(true)
+          }
         }}
       >
-        {write.state === 'running' ? busy : label}
+        {running ? busy : `${label}${ask === undefined ? '' : '…'}`}
         {named === undefined ? null : (
           <>
             {' '}
@@ -257,14 +310,42 @@ export function Verb({ label, busy, named, run, done, fallback, teller }: VerbPr
           </>
         )}
       </Button>
-      {write.state === 'error' ? (
-        <p
-          role="alert"
-          className="order-last basis-full text-sm whitespace-pre-line text-destructive"
-        >
-          {write.error}
-        </p>
-      ) : null}
+      {refusal}
     </>
+  )
+}
+
+// AskFirst is a write's last look: the question and its cost, Cancel, and the
+// write's own button. It takes the focus as it opens, so a screen reader hears
+// the question.
+function AskFirst({
+  ask,
+  onCancel,
+  children,
+}: {
+  ask: Ask
+  onCancel: () => void
+  children: ReactNode
+}) {
+  const question = useFocusOnMount<HTMLDivElement>()
+  const questionId = useId()
+
+  return (
+    <div
+      ref={question}
+      role="group"
+      aria-labelledby={questionId}
+      tabIndex={-1}
+      className="flex basis-full flex-col items-start gap-item text-sm"
+    >
+      <p id={questionId}>{ask.question}</p>
+      <p className="text-muted-foreground">{ask.cost}</p>
+      <div className="flex flex-wrap items-center gap-item">
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+        {children}
+      </div>
+    </div>
   )
 }

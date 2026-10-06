@@ -57,7 +57,7 @@ test("lists the issue's task with its mark, and offers to start it and mark it d
   expect(rows[0]?.textContent).toMatch(/#12.*Redact tokens.*pending/)
   expect(markShape(rows[0] ?? card)).toBe(drawnMark('not-started'))
   expect(within(card).getByRole('button', { name: 'Start task 12' })).toBeTruthy()
-  expect(within(card).getByRole('button', { name: 'Mark done task 12' })).toBeTruthy()
+  expect(within(card).getByRole('button', { name: 'Mark done… task 12' })).toBeTruthy()
   expect(within(card).queryByRole('button', { name: 'Track in Taskwarrior' })).toBeNull()
 })
 
@@ -206,10 +206,10 @@ test("the track's answer takes the place of the task list the page holds", async
 })
 
 test.each([
-  ['Start task 12', 'start', tracking, 'Started task 12.'],
-  ['Stop task 12', 'stop', { ...tracking, start: new Date().toISOString() }, 'Stopped task 12.'],
-  ['Mark done task 12', 'done', tracking, 'Marked task 12 done.'],
-])('%s posts to its path and says what it did', async (button, verb, task, said) => {
+  [['Start task 12'], 'start', tracking, 'Started task 12.'],
+  [['Stop task 12'], 'stop', { ...tracking, start: new Date().toISOString() }, 'Stopped task 12.'],
+  [['Mark done… task 12', 'Mark done'], 'done', tracking, 'Marked task 12 done.'],
+])('%j posts to its path and says what it did', async (buttons, verb, task, said) => {
   // Arrange
   const user = userEvent.setup()
   streamLinked(task)
@@ -217,7 +217,9 @@ test.each([
   renderWithClient(<IssueTasks issueKey={issueKey} />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: button }))
+  for (const button of buttons) {
+    await user.click(screen.getByRole('button', { name: button }))
+  }
 
   // Assert
   expect(await screen.findByText(said)).toBeTruthy()

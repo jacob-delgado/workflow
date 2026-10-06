@@ -89,10 +89,18 @@ test('work started in a new worktree offers to switch to it', async ({ page }) =
   const offer = page.getByRole('region', { name: `Started PROJ-7 in ${made.shown}` })
   await expect(offer).toBeVisible()
 
-  // Act
+  // Act: switch to it
   await offer.getByRole('button', { name: 'Switch to it' }).click()
 
-  // Assert
+  // Assert: it asks first, and nothing is switched yet
+  const confirm = page.getByRole('region', { name: `Switch to ${made.shown}?` })
+  await expect(confirm).toBeVisible()
+  expect(switched).toEqual([])
+
+  // Act: confirm the switch
+  await confirm.getByRole('button', { name: 'Switch', exact: true }).click()
+
+  // Assert: switched
   await expect(page.getByText(`Switched to ${made.shown}.`)).toBeVisible()
   expect(switched).toEqual([made.dir])
 })
