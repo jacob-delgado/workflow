@@ -47,14 +47,18 @@ type forgeWorld struct {
 	head string
 	// pullErr, when set, is how the forge fails to find the pull request.
 	pullErr error
-	ci      forge.CIState
-	ciErr   error
-	pull    int
-	gone    bool
-	state   forge.PullState
-	now     time.Time
-	posts   []string
-	fail    error
+	// branchErr, when set, is how git fails to read the branch.
+	branchErr error
+	// reads counts the branch's reads, so a test can wait for some.
+	reads int
+	ci    forge.CIState
+	ciErr error
+	pull  int
+	gone  bool
+	state forge.PullState
+	now   time.Time
+	posts []string
+	fail  error
 }
 
 // newForgeWorld is pull request 42, open, its CI running, at a fixed time.
@@ -79,6 +83,11 @@ func (w *forgeWorld) deps() webserver.Deps {
 		branch.Name = w.branch
 		if w.head != "" {
 			branch.Head = w.head
+		}
+
+		w.reads++
+		if w.branchErr != nil {
+			return gitrepo.Branch{}, w.branchErr
 		}
 
 		return branch, err
@@ -127,6 +136,14 @@ func (w *forgeWorld) turn(change func(*forgeWorld)) {
 
 	change(w)
 	w.now = w.now.Add(time.Hour)
+}
+
+// branchReads is how many times the branch has been read so far.
+func (w *forgeWorld) branchReads() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return w.reads
 }
 
 // posted is every text posted so far.

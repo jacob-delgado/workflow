@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -152,5 +153,60 @@ func TestAHeldAnnouncementWaitsOnWhileTheForgeCannotBeRead(t *testing.T) {
 	// Assert
 	if held == nil || held.State != api.QueuedWaiting {
 		t.Errorf("frame's held announcement = %+v, want it still waiting", held)
+	}
+}
+
+func TestAHeldAnnouncementWithNoPageOpenOutlastsAReadThatFails(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]func(*forgeWorld){
+		"the branch cannot be read": func(w *forgeWorld) { w.branchErr = errSeam },
+		"the forge cannot be read":  func(w *forgeWorld) { w.head, w.pullErr = "def4567", forge.ErrUnreachable },
+	}
+
+	for name, fail := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// The server reads for the held announcement on the CI interval
+			// itself; reads fail for a while, then the CI is seen to pass.
+			world := newForgeWorld()
+			cfg := config.Default()
+			cfg.Timing.CIInterval = "10ms"
+			handler := serve(t, world.deps(), cfg)
+			cancelHeld(t, handler)
+			announceWhenGreen(t, handler, nil)
+			world.turn(fail)
+			waitForBranchReads(t, world, world.branchReads()+3)
+
+			// Act
+			world.turn(func(w *forgeWorld) { w.branchErr, w.pullErr, w.ci = nil, nil, forge.CIPassed })
+
+			// Assert
+			deadline := time.Now().Add(5 * time.Second)
+			for len(world.posted()) == 0 && time.Now().Before(deadline) {
+				time.Sleep(10 * time.Millisecond)
+			}
+
+			if posts := world.posted(); len(posts) != 1 {
+				t.Errorf("posted %q, want the held announcement once the reads answer again", posts)
+			}
+		})
+	}
+}
+
+// waitForBranchReads waits until the world's branch has been read want times,
+// as the server's own reads for a held announcement read it.
+func waitForBranchReads(t *testing.T, world *forgeWorld, want int) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for world.branchReads() < want {
+		if time.Now().After(deadline) {
+			t.Fatalf("the branch was read %d times, want %d", world.branchReads(), want)
+		}
+
+		time.Sleep(5 * time.Millisecond)
 	}
 }
