@@ -4,6 +4,7 @@ import type { RepoGroups as Groups, SlackTarget } from '@/api/generated/types.ge
 import { useSlackGroups } from '@/features/messaging/slackApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { useRepoGroups, useSaveRepoGroups } from './peopleApi.ts'
 
@@ -18,20 +19,14 @@ export function RepoGroups({ dryRun }: { dryRun: boolean }) {
 
   if (query.isError) {
     return (
-      <div className="flex flex-col items-start gap-item">
-        <p className="text-sm text-destructive">
-          {apiErrorMessage(query.error, 'The repository’s groups could not be read.')}
-        </p>
-        <Button
-          variant="secondary"
-          disabled={query.isFetching}
-          onClick={() => {
-            void query.refetch()
-          }}
-        >
-          Read the groups again
-        </Button>
-      </div>
+      <Unread
+        reason={apiErrorMessage(query.error, 'The repository’s groups could not be read.')}
+        refusals={query.errorUpdateCount}
+        retrying={query.isFetching}
+        onRetry={() => {
+          void query.refetch()
+        }}
+      />
     )
   }
 

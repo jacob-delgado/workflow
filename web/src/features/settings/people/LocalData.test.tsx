@@ -181,7 +181,7 @@ test('a listing that could not be read says so and offers to read again', async 
   const user = userEvent.setup()
   fakeApi({})
   renderWithClient(<LocalData />)
-  const again = await screen.findByRole('button', { name: 'Read the local data again' })
+  const again = await screen.findByRole('button', { name: 'Try again' })
   storeHolding([cache])
 
   // Act

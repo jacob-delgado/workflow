@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
@@ -107,6 +107,13 @@ async function saveRefusedAsChanged(...afterwards: Response[]) {
   return { requests, user, reload }
 }
 
+// saveLine is the status beside Save changes: what the last save said.
+function saveLine(): HTMLElement {
+  const save = screen.getByRole('button', { name: 'Save changes' })
+
+  return within(save.parentElement ?? document.body).getByRole('status')
+}
+
 // baseURL is the Base URL field.
 function baseURL(): Promise<HTMLInputElement> {
   return screen.findByLabelText('Base URL')
@@ -123,11 +130,11 @@ test('a save refused because the file changed says so and offers Reload', async 
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
   // Assert
-  const alert = await screen.findByRole('alert')
-  expect(alert.textContent).toMatch(/changed after Settings read it/)
+  const alert = await screen.findByText(/changed after Settings read it/)
+  expect(alert.getAttribute('role')).toBe('alert')
   expect(alert.textContent).toMatch(/Reload reads it again/)
   expect(screen.getByRole('button', { name: 'Reload' })).toBeTruthy()
-  expect(screen.getByRole('status').textContent).toBe('')
+  expect(saveLine().textContent).toBe('')
 })
 
 test('Reload reads the file again into the form', async () => {
@@ -142,8 +149,8 @@ test('Reload reads the file again into the form', async () => {
     expect((await baseURL()).value).toBe(editedURL)
   })
   expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
-  expect(screen.queryByRole('alert')).toBeNull()
-  expect(screen.getByRole('status').textContent).toBe('')
+  expect(screen.queryByText(/changed after Settings read it/)).toBeNull()
+  expect(saveLine().textContent).toBe('')
 })
 
 test("Reload hands focus to the form's first field", async () => {

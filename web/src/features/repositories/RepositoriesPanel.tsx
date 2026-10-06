@@ -3,6 +3,7 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Repositories } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
+import { Failure, Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { DirectoryPicker } from './DirectoryPicker.tsx'
 import { FavoritesList } from './FavoritesList.tsx'
@@ -25,19 +26,14 @@ export function RepositoriesPanel() {
 
   if (read.data === undefined) {
     return read.isError ? (
-      <div className="flex flex-col items-start gap-item">
-        <p className="text-sm text-foreground">
-          {apiErrorMessage(read.error, 'Where the server works could not be read.')}
-        </p>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            void read.refetch()
-          }}
-        >
-          Retry
-        </Button>
-      </div>
+      <Unread
+        reason={apiErrorMessage(read.error, 'Where the server works could not be read.')}
+        refusals={read.errorUpdateCount}
+        retrying={read.isFetching}
+        onRetry={() => {
+          void read.refetch()
+        }}
+      />
     ) : (
       <p role="status" className="text-sm text-muted-foreground">
         Reading where the server works…
@@ -93,9 +89,7 @@ function Read({
           </div>
         ) : null}
         <OutcomeLine said={outcome.said} />
-        {toggle.state === 'error' ? (
-          <p className="text-sm text-foreground">{toggle.error}</p>
-        ) : null}
+        {toggle.state === 'error' ? <Failure>{toggle.error}</Failure> : null}
       </div>
       {destination === null ? null : (
         <ConfirmSwitch
@@ -169,7 +163,7 @@ function ConfirmSwitch({ destination, switchTo, teller, onCancel }: ConfirmSwitc
         Switch to <span className="font-mono">{destination.shown}</span>?
       </h2>
       <p className="text-sm text-muted-foreground">Every section is read again there.</p>
-      {go.state === 'error' ? <p className="text-sm text-foreground">{go.error}</p> : null}
+      {go.state === 'error' ? <Failure>{go.error}</Failure> : null}
       <div className="flex gap-item">
         <Button
           variant="primary"

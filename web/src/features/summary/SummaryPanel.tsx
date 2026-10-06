@@ -4,6 +4,7 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { Failure, Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { ActivityList } from './ActivityList.tsx'
 import { spokenDate, type Period } from './civilDate.ts'
@@ -75,19 +76,14 @@ function FirstRead({ read }: { read: ActivityRead }) {
 // Refused is why the period could not be read, with another try.
 function Refused({ read }: { read: ActivityRead }) {
   return (
-    <div className="flex flex-col items-start gap-item">
-      <p className="text-sm text-foreground">
-        {apiErrorMessage(read.error, 'What you did could not be read.')}
-      </p>
-      <Button
-        variant="secondary"
-        onClick={() => {
-          void read.refetch()
-        }}
-      >
-        Retry
-      </Button>
-    </div>
+    <Unread
+      reason={apiErrorMessage(read.error, 'What you did could not be read.')}
+      refusals={read.errorUpdateCount}
+      retrying={read.isFetching}
+      onRetry={() => {
+        void read.refetch()
+      }}
+    />
   )
 }
 
@@ -159,17 +155,11 @@ function Done({ activity, period, reading }: DoneProps) {
         </Button>
       </div>
       <OutcomeLine said={outcome.said} />
-      {copy.state === 'error' ? <p className="text-sm text-foreground">{copy.error}</p> : null}
+      {copy.state === 'error' ? <Failure>{copy.error}</Failure> : null}
       {reading ? <Reading /> : null}
-      {activity.sources
-        .filter((source) => source.failed || source.truncated)
-        .map((source) => (
-          <p key={source.source} className="text-sm text-foreground">
-            {source.failed
-              ? `${source.name} could not be read: ${source.detail}`
-              : `${source.name} had more than this shows.`}
-          </p>
-        ))}
+      {activity.sources.map((source) => (
+        <SourceNote key={source.source} source={source} />
+      ))}
       {empty ? (
         <p className="text-sm text-muted-foreground">
           Nothing done in this period. Pick another day or range.
@@ -179,4 +169,19 @@ function Done({ activity, period, reading }: DoneProps) {
       )}
     </>
   )
+}
+
+// SourceNote says a source could not be read, as a failure, or that it had
+// more than the period shows, as a note; of a source read whole it says
+// nothing.
+function SourceNote({ source }: { source: Activity['sources'][number] }) {
+  if (source.failed) {
+    return <Failure>{`${source.name} could not be read: ${source.detail}`}</Failure>
+  }
+
+  return source.truncated ? (
+    <p role="note" className="text-sm text-muted-foreground">
+      {source.name} had more than this shows.
+    </p>
+  ) : null
 }
