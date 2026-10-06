@@ -134,3 +134,35 @@ func TestSettingsSaveRefusesAFileChangedSinceTheRead(t *testing.T) {
 		t.Errorf("Save over a changed file = %v, want ErrChangedOnDisk", err)
 	}
 }
+
+func TestSettingsSaveRefusesARevisionItDidNotRead(t *testing.T) {
+	// Arrange
+	_, deps := settingsFile(t)
+	read, _, _ := deps.Settings.Read()
+
+	// Act
+	_, _, err := deps.Settings.Save(read, config.Revision{})
+
+	// Assert
+	if !errors.Is(err, config.ErrChangedOnDisk) {
+		t.Errorf("Save over an unread revision = %v, want ErrChangedOnDisk", err)
+	}
+}
+
+func TestSettingsReadRefusesAFileThatIsNotValid(t *testing.T) {
+	// Arrange
+	path, deps := settingsFile(t)
+
+	err := os.WriteFile(path, []byte(`{"jira": {"nonsense": 1}}`), config.FileMode)
+	if err != nil {
+		t.Fatalf("breaking the file: %v", err)
+	}
+
+	// Act
+	_, _, err = deps.Settings.Read()
+
+	// Assert
+	if !errors.Is(err, config.ErrInvalid) {
+		t.Errorf("Read() = %v, want ErrInvalid", err)
+	}
+}

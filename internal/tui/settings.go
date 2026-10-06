@@ -49,9 +49,8 @@ type settingsForm struct {
 	opened  int
 	reading bool
 	readErr error
-	// read is the configuration as read, masked, in its JSON form, which a
-	// save sends back with the edits laid over it; values is the same, read.
-	read   []byte
+	// values is the configuration as read, masked, in its JSON form, which a
+	// save sends back with the edits laid over it.
 	values map[string]any
 	path   string
 	// shownPath is path as the screen writes it, from your home.
@@ -108,10 +107,10 @@ func (msg settingsRead) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	form.reading = false
+	form.reading, form.edits = false, map[string]any{}
 	// The form masks what it was handed itself, so it never holds a credential
 	// whatever the seam gave it, and a credential left alone goes back masked.
-	form.read, form.values, form.readErr = seed(msg.cfg.Redacted(), msg.err)
+	form.values, form.readErr = seed(msg.cfg.Redacted(), msg.err)
 	form.path, form.shownPath, form.over = msg.cfg.Path, m.shownDir(msg.cfg.Path), msg.over
 	m.overlay = form
 
@@ -156,8 +155,8 @@ func splitLines(texts ...string) []string {
 func (f settingsForm) footLines(width int) []string {
 	lines := []string{""}
 
-	if field, ok := f.current(); ok && field.hint != "" {
-		lines = append(lines, wrap(field.hint, width))
+	if hint := f.current().hint; hint != "" {
+		lines = append(lines, wrap(hint, width))
 	}
 
 	if f.editing {
@@ -215,13 +214,9 @@ func (f settingsForm) row(field setting, selected bool) string {
 	return f.marks.marker(selected) + fmt.Sprintf("%-15s %s", field.label, f.shown(field)) + edited
 }
 
-// current is the selected setting, or false before there are any.
-func (f settingsForm) current() (setting, bool) {
-	if f.selected < 0 || f.selected >= len(f.fields) {
-		return setting{}, false
-	}
-
-	return f.fields[f.selected], true
+// current is the selected setting; the cursor never leaves the settings.
+func (f settingsForm) current() setting {
+	return f.fields[f.selected]
 }
 
 // failed pins a refused save in the form, so it is read before anything else.
@@ -258,12 +253,7 @@ func (f settingsForm) footer(keys keyMap) []key.Binding {
 		return []key.Binding{relabel(keys.refresh, "try again"), relabel(keys.closeOverlay, escClose)}
 	}
 
-	offered := []key.Binding{keys.up, keys.down}
-	if field, ok := f.current(); ok {
-		offered = append(offered, relabel(keys.confirm, field.verb()))
-	}
-
-	offered = append(offered, keys.saveSettings)
+	offered := []key.Binding{keys.up, keys.down, relabel(keys.confirm, f.current().verb()), keys.saveSettings}
 	if errors.Is(f.send.err, errSettingsChanged) {
 		offered = append(offered, relabel(keys.refresh, "reload"))
 	}
@@ -312,7 +302,7 @@ func (f settingsForm) changeKey(keys keyMap, msg tea.KeyPressMsg) settingsForm {
 		return f
 	}
 
-	field, _ := f.current()
+	field := f.current()
 
 	switch field.kind {
 	case settingToggle:
@@ -374,10 +364,6 @@ func (f settingsForm) text(field setting) string {
 // with is the form with a setting's value edited.
 func (f settingsForm) with(path string, value any) settingsForm {
 	f.edits = maps.Clone(f.edits)
-	if f.edits == nil {
-		f.edits = map[string]any{}
-	}
-
 	f.edits[path] = value
 
 	return f
@@ -404,7 +390,7 @@ func (f settingsForm) editKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // kept is the form with what was typed kept as the setting's value, or with
 // why it cannot be.
 func (f settingsForm) kept() settingsForm {
-	field, _ := f.current()
+	field := f.current()
 
 	value, changes, err := typedValue(field, f.input.Value())
 	if err != nil {

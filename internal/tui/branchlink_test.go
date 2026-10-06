@@ -275,3 +275,35 @@ func TestADryRunUnlinksNothing(t *testing.T) {
 
 	requireScreen(t, view, "dry run: would unlink "+offConvention+" from "+issueKey)
 }
+
+func TestOnALinkedBranchOnlyUUnlinksAndEscCloses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := linkedBranch()
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "2", "i", "x", keyEnter, keyEsc).View().Content
+
+	// Assert
+	if unlinked := repo.asked("unlink-issue"); len(unlinked) != 0 {
+		t.Errorf("unlinked %q, want only u to unlink", unlinked)
+	}
+
+	refuseScreen(t, view, "is linked to")
+}
+
+func TestAPasteOnALinkedBranchTypesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := linkedBranch()
+	model := typing(t, repo.live(t, 120, 40), "2", "i")
+
+	// Act
+	view := pasting(t, model, "#57").View().Content
+
+	// Assert
+	refuseScreen(t, view, "#57")
+	requireScreen(t, view, offConvention+" is linked to "+issueKey)
+}

@@ -44,9 +44,9 @@ type setting struct {
 	choices                    []option
 }
 
-// words is how a choice's value reads: an unset one as the first choice, which
-// is the default the configuration takes, and one the setting does not offer
-// as it is.
+// words is how a choice's value reads, an unset one as the first choice: the
+// default the configuration takes. A file holding any other is refused as
+// it is read.
 func (s setting) words(value string) string {
 	for _, offered := range s.choices {
 		if offered.value == value {
@@ -54,11 +54,7 @@ func (s setting) words(value string) string {
 		}
 	}
 
-	if value == "" && len(s.choices) > 0 {
-		return s.choices[0].words
-	}
-
-	return sanitize.Line(value)
+	return s.choices[0].words
 }
 
 // cycled is the choice after value, or before it when step is -1, wrapping
@@ -244,7 +240,8 @@ func typedValue(field setting, text string) (any, bool, error) {
 			return nil, false, errNotACount
 		}
 
-		return count, true, nil
+		// A count reads back from JSON as a float64, so it is kept as one.
+		return float64(count), true, nil
 	case settingList:
 		return splitList(text), true, nil
 	case settingText, settingURL, settingChoice, settingToggle:
@@ -267,23 +264,17 @@ func (f settingsForm) editedText(field setting) string {
 // edited is the configuration as read with the edits laid over it, checked
 // as a file on disk is.
 func (f settingsForm) edited() ([]byte, error) {
-	var values map[string]any
+	values := maps.Clone(f.values)
 
-	err := json.Unmarshal(f.read, &values)
-	if err != nil {
-		return nil, fmt.Errorf("reading the configuration: %w", err)
-	}
-
-	for path, value := range maps.All(f.edits) {
+	for path, value := range f.edits {
 		section, name, _ := strings.Cut(path, ".")
 
+		// Every section is in the configuration's JSON form, which encodes
+		// each one whole; the section is copied, so the read stays as read.
 		inner, _ := values[section].(map[string]any)
-		if inner == nil {
-			inner = map[string]any{}
-			values[section] = inner
-		}
-
+		inner = maps.Clone(inner)
 		inner[name] = value
+		values[section] = inner
 	}
 
 	// Trade-off TRADE-13: the configuration's JSON form always encodes.
@@ -295,27 +286,27 @@ func (f settingsForm) edited() ([]byte, error) {
 	return edited, nil
 }
 
-// seed is a configuration's JSON form, and that form read back, or why it
-// could not be had.
-func seed(cfg config.Config, err error) ([]byte, map[string]any, error) {
+// seed is a configuration's JSON form, read back as values, or why it could
+// not be had.
+func seed(cfg config.Config, err error) (map[string]any, error) {
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// Trade-off TRADE-13: a Config always encodes.
-	read, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, nil, fmt.Errorf("reading the configuration: %w", err)
-	}
-
+	// Trade-off TRADE-13: a Config always encodes, and its JSON always reads
+	// back.
 	var values map[string]any
 
-	err = json.Unmarshal(read, &values)
-	if err != nil {
-		return nil, nil, fmt.Errorf("reading the configuration: %w", err)
+	read, err := json.Marshal(cfg)
+	if err == nil {
+		err = json.Unmarshal(read, &values)
 	}
 
-	return read, values, nil
+	if err != nil {
+		return nil, fmt.Errorf("reading the configuration: %w", err)
+	}
+
+	return values, nil
 }
 
 // valueAt is the value at a dotted path in a configuration's JSON form, or
@@ -346,9 +337,6 @@ func (f settingsForm) shown(field setting) string {
 		return sanitize.Line(config.RedactURL(text))
 	case settingCount:
 		count, _ := value.(float64)
-		if typed, ok := value.(int); ok {
-			count = float64(typed)
-		}
 
 		return strconv.Itoa(int(count))
 	case settingList:

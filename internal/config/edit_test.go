@@ -6,6 +6,7 @@ package config_test
 import (
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -127,5 +128,55 @@ func TestSaveEditHandsTypedSlackSecretsToBePlaced(t *testing.T) {
 	if saved := reread(t, files); err != nil || handed.Reveal() != typedRefresh || saved.Messaging.RefreshToken != "" {
 		t.Errorf("handed the typed token: %t, file keeps it: %t, %v; want it placed and not in the file",
 			handed.Reveal() == typedRefresh, saved.Messaging.RefreshToken != "", err)
+	}
+}
+
+func TestSaveEditWithNowhereToPlaceSlackSecretsKeepsThemInTheFile(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files, read, revision := readHome(t)
+	edited := read.Redacted()
+	edited.Messaging.ClientSecret = "typed-client-secret"
+	edited.Messaging.AccessToken = "xoxe.xoxp-stale"
+
+	// Act
+	_, _, err := config.SaveEdit(config.Edit{Files: files, Read: read, Over: revision, Edited: edited})
+
+	// Assert
+	saved, readErr := os.ReadFile(files.Home)
+	if err != nil || readErr != nil || !strings.Contains(string(saved), "typed-client-secret") ||
+		strings.Contains(string(saved), "xoxe.xoxp-stale") {
+		t.Errorf("saved %v, %v; want the typed secret in the file and no access token", err, readErr)
+	}
+}
+
+func TestSaveEditPlacesNothingOverFilesChangedSinceTheRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files, read, revision := readHome(t)
+	edited := read.Redacted()
+	edited.Messaging.RefreshToken = typedRefresh
+	placed := false
+
+	err := os.WriteFile(files.Home, []byte(`{"jira": {"project": "ELSE"}}`), config.FileMode)
+	if err != nil {
+		t.Fatalf("changing the file: %v", err)
+	}
+
+	// Act
+	_, _, err = config.SaveEdit(config.Edit{
+		Files: files, Read: read, Over: revision, Edited: edited,
+		PlaceSlackCredentials: func(cfg config.Config) (config.Config, error) {
+			placed = true
+
+			return cfg, nil
+		},
+	})
+
+	// Assert
+	if !errors.Is(err, config.ErrChangedOnDisk) || placed {
+		t.Errorf("err = %v, placed %t; want ErrChangedOnDisk and the typed token unspent", err, placed)
 	}
 }
