@@ -1,6 +1,7 @@
 import type { Task, TaskList } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized } from '@/lib/utils.ts'
@@ -128,7 +129,7 @@ function LinkedTask({ task, now, teller }: LinkedTaskProps) {
         )}
         <span>{task.description}</span>
       </p>
-      <p className="text-xs text-muted-foreground">{linkedNote(task, now)}</p>
+      <Meta className="text-xs text-muted-foreground">{linkedNote(task, now)}</Meta>
       {stillToDo(task) ? (
         <div className="flex flex-wrap items-center gap-item">
           <TaskVerbs task={task} teller={teller} named={taskName(task)} />
@@ -140,14 +141,14 @@ function LinkedTask({ task, now, teller }: LinkedTaskProps) {
 
 // linkedNote is how a linked task stands: how long ago it was started, or its
 // state and — for one still to do — when it is due.
-function linkedNote(task: Task, now: number): string {
+function linkedNote(task: Task, now: number): string[] {
   if (isActive(task)) {
-    return `started ${elapsedWords(task.start, now)} ago`
+    return [`started ${elapsedWords(task.start, now)} ago`]
   }
 
   const state = statusWords(task)
 
-  return stillToDo(task) && task.due !== undefined ? `${state} · ${dueWords(task.due, now)}` : state
+  return stillToDo(task) && task.due !== undefined ? [state, dueWords(task.due, now)] : [state]
 }
 
 interface TrackIssueProps {

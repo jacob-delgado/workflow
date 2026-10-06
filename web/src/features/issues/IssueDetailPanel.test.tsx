@@ -65,6 +65,18 @@ test('shows the description and comments from getIssue', async () => {
   expect(comments.textContent).toMatch(/2026/)
 })
 
+test('gives the issue’s type and priority each an element of its own', async () => {
+  // Arrange
+  serveIssue(detailOf())
+
+  // Act
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+
+  // Assert
+  expect((await screen.findByText('High priority')).textContent).toBe('High priority')
+  expect(screen.getByText('Bug').textContent).toBe('Bug')
+})
+
 test('names who reported the issue and who it is assigned to', async () => {
   // Arrange
   serveIssue(detailOf())

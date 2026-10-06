@@ -1,4 +1,5 @@
 import type { Task } from '@/api/generated/types.gen.ts'
+import { Meta } from '@/lib/Meta.tsx'
 import { cn } from '@/lib/utils.ts'
 import { StateMark } from '@/shell/StateMark.tsx'
 import { listsWaiting, matchesNarrowing, type TaskNarrowing } from './taskFacets.ts'
@@ -177,7 +178,7 @@ function TaskRow({ task, current, now, order, onSelect }: TaskRowProps) {
         )}
         <span className="text-sm">{task.description}</span>
       </span>
-      <span className="text-xs text-muted-foreground">{rowTail(task, now, order)}</span>
+      <Meta className="text-xs text-muted-foreground">{rowTail(task, now, order)}</Meta>
     </button>
   )
 }
@@ -185,7 +186,7 @@ function TaskRow({ task, current, now, order, onSelect }: TaskRowProps) {
 // rowTail is what a row says after the task: the issue it is for, when it is
 // due, what it is sorted by where that is its priority or its tags, and its
 // urgency, leaving out what it does not have.
-function rowTail(task: Task, now: number, order: TaskOrder): string {
+function rowTail(task: Task, now: number, order: TaskOrder): string[] {
   const tail: string[] = []
   if (task.issue_key !== '') {
     tail.push(task.issue_key)
@@ -206,7 +207,7 @@ function rowTail(task: Task, now: number, order: TaskOrder): string {
 
   tail.push(`urgency ${task.urgency.toFixed(1)}`)
 
-  return tail.join(' · ')
+  return tail
 }
 
 // sortKeyWords is a task's priority or tags, as the terminal words them, when

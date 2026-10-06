@@ -6,6 +6,7 @@ import { useForgeWords } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
 import { writtenDate } from '@/lib/dates.ts'
 import { FilterChips } from '@/lib/FilterChips.tsx'
+import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
@@ -303,11 +304,12 @@ function RequestRow({ request, readAt, teller }: RequestRowProps) {
         <span className="text-sm text-muted-foreground tabular-nums">{mark}</span>
         <span className="font-medium">{request.title}</span>
       </p>
-      <p className="text-sm text-muted-foreground">
-        {whereAndWho(request)} ·{' '}
+      <Meta className="text-sm text-muted-foreground">
+        {request.repository === '' ? null : request.repository}
+        {`by ${request.author}`}
         <time dateTime={request.opened_at}>{waited(request.opened_at, readAt)}</time>
-        {request.draft ? ' · Draft' : ''}
-      </p>
+        {request.draft ? 'Draft' : null}
+      </Meta>
       <div className="flex flex-wrap items-center gap-x-group gap-y-item text-sm">
         <span className="flex items-center gap-1.5">
           <StateMark state={ciMark[request.ci]} />
@@ -327,14 +329,6 @@ function RequestRow({ request, readAt, teller }: RequestRowProps) {
       </div>
     </li>
   )
-}
-
-// whereAndWho is the repository a request is in, when the forge said, and who
-// asks for the review.
-function whereAndWho(request: ReviewRequest): string {
-  const who = `by ${request.author}`
-
-  return request.repository === '' ? who : `${request.repository} · ${who}`
 }
 
 // waited is how long before the queue was read a request was opened, in the

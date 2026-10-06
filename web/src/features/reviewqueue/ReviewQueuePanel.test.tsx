@@ -67,9 +67,13 @@ test('the Reviews section lists requests by role and name', async () => {
     waitingLess.url,
   ])
   expect(rows[0]?.textContent).toMatch(
-    /#42.*redact the token.*acme\/api · by ana · 3d ago · Draft.*CI failed/,
+    /#42.*redact the token.*acme\/api.*by ana.*3d ago.*Draft.*CI failed/,
   )
-  expect(rows[1]?.textContent).toMatch(/#7.*acme\/web · by sam · 5h ago.*CI passed/)
+  expect(rows[1]?.textContent).toMatch(/#7.*acme\/web.*by sam.*5h ago.*CI passed/)
+  const first = within(rows[0] ?? document.body)
+  expect(
+    ['acme/api', 'by ana', '3d ago', 'Draft'].map((fact) => first.getByText(fact).textContent),
+  ).toEqual(['acme/api', 'by ana', '3d ago', 'Draft'])
 })
 
 test('draws how CI stands on each request as its mark, beside the words', async () => {
@@ -124,7 +128,8 @@ test('a request the forge names no repository for says only who asks', async () 
 
   // Assert
   const list = await screen.findByRole('list', { name: 'Review requests' })
-  expect(list.textContent).toContain('the logby ana · 3d ago')
+  expect(within(list).getByText('by ana')).toBeTruthy()
+  expect(within(list).queryByText('acme/api')).toBeNull()
 })
 
 test('opens a request in a new tab that cannot reach back to the page', async () => {

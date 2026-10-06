@@ -6,6 +6,7 @@ import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
 import { Button } from '@/lib/Button.tsx'
 import { relativeTime, writtenDate, writtenMoment } from '@/lib/dates.ts'
+import { Meta } from '@/lib/Meta.tsx'
 import { Reading } from '@/lib/Status.tsx'
 import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
@@ -142,10 +143,10 @@ function IssueHeading({ issueKey, issue, heading }: IssueHeadingProps) {
         {issue ? issue.summary : issueKey}
       </h2>
       {issue ? (
-        <p className="text-sm text-muted-foreground">
+        <Meta className="text-sm text-muted-foreground">
           {issue.type}
-          {issue.priority ? ` · ${issue.priority} priority` : ''}
-        </p>
+          {issue.priority ? `${issue.priority} priority` : null}
+        </Meta>
       ) : null}
     </div>
   )
