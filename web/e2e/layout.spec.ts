@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test'
 import type { Issue, PullRequestDraft, Snapshot } from '../src/api/generated/types.gen.ts'
-import { height, openCockpit, openSection, sectionNames, themes, widths } from './cockpit.ts'
+import {
+  height,
+  openCockpit,
+  openFirstRun,
+  openSection,
+  sectionNames,
+  themes,
+  widths,
+} from './cockpit.ts'
 import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from './tabwalk.ts'
 
 // The populated cockpit at a narrow, a middling and a wide window, in both
@@ -37,6 +45,38 @@ for (const theme of themes) {
         }
       },
     )
+  }
+}
+
+// Settings on a server with no configuration file, where it sets one up, at
+// each width in both themes.
+for (const theme of themes) {
+  for (const width of widths) {
+    test(`the first-run setup fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
+      page,
+    }) => {
+      // Arrange: Settings with no file, at this width, in this theme.
+      await openFirstRun(page, { width, height }, theme)
+
+      // Act: Tab once round the page.
+      const { reached, missed, hidden } = await walkTabOrder(page)
+
+      // Assert: nothing scrolls sideways, nor the page down; Tab reaches every
+      // question and the write, each in view as it has focus; and axe finds
+      // nothing.
+      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
+      expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
+      expect(reached, 'reached by Tab').toEqual(
+        expect.arrayContaining(['Write ~/src/api/.workflow.json']),
+      )
+      // The home directory's radio button is reached by the arrow keys from
+      // the one chosen, the one stop Tab passes by.
+      expect(missed, 'never reached by Tab').toEqual([
+        '~/.workflow.jsonYour home directory: it applies everywhere.',
+      ])
+      expect(hidden, 'out of view with focus').toEqual([])
+      expect(await axeViolations(page), 'axe').toBe('')
+    })
   }
 }
 

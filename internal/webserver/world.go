@@ -146,10 +146,12 @@ func showsAnother(request *http.Request, here string) bool {
 	return err != nil || shown != here
 }
 
-// isSwitch reports the request that switches directory, which takes the
-// gate alone rather than shared.
+// isSwitch reports a request that switches what the server works with — the
+// directory, or a first configuration file set up — which takes the gate
+// alone rather than shared.
 func isSwitch(request *http.Request) bool {
-	return request.Method == http.MethodPut && request.URL.Path == "/api/repositories/here"
+	return (request.Method == http.MethodPut && request.URL.Path == "/api/repositories/here") ||
+		(request.Method == http.MethodPost && request.URL.Path == "/api/config/setup")
 }
 
 // switchTo wires dir as the first directory was wired and serves it from now

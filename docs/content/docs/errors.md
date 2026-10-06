@@ -51,7 +51,9 @@ tree does not list as changed: they move a change the server read, never a path
 of the caller's own. Opening a pull request answers it for a repository the
 forge will not show the token. A check's log answers it for an id no
 check of the current pull request's CI lists now, or when the branch has no
-pull request — the log is read only for a check the forge lists. A path the
+pull request — the log is read only for a check the forge lists. Reading or
+saving the configuration answers it where no configuration file applies:
+Settings then sets a first one up instead (`POST /api/config/setup`). A path the
 API does not serve answers it too.
 
 ## Method not allowed
@@ -95,7 +97,9 @@ there is nothing to rebase, amend or fix up; editing, merging, finishing and
 re-running answer it when the branch's pull request is not at the point each
 needs — open, ready to merge, merged, or with failed CI — read afresh; and an
 announcement answers it for a moment already announced, from here, the
-terminal or `workflow announce`.
+terminal or `workflow announce`. Setting up a first configuration file answers
+it where one already applies, or is already at the path chosen: it is never
+written over, so edit it in Settings.
 
 ## Unprocessable
 
@@ -196,6 +200,16 @@ your credential for it. Nothing was made. The page offers to branch from what
 you have, which asks again without the fetch (`"fetch": false`); `git fetch`
 in a terminal shows git's own reason, which the detail leaves out because it
 names origin.
+
+## Check failed
+
+Status 422. Setting up a first configuration file checks the Jira token with
+Jira before anything is written, as `workflow config init` does, and the check
+did not pass: Jira did not accept the token, could not be reached at the
+address given, or is not an http or https address. Nothing was written. The
+detail says which, naming no address and no token. Settings offers to keep the
+address and token anyway, which asks again with `"keep_unchecked": true`, or to
+change them.
 
 ## Internal
 

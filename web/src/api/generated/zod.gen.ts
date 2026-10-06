@@ -101,6 +101,7 @@ export const zProblem = z.object({
         'precondition_required',
         'unreachable',
         'fetch_failed',
+        'check_failed',
         'internal'
     ])
 });
@@ -895,6 +896,44 @@ export const zSnapshot = z.object({
     tasks: zTasksSummary
 });
 
+/**
+ * repository is the repository's root, or the working directory outside a repository; home is the home directory.
+ */
+export const zSetupPlaceName = z.enum(['repository', 'home']);
+
+export const zSetupPlace = z.object({
+    place: zSetupPlaceName,
+    path: z.string(),
+    shown: z.string()
+});
+
+/**
+ * The first-run setup offered where the server works.
+ */
+export const zSetupOffer = z.object({
+    needed: z.boolean(),
+    places: z.array(zSetupPlace),
+    keychain: z.boolean()
+});
+
+export const zSetupRequest = z.object({
+    place: zSetupPlaceName,
+    jira_base_url: z.string(),
+    jira_token: z.string(),
+    webhook_url: z.string(),
+    keychain: z.boolean(),
+    keep_unchecked: z.boolean()
+});
+
+export const zSetupResult = z.object({
+    path: z.string(),
+    shown: z.string(),
+    jira_user: z.string(),
+    keychain: z.boolean(),
+    not_ignored: z.boolean(),
+    reopened: z.boolean()
+});
+
 export const zMessagingConfig = z.object({
     kind: z.enum([
         '',
@@ -1342,6 +1381,18 @@ export const zUpdateConfigResponse = zConfig;
  * The actions and the shortcut setting.
  */
 export const zGetKeysResponse = zKeyList;
+
+/**
+ * The setup offered.
+ */
+export const zGetSetupResponse = zSetupOffer;
+
+export const zSetUpBody = zSetupRequest;
+
+/**
+ * The file written, and whom the token authenticates as.
+ */
+export const zSetUpResponse = zSetupResult;
 
 export const zRemoveLocalDataQuery = z.object({
     scope: z.enum(['cache', 'all'])

@@ -108,7 +108,9 @@ workflow doctor           # says what is still missing
 ```
 
 Then fill in the two tokens — [Configuration]({{< relref "/docs/configuration" >}})
-explains where to get them — and run `workflow` to open the TUI.
+explains where to get them — and run `workflow` to open the TUI. Or run
+`workflow`, or `workflow --web`, with no file at all: each offers to set one
+up, asking the same questions.
 [Using workflow]({{< relref "/docs/usage" >}}) walks through it.
 
 ## Shell completion

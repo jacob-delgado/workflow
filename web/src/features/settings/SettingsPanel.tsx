@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { apiErrorMessage } from '@/api/apiError.ts'
-import type { Config } from '@/api/generated/types.gen.ts'
+import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
+import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
+import { useFocusOnMount } from '@/lib/focus.ts'
 import { Reading } from '@/lib/Status.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
@@ -23,6 +24,7 @@ import { PullRequestFieldset, StoreFieldset } from './fieldsets/PullRequestAndSt
 import { TaskwarriorFieldset } from './fieldsets/TaskwarriorFieldset.tsx'
 import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
+import { SetupArea } from './SetupForm.tsx'
 
 // SettingsPanel is the configuration form, and below it the areas that save on
 // their own rather than with the file: people and groups, and the local data.
@@ -37,12 +39,18 @@ export function SettingsPanel() {
 }
 
 // ConfigArea is the configuration form, once the file is read, or why it is
-// not.
+// not — or, where no file applies, the setup that writes a first one, and once
+// it has, what it wrote above the form.
 function ConfigArea() {
   const query = useConfigRead()
   // A Try again is swapped for the form it loads, so the form takes the focus the
   // Try again had rather than letting it fall to the page.
   const [retried, setRetried] = useState(false)
+  const [setUp, setSetUp] = useState<SetupResult | null>(null)
+
+  if (query.isError && problemCode(query.error) === 'not_found') {
+    return <SetupArea onWritten={setSetUp} />
+  }
 
   // Settings opens on a fresh read rather than on the cached one: a form seeded
   // from a read the file has moved on from would only learn so on its save.
@@ -70,7 +78,37 @@ function ConfigArea() {
     )
   }
 
-  return <ConfigForm read={query.data} takesFocus={retried} />
+  return (
+    <>
+      {setUp === null ? null : <SetUpSaid result={setUp} />}
+      <ConfigForm read={query.data} takesFocus={retried} />
+    </>
+  )
+}
+
+// SetUpSaid says what a setup wrote, and what is left to do about it. It takes
+// the focus the setup's write had, which went with the setup.
+function SetUpSaid({ result }: { result: SetupResult }) {
+  const said = useFocusOnMount<HTMLParagraphElement>()
+  const parts = [`Wrote ${result.shown}.`]
+  if (result.jira_user !== '') {
+    parts.push(`Jira knows the token as ${result.jira_user}.`)
+  }
+  if (result.keychain) {
+    parts.push('Your keychain keeps the token.')
+  }
+  if (result.not_ignored) {
+    parts.push('git does not ignore it, and it holds credentials: add it to .gitignore.')
+  }
+  if (!result.reopened) {
+    parts.push('Restart workflow --web to work with it.')
+  }
+
+  return (
+    <p ref={said} role="status" tabIndex={-1} className="max-w-2xl text-sm text-success">
+      {parts.join(' ')}
+    </p>
+  )
 }
 
 // ConfigForm edits the configuration, one fieldset per section it can edit. It

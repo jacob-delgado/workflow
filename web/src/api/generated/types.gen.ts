@@ -181,7 +181,7 @@ export type Problem = {
     /**
      * A stable, machine-readable reason.
      */
-    code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'precondition_required' | 'unreachable' | 'fetch_failed' | 'internal';
+    code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'precondition_required' | 'unreachable' | 'fetch_failed' | 'check_failed' | 'internal';
 };
 
 export type BranchIssueRequest = {
@@ -1511,6 +1511,92 @@ export type Config = {
     issues: IssuesConfig;
 };
 
+/**
+ * The first-run setup offered where the server works.
+ */
+export type SetupOffer = {
+    /**
+     * No configuration file applies where the server works, so one can be set up.
+     */
+    needed: boolean;
+    /**
+     * Where the file may go, the repository first.
+     */
+    places: Array<SetupPlace>;
+    /**
+     * The OS keychain can keep the Jira token out of the file.
+     */
+    keychain: boolean;
+};
+
+export type SetupPlace = {
+    place: SetupPlaceName;
+    /**
+     * The file it would be, as an absolute path.
+     */
+    path: string;
+    /**
+     * The file written from your home.
+     */
+    shown: string;
+};
+
+/**
+ * repository is the repository's root, or the working directory outside a repository; home is the home directory.
+ */
+export type SetupPlaceName = 'repository' | 'home';
+
+export type SetupRequest = {
+    place: SetupPlaceName;
+    /**
+     * Jira's address; empty leaves Jira out, and the forge's issues are the tracker.
+     */
+    jira_base_url: string;
+    /**
+     * The Jira personal access token. Never echoed back.
+     */
+    jira_token: string;
+    /**
+     * A Slack incoming webhook, saved unchecked; empty posts with the Slack user token.
+     */
+    webhook_url: string;
+    /**
+     * Keep the Jira token in the OS keychain rather than in the file.
+     */
+    keychain: boolean;
+    /**
+     * Write Jira's address and token even when Jira does not accept them.
+     */
+    keep_unchecked: boolean;
+};
+
+export type SetupResult = {
+    /**
+     * The file written, as an absolute path.
+     */
+    path: string;
+    /**
+     * The file written from your home.
+     */
+    shown: string;
+    /**
+     * Whom the token authenticates as; empty when Jira was left out or kept unchecked.
+     */
+    jira_user: string;
+    /**
+     * The OS keychain keeps the token, and the file the command that reads it back.
+     */
+    keychain: boolean;
+    /**
+     * The file is in a repository that does not ignore it, so it could be committed.
+     */
+    not_ignored: boolean;
+    /**
+     * The server works with the file now. False when it could not take it up, which a restart of workflow --web does.
+     */
+    reopened: boolean;
+};
+
 export type JiraConfig = {
     base_url?: string;
     /**
@@ -2834,6 +2920,10 @@ export type GetConfigData = {
 
 export type GetConfigErrors = {
     /**
+     * No configuration file applies where the server works; set one up through /api/config/setup, or with workflow config init.
+     */
+    404: Problem;
+    /**
      * The configuration file on disk is not valid; the configuration in effect is unchanged. workflow doctor says what is wrong with it.
      */
     422: Problem;
@@ -2868,6 +2958,10 @@ export type UpdateConfigData = {
 };
 
 export type UpdateConfigErrors = {
+    /**
+     * No configuration file applies where the server works; nothing was written. Set one up through /api/config/setup.
+     */
+    404: Problem;
     /**
      * The configuration file changed since the revision If-Match names, edited on disk or saved from another tab; nothing was written. Read it again, then make the change again.
      */
@@ -2921,6 +3015,64 @@ export type GetKeysResponses = {
 };
 
 export type GetKeysResponse = GetKeysResponses[keyof GetKeysResponses];
+
+export type GetSetupData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/config/setup';
+};
+
+export type GetSetupErrors = {
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetSetupError = GetSetupErrors[keyof GetSetupErrors];
+
+export type GetSetupResponses = {
+    /**
+     * The setup offered.
+     */
+    200: SetupOffer;
+};
+
+export type GetSetupResponse = GetSetupResponses[keyof GetSetupResponses];
+
+export type SetUpData = {
+    body: SetupRequest;
+    path?: never;
+    query?: never;
+    url: '/api/config/setup';
+};
+
+export type SetUpErrors = {
+    /**
+     * A configuration file already applies where the server works, or one is at the path chosen; nothing was written. Edit it in Settings instead.
+     */
+    409: Problem;
+    /**
+     * Jira did not accept the token, or could not be asked, and the request did not say to keep it unchecked (code check_failed; send keep_unchecked to write it anyway); or the keychain was asked for where there is none. Nothing was written.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type SetUpError = SetUpErrors[keyof SetUpErrors];
+
+export type SetUpResponses = {
+    /**
+     * The file written, and whom the token authenticates as.
+     */
+    200: SetupResult;
+};
+
+export type SetUpResponse = SetUpResponses[keyof SetUpResponses];
 
 export type RemoveLocalDataData = {
     body?: never;

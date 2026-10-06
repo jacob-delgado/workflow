@@ -22,7 +22,9 @@ Run it inside a repository, then open the address it prints on stderr. It
 listens on the loopback interface alone, on port 13579 unless `--port` names
 another (1 to 65535; `--port` goes only with `--web`), and refuses a write
 from a page served anywhere else, so a site open in another tab cannot drive
-it. `ctrl+c` in the terminal stops it.
+it. `ctrl+c` in the terminal stops it. With no `.workflow.json` to read, it
+says so on stderr and serves anyway: **Settings** sets a first one up (see
+[Setting up](#setting-up)), as `workflow config init` does at a prompt.
 
 Every build carries the web app inside it: the release binaries, `task build`
 and `go install` alike.
@@ -499,6 +501,30 @@ moment between them is still written over. When the file on disk is not valid,
 Settings says so in place of the form, and `workflow doctor` says what is wrong
 with it.
 
+#### Setting up
+
+With no `.workflow.json` where the server works, Settings asks what
+`workflow config init` asks instead of showing a form of defaults. First,
+where the file goes: the repository, where it applies across it, or your home
+directory, where it applies everywhere. Then Jira's address and your personal
+access token, typed into a field that shows nothing of it; where the OS
+keychain is wired (macOS), **Keep the token in your keychain, out of the file**
+is checked, and unchecked the file keeps it, readable only by you. Last, a
+Slack incoming webhook, saved unchecked; blank posts with your Slack user token
+after `workflow slack login`. A blank address or webhook leaves that part out.
+
+**Write ~/src/api/.workflow.json** — named for the file chosen — checks the
+token with Jira first, saying *Checking with Jira…*. A check that does not
+pass says why, beside the button, and writes nothing; **Write it anyway** keeps
+the address and token unchecked. Once written, the server works with the file
+as it does after a switch: the event stream reconnects, every section is read
+again, and Settings shows the file with what was written said above it —
+whom Jira knows the token as, that the keychain keeps it, and, for a file in a
+repository git does not ignore, to add it to `.gitignore`. A file already
+there is never written over. The token and the webhook go only to the server
+on the loopback address, which takes them from no other page, and no answer
+carries them back. Under `--dry-run` writing is held back, and the form says so.
+
 Below the form, **People and groups** keeps what the announcement preview
 asks: a table of every code owner decided on this repository's forge host,
 then the branch's owners not decided yet, each with a choice of whom they are
@@ -543,8 +569,6 @@ or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
   task when its branch is made or checked out, noting the pull request on it,
   completing it on a merge or a move to done; on the web those are the
   **Tasks** card's and the Tasks section's buttons, pressed when you choose.
-- **Writing a first configuration file** — `workflow config init`; Settings
-  edits a file that already exists.
 
 ## When a request fails
 
