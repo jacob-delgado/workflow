@@ -403,7 +403,13 @@ and its title. A period of several days or months is headed by month and by
 day. A source that could not be read says why above it — naming the
 repository, when one of several could not be read — in words that never
 name a host, and one that had more than it gave says so. **Copy as Markdown**
-puts the summary on the clipboard, ready for a standup.
+puts the summary on the clipboard. **Post…**, beside it once messaging is set
+up, opens a preview of the same Markdown and where it goes, as the Messaging
+section previews an announcement: **Edit** changes the text, the channel is
+chosen when Slack offers more than one — a webhook posts to the channel it is
+bound to, which the preview says — and nothing is posted until **Post**; the
+service shows the headings and the list its own way. Nothing about the post is
+kept.
 
 **Earlier** and **Later** move a period back or on — a whole month to the
 month, a whole year to the year, any other period by its own length — and

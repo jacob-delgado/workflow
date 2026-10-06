@@ -142,6 +142,12 @@ const confirmSteps = [
     group: 'Announcement preview',
   },
   {
+    step: 'summary preview',
+    section: 'Summary',
+    opener: 'Post…',
+    group: 'Summary preview',
+  },
+  {
     step: 'forget confirmation in People and groups',
     section: 'Settings',
     opener: 'Forget carla…',
