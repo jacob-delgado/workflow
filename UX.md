@@ -104,7 +104,7 @@ agree.
 | The local stores | **Local data**, **Remove** … **Removed** | CLI `db-clean` "Remove the local databases"; web "Clean cache…", "Remove X?", "Clean", "Removed X." |
 | Reading again after a failure | **Try again** | web "Retry", "Read the code owners again", "Read the groups again", "Read the local data again"; terminal "press r to try again" |
 | Reading | **Reading …** | terminal "loading…", "looking…", "checking…", "reading…"; web "Reading …", "Loading the configuration…" |
-| `esc` | **discard** when it drops work, **close** when it keeps it, **cancel** for an unsent form, **back** for a step inside a flow, **stay** at a guard, **skip** for an offer after a done act | six words over 31 overlays (UX-135) |
+| `esc` | **discard** when it drops work, **close** when it keeps it, **cancel** for an unsent form, **back** for a step inside a flow, **stay** at a guard, **skip** for an offer after a done act | agrees in the terminal (`esc` constants beside `everywhereKeys`, `internal/tui/keys.go`) |
 
 ## What each surface can do
 
@@ -117,7 +117,7 @@ their own command line, to them.
 | Capability | Command line | Terminal | Web |
 | --- | --- | --- | --- |
 | **Issue** | | | |
-| List, search and filter issues | — (FEAT-78) | Issues pane: `/`, `p`, `v`, `ctrl+n` | Issues: View, Filter, Where, Load more |
+| List, search and filter issues | — (FEAT-78) | Issues pane: `/`, `f`, `v`, `ctrl+n` | Issues: View, Filter, Where, Load more |
 | Read an issue and its comments | — (FEAT-78) | the detail | the detail |
 | Comment | — (FEAT-78) | `c`, a composer with vim modes | the comment composer, Markdown |
 | Change its status | moves to `jira.review_status` inside `pr` | `t` | to the review status, after opening a pull request (UX-149, FEAT-80) |
@@ -125,7 +125,7 @@ their own command line, to them.
 | Track it in Taskwarrior | not for scripts | `T` | Track in Taskwarrior |
 | **Branch** | | | |
 | Start work | `branch KEY` | `b` | Start work |
-| Start work in a new worktree | — (UX-89) | `b`, then `ctrl+w` | Start in a new worktree |
+| Start work in a new worktree | — (UX-89) | `b`, then `ctrl+g` | Start in a new worktree |
 | Switch branch | not for scripts | `s` | Check out |
 | Link an issue to the branch | — | `i` | Link an issue |
 | Unlink it | — | — (UX-150) | Unlink |
@@ -151,7 +151,7 @@ their own command line, to them.
 | People and groups | — | `P` | Settings: People, Groups |
 | Post a standup | `standup` | — (FEAT-86) | — (FEAT-86) |
 | **Reviews** | | | |
-| List what waits on your review | `reviews --json --sort` | Reviews pane: `s`, `f` | Reviews: Sort, Filter |
+| List what waits on your review | `reviews --json --sort` | Reviews pane: `O`, `f` | Reviews: Sort, Filter |
 | **Tasks** | | | |
 | Add, annotate, modify, start, stop, mark done, undo, sync | not for scripts | Tasks pane: `a`, `A`, `e`, `s`, `d`, `u`, `S` | Tasks: Add, Annotate, Modify, Start, Stop, Done, Undo, Sync |
 | Sort, search, filter | not for scripts | `O`, `/`, `f` | Sort, Filter, Narrow |
@@ -505,153 +505,6 @@ status and streams; let a synopsis that says "fails" name the family.
 `/docs/scripting`; the status page's synopsis names the exit status a
 non-repository directory produces.
 
-### UX-131 Three contracts the command line breaks
-
-Impact: medium · Effort: small
-
-**Today.** `docs/content/docs/scripting.md` promises a script three
-things: the exit status says which family a failure is in (`:23`, "Exit
-status"), stdout carries only the artifact while dry-run lines, done
-notices and guidance go to stderr (`:79`–`:83`, "Standard output and
-standard error"), and a write with no terminal says what to pass instead
-(`:219`). Two commands step outside all three, and the page never lists
-them.
-
-- **The exit status.** `runReviews` refuses an unknown `--sort` with
-  `errUnknownSort` (`internal/cli/reviews.go:19`, returned at `:81`),
-  which no family in `exitFamilies` (`internal/cli/scriptable.go:357`)
-  holds, so `reviews --sort loudest` exits 1, where the table puts a bad
-  flag value in 2 (`scripting.md:32`) and its sibling `standup --days 0`
-  wraps `errUsage` and gets it (`internal/cli/standup.go:88`).
-  `TestReviewsRefusesASortItDoesNotKnow`
-  (`internal/cli/reviews_test.go:262`) checks the message, not the
-  status. `slack login`'s four refusals, `errLoginNeedsConfig`,
-  `errLoginOverWebhook`, `errLoginNotSlack` and `errLoginBlank`
-  (`internal/cli/slack_cmd.go:24`, `:27`, `:30`, `:33`), are in no family
-  either, so each exits 1: with no `.workflow.json`, `slack login` exits
-  1 where `doctor` and `config show` exit 3 (`scripting.md:33`), since
-  `connect` lets `ErrNotFound` through (`unreadConfiguration`,
-  `internal/cli/connect.go:99`) and `loginAllowed` (`slack_cmd.go:109`)
-  answers it with its own sentinel.
-- **The streams.** `slack login` writes everything to stdout (`out` is
-  `cmd.OutOrStdout()`, `slack_cmd.go:75`): its dry-run line (`:89`) and
-  "Logged in to Slack as …" (`:204`). `db-clean` writes "Nothing to
-  remove." (`internal/cli/dbclean_cmd.go:68`) and "Removed X." (`:107`) to
-  stdout, while its own "Nothing removed." goes to stderr through
-  `proceed` and `standup`'s "Nothing to share." goes to stderr
-  (`internal/cli/standup.go:136`). `doctor` prints the no-configuration
-  guidance, the shared `NoConfigHeadline`, `InitStep` and `DoctorStep`,
-  to stdout (`reportLoadError`, `internal/cli/doctor.go:286`), while
-  `config show` prints the same three to stderr (`showLoadError`,
-  `internal/cli/config_cmd.go:102`); the `doctor` row (`scripting.md:89`)
-  leaves stderr empty, so this one is at least documented.
-- **No terminal.** `slack login` maps a closed stdin to `errNoTerminal`
-  (`askFor`, `slack_cmd.go:146`), which exits 2 but says only "no
-  terminal to answer on": the command declares no `--yes` and could not
-  use one, since it asks for secrets, and it names no other way, where
-  `announce`'s one exception says "run it at a terminal"
-  (`unattendedAgain`, `internal/cli/announce.go:248`).
-- **The page.** Its command list (`scripting.md:9`), its stream table
-  (`:85`–`:96`) and "Writing without a person" (`:192`, "`branch`, `pr`,
-  `announce` and `standup`") leave out `db-clean`, though it takes `--yes`
-  and `--dry-run` (`newDBCleanCmd`, `dbclean_cmd.go:47`) and the exit
-  table already cites it (`:31`, `:34`), and `slack login`.
-
-**Instead.** Wrap `errUnknownSort` in `errUsage`, as `--days` does. Put
-`errLoginNeedsConfig`, `errLoginOverWebhook` and `errLoginNotSlack` in
-`configurationErrors` (3: fix the file), and `errLoginBlank` in usage (2:
-the answer, like a confirmation nobody could give). Give `slack login`
-the `output` pair and write the dry-run line and "Logged in…" to notes;
-write `db-clean`'s "Nothing to remove." and "Removed X." to notes, keeping
-the listing on stdout. Keep `doctor`'s guidance on stdout, since its
-report is what a bug report pastes, and say so in its row. Wrap
-`slack login`'s `errNoTerminal` with "; run it at a terminal". Add
-`db-clean` and `slack login` to the command list, the stream table and,
-for `db-clean`, "Writing without a person".
-
-**Done when.** `ExitStatus` of `reviews --sort loudest` is 2; `slack
-login` with no file, over a webhook and with `messaging.kind` `teams`
-each exits 3, and with a blank client ID exits 2; `slack login
---dry-run` leaves stdout empty and puts "dry run" on stderr; a `db-clean`
-test with nothing to remove sees "Nothing to remove." on stderr and only
-the listing on stdout; a `slack login` test whose `Line` returns
-`io.EOF` sees "at a terminal" in the error; `grep -c 'db-clean\|slack
-login' docs/content/docs/scripting.md` counts rows in the stream table
-for both.
-
-### UX-132 Help and notices in two voices
-
-Impact: low · Effort: small
-
-**Today.** Each line below reads well alone; beside its siblings it is the
-odd one out.
-
-- **Long help's mood.** `newSlackLoginCmd`'s `Long` opens in the third
-  person, "Asks for your Slack app's client ID…"
-  (`internal/cli/slack_cmd.go:56`), where every other `Long` is an
-  imperative: "Compose…" (`internal/cli/pr.go:63`), "List…"
-  (`internal/cli/reviews.go:45`), "Report…" (`internal/cli/doctor.go:68`),
-  "Ask for…" (`internal/cli/config_cmd.go:62`).
-- **A Short that claims more.** `config init`'s `Short` says "asking for
-  each credential and checking the Jira token"
-  (`internal/cli/config_cmd.go:61`), but it asks for the Jira address and
-  token and a Slack webhook (`collectJira`, `:362`; `collectMessaging`,
-  `:418`) and never for a forge token or a Slack user token, which its
-  own webhook prompt sends to `slack login` (`:426`).
-- **A flag's metavar.** `--log`'s usage says "to FILE"
-  (`internal/cli/cli.go:218`), but with no backticks pflag names the
-  placeholder by type, so help and every generated page read `--log
-  string` (`docs/content/docs/reference/workflow.md:100`), while
-  `scripting.md:225` writes `--log FILE`.
-- **Done notices.** Some end in a period and some do not: "Announced to …"
-  (`internal/cli/announce.go:192`), "Linked … on …" and "Moved … to …"
-  (`internal/cli/pr.go:227`, `:284`) have none, while "Posted to %s."
-  (`internal/cli/standup.go:169`), "Removed X."
-  (`internal/cli/dbclean_cmd.go:107`), "Could not link … on …."
-  (`pr.go:222`) and every declined notice ("Not opened.", `pr.go:142`)
-  do. `branch`'s "Created NAME" (`internal/cli/branch.go:115`) and `pr`'s
-  "Opened #N URL" (`pr.go:168`) have none, and are stdout's artifact by
-  the stream table (`scripting.md:93`, `:94`).
-- **Hints.** A next step is wrapped three ways: in parentheses, "(pass
-  --force to overwrite)" (`refuseOverwrite`,
-  `internal/cli/config_cmd.go:159`) and "(open one with workflow pr)"
-  (`internal/cli/announce.go:158`); after a semicolon, "; pass --yes to
-  go ahead without asking" (`internal/cli/scriptable.go:145`), "; run it
-  at a terminal…" (`announce.go:248`) and "; run `workflow config init`
-  first" (`internal/cli/slack_cmd.go:24`); and after a dash, "— run `gh
-  auth login`" (`internal/cli/doctor_credentials.go:171`).
-- **The root's Short.** "Run your Jira, Git forge and messaging workflow
-  from the terminal" (`internal/cli/cli.go:191`), on the binary whose
-  `--web` serves the same workflow in a browser (`:220`).
-- **The forge's noun in help.** `reviews`' `Short` lists "the pull
-  requests" (`internal/cli/reviews.go:44`) where its `Long` says "pull or
-  merge requests" (`:45`). Help is drawn before any remote is read, so it
-  cannot take the noun from `Kind`; the sentences that run with a remote
-  are UX-126's.
-
-**Instead.** One rule per item, each matching the majority already there.
-Long help opens with an imperative: "Ask for your Slack app's client
-ID…". `config init`'s `Short` names what it asks: "Set up the
-configuration file, asking for the Jira token and a Slack webhook and
-checking the Jira token". `--log`'s usage backticks its metavar, "to
-`FILE`", so help reads `--log FILE`. A notice on stderr is a sentence and
-ends in a period; an artifact line on stdout, which a script reads,
-carries none. A hint follows the message after a semicolon, lowercase,
-naming the command in backticks: "…: PATH; pass --force to overwrite".
-The root's `Short` drops "from the terminal" ("…workflow, in the terminal
-or a browser"). Static help names both nouns, "pull or merge requests",
-as `reviews`' `Long` already does.
-
-**Done when.** A test walks every command's `Long` and finds none whose
-first word ends in "s"; `config init --help` does not contain "each
-credential"; `workflow --help` contains `--log FILE` and not `--log
-string`, and `task docs:check` passes; tests of `announce`, `pr`'s link
-and move see "Announced to #dev.", "Linked #7 on PROJ-2." and "Moved
-PROJ-2 to In Review." on stderr; `grep -n '(pass \|(open one\|— run'
-internal/cli/*.go` finds nothing outside tests; `workflow --help`'s
-first line does not say "from the terminal"; `reviews --help`'s summary
-line says "pull or merge requests".
-
 ## The terminal interface
 
 What is open here is a screen-reader mode, the alternate screen and a fixed
@@ -676,8 +529,8 @@ unconditional (`Model.View`, `internal/tui/render.go:38`, `view.AltScreen
 = true`), so nothing the interface prints survives quitting; `ui.color`
 has no `always` for a piped terminal that does support color; and the
 150 ms detail delay (`detailDelay`, `internal/tui/detail.go:20`) is fixed.
-A terminal at 80 by 24 gets the full-screen layout at its tightest
-(UX-137), and nothing offers a plain mode that prints a line at a time
+A terminal at 80 by 24 gets the full-screen layout at its tightest,
+and nothing offers a plain mode that prints a line at a time
 instead; the command line is the only other way in.
 
 **Instead.** `ui.alt_screen: false` for inline rendering; `ui.color:
@@ -907,7 +760,7 @@ Impact: low · Effort: small
 
 **Today.** Two acts reached by a second path come back poorer than by the
 first. `b` then enter on a To Do issue offers "Change status ▸ ◐ Start";
-`b`, `ctrl+w`, enter on the same issue offers only to switch to the new
+`b`, `ctrl+g`, enter on the same issue offers only to switch to the new
 worktree, though the work has just as surely started. After opening a
 pull request the Change status overlay reads "PROJ-412 " and "status  "
 with empty values, unlike the same picker opened by `t`, though the list
@@ -946,8 +799,8 @@ Impact: low · Effort: small
 **Today.** In the Fix Version/s step "● 1.0" means chosen, and on the
 screen before it "● Done" meant a done status, so a reader who learned the
 glyph vocabulary reads the checkbox as a state. The same checkbox now
-draws every facet checklist too — the Issues pane's Where, the Tasks
-pane's Narrow and the Reviews pane's Filter — where "● in flight" means
+draws every facet checklist too — the Filter checklist on the Issues,
+Tasks and Reviews panes — where "● in flight" means
 the place is chosen, beside a list whose `◐` means in flight.
 
 - `internal/tui/glyphs.go:76` `glyphs.checkbox` returns `g.done` for
@@ -1005,292 +858,6 @@ since `forgeIssuesDeps` wires `BrowseURL`,
 
 **Done when.** A test with a draft review request sees "draft" on its row
 in pane `6`, and a ready one does not.
-
-### UX-133 The same verb sits on different keys
-
-Impact: medium · Effort: small
-
-**Today.** Learn a verb on one pane and the next pane puts it elsewhere,
-or names it differently.
-
-- Sort is `s` on the Reviews pane (`reviewKeys`,
-  `internal/tui/keys.go:277`) and `O` on the Tasks pane (`taskKeys`,
-  `:293`), where `s` is start/stop (`:284`).
-- The facet checklist is `p` "where" on the Issues pane (`:239`), `f`
-  "narrow" on the Tasks pane (`:292`) and `f` "filter" on the Reviews pane
-  (`:278`), titled "Where" (`placeTitle`,
-  `internal/tui/issueplaces.go:17`), "Narrow"
-  (`Model.openTaskNarrowing`, `internal/tui/tasklist.go:436`) and
-  "Filter" (`filterTitle`, `internal/tui/reviewfacets.go:16`). "filter"
-  itself means two things: on the Issues and Tasks panes it is `/`, typed
-  text (`:238`, `:291`); on the Reviews pane it is that checklist.
-- "switch task" on the Branch pane (`:251`) opens an overlay titled
-  "Switch task" (`switchTitle`, `internal/tui/switchtask.go:20`) that
-  checks out a git branch, and refuses a dirty tree "before switching
-  tasks" (`errDirtyTree`, `:25`); the Tasks pane's offers titled "Switch
-  the task" (`Model.offerSwitch`, `internal/tui/taskoffers.go:145`, and
-  `:170`) stop and start Taskwarrior tasks. With Taskwarrior on, "switch
-  task" now names two different acts.
-
-A letter reused for a different verb on another pane is fine, and the
-`keyMap` comment says so (`internal/tui/keys.go:22`): `c` comments,
-commits, shows checks and opens the calendar; `a` assigns, stages all and
-adds a task; `f` fixes up and marks a favorite. The fault is only the same
-verb on two keys, or two verbs under one name.
-
-**Instead.** One key per verb on every pane that has it: `/` searches
-text, `f` opens the filter checklist, titled "Filter" everywhere, and `O`
-sorts — so the Issues places move from `p` to `f` and the Reviews sort
-from `s` to `O`, both free in their contexts. Call the Branch pane's
-checkout "switch branch", titled "Switch branch", and keep "switch the
-task" for Taskwarrior. A test beside `CheckKeys` (`internal/tui/keycheck.go:44`)
-can hold the verbs together: the actions that share a verb —
-sort-reviews and sort-tasks; filter-place, narrow-tasks and
-filter-reviews — share a default key.
-
-**Done when.** That test passes on the default set; `?` lists "filter"
-under `f` in the Issues, Reviews and Tasks groups and "sort" under `O` in
-both; the Branch footer reads "switch branch".
-
-### UX-134 Two bindings take a text field's editing keys
-
-Impact: low · Effort: small
-
-**Today.** bubbles' text input binds the readline keys a terminal user's
-fingers already know — `ctrl+w` deletes the word before the cursor and
-`ctrl+b` moves back a character (`textinput.DefaultKeyMap`,
-`charm.land/bubbles/v2@v2.2.1/textinput/textinput.go:74`, `:71`) — and
-two overlays match a binding of their own on those keys before the field
-sees them.
-
-- `ctrl+w` is the worktree toggle (`composerKeys`,
-  `internal/tui/keys.go:331`). `branchCreator.handleKey`
-  (`internal/tui/branch.go:421`) matches it before the branch-name input,
-  so `ctrl+w` while naming a branch flips "as a worktree" instead of
-  deleting a word — but only where `canWorktree` holds; elsewhere the same
-  keystroke falls through and deletes the word.
-- `ctrl+b` is breaking (`internal/tui/keys.go:323`).
-  `commitComposer.handleKey` (`internal/tui/composer.go:266`) matches it
-  before handing a key to the scope or subject input, so `ctrl+b` in the
-  subject toggles "!" on the type instead of moving the cursor.
-
-`CheckKeys` already refuses moving interrupt onto a key that types
-(`ErrInterruptEdits`, `editsText`, `internal/tui/keycheck.go:180`), but
-nothing asks the same of an overlay's own bindings.
-
-**Instead.** No binding live in an overlay with a focused text input may
-be one of the text input's editing keys; move worktree and breaking to
-control keys no field reads (`ctrl+g`, `ctrl+s`, `ctrl+x` and `ctrl+y`
-are free in the composer context), and let `CheckKeys` refuse a default
-or a `ui.keys` override that lands one on `ctrl+a`, `b`, `d`, `e`, `f`,
-`h`, `k`, `u`, `v` or `w` — and, where a field shows suggestions (the
-scope, `scopesuggest.go:46`, and the base, `prComposer`,
-`internal/tui/prcomposer.go:253`), on `ctrl+n` or `ctrl+p`, which step
-through them (`textinput.go:84`, `:85`).
-
-**Done when.** A test types "feat-x y", presses `ctrl+w` in the branch
-creator and reads "feat-x "; `ctrl+b` in the subject moves the cursor;
-`CheckKeys(map[string]string{"worktree": "ctrl+w"})` is refused.
-
-### UX-135 Six words for `esc`, and "discard" over a kept draft
-
-Impact: low · Effort: small
-
-**Today.** Of the 31 overlays with a footer, each labels `esc` itself, in
-one of six words — and the word does not follow what `esc` does.
-
-- "discard": the branch creator (`internal/tui/branch.go:401`), the
-  messaging preview (`internal/tui/messagingpreview.go:94`), the pull
-  request editor (`internal/tui/preditor.go:78`) and the pull request
-  composer (`internal/tui/prcomposer.go:336`).
-- "cancel": the branch linker (`internal/tui/branchlink.go:119`), finish
-  (`internal/tui/finish.go:99`), issue writes
-  (`internal/tui/issuewrite.go:147`), merge (`internal/tui/merge.go:169`),
-  the facet checklists (`internal/tui/overlay.go:350`), the go-to prompt
-  (`internal/tui/reposwitch.go:279`) and the task line
-  (`internal/tui/taskactions.go:466`).
-- "back": a field form (`internal/tui/fields.go:201`), the comment preview
-  (`internal/tui/comment.go:91`), a job's log
-  (`internal/tui/checks.go:381`), the owner picker
-  (`internal/tui/ownerlink.go:312`), and "back to list" on a collapsed
-  issue (`internal/tui/detail.go:248`).
-- "close": the calendar (`internal/tui/calendar.go:201`), the comment
-  composer (`internal/tui/commentcomposer.go:242`), and, unrelabeled, the
-  list pickers (`keyMap.listKeys`, `internal/tui/keys.go:393`), the commit
-  composer (`internal/tui/composer.go:249`), the amend preview
-  (`internal/tui/commits.go:440`), the last look before a push, re-run or
-  rebase (`lastLook.footer`, `internal/tui/overlay.go:254`), People and
-  groups, help and a run.
-- "skip": the lefthook offer (`internal/tui/hookgen.go:112`) and the
-  issue-link offer (`internal/tui/issuelink.go:77`).
-- "stay": the quit guard (`internal/tui/messaging.go:78`), the switch
-  guard (`internal/tui/reposwitch.go:188`) and the worktree offer
-  (`internal/tui/branchresult.go:145`).
-
-The sharpest case: the pull request composer says "discard", yet its `esc`
-stores the draft (`prComposer.handleKey`, `m.prDraft = c.snapshot()`,
-`internal/tui/prcomposer.go:351`), and the pull request editor a row away
-says "discard" and does discard (`prEditor.handleKey`,
-`internal/tui/preditor.go:86`). The commit composer keeps its draft too
-(`internal/tui/composer.go:257`) under a plain "close", and says nothing
-of it; only the comment composer says
-"close" and then "draft kept for KEY" (`commentComposer.close`,
-`internal/tui/commentcomposer.go:342`). And the last look and the amend
-preview say "close" where nothing has been sent and "cancel" is meant.
-This entry holds the composer case with its siblings; UX-130 points
-here for it.
-
-**Instead.** One rule, written beside `everywhereKeys`: "discard" only
-when `esc` drops what was written; "close" when it is kept, or there was
-nothing to keep, with a notice that says it was kept, as the comment
-composer's does; "cancel" for a form or a last look not yet sent; "back"
-for a step nested in another; "skip" for an offer that follows a done
-act; "stay" for a guard. So the pull request composer says "close" and
-notices "draft kept", the commit composer notices it too, and the last
-look and the amend preview say "cancel".
-
-**Done when.** `TestAFailedPushKeepsThePullRequestDraft`
-(`internal/tui/review_test.go:261`) asserts the footer's `esc` label is
-"close" and a notice says the draft was kept; a screen test of the push's
-last look reads "esc cancel".
-
-### UX-136 Empty states in two cases
-
-Impact: low · Effort: small
-
-**Today.** The interface already has a rule for two lengths of the same
-news — `wording`'s brief form for a rail row, lowercase and unstopped, and
-its full form for the detail, a sentence (`internal/tui/failure.go:55`) —
-and most empty states follow it: the Reviews rail says "none waiting on
-you" (`internal/tui/reviewqueue.go:156`) and its detail "No pull requests
-are waiting on your review." (`:172`); the Tasks detail says "No pending
-tasks." (`internal/tui/tasks.go:236`). Four do not.
-
-- The Commits detail says "nothing changed", faint and unstopped
-  (`Model.commitsDetail`, `internal/tui/commits.go:130`), where the
-  Summary detail says "Nothing was done in this period."
-  (`Model.summaryDetail`, `internal/tui/summary.go:342`).
-- The Repositories detail draws its "Favorites" heading whether or not
-  there is a favorite under it (`Model.repositoriesDetail`,
-  `internal/tui/repositories.go:244`), so a first visit reads as a heading
-  over nothing, with no word on how to make one.
-- A filter that leaves nothing says "no issue matches the filter"
-  (`issueList.nothingAdmitted`, `internal/tui/issueplaces.go:340`, a rail
-  row), "No task matches the filters." (`internal/tui/tasks.go:234`) and
-  "No review request matches the filters."
-  (`internal/tui/reviewqueue.go:205`) — fine by the rule, but singular on
-  one pane and plural on the others.
-- Of the 68 calls to `noticed`, one is a sentence: "Taskwarrior has
-  nothing to undo." (`internal/tui/taskactions.go:267`); every other
-  notice is lowercase and unstopped, such as "favorites are not kept: the
-  store is turned off" (`internal/tui/repositories.go:413`).
-
-**Instead.** Keep the brief and full rule and apply it to these: "Nothing
-has changed." in the Commits detail; under an empty Favorites heading,
-"No favorites yet; f marks the directory under the cursor.", the key read
-from `m.keys.favoriteDir`; "the filters" on all three panes; and
-"nothing to undo in Taskwarrior" as a notice.
-
-**Done when.** A screen test of a clean tree reads "Nothing has changed."
-in the Commits detail; a Repositories test with no favorites sees the
-sentence under the heading; `grep -n 'noticed("[A-Z]'` in `internal/tui`
-finds nothing outside tests.
-
-### UX-137 At 80 by 24 the frames go, a notice starves the focus, and the footer hides the way out
-
-Impact: medium · Effort: medium
-
-**Today.** 80 by 24 is the size a terminal opens at, and the one the
-layout handles worst; this was seen on screen in tmux at that size.
-
-- The rail is 30% of the width, at least 24 columns (`railMin`,
-  `internal/tui/layout/layout.go:21`), so the detail is 56 columns, under
-  `borderlessBelow` (60, `:32`): `Layout.Borderless` (`:116`) holds and
-  `Model.detailView` (`internal/tui/render.go:130`) draws the detail, and
-  every overlay in it, through `frame.Plain`
-  (`internal/tui/frame/frame.go:122`), which draws no border. For the
-  five panes whose list lives in the detail — Commits, Reviews, Tasks,
-  Summary, Repositories — the heavy border was where focus showed
-  (`Model.detailContent`, `internal/tui/render.go:173`, and the rail's
-  `Focused: focused && !behaviorOf(current).listInDetail`, `:116`), so
-  only the rail title's bold is left; with an overlay open not even that
-  (`:104`), and the heavy action overlay and the light report overlay look
-  alike.
-- A notice takes a row (`ComputeWithNotice`,
-  `internal/tui/layout/layout.go:102`), which leaves the rail's nine panes
-  11 content rows, under the 12 `allocateContent` needs (`:161`) to give
-  each unfocused pane one and the focused pane `focusedMinimum`; it falls
-  back to `evenHeights` (`:190`), and the focused pane drops from four
-  rows to two or one. Typing the Issues filter takes that row too
-  (`Model.showsNotice`, `internal/tui/tui.go:365`), so the list being
-  filtered shrinks to two rows as you type.
-- The footer is the full width, and `fitKeys`
-  (`internal/tui/render.go:343`) drops keys from the end with "…". A pane
-  reserves `?` (`Model.footerRow`, `:310`) but not `q`, so the
-  Repositories footer ends "r refresh • ? keys …"; an overlay reserves
-  nothing, and its `esc` comes last, so the calendar's footer ends "enter
-  show …", and the commit and pull request composers lose `esc` the same
-  way.
-
-**Instead.** Keep a focus mark that survives without a border — draw the
-focused pane's rail rule heavy even when its list is in the detail, or
-mark the title with `▸` — and keep it on the rail while an overlay is
-open; put a notice in the footer row, as a terminal under
-`minNoticeHeight` already does (`internal/tui/tui.go:361`), whenever a
-row of its own would take the focused pane under `focusedMinimum`; and
-order each footer so `esc` and `?` are kept and the movement keys, which
-`?` lists, drop first.
-
-**Done when.** At 80 by 24 a screen test sees a focus mark on the focused
-pane with the detail borderless, the focused pane keeps four rows with a
-notice showing, and the calendar's footer, the commit composer's and the
-pull request composer's each still show `esc`.
-
-### UX-138 The calendar moves a day for up and down
-
-Impact: low · Effort: small
-
-**Today.** The calendar's Day column is drawn as a month of weeks, Monday
-first (`calendar.dayColumn`, `internal/tui/calendar.go:147`), but `↑` and
-`↓` move the cursor a day (`calendar.moved`, `:231`, `AddDays(step)` at
-`:238`), so up goes left along the row. `←` and `→` do nothing, and the
-columns change only with `tab` and `shift+tab` (`calendar.handleKey`,
-`:212`–`:215`), while the footer offers `tab` alone
-(`calendar.footer`, `:193`). The web's MonthGrid moves a day for `←`/`→`
-and a week for `↑`/`↓`, as the WAI-ARIA date grid does (`keySteps`,
-`web/src/features/summary/MonthGrid.tsx:26`).
-
-**Instead.** In the Day column, `←`/`→` a day and `↑`/`↓` a week, through
-the cycle-left and cycle-right bindings the composer context already
-holds; keep `↑`/`↓` as a year or a month in the other two columns; offer
-"←/→ day" and `shift+tab` in the footer.
-
-**Done when.** A calendar test presses `↓` in the Day column and lands
-seven days on, and `→` one day on.
-
-### UX-139 A long path pushes the selection mark onto a line of its own
-
-Impact: low · Effort: small
-
-**Today.** A Repositories row is the marker, the favorite mark, the
-directory and what is there, in one string (`Model.repositoryLine`,
-`internal/tui/repositories.go:306`), and the detail is then wrapped at
-spaces (`internal/tui/repositories.go:253`, through `wrapLine`,
-`internal/tui/render.go:262`). A directory wider than the detail is one
-word too long for any line, so `wrapLine` ends the line before it, leaving
-"▸" alone, and cuts the path across the next lines (`:272`). Seen on
-screen at 80 columns, where the detail is 56: a worktree under a long
-checkout path draws "▸" by itself, then the path in pieces, then "·
-worktree on BRANCH". An unselected row loses its indent the same way.
-
-**Instead.** Shorten a long path in the middle to fit the row — keep the
-root and the last element, "~/src/…/feature-x" — so a row stays one line;
-the full path is already in the Working in block above
-(`Model.workingIn`, `internal/tui/repositories.go:258`), and the rail's
-own row (`Model.repositoriesRail`, `:203`) could use the same cut.
-
-**Done when.** A Repositories test at 80 by 24 with a worktree at a path
-longer than the detail sees "▸" and the path's last element on one line.
 
 ## The web
 
@@ -2638,8 +2205,8 @@ one in red (`Model.markDiffLine`, `internal/tui/diff.go:111`, `:113`;
 `styles`, `internal/tui/glyphs.go:90`), where the `+` and `-` git leaves
 in place carry the meaning by shape (`internal/tui/diff.go:65`). Border
 weight is the one rule the screen loses at its commonest size: at 80 by
-24 the detail draws borderless and focus falls back to a bold title
-(UX-137).
+24 the detail draws borderless, and the rail's heavy rules around the
+focused pane carry the focus instead.
 
 The web now speaks it too. The five systems' hues are tokens in both
 themes (`web/src/index.css:63`), held at least 30° of OKLCH hue from the
@@ -2706,7 +2273,7 @@ in a new worktree (`StartInWorktreeButton`,
 - The terminal does both: the branch creator fetches before it creates
   (`branchCreator.create`, `internal/tui/branch.go:468`, `willFetch`
   `:495`), offers "branch from what you have" when the fetch fails (`:390`),
-  and `ctrl+w` makes a worktree instead (`:421`).
+  and `ctrl+g` makes a worktree instead.
 
 **Instead.** `--worktree` and `--fetch` on `branch`, printing the
 directory made; a fetch before the web's start-work and worktree writes,
@@ -2900,9 +2467,7 @@ the reason.
 
 Impact: low · Effort: small
 
-**Today.** Four things are said two or three ways. The done notices
-that end with and without a period are UX-132's, and the composer's
-`esc` that says "discard" over a kept draft is UX-135's.
+**Today.** Four things are said two or three ways.
 
 - `ErrDirtyTree`, `internal/loop/guards.go:16`: "the working tree has
   uncommitted changes"; `errDirtyTree`, `internal/tui/switchtask.go:25`,
@@ -3212,9 +2777,6 @@ Impact: low · Effort: small
   request is for is listed among what shows "while it is open" (`:155`–
   `:157`), but `IssueRow` is drawn in every state (`ReviewPanel.tsx:110`),
   only the review rows waiting on `state === 'open'` (`:113`).
-
-What `docs/content/docs/scripting.md` leaves out of its command tables is
-UX-131's.
 
 **Instead.** Redraw the example at nine panes (a taller screen, or the
 lower panes folded to their title lines, as the rail does when rows run
