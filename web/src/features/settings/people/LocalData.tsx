@@ -17,7 +17,7 @@ export function LocalData() {
   const headingId = useId()
 
   return (
-    <section aria-labelledby={headingId} className="flex max-w-2xl flex-col gap-group">
+    <section aria-labelledby={headingId} className="flex flex-col gap-group">
       <h2 id={headingId} className="text-base font-semibold">
         Local data
       </h2>

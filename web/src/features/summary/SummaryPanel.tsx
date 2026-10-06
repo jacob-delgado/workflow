@@ -8,6 +8,7 @@ import { Button } from '@/lib/Button.tsx'
 import { headingDay, writtenDay } from '@/lib/dates.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { cn, contentMeasure } from '@/lib/utils.ts'
 import { ActivityList } from './ActivityList.tsx'
 import type { Period } from './civilDate.ts'
 import { PeriodCalendar, PeriodSteps } from './PeriodPicker.tsx'
@@ -37,13 +38,13 @@ export function SummaryPanel() {
   // pick never takes the calendar, or the focus in it, away.
   return (
     <div className="flex flex-col gap-section lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-section lg:gap-y-group">
-      <div className="lg:col-start-1 lg:row-start-1">
+      <div className={cn('lg:col-start-1 lg:row-start-1', contentMeasure)}>
         <PeriodSteps period={period} today={last.today} onPick={choose} />
       </div>
-      <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
+      <div className={cn('lg:col-start-2 lg:row-span-2 lg:row-start-1', contentMeasure)}>
         <Shown read={read} period={period} />
       </div>
-      <div className="lg:col-start-1 lg:row-start-2">
+      <div className={cn('lg:col-start-1 lg:row-start-2', contentMeasure)}>
         <PeriodCalendar
           key={period.to.slice(0, 7)}
           period={period}

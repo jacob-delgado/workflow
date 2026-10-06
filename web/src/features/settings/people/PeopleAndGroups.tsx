@@ -11,7 +11,7 @@ export function PeopleAndGroups() {
   const dryRun = useHealthStore((state) => state.health?.dry_run === true)
 
   return (
-    <section aria-labelledby={headingId} className="flex max-w-2xl flex-col gap-group">
+    <section aria-labelledby={headingId} className="flex flex-col gap-group">
       <h2 id={headingId} className="text-base font-semibold">
         People and groups
       </h2>

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import type { Issue, PullRequestDraft, Snapshot } from '../src/api/generated/types.gen.ts'
 import {
   height,
@@ -79,6 +79,75 @@ for (const theme of themes) {
     })
   }
 }
+
+// widestContent is the width of the widest field, paragraph or list a section
+// draws: the measure its content is set at.
+async function widestContent(page: Page): Promise<number> {
+  const main = page.getByRole('main')
+  const widths = await Promise.all(
+    (['textbox', 'combobox', 'paragraph', 'list'] as const).map((role) =>
+      main
+        .getByRole(role)
+        .evaluateAll((parts) => parts.map((part) => part.getBoundingClientRect().width)),
+    ),
+  )
+
+  return Math.max(...widths.flat())
+}
+
+test(
+  "every section sets its content at the Branch section's measure in a wide window",
+  { tag: '@populated' },
+  async ({ page }) => {
+    // Nine sections, each opened and measured, in one test.
+    test.slow()
+
+    // Arrange: the populated cockpit at the wide width, and the measure
+    // Branch's commit form is set at.
+    await openCockpit(page, { width: 1440, height }, 'dark')
+    await openSection(page, 'Branch')
+    const measure = await widestContent(page)
+
+    for (const name of sectionNames) {
+      // Act: open the section.
+      await openSection(page, name)
+
+      // Assert: nothing in it is set wider than Branch's form.
+      expect(await widestContent(page), `${name}: wider than Branch`).toBeLessThanOrEqual(
+        measure + 1,
+      )
+    }
+  },
+)
+
+test(
+  'a wide window sets each issue summary in the list on one line',
+  { tag: '@populated' },
+  async ({ page }) => {
+    // Arrange
+    await openCockpit(page, { width: 1440, height }, 'dark')
+
+    // Act: how many lines each row's summary, its last line, is set on.
+    const lines = await page
+      .getByRole('list', { name: 'Issues' })
+      .getByRole('button')
+      .filter({ hasNotText: 'Switch branch' })
+      .evaluateAll((rows) =>
+        rows.map((row) => {
+          const summary = row.lastElementChild ?? row
+
+          return Math.round(
+            summary.getBoundingClientRect().height /
+              parseFloat(getComputedStyle(summary).lineHeight),
+          )
+        }),
+      )
+
+    // Assert
+    expect(lines.length).toBeGreaterThan(1)
+    expect(lines).toEqual(lines.map(() => 1))
+  },
+)
 
 for (const width of [640, 1440]) {
   test(

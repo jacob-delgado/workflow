@@ -81,7 +81,7 @@ function SetupForm({
   )
 
   return (
-    <section aria-labelledby={headingId} className="flex max-w-2xl flex-col gap-block">
+    <section aria-labelledby={headingId} className="flex flex-col gap-block">
       <div className="flex flex-col gap-item">
         <h2 id={headingId} className="text-base font-semibold">
           Set up workflow

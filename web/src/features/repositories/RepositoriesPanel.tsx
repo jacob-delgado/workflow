@@ -6,6 +6,7 @@ import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { cn, contentMeasure } from '@/lib/utils.ts'
 import { ConfirmSwitch, type Destination } from './ConfirmSwitch.tsx'
 import { DirectoryPicker } from './DirectoryPicker.tsx'
 import { FavoritesList } from './FavoritesList.tsx'
@@ -66,7 +67,7 @@ function Read({
   const favoriteKeys = useShortcutProps<HTMLButtonElement>('favorite-directory')
 
   return (
-    <div className="flex max-w-prose flex-col gap-section">
+    <div className={cn('flex flex-col gap-section', contentMeasure)}>
       <div className="flex flex-col gap-item">
         <WorkingIn place={here} />
         {repositories.favorites_kept ? (

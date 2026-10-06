@@ -12,6 +12,7 @@ import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { cn, contentMeasure } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
@@ -110,7 +111,7 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
   const shown = requests?.filter((request) => admits(picked, request))
 
   return (
-    <div className="flex max-w-3xl flex-col gap-group">
+    <div className={cn('flex flex-col gap-group', contentMeasure)}>
       <div className="flex items-center justify-between gap-group">
         <div className="flex flex-col">
           <p role="status" className="text-sm text-muted-foreground">

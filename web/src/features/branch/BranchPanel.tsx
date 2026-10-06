@@ -8,7 +8,7 @@ import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { ReadFailure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { cn, definitionList } from '@/lib/utils.ts'
+import { cn, contentMeasure, definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { RunOutput, useGitRun, type GitRunner } from './GitRun.tsx'
 import { HistoryActions, onFeatureBranch, RebaseAction } from './HistoryActions.tsx'
@@ -28,7 +28,7 @@ export function BranchPanel() {
   // server left in its place, which would read as no repository.
   if (unread.branch) {
     return (
-      <div className="flex max-w-2xl flex-col gap-section">
+      <div className={cn('flex flex-col gap-section', contentMeasure)}>
         <ReadFailure unread="The branch could not be read" problem={unread.branch} />
       </div>
     )
@@ -46,7 +46,7 @@ export function BranchPanel() {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-section">
+    <div className={cn('flex flex-col gap-section', contentMeasure)}>
       <BranchSummary branch={branch} runner={runner} />
       <RunOutput runner={runner} />
       <Commits

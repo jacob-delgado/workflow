@@ -7,7 +7,7 @@ import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { definitionList } from '@/lib/utils.ts'
+import { cn, contentMeasure, definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { announce, announceWhenCIPasses, previewAnnouncement } from './announceApi.ts'
 import { AnnouncePreview } from './AnnouncePreview.tsx'
@@ -31,7 +31,7 @@ export function MessagingPanel() {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-section">
+    <div className={cn('flex flex-col gap-section', contentMeasure)}>
       <dl className={definitionList}>
         <dt className="text-muted-foreground">Service</dt>
         <dd>{messaging.service}</dd>

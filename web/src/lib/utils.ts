@@ -21,6 +21,12 @@ export function cn(...inputs: ClassValue[]): string {
 export const definitionList =
   'grid grid-cols-[max-content_minmax(0,1fr)] gap-x-group gap-y-tight text-sm'
 
+// contentMeasure is the one width a section's content is set at, whatever the
+// window: a form, a list, a detail beside a list. Wider, a line of the body
+// face runs past what an eye can follow back; a list beside a detail grows with
+// the window instead, and the detail keeps this measure.
+export const contentMeasure = 'max-w-2xl'
+
 // capitalized starts text with a capital, for a word the server sends lowercase
 // — the forge's "merge request" — that opens a sentence or names a stage.
 export function capitalized(text: string): string {
