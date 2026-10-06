@@ -5,6 +5,7 @@ import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Failure, ReadFailure } from '@/lib/Status.tsx'
+import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { CommitForm } from './CommitForm.tsx'
 import {
@@ -99,13 +100,21 @@ function commitBlocker(changes: Change[]): string | null {
     : 'Nothing staged yet — stage a file above.'
 }
 
-// stagedTag is how much of a file the index holds, in words.
-function stagedTag(change: Change): string {
-  if (!change.staged) {
-    return 'unstaged'
+// stagedTag is how much of a file the index holds, in words and by the mark
+// the terminal's stageGlyph draws for it: a conflict, which no stage can
+// half-hold, is failed until staging marks it resolved.
+function stagedTag(change: Change): { word: string; mark: MarkState } {
+  if (change.conflicted) {
+    return { word: 'conflicted', mark: 'failed' }
   }
 
-  return change.has_unstaged ? 'partly staged' : 'staged'
+  if (!change.staged) {
+    return { word: 'unstaged', mark: 'not-started' }
+  }
+
+  return change.has_unstaged
+    ? { word: 'partly staged', mark: 'in-flight' }
+    : { word: 'staged', mark: 'done' }
 }
 
 // ChangeRow is one changed file with its stage or unstage button, the live
@@ -135,9 +144,7 @@ function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
       <div className="flex flex-wrap items-center gap-x-item gap-y-tight">
         <span className="shrink-0 text-muted-foreground sm:w-20">{change.kind}</span>
         <code className="grow basis-full sm:basis-0">{change.path}</code>
-        <span className={change.staged ? 'text-xs text-success' : 'text-xs text-muted-foreground'}>
-          {stagedTag(change)}
-        </span>
+        <StagedTag change={change} />
         <Button
           variant="secondary"
           size="sm"
@@ -182,6 +189,19 @@ function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
       ) : null}
       <ChangeDiff path={change.path} />
     </li>
+  )
+}
+
+// StagedTag is how much of a file is staged: its mark carries the status
+// light, so the word stays in the plain foreground.
+function StagedTag({ change }: { change: Change }) {
+  const { word, mark } = stagedTag(change)
+
+  return (
+    <span className="inline-flex items-center gap-tight text-xs">
+      <StateMark state={mark} />
+      {word}
+    </span>
   )
 }
 
