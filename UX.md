@@ -10,13 +10,20 @@ happens today, what could happen instead, where the change would land, and
 how to tell when it is done. The numbering continues from the entries that
 have since shipped, so an ID is never reused.
 
-Checked against commit `bb42fa3` on 2026-10-06: the `docs/ux-refresh`
+Checked against commit `cac1adf` on 2026-10-06: the `docs/ux-refresh`
 branch, after the command line's exit statuses, streams and help voice, the
 terminal's one key per verb, the web's shared status, field and date
 primitives, and `branch --fetch --worktree`, `pr --json`, `comment` and
-`repositories` had landed on top of main at `990f333`. Every pointer was
-read again at that commit. Line numbers drift, so every pointer also names
-the symbol it means.
+`repositories` had landed on top of main at `990f333`. This edition also
+tracked the fixes made on the branch since: the terminal's Settings,
+Local data and unlink, a last look before every write the rule names, and
+on the web the issue writes, the announcement's edit, wait for CI and
+memory, a fetch before start work, a file's diff, the streamed git runs,
+lefthook's setup, the templates and the pull request's edit, merge,
+finish, re-run and logs; an entry they closed is gone, and one they
+narrowed says only what is left. Every pointer was read again at that
+commit. Line numbers drift, so every pointer also names the symbol it
+means.
 
 ## How this was produced
 
@@ -112,9 +119,10 @@ concept that needs a new word adds a row.
 
 One row per capability, in the order the work goes. A cell names the
 command, key or control; "—" names the entry or feature that would fill
-it, where one exists. "Not for scripts" marks a deliberate gap: the
-command line leaves browsing, and what git or Taskwarrior already do on
-their own command line, to them.
+it. "Not for scripts" marks a deliberate gap: the command line leaves
+browsing, a choice a person makes as they go, and what git, lefthook, the
+forge's own CLI or Taskwarrior already do on their own command line, to
+them.
 
 | Capability | Command line | Terminal | Web |
 | --- | --- | --- | --- |
@@ -129,28 +137,30 @@ their own command line, to them.
 | Start work | `branch KEY [--fetch]` | `b` | Start work |
 | Start work in a new worktree | `branch KEY --worktree` | `b`, then `ctrl+g` | Start work in a new worktree |
 | Switch branch | not for scripts | `s` | Switch branch |
-| Link an issue to the branch | — | `i` | Link an issue |
-| Unlink it | — | `i`, then `u` | Unlink |
+| Link an issue to the branch | not for scripts | `i` | Link an issue |
+| Unlink it | not for scripts | `i`, then `u` | Unlink |
 | Push | inside `pr` | `P` | Push branch |
-| Rebase onto the base | — | `u` | — (UX-149) |
+| Rebase onto the base | not for scripts | `u` | Rebase onto BASE |
 | **Commits** | | | |
 | Stage, unstage, stage all | not for scripts | `space`, `a` | Stage, Unstage, Stage all |
-| Read a file's diff | not for scripts | the selected file's diff | — (UX-149) |
+| Read a file's diff | not for scripts | the selected file's diff | Show diff |
 | Commit | not for scripts | `c` | Commit staged changes |
-| Amend; fix up | not for scripts | `A`; `f` | — (UX-149) |
-| Run pre-commit; set up lefthook | — | `h`; `g` | — (UX-149) |
+| Amend; fix up | not for scripts | `A`; `f` | Amend last commit; Fix up a commit |
+| Run pre-commit; set up lefthook | not for scripts | `h`; `g` | Run pre-commit; Set up lefthook |
 | **Review** | | | |
 | Open a pull request | `pr [--json]` | `n` | Open a pull request |
 | Link it on the issue, move the issue | `pr` asks both | offered after `n` | Link it on KEY, Move KEY to STATUS |
-| Edit it | — | `e` | — (UX-149, FEAT-79) |
-| Read the checks and a job's log | `status` shows CI | `c`, then `l` | a failed check's log only (UX-149) |
-| Re-run CI; merge; finish | — (FEAT-83 for finish) | `R`; `M`; `F` | — (UX-149, FEAT-79) |
+| Choose its template | `pr` takes the first (UX-62) | `ctrl+t` in the composer | Template |
+| Edit it | not for scripts | `e` | Edit pull request |
+| Read the checks and a job's log | `status` shows CI | `c`, then `l` | the CI checks, Show log |
+| Re-run CI; merge; finish | not for scripts; finish — (FEAT-83) | `R`; `M`; `F` | Re-run failed checks; Merge; Finish the branch |
 | Where the work stands | `status [DIR…] --json` | the top row | the work story, the header |
 | **Messaging** | | | |
 | Announce | `announce` | `p` | Announce to SERVICE |
-| Announce when CI passes | — | `w` in the preview | Announce when CI passes |
-| Edit the announcement first | — | `e` in the preview | Edit, in the preview |
-| People and groups | — | `P` | Settings: People, Groups |
+| Announce when CI passes | — (FEAT-65) | `w` in the preview | Announce when CI passes |
+| Edit the announcement first | not for scripts | `e` in the preview | Edit, in the preview |
+| Know it was announced | `announce` says so, and asks again | "● announced" on the Messaging rail | the section says so |
+| People and groups | not for scripts | `P` | Settings: People, Groups |
 | Post a standup | `standup` | — (FEAT-86) | — (FEAT-86) |
 | **Reviews** | | | |
 | List what waits on your review | `reviews --json --sort` | Reviews pane: `O`, `f` | Reviews: Sort, Filter |
@@ -169,7 +179,7 @@ their own command line, to them.
 | Set up from nothing | `config init`, `slack login` | — (UX-153) | — (UX-153) |
 | Read the configuration | `config show` | Settings: `S` on the Repositories pane | Settings |
 | Change it | edit the file | Settings, `ctrl+s` | Settings, Save changes |
-| Check the setup | `doctor [--online]` | — | — |
+| Check the setup | `doctor [--online]` | a failure names `workflow doctor` | a failure names `workflow doctor` |
 | Remove the local data | `db-clean` | Local data: `L` on the Repositories pane | Settings: Local data, Remove |
 | Every key or command | `--help` | `?` | — (UX-152) |
 | Hold back every write | `--dry-run` | `--dry-run` | `--web --dry-run` |
@@ -178,15 +188,15 @@ their own command line, to them.
 
 The terminal states its own rules, in its docs and in its code. This table
 is the shortest summary of how far the screen keeps them, re-counted at
-`bb42fa3`.
+`cac1adf`.
 
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
-| "`?` lists every key" | `docs/content/docs/usage.md:90` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:162`, rendered in two columns split where they balance): 96 placements in 12 groups, on 95 lines, since `cycle-type-right` rides `cycle-type-left`'s line. `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:289`) reads `?` back and holds it to a table of every placement. |
+| "`?` lists every key" | `docs/content/docs/usage.md:89` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:162`, rendered in two columns split where they balance): 96 placements in 12 groups, on 95 lines, since `cycle-type-right` rides `cycle-type-left`'s line. `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:289`) reads `?` back and holds it to a table of every placement. |
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:58` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/failure.go:86`) and drawn by one of seven helpers: `failureBlock` at 20 sites, `pinnedOutcome` 14, `failureLine` 22, `failureSummary` 7, `noticedFailure` 10, `noticedFailureLedBy` 3 and `noticedGuidance` 3 (plain, since red means something broke). |
 | "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:54` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:229`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
 | "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:321` | **Yes: 17 of 17.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm`, `statusPicker` (with its field form) and `taskLine`. |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:98` | **Yes.** `Init` (`internal/tui/tui.go:193`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:201`); each pane holds and renders its own load's error, the Summary per source. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:97` | **Yes.** `Init` (`internal/tui/tui.go:193`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:201`); each pane holds and renders its own load's error, the Summary per source. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | **Yes.** `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:33`, `:45`); `NO_COLOR` keeps bold and faint. Two residues: the progress spine's five system hues are color-only, mitigated by each system's name or initial, and `◐` means both "partly staged" and "announces when CI passes" (see the visual system). |
 
 To re-count rather than trust these numbers: `grep -n 'failureBlock('
@@ -228,16 +238,19 @@ without does not.
 
 Impact: low · Effort: medium
 
-**Today.** No command declares a single shorthand — there is no `VarP(` call
-in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits `●◐✗○`
-(`statusGlyph`, `internal/cli/status.go:427`) with ASCII selectable only
-through `ui.ascii` in the file, no `--plain`; `pr` declares only `--yes` and
-`--json` (`newPRCmd`, `internal/cli/pr.go:83`, `:85`), so no draft, base,
-reviewer, title or body flag; `announce` has no `--channel` (the channel
-comes from `messaging.channel` alone); both `pr` and the web take the first
-repository template only (`firstTemplate`, `internal/loop/pull.go:171`,
-called at `:133`), where the interface cycles them (`ctrl+t`,
-`internal/tui/keys.go:327`).
+**Today.** No command declares a single shorthand — there is no `VarP(`
+call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
+`●◐✗○` (`statusGlyph`, `internal/cli/status.go:427`) with ASCII selectable
+only through `ui.ascii` in the file, no `--plain`; `pr` declares only
+`--yes` and `--json` (`newPRCmd`, `internal/cli/pr.go:58`, the flags at
+`:83` and `:85`), so no draft, base, reviewer, title or body flag;
+`announce` has no `--channel` (the channel comes from `messaging.channel`
+alone); `pr` names no template, so it takes the repository's first
+(`chosenTemplate`, `internal/loop/pull.go:185`, given an empty name at
+`:192`), where the interface cycles them (`ctrl+t`,
+`internal/tui/keys.go:332`) and the web's pull request form offers a
+Template select (`TemplateChoice`,
+`web/src/features/review/OpenPullRequest.tsx:246`).
 
 **Instead.** Shorthands for the three common flags; `--plain` on `status`;
 `--draft`, `--base`, `--reviewer`, `--channel`, `--template` where the seam
@@ -274,7 +287,7 @@ while it runs.
   .gitignore". `warnIfNotIgnored` (`internal/cli/config_cmd.go:450`) only
   warns when it is not, and nothing writes a `.gitignore`; the sentence is
   true of this repository's own `.gitignore:35`, not the user's.
-  `README.md:218` and `docs/content/docs/configuration.md:996` (both under
+  `README.md:218` and `docs/content/docs/configuration.md:1000` (both under
   "Keeping the tokens safe") say the same, and `README.md:295` (under
   "Security") calls the file "gitignored".
 
@@ -310,7 +323,7 @@ pointer.
   `--template`. A final line typed without a newline comes back from
   `terminalPrompt`'s `ReadString` together with `io.EOF`
   (`cmd/workflow/main.go:44`) and is discarded with it.
-- `internal/cli/web.go:151` (`serveWeb`, reached from the root's `--web`
+- `internal/cli/web.go:179` (`serveWeb`, reached from the root's `--web`
   branch at `internal/cli/cli.go:206`): every load error, `ErrNotFound`
   included, prints "configuration did not load cleanly: %v" and then
   serves. Its siblings branch on `ErrNotFound` and print
@@ -318,13 +331,13 @@ pointer.
   (`internal/cli/config_cmd.go:102`), `reportLoadError`
   (`internal/cli/doctor.go:286`) and the interface's `configErrorStatus`
   (`internal/tui/render.go:483`). The web cannot write a first file
-  (`docs/content/docs/web.md:434`, under "What stays in the terminal"),
+  (`docs/content/docs/web.md:518`, under "What stays in the terminal"),
   so the one surface that most needs `workflow config init` named is the
   one whose start never names it.
 - `internal/cli/pr.go:269` (`openPull`): the command ends with `followUp`,
   so "Moved PROJ-2 to In Review." (`:390`) is its last word, while the
   interface's spine keeps "nothing announced" in view
-  (`docs/content/docs/usage.md:52`, "The screen") and `announce`'s own
+  (`docs/content/docs/usage.md:49`, "The screen") and `announce`'s own
   refusal points the other way, "…; open one with `workflow pr`"
   (`runAnnounce`, `internal/cli/announce.go:158`).
 
@@ -389,13 +402,13 @@ Impact: medium · Effort: small
 when there are any (`:237`), asks, and then sends the request (`openPull`,
 `:251`), whose body is
 composed from the template, the commit subjects and the issue link
-(`internal/loop/pull.go:166`), without ever showing it; `newPRCmd`'s
+(`internal/loop/pull.go:175`), without ever showing it; `newPRCmd`'s
 `Long` says "A preview is confirmed first." (`internal/cli/pr.go:69`).
 `--json` reports the title, head and base and never the body either.
 The interface shows the body's first `prBodyPreviewLines` in
 `prComposer.view` (`internal/tui/prcomposer.go:282`, the body at `:308`),
 the web's `draftDTO` carries `Body` for the form to show
-(`internal/webserver/pullrequest.go:217`, `:220`), and the command line's
+(`internal/webserver/pullrequest.go:247`, `:250`), and the command line's
 sibling writes print their whole payload (`runAnnounce`,
 `internal/cli/announce.go:175`; `runStandup` at
 `internal/cli/standup.go:141`). A stale or wrong template is discovered
@@ -425,9 +438,9 @@ no row that would say so.
 - `internal/store/dir.go:15` (`DefaultDir`): `home, _ :=
   os.UserHomeDir()` drops the error, so an empty home reaches `Dir`
   (`:24`), which returns `ErrNoDir` for it.
-- `internal/wiring/wiring.go:330` (`onDisk`): `dir, _ :=
+- `internal/wiring/wiring.go:332` (`onDisk`): `dir, _ :=
   store.DefaultDir()` drops `ErrNoDir`, and the store is built on an empty
-  directory; `storeDeps`' doc comment (`internal/wiring/wiring.go:335`)
+  directory; `storeDeps`' doc comment (`internal/wiring/wiring.go:337`)
   calls the no-op intended, "the interface simply learns nothing", which is
   what makes this a discoverability gap rather than a defect.
 - `internal/store/store.go:175` (`Store.off`): `s.disabled || s.dir ==
@@ -526,7 +539,7 @@ instead; the command line is the only other way in.
 
 **Instead.** `ui.alt_screen: false` for inline rendering; `ui.color:
 always`, which `Config.validateUI` (`internal/config/ui.go:61`) and the
-`UIConfig.color` enum (`api/openapi.yaml:3432`) refuse until they list it;
+`UIConfig.color` enum (`api/openapi.yaml:4465`) refuse until they list it;
 `ui.detail_delay` in milliseconds.
 
 **Done when.** Each setting is read and honored by a screen test.
@@ -561,13 +574,13 @@ over a log of what workflow did, is FEAT-87's.
 Impact: low · Effort: small
 
 **Today.** `up/k`, `down/j`, `pgup/K`, `pgdn/J` (`movingKeys`,
-`internal/tui/keys.go:230`–`:233`). Nothing jumps to the ends of a list or
+`internal/tui/keys.go:233`–`:236`). Nothing jumps to the ends of a list or
 the detail. vim's own keys for that are spoken for: `g` is set-up-lefthook
-on the Commits pane (`internal/tui/keys.go:267`) and go-to-directory on
-the Repositories pane (`:307`). `h` and `l` move the cursor only in the
-comment composer's NORMAL mode (`writingKeys`, `:352`–`:353`); elsewhere
-`h` runs pre-commit on the Commits pane (`:266`) and `l` shows a job's log
-(`:331`), and `←`/`→` change the commit type or the channel.
+on the Commits pane (`internal/tui/keys.go:270`) and go-to-directory on
+the Repositories pane (`:310`). `h` and `l` move the cursor only in the
+comment composer's NORMAL mode (`writingKeys`, `:361`–`:362`); elsewhere
+`h` runs pre-commit on the Commits pane (`:269`) and `l` shows a job's log
+(`:336`), and `←`/`→` change the commit type or the channel.
 
 **Instead.** `home` and `end`, which no context binds, on every list and
 the detail, with `G` — also free in every context — for the end; leave
@@ -598,42 +611,42 @@ string literal in `internal/tui/*.go` (tests excluded) that names a key
 and checking that key's action is bound through `helpBuilder.bind`; no
 single grep finds all nine.
 
-- `internal/tui/branch.go:135` `Model.branchDetail` says "Check out a
+- `internal/tui/branch.go:133` `Model.branchDetail` says "Check out a
   branch, or press b to start one for the selected issue." on a detached
-  HEAD; new-branch is rebindable (`internal/tui/keys.go:256`,
+  HEAD; new-branch is rebindable (`internal/tui/keys.go:259`,
   `branchAndCommitKeys`).
-- `internal/tui/branch.go:352` `branchCreator.view` says "could not fetch;
+- `internal/tui/branch.go:350` `branchCreator.view` says "could not fetch;
   enter branches from what you already have"; apply is rebindable
-  (`internal/tui/keys.go:379`, `everywhereKeys`), and the creator's own
+  (`internal/tui/keys.go:388`, `everywhereKeys`), and the creator's own
   footer already reads it from the binding — `branchCreator.footer`
-  (`internal/tui/branch.go:382`) relabels `keys.confirm` to "branch from
+  (`internal/tui/branch.go:380`) relabels `keys.confirm` to "branch from
   what you have", so a rebound session shows "ctrl+s branch from what you
   have" under a sentence that says enter.
 - `internal/tui/commits.go:143` `Model.commitsDetail` says "Press g to set
   up lefthook." under a footer that reads its key from `keys.hookConfig`;
-  set-up-lefthook is rebindable (`internal/tui/keys.go:267`,
+  set-up-lefthook is rebindable (`internal/tui/keys.go:270`,
   `branchAndCommitKeys`).
 - `internal/tui/review.go:294` `Model.reviewDetail` says "n opens one from
   this branch's commits and the repository's template."; open-pull-request
-  is rebindable (`internal/tui/keys.go:272`, `reviewAndMessagingKeys`), and
+  is rebindable (`internal/tui/keys.go:275`, `reviewAndMessagingKeys`), and
   the pane answers `m.keys.newPullRequest`.
 - `internal/tui/review.go:324` `Model.reviewDetail` says "e edits its title
-  and description."; edit is rebindable (`internal/tui/keys.go:325`,
+  and description."; edit is rebindable (`internal/tui/keys.go:330`,
   `composerKeys`), and the pane answers `m.keys.edit`.
-- `internal/tui/finish.go:27` `Model.mergedDetail` says "F finishes the
-  branch: …"; finish-branch is rebindable (`internal/tui/keys.go:276`,
+- `internal/tui/finish.go:28` `Model.mergedDetail` says "F finishes the
+  branch: …"; finish-branch is rebindable (`internal/tui/keys.go:279`,
   `reviewAndMessagingKeys`).
-- `internal/tui/finish.go:31` `Model.mergedDetail` says "n opens a new
+- `internal/tui/finish.go:32` `Model.mergedDetail` says "n opens a new
   pull request from this branch's commits." once one has merged;
-  open-pull-request is rebindable (`internal/tui/keys.go:272`), and the
+  open-pull-request is rebindable (`internal/tui/keys.go:275`), and the
   pane answers `m.keys.newPullRequest`.
-- `internal/tui/checks.go:58` `checkList.view` says "Open a check's page
-  with enter."; `checkList.handleKey` (`internal/tui/checks.go:113`) opens
-  on `m.keys.confirm` (`:121`), the rebindable apply.
+- `internal/tui/checks.go:59` `checkList.view` says "Open a check's page
+  with enter."; `checkList.handleKey` (`internal/tui/checks.go:114`) opens
+  on `m.keys.confirm` (`:122`), the rebindable apply.
 - `internal/tui/composer.go:230` `commitComposer.footnotes` says "no body
   yet: ctrl+o writes one in your editor"; `commitComposer.handleKey`
   (`internal/tui/composer.go:254`) answers `m.keys.editBody` (`:262`), and
-  edit-body is rebindable (`internal/tui/keys.go:326`, `composerKeys`).
+  edit-body is rebindable (`internal/tui/keys.go:331`, `composerKeys`).
 
 **Instead.** Build each sentence from the binding — `m.keys.newBranch`,
 `m.keys.confirm`, `m.keys.hookConfig`, `m.keys.newPullRequest`,
@@ -682,7 +695,7 @@ opens on the cache does the same while `Init`'s search runs.
 
 A pane's first wait now says "reading…" on every pane — the Issues list
 (`issueList.render`, `internal/tui/issues.go:275`), the rails and details
-(`internal/tui/branch.go:84`, `internal/tui/review.go:263`,
+(`internal/tui/branch.go:82`, `internal/tui/review.go:263`,
 `internal/tui/tasks.go:180`, `internal/tui/summary.go:324`) — but without
 `◐`, which only the overlays and the Messaging pane put before their
 wait: "◐ announcing…" (`internal/tui/messaging.go:145`), "◐ sending…" on
@@ -741,11 +754,12 @@ pull request the Change status overlay reads "PROJ-412 " and "status  "
 with empty values, unlike the same picker opened by `t`, though the list
 usually holds the issue.
 
-- `internal/tui/branchresult.go:109` `worktreeCreated.apply` closes with
-  "created worktree for NAME at PATH" and follows up with `worktreeOffer` alone,
-  where `branchCreated.apply` (`internal/tui/branchresult.go:74`) calls
-  `pickStatusFor(msg.issue, statusOffer{inProgress: true})` (`:93`).
-- `internal/tui/branchresult.go:99` `worktreeCreated` carries `name`,
+- `internal/tui/branchresult.go:108` `worktreeCreated.apply` closes with
+  "created worktree for NAME at PATH" and follows up with the switch offer
+  alone (`switchLook`), where `branchCreated.apply`
+  (`internal/tui/branchresult.go:73`) calls
+  `pickStatusFor(msg.issue, statusOffer{inProgress: true})` (`:92`).
+- `internal/tui/branchresult.go:98` `worktreeCreated` carries `name`,
   `path` and `err` only — no `issue` or `forIssue` to offer from.
 - `internal/tui/picker.go:246` `Model.offerReviewStatus` passes
   `jira.Issue{Key: issueKey}` with an empty summary and status, where
@@ -781,11 +795,11 @@ the place is chosen, beside a list whose `◐` means in flight.
 - `internal/tui/glyphs.go:76` `glyphs.checkbox` returns `g.done` for
   chosen and `g.notStarted` for unchosen — the fields `glyphs.status`
   (`internal/tui/glyphs.go:58`) maps `CategoryDone` and `CategoryNew` to.
-- `internal/tui/fields.go:179` `fieldForm.optionLines` draws that checkbox
-  (`:187`) beside each option of the overlay whose transition rows
+- `internal/tui/fields.go:145` `fieldForm.optionLines` draws that checkbox
+  (`:153`) beside each option of the overlay whose transition rows
   (`statusPicker.transitionRow`, `internal/tui/picker.go:286`) use
   `status` one keystroke earlier.
-- `internal/tui/overlay.go:355` `checklist.choiceRow` draws it beside each
+- `internal/tui/overlay.go:365` `checklist.choiceRow` draws it beside each
   facet, the Issues places among them (`markInFlight`, "in flight",
   `internal/tui/issueplaces.go:25`).
 
@@ -845,7 +859,7 @@ word; type and measure outside the system; ragged rows, an empty form's
 heading and a far-off Copy URL confirm; links, stages and controls that
 tell less than their siblings; and copy settled site by site.
 
-Every pointer here was checked again at `bb42fa3`. A screenshot named
+Every pointer here was checked again at `cac1adf`. A screenshot named
 by its file (`1440-dark-tasks.png`, say) is from a pass on 2026-10-05 over
 every section at 640, 1024 and 1440 px in both themes, of the mock build,
 and like the 2026-09-24 audit's is not in the repository; one that shows a
@@ -894,36 +908,33 @@ cycle, and a channel added there is offered in the announcement preview.
 
 ### UX-88 What the browser could borrow from the interface
 
-Impact: low · Effort: medium
+Impact: low · Effort: small
 
-**Today.** The interface shows a per-file diff under the changes list
-(`loadDiff`, `internal/tui/diff.go:29`), amends (`A`) and fixups (`f`),
-jumps to a failure in `$EDITOR` (`openFailure`,
-`internal/tui/run.go:382`), edits an open pull request
-(`internal/tui/preditor.go`), and cycles the repository's pull-request
-templates (`ctrl+t`). None has a web equivalent, and the web takes the
-first template only (`firstTemplate`, `internal/loop/pull.go:171`); the
-`?` sheet is UX-152's. Four smaller things the terminal shows are
-absent on the web too, none of them among what
-`docs/content/docs/web.md` says stays in the terminal.
+**Today.** The web now reads a file's diff, amends and fixes up, runs
+pre-commit, edits an open pull request and chooses among the repository's
+pull request templates, as the interface does. The interface still jumps
+to a failure in `$EDITOR` (`openFailure`, `internal/tui/run.go:382`),
+which the web has no equivalent of; the `?` sheet is UX-152's. Four
+smaller things the terminal shows are absent on the web too, none of them
+among what `docs/content/docs/web.md` says stays in the terminal.
 
 - A renamed file shows only its new path: `ChangeRow` renders
-  `change.path` alone (`web/src/features/branch/WorkingTree.tsx:98`),
+  `change.path` alone (`web/src/features/branch/WorkingTree.tsx:101`),
   though `changesDTO` sends `OriginalPath`
-  (`internal/webserver/dto.go:175`) and `original_path` is read nowhere in
+  (`internal/webserver/dto.go:181`) and `original_path` is read nowhere in
   `web/src` outside the generated client; the terminal's `changeRows`
-  draws old → new (`internal/tui/commits.go:153`).
+  draws old → new (`internal/tui/commits.go:153`, the arrow at `:159`).
 - The commit subject has no length against `commit.subject_limit`:
   `MessageFields`' Subject is a bare `<Input required placeholder>`
   (`web/src/features/branch/CommitForm.tsx:161`) though `subject_limit` is
   on the wire (`CommitConfig`,
-  `web/src/api/generated/types.gen.ts:1347`); the terminal's
+  `web/src/api/generated/types.gen.ts:1656`); the terminal's
   `commitComposer.view` shows "n/limit" as typed
-  (`internal/tui/composer.go:152`). The limit is met only as a 422 after
-  the click.
+  (`internal/tui/composer.go:152`, the count at `:154`). The limit is met
+  only as a 422 after the click.
 - The Review section has no Copy URL: the title link is the only handle
   on the pull request (`PullRequestSummary`,
-  `web/src/features/review/ReviewPanel.tsx:102`), where the queue's
+  `web/src/features/review/ReviewPanel.tsx:99`), where the queue's
   `CopyURL` one section over has a tested clipboard outcome
   (`web/src/features/reviewqueue/ReviewQueuePanel.tsx:378`) and the
   terminal's `reviewKeys` offer `linkKeys` on the pull request
@@ -940,24 +951,22 @@ absent on the web too, none of them among what
   for a view, not a narrowed one.
 
 An Unstage all is missing on the web as in the terminal — `WorkingTree`
-renders `StageAll` alone (`web/src/features/branch/WorkingTree.tsx:33`)
+renders `StageAll` alone (`web/src/features/branch/WorkingTree.tsx:36`)
 and the staging module has no unstage-all
-(`web/src/features/branch/stagingApi.ts:33`) — so it is FEAT-23's, not an
+(`web/src/features/branch/stagingApi.ts:34`) — so it is FEAT-23's, not an
 idea to borrow. A Push branch offered on the base branch is UX-104's.
 
-**Instead.** In rough order of value: a template select on the
-pull-request form; a diff view; `original_path` drawn before the path
-with an arrow; a muted "n/limit" hint under the subject counting the
+**Instead.** In rough order of value: `original_path` drawn before the
+path with an arrow; a muted "n/limit" hint under the subject counting the
 assembled header; `CopyURL` beside the title with the same "Copied the URL
 of #128." outcome; clearing the search when the view changes.
 
-**Done when.** Each lands with a role/name test; the template select shows
-every repository template; a `WorkingTree` test with a renamed change
-finds both paths in the row; a `CommitForm` test with `subject_limit: 20`
-finds the count text change as the subject is typed; a `ReviewPanel` test
-clicks "Copy URL to #128" and reads the URL back from the clipboard; a
-test types a search, selects another view, and finds the searchbox named
-Search empty once the new frame lands.
+**Done when.** Each lands with a role/name test; a `WorkingTree` test with
+a renamed change finds both paths in the row; a `CommitForm` test with
+`subject_limit: 20` finds the count text change as the subject is typed; a
+`ReviewPanel` test clicks "Copy URL to #128" and reads the URL back from
+the clipboard; a test types a search, selects another view, and finds the
+searchbox named Search empty once the new frame lands.
 
 ### UX-104 The Branch section's push counts what it cannot know, even on the base
 
@@ -970,10 +979,10 @@ what is about to happen, and it is the one that misleads; the two rows
 above it share the defect.
 
 - `PushConfirm` asks "Push {commits} commit(s) to the remote?"
-  (`web/src/features/branch/BranchPanel.tsx:184`), fed
-  `branch.commits.length` by `PushButton` (`:134`): the commits since the
+  (`web/src/features/branch/BranchPanel.tsx:213`), fed
+  `branch.commits.length` by `PushButton` (`:163`): the commits since the
   base, which `BranchSummary`'s own comment calls unknowable without a
-  base (`:52`) and which `canPush` therefore ignores (`:54`). On a branch
+  base (`:62`) and which `canPush` therefore ignores (`:64`). On a branch
   with no base the confirm reads "Push 0 commit(s)" and the push goes
   ahead; four commits since main and one ahead reads "Push 4"; and "the
   remote" never says which.
@@ -984,31 +993,33 @@ above it share the defect.
   (`nothingToPush`, `internal/webserver/push.go:66`), so the count the
   confirm shows is not what the server checks.
 - `BranchSummary` prints "{ahead} ahead, {behind} behind" whatever the
-  upstream (`web/src/features/branch/BranchPanel.tsx:73`), so an
+  upstream (`web/src/features/branch/BranchPanel.tsx:83`), so an
   unpublished branch reads "Upstream none / Tracking 0 ahead, 0 behind"
   over a Push branch button: the numbers say there is nothing to push and
   the button says there is.
 - `Commits` says "No commits yet on this branch." whenever the list is
-  empty (`web/src/features/branch/BranchPanel.tsx:92`), a base of `""`
+  empty (`web/src/features/branch/BranchPanel.tsx:118`), a base of `""`
   included, where the count is unknown.
 - Push branch is offered on the base branch itself: `canPush` needs a
   name and no upstream on the push remote or ahead > 0
-  (`web/src/features/branch/BranchPanel.tsx:54`), and `nothingToPush`
+  (`web/src/features/branch/BranchPanel.tsx:64`), and `nothingToPush`
   accepts main ahead of origin/main (`internal/webserver/push.go:66`),
   where the terminal's `canPush` also requires `onFeatureBranch()`
-  (`internal/tui/branch.go:212`).
+  (`internal/tui/branch.go:210`).
 
 The terminal's last look names the branch and the remote and no count
-(`previewPush`, `internal/tui/branch.go:217`), and its `upstreamState`
-says "not pushed yet" for a branch with no upstream (`:102`).
+(`previewPush`, `internal/tui/branch.go:215`), and its `upstreamState`
+says "not pushed yet" for a branch with no upstream (`:100`).
 
 **Instead.** Word the confirm as the terminal does — "Push fix/PROJ-1 to
 origin?" — naming branch and remote (the branch's `push_remote`) and no
 count; with no upstream the Tracking row says "not pushed yet" and the
 counts appear only once there is one; with no base the Commits section
 says the base is unknown rather than that there are no commits; hide the
-push when `branch.name` equals the base's short name, or move that guard
-into `internal/loop` for both surfaces.
+push when `branch.name` equals the base's short name — the guard
+`internal/loop` now holds as `OnFeatureBranch`
+(`internal/loop/guards.go:45`) for the rebase, the finish and the pull
+request, and which `nothingToPush` could call too.
 
 **Done when.** A `BranchPanel` test with `name: 'fix/PROJ-1'`,
 `commits: []`, `upstream: ''` and `base: ''` opens the confirm and finds
@@ -1024,7 +1035,7 @@ Impact: medium · Effort: small
 **Today.** The CI heading always prints done of total, and the Review
 section's `PullRequestSummary` renders the overall `ci.state` nowhere,
 though the work story does ("#128 · CI running", `reviewDetail`,
-`web/src/features/issues/WorkStory.tsx:191`) — and for state none it
+`web/src/features/issues/WorkStory.tsx:192`) — and for state none it
 prints "CI none" where the terminal says "no checks reported". A GitLab
 user sees a heading that contradicts the row beneath it; a GitHub user
 whose checks have not started sees "0 of 0 done" over nothing and cannot
@@ -1032,8 +1043,8 @@ tell whether CI has not started, is not configured, or failed to load.
 
 - `PullRequestSummary` heads the list "CI checks · {ci.done} of
   {ci.total} done" unconditionally
-  (`web/src/features/review/ReviewPanel.tsx:125`) and renders `ci.state`
-  nowhere; the section draws whenever `ci` is non-null (`:119`), so state
+  (`web/src/features/review/ReviewPanel.tsx:123`) and renders `ci.state`
+  nowhere; the section draws whenever `ci` is non-null (`:117`), so state
   none with no checks is the heading over an empty list.
 - `gitlabStatus` returns Total 0, Done 0, Failed 0 with one pipeline check
   for every GitLab pipeline (`internal/forge/gitlab.go:362`), and `CINone`
@@ -1042,7 +1053,7 @@ tell whether CI has not started, is not configured, or failed to load.
   and `ciTally.ci` yields `CINone` with Total 0 for a GitHub pull with no
   statuses or check runs (`:114`).
 - `ciDTO` copies State, Total, Done and Failed through unchanged
-  (`internal/webserver/dto.go:231`).
+  (`internal/webserver/dto.go:237`).
 - The terminal's `ciSummary` adds "(done of total finished)" only when
   Total is positive (`internal/tui/review.go:239`) and says "no checks
   reported" for `CINone` (`:234`).
@@ -1056,110 +1067,121 @@ mark.
 check finds the heading "CI checks · running" and no "0 of 0"; one with
 state none and no checks finds "No checks reported" and no list role.
 
-### UX-106 Twenty-four controls let keyboard focus fall to the page
+### UX-106 Thirty-two controls let keyboard focus fall to the page
 
 Impact: low · Effort: small
 
-**Today.** Twenty-four controls set native `disabled` while their request
-runs, which drops focus in Chromium and WebKit, and nothing re-takes it.
-A keyboard user who is refused — a dirty tree, a branch that already
+**Today.** Thirty-two controls set native `disabled` while their request
+or run goes, which drops focus in Chromium and WebKit, and nothing re-takes
+it. A keyboard user who is refused — a dirty tree, a branch that already
 exists, the dry-run hold on every Start work press, a Taskwarrior refusal
-— hears the reason and is left at the top of the page.
-`useAsyncAction`'s catch sets the error and the state only
-(`web/src/lib/useAsyncAction.ts:51`), so `onDone` never runs on a refusal
-and the panel's `OutcomeLine` has nothing to follow. Counted from `grep -rn
-"disabled={" web/src --include='*.tsx'`, tests and `aria-disabled`
-excluded: 38 lines, three of them a prop handed down
-(`web/src/features/settings/people/PeopleTable.tsx:99`, `:216`;
-`web/src/features/messaging/TagPicker.tsx:74`), so 35 controls, of which
-24 stay mounted after a refusal with no code that re-takes focus. The
-other eleven: the push (`PushButton` re-focuses its opener on an error,
-`web/src/features/branch/BranchPanel.tsx:123`) and Local data's two
-remove openers, which do the same
-(`web/src/features/settings/people/LocalData.tsx:183`); the announce
-preview's channel select, Cancel, Announce now and tag-group checkboxes
-(`handBack()` runs before `post.run()`,
-`web/src/features/messaging/MessagingPanel.tsx:182`); three controls that
-did not have focus — the pull request form's Cancel
-(`web/src/features/review/ReviewPanel.tsx:311`), a code owner's Forget…
-held while the row's select saves
-(`web/src/features/settings/people/PeopleTable.tsx:223`) and the forget
-confirm's Cancel (`:323`); and a group checkbox held under `--dry-run`
-alone (`web/src/features/settings/people/RepoGroups.tsx:74`). The 24, by
-section:
+— hears the reason and is left at the top of the page, and one who presses
+Run pre-commit is left there for the whole run. `useAsyncAction`'s catch
+sets the error and the state only (`web/src/lib/useAsyncAction.ts:53`), so
+`onDone` never runs on a refusal and the panel's `OutcomeLine` has nothing
+to follow. Counted from `grep -rn "disabled={" web/src --include='*.tsx'`,
+tests and `aria-disabled` excluded: 55 lines. Four name no request — a
+transition not yet chosen (`web/src/features/issues/writes/StatusChangeForm.tsx:46`),
+an edited description's Template
+(`web/src/features/review/OpenPullRequest.tsx:270`), a fixup with no
+commit chosen (`web/src/features/branch/HistoryActions.tsx:209`) and a
+group checkbox under `--dry-run`
+(`web/src/features/settings/people/RepoGroups.tsx:74`) — and three hand a
+prop down (`web/src/features/settings/people/PeopleTable.tsx:99`, `:216`;
+`web/src/features/messaging/TagPicker.tsx:74`), so 48 hold a running
+control. Sixteen of those keep focus or never had it: the push
+(`PushButton` re-focuses its opener on an error,
+`web/src/features/branch/BranchPanel.tsx:152`) and Local data's two remove
+openers (`web/src/features/settings/people/LocalData.tsx:183`); the
+announcement preview's channel select, text box, Edit, Cancel, Announce
+when CI passes, Announce now and group checkboxes (`AnnouncePreview`,
+`web/src/features/messaging/AnnouncePreview.tsx:56`–`:156`;
+`web/src/features/messaging/TagPicker.tsx:286`), whose send hands focus
+back first (`PreviewStep`'s `send`,
+`web/src/features/messaging/MessagingPanel.tsx:248`); and five that did
+not have focus — the Cancels beside a send
+(`web/src/features/review/OpenPullRequest.tsx:166`,
+`web/src/lib/WriteForm.tsx:79`, `web/src/features/branch/HookSetup.tsx:143`,
+`web/src/features/settings/people/PeopleTable.tsx:323`) and a code owner's
+Forget… held while the row's select saves (`:223`) — and `WriteForm`'s
+fieldset (`web/src/lib/WriteForm.tsx:74`), whose fields the send took focus
+from. The 32, by section, counted by line (`WriteForm`'s one send serves
+ten forms):
 
 - Issues: the list row's `RowCheckout`
-  (`web/src/features/issues/IssuesPanel.tsx:498`, alert at `:507`); the
-  story's `CheckoutButton` (`web/src/features/issues/WorkStory.tsx:347`,
-  alert at `:356`) and `StartWorkButton` (`:379`, alert at `:388`), the
-  path every dry-run press takes; `StartInWorktreeButton`
-  (`web/src/features/issues/StartInWorktree.tsx:45`, alert at `:54`) and
-  `SwitchToWorktreeButton` (`:126`, alert at `:136`) — while the
-  worktree offer's own Switch to it beside them holds with `aria-disabled`
-  (`:97`).
-- Branch: `ChangeRow` (`web/src/features/branch/WorkingTree.tsx:106`,
-  alert at `:116`) and `StageAll` (`:139`, alert at `:149`); `CommitForm`'s
-  submit (`web/src/features/branch/CommitForm.tsx:96`, alert at `:104`);
-  `LinkForm`'s Link (`web/src/features/branch/IssueLink.tsx:195`, refusal
-  at `:203`), while Unlink in the same file holds with `aria-disabled`
-  (`:113`).
+  (`web/src/features/issues/IssuesPanel.tsx:498`); the story's
+  `CheckoutButton` (`web/src/features/issues/WorkStory.tsx:348`) and
+  `StartWorkButton` (`:380`), the path every dry-run press takes;
+  `StartInWorktreeButton`
+  (`web/src/features/issues/StartInWorktree.tsx:34`); and the send of
+  every write form (`WriteForm`, `web/src/lib/WriteForm.tsx:82`): Change
+  status, Assign and Log work here, the pull request's four writes and the
+  Branch section's three looks below.
+- Branch: `ChangeRow` (`web/src/features/branch/WorkingTree.tsx:109`) and
+  `StageAll` (`:241`); `CommitForm`'s submit
+  (`web/src/features/branch/CommitForm.tsx:96`); `LinkForm`'s Link
+  (`web/src/features/branch/IssueLink.tsx:195`), while Unlink in the same
+  file holds with `aria-disabled` (`:113`); Rebase onto, Run pre-commit,
+  Amend last commit and Fix up a commit, each off while any run goes
+  (`web/src/features/branch/HistoryActions.tsx:73`, `:132`, `:144`,
+  `:154`); and Set up lefthook's two writes
+  (`web/src/features/branch/HookSetup.tsx:148`, `:157`).
 - Review: `OpenPullRequest`'s compose button
-  (`web/src/features/review/ReviewPanel.tsx:227`, alert at `:236`), whose
-  `handBack()` runs only on the form's cancel; `PullRequestForm`'s submit
-  (`:314`, alert at `:320`), which stays up on a refused open; and
-  `FollowUpOffer`'s button (`web/src/features/review/OpenedOutcome.tsx:85`,
-  alert at `:96`).
-- Messaging: `AnnounceControls`' preview button
-  (`web/src/features/messaging/MessagingPanel.tsx:196`, alert at `:206`);
-  in the tag picker, an untagged owner's select and Not on Slack, held
-  while a link saves (`web/src/features/messaging/TagPicker.tsx:235`,
-  `:256`, alert at `:65`).
+  (`web/src/features/review/OpenPullRequest.tsx:73`); `PullRequestForm`'s
+  submit (`:169`), which stays up on a refused open; and `FollowUpOffer`'s
+  button (`web/src/features/review/OpenedOutcome.tsx:85`).
+- Messaging: `AnnounceControls`' Announce to
+  (`web/src/features/messaging/MessagingPanel.tsx:168`); in the tag
+  picker, an untagged owner's select and Not on Slack, held while a link
+  saves (`web/src/features/messaging/TagPicker.tsx:235`, `:256`); and Stop
+  waiting (`web/src/features/messaging/HeldAnnouncement.tsx:58`).
 - Tasks: `TaskLineForm`'s submit
-  (`web/src/features/tasks/TaskLineForm.tsx:74`, alert at `:78`), every
-  `Verb` — Start, Stop, Mark done and the rest
-  (`web/src/features/tasks/TaskDetail.tsx:247`, alert at `:262`) — and
+  (`web/src/features/tasks/TaskLineForm.tsx:74`); every `Verb` — Start,
+  Stop and the rest (`web/src/features/tasks/TaskDetail.tsx:296`) — and the
+  confirm's own button for Mark done…, Undo… and Sync… (`:283`); and
   `TrackIssue`'s Track in Taskwarrior
-  (`web/src/features/tasks/IssueTasks.tsx:188`, alert at `:196`).
+  (`web/src/features/tasks/IssueTasks.tsx:188`).
 - Settings: the configuration's Try again (`ConfigArea`,
   `web/src/features/settings/SettingsPanel.tsx:59`), its message in an
   `EmptyState` rather than an alert (UX-120); Save (`SaveControls`, `:164`),
   which reports "Saved." through its own `role="status"` span (`:167`), a
   second state machine beside the shared `OutcomeLine`, so a
   mouse-clicked Save disables itself under focus and the span does not
-  take it; the changed-since-read Reload (`ChangedSinceRead`, `:194`,
-  alert at `:202`); a code owner's Slack select
-  (`web/src/features/settings/people/PeopleTable.tsx:260`, alert at
-  `:112`) and the forget confirm's Forget (`:332`, alert at `:316`); and
-  Save groups (`web/src/features/settings/people/RepoGroups.tsx:89`, alert
-  at `:95`).
+  take it; the changed-since-read Reload (`ChangedSinceRead`, `:194`); a
+  code owner's Slack select
+  (`web/src/features/settings/people/PeopleTable.tsx:260`) and the forget
+  confirm's Forget (`:332`); and Save groups
+  (`web/src/features/settings/people/RepoGroups.tsx:89`).
 
-The project already knows the rule, and keeps it in nine places: Load
+The project already knows the rule, and keeps it in ten places: Load
 more (`MoreIssues`, `web/src/features/issues/IssuesPanel.tsx:389`), the
 review queue's Try again (`Queue`,
 `web/src/features/reviewqueue/ReviewQueuePanel.tsx:128`), the Try again
 of every other failed read — the issue, Summary, Repositories and the
 three Settings reads under the form (`Unread`,
 `web/src/lib/Status.tsx:34`) — Show log (`CheckLog`,
-`web/src/features/review/ReviewPanel.tsx:467`), Unlink, Switch to it, the
-comment's send (`web/src/features/issues/CommentComposer.tsx:386`),
-Repositories' Switch
-(`web/src/features/repositories/RepositoriesPanel.tsx:168`) and the Tasks
+`web/src/features/review/Checks.tsx:60`), Show diff
+(`web/src/features/branch/WorkingTree.tsx:170`), Set up lefthook's read
+(`web/src/features/branch/HookSetup.tsx:41`), Unlink, the comment's send
+(`web/src/features/issues/CommentComposer.tsx:401`), every directory
+switch's Switch (`ConfirmSwitch`,
+`web/src/features/repositories/ConfirmSwitch.tsx:55`) and the Tasks
 Refresh (`web/src/features/tasks/TasksPanel.tsx:224`) all hold with
 `aria-disabled`; and `canHoldFocus` treats a disabled control as unable
 to hold focus (`web/src/lib/Outcome.tsx:98`).
 
 **Instead.** Hold each running control with `aria-disabled` (guarding
 `onClick` or `onChange` as `Unread`'s Try again does) so it keeps focus
-through a refusal, and say Settings' save result through `useOutcome` and
-`OutcomeLine` as the other panels do, keeping the changed-since-read
-alert separate.
+through a refusal and a run, and say Settings' save result through
+`useOutcome` and `OutcomeLine` as the other panels do, keeping the
+changed-since-read alert separate.
 
-**Done when.** A test presses each of the twenty-four against a refused
-request and finds `document.activeElement` still on it once the refusal
-is shown; a `SettingsPanel` test clicks Save with the mouse, awaits
-"Saved.", and finds `document.activeElement` on the status line, not
-`document.body`; the grep above finds no `disabled={` that names a
-request's running state.
+**Done when.** A test presses each of the thirty-two against a refused
+request, or a run, and finds `document.activeElement` still on it once
+the refusal or the run's end is shown; a `SettingsPanel` test clicks Save
+with the mouse, awaits "Saved.", and finds `document.activeElement` on the
+status line, not `document.body`; the grep above finds no `disabled={`
+that names a request's running state.
 
 ### UX-107 The web's detached HEAD offers no way out
 
@@ -1168,17 +1190,19 @@ Impact: low · Effort: small
 **Today.** With HEAD detached, the Branch section heads itself "Detached
 HEAD at abcdef1" and then draws the same Base, Upstream and Tracking list,
 Commits and working tree as on a branch, with nothing saying what to do
-next — and Link an issue, the one control below the list, is withheld
-too (`web/src/features/branch/BranchPanel.tsx:78`). The terminal says it:
+next — and the controls below the list, Link an issue and Rebase onto,
+are withheld too (`web/src/features/branch/BranchPanel.tsx:88`, `:89`;
+`canRebase`, `web/src/features/branch/HistoryActions.tsx:17`). The
+terminal says it:
 "Check out a branch, or press b to start one for the selected issue."
 
-- `BranchSummary`, `web/src/features/branch/BranchPanel.tsx:47`: the
-  detached heading (`:49`), followed by the branch's own list (`:66`).
-- `BranchPanel`, `web/src/features/branch/BranchPanel.tsx:31`: renders
+- `BranchSummary`, `web/src/features/branch/BranchPanel.tsx:57`: the
+  detached heading (`:59`), followed by the branch's own list (`:76`).
+- `BranchPanel`, `web/src/features/branch/BranchPanel.tsx:35`: renders
   `BranchSummary`, `Commits` and `WorkingTree` alike for a branch and a
   detached HEAD.
-- `Model.branchDetail`, `internal/tui/branch.go:123`: the terminal's
-  sentence (`:135`, whose literal `b` is UX-96's).
+- `Model.branchDetail`, `internal/tui/branch.go:121`: the terminal's
+  sentence (`:133`, whose literal `b` is UX-96's).
 
 **Instead.** Under the detached heading, one sentence pointing at Issues,
 where Switch branch and Start work live.
@@ -1234,7 +1258,7 @@ Impact: low · Effort: small
 
 **Today.** Each file's staged, partly staged or unstaged tag is a word
 colored `text-success` when staged and muted otherwise (`ChangeRow`,
-`web/src/features/branch/WorkingTree.tsx:99`), with no `StateMark` in the
+`web/src/features/branch/WorkingTree.tsx:102`), with no `StateMark` in the
 file: `1440-light-branch.png` shows "staged" in green and "unstaged" in
 gray beside each file, and a conflict shows kind "conflicted" and tag
 "unstaged" with no failed mark. It is the one state on the web drawn as a
@@ -1242,7 +1266,7 @@ colored word, bypassing `StateMark` (`web/src/shell/StateMark.tsx:36`),
 which the settled system says every state goes through; `text-success`
 elsewhere colors outcome lines, not a thing's state. The Review section's
 State, Mergeable and Changes requested rows (`PullRequestSummary`,
-`web/src/features/review/ReviewPanel.tsx:113`; `ReviewRows`, `:159`) and
+`web/src/features/review/ReviewPanel.tsx:110`; `ReviewRows`, `:157`) and
 the queue's "Draft" among a row's facts
 (`web/src/features/reviewqueue/ReviewQueuePanel.tsx:314`) are states drawn
 as plain words with no mark too, uncolored. The terminal's `stageGlyph`
@@ -1325,18 +1349,18 @@ that its focus can be seen.
   `--primary` (`:86`).
 - The `primary` variant of `Button` (`web/src/lib/Button.tsx:10`) is
   `bg-primary`, and every button shares `focus-visible:ring-ring` and
-  `outline-none` with no offset (`:25`); fifteen buttons draw through the
-  variant, among them `SaveControls`' submit
+  `outline-none` with no offset (`:25`); seventeen buttons draw through
+  the variant, among them `SaveControls`' submit
   (`web/src/features/settings/SettingsPanel.tsx:164`), `CommitForm`'s
   submit (`web/src/features/branch/CommitForm.tsx:93`), `PushConfirm`'s
-  Push (`web/src/features/branch/BranchPanel.tsx:188`) beside a Cancel
-  (`:185`) whose ring is visible, `OpenPullRequest`'s button
-  (`web/src/features/review/ReviewPanel.tsx:224`), `StartWorkButton`
-  (`web/src/features/issues/WorkStory.tsx:377`), the comment's send
-  (`web/src/features/issues/CommentComposer.tsx:386`), and
+  Push (`web/src/features/branch/BranchPanel.tsx:217`) beside a Cancel
+  (`:214`) whose ring is visible, `OpenPullRequest`'s button
+  (`web/src/features/review/OpenPullRequest.tsx:70`), `StartWorkButton`
+  (`web/src/features/issues/WorkStory.tsx:378`), the comment's send
+  (`web/src/features/issues/CommentComposer.tsx:401`), and
   `AnnouncePreview`'s Announce now
-  (`web/src/features/messaging/MessagingPanel.tsx:324`) beside a Cancel
-  (`:321`) whose ring is visible.
+  (`web/src/features/messaging/AnnouncePreview.tsx:156`) beside a Cancel
+  (`:148`) whose ring is visible.
 - The calendar's picked day is drawn the same way: `bg-primary` with
   `focus-visible:ring-ring` (`DayCell`,
   `web/src/features/summary/MonthGrid.tsx:161`), so the day in focus,
@@ -1364,21 +1388,21 @@ what heads a part of a panel (the comment over `--text-*`, `:181`). Three
 places set type against that.
 
 - `WorkStory` draws each stage's detail as a plain `text-sm` sans `Meta`
-  (`web/src/features/issues/WorkStory.tsx:321`), and the detail carries
-  `branch.name` from `offHeadStages` (`:91`) and `onHeadStages` (`:111`),
+  (`web/src/features/issues/WorkStory.tsx:322`), and the detail carries
+  `branch.name` from `offHeadStages` (`:92`) and `onHeadStages` (`:112`),
   so the story's Branch stage shows "fix/PROJ-412-redact-tokens · 3
   ahead" in the sans muted foreground; `storyNote`'s "In progress on
-  {branch}" (`:213`) is sans too. The Branch section's heading sets the
+  {branch}" (`:214`) is sans too. The Branch section's heading sets the
   same name in `font-mono` (`BranchSummary`,
-  `web/src/features/branch/BranchPanel.tsx:62`); `1440-dark-issues.png`
+  `web/src/features/branch/BranchPanel.tsx:72`); `1440-dark-issues.png`
   and `1440-light-branch.png` show the sans name and the mono heading one
   click apart.
 - Each stage title is `font-medium` with no size (`WorkStory`,
-  `web/src/features/issues/WorkStory.tsx:319`), so base, over a `text-sm`
+  `web/src/features/issues/WorkStory.tsx:320`), so base, over a `text-sm`
   detail: "Branch", "Changes", "Pull request" and "Announce" read at the
   size of the h3 "Work story" above them (`IssueDetailPanel`,
-  `web/src/features/issues/IssueDetailPanel.tsx:59`, `sectionHeading`
-  `text-base font-semibold` at `:17`), differing only in weight, as
+  `web/src/features/issues/IssueDetailPanel.tsx:61`, `sectionHeading`
+  `text-base font-semibold` at `:18`), differing only in weight, as
   `1440-dark-issues.png` shows.
 - A queue row's title is `font-medium` with no size class (`RequestRow`,
   `web/src/features/reviewqueue/ReviewQueuePanel.tsx:308`), while issue
@@ -1421,27 +1445,27 @@ width above it is open.
 - `Queue` is `max-w-3xl`
   (`web/src/features/reviewqueue/ReviewQueuePanel.tsx:112`) where Branch,
   Review, Messaging and the Settings form are `max-w-2xl`
-  (`web/src/features/branch/BranchPanel.tsx:32`,
-  `web/src/features/review/ReviewPanel.tsx:58`,
+  (`web/src/features/branch/BranchPanel.tsx:36`,
+  `web/src/features/review/ReviewPanel.tsx:52`,
   `web/src/features/messaging/MessagingPanel.tsx:33`,
   `web/src/features/settings/SettingsPanel.tsx:140`, and Settings' two
   areas below it, `web/src/features/settings/people/PeopleAndGroups.tsx:14`
   and `web/src/features/settings/people/LocalData.tsx:19`), and `Read` is
-  `max-w-prose` (`web/src/features/repositories/RepositoriesPanel.tsx:72`),
+  `max-w-prose` (`web/src/features/repositories/RepositoriesPanel.tsx:67`),
   65 characters of the body face rather than a width; no comment
   justifies either.
 - `ListAndDetail` holds the issue list at `lg:w-80 lg:shrink-0` with no
   larger breakpoint (`web/src/features/issues/IssuesPanel.tsx:159`), so it
   stays 320 px at 1440 and, in `1440-dark-issues.png`, six of the seven
   mock summaries wrap to two lines or three; the Tasks list is the same
-  (`web/src/features/tasks/TasksPanel.tsx:335`).
+  (`web/src/features/tasks/TasksPanel.tsx:343`).
 - The issue detail column is `min-w-0 flex-1` with no `max-w`
   (`web/src/features/issues/IssuesPanel.tsx:177`), and `Description`'s
   `<p>` has no measure of its own
-  (`web/src/features/issues/IssueDetailPanel.tsx:149`); a real Jira
+  (`web/src/features/issues/IssueDetailPanel.tsx:151`); a real Jira
   description at 1440 px would be set at roughly 150 characters a line
   where the other sections stop at 672 px. The task detail
-  (`web/src/features/tasks/TasksPanel.tsx:338`) and the Summary grid's
+  (`web/src/features/tasks/TasksPanel.tsx:346`) and the Summary grid's
   right column (`web/src/features/summary/SummaryPanel.tsx:41`) are the
   same.
 
@@ -1487,13 +1511,13 @@ Impact: low · Effort: small
 by the commit form; the only words about the empty tree are "Clean —
 nothing to commit." beside the disabled button at the form's foot, where
 `Commits` says "No commits yet on this branch." under its heading
-(`web/src/features/branch/BranchPanel.tsx:92`). In a 1024 px dark
+(`web/src/features/branch/BranchPanel.tsx:118`). In a 1024 px dark
 screenshot of the production build's empty Branch section, taken in the
 2026-09-24 audit, the eye lands on four empty fields under "Working tree"
 and reads why only after scrolling past them. `WorkingTree` renders
 nothing between the heading and the form when `changes` is empty
-(`web/src/features/branch/WorkingTree.tsx:26`); the explanation is
-`commitBlocker`'s line (`:61`), which `CommitForm` shows beside the
+(`web/src/features/branch/WorkingTree.tsx:29`); the explanation is
+`commitBlocker`'s line (`:64`), which `CommitForm` shows beside the
 disabled submit, below the fields
 (`web/src/features/branch/CommitForm.tsx:101`).
 
@@ -1518,7 +1542,7 @@ chips, out of the eye's path from the button — two rows of chips in
 (`web/src/features/issues/IssuesPanel.tsx:483`, line at `:107`), but a
 switch changes the row on the next snapshot; a copy changes nothing near
 the button. The working tree's per-row `OutcomeLine` (`ChangeRow`,
-`web/src/features/branch/WorkingTree.tsx:114`) shows the nearer pattern.
+`web/src/features/branch/WorkingTree.tsx:117`) shows the nearer pattern.
 
 **Instead.** Give each row its own `OutcomeLine` under its controls, as
 `ChangeRow` does.
@@ -1531,17 +1555,18 @@ the row's listitem.
 Impact: low · Effort: small
 
 **Today.** `keepSecret` treats an emptied secret field as "keep the stored
-value" (`internal/webserver/config.go:385`) and `preserveSecrets` applies
-it to all six secrets and every Jira header value
-(`internal/webserver/config.go:357`), so Settings has no way to clear
+value" (`internal/config/redact.go:185`) and `KeepStored` applies it to
+all six secrets and every Jira header value (`:157`) for every save
+through `config.SaveEdit` (`internal/config/save.go:337`) — the web's and,
+now, the terminal's Settings alike — so neither has a way to clear
 `jira.token`, `messaging.client_secret`, `messaging.refresh_token`,
 `messaging.webhook_url` or `forge.token`: clearing one in the form and
 saving keeps it, and moving from a user token to a webhook leaves the old
 client secret and refresh token in the file, to be removed by hand. The
 keep is documented — `updateConfig` says an empty or masked secret field
-keeps the stored secret (`api/openapi.yaml:527`), and the web page says
+keeps the stored secret (`api/openapi.yaml:1018`), and the web page says
 under "Settings" that a credential is "kept as it is unless you type a new
-one" (`docs/content/docs/web.md:349`) — but no clear is offered anywhere.
+one" (`docs/content/docs/web.md:446`) — but no clear is offered anywhere.
 UX-87 covers sections the form cannot show, not clearing a secret.
 
 **Instead.** Accept an explicit clear — a `null` for the secret fields in
@@ -1592,16 +1617,16 @@ header versus content, browser versus terminal.
 
 - The web has no plural helper, where the terminal's `plural` counts in
   words (`internal/tui/render.go:496`): `changesDetail` says "{n} file(s)
-  to commit" (`web/src/features/issues/WorkStory.tsx:174`; "3 file(s) to
+  to commit" (`web/src/features/issues/WorkStory.tsx:175`; "3 file(s) to
   commit" in `1440-dark-issues.png`), `PushConfirm` "Push {commits}
-  commit(s) to the remote?" (`web/src/features/branch/BranchPanel.tsx:184`;
+  commit(s) to the remote?" (`web/src/features/branch/BranchPanel.tsx:213`;
   the count itself is UX-104), and `filterOutcome` "{shown} of {loaded}
   loaded issues match." (`web/src/features/issues/IssuesPanel.tsx:433`),
   so "1 … match." disagrees in number; meanwhile three sites count
   correctly inline, each its own way (`queueSummary`,
   `web/src/features/reviewqueue/ReviewQueuePanel.tsx:182`; the task count,
-  `web/src/features/tasks/TasksPanel.tsx:275`; the comment's characters,
-  `web/src/features/issues/CommentComposer.tsx:383`).
+  `web/src/features/tasks/TasksPanel.tsx:283`; the comment's characters,
+  `web/src/features/issues/CommentComposer.tsx:398`).
 - `loadOutcome` ends "4 of 5 loaded" without a period
   (`web/src/features/issues/IssuesPanel.tsx:415`) and "All 5 loaded." with
   one (`:418`).
@@ -1610,25 +1635,25 @@ header versus content, browser versus terminal.
   `web/src/features/branch/CommitForm.tsx:164`), "comma-separated
   usernames or org/team", "comma-separated usernames" and
   "comma-separated labels" (`ProposalFields`,
-  `web/src/features/review/ReviewPanel.tsx:360`, `:365`, `:370`), against
+  `web/src/features/review/OpenPullRequest.tsx:215`, `:220`, `:225`), against
   "Key or summary" (`web/src/features/issues/IssueListControls.tsx:23`),
   "Text, +tag, issue or #id"
   (`web/src/features/tasks/TaskListControls.tsx:66`) and "Write a
-  comment…" (`web/src/features/issues/CommentComposer.tsx:157`).
+  comment…" (`web/src/features/issues/CommentComposer.tsx:172`).
 - The list row's Switch branch says "Switching…" while it runs
   (`RowCheckout`, `web/src/features/issues/IssuesPanel.tsx:504`) but keeps
   its `aria-label` "Switch branch for KEY" (`:497`), so a keyboard user's
   visible word is not in the button's accessible name, where a file's
   Stage words its label by the same state
-  (`web/src/features/branch/WorkingTree.tsx:105`).
+  (`web/src/features/branch/WorkingTree.tsx:108`).
 - The never-done Announce stage is "Not announced" off HEAD
-  (`notStartedStages`, `web/src/features/issues/WorkStory.tsx:80`;
-  `offHeadStages`, `:94`) and an imperative on it: `announceDetail` reads
-  "Announce to {channel}" (`:168`), on a button that opens the messaging
+  (`notStartedStages`, `web/src/features/issues/WorkStory.tsx:81`;
+  `offHeadStages`, `:95`) and an imperative on it: `announceDetail` reads
+  "Announce to {channel}" (`:169`), on a button that opens the messaging
   section — "Announce to #dev-workflow" in `1440-dark-issues.png`.
 - A missing base is "—" (`BranchSummary`,
-  `web/src/features/branch/BranchPanel.tsx:68`) beside a missing upstream
-  "none" (`:70`); Repositories says "None" for a missing origin
+  `web/src/features/branch/BranchPanel.tsx:78`) beside a missing upstream
+  "none" (`:80`); Repositories says "None" for a missing origin
   (`web/src/features/repositories/WorkingIn.tsx:43`).
 - `SectionPanel` says "Connecting to workflow…" while the snapshot is null
   (`web/src/shell/SectionPanel.tsx:42`), never reading the stream's
@@ -1691,12 +1716,13 @@ say.
 
 - In the Review section `PullRequestSummary`'s title link opens the forge
   in a new tab (`target="_blank"`,
-  `web/src/features/review/ReviewPanel.tsx:104`) with `{pull.title}` as
-  its whole accessible name (`:108`) and only `underline-offset-4
-  hover:underline` for a class (`:106`): no `text-primary`, no icon, no
+  `web/src/features/review/ReviewPanel.tsx:101`) with `{pull.title}` as
+  its whole accessible name (`:105`) and only `underline-offset-4
+  hover:underline` for a class (`:103`): no `text-primary`, no icon, no
   new-tab note, no focus-visible ring. The Issue row's link (`IssueRow`,
-  `:400`) and each CI check's name (`CheckRow`, `:427`) are the same, and
-  a check without a URL is bare text (`:425`) that looks identical. The
+  `:182`) and each CI check's name (`CheckRow`,
+  `web/src/features/review/Checks.tsx:22`) are the same, and a check
+  without a URL is bare text (`:20`) that looks identical. The
   Summary's activity links (`ActivityLine`,
   `web/src/features/summary/ActivityList.tsx:114`) are underlined and
   ringed but carry no new-tab note either. On the Review screenshots
@@ -1706,14 +1732,14 @@ say.
   them is moved to a new tab unwarned. The page's other three outbound
   links carry all of it: the queue's Open (`RequestRow`,
   `web/src/features/reviewqueue/ReviewQueuePanel.tsx:321`), Open in Jira
-  (`IssuePeople`, `web/src/features/issues/IssueDetailPanel.tsx:125`) and
-  the task's issue link (`web/src/features/tasks/TaskDetail.tsx:131`),
+  (`IssuePeople`, `web/src/features/issues/IssueDetailPanel.tsx:127`) and
+  the task's issue link (`web/src/features/tasks/TaskDetail.tsx:132`),
   each with the `ExternalLink` icon and the sr-only "(opens in a new
   tab)".
 - Each work-story stage is a button that calls `setSection` (`WorkStory`,
-  `web/src/features/issues/WorkStory.tsx:312`), yet it is styled only with
-  `hover:bg-accent` and a focus ring (`:317`) and its sr-only span carries
-  the state alone (`:320`): nothing at rest or in its name says it
+  `web/src/features/issues/WorkStory.tsx:313`), yet it is styled only with
+  `hover:bg-accent` and a focus ring (`:318`) and its sr-only span carries
+  the state alone (`:321`): nothing at rest or in its name says it
   navigates, though `docs/content/docs/web.md:96` promises under "Issues"
   each "step opening the section it belongs to", so the story reads as a
   plain timeline in `1440-dark-issues.png`.
@@ -1788,7 +1814,7 @@ Settings is opened rarely, which is why this is low.
   `MarshalIndent` of the whole struct writes the empty value
   (`internal/config/save.go:161`).
 - `MessagingConfig`'s `kind` `enum` is `["", slack, teams, discord,
-  webhook]` (`api/openapi.yaml:3371`), so the spec allows what the select
+  webhook]` (`api/openapi.yaml:4404`), so the spec allows what the select
   cannot show; the mock the screenshots show has `title_source: ''`
   (`web/src/dev/mockConfig.ts:57`).
 
@@ -1871,49 +1897,16 @@ preview and a refused write.
 
 ## Across the surfaces
 
-What is open here is a fresh base on the web; GitHub- and
-terminal-shaped sentences; failed reads told as empty answers; sentences
-that disagree; writes that skip the last look the rule asks for, and looks
-the rule does not; docs that drift from the screen; and three lists of
-what one surface can do and another cannot. The names the three surfaces
-share are the Vocabulary table's, at the head of this file.
+What is open here is GitHub- and terminal-shaped sentences, failed reads
+told as empty answers, and sentences that disagree. What each surface can
+do is the table at the head of this file, and the names the three
+surfaces share are the Vocabulary table's beside it.
 
 The rule the last looks follow was chosen by the maintainer: **confirm
 what leaves the machine or cannot be undone; a reversible local toggle
 acts at once.** The parity rule beside it: the terminal and the web cover
 the loop, each for browsing; the command line covers one-shot and scripted
 work, with `--json`, and is not a browser.
-
-### UX-89 A fresh base on the web
-
-Impact: low · Effort: small
-
-**Today.** The rest of this has shipped: the web makes a worktree (Start
-work in a new worktree, `StartInWorktreeButton`,
-`web/src/features/issues/StartInWorktree.tsx:31`, over `POST
-/api/worktrees`), and `workflow branch` takes `--fetch` and `--worktree`
-(`newBranchCmd`, `internal/cli/branch.go:81`, `:83`). What is still open
-is the web's base:
-
-- The web fetches nothing first: `startWork`
-  (`internal/webserver/branchcreate.go:90`) and `CreateWorktree` (`:178`)
-  both start from `currentBranchBase()` (`:134`), the base as it was last
-  fetched, and the server's `Deps` has no fetch seam.
-- The terminal and the command line both fetch first: the branch creator
-  before it creates (`branchCreator.create`, `internal/tui/branch.go:451`,
-  `willFetch` `:468`), offering "branch from what you have" when the fetch
-  fails (`:391`), and `runBranch` under `--fetch`
-  (`internal/cli/branch.go:198`), each its own composition, none in
-  `internal/loop`.
-
-**Instead.** A fetch before the web's start-work and worktree writes, with
-the terminal's "branch from what you have" as the refusal's way out —
-best over one composition in `internal/loop` that all three surfaces
-call.
-
-**Done when.** A webserver test with a fetch seam that fails gets a
-problem naming the fetch, and one that succeeds sees the fetch before
-`CreateBranch`.
 
 ### UX-126 Sentences that assume GitHub or the terminal, told elsewhere
 
@@ -1963,7 +1956,7 @@ key it does not have.
   (`internal/tui/failure.go:55`), that a full form names no key to press.
   The web, for its part, drops the reason and says "announce from a
   terminal to see its reason" (`messagingFaults`,
-  `internal/webserver/errors.go:327`).
+  `internal/webserver/errors.go:328`).
 
 **Instead.** Carry the forge `Kind` on `reviewsSeams` and `standupSeams`
 as `prSeams` and `announceSeams` already do, and word every fixed "pull
@@ -2025,33 +2018,33 @@ Retry.
   `standup --json` becomes `summary --json`.
 - `server.snapshot`, `internal/webserver/stream.go:186`: its doc comment
   codifies the rule — a seam that fails yields an empty panel, the
-  forge's keeping its last answer. `snapshotIssues` (`:344`) returns an
-  empty first page when `Search` fails (`:351`); `frameBranch` (`:209`)
-  answers an empty `gitrepo.Branch{}` when the read fails (`:211`), which
-  `snapshot` hands to `branchDTO` (`:191`) and which makes
-  `snapshotReview` answer not found (`:374`); `snapshotChanges` (`:360`)
-  answers `changesDTO(nil)`. `forgeReview` (`:383`) keeps the answer it
-  holds for the branch at its head when a read fails (`:402`); with none
+  forge's keeping its last answer. `snapshotIssues` (`:354`) returns an
+  empty first page when `Search` fails (`:361`); `frameBranch` (`:219`)
+  answers an empty `gitrepo.Branch{}` when the read fails (`:221`), which
+  `snapshot` hands to `branchDTO` (`:198`) and which makes
+  `snapshotReview` answer not found (`:384`); `snapshotChanges` (`:370`)
+  answers `changesDTO(nil)`. `forgeReview` (`:393`) keeps the answer it
+  holds for the branch at its head when a read fails (`:412`); with none
   held it keeps and serves `readForge`'s empty review for an interval
-  (`:407`) — indistinguishable from no pull request.
-- `Review`, `api/openapi.yaml:2901`: carries `found`, `pull`, `ci` and
-  `issue` only, and `Snapshot` (`api/openapi.yaml:2619`) has no per-panel
-  problem.
+  (`:417`) — indistinguishable from no pull request.
+- `Review`, `api/openapi.yaml:3783`: carries `found`, `pull`, `ci`,
+  `issue` and `announced` only, and `Snapshot`
+  (`api/openapi.yaml:3480`) has no per-panel problem.
 - `server.review`, `internal/webserver/handlers.go:245`: a `CheckCI`
   error drops `ci` from the answer (`:260`), which the stream fills only
   with the CI it holds for the same pull request
-  (`internal/webserver/stream.go:404`); `PullRequestSummary`
-  (`web/src/features/review/ReviewPanel.tsx:83`) renders nothing for a
-  null `ci` (`:119`), where the terminal's `Model.reviewDetail`
+  (`internal/webserver/stream.go:414`); `PullRequestSummary`
+  (`web/src/features/review/ReviewPanel.tsx:78`) renders nothing for a
+  null `ci` (`:117`), where the terminal's `Model.reviewDetail`
   (`internal/tui/review.go:281`) shows the CI failure under the pull
   request (`:319`).
-- `BranchReview`, `web/src/features/review/ReviewPanel.tsx:47`: `found`
-  false falls through to the `OpenPullRequest` form (`:69`), so a forge
+- `BranchReview`, `web/src/features/review/ReviewPanel.tsx:41`: `found`
+  false falls through to the `OpenPullRequest` form (`:64`), so a forge
   outage offers to open a pull request. The offer is wrong copy, not a
-  wrong write: `ComposePull`'s doc comment (`internal/loop/pull.go:72`)
+  wrong write: `ComposePull`'s doc comment (`internal/loop/pull.go:76`)
   lets a forge that cannot say through, and the open lands on the forge's
   own answer.
-- `BranchPanel`, `web/src/features/branch/BranchPanel.tsx:22`: an empty
+- `BranchPanel`, `web/src/features/branch/BranchPanel.tsx:26`: an empty
   name with `detached` false says "This directory is not a Git
   repository", which a failed read also produces; `StreamStatus`
   (`web/src/shell/StreamStatus.tsx:17`) sets Out of date only for an
@@ -2097,7 +2090,7 @@ Impact: low · Effort: small
 
 **Today.** Four things are said two or three ways.
 
-- `ErrDirtyTree`, `internal/loop/guards.go:16`: "the working tree has
+- `ErrDirtyTree`, `internal/loop/guards.go:17`: "the working tree has
   uncommitted changes"; `errDirtyTree`, `internal/tui/switchtask.go:25`,
   is a second sentence ("uncommitted changes — commit or stash them
   before switching branches"), and `errDirtyTree`,
@@ -2111,15 +2104,16 @@ Impact: low · Effort: small
   (`announcePrompt`, `:226`) and the done notice (`:192`) — where
   `Messaging.Target`, `internal/config/config.go:284`, says "(no channel
   set)" (`:287`) and "the channel its webhook is bound to" (`:292`), which
-  the interface's notice uses (`internal/tui/messagingpreview.go:245`),
+  the interface's notice uses (`internal/tui/messagingpreview.go:240`),
   and the web's announce says "Announced to SERVICE." for a webhook
-  (`web/src/features/messaging/MessagingPanel.tsx:226`). With a user
+  (`web/src/features/messaging/MessagingPanel.tsx:318`). With a user
   token and no channel the command line's preview claims a channel that
   does not exist, and the post then fails.
-- `placeholder`, `internal/tui/fields.go:99`: returns `dateLayout`
-  (`:101`), Go's reference date `2006-01-02` (`:36`), as the hint, while
-  `errNeedsDate`, `:29`, says "must be a date like 2026-09-21" — the hint
-  reads as a stale date rather than a shape.
+- `placeholder`, `internal/tui/fields.go:72`: returns `jira.DateLayout`
+  (`:74`), Go's reference date `2006-01-02`
+  (`internal/jira/fields.go:32`), as the hint, while `jira.ErrNeedsDate`
+  (`internal/jira/fields.go:20`) says "must be a date like 2026-09-21" —
+  the hint reads as a stale date rather than a shape.
 - `Model.messagingDetail`, `internal/tui/messaging.go:160`: "SERVICE is
   not set up" and "to ~/" + `config.FileName` (`:162`), with a literal
   newline mid-sentence that `wrap` re-breaks, where `messagingErrors`'
@@ -2134,7 +2128,7 @@ or stash them before switching") and have both surfaces render it
 through their failure voice, dropping the two local sentinels; drop
 `announceTarget` for `seams.Messaging.Target()` on the `to` line, the
 dry-run line and the done notice; one example in `placeholder` and
-`errNeedsDate` (from the fake-able clock, or a plain `YYYY-MM-DD` in
+`jira.ErrNeedsDate` (from the fake-able clock, or a plain `YYYY-MM-DD` in
 both); `config.FileName`
 without the `~/` and the embedded newline, letting the
 `messaging.ErrNoCredential` wording serve both places.
@@ -2148,78 +2142,6 @@ tests; `TestAnnounceDryRunComposesTheReadyMoment`
 `:80`) agree on one example; `TestTheSlackPaneNamesWhatItNeedsWhenUnset`
 (`internal/tui/messaging_test.go:531`) refuses `~/` and the pane and the
 failure wording name the same settings.
-
-### UX-148 Docs that drift from the screen
-
-Impact: low · Effort: small
-
-**Today.** Three pages say less, or other, than the screen.
-
-- The example screen in "The screen", `docs/content/docs/usage.md:34`–
-  `:61`, draws seven panes, 1 Issues to 7 Tasks, though the rail it
-  introduces is "the nine panes" (`:71`) and `paneCount` is 9
-  (`internal/tui/panes.go:36`): Summary and Repositories are missing.
-- The pane table in the same page numbers every pane but two: "| Summary
-  |" (`docs/content/docs/usage.md:188`) and "| Repositories |" (`:194`)
-  have no number, where "6 Reviews" (`:171`) and "7 Tasks" (`:175`) do,
-  and `1`–`9` reach them (`:130`).
-- "Review", `docs/content/docs/web.md:154`: the state is "Draft or Ready
-  for review while it is open, Merged once it has merged", but
-  `stateLabel` also says "Closed"
-  (`web/src/features/review/ReviewPanel.tsx:153`); and the issue the pull
-  request is for is listed among what shows "while it is open"
-  (`docs/content/docs/web.md:155`–`:157`), but `IssueRow` is drawn in
-  every state (`web/src/features/review/ReviewPanel.tsx:112`), only the
-  review rows waiting on `state === 'open'` (`:115`).
-
-**Instead.** Redraw the example at nine panes (a taller screen, or the
-lower panes folded to their title lines, as the rail does when rows run
-short); number the two rows "8 Summary" and "9 Repositories"; in web.md,
-"Draft or Ready for review while it is open, Merged or Closed once it is
-not", with the issue moved out of the open-only sentence.
-
-**Done when.** The example screen holds nine titled panes; `grep -n '^|
-[A-Z]' docs/content/docs/usage.md` finds no pane row without its number;
-web.md names Closed and lists the issue outside "While it is open".
-
-### UX-149 What the web cannot do that the terminal can
-
-Impact: medium · Effort: large
-
-**Today.** By the parity rule the web should cover the loop. Checked
-against `api/openapi.yaml`'s operations and `web/src`, these the terminal
-does and the web cannot, by stage. `docs/content/docs/web.md:406`, "What
-stays in the terminal", lists most of them as decisions for now.
-
-- **Git.** Rebase onto the base (`u`, `previewRebase`,
-  `internal/tui/branch.go:229`): no entry yet. Amend and fix up (`A`, `f`,
-  `internal/tui/commits.go:374`, `internal/tui/picker.go:438`) and a
-  file's diff (`internal/tui/diff.go:29`): UX-88. Run pre-commit on its
-  own (`h`, `internal/tui/commits.go:318`) and set up lefthook (`g`,
-  `openHookgen`, `internal/tui/hookgen.go:56`): no entry yet.
-- **The forge.** Edit an open pull request (`e`), merge (`M`), finish a
-  merged branch (`F`) and re-run failed CI (`R`): FEAT-79. Read the log of
-  any check the forge keeps one for: the web offers Show log on a failed
-  check alone (`CheckRow`, `web/src/features/review/ReviewPanel.tsx:442`),
-  the terminal's checks overlay on every check with a log
-  (`internal/tui/checks.go:105`): no entry yet. Choose among the
-  repository's pull request templates (`ctrl+t`): UX-88, with UX-62 for
-  the command line.
-- **Messaging.** Know an announcement was already made: FEAT-84.
-- **Everywhere.** A sheet of every key, `?`
-  (`internal/tui/help.go`), and reaching any action without the mouse
-  beyond Tab: UX-152.
-
-**Instead.** Nothing here beyond the entries named: this list is the
-index, so the next edition can strike a row as its entry ships. The issue
-writes and the announcement's edit and wait for CI have shipped. Three
-rows have no entry yet — rebase, pre-commit and lefthook, a log for any
-check — and each would be a FEATURES.md entry
-in its stage's section, an endpoint and a section control over the seam
-the terminal already calls.
-
-**Done when.** Every row names an entry, and web.md's "What stays in the
-terminal" lists the same rows, no more and no fewer.
 
 ## New ideas
 
@@ -2243,15 +2165,15 @@ Impact: medium · Effort: medium
 **Today.** The web is reached by Tab and the mouse alone. No section
 listens for a key outside its own fields — the only `onKeyDown` handlers
 are the comment composer's and the calendar grid's
-(`web/src/features/issues/CommentComposer.tsx:244`,
+(`web/src/features/issues/CommentComposer.tsx:259`,
 `web/src/features/summary/MonthGrid.tsx:159`) — and nothing lists what
 the keyboard can do. The terminal's every action has a name and a key,
 generated into its `?` sheet (`helpBuilder.place`,
-`internal/tui/keys.go:159`; the bindings, `:226`–`:384`), and `ui.keys`
+`internal/tui/keys.go:162`; the bindings, `:229`–`:393`), and `ui.keys`
 moves any of them (`UI.Keys`, `internal/config/ui.go:47`), a map the API
-already carries (`UIConfig.keys`, `api/openapi.yaml:3438`) and the web
+already carries (`UIConfig.keys`, `api/openapi.yaml:4471`) and the web
 server already checks through the terminal's own `tui.CheckKeys`
-(`internal/cli/web.go:121`). Someone fluent in the terminal starts over
+(`internal/cli/web.go:120`). Someone fluent in the terminal starts over
 in the browser.
 
 **Instead.** Three parts, one source.
@@ -2298,9 +2220,9 @@ with `workflow config init`." (`configErrorStatus`,
 `internal/tui/render.go:483`, from `config.NoConfigHeadline` and
 `config.InitStep`, `internal/config/config.go:22`, `:24`) and nothing
 else to do; `workflow --web` with no file prints "configuration did not
-load cleanly" on stderr (`serveWeb`, `internal/cli/web.go:151`; UX-91)
+load cleanly" on stderr (`serveWeb`, `internal/cli/web.go:179`; UX-91)
 and serves a page whose Settings edits a file that exists
-(`docs/content/docs/web.md:434`, "What stays in the terminal"). The
+(`docs/content/docs/web.md:518`, "What stays in the terminal"). The
 questions `config init` asks — Jira's address and token, checked
 against Jira before they are kept, then a messaging webhook
 (`runGuidedInit`, `internal/cli/config_cmd.go:268`; `collectJira`,
@@ -2319,7 +2241,7 @@ first, and `PUT /api/config` allowed to create the file it names; the
 stderr line names `workflow config init` as UX-91 asks. A credential
 typed in the browser travels only to the loopback server, which the
 same-origin guard already holds, and is masked in every answer.
-`internal/tui` is at its file budget (57 of 57,
+`internal/tui` is at its file budget (60 of 60,
 `scripts/package-size-budgets.txt`), so the terminal's form needs a
 budget bump with its reason, or a home in an existing file.
 
@@ -2339,7 +2261,7 @@ reader needs more than that. The interface redraws one full screen of
 boxes each frame (`view.AltScreen = true`, `internal/tui/render.go:38`),
 so a reader re-reads the rail, the borders and the footer at every
 change, and the one line that says what just happened — the notice
-(`Model.noticed`, `internal/tui/overlay.go:175`) — sits among them.
+(`Model.noticed`, `internal/tui/overlay.go:181`) — sits among them.
 
 **Instead.** `ui.screen: lines` (and `--plain` for one run): no
 alternate screen, no rail, no boxes; the interface prints, and each
