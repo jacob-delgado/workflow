@@ -51,7 +51,7 @@ func (m Model) screen() string {
 	body := m.detailView(shape)
 
 	if !shape.Collapsed() {
-		body = lipgloss.JoinHorizontal(lipgloss.Top, m.rail(shape.Rail), body)
+		body = lipgloss.JoinHorizontal(lipgloss.Top, m.rail(shape), body)
 	}
 
 	rows := []string{m.spine(shape), body}
@@ -95,13 +95,15 @@ const railRuleRows = 1
 // rail draws the stacked panes as one shared box. The focused pane's rules and
 // sides are drawn heavy — unless an overlay has the keyboard, or its list lives
 // in the detail, which then carries the heavy border, so there is never a
-// second. The focused pane's title is bold either way.
-func (m Model) rail(boxes []layout.Box) string {
+// second. A borderless detail carries none, so there the rail keeps the focus
+// mark through both. The focused pane's title is bold whenever its rules are.
+func (m Model) rail(shape layout.Layout) string {
+	boxes := shape.Rail
 	panes := make([]frame.RailPane, 0, len(boxes))
 
 	for index, box := range boxes {
 		current := pane(index)
-		focused := current == m.focus && m.overlay == nil
+		focused := current == m.focus && (m.overlay == nil || shape.Borderless())
 
 		title := m.paneTitle(current, current.label(m.cfg.Messaging.Service())+m.viewSuffix(current)+m.tasksSuffix(current))
 		if focused {
@@ -113,7 +115,7 @@ func (m Model) rail(boxes []layout.Box) string {
 			Title:   title,
 			Body:    behaviorOf(current).rail(m, rows),
 			Rows:    rows,
-			Focused: focused && !behaviorOf(current).listInDetail,
+			Focused: focused && (shape.Borderless() || !behaviorOf(current).listInDetail),
 		})
 	}
 
@@ -295,33 +297,42 @@ func wrapLine(line string, width int) []string {
 // row above this one; only on a terminal too short for that row does the footer
 // stand in and report it, so a result is never lost.
 func (m Model) footer(width int) string {
-	if m.notice.text != "" && !m.showsNotice() {
+	switch {
+	case m.showsNotice() || !m.hasNotice():
+		return ansi.Truncate(" "+m.footerRow(width-1), width, "")
+	case m.notice.text != "":
 		return m.noticeRow(width)
 	}
 
-	return ansi.Truncate(" "+m.footerRow(width-1), width, "")
+	return m.narrowingFooter(width)
+}
+
+// narrowingFooter is the footer that stands in for the notice row while a
+// search or filter narrows the list: what narrows it, then the keys that fit
+// beside it.
+func (m Model) narrowingFooter(width int) string {
+	narrowing := m.noticeLine(width)
+	room := width - lipgloss.Width(narrowing) - lipgloss.Width(m.marks.helpSeparator) - 1
+
+	if room <= 0 {
+		return narrowing
+	}
+
+	return ansi.Truncate(narrowing+m.marks.helpSeparator+m.footerRow(room), width, "")
 }
 
 // footerRow offers the keys that do something where the user is, then the way
 // to the rest — never a verb with nothing to act on — in room columns. Keys
-// that do not fit are dropped whole, from the end, and an ellipsis says so. The
-// pane's own verbs come first, but ? is reserved: where they would push it off,
-// the last of them give way instead, since it lists every key the row cannot.
+// that do not fit are dropped whole and an ellipsis says so: the movement keys
+// first, which ? lists; then the verbs, from the end; then enter; and the way
+// out — ? and q on a pane, esc in an overlay — last of all.
 func (m Model) footerRow(room int) string {
-	row := m.keyRow()
-	if keys, captured := m.capturedKeys(); captured {
-		return fitKeys(row, keys, room)
+	keys, captured := m.capturedKeys()
+	if !captured {
+		keys = slices.Concat(behaviorOf(m.focus).keys(m), m.keys.ShortHelp())
 	}
 
-	verbs, reserved := behaviorOf(m.focus).keys(m), []key.Binding{m.keys.toggleHelp}
-	tail := ellipsisOf(row)
-
-	kept := longestFit(row, verbs, reserved, room-lipgloss.Width(tail))
-	if kept == len(verbs) {
-		return fitKeys(row, slices.Concat(verbs, m.keys.ShortHelp()), room)
-	}
-
-	return row.ShortHelpView(slices.Concat(verbs[:kept], reserved)) + tail
+	return fitKeys(m.keyRow(), keys, room, m.footerRank)
 }
 
 // capturedKeys is the footer of whatever has the keyboard to itself — an open
@@ -338,27 +349,73 @@ func (m Model) capturedKeys() ([]key.Binding, bool) {
 	}
 }
 
+// footerRank orders the keys a footer too narrow for all of them gives up:
+// the lowest rank goes first.
+type footerRank int
+
+const (
+	// rankMovement moves the cursor, the focus or between fields; ? lists it.
+	rankMovement footerRank = iota
+	// rankVerb is what can be done here.
+	rankVerb
+	// rankAct is enter, which does what the row names.
+	rankAct
+	// rankWayOut is ? and the way out — esc, q, or ctrl+c while a request is
+	// out — which a footer keeps while it can show anything.
+	rankWayOut
+)
+
+// footerRank is how long binding holds its place in a footer too narrow for
+// every key, told by the keys it answers to, whatever it is labeled here.
+func (m Model) footerRank(binding key.Binding) footerRank {
+	switch {
+	case answersAs(binding, m.keys.toggleHelp, m.keys.closeOverlay, m.keys.quit, m.keys.interrupt):
+		return rankWayOut
+	case answersAs(binding, m.keys.confirm):
+		return rankAct
+	case answersAs(binding, m.keys.up, m.keys.down, m.keys.scrollUp, m.keys.scrollDown,
+		m.keys.next, m.keys.previous, m.keys.jump):
+		return rankMovement
+	}
+
+	return rankVerb
+}
+
+// answersAs reports binding answering to the same keys as one of others.
+func answersAs(binding key.Binding, others ...key.Binding) bool {
+	return slices.ContainsFunc(others, func(other key.Binding) bool { return slices.Equal(binding.Keys(), other.Keys()) })
+}
+
 // fitKeys draws keys in room columns: all of them where they fit, and otherwise
-// as many as fit whole, then an ellipsis saying the rest were dropped.
-func fitKeys(row help.Model, keys []key.Binding, room int) string {
+// without the keys rank gives up first — the last of the lowest rank, one at a
+// time — then an ellipsis saying some were dropped.
+func fitKeys(row help.Model, keys []key.Binding, room int, rank func(key.Binding) footerRank) string {
 	if drawn := row.ShortHelpView(keys); lipgloss.Width(drawn) <= room {
 		return drawn
 	}
 
 	tail := ellipsisOf(row)
+	kept := slices.Clone(keys)
 
-	return row.ShortHelpView(keys[:longestFit(row, keys, nil, room-lipgloss.Width(tail))]) + tail
-}
-
-// longestFit is how many of keys, from the first, fit in room columns with
-// after drawn behind them.
-func longestFit(row help.Model, keys, after []key.Binding, room int) int {
-	count := len(keys)
-	for count > 0 && lipgloss.Width(row.ShortHelpView(slices.Concat(keys[:count], after))) > room {
-		count--
+	for len(kept) > 0 && lipgloss.Width(row.ShortHelpView(kept)+tail) > room {
+		kept = slices.Delete(kept, firstGivenUp(kept, rank), firstGivenUp(kept, rank)+1)
 	}
 
-	return count
+	return row.ShortHelpView(kept) + tail
+}
+
+// firstGivenUp is the index of the key a footer drops next: the last of those
+// with the lowest rank.
+func firstGivenUp(keys []key.Binding, rank func(key.Binding) footerRank) int {
+	dropped := len(keys) - 1
+
+	for index, binding := range slices.Backward(keys) {
+		if rank(binding) < rank(keys[dropped]) {
+			dropped = index
+		}
+	}
+
+	return dropped
 }
 
 // ellipsisOf is the mark a row of keys ends with when some were dropped.

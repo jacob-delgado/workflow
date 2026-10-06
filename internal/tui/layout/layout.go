@@ -205,3 +205,18 @@ func evenHeights(body, panes int) []int {
 func clamp(value, low, high int) int {
 	return min(max(value, low), high)
 }
+
+// NoticeKeepsFocus reports whether a notice can have a row of its own without
+// taking the focused rail pane under the rows it had without one, down to
+// focusedMinimum: where it would, the notice belongs in the footer's row.
+func NoticeKeepsFocus(width, height, railPanes, focused int) bool {
+	without := Compute(width, height, railPanes, focused)
+	if without.Collapsed() {
+		return true
+	}
+
+	with, _ := ComputeWithNotice(width, height, railPanes, focused)
+	had := min(without.Rail[focused].Height, focusedMinimum+railRules)
+
+	return with.Rail[focused].Height >= had
+}

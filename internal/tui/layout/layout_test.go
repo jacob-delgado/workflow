@@ -355,3 +355,30 @@ func focusedDrops(shortest, tallest int, counts ...int) []string {
 
 	return drops
 }
+
+func TestANoticeRowIsGivenOnlyWhereTheFocusedPaneKeepsItsRows(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		width, height int
+		want          bool
+	}{
+		"at 80 by 24 the row would starve the focused pane": {width: 80, height: 24, want: false},
+		"a taller terminal has the row to spare":            {width: 80, height: 30, want: true},
+		"with the rail folded nothing is starved":           {width: 60, height: 24, want: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := layout.NoticeKeepsFocus(tt.width, tt.height, 9, 0)
+
+			// Assert
+			if got != tt.want {
+				t.Errorf("NoticeKeepsFocus(%d, %d) = %v, want %v", tt.width, tt.height, got, tt.want)
+			}
+		})
+	}
+}
