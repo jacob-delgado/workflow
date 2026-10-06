@@ -176,3 +176,24 @@ func TestGuidedInitStopsWhenNothingAnswersTheKeychainOffer(t *testing.T) {
 	wantExit(t, err, 2)
 	noConfigWritten(t, dir)
 }
+
+func TestConfigInitRefusesALinkWhereTheFileWouldGo(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	elsewhere := filepath.Join(t.TempDir(), "elsewhere.json")
+
+	err := os.Symlink(elsewhere, filepath.Join(dir, config.FileName))
+	if err != nil {
+		t.Fatalf("linking the file's path elsewhere: %v", err)
+	}
+
+	// Act
+	output, err := run(t, dir, "config", "init", "--template")
+
+	// Assert
+	_, statErr := os.Lstat(elsewhere)
+	if err == nil || !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("config init over a dangling link = %v (%s), and its target %v; want it refused, nothing written",
+			err, output, statErr)
+	}
+}

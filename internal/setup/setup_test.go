@@ -401,3 +401,65 @@ func TestLayersStandAloneWhereTheRepositoryIsHome(t *testing.T) {
 		t.Errorf("Layers = %+v, want the file to stand alone", layers)
 	}
 }
+
+func TestWriteRefusesALinkWhereTheFileWouldGo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	guide := guideIn(t, acceptingJira())
+	elsewhere := filepath.Join(t.TempDir(), "elsewhere.json")
+
+	err := os.Symlink(elsewhere, guide.Where.Path(setup.Home))
+	if err != nil {
+		t.Fatalf("linking the file's path elsewhere: %v", err)
+	}
+
+	// Act
+	_, err = guide.Write(t.Context(), answered(setup.Home))
+
+	// Assert
+	_, statErr := os.Lstat(elsewhere)
+	if !errors.Is(err, setup.ErrExists) || !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("Write over a dangling link = %v, and the link's target %v; want it refused and nothing written there",
+			err, statErr)
+	}
+}
+
+func TestCreateWritesNothingThroughALink(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := filepath.Join(t.TempDir(), config.FileName)
+	elsewhere := filepath.Join(t.TempDir(), "elsewhere.json")
+
+	err := os.Symlink(elsewhere, path)
+	if err != nil {
+		t.Fatalf("linking the file's path elsewhere: %v", err)
+	}
+
+	// Act
+	err = setup.Create(path, config.Files{}, config.Default(), config.Revision{})
+
+	// Assert
+	_, statErr := os.Lstat(elsewhere)
+	if err == nil || !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("Create through a dangling link = %v, and the link's target %v; want it refused and nothing written there",
+			err, statErr)
+	}
+}
+
+func TestCreateWritesAPrivateFile(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := filepath.Join(t.TempDir(), config.FileName)
+
+	// Act
+	err := setup.Create(path, config.Files{}, config.Default(), config.Revision{})
+
+	// Assert
+	info, statErr := os.Lstat(path)
+	if err != nil || statErr != nil || info.Mode() != config.FileMode {
+		t.Errorf("Create = %v, left %v (%v); want a regular file at mode %#o", err, info, statErr, config.FileMode)
+	}
+}

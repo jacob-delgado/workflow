@@ -93,7 +93,7 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 		return Written{}, err
 	}
 
-	err = Save(path, layers, answers.Over(beneath), over)
+	err = Create(path, layers, answers.Over(beneath), over)
 	if err != nil {
 		return Written{}, err
 	}

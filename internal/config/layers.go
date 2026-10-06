@@ -160,6 +160,27 @@ func SaveLayers(files Files, cfg Config, over Revision) (Revision, error) {
 	return RevisionOfLayers(files)
 }
 
+// CreateLayers writes the configuration as SaveLayers does, but only as a new
+// file: like Create, it writes nothing when anything — a link included — is
+// already where the file goes.
+func CreateLayers(files Files, cfg Config, over Revision) error {
+	home, repo, err := readLayers(files)
+	if err != nil {
+		return err
+	}
+
+	if layersRevision(home, repo) != over {
+		return fmt.Errorf("%s: %w", files, ErrChangedOnDisk)
+	}
+
+	contents, err := layerContents(files, home, cfg)
+	if err != nil {
+		return err
+	}
+
+	return createPrivate(files.Target(), contents)
+}
+
 // readLayers reads the home and repository files.
 func readLayers(files Files) (layer, layer, error) {
 	home, err := readLayer(files.Home)

@@ -46,6 +46,17 @@ type initOptions struct {
 	layers config.Files
 }
 
+// write writes cfg to path over opts' layers: replacing what --force names,
+// and otherwise only as a new file, so a file or link that appears after the
+// refusal was checked is still never written through.
+func (opts initOptions) write(path string, cfg config.Config, over config.Revision) error {
+	if opts.force {
+		return setup.Save(path, opts.layers, cfg, over)
+	}
+
+	return setup.Create(path, opts.layers, cfg, over)
+}
+
 // newConfigInitCmd builds `workflow config init`. It asks for each credential
 // and checks the Jira token, saving a webhook unchecked, unless --template is
 // given, which writes a blank file to edit by hand.
@@ -199,7 +210,7 @@ func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
 		return previewConfig(cmd, path, config.Template())
 	}
 
-	err = config.Save(path, config.Template())
+	err = opts.write(path, config.Template(), config.Revision{})
 	if err != nil {
 		return err
 	}
@@ -225,7 +236,7 @@ func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
 		return previewConfig(cmd, path, beneath)
 	}
 
-	_, err = config.SaveLayers(opts.layers, beneath, over)
+	err = opts.write(path, beneath, over)
 	if err != nil {
 		return err
 	}
@@ -275,7 +286,7 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 		return previewConfig(cmd, path, cfg)
 	}
 
-	err = setup.Save(path, opts.layers, cfg, over)
+	err = opts.write(path, cfg, over)
 	if err != nil {
 		return err
 	}
