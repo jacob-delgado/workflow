@@ -96,21 +96,29 @@ func TestPROpensAMergeRequestInGitLabsWords(t *testing.T) {
 
 func TestPRDryRunPreviewsWithoutOpening(t *testing.T) {
 	// Arrange
-	repo := prRepo(t, "fix/PROJ-2-thing")
+	fakeGh(t, ghResponses{})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	// The template becomes the body, which the preview shows in full.
+	writeRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n\n- [ ] Tests\n")
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	output, err := run(t, repo, "pr", "--dry-run")
+	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run")
 	// Assert
 	if err != nil {
-		t.Fatalf("pr --dry-run: %v (%s)", err, output)
+		t.Fatalf("pr --dry-run: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(output, "fix/PROJ-2-thing → main") {
-		t.Errorf("preview does not name the branch and its base:\n%s", output)
+	if !strings.Contains(printed.stdout, "fix/PROJ-2-thing → main") {
+		t.Errorf("preview does not name the branch and its base:\n%s", printed.stdout)
 	}
 
-	if !strings.Contains(output, "dry run: would push fix/PROJ-2-thing and open") {
-		t.Errorf("dry run does not describe the push and open it would do:\n%s", output)
+	if !strings.Contains(printed.stdout, "## Checklist") || !strings.Contains(printed.stdout, "- [ ] Tests") {
+		t.Errorf("preview does not show the body composed from the template:\n%s", printed.stdout)
+	}
+
+	if !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing and open") {
+		t.Errorf("dry run does not describe the push and open it would do:\n%s", printed.stderr)
 	}
 }
 

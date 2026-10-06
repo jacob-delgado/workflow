@@ -13,7 +13,8 @@ Open a pull or merge request for the current branch
 
 Compose a pull request for the checked-out branch from its commits, the
 issue and the repository's template — the same as the interface — pushing the
-branch first when it is not yet on its remote. A preview is confirmed first.
+branch first when it is not yet on its remote. A preview — the title, the
+branches, and the whole body — is confirmed first.
 
 The code owners of the paths the branch changes, as CODEOWNERS on the base names
 them, are asked to review it; the preview lists them.

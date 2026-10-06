@@ -66,7 +66,8 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 		Short: "Open a pull or merge request for the current branch",
 		Long: "Compose a pull request for the checked-out branch from its commits, the\n" +
 			"issue and the repository's template — the same as the interface — pushing the\n" +
-			"branch first when it is not yet on its remote. A preview is confirmed first.\n\n" +
+			"branch first when it is not yet on its remote. A preview — the title, the\n" +
+			"branches, and the whole body — is confirmed first.\n\n" +
 			"The code owners of the paths the branch changes, as CODEOWNERS on the base names\n" +
 			"them, are asked to review it; the preview lists them.\n\n" +
 			"Once it is open, it offers — as the interface does — to link it on the branch's\n" +
@@ -160,6 +161,7 @@ type pullReport struct {
 	Draft  bool   `json:"draft"`
 	Head   string `json:"head"`
 	Base   string `json:"base"`
+	Body   string `json:"body"`
 }
 
 // followUpReport is one offer made once the pull request was open: to link it
@@ -182,7 +184,7 @@ func openedReport(request forge.NewPullRequest, pull forge.PullRequest) prReport
 	return prReport{
 		Pull: pullReport{
 			Number: pull.Number, URL: pull.URL, Title: cmp.Or(pull.Title, request.Title),
-			Draft: request.Draft, Head: request.Head, Base: request.Base,
+			Draft: request.Draft, Head: request.Head, Base: request.Base, Body: request.Body,
 		},
 		FollowUps: []followUpReport{},
 		ready:     true,
@@ -228,7 +230,8 @@ func runPR(out output, seams prSeams, opts writeOptions) (prReport, error) {
 }
 
 // previewPull prints the pull request about to be opened: its title, the
-// branches it joins, and the code owners it asks to review.
+// branches it joins, the code owners it asks to review, and, after a blank
+// line, its whole body, so the question is asked about what was shown.
 func previewPull(artifact io.Writer, request forge.NewPullRequest, branch gitrepo.Branch) {
 	fmt.Fprintln(artifact, "Open "+request.Title)
 	fmt.Fprintln(artifact, "  "+branch.Name+" → "+request.Base)
@@ -236,6 +239,9 @@ func previewPull(artifact io.Writer, request forge.NewPullRequest, branch gitrep
 	if reviewers := slices.Concat(request.Reviewers, request.TeamReviewers); len(reviewers) > 0 {
 		fmt.Fprintln(artifact, "  reviewers "+strings.Join(reviewers, ", ")+" (code owners)")
 	}
+
+	fmt.Fprintln(artifact)
+	fmt.Fprintln(artifact, strings.TrimRight(request.Body, "\n"))
 }
 
 // openPull pushes the branch when it needs it, opens the pull request, says
