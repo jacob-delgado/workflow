@@ -11,8 +11,8 @@ Set up the Slack user token workflow posts with
 
 ### Synopsis
 
-Asks for your Slack app's client ID, its client secret and a refresh token
-(xoxe-1-…), refreshes the token once to prove them, and keeps what Slack gives
+Ask for your Slack app's client ID, its client secret and a refresh token
+(xoxe-1-…), refresh the token once to prove them, and keep what Slack gives
 back: in the macOS keychain, or in .workflow.json on Linux and Windows or
 when the file already holds them. The client ID is written to .workflow.json.
 
@@ -36,8 +36,8 @@ workflow slack login [flags]
 ### Options inherited from parent commands
 
 ```
-      --dry-run      hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
-      --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
+      --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+      --log FILE   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 
 ### SEE ALSO

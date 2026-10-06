@@ -35,8 +35,8 @@ workflow completion powershell [flags]
 ### Options inherited from parent commands
 
 ```
-      --dry-run      hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
-      --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
+      --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+      --log FILE   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 
 ### SEE ALSO

@@ -58,7 +58,7 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Set up the configuration file, asking for each credential and checking the Jira token",
+		Short: "Set up the configuration file, asking for the Jira token and a Slack webhook and checking the Jira token",
 		Long: "Ask for the Jira address and token and a Slack incoming webhook, check the\n" +
 			"Jira token, and write a " + config.FileName + " with what passed. The webhook is\n" +
 			"saved unchecked, since a webhook cannot be checked without posting.\n\n" +

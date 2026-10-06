@@ -53,8 +53,8 @@ func newSlackLoginCmd(prompt Prompt) *cobra.Command {
 	return &cobra.Command{
 		Use:   "login",
 		Short: "Set up the Slack user token workflow posts with",
-		Long: `Asks for your Slack app's client ID, its client secret and a refresh token
-(xoxe-1-…), refreshes the token once to prove them, and keeps what Slack gives
+		Long: `Ask for your Slack app's client ID, its client secret and a refresh token
+(xoxe-1-…), refresh the token once to prove them, and keep what Slack gives
 back: in the macOS keychain, or in ` + config.FileName + ` on Linux and Windows or
 when the file already holds them. The client ID is written to ` + config.FileName + `.
 

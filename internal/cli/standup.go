@@ -60,7 +60,7 @@ func newStandupCmd(prompt Prompt) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "standup",
-		Short: "Draft what you did — commits, issues and pull requests — to share",
+		Short: "Draft what you did — commits, issues and pull or merge requests — to share",
 		Long: "Gather the commits you made, the issues you touched and the open pull\n" +
 			"requests on your branches over the last day, open the draft in your editor,\n" +
 			"and offer to post it to your team's chat. Nothing is posted until you confirm;\n" +

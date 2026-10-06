@@ -7,7 +7,7 @@ weight: 20
 
 ## workflow reviews
 
-List the pull requests that are waiting on your review
+List the pull or merge requests that are waiting on your review
 
 ### Synopsis
 
@@ -32,11 +32,11 @@ workflow reviews [flags]
 ### Options inherited from parent commands
 
 ```
-      --dry-run      hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
-      --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
+      --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+      --log FILE   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 
 ### SEE ALSO
 
-* [workflow](../workflow/)	 - Run your Jira, Git forge and messaging workflow from the terminal
+* [workflow](../workflow/)	 - Run your Jira, Git forge and messaging workflow, in the terminal or a browser
 

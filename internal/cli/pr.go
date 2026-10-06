@@ -59,7 +59,7 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "pr",
-		Short: "Open a pull request for the current branch",
+		Short: "Open a pull or merge request for the current branch",
 		Long: "Compose a pull request for the checked-out branch from its commits, the\n" +
 			"issue and the repository's template — the same as the interface — pushing the\n" +
 			"branch first when it is not yet on its remote. A preview is confirmed first.\n\n" +
