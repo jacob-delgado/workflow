@@ -142,7 +142,8 @@ them.
 | Push | inside `pr` | `P` | Push branch |
 | Rebase onto the base | not for scripts | `u` | Rebase onto BASE |
 | **Commits** | | | |
-| Stage, unstage, stage all | not for scripts | `space`, `a` | Stage, Unstage, Stage all |
+| Stage, unstage, stage all, unstage all | not for scripts | `space`, `a`, `U` | Stage, Unstage, Stage all, Unstage all |
+| Discard a file's changes | not for scripts | `x`, after a last look | Discard…, after a confirm |
 | Read a file's diff | not for scripts | the selected file's diff | Show diff |
 | Commit | not for scripts | `c` | Commit staged changes |
 | Amend; fix up | not for scripts | `A`; `f` | Amend last commit; Fix up a commit |
@@ -392,40 +393,6 @@ directory's name and `status a/api b/api --json` yields two distinct
 (`internal/cli/reviews_test.go:163`) also parses `opened_at` back into the
 time it seeded; a `standup --json` test parses its stdout as JSON holding
 the seeded issue key.
-
-### UX-93 `pr` confirms a body the person never saw
-
-Impact: medium · Effort: small
-
-**Today.** `runPR` previews "Open TITLE" and "BRANCH → BASE"
-(`previewPull`, `internal/cli/pr.go:233`, `:234`), and the code owners
-when there are any (`:237`), asks, and then sends the request (`openPull`,
-`:251`), whose body is
-composed from the template, the commit subjects and the issue link
-(`internal/loop/pull.go:175`), without ever showing it; `newPRCmd`'s
-`Long` says "A preview is confirmed first." (`internal/cli/pr.go:69`).
-`--json` reports the title, head and base and never the body either.
-The interface shows the body's first `prBodyPreviewLines` in
-`prComposer.view` (`internal/tui/prcomposer.go:282`, the body at `:308`),
-the web's `draftDTO` carries `Body` for the form to show
-(`internal/webserver/pullrequest.go:247`, `:250`), and the command line's
-sibling writes print their whole payload (`runAnnounce`,
-`internal/cli/announce.go:175`; `runStandup` at
-`internal/cli/standup.go:141`). A stale or wrong template is discovered
-on the forge, after the open, on the one surface whose help promises a
-last look. `docs/content/docs/scripting.md:95` (the `pr` row under
-"Standard output and standard error") documents the two-line stdout, and
-no commit or doc records a decision to omit the body.
-
-**Instead.** Print the body under the header lines on stdout, where the
-artifact goes, so `workflow --dry-run pr` shows the whole pull request
-and the question is asked about what was shown; update the `pr` row in
-scripting.md.
-
-**Done when.** `TestPRDryRunPreviewsWithoutOpening`
-(`internal/cli/pr_test.go:97`), with a template written as
-`TestPRPushesThenOpensAnUnpublishedBranch` (`internal/cli/pr_test.go:271`)
-writes one, sees the template's text on stdout.
 
 ### UX-94 doctor has no row for the store's silent fallback
 
@@ -950,12 +917,6 @@ among what `docs/content/docs/web.md` says stays in the terminal.
   the search shows "No loaded issue matches the filter." — the user asked
   for a view, not a narrowed one.
 
-An Unstage all is missing on the web as in the terminal — `WorkingTree`
-renders `StageAll` alone (`web/src/features/branch/WorkingTree.tsx:36`)
-and the staging module has no unstage-all
-(`web/src/features/branch/stagingApi.ts:34`) — so it is FEAT-23's, not an
-idea to borrow. A Push branch offered on the base branch is UX-104's.
-
 **Instead.** In rough order of value: `original_path` drawn before the
 path with an arrow; a muted "n/limit" hint under the subject counting the
 assembled header; `CopyURL` beside the title with the same "Copied the URL
@@ -967,105 +928,6 @@ a renamed change finds both paths in the row; a `CommitForm` test with
 `ReviewPanel` test clicks "Copy URL to #128" and reads the URL back from
 the clipboard; a test types a search, selects another view, and finds the
 searchbox named Search empty once the new frame lands.
-
-### UX-104 The Branch section's push counts what it cannot know, even on the base
-
-Impact: medium · Effort: small
-
-**Today.** Three lines in the Branch section print a number git counted
-against nothing, and the push is offered where the terminal withholds it.
-The push confirm is a last look, which the promises table holds to naming
-what is about to happen, and it is the one that misleads; the two rows
-above it share the defect.
-
-- `PushConfirm` asks "Push {commits} commit(s) to the remote?"
-  (`web/src/features/branch/BranchPanel.tsx:213`), fed
-  `branch.commits.length` by `PushButton` (`:163`): the commits since the
-  base, which `BranchSummary`'s own comment calls unknowable without a
-  base (`:62`) and which `canPush` therefore ignores (`:64`). On a branch
-  with no base the confirm reads "Push 0 commit(s)" and the push goes
-  ahead; four commits since main and one ahead reads "Push 4"; and "the
-  remote" never says which.
-- A long branch reads the cap: `Branch.Truncated`
-  (`internal/gitrepo/branch.go:82`) says the list is the oldest of a
-  longer history, and the wire `Branch` carries no such flag.
-- The server decides by the upstream on the push remote and ahead alone
-  (`nothingToPush`, `internal/webserver/push.go:66`), so the count the
-  confirm shows is not what the server checks.
-- `BranchSummary` prints "{ahead} ahead, {behind} behind" whatever the
-  upstream (`web/src/features/branch/BranchPanel.tsx:83`), so an
-  unpublished branch reads "Upstream none / Tracking 0 ahead, 0 behind"
-  over a Push branch button: the numbers say there is nothing to push and
-  the button says there is.
-- `Commits` says "No commits yet on this branch." whenever the list is
-  empty (`web/src/features/branch/BranchPanel.tsx:118`), a base of `""`
-  included, where the count is unknown.
-- Push branch is offered on the base branch itself: `canPush` needs a
-  name and no upstream on the push remote or ahead > 0
-  (`web/src/features/branch/BranchPanel.tsx:64`), and `nothingToPush`
-  accepts main ahead of origin/main (`internal/webserver/push.go:66`),
-  where the terminal's `canPush` also requires `onFeatureBranch()`
-  (`internal/tui/branch.go:210`).
-
-The terminal's last look names the branch and the remote and no count
-(`previewPush`, `internal/tui/branch.go:215`), and its `upstreamState`
-says "not pushed yet" for a branch with no upstream (`:100`).
-
-**Instead.** Word the confirm as the terminal does — "Push fix/PROJ-1 to
-origin?" — naming branch and remote (the branch's `push_remote`) and no
-count; with no upstream the Tracking row says "not pushed yet" and the
-counts appear only once there is one; with no base the Commits section
-says the base is unknown rather than that there are no commits; hide the
-push when `branch.name` equals the base's short name — the guard
-`internal/loop` now holds as `OnFeatureBranch`
-(`internal/loop/guards.go:45`) for the rebase, the finish and the pull
-request, and which `nothingToPush` could call too.
-
-**Done when.** A `BranchPanel` test with `name: 'fix/PROJ-1'`,
-`commits: []`, `upstream: ''` and `base: ''` opens the confirm and finds
-the group named exactly "Push fix/PROJ-1 to origin?", finds "not pushed
-yet" and no "ahead" in the summary, and does not find "No commits yet"; a
-test with `name: 'main'`, `base: 'origin/main'` and `ahead: 1` finds no
-Push branch button.
-
-### UX-105 "0 of 0 done" over a GitLab pipeline or no checks
-
-Impact: medium · Effort: small
-
-**Today.** The CI heading always prints done of total, and the Review
-section's `PullRequestSummary` renders the overall `ci.state` nowhere,
-though the work story does ("#128 · CI running", `reviewDetail`,
-`web/src/features/issues/WorkStory.tsx:192`) — and for state none it
-prints "CI none" where the terminal says "no checks reported". A GitLab
-user sees a heading that contradicts the row beneath it; a GitHub user
-whose checks have not started sees "0 of 0 done" over nothing and cannot
-tell whether CI has not started, is not configured, or failed to load.
-
-- `PullRequestSummary` heads the list "CI checks · {ci.done} of
-  {ci.total} done" unconditionally
-  (`web/src/features/review/ReviewPanel.tsx:123`) and renders `ci.state`
-  nowhere; the section draws whenever `ci` is non-null (`:117`), so state
-  none with no checks is the heading over an empty list.
-- `gitlabStatus` returns Total 0, Done 0, Failed 0 with one pipeline check
-  for every GitLab pipeline (`internal/forge/gitlab.go:362`), and `CINone`
-  with no checks when there is no head pipeline (`:350`); the `CI` type
-  documents that the counts stay zero there (`internal/forge/ci.go:44`),
-  and `ciTally.ci` yields `CINone` with Total 0 for a GitHub pull with no
-  statuses or check runs (`:114`).
-- `ciDTO` copies State, Total, Done and Failed through unchanged
-  (`internal/webserver/dto.go:237`).
-- The terminal's `ciSummary` adds "(done of total finished)" only when
-  Total is positive (`internal/tui/review.go:239`) and says "no checks
-  reported" for `CINone` (`:234`).
-
-**Instead.** Print the count only when total is positive and otherwise the
-state word ("CI checks · running"), as `ciSummary` does; when `checks` is
-empty, replace the list with "No checks reported." beside the unknown
-mark.
-
-**Done when.** A `ReviewPanel` test with total 0 and one running pipeline
-check finds the heading "CI checks · running" and no "0 of 0"; one with
-state none and no checks finds "No checks reported" and no list role.
 
 ### UX-106 Thirty-two controls let keyboard focus fall to the page
 
@@ -1282,100 +1144,6 @@ with the word in the plain foreground.
 **Done when.** The Branch screenshots show a shape before each staged
 word, and `web/src/features/branch/WorkingTree.tsx` has no `text-success`
 on the tag.
-
-### UX-111 Light-theme text fields have no visible boundary: 1.3:1 on the page
-
-Impact: medium · Effort: small
-
-**Today.** Every text input, select and textarea is bordered by a 1 px
-`--input` alone over `bg-background`, the page's own color. The light
-`--input` measures 1.29:1 on `--background` and 1.39:1 on `--card`,
-below the 3:1 non-text floor of WCAG 2.1 AA 1.4.11 the gates claim. A
-light-theme user looking for where to type sees a faint outline that all
-but disappears on a bright display: in `1440-light-settings.png` the
-empty fields (User, Review status, Client secret, Refresh token, Webhook
-URL, Default scope, Types, Subject limit, Issue trailer, Slug limit, Task
-program) read as blank space under their labels. The 2026-09-24 audit
-sampled the interior of a Settings field at (246,247,249), the page's own
-value, with (215,219,227) border rows. Labels and the periwinkle focus
-ring still let a user find a field, which is why this is medium and not
-high.
-
-- `--input` is `#d7dbe3` in the light theme (`web/src/index.css:102`),
-  1.29:1 on `--background` `#f6f7f9` (`:77`) and 1.39:1 on `--card`
-  `#ffffff` (`:80`), and `--border` is the same value (`:101`), so the
-  decorative rule and the field boundary share one too-faint value. The
-  dark `--input` (`#272d39`, `:42`, on `#0f1115`) is about 1.37:1 too, so
-  both themes share the gap; the light one is where the outline vanishes.
-- Every field now draws through one class with
-  `border border-input bg-background` (`fieldClass`,
-  `web/src/lib/Field.tsx:17`), behind `Input`, `Select` and `TextArea`,
-  and the comment box's `FieldFrame` (`:55`) the same: the border is each
-  field's only boundary. A secondary `Button` is outlined in
-  `border-input` too (`web/src/lib/Button.tsx:12`).
-- `web/src/tokens.test.ts` asserts `contrast` for the system hues against
-  the page and a card (`:123`) and for the disabled pair, never for a
-  boundary token; axe cannot measure non-text contrast, so nothing in
-  `task check` or `yarn test:e2e` notices.
-
-**Instead.** Darken `--input` in both themes until it holds 3:1 against
-`--background` and `--card`, leaving `--border` for the decorative rules,
-and add that pair to `web/src/tokens.test.ts` beside the hue checks.
-
-**Done when.** `web/src/tokens.test.ts` asserts
-`contrast(--input, --background) >= 3` and `contrast(--input, --card) >= 3`
-in both themes and passes; the light Settings screenshot shows every empty
-field with a visible outline.
-
-### UX-112 A primary button's focus ring is the color of its fill
-
-Impact: medium · Effort: small
-
-**Today.** `--ring` equals `--primary` in both themes and no `ring-offset`
-exists under `web/src`, so every periwinkle button removes the browser
-outline and draws keyboard focus as a 2 px box-shadow in its own color;
-beside each, an outline Cancel gets a visible periwinkle ring. Tabbing
-from Cancel to Announce now, or from Cancel to Push in the push
-confirmation, the visible ring disappears when it reaches the button that
-sends: the button grows 2 px in its own color. It hits Commit staged
-changes, Push, Announce now, Open a pull request, Start work, Comment and
-Save changes — the buttons a keyboard user reaches every loop. No
-screenshot shows it, since nothing in the captures has focus, and
-`web/e2e/layout.spec.ts` checks that a focused control is in view, not
-that its focus can be seen.
-
-- `--ring` is `#8b93f8` (`web/src/index.css:43`), the value of `--primary`
-  (`:26`); in the light theme `--ring` is `#4f56c9` (`:103`), the value of
-  `--primary` (`:86`).
-- The `primary` variant of `Button` (`web/src/lib/Button.tsx:10`) is
-  `bg-primary`, and every button shares `focus-visible:ring-ring` and
-  `outline-none` with no offset (`:25`); seventeen buttons draw through
-  the variant, among them `SaveControls`' submit
-  (`web/src/features/settings/SettingsPanel.tsx:164`), `CommitForm`'s
-  submit (`web/src/features/branch/CommitForm.tsx:93`), `PushConfirm`'s
-  Push (`web/src/features/branch/BranchPanel.tsx:217`) beside a Cancel
-  (`:214`) whose ring is visible, `OpenPullRequest`'s button
-  (`web/src/features/review/OpenPullRequest.tsx:70`), `StartWorkButton`
-  (`web/src/features/issues/WorkStory.tsx:378`), the comment's send
-  (`web/src/features/issues/CommentComposer.tsx:401`), and
-  `AnnouncePreview`'s Announce now
-  (`web/src/features/messaging/AnnouncePreview.tsx:156`) beside a Cancel
-  (`:148`) whose ring is visible.
-- The calendar's picked day is drawn the same way: `bg-primary` with
-  `focus-visible:ring-ring` (`DayCell`,
-  `web/src/features/summary/MonthGrid.tsx:161`), so the day in focus,
-  once picked, shows no ring.
-
-**Instead.** Add `focus-visible:ring-offset-2
-focus-visible:ring-offset-background` to the primary variant in
-`web/src/lib/Button.tsx` and to the picked day (a page-colored gap between
-fill and ring), so the ring reads on a periwinkle fill as it does on an
-outline one.
-
-**Done when.** A Playwright test focuses Save changes in both themes and
-asserts its computed `box-shadow` carries a `--background`-colored offset
-(or a ring color that contrasts 3:1 with `--primary`), and a screenshot
-with focus on Announce now shows a ring distinct from the fill.
 
 ### UX-114 Three places set type outside the scale and face the system names
 
@@ -1618,9 +1386,7 @@ header versus content, browser versus terminal.
 - The web has no plural helper, where the terminal's `plural` counts in
   words (`internal/tui/render.go:496`): `changesDetail` says "{n} file(s)
   to commit" (`web/src/features/issues/WorkStory.tsx:175`; "3 file(s) to
-  commit" in `1440-dark-issues.png`), `PushConfirm` "Push {commits}
-  commit(s) to the remote?" (`web/src/features/branch/BranchPanel.tsx:213`;
-  the count itself is UX-104), and `filterOutcome` "{shown} of {loaded}
+  commit" in `1440-dark-issues.png`), and `filterOutcome` "{shown} of {loaded}
   loaded issues match." (`web/src/features/issues/IssuesPanel.tsx:433`),
   so "1 … match." disagrees in number; meanwhile three sites count
   correctly inline, each its own way (`queueSummary`,
