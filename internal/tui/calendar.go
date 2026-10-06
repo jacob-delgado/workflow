@@ -198,7 +198,7 @@ func (c calendar) footer(keys keyMap) []key.Binding {
 
 	return []key.Binding{
 		relabel(keys.nextField, "next column"), keys.up, keys.down, mark,
-		relabel(keys.confirm, "show"), relabel(keys.closeOverlay, "close"),
+		relabel(keys.confirm, "show"), relabel(keys.closeOverlay, escClose),
 	}
 }
 

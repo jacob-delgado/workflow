@@ -301,7 +301,7 @@ func offering(look lastLook, wouldDo string, change func() taskActed) func(Model
 // opening is a follow-up that opens a last look.
 func opening(look lastLook) func(Model) (Model, tea.Cmd) {
 	return func(m Model) (Model, tea.Cmd) {
-		look.marks, look.styles = m.marks, m.styles
+		look.marks, look.styles, look.offered = m.marks, m.styles, true
 		m.overlay = look
 
 		return m, nil

@@ -96,7 +96,7 @@ func (p finishPreview) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{relabel(keys.confirm, "finish"), relabel(keys.closeOverlay, "cancel")}
+	return []key.Binding{relabel(keys.confirm, "finish"), relabel(keys.closeOverlay, escCancel)}
 }
 
 // handleKey answers a key while the finish is being previewed.

@@ -88,7 +88,7 @@ func (p commentPreview) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{relabel(keys.confirm, "post"), relabel(keys.closeOverlay, "back")}
+	return []key.Binding{relabel(keys.confirm, "post"), relabel(keys.closeOverlay, escBack)}
 }
 
 // handleKey answers a key while the comment is previewed.

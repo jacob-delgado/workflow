@@ -12,6 +12,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
+// escCloses is the footer's esc where what was written is kept.
+const escCloses = "esc close"
+
 func TestANarrowFooterGivesUpThePanesVerbsBeforeTheWayToEveryKey(t *testing.T) {
 	t.Parallel()
 
@@ -59,7 +62,7 @@ func TestACutFooterEndsOnAWholeKeyAndAnEllipsis(t *testing.T) {
 		"the Review pane":        {keys: []string{"4"}, last: "q quit"},
 		"the Reviews pane":       {keys: []string{"6"}, last: "q quit"},
 		"the messaging preview":  {keys: []string{"5", "p"}, last: "esc discard"},
-		"a commit being written": {keys: []string{"3", "c"}, last: "esc close"},
+		"a commit being written": {keys: []string{"3", "c"}, last: escCloses},
 	}
 
 	for name, screen := range screens {

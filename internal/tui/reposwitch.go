@@ -185,7 +185,7 @@ func (g switchGuard) view(width, _ int) (string, string) {
 
 // footer offers switching anyway or staying.
 func (switchGuard) footer(keys keyMap) []key.Binding {
-	return []key.Binding{relabel(keys.confirm, "switch"), relabel(keys.closeOverlay, "stay")}
+	return []key.Binding{relabel(keys.confirm, "switch"), relabel(keys.closeOverlay, escStay)}
 }
 
 // handleKey switches, or stays.
@@ -276,7 +276,7 @@ func (p dirPrompt) view(width, _ int) (string, string) {
 // footer offers going, completing, and canceling.
 func (dirPrompt) footer(keys keyMap) []key.Binding {
 	return []key.Binding{
-		relabel(keys.confirm, "go"), relabel(keys.nextField, "complete"), relabel(keys.closeOverlay, "cancel"),
+		relabel(keys.confirm, "go"), relabel(keys.nextField, "complete"), relabel(keys.closeOverlay, escCancel),
 	}
 }
 

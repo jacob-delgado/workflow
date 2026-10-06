@@ -140,9 +140,9 @@ func (o worktreeOffer) view(width, _ int) (string, string) {
 		wrap("Switch to "+o.shown+"? workflow opens again there, on the worktree's branch.", width)
 }
 
-// footer offers switching or staying.
+// footer offers switching, or skipping the offer and staying.
 func (worktreeOffer) footer(keys keyMap) []key.Binding {
-	return []key.Binding{relabel(keys.confirm, "switch"), relabel(keys.closeOverlay, "stay")}
+	return []key.Binding{relabel(keys.confirm, "switch"), relabel(keys.closeOverlay, escSkip)}
 }
 
 // handleKey switches, asking first as any switch does when something would be

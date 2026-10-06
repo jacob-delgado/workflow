@@ -117,7 +117,7 @@ func (l branchLinker) footer(keys keyMap) []key.Binding {
 		confirm = relabel(keys.confirm, "link and update the description")
 	}
 
-	return []key.Binding{confirm, relabel(keys.closeOverlay, "cancel")}
+	return []key.Binding{confirm, relabel(keys.closeOverlay, escCancel)}
 }
 
 // handleKey answers a key while the form has the keyboard.

@@ -256,7 +256,7 @@ func (c commitComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.draft = c.draft()
 
-		return m.closeOverlay(), nil
+		return m.closeOverlay().noticedDraftKept(m.keys.commit), nil
 	case key.Matches(msg, m.keys.confirm):
 		return c.commit(m)
 	case key.Matches(msg, m.keys.editBody):

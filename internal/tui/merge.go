@@ -166,7 +166,7 @@ func (p mergePicker) view(width, _ int) (string, string) {
 // footer offers moving between the methods, merging, and leaving; only leaving
 // while there is no method to choose.
 func (p mergePicker) footer(keys keyMap) []key.Binding {
-	cancel := relabel(keys.closeOverlay, "cancel")
+	cancel := relabel(keys.closeOverlay, escCancel)
 
 	switch {
 	case p.send.sending:

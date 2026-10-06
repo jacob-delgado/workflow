@@ -360,10 +360,24 @@ func runningKeys(builder *helpBuilder, into *keyMap) {
 	into.fullOutput = builder.bind(groupRunning, "full-output", "full output", "o")
 }
 
+// The words esc wears, one rule for every overlay: discard when it drops what
+// was written; close when what was written is kept — saying so in a notice —
+// or there was nothing to keep; cancel for a form or a last look not yet sent;
+// back for a step nested in another; skip for an offer that follows a done
+// act; stay at a guard.
+const (
+	escDiscard = "discard"
+	escClose   = "close"
+	escCancel  = "cancel"
+	escBack    = "back"
+	escSkip    = "skip"
+	escStay    = "stay"
+)
+
 // everywhereKeys are the bindings every context answers to.
 func everywhereKeys(builder *helpBuilder, into *keyMap) {
 	into.confirm = builder.bind(groupEverywhere, "apply", "apply", "enter")
-	into.closeOverlay = builder.bind(groupEverywhere, "close", "close", "esc")
+	into.closeOverlay = builder.bind(groupEverywhere, "close", escClose, "esc")
 	into.toggleMouse = builder.bind(groupEverywhere, "toggle-mouse", "toggle mouse", "m")
 	into.toggleHelp = builder.bind(groupEverywhere, "toggle-help", "keys", "?")
 	into.quit = builder.bind(groupEverywhere, "quit", "quit", "q")

@@ -245,7 +245,7 @@ func (m Model) readingKeys() []key.Binding {
 	case !m.shape().Collapsed():
 		return nil
 	case m.issues.viewing:
-		return []key.Binding{relabel(m.keys.closeOverlay, "back to list")}
+		return []key.Binding{relabel(m.keys.closeOverlay, escBack+" to list")}
 	default:
 		return []key.Binding{relabel(m.keys.confirm, "read issue")}
 	}

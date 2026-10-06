@@ -198,7 +198,7 @@ func (f fieldForm) optionLines(marks glyphs, rows int) []string {
 // field until the last one, which it applies.
 func (f fieldForm) footer(keys keyMap) []key.Binding {
 	advance := relabel(keys.confirm, f.confirmLabel())
-	back := relabel(keys.closeOverlay, "back")
+	back := relabel(keys.closeOverlay, escBack)
 
 	if f.textual() {
 		return []key.Binding{advance, back}

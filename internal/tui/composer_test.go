@@ -102,6 +102,19 @@ func TestCtrlBMovesTheSubjectsCursorBack(t *testing.T) {
 	refuseScreen(t, view, "fix!:")
 }
 
+func TestClosingTheCommitComposerSaysItsDraftIsKept(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	typed := typing(t, newWorld().live(t, 120, 40), append([]string{"3", "c"}, letters("redact")...)...)
+
+	// Act
+	view := typing(t, typed, keyEsc).View().Content
+
+	// Assert
+	requireScreen(t, view, "draft kept; c picks it up again")
+}
+
 func TestTheComposerOpensOnTheBranchType(t *testing.T) {
 	t.Parallel()
 

@@ -276,9 +276,16 @@ func TestAFailedPushKeepsThePullRequestDraft(t *testing.T) {
 	// Act: leave the failed run and reopen the composer
 	reopened := typing(t, pushed, keyEsc, "n")
 
-	// Assert: it reopens with the edited title still there
+	// Assert: it reopens with the edited title still there, and esc says it closes
 	requireScreen(t, reopened.View().Content,
 		"┏━ Open pull request", "title     > "+pullTitle+"!")
+	requireScreen(t, footerLine(reopened.View().Content), escCloses)
+
+	// Act: close it again
+	closed := typing(t, reopened, keyEsc)
+
+	// Assert: a notice says the draft was kept, and how to pick it up
+	requireScreen(t, closed.View().Content, "draft kept; n picks it up again")
 }
 
 func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {

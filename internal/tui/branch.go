@@ -398,7 +398,7 @@ func (c branchCreator) footer(keys keyMap) []key.Binding {
 		bindings = append(bindings, relabel(keys.worktree, c.worktreeToggleLabel()))
 	}
 
-	return append(bindings, relabel(keys.closeOverlay, "discard"))
+	return append(bindings, relabel(keys.closeOverlay, escDiscard))
 }
 
 // worktreeToggleLabel names what the worktree key would switch to.
