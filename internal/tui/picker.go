@@ -360,7 +360,7 @@ func (p statusPicker) choose(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if blocked, unfillable := unfillableField(chosen); unfillable {
+	if blocked, unfillable := chosen.Unfillable(); unfillable {
 		p.send.err = errNeedsJira(chosen, blocked)
 		m.overlay = p
 

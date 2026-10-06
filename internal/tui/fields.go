@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
@@ -18,38 +17,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
-// errOnlyJira reports a field only Jira's own screen can fill, such as a
-// cascading select. The transition is not sent half-filled, to be refused.
-var errOnlyJira = errors.New("which only Jira's own screen can fill; make this change in Jira")
-
-// errNeedsValue reports a text, user or date field left empty.
+// errNeedsValue reports a one-line write left empty.
 var errNeedsValue = errors.New("needs a value")
-
-// errNeedsDate reports a date field that is not a date.
-var errNeedsDate = errors.New("must be a date like 2026-09-21")
-
-// errNeedsChoice reports a list field with nothing chosen.
-var errNeedsChoice = errors.New("needs at least one")
-
-// dateLayout is the calendar date Jira reads and writes, and Go's own reference
-// date spelled in it.
-const dateLayout = "2006-01-02"
 
 // errNeedsJira says which field keeps a transition out of reach here.
 func errNeedsJira(move jira.Transition, field jira.Field) error {
-	return fmt.Errorf("%s needs %s, %w", move.Name, field.Name, errOnlyJira)
-}
-
-// unfillableField is the first field of a transition that cannot be filled in
-// here, if it has one.
-func unfillableField(move jira.Transition) (jira.Field, bool) {
-	for _, field := range move.Fields {
-		if !field.Fillable() {
-			return field, true
-		}
-	}
-
-	return jira.Field{}, false
+	return fmt.Errorf("%s needs %s, %w", move.Name, field.Name, jira.ErrOnlyJira)
 }
 
 // fieldForm fills in the fields a transition needs, one at a time: a choice
@@ -98,7 +71,7 @@ func (f fieldForm) picked(id string) bool {
 // placeholder is the shape a typed field expects, shown until it is filled.
 func placeholder(kind jira.FieldKind) string {
 	if kind == jira.FieldDate {
-		return dateLayout
+		return jira.DateLayout
 	}
 
 	if kind == jira.FieldUser {
@@ -106,13 +79,6 @@ func placeholder(kind jira.FieldKind) string {
 	}
 
 	return ""
-}
-
-// isDate reports whether text is a calendar date Jira will accept.
-func isDate(text string) bool {
-	_, err := time.Parse(dateLayout, text)
-
-	return err == nil
 }
 
 // toggleID adds an option to the chosen set if absent and removes it if
@@ -311,40 +277,19 @@ func (p statusPicker) fill(m Model) (Model, tea.Cmd) {
 }
 
 // value reads what was entered for the current field, or the reason it cannot
-// be accepted yet.
+// be accepted yet, as Jira's own field checks give it.
 func (f fieldForm) value() (jira.FieldValue, error) {
 	field := f.field()
 	value := jira.FieldValue{Field: field}
 
 	switch {
 	case f.textual():
-		return f.typed(value)
+		value.Text = strings.TrimSpace(f.input.Value())
 	case f.multi():
-		if len(f.chosen) == 0 {
-			return value, errNeedsChoice
-		}
-
 		value.OptionIDs = f.chosen
 	default:
 		value.OptionID = field.Options[f.option].ID
 	}
 
-	return value, nil
-}
-
-// typed reads a text, user or date field, refusing an empty value and a date
-// that is not one.
-func (f fieldForm) typed(value jira.FieldValue) (jira.FieldValue, error) {
-	text := strings.TrimSpace(f.input.Value())
-	if text == "" {
-		return value, errNeedsValue
-	}
-
-	if f.field().Kind == jira.FieldDate && !isDate(text) {
-		return value, errNeedsDate
-	}
-
-	value.Text = text
-
-	return value, nil
+	return value, value.Check()
 }
