@@ -155,7 +155,7 @@ their own command line, to them.
 | **Reviews** | | | |
 | List what waits on your review | `reviews --json --sort` | Reviews pane: `O`, `f` | Reviews: Sort, Filter |
 | **Tasks** | | | |
-| Add, annotate, modify, start, stop, mark done, undo, sync | not for scripts | Tasks pane: `a`, `A`, `e`, `s`, `d`, `u`, `S` | Tasks: Add, Annotate, Modify, Start, Stop, Mark done, Undo, Sync |
+| Add, annotate, modify, start, stop, mark done, undo, sync | not for scripts | Tasks pane: `a`, `A`, `e`, `s`, `d`, `u`, `S` | Tasks: Add, Annotate, Modify, Start, Stop, Mark done…, Undo…, Sync… |
 | Sort, search, filter | not for scripts | `O`, `/`, `f` | Sort, Search, Filter |
 | **Summary** | | | |
 | Read what you did in a period | — (FEAT-86) | Summary pane: `[`, `]`, `t`, `c` | Summary: Earlier, Later, Today, the calendar |
@@ -184,7 +184,7 @@ is the shortest summary of how far the screen keeps them, re-counted at
 | --- | --- | --- |
 | "`?` lists every key" | `docs/content/docs/usage.md:90` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:159`, rendered in two columns split where they balance): 90 placements in 12 groups, on 89 lines, since `cycle-type-right` rides `cycle-type-left`'s line. `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:283`) reads `?` back and holds it to a table of every placement. |
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:58` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/failure.go:86`) and drawn by one of seven helpers: `failureBlock` at 18 sites, `pinnedOutcome` 13, `failureLine` 21, `failureSummary` 7, `noticedFailure` 10, `noticedFailureLedBy` 2 and `noticedGuidance` 3 (plain, since red means something broke). |
-| "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:54` | **Kept for every act that leaves the machine but Taskwarrior's sync; not kept for four that cannot be undone.** Every write to Jira, the forge and the messaging service, and every push, waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:223`). Under principle 2 the exceptions are `S` (sync, which leaves the machine), `d` (mark done) and `u` (undo) on the Tasks pane, `d` (forget) in People and groups, and `enter` (switch the directory) on the Repositories pane, which asks only when work would be lost (UX-145). |
+| "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:54` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:224`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
 | "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:321` | **Yes: 16 of 16.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `statusPicker` (with its field form) and `taskLine`. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:98` | **Yes.** `Init` (`internal/tui/tui.go:193`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:201`); each pane holds and renders its own load's error, the Summary per source. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | **Yes.** `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:33`, `:45`); `NO_COLOR` keeps bold and faint. Two residues: the progress spine's five system hues are color-only, mitigated by each system's name or initial, and `◐` means both "partly staged" and "announces when CI passes" (see the visual system). |
@@ -2148,85 +2148,6 @@ tests; `TestAnnounceDryRunComposesTheReadyMoment`
 `:80`) agree on one example; `TestTheSlackPaneNamesWhatItNeedsWhenUnset`
 (`internal/tui/messaging_test.go:531`) refuses `~/` and the pane and the
 failure wording name the same settings.
-
-### UX-145 Writes that act at once, outside the rule
-
-Impact: medium · Effort: small
-
-**Today.** The rule — confirm what leaves the machine or cannot be
-undone; let a reversible local toggle act at once — is kept by most
-writes and broken by six, three of them on both surfaces, and two acts
-are asked about on one surface and not the other.
-
-- Tasks `d` mark done (`markDone`, `internal/tui/taskactions.go:221`),
-  `u` undo (`undoTasks`, `:253`) and `S` sync (`syncTasks`, `:283`) send
-  at once through `actOnTask` (`:234`) or their own command. Sync leaves
-  the machine; undo cannot itself be undone, since Taskwarrior has no
-  redo; and done is reversible only by `u` while it is still
-  Taskwarrior's last change, and runs the task's hooks. The same
-  completion offered at a loop moment *does* get a last look — "Mark task
-  N done?" (`offerMarkDone`, `internal/tui/taskoffers.go:249`) — so one
-  act is asked about on one path and not the other.
-- The web's Mark done (`TaskVerbs`,
-  `web/src/features/tasks/TaskDetail.tsx:209`), Undo and Sync
-  (`web/src/features/tasks/TasksPanel.tsx:234`, `:244`) are each a `Verb`
-  button (`web/src/features/tasks/TaskDetail.tsx:235`) that writes on
-  click.
-- People and groups `d` forget (`handlePersonKey`,
-  `internal/tui/people.go:397`) deletes a kept decision at once, while the
-  web asks first — "Forget OWNER?" with what forgetting costs
-  (`ForgetConfirm`, `web/src/features/settings/people/PeopleTable.tsx:291`).
-  What `kept.db` holds is what the user decided and "cannot be seen again"
-  (CLAUDE.md), which is the rule's second clause.
-- The web's two directory switches disagree with each other: Repositories
-  asks "Switch to DIR?" first (`ConfirmSwitch`,
-  `web/src/features/repositories/RepositoriesPanel.tsx:138`), while Switch
-  to it and Switch to its worktree (`WorktreeMadeOffer` and
-  `SwitchToWorktreeButton`,
-  `web/src/features/issues/StartInWorktree.tsx:70`, `:119`) switch the
-  server's directory on click. The terminal switches at once from the
-  Repositories pane and asks only when the switch would lose something
-  this session holds — a draft commit message, an edited pull request, a
-  queued announcement, a forge comment (`leaveFor` and `lostOnLeaving`,
-  `internal/tui/reposwitch.go:104`, `:141`; `switchGuard`, `:167`). The
-  rule counts every directory switch as one to confirm: it changes what
-  every pane, and on the web every open tab, reads and writes, so a
-  stray `enter` or click lands work in the wrong repository.
-
-Acting at once, by the rule and on both surfaces: start and stop a task;
-favorite and unfavorite a directory; check a group or a person for the
-announcement's tags; link an owner, or mark one not on Slack; stage and
-unstage, one file or all; link and unlink a branch's issue where no pull
-request description changes. The terminal's branch creator, task switcher
-and worktree toggle also show what they will do first, but as the place the
-name is chosen rather than as a confirmation, so the web's one-click Start
-work, Switch branch and Start work in a new worktree
-(`web/src/features/issues/WorkStory.tsx:367`,
-`web/src/features/issues/IssuesPanel.tsx:483`,
-`web/src/features/issues/StartInWorktree.tsx:31`) are inside the rule —
-local, and undone by switching back.
-
-**Instead.** A last look on each of the four, on both surfaces: done,
-undo and sync through the terminal's `lastLook`
-(`internal/tui/overlay.go:223`), worded as `offerMarkDone` already words
-it, and through a confirm step on the web shaped like `ForgetConfirm`;
-forget through a `lastLook` naming what the next announcement will ask
-again. For the switch, one look on both surfaces: the terminal's
-`enter` and the dir prompt's go ask "Switch to DIR?" through `lastLook`,
-folding in `switchGuard`'s list of what would be lost when there is
-any, and the web's Switch to it and Switch to its worktree pass through
-`ConfirmSwitch` rather than switching around it. The promises table at
-the head of this file names the rule and the acts it exempts, so the
-next re-count checks them.
-
-**Done when.** A screen test presses `d`, `u` and `S` on the Tasks pane
-and finds no call to the fake Taskwarrior until enter; a screen test
-presses `d` in People and groups and finds the fake store's
-`ForgetOwner` uncalled until enter; web tests click Mark done, Undo and Sync
-and find no request until the confirm; a screen test presses `enter` on a
-favorite and finds no `Next` until the look is confirmed; a web test
-clicks Switch to it and finds no `PUT /api/repositories/here` until
-Switch is pressed in the confirmation.
 
 ### UX-148 Docs that drift from the screen
 
