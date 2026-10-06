@@ -71,6 +71,9 @@ func newBranchCmd(prompt Prompt) *cobra.Command {
 			"a fetch that fails creates nothing. --worktree creates the branch in a new\n" +
 			"worktree beside the repository instead, leaving this checkout where it is, and\n" +
 			"prints the worktree's directory alone on the last line.",
+		Example: examples(
+			`cd "$(workflow branch PROJ-7 --fetch --worktree --yes | tail -n 1)"   # start fresh, beside this checkout`,
+		),
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {

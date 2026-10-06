@@ -123,7 +123,7 @@ func newConfigShowCmd() *cobra.Command {
 		Long: "Print the configuration in effect as JSON, with every credential masked.\n" +
 			"The JSON alone goes to stdout, so it pipes into jq; the file it came from is\n" +
 			"named on stderr. With no configuration file it says how to create one and\n" +
-			"fails, as doctor does.",
+			"exits 3, as doctor does.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := loadFromEnvironment()

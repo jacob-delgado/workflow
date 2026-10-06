@@ -20,6 +20,12 @@ there now. --json prints the web API's Repositories shape.
 workflow repositories [flags]
 ```
 
+### Examples
+
+```
+  workflow repositories --json | jq -r '.worktrees[].dir'   # this repository's worktrees
+```
+
 ### Options
 
 ```

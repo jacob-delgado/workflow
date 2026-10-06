@@ -65,6 +65,10 @@ func newSummaryCmd(prompt Prompt) *cobra.Command {
 			"the summary, and the command exits non-zero once it has printed the rest. A source\n" +
 			"that is not set up — no token, no forge the origin names, no Taskwarrior — is left\n" +
 			"out, with a note on standard error saying how to set it up.",
+		Example: examples(
+			`workflow summary --json | jq -r .text   # what you did on the previous working day`,
+			`workflow summary --post --yes          # post it to your team, unattended`,
+		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSummaryCommand(cmd, prompt, opts)

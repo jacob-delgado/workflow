@@ -408,3 +408,10 @@ func unreachableErrors() []error {
 		errUnreachable, httpx.ErrRateLimited, httpx.ErrRedirected,
 	}
 }
+
+// examples is a command's Example text: one invocation a line, indented as
+// cobra indents its other sections, so --help and the reference page show
+// what scripting.md shows.
+func examples(lines ...string) string {
+	return "  " + strings.Join(lines, "\n  ")
+}

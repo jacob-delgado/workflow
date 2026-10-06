@@ -15,11 +15,13 @@ listed in the [command reference]({{< relref "/docs/reference" >}}).
 
 ```sh
 workflow status --json                 # where the work stands, as data
+workflow reviews --json                # what waits on your review, oldest first
 workflow repositories --json | jq -r '.worktrees[].dir'   # this repository's worktrees
 cd "$(workflow branch PROJ-7 --fetch --worktree --yes | tail -n 1)"   # start fresh, beside this checkout
 workflow --dry-run pr                  # what pr would push and open
 workflow pr --yes                      # push, open, link and move, without asking
 workflow pr --yes --json | jq .pull.url   # the same, and the address it opened
+workflow announce --yes                # announce it, unattended
 workflow summary --json | jq -r .text  # what you did on the previous working day
 workflow summary --post --yes          # post it to your team, unattended
 git log -1 --format=%B | workflow comment PROJ-7 --yes   # the text on stdin, never quoted

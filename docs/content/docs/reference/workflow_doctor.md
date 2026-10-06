@@ -25,6 +25,13 @@ unchecked. Add --json for the same facts as data, with the same masking.
 workflow doctor [flags]
 ```
 
+### Examples
+
+```
+  workflow doctor --online                      # ask each service whether its credential works
+  workflow --log requests.log doctor --online   # a bug report's evidence
+```
+
 ### Options
 
 ```

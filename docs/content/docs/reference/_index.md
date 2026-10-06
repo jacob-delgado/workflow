@@ -21,3 +21,7 @@ workflow config init --help
 
 `workflow --help` is also where the token setup instructions live, for when the
 website is not to hand.
+
+What a script can rely on — the exit status of each kind of failure, which
+stream carries what, and the JSON shapes — is on
+[Scripting]({{< relref "/docs/scripting" >}}), beside each scriptable command's examples.

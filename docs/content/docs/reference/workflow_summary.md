@@ -29,6 +29,13 @@ out, with a note on standard error saying how to set it up.
 workflow summary [flags]
 ```
 
+### Examples
+
+```
+  workflow summary --json | jq -r .text   # what you did on the previous working day
+  workflow summary --post --yes          # post it to your team, unattended
+```
+
 ### Options
 
 ```

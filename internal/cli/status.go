@@ -60,7 +60,13 @@ func newStatusCmd() *cobra.Command {
 			"Given one or more directories, it prints a labeled line for each, so\n" +
 			"`workflow status ~/src/*` reports every repository at once. Each reads its\n" +
 			"own configuration. A directory that cannot be read still gets its line,\n" +
-			"saying why, and the command then fails, as it does outside a repository.",
+			"saying why, and the command then fails, as it does outside a repository: it\n" +
+			"exits 3 when a directory's configuration does not load, otherwise 4 when one\n" +
+			"is not a git repository — as bare status exits 4 outside one — otherwise 1.",
+		Example: examples(
+			`workflow status --json        # where the work stands, as data`,
+			`workflow status ~/src/*       # every repository at once, a line each`,
+		),
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runStatusCommand(cmd, asJSON, args)
