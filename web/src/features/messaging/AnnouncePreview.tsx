@@ -46,25 +46,15 @@ export function AnnouncePreview(props: AnnouncePreviewProps) {
       tabIndex={-1}
       className="flex flex-col gap-group rounded-lg border border-border p-4"
     >
-      <PreviewText text={props.text} editing={props.editing} busy={busy} onEdit={props.onEdit} />
+      <PreviewText
+        label="Announcement text"
+        text={props.text}
+        editing={props.editing}
+        busy={busy}
+        onEdit={props.onEdit}
+      />
       {channels.length > 0 ? (
-        <label className="flex items-center gap-item text-sm">
-          <span className="text-muted-foreground">Channel</span>
-          <Select
-            size="sm"
-            value={channel}
-            disabled={busy}
-            onChange={(event) => {
-              onChannel(event.target.value)
-            }}
-          >
-            {channels.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </Select>
-        </label>
+        <ChannelSelect channel={channel} channels={channels} busy={busy} onChannel={onChannel} />
       ) : null}
       <UntaggedNote reason={tagging?.unavailable_reason} />
       {tagging?.available === true ? (
@@ -82,15 +72,50 @@ export function AnnouncePreview(props: AnnouncePreviewProps) {
   )
 }
 
-// PreviewText is the message as it will be posted, with Edit, or the box it is
-// being edited in. An edit emptied of text is refused by the server, which
-// says so.
-function PreviewText({
+// ChannelSelect is the channel a post goes to, chosen from those configured.
+export function ChannelSelect({
+  channel,
+  channels,
+  busy,
+  onChannel,
+}: {
+  channel: string
+  channels: string[]
+  busy: boolean
+  onChannel: (channel: string) => void
+}) {
+  return (
+    <label className="flex items-center gap-item text-sm">
+      <span className="text-muted-foreground">Channel</span>
+      <Select
+        size="sm"
+        value={channel}
+        disabled={busy}
+        onChange={(event) => {
+          onChannel(event.target.value)
+        }}
+      >
+        {channels.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </Select>
+    </label>
+  )
+}
+
+// PreviewText is the message as it will be posted, with Edit, or the box,
+// named label, it is being edited in. An edit emptied of text is refused by
+// the server, which says so.
+export function PreviewText({
+  label,
   text,
   editing,
   busy,
   onEdit,
 }: {
+  label: string
   text: string
   editing: boolean
   busy: boolean
@@ -99,7 +124,7 @@ function PreviewText({
   if (editing) {
     return (
       <label className="flex flex-col gap-tight text-sm">
-        <span className="font-medium">Announcement text</span>
+        <span className="font-medium">{label}</span>
         <TextArea
           rows={Math.min(12, text.split('\n').length + 2)}
           value={text}

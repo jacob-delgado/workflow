@@ -11,6 +11,7 @@ import { ActivityList } from './ActivityList.tsx'
 import type { Period } from './civilDate.ts'
 import { PeriodCalendar, PeriodSteps } from './PeriodPicker.tsx'
 import { useActivity } from './summaryApi.ts'
+import { SummaryPost } from './SummaryPost.tsx'
 
 // SummaryPanel is what you did over a period, read back from git, Taskwarrior,
 // Jira and the forge: the previous working day until another is picked, a
@@ -123,8 +124,8 @@ interface DoneProps {
   reading: boolean
 }
 
-// Done is the summary to copy, what each source could not say, and the
-// period's timeline or that nothing was done.
+// Done is the summary to copy or post, what each source could not say, and
+// the period's timeline or that nothing was done.
 function Done({ activity, period, reading }: DoneProps) {
   const outcome = useOutcome()
   const written =
@@ -141,7 +142,7 @@ function Done({ activity, period, reading }: DoneProps) {
 
   return (
     <>
-      <div>
+      <div className="flex flex-wrap items-start gap-item">
         <Button
           variant="secondary"
           aria-disabled={empty}
@@ -153,6 +154,7 @@ function Done({ activity, period, reading }: DoneProps) {
         >
           Copy as Markdown
         </Button>
+        <SummaryPost key={`${activity.from}/${activity.to}`} activity={activity} teller={outcome} />
       </div>
       <OutcomeLine said={outcome.said} />
       {copy.state === 'error' ? <Failure>{copy.error}</Failure> : null}
