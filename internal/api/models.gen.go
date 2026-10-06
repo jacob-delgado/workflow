@@ -1358,6 +1358,32 @@ type JobLog struct {
 	Truncated bool `json:"truncated"`
 }
 
+// KeyAction One action the terminal interface binds, as its help lists it.
+type KeyAction struct {
+	// Action The action's name, as ui.keys names it, e.g. comment.
+	Action string `json:"action"`
+
+	// Group The help group it is listed under, e.g. Issues.
+	Group string `json:"group"`
+
+	// Help The words the help says it in, e.g. change status.
+	Help string `json:"help"`
+
+	// Keys Every key that triggers it, in the terminal's names, e.g. c, C, ctrl+e.
+	Keys []string `json:"keys"`
+
+	// Shown The key the help shows, e.g. c, or 1-9 for the pane numbers.
+	Shown string `json:"shown"`
+}
+
+// KeyList defines model for KeyList.
+type KeyList struct {
+	Actions []KeyAction `json:"actions"`
+
+	// SingleKeyShortcuts Whether a single key pressed outside a text field acts (ui.web_shortcuts).
+	SingleKeyShortcuts bool `json:"single_key_shortcuts"`
+}
+
 // LinkedIssue defines model for LinkedIssue.
 type LinkedIssue struct {
 	// Key The issue's key, a forge number without its
@@ -2155,6 +2181,9 @@ type UIConfig struct {
 	Keys   *map[string]string `json:"keys,omitempty"`
 	Mouse  *bool              `json:"mouse,omitempty"`
 	Notify *bool              `json:"notify,omitempty"`
+
+	// WebShortcuts Whether the web page's single-key shortcuts are on. Off unless set; ? and the command palette work either way.
+	WebShortcuts *bool `json:"web_shortcuts,omitempty"`
 }
 
 // UIConfigColor Empty for auto, or "never".

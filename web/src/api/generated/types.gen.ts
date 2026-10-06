@@ -1603,6 +1603,44 @@ export type UiConfig = {
     keys?: {
         [key: string]: string;
     } | null;
+    /**
+     * Whether the web page's single-key shortcuts are on. Off unless set; ? and the command palette work either way.
+     */
+    web_shortcuts?: boolean;
+};
+
+export type KeyList = {
+    /**
+     * Whether a single key pressed outside a text field acts (ui.web_shortcuts).
+     */
+    single_key_shortcuts: boolean;
+    actions: Array<KeyAction>;
+};
+
+/**
+ * One action the terminal interface binds, as its help lists it.
+ */
+export type KeyAction = {
+    /**
+     * The action's name, as ui.keys names it, e.g. comment.
+     */
+    action: string;
+    /**
+     * The words the help says it in, e.g. change status.
+     */
+    help: string;
+    /**
+     * The help group it is listed under, e.g. Issues.
+     */
+    group: string;
+    /**
+     * The key the help shows, e.g. c, or 1-9 for the pane numbers.
+     */
+    shown: string;
+    /**
+     * Every key that triggers it, in the terminal's names, e.g. c, C, ctrl+e.
+     */
+    keys: Array<string>;
 };
 
 export type TimingConfig = {
@@ -2858,6 +2896,31 @@ export type UpdateConfigResponses = {
 };
 
 export type UpdateConfigResponse = UpdateConfigResponses[keyof UpdateConfigResponses];
+
+export type GetKeysData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/keys';
+};
+
+export type GetKeysErrors = {
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetKeysError = GetKeysErrors[keyof GetKeysErrors];
+
+export type GetKeysResponses = {
+    /**
+     * The actions and the shortcut setting.
+     */
+    200: KeyList;
+};
+
+export type GetKeysResponse = GetKeysResponses[keyof GetKeysResponses];
 
 export type RemoveLocalDataData = {
     body?: never;

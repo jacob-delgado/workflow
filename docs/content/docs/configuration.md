@@ -129,6 +129,7 @@ them on stderr, so there is never a question about which were read.
 | `ui.notify` | no | Ring the terminal (and raise a desktop notification where it relays one) when CI finishes. Defaults to `false`. |
 | `ui.comments_shown` | no | How many of an issue's most recent comments the detail pane draws. Defaults to 5, which `0` also keeps; a negative count is refused when the file loads. |
 | `ui.keys` | no | Rebind keys: a map from an action to the single key that triggers it, e.g. `{"commit": "C"}`. The help then shows the new key. See [Rebinding keys](#rebinding-keys) for the actions. |
+| `ui.web_shortcuts` | no | Turn on the `--web` page's single-key shortcuts: the terminal's keys, `ui.keys` applied, pressed outside a text field. Defaults to `false`; `?` and the command palette work either way. See [Keys on the web](#keys-on-the-web). |
 | `timing.request_timeout` | no | How long each request to a service may take, as a Go duration such as `30s`. Defaults to ten seconds. See [Timing](#timing). |
 | `timing.ci_interval` | no | How often CI is asked about while it runs, and how often the `--web` page's stream asks the forge about the branch, as a Go duration such as `1m`. Defaults to twenty seconds. See [Timing](#timing). |
 | `branch.template` | no | Shape of a proposed branch name from `{prefix}`, `{key}` and `{slug}`. Must contain `{key}`. Defaults to `{prefix}/{key}-{slug}`. |
@@ -713,6 +714,34 @@ edits with: a character, or one of the readline keys `ctrl+a`, `ctrl+b`,
 `ctrl+w`, or `ctrl+n` and `ctrl+p`, which step through a field's
 suggestions. Such a map is refused, since the overlay would take the edit
 for its own.
+
+### Keys on the web
+
+`workflow --web` offers the same actions by the same names, read from the
+terminal's own bindings with `ui.keys` applied, so a rebinding reaches both.
+The page binds those it has a control for — commenting, changing the status,
+staging everything, committing, pushing and the rest — and the pane numbers
+to its sections; `?` lists them by group, as the terminal's help does, and
+`ctrl+k` (or `cmd+k`) opens a palette of the section's actions by name.
+
+A key that acts the moment it is pressed surprises someone using a screen
+reader or speech input, so the page's single-key shortcuts are off until you
+turn them on, in Settings or here:
+
+```json
+{
+  "ui": {
+    "web_shortcuts": true
+  }
+}
+```
+
+`?` and the palette work either way. With the shortcuts on, a key still types
+into the field that has the focus — a search box, a form, the comment box —
+and acts only outside one. The page binds a key it can tell apart from the
+browser's own: one character, such as `c`, `C` or `/`. An action moved onto a
+combination such as `ctrl+e` keeps its place in `?` and the palette, without
+a key on the page, since the browser keeps those for itself.
 
 ## Timing
 

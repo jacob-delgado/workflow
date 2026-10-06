@@ -111,6 +111,9 @@ type ServerInterface interface {
 	// LogWork Log time spent on a Jira issue.
 	// (POST /api/issues/{key}/worklog)
 	LogWork(w http.ResponseWriter, r *http.Request, key string)
+	// GetKeys The terminal interface's key actions, as its help lists them.
+	// (GET /api/keys)
+	GetKeys(w http.ResponseWriter, r *http.Request)
 	// RemoveLocalData Remove the cache, or with scope all the kept associations too.
 	// (DELETE /api/local-data)
 	RemoveLocalData(w http.ResponseWriter, r *http.Request, params RemoveLocalDataParams)
@@ -930,6 +933,20 @@ func (siw *ServerInterfaceWrapper) LogWork(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.LogWork(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetKeys operation middleware
+func (siw *ServerInterfaceWrapper) GetKeys(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetKeys(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1816,6 +1833,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/messaging", wrapper.GetMessaging)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/config", wrapper.GetConfig)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/keys", wrapper.GetKeys)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/local-data", wrapper.RemoveLocalData)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/local-data", wrapper.GetLocalData)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/slack/members", wrapper.GetSlackMembers)
@@ -3768,6 +3786,44 @@ type LogWorkdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response LogWorkdefaultApplicationProblemPlusJSONResponse) VisitLogWorkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetKeysRequestObject struct {
+}
+
+type GetKeysResponseObject interface {
+	VisitGetKeysResponse(w http.ResponseWriter) error
+}
+
+type GetKeys200JSONResponse KeyList
+
+func (response GetKeys200JSONResponse) VisitGetKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetKeysdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetKeysdefaultApplicationProblemPlusJSONResponse) VisitGetKeysResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -6183,6 +6239,9 @@ type StrictServerInterface interface {
 	// LogWork Log time spent on a Jira issue.
 	// (POST /api/issues/{key}/worklog)
 	LogWork(ctx context.Context, request LogWorkRequestObject) (LogWorkResponseObject, error)
+	// GetKeys The terminal interface's key actions, as its help lists them.
+	// (GET /api/keys)
+	GetKeys(ctx context.Context, request GetKeysRequestObject) (GetKeysResponseObject, error)
 	// RemoveLocalData Remove the cache, or with scope all the kept associations too.
 	// (DELETE /api/local-data)
 	RemoveLocalData(ctx context.Context, request RemoveLocalDataRequestObject) (RemoveLocalDataResponseObject, error)
@@ -7202,6 +7261,30 @@ func (sh *strictHandler) LogWork(w http.ResponseWriter, r *http.Request, key str
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(LogWorkResponseObject); ok {
 		if err := validResponse.VisitLogWorkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetKeys operation middleware
+func (sh *strictHandler) GetKeys(w http.ResponseWriter, r *http.Request) {
+	var request GetKeysRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetKeys(ctx, request.(GetKeysRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetKeys")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetKeysResponseObject); ok {
+		if err := validResponse.VisitGetKeysResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

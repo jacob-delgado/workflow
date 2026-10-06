@@ -14,7 +14,8 @@ var ErrInvalidUI = errors.New("invalid ui setting")
 // colorNever is the ui.color that turns the system hues off.
 const colorNever = "never"
 
-// UI is how the terminal interface behaves.
+// UI is how the terminal interface behaves, and the one keyboard setting the
+// --web page reads beside its keys.
 type UI struct {
 	// Mouse captures the mouse, so a click focuses a pane or selects a row.
 	// Capturing it takes away the terminal's own click-and-drag selection,
@@ -45,6 +46,13 @@ type UI struct {
 	// docs/content/docs/configuration.md, which a terminal test holds to the
 	// bound ones.
 	Keys map[string]string `json:"keys"`
+	// WebShortcuts turns on the --web page's single-key shortcuts — the
+	// terminal's keys, ui.keys applied, pressed outside a text field. Off
+	// unless set, since a character key that acts on its own surprises a
+	// screen reader or speech user, who presses keys for other reasons (WCAG
+	// 2.1.4). The ? sheet and the command palette, on ctrl+k or cmd+k, work
+	// either way.
+	WebShortcuts bool `json:"web_shortcuts"`
 }
 
 // DrawColor reports whether the system hues should be drawn. NO_COLOR (set to

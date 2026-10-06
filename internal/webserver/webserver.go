@@ -157,6 +157,11 @@ type Deps struct {
 	// CheckKeys says why the terminal interface would refuse a ui.keys map,
 	// or nil where it would start on it. Nil here means no map is checked.
 	CheckKeys func(keys map[string]string) error
+	// KeyActions is every action the terminal interface's help lists, with a
+	// ui.keys map applied, its review noun and its messaging service naming
+	// what the help names for them: the keys a page binds, read from the
+	// terminal's own bindings. Nil lists none.
+	KeyActions func(reviewNoun, messagingService string, overrides map[string]string) []seams.KeyAction
 	// Unexpected hears each failure the server answers as an internal error —
 	// one no class of failure explains, or an answer that could not be
 	// written — whose cause the answer leaves out. Nil says nothing.
