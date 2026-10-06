@@ -757,6 +757,44 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/discard:
+    post:
+      operationId: discard
+      summary: Drop a changed file's changes, staged and not.
+      description: >-
+        Discards a file's changes from the index and the work tree — the
+        terminal interface's x, after its last look — which cannot be undone:
+        a tracked file is put back as the last commit has it, and a file git
+        does not track is deleted. The file is named and found as for POST
+        /api/stage. Refused with 404 when no change is at that path, and 422
+        when discarding is not available or git will not discard it.
+      tags: [repository]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscardRequest"
+      responses:
+        "200":
+          description: The working tree's changes, the file's now gone from them.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeList"
+        "404":
+          description: No change is at that path; nothing was discarded.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            Discarding is not available, or git would not discard the change.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
   /api/pull-request/merge:
     get:
       operationId: getMergeMethods
@@ -3292,6 +3330,20 @@ components:
           description: >-
             Every change: for staging, each one the index does not hold yet;
             for unstaging, each staged one.
+      additionalProperties: false
+
+    DiscardRequest:
+      type: object
+      description: The one changed file whose changes to discard.
+      required: [path]
+      properties:
+        path:
+          type: string
+          minLength: 1
+          description: >-
+            A changed file, by the path the working tree's changes list it
+            under (a rename's new path).
+          example: internal/config/config.go
       additionalProperties: false
 
     CommitRequest:

@@ -69,6 +69,9 @@ type ServerInterface interface {
 	// GetDirectories The directories in one, to browse for a directory to switch to.
 	// (GET /api/directories)
 	GetDirectories(w http.ResponseWriter, r *http.Request, params GetDirectoriesParams)
+	// Discard Drop a changed file's changes, staged and not.
+	// (POST /api/discard)
+	Discard(w http.ResponseWriter, r *http.Request)
 	// GetHealth Server and build information.
 	// (GET /api/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -600,6 +603,20 @@ func (siw *ServerInterfaceWrapper) GetDirectories(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDirectories(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Discard operation middleware
+func (siw *ServerInterfaceWrapper) Discard(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Discard(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1771,6 +1788,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/runs/current", wrapper.StopRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/stage", wrapper.Stage)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/unstage", wrapper.Unstage)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/discard", wrapper.Discard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/pull-request/merge", wrapper.GetMergeMethods)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/pull-request/merge", wrapper.MergePullRequest)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/branch/finish", wrapper.FinishBranch)
@@ -2862,6 +2880,73 @@ type GetDirectoriesdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetDirectoriesdefaultApplicationProblemPlusJSONResponse) VisitGetDirectoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscardRequestObject struct {
+	Body *DiscardJSONRequestBody
+}
+
+type DiscardResponseObject interface {
+	VisitDiscardResponse(w http.ResponseWriter) error
+}
+
+type Discard200JSONResponse ChangeList
+
+func (response Discard200JSONResponse) VisitDiscardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Discard404ApplicationProblemPlusJSONResponse Problem
+
+func (response Discard404ApplicationProblemPlusJSONResponse) VisitDiscardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Discard422ApplicationProblemPlusJSONResponse Problem
+
+func (response Discard422ApplicationProblemPlusJSONResponse) VisitDiscardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DiscarddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DiscarddefaultApplicationProblemPlusJSONResponse) VisitDiscardResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -5985,6 +6070,9 @@ type StrictServerInterface interface {
 	// GetDirectories The directories in one, to browse for a directory to switch to.
 	// (GET /api/directories)
 	GetDirectories(ctx context.Context, request GetDirectoriesRequestObject) (GetDirectoriesResponseObject, error)
+	// Discard Drop a changed file's changes, staged and not.
+	// (POST /api/discard)
+	Discard(ctx context.Context, request DiscardRequestObject) (DiscardResponseObject, error)
 	// GetHealth Server and build information.
 	// (GET /api/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -6637,6 +6725,37 @@ func (sh *strictHandler) GetDirectories(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetDirectoriesResponseObject); ok {
 		if err := validResponse.VisitGetDirectoriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Discard operation middleware
+func (sh *strictHandler) Discard(w http.ResponseWriter, r *http.Request) {
+	var request DiscardRequestObject
+
+	var body DiscardJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Discard(ctx, request.(DiscardRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Discard")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DiscardResponseObject); ok {
+		if err := validResponse.VisitDiscardResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

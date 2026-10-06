@@ -134,6 +134,9 @@ type Deps struct {
 	// request names.
 	Stage   func(change gitrepo.Change) error
 	Unstage func(change gitrepo.Change) error
+	// Discard drops one change from the index and the work tree, which cannot
+	// be undone: a change as Changes read it, never a path a request names.
+	Discard func(change gitrepo.Change) error
 	// LastScope is the commit scope last used in this repository, if one was,
 	// and RecordScope remembers the one a commit just used: the store the
 	// terminal's composer learns from. Nil where there is no store.

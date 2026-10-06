@@ -659,6 +659,16 @@ export type StagingRequest = {
 };
 
 /**
+ * The one changed file whose changes to discard.
+ */
+export type DiscardRequest = {
+    /**
+     * A changed file, by the path the working tree's changes list it under (a rename's new path).
+     */
+    path: string;
+};
+
+/**
  * The parts of a Conventional Commit message for the staged changes.
  */
 export type CommitRequest = {
@@ -2450,6 +2460,39 @@ export type UnstageResponses = {
 };
 
 export type UnstageResponse = UnstageResponses[keyof UnstageResponses];
+
+export type DiscardData = {
+    body: DiscardRequest;
+    path?: never;
+    query?: never;
+    url: '/api/discard';
+};
+
+export type DiscardErrors = {
+    /**
+     * No change is at that path; nothing was discarded.
+     */
+    404: Problem;
+    /**
+     * Discarding is not available, or git would not discard the change.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type DiscardError = DiscardErrors[keyof DiscardErrors];
+
+export type DiscardResponses = {
+    /**
+     * The working tree's changes, the file's now gone from them.
+     */
+    200: ChangeList;
+};
+
+export type DiscardResponse = DiscardResponses[keyof DiscardResponses];
 
 export type GetMergeMethodsData = {
     body?: never;

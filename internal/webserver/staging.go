@@ -44,22 +44,23 @@ func (t stagingTarget) words() string {
 }
 
 // stagingDirection is one way changes move between the work tree and the
-// index: the verb, the seam that moves one change, and loop's rule for all.
+// index, or out of both: the verb, the act named as a noun, the seam that
+// moves one change, and loop's rule for all.
 type stagingDirection struct {
-	verb string
-	one  func(gitrepo.Change) error
-	all  func([]gitrepo.Change, func(gitrepo.Change) error) error
+	verb, act string
+	one       func(gitrepo.Change) error
+	all       func([]gitrepo.Change, func(gitrepo.Change) error) error
 }
 
 // Stage takes the named change into the index — the terminal's space — or,
 // with all, every change the index does not hold yet, by the rule the
 // terminal's "stage all" follows. It answers the working tree as it now stands.
 func (s *server) Stage(_ context.Context, request api.StageRequestObject) (api.StageResponseObject, error) {
-	direction := stagingDirection{verb: "stage", one: s.deps.Stage, all: loop.StageAll}
+	direction := stagingDirection{verb: "stage", act: "staging", one: s.deps.Stage, all: loop.StageAll}
 
 	target, changes, err := s.moveChanges(*request.Body, direction)
 	if err != nil {
-		failure := s.stagingProblem(err, direction.verb, target)
+		failure := s.stagingProblem(err, direction, target)
 
 		return api.StagedefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
 	}
@@ -71,11 +72,11 @@ func (s *server) Stage(_ context.Context, request api.StageRequestObject) (api.S
 // is, or with all every staged change. It answers the working tree as it now
 // stands.
 func (s *server) Unstage(_ context.Context, request api.UnstageRequestObject) (api.UnstageResponseObject, error) {
-	direction := stagingDirection{verb: "unstage", one: s.deps.Unstage, all: loop.UnstageAll}
+	direction := stagingDirection{verb: "unstage", act: "staging", one: s.deps.Unstage, all: loop.UnstageAll}
 
 	target, changes, err := s.moveChanges(*request.Body, direction)
 	if err != nil {
-		failure := s.stagingProblem(err, direction.verb, target)
+		failure := s.stagingProblem(err, direction, target)
 
 		return api.UnstagedefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
 	}
@@ -83,7 +84,23 @@ func (s *server) Unstage(_ context.Context, request api.UnstageRequestObject) (a
 	return api.Unstage200JSONResponse(changesDTO(changes)), nil
 }
 
-// moveChanges moves what the request names in direction and returns the
+// Discard drops the named change from the index and the work tree, which
+// cannot be undone — the terminal's x — found as Stage finds it. It answers the
+// working tree as it now stands.
+func (s *server) Discard(_ context.Context, request api.DiscardRequestObject) (api.DiscardResponseObject, error) {
+	direction := stagingDirection{verb: "discard", act: "discarding", one: s.deps.Discard, all: nil}
+
+	target, changes, err := s.moveChanges(api.StagingRequest{Path: &request.Body.Path, All: nil}, direction)
+	if err != nil {
+		failure := s.stagingProblem(err, direction, target)
+
+		return api.DiscarddefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+	}
+
+	return api.Discard200JSONResponse(changesDTO(changes)), nil
+}
+
+// moveChanges moves what the request names// moveChanges moves what the request names in direction and returns the
 // working tree as it then stands. The named file is found among the changes
 // the server reads for itself, and it is that change — never the request's own
 // path — that reaches git. One request moves changes at a time, the rest
@@ -156,10 +173,12 @@ func (s *server) changesAfter(before []gitrepo.Change) []gitrepo.Change {
 // path the changes do not list, a 422 that says what to do for one the server
 // will not or git would not move, and the curated fault for a tree it could not
 // read.
-func (s *server) stagingProblem(err error, verb string, target stagingTarget) api.Problem {
+func (s *server) stagingProblem(err error, direction stagingDirection, target stagingTarget) api.Problem {
+	verb := direction.verb
+
 	switch {
 	case errors.Is(err, loop.ErrStagingUnavailable):
-		return problem(api.Unprocessable, "staging is not available")
+		return problem(api.Unprocessable, direction.act+" is not available")
 	case errors.Is(err, errNoStagingTarget):
 		return problem(api.Unprocessable, errNoStagingTarget.Error())
 	case errors.Is(err, errNotAChange):
