@@ -49,7 +49,7 @@ and the event stream both refuse a view they do not know rather than answering
 with the default one. Staging and unstaging answer it too for a path the working
 tree does not list as changed: they move a change the server read, never a path
 of the caller's own. Opening a pull request answers it for a repository the
-forge will not show the token. A failed check's log answers it for an id no
+forge will not show the token. A check's log answers it for an id no
 check of the current pull request's CI lists now, or when the branch has no
 pull request — the log is read only for a check the forge lists. A path the
 API does not serve answers it too.
@@ -90,6 +90,13 @@ area reads the listing again to show what is left. Close other workflow
 sessions and remove again (the command line's `workflow db-clean` exits 4
 there).
 
+A git run (`POST /api/runs`) answers it while another run goes, and when
+there is nothing to rebase, amend or fix up; editing, merging, finishing and
+re-running answer it when the branch's pull request is not at the point each
+needs — open, ready to merge, merged, or with failed CI — read afresh; and an
+announcement answers it for a moment already announced, from here, the
+terminal or `workflow announce`.
+
 ## Unprocessable
 
 Status 422. The request was understood but cannot be carried out as asked — an
@@ -107,7 +114,7 @@ branch's link to an issue that git could not write to, or remove from, the
 repository's configuration. Linking a branch answers it too for a key that
 names no issue — neither a Jira key like `PROJ-7` nor a forge number like `#42`
 — and linking or unlinking does for a server that cannot link a branch at
-all. A failed check's log answers it for a check the forge keeps no log for: a
+all. A check's log answers it for a check the forge keeps no log for: a
 commit status, or a check run from an app other than GitHub Actions. A push
 that ran and failed is answered here with git's own output, since the reason —
 a ref the remote rejected, a hook's refusal — is in it, with the remote's URL
