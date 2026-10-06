@@ -211,7 +211,7 @@ func TestTheBranchPaneSaysSoBeforeTheBranchLoads(t *testing.T) {
 
 	// Assert
 	// Other panes are loading too; the heavy border is the Branch pane's own.
-	requireScreen(t, view, focused("2 Branch"), "┃ reading…")
+	requireScreen(t, view, focused("2 Branch"), "┃ ◐ reading…")
 }
 
 func TestBOpensABranchNamedForTheSelectedIssue(t *testing.T) {

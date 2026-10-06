@@ -58,11 +58,7 @@ func (m Model) nextIssueView() (Model, tea.Cmd) {
 	m.issues.branchKeys, m.issues.branchesKnown = previous.branchKeys, previous.branchesKnown
 	m.issues.taskWords = previous.taskWords
 
-	if !m.issues.settled {
-		m.issues.loading = true
-	}
-
-	return m, m.relistIssues()
+	return m.searching(), m.relistIssues()
 }
 
 // viewSuffix names the active view beside the Issues pane's title, but only when

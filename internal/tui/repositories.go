@@ -30,8 +30,9 @@ type repositoriesState struct {
 	favorites    []favoritePlace
 	err          error
 	// read reports the favorites read at least once, as they are not at
-	// startup.
+	// startup; loading, a read begun and not yet answered.
 	read     bool
+	loading  bool
 	selected int
 	scroll   int
 }
@@ -74,6 +75,7 @@ var _ applier = repositoriesRead{}
 // apply keeps the favorites read, the cursor kept on a row there still is.
 func (msg repositoriesRead) apply(m Model) (Model, tea.Cmd) {
 	m.repositories.favorites, m.repositories.err, m.repositories.read = msg.favorites, msg.err, true
+	m.repositories.loading = false
 	m.repositories.worktrees, m.repositories.worktreesErr = msg.worktrees, msg.worktreesErr
 	m.repositories.selected = min(m.repositories.selected, len(m.repositoryRows())-1)
 
@@ -124,6 +126,8 @@ func (m Model) favoritePlaces() func() ([]favoritePlace, error) {
 
 // refreshRepositories reads the favorites again.
 func (m Model) refreshRepositories() (Model, tea.Cmd) {
+	m.repositories.loading = true
+
 	return m, m.loadRepositories()
 }
 
@@ -214,6 +218,8 @@ func (m Model) repositoriesRail(rows int) string {
 // when the pane is opened.
 func (m Model) favoritesCount() string {
 	switch count := len(m.repositoryRows()) - 1 - len(m.worktreeRows()); {
+	case !m.repositories.read && m.repositories.loading:
+		return m.marks.reading()
 	case !m.repositories.read:
 		return "favorites, read when opened"
 	case count == 1:
@@ -248,7 +254,7 @@ func (m Model) repositoriesDetail(width int) string {
 	case m.repositories.err != nil:
 		lines = append(lines, m.failureSummary(m.repositories.err))
 	case !m.repositories.read:
-		lines = append(lines, "reading"+m.marks.ellipsis)
+		lines = append(lines, m.marks.reading())
 	case len(rows) == 1+worktrees:
 		lines = append(lines, "No favorites yet; "+m.keys.favoriteDir.Help().Key+" marks the directory under the cursor.")
 	}

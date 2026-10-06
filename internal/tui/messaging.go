@@ -42,6 +42,8 @@ type messagingState struct {
 	dropped string
 	author  string
 	scroll  int
+	// loading is a refresh begun and not yet answered.
+	loading bool
 }
 
 // droppedTimeFormat stamps a dropped post with the time it was given up on.
@@ -195,6 +197,15 @@ func (m Model) announced() bool {
 	return m.review.found && slices.Contains(m.messaging.posted, current)
 }
 
+// refreshMessaging reads what was announced again, and the pull request and
+// its CI the announcement is written from.
+func (m Model) refreshMessaging() (Model, tea.Cmd) {
+	read := m.loadAnnounces()
+	m.messaging.loading = read != nil
+
+	return m, tea.Batch(read, m.loadBranch())
+}
+
 // loadAnnounces reads what was announced in an earlier session from the store, so
 // a pull request already posted opens as posted rather than being offered again.
 func (m Model) loadAnnounces() tea.Cmd {
@@ -219,6 +230,8 @@ var _ applier = announcesLoaded{}
 // apply seeds the session's posted list from the store, so a restart does not
 // forget what was announced and offer it again.
 func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
+	m.messaging.loading = false
+
 	for _, remembered := range msg.made {
 		if !slices.Contains(m.messaging.posted, remembered) {
 			m.messaging.posted = append(m.messaging.posted, remembered)
