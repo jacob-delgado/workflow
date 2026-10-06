@@ -180,3 +180,107 @@ func TestSaveEditPlacesNothingOverFilesChangedSinceTheRead(t *testing.T) {
 		t.Errorf("err = %v, placed %t; want ErrChangedOnDisk and the typed token unspent", err, placed)
 	}
 }
+
+func TestKeepStoredTakesABaseURLEditedFromItsMask(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	stored := config.Default()
+	stored.Jira.BaseURL = "https://ana:hunter2@jira.example.com"
+	incoming := stored.Redacted()
+	incoming.Jira.BaseURL = "https://jira.example.org"
+
+	// Act
+	kept := config.KeepStored(incoming, stored)
+
+	// Assert
+	if kept.Jira.BaseURL != "https://jira.example.org" {
+		t.Errorf("base URL = %q, want the edited one", kept.Jira.BaseURL)
+	}
+}
+
+func TestKeepStoredDropsJiraHeadersTheEditRemoved(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	stored := config.Default()
+	stored.Jira.Headers = map[string]config.Secret{"X-Auth": "header-dropped-5678"}
+	incoming := stored.Redacted()
+	incoming.Jira.Headers = nil
+
+	// Act
+	kept := config.KeepStored(incoming, stored)
+
+	// Assert
+	if kept.Jira.Headers != nil {
+		t.Errorf("headers = %v, want none: the edit removed them", kept.Jira.Headers)
+	}
+}
+
+func TestSaveEditOverAFileKeepingSlackSecretsKeepsTheTypedOnesThere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files := config.Files{Home: write(t, t.TempDir(), slackUserHome)}
+
+	read, revision, err := config.LoadLayersAt(files)
+	if err != nil {
+		t.Fatalf("reading the home file: %v", err)
+	}
+
+	edited := read.Redacted()
+	edited.Messaging.RefreshToken = typedRefresh
+	placed := false
+
+	// Act
+	_, _, err = config.SaveEdit(config.Edit{
+		Files: files, Read: read, Over: revision, Edited: edited,
+		PlaceSlackCredentials: func(cfg config.Config) (config.Config, error) {
+			placed = true
+
+			return cfg, nil
+		},
+	})
+
+	// Assert
+	saved := reread(t, files)
+	if err != nil || placed || saved.Messaging.RefreshToken.Reveal() != typedRefresh || saved.Messaging.AccessToken != "" {
+		t.Errorf("err %v, placed %t, file keeps typed %t, access token %t; want the typed token kept in the "+
+			"file, unplaced, and no access token", err, placed, saved.Messaging.RefreshToken.Reveal() == typedRefresh,
+			saved.Messaging.AccessToken != "")
+	}
+}
+
+func TestSaveEditPlacesNothingOverFilesItCannotRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files, read, revision := readHome(t)
+	edited := read.Redacted()
+	edited.Messaging.RefreshToken = typedRefresh
+	placed := false
+
+	err := os.Remove(files.Home)
+	if err == nil {
+		err = os.Mkdir(files.Home, 0o700)
+	}
+
+	if err != nil {
+		t.Fatalf("putting a directory where the file was: %v", err)
+	}
+
+	// Act
+	_, _, err = config.SaveEdit(config.Edit{
+		Files: files, Read: read, Over: revision, Edited: edited,
+		PlaceSlackCredentials: func(cfg config.Config) (config.Config, error) {
+			placed = true
+
+			return cfg, nil
+		},
+	})
+
+	// Assert
+	if !errors.Is(err, config.ErrChangedOnDisk) || placed {
+		t.Errorf("err = %v, placed %t; want ErrChangedOnDisk and the typed token unspent", err, placed)
+	}
+}
