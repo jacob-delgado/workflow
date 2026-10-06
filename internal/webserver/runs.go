@@ -123,10 +123,10 @@ func writeRunRefusal(w http.ResponseWriter, err error) {
 // a commit not yet pushed.
 func (s *server) planRun(asked api.RunRequest) (plannedRun, error) {
 	planners := map[api.RunKind]func(api.RunRequest) (plannedRun, error){
-		api.PreCommit: s.planPreCommit,
-		api.Rebase:    s.planRebase,
-		api.Amend:     s.planAmend,
-		api.Fixup:     s.planFixup,
+		api.RunKindPreCommit: s.planPreCommit,
+		api.RunKindRebase:    s.planRebase,
+		api.RunKindAmend:     s.planAmend,
+		api.RunKindFixup:     s.planFixup,
 	}
 
 	plan, known := planners[asked.Kind]
@@ -146,7 +146,7 @@ func (s *server) planPreCommit(api.RunRequest) (plannedRun, error) {
 	run := s.deps.RunHook
 
 	return plannedRun{
-		kind: api.PreCommit, title: preCommitHook,
+		kind: api.RunKindPreCommit, title: preCommitHook,
 		start:     func() (proc.Output, error) { return run(preCommitHook) },
 		succeeded: "The pre-commit hook passed.", refused: "The pre-commit hook failed.",
 	}, nil
@@ -166,7 +166,7 @@ func (s *server) planRebase(api.RunRequest) (plannedRun, error) {
 	rebase := s.deps.Rebase
 
 	return plannedRun{
-		kind: api.Rebase, title: "git rebase",
+		kind: api.RunKindRebase, title: "git rebase",
 		start:     func() (proc.Output, error) { return rebase(branch.Base) },
 		succeeded: "Rebased onto " + branch.BaseName() + ".",
 		refused: "The rebase stopped: resolve the conflict in a terminal, " +
@@ -189,7 +189,7 @@ func (s *server) planAmend(api.RunRequest) (plannedRun, error) {
 	last := foldable[len(foldable)-1]
 
 	return plannedRun{
-		kind: api.Amend, title: "git commit --amend", start: s.deps.Amend,
+		kind: api.RunKindAmend, title: "git commit --amend", start: s.deps.Amend,
 		succeeded: "Amended " + last.Subject + ".", refused: "The amend was refused.",
 	}, nil
 }
@@ -214,7 +214,7 @@ func (s *server) planFixup(asked api.RunRequest) (plannedRun, error) {
 	chosen, fixup := foldable[at], s.deps.Fixup
 
 	return plannedRun{
-		kind: api.Fixup, title: "git commit --fixup",
+		kind: api.RunKindFixup, title: "git commit --fixup",
 		start:     func() (proc.Output, error) { return fixup(chosen.Hash) },
 		succeeded: "Recorded a fixup! of " + chosen.Subject + ".", refused: "The fixup was refused.",
 	}, nil

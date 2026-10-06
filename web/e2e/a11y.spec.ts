@@ -293,6 +293,8 @@ const pullDraft = {
   draft: false,
   needs_push: false,
   reviewers: ['ana', 'acme/control-plane'],
+  templates: [],
+  template: '',
 } satisfies PullRequestDraft
 
 for (const theme of themes) {

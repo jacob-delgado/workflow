@@ -6,6 +6,7 @@ package loop
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -61,6 +62,9 @@ type PullSeams struct {
 type PullOptions struct {
 	Project     string
 	TitleSource convention.TitleSource
+	// Template is the template the body starts from, by name, as the
+	// terminal's ctrl+t chooses one; empty starts from the first.
+	Template string
 }
 
 // ComposePull proposes the pull request for the checked-out branch — a title and
@@ -82,7 +86,12 @@ func ComposePull(seams PullSeams, opts PullOptions) (forge.NewPullRequest, gitre
 		return forge.NewPullRequest{}, gitrepo.Branch{}, err
 	}
 
-	return draft(seams, opts, branch), branch, nil
+	template, err := chosenTemplate(seams.Templates, opts.Template)
+	if err != nil {
+		return forge.NewPullRequest{}, gitrepo.Branch{}, err
+	}
+
+	return draft(seams, opts, branch, template), branch, nil
 }
 
 // branchToOpen reads the checked-out branch, refusing one that could not carry a
@@ -121,7 +130,7 @@ func refuseAnOpenPull(find func(branch string) (forge.PullRequest, bool, error),
 }
 
 // draft composes the pull request for branch.
-func draft(seams PullSeams, opts PullOptions, branch gitrepo.Branch) forge.NewPullRequest {
+func draft(seams PullSeams, opts PullOptions, branch gitrepo.Branch, template string) forge.NewPullRequest {
 	key, _ := IssueOf(branch, opts.Project)
 	issueKey := jira.Key(key.Key)
 
@@ -130,7 +139,7 @@ func draft(seams PullSeams, opts PullOptions, branch gitrepo.Branch) forge.NewPu
 		IssueKey:     issueKey,
 		IssueSummary: issueSummary(seams.Issue, issueKey),
 		IssueURL:     issueURL(seams.BrowseURL, issueKey),
-		Template:     firstTemplate(seams.Templates),
+		Template:     template,
 		TitleSource:  opts.TitleSource,
 	})
 
@@ -166,19 +175,33 @@ func Draft(input DraftInput) (string, string) {
 		convention.PullRequestBody(input.Template, input.Subjects, key, input.IssueURL)
 }
 
-// firstTemplate is the repository's first pull request template's body, or
-// empty when it has none — the body then lists the branch's commits.
-func firstTemplate(read func() []forge.Template) string {
-	if read == nil {
-		return ""
+// ErrNoSuchTemplate refuses a pull request template asked for by a name the
+// repository has none of.
+var ErrNoSuchTemplate = errors.New("the repository has no pull request template of that name")
+
+// chosenTemplate is the body of the repository's template named, or of its
+// first when the name is empty, or empty when it has none — the body then
+// lists the branch's commits. A name it has none of is ErrNoSuchTemplate.
+func chosenTemplate(read func() []forge.Template, name string) (string, error) {
+	var templates []forge.Template
+	if read != nil {
+		templates = read()
 	}
 
-	templates := read()
-	if len(templates) == 0 {
-		return ""
+	if name == "" {
+		if len(templates) == 0 {
+			return "", nil
+		}
+
+		return templates[0].Body, nil
 	}
 
-	return templates[0].Body
+	at := slices.IndexFunc(templates, func(template forge.Template) bool { return template.Name == name })
+	if at < 0 {
+		return "", ErrNoSuchTemplate
+	}
+
+	return templates[at].Body, nil
 }
 
 // JiraIssue is the Jira issue the branch is for, by its link or its name, and

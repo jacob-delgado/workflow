@@ -418,6 +418,31 @@ export const zCommitRequest = z.object({
 });
 
 /**
+ * A pull request's title and description.
+ */
+export const zPullRequestText = z.object({
+    title: z.string(),
+    body: z.string()
+});
+
+/**
+ * How a pull request is merged — a merge commit, squashed, or rebased.
+ */
+export const zMergeMethod = z.enum([
+    'merge',
+    'squash',
+    'rebase'
+]);
+
+export const zMergeRequest = z.object({
+    method: zMergeMethod
+});
+
+export const zRerun = z.object({
+    reran: z.boolean()
+});
+
+/**
  * A pull request composed for the branch, editable before opening.
  */
 export const zPullRequestDraft = z.object({
@@ -427,7 +452,9 @@ export const zPullRequestDraft = z.object({
     head: z.string(),
     draft: z.boolean(),
     needs_push: z.boolean(),
-    reviewers: z.array(z.string())
+    reviewers: z.array(z.string()),
+    templates: z.array(z.string()),
+    template: z.string()
 });
 
 /**
@@ -761,6 +788,14 @@ export const zPullRequest = z.object({
         'clean',
         'conflicts'
     ])
+});
+
+/**
+ * The pull request a merge would merge, and the methods its repository permits.
+ */
+export const zMergeOffer = z.object({
+    pull: zPullRequest,
+    methods: z.array(zMergeMethod)
 });
 
 /**
@@ -1189,6 +1224,28 @@ export const zUnstageBody = zStagingRequest;
  */
 export const zUnstageResponse = zChangeList;
 
+/**
+ * The pull request and the methods permitted.
+ */
+export const zGetMergeMethodsResponse = zMergeOffer;
+
+export const zMergePullRequestBody = zMergeRequest;
+
+/**
+ * The pull request, merged.
+ */
+export const zMergePullRequestResponse = zPullRequest;
+
+/**
+ * The branch now checked out, the base.
+ */
+export const zFinishBranchResponse = zBranch;
+
+/**
+ * Whether anything was re-run.
+ */
+export const zRerunChecksResponse = zRerun;
+
 export const zGetCheckLogPath = z.object({
     id: z.string()
 });
@@ -1365,10 +1422,26 @@ export const zCommitBody = zCommitRequest;
  */
 export const zCommitResponse = zBranch;
 
+export const zGetPullRequestDraftQuery = z.object({
+    template: z.string().optional()
+});
+
 /**
  * The composed pull request, editable before opening.
  */
 export const zGetPullRequestDraftResponse = zPullRequestDraft;
+
+/**
+ * The pull request's title and description.
+ */
+export const zGetPullRequestTextResponse = zPullRequestText;
+
+export const zEditPullRequestBody = zPullRequestText;
+
+/**
+ * The pull request as the forge now holds it.
+ */
+export const zEditPullRequestResponse = zPullRequest;
 
 export const zOpenPullRequestBody = zOpenPullRequestRequest;
 

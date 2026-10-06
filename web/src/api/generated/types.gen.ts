@@ -685,6 +685,38 @@ export type CommitRequest = {
 };
 
 /**
+ * A pull request's title and description.
+ */
+export type PullRequestText = {
+    title: string;
+    body: string;
+};
+
+/**
+ * How a pull request is merged — a merge commit, squashed, or rebased.
+ */
+export type MergeMethod = 'merge' | 'squash' | 'rebase';
+
+/**
+ * The pull request a merge would merge, and the methods its repository permits.
+ */
+export type MergeOffer = {
+    pull: PullRequest;
+    methods: Array<MergeMethod>;
+};
+
+export type MergeRequest = {
+    method: MergeMethod;
+};
+
+export type Rerun = {
+    /**
+     * Whether the forge re-ran anything; false when the failure had no job to restart.
+     */
+    reran: boolean;
+};
+
+/**
  * A pull request composed for the branch, editable before opening.
  */
 export type PullRequestDraft = {
@@ -716,6 +748,14 @@ export type PullRequestDraft = {
      * The proposed reviewers: the code owners of the paths the branch changes, as CODEOWNERS on the base names them, without the author. People come first, then teams as org/team (a GitLab group as group/subgroup). Empty when no CODEOWNERS covers the changes or it cannot be read.
      */
     reviewers: Array<string>;
+    /**
+     * The repository's pull request templates by name, in the order the terminal's ctrl+t cycles them; empty when it has none.
+     */
+    templates: Array<string>;
+    /**
+     * The template the body starts from, by name; empty when there is none.
+     */
+    template: string;
 };
 
 /**
@@ -2411,6 +2451,138 @@ export type UnstageResponses = {
 
 export type UnstageResponse = UnstageResponses[keyof UnstageResponses];
 
+export type GetMergeMethodsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/pull-request/merge';
+};
+
+export type GetMergeMethodsErrors = {
+    /**
+     * There is no pull request that can be merged now.
+     */
+    409: Problem;
+    /**
+     * Merging is not available, or the repository permits no method.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetMergeMethodsError = GetMergeMethodsErrors[keyof GetMergeMethodsErrors];
+
+export type GetMergeMethodsResponses = {
+    /**
+     * The pull request and the methods permitted.
+     */
+    200: MergeOffer;
+};
+
+export type GetMergeMethodsResponse = GetMergeMethodsResponses[keyof GetMergeMethodsResponses];
+
+export type MergePullRequestData = {
+    body: MergeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/pull-request/merge';
+};
+
+export type MergePullRequestErrors = {
+    /**
+     * There is no pull request that can be merged now; nothing was merged.
+     */
+    409: Problem;
+    /**
+     * The method is not permitted, merging is not available, or the forge refused.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type MergePullRequestError = MergePullRequestErrors[keyof MergePullRequestErrors];
+
+export type MergePullRequestResponses = {
+    /**
+     * The pull request, merged.
+     */
+    200: PullRequest;
+};
+
+export type MergePullRequestResponse = MergePullRequestResponses[keyof MergePullRequestResponses];
+
+export type FinishBranchData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/branch/finish';
+};
+
+export type FinishBranchErrors = {
+    /**
+     * There is no merged branch to finish; nothing was run.
+     */
+    409: Problem;
+    /**
+     * Finishing is not available, or git refused.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type FinishBranchError = FinishBranchErrors[keyof FinishBranchErrors];
+
+export type FinishBranchResponses = {
+    /**
+     * The branch now checked out, the base.
+     */
+    200: Branch;
+};
+
+export type FinishBranchResponse = FinishBranchResponses[keyof FinishBranchResponses];
+
+export type RerunChecksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/review/rerun';
+};
+
+export type RerunChecksErrors = {
+    /**
+     * There is no failed CI on an open pull request to re-run.
+     */
+    409: Problem;
+    /**
+     * Re-running is not available, or the forge refused.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type RerunChecksError = RerunChecksErrors[keyof RerunChecksErrors];
+
+export type RerunChecksResponses = {
+    /**
+     * Whether anything was re-run.
+     */
+    200: Rerun;
+};
+
+export type RerunChecksResponse = RerunChecksResponses[keyof RerunChecksResponses];
+
 export type GetCheckLogData = {
     body?: never;
     path: {
@@ -3244,11 +3416,20 @@ export type CommitResponse = CommitResponses[keyof CommitResponses];
 export type GetPullRequestDraftData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The template to start the body from, by name; the repository's first when omitted.
+         */
+        template?: string;
+    };
     url: '/api/pull-request/draft';
 };
 
 export type GetPullRequestDraftErrors = {
+    /**
+     * The repository has no template of that name.
+     */
+    404: Problem;
     /**
      * There is nothing to open a pull request for, or the server is not running in a git repository.
      */
@@ -3269,6 +3450,68 @@ export type GetPullRequestDraftResponses = {
 };
 
 export type GetPullRequestDraftResponse = GetPullRequestDraftResponses[keyof GetPullRequestDraftResponses];
+
+export type GetPullRequestTextData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/pull-request';
+};
+
+export type GetPullRequestTextErrors = {
+    /**
+     * The branch has no open pull request.
+     */
+    409: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetPullRequestTextError = GetPullRequestTextErrors[keyof GetPullRequestTextErrors];
+
+export type GetPullRequestTextResponses = {
+    /**
+     * The pull request's title and description.
+     */
+    200: PullRequestText;
+};
+
+export type GetPullRequestTextResponse = GetPullRequestTextResponses[keyof GetPullRequestTextResponses];
+
+export type EditPullRequestData = {
+    body: PullRequestText;
+    path?: never;
+    query?: never;
+    url: '/api/pull-request';
+};
+
+export type EditPullRequestErrors = {
+    /**
+     * The branch has no open pull request.
+     */
+    409: Problem;
+    /**
+     * The title is empty, editing is not available, or the forge refused it.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type EditPullRequestError = EditPullRequestErrors[keyof EditPullRequestErrors];
+
+export type EditPullRequestResponses = {
+    /**
+     * The pull request as the forge now holds it.
+     */
+    200: PullRequest;
+};
+
+export type EditPullRequestResponse = EditPullRequestResponses[keyof EditPullRequestResponses];
 
 export type OpenPullRequestData = {
     body: OpenPullRequestRequest;

@@ -61,7 +61,7 @@ func WebServerAt(addr string) RunWeb {
 // available. The server also takes the interface's keymap check, so Settings
 // never saves a ui.keys map the interface would refuse to start on.
 func WebDeps(deps tui.Deps) webserver.Deps {
-	return withGitRuns(withIssueWrites(withRepositories(withSummarySources(webserver.Deps{
+	return withReviewWrites(withGitRuns(withIssueWrites(withRepositories(withSummarySources(webserver.Deps{
 		Search:        deps.Jira.Search,
 		SearchLenient: deps.Jira.SearchLenient,
 		Issue:         deps.Jira.Issue,
@@ -119,7 +119,17 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 
 		CheckKeys: tui.CheckKeys,
 		Clock:     deps.Clock,
-	}, deps), deps), deps), deps)
+	}, deps), deps), deps), deps), deps)
+}
+
+// withReviewWrites gives the web server the review's writes on the forge — a
+// re-run, a merge and the methods it may use — and the finish of a merged
+// branch.
+func withReviewWrites(web webserver.Deps, deps tui.Deps) webserver.Deps {
+	web.Rerun, web.Merge, web.MergeMethods = deps.Forge.Rerun, deps.Forge.Merge, deps.Forge.MergeMethods
+	web.Finish = deps.Git.Finish
+
+	return web
 }
 
 // withGitRuns gives the web server the git runs that stream their output — the

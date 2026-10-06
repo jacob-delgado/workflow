@@ -21,6 +21,8 @@ function draftFor({ pushed }: { pushed: boolean }): PullRequestDraft {
     draft: false,
     needs_push: !pushed,
     reviewers: [],
+    templates: [],
+    template: '',
   }
 }
 

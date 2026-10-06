@@ -20,6 +20,8 @@ vi.mock('./openPrApi.ts', () => ({
       draft: false,
       needs_push: true,
       reviewers: [],
+      templates: [],
+      template: '',
     }),
   ),
   openPr: vi.fn(() =>
@@ -272,6 +274,8 @@ test('pre-fills the reviewers with the code owners the draft proposes', async ()
     draft: false,
     needs_push: true,
     reviewers: ['ana', 'acme/control-plane'],
+    templates: [],
+    template: '',
   })
   useSnapshotStore.setState({
     status: 'live',

@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddCommentData, AddCommentErrors, AddCommentResponses, AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, AssignIssueData, AssignIssueErrors, AssignIssueResponses, CancelQueuedAnnouncementData, CancelQueuedAnnouncementErrors, CancelQueuedAnnouncementResponses, ChangeStatusData, ChangeStatusErrors, ChangeStatusResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, CreateWorktreeData, CreateWorktreeErrors, CreateWorktreeResponses, ForgetPersonData, ForgetPersonErrors, ForgetPersonResponses, GetActivityData, GetActivityErrors, GetActivityResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetChangeDiffData, GetChangeDiffErrors, GetChangeDiffResponses, GetCheckLogData, GetCheckLogErrors, GetCheckLogResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetDirectoriesData, GetDirectoriesErrors, GetDirectoriesResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetHookSetupData, GetHookSetupErrors, GetHookSetupResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetLocalDataData, GetLocalDataErrors, GetLocalDataResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPeopleData, GetPeopleErrors, GetPeopleResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetRepoGroupsData, GetRepoGroupsErrors, GetRepoGroupsResponses, GetRepositoriesData, GetRepositoriesErrors, GetRepositoriesResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackGroupsData, GetSlackGroupsErrors, GetSlackGroupsResponses, GetSlackMembersData, GetSlackMembersErrors, GetSlackMembersResponses, LinkBranchIssueData, LinkBranchIssueErrors, LinkBranchIssueResponses, LinkPersonData, LinkPersonErrors, LinkPersonResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListStatusChangesData, ListStatusChangesErrors, ListStatusChangesResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, LogWorkData, LogWorkErrors, LogWorkResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PreviewBranchIssueData, PreviewBranchIssueErrors, PreviewBranchIssueResponses, PushData, PushErrors, PushResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemoveLocalDataData, RemoveLocalDataErrors, RemoveLocalDataResponses, SetRepoGroupsData, SetRepoGroupsErrors, SetRepoGroupsResponses, SetUpHooksData, SetUpHooksErrors, SetUpHooksResponses, StageData, StageErrors, StageResponses, StartRunData, StartRunErrors, StartRunResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopRunData, StopRunErrors, StopRunResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SwitchRepositoryData, SwitchRepositoryErrors, SwitchRepositoryResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnlinkBranchIssueData, UnlinkBranchIssueErrors, UnlinkBranchIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zAddCommentResponse, zAddFavoriteResponse, zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zAssignIssueResponse, zCancelQueuedAnnouncementResponse, zChangeStatusResponse, zCheckoutResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zCreateWorktreeResponse, zForgetPersonResponse, zGetActivityResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetChangeDiffResponse, zGetCheckLogResponse, zGetConfigResponse, zGetDirectoriesResponse, zGetHealthResponse, zGetHookSetupResponse, zGetIssueResponse, zGetLocalDataResponse, zGetMessagingResponse, zGetPeopleResponse, zGetPullRequestDraftResponse, zGetRepoGroupsResponse, zGetRepositoriesResponse, zGetReviewResponse, zGetSlackGroupsResponse, zGetSlackMembersResponse, zLinkBranchIssueResponse, zLinkPersonResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListStatusChangesResponse, zListTasksResponse, zListViewsResponse, zLogWorkResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPreviewBranchIssueResponse, zPushResponse, zRemoveFavoriteResponse, zRemoveLocalDataResponse, zSetRepoGroupsResponse, zSetUpHooksResponse, zStageResponse, zStartRunResponse, zStartTaskResponse, zStopRunResponse, zStopTaskResponse, zStreamEventsResponse, zSwitchRepositoryResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnlinkBranchIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
+import type { AddCommentData, AddCommentErrors, AddCommentResponses, AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, AssignIssueData, AssignIssueErrors, AssignIssueResponses, CancelQueuedAnnouncementData, CancelQueuedAnnouncementErrors, CancelQueuedAnnouncementResponses, ChangeStatusData, ChangeStatusErrors, ChangeStatusResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, CreateWorktreeData, CreateWorktreeErrors, CreateWorktreeResponses, EditPullRequestData, EditPullRequestErrors, EditPullRequestResponses, FinishBranchData, FinishBranchErrors, FinishBranchResponses, ForgetPersonData, ForgetPersonErrors, ForgetPersonResponses, GetActivityData, GetActivityErrors, GetActivityResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetChangeDiffData, GetChangeDiffErrors, GetChangeDiffResponses, GetCheckLogData, GetCheckLogErrors, GetCheckLogResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetDirectoriesData, GetDirectoriesErrors, GetDirectoriesResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetHookSetupData, GetHookSetupErrors, GetHookSetupResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetLocalDataData, GetLocalDataErrors, GetLocalDataResponses, GetMergeMethodsData, GetMergeMethodsErrors, GetMergeMethodsResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPeopleData, GetPeopleErrors, GetPeopleResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetPullRequestTextData, GetPullRequestTextErrors, GetPullRequestTextResponses, GetRepoGroupsData, GetRepoGroupsErrors, GetRepoGroupsResponses, GetRepositoriesData, GetRepositoriesErrors, GetRepositoriesResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackGroupsData, GetSlackGroupsErrors, GetSlackGroupsResponses, GetSlackMembersData, GetSlackMembersErrors, GetSlackMembersResponses, LinkBranchIssueData, LinkBranchIssueErrors, LinkBranchIssueResponses, LinkPersonData, LinkPersonErrors, LinkPersonResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListStatusChangesData, ListStatusChangesErrors, ListStatusChangesResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, LogWorkData, LogWorkErrors, LogWorkResponses, MergePullRequestData, MergePullRequestErrors, MergePullRequestResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PreviewBranchIssueData, PreviewBranchIssueErrors, PreviewBranchIssueResponses, PushData, PushErrors, PushResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemoveLocalDataData, RemoveLocalDataErrors, RemoveLocalDataResponses, RerunChecksData, RerunChecksErrors, RerunChecksResponses, SetRepoGroupsData, SetRepoGroupsErrors, SetRepoGroupsResponses, SetUpHooksData, SetUpHooksErrors, SetUpHooksResponses, StageData, StageErrors, StageResponses, StartRunData, StartRunErrors, StartRunResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopRunData, StopRunErrors, StopRunResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SwitchRepositoryData, SwitchRepositoryErrors, SwitchRepositoryResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnlinkBranchIssueData, UnlinkBranchIssueErrors, UnlinkBranchIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zAddCommentResponse, zAddFavoriteResponse, zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zAssignIssueResponse, zCancelQueuedAnnouncementResponse, zChangeStatusResponse, zCheckoutResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zCreateWorktreeResponse, zEditPullRequestResponse, zFinishBranchResponse, zForgetPersonResponse, zGetActivityResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetChangeDiffResponse, zGetCheckLogResponse, zGetConfigResponse, zGetDirectoriesResponse, zGetHealthResponse, zGetHookSetupResponse, zGetIssueResponse, zGetLocalDataResponse, zGetMergeMethodsResponse, zGetMessagingResponse, zGetPeopleResponse, zGetPullRequestDraftResponse, zGetPullRequestTextResponse, zGetRepoGroupsResponse, zGetRepositoriesResponse, zGetReviewResponse, zGetSlackGroupsResponse, zGetSlackMembersResponse, zLinkBranchIssueResponse, zLinkPersonResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListStatusChangesResponse, zListTasksResponse, zListViewsResponse, zLogWorkResponse, zMergePullRequestResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPreviewBranchIssueResponse, zPushResponse, zRemoveFavoriteResponse, zRemoveLocalDataResponse, zRerunChecksResponse, zSetRepoGroupsResponse, zSetUpHooksResponse, zStageResponse, zStartRunResponse, zStartTaskResponse, zStopRunResponse, zStopTaskResponse, zStreamEventsResponse, zSwitchRepositoryResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnlinkBranchIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -260,7 +260,55 @@ export const unstage = <ThrowOnError extends boolean = false>(options: Options<U
 });
 
 /**
- * The end of a failed check's log, read on demand.
+ * How the branch's pull request may be merged, for the merge's preview.
+ *
+ * The merge methods the repository permits — a merge commit, a squash, a rebase — for the checked-out branch's pull request, once it can be merged as the terminal's M asks: open, not a draft, free of conflicts, approved with no changes asked for, and its CI passed. A read, so it answers under --dry-run too. Refused with 409 when the pull request cannot be merged yet, and 422 when merging is not available or the repository permits no method.
+ */
+export const getMergeMethods = <ThrowOnError extends boolean = false>(options?: Options<GetMergeMethodsData, ThrowOnError>): RequestResult<GetMergeMethodsResponses, GetMergeMethodsErrors, ThrowOnError> => (options?.client ?? client).get<GetMergeMethodsResponses, GetMergeMethodsErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetMergeMethodsResponse.parseAsync(data),
+    url: '/api/pull-request/merge',
+    ...options
+});
+
+/**
+ * Merge the branch's pull request by a permitted method.
+ *
+ * Merges the checked-out branch's pull request by the method asked, one the repository permits, after the preview the page shows — the terminal's M. The pull request is read again first and merged only if it can still be merged. Refused with 409 when it cannot be merged now, and 422 when the method is not one permitted or the forge refuses the merge: a token without the scope a merge needs is told in the forge's words, naming the scope, never its address.
+ */
+export const mergePullRequest = <ThrowOnError extends boolean = false>(options: Options<MergePullRequestData, ThrowOnError>): RequestResult<MergePullRequestResponses, MergePullRequestErrors, ThrowOnError> => (options.client ?? client).post<MergePullRequestResponses, MergePullRequestErrors, ThrowOnError>({
+    responseValidator: async (data) => await zMergePullRequestResponse.parseAsync(data),
+    url: '/api/pull-request/merge',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Finish a merged branch — switch to the base, catch it up, delete the branch.
+ *
+ * Runs the three git commands the terminal's F previews — git switch to the base, git pull --ff-only, git branch -D the branch — once the branch's pull request has merged, the branch is checked out with a base to return to, and it holds no commit origin lacks, which the delete would lose. Refused with 409 when it cannot be finished, and 422 when finishing is not available or git refuses, whose own words stay off the wire since they name origin.
+ */
+export const finishBranch = <ThrowOnError extends boolean = false>(options?: Options<FinishBranchData, ThrowOnError>): RequestResult<FinishBranchResponses, FinishBranchErrors, ThrowOnError> => (options?.client ?? client).post<FinishBranchResponses, FinishBranchErrors, ThrowOnError>({
+    responseValidator: async (data) => await zFinishBranchResponse.parseAsync(data),
+    url: '/api/branch/finish',
+    ...options
+});
+
+/**
+ * Re-run the failed CI on the branch's pull request.
+ *
+ * Asks the forge to re-run the failed checks of the checked-out branch's open pull request — the terminal's R — after the page's last look. The pull request and its CI are read again first. Answers whether anything was re-run: a failure with no job to restart re-runs nothing. Refused with 409 when the pull request is not open with failed CI, and 422 when re-running is not available or the forge refuses, in its own words, which name the scope, never its address.
+ */
+export const rerunChecks = <ThrowOnError extends boolean = false>(options?: Options<RerunChecksData, ThrowOnError>): RequestResult<RerunChecksResponses, RerunChecksErrors, ThrowOnError> => (options?.client ?? client).post<RerunChecksResponses, RerunChecksErrors, ThrowOnError>({
+    responseValidator: async (data) => await zRerunChecksResponse.parseAsync(data),
+    url: '/api/review/rerun',
+    ...options
+});
+
+/**
+ * The end of a check's log, read on demand.
  *
  * Reads the last lines of the log of one of the current pull request's checks, a GitHub Actions run or a GitLab job, with every terminal control taken out. Only a check the pull request's CI lists now is read; it is never read as CI is polled.
  */
@@ -576,12 +624,38 @@ export const commit = <ThrowOnError extends boolean = false>(options: Options<Co
 /**
  * The pull request that would be opened for the branch, for a preview.
  *
- * Composes a pull request for the checked-out branch — a title and body from its commits, the issue, and the repository's template, with the base it would merge into — without opening it, so the browser can edit it before confirming. Answered 409 when there is nothing to open: the tree is not on a branch, the branch has no commits, or a pull request is already open for it; and when the server is not running in a git repository.
+ * Composes a pull request for the checked-out branch — a title and body from its commits, the issue, and the repository's template, with the base it would merge into — without opening it, so the browser can edit it before confirming. Given a template, by name, the body starts from it rather than the first, as the terminal's ctrl+t chooses one; an unknown name is a 404. Answered 409 when there is nothing to open: the tree is not on a branch, the branch has no commits, or a pull request is already open for it; and when the server is not running in a git repository.
  */
 export const getPullRequestDraft = <ThrowOnError extends boolean = false>(options?: Options<GetPullRequestDraftData, ThrowOnError>): RequestResult<GetPullRequestDraftResponses, GetPullRequestDraftErrors, ThrowOnError> => (options?.client ?? client).get<GetPullRequestDraftResponses, GetPullRequestDraftErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetPullRequestDraftResponse.parseAsync(data),
     url: '/api/pull-request/draft',
     ...options
+});
+
+/**
+ * The branch's open pull request's title and description, to edit them.
+ *
+ * The title and description of the checked-out branch's pull request as the forge holds them now, read afresh for the editor the terminal's e opens. Refused with 409 when the branch has no open pull request.
+ */
+export const getPullRequestText = <ThrowOnError extends boolean = false>(options?: Options<GetPullRequestTextData, ThrowOnError>): RequestResult<GetPullRequestTextResponses, GetPullRequestTextErrors, ThrowOnError> => (options?.client ?? client).get<GetPullRequestTextResponses, GetPullRequestTextErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetPullRequestTextResponse.parseAsync(data),
+    url: '/api/pull-request',
+    ...options
+});
+
+/**
+ * Change the branch's open pull request's title and description.
+ *
+ * Saves a new title and description on the checked-out branch's open pull request, as the terminal's editor (e) does; the form that sends it is the last look. Refused with 409 when the branch has no open pull request, and 422 when the title is empty, editing is not available, or the forge refuses the edit — a token without the scope, in the forge's own words, which never name its address.
+ */
+export const editPullRequest = <ThrowOnError extends boolean = false>(options: Options<EditPullRequestData, ThrowOnError>): RequestResult<EditPullRequestResponses, EditPullRequestErrors, ThrowOnError> => (options.client ?? client).patch<EditPullRequestResponses, EditPullRequestErrors, ThrowOnError>({
+    responseValidator: async (data) => await zEditPullRequestResponse.parseAsync(data),
+    url: '/api/pull-request',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
