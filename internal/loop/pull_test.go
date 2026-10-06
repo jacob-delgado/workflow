@@ -34,7 +34,7 @@ var errSeam = errors.New("the seam failed")
 // can be opened for.
 func openable(name string) gitrepo.Branch {
 	return gitrepo.Branch{
-		Name: name, Base: "origin/main", Head: headCommit,
+		Name: name, Base: originMain, Head: headCommit,
 		Commits: []gitrepo.Commit{{Hash: headCommit, Subject: subject}},
 	}
 }
@@ -195,7 +195,7 @@ func TestComposePullDraftsFromTheBranchAndItsIssue(t *testing.T) {
 		t.Fatalf("ComposePull returned %v, want nil", err)
 	}
 
-	if request.Title != subject || request.Head != branchName || request.Base != "main" || request.Draft {
+	if request.Title != subject || request.Head != branchName || request.Base != targetBase || request.Draft {
 		t.Errorf("draft = %+v, want the commit's title, the branch into main, not a draft", request)
 	}
 
