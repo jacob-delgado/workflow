@@ -165,3 +165,33 @@ test('a held announcement that was dropped says why, as a failure', () => {
   // Assert
   expect(screen.getByRole('alert').textContent).toBe('Not announced: CI failed at 10:00.')
 })
+
+test('a held announcement going out says so', () => {
+  // Arrange
+  serverAnswering()
+  withPull({ state: 'announcing', channel: '', pull: 42 })
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(screen.getByText('Announcing to Slack…')).toBeTruthy()
+})
+
+test('a post the server held instead is not taken for posted', async () => {
+  // Arrange
+  serverAnswering({
+    post: Response.json({ state: 'waiting', channel: '#dev', pull: 42 }, { status: 202 }),
+  })
+  withPull()
+  render(<MessagingPanel />)
+  await previews()
+
+  // Act
+  await userEvent.click(screen.getByRole('button', { name: 'Announce now' }))
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'Nothing was announced. Try again, or run workflow announce from a terminal.',
+  )
+})
