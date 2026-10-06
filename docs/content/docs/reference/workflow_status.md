@@ -14,6 +14,8 @@ Print the current work's issue, stage and CI on one line
 Print, on one line, the issue the branch is for, how far along the loop
 the work has got, and how CI stands — the same progress the interface's
 top row shows, for a shell prompt or a status bar. --json prints it as data.
+A service that refuses to answer leaves its stage as though there were nothing
+to say — CI none — and is named on standard error, one line each.
 
 Given one or more directories, it prints a labeled line for each, so
 `workflow status ~/src/*` reports every repository at once. Each reads its
