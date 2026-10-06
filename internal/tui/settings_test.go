@@ -28,6 +28,9 @@ const (
 	storeDisabledRow  = 26
 )
 
+// editedProject is the Jira project a test types in place of the one read.
+const editedProject = "OSS"
+
 // typedSecret is a credential typed into Settings.
 const typedSecret = "typed-secret-4242"
 
@@ -36,11 +39,16 @@ func toRow(row int) []string {
 	return append([]string{reposKey, settingsKey}, slices.Repeat([]string{"j"}, row)...)
 }
 
-// editing opens Settings, edits row to text and saves.
-func editing(row int, text string) []string {
+// edited opens Settings and edits row to text, unsaved.
+func edited(row int, text string) []string {
 	keys := append(toRow(row), keyEnter, "ctrl+u")
 
-	return append(append(keys, letters(text)...), keyEnter, saveKey)
+	return append(append(keys, letters(text)...), keyEnter)
+}
+
+// editing opens Settings, edits row to text and saves.
+func editing(row int, text string) []string {
+	return append(edited(row, text), saveKey)
 }
 
 func TestSettingsShowsTheConfigurationWithItsCredentialsMasked(t *testing.T) {
@@ -80,10 +88,10 @@ func TestSavingSendsTheEditAndLeavesTheStoredTokenMasked(t *testing.T) {
 	repo := newWorld()
 
 	// Act
-	view := typing(t, repo.live(t, 120, 40), editing(projectRow, "OSS")...).View().Content
+	view := typing(t, repo.live(t, 120, 40), editing(projectRow, editedProject)...).View().Content
 
 	// Assert
-	if saves := repo.asked("save-settings"); len(saves) != 1 || repo.settings.Jira.Project != "OSS" {
+	if saves := repo.asked("save-settings"); len(saves) != 1 || repo.settings.Jira.Project != editedProject {
 		t.Fatalf("saved %d times, project %q; want OSS saved once", len(saves), repo.settings.Jira.Project)
 	}
 
@@ -160,7 +168,7 @@ func TestASaveOverAChangedFileSaysSoAndOffersAReload(t *testing.T) {
 	repo.saveSettingsErr = config.ErrChangedOnDisk
 
 	// Act
-	view := typing(t, repo.live(t, 120, 40), editing(projectRow, "OSS")...).View().Content
+	view := typing(t, repo.live(t, 120, 40), editing(projectRow, editedProject)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "changed after Settings read it")
@@ -173,7 +181,7 @@ func TestReloadReadsTheFileAgainInPlaceOfTheEdits(t *testing.T) {
 	// Arrange
 	repo := newWorld()
 	repo.saveSettingsErr = config.ErrChangedOnDisk
-	refused := typing(t, repo.live(t, 120, 40), editing(projectRow, "OSS")...)
+	refused := typing(t, repo.live(t, 120, 40), editing(projectRow, editedProject)...)
 
 	// Act
 	view := typing(t, refused, "r").View().Content
@@ -183,7 +191,7 @@ func TestReloadReadsTheFileAgainInPlaceOfTheEdits(t *testing.T) {
 		t.Errorf("read %d times, want the file read again", len(reads))
 	}
 
-	refuseScreen(t, view, "OSS", "changed after Settings read it")
+	refuseScreen(t, view, editedProject, "changed after Settings read it")
 }
 
 func TestADryRunSavesNoSettings(t *testing.T) {
@@ -194,7 +202,7 @@ func TestADryRunSavesNoSettings(t *testing.T) {
 	model := sized(t, tui.New(repo.cfg, nil, repo.deps()).WithDryRun(), 120, 40)
 
 	// Act
-	view := typing(t, drain(t, model, model.Init()), editing(projectRow, "OSS")...).View().Content
+	view := typing(t, drain(t, model, model.Init()), editing(projectRow, editedProject)...).View().Content
 
 	// Assert
 	if saves := repo.asked("save-settings"); len(saves) != 0 {
@@ -269,7 +277,7 @@ func TestSlackRefusingTypedSecretsSaysWhichToCheck(t *testing.T) {
 	repo.saveSettingsErr = messaging.ErrRejected
 
 	// Act
-	view := typing(t, repo.live(t, 120, 40), editing(projectRow, "OSS")...).View().Content
+	view := typing(t, repo.live(t, 120, 40), editing(projectRow, editedProject)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "refresh token")
@@ -283,7 +291,7 @@ func TestARefusedSaveStaysInSettingsWithItsReason(t *testing.T) {
 	repo.saveSettingsErr = errSettingsUnreadable
 
 	// Act
-	view := typing(t, repo.live(t, 120, 40), editing(projectRow, "OSS")...).View().Content
+	view := typing(t, repo.live(t, 120, 40), editing(projectRow, editedProject)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "permission denied", "Base URL")
@@ -428,10 +436,10 @@ func TestAPasteTypesIntoTheFieldBeingEdited(t *testing.T) {
 	model := typing(t, repo.live(t, 120, 40), append(toRow(projectRow), keyEnter, "ctrl+u")...)
 
 	// Act
-	typing(t, pasting(t, model, "OSS"), keyEnter, saveKey)
+	typing(t, pasting(t, model, editedProject), keyEnter, saveKey)
 
 	// Assert
-	if repo.settings.Jira.Project != "OSS" {
+	if repo.settings.Jira.Project != editedProject {
 		t.Errorf("saved project %q, want the paste", repo.settings.Jira.Project)
 	}
 }
@@ -444,7 +452,7 @@ func TestAPasteOutsideAFieldChangesNothing(t *testing.T) {
 	model := typing(t, repo.live(t, 120, 40), toRow(projectRow)...)
 
 	// Act
-	typing(t, pasting(t, model, "OSS"), saveKey)
+	typing(t, pasting(t, model, editedProject), saveKey)
 
 	// Assert
 	if repo.settings.Jira.Project != readProject {
@@ -460,7 +468,7 @@ func TestAKeymapTheInterfaceWouldRefuseIsNotSaved(t *testing.T) {
 	repo.settings.UI.Keys = map[string]string{"quit": "tab"}
 
 	// Act
-	view := typing(t, repo.live(t, 120, 40), editing(projectRow, "OSS")...).View().Content
+	view := typing(t, repo.live(t, 120, 40), editing(projectRow, editedProject)...).View().Content
 
 	// Assert
 	if saves := repo.asked("save-settings"); len(saves) != 0 {
