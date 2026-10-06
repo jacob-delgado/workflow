@@ -111,6 +111,9 @@ func (s *server) setupRefusal(err error) api.SetUpResponseObject {
 	case errors.Is(err, setup.ErrNoKeychain):
 		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
 			"there is no keychain here to keep the token in; keep it in the file instead"))
+	case errors.Is(err, setup.ErrNoHome):
+		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+			"there is no home directory here to keep the file in; keep it in the repository instead"))
 	}
 
 	body, code := s.fault(err)

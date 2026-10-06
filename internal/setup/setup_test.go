@@ -463,3 +463,57 @@ func TestCreateWritesAPrivateFile(t *testing.T) {
 		t.Errorf("Create = %v, left %v (%v); want a regular file at mode %#o", err, info, statErr, config.FileMode)
 	}
 }
+
+func TestOfferLeavesHomeOutWithoutAHomeDirectory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	guide := setup.Guide{Where: setup.Where{WorkDir: t.TempDir()}, Doer: acceptingJira()}
+
+	// Act
+	offer := guide.Offer()
+
+	// Assert
+	if len(offer.Places) != 1 || offer.Places[0].Place != setup.Repository {
+		t.Errorf("Offer without a home directory = %+v, want the repository alone", offer.Places)
+	}
+}
+
+//nolint:paralleltest // t.Chdir moves the whole process, so this runs serially.
+func TestWriteRefusesHomeWithoutAHomeDirectory(t *testing.T) {
+	// Arrange
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	guide := setup.Guide{Where: setup.Where{WorkDir: t.TempDir()}, Doer: acceptingJira()}
+
+	// Act
+	_, err := guide.Write(t.Context(), answered(setup.Home))
+
+	// Assert
+	_, statErr := os.Lstat(filepath.Join(workDir, config.FileName))
+	if !errors.Is(err, setup.ErrNoHome) || !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("Write home without a home directory = %v, and the working directory's file %v; "+
+			"want ErrNoHome, nothing written", err, statErr)
+	}
+}
+
+//nolint:paralleltest // t.Chdir moves the whole process, so this runs serially.
+func TestLayersStandAloneWithoutAHomeDirectory(t *testing.T) {
+	// Arrange
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	err := os.WriteFile(filepath.Join(workDir, config.FileName), []byte(`{}`), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing a file in the working directory: %v", err)
+	}
+
+	// Act
+	layers := setup.Where{WorkDir: t.TempDir()}.Layers(setup.Repository)
+
+	// Assert
+	if layers != (config.Files{}) {
+		t.Errorf("Layers without a home directory = %+v, want the file to stand alone", layers)
+	}
+}

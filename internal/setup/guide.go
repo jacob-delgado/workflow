@@ -50,13 +50,14 @@ type Written struct {
 
 // Offer is where the file may go here, and whether the keychain is wired.
 func (g Guide) Offer() Offer {
-	return Offer{
-		Places: []Destination{
-			{Place: Repository, Path: g.Where.Path(Repository)},
-			{Place: Home, Path: g.Where.Path(Home)},
-		},
-		Keychain: g.StoreSecret != nil,
+	places := g.Where.Places()
+
+	destinations := make([]Destination, 0, len(places))
+	for _, place := range places {
+		destinations = append(destinations, Destination{Place: place, Path: g.Where.Path(place)})
 	}
+
+	return Offer{Places: destinations, Keychain: g.StoreSecret != nil}
 }
 
 // Check asks Jira who the token in settings authenticates as.
@@ -69,6 +70,10 @@ func (g Guide) Check(ctx context.Context, settings config.Jira) (string, error) 
 // asked. It checks nothing; a form checks the token first and says how that
 // went.
 func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
+	if request.Place == Home && g.Where.HomeDir == "" {
+		return Written{}, ErrNoHome
+	}
+
 	path := g.Where.Path(request.Place)
 
 	err := RefuseExisting(path)
