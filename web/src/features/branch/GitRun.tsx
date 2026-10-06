@@ -127,7 +127,7 @@ export function RunOutput({ runner }: { runner: GitRunner }) {
         aria-label={`Output of ${run.title}`}
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- output that scrolls must be reachable by Tab to be scrolled by keys (WCAG 2.1.1)
         tabIndex={0}
-        className="max-h-80 overflow-auto rounded-md border border-border p-3 text-xs whitespace-pre-wrap focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="max-h-80 overflow-auto rounded-md border border-border p-3 text-xs [overflow-wrap:anywhere] whitespace-pre-wrap focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         {run.lines.length === 0 ? 'Nothing written yet.' : run.lines.join('\n')}
       </pre>

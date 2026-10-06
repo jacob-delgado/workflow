@@ -230,7 +230,7 @@ function FixupLook({ commits, runner, onCancel, onSent }: LookProps & { commits:
               }}
               className="size-4"
             />
-            <span className="font-mono text-muted-foreground">{commit.hash.slice(0, 7)}</span>
+            <span className="font-mono text-muted-foreground">{commit.hash.slice(0, 7)}</span>{' '}
             {commit.subject}
           </label>
         ))}
