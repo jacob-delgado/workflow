@@ -249,14 +249,14 @@ func messagingErrors() []knownError {
 			full:  "`messaging.webhook_url` is not an https address. Copy the webhook's https address into it.",
 		}},
 		{messaging.ErrRejected, wording{
-			brief: "the announcement was refused",
-			full: "The messaging service refused the announcement: run `workflow slack login` again, " +
+			brief: "the post was refused",
+			full: "The messaging service refused the post: run `workflow slack login` again, " +
 				"check that you are in the channel, or that the webhook is current.",
 		}},
 		{messaging.ErrPostRefused, ownWords()},
 		{messaging.ErrUnexpectedStatus, wording{
 			brief: "an unexpected service answer",
-			full:  "The messaging service answered with a status it does not document. Try the announcement again.",
+			full:  "The messaging service answered with a status it does not document. Try the post again.",
 		}},
 		{messaging.ErrUnreachable, wording{
 			brief: "could not reach messaging",

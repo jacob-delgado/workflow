@@ -184,7 +184,7 @@ func TestTheMessagingRefusalNamesNoOneService(t *testing.T) {
 	view := typing(t, refused.live(t, 200, 40), "5", "p", keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "The messaging service refused the announcement: run `workflow slack login` again, "+
+	requireScreen(t, view, "The messaging service refused the post: run `workflow slack login` again, "+
 		"check that you are in the channel, or that the webhook is current.")
 	refuseScreen(t, view, "Slack refused")
 }
@@ -391,8 +391,8 @@ func TestADetailTellsTheFailureItsSummaryRowShortens(t *testing.T) {
 			prepare: func(w *world) { w.postErr = fmt.Errorf("%w: invalid_token", messaging.ErrRejected) },
 			keys:    []string{"5", "p", keyEnter, keyEsc},
 			want: []string{
-				"state  ✗ the announcement was refused",
-				"✗ The messaging service refused the announcement:",
+				"state  ✗ the post was refused",
+				"✗ The messaging service refused the post:",
 				"invalid_token",
 			},
 		},

@@ -142,8 +142,8 @@ func everySeamFailure() map[string]spoken {
 			"`messaging.webhook_url` is not an https address. Copy the webhook's https address into it.",
 		},
 		"messaging rejected": {
-			fmt.Errorf("%w: invalid_token", messaging.ErrRejected), "the announcement was refused",
-			"The messaging service refused the announcement: run `workflow slack login` again, " +
+			fmt.Errorf("%w: invalid_token", messaging.ErrRejected), "the post was refused",
+			"The messaging service refused the post: run `workflow slack login` again, " +
 				"check that you are in the channel, or that the webhook is current.",
 		},
 		"messaging post refused": {
@@ -152,7 +152,7 @@ func everySeamFailure() map[string]spoken {
 		},
 		"messaging unexpected status": {
 			fmt.Errorf("%w: 418", messaging.ErrUnexpectedStatus), "an unexpected service answer",
-			"The messaging service answered with a status it does not document. Try the announcement again.",
+			"The messaging service answered with a status it does not document. Try the post again.",
 		},
 		"messaging unreachable": {
 			fmt.Errorf("%w: i/o timeout", messaging.ErrUnreachable), "could not reach messaging",
