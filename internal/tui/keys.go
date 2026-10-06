@@ -5,7 +5,6 @@ package tui
 
 import (
 	"strconv"
-	"strings"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
@@ -254,7 +253,7 @@ func issueKeys(builder *helpBuilder, into *keyMap) {
 	into.openLink = builder.bind(groupIssues, actionOpenLink, "open", "o")
 	into.copyLink = builder.bind(groupIssues, actionCopyLink, "copy url", "y")
 	into.refresh = builder.bind(groupIssues, actionRefresh, "refresh", "r")
-	into.trackIssue = builder.bind(groupIssues, "track-issue", "track in taskwarrior", "T")
+	into.trackIssue = builder.bind(groupIssues, "track-issue", "track in Taskwarrior", "T")
 }
 
 // branchAndCommitKeys are the Branch and Commits panes' bindings.
@@ -282,7 +281,7 @@ func reviewAndMessagingKeys(builder *helpBuilder, into *keyMap, reviewNoun, mess
 	into.rerun = builder.bind(groupReviewMessaging, "rerun-checks", "re-run checks", "R")
 	into.merge = builder.bind(groupReviewMessaging, "merge", "merge", "M")
 	into.finish = builder.bind(groupReviewMessaging, "finish-branch", "finish branch", "F")
-	into.compose = builder.bind(groupReviewMessaging, "post", "announce to "+strings.ToLower(messagingService), "p")
+	into.compose = builder.bind(groupReviewMessaging, "post", "announce to "+messagingService, "p")
 	into.peopleAndGroups = builder.bind(groupReviewMessaging, "people-and-groups", "people and groups", "P")
 }
 

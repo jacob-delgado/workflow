@@ -131,7 +131,7 @@ func TestAMergeIsAnnouncableAfterTheOpening(t *testing.T) {
 	// Assert
 	// The merge can still be announced — the opening does not block it.
 	requireScreen(t, afterMerge.View().Content, "jacob merged a pull request")
-	requireScreen(t, footerLine(afterMerge.View().Content), "p announce to slack")
+	requireScreen(t, footerLine(afterMerge.View().Content), "p announce to Slack")
 }
 
 func TestTheSlackPanePreviewsTheAnnouncement(t *testing.T) {
@@ -143,7 +143,7 @@ func TestTheSlackPanePreviewsTheAnnouncement(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "jacob opened a pull request:", "to     "+slackChannel, "CI     ● passed",
 		"state  ○ nothing announced")
-	requireScreen(t, footerLine(view), "p announce to slack")
+	requireScreen(t, footerLine(view), "p announce to Slack")
 }
 
 // teamsMessaging is a Teams webhook, so every surface of it names Teams rather
@@ -166,7 +166,7 @@ func TestTheMessagingPaneNamesTheServiceInUse(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "5 Teams")
-	requireScreen(t, footerLine(view), "p announce to teams")
+	requireScreen(t, footerLine(view), "p announce to Teams")
 }
 
 func TestTheHelpNamesTheMessagingService(t *testing.T) {
