@@ -234,6 +234,10 @@ function Controls({
           <Verb
             label="Undo"
             busy="Undoing…"
+            ask={{
+              question: "Undo Taskwarrior's last change?",
+              cost: 'Taskwarrior has no redo.',
+            }}
             run={writes.undo}
             done={(answered) => saidWords('Undone', answered.said)}
             fallback="Nothing was undone. Try again, or run task undo in a terminal to see why."
@@ -244,6 +248,10 @@ function Controls({
           <Verb
             label="Sync"
             busy="Syncing…"
+            ask={{
+              question: 'Sync Taskwarrior with its server?',
+              cost: 'Your tasks are sent there, and its changes taken.',
+            }}
             run={writes.sync}
             done={(answered) => saidWords('Synced', answered.said)}
             fallback="Taskwarrior did not sync. Try again, or run task sync in a terminal to see why."

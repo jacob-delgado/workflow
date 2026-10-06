@@ -366,6 +366,13 @@ test('work started in a new worktree offers to switch to it, and switches', asyn
   // Act: switch to it
   await user.click(within(offer).getByRole('button', { name: 'Switch to it' }))
 
+  // Assert: it asks first, and nothing is switched yet
+  const confirm = screen.getByRole('region', { name: 'Switch to ~/src/api-feat-PROJ-999?' })
+  expect(mockSwitchTo).not.toHaveBeenCalled()
+
+  // Act: confirm the switch
+  await user.click(within(confirm).getByRole('button', { name: 'Switch' }))
+
   // Assert: switched
   expect(mockSwitchTo).toHaveBeenCalledWith('/home/ana/src/api-feat-PROJ-999')
   expect(await screen.findByText('Switched to ~/src/api-feat-PROJ-999.')).toBeTruthy()
@@ -423,13 +430,20 @@ test('a branch another worktree has checked out is switched to there, not checke
   })
   render(<WorkStory issueKey="PROJ-2" />)
 
-  // Act
+  // Act: switch to its worktree
   await user.click(
     screen.getByRole('button', { name: 'Switch to its worktree, ~/src/api-feat-PROJ-2-metrics' }),
   )
 
-  // Assert
+  // Assert: it asks first, and nothing is switched yet
+  const confirm = screen.getByRole('region', { name: 'Switch to ~/src/api-feat-PROJ-2-metrics?' })
   expect(screen.queryByRole('button', { name: 'Switch branch' })).toBeNull()
+  expect(mockSwitchTo).not.toHaveBeenCalled()
+
+  // Act: confirm the switch
+  await user.click(within(confirm).getByRole('button', { name: 'Switch' }))
+
+  // Assert: switched there, nothing checked out
   expect(mockSwitchTo).toHaveBeenCalledWith('/home/ana/src/api-feat-PROJ-2-metrics')
   expect(await screen.findByText('Switched to ~/src/api-feat-PROJ-2-metrics.')).toBeTruthy()
 })
@@ -441,6 +455,7 @@ test('the offer goes once the switch has made the branch the one checked out', a
   render(<WorkStory issueKey="PROJ-999" />)
   await user.click(screen.getByRole('button', { name: 'Start work in a new worktree' }))
   await user.click(await screen.findByRole('button', { name: 'Switch to it' }))
+  await user.click(screen.getByRole('button', { name: 'Switch' }))
 
   // Act
   act(() => {
@@ -464,9 +479,10 @@ test('a refused switch from the offer is announced', async () => {
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
   render(<WorkStory issueKey="PROJ-999" />)
   await user.click(screen.getByRole('button', { name: 'Start work in a new worktree' }))
+  await user.click(await screen.findByRole('button', { name: 'Switch to it' }))
 
   // Act
-  await user.click(await screen.findByRole('button', { name: 'Switch to it' }))
+  await user.click(screen.getByRole('button', { name: 'Switch' }))
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toMatch(/a write is being made/)

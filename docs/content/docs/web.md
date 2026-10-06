@@ -103,8 +103,9 @@ story, **Start work** creates and checks out a branch named for the issue, and
 worktree** creates the branch in a new git worktree beside the repository
 instead, leaving the checkout here as it is, then says where and offers
 **Switch to it**. A branch another worktree has checked out, which git will not
-check out twice, offers **Switch to its worktree** in place of the checkout;
-one held by a worktree whose directory is gone says that `git worktree prune`
+check out twice, offers **Switch to its worktree** in place of the checkout.
+Either asks "Switch to DIR?" first, as every switch in Repositories does, and
+switches only on **Switch** there; one held by a worktree whose directory is gone says that `git worktree prune`
 frees it. Once Taskwarrior has
 answered, a **Tasks** card sits between the story and the description;
 [Tasks](#tasks) says what it holds. Below a large width the list sits over the
@@ -258,10 +259,12 @@ page is the tracker's, as the terminal's `o` opens it; with the forge's
 issues as the tracker, or for a task that names none, it is the task's
 `jiraurl`, and only an http or https address.
 Then come **Start** or **Stop**,
-**Mark done**, its annotations, and a line each to **Annotate** it and **Modify**
-it in the same grammar. **Undo** reverts Taskwarrior's last change, whatever
-made it, and **Sync**, shown when the taskrc names a sync backend, syncs. Each
-write says what it did, and the list redraws from Taskwarrior's answer at
+**Mark done…**, its annotations, and a line each to **Annotate** it and **Modify**
+it in the same grammar. **Undo…** reverts Taskwarrior's last change, whatever
+made it, and **Sync…**, shown when the taskrc names a sync backend, syncs.
+Those three ask first and send nothing until confirmed — marking done runs the
+task's hooks, Taskwarrior has no redo, and a sync sends your tasks off the
+machine — while **Start** and **Stop** act at once. Each write says what it did, and the list redraws from Taskwarrior's answer at
 once. A write Taskwarrior refuses says why below its button, in Taskwarrior's
 own words, with your home and data directories put in fixed words and any
 line naming a server left out; a failed sync answers in fixed words only, and
@@ -273,7 +276,7 @@ Once Taskwarrior has answered, the rest of the page shows your tasks too: the
 header carries the task you have started and how long it has run, and opens
 this section; each Issues row marks how its issue's tasks stand; and an
 issue's detail has a **Tasks** card listing each of its tasks, with **Start**
-or **Stop** and **Mark done** on each still to do. While none is, the card offers
+or **Stop** and **Mark done…** on each still to do. While none is, the card offers
 **Track in Taskwarrior**, which adds the task the terminal's `T` would,
 annotated with the issue's page, and says which task now tracks it. Until
 Taskwarrior has answered, and where it could not, none of them is drawn,

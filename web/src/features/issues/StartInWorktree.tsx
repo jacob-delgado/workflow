@@ -1,23 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CreatedWorktree } from '@/api/generated/types.gen.ts'
+import { ConfirmSwitch } from '@/features/repositories/ConfirmSwitch.tsx'
 import { useSwitchTo } from '@/features/repositories/repositoriesApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
+import { useFocusHandback } from '@/lib/focus.ts'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { startWorkInWorktree } from './startWorkApi.ts'
-
-// useSwitchToWorktree switches the server to a worktree's directory, saying
-// where once it has: every section is read again there.
-function useSwitchToWorktree(dir: string, outcome: Teller) {
-  const switchTo = useSwitchTo()
-
-  return useAsyncAction(() => switchTo(dir), {
-    fallback: 'The worktree could not be switched to.',
-    done: (switched) => `Switched to ${switched.here.shown}.`,
-    onStart: outcome.clear,
-    onDone: outcome.say,
-  })
-}
 
 interface StartInWorktreeProps {
   issueKey: string
@@ -66,13 +55,13 @@ interface WorktreeMadeOfferProps {
 }
 
 // WorktreeMadeOffer says where the worktree was made and offers to switch to
-// it. It takes the focus as it appears, so the offer is where the button was.
+// it, through the same last look every switch takes. It takes the focus as it
+// appears, so the offer is where the button was.
 export function WorktreeMadeOffer({ issueKey, worktree, outcome }: WorktreeMadeOfferProps) {
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     heading.current?.focus()
   }, [])
-  const go = useSwitchToWorktree(worktree.dir, outcome)
 
   return (
     <section
@@ -86,24 +75,9 @@ export function WorktreeMadeOffer({ issueKey, worktree, outcome }: WorktreeMadeO
         On <span className="font-mono">{worktree.branch}</span>. Switch to it to work there; every
         section is read again.
       </p>
-      {go.state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {go.error}
-        </p>
-      ) : null}
-      <div>
-        <Button
-          variant="primary"
-          aria-disabled={go.state === 'running'}
-          onClick={() => {
-            if (go.state !== 'running') {
-              void go.run()
-            }
-          }}
-        >
-          {go.state === 'running' ? 'Switching…' : 'Switch to it'}
-        </Button>
-      </div>
+      <SwitchAsked dir={worktree.dir} shown={worktree.shown} outcome={outcome}>
+        Switch to it
+      </SwitchAsked>
     </section>
   )
 }
@@ -115,28 +89,59 @@ interface SwitchToWorktreeProps {
 }
 
 // SwitchToWorktreeButton switches to the worktree that has an issue's branch
-// checked out: git will not check that branch out here as well.
+// checked out, once the switch is confirmed: git will not check that branch
+// out here as well.
 export function SwitchToWorktreeButton({ dir, shown, outcome }: SwitchToWorktreeProps) {
-  const go = useSwitchToWorktree(dir, outcome)
+  return (
+    <SwitchAsked
+      dir={dir}
+      shown={shown}
+      outcome={outcome}
+      label={`Switch to its worktree, ${shown}`}
+    >
+      Switch to its worktree
+    </SwitchAsked>
+  )
+}
+
+interface SwitchAskedProps extends SwitchToWorktreeProps {
+  // label is the opener's accessible name, where its words alone are not.
+  label?: string
+  children: string
+}
+
+// SwitchAsked is a switch's opener, or the confirmation it opens, as the
+// Repositories section asks before each switch; Cancel hands focus back.
+function SwitchAsked({ dir, shown, outcome, label, children }: SwitchAskedProps) {
+  const [asking, setAsking] = useState(false)
+  const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
+  const switchTo = useSwitchTo()
+
+  if (asking) {
+    return (
+      <ConfirmSwitch
+        destination={{ dir, shown }}
+        switchTo={switchTo}
+        teller={outcome}
+        onCancel={() => {
+          handBack()
+          setAsking(false)
+        }}
+      />
+    )
+  }
 
   return (
-    <div className="flex flex-col gap-tight">
-      <Button
-        variant="secondary"
-        disabled={go.state === 'running'}
-        aria-label={`Switch to its worktree, ${shown}`}
-        onClick={() => {
-          void go.run()
-        }}
-        className="self-start"
-      >
-        {go.state === 'running' ? 'Switching…' : 'Switch to its worktree'}
-      </Button>
-      {go.state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {go.error}
-        </p>
-      ) : null}
-    </div>
+    <Button
+      ref={opener}
+      variant="secondary"
+      aria-label={label}
+      onClick={() => {
+        setAsking(true)
+      }}
+      className="self-start"
+    >
+      {children}
+    </Button>
   )
 }
