@@ -207,12 +207,12 @@ export function TaskVerbs({ task, teller, named }: TaskVerbsProps) {
         teller={teller}
       />
       <Verb
-        label="Done"
-        busy="Completing…"
+        label="Mark done"
+        busy="Marking done…"
         named={named}
         run={() => writes.complete(task.uuid)}
-        done={() => `Completed ${name}.`}
-        fallback={`${capitalized(name)} was not completed. Try again, or run ${name} done in a terminal to see why.`}
+        done={() => `Marked ${name} done.`}
+        fallback={`${capitalized(name)} was not marked done. Try again, or run ${name} done in a terminal to see why.`}
         teller={teller}
       />
     </>

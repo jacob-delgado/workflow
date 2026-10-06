@@ -164,12 +164,12 @@ const writes: Write[] = [
     after: onHead,
     routes: { '/api/checkout': makeBranch({ name: 'fix/PROJ-2' }) },
     act: async (user) => {
-      await user.click(screen.getByRole('button', { name: 'Check out PROJ-2' }))
+      await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-2' }))
     },
-    said: 'Checked out fix/PROJ-2.',
+    said: 'Switched to fix/PROJ-2.',
     endpoint: '/api/checkout',
     fallback:
-      'The branch was not checked out. Try again, or switch to it from a terminal to see why.',
+      'The branch was not switched to. Try again, or switch to it from a terminal to see why.',
   },
   {
     name: 'check out from the work story',
@@ -178,12 +178,12 @@ const writes: Write[] = [
     after: onHead,
     routes: { '/api/checkout': makeBranch({ name: 'fix/PROJ-2' }) },
     act: async (user) => {
-      await user.click(screen.getByRole('button', { name: 'Check out this branch' }))
+      await user.click(screen.getByRole('button', { name: 'Switch branch' }))
     },
-    said: 'Checked out fix/PROJ-2.',
+    said: 'Switched to fix/PROJ-2.',
     endpoint: '/api/checkout',
     fallback:
-      'The branch was not checked out. Try again, or switch to it from a terminal to see why.',
+      'The branch was not switched to. Try again, or switch to it from a terminal to see why.',
   },
   {
     name: 'start work',
@@ -356,11 +356,11 @@ test('focus the user has moved on to stays where they put it', async () => {
   useSnapshotStore.setState({ status: 'live', snapshot: inFlight })
   const user = userEvent.setup()
   renderWithClient(<IssuesPanel />)
-  await user.click(screen.getByRole('button', { name: 'Check out PROJ-2' }))
+  await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-2' }))
   await waitFor(() => {
-    expect(statusSaying('Checked out fix/PROJ-2.')).toBeDefined()
+    expect(statusSaying('Switched to fix/PROJ-2.')).toBeDefined()
   })
-  const filter = screen.getByRole('searchbox', { name: 'Filter' })
+  const filter = screen.getByRole('searchbox', { name: 'Search' })
   filter.focus()
 
   // Act

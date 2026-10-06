@@ -334,8 +334,8 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
 function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }) {
   const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
     fallback:
-      'The branch was not checked out. Try again, or switch to it from a terminal to see why.',
-    done: (checkedOut) => `Checked out ${checkedOut.name}.`,
+      'The branch was not switched to. Try again, or switch to it from a terminal to see why.',
+    done: (switched) => `Switched to ${switched.name}.`,
     onStart: outcome.clear,
     onDone: outcome.say,
   })
@@ -350,7 +350,7 @@ function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }
         }}
         className="self-start"
       >
-        {state === 'running' ? 'Checking out…' : 'Check out this branch'}
+        {state === 'running' ? 'Switching…' : 'Switch branch'}
       </Button>
       {state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">

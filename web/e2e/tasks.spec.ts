@@ -123,9 +123,9 @@ test('a refused start sits below its row of buttons, not between them', async ({
 
   // Assert: Start and Done share a row, and the refusal sits below both.
   const start = await edgesOf(page.getByRole('button', { name: 'Start', exact: true }))
-  const done = await edgesOf(page.getByRole('button', { name: 'Done', exact: true }))
+  const done = await edgesOf(page.getByRole('button', { name: 'Mark done', exact: true }))
   const refusal = await edgesOf(page.getByRole('alert'))
-  expect(done.top, 'Done beside Start').toBe(start.top)
+  expect(done.top, 'Mark done beside Start').toBe(start.top)
   expect(refusal.top, 'the refusal below both').toBeGreaterThanOrEqual(done.bottom)
 })
 
@@ -307,10 +307,10 @@ for (const theme of themes) {
 
       // Act: narrow to priority H, sort by tag, type a filter, and Tab once
       // round the page.
-      const narrow = page.getByRole('group', { name: 'Narrow' })
+      const narrow = page.getByRole('group', { name: 'Filter' })
       await narrow.getByRole('button', { name: 'priority H 1' }).click()
       await page.getByRole('combobox', { name: 'Sort' }).selectOption('By tag')
-      await page.getByRole('searchbox', { name: 'Filter' }).fill('staging')
+      await page.getByRole('searchbox', { name: 'Search' }).fill('staging')
       await expect(page.getByText('1 of 2 tasks match, by tag.')).toBeVisible()
       const { reached, missed, hidden } = await walkTabOrder(page)
 
@@ -320,7 +320,7 @@ for (const theme of themes) {
       expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
       expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
       expect(reached, 'reached by Tab').toEqual(
-        expect.arrayContaining(['Sort', 'Filter', 'priority H 1']),
+        expect.arrayContaining(['Sort', 'Search', 'priority H 1']),
       )
       expect(missed, 'never reached by Tab').toEqual([])
       expect(hidden, 'out of view with focus').toEqual([])

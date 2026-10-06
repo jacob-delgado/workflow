@@ -79,6 +79,7 @@ function stagedTag(change: Change): string {
 function ChangeRow({ change }: { change: Change }) {
   const stage = offersStage(change)
   const verb = stage ? 'Stage' : 'Unstage'
+  const busy = stage ? 'Staging…' : 'Unstaging…'
   const outcome = useOutcome()
   const { state, error, run } = useAsyncAction(
     () => (stage ? stageFile(change.path) : unstageFile(change.path)),
@@ -101,13 +102,13 @@ function ChangeRow({ change }: { change: Change }) {
         <Button
           variant="secondary"
           size="sm"
-          aria-label={`${verb} ${change.path}`}
+          aria-label={`${state === 'running' ? busy : verb} ${change.path}`}
           disabled={state === 'running'}
           onClick={() => {
             void run()
           }}
         >
-          {verb}
+          {state === 'running' ? busy : verb}
         </Button>
       </div>
       <OutcomeLine said={outcome.said} />

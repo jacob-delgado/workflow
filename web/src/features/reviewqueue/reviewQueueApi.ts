@@ -10,7 +10,7 @@ import { freshFor } from '@/queryClient.ts'
 // useReviewQueue reads the pull requests on the forge that wait on your review,
 // the longest-waiting first. A failed read is not retried on its own: the
 // server has already said what went wrong, and asking a forge that is limiting
-// requests again only spends more of the limit — Retry is the user's to press.
+// requests again only spends more of the limit — Try again is the user's to press.
 // Under VITE_MOCK it serves the mockup's queue, so the section is filled with
 // no backend.
 export function useReviewQueue() {

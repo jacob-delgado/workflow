@@ -42,7 +42,7 @@ export function TasksPanel() {
       list={query.data}
       failure={
         query.isError
-          ? apiErrorMessage(query.error, 'Your tasks could not be read. Press Retry to try again.')
+          ? apiErrorMessage(query.error, 'Your tasks could not be read. Press Try again.')
           : null
       }
       failed={query.isError || retrying}
@@ -187,7 +187,7 @@ interface ControlsProps extends BoardProps {
 // context narrowing it, and why the last read failed — beside the control that
 // reads it again and the writes that name no task: undo, and sync where the
 // taskrc names a backend. The read's control stays the same button whether it
-// says Retry or Refresh, so the read it starts never takes its focus away.
+// says Try again or Refresh, so the read it starts never takes its focus away.
 function Controls({
   list,
   groups,
@@ -280,11 +280,11 @@ function listSummary(
     : `${tasks(listed)}, ${how}.`
 }
 
-// readAgainLabel names the control that reads the list again: Retry after a
+// readAgainLabel names the control that reads the list again: Try again after a
 // failed read, Refresh otherwise, each saying so while the read is in flight.
 function readAgainLabel(failed: boolean, reading: boolean): string {
   if (failed) {
-    return reading ? 'Retrying…' : 'Retry'
+    return reading ? 'Trying again…' : 'Try again'
   }
 
   return reading ? 'Refreshing…' : 'Refresh'

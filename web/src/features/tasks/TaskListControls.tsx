@@ -57,7 +57,7 @@ export function TaskListControls({
           </Select>
         </label>
         <label className="flex items-center gap-item text-sm">
-          <span className="text-muted-foreground">Filter</span>
+          <span className="text-muted-foreground">Search</span>
           <Input
             size="sm"
             ref={filter}
@@ -72,7 +72,7 @@ export function TaskListControls({
         </label>
       </div>
       <FilterChips
-        label="Narrow"
+        label="Filter"
         choices={taskFacetChoices(tasks, picked, now)}
         isPicked={(facet) => isTaskFacetPicked(picked, facet)}
         nameOf={taskFacetLabel}

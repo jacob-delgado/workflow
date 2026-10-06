@@ -23,7 +23,7 @@ import { rememberCompleted, rememberTrack } from './taskMemo.ts'
 // terminal, a hook, a sync — and nothing pushes the list, so it is read again
 // each time the section opens. A failed read is not retried on its own: the
 // server has already said what went wrong, and a Taskwarrior that timed out
-// would only be kept waiting again — Retry is the user's to press. Under
+// would only be kept waiting again — Try again is the user's to press. Under
 // VITE_MOCK it serves the mockup's list, so the section is filled with no
 // backend.
 export function useTasks() {

@@ -4,10 +4,9 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import { useHealthStore } from '@/api/health.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
-import { Button } from '@/lib/Button.tsx'
 import { relativeTime, writtenDate, writtenMoment } from '@/lib/dates.ts'
 import { Meta } from '@/lib/Meta.tsx'
-import { Reading } from '@/lib/Status.tsx'
+import { Reading, Unread } from '@/lib/Status.tsx'
 import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
 import { IssueStatus } from './IssueStatus.tsx'
@@ -26,7 +25,7 @@ const sectionHeading = 'text-base font-semibold'
 // waits.
 export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; listed?: Issue }) {
   const { data, error, errorUpdateCount, isPending, isFetching, refetch } = useIssue(issueKey)
-  // A Retry goes once the issue it reads again arrives, so its focus follows to
+  // A Try again goes once the issue it reads again arrives, so its focus follows to
   // the issue's heading rather than falling to the page — once, so a later read
   // of the issue leaves focus wherever the user has put it since.
   const retried = useRef(false)
@@ -45,11 +44,8 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
       <IssueHeading issueKey={issueKey} issue={listed ?? data} heading={heading} />
       {isPending && refusal === null ? <Reading>Reading {issueKey}…</Reading> : null}
       {refusal === null ? null : (
-        <IssueUnread
-          reason={apiErrorMessage(
-            refusal,
-            `${issueKey} could not be read. Press Retry to try again.`,
-          )}
+        <Unread
+          reason={apiErrorMessage(refusal, `${issueKey} could not be read. Press Try again.`)}
           refusals={errorUpdateCount}
           retrying={isFetching}
           onRetry={() => {
@@ -74,7 +70,7 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
 
 // useShownRefusal is the refusal the issue's reads last met. Reading again an
 // issue that was never read clears the error its last read met, so the last
-// refusal is kept and shown until the read answers: the busy Retry beside it
+// refusal is kept and shown until the read answers: the busy Try again beside it
 // keeps its place, and the focus it was pressed with, rather than giving way
 // to "Reading…".
 function useShownRefusal<Refusal>(error: Refusal | null, isPending: boolean): Refusal | null {
@@ -86,51 +82,13 @@ function useShownRefusal<Refusal>(error: Refusal | null, isPending: boolean): Re
   return error ?? (isPending ? lastRefusal : null)
 }
 
-// IssueUnread says why the issue could not be read, beside a Retry that reads
-// it again: selecting the issue that is already selected reads nothing. While
-// it reads, the Retry is marked busy rather than disabled, so it keeps the
-// focus it was pressed with through another refusal, and a press while busy
-// starts nothing. Each refusal is told in an alert of its own, keyed by how
-// many there have been: an alert that keeps its words is not spoken again, and
-// the Retry, outside it, keeps its place.
-function IssueUnread({
-  reason,
-  refusals,
-  retrying,
-  onRetry,
-}: {
-  reason: string
-  refusals: number
-  retrying: boolean
-  onRetry: () => void
-}) {
-  return (
-    <div className="flex flex-col items-start gap-item">
-      <p key={refusals} role="alert" className="text-sm text-destructive">
-        {reason}
-      </p>
-      <Button
-        variant="secondary"
-        aria-disabled={retrying}
-        onClick={() => {
-          if (!retrying) {
-            onRetry()
-          }
-        }}
-      >
-        {retrying ? 'Retrying…' : 'Retry'}
-      </Button>
-    </div>
-  )
-}
-
 interface IssueHeadingProps {
   issueKey: string
   issue?: Issue
   heading: RefObject<HTMLHeadingElement | null>
 }
 
-// IssueHeading names the issue. Its heading takes focus from a Retry that goes
+// IssueHeading names the issue. Its heading takes focus from a Try again that goes
 // once the issue is read, so it can hold focus without being a tab stop.
 function IssueHeading({ issueKey, issue, heading }: IssueHeadingProps) {
   return (

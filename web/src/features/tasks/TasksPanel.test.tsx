@@ -343,7 +343,7 @@ test.each([
   expect(screen.queryByRole('textbox', { name: 'task add' })).toBeNull()
 })
 
-test('a failed read says why, and Retry reads again, one request each', async () => {
+test('a failed read says why, and Try again reads again, one request each', async () => {
   // Arrange
   const user = userEvent.setup()
   const answers = [
@@ -355,7 +355,7 @@ test('a failed read says why, and Retry reads again, one request each', async ()
   expect((await screen.findByRole('alert')).textContent).toBe('Taskwarrior did not answer in time')
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Retry' }))
+  await user.click(screen.getByRole('button', { name: 'Try again' }))
 
   // Assert
   expect(await screen.findByRole('list', { name: 'Tasks' })).toBeTruthy()
@@ -363,7 +363,7 @@ test('a failed read says why, and Retry reads again, one request each', async ()
   expect(readsOf(requests)).toBe(2)
 })
 
-test('a failed Refresh keeps the list last read in view, beside why, and offers Retry', async () => {
+test('a failed Refresh keeps the list last read in view, beside why, and offers Try again', async () => {
   // Arrange
   const user = userEvent.setup()
   const answers = [
@@ -381,7 +381,7 @@ test('a failed Refresh keeps the list last read in view, beside why, and offers 
   expect((await screen.findByRole('alert')).textContent).toBe('Taskwarrior did not answer in time')
   const list = screen.getByRole('list', { name: 'Tasks' })
   expect(within(list).getByRole('button', { name: /renew the certificate/i })).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
 })
 
 test("a failed read is said at once, never retried behind the user's back", async () => {
@@ -399,7 +399,7 @@ test("a failed read is said at once, never retried behind the user's back", asyn
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe(
-    'Your tasks could not be read. Press Retry to try again.',
+    'Your tasks could not be read. Press Try again.',
   )
   expect(readsOf(requests)).toBe(1)
 })

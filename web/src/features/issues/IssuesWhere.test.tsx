@@ -64,7 +64,7 @@ function listedKeys(): string[] {
 
 // where is the Where group's button for a place.
 function where(name: RegExp): HTMLElement {
-  return within(screen.getByRole('group', { name: 'Where' })).getByRole('button', { name })
+  return within(screen.getByRole('group', { name: 'Filter' })).getByRole('button', { name })
 }
 
 function renderPanel() {
@@ -78,7 +78,7 @@ test('offers each place the loaded issues are in, with its count', () => {
   renderPanel()
 
   // Act
-  const group = screen.getByRole('group', { name: 'Where' })
+  const group = screen.getByRole('group', { name: 'Filter' })
 
   // Assert
   expect(
@@ -124,7 +124,7 @@ test('a place and the filter narrow the list together', async () => {
   await user.click(where(/^in flight/))
 
   // Act
-  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'leak')
+  await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'leak')
 
   // Assert
   expect(screen.getAllByRole('status').map((region) => region.textContent)).toContain(
@@ -181,5 +181,5 @@ test('unpicking a place no issue is in keeps focus in the Where group', async ()
   await user.click(where(/^Intake 0/))
 
   // Assert
-  expect(screen.getByRole('group', { name: 'Where' }).contains(document.activeElement)).toBe(true)
+  expect(screen.getByRole('group', { name: 'Filter' }).contains(document.activeElement)).toBe(true)
 })

@@ -39,8 +39,8 @@ export function SettingsPanel() {
 // not.
 function ConfigArea() {
   const query = useConfigRead()
-  // A Retry is swapped for the form it loads, so the form takes the focus the
-  // Retry had rather than letting it fall to the page.
+  // A Try again is swapped for the form it loads, so the form takes the focus the
+  // Try again had rather than letting it fall to the page.
   const [retried, setRetried] = useState(false)
 
   // Settings opens on a fresh read rather than on the cached one: a form seeded
@@ -62,7 +62,7 @@ function ConfigArea() {
               void query.refetch()
             }}
           >
-            {query.isFetching ? 'Retrying…' : 'Retry'}
+            {query.isFetching ? 'Trying again…' : 'Try again'}
           </Button>
         </span>
       </EmptyState>
@@ -74,7 +74,7 @@ function ConfigArea() {
 
 // ConfigForm edits the configuration, one fieldset per section it can edit. It
 // takes focus, on its first field, only when it replaces a control that had
-// it — a Retry, or a Reload — and otherwise leaves focus where the section
+// it — a Try again, or a Reload — and otherwise leaves focus where the section
 // change put it.
 function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolean }) {
   // The whole config seeds the form, so every key no fieldset registers — ui,
@@ -92,7 +92,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   // read it: the refusal that Reload, not another save, answers.
   const [changed, setChanged] = useState(false)
   // How many times the form's first field has been asked to take focus: once
-  // when the form replaces a Retry, and after each Reload, which takes its own
+  // when the form replaces a Try again, and after each Reload, which takes its own
   // button away. The field is focused once the form has drawn it.
   const [focusRequests, setFocusRequests] = useState(takesFocus ? 1 : 0)
   const saveConfig = useSaveConfig()

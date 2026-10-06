@@ -60,7 +60,7 @@ test('the Reviews section lists requests by role and name', async () => {
   renderWithClient(<ReviewQueuePanel />)
 
   // Assert
-  const list = await screen.findByRole('list', { name: 'Review requests' })
+  const list = await screen.findByRole('list', { name: 'Waiting on your review' })
   const rows = within(list).getAllByRole('listitem')
   expect(rows.map((row) => within(row).getByRole('link').getAttribute('href'))).toEqual([
     waitingLongest.url,
@@ -100,7 +100,7 @@ test('draws how CI stands on each request as its mark, beside the words', async 
   renderWithClient(<ReviewQueuePanel />)
 
   // Assert
-  await screen.findByRole('list', { name: 'Review requests' })
+  await screen.findByRole('list', { name: 'Waiting on your review' })
   expect(stands.map(({ words }) => markShape(screen.getByText(words)))).toEqual(
     stands.map(({ mark }) => drawnMark(mark)),
   )
@@ -114,7 +114,7 @@ test('the mockup lists its own queue without a server', async () => {
   renderWithClient(<ReviewQueuePanel />)
 
   // Assert
-  const list = await screen.findByRole('list', { name: 'Review requests' })
+  const list = await screen.findByRole('list', { name: 'Waiting on your review' })
   expect(within(list).getAllByRole('listitem').length).toBeGreaterThan(1)
   expect(globalThis.fetch).not.toHaveBeenCalled()
 })
@@ -127,7 +127,7 @@ test('a request the forge names no repository for says only who asks', async () 
   renderWithClient(<ReviewQueuePanel />)
 
   // Assert
-  const list = await screen.findByRole('list', { name: 'Review requests' })
+  const list = await screen.findByRole('list', { name: 'Waiting on your review' })
   expect(within(list).getByText('by ana')).toBeTruthy()
   expect(within(list).queryByText('acme/api')).toBeNull()
 })
@@ -159,7 +159,7 @@ test.each([
   renderWithClient(<ReviewQueuePanel />)
 
   // Assert
-  const list = await screen.findByRole('list', { name: 'Review requests' })
+  const list = await screen.findByRole('list', { name: 'Waiting on your review' })
   expect(within(list).getByText(said, { exact: false })).toBeTruthy()
 })
 
@@ -172,7 +172,7 @@ test('gives the date of a request that has waited over a month', async () => {
   renderWithClient(<ReviewQueuePanel />)
 
   // Assert
-  const list = await screen.findByRole('list', { name: 'Review requests' })
+  const list = await screen.findByRole('list', { name: 'Waiting on your review' })
   const time = within(list).getByText('Mar 14, 2025', { exact: false })
   expect(time.getAttribute('datetime')).toBe(opened)
 })
@@ -186,7 +186,7 @@ test('says a request whose opening the forge did not give waited some time', asy
   renderWithClient(<ReviewQueuePanel />)
 
   // Assert
-  const list = await screen.findByRole('list', { name: 'Review requests' })
+  const list = await screen.findByRole('list', { name: 'Waiting on your review' })
   expect(within(list).getByText('some time ago')).toBeTruthy()
 })
 
@@ -214,7 +214,7 @@ test('an empty queue says nothing is waiting', async () => {
 
   // Assert
   expect(await screen.findAllByText('Nothing is waiting on your review.')).not.toHaveLength(0)
-  expect(screen.queryByRole('list', { name: 'Review requests' })).toBeNull()
+  expect(screen.queryByRole('list', { name: 'Waiting on your review' })).toBeNull()
   expect(screen.queryByText(/wait on your review/)).toBeNull()
 })
 
@@ -248,7 +248,7 @@ test("a failed read is said at once, never retried behind the user's back", asyn
   // Arrange
   // The app's own client, whose queries retry by default: the queue is a
   // search under the forge's rate limits, and the server's answer is already
-  // its verdict, so asking again is the user's call — Retry.
+  // its verdict, so asking again is the user's call — Try again.
   const requests = fakeApi({ [reviewsPath]: () => refused({ detail: 'wait and try again' }, 502) })
   const client = new QueryClient()
 
@@ -264,7 +264,7 @@ test("a failed read is said at once, never retried behind the user's back", asyn
   expect(readsOf(requests)).toBe(1)
 })
 
-test('a refusal with no reason says to press Retry', async () => {
+test('a refusal with no reason says to press Try again', async () => {
   // Arrange
   fakeApi({ [reviewsPath]: () => refused({}, 500) })
 
@@ -273,7 +273,7 @@ test('a refusal with no reason says to press Retry', async () => {
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe(
-    'The review queue could not be read. Press Retry to try again.',
+    'The review queue could not be read. Press Try again.',
   )
 })
 
@@ -284,7 +284,7 @@ test.each([
     '1 pull request waits on your review, oldest first.',
   ],
   ['that nothing waits', queueOf(), 'Nothing is waiting on your review.'],
-])('Retry says %s in the status line it already had', async (_, second, said) => {
+])('Try again says %s in the status line it already had', async (_, second, said) => {
   // Arrange
   // A screen reader hears a status line as it changes, not one mounted with
   // its words already in it.
@@ -292,7 +292,7 @@ test.each([
   const answers = [refused({}, 502), Response.json(second)]
   fakeApi({ [reviewsPath]: () => answers.shift() })
   renderWithClient(<ReviewQueuePanel />)
-  const retry = await screen.findByRole('button', { name: 'Retry' })
+  const retry = await screen.findByRole('button', { name: 'Try again' })
   const linesBefore = screen.getAllByRole('status')
 
   // Act
@@ -317,30 +317,30 @@ test('a retry after a failed first read keeps its place and its focus', async ()
     vi.fn(() => answers.shift()),
   )
   renderWithClient(<ReviewQueuePanel />)
-  const retry = await screen.findByRole('button', { name: 'Retry' })
+  const retry = await screen.findByRole('button', { name: 'Try again' })
 
   // Act
   await user.click(retry)
 
   // Assert
   expect(screen.queryByText('Reading your review queue…')).toBeNull()
-  expect(retry.textContent).toBe('Retrying…')
+  expect(retry.textContent).toBe('Trying again…')
   expect(document.activeElement).toBe(retry)
 })
 
-test('Retry reads the queue again and keeps focus, as Refresh', async () => {
+test('Try again reads the queue again and keeps focus, as Refresh', async () => {
   // Arrange
   const user = userEvent.setup()
   const answers = [refused({}, 502), Response.json(queueOf(waitingLongest))]
   fakeApi({ [reviewsPath]: () => answers.shift() })
   renderWithClient(<ReviewQueuePanel />)
-  const retry = await screen.findByRole('button', { name: 'Retry' })
+  const retry = await screen.findByRole('button', { name: 'Try again' })
 
   // Act
   await user.click(retry)
 
   // Assert
-  expect(await screen.findByRole('list', { name: 'Review requests' })).toBeTruthy()
+  expect(await screen.findByRole('list', { name: 'Waiting on your review' })).toBeTruthy()
   expect(screen.queryByRole('alert')).toBeNull()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Refresh' }))
 })
@@ -377,9 +377,9 @@ test('a failed refresh says why and keeps the queue it last read', async () => {
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe('wait and try again')
-  expect(screen.getByRole('list', { name: 'Review requests' })).toBeTruthy()
+  expect(screen.getByRole('list', { name: 'Waiting on your review' })).toBeTruthy()
   expect(statusSaying('1 pull request waits on your review, oldest first.')).toBeDefined()
-  expect(refresh.textContent).toBe('Retry')
+  expect(refresh.textContent).toBe('Try again')
 })
 
 test('a retry in flight after a failed refresh says so and keeps its focus', async () => {
@@ -398,16 +398,16 @@ test('a retry in flight after a failed refresh says so and keeps its focus', asy
   )
   renderWithClient(<ReviewQueuePanel />)
   await user.click(await screen.findByRole('button', { name: 'Refresh' }))
-  const retry = await screen.findByRole('button', { name: 'Retry' })
+  const retry = await screen.findByRole('button', { name: 'Try again' })
 
   // Act
   await user.click(retry)
 
   // Assert
-  expect(retry.textContent).toBe('Retrying…')
+  expect(retry.textContent).toBe('Trying again…')
   expect(retry.getAttribute('aria-disabled')).toBe('true')
   expect(document.activeElement).toBe(retry)
-  expect(screen.getByRole('list', { name: 'Review requests' })).toBeTruthy()
+  expect(screen.getByRole('list', { name: 'Waiting on your review' })).toBeTruthy()
 })
 
 test('a refresh in flight says so, keeps its focus, and is not asked twice', async () => {
@@ -451,7 +451,7 @@ test.each([
   )
 
   // Assert
-  expect(await screen.findByRole('list', { name: 'Review requests' })).toBeTruthy()
+  expect(await screen.findByRole('list', { name: 'Waiting on your review' })).toBeTruthy()
   await screen.findByRole('button', { name: 'Refresh' })
   expect(readsOf(requests)).toBe(reads)
 })

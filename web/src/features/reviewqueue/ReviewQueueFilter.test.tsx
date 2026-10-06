@@ -55,7 +55,7 @@ const queue: ReviewQueue = {
 
 // listedNumbers is the number of each request the queue lists, in order.
 function listedNumbers(): string[] {
-  return within(screen.getByRole('list', { name: 'Review requests' }))
+  return within(screen.getByRole('list', { name: 'Waiting on your review' }))
     .getAllByRole('link')
     .map((link) => link.getAttribute('href')?.split('/').at(-1) ?? '')
 }
@@ -154,7 +154,7 @@ test('a filter nothing matches says so', async () => {
 
   // Assert
   expect(screen.getByText('No request matches the filters.')).toBeTruthy()
-  expect(screen.queryByRole('list', { name: 'Review requests' })).toBeNull()
+  expect(screen.queryByRole('list', { name: 'Waiting on your review' })).toBeNull()
 })
 
 test('the filter holds when the order changes', async () => {

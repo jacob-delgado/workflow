@@ -229,7 +229,7 @@ test('jumps to a stage section when it is clicked', async () => {
   expect(useUiStore.getState().section).toBe('review')
 })
 
-test('offers to check out an in-flight branch that is not on HEAD', () => {
+test('offers to switch to an in-flight branch that is not on HEAD', () => {
   // Arrange
   offHead()
 
@@ -237,10 +237,10 @@ test('offers to check out an in-flight branch that is not on HEAD', () => {
   render(<WorkStory issueKey="PROJ-2" />)
 
   // Assert
-  expect(screen.getByRole('button', { name: /check out this branch/i })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Switch branch' })).toBeTruthy()
 })
 
-test('does not offer to check out the branch already on HEAD', () => {
+test('does not offer to switch to the branch already on HEAD', () => {
   // Arrange
   offHead()
 
@@ -248,7 +248,7 @@ test('does not offer to check out the branch already on HEAD', () => {
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  expect(screen.queryByRole('button', { name: /check out this branch/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Switch branch' })).toBeNull()
 })
 
 test('checks out the branch when its button is clicked', async () => {
@@ -259,7 +259,7 @@ test('checks out the branch when its button is clicked', async () => {
   render(<WorkStory issueKey="PROJ-2" />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: /check out this branch/i }))
+  await user.click(screen.getByRole('button', { name: 'Switch branch' }))
 
   // Assert
   expect(mockCheckout).toHaveBeenCalledWith('feat/PROJ-2-metrics')
@@ -276,7 +276,7 @@ test('shows the reason when a checkout is refused', async () => {
   render(<WorkStory issueKey="PROJ-2" />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: /check out this branch/i }))
+  await user.click(screen.getByRole('button', { name: 'Switch branch' }))
 
   // Assert
   expect(await screen.findByText(/uncommitted changes/i)).toBeTruthy()
@@ -344,7 +344,7 @@ test('offers to start work in a new worktree beside the repository', () => {
   render(<WorkStory issueKey="PROJ-999" />)
 
   // Assert
-  expect(screen.getByRole('button', { name: 'Start in a new worktree' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Start work in a new worktree' })).toBeTruthy()
 })
 
 test('work started in a new worktree offers to switch to it, and switches', async () => {
@@ -354,7 +354,7 @@ test('work started in a new worktree offers to switch to it, and switches', asyn
   render(<WorkStory issueKey="PROJ-999" />)
 
   // Act: start work in a worktree
-  await user.click(screen.getByRole('button', { name: 'Start in a new worktree' }))
+  await user.click(screen.getByRole('button', { name: 'Start work in a new worktree' }))
 
   // Assert: it says where, and nothing is switched yet
   const offer = await screen.findByRole('region', {
@@ -376,7 +376,7 @@ test('the offer to switch stays once the snapshot shows the new branch', async (
   const user = userEvent.setup()
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
   render(<WorkStory issueKey="PROJ-999" />)
-  await user.click(screen.getByRole('button', { name: 'Start in a new worktree' }))
+  await user.click(screen.getByRole('button', { name: 'Start work in a new worktree' }))
   await screen.findByRole('button', { name: 'Switch to it' })
 
   // Act
@@ -429,7 +429,7 @@ test('a branch another worktree has checked out is switched to there, not checke
   )
 
   // Assert
-  expect(screen.queryByRole('button', { name: 'Check out this branch' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Switch branch' })).toBeNull()
   expect(mockSwitchTo).toHaveBeenCalledWith('/home/ana/src/api-feat-PROJ-2-metrics')
   expect(await screen.findByText('Switched to ~/src/api-feat-PROJ-2-metrics.')).toBeTruthy()
 })
@@ -439,7 +439,7 @@ test('the offer goes once the switch has made the branch the one checked out', a
   const user = userEvent.setup()
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
   render(<WorkStory issueKey="PROJ-999" />)
-  await user.click(screen.getByRole('button', { name: 'Start in a new worktree' }))
+  await user.click(screen.getByRole('button', { name: 'Start work in a new worktree' }))
   await user.click(await screen.findByRole('button', { name: 'Switch to it' }))
 
   // Act
@@ -463,7 +463,7 @@ test('a refused switch from the offer is announced', async () => {
   const user = userEvent.setup()
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
   render(<WorkStory issueKey="PROJ-999" />)
-  await user.click(screen.getByRole('button', { name: 'Start in a new worktree' }))
+  await user.click(screen.getByRole('button', { name: 'Start work in a new worktree' }))
 
   // Act
   await user.click(await screen.findByRole('button', { name: 'Switch to it' }))
@@ -496,7 +496,7 @@ test('a branch held by a worktree that is gone says how to free it', () => {
 
   // Assert
   expect(screen.getByText(/git worktree prune/)).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Check out this branch' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Switch branch' })).toBeNull()
   expect(screen.queryByRole('button', { name: /switch to its worktree/i })).toBeNull()
 })
 
@@ -511,7 +511,7 @@ test('a worktree that could not be made says why', async () => {
   render(<WorkStory issueKey="PROJ-999" />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Start in a new worktree' }))
+  await user.click(screen.getByRole('button', { name: 'Start work in a new worktree' }))
 
   // Assert
   expect(await screen.findByText(/already exists/i)).toBeTruthy()

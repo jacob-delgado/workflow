@@ -71,9 +71,9 @@ const confirmSteps = [
   {
     step: 'clean confirmation in Local data',
     section: 'Settings',
-    opener: 'Clean cache…',
+    opener: 'Remove cache…',
     group: 'Remove workflow.db?',
-    adds: ['Cancel', 'Clean'],
+    adds: ['Cancel', 'Remove'],
   },
 ]
 

@@ -53,7 +53,7 @@ export async function openCockpit(
 // every other section settles with its heading.
 function settled(page: Page, name: string): Locator {
   if (name === 'Reviews') {
-    return page.getByRole('list', { name: 'Review requests' })
+    return page.getByRole('list', { name: 'Waiting on your review' })
   }
 
   if (name === 'Tasks') {

@@ -172,7 +172,7 @@ function ConfirmSwitch({ destination, switchTo, teller, onCancel }: ConfirmSwitc
             }
           }}
         >
-          Switch
+          {go.state === 'running' ? 'Switching…' : 'Switch'}
         </Button>
         <Button variant="secondary" onClick={onCancel}>
           Cancel

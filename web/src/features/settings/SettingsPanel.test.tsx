@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useHealthStore } from '@/api/health.ts'
@@ -377,17 +377,17 @@ test('locks the save while it is in flight', async () => {
 
 test('offers to try again when the configuration cannot be loaded', async () => {
   // Arrange
-  // The first read fails; the one Retry asks for answers.
+  // The first read fails; the one Try again asks for answers.
   const answers = [Response.json({}, { status: 500 }), Response.json(mockConfig)]
   fakeApi({ '/api/config': () => answers.shift() })
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
-  await screen.findByText(/the configuration could not be loaded/i)
+  const failure = await screen.findByText(/the configuration could not be loaded/i)
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Retry' }))
+  await user.click(within(failure).getByRole('button', { name: 'Try again' }))
 
-  // Assert: the form that took the Retry's place has focus, on its first field
+  // Assert: the form that took the Try again's place has focus, on its first field
   expect(document.activeElement).toBe(await screen.findByLabelText('Base URL'))
 })
 
@@ -457,7 +457,7 @@ test('shows the local data under its own heading below the configuration', async
   const heading = await screen.findByRole('heading', { level: 2, name: 'Local data' })
   const save = await screen.findByRole('button', { name: 'Save changes' })
   expect(save.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(await screen.findByRole('table', { name: 'Local databases' })).toBeTruthy()
+  expect(await screen.findByRole('table', { name: 'Local data files' })).toBeTruthy()
 })
 
 test('shows people and groups between the configuration and the local data', async () => {
