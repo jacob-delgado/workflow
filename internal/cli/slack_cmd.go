@@ -72,21 +72,21 @@ the first.`,
 			}
 			defer conn.closeLog()
 
-			return slackLogin(cmd.Context(), cmd.OutOrStdout(), prompt, conn.cfg, dryRunRequested(cmd))
+			return slackLogin(cmd.Context(), outputOf(cmd).notes, prompt, conn.cfg, dryRunRequested(cmd))
 		},
 	}
 }
 
 // slackLogin sets up cfg's Slack user token, or says what it would do under a
-// dry run.
-func slackLogin(ctx context.Context, out io.Writer, prompt Prompt, cfg config.Config, dryRun bool) error {
+// dry run. It makes no artifact, so all it says goes to notes.
+func slackLogin(ctx context.Context, notes io.Writer, prompt Prompt, cfg config.Config, dryRun bool) error {
 	err := loginAllowed(cfg)
 	if err != nil {
 		return err
 	}
 
 	if dryRun {
-		fmt.Fprintf(out, "dry run: would ask for the Slack app's client ID and secret and a refresh token, "+
+		fmt.Fprintf(notes, "dry run: would ask for the Slack app's client ID and secret and a refresh token, "+
 			"refresh it once, and keep it in %s; nothing was asked or written\n", wiring.SlackStore(cfg).Where())
 
 		return nil
@@ -102,7 +102,7 @@ func slackLogin(ctx context.Context, out io.Writer, prompt Prompt, cfg config.Co
 		return err
 	}
 
-	return keepFirstToken(ctx, out, cfg, starting)
+	return keepFirstToken(ctx, notes, cfg, starting)
 }
 
 // loginAllowed refuses a login the configuration cannot take.
@@ -179,7 +179,7 @@ func nameSlackApp(cfg config.Config, clientID string) (config.Config, error) {
 
 // keepFirstToken refreshes the starting credentials once, keeps what Slack
 // gives back where cfg keeps a user token, and says whose token it is.
-func keepFirstToken(ctx context.Context, out io.Writer, cfg config.Config, starting slackauth.Credentials) error {
+func keepFirstToken(ctx context.Context, notes io.Writer, cfg config.Config, starting slackauth.Credentials) error {
 	transport := onlineDoer(cfg)
 	store := wiring.SlackStore(cfg)
 
@@ -201,7 +201,7 @@ func keepFirstToken(ctx context.Context, out io.Writer, cfg config.Config, start
 		return err
 	}
 
-	fmt.Fprintf(out, "Logged in to Slack as %s in %s. The token is kept in %s and refreshed before it expires.\n",
+	fmt.Fprintf(notes, "Logged in to Slack as %s in %s. The token is kept in %s and refreshed before it expires.\n",
 		identity.User, identity.Team, store.Where())
 
 	return nil

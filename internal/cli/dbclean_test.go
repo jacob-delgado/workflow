@@ -112,8 +112,8 @@ func TestDBCleanRemovesTheCacheOnceConfirmed(t *testing.T) {
 			present(dir, "workflow.db"), present(dir, "kept.db"))
 	}
 
-	if !strings.Contains(printed.stdout, "Removed workflow.db") {
-		t.Errorf("the clean is not reported:\n%s", printed.stdout)
+	if !strings.Contains(printed.stderr, "Removed workflow.db.") || strings.Contains(printed.stdout, "Removed") {
+		t.Errorf("the clean is not reported on stderr alone:\n%+v", printed)
 	}
 }
 
@@ -188,8 +188,12 @@ func TestDBCleanSaysWhenThereIsNothingToRemove(t *testing.T) {
 		t.Fatalf("db-clean: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(printed.stdout, "Nothing to remove") {
-		t.Errorf("an empty store is not said to have nothing to remove:\n%s", printed.stdout)
+	if !strings.Contains(printed.stderr, "Nothing to remove.") || strings.Contains(printed.stdout, "Nothing to remove") {
+		t.Errorf("an empty store is not said, on stderr alone, to have nothing to remove:\n%+v", printed)
+	}
+
+	if !strings.HasPrefix(printed.stdout, "Local data in ") {
+		t.Errorf("stdout does not carry the listing:\n%s", printed.stdout)
 	}
 }
 
