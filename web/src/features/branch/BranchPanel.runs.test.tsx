@@ -191,3 +191,69 @@ test('stops the run going, from the stream, when asked', async () => {
   // Assert
   expect(mockStopRun).toHaveBeenCalled()
 })
+
+test('says why a run was refused before it ran', async () => {
+  // Arrange
+  mockStartRun.mockRejectedValueOnce({ code: 'conflict', detail: 'a run is already going' })
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Run pre-commit' }))
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toContain('a run is already going')
+})
+
+test('says why a stop was refused', async () => {
+  // Arrange
+  mockStopRun.mockRejectedValueOnce({ code: 'not_found', detail: 'no run is going' })
+  foldable({
+    run: { kind: 'rebase', title: 'git rebase', state: 'in_progress', outcome: '', lines: [] },
+  })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Stop git rebase' }))
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toContain('no run is going')
+})
+
+test('puts an ended run away on Close', async () => {
+  // Arrange
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Run pre-commit' }))
+  await screen.findByRole('region', { name: 'Output of pre-commit' })
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Close' }))
+
+  // Assert
+  expect(screen.queryByRole('region', { name: 'Output of pre-commit' })).toBeNull()
+})
+
+test.each([
+  ['Rebase onto main', 'Rebase fix/PROJ-1 onto main'],
+  ['Amend last commit', 'Amend fix: second'],
+  ['Fix up a commit', 'Fix up a commit'],
+])('backing out of %s sends nothing and hands focus back', async (opener, look) => {
+  // Arrange
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: opener }))
+
+  // Act
+  await user.click(
+    within(screen.getByRole('form', { name: look })).getByRole('button', { name: 'Cancel' }),
+  )
+
+  // Assert
+  expect(mockStartRun).not.toHaveBeenCalled()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: opener }))
+})

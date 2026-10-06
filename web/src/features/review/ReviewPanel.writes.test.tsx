@@ -168,3 +168,78 @@ test('says why an edit was refused, keeping the form', async () => {
   // Assert
   expect((await within(form).findByRole('alert')).textContent).toContain('GitHub refused this')
 })
+
+test.each([
+  ['Edit pull request', 'Edit #42', 'passed'],
+  ['Merge', 'Merge #42', 'passed'],
+  ['Re-run failed checks', 'Re-run the failed checks on #42', 'failed'],
+] as const)('backing out of %s sends nothing and hands focus back', async (opener, form, ci) => {
+  // Arrange
+  streamPull(ready, ciOf(ci))
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: opener }))
+  const look = await screen.findByRole('form', { name: form })
+
+  // Act
+  await user.click(within(look).getByRole('button', { name: 'Cancel' }))
+
+  // Assert
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: opener }))
+  expect(vi.mocked(editPull)).not.toHaveBeenCalled()
+})
+
+test.each([
+  ['Edit pull request', readPullText],
+  ['Merge', readMergeOffer],
+] as const)('%s says why what it starts from could not be read', async (opener, read) => {
+  // Arrange
+  vi.mocked(read).mockRejectedValueOnce({
+    code: 'conflict',
+    detail: 'the branch has no open pull request',
+  })
+  streamPull(ready, ciOf('passed'))
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: opener }))
+
+  // Act
+  await user.click(await screen.findByRole('button', { name: 'Cancel' }))
+
+  // Assert
+  expect(screen.getByRole('button', { name: opener })).toBeTruthy()
+})
+
+test('says when a re-run had nothing to restart', async () => {
+  // Arrange
+  vi.mocked(rerunChecks).mockResolvedValueOnce({ reran: false })
+  streamPull(ready, ciOf('failed'))
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: 'Re-run failed checks' }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Re-run' }))
+
+  // Assert
+  expect(await screen.findByText(/Nothing was re-run/)).toBeTruthy()
+})
+
+test('says why a finish was refused, keeping its look', async () => {
+  // Arrange
+  vi.mocked(finishBranch).mockRejectedValueOnce({
+    code: 'unprocessable',
+    detail: 'git would not finish the branch',
+  })
+  streamPull({ ...ready, state: 'merged' })
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: 'Finish the branch' }))
+  const look = screen.getByRole('form', { name: 'Finish fix/PROJ-1' })
+
+  // Act
+  await user.click(within(look).getByRole('button', { name: 'Finish' }))
+
+  // Assert
+  expect((await within(look).findByRole('alert')).textContent).toContain('git would not finish')
+})
