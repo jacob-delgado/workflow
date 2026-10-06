@@ -12,6 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
@@ -30,6 +31,7 @@ func TestEveryNotSetUpCauseSaysWhatToSet(t *testing.T) {
 		"no Taskwarrior":          {cause: taskwarrior.ErrNotInstalled, names: "taskwarrior.program"},
 		"another task program":    {cause: taskwarrior.ErrNotTaskwarrior, names: "taskwarrior.program"},
 		"a Taskwarrior never run": {cause: taskwarrior.ErrNotConfigured, names: "run it once"},
+		"no messaging credential": {cause: messaging.ErrNoCredential, names: "workflow slack login"},
 	}
 
 	for name, tt := range cases {

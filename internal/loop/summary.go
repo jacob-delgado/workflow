@@ -120,6 +120,8 @@ func setUpCauses() []setUpCause {
 			"names what it found."},
 		{taskwarrior.ErrNotConfigured, "Taskwarrior has never been run: run it once in a terminal so it creates " +
 			"its configuration; workflow doctor names the program."},
+		{messaging.ErrNoCredential, "messaging has no credential; run workflow slack login to post to Slack " +
+			"with your user token, or set messaging.webhook_url (Settings on the web)"},
 	}
 }
 

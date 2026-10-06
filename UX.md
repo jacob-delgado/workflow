@@ -1785,13 +1785,11 @@ Impact: low · Effort: small
   the hint reads as a stale date rather than a shape.
 - `Model.messagingDetail`, `internal/tui/messaging.go:160`: "SERVICE is
   not set up" and "to ~/" + `config.FileName` (`:162`), with no not-started
-  mark beside it, where `messagingErrors`'
-  `messaging.ErrNoCredential` wording (`internal/tui/failure.go:247`)
-  words the same condition as "Messaging has no credential", names `workflow
-  slack login` as well, and names no file — and, since `loop.NotSetUp`
-  does not count `messaging.ErrNoCredential`
-  (`setUpCauses`, `internal/loop/summary.go:107`), is drawn in red as a
-  failure, against principle 4; `FileName`'s comment
+  mark beside it, where `loop.SetUpAdvice`'s
+  `messaging.ErrNoCredential` wording (`internal/loop/summary.go:123`)
+  words the same condition as "messaging has no credential", names
+  `workflow slack login` as well, and names no file, beside the not-started
+  mark every other not-set-up cause gets; `FileName`'s comment
   (`internal/config/config.go:15`) says the name serves both search
   locations.
 

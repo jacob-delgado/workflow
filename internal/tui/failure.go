@@ -244,11 +244,7 @@ func forgeErrors() []knownError {
 // it is — Slack, Teams, Discord or a plain webhook.
 func messagingErrors() []knownError {
 	return []knownError{
-		{messaging.ErrNoCredential, wording{
-			brief: "messaging has no credential",
-			full: "Messaging has no credential. Run `workflow slack login` to post to Slack with your user token, " +
-				"or set `messaging.webhook_url`.",
-		}},
+		setUp("messaging has no credential", messaging.ErrNoCredential),
 		{messaging.ErrInsecureWebhook, wording{
 			brief: "the webhook is not https",
 			full:  "`messaging.webhook_url` is not an https address. Copy the webhook's https address into it.",
