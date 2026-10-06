@@ -1,5 +1,16 @@
-import { startRun as postRun, stopRun as deleteRun } from '@/api/generated'
-import type { Run, RunEvent, RunRequest } from '@/api/generated/types.gen.ts'
+import {
+  getHookSetup,
+  setUpHooks,
+  startRun as postRun,
+  stopRun as deleteRun,
+} from '@/api/generated'
+import type {
+  HookSetup,
+  HookSetupWritten,
+  Run,
+  RunEvent,
+  RunRequest,
+} from '@/api/generated/types.gen.ts'
 import { zRunEvent } from '@/api/generated/zod.gen.ts'
 
 // The VITE_MOCK check is read inline (not via a helper) so Vite statically
@@ -110,4 +121,35 @@ function mockRun(request: RunRequest, onEvent: (event: RunEvent) => void): Run {
   onEvent({ run: ended })
 
   return ended
+}
+
+// readHookSetup reads the lefthook configuration offered for the hooks
+// lefthook does not manage. A refusal throws the API error. Under VITE_MOCK it
+// offers one for an old pre-commit hook.
+export async function readHookSetup(): Promise<HookSetup> {
+  if (import.meta.env.VITE_MOCK === 'true') {
+    return {
+      offered: true,
+      hooks: [{ name: 'pre-commit', lines: 3 }],
+      config: 'pre-commit:\n  jobs:\n    - name: go-vet\n      run: go vet ./...\n',
+      scripts: 0,
+    }
+  }
+
+  const result = await getHookSetup({ throwOnError: true })
+
+  return result.data
+}
+
+// writeHookSetup writes the offered configuration — or, verbatim, one keeping
+// every hook whole as a script — and installs lefthook. A refusal throws the
+// API error. Under VITE_MOCK it writes nothing.
+export async function writeHookSetup(verbatim: boolean): Promise<HookSetupWritten> {
+  if (import.meta.env.VITE_MOCK === 'true') {
+    return { scripts: verbatim ? 1 : 0 }
+  }
+
+  const result = await setUpHooks({ body: { verbatim }, throwOnError: true })
+
+  return result.data
 }

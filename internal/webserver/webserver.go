@@ -26,6 +26,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -68,12 +69,18 @@ type Deps struct {
 	// RunHook runs one git hook, and Rebase, Amend and Fixup rewrite the
 	// branch's history, each streaming its output, as seams.Hooks and
 	// seams.Git bind them; nil where there is no repository.
-	RunHook    func(hook string) (proc.Output, error)
-	Rebase     func(base string) (proc.Output, error)
-	Amend      func() (proc.Output, error)
-	Fixup      func(hash string) (proc.Output, error)
-	FindPull   func(branch string) (forge.PullRequest, bool, error)
-	CreatePull func(request forge.NewPullRequest) (forge.PullRequest, error)
+	RunHook func(hook string) (proc.Output, error)
+	// HookExisting reports the hooks git would run that lefthook does not
+	// manage, and whether lefthook is configured; HookWrite writes a
+	// generated configuration and installs lefthook, as seams.Hooks binds
+	// them. Nil where there is no repository.
+	HookExisting func() ([]hooks.GitHook, bool)
+	HookWrite    func(generated hooks.Generated) error
+	Rebase       func(base string) (proc.Output, error)
+	Amend        func() (proc.Output, error)
+	Fixup        func(hash string) (proc.Output, error)
+	FindPull     func(branch string) (forge.PullRequest, bool, error)
+	CreatePull   func(request forge.NewPullRequest) (forge.PullRequest, error)
 	// EditPull changes a pull request's title and description, as linking a
 	// branch to its issue adds the line naming it.
 	EditPull  func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)

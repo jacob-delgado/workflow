@@ -1162,6 +1162,33 @@ type Health struct {
 	Version string `json:"version"`
 }
 
+// HookSetup The lefthook configuration offered for hooks lefthook does not manage.
+type HookSetup struct {
+	// Config The lefthook.yml that would run them; empty when nothing is offered.
+	Config string `json:"config"`
+
+	// Hooks The hooks found that lefthook does not manage.
+	Hooks []UnmanagedHook `json:"hooks"`
+
+	// Offered Whether there is anything to set up.
+	Offered bool `json:"offered"`
+
+	// Scripts How many hooks it keeps whole as scripts under .lefthook.
+	Scripts int `json:"scripts"`
+}
+
+// HookSetupRequest defines model for HookSetupRequest.
+type HookSetupRequest struct {
+	// Verbatim Keep every hook whole as a script rather than turning plain commands into lefthook jobs.
+	Verbatim *bool `json:"verbatim,omitempty"`
+}
+
+// HookSetupWritten defines model for HookSetupWritten.
+type HookSetupWritten struct {
+	// Scripts How many scripts were written under .lefthook beside lefthook.yml.
+	Scripts int `json:"scripts"`
+}
+
 // Issue defines model for Issue.
 type Issue struct {
 	// Key Example: PROJ-412
@@ -1753,9 +1780,12 @@ type Snapshot struct {
 	CommitTypes []string `json:"commit_types"`
 
 	// Here The directory the server works in, as an absolute path, so a page notices a switch made elsewhere and reads again.
-	Here      string               `json:"here"`
-	Issues    IssuesPage           `json:"issues"`
-	Messaging MessagingDestination `json:"messaging"`
+	Here string `json:"here"`
+
+	// HooksUnmanaged How many git hooks the repository's hooks directory holds that lefthook does not manage, while the repository configures no lefthook — which GET /api/hooks/setup offers to set up; 0 otherwise.
+	HooksUnmanaged int                  `json:"hooks_unmanaged"`
+	Issues         IssuesPage           `json:"issues"`
+	Messaging      MessagingDestination `json:"messaging"`
 
 	// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
 	QueuedAnnouncement *QueuedAnnouncement `json:"queued_announcement,omitempty"`
@@ -2035,6 +2065,15 @@ type UIConfig struct {
 // UIConfigColor Empty for auto, or "never".
 type UIConfigColor string
 
+// UnmanagedHook defines model for UnmanagedHook.
+type UnmanagedHook struct {
+	// Lines How many lines its script holds.
+	Lines int `json:"lines"`
+
+	// Name Example: pre-commit
+	Name string `json:"name"`
+}
+
 // ViewList defines model for ViewList.
 type ViewList struct {
 	Views []JiraView `json:"views"`
@@ -2174,6 +2213,9 @@ type CommitJSONRequestBody = CommitRequest
 
 // UpdateConfigJSONRequestBody defines body for UpdateConfig for application/json ContentType.
 type UpdateConfigJSONRequestBody = Config
+
+// SetUpHooksJSONRequestBody defines body for SetUpHooks for application/json ContentType.
+type SetUpHooksJSONRequestBody = HookSetupRequest
 
 // AssignIssueJSONRequestBody defines body for AssignIssue for application/json ContentType.
 type AssignIssueJSONRequestBody = AssignRequest

@@ -173,6 +173,7 @@ export const mockSnapshot: Snapshot = {
   ],
   // The scope the last commit here used, so the mockup's commit form opens on it.
   suggested_scope: 'wiring',
+  hooks_unmanaged: 1,
   // The tasks linked to the checked-out issue and another, one of them started,
   // so the header, the Issues rows and the issue's Tasks card each show one.
   tasks: mockTasksSummary,

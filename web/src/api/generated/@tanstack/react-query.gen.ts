@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getActivity, getAnnouncement, getBranch, getChangeDiff, getCheckLog, getConfig, getDirectories, getHealth, getIssue, getLocalData, getMessaging, getPeople, getPullRequestDraft, getRepoGroups, getRepositories, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listStatusChanges, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
-import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetChangeDiffData, GetChangeDiffError, GetChangeDiffResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListStatusChangesData, ListStatusChangesError, ListStatusChangesResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
+import { getActivity, getAnnouncement, getBranch, getChangeDiff, getCheckLog, getConfig, getDirectories, getHealth, getHookSetup, getIssue, getLocalData, getMessaging, getPeople, getPullRequestDraft, getRepoGroups, getRepositories, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listStatusChanges, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetChangeDiffData, GetChangeDiffError, GetChangeDiffResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetHookSetupData, GetHookSetupError, GetHookSetupResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListStatusChangesData, ListStatusChangesError, ListStatusChangesResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -185,6 +185,26 @@ export const getChangeDiffOptions = (options: Options<GetChangeDiffData>) => que
         return data;
     },
     queryKey: getChangeDiffQueryKey(options)
+});
+
+export const getHookSetupQueryKey = (options?: Options<GetHookSetupData>) => createQueryKey('getHookSetup', options);
+
+/**
+ * The lefthook configuration offered for hooks lefthook does not manage.
+ *
+ * The git hooks in the repository's hooks directory that lefthook does not manage, and the lefthook.yml that would run them, as the terminal's g offers it: the configuration a hook's plain commands become, and how many hooks are kept whole as scripts under .lefthook. Nothing is offered once the repository configures lefthook, or holds no such hook. A read; nothing is written.
+ */
+export const getHookSetupOptions = (options?: Options<GetHookSetupData>) => queryOptions<GetHookSetupResponse, GetHookSetupError, GetHookSetupResponse, ReturnType<typeof getHookSetupQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getHookSetup({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getHookSetupQueryKey(options)
 });
 
 export const getCheckLogQueryKey = (options: Options<GetCheckLogData>) => createQueryKey('getCheckLog', options);

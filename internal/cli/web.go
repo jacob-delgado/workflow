@@ -122,10 +122,11 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 	}, deps), deps), deps), deps)
 }
 
-// withGitRuns gives the web server the git runs that stream their output: the
-// pre-commit hook, a rebase, an amend and a fixup.
+// withGitRuns gives the web server the git runs that stream their output — the
+// pre-commit hook, a rebase, an amend and a fixup — and lefthook's setup.
 func withGitRuns(web webserver.Deps, deps tui.Deps) webserver.Deps {
 	web.RunHook, web.Rebase, web.Amend, web.Fixup = deps.Hooks.Run, deps.Git.Rebase, deps.Git.Amend, deps.Git.Fixup
+	web.HookExisting, web.HookWrite = deps.Hooks.Existing, deps.Hooks.Write
 
 	return web
 }

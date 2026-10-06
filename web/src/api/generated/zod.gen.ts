@@ -243,6 +243,29 @@ export const zCheckoutRequest = z.object({
     branch: z.string()
 });
 
+export const zUnmanagedHook = z.object({
+    name: z.string(),
+    lines: z.int()
+});
+
+/**
+ * The lefthook configuration offered for hooks lefthook does not manage.
+ */
+export const zHookSetup = z.object({
+    offered: z.boolean(),
+    hooks: z.array(zUnmanagedHook),
+    config: z.string(),
+    scripts: z.int()
+});
+
+export const zHookSetupRequest = z.object({
+    verbatim: z.boolean().optional().default(false)
+});
+
+export const zHookSetupWritten = z.object({
+    scripts: z.int()
+});
+
 /**
  * A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
  */
@@ -822,6 +845,7 @@ export const zSnapshot = z.object({
     review: zReview,
     messaging: zMessagingDestination,
     queued_announcement: zQueuedAnnouncement.optional(),
+    hooks_unmanaged: z.int(),
     run: zRun.optional(),
     branches: z.array(zTaskBranch),
     commit_types: z.array(z.string()),
@@ -1133,6 +1157,18 @@ export const zStartRunBody = zRunRequest;
  * The run's events, one JSON object a line.
  */
 export const zStartRunResponse = zRunEvent;
+
+/**
+ * What would be set up, if anything.
+ */
+export const zGetHookSetupResponse = zHookSetup;
+
+export const zSetUpHooksBody = zHookSetupRequest;
+
+/**
+ * What was set up.
+ */
+export const zSetUpHooksResponse = zHookSetupWritten;
 
 /**
  * The run was asked to stop.

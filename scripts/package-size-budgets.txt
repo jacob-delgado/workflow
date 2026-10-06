@@ -169,8 +169,10 @@ internal/tui 60
 # of it, which outlive the request that held it. 28 is runs.go, the git runs
 # that stream their output as the terminal's run overlay does — pre-commit, a
 # rebase, an amend, a fixup — one at a time, and the stop of the one going.
+# 29 is hooksetup.go, the lefthook configuration offered for the hooks lefthook
+# does not manage, and writing it, as the terminal's g does.
 # Frozen here so that growth stays deliberate.
-internal/webserver 28
+internal/webserver 29
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and
