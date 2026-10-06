@@ -5,6 +5,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
+import { cn, contentMeasure } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { useNow } from './ActiveTask.tsx'
@@ -101,7 +102,7 @@ function Board({ list, failure, failed, reading, onReadAgain }: BoardProps) {
 
   return (
     <div className="flex flex-col gap-group lg:min-h-0 lg:flex-1">
-      <div className="flex flex-col gap-item">
+      <div className={cn('flex flex-col gap-item', contentMeasure)}>
         {list === undefined ? null : <AddLine teller={outcome} />}
         <Controls
           list={list}
@@ -332,10 +333,15 @@ function Listing({ groups, issues, teller, now, narrowed }: ListingProps) {
 
   return (
     <div className="flex flex-col gap-block lg:min-h-0 lg:flex-1 lg:flex-row">
-      <div className="relative flex max-h-80 min-h-0 flex-col gap-group overflow-y-auto rounded-lg border border-border p-1 lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-0">
+      <div
+        className={cn(
+          'relative flex max-h-80 min-h-0 flex-col gap-group overflow-y-auto rounded-lg border border-border p-1 lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-0 xl:w-112',
+          contentMeasure,
+        )}
+      >
         <TaskList groups={groups} selected={selected.uuid} onSelect={setHeld} now={now} />
       </div>
-      <div className="relative min-w-0 flex-1 lg:overflow-y-auto lg:px-1">
+      <div className={cn('relative min-w-0 flex-1 lg:overflow-y-auto lg:px-1', contentMeasure)}>
         <TaskDetail
           key={selected.uuid}
           task={selected}

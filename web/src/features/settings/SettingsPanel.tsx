@@ -6,6 +6,7 @@ import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { Reading } from '@/lib/Status.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { cn, contentMeasure } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import {
   changedSinceRead,
@@ -30,7 +31,7 @@ import { SetupArea } from './SetupForm.tsx'
 // their own rather than with the file: people and groups, and the local data.
 export function SettingsPanel() {
   return (
-    <div className="flex flex-col gap-section">
+    <div className={cn('flex flex-col gap-section', contentMeasure)}>
       <ConfigArea />
       <PeopleAndGroups />
       <LocalData />
@@ -105,7 +106,7 @@ function SetUpSaid({ result }: { result: SetupResult }) {
   }
 
   return (
-    <p ref={said} role="status" tabIndex={-1} className="max-w-2xl text-sm text-success">
+    <p ref={said} role="status" tabIndex={-1} className="text-sm text-success">
       {parts.join(' ')}
     </p>
   )
@@ -176,7 +177,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       onSubmit={(event) => {
         void onSubmit(event)
       }}
-      className="flex max-w-2xl flex-col gap-section"
+      className="flex flex-col gap-section"
     >
       <JiraFieldset register={register} />
       <MessagingFieldset register={register} />

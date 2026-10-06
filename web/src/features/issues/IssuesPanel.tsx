@@ -15,7 +15,7 @@ import { FilterChips } from '@/lib/FilterChips.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Reading, ReadFailure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { cn } from '@/lib/utils.ts'
+import { cn, contentMeasure } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { StateMark } from '@/shell/StateMark.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
@@ -100,7 +100,7 @@ function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) 
 
   return (
     <div className="flex flex-col gap-group lg:min-h-0 lg:flex-1">
-      <div className="flex flex-col gap-item">
+      <div className={cn('flex flex-col gap-item', contentMeasure)}>
         <IssueListControls filter={filter} onFilter={setFilter} />
         <FilterChips
           label="Filter"
@@ -184,7 +184,12 @@ function ListAndDetail(props: ListAndDetailProps) {
 
   return (
     <div className="flex flex-col gap-block lg:min-h-0 lg:flex-1 lg:flex-row">
-      <div className="flex flex-col gap-group lg:min-h-0 lg:w-80 lg:shrink-0">
+      <div
+        className={cn(
+          'flex flex-col gap-group lg:min-h-0 lg:w-80 lg:shrink-0 xl:w-112',
+          contentMeasure,
+        )}
+      >
         {shown.length === 0 ? null : (
           <IssueRows
             issues={shown}
@@ -202,7 +207,10 @@ function ListAndDetail(props: ListAndDetailProps) {
           onLoadMore={onLoadMore}
         />
       </div>
-      <div key={selected ?? ''} className="relative min-w-0 flex-1 lg:overflow-y-auto lg:px-1">
+      <div
+        key={selected ?? ''}
+        className={cn('relative min-w-0 flex-1 lg:overflow-y-auto lg:px-1', contentMeasure)}
+      >
         {selected === null ? (
           <EmptyState>Select an issue to see its detail.</EmptyState>
         ) : (

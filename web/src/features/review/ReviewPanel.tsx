@@ -12,7 +12,7 @@ import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { ReadFailure } from '@/lib/Status.tsx'
-import { definitionList } from '@/lib/utils.ts'
+import { cn, contentMeasure, definitionList } from '@/lib/utils.ts'
 import { CiChecks } from './Checks.tsx'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
 import { OpenPullRequest } from './OpenPullRequest.tsx'
@@ -65,7 +65,7 @@ function BranchReview({ review, branch, unread }: BranchReviewProps) {
   const pull = review.found ? (review.pull ?? null) : null
 
   return (
-    <div className="flex max-w-2xl flex-col gap-section">
+    <div className={cn('flex flex-col gap-section', contentMeasure)}>
       {/* The line sits close above the offers it introduces. */}
       <OutcomeLine said={outcome.said} className={opened === null ? undefined : '-mb-block'} />
       {opened === null ? null : <OpenedOutcome key={opened.pull.url} opened={opened} />}
