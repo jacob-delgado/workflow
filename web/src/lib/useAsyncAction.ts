@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { apiErrorMessage } from '@/api/apiError.ts'
+import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 
 // AsyncState is where a one-shot write stands: not yet run (or backed out of),
 // in flight, answered, or refused.
@@ -36,6 +36,7 @@ export function useAsyncAction<A extends unknown[], T>(
   const [result, setResult] = useState<T>()
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [code, setCode] = useState('')
 
   const run = async (...args: A): Promise<void> => {
     words.onStart?.()
@@ -46,18 +47,23 @@ export function useAsyncAction<A extends unknown[], T>(
       setResult(() => answered)
       setMessage(said)
       setError('')
+      setCode('')
       setState('done')
       words.onDone?.(said, answered)
     } catch (caught) {
       setError(apiErrorMessage(caught, words.fallback))
+      setCode(problemCode(caught))
       setState('error')
     }
   }
 
   const reset = () => {
     setError('')
+    setCode('')
     setState('idle')
   }
 
-  return { state, result, message, error, run, reset }
+  // code is the refusal's machine code, for a control that offers a way out
+  // of one kind of refusal; empty otherwise.
+  return { state, result, message, error, code, run, reset }
 }

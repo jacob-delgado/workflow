@@ -105,6 +105,42 @@ test('work started in a new worktree offers to switch to it', async ({ page }) =
   expect(switched).toEqual([made.dir])
 })
 
+test('a fetch that fails offers to branch from what you have', async ({ page }) => {
+  // Arrange: the first ask's fetch fails; the second, without one, makes it.
+  await opensIssue(page)
+  const asked: unknown[] = []
+  await page.route('**/api/worktrees', (route) => {
+    asked.push(route.request().postDataJSON())
+    if (asked.length === 1) {
+      return route.fulfill({
+        status: 502,
+        contentType: 'application/problem+json',
+        json: {
+          type: 'https://jacob-delgado.github.io/workflow/docs/errors/#fetch-failed',
+          title: 'Fetch failed',
+          status: 502,
+          code: 'fetch_failed',
+          detail: 'origin could not be fetched, so nothing was made for PROJ-7',
+        },
+      })
+    }
+
+    return route.fulfill({ json: made })
+  })
+  await page.getByRole('button', { name: 'Start work in a new worktree' }).click()
+  await expect(page.getByRole('alert')).toContainText('could not be fetched')
+
+  // Act
+  await page.getByRole('button', { name: 'Branch from what you have' }).click()
+
+  // Assert
+  await expect(page.getByRole('region', { name: `Started PROJ-7 in ${made.shown}` })).toBeVisible()
+  expect(asked).toEqual([
+    { issue_key: 'PROJ-7', fetch: true },
+    { issue_key: 'PROJ-7', fetch: false },
+  ])
+})
+
 for (const theme of themes) {
   for (const width of widths) {
     test(`the offer to switch to a new worktree fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({

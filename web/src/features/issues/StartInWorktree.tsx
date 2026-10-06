@@ -5,7 +5,7 @@ import { useSwitchTo } from '@/features/repositories/repositoriesApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { startWorkInWorktree } from './startWorkApi.ts'
 
 interface StartInWorktreeProps {
@@ -18,7 +18,7 @@ interface StartInWorktreeProps {
 // beside the repository, leaving the checkout here as it is, and hands the
 // worktree made to onMade, for the switch to it to be offered.
 export function StartInWorktreeButton({ issueKey, outcome, onMade }: StartInWorktreeProps) {
-  const start = useAsyncAction(() => startWorkInWorktree(issueKey), {
+  const start = useAsyncAction((fetch: boolean) => startWorkInWorktree(issueKey, fetch), {
     fallback: `No worktree was made for ${issueKey}. Try again, or make it from the terminal with ctrl+w.`,
     done: () => '',
     onStart: outcome.clear,
@@ -33,16 +33,47 @@ export function StartInWorktreeButton({ issueKey, outcome, onMade }: StartInWork
         variant="secondary"
         disabled={start.state === 'running'}
         onClick={() => {
-          void start.run()
+          void start.run(true)
         }}
         className="self-start"
       >
         {start.state === 'running' ? 'Starting work…' : 'Start work in a new worktree'}
       </Button>
-      {start.state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {start.error}
-        </p>
+      <StartRefusal start={start} />
+    </div>
+  )
+}
+
+interface StartAttempt {
+  state: AsyncState
+  error: string
+  code: string
+  run: (fetch: boolean) => Promise<void>
+}
+
+// StartRefusal says why a start of work made nothing, and when it was the
+// fetch of origin that failed, offers to branch from what you have instead,
+// as the terminal's branch creator does.
+export function StartRefusal({ start }: { start: StartAttempt }) {
+  if (start.state !== 'error') {
+    return null
+  }
+
+  return (
+    <div className="flex flex-col gap-tight">
+      <p role="alert" className="text-sm text-destructive">
+        {start.error}
+      </p>
+      {start.code === 'fetch_failed' ? (
+        <Button
+          variant="secondary"
+          onClick={() => {
+            void start.run(false)
+          }}
+          className="self-start"
+        >
+          Branch from what you have
+        </Button>
       ) : null}
     </div>
   )

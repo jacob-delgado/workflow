@@ -13,6 +13,7 @@ import { useUiStore, type Section } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import {
   StartInWorktreeButton,
+  StartRefusal,
   SwitchToWorktreeButton,
   WorktreeMadeOffer,
 } from './StartInWorktree.tsx'
@@ -365,7 +366,7 @@ function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }
 // branch it made is said in the story's outcome; a refusal (a branch already
 // exists) is shown inline.
 function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Teller }) {
-  const { state, error, run } = useAsyncAction(() => startWork(issueKey), {
+  const start = useAsyncAction((fetch: boolean) => startWork(issueKey, fetch), {
     fallback: `No branch was made for ${issueKey}. Try again, or run workflow branch ${issueKey} from a terminal.`,
     done: (started) => `Started work on ${started.name}.`,
     onStart: outcome.clear,
@@ -376,19 +377,15 @@ function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Tel
     <div className="flex flex-col gap-tight">
       <Button
         variant="primary"
-        disabled={state === 'running'}
+        disabled={start.state === 'running'}
         onClick={() => {
-          void run()
+          void start.run(true)
         }}
         className="self-start"
       >
-        {state === 'running' ? 'Starting…' : 'Start work'}
+        {start.state === 'running' ? 'Starting…' : 'Start work'}
       </Button>
-      {state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+      <StartRefusal start={start} />
     </div>
   )
 }

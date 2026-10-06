@@ -181,7 +181,7 @@ export type Problem = {
     /**
      * A stable, machine-readable reason.
      */
-    code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'precondition_required' | 'unreachable' | 'internal';
+    code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'precondition_required' | 'unreachable' | 'fetch_failed' | 'internal';
 };
 
 export type BranchIssueRequest = {
@@ -407,6 +407,10 @@ export type CreateWorktreeRequest = {
      * The issue to name and create a branch for.
      */
     issue_key: string;
+    /**
+     * Whether to fetch origin first, so the branch starts from what origin holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
+     */
+    fetch?: boolean;
 };
 
 /**
@@ -435,6 +439,10 @@ export type CreateBranchRequest = {
      * The issue to name and create a branch for.
      */
     issue_key: string;
+    /**
+     * Whether to fetch origin first, so the branch starts from what origin holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
+     */
+    fetch?: boolean;
 };
 
 /**

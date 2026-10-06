@@ -134,7 +134,7 @@ func withIssueWrites(web webserver.Deps, deps tui.Deps) webserver.Deps {
 // withRepositories gives the web server where it works, the directories it
 // can switch to, a new worktree to make, and the favorites the store keeps.
 func withRepositories(web webserver.Deps, deps tui.Deps) webserver.Deps {
-	web.Repositories, web.CreateWorktree = deps.Repositories, deps.Git.CreateWorktree
+	web.Repositories, web.CreateWorktree, web.Fetch = deps.Repositories, deps.Git.CreateWorktree, deps.Git.Fetch
 	web.Favorites, web.Favor, web.Unfavor = deps.Store.Favorites, deps.Store.Favor, deps.Store.Unfavor
 
 	return web

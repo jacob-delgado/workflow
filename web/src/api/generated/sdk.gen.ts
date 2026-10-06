@@ -420,7 +420,7 @@ export const checkout = <ThrowOnError extends boolean = false>(options: Options<
 /**
  * Create and switch to a branch for an issue — start work on it.
  *
- * Names a branch for the issue by the branch-name convention (from the issue's type and summary) and creates it off the base branch, switching the working tree to it. This is how a not-started issue is picked up. It is refused with 409 when a branch for the issue already exists — check that one out instead — and when the server is not running in a git repository.
+ * Names a branch for the issue by the branch-name convention (from the issue's type and summary), fetches origin unless asked not to, and creates it off the base branch, switching the working tree to it. This is how a not-started issue is picked up. It is refused with 409 when a branch for the issue already exists — check that one out instead — and when the server is not running in a git repository.
  */
 export const createBranch = <ThrowOnError extends boolean = false>(options: Options<CreateBranchData, ThrowOnError>): RequestResult<CreateBranchResponses, CreateBranchErrors, ThrowOnError> => (options.client ?? client).post<CreateBranchResponses, CreateBranchErrors, ThrowOnError>({
     responseValidator: async (data) => await zCreateBranchResponse.parseAsync(data),
@@ -435,7 +435,7 @@ export const createBranch = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Create a branch for an issue in a new worktree — start work on it there.
  *
- * Names a branch for the issue as createBranch does and creates it off the base branch in a new git worktree beside the repository, leaving the server's own checkout and directory as they are; switching to the worktree is PUT /api/repositories/here. It is refused with 409 when a branch for the issue already exists, and when the server is not running in a git repository.
+ * Names a branch for the issue as createBranch does, fetches origin as it does, and creates it off the base branch in a new git worktree beside the repository, leaving the server's own checkout and directory as they are; switching to the worktree is PUT /api/repositories/here. It is refused with 409 when a branch for the issue already exists, and when the server is not running in a git repository.
  */
 export const createWorktree = <ThrowOnError extends boolean = false>(options: Options<CreateWorktreeData, ThrowOnError>): RequestResult<CreateWorktreeResponses, CreateWorktreeErrors, ThrowOnError> => (options.client ?? client).post<CreateWorktreeResponses, CreateWorktreeErrors, ThrowOnError>({
     responseValidator: async (data) => await zCreateWorktreeResponse.parseAsync(data),

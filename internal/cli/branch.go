@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // errBranchExists refuses branching for an issue that already has a branch —
@@ -194,31 +195,35 @@ func (p startPlan) question() string {
 // worktree, whose directory it prints alone so a script can go there. A fetch
 // that fails creates nothing, and says how to branch from what is here.
 func (p startPlan) carryOut(out output, seams branchSeams) error {
+	var fetch func() error
 	if p.fetch {
-		err := seams.Fetch()
-		if err != nil {
-			return fmt.Errorf("fetching origin: %w; run without --fetch to branch from what you have", err)
-		}
+		fetch = seams.Fetch
 	}
 
-	if !p.worktree {
-		err := seams.CreateBranch(p.name, p.base)
-		if err != nil {
-			return fmt.Errorf("creating %s: %w", p.name, err)
+	var dir string
+
+	err := loop.FetchThen(fetch, func() error {
+		var made error
+		if p.worktree {
+			dir, made = seams.CreateWorktree(p.name, p.base)
+		} else {
+			made = seams.CreateBranch(p.name, p.base)
 		}
 
-		fmt.Fprintln(out.artifact, "Created "+p.name)
+		return made
+	})
 
-		return nil
-	}
-
-	dir, err := seams.CreateWorktree(p.name, p.base)
-	if err != nil {
+	switch {
+	case errors.Is(err, loop.ErrFetchFailed):
+		return fmt.Errorf("%w; run without --fetch to branch from what you have", err)
+	case err != nil:
 		return fmt.Errorf("creating %s: %w", p.name, err)
+	case p.worktree:
+		fmt.Fprintln(out.notes, "Created "+p.name+" in a new worktree.")
+		fmt.Fprintln(out.artifact, dir)
+	default:
+		fmt.Fprintln(out.artifact, "Created "+p.name)
 	}
-
-	fmt.Fprintln(out.notes, "Created "+p.name+" in a new worktree.")
-	fmt.Fprintln(out.artifact, dir)
 
 	return nil
 }

@@ -318,7 +318,7 @@ test('starts work when its button is clicked', async () => {
   await user.click(screen.getByRole('button', { name: 'Start work' }))
 
   // Assert
-  expect(mockStartWork).toHaveBeenCalledWith('PROJ-999')
+  expect(mockStartWork).toHaveBeenCalledWith('PROJ-999', true)
 })
 
 test('shows the reason when starting work is refused', async () => {
@@ -362,7 +362,7 @@ test('work started in a new worktree offers to switch to it, and switches', asyn
   const offer = await screen.findByRole('region', {
     name: 'Started PROJ-999 in ~/src/api-feat-PROJ-999',
   })
-  expect(mockStartInWorktree).toHaveBeenCalledWith('PROJ-999')
+  expect(mockStartInWorktree).toHaveBeenCalledWith('PROJ-999', true)
   expect(mockSwitchTo).not.toHaveBeenCalled()
 
   // Act: switch to it
