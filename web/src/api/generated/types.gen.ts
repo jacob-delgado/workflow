@@ -181,7 +181,7 @@ export type Problem = {
     /**
      * A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is.
      */
-    code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'not_set_up' | 'precondition_required' | 'unreachable' | 'fetch_failed' | 'check_failed' | 'internal';
+    code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'not_set_up' | 'too_long' | 'precondition_required' | 'unreachable' | 'fetch_failed' | 'check_failed' | 'internal';
 };
 
 export type BranchIssueRequest = {
@@ -1860,6 +1860,29 @@ export type Activity = {
      * The summary as Markdown, ready to copy.
      */
     text: string;
+    post_length?: PostLength;
+};
+
+/**
+ * How long the summary's text is once rendered for the messaging service set up, as that service measures it, against the most it takes. Left out where no messaging is set up, or where the service names no limit (a plain webhook). A post longer than the limit is refused with too_long, and nothing is sent.
+ */
+export type PostLength = {
+    /**
+     * The service the summary would be posted to, such as Discord.
+     */
+    service: string;
+    /**
+     * The text's length, rendered for the service.
+     */
+    count: number;
+    /**
+     * The most the service takes.
+     */
+    limit: number;
+    /**
+     * What count and limit are counted in: characters, or bytes of the whole payload for Teams, whose limit is put that way.
+     */
+    unit: 'characters' | 'bytes';
 };
 
 /**
@@ -4270,7 +4293,7 @@ export type PostActivityData = {
 
 export type PostActivityErrors = {
     /**
-     * The period could not be read, the text was blank, or the post could not be made.
+     * The period could not be read, the text was blank, the text rendered for the service is longer than it takes (code too_long, naming the length against the limit; nothing was sent), or the post could not be made.
      */
     422: Problem;
     /**

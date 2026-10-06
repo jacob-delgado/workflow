@@ -334,6 +334,24 @@ func (e OwnerTagState) Valid() bool {
 	}
 }
 
+// Defines values for PostLengthUnit.
+const (
+	Bytes      PostLengthUnit = "bytes"
+	Characters PostLengthUnit = "characters"
+)
+
+// Valid indicates whether the value is a known member of the PostLengthUnit enum.
+func (e PostLengthUnit) Valid() bool {
+	switch e {
+	case Bytes:
+		return true
+	case Characters:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProblemCode.
 const (
 	BadRequest           ProblemCode = "bad_request"
@@ -345,6 +363,7 @@ const (
 	NotFound             ProblemCode = "not_found"
 	NotSetUp             ProblemCode = "not_set_up"
 	PreconditionRequired ProblemCode = "precondition_required"
+	TooLong              ProblemCode = "too_long"
 	Unprocessable        ProblemCode = "unprocessable"
 	Unreachable          ProblemCode = "unreachable"
 )
@@ -369,6 +388,8 @@ func (e ProblemCode) Valid() bool {
 	case NotSetUp:
 		return true
 	case PreconditionRequired:
+		return true
+	case TooLong:
 		return true
 	case Unprocessable:
 		return true
@@ -683,6 +704,9 @@ func (e RemoveLocalDataParamsScope) Valid() bool {
 type Activity struct {
 	// From The period's first day, YYYY-MM-DD.
 	From string `json:"from"`
+
+	// PostLength How long the summary's text is once rendered for the messaging service set up, as that service measures it, against the most it takes. Left out where no messaging is set up, or where the service names no limit (a plain webhook). A post longer than the limit is refused with too_long, and nothing is sent.
+	PostLength *PostLength `json:"post_length,omitempty"`
 
 	// Sources Each source asked, in a fixed order, and how its read went.
 	Sources []ActivitySource `json:"sources"`
@@ -1696,6 +1720,24 @@ type Place struct {
 	// Within The path from the root to the directory, or empty at the root or outside a repository.
 	Within string `json:"within"`
 }
+
+// PostLength How long the summary's text is once rendered for the messaging service set up, as that service measures it, against the most it takes. Left out where no messaging is set up, or where the service names no limit (a plain webhook). A post longer than the limit is refused with too_long, and nothing is sent.
+type PostLength struct {
+	// Count The text's length, rendered for the service.
+	Count int `json:"count"`
+
+	// Limit The most the service takes.
+	Limit int `json:"limit"`
+
+	// Service The service the summary would be posted to, such as Discord.
+	Service string `json:"service"`
+
+	// Unit What count and limit are counted in: characters, or bytes of the whole payload for Teams, whose limit is put that way.
+	Unit PostLengthUnit `json:"unit"`
+}
+
+// PostLengthUnit What count and limit are counted in: characters, or bytes of the whole payload for Teams, whose limit is put that way.
+type PostLengthUnit string
 
 // Problem An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
 type Problem struct {

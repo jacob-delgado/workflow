@@ -183,6 +183,16 @@ carries it as a panel's problem, which the page shows as what to set up, and
 the Summary leaves such a source out, marking it `not_set_up` rather than
 `failed`. A service that is set up and refuses is answered under its own code.
 
+## Too long
+
+Status 422. A Summary posted to the messaging service is longer, once rendered
+for that service, than the service takes in one message, so nothing was sent:
+Discord takes 2,000 characters, Slack 40,000, and Teams a payload of 28,000
+bytes. The detail names the service and the length against the limit, such as
+`too long for Discord (2517 of 2000 characters); pick a shorter period`. The
+Summary's `post_length` says the same before the post is asked for. Pick a
+shorter period, or edit the text down before posting.
+
 ## Precondition required
 
 Status 428. A configuration save named no revision to write over: it carried no

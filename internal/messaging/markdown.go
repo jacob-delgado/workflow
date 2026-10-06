@@ -4,7 +4,11 @@
 package messaging
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 )
@@ -120,3 +124,80 @@ func headingWords(_ int, text string) string { return text }
 
 // markdownItem is a list's item as Markdown writes it.
 func markdownItem(text string) string { return listItem + text }
+
+// ErrTooLong reports a message longer than its service takes.
+var ErrTooLong = errors.New("too long")
+
+// The most each service takes in one message, measured as it measures it.
+const (
+	// discordLimit is Discord's: a message's content is "up to 2000
+	// characters" (Create Message and Execute Webhook,
+	// https://discord.com/developers/docs/resources/message#create-message).
+	discordLimit = 2000
+	// slackLimit is Slack's: it "will truncate messages containing more than
+	// 40,000 characters" (chat.postMessage, Truncating content,
+	// https://api.slack.com/methods/chat.postMessage#truncating); an incoming
+	// webhook's message is held to the same.
+	slackLimit = 40000
+	// teamsLimit is Teams': "The message size limit is 28 KB. When the size
+	// exceeds 28 KB, you receive an error" (Create an Incoming Webhook,
+	// https://learn.microsoft.com/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook),
+	// read as 28,000 bytes of the payload, the stricter reading of KB.
+	teamsLimit = 28000
+)
+
+// The units a length is counted in.
+const (
+	unitCharacters = "characters"
+	unitBytes      = "bytes"
+)
+
+// Length is how long a message is as its service measures it, and the most
+// the service takes: Limit is 0 for a plain webhook, which names none.
+type Length struct {
+	Service string
+	Count   int
+	Limit   int
+	Unit    string
+}
+
+// MessageLength is rendered — a message as RenderMarkdown leaves it for kind —
+// measured as kind's service measures it: Teams by the bytes of the whole
+// payload, as its limit is put; every other service by characters.
+func MessageLength(kind config.MessagingKind, rendered string) Length {
+	length := Length{Service: kind.Service(), Count: utf8.RuneCountInString(rendered), Unit: unitCharacters}
+
+	switch kind {
+	case config.KindDiscord:
+		length.Limit = discordLimit
+	case config.KindTeams:
+		payload, _ := json.Marshal(webhookMessage{Text: rendered}) //nolint:errchkjson // a string field always encodes
+		length.Count, length.Limit, length.Unit = len(payload), teamsLimit, unitBytes
+	case config.KindWebhook:
+	case config.KindSlack:
+		length.Limit = slackLimit
+	default:
+		length.Limit = slackLimit
+	}
+
+	return length
+}
+
+// Check refuses a message longer than its service takes, saying how long it is
+// against what.
+func (l Length) Check() error {
+	if l.Limit == 0 || l.Count <= l.Limit {
+		return nil
+	}
+
+	return fmt.Errorf("%w for %s (%s); pick a shorter period", ErrTooLong, l.Service, l)
+}
+
+// String is the length against the limit, or alone where there is none.
+func (l Length) String() string {
+	if l.Limit == 0 {
+		return fmt.Sprintf("%d %s", l.Count, l.Unit)
+	}
+
+	return fmt.Sprintf("%d of %d %s", l.Count, l.Limit, l.Unit)
+}

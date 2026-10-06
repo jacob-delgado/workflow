@@ -2451,9 +2451,9 @@ paths:
         Discord the first three levels stay headings; and a plain webhook
         gets a heading's words alone. Nothing about the post is kept, as an
         announcement is. The period is refused with 422 as GET /api/activity
-        refuses it, and so is blank text; a service that refuses the post or
-        is not set up is a 422, and one that cannot be reached, or asks to
-        wait, a 502. No answer carries the service's own error, which can name
+        refuses it, and so is blank text or text too long for the service; a
+        service that refuses the post or is not set up is a 422, and one that
+        cannot be reached, or asks to wait, a 502. No answer carries the service's own error, which can name
         the webhook. Under --dry-run it is refused with a plain-text 403, as
         every write is.
       tags: [summary]
@@ -2472,8 +2472,10 @@ paths:
                 $ref: "#/components/schemas/ActivityPost"
         "422":
           description: >-
-            The period could not be read, the text was blank, or the post could
-            not be made.
+            The period could not be read, the text was blank, the text rendered
+            for the service is longer than it takes (code too_long, naming the
+            length against the limit; nothing was sent), or the post could not
+            be made.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -2879,7 +2881,7 @@ components:
             no Taskwarrior installed, no git user.email — whose detail says how
             to set it up; unprocessable is a request or a setting that cannot
             be used as it is.
-          enum: [bad_request, not_found, method_not_allowed, conflict, unprocessable, not_set_up, precondition_required, unreachable, fetch_failed, check_failed, internal]
+          enum: [bad_request, not_found, method_not_allowed, conflict, unprocessable, not_set_up, too_long, precondition_required, unreachable, fetch_failed, check_failed, internal]
       additionalProperties: false
 
     BranchIssueRequest:
@@ -4969,6 +4971,29 @@ components:
         text:
           type: string
           description: The summary as Markdown, ready to copy.
+        post_length:
+          $ref: "#/components/schemas/PostLength"
+      additionalProperties: false
+
+    PostLength:
+      type: object
+      description: >-
+        How long the summary's text is once rendered for the messaging service
+        set up, as that service measures it, against the most it takes. Left
+        out where no messaging is set up, or where the service names no limit
+        (a plain webhook). A post longer than the limit is refused with
+        too_long, and nothing is sent.
+      required: [service, count, limit, unit]
+      properties:
+        service: {type: string, description: "The service the summary would be posted to, such as Discord."}
+        count: {type: integer, description: "The text's length, rendered for the service."}
+        limit: {type: integer, description: "The most the service takes."}
+        unit:
+          type: string
+          enum: [characters, bytes]
+          description: >-
+            What count and limit are counted in: characters, or bytes of the
+            whole payload for Teams, whose limit is put that way.
       additionalProperties: false
 
     ActivityPostRequest:

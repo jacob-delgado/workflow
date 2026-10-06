@@ -61,6 +61,7 @@ func codeMeaning(code api.ProblemCode) (int, string) {
 		api.Conflict:             {status: http.StatusConflict, title: "Conflict"},
 		api.Unprocessable:        {status: http.StatusUnprocessableEntity, title: "Unprocessable content"},
 		api.NotSetUp:             {status: http.StatusUnprocessableEntity, title: "Not set up"},
+		api.TooLong:              {status: http.StatusUnprocessableEntity, title: "Too long"},
 		api.PreconditionRequired: {status: http.StatusPreconditionRequired, title: "Precondition required"},
 		api.Unreachable:          {status: http.StatusBadGateway, title: "Upstream unreachable"},
 		api.FetchFailed:          {status: http.StatusBadGateway, title: "Fetch failed"},

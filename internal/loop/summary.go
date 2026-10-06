@@ -360,11 +360,27 @@ func ReadAll(reads []SourceRead) []activity.Read {
 // is; what was done is read back from the sources each time.
 
 // PostSummary posts text — the Summary's Markdown, as it was previewed or
-// edited — to channel, rendered for the service kind names.
+// edited — to channel, rendered for the service kind names. A text longer
+// than that service takes is refused with messaging.ErrTooLong, saying how
+// long it is against what, before anything is sent.
 func PostSummary(post func(channel, text string) error, kind config.MessagingKind, channel, text string) error {
 	if strings.TrimSpace(text) == "" {
 		return ErrEmptySummary
 	}
 
-	return post(channel, messaging.RenderMarkdown(kind, text))
+	rendered := messaging.RenderMarkdown(kind, text)
+
+	err := messaging.MessageLength(kind, rendered).Check()
+	if err != nil {
+		return err
+	}
+
+	return post(channel, rendered)
+}
+
+// SummaryLength is text's length as PostSummary would post it for kind,
+// against the most kind's service takes, for a preview to show before the
+// post.
+func SummaryLength(kind config.MessagingKind, text string) messaging.Length {
+	return messaging.MessageLength(kind, messaging.RenderMarkdown(kind, text))
 }

@@ -213,3 +213,30 @@ func TestASummaryPostIsRefusedUnderADryRun(t *testing.T) {
 		t.Errorf("POST under --dry-run = %d after %d posts, want 403 and nothing posted", recorder.Code, len(posts))
 	}
 }
+
+func TestASummaryTooLongForDiscordIsRefusedBeforeItGoes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var posts []postedSummary
+
+	deps := filledDeps()
+	deps.Post = recordingPost(&posts)
+	cfg := config.Default()
+	cfg.Messaging = config.Messaging{Kind: config.KindDiscord, WebhookURL: "https://discord.example/api/webhooks/1/x"}
+	fields := tuesdaysSummary()
+	fields[textField] = "# " + tuesday + "\n\n- " + strings.Repeat("x", 2500) + "\n"
+
+	// Act
+	recorder := postActivity(t, serve(t, deps, cfg), fields)
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+
+	want := "too long for Discord (2517 of 2000 characters); pick a shorter period"
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.TooLong || failure.Detail != want ||
+		len(posts) != 0 {
+		t.Errorf("POST = %d %+v after %d posts, want 422 too_long saying %q and nothing posted",
+			recorder.Code, failure, len(posts), want)
+	}
+}

@@ -437,8 +437,10 @@ up, opens a preview of the same Markdown and where it goes, as the Messaging
 section previews an announcement: **Edit** changes the text, the channel is
 chosen when Slack offers more than one — a webhook posts to the channel it is
 bound to, which the preview says — and nothing is posted until **Post**; the
-service shows the headings and the list its own way. Nothing about the post is
-kept.
+service shows the headings and the list its own way. The preview says how long
+the summary is against the most the service takes, and a summary longer than
+that is refused with how long it is, and nothing is sent. Nothing about the
+post is kept.
 
 **Earlier** and **Later** move a period back or on — a whole month to the
 month, a whole year to the year, any other period by its own length — and

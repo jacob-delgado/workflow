@@ -99,6 +99,7 @@ export const zProblem = z.object({
         'conflict',
         'unprocessable',
         'not_set_up',
+        'too_long',
         'precondition_required',
         'unreachable',
         'fetch_failed',
@@ -1080,6 +1081,16 @@ export const zConfig = z.object({
 });
 
 /**
+ * How long the summary's text is once rendered for the messaging service set up, as that service measures it, against the most it takes. Left out where no messaging is set up, or where the service names no limit (a plain webhook). A post longer than the limit is refused with too_long, and nothing is sent.
+ */
+export const zPostLength = z.object({
+    service: z.string(),
+    count: z.int(),
+    limit: z.int(),
+    unit: z.enum(['characters', 'bytes'])
+});
+
+/**
  * The period a Summary is of, its Markdown to post, and where.
  */
 export const zActivityPostRequest = z.object({
@@ -1165,7 +1176,8 @@ export const zActivity = z.object({
     today: z.string(),
     sources: z.array(zActivitySource),
     years: z.array(zActivityYear),
-    text: z.string()
+    text: z.string(),
+    post_length: zPostLength.optional()
 });
 
 /**

@@ -32,7 +32,9 @@ type summaryPost struct {
 	channel  string
 	channels []string
 	service  string
-	send     sendState
+	// kind is the service's, which the length is measured for.
+	kind config.MessagingKind
+	send sendState
 }
 
 var (
@@ -54,7 +56,7 @@ func (m Model) previewSummaryPost() (Model, tea.Cmd) {
 	m.overlay = summaryPost{
 		marks: m.marks, styles: m.styles, text: sanitize.Text(m.shownSummary().Text(m.deps.now().Location())),
 		fallback: m.cfg.Messaging.Target(), channel: m.defaultChannel(), channels: m.cfg.Messaging.ChannelChoices(),
-		service: m.cfg.Messaging.Service(),
+		service: m.cfg.Messaging.Service(), kind: m.cfg.Messaging.Kind,
 	}
 
 	return m, nil
@@ -69,11 +71,13 @@ func (p summaryPost) destination() string {
 	return p.fallback
 }
 
-// view shows the Summary as it will be posted and where, its outcome pinned
-// under the title so a long refusal is seen, not clipped.
+// view shows the Summary as it will be posted, where, and how long it is
+// against what the service takes, its outcome pinned under the title so a
+// long refusal is seen, not clipped.
 func (p summaryPost) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
-	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
+	lines = append(lines, wrap(p.text, width), "",
+		"to  "+p.destination()+", "+loop.SummaryLength(p.kind, p.text).String())
 
 	return "Post to " + p.service, strings.Join(lines, "\n")
 }

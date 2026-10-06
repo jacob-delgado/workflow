@@ -6,6 +6,7 @@ package loop_test
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
@@ -151,6 +153,38 @@ func TestABlankSummaryIsNotPosted(t *testing.T) {
 	// Assert
 	if !errors.Is(err, loop.ErrEmptySummary) || posts != 0 {
 		t.Errorf("PostSummary = %v after %d posts, want ErrEmptySummary and none", err, posts)
+	}
+}
+
+func TestASummaryTooLongForItsServiceIsNotPosted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	posts := 0
+	post := func(string, string) error {
+		posts++
+
+		return nil
+	}
+
+	// Act
+	err := loop.PostSummary(post, config.KindDiscord, "", "# 2026-10-01\n\n- "+strings.Repeat("x", 2500)+"\n")
+
+	// Assert
+	if !errors.Is(err, messaging.ErrTooLong) || posts != 0 {
+		t.Errorf("PostSummary = %v after %d posts, want ErrTooLong and none", err, posts)
+	}
+}
+
+func TestASummarysLengthIsMeasuredAsItWouldBePosted(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	length := loop.SummaryLength(config.KindSlack, "# 2026-10-01\n")
+
+	// Assert
+	if length.Count != len("*2026-10-01*\n") || length.Limit != 40000 {
+		t.Errorf("SummaryLength = %+v, want the Slack rendering measured against 40000", length)
 	}
 }
 
