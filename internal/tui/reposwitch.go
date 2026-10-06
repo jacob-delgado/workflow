@@ -99,20 +99,54 @@ func (m Model) carryOut() carried {
 	}
 }
 
-// leaveFor ends the interface for dir, once nothing is being written and
-// you have agreed to lose what a switch would.
+// verbSwitch names switching, a directory or a task, on the key that does it
+// and on its last look alike.
+const verbSwitch = "switch"
+
+// leaveFor asks, through a last look, to end the interface for dir, once
+// nothing is being written: a switch changes what every pane reads and writes,
+// and the look names what it would lose.
 func (m Model) leaveFor(dir string) (Model, tea.Cmd) {
 	if busy := m.writeInFlight(); busy != "" {
 		return m.noticed("wait for " + busy + " to finish before switching"), nil
 	}
 
-	if lost := m.lostOnLeaving(); len(lost) > 0 {
-		m.overlay = switchGuard{dir: dir, shown: m.shownDir(dir), lost: lost}
+	return m.lookAt(m.switchLook(dir)), nil
+}
 
-		return m, nil
+// switchLook is the last look at switching to dir, which names what the
+// switch would lose.
+func (m Model) switchLook(dir string) lastLook {
+	return lastLook{
+		title: "Switch directory", verb: verbSwitch, leave: escStay,
+		body: switchQuestion(m.shownDir(dir), m.lostOnLeaving()),
+		proceed: func(m Model) (Model, tea.Cmd) {
+			m = m.closeOverlay()
+			if busy := m.writeInFlight(); busy != "" {
+				return m.noticed("wait for " + busy + " to finish before switching"), nil
+			}
+
+			return m.leave(dir)
+		},
+	}
+}
+
+// switchQuestion asks to switch to shown, naming what switching would lose
+// when anything would be.
+func switchQuestion(shown string, lost []string) string {
+	question := "Switch to " + shown + "?\n\nEvery pane is read again there."
+	if len(lost) == 0 {
+		return question
 	}
 
-	return m.leave(dir)
+	lines := make([]string, 0, len(lost)+3) //nolint:mnd // the question, a blank line and the heading
+	lines = append(lines, question, "", "Switching ends this session's work here, losing:")
+
+	for _, each := range lost {
+		lines = append(lines, "  "+each)
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 // leave ends the interface for dir.
@@ -160,44 +194,6 @@ func (m Model) lostOnLeaving() []string {
 	}
 
 	return lost
-}
-
-// switchGuard asks before a switch that would lose what this repository's
-// session holds.
-type switchGuard struct {
-	dir, shown string
-	lost       []string
-}
-
-var _ overlay = switchGuard{}
-
-// view says what switching would lose.
-func (g switchGuard) view(width, _ int) (string, string) {
-	lines := make([]string, 0, len(g.lost)+2) //nolint:mnd // the heading and the blank line under it
-	lines = append(lines, "Switching ends this session's work here, losing:", "")
-
-	for _, each := range g.lost {
-		lines = append(lines, "  "+each)
-	}
-
-	return "Switch to " + g.shown, wrap(strings.Join(lines, "\n"), width)
-}
-
-// footer offers switching anyway or staying.
-func (switchGuard) footer(keys keyMap) []key.Binding {
-	return []key.Binding{relabel(keys.confirm, "switch"), relabel(keys.closeOverlay, escStay)}
-}
-
-// handleKey switches, or stays.
-func (g switchGuard) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.confirm):
-		return m.closeOverlay().leave(g.dir)
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
-	default:
-		return m, nil
-	}
 }
 
 // switchToSelected leaves for the directory the cursor is on, unless it is

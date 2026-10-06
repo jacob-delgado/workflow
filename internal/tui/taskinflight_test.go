@@ -23,23 +23,23 @@ func TestATaskWriteWaitsForTheOneInFlight(t *testing.T) {
 
 	// Arrange
 	// Taskwarrior commits writes in the order they finish, so an undo sent while
-	// a done is held by a hook would revert whatever came before the done.
+	// a start is held by a hook would revert whatever came before the start.
 	repo := withTasks()
 	model := typing(t, repo.live(t, 120, 40), tasksPane, downAction)
 
-	// Act: complete task 3, then press undo before Taskwarrior answers
-	completing, done := pressed(t, model, "d")
-	undoing, undo := pressed(t, completing, "u")
-	answered := drain(t, drain(t, undoing, undo), done)
+	// Act: start task 3, then press undo before Taskwarrior answers
+	starting, start := pressed(t, model, "s")
+	undoing, undo := pressed(t, starting, "u")
+	answered := drain(t, drain(t, undoing, undo), start)
 
-	// Assert: only the done was sent
-	requireTaskWrites(t, repo, "task done "+trackedTaskUUID)
+	// Assert: only the start was sent
+	requireTaskWrites(t, repo, "task start "+trackedTaskUUID)
 
-	// Act: undo once the done has answered
-	typing(t, answered, "u")
+	// Act: undo once the start has answered
+	typing(t, answered, "u", keyEnter)
 
 	// Assert: the undo goes now
-	requireTaskWrites(t, repo, "task done "+trackedTaskUUID, "task undo")
+	requireTaskWrites(t, repo, "task start "+trackedTaskUUID, "task undo")
 }
 
 func TestTheTasksPaneOffersNoVerbWhileAWriteIsInFlight(t *testing.T) {
@@ -50,13 +50,13 @@ func TestTheTasksPaneOffersNoVerbWhileAWriteIsInFlight(t *testing.T) {
 	model := typing(t, repo.live(t, 120, 40), tasksPane, downAction)
 
 	// Act
-	completing, _ := pressed(t, model, "d")
+	starting, _ := pressed(t, model, "s")
 
 	// Assert
-	view := completing.View().Content
+	view := starting.View().Content
 	for _, verb := range []string{offersStart, offersDone, "a add", "A annotate", "e modify", "u undo"} {
 		if footer := footerLine(view); strings.Contains(footer, verb) {
-			t.Errorf("the footer offers %q while the done is in flight: %q", verb, footer)
+			t.Errorf("the footer offers %q while the start is in flight: %q", verb, footer)
 		}
 	}
 
@@ -201,15 +201,15 @@ func TestTrackWaitsForATaskWriteInFlight(t *testing.T) {
 	// Arrange
 	repo := withAnUntrackedIssue()
 	model := typing(t, repo.live(t, 200, 40), tasksPane, downAction)
-	completing, done := pressed(t, model, "d")
-	onTheIssue := typing(t, completing, append([]string{"1"}, selectTheUntrackedIssue()...)...)
+	starting, start := pressed(t, model, "s")
+	onTheIssue := typing(t, starting, append([]string{"1"}, selectTheUntrackedIssue()...)...)
 
 	// Act
-	view := drain(t, typing(t, onTheIssue, "T"), done).View().Content
+	view := drain(t, typing(t, onTheIssue, "T"), start).View().Content
 
 	// Assert
 	refuseScreen(t, view, "Track "+untrackedIssue)
-	requireTaskWrites(t, repo, "task done "+trackedTaskUUID)
+	requireTaskWrites(t, repo, "task start "+trackedTaskUUID)
 }
 
 func TestAnOfferWaitsForATaskWriteInFlight(t *testing.T) {
@@ -217,23 +217,24 @@ func TestAnOfferWaitsForATaskWriteInFlight(t *testing.T) {
 
 	// Arrange
 	repo := withTasksToStart()
-	model := typing(t, repo.live(t, 200, 40), tasksPane)
-	completing, done := pressed(t, model, "d")
-	offered := typing(t, completing, append([]string{"1"}, append(branchTheSecondIssue(), keyEsc)...)...)
+	// Task 9, linked to no issue, is the third listed.
+	model := typing(t, repo.live(t, 200, 40), tasksPane, downAction, downAction)
+	starting, start := pressed(t, model, "s")
+	offered := typing(t, starting, append([]string{"1"}, append(branchTheSecondIssue(), keyEsc)...)...)
 
-	// Act: go ahead while the done is on its way
+	// Act: go ahead while the start is on its way
 	refused := typing(t, offered, keyEnter)
 
 	// Assert: the offer stays open saying why, and nothing is sent
 	requireScreen(t, refused.View().Content, switchLook, "still being sent")
 	requireTaskWrites(t, repo)
 
-	// Act: the done answers, then go ahead again
-	typing(t, drain(t, refused, done), keyEnter)
+	// Act: the start answers, then go ahead again
+	typing(t, drain(t, refused, start), keyEnter)
 
-	// Assert: the offer's writes follow the done's
+	// Assert: the offer's writes follow the start's
 	requireTaskWrites(t, repo,
-		"task done "+activeTaskUUID, "task stop "+activeTaskUUID, "task start "+trackedTaskUUID)
+		"task start "+looseTaskUUID, "task stop "+activeTaskUUID, "task start "+trackedTaskUUID)
 }
 
 func TestATrackLineWaitsForATaskWriteInFlight(t *testing.T) {
@@ -245,20 +246,20 @@ func TestATrackLineWaitsForATaskWriteInFlight(t *testing.T) {
 	repo := withAnUntrackedIssue()
 	repo.moves = startTransitions()
 	stopTheStartedTask(repo)
-	completing, done := pressed(t, typing(t, repo.live(t, 200, 40), tasksPane), "d")
-	offered := typing(t, completing, onTheUntrackedIssue("b", keyEnter, keyEsc)...)
+	starting, start := pressed(t, typing(t, repo.live(t, 200, 40), tasksPane), "s")
+	offered := typing(t, starting, onTheUntrackedIssue("b", keyEnter, keyEsc)...)
 
-	// Act: send the line while the done is on its way
+	// Act: send the line while the start is on its way
 	refused := typing(t, offered, keyEnter)
 
 	// Assert: the line stays open saying why
 	requireScreen(t, refused.View().Content, trackAndStart+untrackedIssue, "still being sent")
 
-	// Act: the done answers
-	drain(t, refused, done)
+	// Act: the start answers
+	drain(t, refused, start)
 
-	// Assert: only the done was sent
-	requireTaskWrites(t, repo, "task done "+activeTaskUUID)
+	// Assert: only the start was sent
+	requireTaskWrites(t, repo, "task start "+activeTaskUUID)
 }
 
 func TestAnUndoWaitsForTheAnnotationThatFollowsATrack(t *testing.T) {
@@ -279,7 +280,7 @@ func TestAnUndoWaitsForTheAnnotationThatFollowsATrack(t *testing.T) {
 	requireTaskWrites(t, repo, "task add "+untrackedLine)
 
 	// Act: the annotation answers, then undo again
-	typing(t, drain(t, undoing, annotate), "u")
+	typing(t, drain(t, undoing, annotate), "u", keyEnter)
 
 	// Assert: the undo follows the annotation
 	requireTaskWrites(t, repo,
@@ -290,13 +291,13 @@ func TestATasksReadLandingMidWriteKeepsTheWriteInFlight(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Task 3's done is on its way when the tasks are read again.
+	// Task 3's start is on its way when the tasks are read again.
 	repo := withTasks()
-	completing, _ := pressed(t, typing(t, repo.live(t, 120, 40), tasksPane, downAction), "d")
-	reloaded := typing(t, completing, "r")
+	starting, _ := pressed(t, typing(t, repo.live(t, 120, 40), tasksPane, downAction), "s")
+	reloaded := typing(t, starting, "r")
 
 	// Act
-	typing(t, reloaded, "u")
+	typing(t, reloaded, "u", keyEnter)
 
 	// Assert
 	requireTaskWrites(t, repo)
@@ -307,11 +308,11 @@ func TestAStopThenTrackWaitsForATaskWriteInFlight(t *testing.T) {
 
 	// Arrange
 	// Task 12 is started, so PROJ-500's branch offers to stop it, then track the
-	// issue; task 3's done is on its way.
+	// issue; task 3's start is on its way.
 	repo := withAnUntrackedIssue()
 	repo.moves = startTransitions()
-	completing, _ := pressed(t, typing(t, repo.live(t, 200, 40), tasksPane, downAction), "d")
-	offered := typing(t, completing, onTheUntrackedIssue("b", keyEnter, keyEsc)...)
+	starting, _ := pressed(t, typing(t, repo.live(t, 200, 40), tasksPane, downAction), "s")
+	offered := typing(t, starting, onTheUntrackedIssue("b", keyEnter, keyEsc)...)
 
 	// Act
 	refused := typing(t, offered, keyEnter)

@@ -94,7 +94,7 @@ func TestDoneCompletesTheSelectedTaskAndReloads(t *testing.T) {
 	repo := withTasks()
 
 	// Act
-	view := typing(t, repo.live(t, 120, 40), tasksPane, downAction, "d").View().Content
+	view := typing(t, repo.live(t, 120, 40), tasksPane, downAction, "d", keyEnter).View().Content
 
 	// Assert
 	requireTaskWrites(t, repo, "task done "+trackedTaskUUID)
@@ -227,7 +227,7 @@ func TestTheAnnotateAndModifyLinesNameTheTask(t *testing.T) {
 	}
 }
 
-func TestUndoAndSyncRunAtOnceAndSayWhatTaskwarriorSaid(t *testing.T) {
+func TestUndoAndSyncSayWhatTaskwarriorSaid(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
@@ -253,7 +253,7 @@ func TestUndoAndSyncRunAtOnceAndSayWhatTaskwarriorSaid(t *testing.T) {
 			repo.tasks.undoSaid, repo.tasks.syncSaid = tt.said, tt.said
 
 			// Act
-			view := typing(t, repo.live(t, 120, 40), tasksPane, tt.key).View().Content
+			view := typing(t, repo.live(t, 120, 40), tasksPane, tt.key, keyEnter).View().Content
 
 			// Assert
 			requireTaskWrites(t, repo, tt.write)
@@ -285,9 +285,10 @@ func TestSyncIsOfferedOnlyWithASyncBackend(t *testing.T) {
 			repo := withTasks()
 			repo.tasks.install.SyncConfigured = tt.configured
 			model := typing(t, repo.live(t, 200, 40), tasksPane)
+			footer := footerLine(model.View().Content)
 
 			// Act
-			footer := footerLine(typing(t, model, "S").View().Content)
+			typing(t, model, "S", keyEnter)
 
 			// Assert
 			requireTaskWrites(t, repo, tt.writes...)
@@ -312,7 +313,7 @@ func TestNothingChangedIsWordedNotRaw(t *testing.T) {
 		// No task was written, so the sentence for one would mislead, and
 		// nothing failed.
 		"an undo with none to undo": {
-			keys: []string{tasksPane, "u"}, want: "nothing to undo in Taskwarrior",
+			keys: []string{tasksPane, "u", keyEnter}, want: "nothing to undo in Taskwarrior",
 			refuse: []string{"✗", "changed nothing"},
 		},
 	}
@@ -478,7 +479,7 @@ func TestDryRunHoldsBackTaskActionsAndSaysSo(t *testing.T) {
 	}{
 		"stopping":   {keys: []string{tasksPane, "s"}, want: "dry run: would stop task 12"},
 		"starting":   {keys: []string{tasksPane, downAction, "s"}, want: "dry run: would start task 3"},
-		"completing": {keys: []string{tasksPane, "d"}, want: "dry run: would mark task 12 done"},
+		"completing": {keys: []string{tasksPane, "d", keyEnter}, want: "dry run: would mark task 12 done"},
 		"adding": {
 			keys: append([]string{tasksPane, "a"}, append(letters("Renew the cert"), keyEnter)...),
 			want: "dry run: task add Renew the cert",
@@ -491,8 +492,8 @@ func TestDryRunHoldsBackTaskActionsAndSaysSo(t *testing.T) {
 			keys: append([]string{tasksPane, downAction, "e"}, append(letters("due:mon"), keyEnter)...),
 			want: "dry run: task 3 modify due:mon",
 		},
-		"undoing": {keys: []string{tasksPane, "u"}, want: "dry run: would undo Taskwarrior's last change"},
-		"syncing": {keys: []string{tasksPane, "S"}, want: "dry run: would sync Taskwarrior"},
+		"undoing": {keys: []string{tasksPane, "u", keyEnter}, want: "dry run: would undo Taskwarrior's last change"},
+		"syncing": {keys: []string{tasksPane, "S", keyEnter}, want: "dry run: would sync Taskwarrior"},
 		// The line is sent, then the task is annotated with the issue's page.
 		"tracking an issue": {
 			keys: append(selectTheUntrackedIssue(), "T", keyEnter),

@@ -241,10 +241,10 @@ func TestTheSelectionFollowsAnOwnerAfterAChange(t *testing.T) {
 		want string
 	}{
 		"forgetting an owner of the changes stays on them": {
-			keys: []string{"d", "x"}, want: "link-owner " + ownerCarla + " nobody",
+			keys: []string{"d", keyEnter, "x"}, want: "link-owner " + ownerCarla + " nobody",
 		},
 		"forgetting anyone else moves to the next": {
-			keys: []string{downAction, "d", "x"}, want: "link-owner " + podTeam + " nobody",
+			keys: []string{downAction, "d", keyEnter, "x"}, want: "link-owner " + podTeam + " nobody",
 		},
 	}
 

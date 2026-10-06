@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -111,12 +110,14 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[branchCreator](m, msg.err), nil
 	}
 
-	offer := worktreeOffer{dir: msg.path, shown: m.shownDir(msg.path)}
-	m = m.closeOverlay().noticed(m.marks.done + " created worktree for " + sanitize.Line(msg.name) + " at " + offer.shown)
+	path := msg.path
+	m = m.closeOverlay().noticed(m.marks.done + " created worktree for " + sanitize.Line(msg.name) + " at " +
+		m.shownDir(path))
 	m.followUp = func(m Model) (Model, tea.Cmd) {
-		m.overlay = offer
+		offer := m.switchLook(path)
+		offer.title, offer.leave = "Switch to the new worktree", escSkip
 
-		return m, nil
+		return m.lookAt(offer), nil
 	}
 
 	reload := m.listIssueBranches()
@@ -125,37 +126,6 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	return m, reload
-}
-
-// worktreeOffer offers to switch to a worktree just made.
-type worktreeOffer struct {
-	dir, shown string
-}
-
-var _ overlay = worktreeOffer{}
-
-// view says where the worktree is and what switching does.
-func (o worktreeOffer) view(width, _ int) (string, string) {
-	return "Switch to the new worktree",
-		wrap("Switch to "+o.shown+"? workflow opens again there, on the worktree's branch.", width)
-}
-
-// footer offers switching, or skipping the offer and staying.
-func (worktreeOffer) footer(keys keyMap) []key.Binding {
-	return []key.Binding{relabel(keys.confirm, "switch"), relabel(keys.closeOverlay, escSkip)}
-}
-
-// handleKey switches, asking first as any switch does when something would be
-// lost, or stays.
-func (o worktreeOffer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.confirm):
-		return m.closeOverlay().leaveFor(o.dir)
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
-	default:
-		return m, nil
-	}
 }
 
 // failed is the creator kept open with the reason it could not create what was

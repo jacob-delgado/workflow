@@ -142,7 +142,7 @@ func (m Model) offerSwitch(started []taskwarrior.Task, task taskwarrior.Task) fu
 	stop, start := m.deps.Tasks.Stop, m.deps.Tasks.Start
 
 	return offering(lastLook{
-		title: "Switch the task", verb: "switch", doing: "switching",
+		title: "Switch the task", verb: verbSwitch, doing: "switching",
 		body: "Stop " + eachTask(started, describedTask) + " and start task " + describedTask(task) + "?",
 	}, "stop "+eachTask(started, taskName)+" and start task "+taskName(task), func() taskActed {
 		// The task is started only once every other has stopped, so a refusal never
@@ -167,7 +167,7 @@ func (m Model) offerSwitch(started []taskwarrior.Task, task taskwarrior.Task) fu
 func (m Model) offerStopThenTrack(started []taskwarrior.Task, issue jira.Issue) func(Model) (Model, tea.Cmd) {
 	stop, track := m.deps.Tasks.Stop, m.offerTrackAndStart(issue)
 	look := lastLook{
-		title: "Switch the task", verb: "switch", doing: "stopping",
+		title: "Switch the task", verb: verbSwitch, doing: "stopping",
 		body: "Stop " + eachTask(started, describedTask) + ", then track and start " + string(issue.Key) + "?",
 	}
 	look.proceed = func(m Model) (Model, tea.Cmd) {
@@ -252,13 +252,22 @@ func (m Model) offerMarkDone(issueKey jira.Key) func(Model) (Model, tea.Cmd) {
 		return nil
 	}
 
+	return opening(m.doneAsked(task))
+}
+
+// doneAsked is the last look at marking task done, asked from the Tasks pane
+// or offered once its issue is done: Taskwarrior runs the task's hooks, and
+// only an undo while it is the last change takes it back.
+func (m Model) doneAsked(task taskwarrior.Task) lastLook {
 	done := m.deps.Tasks.Done
 
-	return offering(lastLook{
+	return asking(lastLook{
 		title: "Mark the task done", verb: "mark done", doing: "marking done",
 		body: "Mark task " + describedTask(task) + " done?",
-	}, "mark task "+taskName(task)+" done", func() taskActed {
-		return taskActed{verb: "marked", after: " done", uuid: task.UUID, id: shownID(task), said: "", err: done(task.UUID)}
+	}, "mark task "+taskName(task)+" done", func() tea.Msg {
+		return offerAnswered{acted: taskActed{
+			verb: "marked", after: " done", uuid: task.UUID, id: shownID(task), said: "", err: done(task.UUID),
+		}, then: nil}
 	})
 }
 
@@ -276,12 +285,18 @@ func (m Model) offerForMove(issueKey jira.Key, to jira.Transition) func(Model) (
 	return m.followUp
 }
 
-// offering is a follow-up that opens a last look at a change of a task. Going
-// ahead runs change in one command, whose answer closes the look or keeps it
-// open with the reason — or, in a dry run, the look closes saying what it would
-// have done, and nothing is sent; while another write is on its way, the look
-// stays open saying so, since one goes at a time.
+// offering is a follow-up that opens a last look at a change of a task, asking
+// as asking does.
 func offering(look lastLook, wouldDo string, change func() taskActed) func(Model) (Model, tea.Cmd) {
+	return opening(asking(look, wouldDo, func() tea.Msg { return offerAnswered{acted: change(), then: nil} }))
+}
+
+// asking is look made to send a change of Taskwarrior once it is confirmed:
+// send runs in one command whose answer closes the look or keeps it open with
+// the reason. In a dry run the look closes saying what it would have done, and
+// nothing is sent; while another write is on its way, the look stays open
+// saying so, since one goes at a time.
+func asking(look lastLook, wouldDo string, send tea.Cmd) lastLook {
 	look.proceed = func(m Model) (Model, tea.Cmd) {
 		switch {
 		case m.dryRun:
@@ -292,16 +307,16 @@ func offering(look lastLook, wouldDo string, change func() taskActed) func(Model
 
 		m.tasks.writing = true
 
-		return m, func() tea.Msg { return offerAnswered{acted: change(), then: nil} }
+		return m, send
 	}
 
-	return opening(look)
+	return look
 }
 
 // opening is a follow-up that opens a last look.
 func opening(look lastLook) func(Model) (Model, tea.Cmd) {
 	return func(m Model) (Model, tea.Cmd) {
-		look.marks, look.styles, look.offered = m.marks, m.styles, true
+		look.marks, look.styles, look.leave = m.marks, m.styles, escSkip
 		m.overlay = look
 
 		return m, nil

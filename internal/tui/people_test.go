@@ -125,7 +125,7 @@ func TestPeopleForgetsAnOwner(t *testing.T) {
 	// Act
 	// forget carla, who owns this branch's changes and moves to the end of
 	// the list, then dan, who does not
-	forgotten := typing(t, openPeople(t, tagging), "d", "up", "up", "d")
+	forgotten := typing(t, openPeople(t, tagging), "d", keyEnter, "up", "up", "d", keyEnter)
 
 	// Assert
 	// carla is asked again, and dan is gone
@@ -144,7 +144,7 @@ func TestARefusalStaysPinnedInPeople(t *testing.T) {
 		arrange func(*slackWorld)
 		keys    []string
 	}{
-		"forgetting":     {arrange: func(s *slackWorld) { s.forgetErr = errDirectoryDown }, keys: []string{"d"}},
+		"forgetting":     {arrange: func(s *slackWorld) { s.forgetErr = errDirectoryDown }, keys: []string{"d", keyEnter}},
 		"not on Slack":   {arrange: func(s *slackWorld) { s.linkErr = errDirectoryDown }, keys: []string{"x"}},
 		"saving groups":  {arrange: func(s *slackWorld) { s.setErr = errDirectoryDown }, keys: []string{keyTab, keySpace}},
 		"reading people": {arrange: func(s *slackWorld) { s.linksErr = errDirectoryDown }, keys: nil},

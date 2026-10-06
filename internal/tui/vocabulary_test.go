@@ -35,8 +35,8 @@ func TestAnActKeepsItsVerbFromItsKeyToItsNotice(t *testing.T) {
 			label: "enter link and update the description", notes: "linked my-thing to " + issueKey + " and updated #42",
 		},
 		"marking a task done": {
-			repo: withTasks, reach: []string{tasksPane, downAction}, act: "d",
-			label: offersDone, notes: "marked 3 done",
+			repo: withTasks, reach: []string{tasksPane, downAction, "d"}, act: keyEnter,
+			label: "enter mark done", notes: "marked 3 done",
 		},
 	}
 
@@ -70,6 +70,11 @@ func TestEveryLastLookAsksAQuestion(t *testing.T) {
 		"the rebase": {repo: newWorld, keys: []string{"2", "u"}, title: "Rebase branch"},
 		"the re-run": {repo: failedChecks, keys: []string{"4", "R"}, title: "Re-run checks"},
 		"the amend":  {repo: unpushedWorld, keys: []string{"3", "A"}, title: "Amend the last commit"},
+		"mark done":  {repo: withTasks, keys: []string{tasksPane, "d"}, title: "Mark the task done"},
+		"the undo":   {repo: withTasks, keys: []string{tasksPane, "u"}, title: "Undo in Taskwarrior"},
+		"the sync":   {repo: withSyncedTasks, keys: []string{tasksPane, "S"}, title: "Sync Taskwarrior"},
+		"the forget": {repo: onlyBen, keys: []string{"5", "P", "d"}, title: "Forget a person"},
+		"the switch": {repo: reposWorld, keys: []string{reposKey, "j", keyEnter}, title: "Switch directory"},
 	}
 
 	for name, tt := range cases {
