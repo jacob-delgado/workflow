@@ -7,7 +7,7 @@ weight: 22
 
 The steps of the loop that a script or a shell prompt wants also run as
 commands, without the interface: `status`, `reviews`, `repositories`,
-`standup`, `branch`, `pr`, `announce` and `comment`, beside `doctor`, `config`, `slack login` and
+`summary`, `branch`, `pr`, `announce` and `comment`, beside `doctor`, `config`, `slack login` and
 `db-clean`. This page is what a script
 can rely on from them — the exit status, which stream carries what, the JSON shapes, and the
 flags that make a write safe to run unattended. Every command and flag is
@@ -20,7 +20,8 @@ cd "$(workflow branch PROJ-7 --fetch --worktree --yes | tail -n 1)"   # start fr
 workflow --dry-run pr                  # what pr would push and open
 workflow pr --yes                      # push, open, link and move, without asking
 workflow pr --yes --json | jq .pull.url   # the same, and the address it opened
-workflow standup --no-edit --yes       # post the day's standup, unattended
+workflow summary --json | jq -r .text  # what you did on the previous working day
+workflow summary --post --yes          # post it to your team, unattended
 git log -1 --format=%B | workflow comment PROJ-7 --yes   # the text on stdin, never quoted
 workflow --log requests.log doctor --online   # a bug report's evidence
 ```
@@ -34,8 +35,8 @@ the message, which is prose and may change.
 | --- | --- | --- |
 | 0 | Success. | |
 | 1 | Any other failure. | An issue that is not in the tracker, a push that was rejected, a `branch --fetch` whose fetch failed, git missing, a repository whose branch cannot be read; a `db-clean` that finds a symlink or a directory where a database file belongs. |
-| 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; `standup --days 0`; `reviews --sort` with an order it does not know; `--port` without `--web`, or outside 1 to 65535; a confirmation with no terminal to answer it; a `slack login` answer left blank; a `comment` with nothing but white space on standard input. |
-| 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor`, `config show` or `slack login`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; a `ui.keys` map the interface refuses to start on; no messaging configured for `announce`; a `slack login` where Slack posts through a webhook, or `messaging.kind` names another service; no repository remote for `reviews` to find the forge from, or one on a host other than `github.com`, a `ghe.com` tenant, `gitlab.com` or the `forge.host` a `forge.kind` of `github` or `gitlab` describes; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected, a Jira 403 that says what the token may not do among them. |
+| 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; a `summary --from` or `--to` that is not a date written `YYYY-MM-DD`, or a period that runs backwards or is longer than a year and a day; `summary --json --post`, or `--yes` without `--post`; `reviews --sort` with an order it does not know; `--port` without `--web`, or outside 1 to 65535; a confirmation with no terminal to answer it; a `slack login` answer left blank; a `comment` with nothing but white space on standard input. |
+| 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor`, `config show` or `slack login`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; a `ui.keys` map the interface refuses to start on; no messaging configured for `announce` or `summary --post`; a `slack login` where Slack posts through a webhook, or `messaging.kind` names another service; no repository remote for `reviews` to find the forge from, or one on a host other than `github.com`, a `ghe.com` tenant, `gitlab.com` or the `forge.host` a `forge.kind` of `github` or `gitlab` describes; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected, a Jira 403 that says what the token may not do among them. |
 | 4 | A refused precondition: the command would not go ahead because of what it found. | A pull request already open; no commits to open one for; no pull request to announce; a branch or configuration file that already exists; a directory that is not a git repository; a `db-clean` that could not remove a database file, as one another program holds open can be on Windows. |
 | 5 | Unreachable: a service did not answer, or asked you to wait. | Jira, the forge or the messaging service could not be reached, or answered with a redirect — a sign-in gateway in front of it, say — which is refused so the credential goes nowhere else; rate limiting. |
 | 130 | Interrupted by Ctrl+C. | |
@@ -95,7 +96,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `doctor` | the report, or the JSON, and with no configuration file how to create one: the report is what a bug report pastes, so its guidance stays in it | |
 | `config show` | the configuration as JSON, credentials masked | the file it came from (`# PATH`); how to create one when there is none |
 | `config init` | with `--dry-run`, the file it would write, as JSON, masked | progress, the checks, "Wrote …", what to do next, a warning when the file is not ignored by git |
-| `standup` | the draft | "Nothing to share.", the dry-run line, "Not posted.", "Posted to …" |
+| `summary` | the summary as Markdown, or the JSON; with `--post`, then `to …`, where it goes | the dry-run line, "Not posted.", "Posted to …", and each source that could not be read |
 | `branch` | `Start work on KEY: create NAME from BASE and switch to it`, then `Created NAME`; with `--fetch` the plan opens `fetch origin, then`; with `--worktree` it ends `in a new worktree beside the repository`, and the worktree's directory follows alone on the last line | the dry-run line, "Not created.", and with `--worktree` "Created NAME in a new worktree." |
 | `pr` | `Open TITLE`, `BRANCH → BASE` and the code owners asked to review, a blank line, and the whole body; then `Opened #N URL` (`!N` on GitLab); with `--json`, the JSON alone | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes; with `--json`, the preview and the `Opened` line too |
 | `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …" |
@@ -109,8 +110,8 @@ reviews and nothing else.
 
 ## JSON
 
-`--json` is on the reads: `status`, `reviews`, `repositories` and
-`doctor`; and on `pr`, for what it opened. `config show` prints JSON always. None of them carries a credential: `config show` masks
+`--json` is on the reads: `status`, `reviews`, `repositories`, `summary`
+and `doctor`; and on `pr`, for what it opened. `config show` prints JSON always. None of them carries a credential: `config show` masks
 each to its last four characters, and the others never print one.
 
 `workflow status --json` prints one object:
@@ -182,6 +183,25 @@ non-zero after printing.
 workflow repositories --json | jq -r '.worktrees[0].dir'
 ```
 
+`workflow summary --json` prints the object `GET /api/activity` answers
+for the same period, read through the same seams, so a period gives the
+same items, and names the same sources as unread, here, in the Summary pane
+and in the web's Summary section: `from`, `to` and `today` (`YYYY-MM-DD`); `sources`, each
+source asked (`source` — `git`, `tasks`, `jira` or `forge` — `name`,
+`failed`, `truncated` and `detail`, why it could not be read, in words that
+never name a host); `years`, the items nested by `months`, `days` and
+`hours`, each item with `at`, `source`, `verb`, `ref`, `title`, `url` and
+`repository`; and `text`, the same as Markdown. `--from` and `--to` name the
+first and last day, written `YYYY-MM-DD`; one alone is that day, and neither
+is the previous working day — yesterday, or on a Monday the Friday and the
+weekend after it. A source that could not be read is named in `sources`, and
+the command then exits non-zero after printing, with the first family its
+failures belong to: a Jira token refused exits 3.
+
+```sh
+workflow summary --from 2026-10-01 --to 2026-10-02 --json | jq -r '.years[].months[].days[].hours[].items[].title'
+```
+
 `workflow pr --json` prints what it opened as one object, the web's
 `OpenedPullRequest` with the branches the pull request joins and its
 body, and with whether each offer that followed was taken:
@@ -245,8 +265,8 @@ or `forge.kind` fails the configuration instead.
 
 ## Writing without a person: `--yes` and `--dry-run`
 
-`branch`, `pr`, `announce`, `comment`, `standup` and `db-clean` print a
-preview and ask before they write. Two flags change that:
+`branch`, `pr`, `announce`, `comment`, `summary --post` and `db-clean`
+print a preview and ask before they write. Two flags change that:
 
 - **`--yes`** goes ahead without asking. On `pr` it answers every question:
   the push, the open, and the offers that follow it — to link the pull request
@@ -256,8 +276,10 @@ preview and ask before they write. Two flags change that:
   says this pull request was already announced at the moment it is at, it
   says so on stderr, announces nothing, and exits 0 — run without `--yes` to be
   asked. With `--dry-run` as well, it still prints the announcement, and its
-  dry-run line says it would not announce it again. It does not skip
-  `standup`'s editor: add `--no-edit` for that.
+  dry-run line says it would not announce it again. On `summary` it answers
+  only `--post`'s question, so it is refused without `--post`. A summary is
+  posted even when a source could not be read — the text says which — and
+  the command still exits non-zero for it.
 - **`--dry-run`** prints the preview and what the command would do, and
   writes nothing, the store included: `announce` still reads what an earlier
   session announced, when there is a store on disk, but never creates it or

@@ -116,6 +116,6 @@ workflow [flags]
 * [workflow repositories](../workflow_repositories/)	 - List where workflow works: this directory, its repository's worktrees and your favorites
 * [workflow reviews](../workflow_reviews/)	 - List the pull or merge requests that are waiting on your review
 * [workflow slack](../workflow_slack/)	 - Set up posting to Slack with a rotating user token
-* [workflow standup](../workflow_standup/)	 - Draft what you did — commits, issues and pull or merge requests — to share
 * [workflow status](../workflow_status/)	 - Print the current work's issue, stage and CI on one line
+* [workflow summary](../workflow_summary/)	 - Say what you did over a period — commits, tasks, issues and reviews — and post it
 

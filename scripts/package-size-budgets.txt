@@ -181,9 +181,10 @@ internal/webserver 30
 # (doctor, split by section across doctor.go for the command, the repository and
 # the configuration, doctor_requirements.go for the tooling and the
 # configuration review, doctor_credentials.go for the --online checks, and
-# doctor_json.go for --json; status; reviews; standup; repositories.go, where
-# workflow works, its worktrees and your favorites, in the web API's shape,
-# UX-151), the guided config, the
+# doctor_json.go for --json; status; reviews; summary.go, what you did over
+# a period and its post, read as the Summary pane reads it (FEAT-86, which
+# replaced standup); repositories.go, where workflow works, its worktrees
+# and your favorites, in the web API's shape, UX-151), the guided config, the
 # root wiring, and the scriptable write commands from FEAT-41 (branch.go, pr.go,
 # announce.go) with their shared preview/confirm/dry-run helper (scriptable.go),
 # comment.go for `workflow comment`, which posts the text on standard input on

@@ -83,23 +83,3 @@ func TestAnnounceRemembersADeliveredAnnouncement(t *testing.T) {
 			err, posts.Load(), printed.stderr)
 	}
 }
-
-func TestStandupYesPostsTheDraft(t *testing.T) {
-	// Arrange
-	var posts atomic.Int32
-
-	repo := repoWithCommit(t)
-	writeFile(t, repo, `{"messaging":{"webhook_url":"`+webhook(t, &posts)+`"}}`)
-
-	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "standup", "--no-edit", "--yes")
-	// Assert
-	if err != nil {
-		t.Fatalf("standup --yes = %v, want the draft posted (%+v)", err, printed)
-	}
-
-	if posts.Load() != 1 || !strings.Contains(printed.stderr, "Posted to Slack.") {
-		t.Errorf("standup --yes posted %d times and said:\n%s\nwant one post, and that it was posted",
-			posts.Load(), printed.stderr)
-	}
-}

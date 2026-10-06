@@ -193,7 +193,7 @@ func TestExitStatusMarksMisuse(t *testing.T) {
 		names string
 	}{
 		"an unknown flag":                   {args: "status --no-such-flag", names: "--no-such-flag"},
-		"a flag's value unreadable":         {args: "standup --days many", names: `"many"`},
+		"a flag's value unreadable":         {args: "summary --json=many", names: `"many"`},
 		"an unknown command":                {args: "no-such-command", names: "no-such-command"},
 		"an unknown subcommand":             {args: "config no-such-subcommand", names: "no-such-subcommand"},
 		"a missing argument":                {args: "branch", names: "accepts 1 arg(s)"},
@@ -324,7 +324,7 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 	cases := [][]string{
 		strings.Fields("status"),
 		strings.Fields("reviews"),
-		strings.Fields("standup --no-edit"),
+		strings.Fields("summary"),
 		strings.Fields("branch PROJ-1"),
 		strings.Fields("pr --dry-run"),
 		strings.Fields("announce --dry-run"),

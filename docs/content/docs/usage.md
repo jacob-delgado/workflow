@@ -24,7 +24,7 @@ workflow --web      # serve the loop in a browser instead
 The browser's side of it has [a page of its own]({{< relref "/docs/web" >}}).
 
 The steps a script or a shell prompt wants also run as commands, without the
-interface — `workflow status`, `reviews`, `standup`, `branch`, `pr`,
+interface — `workflow status`, `reviews`, `summary`, `branch`, `pr`,
 `announce` and `db-clean`. [Scripting]({{< relref "/docs/scripting" >}}) says what a script
 can rely on from them: exit codes, which stream carries what, `--json`,
 `--yes`, `--dry-run` and `--log`.
