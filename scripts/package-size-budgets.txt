@@ -167,6 +167,8 @@ internal/webserver 26
 # doctor_json.go for --json; status; reviews; standup), the guided config, the
 # root wiring, and the scriptable write commands from FEAT-41 (branch.go, pr.go,
 # announce.go) with their shared preview/confirm/dry-run helper (scriptable.go),
+# comment.go for `workflow comment`, which posts the text on standard input on
+# an issue (UX-151, FEAT-78's first issue write),
 # slack_cmd.go for `workflow slack login`, which sets up the Slack user token,
 # dbclean_cmd.go for `workflow db-clean`, which lists and removes the local
 # databases, connect.go, which wires a command to the directory it runs in,
@@ -176,7 +178,7 @@ internal/webserver 26
 # and printed output — spelled command-per-file; it grows when the tool gains a command,
 # which the docs reference records, or when one command's sections outgrow a
 # file, as doctor's did.
-internal/cli 18
+internal/cli 19
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the

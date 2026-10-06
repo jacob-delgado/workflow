@@ -58,5 +58,6 @@ func terminalPrompt() cli.Prompt {
 		Compose: func(draft, help string) (string, error) {
 			return editor.Compose(os.Getenv, draft, help)
 		},
+		Input: reader,
 	}
 }
