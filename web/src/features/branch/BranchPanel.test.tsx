@@ -29,7 +29,7 @@ function pushable() {
         ahead: 0,
         behind: 0,
         base: 'origin/main',
-        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens' }],
+        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens', unpushed: false }],
       },
     }),
   })
@@ -65,7 +65,7 @@ test('shows the current branch, its commits, and its changes', () => {
         ahead: 3,
         behind: 1,
         base: 'origin/main',
-        commits: [{ hash: 'deadbeef1', subject: 'feat: build the shell' }],
+        commits: [{ hash: 'deadbeef1', subject: 'feat: build the shell', unpushed: false }],
       },
       changes: {
         changes: [
@@ -216,7 +216,7 @@ test('offers no push for a fully published branch', () => {
         ahead: 0,
         behind: 0,
         base: 'origin/main',
-        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens' }],
+        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens', unpushed: false }],
       },
     }),
   })
@@ -244,7 +244,7 @@ test('offers no push in a detached HEAD', () => {
         ahead: 0,
         behind: 0,
         base: '',
-        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens' }],
+        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens', unpushed: false }],
       },
     }),
   })

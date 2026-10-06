@@ -400,6 +400,56 @@ export type CheckoutRequest = {
 };
 
 /**
+ * Which run to start, and for a fixup the commit it fixes up.
+ */
+export type RunRequest = {
+    kind: RunKind;
+    /**
+     * For fixup, the hash of the commit to record a fixup! of, as the branch lists it; it must be one not yet pushed. Ignored otherwise.
+     */
+    commit?: string;
+};
+
+/**
+ * A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
+ */
+export type RunKind = 'pre_commit' | 'rebase' | 'amend' | 'fixup';
+
+/**
+ * A git run and how it stands: running, or how it ended, with what it wrote.
+ */
+export type Run = {
+    kind: RunKind;
+    /**
+     * What is running, as the terminal titles it, such as git rebase.
+     */
+    title: string;
+    /**
+     * How the run stands: in progress, succeeded, refused — the program ended with a failure, a hook that failed or a rebase stopped at a conflict — or stopped by DELETE /api/runs/current.
+     */
+    state: 'in_progress' | 'succeeded' | 'refused' | 'stopped';
+    /**
+     * What the program wrote, standard output and standard error in the order written, with terminal controls taken out. A run the event stream carries holds its last 200 lines.
+     */
+    lines: Array<string>;
+    /**
+     * What the run did, once it has ended — Rebased onto main, the pre-commit hook failed — and empty while it runs.
+     */
+    outcome: string;
+};
+
+/**
+ * One line of a run's stream: the run itself, as it starts and as it ends, or one line of its output.
+ */
+export type RunEvent = {
+    run?: Run;
+    /**
+     * A line the program wrote, with terminal controls taken out.
+     */
+    line?: string;
+};
+
+/**
  * A changed file's diff against HEAD.
  */
 export type FileDiff = {
@@ -696,6 +746,10 @@ export type Snapshot = {
     messaging: MessagingDestination;
     queued_announcement?: QueuedAnnouncement;
     /**
+     * The git run going now (POST /api/runs), with its last 200 lines, so a page opened while it runs sees it; absent when none is going.
+     */
+    run?: Run;
+    /**
      * The branches named for one of your issues, local ones and those only the remote has — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue of yours that has a branch, so the issues list can mark them all in flight, not the one on HEAD. An issue is yours when the tracker says it is assigned to you and not done; with no tracker to ask, every branch that names an issue is listed.
      */
     branches: Array<TaskBranch>;
@@ -870,6 +924,10 @@ export type Branch = {
 export type Commit = {
     hash: string;
     subject: string;
+    /**
+     * Whether the commit is one not yet pushed, which alone staged changes can be amended or fixed up into. A branch with more commits than are read marks none.
+     */
+    unpushed: boolean;
 };
 
 export type ChangeList = {
@@ -2114,6 +2172,68 @@ export type GetChangeDiffResponses = {
 };
 
 export type GetChangeDiffResponse = GetChangeDiffResponses[keyof GetChangeDiffResponses];
+
+export type StartRunData = {
+    body: RunRequest;
+    path?: never;
+    query?: never;
+    url: '/api/runs';
+};
+
+export type StartRunErrors = {
+    /**
+     * A run is going already, or there is nothing to rebase, amend or fix up; nothing was run.
+     */
+    409: Problem;
+    /**
+     * The run is not available, the commit cannot be fixed up, or the program could not start.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type StartRunError = StartRunErrors[keyof StartRunErrors];
+
+export type StartRunResponses = {
+    /**
+     * The run's events, one JSON object a line.
+     */
+    200: RunEvent;
+};
+
+export type StartRunResponse = StartRunResponses[keyof StartRunResponses];
+
+export type StopRunData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/runs/current';
+};
+
+export type StopRunErrors = {
+    /**
+     * No run is going.
+     */
+    404: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type StopRunError = StopRunErrors[keyof StopRunErrors];
+
+export type StopRunResponses = {
+    /**
+     * The run was asked to stop.
+     */
+    204: void;
+};
+
+export type StopRunResponse = StopRunResponses[keyof StopRunResponses];
 
 export type StageData = {
     body: StagingRequest;

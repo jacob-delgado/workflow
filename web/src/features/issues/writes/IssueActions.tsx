@@ -8,7 +8,7 @@ import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { shownKey } from '../issuePlaces.ts'
 import { useIssueWrites } from './issueWritesApi.ts'
 import { StatusChangeForm } from './StatusChangeForm.tsx'
-import { LabeledInput, WriteForm } from './WriteForm.tsx'
+import { LabeledInput, WriteForm } from '@/lib/WriteForm.tsx'
 
 type Opened = 'none' | 'status' | 'assign' | 'worklog'
 

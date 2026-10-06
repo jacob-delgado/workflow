@@ -4,6 +4,8 @@
 package webserver
 
 import (
+	"slices"
+
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
@@ -95,9 +97,13 @@ func issueDetailDTO(detail jira.IssueDetail, link string) api.IssueDetail {
 
 // branchDTO maps the current branch and its commits.
 func branchDTO(branch gitrepo.Branch) api.Branch {
+	unpushed := branch.Unpushed()
+
 	commits := make([]api.Commit, 0, len(branch.Commits))
 	for _, commit := range branch.Commits {
-		commits = append(commits, api.Commit{Hash: commit.Hash, Subject: commit.Subject})
+		commits = append(commits, api.Commit{
+			Hash: commit.Hash, Subject: commit.Subject, Unpushed: slices.Contains(unpushed, commit),
+		})
 	}
 
 	return api.Branch{

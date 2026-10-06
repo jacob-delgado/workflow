@@ -6,7 +6,7 @@ import type { Teller } from '@/lib/Outcome.tsx'
 import { Reading, Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { useIssueWrites, useStatusChanges } from './issueWritesApi.ts'
-import { LabeledInput, WriteForm } from './WriteForm.tsx'
+import { LabeledInput, WriteForm } from '@/lib/WriteForm.tsx'
 
 interface StatusChangeFormProps {
   issueKey: string

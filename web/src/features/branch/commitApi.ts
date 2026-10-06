@@ -16,7 +16,7 @@ export async function commitChanges(message: CommitRequest): Promise<Branch> {
     return {
       ...mockSnapshot.branch,
       head: hash,
-      commits: [...mockSnapshot.branch.commits, { hash, subject }],
+      commits: [...mockSnapshot.branch.commits, { hash, subject, unpushed: true }],
     }
   }
 

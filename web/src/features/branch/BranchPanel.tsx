@@ -1,6 +1,6 @@
 import { GitBranch } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { Branch } from '@/api/generated/types.gen.ts'
+import type { Branch, Change } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
@@ -8,12 +8,15 @@ import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
+import { RunOutput, useGitRun, type GitRunner } from './GitRun.tsx'
+import { HistoryActions, RebaseAction } from './HistoryActions.tsx'
 import { IssueLink } from './IssueLink.tsx'
 import { pushBranch } from './pushApi.ts'
 import { WorkingTree } from './WorkingTree.tsx'
 
 export function BranchPanel() {
   const snapshot = useLiveSnapshot()
+  const runner = useGitRun(snapshot.run)
 
   const { branch, changes } = snapshot
 
@@ -30,8 +33,9 @@ export function BranchPanel() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-section">
-      <BranchSummary branch={branch} />
-      <Commits commits={branch.commits} />
+      <BranchSummary branch={branch} runner={runner} />
+      <RunOutput runner={runner} />
+      <Commits branch={branch} changes={changes.changes} runner={runner} />
       <WorkingTree
         changes={changes.changes}
         suggestedScope={snapshot.suggested_scope}
@@ -44,7 +48,7 @@ export function BranchPanel() {
 // BranchSummary is the checked-out branch, with the push that publishes it and
 // the line that says what the push did — which stays when the snapshot showing
 // the branch published takes the push away.
-function BranchSummary({ branch }: { branch: Branch }) {
+function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }) {
   const outcome = useOutcome()
   const heading = branch.name === '' ? `Detached HEAD at ${branch.head.slice(0, 7)}` : branch.name
   // There is something to push on a real branch (not a detached HEAD) that has no
@@ -76,13 +80,26 @@ function BranchSummary({ branch }: { branch: Branch }) {
       <div className="flex flex-wrap items-start gap-item">
         {canPush ? <PushButton branch={branch} outcome={outcome} /> : null}
         {branch.name === '' ? null : <IssueLink branch={branch} outcome={outcome} />}
+        <RebaseAction branch={branch} runner={runner} />
       </div>
       <OutcomeLine said={outcome.said} />
     </section>
   )
 }
 
-function Commits({ commits }: { commits: Branch['commits'] }) {
+// Commits are the branch's commits since its base, and the runs that work on
+// them and on what is staged.
+function Commits({
+  branch,
+  changes,
+  runner,
+}: {
+  branch: Branch
+  changes: Change[]
+  runner: GitRunner
+}) {
+  const { commits } = branch
+
   return (
     <section aria-labelledby="commits-heading" className="flex flex-col gap-group">
       <h3 id="commits-heading" className="text-base font-semibold">
@@ -100,6 +117,7 @@ function Commits({ commits }: { commits: Branch['commits'] }) {
           ))}
         </ul>
       )}
+      <HistoryActions branch={branch} changes={changes} runner={runner} />
     </section>
   )
 }

@@ -131,7 +131,10 @@ test('says a commit by what was typed when the newest listed commit is not HEAD'
   // Arrange
   // A long branch's list stops short of HEAD: its last entry is an older commit.
   mockCommit.mockResolvedValueOnce(
-    makeBranch({ head: 'a1b2c3d4e5f6', commits: [{ hash: 'c0ffee1', subject: 'feat: older' }] }),
+    makeBranch({
+      head: 'a1b2c3d4e5f6',
+      commits: [{ hash: 'c0ffee1', subject: 'feat: older', unpushed: false }],
+    }),
   )
   const user = userEvent.setup()
   render(<CommitForm blocked={null} suggestedScope="" commitTypes={types} />)
@@ -168,7 +171,10 @@ test('focus dropped to the page after a commit from the keyboard stays on the pa
   // the line that says what the commit did does not take it — then or when the
   // form is next drawn, after the user has clicked away.
   mockCommit.mockResolvedValueOnce(
-    makeBranch({ head: 'a1b2c3d4e5f6', commits: [{ hash: 'a1b2c3d', subject: 'fix: redact' }] }),
+    makeBranch({
+      head: 'a1b2c3d4e5f6',
+      commits: [{ hash: 'a1b2c3d', subject: 'fix: redact', unpushed: false }],
+    }),
   )
   const user = userEvent.setup()
   const { rerender } = render(<CommitForm blocked={null} suggestedScope="" commitTypes={types} />)

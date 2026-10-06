@@ -36,7 +36,9 @@ function storyStage(title: string): { mark: string; state: string } {
 test('reads the changes stage done on a commit with files still to commit, as progress does', () => {
   // Arrange
   streamOnHead({
-    branch: makeBranch({ commits: [{ hash: 'h1h2h3h4', subject: 'do the work' }] }),
+    branch: makeBranch({
+      commits: [{ hash: 'h1h2h3h4', subject: 'do the work', unpushed: false }],
+    }),
     changes: {
       changes: [
         { path: 'a.go', kind: 'modified', staged: false, has_unstaged: true, conflicted: false },
@@ -137,7 +139,9 @@ test.each<{ name: string; pull: PullRequest; ci?: Ci; state: string; mark: MarkS
 ])('reads the review stage as progress does: $name', ({ pull, ci, state, mark }) => {
   // Arrange
   streamOnHead({
-    branch: makeBranch({ commits: [{ hash: 'h1h2h3h4', subject: 'do the work' }] }),
+    branch: makeBranch({
+      commits: [{ hash: 'h1h2h3h4', subject: 'do the work', unpushed: false }],
+    }),
     review: { found: true, announced: false, pull, ci },
   })
 
@@ -151,7 +155,9 @@ test.each<{ name: string; pull: PullRequest; ci?: Ci; state: string; mark: MarkS
 test('reads the announce stage done once the pull request was announced at its moment', () => {
   // Arrange
   streamOnHead({
-    branch: makeBranch({ commits: [{ hash: 'h1h2h3h4', subject: 'do the work' }] }),
+    branch: makeBranch({
+      commits: [{ hash: 'h1h2h3h4', subject: 'do the work', unpushed: false }],
+    }),
     review: { found: true, pull: openPull, ci: ciOf('passed'), announced: true },
   })
 

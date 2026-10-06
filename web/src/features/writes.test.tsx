@@ -90,7 +90,7 @@ function withChanges(changes: Change[]): Snapshot {
 
 const committed = makeBranch({
   head: 'a1b2c3d4e5f6',
-  commits: [{ hash: 'a1b2c3d', subject: 'fix: redact tokens' }],
+  commits: [{ hash: 'a1b2c3d', subject: 'fix: redact tokens', unpushed: false }],
 })
 const unpublished = makeBranch({ upstream: '', ahead: 0 })
 const published = makeBranch({ upstream: 'origin/fix/PROJ-1', ahead: 0 })

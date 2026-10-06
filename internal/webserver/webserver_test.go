@@ -91,8 +91,8 @@ func filledDeps() webserver.Deps {
 		},
 		Branch: func() (gitrepo.Branch, error) {
 			return gitrepo.Branch{
-				Name: testBranchName, Base: testBase, Ahead: 2, Head: "abc123", PushRemote: gitrepo.DefaultRemote,
-				Commits: []gitrepo.Commit{{Hash: "abc123", Subject: testCommitSubject}},
+				Name: testBranchName, Base: testBase, Ahead: 2, Head: filledHead, PushRemote: gitrepo.DefaultRemote,
+				Commits: []gitrepo.Commit{{Hash: filledHead, Subject: testCommitSubject}},
 			}, nil
 		},
 		Changes: func() ([]gitrepo.Change, error) {

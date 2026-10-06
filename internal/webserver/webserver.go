@@ -64,7 +64,14 @@ type Deps struct {
 	Changes func() ([]gitrepo.Change, error)
 	// Diff reads a changed file's diff against HEAD, a change as Changes read
 	// it — never a path a request names.
-	Diff       func(change gitrepo.Change) ([]string, error)
+	Diff func(change gitrepo.Change) ([]string, error)
+	// RunHook runs one git hook, and Rebase, Amend and Fixup rewrite the
+	// branch's history, each streaming its output, as seams.Hooks and
+	// seams.Git bind them; nil where there is no repository.
+	RunHook    func(hook string) (proc.Output, error)
+	Rebase     func(base string) (proc.Output, error)
+	Amend      func() (proc.Output, error)
+	Fixup      func(hash string) (proc.Output, error)
 	FindPull   func(branch string) (forge.PullRequest, bool, error)
 	CreatePull func(request forge.NewPullRequest) (forge.PullRequest, error)
 	// EditPull changes a pull request's title and description, as linking a
@@ -311,6 +318,9 @@ type server struct {
 
 	// announced is what the store remembers announcing, held for an interval.
 	announced announcedCache
+
+	// run is the git run going, if any.
+	run runSlot
 
 	// detection is the stream's last search for Taskwarrior, when it found none.
 	detection detectionCache

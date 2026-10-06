@@ -61,7 +61,7 @@ func WebServerAt(addr string) RunWeb {
 // available. The server also takes the interface's keymap check, so Settings
 // never saves a ui.keys map the interface would refuse to start on.
 func WebDeps(deps tui.Deps) webserver.Deps {
-	return withIssueWrites(withRepositories(withSummarySources(webserver.Deps{
+	return withGitRuns(withIssueWrites(withRepositories(withSummarySources(webserver.Deps{
 		Search:        deps.Jira.Search,
 		SearchLenient: deps.Jira.SearchLenient,
 		Issue:         deps.Jira.Issue,
@@ -119,7 +119,15 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 
 		CheckKeys: tui.CheckKeys,
 		Clock:     deps.Clock,
-	}, deps), deps), deps)
+	}, deps), deps), deps), deps)
+}
+
+// withGitRuns gives the web server the git runs that stream their output: the
+// pre-commit hook, a rebase, an amend and a fixup.
+func withGitRuns(web webserver.Deps, deps tui.Deps) webserver.Deps {
+	web.RunHook, web.Rebase, web.Amend, web.Fixup = deps.Hooks.Run, deps.Git.Rebase, deps.Git.Amend, deps.Git.Fixup
+
+	return web
 }
 
 // withIssueWrites gives the web server the tracker's writes: the pull

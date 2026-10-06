@@ -200,6 +200,7 @@ func (s *server) snapshot(view string) api.Snapshot {
 		Review:             review,
 		Messaging:          s.readMessaging(),
 		QueuedAnnouncement: s.heldStatus(),
+		Run:                s.runShown(),
 		Branches:           s.snapshotBranches(branch.Name),
 
 		CommitTypes:    s.commitConvention().Types(),

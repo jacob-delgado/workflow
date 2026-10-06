@@ -86,9 +86,9 @@ export const mockSnapshot: Snapshot = {
     behind: 1,
     base: 'origin/main',
     commits: [
-      { hash: 'a1b2c3d4', subject: 'fix: redact tokens in the request log' },
-      { hash: 'b2c3d4e5', subject: 'test: prove the log carries no secret' },
-      { hash: 'c3d4e5f6', subject: 'refactor: route every write through Redact' },
+      { hash: 'a1b2c3d4', subject: 'fix: redact tokens in the request log', unpushed: true },
+      { hash: 'b2c3d4e5', subject: 'test: prove the log carries no secret', unpushed: true },
+      { hash: 'c3d4e5f6', subject: 'refactor: route every write through Redact', unpushed: true },
     ],
   },
   changes: {

@@ -14,7 +14,7 @@ test('offers a push for a branch level with an upstream off the remote its push 
         upstream: 'origin/fix/PROJ-1',
         push_remote: 'fork',
         ahead: 0,
-        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens' }],
+        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens', unpushed: false }],
       }),
     }),
   })
