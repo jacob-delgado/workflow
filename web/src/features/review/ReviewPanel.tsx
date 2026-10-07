@@ -14,15 +14,27 @@ import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { ReadFailure } from '@/lib/Status.tsx'
 import { cn, contentMeasure, definitionList } from '@/lib/utils.ts'
+import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
 import { CiChecks } from './Checks.tsx'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
 import { OpenPullRequest } from './OpenPullRequest.tsx'
 import { PullActions } from './PullActions.tsx'
 
-const mergeableLabel: Record<'unknown' | 'clean' | 'conflicts', string> = {
-  unknown: 'Mergeability unknown',
-  clean: 'No conflicts',
-  conflicts: 'Has conflicts',
+// Whether the pull request merges cleanly, in words and by its mark: clean is
+// done, a conflict failed, and a forge that has not worked it out yet has not
+// started.
+const mergeable: Record<PullRequest['mergeable'], { label: string; mark: MarkState }> = {
+  unknown: { label: 'Mergeability unknown', mark: 'not-started' },
+  clean: { label: 'No conflicts', mark: 'done' },
+  conflicts: { label: 'Has conflicts', mark: 'failed' },
+}
+
+// How far the pull request has come, by its mark: open is in flight, whether a
+// draft or ready; merged is done; closed unmerged never got there.
+const stateMark: Record<PullRequest['state'], MarkState> = {
+  open: 'in-flight',
+  merged: 'done',
+  closed: 'not-started',
 }
 
 export function ReviewPanel() {
@@ -125,7 +137,7 @@ function PullRequestSummary({
         <dl className={definitionList}>
           {issue ? <IssueRow issue={issue} /> : null}
           <dt className="text-muted-foreground">State</dt>
-          <dd>{stateLabel(pull)}</dd>
+          <MarkedValue mark={stateMark[pull.state]}>{stateLabel(pull)}</MarkedValue>
           {pull.state === 'open' ? <ReviewRows pull={pull} /> : null}
         </dl>
         <PullActions pull={pull} ci={ci} branch={branch} />
@@ -159,12 +171,25 @@ function ReviewRows({ pull }: { pull: PullRequest }) {
   return (
     <>
       <dt className="text-muted-foreground">Mergeable</dt>
-      <dd>{mergeableLabel[pull.mergeable]}</dd>
+      <MarkedValue mark={mergeable[pull.mergeable].mark}>
+        {mergeable[pull.mergeable].label}
+      </MarkedValue>
       <dt className="text-muted-foreground">Approvals</dt>
       <dd>{pull.approvals}</dd>
       <dt className="text-muted-foreground">Changes requested</dt>
-      <dd>{pull.changes_requested ? 'Yes' : 'No'}</dd>
+      {pull.changes_requested ? <MarkedValue mark="failed">Yes</MarkedValue> : <dd>No</dd>}
     </>
+  )
+}
+
+// MarkedValue is a row's value that is a state: its mark carries the status
+// light, so the word stays in the plain foreground.
+function MarkedValue({ mark, children }: { mark: MarkState; children: string }) {
+  return (
+    <dd className="flex items-center gap-tight">
+      <StateMark state={mark} />
+      {children}
+    </dd>
   )
 }
 
