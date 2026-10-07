@@ -68,7 +68,8 @@ export function BranchPanel() {
 
 // BranchSummary is the checked-out branch, with the push that publishes it and
 // the line that says what the push did — which stays when the snapshot showing
-// the branch published takes the push away.
+// the branch published takes the push away. A detached HEAD has no branch to
+// push, link or rebase, so it says where one is to be had instead.
 function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }) {
   const outcome = useOutcome()
   const heading = branch.name === '' ? `Detached HEAD at ${branch.head.slice(0, 7)}` : branch.name
@@ -88,6 +89,11 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
           {heading}
         </h2>
       </div>
+      {branch.detached ? (
+        <p className="text-sm text-muted-foreground">
+          To work on a branch, go to Issues, where Switch branch and Start work live.
+        </p>
+      ) : null}
       <dl className={definitionList}>
         <dt className="text-muted-foreground">Base</dt>
         <CodeValue value={branch.base} />

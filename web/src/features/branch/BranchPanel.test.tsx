@@ -553,3 +553,21 @@ test('a missing base and a missing upstream read the same word', () => {
   const valueOf = (term: string) => values[terms.indexOf(term)]
   expect([valueOf('Base'), valueOf('Upstream')]).toEqual(['None', 'None'])
 })
+
+test('under a detached HEAD, says where a branch is to be had: Issues', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branch: makeBranch({ name: '', detached: true, head: 'abcdef1234' }),
+    }),
+  })
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  const heading = screen.getByRole('heading', { name: 'Detached HEAD at abcdef1' })
+  const section = heading.closest('section')
+  expect(section?.textContent).toMatch(/Issues, where Switch branch and Start work/)
+})
