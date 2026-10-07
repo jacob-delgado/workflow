@@ -490,6 +490,7 @@ func TestTheFooterNamesWhatEnterDoesToEachKindOfSetting(t *testing.T) {
 		{"a choice", messagingKindRow, "enter change"},
 		{"a list", commitTypesRow, "enter edit"},
 		{"a count", subjectLimitRow, "enter edit"},
+		{"a row that adds an entry", addViewRow, "enter add"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
