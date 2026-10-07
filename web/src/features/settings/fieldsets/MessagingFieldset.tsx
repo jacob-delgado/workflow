@@ -1,7 +1,7 @@
 import type { Control } from 'react-hook-form'
 import type { SettingsValues } from '../formValues.ts'
 import { EntryList } from './EntryList.tsx'
-import { Fieldset, SelectField, TextField, type Register } from './Field.tsx'
+import { Fieldset, SecretField, SelectField, TextField, type Register } from './Field.tsx'
 
 // MessagingFieldset is where announcements go: the service, its credential —
 // a Slack user token or a webhook, one or the other — the channel, and the
@@ -34,25 +34,22 @@ export function MessagingFieldset({
         label="Client ID"
         hint="Slack user token: your app's client ID, from its Basic Information page."
       />
-      <TextField
+      <SecretField
         register={register}
         name="messaging.client_secret"
         label="Client secret"
-        type="password"
         hint="Slack user token: your app's client secret; leave as-is to keep the stored one."
       />
-      <TextField
+      <SecretField
         register={register}
         name="messaging.refresh_token"
         label="Refresh token"
-        type="password"
         hint="Slack user token: a refresh token (xoxe-1-…); workflow refreshes it and keeps each new one."
       />
-      <TextField
+      <SecretField
         register={register}
         name="messaging.webhook_url"
         label="Webhook URL"
-        type="password"
         hint="A credential; leave as-is to keep it. For Slack, set this or the user token, not both."
       />
       <TextField

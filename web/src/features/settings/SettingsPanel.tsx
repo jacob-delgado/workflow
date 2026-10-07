@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { type UseFormReset, useForm } from 'react-hook-form'
 import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
-import type { SetupResult } from '@/api/generated/types.gen.ts'
+import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
@@ -28,6 +28,7 @@ import { TerminalFieldset, TimingFieldset } from './fieldsets/TimingAndTerminalF
 import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 import { configOf, formValues, type SettingsValues } from './formValues.ts'
+import { type Removal, RemovalsContext, stored, without } from './removal.ts'
 import { SetupArea } from './SetupForm.tsx'
 
 // SettingsPanel is the configuration form, and below it the areas that save on
@@ -120,35 +121,15 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   const { register, handleSubmit, reset, setFocus, control, formState } = useForm<SettingsValues>({
     defaultValues: formValues(read.config),
   })
-  // The revision of the file the form's values stand for: the read that seeded
-  // it, then each save and each reload. A save names it, so the server refuses
-  // it over a change the form has not seen, even once the cached read has moved
-  // on — unless that change lands between the server's check and its write.
-  const [revision, setRevision] = useState(read.revision)
-  // Whether the last save was refused because the file changed since the form
-  // read it: the refusal that Reload, not another save, answers.
-  const [changed, setChanged] = useState(false)
+  const file = useFormFile(read, reset)
   // How many times the form's first field has been asked to take focus: once
   // when the form replaces a Try again, and after each Reload, which takes its own
   // button away. The field is focused once the form has drawn it.
   const [focusRequests, setFocusRequests] = useState(takesFocus ? 1 : 0)
-  const saveConfig = useSaveConfig()
   const reloadConfig = useReloadConfig()
   const outcome = useOutcome()
-  const seed = (next: ConfigRead) => {
-    reset(formValues(next.config))
-    setRevision(next.revision)
-  }
   const save = useAsyncAction(
-    async (values: SettingsValues) => {
-      try {
-        seed(await saveConfig(configOf(values), revision))
-        setChanged(false)
-      } catch (caught) {
-        setChanged(changedSinceRead(caught))
-        throw caught
-      }
-    },
+    (values: SettingsValues) => file.write(configOf(values), { keepEdits: false }),
     {
       fallback: 'The configuration was not saved. Try again — your edits are still in the form.',
       done: () => 'Saved.',
@@ -160,8 +141,8 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   // taking the Reload button away, so the focus it had goes to the form.
   const reload = useAsyncAction(
     async () => {
-      seed(await reloadConfig())
-      setChanged(false)
+      file.seed(await reloadConfig(), { keepEdits: false })
+      file.setChanged(false)
       save.reset()
       setFocusRequests((requests) => requests + 1)
     },
@@ -176,38 +157,86 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   }, [focusRequests, setFocus])
 
   return (
-    <form
-      aria-labelledby={sectionHeadingId}
-      onSubmit={(event) => {
-        void onSubmit(event)
-      }}
-      className="flex flex-col gap-section"
-    >
-      <JiraFieldset
-        register={register}
-        control={control}
-        storedToken={formState.defaultValues?.jira?.token ?? null}
-      />
-      <MessagingFieldset register={register} control={control} />
-      <ForgeFieldset register={register} />
-      <CommitFieldset register={register} />
-      <BranchFieldset register={register} control={control} />
-      <PullRequestFieldset register={register} />
-      <StoreFieldset register={register} />
-      <TaskwarriorFieldset register={register} />
-      <TimingFieldset register={register} />
-      <TerminalFieldset register={register} />
-      <KeyboardFieldset register={register} />
+    <RemovalsContext value={file.removals}>
+      <form
+        aria-labelledby={sectionHeadingId}
+        onSubmit={(event) => {
+          void onSubmit(event)
+        }}
+        className="flex flex-col gap-section"
+      >
+        <JiraFieldset
+          register={register}
+          control={control}
+          storedToken={formState.defaultValues?.jira?.token ?? null}
+        />
+        <MessagingFieldset register={register} control={control} />
+        <ForgeFieldset register={register} />
+        <CommitFieldset register={register} />
+        <BranchFieldset register={register} control={control} />
+        <PullRequestFieldset register={register} />
+        <StoreFieldset register={register} />
+        <TaskwarriorFieldset register={register} />
+        <TimingFieldset register={register} />
+        <TerminalFieldset register={register} />
+        <KeyboardFieldset register={register} />
 
-      {/* A refusal ChangedSinceRead explains is not said a second time. */}
-      <SaveControls
-        saving={save.state === 'running'}
-        said={outcome.said}
-        error={changed || save.state !== 'error' ? '' : save.error}
-      />
-      {changed ? <ChangedSinceRead reload={reload} /> : null}
-    </form>
+        {/* A refusal ChangedSinceRead explains is not said a second time. */}
+        <SaveControls
+          saving={save.state === 'running'}
+          said={outcome.said}
+          error={file.changed || save.state !== 'error' ? '' : save.error}
+        />
+        {file.changed ? <ChangedSinceRead reload={reload} /> : null}
+      </form>
+    </RemovalsContext>
   )
+}
+
+// Seeding is how a read or a write is taken up: in place of the form's edits,
+// or under them, leaving them as they are.
+interface Seeding {
+  keepEdits: boolean
+}
+
+// useFormFile is the form's hold on the file it edits: the revision its
+// values stand for — the read that seeded it, then each write and each reload,
+// which a write names so the server refuses it over a change the form has not
+// seen, unless that change lands between the server's check and its write —
+// the configuration as last read or written, and whether the last write was
+// refused because the file changed since: the refusal Reload, not another
+// write, answers. A removal writes the file as read without the credential,
+// and takes up what it wrote under the form's edits.
+function useFormFile(read: ConfigRead, reset: UseFormReset<SettingsValues>) {
+  const [revision, setRevision] = useState(read.revision)
+  const [seeded, setSeeded] = useState(read.config)
+  const [changed, setChanged] = useState(false)
+  const saveConfig = useSaveConfig()
+  const seed = (next: ConfigRead, { keepEdits }: Seeding) => {
+    reset(formValues(next.config), { keepDirtyValues: keepEdits })
+    setSeeded(next.config)
+    setRevision(next.revision)
+  }
+  const write = async (config: Config, seeding: Seeding) => {
+    try {
+      seed(await saveConfig(config, revision), seeding)
+      setChanged(false)
+    } catch (caught) {
+      setChanged(changedSinceRead(caught))
+      throw caught
+    }
+  }
+
+  return {
+    changed,
+    setChanged,
+    seed,
+    write,
+    removals: {
+      holds: (removal: Removal) => stored(seeded, removal),
+      remove: (removal: Removal) => write(without(seeded, removal), { keepEdits: true }),
+    },
+  }
 }
 
 interface SaveControlsProps {

@@ -8,8 +8,11 @@ import {
 } from 'react-hook-form'
 import { Button } from '@/lib/Button.tsx'
 import { Input } from '@/lib/Field.tsx'
+import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { cn } from '@/lib/utils.ts'
 import type { SettingsValues } from '../formValues.ts'
+import type { Removal } from '../removal.ts'
+import { CredentialRemoval } from './CredentialRemoval.tsx'
 import type { Register } from './Field.tsx'
 
 // A list the form edits row by row.
@@ -36,9 +39,11 @@ interface EntryListProps<N extends ListName> {
   columns: Column[]
   // blank is a new row, as Add puts it in the list.
   blank: FieldArray<SettingsValues, N>
-  // fixed reports a row whose first field is not edited: a stored header,
-  // whose name the mask of its value is tied to.
-  fixed?: (index: number) => boolean
+  // storedAs is what removing a row the file holds takes out of it, or null
+  // for a row it does not hold: a stored header, whose name is not edited —
+  // the mask of its value is tied to it — and whose removal is asked first and
+  // written at once, since its value is a credential.
+  storedAs?: (index: number) => Removal | null
 }
 
 // EntryList is a list in the configuration edited as rows — the views, the
@@ -55,9 +60,10 @@ export function EntryList<N extends ListName>({
   hint,
   columns,
   blank,
-  fixed = () => false,
+  storedAs = () => null,
 }: EntryListProps<N>) {
   const { fields, append, remove } = useFieldArray({ control, name })
+  const outcome = useOutcome()
   const add = useRef<HTMLButtonElement>(null)
   const hintId = useId()
   const Entry = entry.charAt(0).toUpperCase() + entry.slice(1)
@@ -86,22 +92,20 @@ export function EntryList<N extends ListName>({
               aria-label={column.label}
               placeholder={column.label}
               type={column.secret ? 'password' : 'text'}
-              readOnly={at === 0 && fixed(index)}
+              readOnly={at === 0 && storedAs(index) !== null}
               className={cn(column.wide ? 'min-w-48 flex-[2]' : 'min-w-32 flex-1')}
               {...register(`${name}.${String(index)}.${column.field}` as Path<SettingsValues>)}
             />
           ))}
-          <Button
-            variant="secondary"
-            size="sm"
-            aria-label={`Remove ${entry} ${String(index + 1)}`}
-            onClick={() => {
+          <RowRemoval
+            removal={storedAs(index)}
+            label={`Remove ${entry} ${String(index + 1)}`}
+            tell={outcome}
+            onRemove={() => {
               remove(index)
               add.current?.focus()
             }}
-          >
-            Remove
-          </Button>
+          />
         </div>
       ))}
       <Button
@@ -115,6 +119,28 @@ export function EntryList<N extends ListName>({
       >
         Add a {entry}
       </Button>
+      <OutcomeLine said={outcome.said} />
     </fieldset>
+  )
+}
+
+interface RowRemovalProps {
+  removal: Removal | null
+  label: string
+  tell: ReturnType<typeof useOutcome>
+  onRemove: () => void
+}
+
+// RowRemoval is a row's Remove: an edit saved with the form, or, for a row
+// the file holds a credential in, the removal asked first and written at once.
+function RowRemoval({ removal, label, tell, onRemove }: RowRemovalProps) {
+  if (removal !== null) {
+    return <CredentialRemoval removal={removal} tell={tell} />
+  }
+
+  return (
+    <Button variant="secondary" size="sm" aria-label={label} onClick={onRemove}>
+      Remove
+    </Button>
   )
 }

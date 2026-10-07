@@ -1,4 +1,11 @@
-import { CheckboxField, Fieldset, SelectField, TextField, type Register } from './Field.tsx'
+import {
+  CheckboxField,
+  Fieldset,
+  SecretField,
+  SelectField,
+  TextField,
+  type Register,
+} from './Field.tsx'
 
 // ForgeFieldset is which forge the pull requests live on and how to reach it:
 // its kind, its host, and a token or the forge's own command line.
@@ -16,11 +23,10 @@ export function ForgeFieldset({ register }: { register: Register }) {
         ]}
       />
       <TextField register={register} name="forge.host" label="Host" />
-      <TextField
+      <SecretField
         register={register}
         name="forge.token"
         label="Token"
-        type="password"
         hint="Leave as-is to keep the stored token."
       />
       <CheckboxField
