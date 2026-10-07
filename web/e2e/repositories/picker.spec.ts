@@ -28,6 +28,9 @@ async function opensRepositories(page: Page): Promise<string[]> {
   await page.goto('/')
   await page.getByRole('button', { name: 'Repositories', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Working in' })).toBeVisible()
+  // The picker reads its directory apart from the section, so it is waited for
+  // too: a walk taken before it draws would not count its controls.
+  await expect(page.getByRole('button', { name: 'Up' })).toBeVisible()
 
   return switched
 }
