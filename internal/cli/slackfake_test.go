@@ -25,6 +25,10 @@ const slackWorkspace = "T0ACME"
 // workspace and user.
 const slackAuthTest = "/auth.test"
 
+// slackPostMessage is the path of Slack's chat.postMessage, which a post is
+// sent to.
+const slackPostMessage = "/chat.postMessage"
+
 // slackLoggedInConfig is ownedRepo's forge, announcing to Slack with a user
 // token good for an hour, whose credentials the file keeps, so no keychain is
 // read and no refresh is due.
@@ -70,8 +74,8 @@ func fakeSlack(t *testing.T, changed map[string]slackAnswer) *slackFake {
 		"/users.list": {http.StatusOK, `{"ok":true,"members":[` +
 			`{"id":"U0ANA","name":"ana","profile":{"display_name":"Ana Souza"}},` +
 			`{"id":"U0BOT","name":"robot","is_bot":true,"profile":{}}]}`},
-		"/usergroups.list":  {http.StatusOK, `{"ok":true,"usergroups":[{"id":"S0API","handle":"api-reviewers"}]}`},
-		"/chat.postMessage": {http.StatusOK, `{"ok":true}`},
+		"/usergroups.list": {http.StatusOK, `{"ok":true,"usergroups":[{"id":"S0API","handle":"api-reviewers"}]}`},
+		slackPostMessage:   {http.StatusOK, `{"ok":true}`},
 	}
 	maps.Copy(answers, changed)
 
@@ -95,7 +99,7 @@ func (s *slackFake) answer(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("X-OAuth-Scopes", granted)
 	}
 
-	if request.URL.Path == "/chat.postMessage" {
+	if request.URL.Path == slackPostMessage {
 		var message struct {
 			Text string `json:"text"`
 		}

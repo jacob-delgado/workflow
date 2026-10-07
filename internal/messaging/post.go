@@ -143,7 +143,27 @@ func refusal(code, channel string) error {
 		return credentialRefusal(code)
 	}
 
-	return fmt.Errorf("%w: %s", ErrPostRefused, rejectionReason(code, channel))
+	return PostRefusedError{Reason: rejectionReason(code, channel)}
+}
+
+// PostRefusedError is a message Slack would not deliver, with the reason: the
+// fix for its channel, or Slack's own code for one this does not explain. The
+// reason names a channel and a code, never an address, so every surface can
+// show it.
+type PostRefusedError struct {
+	Reason string
+}
+
+var _ error = PostRefusedError{}
+
+// Error says the message was refused, and why.
+func (e PostRefusedError) Error() string {
+	return ErrPostRefused.Error() + ": " + e.Reason
+}
+
+// Unwrap lets errors.Is match ErrPostRefused.
+func (PostRefusedError) Unwrap() error {
+	return ErrPostRefused
 }
 
 // credentialRefusal is Slack turning a token down with code: ErrRejected, and
@@ -201,18 +221,17 @@ func (c Client) postJSON(ctx context.Context, address string, payload any, heade
 }
 
 // rejectionReason turns Slack's error code into a sentence that names the fix,
-// falling back to the code for one it does not explain.
+// falling back to the code for one it does not explain. It names no key to
+// press: a command line has none, and an overlay's footer offers its own.
 func rejectionReason(code, channel string) string {
 	if channel == "" {
 		channel = "the channel"
 	}
 
 	explained := map[string]string{
-		"not_in_channel": "you are not in " + channel +
-			". Join the channel, then press enter to try again",
-		"channel_not_found": "there is no channel " + channel +
-			", or you cannot see it. Check the channel name, then press enter to try again",
-		"is_archived": channel + " is archived. Choose an open channel, then press enter to try again",
+		"not_in_channel":    "you are not in " + channel + "; join it",
+		"channel_not_found": "there is no channel " + channel + ", or you cannot see it; check the channel name",
+		"is_archived":       channel + " is archived; choose an open channel",
 	}
 
 	if sentence, known := explained[code]; known {

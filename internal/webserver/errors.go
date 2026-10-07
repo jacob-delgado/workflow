@@ -138,6 +138,12 @@ func faultProblem(err error) (api.Problem, bool) {
 		return problem(api.Unprocessable, advice), true
 	}
 
+	// A message Slack would not deliver carries the fix for its channel, which
+	// names a channel and Slack's code but never an address.
+	if refused, ok := errors.AsType[messaging.PostRefusedError](err); ok {
+		return problem(api.Unprocessable, refused.Error()), true
+	}
+
 	for _, class := range faultClasses() {
 		if slices.ContainsFunc(class.causes, func(cause error) bool { return errors.Is(err, cause) }) {
 			return problem(setUpCode(class.code, err), class.detail), true
@@ -322,7 +328,8 @@ func forgeFaults() []faultClass {
 
 // messagingFaults are the messaging service's failures, told the same whichever
 // service it is. None forwards the error's own text: a client's error can name
-// the webhook, whose address is its credential.
+// the webhook, whose address is its credential. A message refused for its
+// channel is faultProblem's, which tells its reason.
 func messagingFaults() []faultClass {
 	return []faultClass{
 		{
@@ -343,11 +350,6 @@ func messagingFaults() []faultClass {
 			code:   api.Unprocessable,
 			detail: "the messaging service refused the post; " +
 				"check the token, or that the webhook URL is current, in Settings",
-		},
-		{
-			causes: []error{messaging.ErrPostRefused},
-			code:   api.Unprocessable,
-			detail: "the messaging service refused the message; post from a terminal to see its reason",
 		},
 		{
 			causes: []error{messaging.ErrUnexpectedStatus},
