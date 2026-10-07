@@ -5,6 +5,7 @@ package webserver_test
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -22,7 +23,9 @@ func TestServeStopsWhenTheContextIsCanceled(t *testing.T) {
 	handler := serve(t, webserver.Deps{}, config.Default())
 	done := make(chan error, 1)
 
-	go func() { done <- webserver.Serve(ctx, "127.0.0.1:0", handler) }()
+	listener := listen(t)
+
+	go func() { done <- webserver.Serve(ctx, listener, handler) }()
 
 	// Act
 	cancel()
@@ -38,21 +41,36 @@ func TestServeStopsWhenTheContextIsCanceled(t *testing.T) {
 	}
 }
 
-func TestServeReportsAListenFailure(t *testing.T) {
+func TestServeReportsAListenerThatCannotAccept(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	handler := serve(t, webserver.Deps{}, config.Default())
+	listener := listen(t)
+	_ = listener.Close()
 
 	// Act
-	// A port that is not a number cannot be listened on, so Serve reports the
-	// failure rather than a clean shutdown.
-	err := webserver.Serve(context.Background(), "127.0.0.1:not-a-port", handler)
+	err := webserver.Serve(context.Background(), listener, handler)
 
 	// Assert
 	if err == nil {
-		t.Error("Serve returned nil, want the listen failure")
+		t.Error("Serve returned nil, want the closed listener's failure")
 	}
+}
+
+// listen is a loopback listener on a port the system chooses, closed with the
+// test.
+func listen(t *testing.T) net.Listener {
+	t.Helper()
+
+	listener, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listening on loopback: %v", err)
+	}
+
+	t.Cleanup(func() { _ = listener.Close() })
+
+	return listener
 }
 
 func TestABadQueryParameterIsRejected(t *testing.T) {

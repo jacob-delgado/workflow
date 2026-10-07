@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strings"
 
@@ -21,10 +22,12 @@ import (
 )
 
 // WebServerAt is the web server, built over the seams and served on addr until
-// the context is canceled. Production serves only a webserver.LoopbackAddr,
-// through NewRootCmd; a test hands it a port of its own. The handler reads the
-// configuration file cfg came from once more, so it starts from an edit made
-// since, with that edit's revision. Building it fails when the embedded spec
+// the context is canceled. It says where it serves only once it holds the
+// port, naming the port it bound, so a port another program holds is a
+// failure rather than a claim, and port 0 names the port the system chose.
+// Production serves only a webserver.LoopbackAddr, through NewRootCmd; a test
+// hands it port 0. The handler reads the configuration file cfg came from once
+// more, so it starts from an edit made since, with that edit's revision. Building it fails when the embedded spec
 // cannot load, a build defect, or when that file cannot be read again. Each
 // failure the server answers as internal goes to notes, a line each, its
 // cause's own lines joined by "; " and every credential cfg holds masked.
@@ -48,9 +51,14 @@ func WebServerAt(addr string) RunWeb {
 			return fmt.Errorf("building the web server: %w", err)
 		}
 
-		fmt.Fprintf(notes, "workflow web: serving http://%s — press Ctrl+C to stop\n", addr)
+		listener, err := new(net.ListenConfig).Listen(ctx, "tcp", addr)
+		if err != nil {
+			return fmt.Errorf("serving the web API: %w", err)
+		}
 
-		return webserver.Serve(ctx, addr, handler)
+		fmt.Fprintf(notes, "workflow web: serving http://%s — press Ctrl+C to stop\n", listener.Addr())
+
+		return webserver.Serve(ctx, listener, handler)
 	}
 }
 
