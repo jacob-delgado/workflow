@@ -36,9 +36,9 @@ func (s *server) GetSlackMembers(
 
 	directory, err := directoryAnswer(members, err)
 	if err != nil {
-		prob, code := s.peopleFault(err)
+		prob := s.peopleFault(err)
 
-		return api.GetSlackMembersdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+		return api.GetSlackMembersdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
 	}
 
 	return api.GetSlackMembers200JSONResponse(directory), nil
@@ -53,9 +53,9 @@ func (s *server) GetSlackGroups(
 
 	directory, err := directoryAnswer(groups, err)
 	if err != nil {
-		prob, code := s.peopleFault(err)
+		prob := s.peopleFault(err)
 
-		return api.GetSlackGroupsdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+		return api.GetSlackGroupsdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
 	}
 
 	return api.GetSlackGroups200JSONResponse(directory), nil
@@ -66,9 +66,9 @@ func (s *server) GetSlackGroups(
 func (s *server) GetPeople(_ context.Context, _ api.GetPeopleRequestObject) (api.GetPeopleResponseObject, error) {
 	people, err := s.people()
 	if err != nil {
-		prob, code := s.peopleFault(err)
+		prob := s.peopleFault(err)
 
-		return api.GetPeopledefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+		return api.GetPeopledefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
 	}
 
 	return api.GetPeople200JSONResponse(people), nil
@@ -89,9 +89,9 @@ func (s *server) LinkPerson(
 		}
 	}
 
-	prob, code := s.peopleFault(err)
+	prob := s.peopleFault(err)
 
-	return api.LinkPersondefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+	return api.LinkPersondefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
 }
 
 // ForgetPerson drops what was decided for an owner, so they are asked again.
@@ -114,9 +114,9 @@ func (s *server) ForgetPerson(
 		}
 	}
 
-	prob, code := s.peopleFault(err)
+	prob := s.peopleFault(err)
 
-	return api.ForgetPersondefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+	return api.ForgetPersondefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
 }
 
 // GetRepoGroups lists the user groups this repository's announcements may
@@ -126,9 +126,9 @@ func (s *server) GetRepoGroups(
 ) (api.GetRepoGroupsResponseObject, error) {
 	groups, err := s.repoGroups()
 	if err != nil {
-		prob, code := s.peopleFault(err)
+		prob := s.peopleFault(err)
 
-		return api.GetRepoGroupsdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+		return api.GetRepoGroupsdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
 	}
 
 	return api.GetRepoGroups200JSONResponse(groups), nil
@@ -149,9 +149,9 @@ func (s *server) SetRepoGroups(
 		}
 	}
 
-	prob, code := s.peopleFault(err)
+	prob := s.peopleFault(err)
 
-	return api.SetRepoGroupsdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+	return api.SetRepoGroupsdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
 }
 
 // people is every decided owner, then the branch's undecided ones, users
@@ -507,40 +507,36 @@ func missingScope(err error) (string, bool) {
 // peopleFault is the problem a People and groups request is refused with:
 // what the request or the server's setup cannot carry out is unprocessable,
 // and anything else is classified by fault.
-func (s *server) peopleFault(err error) (api.Problem, int) {
+func (s *server) peopleFault(err error) api.Problem {
 	if errors.Is(err, loop.ErrUnknownWorkspace) {
-		prob := problem(api.ProblemCodeUnprocessable, workspaceRefusal(err))
-
-		return prob, prob.Status
+		return problem(api.ProblemCodeUnprocessable, workspaceRefusal(err))
 	}
 
 	if scope, missing := missingScope(err); missing {
-		prob := problem(api.ProblemCodeUnprocessable, "the Slack token lacks the "+scope+
+		return problem(api.ProblemCodeUnprocessable, "the Slack token lacks the "+scope+
 			" scope; add it to the Slack app, then sign in again with workflow slack login")
-
-		return prob, prob.Status
-	}
-
-	for _, refusal := range peopleRefusals() {
-		if errors.Is(err, refusal) {
-			prob := problem(api.ProblemCodeUnprocessable, refusal.Error())
-
-			return prob, prob.Status
-		}
 	}
 
 	return s.fault(err)
 }
 
-// peopleRefusals are the failures People and groups answers in their own
+// peopleFaults are the failures People and groups answers in their own
 // words: its own refusals, the kept store's and Slack's directory's, none of
 // which names a host or a path.
-func peopleRefusals() []error {
-	return []error{
+func peopleFaults() []faultClass {
+	refusals := []error{
 		errNoSlackDirectory, errNoPeopleStore, errOneOrTheOther, errWrongKind, errNotInDirectory,
-		store.ErrKeptSchemaDiffers, store.ErrInvalidOwner, store.ErrInvalidSlackID,
+		store.ErrInvalidOwner, store.ErrInvalidSlackID,
 		messaging.ErrChannelNotFound, messaging.ErrLookupRefused, messaging.ErrDirectoryTooLarge,
 	}
+
+	classes := make([]faultClass, 0, len(refusals))
+	for _, refusal := range refusals {
+		classes = append(classes,
+			faultClass{causes: []error{refusal}, code: api.ProblemCodeUnprocessable, detail: refusal.Error()})
+	}
+
+	return classes
 }
 
 // ownerTagsDTO maps code owners as an announcement tags them onto the wire.

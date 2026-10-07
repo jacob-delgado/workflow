@@ -48,9 +48,9 @@ func (s *server) Checkout(
 		return unprocessable("git would not switch to " + request.Body.Branch +
 			"; switch from a terminal to see git's reason"), nil
 	default:
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.CheckoutdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.CheckoutdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 }
 

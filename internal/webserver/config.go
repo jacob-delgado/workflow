@@ -33,17 +33,17 @@ func (s *server) GetConfig(_ context.Context, _ api.GetConfigRequestObject) (api
 	}
 
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.GetConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.GetConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	// Trade-off TRADE-13: configDTO does not fail; see there.
 	out, err := configDTO(cfg)
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.GetConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.GetConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.GetConfig200JSONResponse{Body: out, Headers: api.GetConfig200ResponseHeaders{ETag: read.etag()}}, nil
@@ -178,17 +178,17 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 	}
 
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
 	}
 
 	// Trade-off TRADE-13: configDTO does not fail; see there.
 	out, err := configDTO(saved)
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
 	}
 
 	return api.UpdateConfig200JSONResponse{

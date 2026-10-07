@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -23,9 +22,9 @@ var errStartDeclined = errors.New("taskwarrior declined to start the task")
 
 // StartTask starts the task the path names.
 func (s *server) StartTask(_ context.Context, request api.StartTaskRequestObject) (api.StartTaskResponseObject, error) {
-	list, prob, code := s.taskWrite(request.UUID, declinedAsStart(s.deps.Tasks.Start))
+	list, prob := s.taskWrite(request.UUID, declinedAsStart(s.deps.Tasks.Start))
 	if prob != nil {
-		return api.StartTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: code}, nil
+		return api.StartTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
 	}
 
 	return api.StartTask200JSONResponse(list), nil
@@ -50,9 +49,9 @@ func declinedAsStart(start func(uuid string) error) func(uuid string) error {
 
 // StopTask stops the task the path names.
 func (s *server) StopTask(_ context.Context, request api.StopTaskRequestObject) (api.StopTaskResponseObject, error) {
-	list, prob, code := s.taskWrite(request.UUID, s.deps.Tasks.Stop)
+	list, prob := s.taskWrite(request.UUID, s.deps.Tasks.Stop)
 	if prob != nil {
-		return api.StopTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: code}, nil
+		return api.StopTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
 	}
 
 	return api.StopTask200JSONResponse(list), nil
@@ -62,9 +61,9 @@ func (s *server) StopTask(_ context.Context, request api.StopTaskRequestObject) 
 func (s *server) CompleteTask(
 	_ context.Context, request api.CompleteTaskRequestObject,
 ) (api.CompleteTaskResponseObject, error) {
-	list, prob, code := s.taskWrite(request.UUID, s.deps.Tasks.Done)
+	list, prob := s.taskWrite(request.UUID, s.deps.Tasks.Done)
 	if prob != nil {
-		return api.CompleteTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: code}, nil
+		return api.CompleteTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
 	}
 
 	return api.CompleteTask200JSONResponse(list), nil
@@ -80,9 +79,9 @@ func (s *server) AnnotateTask(
 			problem(api.ProblemCodeUnprocessable, "text is required")), nil
 	}
 
-	list, prob, code := s.taskWrite(request.UUID, withText(s.deps.Tasks.Annotate, request.Body.Text))
+	list, prob := s.taskWrite(request.UUID, withText(s.deps.Tasks.Annotate, request.Body.Text))
 	if prob != nil {
-		return api.AnnotateTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: code}, nil
+		return api.AnnotateTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
 	}
 
 	return api.AnnotateTask200JSONResponse(list), nil
@@ -97,9 +96,9 @@ func (s *server) ModifyTask(
 		return api.ModifyTask422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, lineRequired)), nil
 	}
 
-	list, prob, code := s.taskWrite(request.UUID, withText(s.deps.Tasks.Modify, request.Body.Line))
+	list, prob := s.taskWrite(request.UUID, withText(s.deps.Tasks.Modify, request.Body.Line))
 	if prob != nil {
-		return api.ModifyTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: code}, nil
+		return api.ModifyTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
 	}
 
 	return api.ModifyTask200JSONResponse(list), nil
@@ -111,18 +110,18 @@ const lineRequired = "a line is required"
 // taskWrite makes act's write on the task uuid names — act is nil when there is
 // no Taskwarrior to make it — and answers the list after it, or the problem
 // either met.
-func (s *server) taskWrite(uuid string, act func(uuid string) error) (api.TaskList, *api.Problem, int) {
+func (s *server) taskWrite(uuid string, act func(uuid string) error) (api.TaskList, *api.Problem) {
 	if act == nil {
 		prob := problem(api.ProblemCodeUnprocessable, notAvailable)
 
-		return api.TaskList{}, &prob, prob.Status
+		return api.TaskList{}, &prob
 	}
 
 	err := act(uuid)
 	if err != nil {
-		prob, code := s.taskFault(err)
+		prob := s.taskFault(err)
 
-		return api.TaskList{}, &prob, code
+		return api.TaskList{}, &prob
 	}
 
 	return s.taskListAfter(taskChange{})
@@ -131,19 +130,19 @@ func (s *server) taskWrite(uuid string, act func(uuid string) error) (api.TaskLi
 // taskListAfter is the list a write answers once it has landed, with what the
 // write said and the task it added, or the problem of the read that could not
 // make it.
-func (s *server) taskListAfter(change taskChange) (api.TaskList, *api.Problem, int) {
+func (s *server) taskListAfter(change taskChange) (api.TaskList, *api.Problem) {
 	list, err := s.readTaskList(change.said)
 	if err != nil {
-		prob, code := s.taskFault(err)
+		prob := s.taskFault(err)
 
-		return api.TaskList{}, &prob, code
+		return api.TaskList{}, &prob
 	}
 
 	if change.added != "" {
 		list.Added = &change.added
 	}
 
-	return list, nil, http.StatusOK
+	return list, nil
 }
 
 // withText is write with text bound, a write on a task by its uuid alone; nil

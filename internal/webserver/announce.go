@@ -29,9 +29,9 @@ func (s *server) GetAnnouncement(
 	}
 
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.GetAnnouncementdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.GetAnnouncementdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	channel := orZero(request.Params.Channel)
@@ -229,9 +229,9 @@ func announcementDTO(text, channel string) api.Announcement {
 // announceFault answers an announcement that failed, in reading what it
 // announces or in posting it, through fault.
 func (s *server) announceFault(err error) api.AnnounceResponseObject {
-	body, code := s.fault(err)
+	body := s.fault(err)
 
-	return api.AnnouncedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+	return api.AnnouncedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
 }
 
 // announceUnprocessable is the 422 response for an announcement the server will
