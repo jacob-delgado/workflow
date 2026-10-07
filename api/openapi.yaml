@@ -4858,7 +4858,7 @@ components:
     KeyAction:
       type: object
       description: One action the terminal interface binds, as its help lists it.
-      required: [action, help, group, shown, keys]
+      required: [action, help, group, shown, keys, default]
       properties:
         action:
           type: string
@@ -4876,6 +4876,9 @@ components:
           type: array
           items: {type: string}
           description: Every key that triggers it, in the terminal's names, e.g. c, C, ctrl+e.
+        default:
+          type: string
+          description: The key the help shows for it with no ui.keys entry, e.g. c.
       additionalProperties: false
 
     TimingConfig:

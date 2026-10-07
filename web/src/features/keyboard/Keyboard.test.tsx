@@ -16,7 +16,7 @@ import { vi } from 'vitest'
 
 // action is one action as the server lists it, on the keys given.
 function action(name: string, help: string, group: string, ...keys: string[]): KeyAction {
-  return { action: name, help, group, shown: keys[0] ?? '', keys }
+  return { action: name, help, group, shown: keys[0] ?? '', keys, default: keys[0] ?? '' }
 }
 
 const panes = ['1', '2', '3', '4', '5', '6', '7', '8', '9']

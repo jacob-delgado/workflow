@@ -1758,6 +1758,10 @@ export type KeyAction = {
      * Every key that triggers it, in the terminal's names, e.g. c, C, ctrl+e.
      */
     keys: Array<string>;
+    /**
+     * The key the help shows for it with no ui.keys entry, e.g. c.
+     */
+    default: string;
 };
 
 export type TimingConfig = {

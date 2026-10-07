@@ -997,7 +997,8 @@ export const zKeyAction = z.object({
     help: z.string(),
     group: z.string(),
     shown: z.string(),
-    keys: z.array(z.string())
+    keys: z.array(z.string()),
+    default: z.string()
 });
 
 export const zKeyList = z.object({

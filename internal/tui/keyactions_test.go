@@ -60,6 +60,18 @@ func TestKeyActionsAppliesAKeyOverride(t *testing.T) {
 	}
 }
 
+func TestKeyActionsNamesTheDefaultKeyAnOverrideMoved(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	listed := tui.KeyActions("pull request", "Slack", map[string]string{commentAction: "C"})
+
+	// Assert
+	if got := actionNamed(t, listed, commentAction); got.Default != "c" {
+		t.Errorf("comment's default = %q, want c, the key it has with no override", got.Default)
+	}
+}
+
 func TestKeyActionsNamesTheGroupsForTheForgeAndTheService(t *testing.T) {
 	t.Parallel()
 
