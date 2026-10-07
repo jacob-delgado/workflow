@@ -460,12 +460,12 @@ const readHeaderTimeout = 10 * time.Second
 // context is canceled before the listener is closed.
 const shutdownGrace = 5 * time.Second
 
-// Serve runs handler at addr until ctx is canceled, then drains in-flight
+// Serve runs handler on listener until ctx is canceled, then drains in-flight
 // requests within shutdownGrace and returns. A clean shutdown is not an error.
-// Production passes a LoopbackAddr; a test passes a loopback address with port 0.
-func Serve(ctx context.Context, addr string, handler http.Handler) error {
+// The caller binds the listener, so it can say where the server is only once
+// the port is truly its own.
+func Serve(ctx context.Context, listener net.Listener, handler http.Handler) error {
 	srv := &http.Server{
-		Addr:              addr,
 		Handler:           handler,
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
@@ -483,7 +483,7 @@ func Serve(ctx context.Context, addr string, handler http.Handler) error {
 	})
 	defer stop()
 
-	err := srv.ListenAndServe()
+	err := srv.Serve(listener)
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
