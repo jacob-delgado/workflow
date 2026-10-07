@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -103,7 +104,7 @@ func TestSwitchingTaskRefusesADirtyTree(t *testing.T) {
 	// Arrange
 	repo := newWorld() // the default world has an uncommitted change
 	repo.branches = []string{featureName, otherTaskBranch}
-	model := repo.live(t, 120, 40)
+	model := repo.live(t, 160, 40)
 
 	// Act
 	view := typing(t, model, "2", "s", keyEnter).View().Content
@@ -113,7 +114,7 @@ func TestSwitchingTaskRefusesADirtyTree(t *testing.T) {
 		t.Errorf("checkout calls = %v, want none on a dirty tree", got)
 	}
 
-	requireScreen(t, view, "commit or stash")
+	requireScreen(t, view, loop.ErrDirtyTree.Error())
 }
 
 func TestSwitchingTaskReadsTheTreeWhenChosen(t *testing.T) {

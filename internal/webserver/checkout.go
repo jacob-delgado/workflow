@@ -13,11 +13,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// errDirtyTree is the web's words for loop.ErrDirtyTree: a checkout refused for
-// the uncommitted work it would carry onto another branch, by the same guard the
-// terminal interface's task switcher applies.
-var errDirtyTree = errors.New("the working tree has uncommitted changes; commit or stash them before switching")
-
 // errSwitchRefused is git declining the switch. Its own words stay off the
 // wire: in a partial clone a switch fetches the files the branch needs, and a
 // fetch that fails names the remote.
@@ -47,7 +42,7 @@ func (s *server) Checkout(
 	case err == nil:
 		return api.Checkout200JSONResponse(branchDTO(branch)), nil
 	case errors.Is(err, loop.ErrDirtyTree):
-		return api.Checkout409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errDirtyTree.Error())), nil
+		return api.Checkout409ApplicationProblemPlusJSONResponse(problem(api.Conflict, loop.ErrDirtyTree.Error())), nil
 	case errors.Is(err, errSwitchRefused):
 		return unprocessable("git would not switch to " + request.Body.Branch +
 			"; switch from a terminal to see git's reason"), nil

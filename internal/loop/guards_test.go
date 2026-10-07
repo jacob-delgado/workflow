@@ -54,6 +54,19 @@ func TestRefuseDirtyNamesTheGuard(t *testing.T) {
 	}
 }
 
+func TestRefuseDirtySaysWhatToDoAboutTheTree(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	err := loop.RefuseDirty([]gitrepo.Change{unstagedEdit()})
+
+	// Assert
+	const want = "the working tree has uncommitted changes; commit or stash them before switching"
+	if err == nil || err.Error() != want {
+		t.Errorf("RefuseDirty = %v, want %q", err, want)
+	}
+}
+
 func TestRefuseNothingStagedNamesTheGuard(t *testing.T) {
 	t.Parallel()
 

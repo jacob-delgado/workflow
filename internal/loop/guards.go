@@ -13,15 +13,15 @@ import (
 
 var (
 	// ErrDirtyTree refuses switching branches with uncommitted work in the tree,
-	// which the switch would carry onto the other branch.
-	ErrDirtyTree = errors.New("the working tree has uncommitted changes")
+	// which the switch would carry onto the other branch. Stashing is left to the
+	// person, so the one sentence every surface tells says what to do.
+	ErrDirtyTree = errors.New("the working tree has uncommitted changes; commit or stash them before switching")
 	// ErrNothingStaged refuses a commit with nothing in the index.
 	ErrNothingStaged = errors.New("nothing is staged to commit")
 )
 
 // RefuseDirty refuses a working tree that holds any change — staged, unstaged
-// or untracked — before a switch moves it onto another branch. Stashing is left
-// to the person, so a surface's refusal says what to do rather than doing it.
+// or untracked — before a switch moves it onto another branch.
 func RefuseDirty(changes []gitrepo.Change) error {
 	if len(changes) > 0 {
 		return ErrDirtyTree
