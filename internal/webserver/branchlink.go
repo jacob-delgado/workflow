@@ -44,9 +44,9 @@ func (s *server) LinkBranchIssue(
 	}
 
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.LinkBranchIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.LinkBranchIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.LinkBranchIssue200JSONResponse(branchDTO(s.branchAfter(branch))), nil
@@ -71,9 +71,9 @@ func (s *server) UnlinkBranchIssue(
 	}
 
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.UnlinkBranchIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.UnlinkBranchIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.UnlinkBranchIssue200JSONResponse(branchDTO(s.branchAfter(branch))), nil
@@ -94,9 +94,9 @@ func (s *server) PreviewBranchIssue(
 
 	pull, open, err := s.openPull()
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.PreviewBranchIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.PreviewBranchIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	if open {

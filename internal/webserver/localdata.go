@@ -30,9 +30,9 @@ func (s *server) GetLocalData(
 ) (api.GetLocalDataResponseObject, error) {
 	data, err := s.localData(ctx)
 	if err != nil {
-		prob, code := s.localDataFault(err)
+		prob := s.fault(err)
 
-		return api.GetLocalDatadefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+		return api.GetLocalDatadefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
 	}
 
 	return api.GetLocalData200JSONResponse(data), nil
@@ -63,9 +63,9 @@ func (s *server) RemoveLocalData(
 		}
 	}
 
-	prob, code := s.localDataFault(err)
+	prob := s.fault(err)
 
-	return api.RemoveLocalDatadefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+	return api.RemoveLocalDatadefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
 }
 
 // localData reads the store's directory and files into the answer's shape.
@@ -105,20 +105,15 @@ func localDataFileDTO(file store.DataFile) api.LocalDataFile {
 	}
 }
 
-// localDataFault is the problem a failed list or removal is answered with: a
-// file held open is a conflict with the state on disk; no store, no directory
-// or something not the store's own in a file's place cannot be carried out.
-func (s *server) localDataFault(err error) (api.Problem, int) {
-	for cause, prob := range map[error]api.Problem{
-		errNoLocalData:        problem(api.ProblemCodeUnprocessable, errNoLocalData.Error()),
-		store.ErrNoDir:        problem(api.ProblemCodeUnprocessable, noStoreDirDetail),
-		store.ErrCleanRefused: problem(api.ProblemCodeUnprocessable, notStoreFileDetail),
-		store.ErrNotCleaned:   problem(api.ProblemCodeConflict, heldOpenDetail),
-	} {
-		if errors.Is(err, cause) {
-			return prob, prob.Status
-		}
+// localDataFaults are the failures of a list or a removal of the local data:
+// a file held open is a conflict with the state on disk; no store, no
+// directory or something not the store's own in a file's place cannot be
+// carried out.
+func localDataFaults() []faultClass {
+	return []faultClass{
+		{causes: []error{errNoLocalData}, code: api.ProblemCodeUnprocessable, detail: errNoLocalData.Error()},
+		{causes: []error{store.ErrNoDir}, code: api.ProblemCodeUnprocessable, detail: noStoreDirDetail},
+		{causes: []error{store.ErrCleanRefused}, code: api.ProblemCodeUnprocessable, detail: notStoreFileDetail},
+		{causes: []error{store.ErrNotCleaned}, code: api.ProblemCodeConflict, detail: heldOpenDetail},
 	}
-
-	return s.fault(err)
 }

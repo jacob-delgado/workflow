@@ -50,9 +50,9 @@ func (s *server) LinkPullRequest(
 
 	err = s.deps.LinkPullRequest(issueKey, pull.URL, pull.Title)
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.LinkPullRequest200JSONResponse(pullDTO(pull)), nil
@@ -94,9 +94,9 @@ func (s *server) linkRefusal(err error, issueKey jira.Key) api.LinkPullRequestRe
 		return api.LinkPullRequest409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"the checked-out branch has no "+s.noun()+" to link on "+string(issueKey)))
 	default:
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+		return api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
 	}
 }
 
@@ -122,9 +122,9 @@ func (s *server) TransitionIssue(
 
 	err = s.deps.Transition(issueKey, move, nil)
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.TransitionIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.TransitionIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.TransitionIssue200JSONResponse{Key: request.Key, Status: move.ToStatus}, nil
@@ -146,9 +146,9 @@ func (s *server) transitionRefusal(err error, issueKey jira.Key, status string) 
 		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"Jira offers no move of "+string(issueKey)+" to "+status+" from where it stands"))
 	default:
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.TransitionIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+		return api.TransitionIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
 	}
 }
 
@@ -184,9 +184,9 @@ func (s *server) commentFailure(err error) api.AddCommentResponseObject {
 		return commentRefusal(err.Error())
 	}
 
-	body, code := s.fault(err)
+	body := s.fault(err)
 
-	return api.AddCommentdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+	return api.AddCommentdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
 }
 
 // commentRefusal is a comment that was not posted, and why.
@@ -247,9 +247,9 @@ func (s *server) ListStatusChanges(
 
 	moves, err := s.deps.Transitions(jira.Key(request.Key))
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.ListStatusChangesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.ListStatusChangesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.ListStatusChanges200JSONResponse(statusChangesDTO(moves)), nil
@@ -275,9 +275,9 @@ func (s *server) ChangeStatus(
 
 	err = s.deps.Transition(issueKey, move, values)
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.ChangeStatusdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.ChangeStatusdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.ChangeStatus200JSONResponse{Key: request.Key, Status: move.ToStatus}, nil
@@ -367,9 +367,9 @@ func (s *server) statusChangeRefusal(err error, issueKey jira.Key) api.ChangeSta
 	case isFieldRefusal(err):
 		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, err.Error()))
 	default:
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.ChangeStatusdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+		return api.ChangeStatusdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
 	}
 }
 
@@ -397,9 +397,9 @@ func (s *server) AssignIssue(
 
 	err := s.deps.Assign(jira.Key(request.Key), assignee)
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.AssignIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.AssignIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.AssignIssue200JSONResponse{Key: request.Key, Assignee: assignee}, nil
@@ -428,9 +428,9 @@ func (s *server) LogWork(_ context.Context, request api.LogWorkRequestObject) (a
 
 	logged, err := s.deps.AddWorklog(issueKey, spent, strings.TrimSpace(orZero(request.Body.Comment)))
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.LogWorkdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.LogWorkdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.LogWork200JSONResponse{Key: request.Key, TimeSpent: cmp.Or(logged.TimeSpent, spent)}, nil
