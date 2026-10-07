@@ -37,17 +37,17 @@ func added(row int, name, value string) []string {
 	return append(append(keys, letters(value)...), keyEnter, saveKey)
 }
 
-// keyRow is the row of action in the key table.
-func keyRow(t *testing.T, action string) int {
+// commentKeyRow is the row of comment in the key table.
+func commentKeyRow(t *testing.T) int {
 	t.Helper()
 
 	listed := slices.DeleteFunc(tui.KeyActions("pull request", "Slack", nil), func(listed seams.KeyAction) bool {
 		return listed.Action == "jump-to-pane"
 	})
 
-	at := slices.IndexFunc(listed, func(listed seams.KeyAction) bool { return listed.Action == action })
+	at := slices.IndexFunc(listed, func(listed seams.KeyAction) bool { return listed.Action == commentAction })
 	if at < 0 {
-		t.Fatalf("no action %q in the key table", action)
+		t.Fatalf("no comment in the key table")
 	}
 
 	return keysRow + at
@@ -183,7 +183,7 @@ func TestAKeyMovedInSettingsIsSavedInUIKeys(t *testing.T) {
 	repo := newWorld()
 
 	// Act
-	typing(t, repo.live(t, 120, 40), editing(keyRow(t, "comment"), "C")...)
+	typing(t, repo.live(t, 120, 40), editing(commentKeyRow(t), "C")...)
 
 	// Assert
 	if got := repo.settings.UI.Keys; !maps.Equal(got, map[string]string{"comment": "C"}) {
@@ -198,7 +198,7 @@ func TestAKeyThatClashesIsRefusedInTheForm(t *testing.T) {
 	repo := newWorld()
 
 	// Act
-	view := typing(t, repo.live(t, 120, 40), editing(keyRow(t, "comment"), "t")...).View().Content
+	view := typing(t, repo.live(t, 120, 40), editing(commentKeyRow(t), "t")...).View().Content
 
 	// Assert
 	requireScreen(t, view, "would not start on this keymap")
@@ -221,4 +221,25 @@ func TestARefusedSaveNeverShowsATypedCredential(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "not valid")
 	refuseScreen(t, view, typedSecret, settingsToken)
+}
+
+func TestAKeymapRefusalSaysWhichActionsClash(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 80, 24), editing(commentKeyRow(t), "t")...).View().Content
+
+	// Assert
+	requireScreen(t, view, "change-status and comment both bind")
+}
+
+func TestKeysLeftOnTheirDefaultsAreNeitherEditedNorRemovable(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), toRow(commentKeyRow(t))...).View().Content
+
+	// Assert
+	refuseScreen(t, view, "(edited)")
+	refuseScreen(t, footerLine(view), "D remove")
 }

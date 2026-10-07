@@ -229,6 +229,7 @@ func (f settingsForm) named(field setting, typed string) settingsForm {
 		f.problem = errEntryTaken
 	default:
 		f.adding, f.input = name, field.list.input("")
+		f.input.Prompt = sanitize.Line(name) + " > "
 	}
 
 	return f
@@ -290,10 +291,19 @@ func (f settingsForm) isEdited(field setting) bool {
 		return edited
 	}
 
-	value := f.entryValue(field)
-	read := field.list.entries(valueAt(f.values, field.path))
+	return f.entryState(field, f.value(field.path)) != f.entryState(field, valueAt(f.values, field.path))
+}
 
-	return !slices.Contains(read, entry{name: field.entry, value: value})
+// entryState is an entry as a value of its collection holds it: its value,
+// and whether it is there at all.
+func (f settingsForm) entryState(field setting, value any) entry {
+	for _, each := range field.list.entries(value) {
+		if each.name == field.entry {
+			return each
+		}
+	}
+
+	return entry{}
 }
 
 // headerCollection is the Jira headers: names and credentials.

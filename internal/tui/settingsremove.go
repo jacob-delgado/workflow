@@ -58,11 +58,12 @@ func (f settingsForm) storedRemoval(field setting) (credentialRemoval, bool) {
 }
 
 // removable reports that the remove key acts on a row: an entry of a
-// collection, or a credential the read holds.
+// collection the form holds — a key only once it is moved — or a credential
+// the read holds.
 func (f settingsForm) removable(field setting) bool {
 	_, stored := f.storedRemoval(field)
 
-	return stored || field.kind == settingEntry
+	return stored || field.kind == settingEntry && f.entryState(field, f.value(field.path)) != entry{}
 }
 
 // remove answers the remove key: a credential the read holds is held for a
@@ -75,7 +76,7 @@ func (f settingsForm) remove(m Model) (Model, tea.Cmd) {
 	switch {
 	case stored:
 		m.overlay = f.askToRemove(m, removal)
-	case field.kind == settingEntry:
+	case f.removable(field):
 		m.overlay = f.removedEntry(field)
 	default:
 		m.overlay = f
