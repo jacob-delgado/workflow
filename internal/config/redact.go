@@ -15,6 +15,14 @@ import (
 // person can tell two tokens apart without the value being usable.
 const visibleSuffix = 4
 
+// shortestWithTail is the shortest secret whose tail is shown: four
+// characters of anything shorter give away too much of it, and a Jira header
+// value a gateway checks is often that short.
+const shortestWithTail = 16
+
+// mask is what stands in for a secret, or for all of one too short to show.
+const mask = "****"
+
 // maskedUserinfo stands in for a URL's userinfo wherever one is shown.
 const maskedUserinfo = "xxxxx"
 
@@ -85,17 +93,27 @@ func DisplayURL(raw string) string {
 	return RedactURL(raw)
 }
 
-// Redact masks a secret, keeping only enough of the tail to recognize it.
+// Redact masks a secret, keeping only enough of the tail to recognize it, and
+// none of one too short to spare it. A mask it gave is left as it is, since a
+// surface masks what it was handed again and sends a mask back as it was
+// shown, which KeepStored reads as the secret kept.
 func Redact(secret string) string {
-	if secret == "" {
-		return ""
+	switch {
+	case secret == "" || isMask(secret):
+		return secret
+	case len(secret) < shortestWithTail:
+		return mask
+	default:
+		return mask + secret[len(secret)-visibleSuffix:]
 	}
+}
 
-	if len(secret) <= visibleSuffix {
-		return "****"
-	}
+// isMask reports text that is what Redact shows for a secret: the mask, alone
+// or with a tail.
+func isMask(text string) bool {
+	tail, masked := strings.CutPrefix(text, mask)
 
-	return "****" + secret[len(secret)-visibleSuffix:]
+	return masked && (tail == "" || len(tail) == visibleSuffix)
 }
 
 // RedactText masks every credential c holds wherever text carries it, each as
