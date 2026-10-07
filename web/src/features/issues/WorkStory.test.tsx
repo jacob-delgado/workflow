@@ -71,7 +71,7 @@ test('lays out the in-flight stages for the issue that owns the branch', () => {
   // Assert
   expect(screen.getByText('Branch')).toBeTruthy()
   expect(screen.getByText('Pull request')).toBeTruthy()
-  expect(screen.getByText(/1 file\(s\) to commit/)).toBeTruthy()
+  expect(screen.getByText(/1 file to commit/)).toBeTruthy()
 })
 
 test("draws each stage as the mark of how far it has come, beside the stage's state", () => {

@@ -54,7 +54,7 @@ test('typing a filter narrows the list and says how many match', async () => {
   expect(rows()).toEqual([expect.stringMatching(/Renew the cert/)])
   // The count is of the tasks the list shows unnarrowed, so the waiting one is
   // not among them.
-  expect(screen.getByText('1 of 2 tasks match, most urgent first.')).toBeTruthy()
+  expect(screen.getByText('1 of 2 tasks matches, most urgent first.')).toBeTruthy()
 })
 
 test('a narrow chip narrows the list to the value it names', async () => {

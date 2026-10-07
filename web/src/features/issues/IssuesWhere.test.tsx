@@ -100,7 +100,7 @@ test('pressing a status narrows the list to it', async () => {
   expect(listedKeys()).toEqual(['PROJ-502'])
   expect(where(/^Fixing/).getAttribute('aria-pressed')).toBe('true')
   expect(screen.getAllByRole('status').map((region) => region.textContent)).toContain(
-    '1 of 3 loaded issues match.',
+    '1 of 3 loaded issues matches.',
   )
 })
 

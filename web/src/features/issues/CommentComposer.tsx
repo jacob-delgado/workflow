@@ -9,7 +9,7 @@ import { FieldFrame } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { cn } from '@/lib/utils.ts'
+import { cn, plural } from '@/lib/utils.ts'
 import { usePostComment } from './commentApi.ts'
 import { shownKey } from './issuePlaces.ts'
 import { applyFormat, type Edit, type Format } from './wiki/markdownFormat.ts'
@@ -404,7 +404,7 @@ function ComposerFooter({ ids, hint, quickActions, length, busy, onSend }: Compo
           <span id={ids.quick}>A line starting with / runs as a GitLab quick action.</span>
         ) : null}
         <span id={ids.count} className="tabular-nums">
-          {length === 1 ? '1 character' : `${String(length)} characters`}
+          {plural(length, 'character')}
         </span>
       </p>
       <Button variant="primary" aria-disabled={busy} onClick={onSend}>
