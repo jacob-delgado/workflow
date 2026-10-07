@@ -1098,7 +1098,7 @@ type CommitRequest struct {
 	Type string `json:"type"`
 }
 
-// Config The whole configuration file. On a read, the six secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
+// Config The whole configuration file. On a read, the six secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value, and null removes it.
 type Config struct {
 	Branch      BranchConfig      `json:"branch"`
 	Commit      CommitConfig      `json:"commit"`
@@ -1260,8 +1260,8 @@ type ForgeConfig struct {
 	// Kind Empty for auto-detect, else github or gitlab.
 	Kind *ForgeConfigKind `json:"kind,omitempty"`
 
-	// Token Masked on read; empty or masked on write keeps the stored value.
-	Token *string `json:"token,omitempty"`
+	// Token Masked on read, or empty when none is stored; on write, empty or masked keeps the stored value and null removes it.
+	Token *string `json:"token"`
 }
 
 // ForgeConfigKind Empty for auto-detect, else github or gitlab.
@@ -1398,7 +1398,7 @@ type IssuesPage struct {
 type JiraConfig struct {
 	BaseURL *string `json:"base_url,omitempty"`
 
-	// Headers Extra request headers; values masked on read.
+	// Headers Extra request headers; values masked on read. On write, a value empty or masked keeps the stored one, and a header left out is removed.
 	Headers *map[string]string `json:"headers,omitempty"`
 
 	// MarkdownComments Post comments written in Markdown as Jira's wiki markup.
@@ -1408,8 +1408,8 @@ type JiraConfig struct {
 	// ReviewStatus The status an issue moves to once its pull request is open, e.g. "In Review". Empty makes no offer.
 	ReviewStatus *string `json:"review_status,omitempty"`
 
-	// Token Masked on read; empty or masked on write keeps the stored value.
-	Token        *string     `json:"token,omitempty"`
+	// Token Masked on read, or empty when none is stored; on write, empty or masked keeps the stored value and null removes it.
+	Token        *string     `json:"token"`
 	TokenCommand *string     `json:"token_command,omitempty"`
 	TokenEnv     *string     `json:"token_env,omitempty"`
 	User         *string     `json:"user,omitempty"`
@@ -1542,7 +1542,7 @@ type MergeRequest struct {
 
 // MessagingConfig defines model for MessagingConfig.
 type MessagingConfig struct {
-	// AccessToken The user token's current access token (xoxe.xoxp-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value.
+	// AccessToken The user token's current access token (xoxe.xoxp-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value. It goes when the client secret or the refresh token is removed.
 	AccessToken  *string   `json:"access_token,omitempty"`
 	Announcement *string   `json:"announcement,omitempty"`
 	Channel      *string   `json:"channel,omitempty"`
@@ -1551,8 +1551,8 @@ type MessagingConfig struct {
 	// ClientID The Slack app's client ID, which its rotating user token is refreshed with. Slack only; set together with webhook_url it is refused. Not a secret.
 	ClientID *string `json:"client_id,omitempty"`
 
-	// ClientSecret The Slack app's client secret, when this file keeps the user token's credentials rather than the macOS keychain. Masked on read; empty or masked on write keeps the stored value.
-	ClientSecret *string `json:"client_secret,omitempty"`
+	// ClientSecret The Slack app's client secret, when this file keeps the user token's credentials rather than the macOS keychain. Masked on read, or empty when none is stored; on write, empty or masked keeps the stored value, and null removes it with the access token.
+	ClientSecret *string `json:"client_secret"`
 
 	// ExpiresAt When the access token expires, RFC 3339 UTC; written by workflow.
 	ExpiresAt *string `json:"expires_at,omitempty"`
@@ -1560,11 +1560,11 @@ type MessagingConfig struct {
 	// Kind The service posts go to. Empty is read as slack. It decides the message body and link markup the notifier sends.
 	Kind *MessagingConfigKind `json:"kind,omitempty"`
 
-	// RefreshToken The user token's current refresh token (xoxe-1-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value.
-	RefreshToken *string `json:"refresh_token,omitempty"`
+	// RefreshToken The user token's current refresh token (xoxe-1-…), when this file keeps it. workflow replaces it on every refresh. Masked on read, or empty when none is stored; on write, empty or masked keeps the stored value, and null removes it with the access token.
+	RefreshToken *string `json:"refresh_token"`
 
-	// WebhookURL A credential; masked on read, preserved on write like a token.
-	WebhookURL *string `json:"webhook_url,omitempty"`
+	// WebhookURL A credential: masked on read, or empty when none is stored; on write, empty or masked keeps the stored value and null removes it.
+	WebhookURL *string `json:"webhook_url"`
 }
 
 // MessagingConfigKind The service posts go to. Empty is read as slack. It decides the message body and link markup the notifier sends.

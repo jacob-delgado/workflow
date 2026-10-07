@@ -165,7 +165,7 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 			"the terminal interface would not start on this keymap: "+err.Error()))
 	}
 
-	saved, written, err := s.save(incoming, over)
+	saved, written, err := s.save(incoming, removedIn(posted), over)
 	if errors.Is(err, config.ErrChangedOnDisk) {
 		return api.UpdateConfig409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
 			"the configuration changed since Settings read it; reload Settings and apply your change again"))
@@ -250,7 +250,9 @@ func (s *server) GetKeys(_ context.Context, _ api.GetKeysRequestObject) (api.Get
 // the revision named, but not at the configuration read, and two reads that
 // found no file stand for different configurations when another file came and
 // went between them.
-func (s *server) save(incoming config.Config, over basis) (config.Config, config.Revision, error) {
+func (s *server) save(
+	incoming config.Config, removed []config.Credential, over basis,
+) (config.Config, config.Revision, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -260,7 +262,7 @@ func (s *server) save(incoming config.Config, over basis) (config.Config, config
 	}
 
 	saved, written, err := config.SaveEdit(config.Edit{
-		Files: s.files, Read: s.cfg, Over: over.file(), Edited: incoming,
+		Files: s.files, Read: s.cfg, Over: over.file(), Edited: incoming, Removed: removed,
 		PlaceSlackCredentials: s.placeSlackCredentials(),
 	})
 	if err != nil {
@@ -349,6 +351,26 @@ func configDTO(cfg config.Config) (api.Config, error) {
 	}
 
 	return out, nil
+}
+
+// removedIn are the credentials a posted configuration removes: each sent as
+// null.
+func removedIn(posted api.Config) []config.Credential {
+	var removed []config.Credential
+
+	for credential, value := range map[config.Credential]*string{
+		config.CredentialJiraToken:    posted.Jira.Token,
+		config.CredentialForgeToken:   posted.Forge.Token,
+		config.CredentialWebhookURL:   posted.Messaging.WebhookURL,
+		config.CredentialClientSecret: posted.Messaging.ClientSecret,
+		config.CredentialRefreshToken: posted.Messaging.RefreshToken,
+	} {
+		if value == nil {
+			removed = append(removed, credential)
+		}
+	}
+
+	return removed
 }
 
 // fromDTO decodes a configuration written over the API through Parse, so it is

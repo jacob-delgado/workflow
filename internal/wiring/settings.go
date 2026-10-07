@@ -78,8 +78,11 @@ func (e *configEditor) read() (config.Config, config.Revision, error) {
 }
 
 // save writes edited over the read at over, which must be the last one made:
-// its masked credentials stand for that read's.
-func (e *configEditor) save(edited config.Config, over config.Revision) (config.Config, config.Revision, error) {
+// its masked credentials stand for that read's. Each credential in removed is
+// written empty.
+func (e *configEditor) save(
+	edited config.Config, removed []config.Credential, over config.Revision,
+) (config.Config, config.Revision, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -88,7 +91,7 @@ func (e *configEditor) save(edited config.Config, over config.Revision) (config.
 	}
 
 	saved, written, err := config.SaveEdit(config.Edit{
-		Files: e.files, Read: e.last, Over: over, Edited: edited, PlaceSlackCredentials: e.place,
+		Files: e.files, Read: e.last, Over: over, Edited: edited, Removed: removed, PlaceSlackCredentials: e.place,
 	})
 	if err != nil {
 		return config.Config{}, config.Revision{}, err

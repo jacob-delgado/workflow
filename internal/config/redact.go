@@ -150,11 +150,29 @@ func (c Config) credentialMasks() []credentialMask {
 	return masks
 }
 
+// Credential names a credential an editor can remove, by its path in the file.
+type Credential string
+
+// The credentials an editor can remove. A Jira header is removed by leaving
+// it out of jira.headers, and the Slack access token goes with the client
+// secret or the refresh token it was made from. Each is a path in the file,
+// not a credential, which gosec's name-based check cannot tell.
+//
+//nolint:gosec // G101: the names of credentials, not credentials
+const (
+	CredentialJiraToken    Credential = "jira.token"
+	CredentialForgeToken   Credential = "forge.token"
+	CredentialWebhookURL   Credential = "messaging.webhook_url"
+	CredentialClientSecret Credential = "messaging.client_secret"
+	CredentialRefreshToken Credential = "messaging.refresh_token"
+)
+
 // KeepStored keeps each stored secret when its incoming field is empty or
 // still the masked value Redacted gave the editor — a configuration editor,
 // the web's Settings or the terminal's, sends the masked form back unchanged,
-// and must not overwrite the real secret with the mask.
-func KeepStored(incoming, stored Config) Config {
+// and must not overwrite the real secret with the mask — unless the editor
+// removed it.
+func KeepStored(incoming, stored Config, removed []Credential) Config {
 	incoming.Jira.BaseURL = keepMaskedURL(incoming.Jira.BaseURL, stored.Jira.BaseURL)
 	incoming.Jira.Token = keepSecret(incoming.Jira.Token, stored.Jira.Token)
 	incoming.Messaging.ClientSecret = keepSecret(incoming.Messaging.ClientSecret, stored.Messaging.ClientSecret)
@@ -164,7 +182,31 @@ func KeepStored(incoming, stored Config) Config {
 	incoming.Forge.Token = keepSecret(incoming.Forge.Token, stored.Forge.Token)
 	incoming.Jira.Headers = keepHeaders(incoming.Jira.Headers, stored.Jira.Headers)
 
+	for _, credential := range removed {
+		incoming = incoming.without(credential)
+	}
+
 	return incoming
+}
+
+// without is the configuration with a credential removed. The Slack access
+// token and its expiry go with the client secret or the refresh token: it was
+// made from them, and would go on posting until it expired.
+func (c Config) without(credential Credential) Config {
+	switch credential {
+	case CredentialJiraToken:
+		c.Jira.Token = ""
+	case CredentialForgeToken:
+		c.Forge.Token = ""
+	case CredentialWebhookURL:
+		c.Messaging.WebhookURL = ""
+	case CredentialClientSecret:
+		c.Messaging.ClientSecret, c.Messaging.AccessToken, c.Messaging.ExpiresAt = "", "", ""
+	case CredentialRefreshToken:
+		c.Messaging.RefreshToken, c.Messaging.AccessToken, c.Messaging.ExpiresAt = "", "", ""
+	}
+
+	return c
 }
 
 // keepMaskedURL keeps the stored base URL when the incoming one is only its

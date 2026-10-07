@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -174,7 +175,7 @@ func TestSettingsSaveKeepsTheTokenItWasShownMasked(t *testing.T) {
 	read.Jira.Project = "OSS"
 
 	// Act
-	saved, _, err := deps.Settings.Save(read, over)
+	saved, _, err := deps.Settings.Save(read, nil, over)
 
 	// Assert
 	onDisk, _, readErr := config.LoadLayersAt(config.Files{Home: path})
@@ -185,6 +186,22 @@ func TestSettingsSaveKeepsTheTokenItWasShownMasked(t *testing.T) {
 
 	if saved.Jira.Token.Reveal() == settingsToken {
 		t.Errorf("Save answered the token unmasked")
+	}
+}
+
+func TestSettingsSaveRemovingTheTokenWritesAFileWithNoToken(t *testing.T) {
+	// Arrange
+	path, deps := settingsFile(t)
+	read, over, _ := deps.Settings.Read()
+
+	// Act
+	_, _, err := deps.Settings.Save(read, []config.Credential{config.CredentialJiraToken}, over)
+
+	// Assert
+	written, readErr := os.ReadFile(path)
+	if err != nil || readErr != nil || strings.Contains(string(written), settingsToken) {
+		t.Errorf("err %v, %v; the file still holds the token: %t; want it written without it",
+			err, readErr, strings.Contains(string(written), settingsToken))
 	}
 }
 
@@ -199,7 +216,7 @@ func TestSettingsSaveRefusesAFileChangedSinceTheRead(t *testing.T) {
 	}
 
 	// Act
-	_, _, err = deps.Settings.Save(read, over)
+	_, _, err = deps.Settings.Save(read, nil, over)
 
 	// Assert
 	if !errors.Is(err, config.ErrChangedOnDisk) {
@@ -213,7 +230,7 @@ func TestSettingsSaveRefusesARevisionItDidNotRead(t *testing.T) {
 	read, _, _ := deps.Settings.Read()
 
 	// Act
-	_, _, err := deps.Settings.Save(read, config.Revision{})
+	_, _, err := deps.Settings.Save(read, nil, config.Revision{})
 
 	// Assert
 	if !errors.Is(err, config.ErrChangedOnDisk) {

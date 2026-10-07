@@ -958,11 +958,11 @@ export const zMessagingConfig = z.object({
         'webhook'
     ]).optional(),
     client_id: z.string().optional(),
-    client_secret: z.string().optional(),
-    refresh_token: z.string().optional(),
+    client_secret: z.string().nullable(),
+    refresh_token: z.string().nullable(),
     access_token: z.string().optional(),
     expires_at: z.string().optional(),
-    webhook_url: z.string().optional(),
+    webhook_url: z.string().nullable(),
     channel: z.string().optional(),
     channels: z.array(z.string()).nullish(),
     announcement: z.string().optional()
@@ -975,7 +975,7 @@ export const zForgeConfig = z.object({
         'gitlab'
     ]).optional(),
     host: z.string().optional(),
-    token: z.string().optional(),
+    token: z.string().nullable(),
     cli: z.boolean().optional()
 });
 
@@ -1052,7 +1052,7 @@ export const zViewList = z.object({
 
 export const zJiraConfig = z.object({
     base_url: z.string().optional(),
-    token: z.string().optional(),
+    token: z.string().nullable(),
     token_command: z.string().optional(),
     token_env: z.string().optional(),
     user: z.string().optional(),
@@ -1064,7 +1064,7 @@ export const zJiraConfig = z.object({
 });
 
 /**
- * The whole configuration file. On a read, the six secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
+ * The whole configuration file. On a read, the six secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value, and null removes it.
  */
 export const zConfig = z.object({
     version: z.string(),
