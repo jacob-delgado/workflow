@@ -67,22 +67,48 @@ func (s setting) cycled(value string, step int) string {
 }
 
 // settingsFields are the settings the web's Settings edits, in its order,
-// labels and hints; noun is the forge's word for a pull request.
-func settingsFields(noun string) []setting {
-	return slices.Concat(jiraSettings(noun), messagingSettings(), forgeSettings(), commitSettings(),
+// labels and hints, for the configuration read, in its JSON form; noun is the
+// forge's word for a pull request.
+func settingsFields(noun string, read map[string]any) []setting {
+	return slices.Concat(jiraSettings(noun, read), messagingSettings(), forgeSettings(), commitSettings(),
 		branchSettings(), pullRequestSettings(noun), storeAndTaskwarriorSettings())
 }
 
+// tokenHint says where the Jira token comes from: the file's own token wins,
+// then token_env, then token_command, so a token typed over a source sends the
+// secret into the file the source kept it out of. Neither source is a secret.
+func tokenHint(read map[string]any) string {
+	token, _ := valueAt(read, "jira.token").(string)
+	command, _ := valueAt(read, "jira.token_command").(string)
+	variable, _ := valueAt(read, "jira.token_env").(string)
+
+	var source string
+
+	switch {
+	case variable != "":
+		source = "token_env: " + sanitize.Line(variable)
+	case command != "":
+		source = "token_command: " + sanitize.Line(command)
+	case token != "":
+		return "Leave empty to keep the stored token."
+	default:
+		return "A personal access token. token_command or token_env, set in the file, keep it out of the file."
+	}
+
+	if token != "" {
+		return "The token stored here is used over " + source + "."
+	}
+
+	return "Taken from " + source + ". A token typed here is kept in the file and used instead."
+}
+
 // jiraSettings are where the tracker is and who reads it.
-func jiraSettings(noun string) []setting {
+func jiraSettings(noun string, read map[string]any) []setting {
 	const section = "Jira"
 
 	return []setting{
 		{section: section, label: "Base URL", path: "jira.base_url", kind: settingURL},
-		{
-			section: section, label: "Token", path: "jira.token", kind: settingSecret,
-			hint: "Leave empty to keep the stored token.",
-		},
+		{section: section, label: "Token", path: "jira.token", kind: settingSecret, hint: tokenHint(read)},
 		{section: section, label: "User", path: "jira.user", hint: "Empty authenticates with the token as a bearer."},
 		{section: section, label: "Project", path: "jira.project"},
 		{
@@ -128,8 +154,15 @@ func messagingSettings() []setting {
 			section: section, label: "Webhook URL", path: "messaging.webhook_url", kind: settingSecret,
 			hint: "A credential; leave empty to keep it. For Slack, set this or the user token, not both.",
 		},
-		{section: section, label: "Channel", path: "messaging.channel"},
-		{section: section, label: "Announcement", path: "messaging.announcement"},
+		{
+			section: section, label: "Channel", path: "messaging.channel",
+			hint: "With a Slack user token; a webhook posts to its own channel.",
+		},
+		{
+			section: section, label: "Announcement", path: "messaging.announcement",
+			hint: "Slack only: the review message, from {author}, {noun}, {title}, {url}, {key}, {summary} " +
+				"and {issue_url}. Empty keeps the built-in message.",
+		},
 	}
 }
 

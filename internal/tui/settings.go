@@ -79,7 +79,7 @@ func (m Model) canEditSettings() bool {
 func (m Model) openSettings() (Model, tea.Cmd) {
 	m, opened := m.opening()
 	m.overlay = settingsForm{
-		marks: m.marks, styles: m.styles, fields: settingsFields(m.vocab.noun), opened: opened, reading: true,
+		marks: m.marks, styles: m.styles, fields: settingsFields(m.vocab.noun, nil), opened: opened, reading: true,
 	}
 	read := m.deps.Settings.Read
 
@@ -111,6 +111,7 @@ func (msg settingsRead) apply(m Model) (Model, tea.Cmd) {
 	// The form masks what it was handed itself, so it never holds a credential
 	// whatever the seam gave it, and a credential left alone goes back masked.
 	form.values, form.readErr = seed(msg.cfg.Redacted(), msg.err)
+	form.fields = settingsFields(m.vocab.noun, form.values)
 	form.path, form.shownPath, form.over = msg.cfg.Path, m.shownDir(msg.cfg.Path), msg.over
 	m.overlay = form
 

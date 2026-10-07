@@ -115,7 +115,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   // The whole config seeds the form, so every key no fieldset registers — ui,
   // timing, jira.views and the token commands among them — rides back unchanged
   // on save rather than being dropped.
-  const { register, handleSubmit, reset, setFocus } = useForm<Config>({
+  const { register, handleSubmit, reset, setFocus, control, formState } = useForm<Config>({
     defaultValues: read.config,
   })
   // The revision of the file the form's values stand for: the read that seeded
@@ -181,7 +181,11 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       }}
       className="flex flex-col gap-section"
     >
-      <JiraFieldset register={register} />
+      <JiraFieldset
+        register={register}
+        control={control}
+        storedToken={formState.defaultValues?.jira?.token ?? null}
+      />
       <MessagingFieldset register={register} />
       <ForgeFieldset register={register} />
       <CommitFieldset register={register} />

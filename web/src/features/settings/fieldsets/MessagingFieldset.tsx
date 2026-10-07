@@ -46,8 +46,18 @@ export function MessagingFieldset({ register }: { register: Register }) {
         type="password"
         hint="A credential; leave as-is to keep it. For Slack, set this or the user token, not both."
       />
-      <TextField register={register} name="messaging.channel" label="Channel" />
-      <TextField register={register} name="messaging.announcement" label="Announcement" />
+      <TextField
+        register={register}
+        name="messaging.channel"
+        label="Channel"
+        hint="With a Slack user token; a webhook posts to its own channel."
+      />
+      <TextField
+        register={register}
+        name="messaging.announcement"
+        label="Announcement"
+        hint="Slack only: the review message, from {author}, {noun}, {title}, {url}, {key}, {summary} and {issue_url}. Empty keeps the built-in message."
+      />
     </Fieldset>
   )
 }
