@@ -196,7 +196,7 @@ func TestSetupKeepsTheTokenInTheFileWhenTheKeychainIsDeclined(t *testing.T) {
 	// Assert
 	result := decode[api.SetupResult](t, recorder)
 
-	cfg, err := config.LoadFile(result.Path)
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: result.Path})
 	if err != nil || cfg.Jira.Token.Reveal() != setupToken || run.stored != "" {
 		t.Errorf("wrote %+v (%v), keychain %q; want the token in the file alone", cfg.Jira, err, run.stored)
 	}

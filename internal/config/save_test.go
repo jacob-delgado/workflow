@@ -29,9 +29,9 @@ const savedURL = "https://saved.example.com"
 func revisionOf(t *testing.T, path string) config.Revision {
 	t.Helper()
 
-	revision, err := config.RevisionOf(path)
+	revision, err := config.RevisionOfLayers(config.Files{Home: path})
 	if err != nil {
-		t.Fatalf("RevisionOf(%s): %v", path, err)
+		t.Fatalf("RevisionOfLayers(%s): %v", path, err)
 	}
 
 	return revision
@@ -46,7 +46,7 @@ func savedConfig() config.Config {
 	return cfg
 }
 
-func TestSaveOverWritesOverTheRevisionItWasGiven(t *testing.T) {
+func TestASaveWritesOverTheRevisionItWasGiven(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -54,41 +54,41 @@ func TestSaveOverWritesOverTheRevisionItWasGiven(t *testing.T) {
 	read := revisionOf(t, path)
 
 	// Act
-	written, err := config.SaveOver(path, savedConfig(), read)
+	written, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), read)
 	// Assert
 	if err != nil {
-		t.Fatalf("SaveOver: %v", err)
+		t.Fatalf("SaveLayers: %v", err)
 	}
 
-	saved, err := config.LoadFile(path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil || saved.Jira.BaseURL != savedURL {
 		t.Errorf("the file reads back as Jira at %q (%v), want the saved configuration", saved.Jira.BaseURL, err)
 	}
 
 	if now := revisionOf(t, path); written != now || !written.Exists() {
-		t.Errorf("SaveOver returned revision %v, want the file's revision now, %v", written, now)
+		t.Errorf("SaveLayers returned revision %v, want the file's revision now, %v", written, now)
 	}
 }
 
-func TestSaveOverWritesAFileThatIsStillMissing(t *testing.T) {
+func TestASaveWritesAFileThatIsStillMissing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	path := filepath.Join(t.TempDir(), config.FileName)
 
 	// Act
-	written, err := config.SaveOver(path, savedConfig(), config.Revision{})
+	written, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), config.Revision{})
 	// Assert
 	if err != nil {
-		t.Fatalf("SaveOver: %v", err)
+		t.Fatalf("SaveLayers: %v", err)
 	}
 
 	if now := revisionOf(t, path); written != now || !now.Exists() {
-		t.Errorf("SaveOver returned revision %v, want the revision of the file it made, %v", written, now)
+		t.Errorf("SaveLayers returned revision %v, want the revision of the file it made, %v", written, now)
 	}
 }
 
-func TestSaveOverLeavesAnExistingFileOwnerOnly(t *testing.T) {
+func TestASaveLeavesAnExistingFileOwnerOnly(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -104,10 +104,10 @@ func TestSaveOverLeavesAnExistingFileOwnerOnly(t *testing.T) {
 	read := revisionOf(t, path)
 
 	// Act
-	_, err = config.SaveOver(path, config.Default(), read)
+	_, err = config.SaveLayers(config.Files{Home: path}, config.Default(), read)
 	// Assert
 	if err != nil {
-		t.Fatalf("SaveOver: %v", err)
+		t.Fatalf("SaveLayers: %v", err)
 	}
 
 	info, err := os.Stat(path)
@@ -120,7 +120,7 @@ func TestSaveOverLeavesAnExistingFileOwnerOnly(t *testing.T) {
 	}
 }
 
-func TestSaveOverRefusesAFileThatChangedSinceItsRevision(t *testing.T) {
+func TestASaveRefusesAFileThatChangedSinceItsRevision(t *testing.T) {
 	t.Parallel()
 
 	// "" stands for no file, before the read or after the change.
@@ -141,11 +141,11 @@ func TestSaveOverRefusesAFileThatChangedSinceItsRevision(t *testing.T) {
 			putFile(t, path, tt.after)
 
 			// Act
-			_, err := config.SaveOver(path, savedConfig(), read)
+			_, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), read)
 
 			// Assert
 			if !errors.Is(err, config.ErrChangedOnDisk) {
-				t.Errorf("SaveOver = %v, want ErrChangedOnDisk", err)
+				t.Errorf("SaveLayers = %v, want ErrChangedOnDisk", err)
 			}
 
 			if got := fileContents(t, path); got != tt.after {
@@ -155,7 +155,7 @@ func TestSaveOverRefusesAFileThatChangedSinceItsRevision(t *testing.T) {
 	}
 }
 
-func TestSaveOverReportsAPathItCannotUse(t *testing.T) {
+func TestASaveReportsAPathItCannotUse(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]func(dir string) string{
@@ -173,17 +173,17 @@ func TestSaveOverReportsAPathItCannotUse(t *testing.T) {
 			path := pathIn(t.TempDir())
 
 			// Act
-			_, err := config.SaveOver(path, config.Default(), config.Revision{})
+			_, err := config.SaveLayers(config.Files{Home: path}, config.Default(), config.Revision{})
 
 			// Assert
 			if err == nil || errors.Is(err, config.ErrChangedOnDisk) {
-				t.Errorf("SaveOver = %v, want the failure to read or write the path", err)
+				t.Errorf("SaveLayers = %v, want the failure to read or write the path", err)
 			}
 		})
 	}
 }
 
-func TestRevisionOfNoFileIsNoFile(t *testing.T) {
+func TestTheRevisionOfNoFileIsNoFile(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]func(dir string) string{
@@ -196,25 +196,25 @@ func TestRevisionOfNoFileIsNoFile(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			revision, err := config.RevisionOf(pathIn(t.TempDir()))
+			revision, err := config.RevisionOfLayers(config.Files{Home: pathIn(t.TempDir())})
 
 			// Assert
 			if err != nil || revision.Exists() || revision != (config.Revision{}) {
-				t.Errorf("RevisionOf = %v, %v; want the no-file revision and no error", revision, err)
+				t.Errorf("RevisionOfLayers = %v, %v; want the no-file revision and no error", revision, err)
 			}
 		})
 	}
 }
 
-func TestRevisionOfReportsAFileItCannotRead(t *testing.T) {
+func TestTheRevisionReportsAFileItCannotRead(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	_, err := config.RevisionOf(t.TempDir())
+	_, err := config.RevisionOfLayers(config.Files{Home: t.TempDir()})
 
 	// Assert
 	if err == nil || errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("RevisionOf a directory = %v, want the read's own failure", err)
+		t.Errorf("RevisionOfLayers of a directory = %v, want the read's own failure", err)
 	}
 }
 

@@ -49,7 +49,7 @@ func fileKeepingSlack(t *testing.T) config.Config {
 		ExpiresAt: "2026-09-30T20:00:00Z",
 	}
 
-	_, err := config.SaveOver(cfg.Path, cfg, config.Revision{})
+	_, err := config.SaveLayers(config.Files{Home: cfg.Path}, cfg, config.Revision{})
 	if err != nil {
 		t.Fatalf("writing the configuration: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestSlackSecretsSavedInSettingsArePlacedAndKeptOutOfTheFile(t *testing.T) {
 		t.Fatalf("placed %d configurations, want the one carrying the typed refresh token", len(placed))
 	}
 
-	written, err := config.LoadFile(cfg.Path)
+	written, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if err != nil || written.Messaging.HoldsUserTokenSecrets() || written.Messaging.ClientID != slackApp {
 		t.Errorf("the file reads %+v, %v; want the client ID and no secret", written.Messaging, err)
 	}
@@ -152,7 +152,7 @@ func TestSlackSecretsSentBackMaskedAreKeptAsTheyWere(t *testing.T) {
 		}
 	}
 
-	written, err := config.LoadFile(cfg.Path)
+	written, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	held := written.Messaging
 
 	kept := held.ClientSecret == keptSecret && held.RefreshToken == keptRefresh && held.AccessToken == keptAccess &&
@@ -173,7 +173,7 @@ func TestSlackSecretsTypedIntoAFileThatKeepsThemStartAFreshToken(t *testing.T) {
 	saved := putConfig(t, handler, marshal(t, typingRefresh(cfg)))
 
 	// Assert
-	written, err := config.LoadFile(cfg.Path)
+	written, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if saved.Code != http.StatusOK || err != nil {
 		t.Fatalf("status %d, %v: %s", saved.Code, err, saved.Body.String())
 	}

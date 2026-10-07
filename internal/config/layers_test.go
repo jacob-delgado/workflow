@@ -257,7 +257,7 @@ func TestASaveOverAHomeFileValidOnlyWithItsLayerSucceeds(t *testing.T) {
 	_, err = config.SaveLayers(files, cfg, over)
 
 	// Assert
-	saved, loadErr := config.LoadFile(files.Repo)
+	saved, _, loadErr := config.LoadLayersAt(config.Files{Home: files.Repo})
 	if err != nil || loadErr != nil || saved.Jira.Project != ossProject {
 		t.Errorf("saving = %v; the repository file reads %+v, %v; want the project saved", err, saved.Jira, loadErr)
 	}
