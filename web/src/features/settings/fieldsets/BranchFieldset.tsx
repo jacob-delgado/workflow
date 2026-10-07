@@ -1,6 +1,6 @@
 import type { Control } from 'react-hook-form'
 import type { SettingsValues } from '../formValues.ts'
-import { EntryList } from './EntryList.tsx'
+import { EntryList, matchedLower } from './EntryList.tsx'
 import { Fieldset, TextField, type Register } from './Field.tsx'
 
 // BranchFieldset is how a branch is named for an issue: the template, the
@@ -38,6 +38,11 @@ export function BranchFieldset({
           { field: 'prefix', label: 'Prefix' },
         ]}
         blank={{ type: '', prefix: '' }}
+        unique={{
+          namesOf: (values) => values.branch.prefixes.map((rule) => rule.type),
+          key: matchedLower,
+          taken: 'A prefix of that issue type is already listed.',
+        }}
       />
       <TextField
         register={register}

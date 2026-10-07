@@ -4,7 +4,9 @@ import {
   type Control,
   type FieldArray,
   type Path,
+  get,
   useFieldArray,
+  useFormState,
 } from 'react-hook-form'
 import { Button } from '@/lib/Button.tsx'
 import { Input } from '@/lib/Field.tsx'
@@ -28,6 +30,32 @@ interface Column {
   wide?: boolean
 }
 
+// Unique is how a list's rows are told apart by name, as the configuration
+// matches them: namesOf reads every row's name from the form, key is the form
+// two names that are one share, and taken says why a later row is refused.
+export interface Unique {
+  namesOf: (values: SettingsValues) => string[]
+  key: (name: string) => string
+  taken: string
+}
+
+// matchedLower is the key of a name matched without regard to case or the
+// space around it: a Jira header, and an issue type.
+export function matchedLower(name: string): string {
+  return name.trim().toLowerCase()
+}
+
+// takenBy is what refuses a row whose name an earlier row already has, for
+// the row at index; a row without a name is not refused here.
+function takenBy(unique: Unique, index: number) {
+  return (value: unknown, values: SettingsValues): true | string => {
+    const key = unique.key(String(value))
+    const earlier = unique.namesOf(values).slice(0, index)
+
+    return key === '' || !earlier.some((name) => unique.key(name) === key) ? true : unique.taken
+  }
+}
+
 interface EntryListProps<N extends ListName> {
   control: Control<SettingsValues>
   register: Register
@@ -44,6 +72,9 @@ interface EntryListProps<N extends ListName> {
   // the mask of its value is tied to it — and whose removal is asked first and
   // written at once, since its value is a credential.
   storedAs?: (index: number) => Removal | null
+  // unique, for a list whose names are keys, refuses a row named as an
+  // earlier one at its name, before anything is sent.
+  unique?: Unique
 }
 
 // EntryList is a list in the configuration edited as rows — the views, the
@@ -61,8 +92,10 @@ export function EntryList<N extends ListName>({
   columns,
   blank,
   storedAs = () => null,
+  unique,
 }: EntryListProps<N>) {
   const { fields, append, remove } = useFieldArray({ control, name })
+  const { errors } = useFormState({ control, name })
   const outcome = useOutcome()
   const add = useRef<HTMLButtonElement>(null)
   const hintId = useId()
@@ -79,35 +112,40 @@ export function EntryList<N extends ListName>({
           {hint}
         </p>
       ) : null}
-      {fields.map((row, index) => (
-        <div
-          key={row.id}
-          role="group"
-          aria-label={`${Entry} ${String(index + 1)}`}
-          className="flex flex-wrap items-center gap-item"
-        >
-          {columns.map((column, at) => (
-            <Input
-              key={column.field}
-              aria-label={column.label}
-              placeholder={column.label}
-              type={column.secret ? 'password' : 'text'}
-              readOnly={at === 0 && storedAs(index) !== null}
-              className={cn(column.wide ? 'min-w-48 flex-[2]' : 'min-w-32 flex-1')}
-              {...register(`${name}.${String(index)}.${column.field}` as Path<SettingsValues>)}
+      {fields.map((row, index) => {
+        // The name is the row's first field, and the one a refusal is about.
+        const namePath = `${name}.${String(index)}.${columns[0]?.field ?? ''}`
+        const refusal = get(errors, `${namePath}.message`) as string | undefined
+        const refusalId = `${hintId}-${namePath}`
+
+        return (
+          <div
+            key={row.id}
+            role="group"
+            aria-label={`${Entry} ${String(index + 1)}`}
+            className="flex flex-wrap items-center gap-item"
+          >
+            <RowFields
+              register={register}
+              row={`${name}.${String(index)}`}
+              columns={columns}
+              nameHeld={storedAs(index) !== null}
+              refusalId={refusal === undefined ? undefined : refusalId}
+              validate={unique ? takenBy(unique, index) : undefined}
             />
-          ))}
-          <RowRemoval
-            removal={storedAs(index)}
-            label={`Remove ${entry} ${String(index + 1)}`}
-            tell={outcome}
-            onRemove={() => {
-              remove(index)
-              add.current?.focus()
-            }}
-          />
-        </div>
-      ))}
+            <RowRefusal id={refusalId} refusal={refusal} />
+            <RowRemoval
+              removal={storedAs(index)}
+              label={`Remove ${entry} ${String(index + 1)}`}
+              tell={outcome}
+              onRemove={() => {
+                remove(index)
+                add.current?.focus()
+              }}
+            />
+          </div>
+        )
+      })}
       <Button
         ref={add}
         variant="secondary"
@@ -121,6 +159,52 @@ export function EntryList<N extends ListName>({
       </Button>
       <OutcomeLine said={outcome.said} />
     </fieldset>
+  )
+}
+
+interface RowFieldsProps {
+  register: Register
+  // row is the row's path in the form, as "jira.headers.1".
+  row: string
+  columns: Column[]
+  // nameHeld keeps the name from being edited; refusalId names the refusal
+  // the name is described by, while there is one; validate refuses a name.
+  nameHeld: boolean
+  refusalId: string | undefined
+  validate: ((value: unknown, values: SettingsValues) => true | string) | undefined
+}
+
+// RowFields are a row's fields, its name first.
+function RowFields({ register, row, columns, nameHeld, refusalId, validate }: RowFieldsProps) {
+  return columns.map((column, at) => (
+    <Input
+      key={column.field}
+      aria-label={column.label}
+      placeholder={column.label}
+      type={column.secret ? 'password' : 'text'}
+      readOnly={at === 0 && nameHeld}
+      aria-invalid={at === 0 && refusalId !== undefined ? true : undefined}
+      aria-describedby={at === 0 ? refusalId : undefined}
+      className={cn(column.wide ? 'min-w-48 flex-[2]' : 'min-w-32 flex-1')}
+      {...register(
+        `${row}.${column.field}` as Path<SettingsValues>,
+        at === 0 && validate ? { validate } : undefined,
+      )}
+    />
+  ))
+}
+
+// RowRefusal says why a row's name is refused, beneath the row, where the
+// name it describes is.
+function RowRefusal({ id, refusal }: { id: string; refusal: string | undefined }) {
+  if (refusal === undefined) {
+    return null
+  }
+
+  return (
+    <p id={id} role="alert" className="order-last basis-full text-sm text-destructive">
+      {refusal}
+    </p>
   )
 }
 

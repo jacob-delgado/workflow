@@ -2,7 +2,7 @@ import { useForgeWords } from '@/api/health.ts'
 import { type Control, useWatch } from 'react-hook-form'
 import type { JiraConfig } from '@/api/generated/types.gen.ts'
 import type { SettingsValues } from '../formValues.ts'
-import { EntryList } from './EntryList.tsx'
+import { EntryList, matchedLower } from './EntryList.tsx'
 import { CheckboxField, Fieldset, SecretField, TextField, type Register } from './Field.tsx'
 
 // TokenSources are where the Jira token may come from besides the file: a
@@ -100,6 +100,11 @@ export function JiraFieldset({ register, control, storedToken }: JiraFieldsetPro
           { field: 'value', label: 'Value', secret: true, wide: true },
         ]}
         blank={{ name: '', value: '', stored: false }}
+        unique={{
+          namesOf: (values) => values.jira.headers.map((header) => header.name),
+          key: matchedLower,
+          taken: 'A header of that name is already listed.',
+        }}
         storedAs={(index) => {
           const header = headers[index]
 
