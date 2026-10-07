@@ -19,8 +19,13 @@ func TestWorkspaceIsTheTeamTheTokenIsFor(t *testing.T) {
 		_, _ = writer.Write([]byte(okBody))
 	})
 
+	identity, err := client.AuthTest(t.Context())
+	if err != nil {
+		t.Fatalf("AuthTest: %v", err)
+	}
+
 	// Act
-	workspace, err := client.Workspace(t.Context())
+	workspace, err := identity.Workspace()
 
 	// Assert
 	if err != nil || workspace != "T00000000" {
@@ -45,8 +50,13 @@ func TestWorkspaceRefusesAnAnswerNamingNoTeam(t *testing.T) {
 				_, _ = writer.Write([]byte(body))
 			})
 
+			identity, err := client.AuthTest(t.Context())
+			if err != nil {
+				t.Fatalf("AuthTest: %v", err)
+			}
+
 			// Act
-			workspace, err := client.Workspace(t.Context())
+			workspace, err := identity.Workspace()
 
 			// Assert
 			if !errors.Is(err, messaging.ErrNoWorkspace) || workspace != "" {
