@@ -1041,7 +1041,8 @@ in which case the store keeps nothing and says nothing.
   `.gitignore`.
 - `workflow config show` masks every credential — Jira, Slack, the webhook URL
   and the forge token — printing only the last four characters so you can tell
-  two apart.
+  two apart, and none of one shorter than sixteen, such as a gateway's header
+  value, where four would give too much of it away.
 
 **`messaging.webhook_url` is masked like a token, because it is one.** Anyone holding
 that URL can post to your channel; it is a password that happens to look like an

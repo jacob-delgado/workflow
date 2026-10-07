@@ -92,13 +92,26 @@ func TestRedactedMasksEveryJiraHeaderValue(t *testing.T) {
 func TestRedact(t *testing.T) {
 	t.Parallel()
 
+	const (
+		bareMask  = "****"
+		tailShown = "****wxyz"
+	)
+
 	cases := map[string]struct {
 		secret string
 		want   string
 	}{
-		"empty stays empty":      {secret: "", want: ""},
-		"short is fully masked":  {secret: "abcd", want: "****"},
-		"long keeps four digits": {secret: "abcdefgh", want: "****efgh"},
+		"empty stays empty":     {secret: "", want: ""},
+		"short is fully masked": {secret: "abcd", want: bareMask},
+		// Four characters of eight would show half the secret.
+		"eight is fully masked":       {secret: "abcdefgh", want: bareMask},
+		"fifteen is fully masked":     {secret: "abcdefghijklmno", want: bareMask},
+		"sixteen keeps four":          {secret: "abcdefghijklmnop", want: "****mnop"},
+		"a token keeps its last four": {secret: strings.Repeat("x", 36) + "wxyz", want: tailShown},
+		// A surface masks what it was handed again, and sends a mask back
+		// as it was shown, so masking a mask must leave it as it was.
+		"a mask stays as it was":        {secret: tailShown, want: tailShown},
+		"the bare mask stays as it was": {secret: bareMask, want: bareMask},
 	}
 
 	for name, tt := range cases {
@@ -120,8 +133,8 @@ func TestRedactTextMasksEveryCredentialTheConfigurationHolds(t *testing.T) {
 	t.Parallel()
 
 	const (
-		jiraToken    = "jira-token-1111"
-		headerSecret = "cf-secret-2222"
+		jiraToken    = "jira-token-0001111"
+		headerSecret = "cf-header-secret-2222"
 		slackToken   = "xoxe.xoxp-slack-3333"
 	)
 
