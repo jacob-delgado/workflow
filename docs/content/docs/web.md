@@ -61,7 +61,8 @@ open a pull request, while Jira, git or the forge cannot be read. A service
 that is not set up — no Jira or forge token, an origin that names no forge —
 is no failure: the section says, in the muted color beside the not-started
 mark, that it is not set up and how to set it up, in place of what it would
-have shown. The stream's state is beside the theme:
+have shown. The stream's state is beside the theme, and a section waiting on
+its first update says the same word:
 
 - **Connecting** — the page has not had its first update yet.
 - **Live** — updates are arriving.
