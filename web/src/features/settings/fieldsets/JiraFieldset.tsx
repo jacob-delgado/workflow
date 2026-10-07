@@ -1,11 +1,52 @@
 import { useForgeWords } from '@/api/health.ts'
+import { type Control, useWatch } from 'react-hook-form'
+import type { Config, JiraConfig } from '@/api/generated/types.gen.ts'
 import { CheckboxField, Fieldset, TextField, type Register } from './Field.tsx'
+
+// TokenSources are where the Jira token may come from besides the file: a
+// program that prints it, or a variable that holds it. Neither is a secret.
+type TokenSources = Pick<JiraConfig, 'token' | 'token_command' | 'token_env'>
+
+// tokenHint says where the Jira token comes from: the file's own token wins,
+// then token_env, then token_command, so a token typed over a source sends the
+// secret into the file the source kept it out of.
+function tokenHint({ token, token_command, token_env }: TokenSources): string {
+  const source = tokenSource(token_command, token_env)
+  if (source === '') {
+    return token
+      ? 'Leave as-is to keep the stored token.'
+      : 'A personal access token. token_command or token_env, set in the file, keep it out of the file.'
+  }
+
+  return token
+    ? `The token stored here is used over ${source}.`
+    : `Taken from ${source}. A token typed here is kept in the file and used instead.`
+}
+
+// tokenSource names the source the token is read from when the file holds
+// none: the variable over the command, or neither.
+function tokenSource(command: string | undefined, variable: string | undefined): string {
+  if (variable) {
+    return `token_env: ${variable}`
+  }
+
+  return command ? `token_command: ${command}` : ''
+}
+
+interface JiraFieldsetProps {
+  register: Register
+  control: Control<Config>
+  // storedToken is the token as read, masked: the hint says where the token in
+  // effect comes from, not what is being typed.
+  storedToken: string | null
+}
 
 // JiraFieldset is where the tracker is and who reads it: its address, the
 // credential, the project and the status an issue moves to once in review —
 // and whether the repository's own forge issues join Jira's in the list.
-export function JiraFieldset({ register }: { register: Register }) {
+export function JiraFieldset({ register, control, storedToken }: JiraFieldsetProps) {
   const { noun } = useForgeWords()
+  const [command, variable] = useWatch({ control, name: ['jira.token_command', 'jira.token_env'] })
 
   return (
     <Fieldset legend="Jira">
@@ -15,7 +56,7 @@ export function JiraFieldset({ register }: { register: Register }) {
         name="jira.token"
         label="Token"
         type="password"
-        hint="Leave as-is to keep the stored token."
+        hint={tokenHint({ token: storedToken, token_command: command, token_env: variable })}
       />
       <TextField
         register={register}
