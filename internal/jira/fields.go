@@ -17,7 +17,7 @@ var (
 	// ErrNeedsValue is a field left empty.
 	ErrNeedsValue = errors.New("needs a value")
 	// ErrNeedsDate is a date field holding something that is not a date.
-	ErrNeedsDate = errors.New("must be a date like 2026-09-21")
+	ErrNeedsDate = errors.New("must be a date written " + DateShape)
 	// ErrNeedsChoice is a list field with nothing chosen.
 	ErrNeedsChoice = errors.New("needs at least one")
 	// ErrNotAnOption is a choice the field does not allow.
@@ -30,6 +30,10 @@ var (
 // DateLayout is the calendar date Jira reads and writes, spelled in Go's own
 // reference date.
 const DateLayout = "2006-01-02"
+
+// DateShape is DateLayout as a person reads it: the hint a date field shows and
+// the shape its refusal names, so neither reads as a stale example date.
+const DateShape = "YYYY-MM-DD"
 
 // FieldKind is how a field a transition needs can be filled in.
 type FieldKind int

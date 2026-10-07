@@ -55,8 +55,8 @@ func TestATransitionFillsAUserDateAndSeveralVersions(t *testing.T) {
 	// Act: type a username
 	afterUser := typing(t, form, append(letters("fred"), keyEnter)...)
 
-	// Assert: the date field is next
-	requireScreen(t, afterUser.View().Content, "Due date (2 of 3)")
+	// Assert: the date field is next, showing the shape it takes
+	requireScreen(t, afterUser.View().Content, "Due date (2 of 3)", "YYYY-MM-DD")
 
 	// Act: type a date
 	afterDate := typing(t, afterUser, append(letters("2026-09-21"), keyEnter)...)
@@ -90,7 +90,7 @@ func TestADateFieldRefusesWhatIsNotADate(t *testing.T) {
 	refused := typing(t, dated, append(letters("soon"), keyEnter)...)
 
 	// Assert
-	requireScreen(t, refused.View().Content, "✗ Due date must be a date like 2026-09-21", "Due date (2 of 3)")
+	requireScreen(t, refused.View().Content, "✗ Due date must be a date written YYYY-MM-DD", "Due date (2 of 3)")
 
 	if calls := moving.asked("transition PROJ"); len(calls) != 0 {
 		t.Errorf("sent with a bad date: %q", calls)

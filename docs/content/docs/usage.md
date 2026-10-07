@@ -276,7 +276,7 @@ issue's status. A transition that needs fields filled in says which. Choosing
 it asks for them, one at a time: a field with a fixed set of values gets a
 picker, and one that takes several of them a picker where `space` selects as
 many as you need, at least one; a text, user or date field gets an input, a
-user by username and a date as year-month-day, such as `2026-09-21`. A field of
+user by username and a date written `YYYY-MM-DD`. A field of
 any other kind, such as a cascading select, is named with a pointer to Jira's
 own screen, because guessing at it would send something you did not choose.
 

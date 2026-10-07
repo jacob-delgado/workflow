@@ -273,7 +273,7 @@ function FieldInput({
 
 // hints say what a typed field takes, as the terminal's placeholders do.
 const hints: Partial<Record<StatusChangeField['kind'], string>> = {
-  date: 'A date, such as 2026-09-21.',
+  date: 'A date, written YYYY-MM-DD.',
   user: 'A username, as the tracker knows it.',
 }
 

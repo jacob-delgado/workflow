@@ -131,6 +131,21 @@ test('a status change with fields shows its form and sends what is filled', asyn
   })
 })
 
+test('a date field says the shape it takes, as the terminal and the refusal do', async () => {
+  // Arrange
+  trackerTakingWrites()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await open('Change status')
+
+  // Act
+  await choose('21')
+
+  // Assert
+  expect(
+    within(form('Change the status of PROJ-1')).getByText('A date, written YYYY-MM-DD.'),
+  ).toBeTruthy()
+})
+
 test('a status change only Jira can make says so and cannot be sent', async () => {
   // Arrange
   const sent = trackerTakingWrites()

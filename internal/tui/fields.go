@@ -71,7 +71,7 @@ func (f fieldForm) picked(id string) bool {
 // placeholder is the shape a typed field expects, shown until it is filled.
 func placeholder(kind jira.FieldKind) string {
 	if kind == jira.FieldDate {
-		return jira.DateLayout
+		return jira.DateShape
 	}
 
 	if kind == jira.FieldUser {

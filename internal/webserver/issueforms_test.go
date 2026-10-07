@@ -241,7 +241,7 @@ func TestAStatusChangeIsRefusedWithAFieldItCannotTake(t *testing.T) {
 		"a date that is not one": {
 			body: `{"transition_id":"5","fields":[{"id":"duedate","text":"Friday"},` +
 				`{"id":"fixVersions","option_ids":["10"]},{"id":"resolution","option_id":"1"}]}`,
-			wantInIt: "Due date must be a date like 2026-09-21",
+			wantInIt: "Due date must be a date written YYYY-MM-DD",
 		},
 		"an option the field does not offer": {
 			body: `{"transition_id":"5","fields":[{"id":"duedate","text":"2026-10-09"},` +
