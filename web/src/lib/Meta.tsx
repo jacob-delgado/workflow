@@ -24,3 +24,13 @@ export function Meta({ children, className }: { children: ReactNode; className?:
     </span>
   )
 }
+
+// CodeValue is a definition list's value, written as code, or "None" in the
+// muted foreground when it is missing: one word for absence in every list.
+export function CodeValue({ value }: { value: string }) {
+  return value === '' ? (
+    <dd className="text-muted-foreground">None</dd>
+  ) : (
+    <dd className="font-mono">{value}</dd>
+  )
+}

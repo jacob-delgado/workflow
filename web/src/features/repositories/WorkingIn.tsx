@@ -1,4 +1,5 @@
 import type { Place } from '@/api/generated/types.gen.ts'
+import { CodeValue } from '@/lib/Meta.tsx'
 
 // WorkingIn is where the server works, drawn as the answer to "relative to
 // what it changes": the repository it is in, then the path within it, muted,
@@ -39,9 +40,7 @@ function PlaceFacts({ place }: { place: Place }) {
         </>
       ) : null}
       <dt className="text-muted-foreground">Origin</dt>
-      <dd className={place.origin === '' ? '' : 'font-mono'}>
-        {place.origin === '' ? 'None' : place.origin}
-      </dd>
+      <CodeValue value={place.origin} />
       <dt className="text-muted-foreground">Configuration</dt>
       <dd>
         {place.config.length === 0 ? (
