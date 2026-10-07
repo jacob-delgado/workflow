@@ -67,7 +67,8 @@ func TestAnnounceDryRunComposesTheReadyMoment(t *testing.T) {
 		t.Errorf("stdout does not preview the ready-for-review moment:\n%s", printed.stdout)
 	}
 
-	if !strings.Contains(printed.stderr, "dry run: would announce to") || strings.Contains(printed.stdout, "dry run:") {
+	if !strings.Contains(printed.stderr, "dry run: would announce to the channel its webhook is bound to") ||
+		strings.Contains(printed.stdout, "dry run:") {
 		t.Errorf("the dry-run line is not on stderr alone:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
 	}
 }
@@ -114,6 +115,45 @@ func TestAnnounceDryRunNamesTheConfiguredChannel(t *testing.T) {
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+		`"messaging":{"kind":"slack","client_id":"`+slackClientID+`","channel":"#dev"}}`)
+
+	// Act
+	output, err := run(t, repo, "announce", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --dry-run: %v (%s)", err, output)
+	}
+
+	if !strings.Contains(output, "to #dev\n") || !strings.Contains(output, "dry run: would announce to #dev") {
+		t.Errorf("preview does not name the configured channel:\n%s", output)
+	}
+}
+
+func TestAnnounceDryRunNamesNoChannelWhereNoneIsSet(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+		`"messaging":{"kind":"slack","client_id":"`+slackClientID+`"}}`)
+
+	// Act
+	output, err := run(t, repo, "announce", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --dry-run: %v (%s)", err, output)
+	}
+
+	if !strings.Contains(output, "to (no channel set)") || strings.Contains(output, "the configured Slack channel") {
+		t.Errorf("preview claims a channel when none is set:\n%s", output)
+	}
+}
+
+func TestAnnounceDryRunSaysAWebhookKeepsItsOwnChannel(t *testing.T) {
+	// Arrange
+	// A webhook posts where it is bound, whatever channel the file names.
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x","channel":"#dev"}}`)
 
 	// Act
@@ -123,28 +163,31 @@ func TestAnnounceDryRunNamesTheConfiguredChannel(t *testing.T) {
 		t.Fatalf("announce --dry-run: %v (%s)", err, output)
 	}
 
-	if !strings.Contains(output, "#dev") {
-		t.Errorf("preview does not name the configured channel:\n%s", output)
+	if !strings.Contains(output, "to the channel its webhook is bound to") || strings.Contains(output, "to #dev") {
+		t.Errorf("preview names a channel the webhook does not post to:\n%s", output)
 	}
 }
 
-func TestAnnounceDryRunNamesTheService(t *testing.T) {
+func TestAnnounceAsksByTheServiceName(t *testing.T) {
 	// Arrange
-	// With a Teams webhook, the preview and prompt name Teams, not Slack.
+	// With a Teams webhook, the question names Teams, not Slack.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"kind":"teams","webhook_url":"https://outlook.office.example/webhook/x"}}`)
 
+	var asked []string
+
 	// Act
-	output, err := run(t, repo, "announce", "--dry-run")
+	printed, err := runStreams(t, repo, answering("n", &asked), "announce")
 	// Assert
 	if err != nil {
-		t.Fatalf("announce --dry-run: %v (%s)", err, output)
+		t.Fatalf("announce: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(output, "Teams") || strings.Contains(output, "Slack") {
-		t.Errorf("preview should name Teams, not Slack:\n%s", output)
+	if len(asked) != 1 || !strings.HasPrefix(asked[0], "Announce to Teams?") ||
+		strings.Contains(printed.stdout+printed.stderr, "Slack") {
+		t.Errorf("announce asked %q and said %+v; want Teams named, not Slack", asked, printed)
 	}
 }
 

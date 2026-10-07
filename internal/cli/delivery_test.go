@@ -53,7 +53,7 @@ func TestAnnounceYesDeliversTheAnnouncement(t *testing.T) {
 		t.Fatalf("announce --yes = %v, want the announcement delivered (%+v)", err, printed)
 	}
 
-	if posts.Load() != 1 || !strings.Contains(printed.stderr, "Announced to the configured Slack channel.\n") {
+	if posts.Load() != 1 || !strings.Contains(printed.stderr, "Announced to the channel its webhook is bound to.\n") {
 		t.Errorf("announce --yes posted %d times and said:\n%s\nwant one post, and that it was announced",
 			posts.Load(), printed.stderr)
 	}

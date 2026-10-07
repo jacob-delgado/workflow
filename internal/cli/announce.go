@@ -174,7 +174,7 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	}
 
 	service := seams.Messaging.Service()
-	target := announceTarget(seams.Messaging.Channel, service)
+	target := seams.Messaging.Target()
 	text := announcement.Text()
 	fmt.Fprintln(out.artifact, text)
 	fmt.Fprintln(out.artifact, "to "+target)
@@ -196,16 +196,6 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	fmt.Fprintln(out.notes, "Announced to "+target+".")
 
 	return nil
-}
-
-// announceTarget names where an announcement goes: the configured channel, or
-// the service's own destination when none is set (a webhook carries its own).
-func announceTarget(channel, service string) string {
-	if channel == "" {
-		return "the configured " + service + " channel"
-	}
-
-	return channel
 }
 
 // offerAgain says that an earlier session already made this announcement, and
