@@ -72,7 +72,7 @@ func (s *server) SetUp(_ context.Context, request api.SetUpRequestObject) (api.S
 // whose take-up failed — taken up rather than written over.
 func (s *server) setUp(body api.SetupRequest) api.SetUpResponseObject {
 	if !s.setupNeeded() {
-		return api.SetUp409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+		return api.SetUp409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"a configuration file already applies here; edit it in Settings"))
 	}
 
@@ -126,7 +126,7 @@ func (s *server) fileMade() bool {
 func (s *server) alreadyThere() api.SetUpResponseObject {
 	s.takeUp()
 
-	return api.SetUp409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+	return api.SetUp409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 		"a configuration file is already there; it is never written over, so edit it in Settings"))
 }
 
@@ -151,10 +151,10 @@ func (s *server) setupRefusal(err error) api.SetUpResponseObject {
 	case errors.Is(err, setup.ErrExists):
 		return s.alreadyThere()
 	case errors.Is(err, setup.ErrNoKeychain):
-		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"there is no keychain here to keep the token in; keep it in the file instead"))
 	case errors.Is(err, setup.ErrNoHome):
-		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"there is no home directory here to keep the file in; keep it in the repository instead"))
 	}
 
@@ -183,11 +183,11 @@ func (s *server) takeUp() bool {
 // the page offers to keep anyway.
 func checkFailure(err error) api.SetUpResponseObject {
 	if !setup.Keepable(err) {
-		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"Jira's address is not an http or https address without a username or password; type it again"))
 	}
 
-	return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.CheckFailed, checkRefusal(err)))
+	return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeCheckFailed, checkRefusal(err)))
 }
 
 // checkRefusal says why Jira's check did not pass, in words that name no
@@ -207,15 +207,15 @@ func checkRefusals() []faultClass {
 	return []faultClass{
 		{
 			causes: []error{jira.ErrUnauthorized, jira.ErrForbidden, jira.ErrNoCredential},
-			code:   api.CheckFailed, detail: "Jira did not accept the token",
+			code:   api.ProblemCodeCheckFailed, detail: "Jira did not accept the token",
 		},
 		{
 			causes: []error{jira.ErrUnreachable, httpx.ErrRedirected, httpx.ErrRateLimited},
-			code:   api.CheckFailed, detail: "Jira could not be reached at that address",
+			code:   api.ProblemCodeCheckFailed, detail: "Jira could not be reached at that address",
 		},
 		{
 			causes: []error{jira.ErrNoAPI, jira.ErrNotFound},
-			code:   api.CheckFailed, detail: "no Jira answers at that address",
+			code:   api.ProblemCodeCheckFailed, detail: "no Jira answers at that address",
 		},
 	}
 }

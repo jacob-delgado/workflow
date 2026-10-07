@@ -234,8 +234,8 @@ func TestASummaryTooLongForDiscordIsRefusedBeforeItGoes(t *testing.T) {
 	failure := decode[api.Problem](t, recorder)
 
 	want := "too long for Discord (2517 of 2000 characters); pick a shorter period"
-	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.TooLong || failure.Detail != want ||
-		len(posts) != 0 {
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeTooLong ||
+		failure.Detail != want || len(posts) != 0 {
 		t.Errorf("POST = %d %+v after %d posts, want 422 too_long saying %q and nothing posted",
 			recorder.Code, failure, len(posts), want)
 	}

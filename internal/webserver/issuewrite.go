@@ -38,7 +38,7 @@ func (s *server) LinkPullRequest(
 ) (api.LinkPullRequestResponseObject, error) {
 	if s.deps.LinkPullRequest == nil || s.deps.Branch == nil || s.deps.FindPull == nil {
 		return api.LinkPullRequest422ApplicationProblemPlusJSONResponse(
-			problem(api.Unprocessable, "linking a "+s.noun()+" on an issue is not available")), nil
+			problem(api.ProblemCodeUnprocessable, "linking a "+s.noun()+" on an issue is not available")), nil
 	}
 
 	issueKey := jira.Key(request.Key)
@@ -88,10 +88,10 @@ func (s *server) branchPull(issueKey jira.Key) (forge.PullRequest, error) {
 func (s *server) linkRefusal(err error, issueKey jira.Key) api.LinkPullRequestResponseObject {
 	switch {
 	case errors.Is(err, errNotTheBranchIssue):
-		return api.LinkPullRequest409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+		return api.LinkPullRequest409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"the checked-out branch does not name "+string(issueKey)+"; switch to its branch to link it"))
 	case errors.Is(err, errNoPullToLink):
-		return api.LinkPullRequest409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+		return api.LinkPullRequest409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"the checked-out branch has no "+s.noun()+" to link on "+string(issueKey)))
 	default:
 		body, code := s.fault(err)
@@ -109,7 +109,7 @@ func (s *server) TransitionIssue(
 ) (api.TransitionIssueResponseObject, error) {
 	if s.deps.Transitions == nil || s.deps.Transition == nil {
 		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(
-			problem(api.Unprocessable, "moving an issue is not available")), nil
+			problem(api.ProblemCodeUnprocessable, "moving an issue is not available")), nil
 	}
 
 	issueKey := jira.Key(request.Key)
@@ -136,14 +136,14 @@ func (s *server) TransitionIssue(
 func (s *server) transitionRefusal(err error, issueKey jira.Key, status string) api.TransitionIssueResponseObject {
 	switch {
 	case errors.Is(err, loop.ErrNoReviewStatus):
-		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"no review status is configured; set jira.review_status to move an issue there"))
 	case errors.Is(err, loop.ErrReviewNeedsFields):
-		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"Jira wants fields filled to move "+string(issueKey)+" to "+status+
 				"; change its status from the issue, whose form asks for them"))
 	case errors.Is(err, loop.ErrNoReviewTransition):
-		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"Jira offers no move of "+string(issueKey)+" to "+status+" from where it stands"))
 	default:
 		body, code := s.fault(err)
@@ -191,7 +191,7 @@ func (s *server) commentFailure(err error) api.AddCommentResponseObject {
 
 // commentRefusal is a comment that was not posted, and why.
 func commentRefusal(detail string) api.AddCommentResponseObject {
-	return api.AddComment422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, detail))
+	return api.AddComment422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
 }
 
 // followUps are what the page can offer once a pull request is open, in the
@@ -209,7 +209,7 @@ func (s *server) followUps(branch gitrepo.Branch) []api.FollowUp {
 	}
 
 	if s.deps.LinkPullRequest != nil {
-		offers = append(offers, api.FollowUp{Action: api.Link, IssueKey: string(issueKey)})
+		offers = append(offers, api.FollowUp{Action: api.FollowUpActionLink, IssueKey: string(issueKey)})
 	}
 
 	if s.deps.Transition == nil {
@@ -218,7 +218,9 @@ func (s *server) followUps(branch gitrepo.Branch) []api.FollowUp {
 
 	move, ok := loop.ReviewTransition(s.deps.Transitions, issueKey, s.config().Jira.ReviewStatus)
 	if ok {
-		offers = append(offers, api.FollowUp{Action: api.Transition, IssueKey: string(issueKey), Status: &move.ToStatus})
+		offers = append(offers, api.FollowUp{
+			Action: api.FollowUpActionTransition, IssueKey: string(issueKey), Status: &move.ToStatus,
+		})
 	}
 
 	return offers
@@ -240,7 +242,7 @@ func (s *server) ListStatusChanges(
 ) (api.ListStatusChangesResponseObject, error) {
 	if s.deps.Transitions == nil {
 		return api.ListStatusChanges422ApplicationProblemPlusJSONResponse(
-			problem(api.Unprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
+			problem(api.ProblemCodeUnprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
 	}
 
 	moves, err := s.deps.Transitions(jira.Key(request.Key))
@@ -261,7 +263,7 @@ func (s *server) ChangeStatus(
 ) (api.ChangeStatusResponseObject, error) {
 	if s.deps.Transitions == nil || s.deps.Transition == nil {
 		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(
-			problem(api.Unprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
+			problem(api.ProblemCodeUnprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
 	}
 
 	issueKey := jira.Key(request.Key)
@@ -359,11 +361,11 @@ func fieldValue(field jira.Field, entries []api.FieldEntry) jira.FieldValue {
 func (s *server) statusChangeRefusal(err error, issueKey jira.Key) api.ChangeStatusResponseObject {
 	switch {
 	case errors.Is(err, errChangeGone):
-		return api.ChangeStatus409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+		return api.ChangeStatus409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"that status change is no longer offered for "+string(issueKey)+
 				" from where it stands; read its status changes again"))
 	case isFieldRefusal(err):
-		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, err.Error()))
+		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, err.Error()))
 	default:
 		body, code := s.fault(err)
 
@@ -405,7 +407,7 @@ func (s *server) AssignIssue(
 
 // assignRefusal is an assignment that was not made, and why.
 func assignRefusal(detail string) api.AssignIssueResponseObject {
-	return api.AssignIssue422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, detail))
+	return api.AssignIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
 }
 
 // LogWork logs time spent on a Jira issue, as the terminal's w does, with the
@@ -436,5 +438,5 @@ func (s *server) LogWork(_ context.Context, request api.LogWorkRequestObject) (a
 
 // worklogRefusal is work that was not logged, and why.
 func worklogRefusal(detail string) api.LogWorkResponseObject {
-	return api.LogWork422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, detail))
+	return api.LogWork422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
 }

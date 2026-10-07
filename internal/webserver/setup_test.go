@@ -104,7 +104,7 @@ func setupBody(t *testing.T, keychain, keep bool) string {
 	t.Helper()
 
 	body, err := json.Marshal(api.SetupRequest{
-		Place: api.Repository, JiraBaseURL: setupJira, JiraToken: setupToken,
+		Place: api.SetupPlaceNameRepository, JiraBaseURL: setupJira, JiraToken: setupToken,
 		WebhookURL: "", Keychain: keychain, KeepUnchecked: keep,
 	})
 	if err != nil {
@@ -124,8 +124,8 @@ func TestSetupIsOfferedWhereNoFileApplies(t *testing.T) {
 	offer := decode[api.SetupOffer](t, get(t, run.handler(t), setupPath))
 
 	// Assert
-	if !offer.Needed || !offer.Keychain || len(offer.Places) != 2 || offer.Places[0].Place != api.Repository ||
-		offer.Places[1].Shown != "~/"+config.FileName {
+	if !offer.Needed || !offer.Keychain || len(offer.Places) != 2 ||
+		offer.Places[0].Place != api.SetupPlaceNameRepository || offer.Places[1].Shown != "~/"+config.FileName {
 		t.Errorf("offer = %+v, want setup needed, the repository first and home shown from home", offer)
 	}
 }
@@ -138,7 +138,7 @@ func TestTheConfigurationIsNotFoundWhereNoFileApplies(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusNotFound || failure.Code != api.NotFound {
+	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
 		t.Errorf("status %d, problem %+v; want 404 not_found", recorder.Code, failure)
 	}
 }
@@ -235,7 +235,7 @@ func TestSetupRefusesATokenJiraDoesNotAccept(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.CheckFailed ||
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeCheckFailed ||
 		strings.Contains(failure.Detail, "jira.internal.example") {
 		t.Errorf("status %d, problem %+v; want check_failed naming no host", recorder.Code, failure)
 	}
@@ -275,7 +275,7 @@ func TestSetupIsRefusedWhereAFileApplies(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusConflict || failure.Code != api.Conflict {
+	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeConflict {
 		t.Errorf("status %d, problem %+v; want 409", recorder.Code, failure)
 	}
 }
@@ -413,7 +413,7 @@ func TestSetupRefusesTheKeychainWhereThereIsNone(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable {
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable {
 		t.Errorf("status %d, problem %+v; want 422 unprocessable", recorder.Code, failure)
 	}
 }
@@ -483,7 +483,7 @@ func TestSetupNamesTheCheckThatDidNotPass(t *testing.T) {
 
 			// Assert
 			failure := decode[api.Problem](t, recorder)
-			if failure.Code != api.CheckFailed || !strings.Contains(failure.Detail, each.want) {
+			if failure.Code != api.ProblemCodeCheckFailed || !strings.Contains(failure.Detail, each.want) {
 				t.Errorf("problem %+v, want check_failed saying %q", failure, each.want)
 			}
 		})
@@ -513,7 +513,7 @@ func TestSetupNeverKeepsAnAddressThatIsNotOne(t *testing.T) {
 			failure := decode[api.Problem](t, recorder)
 			_, statErr := os.Stat(run.where.Path(setup.Repository))
 
-			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable ||
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
 				!strings.Contains(failure.Detail, "not an http or https address") ||
 				strings.Contains(failure.Detail, "keep") || strings.Contains(failure.Detail, "hunter2") ||
 				!errors.Is(statErr, os.ErrNotExist) {
@@ -543,7 +543,9 @@ func TestSetupRefusesHomeWithoutAHomeDirectory(t *testing.T) {
 	run := newFirstRun(t, http.StatusOK)
 	run.where.HomeDir = ""
 
-	body, err := json.Marshal(api.SetupRequest{Place: api.Home, JiraBaseURL: setupJira, JiraToken: setupToken})
+	body, err := json.Marshal(api.SetupRequest{
+		Place: api.SetupPlaceNameHome, JiraBaseURL: setupJira, JiraToken: setupToken,
+	})
 	if err != nil {
 		t.Fatalf("encoding the request: %v", err)
 	}
@@ -553,7 +555,7 @@ func TestSetupRefusesHomeWithoutAHomeDirectory(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable {
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable {
 		t.Errorf("status %d, problem %+v; want 422 unprocessable", recorder.Code, failure)
 	}
 }

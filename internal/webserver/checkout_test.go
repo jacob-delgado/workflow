@@ -126,7 +126,7 @@ func TestCheckoutRefusesADirtyTree(t *testing.T) {
 	}
 
 	failure := decode[api.Problem](t, recorder)
-	if failure.Code != api.Conflict {
+	if failure.Code != api.ProblemCodeConflict {
 		t.Errorf("code = %q, want conflict", failure.Code)
 	}
 
@@ -151,7 +151,7 @@ func TestCheckoutReportsAFailedSwitch(t *testing.T) {
 		t.Fatalf("status = %d, want 422 for a checkout that fails", recorder.Code)
 	}
 
-	if failure := decode[api.Problem](t, recorder); failure.Code != api.Unprocessable {
+	if failure := decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeUnprocessable {
 		t.Errorf("code = %q, want unprocessable", failure.Code)
 	}
 }

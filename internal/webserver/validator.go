@@ -83,11 +83,11 @@ func answerValidationError(router routers.Router, methods []string) nethttpmiddl
 		case errors.Is(err, routers.ErrMethodNotAllowed):
 			allowed := strings.Join(allowedMethods(ctx, router, methods, request), ", ")
 			w.Header().Set("Allow", allowed)
-			writeProblem(w, api.MethodNotAllowed, "this endpoint does not answer that method; it answers "+allowed)
+			writeProblem(w, api.ProblemCodeMethodNotAllowed, "this endpoint does not answer that method; it answers "+allowed)
 		case opts.StatusCode == http.StatusNotFound:
-			writeProblem(w, api.NotFound, "no such endpoint")
+			writeProblem(w, api.ProblemCodeNotFound, "no such endpoint")
 		default:
-			writeProblem(w, api.BadRequest, "the request did not match the API contract")
+			writeProblem(w, api.ProblemCodeBadRequest, "the request did not match the API contract")
 		}
 	}
 }

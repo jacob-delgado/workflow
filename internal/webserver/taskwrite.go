@@ -76,7 +76,8 @@ func (s *server) AnnotateTask(
 	_ context.Context, request api.AnnotateTaskRequestObject,
 ) (api.AnnotateTaskResponseObject, error) {
 	if blank(request.Body.Text) {
-		return api.AnnotateTask422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, "text is required")), nil
+		return api.AnnotateTask422ApplicationProblemPlusJSONResponse(
+			problem(api.ProblemCodeUnprocessable, "text is required")), nil
 	}
 
 	list, prob, code := s.taskWrite(request.UUID, withText(s.deps.Tasks.Annotate, request.Body.Text))
@@ -93,7 +94,7 @@ func (s *server) ModifyTask(
 	_ context.Context, request api.ModifyTaskRequestObject,
 ) (api.ModifyTaskResponseObject, error) {
 	if blank(request.Body.Line) {
-		return api.ModifyTask422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, lineRequired)), nil
+		return api.ModifyTask422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, lineRequired)), nil
 	}
 
 	list, prob, code := s.taskWrite(request.UUID, withText(s.deps.Tasks.Modify, request.Body.Line))
@@ -112,7 +113,7 @@ const lineRequired = "a line is required"
 // either met.
 func (s *server) taskWrite(uuid string, act func(uuid string) error) (api.TaskList, *api.Problem, int) {
 	if act == nil {
-		prob := problem(api.Unprocessable, notAvailable)
+		prob := problem(api.ProblemCodeUnprocessable, notAvailable)
 
 		return api.TaskList{}, &prob, prob.Status
 	}

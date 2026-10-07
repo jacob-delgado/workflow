@@ -127,7 +127,8 @@ func TestAFailedGitReadAnswersEveryWriteAlike(t *testing.T) {
 			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, write.path, write.body)
 
 			// Assert
-			assertGitReadAnswer(t, recorder, ran, gitReadAnswer{http.StatusInternalServerError, api.Internal, tryAgain})
+			assertGitReadAnswer(t, recorder, ran,
+				gitReadAnswer{http.StatusInternalServerError, api.ProblemCodeInternal, tryAgain})
 		})
 	}
 }
@@ -151,7 +152,7 @@ func TestAServerOutsideARepositoryAnswersEveryWriteWithAConflict(t *testing.T) {
 			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, write.path, write.body)
 
 			// Assert
-			assertGitReadAnswer(t, recorder, ran, gitReadAnswer{http.StatusConflict, api.Conflict, notARepository})
+			assertGitReadAnswer(t, recorder, ran, gitReadAnswer{http.StatusConflict, api.ProblemCodeConflict, notARepository})
 		})
 	}
 }
@@ -178,7 +179,7 @@ func TestAServerOutsideARepositoryAnswersItsReadsWithAConflict(t *testing.T) {
 			recorder := get(t, serve(t, deps, config.Default()), path)
 
 			// Assert
-			assertGitReadAnswer(t, recorder, 0, gitReadAnswer{http.StatusConflict, api.Conflict, notARepository})
+			assertGitReadAnswer(t, recorder, 0, gitReadAnswer{http.StatusConflict, api.ProblemCodeConflict, notARepository})
 		})
 	}
 }

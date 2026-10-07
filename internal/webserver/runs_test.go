@@ -185,7 +185,7 @@ func TestPreCommitStreamsItsOutputAsItRuns(t *testing.T) {
 	events := runEvents(t, startRun(t, handler, preCommitRun))
 
 	// Assert
-	if len(events) != 4 || events[0].Run == nil || events[0].Run.State != api.InProgress {
+	if len(events) != 4 || events[0].Run == nil || events[0].Run.State != api.RunStateInProgress {
 		t.Fatalf("events = %+v, want the run starting, two lines, the run ended", events)
 	}
 
@@ -194,7 +194,7 @@ func TestPreCommitStreamsItsOutputAsItRuns(t *testing.T) {
 	}
 
 	ended := lastRun(t, events)
-	if ended.State != api.Succeeded || ended.Outcome != "The pre-commit hook passed." {
+	if ended.State != api.RunStateSucceeded || ended.Outcome != "The pre-commit hook passed." {
 		t.Errorf("the run ended %q, %q; want it passed", ended.State, ended.Outcome)
 	}
 
@@ -214,7 +214,7 @@ func TestARunThatFailsEndsRefusedWithItsOutput(t *testing.T) {
 	ended := lastRun(t, runEvents(t, startRun(t, handler, preCommitRun)))
 
 	// Assert
-	if ended.State != api.Refused || ended.Outcome != "The pre-commit hook failed." {
+	if ended.State != api.RunStateRefused || ended.Outcome != "The pre-commit hook failed." {
 		t.Errorf("the run ended %q, %q; want it refused", ended.State, ended.Outcome)
 	}
 
@@ -234,7 +234,7 @@ func TestRebaseGoesOntoTheBaseGitNames(t *testing.T) {
 	ended := lastRun(t, runEvents(t, startRun(t, handler, rebaseRun)))
 
 	// Assert
-	if ended.State != api.Succeeded || ended.Outcome != "Rebased onto main." {
+	if ended.State != api.RunStateSucceeded || ended.Outcome != "Rebased onto main." {
 		t.Errorf("the run ended %q, %q; want rebased onto main", ended.State, ended.Outcome)
 	}
 
@@ -455,7 +455,7 @@ func TestTheStreamCarriesTheRunGoingNow(t *testing.T) {
 	held.output().Stop()
 	<-done
 
-	if snap.Run == nil || snap.Run.State != api.InProgress || !slices.Equal(snap.Run.Lines, []string{"hanging"}) {
+	if snap.Run == nil || snap.Run.State != api.RunStateInProgress || !slices.Equal(snap.Run.Lines, []string{"hanging"}) {
 		t.Errorf("the frame's run = %+v, want pre-commit in progress with its line so far", snap.Run)
 	}
 }

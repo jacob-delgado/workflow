@@ -60,7 +60,7 @@ func PostLength(settings config.Messaging, text string) *api.PostLength {
 
 // periodRefused is a period that could not be read as asked, and why.
 func periodRefused(err error) api.GetActivityResponseObject {
-	return api.GetActivity422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, periodReason(err)))
+	return api.GetActivity422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, periodReason(err)))
 }
 
 // periodReason says why a period could not be read, in words of its own: a
@@ -103,7 +103,7 @@ func (s *server) PostActivity(
 	}
 
 	if errors.Is(err, messaging.ErrTooLong) {
-		return api.PostActivity422ApplicationProblemPlusJSONResponse(problem(api.TooLong, err.Error())), nil
+		return api.PostActivity422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeTooLong, err.Error())), nil
 	}
 
 	if err != nil {
@@ -120,7 +120,7 @@ func (s *server) PostActivity(
 
 // activityPostRefused is the 422 refusing a Summary the server will not post.
 func activityPostRefused(detail string) api.PostActivity422ApplicationProblemPlusJSONResponse {
-	return api.PostActivity422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, detail))
+	return api.PostActivity422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
 }
 
 // destination is where a post to channel goes, in words: the channel, or
@@ -166,15 +166,15 @@ func ActivityReport(
 // describe.
 func sourceDTO(read activity.Read, describe func(error) string) api.ActivitySource {
 	source := api.ActivitySource{
-		Source: sourceName(read.Source), Name: read.Source.Title(), State: api.ActivitySourceRead,
+		Source: sourceName(read.Source), Name: read.Source.Title(), State: api.ActivitySourceStateRead,
 		Truncated: read.Truncated, Detail: "",
 	}
 
 	switch {
 	case read.Failed != nil:
-		source.State, source.Detail = api.ActivitySourceFailed, failureDetail(read.Failed, describe)
+		source.State, source.Detail = api.ActivitySourceStateFailed, failureDetail(read.Failed, describe)
 	case read.NotSetUp != nil:
-		source.State, source.Detail = api.ActivitySourceNotSetUp, failureDetail(read.NotSetUp, describe)
+		source.State, source.Detail = api.ActivitySourceStateNotSetUp, failureDetail(read.NotSetUp, describe)
 	}
 
 	return source

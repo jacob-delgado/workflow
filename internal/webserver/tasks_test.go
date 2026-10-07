@@ -300,42 +300,43 @@ func TestListTasksSaysWhenTaskwarriorIsNotAvailable(t *testing.T) {
 		wantReason string
 		wantCode   api.TaskListReasonCode
 	}{
-		"no task program": {tasks: seams.Tasks{}, wantReason: notInstalled, wantCode: api.NotInstalled},
+		"no task program": {tasks: seams.Tasks{}, wantReason: notInstalled, wantCode: api.TaskListReasonCodeNotInstalled},
 		"turned off": {
-			tasks: seams.Tasks{}, disabled: true, wantReason: "Turned off by taskwarrior.disabled.", wantCode: api.TurnedOff,
+			tasks: seams.Tasks{}, disabled: true,
+			wantReason: "Turned off by taskwarrior.disabled.", wantCode: api.TaskListReasonCodeTurnedOff,
 		},
 		"not installed": {
 			tasks:      failing(fmt.Errorf("%w: tried %s", taskwarrior.ErrNotInstalled, program)),
-			wantReason: notInstalled, wantCode: api.NotInstalled,
+			wantReason: notInstalled, wantCode: api.TaskListReasonCodeNotInstalled,
 		},
 		"not Taskwarrior": {
 			tasks: failing(fmt.Errorf("%w: tried %s", taskwarrior.ErrNotTaskwarrior, program)),
 			wantReason: "The task on PATH is another program (go-task, most likely), not Taskwarrior. " +
 				"Set taskwarrior.program to Taskwarrior's path, then restart workflow; workflow doctor names what it found.",
-			wantCode: api.NotTaskwarrior,
+			wantCode: api.TaskListReasonCodeNotTaskwarrior,
 		},
 		"too old": {
 			tasks:      failing(fmt.Errorf("%w: 3.4.1 at %s; 3.5.0 or newer is needed", taskwarrior.ErrTooOld, program)),
 			wantReason: "Taskwarrior is too old: 3.5.0 or newer is needed; workflow doctor shows the version found.",
-			wantCode:   api.TooOld,
+			wantCode:   api.TaskListReasonCodeTooOld,
 		},
 		"never run": {
 			tasks: failing(taskwarrior.NeverRunError{Program: program}),
 			wantReason: "Taskwarrior has never been run: run it once in a terminal so it creates its " +
 				"configuration; workflow doctor names the program.",
-			wantCode: api.NeverRun,
+			wantCode: api.TaskListReasonCodeNeverRun,
 		},
 		"a malformed taskrc": {
 			tasks:      failing(fmt.Errorf("%w: taskrc has a malformed line", taskwarrior.ErrRefused)),
-			wantReason: "Taskwarrior's taskrc has a malformed line.", wantCode: api.MalformedTaskrc,
+			wantReason: "Taskwarrior's taskrc has a malformed line.", wantCode: api.TaskListReasonCodeMalformedTaskrc,
 		},
 		"a Taskwarrior that could not start": {
 			tasks:      failing(fmt.Errorf("%w: %s", taskwarrior.ErrRefused, cannotInclude)),
-			wantReason: "Taskwarrior could not start; workflow doctor says why.", wantCode: api.Unavailable,
+			wantReason: "Taskwarrior could not start; workflow doctor says why.", wantCode: api.TaskListReasonCodeUnavailable,
 		},
 		"a search that could not finish": {
 			tasks:      failing(fmt.Errorf("%w: looking for taskwarrior at %s", context.DeadlineExceeded, program)),
-			wantReason: couldNotAsk, wantCode: api.Unavailable,
+			wantReason: couldNotAsk, wantCode: api.TaskListReasonCodeUnavailable,
 		},
 	}
 
@@ -402,7 +403,7 @@ func TestAGitTimeoutIsNotWordedAsTaskwarriors(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusInternalServerError || failure.Code != api.Internal {
+	if recorder.Code != http.StatusInternalServerError || failure.Code != api.ProblemCodeInternal {
 		t.Errorf("answer = %d %+v, want the 500 internal problem a git read that timed out answers", recorder.Code, failure)
 	}
 

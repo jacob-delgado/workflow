@@ -66,9 +66,9 @@ func TestGetAnnouncementProposesWhomToTag(t *testing.T) {
 	want := &api.AnnouncementTagging{
 		Available: true,
 		Owners: []api.OwnerTag{
-			{Owner: benOwner, Kind: api.User, State: api.Unlinked, Slack: nil},
-			{Owner: carlaOwner, Kind: api.User, State: api.Linked, Slack: slackTarget(carla())},
-			{Owner: ownedTeam, Kind: api.Team, State: api.Linked, Slack: slackTarget(podGroup())},
+			{Owner: benOwner, Kind: api.OwnerTagKindUser, State: api.OwnerTagStateUnlinked, Slack: nil},
+			{Owner: carlaOwner, Kind: api.OwnerTagKindUser, State: api.OwnerTagStateLinked, Slack: slackTarget(carla())},
+			{Owner: ownedTeam, Kind: api.OwnerTagKindTeam, State: api.OwnerTagStateLinked, Slack: slackTarget(podGroup())},
 		},
 		Groups: []api.GroupTag{
 			{Slack: api.SlackTarget(apiReviews()), Checked: false, FromOwners: false},

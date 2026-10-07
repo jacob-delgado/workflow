@@ -145,7 +145,8 @@ func requireResolveFields(t *testing.T, fields []api.StatusChangeField) {
 	}
 
 	want := []api.StatusChangeFieldKind{
-		api.FieldDateKind, api.FieldOptionListKind, api.FieldOptionKind, api.FieldOnlyJiraKind,
+		api.StatusChangeFieldKindDate, api.StatusChangeFieldKindOptionList,
+		api.StatusChangeFieldKindOption, api.StatusChangeFieldKindOnlyJira,
 	}
 	if !slices.Equal(kinds, want) || len(fields[2].Options) != 2 || fields[2].Options[1].Name != "Won't Fix" {
 		t.Errorf("fields = %+v, want a date, a list, an option with its two values, and one only Jira fills", fields)
@@ -164,7 +165,7 @@ func TestStatusChangesAreUnavailableWithoutATracker(t *testing.T) {
 
 	// Assert
 	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusUnprocessableEntity ||
-		failure.Code != api.Unprocessable {
+		failure.Code != api.ProblemCodeUnprocessable {
 		t.Errorf("status/code = %d/%s, want 422/unprocessable", recorder.Code, failure.Code)
 	}
 }
@@ -307,7 +308,7 @@ func TestAStatusChangeNoLongerOfferedIsRefused(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusConflict || failure.Code != api.Conflict || writes.sent() != 0 {
+	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeConflict || writes.sent() != 0 {
 		t.Errorf("status/code = %d/%s, sent %d; want 409/conflict and nothing sent", recorder.Code, failure.Code,
 			writes.sent())
 	}
@@ -404,7 +405,8 @@ func TestAnIssueWriteIsRefusedWhereItCannotBeMade(t *testing.T) {
 
 			// Assert
 			failure := decode[api.Problem](t, recorder)
-			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable || writes.sent() != 0 {
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
+				writes.sent() != 0 {
 				t.Errorf("status/code = %d/%s, sent %d; want 422/unprocessable and nothing sent",
 					recorder.Code, failure.Code, writes.sent())
 			}

@@ -197,7 +197,7 @@ func TestStreamRefusesAnUnknownViewBeforeUpgrading(t *testing.T) {
 	}
 
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusNotFound || failure.Code != api.NotFound {
+	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
 		t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
 	}
 }
@@ -307,7 +307,7 @@ func wantEveryPanelProblem(t *testing.T, problems *api.PanelProblems) {
 	for panel, prob := range map[string]*api.Problem{
 		"issues": problems.Issues, "branch": problems.Branch, "changes": problems.Changes, "review": problems.Review,
 	} {
-		if prob == nil || prob.Code != api.Internal || prob.Detail == "" {
+		if prob == nil || prob.Code != api.ProblemCodeInternal || prob.Detail == "" {
 			t.Errorf("%s problem = %+v, want the curated internal problem", panel, prob)
 		}
 	}
