@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useForgeWords } from '@/api/health.ts'
 import type {
   Branch,
@@ -191,11 +191,33 @@ function RowValue({ mark, children }: { mark?: MarkState; children: string }) {
   const { changed, settle } = useChangedByStream(children)
 
   return (
-    <dd
-      className={cn('flex items-center gap-tight', changed && 'stream-changed')}
-      onAnimationEnd={settle}
-    >
-      {mark === undefined ? null : <StateMark state={mark} />}
+    <Value mark={mark} className={changed ? 'stream-changed' : undefined} onAnimationEnd={settle}>
+      {children}
+    </Value>
+  )
+}
+
+// Value is a row's value cell, which always holds a mark's slot before its
+// words: the state's mark, or an empty slot of the same size for a value that
+// is no state, so every value in the list starts at one left edge.
+function Value({
+  mark,
+  className,
+  onAnimationEnd,
+  children,
+}: {
+  mark?: MarkState
+  className?: string
+  onAnimationEnd?: () => void
+  children: ReactNode
+}) {
+  return (
+    <dd className={cn('flex items-center gap-tight', className)} onAnimationEnd={onAnimationEnd}>
+      {mark === undefined ? (
+        <span aria-hidden className="size-3.5 shrink-0" />
+      ) : (
+        <StateMark state={mark} />
+      )}
       {children}
     </dd>
   )
@@ -209,9 +231,9 @@ function IssueRow({ issue }: { issue: LinkedIssue }) {
   return (
     <>
       <dt className="text-muted-foreground">Issue</dt>
-      <dd className="font-mono">
+      <Value className="font-mono">
         {issue.url === '' ? shown : <NewTabLink href={issue.url}>{shown}</NewTabLink>}
-      </dd>
+      </Value>
     </>
   )
 }
