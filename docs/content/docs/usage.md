@@ -219,7 +219,7 @@ lists, by where it works.
 | | `u` | In the link form, on a branch already linked, unlink its issue |
 | | `c` / `C` | In Local data, remove the cache, or everything, after a last look |
 | | `ctrl+s` | In Settings, save every edit together |
-| | `D` | In Settings, remove the selected view, header, prefix or moved key |
+| | `D` | In Settings, remove the selected view, prefix or moved key; on a stored credential or header, remove it from the file after a last look |
 | | `j`/`k` or `↓`/`↑` | In the announcement preview, move between the code owners and groups it can tag |
 | | `space` | In the announcement preview, tag the selected group, or untag it |
 | | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group |
@@ -825,6 +825,14 @@ on one edits its value, and `D` removes it with the next save. The channels
 are typed comma-separated, as the commit types are. The keyboard part lists
 every action the interface binds, each with the key it is moved to, or the
 default it keeps; `enter` types a key, and `D` puts its default back.
+
+`D` on a credential the file holds — the Jira token, the forge token,
+Slack's client secret and refresh token, the webhook URL, or a Jira header —
+asks first, then writes the file as Settings read it without that credential,
+at once: it cannot be undone, and removing the client secret or the refresh
+token takes the access token made from them too. With no other edits,
+workflow then reopens as after a save; otherwise Settings stays open, says
+what was removed, and keeps your edits for `ctrl+s`.
 
 A save is checked as a file on disk is, and as the web's is: a value the
 configuration refuses, or a `ui.keys` map the interface would not start on,

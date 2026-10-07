@@ -296,12 +296,6 @@ func (f settingsForm) isEdited(field setting) bool {
 	return !slices.Contains(read, entry{name: field.entry, value: value})
 }
 
-// removable reports that the remove key acts on a setting: an entry of a
-// collection.
-func (s setting) removable() bool {
-	return s.kind == settingEntry
-}
-
 // headerCollection is the Jira headers: names and credentials.
 func headerCollection() collection {
 	return collection{title: "Header", noun: "header", nameWord: entryName, valueWord: "value", secret: true}
