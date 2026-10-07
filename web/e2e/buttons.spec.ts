@@ -77,6 +77,7 @@ async function focusDrawing(control: Locator): Promise<{ layers: ShadowLayer[]; 
   await control.focus()
   await control.press('Shift+Tab')
   await control.page().keyboard.press('Tab')
+  await expect(control, 'Tab returns to the control').toBeFocused()
 
   return control.evaluate((element) => {
     const shadow = getComputedStyle(element).boxShadow
