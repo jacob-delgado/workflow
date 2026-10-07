@@ -120,6 +120,21 @@ func TestAnEmptyServiceShowsAsSlackTheDefault(t *testing.T) {
 	requireScreen(t, view, "Slack (default)")
 }
 
+func TestAServiceTheFileNamesShowsInItsOwnWords(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.settings.Messaging.Kind = "teams"
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), toRow(messagingKindRow)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "Microsoft Teams")
+	refuseScreen(t, view, "Slack (default)")
+}
+
 func TestAChoiceComesBackRoundToTheDefaultItSavesEmpty(t *testing.T) {
 	t.Parallel()
 

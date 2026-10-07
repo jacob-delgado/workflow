@@ -14,6 +14,9 @@ import (
 // alone; the row that adds a header follows it.
 const storedHeaderRow = addHeaderRow
 
+// otherHeader is a second stored header, listed before storedHeader.
+const otherHeader = "A-Other"
+
 // clientSecretRow is the row of the Slack client secret.
 const clientSecretRow = messagingKindRow + 2
 
@@ -57,13 +60,15 @@ func TestAStoredHeaderTypedOverIsSavedWithTheTypedValue(t *testing.T) {
 
 	// Arrange
 	repo := withHeader()
+	repo.settings.Jira.Headers[otherHeader] = "other-secret-2468"
 
 	// Act
-	typing(t, repo.live(t, 120, 40), editing(storedHeaderRow, typedSecret)...)
+	typing(t, repo.live(t, 120, 40), editing(storedHeaderRow+1, typedSecret)...)
 
 	// Assert
-	if got := storedHeaderValue(repo); got != typedSecret {
-		t.Errorf("saved the typed header %t, want it saved", got == typedSecret)
+	if got, other := storedHeaderValue(repo), repo.settings.Jira.Headers[otherHeader]; got != typedSecret || other == "" {
+		t.Errorf("saved the typed header %t, kept %s %t; want the typed one saved beside the other",
+			got == typedSecret, otherHeader, other != "")
 	}
 }
 
@@ -149,15 +154,16 @@ func TestRemovingOneOfTwoStoredHeadersKeepsTheOther(t *testing.T) {
 
 	// Arrange
 	repo := withHeader()
-	repo.settings.Jira.Headers["A-Other"] = "other-secret-2468"
+	repo.settings.Jira.Headers[otherHeader] = "other-secret-2468"
 
 	// Act
 	typing(t, repo.live(t, 120, 40), append(toRow(storedHeaderRow+1), removeKey, keyEnter)...)
 
 	// Assert
 	_, removed := repo.settings.Jira.Headers[storedHeader]
-	if _, kept := repo.settings.Jira.Headers["A-Other"]; removed || !kept {
-		t.Errorf("%s kept %t, A-Other kept %t; want only %s removed", storedHeader, removed, kept, storedHeader)
+	if _, kept := repo.settings.Jira.Headers[otherHeader]; removed || !kept {
+		t.Errorf("%s removed %t, %s kept %t; want only %s removed", storedHeader, removed, otherHeader, kept,
+			storedHeader)
 	}
 }
 
@@ -178,18 +184,48 @@ func TestTheRemoveKeyOnASettingWithNothingToRemoveDoesNothing(t *testing.T) {
 	}
 }
 
-func TestRemovingTheClientSecretSaysTheAccessTokenGoesToo(t *testing.T) {
+func TestRemovingASlackSecretSaysTheAccessTokenGoesToo(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		row   int
+		store func(*config.Config)
+	}{
+		{"the client secret", clientSecretRow, func(cfg *config.Config) { cfg.Messaging.ClientSecret = "secret-7777" }},
+		{"the refresh token", clientSecretRow + 1, func(cfg *config.Config) { cfg.Messaging.RefreshToken = "xoxe-1-8888" }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			repo := newWorld()
+			test.store(&repo.settings)
+
+			// Act
+			view := typing(t, repo.live(t, 120, 40), append(toRow(test.row), removeKey)...).View().Content
+
+			// Assert
+			requireScreen(t, view, "Remove "+test.name, "access token made from it goes too")
+		})
+	}
+}
+
+func TestAKeyLeftEmptyOnItsDefaultIsSavedWithoutAnEntry(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	repo := newWorld()
-	repo.settings.Messaging.ClientSecret = "client-secret-7777"
 
 	// Act
-	view := typing(t, repo.live(t, 120, 40), append(toRow(clientSecretRow), removeKey)...).View().Content
+	typing(t, repo.live(t, 120, 40), append(toRow(commentKeyRow(t)), keyEnter, keyEnter, saveKey)...)
 
 	// Assert
-	requireScreen(t, view, "Remove the client secret", "access token made from it goes too")
+	if saves, got := repo.asked("save-settings"), repo.settings.UI.Keys; len(saves) != 1 || len(got) != 0 {
+		t.Errorf("saved %d times, ui.keys %v; want one save with no entry: comment kept on its default",
+			len(saves), got)
+	}
 }
 
 func TestADryRunRemovesNoCredential(t *testing.T) {
