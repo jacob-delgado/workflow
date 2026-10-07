@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { KeyAction } from '@/api/generated/types.gen.ts'
 import { useKeysStore } from '@/features/keyboard/keysApi.ts'
 import { Input } from '@/lib/Field.tsx'
@@ -38,43 +39,58 @@ function groupsOf(actions: KeyAction[]): [group: string, actions: KeyAction[]][]
 
 // KeyTable is every action the terminal binds, grouped as its help groups
 // them, each with the key it is moved to, empty for its default. It is folded
-// away until opened: most never move a key. A key that clashes with another
+// away until opened, and drawn only then: most never move a key, and a folded
+// field would still sit in the Tab order. A key moved and folded away again
+// stays moved, since the form keeps what it was given. A key that clashes with another
 // where both are live is refused when the form is saved, as the terminal
 // refuses it as it starts.
 function KeyTable({ register }: { register: Register }) {
   const actions = useKeysStore((state) => state.actions)
+  const [open, setOpen] = useState(false)
   if (actions.length === 0) {
     return null
   }
 
   return (
-    <details className="text-sm">
+    <details
+      className="text-sm"
+      onToggle={(event) => {
+        setOpen(event.currentTarget.open)
+      }}
+    >
       <summary className="cursor-pointer text-muted-foreground">Rebind keys</summary>
-      <table aria-label="Keys" className="mt-item w-full table-fixed text-left">
-        <thead className="text-xs text-muted-foreground">
+      {open ? <KeyGroups register={register} actions={actions} /> : null}
+    </details>
+  )
+}
+
+// KeyGroups is the table of keys, a group of rows per help group.
+function KeyGroups({ register, actions }: { register: Register; actions: KeyAction[] }) {
+  return (
+    <table aria-label="Keys" className="mt-item w-full table-fixed text-left">
+      <thead className="text-xs text-muted-foreground">
+        <tr>
+          <th scope="col" className="py-1 font-medium">
+            Action
+          </th>
+          <th scope="col" className="w-40 py-1 font-medium">
+            Key
+          </th>
+        </tr>
+      </thead>
+      {groupsOf(actions).map(([group, listed]) => (
+        <tbody key={group}>
           <tr>
-            <th scope="col" className="py-1 font-medium">
-              Action
-            </th>
-            <th scope="col" className="w-40 py-1 font-medium">
-              Key
+            <th scope="rowgroup" colSpan={2} className="pt-group pb-1 font-semibold">
+              {group}
             </th>
           </tr>
-        </thead>
-        {groupsOf(actions).map(([group, listed]) => (
-          <tbody key={group}>
-            <tr>
-              <th scope="rowgroup" colSpan={2} className="pt-group pb-1 font-semibold">
-                {group}
-              </th>
-            </tr>
-            {listed.map((action) => (
-              <KeyRow key={action.action} register={register} action={action} />
-            ))}
-          </tbody>
-        ))}
-      </table>
-    </details>
+          {listed.map((action) => (
+            <KeyRow key={action.action} register={register} action={action} />
+          ))}
+        </tbody>
+      ))}
+    </table>
   )
 }
 
