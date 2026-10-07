@@ -26,6 +26,7 @@ import { PullRequestFieldset, StoreFieldset } from './fieldsets/PullRequestAndSt
 import { TaskwarriorFieldset } from './fieldsets/TaskwarriorFieldset.tsx'
 import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
+import { formValues } from './formValues.ts'
 import { SetupArea } from './SetupForm.tsx'
 
 // SettingsPanel is the configuration form, and below it the areas that save on
@@ -116,7 +117,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   // timing, jira.views and the token commands among them — rides back unchanged
   // on save rather than being dropped.
   const { register, handleSubmit, reset, setFocus, control, formState } = useForm<Config>({
-    defaultValues: read.config,
+    defaultValues: formValues(read.config),
   })
   // The revision of the file the form's values stand for: the read that seeded
   // it, then each save and each reload. A save names it, so the server refuses
@@ -134,7 +135,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   const reloadConfig = useReloadConfig()
   const outcome = useOutcome()
   const seed = (next: ConfigRead) => {
-    reset(next.config)
+    reset(formValues(next.config))
     setRevision(next.revision)
   }
   const save = useAsyncAction(

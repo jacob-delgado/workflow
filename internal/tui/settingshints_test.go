@@ -5,6 +5,8 @@ package tui_test
 
 import (
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/convention"
 )
 
 // The rows of Settings whose hints and choices the tests read.
@@ -60,4 +62,40 @@ func TestTheAnnouncementHintNamesItsPlaceholdersAndThatItIsSlackOnly(t *testing.
 
 	// Assert
 	requireScreen(t, view, "Slack only", "{author}", "{issue_url}", "Empty keeps the built-in message.")
+}
+
+func TestAnEmptyTitleSourceShowsAsTheDefaultItMeans(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), toRow(titleSourceRow)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "The branch's oldest commit (default)")
+}
+
+func TestAnEmptyServiceShowsAsSlackTheDefault(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), toRow(messagingKindRow)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "Slack (default)")
+}
+
+func TestAChoiceComesBackRoundToTheDefaultItSavesEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.settings.PullRequest.TitleSource = string(convention.TitleFromIssue)
+
+	// Act
+	typing(t, repo.live(t, 120, 40), append(toRow(titleSourceRow), keyEnter, saveKey)...)
+
+	// Assert
+	if got := repo.settings.PullRequest.TitleSource; got != "" {
+		t.Errorf("saved pull_request.title_source %q, want empty: the default", got)
+	}
 }

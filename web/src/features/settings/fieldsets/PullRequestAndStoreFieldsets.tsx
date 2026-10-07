@@ -13,7 +13,7 @@ export function PullRequestFieldset({ register }: { register: Register }) {
         label="Title source"
         hint={`Where a ${noun}'s title comes from.`}
         choices={[
-          ['commit', "The branch's oldest commit"],
+          ['', "The branch's oldest commit (default)"],
           ['issue', 'The issue it names'],
         ]}
       />

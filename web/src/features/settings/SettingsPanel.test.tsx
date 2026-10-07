@@ -44,7 +44,10 @@ test('loads the configured messaging service into the Service select', async () 
   const service = await screen.findByLabelText('Service')
 
   // Assert
-  expect((service as HTMLSelectElement).value).toBe('slack')
+  // The mock names slack, the default, which the select shows as its default choice.
+  expect(
+    within(service).getByRole('option', { name: 'Slack (default)', selected: true }),
+  ).toBeTruthy()
   expect(screen.getByRole('option', { name: 'Microsoft Teams' })).toBeTruthy()
   expect(screen.getByRole('option', { name: 'Discord' })).toBeTruthy()
 })

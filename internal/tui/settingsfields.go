@@ -45,8 +45,9 @@ type setting struct {
 }
 
 // words is how a choice's value reads, an unset one as the first choice: the
-// default the configuration takes. A file holding any other is refused as
-// it is read.
+// default the configuration takes, which a file may also name, as "slack" or
+// "commit" — the first choice is empty, and stands for it. A file holding any
+// other is refused as it is read.
 func (s setting) words(value string) string {
 	for _, offered := range s.choices {
 		if offered.value == value {
@@ -135,7 +136,10 @@ func messagingSettings() []setting {
 			section: section, label: "Service", path: "messaging.kind", kind: settingChoice,
 			hint: "Slack posts with a user token or a webhook, not both; the others post over a webhook.",
 			choices: []option{
-				{"slack", "Slack"}, {"teams", "Microsoft Teams"}, {"discord", "Discord"}, {"webhook", "Plain webhook"},
+				{"", "Slack (default)"},
+				{"teams", "Microsoft Teams"},
+				{"discord", "Discord"},
+				{"webhook", "Plain webhook"},
 			},
 		},
 		{
@@ -235,7 +239,7 @@ func pullRequestSettings(noun string) []setting {
 			section: "Pull request", label: "Title source", path: "pull_request.title_source", kind: settingChoice,
 			hint: "Where a " + noun + "'s title comes from.",
 			choices: []option{
-				{"commit", "The branch's oldest commit"}, {"issue", "The issue it names"},
+				{"", "The branch's oldest commit (default)"}, {"issue", "The issue it names"},
 			},
 		},
 	}
