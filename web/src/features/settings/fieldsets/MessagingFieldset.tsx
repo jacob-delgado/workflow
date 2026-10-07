@@ -13,7 +13,7 @@ export function MessagingFieldset({ register }: { register: Register }) {
         label="Service"
         hint="Slack posts with a user token or a webhook, not both; the others post over a webhook."
         choices={[
-          ['slack', 'Slack'],
+          ['', 'Slack (default)'],
           ['teams', 'Microsoft Teams'],
           ['discord', 'Discord'],
           ['webhook', 'Plain webhook'],
