@@ -148,7 +148,7 @@ func TestStageRefusesAPathThatIsNotAChange(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusNotFound || failure.Code != api.NotFound || len(tree.staged) != 0 {
+	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound || len(tree.staged) != 0 {
 		t.Errorf("status/code = %d/%s, staged %+v; want 404/not_found and nothing staged",
 			recorder.Code, failure.Code, tree.staged)
 	}
@@ -208,7 +208,7 @@ func TestStagingNeedsAPathOrAllButNotBoth(t *testing.T) {
 
 			// Assert
 			failure := decode[api.Problem](t, recorder)
-			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable {
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable {
 				t.Errorf("status/code = %d/%s, want 422/unprocessable", recorder.Code, failure.Code)
 			}
 

@@ -88,7 +88,7 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 	}
 
 	if !s.claimRun(planned) {
-		writeProblem(w, api.Conflict, errRunGoing.Error())
+		writeProblem(w, api.ProblemCodeConflict, errRunGoing.Error())
 
 		return
 	}
@@ -100,7 +100,8 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 
 	output, err := planned.start()
 	if err != nil {
-		writeProblem(w, api.Unprocessable, planned.title+" could not be started; run it from a terminal to see why")
+		writeProblem(w, api.ProblemCodeUnprocessable,
+			planned.title+" could not be started; run it from a terminal to see why")
 
 		return
 	}
@@ -112,9 +113,9 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 func writeRunRefusal(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, errNothingToRebase), errors.Is(err, errNothingToFold):
-		writeProblem(w, api.Conflict, err.Error())
+		writeProblem(w, api.ProblemCodeConflict, err.Error())
 	default:
-		writeProblem(w, api.Unprocessable, err.Error())
+		writeProblem(w, api.ProblemCodeUnprocessable, err.Error())
 	}
 }
 
@@ -251,7 +252,7 @@ func (s *server) claimRun(planned plannedRun) bool {
 	}
 
 	s.run.going = &goingRun{run: api.Run{
-		Kind: planned.kind, Title: planned.title, State: api.InProgress, Lines: []string{}, Outcome: "",
+		Kind: planned.kind, Title: planned.title, State: api.RunStateInProgress, Lines: []string{}, Outcome: "",
 	}}
 
 	return true
@@ -318,11 +319,11 @@ func (s *server) runEnded(planned plannedRun, exit error) *api.Run {
 
 	switch {
 	case going.stopped:
-		going.run.State, going.run.Outcome = api.Stopped, "Stopped "+planned.title+"."
+		going.run.State, going.run.Outcome = api.RunStateStopped, "Stopped "+planned.title+"."
 	case exit != nil:
-		going.run.State, going.run.Outcome = api.Refused, planned.refused
+		going.run.State, going.run.Outcome = api.RunStateRefused, planned.refused
 	default:
-		going.run.State, going.run.Outcome = api.Succeeded, planned.succeeded
+		going.run.State, going.run.Outcome = api.RunStateSucceeded, planned.succeeded
 	}
 
 	ended := going.run
@@ -355,7 +356,7 @@ func (s *server) StopRun(context.Context, api.StopRunRequestObject) (api.StopRun
 
 	going := s.run.going
 	if going == nil {
-		return api.StopRun404ApplicationProblemPlusJSONResponse(problem(api.NotFound, errNoRunGoing.Error())), nil
+		return api.StopRun404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, errNoRunGoing.Error())), nil
 	}
 
 	going.stopped = true

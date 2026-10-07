@@ -19,7 +19,7 @@ import (
 // line before Taskwarrior is asked.
 func (s *server) AddTask(_ context.Context, request api.AddTaskRequestObject) (api.AddTaskResponseObject, error) {
 	if blank(request.Body.Line) {
-		return api.AddTask422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, lineRequired)), nil
+		return api.AddTask422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, lineRequired)), nil
 	}
 
 	list, prob, code := s.taskCommand(addLine(s.deps.Tasks.Add, request.Body.Line), s.taskFault)
@@ -70,7 +70,7 @@ func (s *server) TrackIssue(
 
 // trackRefused is the 422 for a track the server will not attempt.
 func trackRefused(detail string) api.TrackIssue422ApplicationProblemPlusJSONResponse {
-	return api.TrackIssue422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, detail))
+	return api.TrackIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
 }
 
 // issueNotRead answers an issue the tracker could not read for a track: one it
@@ -79,7 +79,7 @@ func trackRefused(detail string) api.TrackIssue422ApplicationProblemPlusJSONResp
 func (s *server) issueNotRead(key jira.Key, err error) api.TrackIssueResponseObject {
 	if errors.Is(err, jira.ErrNotFound) || errors.Is(err, forge.ErrNoRepository) {
 		return api.TrackIssue404ApplicationProblemPlusJSONResponse(
-			problem(api.NotFound, "issue "+string(key)+" was not found"))
+			problem(api.ProblemCodeNotFound, "issue "+string(key)+" was not found"))
 	}
 
 	body, code := s.fault(err)
@@ -150,7 +150,7 @@ func (s *server) taskCommand(
 	run func() (taskChange, error), fault func(err error) (api.Problem, int),
 ) (api.TaskList, *api.Problem, int) {
 	if run == nil {
-		prob := problem(api.Unprocessable, notAvailable)
+		prob := problem(api.ProblemCodeUnprocessable, notAvailable)
 
 		return api.TaskList{}, &prob, prob.Status
 	}
@@ -195,7 +195,7 @@ func saying(run func() (string, error)) func() (taskChange, error) {
 // has nothing to undo.
 func (s *server) undoFault(err error) (api.Problem, int) {
 	if errors.Is(err, taskwarrior.ErrNothingChanged) {
-		return problem(api.Conflict, "Taskwarrior has nothing to undo"), http.StatusConflict
+		return problem(api.ProblemCodeConflict, "Taskwarrior has nothing to undo"), http.StatusConflict
 	}
 
 	return s.taskFault(err)
@@ -205,7 +205,7 @@ func (s *server) undoFault(err error) (api.Problem, int) {
 // internal host no answer may carry — so its detail says where to see it.
 func (s *server) syncFault(err error) (api.Problem, int) {
 	if errors.Is(err, taskwarrior.ErrRefused) {
-		return problem(api.Unprocessable, "Taskwarrior could not sync; run task sync in a terminal to see why"),
+		return problem(api.ProblemCodeUnprocessable, "Taskwarrior could not sync; run task sync in a terminal to see why"),
 			http.StatusUnprocessableEntity
 	}
 

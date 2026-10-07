@@ -275,7 +275,7 @@ func (s *server) isTeam(owner string) (bool, error) {
 
 	for _, listed := range people.Owners {
 		if loop.SameOwner(listed.Owner, owner) {
-			return listed.Kind == api.Team, nil
+			return listed.Kind == api.OwnerTagKindTeam, nil
 		}
 	}
 
@@ -509,13 +509,13 @@ func missingScope(err error) (string, bool) {
 // and anything else is classified by fault.
 func (s *server) peopleFault(err error) (api.Problem, int) {
 	if errors.Is(err, loop.ErrUnknownWorkspace) {
-		prob := problem(api.Unprocessable, workspaceRefusal(err))
+		prob := problem(api.ProblemCodeUnprocessable, workspaceRefusal(err))
 
 		return prob, prob.Status
 	}
 
 	if scope, missing := missingScope(err); missing {
-		prob := problem(api.Unprocessable, "the Slack token lacks the "+scope+
+		prob := problem(api.ProblemCodeUnprocessable, "the Slack token lacks the "+scope+
 			" scope; add it to the Slack app, then sign in again with workflow slack login")
 
 		return prob, prob.Status
@@ -523,7 +523,7 @@ func (s *server) peopleFault(err error) (api.Problem, int) {
 
 	for _, refusal := range peopleRefusals() {
 		if errors.Is(err, refusal) {
-			prob := problem(api.Unprocessable, refusal.Error())
+			prob := problem(api.ProblemCodeUnprocessable, refusal.Error())
 
 			return prob, prob.Status
 		}
@@ -546,11 +546,11 @@ func peopleRefusals() []error {
 // ownerTagsDTO maps code owners as an announcement tags them onto the wire.
 func ownerTagsDTO(owners []loop.OwnerTag) []api.OwnerTag {
 	states := map[loop.OwnerState]api.OwnerTagState{
-		loop.OwnerUnlinked:   api.Unlinked,
-		loop.OwnerLinked:     api.Linked,
-		loop.OwnerNotOnSlack: api.NotOnSlack,
+		loop.OwnerUnlinked:   api.OwnerTagStateUnlinked,
+		loop.OwnerLinked:     api.OwnerTagStateLinked,
+		loop.OwnerNotOnSlack: api.OwnerTagStateNotOnSlack,
 	}
-	kinds := map[bool]api.OwnerTagKind{false: api.User, true: api.Team}
+	kinds := map[bool]api.OwnerTagKind{false: api.OwnerTagKindUser, true: api.OwnerTagKindTeam}
 
 	tags := make([]api.OwnerTag, 0, len(owners))
 

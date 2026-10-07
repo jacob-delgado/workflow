@@ -205,7 +205,7 @@ func TestAMissingIssueIsNotFoundBeforeARefusal(t *testing.T) {
 
 			// Assert
 			failure := decode[api.Problem](t, recorder)
-			if recorder.Code != http.StatusNotFound || failure.Code != api.NotFound {
+			if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
 				t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
 			}
 		})
@@ -229,7 +229,7 @@ func TestAnAnswerThatCannotBeWrittenSaysWhatToDo(t *testing.T) {
 	var failure api.Problem
 
 	err := json.Unmarshal(writer.body.Bytes(), &failure)
-	if err != nil || failure.Code != api.Internal || !strings.Contains(failure.Detail, "try again") {
+	if err != nil || failure.Code != api.ProblemCodeInternal || !strings.Contains(failure.Detail, "try again") {
 		t.Errorf("answer = %q (%v), want an internal problem that says to try again", writer.body.String(), err)
 	}
 }

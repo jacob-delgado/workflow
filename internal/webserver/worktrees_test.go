@@ -57,12 +57,12 @@ func TestRepositoriesListTheWorktrees(t *testing.T) {
 
 	// Assert
 	want := []api.Worktree{
-		{Dir: apiRoot, Shown: "~/src/api", Branch: prBase, Head: shortHead, State: api.WorktreeHere},
+		{Dir: apiRoot, Shown: "~/src/api", Branch: prBase, Head: shortHead, State: api.WorktreeStateHere},
 		{
-			Dir: apiFeature, Shown: "~/src/api-feat-x", Branch: "feat/x", Head: shortHead, State: api.WorktreeOther,
+			Dir: apiFeature, Shown: "~/src/api-feat-x", Branch: "feat/x", Head: shortHead, State: api.WorktreeStateWorktree,
 			Locked: true,
 		},
-		{Dir: apiGone, Shown: "~/src/api-gone", Branch: "", Head: shortHead, State: api.WorktreeMissing},
+		{Dir: apiGone, Shown: "~/src/api-gone", Branch: "", Head: shortHead, State: api.WorktreeStateMissing},
 	}
 
 	got := decode[api.Repositories](t, recorder)

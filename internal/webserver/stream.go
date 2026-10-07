@@ -122,7 +122,7 @@ func (c *forgeCache) holdsPull(number int) bool {
 func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		writeProblem(w, api.Internal, "streaming is not supported")
+		writeProblem(w, api.ProblemCodeInternal, "streaming is not supported")
 
 		return
 	}
@@ -131,7 +131,7 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	// headers are out, the only answer left is a stream of the wrong view.
 	view := request.URL.Query().Get("view")
 	if _, known := resolveJQL(s.config(), view); !known {
-		writeProblem(w, api.NotFound, unknownView(view))
+		writeProblem(w, api.ProblemCodeNotFound, unknownView(view))
 
 		return
 	}

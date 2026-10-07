@@ -132,7 +132,7 @@ func TestASaveOverAnEditMadeOnDiskIsRefused(t *testing.T) {
 	recorder := putConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(read))
 
 	// Assert
-	refusedWith(t, recorder, http.StatusConflict, api.Conflict, path)
+	refusedWith(t, recorder, http.StatusConflict, api.ProblemCodeConflict, path)
 
 	if got := onDisk(t, path); got != editedFile {
 		t.Errorf("the file holds %q, want the edit left as it was", got)
@@ -165,7 +165,7 @@ func TestASaveOverARevisionAnotherSaveReplacedIsRefused(t *testing.T) {
 	recorder := putConfigOver(t, handler, jiraAt(t, "https://stale.example.com"), etagOf(first))
 
 	// Assert
-	refusedWith(t, recorder, http.StatusConflict, api.Conflict, path)
+	refusedWith(t, recorder, http.StatusConflict, api.ProblemCodeConflict, path)
 
 	if got := onDisk(t, path); got != want {
 		t.Errorf("the file holds %q, want the second tab's save left as it was", got)
@@ -194,7 +194,7 @@ func TestASaveOverARevisionTheFileCameBackToIsRefused(t *testing.T) {
 	recorder := putConfigOver(t, handler, read.Body.String(), etagOf(read))
 
 	// Assert
-	refusedWith(t, recorder, http.StatusConflict, api.Conflict, path)
+	refusedWith(t, recorder, http.StatusConflict, api.ProblemCodeConflict, path)
 
 	if got := onDisk(t, path); got != fileAtStart {
 		t.Errorf("the file holds %q, want it left as it was, token and all", got)
@@ -209,18 +209,20 @@ func TestASaveThatNamesNoRevisionIsRefused(t *testing.T) {
 		status  int
 		code    api.ProblemCode
 	}{
-		"no If-Match":                {ifMatch: "", status: http.StatusPreconditionRequired, code: api.PreconditionRequired},
-		"text in no revision's form": {ifMatch: `"stale"`, status: http.StatusBadRequest, code: api.BadRequest},
-		"a revision without quotes":  {ifMatch: "none", status: http.StatusBadRequest, code: api.BadRequest},
-		"a revision left unfinished": {ifMatch: `"none`, status: http.StatusBadRequest, code: api.BadRequest},
-		"a revision never opened":    {ifMatch: `none"`, status: http.StatusBadRequest, code: api.BadRequest},
-		"a gone mark over nothing":   {ifMatch: `"none-"`, status: http.StatusBadRequest, code: api.BadRequest},
+		"no If-Match": {
+			ifMatch: "", status: http.StatusPreconditionRequired, code: api.ProblemCodePreconditionRequired,
+		},
+		"text in no revision's form": {ifMatch: `"stale"`, status: http.StatusBadRequest, code: api.ProblemCodeBadRequest},
+		"a revision without quotes":  {ifMatch: "none", status: http.StatusBadRequest, code: api.ProblemCodeBadRequest},
+		"a revision left unfinished": {ifMatch: `"none`, status: http.StatusBadRequest, code: api.ProblemCodeBadRequest},
+		"a revision never opened":    {ifMatch: `none"`, status: http.StatusBadRequest, code: api.ProblemCodeBadRequest},
+		"a gone mark over nothing":   {ifMatch: `"none-"`, status: http.StatusBadRequest, code: api.ProblemCodeBadRequest},
 		"a gone mark over no revision's form": {
-			ifMatch: `"none-stale"`, status: http.StatusBadRequest, code: api.BadRequest,
+			ifMatch: `"none-stale"`, status: http.StatusBadRequest, code: api.ProblemCodeBadRequest,
 		},
 		// A read marks the file gone only after reading one, so no read's tag
 		// is a gone mark over the no-file revision.
-		"a gone mark over no file": {ifMatch: `"none-none"`, status: http.StatusBadRequest, code: api.BadRequest},
+		"a gone mark over no file": {ifMatch: `"none-none"`, status: http.StatusBadRequest, code: api.ProblemCodeBadRequest},
 	}
 
 	for name, tt := range cases {
@@ -337,7 +339,7 @@ func TestASaveOverAnEarlierDeletionOfTheFileIsRefused(t *testing.T) {
 	recorder := putConfigOver(t, handler, firstGone.Body.String(), etagOf(firstGone))
 
 	// Assert
-	refusedWith(t, recorder, http.StatusConflict, api.Conflict, path)
+	refusedWith(t, recorder, http.StatusConflict, api.ProblemCodeConflict, path)
 
 	if got := onDisk(t, path); got != "" {
 		t.Errorf("the file holds %q, want it still gone", got)

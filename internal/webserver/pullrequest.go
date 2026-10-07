@@ -27,7 +27,7 @@ func (s *server) GetPullRequestDraft(
 
 	draft, branch, err := s.composePullRequest(template)
 	if errors.Is(err, loop.ErrNoSuchTemplate) {
-		return api.GetPullRequestDraft404ApplicationProblemPlusJSONResponse(problem(api.NotFound,
+		return api.GetPullRequestDraft404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound,
 			"the repository has no pull request template of that name")), nil
 	}
 
@@ -124,11 +124,11 @@ func (s *server) openConflict(err error) (api.Problem, bool) {
 	if open, ok := errors.AsType[loop.PullAlreadyOpenError](err); ok {
 		number := s.forgeKindNow().Sigil() + strconv.Itoa(open.Pull.Number)
 
-		return problem(api.Conflict, number+" is already open for this branch"), true
+		return problem(api.ProblemCodeConflict, number+" is already open for this branch"), true
 	}
 
 	if errors.Is(err, loop.ErrNothingToOpen) {
-		return problem(api.Conflict, "there is no branch with commits to open a "+s.noun()+" for"), true
+		return problem(api.ProblemCodeConflict, "there is no branch with commits to open a "+s.noun()+" for"), true
 	}
 
 	return api.Problem{}, false
@@ -261,7 +261,7 @@ func draftDTO(draft forge.NewPullRequest, branch gitrepo.Branch) api.PullRequest
 // openUnprocessable is the 422 response for a pull request the server will not
 // open.
 func openUnprocessable(message string) api.OpenPullRequest422ApplicationProblemPlusJSONResponse {
-	return api.OpenPullRequest422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
+	return api.OpenPullRequest422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
 }
 
 // openFailure answers an open the forge did not make. A pull request the forge

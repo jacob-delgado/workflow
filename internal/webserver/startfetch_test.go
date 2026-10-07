@@ -101,9 +101,9 @@ func TestStartWorkThatCannotFetchCreatesNothingAndSaysSo(t *testing.T) {
 
 			// Assert
 			failure := assertProblem(t, recorder, http.StatusBadGateway, "fetch")
-			if failure.Code != api.FetchFailed {
+			if failure.Code != api.ProblemCodeFetchFailed {
 				t.Errorf("code = %q, want %q, which the page offers to branch from what you have on",
-					failure.Code, api.FetchFailed)
+					failure.Code, api.ProblemCodeFetchFailed)
 			}
 
 			if strings.Contains(recorder.Body.String(), fetchHost) {

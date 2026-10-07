@@ -30,13 +30,13 @@ func (s *server) LinkBranchIssue(
 ) (api.LinkBranchIssueResponseObject, error) {
 	ref, known := convention.RefOf(strings.TrimSpace(request.Body.Key))
 	if !known || s.deps.LinkIssue == nil {
-		return api.LinkBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.LinkBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			refusal(known, errNotAnIssue, errCannotLink))), nil
 	}
 
 	branch, err := s.linkableBranch()
 	if errors.Is(err, errNoBranchToLink) {
-		return api.LinkBranchIssue409ApplicationProblemPlusJSONResponse(problem(api.Conflict, err.Error())), nil
+		return api.LinkBranchIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error())), nil
 	}
 
 	if err == nil {
@@ -57,13 +57,13 @@ func (s *server) UnlinkBranchIssue(
 	_ context.Context, _ api.UnlinkBranchIssueRequestObject,
 ) (api.UnlinkBranchIssueResponseObject, error) {
 	if s.deps.UnlinkIssue == nil {
-		return api.UnlinkBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.UnlinkBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			errCannotLink.Error())), nil
 	}
 
 	branch, err := s.linkableBranch()
 	if errors.Is(err, errNoBranchToLink) {
-		return api.UnlinkBranchIssue409ApplicationProblemPlusJSONResponse(problem(api.Conflict, err.Error())), nil
+		return api.UnlinkBranchIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error())), nil
 	}
 
 	if err == nil {
@@ -86,7 +86,7 @@ func (s *server) PreviewBranchIssue(
 ) (api.PreviewBranchIssueResponseObject, error) {
 	ref, known := convention.RefOf(strings.TrimSpace(request.Params.Key))
 	if !known {
-		return api.PreviewBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.PreviewBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			errNotAnIssue.Error())), nil
 	}
 

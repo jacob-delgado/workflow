@@ -193,10 +193,10 @@ func TestGetPeopleListsTheDecidedOwnersThenTheUndecidedOnes(t *testing.T) {
 
 	// Assert
 	want := api.People{Owners: []api.OwnerTag{
-		{Owner: carlaOwner, Kind: api.User, State: api.Linked, Slack: slackTarget(carla())},
-		{Owner: danOwner, Kind: api.User, State: api.NotOnSlack, Slack: nil},
-		{Owner: benOwner, Kind: api.User, State: api.Unlinked, Slack: nil},
-		{Owner: ownedTeam, Kind: api.Team, State: api.Unlinked, Slack: nil},
+		{Owner: carlaOwner, Kind: api.OwnerTagKindUser, State: api.OwnerTagStateLinked, Slack: slackTarget(carla())},
+		{Owner: danOwner, Kind: api.OwnerTagKindUser, State: api.OwnerTagStateNotOnSlack, Slack: nil},
+		{Owner: benOwner, Kind: api.OwnerTagKindUser, State: api.OwnerTagStateUnlinked, Slack: nil},
+		{Owner: ownedTeam, Kind: api.OwnerTagKindTeam, State: api.OwnerTagStateUnlinked, Slack: nil},
 	}}
 	if got := decode[api.People](t, recorder); recorder.Code != http.StatusOK || !reflect.DeepEqual(got, want) {
 		t.Errorf("GET /api/people = %d %+v, want 200 %+v", recorder.Code, got, want)
@@ -239,7 +239,7 @@ func TestLinkPersonLinksATeamToAUserGroup(t *testing.T) {
 	people := decode[api.People](t, recorder)
 	team := people.Owners[len(people.Owners)-1]
 
-	linked := team.State == api.Linked && reflect.DeepEqual(team.Slack, slackTarget(podGroup()))
+	linked := team.State == api.OwnerTagStateLinked && reflect.DeepEqual(team.Slack, slackTarget(podGroup()))
 	if team.Owner != ownedTeam || !linked {
 		t.Errorf("the team reads %+v after linking, want it linked to %+v", team, podGroup())
 	}

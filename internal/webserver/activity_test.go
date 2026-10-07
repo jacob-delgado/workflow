@@ -123,7 +123,7 @@ func TestASourceThatCannotBeReadIsNamedWithoutItsHost(t *testing.T) {
 		}
 	}
 
-	if forgeSource.State != api.ActivitySourceFailed || forgeSource.Detail == "" || forgeSource.Name != "The forge" {
+	if forgeSource.State != api.ActivitySourceStateFailed || forgeSource.Detail == "" || forgeSource.Name != "The forge" {
 		t.Errorf("sources = %+v, want the forge named as failed, with why", got.Sources)
 	}
 }
@@ -318,8 +318,10 @@ func TestASourceNotSetUpIsMarkedApartFromOneThatFailed(t *testing.T) {
 	}
 
 	want := map[api.ActivitySourceName]api.ActivitySourceState{
-		api.ActivitySourceNameGit: api.ActivitySourceNotSetUp, api.ActivitySourceNameTasks: api.ActivitySourceNotSetUp,
-		api.ActivitySourceNameJira: api.ActivitySourceNotSetUp, api.ActivitySourceNameForge: api.ActivitySourceFailed,
+		api.ActivitySourceNameGit:   api.ActivitySourceStateNotSetUp,
+		api.ActivitySourceNameTasks: api.ActivitySourceStateNotSetUp,
+		api.ActivitySourceNameJira:  api.ActivitySourceStateNotSetUp,
+		api.ActivitySourceNameForge: api.ActivitySourceStateFailed,
 	}
 	for source, state := range want {
 		if states[source] != state {
@@ -398,7 +400,7 @@ func TestTheSummarySaysHowLongItIsForTheServiceItPostsTo(t *testing.T) {
 	// Assert
 	want := loop.SummaryLength(config.KindDiscord, got.Text)
 	if got.PostLength == nil || got.PostLength.Service != "Discord" || got.PostLength.Count != want.Count ||
-		got.PostLength.Limit != 2000 || got.PostLength.Unit != api.Characters {
+		got.PostLength.Limit != 2000 || got.PostLength.Unit != api.PostLengthUnitCharacters {
 		t.Errorf("post_length = %+v, want the text measured for Discord: %+v", got.PostLength, want)
 	}
 }

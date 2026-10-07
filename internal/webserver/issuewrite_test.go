@@ -276,7 +276,7 @@ func TestTransitionRefusesAFormTransition(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusConflict || failure.Code != api.Conflict || len(moves) != 0 {
+	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeConflict || len(moves) != 0 {
 		t.Errorf("status/code = %d/%s, moves = %+v; want 409/conflict and nothing moved", recorder.Code, failure.Code, moves)
 	}
 }
@@ -406,7 +406,7 @@ func TestUnreachableJiraDetailOmitsItsHost(t *testing.T) {
 
 			// Assert
 			failure := decode[api.Problem](t, recorder)
-			if recorder.Code != http.StatusBadGateway || failure.Code != api.Unreachable {
+			if recorder.Code != http.StatusBadGateway || failure.Code != api.ProblemCodeUnreachable {
 				t.Errorf("status/code = %d/%s, want 502/unreachable", recorder.Code, failure.Code)
 			}
 
@@ -505,7 +505,8 @@ func TestACommentIsRefusedWhereItCannotBePosted(t *testing.T) {
 
 			// Assert
 			failure := decode[api.Problem](t, recorder)
-			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable || len(comments) != 0 {
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
+				len(comments) != 0 {
 				t.Errorf("status/code = %d/%s, comments = %+v; want 422/unprocessable and nothing posted",
 					recorder.Code, failure.Code, comments)
 			}
@@ -523,11 +524,11 @@ func TestACommentJiraCannotTakeSaysWhyWithoutItsHost(t *testing.T) {
 		status int
 		code   api.ProblemCode
 	}{
-		"no such issue": {err: failing(jira.ErrNotFound), status: http.StatusNotFound, code: api.NotFound},
+		"no such issue": {err: failing(jira.ErrNotFound), status: http.StatusNotFound, code: api.ProblemCodeNotFound},
 		"refused": {
-			err: failing(jira.ErrRejected), status: http.StatusUnprocessableEntity, code: api.Unprocessable,
+			err: failing(jira.ErrRejected), status: http.StatusUnprocessableEntity, code: api.ProblemCodeUnprocessable,
 		},
-		"unreachable": {err: failing(jira.ErrUnreachable), status: http.StatusBadGateway, code: api.Unreachable},
+		"unreachable": {err: failing(jira.ErrUnreachable), status: http.StatusBadGateway, code: api.ProblemCodeUnreachable},
 	}
 
 	for name, tt := range cases {

@@ -187,7 +187,7 @@ func TestCommitRefusesWhenNothingIsStaged(t *testing.T) {
 		t.Error("committed with nothing staged")
 	}
 
-	if failure := decode[api.Problem](t, recorder); failure.Code != api.Conflict {
+	if failure := decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeConflict {
 		t.Errorf("code = %q, want conflict", failure.Code)
 	}
 }
@@ -289,8 +289,8 @@ func TestCommitReportsAChangesReadFailure(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusInternalServerError || failure.Code != api.Internal {
-		t.Errorf("status = %d, code %q; want 500 and %q", recorder.Code, failure.Code, api.Internal)
+	if recorder.Code != http.StatusInternalServerError || failure.Code != api.ProblemCodeInternal {
+		t.Errorf("status = %d, code %q; want 500 and %q", recorder.Code, failure.Code, api.ProblemCodeInternal)
 	}
 
 	if strings.Contains(failure.Detail, errSeam.Error()) || strings.Contains(failure.Detail, repoPath) {

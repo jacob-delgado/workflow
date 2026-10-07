@@ -42,7 +42,8 @@ func (s *server) Checkout(
 	case err == nil:
 		return api.Checkout200JSONResponse(branchDTO(branch)), nil
 	case errors.Is(err, loop.ErrDirtyTree):
-		return api.Checkout409ApplicationProblemPlusJSONResponse(problem(api.Conflict, loop.ErrDirtyTree.Error())), nil
+		return api.Checkout409ApplicationProblemPlusJSONResponse(
+			problem(api.ProblemCodeConflict, loop.ErrDirtyTree.Error())), nil
 	case errors.Is(err, errSwitchRefused):
 		return unprocessable("git would not switch to " + request.Body.Branch +
 			"; switch from a terminal to see git's reason"), nil
@@ -87,5 +88,5 @@ func (s *server) refuseADirtyTree() error {
 
 // unprocessable is the 422 response for a checkout the server will not attempt.
 func unprocessable(message string) api.Checkout422ApplicationProblemPlusJSONResponse {
-	return api.Checkout422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
+	return api.Checkout422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
 }

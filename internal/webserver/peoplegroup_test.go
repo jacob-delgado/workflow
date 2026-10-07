@@ -46,8 +46,8 @@ func TestLinkPersonLinksABareNamedGitLabGroupToAUserGroup(t *testing.T) {
 
 	// Assert
 	people := decode[api.People](t, recorder)
-	if recorder.Code != http.StatusOK || len(people.Owners) != 1 || people.Owners[0].Kind != api.Team ||
-		people.Owners[0].State != api.Linked {
+	if recorder.Code != http.StatusOK || len(people.Owners) != 1 || people.Owners[0].Kind != api.OwnerTagKindTeam ||
+		people.Owners[0].State != api.OwnerTagStateLinked {
 		t.Errorf("status %d, people %+v; want acme a team linked to the pod's group", recorder.Code, people)
 	}
 }
@@ -67,8 +67,8 @@ func TestLinkPersonLinksAGroupDecidedAsAPersonBeforeTheForgeCouldTell(t *testing
 
 	// Assert
 	people := decode[api.People](t, recorder)
-	if recorder.Code != http.StatusOK || len(people.Owners) != 1 || people.Owners[0].Kind != api.Team ||
-		people.Owners[0].State != api.Linked {
+	if recorder.Code != http.StatusOK || len(people.Owners) != 1 || people.Owners[0].Kind != api.OwnerTagKindTeam ||
+		people.Owners[0].State != api.OwnerTagStateLinked {
 		t.Errorf("status %d, people %+v; want acme a team linked to the pod's group", recorder.Code, people)
 	}
 }

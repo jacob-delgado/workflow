@@ -68,15 +68,15 @@ func TestDiscardRefusesWhatItCannotDrop(t *testing.T) {
 	}{
 		"a path that is not a change": {
 			body: `{"path":"../../.ssh/id_ed25519"}`, unwire: func(*webserver.Deps) {},
-			status: http.StatusNotFound, code: api.NotFound,
+			status: http.StatusNotFound, code: api.ProblemCodeNotFound,
 		},
 		"no discard seam": {
 			body: `{"path":"` + editedPath + `"}`, unwire: func(deps *webserver.Deps) { deps.Discard = nil },
-			status: http.StatusUnprocessableEntity, code: api.Unprocessable, detail: "discarding is not available",
+			status: http.StatusUnprocessableEntity, code: api.ProblemCodeUnprocessable, detail: "discarding is not available",
 		},
 		"no path": {
 			body: `{}`, unwire: func(*webserver.Deps) {},
-			status: http.StatusBadRequest, code: api.BadRequest,
+			status: http.StatusBadRequest, code: api.ProblemCodeBadRequest,
 		},
 	}
 

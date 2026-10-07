@@ -510,7 +510,7 @@ func TestOpenPullRequestIsUnreachableAndHidesTheForgeHost(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusBadGateway || failure.Code != api.Unreachable {
+	if recorder.Code != http.StatusBadGateway || failure.Code != api.ProblemCodeUnreachable {
 		t.Errorf("status/code = %d/%s, want 502/unreachable", recorder.Code, failure.Code)
 	}
 
@@ -540,7 +540,7 @@ func TestOpenPullRequestDetailOmitsAnUnknownForgesHost(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.NotSetUp ||
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeNotSetUp ||
 		!strings.Contains(failure.Detail, "forge.kind") {
 		t.Errorf("status/code/detail = %d/%s/%q, want 422 not_set_up saying what to set",
 			recorder.Code, failure.Code, failure.Detail)

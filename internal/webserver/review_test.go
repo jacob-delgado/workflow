@@ -25,11 +25,11 @@ func TestGetReviewReturnsThePullAndCI(t *testing.T) {
 		t.Fatalf("review = %+v, want the pull request found", review)
 	}
 
-	if review.Pull.Mergeable != api.Clean {
+	if review.Pull.Mergeable != api.PullRequestMergeableClean {
 		t.Errorf("mergeable = %q, want clean", review.Pull.Mergeable)
 	}
 
-	if review.Ci == nil || review.Ci.State != api.Passed {
+	if review.Ci == nil || review.Ci.State != api.CIStatePassed {
 		t.Errorf("ci = %+v, want state passed", review.Ci)
 	}
 }
@@ -188,9 +188,9 @@ func TestGetReviewCarriesThePullRequestsState(t *testing.T) {
 		state forge.PullState
 		want  api.PullRequestState
 	}{
-		"open":   {state: forge.StateOpen, want: api.Open},
-		"merged": {state: forge.StateMerged, want: api.Merged},
-		"closed": {state: forge.StateClosed, want: api.Closed},
+		"open":   {state: forge.StateOpen, want: api.PullRequestStateOpen},
+		"merged": {state: forge.StateMerged, want: api.PullRequestStateMerged},
+		"closed": {state: forge.StateClosed, want: api.PullRequestStateClosed},
 	}
 
 	for name, tt := range cases {
@@ -236,11 +236,11 @@ func TestGetReviewMapsEveryCIState(t *testing.T) {
 	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
-	if review.Ci == nil || review.Ci.State != api.Running || len(review.Ci.Checks) != 3 {
+	if review.Ci == nil || review.Ci.State != api.CIStateRunning || len(review.Ci.Checks) != 3 {
 		t.Fatalf("ci = %+v, want state running and three checks", review.Ci)
 	}
 
-	want := []api.CIState{api.None, api.Passed, api.Failed}
+	want := []api.CIState{api.CIStateNone, api.CIStatePassed, api.CIStateFailed}
 	for i, check := range review.Ci.Checks {
 		if check.State != want[i] {
 			t.Errorf("check %d state = %q, want %q", i, check.State, want[i])
@@ -255,9 +255,9 @@ func TestGetReviewMapsMergeability(t *testing.T) {
 		from forge.Mergeability
 		want api.PullRequestMergeable
 	}{
-		"unknown":   {forge.MergeUnknown, api.Unknown},
-		"clean":     {forge.MergeClean, api.Clean},
-		"conflicts": {forge.MergeConflicts, api.Conflicts},
+		"unknown":   {forge.MergeUnknown, api.PullRequestMergeableUnknown},
+		"clean":     {forge.MergeClean, api.PullRequestMergeableClean},
+		"conflicts": {forge.MergeConflicts, api.PullRequestMergeableConflicts},
 	}
 
 	for name, tt := range cases {
