@@ -38,16 +38,9 @@ func (s State) String() string {
 
 // State is where the task stands at now.
 func (t Task) State(now time.Time) State {
-	switch {
-	case t.Waiting(now):
-		return StateWaiting
-	case t.Active():
-		return StateStarted
-	}
-
 	switch t.Status {
 	case Pending:
-		return StatePending
+		return t.pendingState(now)
 	case Waiting:
 		return StateWaiting
 	case Recurring:
@@ -59,6 +52,19 @@ func (t Task) State(now time.Time) State {
 	default:
 		// A synced replica can carry a status this version does not know.
 		return StateUnknown
+	}
+}
+
+// pendingState is where a pending task stands at now: hidden until a date
+// still ahead, started, or neither.
+func (t Task) pendingState(now time.Time) State {
+	switch {
+	case t.Waiting(now):
+		return StateWaiting
+	case t.Active():
+		return StateStarted
+	default:
+		return StatePending
 	}
 }
 
