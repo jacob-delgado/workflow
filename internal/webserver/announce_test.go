@@ -374,7 +374,11 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 		},
 		"a webhook not on https": {messaging.ErrInsecureWebhook, unprocessable, "not an https address"},
 		"the service refused":    {messaging.ErrRejected, unprocessable, "or that the webhook URL is current"},
-		"the message refused":    {messaging.ErrPostRefused, unprocessable, "post from a terminal to see its reason"},
+		"the message refused": {
+			messaging.PostRefusedError{Reason: "you are not in #dev; join it"},
+			unprocessable,
+			"the message was refused: you are not in #dev; join it",
+		},
 		"an undocumented answer": {messaging.ErrUnexpectedStatus, unreachable, "answered with a status it does not document"},
 		"no answer":              {messaging.ErrUnreachable, unreachable, "check the network, then try again"},
 		"asked to wait":          {httpx.ErrRateLimited, unreachable, waitAndTryAgain},

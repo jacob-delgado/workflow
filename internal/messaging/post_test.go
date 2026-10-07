@@ -741,9 +741,11 @@ func TestAUserPostRefusalNamesTheFix(t *testing.T) {
 		code string
 		want string
 	}{
-		"not in the channel":      {code: "not_in_channel", want: "the message was refused: you are not in #dev"},
-		"no such channel":         {code: "channel_not_found", want: "no channel #dev"},
-		"the channel is archived": {code: "is_archived", want: "#dev is archived. Choose an open channel"},
+		"not in the channel": {code: "not_in_channel", want: "the message was refused: you are not in #dev; join it"},
+		"no such channel": {
+			code: "channel_not_found", want: "there is no channel #dev, or you cannot see it; check the channel name",
+		},
+		"the channel is archived": {code: "is_archived", want: "#dev is archived; choose an open channel"},
 	}
 
 	for name, tt := range cases {
@@ -758,8 +760,8 @@ func TestAUserPostRefusalNamesTheFix(t *testing.T) {
 			err := client.Post(t.Context(), "", message)
 
 			// Assert
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Errorf("Post returned %v, want a sentence naming the fix %q", err, tt.want)
+			if err == nil || !strings.HasSuffix(err.Error(), tt.want) {
+				t.Errorf("Post returned %v, want a sentence ending in the fix %q and naming no key", err, tt.want)
 			}
 		})
 	}

@@ -83,3 +83,22 @@ func TestAnnounceRemembersADeliveredAnnouncement(t *testing.T) {
 			err, posts.Load(), printed.stderr)
 	}
 }
+
+func TestAnnounceRefusedForItsChannelSaysTheFixAndNoKey(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	fakeSlack(t, map[string]slackAnswer{slackPostMessage: {http.StatusOK, `{"ok":false,"error":"not_in_channel"}`}})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, slackLoggedInConfig())
+
+	// Act
+	_, err := run(t, repo, "announce", "--yes")
+
+	// Assert
+	// The error is what main prints on stderr: the fix, and no key to press,
+	// since a command line has none.
+	if err == nil || !strings.Contains(err.Error(), "you are not in #dev; join it") ||
+		strings.Contains(err.Error(), "press enter") {
+		t.Errorf("announce = %v, want the fix for the channel and no key named", err)
+	}
+}
