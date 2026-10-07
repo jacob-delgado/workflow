@@ -54,9 +54,10 @@ func terminalPrompt() cli.Prompt {
 	}
 }
 
-// isTerminal reports whether stream is a terminal: a file x/term says is one.
+// isTerminal reports whether stream is a terminal that can erase a line: a
+// file x/term says is one, under any TERM but dumb, which has no erase.
 func isTerminal(stream io.Writer) bool {
 	file, ok := stream.(*os.File)
 
-	return ok && term.IsTerminal(int(file.Fd()))
+	return ok && term.IsTerminal(int(file.Fd())) && os.Getenv("TERM") != "dumb"
 }
