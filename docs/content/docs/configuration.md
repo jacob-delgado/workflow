@@ -110,7 +110,7 @@ them on stderr, so there is never a question about which were read.
 | `jira.token_env` | one of these three, with `jira.base_url` | An environment variable that holds the token. |
 | `jira.user` | no | Only for instances requiring HTTP Basic. See below. |
 | `jira.views` | no | Named issue lists (`name` + `jql`) the pane moves between with `v`. Empty keeps the one built-in list. See below. |
-| `jira.headers` | no | Extra HTTP headers sent with every Jira request, for a Jira reached through an SSO proxy that checks one. Values are masked wherever the configuration is shown. See below. |
+| `jira.headers` | no | Extra HTTP headers sent with every Jira request, for a Jira reached through an SSO proxy that checks one. Values are masked wherever the configuration is shown. Two names that differ only in case are one HTTP header, and are refused. See below. |
 | `jira.project` | no | The Jira project key, e.g. `PROJ`. When set, only a branch naming a key in that project is read as an issue, so a name like `fix/UTF-8-decoding` is not mistaken for one. Empty (the default) falls back to a looser guard that rejects common technical tokens (`UTF`, `SHA`, `CVE`) by shape alone. |
 | `jira.markdown_comments` | no | Write comments in Markdown and have them posted as Jira's wiki markup. On by default; `false` posts a comment unchanged, for one already written in wiki markup. A comment on a forge issue is always posted as written, since the forge renders Markdown itself. |
 | `jira.review_status` | no | The status an issue moves to once its pull request is open, e.g. `In Review`. Opening a pull request offers the move to this status by name. Empty (the default) makes no offer. |
@@ -136,7 +136,7 @@ them on stderr, so there is never a question about which were read.
 | `timing.request_timeout` | no | How long each request to a service may take, as a Go duration such as `30s`. Defaults to ten seconds. See [Timing](#timing). |
 | `timing.ci_interval` | no | How often CI is asked about while it runs, and how often the `--web` page's stream asks the forge about the branch, as a Go duration such as `1m`. Defaults to twenty seconds. See [Timing](#timing). |
 | `branch.template` | no | Shape of a proposed branch name from `{prefix}`, `{key}` and `{slug}`. Must contain `{key}`. Defaults to `{prefix}/{key}-{slug}`. |
-| `branch.prefixes` | no | Map from issue type to branch prefix, e.g. `{"bug": "bugfix"}`. The type is matched without regard to case, and this replaces the built-in `{"bug": "fix"}` rather than adding to it. |
+| `branch.prefixes` | no | Map from issue type to branch prefix, e.g. `{"bug": "bugfix"}`. The type is matched without regard to case or surrounding spaces, so two types that differ only in those are refused; this replaces the built-in `{"bug": "fix"}` rather than adding to it. |
 | `branch.default_prefix` | no | Prefix for an issue type not named in `branch.prefixes`. Defaults to `feat`. |
 | `branch.slug_limit` | no | The longest the summary's slug in a proposed branch name may be, in characters. Defaults to 48, which `0` also keeps; a negative limit is refused when the file loads. |
 | `commit.default_scope` | no | Scope the commit composer — and the `--web` commit form — opens with when no kept draft has one and no commit in this repository has used one yet, e.g. `api`; the scope last used wins once there is one. Must be a valid Conventional Commit scope. Empty (the default) opens with no scope. |

@@ -6,6 +6,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
@@ -54,6 +56,10 @@ func (c Config) validateBranch() error {
 
 	if c.Branch.SlugLimit < 0 {
 		return fmt.Errorf("%w: slug_limit cannot be negative: %d", ErrInvalidBranch, c.Branch.SlugLimit)
+	}
+
+	if first, second, same := sameNamed(slices.Collect(maps.Keys(c.Branch.Prefixes)), convention.IssueTypeKey); same {
+		return fmt.Errorf("%w: branch.prefixes %q and %q name the same issue type", ErrSameName, first, second)
 	}
 
 	return nil
