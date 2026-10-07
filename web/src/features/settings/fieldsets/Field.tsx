@@ -1,7 +1,10 @@
 import { useId, type ReactNode } from 'react'
 import type { Path, UseFormRegister } from 'react-hook-form'
 import { Input, Select } from '@/lib/Field.tsx'
+import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import type { SettingsValues } from '../formValues.ts'
+import type { CredentialPath } from '../removal.ts'
+import { CredentialRemoval } from './CredentialRemoval.tsx'
 
 // Register is the settings form's own register, which each fieldset is handed
 // to put its fields in the form.
@@ -99,6 +102,35 @@ export function TextField({ register, name, label, hint, type = 'text', readAs }
         aria-describedby={hint ? hintId(name) : undefined}
         {...register(name, { setValueAs: type === 'number' ? readCount : readAs })}
       />
+    </Field>
+  )
+}
+
+interface SecretFieldProps {
+  register: Register
+  name: CredentialPath
+  label: string
+  hint: string
+}
+
+// SecretField is a credential: typed into a field that never shows it, and,
+// beside it while the file holds one, Remove…, which takes it out of the file.
+export function SecretField({ register, name, label, hint }: SecretFieldProps) {
+  const outcome = useOutcome()
+
+  return (
+    <Field name={name} label={label} hint={hint}>
+      <div className="flex flex-wrap items-center gap-item">
+        <Input
+          id={name}
+          type="password"
+          className="min-w-0 flex-1"
+          aria-describedby={hintId(name)}
+          {...register(name)}
+        />
+        <CredentialRemoval removal={{ credential: name }} tell={outcome} />
+      </div>
+      <OutcomeLine said={outcome.said} />
     </Field>
   )
 }

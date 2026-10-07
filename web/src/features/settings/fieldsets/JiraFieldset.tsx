@@ -3,7 +3,7 @@ import { type Control, useWatch } from 'react-hook-form'
 import type { JiraConfig } from '@/api/generated/types.gen.ts'
 import type { SettingsValues } from '../formValues.ts'
 import { EntryList } from './EntryList.tsx'
-import { CheckboxField, Fieldset, TextField, type Register } from './Field.tsx'
+import { CheckboxField, Fieldset, SecretField, TextField, type Register } from './Field.tsx'
 
 // TokenSources are where the Jira token may come from besides the file: a
 // program that prints it, or a variable that holds it. Neither is a secret.
@@ -56,11 +56,10 @@ export function JiraFieldset({ register, control, storedToken }: JiraFieldsetPro
   return (
     <Fieldset legend="Jira">
       <TextField register={register} name="jira.base_url" label="Base URL" type="url" />
-      <TextField
+      <SecretField
         register={register}
         name="jira.token"
         label="Token"
-        type="password"
         hint={tokenHint({ token: storedToken, token_command: command, token_env: variable })}
       />
       <TextField
@@ -101,7 +100,11 @@ export function JiraFieldset({ register, control, storedToken }: JiraFieldsetPro
           { field: 'value', label: 'Value', secret: true, wide: true },
         ]}
         blank={{ name: '', value: '', stored: false }}
-        fixed={(index) => headers[index]?.stored === true}
+        storedAs={(index) => {
+          const header = headers[index]
+
+          return header?.stored ? { header: header.name } : null
+        }}
       />
       <CheckboxField
         register={register}

@@ -498,7 +498,12 @@ saved; to rename one, remove it and add it again. The keyboard part's
 is moved to (`ui.keys`) and the default an empty one keeps; a key that clashes
 with another where both work at once is refused when you save, as the
 terminal refuses it as it starts. A credential is shown masked and kept as it is
-unless you type a new one. A change to the forge part — its token, host,
+unless you type a new one. Beside each one the file holds — the Jira token,
+the forge token, Slack's client secret and refresh token, the webhook URL and
+each Jira header — **Remove…** asks, then writes the file as it was read
+without it, leaving your other edits in the form for **Save changes**; it
+cannot be undone, and removing the client secret or the refresh token takes
+the access token made from them too. A change to the forge part — its token, host,
 kind or CLI — applies at once: the next call to the forge uses it, and the
 page names the forge it points at, with no restart. A change to the
 messaging part applies to the next announcement. Slack's user token is
