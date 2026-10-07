@@ -342,7 +342,7 @@ interface StoryStageProps {
 
 // StoryStage is one stage of the story: the mark of how far it has come, in
 // its system's hue, on the line down to the next, and the stage itself as a
-// control that opens its section — a chevron at its end says so at rest, and
+// control that opens its section — a chevron after its title says so at rest, and
 // its description names the section for a screen reader.
 function StoryStage({ stage, state, last, onOpen }: StoryStageProps) {
   const opens = useId()
@@ -363,14 +363,14 @@ function StoryStage({ stage, state, last, onOpen }: StoryStageProps) {
         onClick={() => {
           onOpen(stage.section)
         }}
-        className="flex flex-1 items-start gap-item rounded-md px-2 pt-0.5 pb-block text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex flex-1 flex-col gap-tight rounded-md px-2 pt-0.5 pb-block text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
-        <span className="flex min-w-0 flex-1 flex-col gap-tight">
-          <span className="text-sm font-medium">{stage.title}</span>
-          <span className="sr-only">{state}</span>
-          <Meta className="text-sm text-muted-foreground">{stage.detail}</Meta>
+        <span className="flex items-center gap-1 text-sm font-medium">
+          {stage.title}
+          <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
         </span>
-        <ChevronRight aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <span className="sr-only">{state}</span>
+        <Meta className="text-sm text-muted-foreground">{stage.detail}</Meta>
       </button>
       <span id={opens} hidden>
         Opens {sectionMeta[stage.section].label}
