@@ -57,7 +57,9 @@ test('routes the reviews section to its queue, which reads without waiting on th
   renderWithClient(<SectionPanel section="reviews" />)
 
   // Assert
-  expect(await screen.findAllByText('Nothing is waiting on your review.')).not.toHaveLength(0)
+  expect(
+    await screen.findAllByText('No pull requests are waiting on your review.'),
+  ).not.toHaveLength(0)
   expect(screen.queryByText(/connecting/i)).toBeNull()
 })
 

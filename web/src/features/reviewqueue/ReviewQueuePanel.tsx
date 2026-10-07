@@ -166,13 +166,19 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
   )
 }
 
+// emptyQueue is the empty queue in the forge's own noun, the sentence the
+// terminal and `workflow reviews` say too.
+function emptyQueue(noun: string): string {
+  return `No ${noun}s are waiting on your review.`
+}
+
 // queueSummary says how many requests wait, in the forge's own noun, the
 // order they are listed in, and how many the filter shows when it hides any.
 // An empty queue says so on screen below, in the list's place, so here it is
 // said only to a screen reader.
 function queueSummary(count: number, shown: number, noun: string, order: ReviewOrder): ReactNode {
   if (count === 0) {
-    return <span className="sr-only">Nothing is waiting on your review.</span>
+    return <span className="sr-only">{emptyQueue(noun)}</span>
   }
 
   const listed = orderWords[order].toLowerCase()
@@ -235,11 +241,10 @@ interface RequestsProps {
 }
 
 function Requests({ requests, filtered, grouped, readAt }: RequestsProps) {
+  const { noun } = useForgeWords()
   if (requests.length === 0) {
     return (
-      <EmptyState>
-        {filtered ? 'No request matches the filters.' : 'Nothing is waiting on your review.'}
-      </EmptyState>
+      <EmptyState>{filtered ? 'No request matches the filters.' : emptyQueue(noun)}</EmptyState>
     )
   }
 
