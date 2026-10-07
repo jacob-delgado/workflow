@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -33,17 +32,13 @@ func (s *server) GetConfig(_ context.Context, _ api.GetConfigRequestObject) (api
 	}
 
 	if err != nil {
-		body := s.fault(err)
-
-		return api.GetConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.GetConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	// Trade-off TRADE-13: configDTO does not fail; see there.
 	out, err := configDTO(cfg)
 	if err != nil {
-		body := s.fault(err)
-
-		return api.GetConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.GetConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetConfig200JSONResponse{Body: out, Headers: api.GetConfig200ResponseHeaders{ETag: read.etag()}}, nil
@@ -141,11 +136,8 @@ func (s *server) UpdateConfig(
 	over, err := basisIn(*request.Params.IfMatch)
 	if err != nil {
 		//nolint:nilerr // an If-Match naming no revision is answered with a 400 response, not a returned error
-		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{
-			Body: problem(api.ProblemCodeBadRequest,
-				"If-Match names no revision of the configuration; send the ETag a read of it returned"),
-			StatusCode: http.StatusBadRequest,
-		}, nil
+		return problemAnswer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](problem(api.ProblemCodeBadRequest,
+			"If-Match names no revision of the configuration; send the ETag a read of it returned")), nil
 	}
 
 	return s.writeOver(*request.Body, over), nil
@@ -178,17 +170,13 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 	}
 
 	if err != nil {
-		body := s.fault(err)
-
-		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
+		return problemAnswer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 
 	// Trade-off TRADE-13: configDTO does not fail; see there.
 	out, err := configDTO(saved)
 	if err != nil {
-		body := s.fault(err)
-
-		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
+		return problemAnswer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 
 	return api.UpdateConfig200JSONResponse{

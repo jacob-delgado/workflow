@@ -46,9 +46,7 @@ type detectionCache struct {
 func (s *server) ListTasks(_ context.Context, _ api.ListTasksRequestObject) (api.ListTasksResponseObject, error) {
 	list, err := s.readTaskList("")
 	if err != nil {
-		body := s.taskFault(err)
-
-		return api.ListTasksdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.ListTasksdefaultApplicationProblemPlusJSONResponse](s.taskFault(err)), nil
 	}
 
 	return api.ListTasks200JSONResponse(list), nil

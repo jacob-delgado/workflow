@@ -363,6 +363,7 @@ const (
 	ProblemCodeNotFound             ProblemCode = "not_found"
 	ProblemCodeNotSetUp             ProblemCode = "not_set_up"
 	ProblemCodePreconditionRequired ProblemCode = "precondition_required"
+	ProblemCodeRateLimited          ProblemCode = "rate_limited"
 	ProblemCodeTooLong              ProblemCode = "too_long"
 	ProblemCodeUnprocessable        ProblemCode = "unprocessable"
 	ProblemCodeUnreachable          ProblemCode = "unreachable"
@@ -388,6 +389,8 @@ func (e ProblemCode) Valid() bool {
 	case ProblemCodeNotSetUp:
 		return true
 	case ProblemCodePreconditionRequired:
+		return true
+	case ProblemCodeRateLimited:
 		return true
 	case ProblemCodeTooLong:
 		return true
@@ -1744,11 +1747,14 @@ type PostLengthUnit string
 
 // Problem An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
 type Problem struct {
-	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is.
+	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all.
 	Code ProblemCode `json:"code"`
 
 	// Detail A human-readable explanation specific to this occurrence.
 	Detail string `json:"detail"`
+
+	// RetryAfter For rate_limited, how many seconds the upstream asked to wait, when it said; the answer's Retry-After header says the same.
+	RetryAfter *int `json:"retry_after,omitempty"`
 
 	// Status The HTTP status code.
 	Status int `json:"status"`
@@ -1762,7 +1768,7 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
-// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is.
+// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all.
 type ProblemCode string
 
 // PullRequest defines model for PullRequest.

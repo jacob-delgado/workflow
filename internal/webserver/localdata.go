@@ -30,9 +30,7 @@ func (s *server) GetLocalData(
 ) (api.GetLocalDataResponseObject, error) {
 	data, err := s.localData(ctx)
 	if err != nil {
-		prob := s.fault(err)
-
-		return api.GetLocalDatadefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.GetLocalDatadefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetLocalData200JSONResponse(data), nil
@@ -63,9 +61,7 @@ func (s *server) RemoveLocalData(
 		}
 	}
 
-	prob := s.fault(err)
-
-	return api.RemoveLocalDatadefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
+	return problemAnswer[api.RemoveLocalDatadefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 }
 
 // localData reads the store's directory and files into the answer's shape.

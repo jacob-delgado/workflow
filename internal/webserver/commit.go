@@ -77,9 +77,7 @@ func (s *server) commitFailure(err error) api.CommitResponseObject {
 	case errors.Is(err, errCommitNotStarted):
 		return commitUnprocessable(errCommitNotStarted.Error() + "; commit from a terminal to see why")
 	default:
-		body := s.fault(err)
-
-		return api.CommitdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
+		return problemAnswer[api.CommitdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 }
 
