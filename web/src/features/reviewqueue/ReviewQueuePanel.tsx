@@ -307,7 +307,7 @@ function RequestRow({ request, readAt }: RequestRowProps) {
         {request.repository === '' ? null : request.repository}
         {`by ${request.author}`}
         <time dateTime={request.opened_at}>{waited(request.opened_at, readAt)}</time>
-        {request.draft ? 'Draft' : null}
+        {request.draft ? <DraftTag /> : null}
       </Meta>
       <div className="flex flex-wrap items-center gap-x-group gap-y-item text-sm">
         <span className="flex items-center gap-1.5">
@@ -321,6 +321,18 @@ function RequestRow({ request, readAt }: RequestRowProps) {
       </div>
       <OutcomeLine said={copied.said} />
     </li>
+  )
+}
+
+// DraftTag says a request is a draft, not yet ready for review: its mark
+// carries the state, so the word stays in the plain foreground among the
+// muted facts, and sits on their baseline while the mark centers on it.
+function DraftTag() {
+  return (
+    <span className="inline-flex items-baseline gap-tight text-foreground">
+      <StateMark state="not-started" className="self-center" />
+      Draft
+    </span>
   )
 }
 

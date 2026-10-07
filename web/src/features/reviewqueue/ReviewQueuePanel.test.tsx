@@ -106,6 +106,17 @@ test('draws how CI stands on each request as its mark, beside the words', async 
   )
 })
 
+test('draws a draft as the not-started mark, before the word', async () => {
+  // Arrange
+  fakeApi({ [reviewsPath]: queueOf(makeReviewRequest({ draft: true })) })
+
+  // Act
+  renderWithClient(<ReviewQueuePanel />)
+
+  // Assert
+  expect(markShape(await screen.findByText('Draft'))).toBe(drawnMark('not-started'))
+})
+
 test('the mockup lists its own queue without a server', async () => {
   // Arrange
   vi.stubEnv('VITE_MOCK', 'true')
