@@ -24,11 +24,29 @@ import (
 )
 
 // errNoCommitsToOpen refuses opening a pull request with nothing to propose.
+// It is told through forgeWordedError, in the forge's own noun.
 var errNoCommitsToOpen = errors.New("no branch with commits to open a pull request for")
 
 // errPullAlreadyOpen refuses opening a second pull request for a branch that
-// already has an open one.
+// already has an open one. It is told through forgeWordedError, in the forge's own
+// noun.
 var errPullAlreadyOpen = errors.New("an open pull request already exists for this branch")
+
+// forgeWordedError is a refusal told in the forge's own words — a merge request on
+// GitLab — that still answers errors.Is for its sentinel, so its exit status
+// is the same on every forge.
+type forgeWordedError struct {
+	sentinel error
+	words    string
+}
+
+var _ error = forgeWordedError{}
+
+// Error is the refusal in the forge's words.
+func (e forgeWordedError) Error() string { return e.words }
+
+// Unwrap lets errors.Is match the sentinel.
+func (e forgeWordedError) Unwrap() error { return e.sentinel }
 
 // errPushFailed reports a push that could not publish the branch.
 var errPushFailed = errors.New("the branch could not be pushed")
@@ -211,7 +229,7 @@ func openedReport(request forge.NewPullRequest, pull forge.PullRequest) prReport
 func runPR(out output, seams prSeams, opts writeOptions) (prReport, error) {
 	request, branch, err := loop.ComposePull(seams.Compose, seams.Options)
 	if err != nil {
-		return prReport{}, composeRefusal(err)
+		return prReport{}, composeRefusal(err, seams.Kind)
 	}
 
 	previewPull(out.artifact, request, branch)
@@ -358,13 +376,14 @@ func offerLink(notes io.Writer, seams prSeams, opened openedPull, opts writeOpti
 // pointing at the pull request that is already open. The shared layer's words
 // stay the same on every surface; the address is added here, where it is shown
 // to the person who asked.
-func composeRefusal(err error) error {
+func composeRefusal(err error, kind forge.Kind) error {
 	if open, ok := errors.AsType[loop.PullAlreadyOpenError](err); ok {
-		return fmt.Errorf("%w: %s", errPullAlreadyOpen, open.Pull.URL)
+		return forgeWordedError{errPullAlreadyOpen, "an open " + kind.Noun() + " already exists for this branch: " +
+			open.Pull.URL}
 	}
 
 	if errors.Is(err, loop.ErrNothingToOpen) {
-		return errNoCommitsToOpen
+		return forgeWordedError{errNoCommitsToOpen, "no branch with commits to open a " + kind.Noun() + " for"}
 	}
 
 	return err

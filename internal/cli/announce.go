@@ -21,7 +21,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
-// errNoPullRequest refuses announcing a branch that has no pull request.
+// errNoPullRequest refuses announcing a branch that has no pull request. It is
+// told through forgeWordedError, in the forge's own noun.
 var errNoPullRequest = errors.New("there is no pull request on this branch to announce")
 
 // errMessagingNotConfigured refuses announcing when no messaging transport is
@@ -159,7 +160,8 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 
 	announcement, pull, err := loop.ComposeAnnouncement(seams.Compose, seams.Messaging, seams.Project, seams.Kind)
 	if errors.Is(err, loop.ErrNoPullRequest) {
-		return fmt.Errorf("%w; open one with `workflow pr`", errNoPullRequest)
+		return forgeWordedError{errNoPullRequest, "there is no " + seams.Kind.Noun() +
+			" on this branch to announce; open one with `workflow pr`"}
 	}
 
 	if err != nil {
