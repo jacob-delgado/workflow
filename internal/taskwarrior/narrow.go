@@ -61,11 +61,23 @@ func (f Facet) Label() string {
 	return f.Value
 }
 
-// noneOf is what a kind's empty value is called.
+// noneOf is what a kind's empty value is called; nothing, for a kind the list
+// does not know.
 func noneOf(kind FacetKind) string {
-	words := [...]string{"no state", "no priority", "no project", "no tag", "no issue"}
-
-	return words[kind]
+	switch kind {
+	case FacetState:
+		return "no state"
+	case FacetPriority:
+		return "no priority"
+	case FacetProject:
+		return "no project"
+	case FacetTag:
+		return "no tag"
+	case FacetIssue:
+		return "no issue"
+	default:
+		return ""
+	}
 }
 
 // issueLabel words the issue facet's two values.
