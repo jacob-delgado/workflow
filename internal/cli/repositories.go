@@ -99,7 +99,7 @@ func renderRepositories(out output, report api.Repositories) {
 func worktreeNote(worktree api.Worktree) string {
 	notes := []string{}
 
-	if worktree.State != api.WorktreeOther {
+	if worktree.State != api.WorktreeStateWorktree {
 		notes = append(notes, string(worktree.State))
 	}
 

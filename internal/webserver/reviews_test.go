@@ -54,11 +54,11 @@ func TestListReviewsAnswersTheForgeQueue(t *testing.T) {
 	want := []api.ReviewRequest{
 		{
 			Number: 42, URL: older.URL, Title: older.Title, Author: "ana", Repository: "ex/api",
-			Draft: true, Ci: api.Failed, OpenedAt: opened,
+			Draft: true, Ci: api.CIStateFailed, OpenedAt: opened,
 		},
 		{
 			Number: 7, URL: newer.URL, Title: newer.Title, Author: "sam", Repository: "",
-			Draft: false, Ci: api.Passed, OpenedAt: newer.OpenedAt,
+			Draft: false, Ci: api.CIStatePassed, OpenedAt: newer.OpenedAt,
 		},
 	}
 

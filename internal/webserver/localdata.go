@@ -44,7 +44,7 @@ func (s *server) RemoveLocalData(
 	ctx context.Context, request api.RemoveLocalDataRequestObject,
 ) (api.RemoveLocalDataResponseObject, error) {
 	if s.deps.RemoveLocalData == nil {
-		return api.RemoveLocalData422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.RemoveLocalData422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			errNoLocalData.Error())), nil
 	}
 
@@ -110,10 +110,10 @@ func localDataFileDTO(file store.DataFile) api.LocalDataFile {
 // or something not the store's own in a file's place cannot be carried out.
 func (s *server) localDataFault(err error) (api.Problem, int) {
 	for cause, prob := range map[error]api.Problem{
-		errNoLocalData:        problem(api.Unprocessable, errNoLocalData.Error()),
-		store.ErrNoDir:        problem(api.Unprocessable, noStoreDirDetail),
-		store.ErrCleanRefused: problem(api.Unprocessable, notStoreFileDetail),
-		store.ErrNotCleaned:   problem(api.Conflict, heldOpenDetail),
+		errNoLocalData:        problem(api.ProblemCodeUnprocessable, errNoLocalData.Error()),
+		store.ErrNoDir:        problem(api.ProblemCodeUnprocessable, noStoreDirDetail),
+		store.ErrCleanRefused: problem(api.ProblemCodeUnprocessable, notStoreFileDetail),
+		store.ErrNotCleaned:   problem(api.ProblemCodeConflict, heldOpenDetail),
 	} {
 		if errors.Is(err, cause) {
 			return prob, prob.Status

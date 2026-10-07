@@ -71,15 +71,15 @@ func (s *server) createBranchFailure(err error, key string) api.CreateBranchResp
 func (s *server) startRefusal(err error, key string) (api.Problem, int) {
 	switch {
 	case errors.Is(err, loop.ErrFetchFailed):
-		return problem(api.FetchFailed, "origin could not be fetched, so nothing was made for "+key+
+		return problem(api.ProblemCodeFetchFailed, "origin could not be fetched, so nothing was made for "+key+
 			"; start work from what you have, or run git fetch in a terminal to see why"), http.StatusBadGateway
 	case errors.Is(err, errBranchExists):
-		return problem(api.Conflict, errBranchExists.Error()), http.StatusConflict
+		return problem(api.ProblemCodeConflict, errBranchExists.Error()), http.StatusConflict
 	case errors.Is(err, errCreateRefused):
-		return problem(api.Unprocessable, "git would not create the branch for "+key+
+		return problem(api.ProblemCodeUnprocessable, "git would not create the branch for "+key+
 			"; run workflow branch "+key+" from a terminal to see git's reason"), http.StatusUnprocessableEntity
 	case errors.Is(err, errWorktreeRefused):
-		return problem(api.Unprocessable, "git would not make a worktree for "+key+
+		return problem(api.ProblemCodeUnprocessable, "git would not make a worktree for "+key+
 				"; make it with ctrl+w in the terminal interface's branch creator to see git's reason"),
 			http.StatusUnprocessableEntity
 	default:
@@ -157,7 +157,7 @@ func (s *server) fetchFor(asked *bool) func() error {
 // createBranchUnprocessable is the 422 response for a branch the server will not
 // create.
 func createBranchUnprocessable(message string) api.CreateBranch422ApplicationProblemPlusJSONResponse {
-	return api.CreateBranch422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
+	return api.CreateBranch422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
 }
 
 // createUnlessTaken makes the branch name from the base with create, unless a
@@ -239,5 +239,5 @@ func (s *server) CreateWorktree(
 // createWorktreeUnprocessable is the 422 response for a worktree the server
 // will not create.
 func createWorktreeUnprocessable(message string) api.CreateWorktree422ApplicationProblemPlusJSONResponse {
-	return api.CreateWorktree422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
+	return api.CreateWorktree422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
 }

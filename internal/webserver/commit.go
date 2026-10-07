@@ -71,7 +71,7 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 func (s *server) commitFailure(err error) api.CommitResponseObject {
 	switch {
 	case errors.Is(err, loop.ErrNothingStaged):
-		return api.Commit409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingStaged.Error()))
+		return api.Commit409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, errNothingStaged.Error()))
 	case errors.Is(err, errCommitFailed):
 		return commitUnprocessable(err.Error())
 	case errors.Is(err, errCommitNotStarted):
@@ -215,7 +215,7 @@ func (s *server) rememberScope(scope string) {
 
 // commitUnprocessable is the 422 response for a commit the server will not make.
 func commitUnprocessable(message string) api.Commit422ApplicationProblemPlusJSONResponse {
-	return api.Commit422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
+	return api.Commit422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
 }
 
 // orZero dereferences an optional field, or returns its zero value when absent.

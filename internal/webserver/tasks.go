@@ -114,15 +114,17 @@ const malformedTaskrc = "taskrc has a malformed line"
 func unavailableReason(err error) (api.TaskListReasonCode, string) {
 	switch {
 	case errors.Is(err, taskwarrior.ErrRefused) && refusalWords(err) == malformedTaskrc:
-		return api.MalformedTaskrc, "Taskwarrior's taskrc has a malformed line."
+		return api.TaskListReasonCodeMalformedTaskrc, "Taskwarrior's taskrc has a malformed line."
 	case errors.Is(err, taskwarrior.ErrRefused):
-		return api.Unavailable, "Taskwarrior could not start; workflow doctor says why."
+		return api.TaskListReasonCodeUnavailable, "Taskwarrior could not start; workflow doctor says why."
 	}
 
 	reasons := append(taskwarriorReasons(),
-		taskwarriorReason{cause: errTurnedOff, code: api.TurnedOff, text: "Turned off by taskwarrior.disabled."},
 		taskwarriorReason{
-			cause: errSettingsChanged, code: api.Unavailable,
+			cause: errTurnedOff, code: api.TaskListReasonCodeTurnedOff, text: "Turned off by taskwarrior.disabled.",
+		},
+		taskwarriorReason{
+			cause: errSettingsChanged, code: api.TaskListReasonCodeUnavailable,
 			text: "Taskwarrior settings changed; restart workflow to apply.",
 		})
 
@@ -132,7 +134,7 @@ func unavailableReason(err error) (api.TaskListReasonCode, string) {
 		}
 	}
 
-	return api.Unavailable, "Taskwarrior could not be asked; workflow doctor says why."
+	return api.TaskListReasonCodeUnavailable, "Taskwarrior could not be asked; workflow doctor says why."
 }
 
 // snapshotTasks is the stream's summary of your tasks: whether Taskwarrior can

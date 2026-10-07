@@ -166,10 +166,11 @@ func TestCleaningLocalDataAnswersAFailureByItsKind(t *testing.T) {
 		wantKind api.ProblemCode
 	}{
 		"a file held open": {
-			failure: fmt.Errorf("%w: busy", store.ErrNotCleaned), wantCode: http.StatusConflict, wantKind: api.Conflict,
+			failure:  fmt.Errorf("%w: busy", store.ErrNotCleaned),
+			wantCode: http.StatusConflict, wantKind: api.ProblemCodeConflict,
 		},
 		"a symlink in a file's place": {
-			failure: store.ErrCleanRefused, wantCode: http.StatusUnprocessableEntity, wantKind: api.Unprocessable,
+			failure: store.ErrCleanRefused, wantCode: http.StatusUnprocessableEntity, wantKind: api.ProblemCodeUnprocessable,
 		},
 	}
 

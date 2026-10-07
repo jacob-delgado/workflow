@@ -77,7 +77,7 @@ func (w *worlds) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	srv, handler := w.served()
 
 	if !isSafeMethod(request.Method) && showsAnother(request, srv.deps.Repositories.Here.Dir) {
-		writeProblem(writer, api.Conflict, "the page shows another directory than the server works in; reload it")
+		writeProblem(writer, api.ProblemCodeConflict, "the page shows another directory than the server works in; reload it")
 
 		return
 	}

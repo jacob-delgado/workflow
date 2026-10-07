@@ -47,7 +47,8 @@ func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushRespo
 	}
 
 	if nothingToPush(branch) {
-		return api.Push409ApplicationProblemPlusJSONResponse(problem(api.Conflict, "there is nothing to push")), nil
+		return api.Push409ApplicationProblemPlusJSONResponse(
+			problem(api.ProblemCodeConflict, "there is nothing to push")), nil
 	}
 
 	err = loop.Push(s.deps.Push, branch.Name)
@@ -111,5 +112,5 @@ func remoteAddress() *regexp.Regexp {
 
 // pushUnprocessable is the 422 response for a push the server will not make.
 func pushUnprocessable(message string) api.Push422ApplicationProblemPlusJSONResponse {
-	return api.Push422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
+	return api.Push422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
 }

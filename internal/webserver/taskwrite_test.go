@@ -139,7 +139,7 @@ func TestAWriteTaskwarriorDeclinesIs409(t *testing.T) {
 
 			// Assert
 			failure := decode[api.Problem](t, recorder)
-			if recorder.Code != http.StatusConflict || failure.Code != api.Conflict || failure.Detail != wantDetail {
+			if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeConflict || failure.Detail != wantDetail {
 				t.Errorf("answer = %d %+v, want 409 conflict saying %q", recorder.Code, failure, wantDetail)
 			}
 		})
@@ -317,7 +317,7 @@ func TestAnAnswerThatIsNotTaskwarriorsJSONIsHandedToUnexpected(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusInternalServerError || failure.Code != api.Internal {
+	if recorder.Code != http.StatusInternalServerError || failure.Code != api.ProblemCodeInternal {
 		t.Errorf("answer = %d %+v, want the 500 internal problem", recorder.Code, failure)
 	}
 

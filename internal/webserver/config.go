@@ -22,12 +22,12 @@ import (
 // secrets masked, and what it stands for as its ETag.
 func (s *server) GetConfig(_ context.Context, _ api.GetConfigRequestObject) (api.GetConfigResponseObject, error) {
 	if s.setupNeeded() {
-		return api.GetConfig404ApplicationProblemPlusJSONResponse(problem(api.NotFound, noFileHere)), nil
+		return api.GetConfig404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, noFileHere)), nil
 	}
 
 	cfg, read, err := s.reread()
 	if errors.Is(err, config.ErrInvalid) {
-		return api.GetConfig422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.GetConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"the configuration file on disk is not valid, so the configuration in effect stands; "+
 				"workflow doctor says what is wrong with it")), nil
 	}
@@ -129,11 +129,11 @@ func (s *server) UpdateConfig(
 	_ context.Context, request api.UpdateConfigRequestObject,
 ) (api.UpdateConfigResponseObject, error) {
 	if s.setupNeeded() {
-		return api.UpdateConfig404ApplicationProblemPlusJSONResponse(problem(api.NotFound, noFileHere)), nil
+		return api.UpdateConfig404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, noFileHere)), nil
 	}
 
 	if request.Params.IfMatch == nil {
-		return api.UpdateConfig428ApplicationProblemPlusJSONResponse(problem(api.PreconditionRequired,
+		return api.UpdateConfig428ApplicationProblemPlusJSONResponse(problem(api.ProblemCodePreconditionRequired,
 			"the save did not say which revision of the configuration it was made over; "+
 				"reload the page, then save again")), nil
 	}
@@ -142,7 +142,7 @@ func (s *server) UpdateConfig(
 	if err != nil {
 		//nolint:nilerr // an If-Match naming no revision is answered with a 400 response, not a returned error
 		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{
-			Body: problem(api.BadRequest,
+			Body: problem(api.ProblemCodeBadRequest,
 				"If-Match names no revision of the configuration; send the ETag a read of it returned"),
 			StatusCode: http.StatusBadRequest,
 		}, nil
@@ -156,23 +156,24 @@ func (s *server) UpdateConfig(
 func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigResponseObject {
 	incoming, err := fromDTO(posted)
 	if err != nil {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, invalidReason(err)))
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(
+			problem(api.ProblemCodeUnprocessable, invalidReason(err)))
 	}
 
 	err = s.keymapRefusal(incoming.UI.Keys)
 	if err != nil {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"the terminal interface would not start on this keymap: "+err.Error()))
 	}
 
 	saved, written, err := s.save(incoming, removedIn(posted), over)
 	if errors.Is(err, config.ErrChangedOnDisk) {
-		return api.UpdateConfig409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+		return api.UpdateConfig409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"the configuration changed since Settings read it; reload Settings and apply your change again"))
 	}
 
 	if errors.Is(err, errSlackRefused) {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"Slack refused the client ID, client secret or refresh token; check them, then save again"))
 	}
 

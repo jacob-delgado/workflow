@@ -141,7 +141,7 @@ func TestUpdateConfigRejectsAnInvalidConfig(t *testing.T) {
 
 			// Assert
 			failure := decode[api.Problem](t, recorder)
-			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable {
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable {
 				t.Errorf("status = %d, code %q; want 422 and unprocessable", recorder.Code, failure.Code)
 			}
 
@@ -350,7 +350,7 @@ func TestUpdateConfigRefusesAUIValueOutsideTheContract(t *testing.T) {
 				t.Fatalf("status = %d, want 400: %s", recorder.Code, recorder.Body.String())
 			}
 
-			if failure := decode[api.Problem](t, recorder); failure.Code != api.BadRequest {
+			if failure := decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeBadRequest {
 				t.Errorf("code = %q, want bad_request", failure.Code)
 			}
 		})
@@ -393,7 +393,7 @@ func TestUpdateConfigRefusesAKeymapTheInterfaceWouldRefuse(t *testing.T) {
 	}
 
 	failure := decode[api.Problem](t, recorder)
-	if failure.Code != api.Unprocessable || !strings.Contains(failure.Detail, errCommitOnTaken.Error()) {
+	if failure.Code != api.ProblemCodeUnprocessable || !strings.Contains(failure.Detail, errCommitOnTaken.Error()) {
 		t.Errorf("problem = %q saying %q, want unprocessable saying %q", failure.Code, failure.Detail, errCommitOnTaken)
 	}
 

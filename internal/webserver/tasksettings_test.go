@@ -91,8 +91,8 @@ func TestTheTaskListSaysSavedTaskwarriorSettingsApplyAtTheNextStart(t *testing.T
 				t.Errorf("answer = %d %+v, want 200, not available, reason %q", recorder.Code, list, settingsChanged)
 			}
 
-			if list.ReasonCode == nil || *list.ReasonCode != api.Unavailable {
-				t.Errorf("reason_code = %v, want %q", list.ReasonCode, api.Unavailable)
+			if list.ReasonCode == nil || *list.ReasonCode != api.TaskListReasonCodeUnavailable {
+				t.Errorf("reason_code = %v, want %q", list.ReasonCode, api.TaskListReasonCodeUnavailable)
 			}
 		})
 	}

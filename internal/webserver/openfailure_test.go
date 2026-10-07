@@ -49,23 +49,23 @@ func TestOpenPullRequestClassifiesAFailedOpenThroughFault(t *testing.T) {
 	}{
 		"a redirect the client refused": {
 			err:        httpx.Unreachable(forge.ErrUnreachable, apiBase, httpx.ErrRedirected),
-			wantStatus: http.StatusBadGateway, wantCode: api.Unreachable, wantDetail: "redirect",
+			wantStatus: http.StatusBadGateway, wantCode: api.ProblemCodeUnreachable, wantDetail: "redirect",
 		},
 		"a forge limiting requests": {
 			err:        httpx.RateLimited(http.Header{"Retry-After": {"30"}}),
-			wantStatus: http.StatusBadGateway, wantCode: api.Unreachable, wantDetail: waitAndTryAgain,
+			wantStatus: http.StatusBadGateway, wantCode: api.ProblemCodeUnreachable, wantDetail: waitAndTryAgain,
 		},
 		"a repository the token cannot see": {
 			err:        fmt.Errorf("%w: %s/acme/repo", forge.ErrNoRepository, forgeHost),
-			wantStatus: http.StatusNotFound, wantCode: api.NotFound, wantDetail: "not found",
+			wantStatus: http.StatusNotFound, wantCode: api.ProblemCodeNotFound, wantDetail: "not found",
 		},
 		"a refusal of what the token may do": {
 			err:        fmt.Errorf("%w: Resource not accessible by integration", forge.ErrRefused),
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable, wantDetail: lacksAScope,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable, wantDetail: lacksAScope,
 		},
 		"a failure nothing more is known of": {
 			err:        fmt.Errorf("opening at %s: %w", apiBase, errSeam),
-			wantStatus: http.StatusInternalServerError, wantCode: api.Internal, wantDetail: tryAgain,
+			wantStatus: http.StatusInternalServerError, wantCode: api.ProblemCodeInternal, wantDetail: tryAgain,
 		},
 	}
 

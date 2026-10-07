@@ -42,9 +42,9 @@ func (s *server) SwitchRepository(
 	switch {
 	case errors.Is(err, workdirs.ErrNotFound):
 		return api.SwitchRepository404ApplicationProblemPlusJSONResponse(
-			problem(api.NotFound, "there is no such directory")), nil
+			problem(api.ProblemCodeNotFound, "there is no such directory")), nil
 	case errors.Is(err, errWriteInFlight):
-		return api.SwitchRepository409ApplicationProblemPlusJSONResponse(problem(api.Conflict, err.Error())), nil
+		return api.SwitchRepository409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error())), nil
 	case err != nil:
 		body, code := s.fault(err)
 
@@ -103,7 +103,7 @@ func (s *server) GetDirectories(
 	repositories := s.deps.Repositories
 	if repositories.Subdirectories == nil {
 		return api.GetDirectories422ApplicationProblemPlusJSONResponse(
-			problem(api.Unprocessable, errNoSwitching.Error())), nil
+			problem(api.ProblemCodeUnprocessable, errNoSwitching.Error())), nil
 	}
 
 	typed := ""
@@ -222,11 +222,11 @@ func (v RepositoriesView) worktrees(describe func(error) string) ([]api.Worktree
 func worktreeState(worktree gitrepo.Worktree, here string) api.WorktreeState {
 	switch {
 	case worktree.Missing:
-		return api.WorktreeMissing
+		return api.WorktreeStateMissing
 	case worktree.Dir == here:
-		return api.WorktreeHere
+		return api.WorktreeStateHere
 	default:
-		return api.WorktreeOther
+		return api.WorktreeStateWorktree
 	}
 }
 
@@ -250,18 +250,18 @@ func (v RepositoriesView) favorites() ([]api.Favorite, error) {
 // favorite is the favorite dir, with what is there now.
 func (v RepositoriesView) favorite(dir string) api.Favorite {
 	repositories := v.Repositories
-	favorite := api.Favorite{Dir: dir, Shown: workdirs.Shown(dir, repositories.Home), State: api.FavoriteMissing}
+	favorite := api.Favorite{Dir: dir, Shown: workdirs.Shown(dir, repositories.Home), State: api.FavoriteStateMissing}
 
 	place, lookErr := lookAt(repositories.Look, dir)
 
 	switch {
 	case dir == repositories.Here.Dir || workdirs.Same(dir, repositories.Here.Dir):
-		favorite.State = api.FavoriteHere
+		favorite.State = api.FavoriteStateHere
 	case lookErr != nil:
 	case place.Root == "":
-		favorite.State = api.FavoriteDirectory
+		favorite.State = api.FavoriteStateDirectory
 	default:
-		favorite.State, favorite.Origin = api.FavoriteRepository, originOf(place)
+		favorite.State, favorite.Origin = api.FavoriteStateRepository, originOf(place)
 	}
 
 	return favorite

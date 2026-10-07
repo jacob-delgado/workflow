@@ -54,7 +54,7 @@ type heldAnnouncement struct {
 // pull request reports no CI to wait for.
 func (s *server) announceWhenGreen(post announcePost) api.AnnounceResponseObject {
 	if post.moment != messaging.MomentReady {
-		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"only a ready-for-review announcement waits for CI; this one announces a merge or a failed CI, "+
 				"so announce it now"))
 	}
@@ -72,7 +72,7 @@ func (s *server) announceWhenGreen(post announcePost) api.AnnounceResponseObject
 	case forge.CINone, forge.CIFailed:
 	}
 
-	return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+	return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 		s.pullName(post.pull.Number)+" has no running CI to wait for; announce it now"))
 }
 
@@ -118,7 +118,7 @@ func (s *server) hold(post announcePost, branch gitrepo.Branch) api.QueuedAnnoun
 	s.held.round++
 	s.held.post, s.held.branch = post, branch.Name
 	s.held.shown = api.QueuedAnnouncement{
-		State: api.QueuedWaiting, Channel: post.delivery.Channel, Pull: post.pull.Number, Reason: nil,
+		State: api.QueuedAnnouncementStateWaiting, Channel: post.delivery.Channel, Pull: post.pull.Number, Reason: nil,
 	}
 	s.held.check = s.checkHeldAfter(s.held.round)
 
@@ -151,7 +151,7 @@ func (s *server) checkHeld(round int) {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
-	if s.held.round == round && s.held.shown.State == api.QueuedWaiting {
+	if s.held.round == round && s.held.shown.State == api.QueuedAnnouncementStateWaiting {
 		s.held.check = s.checkHeldAfter(round)
 	}
 }
@@ -178,7 +178,7 @@ func (s *server) settleOnRead() {
 func (s *server) settleHeld(branch gitrepo.Branch, review api.Review) {
 	s.held.mu.Lock()
 
-	if s.held.shown.State != api.QueuedWaiting {
+	if s.held.shown.State != api.QueuedAnnouncementStateWaiting {
 		s.held.mu.Unlock()
 
 		return
@@ -190,11 +190,11 @@ func (s *server) settleHeld(branch gitrepo.Branch, review api.Review) {
 	case heldKeep:
 		s.held.mu.Unlock()
 	case heldDrop:
-		s.held.settle(api.QueuedDropped, reason)
+		s.held.settle(api.QueuedAnnouncementStateDropped, reason)
 		s.held.mu.Unlock()
 	case heldPost:
 		post, round := s.held.post, s.held.round
-		s.held.settle(api.QueuedAnnouncing, "")
+		s.held.settle(api.QueuedAnnouncementStateAnnouncing, "")
 		s.held.mu.Unlock()
 
 		s.postHeld(post, round)
@@ -219,13 +219,13 @@ func (s *server) heldVerdict(branch gitrepo.Branch, review api.Review) (string, 
 	switch {
 	case branch.Name != s.held.branch || review.Pull == nil || review.Pull.Number != number:
 		return s.pullName(number) + " is no longer this branch's " + s.noun(), heldDrop
-	case review.Pull.State == api.Merged:
+	case review.Pull.State == api.PullRequestStateMerged:
 		return s.pullName(number) + " merged before its CI passed", heldDrop
 	case review.Ci == nil:
 		return "", heldKeep
-	case review.Ci.State == api.Passed:
+	case review.Ci.State == api.CIStatePassed:
 		return "", heldPost
-	case review.Ci.State == api.Failed:
+	case review.Ci.State == api.CIStateFailed:
 		return "CI failed at " + s.now().Format(failedAtFormat), heldDrop
 	default:
 		return "", heldKeep
@@ -246,12 +246,12 @@ func (s *server) postHeld(post announcePost, round int) {
 
 	if err != nil {
 		failure, _ := s.fault(err)
-		s.held.settle(api.QueuedDropped, failure.Detail)
+		s.held.settle(api.QueuedAnnouncementStateDropped, failure.Detail)
 
 		return
 	}
 
-	s.held.settle(api.QueuedAnnounced, "")
+	s.held.settle(api.QueuedAnnouncementStateAnnounced, "")
 }
 
 // dropHeld drops the announcement waiting for CI, unposted, and forgets what
@@ -260,7 +260,7 @@ func (s *server) dropHeld() bool {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
-	waiting := s.held.shown.State == api.QueuedWaiting
+	waiting := s.held.shown.State == api.QueuedAnnouncementStateWaiting
 
 	s.held.stopWatching()
 	s.held.round++
@@ -290,7 +290,7 @@ func (s *server) CancelQueuedAnnouncement(
 ) (api.CancelQueuedAnnouncementResponseObject, error) {
 	if !s.dropHeld() {
 		return api.CancelQueuedAnnouncement409ApplicationProblemPlusJSONResponse(
-			problem(api.Conflict, errNothingHeld.Error())), nil
+			problem(api.ProblemCodeConflict, errNothingHeld.Error())), nil
 	}
 
 	return api.CancelQueuedAnnouncement204Response{}, nil
@@ -379,9 +379,9 @@ func (s *server) reviewAnnounced(review api.Review) bool {
 	moment := messaging.MomentReady
 
 	switch {
-	case review.Pull.State == api.Merged:
+	case review.Pull.State == api.PullRequestStateMerged:
 		moment = messaging.MomentMerged
-	case review.Ci != nil && review.Ci.State == api.Failed:
+	case review.Ci != nil && review.Ci.State == api.CIStateFailed:
 		moment = messaging.MomentCIRed
 	}
 

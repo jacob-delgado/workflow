@@ -165,8 +165,8 @@ func TestFavoritesSayWhatIsThereNow(t *testing.T) {
 	}
 
 	want := map[string]api.FavoriteState{
-		"~/src/web": api.FavoriteRepository, "~/notes": api.FavoriteDirectory,
-		"~/old": api.FavoriteMissing, "~/src/api/cmd": api.FavoriteHere,
+		"~/src/web": api.FavoriteStateRepository, "~/notes": api.FavoriteStateDirectory,
+		"~/old": api.FavoriteStateMissing, "~/src/api/cmd": api.FavoriteStateHere,
 	}
 	if len(states) != len(want) {
 		t.Fatalf("favorites %+v, want %v", got.Favorites, want)
@@ -521,7 +521,7 @@ func TestAFavoriteKeptThroughALinkToWhereTheServerWorksIsHere(t *testing.T) {
 
 	// Assert
 	got := decode[api.Repositories](t, recorder)
-	if len(got.Favorites) != 1 || got.Favorites[0].State != api.FavoriteHere || got.Favorites[0].Dir != link {
+	if len(got.Favorites) != 1 || got.Favorites[0].State != api.FavoriteStateHere || got.Favorites[0].Dir != link {
 		t.Errorf("favorites %+v, want the link kept as where the server works", got.Favorites)
 	}
 }
@@ -644,7 +644,7 @@ func TestFavoritesThatCannotBeReadOrLookedAtStillAnswer(t *testing.T) {
 
 	// Assert
 	got := decode[api.Repositories](t, recorder)
-	if recorder.Code != http.StatusOK || len(got.Favorites) != 1 || got.Favorites[0].State != api.FavoriteMissing {
+	if recorder.Code != http.StatusOK || len(got.Favorites) != 1 || got.Favorites[0].State != api.FavoriteStateMissing {
 		t.Errorf("status %d, favorites %+v; want web, missing", recorder.Code, got.Favorites)
 	}
 }

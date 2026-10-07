@@ -168,7 +168,7 @@ func TestTrackIssueOfAnUnknownIssueIs404(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusNotFound || failure.Code != api.NotFound || fake.count("add") != 0 {
+	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound || fake.count("add") != 0 {
 		t.Errorf("answer = %d %+v, calls = %q, want 404 and no task added", recorder.Code, failure, fake.asked())
 	}
 
@@ -390,55 +390,55 @@ func TestTaskFaultsNeverLeakAPath(t *testing.T) {
 	}{
 		"nothing changed": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrNothingChanged,
-			wantStatus: http.StatusConflict, wantCode: api.Conflict,
+			wantStatus: http.StatusConflict, wantCode: api.ProblemCodeConflict,
 		},
 		"not installed": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrNotInstalled,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.NotSetUp,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeNotSetUp,
 		},
 		"not Taskwarrior": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrNotTaskwarrior,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.NotSetUp,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeNotSetUp,
 		},
 		"too old": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrTooOld,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		"never run": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrNotConfigured,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.NotSetUp,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeNotSetUp,
 		},
 		"no sync backend": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrNoSync,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		"an unreadable answer": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrBadOutput,
-			wantStatus: http.StatusInternalServerError, wantCode: api.Internal,
+			wantStatus: http.StatusInternalServerError, wantCode: api.ProblemCodeInternal,
 		},
 		"timed out": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: proc.ErrTimedOut,
-			wantStatus: http.StatusBadGateway, wantCode: api.Unreachable,
+			wantStatus: http.StatusBadGateway, wantCode: api.ProblemCodeUnreachable,
 		},
 		"a refused start": {
 			method: http.MethodPost, path: start, verb: startVerb, cause: taskwarrior.ErrRefused,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		"a refused add": {
 			method: http.MethodPost, path: tasksPath, body: addBody, verb: addVerb,
-			cause: taskwarrior.ErrRefused, wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable,
+			cause: taskwarrior.ErrRefused, wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		"a refused undo": {
 			method: http.MethodPost, path: undoPath, verb: undoVerb, cause: taskwarrior.ErrRefused,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		"a refused read of the list": {
 			method: http.MethodGet, path: tasksPath, verb: pendingRead, cause: taskwarrior.ErrRefused,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		"a refused read of the list after a write": {
 			method: http.MethodPost, path: start, verb: pendingRead, cause: taskwarrior.ErrRefused,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable,
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		// The task is created, so the track answers the list, and said carries
 		// the refusal: the web's form of the terminal's ErrAnnotateFailed.

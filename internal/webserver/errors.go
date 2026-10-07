@@ -55,18 +55,18 @@ func codeMeaning(code api.ProblemCode) (int, string) {
 		status int
 		title  string
 	}{
-		api.BadRequest:           {status: http.StatusBadRequest, title: "Bad request"},
-		api.NotFound:             {status: http.StatusNotFound, title: "Not found"},
-		api.MethodNotAllowed:     {status: http.StatusMethodNotAllowed, title: "Method not allowed"},
-		api.Conflict:             {status: http.StatusConflict, title: "Conflict"},
-		api.Unprocessable:        {status: http.StatusUnprocessableEntity, title: "Unprocessable content"},
-		api.NotSetUp:             {status: http.StatusUnprocessableEntity, title: "Not set up"},
-		api.TooLong:              {status: http.StatusUnprocessableEntity, title: "Too long"},
-		api.PreconditionRequired: {status: http.StatusPreconditionRequired, title: "Precondition required"},
-		api.Unreachable:          {status: http.StatusBadGateway, title: "Upstream unreachable"},
-		api.FetchFailed:          {status: http.StatusBadGateway, title: "Fetch failed"},
-		api.CheckFailed:          {status: http.StatusUnprocessableEntity, title: "Check failed"},
-		api.Internal:             {status: http.StatusInternalServerError, title: "Internal error"},
+		api.ProblemCodeBadRequest:           {status: http.StatusBadRequest, title: "Bad request"},
+		api.ProblemCodeNotFound:             {status: http.StatusNotFound, title: "Not found"},
+		api.ProblemCodeMethodNotAllowed:     {status: http.StatusMethodNotAllowed, title: "Method not allowed"},
+		api.ProblemCodeConflict:             {status: http.StatusConflict, title: "Conflict"},
+		api.ProblemCodeUnprocessable:        {status: http.StatusUnprocessableEntity, title: "Unprocessable content"},
+		api.ProblemCodeNotSetUp:             {status: http.StatusUnprocessableEntity, title: "Not set up"},
+		api.ProblemCodeTooLong:              {status: http.StatusUnprocessableEntity, title: "Too long"},
+		api.ProblemCodePreconditionRequired: {status: http.StatusPreconditionRequired, title: "Precondition required"},
+		api.ProblemCodeUnreachable:          {status: http.StatusBadGateway, title: "Upstream unreachable"},
+		api.ProblemCodeFetchFailed:          {status: http.StatusBadGateway, title: "Fetch failed"},
+		api.ProblemCodeCheckFailed:          {status: http.StatusUnprocessableEntity, title: "Check failed"},
+		api.ProblemCodeInternal:             {status: http.StatusInternalServerError, title: "Internal error"},
 	}[code]
 
 	return meaning.status, meaning.title
@@ -87,7 +87,7 @@ func writeProblem(w http.ResponseWriter, code api.ProblemCode, detail string) {
 // off the wire; that a field was wrong, not which internal parser said so, is
 // what the caller can act on.
 func writeRequestError(w http.ResponseWriter, _ *http.Request, _ error) {
-	writeProblem(w, api.BadRequest, "the request could not be understood")
+	writeProblem(w, api.ProblemCodeBadRequest, "the request could not be understood")
 }
 
 // writeResponseError is the safety net for a handler that returns an error
@@ -96,7 +96,7 @@ func writeRequestError(w http.ResponseWriter, _ *http.Request, _ error) {
 // what to do. The error goes to Unexpected, since the answer carries none of it.
 func (s *server) writeResponseError(w http.ResponseWriter, _ *http.Request, err error) {
 	s.unexpected(err)
-	writeProblem(w, api.Internal, "the server could not answer; "+tryAgain)
+	writeProblem(w, api.ProblemCodeInternal, "the server could not answer; "+tryAgain)
 }
 
 // tryAgain is what to do about a failure nothing more is known of.
@@ -135,13 +135,13 @@ func faultProblem(err error) (api.Problem, bool) {
 	// the terminal shows: the forge, the scope it asks for, and its own reason
 	// for the refusal, which is the forge's and never carries its address.
 	if advice, ok := forge.Advice(err); ok {
-		return problem(api.Unprocessable, advice), true
+		return problem(api.ProblemCodeUnprocessable, advice), true
 	}
 
 	// A message Slack would not deliver carries the fix for its channel, which
 	// names a channel and Slack's code but never an address.
 	if refused, ok := errors.AsType[messaging.PostRefusedError](err); ok {
-		return problem(api.Unprocessable, refused.Error()), true
+		return problem(api.ProblemCodeUnprocessable, refused.Error()), true
 	}
 
 	for _, class := range faultClasses() {
@@ -150,7 +150,7 @@ func faultProblem(err error) (api.Problem, bool) {
 		}
 	}
 
-	return problem(api.Internal, "the request could not be completed; "+tryAgain), false
+	return problem(api.ProblemCodeInternal, "the request could not be completed; "+tryAgain), false
 }
 
 // setUpDetail is how to set up what cause says is missing, in the words
@@ -168,7 +168,7 @@ func setUpDetail(cause error) string {
 // command line does too. The class still words it, with how to set it up.
 func setUpCode(code api.ProblemCode, err error) api.ProblemCode {
 	if loop.NotSetUp(err) {
-		return api.NotSetUp
+		return api.ProblemCodeNotSetUp
 	}
 
 	return code
@@ -197,17 +197,17 @@ func gitFaults() []faultClass {
 	return []faultClass{
 		{
 			causes: []error{gitrepo.ErrNotARepository},
-			code:   api.Conflict,
+			code:   api.ProblemCodeConflict,
 			detail: "the server is not running in a git repository; start workflow --web from a repository's work tree",
 		},
 		{
 			causes: []error{gitrepo.ErrNoIdentity},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			detail: setUpDetail(gitrepo.ErrNoIdentity),
 		},
 		{
 			causes: []error{gitrepo.ErrIssueLinkNotSaved},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			detail: "the link could not be kept: git could not change the repository's configuration; " +
 				"check that .git/config is writable",
 		},
@@ -219,21 +219,21 @@ func transportFaults() []faultClass {
 	return []faultClass{
 		{
 			causes: []error{jira.ErrNotFound, forge.ErrNoRepository},
-			code:   api.NotFound, detail: "the requested resource was not found",
+			code:   api.ProblemCodeNotFound, detail: "the requested resource was not found",
 		},
 		{
 			causes: []error{jira.ErrUnreachable, forge.ErrUnreachable, messaging.ErrUnreachable},
-			code:   api.Unreachable, detail: "the service could not be reached; check the network, then try again",
+			code:   api.ProblemCodeUnreachable, detail: "the service could not be reached; check the network, then try again",
 		},
 		// Every client answers a 429 and a redirect with the transport's own
 		// sentinels, so these details name no service.
 		{
 			causes: []error{httpx.ErrRateLimited},
-			code:   api.Unreachable, detail: "the service is limiting requests; wait and try again",
+			code:   api.ProblemCodeUnreachable, detail: "the service is limiting requests; wait and try again",
 		},
 		{
 			causes: []error{httpx.ErrRedirected},
-			code:   api.Unreachable,
+			code:   api.ProblemCodeUnreachable,
 			detail: "the service answered with a redirect, refused so the credential goes nowhere else; " +
 				"check its configured address",
 		},
@@ -247,12 +247,12 @@ func jiraFaults() []faultClass {
 		// their details name the setting, not what Jira did.
 		{
 			causes: []error{jira.ErrNoCredential},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			detail: setUpDetail(jira.ErrNoCredential),
 		},
 		{
 			causes: []error{config.ErrInvalidBaseURL, config.ErrCredentialInBaseURL},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			detail: "jira.base_url is not a usable address; workflow doctor checks it",
 		},
 		// Before the credential's class: a 403 Jira explained answers to both, and
@@ -260,16 +260,16 @@ func jiraFaults() []faultClass {
 		// one permission.
 		{
 			causes: []error{jira.ErrRejected},
-			code:   api.Unprocessable, detail: "Jira refused the request",
+			code:   api.ProblemCodeUnprocessable, detail: "Jira refused the request",
 		},
 		{
 			causes: []error{jira.ErrUnauthorized, jira.ErrForbidden},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			detail: "Jira did not accept the configured credential; workflow doctor checks it",
 		},
 		{
 			causes: []error{jira.ErrNoAPI},
-			code:   api.Unprocessable, detail: "no Jira API answers at jira.base_url; workflow doctor checks it",
+			code:   api.ProblemCodeUnprocessable, detail: "no Jira API answers at jira.base_url; workflow doctor checks it",
 		},
 	}
 }
@@ -283,45 +283,45 @@ func forgeFaults() []faultClass {
 	return []faultClass{
 		{
 			causes: []error{forge.ErrNoToken},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			// Not the resolver's own words: for a host other than github.com or
 			// gitlab.com they name the host, which a detail never does.
 			detail: setUpDetail(forge.ErrNoToken),
 		},
 		{
 			causes: []error{forge.ErrKindNeedsHost},
-			code:   api.Unprocessable, detail: "forge.kind is set without forge.host; set the host it describes",
+			code:   api.ProblemCodeUnprocessable, detail: "forge.kind is set without forge.host; set the host it describes",
 		},
 		{
 			causes: []error{forge.ErrUnknownForge},
-			code:   api.Unprocessable, detail: setUpDetail(forge.ErrUnknownForge),
+			code:   api.ProblemCodeUnprocessable, detail: setUpDetail(forge.ErrUnknownForge),
 		},
 		{
 			causes: []error{forge.ErrNotARemote},
-			code:   api.Unprocessable, detail: setUpDetail(forge.ErrNotARemote),
+			code:   api.ProblemCodeUnprocessable, detail: setUpDetail(forge.ErrNotARemote),
 		},
 		{
 			causes: []error{forge.ErrNoAPI, forge.ErrNotJSON},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			detail: "no forge API answered; check forge.host, which workflow doctor --online tests",
 		},
 		// A job log GitHub hands to storage elsewhere: neither class is the
 		// token's doing, and the storage's address is signed, so it stays out.
 		{
 			causes: []error{forge.ErrInsecureLog, forge.ErrLogNotRedirected},
-			code:   api.Unreachable,
+			code:   api.ProblemCodeUnreachable,
 			detail: "the forge sent the log somewhere it could not be read from safely; open the check's page instead",
 		},
 		{
 			causes: []error{forge.ErrLogStorage},
-			code:   api.Unreachable,
+			code:   api.ProblemCodeUnreachable,
 			detail: "the storage the forge keeps the log in did not hand it over; try again, or open the check's page",
 		},
 		{
 			// An explained status is the same undocumented status with the
 			// forge's reason, which stays off the wire.
 			causes: []error{forge.ErrUnexpectedStatus, forge.ErrRejected},
-			code:   api.Unreachable, detail: "the forge answered with a status it does not document; try again",
+			code:   api.ProblemCodeUnreachable, detail: "the forge answered with a status it does not document; try again",
 		},
 	}
 }
@@ -334,12 +334,12 @@ func messagingFaults() []faultClass {
 	return []faultClass{
 		{
 			causes: []error{messaging.ErrNoCredential},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			detail: setUpDetail(messaging.ErrNoCredential),
 		},
 		{
 			causes: []error{messaging.ErrInsecureWebhook},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			detail: "messaging.webhook_url is not an https address; copy the webhook's https address into it in Settings",
 		},
 		// Every 4xx a post meets is this one, and a webhook — the only transport
@@ -347,13 +347,13 @@ func messagingFaults() []faultClass {
 		// check, so the detail points at the settings rather than at doctor.
 		{
 			causes: []error{messaging.ErrRejected},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			detail: "the messaging service refused the post; " +
 				"check the token, or that the webhook URL is current, in Settings",
 		},
 		{
 			causes: []error{messaging.ErrUnexpectedStatus},
-			code:   api.Unreachable,
+			code:   api.ProblemCodeUnreachable,
 			detail: "the messaging service answered with a status it does not document; try again",
 		},
 	}
@@ -371,21 +371,21 @@ func taskwarriorFaults() []faultClass {
 	unavailable := make([]faultClass, 0, len(reasons))
 	for _, reason := range reasons {
 		unavailable = append(unavailable,
-			faultClass{causes: []error{reason.cause}, code: api.Unprocessable, detail: reason.text})
+			faultClass{causes: []error{reason.cause}, code: api.ProblemCodeUnprocessable, detail: reason.text})
 	}
 
 	return slices.Concat([]faultClass{
 		{
 			causes: []error{errStartDeclined},
-			code:   api.Conflict, detail: "the task is already started, or no such task exists",
+			code:   api.ProblemCodeConflict, detail: "the task is already started, or no such task exists",
 		},
 		{
 			causes: []error{taskwarrior.ErrNothingChanged},
-			code:   api.Conflict, detail: "the task is already in that state, or is no longer pending",
+			code:   api.ProblemCodeConflict, detail: "the task is already in that state, or is no longer pending",
 		},
 		{
 			causes: []error{taskwarrior.ErrNoSync},
-			code:   api.Unprocessable,
+			code:   api.ProblemCodeUnprocessable,
 			detail: "No sync backend is set in your taskrc, so there is nowhere to sync. " +
 				"Set one of the sync.* settings (task-sync(5)).",
 		},
@@ -405,18 +405,21 @@ type taskwarriorReason struct {
 func taskwarriorReasons() []taskwarriorReason {
 	return []taskwarriorReason{
 		{
-			cause: taskwarrior.ErrNotInstalled, code: api.NotInstalled, text: setUpDetail(taskwarrior.ErrNotInstalled),
+			cause: taskwarrior.ErrNotInstalled, code: api.TaskListReasonCodeNotInstalled,
+			text: setUpDetail(taskwarrior.ErrNotInstalled),
 		},
 		{
-			cause: taskwarrior.ErrNotTaskwarrior, code: api.NotTaskwarrior, text: setUpDetail(taskwarrior.ErrNotTaskwarrior),
+			cause: taskwarrior.ErrNotTaskwarrior, code: api.TaskListReasonCodeNotTaskwarrior,
+			text: setUpDetail(taskwarrior.ErrNotTaskwarrior),
 		},
 		{
-			cause: taskwarrior.ErrTooOld, code: api.TooOld,
+			cause: taskwarrior.ErrTooOld, code: api.TaskListReasonCodeTooOld,
 			text: "Taskwarrior is too old: " + taskwarrior.MinimumVersion +
 				" or newer is needed; workflow doctor shows the version found.",
 		},
 		{
-			cause: taskwarrior.ErrNotConfigured, code: api.NeverRun, text: setUpDetail(taskwarrior.ErrNotConfigured),
+			cause: taskwarrior.ErrNotConfigured, code: api.TaskListReasonCodeNeverRun,
+			text: setUpDetail(taskwarrior.ErrNotConfigured),
 		},
 	}
 }
@@ -430,9 +433,9 @@ func (s *server) taskFault(err error) (api.Problem, int) {
 
 	switch {
 	case errors.Is(err, taskwarrior.ErrRefused):
-		prob = problem(api.Unprocessable, s.refusalDetail(err))
+		prob = problem(api.ProblemCodeUnprocessable, s.refusalDetail(err))
 	case errors.Is(err, proc.ErrTimedOut):
-		prob = problem(api.Unreachable, "Taskwarrior did not answer in time")
+		prob = problem(api.ProblemCodeUnreachable, "Taskwarrior did not answer in time")
 	default:
 		return s.fault(err)
 	}
@@ -539,29 +542,29 @@ func refusalWords(err error) string {
 // path, which the error itself carries.
 func directoryFaults() []faultClass {
 	return []faultClass{
-		{causes: []error{workdirs.ErrNotFound}, code: api.NotFound, detail: "there is no such directory"},
+		{causes: []error{workdirs.ErrNotFound}, code: api.ProblemCodeNotFound, detail: "there is no such directory"},
 		{
 			causes: []error{workdirs.ErrNotADirectory, workdirs.ErrNotAbsolute, store.ErrNotADirectoryPath},
-			code:   api.Unprocessable, detail: "that is not an absolute path to a directory",
+			code:   api.ProblemCodeUnprocessable, detail: "that is not an absolute path to a directory",
 		},
 		{
-			causes: []error{workdirs.ErrUnreadable}, code: api.Unprocessable,
+			causes: []error{workdirs.ErrUnreadable}, code: api.ProblemCodeUnprocessable,
 			detail: "that directory cannot be read; check its permissions",
 		},
 		{
-			causes: []error{errFavoritesNotKept, errNoSwitching}, code: api.Unprocessable,
+			causes: []error{errFavoritesNotKept, errNoSwitching}, code: api.ProblemCodeUnprocessable,
 			detail: "that is not available here: the store is turned off, or the server cannot switch",
 		},
 		{
-			causes: []error{store.ErrKeptSchemaDiffers}, code: api.Unprocessable,
+			causes: []error{store.ErrKeptSchemaDiffers}, code: api.ProblemCodeUnprocessable,
 			detail: store.ErrKeptSchemaDiffers.Error(),
 		},
 		{
-			causes: []error{ErrConfigurationUnreadable}, code: api.Unprocessable,
+			causes: []error{ErrConfigurationUnreadable}, code: api.ProblemCodeUnprocessable,
 			detail: "the configuration there did not load; workflow doctor there says why",
 		},
 		{
-			causes: []error{ErrConfigurationRefused}, code: api.Unprocessable,
+			causes: []error{ErrConfigurationRefused}, code: api.ProblemCodeUnprocessable,
 			detail: "the configuration there binds keys workflow refuses; workflow doctor there names them",
 		},
 	}
