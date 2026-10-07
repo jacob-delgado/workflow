@@ -392,4 +392,6 @@ type KeyAction struct {
 	Group  string
 	Shown  string
 	Keys   []string
+	// Default is the key shown for the action with no ui.keys entry.
+	Default string
 }

@@ -235,6 +235,7 @@ func (s *server) GetKeys(_ context.Context, _ api.GetKeysRequestObject) (api.Get
 		for _, listed := range s.deps.KeyActions(s.forgeKindNow().Noun(), cfg.Messaging.Service(), cfg.UI.Keys) {
 			actions = append(actions, api.KeyAction{
 				Action: listed.Action, Help: listed.Help, Group: listed.Group, Shown: listed.Shown, Keys: listed.Keys,
+				Default: listed.Default,
 			})
 		}
 	}

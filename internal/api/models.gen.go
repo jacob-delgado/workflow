@@ -1437,6 +1437,9 @@ type KeyAction struct {
 	// Action The action's name, as ui.keys names it, e.g. comment.
 	Action string `json:"action"`
 
+	// Default The key the help shows for it with no ui.keys entry, e.g. c.
+	Default string `json:"default"`
+
 	// Group The help group it is listed under, e.g. Issues.
 	Group string `json:"group"`
 

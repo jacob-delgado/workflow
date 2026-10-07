@@ -28,7 +28,7 @@ const (
 func echoKeyActions(reviewNoun, messagingService string, overrides map[string]string) []seams.KeyAction {
 	return []seams.KeyAction{{
 		Action: commentAction, Help: reviewNoun, Group: messagingService,
-		Shown: overrides[commentAction], Keys: []string{overrides[commentAction]},
+		Shown: overrides[commentAction], Keys: []string{overrides[commentAction]}, Default: "c",
 	}}
 }
 
@@ -51,8 +51,11 @@ func TestGetKeysListsTheActionsUnderTheKeysInEffect(t *testing.T) {
 
 	listed := decode[api.KeyList](t, recorder)
 
-	want := api.KeyAction{Action: commentAction, Help: pullNoun, Group: "Slack", Shown: "C", Keys: []string{"C"}}
+	want := api.KeyAction{
+		Action: commentAction, Help: pullNoun, Group: "Slack", Shown: "C", Keys: []string{"C"}, Default: "c",
+	}
 	if !listed.SingleKeyShortcuts || len(listed.Actions) != 1 || listed.Actions[0].Shown != want.Shown ||
+		listed.Actions[0].Default != want.Default ||
 		listed.Actions[0].Help != want.Help || listed.Actions[0].Group != want.Group ||
 		!slices.Equal(listed.Actions[0].Keys, want.Keys) {
 		t.Errorf("keys = %+v, want shortcuts on and %+v", listed, want)

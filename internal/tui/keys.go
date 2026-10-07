@@ -432,9 +432,11 @@ func helpGroups(messagingService string) []string {
 // from the same bindings the interface runs, so a rebinding reaches both. The
 // review noun names open-pull-request for the forge, and the messaging service
 // names its group, as the help does; a binding the help draws on another's
-// line, with no words of its own, is left out, as the help leaves it.
+// line, with no words of its own, is left out, as the help leaves it. Each
+// names the key it has with no override, too.
 func KeyActions(reviewNoun, messagingService string, overrides map[string]string) []seams.KeyAction {
 	_, builder := compileKeys(unicodeGlyphs(), reviewNoun, messagingService, overrides)
+	_, defaults := compileKeys(unicodeGlyphs(), reviewNoun, messagingService, nil)
 	groups := helpGroups(messagingService)
 	listed := make([]seams.KeyAction, 0, len(builder.placements))
 
@@ -446,7 +448,7 @@ func KeyActions(reviewNoun, messagingService string, overrides map[string]string
 
 		listed = append(listed, seams.KeyAction{
 			Action: placed.action, Help: words.Desc, Group: groups[placed.group],
-			Shown: words.Key, Keys: placed.binding.Keys(),
+			Shown: words.Key, Keys: placed.binding.Keys(), Default: defaults.byAction[placed.action].Help().Key,
 		})
 	}
 
