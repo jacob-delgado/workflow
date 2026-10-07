@@ -41,8 +41,8 @@ type World struct {
 // shared, so a switch, which holds it alone, is refused while one runs rather
 // than leaving it unknown.
 type worlds struct {
-	validator func(http.Handler) http.Handler
-	gate      sync.RWMutex
+	spec contract
+	gate sync.RWMutex
 
 	mu      sync.RWMutex
 	current *server
@@ -54,8 +54,8 @@ type worlds struct {
 }
 
 // newWorlds serves first.
-func newWorlds(first World, validator func(http.Handler) http.Handler) (*worlds, error) {
-	held := &worlds{validator: validator}
+func newWorlds(first World, spec contract) (*worlds, error) {
+	held := &worlds{spec: spec}
 
 	_, err := held.install(first)
 	if err != nil {
@@ -69,7 +69,7 @@ func newWorlds(first World, validator func(http.Handler) http.Handler) (*worlds,
 // write holds the gate a switch waits on, and is refused when the page that
 // sent it names another directory.
 func (w *worlds) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	if !isSafeMethod(request.Method) && !isSwitch(request) {
+	if !isSafeMethod(request.Method) && !w.spec.switches(request) {
 		w.gate.RLock()
 		defer w.gate.RUnlock()
 	}
@@ -105,8 +105,9 @@ func (w *worlds) install(world World) (*server, error) {
 
 	apiMux := http.NewServeMux()
 
-	// The event stream is a streaming response the strict, one-response-object
-	// interface cannot express, so it is registered by hand rather than generated.
+	// The event stream and a run's output are streaming responses the strict,
+	// one-response-object interface cannot express, so they are registered by
+	// hand rather than generated.
 	apiMux.HandleFunc("GET /api/events", srv.streamEvents)
 	apiMux.HandleFunc("POST /api/runs", srv.startRun)
 
@@ -122,7 +123,7 @@ func (w *worlds) install(world World) (*server, error) {
 		close(w.current.retired)
 	}
 
-	w.current, w.handler = srv, w.validator(apiHandler)
+	w.current, w.handler = srv, w.spec.validate(apiHandler)
 
 	return srv, nil
 }
@@ -148,14 +149,6 @@ func showsAnother(request *http.Request, here string) bool {
 	shown, err := url.PathUnescape(escaped)
 
 	return err != nil || shown != here
-}
-
-// isSwitch reports a request that switches what the server works with — the
-// directory, or a first configuration file set up — which takes the gate
-// alone rather than shared.
-func isSwitch(request *http.Request) bool {
-	return (request.Method == http.MethodPut && request.URL.Path == "/api/repositories/here") ||
-		(request.Method == http.MethodPost && request.URL.Path == "/api/config/setup")
 }
 
 // switchTo wires dir as the first directory was wired and serves it from now
