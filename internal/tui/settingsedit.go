@@ -6,6 +6,7 @@ package tui
 import (
 	"errors"
 	"maps"
+	"net/http"
 	"slices"
 	"strings"
 
@@ -48,6 +49,10 @@ type collection struct {
 	secret bool
 	// actions, for the keys, are the actions listed, with the key each keeps.
 	actions []seams.KeyAction
+	// matchedBy is the form two names are one in, as the configuration matches
+	// them: a header's canonical form, an issue type lowered; nil holds names
+	// apart unless they are equal.
+	matchedBy func(string) string
 }
 
 // entry is one entry of a collection: its name, and its value as text.
@@ -225,7 +230,7 @@ func (f settingsForm) named(field setting, typed string) settingsForm {
 	switch {
 	case name == "":
 		f.problem = errEntryUnnamed
-	case slices.ContainsFunc(listed, func(each entry) bool { return each.name == name }):
+	case slices.ContainsFunc(listed, func(each entry) bool { return field.list.sameName(each.name, name) }):
 		f.problem = errEntryTaken
 	default:
 		f.adding, f.input = name, field.list.input("")
@@ -233,6 +238,15 @@ func (f settingsForm) named(field setting, typed string) settingsForm {
 	}
 
 	return f
+}
+
+// sameName reports that two names are one entry's.
+func (c collection) sameName(listed, typed string) bool {
+	if c.matchedBy == nil {
+		return listed == typed
+	}
+
+	return c.matchedBy(listed) == c.matchedBy(typed)
 }
 
 // added is the form with a new entry, named before, of the value typed, or
@@ -308,7 +322,10 @@ func (f settingsForm) entryState(field setting, value any) entry {
 
 // headerCollection is the Jira headers: names and credentials.
 func headerCollection() collection {
-	return collection{title: "Header", noun: "header", nameWord: entryName, valueWord: "value", secret: true}
+	return collection{
+		title: "Header", noun: "header", nameWord: entryName, valueWord: "value", secret: true,
+		matchedBy: http.CanonicalHeaderKey,
+	}
 }
 
 // keysOf is a configuration's keys collection, from the actions the
