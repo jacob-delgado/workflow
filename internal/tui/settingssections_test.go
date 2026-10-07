@@ -207,3 +207,18 @@ func TestAKeyThatClashesIsRefusedInTheForm(t *testing.T) {
 		t.Errorf("saved %d times, want nothing saved", len(saves))
 	}
 }
+
+func TestARefusedSaveNeverShowsATypedCredential(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	keys := append(edited(tokenRow, typedSecret), slices.Repeat([]string{"j"}, requestTimeoutRow-tokenRow)...)
+	keys = append(append(keys, keyEnter), letters("soon")...)
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), append(keys, keyEnter, saveKey)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "not valid")
+	refuseScreen(t, view, typedSecret, settingsToken)
+}

@@ -70,6 +70,8 @@ type settingsForm struct {
 	input   textinput.Model
 	problem error
 	send    sendState
+	// said is what the last removal did, until the next key.
+	said string
 }
 
 var (
@@ -187,6 +189,10 @@ func (f settingsForm) footLines(width int) []string {
 		lines = append(lines, "", failureLine(f.styles, f.marks, f.problem))
 	}
 
+	if f.said != "" {
+		lines = append(lines, "", wrap(f.said, width))
+	}
+
 	return append(lines, pinnedOutcome(f.styles, f.marks, f.send, "saving", width)...)
 }
 
@@ -276,7 +282,7 @@ func (f settingsForm) footer(keys keyMap) []key.Binding {
 	}
 
 	offered := []key.Binding{keys.up, keys.down, relabel(keys.confirm, f.current().verb())}
-	if f.current().removable() {
+	if f.removable(f.current()) {
 		offered = append(offered, keys.removeEntry)
 	}
 
@@ -306,11 +312,13 @@ func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openSettings()
 	case f.reading || f.readErr != nil:
 		return m, nil
-	case key.Matches(msg, m.keys.saveSettings):
-		return f.save(m)
+	case key.Matches(msg, m.keys.saveSettings, m.keys.removeEntry):
+		f.problem, f.send, f.said = nil, sendState{}, ""
+
+		return f.written(m, msg)
 	}
 
-	f.problem, f.send = nil, sendState{}
+	f.problem, f.send, f.said = nil, sendState{}, ""
 	m.overlay = f.changeKey(m.keys, msg)
 
 	return m, nil
@@ -325,9 +333,6 @@ func (f settingsForm) changeKey(keys keyMap, msg tea.KeyPressMsg) settingsForm {
 	}
 
 	field := f.current()
-	if key.Matches(msg, keys.removeEntry) && field.removable() {
-		return f.removedEntry(field)
-	}
 
 	switch field.kind {
 	case settingToggle:
@@ -390,6 +395,28 @@ func (f settingsForm) checked() (config.Config, error) {
 	return cfg, nil
 }
 
+// written answers a key that writes: save, or remove, which writes at once
+// only a credential the read holds.
+func (f settingsForm) written(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	if key.Matches(msg, m.keys.saveSettings) {
+		return f.save(m)
+	}
+
+	return f.remove(m)
+}
+
+// savedRefusal is a write's refusal in Settings' own words, where it has them.
+func savedRefusal(err error) error {
+	switch {
+	case errors.Is(err, config.ErrChangedOnDisk):
+		return errSettingsChanged
+	case errors.Is(err, messaging.ErrRejected):
+		return errSlackSecretsRefused
+	default:
+		return err
+	}
+}
+
 // settingsSaved is the configuration saved, or why it was not.
 type settingsSaved struct {
 	path string
@@ -401,13 +428,8 @@ var _ applier = settingsSaved{}
 // apply closes Settings and reopens workflow with what it saved, or keeps it
 // open with the refusal: a file changed since the read offers a reload.
 func (msg settingsSaved) apply(m Model) (Model, tea.Cmd) {
-	switch {
-	case errors.Is(msg.err, config.ErrChangedOnDisk):
-		return keepOpenWith[settingsForm](m, errSettingsChanged), nil
-	case errors.Is(msg.err, messaging.ErrRejected):
-		return keepOpenWith[settingsForm](m, errSlackSecretsRefused), nil
-	case msg.err != nil:
-		return keepOpenWith[settingsForm](m, msg.err), nil
+	if msg.err != nil {
+		return keepOpenWith[settingsForm](m, savedRefusal(msg.err)), nil
 	}
 
 	return m.reopenWith(reopening{path: msg.path})
