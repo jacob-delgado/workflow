@@ -141,8 +141,13 @@ internal/forge 15
 # file — config init's questions one at a time, the Jira check shown as it
 # runs, the keychain offered, the file written and workflow reopened with
 # it), a new overlay, since settings.go, which edits a file that is there, is
-# near the 500-line target.
-internal/tui 62
+# near the 500-line target; and settingsedit.go (UX-87, UX-119: editing a row
+# of Settings — typing a value, turning a setting or moving a choice, and the
+# collections, the Jira views and headers, the branch prefixes and the keys,
+# a row per entry and a row that adds one, and removing an entry or a stored
+# credential — out of settings.go, which kept the form, its keys and the save,
+# and would have passed the 500-line target with them).
+internal/tui 63
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of

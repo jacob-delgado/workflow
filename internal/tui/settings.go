@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"maps"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // The refusals Settings says in its own words.
@@ -43,8 +43,12 @@ const settingsAbout = "A save reopens workflow here, so it applies at once."
 // and a save writes every edit together over the read, as the web's does, so
 // a file changed since is refused rather than written over.
 type settingsForm struct {
-	marks   glyphs
-	styles  styles
+	marks  glyphs
+	styles styles
+	// noun is the forge's word for a pull request, and actions the keys the
+	// interface binds, which the fields are laid out with.
+	noun    string
+	actions []seams.KeyAction
 	fields  []setting
 	opened  int
 	reading bool
@@ -60,9 +64,12 @@ type settingsForm struct {
 	edits    map[string]any
 	selected int
 	editing  bool
-	input    textinput.Model
-	problem  error
-	send     sendState
+	// adding is the name of an entry being added, kept while its value is
+	// asked; empty while its name is.
+	adding  string
+	input   textinput.Model
+	problem error
+	send    sendState
 }
 
 var (
@@ -79,8 +86,9 @@ func (m Model) canEditSettings() bool {
 func (m Model) openSettings() (Model, tea.Cmd) {
 	m, opened := m.opening()
 	m.overlay = settingsForm{
-		marks: m.marks, styles: m.styles, fields: settingsFields(m.vocab.noun, nil), opened: opened, reading: true,
-	}
+		marks: m.marks, styles: m.styles, noun: m.vocab.noun, opened: opened, reading: true,
+		actions: KeyActions(m.vocab.noun, m.cfg.Messaging.Service(), nil),
+	}.laidOut()
 	read := m.deps.Settings.Read
 
 	return m, func() tea.Msg {
@@ -111,11 +119,20 @@ func (msg settingsRead) apply(m Model) (Model, tea.Cmd) {
 	// The form masks what it was handed itself, so it never holds a credential
 	// whatever the seam gave it, and a credential left alone goes back masked.
 	form.values, form.readErr = seed(msg.cfg.Redacted(), msg.err)
-	form.fields = settingsFields(m.vocab.noun, form.values)
+	form = form.laidOut()
 	form.path, form.shownPath, form.over = msg.cfg.Path, m.shownDir(msg.cfg.Path), msg.over
 	m.overlay = form
 
 	return m, nil
+}
+
+// laidOut is the form with its rows laid out for what it holds, the cursor
+// kept among them.
+func (f settingsForm) laidOut() settingsForm {
+	f.fields = f.settings()
+	f.selected = min(f.selected, len(f.fields)-1)
+
+	return f
 }
 
 // value is a setting's value: as edited, or as read.
@@ -202,14 +219,18 @@ func (f settingsForm) rows(width, space int) []string {
 // on or off, marked when it was edited.
 func (f settingsForm) row(field setting, selected bool) string {
 	edited := ""
-	if _, ok := f.edits[field.path]; ok {
+	if f.isEdited(field) {
 		edited = "  (edited)"
 	}
 
-	if field.kind == settingToggle {
+	switch field.kind {
+	case settingToggle:
 		on, _ := f.value(field.path).(bool)
 
 		return f.marks.marker(selected) + checkbox(on) + field.label + edited
+	case settingAdd:
+		return f.marks.marker(selected) + field.label
+	case settingText, settingURL, settingSecret, settingCount, settingList, settingChoice, settingEntry:
 	}
 
 	return f.marks.marker(selected) + fmt.Sprintf("%-15s %s", field.label, f.shown(field)) + edited
@@ -254,7 +275,12 @@ func (f settingsForm) footer(keys keyMap) []key.Binding {
 		return []key.Binding{relabel(keys.refresh, "try again"), relabel(keys.closeOverlay, escClose)}
 	}
 
-	offered := []key.Binding{keys.up, keys.down, relabel(keys.confirm, f.current().verb()), keys.saveSettings}
+	offered := []key.Binding{keys.up, keys.down, relabel(keys.confirm, f.current().verb())}
+	if f.current().removable() {
+		offered = append(offered, keys.removeEntry)
+	}
+
+	offered = append(offered, keys.saveSettings)
 	if errors.Is(f.send.err, errSettingsChanged) {
 		offered = append(offered, relabel(keys.refresh, "reload"))
 	}
@@ -299,105 +325,17 @@ func (f settingsForm) changeKey(keys keyMap, msg tea.KeyPressMsg) settingsForm {
 	}
 
 	field := f.current()
+	if key.Matches(msg, keys.removeEntry) && field.removable() {
+		return f.removedEntry(field)
+	}
 
 	switch field.kind {
 	case settingToggle:
 		return f.toggled(keys, msg, field)
 	case settingChoice:
 		return f.chosen(keys, msg, field)
-	case settingText, settingURL, settingSecret, settingCount, settingList:
+	case settingText, settingURL, settingSecret, settingCount, settingList, settingEntry, settingAdd:
 		return f.startEditing(keys, msg, field)
-	}
-
-	return f
-}
-
-// toggled turns a setting that is on or off, on enter or space.
-func (f settingsForm) toggled(keys keyMap, msg tea.KeyPressMsg, field setting) settingsForm {
-	if !key.Matches(msg, keys.confirm, keys.toggleOption) {
-		return f
-	}
-
-	on, _ := f.value(field.path).(bool)
-
-	return f.with(field.path, !on)
-}
-
-// chosen moves a choice on, on enter or →, or back, on ←.
-func (f settingsForm) chosen(keys keyMap, msg tea.KeyPressMsg, field setting) settingsForm {
-	switch {
-	case key.Matches(msg, keys.confirm, keys.cycleRight):
-		return f.with(field.path, field.cycled(f.text(field), 1))
-	case key.Matches(msg, keys.cycleLeft):
-		return f.with(field.path, field.cycled(f.text(field), -1))
-	default:
-		return f
-	}
-}
-
-// startEditing opens a setting's field on enter: a credential's empty and
-// echoing nothing, so what is typed for it never reaches the screen.
-func (f settingsForm) startEditing(keys keyMap, msg tea.KeyPressMsg, field setting) settingsForm {
-	if !key.Matches(msg, keys.confirm) {
-		return f
-	}
-
-	f.editing, f.input = true, newInput(f.editedText(field))
-	if field.kind == settingSecret {
-		f.input.EchoMode = textinput.EchoNone
-	}
-
-	return f
-}
-
-// text is a setting's value as text.
-func (f settingsForm) text(field setting) string {
-	text, _ := f.value(field.path).(string)
-
-	return text
-}
-
-// with is the form with a setting's value edited.
-func (f settingsForm) with(path string, value any) settingsForm {
-	f.edits = maps.Clone(f.edits)
-	f.edits[path] = value
-
-	return f
-}
-
-// editKey answers a key while a setting's field is being edited: enter keeps
-// what was typed, esc backs out, and every other key types.
-func (f settingsForm) editKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.closeOverlay):
-		f.editing, f.problem = false, nil
-	case key.Matches(msg, m.keys.confirm):
-		f = f.kept()
-	default:
-		f.input, _ = f.input.Update(msg)
-		f.problem = nil
-	}
-
-	m.overlay = f
-
-	return m, nil
-}
-
-// kept is the form with what was typed kept as the setting's value, or with
-// why it cannot be.
-func (f settingsForm) kept() settingsForm {
-	field := f.current()
-
-	value, changes, err := typedValue(field, f.input.Value())
-	if err != nil {
-		f.problem = err
-
-		return f
-	}
-
-	f.editing = false
-	if changes {
-		f = f.with(field.path, value)
 	}
 
 	return f

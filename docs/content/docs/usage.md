@@ -219,6 +219,7 @@ lists, by where it works.
 | | `u` | In the link form, on a branch already linked, unlink its issue |
 | | `c` / `C` | In Local data, remove the cache, or everything, after a last look |
 | | `ctrl+s` | In Settings, save every edit together |
+| | `D` | In Settings, remove the selected view, header, prefix or moved key |
 | | `j`/`k` or `↓`/`↑` | In the announcement preview, move between the code owners and groups it can tag |
 | | `space` | In the announcement preview, tag the selected group, or untag it |
 | | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group |
@@ -809,13 +810,21 @@ it would have written.
 ## Settings
 
 `S` on the Repositories pane opens Settings: the configuration the web's
-Settings edits, in the same eight parts — Jira, messaging, the forge, commits,
-branches, pull requests, the store and Taskwarrior — a row per setting, with
-what the selected one does below. A credential is shown masked, as
-`****9999`, and typing a new one shows nothing of it. `enter` edits a row —
-a credential's field starts empty, and left empty keeps the stored one — turns
-a setting on or off, or moves a choice on, as `←` and `→` do; `ctrl+s` saves
-every edit together.
+Settings edits, in the same eleven parts — Jira, messaging, the forge,
+commits, branches, pull requests, the store, Taskwarrior, timing, the terminal
+and the keyboard — a row per setting, with what the selected one does below. A
+credential is shown masked, as `****9999`, and typing a new one shows nothing
+of it. `enter` edits a row — a credential's field starts empty, and left empty
+keeps the stored one — turns a setting on or off, or moves a choice on, as `←`
+and `→` do; `ctrl+s` saves every edit together.
+
+Jira's views and headers and the branch prefixes are a row each, after them
+a row that adds one: `enter` there asks the new one's name, then its value (a
+view's JQL, a header's value, which is never shown, a type's prefix). `enter`
+on one edits its value, and `D` removes it with the next save. The channels
+are typed comma-separated, as the commit types are. The keyboard part lists
+every action the interface binds, each with the key it is moved to, or the
+default it keeps; `enter` types a key, and `D` puts its default back.
 
 A save is checked as a file on disk is, and as the web's is: a value the
 configuration refuses, or a `ui.keys` map the interface would not start on,

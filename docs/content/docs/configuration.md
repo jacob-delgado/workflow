@@ -693,8 +693,8 @@ The actions you can rebind, grouped by where they work, are:
   `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,
   `worktree` (in the branch creator), `post-when-green` (in the announcement
   preview), `unlink-issue` (in the link form, on a branch already linked),
-  `remove-cache` and `remove-everything` (in Local data), `save-settings` (in
-  Settings), `link-to-slack` and `not-on-slack` (in the announcement preview
+  `remove-cache` and `remove-everything` (in Local data), `save-settings` and
+  `remove-entry` (in Settings), `link-to-slack` and `not-on-slack` (in the announcement preview
   and in People and groups), `forget-owner` (in People and groups),
   `show-log` (in the checks list).
 - **Writing a comment** (in the comment box's normal mode): `insert`,
