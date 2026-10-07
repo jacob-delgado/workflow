@@ -2759,7 +2759,6 @@ components:
             here is where the server works; repository is a repository's
             directory; directory is one in no repository; missing is not there.
           enum: [here, repository, directory, missing]
-          x-enum-varnames: [FavoriteHere, FavoriteRepository, FavoriteDirectory, FavoriteMissing]
         origin:
           type: string
           description: Origin's host and path, or empty.
@@ -2784,7 +2783,6 @@ components:
             here is the worktree the server works in; worktree is another;
             missing is one git still lists whose directory is gone.
           enum: [here, worktree, missing]
-          x-enum-varnames: [WorktreeHere, WorktreeOther, WorktreeMissing]
         locked:
           type: boolean
           description: Whether git keeps it from being removed or pruned.
@@ -3442,7 +3440,6 @@ components:
         when:
           type: string
           enum: [now, ci_passes]
-          x-enum-varnames: [AnnounceNow, AnnounceWhenCIPasses]
           description: >-
             now, the default, posts at once; ci_passes holds a ready-for-review
             announcement until the pull request's CI passes.
@@ -3461,7 +3458,6 @@ components:
         state:
           type: string
           enum: [waiting, announcing, announced, dropped]
-          x-enum-varnames: [QueuedWaiting, QueuedAnnouncing, QueuedAnnounced, QueuedDropped]
         channel:
           type: string
           description: The channel it posts to, or empty for a webhook's own channel.
@@ -4402,7 +4398,6 @@ components:
         kind:
           type: string
           enum: [option, option_list, text, user, date, only_jira]
-          x-enum-varnames: [FieldOptionKind, FieldOptionListKind, FieldTextKind, FieldUserKind, FieldDateKind, FieldOnlyJiraKind]
           description: >-
             How the field is filled: one of its options, any number of them,
             free text, a username, a date as 2026-09-21, or only_jira for one
@@ -5166,4 +5161,3 @@ components:
         installed, no git user.email — so it was left out; or failed, when a
         source that is set up was asked and could not be read.
       enum: [read, not_set_up, failed]
-      x-enum-varnames: [ActivitySourceRead, ActivitySourceNotSetUp, ActivitySourceFailed]

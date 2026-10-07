@@ -228,7 +228,7 @@ func TestStreamKeepsTheLastCIWhenItsReadFails(t *testing.T) {
 
 	for frame, snap := range pushed {
 		review := snap.Review
-		if review.Pull == nil || review.Pull.Number != 42 || review.Ci == nil || review.Ci.State != api.Passed {
+		if review.Pull == nil || review.Pull.Number != 42 || review.Ci == nil || review.Ci.State != api.CIStatePassed {
 			t.Errorf("frame %d review = %+v, want #42 and the CI that passed, kept from the last answer", frame, review)
 		}
 

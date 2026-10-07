@@ -47,7 +47,7 @@ func TestStreamPanelProblemsNeverCarryTheUnreachableHost(t *testing.T) {
 		t.Fatalf("problems = %+v, want the issues, review and changes problems", snap.Problems)
 	}
 
-	if snap.Problems.Review.Code != api.Unreachable || snap.Problems.Issues.Code != api.Unreachable {
+	if snap.Problems.Review.Code != api.ProblemCodeUnreachable || snap.Problems.Issues.Code != api.ProblemCodeUnreachable {
 		t.Errorf("problems = %+v, want the unreachable services classed as unreachable", snap.Problems)
 	}
 
@@ -113,7 +113,7 @@ func TestStreamSaysAForgeThatIsNotSetUpIsNotSetUp(t *testing.T) {
 
 			// Assert
 			problems := firstSnapshot(t, recorder.Body.String()).Problems
-			if problems == nil || problems.Review == nil || problems.Review.Code != api.NotSetUp ||
+			if problems == nil || problems.Review == nil || problems.Review.Code != api.ProblemCodeNotSetUp ||
 				!strings.Contains(problems.Review.Detail, tt.want) || strings.Contains(problems.Review.Detail, internalHost) {
 				t.Errorf("problems = %+v, want the review not set up, saying %q, never the host", problems, tt.want)
 			}
@@ -158,7 +158,7 @@ func TestGetReviewSaysWhyItsCICouldNotBeRead(t *testing.T) {
 	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
-	if review.Ci != nil || review.CiError == nil || review.CiError.Code != api.Unreachable ||
+	if review.Ci != nil || review.CiError == nil || review.CiError.Code != api.ProblemCodeUnreachable ||
 		strings.Contains(review.CiError.Detail, internalHost) {
 		t.Errorf("review = ci %+v, ci_error %+v, want no CI and why, without the host", review.Ci, review.CiError)
 	}
@@ -180,7 +180,7 @@ func TestAHeldAnnouncementWaitsOnWhileTheForgeCannotBeRead(t *testing.T) {
 	held := heldAnnouncement(t, handler)
 
 	// Assert
-	if held == nil || held.State != api.QueuedWaiting {
+	if held == nil || held.State != api.QueuedAnnouncementStateWaiting {
 		t.Errorf("frame's held announcement = %+v, want it still waiting", held)
 	}
 }

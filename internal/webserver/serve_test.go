@@ -109,7 +109,7 @@ func TestAnUnknownEndpointIsNotFound(t *testing.T) {
 	}
 
 	failure := decode[api.Problem](t, recorder)
-	if failure.Code != api.NotFound {
+	if failure.Code != api.ProblemCodeNotFound {
 		t.Errorf("code = %q, want not_found", failure.Code)
 	}
 }
@@ -145,7 +145,7 @@ func TestAWrongMethodOnAKnownPathIsNotAllowed(t *testing.T) {
 			}
 
 			failure := decode[api.Problem](t, recorder)
-			if failure.Code != api.MethodNotAllowed || failure.Status != http.StatusMethodNotAllowed {
+			if failure.Code != api.ProblemCodeMethodNotAllowed || failure.Status != http.StatusMethodNotAllowed {
 				t.Errorf("problem = %s (%d), want method_not_allowed (405)", failure.Code, failure.Status)
 			}
 		})

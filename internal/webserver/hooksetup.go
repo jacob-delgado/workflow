@@ -26,7 +26,7 @@ var (
 func (s *server) GetHookSetup(context.Context, api.GetHookSetupRequestObject) (api.GetHookSetupResponseObject, error) {
 	if s.deps.HookExisting == nil {
 		return api.GetHookSetup422ApplicationProblemPlusJSONResponse(
-			problem(api.Unprocessable, errHookSetupUnavailable.Error())), nil
+			problem(api.ProblemCodeUnprocessable, errHookSetupUnavailable.Error())), nil
 	}
 
 	found := s.unmanagedHooks()
@@ -50,12 +50,13 @@ func (s *server) SetUpHooks(
 ) (api.SetUpHooksResponseObject, error) {
 	if s.deps.HookExisting == nil || s.deps.HookWrite == nil {
 		return api.SetUpHooks422ApplicationProblemPlusJSONResponse(
-			problem(api.Unprocessable, errHookSetupUnavailable.Error())), nil
+			problem(api.ProblemCodeUnprocessable, errHookSetupUnavailable.Error())), nil
 	}
 
 	found := s.unmanagedHooks()
 	if len(found) == 0 {
-		return api.SetUpHooks409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingToSetUp.Error())), nil
+		return api.SetUpHooks409ApplicationProblemPlusJSONResponse(
+			problem(api.ProblemCodeConflict, errNothingToSetUp.Error())), nil
 	}
 
 	generated := hooks.Structured(found)
@@ -68,7 +69,7 @@ func (s *server) SetUpHooks(
 		// The answer leaves the cause out; the server's own log keeps it.
 		s.unexpected(err)
 
-		return api.SetUpHooks422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.SetUpHooks422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"lefthook.yml was not written, or lefthook not installed; "+
 				"set it up with g in the terminal's Commits pane to see why")), nil
 	}

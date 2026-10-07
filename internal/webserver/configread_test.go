@@ -67,7 +67,7 @@ func TestGetConfigRefusesAFileOnDiskThatIsNotValid(t *testing.T) {
 	recorder := get(t, handler, "/api/config")
 
 	// Assert
-	refusedWith(t, recorder, http.StatusUnprocessableEntity, api.Unprocessable, path)
+	refusedWith(t, recorder, http.StatusUnprocessableEntity, api.ProblemCodeUnprocessable, path)
 
 	views := decode[api.ViewList](t, get(t, handler, "/api/views"))
 	if len(views.Views) != 1 || views.Views[0].Name != sprintView {
@@ -91,7 +91,7 @@ func TestGetConfigAnswersAFileItCanNoLongerReadAsInternal(t *testing.T) {
 	recorder := get(t, handler, "/api/config")
 
 	// Assert
-	refusedWith(t, recorder, http.StatusInternalServerError, api.Internal, path)
+	refusedWith(t, recorder, http.StatusInternalServerError, api.ProblemCodeInternal, path)
 }
 
 func TestAFileDeletedThenPutBackIsReadAsBefore(t *testing.T) {

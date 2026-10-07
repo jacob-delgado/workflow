@@ -85,8 +85,10 @@ func TestSummaryAsJSONMarksASourceNotSetUpApartFromOneThatFailed(t *testing.T) {
 	}
 
 	want := map[api.ActivitySourceName]api.ActivitySourceState{
-		api.ActivitySourceNameGit: api.ActivitySourceRead, api.ActivitySourceNameTasks: api.ActivitySourceNotSetUp,
-		api.ActivitySourceNameJira: api.ActivitySourceFailed, api.ActivitySourceNameForge: api.ActivitySourceNotSetUp,
+		api.ActivitySourceNameGit:   api.ActivitySourceStateRead,
+		api.ActivitySourceNameTasks: api.ActivitySourceStateNotSetUp,
+		api.ActivitySourceNameJira:  api.ActivitySourceStateFailed,
+		api.ActivitySourceNameForge: api.ActivitySourceStateNotSetUp,
 	}
 	for source, state := range want {
 		if states[source] != state {

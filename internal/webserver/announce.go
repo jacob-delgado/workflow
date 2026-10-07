@@ -85,7 +85,7 @@ func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) 
 		return refusal, nil
 	}
 
-	if orZero(request.Body.When) == api.AnnounceWhenCIPasses {
+	if orZero(request.Body.When) == api.AnnounceRequestWhenCiPasses {
 		return s.announceWhenGreen(post), nil
 	}
 
@@ -106,7 +106,8 @@ func (s *server) postFor(body api.AnnounceRequest) (announcePost, api.AnnounceRe
 
 	text, err := postedText(body, announcement)
 	if errors.Is(err, errChangedSincePreview) {
-		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict, err.Error()))
+		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(
+			problem(api.ProblemCodeConflict, err.Error()))
 	}
 
 	if err != nil {
@@ -115,7 +116,7 @@ func (s *server) postFor(body api.AnnounceRequest) (announcePost, api.AnnounceRe
 
 	made := loop.Announced{Pull: pull.Number, Moment: announcement.Moment}
 	if s.announcedAlready(made) {
-		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			s.pullName(pull.Number)+" was already announced at this moment, here or from a terminal"))
 	}
 
@@ -160,7 +161,7 @@ func (s *server) postMentions(
 	mentions, memory, err := s.mentions(asked, moment)
 	if errors.Is(err, errTagsChanged) {
 		return messaging.Mentions{}, loop.AnnounceMemory{},
-			api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict, err.Error()))
+			api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
 	}
 
 	if err != nil {
@@ -236,13 +237,13 @@ func (s *server) announceFault(err error) api.AnnounceResponseObject {
 // announceUnprocessable is the 422 response for an announcement the server will
 // not post.
 func announceUnprocessable(message string) api.Announce422ApplicationProblemPlusJSONResponse {
-	return api.Announce422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
+	return api.Announce422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
 }
 
 // nothingToAnnounce refuses an announcement with no pull request to announce,
 // named in the forge's own noun.
 func (s *server) nothingToAnnounce() api.Problem {
-	return problem(api.Conflict, "there is no "+s.noun()+" to announce")
+	return problem(api.ProblemCodeConflict, "there is no "+s.noun()+" to announce")
 }
 
 // What a post's mentions are refused with.

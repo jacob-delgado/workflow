@@ -198,7 +198,7 @@ func TestAnnouncingWhenCIPassesHoldsItWhileCIRuns(t *testing.T) {
 		t.Fatalf("status = %d (%s), want 202", recorder.Code, recorder.Body.String())
 	}
 
-	want := api.QueuedAnnouncement{State: api.QueuedWaiting, Channel: slackChannel, Pull: 42}
+	want := api.QueuedAnnouncement{State: api.QueuedAnnouncementStateWaiting, Channel: slackChannel, Pull: 42}
 	if held := decode[api.QueuedAnnouncement](t, recorder); held != want {
 		t.Errorf("answer = %+v, want %+v", held, want)
 	}
@@ -225,7 +225,7 @@ func TestAHeldAnnouncementGoesOnTheFirstFrameWithGreenCI(t *testing.T) {
 	held := heldAnnouncement(t, handler)
 
 	// Assert: it went
-	if held == nil || held.State != api.QueuedAnnounced {
+	if held == nil || held.State != api.QueuedAnnouncementStateAnnounced {
 		t.Errorf("frame's held announcement = %+v, want it announced", held)
 	}
 
@@ -281,7 +281,7 @@ func TestAHeldAnnouncementIsDroppedWithTheReason(t *testing.T) {
 			held := heldAnnouncement(t, handler)
 
 			// Assert
-			if held == nil || held.State != api.QueuedDropped || orEmpty(held.Reason) != tt.wantReason {
+			if held == nil || held.State != api.QueuedAnnouncementStateDropped || orEmpty(held.Reason) != tt.wantReason {
 				t.Errorf("frame's held announcement = %+v, want it dropped because %q", held, tt.wantReason)
 			}
 
@@ -308,7 +308,7 @@ func TestAHeldAnnouncementThatCannotBePostedSaysWhyWithoutTheWebhook(t *testing.
 	held := heldAnnouncement(t, handler)
 
 	// Assert
-	if held == nil || held.State != api.QueuedDropped || orEmpty(held.Reason) == "" {
+	if held == nil || held.State != api.QueuedAnnouncementStateDropped || orEmpty(held.Reason) == "" {
 		t.Fatalf("frame's held announcement = %+v, want it dropped with why", held)
 	}
 
@@ -383,7 +383,7 @@ func TestOnlyAReadyAnnouncementWithCIRunningWaits(t *testing.T) {
 
 			// Assert
 			if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusConflict ||
-				failure.Code != api.Conflict || len(world.posted()) != 0 {
+				failure.Code != api.ProblemCodeConflict || len(world.posted()) != 0 {
 				t.Errorf("status/code = %d/%s, posted %q; want 409 and nothing posted",
 					recorder.Code, failure.Code, world.posted())
 			}
@@ -405,7 +405,7 @@ func TestAHeldAnnouncementWaitsOnWhileItsCICannotBeRead(t *testing.T) {
 	held := heldAnnouncement(t, handler)
 
 	// Assert
-	if held == nil || held.State != api.QueuedWaiting {
+	if held == nil || held.State != api.QueuedAnnouncementStateWaiting {
 		t.Errorf("frame's held announcement = %+v, want it still waiting", held)
 	}
 
@@ -447,7 +447,7 @@ func TestAnnouncingWhenCIPassesWithCIUnreadableIsUnreachable(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusBadGateway || failure.Code != api.Unreachable || len(world.posted()) != 0 {
+	if recorder.Code != http.StatusBadGateway || failure.Code != api.ProblemCodeUnreachable || len(world.posted()) != 0 {
 		t.Errorf("status/code = %d/%s, posted %q; want 502/unreachable and nothing posted",
 			recorder.Code, failure.Code, world.posted())
 	}
@@ -526,7 +526,8 @@ func TestCancelingWithNothingHeldIsAConflict(t *testing.T) {
 	recorder := send(t, handler, http.MethodDelete, queuedPath, "")
 
 	// Assert
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusConflict || failure.Code != api.Conflict {
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeConflict {
 		t.Errorf("status/code = %d/%s, want 409/conflict", recorder.Code, failure.Code)
 	}
 }

@@ -33,19 +33,19 @@ func (e ActivitySourceName) Valid() bool {
 
 // Defines values for ActivitySourceState.
 const (
-	ActivitySourceFailed   ActivitySourceState = "failed"
-	ActivitySourceNotSetUp ActivitySourceState = "not_set_up"
-	ActivitySourceRead     ActivitySourceState = "read"
+	ActivitySourceStateFailed   ActivitySourceState = "failed"
+	ActivitySourceStateNotSetUp ActivitySourceState = "not_set_up"
+	ActivitySourceStateRead     ActivitySourceState = "read"
 )
 
 // Valid indicates whether the value is a known member of the ActivitySourceState enum.
 func (e ActivitySourceState) Valid() bool {
 	switch e {
-	case ActivitySourceFailed:
+	case ActivitySourceStateFailed:
 		return true
-	case ActivitySourceNotSetUp:
+	case ActivitySourceStateNotSetUp:
 		return true
-	case ActivitySourceRead:
+	case ActivitySourceStateRead:
 		return true
 	default:
 		return false
@@ -54,16 +54,16 @@ func (e ActivitySourceState) Valid() bool {
 
 // Defines values for AnnounceRequestWhen.
 const (
-	AnnounceNow          AnnounceRequestWhen = "now"
-	AnnounceWhenCIPasses AnnounceRequestWhen = "ci_passes"
+	AnnounceRequestWhenCiPasses AnnounceRequestWhen = "ci_passes"
+	AnnounceRequestWhenNow      AnnounceRequestWhen = "now"
 )
 
 // Valid indicates whether the value is a known member of the AnnounceRequestWhen enum.
 func (e AnnounceRequestWhen) Valid() bool {
 	switch e {
-	case AnnounceNow:
+	case AnnounceRequestWhenCiPasses:
 		return true
-	case AnnounceWhenCIPasses:
+	case AnnounceRequestWhenNow:
 		return true
 	default:
 		return false
@@ -72,22 +72,22 @@ func (e AnnounceRequestWhen) Valid() bool {
 
 // Defines values for CIState.
 const (
-	Failed  CIState = "failed"
-	None    CIState = "none"
-	Passed  CIState = "passed"
-	Running CIState = "running"
+	CIStateFailed  CIState = "failed"
+	CIStateNone    CIState = "none"
+	CIStatePassed  CIState = "passed"
+	CIStateRunning CIState = "running"
 )
 
 // Valid indicates whether the value is a known member of the CIState enum.
 func (e CIState) Valid() bool {
 	switch e {
-	case Failed:
+	case CIStateFailed:
 		return true
-	case None:
+	case CIStateNone:
 		return true
-	case Passed:
+	case CIStatePassed:
 		return true
-	case Running:
+	case CIStateRunning:
 		return true
 	default:
 		return false
@@ -129,22 +129,22 @@ func (e ChangeKind) Valid() bool {
 
 // Defines values for FavoriteState.
 const (
-	FavoriteDirectory  FavoriteState = "directory"
-	FavoriteHere       FavoriteState = "here"
-	FavoriteMissing    FavoriteState = "missing"
-	FavoriteRepository FavoriteState = "repository"
+	FavoriteStateDirectory  FavoriteState = "directory"
+	FavoriteStateHere       FavoriteState = "here"
+	FavoriteStateMissing    FavoriteState = "missing"
+	FavoriteStateRepository FavoriteState = "repository"
 )
 
 // Valid indicates whether the value is a known member of the FavoriteState enum.
 func (e FavoriteState) Valid() bool {
 	switch e {
-	case FavoriteDirectory:
+	case FavoriteStateDirectory:
 		return true
-	case FavoriteHere:
+	case FavoriteStateHere:
 		return true
-	case FavoriteMissing:
+	case FavoriteStateMissing:
 		return true
-	case FavoriteRepository:
+	case FavoriteStateRepository:
 		return true
 	default:
 		return false
@@ -153,16 +153,16 @@ func (e FavoriteState) Valid() bool {
 
 // Defines values for FollowUpAction.
 const (
-	Link       FollowUpAction = "link"
-	Transition FollowUpAction = "transition"
+	FollowUpActionLink       FollowUpAction = "link"
+	FollowUpActionTransition FollowUpAction = "transition"
 )
 
 // Valid indicates whether the value is a known member of the FollowUpAction enum.
 func (e FollowUpAction) Valid() bool {
 	switch e {
-	case Link:
+	case FollowUpActionLink:
 		return true
-	case Transition:
+	case FollowUpActionTransition:
 		return true
 	default:
 		return false
@@ -297,16 +297,16 @@ func (e MessagingConfigKind) Valid() bool {
 
 // Defines values for OwnerTagKind.
 const (
-	Team OwnerTagKind = "team"
-	User OwnerTagKind = "user"
+	OwnerTagKindTeam OwnerTagKind = "team"
+	OwnerTagKindUser OwnerTagKind = "user"
 )
 
 // Valid indicates whether the value is a known member of the OwnerTagKind enum.
 func (e OwnerTagKind) Valid() bool {
 	switch e {
-	case Team:
+	case OwnerTagKindTeam:
 		return true
-	case User:
+	case OwnerTagKindUser:
 		return true
 	default:
 		return false
@@ -315,19 +315,19 @@ func (e OwnerTagKind) Valid() bool {
 
 // Defines values for OwnerTagState.
 const (
-	Linked     OwnerTagState = "linked"
-	NotOnSlack OwnerTagState = "not_on_slack"
-	Unlinked   OwnerTagState = "unlinked"
+	OwnerTagStateLinked     OwnerTagState = "linked"
+	OwnerTagStateNotOnSlack OwnerTagState = "not_on_slack"
+	OwnerTagStateUnlinked   OwnerTagState = "unlinked"
 )
 
 // Valid indicates whether the value is a known member of the OwnerTagState enum.
 func (e OwnerTagState) Valid() bool {
 	switch e {
-	case Linked:
+	case OwnerTagStateLinked:
 		return true
-	case NotOnSlack:
+	case OwnerTagStateNotOnSlack:
 		return true
-	case Unlinked:
+	case OwnerTagStateUnlinked:
 		return true
 	default:
 		return false
@@ -336,16 +336,16 @@ func (e OwnerTagState) Valid() bool {
 
 // Defines values for PostLengthUnit.
 const (
-	Bytes      PostLengthUnit = "bytes"
-	Characters PostLengthUnit = "characters"
+	PostLengthUnitBytes      PostLengthUnit = "bytes"
+	PostLengthUnitCharacters PostLengthUnit = "characters"
 )
 
 // Valid indicates whether the value is a known member of the PostLengthUnit enum.
 func (e PostLengthUnit) Valid() bool {
 	switch e {
-	case Bytes:
+	case PostLengthUnitBytes:
 		return true
-	case Characters:
+	case PostLengthUnitCharacters:
 		return true
 	default:
 		return false
@@ -354,46 +354,46 @@ func (e PostLengthUnit) Valid() bool {
 
 // Defines values for ProblemCode.
 const (
-	BadRequest           ProblemCode = "bad_request"
-	CheckFailed          ProblemCode = "check_failed"
-	Conflict             ProblemCode = "conflict"
-	FetchFailed          ProblemCode = "fetch_failed"
-	Internal             ProblemCode = "internal"
-	MethodNotAllowed     ProblemCode = "method_not_allowed"
-	NotFound             ProblemCode = "not_found"
-	NotSetUp             ProblemCode = "not_set_up"
-	PreconditionRequired ProblemCode = "precondition_required"
-	TooLong              ProblemCode = "too_long"
-	Unprocessable        ProblemCode = "unprocessable"
-	Unreachable          ProblemCode = "unreachable"
+	ProblemCodeBadRequest           ProblemCode = "bad_request"
+	ProblemCodeCheckFailed          ProblemCode = "check_failed"
+	ProblemCodeConflict             ProblemCode = "conflict"
+	ProblemCodeFetchFailed          ProblemCode = "fetch_failed"
+	ProblemCodeInternal             ProblemCode = "internal"
+	ProblemCodeMethodNotAllowed     ProblemCode = "method_not_allowed"
+	ProblemCodeNotFound             ProblemCode = "not_found"
+	ProblemCodeNotSetUp             ProblemCode = "not_set_up"
+	ProblemCodePreconditionRequired ProblemCode = "precondition_required"
+	ProblemCodeTooLong              ProblemCode = "too_long"
+	ProblemCodeUnprocessable        ProblemCode = "unprocessable"
+	ProblemCodeUnreachable          ProblemCode = "unreachable"
 )
 
 // Valid indicates whether the value is a known member of the ProblemCode enum.
 func (e ProblemCode) Valid() bool {
 	switch e {
-	case BadRequest:
+	case ProblemCodeBadRequest:
 		return true
-	case CheckFailed:
+	case ProblemCodeCheckFailed:
 		return true
-	case Conflict:
+	case ProblemCodeConflict:
 		return true
-	case FetchFailed:
+	case ProblemCodeFetchFailed:
 		return true
-	case Internal:
+	case ProblemCodeInternal:
 		return true
-	case MethodNotAllowed:
+	case ProblemCodeMethodNotAllowed:
 		return true
-	case NotFound:
+	case ProblemCodeNotFound:
 		return true
-	case NotSetUp:
+	case ProblemCodeNotSetUp:
 		return true
-	case PreconditionRequired:
+	case ProblemCodePreconditionRequired:
 		return true
-	case TooLong:
+	case ProblemCodeTooLong:
 		return true
-	case Unprocessable:
+	case ProblemCodeUnprocessable:
 		return true
-	case Unreachable:
+	case ProblemCodeUnreachable:
 		return true
 	default:
 		return false
@@ -402,19 +402,19 @@ func (e ProblemCode) Valid() bool {
 
 // Defines values for PullRequestMergeable.
 const (
-	Clean     PullRequestMergeable = "clean"
-	Conflicts PullRequestMergeable = "conflicts"
-	Unknown   PullRequestMergeable = "unknown"
+	PullRequestMergeableClean     PullRequestMergeable = "clean"
+	PullRequestMergeableConflicts PullRequestMergeable = "conflicts"
+	PullRequestMergeableUnknown   PullRequestMergeable = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the PullRequestMergeable enum.
 func (e PullRequestMergeable) Valid() bool {
 	switch e {
-	case Clean:
+	case PullRequestMergeableClean:
 		return true
-	case Conflicts:
+	case PullRequestMergeableConflicts:
 		return true
-	case Unknown:
+	case PullRequestMergeableUnknown:
 		return true
 	default:
 		return false
@@ -423,19 +423,19 @@ func (e PullRequestMergeable) Valid() bool {
 
 // Defines values for PullRequestState.
 const (
-	Closed PullRequestState = "closed"
-	Merged PullRequestState = "merged"
-	Open   PullRequestState = "open"
+	PullRequestStateClosed PullRequestState = "closed"
+	PullRequestStateMerged PullRequestState = "merged"
+	PullRequestStateOpen   PullRequestState = "open"
 )
 
 // Valid indicates whether the value is a known member of the PullRequestState enum.
 func (e PullRequestState) Valid() bool {
 	switch e {
-	case Closed:
+	case PullRequestStateClosed:
 		return true
-	case Merged:
+	case PullRequestStateMerged:
 		return true
-	case Open:
+	case PullRequestStateOpen:
 		return true
 	default:
 		return false
@@ -444,22 +444,22 @@ func (e PullRequestState) Valid() bool {
 
 // Defines values for QueuedAnnouncementState.
 const (
-	QueuedAnnounced  QueuedAnnouncementState = "announced"
-	QueuedAnnouncing QueuedAnnouncementState = "announcing"
-	QueuedDropped    QueuedAnnouncementState = "dropped"
-	QueuedWaiting    QueuedAnnouncementState = "waiting"
+	QueuedAnnouncementStateAnnounced  QueuedAnnouncementState = "announced"
+	QueuedAnnouncementStateAnnouncing QueuedAnnouncementState = "announcing"
+	QueuedAnnouncementStateDropped    QueuedAnnouncementState = "dropped"
+	QueuedAnnouncementStateWaiting    QueuedAnnouncementState = "waiting"
 )
 
 // Valid indicates whether the value is a known member of the QueuedAnnouncementState enum.
 func (e QueuedAnnouncementState) Valid() bool {
 	switch e {
-	case QueuedAnnounced:
+	case QueuedAnnouncementStateAnnounced:
 		return true
-	case QueuedAnnouncing:
+	case QueuedAnnouncementStateAnnouncing:
 		return true
-	case QueuedDropped:
+	case QueuedAnnouncementStateDropped:
 		return true
-	case QueuedWaiting:
+	case QueuedAnnouncementStateWaiting:
 		return true
 	default:
 		return false
@@ -468,22 +468,22 @@ func (e QueuedAnnouncementState) Valid() bool {
 
 // Defines values for RunState.
 const (
-	InProgress RunState = "in_progress"
-	Refused    RunState = "refused"
-	Stopped    RunState = "stopped"
-	Succeeded  RunState = "succeeded"
+	RunStateInProgress RunState = "in_progress"
+	RunStateRefused    RunState = "refused"
+	RunStateStopped    RunState = "stopped"
+	RunStateSucceeded  RunState = "succeeded"
 )
 
 // Valid indicates whether the value is a known member of the RunState enum.
 func (e RunState) Valid() bool {
 	switch e {
-	case InProgress:
+	case RunStateInProgress:
 		return true
-	case Refused:
+	case RunStateRefused:
 		return true
-	case Stopped:
+	case RunStateStopped:
 		return true
-	case Succeeded:
+	case RunStateSucceeded:
 		return true
 	default:
 		return false
@@ -516,16 +516,16 @@ func (e RunKind) Valid() bool {
 
 // Defines values for SetupPlaceName.
 const (
-	Home       SetupPlaceName = "home"
-	Repository SetupPlaceName = "repository"
+	SetupPlaceNameHome       SetupPlaceName = "home"
+	SetupPlaceNameRepository SetupPlaceName = "repository"
 )
 
 // Valid indicates whether the value is a known member of the SetupPlaceName enum.
 func (e SetupPlaceName) Valid() bool {
 	switch e {
-	case Home:
+	case SetupPlaceNameHome:
 		return true
-	case Repository:
+	case SetupPlaceNameRepository:
 		return true
 	default:
 		return false
@@ -555,28 +555,28 @@ func (e StatusCategory) Valid() bool {
 
 // Defines values for StatusChangeFieldKind.
 const (
-	FieldDateKind       StatusChangeFieldKind = "date"
-	FieldOnlyJiraKind   StatusChangeFieldKind = "only_jira"
-	FieldOptionKind     StatusChangeFieldKind = "option"
-	FieldOptionListKind StatusChangeFieldKind = "option_list"
-	FieldTextKind       StatusChangeFieldKind = "text"
-	FieldUserKind       StatusChangeFieldKind = "user"
+	StatusChangeFieldKindDate       StatusChangeFieldKind = "date"
+	StatusChangeFieldKindOnlyJira   StatusChangeFieldKind = "only_jira"
+	StatusChangeFieldKindOption     StatusChangeFieldKind = "option"
+	StatusChangeFieldKindOptionList StatusChangeFieldKind = "option_list"
+	StatusChangeFieldKindText       StatusChangeFieldKind = "text"
+	StatusChangeFieldKindUser       StatusChangeFieldKind = "user"
 )
 
 // Valid indicates whether the value is a known member of the StatusChangeFieldKind enum.
 func (e StatusChangeFieldKind) Valid() bool {
 	switch e {
-	case FieldDateKind:
+	case StatusChangeFieldKindDate:
 		return true
-	case FieldOnlyJiraKind:
+	case StatusChangeFieldKindOnlyJira:
 		return true
-	case FieldOptionKind:
+	case StatusChangeFieldKindOption:
 		return true
-	case FieldOptionListKind:
+	case StatusChangeFieldKindOptionList:
 		return true
-	case FieldTextKind:
+	case StatusChangeFieldKindText:
 		return true
-	case FieldUserKind:
+	case StatusChangeFieldKindUser:
 		return true
 	default:
 		return false
@@ -612,31 +612,31 @@ func (e TaskStatus) Valid() bool {
 
 // Defines values for TaskListReasonCode.
 const (
-	MalformedTaskrc TaskListReasonCode = "malformed_taskrc"
-	NeverRun        TaskListReasonCode = "never_run"
-	NotInstalled    TaskListReasonCode = "not_installed"
-	NotTaskwarrior  TaskListReasonCode = "not_taskwarrior"
-	TooOld          TaskListReasonCode = "too_old"
-	TurnedOff       TaskListReasonCode = "turned_off"
-	Unavailable     TaskListReasonCode = "unavailable"
+	TaskListReasonCodeMalformedTaskrc TaskListReasonCode = "malformed_taskrc"
+	TaskListReasonCodeNeverRun        TaskListReasonCode = "never_run"
+	TaskListReasonCodeNotInstalled    TaskListReasonCode = "not_installed"
+	TaskListReasonCodeNotTaskwarrior  TaskListReasonCode = "not_taskwarrior"
+	TaskListReasonCodeTooOld          TaskListReasonCode = "too_old"
+	TaskListReasonCodeTurnedOff       TaskListReasonCode = "turned_off"
+	TaskListReasonCodeUnavailable     TaskListReasonCode = "unavailable"
 )
 
 // Valid indicates whether the value is a known member of the TaskListReasonCode enum.
 func (e TaskListReasonCode) Valid() bool {
 	switch e {
-	case MalformedTaskrc:
+	case TaskListReasonCodeMalformedTaskrc:
 		return true
-	case NeverRun:
+	case TaskListReasonCodeNeverRun:
 		return true
-	case NotInstalled:
+	case TaskListReasonCodeNotInstalled:
 		return true
-	case NotTaskwarrior:
+	case TaskListReasonCodeNotTaskwarrior:
 		return true
-	case TooOld:
+	case TaskListReasonCodeTooOld:
 		return true
-	case TurnedOff:
+	case TaskListReasonCodeTurnedOff:
 		return true
-	case Unavailable:
+	case TaskListReasonCodeUnavailable:
 		return true
 	default:
 		return false
@@ -663,19 +663,19 @@ func (e UIConfigColor) Valid() bool {
 
 // Defines values for WorktreeState.
 const (
-	WorktreeHere    WorktreeState = "here"
-	WorktreeMissing WorktreeState = "missing"
-	WorktreeOther   WorktreeState = "worktree"
+	WorktreeStateHere     WorktreeState = "here"
+	WorktreeStateMissing  WorktreeState = "missing"
+	WorktreeStateWorktree WorktreeState = "worktree"
 )
 
 // Valid indicates whether the value is a known member of the WorktreeState enum.
 func (e WorktreeState) Valid() bool {
 	switch e {
-	case WorktreeHere:
+	case WorktreeStateHere:
 		return true
-	case WorktreeMissing:
+	case WorktreeStateMissing:
 		return true
-	case WorktreeOther:
+	case WorktreeStateWorktree:
 		return true
 	default:
 		return false

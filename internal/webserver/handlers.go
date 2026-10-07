@@ -67,7 +67,7 @@ func (s *server) ListIssues(
 
 	jql, ok := resolveJQL(s.config(), view)
 	if !ok {
-		return api.ListIssues404ApplicationProblemPlusJSONResponse(problem(api.NotFound, unknownView(view))), nil
+		return api.ListIssues404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, unknownView(view))), nil
 	}
 
 	if s.deps.Search == nil {
@@ -88,7 +88,7 @@ func (s *server) ListIssues(
 func (s *server) GetIssue(_ context.Context, request api.GetIssueRequestObject) (api.GetIssueResponseObject, error) {
 	if s.deps.Issue == nil {
 		return api.GetIssuedefaultApplicationProblemPlusJSONResponse{
-			Body:       problem(api.Unprocessable, "no issue tracker is configured"),
+			Body:       problem(api.ProblemCodeUnprocessable, "no issue tracker is configured"),
 			StatusCode: http.StatusUnprocessableEntity,
 		}, nil
 	}
@@ -97,7 +97,7 @@ func (s *server) GetIssue(_ context.Context, request api.GetIssueRequestObject) 
 	if err != nil {
 		if errors.Is(err, jira.ErrNotFound) || errors.Is(err, forge.ErrNoRepository) {
 			return api.GetIssue404ApplicationProblemPlusJSONResponse(
-				problem(api.NotFound, "issue "+request.Key+" was not found")), nil
+				problem(api.ProblemCodeNotFound, "issue "+request.Key+" was not found")), nil
 		}
 
 		body, code := s.fault(err)
@@ -402,7 +402,7 @@ func (s *server) GetCheckLog(
 ) (api.GetCheckLogResponseObject, error) {
 	check, err := s.currentCheck(request.ID)
 	if errors.Is(err, errNoSuchCheck) {
-		return api.GetCheckLog404ApplicationProblemPlusJSONResponse(problem(api.NotFound, err.Error())), nil
+		return api.GetCheckLog404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, err.Error())), nil
 	}
 
 	if err == nil && (s.deps.JobLog == nil || !check.LogAvailable) {
@@ -410,7 +410,7 @@ func (s *server) GetCheckLog(
 	}
 
 	if errors.Is(err, forge.ErrNoLog) {
-		return api.GetCheckLog422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, err.Error())), nil
+		return api.GetCheckLog422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, err.Error())), nil
 	}
 
 	var log forge.JobLog

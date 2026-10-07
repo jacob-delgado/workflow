@@ -70,8 +70,8 @@ func TestAnUnreachableForgeIsNotNothingToAnnounce(t *testing.T) {
 
 			// Assert
 			failure := decode[api.Problem](t, recorder)
-			if recorder.Code != http.StatusBadGateway || failure.Code != api.Unreachable {
-				t.Errorf("status = %d, code %q; want 502 and %q", recorder.Code, failure.Code, api.Unreachable)
+			if recorder.Code != http.StatusBadGateway || failure.Code != api.ProblemCodeUnreachable {
+				t.Errorf("status = %d, code %q; want 502 and %q", recorder.Code, failure.Code, api.ProblemCodeUnreachable)
 			}
 
 			if body := recorder.Body.String(); strings.Contains(body, host) {
@@ -115,7 +115,8 @@ func TestAFailedBranchReadIsNotNothingToOpen(t *testing.T) {
 			recorder := send(t, serve(t, deps, config.Default()), request.method, request.path, request.body)
 
 			// Assert
-			assertGitReadAnswer(t, recorder, wrote, gitReadAnswer{http.StatusInternalServerError, api.Internal, tryAgain})
+			assertGitReadAnswer(t, recorder, wrote,
+				gitReadAnswer{http.StatusInternalServerError, api.ProblemCodeInternal, tryAgain})
 		})
 	}
 }

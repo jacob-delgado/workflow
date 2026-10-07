@@ -47,7 +47,7 @@ func TestAProblemsTypeEndsInItsCodesAnchor(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if want := "#" + problemFragment(string(api.NotFound)); !strings.HasSuffix(failure.Type, want) {
+	if want := "#" + problemFragment(string(api.ProblemCodeNotFound)); !strings.HasSuffix(failure.Type, want) {
 		t.Errorf("type = %q, want it to end in %q", failure.Type, want)
 	}
 }

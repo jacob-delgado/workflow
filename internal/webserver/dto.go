@@ -207,9 +207,9 @@ func pullDTO(pull forge.PullRequest) api.PullRequest {
 // ciState is, so exhaustive keeps it complete.
 func pullState(state forge.PullState) api.PullRequestState {
 	return map[forge.PullState]api.PullRequestState{
-		forge.StateOpen:   api.Open,
-		forge.StateMerged: api.Merged,
-		forge.StateClosed: api.Closed,
+		forge.StateOpen:   api.PullRequestStateOpen,
+		forge.StateMerged: api.PullRequestStateMerged,
+		forge.StateClosed: api.PullRequestStateClosed,
 	}[state]
 }
 
@@ -257,10 +257,10 @@ func ciDTO(status forge.CI) api.CI {
 // there is no last-case arm gobco can never see; exhaustive keeps it complete.
 func ciState(state forge.CIState) api.CIState {
 	return map[forge.CIState]api.CIState{
-		forge.CINone:    api.None,
-		forge.CIRunning: api.Running,
-		forge.CIPassed:  api.Passed,
-		forge.CIFailed:  api.Failed,
+		forge.CINone:    api.CIStateNone,
+		forge.CIRunning: api.CIStateRunning,
+		forge.CIPassed:  api.CIStatePassed,
+		forge.CIFailed:  api.CIStateFailed,
 	}[state]
 }
 
@@ -285,9 +285,9 @@ func messagingDTO(cfg config.Config, author string) api.MessagingDestination {
 // mergeable maps the forge's mergeability onto its wire word.
 func mergeable(state forge.Mergeability) api.PullRequestMergeable {
 	return map[forge.Mergeability]api.PullRequestMergeable{
-		forge.MergeUnknown:   api.Unknown,
-		forge.MergeClean:     api.Clean,
-		forge.MergeConflicts: api.Conflicts,
+		forge.MergeUnknown:   api.PullRequestMergeableUnknown,
+		forge.MergeClean:     api.PullRequestMergeableClean,
+		forge.MergeConflicts: api.PullRequestMergeableConflicts,
 	}[state]
 }
 
@@ -349,12 +349,12 @@ func statusChangeFieldDTO(field jira.Field) api.StatusChangeField {
 	}
 
 	kind := map[jira.FieldKind]api.StatusChangeFieldKind{
-		jira.FieldUnsupported: api.FieldOnlyJiraKind,
-		jira.FieldOption:      api.FieldOptionKind,
-		jira.FieldOptionList:  api.FieldOptionListKind,
-		jira.FieldText:        api.FieldTextKind,
-		jira.FieldUser:        api.FieldUserKind,
-		jira.FieldDate:        api.FieldDateKind,
+		jira.FieldUnsupported: api.StatusChangeFieldKindOnlyJira,
+		jira.FieldOption:      api.StatusChangeFieldKindOption,
+		jira.FieldOptionList:  api.StatusChangeFieldKindOptionList,
+		jira.FieldText:        api.StatusChangeFieldKindText,
+		jira.FieldUser:        api.StatusChangeFieldKindUser,
+		jira.FieldDate:        api.StatusChangeFieldKindDate,
 	}[field.Kind]
 
 	return api.StatusChangeField{ID: field.ID, Name: field.Name, Kind: kind, Options: options}

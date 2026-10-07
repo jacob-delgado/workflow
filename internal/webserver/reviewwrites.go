@@ -70,15 +70,15 @@ func (s *server) readPull(withCI bool) (pullRead, error) {
 func (s *server) refusal(err error) api.Problem {
 	switch {
 	case errors.Is(err, errNoOpenPull), errors.Is(err, errNotFinishable), errors.Is(err, errNothingToRerun):
-		return problem(api.Conflict, err.Error())
+		return problem(api.ProblemCodeConflict, err.Error())
 	case errors.Is(err, errFinishRefused):
-		return problem(api.Unprocessable, "git would not finish the branch; "+
+		return problem(api.ProblemCodeUnprocessable, "git would not finish the branch; "+
 			"finish it with F in the terminal's Review pane to see git's reason")
 	case errors.Is(err, errNotMergeable):
-		return problem(api.Conflict, "the "+s.noun()+" "+err.Error())
+		return problem(api.ProblemCodeConflict, "the "+s.noun()+" "+err.Error())
 	case errors.Is(err, errReviewWriteUnavailable), errors.Is(err, errNoMergeMethod),
 		errors.Is(err, errTitleRequired), errors.Is(err, errMethodNotPermitted):
-		return problem(api.Unprocessable, err.Error())
+		return problem(api.ProblemCodeUnprocessable, err.Error())
 	default:
 		failure, _ := s.fault(err)
 

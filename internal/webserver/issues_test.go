@@ -62,7 +62,7 @@ func TestListIssuesReportsASeamFailure(t *testing.T) {
 	}
 
 	failure := decode[api.Problem](t, recorder)
-	if failure.Code != api.Internal || strings.Contains(failure.Detail, "seam") {
+	if failure.Code != api.ProblemCodeInternal || strings.Contains(failure.Detail, "seam") {
 		t.Errorf("error = %+v, want a generic internal error", failure)
 	}
 }
@@ -85,7 +85,7 @@ func TestListIssuesRefusesAnUnknownView(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusNotFound || failure.Code != api.NotFound {
+	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
 		t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
 	}
 
@@ -200,7 +200,7 @@ func TestGetIssueIsUnprocessableWithoutATracker(t *testing.T) {
 
 	// Assert
 	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusUnprocessableEntity ||
-		failure.Code != api.Unprocessable {
+		failure.Code != api.ProblemCodeUnprocessable {
 		t.Errorf("status/code = %d/%s, want 422/unprocessable", recorder.Code, failure.Code)
 	}
 }
@@ -217,7 +217,7 @@ func TestGetIssueIsNotFoundForAMissingIssue(t *testing.T) {
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusNotFound || failure.Code != api.NotFound {
+	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
 		t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
 	}
 
@@ -238,7 +238,7 @@ func TestGetIssueIsUnreachableWhenTheTrackerIsDown(t *testing.T) {
 
 	// Assert
 	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusBadGateway ||
-		failure.Code != api.Unreachable {
+		failure.Code != api.ProblemCodeUnreachable {
 		t.Errorf("status/code = %d/%s, want 502/unreachable", recorder.Code, failure.Code)
 	}
 }

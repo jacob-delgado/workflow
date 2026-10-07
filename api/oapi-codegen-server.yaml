@@ -15,3 +15,5 @@ output-options:
   name-normalizer: ToCamelCaseWithInitialisms
   exclude-tags:
     - events
+compatibility:
+  always-prefix-enum-values: true
