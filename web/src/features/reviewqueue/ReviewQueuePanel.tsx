@@ -1,4 +1,3 @@
-import { ExternalLink } from 'lucide-react'
 import { useRef, type ReactNode, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
@@ -9,6 +8,7 @@ import { writtenDate } from '@/lib/dates.ts'
 import { Select } from '@/lib/Field.tsx'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { Meta } from '@/lib/Meta.tsx'
+import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
@@ -311,16 +311,9 @@ function RequestRow({ request, readAt }: RequestRowProps) {
           <StateMark state={ciMark[request.ci]} />
           {ciLabel[request.ci]}
         </span>
-        <a
-          href={request.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          Open
-          <ExternalLink aria-hidden className="size-3.5" />{' '}
-          <span className="sr-only">{mark} (opens in a new tab)</span>
-        </a>
+        <NewTabLink href={request.url}>
+          Open <span className="sr-only">{mark}</span>
+        </NewTabLink>
         <CopyURL url={request.url} mark={mark} teller={copied} />
       </div>
       <OutcomeLine said={copied.said} />

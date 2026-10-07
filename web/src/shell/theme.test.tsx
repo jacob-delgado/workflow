@@ -31,6 +31,21 @@ test('the theme toggle cycles system, light, dark and remembers the choice', asy
   expect(localStorage.getItem(themeStorageKey)).toBe('system')
 })
 
+test('the theme toggle shows the choice it holds on hover, and follows it', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  renderWithClient(<App />)
+  const toggle = screen.getByRole('button', { name: /^Theme: System/ })
+  const before = toggle.getAttribute('title')
+
+  // Act
+  await user.click(toggle)
+
+  // Assert
+  expect(before).toBe('Theme: System')
+  expect(toggle.getAttribute('title')).toBe('Theme: Light')
+})
+
 test('following the system registers one OS listener and drops it when set to light', async () => {
   // Arrange
   const user = userEvent.setup()

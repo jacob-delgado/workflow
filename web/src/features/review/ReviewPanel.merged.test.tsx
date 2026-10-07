@@ -49,7 +49,7 @@ test('shows a merged pull request without the review it no longer waits on', () 
     expect(screen.queryByText(row)).toBeNull()
   }
   expect(screen.queryByRole('heading', { name: /CI checks/ })).toBeNull()
-  expect(screen.getByRole('link', { name: merged.title })).toBeTruthy()
+  expect(screen.getByRole('link', { name: `${merged.title} (opens in a new tab)` })).toBeTruthy()
 })
 
 // What the State row says for the other states a pull request can be in on the

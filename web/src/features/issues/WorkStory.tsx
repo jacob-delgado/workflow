@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react'
+import { ChevronRight } from 'lucide-react'
+import { useId, useState, type ReactNode } from 'react'
 import type { CreatedWorktree, Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useForgeWords, type ForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -318,36 +319,63 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
       <StoryAction issueKey={issueKey} branch={branch} outcome={outcome} />
       <OutcomeLine said={outcome.said} />
       <ol className="flex flex-col">
-        {stages.map((stage, index) => {
-          const state = stageState(stage, index, activeIndex)
-          const last = index === stages.length - 1
-
-          return (
-            <li key={stage.title} className="flex gap-item">
-              <div className="flex flex-col items-center gap-tight pt-1.5">
-                <StateMark
-                  state={stageMark[state]}
-                  className={cn('size-4', state !== 'failed' && sectionMeta[stage.section].hue)}
-                />
-                {last ? null : <span className="w-px flex-1 bg-border" />}
-              </div>
-              {/* Not a Button: a stage of the story that opens its section, drawn as the stage. */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSection(stage.section)
-                }}
-                className="flex flex-1 flex-col gap-tight rounded-md px-2 pt-0.5 pb-block text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-              >
-                <span className="text-sm font-medium">{stage.title}</span>
-                <span className="sr-only">{state}</span>
-                <Meta className="text-sm text-muted-foreground">{stage.detail}</Meta>
-              </button>
-            </li>
-          )
-        })}
+        {stages.map((stage, index) => (
+          <StoryStage
+            key={stage.title}
+            stage={stage}
+            state={stageState(stage, index, activeIndex)}
+            last={index === stages.length - 1}
+            onOpen={setSection}
+          />
+        ))}
       </ol>
     </div>
+  )
+}
+
+interface StoryStageProps {
+  stage: Stage
+  state: StageState
+  last: boolean
+  onOpen: (section: Section) => void
+}
+
+// StoryStage is one stage of the story: the mark of how far it has come, in
+// its system's hue, on the line down to the next, and the stage itself as a
+// control that opens its section — a chevron at its end says so at rest, and
+// its description names the section for a screen reader.
+function StoryStage({ stage, state, last, onOpen }: StoryStageProps) {
+  const opens = useId()
+
+  return (
+    <li className="flex gap-item">
+      <div className="flex flex-col items-center gap-tight pt-1.5">
+        <StateMark
+          state={stageMark[state]}
+          className={cn('size-4', state !== 'failed' && sectionMeta[stage.section].hue)}
+        />
+        {last ? null : <span className="w-px flex-1 bg-border" />}
+      </div>
+      {/* Not a Button: a stage of the story that opens its section, drawn as the stage. */}
+      <button
+        type="button"
+        aria-describedby={opens}
+        onClick={() => {
+          onOpen(stage.section)
+        }}
+        className="flex flex-1 items-start gap-item rounded-md px-2 pt-0.5 pb-block text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <span className="flex min-w-0 flex-1 flex-col gap-tight">
+          <span className="text-sm font-medium">{stage.title}</span>
+          <span className="sr-only">{state}</span>
+          <Meta className="text-sm text-muted-foreground">{stage.detail}</Meta>
+        </span>
+        <ChevronRight aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      </button>
+      <span id={opens} hidden>
+        Opens {sectionMeta[stage.section].label}
+      </span>
+    </li>
   )
 }
 

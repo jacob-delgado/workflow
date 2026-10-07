@@ -7,6 +7,8 @@ import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { AppShell } from '@/shell/AppShell.tsx'
+import { useUiStore } from '@/shell/uiStore.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
 test('says it is reading until the configuration arrives', () => {
@@ -281,6 +283,18 @@ test('a Save clicked by a pointer that gives it no focus hands focus to what it 
   await waitFor(() => {
     expect(document.activeElement).toBe(said)
   })
+})
+
+test('the configuration form is named by the Settings heading', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  useUiStore.setState({ section: 'settings' })
+
+  // Act
+  renderWithClient(<AppShell />)
+
+  // Assert
+  expect(await screen.findByRole('form', { name: 'Settings' })).toBeTruthy()
 })
 
 test('toggling Markdown comments rides back through a save', async () => {

@@ -11,6 +11,7 @@ import type {
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { ReadFailure } from '@/lib/Status.tsx'
 import { cn, contentMeasure, definitionList } from '@/lib/utils.ts'
 import { CiChecks } from './Checks.tsx'
@@ -119,14 +120,7 @@ function PullRequestSummary({
             {sigil}
             {pull.number}
           </span>
-          <a
-            href={pull.url}
-            target="_blank"
-            rel="noreferrer"
-            className="underline-offset-4 hover:underline"
-          >
-            {pull.title}
-          </a>
+          <NewTabLink href={pull.url}>{pull.title}</NewTabLink>
         </h2>
         <dl className={definitionList}>
           {issue ? <IssueRow issue={issue} /> : null}
@@ -183,18 +177,7 @@ function IssueRow({ issue }: { issue: LinkedIssue }) {
     <>
       <dt className="text-muted-foreground">Issue</dt>
       <dd className="font-mono">
-        {issue.url === '' ? (
-          shown
-        ) : (
-          <a
-            href={issue.url}
-            target="_blank"
-            rel="noreferrer"
-            className="underline-offset-4 hover:underline"
-          >
-            {shown}
-          </a>
-        )}
+        {issue.url === '' ? shown : <NewTabLink href={issue.url}>{shown}</NewTabLink>}
       </dd>
     </>
   )

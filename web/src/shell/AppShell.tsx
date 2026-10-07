@@ -12,7 +12,7 @@ import { NavRail } from './NavRail.tsx'
 import { SectionPanel } from './SectionPanel.tsx'
 import { StreamStatus } from './StreamStatus.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
-import { sectionLabel, sectionMeta } from './sections.ts'
+import { sectionHeadingId, sectionLabel, sectionMeta } from './sections.ts'
 import { useApplyTheme } from './useApplyTheme.ts'
 import { useUiStore, type Section } from './uiStore.ts'
 
@@ -107,7 +107,7 @@ function SectionHeading({ section, service }: { section: Section; service: strin
   const { Icon, hue } = sectionMeta[section]
 
   return (
-    <h1 className={cn('flex items-center gap-2 text-2xl', hue)}>
+    <h1 id={sectionHeadingId} className={cn('flex items-center gap-2 text-2xl', hue)}>
       <Icon aria-hidden className={cn('size-6 shrink-0', hue)} />
       {sectionLabel(section, service)}
     </h1>

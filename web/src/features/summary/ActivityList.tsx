@@ -117,7 +117,7 @@ function ActivityLine({ item }: { item: ActivityItem }) {
           rel="noreferrer"
           className="font-mono text-foreground underline underline-offset-2 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          {item.ref}
+          {item.ref} <span className="sr-only">(opens in a new tab)</span>
         </a>
       )}
       <span className="min-w-0 text-foreground">{item.title}</span>

@@ -11,7 +11,8 @@ const choiceMeta: Record<ThemeChoice, { label: string; Icon: typeof Sun }> = {
 }
 
 // ThemeToggle cycles system → light → dark from a single header button. Icon-
-// only, so it carries its accessible name and the current choice in aria-label.
+// only, so it carries its accessible name and the current choice in aria-label,
+// and shows the choice on hover in its title, as the rail's buttons show theirs.
 export function ThemeToggle() {
   const choice = useThemeStore((state) => state.choice)
   const cycleChoice = useThemeStore((state) => state.cycleChoice)
@@ -22,6 +23,7 @@ export function ThemeToggle() {
       type="button"
       onClick={cycleChoice}
       aria-label={`Theme: ${label}. Change theme.`}
+      title={`Theme: ${label}`}
       className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     >
       <Icon aria-hidden className="size-4" />
