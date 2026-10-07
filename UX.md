@@ -196,7 +196,7 @@ is the shortest summary of how far the screen keeps them, re-counted at
 
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
-| "`?` lists every key" | `docs/content/docs/usage.md:89` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:164`, rendered in two columns split where they balance, `balancedSplit`, `internal/tui/help.go:150`): 99 placements — 90 `builder.bind` and 9 `builder.bindShown` calls — in 12 groups (`groupMoving` to `groupEverywhere`, `internal/tui/keys.go:99`), on 98 lines, since `cycle-type-right` has no help of its own and rides `cycle-type-left`'s line (`internal/tui/keys.go:345`). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:292`) reads `?` back and holds it to a table of every placement. |
+| "`?` lists every key" | `docs/content/docs/usage.md:89` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:164`, rendered in two columns split where they balance, `balancedSplit`, `internal/tui/help.go:150`): 101 placements — 91 `builder.bind` and 10 `builder.bindShown` calls — in 12 groups (`groupMoving` to `groupEverywhere`, `internal/tui/keys.go:99`), on 100 lines, since `cycle-type-right` has no help of its own and rides `cycle-type-left`'s line (`internal/tui/keys.go:345`). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:292`) reads `?` back and holds it to a table of every placement. |
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:51` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/failure.go:90`) and drawn by one of eight helpers — those that draw a mark choose it, and its style, through `voice` (`internal/tui/failure.go:430`), the footer's two failure notices through `markOf` (`:418`), which asks the same `loop.NotSetUp`: `failureBlock` at 20 sites, `pinnedOutcome` 16, `failureLine` 24, `failureSummary` 8, `unreadRow` 3, `noticedFailure` 12, `noticedFailureLedBy` 3 and `noticedGuidance` 4 (plain, since red means something broke). They are also the one way the terminal says something was never set up: as guidance, with `○` and no red, in `loop.SetUpAdvice`'s words (`setUp`, `internal/tui/failure.go:145`), as principle 4 asks. |
 | "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:54` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:229`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
 | "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:321` | **Yes: 19 of 19.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm`, `setupForm` (`internal/tui/setupform.go:391`, while it writes or checks), `statusPicker` (with its field form), `summaryPost` and `taskLine`. |
@@ -472,10 +472,7 @@ page's synopsis names the exit status a non-repository directory produces.
 ## The terminal interface
 
 What is open here is a screen-reader mode, the alternate screen and a fixed
-delay; undo; vim's missing keys; sentences that name a rebindable key; an
-in-flight mark only the Issues pane wears; two second-path acts; a checkbox
-that borrows the status shapes; and a draft the review queue does not
-show.
+delay, and undo.
 
 ### UX-64 A screen reader, an alternate screen you cannot turn off, and a delay you cannot tune
 
@@ -525,285 +522,6 @@ issue's link so the comment can be edited where it lives. Undo itself,
 over a log of what workflow did, is FEAT-87's.
 
 **Done when.** Each irreversible act's preview or notice says so.
-
-### UX-69 Vim habits stop at `j`/`k`
-
-Impact: low · Effort: small
-
-**Today.** `up/k`, `down/j`, `pgup/K`, `pgdn/J` (`movingKeys`,
-`internal/tui/keys.go:235`–`:238`). Nothing jumps to the ends of a list or
-the detail. vim's own keys for that are spoken for: `g` is set-up-lefthook
-on the Commits pane (`internal/tui/keys.go:274`) and go-to-directory on
-the Repositories pane (`:314`). `h` and `l` move the cursor only in the
-comment composer's NORMAL mode (`writingKeys`, `:366`–`:367`); elsewhere
-`h` runs pre-commit on the Commits pane (`:273`) and `l` shows a job's log
-(`:341`), and `←`/`→` change the commit type or the channel.
-
-**Instead.** `home` and `end`, which no context binds, on every list and
-the detail, with `G` — also free in every context — for the end; leave
-`g`, `h` and `l` with the verbs they carry now.
-
-**Done when.** `end` and `G` on the Issues list select the last loaded
-issue, `home` the first, and `CheckKeys` still passes the default set.
-
-### UX-96 Nine sentences name a key that `ui.keys` can move
-
-Impact: low · Effort: small
-
-**Today.** `ui.keys` moves an action to another key and the help follows
-it — "The help then shows the new key", the `ui.keys` row of
-`docs/content/docs/configuration.md:134` — but nine sentences carry the
-default key as a literal, so a rebound user is told to press a key that
-does something else or nothing. `wording` (`internal/tui/failure.go:59`)
-states the design they break: the full form names no key, and each
-surface's footer offers its own. Others already build the key from the
-binding — the comment composer's "draft kept for KEY; c picks it up
-again" reads `m.keys.comment` (`commentComposer.close`,
-`internal/tui/commentcomposer.go:342`), the issue detail's "press r to
-try again" reads `m.keys.refresh` (`Model.fullDetail`,
-`internal/tui/detail.go:396`), and the Tasks offers read `m.keys.refresh`
-and `m.keys.filterTasks` (`internal/tui/tasklist.go:309`, `:315`,
-`:317`) — so the nine are the exceptions. Counted by reading every
-string literal in `internal/tui/*.go` (tests excluded) that names a key
-and checking that key's action is bound through `helpBuilder.bind`; no
-single grep finds all nine.
-
-- `internal/tui/branch.go:133` `Model.branchDetail` says "Check out a
-  branch, or press b to start one for the selected issue." on a detached
-  HEAD; new-branch is rebindable (`internal/tui/keys.go:261`,
-  `branchAndCommitKeys`).
-- `internal/tui/branch.go:350` `branchCreator.view` says "could not fetch;
-  enter branches from what you already have"; apply is rebindable
-  (`internal/tui/keys.go:393`, `everywhereKeys`), and the creator's own
-  footer already reads it from the binding — `branchCreator.footer`
-  (`internal/tui/branch.go:380`) relabels `keys.confirm` to "branch from
-  what you have", so a rebound session shows "ctrl+s branch from what you
-  have" under a sentence that says enter.
-- `internal/tui/commits.go:143` `Model.commitsDetail` says "Press g to set
-  up lefthook." under a footer that reads its key from `keys.hookConfig`;
-  set-up-lefthook is rebindable (`internal/tui/keys.go:274`,
-  `branchAndCommitKeys`).
-- `internal/tui/review.go:294` `Model.reviewDetail` says "n opens one from
-  this branch's commits and the repository's template."; open-pull-request
-  is rebindable (`internal/tui/keys.go:279`, `reviewAndMessagingKeys`), and
-  the pane answers `m.keys.newPullRequest`.
-- `internal/tui/review.go:324` `Model.reviewDetail` says "e edits its title
-  and description."; edit is rebindable (`internal/tui/keys.go:335`,
-  `composerKeys`), and the pane answers `m.keys.edit`.
-- `internal/tui/finish.go:28` `Model.mergedDetail` says "F finishes the
-  branch: …"; finish-branch is rebindable (`internal/tui/keys.go:283`,
-  `reviewAndMessagingKeys`).
-- `internal/tui/finish.go:32` `Model.mergedDetail` says "n opens a new
-  pull request from this branch's commits." once one has merged;
-  open-pull-request is rebindable (`internal/tui/keys.go:279`), and the
-  pane answers `m.keys.newPullRequest`.
-- `internal/tui/checks.go:59` `checkList.view` says "Open a check's page
-  with enter."; `checkList.handleKey` (`internal/tui/checks.go:114`) opens
-  on `m.keys.confirm` (`:122`), the rebindable apply.
-- `internal/tui/composer.go:230` `commitComposer.footnotes` says "no body
-  yet: ctrl+o writes one in your editor"; `commitComposer.handleKey`
-  (`internal/tui/composer.go:254`) answers `m.keys.editBody` (`:262`), and
-  edit-body is rebindable (`internal/tui/keys.go:336`, `composerKeys`).
-
-**Instead.** Build each sentence from the binding — `m.keys.newBranch`,
-`m.keys.confirm`, `m.keys.hookConfig`, `m.keys.newPullRequest`,
-`m.keys.edit`, `m.keys.finish`, `m.keys.editBody`, through `Help().Key`,
-as the comment composer and the issue detail do — or drop the key from
-the sentence and let the footer beside it carry the offer, as `wording`
-intends.
-
-**Done when.** A screen test that rebinds new-branch, apply,
-set-up-lefthook, open-pull-request, edit, finish-branch and edit-body
-through `cfg.UI.Keys`, as `internal/tui/issuesfooter_test.go:203` does for
-apply and close, sees the bound key, or no key, in each of the nine
-sentences and never the literal `b`, `enter`, `g`, `n`, `e`, `F` or
-`ctrl+o` there; the detached case of
-`TestTheBranchPaneSaysWhereTheBranchStands`
-(`internal/tui/branch_test.go:126`),
-`TestAFailedFetchOffersToBranchFromWhatIsThere`
-(`internal/tui/fetch_test.go:35`), the screens that pin the Review
-detail's two sentences (`TestTheReviewPaneOffersToOpenAPullRequest`,
-`internal/tui/review_test.go:154`;
-`TestTheReviewPaneOffersEditingThePullRequest`,
-`internal/tui/preditor_test.go:17`) and the merged detail's
-(`TestNIsOfferedWhileNoPullRequestIsOpen`,
-`internal/tui/review_offer_test.go:45`) gain the rebound variant.
-
-### UX-97 The in-flight mark is on one pane of nine
-
-Impact: low · Effort: small
-
-**Today.** `Model.paneTitle` (`internal/tui/render.go:189`) promises the
-in-flight glyph "until the answer arrives", but `Model.loading`
-(`internal/tui/render.go:198`) answers only for `paneIssues`, and only
-`issueList` carries a `loading` flag (`internal/tui/issues.go:80`).
-Refresh is live on all nine panes — every entry of `behaviorOf`
-(`internal/tui/panes.go:99`) has one, and each pane's key handler answers
-`m.keys.refresh` — so `r` on eight of them changes nothing on screen until
-the answer lands, and neither does the silent reload `refreshPane`
-(`internal/tui/panes.go:166`) runs when you switch to a stale pane. On a
-slow forge, `r` on the Review pane looks ignored until `CheckStatus`
-answers. Three Issues searches also start without the flag, so the one
-pane that has the glyph omits it for them: after "● PROJ-412 is now Done"
-the list quietly re-sorts some time later, where `r` would show "1 Issues
-◐" for the same wait; `v` onto a view the store remembers shows
-yesterday's list with no sign today's is on its way; and a session that
-opens on the cache does the same while `Init`'s search runs.
-
-A pane's first wait now says "reading…" on every pane — the Issues list
-(`issueList.render`, `internal/tui/issues.go:275`), the rails and details
-(`internal/tui/branch.go:82`, `internal/tui/review.go:263`,
-`internal/tui/tasks.go:180`, `internal/tui/summary.go:308`) — but without
-`◐`, which only the overlays and the Messaging pane put before their
-wait: "◐ announcing…" (`internal/tui/messaging.go:145`), "◐ sending…" on
-the Tasks rail (`internal/tui/tasks.go:184`), "◐ reading the user groups…"
-(`internal/tui/people.go:299`). And the Repositories rail says "favorites,
-read when opened" (`Model.favoritesCount`,
-`internal/tui/repositories.go:218`) for as long as `m.repositories.read`
-is false — which includes the whole first read the opening started, so
-the rail tells you to open the pane you are looking at, over a detail
-that says "reading…" (`:251`).
-
-The searches that skip the flag:
-
-- `internal/tui/picker.go:171` `transitionApplied.apply` batches
-  `searchIssues` without setting `m.issues.loading`, unlike
-  `Model.refreshIssues` (`internal/tui/issuekeys.go:170`); since the flag
-  is clear, `Model.loadMoreIssues` (`internal/tui/detail.go:111`) is not
-  held back either, so `ctrl+n` starts a second page while the search is
-  still out.
-- `internal/tui/views.go:61` `Model.nextIssueView` sets `loading` only
-  when the seeded list is not settled, though `relistIssues` always
-  follows (`:65`).
-- `internal/tui/tui.go:134` `New` seeds `model.issues` from the cache with
-  no loading flag while `Model.Init` (`internal/tui/tui.go:193`) always
-  starts `searchIssues` — the same gap at startup.
-
-**Instead.** Give each pane's state a loading flag set where its refresh
-command is built and cleared by its applier, and let `loading` read it per
-pane through `behaviorOf`, so every refresh, and every reload on a switch,
-shows "◐" in the title; set `m.issues.loading = true` unconditionally after
-seeding in `nextIssueView` and `New`, and before batching the search in
-`transitionApplied.apply`. Put `◐` before a pane's first "reading…" as
-the overlays do, and let the Repositories rail say "reading…" while its
-first read is out, keeping "read when opened" for before it starts.
-
-**Done when.** A test whose `CheckStatus` never answers within the horizon
-presses `4`, `r` and sees "Review ◐" in the title, and the same for `2`,
-`3`, `5`, `6`, `7`, `8` and `9` with their seams;
-`TestEnterMovesTheIssueAndRefreshesTheList`
-(`internal/tui/picker_apply_test.go:15`) requires "1 Issues ◐" between the
-move and the refresh's answer; a views test with `CachedIssues` for the
-second view shows "◐" after `v` until the search answers, and a `New` with
-a seeded cache shows it until `Init`'s search answers; a test opening the
-Repositories pane with a read that never answers finds no "read when
-opened" on the rail.
-
-### UX-99 The worktree and review-status paths give less than their twins
-
-Impact: low · Effort: small
-
-**Today.** Two acts reached by a second path come back poorer than by the
-first. `b` then enter on a To Do issue offers "Change status ▸ ◐ Start";
-`b`, `ctrl+g`, enter on the same issue offers only to switch to the new
-worktree, though the work has just as surely started. After opening a
-pull request the Change status overlay reads "PROJ-412 " and "status  "
-with empty values, unlike the same picker opened by `t`, though the list
-usually holds the issue.
-
-- `internal/tui/branchresult.go:108` `worktreeCreated.apply` closes with
-  "created worktree for NAME at PATH" and follows up with the switch offer
-  alone (`switchLook`), where `branchCreated.apply`
-  (`internal/tui/branchresult.go:73`) calls
-  `pickStatusFor(msg.issue, statusOffer{inProgress: true})` (`:92`).
-- `internal/tui/branchresult.go:98` `worktreeCreated` carries `name`,
-  `path` and `err` only — no `issue` or `forIssue` to offer from.
-- `internal/tui/picker.go:246` `Model.offerReviewStatus` passes
-  `jira.Issue{Key: issueKey}` with an empty summary and status, where
-  `Model.openStatusPicker` (`internal/tui/picker.go:210`) passes the
-  listed issue.
-- `internal/tui/picker.go:258` `statusPicker.header` draws the key, a
-  space and the summary, then "status  " and the status — both empty on
-  that path.
-
-**Instead.** Carry `issue` and `forIssue` on `worktreeCreated` as
-`branchCreated` does and make the same offer, then the worktree offer
-after it; in `offerReviewStatus` look the key up with `issueList.find`
-(`internal/tui/issues.go:246`) before opening, falling back to the bare
-key only when it is not listed.
-
-**Done when.** A case in `internal/tui/statusafterbranch_test.go` that
-creates a worktree for PROJ-388 shows the Change status overlay
-pre-selected on Start; `TestLinkingAPullRequestThenOffersTheReviewStatus`
-(`internal/tui/issuelink_test.go:27`) also requires the issue's summary
-and "status  In Progress" in the overlay.
-
-### UX-100 The checkbox borrows the status shapes
-
-Impact: low · Effort: small
-
-**Today.** In the Fix Version/s step "● 1.0" means chosen, and on the
-screen before it "● Done" meant a done status, so a reader who learned the
-glyph vocabulary reads the checkbox as a state. The same checkbox now
-draws every facet checklist too — the Filter checklist on the Issues,
-Tasks and Reviews panes — where "● in flight" means
-the place is chosen, beside a list whose `◐` means in flight.
-
-- `internal/tui/glyphs.go:76` `glyphs.checkbox` returns `g.done` for
-  chosen and `g.notStarted` for unchosen — the fields `glyphs.status`
-  (`internal/tui/glyphs.go:58`) maps `CategoryDone` and `CategoryNew` to.
-- `internal/tui/fields.go:145` `fieldForm.optionLines` draws that checkbox
-  (`:153`) beside each option of the overlay whose transition rows
-  (`statusPicker.transitionRow`, `internal/tui/picker.go:286`) use
-  `status` one keystroke earlier.
-- `internal/tui/overlay.go:365` `checklist.choiceRow` draws it beside each
-  facet, the Issues places among them (`markInFlight`, "in flight",
-  `internal/tui/issueplaces.go:22`).
-
-The diff is the other place the earlier edition named: red for a removed
-line and the forge's green for an added one (`Model.markDiffLine`,
-`internal/tui/diff.go:111`, `:113`). The code declares it an exception
-(`styles`, `internal/tui/glyphs.go:90`), the `+` and `-` git leaves in
-place carry the mark by shape (`Model.diffSection`,
-`internal/tui/diff.go:68`), and this edition's "The visual system" now
-names it as the one exception, so that half is closed.
-
-**Instead.** Give the checkbox its own shape pair in both glyph sets
-(`[x]`/`[ ]` in ASCII, `☑`/`☐` in Unicode), keeping `○ ◐ ● ✗` for state
-alone.
-
-**Done when.** `TestAChosenVersionCanBeToggledOff`
-(`internal/tui/fields_test.go:121`) and a checklist test assert a
-checkbox glyph that is neither `●` nor `○`.
-
-### UX-101 A draft review request looks ready in the queue
-
-Impact: low · Effort: small
-
-**Today.** A draft asking for your review looks like a ready one in the
-terminal's queue, is marked "Draft" in the browser, and the Review pane
-labels the branch's own draft. The queue can even be filtered to drafts,
-yet no row says which ones they are. (The other half of the earlier
-entry has shipped: forge issues listed without Jira now open and copy,
-since `forgeIssuesDeps` wires `BrowseURL`,
-`internal/wiring/forgeissues.go:74`.)
-
-- `internal/tui/reviewqueue.go:230` `Model.reviewTail` draws the
-  repository, "by ", the author, the separator and the age — never
-  `Draft`, which `forge.ReviewRequest` carries
-  (`internal/forge/pulls.go:189`) and
-  `web/src/features/reviewqueue/ReviewQueuePanel.tsx:318` prints as
-  "Draft" among the row's facts.
-- `internal/tui/review.go:315` `Model.reviewDetail` labels the branch's
-  own pull request "draft".
-- `internal/tui/reviewfacets.go:151` offers "draft" and "ready" in the
-  Filter checklist.
-
-**Instead.** Append "draft" to `reviewTail` when the request is one, as
-`reviewDetail` labels the branch's own.
-
-**Done when.** A test with a draft review request sees "draft" on its row
-in pane `6`, and a ready one does not.
 
 ## The web
 
@@ -1063,7 +781,7 @@ terminal says it:
   `BranchSummary`, `Commits` and `WorkingTree` alike for a branch and a
   detached HEAD.
 - `Model.branchDetail`, `internal/tui/branch.go:121`: the terminal's
-  sentence (`:133`, whose literal `b` is UX-96's).
+  sentence (`:133`), which names the bound key.
 
 **Instead.** Under the detached heading, one sentence pointing at Issues,
 where Switch branch and Start work live.
@@ -1623,8 +1341,9 @@ means both "partly staged" on the Commits pane (`Model.stageGlyph`,
 Messaging pane (`Model.messagingState`, `internal/tui/messaging.go:142`);
 that is not a conflict, since each is the halfway point of its own
 progression and words stand beside it. The rule a new use must keep: a
-state glyph says how far something has got, never anything else. The
-checkbox breaks it — `●` for chosen (UX-100). Three marks are not states
+state glyph says how far something has got, never anything else. A
+checkbox therefore has its own shapes, `[x]` and `[ ]` in both glyph
+sets (`glyphs.checkbox`, `internal/tui/glyphs.go`). Three marks are not states
 and take shapes of their own: `★` (`^` in ASCII) for a favorite
 directory, `‹›` (`<>` in ASCII) for the value under a cursor — the
 calendar's and the commit type's (`internal/tui/calendar.go:117`,
