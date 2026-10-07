@@ -410,3 +410,15 @@ test('a new frame does not overwrite a typed scope', async () => {
   // Assert
   expect(scopeField().value).toBe('cli')
 })
+
+test('draws a renamed file by the path it had and the path it has', () => {
+  // Arrange
+  streamTree([change('cmd/new.go', { kind: 'renamed', original_path: 'cmd/old.go' })])
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  const row = screen.getByRole('button', { name: 'Stage cmd/new.go' }).closest('li')
+  expect(row?.textContent).toMatch(/cmd\/old\.go.*cmd\/new\.go/)
+})

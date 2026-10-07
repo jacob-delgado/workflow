@@ -10,6 +10,7 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
+import { CopyURL } from '@/lib/CopyURL.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { ReadFailure } from '@/lib/Status.tsx'
@@ -107,9 +108,9 @@ function BranchReview({ review, branch, unread }: BranchReviewProps) {
 }
 
 // PullRequestSummary is the branch's pull request — its number in the forge's
-// own mark, its title, state and, while it is open, its reviews — and its CI
-// checks, which the server sends only for an open one, or why they could not
-// be read.
+// own mark, its title and the control that copies its URL, which says so just
+// under them; its state and, while it is open, its reviews — and its CI checks,
+// which the server sends only for an open one, or why they could not be read.
 function PullRequestSummary({
   pull,
   review,
@@ -120,6 +121,8 @@ function PullRequestSummary({
   branch: Branch
 }) {
   const { sigil } = useForgeWords()
+  const mark = `${sigil}${String(pull.number)}`
+  const copied = useOutcome()
   const ci = review.ci ?? null
   const ciUnread = review.ci_error ?? null
   const issue = review.issue ?? null
@@ -127,13 +130,14 @@ function PullRequestSummary({
   return (
     <>
       <section aria-labelledby="pr-heading" className="flex flex-col gap-group">
-        <h2 id="pr-heading" className="flex items-baseline gap-2 text-lg">
-          <span className="text-muted-foreground">
-            {sigil}
-            {pull.number}
-          </span>
-          <NewTabLink href={pull.url}>{pull.title}</NewTabLink>
-        </h2>
+        <div className="flex flex-wrap items-center gap-x-group gap-y-item">
+          <h2 id="pr-heading" className="flex items-baseline gap-2 text-lg">
+            <span className="text-muted-foreground">{mark}</span>
+            <NewTabLink href={pull.url}>{pull.title}</NewTabLink>
+          </h2>
+          <CopyURL url={pull.url} mark={mark} teller={copied} />
+        </div>
+        <OutcomeLine said={copied.said} className="-mt-tight" />
         <dl className={definitionList}>
           {issue ? <IssueRow issue={issue} /> : null}
           <dt className="text-muted-foreground">State</dt>

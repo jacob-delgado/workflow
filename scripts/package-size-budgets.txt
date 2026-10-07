@@ -233,6 +233,15 @@ internal/loop 13
 # service-per-file.
 internal/wiring 14
 
+# web/src/lib — the web's shared drawing primitives, each drawn in one place
+# so every section draws it alike (UX.md's visual system): a button, a field, a
+# row's facts, a date, a read's status, an outcome line, the write form, the
+# filter chips, focus, the async action, the shared class names, a link that
+# opens a new tab (UX-123) and Copy URL (UX-88), which the review queue and the
+# Review section both draw. One responsibility, one primitive per file; a
+# primitive used by one section stays in that section's folder.
+web/src/lib 13
+
 # web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
 # `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by
 # gen:check; its file count is the code generator's business, not a concern

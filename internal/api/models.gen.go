@@ -2097,6 +2097,11 @@ type Snapshot struct {
 	// Run The git run going now (POST /api/runs), with its last 200 lines, so a page opened while it runs sees it; absent when none is going.
 	Run *Run `json:"run,omitempty"`
 
+	// SubjectLimit The longest a new commit's header may be, in characters, counted as the terminal composer counts it — the type, scope, breaking mark and subject together: commit.subject_limit when the configuration sets one, else the built-in 72. A commit whose header is longer is refused.
+	//
+	// Example: 72
+	SubjectLimit int `json:"subject_limit"`
+
 	// SuggestedScope The scope a new commit opens on — the terminal composer's rule: the scope last committed with in this repository, else commit.default_scope, else empty. The server reads the learned one from its store once, and once more after a commit here records one, not on every message, and never under --dry-run, when the default alone applies.
 	//
 	// Example: api

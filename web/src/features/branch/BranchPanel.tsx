@@ -60,7 +60,7 @@ export function BranchPanel() {
         changes={changes.changes}
         unread={unread.changes ?? null}
         suggestedScope={snapshot.suggested_scope}
-        commitTypes={snapshot.commit_types}
+        convention={{ types: snapshot.commit_types, subjectLimit: snapshot.subject_limit }}
       />
     </div>
   )

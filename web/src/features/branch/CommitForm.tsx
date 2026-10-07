@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react'
-import { useForm, type UseFormRegister } from 'react-hook-form'
+import { useCallback, useEffect, useId, useRef } from 'react'
+import { useForm, useWatch, type Control, type UseFormRegister } from 'react-hook-form'
 import type { Branch } from '@/api/generated/types.gen.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
@@ -17,12 +17,19 @@ interface CommitFields {
   breaking: boolean
 }
 
+// CommitConvention is what the server holds a commit to: the types it may
+// take, in the order to offer them, and the longest its header may be.
+export interface CommitConvention {
+  types: string[]
+  subjectLimit: number
+}
+
 interface CommitFormProps {
   canCommit: boolean
   // waiting is what the form waits for, said at its foot, when it says so there.
   waiting?: string
   suggestedScope: string
-  commitTypes: string[]
+  convention: CommitConvention
 }
 
 // CommitForm commits the staged changes with a Conventional Commit message. The
@@ -33,8 +40,9 @@ interface CommitFormProps {
 // before the files are. It
 // offers the commit types the server allows, in its order, and opens on the
 // scope the server suggests, the terminal composer's own.
-export function CommitForm({ canCommit, waiting, suggestedScope, commitTypes }: CommitFormProps) {
-  const { register, handleSubmit, reset, getValues, setValue } = useForm<CommitFields>({
+export function CommitForm({ canCommit, waiting, suggestedScope, convention }: CommitFormProps) {
+  const commitTypes = convention.types
+  const { register, control, handleSubmit, reset, getValues, setValue } = useForm<CommitFields>({
     defaultValues: { type: 'fix', scope: suggestedScope, subject: '', body: '', breaking: false },
   })
   const applyScope = useCallback(
@@ -88,6 +96,8 @@ export function CommitForm({ canCommit, waiting, suggestedScope, commitTypes }: 
     >
       <MessageFields
         register={register}
+        control={control}
+        subjectLimit={convention.subjectLimit}
         commitTypes={commitTypes}
         onScopeTyping={scopeSuggestion.typing}
       />
@@ -132,6 +142,8 @@ function nextMessage(used: CommitFields, types: string[], suggested: string): Co
 
 interface MessageFieldsProps {
   register: UseFormRegister<CommitFields>
+  control: Control<CommitFields>
+  subjectLimit: number
   commitTypes: string[]
   // onScopeTyping marks the scope as the user's, so no suggestion replaces it.
   onScopeTyping: () => void
@@ -141,8 +153,15 @@ interface MessageFieldsProps {
 // scope, its subject and body, and whether it breaks anything.
 // The commit's c puts the focus in its first field, Type, as the terminal's c
 // opens the composer there.
-function MessageFields({ register, commitTypes, onScopeTyping }: MessageFieldsProps) {
+function MessageFields({
+  register,
+  control,
+  subjectLimit,
+  commitTypes,
+  onScopeTyping,
+}: MessageFieldsProps) {
   const typeField = register('type')
+  const countId = useId()
   const typeSelect = useRef<HTMLSelectElement>(null)
   const shortcut = useShortcut('commit', typeSelect, 'focus')
 
@@ -172,14 +191,18 @@ function MessageFields({ register, commitTypes, onScopeTyping }: MessageFieldsPr
         </label>
       </div>
 
-      <label className={labelClass}>
-        Subject
-        <Input
-          {...register('subject')}
-          required
-          placeholder="What the change does, in the imperative"
-        />
-      </label>
+      <div className="flex flex-col gap-tight">
+        <label className={labelClass}>
+          Subject
+          <Input
+            {...register('subject')}
+            required
+            aria-describedby={countId}
+            placeholder="What the change does, in the imperative"
+          />
+        </label>
+        <HeaderCount id={countId} control={control} limit={subjectLimit} />
+      </div>
 
       <label className={labelClass}>
         Body (optional)
@@ -193,6 +216,42 @@ function MessageFields({ register, commitTypes, onScopeTyping }: MessageFieldsPr
     </>
   )
 }
+
+// HeaderCount is how long the header the fields make is, against the longest
+// the convention allows, as the terminal's composer counts it while it is
+// typed: the type, scope and breaking mark count with the subject. It is the
+// subject's description, read when the field is, rather than a live region
+// that would speak every keystroke; past the limit, which the server refuses,
+// it takes the failure light.
+function HeaderCount({
+  id,
+  control,
+  limit,
+}: {
+  id: string
+  control: Control<CommitFields>
+  limit: number
+}) {
+  const fields = useWatch({ control })
+  // In code points, as the server counts a header's runes.
+  const length = Array.from(header({ ...blankMessage, ...fields })).length
+
+  return (
+    <p
+      id={id}
+      className={cn(
+        'text-xs tabular-nums',
+        length > limit ? 'text-destructive' : 'text-muted-foreground',
+      )}
+    >
+      {`${String(length)}/${String(limit)}`}
+    </p>
+  )
+}
+
+// blankMessage is a message with nothing in it yet, for the parts a partial
+// read of the fields leaves out.
+const blankMessage: CommitFields = { type: '', scope: '', subject: '', body: '', breaking: false }
 
 // headline names a commit the branch now carries: its short hash and the
 // subject git recorded — the newest commit, when it is the one on HEAD — or,

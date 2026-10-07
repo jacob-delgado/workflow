@@ -163,6 +163,23 @@ test('switching view drops the places', async () => {
   expect(listedKeys()).toEqual(['PROJ-501', 'PROJ-502', 'PROJ-504'])
 })
 
+test('switching view clears the search', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  renderPanel()
+  await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'proj-12')
+  await user.selectOptions(await screen.findByRole('combobox', { name: /view/i }), 'Team bugs')
+
+  // Act
+  act(() => {
+    useSnapshotStore.setState({ status: 'live', snapshot, view: 'Team bugs' })
+  })
+
+  // Assert
+  expect(screen.getByRole<HTMLInputElement>('searchbox', { name: 'Search' }).value).toBe('')
+  expect(listedKeys()).toEqual(['PROJ-501', 'PROJ-502', 'PROJ-504'])
+})
+
 test('unpicking a place no issue is in keeps focus in the Where group', async () => {
   // Arrange
   const user = userEvent.setup()

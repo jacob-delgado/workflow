@@ -65,14 +65,7 @@ interface IssueBrowserProps {
 function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) {
   const view = useUiStore((state) => state.view)
   const streamedView = useSnapshotStore((state) => state.view)
-  const [filter, setFilter] = useState('')
-  // The places picked belong to the view they were picked in; another view
-  // starts with none, as the terminal's does.
-  const [picked, setPicked] = useState<{ view: string | null; places: Place[] }>({
-    view,
-    places: [],
-  })
-  const places = picked.view === view ? picked.places : []
+  const { filter, places, narrow } = useNarrowing(view)
   const more = useMoreIssues(view, streamed)
   const focus = useArrivalFocus()
   const outcome = useOutcome()
@@ -101,7 +94,12 @@ function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) 
   return (
     <div className="flex flex-col gap-group lg:min-h-0 lg:flex-1">
       <div className={cn('flex flex-col gap-item', contentMeasure)}>
-        <IssueListControls filter={filter} onFilter={setFilter} />
+        <IssueListControls
+          filter={filter}
+          onFilter={(typed) => {
+            narrow({ filter: typed })
+          }}
+        />
         <FilterChips
           label="Filter"
           choices={placeChoices(loaded, marksFor, places)}
@@ -109,7 +107,7 @@ function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) 
           nameOf={(place) => place.name}
           keyOf={(place) => `${place.kind}:${place.name}`}
           onToggle={(place) => {
-            setPicked({ view, places: togglePlace(places, place) })
+            narrow({ places: togglePlace(places, place) })
           }}
         />
         <p role="status" className="text-sm text-muted-foreground">
@@ -452,6 +450,37 @@ function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssu
 // list's pane can hold fewer rows than that.
 function loadOutcome(loaded: number, total: number, remain: boolean): string {
   return `${String(loaded)} of ${String(remain ? total : loaded)} loaded.`
+}
+
+// Narrowing is how the list is narrowed in a view: the search typed and the
+// places picked.
+interface Narrowing {
+  view: string | null
+  filter: string
+  places: Place[]
+}
+
+// useNarrowing is the search and the places picked, which belong to the view
+// they were typed and picked in: another view — or the same one chosen again —
+// starts with neither, as the terminal's nextIssueView seeds a fresh list,
+// search and all. The user asked for a view, not a narrowed one.
+function useNarrowing(view: string | null) {
+  const [narrowing, setNarrowing] = useState<Narrowing>({ view, filter: '', places: [] })
+  // Set while rendering, as React has state follow a prop, so the first frame
+  // of the new view is already drawn unnarrowed.
+  if (narrowing.view !== view) {
+    setNarrowing({ view, filter: '', places: [] })
+  }
+
+  const current = narrowing.view === view ? narrowing : { view, filter: '', places: [] }
+
+  return {
+    filter: current.filter,
+    places: current.places,
+    narrow: (change: Partial<Omit<Narrowing, 'view'>>) => {
+      setNarrowing({ ...current, ...change })
+    },
+  }
 }
 
 // filterOutcome says what the filter and the places left of the loaded issues:

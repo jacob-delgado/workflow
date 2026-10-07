@@ -3694,7 +3694,7 @@ components:
       description: >-
         The full read state carried by one event-stream message: everything the
         cockpit shows, together.
-      required: [issues, branch, changes, review, messaging, branches, commit_types, suggested_scope, tasks, here, hooks_unmanaged]
+      required: [issues, branch, changes, review, messaging, branches, commit_types, subject_limit, suggested_scope, tasks, here, hooks_unmanaged]
       properties:
         here:
           type: string
@@ -3742,6 +3742,16 @@ components:
             Commit types. A commit whose type is not among them is refused.
           items: {type: string}
           example: [feat, fix, docs]
+        subject_limit:
+          type: integer
+          minimum: 1
+          description: >-
+            The longest a new commit's header may be, in characters, counted
+            as the terminal composer counts it — the type, scope, breaking
+            mark and subject together: commit.subject_limit when the
+            configuration sets one, else the built-in 72. A commit whose
+            header is longer is refused.
+          example: 72
         suggested_scope:
           type: string
           description: >-
