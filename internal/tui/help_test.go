@@ -132,6 +132,7 @@ func placedBindings() []helpGroup {
 			"remove-cache      c          remove the cache",
 			"remove-everything C          remove everything",
 			"save-settings     ctrl+s     save",
+			"remove-entry      D          remove",
 			"link-to-slack     a          link to Slack",
 			"not-on-slack      x          not on Slack",
 			"forget-owner      d          forget"),

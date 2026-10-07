@@ -12,8 +12,8 @@ import (
 // The rows of Settings whose hints and choices the tests read.
 const (
 	channelRow      = messagingKindRow + 5
-	announcementRow = messagingKindRow + 6
-	titleSourceRow  = branchTemplateRow + 3
+	announcementRow = messagingKindRow + 7
+	titleSourceRow  = branchTemplateRow + 4
 )
 
 func TestTheTokenHintNamesTheCommandItIsTakenFrom(t *testing.T) {

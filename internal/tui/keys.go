@@ -75,7 +75,7 @@ type keyMap struct {
 	worktree, postWhenGreen, unlinkIssue key.Binding
 
 	// In Local data, and in Settings.
-	removeCache, removeAll, saveSettings key.Binding
+	removeCache, removeAll, saveSettings, removeEntry key.Binding
 
 	// Tagging in the messaging preview, and in People and groups.
 	linkToSlack, notOnSlack, forgetOwner key.Binding
@@ -355,6 +355,7 @@ func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.removeCache = builder.bind(groupComposer, "remove-cache", "remove the cache", "c")
 	into.removeAll = builder.bind(groupComposer, "remove-everything", "remove everything", "C")
 	into.saveSettings = builder.bind(groupComposer, "save-settings", "save", "ctrl+s")
+	into.removeEntry = builder.bind(groupComposer, "remove-entry", "remove", "D")
 	into.linkToSlack = builder.bind(groupComposer, "link-to-slack", "link to Slack", "a")
 	into.notOnSlack = builder.bind(groupComposer, "not-on-slack", "not on Slack", "x")
 	into.forgetOwner = builder.bind(groupComposer, "forget-owner", "forget", "d")

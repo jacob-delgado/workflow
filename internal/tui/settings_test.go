@@ -23,9 +23,9 @@ const (
 const (
 	tokenRow          = 1
 	projectRow        = 3
-	subjectLimitRow   = 20
-	branchTemplateRow = 22
-	storeDisabledRow  = 26
+	subjectLimitRow   = 23
+	branchTemplateRow = 25
+	storeDisabledRow  = 30
 )
 
 // editedProject is the Jira project a test types in place of the one read.
@@ -228,9 +228,9 @@ func TestEscWithEditsDiscardsThem(t *testing.T) {
 // The rows of Settings the coverage of each kind of setting edits.
 const (
 	baseURLRow       = 0
-	markdownRow      = 5
-	messagingKindRow = 7
-	commitTypesRow   = 19
+	markdownRow      = 7
+	messagingKindRow = 9
+	commitTypesRow   = 22
 )
 
 // errSettingsUnreadable is a configuration file that cannot be read.
