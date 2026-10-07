@@ -8,6 +8,7 @@ import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure } from '@/lib/utils.ts'
+import { sectionHeadingId } from '@/shell/sections.ts'
 import {
   changedSinceRead,
   type ConfigRead,
@@ -174,6 +175,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
 
   return (
     <form
+      aria-labelledby={sectionHeadingId}
       onSubmit={(event) => {
         void onSubmit(event)
       }}

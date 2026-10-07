@@ -1,4 +1,3 @@
-import { ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useHealthStore } from '@/api/health.ts'
@@ -7,6 +6,7 @@ import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
 import { relativeTime, writtenDate, writtenMoment } from '@/lib/dates.ts'
 import { Meta } from '@/lib/Meta.tsx'
+import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { Reading, Unread } from '@/lib/Status.tsx'
 import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
@@ -126,17 +126,9 @@ function IssuePeople({ detail }: { detail: IssueDetail }) {
         <dd>{detail.assignee ?? 'Unassigned'}</dd>
       </dl>
       {detail.url === '' ? null : (
-        <a
-          {...shortcut}
-          href={detail.url}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-1.5 self-start text-sm text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
+        <NewTabLink {...shortcut} href={detail.url} className="self-start text-sm">
           Open in {tracker}
-          <ExternalLink aria-hidden className="size-3.5" />
-          <span className="sr-only"> (opens in a new tab)</span>
-        </a>
+        </NewTabLink>
       )}
     </div>
   )

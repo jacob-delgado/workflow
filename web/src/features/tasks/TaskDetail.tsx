@@ -1,4 +1,3 @@
-import { ExternalLink } from 'lucide-react'
 import { type ReactNode, useId, useState } from 'react'
 import type { Issue, Task, TaskList } from '@/api/generated/types.gen.ts'
 import { useHoldShortcuts, useShortcut } from '@/features/keyboard/useShortcut.ts'
@@ -6,6 +5,7 @@ import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { writtenDate } from '@/lib/dates.ts'
 import { Meta } from '@/lib/Meta.tsx'
+import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, definitionList } from '@/lib/utils.ts'
@@ -132,16 +132,7 @@ function IssueLinks({ task, listed }: { task: Task; listed: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-item text-sm">
       {task.issue_url === '' ? null : (
-        <a
-          href={task.issue_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          Open {task.issue_key}
-          <ExternalLink aria-hidden className="size-3.5" />{' '}
-          <span className="sr-only">(opens in a new tab)</span>
-        </a>
+        <NewTabLink href={task.issue_url}>Open {task.issue_key}</NewTabLink>
       )}
       {listed ? (
         <Button

@@ -135,7 +135,7 @@ for (const theme of themes) {
           'Later',
           'Today',
           'Copy as Markdown',
-          'PROJ-412',
+          'PROJ-412 (opens in a new tab)',
           'Year',
           'Month',
           'Tuesday, September 15, 2026',

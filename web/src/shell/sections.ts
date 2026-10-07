@@ -30,6 +30,11 @@ export const sectionMeta: Record<Section, { label: string; Icon: LucideIcon; hue
   settings: { label: 'Settings', Icon: Settings, hue: 'text-foreground' },
 }
 
+// sectionHeadingId is the id of the content area's heading, which names the
+// section shown, for a part of the section — the Settings form — to be named
+// by it rather than say the section's name a second time.
+export const sectionHeadingId = 'section-heading'
+
 // sectionLabel names a section as the nav rail and the content heading show it.
 // The messaging section takes the configured service's name — Slack, Teams — as
 // the interface's pane title does, once the stream has said which service it is.

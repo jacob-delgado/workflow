@@ -96,12 +96,13 @@ test('shows the pull request and its CI checks', () => {
   render(<ReviewPanel />)
 
   // Assert
-  expect(screen.getByRole('link', { name: /redact tokens/i })).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'build' }).getAttribute('href')).toBe(
-    'https://forge.example.com/build',
-  )
+  const title = screen.getByRole('link', { name: /^Redact tokens.*\(opens in a new tab\)$/ })
+  expect(title.getAttribute('target')).toBe('_blank')
+  const build = screen.getByRole('link', { name: 'build (opens in a new tab)' })
+  expect(build.getAttribute('href')).toBe('https://forge.example.com/build')
+  expect(build.getAttribute('target')).toBe('_blank')
   expect(screen.getByText('e2e')).toBeTruthy()
-  expect(screen.queryByRole('link', { name: 'e2e' })).toBeNull()
+  expect(screen.queryByRole('link', { name: /e2e/ })).toBeNull()
 })
 
 // The heading counts the checks that are done, and the failed ones only when
@@ -569,8 +570,9 @@ test('names the issue the pull request is for, with a link to its page', () => {
   render(<ReviewPanel />)
 
   // Assert
-  const link = screen.getByRole('link', { name: '#42' })
+  const link = screen.getByRole('link', { name: '#42 (opens in a new tab)' })
   expect(link.getAttribute('href')).toBe('https://github.com/acme/oss/issues/42')
+  expect(link.getAttribute('target')).toBe('_blank')
 })
 
 test('says why each failed check failed, and the stage it ran in', () => {
@@ -608,7 +610,7 @@ test('says why each failed check failed, and the stage it ran in', () => {
   // Assert
   const row = screen.getByRole('listitem')
   expect(within(row).getByText('test')).toBeTruthy()
-  expect(within(row).getByRole('link', { name: 'unit-race' })).toBeTruthy()
+  expect(within(row).getByRole('link', { name: 'unit-race (opens in a new tab)' })).toBeTruthy()
   expect(row.textContent).toContain('script failure')
 })
 

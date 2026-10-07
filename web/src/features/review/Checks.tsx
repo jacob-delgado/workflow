@@ -2,6 +2,7 @@ import type { Check, Ci, JobLog } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { Meta } from '@/lib/Meta.tsx'
+import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
 import { readCheckLog } from './checkLogApi.ts'
@@ -63,18 +64,7 @@ function CheckRow({ check }: { check: Check }) {
         <StateMark state={ciMark[check.state]} />
         <Meta>
           {check.stage ? <span className="text-muted-foreground">{check.stage}</span> : null}
-          {check.url === '' ? (
-            check.name
-          ) : (
-            <a
-              href={check.url}
-              target="_blank"
-              rel="noreferrer"
-              className="underline-offset-4 hover:underline"
-            >
-              {check.name}
-            </a>
-          )}
+          {check.url === '' ? check.name : <NewTabLink href={check.url}>{check.name}</NewTabLink>}
         </Meta>
         <span className="text-muted-foreground">{check.state}</span>
       </span>

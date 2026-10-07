@@ -265,6 +265,21 @@ test('shows an in-progress-elsewhere story for an issue on a branch not checked 
   expect(screen.getAllByText(/shown for the checked-out branch/i)).toHaveLength(2)
 })
 
+test('each stage says the section it opens', () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot({ branches: onHead }) })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  const opens = ['Opens Branch', 'Opens Branch', 'Opens Review', 'Opens Messaging']
+  const stages = screen.getAllByRole('listitem')
+  expect(
+    stages.map((stage, at) => within(stage).queryByRole('button', { description: opens[at] })),
+  ).not.toContain(null)
+})
+
 test('jumps to a stage section when it is clicked', async () => {
   // Arrange
   const user = userEvent.setup()

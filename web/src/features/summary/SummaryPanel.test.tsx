@@ -99,9 +99,8 @@ test('the day reads as a timeline, an hour to a line, each source named', async 
   const day = await screen.findByRole('list', { name: 'Tuesday, September 15, 2026' })
   expect(within(day).getByRole('heading', { name: '09:00' })).toBeTruthy()
   expect(within(day).getByText('Fix the token leak')).toBeTruthy()
-  expect(within(day).getByRole('link', { name: 'PROJ-412' }).getAttribute('href')).toBe(
-    'https://jira.example.com/browse/PROJ-412',
-  )
+  const issue = within(day).getByRole('link', { name: 'PROJ-412 (opens in a new tab)' })
+  expect(issue.getAttribute('href')).toBe('https://jira.example.com/browse/PROJ-412')
 })
 
 test('a source that could not be read says so, in the server’s words', async () => {
