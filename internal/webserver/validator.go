@@ -42,31 +42,63 @@ func loadSpec() (*openapi3.T, error) {
 	return doc, nil
 }
 
-// validate returns middleware that checks each request against the embedded
-// contract before it reaches a handler, answering one that does not match with
-// the house error envelope. Host validation is off: the one server is the
-// loopback URL, and which host a client uses to reach the loopback is not the
-// spec's concern. Like a spec that does not load, one whose paths cannot be
-// routed is a build defect, returned for Handler to surface at startup.
+// switchExtension marks an operation in the spec that switches what the
+// server works with, which takes the write gate alone.
+const switchExtension = "x-switch"
+
+// contract is the embedded spec, ready to check requests against and to say
+// which operation a request asks for.
+type contract struct {
+	// validate is middleware that checks each request against the spec before
+	// it reaches a handler, answering one that does not match with the house
+	// error envelope. Host validation is off: the one server is the loopback
+	// URL, and which host a client uses to reach the loopback is not the spec's
+	// concern.
+	validate func(http.Handler) http.Handler
+
+	// router routes by path alone, as the validator routes with Host
+	// validation off, so the methods it finds at a path are the ones the
+	// validator admits.
+	router routers.Router
+}
+
+// loadContract loads the embedded spec and routes its paths. Like a spec that
+// does not load, one whose paths cannot be routed is a build defect, returned
+// for Handler to surface at startup.
 //
 // Trade-off TRADE-14: no test runs on a broken spec, so neither error arm runs.
-func validate() (func(http.Handler) http.Handler, error) {
+func loadContract() (contract, error) {
 	doc, err := loadSpec()
 	if err != nil {
-		return nil, err
+		return contract{}, err
 	}
 
-	// Routed by path alone, as the validator routes with Host validation off, so
-	// the methods this router finds at a path are the ones the validator admits.
 	router, err := gorillamux.NewRouter(&openapi3.T{Paths: doc.Paths})
 	if err != nil {
-		return nil, fmt.Errorf("routing the embedded OpenAPI spec: %w", err)
+		return contract{}, fmt.Errorf("routing the embedded OpenAPI spec: %w", err)
 	}
 
-	return nethttpmiddleware.OapiRequestValidatorWithOptions(doc, &nethttpmiddleware.Options{
+	validate := nethttpmiddleware.OapiRequestValidatorWithOptions(doc, &nethttpmiddleware.Options{
 		DoNotValidateServers: true,
 		ErrorHandlerWithOpts: answerValidationError(router, contractMethods(doc.Paths)),
-	}), nil
+	})
+
+	return contract{validate: validate, router: router}, nil
+}
+
+// switches reports a request for an operation the spec marks as a switch: one
+// that changes what the server works with — the directory, or a first
+// configuration file set up. A request the spec routes nowhere switches
+// nothing; the validator answers it.
+func (c contract) switches(request *http.Request) bool {
+	route, _, err := c.router.FindRoute(request)
+	if err != nil {
+		return false
+	}
+
+	switched, _ := route.Operation.Extensions[switchExtension].(bool)
+
+	return switched
 }
 
 // answerValidationError answers a request the contract rejects. A known path
