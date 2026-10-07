@@ -5,22 +5,21 @@ package web
 
 import (
 	"embed"
-	"fmt"
 	"io/fs"
 )
 
 //go:embed all:dist
 var dist embed.FS
 
-// Assets returns the embedded single-page app rooted at its top level.
-//
-// Trade-off TRADE-20: fs.Sub fails only for an invalid path, and "dist" is a
-// constant, so no test runs the error arm.
-func Assets() (fs.FS, error) {
+// Assets returns the embedded single-page app rooted at its top level. fs.Sub
+// fails only for an invalid path, and "dist" is a constant the embed itself
+// fails the build without, so a failure here is a build defect, which panics,
+// as regexp.MustCompile does for a pattern that cannot compile.
+func Assets() fs.FS {
 	sub, err := fs.Sub(dist, "dist")
 	if err != nil {
-		return nil, fmt.Errorf("reading the embedded web app: %w", err)
+		panic("reading the embedded web app: " + err.Error())
 	}
 
-	return sub, nil
+	return sub
 }

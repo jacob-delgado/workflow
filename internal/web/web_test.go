@@ -14,12 +14,9 @@ func TestAssetsCarriesTheBuiltApp(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	assets, err := web.Assets()
-	// Assert
-	if err != nil {
-		t.Fatalf("Assets() = %v, want the embedded app", err)
-	}
+	assets := web.Assets()
 
+	// Assert
 	info, err := fs.Stat(assets, "index.html")
 	if err != nil {
 		t.Fatalf("fs.Stat(Assets(), index.html) = %v, want the built app's entry page", err)
