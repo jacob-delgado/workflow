@@ -207,3 +207,25 @@ test('each key names the default it keeps when left empty', async () => {
     screen.getByRole('textbox', { name: 'Key for comment', description: 'Empty keeps c.' }),
   ).toBeTruthy()
 })
+
+test('the key fields are left out of the page until Rebind keys is opened', async () => {
+  // Arrange
+  useKeysStore.setState({
+    actions: [
+      {
+        action: 'comment',
+        help: 'comment',
+        group: 'Issues',
+        shown: 'c',
+        keys: ['c'],
+        default: 'c',
+      },
+    ],
+  })
+
+  // Act
+  await opened()
+
+  // Assert
+  expect(screen.queryByRole('textbox', { name: 'Key for comment', hidden: true })).toBeNull()
+})

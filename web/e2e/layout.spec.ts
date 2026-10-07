@@ -218,6 +218,13 @@ const confirmSteps = [
     adds: ['Cancel', 'Forget'],
   },
   {
+    step: 'credential removal in Settings',
+    section: 'Settings',
+    opener: 'Remove the Jira token…',
+    group: 'Remove the Jira token from the file?',
+    adds: ['Cancel', 'Remove'],
+  },
+  {
     step: 'remove confirmation in Local data',
     section: 'Settings',
     opener: 'Remove cache…',
