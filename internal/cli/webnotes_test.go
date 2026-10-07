@@ -96,7 +96,7 @@ func notesAfterAFailedSearch(t *testing.T, cfg config.Config, cause error) strin
 
 	go func() { done <- cli.WebServerAt("127.0.0.1:0")(ctx, cfg, deps, webserver.Info{}, notes) }()
 
-	base := servingAt(t, notes)
+	base := servingAt(t, notes, done)
 	awaitServing(t, base)
 	askOnce(t, base+"/api/issues")
 	cancel()
@@ -209,7 +209,7 @@ func TestTheWebServerSaysTheAddressItBound(t *testing.T) {
 		done <- cli.WebServerAt("127.0.0.1:0")(ctx, config.Default(), webserver.Deps{}, webserver.Info{}, notes)
 	}()
 
-	base := servingAt(t, notes)
+	base := servingAt(t, notes, done)
 	awaitServing(t, base)
 	cancel()
 
@@ -250,11 +250,19 @@ func TestTheWebServerSaysNothingOfServingOnAPortItCannotBind(t *testing.T) {
 	}
 }
 
+// startupBound is how long a test waits for the web server it started to say
+// where it serves. Building the handler parses the embedded API spec, which
+// under the race detector on a loaded machine takes seconds, so the bound is
+// generous: a server that stops is reported at once, through its done channel,
+// rather than waited out.
+const startupBound = time.Minute
+
 // servingAt is the base URL the web server said it serves at, once it says so.
-func servingAt(t *testing.T, notes *sharedNotes) string {
+// A server that stops before saying it fails the test with its error.
+func servingAt(t *testing.T, notes *sharedNotes, done <-chan error) string {
 	t.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(startupBound)
 
 	for {
 		_, rest, found := strings.Cut(notes.String(), "serving ")
@@ -266,6 +274,10 @@ func servingAt(t *testing.T, notes *sharedNotes) string {
 			t.Fatalf("the web server never said where it serves: %q", notes.String())
 		}
 
-		time.Sleep(10 * time.Millisecond)
+		select {
+		case err := <-done:
+			t.Fatalf("the web server stopped with %v before it said where it serves", err)
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 }
