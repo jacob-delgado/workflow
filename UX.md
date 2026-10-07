@@ -5,7 +5,7 @@ something goes wrong. Like [FEATURES.md](FEATURES.md), this is a brainstorm,
 not a plan: nothing here is agreed or scheduled.
 
 It is written for two readers: a contributor deciding what to improve, and a
-later Claude Code session asked to "pick up UX-61". Each entry says what
+later Claude Code session asked to "pick up UX-62". Each entry says what
 happens today, what could happen instead, where the change would land, and
 how to tell when it is done. The numbering continues from the entries that
 have since shipped, so an ID is never reused.
@@ -215,34 +215,8 @@ whose key handler returns on it; and the `builder.bind(` and
 
 ## The command line
 
-What is open here is a slow command's silence, the flags the scriptable
-commands lack and the JSON a script cannot join or time, what `config
-init` claims and does, two moments that name no next step, the store's
-fallback `doctor` has no row for, and a reference with no example or exit
-status.
-
-### UX-61 A slow command is silent while it works
-
-Impact: low · Effort: medium
-
-**Today.** No spinner, no elapsed time, no "checking…". `doctor --online`
-makes three round trips in silence (`reportCredentials`,
-`internal/cli/doctor_credentials.go:31`); `summary` reads its four
-sources one after another (`ReadAll`, `internal/loop/summary.go:387`), on
-GitHub two paged searches, a search for what you reviewed and the reviews
-of up to twenty pull requests (`githubActivity`,
-`internal/forge/activity.go:96`; `reviewLookups`, `:19`), on Jira up to
-three requests (`Activity`, `internal/jira/activity.go:67`); `status DIR…`
-visits each directory in series (`statusesOf`,
-`internal/cli/status.go:174`). The only trace is `--log`, which outlines
-each request in a file for a bug report and shows the person waiting
-nothing.
-
-**Instead.** A one-line "checking Jira…" on stderr when stderr is a
-terminal, replaced in place; nothing when it is not.
-
-**Done when.** A test with a terminal-flagged stderr sees the line; one
-without does not.
+What is open here is the flags the scriptable commands lack and the JSON
+a script cannot join or time.
 
 ### UX-62 Flags the scriptable commands are missing
 
@@ -267,88 +241,6 @@ Template select (`TemplateChoice`,
 already carries the value.
 
 **Done when.** Each flag has a test that it reaches the seam.
-
-### UX-90 Two claims about `config init` that the command does not keep
-
-Impact: low · Effort: small
-
-**Today.** The root help, the README and two doc pages describe a
-`config init` that does not exist, and the command corrects them itself
-while it runs.
-
-- `internal/cli/cli.go:39` (`longHelp`): "Write a starting file with:
-  workflow config init", then "fill in the two credentials" (`:43`). That
-  is `--template`'s flow; bare `init` runs the guided one
-  (`newConfigInitCmd`, `internal/cli/config_cmd.go:63`, branches on
-  `opts.template` at `:91` and otherwise calls `runGuidedInit` at `:95`),
-  so a reader who follows the root help is prompted instead.
-  `TestHelpExplainsBothTokens` (`internal/cli/cli_test.go:301`) holds the
-  help to the token steps and never to the flow. The generated
-  `docs/content/docs/reference/workflow.md:25` and `:29` carry the same
-  two lines.
-- `README.md:48` (under "Status"), `README.md:105` (under "Configure") and
-  `docs/content/docs/install.md:106` and `:110` (under "First run"):
-  "writes a starting configuration file", "# writes .workflow.json here",
-  "Then fill in the two tokens", the same stale flow, while
-  `docs/content/docs/configuration.md:38` (the "Configuration" intro) says
-  it asks and checks.
-- `internal/cli/cli.go:101` (the `SECURITY` paragraph of `longHelp`, and
-  so `docs/content/docs/reference/workflow.md:87`): the file "is listed in
-  .gitignore". `warnIfNotIgnored` (`internal/cli/config_cmd.go:422`) only
-  warns when it is not, and nothing writes a `.gitignore`; the sentence is
-  true of this repository's own `.gitignore:35`, not the user's.
-  `README.md:220` and `docs/content/docs/configuration.md:1033` (both under
-  "Keeping the tokens safe") say the same, and `README.md:297` (under
-  "Security") calls the file "gitignored".
-
-**Instead.** Say what the command does: in `longHelp`, the README and
-install.md, "Set it up, answering the prompts, with `workflow config init`
-(`--template` writes a blank file to edit)"; in the security paragraphs,
-"`config init` warns when the file is not ignored by git; add it to
-`.gitignore`"; then `task docs:gen`.
-
-**Done when.** `TestHelpExplainsBothTokens` also wants `--template` in the
-root help; `grep -rn 'starting configuration file\|starting file\|fill in
-the two\|listed in .gitignore\|listed in the repository\|gitignored'
-README.md docs/content/docs internal/cli/cli.go` finds nothing, and
-`task docs:check` passes.
-
-### UX-91 Two moments the command line names no next step
-
-Impact: low · Effort: small
-
-**Today.** The scriptable writes say what to do when stdin is closed:
-"pass --yes", exit 2 (`writeOptions.proceed`,
-`internal/cli/scriptable.go:145`, and `docs/content/docs/scripting.md:303`
-under "Writing without a person"). Two other moments end without a
-pointer. (The third, `--web` with no file, now names `workflow config
-init` and the page's own setup.)
-
-- `internal/cli/config_cmd.go:317` (`collectJira`): the guided `init`
-  returns `prompt.Line`'s error raw (`:319`), and so do its other
-  questions. Only `confirm` (`internal/cli/prompt.go:47`) and `slack
-  login`'s `askFor` (`internal/cli/slack_cmd.go:146`) map `io.EOF` to
-  `errNoTerminal`, and `io.EOF` belongs to no family in `exitFamilies`
-  (`internal/cli/scriptable.go:358`), so `workflow config init <
-  /dev/null` prints "workflow: EOF" and exits 1 with no mention of
-  `--template`. A final line typed without a newline comes back from
-  `terminalPrompt`'s `ReadString` together with `io.EOF`
-  (`cmd/workflow/main.go:43`) and is discarded with it.
-- `internal/cli/pr.go:249` (`openPull`): the command ends with `followUp`,
-  so "Moved PROJ-2 to In Review." (`:396`) is its last word, while the
-  interface's spine keeps "nothing announced" in view
-  (`docs/content/docs/usage.md:49`, "The screen") and `announce`'s own
-  refusal points the other way, "…; open one with `workflow pr`"
-  (`runAnnounce`, `internal/cli/announce.go:158`).
-
-**Instead.** Map `io.EOF` from the guided flow's prompts to
-`errNoTerminal` with "pass --template to write a file to edit by hand",
-exiting 2 like the writes; when messaging is configured, end `pr` with a stderr note
-"Announce it with workflow announce", so stdout stays the artifact.
-
-**Done when.** A `config init` test whose `Line` returns `io.EOF` gets
-exit 2 and an error naming `--template`; a `pr --yes` test with messaging configured sees "workflow
-announce" on stderr, and one without messaging does not.
 
 ### UX-92 The scriptable output lacks a unique label and a timestamp
 
@@ -381,93 +273,6 @@ directory's name and `status a/api b/api --json` yields two distinct
 `repository` values; `TestReviewsAsJSONReportsEachOldestFirstWithItsAge`
 (`internal/cli/reviews_test.go:163`) also parses `opened_at` back into the
 time it seeded.
-
-### UX-94 doctor has no row for the store's silent fallback
-
-Impact: low · Effort: small
-
-**Today.** When no data directory can be found, the store turns itself off
-without a word, and `doctor`, the command that explains the machine, has
-no row that would say so.
-
-- `internal/store/dir.go:15` (`DefaultDir`): `home, _ :=
-  os.UserHomeDir()` drops the error, so an empty home reaches `Dir`
-  (`:24`), which returns `ErrNoDir` for it.
-- `internal/wiring/wiring.go:332` (`onDisk`): `dir, _ :=
-  store.DefaultDir()` drops `ErrNoDir`, and the store is built on an empty
-  directory; `storeDeps`' doc comment (`internal/wiring/wiring.go:338`)
-  calls the no-op intended, "the interface simply learns nothing", which is
-  what makes this a discoverability gap rather than a defect.
-- `internal/store/store.go:175` (`Store.off`): `s.disabled || s.dir ==
-  ""`, so every seam no-ops on the empty directory with no signal outward.
-  On a home-less machine the interface opens with no seeded issue list and
-  forgets the last scope and every announcement, while `store.disabled` is
-  still false.
-- `internal/cli/doctor_requirements.go:142` (`externalTools`) lists the
-  programs, and no doctor file mentions the store or its directory.
-  `db-clean` is the one command that says it, "finding the local data"
-  (`localData`, `internal/cli/dbclean_cmd.go:172`), and only when asked to
-  clean.
-
-**Instead.** A doctor row that prints the store's directory, or
-`ErrNoDir`'s sentence when there is none, and "off (store.disabled)" when
-the configuration turned it off; the same field in `doctor --json`.
-
-**Done when.** `workflow doctor` with `HOME` and `XDG_STATE_HOME` unset
-prints a line naming the store and that no data directory could be
-determined; with both set, it prints the directory.
-
-### UX-95 The reference shows no example and never names an exit status
-
-Impact: low · Effort: small
-
-**Today.** clig.dev asks help to lead with examples. No command in
-`internal/cli` sets cobra's `Example` (`grep -l Example internal/cli/*.go`,
-tests excluded, matches no file), so no generated reference page and no
-`--help` carries an Examples section, and no page under
-`docs/content/docs/reference` names an exit status (`grep -ril exit` over
-the directory matches only `summary`'s "exits non-zero",
-`docs/content/docs/reference/workflow_summary.md:24`).
-
-- `docs/content/docs/reference/workflow.md:27` and
-  `docs/content/docs/reference/workflow.md:31` (the root "Synopsis"):
-  `workflow config init` and `workflow doctor`, the only command
-  invocations a generated page shows, as prose inside the root synopsis;
-  the hand-written index adds only two `--help` lines
-  (`docs/content/docs/reference/_index.md:18`).
-- `docs/content/docs/scripting.md:16` (under "Scripting"): the ten real
-  examples, from `status --json` through `branch --fetch --worktree`, `pr
-  --yes --json`, `summary --post --yes` and `comment` to `--log … doctor
-  --online`, live here and
-  nowhere else; a reader of `workflow pr --help` must infer them from the
-  flag descriptions.
-- `internal/cli/status.go:63` (`newStatusCmd`'s `Long`): "the command
-  then fails, as it does outside a repository", the text
-  `docs/content/docs/reference/workflow_status.md:24` (its "Synopsis") is
-  generated from, where `docs/content/docs/scripting.md:40` (the "Exit
-  status" table's family 4 row) names "a directory that is not a git
-  repository" as exit 4.
-- `internal/cli/config_cmd.go:126`, generated into
-  `docs/content/docs/reference/workflow_config_show.md:17` (its
-  "Synopsis"): "fails, as doctor does" with no configuration file, where
-  `docs/content/docs/scripting.md:39` (family 3) says exit 3.
-- `docs/content/docs/reference/_index.md:9` ("Command reference"): says
-  every command and flag is here and links nowhere;
-  `docs/content/docs/scripting.md:14` links back to the reference, but
-  nothing on the reference index points at the one page where the
-  0/1/2/3/4/5/130 contract lives. The sidebar lists Scripting beside the
-  reference, so it is findable, just not from here.
-
-**Instead.** Set `Example` on each scriptable command with the lines
-scripting.md already shows, so `--help` and the generated page carry them
-together; have the reference index point at the Scripting page for exit
-status and streams; let a synopsis that says "fails" name the family.
-
-**Done when.** The pages for `status`, `reviews`, `repositories`, `summary`,
-`branch`, `pr`, `announce`, `comment` and `doctor` each have an "###
-Examples" section and `task docs:check` passes;
-`docs/content/docs/reference/_index.md` links `/docs/scripting`; the status
-page's synopsis names the exit status a non-repository directory produces.
 
 ## The terminal interface
 
