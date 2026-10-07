@@ -333,10 +333,9 @@ over a log of what workflow did, is FEAT-87's.
 What is open here is a stream that marks no change; Settings' unseen
 sections, misleading hints, blank selects, failed read and unremovable
 credential; what the browser could borrow from the interface; the Branch
-section's detached HEAD; keyboard focus; a staged state drawn as a colored
-word; type and measure outside the system; ragged rows, an empty form's
-heading and a far-off Copy URL confirm; links, stages and controls that
-tell less than their siblings; and copy settled site by site.
+section's detached HEAD; keyboard focus; four states drawn as words with
+no mark; links, stages and controls that tell less than their siblings;
+and copy settled site by site.
 
 Every pointer here was checked again at `e5156e3`. A screenshot named
 by its file (`1440-dark-tasks.png`, say) is from a pass on 2026-10-05 over
@@ -637,211 +636,27 @@ the Token textbox described by text naming that command;
 })` and `getByRole('textbox', { name: 'Channel', description: /user token/
 })` resolve.
 
-### UX-109 Staged state is a colored word, not a StateMark
+### UX-109 Three Review rows and the queue's Draft are states with no mark
 
 Impact: low · Effort: small
 
-**Today.** Each file's staged, partly staged or unstaged tag is a word
-colored `text-success` when staged and muted otherwise (`ChangeRow`,
-`web/src/features/branch/WorkingTree.tsx:138`), with no `StateMark` in the
-file: `1440-light-branch.png` shows "staged" in green and "unstaged" in
-gray beside each file, and a conflict shows kind "conflicted" and tag
-"unstaged" with no failed mark. It is the one state on the web drawn as a
-colored word, bypassing `StateMark` (`web/src/shell/StateMark.tsx:36`),
-which the settled system says every state goes through; `text-success`
-elsewhere colors outcome lines, not a thing's state. The Review section's
-State, Mergeable and Changes requested rows (`PullRequestSummary`,
-`web/src/features/review/ReviewPanel.tsx:134`; `ReviewRows`, `:164`) and
-the queue's "Draft" among a row's facts
-(`web/src/features/reviewqueue/ReviewQueuePanel.tsx:318`) are states drawn
-as plain words with no mark too, uncolored. The terminal's `stageGlyph`
-"says by shape how much of a change is staged"
-(`internal/tui/commits.go:169`), four states by four glyphs. The word
-keeps it accessible, so this is consistency inside the system, not a
-change to it.
+**Today.** A file's staged state now carries a `StateMark` before its
+word (`ChangeRow`, `web/src/features/branch/WorkingTree.tsx`), as every
+state on the web should. Four states are still plain words: the Review
+section's State, Mergeable and Changes requested rows
+(`PullRequestSummary` and `ReviewRows`,
+`web/src/features/review/ReviewPanel.tsx`) and the queue's "Draft"
+among a row's facts (`RequestRow`,
+`web/src/features/reviewqueue/ReviewQueuePanel.tsx`). The words keep
+them accessible, so this is consistency inside the system, not a change
+to it.
 
-**Instead.** A `StateMark` before the word — not-started, in-flight for
-partly staged, done, failed for a conflict — carrying the status light,
-with the word in the plain foreground.
+**Instead.** A `StateMark` before each: open in flight, merged done,
+closed not started; mergeable done, conflicting failed; changes
+requested failed; a draft not started.
 
-**Done when.** The Branch screenshots show a shape before each staged
-word, and `web/src/features/branch/WorkingTree.tsx` has no `text-success`
-on the tag.
-
-### UX-114 Three places set type outside the scale and face the system names
-
-Impact: low · Effort: small
-
-**Today.** `web/src/index.css` reserves the code face for "a branch, a
-commit, a path, a command. Nothing else is set in it." (the comment over
-`--font-mono`, `web/src/index.css:177`) and names `sm` the body of a dense
-tool and `base` what heads a part of a panel (the comment over `--text-*`,
-`web/src/index.css:184`). Three
-places set type against that.
-
-- `WorkStory` draws each stage's detail as a plain `text-sm` sans `Meta`
-  (`web/src/features/issues/WorkStory.tsx:327`), and the detail carries
-  `branch.name` from `offHeadStages` (`:92`) and `onHeadStages` (`:112`),
-  so the story's Branch stage shows "fix/PROJ-412-redact-tokens · 3
-  ahead" in the sans muted foreground; `storyNote`'s "In progress on
-  {branch}" (`:214`) is sans too. The Branch section's heading sets the
-  same name in `font-mono` (`BranchSummary`,
-  `web/src/features/branch/BranchPanel.tsx:86`); `1440-dark-issues.png`
-  and `1440-light-branch.png` show the sans name and the mono heading one
-  click apart.
-- Each stage title is `font-medium` with no size (`WorkStory`,
-  `web/src/features/issues/WorkStory.tsx:325`), so base, over a `text-sm`
-  detail: "Branch", "Changes", "Pull request" and "Announce" read at the
-  size of the h3 "Work story" above them (`IssueDetailPanel`,
-  `web/src/features/issues/IssueDetailPanel.tsx:62`, `sectionHeading`
-  `text-base font-semibold` at `:19`), differing only in weight, as
-  `1440-dark-issues.png` shows.
-- A queue row's title is `font-medium` with no size class (`RequestRow`,
-  `web/src/features/reviewqueue/ReviewQueuePanel.tsx:312`), while issue
-  summaries (`IssueRows`, `web/src/features/issues/IssuesPanel.tsx:313`),
-  commits, changed files and CI checks are all `text-sm`; in
-  `1024-dark-reviews.png` and `1024-dark-issues.png` the request titles
-  are visibly larger than the issue summaries, though both are a row's
-  headline.
-
-**Instead.** Wrap the branch name in the stage detail and the note in a
-`font-mono` span — `Meta` already draws each fact as an element of its
-own, so the separator and the count stay sans — and set the stage titles
-and the queue titles `text-sm font-medium` as the other list rows are.
-
-**Done when.** A `WorkStory` test finds the branch name inside an element
-with the mono class (or a `<code>`); screenshots show the stage titles
-smaller than the Work story heading and the queue titles at the issue
-summaries' size.
-
-### UX-115 The content measure is set four ways above lg
-
-Impact: low · Effort: small
-
-**Today.** A grep for `max-w-` under `web/src/features` finds three
-measures on a section's content — `max-w-2xl` on Branch, Review, the
-messaging section and Settings, `max-w-3xl` on the review queue and
-`max-w-prose` on Repositories — and Issues, Tasks and Summary have none:
-their lists are a fixed width and their detail runs to the window's edge.
-So the same kind of content stops at different right edges, and a wide
-window gives the lists none of its width while a detail or a timeline runs
-1000 px. At 1440 px Repositories is narrow while Tasks and Summary run
-full width: in `1440-light-repositories.png` the Worktrees rule ends near
-765 px, in `1440-light-branch.png` the commit form near 775 px, in
-`1024-dark-reviews.png` the queue near 871 px, while in
-`1440-dark-tasks.png` the `task add` field and the Annotate and Modify
-fields run to about 1415 px and in `1440-dark-summary.png` the timeline
-runs past 1090 px. The settled rule covers only the stack below `lg`; the
-width above it is open.
-
-- `Queue` is `max-w-3xl`
-  (`web/src/features/reviewqueue/ReviewQueuePanel.tsx:113`) where Branch,
-  Review, Messaging and the Settings form are `max-w-2xl`
-  (`web/src/features/branch/BranchPanel.tsx:49`,
-  `web/src/features/review/ReviewPanel.tsx:68`,
-  `web/src/features/messaging/MessagingPanel.tsx:34`,
-  `web/src/features/settings/SettingsPanel.tsx:179`, Settings' two
-  areas below it, `web/src/features/settings/people/PeopleAndGroups.tsx:14`
-  and `web/src/features/settings/people/LocalData.tsx:20`, and its first-run
-  setup, `web/src/features/settings/SetupForm.tsx:84`), and `Read` is
-  `max-w-prose` (`web/src/features/repositories/RepositoriesPanel.tsx:69`),
-  65 characters of the body face rather than a width; no comment
-  justifies either.
-- `ListAndDetail` holds the issue list at `lg:w-80 lg:shrink-0` with no
-  larger breakpoint (`web/src/features/issues/IssuesPanel.tsx:187`), so it
-  stays 320 px at 1440 and, in `1440-dark-issues.png`, six of the seven
-  mock summaries wrap to two lines or three; the Tasks list is the same
-  (`web/src/features/tasks/TasksPanel.tsx:335`).
-- The issue detail column is `min-w-0 flex-1` with no `max-w`
-  (`web/src/features/issues/IssuesPanel.tsx:205`), and `Description`'s
-  `<p>` has no measure of its own
-  (`web/src/features/issues/IssueDetailPanel.tsx:154`); a real Jira
-  description at 1440 px would be set at roughly 150 characters a line
-  where the other sections stop at 672 px. The task detail
-  (`web/src/features/tasks/TasksPanel.tsx:338`) and the Summary grid's
-  right column (`web/src/features/summary/SummaryPanel.tsx:43`) are the
-  same.
-
-**Instead.** Name one content measure (`max-w-2xl`) and use it in every
-section and on the issue's and task's detail; let the list columns grow
-with the window above `xl` (say `xl:w-96`) while the detail keeps its
-measure.
-
-**Done when.** A grep for `max-w-` in `web/src/features` returns one value
-on section content; a 1440 px screenshot shows the mock's seven summaries
-on one line each, the Tasks and Summary content ending where Branch's
-does, and one with a 600-character description shows its lines no wider
-than the Branch section's form.
-
-### UX-116 Switch branch narrows its row, leaving the issue list ragged
-
-Impact: low · Effort: small
-
-**Today.** A row's Switch branch button is a flex sibling of the row
-button, added only when a non-HEAD branch exists, so rows with one are
-narrower than rows without and the list's right edge steps in and out. In
-`1440-dark-issues.png` the selected PROJ-412 box runs the list's full
-320 px while PROJ-418 and PROJ-408 wrap their summaries in a narrower box
-ending about 80 px short to fit the button — PROJ-418's to three lines;
-`640-dark-issues.png` shows the same step at the narrow width. `IssueRows`'
-`<li>` is `flex flex-wrap` (`web/src/features/issues/IssuesPanel.tsx:283`),
-the row button `flex-1` (`:301`), and `RowCheckout` is rendered beside it
-only when `newest && !onHead` (`:315`), `shrink-0` so it takes its full
-width from the row (`:532`).
-
-**Instead.** Reserve the button's column on every row (an invisible
-placeholder of the same width when the row offers no switch), or put the
-button inside the row's bottom line.
-
-**Done when.** A screenshot shows every row button in the list sharing one
-right edge.
-
-### UX-117 A clean working tree leaves its heading over an empty form
-
-Impact: low · Effort: small
-
-**Today.** With no changes, the Working tree heading is followed directly
-by the commit form; the only words about the empty tree are "Clean —
-nothing to commit." beside the disabled button at the form's foot, where
-`Commits` says "No commits yet on this branch." under its heading
-(`web/src/features/branch/BranchPanel.tsx:143`). In a 1024 px dark
-screenshot of the production build's empty Branch section, taken in the
-2026-09-24 audit, the eye lands on four empty fields under "Working tree"
-and reads why only after scrolling past them. `WorkingTree` renders
-nothing between the heading and the form when `changes` is empty
-(`web/src/features/branch/WorkingTree.tsx:51`); the explanation is
-`commitBlocker`'s line (`:92`), which `CommitForm` shows beside the
-disabled submit, below the fields
-(`web/src/features/branch/CommitForm.tsx:102`).
-
-**Instead.** A muted line under the heading, "Clean — nothing to commit.",
-with the form's foot line kept for the nothing-staged case.
-
-**Done when.** A `WorkingTree` test with no changes finds "Clean — nothing
-to commit." before the form in DOM order.
-
-### UX-118 Copy URL confirms above the queue, not beside its row
-
-Impact: low · Effort: small
-
-**Today.** After Copy URL on a queue row, the only visible confirmation is
-the panel's `OutcomeLine` above the list: `CopyURL` hands its done message
-to the panel's teller
-(`web/src/features/reviewqueue/ReviewQueuePanel.tsx:387`), which `Queue`
-renders once (`:154`), under the summary, the Sort select and the filter
-chips, out of the eye's path from the button — two rows of chips in
-`1024-dark-reviews.png` — while its refusal renders in the row (`:401`).
-`RowCheckout` uses the same success-above pattern
-(`web/src/features/issues/IssuesPanel.tsx:513`, line at `:121`), but a
-switch changes the row on the next snapshot; a copy changes nothing near
-the button. The working tree's per-row `OutcomeLine` (`ChangeRow`,
-`web/src/features/branch/WorkingTree.tsx:177`) shows the nearer pattern.
-
-**Instead.** Give each row its own `OutcomeLine` under its controls, as
-`ChangeRow` does.
-
-**Done when.** A `ReviewQueuePanel` test finds the copied-URL status inside
-the row's listitem.
+**Done when.** `ReviewPanel` and `ReviewQueuePanel` screenshots show a
+shape before each of the four words.
 
 ### UX-119 A credential cannot be removed from Settings
 
