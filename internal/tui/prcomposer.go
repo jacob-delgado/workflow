@@ -27,9 +27,12 @@ const prLabelWidth = 12
 // prBodyPreviewLines is how much of a pull request body the composer shows.
 const prBodyPreviewLines = 12
 
-// prBodyHelp is what the editor shows below a pull request body.
-const prBodyHelp = "Write the pull request description above this line. Markdown renders on both\n" +
-	"GitHub and GitLab."
+// prBodyHelp is what the editor shows below a pull request body, naming it by
+// the forge's own noun.
+func prBodyHelp(vocab reviewVocab) string {
+	return "Write the " + vocab.noun + " description above this line. Markdown renders on both\n" +
+		"GitHub and GitLab."
+}
 
 // errNoTitle and errNoBase report a change missing what the forge needs.
 var (
@@ -461,7 +464,7 @@ func (c prComposer) editBody(m Model) tea.Cmd {
 		return nil
 	}
 
-	return m.deps.Editor.Edit(c.body, prBodyHelp, func(text string, err error) tea.Msg {
+	return m.deps.Editor.Edit(c.body, prBodyHelp(c.vocab), func(text string, err error) tea.Msg {
 		return textEdited{text: text, err: err}
 	})
 }

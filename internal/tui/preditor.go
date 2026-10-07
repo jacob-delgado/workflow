@@ -120,7 +120,7 @@ func (p prEditor) editBody(m Model) tea.Cmd {
 		return nil
 	}
 
-	return m.deps.Editor.Edit(p.body, prBodyHelp, func(text string, err error) tea.Msg {
+	return m.deps.Editor.Edit(p.body, prBodyHelp(p.vocab), func(text string, err error) tea.Msg {
 		return textEdited{text: text, err: err}
 	})
 }

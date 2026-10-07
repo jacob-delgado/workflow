@@ -173,13 +173,13 @@ func (m Model) reviewQueueRail(_ int) string {
 func (m Model) reviewQueueDetail(width int) string {
 	switch {
 	case m.deps.Forge.ReviewRequests == nil:
-		return wrap("This forge does not list the pull requests waiting on your review.", width)
+		return wrap("This forge does not list the "+m.vocab.noun+"s waiting on your review.", width)
 	case !m.reviewQueue.loaded:
 		return m.marks.reading()
 	case m.reviewQueue.err != nil:
 		return m.failureBlock(m.reviewQueue.err, width)
 	case len(m.reviewQueue.all) == 0:
-		return "No pull requests are waiting on your review."
+		return "No " + m.vocab.noun + "s are waiting on your review."
 	}
 
 	return strings.Join(m.reviewLines(), "\n")
@@ -227,7 +227,7 @@ func (m Model) reviewRows() []string {
 
 	for index, request := range m.reviewQueue.requests {
 		head := m.marks.marker(index == m.reviewQueue.selected) + m.ciStateGlyph(request.CI) +
-			" #" + strconv.Itoa(request.Number) + " " + request.Title
+			" " + m.vocab.sigil + strconv.Itoa(request.Number) + " " + request.Title
 
 		rows = append(rows, head+"  "+m.styles.label.Render(m.reviewTail(request, now)))
 	}
