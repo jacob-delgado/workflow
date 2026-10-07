@@ -541,8 +541,11 @@ func TestTheSlackPaneNamesWhatItNeedsWhenUnset(t *testing.T) {
 	view := typing(t, model, "5").View().Content
 
 	// Assert
-	requireScreen(t, view, "Slack is not set up", "messaging.webhook_url",
-		"workflow slack login", "messaging.channel", ".workflow.json")
+	// The guidance is loop.SetUpAdvice's for a missing credential, beside the
+	// not-started mark, naming the file wherever it was found.
+	requireScreen(t, view, "○ messaging has no credential", "workflow slack login",
+		"messaging.webhook_url", ".workflow.json")
+	refuseScreen(t, view, "~/", "is not set up")
 	refuseScreen(t, footerLine(view), "p announce")
 }
 

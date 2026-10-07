@@ -26,6 +26,6 @@ func TestTheUnsetMessagingPaneSaysWhatDoctorChecks(t *testing.T) {
 	view := typing(t, model, "5").View().Content
 
 	// Assert
-	requireScreen(t, view, "`workflow doctor` checks the file;", "`--online` also asks Slack about your user token.")
+	requireScreen(t, view, "`workflow doctor` checks .workflow.json;", "`--online` also asks Slack about your user token.")
 	refuseScreen(t, view, "`workflow doctor --online` checks it")
 }
