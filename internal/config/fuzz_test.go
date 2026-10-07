@@ -18,6 +18,10 @@ import (
 // tell two credentials apart. Everything before it is what must never survive.
 const visibleTail = 4
 
+// shortestShown is the shortest secret Redact shows any of: four characters of
+// a shorter one would give too much of it away, so all of it is masked.
+const shortestShown = 16
+
 func FuzzRedactRevealsOnlyTheTail(f *testing.F) {
 	// Deliberately NOT shaped like a real "xoxb-" token: gitleaks scans this
 	// repository and a convincing fixture would fail `task secrets` for
@@ -25,7 +29,7 @@ func FuzzRedactRevealsOnlyTheTail(f *testing.F) {
 	// be long enough to exercise the tail logic.
 	f.Add("credential-0123456789-0123456789-abcdefghijklmnop", "different-prefix-")
 	f.Add("https://hooks.slack.com/services/T0/B0/secret", "https://other/")
-	f.Add("\x00\xff\xfe invalid utf-8 \xc3\x28", "\xff\xfe")
+	f.Add("\x00\xff\xfe invalid utf-8 \xc3\x28", "\xff\xfe another invalid prefix")
 	// Both found by this fuzzer while the property was still stated as "no run
 	// of the secret may appear in the mask". "*0000" masks to "****0000", where
 	// the mask's own asterisks and the kept tail spell a window that also
@@ -37,15 +41,16 @@ func FuzzRedactRevealsOnlyTheTail(f *testing.F) {
 	// Also found here: a "secret" that already looks like a masked value is
 	// returned unchanged, because it IS its own mask. That tripped a second
 	// assertion asking that Redact never return its input — which was an
-	// aesthetic expectation, not a security one, and is implied anyway: the
-	// identity function could not satisfy the property below.
+	// aesthetic expectation, not a security one. Such a value hides nothing,
+	// so the property below leaves it out.
 	f.Add("****0000", "0")
 
 	// The property: a masked value must depend ONLY on the last visibleTail
-	// characters. Two different secrets sharing a tail must be indistinguishable
-	// afterwards, which is exactly "the mask tells you nothing about what it
-	// hid" — and unlike a substring check it cannot be fooled by the mask's own
-	// characters colliding with the secret's.
+	// characters, and on whether the secret is long enough to show them. Two
+	// different secrets sharing a tail, both short or both long, must be
+	// indistinguishable afterwards, which is exactly "the mask tells you
+	// nothing about what it hid" — and unlike a substring check it cannot be
+	// fooled by the mask's own characters colliding with the secret's.
 	f.Fuzz(func(t *testing.T, secret, otherPrefix string) {
 		// Arrange
 		if len(secret) <= visibleTail || otherPrefix == "" {
@@ -54,6 +59,11 @@ func FuzzRedactRevealsOnlyTheTail(f *testing.F) {
 
 		tail := secret[len(secret)-visibleTail:]
 		twin := otherPrefix + tail
+
+		if (len(secret) < shortestShown) != (len(twin) < shortestShown) ||
+			config.Redact(secret) == secret || config.Redact(twin) == twin {
+			return
+		}
 
 		// Act
 		masked, twinMasked := config.Redact(secret), config.Redact(twin)
