@@ -197,7 +197,8 @@ function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
 
 // ChangePath is where a changed file is: for a rename or a copy, the path it
 // had, then an arrow, then the path it has, as the terminal draws it. The arrow
-// is read as "to".
+// is read as "to", and is held to the new path by a no-break space, so a wrap
+// leaves it leading the path it points at.
 function ChangePath({ change }: { change: Change }) {
   const from = change.original_path ?? ''
 
@@ -206,7 +207,8 @@ function ChangePath({ change }: { change: Change }) {
       {from === '' ? null : (
         <>
           {from} <span aria-hidden>→</span>
-          <span className="sr-only">to</span>{' '}
+          <span className="sr-only">to</span>
+          {'\u00a0'}
         </>
       )}
       {change.path}
