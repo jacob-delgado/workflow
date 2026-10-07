@@ -5,6 +5,7 @@ import { fakeApi } from '@/test/fakeApi.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SectionPanel } from './SectionPanel.tsx'
+import { StreamStatus } from './StreamStatus.tsx'
 import type { Section } from './uiStore.ts'
 
 const readSections: [Section, string | RegExp][] = [
@@ -81,4 +82,22 @@ test('routes the tasks section to its list, which reads without waiting on the s
     await screen.findByText('No pending tasks. Add one above, or track an issue from Issues.'),
   ).toBeTruthy()
   expect(screen.queryByText(/connecting/i)).toBeNull()
+})
+
+test('a section waiting on a stream that dropped says what the header says', () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'reconnecting', snapshot: null })
+
+  // Act
+  renderWithClient(
+    <>
+      <StreamStatus />
+      <SectionPanel section="issues" />
+    </>,
+  )
+
+  // Assert
+  expect(screen.getByRole('status').textContent).toBe('Reconnecting')
+  expect(screen.getByText('Reconnecting to workflow…')).toBeTruthy()
+  expect(screen.queryByText('Connecting to workflow…')).toBeNull()
 })

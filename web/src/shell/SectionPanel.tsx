@@ -9,7 +9,7 @@ import { RepositoriesPanel } from '@/features/repositories/RepositoriesPanel.tsx
 import { SummaryPanel } from '@/features/summary/SummaryPanel.tsx'
 import { TasksPanel } from '@/features/tasks/TasksPanel.tsx'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { EmptyState } from './EmptyState.tsx'
+import { StreamWait } from './StreamStatus.tsx'
 import type { Section } from './uiStore.ts'
 
 // panels are each section's panel. A record over Section, so adding a section
@@ -33,13 +33,14 @@ const panels: Record<Section, ComponentType> = {
 const readsOnItsOwn = new Set<Section>(['settings', 'reviews', 'tasks', 'summary', 'repositories'])
 
 // Routes the active section to its panel. Every section that reads the stream
-// waits on its first snapshot; until it lands they share one line, rather than
-// each saying it in its own words.
+// waits on its first snapshot; until it lands they share one line, worded by
+// the stream's state as the header words it, rather than each saying it in its
+// own words.
 export function SectionPanel({ section }: { section: Section }) {
   const connected = useSnapshotStore((state) => state.snapshot !== null)
 
   if (!connected && !readsOnItsOwn.has(section)) {
-    return <EmptyState>Connecting to workflow…</EmptyState>
+    return <StreamWait />
   }
 
   const Panel = panels[section]
