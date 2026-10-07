@@ -177,7 +177,7 @@ function MessageFields({ register, commitTypes, onScopeTyping }: MessageFieldsPr
         <Input
           {...register('subject')}
           required
-          placeholder="what the change does, in the imperative"
+          placeholder="What the change does, in the imperative"
         />
       </label>
 

@@ -188,3 +188,13 @@ test('focus dropped to the page after a commit from the keyboard stays on the pa
   // Assert
   expect(document.activeElement).toBe(document.body)
 })
+
+test('the subject box shows its hint in sentence case, as every placeholder does', () => {
+  // Act
+  render(<CommitForm canCommit suggestedScope="" commitTypes={types} />)
+
+  // Assert
+  expect(screen.getByLabelText('Subject').getAttribute('placeholder')).toBe(
+    'What the change does, in the imperative',
+  )
+})

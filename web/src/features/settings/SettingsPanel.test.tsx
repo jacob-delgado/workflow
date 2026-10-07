@@ -429,7 +429,7 @@ test('a configuration that cannot be read says why, as an alert', async () => {
   renderWithClient(<SettingsPanel />)
 
   // Assert
-  const reason = await screen.findByText('The configuration could not be loaded.')
+  const reason = await screen.findByText('The configuration could not be read.')
   expect(reason.getAttribute('role')).toBe('alert')
 })
 
@@ -441,7 +441,7 @@ test('offers to try again when the configuration cannot be loaded', async () => 
   fakeApi({ '/api/config': () => answers.shift() })
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
-  const reason = await screen.findByText('The configuration could not be loaded.')
+  const reason = await screen.findByText('The configuration could not be read.')
 
   // Act
   await user.click(
