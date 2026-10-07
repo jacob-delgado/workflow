@@ -18,6 +18,12 @@ const (
 	linux   = "linux"
 )
 
+// The variables Dir reads a directory from.
+const (
+	appData      = "AppData"
+	xdgStateHome = "XDG_STATE_HOME"
+)
+
 func TestDirIsOSNative(t *testing.T) {
 	t.Parallel()
 
@@ -32,15 +38,19 @@ func TestDirIsOSNative(t *testing.T) {
 			goos: darwin, want: filepath.Join(home, "Library", "Application Support", "workflow"),
 		},
 		"Windows uses AppData": {
-			goos: windows, env: map[string]string{"AppData": `C:\Users\dev\AppData\Roaming`},
+			goos: windows, env: map[string]string{appData: `C:\Users\dev\AppData\Roaming`},
 			want: filepath.Join(`C:\Users\dev\AppData\Roaming`, "workflow"),
 		},
 		"Linux prefers XDG_STATE_HOME": {
-			goos: linux, env: map[string]string{"XDG_STATE_HOME": "/home/dev/.state"},
+			goos: linux, env: map[string]string{xdgStateHome: "/home/dev/.state"},
 			want: filepath.Join("/home/dev/.state", "workflow"),
 		},
 		"Linux falls back to ~/.local/state": {
 			goos: linux, want: filepath.Join(home, ".local", "state", "workflow"),
+		},
+		"Linux ignores a relative XDG_STATE_HOME": {
+			goos: linux, env: map[string]string{xdgStateHome: "state"},
+			want: filepath.Join(home, ".local", "state", "workflow"),
 		},
 	}
 
@@ -76,9 +86,12 @@ func TestDirNeedsSomewhereToPutIt(t *testing.T) {
 	}{
 		"macOS with no home":                 {goos: darwin, env: nil},
 		"Windows with no AppData":            {goos: windows, env: nil},
-		"Windows with an empty AppData":      {goos: windows, env: map[string]string{"AppData": ""}},
+		"Windows with an empty AppData":      {goos: windows, env: map[string]string{appData: ""}},
+		"Windows with a relative AppData":    {goos: windows, env: map[string]string{appData: `Roaming`}},
+		"Windows with a drive-relative one":  {goos: windows, env: map[string]string{appData: `C:Roaming`}},
+		"Linux with a relative one":          {goos: linux, env: map[string]string{xdgStateHome: "state"}},
 		"Linux with no XDG_STATE_HOME":       {goos: linux, env: nil},
-		"Linux with an empty XDG_STATE_HOME": {goos: linux, env: map[string]string{"XDG_STATE_HOME": ""}},
+		"Linux with an empty XDG_STATE_HOME": {goos: linux, env: map[string]string{xdgStateHome: ""}},
 	}
 
 	for name, testCase := range cases {
