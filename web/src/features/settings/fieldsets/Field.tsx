@@ -1,15 +1,15 @@
 import { useId, type ReactNode } from 'react'
 import type { Path, UseFormRegister } from 'react-hook-form'
-import type { Config } from '@/api/generated/types.gen.ts'
 import { Input, Select } from '@/lib/Field.tsx'
+import type { SettingsValues } from '../formValues.ts'
 
 // Register is the settings form's own register, which each fieldset is handed
 // to put its fields in the form.
-export type Register = UseFormRegister<Config>
+export type Register = UseFormRegister<SettingsValues>
 
 // A field's name is its path in the configuration, which is also its element's
 // id, so a label, a hint and the saved value all agree on what it is.
-type Name = Path<Config>
+type Name = Path<SettingsValues>
 
 // A field that reads its value as something other than the text typed.
 type ReadAs = (value: unknown) => unknown

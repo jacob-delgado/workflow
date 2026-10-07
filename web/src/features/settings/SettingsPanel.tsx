@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
-import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
+import type { SetupResult } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
@@ -24,9 +24,10 @@ import { KeyboardFieldset } from './fieldsets/KeyboardFieldset.tsx'
 import { MessagingFieldset } from './fieldsets/MessagingFieldset.tsx'
 import { PullRequestFieldset, StoreFieldset } from './fieldsets/PullRequestAndStoreFieldsets.tsx'
 import { TaskwarriorFieldset } from './fieldsets/TaskwarriorFieldset.tsx'
+import { TerminalFieldset, TimingFieldset } from './fieldsets/TimingAndTerminalFieldsets.tsx'
 import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
-import { formValues } from './formValues.ts'
+import { configOf, formValues, type SettingsValues } from './formValues.ts'
 import { SetupArea } from './SetupForm.tsx'
 
 // SettingsPanel is the configuration form, and below it the areas that save on
@@ -113,10 +114,10 @@ function SetUpSaid({ result }: { result: SetupResult }) {
 // it — a Try again, or a Reload — and otherwise leaves focus where the section
 // change put it.
 function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolean }) {
-  // The whole config seeds the form, so every key no fieldset registers — ui,
-  // timing, jira.views and the token commands among them — rides back unchanged
-  // on save rather than being dropped.
-  const { register, handleSubmit, reset, setFocus, control, formState } = useForm<Config>({
+  // The whole config seeds the form, so every key no fieldset registers — the
+  // token commands, the Slack access token and its expiry — rides back
+  // unchanged on save rather than being dropped.
+  const { register, handleSubmit, reset, setFocus, control, formState } = useForm<SettingsValues>({
     defaultValues: formValues(read.config),
   })
   // The revision of the file the form's values stand for: the read that seeded
@@ -139,9 +140,9 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
     setRevision(next.revision)
   }
   const save = useAsyncAction(
-    async (values: Config) => {
+    async (values: SettingsValues) => {
       try {
-        seed(await saveConfig(values, revision))
+        seed(await saveConfig(configOf(values), revision))
         setChanged(false)
       } catch (caught) {
         setChanged(changedSinceRead(caught))
@@ -187,13 +188,15 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
         control={control}
         storedToken={formState.defaultValues?.jira?.token ?? null}
       />
-      <MessagingFieldset register={register} />
+      <MessagingFieldset register={register} control={control} />
       <ForgeFieldset register={register} />
       <CommitFieldset register={register} />
-      <BranchFieldset register={register} />
+      <BranchFieldset register={register} control={control} />
       <PullRequestFieldset register={register} />
       <StoreFieldset register={register} />
       <TaskwarriorFieldset register={register} />
+      <TimingFieldset register={register} />
+      <TerminalFieldset register={register} />
       <KeyboardFieldset register={register} />
 
       {/* A refusal ChangedSinceRead explains is not said a second time. */}

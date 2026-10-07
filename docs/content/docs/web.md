@@ -487,9 +487,17 @@ other write, and browsing still works.
 
 ### Settings
 
-The configuration file in effect, in nine parts — Jira, messaging, the forge,
-commits, branches, pull requests, the store, Taskwarrior and the keyboard — and
-**Save changes** writes it back. A credential is shown masked and kept as it is
+The configuration file in effect, in eleven parts — Jira, messaging, the
+forge, commits, branches, pull requests, the store, Taskwarrior, timing, the
+terminal and the keyboard — and **Save changes** writes it back. Jira's views
+and headers, messaging's channels and the branch prefixes are lists: **Add a
+view** (or a header, a channel, a prefix) puts a row in, and each row's
+**Remove** takes it out with the next save. A header's name is fixed once
+saved; to rename one, remove it and add it again. The keyboard part's
+**Rebind keys** lists every action the terminal binds, each with the key it
+is moved to (`ui.keys`) and the default an empty one keeps; a key that clashes
+with another where both work at once is refused when you save, as the
+terminal refuses it as it starts. A credential is shown masked and kept as it is
 unless you type a new one. A change to the forge part — its token, host,
 kind or CLI — applies at once: the next call to the forge uses it, and the
 page names the forge it points at, with no restart. A change to the
@@ -501,10 +509,9 @@ than the file, and where the file already keeps them it keeps what you type
 and its expiry have no field: workflow writes them. A change to the
 Taskwarrior part applies when workflow restarts, as the part says: workflow finds Taskwarrior as it starts,
 and until the restart the Tasks section says to restart rather than read
-Taskwarrior. What the form has no field for yet is kept unchanged
-when you save: `version`, all of `ui` but `ui.web_shortcuts`, all of `timing`, `jira.token_command`,
-`jira.token_env`, `jira.headers`, `jira.views`, `messaging.channels` and
-`branch.prefixes`. Settings
+Taskwarrior. What the form has no field for is kept unchanged when you
+save: `version`, `jira.token_command`, `jira.token_env`, and the Slack access
+token and its expiry. Settings
 reads the file each time it opens, and a save checks that the file has not
 changed since: when it has (edited on disk, rewritten by
 `workflow config init --force`, or saved from another tab), nothing is written,

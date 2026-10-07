@@ -1,6 +1,8 @@
 import { useForgeWords } from '@/api/health.ts'
 import { type Control, useWatch } from 'react-hook-form'
-import type { Config, JiraConfig } from '@/api/generated/types.gen.ts'
+import type { JiraConfig } from '@/api/generated/types.gen.ts'
+import type { SettingsValues } from '../formValues.ts'
+import { EntryList } from './EntryList.tsx'
 import { CheckboxField, Fieldset, TextField, type Register } from './Field.tsx'
 
 // TokenSources are where the Jira token may come from besides the file: a
@@ -35,7 +37,7 @@ function tokenSource(command: string | undefined, variable: string | undefined):
 
 interface JiraFieldsetProps {
   register: Register
-  control: Control<Config>
+  control: Control<SettingsValues>
   // storedToken is the token as read, masked: the hint says where the token in
   // effect comes from, not what is being typed.
   storedToken: string | null
@@ -46,7 +48,10 @@ interface JiraFieldsetProps {
 // and whether the repository's own forge issues join Jira's in the list.
 export function JiraFieldset({ register, control, storedToken }: JiraFieldsetProps) {
   const { noun } = useForgeWords()
-  const [command, variable] = useWatch({ control, name: ['jira.token_command', 'jira.token_env'] })
+  const [command, variable, headers] = useWatch({
+    control,
+    name: ['jira.token_command', 'jira.token_env', 'jira.headers'],
+  })
 
   return (
     <Fieldset legend="Jira">
@@ -70,6 +75,33 @@ export function JiraFieldset({ register, control, storedToken }: JiraFieldsetPro
         name="jira.review_status"
         label="Review status"
         hint={`The status an issue moves to once its ${noun} is open, e.g. "In Review". Empty makes no offer.`}
+      />
+      <EntryList
+        control={control}
+        register={register}
+        name="jira.views"
+        legend="Views"
+        entry="view"
+        hint="The issue lists v moves between, each a name and its JQL. None keeps the one built-in list: open issues assigned to you."
+        columns={[
+          { field: 'name', label: 'Name' },
+          { field: 'jql', label: 'JQL', wide: true },
+        ]}
+        blank={{ name: '', jql: '' }}
+      />
+      <EntryList
+        control={control}
+        register={register}
+        name="jira.headers"
+        legend="Headers"
+        entry="header"
+        hint="Sent with every Jira request, for a proxy that wants one. Each value is a credential: leave it as-is to keep it."
+        columns={[
+          { field: 'name', label: 'Name' },
+          { field: 'value', label: 'Value', secret: true, wide: true },
+        ]}
+        blank={{ name: '', value: '', stored: false }}
+        fixed={(index) => headers[index]?.stored === true}
       />
       <CheckboxField
         register={register}
