@@ -205,6 +205,20 @@ test('counts and marks merge requests in GitLab words', async () => {
   expect(screen.getByRole('link', { name: 'Open !42 (opens in a new tab)' })).toBeTruthy()
 })
 
+test('an empty queue on GitLab says so in GitLab words', async () => {
+  // Arrange
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+  fakeApi({ [reviewsPath]: queueOf() })
+
+  // Act
+  renderWithClient(<ReviewQueuePanel />)
+
+  // Assert
+  expect(await screen.findAllByText('No merge requests are waiting on your review.')).toHaveLength(
+    2,
+  )
+})
+
 test('an empty queue says nothing is waiting', async () => {
   // Arrange
   fakeApi({ [reviewsPath]: queueOf() })
@@ -213,7 +227,9 @@ test('an empty queue says nothing is waiting', async () => {
   renderWithClient(<ReviewQueuePanel />)
 
   // Assert
-  expect(await screen.findAllByText('Nothing is waiting on your review.')).not.toHaveLength(0)
+  expect(
+    await screen.findAllByText('No pull requests are waiting on your review.'),
+  ).not.toHaveLength(0)
   expect(screen.queryByRole('list', { name: 'Waiting on your review' })).toBeNull()
   expect(screen.queryByText(/wait on your review/)).toBeNull()
 })
@@ -283,7 +299,7 @@ test.each([
     queueOf(waitingLongest),
     '1 pull request waits on your review, oldest first.',
   ],
-  ['that nothing waits', queueOf(), 'Nothing is waiting on your review.'],
+  ['that nothing waits', queueOf(), 'No pull requests are waiting on your review.'],
 ])('Try again says %s in the status line it already had', async (_, second, said) => {
   // Arrange
   // A screen reader hears a status line as it changes, not one mounted with
