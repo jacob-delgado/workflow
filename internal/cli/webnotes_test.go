@@ -86,7 +86,6 @@ func TestTheWebServerMasksACredentialInItsNotes(t *testing.T) {
 func notesAfterAFailedSearch(t *testing.T, cfg config.Config, cause error) string {
 	t.Helper()
 
-	addr := freeLoopbackAddr(t)
 	deps := webserver.Deps{
 		Search: func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, cause },
 	}
@@ -95,10 +94,11 @@ func notesAfterAFailedSearch(t *testing.T, cfg config.Config, cause error) strin
 	notes := &sharedNotes{}
 	done := make(chan error, 1)
 
-	go func() { done <- cli.WebServerAt(addr)(ctx, cfg, deps, webserver.Info{}, notes) }()
+	go func() { done <- cli.WebServerAt("127.0.0.1:0")(ctx, cfg, deps, webserver.Info{}, notes) }()
 
-	awaitServing(t, "http://"+addr)
-	askOnce(t, "http://"+addr+"/api/issues")
+	base := servingAt(t, notes)
+	awaitServing(t, base)
+	askOnce(t, base+"/api/issues")
 	cancel()
 
 	err := <-done
@@ -194,4 +194,78 @@ func (n *sharedNotes) String() string {
 	defer n.mu.Unlock()
 
 	return n.text.String()
+}
+
+func TestTheWebServerSaysTheAddressItBound(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	ctx, cancel := context.WithCancel(t.Context())
+	notes := &sharedNotes{}
+	done := make(chan error, 1)
+
+	// Act
+	go func() {
+		done <- cli.WebServerAt("127.0.0.1:0")(ctx, config.Default(), webserver.Deps{}, webserver.Info{}, notes)
+	}()
+
+	base := servingAt(t, notes)
+	awaitServing(t, base)
+	cancel()
+
+	err := <-done
+	// Assert
+	if err != nil {
+		t.Errorf("the web server stopped with %v, want a clean stop", err)
+	}
+
+	if strings.HasSuffix(base, ":0") {
+		t.Errorf("the web server said it serves %s, want the port it bound", base)
+	}
+}
+
+func TestTheWebServerSaysNothingOfServingOnAPortItCannotBind(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	taken, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("holding a port: %v", err)
+	}
+
+	t.Cleanup(func() { _ = taken.Close() })
+
+	notes := &sharedNotes{}
+
+	// Act
+	err = cli.WebServerAt(taken.Addr().String())(t.Context(), config.Default(), webserver.Deps{}, webserver.Info{}, notes)
+
+	// Assert
+	if err == nil {
+		t.Fatal("the web server served on a port another listener holds, want the failure")
+	}
+
+	if strings.Contains(notes.String(), "serving") {
+		t.Errorf("the web server said %q on a port it could not bind, want no claim to serve", notes.String())
+	}
+}
+
+// servingAt is the base URL the web server said it serves at, once it says so.
+func servingAt(t *testing.T, notes *sharedNotes) string {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+
+	for {
+		_, rest, found := strings.Cut(notes.String(), "serving ")
+		if address, _, said := strings.Cut(rest, " "); found && said {
+			return address
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("the web server never said where it serves: %q", notes.String())
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
 }

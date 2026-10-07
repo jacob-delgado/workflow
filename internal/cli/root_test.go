@@ -463,8 +463,8 @@ func TestTheWebServerSaysWhereItServesAndStopsWithItsRun(t *testing.T) {
 		t.Errorf("a canceled web server returned %v, want it stopped cleanly", err)
 	}
 
-	if !strings.Contains(notes.String(), "serving http://"+addr) {
-		t.Errorf("the web server said %q, want where it serves", notes.String())
+	if !strings.Contains(notes.String(), "serving http://127.0.0.1:") || strings.Contains(notes.String(), addr+" ") {
+		t.Errorf("the web server said %q, want the loopback port it bound", notes.String())
 	}
 }
 
