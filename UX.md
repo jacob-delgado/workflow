@@ -333,8 +333,7 @@ over a log of what workflow did, is FEAT-87's.
 What is open here is a stream that marks no change; Settings' unseen
 sections, misleading hints, blank selects and unremovable credential; what
 the browser could borrow from the interface; the Branch section's detached
-HEAD; four states drawn as words with no mark; and copy settled site by
-site.
+HEAD; and four states drawn as words with no mark.
 
 Every pointer here was checked again at `e5156e3`. A screenshot named
 by its file (`1440-dark-tasks.png`, say) is from a pass on 2026-10-05 over
@@ -556,107 +555,6 @@ the contract, or a per-field remove control — that writes an empty value.
 **Done when.** A test sends `jira.token` as `null` and the saved file holds
 no token.
 
-### UX-122 Web copy settles plurals, case, periods and state words site by site
-
-Impact: low · Effort: small
-
-**Today.** The same act, state or moment reads differently depending on
-where the eye lands — list versus story, one `dl` row versus the next,
-header versus content, browser versus terminal.
-
-- The web has no plural helper, where the terminal's `plural` counts in
-  words (`internal/tui/render.go:508`): `changesDetail` says "{n} file(s)
-  to commit" (`web/src/features/issues/WorkStory.tsx:175`; "3 file(s) to
-  commit" in `1440-dark-issues.png`), Set up lefthook writes "script(s)"
-  and "hook(s)" (`web/src/features/branch/HookSetup.tsx:78`, `:106`,
-  `:120`), and `filterOutcome` "{shown} of {loaded} loaded issues match."
-  (`web/src/features/issues/IssuesPanel.tsx:463`), so "1 … match."
-  disagrees in number; meanwhile three sites count correctly inline, each
-  its own way (`queueSummary`,
-  `web/src/features/reviewqueue/ReviewQueuePanel.tsx:183`; the task count,
-  `web/src/features/tasks/TasksPanel.tsx:275`; the comment's characters,
-  `web/src/features/issues/CommentComposer.tsx:407`).
-- `loadOutcome` ends "4 of 5 loaded" without a period
-  (`web/src/features/issues/IssuesPanel.tsx:445`) and "All 5 loaded." with
-  one (`:448`).
-- Nine placeholders split four lowercase to four sentence case and one
-  path: "what the change does, in the imperative" (`MessageFields`,
-  `web/src/features/branch/CommitForm.tsx:178`), "comma-separated
-  usernames or org/team", "comma-separated usernames" and
-  "comma-separated labels" (`ProposalFields`,
-  `web/src/features/review/OpenPullRequest.tsx:218`, `:223`, `:228`), against
-  "Key or summary" (`web/src/features/issues/IssueListControls.tsx:29`),
-  "Text, +tag, issue or #id"
-  (`web/src/features/tasks/TaskListControls.tsx:72`), "Write a
-  comment…" (`web/src/features/issues/CommentComposer.tsx:181`) and the
-  palette's "Find an action in SECTION"
-  (`web/src/features/keyboard/CommandPalette.tsx:104`).
-- The list row's Switch branch says "Switching…" while it runs
-  (`RowCheckout`, `web/src/features/issues/IssuesPanel.tsx:534`) but keeps
-  its `aria-label` "Switch branch for KEY" (`:527`), so a keyboard user's
-  visible word is not in the button's accessible name, where a file's
-  Stage words its label by the same state
-  (`web/src/features/branch/WorkingTree.tsx:144`).
-- The never-done Announce stage is "Not announced" off HEAD
-  (`notStartedStages`, `web/src/features/issues/WorkStory.tsx:81`;
-  `offHeadStages`, `:95`) and an imperative on it: `announceDetail` reads
-  "Announce to {channel}" (`:169`), on a button that opens the messaging
-  section — "Announce to #dev-workflow" in `1440-dark-issues.png`.
-- A missing base is "—" (`BranchSummary`,
-  `web/src/features/branch/BranchPanel.tsx:92`) beside a missing upstream
-  "none" (`:94`); Repositories says "None" for a missing origin
-  (`web/src/features/repositories/WorkingIn.tsx:43`).
-- `SectionPanel` says "Connecting to workflow…" while the snapshot is null
-  (`web/src/shell/SectionPanel.tsx:42`), never reading the stream's
-  status, while `useEventStream` sets `reconnecting` on every
-  `EventSource` error, one before any open included
-  (`web/src/api/snapshot.ts:117`); so the header says "Reconnecting" over
-  every section's "Connecting to workflow…" at once, where
-  `docs/content/docs/web.md:68`, under "The page", defines Reconnecting as
-  "the connection dropped" and Connecting (`:66`) as no first update yet.
-- The empty review queue is "Nothing is waiting on your review." on the
-  web (`queueSummary`, read only by a screen reader,
-  `web/src/features/reviewqueue/ReviewQueuePanel.tsx:177`; `Requests`,
-  `:246`) and "No pull requests are waiting on your review." in the
-  terminal's detail (`reviewQueueDetail`,
-  `internal/tui/reviewqueue.go:172`) and on the command line
-  (`renderReviews`, `internal/cli/reviews.go:105`).
-- Past a month `waited` writes the date as running text, "Aug 15, 2026"
-  (`writtenDate`, `web/src/features/reviewqueue/ReviewQueuePanel.tsx:365`),
-  under a comment promising "the terminal's words" (`:342`), where the
-  terminal's `age` prints `time.DateOnly` (`internal/tui/detail.go:484`).
-- The configuration's failed read is "could not be loaded" (`ConfigArea`,
-  `web/src/features/settings/SettingsPanel.tsx:65`) and its failed reload
-  "could not be read again" (`ConfigForm`, `:164`) in the same file, while
-  the three reads below it say "could not be read"
-  (`web/src/features/settings/people/PeopleTable.tsx:37`).
-
-**Instead.** A `plural(count, noun)` in `web/src/lib/utils.ts` for the
-four `(s)` sites and the three inline ones; one form for both load-count
-states; one case for every placeholder; the row's `aria-label` worded by
-its state, as a file's Stage is; one Announce phrasing beginning "Not
-announced" that names the channel; one placeholder word for absence in
-every `dl` row, in the muted foreground; `SectionPanel` wording its wait
-from the same status table as `StreamStatus`, or the stream staying
-"Connecting" until its first open; one empty-queue sentence on all three
-surfaces, and one form for a date past a month on both interfaces;
-"could not be read" in Settings.
-
-**Done when.** `WorkStory`, `HookSetup` and `IssuesPanel` tests read "1
-file to commit", "3 files to commit", "1 hook" and "1 of 2 loaded issues
-matches."; `grep -rn "(s)" web/src --include='*.tsx'` finds
-nothing outside generated code; every `placeholder=` under `web/src` is in
-one case; the paging test asserts one load-count form; a test pressing the
-row's Switch branch with a pending promise finds a button named
-/switching/i; a grep for "could not be loaded" in
-`web/src/features/settings` returns nothing; the three-case Announce test
-asserts a phrase beginning "Not announced"; a test with base `''` and
-upstream `''` finds the same placeholder in both `dd` cells; a
-`SectionPanel` test with status `reconnecting` and no snapshot finds
-header and content agree; `ReviewQueuePanel` tests assert the terminal's
-empty-queue sentence and its date form past a month, with the comment and
-code agreeing.
-
 ### UX-124 Two Settings selects draw blank for the value in effect
 
 Impact: low · Effort: small
@@ -784,144 +682,16 @@ remove confirmations, a refused write and the first run's setup.
 
 ## Across the surfaces
 
-What is open here is GitHub- and terminal-shaped sentences, and
-sentences that disagree. What each surface can
-do is the table at the head of this file, and the names the three
-surfaces share are the Vocabulary table's beside it.
+Nothing is open here at the moment. What each surface can do is the
+table at the head of this file, and the names the three surfaces share are
+the Vocabulary table's beside it; a sentence one surface words differently
+from another, or that assumes GitHub or the terminal, is an entry here.
 
 The rule the last looks follow was chosen by the maintainer: **confirm
 what leaves the machine or cannot be undone; a reversible local toggle
 acts at once.** The parity rule beside it: the terminal and the web cover
 the loop, each for browsing; the command line covers one-shot and scripted
 work, with `--json`, and is not a browser.
-
-### UX-126 Sentences that assume GitHub or the terminal, told elsewhere
-
-Impact: low · Effort: small
-
-**Today.** The no-token hint is fixed: `Resolve` wraps
-`forge.ErrNoToken` with `Sources(kind, host)`
-(`internal/forge/token.go:164`, `Sources` at `:252`), and the terminal
-keeps that error in its own words (`forgeErrors`,
-`internal/tui/failure.go:204`), so `doctor` and the interface now name the
-same variable and tool for a GitLab host. The rest is still GitHub's or
-the terminal's: a GitLab user reads "merge request" and `!7` on one line
-and "pull request" and `#7` on the next, and a script is told to press a
-key it does not have.
-
-- `errNoCommitsToOpen`, `internal/cli/pr.go:26`, and `errPullAlreadyOpen`,
-  `:30`: fixed "pull request" sentences that `composeRefusal` returns
-  (`:347`, `:351`), while the same command's question uses
-  `seams.Kind.Noun()` (`:211`) and its success line `Kind.Sigil()`
-  (`:262`).
-- `errNoPullRequest`, `internal/cli/announce.go:25`: fixed "pull request",
-  wrapped at `:158`, though `announceSeams` carries `Kind` (`:37`) and
-  uses it at `:168`.
-- `renderReviews`, `internal/cli/reviews.go:103`: "No pull requests are
-  waiting on your review." (`:105`) with no forge kind in reach —
-  `reviewsSeams` (`:26`) carries none; `reviewLine`, `:118`, writes `#%d`
-  before every number (`:124`).
-- `docs/content/docs/scripting.md:94`, the `reviews` row of the stdout and
-  stderr table: quotes that sentence verbatim, so the row moves with it.
-- `Model.reviewQueueDetail`, `internal/tui/reviewqueue.go:163`: "pull
-  requests" whatever the forge (`:166`, `:172`); `Model.reviewRows`,
-  `:214`, writes `" #"` (`:220`) where the Review pane uses
-  `m.vocab.sigil` (`internal/tui/review.go:270`).
-- `prBodyHelp`, `internal/tui/prcomposer.go:31`: a fixed "Write the pull
-  request description above this line", handed to `$EDITOR` by the
-  composer (`:465`) and the editor (`internal/tui/preditor.go:123`).
-- `rejectionReason`, `internal/messaging/post.go:205`: three sentences
-  end "then press enter to try again" (`:212`, `:214`, `:215`) inside a
-  domain error. `runAnnounce` wraps it with `%w`
-  (`internal/cli/announce.go:189`), as does `postSummary`
-  (`internal/cli/summary.go:208`), and `main`
-  (`cmd/workflow/main.go:26`) prints it on stderr, key and all — against
-  the interface's own rule, in the doc comment on `wording`
-  (`internal/tui/failure.go:59`), that a full form names no key to press.
-  The web, for its part, drops the reason and says "post from a
-  terminal to see its reason" (`messagingFaults`,
-  `internal/webserver/errors.go:351`).
-
-**Instead.** Carry the forge `Kind` on `reviewsSeams` as `prSeams` and
-`announceSeams` already do, and word every fixed "pull request" and `#`
-through `Kind.Noun()` / `Kind.Sigil()` on the command
-line and `m.vocab` in the terminal and the editor help, keeping the
-sentinels for `errors.Is`. Keep `rejectionReason` to the fix
-(`join #dev`) and leave the key out — the overlay's footer already offers enter
-— and, once the sentence names no key, let the web's detail carry it
-rather than sending the user to a terminal. Change the `reviews` row of
-scripting.md with it.
-
-**Done when.** On a GitLab remote, tests of `pr`'s two refusals,
-`announce`'s refusal, `reviews` (the empty-queue note on stderr, `!`
-before each number on stdout), the Reviews pane and the composer's
-`ctrl+o` help all see "merge request" and `!` and never "pull request" or
-`#`; an `announce`
-test whose fake Slack answers `not_in_channel` sees the fix on stderr and
-no "press enter"; `docs/content/docs/scripting.md:94` matches the new
-`reviews` note.
-
-### UX-130 Four sentences that disagree with a neighbor or a sibling surface
-
-Impact: low · Effort: small
-
-**Today.** Four things are said two or three ways.
-
-- `ErrDirtyTree`, `internal/loop/guards.go:17`: "the working tree has
-  uncommitted changes"; `errDirtyTree`, `internal/tui/switchtask.go:25`,
-  is a second sentence ("uncommitted changes — commit or stash them
-  before switching branches"), and `errDirtyTree`,
-  `internal/webserver/checkout.go:19`, a third ("…; commit or stash them
-  before switching") — one guard, three sentences, so a user who meets the
-  refusal in the browser and then in the terminal reads two, and a change
-  to the guidance is made in three places.
-- `announceTarget`, `internal/cli/announce.go:199`: "the configured
-  SERVICE channel" for a webhook and for a bot with no channel, used by
-  `runAnnounce` for the `to` line (`:176`), the dry-run line
-  (`announcePrompt`, `:226`) and the done notice (`:192`) — where
-  `Messaging.Target`, `internal/config/config.go:284`, says "(no channel
-  set)" (`:287`) and "the channel its webhook is bound to" (`:292`), which
-  the interface's notice uses (`internal/tui/messagingpreview.go:240`),
-  and the web's announce says "Announced to SERVICE." for a webhook
-  (`web/src/features/messaging/MessagingPanel.tsx:321`); `summary --post`,
-  on the same command line, already says `Target()`'s words
-  (`postSummary`, `internal/cli/summary.go:188`). With a user
-  token and no channel the command line's preview claims a channel that
-  does not exist, and the post then fails.
-- `placeholder`, `internal/tui/fields.go:72`: returns `jira.DateLayout`
-  (`:74`), Go's reference date `2006-01-02`
-  (`internal/jira/fields.go:32`), as the hint, while `jira.ErrNeedsDate`
-  (`internal/jira/fields.go:20`) says "must be a date like 2026-09-21" —
-  the hint reads as a stale date rather than a shape.
-- `Model.messagingDetail`, `internal/tui/messaging.go:160`: "SERVICE is
-  not set up" and "to ~/" + `config.FileName` (`:162`), with no not-started
-  mark beside it, where `loop.SetUpAdvice`'s
-  `messaging.ErrNoCredential` wording (`internal/loop/summary.go:123`)
-  words the same condition as "messaging has no credential", names
-  `workflow slack login` as well, and names no file, beside the not-started
-  mark every other not-set-up cause gets; `FileName`'s comment
-  (`internal/config/config.go:15`) says the name serves both search
-  locations.
-
-**Instead.** Let `loop.ErrDirtyTree` carry the guidance once ("…; commit
-or stash them before switching") and have both surfaces render it
-through their failure voice, dropping the two local sentinels; drop
-`announceTarget` for `seams.Messaging.Target()` on the `to` line, the
-dry-run line and the done notice; one example in `placeholder` and
-`jira.ErrNeedsDate` (from the fake-able clock, or a plain `YYYY-MM-DD` in
-both); `config.FileName`
-without the `~/`, letting the `messaging.ErrNoCredential` wording serve
-both places as `loop.SetUpAdvice`'s guidance.
-
-**Done when.** `grep -rn 'commit or stash'` finds one string outside
-tests; `TestAnnounceDryRunComposesTheReadyMoment`
-(`internal/cli/announce_test.go:51`) sees `Target()`'s wording and `grep
--rn announceTarget internal/cli` finds nothing;
-`TestATransitionFillsAUserDateAndSeveralVersions` and
-`TestADateFieldRefusesWhatIsNotADate` (`internal/tui/fields_test.go:41`,
-`:80`) agree on one example; `TestTheSlackPaneNamesWhatItNeedsWhenUnset`
-(`internal/tui/messaging_test.go:531`) refuses `~/` and the pane and the
-failure wording name the same settings.
 
 ## New ideas
 
