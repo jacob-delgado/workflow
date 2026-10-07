@@ -143,9 +143,25 @@ func fakeGlab(t *testing.T) {
 func fakeGlabWithScopes(t *testing.T, scopes string) {
 	t.Helper()
 
+	fakeGlabAnswering(t, "[]", scopes)
+}
+
+// fakeGlabListing is fakeGlab whose merge-request listings — the branch's own
+// and the review queue's alike — answer list.
+func fakeGlabListing(t *testing.T, list string) {
+	t.Helper()
+
+	fakeGlabAnswering(t, list, `{}`)
+}
+
+// fakeGlabAnswering is fakeGlab whose listings answer list and whose token,
+// asked about, answers scopes.
+func fakeGlabAnswering(t *testing.T, list, scopes string) {
+	t.Helper()
+
 	dir := t.TempDir()
 	bodies := map[string]string{
-		"list":    "[]",
+		"list":    list,
 		"create":  `{"iid":7,"web_url":"` + gitlabMergeRequest + `","title":"work","state":"opened"}`,
 		"user":    `{"username":"tanuki"}`,
 		"users":   "[]",
@@ -160,7 +176,7 @@ func fakeGlabWithScopes(t *testing.T, scopes string) {
 	script := "#!/bin/sh\n" +
 		"for a in \"$@\"; do path=\"$a\"; done\n" +
 		"case \"$path\" in\n" +
-		"  *\"/merge_requests?\"*) f=list ;;\n" +
+		"  *\"/merge_requests?\"* | \"merge_requests?\"*) f=list ;;\n" +
 		"  *\"/merge_requests\") f=create ;;\n" +
 		"  user) f=user ;;\n" +
 		"  *\"users?\"*) f=users ;;\n" +

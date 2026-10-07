@@ -26,6 +26,9 @@ const day = 24 * time.Hour
 type reviewsSeams struct {
 	List func() ([]forge.ReviewRequest, error)
 	Now  func() time.Time
+	// Kind is the forge, whose own words — merge requests, each marked "!" on
+	// GitLab — the queue is told in.
+	Kind forge.Kind
 }
 
 // reviewsOptions are how `workflow reviews` prints the queue: as JSON or as
@@ -71,7 +74,7 @@ func runReviewsCommand(cmd *cobra.Command, opts reviewsOptions) error {
 	}
 	defer conn.closeLog()
 
-	seams := reviewsSeams{List: conn.deps.Forge.ReviewRequests, Now: time.Now}
+	seams := reviewsSeams{List: conn.deps.Forge.ReviewRequests, Now: time.Now, Kind: conn.deps.Forge.Kind}
 
 	return runReviews(outputOf(cmd), seams, opts)
 }
@@ -97,36 +100,36 @@ func runReviews(out output, seams reviewsSeams, opts reviewsOptions) error {
 		return renderReviewsJSON(out.artifact, reviews, now)
 	}
 
-	renderReviews(out, reviews, now)
+	renderReviews(out, reviews, now, seams.Kind)
 
 	return nil
 }
 
 // renderReviews writes one line per review, or says, as commentary, that the
 // queue is empty: a script counting the lines counts none.
-func renderReviews(out output, reviews []forge.ReviewRequest, now time.Time) {
+func renderReviews(out output, reviews []forge.ReviewRequest, now time.Time, kind forge.Kind) {
 	if len(reviews) == 0 {
-		fmt.Fprintln(out.notes, "No pull requests are waiting on your review.")
+		fmt.Fprintln(out.notes, "No "+kind.Noun()+"s are waiting on your review.")
 
 		return
 	}
 
 	for _, review := range reviews {
-		fmt.Fprintln(out.artifact, reviewLine(review, now))
+		fmt.Fprintln(out.artifact, reviewLine(review, now, kind))
 	}
 }
 
 // reviewLine is one review on a single line: what it is, where, who wants it,
 // how CI stands, how long it has waited, and where to open it. Every value from
 // the forge arrives already neutralized by the forge client.
-func reviewLine(review forge.ReviewRequest, now time.Time) string {
+func reviewLine(review forge.ReviewRequest, now time.Time, kind forge.Kind) string {
 	repository := ""
 	if review.Repository != "" {
 		repository = "(" + review.Repository + ")  "
 	}
 
-	return fmt.Sprintf("#%d  %s  %sby %s  CI %s  %s  %s",
-		review.Number, review.Title, repository, review.Author,
+	return fmt.Sprintf("%s%d  %s  %sby %s  CI %s  %s  %s",
+		kind.Sigil(), review.Number, review.Title, repository, review.Author,
 		ciWord(review.CI), humanizeAge(now, review.OpenedAt), review.URL)
 }
 
