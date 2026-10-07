@@ -185,6 +185,19 @@ test('a save after Reload is made over the revision Reload read', async () => {
   expect(namedRevisions(requests)).toEqual(['"read-1"', '"read-2"'])
 })
 
+test('a Reload that gets no reason says the configuration could not be read', async () => {
+  // Arrange
+  const { user, reload } = await saveRefusedAsChanged(Response.json({}, { status: 500 }))
+
+  // Act
+  await user.click(reload)
+
+  // Assert
+  expect(
+    await screen.findByText('The configuration could not be read. Try Reload again.'),
+  ).toBeTruthy()
+})
+
 test('a Reload that cannot read the file says why, with focus still on Reload', async () => {
   // Arrange
   const invalid =

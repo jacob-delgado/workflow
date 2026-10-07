@@ -66,3 +66,19 @@ test('keeps an edited description: the template no longer changes it', async () 
   // Assert
   expect(within(form).getByRole('combobox', { name: 'Template' })).toHaveProperty('disabled', true)
 })
+
+test('the people and labels boxes show their hints in sentence case', async () => {
+  // Act
+  const { form } = await composed()
+
+  // Assert
+  const hints = within(form)
+    .getAllByRole('textbox')
+    .map((box) => box.getAttribute('placeholder'))
+    .filter((hint) => hint !== null)
+  expect(hints).toEqual([
+    'Comma-separated usernames or org/team',
+    'Comma-separated usernames',
+    'Comma-separated labels',
+  ])
+})

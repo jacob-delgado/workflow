@@ -63,7 +63,7 @@ function ConfigArea() {
   if (query.isError) {
     return (
       <Unread
-        reason={apiErrorMessage(query.error, 'The configuration could not be loaded.')}
+        reason={apiErrorMessage(query.error, 'The configuration could not be read.')}
         refusals={query.errorUpdateCount}
         retrying={query.isFetching}
         onRetry={() => {
@@ -163,7 +163,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       save.reset()
       setFocusRequests((requests) => requests + 1)
     },
-    { fallback: 'The configuration could not be read again. Try Reload again.' },
+    { fallback: 'The configuration could not be read. Try Reload again.' },
   )
   const onSubmit = handleSubmit((values) => save.run(values))
 

@@ -215,17 +215,17 @@ function ProposalFields({ register }: { register: UseFormRegister<PullRequestFie
 
       <label className={labelClass}>
         Reviewers
-        <Input {...register('reviewers')} placeholder="comma-separated usernames or org/team" />
+        <Input {...register('reviewers')} placeholder="Comma-separated usernames or org/team" />
       </label>
 
       <label className={labelClass}>
         Assignees
-        <Input {...register('assignees')} placeholder="comma-separated usernames" />
+        <Input {...register('assignees')} placeholder="Comma-separated usernames" />
       </label>
 
       <label className={labelClass}>
         Labels
-        <Input {...register('labels')} placeholder="comma-separated labels" />
+        <Input {...register('labels')} placeholder="Comma-separated labels" />
       </label>
 
       <label className={labelClass}>

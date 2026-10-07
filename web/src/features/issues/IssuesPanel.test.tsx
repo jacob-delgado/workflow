@@ -400,6 +400,26 @@ test('checks out an in-flight branch from the list without opening the detail', 
   expect(mockCheckout).toHaveBeenCalledWith('fix/PROJ-1-leak')
 })
 
+test('the row names its switch by what it is doing while it runs', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  mockCheckout.mockReturnValueOnce(new Promise(() => {}))
+  withIssues()
+  useSnapshotStore.setState((state) => ({
+    snapshot: state.snapshot && {
+      ...state.snapshot,
+      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false }],
+    },
+  }))
+  renderWithClient(<IssuesPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-1' }))
+
+  // Assert
+  expect(screen.getByRole('button', { name: /switching/i }).textContent).toBe('Switching…')
+})
+
 test('does not offer to switch to the branch already on HEAD', () => {
   // Arrange
   withIssues()

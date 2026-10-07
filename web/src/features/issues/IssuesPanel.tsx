@@ -532,7 +532,11 @@ function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
       <Button
         variant="secondary"
         size="sm"
-        aria-label={`Switch branch for ${issueKey}`}
+        aria-label={
+          state === 'running'
+            ? `Switching branch for ${issueKey}…`
+            : `Switch branch for ${issueKey}`
+        }
         held={state === 'running'}
         onClick={() => {
           void run()
