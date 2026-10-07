@@ -162,17 +162,6 @@ func (c Client) AuthTest(ctx context.Context) (Identity, error) {
 	return identity, err
 }
 
-// Workspace is the ID of the Slack workspace the user token is for, as
-// Identity.Workspace reads it.
-func (c Client) Workspace(ctx context.Context) (string, error) {
-	identity, err := c.AuthTest(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return identity.Workspace()
-}
-
 // authTest asks auth.test about token.
 func (c Client) authTest(ctx context.Context, token config.Secret) (Identity, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+authTestPath, nil)
