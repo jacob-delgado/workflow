@@ -23,7 +23,7 @@ func (s *server) AddTask(_ context.Context, request api.AddTaskRequestObject) (a
 
 	list, prob := s.taskCommand(addLine(s.deps.Tasks.Add, request.Body.Line), s.taskFault)
 	if prob != nil {
-		return api.AddTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.AddTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.AddTask200JSONResponse(list), nil
@@ -61,7 +61,7 @@ func (s *server) TrackIssue(
 
 	list, prob := s.taskCommand(s.track(detail.Issue), s.taskFault)
 	if prob != nil {
-		return api.TrackIssuedefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.TrackIssuedefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.TrackIssue200JSONResponse(list), nil
@@ -81,9 +81,7 @@ func (s *server) issueNotRead(key jira.Key, err error) api.TrackIssueResponseObj
 			problem(api.ProblemCodeNotFound, "issue "+string(key)+" was not found"))
 	}
 
-	body := s.fault(err)
-
-	return api.TrackIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
+	return problemAnswer[api.TrackIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err))
 }
 
 // track is the write that tracks issue: the add of its task, then the
@@ -117,7 +115,7 @@ func (s *server) track(issue jira.Issue) func() (taskChange, error) {
 func (s *server) UndoTasks(_ context.Context, _ api.UndoTasksRequestObject) (api.UndoTasksResponseObject, error) {
 	list, prob := s.taskCommand(saying(s.deps.Tasks.Undo), s.undoFault)
 	if prob != nil {
-		return api.UndoTasksdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.UndoTasksdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.UndoTasks200JSONResponse(list), nil
@@ -128,7 +126,7 @@ func (s *server) UndoTasks(_ context.Context, _ api.UndoTasksRequestObject) (api
 func (s *server) SyncTasks(_ context.Context, _ api.SyncTasksRequestObject) (api.SyncTasksResponseObject, error) {
 	list, prob := s.taskCommand(saying(s.deps.Tasks.Sync), s.syncFault)
 	if prob != nil {
-		return api.SyncTasksdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.SyncTasksdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.SyncTasks200JSONResponse(list), nil

@@ -41,9 +41,7 @@ func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushRespo
 
 	branch, err := s.deps.Branch()
 	if err != nil {
-		body := s.fault(err)
-
-		return api.PushdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.PushdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	if nothingToPush(branch) {

@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -64,12 +65,24 @@ func codeMeaning(code api.ProblemCode) (int, string) {
 		api.ProblemCodeTooLong:              {status: http.StatusUnprocessableEntity, title: "Too long"},
 		api.ProblemCodePreconditionRequired: {status: http.StatusPreconditionRequired, title: "Precondition required"},
 		api.ProblemCodeUnreachable:          {status: http.StatusBadGateway, title: "Upstream unreachable"},
+		api.ProblemCodeRateLimited:          {status: http.StatusServiceUnavailable, title: "Rate limited"},
 		api.ProblemCodeFetchFailed:          {status: http.StatusBadGateway, title: "Fetch failed"},
 		api.ProblemCodeCheckFailed:          {status: http.StatusUnprocessableEntity, title: "Check failed"},
 		api.ProblemCodeInternal:             {status: http.StatusInternalServerError, title: "Internal error"},
 	}[code]
 
 	return meaning.status, meaning.title
+}
+
+// problemAnswer is an operation's default answer with prob: the problem, at
+// its own status, and a rate limit's wait as the Retry-After header. Every
+// operation's default answer has this one shape, under its own type.
+func problemAnswer[Answer ~struct {
+	Body       api.Problem
+	Headers    api.ProblemResponseHeaders
+	StatusCode int
+}](prob api.Problem) Answer {
+	return Answer{Body: prob, Headers: api.ProblemResponseHeaders{RetryAfter: prob.RetryAfter}, StatusCode: prob.Status}
 }
 
 // writeProblem writes a problem details object as application/problem+json, for
@@ -146,11 +159,25 @@ func faultProblem(err error) (api.Problem, bool) {
 
 	for _, class := range faultClasses() {
 		if slices.ContainsFunc(class.causes, func(cause error) bool { return errors.Is(err, cause) }) {
-			return problem(setUpCode(class.code, err), class.detail), true
+			prob := problem(setUpCode(class.code, err), class.detail)
+			prob.RetryAfter = askedWait(err)
+
+			return prob, true
 		}
 	}
 
 	return problem(api.ProblemCodeInternal, "the request could not be completed; "+tryAgain), false
+}
+
+// askedWait is how many seconds an upstream's rate limit asked to wait, when it
+// said; nil for any other failure.
+func askedWait(err error) *int {
+	limited, ok := errors.AsType[*httpx.RateLimitError](err)
+	if !ok {
+		return nil
+	}
+
+	return new(int(limited.Wait / time.Second))
 }
 
 // setUpDetail is how to set up what cause says is missing, in the words
@@ -230,7 +257,7 @@ func transportFaults() []faultClass {
 		// sentinels, so these details name no service.
 		{
 			causes: []error{httpx.ErrRateLimited},
-			code:   api.ProblemCodeUnreachable, detail: "the service is limiting requests; wait and try again",
+			code:   api.ProblemCodeRateLimited, detail: "the service is limiting requests; wait and try again",
 		},
 		{
 			causes: []error{httpx.ErrRedirected},

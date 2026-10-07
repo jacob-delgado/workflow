@@ -107,9 +107,7 @@ func (s *server) GetPullRequestText(
 ) (api.GetPullRequestTextResponseObject, error) {
 	pull, err := s.branchOpenPull()
 	if err != nil {
-		failure := s.refusal(err)
-
-		return api.GetPullRequestTextdefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+		return problemAnswer[api.GetPullRequestTextdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	return api.GetPullRequestText200JSONResponse(api.PullRequestText{Title: pull.Title, Body: pull.Body}), nil
@@ -122,9 +120,7 @@ func (s *server) EditPullRequest(
 ) (api.EditPullRequestResponseObject, error) {
 	edited, err := s.editPull(forge.PullRequestEdit{Title: request.Body.Title, Body: request.Body.Body})
 	if err != nil {
-		failure := s.refusal(err)
-
-		return api.EditPullRequestdefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+		return problemAnswer[api.EditPullRequestdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	return api.EditPullRequest200JSONResponse(pullDTO(edited)), nil
@@ -206,9 +202,7 @@ func (s *server) GetMergeMethods(
 	}
 
 	if err != nil {
-		failure := s.refusal(err)
-
-		return api.GetMergeMethodsdefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+		return problemAnswer[api.GetMergeMethodsdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	offered := make([]api.MergeMethod, 0, len(methods))
@@ -226,9 +220,7 @@ func (s *server) MergePullRequest(
 ) (api.MergePullRequestResponseObject, error) {
 	pull, err := s.merge(forge.MergeMethod(request.Body.Method))
 	if err != nil {
-		failure := s.refusal(err)
-
-		return api.MergePullRequestdefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+		return problemAnswer[api.MergePullRequestdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	return api.MergePullRequest200JSONResponse(pullDTO(pull)), nil
@@ -268,9 +260,7 @@ func (s *server) merge(method forge.MergeMethod) (forge.PullRequest, error) {
 func (s *server) FinishBranch(context.Context, api.FinishBranchRequestObject) (api.FinishBranchResponseObject, error) {
 	branch, err := s.finish()
 	if err != nil {
-		failure := s.refusal(err)
-
-		return api.FinishBranchdefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+		return problemAnswer[api.FinishBranchdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	return api.FinishBranch200JSONResponse(branchDTO(branch)), nil
@@ -317,9 +307,7 @@ func (s *server) finish() (gitrepo.Branch, error) {
 func (s *server) RerunChecks(context.Context, api.RerunChecksRequestObject) (api.RerunChecksResponseObject, error) {
 	reran, err := s.rerun()
 	if err != nil {
-		failure := s.refusal(err)
-
-		return api.RerunChecksdefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+		return problemAnswer[api.RerunChecksdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	return api.RerunChecks200JSONResponse(api.Rerun{Reran: reran}), nil

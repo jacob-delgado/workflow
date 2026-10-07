@@ -24,7 +24,7 @@ var errStartDeclined = errors.New("taskwarrior declined to start the task")
 func (s *server) StartTask(_ context.Context, request api.StartTaskRequestObject) (api.StartTaskResponseObject, error) {
 	list, prob := s.taskWrite(request.UUID, declinedAsStart(s.deps.Tasks.Start))
 	if prob != nil {
-		return api.StartTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.StartTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.StartTask200JSONResponse(list), nil
@@ -51,7 +51,7 @@ func declinedAsStart(start func(uuid string) error) func(uuid string) error {
 func (s *server) StopTask(_ context.Context, request api.StopTaskRequestObject) (api.StopTaskResponseObject, error) {
 	list, prob := s.taskWrite(request.UUID, s.deps.Tasks.Stop)
 	if prob != nil {
-		return api.StopTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.StopTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.StopTask200JSONResponse(list), nil
@@ -63,7 +63,7 @@ func (s *server) CompleteTask(
 ) (api.CompleteTaskResponseObject, error) {
 	list, prob := s.taskWrite(request.UUID, s.deps.Tasks.Done)
 	if prob != nil {
-		return api.CompleteTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.CompleteTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.CompleteTask200JSONResponse(list), nil
@@ -81,7 +81,7 @@ func (s *server) AnnotateTask(
 
 	list, prob := s.taskWrite(request.UUID, withText(s.deps.Tasks.Annotate, request.Body.Text))
 	if prob != nil {
-		return api.AnnotateTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.AnnotateTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.AnnotateTask200JSONResponse(list), nil
@@ -98,7 +98,7 @@ func (s *server) ModifyTask(
 
 	list, prob := s.taskWrite(request.UUID, withText(s.deps.Tasks.Modify, request.Body.Line))
 	if prob != nil {
-		return api.ModifyTaskdefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.ModifyTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.ModifyTask200JSONResponse(list), nil

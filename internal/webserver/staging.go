@@ -60,9 +60,8 @@ func (s *server) Stage(_ context.Context, request api.StageRequestObject) (api.S
 
 	target, changes, err := s.moveChanges(*request.Body, direction)
 	if err != nil {
-		failure := s.stagingProblem(err, direction, target)
-
-		return api.StagedefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+		return problemAnswer[api.StagedefaultApplicationProblemPlusJSONResponse](
+			s.stagingProblem(err, direction, target)), nil
 	}
 
 	return api.Stage200JSONResponse(changesDTO(changes)), nil
@@ -76,9 +75,8 @@ func (s *server) Unstage(_ context.Context, request api.UnstageRequestObject) (a
 
 	target, changes, err := s.moveChanges(*request.Body, direction)
 	if err != nil {
-		failure := s.stagingProblem(err, direction, target)
-
-		return api.UnstagedefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+		return problemAnswer[api.UnstagedefaultApplicationProblemPlusJSONResponse](
+			s.stagingProblem(err, direction, target)), nil
 	}
 
 	return api.Unstage200JSONResponse(changesDTO(changes)), nil
@@ -92,9 +90,8 @@ func (s *server) Discard(_ context.Context, request api.DiscardRequestObject) (a
 
 	target, changes, err := s.moveChanges(api.StagingRequest{Path: &request.Body.Path, All: nil}, direction)
 	if err != nil {
-		failure := s.stagingProblem(err, direction, target)
-
-		return api.DiscarddefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+		return problemAnswer[api.DiscarddefaultApplicationProblemPlusJSONResponse](
+			s.stagingProblem(err, direction, target)), nil
 	}
 
 	return api.Discard200JSONResponse(changesDTO(changes)), nil
@@ -214,9 +211,7 @@ func (s *server) GetChangeDiff(
 	}
 
 	if err != nil {
-		body := s.fault(err)
-
-		return api.GetChangeDiffdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.GetChangeDiffdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	if lines == nil {

@@ -36,9 +36,7 @@ func (s *server) GetSlackMembers(
 
 	directory, err := directoryAnswer(members, err)
 	if err != nil {
-		prob := s.peopleFault(err)
-
-		return api.GetSlackMembersdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.GetSlackMembersdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 	}
 
 	return api.GetSlackMembers200JSONResponse(directory), nil
@@ -53,9 +51,7 @@ func (s *server) GetSlackGroups(
 
 	directory, err := directoryAnswer(groups, err)
 	if err != nil {
-		prob := s.peopleFault(err)
-
-		return api.GetSlackGroupsdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.GetSlackGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 	}
 
 	return api.GetSlackGroups200JSONResponse(directory), nil
@@ -66,9 +62,7 @@ func (s *server) GetSlackGroups(
 func (s *server) GetPeople(_ context.Context, _ api.GetPeopleRequestObject) (api.GetPeopleResponseObject, error) {
 	people, err := s.people()
 	if err != nil {
-		prob := s.peopleFault(err)
-
-		return api.GetPeopledefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.GetPeopledefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 	}
 
 	return api.GetPeople200JSONResponse(people), nil
@@ -89,9 +83,7 @@ func (s *server) LinkPerson(
 		}
 	}
 
-	prob := s.peopleFault(err)
-
-	return api.LinkPersondefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
+	return problemAnswer[api.LinkPersondefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 }
 
 // ForgetPerson drops what was decided for an owner, so they are asked again.
@@ -114,9 +106,7 @@ func (s *server) ForgetPerson(
 		}
 	}
 
-	prob := s.peopleFault(err)
-
-	return api.ForgetPersondefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
+	return problemAnswer[api.ForgetPersondefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 }
 
 // GetRepoGroups lists the user groups this repository's announcements may
@@ -126,9 +116,7 @@ func (s *server) GetRepoGroups(
 ) (api.GetRepoGroupsResponseObject, error) {
 	groups, err := s.repoGroups()
 	if err != nil {
-		prob := s.peopleFault(err)
-
-		return api.GetRepoGroupsdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
+		return problemAnswer[api.GetRepoGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 	}
 
 	return api.GetRepoGroups200JSONResponse(groups), nil
@@ -149,9 +137,7 @@ func (s *server) SetRepoGroups(
 		}
 	}
 
-	prob := s.peopleFault(err)
-
-	return api.SetRepoGroupsdefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: prob.Status}, nil
+	return problemAnswer[api.SetRepoGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 }
 
 // people is every decided owner, then the branch's undecided ones, users

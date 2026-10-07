@@ -58,9 +58,7 @@ func (s *server) CreateBranch(
 // createBranchFailure answers a start of work that made no branch, as
 // startRefusal words it.
 func (s *server) createBranchFailure(err error, key string) api.CreateBranchResponseObject {
-	body := s.startRefusal(err, key)
-
-	return api.CreateBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
+	return problemAnswer[api.CreateBranchdefaultApplicationProblemPlusJSONResponse](s.startRefusal(err, key))
 }
 
 // startRefusal words a start of work that made nothing: git's refusal, saying
@@ -227,9 +225,7 @@ func (s *server) CreateWorktree(
 		return api.CreateWorktree200JSONResponse{Dir: dir, Shown: shown, Branch: name}, nil
 	}
 
-	body := s.startRefusal(err, key)
-
-	return api.CreateWorktreedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+	return problemAnswer[api.CreateWorktreedefaultApplicationProblemPlusJSONResponse](s.startRefusal(err, key)), nil
 }
 
 // createWorktreeUnprocessable is the 422 response for a worktree the server
