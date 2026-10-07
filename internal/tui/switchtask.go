@@ -19,11 +19,6 @@ import (
 // switchTitle titles the detail pane while the task switcher is open.
 const switchTitle = "Switch branch"
 
-// errDirtyTree is the interface's words for loop.ErrDirtyTree: a switch refused
-// for the uncommitted work it would carry onto another branch. Stashing is left
-// to the person, so the reason says what to do rather than doing it.
-var errDirtyTree = errors.New("uncommitted changes — commit or stash them before switching branches")
-
 // errBranchHeldByGone is a branch a worktree whose directory is gone still holds:
 // git will not check it out anywhere until that worktree is pruned.
 var errBranchHeldByGone = errors.New("its worktree is gone; git worktree prune frees the branch to switch to")
@@ -411,11 +406,13 @@ func (msg treeChecked) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	dirty := loop.RefuseDirty(msg.changes)
+
 	switch {
 	case msg.err != nil:
 		return keepOpenWith[branchPicker](m, msg.err), nil
-	case loop.RefuseDirty(msg.changes) != nil:
-		return keepOpenWith[branchPicker](m, errDirtyTree), nil
+	case dirty != nil:
+		return keepOpenWith[branchPicker](m, dirty), nil
 	case m.dryRun:
 		return m.closeOverlay().noticed("dry run: would switch to " + msg.name), nil
 	}

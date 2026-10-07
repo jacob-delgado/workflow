@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
@@ -124,8 +125,13 @@ func TestCheckoutRefusesADirtyTree(t *testing.T) {
 		t.Error("checkout ran despite a dirty tree, want it refused before switching")
 	}
 
-	if failure := decode[api.Problem](t, recorder); failure.Code != api.Conflict {
+	failure := decode[api.Problem](t, recorder)
+	if failure.Code != api.Conflict {
 		t.Errorf("code = %q, want conflict", failure.Code)
+	}
+
+	if failure.Detail != loop.ErrDirtyTree.Error() {
+		t.Errorf("detail = %q, want the guard's own sentence %q", failure.Detail, loop.ErrDirtyTree.Error())
 	}
 }
 
