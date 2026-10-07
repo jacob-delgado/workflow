@@ -4,14 +4,14 @@ import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
+import { CopyURL } from '@/lib/CopyURL.tsx'
 import { writtenDate } from '@/lib/dates.ts'
 import { Select } from '@/lib/Field.tsx'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { Meta } from '@/lib/Meta.tsx'
 import { NewTabLink } from '@/lib/NewTabLink.tsx'
-import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
+import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure, plural } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
@@ -362,47 +362,6 @@ function waited(openedAt: string, readAt: number): string {
   return elapsed < month
     ? `${String(Math.floor(elapsed / day))}d ago`
     : writtenDate(new Date(opened))
-}
-
-// copyAddress puts an address on the clipboard.
-function copyAddress(url: string): Promise<void> {
-  return navigator.clipboard.writeText(url)
-}
-
-interface CopyURLProps {
-  url: string
-  mark: string
-  teller: Teller
-}
-
-// CopyURL copies a request's URL — the interface's "copy url" — and says so in
-// its row's outcome line; a copy the browser refuses says, beside it, how to
-// get the URL.
-function CopyURL({ url, mark, teller }: CopyURLProps) {
-  const copy = useAsyncAction(copyAddress, {
-    fallback: `The URL of ${mark} could not be copied; open it, and copy it from the address bar.`,
-    done: () => `Copied the URL of ${mark}.`,
-    onStart: teller.clear,
-    onDone: teller.say,
-  })
-
-  return (
-    <>
-      <Button
-        variant="secondary"
-        onClick={() => {
-          void copy.run(url)
-        }}
-      >
-        Copy URL <span className="sr-only">to {mark}</span>
-      </Button>
-      {copy.state === 'error' ? (
-        <p role="alert" className="basis-full text-destructive">
-          {copy.error}
-        </p>
-      ) : null}
-    </>
-  )
 }
 
 // NoForgeToAsk says there is no forge to read the queue from here, and what

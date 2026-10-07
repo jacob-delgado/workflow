@@ -201,6 +201,7 @@ func (s *server) snapshot(view string) api.Snapshot {
 	review.Announced = s.reviewAnnounced(review)
 	issues, issuesErr := s.snapshotIssues(view)
 	changes, changesErr := s.snapshotChanges()
+	commit := s.commitConvention()
 
 	return api.Snapshot{
 		Issues:  issues,
@@ -217,7 +218,8 @@ func (s *server) snapshot(view string) api.Snapshot {
 		HooksUnmanaged:     s.hooksUnmanaged(),
 		Branches:           s.snapshotBranches(branch.Name),
 
-		CommitTypes:    s.commitConvention().Types(),
+		CommitTypes:    commit.Types(),
+		SubjectLimit:   commit.SubjectLimit(),
 		SuggestedScope: s.suggestedScope(),
 
 		Tasks: s.snapshotTasks(),

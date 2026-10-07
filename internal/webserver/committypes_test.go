@@ -44,3 +44,35 @@ func TestSnapshotCarriesTheEffectiveCommitTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestSnapshotCarriesTheEffectiveSubjectLimit(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		configured int
+		want       int
+	}{
+		"the built-in limit, with none configured": {
+			configured: 0, want: convention.DefaultCommitConvention().SubjectLimit(),
+		},
+		"the team's own, when configured": {configured: 50, want: 50},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			cfg := config.Default()
+			cfg.Commit.SubjectLimit = tt.configured
+
+			// Act
+			recorder := streamOnce(t, serve(t, filledDeps(), cfg), "/api/events")
+
+			// Assert
+			if got := firstSnapshot(t, recorder.Body.String()).SubjectLimit; got != tt.want {
+				t.Errorf("subject limit = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}

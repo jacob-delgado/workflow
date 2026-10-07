@@ -905,6 +905,7 @@ export const zSnapshot = z.object({
     run: zRun.optional(),
     branches: z.array(zTaskBranch),
     commit_types: z.array(z.string()),
+    subject_limit: z.int().gte(1),
     suggested_scope: z.string(),
     tasks: zTasksSummary,
     problems: zPanelProblems.optional()

@@ -7,7 +7,7 @@ import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Failure, ReadFailure } from '@/lib/Status.tsx'
 import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { CommitForm } from './CommitForm.tsx'
+import { CommitForm, type CommitConvention } from './CommitForm.tsx'
 import {
   discardFile,
   readDiff,
@@ -27,13 +27,13 @@ export function WorkingTree({
   changes,
   unread,
   suggestedScope,
-  commitTypes,
+  convention,
 }: {
   changes: Change[]
   // Why the changes could not be read, or null when they were.
   unread: Problem | null
   suggestedScope: string
-  commitTypes: string[]
+  convention: CommitConvention
 }) {
   const discards = useOutcome()
   const anythingStaged = changes.some((change) => change.staged)
@@ -75,7 +75,7 @@ export function WorkingTree({
             : undefined
         }
         suggestedScope={suggestedScope}
-        commitTypes={commitTypes}
+        convention={convention}
       />
     </section>
   )
@@ -140,7 +140,7 @@ function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
     <li className="flex flex-col gap-tight text-sm">
       <div className="flex flex-wrap items-center gap-x-item gap-y-tight">
         <span className="shrink-0 text-muted-foreground sm:w-20">{change.kind}</span>
-        <code className="grow basis-full sm:basis-0">{change.path}</code>
+        <ChangePath change={change} />
         <StagedTag change={change} />
         <Button
           variant="secondary"
@@ -186,6 +186,25 @@ function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
       ) : null}
       <ChangeDiff path={change.path} />
     </li>
+  )
+}
+
+// ChangePath is where a changed file is: for a rename or a copy, the path it
+// had, then an arrow, then the path it has, as the terminal draws it. The arrow
+// is read as "to".
+function ChangePath({ change }: { change: Change }) {
+  const from = change.original_path ?? ''
+
+  return (
+    <code className="grow basis-full sm:basis-0">
+      {from === '' ? null : (
+        <>
+          {from} <span aria-hidden>→</span>
+          <span className="sr-only">to</span>{' '}
+        </>
+      )}
+      {change.path}
+    </code>
   )
 }
 

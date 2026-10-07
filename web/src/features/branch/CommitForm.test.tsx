@@ -12,12 +12,16 @@ const mockCommit = vi.mocked(commitChanges)
 // type it opens on.
 const types = ['feat', 'fix', 'docs']
 
+// The convention these tests commit under: fix among its types, so the form
+// keeps the type it opens on, and the built-in limit.
+const conventional = { types, subjectLimit: 72 }
+
 // A team that commits only hotfixes and chores, and never "feat" or "fix".
-const hotfixesAndChores = ['hotfix', 'chore']
+const hotfixesAndChoresOnly = { types: ['hotfix', 'chore'], subjectLimit: 72 }
 
 test('opens on the first of its types when fix is not among them', async () => {
   // Act
-  render(<CommitForm canCommit suggestedScope="" commitTypes={hotfixesAndChores} />)
+  render(<CommitForm canCommit suggestedScope="" convention={hotfixesAndChoresOnly} />)
 
   // Assert
   // The default "fix" is not among them, so the chosen type is corrected to one
@@ -32,7 +36,7 @@ test('keeps a configured type after a commit for a team that excludes fix', asyn
   // After the first commit the form must not revert its type to the built-in
   // "fix" default the server would reject.
   const user = userEvent.setup()
-  render(<CommitForm canCommit suggestedScope="" commitTypes={hotfixesAndChores} />)
+  render(<CommitForm canCommit suggestedScope="" convention={hotfixesAndChoresOnly} />)
 
   // Act: commit once, then commit again without touching the Type dropdown
   await user.type(screen.getByLabelText('Subject'), 'first change')
@@ -47,7 +51,9 @@ test('keeps a configured type after a commit for a team that excludes fix', asyn
 test('after a commit the form opens on the scope just used, and takes suggestions again', async () => {
   // Arrange
   const user = userEvent.setup()
-  const { rerender } = render(<CommitForm canCommit suggestedScope="api" commitTypes={types} />)
+  const { rerender } = render(
+    <CommitForm canCommit suggestedScope="api" convention={conventional} />,
+  )
   const scope = screen.getByLabelText<HTMLInputElement>('Scope (optional)')
   await user.clear(scope)
   await user.type(scope, 'cli')
@@ -63,7 +69,7 @@ test('after a commit the form opens on the scope just used, and takes suggestion
   expect(scope.value).toBe('cli')
 
   // Act: a later frame suggests another scope
-  rerender(<CommitForm canCommit suggestedScope="web" commitTypes={types} />)
+  rerender(<CommitForm canCommit suggestedScope="web" convention={conventional} />)
 
   // Assert: the scope is untouched since the commit, so the suggestion applies
   expect(scope.value).toBe('web')
@@ -74,7 +80,7 @@ test('after a commit with no scope the form opens on the suggestion again', asyn
   // A blank scope is not recorded, so the suggestion stays as it was and no
   // later frame brings it back: the reset itself must.
   const user = userEvent.setup()
-  render(<CommitForm canCommit suggestedScope="api" commitTypes={types} />)
+  render(<CommitForm canCommit suggestedScope="api" convention={conventional} />)
   const scope = screen.getByLabelText<HTMLInputElement>('Scope (optional)')
   await user.clear(scope)
   await user.type(screen.getByLabelText('Subject'), 'redact tokens')
@@ -93,7 +99,7 @@ test('after a commit with no scope the form opens on the suggestion again', asyn
 test('sends the breaking mark and the body with the commit', async () => {
   // Arrange
   const user = userEvent.setup()
-  render(<CommitForm canCommit suggestedScope="" commitTypes={types} />)
+  render(<CommitForm canCommit suggestedScope="" convention={conventional} />)
   await user.type(screen.getByLabelText('Subject'), 'drop the v1 endpoints')
   await user.type(screen.getByLabelText('Body (optional)'), 'Clients move to v2.')
   await user.click(screen.getByLabelText('Breaking change'))
@@ -113,7 +119,7 @@ test('says a commit by the header it was made with when the branch does not reac
   // there to read: the one the fields make stands in for it, type and all.
   mockCommit.mockResolvedValueOnce(makeBranch({ head: 'a1b2c3d4e5f6', commits: [] }))
   const user = userEvent.setup()
-  render(<CommitForm canCommit suggestedScope="" commitTypes={types} />)
+  render(<CommitForm canCommit suggestedScope="" convention={conventional} />)
   await user.type(screen.getByLabelText('Scope (optional)'), 'api')
   await user.type(screen.getByLabelText('Subject'), 'redact tokens')
   await user.click(screen.getByLabelText('Breaking change'))
@@ -135,7 +141,7 @@ test('says a commit by what was typed when the newest listed commit is not HEAD'
     }),
   )
   const user = userEvent.setup()
-  render(<CommitForm canCommit suggestedScope="" commitTypes={types} />)
+  render(<CommitForm canCommit suggestedScope="" convention={conventional} />)
   await user.type(screen.getByLabelText('Subject'), 'redact tokens')
 
   // Act
@@ -151,7 +157,7 @@ test('says a commit by its header alone when the server could not read its hash 
   // answers the branch as it stood, with no head: there is no hash to name.
   mockCommit.mockResolvedValueOnce(makeBranch({ head: '', commits: [] }))
   const user = userEvent.setup()
-  render(<CommitForm canCommit suggestedScope="" commitTypes={types} />)
+  render(<CommitForm canCommit suggestedScope="" convention={conventional} />)
   await user.type(screen.getByLabelText('Subject'), 'redact tokens')
 
   // Act
@@ -175,7 +181,7 @@ test('focus dropped to the page after a commit from the keyboard stays on the pa
     }),
   )
   const user = userEvent.setup()
-  const { rerender } = render(<CommitForm canCommit suggestedScope="" commitTypes={types} />)
+  const { rerender } = render(<CommitForm canCommit suggestedScope="" convention={conventional} />)
   await user.type(screen.getByLabelText('Subject'), 'redact{Enter}')
   await screen.findByText('Committed a1b2c3d fix: redact.')
   act(() => {
@@ -183,7 +189,7 @@ test('focus dropped to the page after a commit from the keyboard stays on the pa
   })
 
   // Act: the next frame draws the form again
-  rerender(<CommitForm canCommit={false} suggestedScope="" commitTypes={types} />)
+  rerender(<CommitForm canCommit={false} suggestedScope="" convention={conventional} />)
 
   // Assert
   expect(document.activeElement).toBe(document.body)
@@ -191,10 +197,29 @@ test('focus dropped to the page after a commit from the keyboard stays on the pa
 
 test('the subject box shows its hint in sentence case, as every placeholder does', () => {
   // Act
-  render(<CommitForm canCommit suggestedScope="" commitTypes={types} />)
+  render(<CommitForm canCommit suggestedScope="" convention={{ types, subjectLimit: 72 }} />)
 
   // Assert
   expect(screen.getByLabelText('Subject').getAttribute('placeholder')).toBe(
     'What the change does, in the imperative',
   )
+})
+
+test('counts the header against the subject limit as the subject is typed', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  render(<CommitForm canCommit suggestedScope="" convention={{ types, subjectLimit: 20 }} />)
+  const subject = screen.getByLabelText('Subject')
+
+  // Act: type a subject
+  await user.type(subject, 'redact')
+
+  // Assert: "fix: redact" is 11 of the 20
+  expect(screen.getByText('11/20')).toBeTruthy()
+
+  // Act: type further
+  await user.type(subject, ' tokens')
+
+  // Assert: "fix: redact tokens" is 18
+  expect(screen.getByText('18/20')).toBeTruthy()
 })

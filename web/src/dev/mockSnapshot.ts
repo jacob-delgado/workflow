@@ -108,6 +108,14 @@ export const mockSnapshot: Snapshot = {
         conflicted: false,
       },
       {
+        path: 'internal/sanitize/mask.go',
+        original_path: 'internal/config/mask.go',
+        kind: 'renamed',
+        staged: true,
+        has_unstaged: false,
+        conflicted: false,
+      },
+      {
         path: 'internal/wiring/reqlog_test.go',
         kind: 'new',
         staged: false,
@@ -171,6 +179,7 @@ export const mockSnapshot: Snapshot = {
     'style',
     'revert',
   ],
+  subject_limit: 72,
   // The scope the last commit here used, so the mockup's commit form opens on it.
   suggested_scope: 'wiring',
   hooks_unmanaged: 1,

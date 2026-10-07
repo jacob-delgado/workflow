@@ -434,6 +434,7 @@ const pagedSnapshot = {
   messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
   branches: [],
   commit_types: ['feat', 'fix'],
+  subject_limit: 72,
   suggested_scope: '',
   hooks_unmanaged: 0,
   tasks: { available: true, reason: '', linked: [] },
