@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
+import { onTestFinished, vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { StreamStatus } from './StreamStatus.tsx'
@@ -52,4 +53,35 @@ test.each([
 
   // Assert
   expect(markShape(screen.getByRole('status'))).toBe(drawnMark(mark))
+})
+
+test('says when the last snapshot landed beside the pill, and keeps it current', () => {
+  // Arrange
+  vi.useFakeTimers()
+  onTestFinished(() => {
+    vi.useRealTimers()
+  })
+  useSnapshotStore.setState({ status: 'live', receivedAt: Date.now() - 3_000 })
+  render(<StreamStatus />)
+
+  // Act: the page waits two seconds for the next frame
+  act(() => {
+    vi.advanceTimersByTime(2_000)
+  })
+
+  // Assert: the time counts on, outside the live region, so it is not spoken
+  // every second
+  expect(screen.getByText('Updated 5s ago')).toBeTruthy()
+  expect(screen.getByRole('status').textContent).not.toContain('Updated')
+})
+
+test('says nothing of an update before the first snapshot lands', () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'connecting', receivedAt: 0 })
+
+  // Act
+  render(<StreamStatus />)
+
+  // Assert
+  expect(screen.queryByText(/^Updated/)).toBeNull()
 })

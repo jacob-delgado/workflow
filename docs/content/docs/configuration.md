@@ -129,7 +129,7 @@ them on stderr, so there is never a question about which were read.
 | `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
 | `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them; any other value is refused when the file loads. `NO_COLOR` also turns them off. |
-| `ui.notify` | no | Ring the terminal (and raise a desktop notification where it relays one) when CI finishes. Defaults to `false`. |
+| `ui.notify` | no | Ring the terminal (and raise a desktop notification where it relays one) when CI finishes; under `--web`, say so in the page's header. Defaults to `false`. |
 | `ui.comments_shown` | no | How many of an issue's most recent comments the detail pane draws. Defaults to 5, which `0` also keeps; a negative count is refused when the file loads. |
 | `ui.keys` | no | Rebind keys: a map from an action to the single key that triggers it, e.g. `{"commit": "C"}`. The help then shows the new key. See [Rebinding keys](#rebinding-keys) for the actions. |
 | `ui.web_shortcuts` | no | Turn on the `--web` page's single-key shortcuts: the terminal's keys, `ui.keys` applied, pressed outside a text field. Defaults to `false`; `?` and the command palette work either way. See [Keys on the web](#keys-on-the-web). |
@@ -629,6 +629,8 @@ glyphs already say by shape what the colors say by hue, so nothing is lost.
 passes or fails — so you can open a pull request, switch to something else, and
 be told rather than checking back. On a terminal that understands the OSC 9
 notification sequence it also raises a desktop notification; the rest just ring.
+Under `--web` the page says it instead, in its header beside the stream's state —
+"CI passed on #128." — whichever section is open.
 While it is on, no [`timing.ci_interval`](#timing) is set and no announcement
 is waiting for CI to pass, CI is polled every three minutes rather than every
 twenty seconds, since a notification you stepped away for is not in a hurry.

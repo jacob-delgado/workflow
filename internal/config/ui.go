@@ -30,8 +30,9 @@ type UI struct {
 	// reverse-video cursor, which carry meaning without color.
 	Color string `json:"color"`
 	// Notify rings the terminal, and sends a desktop notification where the
-	// terminal relays one, when CI finishes — so a developer who stepped away is
-	// told rather than having to check back. Off unless set.
+	// terminal relays one, when CI finishes — and the --web page says so in its
+	// header — so a developer who stepped away is told rather than having to
+	// check back. Off unless set.
 	Notify bool `json:"notify"`
 	// CommentsShown is how many of an issue's most recent comments the detail
 	// pane draws. Zero keeps the built-in default.

@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { create } from 'zustand'
 import { zSnapshot } from './generated/zod.gen.ts'
 import type { Snapshot } from './generated/types.gen.ts'
@@ -51,6 +51,30 @@ export function useLiveSnapshot(): Snapshot {
   }
 
   return snapshot
+}
+
+// useChangedByStream marks a row's value — a pull request's state, a check's,
+// a file's stage — changed when a later snapshot changes it under the mounted
+// row, so the row can play its brief highlight; settle, once that has played,
+// takes the mark away. A value first drawn, as a section opens, is not a
+// change. The highlight only points: what changed is said in words elsewhere,
+// so the mark carries nothing a reader must see.
+export function useChangedByStream(value: string): { changed: boolean; settle: () => void } {
+  const [seen, setSeen] = useState(value)
+  const [changed, setChanged] = useState(false)
+  // Set while rendering, as React has state follow what it reads, so the frame
+  // that changes the value is the one drawn highlighted.
+  if (seen !== value) {
+    setSeen(value)
+    setChanged(true)
+  }
+
+  return {
+    changed,
+    settle: () => {
+      setChanged(false)
+    },
+  }
 }
 
 // useEventStream opens the Server-Sent Events connection and keeps the snapshot

@@ -237,3 +237,29 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* The page's one deliberate motion: a row a snapshot has just changed under the
+   reader — a pull request's state, a check, a file's stage — lifts to the
+   accent and fades back, once, so the eye finds what moved. It only points:
+   what changed is said in words, so a reader who asked for less motion loses
+   nothing by its absence, and it is drawn for no one else. The shadow carries
+   the fill a little past the row's edge without moving anything. */
+@media (prefers-reduced-motion: no-preference) {
+  .stream-changed {
+    border-radius: var(--radius-sm);
+    animation: stream-changed 1.6s ease-out;
+  }
+}
+
+@keyframes stream-changed {
+  from,
+  25% {
+    background-color: var(--accent);
+    box-shadow: 0 0 0 0.25rem var(--accent);
+  }
+
+  to {
+    background-color: transparent;
+    box-shadow: 0 0 0 0.25rem transparent;
+  }
+}

@@ -54,6 +54,29 @@ export function relativeTime(count: number, unit: Intl.RelativeTimeFormatUnit): 
   return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(count, unit)
 }
 
+const second = 1_000
+const minute = 60 * second
+const hour = 60 * minute
+
+// narrowAgo is how long ago something was, in milliseconds, as a figure for a
+// line that has no room for words: just now, then 3s ago, 5m ago, 2h ago.
+export function narrowAgo(elapsed: number): string {
+  if (elapsed < second) {
+    return 'just now'
+  }
+
+  const narrow = new Intl.RelativeTimeFormat(locale, { numeric: 'always', style: 'narrow' })
+  if (elapsed < minute) {
+    return narrow.format(-Math.floor(elapsed / second), 'second')
+  }
+
+  if (elapsed < hour) {
+    return narrow.format(-Math.floor(elapsed / minute), 'minute')
+  }
+
+  return narrow.format(-Math.floor(elapsed / hour), 'hour')
+}
+
 // civilNoon is noon UTC on a calendar date, so formatting it in UTC can never
 // land on the day before or after.
 function civilNoon(date: string): Date {

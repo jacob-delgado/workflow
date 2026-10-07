@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Change, FileDiff, Problem } from '@/api/generated/types.gen.ts'
+import { useChangedByStream } from '@/api/snapshot.ts'
 import { useHoldShortcuts, useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
@@ -7,6 +8,7 @@ import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Failure, ReadFailure } from '@/lib/Status.tsx'
 import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { cn } from '@/lib/utils.ts'
 import { CommitForm, type CommitConvention } from './CommitForm.tsx'
 import {
   discardFile,
@@ -118,7 +120,7 @@ function stagedTag(change: Change): { word: string; mark: MarkState } {
 // line that says what the last press did, and why when it was refused. The row
 // outlives the snapshot that shows the file moved — it is keyed by the path —
 // so what it said stays, and says what was done then, not what the button
-// offers now.
+// offers now; a snapshot that moves its stage plays the row's brief highlight.
 function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
   const [asking, setAsking] = useState(false)
   const [discardOpener, handBack] = useFocusHandback<HTMLButtonElement>()
@@ -126,6 +128,7 @@ function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
   const verb = stage ? 'Stage' : 'Unstage'
   const busy = stage ? 'Staging…' : 'Unstaging…'
   const outcome = useOutcome()
+  const staging = useChangedByStream(stagedTag(change).word)
   const { state, error, run } = useAsyncAction(
     () => (stage ? stageFile(change.path) : unstageFile(change.path)),
     {
@@ -137,7 +140,10 @@ function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
   )
 
   return (
-    <li className="flex flex-col gap-tight text-sm">
+    <li
+      className={cn('flex flex-col gap-tight text-sm', staging.changed && 'stream-changed')}
+      onAnimationEnd={staging.settle}
+    >
       <div className="flex flex-wrap items-center gap-x-item gap-y-tight">
         <span className="shrink-0 text-muted-foreground sm:w-20">{change.kind}</span>
         <ChangePath change={change} />
