@@ -107,9 +107,9 @@ func (s *server) PostActivity(
 	}
 
 	if err != nil {
-		failure, code := s.fault(err)
+		failure := s.fault(err)
 
-		return api.PostActivitydefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: code}, nil
+		return api.PostActivitydefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
 	}
 
 	return api.PostActivity200JSONResponse{
@@ -272,7 +272,7 @@ func repositoryDetail(failure error, describe func(error) string) string {
 // describe is a failure's detail as fault words it, handing one it does not
 // recognize to Unexpected.
 func (s *server) describe(err error) string {
-	body, _ := s.fault(err)
+	body := s.fault(err)
 
 	return body.Detail
 }
