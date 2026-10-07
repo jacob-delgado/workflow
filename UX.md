@@ -331,11 +331,10 @@ over a log of what workflow did, is FEAT-87's.
 ## The web
 
 What is open here is a stream that marks no change; Settings' unseen
-sections, misleading hints, blank selects, failed read and unremovable
-credential; what the browser could borrow from the interface; the Branch
-section's detached HEAD; keyboard focus; four states drawn as words with
-no mark; links, stages and controls that tell less than their siblings;
-and copy settled site by site.
+sections, misleading hints, blank selects and unremovable credential; what
+the browser could borrow from the interface; the Branch section's detached
+HEAD; four states drawn as words with no mark; and copy settled site by
+site.
 
 Every pointer here was checked again at `e5156e3`. A screenshot named
 by its file (`1440-dark-tasks.png`, say) is from a pass on 2026-10-05 over
@@ -439,132 +438,6 @@ a renamed change finds both paths in the row; a `CommitForm` test with
 `ReviewPanel` test clicks "Copy URL to #128" and reads the URL back from
 the clipboard; a test types a search, selects another view, and finds the
 searchbox named Search empty once the new frame lands.
-
-### UX-106 Thirty-seven controls let keyboard focus fall to the page
-
-Impact: low · Effort: small
-
-**Today.** Thirty-seven controls set native `disabled` while their request
-or run goes, which drops focus in Chromium and WebKit, and nothing re-takes
-it. A keyboard user who is refused — a dirty tree, a branch that already
-exists, the dry-run hold on every Start work press, a Taskwarrior refusal,
-a Summary too long for its service — hears the reason and is left at the
-top of the page, and one who presses Run pre-commit is left there for the
-whole run. `useAsyncAction`'s catch sets the error and the state only
-(`web/src/lib/useAsyncAction.ts:53`), so `onDone` never runs on a refusal
-and the panel's `OutcomeLine` has nothing to follow. Counted from `grep -rn
-"disabled={" web/src --include='*.tsx'`, tests and `aria-disabled`
-excluded: 62 lines. Four name no request — a transition not yet chosen
-(`web/src/features/issues/writes/StatusChangeForm.tsx:46`), an edited
-description's Template (`web/src/features/review/OpenPullRequest.tsx:273`),
-a fixup with no commit chosen
-(`web/src/features/branch/HistoryActions.tsx:224`) and a group checkbox
-under `--dry-run` (`web/src/features/settings/people/RepoGroups.tsx:74`) —
-and three hand a prop down
-(`web/src/features/settings/people/PeopleTable.tsx:100`, `:217`;
-`web/src/features/messaging/TagPicker.tsx:74`), so 55 hold a running
-control. Eighteen of those keep focus or never had it: the push
-(`PushButton` re-focuses its opener on an error,
-`web/src/features/branch/BranchPanel.tsx:180`) and Local data's two remove
-openers (`web/src/features/settings/people/LocalData.tsx:182`); the
-announcement preview's channel select, text box, Edit, Cancel, Announce
-when CI passes, Announce now and group checkboxes (`AnnouncePreview`,
-`web/src/features/messaging/AnnouncePreview.tsx:95`–`:183`;
-`web/src/features/messaging/TagPicker.tsx:286`), whose send hands focus
-back first (`PreviewStep`'s `send`,
-`web/src/features/messaging/MessagingPanel.tsx:251`); seven that did not
-have focus — the Cancels beside a send
-(`web/src/features/review/OpenPullRequest.tsx:169`,
-`web/src/lib/WriteForm.tsx:79`, `web/src/features/branch/HookSetup.tsx:147`,
-`web/src/features/settings/people/PeopleTable.tsx:325`,
-`web/src/features/branch/WorkingTree.tsx:398` in the discard confirm,
-`web/src/features/summary/SummaryPost.tsx:129` in the Summary's preview)
-and a code owner's Forget… held while the row's select saves
-(`web/src/features/settings/people/PeopleTable.tsx:224`) — and
-`WriteForm`'s fieldset (`web/src/lib/WriteForm.tsx:74`), whose fields the
-send took focus from. The 37, by section, counted by line (`WriteForm`'s
-one send serves ten forms):
-
-- Issues: the list row's `RowCheckout`
-  (`web/src/features/issues/IssuesPanel.tsx:528`); the story's
-  `CheckoutButton` (`web/src/features/issues/WorkStory.tsx:353`) and
-  `StartWorkButton` (`:385`), the path every dry-run press takes;
-  `StartInWorktreeButton`
-  (`web/src/features/issues/StartInWorktree.tsx:34`); and the send of
-  every write form (`WriteForm`, `web/src/lib/WriteForm.tsx:82`): Change
-  status, Assign and Log work here, the pull request's four writes and the
-  Branch section's three looks below.
-- Branch: `ChangeRow` (`web/src/features/branch/WorkingTree.tsx:145`),
-  `StageAll` (`:303`), `UnstageAll` (`:338`) and the discard confirm's
-  Discard (`:407`), which keeps its refusal in the confirm;
-  `CommitForm`'s submit (`web/src/features/branch/CommitForm.tsx:97`);
-  `LinkForm`'s Link (`web/src/features/branch/IssueLink.tsx:198`), while
-  Unlink in the same file holds with `aria-disabled` (`:116`); Rebase
-  onto, Run pre-commit, Amend last commit and Fix up a commit, each off
-  while any run goes (`web/src/features/branch/HistoryActions.tsx:82`,
-  `:145`, `:158`, `:169`); and Set up lefthook's two writes
-  (`web/src/features/branch/HookSetup.tsx:152`, `:161`).
-- Review: `OpenPullRequest`'s compose button
-  (`web/src/features/review/OpenPullRequest.tsx:76`); `PullRequestForm`'s
-  submit (`:172`), which stays up on a refused open; and `FollowUpOffer`'s
-  button (`web/src/features/review/OpenedOutcome.tsx:85`).
-- Messaging: `AnnounceControls`' Announce to
-  (`web/src/features/messaging/MessagingPanel.tsx:171`); in the tag
-  picker, an untagged owner's select and Not on Slack, held while a link
-  saves (`web/src/features/messaging/TagPicker.tsx:235`, `:256`); and Stop
-  waiting (`web/src/features/messaging/HeldAnnouncement.tsx:58`).
-- Tasks: `TaskLineForm`'s submit
-  (`web/src/features/tasks/TaskLineForm.tsx:80`); every `Verb` — Start,
-  Stop and the rest (`web/src/features/tasks/TaskDetail.tsx:319`) — and the
-  confirm's own button for Mark done…, Undo… and Sync… (`:305`); and
-  `TrackIssue`'s Track in Taskwarrior
-  (`web/src/features/tasks/IssueTasks.tsx:191`).
-- Summary: the preview's Post
-  (`web/src/features/summary/SummaryPost.tsx:138`), which keeps a refusal,
-  a too-long Summary among them, in the preview.
-- Settings: the configuration's Try again (`ConfigArea`,
-  `web/src/features/settings/SettingsPanel.tsx:68`), its message in an
-  `EmptyState` rather than an alert (UX-120), which hands focus to the
-  form only once the read answers; Save (`SaveControls`, `:204`), which
-  reports "Saved." through its own `role="status"` span (`:207`), a second
-  state machine beside the shared `OutcomeLine`, so a mouse-clicked Save
-  disables itself under focus and the span does not take it; the
-  changed-since-read Reload (`ChangedSinceRead`, `:234`); a code owner's
-  Slack select (`web/src/features/settings/people/PeopleTable.tsx:261`)
-  and the forget confirm's Forget (`:334`); Save groups
-  (`web/src/features/settings/people/RepoGroups.tsx:89`); and the first
-  run's write and its Write it anyway
-  (`web/src/features/settings/SetupForm.tsx:273`, `:278`).
-
-The project already knows the rule, and keeps it in ten places: Load
-more (`MoreIssues`, `web/src/features/issues/IssuesPanel.tsx:419`), the
-review queue's Try again (`Queue`,
-`web/src/features/reviewqueue/ReviewQueuePanel.tsx:129`), the Try again
-of every other failed read — the issue, Summary, Repositories and the
-three Settings reads under the form (`Unread`,
-`web/src/lib/Status.tsx:78`) — Show log (`CheckLog`,
-`web/src/features/review/Checks.tsx:107`), Show diff
-(`web/src/features/branch/WorkingTree.tsx:230`), Set up lefthook's read
-(`web/src/features/branch/HookSetup.tsx:44`), Unlink, the comment's send
-(`web/src/features/issues/CommentComposer.tsx:410`), every directory
-switch's Switch (`ConfirmSwitch`,
-`web/src/features/repositories/ConfirmSwitch.tsx:57`) and the Tasks
-Refresh (`web/src/features/tasks/TasksPanel.tsx:214`) all hold with
-`aria-disabled`; and `canHoldFocus` treats a disabled control as unable
-to hold focus (`web/src/lib/Outcome.tsx:98`).
-
-**Instead.** Hold each running control with `aria-disabled` (guarding
-`onClick` or `onChange` as `Unread`'s Try again does) so it keeps focus
-through a refusal and a run, and say Settings' save result through
-`useOutcome` and `OutcomeLine` as the other panels do, keeping the
-changed-since-read alert separate.
-
-**Done when.** A test presses each of the thirty-seven against a refused
-request, or a run, and finds `document.activeElement` still on it once
-the refusal or the run's end is shown; a `SettingsPanel` test clicks Save
-with the mouse, awaits "Saved.", and finds `document.activeElement` on the
-status line, not `document.body`; the grep above finds no `disabled={`
-that names a request's running state.
 
 ### UX-107 The web's detached HEAD offers no way out
 
@@ -683,39 +556,6 @@ the contract, or a per-field remove control — that writes an empty value.
 **Done when.** A test sends `jira.token` as `null` and the saved file holds
 no token.
 
-### UX-120 Settings draws a failed configuration read as a resting state
-
-Impact: low · Effort: small
-
-**Today.** When the configuration cannot be read, `ConfigArea` puts the
-reason inside `<EmptyState>`
-(`web/src/features/settings/SettingsPanel.tsx:63`), as muted text with no
-`role="alert"` (`:65`); `EmptyState` is the dashed, centered,
-`text-muted-foreground` box a panel shows when it has nothing yet
-(`web/src/shell/EmptyState.tsx:6`). Every other failed read now says its
-reason in `text-destructive`: through `Unread`
-(`web/src/lib/Status.tsx:72`) for the issue, the Summary, Repositories and
-the three Settings reads directly beneath this one; through `ReadFailure`
-(`:34`) for the Issues list, the branch, the working tree and the Review
-section; and, in the review queue, through its own `role="alert"` line
-(`Queue`, `web/src/features/reviewqueue/ReviewQueuePanel.tsx:122`). Red is the failure color and nothing else, and here a
-failure is not red: a 1024 px dark screenshot of the production build's
-empty Settings section, taken in the 2026-09-24 audit, showed gray "The
-configuration could not be loaded." centered in the dashed box, the same
-drawing as "Connecting to workflow…" (`web/src/shell/SectionPanel.tsx:42`),
-while its empty Reviews twin showed the queue's failure red and
-left-aligned; a screen reader hears nothing, since no live region carries
-it. A Try again is right there, held with native `disabled` (UX-106), and
-a configuration that fails to read is outside the daily loop, which is
-why this is low.
-
-**Instead.** Say the failure through `Unread`, as the three reads below
-it do: a `role="alert"` line in `text-destructive` with Try again beside
-it, outside the `EmptyState`.
-
-**Done when.** A `SettingsPanel` test with a failing configuration read
-finds the reason by role alert; a screenshot shows it in the failure color.
-
 ### UX-122 Web copy settles plurals, case, periods and state words site by site
 
 Impact: low · Effort: small
@@ -816,77 +656,6 @@ upstream `''` finds the same placeholder in both `dd` cells; a
 header and content agree; `ReviewQueuePanel` tests assert the terminal's
 empty-queue sentence and its date form past a month, with the comment and
 code agreeing.
-
-### UX-123 Forge links, story stages and two controls tell less than their siblings
-
-Impact: low · Effort: small
-
-**Today.** jsx-a11y strict and axe A/AA pass, since each control has some
-name; what each says at rest, or in its name, is less than its neighbors
-say.
-
-- In the Review section `PullRequestSummary`'s title link opens the forge
-  in a new tab (`target="_blank"`,
-  `web/src/features/review/ReviewPanel.tsx:124`) with `{pull.title}` as
-  its whole accessible name (`:128`) and only `underline-offset-4
-  hover:underline` for a class (`:126`): no `text-primary`, no icon, no
-  new-tab note, no focus-visible ring. The Issue row's link (`IssueRow`,
-  `:179`) and each CI check's name (`CheckRow`,
-  `web/src/features/review/Checks.tsx:59`, the link at `:69`) are the
-  same, and a check without a URL is bare text (`:67`) that looks
-  identical. The
-  Summary's activity links (`ActivityLine`,
-  `web/src/features/summary/ActivityList.tsx:114`) are underlined and
-  ringed but carry no new-tab note either. On the Review screenshots
-  (`1440-dark-review.png`) the heading "#128 fix: redact tokens…" and the
-  check rows look like static text; a focused forge link falls back to
-  the browser's default outline; a screen-reader user activating any of
-  them is moved to a new tab unwarned. The page's other three outbound
-  links carry all of it: the queue's Open (`RequestRow`,
-  `web/src/features/reviewqueue/ReviewQueuePanel.tsx:325`), Open in Jira
-  (`IssuePeople`, `web/src/features/issues/IssueDetailPanel.tsx:129`) and
-  the task's issue link (`web/src/features/tasks/TaskDetail.tsx:135`),
-  each with the `ExternalLink` icon and the sr-only "(opens in a new
-  tab)".
-- Each work-story stage is a button that calls `setSection` (`WorkStory`,
-  `web/src/features/issues/WorkStory.tsx:318`), yet it is styled only with
-  `hover:bg-accent` and a focus ring (`:323`) and its sr-only span carries
-  the state alone (`:326`): nothing at rest or in its name says it
-  navigates, though `docs/content/docs/web.md:122` promises under "Issues"
-  each "step opening the section it belongs to", so the story reads as a
-  plain timeline in `1440-dark-issues.png`.
-- The Settings `<form>` has `onSubmit` and a `className` only
-  (`ConfigForm`, `web/src/features/settings/SettingsPanel.tsx:175`), no
-  `aria-label` or `aria-labelledby`, so it is not a form landmark while
-  the commit and pull request forms are, and
-  `getByRole('form', { name: /settings/i })` cannot resolve the site's
-  largest form.
-- `ThemeToggle`, icon-only at every width, carries its name in
-  `aria-label` alone (`web/src/shell/ThemeToggle.tsx:24`) with no `title`,
-  where `NavRail`'s buttons show theirs on hover (`title={name}`,
-  `web/src/shell/NavRail.tsx:33`); a mouse resting on the toggle shows
-  nothing.
-
-**Instead.** Draw the title, issue and check-name links as the queue draws
-Open — `text-primary`, the `ExternalLink` icon, the sr-only new-tab note
-and the focus-visible ring — so a check with a URL differs visibly from
-one without, and give the activity links the note; mark each stage as a
-control at rest inside the system (the title in `text-primary`, or a
-trailing chevron in the muted foreground) and give it an sr-only suffix or
-`aria-describedby` naming the section it opens; `aria-labelledby` on the
-Settings form pointing at the section's h1; a `title` on the toggle equal
-to the choice it announces ("Theme: System").
-
-**Done when.** `web/src/features/review/ReviewPanel.test.tsx` finds the
-title link, the issue link and each check with a URL by role link with a
-name ending "(opens in a new tab)" and `target="_blank"`, and a check
-without a URL as text; a `WorkStory` test finds each stage by role button
-with a name or description matching /opens (branch|review|messaging)/i
-and a screenshot of the Issues section shows a rest-state mark on each
-stage; `screen.getByRole('form', { name: /settings/i })` resolves in
-`web/src/features/settings/SettingsPanel.test.tsx`; a `ThemeToggle` test
-asserts the button's `title` names the current choice and changes with
-it.
 
 ### UX-124 Two Settings selects draw blank for the value in effect
 
@@ -992,9 +761,11 @@ web lint refuses an `uppercase` class (`web/eslint.config.js:38`) — and
 monospace is for code alone. Periwinkle stays the one control accent, and
 the middle dot the separator. Each part of that is drawn in one place in
 `web/src/lib`: a field (`Field.tsx`) and a button (`Button.tsx`) in one
-padding and size scale, a row's facts apart, with the dot between them
+padding and size scale, each held with `aria-disabled` while its request
+runs so it keeps the focus, a row's facts apart, with the dot between them
 hidden from assistive tech (`Meta.tsx`), a date in one locale
-(`dates.ts`), and a read in flight or a failure (`Status.tsx`) as a
+(`dates.ts`), a link that opens a new tab, saying so (`NewTabLink.tsx`),
+and a read in flight or a failure (`Status.tsx`) as a
 `role="status"` line beginning "Reading" or a `role="alert"` line in the
 failure color.
 
