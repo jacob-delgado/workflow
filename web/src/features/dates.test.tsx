@@ -83,7 +83,7 @@ test('an old comment gives the date in running text', async () => {
 
   // Assert
   const thread = await screen.findByRole('list', { name: 'Comments' })
-  expect(within(thread).getByRole('time').textContent).toBe('Mar 14, 2025')
+  expect(within(thread).getByRole('time').textContent).toBe('2025-03-14')
 })
 
 test('a task’s due date and its note give the date as a comment does', async () => {
@@ -102,7 +102,7 @@ test('a task’s due date and its note give the date as a comment does', async (
   const dates = within(detail)
     .getAllByRole('time')
     .map((time) => time.textContent)
-  expect(dates).toEqual(['Mar 14, 2025', 'Mar 14, 2025'])
+  expect(dates).toEqual(['2025-03-14', '2025-03-14'])
 })
 
 test('a one-day Summary heads the day once', async () => {
@@ -131,5 +131,5 @@ test('the Summary’s copy names its day as running text does', async () => {
   await user.click(await screen.findByRole('button', { name: 'Copy as Markdown' }))
 
   // Assert
-  expect(await screen.findByText('Copied the summary of Sep 15, 2026.')).toBeTruthy()
+  expect(await screen.findByText('Copied the summary of 2026-09-15.')).toBeTruthy()
 })
