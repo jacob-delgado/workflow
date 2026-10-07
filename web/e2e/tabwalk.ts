@@ -13,11 +13,11 @@ import type { Snapshot } from '../src/api/generated/types.gen.ts'
 // pixel at a scrolled edge.
 const inView = 0.99
 
-// tabStops are where Tab stops: every link, button and field not disabled or
-// taken out of the order.
+// tabStops are where Tab stops: every link, button, field and disclosure's
+// summary not disabled or taken out of the order.
 function tabStops(): HTMLElement[] {
   const candidates = document.querySelectorAll<HTMLElement>(
-    'a[href], button, input, select, textarea, [tabindex]',
+    'a[href], button, input, select, textarea, details > summary, [tabindex]',
   )
 
   return [...candidates].filter((stop) => stop.tabIndex >= 0 && !stop.matches(':disabled'))
