@@ -173,7 +173,7 @@ test('gives the date of a request that has waited over a month', async () => {
 
   // Assert
   const list = await screen.findByRole('list', { name: 'Waiting on your review' })
-  const time = within(list).getByText('Mar 14, 2025', { exact: false })
+  const time = within(list).getByText('2025-03-14', { exact: false })
   expect(time.getAttribute('datetime')).toBe(opened)
 })
 

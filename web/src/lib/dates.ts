@@ -1,10 +1,9 @@
 // Every date the web writes is written here, in one locale: the interface's
 // copy is English, so its dates read the way that copy does, whatever the
-// browser reports. Two styles, one for running text and one for a heading,
-// so the same day reads the same a section apart.
+// browser reports. Two styles, one for running text — YYYY-MM-DD, as the
+// terminal writes every date — and one for a heading, so the same day reads
+// the same a section apart, and the same on both interfaces.
 const locale = 'en-US'
-
-const runningText: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' }
 
 const heading: Intl.DateTimeFormatOptions = {
   weekday: 'long',
@@ -14,14 +13,17 @@ const heading: Intl.DateTimeFormatOptions = {
 }
 
 // writtenDate is a moment's date, in the browser's time zone, as running text
-// says it: Sep 18, 2026.
+// says it: 2026-09-18, the terminal's time.DateOnly.
 export function writtenDate(at: Date): string {
-  return at.toLocaleDateString(locale, runningText)
+  const month = String(at.getMonth() + 1).padStart(2, '0')
+  const day = String(at.getDate()).padStart(2, '0')
+
+  return `${String(at.getFullYear())}-${month}-${day}`
 }
 
 // writtenDay is a calendar date, YYYY-MM-DD, as running text says it.
 export function writtenDay(date: string): string {
-  return civilNoon(date).toLocaleDateString(locale, { ...runningText, timeZone: 'UTC' })
+  return civilNoon(date).toISOString().slice(0, 10)
 }
 
 // headingDay is a calendar date, YYYY-MM-DD, as a heading or a day's

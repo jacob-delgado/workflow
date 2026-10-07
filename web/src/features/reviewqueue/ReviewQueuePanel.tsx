@@ -325,8 +325,9 @@ function RequestRow({ request, readAt }: RequestRowProps) {
 }
 
 // waited is how long before the queue was read a request was opened, in the
-// terminal's words: just now, then minutes, hours and days, and the date past
-// a month. The server sends the zero time for a date the forge did not give.
+// terminal's words: just now, then minutes, hours and days, and past a month
+// the date, YYYY-MM-DD. The server sends the zero time for a date the forge
+// did not give.
 function waited(openedAt: string, readAt: number): string {
   const opened = Date.parse(openedAt)
   if (opened <= 0) {

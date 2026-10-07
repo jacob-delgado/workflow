@@ -12,9 +12,9 @@ function noonOn(year: number, month: number, day: number): Date {
   return new Date(year, month - 1, day, 12)
 }
 
-test('a date in running text is short and unambiguous', () => {
+test('a date in running text is written as the terminal writes it', () => {
   // Act & Assert
-  expect(writtenDate(noonOn(2026, 9, 18))).toBe('Sep 18, 2026')
+  expect(writtenDate(noonOn(2026, 9, 18))).toBe('2026-09-18')
 })
 
 test('a civil date in running text reads the same as that day as a moment', () => {
