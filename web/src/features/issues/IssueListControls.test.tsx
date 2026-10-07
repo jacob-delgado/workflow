@@ -334,7 +334,7 @@ test('says how many loaded issues the filter matches', async () => {
   await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'proj-12')
 
   // Assert
-  expect(statusTexts()).toContain('1 of 2 loaded issues match.')
+  expect(statusTexts()).toContain('1 of 2 loaded issues matches.')
 })
 
 test('keeps the selected issue open when the filter hides it', async () => {

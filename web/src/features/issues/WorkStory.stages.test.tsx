@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import type { Ci, CiState, PullRequest, Snapshot } from '@/api/generated/types.gen.ts'
+import type { Change, Ci, CiState, PullRequest, Snapshot } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
@@ -207,4 +207,25 @@ test('sets the branch name in the code face in the note over an issue in flight 
   // Assert
   const note = screen.getByText(/^In progress on/)
   expect(within(note).getByText('feat/PROJ-2-metrics').tagName).toBe('CODE')
+})
+
+test.each([
+  [1, '1 file to commit'],
+  [3, '3 files to commit'],
+])('counts %i changed files in words', (files, said) => {
+  // Arrange
+  const changed: Change = {
+    path: 'a.go',
+    kind: 'modified',
+    staged: false,
+    has_unstaged: true,
+    conflicted: false,
+  }
+  streamOnHead({ changes: { changes: Array.from({ length: files }, () => changed) } })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(screen.getByRole('button', { name: /^Changes/ }).textContent).toContain(said)
 })

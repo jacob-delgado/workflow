@@ -7,7 +7,7 @@ import { Button } from '@/lib/Button.tsx'
 import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { capitalized, cn } from '@/lib/utils.ts'
+import { capitalized, cn, plural } from '@/lib/utils.ts'
 import { sectionMeta } from '@/shell/sections.ts'
 import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
@@ -179,7 +179,7 @@ function announceDetail(messaging: Snapshot['messaging']): string {
 function changesDetail(snapshot: Snapshot): string {
   const { changes, branch } = snapshot
   if (changes.changes.length > 0) {
-    return `${String(changes.changes.length)} file(s) to commit`
+    return `${plural(changes.changes.length, 'file')} to commit`
   }
   if (branch.commits.length > 0) {
     return 'Working tree clean'

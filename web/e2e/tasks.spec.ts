@@ -312,7 +312,7 @@ for (const theme of themes) {
       await narrow.getByRole('button', { name: 'priority H 1' }).click()
       await page.getByRole('combobox', { name: 'Sort' }).selectOption('By tag')
       await page.getByRole('searchbox', { name: 'Search' }).fill('staging')
-      await expect(page.getByText('1 of 2 tasks match, by tag.')).toBeVisible()
+      await expect(page.getByText('1 of 2 tasks matches, by tag.')).toBeVisible()
       const { reached, missed, hidden } = await walkTabOrder(page)
 
       // Assert: nothing scrolls sideways, nor the page down; Tab reaches the

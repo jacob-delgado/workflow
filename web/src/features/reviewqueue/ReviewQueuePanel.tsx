@@ -12,7 +12,7 @@ import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { cn, contentMeasure } from '@/lib/utils.ts'
+import { cn, contentMeasure, plural } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
@@ -178,9 +178,7 @@ function queueSummary(count: number, shown: number, noun: string, order: ReviewO
   const listed = orderWords[order].toLowerCase()
   const filtered = shown < count ? `; ${String(shown)} shown` : ''
 
-  return count === 1
-    ? `1 ${noun} waits on your review, ${listed}${filtered}.`
-    : `${String(count)} ${noun}s wait on your review, ${listed}${filtered}.`
+  return `${plural(count, noun)} ${count === 1 ? 'waits' : 'wait'} on your review, ${listed}${filtered}.`
 }
 
 interface OrderSelectProps {

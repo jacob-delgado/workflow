@@ -5,7 +5,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
-import { cn, contentMeasure } from '@/lib/utils.ts'
+import { cn, contentMeasure, plural } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { useNow } from './ActiveTask.tsx'
@@ -273,12 +273,11 @@ function listSummary(
     )
   }
 
-  const tasks = (count: number) => (count === 1 ? '1 task' : `${String(count)} tasks`)
   const how = taskOrderWords[order].toLowerCase()
 
   return narrowed
-    ? `${String(listed)} of ${tasks(total)} match, ${how}.`
-    : `${tasks(listed)}, ${how}.`
+    ? `${String(listed)} of ${plural(total, 'task')} ${listed === 1 ? 'matches' : 'match'}, ${how}.`
+    : `${plural(listed, 'task')}, ${how}.`
 }
 
 // readAgainLabel names the control that reads the list again: Try again after a

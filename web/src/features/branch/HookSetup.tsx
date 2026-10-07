@@ -5,6 +5,7 @@ import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { Failure, Reading } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { plural } from '@/lib/utils.ts'
 import { readHookSetup, writeHookSetup } from './gitRunApi.ts'
 
 // HookSetup offers a lefthook configuration for the hooks the repository runs
@@ -75,7 +76,7 @@ function SetupLook({
     done: (written) =>
       written.scripts === 0
         ? 'Wrote lefthook.yml and installed lefthook.'
-        : `Wrote lefthook.yml and ${String(written.scripts)} script(s), and installed lefthook.`,
+        : `Wrote lefthook.yml and ${plural(written.scripts, 'script')}, and installed lefthook.`,
     onStart: outcome.clear,
     onDone: (said) => {
       outcome.say(said)
@@ -103,8 +104,8 @@ function SetupLook({
       className="flex flex-col gap-group rounded-lg border border-border p-4"
     >
       <p className="text-sm">
-        Found {offer.hooks.length} hook(s) in .git/hooks that lefthook does not manage:{' '}
-        {offer.hooks.map((hook) => `${hook.name} (${String(hook.lines)} lines)`).join(', ')}.
+        Found {plural(offer.hooks.length, 'hook')} in .git/hooks that lefthook does not manage:{' '}
+        {offer.hooks.map((hook) => `${hook.name} (${plural(hook.lines, 'line')})`).join(', ')}.
       </p>
       <pre
         role="region"
@@ -117,7 +118,7 @@ function SetupLook({
       </pre>
       <p className="text-xs text-muted-foreground">
         {offer.scripts > 0
-          ? `${String(offer.scripts)} hook(s) kept whole as scripts under .lefthook. `
+          ? `${plural(offer.scripts, 'hook')} kept whole as scripts under .lefthook. `
           : ''}
         lefthook install then keeps the old hooks as .git/hooks/*.old.
       </p>

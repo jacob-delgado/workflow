@@ -132,7 +132,7 @@ test('says all are loaded when the stream carries every issue', () => {
   renderWithClient(<IssuesPanel />)
 
   // Assert
-  expect(statusSaying('All 2 loaded.')).toBeDefined()
+  expect(statusSaying('2 of 2 loaded.')).toBeDefined()
 })
 
 test('load more reads the chosen view', async () => {
@@ -275,7 +275,7 @@ test("says how many of the view's issues are loaded", async () => {
 
   // Assert
   await waitFor(() => {
-    expect(statusSaying('4 of 5 loaded')).toBeDefined()
+    expect(statusSaying('4 of 5 loaded.')).toBeDefined()
   })
 })
 
@@ -297,7 +297,7 @@ test('hands focus to the first issue the last page adds', async () => {
   await waitFor(() => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: /PROJ-5/ }))
   })
-  expect(statusSaying('All 5 loaded.')).toBeDefined()
+  expect(statusSaying('5 of 5 loaded.')).toBeDefined()
 })
 
 test('hands focus to the count when the filter hides every issue the page adds', async () => {
@@ -313,7 +313,7 @@ test('hands focus to the count when the filter hides every issue the page adds',
 
   // Assert
   await waitFor(() => {
-    expect(document.activeElement).toBe(statusSaying('All 4 loaded.'))
+    expect(document.activeElement).toBe(statusSaying('4 of 4 loaded.'))
   })
 })
 

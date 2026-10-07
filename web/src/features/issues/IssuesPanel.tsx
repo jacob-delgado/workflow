@@ -447,15 +447,11 @@ function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssu
   )
 }
 
-// loadOutcome says how much of the view is loaded: how many of how many while
-// more remain, and that all are once none do — also when the stream's page
-// held the whole view, since the list's pane can hold fewer rows than that.
+// loadOutcome says how much of the view is loaded, in one form whether more
+// remain or not — also when the stream's page held the whole view, since the
+// list's pane can hold fewer rows than that.
 function loadOutcome(loaded: number, total: number, remain: boolean): string {
-  if (remain) {
-    return `${String(loaded)} of ${String(total)} loaded`
-  }
-
-  return `All ${String(loaded)} loaded.`
+  return `${String(loaded)} of ${String(remain ? total : loaded)} loaded.`
 }
 
 // filterOutcome says what the filter and the places left of the loaded issues:
@@ -470,7 +466,7 @@ function filterOutcome(narrowed: boolean, shown: number, loaded: number): string
     return 'No loaded issue matches the filter.'
   }
 
-  return `${String(shown)} of ${String(loaded)} loaded issues match.`
+  return `${String(shown)} of ${String(loaded)} loaded issues ${shown === 1 ? 'matches' : 'match'}.`
 }
 
 // mergeIssues is the stream's page followed by the pages loaded past it, each

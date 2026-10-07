@@ -41,3 +41,9 @@ export function splitList(text: string): string[] {
     .map((entry) => entry.trim())
     .filter((entry) => entry !== '')
 }
+
+// plural is a count and its noun in words, the noun taking an s for any count
+// but one: 1 file, 3 files, 0 hooks — as the terminal's plural counts.
+export function plural(count: number, noun: string): string {
+  return `${String(count)} ${count === 1 ? noun : `${noun}s`}`
+}

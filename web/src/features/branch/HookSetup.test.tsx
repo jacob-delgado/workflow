@@ -161,3 +161,37 @@ test.each(['Write lefthook.yml', 'Write every hook as a script'])(
     expect(document.activeElement).toBe(within(offer).getByRole('button', { name: write }))
   },
 )
+
+test('counts the hooks it found and their lines in words', async () => {
+  // Arrange
+  withHooks(1)
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Set up lefthook' }))
+
+  // Assert
+  const offer = await screen.findByRole('region', { name: 'Set up lefthook' })
+  expect(offer.textContent).toContain(
+    'Found 1 hook in .git/hooks that lefthook does not manage: pre-commit (3 lines).',
+  )
+})
+
+test('counts the scripts it wrote in words', async () => {
+  // Arrange
+  mockWrite.mockResolvedValueOnce({ scripts: 1 })
+  withHooks(1)
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Set up lefthook' }))
+  const offer = await screen.findByRole('region', { name: 'Set up lefthook' })
+
+  // Act
+  await user.click(within(offer).getByRole('button', { name: 'Write every hook as a script' }))
+
+  // Assert
+  expect(
+    await screen.findByText('Wrote lefthook.yml and 1 script, and installed lefthook.'),
+  ).toBeTruthy()
+})
