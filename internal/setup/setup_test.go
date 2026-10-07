@@ -122,7 +122,7 @@ func TestWriteKeepsTheTokenInAPrivateFileWhenTheKeychainIsDeclined(t *testing.T)
 	}
 
 	// Assert
-	cfg, err := config.LoadFile(written.Path)
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: written.Path})
 	if err != nil || cfg.Jira.Token.Reveal() != typedToken || kept.stored != "" {
 		t.Errorf("wrote %+v (%v), keychain %q; want the token in the file alone", cfg.Jira, err, kept.stored)
 	}
@@ -209,7 +209,7 @@ func TestWriteSavesTheWebhookAsSlacks(t *testing.T) {
 	}
 
 	// Assert
-	cfg, err := config.LoadFile(written.Path)
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: written.Path})
 	if err != nil || cfg.Messaging.Kind != config.KindSlack || cfg.Messaging.WebhookURL != request.Answers.Webhook {
 		t.Errorf("wrote messaging %+v (%v), want the webhook as Slack's", cfg.Messaging, err)
 	}

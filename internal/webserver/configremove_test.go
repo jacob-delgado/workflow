@@ -108,7 +108,7 @@ func TestUpdateConfigRefusesABodyLeavingACredentialOut(t *testing.T) {
 	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), body)
 
 	// Assert
-	saved, err := config.LoadFile(cfg.Path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if recorder.Code != http.StatusBadRequest || err != nil || saved.Jira.Token.Reveal() != storedJiraToken {
 		t.Errorf("status %d, %v, token kept %t; want 400 and the token kept: leaving it out says neither "+
 			"keep nor remove", recorder.Code, err, saved.Jira.Token.Reveal() == storedJiraToken)
@@ -175,7 +175,7 @@ func TestAViewAddedInSettingsIsInTheConfigurationTheInterfaceReads(t *testing.T)
 	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
 
 	// Assert
-	saved, err := config.LoadFile(cfg.Path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if recorder.Code != http.StatusOK || err != nil || !slices.Contains(saved.Jira.Views, next.Jira.Views[0]) {
 		t.Errorf("status %d, %v, views %v; want the added view in the file the interface reads",
 			recorder.Code, err, saved.Jira.Views)

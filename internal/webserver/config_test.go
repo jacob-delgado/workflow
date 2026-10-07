@@ -97,7 +97,7 @@ func TestUpdateConfigWritesTheFile(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
 
-	saved, err := config.LoadFile(cfg.Path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if err != nil {
 		t.Fatalf("reading the saved file: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestUpdateConfigKeepsAMaskedBaseURLPassword(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
 
-	saved, err := config.LoadFile(cfg.Path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if err != nil {
 		t.Fatalf("reading the saved file: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestUpdateConfigKeepsAMaskedSecret(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
 
-	saved, err := config.LoadFile(cfg.Path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if err != nil {
 		t.Fatalf("reading the saved file: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestUpdateConfigSetsANewSecret(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
 
-	saved, err := config.LoadFile(cfg.Path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if err != nil {
 		t.Fatalf("reading the saved file: %v", err)
 	}
@@ -292,7 +292,7 @@ func TestUpdateConfigResolvesHeaders(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
 
-	saved, err := config.LoadFile(cfg.Path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if err != nil {
 		t.Fatalf("reading the saved file: %v", err)
 	}
@@ -423,7 +423,7 @@ func TestUpdateConfigSavesAKeymapTheInterfaceAccepts(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
 
-	saved, err := config.LoadFile(cfg.Path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if err != nil {
 		t.Fatalf("reading the saved file: %v", err)
 	}
@@ -471,7 +471,7 @@ func TestTheWebConfigRoundTripKeepsTaskwarrior(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
 
-	saved, err := config.LoadFile(cfg.Path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
 	if err != nil {
 		t.Fatalf("reading the saved file: %v", err)
 	}

@@ -41,7 +41,7 @@ func servedFile(t *testing.T, contents string, info webserver.Info) (http.Handle
 	path := filepath.Join(t.TempDir(), config.FileName)
 	rewrite(t, path, contents)
 
-	cfg, err := config.LoadFile(path)
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil {
 		t.Fatalf("loading the served file: %v", err)
 	}

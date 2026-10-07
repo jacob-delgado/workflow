@@ -190,41 +190,29 @@ func TestLocateIgnoresAnEmptyDirectory(t *testing.T) {
 	}
 }
 
-func TestLoadFileReportsAnUnreadableFile(t *testing.T) {
-	t.Parallel()
-
-	// Act
-	_, err := config.LoadFile(filepath.Join(t.TempDir(), "does-not-exist.json"))
-
-	// Assert
-	if !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("error = %v, want it to wrap os.ErrNotExist", err)
-	}
-}
-
-func TestLoadFileAtReadsTheConfigurationWithItsRevision(t *testing.T) {
+func TestALoadReadsTheConfigurationWithItsRevision(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	path := write(t, t.TempDir(), readContents)
 
 	// Act
-	cfg, revision, err := config.LoadFileAt(path)
+	cfg, revision, err := config.LoadLayersAt(config.Files{Home: path})
 	// Assert
 	if err != nil {
-		t.Fatalf("LoadFileAt: %v", err)
+		t.Fatalf("LoadLayersAt: %v", err)
 	}
 
 	if cfg.Jira.BaseURL != "https://read.example.com" || cfg.Path != path {
-		t.Errorf("LoadFileAt = Jira at %q from %q, want the file's configuration from %q", cfg.Jira.BaseURL, cfg.Path, path)
+		t.Errorf("LoadLayersAt = Jira at %q from %q, want the file's configuration from %q", cfg.Jira.BaseURL, cfg.Path, path)
 	}
 
 	if want := revisionOf(t, path); revision != want || !revision.Exists() {
-		t.Errorf("LoadFileAt revision = %v, want the file's, %v", revision, want)
+		t.Errorf("LoadLayersAt revision = %v, want the file's, %v", revision, want)
 	}
 }
 
-func TestLoadFileAtNoFileIsTheDefaultsAtNoFile(t *testing.T) {
+func TestALoadOfNoFileIsTheDefaultsAtNoFile(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]func(dir string) string{
@@ -236,41 +224,46 @@ func TestLoadFileAtNoFileIsTheDefaultsAtNoFile(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
+			files := config.Files{Home: pathIn(t.TempDir())}
+			want := config.Default()
+			want.Path, want.Files = files.Home, files
+
 			// Act
-			cfg, revision, err := config.LoadFileAt(pathIn(t.TempDir()))
+			cfg, revision, err := config.LoadLayersAt(files)
 
 			// Assert
-			if err != nil || revision != (config.Revision{}) || !reflect.DeepEqual(cfg, config.Default()) {
-				t.Errorf("LoadFileAt = %+v at %v, %v; want the defaults at the no-file revision", cfg, revision, err)
+			if err != nil || revision != (config.Revision{}) || !reflect.DeepEqual(cfg, want) {
+				t.Errorf("LoadLayersAt = %+v at %v, %v; want the defaults at the no-file revision", cfg, revision, err)
 			}
 		})
 	}
 }
 
-func TestLoadFileAtRefusesAFileThatIsNotValid(t *testing.T) {
+func TestALoadRefusesAFileThatIsNotValid(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	path := write(t, t.TempDir(), `{"jira": `)
 
 	// Act
-	_, _, err := config.LoadFileAt(path)
+	_, _, err := config.LoadLayersAt(config.Files{Home: path})
 
 	// Assert
 	if !errors.Is(err, config.ErrInvalid) {
-		t.Errorf("LoadFileAt = %v, want ErrInvalid", err)
+		t.Errorf("LoadLayersAt = %v, want ErrInvalid", err)
 	}
 }
 
-func TestLoadFileAtReportsAFileItCannotRead(t *testing.T) {
+func TestALoadReportsAFileItCannotRead(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	_, _, err := config.LoadFileAt(t.TempDir())
+	_, _, err := config.LoadLayersAt(config.Files{Home: t.TempDir()})
 
 	// Assert
 	if err == nil || errors.Is(err, os.ErrNotExist) || errors.Is(err, config.ErrInvalid) {
-		t.Errorf("LoadFileAt a directory = %v, want the read's own failure", err)
+		t.Errorf("LoadLayersAt a directory = %v, want the read's own failure", err)
 	}
 }
 
