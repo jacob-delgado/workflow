@@ -147,7 +147,7 @@ func TestListReviewsDetailOmitsTheForgeHost(t *testing.T) {
 		},
 		"a forge asking to wait": {
 			cause:      fmt.Errorf("searching https://%s: %w", forgeHost, httpx.RateLimited(http.Header{})),
-			wantStatus: http.StatusBadGateway, want: waitAndTryAgain,
+			wantStatus: http.StatusServiceUnavailable, want: waitAndTryAgain,
 		},
 		"a refusal of the token": {
 			cause:      fmt.Errorf("searching https://%s: %w", forgeHost, forge.ErrRefused),

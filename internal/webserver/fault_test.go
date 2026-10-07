@@ -81,8 +81,8 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 			wantStatus: unprocessable, want: "jira.base_url is not a usable address",
 		},
 		"asked to wait": {
-			err:        fmt.Errorf("reading https://%s: %w", jiraHost, httpx.RateLimited(http.Header{"Retry-After": {"30"}})),
-			wantStatus: http.StatusBadGateway, want: waitAndTryAgain,
+			err:        fmt.Errorf("reading https://%s: %w", jiraHost, askedToWait30()),
+			wantStatus: http.StatusServiceUnavailable, want: waitAndTryAgain,
 		},
 	}
 
@@ -166,6 +166,71 @@ func TestAForgeFailureSaysWhatToDo(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestARateLimitAsksTheCallerToWait(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		err            error
+		wantRetryAfter string
+		wantWait       *int
+	}{
+		"a wait the upstream named": {
+			err:            fmt.Errorf("searching https://%s: %w", jiraHost, askedToWait30()),
+			wantRetryAfter: "30", wantWait: new(30),
+		},
+		"no wait named": {
+			err: fmt.Errorf("searching https://%s: %w", jiraHost, httpx.ErrRateLimited),
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := filledDeps()
+			deps.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, tt.err }
+
+			// Act
+			recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != http.StatusServiceUnavailable || failure.Code != api.ProblemCodeRateLimited ||
+				!strings.Contains(failure.Detail, waitAndTryAgain) {
+				t.Errorf("status/code/detail = %d/%s/%q, want 503/rate_limited saying %q",
+					recorder.Code, failure.Code, failure.Detail, waitAndTryAgain)
+			}
+
+			if got := recorder.Header().Get(retryAfterHeader); got != tt.wantRetryAfter {
+				t.Errorf("Retry-After = %q, want %q", got, tt.wantRetryAfter)
+			}
+
+			if !equalWait(failure.RetryAfter, tt.wantWait) {
+				t.Errorf("retry_after = %v, want %v", failure.RetryAfter, tt.wantWait)
+			}
+		})
+	}
+}
+
+// retryAfterHeader is the header a rate-limited answer says how long to wait
+// in, as the upstream's own answer does.
+const retryAfterHeader = "Retry-After"
+
+// askedToWait30 is an upstream's rate limit that asked for a 30-second wait.
+func askedToWait30() error {
+	return httpx.RateLimited(http.Header{retryAfterHeader: {"30"}})
+}
+
+// equalWait reports whether two optional waits, in seconds, are the same.
+func equalWait(got, want *int) bool {
+	if got == nil || want == nil {
+		return got == want
+	}
+
+	return *got == *want
 }
 
 func TestAMissingIssueIsNotFoundBeforeARefusal(t *testing.T) {

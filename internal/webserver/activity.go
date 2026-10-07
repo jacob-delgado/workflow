@@ -107,9 +107,7 @@ func (s *server) PostActivity(
 	}
 
 	if err != nil {
-		failure := s.fault(err)
-
-		return api.PostActivitydefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
+		return problemAnswer[api.PostActivitydefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.PostActivity200JSONResponse{

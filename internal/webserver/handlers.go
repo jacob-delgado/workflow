@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -76,9 +75,7 @@ func (s *server) ListIssues(
 
 	result, err := s.deps.Search(jql, startAt)
 	if err != nil {
-		body := s.fault(err)
-
-		return api.ListIssuesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.ListIssuesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.ListIssues200JSONResponse(issuesPageDTO(result, startAt)), nil
@@ -87,10 +84,8 @@ func (s *server) ListIssues(
 // GetIssue returns one issue in full.
 func (s *server) GetIssue(_ context.Context, request api.GetIssueRequestObject) (api.GetIssueResponseObject, error) {
 	if s.deps.Issue == nil {
-		return api.GetIssuedefaultApplicationProblemPlusJSONResponse{
-			Body:       problem(api.ProblemCodeUnprocessable, "no issue tracker is configured"),
-			StatusCode: http.StatusUnprocessableEntity,
-		}, nil
+		return problemAnswer[api.GetIssuedefaultApplicationProblemPlusJSONResponse](
+			problem(api.ProblemCodeUnprocessable, "no issue tracker is configured")), nil
 	}
 
 	detail, err := s.deps.Issue(jira.Key(request.Key))
@@ -100,9 +95,7 @@ func (s *server) GetIssue(_ context.Context, request api.GetIssueRequestObject) 
 				problem(api.ProblemCodeNotFound, "issue "+request.Key+" was not found")), nil
 		}
 
-		body := s.fault(err)
-
-		return api.GetIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.GetIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetIssue200JSONResponse(issueDetailDTO(detail, s.browseURL(detail.Issue.Key))), nil
@@ -123,9 +116,7 @@ func (s *server) browseURL(key jira.Key) string {
 func (s *server) GetBranch(_ context.Context, _ api.GetBranchRequestObject) (api.GetBranchResponseObject, error) {
 	branch, err := s.readBranch()
 	if err != nil {
-		body := s.fault(err)
-
-		return api.GetBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.GetBranchdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetBranch200JSONResponse(branchDTO(branch)), nil
@@ -160,9 +151,7 @@ func (s *server) branchAfter(fallback gitrepo.Branch) gitrepo.Branch {
 func (s *server) ListChanges(_ context.Context, _ api.ListChangesRequestObject) (api.ListChangesResponseObject, error) {
 	changes, err := s.readChanges()
 	if err != nil {
-		body := s.fault(err)
-
-		return api.ListChangesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.ListChangesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.ListChanges200JSONResponse(changesDTO(changes)), nil
@@ -183,9 +172,7 @@ func (s *server) readChanges() ([]gitrepo.Change, error) {
 func (s *server) GetReview(_ context.Context, _ api.GetReviewRequestObject) (api.GetReviewResponseObject, error) {
 	review, err := s.readReview()
 	if err != nil {
-		body := s.fault(err)
-
-		return api.GetReviewdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.GetReviewdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetReview200JSONResponse(review), nil
@@ -287,9 +274,7 @@ func (s *server) ListReviews(
 	}
 
 	if err != nil {
-		body := s.fault(err)
-
-		return api.ListReviewsdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.ListReviewsdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.ListReviews200JSONResponse(reviewQueueDTO(forge.OldestFirst(requests))), nil
@@ -419,9 +404,7 @@ func (s *server) GetCheckLog(
 	}
 
 	if err != nil {
-		body := s.fault(err)
-
-		return api.GetCheckLogdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
+		return problemAnswer[api.GetCheckLogdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetCheckLog200JSONResponse(api.JobLog{Text: log.Text, Truncated: log.Truncated}), nil
