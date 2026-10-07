@@ -344,18 +344,33 @@ func TestKeepStoredClearsEachRemovedCredential(t *testing.T) {
 func TestKeepStoredRemovingASlackSecretTakesTheAccessTokenWithIt(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	stored := config.Default()
-	stored.Messaging.ClientSecret, stored.Messaging.RefreshToken = "client-secret-4444", "xoxe-1-5555"
-	stored.Messaging.AccessToken, stored.Messaging.ExpiresAt = "xoxe.xoxp-6666", "2026-01-01T00:00:00Z"
+	tests := []struct {
+		removed config.Credential
+		other   func(config.Config) config.Secret
+	}{
+		{config.CredentialRefreshToken, func(cfg config.Config) config.Secret { return cfg.Messaging.ClientSecret }},
+		{config.CredentialClientSecret, func(cfg config.Config) config.Secret { return cfg.Messaging.RefreshToken }},
+	}
 
-	// Act
-	kept := config.KeepStored(stored.Redacted(), stored, []config.Credential{config.CredentialRefreshToken})
+	for _, test := range tests {
+		t.Run(string(test.removed), func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if kept.Messaging.AccessToken != "" || kept.Messaging.ExpiresAt != "" {
-		t.Errorf("access token kept %t, expiry %q; want both gone with the refresh token",
-			kept.Messaging.AccessToken != "", kept.Messaging.ExpiresAt)
+			// Arrange
+			stored := config.Default()
+			stored.Messaging.ClientSecret, stored.Messaging.RefreshToken = "client-secret-4444", "xoxe-1-5555"
+			stored.Messaging.AccessToken, stored.Messaging.ExpiresAt = "xoxe.xoxp-6666", "2026-01-01T00:00:00Z"
+
+			// Act
+			kept := config.KeepStored(stored.Redacted(), stored, []config.Credential{test.removed})
+
+			// Assert
+			if kept.Messaging.AccessToken != "" || kept.Messaging.ExpiresAt != "" || test.other(kept) != test.other(stored) {
+				t.Errorf("access token kept %t, expiry %q, the other secret kept %t; want the access token and "+
+					"its expiry gone with %s, the other secret kept", kept.Messaging.AccessToken != "",
+					kept.Messaging.ExpiresAt, test.other(kept) == test.other(stored), test.removed)
+			}
+		})
 	}
 }
 
