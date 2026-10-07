@@ -140,9 +140,7 @@ func (s *server) draftRefusal(err error) api.GetPullRequestDraftResponseObject {
 		return api.GetPullRequestDraft409ApplicationProblemPlusJSONResponse(conflict)
 	}
 
-	body := s.fault(err)
-
-	return api.GetPullRequestDraftdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
+	return problemAnswer[api.GetPullRequestDraftdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 }
 
 // openRefusal answers an open whose pull request could not be composed.
@@ -151,9 +149,7 @@ func (s *server) openRefusal(err error) api.OpenPullRequestResponseObject {
 		return api.OpenPullRequest409ApplicationProblemPlusJSONResponse(conflict)
 	}
 
-	body := s.fault(err)
-
-	return api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
+	return problemAnswer[api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 }
 
 // canOpenPull reports whether the seams the open needs are wired: creating the
@@ -275,8 +271,6 @@ func (s *server) openFailure(err error) api.OpenPullRequestResponseObject {
 	case errors.Is(err, forge.ErrRejected):
 		return openUnprocessable(err.Error())
 	default:
-		body := s.fault(err)
-
-		return api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
+		return problemAnswer[api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 }

@@ -381,7 +381,7 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 		},
 		"an undocumented answer": {messaging.ErrUnexpectedStatus, unreachable, "answered with a status it does not document"},
 		"no answer":              {messaging.ErrUnreachable, unreachable, "check the network, then try again"},
-		"asked to wait":          {httpx.ErrRateLimited, unreachable, waitAndTryAgain},
+		"asked to wait":          {httpx.ErrRateLimited, http.StatusServiceUnavailable, waitAndTryAgain},
 		"a redirect refused":     {httpx.ErrRedirected, unreachable, "check its configured address"},
 		"a failure of no kind":   {errSeam, http.StatusInternalServerError, tryAgain},
 	}

@@ -102,10 +102,12 @@ export const zProblem = z.object({
         'too_long',
         'precondition_required',
         'unreachable',
+        'rate_limited',
         'fetch_failed',
         'check_failed',
         'internal'
-    ])
+    ]),
+    retry_after: z.int().gte(1).optional()
 });
 
 export const zBranchIssueRequest = z.object({

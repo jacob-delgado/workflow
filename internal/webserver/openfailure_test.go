@@ -52,8 +52,8 @@ func TestOpenPullRequestClassifiesAFailedOpenThroughFault(t *testing.T) {
 			wantStatus: http.StatusBadGateway, wantCode: api.ProblemCodeUnreachable, wantDetail: "redirect",
 		},
 		"a forge limiting requests": {
-			err:        httpx.RateLimited(http.Header{"Retry-After": {"30"}}),
-			wantStatus: http.StatusBadGateway, wantCode: api.ProblemCodeUnreachable, wantDetail: waitAndTryAgain,
+			err:        askedToWait30(),
+			wantStatus: http.StatusServiceUnavailable, wantCode: api.ProblemCodeRateLimited, wantDetail: waitAndTryAgain,
 		},
 		"a repository the token cannot see": {
 			err:        fmt.Errorf("%w: %s/acme/repo", forge.ErrNoRepository, forgeHost),
