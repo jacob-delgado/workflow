@@ -46,9 +46,9 @@ func (s *server) SwitchRepository(
 	case errors.Is(err, errWriteInFlight):
 		return api.SwitchRepository409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error())), nil
 	case err != nil:
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.SwitchRepositorydefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.SwitchRepositorydefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.SwitchRepository200JSONResponse(next.repositoriesDTO()), nil
@@ -60,9 +60,9 @@ func (s *server) AddFavorite(
 ) (api.AddFavoriteResponseObject, error) {
 	err := s.changeFavorite(s.deps.Favor, request.Body.Dir)
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.AddFavoritedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.AddFavoritedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.AddFavorite200JSONResponse(s.repositoriesDTO()), nil
@@ -74,9 +74,9 @@ func (s *server) RemoveFavorite(
 ) (api.RemoveFavoriteResponseObject, error) {
 	err := s.changeFavorite(s.deps.Unfavor, request.Params.Dir)
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.RemoveFavoritedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.RemoveFavoritedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.RemoveFavorite200JSONResponse(s.repositoriesDTO()), nil
@@ -115,9 +115,9 @@ func (s *server) GetDirectories(
 
 	listing, err := repositories.Subdirectories(dir, "")
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.GetDirectoriesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.GetDirectoriesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	return api.GetDirectories200JSONResponse(listingDTO(dir, repositories.Home, listing)), nil
@@ -152,7 +152,7 @@ func (s *server) repositoriesDTO() api.Repositories {
 	}
 
 	report, err := view.Report(func(err error) string {
-		body, _ := s.fault(err)
+		body := s.fault(err)
 
 		return body.Detail
 	})

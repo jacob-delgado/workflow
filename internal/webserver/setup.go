@@ -158,9 +158,9 @@ func (s *server) setupRefusal(err error) api.SetUpResponseObject {
 			"there is no home directory here to keep the file in; keep it in the repository instead"))
 	}
 
-	body, code := s.fault(err)
+	body := s.fault(err)
 
-	return api.SetUpdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+	return api.SetUpdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
 }
 
 // takeUp serves the file just written from now on, where the server works,

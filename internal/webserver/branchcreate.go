@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -59,29 +58,26 @@ func (s *server) CreateBranch(
 // createBranchFailure answers a start of work that made no branch, as
 // startRefusal words it.
 func (s *server) createBranchFailure(err error, key string) api.CreateBranchResponseObject {
-	body, code := s.startRefusal(err, key)
+	body := s.startRefusal(err, key)
 
-	return api.CreateBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+	return api.CreateBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}
 }
 
-// startRefusal words a start of work that made nothing: a branch already
-// there, git's refusal, saying how to see its reason, or a read that failed —
-// the issue from the tracker, the branch list from git — classified by fault,
-// so neither's own words reach the wire.
-func (s *server) startRefusal(err error, key string) (api.Problem, int) {
+// startRefusal words a start of work that made nothing: git's refusal, saying
+// how to see its reason, or anything else — a branch already there, a read
+// that failed, the issue from the tracker, the branch list from git —
+// classified by fault, so neither read's own words reach the wire.
+func (s *server) startRefusal(err error, key string) api.Problem {
 	switch {
 	case errors.Is(err, loop.ErrFetchFailed):
 		return problem(api.ProblemCodeFetchFailed, "origin could not be fetched, so nothing was made for "+key+
-			"; start work from what you have, or run git fetch in a terminal to see why"), http.StatusBadGateway
-	case errors.Is(err, errBranchExists):
-		return problem(api.ProblemCodeConflict, errBranchExists.Error()), http.StatusConflict
+			"; start work from what you have, or run git fetch in a terminal to see why")
 	case errors.Is(err, errCreateRefused):
 		return problem(api.ProblemCodeUnprocessable, "git would not create the branch for "+key+
-			"; run workflow branch "+key+" from a terminal to see git's reason"), http.StatusUnprocessableEntity
+			"; run workflow branch "+key+" from a terminal to see git's reason")
 	case errors.Is(err, errWorktreeRefused):
 		return problem(api.ProblemCodeUnprocessable, "git would not make a worktree for "+key+
-				"; make it with ctrl+w in the terminal interface's branch creator to see git's reason"),
-			http.StatusUnprocessableEntity
+			"; make it with ctrl+w in the terminal interface's branch creator to see git's reason")
 	default:
 		return s.fault(err)
 	}
@@ -231,9 +227,9 @@ func (s *server) CreateWorktree(
 		return api.CreateWorktree200JSONResponse{Dir: dir, Shown: shown, Branch: name}, nil
 	}
 
-	body, code := s.startRefusal(err, key)
+	body := s.startRefusal(err, key)
 
-	return api.CreateWorktreedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+	return api.CreateWorktreedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 }
 
 // createWorktreeUnprocessable is the 422 response for a worktree the server

@@ -187,7 +187,7 @@ func (s *server) stagingProblem(err error, direction stagingDirection, target st
 		return problem(api.ProblemCodeUnprocessable,
 			"git would not "+verb+" "+target.words()+"; "+verb+" from a terminal to see git's reason")
 	default:
-		failure, _ := s.fault(err)
+		failure := s.fault(err)
 
 		return failure
 	}
@@ -214,9 +214,9 @@ func (s *server) GetChangeDiff(
 	}
 
 	if err != nil {
-		body, code := s.fault(err)
+		body := s.fault(err)
 
-		return api.GetChangeDiffdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.GetChangeDiffdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: body.Status}, nil
 	}
 
 	if lines == nil {

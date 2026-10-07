@@ -245,7 +245,7 @@ func (s *server) postHeld(post announcePost, round int) {
 	}
 
 	if err != nil {
-		failure, _ := s.fault(err)
+		failure := s.fault(err)
 		s.held.settle(api.QueuedAnnouncementStateDropped, failure.Detail)
 
 		return

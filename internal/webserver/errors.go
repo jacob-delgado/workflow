@@ -102,7 +102,7 @@ func (s *server) writeResponseError(w http.ResponseWriter, _ *http.Request, err 
 // tryAgain is what to do about a failure nothing more is known of.
 const tryAgain = "try again, and run workflow doctor if it keeps failing"
 
-// fault maps a seam's error onto an RFC 9457 problem and its status. The class
+// fault maps a seam's error onto an RFC 9457 problem, its status the code's. The class
 // comes from the error — one of faultClasses (no repository to work in, a
 // missing resource, an upstream that could not be reached, asked to wait or
 // answered oddly, a setting it cannot use, a service's refusal) or else an
@@ -110,13 +110,13 @@ const tryAgain = "try again, and run workflow doctor if it keeps failing"
 // carries a host, a path, a webhook or a credential and never reaches the wire.
 // An unexpected failure's cause goes to Unexpected instead, since no class
 // says what it was.
-func (s *server) fault(err error) (api.Problem, int) {
+func (s *server) fault(err error) api.Problem {
 	prob, classified := faultProblem(err)
 	if !classified {
 		s.unexpected(err)
 	}
 
-	return prob, prob.Status
+	return prob
 }
 
 // unexpected hands a failure the answer leaves out to Unexpected, when it is
@@ -187,7 +187,7 @@ type faultClass struct {
 // 404 that carries a reason is a missing resource before it is a refusal.
 func faultClasses() []faultClass {
 	return slices.Concat(gitFaults(), transportFaults(), jiraFaults(), forgeFaults(), messagingFaults(),
-		taskwarriorFaults(), directoryFaults())
+		taskwarriorFaults(), directoryFaults(), localDataFaults(), peopleFaults())
 }
 
 // gitFaults are the repository's failures fault can name. Any other read git
@@ -205,6 +205,7 @@ func gitFaults() []faultClass {
 			code:   api.ProblemCodeUnprocessable,
 			detail: setUpDetail(gitrepo.ErrNoIdentity),
 		},
+		{causes: []error{errBranchExists}, code: api.ProblemCodeConflict, detail: errBranchExists.Error()},
 		{
 			causes: []error{gitrepo.ErrIssueLinkNotSaved},
 			code:   api.ProblemCodeUnprocessable,
@@ -428,19 +429,15 @@ func taskwarriorReasons() []taskwarriorReason {
 // Taskwarrior's own words, which name what in the line it could not take, and a
 // bound that ran out is Taskwarrior's: no class can say so, since git's reads
 // time out with the same sentinel.
-func (s *server) taskFault(err error) (api.Problem, int) {
-	var prob api.Problem
-
+func (s *server) taskFault(err error) api.Problem {
 	switch {
 	case errors.Is(err, taskwarrior.ErrRefused):
-		prob = problem(api.ProblemCodeUnprocessable, s.refusalDetail(err))
+		return problem(api.ProblemCodeUnprocessable, s.refusalDetail(err))
 	case errors.Is(err, proc.ErrTimedOut):
-		prob = problem(api.ProblemCodeUnreachable, "Taskwarrior did not answer in time")
+		return problem(api.ProblemCodeUnreachable, "Taskwarrior did not answer in time")
 	default:
 		return s.fault(err)
 	}
-
-	return prob, prob.Status
 }
 
 // malformedEntry opens Taskwarrior's words for a taskrc line it cannot read,

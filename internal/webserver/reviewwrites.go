@@ -80,7 +80,7 @@ func (s *server) refusal(err error) api.Problem {
 		errors.Is(err, errTitleRequired), errors.Is(err, errMethodNotPermitted):
 		return problem(api.ProblemCodeUnprocessable, err.Error())
 	default:
-		failure, _ := s.fault(err)
+		failure := s.fault(err)
 
 		return failure
 	}
