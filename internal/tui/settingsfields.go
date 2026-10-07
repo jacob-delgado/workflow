@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
@@ -239,7 +240,10 @@ func commitSettings() []setting {
 func branchSettings(held func(string) any) []setting {
 	const section = "Branch"
 
-	prefixes := collection{title: "Prefix", noun: "prefix", nameWord: "issue type", valueWord: "prefix"}
+	prefixes := collection{
+		title: "Prefix", noun: "prefix", nameWord: "issue type", valueWord: "prefix",
+		matchedBy: convention.IssueTypeKey,
+	}
 
 	return slices.Concat([]setting{
 		{

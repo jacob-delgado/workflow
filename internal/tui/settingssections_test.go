@@ -121,10 +121,10 @@ func TestABranchPrefixAddedInSettingsIsSaved(t *testing.T) {
 	repo := newWorld()
 
 	// Act
-	typing(t, repo.live(t, 120, 40), added(addPrefixRow, "Spike", "research")...)
+	typing(t, repo.live(t, 120, 40), added(addPrefixRow, spikeType, spikePrefix)...)
 
 	// Assert
-	if got := repo.settings.Branch.Prefixes; !maps.Equal(got, map[string]string{"Spike": "research"}) {
+	if got := repo.settings.Branch.Prefixes; !maps.Equal(got, map[string]string{spikeType: spikePrefix}) {
 		t.Errorf("saved branch.prefixes %v, want Spike as research", got)
 	}
 }

@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -13,6 +14,13 @@ import (
 // storedHeaderRow is the row of storedHeader in a configuration holding it
 // alone; the row that adds a header follows it.
 const storedHeaderRow = addHeaderRow
+
+// spikeType is an issue type a branch prefix is kept for, and spikePrefix the
+// prefix.
+const (
+	spikeType   = "Spike"
+	spikePrefix = "research"
+)
 
 // otherHeader is a second stored header, listed before storedHeader.
 const otherHeader = "A-Other"
@@ -98,6 +106,10 @@ func TestANewHeaderTheFormCannotTakeIsRefused(t *testing.T) {
 	}{
 		{"with no name", []string{keyEnter}, "an entry needs a name"},
 		{"named as a stored one", append(letters(storedHeader), keyEnter), "an entry of that name is already listed"},
+		{
+			"named as a stored one in another case", append(letters(strings.ToLower(storedHeader)), keyEnter),
+			"an entry of that name is already listed",
+		},
 		{"with no value", append(letters("X-Team"), keyEnter, keyEnter), "an entry needs a value"},
 	}
 	for _, test := range tests {
@@ -117,12 +129,28 @@ func TestANewHeaderTheFormCannotTakeIsRefused(t *testing.T) {
 	}
 }
 
+func TestAPrefixForATypeAlreadyListedInAnotherCaseIsRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.settings.Branch.Prefixes = map[string]string{spikeType: spikePrefix}
+
+	keys := append(toRow(addPrefixRow+1), keyEnter)
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), append(append(keys, letters("spike")...), keyEnter)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "an entry of that name is already listed")
+}
+
 func TestRemovingTheOnlyPrefixSavesNone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	repo := newWorld()
-	repo.settings.Branch.Prefixes = map[string]string{"Spike": "research"}
+	repo.settings.Branch.Prefixes = map[string]string{spikeType: spikePrefix}
 
 	// Act
 	typing(t, repo.live(t, 120, 40), append(toRow(addPrefixRow), removeKey, saveKey)...)
