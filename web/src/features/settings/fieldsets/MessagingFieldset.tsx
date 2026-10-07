@@ -1,10 +1,19 @@
+import type { Control } from 'react-hook-form'
+import type { SettingsValues } from '../formValues.ts'
+import { EntryList } from './EntryList.tsx'
 import { Fieldset, SelectField, TextField, type Register } from './Field.tsx'
 
 // MessagingFieldset is where announcements go: the service, its credential —
 // a Slack user token or a webhook, one or the other — the channel, and the
 // announcement's template. The user token's secrets are kept where workflow
 // keeps them: the macOS keychain, unless the file already holds them.
-export function MessagingFieldset({ register }: { register: Register }) {
+export function MessagingFieldset({
+  register,
+  control,
+}: {
+  register: Register
+  control: Control<SettingsValues>
+}) {
   return (
     <Fieldset legend="Messaging">
       <SelectField
@@ -51,6 +60,16 @@ export function MessagingFieldset({ register }: { register: Register }) {
         name="messaging.channel"
         label="Channel"
         hint="With a Slack user token; a webhook posts to its own channel."
+      />
+      <EntryList
+        control={control}
+        register={register}
+        name="messaging.channels"
+        legend="Channels"
+        entry="channel"
+        hint="Further channels an announcement can go to instead, with a Slack user token."
+        columns={[{ field: 'name', label: 'Channel' }]}
+        blank={{ name: '' }}
       />
       <TextField
         register={register}
