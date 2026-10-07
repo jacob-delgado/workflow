@@ -563,7 +563,7 @@ paths:
         a problem: 409 when a run is going already, or there is nothing to
         rebase, amend or fix up; 422 when the run is not available here, the
         commit named cannot be fixed up, or the program could not start.
-      tags: [events]
+      tags: [repository]
       requestBody:
         required: true
         content:
@@ -1169,6 +1169,9 @@ paths:
         default: {$ref: "#/components/responses/Problem"}
     post:
       operationId: setUp
+      # x-switch: this write changes what the server works with, so it waits
+      # for no other write and is refused while one is in flight.
+      x-switch: true
       summary: Write a first configuration file, as workflow config init does.
       description: >-
         Asks what workflow config init asks, in one request: checks the Jira
@@ -2556,6 +2559,9 @@ paths:
   /api/repositories/here:
     put:
       operationId: switchRepository
+      # x-switch: this write changes what the server works with, so it waits
+      # for no other write and is refused while one is in flight.
+      x-switch: true
       summary: Switch the directory the server works in.
       description: >-
         Wires the directory named as the server's first was wired — its
