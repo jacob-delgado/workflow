@@ -330,10 +330,8 @@ over a log of what workflow did, is FEAT-87's.
 
 ## The web
 
-What is open here is a stream that marks no change; Settings' unseen
-sections, misleading hints, blank selects and unremovable credential; what
-the browser could borrow from the interface; the Branch section's detached
-HEAD; and four states drawn as words with no mark.
+What is open here is Settings' unseen sections, misleading hints, blank
+selects and unremovable credential.
 
 Every pointer here was checked again at `e5156e3`. A screenshot named
 by its file (`1440-dark-tasks.png`, say) is from a pass on 2026-10-05 over
@@ -341,26 +339,6 @@ every section at 640, 1024 and 1440 px in both themes, of the mock build,
 and like the 2026-09-24 audit's is not in the repository; one that shows a
 control drawn since — a field, a button, a row's facts — shows it as it
 was before `web/src/lib` drew it.
-
-### UX-86 Nothing marks a change the stream just made
-
-Impact: low · Effort: medium
-
-**Today.** `StreamStatus` shows `Connecting` / `Live` / `Reconnecting` /
-`Out of date` (`web/src/shell/StreamStatus.tsx:7`), but nothing says when
-the last snapshot arrived — the store keeps `receivedAt`
-(`web/src/api/snapshot.ts:28`, set on every frame at `:78` and `:100`) and
-nothing draws it — and a panel that changed because CI settled looks
-exactly like one that re-rendered. There is no toast, and no "CI passed"
-moment on the web where the interface rings the terminal
-(`ciFinishNotice`, `internal/tui/review.go:155`).
-
-**Instead.** A "updated 3 s ago" beside the pill, read from `receivedAt`;
-a brief highlight on the row a snapshot changed; a status line when CI
-settles, honoring `ui.notify` (`internal/config/ui.go:35`).
-
-**Done when.** A snapshot that flips CI to passed produces a status
-region saying so.
 
 ### UX-87 Settings can edit nine sections and carry six it cannot show
 
@@ -381,89 +359,6 @@ Taskwarrior and the keyboard, whose one field is `ui.web_shortcuts`.
 
 **Done when.** A view added in the browser appears in the interface's `v`
 cycle, and a channel added there is offered in the announcement preview.
-
-### UX-88 What the browser could borrow from the interface
-
-Impact: low · Effort: small
-
-**Today.** The web now reads a file's diff, amends and fixes up, runs
-pre-commit, edits an open pull request and chooses among the repository's
-pull request templates, as the interface does. The interface still jumps
-to a failure in `$EDITOR` (`openFailure`, `internal/tui/run.go:382`),
-which the web has no equivalent of. Four
-smaller things the terminal shows are absent on the web too, none of them
-among what `docs/content/docs/web.md` says stays in the terminal.
-
-- A renamed file shows only its new path: `ChangeRow` renders
-  `change.path` alone (`web/src/features/branch/WorkingTree.tsx:137`),
-  though `changesDTO` sends `OriginalPath`
-  (`internal/webserver/dto.go:181`) and `original_path` is read nowhere in
-  `web/src` outside the generated client; the terminal's `changeRows`
-  draws old → new (`internal/tui/commits.go:153`, the arrow at `:159`).
-- The commit subject has no length against `commit.subject_limit`:
-  `MessageFields`' Subject is a bare `<Input required placeholder>`
-  (`web/src/features/branch/CommitForm.tsx:175`) though `subject_limit` is
-  on the wire (`CommitConfig`,
-  `web/src/api/generated/types.gen.ts:1817`); the terminal's
-  `commitComposer.view` shows "n/limit" as typed
-  (`internal/tui/composer.go:152`, the count at `:154`). The limit is met
-  only as a 422 after the click.
-- The Review section has no Copy URL: the title link is the only handle
-  on the pull request (`PullRequestSummary`,
-  `web/src/features/review/ReviewPanel.tsx:100`), where the queue's
-  `CopyURL` one section over has a tested clipboard outcome
-  (`web/src/features/reviewqueue/ReviewQueuePanel.tsx:382`) and the
-  terminal's `reviewKeys` offer `linkKeys` on the pull request
-  (`internal/tui/review.go:417`).
-- The Search text survives a view change: `IssueBrowser` keeps `filter`
-  in local state nothing resets
-  (`web/src/features/issues/IssuesPanel.tsx:68`) — the places picked
-  beside it belong to the view they were picked in (`:75`), the text does
-  not — and `ViewSelect`'s `onChange` calls `setView` alone
-  (`web/src/features/issues/IssueListControls.tsx:73`), where the
-  terminal's `nextIssueView` seeds a fresh list, search and all
-  (`internal/tui/views.go:49`); choosing a view with "proj-12" still in
-  the search shows "No loaded issue matches the filter." — the user asked
-  for a view, not a narrowed one.
-
-**Instead.** In rough order of value: `original_path` drawn before the
-path with an arrow; a muted "n/limit" hint under the subject counting the
-assembled header; `CopyURL` beside the title with the same "Copied the URL
-of #128." outcome; clearing the search when the view changes.
-
-**Done when.** Each lands with a role/name test; a `WorkingTree` test with
-a renamed change finds both paths in the row; a `CommitForm` test with
-`subject_limit: 20` finds the count text change as the subject is typed; a
-`ReviewPanel` test clicks "Copy URL to #128" and reads the URL back from
-the clipboard; a test types a search, selects another view, and finds the
-searchbox named Search empty once the new frame lands.
-
-### UX-107 The web's detached HEAD offers no way out
-
-Impact: low · Effort: small
-
-**Today.** With HEAD detached, the Branch section heads itself "Detached
-HEAD at abcdef1" and then draws the same Base, Upstream and Tracking list,
-Commits and working tree as on a branch, with nothing saying what to do
-next — and the controls below the list, Link an issue and Rebase onto,
-are withheld too (`web/src/features/branch/BranchPanel.tsx:104`, `:105`;
-`canRebase`, `web/src/features/branch/HistoryActions.tsx:24`). The
-terminal says it:
-"Check out a branch, or press b to start one for the selected issue."
-
-- `BranchSummary`, `web/src/features/branch/BranchPanel.tsx:71`: the
-  detached heading (`:73`), followed by the branch's own list (`:90`).
-- `BranchPanel`, `web/src/features/branch/BranchPanel.tsx:20`: renders
-  `BranchSummary`, `Commits` and `WorkingTree` alike for a branch and a
-  detached HEAD.
-- `Model.branchDetail`, `internal/tui/branch.go:121`: the terminal's
-  sentence (`:133`), which names the bound key.
-
-**Instead.** Under the detached heading, one sentence pointing at Issues,
-where Switch branch and Start work live.
-
-**Done when.** A `BranchPanel` test with `detached: true` finds a line
-naming Issues under the heading.
 
 ### UX-108 Three Settings hints that hide where a value comes from or applies
 
@@ -507,28 +402,6 @@ the Token textbox described by text naming that command;
 `getByRole('textbox', { name: 'Announcement', description: /\{author\}/
 })` and `getByRole('textbox', { name: 'Channel', description: /user token/
 })` resolve.
-
-### UX-109 Three Review rows and the queue's Draft are states with no mark
-
-Impact: low · Effort: small
-
-**Today.** A file's staged state now carries a `StateMark` before its
-word (`ChangeRow`, `web/src/features/branch/WorkingTree.tsx`), as every
-state on the web should. Four states are still plain words: the Review
-section's State, Mergeable and Changes requested rows
-(`PullRequestSummary` and `ReviewRows`,
-`web/src/features/review/ReviewPanel.tsx`) and the queue's "Draft"
-among a row's facts (`RequestRow`,
-`web/src/features/reviewqueue/ReviewQueuePanel.tsx`). The words keep
-them accessible, so this is consistency inside the system, not a change
-to it.
-
-**Instead.** A `StateMark` before each: open in flight, merged done,
-closed not started; mergeable done, conflicting failed; changes
-requested failed; a draft not started.
-
-**Done when.** `ReviewPanel` and `ReviewQueuePanel` screenshots show a
-shape before each of the four words.
 
 ### UX-119 A credential cannot be removed from Settings
 
