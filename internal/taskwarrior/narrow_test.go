@@ -183,3 +183,18 @@ func TestOnlyPickingWaitingListsWaitingTasks(t *testing.T) {
 		})
 	}
 }
+
+func TestAFacetOfAKindTheListDoesNotKnowHasNoLabel(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	const unknownKind taskwarrior.FacetKind = 9
+
+	// Act
+	label := taskwarrior.Facet{Kind: unknownKind}.Label()
+
+	// Assert
+	if label != "" {
+		t.Errorf("Label() = %q, want none for a kind the list does not know", label)
+	}
+}
