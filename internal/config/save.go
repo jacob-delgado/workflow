@@ -356,6 +356,9 @@ type Edit struct {
 	// Edited is what the editor holds: a credential left masked or empty
 	// stands for Read's.
 	Edited Config
+	// Removed are the credentials the editor removed: each is written empty,
+	// whatever Edited holds for it.
+	Removed []Credential
 	// PlaceSlackCredentials keeps a Slack user token's secrets, typed into the
 	// editor, where the configuration keeps them, and answers the configuration
 	// to write. Nil keeps them in the file.
@@ -367,7 +370,7 @@ type Edit struct {
 // with the revision it left. Files changed since the read are refused with
 // ErrChangedOnDisk and nothing is written.
 func SaveEdit(edit Edit) (Config, Revision, error) {
-	incoming := KeepStored(edit.Edited, edit.Read)
+	incoming := KeepStored(edit.Edited, edit.Read, edit.Removed)
 	incoming.Path, incoming.Files = edit.Files.Target(), edit.Files
 
 	incoming, err := edit.placeSlackCredentials(incoming)

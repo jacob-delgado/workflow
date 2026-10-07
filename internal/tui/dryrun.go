@@ -40,7 +40,7 @@ func heldBack(deps Deps) Deps {
 // data; both are still read.
 func heldBackSettings(deps seams.Settings) seams.Settings {
 	if deps.Save != nil {
-		deps.Save = func(config.Config, config.Revision) (config.Config, config.Revision, error) {
+		deps.Save = func(config.Config, []config.Credential, config.Revision) (config.Config, config.Revision, error) {
 			return config.Config{}, config.Revision{}, errDryRun
 		}
 	}

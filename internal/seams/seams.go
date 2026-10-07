@@ -269,12 +269,15 @@ type Settings struct {
 	// masked, and the revision it found them at.
 	Read func() (config.Config, config.Revision, error)
 	// Save writes an edited configuration over the read made at a revision —
-	// a credential left masked or empty standing for the stored one — through
-	// config.SaveEdit, as the web's Settings saves. Files changed since that
-	// read are refused with config.ErrChangedOnDisk. It answers what it
-	// wrote, masked, and the revision it left; the session goes on with the
-	// configuration it started with.
-	Save func(edited config.Config, over config.Revision) (config.Config, config.Revision, error)
+	// a credential left masked or empty standing for the stored one, and each
+	// removed written empty — through config.SaveEdit, as the web's Settings
+	// saves. Files changed since that read are refused with
+	// config.ErrChangedOnDisk. It answers what it wrote, masked, and the
+	// revision it left; the session goes on with the configuration it started
+	// with.
+	Save func(
+		edited config.Config, removed []config.Credential, over config.Revision,
+	) (config.Config, config.Revision, error)
 	// LocalData is the store's directory and each database file in it, as
 	// workflow db-clean lists them.
 	LocalData func() (string, []store.DataFile, error)

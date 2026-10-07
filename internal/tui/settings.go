@@ -422,7 +422,7 @@ func (f settingsForm) save(m Model) (Model, tea.Cmd) {
 	write, over, path := m.deps.Settings.Save, f.over, f.path
 
 	return m, func() tea.Msg {
-		_, _, err := write(cfg, over)
+		_, _, err := write(cfg, nil, over)
 
 		return settingsSaved{path: path, err: err}
 	}

@@ -1525,7 +1525,7 @@ export type MessagingDestination = {
 };
 
 /**
- * The whole configuration file. On a read, the six secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
+ * The whole configuration file. On a read, the six secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value, and null removes it.
  */
 export type Config = {
     version: string;
@@ -1631,14 +1631,14 @@ export type SetupResult = {
 export type JiraConfig = {
     base_url?: string;
     /**
-     * Masked on read; empty or masked on write keeps the stored value.
+     * Masked on read, or empty when none is stored; on write, empty or masked keeps the stored value and null removes it.
      */
-    token?: string;
+    token: string | null;
     token_command?: string;
     token_env?: string;
     user?: string;
     /**
-     * Extra request headers; values masked on read.
+     * Extra request headers; values masked on read. On write, a value empty or masked keeps the stored one, and a header left out is removed.
      */
     headers?: {
         [key: string]: string;
@@ -1665,15 +1665,15 @@ export type MessagingConfig = {
      */
     client_id?: string;
     /**
-     * The Slack app's client secret, when this file keeps the user token's credentials rather than the macOS keychain. Masked on read; empty or masked on write keeps the stored value.
+     * The Slack app's client secret, when this file keeps the user token's credentials rather than the macOS keychain. Masked on read, or empty when none is stored; on write, empty or masked keeps the stored value, and null removes it with the access token.
      */
-    client_secret?: string;
+    client_secret: string | null;
     /**
-     * The user token's current refresh token (xoxe-1-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value.
+     * The user token's current refresh token (xoxe-1-…), when this file keeps it. workflow replaces it on every refresh. Masked on read, or empty when none is stored; on write, empty or masked keeps the stored value, and null removes it with the access token.
      */
-    refresh_token?: string;
+    refresh_token: string | null;
     /**
-     * The user token's current access token (xoxe.xoxp-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value.
+     * The user token's current access token (xoxe.xoxp-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value. It goes when the client secret or the refresh token is removed.
      */
     access_token?: string;
     /**
@@ -1681,9 +1681,9 @@ export type MessagingConfig = {
      */
     expires_at?: string;
     /**
-     * A credential; masked on read, preserved on write like a token.
+     * A credential: masked on read, or empty when none is stored; on write, empty or masked keeps the stored value and null removes it.
      */
-    webhook_url?: string;
+    webhook_url: string | null;
     channel?: string;
     channels?: Array<string> | null;
     announcement?: string;
@@ -1696,9 +1696,9 @@ export type ForgeConfig = {
     kind?: '' | 'github' | 'gitlab';
     host?: string;
     /**
-     * Masked on read; empty or masked on write keeps the stored value.
+     * Masked on read, or empty when none is stored; on write, empty or masked keeps the stored value and null removes it.
      */
-    token?: string;
+    token: string | null;
     cli?: boolean;
 };
 

@@ -191,7 +191,7 @@ func TestKeepStoredTakesABaseURLEditedFromItsMask(t *testing.T) {
 	incoming.Jira.BaseURL = "https://jira.example.org"
 
 	// Act
-	kept := config.KeepStored(incoming, stored)
+	kept := config.KeepStored(incoming, stored, nil)
 
 	// Assert
 	if kept.Jira.BaseURL != "https://jira.example.org" {
@@ -209,7 +209,7 @@ func TestKeepStoredDropsJiraHeadersTheEditRemoved(t *testing.T) {
 	incoming.Jira.Headers = nil
 
 	// Act
-	kept := config.KeepStored(incoming, stored)
+	kept := config.KeepStored(incoming, stored, nil)
 
 	// Assert
 	if kept.Jira.Headers != nil {
@@ -282,5 +282,111 @@ func TestSaveEditPlacesNothingOverFilesItCannotRead(t *testing.T) {
 	// Assert
 	if !errors.Is(err, config.ErrChangedOnDisk) || placed {
 		t.Errorf("err = %v, placed %t; want ErrChangedOnDisk and the typed token unspent", err, placed)
+	}
+}
+
+func TestSaveEditRemovingTheJiraTokenWritesAFileWithNoToken(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files, read, revision := readHome(t)
+
+	// Act
+	_, _, err := config.SaveEdit(config.Edit{
+		Files: files, Read: read, Over: revision, Edited: read.Redacted(),
+		Removed: []config.Credential{config.CredentialJiraToken},
+	})
+
+	// Assert
+	written, readErr := os.ReadFile(files.Home)
+	if err != nil || readErr != nil || strings.Contains(string(written), homeToken) || reread(t, files).Jira.Token != "" {
+		t.Errorf("err %v, %v; the file still holds the token: %t; want it written without the token",
+			err, readErr, strings.Contains(string(written), homeToken))
+	}
+}
+
+func TestKeepStoredClearsEachRemovedCredential(t *testing.T) {
+	t.Parallel()
+
+	held := func(cfg config.Config) map[config.Credential]config.Secret {
+		return map[config.Credential]config.Secret{
+			config.CredentialJiraToken:    cfg.Jira.Token,
+			config.CredentialForgeToken:   cfg.Forge.Token,
+			config.CredentialWebhookURL:   cfg.Messaging.WebhookURL,
+			config.CredentialClientSecret: cfg.Messaging.ClientSecret,
+			config.CredentialRefreshToken: cfg.Messaging.RefreshToken,
+		}
+	}
+
+	stored := config.Default()
+	stored.Jira.Token, stored.Forge.Token = "jira-token-1111", "forge-token-2222"
+	stored.Messaging.WebhookURL = "https://hooks.example.com/3333"
+	stored.Messaging.ClientSecret, stored.Messaging.RefreshToken = "client-secret-4444", "xoxe-1-5555"
+
+	for removed := range held(stored) {
+		t.Run(string(removed), func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			kept := held(config.KeepStored(stored.Redacted(), stored, []config.Credential{removed}))
+
+			// Assert
+			for credential, value := range kept {
+				if want := held(stored)[credential]; credential == removed && value != "" ||
+					credential != removed && value != want {
+					t.Errorf("%s kept %t; want only %s cleared", credential, value != "", removed)
+				}
+			}
+		})
+	}
+}
+
+func TestKeepStoredRemovingASlackSecretTakesTheAccessTokenWithIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	stored := config.Default()
+	stored.Messaging.ClientSecret, stored.Messaging.RefreshToken = "client-secret-4444", "xoxe-1-5555"
+	stored.Messaging.AccessToken, stored.Messaging.ExpiresAt = "xoxe.xoxp-6666", "2026-01-01T00:00:00Z"
+
+	// Act
+	kept := config.KeepStored(stored.Redacted(), stored, []config.Credential{config.CredentialRefreshToken})
+
+	// Assert
+	if kept.Messaging.AccessToken != "" || kept.Messaging.ExpiresAt != "" {
+		t.Errorf("access token kept %t, expiry %q; want both gone with the refresh token",
+			kept.Messaging.AccessToken != "", kept.Messaging.ExpiresAt)
+	}
+}
+
+func TestSaveEditRemovingTheSlackSecretsPlacesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files := config.Files{Home: write(t, t.TempDir(), slackUserHome)}
+
+	read, revision, err := config.LoadLayersAt(files)
+	if err != nil {
+		t.Fatalf("reading the home file: %v", err)
+	}
+
+	placed := false
+
+	// Act
+	_, _, err = config.SaveEdit(config.Edit{
+		Files: files, Read: read, Over: revision, Edited: read.Redacted(),
+		Removed: []config.Credential{config.CredentialClientSecret, config.CredentialRefreshToken},
+		PlaceSlackCredentials: func(cfg config.Config) (config.Config, error) {
+			placed = true
+
+			return cfg, nil
+		},
+	})
+
+	// Assert
+	saved := reread(t, files)
+	if err != nil || placed || saved.Messaging.HoldsUserTokenSecrets() {
+		t.Errorf("err %v, placed %t, file holds the user token's secrets %t; want them gone, unplaced",
+			err, placed, saved.Messaging.HoldsUserTokenSecrets())
 	}
 }

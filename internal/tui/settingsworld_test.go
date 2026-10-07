@@ -4,6 +4,8 @@
 package tui_test
 
 import (
+	"fmt"
+
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/store"
@@ -49,8 +51,14 @@ func (w *world) settingsDeps() seams.Settings {
 
 			return w.settings, config.Revision{}, w.readSettingsErr
 		},
-		Save: func(edited config.Config, _ config.Revision) (config.Config, config.Revision, error) {
-			w.record("save-settings")
+		Save: func(
+			edited config.Config, removed []config.Credential, _ config.Revision,
+		) (config.Config, config.Revision, error) {
+			if len(removed) > 0 {
+				w.record(fmt.Sprint("save-settings removing ", removed))
+			} else {
+				w.record("save-settings")
+			}
 
 			w.mu.Lock()
 			defer w.mu.Unlock()
@@ -59,9 +67,10 @@ func (w *world) settingsDeps() seams.Settings {
 				return config.Config{}, config.Revision{}, w.saveSettingsErr
 			}
 
-			w.settings = edited
+			// What was sent, as sent, each removed credential written empty.
+			w.settings = config.KeepStored(edited, edited, removed)
 
-			return edited, config.Revision{}, nil
+			return w.settings, config.Revision{}, nil
 		},
 		LocalData: func() (string, []store.DataFile, error) {
 			w.record("local-data")
