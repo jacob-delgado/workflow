@@ -56,7 +56,7 @@ func TestTheFileStoreKeepsThePairAndEverythingElse(t *testing.T) {
 		t.Errorf("Load = %+v, %v; want the pair saved", loaded, err)
 	}
 
-	cfg, err := config.LoadFile(path)
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil || cfg.Jira.BaseURL != "https://jira.example.com" || cfg.Messaging.Channel != "#dev" ||
 		cfg.Messaging.ClientID != clientID {
 		t.Errorf("the file reads %+v, %v; want the rest of it as it was", cfg, err)

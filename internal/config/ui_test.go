@@ -66,11 +66,11 @@ func TestUISettingsKeepTheirDefaultsUnlessAValidFileSetsThem(t *testing.T) {
 			path := write(t, t.TempDir(), tt.contents)
 
 			// Act
-			cfg, err := config.LoadFile(path)
+			cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
 
 			// Assert
 			if !errors.Is(err, tt.wantErr) || !reflect.DeepEqual(cfg.UI, tt.want) {
-				t.Errorf("LoadFile = %+v, %v; want %+v, %v", cfg.UI, err, tt.want, tt.wantErr)
+				t.Errorf("LoadLayersAt = %+v, %v; want %+v, %v", cfg.UI, err, tt.want, tt.wantErr)
 			}
 		})
 	}

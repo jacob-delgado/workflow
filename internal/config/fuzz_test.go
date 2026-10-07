@@ -76,7 +76,7 @@ func FuzzRedactRevealsOnlyTheTail(f *testing.F) {
 	})
 }
 
-func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
+func FuzzLoadNeverLeaksACredential(f *testing.F) {
 	f.Add([]byte(`{}`))
 	f.Add([]byte(`{"jira":{"base_url":"https://jira.example.com","token":"t","user":""}}`))
 	f.Add([]byte(`{"messaging":{"client_id":"1.2","refresh_token":"refresh-aaaabbbbccccdddd","channel":"#c"}}`))
@@ -96,14 +96,14 @@ func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
 		}
 
 		// Act
-		cfg, loadErr := config.LoadFile(path)
+		cfg, _, loadErr := config.LoadLayersAt(config.Files{Home: path})
 
 		// Assert
 		if loadErr != nil {
 			// The error is shown to people and pasted into issues, so it must
 			// describe the file rather than quote it.
 			if strings.Contains(loadErr.Error(), string(document)) && len(document) > visibleTail {
-				t.Fatalf("LoadFile error quoted the file's contents: %v", loadErr)
+				t.Fatalf("LoadLayersAt error quoted the file's contents: %v", loadErr)
 			}
 
 			return
