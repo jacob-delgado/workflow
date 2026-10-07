@@ -397,7 +397,7 @@ test('shows placeholders for an unpublished branch with a clean tree', () => {
   render(<BranchPanel />)
 
   // Assert
-  expect(screen.getByText('none')).toBeTruthy()
+  expect(screen.getByText('None')).toBeTruthy()
   expect(screen.getByText(/no commits yet/i)).toBeTruthy()
   expect(screen.getByText(/clean/i)).toBeTruthy()
 })
@@ -522,4 +522,34 @@ test('focus moved on while a push runs stays put when the push is refused', asyn
   // Assert
   await screen.findByRole('alert')
   expect(document.activeElement).toBe(subject)
+})
+
+test('a missing base and a missing upstream read the same word', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branch: {
+        name: 'wip',
+        issue_link: '',
+        detached: false,
+        head: 'aaa',
+        upstream: '',
+        push_remote: 'origin',
+        ahead: 0,
+        behind: 0,
+        base: '',
+        commits: [],
+      },
+    }),
+  })
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  const terms = screen.getAllByRole('term').map((term) => term.textContent)
+  const values = screen.getAllByRole('definition').map((value) => value.textContent)
+  const valueOf = (term: string) => values[terms.indexOf(term)]
+  expect([valueOf('Base'), valueOf('Upstream')]).toEqual(['None', 'None'])
 })

@@ -5,6 +5,7 @@ import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { useHoldShortcuts, useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
+import { CodeValue } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { ReadFailure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
@@ -89,9 +90,9 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
       </div>
       <dl className={definitionList}>
         <dt className="text-muted-foreground">Base</dt>
-        <dd className="font-mono">{branch.base === '' ? '—' : branch.base}</dd>
+        <CodeValue value={branch.base} />
         <dt className="text-muted-foreground">Upstream</dt>
-        <dd className="font-mono">{branch.upstream === '' ? 'none' : branch.upstream}</dd>
+        <CodeValue value={branch.upstream} />
         <dt className="text-muted-foreground">Tracking</dt>
         <dd>
           {published

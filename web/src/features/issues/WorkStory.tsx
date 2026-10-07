@@ -60,17 +60,17 @@ function buildStages(
   words: ForgeWords,
 ): Stage[] {
   if (!branch) {
-    return notStartedStages(words.noun)
+    return notStartedStages(words.noun, snapshot.messaging)
   }
   if (!branch.current) {
-    return offHeadStages(branch.name, words.noun)
+    return offHeadStages(branch.name, words.noun, snapshot.messaging)
   }
 
   return onHeadStages(snapshot, words)
 }
 
 // notStartedStages is the story for an issue with no local branch yet.
-function notStartedStages(noun: string): Stage[] {
+function notStartedStages(noun: string, messaging: Snapshot['messaging']): Stage[] {
   return [
     {
       title: 'Branch',
@@ -80,14 +80,23 @@ function notStartedStages(noun: string): Stage[] {
     },
     { title: 'Changes', section: 'branch', reached: 'pending', detail: ['Nothing committed yet'] },
     { title: capitalized(noun), section: 'review', reached: 'pending', detail: [`No ${noun} yet`] },
-    { title: 'Announce', section: 'messaging', reached: 'pending', detail: ['Not announced'] },
+    {
+      title: 'Announce',
+      section: 'messaging',
+      reached: 'pending',
+      detail: [announceDetail(messaging)],
+    },
   ]
 }
 
 // offHeadStages is the story for an in-flight issue whose branch is not checked
 // out: the branch exists, but its changes and pull request are only visible from
 // the checked-out branch, so those stages stay pending here.
-function offHeadStages(branchName: string, noun: string): Stage[] {
+function offHeadStages(
+  branchName: string,
+  noun: string,
+  messaging: Snapshot['messaging'],
+): Stage[] {
   const elsewhere = 'Shown for the checked-out branch'
 
   return [
@@ -99,7 +108,12 @@ function offHeadStages(branchName: string, noun: string): Stage[] {
     },
     { title: 'Changes', section: 'branch', reached: 'pending', detail: [elsewhere] },
     { title: capitalized(noun), section: 'review', reached: 'pending', detail: [elsewhere] },
-    { title: 'Announce', section: 'messaging', reached: 'pending', detail: ['Not announced'] },
+    {
+      title: 'Announce',
+      section: 'messaging',
+      reached: 'pending',
+      detail: [announceDetail(messaging)],
+    },
   ]
 }
 
@@ -162,18 +176,18 @@ function reviewReached({ review }: Snapshot): Reached {
   return ci?.state === 'passed' ? 'done' : 'pending'
 }
 
-// announceDetail describes the Announce stage. A webhook service has no channel
-// of its own, so a configured one falls through to naming the service rather
-// than a channel.
+// announceDetail describes the Announce stage not yet done: not announced, to
+// the channel it would go to. A webhook posts where it is bound, which names no
+// channel, so the stage names none.
 function announceDetail(messaging: Snapshot['messaging']): string {
   if (!messaging.configured) {
-    return `${messaging.service} not configured`
+    return `Not announced: ${messaging.service} is not set up`
   }
   if (messaging.channel === '') {
-    return `Announce to ${messaging.service}`
+    return 'Not announced'
   }
 
-  return `Announce to ${messaging.channel}`
+  return `Not announced to ${messaging.channel}`
 }
 
 function changesDetail(snapshot: Snapshot): string {
