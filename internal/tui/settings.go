@@ -186,7 +186,7 @@ func (f settingsForm) footLines(width int) []string {
 	}
 
 	if f.problem != nil {
-		lines = append(lines, "", failureLine(f.styles, f.marks, f.problem))
+		lines = append(lines, "", failureBlock(f.styles, f.marks, f.problem, width))
 	}
 
 	if f.said != "" {
