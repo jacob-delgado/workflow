@@ -71,7 +71,7 @@ func (n BranchNaming) Name(issueType, key, summary string) string {
 
 // prefix is the branch prefix for an issue type, matched without regard to case.
 func (n BranchNaming) prefix(issueType string) string {
-	if mapped, ok := n.prefixes[strings.ToLower(strings.TrimSpace(issueType))]; ok {
+	if mapped, ok := n.prefixes[IssueTypeKey(issueType)]; ok {
 		return mapped
 	}
 
@@ -84,12 +84,18 @@ func tidyBranchName(name string) string {
 	return strings.TrimRight(strings.ReplaceAll(name, "--", "-"), "-/_")
 }
 
+// IssueTypeKey is the form an issue type is matched by, against the prefixes:
+// two types with the same key name one type.
+func IssueTypeKey(issueType string) string {
+	return strings.ToLower(strings.TrimSpace(issueType))
+}
+
 // lowerKeys copies a prefix map with its keys folded to lower case, so a type
 // written "Bug" in the file matches "bug" from Jira.
 func lowerKeys(prefixes map[string]string) map[string]string {
 	folded := make(map[string]string, len(prefixes))
 	for issueType, prefix := range prefixes {
-		folded[strings.ToLower(strings.TrimSpace(issueType))] = prefix
+		folded[IssueTypeKey(issueType)] = prefix
 	}
 
 	return folded

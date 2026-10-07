@@ -47,6 +47,9 @@ var (
 	ErrInvalidBaseURL = errors.New("jira.base_url is not an absolute http or https URL")
 	// ErrCredentialInBaseURL reports userinfo embedded in jira.base_url.
 	ErrCredentialInBaseURL = errors.New("jira.base_url carries a username and password")
+	// ErrSameName reports two names a map holds apart that are matched as one:
+	// two jira.headers equal but for case, or two branch.prefixes types.
+	ErrSameName = errors.New("two names that are matched as one")
 )
 
 // Jira describes how to reach an on-premises Jira instance.
