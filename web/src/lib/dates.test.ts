@@ -1,6 +1,7 @@
 import {
   headingDay,
   monthHeading,
+  narrowAgo,
   relativeTime,
   writtenDate,
   writtenDay,
@@ -43,4 +44,15 @@ test('a moment names its date and its time', () => {
 test('a time relative to now is said in words', () => {
   // Act & Assert
   expect(relativeTime(-2, 'day')).toBe('2 days ago')
+})
+
+test.each([
+  [400, 'just now'],
+  [3_000, '3s ago'],
+  [59_999, '59s ago'],
+  [5 * 60_000, '5m ago'],
+  [2 * 3_600_000 + 1, '2h ago'],
+])('%i ms ago, in a figure, is %s', (elapsed, words) => {
+  // Act & Assert
+  expect(narrowAgo(elapsed)).toBe(words)
 })

@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { useSnapshotStore, type StreamStatus as Status } from '@/api/snapshot.ts'
 import { EmptyState } from './EmptyState.tsx'
+import { narrowAgo, writtenMoment } from '@/lib/dates.ts'
 import { StateMark, type MarkState } from './StateMark.tsx'
 
 // Each state of the stream, by its words and its mark: nothing yet while it
@@ -18,10 +20,20 @@ const meta: Record<Status, { label: string; mark: MarkState; wait: string }> = {
   },
 }
 
-// StreamStatus says how current the page is. Why it is out of date is read out
-// with the label and shown on hover, rather than drawn beside it, so the header
-// stays one short line.
+// StreamStatus says how current the page is, and when the last snapshot
+// landed. Why it is out of date is read out with the label and shown on hover,
+// rather than drawn beside it, so the header stays one short line.
 export function StreamStatus() {
+  return (
+    <div className="flex items-center gap-item">
+      <StreamPill />
+      <LastUpdate />
+    </div>
+  )
+}
+
+// StreamPill is the stream's state, live, so a reader hears it change.
+function StreamPill() {
   const status = useSnapshotStore((state) => state.status)
   const reason = useSnapshotStore((state) => state.reason)
   const { label, mark } = meta[status]
@@ -45,4 +57,45 @@ export function StreamWait() {
   const status = useSnapshotStore((state) => state.status)
 
   return <EmptyState>{meta[status].wait}</EmptyState>
+}
+
+// LastUpdate is how long ago the last snapshot landed, counted on each second.
+// It stands outside the live region: a time that changes every second would
+// otherwise be spoken every second. Before the first snapshot there is none to
+// date.
+function LastUpdate() {
+  const receivedAt = useSnapshotStore((state) => state.receivedAt)
+  const now = useSecondClock()
+  if (receivedAt === 0) {
+    return null
+  }
+
+  const landed = new Date(receivedAt)
+
+  return (
+    <time
+      dateTime={landed.toISOString()}
+      title={writtenMoment(landed)}
+      className="text-xs text-muted-foreground tabular-nums"
+    >
+      Updated {narrowAgo(Math.max(0, now - receivedAt))}
+    </time>
+  )
+}
+
+// useSecondClock is the page's clock, in milliseconds, read again each second.
+function useSecondClock(): number {
+  const [now, setNow] = useState(Date.now)
+
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setNow(Date.now())
+    }, 1_000)
+
+    return () => {
+      clearInterval(tick)
+    }
+  }, [])
+
+  return now
 }

@@ -8,7 +8,7 @@ import type {
   PullRequest,
   Review,
 } from '@/api/generated/types.gen.ts'
-import { useLiveSnapshot } from '@/api/snapshot.ts'
+import { useChangedByStream, useLiveSnapshot } from '@/api/snapshot.ts'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
 import { CopyURL } from '@/lib/CopyURL.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
@@ -141,7 +141,7 @@ function PullRequestSummary({
         <dl className={definitionList}>
           {issue ? <IssueRow issue={issue} /> : null}
           <dt className="text-muted-foreground">State</dt>
-          <MarkedValue mark={stateMark[pull.state]}>{stateLabel(pull)}</MarkedValue>
+          <RowValue mark={stateMark[pull.state]}>{stateLabel(pull)}</RowValue>
           {pull.state === 'open' ? <ReviewRows pull={pull} /> : null}
         </dl>
         <PullActions pull={pull} ci={ci} branch={branch} />
@@ -175,23 +175,27 @@ function ReviewRows({ pull }: { pull: PullRequest }) {
   return (
     <>
       <dt className="text-muted-foreground">Mergeable</dt>
-      <MarkedValue mark={mergeable[pull.mergeable].mark}>
-        {mergeable[pull.mergeable].label}
-      </MarkedValue>
+      <RowValue mark={mergeable[pull.mergeable].mark}>{mergeable[pull.mergeable].label}</RowValue>
       <dt className="text-muted-foreground">Approvals</dt>
-      <dd>{pull.approvals}</dd>
+      <RowValue>{String(pull.approvals)}</RowValue>
       <dt className="text-muted-foreground">Changes requested</dt>
-      {pull.changes_requested ? <MarkedValue mark="failed">Yes</MarkedValue> : <dd>No</dd>}
+      {pull.changes_requested ? <RowValue mark="failed">Yes</RowValue> : <RowValue>No</RowValue>}
     </>
   )
 }
 
-// MarkedValue is a row's value that is a state: its mark carries the status
-// light, so the word stays in the plain foreground.
-function MarkedValue({ mark, children }: { mark: MarkState; children: string }) {
+// RowValue is a row's value, after the mark of the state it is, when it is one:
+// the mark carries the status light, so the word stays in the plain
+// foreground. A value a snapshot changes plays the row's brief highlight.
+function RowValue({ mark, children }: { mark?: MarkState; children: string }) {
+  const { changed, settle } = useChangedByStream(children)
+
   return (
-    <dd className="flex items-center gap-tight">
-      <StateMark state={mark} />
+    <dd
+      className={cn('flex items-center gap-tight', changed && 'stream-changed')}
+      onAnimationEnd={settle}
+    >
+      {mark === undefined ? null : <StateMark state={mark} />}
       {children}
     </dd>
   )

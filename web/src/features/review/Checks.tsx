@@ -1,9 +1,11 @@
 import type { Check, Ci, JobLog } from '@/api/generated/types.gen.ts'
+import { useChangedByStream } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { Meta } from '@/lib/Meta.tsx'
 import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { cn } from '@/lib/utils.ts'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
 import { readCheckLog } from './checkLogApi.ts'
 
@@ -56,10 +58,16 @@ function ciStanding(ci: Ci): string | null {
 
 // CheckRow is one check: how it stands, the stage it ran in for a GitLab job,
 // then its name — unique in its pipeline — linked to its page, and for a
-// failed one, why it failed.
+// failed one, why it failed. A snapshot that moves it on plays the row's brief
+// highlight.
 function CheckRow({ check }: { check: Check }) {
+  const { changed, settle } = useChangedByStream(check.state)
+
   return (
-    <li className="flex flex-col gap-1 text-sm">
+    <li
+      className={cn('flex flex-col gap-1 text-sm', changed && 'stream-changed')}
+      onAnimationEnd={settle}
+    >
       <span className="flex items-center gap-item">
         <StateMark state={ciMark[check.state]} />
         <Meta>

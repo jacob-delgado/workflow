@@ -4,6 +4,7 @@ import { useHealth, useHealthStore } from '@/api/health.ts'
 import { useEventStream, useSnapshotStore } from '@/api/snapshot.ts'
 import { useRefreshViews } from '@/features/issues/issueApi.ts'
 import { KeyboardLayer } from '@/features/keyboard/KeyboardLayer.tsx'
+import { CiSettled } from '@/features/review/CiSettled.tsx'
 import { HereBadge } from '@/features/repositories/HereBadge.tsx'
 import { useFollowSwitch } from '@/features/repositories/useFollowSwitch.ts'
 import { ActiveTask } from '@/features/tasks/ActiveTask.tsx'
@@ -66,6 +67,7 @@ export function AppShell() {
         <ActiveTask />
         <div className="flex items-center gap-item">
           <ThemeToggle />
+          <CiSettled />
           <StreamStatus />
         </div>
       </header>
