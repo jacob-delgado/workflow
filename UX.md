@@ -182,7 +182,8 @@ them.
 | **Settings and local data** | | | |
 | Set up from nothing | `config init`, `slack login` | `enter` on the no-file screen, or `S` on the Repositories pane | Settings, with no file |
 | Read the configuration | `config show` | Settings: `S` on the Repositories pane | Settings |
-| Change it | edit the file | Settings, `ctrl+s` | Settings, Save changes |
+| Remove a stored credential or header | edit the file | Settings: `D`, after a last look | Settings: Remove…, after a confirm |
+| Change it, every section and list | edit the file | Settings, `ctrl+s` | Settings, Save changes |
 | Check the setup | `doctor [--online]` | a failure names `workflow doctor` | a failure names `workflow doctor` |
 | Remove the local data | `db-clean` | Local data: `L` on the Repositories pane | Settings: Local data, Remove |
 | Every key or command | `--help` | `?` | `?`, and ⌘K or Ctrl+K (outside a Mac's text field) to find an action by name |
@@ -330,157 +331,7 @@ over a log of what workflow did, is FEAT-87's.
 
 ## The web
 
-What is open here is Settings' unseen sections, misleading hints, blank
-selects and unremovable credential.
-
-Every pointer here was checked again at `e5156e3`. A screenshot named
-by its file (`1440-dark-tasks.png`, say) is from a pass on 2026-10-05 over
-every section at 640, 1024 and 1440 px in both themes, of the mock build,
-and like the 2026-09-24 audit's is not in the repository; one that shows a
-control drawn since — a field, a button, a row's facts — shows it as it
-was before `web/src/lib` drew it.
-
-### UX-87 Settings can edit nine sections and carry six it cannot show
-
-Impact: low · Effort: medium
-
-**Today.** The form seeds itself with the whole `Config` (`ConfigForm`,
-`web/src/features/settings/SettingsPanel.tsx:118`, its comment at `:119`
-naming what rides along), so `ui` beyond `web_shortcuts`, `timing`,
-`jira.headers`, `jira.views`, `branch.prefixes` and `messaging.channels`
-(`internal/config/config.go:124`) survive a save unchanged — and cannot
-be edited. The nine fieldsets it draws
-(`web/src/features/settings/SettingsPanel.tsx:181` to `:189`) are Jira,
-messaging, the forge, commits, branches, pull requests, the store,
-Taskwarrior and the keyboard, whose one field is `ui.web_shortcuts`.
-
-**Instead.** Fieldsets for the six, with `views`, `prefixes` and
-`channels` as editable lists.
-
-**Done when.** A view added in the browser appears in the interface's `v`
-cycle, and a channel added there is offered in the announcement preview.
-
-### UX-108 Three Settings hints that hide where a value comes from or applies
-
-Impact: low · Effort: small
-
-**Today.** Three Settings fields say nothing, or the wrong thing, about
-their value. Beside UX-87's six carried unseen, these are values carried
-and misdescribed.
-
-- `JiraFieldset`'s Token hint is "Leave as-is to keep the stored token."
-  (`web/src/features/settings/fieldsets/JiraFieldset.tsx:18`; on screen in
-  `1440-light-settings.png`), over a field that is empty after the
-  recommended macOS setup: `keepTokenSafe`
-  (`internal/cli/config_cmd.go:360`) hands the token to `setup.Keep`
-  (`internal/setup/setup.go:179`), which clears `jira.Token` and sets
-  `TokenCommand` (`:189`) — as both interfaces' first-run setup does. A user who types a token to "fix" it writes a
-  secret into the file, and "The file's own `token` wins when set"
-  (`docs/content/docs/configuration.md:273`, under "Keeping tokens out of
-  the file") — what `config init` worked to avoid.
-- Announcement is registered with no hint
-  (`web/src/features/settings/fieldsets/MessagingFieldset.tsx:50`), though
-  `Messaging.Announcement` is a Slack-only template with seven
-  placeholders (`internal/config/config.go:125`), which the fields table
-  describes in one line (`docs/content/docs/configuration.md:124`). A
-  Teams user edits it and sees no change; a Slack user has no placeholder
-  list on screen.
-- Channel is registered with no hint
-  (`web/src/features/settings/fieldsets/MessagingFieldset.tsx:49`), though
-  `Messaging.Channel` "applies to a Slack user token only; a webhook
-  carries its own channel" (`internal/config/config.go:119`). A webhook
-  user sees an editable channel that does nothing.
-
-**Instead.** When `token_command` or `token_env` is set, replace the token
-hint with "Taken from token_command: VALUE" (or the variable's name),
-neither a secret; a hint on Announcement naming the placeholders, that it
-applies to Slack only, and that empty keeps the built-in message; a hint
-on Channel: "With a Slack user token; a webhook posts to its own channel."
-
-**Done when.** A `SettingsPanel` test seeding `jira.token_command` finds
-the Token textbox described by text naming that command;
-`getByRole('textbox', { name: 'Announcement', description: /\{author\}/
-})` and `getByRole('textbox', { name: 'Channel', description: /user token/
-})` resolve.
-
-### UX-119 A credential cannot be removed from Settings
-
-Impact: low · Effort: small
-
-**Today.** `keepSecret` treats an emptied secret field as "keep the stored
-value" (`internal/config/redact.go:185`) and `KeepStored` applies it to
-all six secrets and every Jira header value (`:157`) for every save
-through `config.SaveEdit` (`internal/config/save.go:369`) — the web's and,
-now, the terminal's Settings alike — so neither has a way to clear
-`jira.token`, `messaging.client_secret`, `messaging.refresh_token`,
-`messaging.webhook_url` or `forge.token`: clearing one in the form and
-saving keeps it, and moving from a user token to a webhook leaves the old
-client secret and refresh token in the file, to be removed by hand. The
-keep is documented — `updateConfig` says an empty or masked secret field
-keeps the stored secret (`api/openapi.yaml:1066`), and the web page says
-under "Settings" that a credential is "kept as it is unless you type a new
-one" (`docs/content/docs/web.md:491`) — but no clear is offered anywhere.
-UX-87 covers sections the form cannot show, not clearing a secret.
-
-**Instead.** Accept an explicit clear — a `null` for the secret fields in
-the contract, or a per-field remove control — that writes an empty value.
-
-**Done when.** A test sends `jira.token` as `null` and the saved file holds
-no token.
-
-### UX-124 Two Settings selects draw blank for the value in effect
-
-Impact: low · Effort: small
-
-**Today.** `pull_request.title_source` and `messaging.kind` may be the
-empty string, and the server reads them as `commit` and Slack, and the
-spec allows it. But the Title source and Service selects offer no option
-for `""`, so a configuration holding it shows an empty control in either
-theme, and once a value is picked there is no way back to the default.
-Every Settings screenshot (`1440-light-settings.png` among them) shows
-Title source empty under "Pull request", the only control on the form
-with no visible value. A blank select saves back `""` harmlessly and
-Settings is opened rarely, which is why this is low.
-
-- `PullRequestFieldset` offers `commit` and `issue` only
-  (`web/src/features/settings/fieldsets/PullRequestAndStoreFieldsets.tsx:16`),
-  and `MessagingFieldset`'s choices begin at `slack`
-  (`web/src/features/settings/fieldsets/MessagingFieldset.tsx:16`);
-  `SelectField` registers the `<Select>` with the value as-is
-  (`web/src/features/settings/fieldsets/Field.tsx:119`), so `""` matches
-  no option and shows blank. `ForgeFieldset` handles the same case with an
-  explicit `['', 'Auto-detect']`
-  (`web/src/features/settings/fieldsets/ForgeFieldset.tsx:13`).
-- Neither `Default` (`internal/config/config.go:195`) nor `Template`
-  (`:207`), which `config init` writes, sets a `PullRequest`, so
-  `title_source` is `""` in every file workflow writes. `Template` sets
-  `Kind: KindSlack` (`:217`), but the guided setup starts from `Default`
-  (`setup.Beneath`, `internal/setup/setup.go:197`), whose messaging has
-  no kind, and `withWebhook` leaves it so when the webhook question is left
-  blank for the user token (`internal/setup/setup.go:137`) — on the command
-  line and in both interfaces' first run alike — so that path writes kind
-  `""` and the Service select draws empty while the messaging section's rail
-  label and heading say "Slack" — two surfaces disagreeing about one file.
-- `PullRequest.TitleSource` documents `commit` as the default
-  (`internal/config/pullrequest.go:19`) and its tag is
-  `json:"title_source"` without `omitempty` (`:21`),
-  `validatePullRequest` accepts `""` (`:27`), and `encode`'s
-  `MarshalIndent` of the whole struct writes the empty value
-  (`indented`, `internal/config/save.go:174`).
-- `MessagingConfig`'s `kind` `enum` is `["", slack, teams, discord,
-  webhook]` (`api/openapi.yaml:4735`), so the spec allows what the select
-  cannot show; the mock the screenshots show has `title_source: ''`
-  (`web/src/dev/mockConfig.ts:58`).
-
-**Instead.** A first choice `['', "The branch's oldest commit
-(default)"]` and `['', 'Slack (default)']` as `ForgeFieldset` does for its
-empty kind — or normalize `""` onto the default when seeding the form and
-let the save write it.
-
-**Done when.** A `SettingsPanel` test seeding `title_source: ''` finds the
-Title source combobox with a selected option naming the oldest-commit
-default, and one seeding `messaging.kind: ''` finds the Service combobox
-with a selected option named for Slack.
+Nothing is open here at the moment.
 
 ## The visual system
 
