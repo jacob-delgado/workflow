@@ -6,6 +6,7 @@ package tui_test
 import (
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 )
 
@@ -42,6 +43,41 @@ func TestTheTokenHintNamesTheVariableItIsTakenFrom(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "Taken from token_env: JIRA_TOKEN")
+}
+
+func TestTheTokenHintSaysAStoredTokenIsUsedOverItsSource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		source func(*config.Config)
+		want   string
+	}{
+		{
+			"a command", func(cfg *config.Config) { cfg.Jira.TokenCommand = "pass show jira" },
+			"The token stored here is used over token_command: pass show jira.",
+		},
+		{
+			"a variable", func(cfg *config.Config) { cfg.Jira.TokenEnv = "JIRA_TOKEN" },
+			"The token stored here is used over token_env: JIRA_TOKEN.",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			repo := newWorld()
+			test.source(&repo.settings)
+
+			// Act
+			view := typing(t, repo.live(t, 120, 40), toRow(tokenRow)...).View().Content
+
+			// Assert
+			requireScreen(t, view, test.want)
+			refuseScreen(t, view, settingsToken)
+		})
+	}
 }
 
 func TestTheChannelHintSaysItIsForASlackUserToken(t *testing.T) {
