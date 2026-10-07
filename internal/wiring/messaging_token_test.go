@@ -39,7 +39,7 @@ func halfLoggedIn(t *testing.T) config.Config {
 		t.Fatalf("writing the configuration: %v", err)
 	}
 
-	cfg, err := config.LoadFile(path)
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil {
 		t.Fatalf("loading the configuration: %v", err)
 	}

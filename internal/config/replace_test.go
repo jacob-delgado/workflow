@@ -16,7 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
-func TestSaveOverIntoADirectoryItCannotWriteKeepsThePreviousFile(t *testing.T) {
+func TestASaveIntoADirectoryItCannotWriteKeepsThePreviousFile(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -30,11 +30,11 @@ func TestSaveOverIntoADirectoryItCannotWriteKeepsThePreviousFile(t *testing.T) {
 	sealDirectory(t, dir)
 
 	// Act
-	_, err := config.SaveOver(path, savedConfig(), read)
+	_, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), read)
 
 	// Assert
 	if err == nil {
-		t.Error("SaveOver into a directory it cannot write = nil, want the failure")
+		t.Error("SaveLayers into a directory it cannot write = nil, want the failure")
 	}
 
 	if got := fileContents(t, path); got != readContents {
@@ -42,7 +42,7 @@ func TestSaveOverIntoADirectoryItCannotWriteKeepsThePreviousFile(t *testing.T) {
 	}
 }
 
-func TestSaveOverReplacesTheFileRatherThanWritingIntoIt(t *testing.T) {
+func TestASaveReplacesTheFileRatherThanWritingIntoIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -51,18 +51,18 @@ func TestSaveOverReplacesTheFileRatherThanWritingIntoIt(t *testing.T) {
 	before := lstat(t, path)
 
 	// Act
-	_, err := config.SaveOver(path, savedConfig(), read)
+	_, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), read)
 	// Assert
 	if err != nil {
-		t.Fatalf("SaveOver: %v", err)
+		t.Fatalf("SaveLayers: %v", err)
 	}
 
 	if os.SameFile(before, lstat(t, path)) {
-		t.Error("SaveOver wrote into the file it found, want a new file in its place")
+		t.Error("SaveLayers wrote into the file it found, want a new file in its place")
 	}
 }
 
-func TestSaveOverThroughALinkReplacesTheFileItPointsAt(t *testing.T) {
+func TestASaveThroughALinkReplacesTheFileItPointsAt(t *testing.T) {
 	t.Parallel()
 
 	// A dotfiles manager keeps the file in a directory of its own and links it
@@ -115,17 +115,17 @@ func TestSaveOverThroughALinkReplacesTheFileItPointsAt(t *testing.T) {
 			read := revisionOf(t, path)
 
 			// Act
-			_, err := config.SaveOver(path, savedConfig(), read)
+			_, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), read)
 			// Assert
 			if err != nil {
-				t.Fatalf("SaveOver: %v", err)
+				t.Fatalf("SaveLayers: %v", err)
 			}
 
 			if mode := lstat(t, path).Mode(); mode&fs.ModeSymlink == 0 {
 				t.Errorf("%s is %v after the save, want the link kept", path, mode)
 			}
 
-			saved, err := config.LoadFile(target)
+			saved, _, err := config.LoadLayersAt(config.Files{Home: target})
 			if err != nil || saved.Jira.BaseURL != savedURL {
 				t.Errorf("the linked file reads back as Jira at %q (%v), want the saved configuration", saved.Jira.BaseURL, err)
 			}
@@ -139,8 +139,8 @@ func TestSaveToAnEmptyPathWritesNothing(t *testing.T) {
 		"Save": func(cfg config.Config) error {
 			return config.Save("", cfg)
 		},
-		"SaveOver": func(cfg config.Config) error {
-			_, err := config.SaveOver("", cfg, config.Revision{})
+		"SaveLayers": func(cfg config.Config) error {
+			_, err := config.SaveLayers(config.Files{Home: ""}, cfg, config.Revision{})
 
 			return err
 		},

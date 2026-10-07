@@ -110,7 +110,7 @@ func TestAForgeTokenEditedOnDiskIsHandedOnOnceRead(t *testing.T) {
 	path := filepath.Join(t.TempDir(), config.FileName)
 	rewrite(t, path, fileAtStart)
 
-	cfg, err := config.LoadFile(path)
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil {
 		t.Fatalf("loading the served file: %v", err)
 	}

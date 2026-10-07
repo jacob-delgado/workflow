@@ -17,8 +17,9 @@ import (
 	"runtime"
 )
 
-// ErrChangedOnDisk is SaveOver's refusal: the file is no longer at the revision
-// the write was to be made over, so writing would lose whatever changed it.
+// ErrChangedOnDisk is a save's refusal: the files are no longer at the
+// revision the write was to be made over, so writing would lose whatever
+// changed them.
 var ErrChangedOnDisk = errors.New("the configuration file changed on disk")
 
 // ErrNotARevision is ParseRevision's refusal of text no Revision writes.
@@ -66,23 +67,6 @@ func ParseRevision(text string) (Revision, error) {
 	return Revision{digest: [sha256.Size]byte(digest), exists: true}, nil
 }
 
-// RevisionOf reads the revision of the file at path. A file that does not
-// exist, or an empty path, which names none, is the no-file revision rather
-// than an error.
-func RevisionOf(path string) (Revision, error) {
-	//nolint:gosec // the path is the user's own config file, by design
-	contents, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return Revision{}, nil
-	}
-
-	if err != nil {
-		return Revision{}, fmt.Errorf("reading %s: %w", path, err)
-	}
-
-	return revisionOfContents(contents), nil
-}
-
 // revisionKey keys each revision's digest. A revision leaves the process as
 // the web API's ETag, and the file holds credentials, so the digest is keyed:
 // it tells whoever holds it whether the file changed, and nothing about what
@@ -106,9 +90,7 @@ func revisionOfContents(contents []byte) Revision {
 // there, or the file a link there points at. The new file is made in the
 // directory of the file it replaces, so that directory must be writable too.
 func Save(path string, cfg Config) error {
-	_, err := write(path, cfg)
-
-	return err
+	return write(path, cfg)
 }
 
 // Create writes the configuration to a new file at path, at FileMode, and
@@ -124,43 +106,19 @@ func Create(path string, cfg Config) error {
 	return createPrivate(path, encoded)
 }
 
-// SaveOver writes the configuration to path as Save does, but only while the
-// file is still at the revision over; otherwise it writes nothing and returns
-// ErrChangedOnDisk. It returns the revision of what it wrote. The check and the
-// write are not one step, so another process can still slip a write between
-// them; closing that would take a lock every writer honors, and an editor
-// honors none.
-func SaveOver(path string, cfg Config, over Revision) (Revision, error) {
-	current, err := RevisionOf(path)
-	if err != nil {
-		return Revision{}, err
-	}
-
-	if current != over {
-		return Revision{}, fmt.Errorf("%s: %w", path, ErrChangedOnDisk)
-	}
-
-	contents, err := write(path, cfg)
-	if err != nil {
-		return Revision{}, err
-	}
-
-	return revisionOfContents(contents), nil
-}
-
-// write encodes the configuration into path and returns the bytes it wrote.
-func write(path string, cfg Config) ([]byte, error) {
+// write encodes the configuration into path.
+func write(path string, cfg Config) error {
 	encoded, err := encode(cfg)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = writePrivate(path, encoded)
 	if err != nil {
-		return nil, fmt.Errorf("writing %s: %w", path, err)
+		return fmt.Errorf("writing %s: %w", path, err)
 	}
 
-	return encoded, nil
+	return nil
 }
 
 // encode is the configuration as a file holds it.
@@ -183,7 +141,7 @@ func indented(value any) ([]byte, error) {
 // holding contents. The new file is written in full beside the old one and
 // renamed over it, so a save that fails part way leaves the previous file as it
 // was rather than empty or cut short. An empty path names no file and is
-// refused before anything is written, as RevisionOf reads it as no file.
+// refused before anything is written, as a read takes it for no file.
 func writePrivate(path string, contents []byte) error {
 	if path == "" {
 		return &fs.PathError{Op: "open", Path: path, Err: fs.ErrNotExist}
