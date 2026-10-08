@@ -1,8 +1,8 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import type { Comment, IssueDetail } from '../../src/api/generated/types.gen.ts'
 import { mockConfig } from '../../src/dev/mockConfig.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { issuesOf, snapshotWith, streams } from '../support/fixtures.ts'
+import { expect, issuesOf, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // Commenting on a Jira issue from its detail: the thread, the composer under

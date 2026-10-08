@@ -1,7 +1,7 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { mockActivity } from '../../src/dev/mockActivity.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { problem } from '../support/fixtures.ts'
+import { expect, problem, test } from '../support/fixtures.ts'
 import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Summary section: what was done, the calendar it is picked in, and the

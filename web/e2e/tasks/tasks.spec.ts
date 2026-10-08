@@ -1,7 +1,7 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import type { Snapshot, Task, TaskList, TasksSummary } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { issuesOf, problem, snapshotWith, streams } from '../support/fixtures.ts'
+import { expect, issuesOf, problem, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // Your Taskwarrior tasks as the browser draws them, against answers given

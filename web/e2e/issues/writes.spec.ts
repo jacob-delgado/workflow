@@ -1,7 +1,7 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import type { IssueDetail, StatusChange } from '../../src/api/generated/types.gen.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { issuesOf, snapshotWith, streams } from '../support/fixtures.ts'
+import { expect, issuesOf, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // Changing a Jira issue from its detail: its status with the fields the change

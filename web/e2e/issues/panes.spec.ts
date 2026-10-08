@@ -1,5 +1,6 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { height, openCockpit, openSection, widths } from '../support/cockpit.ts'
+import { expect, test } from '../support/fixtures.ts'
 
 // The issue panes in the populated cockpit: where the detail sits against the
 // list, what scrolls, where each pane opens, and the focus rings a pane's edge
