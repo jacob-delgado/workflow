@@ -242,8 +242,8 @@ func pullDTO(pull forge.PullRequest) api.PullRequest {
 	}
 }
 
-// pullState maps where a pull request stands onto its wire word. A map, as
-// ciState is, so exhaustive keeps it complete.
+// pullState maps where a pull request stands onto its wire word. A map, so
+// exhaustive keeps it complete.
 func pullState(state forge.PullState) api.PullRequestState {
 	return map[forge.PullState]api.PullRequestState{
 		forge.StateOpen:   api.PullRequestStateOpen,
@@ -339,8 +339,8 @@ func messagingDTO(cfg config.Config, author string) api.MessagingDestination {
 }
 
 // messagingKind maps the service a messaging block posts to onto its wire
-// word. A map, as ciState is, so exhaustive keeps it complete; the empty kind
-// is read as Slack, as the configuration reads it.
+// word. A map, so exhaustive keeps it complete; the empty kind is read as
+// Slack, as the configuration reads it.
 func messagingKind(kind config.MessagingKind) api.MessagingDestinationKind {
 	return map[config.MessagingKind]api.MessagingDestinationKind{
 		"":                 api.MessagingDestinationKindSlack,
@@ -410,7 +410,7 @@ func statusChangesDTO(moves []jira.Transition) []api.StatusChange {
 }
 
 // statusChangeFieldDTO maps a field a status change needs, with the values it
-// allows. A map, not a switch, as ciState's is.
+// allows. Its kind is a map, not a switch, so exhaustive keeps it complete.
 func statusChangeFieldDTO(field jira.Field) api.StatusChangeField {
 	options := make([]api.FieldOption, 0, len(field.Options))
 	for _, option := range field.Options {
