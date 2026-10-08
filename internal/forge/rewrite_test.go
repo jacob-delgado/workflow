@@ -11,6 +11,7 @@ package forge_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 
@@ -94,5 +95,52 @@ func TestRewriteDescriptionWritesNothingWhenNothingChanges(t *testing.T) {
 	// Assert
 	if err != nil || changed || len(*seen) != 1 || (*seen)[0].method != http.MethodGet {
 		t.Errorf("RewriteDescription = %v, %v after %+v; want one read and no write", changed, err, *seen)
+	}
+}
+
+func TestRewriteDescriptionThatCannotReadWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	pullPath := githubPullsPath + "/43"
+
+	cases := map[string]struct {
+		repo   forge.Repo
+		answer func(recorded) (int, string)
+		want   error
+	}{
+		"on a forge it cannot name": {
+			repo: unknownForge(), answer: conversation(nil, nil), want: forge.ErrUnknownForge,
+		},
+		// Both forges answer 404, not 403, for a repository the token cannot see.
+		"in a repository the token cannot see": {
+			repo: githubRepo(), answer: answering(http.StatusNotFound, `{"message":"Not Found"}`),
+			want: forge.ErrNoRepository,
+		},
+		"when the read is refused": {
+			repo: githubRepo(), answer: conversation(nil, map[string]bool{pullPath: true}), want: forge.ErrRefused,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client, seen := recordingForge(t, tt.answer)
+
+			// Act
+			changed, err := client.RewriteDescription(t.Context(), tt.repo, forge.PullRequest{Number: 43}, withIssueLine)
+
+			// Assert
+			if !errors.Is(err, tt.want) || changed {
+				t.Errorf("RewriteDescription = %v, %v; want %v and nothing changed", changed, err, tt.want)
+			}
+
+			for _, asked := range *seen {
+				if asked.method != http.MethodGet {
+					t.Errorf("asked %s %s, want nothing written", asked.method, asked.path)
+				}
+			}
+		})
 	}
 }
