@@ -5,6 +5,7 @@ package webserver_test
 
 import (
 	"slices"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -232,5 +233,43 @@ func TestTheSnapshotRanksTheActiveTaskAmongTheListThatHoldsIt(t *testing.T) {
 				t.Errorf("active = %+v, want ranks %+v, as the list holding it ranks it", summary.Active, want)
 			}
 		})
+	}
+}
+
+func TestListTasksReadsTheClockOnceForTheTasksAndTheirFilter(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The plain task, in the garden project, waits until a minute after the
+	// clock's first read: a list read at two moments would word it waiting,
+	// yet offer its project, which the filter offers only for a task not
+	// waiting.
+	first := taskDay().Add(3 * time.Hour)
+	waits := plainTask()
+	waits.Project, waits.Wait = "garden", first.Add(time.Minute)
+	fake := fakeTaskwarrior()
+	fake.pending.Tasks = []taskwarrior.Task{waits}
+	deps := tasksDeps(fake)
+
+	var reads atomic.Int32
+
+	deps.Clock = func() time.Time {
+		if reads.Add(1) == 1 {
+			return first
+		}
+
+		return first.Add(time.Hour)
+	}
+
+	// Act
+	list := decode[api.TaskList](t, get(t, serve(t, deps, config.Default()), tasksPath))
+
+	// Assert
+	if len(list.Tasks) != 1 || list.Tasks[0].State != api.TaskStateWaiting {
+		t.Fatalf("tasks = %+v, want the one, waiting at the clock's first read", list.Tasks)
+	}
+
+	if offered := taskFacetLines(list.FacetOrder); slices.Contains(offered, "project|garden|project garden") {
+		t.Errorf("the filter offers %q, the project of a task worded waiting", offered)
 	}
 }
