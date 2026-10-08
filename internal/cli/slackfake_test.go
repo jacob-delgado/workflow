@@ -29,6 +29,19 @@ const slackAuthTest = "/auth.test"
 // sent to.
 const slackPostMessage = "/chat.postMessage"
 
+// slackRefresh is the path of Slack's oauth.v2.access, which a user token is
+// refreshed at.
+const slackRefresh = "/oauth.v2.access"
+
+// slackRenewed is Slack's answer to a refresh it accepts: a new pair, good for
+// twelve hours.
+const slackRenewed = `{"ok":true,"token_type":"user",` +
+	`"access_token":"xoxe.xoxp-1-new","refresh_token":"xoxe-1-next","expires_in":43200}`
+
+// typedLogin is a login's typed secrets: the app's client secret, and the
+// refresh token Slack gave at install.
+func typedLogin() []string { return []string{"client-secret-9999", "xoxe-1-first"} }
+
 // slackLoggedInConfig is ownedRepo's forge, announcing to Slack with a user
 // token good for an hour, whose credentials the file keeps, so no keychain is
 // read and no refresh is due.

@@ -144,8 +144,7 @@ func TestSlackLoginNeedsAConfigurationFile(t *testing.T) {
 
 func TestSlackLoginKeepsWhatSlackGivesBackAndSaysWhoseItIs(t *testing.T) {
 	// Arrange
-	fakeSlack(t, map[string]slackAnswer{"/oauth.v2.access": {http.StatusOK, `{"ok":true,"token_type":"user",` +
-		`"access_token":"xoxe.xoxp-1-new","refresh_token":"xoxe-1-next","expires_in":43200}`}})
+	fakeSlack(t, map[string]slackAnswer{slackRefresh: {http.StatusOK, slackRenewed}})
 
 	dir := t.TempDir()
 	// The file already keeps the app's secret, so the token is kept there on
@@ -155,7 +154,7 @@ func TestSlackLoginKeepsWhatSlackGivesBackAndSaysWhoseItIs(t *testing.T) {
 
 	var askedLine, askedSecret []string
 
-	prompt := asking([]string{slackClientID}, []string{"client-secret-9999", "xoxe-1-first"}, &askedLine, &askedSecret)
+	prompt := asking([]string{slackClientID}, typedLogin(), &askedLine, &askedSecret)
 
 	// Act
 	printed, err := runStreams(t, dir, prompt, "slack", "login")
@@ -239,7 +238,7 @@ func TestSlackLoginWithNoTerminalSaysToRunItAtOne(t *testing.T) {
 
 func TestSlackLoginThatSlackRefusesLeavesTheFileAsItWas(t *testing.T) {
 	// Arrange
-	fakeSlack(t, map[string]slackAnswer{"/oauth.v2.access": {http.StatusOK, `{"ok":false,"error":"invalid_grant"}`}})
+	fakeSlack(t, map[string]slackAnswer{slackRefresh: {http.StatusOK, `{"ok":false,"error":"invalid_grant"}`}})
 
 	dir := t.TempDir()
 	// A working login's file, the app's secret kept in it, so nothing is read
@@ -248,7 +247,7 @@ func TestSlackLoginThatSlackRefusesLeavesTheFileAsItWas(t *testing.T) {
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`
 	path := writeFile(t, dir, contents)
 
-	prompt := asking([]string{"9999.0000"}, []string{"client-secret-9999", "xoxe-1-first"}, new([]string), new([]string))
+	prompt := asking([]string{"9999.0000"}, typedLogin(), new([]string), new([]string))
 
 	// Act
 	_, err := runGuided(t, dir, prompt, "slack", "login")
