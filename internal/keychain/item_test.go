@@ -6,8 +6,6 @@ package keychain_test
 import (
 	"context"
 	"errors"
-	"fmt"
-	"os/exec"
 	"strings"
 	"testing"
 
@@ -28,17 +26,12 @@ func answeringRunner(runs *[]ran, output string, err error) keychain.Runner {
 	}
 }
 
-// exitedWith is the error a program that exited with code leaves, shaped as
-// proc.Capture wraps it.
-func exitedWith(t *testing.T, code int) error {
-	t.Helper()
-
-	err := exec.CommandContext(t.Context(), "sh", "-c", fmt.Sprintf("exit %d", code)).Run()
-	if err == nil {
-		t.Fatalf("sh exited 0, want %d", code)
+// exitedWith is the error proc.Capture returns for a security run that
+// exited with code.
+func exitedWith(code int) error {
+	return &proc.ExitError{
+		Program: "security", Code: code, Stderr: "the specified item could not be found in the keychain",
 	}
-
-	return fmt.Errorf("security: %w: %s", err, "the specified item could not be found in the keychain")
 }
 
 // itemFor is the macOS keychain item for the Slack service, for a user logged in
@@ -127,7 +120,7 @@ func TestReadSaysWhenNothingIsStored(t *testing.T) {
 	// Arrange
 	var runs []ran
 
-	item := itemFor(t, answeringRunner(&runs, "", exitedWith(t, 44)))
+	item := itemFor(t, answeringRunner(&runs, "", exitedWith(44)))
 
 	// Act
 	_, err := item.Read(t.Context())
