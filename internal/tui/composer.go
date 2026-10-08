@@ -253,7 +253,7 @@ func (c commitComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 	case key.Matches(msg, m.keys.toggleBreaking):
 		c.breaking = !c.breaking
 	case key.Matches(msg, m.keys.nextField, m.keys.prevField):
-		c = onFieldNav(c, m.keys, msg)
+		c = onFieldNav(c, around(c.focus, composerFields), m.keys, msg)
 	case c.focus == fieldType && key.Matches(msg, m.keys.cycleRight, m.keys.cycleLeft):
 		c = c.cycledType(m.keys, msg)
 	default:
@@ -307,11 +307,6 @@ func (c commitComposer) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// fields is where focus stands among the composer's parts.
-func (c commitComposer) fields() ring[int] {
-	return around(c.focus, composerFields)
-}
-
 // suggesting is the scope while it has focus, the one part that completes
 // what is typed.
 func (c commitComposer) suggesting() (textinput.Model, bool) {
@@ -321,8 +316,6 @@ func (c commitComposer) suggesting() (textinput.Model, bool) {
 // navigable is a composer whose fields the next-field and previous-field keys
 // move between, where tab may first accept what the focused field suggests.
 type navigable[T any] interface {
-	// fields is where focus stands among the composer's fields.
-	fields() ring[int]
 	// suggesting is the field with focus, when it is one that completes what
 	// is typed.
 	suggesting() (textinput.Model, bool)
@@ -335,19 +328,19 @@ var (
 	_ navigable[prComposer]     = prComposer{}
 )
 
-// onFieldNav moves a composer's focus to the previous field, or on
-// next-field to the next one, unless the focused field has a completion tab
-// would accept, which it then takes as typed.
-func onFieldNav[T navigable[T]](composer T, keys keyMap, msg tea.KeyPressMsg) T {
+// onFieldNav moves a composer's focus, standing among its fields, to the
+// previous field, or on next-field to the next one, unless the focused field
+// has a completion tab would accept, which it then takes as typed.
+func onFieldNav[T navigable[T]](composer T, fields ring[int], keys keyMap, msg tea.KeyPressMsg) T {
 	if key.Matches(msg, keys.prevField) {
-		return composer.focusOn(composer.fields().prev())
+		return composer.focusOn(fields.prev())
 	}
 
 	if field, suggests := composer.suggesting(); suggests && completesOnTab(field) {
 		return composer.typed(msg)
 	}
 
-	return composer.focusOn(composer.fields().next())
+	return composer.focusOn(fields.next())
 }
 
 // completesOnTab reports a suggestion in field that would extend what is
