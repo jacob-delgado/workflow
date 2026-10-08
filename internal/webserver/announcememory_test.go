@@ -297,3 +297,48 @@ func TestAHeldAnnouncementTheStoreCannotRememberWarnsSo(t *testing.T) {
 		t.Errorf("frame's held announcement = %+v, want it announced with the warning %q", held, notRemembered)
 	}
 }
+
+func TestTheNextHoldSaysNothingOfTheLastOnesWarning(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		ci   forge.CIState
+		want api.QueuedAnnouncementState
+	}{
+		"waiting for its CI":        {ci: forge.CIRunning, want: api.QueuedAnnouncementStateWaiting},
+		"dropped once its CI fails": {ci: forge.CIFailed, want: api.QueuedAnnouncementStateDropped},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			world := newForgeWorld()
+			deps := world.deps()
+			deps.RecordAnnounce = func(loop.Announced) error { return errStoreFull }
+			handler := serve(t, deps, config.Default())
+			cancelHeld(t, handler)
+			announceWhenGreen(t, handler, nil)
+			world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+			// A frame settles the hold: this one posts #42, and warns of it.
+			heldAnnouncement(t, handler)
+			world.turn(func(w *forgeWorld) { w.pull, w.ci = 43, forge.CIRunning })
+			announceWhenGreen(t, handler, nil)
+			world.turn(func(w *forgeWorld) { w.ci = tt.ci })
+
+			// Act
+			held := heldAnnouncement(t, handler)
+
+			// Assert
+			if held == nil {
+				t.Fatalf("the frame holds no announcement, want #43 %s", tt.want)
+			}
+
+			if held.Pull != 43 || held.State != tt.want || held.Warning != nil {
+				t.Errorf("frame's held announcement is #%d %s, warning %q; want #43 %s with no warning: "+
+					"the store failed to remember #42, not it", held.Pull, held.State, orEmpty(held.Warning), tt.want)
+			}
+		})
+	}
+}
