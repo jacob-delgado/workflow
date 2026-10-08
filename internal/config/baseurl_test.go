@@ -84,32 +84,28 @@ func TestCheckBaseURLAcceptsOnlyAnAbsoluteWebURLWithNoLogin(t *testing.T) {
 	}
 }
 
-func TestProblemsNamesAnHTTPBaseURLOffThisMachine(t *testing.T) {
+func TestParseRefusesAnHTTPBaseURLOffThisMachine(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		raw     string
-		refused bool
+		raw  string
+		want error
 	}{
-		"http to another machine": {raw: "http://" + jiraHost, refused: true},
-		"http to this machine":    {raw: "http://127.0.0.1:8080", refused: false},
-		"https":                   {raw: "https://" + jiraHost, refused: false},
+		"http to another machine": {raw: "http://" + jiraHost, want: config.ErrInvalidBaseURL},
+		"http to this machine":    {raw: "http://127.0.0.1:8080", want: nil},
+		"https":                   {raw: "https://" + jiraHost, want: nil},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange
-			cfg := config.Config{Jira: config.Jira{BaseURL: tt.raw}}
-
 			// Act
-			got := cfg.Problems()
+			_, err := config.Parse(strings.NewReader(`{"jira": {"base_url": "` + tt.raw + `"}}`))
 
 			// Assert
-			refused := len(got) == 1 && strings.Contains(got[0], "jira.base_url") && strings.Contains(got[0], "https")
-			if refused != tt.refused || (!tt.refused && len(got) != 0) {
-				t.Errorf("Problems() of %q = %q, want it refused: %t", tt.raw, got, tt.refused)
+			if !errors.Is(err, tt.want) || (tt.want != nil && !errors.Is(err, config.ErrInvalid)) {
+				t.Errorf("Parse of %q = %v, want %v", tt.raw, err, tt.want)
 			}
 		})
 	}
