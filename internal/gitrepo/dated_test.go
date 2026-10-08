@@ -5,10 +5,12 @@ package gitrepo_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 const (
@@ -41,6 +43,47 @@ func TestCommitsBetweenReadsYourCommitsByTheirAuthorDate(t *testing.T) {
 	if err != nil || len(commits) != 1 || commits[0].Short != "1111111" || commits[0].Subject != "Fix the leak" ||
 		!commits[0].Authored.Equal(written) {
 		t.Errorf("CommitsBetween = %+v, %v; want only the commit written in the period", commits, err)
+	}
+}
+
+func TestCommitsBetweenSkipsACommitWhoseDateIsNotAnInstant(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	from := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+	log := "1111111111111111111111111111111111111111\x001111111\x00yesterday\x00Undated\x00" +
+		"2222222222222222222222222222222222222222\x002222222\x002026-10-02T12:00:00Z\x00Dated\x00"
+	run := fakeRunner(t, map[string]reply{
+		readMyEmail: {out: []byte("me+git@example.com\n")},
+		myCommits:   {out: []byte(log)},
+	})
+
+	// Act
+	commits, err := gitrepo.At(run, workDir).CommitsBetween(t.Context(), from, from.Add(24*time.Hour))
+
+	// Assert
+	if err != nil || len(commits) != 1 || commits[0].Short != "2222222" {
+		t.Errorf("CommitsBetween = %+v, %v; want only the dated commit", commits, err)
+	}
+}
+
+func TestCommitsBetweenReportsALogGitCouldNotRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	errLogFailed := proc.ErrTimedOut
+	run := fakeRunner(t, map[string]reply{
+		readMyEmail: {out: []byte("me+git@example.com\n")},
+		myCommits:   {err: errLogFailed},
+	})
+	from := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+
+	// Act
+	commits, err := gitrepo.At(run, workDir).CommitsBetween(t.Context(), from, from.Add(24*time.Hour))
+
+	// Assert
+	if !errors.Is(err, errLogFailed) || !strings.Contains(err.Error(), "reading your commits") || commits != nil {
+		t.Errorf("CommitsBetween = %+v, %v; want the failed read named", commits, err)
 	}
 }
 
