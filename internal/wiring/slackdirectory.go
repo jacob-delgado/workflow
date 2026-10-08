@@ -152,7 +152,7 @@ func (d *SlackDirectory) UserGroups(ctx context.Context) ([]loop.SlackTarget, er
 		return nil, err
 	}
 
-	return asLoopTargets(groups), nil
+	return groups, nil
 }
 
 // Workspace is the ID of the Slack workspace the user token is for, which
@@ -414,16 +414,6 @@ func labeled(members []messaging.SlackUserID, users map[string]string) []loop.Sl
 	})
 
 	return targets
-}
-
-// asLoopTargets is targets as the loop names them.
-func asLoopTargets(targets []messaging.SlackTarget) []loop.SlackTarget {
-	converted := make([]loop.SlackTarget, 0, len(targets))
-	for _, target := range targets {
-		converted = append(converted, loop.SlackTarget{ID: target.ID, Label: target.Label})
-	}
-
-	return converted
 }
 
 // slackUserClient is the client a directory reads with: built from the
