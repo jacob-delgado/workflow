@@ -38,8 +38,13 @@ const outputGrace = 2 * time.Second
 // Command is a program to run, and where and how to run it.
 type Command struct {
 	// Dir is the working directory.
-	Dir  string
+	Dir string
+	// Name is the program, found on this process's PATH unless Path is set,
+	// and the name a failure gives it.
 	Name string
+	// Path is the program's executable when the caller found it already, on
+	// a PATH of its own; empty finds Name on this process's.
+	Path string
 	Args []string
 	// Env is added to this process's own environment rather than replacing it:
 	// a git hook needs PATH, HOME and the rest to work at all.
@@ -397,9 +402,14 @@ func Interactive(program Command) (*exec.Cmd, error) {
 
 // build resolves and assembles a command.
 func build(ctx context.Context, program Command) (*exec.Cmd, error) {
-	path, err := exec.LookPath(program.Name)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrNotFound, program.Name)
+	path := program.Path
+	if path == "" {
+		found, err := LookPath(program.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		path = found
 	}
 
 	//nolint:gosec // the program is this module's own choice or the user's $EDITOR, never remote input

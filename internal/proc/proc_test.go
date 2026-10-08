@@ -272,3 +272,22 @@ func TestLookPathReportsAMissingProgram(t *testing.T) {
 		t.Errorf("LookPath(%q) returned %v, want ErrNotFound", missingProgram, err)
 	}
 }
+
+func TestACommandFoundAlreadyRunsFromItsPathUnderItsName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The name is on no PATH, so only the path a caller found can run it, and
+	// a failure still names the program as the caller does.
+	command := proc.Command{Name: missingProgram, Path: os.Args[0], Args: []string{"-test.run=^$"}}
+	command.Env = []string{helperMode + "=mixed"}
+
+	// Act
+	_, err := proc.RunCommand(t.Context(), command)
+
+	// Assert
+	exit, ok := errors.AsType[*proc.ExitError](err)
+	if !ok || exit.Program != missingProgram || exit.Code != 3 {
+		t.Errorf("RunCommand = %#v, want the helper's exit 3 named %s", err, missingProgram)
+	}
+}
