@@ -18,12 +18,17 @@ import (
 // it git makes origin/main the new branch's upstream, so the branch reads as
 // ahead of main rather than as never pushed.
 func (r Repository) CreateBranch(ctx context.Context, name, start string) error {
+	err := notAnOption(start)
+	if err != nil {
+		return fmt.Errorf("creating branch %s: %w", name, err)
+	}
+
 	args := []string{"-C", r.dir, "switch", "--create", name}
 	if start != "" {
 		args = append(args, "--no-track", start)
 	}
 
-	_, err := r.run(ctx, "git", args...)
+	_, err = r.run(ctx, gitProgram, args...)
 	if err != nil {
 		return fmt.Errorf("creating branch %s: %w", name, err)
 	}
@@ -116,7 +121,7 @@ func (r Repository) Checkout(ctx context.Context, name string) error {
 // Branch.HasUnpushedWork), so the commits -D discards are the ones origin and
 // the merge already hold.
 func (r Repository) FinishBranch(ctx context.Context, branch, base string, pull func() error) error {
-	err := r.finishStep(ctx, "switch", base)
+	err := r.finishStep(ctx, "switch", "--", base)
 	if err != nil {
 		return err
 	}
@@ -126,11 +131,12 @@ func (r Repository) FinishBranch(ctx context.Context, branch, base string, pull 
 		return fmt.Errorf("git pull --ff-only: %w", err)
 	}
 
-	return r.finishStep(ctx, "branch", "-D", branch)
+	return r.finishStep(ctx, "branch", "-D", "--", branch)
 }
 
 // finishStep runs one of the git commands a finish runs itself, naming it in
-// its failure.
+// its failure. Each puts "--" before its name, since the base comes from what
+// origin says its default branch is.
 func (r Repository) finishStep(ctx context.Context, step ...string) error {
 	_, err := r.run(ctx, gitProgram, append([]string{"-C", r.dir}, step...)...)
 	if err != nil {
@@ -145,6 +151,11 @@ func (r Repository) finishStep(ctx context.Context, step ...string) error {
 // worktree — where switching branches in place cannot. It starts the branch from
 // start, or from HEAD when start is empty.
 func (r Repository) WorktreeAdd(ctx context.Context, name, start string) (string, error) {
+	err := notAnOption(start)
+	if err != nil {
+		return "", fmt.Errorf("creating a worktree for %s: %w", name, err)
+	}
+
 	path := worktreePath(r.dir, name)
 
 	args := []string{"-C", r.dir, "worktree", "add"}
@@ -159,7 +170,7 @@ func (r Repository) WorktreeAdd(ctx context.Context, name, start string) (string
 		args = append(args, start)
 	}
 
-	_, err := r.run(ctx, gitProgram, args...)
+	_, err = r.run(ctx, gitProgram, args...)
 	if err != nil {
 		return "", fmt.Errorf("creating a worktree for %s: %w", name, err)
 	}

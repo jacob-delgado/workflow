@@ -47,3 +47,38 @@ func TestReadBranchRefusesANameThatCannotBeShownAsItIs(t *testing.T) {
 		})
 	}
 }
+
+func TestReadBranchRefusesANameGitWouldReadAsAnOption(t *testing.T) {
+	t.Parallel()
+
+	// A remote or a hostile clone controls these names, and each is later
+	// handed to git: a base of origin/--orphan=x would make a finish run
+	// `git switch --orphan=x`, and a branch named --force a push run
+	// `git push --set-upstream origin --force`.
+	cases := map[string]map[string]reply{
+		"the branch":   {showCurrentBranch: {out: []byte("--force\n")}},
+		"its upstream": {readUpstream: {out: []byte("origin/--force\n")}},
+		"its base":     {originsHead: {out: []byte("origin/--orphan=x\n")}},
+	}
+
+	for name, replies := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			answers := with(featureBranch(), replies)
+			answers["git -C /work config --get branch.--force.workflow-issue"] = reply{err: errNoRef}
+			answers[countAhead] = reply{out: []byte("1\t2\n")}
+			answers[logCommits+"origin/--orphan=x..HEAD"] = reply{}
+			answers[baseAge+"origin/--orphan=x"] = reply{}
+
+			// Act
+			branch, err := gitrepo.At(fakeRunner(t, answers), workDir).ReadBranch(t.Context())
+
+			// Assert
+			if !errors.Is(err, gitrepo.ErrOptionLikeRef) || branch.Name != "" {
+				t.Errorf("ReadBranch = %+v, %v; want %v and no branch", branch, err, gitrepo.ErrOptionLikeRef)
+			}
+		})
+	}
+}
