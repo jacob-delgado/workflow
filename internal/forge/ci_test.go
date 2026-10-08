@@ -166,7 +166,7 @@ func TestCIReportsARefusalToSay(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeAnswering(t, tt.status, tt.body)
+			client, _ := recordingForge(t, answering(tt.status, tt.body))
 
 			// Act
 			_, err := client.CheckStatus(t.Context(), tt.repo, forge.PullRequest{Number: 8}, headCommit)
@@ -204,7 +204,7 @@ func TestGitLabCIReadsTheMergeRequestsPipeline(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, seen := forgeAnswering(t, http.StatusOK, `{"iid":8,"head_pipeline":`+tt.pipeline+`}`)
+			client, seen := recordingForge(t, answering(http.StatusOK, `{"iid":8,"head_pipeline":`+tt.pipeline+`}`))
 
 			// Act
 			got, err := client.CheckStatus(t.Context(), gitlabRepo(), forge.PullRequest{Number: 8}, headCommit)

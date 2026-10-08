@@ -22,9 +22,9 @@ func TestEditPullRequestOnGitHubPatchesTitleAndBody(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeConversation(t, map[string]string{
+	client, seen := recordingForge(t, conversation(map[string]string{
 		githubPullsPath + "/43": `{"number":43,"html_url":"https://x/43","title":"` + editTitle + `","body":"why"}`,
-	}, nil)
+	}, nil))
 
 	// Act
 	edited, err := client.EditPullRequest(t.Context(), githubRepo(),
@@ -46,9 +46,9 @@ func TestEditPullRequestOnGitLabPutsTitleAndDescription(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeConversation(t, map[string]string{
+	client, seen := recordingForge(t, conversation(map[string]string{
 		gitlabMergesPath + "/43": `{"iid":43,"web_url":"https://x/43","title":"` + editTitle + `","description":"why"}`,
-	}, nil)
+	}, nil))
 
 	// Act
 	edited, err := client.EditPullRequest(t.Context(), gitlabRepo(),
@@ -82,7 +82,7 @@ func TestEditPullRequestReportsARefusal(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeConversation(t, nil, map[string]bool{tt.path: true})
+			client, _ := recordingForge(t, conversation(nil, map[string]bool{tt.path: true}))
 
 			// Act
 			_, err := client.EditPullRequest(t.Context(), tt.repo,
@@ -100,7 +100,7 @@ func TestEditPullRequestOnAnUnknownForgeIsUnknown(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, _ := forgeConversation(t, nil, nil)
+	client, _ := recordingForge(t, conversation(nil, nil))
 
 	// Act
 	_, err := client.EditPullRequest(t.Context(), unknownForge(),
@@ -117,9 +117,9 @@ func TestFindPullRequestReadsTheBody(t *testing.T) {
 
 	// Arrange
 	// The body is what an edit composer opens on, so a find must read it.
-	client, _ := forgeRouting(t, map[string]string{
+	client, _ := recordingForge(t, routing(map[string]string{
 		githubPullsPath: `[{"number":9,"html_url":"https://x/9","title":"t","body":"the description"}]`,
-	})
+	}))
 
 	// Act
 	pull, found, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
@@ -153,7 +153,7 @@ func TestFindPullRequestReadsTheBaseItMergesInto(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeRouting(t, map[string]string{test.path: test.answer})
+			client, _ := recordingForge(t, routing(map[string]string{test.path: test.answer}))
 
 			// Act
 			pull, found, err := client.FindPullRequest(t.Context(), test.repo, featureBranch)
