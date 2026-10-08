@@ -33,6 +33,26 @@ function overflowing(page: Page): Promise<number> {
   )
 }
 
+// fitToContent grows the window by as much as the section scrolls, until it
+// scrolls no more: the page itself holds still under its header, and a
+// full-page capture sees only the window. A part that draws late, as a read of
+// its own lands, grows it again.
+async function fitToContent(page: Page, width: number): Promise<void> {
+  await expect
+    .poll(async () => {
+      const more = await overflowing(page)
+      if (more > 0) {
+        await page.setViewportSize({
+          width,
+          height: (page.viewportSize()?.height ?? height) + more,
+        })
+      }
+
+      return more
+    })
+    .toBe(0)
+}
+
 for (const theme of themes) {
   for (const width of widths) {
     for (const name of sectionNames) {
@@ -44,21 +64,19 @@ for (const theme of themes) {
           // the checked-out issue open so the Issues screen shows its story.
           await openCockpit(page, { width, height }, theme)
 
-          // Act: open the section, let it settle, and grow the window by as
-          // much as it scrolls: the page itself holds still under its header,
-          // and a full-page capture sees only the window.
+          // Act: open the section, let it settle, and grow the window to hold
+          // all of it.
           await openSection(page, name)
-          await page.setViewportSize({ width, height: height + (await overflowing(page)) })
+          await fitToContent(page, width)
 
-          // Assert: the window holds the whole section, which is saved as
-          // drawn, with the pointer parked off the controls so none is caught
-          // mid-hover. Under reduced motion every element transitions every
-          // property for 0.01ms (web/src/index.css), so an inherited color
-          // reaches an icon's strokes a frame or more after the text beside
-          // it: the capture finishes those transitions first rather than
-          // catching the colors of the section it left on the way out.
+          // Assert: the section is on screen, saved as drawn, with the pointer
+          // parked off the controls so none is caught mid-hover. Under reduced
+          // motion every element transitions every property for 0.01ms
+          // (web/src/index.css), so an inherited color reaches an icon's
+          // strokes a frame or more after the text beside it: the capture
+          // finishes those transitions first rather than catching the colors
+          // of the section it left on the way out.
           await expect(page.getByRole('heading', { level: 1, name })).toBeInViewport()
-          expect(await overflowing(page), 'scrolls past the window').toBe(0)
           await page.mouse.move(0, 0)
           await page.screenshot({
             path: testInfo.outputPath(`${String(width)}-${theme}-${name.toLowerCase()}.png`),
