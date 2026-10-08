@@ -379,7 +379,9 @@ Where the token is kept:
 Every post asks for the token anew and refreshes it when it has less than ten
 minutes left, and once more if Slack still calls it expired. Two workflows
 running at once — the terminal and `--web`, say — take turns through a lock
-file beside the store, so they never spend the same refresh token twice.
+the system holds on a file beside the store, so they never spend the same
+refresh token twice. The system lets the lock go when its holder ends, so one
+left by a workflow that stopped mid-refresh never holds the next one up.
 `workflow doctor --online` refreshes it if it is due, and says whose it is,
 where it is kept and when it expires. Under `--dry-run` it uses the token as
 held, and leaves one due a refresh unchecked rather than write a new one.
