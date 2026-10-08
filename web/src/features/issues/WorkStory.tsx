@@ -9,7 +9,7 @@ import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, cn, plural } from '@/lib/utils.ts'
 import { sectionMeta } from '@/shell/sections.ts'
-import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
+import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import {

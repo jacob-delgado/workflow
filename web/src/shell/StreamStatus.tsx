@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSnapshotStore, type StreamStatus as Status } from '@/api/snapshot.ts'
-import { EmptyState } from './EmptyState.tsx'
+import { EmptyState } from '@/lib/EmptyState.tsx'
 import { narrowAgo, writtenMoment } from '@/lib/dates.ts'
-import { StateMark, type MarkState } from './StateMark.tsx'
+import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 
 // Each state of the stream, by its words and its mark: nothing yet while it
 // first connects, done while live, in flight while it finds its way back, and

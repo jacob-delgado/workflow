@@ -1,5 +1,5 @@
 import type { Task, TaskList } from '@/api/generated/types.gen.ts'
-import type { MarkState } from '@/shell/StateMark.tsx'
+import type { MarkState } from '@/lib/StateMark.tsx'
 
 const minute = 60_000
 const hour = 60 * minute
