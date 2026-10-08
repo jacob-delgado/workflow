@@ -73,11 +73,11 @@ the Playwright end-to-end suites, which `task e2e` runs locally: the web
 frontend alone, and then the page served by the binary `task build` makes,
 staging, committing and pushing through it. Each needs a browser, installed
 once with `yarn playwright install chromium` in `web/`; run them for a change
-under `web/` or `internal/webserver`. One gate is narrower in CI: a pull request that changes no
-Markdown file, nothing under `docs/`, not `.markdownlint-cli2.yaml` and not
-`mise.toml`, which pins the Markdown linter, skips the Markdown lint
-(`scripts/markdown-changed.sh` decides); a push to `main` always runs it, and
-`task lint` locally always does.
+under `web/` or `internal/webserver`. One gate is narrower in CI: a pull
+request that changes no Markdown file, nothing under `docs/`, not
+`.markdownlint-cli2.yaml` and not `mise.toml`, which pins the Markdown linter,
+skips the Markdown lint (`scripts/markdown-changed.sh` decides); a push to
+`main` always runs it, and `task lint` locally always does.
 
 The frontend's production build lives in `internal/web/dist` and is committed,
 because `go install` fetches committed files alone and cannot run the Node
@@ -141,8 +141,8 @@ off with the reason beside each: `gomodguard_v2`, with no module list to hold;
 `exhaustruct_v5`, unusable on third-party structs; and the deprecated
 `exhaustruct`, `gomodguard` and `wsl`, each superseded by a `_v2` or `_v5`
 linter of the same name. [CLAUDE.md](CLAUDE.md) explains the standards
-behind those settings: function size, complexity limits, error handling, the code
-smells worth watching, and the TDD process.
+behind those settings: function size, complexity limits, error handling, the
+code smells worth watching, and the TDD process.
 
 ## License headers
 
