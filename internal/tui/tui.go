@@ -170,15 +170,14 @@ func (m Model) WithoutColor() Model {
 	return m
 }
 
-// Run starts the interface and blocks until the user quits, or switches
-// directory, which Next says. The context cancels
-// the program, so a caller can shut the interface down. The alternate screen
-// and mouse mode are set declaratively in View, as v2 asks.
-//
-// Trade-off TRADE-12: no test calls Run, since the program it starts takes over
-// the terminal the tests run in.
-func Run(ctx context.Context, model Model, out io.Writer) (Next, error) {
-	options := append([]tea.ProgramOption{tea.WithOutput(out), tea.WithContext(ctx)}, model.programOptions...)
+// Run starts the interface, reading keys from in and drawing on out, and
+// blocks until the user quits, or switches directory, which Next says. The
+// context cancels the program, so a caller can shut the interface down. The
+// alternate screen and mouse mode are set declaratively in View, as v2 asks.
+func Run(ctx context.Context, model Model, in io.Reader, out io.Writer) (Next, error) {
+	options := append(
+		[]tea.ProgramOption{tea.WithInput(in), tea.WithOutput(out), tea.WithContext(ctx)}, model.programOptions...,
+	)
 
 	ended, err := tea.NewProgram(model, options...).Run()
 	if err != nil {
