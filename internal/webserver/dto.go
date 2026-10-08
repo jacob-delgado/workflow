@@ -5,6 +5,7 @@ package webserver
 
 import (
 	"slices"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -24,6 +25,18 @@ func optional(s string) *string {
 	}
 
 	return &s
+}
+
+// optionalTime is moment, or nil for the zero time, which a read gives for a
+// time there is none of — a date a task does not have, one a tracker or a
+// forge did not give or could not be read: the wire leaves such a time out,
+// never sending the zero time.
+func optionalTime(moment time.Time) *time.Time {
+	if moment.IsZero() {
+		return nil
+	}
+
+	return &moment
 }
 
 // issueDTO maps a tracker issue onto its wire shape.
@@ -67,7 +80,7 @@ func issuesPageDTO(result jira.SearchResult, startAt int) api.IssuesPage {
 
 // commentDTO maps a comment on an issue.
 func commentDTO(comment jira.Comment) api.Comment {
-	return api.Comment{Author: comment.Author, Body: comment.Body, Created: comment.Created}
+	return api.Comment{Author: comment.Author, Body: comment.Body, Created: optionalTime(comment.Created)}
 }
 
 // issueDetailDTO maps an issue read in full, with its comments oldest first and
@@ -220,7 +233,8 @@ func reviewQueueDTO(requests []forge.ReviewRequest) api.ReviewQueue {
 	for _, request := range requests {
 		queue = append(queue, api.ReviewRequest{
 			Number: request.Number, URL: request.URL, Title: request.Title, Author: request.Author,
-			Repository: request.Repository, Draft: request.Draft, Ci: ciState(request.CI), OpenedAt: request.OpenedAt,
+			Repository: request.Repository, Draft: request.Draft, Ci: ciState(request.CI),
+			OpenedAt: optionalTime(request.OpenedAt),
 		})
 	}
 
@@ -287,12 +301,26 @@ func messagingDTO(cfg config.Config, author string) api.MessagingDestination {
 	}
 
 	return api.MessagingDestination{
+		Kind:       messagingKind(cfg.Messaging.Kind),
 		Service:    cfg.Messaging.Service(),
 		Configured: cfg.Messaging.Mode() != config.MessagingNone,
 		Channel:    cfg.Messaging.Channel,
 		Channels:   channels,
 		Author:     author,
 	}
+}
+
+// messagingKind maps the service a messaging block posts to onto its wire
+// word. A map, as ciState is, so exhaustive keeps it complete; the empty kind
+// is read as Slack, as the configuration reads it.
+func messagingKind(kind config.MessagingKind) api.MessagingDestinationKind {
+	return map[config.MessagingKind]api.MessagingDestinationKind{
+		"":                 api.MessagingDestinationKindSlack,
+		config.KindSlack:   api.MessagingDestinationKindSlack,
+		config.KindTeams:   api.MessagingDestinationKindTeams,
+		config.KindDiscord: api.MessagingDestinationKindDiscord,
+		config.KindWebhook: api.MessagingDestinationKindWebhook,
+	}[kind]
 }
 
 // mergeable maps the forge's mergeability onto its wire word.

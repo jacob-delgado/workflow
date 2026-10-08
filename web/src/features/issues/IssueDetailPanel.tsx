@@ -174,7 +174,7 @@ function Comments({ detail }: { detail: IssueDetail }) {
           {comments.map((comment, index) => (
             <CommentItem
               plain={unparsed[index] ?? true}
-              key={`${String(index)}-${comment.created}`}
+              key={`${String(index)}-${comment.created ?? ''}`}
               comment={comment}
               markdown={detail.tracker === 'forge'}
             />
@@ -252,13 +252,14 @@ function initialsOf(name: string): string {
 }
 
 // WrittenAt says when a comment was written: how long ago within the week,
-// and the day after; the exact moment shows on hover. The zero time the server
-// sends for a date the tracker could not give says nothing.
-function WrittenAt({ created }: { created: string }) {
-  const written = new Date(created)
-  if (written.getUTCFullYear() <= 1) {
+// and the day after; the exact moment shows on hover. A comment the tracker
+// gave no date for, which the server leaves the date out of, says nothing.
+function WrittenAt({ created }: { created: string | undefined }) {
+  if (created === undefined) {
     return null
   }
+
+  const written = new Date(created)
 
   return (
     <time

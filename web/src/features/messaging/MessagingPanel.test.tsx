@@ -21,6 +21,7 @@ const mockPreview = vi.mocked(previewAnnouncement)
 // announce; a case that turns on the channel wiring passes its own destination.
 function withPullRequest(
   messaging: Snapshot['messaging'] = {
+    kind: 'slack',
     service: 'Slack',
     configured: true,
     channel: '#dev',
@@ -56,6 +57,7 @@ test('shows the service, and where and as whom a post would go', () => {
     status: 'live',
     snapshot: makeSnapshot({
       messaging: {
+        kind: 'slack',
         service: 'Slack',
         configured: true,
         channel: '#dev',
@@ -82,7 +84,14 @@ test('names the webhook when there is no resolved author', () => {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      messaging: { service: 'Slack', configured: true, channel: '#ops', channels: [], author: '' },
+      messaging: {
+        kind: 'slack',
+        service: 'Slack',
+        configured: true,
+        channel: '#ops',
+        channels: [],
+        author: '',
+      },
     }),
   })
 
@@ -100,7 +109,14 @@ test('names the configured service when it is not set up', () => {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      messaging: { service: 'Teams', configured: false, channel: '', channels: [], author: '' },
+      messaging: {
+        kind: 'teams',
+        service: 'Teams',
+        configured: false,
+        channel: '',
+        channels: [],
+        author: '',
+      },
     }),
   })
 
@@ -116,7 +132,14 @@ test('shows the panel for a configured webhook that has no channel', () => {
   // A Teams webhook is fully configured yet carries no channel of its own — the
   // panel must not mistake the absent channel for "not configured" and hide the
   // Announce controls.
-  withPullRequest({ service: 'Teams', configured: true, channel: '', channels: [], author: '' })
+  withPullRequest({
+    kind: 'teams',
+    service: 'Teams',
+    configured: true,
+    channel: '',
+    channels: [],
+    author: '',
+  })
 
   // Act
   render(<MessagingPanel />)
@@ -129,6 +152,7 @@ test('shows the panel for a configured webhook that has no channel', () => {
 test('names the service on the announce button', () => {
   // Arrange
   withPullRequest({
+    kind: 'teams',
     service: 'Teams',
     configured: true,
     channel: '#dev',
@@ -161,6 +185,7 @@ test('says there is nothing to announce without a pull request', () => {
     status: 'live',
     snapshot: makeSnapshot({
       messaging: {
+        kind: 'slack',
         service: 'Slack',
         configured: true,
         channel: '#dev',
@@ -230,6 +255,7 @@ test('posts to the first known channel when none is configured', async () => {
   mockPreview.mockResolvedValueOnce({ text: 'octocat announced the pull request', channel: '' })
   const user = userEvent.setup()
   withPullRequest({
+    kind: 'slack',
     service: 'Slack',
     configured: true,
     channel: '',

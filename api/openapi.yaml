@@ -2432,12 +2432,12 @@ paths:
           in: query
           required: false
           description: The first day, written as YYYY-MM-DD.
-          schema: {type: string}
+          schema: {type: string, format: date}
         - name: to
           in: query
           required: false
           description: The last day, written as YYYY-MM-DD.
-          schema: {type: string}
+          schema: {type: string, format: date}
       responses:
         "200":
           description: >-
@@ -2448,7 +2448,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/Activity"
         "422":
-          description: The period could not be read as asked.
+          description: >-
+            The period cannot be summed up as asked: it ends before it starts,
+            or runs longer than a year and a day. A from or to that is not a
+            date is a 400.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -2489,10 +2492,11 @@ paths:
                 $ref: "#/components/schemas/ActivityPost"
         "422":
           description: >-
-            The period could not be read, the text was blank, the text rendered
-            for the service is longer than it takes (code too_long, naming the
-            length against the limit; nothing was sent), or the post could not
-            be made.
+            The period ends before it starts or runs longer than a year and a
+            day (a from or to that is not a date is a 400), the text was blank,
+            the text rendered for the service is longer than it takes (code
+            too_long, naming the length against the limit; nothing was sent),
+            or the post could not be made.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -3231,6 +3235,7 @@ components:
       properties:
         branch:
           type: string
+          minLength: 1
           description: The local branch to switch the working tree to.
           example: fix/PROJ-412-redact-tokens
       additionalProperties: false
@@ -3375,6 +3380,7 @@ components:
       properties:
         issue_key:
           type: string
+          minLength: 1
           description: The issue to name and create a branch for.
           example: PROJ-412
         fetch:
@@ -3406,6 +3412,7 @@ components:
       properties:
         issue_key:
           type: string
+          minLength: 1
           description: The issue to name and create a branch for.
           example: PROJ-412
         fetch:
@@ -3988,14 +3995,14 @@ components:
 
     Comment:
       type: object
-      required: [author, body, created]
+      required: [author, body]
       properties:
         author: {type: string}
         body: {type: string}
         created:
           type: string
           format: date-time
-          description: RFC 3339; the zero time if the tracker's date was unreadable.
+          description: RFC 3339; left out when the tracker's date could not be read.
       additionalProperties: false
 
     CommentRequest:
@@ -4177,7 +4184,7 @@ components:
 
     ReviewRequest:
       type: object
-      required: [number, url, title, author, repository, draft, ci, opened_at]
+      required: [number, url, title, author, repository, draft, ci]
       properties:
         number:
           type: integer
@@ -4199,7 +4206,9 @@ components:
         opened_at:
           type: string
           format: date-time
-          description: RFC 3339; when it was opened, which is how long it has waited — the zero time if the forge did not give one.
+          description: >-
+            RFC 3339; when it was opened, which is how long it has waited; left
+            out when the forge did not give one.
       additionalProperties: false
 
     TaskList:
@@ -4644,11 +4653,17 @@ components:
 
     MessagingDestination:
       type: object
-      required: [service, configured, channel, channels, author]
+      required: [kind, service, configured, channel, channels, author]
       properties:
+        kind:
+          type: string
+          enum: [slack, teams, discord, webhook]
+          description: The service posts go to, for a client to switch on.
         service:
           type: string
-          description: The service posts go to — Slack, Teams, Discord or webhook.
+          description: >-
+            The service's name, for showing — Slack, Teams, Discord or Webhook;
+            kind is what to switch on.
         configured:
           type: boolean
           description: >-
@@ -5064,10 +5079,11 @@ components:
       type: object
       required: [from, to, today, sources, years, text]
       properties:
-        from: {type: string, description: "The period's first day, YYYY-MM-DD."}
-        to: {type: string, description: "The period's last day, YYYY-MM-DD."}
+        from: {type: string, format: date, description: "The period's first day, YYYY-MM-DD."}
+        to: {type: string, format: date, description: "The period's last day, YYYY-MM-DD."}
         today:
           type: string
+          format: date
           description: The day it is where the server runs, YYYY-MM-DD, so a later period is not offered.
         sources:
           type: array
@@ -5109,8 +5125,8 @@ components:
       description: The period a Summary is of, its Markdown to post, and where.
       required: [from, to, text]
       properties:
-        from: {type: string, description: "The period's first day, YYYY-MM-DD."}
-        to: {type: string, description: "The period's last day, YYYY-MM-DD."}
+        from: {type: string, format: date, description: "The period's first day, YYYY-MM-DD."}
+        to: {type: string, format: date, description: "The period's last day, YYYY-MM-DD."}
         text:
           type: string
           maxLength: 40000
@@ -5126,8 +5142,8 @@ components:
       description: A Summary as it was posted.
       required: [from, to, channel, destination, text]
       properties:
-        from: {type: string, description: "The period's first day, YYYY-MM-DD."}
-        to: {type: string, description: "The period's last day, YYYY-MM-DD."}
+        from: {type: string, format: date, description: "The period's first day, YYYY-MM-DD."}
+        to: {type: string, format: date, description: "The period's last day, YYYY-MM-DD."}
         channel:
           type: string
           description: The channel it was posted to, or empty for a webhook's own channel.

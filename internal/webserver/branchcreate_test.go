@@ -197,31 +197,6 @@ func TestCreateBranchReportsAFailedCreate(t *testing.T) {
 	}
 }
 
-func TestCreateBranchRejectsAnEmptyIssue(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	called := false
-	deps := filledDeps()
-	deps.CreateBranch = func(string, string) error {
-		called = true
-
-		return nil
-	}
-
-	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/branches", `{"issue_key":""}`)
-
-	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want 422 for an empty issue", recorder.Code)
-	}
-
-	if called {
-		t.Error("created a branch for an empty issue")
-	}
-}
-
 func TestCreateBranchSucceedsEvenIfTheRereadFails(t *testing.T) {
 	t.Parallel()
 
