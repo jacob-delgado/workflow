@@ -1,5 +1,5 @@
 import type { FilterChoice } from '@/lib/FilterChips.tsx'
-import type { Issue, StatusCategory, TasksSummary } from '@/api/generated/types.gen.ts'
+import type { Branch, Issue, StatusCategory, TasksSummary } from '@/api/generated/types.gen.ts'
 import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
 
 // A place is where an issue can be: one of its tracker's status names, or one
@@ -134,8 +134,7 @@ export function shownKey(issue: Pick<Issue, 'key' | 'tracker'>): string {
 }
 
 // shownLinkKey is the key a branch was linked to by hand, shown as shownKey
-// shows its issue: the link keeps no tracker, but only a forge issue's key is
-// a bare number, as convention.RefOf has it.
-export function shownLinkKey(key: string): string {
-  return shownKey({ key, tracker: /^[1-9][0-9]*$/.test(key) ? 'forge' : 'jira' })
+// shows its issue, in the tracker the server names for it.
+export function shownLinkKey(link: Pick<Branch, 'issue_link' | 'issue_link_tracker'>): string {
+  return shownKey({ key: link.issue_link, tracker: link.issue_link_tracker ?? 'jira' })
 }

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render } from '@testing-library/react'
 import { vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { useUiStore } from '@/shell/uiStore.ts'
+import { useUiStore, type IssueRef } from '@/shell/uiStore.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { useFollowSwitch } from './useFollowSwitch.ts'
 
@@ -13,12 +13,15 @@ function Following() {
   return null
 }
 
-// following renders a page working in api with key's issue shown, and the
-// client whose reads a switch resets.
-function following(key: string): QueryClient {
+// jiraIssue is a Jira issue, as the server names its tracker.
+const jiraIssue: IssueRef = { key: 'PROJ-1', tracker: 'jira' }
+
+// following renders a page working in api with issue shown, and the client
+// whose reads a switch resets.
+function following(issue: IssueRef): QueryClient {
   const client = new QueryClient()
   useSnapshotStore.setState({ snapshot: makeSnapshot({ here: '/home/ana/src/api' }) })
-  useUiStore.setState({ selectedIssue: key })
+  useUiStore.setState({ selectedIssue: issue })
   render(
     <QueryClientProvider client={client}>
       <Following />
@@ -37,7 +40,7 @@ function switchedTo(dir: string) {
 
 test('a switch made elsewhere reads every section again', () => {
   // Arrange
-  const client = following('PROJ-1')
+  const client = following(jiraIssue)
   const reset = vi.spyOn(client, 'resetQueries')
 
   // Act
@@ -47,12 +50,12 @@ test('a switch made elsewhere reads every section again', () => {
   expect(reset).toHaveBeenCalledTimes(1)
 })
 
-test.each([
-  ['a Jira issue, the same wherever you work', 'PROJ-1', 'PROJ-1'],
-  ["a forge issue, the repository left's", '#42', null],
-])('the issue shown stays when it is %s', (_, key, kept) => {
+test.each<[string, IssueRef, IssueRef | null]>([
+  ['a Jira issue, the same wherever you work', jiraIssue, jiraIssue],
+  ["a forge issue, the repository left's", { key: '42', tracker: 'forge' }, null],
+])('the issue shown stays when it is %s', (_, issue, kept) => {
   // Arrange
-  following(key)
+  following(issue)
 
   // Act
   switchedTo('/home/ana/src/web')
@@ -63,7 +66,7 @@ test.each([
 
 test('a snapshot of the same directory reads nothing again', () => {
   // Arrange
-  const client = following('PROJ-1')
+  const client = following(jiraIssue)
   const reset = vi.spyOn(client, 'resetQueries')
 
   // Act

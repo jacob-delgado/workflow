@@ -120,17 +120,30 @@ func branchDTO(branch gitrepo.Branch) api.Branch {
 	}
 
 	return api.Branch{
-		IssueLink:  branch.IssueLink,
-		Name:       branch.Name,
-		Detached:   branch.Detached,
-		Head:       branch.Head,
-		Upstream:   branch.Upstream,
-		PushRemote: branch.PushRemote,
-		Ahead:      branch.Ahead,
-		Behind:     branch.Behind,
-		Base:       branch.Base,
-		Commits:    commits,
+		IssueLink:        branch.IssueLink,
+		IssueLinkTracker: linkTracker(branch.IssueLink),
+		Name:             branch.Name,
+		Detached:         branch.Detached,
+		Head:             branch.Head,
+		Upstream:         branch.Upstream,
+		PushRemote:       branch.PushRemote,
+		Ahead:            branch.Ahead,
+		Behind:           branch.Behind,
+		Base:             branch.Base,
+		Commits:          commits,
 	}
+}
+
+// linkTracker is where the issue a branch was linked to lives, or nil for a
+// branch never linked.
+func linkTracker(link string) *api.IssueTracker {
+	if link == "" {
+		return nil
+	}
+
+	tracker := trackerOf(jira.Key(link))
+
+	return &tracker
 }
 
 // branchListing is the branches a frame lists: each name, the local ones

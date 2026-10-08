@@ -3,13 +3,11 @@ import { useEffect, useRef } from 'react'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 
-// jiraKey is a Jira issue's key, which names the same issue wherever the
-// server works; a forge issue's number names one in the repository left.
-const jiraKey = /^[A-Z][A-Z0-9_]*-\d+$/
-
 // useFollowSwitch reads every section again once the stream says the server
 // works somewhere else — switched from this page, another or the terminal's
-// interface — and lets go of the issue shown unless it is a Jira issue. What
+// interface — and lets go of the issue shown unless it is a Jira issue, which
+// names the same issue wherever the server works, where a forge issue's
+// number names one in the repository left. What
 // you chose for the session — the section, the views' orders and narrowing,
 // the Summary's period — stays.
 export function useFollowSwitch(): void {
@@ -30,7 +28,7 @@ export function useFollowSwitch(): void {
 
     void client.resetQueries()
     const selected = useUiStore.getState().selectedIssue
-    if (selected !== null && !jiraKey.test(selected)) {
+    if (selected !== null && selected.tracker !== 'jira') {
       useUiStore.getState().selectIssue(null)
     }
   }, [client, here])
