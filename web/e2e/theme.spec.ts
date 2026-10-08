@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './support/fixtures.ts'
 import { pinTheme } from './support/cockpit.ts'
 
 // The "system" choice resolves to the OS color scheme — before paint, in the

@@ -1,4 +1,4 @@
-import { test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import {
   height,
   openCockpit,
@@ -7,6 +7,7 @@ import {
   themes,
   widths,
 } from './support/cockpit.ts'
+import { test } from './support/fixtures.ts'
 
 // Screenshots of every populated section, in both themes, at a narrow, a
 // middling and a wide window — saved into test-results, which CI uploads, for
