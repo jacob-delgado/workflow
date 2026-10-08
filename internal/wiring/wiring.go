@@ -37,12 +37,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// RequestTimeout bounds every request to a service — each doctor --online check,
-// and every request the interface makes. Go's http.Client has no default
-// deadline, so an unreachable on-prem host would otherwise hang doctor, or leave
-// a pane loading forever.
-const RequestTimeout = 10 * time.Second
-
 // gitRunner runs git with its terminal prompts turned off. What it runs is quick
 // and local — the fetch, pull and push that reach the network stream through
 // proc.Start instead — but nothing inside the interface could answer a
@@ -208,7 +202,7 @@ func requestTimeout(cfg config.Config) time.Duration {
 		return timeout
 	}
 
-	return RequestTimeout
+	return config.DefaultRequestTimeout
 }
 
 // gitDeps is what a surface asks of the repository. CODEOWNERS is read in the

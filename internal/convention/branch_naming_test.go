@@ -105,3 +105,33 @@ func TestBranchNamingKeepsTheKeyFindable(t *testing.T) {
 		t.Errorf("IssueKey(%q) = %q, %v, want PROJ-99 found", name, got.Key, found)
 	}
 }
+
+func TestBranchNamingReadsBackItsDefaultPrefixAndSlugLimit(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		naming     convention.BranchNaming
+		wantPrefix string
+		wantLimit  int
+	}{
+		"the built-in naming": {naming: convention.DefaultBranchNaming(), wantPrefix: featType, wantLimit: 48},
+		"nothing configured":  {naming: convention.NewBranchNaming("", "", nil, 0), wantPrefix: featType, wantLimit: 48},
+		"a configured naming": {
+			naming: convention.NewBranchNaming("", "chore", nil, 20), wantPrefix: "chore", wantLimit: 20,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			prefix, limit := tt.naming.DefaultPrefix(), tt.naming.SlugLimit()
+
+			// Assert
+			if prefix != tt.wantPrefix || limit != tt.wantLimit {
+				t.Errorf("DefaultPrefix, SlugLimit = %q, %d; want %q, %d", prefix, limit, tt.wantPrefix, tt.wantLimit)
+			}
+		})
+	}
+}

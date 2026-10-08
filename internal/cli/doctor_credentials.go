@@ -143,7 +143,7 @@ func credentialVerdict(outcomes ...error) error {
 // request timeout, so a hung service does not hang doctor, or by the default
 // when none is set.
 func onlineTimeout(cfg config.Config) time.Duration {
-	return cmp.Or(cfg.RequestTimeout(), wiring.RequestTimeout)
+	return cmp.Or(cfg.RequestTimeout(), config.DefaultRequestTimeout)
 }
 
 // onlineDoer is the transport the tracker and messaging checks travel over: the

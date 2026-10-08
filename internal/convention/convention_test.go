@@ -260,7 +260,7 @@ func TestSubjectAssemblesAConventionalCommit(t *testing.T) {
 			want:    "docs: explain keys",
 		},
 		"breaking": {
-			subject: convention.Subject{Type: "feat", Scope: "cli", Description: "drop --old", Breaking: true},
+			subject: convention.Subject{Type: featType, Scope: "cli", Description: "drop --old", Breaking: true},
 			want:    "feat(cli)!: drop --old",
 		},
 		"space around the parts is trimmed": {
