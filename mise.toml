@@ -33,7 +33,7 @@ GOTOOLCHAIN = "local"
 
 [tools]
 # Language runtime — keep in step with go.mod's `go` directive.
-go = "1.27.2"
+go = "1.27.1"
 
 # The task runner itself, so `mise install` bootstraps everything on a clean
 # machine (laptop, container or CI runner) with no manual step.
