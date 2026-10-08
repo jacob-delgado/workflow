@@ -150,7 +150,7 @@ func (msg finished) apply(m Model) (Model, tea.Cmd) {
 
 	done := m.closeOverlay().noticed(m.marks.done + " finished " + msg.branch)
 
-	return done, done.loadBranch()
+	return done, loadBranch(done.deps)
 }
 
 // failed is the preview kept open with the reason the finish failed.

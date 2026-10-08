@@ -20,9 +20,9 @@ type hookgenState struct {
 }
 
 // findHooks is the command that looks for hooks lefthook does not manage.
-func (m Model) findHooks() tea.Cmd {
-	existing := m.deps.Hooks.Existing
-	if existing == nil || m.deps.Hooks.Write == nil {
+func findHooks(deps Deps) tea.Cmd {
+	existing := deps.Hooks.Existing
+	if existing == nil || deps.Hooks.Write == nil {
 		return nil
 	}
 

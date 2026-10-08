@@ -85,7 +85,7 @@ func (msg repositoriesRead) apply(m Model) (Model, tea.Cmd) {
 // loadRepositories reads the worktrees, then the favorites and each one's
 // place, off the update loop: both are on disk, read again each time.
 func (m Model) loadRepositories() tea.Cmd {
-	worktrees, favorites := m.deps.Repositories.Worktrees, m.favoritePlaces()
+	worktrees, favorites := m.deps.Repositories.Worktrees, favoritePlaces(m.deps)
 
 	return func() tea.Msg {
 		read := repositoriesRead{}
@@ -100,8 +100,8 @@ func (m Model) loadRepositories() tea.Cmd {
 }
 
 // favoritePlaces reads the favorites, then each one's place.
-func (m Model) favoritePlaces() func() ([]favoritePlace, error) {
-	read, look, here := m.deps.Store.Favorites, m.deps.Repositories.Look, m.deps.Repositories.Here.Dir
+func favoritePlaces(deps Deps) func() ([]favoritePlace, error) {
+	read, look, here := deps.Store.Favorites, deps.Repositories.Look, deps.Repositories.Here.Dir
 
 	return func() ([]favoritePlace, error) {
 		if read == nil {
@@ -216,8 +216,8 @@ func (s repositoriesState) selectedRow(here seams.Place) repositoryRow {
 
 // shownDir is a directory written from your home, with anything in its name
 // that could drive the terminal neutralized: it is read from a file on disk.
-func (m Model) shownDir(dir string) string {
-	return shownFrom(m.deps.Repositories.Home, dir)
+func shownDir(deps Deps, dir string) string {
+	return shownFrom(deps.Repositories.Home, dir)
 }
 
 // shownFrom is dir written from home, neutralized.
@@ -419,11 +419,11 @@ func (m Model) repositoriesKeys() []key.Binding {
 	switch {
 	case m.offersSetup():
 		keys = append(keys, relabel(m.keys.settings, "set up"))
-	case m.canEditSettings():
+	case canEditSettings(m.deps):
 		keys = append(keys, m.keys.settings)
 	}
 
-	if m.canSeeLocalData() {
+	if canSeeLocalData(m.deps) {
 		keys = append(keys, m.keys.localData)
 	}
 
@@ -465,9 +465,9 @@ func (m Model) openFromRepositories(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openDirPrompt()
 	case key.Matches(msg, m.keys.settings) && m.offersSetup():
 		return m.openSetup()
-	case key.Matches(msg, m.keys.settings) && m.canEditSettings():
+	case key.Matches(msg, m.keys.settings) && canEditSettings(m.deps):
 		return m.openSettings()
-	case key.Matches(msg, m.keys.localData) && m.canSeeLocalData():
+	case key.Matches(msg, m.keys.localData) && canSeeLocalData(m.deps):
 		return m.openLocalData()
 	default:
 		return m, nil
@@ -489,9 +489,9 @@ func (msg favoriteToggled) apply(m Model) (Model, tea.Cmd) {
 		return m.noticedFailure(msg.err), nil
 	}
 
-	words := " removed " + m.shownDir(msg.dir) + " from favorites"
+	words := " removed " + shownDir(m.deps, msg.dir) + " from favorites"
 	if msg.added {
-		words = " added " + m.shownDir(msg.dir) + " to favorites"
+		words = " added " + shownDir(m.deps, msg.dir) + " to favorites"
 	}
 
 	return m.noticed(m.marks.done + words), m.loadRepositories()
@@ -499,9 +499,9 @@ func (msg favoriteToggled) apply(m Model) (Model, tea.Cmd) {
 
 // toggleFavorite forgets a row that is a favorite, and marks one that is not.
 func (m Model) toggleFavorite(row repositoryRow) (Model, tea.Cmd) {
-	change, verb := m.deps.Store.Favor, "add "+m.shownDir(row.dir)+" to favorites"
+	change, verb := m.deps.Store.Favor, "add "+shownDir(m.deps, row.dir)+" to favorites"
 	if row.favorite {
-		change, verb = m.deps.Store.Unfavor, "remove "+m.shownDir(row.dir)+" from favorites"
+		change, verb = m.deps.Store.Unfavor, "remove "+shownDir(m.deps, row.dir)+" from favorites"
 	}
 
 	switch {

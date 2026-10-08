@@ -191,7 +191,7 @@ func (msg branchUnlinked) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.done + " unlinked " + msg.branch + " from " + shownKey(msg.issueKey))
 
-	return m, m.loadBranch()
+	return m, loadBranch(m.deps)
 }
 
 // pasted types a paste into the issue key, as typing it would.
@@ -222,7 +222,7 @@ func (l branchLinker) choose(m Model) (Model, tea.Cmd) {
 
 	// Only a description the forge can edit is shown as about to change.
 	if l.hasPull && m.deps.Forge.RewriteDescription != nil {
-		if body, changed := convention.WithIssueLine(l.pull.Body, ref.Key, m.issueBrowseURL(l.chosen)); changed {
+		if body, changed := convention.WithIssueLine(l.pull.Body, ref.Key, issueBrowseURL(m.deps, l.chosen)); changed {
 			l.body = body
 			m.overlay = l
 
@@ -247,7 +247,7 @@ func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 	m.overlay = l
 	linkIssue, rewrite := m.deps.Git.LinkIssue, m.deps.Forge.RewriteDescription
 	branch, issueKey, pull, describe := l.branch, l.chosen, l.pull, l.body != ""
-	issueURL := m.issueBrowseURL(issueKey)
+	issueURL := issueBrowseURL(m.deps, issueKey)
 
 	return m, func() tea.Msg {
 		var (
@@ -278,12 +278,12 @@ func (l branchLinker) failed(err error) branchLinker {
 
 // issueBrowseURL is the issue's page, for the line naming it, or empty when
 // the tracker gives none.
-func (m Model) issueBrowseURL(issueKey jira.Key) string {
-	if m.deps.Jira.BrowseURL == nil {
+func issueBrowseURL(deps Deps, issueKey jira.Key) string {
+	if deps.Jira.BrowseURL == nil {
 		return ""
 	}
 
-	return m.deps.Jira.BrowseURL(issueKey)
+	return deps.Jira.BrowseURL(issueKey)
 }
 
 // branchLinked reports how linking the branch went.
@@ -312,7 +312,7 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 		m.overlay = issueLinker{vocab: m.vocab, issueKey: msg.issueKey, pull: msg.pull}
 	}
 
-	return m, m.loadBranch()
+	return m, loadBranch(m.deps)
 }
 
 // said is what the link did, in the words its key offered: the branch linked,

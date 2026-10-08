@@ -44,7 +44,7 @@ var (
 // openDirPrompt opens the go-to prompt, empty, from where you work.
 func (m Model) openDirPrompt() (Model, tea.Cmd) {
 	input := newInput("")
-	input.Placeholder = m.shownDir(m.deps.Repositories.Here.Dir)
+	input.Placeholder = shownDir(m.deps, m.deps.Repositories.Here.Dir)
 	m, opened := m.opening()
 
 	m.overlay = dirPrompt{
@@ -148,7 +148,7 @@ func (msg dirLooked) apply(m Model) (Model, tea.Cmd) {
 
 		return m, nil
 	case msg.here:
-		return m.closeOverlay().noticed("you already work in " + m.shownDir(msg.dir)), nil
+		return m.closeOverlay().noticed("you already work in " + shownDir(m.deps, msg.dir)), nil
 	default:
 		return m.closeOverlay().leaveFor(msg.dir)
 	}

@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 	"time"
@@ -212,7 +213,9 @@ func (m Model) issueDetailView(width int) string {
 		return m.status(width)
 	}
 
-	lines := []string{m.styles.strong.Render(shownKey(selected.Key)) + " " + selected.Summary, m.facts(selected)}
+	lines := []string{
+		m.styles.strong.Render(shownKey(selected.Key)) + " " + selected.Summary, issueFacts(m.kit(), selected),
+	}
 
 	if capped := m.issues.capped(); capped != "" {
 		lines = append(lines, m.styles.label.Render(capped))
@@ -220,7 +223,7 @@ func (m Model) issueDetailView(width int) string {
 
 	// A blank row sets the Tasks block apart from who reported the issue, unless
 	// the full read, still loading or failed, opens with one of its own.
-	tasks, full := m.issueTasksBlock(selected.Key, width), m.fullDetail(selected.Key, width)
+	tasks, full := m.issueTasksBlock(selected.Key, width), m.detail.lines(m.readView(), selected.Key, width)
 	if len(tasks) > 0 && full[0] != "" {
 		tasks = append(tasks, "")
 	}
@@ -228,9 +231,9 @@ func (m Model) issueDetailView(width int) string {
 	return wrap(strings.Join(slices.Concat(lines, tasks, full), "\n"), width)
 }
 
-// facts is an issue's type, priority and status on one line, leaving out any
+// issueFacts is an issue's type, priority and status on one line, leaving out any
 // the instance does not use.
-func (m Model) facts(issue jira.Issue) string {
+func issueFacts(kit renderKit, issue jira.Issue) string {
 	var parts []string
 
 	for _, part := range []string{issue.Type, issue.Priority, issue.Status} {
@@ -239,50 +242,70 @@ func (m Model) facts(issue jira.Issue) string {
 		}
 	}
 
-	return m.styles.label.Render(strings.Join(parts, m.marks.separator))
+	return kit.styles.label.Render(strings.Join(parts, kit.marks.separator))
 }
 
-// fullDetail is the part of an issue only a full read has: the reporter, the
+// lines is the part of an issue only a full read has: the reporter, the
 // description, and the most recent comments.
-func (m Model) fullDetail(issueKey jira.Key, width int) []string {
+func (d issueDetail) lines(view readView, issueKey jira.Key, width int) []string {
+	kit := view.kit
+
 	switch {
-	case m.detail.key != issueKey || !m.detail.loaded:
-		return []string{"", m.styles.label.Render("reading the description and comments" + m.marks.ellipsis)}
-	case m.detail.err != nil:
-		return []string{"", m.kit().failureBlock(m.detail.err, width), "press " + m.keys.refresh.Help().Key + " to try again"}
+	case d.key != issueKey || !d.loaded:
+		return []string{"", kit.styles.label.Render("reading the description and comments" + kit.marks.ellipsis)}
+	case d.err != nil:
+		return []string{"", kit.failureBlock(d.err, width), "press " + view.keys.refresh.Help().Key + " to try again"}
 	}
 
-	detail := m.detail.detail
-	lines := []string{m.styles.label.Render("reported by " + detail.Reporter)}
-	lines = append(lines, m.issuePeopleAndTags(detail)...)
+	detail := d.detail
+	lines := []string{kit.styles.label.Render("reported by " + detail.Reporter)}
+	lines = append(lines, issuePeopleAndTags(kit.styles, detail)...)
 	lines = append(lines, "")
 
 	if strings.TrimSpace(detail.Description) == "" {
-		lines = append(lines, m.styles.label.Render("no description"))
+		lines = append(lines, kit.styles.label.Render("no description"))
 	} else {
 		lines = append(lines, wrap(detail.Description, width))
 	}
 
-	lines = append(lines, m.issueRelations(detail)...)
+	lines = append(lines, issueRelations(kit, detail)...)
 
-	return append(lines, m.comments(detail)...)
+	return append(lines, view.comments(detail)...)
+}
+
+// readView is what an issue's detail draws with beside its own read: the
+// glyphs and styles, the keys it names, the clock its comments are aged by,
+// and how many of the latest comments it shows.
+type readView struct {
+	kit           renderKit
+	keys          keyMap
+	now           time.Time
+	commentsShown int
+}
+
+// readView is the issue detail's view of the rest of the interface.
+func (m Model) readView() readView {
+	return readView{
+		kit: m.kit(), keys: m.keys, now: m.deps.now(),
+		commentsShown: cmp.Or(m.cfg.UI.CommentsShown, defaultCommentsShown),
+	}
 }
 
 // issuePeopleAndTags is the assignee and the issue's tags — labels, components,
 // fix versions, and its parent — each line drawn only when the issue has it.
-func (m Model) issuePeopleAndTags(detail jira.IssueDetail) []string {
+func issuePeopleAndTags(sty styles, detail jira.IssueDetail) []string {
 	var lines []string
 
 	if detail.Assignee != "" {
-		lines = append(lines, m.styles.label.Render("assigned to "+detail.Assignee))
+		lines = append(lines, sty.label.Render("assigned to "+detail.Assignee))
 	}
 
-	lines = m.tagLine(lines, "labels", detail.Labels)
-	lines = m.tagLine(lines, "components", detail.Components)
-	lines = m.tagLine(lines, "fix versions", detail.FixVersions)
+	lines = tagLine(sty, lines, "labels", detail.Labels)
+	lines = tagLine(sty, lines, "components", detail.Components)
+	lines = tagLine(sty, lines, "fix versions", detail.FixVersions)
 
 	if detail.Parent.Key != "" {
-		lines = append(lines, m.styles.label.Render("parent "+detail.Parent.Key+" "+detail.Parent.Summary))
+		lines = append(lines, sty.label.Render("parent "+detail.Parent.Key+" "+detail.Parent.Summary))
 	}
 
 	return lines
@@ -290,31 +313,31 @@ func (m Model) issuePeopleAndTags(detail jira.IssueDetail) []string {
 
 // tagLine adds a labeled, comma-joined line for a list of tags, or nothing when
 // the list is empty.
-func (m Model) tagLine(lines []string, name string, values []string) []string {
+func tagLine(sty styles, lines []string, name string, values []string) []string {
 	if len(values) == 0 {
 		return lines
 	}
 
-	return append(lines, m.styles.label.Render(name+" "+strings.Join(values, ", ")))
+	return append(lines, sty.label.Render(name+" "+strings.Join(values, ", ")))
 }
 
 // issueRelations is the issue's subtasks and its links to other issues, each
 // block drawn only when there is one.
-func (m Model) issueRelations(detail jira.IssueDetail) []string {
+func issueRelations(kit renderKit, detail jira.IssueDetail) []string {
 	var lines []string
 
 	if len(detail.Subtasks) > 0 {
-		lines = append(lines, "", m.styles.strong.Render("Subtasks"))
+		lines = append(lines, "", kit.styles.strong.Render("Subtasks"))
 		for _, sub := range detail.Subtasks {
-			lines = append(lines, m.styles.label.Render("  "+sub.Key+" "+sub.Summary+m.marks.separator+sub.Status))
+			lines = append(lines, kit.styles.label.Render("  "+sub.Key+" "+sub.Summary+kit.marks.separator+sub.Status))
 		}
 	}
 
 	if len(detail.IssueLinks) > 0 {
-		lines = append(lines, "", m.styles.strong.Render("Links"))
+		lines = append(lines, "", kit.styles.strong.Render("Links"))
 		for _, link := range detail.IssueLinks {
-			lines = append(lines, m.styles.label.Render("  "+link.Relation+" "+link.Issue.Key+" "+
-				link.Issue.Summary+m.marks.separator+link.Issue.Status))
+			lines = append(lines, kit.styles.label.Render("  "+link.Relation+" "+link.Issue.Key+" "+
+				link.Issue.Summary+kit.marks.separator+link.Issue.Status))
 		}
 	}
 

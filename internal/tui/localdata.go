@@ -32,8 +32,8 @@ type localData struct {
 }
 
 // canSeeLocalData reports that the store's files can be listed.
-func (m Model) canSeeLocalData() bool {
-	return m.deps.Settings.LocalData != nil
+func canSeeLocalData(deps Deps) bool {
+	return deps.Settings.LocalData != nil
 }
 
 // openLocalData opens Local data and starts reading the store's files.
@@ -41,12 +41,12 @@ func (m Model) openLocalData() (Model, tea.Cmd) {
 	m, opened := m.opening()
 	m.overlay = localData{opened: opened, reading: true}
 
-	return m, m.readLocalData(opened)
+	return m, readLocalData(m.deps, opened)
 }
 
 // readLocalData lists the store's files for the overlay opened as opened.
-func (m Model) readLocalData(opened int) tea.Cmd {
-	list := m.deps.Settings.LocalData
+func readLocalData(deps Deps, opened int) tea.Cmd {
+	list := deps.Settings.LocalData
 
 	return func() tea.Msg {
 		dir, files, err := list()
@@ -72,7 +72,7 @@ func (msg localDataRead) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	open.reading, open.dir, open.files, open.err = false, m.shownDir(msg.dir), msg.files, msg.err
+	open.reading, open.dir, open.files, open.err = false, shownDir(m.deps, msg.dir), msg.files, msg.err
 	m.overlay = open
 
 	return m, nil

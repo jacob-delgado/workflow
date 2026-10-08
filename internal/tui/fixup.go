@@ -41,7 +41,7 @@ func (m Model) applyAmend(subject string) (Model, tea.Cmd) {
 	return m.startRun(amendRun(), amend, func(done Model) (Model, tea.Cmd) {
 		done = done.closeOverlay().noticed(done.marks.done + " amended " + subject)
 
-		return done, tea.Batch(done.loadChanges(), done.loadBranch())
+		return done, tea.Batch(loadChanges(done.deps), loadBranch(done.deps))
 	})
 }
 
@@ -62,7 +62,7 @@ func (m Model) applyFixup(hash, subject string) (Model, tea.Cmd) {
 		func(done Model) (Model, tea.Cmd) {
 			done = done.closeOverlay().noticed(done.marks.done + " recorded a fixup! of " + subject)
 
-			return done, tea.Batch(done.loadChanges(), done.loadBranch())
+			return done, tea.Batch(loadChanges(done.deps), loadBranch(done.deps))
 		})
 }
 

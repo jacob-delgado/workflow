@@ -98,7 +98,7 @@ func remove(sources []activity.Source, source activity.Source) []activity.Source
 }
 
 // today is the day the clock says it is, where it says it.
-func (m Model) today() activity.Date { return activity.DateOf(m.deps.now()) }
+func today(deps Deps) activity.Date { return activity.DateOf(deps.now()) }
 
 // shownPeriod is the period the pane shows: the one chosen, or the previous
 // working day until one is.
@@ -113,7 +113,7 @@ func (s summaryState) shownPeriod(now time.Time) activity.Period {
 // refreshSummary reads the period shown, unless it has ended and every source
 // has read it in full: what was done then will not change.
 func (m Model) refreshSummary() (Model, tea.Cmd) {
-	if m.summary.readInFull() && m.summary.period.To.Before(m.today()) {
+	if m.summary.readInFull() && m.summary.period.To.Before(today(m.deps)) {
 		return m, nil
 	}
 
@@ -143,7 +143,7 @@ func (m Model) readSummary() (Model, tea.Cmd) {
 	m.summary.reads, m.summary.complete = nil, false
 
 	start, end := m.summary.period.Bounds(m.deps.now().Location())
-	reads := m.summaryReads(start, end)
+	reads := summaryReads(m.deps, start, end)
 	reading := m.summary.reading
 
 	m.summary.asking = make([]activity.Source, 0, len(reads))
@@ -161,9 +161,7 @@ func (m Model) readSummary() (Model, tea.Cmd) {
 
 // summaryReads are the reads of each source the deps reach, from start up to
 // end.
-func (m Model) summaryReads(start, end time.Time) []loop.SourceRead {
-	deps := m.deps
-
+func summaryReads(deps Deps, start, end time.Time) []loop.SourceRead {
 	return loop.SummaryReads(loop.ActivitySeams{
 		Commits: deps.Git.CommitsBetween, Touched: deps.Tasks.Touched,
 		Jira: deps.Jira.Activity, BrowseURL: deps.Jira.BrowseURL,
@@ -199,7 +197,7 @@ func (s summaryState) items(now time.Time) []activity.Item {
 // after today.
 func (m Model) stepSummary(steps int) (Model, tea.Cmd) {
 	moved := m.summary.shownPeriod(m.deps.now()).Step(steps)
-	if m.today().Before(moved.From) {
+	if today(m.deps).Before(moved.From) {
 		return m, nil
 	}
 
@@ -215,7 +213,7 @@ func (m Model) stepSummary(steps int) (Model, tea.Cmd) {
 
 // showToday shows today and reads it at once.
 func (m Model) showToday() (Model, tea.Cmd) {
-	m.summary.period = activity.Period{From: m.today(), To: m.today()}
+	m.summary.period = activity.Period{From: today(m.deps), To: today(m.deps)}
 	m.summary.chosen, m.summary.selected, m.summary.scroll = true, 0, 0
 
 	return m.readSummary()

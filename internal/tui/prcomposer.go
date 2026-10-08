@@ -111,15 +111,15 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 
 	var reviewers tea.Cmd
 	if !proposed.reviewersSettled {
-		reviewers = m.readReviewers(proposed)
+		reviewers = readReviewers(m.deps, proposed)
 	}
 
-	starts := m.readPullRequestStarts(proposed.opened)
+	starts := readPullRequestStarts(m.deps, proposed.opened)
 	if listed {
 		return m, tea.Batch(starts, reviewers)
 	}
 
-	return m, tea.Batch(starts, m.readTitleIssue(proposed), reviewers)
+	return m, tea.Batch(starts, readTitleIssue(m.deps, proposed), reviewers)
 }
 
 // proposePullRequest is the composer filled from the branch's commits, the
@@ -127,7 +127,7 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summary string) prComposer {
 	proposedFrom := loop.DraftInput{
 		Subjects: loop.Subjects(branch.Commits), IssueKey: issueKey, IssueSummary: summary,
-		IssueURL: m.browseURL(issueKey), TitleSource: convention.TitleSource(m.cfg.PullRequest.TitleSource),
+		IssueURL: browseURL(m.deps, issueKey), TitleSource: convention.TitleSource(m.cfg.PullRequest.TitleSource),
 	}
 	title, _ := loop.Draft(proposedFrom)
 

@@ -34,10 +34,10 @@ func (d directory) missingScope() string {
 	return ""
 }
 
-// readMembers starts reading a channel's members, for linking a user owner
+// readChannelMembers starts reading a channel's members, for linking a user owner
 // in the overlay opened as opened.
-func (m Model) readMembers(channel string, opened int) (directory, tea.Cmd) {
-	read := m.deps.Messaging.ChannelMembers
+func readChannelMembers(deps Deps, channel string, opened int) (directory, tea.Cmd) {
+	read := deps.Messaging.ChannelMembers
 
 	return directory{reading: true}, func() tea.Msg {
 		found, err := read(channel)
@@ -48,8 +48,8 @@ func (m Model) readMembers(channel string, opened int) (directory, tea.Cmd) {
 
 // readUserGroups starts reading the workspace's user groups, for linking a
 // team owner, where Slack can list them.
-func (m Model) readUserGroups(opened int) (directory, tea.Cmd) {
-	read := m.deps.Messaging.UserGroups
+func readUserGroups(deps Deps, opened int) (directory, tea.Cmd) {
+	read := deps.Messaging.UserGroups
 	if read == nil {
 		return directory{}, nil
 	}
@@ -162,8 +162,8 @@ func (m Model) withBeneath(changed linksOwners) Model {
 
 // saveLink saves link, whom an owner is on Slack or that they are not on it,
 // for the overlay opened as opened.
-func (m Model) saveLink(link loop.OwnerLink, opened int) tea.Cmd {
-	save, readWorkspace := m.deps.Store.LinkOwner, m.deps.Messaging.Workspace
+func saveLink(deps Deps, link loop.OwnerLink, opened int) tea.Cmd {
+	save, readWorkspace := deps.Store.LinkOwner, deps.Messaging.Workspace
 
 	return func() tea.Msg {
 		err := inWorkspace(readWorkspace, func(workspace string) error { return save(workspace, link) })
@@ -364,8 +364,8 @@ func (p ownerPicker) choose(m Model) (Model, tea.Cmd) {
 	m.overlay = p.back
 
 	if chosen.notOnSlack {
-		return m, m.saveLink(decided(p.owner, p.team, nil), p.back.openedAs())
+		return m, saveLink(m.deps, decided(p.owner, p.team, nil), p.back.openedAs())
 	}
 
-	return m, m.saveLink(decided(p.owner, p.team, &chosen.target), p.back.openedAs())
+	return m, saveLink(m.deps, decided(p.owner, p.team, &chosen.target), p.back.openedAs())
 }

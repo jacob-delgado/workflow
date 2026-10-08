@@ -61,7 +61,7 @@ func forgeVocab(kind forge.Kind) reviewVocab {
 // the find reads CI for the one it finds: so a refresh picks up a branch
 // switched in a shell, and never reads CI for a pull request since replaced.
 func (m Model) refreshReview() (Model, tea.Cmd) {
-	read := m.loadBranch()
+	read := loadBranch(m.deps)
 	m.review.loading = read != nil
 
 	return m, read
@@ -125,27 +125,27 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 	return m.checkingCI(m.loadAuthor())
 }
 
-// reviewRail is the pull request and its CI, in brief.
-func (m Model) reviewRail(_ int) string {
+// rail is the pull request and its CI, in brief, or why there is none.
+func (s reviewState) rail(kit renderKit, vocab reviewVocab, onFeatureBranch bool) string {
 	switch {
-	case !m.branch.onFeatureBranch():
+	case !onFeatureBranch:
 		return "on no feature branch"
-	case !m.review.loaded:
-		return m.marks.reading()
-	case m.review.err != nil:
-		return m.kit().failureSummary(m.review.err)
-	case !m.review.found:
-		return "no " + m.vocab.noun + " yet"
+	case !s.loaded:
+		return kit.marks.reading()
+	case s.err != nil:
+		return kit.failureSummary(s.err)
+	case !s.found:
+		return "no " + vocab.noun + " yet"
 	}
 
-	line := m.vocab.sigil + strconv.Itoa(m.review.pull.Number) + " " + m.review.pull.Title
-	if m.review.pull.State == forge.StateMerged {
+	line := vocab.sigil + strconv.Itoa(s.pull.Number) + " " + s.pull.Title
+	if s.pull.State == forge.StateMerged {
 		// A merged pull request has no live CI to poll, so the rail says it merged
 		// rather than sitting forever on "checking".
-		return line + "\n" + m.marks.done + " merged"
+		return line + "\n" + kit.marks.done + " merged"
 	}
 
-	return line + "\n" + m.ciSummary()
+	return line + "\n" + s.ciSummary(kit)
 }
 
 // reviewDetail describes the pull request, or what opening one needs.
@@ -155,7 +155,7 @@ func (m Model) reviewDetail(width int) string {
 	}
 
 	if !m.review.found {
-		lines := []string{m.reviewRail(0)}
+		lines := []string{m.review.rail(m.kit(), m.vocab, m.branch.onFeatureBranch())}
 
 		if m.review.err != nil {
 			lines = append(lines, "", m.kit().failureBlock(m.review.err, width))
@@ -180,9 +180,9 @@ func (m Model) reviewDetail(width int) string {
 		lines = append(lines, issue)
 	}
 
-	lines = append(lines, "", m.styles.label.Render("CI     ")+m.ciSummary())
-	lines = append(lines, m.failedChecks()...)
-	lines = append(lines, m.styles.label.Render("review ")+m.reviewSummary(pull))
+	lines = append(lines, "", m.styles.label.Render("CI     ")+m.review.ciSummary(m.kit()))
+	lines = append(lines, m.review.failedChecks(m.kit())...)
+	lines = append(lines, m.styles.label.Render("review ")+reviewSummary(m.marks, pull))
 
 	if pull.Draft {
 		lines = append(lines, m.styles.label.Render("draft"))
@@ -201,7 +201,7 @@ func (m Model) reviewDetail(width int) string {
 
 // reviewSummary says how the review stands: how many approvals, whether changes
 // are still asked for, and whether the branch can merge.
-func (m Model) reviewSummary(pull forge.PullRequest) string {
+func reviewSummary(marks glyphs, pull forge.PullRequest) string {
 	parts := []string{plural(pull.Approvals, "approval")}
 
 	if pull.ChangesRequested {
@@ -212,7 +212,7 @@ func (m Model) reviewSummary(pull forge.PullRequest) string {
 		parts = append(parts, mergeable)
 	}
 
-	return strings.Join(parts, m.marks.separator)
+	return strings.Join(parts, marks.separator)
 }
 
 // mergeableLabel names whether the branch can merge, or nothing while the forge
@@ -237,20 +237,20 @@ func mergeableLabel(mergeable forge.Mergeability) string {
 // missing forge token, which no open gets past.
 func (m Model) canOpenPullRequest() bool {
 	return m.branch.onFeatureBranch() && len(m.branch.branch.Commits) > 0 && m.review.loaded &&
-		!errors.Is(m.review.err, forge.ErrNoToken) && !m.hasOpenPullRequest() &&
+		!errors.Is(m.review.err, forge.ErrNoToken) && !m.review.hasOpenPull() &&
 		m.deps.Forge.CreatePullRequest != nil
 }
 
-// hasOpenPullRequest reports a pull request found open on the branch. A find
+// hasOpenPull reports a pull request found open on the branch. A find
 // also returns a merged one, so found alone does not say so.
-func (m Model) hasOpenPullRequest() bool {
-	return m.review.found && m.review.pull.IsOpen()
+func (s reviewState) hasOpenPull() bool {
+	return s.found && s.pull.IsOpen()
 }
 
 // canEditPullRequest reports an open pull request whose title and body can be
 // edited here; a merged one cannot be.
 func (m Model) canEditPullRequest() bool {
-	return m.hasOpenPullRequest() && m.deps.Forge.EditPullRequest != nil
+	return m.review.hasOpenPull() && m.deps.Forge.EditPullRequest != nil
 }
 
 // reviewKeys offers opening a pull request, listing its checks, or checking
@@ -286,19 +286,19 @@ func (m Model) reviewKeys() []key.Binding {
 		keys = append(keys, m.keys.finish)
 	}
 
-	keys = append(keys, m.linkKeys(m.reviewPullURL())...)
+	keys = append(keys, m.linkKeys(m.review.pullURL())...)
 
 	return append(keys, m.keys.refresh)
 }
 
-// reviewPullURL is the branch's open pull request URL, or empty when none is
+// pullURL is the branch's open pull request URL, or empty when none is
 // found.
-func (m Model) reviewPullURL() string {
-	if !m.review.found {
+func (s reviewState) pullURL() string {
+	if !s.found {
 		return ""
 	}
 
-	return m.review.pull.URL
+	return s.pull.URL
 }
 
 // handleReviewKey answers the Review pane's own keys.
@@ -336,9 +336,9 @@ func (m Model) handleReviewCompose(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 func (m Model) handleReviewLink(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.openLink):
-		return m.openLink(m.reviewPullURL())
+		return m.openLink(m.review.pullURL())
 	case key.Matches(msg, m.keys.copyLink):
-		return m.copyLink(m.reviewPullURL())
+		return m.copyLink(m.review.pullURL())
 	default:
 		return m, nil
 	}
@@ -347,7 +347,10 @@ func (m Model) handleReviewLink(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // reviewBehavior is the Review pane's behavior.
 func reviewBehavior() behavior {
 	return behavior{
-		rail: Model.reviewRail, detail: Model.reviewDetail, narrow: nil,
+		rail: func(m Model, _ int) string {
+			return m.review.rail(m.kit(), m.vocab, m.branch.onFeatureBranch())
+		},
+		detail: Model.reviewDetail, narrow: nil,
 		keys: Model.reviewKeys, handle: Model.handleReviewKey, pick: nil,
 		refresh: Model.refreshReview, loading: func(m Model) bool { return m.review.loading },
 		scroll: func(m *Model) *int { return &m.review.scroll }, readsBranch: true,
