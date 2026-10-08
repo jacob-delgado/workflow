@@ -59,6 +59,7 @@ const waiting = makeTask({
   id: 4,
   description: 'Book the retro room',
   status: 'waiting',
+  state: 'waiting',
   wait: hoursFromNow(48),
   issue_key: '',
   issue_url: '',
@@ -216,6 +217,14 @@ test('the detail gives the task its facts and its notes', async () => {
     priority: 'H',
     tags: ['jira', 'security'],
     annotations: [{ entry: '2026-09-21T09:00:00Z', description: 'Ana can review it' }],
+    facets: [
+      { kind: 'state', value: 'pending', label: 'pending' },
+      { kind: 'priority', value: 'H', label: 'priority H' },
+      { kind: 'project', value: 'api', label: 'project api' },
+      { kind: 'issue', value: 'linked', label: 'with issue' },
+      { kind: 'tag', value: 'jira', label: '+jira' },
+      { kind: 'tag', value: 'security', label: '+security' },
+    ],
   })
   fakeApi({ [tasksPath]: makeTaskList([noted]) })
 
