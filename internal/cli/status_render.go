@@ -91,6 +91,7 @@ func renderStatusJSON(out io.Writer, facts statusFacts) error {
 // repoStatus is one repository's status in the array `status DIR...` prints.
 type repoStatus struct {
 	Repository string        `json:"repository"`
+	Dir        string        `json:"dir"`
 	Issue      string        `json:"issue,omitempty"`
 	Summary    string        `json:"summary,omitempty"`
 	Stages     []stageReport `json:"stages,omitempty"`
@@ -105,7 +106,7 @@ func statusesJSON(out io.Writer, statuses []directoryStatus) error {
 	reports := make([]repoStatus, 0, len(statuses))
 
 	for _, status := range statuses {
-		report := repoStatus{Repository: status.label}
+		report := repoStatus{Repository: status.label, Dir: status.dir}
 
 		if status.err != nil {
 			report.Error = unreadReason(status.err)
