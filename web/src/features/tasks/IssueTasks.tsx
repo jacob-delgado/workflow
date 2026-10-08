@@ -18,7 +18,6 @@ import {
   isActive,
   linkedTo,
   markOf,
-  statusWords,
   stillToDo,
   taskName,
   taskNumber,
@@ -102,7 +101,7 @@ function withDone(tasks: Task[], completed: Set<string>, listed: Task[]): Task[]
 
   return tasks.map((task) =>
     completed.has(task.uuid) && !stillListed.has(task.uuid)
-      ? { ...task, status: 'completed' }
+      ? { ...task, status: 'completed', state: 'completed' }
       : task,
   )
 }
@@ -147,9 +146,9 @@ function linkedNote(task: Task, now: number): string[] {
     return [`started ${elapsedWords(task.start, now)} ago`]
   }
 
-  const state = statusWords(task)
-
-  return stillToDo(task) && task.due !== undefined ? [state, dueWords(task.due, now)] : [state]
+  return stillToDo(task) && task.due !== undefined
+    ? [task.state, dueWords(task.due, now)]
+    : [task.state]
 }
 
 interface TrackIssueProps {

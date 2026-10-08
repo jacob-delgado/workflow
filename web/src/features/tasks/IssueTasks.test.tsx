@@ -63,7 +63,11 @@ test("lists the issue's task with its mark, and offers to start it and mark it d
 
 test('a started task says how long ago it was started, and offers to stop it', () => {
   // Arrange
-  streamLinked({ ...tracking, start: new Date(Date.now() - 1.2 * hour).toISOString() })
+  streamLinked({
+    ...tracking,
+    start: new Date(Date.now() - 1.2 * hour).toISOString(),
+    state: 'started',
+  })
 
   // Act
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -207,7 +211,12 @@ test("the track's answer takes the place of the task list the page holds", async
 
 test.each([
   [['Start task 12'], 'start', tracking, 'Started task 12.'],
-  [['Stop task 12'], 'stop', { ...tracking, start: new Date().toISOString() }, 'Stopped task 12.'],
+  [
+    ['Stop task 12'],
+    'stop',
+    { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+    'Stopped task 12.',
+  ],
   [['Mark done… task 12', 'Mark done'], 'done', tracking, 'Marked task 12 done.'],
 ])('%j posts to its path and says what it did', async (buttons, verb, task, said) => {
   // Arrange
@@ -246,7 +255,12 @@ test('a track whose answer names no task still takes Track away', async () => {
 
 test('a completed task is listed done, with nothing to do, and the issue can be tracked again', () => {
   // Arrange
-  streamLinked({ ...tracking, status: 'completed', end: new Date().toISOString() })
+  streamLinked({
+    ...tracking,
+    status: 'completed',
+    state: 'completed',
+    end: new Date().toISOString(),
+  })
 
   // Act
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -262,7 +276,12 @@ test('a completed task is listed done, with nothing to do, and the issue can be 
 
 test('a waiting task still tracks the issue', () => {
   // Arrange
-  streamLinked({ ...tracking, status: 'waiting', wait: new Date(Date.now() + hour).toISOString() })
+  streamLinked({
+    ...tracking,
+    status: 'waiting',
+    state: 'waiting',
+    wait: new Date(Date.now() + hour).toISOString(),
+  })
 
   // Act
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -270,6 +289,19 @@ test('a waiting task still tracks the issue', () => {
   // Assert
   expect(screen.getByRole('button', { name: 'Start task 12' })).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Track in Taskwarrior' })).toBeNull()
+})
+
+test("a pending task whose wait is still ahead says the server's state, waiting", () => {
+  // Arrange
+  streamLinked({ ...tracking, state: 'waiting', wait: new Date(Date.now() + hour).toISOString() })
+
+  // Act
+  renderWithClient(<IssueTasks issueKey={issueKey} />)
+
+  // Assert
+  const row = within(screen.getByRole('region', { name: 'Tasks' })).getByRole('listitem')
+  expect(row.textContent).toMatch(/Redact tokens.*waiting/)
+  expect(row.textContent).not.toContain('pending')
 })
 
 test('nothing is drawn when the snapshot says Taskwarrior is unavailable', () => {
