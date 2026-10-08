@@ -15,7 +15,11 @@ function refusing(path: string): void {
     '/api/repo-groups': { repository: 'acme/widgets', groups: [] },
     '/api/slack/groups': { entries: [] },
     '/api/slack/members': { entries: [] },
-    '/api/local-data': { dir: '/home/ana/.local/state/workflow', files: [] },
+    '/api/local-data': {
+      dir: '/home/ana/.local/state/workflow',
+      files: [],
+      consequences: { cache: '', all: '' },
+    },
     [path]: () =>
       Response.json(
         {
@@ -58,7 +62,13 @@ test('the local data that cannot be read is an alert, read again on Try again', 
   renderWithClient(<LocalData />)
   const again = await screen.findByRole('button', { name: 'Try again' })
   expect(screen.getByRole('alert').textContent).toBe('/api/local-data refused')
-  fakeApi({ '/api/local-data': { dir: '/home/ana/.local/state/workflow', files: [] } })
+  fakeApi({
+    '/api/local-data': {
+      dir: '/home/ana/.local/state/workflow',
+      files: [],
+      consequences: { cache: '', all: '' },
+    },
+  })
 
   // Act
   await user.click(again)
