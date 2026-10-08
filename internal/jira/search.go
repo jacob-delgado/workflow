@@ -117,8 +117,8 @@ type wireIssueLink struct {
 		Inward  string `json:"inward"`
 		Outward string `json:"outward"`
 	} `json:"type"`
-	InwardIssue  *wireLinked `json:"inwardIssue"`  //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
-	OutwardIssue *wireLinked `json:"outwardIssue"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+	InwardIssue  *wireLinked `json:"inwardIssue"`
+	OutwardIssue *wireLinked `json:"outwardIssue"`
 }
 
 // link flattens an issue link to the relation and the issue it points at,
@@ -144,7 +144,7 @@ type wireIssue struct {
 			Name     string `json:"name"`
 			Category struct {
 				Key string `json:"key"`
-			} `json:"statusCategory"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+			} `json:"statusCategory"`
 		} `json:"status"`
 		Type        named           `json:"issuetype"`
 		Priority    named           `json:"priority"`
@@ -153,7 +153,7 @@ type wireIssue struct {
 		Assignee    person          `json:"assignee"`
 		Labels      []string        `json:"labels"`
 		Components  []named         `json:"components"`
-		FixVersions []named         `json:"fixVersions"` //nolint:tagliatelle // Jira's wire name
+		FixVersions []named         `json:"fixVersions"`
 		Parent      wireLinked      `json:"parent"`
 		Subtasks    []wireLinked    `json:"subtasks"`
 		IssueLinks  []wireIssueLink `json:"issuelinks"`

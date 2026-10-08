@@ -67,7 +67,7 @@ type IssueDetail struct {
 
 // person is a user as Jira names one.
 type person struct {
-	DisplayName string `json:"displayName"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+	DisplayName string `json:"displayName"`
 }
 
 // wireComment is a comment as Jira sends it.
