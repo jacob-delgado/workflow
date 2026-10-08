@@ -98,24 +98,27 @@ func TestSaveEditKeepsTheSlackSecretsPlacedOutsideTheRepositoryFile(t *testing.T
 	// Arrange
 	files, read, revision := readLayered(t, `{"jira": {"project": "OSS"}}`)
 	edited := read.Redacted()
-	edited.Messaging.RefreshToken = typedRefresh
+	edited.Messaging.RefreshToken, edited.Messaging.Channel = typedRefresh, "#releases"
 
+	placed := false
 	keychain := func(cfg config.Config) (config.Config, error) {
+		placed = true
 		cfg.Messaging.ClientSecret, cfg.Messaging.RefreshToken = "", ""
 
 		return cfg, nil
 	}
 
 	// Act
-	_, _, err := config.SaveEdit(config.Edit{
+	_, saved, err := config.SaveEdit(config.Edit{
 		Files: files, Read: read, Over: revision, Edited: edited, PlaceSlackCredentials: keychain,
 	})
 
 	// Assert
 	written, readErr := os.ReadFile(files.Repo)
-	if err != nil || readErr != nil || strings.Contains(string(written), typedRefresh) {
-		t.Errorf("SaveEdit = %v; the repository's file holds %q (%v); want the save made with the secrets "+
-			"kept elsewhere", err, written, readErr)
+	if err != nil || readErr != nil || !placed || saved == revision ||
+		reread(t, files).Messaging.Channel != "#releases" || strings.Contains(string(written), typedRefresh) {
+		t.Errorf("SaveEdit = %v, placed %t; the repository's file holds %q (%v); want the edit saved with the "+
+			"secrets placed and kept elsewhere", err, placed, written, readErr)
 	}
 }
 
