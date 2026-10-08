@@ -170,6 +170,7 @@ type world struct {
 	ci              []forge.CI
 	// jobLog is what the forge keeps of a failed job's log.
 	jobLog    forge.JobLog
+	jobLogErr error
 	templates []forge.Template
 	forgeKind forge.Kind
 	author    string

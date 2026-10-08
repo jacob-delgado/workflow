@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -139,4 +140,36 @@ func TestAFailedCIReadListsNoChecksFromTheReadBefore(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "could not reach the forge")
 	refuseScreen(t, view, "unit-race")
+}
+
+func TestEscFromALogGoesBackToTheChecks(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	reading := typing(t, withAFailedJob(true).live(t, 120, 40), "4", "c", downAction, "l")
+
+	// Act
+	view := typing(t, reading, keyEsc).View().Content
+
+	// Assert
+	requireScreen(t, view, "build-docs", "unit-race")
+	refuseScreen(t, view, "--- FAIL: TestRetry")
+}
+
+// errLogExpired is a forge that no longer keeps a job's log.
+var errLogExpired = errors.New("the job's log has expired")
+
+func TestALogTheForgeCannotReadSaysWhyBesideTheChecks(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	expired := withAFailedJob(true)
+	expired.jobLogErr = errLogExpired
+
+	// Act
+	view := typing(t, expired.live(t, 120, 40), "4", "c", downAction, "l").View().Content
+
+	// Assert
+	requireScreen(t, view, "unit-race", "the job's log has expired")
+	refuseScreen(t, view, "reading the log")
 }
