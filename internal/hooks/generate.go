@@ -266,7 +266,7 @@ func plainCommands(script string) ([]string, bool) {
 		switch {
 		case line == "" || strings.HasPrefix(line, "#"):
 			continue
-		case setOption().MatchString(line):
+		case jobListOption().MatchString(line):
 			errexit = errexit || errexitOption().MatchString(line)
 		case !plainCommand(line):
 			return nil, false
@@ -278,18 +278,20 @@ func plainCommands(script string) ([]string, bool) {
 	return commands, errexit && len(commands) > 0
 }
 
-// setOption matches any `set -flags` line; a piped job list runs the commands
-// but honors none of the options, so only the errexit ones below are safe.
-func setOption() *regexp.Regexp {
-	return regexp.MustCompile(`^set\s+-[a-zA-Z]+(\s+\S+)?$`)
+// jobListOption matches a `set` line whose every option a piped job list keeps
+// or does without: errexit, which the piped list does itself, and nounset and
+// xtrace, which change nothing about plain commands. A piped job list honors
+// no option, so any other `set` line — noglob, noexec, allexport, `-o
+// pipefail` — would change what the commands do once they are jobs; it is not
+// a plain command either, so a script that has one stays whole.
+func jobListOption() *regexp.Regexp {
+	return regexp.MustCompile(`^set\s+(-[eux]+|-o\s+(errexit|nounset|xtrace))$`)
 }
 
-// errexitOption matches a `set` line that turns errexit on and nothing a piped
-// job list cannot also do: short flags including -e (with -u or -x alongside is
-// fine), or the long -o errexit. `set -o pipefail` is deliberately not here — a
-// piped job list cannot reproduce it, so a script that needs it stays whole.
+// errexitOption matches a jobListOption line that turns errexit on: short flags
+// including -e, or the long -o errexit.
 func errexitOption() *regexp.Regexp {
-	return regexp.MustCompile(`^set\s+(-[a-z]*e[a-z]*|-o\s+errexit)$`)
+	return regexp.MustCompile(`^set\s+(-[ux]*e[eux]*|-o\s+errexit)$`)
 }
 
 // plainCommand reports a line that means the same run on its own as it did in
