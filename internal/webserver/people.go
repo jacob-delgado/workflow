@@ -11,7 +11,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/codeowners"
-	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/store"
@@ -26,36 +25,6 @@ var (
 	errWrongKind      = errors.New("a team links to a Slack user group, and a person to a Slack user")
 	errNotInDirectory = errors.New("that Slack ID is not among the channel's members or the workspace's user groups")
 )
-
-// GetSlackMembers lists the people in a channel — the configured one when
-// none is named — that a code owner who is a user can be linked to.
-func (s *server) GetSlackMembers(
-	_ context.Context, request api.GetSlackMembersRequestObject,
-) (api.GetSlackMembersResponseObject, error) {
-	members, err := s.channelMembers(orZero(request.Params.Channel))
-
-	directory, err := directoryAnswer(members, err)
-	if err != nil {
-		return problemAnswer[api.GetSlackMembersdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
-	}
-
-	return api.GetSlackMembers200JSONResponse(directory), nil
-}
-
-// GetSlackGroups lists the workspace's user groups, to tag or to link a team
-// to.
-func (s *server) GetSlackGroups(
-	_ context.Context, _ api.GetSlackGroupsRequestObject,
-) (api.GetSlackGroupsResponseObject, error) {
-	groups, err := s.userGroups()
-
-	directory, err := directoryAnswer(groups, err)
-	if err != nil {
-		return problemAnswer[api.GetSlackGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
-	}
-
-	return api.GetSlackGroups200JSONResponse(directory), nil
-}
 
 // GetPeople lists every owner decided on this forge host, then the branch's
 // owners not decided yet.
@@ -107,37 +76,6 @@ func (s *server) ForgetPerson(
 	}
 
 	return problemAnswer[api.ForgetPersondefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
-}
-
-// GetRepoGroups lists the user groups this repository's announcements may
-// tag.
-func (s *server) GetRepoGroups(
-	_ context.Context, _ api.GetRepoGroupsRequestObject,
-) (api.GetRepoGroupsResponseObject, error) {
-	groups, err := s.repoGroups()
-	if err != nil {
-		return problemAnswer[api.GetRepoGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
-	}
-
-	return api.GetRepoGroups200JSONResponse(groups), nil
-}
-
-// SetRepoGroups replaces this repository's user groups with the ones named,
-// each labeled as the workspace's directory has it.
-func (s *server) SetRepoGroups(
-	_ context.Context, request api.SetRepoGroupsRequestObject,
-) (api.SetRepoGroupsResponseObject, error) {
-	err := s.setRepoGroups(request.Body.Ids)
-	if err == nil {
-		var groups api.RepoGroups
-
-		groups, err = s.repoGroups()
-		if err == nil {
-			return api.SetRepoGroups200JSONResponse(groups), nil
-		}
-	}
-
-	return problemAnswer[api.SetRepoGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 }
 
 // people is every decided owner, then the branch's undecided ones, users
@@ -297,199 +235,6 @@ func (s *server) keptWrite(write func() error) error {
 	return write()
 }
 
-// slackTarget is slackID as Slack's directory labels it: a user group for a team,
-// a member of channel otherwise.
-func (s *server) slackTarget(slackID string, team bool, channel string) (loop.SlackTarget, error) {
-	if team {
-		return s.slackGroup(slackID)
-	}
-
-	_, err := messaging.ParseSlackUser(slackID)
-	if err != nil {
-		return loop.SlackTarget{}, errWrongKind
-	}
-
-	return lookUp(func() ([]loop.SlackTarget, error) { return s.channelMembers(channel) }, slackID)
-}
-
-// slackGroup is the user group the workspace lists under slackID.
-func (s *server) slackGroup(slackID string) (loop.SlackTarget, error) {
-	_, err := messaging.ParseSlackGroup(slackID)
-	if err != nil {
-		return loop.SlackTarget{}, errWrongKind
-	}
-
-	return lookUp(s.userGroups, slackID)
-}
-
-// taggingLive reports whether the configuration in effect posts with a Slack
-// user token, which tagging and the directory it links from need: a save in
-// Settings can switch to a webhook while the server runs.
-func (s *server) taggingLive() bool {
-	return s.config().Messaging.Mode() == config.MessagingUser
-}
-
-// channelMembers is the people in channel, the configured one when empty.
-func (s *server) channelMembers(channel string) ([]loop.SlackTarget, error) {
-	if !s.taggingLive() || s.deps.ChannelMembers == nil {
-		return nil, errNoSlackDirectory
-	}
-
-	return directoryRead(s.deps.ChannelMembers(s.channelOr(channel)))
-}
-
-// userGroups is the workspace's user groups; a workspace that has none, or
-// does not let the token read them, lists none.
-func (s *server) userGroups() ([]loop.SlackTarget, error) {
-	if !s.taggingLive() || s.deps.UserGroups == nil {
-		return nil, errNoSlackDirectory
-	}
-
-	groups, err := directoryRead(s.deps.UserGroups())
-	if errors.Is(err, messaging.ErrNoUserGroups) {
-		return nil, nil
-	}
-
-	return groups, err
-}
-
-// directoryRead is a directory read as People and groups takes it: one with
-// no credential to read with is no directory.
-func directoryRead(entries []loop.SlackTarget, err error) ([]loop.SlackTarget, error) {
-	if errors.Is(err, messaging.ErrNoCredential) {
-		return nil, errNoSlackDirectory
-	}
-
-	return entries, err
-}
-
-// lookUp is the entry read lists under slackID.
-func lookUp(read func() ([]loop.SlackTarget, error), slackID string) (loop.SlackTarget, error) {
-	entries, err := read()
-	if err != nil {
-		return loop.SlackTarget{}, err
-	}
-
-	index := slices.IndexFunc(entries, hasID(slackID))
-	if index < 0 {
-		return loop.SlackTarget{}, errNotInDirectory
-	}
-
-	return entries[index], nil
-}
-
-// repoGroups is this repository's user groups, with its name.
-func (s *server) repoGroups() (api.RepoGroups, error) {
-	if s.deps.RepoGroups == nil {
-		return api.RepoGroups{}, errNoPeopleStore
-	}
-
-	var groups []loop.SlackTarget
-
-	err := s.inWorkspace(func(workspace string) error {
-		var err error
-
-		groups, err = s.deps.RepoGroups(workspace)
-
-		return err
-	})
-	if err != nil {
-		return api.RepoGroups{}, err
-	}
-
-	return api.RepoGroups{Repository: s.info.Repository, Groups: slackTargetsDTO(groups)}, nil
-}
-
-// setRepoGroups keeps ids, each once, as this repository's user groups.
-func (s *server) setRepoGroups(ids []string) error {
-	if s.deps.SetRepoGroups == nil || s.deps.RepoGroups == nil {
-		return errNoPeopleStore
-	}
-
-	return s.inWorkspace(func(workspace string) error {
-		return s.keptWrite(func() error {
-			saved, err := s.deps.RepoGroups(workspace)
-			if err != nil {
-				return err
-			}
-
-			groups, err := s.labelGroups(ids, saved)
-			if err != nil {
-				return err
-			}
-
-			return s.deps.SetRepoGroups(workspace, groups)
-		})
-	})
-}
-
-// labelGroups is ids each once, labeled as saved when one already is — so a
-// group Slack no longer lists, or a token that cannot read them, keeps it —
-// and from the workspace's directory when it is new. Only a new group needs
-// the directory.
-func (s *server) labelGroups(ids []string, saved []loop.SlackTarget) ([]loop.SlackTarget, error) {
-	groups := make([]loop.SlackTarget, 0, len(ids))
-
-	for _, groupID := range ids {
-		if slices.ContainsFunc(groups, hasID(groupID)) {
-			continue
-		}
-
-		if index := slices.IndexFunc(saved, hasID(groupID)); index >= 0 {
-			groups = append(groups, saved[index])
-
-			continue
-		}
-
-		group, err := s.slackGroup(groupID)
-		if err != nil {
-			return nil, err
-		}
-
-		groups = append(groups, group)
-	}
-
-	return groups, nil
-}
-
-// hasID reports whether a Slack user or group is the one id names.
-func hasID(id string) func(loop.SlackTarget) bool {
-	return func(target loop.SlackTarget) bool { return target.ID == id }
-}
-
-// channelOr is channel, or the configured one when channel is empty.
-func (s *server) channelOr(channel string) string {
-	if channel == "" {
-		return s.config().Messaging.Channel
-	}
-
-	return channel
-}
-
-// directoryAnswer is a directory read as the answer carries it: a token
-// without the scope the read needs answers no entries and names the scope.
-func directoryAnswer(entries []loop.SlackTarget, err error) (api.SlackDirectory, error) {
-	if scope, missing := missingScope(err); missing {
-		return api.SlackDirectory{Entries: []api.SlackTarget{}, MissingScope: &scope}, nil
-	}
-
-	if err != nil {
-		return api.SlackDirectory{}, err
-	}
-
-	return api.SlackDirectory{Entries: slackTargetsDTO(entries), MissingScope: nil}, nil
-}
-
-// missingScope is the scope err says the Slack token lacks, if it says so.
-func missingScope(err error) (string, bool) {
-	var missing *messaging.MissingScopeError
-	if !errors.As(err, &missing) {
-		return "", false
-	}
-
-	return missing.Needed, true
-}
-
 // peopleFault is the problem a People and groups request is refused with:
 // what the request or the server's setup cannot carry out is unprocessable,
 // and anything else is classified by fault.
@@ -547,14 +292,4 @@ func ownerTagsDTO(owners []loop.OwnerTag) []api.OwnerTag {
 	}
 
 	return tags
-}
-
-// slackTargetsDTO maps Slack users or groups onto the wire.
-func slackTargetsDTO(targets []loop.SlackTarget) []api.SlackTarget {
-	mapped := make([]api.SlackTarget, 0, len(targets))
-	for _, target := range targets {
-		mapped = append(mapped, api.SlackTarget(target))
-	}
-
-	return mapped
 }

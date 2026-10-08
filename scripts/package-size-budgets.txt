@@ -159,9 +159,9 @@ internal/tui 64
 # issue; staging: stage and unstage), beside handlers.go, which holds the reads
 # no write owns (a write's own read — the draft, the announcement, the config —
 # sits in its file); stream.go (the event stream), static.go (the embedded app),
-# dto.go (the wire shapes), validator.go (the contract check), guard.go and
-# errors.go (the loopback and dry-run guards and the RFC 9457 errors), and
-# webserver.go (the server and its seams). One responsibility (turn a guarded
+# dto.go (the wire shapes), validator.go (the contract check), guard.go (the
+# loopback and dry-run guards), errors.go (the RFC 9457 problems and fault),
+# and webserver.go (the server and its seams). One responsibility (turn a guarded
 # request into a seam call and a DTO) spelled handler-per-operation; like
 # internal/tui it is cohesive and grows only when the API gains an operation,
 # which is a decision the OpenAPI spec records first. 17 = staging.go, the web's
@@ -194,9 +194,16 @@ internal/tui 64
 # first configuration file Settings sets up where none applies, as workflow
 # config init does — the token checked with Jira, the keychain offered, the
 # file written and taken up as a switch is — beside config.go, which reads
-# and writes a file that is there and is near the 500-line target.
+# and writes a file that is there and is near the 500-line target. 32 to 35
+# split two files past the 500-line target by concern, not by size alone:
+# faults.go (the classes of failure fault tells apart, a table per service)
+# and taskrefusal.go (Taskwarrior's refusal, its words scrubbed of what no
+# answer may carry) out of errors.go, which keeps the problem and fault
+# themselves; slackdirectory.go (the Slack directory reads People and groups
+# and the announcement pick from) and repogroups.go (the user groups a
+# repository may tag) out of people.go, which keeps whom each code owner is.
 # Frozen here so that growth stays deliberate.
-internal/webserver 31
+internal/webserver 35
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and
