@@ -32,3 +32,24 @@ func TestStoppingARunningCommandEndsItAndSaysSo(t *testing.T) {
 
 	requireScreen(t, stopped.View().Content, "stopped")
 }
+
+func TestAStoppedCommitThatExitsCleanlyIsNotTakenForCommitted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The commit's hooks hang; it is stopped, and the program, trapping the
+	// signal, exits as if it had finished.
+	w := newWorld()
+	w.runBlocks, w.stopExitsClean = true, true
+	composing := typing(t, w.live(t, 100, 40), append([]string{"3", "c"}, letters("x")...)...)
+	starting, start := pressed(t, composing, keyEnter)
+	running, readOutput := finish(t, starting, start)
+	stopped := typing(t, running, "s")
+
+	// Act
+	view := drain(t, stopped, readOutput).View().Content
+
+	// Assert
+	requireScreen(t, view, "stopped")
+	refuseScreen(t, view, "committed fix: x")
+}
