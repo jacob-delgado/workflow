@@ -7,13 +7,13 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/gittest"
 )
 
 // fieldValue is the value doctor printed for a label, as in "Forge:   GitHub…",
@@ -139,14 +139,7 @@ func gitInit(t *testing.T, dir string) {
 // developer's own git configuration is kept out, as run keeps it out of doctor.
 func git(t *testing.T, dir string, args ...string) {
 	t.Helper()
-
-	cmd := exec.CommandContext(t.Context(), "git", append([]string{"-C", dir}, args...)...)
-	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1")
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %v: %v (%s)", args, err, output)
-	}
+	gittest.Run(t, dir, args...)
 }
 
 func TestDoctorReportsTheRepositoryItIsIn(t *testing.T) {
