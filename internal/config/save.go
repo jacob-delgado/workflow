@@ -187,7 +187,8 @@ func createPrivate(path string, contents []byte) error {
 // followLinks is the file path names once every symbolic link on the way is
 // followed, so a linked configuration file is replaced where it lives and the
 // link is kept. A link to a file not yet written is followed to where that file
-// will be; a path that names neither a file nor a link is path itself.
+// will be; a path that names neither a file nor a link is path itself, in its
+// directory with that directory's links resolved.
 func followLinks(path string) (string, error) {
 	target, err := filepath.EvalSymlinks(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -201,55 +202,51 @@ func followLinks(path string) (string, error) {
 	return target, nil
 }
 
-// followDanglingLink follows a link to a file not yet written to the end of its
-// chain; path itself when path is no link. It ends: EvalSymlinks walked this
-// same chain and found a missing name rather than a loop, which it reports as
-// an error of its own.
+// followDanglingLink follows path, which names no file yet: a link to a file
+// not yet written, to the end of its chain, or else path itself. It ends:
+// EvalSymlinks walked this same chain and found a missing name rather than a
+// loop, which it reports as an error of its own. A link the system will not
+// read, past as many links as it follows in one path, is refused.
 func followDanglingLink(path string) (string, error) {
-	info, err := os.Lstat(path)
-	if errors.Is(err, fs.ErrNotExist) || (err == nil && info.Mode()&fs.ModeSymlink == 0) {
-		return path, nil
+	destination, err := os.Readlink(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return inResolvedDirectory(path)
 	}
 
 	if err != nil {
 		return "", fmt.Errorf("following its links: %w", err)
 	}
 
-	// Trade-off TRADE-16: Lstat has just found a link here, so reading it fails
-	// only when the file system changes between the calls.
-	next, err := linkDestination(path)
-	if err != nil {
-		return "", err
-	}
-
-	return followLinks(next)
+	return followLinks(besideLink(path, destination))
 }
 
-// linkDestination is the path the link at path names. A relative one is taken
-// from the link's own directory with that directory's links resolved, and is
-// appended rather than joined: joining cleans each ".." against the text before
-// it, where the system first follows any link in that text.
-//
-// Trade-off TRADE-16: the system has just resolved this link and its directory,
-// so neither read fails unless the file system changes between the calls.
-func linkDestination(path string) (string, error) {
-	destination, err := os.Readlink(path)
-	if err != nil {
-		return "", fmt.Errorf("following its links: %w", err)
-	}
-
+// besideLink is destination, read from the link at path, as a path: a
+// relative one is taken from the link's own directory, appended rather than
+// joined, since joining cleans each ".." against the text before it, where
+// the system first follows any link in that text.
+func besideLink(path, destination string) string {
 	if filepath.IsAbs(destination) {
-		return destination, nil
+		return destination
 	}
 
 	dir, _ := filepath.Split(path)
+
+	return dir + destination
+}
+
+// inResolvedDirectory is path in its directory with that directory's links
+// resolved, so the file made beside it lands where path does. Split rather
+// than Dir keeps a ".." for the resolution to take after the links before it,
+// and the working directory, which a bare name is in, resolves as ".".
+func inResolvedDirectory(path string) (string, error) {
+	dir, base := filepath.Split(path)
 
 	resolved, err := filepath.EvalSymlinks(dir)
 	if err != nil {
 		return "", fmt.Errorf("following its links: %w", err)
 	}
 
-	return resolved + string(filepath.Separator) + destination, nil
+	return filepath.Join(resolved, base), nil
 }
 
 // writeBeside writes contents to a new file in target's directory and returns
