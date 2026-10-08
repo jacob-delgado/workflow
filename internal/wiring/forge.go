@@ -4,7 +4,6 @@
 package wiring
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"os"
@@ -438,21 +437,20 @@ func ReachForge(
 	ctx context.Context, settings config.Forge, repo forge.Repo, base string, httpTransport httpx.Doer,
 ) (ForgeAccess, error) {
 	transport, usingCLI := forgeTransport(ctx, settings, repo, base, httpTransport)
+	if usingCLI {
+		program, _ := forgeProgram(repo.Kind)
 
-	token, source, err := ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
-	if !usingCLI {
-		if err != nil {
-			return ForgeAccess{}, err
-		}
-
-		return ForgeAccess{Doer: transport, Token: token, Via: "token from " + source.String()}, nil
+		// The CLI transport authenticates itself, so no credential is looked
+		// for; a placeholder satisfies the client's token guard.
+		return ForgeAccess{Doer: transport, Token: cliToken, Via: "through " + program}, nil
 	}
 
-	program, _ := forgeProgram(repo.Kind)
+	token, source, err := ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
+	if err != nil {
+		return ForgeAccess{}, err
+	}
 
-	// The CLI transport authenticates itself; a placeholder satisfies the
-	// client's token guard without a real credential to resolve.
-	return ForgeAccess{Doer: transport, Token: cmp.Or(token, cliToken), Via: "through " + program}, nil
+	return ForgeAccess{Doer: transport, Token: token, Via: "token from " + source.String()}, nil
 }
 
 // templatesFor reads the repository's pull request templates, where its forge

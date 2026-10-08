@@ -63,7 +63,7 @@ type forgeCLI struct {
 
 // installForgeCLI puts a stand-in program on PATH answering the forge's API
 // routes, and returns a handle to its recordings. A token is placed in the
-// environment so the CLI transport is never asked for one through `gh auth
+// environment so a forge reached over HTTP finds one without asking `gh auth
 // token`, leaving the fake invoked only for the api calls a test drives; a test
 // that clears it has the fake answer `gh auth token` too, and count each ask.
 func installForgeCLI(t *testing.T, program string, replies forgeReplies) *forgeCLI {
