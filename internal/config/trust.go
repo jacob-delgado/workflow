@@ -24,11 +24,11 @@ var ErrUntrustedFile = errors.New("someone other than you could have written thi
 // replace.
 var ErrLinkedFile = errors.New("a configuration file in a repository may not be a link")
 
-// ErrCredentialInRepository is an edit that would write a credential typed
-// into the editor into a repository's file, a file in a working tree git
-// could commit.
-var ErrCredentialInRepository = errors.New("a credential typed into Settings is never written into a " +
-	"repository's file, which git could commit; set it in the home directory's file")
+// ErrCredentialInRepository is an edit that would write into a repository's
+// file, a file in a working tree git could commit, a credential the files
+// read did not hold.
+var ErrCredentialInRepository = errors.New("a credential the configuration files do not already hold is " +
+	"never written into a repository's file, which git could commit; set it in the home directory's file")
 
 // ErrHomeOnly is a repository's file setting what only the home directory's
 // file may: a program to run, or an environment variable to read.
@@ -251,13 +251,11 @@ func fileSecretFields(cfg Config) []secretField {
 	}, headers...)
 }
 
-// refuseTyped refuses incoming, edit's read with the editor's changes, when
+// refuseUnheld refuses incoming, edit's read with the editor's changes, when
 // edit saves to a repository's file and incoming holds a credential among
-// fields that the files read did not hold the same: one typed into the
-// editor, or one a read made before the files went holds, which a save over
-// no file would write whole into the repository's. One kept, inherited or
-// removed is no refusal.
-func (edit Edit) refuseTyped(incoming Config, fields []secretField) error {
+// fields that the files read did not hold the same. A read of no file held
+// none. One kept, inherited or removed is no refusal.
+func (edit Edit) refuseUnheld(incoming Config, fields []secretField) error {
 	if edit.Files.Repo == "" {
 		return nil
 	}
@@ -267,21 +265,21 @@ func (edit Edit) refuseTyped(incoming Config, fields []secretField) error {
 		held = Config{}
 	}
 
-	var typed []string
+	var unheld []string
 
 	for _, field := range fields {
 		value := field.value(incoming)
 		if value != "" && value != field.value(held) {
-			typed = append(typed, field.path)
+			unheld = append(unheld, field.path)
 		}
 	}
 
-	if len(typed) == 0 {
+	if len(unheld) == 0 {
 		return nil
 	}
 
-	slices.Sort(typed)
+	slices.Sort(unheld)
 
 	return fmt.Errorf("%s: %w: %s", edit.Files.Repo, ErrCredentialInRepository,
-		strings.Join(slices.Compact(typed), ", "))
+		strings.Join(slices.Compact(unheld), ", "))
 }

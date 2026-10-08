@@ -331,7 +331,7 @@ func SaveEdit(edit Edit) (Config, Revision, error) {
 	incoming := KeepStored(edit.Edited, edit.Read, edit.Removed)
 	incoming.Path, incoming.Files = edit.Files.Target(), edit.Files
 
-	err := edit.refuseTyped(incoming, fileSecretFields(incoming))
+	err := edit.refuseUnheld(incoming, fileSecretFields(incoming))
 	if err != nil {
 		return Config{}, Revision{}, err
 	}
@@ -341,7 +341,7 @@ func SaveEdit(edit Edit) (Config, Revision, error) {
 		return Config{}, Revision{}, err
 	}
 
-	err = edit.refuseTyped(incoming, slackSecretFields())
+	err = edit.refuseUnheld(incoming, slackSecretFields())
 	if err != nil {
 		return Config{}, Revision{}, err
 	}
