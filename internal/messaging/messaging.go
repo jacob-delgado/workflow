@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -232,7 +231,7 @@ func (c Client) send(request *http.Request) (Identity, error) {
 		return Identity{}, fmt.Errorf("%w: %d", ErrUnexpectedStatus, response.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(response.Body, bodyLimit))
+	body, err := httpx.Read(response.Body, bodyLimit)
 	if err != nil {
 		return Identity{}, fmt.Errorf("reading the answer from Slack: %w", err)
 	}

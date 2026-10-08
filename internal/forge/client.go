@@ -268,7 +268,7 @@ func (c Client) exchange(request *http.Request) ([]byte, error) {
 		return nil, err
 	}
 
-	body, err := io.ReadAll(io.LimitReader(response.Body, bodyLimit))
+	body, err := httpx.Read(response.Body, bodyLimit)
 	if err != nil {
 		return nil, fmt.Errorf("reading the answer from %s: %w", c.base, err)
 	}
