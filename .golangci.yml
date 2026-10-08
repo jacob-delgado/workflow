@@ -151,11 +151,12 @@ linters:
               desc: wiring imports the terminal; the web server takes its seams through webserver.Deps
     errcheck:
       # fmt.Fprint* is excluded whatever it writes to. Most of its writes go to
-      # a command's output stream, where there is nothing to do about a failed
-      # write — the channel you would report it on is the one that just failed
-      # — and checking each one triples the length of every help and report
-      # function. A file written through fmt.Fprint* is therefore checked by
-      # hand, as the request log checks each outline it writes.
+      # a command's output streams, and checking each one triples the length of
+      # every help and report function. Stdout is checked once instead, where
+      # internal/cli sets it up (checkedOutput), so an artifact that went
+      # nowhere still fails the command; a failed write to stderr leaves no
+      # channel to report it on. A file written through fmt.Fprint* is checked
+      # by hand, as the request log checks each outline it writes.
       exclude-functions:
         - fmt.Fprint
         - fmt.Fprintf

@@ -41,6 +41,57 @@ func outputOf(cmd *cobra.Command) output {
 	return output{artifact: cmd.OutOrStdout(), notes: cmd.ErrOrStderr()}
 }
 
+// errOutputUnwritten reports an artifact that could not be written to stdout —
+// a pipe whose reader has gone, a full disk. It fails the command however its
+// work went, since a script reading stdout would otherwise take an artifact cut
+// short, or none, for a run that succeeded.
+var errOutputUnwritten = errors.New("the output could not be written")
+
+// checkedOutput is stdout, remembering the first write it could not make and
+// refusing every write after it, so every command's artifact — prose written
+// line by line as much as JSON — fails the command when it went nowhere.
+type checkedOutput struct {
+	out io.Writer
+	err error
+}
+
+var _ io.Writer = (*checkedOutput)(nil)
+
+// Write writes p, or refuses it once a write has failed.
+func (o *checkedOutput) Write(p []byte) (int, error) {
+	if o.err != nil {
+		return 0, o.err
+	}
+
+	written, err := o.out.Write(p)
+	if err != nil {
+		o.err = fmt.Errorf("%w: %w", errOutputUnwritten, err)
+	}
+
+	return written, o.err
+}
+
+// failed is a command's outcome err, joined with why its output could not be
+// written when it could not and err does not already say so.
+func (o *checkedOutput) failed(err error) error {
+	if o.err == nil || errors.Is(err, errOutputUnwritten) {
+		return err
+	}
+
+	return errors.Join(o.err, err)
+}
+
+// terminalOut is the stdout cmd writes to as the stream it was handed, without
+// the check over it: the interface draws on it itself, and Bubble Tea knows a
+// terminal only as the file it is.
+func terminalOut(cmd *cobra.Command) io.Writer {
+	if checked, ok := cmd.OutOrStdout().(*checkedOutput); ok {
+		return checked.out
+	}
+
+	return cmd.OutOrStdout()
+}
+
 // writeOptions are the flags every scriptable write shares: a dry run that
 // changes nothing, and a yes that skips the confirmation for unattended use.
 type writeOptions struct {
@@ -312,10 +363,10 @@ func markArgsMisuse(cmd *cobra.Command) {
 }
 
 // ExitStatus is the status the process exits with for err: 0 for none, 130 when
-// it was interrupted, and otherwise the first family err belongs to — usage 2,
-// configuration 3, a refused precondition 4, unreachable 5 — or 1 for any other
-// failure. A joined error takes the first family any of its errors is in, in
-// that order.
+// it was interrupted, 1 when its output could not be written, and otherwise the
+// first family err belongs to — usage 2, configuration 3, a refused
+// precondition 4, unreachable 5 — or 1 for any other failure. A joined error
+// takes the first family any of its errors is in, in that order.
 func ExitStatus(err error) int {
 	if err == nil {
 		return exitSuccess
@@ -325,6 +376,12 @@ func ExitStatus(err error) int {
 	// unreachable error, and whoever pressed Ctrl+C is owed 130, not 5.
 	if errors.Is(err, context.Canceled) {
 		return exitInterrupted
+	}
+
+	// An artifact that went nowhere is the run's failure whatever else it
+	// found, which a script never saw.
+	if errors.Is(err, errOutputUnwritten) {
+		return exitFailure
 	}
 
 	for _, family := range exitFamilies() {
