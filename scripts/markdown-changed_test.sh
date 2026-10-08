@@ -12,24 +12,8 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly changed="${here}/markdown-changed.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
-
-# A git hook or `git rebase --exec` exports the variables that locate its
-# repository; the repositories this test builds must not inherit them.
-# shellcheck disable=SC2046 # word splitting is the point: one name per word
-unset $(git rev-parse --local-env-vars)
-
-# fail records a failed case with its reason.
-#   fail <name> <reason>
-fail() {
-  echo "FAIL ${1}: ${2}" >&2
-  failures=$((failures + 1))
-}
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # repo_changing makes a repository whose base commit holds a file of each kind,
 # then a branch commit that changes path, and leaves it at ${workdir}/<name>.
@@ -55,12 +39,7 @@ repo_changing() {
 # compares its exit status with want.
 #   expect <case> <repo-name> <want-status>
 expect() {
-  local status=0
-  cases=$((cases + 1))
-  (cd "${workdir}/${2}" && "${changed}" main >/dev/null 2>&1) || status=$?
-  if ((status != ${3})); then
-    fail "${1}" "want exit ${3}, got ${status}"
-  fi
+  expect_exit "$3" "$1" run_in "${workdir}/$2" "${changed}" main
 }
 
 repo_changing docs docs/page.txt
@@ -76,19 +55,8 @@ expect "a Markdown file anywhere" nested 0
 expect "the markdownlint config" config 0
 expect "code alone" code 1
 
-# Act: a base git cannot resolve.
-status=0
-(cd "${workdir}/code" && "${changed}" no-such-branch >/dev/null 2>&1) || status=$?
+# Act & Assert: a base git cannot resolve cannot be told, and says so apart from
+# "nothing changed".
+expect_exit 2 "an unknown base" run_in "${workdir}/code" "${changed}" no-such-branch
 
-# Assert: it cannot tell, and says so apart from "nothing changed".
-cases=$((cases + 1))
-if ((status != 2)); then
-  fail "an unknown base" "want exit 2, got ${status}"
-fi
-
-if ((failures > 0)); then
-  echo "markdown-changed_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "markdown-changed_test: ${cases} case(s) passed."
+finish_tests
