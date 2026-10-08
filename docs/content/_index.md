@@ -7,8 +7,8 @@ type: docs
 
 A terminal UI for the loop a developer actually runs all day: pick up a Jira
 issue, start a branch for it, open the pull or merge request, and tell the team
-in Slack, Teams or Discord — without leaving the keyboard or rebuilding the same
-context across three browser tabs.
+in Slack, Teams or Discord, or through a plain webhook — without leaving the
+keyboard or reconstructing the same context in three browser tabs.
 
 ## Status
 
