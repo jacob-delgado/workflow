@@ -4,7 +4,14 @@ import type {
   QueuedAnnouncement,
   Snapshot,
 } from '../../src/api/generated/types.gen.ts'
-import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
+import {
+  height,
+  openAnnouncementPreview,
+  openSection,
+  pinTheme,
+  themes,
+  widths,
+} from '../support/cockpit.ts'
 import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
 
@@ -67,26 +74,10 @@ async function answersAnnouncement(page: Page, held?: QueuedAnnouncement): Promi
   return posts
 }
 
-// opensSection opens the Slack section.
-async function opensSection(page: Page): Promise<void> {
-  await page.goto('/')
-  await page
-    .getByRole('navigation', { name: 'Sections' })
-    .getByRole('button', { name: 'Slack', exact: true })
-    .click()
-}
-
-// opensPreview opens the Slack section and its announcement preview.
-async function opensPreview(page: Page): Promise<void> {
-  await opensSection(page)
-  await page.getByRole('button', { name: 'Announce to Slack' }).click()
-  await expect(page.getByRole('group', { name: 'Announcement preview' })).toBeFocused()
-}
-
 test('an edited announcement is held until CI passes', async ({ page }) => {
   // Arrange
   const posts = await answersAnnouncement(page)
-  await opensPreview(page)
+  await openAnnouncementPreview(page)
   await page.getByRole('button', { name: 'Edit' }).click()
   await page.getByRole('textbox', { name: 'Announcement text' }).fill('Please review #7')
 
@@ -112,7 +103,7 @@ for (const theme of themes) {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
       await answersAnnouncement(page)
-      await opensPreview(page)
+      await openAnnouncementPreview(page)
       await page.getByRole('button', { name: 'Edit' }).click()
 
       // Act & Assert: Tab reaches the text and both ways to announce it.
@@ -128,9 +119,10 @@ for (const theme of themes) {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.setViewportSize({ width: widths[0], height })
     await answersAnnouncement(page, { state: 'waiting', channel: '#dev', pull: 7 })
+    await page.goto('/')
 
     // Act
-    await opensSection(page)
+    await openSection(page, 'Slack')
 
     // Assert
     await expect(

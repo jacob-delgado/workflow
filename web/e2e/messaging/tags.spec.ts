@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import type { Announcement, People, PersonLink } from '../../src/api/generated/types.gen.ts'
+import { openAnnouncementPreview } from '../support/cockpit.ts'
 import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
 
 // The announcement preview's tags: an owner linked to a member of the channel
@@ -106,21 +107,10 @@ async function answersTags(page: Page): Promise<Sent> {
   return sent
 }
 
-// opensPreview opens the Slack section and its announcement preview.
-async function opensPreview(page: Page): Promise<void> {
-  await page.goto('/')
-  await page
-    .getByRole('navigation', { name: 'Sections' })
-    .getByRole('button', { name: 'Slack', exact: true })
-    .click()
-  await page.getByRole('button', { name: 'Announce to Slack' }).click()
-  await expect(page.getByRole('group', { name: 'Announcement preview' })).toBeFocused()
-}
-
 test('links an owner, checks a group, and the post carries the groups', async ({ page }) => {
   // Arrange: the preview open, ben linked to a channel member, a group checked.
   const sent = await answersTags(page)
-  await opensPreview(page)
+  await openAnnouncementPreview(page)
   const ownerChoice = page.getByRole('combobox', { name: 'Slack user for ben' })
   await expect(ownerChoice.getByRole('option', { name: 'Ben Ito' })).toBeAttached()
   await ownerChoice.selectOption({ label: 'Ben Ito' })
@@ -150,7 +140,7 @@ test('links an owner, checks a group, and the post carries the groups', async ({
 test('links an owner to a member of the other channel picked', async ({ page }) => {
   // Arrange: the preview moved to #ops, whose members ben is picked from.
   const sent = await answersTags(page)
-  await opensPreview(page)
+  await openAnnouncementPreview(page)
   await page.getByRole('combobox', { name: 'Channel' }).selectOption('#ops')
   const ownerChoice = page.getByRole('combobox', { name: 'Slack user for ben' })
   await expect(ownerChoice.getByRole('option', { name: 'Olive Ops' })).toBeAttached()
@@ -174,7 +164,7 @@ test('links an owner to a member of the other channel picked', async ({ page }) 
 test('an unchecked group is left out of the post', async ({ page }) => {
   // Arrange
   const sent = await answersTags(page)
-  await opensPreview(page)
+  await openAnnouncementPreview(page)
   await page.getByRole('checkbox', { name: /@control-plane-pod/ }).uncheck()
 
   // Act
@@ -192,7 +182,7 @@ test(
   { tag: '@populated' },
   async ({ page }) => {
     // Arrange
-    await opensPreview(page)
+    await openAnnouncementPreview(page)
 
     // Act
     await page.getByRole('combobox', { name: 'Slack user for ben' }).selectOption({
@@ -210,7 +200,7 @@ test(
   { tag: '@populated' },
   async ({ page }) => {
     // Arrange: #releases has a member #dev-workflow has not.
-    await opensPreview(page)
+    await openAnnouncementPreview(page)
     await page.getByRole('combobox', { name: 'Channel' }).selectOption('#releases')
     const ownerChoice = page.getByRole('combobox', { name: 'Slack user for ben' })
     await expect(ownerChoice.getByRole('option', { name: 'Erin Park' })).toBeAttached()

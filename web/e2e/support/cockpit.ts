@@ -157,12 +157,8 @@ export async function openFirstRun(
     }),
   )
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: 'Sections' })
-    .getByRole('button', { name: 'Settings', exact: true })
-    .click()
+  await openSection(page, 'Settings')
   await expect(page.getByRole('form', { name: 'Set up workflow' })).toBeVisible()
-  await expect(readings(page)).toHaveCount(0)
 }
 
 // readings are the "Reading …" status lines a section shows while a read of
@@ -178,7 +174,8 @@ function readings(page: Page): Locator {
 }
 
 // openSection opens a section from the rail, and waits for it to settle: its
-// heading up, and no read of its own still in flight.
+// heading up, and no read of its own still in flight, whether it was answered
+// or refused.
 export async function openSection(page: Page, name: string): Promise<void> {
   await page
     .getByRole('navigation', { name: 'Sections' })
@@ -186,4 +183,13 @@ export async function openSection(page: Page, name: string): Promise<void> {
     .click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   await expect(readings(page)).toHaveCount(0)
+}
+
+// openAnnouncementPreview opens the page, its Slack section and the
+// announcement preview, which takes the focus.
+export async function openAnnouncementPreview(page: Page): Promise<void> {
+  await page.goto('/')
+  await openSection(page, 'Slack')
+  await page.getByRole('button', { name: 'Announce to Slack' }).click()
+  await expect(page.getByRole('group', { name: 'Announcement preview' })).toBeFocused()
 }

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { mockDirectories, mockRepositories } from '../../src/dev/mockRepositories.ts'
-import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
+import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
 import { expect, test } from '../support/fixtures.ts'
 
@@ -27,7 +27,7 @@ async function opensRepositories(page: Page): Promise<string[]> {
     })
   })
   await page.goto('/')
-  await page.getByRole('button', { name: 'Repositories', exact: true }).click()
+  await openSection(page, 'Repositories')
   await expect(page.getByRole('region', { name: 'Working in' })).toBeVisible()
   // The picker reads its directory apart from the section, so it is waited for
   // too: a walk taken before it draws would not count its controls.
@@ -88,7 +88,7 @@ test('a directory browsed to is offered to switch to', async ({ page }) => {
 test('the header says where the server works and opens the section', async ({ page }) => {
   // Arrange
   await opensRepositories(page)
-  await page.getByRole('button', { name: 'Issues', exact: true }).click()
+  await openSection(page, 'Issues')
 
   // Act
   await page.getByRole('button', { name: 'Working in ~/src/api/cmd: open Repositories' }).click()
