@@ -5,7 +5,6 @@ package store_test
 
 import (
 	"context"
-	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
@@ -18,15 +17,12 @@ import (
 func readColumn(t *testing.T, dir, query string) string {
 	t.Helper()
 
-	database, err := sql.Open("sqlite", filepath.Join(dir, "workflow.db"))
-	if err != nil {
-		t.Fatalf("opening the database to read: %v", err)
-	}
+	database := openFile(t, filepath.Join(dir, "workflow.db"))
 	defer func() { _ = database.Close() }()
 
 	var value string
 
-	err = database.QueryRowContext(t.Context(), query).Scan(&value)
+	err := database.QueryRowContext(t.Context(), query).Scan(&value)
 	if err != nil {
 		t.Fatalf("reading %q: %v", query, err)
 	}
