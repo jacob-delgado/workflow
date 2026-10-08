@@ -23,10 +23,10 @@ func TestRerunChecksReRunsGitHubsFailedRuns(t *testing.T) {
 		succeeded = runsPath + "/22/rerun-failed-jobs"
 	)
 
-	client, seen := forgeRouting(t, map[string]string{
+	client, seen := recordingForge(t, routing(map[string]string{
 		runsPath: `{"workflow_runs":[{"id":11,"conclusion":"failure"},{"id":22,"conclusion":"success"}]}`,
 		failed:   `{}`,
-	})
+	}))
 
 	// Act
 	reran, err := client.RerunChecks(t.Context(), githubRepo(), forge.PullRequest{Number: 42}, "abc123")
@@ -90,10 +90,10 @@ func TestRerunChecksRetriesGitLabsPipeline(t *testing.T) {
 		retryPath = "/projects/group%2Fsub%2Frepo/pipelines/99/retry"
 	)
 
-	client, seen := forgeRouting(t, map[string]string{
+	client, seen := recordingForge(t, routing(map[string]string{
 		mergePath: `{"iid":8,"head_pipeline":{"id":99,"status":"failed"}}`,
 		retryPath: `{"id":99,"status":"running"}`,
-	})
+	}))
 
 	// Act
 	reran, err := client.RerunChecks(t.Context(), gitlabRepo(), forge.PullRequest{Number: 8}, "")
@@ -147,10 +147,10 @@ func TestRerunChecksReRunsATimedOutRun(t *testing.T) {
 		timedOut = runsPath + "/33/rerun-failed-jobs"
 	)
 
-	client, seen := forgeRouting(t, map[string]string{
+	client, seen := recordingForge(t, routing(map[string]string{
 		runsPath: `{"workflow_runs":[{"id":33,"conclusion":"timed_out"}]}`,
 		timedOut: `{}`,
-	})
+	}))
 
 	// Act
 	reran, err := client.RerunChecks(t.Context(), githubRepo(), forge.PullRequest{Number: 42}, "abc123")
@@ -173,9 +173,9 @@ func TestRerunChecksReRunsNothingWhenNoRunFailed(t *testing.T) {
 	// re-run.
 	const runsPath = "/repos/example/repo/actions/runs"
 
-	client, _ := forgeRouting(t, map[string]string{
+	client, _ := recordingForge(t, routing(map[string]string{
 		runsPath: `{"workflow_runs":[{"id":44,"conclusion":"success"}]}`,
-	})
+	}))
 
 	// Act
 	reran, err := client.RerunChecks(t.Context(), githubRepo(), forge.PullRequest{Number: 42}, "abc123")
@@ -205,7 +205,7 @@ func TestRerunChecksReRunsNothingWhenWhatFailedCannotBeRead(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, seen := forgeConversation(t, nil, map[string]bool{tt.refused: true})
+			client, seen := recordingForge(t, conversation(nil, map[string]bool{tt.refused: true}))
 
 			// Act
 			reran, err := client.RerunChecks(t.Context(), tt.repo, forge.PullRequest{Number: tt.pull}, "abc123")
@@ -228,13 +228,13 @@ func TestRerunChecksNeedsAForgeThatIsKnown(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeAnswering(t, http.StatusOK, `{}`)
+	client, seen := recordingForge(t, answering(http.StatusOK, `{}`))
 
 	// Act
 	reran, err := client.RerunChecks(t.Context(), unknownForge(), forge.PullRequest{Number: 1}, "abc")
 
 	// Assert
-	if !errors.Is(err, forge.ErrUnknownForge) || reran || seen.Load() != nil {
-		t.Errorf("RerunChecks = %v, %v and asked %v; want ErrUnknownForge before asking", reran, err, seen.Load())
+	if !errors.Is(err, forge.ErrUnknownForge) || reran || len(*seen) != 0 {
+		t.Errorf("RerunChecks = %v, %v and asked %v; want ErrUnknownForge before asking", reran, err, *seen)
 	}
 }

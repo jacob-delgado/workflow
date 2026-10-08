@@ -41,7 +41,7 @@ func TestGroupMembersReadsEveryPageOfAGitLabGroupsActiveMembers(t *testing.T) {
 	// Arrange
 	// The first page is full — 99 active members and a blocked one — so the
 	// second is read too.
-	client, seen := scriptedForge(t, func(asked recorded) (int, string) {
+	client, seen := recordingForge(t, func(asked recorded) (int, string) {
 		if strings.Contains(asked.query, "page=1&") {
 			return http.StatusOK, memberPage("first", 99)
 		}
@@ -69,7 +69,7 @@ func TestGroupMembersLeavesOutMembersWhoCannotApprove(t *testing.T) {
 	// Arrange
 	// A Guest (10), a Planner (15) and a Reporter (20) cannot approve a merge
 	// request; a Developer (30) and above can.
-	client, _ := scriptedForge(t, func(recorded) (int, string) {
+	client, _ := recordingForge(t, func(recorded) (int, string) {
 		return http.StatusOK, `[{"username":"guest","state":"active","access_level":10},` +
 			`{"username":"planner","state":"active","access_level":15},` +
 			`{"username":"reporter","state":"active","access_level":20},` +
@@ -90,7 +90,7 @@ func TestGroupMembersIsNotOfferedOnGitHub(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := scriptedForge(t, func(recorded) (int, string) { return http.StatusOK, "[]" })
+	client, seen := recordingForge(t, func(recorded) (int, string) { return http.StatusOK, "[]" })
 
 	// Act
 	_, err := client.On(forge.KindGitHub).GroupMembers(t.Context(), groupControlPlane)
@@ -107,7 +107,7 @@ func TestCreateMergeRequestOnGitLabAsksATeamsActiveMembersToReview(t *testing.T)
 	// Arrange
 	// ana is named and is in the team too, so she is asked once. Ben is known
 	// by the id the members listing gives, so he is never looked up.
-	client, seen := scriptedForge(t, gitlabKnowing(
+	client, seen := recordingForge(t, gitlabKnowing(
 		map[string]string{userAna: "7"},
 		map[string]string{membersPath: `[{"id":9,"username":"ben","state":"active","access_level":30},` +
 			`{"id":7,"username":"ana","state":"active","access_level":40},` +
@@ -144,7 +144,7 @@ func TestCreateMergeRequestOnGitLabLeavesTheAuthorOutOfATeam(t *testing.T) {
 		membersPath: `[{"id":9,"username":"ben","state":"active","access_level":30},` +
 			`{"id":7,"username":"ana","state":"active","access_level":30}]`,
 	})
-	client, seen := scriptedForge(t, func(asked recorded) (int, string) {
+	client, seen := recordingForge(t, func(asked recorded) (int, string) {
 		if asked.path == gitlabUserPath {
 			return http.StatusOK, `{"id":9,"username":"ben"}`
 		}
@@ -170,7 +170,7 @@ func TestCreateMergeRequestOnGitLabExpandsATopLevelGroupNamedAsAUser(t *testing.
 	// Arrange
 	// CODEOWNERS spells a top-level group @platform, just as it spells a user;
 	// GitLab knows no user by that name, but has the group.
-	client, seen := scriptedForge(t, gitlabKnowing(nil, map[string]string{
+	client, seen := recordingForge(t, gitlabKnowing(nil, map[string]string{
 		"/groups/platform/members": `[{"id":7,"username":"ana","state":"active","access_level":30}]`,
 	}))
 
@@ -191,7 +191,7 @@ func TestCreateMergeRequestOnGitLabOpensWithoutATeamItCannotRead(t *testing.T) {
 
 	// Arrange
 	// GitLab has no such group, so it answers 404 for its members.
-	client, seen := scriptedForge(t, gitlabKnowing(map[string]string{userAna: "7"}, nil))
+	client, seen := recordingForge(t, gitlabKnowing(map[string]string{userAna: "7"}, nil))
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
@@ -209,17 +209,4 @@ func TestCreateMergeRequestOnGitLabOpensWithoutATeamItCannotRead(t *testing.T) {
 	if !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(7)}) {
 		t.Errorf("reviewer_ids = %v, want ana's alone", opened.body["reviewer_ids"])
 	}
-}
-
-// requestsTo counts the requests made to path.
-func requestsTo(seen []recorded, path string) int {
-	count := 0
-
-	for _, asked := range seen {
-		if asked.path == path {
-			count++
-		}
-	}
-
-	return count
 }

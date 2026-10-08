@@ -6,7 +6,6 @@ package forge_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -27,14 +26,9 @@ const githubTokenRefusal = `{"message":"Resource not accessible by personal acce
 func clientOn(t *testing.T, kind forge.Kind, status int, body string) forge.Client {
 	t.Helper()
 
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Content-Type", "application/json")
-		writer.WriteHeader(status)
-		_, _ = writer.Write([]byte(body))
-	}))
-	t.Cleanup(server.Close)
+	client, _ := recordingForge(t, answering(status, body))
 
-	return forge.New(server.Client().Do, server.URL, secret).On(kind)
+	return client.On(kind)
 }
 
 func TestAdviceSaysWhyTheForgeTurnedTheTokenDown(t *testing.T) {

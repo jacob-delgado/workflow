@@ -4,59 +4,10 @@
 package forge_test
 
 import (
-	"net/http"
-	"net/http/httptest"
-	"sync"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
-
-// forgeRouting serves a body per request path and records every request, for the
-// reads that now make more than one call. A path it does not know answers with
-// an empty list, which reads as "nothing there" rather than an error.
-func forgeRouting(t *testing.T, routes map[string]string) (forge.Client, *[]recorded) {
-	t.Helper()
-
-	var (
-		lock sync.Mutex
-		seen []recorded
-	)
-
-	note := func(request *http.Request) {
-		lock.Lock()
-		defer lock.Unlock()
-
-		seen = append(seen, recorded{method: request.Method, path: request.URL.EscapedPath(), query: request.URL.RawQuery})
-	}
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		note(request)
-
-		body, ok := routes[request.URL.EscapedPath()]
-		if !ok {
-			body = "[]"
-		}
-
-		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-		_, _ = writer.Write([]byte(body))
-	}))
-	t.Cleanup(server.Close)
-
-	return forge.New(server.Client().Do, server.URL, secret), &seen
-}
-
-// requestTo is the first recorded request to a path, or a zero request when none
-// reached it.
-func requestTo(seen []recorded, path string) recorded {
-	for _, request := range seen {
-		if request.path == path {
-			return request
-		}
-	}
-
-	return recorded{}
-}
 
 func TestFindPullRequestReadsReviewState(t *testing.T) {
 	t.Parallel()
@@ -75,7 +26,7 @@ func TestFindPullRequestReadsReviewState(t *testing.T) {
 			`{"state":"APPROVED","user":{"login":"cass"}}]`,
 	}
 
-	client, _ := forgeRouting(t, routes)
+	client, _ := recordingForge(t, routing(routes))
 
 	// Act
 	found, _, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
@@ -97,7 +48,7 @@ func TestFindPullRequestToleratesUnreadableReviewState(t *testing.T) {
 		githubPullsPath: `[{"number":3,"html_url":"https://x/3","title":"fix: token","draft":false}]`,
 	}
 
-	client, _ := forgeRouting(t, routes)
+	client, _ := recordingForge(t, routing(routes))
 
 	// Act
 	found, ok, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)

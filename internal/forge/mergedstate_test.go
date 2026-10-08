@@ -32,7 +32,7 @@ func TestFindPullRequestReportsAMergedBranch(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeRouting(t, map[string]string{tt.findPath: tt.body})
+			client, _ := recordingForge(t, routing(map[string]string{tt.findPath: tt.body}))
 
 			// Act
 			pull, found, err := client.FindPullRequest(t.Context(), tt.repo, featureBranch)
@@ -77,10 +77,10 @@ func TestFindPullRequestPrefersAnOpenPullOverAMerged(t *testing.T) {
 
 	// Arrange
 	// The branch was reused: an old merged pull and a new open one.
-	client, _ := forgeRouting(t, map[string]string{
+	client, _ := recordingForge(t, routing(map[string]string{
 		githubPullsPath: `[{"number":9,"state":"closed","merged_at":"2026-01-01T00:00:00Z"},` +
 			`{"number":42,"state":"open"}]`,
-	})
+	}))
 
 	// Act
 	pull, found, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
@@ -97,9 +97,9 @@ func TestFindPullRequestIgnoresAClosedButUnmergedPull(t *testing.T) {
 	// Arrange
 	// A pull closed without merging is not the branch's business — it may open a
 	// new one.
-	client, _ := forgeRouting(t, map[string]string{
+	client, _ := recordingForge(t, routing(map[string]string{
 		githubPullsPath: `[{"number":42,"state":"closed"}]`,
-	})
+	}))
 
 	// Act
 	_, found, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)

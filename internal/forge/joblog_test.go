@@ -222,7 +222,7 @@ func TestJobLogReadsAGitLabJobsTrace(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeRouting(t, map[string]string{"/projects/group%2Fsub%2Frepo/jobs/501/trace": "boom\n"})
+	client, seen := recordingForge(t, routing(map[string]string{"/projects/group%2Fsub%2Frepo/jobs/501/trace": "boom\n"}))
 
 	// Act
 	log, err := client.JobLog(t.Context(), gitlabRepo(), forge.Check{ID: "501", LogAvailable: true})
@@ -237,7 +237,7 @@ func TestJobLogOfACheckWithNoLogAsksNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeRouting(t, map[string]string{})
+	client, seen := recordingForge(t, routing(map[string]string{}))
 
 	// Act
 	_, err := client.JobLog(t.Context(), githubRepo(), forge.Check{Name: "lint"})

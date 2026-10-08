@@ -4,13 +4,10 @@
 package forge_test
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -35,60 +32,13 @@ const (
 // but its number and address.
 const githubPull43 = `{"number":43,"html_url":"https://github.com/example/repo/pull/43"}`
 
-// forgeConversation serves each path its mapped answer and records every
-// request with its decoded JSON body. A path in fails answers 403 instead, to
-// try a step an under-scoped token cannot make.
-func forgeConversation(t *testing.T, answers map[string]string, fails map[string]bool) (forge.Client, *[]recorded) {
-	t.Helper()
-
-	var (
-		lock sync.Mutex
-		seen []recorded
-	)
-
-	note := func(request *http.Request, body map[string]any) {
-		lock.Lock()
-		defer lock.Unlock()
-
-		seen = append(seen, recorded{
-			method: request.Method, path: request.URL.EscapedPath(), query: request.URL.RawQuery, body: body,
-		})
-	}
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		var body map[string]any
-
-		_ = json.NewDecoder(request.Body).Decode(&body)
-		note(request, body)
-
-		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-
-		if fails[request.URL.EscapedPath()] {
-			writer.WriteHeader(http.StatusForbidden)
-			_, _ = writer.Write([]byte(`{"message":"Resource not accessible by personal access token"}`))
-
-			return
-		}
-
-		answer, ok := answers[request.URL.EscapedPath()]
-		if !ok {
-			answer = "{}"
-		}
-
-		_, _ = writer.Write([]byte(answer))
-	}))
-	t.Cleanup(server.Close)
-
-	return forge.New(server.Client().Do, server.URL, secret), &seen
-}
-
 func TestCreatePullRequestOnGitHubAddsReviewersAssigneesAndLabels(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeConversation(t, map[string]string{
+	client, seen := recordingForge(t, conversation(map[string]string{
 		githubPullsPath: `{"number":43,"html_url":"https://github.com/example/repo/pull/43","title":"fix: token"}`,
-	}, nil)
+	}, nil))
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
@@ -121,9 +71,9 @@ func TestCreatePullRequestOnGitHubAsksForNoOneWhenNoneAreNamed(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeConversation(t, map[string]string{
+	client, seen := recordingForge(t, conversation(map[string]string{
 		githubPullsPath: githubPull43,
-	}, nil)
+	}, nil))
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
@@ -146,9 +96,9 @@ func TestCreatePullRequestOnGitHubKeepsThePullWhenReviewersAreRefused(t *testing
 	// Arrange
 	// The token can open the pull but not request reviewers, the way an
 	// under-scoped credential answers.
-	client, _ := forgeConversation(t,
+	client, _ := recordingForge(t, conversation(
 		map[string]string{githubPullsPath: githubPull43},
-		map[string]bool{githubReviewersPath: true})
+		map[string]bool{githubReviewersPath: true}))
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
@@ -172,10 +122,10 @@ func TestCreateMergeRequestOnGitLabSetsReviewersAssigneesAndLabels(t *testing.T)
 	// Arrange
 	// GitLab keys reviewers and assignees by id, so each username is looked up
 	// first; this instance answers every lookup with the same user.
-	client, seen := forgeConversation(t, map[string]string{
+	client, seen := recordingForge(t, conversation(map[string]string{
 		gitlabUsersPath:  `[{"id":7}]`,
 		gitlabMergesPath: `{"iid":8,"web_url":"https://gitlab.com/group/sub/repo/-/merge_requests/8"}`,
-	}, nil)
+	}, nil))
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
@@ -211,9 +161,9 @@ func TestCreatePullRequestOnGitHubStopsAtAssigneesTheForgeRefuses(t *testing.T) 
 
 	// Arrange
 	// Reviewers are requested, then the token may not assign anyone.
-	client, seen := forgeConversation(t,
+	client, seen := recordingForge(t, conversation(
 		map[string]string{githubPullsPath: githubPull43},
-		map[string]bool{githubPRIssuePath + "/assignees": true})
+		map[string]bool{githubPRIssuePath + "/assignees": true}))
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
@@ -237,7 +187,7 @@ func TestCreatePullRequestOnGitHubRequestsTeamsBySlugAlongsideUsers(t *testing.T
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeConversation(t, map[string]string{githubPullsPath: githubPull43}, nil)
+	client, seen := recordingForge(t, conversation(map[string]string{githubPullsPath: githubPull43}, nil))
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
@@ -262,7 +212,7 @@ func TestCreatePullRequestOnGitHubNeverRequestsATeamOfAnotherOrganization(t *tes
 	// Arrange
 	// The repository is example's; other-org's reviewers team shares a slug
 	// with no team of example's that was meant.
-	client, seen := forgeConversation(t, map[string]string{githubPullsPath: githubPull43}, nil)
+	client, seen := recordingForge(t, conversation(map[string]string{githubPullsPath: githubPull43}, nil))
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
@@ -286,7 +236,7 @@ func TestCreatePullRequestOnGitHubRequestsOnlyTeamsWhenNoUserIsNamed(t *testing.
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeConversation(t, map[string]string{githubPullsPath: githubPull43}, nil)
+	client, seen := recordingForge(t, conversation(map[string]string{githubPullsPath: githubPull43}, nil))
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
