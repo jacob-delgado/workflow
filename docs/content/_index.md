@@ -5,10 +5,8 @@ type: docs
 
 # workflow
 
-A terminal UI for the loop a developer actually runs all day: pick up a Jira
-issue, start a branch for it, open the pull or merge request, and tell the team
-in Slack, Teams or Discord, or through a plain webhook — without leaving the
-keyboard or reconstructing the same context in three browser tabs.
+The [README](https://github.com/jacob-delgado/workflow#readme) says what
+workflow is. Below is what works today, and where to read next.
 
 ## Status
 
