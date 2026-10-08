@@ -7,8 +7,9 @@ code in this repository. It holds **only what's relevant in every session**.
 
 `workflow` is a Go command-line and terminal UI tool that ties Jira (on-premises
 / Data Center), a messaging service (Slack, Teams, Discord or a plain webhook),
-and a Git forge (GitHub or GitLab) into one developer workflow: pick up an
-issue, branch for it, open the pull or merge request, tell the team.
+a Git forge (GitHub or GitLab) and, where it is installed, Taskwarrior into one
+developer workflow: pick up an issue, branch for it, open the pull or merge
+request, tell the team.
 
 Go at its core, shipped as a single static binary a developer runs on their own
 machine. It keeps a little state between sessions in an on-disk SQLite store
@@ -47,6 +48,8 @@ internal/jira/        Jira Data Center REST v2
 internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, templates, CI, issues
 internal/messaging/   posting to Slack, Teams, Discord or a plain webhook
 internal/messaging/directory/ the Slack directory people are tagged from, read once and held
+internal/slackauth/   the Slack user token: refreshing, storing, locking
+internal/taskwarrior/ finding Taskwarrior and reading and changing its tasks
 internal/httpx/       the redirect-refusing HTTP transport the clients share
 internal/fileowner/   who owns a file, as Unix keeps it (build-tagged twins)
 internal/filelock/    an advisory lock on an open file (build-tagged twins)
@@ -255,10 +258,11 @@ without agreement on direction.
     table; a file whose version differs and holds tables is deleted with its
     `-wal` and `-shm` companions and made again. `kept.db`, beside it, holds
     what the user decided and cannot be seen again (whom a forge owner is on
-    Slack, a repository's groups). Its schema also has one version,
-    `keptSchemaVersion` in `internal/store/kept.go`, made and stamped in one
-    `BEGIN IMMEDIATE` transaction that re-reads it; a file at another version
-    is **never discarded**: it reads as empty and refuses writes
+    Slack, a repository's groups, the directories marked as favorites). Its
+    schema also has one version, `keptSchemaVersion` in
+    `internal/store/kept.go`, made and stamped in one `BEGIN IMMEDIATE`
+    transaction that re-reads it; a file at another version is **never
+    discarded**: it reads as empty and refuses writes
     (`ErrKeptSchemaDiffers`, naming `workflow db-clean --all`). Neither file
     has **migrations**, since workflow is only installed fresh: change the
     `CREATE TABLE`, bump the version, and move on (see *YAGNI*). A bump of
