@@ -14,11 +14,8 @@ import (
 )
 
 // SlackTarget is a Slack user or user group, by its ID and the label it is
-// shown by.
-type SlackTarget struct {
-	ID    string
-	Label string
-}
+// shown by: messaging's own, by the name the loop's seams use.
+type SlackTarget = messaging.SlackTarget
 
 // OwnerLink is what was decided for one forge owner: whether they are a team
 // or a person, as the forge told them apart when they were decided; whether
