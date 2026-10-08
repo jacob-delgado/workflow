@@ -184,8 +184,9 @@ test('locks the commit while it is in flight', async () => {
   // Act
   await user.click(screen.getByRole('button', { name: 'Commit staged changes' }))
 
-  // Assert: the button reads "Committing…", is held with the focus it was
-  // pressed with, and only one commit went out
+  // Assert
+  // The button reads "Committing…", is held with the focus it was pressed with,
+  // and only one commit went out.
   const committing = await screen.findByRole('button', { name: 'Committing…' })
   expect(committing.getAttribute('aria-disabled')).toBe('true')
   expect(document.activeElement).toBe(committing)
@@ -268,7 +269,8 @@ test('pushes only after the confirm step', async () => {
   pushable()
   render(<BranchPanel />)
 
-  // Act: ask, then confirm
+  // Act
+  // Ask, then confirm.
   await user.click(screen.getByRole('button', { name: 'Push branch' }))
   await user.click(screen.getByRole('button', { name: 'Push' }))
 
@@ -341,11 +343,13 @@ test('locks the push while it is in flight', async () => {
   pushable()
   render(<BranchPanel />)
 
-  // Act: ask, then confirm, leaving the push unresolved
+  // Act
+  // Ask, then confirm, leaving the push unresolved.
   await user.click(screen.getByRole('button', { name: 'Push branch' }))
   await user.click(screen.getByRole('button', { name: 'Push' }))
 
-  // Assert: the button reads "Pushing…" and is held, and only one push went out
+  // Assert
+  // The button reads "Pushing…" and is held, and only one push went out.
   const pushing = await screen.findByRole('button', { name: 'Pushing…' })
   expect(pushing.getAttribute('aria-disabled')).toBe('true')
   expect(mockPush).toHaveBeenCalledTimes(1)

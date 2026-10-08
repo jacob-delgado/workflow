@@ -384,7 +384,8 @@ test.each(writes)(
     const user = userEvent.setup()
     renderWithClient(write.panel())
 
-    // Act: make the write, then the stream confirms it
+    // Act
+    // Make the write, then the stream confirms it.
     await write.act(user)
     await waitFor(() => {
       expect(statusSaying(write.said)).toBeDefined()

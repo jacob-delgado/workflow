@@ -78,13 +78,15 @@ test('says when the last snapshot landed beside the pill, and keeps it current',
   useSnapshotStore.setState({ status: 'live', receivedAt: Date.now() - 3_000 })
   render(<StreamStatus />)
 
-  // Act: the page waits two seconds for the next frame
+  // Act
+  // The page waits two seconds for the next frame.
   act(() => {
     vi.advanceTimersByTime(2_000)
   })
 
-  // Assert: the time counts on, outside the live region, so it is not spoken
-  // every second
+  // Assert
+  // The time counts on, outside the live region, so it is not spoken every
+  // second.
   expect(screen.getByText('Updated 5s ago')).toBeTruthy()
   expect(screen.getByRole('status').textContent).not.toContain('Updated')
 })

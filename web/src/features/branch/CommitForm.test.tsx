@@ -38,7 +38,8 @@ test('keeps a configured type after a commit for a team that excludes fix', asyn
   const user = userEvent.setup()
   render(<CommitForm canCommit suggestedScope="" convention={hotfixesAndChoresOnly} />)
 
-  // Act: commit once, then commit again without touching the Type dropdown
+  // Act
+  // Commit once, then commit again without touching the Type dropdown.
   await user.type(screen.getByLabelText('Subject'), 'first change')
   await user.click(screen.getByRole('button', { name: /commit staged changes/i }))
   await user.type(await screen.findByLabelText('Subject'), 'second change')
@@ -188,7 +189,8 @@ test('focus dropped to the page after a commit from the keyboard stays on the pa
     ;(document.activeElement as HTMLElement).blur()
   })
 
-  // Act: the next frame draws the form again
+  // Act
+  // The next frame draws the form again.
   rerender(<CommitForm canCommit={false} suggestedScope="" convention={conventional} />)
 
   // Assert
