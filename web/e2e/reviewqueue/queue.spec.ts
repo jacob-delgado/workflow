@@ -78,6 +78,15 @@ async function press(page: Page, name: string): Promise<void> {
   await expect(button).toHaveAttribute('aria-pressed', 'true')
 }
 
+// routedSoFar returns once every request the page has sent so far has reached
+// its route: a request sent after them, which the page answers only once its
+// own route has run, cannot overtake them there.
+async function routedSoFar(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await fetch('/api/health')
+  })
+}
+
 test('switching back to Reviews within 30 seconds reads nothing again', async ({ page }) => {
   // Arrange: Reviews read once, then another section open.
   await page.clock.install()
@@ -90,13 +99,12 @@ test('switching back to Reviews within 30 seconds reads nothing again', async ({
   // Act
   await openSection(page, 'Reviews')
 
-  // Assert
-  // A read the reopening starts goes out as the queue is drawn; let the
-  // network settle first, so one would have been counted.
+  // Assert: the queue is drawn again, and a read the reopening started, which
+  // goes out as the queue is drawn, would have been counted by now.
   await expect(
     page.getByRole('list', { name: 'Waiting on your review', exact: true }),
   ).toBeVisible()
-  await page.waitForLoadState('networkidle')
+  await routedSoFar(page)
   expect(counted.reads).toBe(1)
 })
 
