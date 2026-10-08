@@ -26,6 +26,14 @@ nothing in the keychain, and prints the file it would write, masked.
 workflow config init [flags]
 ```
 
+### Examples
+
+```
+  workflow config init              # answer the prompts, the Jira token checked
+  workflow config init --template   # a blank file to fill in by hand
+  workflow config init --global     # one file in your home, for every directory
+```
+
 ### Options
 
 ```

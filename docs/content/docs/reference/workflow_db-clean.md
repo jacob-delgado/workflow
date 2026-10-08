@@ -22,6 +22,14 @@ repository's groups, which are then asked again. Nothing is removed under
 workflow db-clean [flags]
 ```
 
+### Examples
+
+```
+  workflow db-clean --dry-run   # each file and what it holds, nothing removed
+  workflow db-clean --yes       # remove the cache, unattended
+  workflow db-clean --all       # also forget whom each code owner is on Slack
+```
+
 ### Options
 
 ```
