@@ -320,26 +320,6 @@ func (s *server) readAuthor() string {
 	return name
 }
 
-// cachedAuthor is who a post would come from: the forge's kept answer once it
-// has given one, else a fresh ask whose answer is kept for the server's life.
-func (s *server) cachedAuthor() (string, error) {
-	s.author.mu.Lock()
-	defer s.author.mu.Unlock()
-
-	if s.author.known {
-		return s.author.name, nil
-	}
-
-	name, err := s.deps.Author()
-	if err != nil {
-		return "", fmt.Errorf("reading the author: %w", err)
-	}
-
-	s.author.name, s.author.known = name, true
-
-	return name, nil
-}
-
 // viewsDTO is the views a configuration offers, each narrowed to your issues
 // unless its JQL already names the assignee, as the terminal narrows them, or
 // the one built-in list — open issues assigned to you — when it names none.

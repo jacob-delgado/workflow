@@ -4,6 +4,7 @@
 package webserver
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"sync"
@@ -340,12 +341,70 @@ func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
 // answer for the stream, GET /api/messaging and the announcement alike: the
 // forge connection it comes through is kept once made, so the answer does not
 // change while the server runs, and asking every frame spent a forge request
-// per open page each interval. A failed read is not kept, so the next read asks
-// again. Its lock is its own, since every open stream reads it.
+// per open page each interval. A read that fails is held with its error until
+// the forge's interval has passed, so a forge that cannot say is asked once an
+// interval too. One ask runs at a time, outside the lock: a frame that finds
+// one under way is served the failure held at once, or, with none held, waits
+// for that ask.
 type authorCache struct {
 	mu    sync.Mutex
 	name  string
 	known bool
+	// failed is why the last ask did not answer, made at readAt, or nil.
+	failed error
+	readAt time.Time
+	// reading is the ask under way, closed once it lands, or nil with none.
+	reading chan struct{}
+}
+
+// cachedAuthor is who a post would come from: the forge's kept answer once it
+// has given one, or why it could not say while that is held, else a fresh ask.
+func (s *server) cachedAuthor() (string, error) {
+	return sharedRead(
+		func() turn[string] { return s.author.serve(s.now(), s.forgeInterval()) },
+		func(int) (string, error) {
+			name, err := s.deps.Author()
+			if err != nil {
+				return s.author.land(s.now(), "", fmt.Errorf("reading the author: %w", err))
+			}
+
+			return s.author.land(s.now(), name, nil)
+		},
+	)
+}
+
+// serve answers the author once known, and a failure while it is fresh or an
+// ask is under way; it hands back that ask to wait for when nothing is held,
+// and otherwise starts the caller's own ask, which land ends.
+func (c *authorCache) serve(now time.Time, interval time.Duration) turn[string] {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	switch {
+	case c.known:
+		return turn[string]{answered: true, value: c.name}
+	case c.failed != nil && (c.reading != nil || now.Sub(c.readAt) < interval):
+		return turn[string]{answered: true, failed: c.failed}
+	case c.reading != nil:
+		return turn[string]{landing: c.reading}
+	}
+
+	c.reading = make(chan struct{})
+
+	return turn[string]{}
+}
+
+// land holds what the ask made at now answered, or why it could not, and lets
+// go every frame waiting on it. It answers what the frame shows.
+func (c *authorCache) land(now time.Time, name string, err error) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	close(c.reading)
+	c.reading = nil
+	c.name, c.known, c.failed, c.readAt = name, err == nil, err, now
+
+	return name, err
 }
 
 // scopeCache is the store's last commit scope, read the first time a frame
