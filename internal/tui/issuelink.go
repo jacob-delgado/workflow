@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // issueLinker offers to record a just-opened pull request as a web link on the
@@ -52,7 +53,7 @@ func (m Model) pullOffers() []string {
 	}
 
 	if m.offersReviewStatus() {
-		offers = append(offers, "to move "+shownKey(issueKey)+" to "+m.cfg.Jira.ReviewStatus)
+		offers = append(offers, "to move "+shownKey(issueKey)+" to "+sanitize.Line(m.cfg.Jira.ReviewStatus))
 	}
 
 	return offers
