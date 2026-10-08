@@ -7,7 +7,7 @@ import {
   themes,
   widths,
 } from './support/cockpit.ts'
-import { test } from './support/fixtures.ts'
+import { expect, test } from './support/fixtures.ts'
 
 // Screenshots of every populated section, in both themes, at a narrow, a
 // middling and a wide window — saved into test-results, which CI uploads, for
@@ -15,13 +15,11 @@ import { test } from './support/fixtures.ts'
 // would differ by the OS's fonts, and would commit images that a reviewer
 // cannot diff anyway.
 
-// fitToContent grows the window by as much as the content scrolls, or a pane
-// in it that grows with the window, so the saved screen holds the whole
-// section: the page itself holds still under its header, and a full-page
-// capture sees only the window. A pane capped at a height, and a text area,
-// grow with nothing, so they are left out.
-async function fitToContent(page: Page, width: number): Promise<void> {
-  const overflow = await page.getByRole('main').evaluate((main) =>
+// overflowing is how far the content, or the furthest a pane in it that grows
+// with the window, scrolls past what the window shows. A pane capped at a
+// height, and a text area, grow with nothing, so they are left out.
+function overflowing(page: Page): Promise<number> {
+  return page.getByRole('main').evaluate((main) =>
     Math.max(
       ...[main, ...main.querySelectorAll<HTMLElement>('*')]
         .filter((part) => {
@@ -33,7 +31,6 @@ async function fitToContent(page: Page, width: number): Promise<void> {
         .map((part) => part.scrollHeight - part.clientHeight),
     ),
   )
-  await page.setViewportSize({ width, height: height + overflow })
 }
 
 for (const theme of themes) {
@@ -47,17 +44,21 @@ for (const theme of themes) {
           // the checked-out issue open so the Issues screen shows its story.
           await openCockpit(page, { width, height }, theme)
 
-          // Act: open the section, and let it settle.
+          // Act: open the section, let it settle, and grow the window by as
+          // much as it scrolls: the page itself holds still under its header,
+          // and a full-page capture sees only the window.
           await openSection(page, name)
+          await page.setViewportSize({ width, height: height + (await overflowing(page)) })
 
-          // Assert: the screen is saved as drawn, with the pointer parked off
-          // the controls so none is caught mid-hover. Under reduced motion
-          // every element transitions every property for 0.01ms
-          // (web/src/index.css), so an inherited color reaches an icon's
-          // strokes a frame or more after the text beside it: the capture
-          // finishes those transitions first rather than catching the colors
-          // of the section it left on the way out.
-          await fitToContent(page, width)
+          // Assert: the window holds the whole section, which is saved as
+          // drawn, with the pointer parked off the controls so none is caught
+          // mid-hover. Under reduced motion every element transitions every
+          // property for 0.01ms (web/src/index.css), so an inherited color
+          // reaches an icon's strokes a frame or more after the text beside
+          // it: the capture finishes those transitions first rather than
+          // catching the colors of the section it left on the way out.
+          await expect(page.getByRole('heading', { level: 1, name })).toBeInViewport()
+          expect(await overflowing(page), 'scrolls past the window').toBe(0)
           await page.mouse.move(0, 0)
           await page.screenshot({
             path: testInfo.outputPath(`${String(width)}-${theme}-${name.toLowerCase()}.png`),

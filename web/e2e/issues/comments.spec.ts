@@ -94,7 +94,7 @@ test('Preview shows a Markdown comment as Jira will', async ({ page }) => {
   await page.getByRole('tab', { name: 'Preview' }).click()
 
   // Assert
-  await expect(page.getByRole('tabpanel', { name: 'Preview' }).locator('strong')).toHaveText('it')
+  await expect(page.getByRole('tabpanel', { name: 'Preview' }).getByRole('strong')).toHaveText('it')
 })
 
 for (const theme of themes) {

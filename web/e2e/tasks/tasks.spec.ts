@@ -120,12 +120,15 @@ test('the header keeps one row beside a long started task, at 640 px', async ({ 
   expect(toggle.left, 'the toggle right of the chip').toBeGreaterThanOrEqual(drawn.right)
 })
 
-// markHue is the color the first mark inside an element is drawn in.
+// markHue is the color the first mark inside an element is drawn in: an icon
+// hidden from assistive technology, which no role or name reaches, so it is
+// found from the element it marks, as markSeat finds it.
 function markHue(locator: Locator): Promise<string> {
-  return locator
-    .locator('svg')
-    .first()
-    .evaluate((mark) => getComputedStyle(mark).color)
+  return locator.evaluate((element) => {
+    const mark = element.querySelector('svg')
+
+    return mark === null ? 'not drawn' : getComputedStyle(mark).color
+  })
 }
 
 test("a started task's mark is drawn in one hue in the header and the Tasks list", async ({
@@ -204,6 +207,9 @@ test("a mark sits centered on a wrapped description's first line, in the list an
 // A refusal in two lines, as a hook's output can make one.
 const twoLines = 'Taskwarrior refused the command:\nthe on-add hook said no'
 
+// twoLinesDrawn is the refusal as the page must draw it, a line break and all.
+const twoLinesDrawn = /^Taskwarrior refused the command:\nthe on-add hook said no$/
+
 // The refusals that keep their lines: a track's, on the issue's card, and a
 // failed read's, over the Tasks list.
 const refusals = [
@@ -235,9 +241,13 @@ for (const { of, act } of refusals) {
     // Act
     await act(page)
 
-    // Assert
-    const said = page.getByRole('alert').filter({ hasText: 'on-add hook' })
-    expect(await said.innerText()).toBe(twoLines)
+    // Assert: drawn as written, its lines kept, which a pattern matched
+    // against the drawn text checks and a string, whose spaces are folded,
+    // would not.
+    await expect(page.getByRole('alert').filter({ hasText: 'on-add hook' })).toHaveText(
+      twoLinesDrawn,
+      { useInnerText: true },
+    )
   })
 }
 
