@@ -89,7 +89,11 @@ credentials with it:
 A repository's file that leaves the address alone, or repeats the home file's,
 still inherits them, and one that moves it may set a token of its own. A
 Slack user token is only ever sent to Slack, so a repository naming another
-`channel` keeps it; a webhook URL is its own address.
+`channel` keeps it; a webhook URL is its own address. `jira.keychain` is no
+credential and is inherited either way: it reads the
+[keychain item](#the-operating-systems-keychain) kept for the address in
+effect, so a repository that points Jira somewhere else reads the token kept
+for that address, never the one kept for your home file's.
 
 **Only your home file may run a program or read the environment.** Three
 settings do: `jira.token_command` runs a program, `jira.token_env` reads an
@@ -106,7 +110,11 @@ never copied into a file in a working tree, and a later change at home still
 reaches the repository. Nor is a credential you type there — a token, a
 header's value, a webhook URL, a Slack secret not kept in the keychain — or a
 setting only your home file may make: the save is refused, writing nothing, and
-you set it in your home file instead. A credential already in the repository's
+you set it in your home file instead. A Jira token you type is the exception
+where workflow drives the keychain (macOS): it goes to the keychain item for
+the Jira address, never into a file, and the file saved reads it from there,
+so a repository that points Jira at another address takes a token of its own
+from Settings. A credential already in the repository's
 file is kept, and can be removed. `workflow config init` in a repository, over a home
 file, starts from the home file's settings — a question left blank keeps the
 home file's answer — and `--template` writes an empty layer rather than blanks
@@ -121,9 +129,10 @@ them on stderr, so there is never a question about which were read.
 | --- | --- | --- |
 | `version` | no | The file format's version, which `workflow config init` writes first. `"1"` is the only one this build reads; empty (the default) means the current one, and any other value is refused when the file loads rather than half-read against a format it was not written for. |
 | `jira.base_url` | for Jira as the tracker | Root URL of your Jira instance, e.g. `https://jira.example.com`. It must be https, or http only to this machine (`localhost` or a loopback address): every request carries the token and every `jira.headers` value. Leave it empty to use the forge's issues instead: the Issues pane then lists the open issues assigned to you on your forge. An address that is not an absolute `https` URL, or `http` to this machine, or that carries a username and password, is refused when the file loads, without quoting it. |
-| `jira.token` | one of these three, with `jira.base_url` | Personal access token. |
-| `jira.token_command` | one of these three, with `jira.base_url` | A program that prints the token, e.g. `pass show jira/token`. Your home file's alone; see [Where it looks](#where-it-looks-and-what-wins). See below. |
-| `jira.token_env` | one of these three, with `jira.base_url` | An environment variable that holds the token. Your home file's alone, as `token_command` is. |
+| `jira.token` | one of these four, with `jira.base_url` | Personal access token. |
+| `jira.keychain` | one of these four, with `jira.base_url` | `true` reads the token from the OS keychain item kept for `jira.base_url` (macOS), so the file holds no secret. Any file may set it. See [the keychain](#the-operating-systems-keychain). Defaults to `false`. |
+| `jira.token_command` | one of these four, with `jira.base_url` | A program that prints the token, e.g. `pass show jira/token`. Your home file's alone; see [Where it looks](#where-it-looks-and-what-wins). See below. |
+| `jira.token_env` | one of these four, with `jira.base_url` | An environment variable that holds the token. Your home file's alone, as `token_command` is. |
 | `jira.user` | no | Only for instances requiring HTTP Basic. See below. |
 | `jira.views` | no | Named issue lists (`name` + `jql`) the pane moves between with `v`. Empty keeps the one built-in list. See below. |
 | `jira.headers` | no | Extra HTTP headers sent with every Jira request, for a Jira reached through an SSO proxy that checks one. Values are masked wherever the configuration is shown. Two names that differ only in case are one HTTP header, and are refused. See below. |
@@ -276,22 +285,25 @@ The interface and `workflow --web` scope a view alike, and the web's
 
 ## Keeping tokens out of the file
 
-So the file need hold no secret, a Jira token can instead come from a program
-or an environment variable (a Slack user token has a home of its own, below):
+So the file need hold no secret, a Jira token can instead come from the
+keychain, a program or an environment variable (a Slack user token has a home
+of its own, below):
 
+- `keychain` reads the token from the OS keychain item kept for the Jira
+  address; see [below](#the-operating-systems-keychain).
 - `token_command` runs a program and reads the token from its output, e.g.
-  `pass show jira/token`, `op read "op://vault/jira/token"`, or
-  `security find-generic-password -s workflow-jira -w`. The command is split on
-  spaces and run directly — no shell — so wrap a pipeline in a script if you need
-  one.
+  `pass show jira/token` or `op read "op://vault/jira/token"`. The command is
+  split on spaces and run directly — no shell — so wrap a pipeline in a script
+  if you need one.
 - `token_env` reads the token from an environment variable, e.g. `WORKFLOW_JIRA_TOKEN`.
 
-The file's own `token` wins when set, then `token_env`, then `token_command`.
-`workflow doctor --online` reports which source each credential came from,
-without ever printing the value.
+The file's own `token` wins when set, then the `keychain`, then `token_env`,
+then `token_command`. `workflow doctor --online` reports which source each
+credential came from, without ever printing the value.
 
 The Jira token is found the first time a command needs Jira, so one that never
-reaches it, such as `workflow reviews`, never runs its token command. The
+reaches it, such as `workflow reviews`, never runs its token command or reads
+the keychain. The
 interface and `--web` find it before they start, while a command that asks for a
 passphrase on the terminal can still be answered. A command that fails or prints nothing, or a variable that is empty,
 is reported as no token where the service was wanted, and the token is looked
@@ -299,16 +311,32 @@ for again the next time.
 
 ### The operating system's keychain
 
-The keychain is where a token belongs, and a `token_command` reaches it without
-this program linking anything. On macOS, `workflow config init --global` offers
-to do the whole thing for you: it saves the token with `security` and writes the
-reading command into your home file, so the file holds a `token_command` and
-never the token. Only the home file may hold a `token_command`, so the keychain
-is offered for it alone: setting up a repository's file, keep the token in the
-file, or set up the home file with the keychain and let the repository's file
-inherit it.
+The keychain is where a token belongs. On macOS, workflow keeps a Jira token
+there with the built-in `security`, linking nothing, in a generic password item
+named for the address it is for — `workflow-jira https://jira.example.com` —
+under your login name. Each Jira address has an item of its own, so the
+keychain can hold a token for every Jira you work with, and
+`"keychain": true` in a file reads the one kept for that file's
+`jira.base_url`. Since an item is only ever read for its own address,
+`jira.keychain` is safe in any file: a repository's file that points Jira at
+another address, set by you or by whoever wrote the repository, reads the item
+for that address — and finds nothing until you keep a token there — never the
+one for your home file's. An address and the same one with trailing slashes
+name one item.
 
-On Linux, store the token once and point `token_command` at it by hand:
+`workflow config init` offers to keep the token there for you, for your home
+file (`--global`) or a repository's alike: it saves it in the item for the
+address you typed and writes `"keychain": true` into the file, so the file
+never holds the token. Settings — the
+terminal's and the web's — does the same with a Jira token you type, for the
+address in the form, whichever file it saves: your home file, or a
+repository's that points Jira somewhere else, which then reads the token kept
+for its own address. A token the keychain will not keep saves nothing. To see
+or remove an item, use Keychain Access, or
+`security find-generic-password -s 'workflow-jira https://jira.example.com'`.
+
+Elsewhere workflow drives no keychain, and `jira.keychain` gives no token. On
+Linux, store the token once and point `token_command` at it by hand:
 
 ```sh
 printf %s '<your token>' | secret-tool store --label='workflow jira' service workflow-jira
@@ -987,10 +1015,11 @@ own. A favorite is kept as the directory's path alone; whether it is still
 there, and whether it is a repository, is read from the disk each time.
 
 A store that cannot keep what it is given — a full disk, a file another
-program holds — never stops what was being done, and says so: an
-announcement is posted and the interface, `workflow announce` and the
-`--web` server's log add that it could not be remembered, so a later session
-may offer it again; a commit's scope and an issue list not kept are said in
+program holds — never stops what was being done, and says so. An
+announcement is posted, and the interface, `workflow announce` and the
+`--web` page all add *Posted, but not remembered: it may be offered again.*;
+the interface and `workflow announce` then say why, and under `--web` the
+server's log does. A commit's scope and an issue list not kept are said in
 the interface's footer, and in the server's log under `--web`.
 
 Those associations are what tagging an announcement reads. Whom a code owner

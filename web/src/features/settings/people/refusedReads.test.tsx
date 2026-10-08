@@ -59,9 +59,15 @@ test('the local data that cannot be read is an alert, read again on Try again', 
   // Arrange
   refusing('/api/local-data')
   const user = userEvent.setup()
+
+  // Act: read the local data, refused
   renderWithClient(<LocalData />)
+
+  // Assert: the refusal is an alert
   const again = await screen.findByRole('button', { name: 'Try again' })
   expect(screen.getByRole('alert').textContent).toBe('/api/local-data refused')
+
+  // Act: try again, answered this time
   fakeApi({
     '/api/local-data': {
       dir: '/home/ana/.local/state/workflow',
@@ -69,10 +75,8 @@ test('the local data that cannot be read is an alert, read again on Try again', 
       consequences: { cache: '', all: '' },
     },
   })
-
-  // Act
   await user.click(again)
 
-  // Assert
+  // Assert: the local data is read again
   expect(await screen.findByText(/No local data/)).toBeTruthy()
 })

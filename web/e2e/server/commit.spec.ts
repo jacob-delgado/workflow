@@ -25,7 +25,8 @@ function originSubject(): string {
 // since docs/notes has no upstream, and is clicked once the commit is made, so
 // the push carries it.
 test('stages, commits and pushes a file through the page the server serves', async ({ page }) => {
-  // Arrange: the served repository's Branch section, notes.txt untracked in it.
+  // Arrange
+  // The served repository's Branch section, notes.txt untracked in it.
   await openServed(page)
   await openSection(page, 'Branch')
 

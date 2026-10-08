@@ -109,7 +109,7 @@ holds it.
 | `summary` | the summary as Markdown, or the JSON | with `--post`, `to …`, where it goes and how long the summary is against what the service takes; the dry-run line, "Not posted.", "Posted to …", each source left out as not set up — `Taskwarrior is not set up, so it was left out: …`, with how to set it up — and each source that could not be read |
 | `branch` | `Start work on KEY: create NAME from BASE and switch to it`, then `Created NAME`; with `--fetch` the plan opens `fetch origin, then`; with `--worktree` it ends `in a new worktree beside the repository`, and the worktree's directory follows alone on the last line | the dry-run line, "Not created.", and with `--worktree` "Created NAME in a new worktree." |
 | `pr` | `Open TITLE`, `BRANCH → BASE` and the code owners asked to review, a blank line, and the whole body; then `Opened #N URL` (`!N` on GitLab); with `--json`, the JSON alone | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes; with messaging set up, "Announce it with workflow announce." once it is open; with `--json`, the preview and the `Opened` line too |
-| `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …" |
+| `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …", then, when the store could not remember it, "Posted, but not remembered: it may be offered again." and why |
 | `comment` | `Comment on KEY:` and the comment as the tracker will store it | the dry-run line, "Not posted.", "Commented on KEY." |
 | `slack login` | | the dry-run line, "Logged in to Slack as …" |
 | `db-clean` | the store's directory and each database file in it | the warning before `--all` removes `kept.db`, the dry-run line, "Nothing to remove.", "Nothing removed.", "Removed …" |
@@ -283,7 +283,8 @@ leaves the forge's issues as the tracker — `jira_url`, `jira_auth_mode`,
 `unchecked` — and `detail`). It exits as the prose report does: a field missing,
 a value filled in wrong or a file other users can reach exits 3. A `rejected`
 credential is one the service refused. A credential that is `missing` — none
-configured, or a `token_command` or `token_env` that gave none — exits 3 as a
+configured, or a keychain item, `token_command` or `token_env` that gave
+none — exits 3 as a
 `rejected` one does, though it was never put to the service. A service that
 answers with a redirect, or asks you to wait, is `unreachable` and exits 5: it
 never judged the credential. A check `doctor` could not make is `unchecked` and

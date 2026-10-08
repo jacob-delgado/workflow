@@ -17,8 +17,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
-// messagingHelp is what the editor shows below a message being composed. The markup
-// depends on the service, so the note stays general rather than naming one.
+// messagingHelp is what the editor shows below a message being composed. The
+// markup depends on the service, so the note stays general rather than naming
+// one.
 const messagingHelp = "Edit the message above this line."
 
 // Why a preview opened over another post does not post: that one, waiting for
@@ -301,17 +302,20 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		m = m.closeOverlay()
 	}
 
-	return m.noticed(m.marks.done + " announced to " + msg.to + notKept(msg.err)), nil
+	return m.noticed(m.marks.done + " announced to " + msg.to + m.notKept(msg.err)), nil
 }
 
-// notKept is what a store that could not remember an announcement says after
-// it, in short, since a notice is one row: nothing when it remembered it.
-func notKept(err error) string {
+// notKept is what the notice adds of an announcement the store could not
+// remember, on its one row: the warning every surface says, then why. It adds
+// nothing when the store remembered it.
+func (m Model) notKept(err error) string {
 	if err == nil {
 		return ""
 	}
 
-	return "; it could not be remembered: " + strings.TrimPrefix(err.Error(), loop.ErrNotRemembered.Error()+": ")
+	why := strings.TrimPrefix(err.Error(), loop.ErrNotRemembered.Error()+": ")
+
+	return m.marks.separator + loop.NotRememberedWarning + " " + why
 }
 
 // failed is the preview kept open with the reason the post failed.

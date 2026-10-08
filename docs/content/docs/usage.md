@@ -543,7 +543,10 @@ dropped, saying so, rather than sent for something you never previewed. A pull
 request is announced once at each moment — ready for review, CI red, merged —
 and the messaging pane and the top row say whether the one on screen has been.
 The store remembers what was announced, so a later session does not offer the
-same announcement again.
+same announcement again. One it cannot remember — a full disk, say — is posted
+all the same, and the notice adds *Posted, but not remembered: it may be
+offered again.* and why; `workflow announce` says the same, and the `--web`
+page the sentence alone.
 
 ### Track it in Taskwarrior
 
@@ -794,11 +797,11 @@ is typed without showing it and checked with Jira while the form says so. A
 check that does not pass names why and offers to type the token again, keep
 both anyway, or leave Jira out; an address that is not an https address, or
 http to this machine, or that carries a username and password, is never kept,
-so it offers to type the address again or leave Jira out. With your home directory chosen and the OS
-keychain wired (macOS), it then asks where to keep the token: in the keychain,
-so the file holds only the command that reads it back, or in the file, which
-only you can read. It asks for your home file alone, the one file that may
-hold that command, so a repository's file keeps the token itself. Last comes
+so it offers to type the address again or leave Jira out. With the OS
+keychain wired (macOS), it then asks where to keep the token: in the keychain
+item for Jira's address, so the file holds only `"keychain": true`, which
+reads it back from there, or in the file, which only you can read. It asks
+for either file, since an item is only ever read for its own address. Last comes
 a Slack incoming webhook, saved unchecked, or left blank to post with your Slack
 user token after `workflow slack login`. A blank address or webhook skips that
 question, and `esc` goes back one.
@@ -844,7 +847,9 @@ repository's over your home's as described in
 file is as Settings found it: one changed since — edited on disk, or saved
 from the web — is not written over, and `r` reads it again in place of your
 edits. Slack's user-token secrets are kept where the web's Settings keeps
-them. Once saved, workflow reopens in the same directory, as a switch to
+them, and so is a Jira token you type: on macOS, in the keychain item for
+the Jira address, the file saved reading it from there, which the row under
+the token turns on and off. Once saved, workflow reopens in the same directory, as a switch to
 another one does, so what was saved applies at once; the session's Jira
 comments, Tasks view and Summary period go with it. When reopening would lose
 work — a commit message or pull request being written, an announcement waiting

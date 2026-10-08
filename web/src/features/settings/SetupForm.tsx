@@ -133,8 +133,8 @@ function SetupForm({
 type Register = UseFormRegister<SetupValues>
 
 // offersKeychain reports whether the keychain can keep the token for the file
-// at place: where one is wired, the home directory's file alone, the one file
-// that may read it back.
+// at place, in the item for Jira's address, which any file may read: wherever
+// one is wired.
 function offersKeychain(places: SetupPlace[], place: SetupPlaceName): boolean {
   return places.some((each) => each.place === place && each.keychain)
 }
@@ -258,8 +258,8 @@ function busyWords(state: AsyncState, checking: boolean): string | null {
   return checking ? 'Checking with Jira…' : 'Writing…'
 }
 
-// KeychainChoice offers to keep the token in the OS keychain, so the file
-// holds only the command that reads it back.
+// KeychainChoice offers to keep the token in the OS keychain item for Jira's
+// address, which the file then reads it from.
 function KeychainChoice({ register }: { register: Register }) {
   const hintId = useId()
 

@@ -10,6 +10,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/convention"
 )
 
+// The token's sources the hints name: a command and a variable.
+const (
+	sourceCommand  = "pass show jira"
+	sourceVariable = "JIRA_TOKEN"
+)
+
 // The rows of Settings whose hints and choices the tests read.
 const (
 	channelRow      = messagingKindRow + 5
@@ -22,7 +28,7 @@ func TestTheTokenHintNamesTheCommandItIsTakenFrom(t *testing.T) {
 
 	// Arrange
 	repo := newWorld()
-	repo.settings.Jira.Token, repo.settings.Jira.TokenCommand = "", "pass show jira"
+	repo.settings.Jira.Token, repo.settings.Jira.TokenCommand = "", sourceCommand
 
 	// Act
 	view := typing(t, repo.live(t, 120, 40), toRow(tokenRow)...).View().Content
@@ -36,13 +42,56 @@ func TestTheTokenHintNamesTheVariableItIsTakenFrom(t *testing.T) {
 
 	// Arrange
 	repo := newWorld()
-	repo.settings.Jira.Token, repo.settings.Jira.TokenEnv = "", "JIRA_TOKEN"
+	repo.settings.Jira.Token, repo.settings.Jira.TokenEnv = "", sourceVariable
 
 	// Act
 	view := typing(t, repo.live(t, 120, 40), toRow(tokenRow)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "Taken from token_env: JIRA_TOKEN")
+}
+
+func TestTheTokenHintNamesTheKeychainItIsTakenFromOverTheOtherSources(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.settings.Jira.Token, repo.settings.Jira.Keychain = "", true
+	repo.settings.Jira.TokenCommand, repo.settings.Jira.TokenEnv = sourceCommand, sourceVariable
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), toRow(tokenRow)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "Taken from your keychain, for this address.")
+}
+
+func TestTheTokenHintFollowsTheKeychainAsItIsTurnedOn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.settings.Jira.Token = ""
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), append(toRow(keychainRow), "space", "k")...).View().Content
+
+	// Assert
+	requireScreen(t, view, "Taken from your keychain, for this address.")
+}
+
+func TestTheTokenHintSaysWhereATypedTokenIsKept(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.settings.Jira.Token = ""
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), toRow(tokenRow)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "A personal access token, kept in your keychain for this address on macOS")
 }
 
 func TestTheTokenHintSaysAStoredTokenIsUsedOverItsSource(t *testing.T) {
@@ -54,12 +103,16 @@ func TestTheTokenHintSaysAStoredTokenIsUsedOverItsSource(t *testing.T) {
 		want   string
 	}{
 		{
-			"a command", func(cfg *config.Config) { cfg.Jira.TokenCommand = "pass show jira" },
+			"a command", func(cfg *config.Config) { cfg.Jira.TokenCommand = sourceCommand },
 			"The token stored here is used over token_command: pass show jira.",
 		},
 		{
-			"a variable", func(cfg *config.Config) { cfg.Jira.TokenEnv = "JIRA_TOKEN" },
+			"a variable", func(cfg *config.Config) { cfg.Jira.TokenEnv = sourceVariable },
 			"The token stored here is used over token_env: JIRA_TOKEN.",
+		},
+		{
+			"the keychain", func(cfg *config.Config) { cfg.Jira.Keychain = true },
+			"The token stored here is used over your keychain, for this address.",
 		},
 	}
 	for _, test := range tests {

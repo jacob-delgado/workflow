@@ -316,7 +316,11 @@ the new one. Once a pull request was announced at the moment it is at now —
 ready for review, its CI red, merged — from here, the terminal or `workflow
 announce`, the section says so in place of the offer, as the terminal offers
 no announcement it has made; each announcement made here is remembered for
-the terminal and `workflow announce` too.
+the terminal and `workflow announce` too. One the store cannot remember — a
+full disk, say — is posted all the same, and the line saying where it went
+adds *Posted, but not remembered: it may be offered again.*, as a held one
+does once it goes, and as the terminal and `workflow announce` say it; the
+server's log says why, which those two print after the sentence.
 
 **Edit**, in the preview, turns the message into a box to change it in, as
 the terminal's `e` opens it in your editor; **Announce now** then sends the
@@ -540,7 +544,11 @@ three fields — Client ID, Client secret and Refresh token; on macOS a save
 refreshes the token with them and keeps the secrets in the keychain rather
 than the file, and where the file already keeps them it keeps what you type
 (see [Configuration]({{< relref "/docs/configuration" >}})). The access token
-and its expiry have no field: workflow writes them. A change to the
+and its expiry have no field: workflow writes them. On macOS a Jira token you
+type goes to the keychain item for the Jira address, never into a file, and
+**Read the token from your keychain** is saved checked, so a repository whose
+file points Jira at another address takes a token of its own here; a token
+the keychain will not keep saves nothing. A change to the
 Taskwarrior part applies when workflow restarts, as the part says: workflow finds Taskwarrior as it starts,
 and until the restart the Tasks section says to restart rather than read
 Taskwarrior. What the form has no field for is kept unchanged when you
@@ -564,21 +572,21 @@ With no `.workflow.json` where the server works, Settings asks what
 `workflow config init` asks instead of showing a form of defaults. First,
 where the file goes: the repository, where it applies across it, or your home
 directory, where it applies everywhere. Then Jira's address and your personal
-access token, typed into a field that shows nothing of it. With your home
-directory chosen and the OS keychain wired (macOS), **Keep the token in your
-keychain, out of the file** is offered, checked; unchecked, the file keeps it,
-readable only by you. It is offered for your home file alone, the one file
-that may hold the command that reads the token back, so a repository's file
-keeps the token itself. Last, a
+access token, typed into a field that shows nothing of it. With the OS
+keychain wired (macOS), **Keep the token in your keychain, out of the file** is
+offered, checked, for either file: the token goes to the keychain item for
+Jira's address, and the file holds `"keychain": true`, which reads it back.
+Unchecked, the file keeps it, readable only by you. Last, a
 Slack incoming webhook, saved unchecked; blank posts with your Slack user token
 after `workflow slack login`. A blank address or webhook leaves that part out.
 
 **Write ~/src/api/.workflow.json** — named for the file chosen — checks the
 token with Jira first, saying *Checking with Jira…*. A check that does not
 pass says why, beside the button, and writes nothing; **Write it anyway** keeps
-the address and token unchecked — except an address that is not an http or
-https address, or that carries a username and password, which is never kept. Once written, the server works with the file
-as it does after a switch: the event stream reconnects, every section is read
+the address and token unchecked — except an address that is not an https
+address, or http to this machine, or that carries a username and password,
+which is never kept. Once written, the server works with the file as it does
+after a switch: the event stream reconnects, every section is read
 again, and Settings shows the file with what was written said above it —
 whom Jira knows the token as, that the keychain keeps it, and, for a file in a
 repository git does not ignore, to add it to `.gitignore`. A file already

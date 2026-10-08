@@ -22,10 +22,11 @@ const (
 // The rows of Settings the tests edit, counted from the first, Jira's base URL.
 const (
 	tokenRow          = 1
-	projectRow        = 3
-	subjectLimitRow   = 23
-	branchTemplateRow = 25
-	storeDisabledRow  = 30
+	keychainRow       = 2
+	projectRow        = 4
+	subjectLimitRow   = 24
+	branchTemplateRow = 26
+	storeDisabledRow  = 31
 )
 
 // editedProject is the Jira project a test types in place of the one read.
@@ -228,9 +229,9 @@ func TestEscWithEditsDiscardsThem(t *testing.T) {
 // The rows of Settings the coverage of each kind of setting edits.
 const (
 	baseURLRow       = 0
-	markdownRow      = 7
-	messagingKindRow = 9
-	commitTypesRow   = 22
+	markdownRow      = 8
+	messagingKindRow = 10
+	commitTypesRow   = 23
 )
 
 // errSettingsUnreadable is a configuration file that cannot be read.
@@ -372,6 +373,21 @@ func TestASettingThatIsOnTurnsOff(t *testing.T) {
 	// Assert
 	if repo.settings.Jira.MarkdownComments {
 		t.Errorf("jira.markdown_comments saved as on, want it turned off")
+	}
+}
+
+func TestTheKeychainIsASettingThatTurnsOn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), append(toRow(keychainRow), "space", saveKey)...).View().Content
+
+	// Assert
+	if !repo.settings.Jira.Keychain {
+		t.Errorf("jira.keychain saved as off, want it turned on:\n%s", view)
 	}
 }
 

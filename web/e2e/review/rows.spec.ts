@@ -16,7 +16,8 @@ for (const theme of themes) {
       // Act
       await openSection(page, 'Review')
 
-      // Assert: where each value's words begin, past any mark before them.
+      // Assert
+      // Where each value's words begin, past any mark before them.
       const starts = await page
         .getByRole('region', { name: /^#128/ })
         .getByRole('definition')

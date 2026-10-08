@@ -346,6 +346,66 @@ func TestASaveOverAnEarlierDeletionOfTheFileIsRefused(t *testing.T) {
 	}
 }
 
+// servedLayers serves a home file holding home with a repository's file
+// holding repo over it, read as the process reads them at startup, and
+// returns the handler with the files.
+func servedLayers(t *testing.T, home, repo string) (http.Handler, config.Files) {
+	t.Helper()
+
+	files := config.Files{
+		Home: filepath.Join(t.TempDir(), config.FileName), Repo: filepath.Join(t.TempDir(), config.FileName),
+	}
+	rewrite(t, files.Home, home)
+	rewrite(t, files.Repo, repo)
+
+	cfg, _, err := config.LoadLayersAt(files)
+	if err != nil {
+		t.Fatalf("loading the served files: %v", err)
+	}
+
+	return serveWith(t, webserver.Deps{}, cfg, webserver.Info{}), files
+}
+
+func TestASaveOverLayersNowGoneKeepsTheHomeFilesSettingsOutOfTheRepositoryFile(t *testing.T) {
+	t.Parallel()
+
+	// A read that found both files gone serves what they held, and a save over
+	// it can write only the repository's file, which takes neither a
+	// credential nor a program to run from the home file's.
+	cases := map[string]string{
+		"a credential":    `{"jira": {"base_url": "https://file.example.com", "token": "` + fileToken + `"}}`,
+		"a token command": `{"jira": {"base_url": "https://file.example.com", "token_command": "pass show jira"}}`,
+	}
+
+	for name, home := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			handler, files := servedLayers(t, home, `{"jira": {"project": "OSS"}}`)
+			for _, path := range files.Each() {
+				deleteFile(t, path)
+			}
+
+			read := get(t, handler, "/api/config")
+
+			// Act
+			recorder := putConfigOver(t, handler, read.Body.String(), etagOf(read))
+
+			// Assert
+			refusedWith(t, recorder, http.StatusUnprocessableEntity, api.ProblemCodeUnprocessable, files.Repo)
+
+			if detail := decode[api.Problem](t, recorder).Detail; !strings.Contains(detail, "home directory's file") {
+				t.Errorf("detail = %q, want it to say the home directory's file keeps the setting", detail)
+			}
+
+			if got := onDisk(t, files.Repo); got != "" {
+				t.Errorf("the repository's file holds %q, want it still gone", got)
+			}
+		})
+	}
+}
+
 func TestDryRunRefusesASettingsSave(t *testing.T) {
 	t.Parallel()
 

@@ -178,7 +178,8 @@ for (const theme of themes) {
       await opensBranch(page)
       await opens(page)
 
-      // Act & Assert: Tab once round the page.
+      // Act & Assert
+      // Tab once round the page.
       await expectReachableAndClean(page, { passedBy })
     })
   }

@@ -51,8 +51,8 @@ type setUpCause struct {
 // latter.
 func setUpCauses() []setUpCause {
 	return []setUpCause{
-		{jira.ErrNoCredential, "Jira has no token; set jira.token, or check that jira.token_command or " +
-			"jira.token_env gives one — workflow doctor --online tests it"},
+		{jira.ErrNoCredential, "Jira has no token; set jira.token, or check that jira.keychain, " +
+			"jira.token_command or jira.token_env gives one — workflow doctor --online tests it"},
 		{forge.ErrNoToken, "no forge token was found; for GitHub set $GITHUB_TOKEN or sign in with gh, for GitLab " +
 			"set $GITLAB_TOKEN, or set forge.token; workflow doctor names where it looks for this repository"},
 		{forge.ErrNotARemote, "origin does not name a repository on a forge; point it at the repository"},

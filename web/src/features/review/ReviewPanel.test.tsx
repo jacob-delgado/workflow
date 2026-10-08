@@ -1,10 +1,10 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { fakeApi, held } from '@/test/fakeApi.ts'
+import { held } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
@@ -225,7 +225,8 @@ test('opens a pull request from the composed form on confirm', async () => {
   })
   render(<ReviewPanel />)
 
-  // Act: open the form, then confirm it
+  // Act
+  // Open the form, then confirm it.
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
   await screen.findByRole('form', { name: /open a pull request/i })
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
@@ -246,7 +247,8 @@ test('opens a pull request with reviewers, assignees and labels', async () => {
   })
   render(<ReviewPanel />)
 
-  // Act: open the form, fill the people fields, then confirm
+  // Act
+  // Open the form, fill the people fields, then confirm.
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
   await screen.findByRole('form', { name: /open a pull request/i })
   await user.type(screen.getByLabelText(/reviewers/i), 'ana, ben')
@@ -254,7 +256,8 @@ test('opens a pull request with reviewers, assignees and labels', async () => {
   await user.type(screen.getByLabelText(/labels/i), 'bug, review')
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
 
-  // Assert: each comma-separated field is split into a trimmed list
+  // Assert
+  // Each comma-separated field is split into a trimmed list.
   expect(mockOpenPr).toHaveBeenCalledWith(
     expect.objectContaining({
       reviewers: ['ana', 'ben'],
@@ -284,13 +287,15 @@ test('pre-fills the reviewers with the code owners the draft proposes', async ()
   })
   render(<ReviewPanel />)
 
-  // Act: open the form, then confirm the proposal as it stands
+  // Act
+  // Open the form, then confirm the proposal as it stands.
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
   const reviewers = await screen.findByRole('textbox', { name: /reviewers/i })
   const shown = (reviewers as HTMLInputElement).value
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
 
-  // Assert: the owners are shown, then sent, teams among them
+  // Assert
+  // The owners are shown, then sent, teams among them.
   expect(shown).toBe('ana, acme/control-plane')
   expect(mockOpenPr).toHaveBeenCalledWith(
     expect.objectContaining({ reviewers: ['ana', 'acme/control-plane'] }),
@@ -357,12 +362,14 @@ test('locks the confirm while the pull request is opening', async () => {
   })
   render(<ReviewPanel />)
 
-  // Act: open the form and confirm, leaving the open unresolved
+  // Act
+  // Open the form and confirm, leaving the open unresolved.
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
   await screen.findByRole('form', { name: /open a pull request/i })
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
 
-  // Assert: the confirm now reads "Opening…" and is held, and only one open fired
+  // Assert
+  // The confirm now reads "Opening…" and is held, and only one open fired.
   const opening = await screen.findByRole('button', { name: /opening/i })
   expect(opening.getAttribute('aria-disabled')).toBe('true')
   expect(mockOpenPr).toHaveBeenCalledTimes(1)
@@ -388,7 +395,8 @@ test('keeps the form, the focus and the reason when opening is refused', async (
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
   await screen.findByRole('button', { name: 'Opening…' })
 
-  // Act: the open is refused once it has been seen going
+  // Act
+  // The open is refused once it has been seen going.
   act(() => {
     opened.refuse({
       code: 'unprocessable',
@@ -396,7 +404,8 @@ test('keeps the form, the focus and the reason when opening is refused', async (
     })
   })
 
-  // Assert: the forge's own reason shows and the form is still there to retry
+  // Assert
+  // The forge's own reason shows and the form is still there to retry.
   expect(await screen.findByText(/base branch trunk does not exist/i)).toBeTruthy()
   expect(screen.getByRole('form', { name: /open a pull request/i })).toBeTruthy()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open pull request' }))
@@ -454,6 +463,8 @@ test('offers and opens a merge request in GitLab words throughout', async () => 
     status: 'live',
     snapshot: makeSnapshot({ review: { found: false, announced: false } }),
   })
+
+  // Act: draw the panel
   render(<ReviewPanel />)
 
   // Assert: the offer names a merge request
@@ -573,138 +584,4 @@ test('names the issue the pull request is for, with a link to its page', () => {
   const link = screen.getByRole('link', { name: '#42 (opens in a new tab)' })
   expect(link.getAttribute('href')).toBe('https://github.com/acme/oss/issues/42')
   expect(link.getAttribute('target')).toBe('_blank')
-})
-
-test('says why each failed check failed, and the stage it ran in', () => {
-  // Arrange
-  useSnapshotStore.setState({
-    status: 'live',
-    snapshot: makeSnapshot({
-      review: {
-        found: true,
-        announced: false,
-        pull,
-        ci: {
-          state: 'failed',
-          total: 0,
-          done: 0,
-          failed: 0,
-          checks: [
-            {
-              name: 'unit-race',
-              state: 'failed',
-              url: 'https://gl/jobs/501',
-              id: '501',
-              stage: 'test',
-              reason: 'script failure',
-            },
-          ],
-        },
-      },
-    }),
-  })
-
-  // Act
-  render(<ReviewPanel />)
-
-  // Assert
-  const row = screen.getByRole('listitem')
-  expect(within(row).getByText('test')).toBeTruthy()
-  expect(within(row).getByRole('link', { name: 'unit-race (opens in a new tab)' })).toBeTruthy()
-  expect(row.textContent).toContain('script failure')
-})
-
-test("shows a failed check's log on demand", async () => {
-  // Arrange
-  const requests = fakeApi({
-    '/api/review/checks/501/log': { text: '--- FAIL: TestRetry\n    got 4', truncated: true },
-  })
-  useSnapshotStore.setState({
-    status: 'live',
-    snapshot: makeSnapshot({
-      review: {
-        found: true,
-        announced: false,
-        pull,
-        ci: {
-          state: 'failed',
-          total: 0,
-          done: 0,
-          failed: 0,
-          checks: [{ name: 'unit-race', state: 'failed', url: '', id: '501', log_available: true }],
-        },
-      },
-    }),
-  })
-  const user = userEvent.setup()
-  render(<ReviewPanel />)
-  expect(requests).toHaveLength(0)
-
-  // Act
-  await user.click(screen.getByRole('button', { name: 'Show log of unit-race' }))
-
-  // Assert
-  expect(await screen.findByText(/--- FAIL: TestRetry/)).toBeTruthy()
-  expect(screen.getByText(/earlier lines are not shown/)).toBeTruthy()
-})
-
-// onFailedJob streams a pull request whose one check is a failed GitLab job,
-// in the test stage, with a log to read.
-function onFailedJob() {
-  useSnapshotStore.setState({
-    status: 'live',
-    snapshot: makeSnapshot({
-      review: {
-        found: true,
-        announced: false,
-        pull,
-        ci: {
-          state: 'failed',
-          total: 1,
-          done: 1,
-          failed: 1,
-          checks: [
-            {
-              name: 'unit-race',
-              stage: 'test',
-              state: 'failed',
-              url: '',
-              id: '501',
-              log_available: true,
-            },
-          ],
-        },
-      },
-    }),
-  })
-}
-
-test('a log, once read, takes focus from the control that asked for it', async () => {
-  // Arrange
-  fakeApi({ '/api/review/checks/501/log': { text: '--- FAIL: TestRetry', truncated: false } })
-  onFailedJob()
-  const user = userEvent.setup()
-  render(<ReviewPanel />)
-
-  // Act
-  await user.click(screen.getByRole('button', { name: 'Show log of unit-race' }))
-
-  // Assert
-  const log = await screen.findByRole('region', { name: 'Log of unit-race' })
-  expect(document.activeElement).toBe(log)
-  expect(log.textContent).toContain('--- FAIL: TestRetry')
-})
-
-test('while the log is read, the control is named by what it says', async () => {
-  // Arrange
-  fakeApi({ '/api/review/checks/501/log': () => new Promise(() => undefined) })
-  onFailedJob()
-  const user = userEvent.setup()
-  render(<ReviewPanel />)
-
-  // Act
-  await user.click(screen.getByRole('button', { name: 'Show log of unit-race' }))
-
-  // Assert
-  expect(await screen.findByRole('button', { name: 'Reading the log of unit-race…' })).toBeTruthy()
 })

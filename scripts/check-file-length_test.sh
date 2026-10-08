@@ -30,6 +30,25 @@ soft_length() {
   awk 'BEGIN { for (i = 0; i < 600; i++) print "x" }'
 }
 
+# lines writes a file of the given number of lines.
+#   lines <count>
+lines() {
+  awk -v count="$1" 'BEGIN { for (i = 0; i < count; i++) print "x" }'
+}
+
+# repository_with makes a repository tracking a short Go file and a file of
+# the given length at path, and prints where it is.
+#   repository_with <name> <path> <lines>
+repository_with() {
+  local dir="${workdir}/$1"
+  mkdir -p "$(dirname "${dir}/$2")"
+  git -C "${dir}" init -q
+  printf 'package x\n' >"${dir}/small.go"
+  lines "$3" >"${dir}/$2"
+  git -C "${dir}" add small.go "$2"
+  printf '%s\n' "${dir}"
+}
+
 # A directory that is not a git repository: git cannot list its files, and the
 # gate must refuse rather than pass on nothing measured.
 notrepo="${workdir}/notrepo"
@@ -115,6 +134,29 @@ printf 'package x\n' >"${beside}/small.go"
 over_length >"${beside}/web/src/api/client.ts"
 git -C "${beside}" add small.go web/src/api/client.ts
 expect fail "an over-length hand-written file beside the generated client" "${beside}"
+
+# A test file is held to a lower ceiling than source, 700 lines, whichever
+# language it is in: a test file grows a case at a time, and past that it
+# holds the cases of more than one behavior.
+for path in big_test.go big_test.sh Big.test.ts Big.test.tsx web/e2e/big.spec.ts web/e2e/helpers.ts; do
+  expect fail "a test file past the test ceiling: ${path}" \
+    "$(repository_with "test-${path//\//-}" "${path}" 701)"
+done
+
+# A test file at the test ceiling passes.
+expect pass "a test file at the test ceiling" "$(repository_with at-test-ceiling at_test.go 700)"
+
+# A source file the same length is within its own ceiling.
+expect pass "a source file past the test ceiling" "$(repository_with source-past big.go 701)"
+
+# --list marks a test file past its ceiling, and only that one, as over.
+over_test="$(repository_with listed-tests big_test.go 701)"
+lines 701 >"${over_test}/big.go"
+git -C "${over_test}" add big.go
+expect_output pass "--list marks a test file past its ceiling" "  701  big_test.go  <= OVER" \
+  run_in "${over_test}" "${check}" --list
+expect_output pass "--list marks a source file the same length soft" "  701  big.go  <= soft" \
+  run_in "${over_test}" "${check}" --list
 
 # --list reports what the gate measures, so a TypeScript file appears in it.
 listed="${workdir}/listed"

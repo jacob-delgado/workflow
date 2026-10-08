@@ -127,7 +127,8 @@ async function routedSoFar(page: Page): Promise<void> {
 }
 
 test('switching back to Reviews within 30 seconds reads nothing again', async ({ page }) => {
-  // Arrange: Reviews read once, then another section open.
+  // Arrange
+  // Reviews read once, then another section open.
   await page.clock.install()
   const counted = await answersQueue(page)
   await page.goto('/')
@@ -138,8 +139,9 @@ test('switching back to Reviews within 30 seconds reads nothing again', async ({
   // Act
   await openSection(page, 'Reviews')
 
-  // Assert: the queue is drawn again, and a read the reopening started, which
-  // goes out as the queue is drawn, would have been counted by now.
+  // Assert
+  // The queue is drawn again, and a read the reopening started, which goes out
+  // as the queue is drawn, would have been counted by now.
   await expect(
     page.getByRole('list', { name: 'Waiting on your review', exact: true }),
   ).toBeVisible()
@@ -148,7 +150,8 @@ test('switching back to Reviews within 30 seconds reads nothing again', async ({
 })
 
 test('switching back to Reviews after 30 seconds reads the queue again', async ({ page }) => {
-  // Arrange: Reviews read once, then another section open past the 30 seconds.
+  // Arrange
+  // Reviews read once, then another section open past the 30 seconds.
   await page.clock.install()
   const counted = await answersQueue(page)
   await page.goto('/')
@@ -218,7 +221,7 @@ for (const theme of themes) {
     test(`a filtered queue by repository fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
-      // Arrange: the queue, in this theme, at this width.
+      // Arrange
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
@@ -226,12 +229,14 @@ for (const theme of themes) {
       await page.goto('/')
       await openSection(page, 'Reviews')
 
-      // Act: narrow it, and group it.
+      // Act
+      // Narrow it, and group it.
       await press(page, 'ready 3')
       await page.getByRole('combobox', { name: 'Sort' }).selectOption('By repository')
       await expect(page.getByRole('heading', { level: 3 }).first()).toBeVisible()
 
-      // Assert: Tab reaches the sort and the filter, and it is clean.
+      // Assert
+      // Tab reaches the sort and the filter, and it is clean.
       await expectReachableAndClean(page, { reaches: ['Sort', 'ready 3'] })
     })
   }

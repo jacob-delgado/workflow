@@ -28,7 +28,7 @@ export default mergeConfig(
         },
         {
           // The lint's own rules, each shown firing on code that breaks it,
-          // and the e2e marker rule's cases. ESLint runs in Node, and its
+          // and the marker rule's cases. ESLint runs in Node, and its
           // first typed lint builds the TypeScript program, which takes
           // seconds. RuleTester names its cases through the global describe
           // and it.

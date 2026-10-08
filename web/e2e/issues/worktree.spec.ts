@@ -102,7 +102,8 @@ test('work started in a new worktree offers to switch to it', async ({ page }) =
 })
 
 test('a fetch that fails offers to branch from what you have', async ({ page }) => {
-  // Arrange: the first ask's fetch fails; the second, without one, makes it.
+  // Arrange
+  // The first ask's fetch fails; the second, without one, makes it.
   await opensIssue(page)
   const asked: unknown[] = []
   await page.route('**/api/worktrees', (route) => {
@@ -134,7 +135,8 @@ for (const theme of themes) {
     test(`the offer to switch to a new worktree fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
-      // Arrange: a worktree made, in this theme, at this width.
+      // Arrange
+      // A worktree made, in this theme, at this width.
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
@@ -142,7 +144,8 @@ for (const theme of themes) {
       await page.getByRole('button', { name: 'Start work in a new worktree' }).click()
       await expect(page.getByRole('button', { name: 'Switch to it' })).toBeVisible()
 
-      // Act & Assert: Tab reaches the switch.
+      // Act & Assert
+      // Tab reaches the switch.
       await expectReachableAndClean(page, { reaches: ['Switch to it'] })
     })
   }

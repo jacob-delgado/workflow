@@ -113,8 +113,9 @@ func messages() map[Rule]string {
 		AmbiguousHelper: "this call may reach a failure only through a method whose receiver's type is not " +
 			"visible, and methods of that name on different types disagree on asserting: " +
 			"declare the receiver with its type, as in q := T{} or var q T, or rename one of the methods",
-		SubtestLiteral: "t.Run and f.Fuzz need a function literal, so its body can carry the markers",
-		TableMarker:    "this test runs subtests: the markers go inside each t.Run or f.Fuzz closure",
+		SubtestLiteral: "t.Run, f.Fuzz and synctest.Test need a function literal, so its body can carry the markers",
+		TableMarker: "this test runs its body in subtests or a bubble: " +
+			"the markers go inside each t.Run, f.Fuzz or synctest.Test closure",
 		TableAssertion: "an assertion outside the subtests; move it into a case, or into a test of its own",
 	}
 }

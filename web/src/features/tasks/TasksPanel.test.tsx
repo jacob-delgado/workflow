@@ -184,16 +184,20 @@ test('the first task is selected and its detail shown; choosing another shows it
   // Arrange
   const user = userEvent.setup()
   fakeApi({ [tasksPath]: makeTaskList([certificate, elsewhere]) })
+
+  // Act: list the tasks
   renderWithClient(<TasksPanel />)
+
+  // Assert: the first is selected
   const list = await screen.findByRole('list', { name: 'Tasks' })
   const first = within(list).getByRole('button', { name: /renew the certificate/i })
   const second = within(list).getByRole('button', { name: /tune the cache/i })
   expect(first.getAttribute('aria-current')).toBe('true')
 
-  // Act
+  // Act: choose the second
   await user.click(second)
 
-  // Assert
+  // Assert: the second is selected instead, and its detail shown
   expect(first.getAttribute('aria-current')).toBeNull()
   expect(second.getAttribute('aria-current')).toBe('true')
   expect(screen.getByRole('heading', { level: 2, name: 'PROJ-9: Tune the cache' })).toBeTruthy()
@@ -360,13 +364,17 @@ test('a failed read says why, and Try again reads again, one request each', asyn
     Response.json(makeTaskList([certificate])),
   ]
   const requests = fakeApi({ [tasksPath]: () => answers.shift() })
+
+  // Act: read the tasks, refused
   renderWithClient(<TasksPanel />)
+
+  // Assert: it says why
   expect((await screen.findByRole('alert')).textContent).toBe('Taskwarrior did not answer in time')
 
-  // Act
+  // Act: try again
   await user.click(screen.getByRole('button', { name: 'Try again' }))
 
-  // Assert
+  // Assert: the list is read, one request each
   expect(await screen.findByRole('list', { name: 'Tasks' })).toBeTruthy()
   expect(screen.queryByRole('alert')).toBeNull()
   expect(readsOf(requests)).toBe(2)

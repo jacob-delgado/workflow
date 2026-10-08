@@ -49,9 +49,12 @@ type heldAnnouncement struct {
 	// it announces: a branch that now has another pull request, or none, is
 	// another moment.
 	branch string
-	// state is how it stands, and reason why it was dropped, when it was.
-	state  heldState
-	reason string
+	// state is how it stands, reason why it was dropped, when it was, and
+	// warning what is said of it once posted, when the store could not
+	// remember it.
+	state   heldState
+	reason  string
+	warning string
 	// check is the timer of the next read of the CI for the announcement
 	// waiting now; nil when none waits.
 	check *time.Timer
@@ -156,9 +159,7 @@ func (s *server) hold(post announcePost, branch gitrepo.Branch) (api.QueuedAnnou
 		return api.QueuedAnnouncement{}, errHeldAnnouncing
 	}
 
-	s.held.stopWatching()
-	s.held.round++
-	s.held.post, s.held.branch, s.held.state, s.held.reason = post, branch.Name, heldWaiting, ""
+	s.held.replace(post, branch.Name, heldWaiting)
 	s.held.check = s.checkHeldAfter(s.held.round)
 
 	return s.held.queued(), nil
@@ -274,10 +275,11 @@ func (s *server) heldVerdict(branch gitrepo.Branch, read forgeRead) (string, hel
 	}
 }
 
-// postHeld posts the announcement taken to post, and records how it went: a
-// moment announced meanwhile, from a page or a terminal, drops it unposted.
+// postHeld posts the announcement taken to post, and records how it went,
+// with the warning when the store could not remember it: a moment announced
+// meanwhile, from a page or a terminal, drops it unposted.
 func (s *server) postHeld(post announcePost) {
-	err := s.deliver(post)
+	warning, err := s.deliver(post)
 
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
@@ -289,6 +291,7 @@ func (s *server) postHeld(post announcePost) {
 		s.held.settle(heldDropped, s.fault(err).Detail)
 	default:
 		s.held.settle(heldAnnounced, "")
+		s.held.warning = warning
 	}
 }
 
@@ -305,9 +308,7 @@ func (s *server) dropHeld() (bool, error) {
 
 	waiting := s.held.state == heldWaiting
 
-	s.held.stopWatching()
-	s.held.round++
-	s.held.post, s.held.branch, s.held.state, s.held.reason = announcePost{}, "", heldNone, ""
+	s.held.replace(announcePost{}, "", heldNone)
 
 	return waiting, nil
 }
@@ -344,6 +345,15 @@ func (s *server) CancelQueuedAnnouncement(
 	return api.CancelQueuedAnnouncement204Response{}, nil
 }
 
+// replace holds post, written for branch, at state in place of the one
+// before, with nothing said of it yet: it stops the reads of the CI for the
+// one before and counts the round. The caller holds the lock.
+func (h *heldAnnouncement) replace(post announcePost, branch string, state heldState) {
+	h.stopWatching()
+	h.round++
+	h.post, h.branch, h.state, h.reason, h.warning = post, branch, state, "", ""
+}
+
 // settle moves the held announcement to state, with the reason when it was
 // dropped, and stops its reads of the CI. The caller holds the lock.
 func (h *heldAnnouncement) settle(state heldState, reason string) {
@@ -356,7 +366,7 @@ func (h *heldAnnouncement) settle(state heldState, reason string) {
 func (h *heldAnnouncement) queued() api.QueuedAnnouncement {
 	return api.QueuedAnnouncement{
 		State: queuedState(h.state), Channel: h.post.delivery.Channel, Pull: h.post.pull.Number,
-		Reason: optional(h.reason),
+		Reason: optional(h.reason), Warning: optional(h.warning),
 	}
 }
 
@@ -423,17 +433,18 @@ func (s *server) recordAnnouncement(made loop.Announced) error {
 	return err
 }
 
-// delivered is how a delivery went, as an announcement: one posted that the
-// store could not remember was made all the same, so its failure is noted
-// rather than answered.
-func (s *server) delivered(err error) error {
+// delivered is how a delivery went, as an announcement, and the warning to
+// say of it: one posted that the store could not remember was made all the
+// same, so its failure is noted and warned of rather than answered as one.
+// Why the store could not goes to the log alone: its error can name the file.
+func (s *server) delivered(err error) (string, error) {
 	if errors.Is(err, loop.ErrNotRemembered) {
 		s.unexpected(err)
 
-		return nil
+		return loop.NotRememberedWarning, nil
 	}
 
-	return err
+	return "", err
 }
 
 // announcedAlready reports that made was announced already, from any surface.
@@ -456,16 +467,17 @@ func (s *server) reviewAnnounced(read forgeRead) bool {
 // here or from a terminal.
 var errAnnouncedAlready = errors.New("announced already at this moment")
 
-// deliver posts post, and records what it made, unless that was made already.
-// The check, the post and the record are one step under delivering, so two
-// asks at once — two tabs, or a held announcement and one made now — post it
-// once, and the second learns it was made.
-func (s *server) deliver(post announcePost) error {
+// deliver posts post, and records what it made, unless that was made already,
+// answering the warning to say of a post the store could not remember. The
+// check, the post and the record are one step under delivering, so two asks
+// at once — two tabs, or a held announcement and one made now — post it once,
+// and the second learns it was made.
+func (s *server) deliver(post announcePost) (string, error) {
 	s.delivering.Lock()
 	defer s.delivering.Unlock()
 
 	if s.announcedAlready(post.delivery.Made) {
-		return errAnnouncedAlready
+		return "", errAnnouncedAlready
 	}
 
 	return s.delivered(loop.Deliver(s.deps.Post, post.memory, post.delivery))

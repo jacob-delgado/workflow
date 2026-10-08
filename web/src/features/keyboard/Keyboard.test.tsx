@@ -176,13 +176,17 @@ test('Escape closes the sheet and hands the focus back', async () => {
   search.focus()
   await user.keyboard('{Escape}')
   screen.getByRole('button', { name: /Fix the token leak/ }).focus()
+
+  // Act: open the sheet from the issue
   await user.keyboard('?')
+
+  // Assert: the sheet is open
   expect(screen.getByRole('dialog')).toBeTruthy()
 
-  // Act
+  // Act: close it
   await user.keyboard('{Escape}')
 
-  // Assert
+  // Assert: it is gone, and the focus is back on the issue
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: /Fix the token leak/ }))
   expect(document.activeElement).not.toBe(box)

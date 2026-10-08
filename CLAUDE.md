@@ -145,17 +145,19 @@ without agreement on direction.
   than one level of abstraction, extract. The test: can you describe what it does
   in a single clause without using "and"?
 
-- **File length — 500-line soft target, 800-line hard ceiling.** Aim for under
-  500: a file past that is usually carrying more than one concern and wants
-  splitting, file-per-concern. `scripts/check-file-length.sh` *warns* past 500
-  but only *fails* past 800, so the guidance nudges without blocking a file with
-  a genuine reason to be long. It gates every tracked `.go`, `.sh`, `.ts` and
-  `.tsx` file in `task lint` and on pre-push (generated code — `.gen.go` and
-  `web/src/api/generated` — excepted); `--list` prints the current standings,
-  flagging each file `soft` or `OVER`. Tests count: a 900-line test file usually
-  means the unit under test does too much. There is no exemption list,
-  deliberately — add one only when a file genuinely earns it, with the reason
-  written beside it.
+- **File length — 500-line soft target, 800-line hard ceiling, 700 for a
+  test.** Aim for under 500: a file past that is usually carrying more than one
+  concern and wants splitting, file-per-concern. `scripts/check-file-length.sh`
+  *warns* past 500 but only *fails* past 800, so the guidance nudges without
+  blocking a file with a genuine reason to be long. It gates every tracked
+  `.go`, `.sh`, `.ts` and `.tsx` file in `task lint` and on pre-push (generated
+  code — `.gen.go` and `web/src/api/generated` — excepted); `--list` prints the
+  current standings, flagging each file `soft` or `OVER`. Tests count, and
+  sooner: a test file grows a case at a time, so it fails past 700, by which
+  point it holds the cases of more than one behavior — split it along them,
+  shared fixtures in a sibling file. The script's header names what counts as
+  a test file. There is no exemption list, deliberately — add one only when a
+  file genuinely earns it, with the reason written beside it.
 
 - **Package & directory size — cohesion first, a budget as the backstop.** Size
   a grouping by responsibility, not by a file count. A Go package is *one*
@@ -453,17 +455,18 @@ mark that part `// Act & Assert`. One Act per test: independent scenarios run
 back to back are separate tests or table cases. The exception is a flow whose
 intermediate states are themselves the contract ("nothing is posted before the
 preview is confirmed"), which labels every step instead — `// Act: open the
-preview`, `// Assert: nothing is sent yet` — while a single-cycle test carries no
-labels, because its name is the label. A table test puts the markers inside each
-`t.Run` closure and a fuzz test inside `f.Fuzz`; the cases, the loop and the
-seeds carry none. A test whose Assert reaches no `t.Error` or `t.Fatal`, directly
-or through a helper, asserts nothing and is useless. `cmd/testshape` fails a body
-whose markers are missing, malformed or out of order, or whose Assert reaches no
-failure; it runs in `task lint`, on commit, and in CI. The e2e specs answer to
-its TypeScript twin, `web/eslint-rules/arrange-act-assert.js`, in `yarn lint`.
-It is a floor: it cannot tell a meaningful assertion from one that passes
-whatever the Act did, so ask of every Assert whether it would fail if the Act
-did nothing.
+preview`, `// Assert: nothing is sent yet` — while a single-cycle test carries
+no labels, because its name is the label. A table test puts the markers inside
+each `t.Run` closure, a fuzz test inside `f.Fuzz`, and a test on a fake clock
+inside its `synctest.Test` bubble; the cases, the loop and the seeds carry none.
+A test whose Assert reaches no `t.Error` or `t.Fatal`, directly or through a
+helper, asserts nothing and is useless. `cmd/testshape` fails a body whose
+markers are missing, malformed or out of order, or whose Assert reaches no
+failure; it runs in `task lint`, on commit, and in CI. The web's unit tests and
+e2e specs answer to the same rule through its TypeScript twin,
+`web/eslint-rules/arrange-act-assert.js`, in `yarn lint`. It is a floor: it
+cannot tell a meaningful assertion from one that passes whatever the Act did, so
+ask of every Assert whether it would fail if the Act did nothing.
 
 **Tables when cases differ in data, not behavior.** When adding tests, prefer a
 table-driven test for cases that differ only in their inputs and expectations,
@@ -479,10 +482,10 @@ the gate enforces.
 says a line ran; condition coverage (gobco, `task cover:branch`) says whether an
 `if a && b` was ever seen with `b` false. Its per-condition output — "condition
 `err != nil` was 8 times false but never true" — is a worklist of missing test
-cases, not a percentage to chase. gobco reads every package in this module but
-the build-tagged twins `scripts/gobco-report.sh` names as unreadable
-(`UNANALYZABLE`); a package that becomes unreadable without being listed fails
-the gate rather than quietly shrinking what the number covers.
+cases, not a percentage to chase. gobco measures every package in this module
+that has tests. It reads a package of build-tagged twins one file at a time, so
+each file the build takes must stand alone, and any package or file it cannot
+read fails the gate rather than quietly shrinking what the number covers.
 
 **Raising the floor: the ratchet is `floor(measured) − 2`.** Two points is the
 whole tolerance — enough for an incidental refactor, not enough to land a feature

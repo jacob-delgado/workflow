@@ -84,32 +84,50 @@ func (f settingsForm) settings() []setting {
 		timingSettings(), terminalSettings(), keyboardSettings(f.actions))
 }
 
-// tokenHint says where the Jira token comes from: the file's own token wins,
-// then token_env, then token_command, so a token typed over a source sends the
-// secret into the file the source kept it out of. Neither source is a secret.
-func tokenHint(read map[string]any) string {
-	token, _ := valueAt(read, "jira.token").(string)
-	command, _ := valueAt(read, "jira.token_command").(string)
-	variable, _ := valueAt(read, "jira.token_env").(string)
+// keychainLabel is the Jira keychain's row, the words the web's checkbox
+// carries too.
+const keychainLabel = "Read the token from your keychain, kept there for this address (macOS)"
 
-	var source string
+// tokenHint says where the Jira token comes from: the file's own token as
+// read wins, then the keychain as the form holds it, then token_env, then
+// token_command, so a token typed over a source is used instead of it. None of
+// the sources is a secret.
+func tokenHint(read map[string]any, held func(string) any) string {
+	token, _ := valueAt(read, "jira.token").(string)
+	source := tokenSource(held)
 
 	switch {
-	case variable != "":
-		source = "token_env: " + sanitize.Line(variable)
-	case command != "":
-		source = "token_command: " + sanitize.Line(command)
-	case token != "":
+	case source == "" && token != "":
 		return "Leave empty to keep the stored token."
-	default:
-		return "A personal access token. token_command or token_env, set in the file, keep it out of the file."
-	}
-
-	if token != "" {
+	case source == "":
+		return "A personal access token, " + typedTokenKept + "."
+	case token != "":
 		return "The token stored here is used over " + source + "."
+	default:
+		return "Taken from " + source + ". One typed here is used instead, " + typedTokenKept + "."
 	}
+}
 
-	return "Taken from " + source + ". A token typed here is kept in the file and used instead."
+// typedTokenKept says where a Jira token typed into Settings goes.
+const typedTokenKept = "kept in your keychain for this address on macOS or in the file elsewhere"
+
+// tokenSource names the source the Jira token is read from when the file holds
+// none: the keychain over the variable over the command, or none of them.
+func tokenSource(held func(string) any) string {
+	keychain, _ := held("jira.keychain").(bool)
+	variable, _ := held("jira.token_env").(string)
+	command, _ := held("jira.token_command").(string)
+
+	switch {
+	case keychain:
+		return "your keychain, for this address"
+	case variable != "":
+		return "token_env: " + sanitize.Line(variable)
+	case command != "":
+		return "token_command: " + sanitize.Line(command)
+	default:
+		return ""
+	}
 }
 
 // jiraSettings are where the tracker is and who reads it, and the views and
@@ -127,7 +145,8 @@ func jiraSettings(noun string, read map[string]any, held func(string) any) []set
 
 	return slices.Concat([]setting{
 		{section: section, label: "Base URL", path: "jira.base_url", kind: settingURL},
-		{section: section, label: "Token", path: "jira.token", kind: settingSecret, hint: tokenHint(read)},
+		{section: section, label: "Token", path: "jira.token", kind: settingSecret, hint: tokenHint(read, held)},
+		{section: section, label: keychainLabel, path: "jira.keychain", kind: settingToggle},
 		{section: section, label: "User", path: "jira.user", hint: "Empty authenticates with the token as a bearer."},
 		{section: section, label: "Project", path: "jira.project"},
 		{

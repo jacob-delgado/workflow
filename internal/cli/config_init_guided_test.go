@@ -155,10 +155,10 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	var stored atomic.Value
 
 	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
-	prompt.StoreSecret = func(secret string) (string, error) {
-		stored.Store(secret)
+	prompt.StoreSecret = func(service, secret string) error {
+		stored.Store(service + " holds " + secret)
 
-		return "security find-generic-password -s workflow-jira -w", nil
+		return nil
 	}
 
 	// Act
@@ -173,23 +173,28 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 		t.Fatalf("loading: %v", err)
 	}
 
-	if cfg.Jira.Token != "" || cfg.Jira.TokenCommand == "" || stored.Load() != guidedToken {
-		t.Errorf("token not moved to the keychain: token=%q command=%q stored=%v",
-			cfg.Jira.Token, cfg.Jira.TokenCommand, stored.Load())
+	if cfg.Jira.Token != "" || !cfg.Jira.Keychain || stored.Load() != "workflow-jira "+jiraURL+" holds "+guidedToken {
+		t.Errorf("token not moved to the keychain item for its address: token kept %t, keychain %t, stored %v",
+			cfg.Jira.Token != "", cfg.Jira.Keychain, stored.Load())
+	}
+
+	if strings.Contains(printed.stderr, guidedToken) || !strings.Contains(printed.stderr, "workflow-jira "+jiraURL) {
+		t.Errorf("config init said:\n%s\nwant the keychain item named and the token never shown", printed.stderr)
 	}
 }
 
-func TestGuidedInitOffersNoKeychainForAFileOutsideHome(t *testing.T) {
+func TestGuidedInitKeepsARepositoryFilesTokenInTheKeychainForItsAddress(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	jiraURL := workingJira(t)
 
-	// Were the keychain offered, the "y" would take it.
-	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
-	prompt.StoreSecret = func(string) (string, error) {
-		t.Error("stored the token for a file the keychain's token_command cannot be set in")
+	var stored atomic.Value
 
-		return "", errPromptBroke
+	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt.StoreSecret = func(service, secret string) error {
+		stored.Store(service + " holds " + secret)
+
+		return nil
 	}
 
 	// Act
@@ -197,9 +202,11 @@ func TestGuidedInitOffersNoKeychainForAFileOutsideHome(t *testing.T) {
 
 	// Assert
 	cfg, loadErr := config.Load(dir, t.TempDir())
-	if err != nil || loadErr != nil || cfg.Jira.Token != guidedToken {
-		t.Errorf("config init = %v (%s), loaded %+v (%v); want the token kept in the file, no keychain offered",
-			err, output, cfg.Redacted().Jira, loadErr)
+	if err != nil || loadErr != nil || cfg.Jira.Token != "" || !cfg.Jira.Keychain ||
+		stored.Load() != "workflow-jira "+jiraURL+" holds "+guidedToken {
+		t.Errorf("config init = %v (%s), loaded keychain %t with a token %t (%v), stored %v; want the token in "+
+			"the keychain item for its address, the file reading it from there",
+			err, output, cfg.Jira.Keychain, cfg.Jira.Token != "", loadErr, stored.Load())
 	}
 }
 
@@ -209,10 +216,10 @@ func TestGuidedInitKeepsTheTokenInTheFileWhenKeychainDeclined(t *testing.T) {
 	jiraURL := workingJira(t)
 
 	prompt := scripted([]string{jiraURL, "n"}, []string{guidedToken})
-	prompt.StoreSecret = func(string) (string, error) {
+	prompt.StoreSecret = func(string, string) error {
 		t.Error("stored the token though the offer was declined")
 
-		return "", errPromptBroke
+		return errPromptBroke
 	}
 
 	// Act
@@ -227,8 +234,8 @@ func TestGuidedInitKeepsTheTokenInTheFileWhenKeychainDeclined(t *testing.T) {
 		t.Fatalf("loading: %v", err)
 	}
 
-	if cfg.Jira.Token != guidedToken || cfg.Jira.TokenCommand != "" {
-		t.Errorf("token not kept in the file: token=%q command=%q", cfg.Jira.Token, cfg.Jira.TokenCommand)
+	if cfg.Jira.Token != guidedToken || cfg.Jira.Keychain {
+		t.Errorf("token not kept in the file: token=%q keychain=%t", cfg.Jira.Token, cfg.Jira.Keychain)
 	}
 }
 
@@ -238,7 +245,7 @@ func TestGuidedInitReportsAKeychainFailure(t *testing.T) {
 	jiraURL := workingJira(t)
 
 	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
-	prompt.StoreSecret = func(string) (string, error) { return "", errPromptBroke }
+	prompt.StoreSecret = func(string, string) error { return errPromptBroke }
 
 	// Act
 	_, err := runGuided(t, dir, prompt, "config", "init", "--global")
@@ -357,10 +364,10 @@ func TestGuidedInitDryRunWritesAndStoresNothing(t *testing.T) {
 	var stored atomic.Bool
 
 	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken, "https://hooks.slack.example/x"})
-	prompt.StoreSecret = func(string) (string, error) {
+	prompt.StoreSecret = func(string, string) error {
 		stored.Store(true)
 
-		return "security find-generic-password -s workflow-jira -w", nil
+		return nil
 	}
 
 	// Act

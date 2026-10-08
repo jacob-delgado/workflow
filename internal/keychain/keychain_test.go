@@ -16,6 +16,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
+// securityProgram is the program the keychain drives.
+const securityProgram = "security"
+
 // errKeychainLocked stands in for security refusing to store.
 var errKeychainLocked = errors.New("security: exit status 51")
 
@@ -62,9 +65,13 @@ func userIs(name string) func(string) string {
 	}
 }
 
+// jiraItem is the service a Jira token is kept under for one address, a name
+// holding a space.
+const jiraItem = "workflow-jira https://jira.example.com"
+
 // storerFor is the macOS store for a user logged in as jacob, running
 // security through a recordingRunner that answers with err.
-func storerFor(runs *[]ran, err error) func(secret string) (string, error) {
+func storerFor(runs *[]ran, err error) func(service, secret string) error {
 	return keychain.Storer("darwin", recordingRunner(runs, err), loggedInAs("jacob"), userIs(""))
 }
 
@@ -91,7 +98,7 @@ func TestStorerIsWiredForMacOSOnly(t *testing.T) {
 	}
 }
 
-func TestStorerSavesUnderTheJiraServiceUpdatablyAndNamesTheReader(t *testing.T) {
+func TestStorerSavesUnderTheServiceNamedUpdatably(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -100,16 +107,15 @@ func TestStorerSavesUnderTheJiraServiceUpdatablyAndNamesTheReader(t *testing.T) 
 	store := storerFor(&runs, nil)
 
 	// Act
-	tokenCommand, err := store("s3cret")
-
+	err := store(jiraItem, "s3cret")
 	// Assert
-	if err != nil || tokenCommand != "security find-generic-password -s workflow-jira -w" {
-		t.Errorf("store = %q, %v; want the find-generic-password reader", tokenCommand, err)
+	if err != nil {
+		t.Errorf("store = %v, want the secret kept", err)
 	}
 
 	want := ran{
-		program: proc.Command{Name: "security", Args: []string{"-i"}},
-		input:   `add-generic-password -U -a "jacob" -s workflow-jira -w "s3cret"` + "\n",
+		program: proc.Command{Name: securityProgram, Args: []string{"-i"}},
+		input:   `add-generic-password -U -a "jacob" -s "workflow-jira https://jira.example.com" -w "s3cret"` + "\n",
 	}
 	if len(runs) != 1 || runs[0].program.Name != want.program.Name ||
 		!slices.Equal(runs[0].program.Args, want.program.Args) || runs[0].input != want.input {
@@ -126,7 +132,7 @@ func TestStorerKeepsTheSecretOutOfTheArguments(t *testing.T) {
 	store := storerFor(&runs, nil)
 
 	// Act
-	_, err := store("s3cret")
+	err := store(jiraItem, "s3cret")
 
 	// Assert
 	if err != nil || len(runs) != 1 {
@@ -167,10 +173,10 @@ func TestStorerQuotesTheSecretForSecurity(t *testing.T) {
 			store := storerFor(&runs, nil)
 
 			// Act
-			_, err := store(secret.plain)
+			err := store(jiraItem, secret.plain)
 
 			// Assert
-			want := `add-generic-password -U -a "jacob" -s workflow-jira -w ` + secret.quoted + "\n"
+			want := `add-generic-password -U -a "jacob" -s "` + jiraItem + `" -w ` + secret.quoted + "\n"
 			if err != nil || len(runs) != 1 || runs[0].input != want {
 				t.Errorf("store(%q) sent %+v, %v; want the line %q", secret.plain, runs, err, want)
 			}
@@ -197,11 +203,11 @@ func TestStorerRefusesASecretThatCannotBeOneLine(t *testing.T) {
 			store := storerFor(&runs, nil)
 
 			// Act
-			tokenCommand, err := store(secret)
+			err := store(jiraItem, secret)
 
 			// Assert
-			if !errors.Is(err, keychain.ErrSecretNotOneLine) || tokenCommand != "" {
-				t.Errorf("store = %q, %v; want ErrSecretNotOneLine", tokenCommand, err)
+			if !errors.Is(err, keychain.ErrSecretNotOneLine) {
+				t.Errorf("store = %v; want ErrSecretNotOneLine", err)
 			}
 
 			if len(runs) != 0 {
@@ -220,11 +226,31 @@ func TestStorerReportsARefusedStore(t *testing.T) {
 	store := storerFor(&runs, errKeychainLocked)
 
 	// Act
-	tokenCommand, err := store("s3cret")
+	err := store(jiraItem, "s3cret")
 
 	// Assert
-	if !errors.Is(err, errKeychainLocked) || tokenCommand != "" {
-		t.Errorf("store = %q, %v; want no token_command and security's error", tokenCommand, err)
+	if !errors.Is(err, keychain.ErrNotKept) {
+		t.Errorf("store = %v; want ErrNotKept", err)
+	}
+}
+
+// security reads the secret on its input, and what it prints as it fails can
+// quote that input back, so a refused store is told by its exit status alone.
+func TestStorerTellsARefusedStoreWithoutWhatSecurityPrinted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var runs []ran
+
+	printed := &proc.ExitError{Program: securityProgram, Code: 1, Stderr: `add-generic-password -w "s3cret": failed`}
+	store := storerFor(&runs, printed)
+
+	// Act
+	err := store(jiraItem, "s3cret")
+
+	// Assert
+	if !errors.Is(err, keychain.ErrNotKept) || strings.Contains(err.Error(), "s3cret") {
+		t.Errorf("store = %v; want ErrNotKept told without the secret security echoed", err)
 	}
 }
 
@@ -248,7 +274,7 @@ func TestStorerBoundsSecurityByTheDefaultRunTimeout(t *testing.T) {
 	before := time.Now()
 
 	// Act
-	_, err := store("s3cret")
+	err := store(jiraItem, "s3cret")
 	after := time.Now()
 
 	// Assert
@@ -287,10 +313,10 @@ func TestStorerNamesTheAccountAfterTheUser(t *testing.T) {
 			store := keychain.Storer("darwin", recordingRunner(&runs, nil), tt.lookup, userIs(tt.user))
 
 			// Act
-			_, err := store("s3cret")
+			err := store(jiraItem, "s3cret")
 
 			// Assert
-			want := "add-generic-password -U -a " + tt.account + ` -s workflow-jira -w "s3cret"` + "\n"
+			want := "add-generic-password -U -a " + tt.account + ` -s "` + jiraItem + `" -w "s3cret"` + "\n"
 			if err != nil || len(runs) != 1 || runs[0].input != want {
 				t.Errorf("store sent %+v, %v; want the line %q", runs, err, want)
 			}
@@ -319,17 +345,17 @@ func TestStorerRefusesWithoutAnAccountName(t *testing.T) {
 			store := keychain.Storer("darwin", recordingRunner(&runs, nil), tt.lookup, userIs(""))
 
 			// Act
-			tokenCommand, err := store("s3cret")
+			err := store(jiraItem, "s3cret")
 
 			// Assert
 			for _, cause := range tt.causes {
 				if !errors.Is(err, cause) {
-					t.Errorf("store = %q, %v; want it to wrap %v", tokenCommand, err, cause)
+					t.Errorf("store = %v; want it to wrap %v", err, cause)
 				}
 			}
 
-			if tokenCommand != "" || len(runs) != 0 {
-				t.Errorf("store = %q and ran %d programs without an account, want neither", tokenCommand, len(runs))
+			if len(runs) != 0 {
+				t.Errorf("store ran %d programs without an account, want none", len(runs))
 			}
 		})
 	}

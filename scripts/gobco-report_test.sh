@@ -3,14 +3,16 @@
 # Tests for gobco-report.sh, run against a stand-in gobco so that no package is
 # instrumented: the floor is required, not defaulted, and a measure below it
 # fails; a run whose gobco wrote no statistics fails rather than passing on
-# nothing; a package gobco cannot read fails the run unless UNANALYZABLE names
-# it, and one it names is skipped and said to be; a gobco built by another Go
-# is refused; every package the module lists without tests is named in
-# NO_TESTS; and one that is not is refused by name.
+# nothing; a package gobco cannot read fails the run by name; a package of
+# build-tagged twins, which gobco cannot read whole, is measured a file at a
+# time, and a file of one it cannot read alone fails the run by name; a gobco
+# built by another Go is refused; every package the module lists without tests
+# is named in NO_TESTS; and one that is not is refused by name.
 #
-# The stand-in gobco writes GOBCO_STUB_STATS to the file after -stats, or
-# nothing when that is empty, ignores its other flags, and fails as gobco does
-# on a package it cannot read when its package is GOBCO_STUB_UNREADABLE. A go
+# The stand-in gobco says which package or file it measured, writes
+# GOBCO_STUB_STATS to the file after -stats, or nothing when that is empty,
+# ignores its other flags, and fails as gobco does on a package it cannot read
+# when its package or file is GOBCO_STUB_UNREADABLE. A go
 # ahead of the real one answers `go version -m`, which cannot read a script,
 # with the Go this project builds with or GO_STUB_BUILT_BY, and adds
 # GO_STUB_UNTESTED to the packages listed without tests; everything else
@@ -43,6 +45,7 @@ if [[ -n "${GOBCO_STUB_UNREADABLE:-}" && "${package}" == "${GOBCO_STUB_UNREADABL
   echo "gobco: ${package}: cannot load the package" >&2
   exit 1
 fi
+echo "gobco: measured ${package}"
 while (($# > 0)); do
   if [[ "$1" == "-stats" && -n "${GOBCO_STUB_STATS:-}" ]]; then
     printf '%s\n' "${GOBCO_STUB_STATS}" >"$2"
@@ -89,12 +92,18 @@ expect fail "a measure below the floor" "${one_way}" "" \
 GOBCO_STUB_UNREADABLE=./internal/buildinfo expect fail "a package gobco cannot read" \
   "${both_ways}" "" "gobco could not read: internal/buildinfo" --package "${module}/internal/buildinfo" 50
 
-# Unless UNANALYZABLE names it: then it is skipped, the rest is measured, and
-# the report says which package went unmeasured.
-GOBCO_STUB_UNREADABLE=./internal/proc/pgroup expect pass "a package UNANALYZABLE names" \
-  "${both_ways}" "" "Not measured — gobco cannot read these (reasons in this script's UNANALYZABLE):
-  internal/proc/pgroup" --package "${module}/internal/proc/pgroup" \
-  --package "${module}/internal/buildinfo" 50
+# gobco reads every file in a directory whatever its build tags, so it cannot
+# read a package of build-tagged twins whole: that package is measured a file
+# at a time, over the files this platform builds, and none is left out.
+GOBCO_STUB_UNREADABLE=./internal/filelock expect pass "a package of twins, a file at a time" \
+  "${both_ways}" "" "gobco: measured ./internal/filelock/lock_unix.go" \
+  --package "${module}/internal/filelock" 50
+
+# Each of those files must stand alone to be read, and one that cannot fails
+# the run by name.
+GOBCO_STUB_UNREADABLE=./internal/filelock/lock_unix.go expect fail "a twin gobco cannot read alone" \
+  "${both_ways}" "" "gobco could not read: internal/filelock/lock_unix.go" \
+  --package "${module}/internal/filelock" 50
 
 # gobco reads the standard library with the go/types of the Go that built it,
 # so one built by another Go is refused before it measures anything.

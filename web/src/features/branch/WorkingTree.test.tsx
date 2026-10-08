@@ -155,12 +155,14 @@ test('what a stage said survives the snapshot that shows the file staged', async
   await user.click(screen.getByRole('button', { name: 'Stage b.go' }))
   await screen.findByText('Staged b.go.')
 
-  // Act: the stream brings the file back staged
+  // Act
+  // The stream brings the file back staged.
   act(() => {
     streamTree([change('b.go', wholly)])
   })
 
-  // Assert: the file now offers to unstage, and the line still says what was done
+  // Assert
+  // The file now offers to unstage, and the line still says what was done.
   expect(screen.getByRole('button', { name: 'Unstage b.go' })).toBeTruthy()
   expect(screen.getByText('Staged b.go.')).toBeTruthy()
 })
@@ -263,6 +265,8 @@ test('Stage all makes the commit form live', async () => {
   const user = userEvent.setup()
   const unstaged = [change('a.go'), change('notes.txt', { kind: 'untracked' })]
   streamTree(unstaged)
+
+  // Act: draw the panel
   render(<BranchPanel />)
 
   // Assert: nothing is staged, so the form waits and says what to do, and
@@ -330,7 +334,8 @@ test('a clean tree says so under its heading, before the commit form', () => {
   // Act
   render(<BranchPanel />)
 
-  // Assert: said once, and before the form, not at its foot
+  // Assert
+  // Said once, and before the form, not at its foot.
   const clean = screen.getByText('Clean — nothing to commit.')
   const form = screen.getByRole('form', { name: 'Commit staged changes' })
   expect(clean.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -381,11 +386,13 @@ test('the commit form opens on the suggested scope', () => {
 })
 
 test('a new frame brings its suggestion to an untouched scope', () => {
-  // Arrange: nothing learned and no default yet
+  // Arrange
+  // Nothing learned and no default yet.
   streamSuggestion('')
   render(<BranchPanel />)
 
-  // Act: default_scope is saved in Settings, and the next frame suggests it
+  // Act
+  // default_scope is saved in Settings, and the next frame suggests it.
   act(() => {
     streamSuggestion('web')
   })

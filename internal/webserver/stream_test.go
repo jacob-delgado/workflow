@@ -4,7 +4,6 @@
 package webserver_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -14,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -205,55 +205,34 @@ func TestStreamRefusesAnUnknownViewBeforeUpgrading(t *testing.T) {
 func TestStreamEmptiesTheIssuesWhenItsViewIsRemoved(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// The view is removed by a configuration save while the stream is open; the
-	// next snapshot empties the list rather than showing another view's issues.
-	cfg := config.Default()
-	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
-	cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: testBugJQL}}
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The view is removed by a configuration save while the stream is
+		// open; the next snapshot empties the list rather than showing
+		// another view's issues.
+		cfg := config.Default()
+		cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+		cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: testBugJQL}}
+		info := webserver.Info{Version: testVersion, StreamInterval: streamTick}
+		handler := serveWith(t, filledDeps(), cfg, info)
+		stream := openStream(t, handler, "/api/events?view="+testBugView)
 
-	searched := make(chan struct{}, 1)
-	deps := filledDeps()
-	search := deps.Search
-	deps.Search = func(jql string, startAt int) (jira.SearchResult, error) {
-		select {
-		case searched <- struct{}{}:
-		default:
+		synctest.Wait()
+
+		// Act
+		saved := putConfig(t, handler, marshal(t, config.Default()))
+
+		advance(streamTick)
+
+		// Assert
+		if saved.Code != http.StatusOK {
+			t.Fatalf("saving the config: status = %d, want 200", saved.Code)
 		}
 
-		return search(jql, startAt)
-	}
-
-	info := webserver.Info{Version: testVersion, StreamInterval: 2 * time.Millisecond}
-	handler := serveWith(t, deps, cfg, info)
-	ctx, cancel := context.WithCancel(context.Background())
-	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events?view="+testBugView, nil)
-	request.Host = loopbackHost
-	recorder := httptest.NewRecorder()
-	done := make(chan struct{})
-
-	go func() {
-		handler.ServeHTTP(recorder, request)
-		close(done)
-	}()
-
-	<-searched
-
-	// Act
-	saved := putConfig(t, handler, marshal(t, config.Default()))
-
-	time.Sleep(40 * time.Millisecond)
-	cancel()
-	<-done
-
-	// Assert
-	if saved.Code != http.StatusOK {
-		t.Fatalf("saving the config: status = %d, want 200", saved.Code)
-	}
-
-	if last := lastSnapshot(t, recorder.Body.String()); last.Issues.Total != 0 {
-		t.Errorf("last snapshot's issues = %+v, want an empty page once the view is gone", last.Issues)
-	}
+		if last := lastSnapshot(t, stream.close()); last.Issues.Total != 0 {
+			t.Errorf("last snapshot's issues = %+v, want an empty page once the view is gone", last.Issues)
+		}
+	})
 }
 
 func TestStreamSnapshotIsEmptyWithoutSeams(t *testing.T) {
@@ -316,17 +295,19 @@ func wantEveryPanelProblem(t *testing.T, problems *api.PanelProblems) {
 func TestStreamRepushesOnTheInterval(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	info := webserver.Info{Version: testVersion, StreamInterval: 2 * time.Millisecond}
-	handler := serveWith(t, filledDeps(), config.Default(), info)
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		info := webserver.Info{Version: testVersion, StreamInterval: streamTick}
+		stream := openStream(t, serveWith(t, filledDeps(), config.Default(), info), "/api/events")
 
-	// Act
-	pushes := streamUntilRepushed(t, handler)
+		// Act
+		advance(streamTick)
 
-	// Assert
-	if pushes < 2 {
-		t.Errorf("got %d snapshots in %s, want at least 2 (connect, then a re-push)", pushes, repushWait)
-	}
+		// Assert
+		if pushes := len(snapshots(t, stream.close())); pushes != 2 {
+			t.Errorf("got %d snapshots over one interval, want 2: on connect, and once it had passed", pushes)
+		}
+	})
 }
 
 func TestStreamRequiresAFlushableWriter(t *testing.T) {
@@ -408,64 +389,55 @@ func (f *failingFlushWriter) Write([]byte) (int, error) { return 0, errSeam }
 func (f *failingFlushWriter) WriteHeader(int)           {}
 func (f *failingFlushWriter) Flush()                    {}
 
-// repushWait is how long a test waits for the stream's first re-push: far past
-// any interval a test sets, so a loaded machine still sees it, yet well under
-// defaultStreamInterval, so a stream that ignores Info.StreamInterval fails the
-// test rather than passing on the default cadence. A wait at the default would
-// tie with its timer, and the tie can pass.
-const repushWait = time.Second
+// streamTick is the interval a stream on a fake clock pushes at: in a bubble
+// its length costs nothing, and it is far from defaultStreamInterval, so a
+// stream that ignored the interval it was given would push a different count.
+const streamTick = time.Minute
 
-// repushWatcher is a flushable http.ResponseWriter that counts the snapshots
-// the stream writes and closes repushed at the second, the first re-push after
-// the one on connect. The handler's goroutine is its only writer, so pushes is
-// read once the handler has returned.
-type repushWatcher struct {
-	header   http.Header
-	pushes   int
-	repushed chan struct{}
+// openedStream is the events handler serving a page's connection on a
+// goroutine of its own, as the HTTP server runs it.
+type openedStream struct {
+	cancel   context.CancelFunc
+	done     chan struct{}
+	recorder *httptest.ResponseRecorder
 }
 
-func (r *repushWatcher) Header() http.Header { return r.header }
-func (r *repushWatcher) WriteHeader(int)     {}
-func (r *repushWatcher) Flush()              {}
-
-func (r *repushWatcher) Write(frame []byte) (int, error) {
-	before := r.pushes
-	r.pushes += bytes.Count(frame, []byte("event: snapshot"))
-
-	if before < 2 && r.pushes >= 2 {
-		close(r.repushed)
-	}
-
-	return len(frame), nil
-}
-
-// streamUntilRepushed runs the events handler until it has re-pushed once, or
-// repushWait has passed, then disconnects. It returns how many snapshots the
-// stream wrote.
-func streamUntilRepushed(t *testing.T, handler http.Handler) int {
+// openStream connects to target on handler, and disconnects when the test
+// ends if close has not already.
+func openStream(t *testing.T, handler http.Handler, target string) *openedStream {
 	t.Helper()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events", nil)
+	ctx, cancel := context.WithCancel(t.Context())
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	request.Host = loopbackHost
-	watcher := &repushWatcher{header: http.Header{}, repushed: make(chan struct{})}
-	done := make(chan struct{})
+	stream := &openedStream{cancel: cancel, done: make(chan struct{}), recorder: httptest.NewRecorder()}
 
 	go func() {
-		handler.ServeHTTP(watcher, request)
-		close(done)
+		defer close(stream.done)
+
+		handler.ServeHTTP(stream.recorder, request)
 	}()
 
-	select {
-	case <-watcher.repushed:
-	case <-time.After(repushWait):
-	}
+	t.Cleanup(func() { stream.close() })
 
-	cancel()
-	<-done
+	return stream
+}
 
-	return watcher.pushes
+// close disconnects, waits for the handler to return, and answers what the
+// stream wrote.
+func (s *openedStream) close() string {
+	s.cancel()
+	<-s.done
+
+	return s.recorder.Body.String()
+}
+
+// advance moves a bubble's clock on by d, then waits until everything that
+// came due has run and is blocked again. Inside a synctest bubble the sleep
+// takes no time; it is how the bubble's clock is moved.
+func advance(d time.Duration) {
+	time.Sleep(d)
+	synctest.Wait()
 }
 
 func TestStreamFrameMatchesTheClientGolden(t *testing.T) {

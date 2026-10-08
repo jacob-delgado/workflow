@@ -159,24 +159,13 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 	}
 
 	saved, written, err := s.save(posted, incoming, over)
-	if errors.Is(err, errHeldSetting) {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, err.Error()))
+	if detail, refused := unsavable(err); refused {
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
 	}
 
 	if errors.Is(err, config.ErrChangedOnDisk) {
 		return api.UpdateConfig409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"the configuration changed since Settings read it; reload Settings and apply your change again"))
-	}
-
-	if errors.Is(err, errSlackRefused) {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
-			"Slack refused the client ID, client secret or refresh token; check them, then save again"))
-	}
-
-	if errors.Is(err, config.ErrCredentialInRepository) || errors.Is(err, config.ErrHomeOnly) {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
-			"a credential typed here, a token command or variable, or a task program is kept in the home "+
-				"directory's file, never in the repository's; set it there"))
 	}
 
 	if err != nil {
@@ -191,6 +180,24 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 
 	return api.UpdateConfig200JSONResponse{
 		Body: out, Headers: api.UpdateConfig200ResponseHeaders{ETag: basis{seen: written}.etag()},
+	}
+}
+
+// unsavable says why a save was refused for what it carried, in words that
+// name no credential, and false for a save refused for anything else.
+func unsavable(err error) (string, bool) {
+	switch {
+	case errors.Is(err, errHeldSetting):
+		return err.Error(), true
+	case errors.Is(err, errSlackRefused):
+		return "Slack refused the client ID, client secret or refresh token; check them, then save again", true
+	case errors.Is(err, config.ErrTokenNotKept):
+		return "the keychain did not keep the Jira token typed, so nothing was saved; unlock it, then save again", true
+	case errors.Is(err, config.ErrCredentialInRepository) || errors.Is(err, config.ErrHomeOnly):
+		return "a credential, a token command or variable, or a task program is kept in the home " +
+			"directory's file, never in the repository's; set it there", true
+	default:
+		return "", false
 	}
 }
 
@@ -267,7 +274,7 @@ func (s *server) save(posted api.Config, incoming config.Config, over basis) (co
 
 	saved, written, err := config.SaveEdit(config.Edit{
 		Files: s.files, Read: s.cfg, Over: over.file(), Edited: held, Removed: removedIn(posted),
-		PlaceSlackCredentials: s.placeSlackCredentials(),
+		PlaceSlackCredentials: s.placeSlackCredentials(), KeepJiraToken: s.deps.KeepJiraToken,
 	})
 	if err != nil {
 		return config.Config{}, config.Revision{}, err

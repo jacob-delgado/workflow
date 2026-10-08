@@ -85,15 +85,19 @@ test('merges by the method chosen among those permitted, after a preview', async
   streamPull(ready, ciOf('passed'))
   const user = userEvent.setup()
   render(<ReviewPanel />)
+
+  // Act: open the preview, and choose a method
   await user.click(screen.getByRole('button', { name: 'Merge' }))
   const form = await screen.findByRole('form', { name: 'Merge #42' })
   await user.click(within(form).getByRole('radio', { name: 'Rebase and merge' }))
+
+  // Assert: nothing is merged yet
   expect(vi.mocked(mergePull)).not.toHaveBeenCalled()
 
-  // Act
+  // Act: confirm
   await user.click(within(form).getByRole('button', { name: 'Merge' }))
 
-  // Assert
+  // Assert: it merges by that method
   expect(vi.mocked(mergePull)).toHaveBeenCalledWith('rebase')
   expect(vi.mocked(readMergeOffer)).toHaveBeenCalled()
 })
@@ -114,14 +118,18 @@ test('finishes a merged branch after a look at the commands it runs', async () =
   streamPull({ ...ready, state: 'merged' })
   const user = userEvent.setup()
   render(<ReviewPanel />)
+
+  // Act: ask to finish the branch
   await user.click(screen.getByRole('button', { name: 'Finish the branch' }))
+
+  // Assert: the look shows the commands it runs
   const form = screen.getByRole('form', { name: 'Finish fix/PROJ-1' })
   expect(form.textContent).toContain(finishCommands.join('\n'))
 
-  // Act
+  // Act: confirm
   await user.click(within(form).getByRole('button', { name: 'Finish' }))
 
-  // Assert
+  // Assert: the branch is finished
   expect(vi.mocked(finishBranch)).toHaveBeenCalled()
   expect(await screen.findByText('Finished fix/PROJ-1; now on main.')).toBeTruthy()
 })

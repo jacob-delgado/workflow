@@ -71,7 +71,8 @@ async function opensLocalData(page: Page): Promise<void> {
 test('lists the store, confirms, removes the cache and reads the listing again', async ({
   page,
 }) => {
-  // Arrange: the Local data area, its cache's removal asked for.
+  // Arrange
+  // The Local data area, its cache's removal asked for.
   const asked = await answersStore(page)
   await opensLocalData(page)
   await page.getByRole('button', { name: 'Remove cache…' }).click()
@@ -81,7 +82,8 @@ test('lists the store, confirms, removes the cache and reads the listing again',
   // Act
   await question.getByRole('button', { name: 'Remove' }).click()
 
-  // Assert: said, removed from the listing, and read again after the removal.
+  // Assert
+  // Said, removed from the listing, and read again after the removal.
   await expect(page.getByRole('status').filter({ hasText: 'Removed workflow.db.' })).toBeVisible()
   const table = page.getByRole('table', { name: 'Local data files' })
   await expect(table.getByText('workflow.db')).toBeHidden()
@@ -111,16 +113,19 @@ for (const theme of themes) {
       `the confirm step fits ${String(width)} px in the ${theme} theme, reachable and clean`,
       { tag: '@populated' },
       async ({ page }) => {
-        // Arrange: the populated Settings, in this theme, at this width.
+        // Arrange
+        // The populated Settings, in this theme, at this width.
         await openCockpit(page, { width, height }, theme)
         await openSection(page, 'Settings')
         await expect(page.getByRole('table', { name: 'Local data files' })).toBeVisible()
 
-        // Act: open the confirm step that clears everything.
+        // Act
+        // Open the confirm step that clears everything.
         await page.getByRole('button', { name: 'Remove everything…' }).click()
         await expect(page.getByRole('group', { name: /remove workflow\.db/i })).toBeFocused()
 
-        // Assert: Tab reaches the step's controls, and it is clean.
+        // Assert
+        // Tab reaches the step's controls, and it is clean.
         await expectReachableAndClean(page, { reaches: ['Cancel', 'Remove'] })
       },
     )
@@ -140,7 +145,8 @@ test(
     // Act
     await page.getByRole('button', { name: 'Remove', exact: true }).click()
 
-    // Assert: the people and groups went with the kept file.
+    // Assert
+    // The people and groups went with the kept file.
     await expect(page.getByText('Removed workflow.db and kept.db.')).toBeVisible()
     await expect(page.getByText(/no local data/i)).toBeVisible()
     await expect(page.getByRole('button', { name: 'Forget dan…' })).toBeHidden()

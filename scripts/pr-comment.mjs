@@ -82,9 +82,9 @@ function coverageTable(pr, base) {
     '',
     '_Conditions counts each operand separately: an `if a && b` is only covered ' +
       'once `a` and `b` have each been seen true and false. gobco reads every ' +
-      'package in this module but the build-tagged twins ' +
-      '`scripts/gobco-report.sh` lists; `task cover:branch` fails if another ' +
-      'drops out unlisted._',
+      'package in this module that has tests, a package of build-tagged twins ' +
+      'one file at a time; `task cover:branch` fails if a package or file ' +
+      'cannot be read._',
   ]
 }
 

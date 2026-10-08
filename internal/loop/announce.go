@@ -30,6 +30,13 @@ var (
 	ErrEmptyAnnouncement = errors.New("nothing to announce: the message was empty")
 )
 
+// NotRememberedWarning is what every surface says of an announcement that
+// Deliver posted but answered ErrNotRemembered for, after the line saying
+// where it went. The terminal and workflow announce follow it with why; the
+// web leaves why to the server's log, since the store's error can name its
+// file.
+const NotRememberedWarning = "Posted, but not remembered: it may be offered again."
+
 // AnnounceSeams are what composing an announcement reads. A nil Branch or
 // FindPull means there is nothing to announce; a nil Author, Issue, BrowseURL
 // or CheckCI only makes the announcement say less.
@@ -219,7 +226,7 @@ type Delivery struct {
 // again, and the groups it tagged. A post that fails records nothing; the
 // error is the post's own, for the caller to word. A post that went out but
 // was not remembered is ErrNotRemembered, carrying why: the post was made, and
-// the caller says so with the warning.
+// the caller says so with NotRememberedWarning.
 func Deliver(post func(channel, text string) error, memory AnnounceMemory, delivery Delivery) error {
 	if post == nil {
 		return ErrAnnounceUnavailable

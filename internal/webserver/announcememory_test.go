@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -21,6 +22,10 @@ import (
 
 // errStoreFull is a store that could not write.
 var errStoreFull = errors.New("database or disk is full")
+
+// notRemembered is what every surface says of an announcement posted but not
+// remembered; the web says it alone, without why.
+const notRemembered = "Posted, but not remembered: it may be offered again."
 
 // announceMemory is the store's record of what was announced, as a fake: what
 // it held to start with, and what was recorded since.
@@ -235,5 +240,59 @@ func TestAnnounceTheStoreCannotRememberIsMadeAndNoted(t *testing.T) {
 	// Assert
 	if recorder.Code != http.StatusOK || len(noted) != 1 || !strings.Contains(noted[0], "could not be remembered") {
 		t.Errorf("status %d, noted %q; want the announcement made and the store's failure noted", recorder.Code, noted)
+	}
+}
+
+func TestAnnounceWarnsOnlyOfAPostTheStoreCannotRemember(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		recordErr   error
+		wantWarning string
+	}{
+		"remembered":     {recordErr: nil, wantWarning: ""},
+		"not remembered": {recordErr: errStoreFull, wantWarning: notRemembered},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := (&announceMemory{}).wire(filledDeps())
+			deps.RecordAnnounce = func(loop.Announced) error { return tt.recordErr }
+
+			// Act
+			recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
+
+			// Assert
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("status = %d (%s), want 200: the announcement was posted", recorder.Code, recorder.Body)
+			}
+
+			if got := orEmpty(decode[api.Announcement](t, recorder).Warning); got != tt.wantWarning {
+				t.Errorf("warning = %q, want %q", got, tt.wantWarning)
+			}
+		})
+	}
+}
+
+func TestAHeldAnnouncementTheStoreCannotRememberWarnsSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newForgeWorld()
+	deps := world.deps()
+	deps.RecordAnnounce = func(loop.Announced) error { return errStoreFull }
+	handler := serve(t, deps, config.Default())
+	announceWhenGreen(t, handler, nil)
+	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+
+	// Act
+	held := heldAnnouncement(t, handler)
+
+	// Assert
+	if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || orEmpty(held.Warning) != notRemembered {
+		t.Errorf("frame's held announcement = %+v, want it announced with the warning %q", held, notRemembered)
 	}
 }

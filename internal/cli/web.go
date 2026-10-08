@@ -254,6 +254,7 @@ func webWorld(cmd *cobra.Command, conn connection, dryRun bool) webserver.World 
 	deps.UseForgeSettings = conn.controls.UseForgeSettings
 	deps.UseMessagingSettings = conn.controls.UseMessagingSettings
 	deps.PlaceSlackCredentials = conn.controls.PlaceSlackCredentials
+	deps.KeepJiraToken = conn.controls.KeepJiraToken
 	deps.Reach = func(dir string) (webserver.World, error) {
 		return reachFrom(cmd, conn, dir, dryRun)
 	}

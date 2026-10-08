@@ -170,6 +170,21 @@ test('the thread draws each comment written in wiki markup, with when it was wri
   expect(within(comment).getByRole('time').getAttribute('datetime')).toBe(earlier.created)
 })
 
+test('a comment the tracker gave no date for shows its words and no time', async () => {
+  // Arrange
+  const undated: Comment = { author: 'Sam Ortiz', body: 'Seen on staging too.' }
+  fakeApi({ [issuePath]: detailWith([undated]), '/api/config': configWith(false) })
+
+  // Act
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+
+  // Assert
+  const thread = await screen.findByRole('list', { name: 'Comments' })
+  const comment = within(thread).getByRole('listitem')
+  expect(within(comment).getByText('Seen on staging too.')).toBeTruthy()
+  expect(within(comment).queryByRole('time')).toBeNull()
+})
+
 test('with Markdown off there is no Preview, and the hint says Jira reads wiki markup', async () => {
   // Arrange
   fakeApi({ [issuePath]: detailWith([]), '/api/config': configWith(false) })

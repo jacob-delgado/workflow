@@ -64,18 +64,21 @@ for (const theme of themes) {
     test(`a staged file fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
-      // Arrange: the stage answered here, so a file's outcome line is on
-      // screen beside the buttons and the commit form.
+      // Arrange
+      // The stage answered here, so a file's outcome line is on screen beside
+      // the buttons and the commit form.
       await page.route('**/api/stage', (route) =>
         route.fulfill({ json: workingTreeSnapshot.changes }),
       )
       await opensBranch(page, { theme, width, snapshot: workingTreeSnapshot })
 
-      // Act: stage the untracked file.
+      // Act
+      // Stage the untracked file.
       await page.getByRole('button', { name: 'Stage notes.txt' }).click()
       await expect(page.getByText('Staged notes.txt.')).toBeVisible()
 
-      // Assert: Tab reaches Stage all and the commit, and it is clean.
+      // Assert
+      // Tab reaches Stage all and the commit, and it is clean.
       await expectReachableAndClean(page, {
         reaches: ['Stage all', 'Commit staged changes'],
       })
@@ -141,8 +144,9 @@ function termsSlack(terms: Element[]): number {
 test('the branch and the header fit 320 px, wrapping a name wider than the content', async ({
   page,
 }) => {
-  // Arrange: the stream's branch and working tree, and a source build's
-  // version in the header, at the narrowest width a page must reflow to.
+  // Arrange
+  // The stream's branch and working tree, and a source build's version in the
+  // header, at the narrowest width a page must reflow to.
   await streams(page, unbrokenSnapshot)
   await page.route('**/api/health', (route) => route.fulfill({ json: sourceBuild }))
   await page.setViewportSize({ width: 320, height })
@@ -151,8 +155,9 @@ test('the branch and the header fit 320 px, wrapping a name wider than the conte
   // Act
   await openSection(page, 'Branch')
 
-  // Assert: nothing scrolls sideways; the file's path takes a line of its
-  // own; and the terms' column is as wide as its widest term.
+  // Assert
+  // Nothing scrolls sideways; the file's path takes a line of its own; and the
+  // terms' column is as wide as its widest term.
   const path = page.getByText(/^internal\/tui\/testdata/)
   const row = page.getByRole('listitem').filter({ has: path })
   await expect(path).toBeVisible()
@@ -168,17 +173,19 @@ for (const theme of themes) {
     test(`a refused write fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
-      // Arrange: a stage the server refuses, of a file whose name is wider
-      // than the content.
+      // Arrange
+      // A stage the server refuses, of a file whose name is wider than the
+      // content.
       await page.route('**/api/stage', (route) => route.fulfill(refused))
       await opensBranch(page, { theme, width, snapshot: unbrokenSnapshot })
 
-      // Act: stage the file, and let the refusal land.
+      // Act
+      // Stage the file, and let the refusal land.
       await page.getByRole('button', { name: /^Stage internal\/tui/ }).click()
       await expect(page.getByRole('alert')).toHaveText(/could not be completed/)
 
-      // Assert: Tab reaches every drawn control beside the refusal, and it is
-      // clean.
+      // Assert
+      // Tab reaches every drawn control beside the refusal, and it is clean.
       await expectReachableAndClean(page)
     })
   }

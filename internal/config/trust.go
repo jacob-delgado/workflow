@@ -24,11 +24,11 @@ var ErrUntrustedFile = errors.New("someone other than you could have written thi
 // replace.
 var ErrLinkedFile = errors.New("a configuration file in a repository may not be a link")
 
-// ErrCredentialInRepository is an edit that would write a credential typed
-// into the editor into a repository's file, a file in a working tree git
-// could commit.
-var ErrCredentialInRepository = errors.New("a credential typed into Settings is never written into a " +
-	"repository's file, which git could commit; set it in the home directory's file")
+// ErrCredentialInRepository is an edit that would write into a repository's
+// file, a file in a working tree git could commit, a credential the files
+// read did not hold.
+var ErrCredentialInRepository = errors.New("a credential the configuration files do not already hold is " +
+	"never written into a repository's file, which git could commit; set it in the home directory's file")
 
 // ErrHomeOnly is a repository's file setting what only the home directory's
 // file may: a program to run, or an environment variable to read.
@@ -48,7 +48,8 @@ type credentialSection struct {
 // credentialSections are the sections holding a credential, each with the
 // address the credential is sent to and the keys that make up the credential.
 // A Slack user token goes only to Slack, so for messaging the address is the
-// service; a webhook URL is its own address.
+// service; a webhook URL is its own address. jira.keychain is no credential:
+// it reads the keychain item for the address in effect, whichever that is.
 func credentialSections() []credentialSection {
 	return []credentialSection{
 		{
@@ -234,8 +235,13 @@ func slackSecretFields() []secretField {
 	}
 }
 
-// fileSecretFields are every other credential cfg holds, each of Jira's
-// headers among them.
+// jiraTokenField is the Jira token, which an editor may hand to the keychain.
+func jiraTokenField() secretField {
+	return secretField{path: "jira.token", value: func(cfg Config) Secret { return cfg.Jira.Token }}
+}
+
+// fileSecretFields are every credential cfg holds but the Slack secrets and
+// the Jira token, each of Jira's headers among them.
 func fileSecretFields(cfg Config) []secretField {
 	headers := make([]secretField, 0, len(cfg.Jira.Headers))
 	for name := range cfg.Jira.Headers {
@@ -245,36 +251,40 @@ func fileSecretFields(cfg Config) []secretField {
 	}
 
 	return append([]secretField{
-		{path: "jira.token", value: func(cfg Config) Secret { return cfg.Jira.Token }},
 		{path: "forge.token", value: func(cfg Config) Secret { return cfg.Forge.Token }},
 		{path: "messaging.webhook_url", value: func(cfg Config) Secret { return cfg.Messaging.WebhookURL }},
 	}, headers...)
 }
 
-// refuseTyped refuses incoming, edit's read with the editor's changes, when
+// refuseUnheld refuses incoming, edit's read with the editor's changes, when
 // edit saves to a repository's file and incoming holds a credential among
-// fields that the read did not hold the same: one typed into the editor. One
-// kept, inherited or removed is no refusal.
-func (edit Edit) refuseTyped(incoming Config, fields []secretField) error {
+// fields that the files read did not hold the same. A read of no file held
+// none. One kept, inherited or removed is no refusal.
+func (edit Edit) refuseUnheld(incoming Config, fields []secretField) error {
 	if edit.Files.Repo == "" {
 		return nil
 	}
 
-	var typed []string
+	held := edit.Read
+	if !edit.Over.Exists() {
+		held = Config{}
+	}
+
+	var unheld []string
 
 	for _, field := range fields {
 		value := field.value(incoming)
-		if value != "" && value != field.value(edit.Read) {
-			typed = append(typed, field.path)
+		if value != "" && value != field.value(held) {
+			unheld = append(unheld, field.path)
 		}
 	}
 
-	if len(typed) == 0 {
+	if len(unheld) == 0 {
 		return nil
 	}
 
-	slices.Sort(typed)
+	slices.Sort(unheld)
 
 	return fmt.Errorf("%s: %w: %s", edit.Files.Repo, ErrCredentialInRepository,
-		strings.Join(slices.Compact(typed), ", "))
+		strings.Join(slices.Compact(unheld), ", "))
 }

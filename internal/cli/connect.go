@@ -34,7 +34,7 @@ type connection struct {
 	closeLog   func()
 	// keychain keeps a token typed into the first run's form in the OS
 	// keychain; nil where none is wired, or under a dry run.
-	keychain func(secret string) (string, error)
+	keychain func(service, secret string) error
 }
 
 // connect wires a command to its working directory, recording each request in
@@ -100,7 +100,7 @@ func connectAt(cmd *cobra.Command, dir, home string, requestLog *wiring.RequestL
 
 // withSetup is the connection offering a first run where it works, with the
 // token kept through keychain, which a dry run never stores in.
-func (c connection) withSetup(cmd *cobra.Command, keychain func(secret string) (string, error)) connection {
+func (c connection) withSetup(cmd *cobra.Command, keychain func(service, secret string) error) connection {
 	if dryRunRequested(cmd) {
 		keychain = nil
 	}

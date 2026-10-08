@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
+	"testing/synctest"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -197,45 +197,29 @@ func TestAHeldAnnouncementWithNoPageOpenOutlastsAReadThatFails(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange
-			// The server reads for the held announcement on the CI interval
-			// itself; reads fail for a while, then the CI is seen to pass.
-			world := newForgeWorld()
-			cfg := config.Default()
-			cfg.Timing.CIInterval = "10ms"
-			handler := serve(t, world.deps(), cfg)
-			cancelHeld(t, handler)
-			announceWhenGreen(t, handler, nil)
-			world.turn(fail)
-			waitForBranchReads(t, world, world.branchReads()+3)
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange
+				// The server reads for the held announcement on the CI
+				// interval itself; three of its reads fail, then the CI is
+				// seen to pass.
+				world := newForgeWorld()
+				cfg := config.Default()
+				cfg.Timing.CIInterval = ciTick.String()
+				handler := serve(t, world.deps(), cfg)
+				cancelHeld(t, handler)
+				announceWhenGreen(t, handler, nil)
+				world.turn(fail)
+				advance(3 * ciTick)
 
-			// Act
-			world.turn(func(w *forgeWorld) { w.branchErr, w.pullErr, w.ci = nil, nil, forge.CIPassed })
+				// Act
+				world.turn(func(w *forgeWorld) { w.branchErr, w.pullErr, w.ci = nil, nil, forge.CIPassed })
+				advance(ciTick)
 
-			// Assert
-			deadline := time.Now().Add(5 * time.Second)
-			for len(world.posted()) == 0 && time.Now().Before(deadline) {
-				time.Sleep(10 * time.Millisecond)
-			}
-
-			if posts := world.posted(); len(posts) != 1 {
-				t.Errorf("posted %q, want the held announcement once the reads answer again", posts)
-			}
+				// Assert
+				if posts := world.posted(); len(posts) != 1 {
+					t.Errorf("posted %q, want the held announcement once the reads answer again", posts)
+				}
+			})
 		})
-	}
-}
-
-// waitForBranchReads waits until the world's branch has been read want times,
-// as the server's own reads for a held announcement read it.
-func waitForBranchReads(t *testing.T, world *forgeWorld, want int) {
-	t.Helper()
-
-	deadline := time.Now().Add(5 * time.Second)
-	for world.branchReads() < want {
-		if time.Now().After(deadline) {
-			t.Fatalf("the branch was read %d times, want %d", world.branchReads(), want)
-		}
-
-		time.Sleep(5 * time.Millisecond)
 	}
 }

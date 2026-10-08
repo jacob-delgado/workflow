@@ -30,7 +30,7 @@ func answeringRunner(runs *[]ran, output string, err error) keychain.Runner {
 // exited with code.
 func exitedWith(code int) error {
 	return &proc.ExitError{
-		Program: "security", Code: code, Stderr: "the specified item could not be found in the keychain",
+		Program: securityProgram, Code: code, Stderr: "the specified item could not be found in the keychain",
 	}
 }
 
@@ -87,7 +87,7 @@ func TestStoreHandsTheSecretToSecurityOnItsInputUnderItsService(t *testing.T) {
 		t.Errorf("security ran with %q, want only -i, the secret kept off the arguments", runs[0].program.Args)
 	}
 
-	want := `add-generic-password -U -a "jacob" -s workflow-slack -w "{\"refresh_token\":\"xoxe-1-secret\"}"` + "\n"
+	want := `add-generic-password -U -a "jacob" -s "workflow-slack" -w "{\"refresh_token\":\"xoxe-1-secret\"}"` + "\n"
 	if runs[0].input != want {
 		t.Errorf("security read %q, want %q", runs[0].input, want)
 	}
@@ -145,5 +145,25 @@ func TestReadReportsAnyOtherFailure(t *testing.T) {
 	// Assert
 	if !errors.Is(err, errKeychainLocked) || errors.Is(err, keychain.ErrNotStored) {
 		t.Errorf("Read = %v, want security's own failure", err)
+	}
+}
+
+// What security prints as a read fails is told by its exit status alone, as a
+// store's is.
+func TestReadTellsAFailureWithoutWhatSecurityPrinted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var runs []ran
+
+	printed := &proc.ExitError{Program: securityProgram, Code: 51, Stderr: "SECRET-VALUE nearby"}
+	item := itemFor(t, answeringRunner(&runs, "", printed))
+
+	// Act
+	_, err := item.Read(t.Context())
+
+	// Assert
+	if !errors.Is(err, keychain.ErrNotRead) || strings.Contains(err.Error(), "SECRET-VALUE") {
+		t.Errorf("Read = %v, want ErrNotRead told without what security printed", err)
 	}
 }

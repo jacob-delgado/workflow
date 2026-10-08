@@ -26,7 +26,8 @@ func TestAnAnnouncementTheStoreCannotKeepIsPostedAndSaysSo(t *testing.T) {
 	posted := typing(t, announcing.live(t, 120, 40), "5", "p", keyEnter)
 
 	// Assert
-	requireScreen(t, posted.View().Content, "announced to", "could not be remembered", "disk is full")
+	requireScreen(t, posted.View().Content, "announced to",
+		"Posted, but not remembered: it may be offered again. database or disk is full")
 }
 
 func TestACommitWhoseScopeTheStoreCannotKeepSaysSo(t *testing.T) {

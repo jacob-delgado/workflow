@@ -42,23 +42,31 @@ function preferDark(): void {
 test('the theme toggle cycles system, light, dark and remembers the choice', async () => {
   // Arrange
   const user = userEvent.setup()
+
+  // Act: open the app
   renderWithClient(<App />)
 
-  // Act: it opens following the system
-  // Assert
+  // Assert: it opens following the system
   expect(screen.getByRole('button', { name: /theme: system/i })).toBeTruthy()
 
-  // Act: click through the cycle
-  // Assert: each step advances the choice and persists it
+  // Act: press the toggle
   await user.click(screen.getByRole('button', { name: /theme: system/i }))
+
+  // Assert: light, remembered
   expect(screen.getByRole('button', { name: /theme: light/i })).toBeTruthy()
   expect(localStorage.getItem(themeStorageKey)).toBe('light')
 
+  // Act: press it again
   await user.click(screen.getByRole('button', { name: /theme: light/i }))
+
+  // Assert: dark, remembered
   expect(screen.getByRole('button', { name: /theme: dark/i })).toBeTruthy()
   expect(localStorage.getItem(themeStorageKey)).toBe('dark')
 
+  // Act: press it a third time
   await user.click(screen.getByRole('button', { name: /theme: dark/i }))
+
+  // Assert: back to the system, remembered
   expect(screen.getByRole('button', { name: /theme: system/i })).toBeTruthy()
   expect(localStorage.getItem(themeStorageKey)).toBe('system')
 })
@@ -81,9 +89,10 @@ test('the theme toggle shows the choice it holds on hover, and follows it', asyn
 test('following the system registers one OS listener and drops it when set to light', async () => {
   // Arrange
   const user = userEvent.setup()
+
+  // Act: open the app, following the system
   renderWithClient(<App />)
 
-  // Act: it opens following the system
   // Assert: exactly one OS-change listener is registered to follow it
   expect(listenerCount()).toBe(1)
 

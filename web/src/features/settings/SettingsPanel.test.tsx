@@ -151,7 +151,8 @@ test('editing the commit types saves them as a trimmed list', async () => {
   const types = await screen.findByLabelText('Types')
   await user.type(types, 'hotfix, chore')
 
-  // Act: save, then reopen against the same client
+  // Act
+  // Save, then reopen against the same client.
   await user.click(screen.getByRole('button', { name: /save changes/i }))
   await screen.findByText(/saved/i)
   view.unmount()
@@ -181,7 +182,8 @@ test('an emptied subject limit saves as 0, which keeps the default', async () =>
   await user.type(limit, '50')
   await user.clear(limit)
 
-  // Act: save, then reopen against the same client
+  // Act
+  // Save, then reopen against the same client.
   await user.click(screen.getByRole('button', { name: /save changes/i }))
   await screen.findByText(/saved/i)
   view.unmount()
@@ -202,16 +204,20 @@ test('offers turning the store off and rides it back through a save', async () =
   servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  // Act: open Settings
   const view = render(
     <QueryClientProvider client={client}>
       <SettingsPanel />
     </QueryClientProvider>,
   )
+
+  // Assert: the store is on, and turning it off is offered
   const toggle = await screen.findByRole('checkbox', { name: /nothing on disk/i })
   expect((toggle as HTMLInputElement).checked).toBe(false)
-  await user.click(toggle)
 
-  // Act: save, then reopen against the same client
+  // Act: turn it off, save, then reopen against the same client
+  await user.click(toggle)
   await user.click(screen.getByRole('button', { name: /save changes/i }))
   await screen.findByText(/saved/i)
   view.unmount()
@@ -221,7 +227,7 @@ test('offers turning the store off and rides it back through a save', async () =
     </QueryClientProvider>,
   )
 
-  // Assert
+  // Assert: it comes back off
   const reopened = await screen.findByRole('checkbox', { name: /nothing on disk/i })
   expect((reopened as HTMLInputElement).checked).toBe(true)
 })
@@ -260,7 +266,8 @@ test("the Taskwarrior fieldset's switch rides back through a save, and its progr
   await user.type(program, '/opt/homebrew/bin/task')
   await user.click(screen.getByRole('checkbox', { name: /turn off the taskwarrior integration/i }))
 
-  // Act: save, then reopen against the same client
+  // Act
+  // Save, then reopen against the same client.
   await user.click(screen.getByRole('button', { name: /save changes/i }))
   await screen.findByText(/saved/i)
   view.unmount()
@@ -340,17 +347,20 @@ test('toggling Markdown comments rides back through a save', async () => {
   servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  // Act: open Settings
   const view = render(
     <QueryClientProvider client={client}>
       <SettingsPanel />
     </QueryClientProvider>,
   )
-  const toggle = await screen.findByRole('checkbox', { name: /markdown/i })
-  // On by default, so the save carries it off.
-  expect((toggle as HTMLInputElement).checked).toBe(true)
-  await user.click(toggle)
 
-  // Act: save, then reopen against the same client
+  // Assert: on by default, so the save carries it off
+  const toggle = await screen.findByRole('checkbox', { name: /markdown/i })
+  expect((toggle as HTMLInputElement).checked).toBe(true)
+
+  // Act: turn it off, save, then reopen against the same client
+  await user.click(toggle)
   await user.click(screen.getByRole('button', { name: /save changes/i }))
   await screen.findByText(/saved/i)
   view.unmount()
@@ -360,7 +370,7 @@ test('toggling Markdown comments rides back through a save', async () => {
     </QueryClientProvider>,
   )
 
-  // Assert
+  // Assert: it comes back off
   const reopened = await screen.findByRole('checkbox', { name: /markdown/i })
   expect((reopened as HTMLInputElement).checked).toBe(false)
 })
@@ -379,7 +389,8 @@ test('a save updates the cache so reopening Settings shows the change', async ()
   await user.clear(project)
   await user.type(project, 'XYZ')
 
-  // Act: save, then reopen against the same client
+  // Act
+  // Save, then reopen against the same client.
   await user.click(screen.getByRole('button', { name: /save changes/i }))
   await screen.findByText(/saved/i)
   view.unmount()
@@ -450,7 +461,8 @@ test('locks the save while it is in flight', async () => {
   // Act
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
-  // Assert: the button reads "Saving…" and is held, and only one save went out
+  // Assert
+  // The button reads "Saving…" and is held, and only one save went out.
   const saving = await screen.findByRole('button', { name: 'Saving…' })
   expect(saving.getAttribute('aria-disabled')).toBe('true')
   expect(saves).toHaveLength(1)
@@ -486,7 +498,8 @@ test('offers to try again when the configuration cannot be loaded', async () => 
     within(reason.parentElement ?? document.body).getByRole('button', { name: 'Try again' }),
   )
 
-  // Assert: the form that took the Try again's place has focus, on its first field
+  // Assert
+  // The form that took the Try again's place has focus, on its first field.
   expect(document.activeElement).toBe(await screen.findByLabelText('Base URL'))
 })
 
@@ -530,7 +543,8 @@ test("the switch that lists this repository's forge issues rides back through a 
   const forge = await screen.findByRole('checkbox', { name: /this repository's .* issues/i })
   await user.click(forge)
 
-  // Act: save, then reopen against the same client
+  // Act
+  // Save, then reopen against the same client.
   await user.click(screen.getByRole('button', { name: /save changes/i }))
   await screen.findByText(/saved/i)
   view.unmount()

@@ -11,7 +11,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
-	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
@@ -85,14 +84,13 @@ func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira
 	}
 }
 
-// connectJira finds the Jira token, running its command when one is set, and
-// builds the client that carries it. A token source that gives none is no
-// credential at all, and is reported as such before anything is sent.
-func connectJira(
-	ctx context.Context, settings config.Jira, httpTransport httpx.Doer, log *RequestLog,
-) (jira.Client, error) {
+// connectJira finds the Jira token, reading the keychain through system or
+// running its command when either is set, and builds the client that carries
+// it over doer. A token source that gives none is no credential at all, and is
+// reported as such before anything is sent.
+func connectJira(ctx context.Context, settings config.Jira, system Keychain, doer jira.Doer) (jira.Client, error) {
 	if settings.AuthMode() != config.AuthNone {
-		token, err := resolveSetToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
+		token, err := resolveSetToken(ctx, settings, system)
 		if err != nil {
 			return jira.Client{}, fmt.Errorf("%w: %w", jira.ErrNoCredential, err)
 		}
@@ -100,8 +98,7 @@ func connectJira(
 		settings.Token = token
 	}
 
-	//nolint:bodyclose // Wrap only relays the response; the jira client reads and closes its body.
-	return jira.New(log.Wrap("jira", httpTransport), settings), nil
+	return jira.New(doer, settings), nil
 }
 
 // askJiraIssue asks Jira about the issue issueKey names. A key with no project

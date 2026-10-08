@@ -81,12 +81,12 @@ jobs:
       # so CI and a developer's machine cannot disagree about them. The run's
       # events are kept for the test summary's counts.
       - run: task test:cover GO_TEST_JSON=tmp/go-events.json
-      # Condition coverage. gobco reads every package but the build-tagged twins
-      # scripts/gobco-report.sh lists as unreadable (it fails on any other that
-      # drops out of the report unannounced).
+      # Condition coverage. gobco reads every package with tests, a package of
+      # build-tagged twins a file at a time, and scripts/gobco-report.sh fails
+      # on any it cannot read rather than drop it from the report.
       - run: task cover:branch
       # Consumed by the summary and coverage-baseline jobs below.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: coverage
           path: |
@@ -95,7 +95,7 @@ jobs:
           retention-days: 7
       # Uploaded whether the tests passed or not, so the summary shows a failure
       # as a count rather than leaving the row blank.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: report-go-unit
@@ -125,7 +125,7 @@ jobs:
       - run: task web:gen:check
       - run: task web:lint
       - run: task web:test -- --reporter=default --reporter=json --outputFile.json=reports/web-unit.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: report-web-unit
@@ -161,13 +161,13 @@ jobs:
       - name: Install the Playwright browser
         run: yarn playwright install --with-deps chromium
       - run: yarn test:e2e
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: report-e2e
           path: web/reports/e2e.json
           retention-days: 7
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
           name: playwright-report
@@ -175,7 +175,7 @@ jobs:
           retention-days: 7
       # Every populated section, in both themes, at three widths — uploaded
       # pass or fail, so a visual change can be read by eye on the pull request.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: screens
@@ -213,13 +213,13 @@ jobs:
         run: task build
         working-directory: .
       - run: yarn test:e2e:server
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: report-e2e-server
           path: web/reports/e2e-server.json
           retention-days: 7
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
           name: playwright-report-server
@@ -248,13 +248,13 @@ jobs:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
           install_args: go jq node
       # Each absent when its job stopped before uploading it.
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         continue-on-error: true
         with:
           pattern: report-*
           merge-multiple: true
           path: tmp/reports
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         continue-on-error: true
         with:
           name: coverage
@@ -283,7 +283,7 @@ jobs:
         run: |
           node scripts/pr-comment.mjs pr-coverage.json coverage-baseline.json tmp/test-counts > ci-report.md
           cat ci-report.md >>"${GITHUB_STEP_SUMMARY}"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ci-report
           path: ci-report.md
@@ -345,7 +345,7 @@ jobs:
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
           install_args: go jq
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: coverage
       - name: Compute the summary
@@ -379,7 +379,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ci-report
       - name: Upsert the comment

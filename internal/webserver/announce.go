@@ -171,14 +171,15 @@ func (s *server) postMentions(
 // announceNow posts the announcement at once, dropping any held for CI, which
 // would otherwise follow it once CI passed, and the channel would read it
 // twice. It is a 409 while the held one is being posted, and when the
-// announcement was made meanwhile.
+// announcement was made meanwhile; one posted that the store could not
+// remember is answered as posted, with the warning.
 func (s *server) announceNow(post announcePost) api.AnnounceResponseObject {
 	_, err := s.dropHeld()
 	if err != nil {
 		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
 	}
 
-	err = s.deliver(post)
+	warning, err := s.deliver(post)
 	if errors.Is(err, errAnnouncedAlready) {
 		return api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(post.pull.Number))
 	}
@@ -187,7 +188,10 @@ func (s *server) announceNow(post announcePost) api.AnnounceResponseObject {
 		return s.announceFault(err)
 	}
 
-	return api.Announce200JSONResponse(announcementDTO(post.delivery.Text, post.delivery.Channel))
+	posted := announcementDTO(post.delivery.Text, post.delivery.Channel)
+	posted.Warning = optional(warning)
+
+	return api.Announce200JSONResponse(posted)
 }
 
 // announcement is the announcement for the checked-out branch's pull request,

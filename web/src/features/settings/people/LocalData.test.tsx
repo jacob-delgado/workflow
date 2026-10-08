@@ -99,14 +99,18 @@ test('Remove cache… asks first, in a group that takes focus, and Cancel sends 
   const user = userEvent.setup()
   const requests = storeHolding([cache, kept])
   renderWithClient(<LocalData />)
+
+  // Act: ask to remove the cache
   await user.click(await screen.findByRole('button', { name: 'Remove cache…' }))
+
+  // Assert: a question asks first, and takes focus
   const question = screen.getByRole('group', { name: /remove workflow\.db\?/i })
   expect(question.contains(document.activeElement)).toBe(true)
 
-  // Act
+  // Act: cancel
   await user.click(within(question).getByRole('button', { name: 'Cancel' }))
 
-  // Assert
+  // Assert: the question goes, the focus returns, and nothing is sent
   expect(screen.queryByRole('group')).toBeNull()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Remove cache…' }))
   expect(requests.map((request) => request.method)).toEqual(['GET'])
@@ -117,14 +121,18 @@ test('Remove everything… warns as the server says, removes and reads again', a
   const user = userEvent.setup()
   const requests = storeHolding([cache, kept])
   renderWithClient(<LocalData />)
+
+  // Act: ask to remove everything
   await user.click(await screen.findByRole('button', { name: 'Remove everything…' }))
+
+  // Assert: the question warns as the server says
   const question = screen.getByRole('group', { name: /remove workflow\.db and kept\.db\?/i })
   expect(question.textContent).toContain(consequences.all)
 
-  // Act
+  // Act: remove
   await user.click(within(question).getByRole('button', { name: 'Remove' }))
 
-  // Assert
+  // Assert: removed, said, and read again
   expect(await screen.findByRole('status')).toHaveProperty(
     'textContent',
     'Removed workflow.db and kept.db.',

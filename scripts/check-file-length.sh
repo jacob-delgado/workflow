@@ -13,8 +13,9 @@
 #
 # Two thresholds, so the guidance nudges without blocking a file that has a
 # genuine reason to be long: 500 is the SOFT target — past it the gate warns but
-# still passes — and 800 is the HARD ceiling, past which a file is refused. A
-# file between the two is a prompt to look, not a build break.
+# still passes — and the HARD ceiling is where a file is refused: 800 for
+# source, 700 for a test file. A file between the two is a prompt to look, not
+# a build break.
 #
 # The decisions, each load-bearing:
 #
@@ -33,9 +34,14 @@
 #   .gen.ts) is emitted from a source of truth, so its length says nothing about
 #   design; `task gen:verify` and `yarn gen:check` guard it instead.
 #
-#   TESTS COUNT. A test file's length is a real signal — a 900-line test usually
-#   means the unit under test does too much — and exempting tests would leave
-#   the largest files in the repo unmeasured.
+#   TESTS COUNT, AND SOONER. A test file's length is a real signal — a 900-line
+#   test usually means the unit under test does too much — and exempting tests
+#   would leave the largest files in the repo unmeasured. A test file grows a
+#   case at a time, each one too small to prompt a split, so it is refused at
+#   700: by then it holds the cases of more than one behavior, and splits
+#   along them. A test file is one named as Go's, a script test's, Vitest's or
+#   Playwright's are (_test.go, _test.sh, .test.ts, .test.tsx, .spec.ts), or
+#   any file under web/e2e/, the Playwright specs' helpers included.
 #
 #   NO EXEMPTION LIST. There is nothing to exempt today, and an empty mechanism
 #   is speculative generality. Add one when a file genuinely earns it, with the
@@ -43,8 +49,7 @@
 set -euo pipefail
 
 readonly default_max=800
-# Trade-off TRADE-2: seven test files stay past the soft target, each holding
-# the cases of one behavior; TECH_DEBT.md's register names them.
+readonly default_test_max=700
 readonly default_soft=500
 
 usage() {
@@ -53,6 +58,7 @@ usage() {
 
 mode="gate"
 max="${FILE_LENGTH_MAX:-${default_max}}"
+test_max="${FILE_LENGTH_TEST_MAX:-${default_test_max}}"
 soft="${FILE_LENGTH_SOFT:-${default_soft}}"
 
 case "${1:-}" in
@@ -64,7 +70,7 @@ case "${1:-}" in
     ;;
 esac
 
-for name in max soft; do
+for name in max test_max soft; do
   # A non-numeric threshold would make the arithmetic below compare strings and
   # silently pass everything, which is the one failure mode a gate must not have.
   if ! [[ "${!name}" =~ ^[1-9][0-9]*$ ]]; then
@@ -97,27 +103,36 @@ fi
 # above, so a broken git still stops the gate.
 tracked="$(printf '%s\n' "${tracked}" | grep -v -e '\.gen\.go$' -e '^web/src/api/generated/' || true)"
 
+# ceiling is the hard ceiling a file is held to: the test ceiling for a test
+# file, as the header names one, and the source ceiling for any other.
+ceiling() {
+  case "$1" in
+    *_test.go | *_test.sh | *.test.ts | *.test.tsx | *.spec.ts | web/e2e/*) echo "${test_max}" ;;
+    *) echo "${max}" ;;
+  esac
+}
+
 # Tab-delimited: a path containing a space must not re-split into a bogus count.
 lengths() {
   local file lines
   while IFS= read -r file; do
     [[ -f "${file}" ]] || continue
     lines="$(wc -l <"${file}" | tr -d '[:space:]')"
-    printf '%s\t%s\n' "${lines}" "${file}"
+    printf '%s\t%s\t%s\n' "${lines}" "$(ceiling "${file}")" "${file}"
   done <<<"${tracked}" | sort -rn
 }
 
 if [[ "${mode}" == "list" ]]; then
-  lengths | awk -F'\t' -v hard="${max}" -v soft="${soft}" \
-    '{ tag = ($1 > hard ? "  <= OVER" : ($1 > soft ? "  <= soft" : "")); printf "%5d  %s%s\n", $1, $2, tag }'
+  lengths | awk -F'\t' -v soft="${soft}" \
+    '{ tag = ($1 > $2 ? "  <= OVER" : ($1 > soft ? "  <= soft" : "")); printf "%5d  %s%s\n", $1, $3, tag }'
   exit 0
 fi
 
 over=0
 warned=0
-while IFS=$'\t' read -r lines file; do
-  if ((lines > max)); then
-    echo "${file}: ${lines} lines (hard ceiling ${max})" >&2
+while IFS=$'\t' read -r lines hard file; do
+  if ((lines > hard)); then
+    echo "${file}: ${lines} lines (hard ceiling ${hard})" >&2
     over=$((over + 1))
   elif ((lines > soft)); then
     echo "${file}: ${lines} lines (over the ${soft}-line soft target)" >&2
@@ -127,13 +142,13 @@ done < <(lengths)
 
 if ((over > 0)); then
   echo >&2
-  echo "check-file-length: ${over} file(s) over the ${max}-line hard ceiling." >&2
+  echo "check-file-length: ${over} file(s) over the hard ceiling: ${max} lines for source, ${test_max} for tests." >&2
   echo "Split by concern — a file this long is usually holding more than one." >&2
   exit 1
 fi
 
 if ((warned > 0)); then
-  echo "check-file-length: ${warned} file(s) over the ${soft}-line soft target (warning only), all within the ${max}-line ceiling."
+  echo "check-file-length: ${warned} file(s) over the ${soft}-line soft target (warning only), all within their ceilings."
   exit 0
 fi
 
