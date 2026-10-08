@@ -3,8 +3,9 @@
 // jira.markdown_comments is on, so the composer's Preview shows what Jira
 // will be sent.
 //
-// Trade-off TRADE-28: these rules are written again in internal/jira/wiki.go,
-// and twin-named tests pin the two.
+// internal/jira/wiki.go converts again before posting, and both copies answer
+// to the one case file internal/jira/testdata/wiki_from_markdown.json, so a
+// change to either alone fails its own tests.
 export function wikiFromMarkdown(markdown: string): string {
   const out: string[] = []
   let inFence = false
@@ -30,6 +31,11 @@ const boldSentinel = '\u0000'
 // as indented content instead.
 const maxFenceIndent = 3
 
+// fenceSpace is the white space around a fence line, as both converters read
+// it: JavaScript's, with the byte order mark its trim takes, and the next-line
+// character Go's TrimSpace takes, so Preview brackets a fence as Jira is sent.
+const fenceSpace = /^[\s\u0085]+|[\s\u0085]+$/g
+
 // Go's . matches anything but a newline, a carriage return among it, where
 // JavaScript's stops at both, so every . here is written [^\n].
 
@@ -52,12 +58,12 @@ const link = /(!?)\[([^\]]*)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g
 // line.
 function fenceLine(line: string): string | null {
   const indent = line.length - line.replace(/^ +/, '').length
-  const trimmed = line.trim()
+  const trimmed = line.replace(fenceSpace, '')
   if (indent > maxFenceIndent || !trimmed.startsWith('```')) {
     return null
   }
 
-  const language = trimmed.slice(3).trim()
+  const language = trimmed.slice(3).replace(fenceSpace, '')
 
   return language === '' ? '{code}' : `{code:${language}}`
 }
