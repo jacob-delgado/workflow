@@ -204,7 +204,7 @@ func (p *parser) addRule(raw string, owners Owners, named bool) {
 	current := &p.file.sections[p.current]
 	if p.dialect == GitLab {
 		current.rules = slices.DeleteFunc(current.rules, func(earlier rule) bool {
-			return earlier.pattern.source == compiled.source
+			return earlier.pattern.normalized == compiled.normalized
 		})
 	}
 
