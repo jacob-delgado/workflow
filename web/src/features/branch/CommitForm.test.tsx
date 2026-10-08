@@ -189,6 +189,7 @@ test('focus dropped to the page after a commit from the keyboard stays on the pa
   })
 
   // Act
+  // The stream's next frame, which has nothing left to commit.
   rerender(<CommitForm canCommit={false} suggestedScope="" convention={conventional} />)
 
   // Assert
