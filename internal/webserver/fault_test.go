@@ -259,7 +259,7 @@ func TestOnlyAFailureNoClassExplainsIsHandedToUnexpected(t *testing.T) {
 			deps.Search = func(string, int) (jira.SearchResult, error) {
 				return jira.SearchResult{}, fmt.Errorf("searching: %w", tt.cause)
 			}
-			deps.Unexpected = func(err error) { heard = append(heard, err) }
+			deps.Unexpected = func(_ config.Config, err error) { heard = append(heard, err) }
 
 			// Act
 			recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
@@ -283,7 +283,7 @@ func TestAnAnswerThatCannotBeWrittenIsHandedToUnexpected(t *testing.T) {
 	var heard []error
 
 	deps := filledDeps()
-	deps.Unexpected = func(err error) { heard = append(heard, err) }
+	deps.Unexpected = func(_ config.Config, err error) { heard = append(heard, err) }
 
 	writer := &firstWriteFails{}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/health", nil)

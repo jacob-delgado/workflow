@@ -119,11 +119,11 @@ func (s *server) fault(err error) (api.Problem, int) {
 	return prob, prob.Status
 }
 
-// unexpected hands a failure the answer leaves out to Unexpected, when it is
-// wired.
+// unexpected hands a failure the answer leaves out to Unexpected, with the
+// configuration in effect, when it is wired.
 func (s *server) unexpected(err error) {
 	if s.deps.Unexpected != nil {
-		s.deps.Unexpected(err)
+		s.deps.Unexpected(s.config(), err)
 	}
 }
 

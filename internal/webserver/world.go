@@ -178,6 +178,8 @@ func (w *worlds) switchTo(dir string) (*server, error) {
 		return nil, err
 	}
 
+	// Where the server's failures are heard stays where it was; what they are
+	// masked with is the configuration in effect, handed over at each one.
 	if world.Deps.Unexpected == nil {
 		world.Deps.Unexpected = current.deps.Unexpected
 	}
