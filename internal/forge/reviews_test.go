@@ -93,7 +93,7 @@ func TestReviewRequestsListsWhatEachForgeReturns(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, seen := forgeRouting(t, tt.routes)
+			client, seen := recordingForge(t, routing(tt.routes))
 
 			// Act
 			reviews, err := client.ReviewRequests(t.Context(), tt.kind)
@@ -167,7 +167,7 @@ func TestReviewRequestsFiltersGitLabByReviewer(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeRouting(t, map[string]string{gitlabUserPath: gitlabWhoami})
+	client, seen := recordingForge(t, routing(map[string]string{gitlabUserPath: gitlabWhoami}))
 
 	// Act
 	_, err := client.ReviewRequests(t.Context(), forge.KindGitLab)
@@ -190,7 +190,7 @@ func TestReviewRequestsReportsAForgeFailure(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeAnswering(t, http.StatusInternalServerError, "")
+			client, _ := recordingForge(t, answering(http.StatusInternalServerError, ""))
 
 			// Act
 			_, err := client.ReviewRequests(t.Context(), kind)
@@ -208,10 +208,10 @@ func TestReviewRequestsReportsAGitLabListingFailure(t *testing.T) {
 
 	// Arrange
 	// GitLab answers who you are, then sends something that is not a listing.
-	client, _ := forgeRouting(t, map[string]string{
+	client, _ := recordingForge(t, routing(map[string]string{
 		gitlabUserPath:    gitlabWhoami,
 		gitlabReviewsPath: `{"message":"nope"}`,
-	})
+	}))
 
 	// Act
 	_, err := client.ReviewRequests(t.Context(), forge.KindGitLab)
@@ -226,7 +226,7 @@ func TestReviewRequestsForAnUnknownForge(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, _ := forgeAnswering(t, http.StatusOK, `{}`)
+	client, _ := recordingForge(t, answering(http.StatusOK, `{}`))
 
 	// Act
 	_, err := client.ReviewRequests(t.Context(), forge.KindUnknown)

@@ -31,7 +31,7 @@ func TestReadIssueReportsAnIssueTheForgeRefuses(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeConversation(t, nil, map[string]bool{tt.path: true})
+			client, _ := recordingForge(t, conversation(nil, map[string]bool{tt.path: true}))
 
 			// Act
 			detail, err := client.ReadIssue(t.Context(), tt.repo, tt.number)
@@ -60,7 +60,7 @@ func TestFindPullRequestReportsAListingTheForgeRefuses(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeConversation(t, nil, map[string]bool{tt.path: true})
+			client, _ := recordingForge(t, conversation(nil, map[string]bool{tt.path: true}))
 
 			// Act
 			_, found, err := client.FindPullRequest(t.Context(), tt.repo, featureBranch)
@@ -78,9 +78,9 @@ func TestAssignedIssuesOnGitLabReportsAListRefusedAfterTheViewerIsKnown(t *testi
 
 	// Arrange
 	// GitLab says who is asking, then will not list that person's issues.
-	client, seen := forgeConversation(t,
+	client, seen := recordingForge(t, conversation(
 		map[string]string{gitlabUserPath: gitlabWhoami},
-		map[string]bool{gitlabIssuesList: true})
+		map[string]bool{gitlabIssuesList: true}))
 
 	// Act
 	issues, err := client.AssignedIssues(t.Context(), gitlabRepo())

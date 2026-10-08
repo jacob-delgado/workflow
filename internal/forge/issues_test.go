@@ -69,7 +69,7 @@ func TestAssignedIssuesListsAForgesRepoIssues(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, seen := forgeRouting(t, tt.routes)
+			client, seen := recordingForge(t, routing(tt.routes))
 
 			// Act
 			issues, err := client.AssignedIssues(t.Context(), tt.repo)
@@ -252,7 +252,7 @@ func TestReadIssueReadsBodyAndAuthor(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeRouting(t, tt.routes)
+			client, _ := recordingForge(t, routing(tt.routes))
 
 			// Act
 			detail, err := client.ReadIssue(t.Context(), tt.repo, tt.number)
@@ -294,7 +294,7 @@ func TestReadIssueReadsWhetherTheIssueIsClosed(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeRouting(t, map[string]string{tt.path: tt.reply})
+			client, _ := recordingForge(t, routing(map[string]string{tt.path: tt.reply}))
 
 			// Act
 			detail, err := client.ReadIssue(t.Context(), tt.repo, tt.number)
@@ -333,7 +333,7 @@ func TestCloseIssueClosesOnEachForge(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, seen := forgeAnswering(t, http.StatusOK, tt.reply)
+			client, seen := recordingForge(t, answering(http.StatusOK, tt.reply))
 
 			// Act
 			err := client.CloseIssue(t.Context(), tt.repo, tt.number)
@@ -358,7 +358,7 @@ func TestAssignedIssuesReportsAForgeFailure(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeAnswering(t, http.StatusInternalServerError, "")
+			client, _ := recordingForge(t, answering(http.StatusInternalServerError, ""))
 
 			// Act
 			_, err := client.AssignedIssues(t.Context(), repo)
@@ -397,7 +397,7 @@ func TestForgeIssueMethodsRejectAnUnknownForge(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeAnswering(t, http.StatusOK, `{}`)
+			client, _ := recordingForge(t, answering(http.StatusOK, `{}`))
 
 			// Act
 			err := call(client, unknown)
@@ -438,7 +438,7 @@ func TestAssignIssueOnGitHubAddsTheAssignee(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeAnswering(t, http.StatusCreated, `{"number":42}`)
+	client, seen := recordingForge(t, answering(http.StatusCreated, `{"number":42}`))
 
 	// Act
 	err := client.AssignIssue(t.Context(), githubRepo(), 42, userAna)
@@ -455,10 +455,10 @@ func TestAssignIssueOnGitLabSetsTheAssigneeByID(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeConversation(t, map[string]string{
+	client, seen := recordingForge(t, conversation(map[string]string{
 		gitlabUsersPath: `[{"id":7}]`,
 		gitlabIssuePath: `{"iid":7}`,
-	}, nil)
+	}, nil))
 
 	// Act
 	err := client.AssignIssue(t.Context(), gitlabRepo(), 7, userAna)

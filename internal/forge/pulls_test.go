@@ -4,13 +4,10 @@
 package forge_test
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
-	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -40,47 +37,6 @@ const (
 	githubPullsPath  = "/repos/example/repo/pulls"
 	gitlabMergesPath = "/projects/group%2Fsub%2Frepo/merge_requests"
 )
-
-// recorded is what a fake forge saw of one request.
-type recorded struct {
-	method, path, query string
-	body                map[string]any
-}
-
-// forgeAnswering serves one answer and records the request it got.
-func forgeAnswering(t *testing.T, status int, body string) (forge.Client, *atomic.Value) {
-	t.Helper()
-
-	var seen atomic.Value
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		var sent map[string]any
-
-		_ = json.NewDecoder(request.Body).Decode(&sent)
-		seen.Store(recorded{
-			method: request.Method, path: request.URL.EscapedPath(), query: request.URL.RawQuery, body: sent,
-		})
-
-		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-		writer.WriteHeader(status)
-		_, _ = writer.Write([]byte(body))
-	}))
-	t.Cleanup(server.Close)
-
-	return forge.New(server.Client().Do, server.URL, secret), &seen
-}
-
-// lastRequest is what the fake forge last saw.
-func lastRequest(t *testing.T, seen *atomic.Value) recorded {
-	t.Helper()
-
-	got, ok := seen.Load().(recorded)
-	if !ok {
-		t.Fatal("the forge was never asked anything")
-	}
-
-	return got
-}
 
 func TestFindPullRequestAsksEachForgeForTheBranch(t *testing.T) {
 	t.Parallel()
@@ -132,7 +88,7 @@ func TestFindPullRequestAsksEachForgeForTheBranch(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, seen := forgeRouting(t, tt.routes)
+			client, seen := recordingForge(t, routing(tt.routes))
 
 			// Act
 			found, ok, err := client.FindPullRequest(t.Context(), tt.repo, featureBranch)
@@ -164,7 +120,7 @@ func TestFindPullRequestWithNoneOpen(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeAnswering(t, http.StatusOK, `[]`)
+			client, _ := recordingForge(t, answering(http.StatusOK, `[]`))
 
 			// Act
 			_, ok, err := client.FindPullRequest(t.Context(), repo, featureBranch)
@@ -181,8 +137,8 @@ func TestCreatePullRequestOnGitHub(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeAnswering(t, http.StatusCreated,
-		`{"number":43,"html_url":"https://github.com/example/repo/pull/43","title":"fix: token","draft":true}`)
+	client, seen := recordingForge(t, answering(http.StatusCreated,
+		`{"number":43,"html_url":"https://github.com/example/repo/pull/43","title":"fix: token","draft":true}`))
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
@@ -213,8 +169,9 @@ func TestCreateMergeRequestOnGitLab(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeAnswering(t, http.StatusCreated,
-		`{"iid":8,"web_url":"https://gitlab.com/group/sub/repo/-/merge_requests/8","title":"Draft: fix: token","draft":true}`)
+	client, seen := recordingForge(t, answering(http.StatusCreated,
+		`{"iid":8,"web_url":"https://gitlab.com/group/sub/repo/-/merge_requests/8",`+
+			`"title":"Draft: fix: token","draft":true}`))
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
@@ -284,7 +241,7 @@ func TestARefusedPullRequestSaysWhy(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeAnswering(t, tt.status, tt.body)
+			client, _ := recordingForge(t, answering(tt.status, tt.body))
 
 			// Act
 			_, err := client.CreatePullRequest(t.Context(), tt.repo, forge.NewPullRequest{
@@ -308,14 +265,14 @@ func TestFindPullRequestNeedsAForgeThatIsKnown(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeAnswering(t, http.StatusOK, `[]`)
+	client, seen := recordingForge(t, answering(http.StatusOK, `[]`))
 
 	// Act
 	_, _, err := client.FindPullRequest(t.Context(), unknownForge(), featureBranch)
 
 	// Assert
-	if !errors.Is(err, forge.ErrUnknownForge) || seen.Load() != nil {
-		t.Errorf("FindPullRequest returned %v and asked %v, want ErrUnknownForge before asking", err, seen.Load())
+	if !errors.Is(err, forge.ErrUnknownForge) || len(*seen) != 0 {
+		t.Errorf("FindPullRequest returned %v and asked %v, want ErrUnknownForge before asking", err, *seen)
 	}
 }
 
@@ -323,14 +280,14 @@ func TestCreatePullRequestNeedsAForgeThatIsKnown(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeAnswering(t, http.StatusOK, `[]`)
+	client, seen := recordingForge(t, answering(http.StatusOK, `[]`))
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), unknownForge(), forge.NewPullRequest{})
 
 	// Assert
-	if !errors.Is(err, forge.ErrUnknownForge) || seen.Load() != nil {
-		t.Errorf("CreatePullRequest returned %v and asked %v, want ErrUnknownForge before asking", err, seen.Load())
+	if !errors.Is(err, forge.ErrUnknownForge) || len(*seen) != 0 {
+		t.Errorf("CreatePullRequest returned %v and asked %v, want ErrUnknownForge before asking", err, *seen)
 	}
 }
 
@@ -338,14 +295,14 @@ func TestCheckStatusNeedsAForgeThatIsKnown(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeAnswering(t, http.StatusOK, `[]`)
+	client, seen := recordingForge(t, answering(http.StatusOK, `[]`))
 
 	// Act
 	_, err := client.CheckStatus(t.Context(), unknownForge(), forge.PullRequest{}, "abc")
 
 	// Assert
-	if !errors.Is(err, forge.ErrUnknownForge) || seen.Load() != nil {
-		t.Errorf("CheckStatus returned %v and asked %v, want ErrUnknownForge before asking", err, seen.Load())
+	if !errors.Is(err, forge.ErrUnknownForge) || len(*seen) != 0 {
+		t.Errorf("CheckStatus returned %v and asked %v, want ErrUnknownForge before asking", err, *seen)
 	}
 }
 
@@ -355,7 +312,7 @@ func TestARepositoryTheTokenCannotSeeSaysSo(t *testing.T) {
 	// Arrange
 	// Both forges answer 404, not 403, for a private repository the token has
 	// no access to. On /user a 404 means a wrong address; here it does not.
-	client, _ := forgeAnswering(t, http.StatusNotFound, `{"message":"Not Found"}`)
+	client, _ := recordingForge(t, answering(http.StatusNotFound, `{"message":"Not Found"}`))
 
 	// Act
 	_, _, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
@@ -401,7 +358,7 @@ func TestOnlyARefusalTheForgeExplainsCarriesItsReason(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeAnswering(t, tt.status, tt.body)
+			client, _ := recordingForge(t, answering(tt.status, tt.body))
 
 			// Act
 			_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{})

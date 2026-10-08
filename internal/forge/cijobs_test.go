@@ -21,11 +21,11 @@ func TestGitLabCIListsAFailedPipelinesFailedJobsWithWhy(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeRouting(t, map[string]string{
+	client, seen := recordingForge(t, routing(map[string]string{
 		failedMergePath: `{"iid":8,"head_pipeline":{"id":77,"status":"failed","web_url":"https://gl/pipelines/77"}}`,
 		failedJobsPath: `[{"id":501,"name":"unit-race","stage":"test","failure_reason":"script_failure",` +
 			`"web_url":"https://gl/jobs/501"}]`,
-	})
+	}))
 
 	// Act
 	got, err := client.CheckStatus(t.Context(), gitlabRepo(), forge.PullRequest{Number: 8}, headCommit)
@@ -48,10 +48,10 @@ func TestGitLabCIKeepsThePipelineWhenItsJobsCannotBeRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, _ := forgeRouting(t, map[string]string{
+	client, _ := recordingForge(t, routing(map[string]string{
 		failedMergePath: `{"iid":8,"head_pipeline":{"id":77,"status":"failed","web_url":"https://gl/pipelines/77"}}`,
 		failedJobsPath:  `not json`,
-	})
+	}))
 
 	// Act
 	got, err := client.CheckStatus(t.Context(), gitlabRepo(), forge.PullRequest{Number: 8}, headCommit)

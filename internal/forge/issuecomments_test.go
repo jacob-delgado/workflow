@@ -53,7 +53,7 @@ func TestReadIssueCountsItsComments(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeRouting(t, tt.routes)
+			client, _ := recordingForge(t, routing(tt.routes))
 
 			// Act
 			detail, err := client.ReadIssue(t.Context(), tt.repo, tt.number)
@@ -71,9 +71,9 @@ func TestRecentIssueCommentsReadsAGitHubThread(t *testing.T) {
 
 	// Arrange
 	// A deleted account comes back as no user at all; GitHub shows it as ghost.
-	client, seen := forgeRouting(t, map[string]string{githubCommentsPath: `[` +
+	client, seen := recordingForge(t, routing(map[string]string{githubCommentsPath: `[` +
 		`{"user":{"login":"ana"},"body":"first","created_at":"` + commentWritten + `"},` +
-		`{"user":null,"body":"from a deleted account","created_at":"` + commentWritten + `"}]`})
+		`{"user":null,"body":"from a deleted account","created_at":"` + commentWritten + `"}]`}))
 
 	// Act
 	comments, err := client.RecentIssueComments(t.Context(), githubRepo(), 42, 2)
@@ -96,11 +96,11 @@ func TestRecentIssueCommentsReadsAGitLabThreadNewestFirstAndTurnsItAround(t *tes
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeRouting(t, map[string]string{gitlabNotesPath: `[` +
+	client, seen := recordingForge(t, routing(map[string]string{gitlabNotesPath: `[` +
 		`{"author":{"username":"ben"},"body":"the latest","created_at":"` + commentWritten + `","system":false},` +
 		`{"author":{"username":"ben"},"body":"changed the milestone","created_at":"` + commentWritten +
 		`","system":true},` +
-		`{"author":{"username":"ben"},"body":"the first","created_at":"` + commentWritten + `","system":false}]`})
+		`{"author":{"username":"ben"},"body":"the first","created_at":"` + commentWritten + `","system":false}]`}))
 
 	// Act
 	comments, err := client.RecentIssueComments(t.Context(), gitlabRepo(), 7, 2)
@@ -140,7 +140,7 @@ func TestCommentOnIssuePostsTheBodyAsWritten(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, seen := forgeAnswering(t, http.StatusCreated, tt.answer)
+			client, seen := recordingForge(t, answering(http.StatusCreated, tt.answer))
 
 			// Act
 			posted, err := client.CommentOnIssue(t.Context(), tt.repo, tt.number, "**done**")
@@ -165,7 +165,7 @@ func TestAGitLabNoteOfOnlyQuickActionsIsAcceptedNotFailed(t *testing.T) {
 	// Arrange
 	// GitLab applies the actions and answers 202 with no note; reading that as
 	// a failure would invite a retry that applies them twice.
-	client, _ := forgeAnswering(t, http.StatusAccepted, `{"commands_changes":{"state_event":"close"}}`)
+	client, _ := recordingForge(t, answering(http.StatusAccepted, `{"commands_changes":{"state_event":"close"}}`))
 
 	// Act
 	posted, err := client.CommentOnIssue(t.Context(), gitlabRepo(), 7, "/close")
@@ -180,7 +180,7 @@ func TestACommentTheForgeTurnsDownSaysWhy(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, _ := forgeAnswering(t, http.StatusUnprocessableEntity, `{"message":"Body is too long"}`)
+	client, _ := recordingForge(t, answering(http.StatusUnprocessableEntity, `{"message":"Body is too long"}`))
 
 	// Act
 	_, err := client.CommentOnIssue(t.Context(), githubRepo(), 42, "far too long")
@@ -197,7 +197,7 @@ func TestAServerErrorIsNotPassedOnAsTheForgesReason(t *testing.T) {
 	// Arrange
 	// A gateway in front of the forge answers 5xx in JSON of its own, which
 	// can name a host behind it; only a 4xx is the forge explaining a refusal.
-	client, _ := forgeAnswering(t, http.StatusBadGateway, `{"message":"upstream db-7.internal is down"}`)
+	client, _ := recordingForge(t, answering(http.StatusBadGateway, `{"message":"upstream db-7.internal is down"}`))
 
 	// Act
 	_, err := client.CommentOnIssue(t.Context(), githubRepo(), 42, "hi")
@@ -214,7 +214,7 @@ func TestA202IsSuccessOnlyForAGitLabComment(t *testing.T) {
 
 	// Arrange
 	// A 202 elsewhere means work still running, which is not yet done.
-	client, _ := forgeAnswering(t, http.StatusAccepted, `{}`)
+	client, _ := recordingForge(t, answering(http.StatusAccepted, `{}`))
 
 	// Act
 	err := client.CloseIssue(t.Context(), gitlabRepo(), 7)
