@@ -1,6 +1,10 @@
 import { type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
-import type { LocalData as Listing, LocalDataFile } from '@/api/generated/types.gen.ts'
+import type {
+  LocalData as Listing,
+  LocalDataConsequences,
+  LocalDataFile,
+} from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Reading, Unread } from '@/lib/Status.tsx'
@@ -53,7 +57,7 @@ function LocalDataBody() {
   return (
     <>
       <Files listing={query.data} />
-      <Removals files={query.data.files} />
+      <Removals files={query.data.files} consequences={query.data.consequences} />
     </>
   )
 }
@@ -91,7 +95,7 @@ function Files({ listing }: { listing: Listing }) {
               <tr key={file.name} className="border-t border-border align-top">
                 <td className="py-1 font-mono break-all">{file.name}</td>
                 <td className="py-1">{kindNames[file.kind]}</td>
-                <td className="py-1 tabular-nums">{humanBytes(file.bytes)}</td>
+                <td className="py-1 tabular-nums">{file.size}</td>
                 <td className="py-1 break-words">{holdings(file)}</td>
               </tr>
             ))}
@@ -105,19 +109,6 @@ function Files({ listing }: { listing: Listing }) {
 // kindNames are how each kind of file reads in the table.
 const kindNames: Record<LocalDataFile['kind'], string> = { cache: 'Cache', kept: 'Kept' }
 
-// humanBytes is a size in bytes, KiB or MiB, with one decimal past bytes, as
-// `workflow db-clean` prints it.
-function humanBytes(bytes: number): string {
-  const unit = 1024
-  if (bytes < unit) {
-    return `${String(bytes)} B`
-  }
-
-  return bytes < unit * unit
-    ? `${(bytes / unit).toFixed(1)} KiB`
-    : `${(bytes / (unit * unit)).toFixed(1)} MiB`
-}
-
 // holdings says what a file holds, or that it could not be read as one.
 function holdings(file: LocalDataFile): string {
   if (file.holds.length === 0) {
@@ -130,7 +121,13 @@ function holdings(file: LocalDataFile): string {
 // Removals are the two removals, each opening its confirm step, or under
 // --dry-run the sentence saying they are held back; and what the last one
 // said.
-function Removals({ files }: { files: LocalDataFile[] }) {
+function Removals({
+  files,
+  consequences,
+}: {
+  files: LocalDataFile[]
+  consequences: LocalDataConsequences
+}) {
   const dryRun = useHealthStore((state) => state.health?.dry_run === true)
   const outcome = useOutcome()
 
@@ -146,16 +143,24 @@ function Removals({ files }: { files: LocalDataFile[] }) {
           <code className="font-mono">--dry-run</code>, so nothing is removed.
         </p>
       ) : (
-        <RemoveSteps files={files} tell={outcome} />
+        <RemoveSteps files={files} consequences={consequences} tell={outcome} />
       )}
       <OutcomeLine said={outcome.said} />
     </div>
   )
 }
 
+// RemoveStepsProps are the files a removal reaches, what the server says each
+// removal takes with it, and where its outcome is told.
+interface RemoveStepsProps {
+  files: LocalDataFile[]
+  consequences: LocalDataConsequences
+  tell: Teller
+}
+
 // RemoveSteps are the two openers, or the confirm step one of them opened,
 // and the reason the last removal was refused.
-function RemoveSteps({ files, tell }: { files: LocalDataFile[]; tell: Teller }) {
+function RemoveSteps({ files, consequences, tell }: RemoveStepsProps) {
   const [confirming, setConfirming] = useState<RemoveScope | null>(null)
   const [refusedFrom, setRefusedFrom] = useState<RemoveScope>('cache')
   const cacheOpener = useRef<HTMLButtonElement>(null)
@@ -187,8 +192,8 @@ function RemoveSteps({ files, tell }: { files: LocalDataFile[]; tell: Teller }) 
   if (confirming !== null) {
     return (
       <RemoveConfirm
-        scope={confirming}
         names={namesReached(files, confirming)}
+        consequence={consequences[confirming]}
         onCancel={() => {
           handBackTo.current = confirming
           setConfirming(null)
@@ -271,23 +276,19 @@ function namesReached(files: LocalDataFile[], scope: RemoveScope): string {
 }
 
 interface RemoveConfirmProps {
-  scope: RemoveScope
   names: string
+  consequence: string
   onCancel: () => void
   onRemove: () => void
 }
 
-// RemoveConfirm asks before a removal. Removing everything says what is lost
-// with the kept file.
-function RemoveConfirm({ scope, names, onCancel, onRemove }: RemoveConfirmProps) {
+// RemoveConfirm asks before a removal, saying what it costs in the store's
+// words: removing everything says what is lost with the kept file.
+function RemoveConfirm({ names, consequence, onCancel, onRemove }: RemoveConfirmProps) {
   return (
     <LastLook
       question={`Remove ${names}?`}
-      cost={
-        scope === 'all'
-          ? 'Whom each code owner is on Slack and each repository’s groups go with it: people and group associations will be asked again.'
-          : 'The last scope, what was announced and the cached issue lists are made again as you work.'
-      }
+      cost={consequence}
       act="Remove"
       onAct={onRemove}
       onCancel={onCancel}

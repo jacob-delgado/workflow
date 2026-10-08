@@ -1523,6 +1523,9 @@ type LinkedIssueOrigin string
 
 // LocalData The store's directory and the database files in it.
 type LocalData struct {
+	// Consequences What a removal of each scope takes with it, in the words every surface's last look warns with before anything is removed.
+	Consequences LocalDataConsequences `json:"consequences"`
+
 	// Dir The directory the store keeps its files in.
 	Dir string `json:"dir"`
 
@@ -1531,6 +1534,15 @@ type LocalData struct {
 
 	// Files Each database file there, the cache first; a file not there is left out.
 	Files []LocalDataFile `json:"files"`
+}
+
+// LocalDataConsequences What a removal of each scope takes with it, in the words every surface's last look warns with before anything is removed.
+type LocalDataConsequences struct {
+	// All What removing everything takes with it.
+	All string `json:"all"`
+
+	// Cache What removing the cache takes with it.
+	Cache string `json:"cache"`
 }
 
 // LocalDataFile One database file, with its companions counted in its size.
@@ -1546,6 +1558,11 @@ type LocalDataFile struct {
 
 	// Name The file's name in the directory, as workflow.db or kept.db.
 	Name string `json:"name"`
+
+	// Size The same size as every surface shows it, in bytes, KiB or MiB.
+	//
+	// Example: 12.0 KiB
+	Size string `json:"size"`
 }
 
 // LocalDataFileKind cache holds conveniences a session makes again; kept holds what the user decided, which removing all makes workflow ask again.

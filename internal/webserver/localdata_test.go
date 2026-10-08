@@ -91,11 +91,19 @@ func TestLocalDataListsEachFileWithWhatItHolds(t *testing.T) {
 	}
 
 	wantCache := api.LocalDataFile{
-		Name: "workflow.db", Kind: api.LocalDataFileKindCache, Bytes: 12288,
+		Name: "workflow.db", Kind: api.LocalDataFileKindCache, Bytes: 12288, Size: "12.0 KiB",
 		Holds: []api.LocalDataHeld{{What: "scopes", Count: 2}},
 	}
 	if !reflect.DeepEqual(data.Files[0], wantCache) {
 		t.Errorf("the cache reads %+v, want %+v", data.Files[0], wantCache)
+	}
+
+	// The page warns in the words the terminal does, not a copy of its own.
+	wantSaid := api.LocalDataConsequences{
+		Cache: store.CleanCache.Consequence(), All: store.CleanAll.Consequence(),
+	}
+	if data.Consequences != wantSaid {
+		t.Errorf("consequences = %+v, want %+v", data.Consequences, wantSaid)
 	}
 
 	if data.Files[1].Kind != api.LocalDataFileKindKept {
