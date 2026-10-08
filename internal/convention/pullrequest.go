@@ -64,8 +64,8 @@ func PullRequestBody(template string, subjects []string, issueKey, issueURL stri
 		body = "## Commits\n\n- " + strings.Join(subjects, "\n- ")
 	}
 
-	if issueKey != "" && !references(body, issueKey) {
-		body = strings.TrimLeft(body+"\n\n"+issueLine(issueKey, issueURL), "\n")
+	if line := issueLine(issueKey, issueURL); line != "" && !references(body, issueKey) {
+		body = strings.TrimLeft(body+"\n\n"+line, "\n")
 	}
 
 	if body == "" {
@@ -80,11 +80,12 @@ func PullRequestBody(template string, subjects []string, issueKey, issueURL stri
 // request opened outside workflow, then linked to its issue, gains the same
 // line, and the forge closes a forge issue named so when it merges.
 func WithIssueLine(body, issueKey, issueURL string) (string, bool) {
-	if references(body, issueKey) {
+	line := issueLine(issueKey, issueURL)
+	if line == "" || references(body, issueKey) {
 		return body, false
 	}
 
-	return strings.TrimLeft(strings.TrimRight(body, "\n")+"\n\n"+issueLine(issueKey, issueURL), "\n") + "\n", true
+	return strings.TrimLeft(strings.TrimRight(body, "\n")+"\n\n"+line, "\n") + "\n", true
 }
 
 // references reports whether text names the issue key as a whole token, so a
@@ -93,36 +94,28 @@ func WithIssueLine(body, issueKey, issueURL string) (string, bool) {
 // likely a count, a version or another key's number.
 func references(text, issueKey string) bool {
 	quoted := regexp.QuoteMeta(issueKey)
-	if forgeIssueNumber(issueKey) {
+	if forgeNumber().MatchString(issueKey) {
 		return regexp.MustCompile(`(?:(?:^|[^\w&])#|/issues/)` + quoted + `\b`).MatchString(text)
 	}
 
 	return regexp.MustCompile(`\b` + quoted + `\b`).MatchString(text)
 }
 
-// issueLine names the issue in the pull request body. A forge issue is named
-// the way its forge auto-closes it on merge; a Jira issue is named and linked in
-// Markdown, which both forges render.
+// issueLine names the issue in the pull request body, by its tracker: a forge
+// issue the way its forge auto-closes it on merge, and a Jira issue named and
+// linked in Markdown, which both forges render. A key neither tracker writes
+// so names no issue, and gets no line.
 func issueLine(issueKey, issueURL string) string {
-	if forgeIssueNumber(issueKey) {
-		return "Closes #" + issueKey
+	ref, known := RefOf(issueKey)
+
+	switch {
+	case !known:
+		return ""
+	case ref.Tracker == TrackerForge:
+		return "Closes #" + ref.Key
+	case issueURL == "":
+		return "Jira: " + ref.Key
+	default:
+		return "Jira: [" + ref.Key + "](" + issueURL + ")"
 	}
-
-	if issueURL == "" {
-		return "Jira: " + issueKey
-	}
-
-	return "Jira: [" + issueKey + "](" + issueURL + ")"
-}
-
-// forgeIssueNumber reports that the key is a forge issue number — all digits —
-// rather than a Jira key, which always carries a letter.
-func forgeIssueNumber(issueKey string) bool {
-	for _, character := range issueKey {
-		if character < '0' || character > '9' {
-			return false
-		}
-	}
-
-	return issueKey != ""
 }
