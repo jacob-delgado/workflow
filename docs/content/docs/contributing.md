@@ -81,4 +81,6 @@ undocumented.
 Commits follow [Conventional Commits](https://www.conventionalcommits.org),
 enforced by a git hook and re-checked in CI. That is also what drives releases:
 release-please keeps a release pull request open, and merging it tags the
-version and publishes binaries with checksums and build provenance.
+version and publishes the release, as
+[CONTRIBUTING.md](https://github.com/jacob-delgado/workflow/blob/main/CONTRIBUTING.md#releases)
+describes step by step.

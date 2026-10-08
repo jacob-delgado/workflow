@@ -219,10 +219,11 @@ commit messages above, so a well-formed commit is also a changelog entry:
    pinned `go install` version in `README.md` and the install page to it.
 2. A maintainer merges that pull request when the release is ready. Nothing
    publishes until they do.
-3. Merging tags `vX.Y.Z`, which builds the binaries for macOS (arm64), Linux
-   (amd64) and Windows (amd64), generates SHA256 checksums, attests the build
-   provenance, publishes the GitHub Release with everything attached, and then
-   republishes the documentation site.
+3. Merging tags `vX.Y.Z`, which runs `.github/workflows/release.yml`: it runs
+   the gate, builds a binary for each platform `RELEASE_PLATFORMS` in
+   `Taskfile.yml` names, publishes the GitHub Release with everything
+   [a release carries](https://jacob-delgado.github.io/workflow/docs/install/#from-a-release)
+   attached, and then republishes the documentation site.
 
 **Before 1.0, the minor digit is reserved for breaking changes.** Both `feat`
 and `fix` bump the patch; only a breaking change — marked with `!`, as in
@@ -238,12 +239,6 @@ So a version bump you have to react to means something you depended on actually
 changed, rather than merely that features were added. After 1.0 this becomes
 ordinary semantic versioning: `feat` bumps the minor and a breaking change bumps
 the major.
-
-Downloads can be verified with the checksums, or against their provenance:
-
-```sh
-gh attestation verify workflow_darwin_arm64 --repo jacob-delgado/workflow
-```
 
 ## License
 

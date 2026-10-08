@@ -64,11 +64,11 @@ go install github.com/jacob-delgado/workflow/cmd/workflow@v0.8.0
 
 ## From a release
 
-Release binaries are published for Apple Silicon macOS (`workflow_darwin_arm64`),
-Linux on amd64 (`workflow_linux_amd64`), and Windows on amd64
-(`workflow_windows_amd64.exe`). Download the one for your platform from the
-[releases page](https://github.com/jacob-delgado/workflow/releases), along with
-`SHA256SUMS`, then verify and install it:
+Each [release](https://github.com/jacob-delgado/workflow/releases/latest)
+lists a binary for every platform it is built for, named `workflow_<os>_<arch>`
+— with `.exe` on Windows — as `workflow_darwin_arm64` is for Apple Silicon
+macOS. Download the one for your platform, along with `SHA256SUMS`, then verify
+and install it:
 
 ```sh
 sha256sum -c SHA256SUMS --ignore-missing
