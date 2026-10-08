@@ -11,6 +11,8 @@ import (
 )
 
 func TestPRStopsAtTheMoveWhenNothingCanAnswer(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The open and the link are answered, then the input ends before the move.
 	repo, writes := reviewRepo(t, reviewMoves)

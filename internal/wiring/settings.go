@@ -18,14 +18,14 @@ import (
 // settingsDeps reads and changes the configuration files and the local data,
 // for the terminal's Settings and Local data. Slack user-token secrets and a
 // Jira token typed into Settings are kept where controls keep them.
-func settingsDeps(ctx context.Context, files config.Files, controls Controls) seams.Settings {
+func (e Environment) settingsDeps(ctx context.Context, files config.Files, controls Controls) seams.Settings {
 	editor := &configEditor{files: files, place: controls.PlaceSlackCredentials, keep: controls.KeepJiraToken}
 
 	return seams.Settings{
 		Read:            editor.read,
 		Save:            editor.save,
-		LocalData:       func() (string, []store.DataFile, error) { return localData(ctx) },
-		RemoveLocalData: removeLocalData,
+		LocalData:       func() (string, []store.DataFile, error) { return e.localData(ctx) },
+		RemoveLocalData: e.removeLocalData,
 	}
 }
 
@@ -105,8 +105,8 @@ func (e *configEditor) save(
 
 // localData is the store's directory and the database files in it, as
 // db-clean and the web's Local data list them.
-func localData(ctx context.Context) (string, []store.DataFile, error) {
-	dir, err := store.DefaultDir()
+func (e Environment) localData(ctx context.Context) (string, []store.DataFile, error) {
+	dir, err := e.StateDir()
 	if err != nil {
 		return "", nil, fmt.Errorf("finding the local data: %w", err)
 	}
@@ -120,8 +120,8 @@ func localData(ctx context.Context) (string, []store.DataFile, error) {
 }
 
 // removeLocalData removes the store's files a clean of scope reaches.
-func removeLocalData(scope store.CleanScope) error {
-	dir, err := store.DefaultDir()
+func (e Environment) removeLocalData(scope store.CleanScope) error {
+	dir, err := e.StateDir()
 	if err != nil {
 		return fmt.Errorf("finding the local data: %w", err)
 	}

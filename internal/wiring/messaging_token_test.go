@@ -73,7 +73,7 @@ func TestMessagingSettingsSavedWhileRunningReachTheNextPost(t *testing.T) {
 
 	// Arrange
 	cfg := halfLoggedIn(t)
-	deps, controls := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := processEnvironment().Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act
 	controls.UseMessagingSettings(config.Messaging{Kind: config.KindSlack, WebhookURL: "http://hooks.example.com/x"})
@@ -132,7 +132,7 @@ func TestARefreshSlackDidNotJudgeIsNoTokenItRefused(t *testing.T) {
 					Body: io.NopCloser(strings.NewReader(`{"ok":false,"error":"ratelimited"}`)),
 				}, nil
 			}
-			source := wiring.SlackToken(runOut(t), answering)
+			source := processEnvironment().SlackToken(runOut(t), answering)
 
 			// Act
 			_, err := source(t.Context(), "")

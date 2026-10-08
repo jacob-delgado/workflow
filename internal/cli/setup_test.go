@@ -160,15 +160,9 @@ func setUpThroughTheInterface(t *testing.T, where place, jiraURL, logPath string
 		return drive(t, model, firstRunKeys(jiraURL)...).Destination(), nil
 	}
 
-	for name, value := range isolatedEnvironment(where.home) {
-		t.Setenv(name, value)
-	}
-
-	t.Chdir(where.dir)
-
 	root := cli.NewRootCmdOver(prompt, runInterface, func(string) cli.RunWeb {
 		return func(context.Context, config.Config, webserver.Deps, webserver.Info, io.Writer) error { return nil }
-	})
+	}, environmentFor(t, where))
 	root.SetArgs([]string{"--log=" + logPath})
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
@@ -179,6 +173,8 @@ func setUpThroughTheInterface(t *testing.T, where place, jiraURL, logPath string
 }
 
 func TestTheInterfaceSetsUpAFirstFileAndReopensWithIt(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := place{dir: t.TempDir(), home: t.TempDir()}
 	logPath := filepath.Join(t.TempDir(), "requests.log")
@@ -206,6 +202,8 @@ func TestTheInterfaceSetsUpAFirstFileAndReopensWithIt(t *testing.T) {
 }
 
 func TestTheInterfacesFirstRunLogsTheCheckWithoutTheToken(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := place{dir: t.TempDir(), home: t.TempDir()}
 	logPath := filepath.Join(t.TempDir(), "requests.log")

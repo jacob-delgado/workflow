@@ -42,14 +42,14 @@ func ghSignedOutRecording(t *testing.T) string {
 		t.Fatalf("these tests need git: %v", err)
 	}
 
-	dir := t.TempDir()
+	dir := programsOf(t)
 
 	err = os.Symlink(gitPath, filepath.Join(dir, "git"))
 	if err != nil {
 		t.Fatalf("linking git: %v", err)
 	}
 
-	ran := filepath.Join(dir, "gh-ran")
+	ran := filepath.Join(t.TempDir(), "gh-ran")
 	script := "#!/bin/sh\n: >'" + ran + "'\nexit 1\n"
 
 	err = os.WriteFile(filepath.Join(dir, "gh"), []byte(script), 0o755)
@@ -57,12 +57,14 @@ func ghSignedOutRecording(t *testing.T) string {
 		t.Fatalf("writing the fake gh: %v", err)
 	}
 
-	t.Setenv("PATH", dir)
+	setVariable(t, "PATH", dir)
 
 	return ran
 }
 
 func TestDoctorOnlineExplainsWhyNoForgeTokenResolved(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		remote string
 		onPath func(*testing.T)
@@ -87,10 +89,11 @@ func TestDoctorOnlineExplainsWhyNoForgeTokenResolved(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			// Every forge variable is cleared, so a laptop's or CI's own token
 			// cannot resolve; the tracker answers, so only the forge check fails.
-			clearForgeEnvironment(t)
 			dir := repoWithRemote(t, tt.remote)
 			writeConfigFor(t, dir, workingJira(t))
 			tt.onPath(t)
@@ -111,9 +114,11 @@ func TestDoctorOnlineExplainsWhyNoForgeTokenResolved(t *testing.T) {
 }
 
 func TestDoctorNamesAMissingGitOnTheRepositoryLine(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// An empty PATH is the portable way to make git unfindable.
-	t.Setenv("PATH", "")
+	setVariable(t, "PATH", "")
 
 	// Act
 	output, _ := run(t, t.TempDir(), "doctor")
@@ -131,7 +136,6 @@ func TestDoctorNamesAMissingGitOnTheRepositoryLine(t *testing.T) {
 func forgeCLIRepository(t *testing.T, remote string) string {
 	t.Helper()
 
-	clearForgeEnvironment(t)
 	dir := repoWithRemote(t, remote)
 	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
 		` "forge": {"cli": true}}`)
@@ -149,6 +153,8 @@ func ghSignedOutButAnswering(t *testing.T) {
 }
 
 func TestDoctorOnlineAsksTheForgeThroughItsCLI(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		remote string
 		onPath func(*testing.T)
@@ -168,6 +174,8 @@ func TestDoctorOnlineAsksTheForgeThroughItsCLI(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := forgeCLIRepository(t, tt.remote)
 			tt.onPath(t)
@@ -187,6 +195,8 @@ func TestDoctorOnlineAsksTheForgeThroughItsCLI(t *testing.T) {
 }
 
 func TestDoctorJSONOnlineCallsAForgeItsCLIAnswersForOK(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := forgeCLIRepository(t, githubSSHRemote)
 	ghSignedOutButAnswering(t)
@@ -205,6 +215,8 @@ func TestDoctorJSONOnlineCallsAForgeItsCLIAnswersForOK(t *testing.T) {
 // A signed-out CLI cannot reach the forge for doctor any more than for the
 // commands, which exit 5 over it; no token to resolve is not what is wrong.
 func TestDoctorJSONOnlineCallsAForgeItsSignedOutCLIUnreachable(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := forgeCLIRepository(t, githubSSHRemote)
 	ghSignedOut(t)
@@ -230,8 +242,9 @@ func TestDoctorJSONOnlineCallsAForgeItsSignedOutCLIUnreachable(t *testing.T) {
 const onlineRequestTimeout = "500ms"
 
 func TestDoctorOnlineGivesUpOnAForgeCLIThatNeverAnswers(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
 	dir := repoWithRemote(t, githubSSHRemote)
 	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
 		` "forge": {"cli": true}, "timing": {"request_timeout": "`+onlineRequestTimeout+`"}}`)
@@ -256,6 +269,8 @@ func TestDoctorOnlineGivesUpOnAForgeCLIThatNeverAnswers(t *testing.T) {
 }
 
 func TestLogReachesDoctorOnlinesForgeCheckThroughItsCLI(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := forgeCLIRepository(t, githubSSHRemote)
 	ghSignedOutButAnswering(t)
@@ -292,6 +307,8 @@ func jiraTracker(baseURL string) string {
 }
 
 func TestDoctorNamesTheTrackerInEffect(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		remote string
 		config string
@@ -326,6 +343,8 @@ func TestDoctorNamesTheTrackerInEffect(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := workTree(t, tt.remote)
 			writeFile(t, dir, tt.config)
@@ -347,6 +366,8 @@ func TestDoctorNamesTheTrackerInEffect(t *testing.T) {
 // template invites people to paste. The exit is left unasserted: it answers to
 // how the configuration reads a password there, not to the masking.
 func TestDoctorRefusesAJiraBaseURLsPasswordWithoutPrintingIt(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := workTree(t, githubSSHRemote)
 	writeFile(t, dir, jiraTracker("https://fred:hunter2@jira.example.com"))
@@ -367,6 +388,8 @@ func TestDoctorRefusesAJiraBaseURLsPasswordWithoutPrintingIt(t *testing.T) {
 }
 
 func TestDoctorJSONNamesTheTrackerInEffect(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		config string
 		want   string
@@ -383,6 +406,8 @@ func TestDoctorJSONNamesTheTrackerInEffect(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := repoWithRemote(t, githubSSHRemote)
 			writeFile(t, dir, tt.config)
@@ -407,7 +432,6 @@ func TestDoctorJSONNamesTheTrackerInEffect(t *testing.T) {
 func forgeTrackerRepository(t *testing.T) string {
 	t.Helper()
 
-	clearForgeEnvironment(t)
 	dir := repoWithRemote(t, githubSSHRemote)
 	writeFile(t, dir, `{`+slackWebhook+`, "forge": {"cli": true}}`)
 	ghSignedOutButAnswering(t)
@@ -416,6 +440,8 @@ func forgeTrackerRepository(t *testing.T) string {
 }
 
 func TestDoctorOnlineSaysTheForgeStandsInForJira(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := forgeTrackerRepository(t)
 
@@ -431,6 +457,8 @@ func TestDoctorOnlineSaysTheForgeStandsInForJira(t *testing.T) {
 }
 
 func TestDoctorJSONOnlineCallsJiraUncheckedWhenTheForgeIsTheTracker(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := forgeTrackerRepository(t)
 

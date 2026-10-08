@@ -134,7 +134,7 @@ func (f *taskFake) readAfter(call string) bool {
 func tasksDeps(fake *taskFake) webserver.Deps {
 	deps := filledDeps()
 	deps.Tasks = fake.seams()
-	deps.HomeDir = func() (string, error) { return homePath, nil }
+	deps.Repositories.Home = homePath
 
 	return deps
 }

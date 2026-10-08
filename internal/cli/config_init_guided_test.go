@@ -23,6 +23,8 @@ var errPromptBroke = errors.New("prompt failed")
 const guidedToken = "jira-token-for-tests"
 
 func TestGuidedInitWritesWhatChecksOut(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	jiraURL := workingJira(t)
@@ -49,6 +51,8 @@ func TestGuidedInitWritesWhatChecksOut(t *testing.T) {
 }
 
 func TestGuidedInitSkipsAServiceThatFailsItsCheckWhenDeclined(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	badJira := jiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
@@ -72,6 +76,8 @@ func TestGuidedInitSkipsAServiceThatFailsItsCheckWhenDeclined(t *testing.T) {
 }
 
 func TestGuidedInitKeepsAFailedServiceWhenInsisted(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	badJira := jiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
@@ -95,6 +101,8 @@ func TestGuidedInitKeepsAFailedServiceWhenInsisted(t *testing.T) {
 }
 
 func TestGuidedInitNeverKeepsAnAddressThatIsNotOne(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	prompt := scripted([]string{"https://fred:hunter2@jira.example.com", "y"}, []string{"insisted-token"})
@@ -112,6 +120,8 @@ func TestGuidedInitNeverKeepsAnAddressThatIsNotOne(t *testing.T) {
 }
 
 func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	gitInit(t, dir)
@@ -134,6 +144,8 @@ func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 }
 
 func TestConfigInitTemplateWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	gitInit(t, dir)
@@ -148,6 +160,8 @@ func TestConfigInitTemplateWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 }
 
 func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := place{dir: t.TempDir(), home: t.TempDir()}
 	jiraURL := workingJira(t)
@@ -184,6 +198,8 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 }
 
 func TestGuidedInitKeepsARepositoryFilesTokenInTheKeychainForItsAddress(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	jiraURL := workingJira(t)
@@ -211,6 +227,8 @@ func TestGuidedInitKeepsARepositoryFilesTokenInTheKeychainForItsAddress(t *testi
 }
 
 func TestGuidedInitKeepsTheTokenInTheFileWhenKeychainDeclined(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	jiraURL := workingJira(t)
@@ -240,6 +258,8 @@ func TestGuidedInitKeepsTheTokenInTheFileWhenKeychainDeclined(t *testing.T) {
 }
 
 func TestGuidedInitReportsAKeychainFailure(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	jiraURL := workingJira(t)
@@ -257,6 +277,8 @@ func TestGuidedInitReportsAKeychainFailure(t *testing.T) {
 }
 
 func TestGuidedInitReportsAPromptThatCannotRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	broken := cli.Prompt{
 		Line:   func(string) (string, error) { return "", errPromptBroke },
@@ -273,6 +295,8 @@ func TestGuidedInitReportsAPromptThatCannotRead(t *testing.T) {
 }
 
 func TestGuidedInitReportsAFailureReadingTheToken(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The URL reads, but reading the secret token fails.
 	broken := cli.Prompt{
@@ -290,6 +314,8 @@ func TestGuidedInitReportsAFailureReadingTheToken(t *testing.T) {
 }
 
 func TestConfigInitTemplateWritesGloballyToHome(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := place{dir: t.TempDir(), home: t.TempDir()}
 
@@ -307,6 +333,8 @@ func TestConfigInitTemplateWritesGloballyToHome(t *testing.T) {
 }
 
 func TestGuidedInitStaysQuietWhenTheFileIsGitIgnored(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	gitInit(t, dir)
@@ -331,6 +359,8 @@ func TestGuidedInitStaysQuietWhenTheFileIsGitIgnored(t *testing.T) {
 }
 
 func TestConfigInitDryRunWritesNoTemplate(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -357,6 +387,8 @@ func TestConfigInitDryRunWritesNoTemplate(t *testing.T) {
 }
 
 func TestGuidedInitDryRunWritesAndStoresNothing(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	jiraURL := workingJira(t)
@@ -390,6 +422,8 @@ func TestGuidedInitDryRunWritesAndStoresNothing(t *testing.T) {
 }
 
 func TestConfigInitDryRunRefusesAnExistingFile(t *testing.T) {
+	t.Parallel()
+
 	// A dry run previews what would happen, and what would happen is a refusal.
 	cases := [][]string{
 		strings.Fields("config init --template --dry-run"),
@@ -399,6 +433,8 @@ func TestConfigInitDryRunRefusesAnExistingFile(t *testing.T) {
 	for _, args := range cases {
 		name := strings.Join(args, " ")
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := t.TempDir()
 			existing := `{"jira":{"base_url":"https://jira.example.com"}}`
@@ -424,6 +460,8 @@ func TestConfigInitDryRunRefusesAnExistingFile(t *testing.T) {
 }
 
 func TestGuidedInitWithNoWebhookPointsToTheSlackLogin(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	prompt := scripted([]string{workingJira(t)}, []string{guidedToken, ""})

@@ -31,6 +31,8 @@ func gitAndGlab(t *testing.T) {
 }
 
 func TestDoctorReportsGlabBesideGh(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	gitAndGlab(t)
 
@@ -48,6 +50,8 @@ func TestDoctorReportsGlabBesideGh(t *testing.T) {
 }
 
 func TestDoctorJSONListsGlab(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	gitAndGlab(t)
 
@@ -70,6 +74,8 @@ func TestDoctorJSONListsGlab(t *testing.T) {
 }
 
 func TestDoctorSaysForgeCLIHasNoGlabToGoThrough(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := forgeCLIRepository(t, gitlabSSHRemote)
 	pathWithOnlyGit(t)
@@ -84,8 +90,9 @@ func TestDoctorSaysForgeCLIHasNoGlabToGoThrough(t *testing.T) {
 }
 
 func TestDoctorOnlineSaysGlabsLoginIsNotRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
 	dir := repoWithRemote(t, gitlabSSHRemote)
 	writeConfigFor(t, dir, workingJira(t))
 	gitAndGlab(t)
@@ -102,6 +109,8 @@ func TestDoctorOnlineSaysGlabsLoginIsNotRead(t *testing.T) {
 }
 
 func TestDoctorOnlineWarnsATokenThatCannotWriteToGitLab(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := forgeCLIRepository(t, gitlabSSHRemote)
 	fakeGlabWithScopes(t, `{"scopes":["read_api","read_user"]}`)
@@ -119,6 +128,8 @@ func TestDoctorOnlineWarnsATokenThatCannotWriteToGitLab(t *testing.T) {
 }
 
 func TestDoctorOnlineSaysNothingOfAScopeItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := forgeCLIRepository(t, gitlabSSHRemote)
 	fakeGlab(t)
@@ -133,6 +144,8 @@ func TestDoctorOnlineSaysNothingOfAScopeItCannotRead(t *testing.T) {
 }
 
 func TestDoctorOnlineWarnsAGitLabTokenThatCannotUseTheAPI(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := forgeCLIRepository(t, gitlabSSHRemote)
 	fakeGlabWithScopes(t, `{"scopes":["read_user"]}`)

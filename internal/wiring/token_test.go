@@ -43,7 +43,7 @@ func TestResolveTokenPrefersTheFileThenTheCommand(t *testing.T) {
 			settings := config.Jira{Token: config.Secret(tt.literal), TokenCommand: tt.command}
 
 			// Act
-			token, source, err := wiring.ResolveToken(t.Context(), settings, wiring.Keychain{})
+			token, source, err := processEnvironment().ResolveToken(t.Context(), settings, wiring.Keychain{})
 			if err != nil {
 				t.Fatalf("ResolveToken returned %v, want nil", err)
 			}
@@ -62,7 +62,9 @@ func TestResolveTokenReadsAnEnvironmentVariable(t *testing.T) {
 	t.Setenv("WF_TEST_TOKEN", "env-token")
 
 	// Act
-	token, source, err := wiring.ResolveToken(t.Context(), config.Jira{TokenEnv: "WF_TEST_TOKEN"}, wiring.Keychain{})
+	process := processEnvironment()
+
+	token, source, err := process.ResolveToken(t.Context(), config.Jira{TokenEnv: "WF_TEST_TOKEN"}, wiring.Keychain{})
 	if err != nil {
 		t.Fatalf("ResolveToken returned %v, want nil", err)
 	}
@@ -77,7 +79,9 @@ func TestResolveTokenReportsAFailedCommand(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	_, _, err := wiring.ResolveToken(t.Context(), config.Jira{TokenCommand: failingCommand}, wiring.Keychain{})
+	process := processEnvironment()
+
+	_, _, err := process.ResolveToken(t.Context(), config.Jira{TokenCommand: failingCommand}, wiring.Keychain{})
 
 	// Assert
 	if err == nil {
@@ -94,7 +98,9 @@ func TestAFailedTokenCommandIsToldWithoutWhatItPrinted(t *testing.T) {
 	command := writeTokenCommand(t, "printf 'SECRET-VALUE at secret/path\\n' >&2\nexit 1\n")
 
 	// Act
-	_, _, err := wiring.ResolveToken(t.Context(), config.Jira{TokenCommand: command.command}, wiring.Keychain{})
+	process := processEnvironment()
+
+	_, _, err := process.ResolveToken(t.Context(), config.Jira{TokenCommand: command.command}, wiring.Keychain{})
 
 	// Assert
 	if err == nil || strings.Contains(err.Error(), "SECRET-VALUE") || strings.Contains(err.Error(), "secret/path") {
@@ -109,7 +115,7 @@ func TestATokenCommandNotOnThePathSaysSo(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "no-such-program")
 
 	// Act
-	_, _, err := wiring.ResolveToken(t.Context(), config.Jira{TokenCommand: missing}, wiring.Keychain{})
+	_, _, err := processEnvironment().ResolveToken(t.Context(), config.Jira{TokenCommand: missing}, wiring.Keychain{})
 
 	// Assert
 	if !errors.Is(err, proc.ErrNotFound) {

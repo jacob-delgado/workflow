@@ -13,6 +13,8 @@ import (
 )
 
 func TestStatusSaysNothingOnStderrWhenEveryServiceAnswers(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
@@ -28,6 +30,8 @@ func TestStatusSaysNothingOnStderrWhenEveryServiceAnswers(t *testing.T) {
 }
 
 func TestStatusNamesTheForgeWhenItsPullRequestCannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: "{"})
@@ -48,6 +52,8 @@ func TestStatusNamesTheForgeWhenItsPullRequestCannotBeRead(t *testing.T) {
 }
 
 func TestStatusNamesJiraWhenTheIssueCannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusInternalServerError, `{}`, new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
@@ -67,6 +73,8 @@ func TestStatusNamesJiraWhenTheIssueCannotBeRead(t *testing.T) {
 }
 
 func TestStatusNamesTheWorkingTreeWhenItsChangesCannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := t.TempDir()
 	gitInit(t, repo)
@@ -87,6 +95,8 @@ func TestStatusNamesTheWorkingTreeWhenItsChangesCannotBeRead(t *testing.T) {
 }
 
 func TestStatusSaysTheForgeIsNotSetUpWhenOriginNamesNone(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// No origin, and no Jira: the forge is not set up, and the issue, read
 	// from the forge's issues, is no number it could hold.
@@ -103,10 +113,11 @@ func TestStatusSaysTheForgeIsNotSetUpWhenOriginNamesNone(t *testing.T) {
 }
 
 func TestStatusSaysTheForgeIsNotSetUpWhenItHasNoToken(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{signedOut: true})
-	clearForgeEnvironment(t)
 	repo := statusFeatureRepo(t, server.URL)
 	// Not through gh's own transport, so the forge needs a token, and none is
 	// set or signed in.
@@ -127,6 +138,8 @@ func TestStatusSaysTheForgeIsNotSetUpWhenItHasNoToken(t *testing.T) {
 }
 
 func TestStatusAcrossLabelsEachNoteWithItsDirectory(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: "{"})

@@ -85,6 +85,8 @@ func typed(t *testing.T, text string) cli.Prompt {
 }
 
 func TestCommentPostsTheTextFromStandardInput(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir, posted := commentJira(t, false)
 
@@ -107,6 +109,8 @@ func TestCommentPostsTheTextFromStandardInput(t *testing.T) {
 }
 
 func TestCommentPostsMarkdownAsJirasMarkup(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir, posted := commentJira(t, true)
 
@@ -125,6 +129,8 @@ func TestCommentPostsMarkdownAsJirasMarkup(t *testing.T) {
 }
 
 func TestCommentDryRunPostsNothing(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir, posted := commentJira(t, false)
 
@@ -141,6 +147,8 @@ func TestCommentDryRunPostsNothing(t *testing.T) {
 }
 
 func TestCommentRefusesBlankText(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir, posted := commentJira(t, false)
 
@@ -156,6 +164,8 @@ func TestCommentRefusesBlankText(t *testing.T) {
 }
 
 func TestCommentWithNothingToAnswerSaysToPassYes(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The text took standard input to its end, so the question has nothing
 	// left to read an answer from.
@@ -177,6 +187,8 @@ func TestCommentWithNothingToAnswerSaysToPassYes(t *testing.T) {
 }
 
 func TestCommentWithNoStandardInputRefusesBlankText(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir, posted := commentJira(t, false)
 	prompt := unusedPrompt(t)
@@ -194,6 +206,8 @@ func TestCommentWithNoStandardInputRefusesBlankText(t *testing.T) {
 }
 
 func TestCommentWhoseInputCannotBeReadFails(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir, posted := commentJira(t, false)
 	prompt := unusedPrompt(t)
@@ -209,6 +223,8 @@ func TestCommentWhoseInputCannotBeReadFails(t *testing.T) {
 }
 
 func TestCommentOnAnIssueJiraLacksSaysWhichIssue(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir, posted := commentJira(t, false)
 
@@ -224,6 +240,8 @@ func TestCommentOnAnIssueJiraLacksSaysWhichIssue(t *testing.T) {
 }
 
 func TestCommentWithAConfigurationItCannotReadPostsNothing(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir, posted := commentJira(t, false)
 	writeFile(t, dir, `{`)

@@ -48,7 +48,7 @@ func failingStatus() string {
 	return `{"total_count":1,"statuses":[{"state":"failure","context":"ci","target_url":"https://x"}]}`
 }
 
-// fakeGh installs a stand-in `gh` on PATH that answers `gh api --include <url>`
+// fakeGh installs a stand-in `gh` first on the test's PATH that answers `gh api --include <url>`
 // with canned HTTP responses, so a black-box test drives the forge through its
 // CLI transport without a network or a real credential.
 func fakeGh(t *testing.T, responses ghResponses) {
@@ -121,8 +121,7 @@ func fakeGh(t *testing.T, responses ghResponses) {
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"cat \"" + dir + "/resp-$f\"\n"
 
-	writeExecutable(t, filepath.Join(dir, "gh"), script, 0o755)
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	writeExecutable(t, filepath.Join(programsOf(t), "gh"), script, 0o755)
 }
 
 // gitlabMergeRequest is the merge request a fake glab opens.
@@ -186,8 +185,7 @@ func fakeGlabAnswering(t *testing.T, list, scopes string) {
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"cat \"" + dir + "/resp-$f\"\n"
 
-	writeExecutable(t, filepath.Join(dir, "glab"), script, 0o755)
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	writeExecutable(t, filepath.Join(programsOf(t), "glab"), script, 0o755)
 }
 
 // writeRepoFile writes contents to a path under repo, creating parent directories

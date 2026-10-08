@@ -22,8 +22,9 @@ import (
 // repository instead of its temporary one. A pre-push once set core.bare, moved
 // main and wrote a stranger's identity into it that way. The names are git's
 // own list for the purpose, gittest.LocalVariables. It also trusts the local
-// servers the tests deliver to, for as long as they run, and takes every task
-// program off PATH.
+// servers the tests deliver to, for as long as they run, takes every task
+// program off PATH, and keeps every program a test or a command starts out of
+// the developer's own home and git configuration.
 func TestMain(m *testing.M) {
 	// Running the tests anyway would be running them against that repository.
 	err := gittest.ClearLocalVariables()
@@ -33,9 +34,10 @@ func TestMain(m *testing.M) {
 
 	roots := trustTestServers()
 	shadows := withoutTaskPrograms()
+	home := awayFromHome()
 	code := m.Run()
 
-	for _, removed := range append(shadows, roots) {
+	for _, removed := range append(shadows, roots, home, worldsRoot()) {
 		err := os.RemoveAll(removed)
 		if err != nil {
 			panic(err)
@@ -43,6 +45,32 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(code)
+}
+
+// awayFromHome points this process, and so every program it starts, at an
+// empty home of its own, and has git read no configuration but a repository's
+// own — a developer's global commit.gpgsign would fail a commit — and returns
+// the home it made. Each run is handed a home of its own; this keeps git, and
+// whatever else the programs a run starts read, off the developer's.
+func awayFromHome() string {
+	home, err := os.MkdirTemp("", "workflow-test-home-*")
+	if err != nil {
+		panic(err)
+	}
+
+	isolated := map[string]string{
+		"HOME": home, "XDG_STATE_HOME": "", "XDG_CONFIG_HOME": "", "AppData": filepath.Join(home, "AppData"),
+		"GIT_CONFIG_GLOBAL": os.DevNull, "GIT_CONFIG_NOSYSTEM": "1",
+	}
+
+	for name, value := range isolated {
+		err = os.Setenv(name, value)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return home
 }
 
 // withoutTaskPrograms takes every task program off PATH, and returns the
@@ -155,6 +183,8 @@ func trustTestServers() string {
 }
 
 func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The fixtures that did the damage once: a bare push remote, a branch, an
 	// identity written to a repository's configuration.

@@ -42,6 +42,8 @@ func announcingConfig(webhookURL string) string {
 }
 
 func TestAnnounceYesDeliversTheAnnouncement(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var posts atomic.Int32
 
@@ -63,6 +65,8 @@ func TestAnnounceYesDeliversTheAnnouncement(t *testing.T) {
 }
 
 func TestAnnounceRemembersADeliveredAnnouncement(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var posts atomic.Int32
 
@@ -88,6 +92,8 @@ func TestAnnounceRemembersADeliveredAnnouncement(t *testing.T) {
 }
 
 func TestAnnounceRefusedForItsChannelSaysTheFixAndNoKey(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	fakeSlack(t, map[string]slackAnswer{slackPostMessage: {http.StatusOK, `{"ok":false,"error":"not_in_channel"}`}})
@@ -107,6 +113,8 @@ func TestAnnounceRefusedForItsChannelSaysTheFixAndNoKey(t *testing.T) {
 }
 
 func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A file stands where the store's directory goes, so nothing is kept.
 	var posts atomic.Int32

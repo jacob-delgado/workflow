@@ -19,6 +19,8 @@ import (
 const missingTaskwarrior = `"taskwarrior":{"program":"/nonexistent/workflow-test/task"}`
 
 func TestSummaryLeavesOutASourceThatIsNotSetUp(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// No origin names a forge, and no Taskwarrior is installed.
 	repo := workedRepository(t, "Add the widget")
@@ -48,6 +50,8 @@ func TestSummaryLeavesOutASourceThatIsNotSetUp(t *testing.T) {
 }
 
 func TestSummaryFailsWhenAConfiguredForgeRefuses(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{search: "{", userError: true})
 	repo := workedRepository(t, "Add the widget")
@@ -66,6 +70,8 @@ func TestSummaryFailsWhenAConfiguredForgeRefuses(t *testing.T) {
 }
 
 func TestSummaryAsJSONMarksASourceNotSetUpApartFromOneThatFailed(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	jira := jiraServer(t, http.StatusUnauthorized, `{}`, new(atomic.Bool))
 	repo := workedRepository(t, "Add the widget")

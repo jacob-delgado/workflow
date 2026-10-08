@@ -14,6 +14,8 @@ import (
 )
 
 func TestDoctorOnlineSaysWhoseAnAcceptedSlackUserTokenIs(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeSlack(t, nil)
 

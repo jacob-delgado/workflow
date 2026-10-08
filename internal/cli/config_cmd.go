@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -86,7 +85,7 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.dryRun = dryRunRequested(cmd)
 
-			where, err := whereInit(opts.global)
+			where, err := whereInit(cmd, opts.global)
 			if err != nil {
 				return err
 			}
@@ -136,7 +135,7 @@ func newConfigShowCmd() *cobra.Command {
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := loadFromEnvironment()
+			cfg, err := loadFromEnvironment(cmd)
 			if err != nil {
 				return showLoadError(cmd, err)
 			}
@@ -146,26 +145,27 @@ func newConfigShowCmd() *cobra.Command {
 	}
 }
 
-// whereInit is where `config init` runs: the working directory and home, or
-// the home directory alone for --global.
-func whereInit(global bool) (setup.Where, error) {
+// errNoHome is --global with no home directory to write the file to.
+var errNoHome = errors.New("determining the home directory: none is set")
+
+// whereInit is where `config init` runs from cmd: the working directory and
+// home, or the home directory alone for --global, which needs one.
+func whereInit(cmd *cobra.Command, global bool) (setup.Where, error) {
 	if global {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return setup.Where{}, fmt.Errorf("determining the home directory: %w", err)
+		home := configHome(cmd)
+		if home == "" {
+			return setup.Where{}, errNoHome
 		}
 
 		return setup.Where{HomeDir: home}, nil
 	}
 
-	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
-	// a working directory once it is removed.
-	workDir, err := os.Getwd()
+	workDir, err := workingDir(cmd)
 	if err != nil {
-		return setup.Where{}, fmt.Errorf("determining the working directory: %w", err)
+		return setup.Where{}, err
 	}
 
-	return setup.Where{WorkDir: workDir, HomeDir: configHome()}, nil
+	return setup.Where{WorkDir: workDir, HomeDir: configHome(cmd)}, nil
 }
 
 // placeFor is where --global says the file goes.

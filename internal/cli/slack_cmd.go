@@ -95,7 +95,7 @@ func slackLogin(cmd *cobra.Command, prompt Prompt, conn connection) error {
 
 	if dryRunRequested(cmd) {
 		fmt.Fprintf(notes, "dry run: would ask for the Slack app's client ID and secret and a refresh token, "+
-			"refresh it once, and keep it in %s; nothing was asked or written\n", wiring.SlackStore(conn.cfg).Where())
+			"refresh it once, and keep it in %s; nothing was asked or written\n", conn.process.SlackStore(conn.cfg).Where())
 
 		return nil
 	}
@@ -196,9 +196,9 @@ func nameSlackApp(cfg config.Config, clientID string) (config.Config, error) {
 // conn's request log.
 func keepFirstToken(ctx context.Context, notes io.Writer, conn connection, answers loginAnswers) error {
 	transport := conn.requestLog.Wrap("slack", onlineDoer(conn.cfg))
-	store := wiring.SlackStore(conn.cfg)
+	store := conn.process.SlackStore(conn.cfg)
 
-	renewed, err := wiring.SlackRefresher(answers.clientID, transport).Refresh(ctx, answers.starting)
+	renewed, err := conn.process.SlackRefresher(answers.clientID, transport).Refresh(ctx, answers.starting)
 	if err != nil {
 		return err
 	}
@@ -213,15 +213,19 @@ func keepFirstToken(ctx context.Context, notes io.Writer, conn connection, answe
 		return err
 	}
 
-	return sayWhoseToken(ctx, notes, named, transport, store.Where())
+	return sayWhoseToken(ctx, notes, conn.process, named, transport)
 }
 
-// sayWhoseToken asks Slack whose the token cfg keeps in where is, and says so.
-func sayWhoseToken(ctx context.Context, notes io.Writer, cfg config.Config, transport httpx.Doer, where string) error {
-	base, toSlack := wiring.SlackAPI(transport)
+// sayWhoseToken asks Slack whose the token cfg keeps is, and says so, and
+// where it is kept.
+func sayWhoseToken(
+	ctx context.Context, notes io.Writer, process wiring.Environment, cfg config.Config, transport httpx.Doer,
+) error {
+	base, toSlack := process.SlackAPI(transport)
+	where := process.SlackStore(cfg).Where()
 
 	identity, err := messaging.New(toSlack, base, cfg.Messaging).
-		WithToken(wiring.SlackToken(cfg, transport)).AuthTest(ctx)
+		WithToken(process.SlackToken(cfg, transport)).AuthTest(ctx)
 	if err != nil {
 		return err
 	}

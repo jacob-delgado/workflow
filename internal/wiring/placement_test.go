@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -127,7 +128,7 @@ const keptPair = `{"client_secret":"client-secret-kept","refresh_token":"` + kep
 
 // onMacOS is the keychain macOS has, run through security.
 func onMacOS(security *fakeSecurity) wiring.Keychain {
-	return wiring.Keychain{GOOS: macOS, Run: security.run}
+	return wiring.Keychain{GOOS: macOS, Run: security.run, Getenv: os.Getenv}
 }
 
 func TestPlacingTypedSlackSecretsKeepsTheRenewedPairInTheKeychain(t *testing.T) {
@@ -136,7 +137,7 @@ func TestPlacingTypedSlackSecretsKeepsTheRenewedPairInTheKeychain(t *testing.T) 
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{}
-	place := wiring.PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
+	place := processEnvironment().PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
 
 	// Act
 	placed, err := place(typedInto(typedSecret, typedRefresh))
@@ -160,7 +161,7 @@ func TestPlacingABlankTypedRefreshTokenTakesTheOneTheKeychainKeeps(t *testing.T)
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{kept: keptPair}
-	place := wiring.PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
+	place := processEnvironment().PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
 
 	// Act
 	_, err := place(typedInto(typedSecret, ""))
@@ -179,7 +180,7 @@ func TestPlacingSecretsSlackRefusesIsARejectionWithNoSecretInIt(t *testing.T) {
 	// Arrange
 	slack := &slackRefreshes{answer: `{"ok":false,"error":"invalid_refresh_token"}`}
 	security := &fakeSecurity{}
-	place := wiring.PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
+	place := processEnvironment().PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
 
 	// Act
 	_, err := place(typedInto(typedSecret, typedRefresh))
@@ -197,7 +198,10 @@ func TestPlacingSlackSecretsOffMacOSLeavesThemInTheConfiguration(t *testing.T) {
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{}
-	place := wiring.PlaceSlackCredentials(t.Context(), slack.do, wiring.Keychain{GOOS: noKeychainOS, Run: security.run})
+	process := processEnvironment()
+
+	system := wiring.Keychain{GOOS: noKeychainOS, Run: security.run, Getenv: os.Getenv}
+	place := process.PlaceSlackCredentials(t.Context(), slack.do, system)
 	typed := typedInto(typedSecret, typedRefresh)
 
 	// Act
@@ -216,7 +220,7 @@ func TestPlacingABlankTypedClientSecretTakesTheOneTheKeychainKeeps(t *testing.T)
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{kept: keptPair}
-	place := wiring.PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
+	place := processEnvironment().PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
 
 	// Act
 	_, err := place(typedInto("", typedRefresh))
@@ -235,7 +239,10 @@ func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	refusing := func(context.Context, proc.Command, []byte) ([]byte, error) { return nil, errKeychainLocked }
-	place := wiring.PlaceSlackCredentials(t.Context(), slack.do, wiring.Keychain{GOOS: macOS, Run: refusing})
+	process := processEnvironment()
+
+	system := wiring.Keychain{GOOS: macOS, Run: refusing, Getenv: os.Getenv}
+	place := process.PlaceSlackCredentials(t.Context(), slack.do, system)
 
 	// Act
 	_, err := place(typedInto(typedSecret, typedRefresh))

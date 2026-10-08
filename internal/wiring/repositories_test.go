@@ -61,7 +61,7 @@ func TestHereIsWhereTheSessionWorksAndTheRepositoryItIsIn(t *testing.T) {
 	isolateGit(t)
 	homeOfItsOwn(t)
 	root, within := repositoryWithOrigin(t)
-	where := wiring.Locate(t.Context(), within)
+	where := processEnvironment().Locate(t.Context(), within)
 
 	// Act
 	here := wired(t, config.Default(), where, nil).Repositories.Here
@@ -174,7 +174,7 @@ func TestADryRunReadsFavoritesAndKeepsNone(t *testing.T) {
 	cfg := config.Default()
 
 	// Act
-	kept := wiring.ReadOnlyStore(t.Context(), cfg, wiring.Workspace{Root: t.TempDir()})
+	kept := processEnvironment().ReadOnlyStore(t.Context(), cfg, wiring.Workspace{Root: t.TempDir()})
 
 	// Assert
 	if kept.Favorites == nil || kept.Favor != nil || kept.Unfavor != nil {
@@ -214,7 +214,7 @@ func TestADirectoryReachedThroughALinkIsReadWhereItIs(t *testing.T) {
 	}
 
 	// Act
-	where := wiring.Locate(t.Context(), filepath.Join(link, "cmd"))
+	where := processEnvironment().Locate(t.Context(), filepath.Join(link, "cmd"))
 
 	// Assert
 	if where.Dir != within || where.Root != root {
@@ -230,7 +230,7 @@ func TestTheWorktreesOfTheRepositoryHereAreListed(t *testing.T) {
 	linked := filepath.Join(t.TempDir(), "hotfix")
 	git(t, root, "worktree", "add", "--quiet", "-b", "hotfix", linked)
 
-	repositories := wired(t, config.Default(), wiring.Locate(t.Context(), root), nil).Repositories
+	repositories := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Repositories
 
 	// Act
 	worktrees, err := repositories.Worktrees()
@@ -243,7 +243,7 @@ func TestTheWorktreesOfTheRepositoryHereAreListed(t *testing.T) {
 
 func TestOutsideARepositoryThereAreNoWorktreesToList(t *testing.T) {
 	// Arrange
-	where := wiring.Locate(t.Context(), t.TempDir())
+	where := processEnvironment().Locate(t.Context(), t.TempDir())
 
 	// Act
 	repositories := wired(t, config.Default(), where, nil).Repositories
@@ -270,7 +270,7 @@ func TestALockedWorktreeWhoseDirectoryIsGoneReadsAsGone(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	repositories := wired(t, config.Default(), wiring.Locate(t.Context(), root), nil).Repositories
+	repositories := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Repositories
 
 	// Act
 	worktrees, err := repositories.Worktrees()

@@ -9,6 +9,8 @@ import (
 )
 
 func TestDoctorOfflineSaysWhatOnlineAsksAndThatAWebhookStaysUnchecked(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A webhook is the one messaging credential --online cannot ask about
 	// without posting, so the offline line must not promise it.

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
@@ -23,10 +22,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/messaging/directory"
-	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
-	"github.com/jacob-delgado/workflow/internal/store"
 )
 
 // slackLockName is the file a Slack token refresh is made under, beside the
@@ -75,6 +72,7 @@ type messagingSetup struct {
 	files         config.Files
 	httpTransport httpx.Doer
 	log           *RequestLog
+	env           Environment
 }
 
 // messagingDeps is what a surface asks of the messaging service. Each post is
@@ -105,18 +103,20 @@ func messagingClient(setup messagingSetup) messaging.Client {
 
 	//nolint:bodyclose // Wrap only relays the response; the client reads and closes its body.
 	do := setup.log.Wrap(service, setup.httpTransport)
-	base, toSlack := SlackAPI(do)
+	base, toSlack := setup.env.SlackAPI(do)
 
-	return messaging.New(toSlack, base, settings).
-		WithToken(SlackToken(config.Config{Messaging: settings, Path: setup.files.Target(), Files: setup.files}, do))
+	return messaging.New(toSlack, base, settings).WithToken(
+		setup.env.SlackToken(config.Config{Messaging: settings, Path: setup.files.Target(), Files: setup.files}, do),
+	)
 }
 
 // SlackAPI is where the Slack Web API is asked and the transport to ask it
 // through: messaging.APIBase over transport, or the address SlackAPIVariable
-// names. An address it refuses comes back with a transport that refuses every
-// request, so nothing is sent — and no token leaves — anywhere.
-func SlackAPI(transport httpx.Doer) (string, httpx.Doer) {
-	base, err := slackAPIBase()
+// names in the environment. An address it refuses comes back with a transport
+// that refuses every request, so nothing is sent — and no token leaves —
+// anywhere.
+func (e Environment) SlackAPI(transport httpx.Doer) (string, httpx.Doer) {
+	base, err := slackAPIBase(e.Getenv(SlackAPIVariable))
 	if err != nil {
 		return messaging.APIBase, func(*http.Request) (*http.Response, error) { return nil, err }
 	}
@@ -124,11 +124,10 @@ func SlackAPI(transport httpx.Doer) (string, httpx.Doer) {
 	return base, transport
 }
 
-// slackAPIBase is the address SlackAPIVariable names, or messaging.APIBase
-// when it is unset or empty.
-func slackAPIBase() (string, error) {
-	value, set := os.LookupEnv(SlackAPIVariable)
-	if !set || value == "" {
+// slackAPIBase is value, the address SlackAPIVariable names, or
+// messaging.APIBase when it is unset or empty.
+func slackAPIBase(value string) (string, error) {
+	if value == "" {
 		return messaging.APIBase, nil
 	}
 
@@ -145,36 +144,39 @@ func slackAPIBase() (string, error) {
 }
 
 // Keychain is the operating system's keychain as the wiring reaches it: the
-// system workflow runs on, and how security is run there.
+// system workflow runs on, how security is run there, and the environment
+// variables it reads the user's name from where the system cannot say.
 type Keychain struct {
-	GOOS string
-	Run  keychain.Runner
+	GOOS   string
+	Run    keychain.Runner
+	Getenv func(name string) string
 }
 
-// SystemKeychain is the keychain of the system workflow runs on.
-func SystemKeychain() Keychain {
-	return Keychain{GOOS: runtime.GOOS, Run: proc.Capture}
+// Keychain is the keychain of the system workflow runs on, its security
+// found on the environment's PATH.
+func (e Environment) Keychain() Keychain {
+	return Keychain{GOOS: runtime.GOOS, Run: e.capture, Getenv: e.Getenv}
 }
 
 // SlackStore is where cfg keeps its Slack user token's credentials on the
 // system workflow runs on, as Keychain.SlackStore says.
-func SlackStore(cfg config.Config) slackauth.Store {
-	return SystemKeychain().SlackStore(cfg)
+func (e Environment) SlackStore(cfg config.Config) slackauth.Store {
+	return e.Keychain().SlackStore(cfg)
 }
 
 // SlackStore is where cfg keeps its Slack user token's credentials with k:
 // the macOS keychain, or the configuration file. doctor, the login and every
 // post go through it, so they cannot come to look in different places.
 func (k Keychain) SlackStore(cfg config.Config) slackauth.Store {
-	item, _ := keychain.Open(k.GOOS, slackauth.KeychainService, k.Run, user.Current, os.Getenv)
+	item, _ := keychain.Open(k.GOOS, slackauth.KeychainService, k.Run, user.Current, k.Getenv)
 
 	return slackauth.Choose(k.GOOS, cfg, item)
 }
 
 // SlackRefresher refreshes the Slack user token of the app clientID names,
 // through do, at the address SlackAPI says.
-func SlackRefresher(clientID string, do httpx.Doer) slackauth.Refresher {
-	base, toSlack := SlackAPI(do)
+func (e Environment) SlackRefresher(clientID string, do httpx.Doer) slackauth.Refresher {
+	base, toSlack := e.SlackAPI(do)
 
 	return slackauth.Refresher{Do: toSlack, Base: base, ClientID: clientID, Now: time.Now}
 }
@@ -184,10 +186,10 @@ func SlackRefresher(clientID string, do httpx.Doer) slackauth.Refresher {
 // failures read as the messaging client's: none set up is no credential, a
 // Slack not reached is unreachable, a wait Slack asked for is a rate limit,
 // and a refresh Slack refused is a credential it would not accept.
-func SlackToken(cfg config.Config, do httpx.Doer) messaging.TokenSource {
+func (e Environment) SlackToken(cfg config.Config, do httpx.Doer) messaging.TokenSource {
 	source := slackauth.Source{
-		Store: SlackStore(cfg), Refresher: SlackRefresher(cfg.Messaging.ClientID, do),
-		Lock: slackauth.FileLock(slackLockPath(cfg.Path)), Now: time.Now,
+		Store: e.SlackStore(cfg), Refresher: e.SlackRefresher(cfg.Messaging.ClientID, do),
+		Lock: slackauth.FileLock(e.slackLockPath(cfg.Path)), Now: time.Now,
 	}
 
 	return func(ctx context.Context, expired config.Secret) (config.Secret, error) {
@@ -220,8 +222,8 @@ func asMessagingError(err error) error {
 
 // slackLockPath is where the refresh lock lives: beside the store, or beside
 // the configuration file where the store has no directory.
-func slackLockPath(configPath string) string {
-	dir, err := store.DefaultDir()
+func (e Environment) slackLockPath(configPath string) string {
+	dir, err := e.StateDir()
 	if err != nil || dir == "" {
 		dir = filepath.Dir(configPath)
 	}
@@ -235,7 +237,7 @@ func slackLockPath(configPath string) string {
 // once and the new pair kept there, and the configuration it answers holds
 // none of them; elsewhere it answers the configuration as it was, for the
 // file to keep them.
-func PlaceSlackCredentials(
+func (e Environment) PlaceSlackCredentials(
 	ctx context.Context, transport httpx.Doer, system Keychain,
 ) func(config.Config) (config.Config, error) {
 	return func(cfg config.Config) (config.Config, error) {
@@ -249,7 +251,7 @@ func PlaceSlackCredentials(
 
 		starting := keptUnlessTyped(ctx, system.SlackStore(without), cfg.Messaging)
 
-		renewed, err := SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(ctx, starting)
+		renewed, err := e.SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(ctx, starting)
 		if err != nil {
 			return config.Config{}, asMessagingError(err)
 		}

@@ -5,9 +5,8 @@ package cli_test
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -19,55 +18,41 @@ import (
 // run from.
 const workdirUnread = "determining the working directory"
 
+// errDirectoryGone is a working directory that cannot be named, as a shell is
+// left standing in one when `git worktree remove` deletes the directory it is
+// in.
+var errDirectoryGone = errors.New("getwd: no such file or directory")
+
 // runFromARemovedDirectory runs the command tree from a working directory that
-// is gone, as a shell is left standing in one when `git worktree remove`
-// deletes the directory it is in. The home is the test's, for a configuration
-// put there first.
-//
-// It skips where the system still names such a directory: macOS answers from
-// the directory it still holds open, so there no command can meet the failure.
+// cannot be named. The home is the test's, for a configuration put there first.
 func runFromARemovedDirectory(t *testing.T, home string, args ...string) (streams, error) {
 	t.Helper()
 
-	gone := filepath.Join(t.TempDir(), "removed")
-
-	err := os.Mkdir(gone, 0o700)
-	if err != nil {
-		t.Fatalf("making the directory to remove: %v", err)
-	}
-
-	for name, value := range isolatedEnvironment(home) {
-		t.Setenv(name, value)
-	}
-
-	t.Chdir(gone)
-
-	err = os.Remove(gone)
-	if err != nil {
-		t.Fatalf("removing the working directory: %v", err)
-	}
-
-	_, err = os.Getwd()
-	if err == nil {
-		t.Skip("this system still names a working directory once it is removed")
-	}
+	env := environmentFor(t, place{dir: t.TempDir(), home: home})
+	env.WorkingDir = func() (string, error) { return "", errDirectoryGone }
 
 	var stdout, stderr bytes.Buffer
 
-	err = cli.Execute(args, &stdout, &stderr, unusedPrompt(t))
+	err := cli.Execute(args, &stdout, &stderr, unusedPrompt(t), env)
 
 	return streams{stdout: stdout.String(), stderr: stderr.String()}, err
 }
 
 func TestACommandFromARemovedDirectorySaysItCannotNameIt(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string][]string{
-		"reading the status":        strings.Fields("status"),
-		"showing the configuration": strings.Fields("config show"),
-		"writing a template":        strings.Fields("config init --template"),
+		"reading the status":                   strings.Fields("status"),
+		"reading a directory named relatively": strings.Fields("status ."),
+		"logging to a file named relatively":   strings.Fields("--log requests.log status"),
+		"showing the configuration":            strings.Fields("config show"),
+		"writing a template":                   strings.Fields("config init --template"),
 	}
 
 	for name, args := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Act
 			printed, err := runFromARemovedDirectory(t, t.TempDir(), args...)
 
@@ -81,6 +66,8 @@ func TestACommandFromARemovedDirectorySaysItCannotNameIt(t *testing.T) {
 }
 
 func TestDoctorFromARemovedDirectoryStillReports(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	printed, err := runFromARemovedDirectory(t, t.TempDir(), "doctor")
 
@@ -98,6 +85,8 @@ func TestDoctorFromARemovedDirectoryStillReports(t *testing.T) {
 }
 
 func TestDoctorJSONFromARemovedDirectoryReportsNoWorkTree(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	printed, err := runFromARemovedDirectory(t, t.TempDir(), "doctor", "--json")
 
@@ -117,6 +106,8 @@ func TestDoctorJSONFromARemovedDirectoryReportsNoWorkTree(t *testing.T) {
 }
 
 func TestBranchCompletionFromARemovedDirectoryOffersNothing(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The home's configuration names a tracker with an issue to offer, but with
 	// no directory to start from, completion looks for nothing.

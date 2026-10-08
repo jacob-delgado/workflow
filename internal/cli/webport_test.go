@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // webFlag is the root's flag that serves the web interface.
@@ -29,22 +30,18 @@ type rootServing struct {
 
 // serveRoot runs the root command with args in an empty directory and home of
 // its own, over the real web server, until the server answers its health read
-// at base or the run ends by itself, and then stops it. Like run, it sets the
-// working directory and the environment, so its tests are not parallel.
+// at base or the run ends by itself, and then stops it. Like run, it hands the
+// run an Environment of its own.
 func serveRoot(t *testing.T, base string, args ...string) rootServing {
 	t.Helper()
 
-	for name, value := range isolatedEnvironment(t.TempDir()) {
-		t.Setenv(name, value)
-	}
-
-	t.Chdir(t.TempDir())
+	env := environmentFor(t, place{dir: t.TempDir(), home: t.TempDir()})
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	notes := &sharedNotes{}
-	root := cli.NewRootCmd(unusedPrompt(t))
+	root := cli.NewRootCmdOver(unusedPrompt(t), tui.Run, cli.WebServerAt, env)
 	root.SetArgs(args)
 	root.SetOut(io.Discard)
 	root.SetErr(notes)
@@ -92,6 +89,8 @@ func awaitAnswerOrEnd(t *testing.T, base string, done <-chan error) (bool, bool,
 }
 
 func TestTheWebFlagServesOnThePortItIsGiven(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	addr := freeLoopbackAddr(t)
 
@@ -115,6 +114,8 @@ func TestTheWebFlagServesOnThePortItIsGiven(t *testing.T) {
 }
 
 func TestThePortFlagWithoutTheWebFlagIsAMistakeInTheCall(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	ran := runRoot(t, t.TempDir(), "--port", "7001")
 
@@ -129,8 +130,12 @@ func TestThePortFlagWithoutTheWebFlagIsAMistakeInTheCall(t *testing.T) {
 }
 
 func TestAPortNoListenerCanTakeIsAMistakeInTheCall(t *testing.T) {
+	t.Parallel()
+
 	for name, port := range map[string]string{"zero": "0", "past the last": "65536", "negative": "-1"} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Act
 			ran := runRoot(t, t.TempDir(), webFlag, "--port="+port)
 
@@ -147,6 +152,8 @@ func TestAPortNoListenerCanTakeIsAMistakeInTheCall(t *testing.T) {
 }
 
 func TestTheWebFlagServesTheLoopbackInterface(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		args []string
 		want string
@@ -157,6 +164,8 @@ func TestTheWebFlagServesTheLoopbackInterface(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Act
 			ran := runRoot(t, t.TempDir(), tt.args...)
 

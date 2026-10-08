@@ -13,7 +13,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // A command run under --dry-run reads what the store kept, when there is one,
@@ -22,38 +21,44 @@ import (
 // announced.
 
 func TestAnnounceDryRunMakesNoStore(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	writeFile(t, repo, forgeCLIConfig)
+	where := place{dir: repo, home: t.TempDir()}
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--dry-run")
+	printed, err := runStreamsAt(t, where, unusedPrompt(t), "announce", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
 	}
 
-	if kept, found := storeKept(t); found {
+	if kept, found := storeKept(t, where.home); found {
 		t.Errorf("announce --dry-run made the store at %s, want nothing on disk", kept)
 	}
 }
 
 func TestStatusOfARepositoryUnderDryRunMakesNoStore(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: runningStatus()})
 	repo := statusFeatureRepo(t, server.URL)
+	where := place{dir: t.TempDir(), home: t.TempDir()}
 
 	// Act
 	// Naming the repository reads it the way status reads several at once.
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "status", "--dry-run", repo)
+	printed, err := runStreamsAt(t, where, unusedPrompt(t), "status", "--dry-run", repo)
 	// Assert
 	if err != nil {
 		t.Fatalf("status --dry-run: %v (%+v)", err, printed)
 	}
 
-	if kept, found := storeKept(t); found {
+	if kept, found := storeKept(t, where.home); found {
 		t.Errorf("status --dry-run made the store at %s, want nothing on disk", kept)
 	}
 }
@@ -74,16 +79,14 @@ func issueListKept(t *testing.T, dir string) place {
 	t.Helper()
 
 	where := place{dir: dir, home: t.TempDir()}
-	for name, value := range isolatedEnvironment(where.home) {
-		t.Setenv(name, value)
-	}
+	process := environmentFor(t, where).Process
 
 	cfg, err := config.Load(where.dir, where.home)
 	if err != nil {
 		t.Fatalf("loading the configuration: %v", err)
 	}
 
-	deps, _ := wiring.Deps(t.Context(), cfg, wiring.Locate(t.Context(), where.dir), nil)
+	deps, _ := process.Deps(t.Context(), cfg, process.Locate(t.Context(), where.dir), nil)
 	// The interface keeps a view's list under the query it searches: the view's
 	// own, narrowed to the user's issues.
 	err = deps.Store.CacheIssues(jira.ScopedToMe(keptView), []jira.Issue{{Key: "PROJ-9", Summary: keptSummary}})
@@ -95,6 +98,8 @@ func issueListKept(t *testing.T, dir string) place {
 }
 
 func TestADryRunInterfaceOpensWithoutTheKeptIssueList(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, keptViewSettings)
@@ -116,6 +121,8 @@ func TestADryRunInterfaceOpensWithoutTheKeptIssueList(t *testing.T) {
 // The twin of the test above, so its Assert is seen to fail when the store is
 // read: the same interface, its writes live, opens on the list the store kept.
 func TestTheInterfaceOpensOnTheKeptIssueList(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, keptViewSettings)

@@ -95,7 +95,7 @@ func fakeSlack(t *testing.T, changed map[string]slackAnswer) *slackFake {
 	slack := &slackFake{answers: answers, granted: taggingScopes, asked: map[string]int{}}
 	server := httptest.NewServer(http.HandlerFunc(slack.answer))
 	t.Cleanup(server.Close)
-	t.Setenv(wiring.SlackAPIVariable, server.URL)
+	setVariable(t, wiring.SlackAPIVariable, server.URL)
 
 	return slack
 }

@@ -103,27 +103,27 @@ SECURITY
   including messaging.webhook_url, which is a credential in its own right
   rather than merely an address.`
 
-// Execute runs the command tree with the given arguments and streams. It
-// returns an error rather than exiting, so tests can drive it.
+// Execute runs the command tree with the given arguments and streams, in env:
+// the directory, home, variables, store and programs of the process it runs
+// in, which no command reads for itself. It returns an error rather than
+// exiting, so tests can drive it.
 //
 // SIGINT and SIGTERM cancel the context every command runs under, which flows to
 // each HTTP request and subprocess: a hung `doctor --online` or a slow git
 // command stops on the first Ctrl+C rather than needing a second, harder signal.
 // The interface puts the terminal in raw mode, where Ctrl+C arrives as a key
 // rather than a signal, so this does not fight Bubble Tea's own handling.
-func Execute(args []string, stdout, stderr io.Writer, prompt Prompt) error {
+func Execute(args []string, stdout, stderr io.Writer, prompt Prompt, env Environment) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	return execute(ctx, args, stdout, stderr, prompt)
+	// The command tree carries no context; ctx reaches each command through
+	// Cobra's ExecuteContext, which is how cmd.Context() is set.
+	return execute(ctx, NewRootCmdOver(prompt, tui.Run, WebServerAt, env), args, stdout, stderr)
 }
 
-// execute runs the command tree under ctx, so a test can pass a context it
-// controls without raising a real signal.
-func execute(ctx context.Context, args []string, stdout, stderr io.Writer, prompt Prompt) error {
-	// The command tree carries no context; ctx reaches each command through
-	// Cobra's ExecuteContext below, which is how cmd.Context() is set.
-	root := NewRootCmd(prompt) //nolint:contextcheck // ctx is delivered by ExecuteContext, not the constructor.
+// execute runs root with args and streams under ctx.
+func execute(ctx context.Context, root *cobra.Command, args []string, stdout, stderr io.Writer) error {
 	checked := &checkedOutput{out: stdout}
 
 	root.SetArgs(args)
@@ -160,30 +160,31 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 // real terminal.
 type RunInterface func(ctx context.Context, model tui.Model, in io.Reader, out io.Writer) (tui.Next, error)
 
-// NewRootCmd builds the command tree. Bare `workflow` opens the TUI. The prompt
-// is how `config init` asks for credentials; a zero one is fine for a caller
-// that only walks the tree, such as the reference generator.
+// NewRootCmd builds the command tree to walk, as the reference generator
+// does: it runs no command, so it is handed no Environment to run one in. The
+// prompt is how `config init` asks for credentials; a zero one is fine.
 func NewRootCmd(prompt Prompt) *cobra.Command {
-	return NewRootCmdOver(prompt, tui.Run, WebServerAt)
+	return NewRootCmdOver(prompt, tui.Run, WebServerAt, Environment{})
 }
 
 // NewRootCmdOver builds the command tree over the interface and web server a
 // caller hands it, so a test can see what bare `workflow` and `workflow --web`
-// open without a terminal or a port.
-func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Command {
+// open without a terminal or a port, and has every command run in env.
+func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt, env Environment) *cobra.Command {
 	var flags rootFlags
 
 	opening := surfaces{run: run, serveAt: serveAt}
 	root := &cobra.Command{
-		Use:           "workflow",
-		Short:         "Run your Jira, Git forge and messaging workflow, in the terminal or a browser",
-		Long:          longHelp,
-		Version:       buildinfo.Current(),
-		SilenceUsage:  true,
-		SilenceErrors: true,
-		Args:          cobra.NoArgs,
-		PreRunE:       func(cmd *cobra.Command, _ []string) error { return checkPort(cmd, flags.web, flags.port) },
-		RunE:          func(cmd *cobra.Command, _ []string) error { return opening.open(cmd, prompt, flags) },
+		Use:              "workflow",
+		Short:            "Run your Jira, Git forge and messaging workflow, in the terminal or a browser",
+		Long:             longHelp,
+		Version:          buildinfo.Current(),
+		SilenceUsage:     true,
+		SilenceErrors:    true,
+		Args:             cobra.NoArgs,
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) { handOver(cmd, env) },
+		PreRunE:          func(cmd *cobra.Command, _ []string) error { return checkPort(cmd, flags.web, flags.port) },
+		RunE:             func(cmd *cobra.Command, _ []string) error { return opening.open(cmd, prompt, flags) },
 	}
 
 	flags.declare(root)
@@ -259,7 +260,8 @@ type interfaceInput struct {
 func inputFor(cmd *cobra.Command, conn connection, dryRun bool) interfaceInput {
 	return interfaceInput{
 		cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.controls.ResolveAhead,
-		dryRun: dryRun, noColorEnv: os.Getenv("NO_COLOR"), in: cmd.InOrStdin(), out: terminalOut(cmd),
+		dryRun: dryRun, noColorEnv: environmentOf(cmd).Process.Getenv("NO_COLOR"), in: cmd.InOrStdin(),
+		out:    terminalOut(cmd),
 		arrive: func(model tui.Model) tui.Model { return model },
 	}
 }
@@ -304,7 +306,7 @@ func switchTo(cmd *cobra.Command, from connection, dir string) (connection, erro
 		return connection{}, err
 	}
 
-	return conn, moveTo(dir)
+	return conn, moveTo(cmd, dir)
 }
 
 // wireAt wires dir as from was wired, to the same request log, refusing a
@@ -316,7 +318,7 @@ func wireAt(cmd *cobra.Command, from connection, dir string) (connection, error)
 		return connection{}, err
 	}
 
-	conn := connectAt(cmd, dir, configHome(), from.requestLog)
+	conn := connectAt(cmd, dir, from.requestLog)
 
 	err = tui.CheckKeys(conn.cfg.UI.Keys)
 	if err != nil {
@@ -330,8 +332,8 @@ func wireAt(cmd *cobra.Command, from connection, dir string) (connection, error)
 
 // moveTo makes dir the process's working directory, so whatever the new
 // session runs — an editor, a hook — starts there.
-func moveTo(dir string) error {
-	err := os.Chdir(dir)
+func moveTo(cmd *cobra.Command, dir string) error {
+	err := environmentOf(cmd).Chdir(dir)
 	if err != nil {
 		return fmt.Errorf("moving to the directory: %w", err)
 	}
@@ -405,28 +407,23 @@ func checkPort(cmd *cobra.Command, web bool, port int) error {
 	return fmt.Errorf(`%w %q for "--port" flag: %s`, errUsage, strconv.Itoa(port), why)
 }
 
-// loadFromEnvironment loads the configuration that applies to this process,
-// searching up from the working directory to the repository root and then the
-// home directory. A missing or unreadable file is reported through the error;
-// the zero Config is still usable, which is what lets doctor explain what is
-// wrong.
-func loadFromEnvironment() (config.Config, error) {
-	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
-	// a working directory once it is removed.
-	workDir, err := os.Getwd()
+// loadFromEnvironment loads the configuration that applies where cmd runs,
+// searching up from its working directory to the repository root and then
+// the home directory. A missing or unreadable file is reported through the
+// error; the zero Config is still usable, which is what lets doctor explain
+// what is wrong.
+func loadFromEnvironment(cmd *cobra.Command) (config.Config, error) {
+	workDir, err := workingDir(cmd)
 	if err != nil {
-		return config.Config{}, fmt.Errorf("determining the working directory: %w", err)
+		return config.Config{}, err
 	}
 
-	return config.Load(workDir, configHome())
+	return config.Load(workDir, configHome(cmd))
 }
 
 // configHome is the home directory a configuration falls back to, or "" for
 // none. A machine without a home directory is unusual but not a failure: the
-// working directory alone is still a valid place to find a configuration, and
-// the lookup answers "" beside its error.
-func configHome() string {
-	home, _ := os.UserHomeDir()
-
-	return home
+// working directory alone is still a valid place to find a configuration.
+func configHome(cmd *cobra.Command) string {
+	return environmentOf(cmd).Process.Home
 }

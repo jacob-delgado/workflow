@@ -77,8 +77,13 @@ place those seams meet the real clients. This is dependency inversion in the
 plain Go form the codebase prefers: a one-method dependency is a function
 variable, not an interface.
 
-`wiring.Deps(ctx, cfg, where, log)` returns a `tui.Deps` bundle and a
-`resolveAhead` hook. It composes one grouped seam per external system (`Jira`,
+`env.Deps(ctx, cfg, where, log)` returns a `tui.Deps` bundle and a
+`resolveAhead` hook, over `env`, a `wiring.Environment`: the home directory,
+the environment's variables, the store's directory and where a program is
+found. The wiring reads none of them from the process itself; the command line
+hands them over from the `cli.Environment` that `cmd/workflow` builds from the
+operating system, beside the working directory, so each test hands a run one of
+its own and the CLI's tests run in parallel. It composes one grouped seam per external system (`Jira`,
 `Git`, `Forge`, `Messaging`, `Hooks`, `Editor`, `Store`) plus a few environment
 seams (`Clock`, `CIInterval`, `After`, `Notify`, `OpenURL`, `Copy`). Each
 grouped seam is a struct of closures that capture the context and a
@@ -102,7 +107,8 @@ so it sits below the surfaces and above `internal/loop`.
 
 - `Workspace` tells wiring where it is running — the directory it was started
   in, the repository root (or that directory when there is no repo) and the
-  origin remote URL. `Locate` reads it for a directory, once per interface.
+  origin remote URL. `Environment.Locate` reads it for a directory, once per
+  interface.
 - The CLI builds this bundle in its root `RunE`; `--web` reuses **the same
   bundle**, adapted to the web server's shape. That shared construction is one
   half of why there is one implementation behind three front doors;
