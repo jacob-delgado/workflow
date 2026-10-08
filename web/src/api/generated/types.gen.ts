@@ -1166,7 +1166,7 @@ export type ReviewRequest = {
  */
 export type TaskList = {
     /**
-     * Whether there is a Taskwarrior to ask: false when it is turned off by taskwarrior.disabled, not installed, not Taskwarrior (go-task is also called task), too old, never run, or its taskrc has a malformed line.
+     * Whether there is a Taskwarrior to ask: false when it is turned off by taskwarrior.disabled, not installed, not Taskwarrior (go-task is also called task), too old, never run, or its taskrc has a malformed line. Also false in the answer to a write that was made when the list after it could not be read: reason says so, the write stands, and a read of the list asks again.
      */
     available: boolean;
     /**
@@ -1174,7 +1174,7 @@ export type TaskList = {
      */
     reason: string;
     /**
-     * Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts. Absent when Taskwarrior is available.
+     * Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts, or the list after a write that was made could not be read. Absent when Taskwarrior is available.
      */
     reason_code?: 'not_installed' | 'not_taskwarrior' | 'too_old' | 'never_run' | 'turned_off' | 'malformed_taskrc' | 'unavailable';
     /**

@@ -394,7 +394,9 @@ made it, and **Sync…**, shown when the taskrc names a sync backend, syncs.
 Those three ask first and send nothing until confirmed — marking done runs the
 task's hooks, Taskwarrior has no redo, and a sync sends your tasks off the
 machine — while **Start** and **Stop** act at once. Each write says what it did, and the list redraws from Taskwarrior's answer at
-once. A write Taskwarrior refuses says why below its button, in Taskwarrior's
+once; a write that was made when the list after it could not be read still
+says what it did, and the section reads the list again, so a write that
+landed is never reported failed and made twice by a retry. A write Taskwarrior refuses says why below its button, in Taskwarrior's
 own words, with your home and data directories put in fixed words and any
 line naming a server left out; a failed sync answers in fixed words only, and
 `task sync` in a terminal shows why. A write that changed nothing — **Start**
