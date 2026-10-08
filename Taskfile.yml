@@ -597,8 +597,7 @@ tasks:
     # their Go twins, so a broken frontend fails here and not first in CI. The
     # Playwright suites stay out: each needs a browser installed, and the
     # server-backed one needs `task build`'s binary and port 13580 free as
-    # well. CI's e2e and e2e-server jobs run them (`yarn test:e2e` and
-    # `yarn test:e2e:server` by hand).
+    # well. CI's e2e and e2e-server jobs run them, and `task e2e` by hand.
     cmds:
       - task: lint
       - task: web:lint
@@ -609,6 +608,22 @@ tasks:
       - task: cover:branch
       - task: vuln
       - task: secrets
+
+  # The Playwright suites `task check` leaves out: the web frontend alone,
+  # served by Vite preview, with the axe scan and the layout spec among its
+  # specs, then the same page served by the binary `task build` makes,
+  # writing through to git. Each needs a browser (`yarn playwright install
+  # chromium` in web/ once), and the second port 13580 free. CI's E2E and
+  # E2E (server) jobs run the same two.
+  e2e:
+    desc: Run the web's Playwright suites, which task check leaves out (needs a browser)
+    deps: [build]
+    dir: web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    cmds:
+      - corepack yarn test:e2e
+      - corepack yarn test:e2e:server
 
   clean:
     desc: Remove build and coverage artifacts

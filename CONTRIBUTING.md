@@ -69,9 +69,11 @@ task check         # the full gate — run this before opening a pull request
 
 The local gate needs Node, which `mise install` provisions, and installs the
 frontend's dependencies when they are missing. CI runs the same gates, and adds
-the Playwright end-to-end suites: `yarn test:e2e` in `web/`, and
-`yarn test:e2e:server`, which stages, commits and pushes through the binary
-`task build` makes. One gate is narrower in CI: a pull request that changes no
+the Playwright end-to-end suites, which `task e2e` runs locally: the web
+frontend alone, and then the page served by the binary `task build` makes,
+staging, committing and pushing through it. Each needs a browser, installed
+once with `yarn playwright install chromium` in `web/`; run them for a change
+under `web/` or `internal/webserver`. One gate is narrower in CI: a pull request that changes no
 Markdown file, nothing under `docs/`, not `.markdownlint-cli2.yaml` and not
 `mise.toml`, which pins the Markdown linter, skips the Markdown lint
 (`scripts/markdown-changed.sh` decides); a push to `main` always runs it, and
