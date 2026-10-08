@@ -401,8 +401,13 @@ type exitFamily struct {
 
 // holds reports whether err is, or wraps, one of the family's errors.
 func (f exitFamily) holds(err error) bool {
-	for _, member := range f.members {
-		if errors.Is(err, member) {
+	return isAny(err, f.members...)
+}
+
+// isAny reports whether err is, or wraps, any of targets.
+func isAny(err error, targets ...error) bool {
+	for _, target := range targets {
+		if errors.Is(err, target) {
 			return true
 		}
 	}

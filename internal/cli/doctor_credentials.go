@@ -347,12 +347,10 @@ func userTokenNote(ctx context.Context, cfg config.Config) string {
 // unreachable as every command's exit status does: a service not reached, one
 // asking to wait, or a refused redirect.
 func credentialOutcome(err error, service string) error {
-	noCredential := exitFamily{members: []error{jira.ErrNoCredential, messaging.ErrNoCredential, forge.ErrNoToken}}
-
 	switch {
-	case noCredential.holds(err):
+	case isAny(err, jira.ErrNoCredential, messaging.ErrNoCredential, forge.ErrNoToken):
 		return fmt.Errorf("%w: %s", errCredentialMissing, service)
-	case (exitFamily{members: unreachableErrors()}).holds(err):
+	case isAny(err, unreachableErrors()...):
 		return fmt.Errorf("%w: %s", errUnreachable, service)
 	default:
 		return fmt.Errorf("%w: %s", errCredentialRejected, service)
