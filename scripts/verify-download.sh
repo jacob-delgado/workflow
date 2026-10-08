@@ -41,7 +41,14 @@ if [[ ! "${pins}" =~ ^[0-9a-f]{64}$ ]]; then
   exit 1
 fi
 
-if ! echo "${pins}  ${file}" | sha256sum --check --strict --quiet -; then
+# GNU coreutils has sha256sum; stock macOS has only shasum, and the script
+# tests run there too. Both print the hash first.
+if command -v sha256sum >/dev/null; then
+  digest="$(sha256sum "${file}")"
+else
+  digest="$(shasum -a 256 "${file}")"
+fi
+if [[ "${digest%% *}" != "${pins}" ]]; then
   echo "verify-download: ${file} does not match the SHA-256 pinned for ${tool} ${version} ${arch}" >&2
   exit 1
 fi
