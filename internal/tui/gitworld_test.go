@@ -116,15 +116,7 @@ func (w *world) gitDeps() seams.Git {
 
 			return w.fetchErr
 		},
-		Commit: func(message string) (proc.Output, error) {
-			w.record("commit " + message)
-
-			if w.commitStartErr != nil {
-				return proc.Output{}, w.commitStartErr
-			}
-
-			return output(w.commitLines, w.commitErr), nil
-		},
+		Commit: w.commit,
 		Push: func(branch string) (proc.Output, error) {
 			w.record("push " + branch)
 
@@ -178,4 +170,20 @@ func (w *world) gitDeps() seams.Git {
 	}
 
 	return deps
+}
+
+// commit records a commit and runs it: refused before it starts, hanging until
+// stopped when runs block, or finished with commitLines and commitErr.
+func (w *world) commit(message string) (proc.Output, error) {
+	w.record("commit " + message)
+
+	if w.commitStartErr != nil {
+		return proc.Output{}, w.commitStartErr
+	}
+
+	if w.runBlocks {
+		return w.blockingOutput(), nil
+	}
+
+	return output(w.commitLines, w.commitErr), nil
 }
