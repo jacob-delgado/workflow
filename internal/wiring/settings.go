@@ -39,7 +39,7 @@ func SetupDeps(
 ) seams.Setup {
 	guide := setup.Guide{
 		//nolint:bodyclose // Wrap only relays the response; the Jira client reads and closes its body.
-		Where: where, Doer: log.Wrap("jira", httpx.Client(RequestTimeout).Do), StoreSecret: storeSecret,
+		Where: where, Doer: log.Wrap("jira", httpx.Client(config.DefaultRequestTimeout).Do), StoreSecret: storeSecret,
 	}
 
 	return seams.Setup{

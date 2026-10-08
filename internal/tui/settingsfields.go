@@ -215,6 +215,8 @@ func forgeSettings() []setting {
 func commitSettings() []setting {
 	const section = "Commit"
 
+	defaults := convention.DefaultCommitConvention()
+
 	return []setting{
 		{
 			section: section, label: "Default scope", path: "commit.default_scope",
@@ -226,11 +228,13 @@ func commitSettings() []setting {
 		},
 		{
 			section: section, label: "Subject limit", path: "commit.subject_limit", kind: settingCount,
-			hint: "The longest a subject may be, in characters; 0 keeps 72.",
+			hint: "The longest a subject may be, in characters; 0 keeps " +
+				strconv.Itoa(defaults.SubjectLimit()) + ".",
 		},
 		{
 			section: section, label: "Issue trailer", path: "commit.refs_trailer",
-			hint: `The trailer label added to a commit body; empty keeps "Refs".`,
+			hint: "The trailer label added to a commit body; empty keeps " +
+				strconv.Quote(defaults.RefsLabel()) + ".",
 		},
 	}
 }
@@ -239,6 +243,8 @@ func commitSettings() []setting {
 // the form holds them.
 func branchSettings(held func(string) any) []setting {
 	const section = "Branch"
+
+	defaults := convention.DefaultBranchNaming()
 
 	prefixes := collection{
 		title: "Prefix", noun: "prefix", nameWord: "issue type", valueWord: "prefix",
@@ -252,13 +258,13 @@ func branchSettings(held func(string) any) []setting {
 		},
 		{
 			section: section, label: "Default prefix", path: "branch.default_prefix",
-			hint: `The prefix for an unmapped type; empty keeps "feat".`,
+			hint: "The prefix for an unmapped type; empty keeps " + strconv.Quote(defaults.DefaultPrefix()) + ".",
 		},
 	}, prefixes.rows(section, "branch.prefixes", "The prefix for each issue type, matched without regard "+
 		"to case. Any here replace the built-in ones.", held("branch.prefixes")), []setting{
 		{
 			section: section, label: "Slug limit", path: "branch.slug_limit", kind: settingCount,
-			hint: "Caps the summary slug's length; 0 keeps 48.",
+			hint: "Caps the summary slug's length; 0 keeps " + strconv.Itoa(defaults.SlugLimit()) + ".",
 		},
 	})
 }
@@ -302,11 +308,13 @@ func timingSettings() []setting {
 	return []setting{
 		{
 			section: section, label: "Request timeout", path: "timing.request_timeout",
-			hint: "How long each request to a service may take, as a duration such as 20s; empty keeps 10s.",
+			hint: "How long each request to a service may take, as a duration such as 20s; empty keeps " +
+				config.DefaultRequestTimeout.String() + ".",
 		},
 		{
 			section: section, label: "CI interval", path: "timing.ci_interval",
-			hint: "How often CI is asked about while it runs, as a duration such as 30s; empty keeps 20s.",
+			hint: "How often CI is asked about while it runs, as a duration such as 30s; empty keeps " +
+				config.DefaultCIInterval.String() + ".",
 		},
 	}
 }
@@ -329,7 +337,8 @@ func terminalSettings() []setting {
 		{section: section, label: "Ring the terminal when CI finishes", path: "ui.notify", kind: settingToggle},
 		{
 			section: section, label: "Comments shown", path: "ui.comments_shown", kind: settingCount,
-			hint: "How many of an issue's latest comments the detail shows; 0 keeps 5.",
+			hint: "How many of an issue's latest comments the detail shows; 0 keeps " +
+				strconv.Itoa(defaultCommentsShown) + ".",
 		},
 	}
 }

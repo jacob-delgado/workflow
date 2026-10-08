@@ -59,6 +59,16 @@ func NewBranchNaming(template, defaultPrefix string, prefixes map[string]string,
 	return naming
 }
 
+// DefaultPrefix is the prefix for an issue type the naming maps to none.
+func (n BranchNaming) DefaultPrefix() string {
+	return n.fallback
+}
+
+// SlugLimit is the longest a summary's slug may be in a name.
+func (n BranchNaming) SlugLimit() int {
+	return n.slugLimit
+}
+
 // Name proposes a branch for an issue.
 func (n BranchNaming) Name(issueType, key, summary string) string {
 	name := n.template
