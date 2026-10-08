@@ -7,12 +7,23 @@ import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
+// The values the tasks below hold, each as the server labels it.
+const pending: TaskFacet = { kind: 'state', value: 'pending', label: 'pending' }
+const waiting: TaskFacet = { kind: 'state', value: 'waiting', label: 'waiting' }
+const priorityH: TaskFacet = { kind: 'priority', value: 'H', label: 'priority H' }
+const noPriority: TaskFacet = { kind: 'priority', value: '', label: 'no priority' }
+const noProject: TaskFacet = { kind: 'project', value: '', label: 'no project' }
+const noTag: TaskFacet = { kind: 'tag', value: '', label: 'no tag' }
+const noIssue: TaskFacet = { kind: 'issue', value: 'unlinked', label: 'no issue' }
+
 const leak = makeTask({
   uuid: 'a',
   id: 1,
   description: 'Fix the token leak',
   urgency: 9.5,
   issue_key: '',
+  facets: [pending, noPriority, noProject, noIssue, noTag],
+  searchable: ['fix the token leak', '', '', '#1'],
 })
 const cert = makeTask({
   uuid: 'b',
@@ -21,15 +32,20 @@ const cert = makeTask({
   priority: 'H',
   urgency: 5,
   issue_key: '',
+  facets: [pending, priorityH, noProject, noIssue, noTag],
+  searchable: ['renew the cert', '', '', '#2'],
 })
 const room = makeTask({
   uuid: 'c',
   id: 3,
   description: 'Book the room',
   status: 'waiting',
+  state: 'waiting',
   wait: '2099-01-02T00:00:00Z',
   urgency: 1,
   issue_key: '',
+  facets: [waiting, noPriority, noProject, noIssue, noTag],
+  searchable: ['book the room', '', '', '#3'],
 })
 // held is pending to Taskwarrior, with a wait still ahead, so the server words
 // its state as waiting.
@@ -41,7 +57,13 @@ const held = makeTask({
   wait: '2099-01-03T00:00:00Z',
   urgency: 0.5,
   issue_key: '',
+  facets: [waiting, noPriority, noProject, noIssue, noTag],
+  searchable: ['call the vendor', '', '', '#4'],
 })
+
+// offered is the values the tasks above hold, in the order the server offers
+// them.
+const offered: TaskFacet[] = [pending, waiting, priorityH, noPriority, noProject, noTag, noIssue]
 
 // chips is each chip the filter offers, as it names it, in order.
 function chips(): string[] {
@@ -66,7 +88,7 @@ function rows(): string[] {
 }
 
 function renderPanel() {
-  fakeApi({ '/api/tasks': makeTaskList([leak, cert, room]) })
+  fakeApi({ '/api/tasks': makeTaskList([leak, cert, room], { facet_order: offered }) })
   renderWithClient(<TasksPanel />)
 }
 
@@ -115,7 +137,7 @@ test('picking waiting lists the waiting tasks, each saying until when', async ()
 
 test('a pending task picked as waiting reads waiting in its row, as the server words it', async () => {
   // Arrange
-  fakeApi({ '/api/tasks': makeTaskList([leak, held]) })
+  fakeApi({ '/api/tasks': makeTaskList([leak, held], { facet_order: offered }) })
   renderWithClient(<TasksPanel />)
   const narrow = await screen.findByRole('group', { name: 'Filter' })
 
@@ -128,7 +150,7 @@ test('a pending task picked as waiting reads waiting in its row, as the server w
 
 test("a pending task picked as waiting has the server's state in its detail", async () => {
   // Arrange
-  fakeApi({ '/api/tasks': makeTaskList([leak, held]) })
+  fakeApi({ '/api/tasks': makeTaskList([leak, held], { facet_order: offered }) })
   renderWithClient(<TasksPanel />)
   const narrow = await screen.findByRole('group', { name: 'Filter' })
 
@@ -173,7 +195,11 @@ test('a task the server reads as waiting is counted, not listed', async () => {
   // Arrange
   // Pending, with no wait of its own the page could read, but the server says
   // it waits.
-  const later = makeTask({ ...cert, state: 'waiting' })
+  const later = makeTask({
+    ...cert,
+    state: 'waiting',
+    facets: [waiting, priorityH, noProject, noIssue, noTag],
+  })
   fakeApi({ '/api/tasks': makeTaskList([leak, later]) })
 
   // Act
@@ -187,7 +213,7 @@ test('a task the server reads as waiting is counted, not listed', async () => {
 test('a picked value the server no longer offers comes last, at zero', async () => {
   // Arrange
   useUiStore.setState({ taskFilter: [{ kind: 'project', value: 'gone', label: 'project gone' }] })
-  fakeApi({ '/api/tasks': makeTaskList([leak]) })
+  fakeApi({ '/api/tasks': makeTaskList([leak], { facet_order: offered }) })
 
   // Act
   renderWithClient(<TasksPanel />)

@@ -299,6 +299,7 @@ function taskMarkRows(available: boolean) {
       id: 1,
       issue_key: 'PROJ-1',
       start: '2026-09-28T09:00:00Z',
+      state: 'started',
     }),
     makeTask({ uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', id: 2, issue_key: 'PROJ-2' }),
     makeTask({
@@ -306,6 +307,7 @@ function taskMarkRows(available: boolean) {
       id: 0,
       issue_key: 'PROJ-3',
       status: 'completed',
+      state: 'completed',
     }),
   ]
   useSnapshotStore.setState({

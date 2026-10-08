@@ -109,7 +109,7 @@ test.each(corpus.choices)('$name', ({ issues, picked, want }) => {
 const tasks: TasksSummary = {
   available: true,
   reason: '',
-  linked: [makeTask({ issue_key: 'PROJ-503', start: '2026-09-30T09:00:00Z' })],
+  linked: [makeTask({ issue_key: 'PROJ-503', start: '2026-09-30T09:00:00Z', state: 'started' })],
 }
 
 test('marks read the branches, the linked tasks and the tracker', () => {

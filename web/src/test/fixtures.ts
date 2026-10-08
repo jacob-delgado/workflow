@@ -2,15 +2,12 @@ import type {
   Branch,
   Health,
   IssueDetail,
-  ReviewFacet,
   ReviewRequest,
   Snapshot,
   Stage,
   Task,
   TaskBranch,
-  TaskFacet,
   TaskList,
-  TaskRanks,
 } from '@/api/generated/types.gen.ts'
 
 // A contract-valid branch for tests — the one makeSnapshot checks out, and
@@ -144,80 +141,43 @@ export function makeIssueDetail(overrides: Partial<IssueDetail> = {}): IssueDeta
 
 // A contract-valid Taskwarrior task for tests — task 12, pending and not
 // started, tracking PROJ-42 — with the fields a case cares about overridden.
-// What the server describes of a task — where it stands, its facets and the
-// fields typed text matches — follows from the case's fields unless the case
-// gives its own; its ranks are first in every order unless the case gives
-// them, so a case that sorts says where each task goes.
+// What the server describes of it — its state, facets, ranks and the fields
+// typed text matches — is written out here for this task alone, first in
+// every order: a case that changes what the server would describe, and
+// reads it, gives its own, as the server would send them.
 export function makeTask(overrides: Partial<Task> = {}): Task {
-  const task = {
+  return {
     uuid: '5f1d7a3c-9b2e-4c8d-a6f0-3e1b2c4d5a6f',
     id: 12,
     description: 'PROJ-42: Redact the token before it reaches the log',
-    status: 'pending' as const,
+    status: 'pending',
+    state: 'pending',
     project: '',
     priority: '',
-    tags: [] as string[],
+    tags: [],
     entry: '2026-09-20T10:00:00Z',
     modified: '2026-09-20T10:00:00Z',
     urgency: 4.2,
     annotations: [],
     issue_key: 'PROJ-42',
     issue_url: 'https://jira.example.com/browse/PROJ-42',
+    facets: [
+      { kind: 'state', value: 'pending', label: 'pending' },
+      { kind: 'priority', value: '', label: 'no priority' },
+      { kind: 'project', value: '', label: 'no project' },
+      { kind: 'issue', value: 'linked', label: 'with issue' },
+      { kind: 'tag', value: '', label: 'no tag' },
+    ],
+    ranks: { urgency: 0, state: 0, id: 0, tag: 0, issue: 0, priority: 0 },
+    searchable: ['proj-42: redact the token before it reaches the log', '', 'proj-42', '#12'],
     ...overrides,
   }
-  const state = overrides.state ?? (task.start === undefined ? task.status : 'started')
-
-  return {
-    ...task,
-    state,
-    facets: overrides.facets ?? taskFacetsOf({ ...task, state }),
-    ranks: overrides.ranks ?? firstInEveryOrder,
-    searchable: overrides.searchable ?? searchableOf(task),
-  }
 }
 
-// firstInEveryOrder is a task's ranks when a case does not sort.
-const firstInEveryOrder: TaskRanks = { urgency: 0, state: 0, id: 0, tag: 0, issue: 0, priority: 0 }
-
-// taskFacetsOf is what the server ships as a task's facets, for the case data
-// a test gives: each value as the server labels it, written out for the data.
-function taskFacetsOf(
-  task: Pick<Task, 'state' | 'priority' | 'project' | 'issue_key' | 'tags'>,
-): TaskFacet[] {
-  const named = (kind: TaskFacet['kind'], value: string, label: string, none: string) => ({
-    kind,
-    value,
-    label: value === '' ? none : label,
-  })
-  const tags = task.tags.length === 0 ? [''] : task.tags
-
-  return [
-    named('state', task.state, task.state, 'no state'),
-    named('priority', task.priority, `priority ${task.priority}`, 'no priority'),
-    named('project', task.project, `project ${task.project}`, 'no project'),
-    task.issue_key === ''
-      ? { kind: 'issue', value: 'unlinked', label: 'no issue' }
-      : { kind: 'issue', value: 'linked', label: 'with issue' },
-    ...tags.map((tag) => named('tag', tag, `+${tag}`, 'no tag')),
-  ]
-}
-
-// searchableOf is the fields the server ships for typed text to match, for
-// the case data a test gives.
-function searchableOf(task: Pick<Task, 'description' | 'project' | 'issue_key' | 'tags' | 'id'>) {
-  const fields = [
-    task.description,
-    task.project,
-    task.issue_key,
-    ...task.tags.map((tag) => `+${tag}`),
-  ]
-  if (task.id > 0) {
-    fields.push(`#${String(task.id)}`)
-  }
-
-  return fields.map((field) => field.toLowerCase())
-}
-
+// A contract-valid task list for tests: Taskwarrior available, holding the
+// tasks given, with the fields a case cares about overridden. Its filter
+// offers nothing unless the case gives the order the server offers its
+// values in.
 export function makeTaskList(tasks: Task[], overrides: Partial<TaskList> = {}): TaskList {
   return {
     available: true,
@@ -226,59 +186,32 @@ export function makeTaskList(tasks: Task[], overrides: Partial<TaskList> = {}): 
     sync_available: false,
     said: '',
     tasks,
-    facet_order: offeredOf(tasks),
+    facet_order: [],
     ...overrides,
   }
 }
 
-// offeredOf stands in for the order the server offers the tasks' values in:
-// each value they hold, once, in the order the tasks hold them. A case about
-// the order the filter offers its values in gives the server's own.
-function offeredOf(tasks: Task[]): TaskFacet[] {
-  const offered: TaskFacet[] = []
-  for (const facet of tasks.flatMap((task) => task.facets)) {
-    if (!offered.some((one) => one.kind === facet.kind && one.value === facet.value)) {
-      offered.push(facet)
-    }
-  }
-
-  return offered
-}
-
-// A contract-valid review request for tests — a pull request waiting three
-// days, CI failed — with the fields a case cares about overridden.
+// A contract-valid review request for tests — a pull request in acme/api by
+// ana, waiting three days, ready, CI failed — with the fields a case cares
+// about overridden. Its facets are written out for this request alone, as the
+// server labels them: a case that changes what they describe, and reads them,
+// gives its own.
 export function makeReviewRequest(overrides: Partial<ReviewRequest> = {}): ReviewRequest {
-  const request = {
+  return {
     number: 42,
     url: 'https://github.com/acme/api/pull/42',
     title: 'fix: redact the token before it reaches the log',
     author: 'ana',
     repository: 'acme/api',
     draft: false,
-    ci: 'failed' as const,
+    ci: 'failed',
     opened_at: new Date(Date.now() - (3 * 24 + 1) * 3_600_000).toISOString(),
+    facets: [
+      { kind: 'repository', value: 'acme/api', label: 'acme/api' },
+      { kind: 'ci', value: 'failed', label: 'CI failed' },
+      { kind: 'draft', value: 'ready', label: 'ready' },
+      { kind: 'author', value: 'ana', label: 'by ana' },
+    ],
     ...overrides,
   }
-
-  return { ...request, facets: overrides.facets ?? reviewFacetsOf(request) }
-}
-
-// reviewFacetsOf is what the server ships as a request's facets, for the case
-// data a test gives: each value as the server labels it, here written out for
-// the data alone.
-function reviewFacetsOf(
-  request: Pick<ReviewRequest, 'repository' | 'ci' | 'draft' | 'author'>,
-): ReviewFacet[] {
-  const readiness = request.draft ? 'draft' : 'ready'
-
-  return [
-    {
-      kind: 'repository',
-      value: request.repository,
-      label: request.repository === '' ? 'no repository' : request.repository,
-    },
-    { kind: 'ci', value: request.ci, label: `CI ${request.ci}` },
-    { kind: 'draft', value: readiness, label: readiness },
-    { kind: 'author', value: request.author, label: `by ${request.author}` },
-  ]
 }

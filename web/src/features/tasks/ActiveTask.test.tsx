@@ -12,6 +12,7 @@ const started = makeTask({
   description: 'PROJ-412: Redact tokens before they reach the request log',
   issue_key: 'PROJ-412',
   start: new Date(Date.now() - 72 * 60_000).toISOString(),
+  state: 'started',
 })
 
 // streamTasks puts a stream frame on screen whose task summary is summary.
@@ -126,6 +127,7 @@ test('a task started in place of another is counted from when it took its place'
     description: 'Renew the certificate',
     issue_key: '',
     start: '2026-09-28T10:48:50Z',
+    state: 'started',
   })
 
   // Act

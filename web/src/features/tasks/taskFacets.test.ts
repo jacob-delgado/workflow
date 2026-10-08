@@ -13,6 +13,24 @@ import {
 // offered in and the fields typed text matches are the server's, pinned by
 // internal/taskwarrior/narrow_test.go.
 
+// The values the tasks below hold, each as the server labels it.
+const started: TaskFacet = { kind: 'state', value: 'started', label: 'started' }
+const pending: TaskFacet = { kind: 'state', value: 'pending', label: 'pending' }
+const waiting: TaskFacet = { kind: 'state', value: 'waiting', label: 'waiting' }
+const priorityH: TaskFacet = { kind: 'priority', value: 'H', label: 'priority H' }
+const priorityL: TaskFacet = { kind: 'priority', value: 'L', label: 'priority L' }
+const noPriority: TaskFacet = { kind: 'priority', value: '', label: 'no priority' }
+const projectApi: TaskFacet = { kind: 'project', value: 'api', label: 'project api' }
+const projectInfra: TaskFacet = { kind: 'project', value: 'infra', label: 'project infra' }
+const noProject: TaskFacet = { kind: 'project', value: '', label: 'no project' }
+const withIssue: TaskFacet = { kind: 'issue', value: 'linked', label: 'with issue' }
+const noIssue: TaskFacet = { kind: 'issue', value: 'unlinked', label: 'no issue' }
+const tagWeb: TaskFacet = { kind: 'tag', value: 'web', label: '+web' }
+const tagCi: TaskFacet = { kind: 'tag', value: 'ci', label: '+ci' }
+const noTag: TaskFacet = { kind: 'tag', value: '', label: 'no tag' }
+
+// narrowedTasks is four tasks as the server describes them: n1 started, n2 and
+// n3 pending, and n4 waiting.
 function narrowedTasks(): Task[] {
   return [
     makeTask({
@@ -20,10 +38,13 @@ function narrowedTasks(): Task[] {
       id: 4,
       description: 'Fix the token leak',
       start: '2026-10-05T12:00:00Z',
+      state: 'started',
       priority: 'H',
       project: 'api',
       tags: ['web'],
       issue_key: 'PROJ-1',
+      facets: [started, priorityH, projectApi, withIssue, tagWeb],
+      searchable: ['fix the token leak', 'api', 'proj-1', '+web', '#4'],
     }),
     makeTask({
       uuid: 'n2',
@@ -32,6 +53,8 @@ function narrowedTasks(): Task[] {
       project: 'infra',
       tags: ['ci'],
       issue_key: '',
+      facets: [pending, noPriority, projectInfra, noIssue, tagCi],
+      searchable: ['renew the cert', 'infra', '', '+ci', '#7'],
     }),
     makeTask({
       uuid: 'n3',
@@ -39,27 +62,20 @@ function narrowedTasks(): Task[] {
       description: 'Tune the cache',
       priority: 'L',
       issue_key: 'PROJ-2',
+      facets: [pending, priorityL, noProject, withIssue, noTag],
+      searchable: ['tune the cache', '', 'proj-2', '#9'],
     }),
     makeTask({
       uuid: 'n4',
       id: 0,
       description: 'Book the room',
       status: 'waiting',
+      state: 'waiting',
       issue_key: '',
+      facets: [waiting, noPriority, noProject, noIssue, noTag],
+      searchable: ['book the room', '', ''],
     }),
   ]
-}
-
-// held is the facet of kind holding value, as the tasks above carry it.
-function held(kind: TaskFacet['kind'], value: string): TaskFacet {
-  const facet = narrowedTasks()
-    .flatMap((task) => task.facets)
-    .find((one) => one.kind === kind && one.value === value)
-  if (facet === undefined) {
-    throw new Error(`no task holds ${kind} ${value}`)
-  }
-
-  return facet
 }
 
 function admitted(narrowing: TaskNarrowing): string[] {
@@ -76,21 +92,17 @@ test.each<[string, () => TaskNarrowing, string[]]>([
   ],
   [
     'values picked in one kind widen',
-    () => ({ picked: [held('priority', 'H'), held('priority', 'L')], text: '' }),
+    () => ({ picked: [priorityH, priorityL], text: '' }),
     ['n1', 'n3'],
   ],
   [
     'values picked in two kinds narrow together',
-    () => ({ picked: [held('issue', 'linked'), held('state', 'started')], text: '' }),
+    () => ({ picked: [withIssue, started], text: '' }),
     ['n1'],
   ],
-  ['no tag is a value of its own', () => ({ picked: [held('tag', '')], text: '' }), ['n3', 'n4']],
+  ['no tag is a value of its own', () => ({ picked: [noTag], text: '' }), ['n3', 'n4']],
   ['typed text matches a field, ignoring case', () => ({ picked: [], text: 'CERT' }), ['n2']],
-  [
-    'typed text and picks narrow together',
-    () => ({ picked: [held('project', 'infra')], text: 'the' }),
-    ['n2'],
-  ],
+  ['typed text and picks narrow together', () => ({ picked: [projectInfra], text: 'the' }), ['n2']],
 ])('a narrowing lets through the tasks it picks: %s', (_name, narrowing, want) => {
   // Act
   const got = admitted(narrowing())
@@ -122,12 +134,7 @@ test('typed text is lower-cased letter by letter, as the server lowers the field
 
 test('choices count the values the server offers, in its order, a waiting task by its state alone', () => {
   // Arrange
-  const order = [
-    held('state', 'waiting'),
-    held('tag', ''),
-    held('project', 'infra'),
-    held('state', 'pending'),
-  ]
+  const order = [waiting, noTag, projectInfra, pending]
 
   // Act
   const choices = taskFacetChoices(narrowedTasks(), order, [])
@@ -146,32 +153,28 @@ test('a picked value the server no longer offers comes last, at zero', () => {
   const gone: TaskFacet = { kind: 'project', value: 'gone', label: 'project gone' }
 
   // Act
-  const choices = taskFacetChoices(narrowedTasks(), [held('priority', 'H')], [gone])
+  const choices = taskFacetChoices(narrowedTasks(), [priorityH], [gone])
 
   // Assert
   expect(choices).toEqual([
-    { value: held('priority', 'H'), count: 1 },
+    { value: priorityH, count: 1 },
     { value: gone, count: 0 },
   ])
 })
 
 test('toggling a picked value unpicks it', () => {
-  // Arrange
-  const high = held('priority', 'H')
-  const infra = held('project', 'infra')
-
   // Act
-  const picked = toggleTaskFacet([high, infra], high)
+  const picked = toggleTaskFacet([priorityH, projectInfra], priorityH)
 
   // Assert
-  expect(picked).toEqual([infra])
+  expect(picked).toEqual([projectInfra])
 })
 
 test.each<[string, () => TaskFacet[], boolean]>([
   ['nothing picked', () => [], false],
-  ['pending picked', () => [held('state', 'pending')], false],
-  ['waiting picked', () => [held('state', 'waiting')], true],
-  ['a priority only', () => [held('priority', 'H')], false],
+  ['pending picked', () => [pending], false],
+  ['waiting picked', () => [waiting], true],
+  ['a priority only', () => [priorityH], false],
 ])('only picking waiting lists waiting tasks: %s', (_name, picked, want) => {
   // Act
   const got = listsWaiting(picked())

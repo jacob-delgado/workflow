@@ -36,12 +36,16 @@ test.each([
 })
 
 test.each([
-  ['a started task', makeTask({ start: before(10) }), 'in-flight'],
+  ['a started task', makeTask({ start: before(10), state: 'started' }), 'in-flight'],
   ['a task not started', makeTask(), 'not-started'],
-  ['a waiting task', makeTask({ status: 'waiting' }), 'not-started'],
-  ['a recurring task', makeTask({ status: 'recurring' }), 'not-started'],
-  ['a completed task', makeTask({ status: 'completed', end: before(5) }), 'done'],
-  ['a deleted task', makeTask({ status: 'deleted' }), 'not-started'],
+  ['a waiting task', makeTask({ status: 'waiting', state: 'waiting' }), 'not-started'],
+  ['a recurring task', makeTask({ status: 'recurring', state: 'recurring' }), 'not-started'],
+  [
+    'a completed task',
+    makeTask({ status: 'completed', state: 'completed', end: before(5) }),
+    'done',
+  ],
+  ['a deleted task', makeTask({ status: 'deleted', state: 'deleted' }), 'not-started'],
 ])('marks %s by shape', (_, task, mark) => {
   // Act & Assert
   expect(markOf(task)).toBe(mark)
