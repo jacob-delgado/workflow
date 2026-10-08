@@ -153,7 +153,7 @@ func TestUpdateConfigKeepsWhatOnlyTheHomeFileMayHoldOutOfTheRepositoryFile(t *te
 
 			// Assert
 			failure := decode[api.Problem](t, recorder)
-			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable ||
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
 				!strings.Contains(failure.Detail, "home") || strings.Contains(failure.Detail, typedToken) {
 				t.Errorf("status %d, problem %+v; want 422 saying the home file holds it, without the token",
 					recorder.Code, failure)

@@ -174,7 +174,7 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 	}
 
 	if errors.Is(err, config.ErrCredentialInRepository) || errors.Is(err, config.ErrHomeOnly) {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"a credential typed here, a token command or variable, or a task program is kept in the home "+
 				"directory's file, never in the repository's; set it there"))
 	}

@@ -152,7 +152,7 @@ func (s *server) setupRefusal(err error) api.SetUpResponseObject {
 		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"there is no keychain here to keep the token in; keep it in the file instead"))
 	case errors.Is(err, setup.ErrKeychainAtHome):
-		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"the keychain can keep the token only for the file in the home directory; "+
 				"write the file there, or keep the token in the file"))
 	case errors.Is(err, setup.ErrNoHome):
