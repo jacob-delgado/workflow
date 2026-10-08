@@ -1,5 +1,4 @@
-import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReviewQueue } from '@/api/generated/types.gen.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
@@ -201,22 +200,14 @@ test('the order and the filter hold across leaving the section and coming back',
   // Arrange
   fakeApi({ [reviewsPath]: queue })
   const client = appQueryClient()
-  const view = render(
-    <QueryClientProvider client={client}>
-      <ReviewQueuePanel />
-    </QueryClientProvider>,
-  )
+  const view = renderWithClient(<ReviewQueuePanel />, client)
   await screen.findByRole('group', { name: 'Filter' })
   await press('by kwan 2')
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'Newest first')
   view.unmount()
 
   // Act
-  render(
-    <QueryClientProvider client={client}>
-      <ReviewQueuePanel />
-    </QueryClientProvider>,
-  )
+  renderWithClient(<ReviewQueuePanel />, client)
 
   // Assert
   await screen.findByRole('group', { name: 'Filter' })
