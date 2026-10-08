@@ -263,6 +263,16 @@ func TestAnAssertThatReachesNoFailureIsReported(t *testing.T) {
 				"func TestX(t *testing.T) {\n\t// Act\n\tx := 1\n\n\t// Assert\n\tcheck.expect(t, x)\n}\n" + world,
 			line: 13,
 		},
+		"an unnamed versioned import named like a helper": {
+			source: "package fixture_test\n\nimport (\n\t\"testing\"\n\n\t\"example.com/check/v2\"\n)\n\n" +
+				"func TestX(t *testing.T) {\n\t// Act\n\tx := 1\n\n\t// Assert\n\tcheck.expect(t, x)\n}\n" + world,
+			line: 13,
+		},
+		"an unnamed gopkg.in import named like a helper": {
+			source: "package fixture_test\n\nimport (\n\t\"testing\"\n\n\t\"gopkg.in/check.v1\"\n)\n\n" +
+				"func TestX(t *testing.T) {\n\t// Act\n\tx := 1\n\n\t// Assert\n\tcheck.expect(t, x)\n}\n" + world,
+			line: 13,
+		},
 		"a closure only a sibling subtest declares asserting": {
 			source: test(`	t.Run("quiet", func(t *testing.T) {
 		// Arrange
