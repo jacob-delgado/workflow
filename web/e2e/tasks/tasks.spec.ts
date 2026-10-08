@@ -75,7 +75,6 @@ function middleOf(edges: Edges): number {
 
 test('a refused start sits below its row of buttons, not between them', async ({ page }) => {
   // Arrange
-  // A pending task, and a start of it Taskwarrior makes nothing of.
   await streams(page, withTasks({ available: true, reason: '', linked: [tracking] }))
   await page.route('**/api/tasks', (route) => route.fulfill({ json: listOf(tracking) }))
   await page.route('**/api/tasks/*/start', (route) =>
@@ -90,7 +89,6 @@ test('a refused start sits below its row of buttons, not between them', async ({
   await expect(page.getByRole('alert')).toBeVisible()
 
   // Assert
-  // Start and Done share a row, and the refusal sits below both.
   const start = await edgesOf(page.getByRole('button', { name: 'Start', exact: true }))
   const done = await edgesOf(page.getByRole('button', { name: 'Mark done…', exact: true }))
   const refusal = await edgesOf(page.getByRole('alert'))
@@ -113,8 +111,6 @@ test('the header keeps one row beside a long started task, at 640 px', async ({ 
   await expect(chip).toBeVisible()
 
   // Assert
-  // The chip, cut short, shares its row with the theme's toggle, which keeps
-  // its place to the chip's right.
   const drawn = await edgesOf(chip)
   const toggle = await edgesOf(page.getByRole('button', { name: /change theme/i }))
   expect(Math.abs(middleOf(toggle) - middleOf(drawn)), "the toggle on the chip's row").toBeLessThan(
@@ -138,7 +134,6 @@ test("a started task's mark is drawn in one hue in the header and the Tasks list
   page,
 }) => {
   // Arrange
-  // The started task, streamed and listed.
   await streams(
     page,
     withTasks({ available: true, reason: '', active: started, linked: [started] }),
@@ -153,8 +148,6 @@ test("a started task's mark is drawn in one hue in the header and the Tasks list
   const inList = await markHue(page.getByRole('list', { name: 'Tasks' }).getByRole('button'))
 
   // Assert
-  // The header draws its mark, which a hue read off it says, and the list draws
-  // its own in that hue.
   expect(inHeader, 'the header draws its mark').toMatch(/^rgb/)
   expect(inList, "the list's mark in the header's hue").toBe(inHeader)
 })
@@ -192,7 +185,6 @@ test("a mark sits centered on a wrapped description's first line, in the list an
   page,
 }) => {
   // Arrange
-  // The task, streamed and listed, and the issue's card open.
   await streams(page, withTasks({ available: true, reason: '', linked: [wordy] }))
   await page.route('**/api/tasks', (route) => route.fulfill({ json: listOf(wordy) }))
   await page.setViewportSize({ width: 1024, height })
@@ -239,7 +231,6 @@ const refusals = [
 for (const { of, act } of refusals) {
   test(`${of} refusal keeps its line breaks`, async ({ page }) => {
     // Arrange
-    // A read and a track Taskwarrior refuses in two lines.
     await streams(page, withTasks({ available: true, reason: '', linked: [] }))
     await page.route('**/api/tasks', (route) => route.fulfill(problem('unreachable', twoLines)))
     await page.route('**/api/tasks/track', (route) =>
@@ -251,8 +242,8 @@ for (const { of, act } of refusals) {
     await act(page)
 
     // Assert
-    // Drawn as written, its lines kept, which a pattern matched against the
-    // drawn text checks and a string, whose spaces are folded, would not.
+    // A pattern, since a string match folds whitespace and would pass with the
+    // lines run together.
     await expect(page.getByRole('alert').filter({ hasText: 'on-add hook' })).toHaveText(
       twoLinesDrawn,
       { useInnerText: true },
@@ -278,7 +269,6 @@ for (const theme of themes) {
       page,
     }) => {
       // Arrange
-      // Two tasks, in this theme, at this width.
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
@@ -288,7 +278,6 @@ for (const theme of themes) {
       await openSection(page, 'Tasks')
 
       // Act
-      // Narrow to priority H, sort by tag, and type a filter.
       const narrow = page.getByRole('group', { name: 'Filter' })
       await narrow.getByRole('button', { name: 'priority H 1' }).click()
       await page.getByRole('combobox', { name: 'Sort' }).selectOption('By tag')
@@ -296,8 +285,7 @@ for (const theme of themes) {
       await expect(page.getByText('1 of 2 tasks matches, by tag.')).toBeVisible()
 
       // Assert
-      // Tab reaches the sort, the filter and the pressed chip, and it is clean,
-      // a pressed chip's contrast included.
+      // The chip is pressed, so the scan checks a pressed chip's contrast.
       await expectReachableAndClean(page, { reaches: ['Sort', 'Search', 'priority H 1'] })
     })
   }

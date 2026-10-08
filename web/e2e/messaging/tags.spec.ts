@@ -110,7 +110,6 @@ async function answersTags(page: Page): Promise<Sent> {
 
 test('links an owner, checks a group, and the post carries the groups', async ({ page }) => {
   // Arrange
-  // The preview open, ben linked to a channel member, a group checked.
   const sent = await answersTags(page)
   await openAnnouncementPreview(page)
   const ownerChoice = page.getByRole('combobox', { name: 'Slack user for ben' })
@@ -126,7 +125,6 @@ test('links an owner, checks a group, and the post carries the groups', async ({
   await page.getByRole('button', { name: 'Announce now' }).click()
 
   // Assert
-  // The link was kept, and the post asked for both groups.
   await expect(page.getByText('Announced to #dev.')).toBeVisible()
   expect(sent.links).toEqual([
     { owner: 'ben', slack_id: 'U0BEN', not_on_slack: false, channel: '#dev' },
@@ -142,7 +140,6 @@ test('links an owner, checks a group, and the post carries the groups', async ({
 
 test('links an owner to a member of the other channel picked', async ({ page }) => {
   // Arrange
-  // The preview moved to #ops, whose members ben is picked from.
   const sent = await answersTags(page)
   await openAnnouncementPreview(page)
   await page.getByRole('combobox', { name: 'Channel' }).selectOption('#ops')
@@ -156,7 +153,6 @@ test('links an owner to a member of the other channel picked', async ({ page }) 
   await page.getByRole('button', { name: 'Announce now' }).click()
 
   // Assert
-  // The link named #ops, and the post went there tagging olive.
   await expect(page.getByText('Announced to #ops.')).toBeVisible()
   expect(sent.links).toEqual([
     { owner: 'ben', slack_id: 'U0OLIVE', not_on_slack: false, channel: '#ops' },

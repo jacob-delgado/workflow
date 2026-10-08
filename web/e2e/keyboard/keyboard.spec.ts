@@ -17,7 +17,6 @@ for (const theme of themes) {
       { tag: '@populated' },
       async ({ page }) => {
         // Arrange
-        // The populated cockpit, its issue open, focus on the issue.
         await openCockpit(page, { width, height }, theme)
         const opener = page.getByRole('button', { name: /redact tokens before/i })
         await opener.focus()
@@ -51,17 +50,14 @@ for (const theme of themes) {
       { tag: '@populated' },
       async ({ page }) => {
         // Arrange
-        // The populated cockpit, on Branch.
         await openCockpit(page, { width, height }, theme)
         await openSection(page, 'Branch')
 
         // Act
-        // Open the palette, and narrow it.
         await page.keyboard.press('Control+k')
         await page.keyboard.type('stage')
 
         // Assert
-        // It lists Stage all first, fits, keeps Tab, and is clean.
         const palette = page.getByRole('dialog', { name: 'Command palette' })
         await expect(palette.getByRole('option').first()).toHaveText(/^stage all/)
         await expectReachableAndClean(page, { within: palette })
@@ -72,7 +68,6 @@ for (const theme of themes) {
 
 test('Ctrl+K, "stage all", Enter stages every change', { tag: '@populated' }, async ({ page }) => {
   // Arrange
-  // The populated cockpit, on Branch.
   await openCockpit(page, { width: 1440, height }, 'dark')
   await openSection(page, 'Branch')
 

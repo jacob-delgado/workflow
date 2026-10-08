@@ -131,7 +131,6 @@ for (const theme of themes) {
       page,
     }) => {
       // Arrange
-      // The change to Resolved chosen, in this theme, at this width.
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
@@ -139,7 +138,6 @@ for (const theme of themes) {
       await choosesResolved(page)
 
       // Act & Assert
-      // Tab reaches the fields and the buttons.
       await expectReachableAndClean(page, {
         reaches: ['New status', 'Due date', 'Resolution', 'Cancel', 'Change to Resolved'],
       })
@@ -156,7 +154,6 @@ for (const theme of themes) {
       await page.getByRole('button', { name: action }).click()
 
       // Act & Assert
-      // Tab once round the page.
       await expectReachableAndClean(page, { reaches: ['Cancel', action] })
     })
   }

@@ -45,8 +45,6 @@ test(
   { tag: '@populated' },
   async ({ page }) => {
     // Arrange
-    // The section's primary act, and the push its confirmation opens from,
-    // drawn before it opens.
     await openCockpit(page, { width: 1024, height }, 'dark')
     await openSection(page, 'Branch')
     const primary = await heightDrawn(page.getByRole('button', { name: 'Commit staged changes' }))
@@ -106,7 +104,6 @@ for (const theme of themes) {
       )
 
       // Assert
-      // A page-colored gap, and the ring drawn wider than it.
       const gap = layers.find((layer) => layer.color === pageColor && layer.spread > 0)
       expect(gap, JSON.stringify({ layers, pageColor })).toBeDefined()
       const ring = layers.find((layer) => layer.spread > (gap?.spread ?? 0))

@@ -26,7 +26,7 @@ function originSubject(): string {
 // the push carries it.
 test('stages, commits and pushes a file through the page the server serves', async ({ page }) => {
   // Arrange
-  // The served repository's Branch section, notes.txt untracked in it.
+  // The served repository holds notes.txt untracked.
   await openServed(page)
   await openSection(page, 'Branch')
 

@@ -55,7 +55,6 @@ for (const theme of themes) {
       await expect(page.getByText(/every write is held back/i)).toBeVisible()
 
       // Act
-      // Open the section and let it settle, every read of its own answered.
       await openSection(page, name)
 
       // Assert
@@ -69,11 +68,9 @@ for (const theme of themes) {
     page,
   }) => {
     // Arrange
-    // A server with no configuration file, which Settings sets up.
     await openFirstRun(page, { width: 1024, height }, theme)
 
     // Act
-    // A check that does not pass, which offers to write it anyway.
     await page.route('**/api/config/setup', (route) =>
       route.request().method() === 'POST'
         ? route.fulfill(
@@ -86,7 +83,6 @@ for (const theme of themes) {
     await expect(page.getByRole('button', { name: 'Write it anyway' })).toBeVisible()
 
     // Assert
-    // axe finds nothing on the form or its refusal in this theme.
     expect(await axeViolations(page), `${theme} / first-run setup`).toBe('')
   })
 }
@@ -98,15 +94,14 @@ for (const theme of themes) {
       { tag: '@populated' },
       async ({ page }) => {
         // Arrange
-        // Pin the theme before the app paints, and open the checked-out issue,
-        // so its detail and work story are on screen beside the list.
+        // The checked-out issue is opened, so its detail and work story are
+        // scanned beside the list.
         await pinTheme(page, theme)
         await page.goto('/')
         await page.getByRole('button', { name: /redact tokens before/i }).click()
         await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
 
         // Act
-        // Open the section and let it settle.
         await openSection(page, name)
 
         // Assert
@@ -123,18 +118,15 @@ for (const theme of themes) {
       { tag: '@populated' },
       async ({ page }) => {
         // Arrange
-        // The populated cockpit in this theme, on the step's section.
         await pinTheme(page, theme)
         await page.goto('/')
         await openSection(page, section)
 
         // Act
-        // Open the step.
         await page.getByRole('button', { name: opener }).click()
         await expect(page.getByRole('group', { name: group })).toBeVisible()
 
         // Assert
-        // axe finds nothing on the step and the section around it.
         expect(await axeViolations(page), `${theme} / populated ${step}`).toBe('')
       },
     )

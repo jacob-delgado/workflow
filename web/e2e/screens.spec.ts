@@ -61,21 +61,16 @@ for (const theme of themes) {
         { tag: '@populated' },
         async ({ page }, testInfo) => {
           // Arrange
-          // The populated cockpit in this theme at this width, with the
-          // checked-out issue open so the Issues screen shows its story.
           await openCockpit(page, { width, height }, theme)
 
           // Act
-          // Open the section, let it settle, and grow the window to hold all of
-          // it.
           await openSection(page, name)
           await fitToContent(page, width)
 
           // Assert
-          // The section is on screen, saved as drawn, with the pointer parked
-          // off the controls so none is caught mid-hover. Under reduced motion
-          // every element transitions every property for 0.01ms
-          // (web/src/index.css), so an inherited color reaches an icon's
+          // The pointer is parked off the controls so none is caught mid-hover.
+          // Under reduced motion every element transitions every property for
+          // 0.01ms (web/src/index.css), so an inherited color reaches an icon's
           // strokes a frame or more after the text beside it: the capture
           // finishes those transitions first rather than catching the colors of
           // the section it left on the way out.

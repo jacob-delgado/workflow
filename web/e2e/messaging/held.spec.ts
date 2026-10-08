@@ -106,7 +106,6 @@ for (const theme of themes) {
       page,
     }) => {
       // Arrange
-      // The preview's text open to edit, in this theme, at this width.
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
@@ -115,7 +114,6 @@ for (const theme of themes) {
       await page.getByRole('button', { name: 'Edit' }).click()
 
       // Act & Assert
-      // Tab reaches the text and both ways to announce it.
       await expectReachableAndClean(page, {
         reaches: ['Announcement text', 'Announce when CI passes', 'Announce now'],
       })
