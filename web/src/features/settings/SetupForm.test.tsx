@@ -230,7 +230,7 @@ test('an address that is no address is never offered to be written anyway', asyn
     problem(
       422,
       'unprocessable',
-      "Jira's address is not an http or https address without a username or password; type it again",
+      "Jira's address is not an https address, or http to this machine, without a username or password; type it again",
     ),
   )
   renderWithClient(<SettingsPanel />)
