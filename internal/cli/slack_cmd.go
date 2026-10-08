@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/wiring"
@@ -97,12 +98,7 @@ func slackLogin(ctx context.Context, notes io.Writer, prompt Prompt, cfg config.
 		return err
 	}
 
-	cfg, err = nameSlackApp(cfg, clientID)
-	if err != nil {
-		return err
-	}
-
-	return keepFirstToken(ctx, notes, cfg, starting)
+	return keepFirstToken(ctx, notes, cfg, clientID, starting)
 }
 
 // loginAllowed refuses a login the configuration cannot take.
@@ -177,13 +173,17 @@ func nameSlackApp(cfg config.Config, clientID string) (config.Config, error) {
 	return held, nil
 }
 
-// keepFirstToken refreshes the starting credentials once, keeps what Slack
-// gives back where cfg keeps a user token, and says whose token it is.
-func keepFirstToken(ctx context.Context, notes io.Writer, cfg config.Config, starting slackauth.Credentials) error {
+// keepFirstToken refreshes the starting credentials once, as the app clientID
+// names, keeps what Slack gives back where cfg keeps a user token, and only
+// then names the app in the file, so a refresh Slack refuses changes nothing;
+// then it says whose token it is.
+func keepFirstToken(
+	ctx context.Context, notes io.Writer, cfg config.Config, clientID string, starting slackauth.Credentials,
+) error {
 	transport := onlineDoer(cfg)
 	store := wiring.SlackStore(cfg)
 
-	renewed, err := wiring.SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(ctx, starting)
+	renewed, err := wiring.SlackRefresher(clientID, transport).Refresh(ctx, starting)
 	if err != nil {
 		return err
 	}
@@ -193,6 +193,16 @@ func keepFirstToken(ctx context.Context, notes io.Writer, cfg config.Config, sta
 		return err
 	}
 
+	cfg, err = nameSlackApp(cfg, clientID)
+	if err != nil {
+		return err
+	}
+
+	return sayWhoseToken(ctx, notes, cfg, transport, store.Where())
+}
+
+// sayWhoseToken asks Slack whose the token cfg keeps in where is, and says so.
+func sayWhoseToken(ctx context.Context, notes io.Writer, cfg config.Config, transport httpx.Doer, where string) error {
 	base, toSlack := wiring.SlackAPI(transport)
 
 	identity, err := messaging.New(toSlack, base, cfg.Messaging).
@@ -202,7 +212,7 @@ func keepFirstToken(ctx context.Context, notes io.Writer, cfg config.Config, sta
 	}
 
 	fmt.Fprintf(notes, "Logged in to Slack as %s in %s. The token is kept in %s and refreshed before it expires.\n",
-		identity.User, identity.Team, store.Where())
+		identity.User, identity.Team, where)
 
 	return nil
 }
