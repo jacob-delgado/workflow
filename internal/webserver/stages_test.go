@@ -268,6 +268,25 @@ func TestSnapshotReadsTheAnnounceStageDoneOnceAnnouncedAtItsMoment(t *testing.T)
 	}
 }
 
+func TestSnapshotReadsTheAnnounceStageNotStartedForAPullRequestClosedWithoutMerging(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The store remembers pull request 42 announced as ready, before it was
+	// closed: there is no pull request left for the loop to announce.
+	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
+	deps := memory.wire(filledDeps())
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return inState(forge.StateClosed, false), true, nil }
+
+	// Act
+	stages := framedStages(t, deps)
+
+	// Assert
+	if got := stageOf(t, stages, api.StageStepAnnounce).State; got != api.StageStateNotStarted {
+		t.Errorf("announce stage = %s for a closed pull request announced before, want not_started", got)
+	}
+}
+
 func TestSnapshotReadsTheAnnounceStageInFlightWhileAnAnnouncementWaitsForCI(t *testing.T) {
 	t.Parallel()
 

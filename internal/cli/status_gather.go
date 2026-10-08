@@ -69,7 +69,7 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 		PullRequest:        review.state,
 		CI:                 review.ci,
 		ChangesRequested:   review.pull.ChangesRequested,
-		Announced:          review.state != progress.NoPullRequest && announcedNow(seams.Memory, review.pull, review.ci),
+		Announced:          announcedNow(seams.Memory, review.pull, review.ci),
 	}, seams.Service)
 
 	return facts
