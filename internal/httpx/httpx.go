@@ -107,7 +107,8 @@ func retryAfter(value string) (time.Duration, bool) {
 // redirect-refusing, deadline-bearing client below rather than the default one.
 type Doer func(*http.Request) (*http.Response, error)
 
-// Client is the transport a credential may travel over.
+// Client is the transport a credential may travel over, each request bounded
+// by timeout: whole, or part by part for a Streaming one.
 //
 // It refuses redirects, and that is the point rather than a convenience: Go's
 // default client forwards the Authorization header to any redirect target
@@ -116,7 +117,7 @@ type Doer func(*http.Request) (*http.Response, error)
 // the token to the plaintext hop with nothing in the code looking wrong.
 func Client(timeout time.Duration) *http.Client {
 	return &http.Client{
-		Timeout: timeout,
+		Transport: deadlines{next: http.DefaultTransport, timeout: timeout},
 		CheckRedirect: func(next *http.Request, _ []*http.Request) error {
 			if showsRedirect(next.Context()) {
 				return http.ErrUseLastResponse
