@@ -324,9 +324,10 @@ for that address — and finds nothing until you keep a token there — never th
 one for your home file's. An address and the same one with trailing slashes
 name one item.
 
-`workflow config init --global` offers to keep the token there for you: it
-saves it in the item for the address you typed and writes `"keychain": true`
-into your home file, so the file never holds the token. Settings — the
+`workflow config init` offers to keep the token there for you, for your home
+file (`--global`) or a repository's alike: it saves it in the item for the
+address you typed and writes `"keychain": true` into the file, so the file
+never holds the token. Settings — the
 terminal's and the web's — does the same with a Jira token you type, for the
 address in the form, whichever file it saves: your home file, or a
 repository's that points Jira somewhere else, which then reads the token kept

@@ -464,7 +464,7 @@ func (f setupForm) afterJira() setupStep {
 }
 
 // keychainOffered reports a keychain that can keep the token for the file
-// chosen: the home directory's, which the first run offers it for alone.
+// chosen, in the item for Jira's address, which any file may read.
 func (f setupForm) keychainOffered() bool {
 	return f.offer.Places[f.place].Keychain
 }

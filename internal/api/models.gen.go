@@ -2061,7 +2061,7 @@ type SetupOffer struct {
 
 // SetupPlace defines model for SetupPlace.
 type SetupPlace struct {
-	// Keychain The OS keychain can keep the Jira token out of this file: one is wired, and the file is the home directory's, which the first run offers it for alone.
+	// Keychain The OS keychain can keep the Jira token out of this file, in the item for Jira's address, which any file may read: one is wired.
 	Keychain bool `json:"keychain"`
 
 	// Path The file it would be, as an absolute path.

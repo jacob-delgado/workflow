@@ -183,17 +183,18 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	}
 }
 
-func TestGuidedInitOffersNoKeychainForAFileOutsideHome(t *testing.T) {
+func TestGuidedInitKeepsARepositoryFilesTokenInTheKeychainForItsAddress(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	jiraURL := workingJira(t)
 
-	// Were the keychain offered, the "y" would take it.
-	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
-	prompt.StoreSecret = func(string, string) error {
-		t.Error("stored the token for a file the first run keeps it in the file for")
+	var stored atomic.Value
 
-		return errPromptBroke
+	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt.StoreSecret = func(service, secret string) error {
+		stored.Store(service + " holds " + secret)
+
+		return nil
 	}
 
 	// Act
@@ -201,9 +202,11 @@ func TestGuidedInitOffersNoKeychainForAFileOutsideHome(t *testing.T) {
 
 	// Assert
 	cfg, loadErr := config.Load(dir, t.TempDir())
-	if err != nil || loadErr != nil || cfg.Jira.Token != guidedToken {
-		t.Errorf("config init = %v (%s), loaded %+v (%v); want the token kept in the file, no keychain offered",
-			err, output, cfg.Redacted().Jira, loadErr)
+	if err != nil || loadErr != nil || cfg.Jira.Token != "" || !cfg.Jira.Keychain ||
+		stored.Load() != "workflow-jira "+jiraURL+" holds "+guidedToken {
+		t.Errorf("config init = %v (%s), loaded keychain %t with a token %t (%v), stored %v; want the token in "+
+			"the keychain item for its address, the file reading it from there",
+			err, output, cfg.Jira.Keychain, cfg.Jira.Token != "", loadErr, stored.Load())
 	}
 }
 

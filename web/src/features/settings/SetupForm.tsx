@@ -133,8 +133,8 @@ function SetupForm({
 type Register = UseFormRegister<SetupValues>
 
 // offersKeychain reports whether the keychain can keep the token for the file
-// at place: where one is wired, the home directory's file alone, which the
-// first run offers it for.
+// at place, in the item for Jira's address, which any file may read: wherever
+// one is wired.
 function offersKeychain(places: SetupPlace[], place: SetupPlaceName): boolean {
   return places.some((each) => each.place === place && each.keychain)
 }
