@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -49,16 +50,14 @@ type forgeWorld struct {
 	pullErr error
 	// branchErr, when set, is how git fails to read the branch.
 	branchErr error
-	// reads counts the branch's reads, so a test can wait for some.
-	reads int
-	ci    forge.CIState
-	ciErr error
-	pull  int
-	gone  bool
-	state forge.PullState
-	now   time.Time
-	posts []string
-	fail  error
+	ci        forge.CIState
+	ciErr     error
+	pull      int
+	gone      bool
+	state     forge.PullState
+	now       time.Time
+	posts     []string
+	fail      error
 }
 
 // newForgeWorld is pull request 42, open, its CI running, at a fixed time.
@@ -85,7 +84,6 @@ func (w *forgeWorld) deps() webserver.Deps {
 			branch.Head = w.head
 		}
 
-		w.reads++
 		if w.branchErr != nil {
 			return gitrepo.Branch{}, w.branchErr
 		}
@@ -136,14 +134,6 @@ func (w *forgeWorld) turn(change func(*forgeWorld)) {
 
 	change(w)
 	w.now = w.now.Add(time.Hour)
-}
-
-// branchReads is how many times the branch has been read so far.
-func (w *forgeWorld) branchReads() int {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	return w.reads
 }
 
 // posted is every text posted so far.
@@ -317,31 +307,33 @@ func TestAHeldAnnouncementThatCannotBePostedSaysWhyWithoutTheWebhook(t *testing.
 	}
 }
 
+// ciTick is the CI interval a held announcement is read on in a synctest
+// bubble, where its length costs nothing.
+const ciTick = time.Minute
+
 func TestAHeldAnnouncementGoesWithNoPageOpen(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// The server reads the CI for the held announcement on the CI interval
-	// itself; no frame is ever asked for.
-	world := newForgeWorld()
-	cfg := config.Default()
-	cfg.Timing.CIInterval = "10ms"
-	handler := serve(t, world.deps(), cfg)
-	cancelHeld(t, handler)
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The server reads the CI for the held announcement on the CI
+		// interval itself; no frame is ever asked for.
+		world := newForgeWorld()
+		cfg := config.Default()
+		cfg.Timing.CIInterval = ciTick.String()
+		handler := serve(t, world.deps(), cfg)
+		cancelHeld(t, handler)
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
 
-	// Act
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		// Act
+		advance(ciTick)
 
-	// Assert
-	deadline := time.Now().Add(5 * time.Second)
-	for len(world.posted()) == 0 && time.Now().Before(deadline) {
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	if posts := world.posted(); len(posts) != 1 {
-		t.Errorf("posted %q, want the held announcement once, with no page open", posts)
-	}
+		// Assert
+		if posts := world.posted(); len(posts) != 1 {
+			t.Errorf("posted %q, want the held announcement once, with no page open", posts)
+		}
+	})
 }
 
 func TestAnnouncingWhenCIPassesPostsAtOnceWhenItHasPassed(t *testing.T) {
