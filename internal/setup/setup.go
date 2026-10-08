@@ -36,11 +36,6 @@ var (
 	// ErrNoToken reports a token asked to be kept in the keychain that is
 	// empty: storing it would replace whatever the keychain kept before.
 	ErrNoToken = errors.New("there is no token to keep in the keychain")
-	// ErrKeychainAtHome reports the token asked to be kept in the keychain
-	// for a file other than the home directory's: the first run offers the
-	// keychain for the home file alone.
-	ErrKeychainAtHome = errors.New("the keychain can keep the token only for the home directory's file; " +
-		"write the file there, or keep the token in the file")
 )
 
 // Place is where setup writes the file.

@@ -120,24 +120,48 @@ func TestWriteKeepsTheTokenOutOfTheFileWhenTheKeychainIsChosen(t *testing.T) {
 	}
 }
 
-func TestWriteRefusesTheKeychainForAFileOtherThanTheHomeFile(t *testing.T) {
+// writeHomeFile writes contents as the home file guide lays a repository's
+// file over.
+func writeHomeFile(t *testing.T, guide setup.Guide, contents string) {
+	t.Helper()
+
+	err := os.WriteFile(guide.Where.Path(setup.Home), []byte(contents), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing the home file: %v", err)
+	}
+}
+
+func TestWriteKeepsTheTokenOfARepositoryFileInTheKeychainForItsAddress(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	kept := &keychain{}
 	guide := guideIn(t, acceptingJira())
 	guide.StoreSecret = kept.store
+	writeHomeFile(t, guide, `{"jira": {"base_url": "https://jira.home.example", "token": "home-token-9999"}}`)
+
 	request := answered(setup.Repository)
 	request.Keychain = true
 
 	// Act
-	_, err := guide.Write(t.Context(), request)
+	written, err := guide.Write(t.Context(), request)
 
 	// Assert
-	_, statErr := os.Lstat(guide.Where.Path(setup.Repository))
-	if !errors.Is(err, setup.ErrKeychainAtHome) || kept.stored != "" || !errors.Is(statErr, os.ErrNotExist) {
-		t.Errorf("Write = %v, keychain %q, file %v; want ErrKeychainAtHome, nothing stored and nothing written",
-			err, kept.stored, statErr)
+	contents, readErr := os.ReadFile(guide.Where.Path(setup.Repository))
+	if err != nil || readErr != nil || !written.Keychain || strings.Contains(string(contents), typedToken) {
+		t.Fatalf("Write = %+v, %v; the repository's file holds %q (%v); want it written, the token kept out",
+			written, err, contents, readErr)
+	}
+
+	cfg, _, loadErr := config.LoadLayersAt(guide.Where.Layers(setup.Repository))
+	if loadErr != nil || !cfg.Jira.Keychain || cfg.Jira.BaseURL != jiraAddress {
+		t.Errorf("the layers read keychain %t for %q (%v); want the keychain read for the repository's address",
+			cfg.Jira.Keychain, cfg.Jira.BaseURL, loadErr)
+	}
+
+	if kept.service != jiraItem || kept.stored != typedToken {
+		t.Errorf("the keychain kept the token %t under %q, want it under %q",
+			kept.stored == typedToken, kept.service, jiraItem)
 	}
 }
 
@@ -331,7 +355,7 @@ func TestCheckReportsATokenJiraRefuses(t *testing.T) {
 	}
 }
 
-func TestOfferNamesBothPlacesAndTheKeychainForTheHomeFileAlone(t *testing.T) {
+func TestOfferNamesBothPlacesAndTheKeychainForEach(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -343,11 +367,11 @@ func TestOfferNamesBothPlacesAndTheKeychainForTheHomeFileAlone(t *testing.T) {
 
 	// Assert
 	want := []setup.Destination{
-		{Place: setup.Repository, Path: guide.Where.Path(setup.Repository), Keychain: false},
+		{Place: setup.Repository, Path: guide.Where.Path(setup.Repository), Keychain: true},
 		{Place: setup.Home, Path: guide.Where.Path(setup.Home), Keychain: true},
 	}
 	if !slices.Equal(offer.Places, want) {
-		t.Errorf("Offer = %+v, want the repository then home, the keychain for home alone", offer.Places)
+		t.Errorf("Offer = %+v, want the repository then home, the keychain for each", offer.Places)
 	}
 }
 

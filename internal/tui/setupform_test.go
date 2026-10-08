@@ -104,8 +104,7 @@ func toTheToken() []string {
 	return append([]string{keyEnter, keyEnter}, jiraTyped()...)
 }
 
-// toTheTokenAtHome is toTheToken with the home directory chosen for the file,
-// the one file the keychain is offered for.
+// toTheTokenAtHome is toTheToken with the home directory chosen for the file.
 func toTheTokenAtHome() []string {
 	return append([]string{keyEnter, downAction, keyEnter}, jiraTyped()...)
 }
@@ -116,10 +115,10 @@ func webhookTyped() []string {
 	return append(letters(firstRunWebhook), keyEnter)
 }
 
-// throughEveryQuestion is toTheToken, then the webhook, up to the last look
-// before the write: the keychain is not offered for the repository's file.
+// throughEveryQuestion is toTheToken, the keychain kept as offered, then the
+// webhook, up to the last look before the write.
 func throughEveryQuestion() []string {
-	return append(toTheToken(), webhookTyped()...)
+	return append(append(toTheToken(), keyEnter), webhookTyped()...)
 }
 
 // throughEveryQuestionAtHome is toTheTokenAtHome, then the keychain row moved
@@ -156,16 +155,14 @@ func TestSetUpChecksTheTokenAndNeverShowsIt(t *testing.T) {
 	refuseScreen(t, view, firstRunToken)
 }
 
-func TestSetUpInARepositoryAsksNothingOfTheKeychain(t *testing.T) {
+func TestSetUpInARepositoryAsksWhereToKeepTheToken(t *testing.T) {
 	t.Parallel()
 
 	// Act
 	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), toTheToken()...)
 
 	// Assert
-	view := asked.View().Content
-	requireScreen(t, view, authenticated, askedWebhook)
-	refuseScreen(t, view, askedKeychain)
+	requireScreen(t, asked.View().Content, authenticated, askedKeychain)
 }
 
 func TestSetUpWritesTheFileWithTheTokenInTheKeychainAndReopens(t *testing.T) {
@@ -213,12 +210,12 @@ func TestSetUpKeepsTheTokenInTheFileWhenTheKeychainIsDeclined(t *testing.T) {
 	}
 }
 
-func TestSetUpInARepositoryKeepsTheTokenInTheFileAsAskedByDefault(t *testing.T) {
+func TestSetUpInARepositoryKeepsTheTokenInTheKeychainByDefault(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
-	answered := typing(t, run.model(t, false), append(toTheToken(), keyEnter)...)
+	answered := typing(t, run.model(t, false), append(toTheToken(), keyEnter, keyEnter)...)
 
 	// Act
 	written, cmd := pressed(t, answered, keyEnter)
@@ -226,9 +223,11 @@ func TestSetUpInARepositoryKeepsTheTokenInTheFileAsAskedByDefault(t *testing.T) 
 
 	// Assert
 	cfg, _, err := config.LoadLayersAt(config.Files{Repo: run.where.Path(setup.Repository)})
-	if err != nil || cfg.Jira.Token.Reveal() != firstRunToken || run.stored != "" || written.Destination().Dir != apiCmd {
-		t.Errorf("wrote %+v (%v), keychain %q, reopened in %q; want the token in the repository's file and workflow "+
-			"reopened", cfg.Redacted().Jira, err, run.stored, written.Destination().Dir)
+	if err != nil || cfg.Jira.Token != "" || !cfg.Jira.Keychain || run.stored != firstRunToken ||
+		written.Destination().Dir != apiCmd {
+		t.Errorf("wrote %+v (%v), keychain kept the token %t, reopened in %q; want the repository's file reading "+
+			"the keychain and workflow reopened", cfg.Redacted().Jira, err, run.stored == firstRunToken,
+			written.Destination().Dir)
 	}
 }
 
@@ -448,7 +447,8 @@ func TestSetUpEscWalksBackThroughTheQuestions(t *testing.T) {
 		want string
 	}{
 		"from the write":           {keys: throughEveryQuestion(), want: askedWebhook},
-		"from the webhook":         {keys: toTheToken(), want: askedToken},
+		"from the webhook":         {keys: append(toTheToken(), keyEnter), want: askedKeychain},
+		"from the keychain here":   {keys: toTheToken(), want: askedToken},
 		"from the webhook at home": {keys: append(toTheTokenAtHome(), keyEnter), want: askedKeychain},
 		"from the keychain":        {keys: toTheTokenAtHome(), want: askedToken},
 		"from a check":             {keys: toTheToken(), want: askedToken},
