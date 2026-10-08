@@ -17,8 +17,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
-// messagingHelp is what the editor shows below a message being composed. The markup
-// depends on the service, so the note stays general rather than naming one.
+// messagingHelp is what the editor shows below a message being composed. The
+// markup depends on the service, so the note stays general rather than naming
+// one.
 const messagingHelp = "Edit the message above this line."
 
 // Why a preview opened over another post does not post: that one, waiting for
