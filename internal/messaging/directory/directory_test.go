@@ -377,23 +377,54 @@ func TestAMissingScopeIsReportedAndNotHeld(t *testing.T) {
 	}
 }
 
+// joinWait is how long a test waits for a second reader to find a read in
+// flight before failing: a failsafe, never the pace of the test.
+const joinWait = 5 * time.Second
+
+// watchedClock is a fixed clock that says when it is read. A reader reads the
+// clock when it finds a read of what it asks for already begun, to see
+// whether it has expired, and not before then.
+type watchedClock struct {
+	at   time.Time
+	read chan struct{}
+}
+
+// newWatchedClock is a watchedClock that has not been read.
+func newWatchedClock() watchedClock {
+	return watchedClock{at: time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC), read: make(chan struct{}, 1)}
+}
+
+func (c watchedClock) now() time.Time {
+	select {
+	case c.read <- struct{}{}:
+	default:
+	}
+
+	return c.at
+}
+
 func TestConcurrentReadsOfAChannelShareOneSetOfRequests(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// The second reader begins once the first is waiting on Slack, and the
+	// read is let go once the second has found it in flight.
 	slack, client := startSlack(t, directoryBodies())
 	arrived, release := slack.hold(t, "/users.conversations")
-	slackDirectory, _ := directoryOver(client)
+	clock := newWatchedClock()
+	slackDirectory := directory.New(func() (messaging.Client, error) { return client, nil }, clock.now)
 
 	var readers sync.WaitGroup
 
-	for range 2 {
-		readers.Go(func() { _, _ = slackDirectory.ChannelMembers(t.Context(), "dev") })
-	}
-
+	readers.Go(func() { _, _ = slackDirectory.ChannelMembers(t.Context(), "dev") })
 	<-arrived
-	// The second reader has had time to ask too, while the first read waits.
-	time.Sleep(50 * time.Millisecond)
+	readers.Go(func() { _, _ = slackDirectory.ChannelMembers(t.Context(), "dev") })
+
+	select {
+	case <-clock.read:
+	case <-time.After(joinWait):
+		t.Fatal("the second reader never found the read in flight")
+	}
 
 	// Act
 	release()
