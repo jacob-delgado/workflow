@@ -246,7 +246,7 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.toggleDraft):
 		c.draft = !c.draft
 	case key.Matches(msg, m.keys.nextField, m.keys.prevField):
-		c = onFieldNav(c, m.keys, msg)
+		c = onFieldNav(c, around(c.focus, prFields), m.keys, msg)
 	default:
 		c = c.typed(msg)
 	}
@@ -254,11 +254,6 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	m.overlay = c
 
 	return m, nil
-}
-
-// fields is where focus stands among the composer's fields.
-func (c prComposer) fields() ring[int] {
-	return around(c.focus, prFields)
 }
 
 // suggesting is the base while it has focus, the one field that completes
