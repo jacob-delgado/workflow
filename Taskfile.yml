@@ -356,6 +356,7 @@ tasks:
       - task: lint:checksums
       - task: lint:goroutines
       - task: lint:tradeoffs
+      - task: lint:layout
       - task: docs:check
       - task: gen:verify
 
@@ -469,6 +470,11 @@ tasks:
     desc: Check the trade-off register's shape, and that every site comment names an entry
     cmds:
       - scripts/check-tradeoffs.sh
+
+  lint:layout:
+    desc: Check that CLAUDE.md's layout names every Go package, and no directory that is gone
+    cmds:
+      - scripts/check-layout.sh
 
   lint:headers:
     desc: Check the SPDX license headers on Go files
