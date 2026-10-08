@@ -1,29 +1,32 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Package store keeps a little workflow state on disk between sessions — the
-// commit scope last used in a repository, what was announced, and the last issue
-// list seen — in a SQLite database under the OS-native data directory. It never
-// holds a secret, and its callers key it only by credential-free identifiers.
+// Package store keeps a little workflow state on disk between sessions, in two
+// SQLite databases under the OS-native data directory. workflow.db is the
+// cache, what a session can see again: the commit scope last used in a
+// repository, what was announced, and the last issue list seen. kept.db is
+// what the user decided and a session cannot see again: whom a forge owner is
+// on Slack, a repository's groups, and the favorite directories. Neither ever
+// holds a secret, and callers key them only by credential-free identifiers.
 //
-// The schema is Third Normal Form and every table is STRICT: repeating groups —
-// the cached issue list — are a parent row and one child row each, no derived
-// value is stored, and each column's type is enforced at write time. Timestamps
-// are RFC3339 UTC text, foreign keys cascade, and a write that replaces a group
-// runs in one transaction. Callers sanitize text on the way in and treat what
-// they read back as untrusted, since a file on disk can be tampered.
+// Each schema is Third Normal Form and every table is STRICT: repeating
+// groups — the cached issue list — are a parent row and one child row each, no
+// derived value is stored, and each column's type is enforced at write time.
+// Timestamps are RFC3339 UTC text, foreign keys cascade, and a write that
+// replaces a group runs in one transaction. Callers sanitize text on the way
+// in and treat what they read back as untrusted, since a file on disk can be
+// tampered.
 //
 // A store is a value, and a disabled one no-ops every method, so a caller need
 // not special-case the privacy opt-out. Each operation opens its own short-lived
 // connection, so there is no handle to close and the terminal interface and the
-// web server can share the file; WAL and a busy timeout keep their writes from
+// web server can share the files; WAL and a busy timeout keep their writes from
 // colliding.
 //
-// The store is two files. workflow.db holds conveniences a session can see
-// again, so its schema has one version, stamped into the file: a file written
-// at another is discarded and started fresh. kept.db holds what the user
-// decided, so it is never discarded: its schema also has one version, and a
-// file at another is left as it is, for the user to remove.
+// Each file's schema has one version, stamped into it. A workflow.db written
+// at another is discarded and started fresh, since what it held is seen
+// again. A kept.db written at another is never discarded: it is left as it
+// is, for the user to remove.
 package store
 
 import (
