@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/http"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -238,8 +237,10 @@ func TestAnnounceTheStoreCannotRememberIsMadeAndNoted(t *testing.T) {
 	recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
 
 	// Assert
-	if recorder.Code != http.StatusOK || len(noted) != 1 || !strings.Contains(noted[0], "could not be remembered") {
-		t.Errorf("status %d, noted %q; want the announcement made and the store's failure noted", recorder.Code, noted)
+	wantNoted := []string{"posted, but not remembered: it may be offered again: " + errStoreFull.Error()}
+	if recorder.Code != http.StatusOK || !slices.Equal(noted, wantNoted) {
+		t.Errorf("status %d, noted %q; want the announcement made and the store's failure noted as %q",
+			recorder.Code, noted, wantNoted)
 	}
 }
 

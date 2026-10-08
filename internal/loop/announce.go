@@ -22,9 +22,10 @@ var (
 	// ErrAnnounceUnavailable refuses an announcement with no way to post one.
 	ErrAnnounceUnavailable = errors.New("announcing is not available")
 	// ErrNotRemembered reports an announcement that was posted but could not
-	// be remembered, so a later session may offer to post it again.
-	ErrNotRemembered = errors.New("the announcement was posted, but could not be remembered; " +
-		"a later session may offer to post it again")
+	// be remembered, so a later session may offer to post it again. It says
+	// NotRememberedWarning's sentence, as an error says it, so the --web
+	// server's log words it as every surface does.
+	ErrNotRemembered = errors.New("posted, but not remembered: it may be offered again")
 	// ErrEmptyAnnouncement refuses an announcement edited down to nothing:
 	// guidance, not a failure.
 	ErrEmptyAnnouncement = errors.New("nothing to announce: the message was empty")
