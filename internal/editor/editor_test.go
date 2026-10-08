@@ -224,6 +224,16 @@ func TestADraftComesBackWithoutItsHelp(t *testing.T) {
 		},
 		"text with no scissors line": {saved: "no scissors at all\n", want: "no scissors at all"},
 		"an untouched, empty draft":  {saved: editor.Draft("", "help"), want: ""},
+		// Git honors the scissors only as a whole line, so a body quoting it
+		// mid-line keeps that line.
+		"the scissors quoted mid-line above the real one": {
+			saved: editor.Draft("Git cuts at `"+editor.Scissors+"` lines.", "help"),
+			want:  "Git cuts at `" + editor.Scissors + "` lines.",
+		},
+		"the scissors line with trailing space": {
+			saved: "kept\n" + editor.Scissors + "  \nhelp\n",
+			want:  "kept",
+		},
 	}
 
 	for name, tt := range cases {
