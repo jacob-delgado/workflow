@@ -1,44 +1,32 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { HookSetup, RunEvent, Snapshot } from '../../src/api/generated/types.gen.ts'
+import type { HookSetup, RunEvent } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
+import { branchWith, snapshotWith, streams } from '../support/fixtures.ts'
+import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Branch section's git runs — pre-commit, a rebase, an amend, a fixup —
 // streamed as they go, each that rewrites history behind a last look; a
 // changed file's diff; and setting up lefthook.
 
-const snapshot = {
-  issues: { total: 0, start_at: 0, unavailable: [], issues: [] },
-  branch: {
+const snapshot = snapshotWith({
+  branch: branchWith({
     name: 'fix/PROJ-1-redact',
-    issue_link: '',
-    detached: false,
     head: 'b2b2b2b',
-    upstream: '',
     push_remote: 'origin',
     ahead: 2,
-    behind: 0,
     base: 'origin/main',
     commits: [
       { hash: 'a1a1a1a1', subject: 'fix: redact tokens', unpushed: true },
       { hash: 'b2b2b2b2', subject: 'test: prove it', unpushed: true },
     ],
-  },
+  }),
   changes: {
     changes: [
       { path: 'log.go', kind: 'modified', staged: true, has_unstaged: false, conflicted: false },
     ],
   },
-  review: { found: false, announced: false },
-  messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
-  branches: [],
-  commit_types: ['feat', 'fix'],
-  subject_limit: 72,
-  suggested_scope: '',
   hooks_unmanaged: 1,
-  tasks: { available: true, reason: '', linked: [] },
-  here: '/home/ana/src/api',
-} satisfies Snapshot
+})
 
 const offer: HookSetup = {
   offered: true,

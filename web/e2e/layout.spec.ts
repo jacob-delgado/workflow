@@ -9,7 +9,8 @@ import {
   themes,
   widths,
 } from './support/cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from './support/tabwalk.ts'
+import { branchWith, issuesOf, snapshotWith, streams } from './support/fixtures.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from './support/tabwalk.ts'
 
 // The populated cockpit at a narrow, a middling and a wide window, in both
 // themes: nothing scrolls sideways, the page does not scroll at all, every
@@ -417,36 +418,9 @@ function streamedIssue(number: number): Issue {
 
 // A stream carrying the first eight of the view's twelve issues, so the list
 // offers to load more.
-const pagedSnapshot = {
-  issues: {
-    total: issuesTotal,
-    start_at: 0,
-    unavailable: [],
-    issues: [1, 2, 3, 4, 5, 6, 7, 8].map(streamedIssue),
-  },
-  branch: {
-    name: '',
-    issue_link: '',
-    detached: false,
-    head: '',
-    upstream: '',
-    push_remote: '',
-    ahead: 0,
-    behind: 0,
-    base: '',
-    commits: [],
-  },
-  changes: { changes: [] },
-  review: { found: false, announced: false },
-  messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
-  branches: [],
-  commit_types: ['feat', 'fix'],
-  subject_limit: 72,
-  suggested_scope: '',
-  hooks_unmanaged: 0,
-  tasks: { available: true, reason: '', linked: [] },
-  here: '/home/ana/src/api',
-} satisfies Snapshot
+const pagedSnapshot = snapshotWith({
+  issues: issuesOf([1, 2, 3, 4, 5, 6, 7, 8].map(streamedIssue), issuesTotal),
+})
 
 test('a loaded page hands focus to its first issue, in view in the list, at 640 px', async ({
   page,
@@ -479,14 +453,12 @@ test('a loaded page hands focus to its first issue, in view in the list, at 640 
 // A branch and a file whose names each hold a word wider than the content.
 const unbrokenSnapshot = {
   ...pagedSnapshot,
-  branch: {
-    ...pagedSnapshot.branch,
+  branch: branchWith({
     name: 'fix/PROJ-1',
-    issue_link: '',
     head: 'abc1234',
     upstream: 'origin/redact_every_authorization_header_before_the_request_log_writes_it',
     base: 'origin/main',
-  },
+  }),
   changes: {
     changes: [
       {
@@ -498,7 +470,6 @@ const unbrokenSnapshot = {
       },
     ],
   },
-  here: '/home/ana/src/api',
 } satisfies Snapshot
 
 // A source build's health: its version is a commit marked dirty, the widest

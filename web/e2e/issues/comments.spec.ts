@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { Comment, IssueDetail, Snapshot } from '../../src/api/generated/types.gen.ts'
+import type { Comment, IssueDetail } from '../../src/api/generated/types.gen.ts'
 import { mockConfig } from '../../src/dev/mockConfig.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
+import { issuesOf, snapshotWith, streams } from '../support/fixtures.ts'
+import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // Commenting on a Jira issue from its detail: the thread, the composer under
 // it, and what a posted comment does.
@@ -17,31 +18,7 @@ const issue = {
   priority: 'High',
 } as const
 
-const snapshot = {
-  issues: { total: 1, start_at: 0, unavailable: [], issues: [issue] },
-  branch: {
-    name: '',
-    issue_link: '',
-    detached: false,
-    head: '',
-    upstream: '',
-    push_remote: '',
-    ahead: 0,
-    behind: 0,
-    base: '',
-    commits: [],
-  },
-  changes: { changes: [] },
-  review: { found: false, announced: false },
-  messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
-  branches: [],
-  commit_types: ['feat', 'fix'],
-  subject_limit: 72,
-  suggested_scope: '',
-  hooks_unmanaged: 0,
-  tasks: { available: true, reason: '', linked: [] },
-  here: '/home/ana/src/api',
-} satisfies Snapshot
+const snapshot = snapshotWith({ issues: issuesOf([issue]) })
 
 const earlier: Comment = {
   author: 'Sam Ortiz',
@@ -160,7 +137,7 @@ const forgeIssue = {
 // opensForgeIssue serves forge issue 57 on a GitLab remote, its thread written
 // in Markdown, and opens its detail.
 async function opensForgeIssue(page: Page): Promise<void> {
-  await streams(page, { ...snapshot, issues: { ...snapshot.issues, issues: [forgeIssue] } })
+  await streams(page, snapshotWith({ issues: issuesOf([forgeIssue]) }))
   await page.route('**/api/health', (route) =>
     route.fulfill({
       json: { version: '1.2.3', dry_run: false, forge_noun: 'merge request', forge_sigil: '!' },

@@ -1,7 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import type { Snapshot, Task, TaskList, TasksSummary } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
+import { issuesOf, snapshotWith, streams } from '../support/fixtures.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // Your Taskwarrior tasks as the browser draws them, against answers given
 // here: where a refusal sits against its row's buttons, how the header's task
@@ -30,45 +31,19 @@ const started = { ...tracking, start: '2026-09-28T09:00:00Z' } satisfies Task
 
 // withTasks is a stream frame of one issue, PROJ-1, and of your tasks as given.
 function withTasks(tasks: TasksSummary): Snapshot {
-  return {
-    here: '/home/ana/src/api',
-    issues: {
-      total: 1,
-      start_at: 0,
-      unavailable: [],
-      issues: [
-        {
-          key: 'PROJ-1',
-          tracker: 'jira',
-          summary: 'Refuse an unknown forge',
-          status: 'To Do',
-          status_category: 'new',
-          type: 'Task',
-        },
-      ],
-    },
-    branch: {
-      name: '',
-      issue_link: '',
-      detached: false,
-      head: '',
-      upstream: '',
-      push_remote: '',
-      ahead: 0,
-      behind: 0,
-      base: '',
-      commits: [],
-    },
-    changes: { changes: [] },
-    review: { found: false, announced: false },
-    messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
-    branches: [],
-    commit_types: ['feat', 'fix'],
-    subject_limit: 72,
-    suggested_scope: '',
-    hooks_unmanaged: 0,
+  return snapshotWith({
+    issues: issuesOf([
+      {
+        key: 'PROJ-1',
+        tracker: 'jira',
+        summary: 'Refuse an unknown forge',
+        status: 'To Do',
+        status_category: 'new',
+        type: 'Task',
+      },
+    ]),
     tasks,
-  }
+  })
 }
 
 // listOf is the task list as the server answers a read of it.

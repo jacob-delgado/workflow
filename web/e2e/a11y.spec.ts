@@ -1,6 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import type { PullRequestDraft, Snapshot } from '../src/api/generated/types.gen.ts'
+import type { Issue, PullRequestDraft, Snapshot } from '../src/api/generated/types.gen.ts'
 import {
   height,
   openFirstRun,
@@ -9,7 +9,7 @@ import {
   sectionNames as populatedSectionNames,
   themes,
 } from './support/cockpit.ts'
-import { streams } from './support/tabwalk.ts'
+import { branchWith, issuesOf, snapshotWith, streams } from './support/fixtures.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are
@@ -226,23 +226,23 @@ for (const theme of themes) {
   }
 }
 
+// redactTokens is the issue the list opens, in progress.
+const redactTokens = {
+  key: 'PROJ-1',
+  tracker: 'jira',
+  summary: 'Redact tokens before they reach the request log',
+  status: 'In Progress',
+  status_category: 'indeterminate',
+  type: 'Bug',
+  priority: 'High',
+} satisfies Issue
+
 // A snapshot with more issues than its page carries, so the list, its view
 // select, filter, Where buttons and "Load more" are all on screen for the scan.
-const issuesSnapshot = {
-  issues: {
-    total: 3,
-    start_at: 0,
-    unavailable: [],
-    issues: [
-      {
-        key: 'PROJ-1',
-        tracker: 'jira',
-        summary: 'Redact tokens before they reach the request log',
-        status: 'In Progress',
-        status_category: 'indeterminate',
-        type: 'Bug',
-        priority: 'High',
-      },
+const issuesSnapshot = snapshotWith({
+  issues: issuesOf(
+    [
+      redactTokens,
       {
         key: 'PROJ-2',
         tracker: 'jira',
@@ -252,33 +252,12 @@ const issuesSnapshot = {
         type: 'Task',
       },
     ],
-  },
-  branch: {
-    name: '',
-    issue_link: '',
-    detached: false,
-    head: '',
-    upstream: '',
-    push_remote: '',
-    ahead: 0,
-    behind: 0,
-    base: '',
-    commits: [],
-  },
-  changes: { changes: [] },
-  review: { found: false, announced: false },
-  messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
-  branches: [],
-  commit_types: ['feat', 'fix'],
-  subject_limit: 72,
-  suggested_scope: '',
-  hooks_unmanaged: 0,
-  tasks: { available: true, reason: '', linked: [] },
-  here: '/home/ana/src/api',
-} satisfies Snapshot
+    3,
+  ),
+})
 
 const issueDetail = {
-  ...issuesSnapshot.issues.issues[0],
+  ...redactTokens,
   reporter: 'Ana Lopez',
   assignee: 'octocat',
   description: 'The request log records every header, so a bearer token lands in it.',
@@ -420,18 +399,13 @@ for (const theme of themes) {
 // or unstage button, Stage all and the commit form are all on screen.
 const workingTreeSnapshot = {
   ...issuesSnapshot,
-  branch: {
+  branch: branchWith({
     name: 'fix/PROJ-1',
-    issue_link: '',
-    detached: false,
     head: 'abc1234',
     upstream: 'origin/fix/PROJ-1',
     push_remote: 'origin',
-    ahead: 0,
-    behind: 0,
     base: 'origin/main',
-    commits: [],
-  },
+  }),
   changes: {
     changes: [
       {
@@ -457,7 +431,6 @@ const workingTreeSnapshot = {
       },
     ],
   },
-  here: '/home/ana/src/api',
 } satisfies Snapshot
 
 for (const theme of themes) {

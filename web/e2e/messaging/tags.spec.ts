@@ -1,11 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
-import type {
-  Announcement,
-  People,
-  PersonLink,
-  Snapshot,
-} from '../../src/api/generated/types.gen.ts'
-import { streams } from '../support/tabwalk.ts'
+import type { Announcement, People, PersonLink } from '../../src/api/generated/types.gen.ts'
+import { branchWith, snapshotWith, streams } from '../support/fixtures.ts'
 
 // The announcement preview's tags: an owner linked to a member of the channel
 // picked and saved for next time, a user group checked, and the post that
@@ -23,21 +18,14 @@ const pull = {
   mergeable: 'clean',
 } as const
 
-const snapshot = {
-  issues: { total: 0, start_at: 0, unavailable: [], issues: [] },
-  branch: {
+const snapshot = snapshotWith({
+  branch: branchWith({
     name: 'fix/PROJ-7-redact',
-    issue_link: '',
-    detached: false,
     head: 'abc1234',
     upstream: 'origin/fix/PROJ-7-redact',
     push_remote: 'origin',
-    ahead: 0,
-    behind: 0,
     base: 'origin/main',
-    commits: [],
-  },
-  changes: { changes: [] },
+  }),
   review: { found: true, announced: false, pull },
   messaging: {
     service: 'Slack',
@@ -46,14 +34,7 @@ const snapshot = {
     channels: ['#dev', '#ops'],
     author: 'ana',
   },
-  branches: [],
-  commit_types: ['feat', 'fix'],
-  subject_limit: 72,
-  suggested_scope: '',
-  hooks_unmanaged: 0,
-  tasks: { available: true, reason: '', linked: [] },
-  here: '/home/ana/src/api',
-} satisfies Snapshot
+})
 
 const ben = { id: 'U0BEN', label: 'Ben Ito' }
 const carla = { id: 'U0CARLA', label: 'Carla Diaz' }
