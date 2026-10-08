@@ -81,6 +81,13 @@ tester.run('arrange-act-assert', arrangeActAssert, {
 })`,
     },
     {
+      name: 'a test given a timeout after its body, whose body marks its parts',
+      code: `test('t', async () => {
+  // Act & Assert
+  expect(1).toBe(1)
+}, 10_000)`,
+    },
+    {
       name: 'a hook, which is not a test',
       code: `test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -207,6 +214,27 @@ tester.run('arrange-act-assert', arrangeActAssert, {
       code: `test.each(cases)('t $name', async ({ name }) => {
   expect(say(name)).toBe(name)
 })`,
+      errors: [{ messageId: 'missingMarkers' }],
+    },
+    {
+      name: 'a test given a timeout after its body, with no markers',
+      code: `test('t', async () => {
+  expect(1).toBe(1)
+}, 10_000)`,
+      errors: [{ messageId: 'missingMarkers' }],
+    },
+    {
+      name: 'a test given options after its body, with no markers',
+      code: `test('t', async () => {
+  expect(1).toBe(1)
+}, { retry: 2 })`,
+      errors: [{ messageId: 'missingMarkers' }],
+    },
+    {
+      name: 'a table test given a timeout after its body, with no markers',
+      code: `test.each(cases)('t $name', async ({ name }) => {
+  expect(say(name)).toBe(name)
+}, 10_000)`,
       errors: [{ messageId: 'missingMarkers' }],
     },
     {
