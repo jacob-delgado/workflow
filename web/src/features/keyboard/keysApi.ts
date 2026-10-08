@@ -5,9 +5,6 @@ import { getKeys } from '@/api/generated'
 import { getKeysQueryKey } from '@/api/generated/@tanstack/react-query.gen.ts'
 import type { KeyAction, KeyList } from '@/api/generated/types.gen.ts'
 
-// The VITE_MOCK check is read inline (not via a helper) so Vite statically
-// replaces it and code-splits the dev fixture out of a production build.
-
 interface KeysState {
   // Whether a single key pressed outside a text field acts (ui.web_shortcuts).
   shortcuts: boolean
@@ -23,16 +20,8 @@ interface KeysState {
 // are off.
 export const useKeysStore = create<KeysState>(() => ({ shortcuts: false, actions: [] }))
 
-// readKeys reads the actions and the shortcut setting. Under VITE_MOCK it
-// serves the fixture (code-split, dev-only), so the mockup's keys work with no
-// backend.
+// readKeys reads the actions and the shortcut setting.
 async function readKeys(signal: AbortSignal): Promise<KeyList> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockKeys } = await import('@/dev/mockKeys.ts')
-
-    return mockKeys
-  }
-
   const { data } = await getKeys({ signal, throwOnError: true })
 
   return data

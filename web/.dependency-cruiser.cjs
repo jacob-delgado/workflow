@@ -16,10 +16,12 @@ module.exports = {
       comment:
         'Value imports of the generated SDK go through src/api or a feature *Api.ts wrapper ' +
         '(an area within a feature, such as settings/people, keeps its own), so a component ' +
-        'never calls the server directly; types may be imported anywhere.',
+        'never calls the server directly; types may be imported anywhere. src/dev is the ' +
+        "mockup's stand-in for the server, which reads requests with the contract's schemas " +
+        'and calls nothing.',
       from: {
         pathNot: [
-          '^src/(api/|features/[^/]+/[^/]+Api\\.ts$)',
+          '^src/(api/|dev/|features/[^/]+/[^/]+Api\\.ts$)',
           '^src/features/[^/]+/[^/]+/[^/]+Api\\.ts$',
         ],
       },

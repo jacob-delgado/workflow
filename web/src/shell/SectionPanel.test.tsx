@@ -1,5 +1,4 @@
 import { screen } from '@testing-library/react'
-import { vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
@@ -27,9 +26,6 @@ test.each(readSections)('routes the %s section to its panel', (section, marker) 
 })
 
 test('routes the settings section to the config form', () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-
   // Act
   renderWithClient(<SectionPanel section="settings" />)
 

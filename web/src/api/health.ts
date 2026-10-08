@@ -55,20 +55,6 @@ export function useHealth(): void {
 }
 
 async function loadHealth(): Promise<void> {
-  // Under VITE_MOCK there is no server to ask; the mockup is a writable build.
-  if (import.meta.env.VITE_MOCK === 'true') {
-    useHealthStore.setState({
-      health: {
-        version: 'mockup',
-        dry_run: false,
-        forge_noun: 'pull request',
-        forge_sigil: '#',
-      },
-    })
-
-    return
-  }
-
   try {
     const result = await getHealth({ throwOnError: true })
     useHealthStore.setState({ health: result.data })

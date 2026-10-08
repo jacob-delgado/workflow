@@ -1,4 +1,9 @@
-import type { ReviewQueue } from '@/api/generated/types.gen.ts'
+import type {
+  JobLog,
+  PullRequestDraft,
+  PullRequestText,
+  ReviewQueue,
+} from '@/api/generated/types.gen.ts'
 
 const hour = 3_600_000
 
@@ -58,4 +63,31 @@ export function mockReviewQueue(): ReviewQueue {
       },
     ],
   }
+}
+
+// mockPullDraft is the pull request the mockup would open for its branch,
+// which has yet to be pushed, with no template to start from.
+export const mockPullDraft: PullRequestDraft = {
+  title: 'fix: redact tokens before they reach the request log',
+  body: '## Commits\n\n- fix: redact tokens before they reach the request log\n\nPROJ-412',
+  base: 'main',
+  head: 'fix/PROJ-412',
+  draft: false,
+  needs_push: true,
+  reviewers: ['ana', 'acme/control-plane'],
+  templates: [],
+  template: '',
+}
+
+// mockPullText is the open pull request's title and description, as the
+// editor reads them afresh.
+export const mockPullText: PullRequestText = {
+  title: 'fix: redact tokens in the request log',
+  body: '## Why\n\nTokens reached the log.',
+}
+
+// mockCheckLog is a failed check's log, cut short.
+export const mockCheckLog: JobLog = {
+  text: '--- FAIL: TestRetry (0.01s)\n    retry_test.go:41: got 4, want 3\nFAIL',
+  truncated: true,
 }

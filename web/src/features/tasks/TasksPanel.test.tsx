@@ -1,7 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { vi } from 'vitest'
 import type { Issue } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import App from '@/App.tsx'
@@ -460,19 +459,6 @@ test('the add line posts the typed line and lists what Taskwarrior answers', asy
   expect(post && new URL(post.url).pathname).toBe(tasksPath)
   expect(await post?.json()).toEqual({ line: 'Write the setup docs project:docs' })
   expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'task add' }).value).toBe('')
-})
-
-test('the mockup lists its own tasks without a server', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-
-  // Act
-  renderWithClient(<TasksPanel />)
-
-  // Assert
-  const others = await screen.findByRole('list', { name: /tasks/i })
-  expect(within(others).getAllByRole('listitem').length).toBeGreaterThan(0)
-  expect(globalThis.fetch).not.toHaveBeenCalled()
 })
 
 test('reads the tasks again each time the section opens', async () => {

@@ -1,4 +1,3 @@
-import { vi } from 'vitest'
 import type { Run, RunEvent } from '@/api/generated/types.gen.ts'
 import { readHookSetup, startRun, stopRun, writeHookSetup } from '@/features/branch/gitRunApi.ts'
 import { discardFile, readDiff, unstageEverything } from '@/features/branch/stagingApi.ts'
@@ -16,7 +15,7 @@ import { fakeApi } from '@/test/fakeApi.ts'
 import { makeBranch } from '@/test/fixtures.ts'
 
 // The Branch and Review sections' reads and writes: what each asks the server
-// and what it answers, and, under VITE_MOCK, that each answers without one.
+// and what it answers.
 
 const ended: Run = {
   kind: 'pre_commit',
@@ -173,30 +172,4 @@ test.each<[string, () => Promise<unknown>, string, object]>([
   const url = new URL(requests[0]?.url ?? '')
   expect(`${requests[0]?.method ?? ''} ${url.pathname}${url.search}`).toBe(asked)
   expect(answered ?? {}).toMatchObject(expected)
-})
-
-test.each<[string, () => Promise<unknown>]>([
-  ['a run', () => startRun({ kind: 'fixup', commit: 'h1' }, () => {})],
-  ['a stop', () => stopRun()],
-  ['the lefthook offer', () => readHookSetup()],
-  ['writing it', () => writeHookSetup(false)],
-  ['a diff', () => readDiff('a.go')],
-  ['unstaging everything', () => unstageEverything()],
-  ['a discard', () => discardFile('a.go')],
-  ['the text', () => readPullText()],
-  ['an edit', () => editPull('t', 'b')],
-  ['the merge offer', () => readMergeOffer()],
-  ['a merge', () => mergePull('merge')],
-  ['a finish', () => finishBranch()],
-  ['a re-run', () => rerunChecks()],
-])('the mockup answers %s without a server', async (_, call) => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-  const requests = fakeApi({})
-
-  // Act
-  await call()
-
-  // Assert
-  expect(requests).toEqual([])
 })

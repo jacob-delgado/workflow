@@ -7,18 +7,8 @@ import {
 import type { People, PersonLink, RepoGroups } from '@/api/generated/types.gen.ts'
 import { savePerson } from '@/features/messaging/slackApi.ts'
 
-// The VITE_MOCK check is read inline (not via a helper) so Vite statically
-// replaces it and code-splits the dev fixture out of a production build, while
-// tests can still stub it at runtime.
-
 // readPeople reads every decided owner, then the branch's undecided ones.
 async function readPeople(signal?: AbortSignal): Promise<People> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockPeople } = await import('@/dev/mockSlack.ts')
-
-    return mockPeople()
-  }
-
   const { data } = await getPeople({ signal, throwOnError: true })
 
   return data
@@ -38,12 +28,6 @@ export function usePeople() {
 
 // forget drops what was decided for owner, and answers the owners after it.
 async function forget(owner: string): Promise<People> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockForgetPerson } = await import('@/dev/mockSlack.ts')
-
-    return mockForgetPerson(owner)
-  }
-
   const { data } = await forgetPerson({ query: { owner }, throwOnError: true })
 
   return data
@@ -68,12 +52,6 @@ export function usePeopleWrites() {
 
 // readRepoGroups reads the groups this repository's announcements may tag.
 async function readRepoGroups(signal?: AbortSignal): Promise<RepoGroups> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockRepoGroups } = await import('@/dev/mockSlack.ts')
-
-    return mockRepoGroups()
-  }
-
   const { data } = await getRepoGroups({ signal, throwOnError: true })
 
   return data
@@ -92,12 +70,6 @@ export function useRepoGroups() {
 // saveGroups keeps the groups ids name as the repository's, each labeled as
 // Slack's directory has it.
 async function saveGroups(ids: string[]): Promise<RepoGroups> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockSetRepoGroups } = await import('@/dev/mockSlack.ts')
-
-    return mockSetRepoGroups(ids)
-  }
-
   const { data } = await setRepoGroups({ body: { ids }, throwOnError: true })
 
   return data

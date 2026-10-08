@@ -10,19 +10,8 @@ import { getRepositoriesQueryKey } from '@/api/generated/@tanstack/react-query.g
 import type { DirectoryListing, Repositories } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 
-// The VITE_MOCK check is read inline (not via a helper) so Vite statically
-// replaces it and code-splits the dev fixture out of a production build, while
-// tests can still stub it at runtime.
-
-// readRepositories reads where the server works and your favorites. Under
-// VITE_MOCK it serves the mockup's.
+// readRepositories reads where the server works and your favorites.
 async function readRepositories(signal?: AbortSignal): Promise<Repositories> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockRepositories } = await import('@/dev/mockRepositories.ts')
-
-    return mockRepositories()
-  }
-
   const { data } = await getRepositories({ signal, throwOnError: true })
 
   return data
@@ -42,12 +31,6 @@ export function useRepositories() {
 // readDirectories lists the directories in path, or where the server works
 // when path is empty.
 async function readDirectories(path: string, signal?: AbortSignal): Promise<DirectoryListing> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockDirectories } = await import('@/dev/mockRepositories.ts')
-
-    return mockDirectories(path === '' ? '/home/ana/src/api/cmd' : path)
-  }
-
   const { data } = await getDirectories({
     query: path === '' ? {} : { path },
     signal,
