@@ -53,11 +53,23 @@ task fmt           # format everything in place
 task check         # the full gate — run this before opening a pull request
 ```
 
-`task check` is lint, tests with the coverage floors, `govulncheck`, and
-`gitleaks`, plus the web frontend's lint, its generated-client drift check,
-its bundle drift check and its unit tests — so the local gate needs Node, which `mise install` provisions,
-and installs the frontend's dependencies when they are missing. CI runs the same
-gates, and adds the Playwright end-to-end suites: `yarn test:e2e` in `web/`, and
+`task check` is the gate, each part a task of its own:
+
+| Gate | What it enforces |
+| --- | --- |
+| `task lint` | Every `lint:*` task — golangci-lint and each other linter and repository check — plus `docs:check` (the command reference still matches the code) and `gen:verify` (the generated Go API code still matches `api/openapi.yaml`); `task --list` names each |
+| `task web:lint` | The web frontend's eslint (accessibility at strict), `tsc`, prettier, knip, and its import boundaries |
+| `task web:gen:check` | The generated TypeScript client still matches `api/openapi.yaml` |
+| `task web:dist:check` | The committed web bundle in `internal/web/dist` is what `task web:build` makes of `web/src` |
+| `task test:cover` | Tests with the race detector, above the statement coverage floor |
+| `task web:test` | The web frontend's unit tests, above their own coverage floor |
+| `task cover:branch` | Condition coverage via gobco: was each condition seen both ways |
+| `task vuln` | `govulncheck` against the dependency graph |
+| `task secrets` | `gitleaks` over the working tree |
+
+The local gate needs Node, which `mise install` provisions, and installs the
+frontend's dependencies when they are missing. CI runs the same gates, and adds
+the Playwright end-to-end suites: `yarn test:e2e` in `web/`, and
 `yarn test:e2e:server`, which stages, commits and pushes through the binary
 `task build` makes. One gate is narrower in CI: a pull request that changes no
 Markdown file, nothing under `docs/` and not `.markdownlint-cli2.yaml` skips the
