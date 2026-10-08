@@ -6,6 +6,7 @@ package loop_test
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -71,6 +72,30 @@ func TestPushCarriesTheOutputOfAFailedPush(t *testing.T) {
 
 	if err.Error() != "the push failed:\n! [rejected]\nhint: fetch first" {
 		t.Errorf("Push error = %q, want the failure followed by the output", err.Error())
+	}
+}
+
+func TestPushCarriesTheRemotesLinesNeutralized(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A remote's hook writes the remote: lines, so they may hold anything a
+	// terminal would act on.
+	push := func(string) (proc.Output, error) {
+		return output([]string{"remote: \x1b]0;pwned\a", "! [remote rejected]"}, errSeam), nil
+	}
+
+	// Act
+	err := loop.Push(push, branchName)
+
+	// Assert
+	var failed loop.PushFailedError
+	if !errors.As(err, &failed) || len(failed.Output) != 2 {
+		t.Fatalf("Push returned %v, want a PushFailedError with both lines", err)
+	}
+
+	if joined := strings.Join(failed.Output, "\n"); strings.ContainsAny(joined, "\x1b\a") {
+		t.Errorf("PushFailedError.Output = %q, want no escape or bell", failed.Output)
 	}
 }
 
