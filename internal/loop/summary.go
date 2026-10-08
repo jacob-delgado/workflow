@@ -19,6 +19,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
+// ErrSummaryUnavailable refuses a Summary post with no way to make one.
+var ErrSummaryUnavailable = errors.New("posting the summary is not available")
+
 // ErrEmptySummary refuses a Summary edited down to nothing: there is nothing
 // to post.
 var ErrEmptySummary = errors.New("nothing to post: the summary was empty")
@@ -401,8 +404,13 @@ func ReadAll(reads []SourceRead) []activity.Read {
 // PostSummary posts text — the Summary's Markdown, as it was previewed or
 // edited — to channel, rendered for the service kind names. A text longer
 // than that service takes is refused with messaging.ErrTooLong, saying how
-// long it is against what, before anything is sent.
+// long it is against what, before anything is sent, and no post at all is
+// ErrSummaryUnavailable, as Deliver and Push refuse theirs.
 func PostSummary(post func(channel, text string) error, kind config.MessagingKind, channel, text string) error {
+	if post == nil {
+		return ErrSummaryUnavailable
+	}
+
 	if strings.TrimSpace(text) == "" {
 		return ErrEmptySummary
 	}

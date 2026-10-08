@@ -97,10 +97,6 @@ func wireDate(day activity.Date) openapi_types.Date {
 func (s *server) PostActivity(
 	_ context.Context, request api.PostActivityRequestObject,
 ) (api.PostActivityResponseObject, error) {
-	if s.deps.Post == nil {
-		return activityPostRefused("posting is not available"), nil
-	}
-
 	body := *request.Body
 
 	period, err := activity.PeriodAsked(body.From.String(), body.To.String(), activity.DateOf(s.now()))
@@ -111,7 +107,7 @@ func (s *server) PostActivity(
 	settings, channel := s.config().Messaging, s.channelOr(orZero(body.Channel))
 
 	err = loop.PostSummary(s.deps.Post, settings.Kind, channel, body.Text)
-	if errors.Is(err, loop.ErrEmptySummary) {
+	if errors.Is(err, loop.ErrSummaryUnavailable) || errors.Is(err, loop.ErrEmptySummary) {
 		return activityPostRefused(err.Error()), nil
 	}
 
