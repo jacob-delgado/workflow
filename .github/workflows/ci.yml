@@ -33,7 +33,7 @@ jobs:
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
-          install_args: go task golangci-lint shellcheck shfmt yamllint typos actionlint hadolint taplo zizmor node npm:markdownlint-cli2
+          install_args: go task golangci-lint shellcheck shfmt yamllint typos actionlint hadolint taplo zizmor node npm:markdownlint-cli2 jq
       # A pull request lints its Markdown only when it changes Markdown, docs/,
       # the markdownlint config or mise.toml, which pins the linter; a push to
       # main lints all of it, and a change that cannot be compared with its base
@@ -53,6 +53,15 @@ jobs:
       - run: task lint LINT_MARKDOWN="${LINT_MARKDOWN}"
         env:
           LINT_MARKDOWN: ${{ steps.markdown.outputs.lint }}
+      # The week-long age gate, for every version a pull request adds to
+      # go.mod, docs/go.mod, web/yarn.lock or mise.toml, Dependabot's or not.
+      # Not in `task lint`: it asks the registries, and it needs the base. The
+      # token lets it read GitHub release dates without the anonymous limit.
+      - name: Check that each new dependency version is a week old
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: scripts/check-dependency-age.sh "origin/${GITHUB_BASE_REF}"
 
   test:
     name: Test

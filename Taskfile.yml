@@ -492,6 +492,14 @@ tasks:
       - taplo fmt
       - task: web:fmt
 
+  deps:age:
+    desc: Check that every dependency version this branch adds is a week old (BASE=origin/main)
+    cmds:
+      # CI's Lint job runs this on every pull request. It asks the registries
+      # when each version was published, so it is not part of the offline
+      # `task lint`.
+      - scripts/check-dependency-age.sh {{.BASE | default "origin/main"}}
+
   docs:gen:
     desc: Regenerate the command reference from the Cobra command tree
     cmds:
