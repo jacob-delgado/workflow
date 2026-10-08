@@ -51,9 +51,12 @@ first ([Using workflow]({{< relref "/docs/usage#setting-up" >}}),
 
 workflow looks for `.workflow.json` in the current directory first, then in each
 directory above it up to the repository root — the directory holding `.git` —
-and then in your home directory. Outside a repository the walk goes on up to
-the top of the filesystem, so a subdirectory of a repository reads the
-repository's own file.
+and then in your home directory, so a subdirectory of a repository reads the
+repository's own file. Outside a repository it reads the current directory's
+own file and no other: a directory above it belongs to no repository you are
+working in, and may be one anyone can write to, such as a shared `/tmp`. Your
+home directory's file is the home file wherever it is found from, your home
+directory itself included.
 
 **A file found in or above the current directory is layered over the one in
 your home directory.** Your home file holds what every repository shares — the
