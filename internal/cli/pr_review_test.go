@@ -130,6 +130,8 @@ func reviewJiraAnswering(t *testing.T, transitions string, answers jiraAnswers) 
 
 	writes := &jiraWrites{}
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+
 		switch {
 		case strings.HasSuffix(request.URL.Path, "/remotelink") && request.Method == http.MethodPost:
 			writes.record(writeLink, request)

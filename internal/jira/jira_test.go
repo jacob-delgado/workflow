@@ -129,6 +129,7 @@ func TestMyselfSendsTheCredentialOnlyInTheAuthorizationHeader(t *testing.T) {
 				gotURI.Store(request.RequestURI)
 				gotAccept.Store(request.Header.Get("Accept"))
 
+				writer.Header().Set("Content-Type", jsonMediaType)
 				_, _ = writer.Write([]byte(myselfBody))
 			}))
 			t.Cleanup(server.Close)
@@ -169,6 +170,7 @@ func TestExtraHeadersAreSentWithEveryRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		gotHeader.Store(request.Header.Get("Cf-Access-Client-Id"))
 
+		writer.Header().Set("Content-Type", jsonMediaType)
 		_, _ = writer.Write([]byte(myselfBody))
 	}))
 	t.Cleanup(server.Close)
@@ -216,6 +218,7 @@ func TestMyselfKeepsTheContextPath(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				gotPath.Store(request.URL.Path)
 
+				writer.Header().Set("Content-Type", jsonMediaType)
 				_, _ = writer.Write([]byte(myselfBody))
 			}))
 			t.Cleanup(server.Close)
@@ -394,6 +397,7 @@ func TestMyselfReportsAnUnreadableBody(t *testing.T) {
 
 	// Arrange
 	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", jsonMediaType)
 		_, _ = writer.Write([]byte("{not json"))
 	})
 
@@ -403,6 +407,28 @@ func TestMyselfReportsAnUnreadableBody(t *testing.T) {
 	// Assert
 	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
 		t.Errorf("Myself returned %v, want the malformed body's syntax error", err)
+	}
+}
+
+func TestMyselfRejectsAnHTMLAnswer(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A base URL that reaches a sign-in page rather than Jira's REST API is
+	// answered 200 with HTML. Decoding that gives "invalid character '<'",
+	// which tells nobody what went wrong.
+	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = writer.Write([]byte("<!doctype html><html><body>sign in</body></html>"))
+	})
+
+	// Act
+	_, err := client.Myself(t.Context())
+
+	// Assert
+	if !errors.Is(err, jira.ErrNotJSON) || !strings.Contains(err.Error(), "text/html") ||
+		!strings.Contains(err.Error(), "jira.base_url") {
+		t.Errorf("Myself returned %v, want ErrNotJSON naming what came back and what to check", err)
 	}
 }
 
