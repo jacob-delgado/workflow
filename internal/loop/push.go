@@ -10,6 +10,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 var (
@@ -24,7 +25,9 @@ var (
 )
 
 // PushFailedError is ErrPushFailed with what the push printed, which is where
-// the reason — a rejected ref, a missing remote — is.
+// the reason — a rejected ref, a missing remote — is. Each line is neutralized
+// (sanitize.Line): the remote writes its remote: lines, and every surface shows
+// them.
 type PushFailedError struct {
 	Output []string
 }
@@ -56,7 +59,7 @@ func Push(push func(branch string) (proc.Output, error), branch string) error {
 
 	var lines []string
 	for line := range output.Lines {
-		lines = append(lines, line)
+		lines = append(lines, sanitize.Line(line))
 	}
 
 	err = output.Wait()
