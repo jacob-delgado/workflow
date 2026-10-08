@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -60,8 +61,8 @@ func TestWebDepsChecksAKeymapAsTheInterfaceDoes(t *testing.T) {
 	}
 
 	err := check(moved)
-	if !errors.Is(err, tui.ErrKeyNotRebindable) {
-		t.Errorf("CheckKeys(%v) = %v, want the interface's %v", moved, err, tui.ErrKeyNotRebindable)
+	if !errors.Is(err, config.ErrKeyNotRebindable) {
+		t.Errorf("CheckKeys(%v) = %v, want the interface's %v", moved, err, config.ErrKeyNotRebindable)
 	}
 }
 

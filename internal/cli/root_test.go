@@ -333,6 +333,8 @@ func TestARefusedKeymapExitsAsAConfigurationProblem(t *testing.T) {
 		"an action that does not exist": `{"no-such-action": "C"}`,
 		"two actions on one key":        `{"commit": "a"}`,
 		"an action no one key can move": `{"jump-to-pane": "f12"}`,
+		"interrupt on a key that types": `{"interrupt": "x"}`,
+		"a text field's key on an edit": `{"worktree": "ctrl+w"}`,
 	}
 
 	for name, keymap := range keymaps {

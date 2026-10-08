@@ -11,6 +11,34 @@ import (
 // ErrInvalidUI reports a ui setting the terminal interface could not honor.
 var ErrInvalidUI = errors.New("invalid ui setting")
 
+// The refusals of a ui.keys map the terminal interface cannot run, which its
+// key check returns and every caller tells apart with errors.Is.
+var (
+	// ErrUnknownKeyAction reports a ui.keys entry naming an action that does not
+	// exist — a typo in the action id.
+	ErrUnknownKeyAction = errors.New("ui.keys names a key action that does not exist")
+	// ErrKeyConflict reports two actions bound to the same key where both are
+	// live at once, so a press would be ambiguous.
+	ErrKeyConflict = errors.New("ui.keys binds two actions to one key in the same context")
+	// ErrKeyNotRebindable reports a ui.keys entry moving an action whose keys
+	// cannot be one key: jump-to-pane answers the pane numbers, one per pane.
+	ErrKeyNotRebindable = errors.New("ui.keys moves an action whose keys cannot be rebound")
+	// ErrInterruptEdits reports interrupt moved onto a key that types or edits
+	// text. Interrupt is answered before any filter, prompt or text box, so on
+	// such a key it would quit mid-sentence and lose what was written.
+	ErrInterruptEdits = errors.New("ui.keys moves interrupt onto a key that types or edits text")
+	// ErrTextFieldKey reports an overlay's key moved onto one its focused text
+	// field edits with — a character, or a readline key such as ctrl+w. The
+	// overlay answers the key first, so the field would lose that edit.
+	ErrTextFieldKey = errors.New("ui.keys moves an overlay's key onto one its text field edits with")
+)
+
+// KeyRefusals are every refusal of a ui.keys map, so a caller sorting errors
+// by kind counts a new one without a second edit.
+func KeyRefusals() []error {
+	return []error{ErrUnknownKeyAction, ErrKeyConflict, ErrKeyNotRebindable, ErrInterruptEdits, ErrTextFieldKey}
+}
+
 // colorNever is the ui.color that turns the system hues off.
 const colorNever = "never"
 

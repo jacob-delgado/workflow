@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -101,7 +102,7 @@ func TestEveryActionAPaneAnswersIsInItsKeyContext(t *testing.T) {
 					both := map[string]string{first: probeKey, second: probeKey}
 
 					err := tui.CheckKeys(both)
-					if !errors.Is(err, tui.ErrKeyConflict) {
+					if !errors.Is(err, config.ErrKeyConflict) {
 						t.Errorf("pane %s answers %s and %s, yet CheckKeys(%v) = %v, want ErrKeyConflict",
 							digit, first, second, both, err)
 					}

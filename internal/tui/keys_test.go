@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -79,7 +80,7 @@ func TestCheckKeysRefusesTwoActionsSharingAKeyInOneContext(t *testing.T) {
 	err := tui.CheckKeys(colliding)
 
 	// Assert
-	if !errors.Is(err, tui.ErrKeyConflict) {
+	if !errors.Is(err, config.ErrKeyConflict) {
 		t.Fatalf("CheckKeys = %v, want ErrKeyConflict", err)
 	}
 
@@ -101,7 +102,7 @@ func TestCheckKeysNamesTheMessagingPaneForNoParticularService(t *testing.T) {
 	err := tui.CheckKeys(colliding)
 
 	// Assert
-	if !errors.Is(err, tui.ErrKeyConflict) {
+	if !errors.Is(err, config.ErrKeyConflict) {
 		t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConflict", colliding, err)
 	}
 
@@ -169,7 +170,7 @@ func TestCheckKeysCatchesConflictsOnCrossPaneKeys(t *testing.T) {
 			err := tui.CheckKeys(rebound)
 
 			// Assert
-			if !errors.Is(err, tui.ErrKeyConflict) {
+			if !errors.Is(err, config.ErrKeyConflict) {
 				t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConflict", rebound, err)
 			}
 
@@ -211,7 +212,7 @@ func TestCheckKeysRefusesAnOverlayKeyOnAKeyLiveBesideItInAComposer(t *testing.T)
 			err := tui.CheckKeys(rebound)
 
 			// Assert
-			if !errors.Is(err, tui.ErrKeyConflict) {
+			if !errors.Is(err, config.ErrKeyConflict) {
 				t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConflict", rebound, err)
 			}
 
@@ -244,7 +245,7 @@ func TestCheckKeysRefusesAKeyATextFieldEditsWithWhereOneHasTheFocus(t *testing.T
 			err := tui.CheckKeys(rebound)
 
 			// Assert
-			if !errors.Is(err, tui.ErrTextFieldKey) {
+			if !errors.Is(err, config.ErrTextFieldKey) {
 				t.Fatalf("CheckKeys(%v) = %v, want ErrTextFieldKey", rebound, err)
 			}
 
@@ -294,7 +295,7 @@ func TestRebindingAStartStopKeyOntoAnotherTasksKeyIsRefused(t *testing.T) {
 	err := tui.CheckKeys(colliding)
 
 	// Assert
-	if !errors.Is(err, tui.ErrKeyConflict) {
+	if !errors.Is(err, config.ErrKeyConflict) {
 		t.Fatalf("CheckKeys = %v, want ErrKeyConflict", err)
 	}
 
@@ -329,7 +330,7 @@ func TestRebindingATasksKeyOntoALinkOrRefreshKeyIsRefused(t *testing.T) {
 			err := tui.CheckKeys(rebound)
 
 			// Assert
-			if !errors.Is(err, tui.ErrKeyConflict) {
+			if !errors.Is(err, config.ErrKeyConflict) {
 				t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConflict", rebound, err)
 			}
 
@@ -352,7 +353,7 @@ func TestCheckKeysRefusesAnUnknownAction(t *testing.T) {
 	err := tui.CheckKeys(misnamed)
 
 	// Assert
-	if !errors.Is(err, tui.ErrUnknownKeyAction) {
+	if !errors.Is(err, config.ErrUnknownKeyAction) {
 		t.Fatalf("CheckKeys = %v, want ErrUnknownKeyAction", err)
 	}
 
@@ -373,7 +374,7 @@ func TestCheckKeysRefusesMovingJumpToPane(t *testing.T) {
 	err := tui.CheckKeys(moved)
 
 	// Assert
-	if !errors.Is(err, tui.ErrKeyNotRebindable) {
+	if !errors.Is(err, config.ErrKeyNotRebindable) {
 		t.Fatalf("CheckKeys = %v, want ErrKeyNotRebindable", err)
 	}
 
@@ -401,7 +402,7 @@ func TestCheckKeysRefusesMovingInterruptOntoAKeyThatTypesOrEdits(t *testing.T) {
 			err := tui.CheckKeys(map[string]string{"interrupt": typed})
 
 			// Assert
-			if !errors.Is(err, tui.ErrInterruptEdits) {
+			if !errors.Is(err, config.ErrInterruptEdits) {
 				t.Fatalf("CheckKeys = %v, want ErrInterruptEdits", err)
 			}
 
