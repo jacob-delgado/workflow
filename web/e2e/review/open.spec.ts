@@ -68,12 +68,10 @@ for (const theme of themes) {
       await opensReview(page, theme, width)
 
       // Act
-      // Compose the pull request, which opens as a form to edit.
       await page.getByRole('button', { name: 'Open a pull request' }).click()
       await expect(page.getByRole('form', { name: 'Open a pull request' })).toBeVisible()
 
       // Assert
-      // Tab reaches each of the form's fields, and it is clean.
       await expectReachableAndClean(page, { reaches: formControls })
     })
   }
@@ -104,12 +102,10 @@ for (const theme of themes) {
       await page.getByRole('button', { name: 'Open pull request' }).click()
 
       // Act
-      // Link it, leaving the move offered beside what the link said.
       await page.getByRole('button', { name: 'Link it on PROJ-1' }).click()
       await expect(page.getByText('Linked #7 on PROJ-1.')).toBeVisible()
 
       // Assert
-      // Tab reaches the move still offered, and it is clean.
       await expectReachableAndClean(page, { reaches: ['Move PROJ-1 to In Review'] })
     })
   }

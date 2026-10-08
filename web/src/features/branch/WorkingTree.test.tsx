@@ -156,13 +156,11 @@ test('what a stage said survives the snapshot that shows the file staged', async
   await screen.findByText('Staged b.go.')
 
   // Act
-  // The stream brings the file back staged.
   act(() => {
     streamTree([change('b.go', wholly)])
   })
 
   // Assert
-  // The file now offers to unstage, and the line still says what was done.
   expect(screen.getByRole('button', { name: 'Unstage b.go' })).toBeTruthy()
   expect(screen.getByText('Staged b.go.')).toBeTruthy()
 })
@@ -335,7 +333,7 @@ test('a clean tree says so under its heading, before the commit form', () => {
   render(<BranchPanel />)
 
   // Assert
-  // Said once, and before the form, not at its foot.
+  // getByText fails on a second match, so it is said once.
   const clean = screen.getByText('Clean — nothing to commit.')
   const form = screen.getByRole('form', { name: 'Commit staged changes' })
   expect(clean.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -387,12 +385,11 @@ test('the commit form opens on the suggested scope', () => {
 
 test('a new frame brings its suggestion to an untouched scope', () => {
   // Arrange
-  // Nothing learned and no default yet.
   streamSuggestion('')
   render(<BranchPanel />)
 
   // Act
-  // default_scope is saved in Settings, and the next frame suggests it.
+  // As when default_scope is saved in Settings: the next frame suggests it.
   act(() => {
     streamSuggestion('web')
   })

@@ -179,7 +179,6 @@ for (const theme of themes) {
       await opens(page)
 
       // Act & Assert
-      // Tab once round the page.
       await expectReachableAndClean(page, { passedBy })
     })
   }

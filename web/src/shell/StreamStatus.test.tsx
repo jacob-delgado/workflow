@@ -79,14 +79,12 @@ test('says when the last snapshot landed beside the pill, and keeps it current',
   render(<StreamStatus />)
 
   // Act
-  // The page waits two seconds for the next frame.
   act(() => {
     vi.advanceTimersByTime(2_000)
   })
 
   // Assert
-  // The time counts on, outside the live region, so it is not spoken every
-  // second.
+  // Outside the live region, so the count is not spoken every second.
   expect(screen.getByText('Updated 5s ago')).toBeTruthy()
   expect(screen.getByRole('status').textContent).not.toContain('Updated')
 })

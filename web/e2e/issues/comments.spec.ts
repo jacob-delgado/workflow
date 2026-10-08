@@ -103,7 +103,6 @@ for (const theme of themes) {
       page,
     }) => {
       // Arrange
-      // A comment written, in this theme, at this width.
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
@@ -111,7 +110,6 @@ for (const theme of themes) {
       await page.getByRole('textbox', { name: 'Comment on PROJ-1' }).fill('Ship **it** with `care`')
 
       // Act & Assert
-      // Tab reaches the tabs, the formatting and the button.
       await expectReachableAndClean(page, {
         reaches: ['Write', 'Bold', 'Bulleted list', 'Comment'],
       })
@@ -170,8 +168,8 @@ for (const theme of themes) {
     page,
   }) => {
     // Arrange
-    // A forge issue on GitLab, whose composer is always Markdown and says a
-    // slash line is a quick action.
+    // GitLab's composer is always Markdown, and says a slash line is a quick
+    // action.
     await pinTheme(page, theme)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.setViewportSize({ width: widths[0], height })
@@ -179,8 +177,6 @@ for (const theme of themes) {
     await page.getByRole('textbox', { name: 'Comment on #57' }).fill('/close')
 
     // Act & Assert
-    // The thread is drawn from Markdown, the hint is on screen, and Tab reaches
-    // the tabs, the formatting and the button.
     await expect(page.getByRole('list', { name: 'Comments' }).getByRole('strong')).toHaveText(
       'main',
     )

@@ -53,8 +53,6 @@ for (const theme of themes) {
       page,
     }) => {
       // Arrange
-      // The stream, the views and the issue answered here — enough for the
-      // list's controls and the detail.
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
@@ -75,8 +73,7 @@ for (const theme of themes) {
       await expect(page.getByRole('combobox', { name: 'View' })).toBeVisible()
 
       // Act
-      // Narrow the list to a place, so a pressed Where button is on screen,
-      // then open the first issue and let its detail land.
+      // A place is chosen, so a pressed Where button is in the check.
       const inProgress = page
         .getByRole('group', { name: 'Filter' })
         .getByRole('button', { name: /^In Progress/ })
@@ -86,7 +83,6 @@ for (const theme of themes) {
       await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
 
       // Assert
-      // Tab reaches the view, and the list beside the open detail is clean.
       await expectReachableAndClean(page, { reaches: ['View'] })
     })
   }
@@ -116,8 +112,7 @@ test('a loaded page hands focus to its first issue, in view in the list, at 640 
   page,
 }) => {
   // Arrange
-  // The stream's eight issues, and the next page answered here, in a window
-  // where the list scrolls in its pane.
+  // 700 px tall, so the list scrolls in its pane.
   await streams(page, pagedSnapshot)
   await page.route(/\/api\/issues\?/, (route) =>
     route.fulfill({
@@ -136,7 +131,6 @@ test('a loaded page hands focus to its first issue, in view in the list, at 640 
   await page.getByRole('button', { name: 'Load more' }).click()
 
   // Assert
-  // The first issue the page added has focus, and is in view.
   const added = page.getByRole('button', { name: /^PROJ-9/ })
   await expect(added).toBeFocused()
   await expect(added).toBeInViewport({ ratio: 1 })
@@ -150,7 +144,6 @@ test(
     await openCockpit(page, { width: 1440, height }, 'dark')
 
     // Act
-    // How many lines each row's summary, its last line, is set on.
     const lines = await page
       .getByRole('list', { name: 'Issues' })
       .getByRole('button')

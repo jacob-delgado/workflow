@@ -89,7 +89,6 @@ async function routedSoFar(page: Page): Promise<void> {
 
 test('switching back to Reviews within 30 seconds reads nothing again', async ({ page }) => {
   // Arrange
-  // Reviews read once, then another section open.
   await page.clock.install()
   const counted = await answersQueue(page)
   await page.goto('/')
@@ -101,8 +100,8 @@ test('switching back to Reviews within 30 seconds reads nothing again', async ({
   await openSection(page, 'Reviews')
 
   // Assert
-  // The queue is drawn again, and a read the reopening started, which goes out
-  // as the queue is drawn, would have been counted by now.
+  // A read the reopening started goes out as the queue is drawn, so by now it
+  // would have been counted.
   await expect(
     page.getByRole('list', { name: 'Waiting on your review', exact: true }),
   ).toBeVisible()
@@ -112,7 +111,6 @@ test('switching back to Reviews within 30 seconds reads nothing again', async ({
 
 test('switching back to Reviews after 30 seconds reads the queue again', async ({ page }) => {
   // Arrange
-  // Reviews read once, then another section open past the 30 seconds.
   await page.clock.install()
   const counted = await answersQueue(page)
   await page.goto('/')
@@ -191,13 +189,11 @@ for (const theme of themes) {
       await openSection(page, 'Reviews')
 
       // Act
-      // Narrow it, and group it.
       await press(page, 'ready 3')
       await page.getByRole('combobox', { name: 'Sort' }).selectOption('By repository')
       await expect(page.getByRole('heading', { level: 3 }).first()).toBeVisible()
 
       // Assert
-      // Tab reaches the sort and the filter, and it is clean.
       await expectReachableAndClean(page, { reaches: ['Sort', 'ready 3'] })
     })
   }

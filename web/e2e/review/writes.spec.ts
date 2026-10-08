@@ -151,7 +151,6 @@ for (const theme of themes) {
       await expect(page.getByRole('form', { name: look.form })).toBeVisible()
 
       // Act & Assert
-      // Tab once round the page.
       await expectReachableAndClean(page, { passedBy: look.passedBy })
     })
   }

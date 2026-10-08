@@ -25,7 +25,6 @@ for (const theme of themes) {
         { tag: '@populated' },
         async ({ page }) => {
           // Arrange
-          // The populated cockpit at this width, in this theme.
           await openCockpit(page, { width, height }, theme)
 
           // Act
@@ -47,13 +46,11 @@ for (const theme of themes) {
       page,
     }) => {
       // Arrange
-      // Settings with no file, at this width, in this theme.
       await openFirstRun(page, { width, height }, theme)
 
       // Act & Assert
-      // Tab reaches every question and the write, passing by the home
-      // directory's radio button, which the arrow keys reach from the one
-      // chosen.
+      // Tab passes by the home directory's radio button: the arrow keys reach
+      // it from the one chosen.
       await expectReachableAndClean(page, {
         reaches: ['Write ~/src/api/.workflow.json'],
         passedBy: ['~/.workflow.jsonYour home directory: it applies everywhere.'],
@@ -83,8 +80,6 @@ for (const name of sectionNames.filter((section) => section !== 'Branch')) {
     { tag: '@populated' },
     async ({ page }) => {
       // Arrange
-      // The populated cockpit at the wide width, and the measure Branch's
-      // commit form is set at.
       await openCockpit(page, { width: 1440, height }, 'dark')
       await openSection(page, 'Branch')
       const measure = await widestContent(page)
@@ -93,7 +88,6 @@ for (const name of sectionNames.filter((section) => section !== 'Branch')) {
       await openSection(page, name)
 
       // Assert
-      // Nothing in it is set wider than Branch's form.
       expect(await widestContent(page), 'wider than Branch').toBeLessThanOrEqual(measure + 1)
     },
   )
@@ -107,17 +101,14 @@ for (const theme of themes) {
         { tag: '@populated' },
         async ({ page }) => {
           // Arrange
-          // The populated cockpit at this width, on the step's section.
           await openCockpit(page, { width, height }, theme)
           await openSection(page, section)
 
           // Act
-          // Open the step.
           await page.getByRole('button', { name: opener }).click()
           await expect(page.getByRole('group', { name: group })).toBeVisible()
 
           // Assert
-          // Tab reaches the step's controls, and it is clean.
           await expectReachableAndClean(page, { reaches: adds })
         },
       )
@@ -146,7 +137,6 @@ for (const { width, named } of railCases) {
       const buttons = sectionNames.map((name) => rail.getByRole('button', { name, exact: true }))
 
       // Act
-      // Measure each name as it is drawn.
       const drawn = await Promise.all(
         buttons.map(async (button, index) => {
           const name = await button.getByText(sectionNames[index], { exact: true }).boundingBox()
@@ -156,7 +146,6 @@ for (const { width, named } of railCases) {
       )
 
       // Assert
-      // Each button keeps its name, as its title too, drawn only from md up.
       for (const [index, button] of buttons.entries()) {
         await expect(button).toBeVisible()
         await expect(button).toHaveAttribute('title', sectionNames[index])
@@ -174,18 +163,16 @@ for (const width of widths) {
     { tag: '@populated' },
     async ({ page }) => {
       // Arrange
-      // The settings, longer than the window.
+      // The settings run longer than the window, so Save starts out of view.
       await page.setViewportSize({ width, height })
       await page.goto('/')
       await openSection(page, 'Settings')
       const save = page.getByRole('button', { name: 'Save changes' })
 
       // Act
-      // Take the form's last control into view.
       await save.focus()
 
       // Assert
-      // It is in view, and so is the header above it.
       await expect(save).toBeInViewport()
       await expect(page.getByRole('button', { name: /change theme/i })).toBeInViewport()
     },
@@ -250,7 +237,7 @@ for (const width of widths) {
     { tag: '@populated' },
     async ({ page }) => {
       // Arrange
-      // The settings, scrolled to their end.
+      // Focusing Save scrolls the settings to their end.
       await page.setViewportSize({ width, height })
       await page.goto('/')
       await openSection(page, 'Settings')
