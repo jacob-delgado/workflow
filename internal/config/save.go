@@ -323,10 +323,10 @@ type Edit struct {
 // SaveEdit writes an edited configuration over the read it was made from,
 // keeping each credential the editor left masked, and returns what it wrote
 // with the revision it left. Files changed since the read are refused with
-// ErrChangedOnDisk, and a credential typed into the editor that would land in
-// a repository's file with ErrCredentialInRepository; either way nothing is
-// written. Every credential but the Slack secrets is checked before those are
-// placed, since placing them spends the refresh token typed.
+// ErrChangedOnDisk, and a credential the files read did not hold that would
+// land in a repository's file with ErrCredentialInRepository; either way
+// nothing is written. Every credential but the Slack secrets is checked
+// before those are placed, since placing them spends the refresh token typed.
 func SaveEdit(edit Edit) (Config, Revision, error) {
 	incoming := KeepStored(edit.Edited, edit.Read, edit.Removed)
 	incoming.Path, incoming.Files = edit.Files.Target(), edit.Files

@@ -253,18 +253,25 @@ func fileSecretFields(cfg Config) []secretField {
 
 // refuseTyped refuses incoming, edit's read with the editor's changes, when
 // edit saves to a repository's file and incoming holds a credential among
-// fields that the read did not hold the same: one typed into the editor. One
-// kept, inherited or removed is no refusal.
+// fields that the files read did not hold the same: one typed into the
+// editor, or one a read made before the files went holds, which a save over
+// no file would write whole into the repository's. One kept, inherited or
+// removed is no refusal.
 func (edit Edit) refuseTyped(incoming Config, fields []secretField) error {
 	if edit.Files.Repo == "" {
 		return nil
+	}
+
+	held := edit.Read
+	if !edit.Over.Exists() {
+		held = Config{}
 	}
 
 	var typed []string
 
 	for _, field := range fields {
 		value := field.value(incoming)
-		if value != "" && value != field.value(edit.Read) {
+		if value != "" && value != field.value(held) {
 			typed = append(typed, field.path)
 		}
 	}

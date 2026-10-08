@@ -10,6 +10,7 @@ package config_test
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"strings"
 	"testing"
@@ -174,5 +175,32 @@ func TestSaveEditStillTakesATypedCredentialIntoTheHomeFile(t *testing.T) {
 	// Assert
 	if saved := reread(t, files); err != nil || saved.Forge.Token.Reveal() != typedToken {
 		t.Errorf("SaveEdit = %v; want the typed forge token kept in the home file", err)
+	}
+}
+
+func TestSaveEditOverFilesNowGoneWritesNoCredentialItsReadHeldIntoTheRepositoryFile(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A read made before both files went holds the home file's credentials,
+	// and a save over no files writes all it holds into the repository's file.
+	files, read, _ := readLayered(t, `{"jira": {"project": "OSS"}}`)
+	for _, path := range files.Each() {
+		err := os.Remove(path)
+		if err != nil {
+			t.Fatalf("removing %s: %v", path, err)
+		}
+	}
+
+	// Act
+	_, _, err := config.SaveEdit(config.Edit{
+		Files: files, Read: read, Over: config.Revision{}, Edited: read.Redacted(),
+	})
+
+	// Assert
+	written, readErr := os.ReadFile(files.Repo)
+	if !errors.Is(err, config.ErrCredentialInRepository) || !errors.Is(readErr, fs.ErrNotExist) {
+		t.Errorf("SaveEdit = %v; the repository's file holds %q (%v); want ErrCredentialInRepository "+
+			"and no file written", err, written, readErr)
 	}
 }
