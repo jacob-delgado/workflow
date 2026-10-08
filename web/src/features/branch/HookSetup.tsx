@@ -42,11 +42,9 @@ export function HookSetup({ unmanaged, outcome }: { unmanaged: number; outcome: 
         variant="secondary"
         ref={opener}
         aria-keyshortcuts={setUpKeys}
-        aria-disabled={read.state === 'running'}
+        held={read.state === 'running'}
         onClick={() => {
-          if (read.state !== 'running') {
-            void read.run()
-          }
+          void read.run()
         }}
         className="self-start"
       >

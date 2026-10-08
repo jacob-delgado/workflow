@@ -54,11 +54,9 @@ export function ConfirmSwitch({ destination, switchTo, teller, onCancel }: Confi
       <div className="flex gap-item">
         <Button
           variant="primary"
-          aria-disabled={go.state === 'running'}
+          held={go.state === 'running'}
           onClick={() => {
-            if (go.state !== 'running') {
-              void go.run()
-            }
+            void go.run()
           }}
         >
           {go.state === 'running' ? 'Switching…' : 'Switch'}

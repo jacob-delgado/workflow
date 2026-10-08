@@ -271,11 +271,9 @@ function ChangeDiff({ path }: { path: string }) {
         aria-label={
           read.state === 'running' ? `Reading the diff of ${path}…` : `Show diff of ${path}`
         }
-        aria-disabled={read.state === 'running'}
+        held={read.state === 'running'}
         onClick={() => {
-          if (read.state !== 'running') {
-            void read.run(path)
-          }
+          void read.run(path)
         }}
         className="self-start"
       >
