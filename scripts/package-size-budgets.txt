@@ -1,9 +1,11 @@
 # Per-directory file budgets. The gate is scripts/check-package-size.sh; the
 # metric and its reasoning live in that script's header.
 #
-# ONE ENTRY PER LINE:
+# ONE ENTRY PER LINE, of one of three kinds:
 #
-#     <repo-relative dir>   <budget>|exempt
+#     <repo-relative dir>   <budget>              a ratcheted budget
+#     <repo-relative dir>   <ceiling> cohesive    a cohesive ceiling
+#     <repo-relative dir>   exempt                not counted at all
 #
 # Every entry MUST carry a `#` comment on the line(s) DIRECTLY above it saying
 # why the number is that number — not what the directory is. The script fails
@@ -18,14 +20,21 @@
 # short and every line in it load-bearing. Deleting an entry does not dodge the
 # gate: an over-budget directory falls back to the default and fails harder.
 #
-# BUDGETS ARE ZERO-HEADROOM IN BOTH DIRECTIONS. A file count only moves when
-# someone deliberately creates a file, which is exactly the moment worth a
-# thought — so a budget is the count on the day it was registered, and the next
-# file trips the gate. A budget left ABOVE its count fails too; that is what a
-# forgotten post-split ratchet looks like.
+# A RATCHETED BUDGET IS ZERO-HEADROOM IN BOTH DIRECTIONS. A file count only
+# moves when someone deliberately creates a file, which is exactly the moment
+# worth a thought — so a budget is the count on the day it was registered, and
+# the next file trips the gate. A budget left ABOVE its count fails too; that is
+# what a forgotten post-split ratchet looks like.
 #
-# Trade-off TRADE-1: every declared budget sits at its count, so the next file
-# in any of these directories is a bump or a split, decided in its own commit.
+# A COHESIVE CEILING is for a grouping that is file-per-concern BY DESIGN: one
+# responsibility spelled one file per pane, per endpoint or per command, which
+# grows by a file each time the surface gains one and which CLAUDE.md says must
+# not be split to chase a number. Zero headroom there was a ritual — every bump
+# gave the same WHY and none ever led to a split — so such a grouping answers
+# to a ceiling instead: it fails only past it, has no ratchet, and its comment
+# names the spelling rule that makes it cohesive rather than listing its files.
+# Raising a ceiling is a decision like any bump: rewrite the WHY and append a
+# row to scripts/package-size-budget-history.md.
 #
 # Counts here are SOURCE files: unit tests (`*_test.go`, `*.test.ts(x)`),
 # stylesheets (`*.css`) and generated code (`*.gen.go`, a whole generated tree
@@ -73,177 +82,35 @@ internal/config 17
 # reviewers and merge past the 500-line target, as members.go is GitLab's.
 internal/forge 17
 
-# internal/tui — the Bubble Tea interface, one file per pane, overlay and
-# composer. It is a single responsibility (drive the terminal UI) spelled
-# file-per-concern: every file hangs its behavior off the one shared Model, so
-# the package cannot be split without threading that Model — and the methods on
-# it — across a package boundary Go does not allow. This is the cohesive package
-# CLAUDE.md names as one that must not be split to chase a number; the entry
-# freezes the count so a new concern is a decision, not drift, not a target to
-# shrink toward. layout/ and frame/ are already the pure leaves that could leave.
-# 52 = the panes, overlays and composers, including issuewrite.go (the assign
-# and log-work forms), issuekeys.go (the Issues pane's key routing, split out of
-# detail.go when it crossed the 500-line file ceiling), scopesuggest.go (the
-# commit scope's completion from the staged directory and the log) and diff.go
-# (the Commits pane's diff preview), each kept beside commits.go/composer.go
-# rather than swelling either toward the 500-line ceiling; finish.go (the
-# Review pane's finish-a-merged-branch preview and its git cleanup), split out
-# of review.go when merge and finish together pushed it past the 800-line hard
-# ceiling; preditor.go (the Review pane's edit-an-open-pull-request overlay —
-# title and description — kept a dedicated overlay rather than an edit-mode
-# flag bolted onto composer.go); merge.go (the Review pane's merge picker and
-# its permitted-methods read, split out of review.go when it passed the
-# 500-line target, the re-run moving to checks.go beside the checks it acts
-# on); messagingpreview.go (the Messaging pane's announcement preview and its
-# send, split out of messaging.go when it passed the 500-line target);
-# prcreate.go (opening the pull request the composer describes — the push
-# first, the create, then the link and status offers — split out of
-# prcomposer.go for the same reason); and the seventh pane's three files,
-# tasks.go (the Tasks pane's state, load, rail and detail, and the issue-side
-# task mark and Tasks block), taskactions.go (its keys and its actions on a
-# task) and taskoffers.go (the task change offered at each moment of the loop
-# — a branch, a switch, a pull request, a merge, a move to done — and the
-# follow-up that opens an offer once the overlay asking something else closes);
-# issueplaces.go (narrowing the Issues list to places — a status or a
-# mark — with its picker, and the branch listing that marks issues in flight);
-# branchlink.go (linking the branch to an issue by hand, for work begun
-# outside workflow, with its pull request's description shown first); and
-# reviewfacets.go (narrowing the review queue by repository, CI state, draft
-# or ready, and author, with its checklist and the rule that admits a request);
-# and tagging.go (whom the ready-for-review announcement tags — the code
-# owners of the changes and the repository's Slack user groups — kept out of
-# messagingpreview.go so the preview stays under the 500-line target);
-# people.go (the Messaging pane's People and groups overlay — whom each forge
-# owner is on Slack, and which user groups the repository tags); and
-# ownerlink.go (linking an owner to Slack, which both of those share: the
-# directory reads, the picker over them and the save, out of people.go so
-# neither overlay passes the 500-line target); and keycheck.go (CheckKeys:
-# which ui.keys maps the interface refuses, and the keyboard contexts it checks
-# them in, out of keys.go so the bindings themselves stay under the 500-line
-# target as four planned features add their own); and tasklist.go (which tasks
-# the Tasks pane lists and in what order: its groups, its sort and its
-# narrowing, and the task that tracks an issue whatever the narrowing, out of
-# tasks.go and taskactions.go, both past 600 lines); and commentcomposer.go
-# (the comment box: a text area with vim's normal and insert modes, the draft
-# kept per issue, and the hand-off to $EDITOR, which comment.go's preview
-# opens from and returns to); and summary.go (the Summary pane: the period
-# shown, each source's read of it filling in as it answers, and the period
-# moved by [ and ] once the keys rest); and calendar.go (the calendar the
-# Summary's period is picked in: Year, Month and Day columns, and a range); and
-# repositories.go (the Repositories pane: where you work, in full, and the
-# favorite directories with what is there now); and reposwitch.go (switching
-# directory: what goes with the switch and what it would lose, and the go-to
-# prompt with its tab completion); and localdata.go (Local data, opened from
-# the Repositories pane: the store's files listed as workflow db-clean lists
-# them, and removing the cache or everything after a last look); and
-# settings.go (Settings, opened from the Repositories pane: the form, its keys,
-# the check a save is held to and the save) and settingsfields.go (what it
-# edits — every setting the web's Settings edits, with its label, hint and
-# kind — and how a value is shown and read back), kept apart so neither passes
-# the 500-line target; summarypost.go (FEAT-86: the Summary's Post…, a
-# preview of its Markdown with the channel cycled and e editing it, as
-# messagingpreview.go is the announcement's, out of summary.go, which it
-# would have pushed past the 500-line target); and setupform.go (UX-153: the
-# first run's form, offered on the no-file screen and by Settings with no
-# file — config init's questions one at a time, the Jira check shown as it
-# runs, the keychain offered, the file written and workflow reopened with
-# it), a new overlay, since settings.go, which edits a file that is there, is
-# near the 500-line target; and settingsedit.go (UX-87: editing a row of
-# Settings — typing a value, turning a setting or moving a choice, and the
-# collections, the Jira views and headers, the branch prefixes and the keys,
-# a row per entry and a row that adds one, and removing an entry — out of
-# settings.go, which kept the form, its keys and the save,
-# and would have passed the 500-line target with them); and settingsremove.go
-# (UX-119: removing a credential the file holds — a token, a webhook URL,
-# Slack's secrets or a Jira header — after a last look, written at once over
-# the read and taken up under the form's other edits, out of settingsedit.go,
-# which it would have pushed past the 500-line target).
-internal/tui 64
+# internal/tui — the Bubble Tea interface, spelled one file per pane, overlay
+# and composer. Every file hangs its behavior off the one shared Model, so the
+# package cannot be split without threading that Model, and the methods on it,
+# across a package boundary Go does not allow; CLAUDE.md names it as the
+# package that must not be split to chase a number. A new pane or overlay is a
+# new file, so it answers to a ceiling: 80 is the 64 files it held when the
+# kind came in and the panes and overlays still to come, and reaching it is
+# where the package's shape is looked at again. layout/ and frame/ are already
+# the pure leaves that could leave.
+internal/tui 80 cohesive
 
-# internal/webserver — the loopback REST surface: a file per write (announce,
-# branchcreate, checkout, commit, config, pullrequest, push), or per pair of
-# writes that share their checks (issuewrite: link the pull request and move the
-# issue; staging: stage and unstage), beside handlers.go, which holds the reads
-# no write owns (a write's own read — the draft, the announcement, the config —
-# sits in its file); stream.go (the event stream), static.go (the embedded app),
-# dto.go (the wire shapes), validator.go (the contract check), guard.go (the
-# loopback and dry-run guards), errors.go (the RFC 9457 problems and fault),
-# and webserver.go (the server and its seams). One responsibility (turn a guarded
-# request into a seam call and a DTO) spelled handler-per-operation; like
-# internal/tui it is cohesive and grows only when the API gains an operation,
-# which is a decision the OpenAPI spec records first. 17 = staging.go, the web's
-# stage and unstage — one changed file, or all of them — which the terminal
-# makes with space and a. 20 = the Taskwarrior operations' three files:
-# tasks.go (the read — the task list and the stream's summary of it — and the
-# task wire shapes), taskwrite.go (the five writes on one task — start, stop,
-# done, annotate, modify — that share the uuid check and the list read after)
-# and taskcommands.go (add, track, undo and sync, which name no task); 21 is
-# branchlink.go, linking the branch to an issue and previewing what that writes
-# in its pull request; 22 is localdata.go, Settings' Local data area, which
-# lists the store's database files and cleans the cache or everything, as
-# `workflow db-clean` does; 23 is people.go, Settings' People and groups area
-# and the Slack directory reads it and the announcement preview pick from —
-# whom each code owner is on Slack, and the user groups a repository tags.
-# activity.go reads back what you did over a period for the Summary section.
-# repositories.go says where the server works and keeps your favorites, and
-# world.go holds the server for that directory and swaps it for another's on
-# a switch, refusing it while a write runs. 27 is announcequeue.go, the
-# announcement held until its pull request's CI passes: the server's own wait
-# for it, settled from each frame and from timed reads of its own, and the drop
-# of it, which outlive the request that held it. 28 is runs.go, the git runs
-# that stream their output as the terminal's run overlay does — pre-commit, a
-# rebase, an amend, a fixup — one at a time, and the stop of the one going.
-# 29 is hooksetup.go, the lefthook configuration offered for the hooks lefthook
-# does not manage, and writing it, as the terminal's g does. 30 is
-# reviewwrites.go, the writes on the branch's pull request the terminal's
-# Review pane makes — edit it, merge it, finish its merged branch, re-run its
-# failed CI — each on a fresh read and loop's own rule. 31 is setup.go, the
-# first configuration file Settings sets up where none applies, as workflow
-# config init does — the token checked with Jira, the keychain offered, the
-# file written and taken up as a switch is — beside config.go, which reads
-# and writes a file that is there and is near the 500-line target. 32 to 35
-# split two files past the 500-line target by concern, not by size alone:
-# faults.go (the classes of failure fault tells apart, a table per service)
-# and taskrefusal.go (Taskwarrior's refusal, its words scrubbed of what no
-# answer may carry) out of errors.go, which keeps the problem and fault
-# themselves; slackdirectory.go (the Slack directory reads People and groups
-# and the announcement pick from) and repogroups.go (the user groups a
-# repository may tag) out of people.go, which keeps whom each code owner is.
-# 36 is streamcache.go, the reads every open stream shares, held for an
-# interval or for the server's life — the forge's answer and each view's
-# issues, made outside their locks one at a time, which branches' issues are
-# yours, who a post comes from and the commit scope — out of stream.go, which
-# keeps the frame they fill and would have passed the 500-line target with
-# the issues' cache, and webserver.go.
-# Frozen here so that growth stays deliberate.
-internal/webserver 36
+# internal/webserver — the loopback REST surface, spelled one file per
+# operation (or per pair of writes that share their checks) beside the shared
+# guard, errors, wire shapes, stream and server. One responsibility (turn a
+# guarded request into a seam call and a DTO) that grows only when the API
+# gains an operation, a decision api/openapi.yaml records first, so it answers
+# to a ceiling: 40 is the 31 files it held when the kind came in and the
+# operations still to come, and reaching it is where the surface's shape is
+# looked at again.
+internal/webserver 40 cohesive
 
-# internal/cli — the Cobra command tree, one file per command: the read commands
-# (doctor, split by section across doctor.go for the command, the repository and
-# the configuration, doctor_requirements.go for the tooling and the
-# configuration review, doctor_credentials.go for the --online checks, and
-# doctor_json.go for --json; status; reviews; summary.go, what you did over
-# a period and its post, read as the Summary pane reads it (FEAT-86, which
-# replaced standup); repositories.go, where workflow works, its worktrees
-# and your favorites, in the web API's shape, UX-151), the guided config, the
-# root wiring, and the scriptable write commands from FEAT-41 (branch.go, pr.go,
-# announce.go) with their shared preview/confirm/dry-run helper (scriptable.go),
-# comment.go for `workflow comment`, which posts the text on standard input on
-# an issue (UX-151, FEAT-78's first issue write),
-# slack_cmd.go for `workflow slack login`, which sets up the Slack user token,
-# dbclean_cmd.go for `workflow db-clean`, which lists and removes the local
-# databases, connect.go, which wires a command to the directory it runs in,
-# as the Repositories pane's switch wires another, and web.go, which wires
-# the web server over the same seams and reaches another directory for its
-# switch. status is split as doctor is: status.go for the command and its
-# fan-out over directories, status_gather.go for the facts each repository's
-# services give and the notes on those that do not answer, and
-# status_render.go for the line and the two JSON shapes. One responsibility —
-# turn a command line into a wiring seam call and printed output — spelled
-# command-per-file; it grows when the tool gains a command, which the docs
-# reference records, or when one command's sections outgrow a file, as
-# doctor's and status's did.
-internal/cli 22
+# internal/cli — the Cobra command tree, spelled one file per command (or per
+# section of a command that outgrew one, as doctor's did). One responsibility
+# (turn a command line into a wiring seam call and printed output) that grows
+# when the tool gains a command, which the docs reference records, so it
+# answers to a ceiling: 28 is the 20 files it held when the kind came in and
+# the commands still to come, and reaching it is where the tree's shape is
+# looked at again.
+internal/cli 28 cohesive
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the

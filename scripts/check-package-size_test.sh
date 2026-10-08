@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
 # Tests for check-package-size.sh: the gate must count the right files, honor a
-# declared budget in both directions, and never pass when it measured nothing.
+# ratcheted budget in both directions and a cohesive ceiling in one, give the
+# split-or-bump advice when a directory is over, and never pass when it
+# measured nothing.
 #
 # Usage:
 #   scripts/check-package-size_test.sh
@@ -84,6 +86,45 @@ expect pass "a declared budget equal to the count" "${declared}" "${equal_budget
 above_budgets="${workdir}/above-budgets.txt"
 printf '# big has room it should not\ninternal/big 5\n' >"${above_budgets}"
 expect fail "a declared budget above the count" "${declared}" "${above_budgets}" 2
+
+# A cohesive ceiling only fails past it: a grouping spelled file-per-concern by
+# design grows a file at a time without a budget edit for each.
+cohesive="$(repo cohesive)"
+for i in 1 2 3 4; do add "${cohesive}" "internal/panes/f${i}.go"; done
+ceiling_budgets="${workdir}/ceiling-budgets.txt"
+printf '# one file per pane, by design\ninternal/panes 6 cohesive\n' >"${ceiling_budgets}"
+expect pass "a cohesive directory under its ceiling" "${cohesive}" "${ceiling_budgets}" 2
+
+low_ceiling_budgets="${workdir}/low-ceiling-budgets.txt"
+printf '# one file per pane, by design\ninternal/panes 3 cohesive\n' >"${low_ceiling_budgets}"
+expect_output fail "a cohesive directory past its ceiling" "There are TWO legitimate" \
+  env PACKAGE_SIZE_ROOT="${cohesive}" PACKAGE_SIZE_BUDGETS="${low_ceiling_budgets}" \
+  DEFAULT_MAX_FILES=2 "${check}"
+
+# A cohesive entry is still earned by size: one at or under the default is
+# refused, so the kind cannot become a way to register small directories.
+expect_output fail "a cohesive directory at the default" "is at or under the default" \
+  env PACKAGE_SIZE_ROOT="${cohesive}" PACKAGE_SIZE_BUDGETS="${ceiling_budgets}" \
+  DEFAULT_MAX_FILES=4 "${check}"
+
+# --list shows how far each cohesive directory is from its ceiling.
+expect_output pass "--list prints a cohesive directory's headroom" \
+  "internal/panes                                    4 / 6    (cohesive, 2 to the ceiling)" \
+  env PACKAGE_SIZE_ROOT="${cohesive}" PACKAGE_SIZE_BUDGETS="${ceiling_budgets}" \
+  DEFAULT_MAX_FILES=2 "${check}" --list
+
+# Every other directory keeps zero headroom, and one past the default is told
+# to split or bump.
+expect_output fail "a directory past the default" "There are TWO legitimate" \
+  env PACKAGE_SIZE_ROOT="${over}" PACKAGE_SIZE_BUDGETS="${empty_budgets}" \
+  DEFAULT_MAX_FILES=2 "${check}"
+
+# An entry of a kind the gate does not know fails rather than passing.
+for entry in "internal/panes 6 cohesiv" "internal/panes cohesive" "internal/panes 6 cohesive extra"; do
+  unknown_budgets="${workdir}/unknown-budgets.txt"
+  printf '# a reason\n%s\n' "${entry}" >"${unknown_budgets}"
+  expect fail "a malformed entry: ${entry}" "${cohesive}" "${unknown_budgets}" 2
+done
 
 # An entry with no reason comment above it fails.
 uncommented="${workdir}/uncommented-budgets.txt"
