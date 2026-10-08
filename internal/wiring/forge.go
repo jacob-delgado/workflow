@@ -82,9 +82,10 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 
 			return connection.client.FindPullRequest(ctx, connection.repo, branch)
 		},
-		CreatePullRequest: createPullSeam(ctx, connect),
-		Activity:          activitySeam(ctx, connect),
-		EditPullRequest:   editPullSeam(ctx, connect),
+		CreatePullRequest:  createPullSeam(ctx, connect),
+		Activity:           activitySeam(ctx, connect),
+		EditPullRequest:    editPullSeam(ctx, connect),
+		RewriteDescription: rewriteSeam(ctx, connect),
 		CheckStatus: func(pull forge.PullRequest, head string) (forge.CI, error) {
 			connection, err := connect()
 			if err != nil {
@@ -247,6 +248,22 @@ func editPullSeam(
 		}
 
 		return connection.client.EditPullRequest(ctx, connection.repo, pull, edit)
+	}
+}
+
+// rewriteSeam is the rewrite-a-description seam, split out to keep forgeDeps
+// within its length: it connects, then asks the client to rewrite the
+// description as the forge holds it.
+func rewriteSeam(
+	ctx context.Context, connect func() (forgeConnection, error),
+) func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
+	return func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
+		connection, err := connect()
+		if err != nil {
+			return false, err
+		}
+
+		return connection.client.RewriteDescription(ctx, connection.repo, pull, rewrite)
 	}
 }
 

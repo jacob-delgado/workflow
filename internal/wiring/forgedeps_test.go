@@ -118,6 +118,19 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 			wantStdin: `{"title":"retitled","body":""}`,
 		},
 		{
+			seam: "RewriteDescription",
+			act: func(forgeSeams seams.Forge) (string, error) {
+				changed, err := forgeSeams.RewriteDescription(pull, func(body string) (string, bool) {
+					return body + "Closes #42", true
+				})
+
+				return fmt.Sprintf("changed=%t", changed), err
+			},
+			want:      "changed=true",
+			wantArgs:  []string{"PATCH", "https://api.github.com/repos/owner/repo/pulls/43"},
+			wantStdin: `{"body":"Closes #42"}`,
+		},
+		{
 			seam: "Merge",
 			act: func(forgeSeams seams.Forge) (string, error) {
 				return "", forgeSeams.Merge(pull, forge.MergeSquash)
