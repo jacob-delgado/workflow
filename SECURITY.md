@@ -73,8 +73,9 @@ In scope:
   the current directory outside one, may have come from anyone, so it may not
   set what runs a program or reads the environment (`jira.token_command`,
   `jira.token_env`, `taskwarrior.program`) and inherits no home credential for
-  an address it moves; only `~/.workflow.json` may. A way around either is a
-  security bug.
+  an address it moves; only `~/.workflow.json` may. No configuration file is
+  read that another user owns or that others may write. A way around any of
+  these is a security bug.
 - Data at rest. The on-disk store (`internal/store`, a SQLite database under the
   OS-native data directory) keeps workflow state between sessions — the commit
   scope last used per repository, what was announced, and the last issue list

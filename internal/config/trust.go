@@ -6,8 +6,16 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
+	"os"
+
+	"github.com/jacob-delgado/workflow/internal/fileowner"
 )
+
+// ErrUntrustedFile is a configuration file someone other than the user could
+// have written: one another user owns, or one others may write.
+var ErrUntrustedFile = errors.New("someone other than you could have written this configuration file")
 
 // ErrHomeOnly is a repository's file setting what only the home directory's
 // file may: a program to run, or an environment variable to read.
@@ -151,4 +159,32 @@ func refuseHomeOnly(path string, contents []byte) error {
 	}
 
 	return fmt.Errorf("%s: %w: %w", path, ErrInvalid, errors.Join(refused...))
+}
+
+// The permission bits that let a file's group, and everyone else, write it.
+const (
+	groupWritable  os.FileMode = 0o020
+	othersWritable os.FileMode = 0o002
+)
+
+// refuseUntrusted refuses a file someone other than the user could have
+// written: one another user owns, one others may write, or one a group may
+// write that is not its owner's own. A system that gives each user a group of
+// their own gives it the user's id and no other member, and its umask of 002
+// leaves every file the user makes writable by that group alone. Where the
+// system keeps no owner, as Windows does not, nothing is refused.
+func refuseUntrusted(info fs.FileInfo) error {
+	owner, known := fileowner.Of(info)
+	mode := info.Mode().Perm()
+
+	switch {
+	case !known:
+		return nil
+	case owner.User != os.Geteuid():
+		return fmt.Errorf("%w: another user owns it", ErrUntrustedFile)
+	case mode&othersWritable != 0, mode&groupWritable != 0 && owner.Group != owner.User:
+		return fmt.Errorf("%w: its mode, %#o, lets others write it; run chmod go-w on it", ErrUntrustedFile, mode)
+	}
+
+	return nil
 }
