@@ -70,6 +70,13 @@ RUN set -eux; \
     git ca-certificates python3-pip xz-utils; \
     rm -rf /var/lib/apt/lists/*
 
+# Every file downloaded below is checked against the SHA-256 committed for its
+# tool, version and architecture in build/tool-checksums.txt before it is
+# unpacked or run, and the build stops on a mismatch or a missing line.
+# scripts/check-tool-checksums.sh holds that file to mise.toml's versions.
+COPY build/tool-checksums.txt /usr/local/share/tool-checksums.txt
+COPY scripts/verify-download.sh /usr/local/bin/verify-download
+
 # node — the runtime the npm tools run under (and the source of npm), from the
 # mise.toml pin rather than the base image's apt, so the container runs the same
 # node the host and CI do. Installed before the npm step below.
@@ -83,6 +90,7 @@ RUN set -eux; \
     esac; \
     url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${target}.tar.xz"; \
     curl -fsSL "${url}" -o /tmp/node.tar.xz; \
+    verify-download /usr/local/share/tool-checksums.txt /tmp/node.tar.xz node "${NODE_VERSION}" "${arch}"; \
     tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1; \
     rm -f /tmp/node.tar.xz; \
     node --version; \
@@ -101,16 +109,22 @@ RUN set -eux; \
     esac; \
     curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.${shellcheck_target}.tar.xz" \
     -o /tmp/shellcheck.tar.xz; \
+    verify-download /usr/local/share/tool-checksums.txt /tmp/shellcheck.tar.xz shellcheck "${SHELLCHECK_VERSION}" "${arch}"; \
     tar -xJf /tmp/shellcheck.tar.xz -C /usr/local/bin --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"; \
     rm -f /tmp/shellcheck.tar.xz; \
     shellcheck --version; \
     curl -fsSL "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-linux-${arch}" \
-    -o /usr/local/bin/jq; \
-    chmod +x /usr/local/bin/jq; \
+    -o /tmp/jq; \
+    verify-download /usr/local/share/tool-checksums.txt /tmp/jq jq "${JQ_VERSION}" "${arch}"; \
+    install -m 0755 /tmp/jq /usr/local/bin/jq; \
+    rm -f /tmp/jq; \
     jq --version; \
     curl -fsSL "https://github.com/evilmartians/lefthook/releases/download/v${LEFTHOOK_VERSION}/lefthook_${LEFTHOOK_VERSION}_Linux_${lefthook_target}.gz" \
-    | gunzip > /usr/local/bin/lefthook; \
+    -o /tmp/lefthook.gz; \
+    verify-download /usr/local/share/tool-checksums.txt /tmp/lefthook.gz lefthook "${LEFTHOOK_VERSION}" "${arch}"; \
+    gunzip -c /tmp/lefthook.gz > /usr/local/bin/lefthook; \
     chmod +x /usr/local/bin/lefthook; \
+    rm -f /tmp/lefthook.gz; \
     lefthook version
 
 # Tools that ship as Go modules, built with the Go above so none of them can
@@ -145,6 +159,7 @@ RUN set -eux; \
     esac; \
     url="https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/typos-v${TYPOS_VERSION}-${target}.tar.gz"; \
     curl -fsSL "${url}" -o /tmp/typos.tar.gz; \
+    verify-download /usr/local/share/tool-checksums.txt /tmp/typos.tar.gz typos "${TYPOS_VERSION}" "${arch}"; \
     tar -xzf /tmp/typos.tar.gz -C /usr/local/bin --strip-components=1 ./typos; \
     rm -f /tmp/typos.tar.gz; \
     typos --version
@@ -159,8 +174,10 @@ RUN set -eux; \
     *) echo "unsupported architecture: ${arch}" >&2; exit 1 ;; \
     esac; \
     url="https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-Linux-${target}"; \
-    curl -fsSL "${url}" -o /usr/local/bin/hadolint; \
-    chmod +x /usr/local/bin/hadolint; \
+    curl -fsSL "${url}" -o /tmp/hadolint; \
+    verify-download /usr/local/share/tool-checksums.txt /tmp/hadolint hadolint "${HADOLINT_VERSION}" "${arch}"; \
+    install -m 0755 /tmp/hadolint /usr/local/bin/hadolint; \
+    rm -f /tmp/hadolint; \
     hadolint --version
 
 # taplo and zizmor ship prebuilt binaries per architecture, like typos above.
@@ -173,11 +190,15 @@ RUN set -eux; \
     *) echo "unsupported architecture: ${arch}" >&2; exit 1 ;; \
     esac; \
     curl -fsSL "https://github.com/tamasfe/taplo/releases/download/${TAPLO_VERSION}/taplo-linux-${taplo_target}.gz" \
-    | gunzip > /usr/local/bin/taplo; \
+    -o /tmp/taplo.gz; \
+    verify-download /usr/local/share/tool-checksums.txt /tmp/taplo.gz taplo "${TAPLO_VERSION}" "${arch}"; \
+    gunzip -c /tmp/taplo.gz > /usr/local/bin/taplo; \
     chmod +x /usr/local/bin/taplo; \
+    rm -f /tmp/taplo.gz; \
     taplo --version; \
     curl -fsSL "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-${zizmor_target}.tar.gz" \
     -o /tmp/zizmor.tar.gz; \
+    verify-download /usr/local/share/tool-checksums.txt /tmp/zizmor.tar.gz zizmor "${ZIZMOR_VERSION}" "${arch}"; \
     tar -xzf /tmp/zizmor.tar.gz -C /usr/local/bin zizmor; \
     rm -f /tmp/zizmor.tar.gz; \
     zizmor --version
