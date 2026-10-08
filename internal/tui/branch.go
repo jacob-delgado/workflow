@@ -185,31 +185,28 @@ func (m Model) valueOr(value, none string) string {
 	return value
 }
 
-// branchKeys offers starting a branch, and pushing one that is not pushed.
-func (m Model) branchKeys() []key.Binding {
+// branchOffers are the Branch pane's keys: starting a branch, switching to
+// another task's, linking it to an issue by hand, catching it up with its
+// base, pushing it, and reading it again. Outside a repository there is no
+// branch to act on, and none is offered.
+func (m Model) branchOffers() []offer {
 	if m.outsideRepository() {
 		return nil
 	}
 
-	keys := []key.Binding{m.keys.newBranch}
-
-	if m.canSwitchTask() {
-		keys = append(keys, m.keys.switchBranch)
+	return []offer{
+		{binding: m.keys.newBranch, can: m.canCreateBranch(), act: m.openBranchCreator},
+		{binding: m.keys.switchBranch, can: m.canSwitchTask(), act: m.openBranchPicker},
+		{binding: m.keys.linkIssue, can: m.canLinkIssue(), act: m.openBranchLink},
+		{binding: m.keys.rebase, can: m.canRebase(), act: m.previewRebase},
+		{binding: m.keys.push, can: m.canPush(), act: m.previewPush},
+		{binding: m.keys.refresh, can: true, act: func() (Model, tea.Cmd) { return m.refreshPane(paneBranch) }},
 	}
+}
 
-	if m.canLinkIssue() {
-		keys = append(keys, m.keys.linkIssue)
-	}
-
-	if m.canRebase() {
-		keys = append(keys, m.keys.rebase)
-	}
-
-	if m.canPush() {
-		keys = append(keys, m.keys.push)
-	}
-
-	return append(keys, m.keys.refresh)
+// branchKeys is the Branch pane's footer: the offers that act right now.
+func (m Model) branchKeys() []key.Binding {
+	return liveKeys(m.branchOffers())
 }
 
 // canSwitchTask reports that the repository can list and switch branches.
@@ -259,32 +256,10 @@ func (m Model) branchIssue() (jira.Key, bool) {
 	return jira.Key(key.Key), ok
 }
 
-// branchOffer is one of the Branch pane's keys: whether it acts right now,
-// and what it opens when it does.
-type branchOffer struct {
-	binding key.Binding
-	can     bool
-	open    func() (Model, tea.Cmd)
-}
-
-// handleBranchKey answers the Branch pane's own keys.
+// handleBranchKey answers the Branch pane's own keys, as its footer offers
+// them.
 func (m Model) handleBranchKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	offers := []branchOffer{
-		{m.keys.newBranch, true, m.openBranchCreator},
-		{m.keys.switchBranch, m.canSwitchTask(), m.openBranchPicker},
-		{m.keys.linkIssue, m.canLinkIssue(), m.openBranchLink},
-		{m.keys.rebase, m.canRebase(), m.previewRebase},
-		{m.keys.push, m.canPush(), m.previewPush},
-		{m.keys.refresh, true, func() (Model, tea.Cmd) { return m.refreshPane(paneBranch) }},
-	}
-
-	for _, offer := range offers {
-		if offer.can && key.Matches(msg, offer.binding) {
-			return offer.open()
-		}
-	}
-
-	return m, nil
+	return m.answer(m.branchOffers(), msg)
 }
 
 // branchCreator is a branch about to be created, named for the selected issue.
@@ -320,10 +295,6 @@ var (
 // openBranchCreator proposes a branch for the selected issue, started from the
 // branch work merges into.
 func (m Model) openBranchCreator() (Model, tea.Cmd) {
-	if !m.canCreateBranch() {
-		return m, nil
-	}
-
 	issue, forIssue := m.issues.current()
 
 	name := ""

@@ -54,10 +54,6 @@ func (msg hooksFound) apply(m Model) (Model, tea.Cmd) {
 // openHookgen opens the lefthook offer, rebuilt from the stored hooks so it
 // reopens after a skip.
 func (m Model) openHookgen() (Model, tea.Cmd) {
-	if len(m.hookgen.hooks) == 0 {
-		return m, nil
-	}
-
 	m.overlay = hookgenOffer{
 		marks: m.marks, styles: m.styles, hooks: m.hookgen.hooks, generated: hooks.Structured(m.hookgen.hooks),
 	}

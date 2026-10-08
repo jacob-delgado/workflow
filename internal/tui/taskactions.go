@@ -693,11 +693,7 @@ func (t trackIssue) annotation(annotate func(uuid, text string) error, uuid stri
 // why the Tasks pane does not list it, and otherwise opens the line that tracks
 // the issue in Taskwarrior, prefilled in its grammar.
 func (m Model) trackSelectedIssue() (Model, tea.Cmd) {
-	selected, ok := m.issues.current()
-	if !ok || !m.canTrack(selected.Key) {
-		return m, nil
-	}
-
+	selected, _ := m.issues.current()
 	if task, tracked := m.trackingTask(selected.Key); tracked {
 		return m.goToTrackingTask(selected.Key, task), nil
 	}

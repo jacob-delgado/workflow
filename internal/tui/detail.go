@@ -195,90 +195,81 @@ func (m Model) issuesNarrow(rows int) string {
 	return m.issuesRail(rows)
 }
 
-// issuesKeys offers what the Issues pane answers right now: in the collapsed
-// layout, reading the selected issue or going back to the list; the verbs its
-// seams can carry out on the selected issue and its links; then the list's own
-// keys. With no issue selected, a branch can still be started from nothing.
-func (m Model) issuesKeys() []key.Binding {
-	if m.setupShown() {
-		return slices.Concat([]key.Binding{relabel(m.keys.confirm, "set up")}, m.newBranchKeys(), m.issueListKeys())
-	}
-
+// issuesOffers are the Issues pane's keys: in the collapsed layout, reading
+// the selected issue or going back to the list; the verbs its seams can carry
+// out on the selected issue and its links; then the list's own keys. With no
+// issue selected, or the first run's setup offered, a branch can still be
+// started from nothing.
+func (m Model) issuesOffers() []offer {
 	selected, ok := m.issues.current()
-	if !ok {
-		return slices.Concat(m.newBranchKeys(), m.issueListKeys())
-	}
 
-	return slices.Concat(m.readingKeys(), m.issueVerbKeys(selected), m.linkKeys(m.issueURL()), m.issueListKeys())
+	switch {
+	case m.setupShown():
+		setup := offer{binding: relabel(m.keys.confirm, "set up"), can: true, act: m.openSetup}
+
+		return slices.Concat([]offer{setup, m.newBranchOffer()}, m.issueListOffers())
+	case !ok:
+		return slices.Concat([]offer{m.newBranchOffer()}, m.issueListOffers())
+	default:
+		return slices.Concat(m.readingOffers(), m.issueVerbOffers(selected), m.linkOffers(m.issueURL()),
+			m.issueListOffers())
+	}
 }
 
-// issueVerbKeys are the verbs for the selected issue whose seams are wired:
+// issuesKeys is the Issues pane's footer: the offers that act right now.
+func (m Model) issuesKeys() []key.Binding {
+	return liveKeys(m.issuesOffers())
+}
+
+// issueVerbOffers are the verbs for the selected issue whose seams are wired:
 // status, comment, then the branch, which moves the loop on, ahead of assign,
 // log work and tracking it in Taskwarrior — or going to its task — since a
 // narrow footer drops the last verbs first.
-func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
-	offers := []struct {
-		wired   bool
-		binding key.Binding
-	}{
-		{m.deps.Jira.Transitions != nil, m.keys.changeStatus},
-		{m.deps.Jira.Comment != nil, m.keys.comment},
-		{m.canCreateBranch(), m.keys.startWork},
-		{m.deps.Jira.Assign != nil, m.keys.assign},
-		{m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key), m.keys.logWork},
-		{m.canTrack(selected.Key), m.trackKey(selected.Key)},
+func (m Model) issueVerbOffers(selected jira.Issue) []offer {
+	return []offer{
+		{binding: m.keys.changeStatus, can: m.deps.Jira.Transitions != nil, act: m.openStatusPicker},
+		{binding: m.keys.comment, can: m.deps.Jira.Comment != nil, act: m.startComment},
+		{binding: m.keys.startWork, can: m.canCreateBranch(), act: m.openBranchCreator},
+		{binding: m.keys.assign, can: m.deps.Jira.Assign != nil, act: m.openAssign},
+		{
+			binding: m.keys.logWork, can: m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key),
+			act: m.openLogWork,
+		},
+		{binding: m.trackKey(selected.Key), can: m.canTrack(selected.Key), act: m.trackSelectedIssue},
 	}
-
-	var keys []key.Binding
-
-	for _, offer := range offers {
-		if offer.wired {
-			keys = append(keys, offer.binding)
-		}
-	}
-
-	return keys
 }
 
-// newBranchKeys offers starting a branch named for no issue, which the branch
-// key does on the Issues pane when none is selected.
-func (m Model) newBranchKeys() []key.Binding {
-	if !m.canCreateBranch() {
-		return nil
-	}
-
-	return []key.Binding{relabel(m.keys.startWork, "new branch")}
+// newBranchOffer is starting a branch named for no issue, which the branch key
+// does on the Issues pane when none is selected.
+func (m Model) newBranchOffer() offer {
+	return offer{binding: relabel(m.keys.startWork, "new branch"), can: m.canCreateBranch(), act: m.openBranchCreator}
 }
 
-// readingKeys offers, in the collapsed layout where the list and the issue take
+// readingOffers are, in the collapsed layout where the list and the issue take
 // turns, reading the selected issue in full or going back to the list.
-func (m Model) readingKeys() []key.Binding {
+func (m Model) readingOffers() []offer {
 	switch {
 	case !m.shape().Collapsed():
 		return nil
 	case m.issues.viewing:
-		return []key.Binding{relabel(m.keys.closeOverlay, escBack+" to list")}
+		return []offer{{binding: relabel(m.keys.closeOverlay, escBack+" to list"), can: true, act: m.backToIssueList}}
 	default:
-		return []key.Binding{relabel(m.keys.confirm, "read issue")}
+		return []offer{{binding: relabel(m.keys.confirm, "read issue"), can: true, act: m.readSelectedIssue}}
 	}
 }
 
-// issueListKeys are the keys that manage the list itself: filter it, narrow it
-// to places, switch view, read the next page, search again.
-func (m Model) issueListKeys() []key.Binding {
-	var keys []key.Binding
+// issueListOffers are the keys that manage the list itself: filter it, narrow
+// it to places, switch view, read the next page, search again.
+func (m Model) issueListOffers() []offer {
+	filterable := m.issues.filterable()
 
-	if m.issues.filterable() {
-		keys = append(keys, m.keys.searchIssues, m.keys.filterIssues)
+	return []offer{
+		{binding: m.keys.searchIssues, can: filterable, act: m.beginIssueFilter},
+		{binding: m.keys.filterIssues, can: filterable, act: m.openPlacePicker},
+		{binding: m.keys.nextView, can: len(m.views) > 1, act: m.nextIssueView},
+		{binding: m.keys.loadMore, can: m.issues.hasMore(), act: m.loadMoreIssues},
+		{binding: m.keys.refresh, can: true, act: func() (Model, tea.Cmd) { return m.refreshPane(paneIssues) }},
 	}
-
-	keys = append(keys, m.viewKeys()...)
-
-	if m.issues.hasMore() {
-		keys = append(keys, m.keys.loadMore)
-	}
-
-	return append(keys, m.keys.refresh)
 }
 
 // issueURL is the selected issue's browse URL, or empty when there is no issue
@@ -290,15 +281,6 @@ func (m Model) issueURL() string {
 	}
 
 	return m.deps.Jira.BrowseURL(selected.Key)
-}
-
-// viewKeys offers the view switch when there is more than one view.
-func (m Model) viewKeys() []key.Binding {
-	if len(m.views) <= 1 {
-		return nil
-	}
-
-	return []key.Binding{m.keys.nextView}
 }
 
 // moveIssue moves the selection, reads the newly selected issue once the
