@@ -1958,66 +1958,6 @@ each job's tools.
 **Done when.** The summary job runs no test suite, and the node-only jobs
 install only node.
 
-### DEBT-262 Fifteen `//nolint:tagliatelle` lines in `internal/jira` could be one exclusion
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `internal/jira/fields.go:133`, `:144`, `activity.go:152`, `:162`,
-`transitions.go:48`, `search.go:120`, `:121`, `:147`, `:156`, `worklog.go:19`,
-`:35`, `answer.go:33`, `detail.go:70`, `jira.go:65`, `worklog_test.go:31`;
-`tagliatelle` settings (`.golangci.yml:169`).
-
-**Today.** Every Jira wire struct repeats "Jira's field name on the wire". The
-snake_case rule exists for `.workflow.json`; Jira's REST is camelCase by
-contract and the package holds no JSON of ours, so the exception is the whole
-package, spelled field by field.
-
-**Fix.** Add an exclusion rule for `path: internal/jira/` and `linters:
-[tagliatelle]` with the reason once, and delete the directives.
-
-**Done when.** `grep -rc 'nolint:tagliatelle' internal/jira` prints 0 and
-`task lint:go` passes.
-
-### DEBT-263 The forge's error paths for activity, job logs and writes are never exercised
-
-Severity: low · Confidence: measured · Size: M
-
-**Where.** `githubActivity`, `githubReviewed`, `gitlabActivity`
-(`internal/forge/activity.go:96` to `:193`), `logResponse`
-(`internal/forge/cijobs.go:145`), `JobLog` (`:100`), `send`
-(`internal/forge/client.go:189`), `githubRequestReviewers`
-(`internal/forge/github.go:411`).
-
-**Today.** gobco lists every `err != nil` in the activity reads as never true,
-a forge 4xx or 5xx on a log's first request never seen, a missing token in
-`JobLog` and `send` never seen, and the one-by-one reviewer fallback never
-entered on an unexpected status. A regression in classifying those failures
-goes unnoticed.
-
-**Fix.** Table cases answering 401, 403, 404 and 500 for activity on both
-forges and a log's first request, and Merge and Rerun with no token.
-
-**Done when.** gobco's worklist drops those lines.
-
-### DEBT-265 Three forge test helpers each rebuild one recording fake server
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `forgeAnswering` (`internal/forge/pulls_test.go:51`),
-`scriptedForge` (`internal/forge/bestreviewers_test.go:34`),
-`forgeConversation` (`internal/forge/prpeople_test.go:41`), `serveForge` and
-`answerJSON` (`client_test.go:33`, `:43`), `clientOn` (`refusal_test.go:27`).
-
-**Today.** Each starts a server, decodes the body, records method, path, query
-and body and answers; they differ only in how the answer is chosen. Recording
-a header means editing three to five copies.
-
-**Fix.** One `recordingForge(t, answer func(recorded) (int, string))`, with
-the others as answer funcs.
-
-**Done when.** The forge tests hold one server helper that decodes request
-bodies.
-
 ### DEBT-266 The git-environment scrub list is hand-copied into two `TestMain`s
 
 Severity: low · Confidence: read · Size: S
@@ -2516,31 +2456,6 @@ lines and the exit error, used by every drain-to-slice caller.
 or `internal/wiring`, and one test of `Drain` covers what every caller
 receives.
 
-### DEBT-292 `readPages` stops at its cap without saying so, and `Activity.Truncated` ignores it
-
-Severity: medium · Confidence: read · Size: M
-
-**Where.** `readPages` (`internal/forge/client.go:371`), `gitlabActivity` and
-`githubActivity` (`internal/forge/activity.go:181`, `:96`), `githubSearch`
-(`internal/forge/github.go:176`), `githubPages`
-(`internal/forge/githubci.go:183`), `gitlabIssues`
-(`internal/forge/gitlab.go:227`), `gitlabGroupMembers`
-(`internal/forge/members.go:94`), `Activity` (`activity.go:48`).
-
-**Today.** `readPages` returns what it read after 20 pages with no error and
-no flag. GitLab's activity reads `/events` (every event kind) through it
-ascending, so a busy period drops its newest events while `Truncated`,
-documented as "whether there was more than was read" and drawn by the Summary
-as "had more than this shows", stays false. GitHub's opened and merged
-searches cap at 1,000 unreported. `githubPages` counts for itself; the other
-listings cut silently. A Summary under-reports and says it is complete.
-
-**Fix.** Have `readPages` return a truncated flag, thread it into `Truncated`
-on both forges, and use it in place of `githubPages`'s counting.
-
-**Done when.** A `gitlabActivity` test serving 21 full pages gets `Truncated
-== true`, and a GitHub search past 1,000 does too.
-
 ### DEBT-294 A Jira-only tracker sends bare forge numbers to Jira for assign and transition
 
 Severity: low · Confidence: read · Size: S
@@ -2585,123 +2500,6 @@ group cache is keyed by name only and survives a host change.
 
 **Done when.** A wiring test starts with GitHub, applies GitLab settings and
 sees `IsGroup` reach the fake GitLab endpoint.
-
-### DEBT-296 Linking a branch writes the sanitized pull request description back to the forge
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `branchLinker.choose` and `link` (`internal/tui/branchlink.go:231`,
-`:252`), `namePullIssue` and the preview
-(`internal/webserver/branchlink.go:166`, `:104`), `Client.exchange`
-(`internal/forge/client.go:278`), `sanitize.JSON`.
-
-**Today.** Both surfaces build the new description from the body as read,
-which `sanitize.JSON` has already neutralized (controls and bidi marks
-replaced, every CR dropped), and send it and the title back. Linking one issue
-rewrites the author's whole description, silently: bidi marks in right-to-left
-text become U+FFFD and CRLF bodies become LF.
-
-**Fix.** Have the edit seam re-read the raw body, or apply "insert the issue
-line" on the forge side, keeping the sanitized copy for display.
-
-**Done when.** A test with a body containing U+202E and CRLF sends it back
-unchanged but for the issue line.
-
-### DEBT-297 A job log is read whole under the ten-second client timeout
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `JobLog`, `logResponse`, `followLog`, `tailOf`, `lastBytes`
-(`internal/forge/cijobs.go:95`, `:134`, `:184`, `:206`, `:228`),
-`httpx.Client` (`internal/httpx/httpx.go:117`), `RequestTimeout`
-(`internal/wiring/wiring.go:43`).
-
-**Today.** The log is read to EOF on purpose, through a client whose timeout
-covers the body, so a log of tens of megabytes on an ordinary link fails with
-"Client.Timeout exceeded" exactly where its tail matters. Memory stays bounded
-and `timing.request_timeout` is a workaround.
-
-**Fix.** Request only the tail with a `Range` header, or give log reads a
-client with a per-read deadline instead of a whole-request timeout.
-
-**Done when.** A test serving a slow 50 MB log through a one-second client
-returns its last lines.
-
-### DEBT-298 Response handling is written seven times across the clients, and the copies disagree
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `Client.exchange` (`internal/jira/jira.go:170`), `Client.exchange`
-(`internal/forge/client.go:254`), `Client.send` and `deliver`
-(`internal/messaging/messaging.go:231`, `internal/messaging/post.go:246`),
-`Refresher.ask` (`internal/slackauth/refresh.go:98`), the `bodyLimit` and
-`reasonLimit` constants.
-
-**Today.** Each reads a capped body by hand. The copies drift: the forge
-refuses a non-JSON answer with an actionable message (`mustBeJSON`) and Jira
-does not, so a 200 HTML login page reads as "invalid character '<'";
-`slackauth.ask` reads no status, so a 429 surfaces as a refused refresh or
-"not JSON" rather than `httpx.ErrRateLimited`. (Each service's own
-classification and its distinct sentinels are intended.)
-
-**Fix.** An `httpx.Read(response, limit)` that detects overflow (DEBT-299), a
-Content-Type check for Jira, and status and 429 handling in `slackauth.ask`.
-
-**Done when.** A Jira test answering 200 HTML gets the actionable message, and
-slackauth's 429 test yields `httpx.ErrRateLimited`.
-
-### DEBT-299 An answer past the body limit is silently cut and reads as a JSON syntax error
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `internal/jira/jira.go:182`, `internal/forge/client.go:271`,
-`internal/messaging/messaging.go:246`, `internal/messaging/post.go:253`.
-
-**Today.** `io.ReadAll(io.LimitReader(body, limit))` truncates without saying
-so, and decoding then reports "unexpected end of JSON input", so the user is
-told the server sent bad JSON rather than that the answer was too large.
-Slack's 1 MiB cap is the likeliest to be met.
-
-**Fix.** Read limit + 1 bytes and return an `ErrAnswerTooLarge` sentinel on
-overflow, in the shared reader.
-
-**Done when.** A test serving limit + 1 bytes of valid JSON gets
-`errors.Is(err, ErrAnswerTooLarge)`.
-
-### DEBT-300 Messaging's `ErrRejected` blames the credential for any 4xx, including a bad message
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `ErrRejected` (`internal/messaging/messaging.go:47`), `deliver`
-(`internal/messaging/post.go:263`), `configurationErrors`
-(`internal/cli/scriptable.go:381`).
-
-**Today.** Every webhook 4xx becomes "the credential was not accepted", so a
-Discord 400 for a message too long or a Teams 400 for a bad payload exits with
-the configuration family and advises rotating a working webhook. Slack's own
-path keeps the two apart.
-
-**Fix.** Map 401, 403 and Slack's credential codes to `ErrRejected`, and other
-4xx to `ErrPostRefused` with the capped reason.
-
-**Done when.** A webhook test answering 400 gets `ErrPostRefused`, not
-`ErrRejected`.
-
-### DEBT-301 A failed group-member read is reported as "no such user"
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `gitlabReviewers.addGroupNamedAsUser`
-(`internal/forge/members.go:155`), `IsGroup` (`:74`), `addTeam` (`:167`).
-
-**Today.** Any error from the group read, including a rate limit, a 403 or a
-cancel, is recorded as `ErrNoUser`; `IsGroup` and `addTeam` keep the real
-error. A transient failure sends the user hunting a typo.
-
-**Fix.** Use `ErrNoUser` only for `ErrNoAPI`, and the error itself otherwise.
-
-**Done when.** A test whose group read answers 429 records
-`httpx.ErrRateLimited` in the missed-people chain.
 
 ### DEBT-302 Discard and Unstage treat any failed HEAD probe as an unborn branch
 
@@ -2936,55 +2734,6 @@ advice to `loop/setup.go`; drop Merge's dedupe and its doc claim.
 **Done when.** `PostSummary(nil, …)` returns the sentinel, `summary.go` holds
 only Summary reads and posting, and Merge's doc matches it.
 
-### DEBT-313 The forge's GitHub and GitLab code repeats small rules
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `addUser`, `gitlabKnownIDs`, `gitlabResolveAssignees`
-(`internal/forge/members.go:142`, `:239`, `:266`), `strings.Cut(RepositoryURL,
-"/repos/")` (`internal/forge/github.go:138`, `internal/forge/activity.go:88`,
-`:150`), `githubReviewed` (`activity.go:150`), `runState` and `runFailed`
-(`internal/forge/ci.go:104`, `internal/forge/githubci.go:174`), `pattern`
-(`internal/codeowners/match.go:17`, `:124`), `github.go` (539 lines).
-
-**Today.** A GitLab username is resolved to its id three times (the
-slice-shaped helper serves one single-name caller; gobco shows its error paths
-never run). The repository is cut out of GitHub's `repository_url` three
-times, and `githubReviewed` rebuilds the pull path by hand and reads one page
-of 100 reviews, missing any past it. The passing-conclusion set is declared
-twice with a comment promising they agree. The codeowners pattern carries
-fields for each dialect, chosen by a non-empty string rather than the dialect.
-`github.go` holds pulls, issues, the review queue, reviewers and merge.
-
-**Fix.** One `gitlabUserID`; one repository accessor and `githubPullReviews`
-in `githubReviewed`; one `passingConclusion`; one matcher per dialect; split
-`githubpeople.go` and `githubissues.go`.
-
-**Done when.** `members.go` resolves ids in one place, one `strings.Cut` on
-`RepositoryURL` remains, a test with 101 reviews counts the last, `"neutral"`
-appears once outside tests, and `github.go` is not flagged soft.
-
-### DEBT-314 `post.go` holds both transport and rendering, and the Markdown escape lists must stay inverse
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `Post` to `deliver` and `Moment` to `slackEscape`
-(`internal/messaging/post.go:87`, `:271`), `markdownEscape` (`post.go:362`),
-`markdownUnescape` (`internal/messaging/markdown.go:102`), `markdownEscaper`
-(`internal/activity/text.go:88`).
-
-**Today.** The second half of `post.go` is the announcement's rendering, which
-`markdown.go` shares, and its tests are the bulk of `post_test.go` (DEBT-241).
-Three hand-kept tables list the same thirteen Markdown metacharacters, two
-escaping and one unescaping across packages; a character added to one leaves
-stray backslashes in Slack and webhook summaries, and no test ties them.
-
-**Fix.** Move `Announcement` and the markup helpers to `announcement.go`;
-derive the tables from one list and add a round-trip test.
-
-**Done when.** `post.go` is transport only, and a test asserts unescape of
-escape returns its input for every metacharacter.
-
 ### DEBT-316 `priorityRank` needs three `//nolint:mnd`, and the H, M, L order is written twice
 
 Severity: low · Confidence: measured · Size: S
@@ -3024,23 +2773,6 @@ transport; add a test that every `CREATE TABLE` has a summary entry.
 **Done when.** No `"git"` program literal remains in `internal/gitrepo`, a
 10k-entry benchmark makes O(limit) `.git` checks, a `forge.cli` test runs no
 token command, and a seeded `repo_choice` shows in the summary.
-
-### DEBT-318 The messaging package's `users.info` lookup and `Grant.Lacks` have no test of their own
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `Client.User` (`internal/messaging/directory.go:280`),
-`Grant.Lacks` (`internal/messaging/messaging.go:102`).
-
-**Today.** gobco lists every condition in both as never evaluated by the
-package's tests. `User` is the large-workspace fallback whose checks for an
-untaggable or mismatched user guard who can be tagged; the mismatch and
-deleted-user branches are tested nowhere.
-
-**Fix.** Black-box tests: `users.info` answering a bot, a deleted user and
-another id, and `auth.test` with and without scopes.
-
-**Done when.** gobco no longer lists those conditions.
 
 ### DEBT-321 Pay down TRADE-21 and TRADE-28: twin rules read one shared case file
 
