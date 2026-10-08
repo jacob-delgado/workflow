@@ -5,6 +5,8 @@ package setup
 
 import (
 	"context"
+	"errors"
+	"os"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -68,7 +70,9 @@ func (g Guide) Check(ctx context.Context, settings config.Jira) (string, error) 
 // Write writes the file request asks for, unless one is already there: the
 // answers over the home file it lies over, the token in the keychain when
 // asked. It checks nothing; a form checks the token first and says how that
-// went.
+// went. Everything that can refuse the write does before the keychain is
+// touched, and the file is made before the keychain keeps the token, so a
+// write that fails leaves the keychain as it was.
 func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 	if request.Place == Home && g.Where.HomeDir == "" {
 		return Written{}, ErrNoHome
@@ -86,14 +90,6 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 		return Written{}, err
 	}
 
-	answers := request.Answers
-	if keychain {
-		answers.Jira, err = Keep(g.StoreSecret, answers.Jira)
-		if err != nil {
-			return Written{}, err
-		}
-	}
-
 	layers := g.Where.Layers(request.Place)
 
 	beneath, over, err := Beneath(layers)
@@ -101,25 +97,58 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 		return Written{}, err
 	}
 
-	err = Create(path, layers, answers.Over(beneath), over)
+	cfg := request.Answers.Over(beneath)
+	if keychain {
+		cfg.Jira.Token = ""
+	}
+
+	err = Create(path, layers, cfg, over)
 	if err != nil {
 		return Written{}, err
+	}
+
+	if keychain {
+		err = g.keepInKeychain(path, cfg, request.Answers.Jira.Token)
+		if err != nil {
+			return Written{}, err
+		}
 	}
 
 	return Written{Path: path, Keychain: keychain, NotIgnored: NotIgnored(ctx, path)}, nil
 }
 
 // keychainFor reports whether the keychain keeps the token request asks it
-// to: never with Jira left out, and refused for a file other than the home
-// directory's, the one file that may read it back.
+// to: never with Jira left out or no token to keep, refused where there is no
+// keychain, and refused for a file other than the home directory's, the one
+// file that may read it back.
 func (g Guide) keychainFor(request Request) (bool, error) {
-	if !request.Keychain || request.Answers.Jira.BaseURL == "" {
+	if !request.Keychain || request.Answers.Jira.BaseURL == "" || request.Answers.Jira.Token == "" {
 		return false, nil
 	}
 
-	if g.StoreSecret != nil && !g.Where.IsHomeFile(request.Place) {
+	if g.StoreSecret == nil {
+		return false, ErrNoKeychain
+	}
+
+	if !g.Where.IsHomeFile(request.Place) {
 		return false, ErrKeychainAtHome
 	}
 
 	return true, nil
+}
+
+// keepInKeychain keeps token in the keychain and points the home file just
+// made at path, holding cfg, at it. The file goes again when the keychain
+// does not keep the token, so a failed setup leaves neither behind.
+func (g Guide) keepInKeychain(path string, cfg config.Config, token config.Secret) error {
+	cfg.Jira.Token = token
+
+	settings, err := Keep(g.StoreSecret, cfg.Jira)
+	if err != nil {
+		return errors.Join(err, os.Remove(path))
+	}
+
+	cfg.Jira = settings
+
+	return config.Save(path, cfg)
 }
