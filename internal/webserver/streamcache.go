@@ -278,8 +278,9 @@ const assignedInterval = time.Minute
 // other issues or assignedInterval has passed. An ask that fails keeps the last
 // answer until the next is due, and an issue that answer never covered counts
 // as yours, as every issue does with no answer yet, or no tracker to ask, so
-// the list never waits on the tracker. Its lock is held across the ask, so
-// streams that find one due together make one.
+// the list never waits on the tracker. One ask runs at a time, outside the
+// lock: a frame that finds one under way is served the answer held at once,
+// or, before any ask has landed, waits for that ask.
 type assignedCache struct {
 	mu     sync.Mutex
 	held   bool
@@ -289,6 +290,8 @@ type assignedCache struct {
 	// about, sorted; mine is nil until the tracker has answered.
 	mine     map[jira.Key]bool
 	answered []jira.Key
+	// reading is the ask under way, closed once it lands, or nil with none.
+	reading chan struct{}
 }
 
 // yours is which of keys are yours by the last answer: those it said are, and
@@ -311,7 +314,8 @@ func (c *assignedCache) yours(keys []jira.Key) map[jira.Key]bool {
 }
 
 // yourIssues is which of keys name your issues, from the assigned cache: nil,
-// counting every issue, with no tracker to ask or none that has answered.
+// counting every issue, with no tracker to ask or none that has answered. A
+// failed ask is no failure here: the answer held stands in for it.
 func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
 	if s.deps.SearchLenient == nil {
 		return nil
@@ -319,22 +323,56 @@ func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
 
 	asked := slices.Compact(slices.Sorted(slices.Values(keys)))
 
-	s.assigned.mu.Lock()
-	defer s.assigned.mu.Unlock()
+	yours, _ := sharedRead(
+		func() turn[map[jira.Key]bool] { return s.assigned.serve(asked, s.now()) },
+		func(int) (map[jira.Key]bool, error) {
+			mine, err := loop.AssignedKeys(s.deps.SearchLenient, asked)
 
-	now := s.now()
-	if s.assigned.held && slices.Equal(s.assigned.keys, asked) && now.Sub(s.assigned.readAt) < assignedInterval {
-		return s.assigned.yours(asked)
+			return s.assigned.land(asked, s.now(), mine, err), nil
+		},
+	)
+
+	return yours
+}
+
+// serve answers which of asked are yours while the answer held was asked of
+// the same keys within assignedInterval, and while an ask is under way; it
+// hands back that ask to wait for before any has landed, and otherwise
+// starts the caller's own ask, which land ends.
+func (c *assignedCache) serve(asked []jira.Key, now time.Time) turn[map[jira.Key]bool] {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	fresh := slices.Equal(c.keys, asked) && now.Sub(c.readAt) < assignedInterval
+	if c.held && (c.reading != nil || fresh) {
+		return turn[map[jira.Key]bool]{answered: true, value: c.yours(asked)}
 	}
 
-	mine, err := loop.AssignedKeys(s.deps.SearchLenient, asked)
-	s.assigned.held, s.assigned.keys, s.assigned.readAt = true, asked, now
+	if c.reading != nil {
+		return turn[map[jira.Key]bool]{landing: c.reading}
+	}
+
+	c.reading = make(chan struct{})
+
+	return turn[map[jira.Key]bool]{}
+}
+
+// land holds what the ask of asked made at now answered, keeping the last
+// answer when it failed, and lets go every frame waiting on it. It answers
+// which of asked are yours.
+func (c *assignedCache) land(asked []jira.Key, now time.Time, mine map[jira.Key]bool, err error) map[jira.Key]bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	close(c.reading)
+	c.reading = nil
+	c.held, c.keys, c.readAt = true, asked, now
 
 	if err == nil {
-		s.assigned.mine, s.assigned.answered = mine, asked
+		c.mine, c.answered = mine, asked
 	}
 
-	return s.assigned.yours(asked)
+	return c.yours(asked)
 }
 
 // authorCache is who the forge says a post would come from, kept from its first
