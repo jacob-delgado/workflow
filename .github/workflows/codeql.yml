@@ -1,13 +1,16 @@
 name: CodeQL
 
-# GitHub's static analysis, over the Go code and over the workflows themselves.
-# It complements what `task lint` already does: golangci-lint reasons about one
-# package at a time, while CodeQL follows data across the program — a token
-# reaching a log line, a path reaching a file open.
+# GitHub's static analysis, over the Go code, the web app and the workflows
+# themselves. It complements what `task lint` already does: golangci-lint
+# reasons about one package at a time, while CodeQL follows data across the
+# program — a token reaching a log line, a path reaching a file open.
 #
 # The `actions` language matters as much as `go` here: every workflow in this
 # repository runs with a token, and CodeQL catches the injection patterns that
-# are easy to write by accident.
+# are easy to write by accident. `javascript-typescript` follows server text
+# through the web app in web/src, where eslint's rules see one file and no
+# data flow: a URL built from it, a message handler, a sink React does not
+# escape.
 
 on:
   push:
@@ -37,7 +40,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [go, actions]
+        include:
+          # Go builds through the autobuild step below; the build mode is left
+          # to CodeQL's default for it.
+          - language: go
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,12 +56,21 @@ jobs:
       - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
           # security-extended adds the lower-severity security queries; the
           # default suite alone is quiet to the point of being decorative.
           queries: security-extended
+          # Generated code, not ours to fix: the client hey-api writes from
+          # api/openapi.yaml, and the built bundle internal/web/dist embeds.
+          # CodeQL applies paths-ignore to the web app; Go is analyzed as built.
+          config: |
+            paths-ignore:
+              - web/src/api/generated
+              - internal/web/dist
 
       # Go builds through CodeQL's autobuild, which runs `go build ./...` — the
-      # toolchain version comes from go.mod. `actions` needs no build at all.
+      # toolchain version comes from go.mod. `actions` and the web app need no
+      # build at all.
       - uses: github/codeql-action/autobuild@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         if: matrix.language == 'go'
 
