@@ -20,6 +20,13 @@ import (
 // errorsPage is the reference page every problem's type URI points into.
 const errorsPage = "../../docs/content/docs/errors.md"
 
+// scriptingPage is the page whose table lines each problem code up with the
+// command line's exit status families.
+const scriptingPage = "../../docs/content/docs/scripting.md"
+
+// familiesHeading opens the scripting page's section holding that table.
+const familiesHeading = "### The same families on the web"
+
 func TestEveryProblemCodeHasASectionOnTheErrorsPage(t *testing.T) {
 	t.Parallel()
 
@@ -35,6 +42,23 @@ func TestEveryProblemCodeHasASectionOnTheErrorsPage(t *testing.T) {
 		if !slices.Contains(anchors, fragment) {
 			t.Errorf("problem code %q points at #%s, but %s has no section with that anchor; its sections are %q",
 				code, fragment, errorsPage, anchors)
+		}
+	}
+}
+
+func TestEveryProblemCodeHasAFamilyOnTheScriptingPage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	codes := problemCodes(t)
+
+	// Act
+	lined := familyTableCodes(t)
+
+	// Assert
+	for _, code := range codes {
+		if !slices.Contains(lined, code) {
+			t.Errorf("problem code %q is in no row of %s's table under %q", code, scriptingPage, familiesHeading)
 		}
 	}
 }
@@ -90,6 +114,48 @@ func problemCodes(t *testing.T) []string {
 
 	if len(codes) == 0 {
 		t.Fatal("the Problem schema's code enum is empty")
+	}
+
+	return codes
+}
+
+// familyTableCodes is every backticked name in the web column of the table
+// under the scripting page's families heading.
+func familyTableCodes(t *testing.T) []string {
+	t.Helper()
+
+	contents, err := os.ReadFile(scriptingPage)
+	if err != nil {
+		t.Fatalf("read %s: %v", scriptingPage, err)
+	}
+
+	_, section, found := strings.Cut(string(contents), familiesHeading)
+	if !found {
+		t.Fatalf("%s has no section headed %q", scriptingPage, familiesHeading)
+	}
+
+	var (
+		codes   []string
+		inTable bool
+	)
+
+	for line := range strings.Lines(section) {
+		cells := strings.Split(line, "|")
+		if !strings.HasPrefix(line, "|") || len(cells) < 3 {
+			if inTable {
+				break
+			}
+
+			continue
+		}
+
+		inTable = true
+
+		for index, part := range strings.Split(cells[2], "`") {
+			if index%2 == 1 {
+				codes = append(codes, part)
+			}
+		}
 	}
 
 	return codes
