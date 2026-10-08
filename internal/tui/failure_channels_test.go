@@ -45,8 +45,9 @@ func briefOnly(err error, brief string) spoken {
 func everySeamFailure() map[string]spoken {
 	return map[string]spoken{
 		"jira invalid base URL": {
-			fmt.Errorf("searching: %w", config.ErrInvalidBaseURL), "jira.base_url is not a URL",
-			"`jira.base_url` is not an absolute http or https address. Fix it; `workflow doctor` checks it.",
+			fmt.Errorf("searching: %w", config.ErrInvalidBaseURL), "jira.base_url cannot be used",
+			"`jira.base_url` is not an absolute https address, or http to this machine. Fix it; `workflow doctor` " +
+				"checks it.",
 		},
 		"jira credential in base URL": {
 			fmt.Errorf("searching: %w", config.ErrCredentialInBaseURL), "jira.base_url holds a password",

@@ -48,13 +48,18 @@ func TestCheckBaseURLAcceptsOnlyAnAbsoluteWebURLWithNoLogin(t *testing.T) {
 		want error
 	}{
 		"https":                 {raw: "https://" + jiraHost, want: nil},
-		"http, under a path":    {raw: "http://" + jiraHost + "/jira", want: nil},
-		"no scheme":             {raw: jiraHost + "/jira", want: config.ErrInvalidBaseURL},
-		"another scheme":        {raw: "ftp://" + jiraHost, want: config.ErrInvalidBaseURL},
-		"no host":               {raw: "https:///jira", want: config.ErrInvalidBaseURL},
-		"one url.Parse refuses": {raw: "https://" + login + jiraHost + "/\x7f", want: config.ErrInvalidBaseURL},
-		"a user and password":   {raw: "https://" + login + jiraHost, want: config.ErrCredentialInBaseURL},
-		"a user alone":          {raw: "https://" + loginUser + "@" + jiraHost, want: config.ErrCredentialInBaseURL},
+		"http to this machine":  {raw: "http://127.0.0.1:8080/jira", want: nil},
+		"http to localhost":     {raw: "http://localhost:8080", want: nil},
+		"http to IPv6 loopback": {raw: "http://[::1]:8080", want: nil},
+		// The token and every jira.headers value would cross the network in the
+		// clear.
+		"http to another machine": {raw: "http://" + jiraHost + "/jira", want: config.ErrInvalidBaseURL},
+		"no scheme":               {raw: jiraHost + "/jira", want: config.ErrInvalidBaseURL},
+		"another scheme":          {raw: "ftp://" + jiraHost, want: config.ErrInvalidBaseURL},
+		"no host":                 {raw: "https:///jira", want: config.ErrInvalidBaseURL},
+		"one url.Parse refuses":   {raw: "https://" + login + jiraHost + "/\x7f", want: config.ErrInvalidBaseURL},
+		"a user and password":     {raw: "https://" + login + jiraHost, want: config.ErrCredentialInBaseURL},
+		"a user alone":            {raw: "https://" + loginUser + "@" + jiraHost, want: config.ErrCredentialInBaseURL},
 		// The login is refused before the scheme is read, so a URL wrong in both
 		// ways names the login.
 		"a login on another scheme": {raw: "ftp://" + login + jiraHost, want: config.ErrCredentialInBaseURL},
@@ -74,6 +79,37 @@ func TestCheckBaseURLAcceptsOnlyAnAbsoluteWebURLWithNoLogin(t *testing.T) {
 
 			if err != nil && (strings.Contains(err.Error(), jiraHost) || strings.Contains(err.Error(), loginPassword)) {
 				t.Errorf("CheckBaseURL(%q) = %q, want an error that does not quote the URL", tt.raw, err)
+			}
+		})
+	}
+}
+
+func TestProblemsNamesAnHTTPBaseURLOffThisMachine(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		raw     string
+		refused bool
+	}{
+		"http to another machine": {raw: "http://" + jiraHost, refused: true},
+		"http to this machine":    {raw: "http://127.0.0.1:8080", refused: false},
+		"https":                   {raw: "https://" + jiraHost, refused: false},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			cfg := config.Config{Jira: config.Jira{BaseURL: tt.raw}}
+
+			// Act
+			got := cfg.Problems()
+
+			// Assert
+			refused := len(got) == 1 && strings.Contains(got[0], "jira.base_url") && strings.Contains(got[0], "https")
+			if refused != tt.refused || (!tt.refused && len(got) != 0) {
+				t.Errorf("Problems() of %q = %q, want it refused: %t", tt.raw, got, tt.refused)
 			}
 		})
 	}

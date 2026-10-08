@@ -275,9 +275,10 @@ counts toward no exit status: a webhook, which only posting would test; Jira
 when the forge's issues are the tracker, since there is no Jira to ask; and a
 forge it cannot name — no repository remote, or a host other than
 `github.com`, a `ghe.com` tenant or `gitlab.com` with no `forge.kind` and
-`forge.host` for it. A `jira.base_url` that is not an http or https address or
-that carries a login, and a `forge.kind` that names neither forge, are refused
-when the file loads, so they fail the configuration and nothing is checked.
+`forge.host` for it. A `jira.base_url` that is not an https address, or http to
+this machine, or that carries a login, and a `forge.kind` that names neither
+forge, are refused when the file loads, so they fail the configuration and
+nothing is checked.
 
 `workflow config show` prints the configuration file's own shape, as
 [Configuration]({{< relref "/docs/configuration" >}}) describes it.

@@ -12,6 +12,8 @@ import (
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/jacob-delgado/workflow/internal/httpx"
 )
 
 // FileName is the configuration file's name in both search locations.
@@ -45,8 +47,9 @@ var (
 	// ErrUnknownVersion reports a file naming a format version this build does
 	// not know how to read.
 	ErrUnknownVersion = errors.New("unknown configuration version")
-	// ErrInvalidBaseURL reports a jira.base_url that is not an absolute URL.
-	ErrInvalidBaseURL = errors.New("jira.base_url is not an absolute http or https URL")
+	// ErrInvalidBaseURL reports a jira.base_url that is not an absolute https
+	// URL, or an http one to this machine.
+	ErrInvalidBaseURL = errors.New("jira.base_url is not an absolute https URL, or http to this machine")
 	// ErrCredentialInBaseURL reports userinfo embedded in jira.base_url.
 	ErrCredentialInBaseURL = errors.New("jira.base_url carries a username and password")
 	// ErrSameName reports two names a map holds apart that are matched as one:
@@ -373,10 +376,11 @@ func (c Config) Problems() []string {
 	return problems
 }
 
-// CheckBaseURL reports whether raw can be jira.base_url: an absolute http or
-// https URL with a host, and with no username or password, which net/http
-// would turn into an Authorization header competing with the configured
-// token. The error never quotes raw, which may carry that password.
+// CheckBaseURL reports whether raw can be jira.base_url: an absolute https URL
+// with a host, or an http one to this machine, since every request carries the
+// token and every jira.headers value; and with no username or password, which
+// net/http would turn into an Authorization header competing with the
+// configured token. The error never quotes raw, which may carry that password.
 func CheckBaseURL(raw string) error {
 	parsed, err := url.Parse(raw)
 	if err != nil {
@@ -390,6 +394,10 @@ func CheckBaseURL(raw string) error {
 
 	if parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
 		return ErrInvalidBaseURL
+	}
+
+	if parsed.Scheme == "http" && !httpx.OnThisMachine(parsed.Hostname()) {
+		return fmt.Errorf("%w: over http the token would cross the network in the clear", ErrInvalidBaseURL)
 	}
 
 	return nil
