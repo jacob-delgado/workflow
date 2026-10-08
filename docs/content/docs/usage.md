@@ -74,10 +74,10 @@ what a script can rely on from them: exit codes, which stream carries what,
   that wait on your review, the longest-waiting first until `O` sorts them
   another way. `f` filters them by repository, CI state, draft or ready, and
   author — values in one of those widen the list, and the four narrow it
-  together, and a value checked stays, at zero, once no request holds it, a
-  repository or author the queue no longer holds last — and a line above the
-  queue names the sort and the filters while either is not the usual. The seventh, Tasks, is
-  your own [Taskwarrior](#track-it-in-taskwarrior) list, the eighth,
+  together, and a value checked stays, at zero, once no request holds it, and
+  goes last when it is a repository or author — and a line above the queue
+  names the sort and the filters while either is not the usual. The seventh,
+  Tasks, is your own [Taskwarrior](#track-it-in-taskwarrior) list, the eighth,
   [Summary](#summary), what you did over a day or a range of them, and the
   ninth, [Repositories](#repositories), where you work and the directories
   you keep as favorites.
@@ -622,7 +622,8 @@ tasks hold, and whether they have an issue, each with how many tasks hold it
 (a waiting task counts only toward its state):
 values checked in one group widen the list, and the groups narrow it
 together. A value checked stays, at zero, once no task holds it, so it can be
-unchecked; a project or tag no task holds any longer comes last. Checking
+unchecked, and a project, a tag or a priority other than H, M and L that no
+task holds any longer comes last. Checking
 **waiting** lists the waiting tasks, each saying until
 when. The faint line above the rows names what narrows the list; the rail
 still counts every pending task, and a task the list hides still tracks its

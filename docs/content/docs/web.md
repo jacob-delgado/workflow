@@ -413,15 +413,17 @@ project, `+tag`, issue key or `#id` holds what you type, and the **Filter**
 chips narrow the list by state, priority, project, tag and whether a task has
 an issue, each with its count; pressing **waiting** lists the waiting tasks.
 A value picked stays on offer, at zero, once no task holds it, so it can be
-unpicked; a project or tag no task holds any longer comes last. The order and
-the chips stay while you visit other sections. The section reads Taskwarrior
-when you open it, when **Refresh** asks, and again once the earliest wait
-still ahead has passed, since that changes where a task stands with nothing
-written, rather than from the stream. It needs Taskwarrior 3.5.0 or newer, found
-as [Configuration]({{< relref "/docs/configuration#taskwarrior" >}})
-describes; without one it says why — and, where the `task` on `PATH` is
-another program, go-task most likely, that Settings can name Taskwarrior's
-with `taskwarrior.program`, which applies once workflow restarts.
+unpicked, and a project, a tag or a priority other than H, M and L that no
+task holds any longer comes last; a waiting task counts toward its state
+alone. The order and the chips stay while you visit other sections. The
+section reads Taskwarrior when you open it, when **Refresh** asks, and again
+once the earliest wait still ahead has passed, since that changes where a task
+stands with nothing written, rather than from the stream. It needs
+Taskwarrior 3.5.0 or newer, found as
+[Configuration]({{< relref "/docs/configuration#taskwarrior" >}}) describes;
+without one it says why — and, where the `task` on `PATH` is another program,
+go-task most likely, that Settings can name Taskwarrior's with
+`taskwarrior.program`, which applies once workflow restarts.
 
 The line at the top adds a task from what you would type after `task add`, in
 Taskwarrior's own grammar — `project:web`, `due:friday` or `+review` among the
