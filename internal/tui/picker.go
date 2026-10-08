@@ -187,8 +187,6 @@ func (p statusPicker) failed(err error) statusPicker {
 // it was opened on, then the fields the chosen one needs, and how applying it is
 // going.
 type statusPicker struct {
-	marks       glyphs
-	styles      styles
 	issue       jira.Issue
 	transitions pickList[jira.Transition]
 	listErr     error
@@ -225,7 +223,7 @@ func (m Model) pickStatusFor(issue jira.Issue, offer statusOffer) (Model, tea.Cm
 		return m, nil
 	}
 
-	m.overlay = statusPicker{marks: m.marks, styles: m.styles, issue: issue, offer: offer}
+	m.overlay = statusPicker{issue: issue, offer: offer}
 	list := m.deps.Jira.Transitions
 
 	return m, func() tea.Msg {
@@ -267,22 +265,24 @@ func (p statusPicker) header() []string {
 }
 
 // view draws the picker in as many rows as fit.
-func (p statusPicker) view(width, rows int) (string, string) {
+func (p statusPicker) view(kit renderKit, width, rows int) (string, string) {
 	lines := p.header()
 
 	switch {
 	case !p.settled:
-		lines = append(lines, "reading the statuses"+p.marks.ellipsis)
+		lines = append(lines, "reading the statuses"+kit.marks.ellipsis)
 	case p.listErr != nil:
-		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
+		lines = append(lines, failureLine(kit.styles, kit.marks, p.listErr))
 	case len(p.transitions.items) == 0:
 		lines = append(lines, "Jira offers no status change for "+shownKey(p.issue.Key))
 	case p.form.open():
-		lines = append(lines, p.form.view(p.marks, p.styles, width, rows-len(lines)-outcomeRows)...)
-		lines = append(lines, p.outcome()...)
+		lines = append(lines, p.form.view(kit, width, rows-len(lines)-outcomeRows)...)
+		lines = append(lines, p.outcome(kit)...)
 	default:
-		lines = append(lines, p.transitions.rows(p.marks, rows-len(lines)-outcomeRows, p.transitionRow)...)
-		lines = append(lines, p.outcome()...)
+		lines = append(lines, p.transitions.rows(kit.marks, rows-len(lines)-outcomeRows, func(move jira.Transition) string {
+			return transitionRow(kit.marks, move)
+		})...)
+		lines = append(lines, p.outcome(kit)...)
 	}
 
 	return pickerTitle, strings.Join(lines, "\n")
@@ -290,19 +290,19 @@ func (p statusPicker) view(width, rows int) (string, string) {
 
 // transitionRow names a transition by where it leads, and says which fields it
 // needs, if any.
-func (p statusPicker) transitionRow(move jira.Transition) string {
-	return p.marks.status(move.ToStatusCategory) + " " + transitionLabel(p.marks, move) + needs(p.marks, move)
+func transitionRow(marks glyphs, move jira.Transition) string {
+	return marks.status(move.ToStatusCategory) + " " + transitionLabel(marks, move) + needs(marks, move)
 }
 
 // outcome says how applying the chosen transition is going, if it was tried.
-func (p statusPicker) outcome() []string {
+func (p statusPicker) outcome(kit renderKit) []string {
 	switch {
 	case p.send.sending:
 		chosen, _ := p.transitions.chosen()
 
-		return []string{"", "changing " + shownKey(p.issue.Key) + " to " + chosen.ToStatus + p.marks.ellipsis}
+		return []string{"", "changing " + shownKey(p.issue.Key) + " to " + chosen.ToStatus + kit.marks.ellipsis}
 	case p.send.err != nil:
-		return []string{"", failureLine(p.styles, p.marks, p.send.err)}
+		return []string{"", failureLine(kit.styles, kit.marks, p.send.err)}
 	default:
 		return nil
 	}
@@ -428,8 +428,6 @@ const fixupTitle = "Fix up a commit"
 
 // fixupPicker chooses which unpushed commit to record a fixup! of.
 type fixupPicker struct {
-	marks   glyphs
-	styles  styles
 	commits pickList[gitrepo.Commit]
 }
 
@@ -443,7 +441,7 @@ var (
 func (m Model) openFixupPicker() (Model, tea.Cmd) {
 	newestFirst := slices.Clone(m.branch.branch.Unpushed())
 	slices.Reverse(newestFirst)
-	m.overlay = fixupPicker{marks: m.marks, styles: m.styles, commits: pickList[gitrepo.Commit]{items: newestFirst}}
+	m.overlay = fixupPicker{commits: pickList[gitrepo.Commit]{items: newestFirst}}
 
 	return m, nil
 }
@@ -454,16 +452,18 @@ func (p fixupPicker) header() []string {
 }
 
 // view draws the commits to choose from, in as many rows as fit.
-func (p fixupPicker) view(_, rows int) (string, string) {
+func (p fixupPicker) view(kit renderKit, _, rows int) (string, string) {
 	lines := p.header()
-	lines = append(lines, p.commits.rows(p.marks, rows-len(lines), p.commitRow)...)
+	lines = append(lines, p.commits.rows(kit.marks, rows-len(lines), func(commit gitrepo.Commit) string {
+		return commitRow(kit.styles, commit)
+	})...)
 
 	return fixupTitle, strings.Join(lines, "\n")
 }
 
 // commitRow names a commit by its hash and subject.
-func (p fixupPicker) commitRow(commit gitrepo.Commit) string {
-	return p.styles.label.Render(commit.Hash) + " " + commit.Subject
+func commitRow(sty styles, commit gitrepo.Commit) string {
+	return sty.label.Render(commit.Hash) + " " + commit.Subject
 }
 
 // footer offers moving, choosing and leaving.

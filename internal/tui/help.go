@@ -27,7 +27,6 @@ type helpOverlay struct {
 	// which do not change while it is open, so there is nothing to recompute on
 	// each frame but which of them the pane's width holds.
 	wide, narrow string
-	ellipsis     string
 	scroll       int
 }
 
@@ -42,7 +41,7 @@ func (helpOverlay) lightBorder() {}
 
 // view is the key list scrolled to fit, with a mark on the last row when there
 // is more below it.
-func (h helpOverlay) view(width, rows int) (string, string) {
+func (h helpOverlay) view(kit renderKit, width, rows int) (string, string) {
 	content := h.fitting(width)
 	if h.lines(width) <= h.scroll+rows {
 		return helpTitle, scrolled(content, h.scroll, rows)
@@ -50,7 +49,7 @@ func (h helpOverlay) view(width, rows int) (string, string) {
 
 	shown := strings.Split(scrolled(content, h.scroll, max(1, rows-1)), "\n")
 
-	return helpTitle, strings.Join(append(shown, h.ellipsis+" more below"), "\n")
+	return helpTitle, strings.Join(append(shown, kit.marks.ellipsis+" more below"), "\n")
 }
 
 // fitting is the key list in two columns where the pane holds them, and in one
@@ -123,9 +122,8 @@ func (h helpOverlay) scrollBy(m Model, delta int) helpOverlay {
 // openHelp opens the key list, rendering it from the current bindings.
 func (m Model) openHelp() (Model, tea.Cmd) {
 	m.overlay = helpOverlay{
-		wide:     m.helpView(),
-		narrow:   m.helpColumn(0, len(helpGroups(m.cfg.Messaging.Service()))),
-		ellipsis: m.marks.ellipsis,
+		wide:   m.helpView(),
+		narrow: m.helpColumn(0, len(helpGroups(m.cfg.Messaging.Service()))),
 	}
 
 	return m, nil

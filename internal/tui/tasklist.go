@@ -433,7 +433,7 @@ func (m Model) openTaskNarrowing() Model {
 	}
 
 	m.overlay = checklist[taskwarrior.Facet]{
-		marks: m.marks, title: filterTitle, none: "no task to filter",
+		title: filterTitle, none: "no task to filter",
 		choices: pickList[offered[taskwarrior.Facet]]{items: offers}, chosen: slices.Clone(picked),
 		label: taskwarrior.Facet.Label,
 		apply: func(m Model, chosen []taskwarrior.Facet) (Model, tea.Cmd) {

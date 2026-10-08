@@ -54,7 +54,7 @@ func (m Model) startFinish() (Model, tea.Cmd) {
 	}
 
 	m.overlay = finishPreview{
-		marks: m.marks, styles: m.styles, vocab: m.vocab, pull: m.review.pull,
+		vocab: m.vocab, pull: m.review.pull,
 		branch: m.branch.branch.Name, base: m.branch.branch.BaseName(),
 	}
 
@@ -64,8 +64,6 @@ func (m Model) startFinish() (Model, tea.Cmd) {
 // finishPreview previews finishing a merged branch: the three git commands it
 // runs, sent only once confirmed.
 type finishPreview struct {
-	marks  glyphs
-	styles styles
 	vocab  reviewVocab
 	pull   forge.PullRequest
 	branch string
@@ -82,8 +80,8 @@ func (p finishPreview) commands() []string {
 
 // view draws the merged pull request and the commands that finish its branch,
 // the finish's outcome pinned under the title.
-func (p finishPreview) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(p.styles, p.marks, p.send, "finishing", width)
+func (p finishPreview) view(kit renderKit, width, _ int) (string, string) {
+	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "finishing", width)
 	lines = append(lines, p.vocab.sigil+strconv.Itoa(p.pull.Number)+" merged; finish "+p.branch+" by running:", "")
 
 	for _, command := range p.commands() {

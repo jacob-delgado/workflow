@@ -230,8 +230,8 @@ func (m Model) canPush() bool {
 // previewPush holds the push for a last look at what it sends and where.
 func (m Model) previewPush() (Model, tea.Cmd) {
 	m.overlay = lastLook{
-		marks: m.marks, styles: m.styles, title: "Push branch",
-		body: "Push " + m.branch.branch.Name + " to " + m.branch.branch.PushRemote + "?", verb: "push",
+		title: "Push branch",
+		body:  "Push " + m.branch.branch.Name + " to " + m.branch.branch.PushRemote + "?", verb: "push",
 		proceed: func(m Model) (Model, tea.Cmd) { return m.startPush(nil) },
 	}
 
@@ -242,8 +242,8 @@ func (m Model) previewPush() (Model, tea.Cmd) {
 // rewrites and the base it replays that branch onto.
 func (m Model) previewRebase() (Model, tea.Cmd) {
 	m.overlay = lastLook{
-		marks: m.marks, styles: m.styles, title: "Rebase branch",
-		body: "Rebase " + m.branch.branch.Name + " onto " + m.branch.branch.Base + "?", verb: "rebase",
+		title: "Rebase branch",
+		body:  "Rebase " + m.branch.branch.Name + " onto " + m.branch.branch.Base + "?", verb: "rebase",
 		proceed: Model.startRebase,
 	}
 
@@ -266,8 +266,6 @@ func (m Model) handleBranchKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // branchCreator is a branch about to be created, named for the selected issue.
 type branchCreator struct {
-	marks    glyphs
-	styles   styles
 	input    textinput.Model
 	issue    jira.Issue
 	forIssue bool
@@ -305,7 +303,7 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 	}
 
 	m.overlay = branchCreator{
-		marks: m.marks, styles: m.styles, input: newInput(name), issue: issue, forIssue: forIssue,
+		input: newInput(name), issue: issue, forIssue: forIssue,
 		base: m.branch.branch.Base, baseAge: m.baseAge(),
 		canWorktree: m.deps.Git.CreateWorktree != nil, applyKey: m.keys.confirm.Help().Key,
 	}
@@ -324,10 +322,10 @@ func (m Model) baseAge() string {
 }
 
 // view shows the name and where the branch will start.
-func (c branchCreator) view(width, _ int) (string, string) {
+func (c branchCreator) view(kit renderKit, width, _ int) (string, string) {
 	c.input.SetWidth(max(1, width-len(c.input.Prompt)-1))
 
-	lines := pinnedOutcome(c.styles, c.marks, c.send, "creating", width)
+	lines := pinnedOutcome(kit.styles, kit.marks, c.send, "creating", width)
 	if c.forIssue {
 		lines = append(lines, "for "+shownKey(c.issue.Key)+" "+c.issue.Summary, "")
 	}
@@ -339,7 +337,7 @@ func (c branchCreator) view(width, _ int) (string, string) {
 	}
 
 	if c.fetchProblem != nil {
-		lines = append(lines, "", failureLine(c.styles, c.marks, c.fetchProblem),
+		lines = append(lines, "", failureLine(kit.styles, kit.marks, c.fetchProblem),
 			"could not fetch; "+c.applyKey+" branches from what you already have")
 	}
 

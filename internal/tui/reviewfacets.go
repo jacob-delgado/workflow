@@ -172,7 +172,7 @@ var (
 // it was on while that is still listed.
 func (m Model) openFacetPicker() (Model, tea.Cmd) {
 	m.overlay = checklist[facet]{
-		marks: m.marks, title: filterTitle, none: "no request to filter",
+		title: filterTitle, none: "no request to filter",
 		choices: pickList[offered[facet]]{items: facetChoices(m.reviewQueue.all, m.reviewQueue.facets)},
 		chosen:  slices.Clone(m.reviewQueue.facets),
 		label:   facet.label,

@@ -123,8 +123,6 @@ func (m Model) taskBranches(listed branchesListed) []taskBranch {
 
 // branchPicker lists the issue branches to switch to, and how a switch is going.
 type branchPicker struct {
-	marks    glyphs
-	styles   styles
 	branches pickList[taskBranch]
 	listErr  error
 	notAsked error
@@ -139,7 +137,7 @@ var (
 
 // openBranchPicker opens the task switcher and starts listing the branches.
 func (m Model) openBranchPicker() (Model, tea.Cmd) {
-	m.overlay = branchPicker{marks: m.marks, styles: m.styles}
+	m.overlay = branchPicker{}
 	lister := branchLister{
 		local: m.deps.Git.Branches, remote: m.deps.Git.RemoteBranches, links: m.deps.Git.IssueLinks,
 		search: m.deps.Jira.SearchLenient, project: m.cfg.Jira.Project,
@@ -248,19 +246,21 @@ func (l branchLister) issueKeys(names []string, links map[string]string) []jira.
 }
 
 // view draws the switcher in as many rows as fit.
-func (p branchPicker) view(_, rows int) (string, string) {
-	lines := slices.Concat([]string{"Switch to another task's branch.", ""}, p.notAskedNote())
+func (p branchPicker) view(kit renderKit, _, rows int) (string, string) {
+	lines := slices.Concat([]string{"Switch to another task's branch.", ""}, p.notAskedNote(kit))
 
 	switch {
 	case !p.settled:
-		lines = append(lines, "reading the branches"+p.marks.ellipsis)
+		lines = append(lines, "reading the branches"+kit.marks.ellipsis)
 	case p.listErr != nil:
-		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
+		lines = append(lines, failureLine(kit.styles, kit.marks, p.listErr))
 	case len(p.branches.items) == 0:
 		lines = append(lines, "No other task branch to switch to.")
 	default:
-		lines = append(lines, p.branches.rows(p.marks, rows-len(lines)-outcomeRows, p.label)...)
-		lines = append(lines, p.outcome()...)
+		lines = append(lines, p.branches.rows(kit.marks, rows-len(lines)-outcomeRows, func(branch taskBranch) string {
+			return branchLabel(kit.marks, branch)
+		})...)
+		lines = append(lines, p.outcome(kit)...)
 	}
 
 	return switchTitle, strings.Join(lines, "\n")
@@ -270,7 +270,7 @@ func (p branchPicker) view(_, rows int) (string, string) {
 // issues are yours, and why, so the list under it holds every issue's branch,
 // set apart from the list by a blank line; nothing when it was asked, or had no
 // need to be.
-func (p branchPicker) notAskedNote() []string {
+func (p branchPicker) notAskedNote(kit renderKit) []string {
 	if p.notAsked == nil {
 		return nil
 	}
@@ -278,22 +278,24 @@ func (p branchPicker) notAskedNote() []string {
 	// A failure with no sentence of its own already says what was being asked,
 	// and a second lead would push its reason off the row.
 	if _, known := errorSentence(p.notAsked); !known {
-		return []string{failureLine(p.styles, p.marks, p.notAsked), ""}
+		return []string{failureLine(kit.styles, kit.marks, p.notAsked), ""}
 	}
 
-	return []string{failedGlyph(p.styles, p.marks) + " could not ask which issues are yours: " + inFull(p.notAsked), ""}
+	return []string{
+		failedGlyph(kit.styles, kit.marks) + " could not ask which issues are yours: " + inFull(p.notAsked), "",
+	}
 }
 
-// label names a branch by its issue, with the summary when the Issues pane has
+// branchLabel names a branch by its issue, with the summary when the Issues pane has
 // loaded the issue, and the branch name so there is no doubt which will be
 // checked out — marked when only the remote has it.
-func (p branchPicker) label(branch taskBranch) string {
+func branchLabel(marks glyphs, branch taskBranch) string {
 	named := shownKey(branch.issueKey)
 	if branch.summary != "" {
 		named += " " + branch.summary
 	}
 
-	named += p.marks.separator + branch.name
+	named += marks.separator + branch.name
 
 	switch {
 	case branch.worktreeGone:
@@ -308,12 +310,12 @@ func (p branchPicker) label(branch taskBranch) string {
 }
 
 // outcome says how switching is going, if it was tried.
-func (p branchPicker) outcome() []string {
+func (p branchPicker) outcome(kit renderKit) []string {
 	switch {
 	case p.send.sending:
-		return []string{"", "switching" + p.marks.ellipsis}
+		return []string{"", "switching" + kit.marks.ellipsis}
 	case p.send.err != nil:
-		return []string{"", failureLine(p.styles, p.marks, p.send.err)}
+		return []string{"", failureLine(kit.styles, kit.marks, p.send.err)}
 	default:
 		return nil
 	}

@@ -56,8 +56,6 @@ const (
 // stand on [so], and the days of a marked range in bold, so each reads apart
 // without color.
 type calendar struct {
-	marks  glyphs
-	styles styles
 	cursor activity.Date
 	column calendarColumn
 	mark   activity.Date
@@ -69,14 +67,14 @@ var _ overlay = calendar{}
 
 // openCalendar opens the calendar on the last day the Summary shows.
 func (m Model) openCalendar() (Model, tea.Cmd) {
-	m.overlay = calendar{marks: m.marks, styles: m.styles, cursor: m.summaryPeriod().To, column: columnDay}
+	m.overlay = calendar{cursor: m.summaryPeriod().To, column: columnDay}
 
 	return m, nil
 }
 
 // view draws the three columns side by side, and the range marked.
-func (c calendar) view(_, _ int) (string, string) {
-	years, months, days := c.yearColumn(), c.monthColumn(), c.dayColumn()
+func (c calendar) view(kit renderKit, _, _ int) (string, string) {
+	years, months, days := c.yearColumn(kit), c.monthColumn(kit), c.dayColumn(kit)
 
 	var lines []string
 	for row := range max(len(years), len(months), len(days)) {
@@ -89,7 +87,7 @@ func (c calendar) view(_, _ int) (string, string) {
 	}
 
 	if c.err != nil {
-		lines = append(lines, "", failureLine(c.styles, c.marks, c.err))
+		lines = append(lines, "", failureLine(kit.styles, kit.marks, c.err))
 	}
 
 	return "Calendar", strings.Join(lines, "\n")
@@ -111,10 +109,10 @@ func padded(text string, width int) string {
 
 // shown is a value as its column draws it: ‹so› under the cursor, [so] where
 // another column's cursor stands, and plain otherwise.
-func (c calendar) shown(value string, column calendarColumn, on bool) string {
+func (c calendar) shown(kit renderKit, value string, column calendarColumn, on bool) string {
 	switch {
 	case on && c.column == column:
-		return c.marks.chosenOpen + value + c.marks.chosenClose
+		return kit.marks.chosenOpen + value + kit.marks.chosenClose
 	case on:
 		return "[" + value + "]"
 	default:
@@ -123,20 +121,20 @@ func (c calendar) shown(value string, column calendarColumn, on bool) string {
 }
 
 // yearColumn lists the years around the cursor's.
-func (c calendar) yearColumn() []string {
+func (c calendar) yearColumn(kit renderKit) []string {
 	lines := []string{"Year"}
 	for year := c.cursor.Year() - yearsAround; year <= c.cursor.Year()+yearsAround; year++ {
-		lines = append(lines, c.shown(strconv.Itoa(year), columnYear, year == c.cursor.Year()))
+		lines = append(lines, c.shown(kit, strconv.Itoa(year), columnYear, year == c.cursor.Year()))
 	}
 
 	return lines
 }
 
 // monthColumn lists the months of the year, by number.
-func (c calendar) monthColumn() []string {
+func (c calendar) monthColumn(kit renderKit) []string {
 	lines := []string{"Month"}
 	for month := time.January; month <= time.December; month++ {
-		lines = append(lines, c.shown(twoDigit(int(month)), columnMonth, month == c.cursor.Month()))
+		lines = append(lines, c.shown(kit, twoDigit(int(month)), columnMonth, month == c.cursor.Month()))
 	}
 
 	return lines
@@ -144,15 +142,15 @@ func (c calendar) monthColumn() []string {
 
 // dayColumn lists the cursor's month as weeks, Monday first, the days of a
 // marked range in bold.
-func (c calendar) dayColumn() []string {
+func (c calendar) dayColumn(kit renderKit) []string {
 	month := activity.MonthOf(c.cursor)
 	lines := []string{"Day", " " + strings.ReplaceAll(weekdays, " ", "  ")}
 	week := strings.Repeat("    ", (int(month.From.Weekday())+daysInWeek-1)%daysInWeek)
 
 	for date := month.From; !month.To.Before(date); date = date.AddDays(1) {
-		day := c.shown(twoDigit(date.Day()), columnDay, date == c.cursor)
+		day := c.shown(kit, twoDigit(date.Day()), columnDay, date == c.cursor)
 		if c.inRange(date) {
-			day = c.styles.strong.Render(day)
+			day = kit.styles.strong.Render(day)
 		}
 
 		week += day

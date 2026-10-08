@@ -54,8 +54,6 @@ const (
 // prComposer is a pull request about to be opened, started from the branch's
 // commits and the repository's template, all of it editable.
 type prComposer struct {
-	marks     glyphs
-	styles    styles
 	title     textinput.Model
 	base      textinput.Model
 	reviewers textinput.Model
@@ -134,7 +132,6 @@ func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summ
 	title, _ := loop.Draft(proposedFrom)
 
 	composer := prComposer{
-		marks: m.marks, styles: m.styles,
 		title:     newInput(title),
 		base:      newInput(branch.BaseName()),
 		reviewers: newInput(""), assignees: newInput(""), labels: newInput(""),
@@ -341,7 +338,7 @@ func (c prComposer) withTemplate(index int) prComposer {
 }
 
 // view shows every part of the pull request as it will be opened.
-func (c prComposer) view(width, _ int) (string, string) {
+func (c prComposer) view(kit renderKit, width, _ int) (string, string) {
 	inner := max(1, width-prLabelWidth)
 	c.title.SetWidth(inner)
 	c.base.SetWidth(inner)
@@ -350,10 +347,10 @@ func (c prComposer) view(width, _ int) (string, string) {
 	c.labels.SetWidth(inner)
 
 	field := func(focus int, label string, input textinput.Model) string {
-		return c.marks.marker(c.focus == focus) + fmt.Sprintf("%-9s ", label) + input.View()
+		return kit.marks.marker(c.focus == focus) + fmt.Sprintf("%-9s ", label) + input.View()
 	}
 
-	lines := pinnedOutcome(c.styles, c.marks, c.send, "opening", width)
+	lines := pinnedOutcome(kit.styles, kit.marks, c.send, "opening", width)
 	lines = append(lines,
 		field(prFieldTitle, "title", c.title),
 		field(prFieldBase, "base", c.base),
@@ -361,7 +358,7 @@ func (c prComposer) view(width, _ int) (string, string) {
 		field(prFieldAssignees, "assignees", c.assignees),
 		field(prFieldLabels, "labels", c.labels),
 		fmt.Sprintf("  %-9s %s", "head", c.head),
-		"  "+c.templateName()+c.marks.separator+checkbox(c.draft)+"draft",
+		"  "+c.templateName(kit)+kit.marks.separator+checkbox(c.draft)+"draft",
 		"",
 	)
 
@@ -373,10 +370,10 @@ func (c prComposer) view(width, _ int) (string, string) {
 
 // templateName names the template in use, and how many there are to choose
 // from.
-func (c prComposer) templateName() string {
+func (c prComposer) templateName(kit renderKit) string {
 	switch {
 	case !c.templatesRead:
-		return "template " + c.marks.reading()
+		return "template " + kit.marks.reading()
 	case len(c.templates) == 0:
 		return "no template in this repository"
 	}

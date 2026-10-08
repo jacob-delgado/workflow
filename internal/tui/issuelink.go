@@ -20,8 +20,6 @@ import (
 // branch's issue, so the team that watches Jira sees it. It is previewed and
 // confirmed, like the comment it is.
 type issueLinker struct {
-	marks    glyphs
-	styles   styles
 	vocab    reviewVocab
 	issueKey jira.Key
 	pull     forge.PullRequest
@@ -60,8 +58,8 @@ func (m Model) pullOffers() []string {
 }
 
 // view previews the link the confirmation would add.
-func (l issueLinker) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(l.styles, l.marks, l.send, "linking", width)
+func (l issueLinker) view(kit renderKit, width, _ int) (string, string) {
+	lines := pinnedOutcome(kit.styles, kit.marks, l.send, "linking", width)
 	lines = append(lines,
 		"Add this "+l.vocab.noun+"'s link to "+shownKey(l.issueKey)+"?", "",
 		l.vocab.sigil+strconv.Itoa(l.pull.Number)+" "+l.pull.Title, l.pull.URL)

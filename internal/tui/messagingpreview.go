@@ -31,9 +31,7 @@ var (
 
 // messagingPreview is an announcement about to be sent.
 type messagingPreview struct {
-	marks  glyphs
-	styles styles
-	text   string
+	text string
 	// fallback is where a post goes when no channel is chosen — a webhook's own
 	// channel, or the note that none is set.
 	fallback string
@@ -106,10 +104,10 @@ var (
 
 // view shows the message as it will be posted, where, and how CI stands, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
-func (p messagingPreview) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(p.styles, p.marks, p.send, "announcing", width)
+func (p messagingPreview) view(kit renderKit, width, _ int) (string, string) {
+	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "announcing", width)
 	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
-	lines = append(lines, p.tagging.lines(p.marks, p.styles, width)...)
+	lines = append(lines, p.tagging.lines(kit.marks, kit.styles, width)...)
 
 	return "Announce to " + p.service, strings.Join(lines, "\n")
 }

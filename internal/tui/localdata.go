@@ -23,8 +23,6 @@ const localDataAbout = "workflow keeps a cache a session makes again, and the pe
 // the two removals workflow db-clean makes, each behind a last look, since
 // neither can be undone.
 type localData struct {
-	marks   glyphs
-	styles  styles
 	opened  int
 	reading bool
 	// dir is where the store is, written from your home.
@@ -41,7 +39,7 @@ func (m Model) canSeeLocalData() bool {
 // openLocalData opens Local data and starts reading the store's files.
 func (m Model) openLocalData() (Model, tea.Cmd) {
 	m, opened := m.opening()
-	m.overlay = localData{marks: m.marks, styles: m.styles, opened: opened, reading: true}
+	m.overlay = localData{opened: opened, reading: true}
 
 	return m, m.readLocalData(opened)
 }
@@ -81,14 +79,14 @@ func (msg localDataRead) apply(m Model) (Model, tea.Cmd) {
 }
 
 // view lists where the store is and each file in it, or why it could not.
-func (d localData) view(width, _ int) (string, string) {
+func (d localData) view(kit renderKit, width, _ int) (string, string) {
 	lines := []string{wrap(localDataAbout, width), ""}
 
 	switch {
 	case d.reading:
-		lines = append(lines, "reading the local data"+d.marks.ellipsis)
+		lines = append(lines, "reading the local data"+kit.marks.ellipsis)
 	case d.err != nil:
-		lines = append(lines, failureBlock(d.styles, d.marks, d.err, width))
+		lines = append(lines, failureBlock(kit.styles, kit.marks, d.err, width))
 	case len(d.files) == 0:
 		lines = append(lines, "Kept in "+d.dir, "", "No local data: there is nothing to remove.")
 	default:
@@ -189,7 +187,7 @@ func (d localData) reaches(scope store.CleanScope) string {
 func (d localData) askToRemove(m Model, scope store.CleanScope) Model {
 	names := d.reaches(scope)
 	look := lastLook{
-		marks: m.marks, styles: m.styles, title: "Remove local data", verb: "remove", doing: "removing",
+		title: "Remove local data", verb: "remove", doing: "removing",
 		body: "Remove " + names + "?\n\n" + scope.Consequence() + " It cannot be undone.",
 	}
 	look.proceed = func(m Model) (Model, tea.Cmd) {

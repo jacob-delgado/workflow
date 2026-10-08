@@ -19,10 +19,8 @@ import (
 // composer, it changes an existing pull request rather than opening one, so it
 // carries neither the branch fields nor the push a new pull request needs.
 type prEditor struct {
-	marks  glyphs
-	styles styles
-	title  textinput.Model
-	body   string
+	title textinput.Model
+	body  string
 	// pull is the pull request being edited, kept for its number and to leave
 	// everything the edit does not touch as it is.
 	pull  forge.PullRequest
@@ -42,7 +40,6 @@ func (m Model) openPullRequestEditor() (Model, tea.Cmd) {
 	pull := m.review.pull
 
 	editor := prEditor{
-		marks: m.marks, styles: m.styles,
 		title: newInput(pull.Title), body: pull.Body, pull: pull, vocab: m.vocab,
 	}
 	editor.title.Focus()
@@ -53,12 +50,12 @@ func (m Model) openPullRequestEditor() (Model, tea.Cmd) {
 }
 
 // view shows the title and description as they will be saved.
-func (p prEditor) view(width, _ int) (string, string) {
+func (p prEditor) view(kit renderKit, width, _ int) (string, string) {
 	p.title.SetWidth(max(1, width-prLabelWidth))
 
-	lines := pinnedOutcome(p.styles, p.marks, p.send, "saving", width)
+	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "saving", width)
 	lines = append(lines,
-		p.marks.marker(true)+fmt.Sprintf("%-9s ", "title")+p.title.View(),
+		kit.marks.marker(true)+fmt.Sprintf("%-9s ", "title")+p.title.View(),
 		fmt.Sprintf("  %-9s %s%d", "on", p.vocab.sigil, p.pull.Number),
 		"",
 	)

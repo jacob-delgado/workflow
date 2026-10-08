@@ -57,8 +57,6 @@ func commentHelp(markup loop.CommentMarkup) string {
 // shows that with any terminal control neutralized, as every text the screen
 // draws is.
 type commentPreview struct {
-	marks    glyphs
-	styles   styles
 	composer commentComposer
 	send     sendState
 }
@@ -74,8 +72,8 @@ func (p commentPreview) stored() string {
 
 // view shows the comment as it will be stored, its outcome pinned under the
 // title so a long refusal is seen rather than clipped below the fold.
-func (p commentPreview) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
+func (p commentPreview) view(kit renderKit, width, _ int) (string, string) {
+	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "posting", width)
 	issue := p.composer.issue
 	lines = append(lines, shownKey(issue.Key)+" "+issue.Summary, "", wrap(sanitize.Text(p.stored()), width))
 
