@@ -24,7 +24,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/store"
-	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -443,17 +442,16 @@ func exitFamilies() []exitFamily {
 // command meeting a credential that is not there exits as doctor does, reading
 // the same file.
 func configurationErrors() []error {
-	return []error{
+	return append([]error{
 		config.ErrNotFound, config.ErrInvalid,
 		jira.ErrNoCredential, config.ErrInvalidBaseURL, config.ErrCredentialInBaseURL,
 		forge.ErrNoToken, forge.ErrKindNeedsHost, forge.ErrNotARemote, forge.ErrUnknownForge,
 		messaging.ErrNoCredential, messaging.ErrInsecureWebhook,
 		jira.ErrUnauthorized, jira.ErrForbidden, forge.ErrUnauthorized, messaging.ErrRejected,
-		tui.ErrUnknownKeyAction, tui.ErrKeyConflict, tui.ErrKeyNotRebindable,
 		errCredentialRejected, errCredentialMissing, errIncomplete, errInvalid, errShared,
 		errMessagingNotConfigured, errLoginNeedsConfig, errLoginOverWebhook, errLoginNotSlack,
 		slackauth.ErrRefreshRefused, slackauth.ErrNotAUserToken,
-	}
+	}, config.KeyRefusals()...)
 }
 
 // refusalErrors are a command that would not go ahead because of the state it
