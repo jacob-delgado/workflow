@@ -88,6 +88,19 @@ tester.run('arrange-act-assert', arrangeActAssert, {
 }, 10_000)`,
     },
     {
+      name: 'a test given options before its body, whose body marks its parts',
+      code: `test('t', { tag: '@slow' }, async () => {
+  // Act & Assert
+  expect(1).toBe(1)
+})`,
+    },
+    {
+      name: "a conditional skip, whose function is the condition and not a test's body",
+      code: `test.skip(({ browserName }) => {
+  return browserName === 'webkit'
+}, 'not on webkit')`,
+    },
+    {
       name: 'a hook, which is not a test',
       code: `test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })

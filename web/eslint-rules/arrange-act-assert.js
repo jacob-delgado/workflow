@@ -94,17 +94,19 @@ function looksLikeMarker(comment) {
 }
 
 // testBody is the body of a test — test(…), test.only(…) and the like, or a
-// table's test.each(…)(…) — wherever among its arguments the test function
-// sits, since Vitest takes a timeout after it and Playwright and Vitest take
-// options before it. A hook, a describe or an extension has none.
+// table's test.each(…)(…) — wherever after its name the test function sits,
+// since Vitest takes a timeout or options after it and Playwright and Vitest
+// take options before it. It is never the first argument: there Playwright's
+// conditional test.skip(condition, reason) puts a condition, not a body. A
+// hook, a describe or an extension has none.
 function testBody(call) {
   if (!namesTest(call.callee)) {
     return undefined
   }
 
-  const fn = call.arguments.find((argument) =>
-    ['ArrowFunctionExpression', 'FunctionExpression'].includes(argument.type),
-  )
+  const fn = call.arguments
+    .slice(1)
+    .find((argument) => ['ArrowFunctionExpression', 'FunctionExpression'].includes(argument.type))
 
   return fn?.body.type === 'BlockStatement' ? fn.body : undefined
 }
