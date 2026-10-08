@@ -453,9 +453,11 @@ labels, because its name is the label. A table test puts the markers inside each
 seeds carry none. A test whose Assert reaches no `t.Error` or `t.Fatal`, directly
 or through a helper, asserts nothing and is useless. `cmd/testshape` fails a body
 whose markers are missing, malformed or out of order, or whose Assert reaches no
-failure; it runs in `task lint`, on commit, and in CI. It is a floor: it cannot
-tell a meaningful assertion from one that passes whatever the Act did, so ask of
-every Assert whether it would fail if the Act did nothing.
+failure; it runs in `task lint`, on commit, and in CI. The e2e specs answer to
+its TypeScript twin, `web/eslint-rules/arrange-act-assert.js`, in `yarn lint`.
+It is a floor: it cannot tell a meaningful assertion from one that passes
+whatever the Act did, so ask of every Assert whether it would fail if the Act
+did nothing.
 
 **Tables when cases differ in data, not behavior.** When adding tests, prefer a
 table-driven test for cases that differ only in their inputs and expectations,

@@ -27,14 +27,17 @@ export default mergeConfig(
           },
         },
         {
-          // The lint's own rules, each shown firing on code that breaks it.
-          // ESLint runs in Node, and its first typed lint builds the
-          // TypeScript program, which takes seconds.
+          // The lint's own rules, each shown firing on code that breaks it,
+          // and the e2e marker rule's cases. ESLint runs in Node, and its
+          // first typed lint builds the TypeScript program, which takes
+          // seconds. RuleTester names its cases through the global describe
+          // and it.
           extends: true,
           test: {
             name: 'lint',
             environment: 'node',
-            include: ['eslint.config.test.ts'],
+            globals: true,
+            include: ['eslint.config.test.ts', 'eslint-rules/**/*.test.js'],
             testTimeout: 60_000,
           },
         },
