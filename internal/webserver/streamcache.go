@@ -338,3 +338,27 @@ func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
 
 	return s.assigned.yours(asked)
 }
+
+// authorCache is who the forge says a post would come from, kept from its first
+// answer for the stream, GET /api/messaging and the announcement alike: the
+// forge connection it comes through is kept once made, so the answer does not
+// change while the server runs, and asking every frame spent a forge request
+// per open page each interval. A failed read is not kept, so the next read asks
+// again. Its lock is its own, since every open stream reads it.
+type authorCache struct {
+	mu    sync.Mutex
+	name  string
+	known bool
+}
+
+// scopeCache is the store's last commit scope, read the first time a frame
+// asks — opening the store's database on every frame is the cost it avoids —
+// and read again once after a commit here records one, so it holds what the
+// store kept: nothing, when the store is off. Its lock is its own, since the
+// streams read it while a commit clears it.
+type scopeCache struct {
+	mu    sync.Mutex
+	read  bool
+	value string
+	found bool
+}
