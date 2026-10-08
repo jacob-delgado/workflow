@@ -55,11 +55,11 @@ func (m Model) nextIssueView() (Model, tea.Cmd) {
 	m.viewIndex = (m.viewIndex + 1) % len(m.views)
 
 	previous := m.issues
-	m.issues = m.seededIssues()
-	m.issues.branchKeys, m.issues.branchesKnown = previous.branchKeys, previous.branchesKnown
-	m.issues.taskWords = previous.taskWords
+	m.issues = issueList{
+		branchKeys: previous.branchKeys, branchesKnown: previous.branchesKnown, taskWords: previous.taskWords,
+	}
 
-	return m.searching(), m.relistIssues()
+	return m.searching(), tea.Batch(m.readCachedIssues(), m.relistIssues())
 }
 
 // viewSuffix names the active view beside the Issues pane's title, but only when

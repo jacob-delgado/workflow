@@ -172,7 +172,8 @@ func TestAnAnswerForAViewNoLongerShownIsStillCached(t *testing.T) {
 	repo, model, firstViewsAnswer := switchedWhileTheFirstSearchIsOut(t)
 
 	// Act
-	model.Update(firstViewsAnswer)
+	updated, cache := model.Update(firstViewsAnswer)
+	drain(t, concrete(t, updated), cache)
 
 	// Assert
 	// Only the first view lists two issues; the sprint's one was cached as "cache 1".
