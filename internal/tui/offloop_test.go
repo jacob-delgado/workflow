@@ -51,9 +51,10 @@ func heldTemplates(deps *tui.Deps, held *hold) {
 // heldScopeRecord holds the store's record of the scope a commit used.
 func heldScopeRecord(deps *tui.Deps, held *hold) {
 	record := deps.Store.RecordScope
-	deps.Store.RecordScope = func(scope string) {
+	deps.Store.RecordScope = func(scope string) error {
 		held.wait()
-		record(scope)
+
+		return record(scope)
 	}
 }
 
@@ -65,9 +66,10 @@ func heldIssueCache(deps *tui.Deps, held *hold) {
 
 		return read(jql)
 	}
-	deps.Store.CacheIssues = func(jql string, issues []jira.Issue) {
+	deps.Store.CacheIssues = func(jql string, issues []jira.Issue) error {
 		held.wait()
-		write(jql, issues)
+
+		return write(jql, issues)
 	}
 }
 
