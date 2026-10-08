@@ -123,12 +123,9 @@ func browseForgeIssue(connect func() (forgeConnection, error), issueKey jira.Key
 
 // listForgeIssues reads the assigned issues and shapes them as a search result.
 func listForgeIssues(ctx context.Context, connect func() (forgeConnection, error)) (jira.SearchResult, error) {
-	connection, err := connect()
-	if err != nil {
-		return jira.SearchResult{}, err
-	}
-
-	issues, err := connection.client.AssignedIssues(ctx, connection.repo)
+	issues, err := ask(connect, func(on forgeConnection) ([]forge.Issue, error) {
+		return on.client.AssignedIssues(ctx, on.repo)
+	})
 	if err != nil {
 		return jira.SearchResult{}, err
 	}
