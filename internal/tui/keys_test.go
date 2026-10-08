@@ -22,6 +22,9 @@ const (
 	editAction     = "edit"
 )
 
+// reboundRefreshKey is the key a test's ui.keys binds refresh to.
+const reboundRefreshKey = "ctrl+r"
+
 func TestAKeyOverrideRebindsAnActionAndShowsItInTheHelp(t *testing.T) {
 	t.Parallel()
 

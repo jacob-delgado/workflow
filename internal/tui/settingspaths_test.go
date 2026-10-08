@@ -43,7 +43,7 @@ func everySettingSet() config.Config {
 	cfg.Timing = config.Timing{RequestTimeout: "33s", CIInterval: "44s"}
 	cfg.UI = config.UI{
 		Mouse: true, ASCII: true, Color: "never", Notify: true, CommentsShown: 7, WebShortcuts: true,
-		Keys: map[string]string{refreshAction: "ctrl+r"},
+		Keys: map[string]string{refreshAction: reboundRefreshKey},
 	}
 
 	return cfg
@@ -109,7 +109,7 @@ func TestEverySettingReadsTheValueItsPathHolds(t *testing.T) {
 		{toggledOn, "Ring the terminal when CI finishes"},
 		{"Comments shown", "7"},
 		{toggledOn, "Single-key shortcuts on the web page"},
-		{refreshAction, "ctrl+r"},
+		{refreshAction, reboundRefreshKey},
 	} {
 		shown := regexp.MustCompile(regexp.QuoteMeta(row[0]) + `\s+` + regexp.QuoteMeta(row[1]))
 		if !shown.MatchString(plain) {
