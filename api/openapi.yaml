@@ -1727,7 +1727,9 @@ paths:
         without posting it. With a Slack user token, tagging says whom it
         proposes to tag: the code owners of the branch's changes and the user
         groups it offers. Answered 409 when there is no pull request to
-        announce, or the server is not running in a git repository.
+        announce — none, or only one closed without merging, which the loop
+        no longer follows — or the server is not running in a git
+        repository.
       tags: [messaging]
       parameters:
         - name: channel
@@ -4274,7 +4276,10 @@ components:
             Whether the pull request was already announced at the moment it
             is at now — ready for review, its CI red, merged — from the
             browser, the terminal or workflow announce, as the store
-            remembers. The store is read at most once every
+            remembers. Always false for one closed without merging, which
+            the loop no longer follows, whatever was announced of it before:
+            it is none to announce, as the announce stage reads it, until one
+            is open again. The store is read at most once every
             timing.ci_interval, and never under --dry-run, when this is
             always false.
       additionalProperties: false

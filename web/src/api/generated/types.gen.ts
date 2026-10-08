@@ -1175,7 +1175,7 @@ export type Review = {
      */
     issue?: LinkedIssue | null;
     /**
-     * Whether the pull request was already announced at the moment it is at now — ready for review, its CI red, merged — from the browser, the terminal or workflow announce, as the store remembers. The store is read at most once every timing.ci_interval, and never under --dry-run, when this is always false.
+     * Whether the pull request was already announced at the moment it is at now — ready for review, its CI red, merged — from the browser, the terminal or workflow announce, as the store remembers. Always false for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read at most once every timing.ci_interval, and never under --dry-run, when this is always false.
      */
     announced: boolean;
 };

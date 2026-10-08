@@ -662,7 +662,7 @@ export const createWorktree = <ThrowOnError extends boolean = false>(options: Op
 /**
  * The announcement message that would be posted, for a preview.
  *
- * Composes the announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. With a Slack user token, tagging says whom it proposes to tag: the code owners of the branch's changes and the user groups it offers. Answered 409 when there is no pull request to announce, or the server is not running in a git repository.
+ * Composes the announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. With a Slack user token, tagging says whom it proposes to tag: the code owners of the branch's changes and the user groups it offers. Answered 409 when there is no pull request to announce — none, or only one closed without merging, which the loop no longer follows — or the server is not running in a git repository.
  */
 export const getAnnouncement = <ThrowOnError extends boolean = false>(options?: Options<GetAnnouncementData, ThrowOnError>): RequestResult<GetAnnouncementResponses, GetAnnouncementErrors, ThrowOnError> => (options?.client ?? client).get<GetAnnouncementResponses, GetAnnouncementErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetAnnouncementResponse.parseAsync(data),

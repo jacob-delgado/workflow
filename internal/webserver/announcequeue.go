@@ -454,13 +454,10 @@ func (s *server) announcedAlready(made loop.Announced) bool {
 
 // reviewAnnounced reports that the pull request the forge read was announced
 // at the moment it is at now, by the rule the terminal and the command line
-// read it by.
+// read it by: never for one closed without merging, which the loop does not
+// follow, so the review and the announce stage agree.
 func (s *server) reviewAnnounced(read forgeRead) bool {
-	if !read.found {
-		return false
-	}
-
-	return s.announcedAlready(loop.Announced{Pull: read.pull.Number, Moment: loop.AnnounceMoment(read.pull, read.ci)})
+	return loop.AnnounceMemory{Recorded: s.recordedAnnouncements}.HoldsNow(read.pull, read.found, read.ci)
 }
 
 // errAnnouncedAlready is an announcement made already at its moment, from
