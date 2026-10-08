@@ -76,6 +76,29 @@ func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
 	}
 }
 
+func TestExistingHooksTellLefthooksShimFromAHookThatMentionsIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// lefthook's shim defines and calls call_lefthook; a hand-written hook may
+	// mention lefthook in a comment or run it as one step among others.
+	mentions := "#!/bin/sh\nset -e\n# moved here from lefthook\nmake lint\n"
+	dir := fstest.MapFS{
+		preCommit: executable(mentions),
+		"post-checkout": executable("#!/bin/sh\n\nif [ \"$LEFTHOOK\" = \"0\" ]; then\n  exit 0\nfi\n\n" +
+			"call_lefthook()\n{\n  lefthook \"$@\"\n}\n\ncall_lefthook run \"post-checkout\" \"$@\"\n"),
+		"post-merge": executable("#!/bin/sh\n# lefthook_version: 2\nlefthook run post-merge\n"),
+	}
+
+	// Act
+	found := hooks.ExistingHooks(dir, "linux")
+
+	// Assert
+	if len(found) != 1 || found[0].Name != preCommit || found[0].Script != mentions {
+		t.Errorf("ExistingHooks = %+v, want only the hook that mentions lefthook", found)
+	}
+}
+
 func TestExistingHooksNeedNoExecutableBitOnWindows(t *testing.T) {
 	t.Parallel()
 
