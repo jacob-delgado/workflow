@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { Problem } from '@/api/generated/types.gen.ts'
-import { StateMark } from '@/shell/StateMark.tsx'
+import { StateMark } from './StateMark.tsx'
 import { Button } from './Button.tsx'
 import { cn } from './utils.ts'
 

@@ -84,7 +84,7 @@ test.each([
 
 test('a state left out of Shape fails the lint', async () => {
   // Arrange
-  const path = 'src/shell/StateMark.tsx'
+  const path = 'src/lib/StateMark.tsx'
   const drawn = await readFile(join(import.meta.dirname, path), 'utf8')
   const unknownLeftOut = drawn.replace(
     '    case \'unknown\':\n      return <circle cx="8" cy="8" r="2" fill="currentColor" />\n',
