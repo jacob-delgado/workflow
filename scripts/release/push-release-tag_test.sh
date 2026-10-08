@@ -8,20 +8,11 @@
 #   scripts/release/push-release-tag_test.sh
 set -euo pipefail
 
-# A git hook or `git rebase --exec` exports the variables that locate its
-# repository; the repositories this test builds must not inherit them.
-# shellcheck disable=SC2046 # word splitting is the point: one name per word
-unset $(git rev-parse --local-env-vars)
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly script="${here}/push-release-tag.sh"
 
-script="$(cd "${BASH_SOURCE[0]%/*}" && pwd)/push-release-tag.sh"
-readonly script
-
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=../lib/testing.sh
+source "${here}/../lib/testing.sh"
 
 # A gh that records what it was asked and answers the one question the script
 # puts to it, which pull requests a commit came from, as gh api does: the pulls
@@ -72,7 +63,7 @@ expect() {
   local want_tag="$1" want_exit="$2" name="$3" manifest="$4" subject="$5" pulls="$6"
   local tag="${7:-v${manifest}}" slug="case${cases}" got_tag="untagged" got_exit="ok"
 
-  cases=$((cases + 1))
+  count_case
   repository "${slug}" "${manifest}"
   quiet_git -C "${workdir}/${slug}" commit -m "${subject}"
   quiet_git -C "${workdir}/${slug}" push origin main
@@ -90,9 +81,8 @@ expect() {
   fi
 
   if [[ "${got_tag}" != "${want_tag}" || "${got_exit}" != "${want_exit}" ]]; then
-    echo "FAIL ${name}: want ${want_tag} and ${want_exit}, got ${got_tag} and ${got_exit}" >&2
+    fail_case "${name}" "want ${want_tag} and ${want_exit}, got ${got_tag} and ${got_exit}"
     sed 's/^/    /' "${workdir}/${slug}.out" >&2
-    failures=$((failures + 1))
   fi
 }
 
@@ -102,19 +92,17 @@ expect() {
 decides() {
   local name="$1" message="$2" want="$3" output="${workdir}/decide${cases}.out" got
 
-  cases=$((cases + 1))
+  count_case
   : >"${output}"
   if ! (cd "${workdir}" \
     && GITHUB_OUTPUT="${output}" HEAD_COMMIT_MSG="${message}" bash "${script}" decide >/dev/null 2>&1); then
-    echo "FAIL ${name}: the decide step failed" >&2
-    failures=$((failures + 1))
+    fail_case "${name}" "the decide step failed"
     return
   fi
 
   got="$(<"${output}")"
   if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want '${want}' in GITHUB_OUTPUT, got '${got}'" >&2
-    failures=$((failures + 1))
+    fail_case "${name}" "want '${want}' in GITHUB_OUTPUT, got '${got}'"
   fi
 }
 
@@ -133,7 +121,7 @@ expect untagged ok "words after the version" "1.4.0" "chore(main): release 1.4.0
 expect untagged ok "a version that is a path" "1.4.0" "chore(main): release 1.4.0/nested" "${released}" "v1.4.0/nested"
 
 # A tag already on the origin is left alone, and nothing is dispatched twice.
-cases=$((cases + 1))
+count_case
 repository again "1.4.0"
 quiet_git -C "${workdir}/again" commit -m "chore(main): release 1.4.0"
 quiet_git -C "${workdir}/again" push origin main
@@ -147,16 +135,15 @@ quiet_git -C "${workdir}/again" tag -d v1.4.0
     bash "${script}" >"${workdir}/again.out" 2>&1) || true
 
 if grep -q 'workflow run' "${workdir}/again.log" 2>/dev/null; then
-  echo "FAIL a tag already on the origin: release.yml was dispatched again" >&2
-  failures=$((failures + 1))
+  fail_case "a tag already on the origin" "release.yml was dispatched again"
 fi
 
 # A release that goes through dispatches the build and relabels the pull request.
+count_case
 if ! grep -q 'workflow run release.yml --ref v1.4.0' "${workdir}/case1.log" \
   || ! grep -q 'pr edit 42' "${workdir}/case1.log"; then
-  echo "FAIL a release: want release.yml dispatched and pull request 42 relabeled, got:" >&2
+  fail_case "a release" "want release.yml dispatched and pull request 42 relabeled, got:"
   sed 's/^/    /' "${workdir}/case1.log" >&2
-  failures=$((failures + 1))
 fi
 
 decides "decide: a release commit" "chore(main): release 1.4.0" "version=v1.4.0"
@@ -167,7 +154,7 @@ decides "decide: words after the version" "chore(main): release 1.4.0 and more" 
 
 # A step name the script does not know is refused rather than read as a request
 # to tag, even on a commit that would be tagged.
-cases=$((cases + 1))
+count_case
 repository unknown "1.4.0"
 quiet_git -C "${workdir}/unknown" commit -m "chore(main): release 1.4.0"
 quiet_git -C "${workdir}/unknown" push origin main
@@ -177,14 +164,8 @@ if (cd "${workdir}/unknown" \
     GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 HEAD_COMMIT_MSG="chore(main): release 1.4.0" \
     bash "${script}" tag >"${workdir}/unknown.out" 2>&1) \
   || git -C "${workdir}/unknown.git" rev-parse --verify --quiet refs/tags/v1.4.0 >/dev/null 2>&1; then
-  echo "FAIL an unknown step: want it refused with nothing tagged" >&2
+  fail_case "an unknown step" "want it refused with nothing tagged"
   sed 's/^/    /' "${workdir}/unknown.out" >&2
-  failures=$((failures + 1))
 fi
 
-if ((failures > 0)); then
-  echo "push-release-tag: ${failures} check(s) of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "push-release-tag: all ${cases} cases pass."
+finish_tests

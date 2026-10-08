@@ -7,20 +7,11 @@
 #   scripts/check-package-size_test.sh
 set -euo pipefail
 
-# A git hook or `git rebase --exec` exports the variables that locate its
-# repository; the repositories this test builds must not inherit them.
-# shellcheck disable=SC2046 # word splitting is the point: one name per word
-unset $(git rev-parse --local-env-vars)
-
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly check="${here}/check-package-size.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # repo makes a fresh git repository under the work dir and prints its path.
 repo() {
@@ -42,20 +33,8 @@ add() {
 # exit status to pass or fail.
 #   expect <pass|fail> <name> <repo-dir> <budget-file> [default-max]
 expect() {
-  local want="$1" name="$2" dir="$3" budgets="$4" default_max="${5:-12}" got
-  cases=$((cases + 1))
-
-  if PACKAGE_SIZE_ROOT="${dir}" PACKAGE_SIZE_BUDGETS="${budgets}" \
-    DEFAULT_MAX_FILES="${default_max}" "${check}" >/dev/null 2>&1; then
-    got="pass"
-  else
-    got="fail"
-  fi
-
-  if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want ${want}, got ${got}" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit "$1" "$2" env PACKAGE_SIZE_ROOT="$3" PACKAGE_SIZE_BUDGETS="$4" \
+    DEFAULT_MAX_FILES="${5:-12}" "${check}"
 }
 
 # An empty budget file is a valid one: every directory then answers to the
@@ -122,9 +101,4 @@ expect pass "an exempt generated tree" "${exempt}" "${exempt_budgets}" 2
 emptyrepo="$(repo emptyrepo)"
 expect fail "a repository with no source files" "${emptyrepo}" "${empty_budgets}" 12
 
-if ((failures > 0)); then
-  echo "check-package-size_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "check-package-size_test: ${cases} case(s) passed."
+finish_tests
