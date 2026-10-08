@@ -27,6 +27,8 @@ jobs:
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+          # The gate runs inside the image, which provisions its own tools.
+          install_args: task
       # Builds build/Dockerfile with the versions scripts/tool-versions.sh reads
       # from mise.toml, then runs `task check` inside it — the same gate a
       # developer runs, in the container the release is built in.
