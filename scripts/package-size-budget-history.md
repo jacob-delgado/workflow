@@ -1,9 +1,10 @@
 # Package & directory size budget history
 
 The per-directory file budgets in `scripts/package-size-budgets.txt` get bumped
-when a grouping legitimately grows, and ratcheted down when a split lands. This
-is the running record of why each number moved, so a future maintainer doesn't
-have to `git blame` a comment block.
+when a grouping legitimately grows, and ratcheted down when a split lands. A
+cohesive ceiling moves only when it is raised, which is a decision like any
+bump. This is the running record of why each number moved, so a future
+maintainer doesn't have to `git blame` a comment block.
 
 Append a row when you change a number. Date in ISO 8601; **PR** is the number
 of the pull request that landed the change (`#NN`), and a backlog ID belongs in
@@ -93,3 +94,6 @@ gate was in the way" is not one of them.
 | 2026-10-08 | pre-1.0 paydown | `web/src/lib` | 15 → 16 | `LastLook.tsx` (DEBT-214): the last look before a write — the question and its cost, what is about to be sent, the refusal, and Cancel beside the act, held while the write runs — which seven confirm steps and the summary's preview wrote by hand and had let drift. It owns the hold a question puts on the single-key shortcuts, moved from the keyboard's registry so lib stays a leaf. The same responsibility (a primitive drawn alike everywhere it appears), not a second reason to change. |
 | 2026-10-08 | pre-1.0 paydown | `internal/loop` | 13 → 14 | `setup.go` (DEBT-312): `NotSetUp`, `SetUpAdvice` and the causes they match, the words the web's problem, the command line's note and the terminal's guidance tell a service never set up in, moved out of `summary.go`, which the Summary's reads use but which every surface asks of any seam's error; `setup_test.go` already tested them as a file of their own. The same responsibility (say what the loop means over the seams' answers), one concern wider; not a second reason to change. |
 | 2026-10-08 | pre-1.0 paydown | `internal/wiring` | 14 → 13 | `slackdirectory.go` gone (DEBT-310): the Slack directory's single-flight reads, expiry and rate-limit patience are behavior over the messaging client rather than a binding of it, so they moved to `internal/messaging/directory`, and the few lines that bind it into the messaging seams joined `messaging.go`. Ratcheted to the count, as a budget left above it fails. |
+| 2026-10-08 | pre-1.0 paydown | `internal/tui` | 64 → 80 cohesive | A cohesive ceiling in place of a zero-headroom budget (DEBT-238, closing TRADE-1). The package is the Bubble Tea interface spelled one file per pane, overlay and composer, which CLAUDE.md says must not be split; its budget rose 21 times since 2026-09-25 with the same WHY and never led to a split. It now fails only past 80, the 64 files it holds and the panes still to come. |
+| 2026-10-08 | pre-1.0 paydown | `internal/webserver` | 36 → 40 cohesive | A cohesive ceiling in place of a zero-headroom budget (DEBT-238, closing TRADE-1). The package is the loopback REST surface spelled one file per operation, and grows only when `api/openapi.yaml` gains one; its budget rose from 20 to 31 with the same WHY each time. It now fails only past 40. |
+| 2026-10-08 | pre-1.0 paydown | `internal/cli` | 22 → 28 cohesive | A cohesive ceiling in place of a zero-headroom budget (DEBT-238, closing TRADE-1). The package is the Cobra command tree spelled one file per command, and grows when the tool gains a command; its budget rose from 15 to 20 with the same WHY each time. It now fails only past 28. |
