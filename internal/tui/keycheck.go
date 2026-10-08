@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -13,28 +12,8 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-)
 
-// Errors CheckKeys returns for a ui.keys map that cannot be used. Callers
-// distinguish them with errors.Is.
-var (
-	// ErrUnknownKeyAction reports a ui.keys entry naming an action that does not
-	// exist — a typo in the action id.
-	ErrUnknownKeyAction = errors.New("ui.keys names a key action that does not exist")
-	// ErrKeyConflict reports two actions bound to the same key where both are
-	// live at once, so a press would be ambiguous.
-	ErrKeyConflict = errors.New("ui.keys binds two actions to one key in the same context")
-	// ErrKeyNotRebindable reports a ui.keys entry moving an action whose keys
-	// cannot be one key: jump-to-pane answers the pane numbers, one per pane.
-	ErrKeyNotRebindable = errors.New("ui.keys moves an action whose keys cannot be rebound")
-	// ErrInterruptEdits reports interrupt moved onto a key that types or edits
-	// text. Interrupt is answered before any filter, prompt or text box, so on
-	// such a key it would quit mid-sentence and lose what was written.
-	ErrInterruptEdits = errors.New("ui.keys moves interrupt onto a key that types or edits text")
-	// ErrTextFieldKey reports an overlay's key moved onto one its focused text
-	// field edits with — a character, or a readline key such as ctrl+w. The
-	// overlay answers the key first, so the field would lose that edit.
-	ErrTextFieldKey = errors.New("ui.keys moves an overlay's key onto one its text field edits with")
+	"github.com/jacob-delgado/workflow/internal/config"
 )
 
 // actionInterrupt is the action every context answers first, even while text
@@ -57,11 +36,11 @@ func CheckKeys(overrides map[string]string) error {
 	}
 
 	if _, moved := overrides[actionJumpToPane]; moved {
-		return fmt.Errorf("%w: %q", ErrKeyNotRebindable, actionJumpToPane)
+		return fmt.Errorf("%w: %q", config.ErrKeyNotRebindable, actionJumpToPane)
 	}
 
 	if moved, ok := overrides[actionInterrupt]; ok && editsText(moved) {
-		return fmt.Errorf("%w: %s on %q", ErrInterruptEdits, actionInterrupt, moved)
+		return fmt.Errorf("%w: %s on %q", config.ErrInterruptEdits, actionInterrupt, moved)
 	}
 
 	err = builder.conflicts()
@@ -92,7 +71,7 @@ func (b *helpBuilder) textFieldClash() error {
 
 		for _, boundKey := range placed.binding.Keys() {
 			if editsText(boundKey) || slices.Contains(readlineKeys(), boundKey) {
-				return fmt.Errorf("%w: %s on %q", ErrTextFieldKey, placed.action, boundKey)
+				return fmt.Errorf("%w: %s on %q", config.ErrTextFieldKey, placed.action, boundKey)
 			}
 		}
 	}
@@ -115,7 +94,7 @@ func readlineKeys() []string {
 func (b *helpBuilder) unknownActions(overrides map[string]string) error {
 	for _, action := range slices.Sorted(maps.Keys(overrides)) {
 		if _, ok := b.byAction[action]; !ok {
-			return fmt.Errorf("%w: %q", ErrUnknownKeyAction, action)
+			return fmt.Errorf("%w: %q", config.ErrUnknownKeyAction, action)
 		}
 	}
 
@@ -211,7 +190,7 @@ func (b *helpBuilder) conflictIn(context keyContext) error {
 		for _, boundKey := range placed.binding.Keys() {
 			if other, taken := boundBy[boundKey]; taken && other != placed.action {
 				return fmt.Errorf("%w: %s and %s both bind %q in %s",
-					ErrKeyConflict, other, placed.action, boundKey, context.name)
+					config.ErrKeyConflict, other, placed.action, boundKey, context.name)
 			}
 
 			boundBy[boundKey] = placed.action
