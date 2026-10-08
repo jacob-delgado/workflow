@@ -334,3 +334,25 @@ func TestADirectoryOutsideYourHomeIsShownAsItIs(t *testing.T) {
 		t.Errorf("Shown = %q, want /opt/tools", got)
 	}
 }
+
+// BenchmarkListingTenThousandRepositories lists a directory ten times past the
+// limit, every entry a repository, so a listing that asks whether each entry
+// is a repository before it cuts to ListLimit shows here as ten times the
+// .git checks it needs.
+func BenchmarkListingTenThousandRepositories(b *testing.B) {
+	root := b.TempDir()
+
+	for index := range 10 * workdirs.ListLimit {
+		err := os.MkdirAll(filepath.Join(root, "d"+strconv.Itoa(index), ".git"), 0o750)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	for b.Loop() {
+		listing, err := workdirs.List(root, "")
+		if err != nil || len(listing.Entries) != workdirs.ListLimit || !listing.Entries[0].Repository {
+			b.Fatalf("List = %d entries, %v; want %d repositories", len(listing.Entries), err, workdirs.ListLimit)
+		}
+	}
+}
