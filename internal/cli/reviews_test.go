@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
@@ -160,15 +161,16 @@ func TestReviewsReportsAForgeFailure(t *testing.T) {
 	}
 }
 
-func TestReviewsAsJSONReportsEachOldestFirstWithItsAge(t *testing.T) {
+func TestReviewsAsJSONReportsEachOldestFirstWithWhenItWasOpened(t *testing.T) {
 	// Arrange
-	now := time.Now()
+	now := time.Now().UTC().Truncate(time.Second)
+	opened := map[int]time.Time{
+		30: now.Add(-30 * time.Minute), 10: now.Add(-74 * time.Hour), 20: now.Add(-5 * time.Hour),
+	}
 	fakeGh(t, ghResponses{search: reviewSearch(
-		reviewItem(30, "ana", "ex/repo", now.Add(-30*time.Minute)),
-		reviewItem(10, "ben", "ex/repo", now.Add(-74*time.Hour)),
-		reviewItem(20, "cass", "ex/repo", now.Add(-5*time.Hour)),
-		// Opened "in the future", which humanizeAge clamps to no age at all.
-		reviewItem(40, "dee", "ex/repo", now.Add(time.Hour)),
+		reviewItem(30, "ana", "ex/repo", opened[30]),
+		reviewItem(10, "ben", "ex/repo", opened[10]),
+		reviewItem(20, "cass", "ex/repo", opened[20]),
 	)})
 	repo := reviewsRepo(t)
 
@@ -179,31 +181,24 @@ func TestReviewsAsJSONReportsEachOldestFirstWithItsAge(t *testing.T) {
 	}
 
 	// Assert
-	var reports []struct {
-		Number int    `json:"number"`
-		CI     string `json:"ci"`
-		Age    string `json:"age"`
-	}
+	var requests []api.ReviewRequest
 
-	output := printed.stdout
+	decoder := json.NewDecoder(strings.NewReader(printed.stdout))
+	decoder.DisallowUnknownFields()
 
-	err = json.Unmarshal([]byte(output), &reports)
+	err = decoder.Decode(&requests)
 	if err != nil || printed.stderr != "" {
-		t.Fatalf("stdout is not the JSON alone: %v\nstdout:\n%s\nstderr:\n%s", err, output, printed.stderr)
+		t.Fatalf("stdout is not GET /api/reviews's requests alone: %v\nstdout:\n%s\nstderr:\n%s",
+			err, printed.stdout, printed.stderr)
 	}
 
-	if len(reports) != 4 || reports[0].Number != 10 || reports[0].CI != "none" {
-		t.Fatalf("reviews JSON = %+v, want four reviews oldest-first with CI none", reports)
+	if len(requests) != 3 || requests[0].Number != 10 || requests[0].Ci != api.None {
+		t.Fatalf("reviews JSON = %+v, want three reviews oldest-first with CI none", requests)
 	}
 
-	ageByNumber := make(map[int]string, len(reports))
-	for _, report := range reports {
-		ageByNumber[report.Number] = report.Age
-	}
-
-	for number, want := range map[int]string{10: "3d", 20: "5h", 30: "30m", 40: "0m"} {
-		if got := ageByNumber[number]; got != want {
-			t.Errorf("review #%d age = %q, want %q\n%s", number, got, want, output)
+	for _, request := range requests {
+		if !request.OpenedAt.Equal(opened[request.Number]) {
+			t.Errorf("review #%d opened_at = %s, want %s", request.Number, request.OpenedAt, opened[request.Number])
 		}
 	}
 }

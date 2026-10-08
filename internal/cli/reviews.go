@@ -6,13 +6,13 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
 // errUnknownSort is a --sort naming no order the queue can be listed in.
@@ -49,7 +49,8 @@ func newReviewsCmd() *cobra.Command {
 			"review, oldest first, with the author, how CI stands and how long each has\n" +
 			"been waiting. The forge is the one your repository's remote points at.\n" +
 			"--sort newest lists the latest first, and --sort repo groups them by\n" +
-			"repository, oldest first within each.",
+			"repository, oldest first within each. --json prints the web API's review\n" +
+			"requests, each with when it was opened.",
 		Example: examples(
 			`workflow reviews | wc -l      # how many pull requests wait on you`,
 			`workflow reviews --json       # the same, oldest first, as data`,
@@ -94,13 +95,11 @@ func runReviews(out output, seams reviewsSeams, opts reviewsOptions) error {
 	}
 
 	reviews := order(answered)
-
-	now := seams.Now()
 	if opts.asJSON {
-		return renderReviewsJSON(out.artifact, reviews, now)
+		return encodeJSON(out.artifact, webserver.ReviewRequests(reviews))
 	}
 
-	renderReviews(out, reviews, now, seams.Kind)
+	renderReviews(out, reviews, seams.Now(), seams.Kind)
 
 	return nil
 }
@@ -145,30 +144,4 @@ func humanizeAge(now, then time.Time) string {
 	default:
 		return strconv.Itoa(int(elapsed/day)) + "d"
 	}
-}
-
-// reviewReport is one review as JSON.
-type reviewReport struct {
-	Number     int    `json:"number"`
-	Title      string `json:"title"`
-	Author     string `json:"author"`
-	Repository string `json:"repository,omitempty"`
-	Draft      bool   `json:"draft"`
-	CI         string `json:"ci"`
-	Age        string `json:"age"`
-	URL        string `json:"url"`
-}
-
-// renderReviewsJSON writes the reviews as a JSON array.
-func renderReviewsJSON(out io.Writer, reviews []forge.ReviewRequest, now time.Time) error {
-	reports := make([]reviewReport, 0, len(reviews))
-	for _, review := range reviews {
-		reports = append(reports, reviewReport{
-			Number: review.Number, Title: review.Title, Author: review.Author,
-			Repository: review.Repository, Draft: review.Draft,
-			CI: ciWord(review.CI), Age: humanizeAge(now, review.OpenedAt), URL: review.URL,
-		})
-	}
-
-	return encodeJSON(out, reports)
 }
