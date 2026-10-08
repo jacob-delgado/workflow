@@ -68,18 +68,10 @@ updates:
       actions:
         update-types: ["minor", "patch"]
 
-  # The build container's base image (build/Dockerfile).
-  - package-ecosystem: docker
-    directory: "/build"
-    schedule:
-      interval: weekly
-    commit-message:
-      prefix: build
-    cooldown:
-      default-days: 7
-    groups:
-      docker:
-        update-types: ["minor", "patch"]
+  # No docker entry for the build container: its FROM names the image through
+  # the GO_VERSION build ARG, which Dependabot does not substitute, so it cannot
+  # read the line. The digest moves by hand with each Go bump, as
+  # build/Dockerfile says.
 
   # The documentation site's Hugo module (docs/go.mod), a separate module the
   # root gomod entry above does not reach.
