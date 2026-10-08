@@ -232,14 +232,15 @@ func previewAnnouncement(out output, seams announceSeams, composed composedAnnou
 // then why.
 func deliverAnnouncement(notes io.Writer, seams announceSeams, pending pendingAnnouncement) error {
 	err := loop.Deliver(seams.Post, pending.memory, pending.delivery)
-	if err != nil && !errors.Is(err, loop.ErrNotRemembered) {
+
+	why, notKept := loop.NotRememberedReason(err)
+	if err != nil && !notKept {
 		return fmt.Errorf("announcing to %s: %w", seams.Messaging.Service(), err)
 	}
 
 	fmt.Fprintln(notes, "Announced to "+seams.Messaging.Target()+".")
 
-	if err != nil {
-		why := strings.TrimPrefix(err.Error(), loop.ErrNotRemembered.Error()+": ")
+	if notKept {
 		fmt.Fprintln(notes, loop.NotRememberedWarning+" "+sanitize.Line(why))
 	}
 
