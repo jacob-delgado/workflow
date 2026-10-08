@@ -73,7 +73,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 	jiraClient := onceConnected(func() (jira.Client, error) { return connectJira(ctx, cfg.Jira, httpTransport, log) })
 	messagingSettings := &liveMessaging{settings: cfg.Messaging}
 	messagingSet := messagingSetup{
-		settings: messagingSettings.current, path: cfg.Path, httpTransport: httpTransport, log: log,
+		settings: messagingSettings.current, files: cfg.Layers(), httpTransport: httpTransport, log: log,
 	}
 	directory := NewSlackDirectory(slackUserClient(messagingSet), time.Now)
 
