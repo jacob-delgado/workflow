@@ -38,7 +38,7 @@ export function TaskDetail({ task, issue, teller, now }: TaskDetailProps) {
         {task.description}
       </h2>
       <TaskFacts task={task} issue={issue} now={now} />
-      <IssueLinks task={task} listed={issue !== undefined} />
+      <IssueLinks task={task} listed={issue} />
       <div className="flex flex-wrap items-center gap-item">
         <TaskVerbs task={task} teller={teller} />
       </div>
@@ -121,11 +121,11 @@ function Fact({ term, children }: { term: string; children: ReactNode }) {
 // names one, and its detail in the Issues section, where the Issues list holds
 // it — otherwise that section could not show it, as the terminal's "go to
 // issue" is offered only then.
-function IssueLinks({ task, listed }: { task: Task; listed: boolean }) {
+function IssueLinks({ task, listed }: { task: Task; listed: Issue | undefined }) {
   const setSection = useUiStore((state) => state.setSection)
   const selectIssue = useUiStore((state) => state.selectIssue)
 
-  if (task.issue_url === '' && !listed) {
+  if (task.issue_url === '' && listed === undefined) {
     return null
   }
 
@@ -134,17 +134,17 @@ function IssueLinks({ task, listed }: { task: Task; listed: boolean }) {
       {task.issue_url === '' ? null : (
         <NewTabLink href={task.issue_url}>Open {task.issue_key}</NewTabLink>
       )}
-      {listed ? (
+      {listed === undefined ? null : (
         <Button
           variant="secondary"
           onClick={() => {
-            selectIssue(task.issue_key)
+            selectIssue(listed)
             setSection('issues')
           }}
         >
           Open in Issues
         </Button>
-      ) : null}
+      )}
     </div>
   )
 }

@@ -164,7 +164,7 @@ interface ListAndDetailProps {
 function ListAndDetail(props: ListAndDetailProps) {
   const { loaded, shown, branches, tasks, more, streamed, unread, focus, onLoadMore, outcome } =
     props
-  const selected = useUiStore((state) => state.selectedIssue)
+  const selected = useUiStore((state) => state.selectedIssue?.key ?? null)
 
   if (unread !== null) {
     return (
@@ -263,7 +263,7 @@ interface IssueRowsProps {
 }
 
 function IssueRows({ issues, branches, tasks, rowRefs, outcome }: IssueRowsProps) {
-  const selected = useUiStore((state) => state.selectedIssue)
+  const selected = useUiStore((state) => state.selectedIssue?.key ?? null)
   const selectIssue = useUiStore((state) => state.selectIssue)
   const branchesByKey = groupBranchesByKey(branches)
   const pane = useSelectedRowInView(rowRefs, selected)
@@ -307,7 +307,7 @@ function IssueRows({ issues, branches, tasks, rowRefs, outcome }: IssueRowsProps
               type="button"
               aria-current={issue.key === selected ? true : undefined}
               onClick={() => {
-                selectIssue(issue.key)
+                selectIssue(issue)
               }}
               className="flex flex-col gap-tight rounded-md px-3 py-2 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >

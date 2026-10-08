@@ -21,12 +21,12 @@ export function IssueLink({ branch, outcome }: { branch: Branch; outcome: Teller
   const linkKeys = useShortcut('link-issue', offer)
   const [unlinker, focusUnlink] = useFocusHandback<HTMLButtonElement>()
   const settle = (answered: Branch, focusNext: () => void) => {
-    setHeld({ link: answered.issue_link, over: branch.issue_link, branch: branch.name })
+    setHeld({ link: linkOf(answered), over: branch.issue_link, branch: branch.name })
     focusNext()
   }
   const link = linkShown(held, branch)
 
-  if (link !== '') {
+  if (link.issue_link !== '') {
     return (
       <Linked
         link={link}
@@ -65,10 +65,19 @@ export function IssueLink({ branch, outcome }: { branch: Branch; outcome: Teller
   )
 }
 
+// LinkedIssue is the issue a branch is linked to, with the tracker the
+// server names for it.
+type LinkedIssue = Pick<Branch, 'issue_link' | 'issue_link_tracker'>
+
+// linkOf is the branch's link, without the rest of the branch.
+function linkOf(branch: Branch): LinkedIssue {
+  return { issue_link: branch.issue_link, issue_link_tracker: branch.issue_link_tracker }
+}
+
 // HeldLink is the link a write answered with, over the link the stream
 // showed when it answered, on the branch it answered for.
 interface HeldLink {
-  link: string
+  link: LinkedIssue
   over: string
   branch: string
 }
@@ -76,14 +85,14 @@ interface HeldLink {
 // linkShown is the branch's link as the last write left it until the stream
 // moves on from what it showed then: the stream can take seconds to report a
 // write, and meanwhile the page would offer to make it again.
-function linkShown(held: HeldLink | undefined, branch: Branch): string {
+function linkShown(held: HeldLink | undefined, branch: Branch): LinkedIssue {
   return held?.branch === branch.name && held.over === branch.issue_link
     ? held.link
-    : branch.issue_link
+    : linkOf(branch)
 }
 
 interface LinkedProps {
-  link: string
+  link: LinkedIssue
   unlinker: RefObject<HTMLButtonElement | null>
   outcome: Teller
   onUnlinked: (answered: Branch) => void
@@ -145,7 +154,7 @@ function LinkForm({ outcome, onLinked, onClose }: LinkFormProps) {
   const field = useFocusOnMount<HTMLInputElement>()
   const link = useAsyncAction(linkIssue, {
     fallback: 'The branch was not linked. Try again.',
-    done: (answered) => `Linked ${answered.name} to ${shownLinkKey(answered.issue_link)}.`,
+    done: (answered) => `Linked ${answered.name} to ${shownLinkKey(answered)}.`,
     onStart: outcome.clear,
     onDone: (said, answered) => {
       outcome.say(said)

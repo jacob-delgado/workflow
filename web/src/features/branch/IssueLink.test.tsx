@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useHealthStore } from '@/api/health.ts'
+import type { IssueTracker } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { gitLabWords, makeBranch, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
@@ -9,12 +10,15 @@ import { BranchPanel } from './BranchPanel.tsx'
 const linkPath = '/api/branch/issue'
 const previewPath = '/api/branch/issue/preview'
 
-// onBranch streams a branch begun outside workflow, linked to link when given.
-function onBranch(link = '') {
-  useSnapshotStore.setState({
-    status: 'live',
-    snapshot: makeSnapshot({ branch: makeBranch({ name: 'my-thing', issue_link: link }) }),
+// onBranch streams a branch begun outside workflow, linked to link in tracker
+// when given.
+function onBranch(link = '', tracker: IssueTracker = 'jira') {
+  const branch = makeBranch({
+    name: 'my-thing',
+    issue_link: link,
+    ...(link === '' ? {} : { issue_link_tracker: tracker }),
   })
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot({ branch }) })
 }
 
 // writesTo are the requests that changed the link, as "METHOD body".
@@ -33,7 +37,7 @@ test('links the branch to the issue typed when no description would change', asy
   onBranch()
   const requests = fakeApi({
     [previewPath]: { key: 'PROJ-7', pull: 0, body: '', changes: false },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7' }),
+    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7', issue_link_tracker: 'jira' }),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -53,7 +57,7 @@ test('with a pull request, shows its new description before linking', async () =
   onBranch()
   const requests = fakeApi({
     [previewPath]: { key: '42', pull: 9, body: 'Speeds it up.\n\nCloses #42\n', changes: true },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: '42' }),
+    [linkPath]: makeBranch({ name: 'my-thing', issue_link: '42', issue_link_tracker: 'forge' }),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -73,7 +77,7 @@ test('linking and updating sends the description change with the link', async ()
   onBranch()
   const requests = fakeApi({
     [previewPath]: { key: '42', pull: 9, body: 'Speeds it up.\n\nCloses #42\n', changes: true },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: '42' }),
+    [linkPath]: makeBranch({ name: 'my-thing', issue_link: '42', issue_link_tracker: 'forge' }),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -119,7 +123,7 @@ test('links the issue that was previewed, not one typed while the preview was re
 
       return { key: 'PROJ-7', pull: 12, body: 'Speeds it up.\n\nJira: PROJ-7\n', changes: true }
     },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7' }),
+    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7', issue_link_tracker: 'jira' }),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -160,7 +164,7 @@ test("on GitLab, names the merge request by GitLab's own mark", async () => {
 
 test('a branch linked to a forge issue names it as the forge writes it', () => {
   // Arrange
-  onBranch('42')
+  onBranch('42', 'forge')
 
   // Act
   render(<BranchPanel />)
@@ -175,7 +179,7 @@ test('says a forge issue was linked by its number as the forge writes it', async
   onBranch()
   fakeApi({
     [previewPath]: { key: '42', pull: 0, body: '', changes: false },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: '42' }),
+    [linkPath]: makeBranch({ name: 'my-thing', issue_link: '42', issue_link_tracker: 'forge' }),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -229,7 +233,7 @@ test('once linked, shows the link with focus on Unlink before the stream reports
   onBranch()
   fakeApi({
     [previewPath]: { key: 'PROJ-7', pull: 0, body: '', changes: false },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7' }),
+    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7', issue_link_tracker: 'jira' }),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)

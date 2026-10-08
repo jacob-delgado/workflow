@@ -925,7 +925,10 @@ type Branch struct {
 
 	// IssueLink The issue the branch was linked to by hand, for work begun outside workflow; empty when it was never linked.
 	IssueLink string `json:"issue_link"`
-	Name      string `json:"name"`
+
+	// IssueLinkTracker The tracker the linked issue lives in, read from its key by the rule the server routes it by; absent when the branch was never linked.
+	IssueLinkTracker *IssueTracker `json:"issue_link_tracker,omitempty"`
+	Name             string        `json:"name"`
 
 	// PushRemote The remote a push of the branch goes to: remote.pushDefault when the repository sets one, origin otherwise.
 	PushRemote string `json:"push_remote"`

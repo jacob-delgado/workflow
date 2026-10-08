@@ -101,7 +101,7 @@ function openOn(snapshot: Snapshot, keys: KeyList, section: 'issues' | 'branch' 
     '/api/unstage': { changes: [] },
   })
   useSnapshotStore.setState({ status: 'live', snapshot })
-  useUiStore.setState({ section, selectedIssue: issue.key })
+  useUiStore.setState({ section, selectedIssue: issue })
   renderWithClient(<App />)
 
   return requests
@@ -348,7 +348,7 @@ test('turning single-key shortcuts on in Settings makes c work at once', async (
     '/api/issues/PROJ-1': issue,
   })
   useSnapshotStore.setState({ status: 'live', snapshot: withIssue })
-  useUiStore.setState({ section: 'settings', selectedIssue: issue.key })
+  useUiStore.setState({ section: 'settings', selectedIssue: issue })
   renderWithClient(<App />)
   await user.click(await screen.findByRole('checkbox', { name: 'Single-key shortcuts' }))
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
