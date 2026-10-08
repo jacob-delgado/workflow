@@ -103,7 +103,11 @@ same way. Set them in `~/.workflow.json`, which the repository's file layers ove
 A save writes the repository's file when there is one: Settings, the web's or
 the terminal's, writes only what differs from your home file, so a token inherited from home is
 never copied into a file in a working tree, and a later change at home still
-reaches the repository. `workflow config init` in a repository, over a home
+reaches the repository. Nor is a credential you type there — a token, a
+header's value, a webhook URL, a Slack secret not kept in the keychain — or a
+setting only your home file may make: the save is refused, writing nothing, and
+you set it in your home file instead. A credential already in the repository's
+file is kept, and can be removed. `workflow config init` in a repository, over a home
 file, starts from the home file's settings — a question left blank keeps the
 home file's answer — and `--template` writes an empty layer rather than blanks
 that would hide them. `--global` writes the home file.
