@@ -384,47 +384,70 @@ func render(document *yaml.Node) string {
 // Write creates the configuration and its scripts in a repository. It never
 // replaces anything: not a lefthook configuration under any name lefthook
 // reads, and not an existing script.
+//
+// Everything is created through the repository opened as a root, which no path
+// can leave: the repository's own tree decides what .lefthook is, and a clone
+// can make it a link to anywhere at all.
 func Write(dir string, generated Generated) error {
 	if HasConfig(os.DirFS(dir)) {
 		return fmt.Errorf("%w: this repository already has a lefthook configuration", fs.ErrExist)
 	}
 
-	// Track what this call creates and undo it on any failure, so a write that
-	// stops part-way leaves no lefthook.yml naming scripts it never wrote — which
-	// would otherwise block the offer from ever being tried again.
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return fmt.Errorf("creating %s: %w", filepath.Join(dir, configFileName), err)
+	}
+
+	err = repository{root: root, dir: dir}.writeAll(generated)
+
+	return errors.Join(err, root.Close())
+}
+
+// repository is where Write creates files: the directory, and the root that
+// keeps every file created through it inside.
+type repository struct {
+	root *os.Root
+	dir  string
+}
+
+// writeAll creates the configuration and then each script, and on any failure
+// removes what it created, so a write that stops part-way leaves no
+// lefthook.yml naming scripts it never wrote — which would otherwise block the
+// offer from ever being tried again.
+func (r repository) writeAll(generated Generated) error {
 	var written []string
 
 	remove := func() {
-		for _, w := range slices.Backward(written) {
-			_ = os.Remove(w)
+		for _, name := range slices.Backward(written) {
+			_ = r.root.Remove(name)
 		}
 	}
 
-	err := create(filepath.Join(dir, configFileName), generated.Config, configMode)
+	err := r.create(configFileName, generated.Config, configMode)
 	if err != nil {
 		return err
 	}
 
-	written = append(written, filepath.Join(dir, configFileName))
+	written = append(written, configFileName)
 
 	for _, script := range generated.Scripts {
-		target := filepath.Join(dir, filepath.FromSlash(script.Path))
+		name := filepath.FromSlash(script.Path)
 
-		err = os.MkdirAll(filepath.Dir(target), dirMode)
+		err = r.root.MkdirAll(filepath.Dir(name), dirMode)
 		if err != nil {
 			remove()
 
 			return fmt.Errorf("creating %s: %w", filepath.Dir(script.Path), err)
 		}
 
-		err = create(target, script.Contents, scriptMode)
+		err = r.create(name, script.Contents, scriptMode)
 		if err != nil {
 			remove()
 
 			return err
 		}
 
-		written = append(written, target)
+		written = append(written, name)
 	}
 
 	return nil
@@ -432,9 +455,10 @@ func Write(dir string, generated Generated) error {
 
 // create writes a new file, refusing one that already exists, and removes the
 // file again when it cannot be written whole.
-func create(target, contents string, mode os.FileMode) error {
-	//nolint:gosec // the path is the repository root joined with a name built here
-	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+func (r repository) create(name, contents string, mode os.FileMode) error {
+	target := filepath.Join(r.dir, name)
+
+	file, err := r.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 	if err != nil {
 		return fmt.Errorf("creating %s: %w", target, err)
 	}
@@ -443,7 +467,7 @@ func create(target, contents string, mode os.FileMode) error {
 
 	err = errors.Join(writeErr, file.Close())
 	if err != nil {
-		return fmt.Errorf("writing %s: %w", target, errors.Join(err, os.Remove(target)))
+		return fmt.Errorf("writing %s: %w", target, errors.Join(err, r.root.Remove(name)))
 	}
 
 	return nil
