@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -22,12 +23,6 @@ import (
 // server re-reads on this cadence and pushes the result; the browser never polls.
 // The forge is asked on a slower cadence of its own: see forgeCache.
 const defaultStreamInterval = 5 * time.Second
-
-// defaultForgeInterval is how long the forge's answer serves every stream when
-// timing.ci_interval names no interval: the terminal's own CI poll, often
-// enough to see a check finish soon after it does, rarely enough that a page
-// left open does not spend the forge's rate limit.
-const defaultForgeInterval = 20 * time.Second
 
 // streamEvents serves the Server-Sent Events stream: a snapshot on connect, then
 // another every interval, until the client disconnects and its request context is
@@ -335,11 +330,12 @@ func (s *server) snapshotReview(branch gitrepo.Branch, branchErr error) (forgeRe
 }
 
 // forgeInterval is how long a forge answer serves the stream:
-// timing.ci_interval in the configuration in effect, or defaultForgeInterval.
+// timing.ci_interval in the configuration in effect, or config.DefaultCIInterval,
+// the terminal's own CI poll.
 func (s *server) forgeInterval() time.Duration {
 	interval := s.config().CIInterval()
 	if interval <= 0 {
-		return defaultForgeInterval
+		return config.DefaultCIInterval
 	}
 
 	return interval
