@@ -1,29 +1,21 @@
-import { AxeBuilder } from '@axe-core/playwright'
 import type { Locator, Page } from '@playwright/test'
 import {
+  confirmSteps,
   height,
   openFirstRun,
   openSection,
   pinTheme,
-  sectionNames as populatedSectionNames,
+  sectionNames,
+  sectionsWith,
   themes,
 } from './support/cockpit.ts'
 import { expect, problem, test } from './support/fixtures.ts'
+import { axeViolations } from './support/reachable.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
-// holds up, so the scan runs the whole cockpit in each. The section labels are
-// the nav buttons' accessible names and the content heading's text.
-const sectionNames = [
-  'Issues',
-  'Branch',
-  'Review',
-  'Messaging',
-  'Reviews',
-  'Tasks',
-  'Summary',
-  'Repositories',
-  'Settings',
-]
+// holds up, so the scan runs the whole cockpit in each. The hermetic build has
+// no messaging set up, so its section is named Messaging.
+const hermeticSections = sectionsWith('Messaging')
 
 // Scan the resting state, not mid-animation frames: reduced motion collapses
 // transitions to instant, so axe never samples a half-faded element (whose
@@ -48,15 +40,6 @@ const unreachable = problem(
   'unreachable',
   'the service could not be reached; check the network, then try again',
 )
-
-// scan returns the WCAG A/AA violations axe finds on whatever is on screen.
-async function scan(page: Page) {
-  const { violations } = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-    .analyze()
-
-  return violations
-}
 
 for (const theme of themes) {
   test(`no accessibility violations across the sections in the ${theme} theme`, async ({
@@ -83,16 +66,14 @@ for (const theme of themes) {
 
     const nav = page.getByRole('navigation', { name: 'Sections' })
 
-    for (const name of sectionNames) {
+    for (const name of hermeticSections) {
       // Act: open the section and let it settle.
       await nav.getByRole('button', { name, exact: true }).click()
       await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
       await expect(settled(page, name)).toBeVisible()
 
       // Assert: axe finds nothing on this section in this theme.
-      const violations = await scan(page)
-      const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
-      expect(violations, `${theme} / ${name}: ${summary}`).toEqual([])
+      expect(await axeViolations(page), `${theme} / ${name}`).toBe('')
     }
   })
 }
@@ -117,9 +98,7 @@ for (const theme of themes) {
     await expect(page.getByRole('button', { name: 'Write it anyway' })).toBeVisible()
 
     // Assert: axe finds nothing on the form or its refusal in this theme.
-    const violations = await scan(page)
-    const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
-    expect(violations, `${theme} / first-run setup: ${summary}`).toEqual([])
+    expect(await axeViolations(page), `${theme} / first-run setup`).toBe('')
   })
 }
 
@@ -137,54 +116,16 @@ for (const theme of themes) {
       await page.getByRole('button', { name: /redact tokens before/i }).click()
       await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
 
-      for (const name of populatedSectionNames) {
+      for (const name of sectionNames) {
         // Act: open the section and let it settle.
         await openSection(page, name)
 
         // Assert: axe finds nothing on this section, filled, in this theme.
-        const violations = await scan(page)
-        const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
-        expect(violations, `${theme} / populated ${name}: ${summary}`).toEqual([])
+        expect(await axeViolations(page), `${theme} / populated ${name}`).toBe('')
       }
     },
   )
 }
-
-// The steps a click opens on the populated build before a write goes out:
-// each is a group, named for what it asks.
-const confirmSteps = [
-  { step: 'push confirmation', section: 'Branch', opener: 'Push branch', group: /^Push / },
-  {
-    step: 'discard confirmation',
-    section: 'Branch',
-    opener: 'Discard internal/config/redact.go…',
-    group: 'Discard the changes to internal/config/redact.go?',
-  },
-  {
-    step: 'announcement preview',
-    section: 'Slack',
-    opener: 'Announce to Slack',
-    group: 'Announcement preview',
-  },
-  {
-    step: 'summary preview',
-    section: 'Summary',
-    opener: 'Post…',
-    group: 'Summary preview',
-  },
-  {
-    step: 'forget confirmation in People and groups',
-    section: 'Settings',
-    opener: 'Forget carla…',
-    group: 'Forget carla?',
-  },
-  {
-    step: 'remove confirmation in Local data',
-    section: 'Settings',
-    opener: 'Remove cache…',
-    group: 'Remove workflow.db?',
-  },
-]
 
 for (const theme of themes) {
   for (const { step, section, opener, group } of confirmSteps) {
@@ -202,9 +143,7 @@ for (const theme of themes) {
         await expect(page.getByRole('group', { name: group })).toBeVisible()
 
         // Assert: axe finds nothing on the step and the section around it.
-        const violations = await scan(page)
-        const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
-        expect(violations, `${theme} / populated ${step}: ${summary}`).toEqual([])
+        expect(await axeViolations(page), `${theme} / populated ${step}`).toBe('')
       },
     )
   }
