@@ -387,3 +387,15 @@ func (s reviewQueueState) repositoryAfter(index int) string {
 
 	return "no repository"
 }
+
+// reviewQueueBehavior is the Reviews pane's behavior.
+func reviewQueueBehavior() behavior {
+	return behavior{
+		rail: Model.reviewQueueRail, detail: Model.reviewQueueDetail, narrow: nil,
+		keys: Model.reviewQueueKeys, handle: Model.handleReviewQueueKey, pick: Model.pickReview,
+		move: commandless(Model.moveReviewBy), refresh: Model.refreshReviewQueue,
+		loading: func(m Model) bool { return m.reviewQueue.loading },
+		scroll:  func(m *Model) *int { return &m.reviewQueue.scroll }, listInDetail: true,
+		answers: []string{"sort-reviews", "filter-reviews", actionOpenLink, actionCopyLink, actionRefresh},
+	}
+}

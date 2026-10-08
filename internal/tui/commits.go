@@ -358,3 +358,17 @@ func (m Model) runPreCommit() (Model, tea.Cmd) {
 func preCommitRun() runKind {
 	return runKind{title: preCommit, refusal: "the " + preCommit + " hook failed"}
 }
+
+// commitsBehavior is the Commits pane's behavior.
+func commitsBehavior() behavior {
+	return behavior{
+		rail: Model.commitsRail, detail: Model.commitsDetail, narrow: nil,
+		keys: Model.commitsKeys, handle: Model.handleCommitsKey, pick: Model.pickChange, move: Model.moveChangeBy,
+		refresh: Model.refreshCommits, loading: func(m Model) bool { return m.changes.loading },
+		scroll: func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,
+		answers: []string{
+			"stage", "stage-all", "unstage-all", "discard-change", "commit", "amend", "fixup", "run-pre-commit",
+			"set-up-lefthook", actionRefresh,
+		},
+	}
+}

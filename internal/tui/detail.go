@@ -320,3 +320,17 @@ func (m Model) issueRelations(detail jira.IssueDetail) []string {
 
 	return lines
 }
+
+// issuesBehavior is the Issues pane's behavior.
+func issuesBehavior() behavior {
+	return behavior{
+		rail: Model.issuesRail, detail: Model.issueDetailView, narrow: Model.issuesNarrow,
+		keys: Model.issuesKeys, handle: Model.handleIssuesKey, pick: Model.pickIssue, move: Model.moveIssue,
+		refresh: Model.refreshIssues, loading: func(m Model) bool { return m.issues.loading },
+		scroll: func(m *Model) *int { return &m.detail.scroll },
+		answers: []string{
+			"change-status", "comment", "assign", "log-work", "start-work", "track-issue", actionOpenLink,
+			actionCopyLink, "search-issues", "filter-issues", "switch-view", "load-more", actionRefresh,
+		},
+	}
+}
