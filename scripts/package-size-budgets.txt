@@ -235,11 +235,15 @@ internal/webserver 36
 # databases, connect.go, which wires a command to the directory it runs in,
 # as the Repositories pane's switch wires another, and web.go, which wires
 # the web server over the same seams and reaches another directory for its
-# switch. One responsibility — turn a command line into a wiring seam call
-# and printed output — spelled command-per-file; it grows when the tool gains a command,
-# which the docs reference records, or when one command's sections outgrow a
-# file, as doctor's did.
-internal/cli 20
+# switch. status is split as doctor is: status.go for the command and its
+# fan-out over directories, status_gather.go for the facts each repository's
+# services give and the notes on those that do not answer, and
+# status_render.go for the line and the two JSON shapes. One responsibility —
+# turn a command line into a wiring seam call and printed output — spelled
+# command-per-file; it grows when the tool gains a command, which the docs
+# reference records, or when one command's sections outgrow a file, as
+# doctor's and status's did.
+internal/cli 22
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the
