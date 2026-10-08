@@ -33,11 +33,11 @@ func TestTaskwarriorProgramAndDisabledAreRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	workDir := t.TempDir()
-	write(t, workDir, `{"taskwarrior": {"program": "/opt/homebrew/bin/task", "disabled": true}}`)
+	homeDir := t.TempDir()
+	write(t, homeDir, `{"taskwarrior": {"program": "/opt/homebrew/bin/task", "disabled": true}}`)
 
 	// Act
-	cfg, err := config.Load(workDir, t.TempDir())
+	cfg, err := config.Load(t.TempDir(), homeDir)
 	if err != nil {
 		t.Fatalf("Load returned %v, want nil", err)
 	}
@@ -62,11 +62,11 @@ func TestATaskwarriorProgramOnTwoLinesIsRefused(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			workDir := t.TempDir()
-			write(t, workDir, `{"taskwarrior": {"program": "`+program+`"}}`)
+			homeDir := t.TempDir()
+			write(t, homeDir, `{"taskwarrior": {"program": "`+program+`"}}`)
 
 			// Act
-			_, err := config.Load(workDir, t.TempDir())
+			_, err := config.Load(t.TempDir(), homeDir)
 
 			// Assert
 			if !errors.Is(err, config.ErrInvalid) || !errors.Is(err, config.ErrInvalidTaskwarriorProgram) {
@@ -80,11 +80,11 @@ func TestATaskwarriorProgramIsKeptAsWritten(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	workDir := t.TempDir()
-	write(t, workDir, `{"taskwarrior": {"program": " /opt/my task "}}`)
+	homeDir := t.TempDir()
+	write(t, homeDir, `{"taskwarrior": {"program": " /opt/my task "}}`)
 
 	// Act
-	cfg, err := config.Load(workDir, t.TempDir())
+	cfg, err := config.Load(t.TempDir(), homeDir)
 	if err != nil {
 		t.Fatalf("Load returned %v, want nil", err)
 	}

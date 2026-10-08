@@ -341,7 +341,7 @@ func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
 			dir := tt.setup(t)
 
 			// Act
-			output, err := run(t, dir, "doctor", "--json", "--online")
+			output, err := runAtHome(t, dir, "doctor", "--json", "--online")
 
 			// Assert
 			wantExit(t, err, 3)
@@ -367,7 +367,7 @@ func TestDoctorJSONOnlineAsksJiraNothingWhenItsTokenEnvIsEmpty(t *testing.T) {
 		`"jira": {"base_url": "`+server.URL+`", "token_env": "`+emptyTokenVariable+`"}, `+slackWebhook)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--json", "--online")
+	output, err := runAtHome(t, dir, "doctor", "--json", "--online")
 
 	// Assert
 	wantExit(t, err, 3)

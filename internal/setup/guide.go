@@ -81,9 +81,12 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 		return Written{}, err
 	}
 
-	answers := request.Answers
-	keychain := request.Keychain && answers.Jira.BaseURL != ""
+	keychain, err := g.keychainFor(request)
+	if err != nil {
+		return Written{}, err
+	}
 
+	answers := request.Answers
 	if keychain {
 		answers.Jira, err = Keep(g.StoreSecret, answers.Jira)
 		if err != nil {
@@ -104,4 +107,19 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 	}
 
 	return Written{Path: path, Keychain: keychain, NotIgnored: NotIgnored(ctx, path)}, nil
+}
+
+// keychainFor reports whether the keychain keeps the token request asks it
+// to: never with Jira left out, and refused for a file other than the home
+// directory's, the one file that may read it back.
+func (g Guide) keychainFor(request Request) (bool, error) {
+	if !request.Keychain || request.Answers.Jira.BaseURL == "" {
+		return false, nil
+	}
+
+	if g.StoreSecret != nil && !g.Where.IsHomeFile(request.Place) {
+		return false, ErrKeychainAtHome
+	}
+
+	return true, nil
 }

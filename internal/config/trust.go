@@ -3,7 +3,15 @@
 
 package config
 
-import "maps"
+import (
+	"errors"
+	"fmt"
+	"maps"
+)
+
+// ErrHomeOnly is a repository's file setting what only the home directory's
+// file may: a program to run, or an environment variable to read.
+var ErrHomeOnly = errors.New("only the home directory's file may set it")
 
 // tokenKey is the key a section's token is written under.
 const tokenKey = "token"
@@ -101,4 +109,46 @@ func withoutCredentials(beneath any, moved []credentialSection) any {
 	}
 
 	return kept
+}
+
+// homeOnlySetting is a setting only the home directory's file may make: one
+// naming a program workflow runs, or an environment variable it reads and
+// sends on. A repository's file is part of a working tree that may have been
+// cloned from anyone, and a file found outside one may be anyone's.
+type homeOnlySetting struct {
+	key   string
+	value func(Config) string
+}
+
+// homeOnlySettings are the settings only the home directory's file may make.
+func homeOnlySettings() []homeOnlySetting {
+	return []homeOnlySetting{
+		{key: "jira.token_command", value: func(cfg Config) string { return cfg.Jira.TokenCommand }},
+		{key: "jira.token_env", value: func(cfg Config) string { return cfg.Jira.TokenEnv }},
+		{key: "taskwarrior.program", value: func(cfg Config) string { return cfg.Taskwarrior.Program }},
+	}
+}
+
+// refuseHomeOnly refuses contents, the repository's file at path, when it sets
+// any setting only the home directory's file may, naming each. Left empty, a
+// setting is not made, so a file written whole, which holds every key, passes.
+func refuseHomeOnly(path string, contents []byte) error {
+	layer, err := decode(contents)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+
+	var refused []error
+
+	for _, setting := range homeOnlySettings() {
+		if setting.value(layer) != "" {
+			refused = append(refused, fmt.Errorf("%s: %w", setting.key, ErrHomeOnly))
+		}
+	}
+
+	if len(refused) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("%s: %w: %w", path, ErrInvalid, errors.Join(refused...))
 }

@@ -45,11 +45,11 @@ func enter() tea.KeyPressMsg {
 	return tea.KeyPressMsg{Code: tea.KeyEnter}
 }
 
-// firstRunKeys open the form on the no-file screen, keep the repository, type
-// Jira's address and the token, keep it in the keychain, skip the webhook
-// and write.
+// firstRunKeys open the form on the no-file screen, choose the home
+// directory, the one file the keychain can keep the token for, type Jira's
+// address and the token, keep it in the keychain, skip the webhook and write.
 func firstRunKeys(jiraURL string) []tea.KeyPressMsg {
-	keys := []tea.KeyPressMsg{enter(), enter()}
+	keys := []tea.KeyPressMsg{enter(), {Code: tea.KeyDown}, enter()}
 	keys = append(append(keys, keysFor(jiraURL)...), enter())
 	keys = append(append(keys, keysFor(setupToken)...), enter())
 
@@ -198,7 +198,7 @@ func TestTheInterfaceSetsUpAFirstFileAndReopensWithIt(t *testing.T) {
 		t.Errorf("the interface reopened without the file:\n%s", reopened)
 	}
 
-	contents, err := os.ReadFile(filepath.Join(where.dir, config.FileName))
+	contents, err := os.ReadFile(filepath.Join(where.home, config.FileName))
 	if err != nil || strings.Contains(string(contents), setupToken) || outcome.stored != setupToken {
 		t.Errorf("wrote %q (%v), keychain %q; want the token in the keychain alone", contents, err, outcome.stored)
 	}

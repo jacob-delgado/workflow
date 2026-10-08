@@ -87,7 +87,7 @@ func TestDoctorOnlineNamesATokenSourceWithoutShowingIt(t *testing.T) {
 	writeFile(t, dir, `{"jira": {"base_url": "`+server.URL+`", "token_command": "echo `+secret+`"}, `+slackWebhook+`}`)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := runAtHome(t, dir, "doctor", "--online")
 
 	// Assert
 	if err != nil || !reached.Load() {
