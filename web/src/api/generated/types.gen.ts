@@ -3071,7 +3071,7 @@ export type UpdateConfigErrors = {
      */
     409: Problem;
     /**
-     * The configuration is invalid, or holds a ui.keys map the terminal interface would refuse to start on, or, saved to a repository's file, holds a credential typed into it or a setting only the home directory's file may make (jira.token_command, jira.token_env, taskwarrior.program); nothing was written.
+     * The configuration is invalid, or holds a ui.keys map the terminal interface would refuse to start on, or, saved to a repository's file, holds a credential the files it was read from do not hold (one typed into it, or one a read made before the files were removed holds) or a setting only the home directory's file may make (jira.token_command, jira.token_env, taskwarrior.program); nothing was written.
      */
     422: Problem;
     /**
