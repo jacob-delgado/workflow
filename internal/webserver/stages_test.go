@@ -29,6 +29,30 @@ func framedStages(t *testing.T, deps webserver.Deps) []api.Stage {
 	return firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String()).Stages
 }
 
+// stageStates is how far each of the loop's stages has got, by its step; a
+// stage left out has not started.
+type stageStates struct {
+	issue, branch, commits, review, announce api.StageState
+}
+
+// loopStages is the loop's five stages in order, named as the server names
+// them, the last for kind's service, each in the state states gives it.
+func loopStages(kind config.MessagingKind, states stageStates) []api.Stage {
+	stage := func(step api.StageStep, name string, state api.StageState) api.Stage {
+		if state == "" {
+			state = api.StageStateNotStarted
+		}
+
+		return api.Stage{Step: step, Name: name, State: state}
+	}
+
+	return []api.Stage{
+		stage(api.StageStepIssue, "Issue", states.issue), stage(api.StageStepBranch, "Branch", states.branch),
+		stage(api.StageStepCommits, "Commits", states.commits), stage(api.StageStepReview, "Review", states.review),
+		stage(api.StageStepAnnounce, kind.Service(), states.announce),
+	}
+}
+
 // stageOf is the frame's stage at step, failing the test when it has none.
 func stageOf(t *testing.T, stages []api.Stage, step api.StageStep) api.Stage {
 	t.Helper()
@@ -48,13 +72,9 @@ func TestSnapshotCarriesTheLoopsStagesInOrder(t *testing.T) {
 	stages := framedStages(t, filledDeps())
 
 	// Assert
-	want := []api.Stage{
-		{Step: api.StageStepIssue, Name: "Issue", State: api.StageStateDone},
-		{Step: api.StageStepBranch, Name: "Branch", State: api.StageStateDone},
-		{Step: api.StageStepCommits, Name: "Commits", State: api.StageStateDone},
-		{Step: api.StageStepReview, Name: "Review", State: api.StageStateDone},
-		{Step: api.StageStepAnnounce, Name: config.KindSlack.Service(), State: api.StageStateNotStarted},
-	}
+	want := loopStages(config.KindSlack, stageStates{
+		issue: api.StageStateDone, branch: api.StageStateDone, commits: api.StageStateDone, review: api.StageStateDone,
+	})
 	if !slices.Equal(stages, want) {
 		t.Errorf("stages = %+v, want %+v", stages, want)
 	}
@@ -279,5 +299,74 @@ func TestSnapshotNamesTheAnnounceStageForTheService(t *testing.T) {
 	// Assert
 	if got := stageOf(t, snap.Stages, api.StageStepAnnounce).Name; got != "Teams" {
 		t.Errorf("announce stage is named %q, want Teams, the service it posts to", got)
+	}
+}
+
+// branchStagesOf is the stages a frame over deps gives each branch named for
+// an issue, by the branch's name, beside the frame's own stages. filledDeps'
+// Branch is on fix/PROJ-412, with a commit and an open pull request whose CI
+// passed; feat/PROJ-500-metrics is not checked out.
+func branchStagesOf(t *testing.T) (map[string][]api.Stage, []api.Stage) {
+	t.Helper()
+
+	deps := filledDeps()
+	deps.Branches = func() ([]string, error) { return []string{testBranchName, elsewhereBranch}, nil }
+	cfg := config.Default()
+	cfg.Jira.Project = testProject
+
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+
+	byName := map[string][]api.Stage{}
+	for _, branch := range snap.Branches {
+		byName[branch.Name] = branch.Stages
+	}
+
+	return byName, snap.Stages
+}
+
+// elsewhereBranch is a branch named for an issue that is not checked out.
+const elsewhereBranch = "feat/PROJ-500-metrics"
+
+func TestSnapshotGivesTheCheckedOutBranchTheFramesStages(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	byName, framed := branchStagesOf(t)
+
+	// Assert
+	if got := byName[testBranchName]; len(got) == 0 || !slices.Equal(got, framed) {
+		t.Errorf("checked-out branch's stages = %+v, want the frame's %+v", got, framed)
+	}
+}
+
+func TestSnapshotReadsABranchNotCheckedOutAsPickedUpAndBranchedFor(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	byName, _ := branchStagesOf(t)
+
+	// Assert
+	// Its commits, pull request and announcement are read for the checked-out
+	// branch alone, so none of the checked-out branch's progress is its own.
+	want := loopStages(config.KindSlack, stageStates{issue: api.StageStateDone, branch: api.StageStateDone})
+	if got := byName[elsewhereBranch]; !slices.Equal(got, want) {
+		t.Errorf("%s's stages = %+v, want %+v", elsewhereBranch, got, want)
+	}
+}
+
+func TestSnapshotReadsAnIssueWithNoBranchAsPickedAndNothingBegun(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cfg := config.Default()
+	cfg.Messaging.Kind = config.KindTeams
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, filledDeps(), cfg), "/api/events").Body.String())
+
+	// Assert
+	want := loopStages(config.KindTeams, stageStates{issue: api.StageStateInFlight})
+	if !slices.Equal(snap.UnstartedStages, want) {
+		t.Errorf("an unstarted issue's stages = %+v, want %+v", snap.UnstartedStages, want)
 	}
 }

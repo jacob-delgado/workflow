@@ -2387,6 +2387,9 @@ type Snapshot struct {
 
 	// Tasks What the event stream carries of your Taskwarrior tasks: the started one, as active — absent when none is started — and every task linked to an issue. Until Taskwarrior has answered both reads the summary makes, it is not available, with no active task and no linked one.
 	Tasks TasksSummary `json:"tasks"`
+
+	// UnstartedStages The loop's stages for an issue with no branch yet, as its work story shows them while it is open: the issue picked but not yet branched for, as the terminal's spine reads an issue selected, and nothing after it begun. An issue with a branch has that branch's stages instead (TaskBranch.stages).
+	UnstartedStages []Stage `json:"unstarted_stages"`
 }
 
 // Stage One stage of the loop for the checked-out branch.
@@ -2569,6 +2572,9 @@ type TaskBranch struct {
 
 	// Remote Whether only the remote has the branch.
 	Remote *bool `json:"remote,omitempty"`
+
+	// Stages The loop's stages for the issue the branch is named for, named and ordered as the snapshot's stages are. The checked-out branch's are the snapshot's stages. Another branch's are what the server knows without checking it out: the issue picked up and the branch made, and nothing after them begun, since the working tree, the pull request and the announcement are read for the checked-out branch alone.
+	Stages []Stage `json:"stages"`
 
 	// Worktree The directory of another worktree of the repository that has the branch checked out, as an absolute path; empty when none does. git will not check such a branch out here, so it is switched to there instead.
 	Worktree *string `json:"worktree,omitempty"`
