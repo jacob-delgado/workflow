@@ -6,6 +6,7 @@ import type {
   ActivityYear,
 } from '@/api/generated/types.gen.ts'
 import { headingDay } from '@/lib/dates.ts'
+import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { cn } from '@/lib/utils.ts'
 
 // sourceHues color what was done in the hue of the system the terminal's spine
@@ -111,14 +112,12 @@ function ActivityLine({ item }: { item: ActivityItem }) {
       {item.url === '' ? (
         <code className="font-mono text-foreground">{item.ref}</code>
       ) : (
-        <a
+        <NewTabLink
           href={item.url}
-          target="_blank"
-          rel="noreferrer"
-          className="font-mono text-foreground underline underline-offset-2 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="font-mono text-foreground underline underline-offset-2 hover:text-primary"
         >
-          {item.ref} <span className="sr-only">(opens in a new tab)</span>
-        </a>
+          {item.ref}
+        </NewTabLink>
       )}
       <span className="min-w-0 text-foreground">{item.title}</span>
     </li>
