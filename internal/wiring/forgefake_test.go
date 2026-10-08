@@ -30,6 +30,8 @@ const (
 	seamSearch      = "Search"
 	seamIssue       = "Issue"
 	seamTransition  = "Transition"
+	seamTransitions = "Transitions"
+	seamComment     = "Comment"
 	transitionClose = "close"
 )
 
