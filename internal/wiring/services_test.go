@@ -154,6 +154,56 @@ func TestTemplatesAreReadFromTheRepository(t *testing.T) {
 	}
 }
 
+func TestTemplatesAreReadOnlyFromInsideTheRepository(t *testing.T) {
+	t.Parallel()
+
+	// A cloned repository can link where its forge looks for a template to a
+	// file of the user's, which would fill in a description they may post.
+	elsewhere := t.TempDir()
+	write(t, filepath.Join(elsewhere, "Default.md"), "a key of the user's\n", 0o600)
+
+	cases := map[string]struct {
+		remote, link, target string
+	}{
+		"a github template linked to a file outside": {
+			remote: githubRemote, link: ".github/PULL_REQUEST_TEMPLATE.md",
+			target: filepath.Join(elsewhere, "Default.md"),
+		},
+		"a gitlab folder linked to one outside": {
+			remote: remoteGitLab, link: ".gitlab/merge_request_templates", target: elsewhere,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			root := t.TempDir()
+
+			err := os.MkdirAll(filepath.Dir(filepath.Join(root, tt.link)), 0o750)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = os.Symlink(tt.target, filepath.Join(root, tt.link))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: tt.remote}, nil).Forge
+
+			// Act
+			found := seams.Templates()
+
+			// Assert
+			if len(found) != 0 {
+				t.Errorf("Templates = %+v, want none read from outside the repository", found)
+			}
+		})
+	}
+}
+
 // jiraToken is the token each Jira seam test configures, so the client sends
 // its requests rather than refusing for want of one.
 const jiraToken = "a-token-for-tests"
