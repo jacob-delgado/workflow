@@ -25,7 +25,7 @@ func discarding(discarded *[]gitrepo.Change) webserver.Deps {
 	var tree staging
 
 	deps := tree.deps()
-	deps.Discard = func(change gitrepo.Change) error {
+	deps.Git.Discard = func(change gitrepo.Change) error {
 		*discarded = append(*discarded, change)
 
 		return nil
@@ -71,7 +71,7 @@ func TestDiscardRefusesWhatItCannotDrop(t *testing.T) {
 			status: http.StatusNotFound, code: api.ProblemCodeNotFound,
 		},
 		"no discard seam": {
-			body: `{"path":"` + editedPath + `"}`, unwire: func(deps *webserver.Deps) { deps.Discard = nil },
+			body: `{"path":"` + editedPath + `"}`, unwire: func(deps *webserver.Deps) { deps.Git.Discard = nil },
 			status: http.StatusUnprocessableEntity, code: api.ProblemCodeUnprocessable, detail: "discarding is not available",
 		},
 		"no path": {
@@ -111,7 +111,7 @@ func TestADiscardGitRefusesNamesTheFileAndNeverTheHost(t *testing.T) {
 	var discarded []gitrepo.Change
 
 	deps := discarding(&discarded)
-	deps.Discard = func(gitrepo.Change) error {
+	deps.Git.Discard = func(gitrepo.Change) error {
 		return fmt.Errorf("discarding %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
 			editedPath, errSeam, gitHost)
 	}

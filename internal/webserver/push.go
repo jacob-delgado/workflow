@@ -35,11 +35,11 @@ const pushNotStarted = "the push could not be started; push from a terminal to s
 // cannot start a 422 saying how to see why, and a branch that cannot be read is
 // answered by fault. On success it returns the branch as published.
 func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushResponseObject, error) {
-	if s.deps.Push == nil || s.deps.Branch == nil {
+	if s.deps.Git.Push == nil || s.deps.Git.Branch == nil {
 		return pushUnprocessable("pushing is not available"), nil
 	}
 
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return problemAnswer[api.PushdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -49,7 +49,7 @@ func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushRespo
 			problem(api.ProblemCodeConflict, "there is nothing to push")), nil
 	}
 
-	err = loop.Push(s.deps.Push, branch.Name)
+	err = loop.Push(s.deps.Git.Push, branch.Name)
 	if err != nil {
 		return pushUnprocessable(pushFailure(err)), nil
 	}

@@ -58,8 +58,8 @@ type countedSearch struct {
 
 // wire binds deps' search to the counter and its clock to clock.
 func (c *countedSearch) wire(deps webserver.Deps, clock *sharedClock) webserver.Deps {
-	search := deps.Search
-	deps.Search = func(jql string, startAt int) (jira.SearchResult, error) {
+	search := deps.Jira.Search
+	deps.Jira.Search = func(jql string, startAt int) (jira.SearchResult, error) {
 		c.mu.Lock()
 		c.asked++
 		c.mu.Unlock()
@@ -188,7 +188,7 @@ func newSlowForge() *slowForge {
 
 // wire binds deps' pull request read to the forge.
 func (f *slowForge) wire(deps webserver.Deps) webserver.Deps {
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		f.mu.Lock()
 		found := f.pull
 		f.mu.Unlock()
@@ -265,7 +265,7 @@ func TestASlowForgeReadHoldsUpNoOtherStream(t *testing.T) {
 // failingAuthor binds deps' author read to read, on a forge that cannot say
 // who the author is, counting each ask in asked.
 func failingAuthor(deps webserver.Deps, read *slowRead, asked *atomic.Int32) webserver.Deps {
-	deps.Author = func() (string, error) {
+	deps.Forge.Author = func() (string, error) {
 		asked.Add(1)
 		read.call()
 
@@ -316,8 +316,8 @@ func TestASlowAuthorReadHoldsUpNoOtherStream(t *testing.T) {
 // slowTracker binds deps' search for which issues are yours to read, which
 // then answers as deps' own did.
 func slowTracker(deps webserver.Deps, read *slowRead) webserver.Deps {
-	answer := deps.SearchLenient
-	deps.SearchLenient = func(jql string, startAt int) (jira.SearchResult, error) {
+	answer := deps.Jira.SearchLenient
+	deps.Jira.SearchLenient = func(jql string, startAt int) (jira.SearchResult, error) {
 		read.call()
 
 		return answer(jql, startAt)
@@ -373,7 +373,7 @@ func TestAPullRequestOpenedDuringAForgeReadShowsOnTheNextFrame(t *testing.T) {
 	// finds none; opening it here tells the cache the forge says more now.
 	slow := newSlowForge()
 	deps := slow.wire(openableDeps())
-	deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
 		slow.openThePull()
 
 		return forge.PullRequest{Number: 42, URL: pull42, Title: pullTitle}, nil

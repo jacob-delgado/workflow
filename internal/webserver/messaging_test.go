@@ -52,7 +52,7 @@ func TestGetMessagingHasNoAuthorWithoutAForge(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Author = nil
+	deps.Forge.Author = nil
 
 	// Act
 	destination := decode[api.MessagingDestination](t, get(t, serve(t, deps, config.Default()), "/api/messaging"))
@@ -68,7 +68,7 @@ func TestGetMessagingHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Author = func() (string, error) { return "", errSeam }
+	deps.Forge.Author = func() (string, error) { return "", errSeam }
 
 	// Act
 	destination := decode[api.MessagingDestination](t, get(t, serve(t, deps, config.Default()), "/api/messaging"))
@@ -86,7 +86,7 @@ func TestSnapshotHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
 	// The failing read still names someone, so only the error can empty the
 	// author.
 	deps := filledDeps()
-	deps.Author = func() (string, error) { return testAuthor, errSeam }
+	deps.Forge.Author = func() (string, error) { return testAuthor, errSeam }
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())

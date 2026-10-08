@@ -111,7 +111,7 @@ func TestARunStoppedBeforeItsProgramStartsEndsStopped(t *testing.T) {
 	// comes: the server has no way to stop it yet.
 	starting, release := make(chan struct{}), make(chan struct{})
 	deps := runDeps(&runCalls{}, passing)
-	deps.RunHook = func(string) (proc.Output, error) {
+	deps.Hooks.Run = func(string) (proc.Output, error) {
 		close(starting)
 		<-release
 

@@ -27,13 +27,13 @@ func TestStreamPanelProblemsNeverCarryTheUnreachableHost(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Search = func(string, int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{}, fmt.Errorf("%w: https://%s/rest/api/2/search", jira.ErrUnreachable, internalHost)
 	}
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, fmt.Errorf("%w: https://%s/api/v4", forge.ErrUnreachable, internalHost)
 	}
-	deps.Changes = func() ([]gitrepo.Change, error) {
+	deps.Git.Changes = func() ([]gitrepo.Change, error) {
 		return nil, fmt.Errorf("git status in /home/me/%s: %w", internalHost, errSeam)
 	}
 
@@ -131,15 +131,17 @@ type webserverDepsEdit struct {
 // apply makes each read the edit names fail with its error.
 func (e webserverDepsEdit) apply(deps webserver.Deps) webserver.Deps {
 	if e.branchErr != nil {
-		deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, e.branchErr }
+		deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, e.branchErr }
 	}
 
 	if e.changesErr != nil {
-		deps.Changes = func() ([]gitrepo.Change, error) { return nil, e.changesErr }
+		deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, e.changesErr }
 	}
 
 	if e.pullErr != nil {
-		deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, e.pullErr }
+		deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+			return forge.PullRequest{}, false, e.pullErr
+		}
 	}
 
 	return deps
@@ -150,7 +152,7 @@ func TestGetReviewSaysWhyItsCICouldNotBeRead(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{}, fmt.Errorf("%w: https://%s", forge.ErrUnreachable, internalHost)
 	}
 

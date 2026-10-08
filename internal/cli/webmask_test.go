@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
@@ -98,7 +99,9 @@ func TestTheWebServerMasksACredentialSavedInSettings(t *testing.T) {
 // failingSearch is a web server's seams whose search fails with cause.
 func failingSearch(cause error) webserver.Deps {
 	return webserver.Deps{
-		Search: func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, cause },
+		Jira: seams.Jira{
+			Search: func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, cause },
+		},
 	}
 }
 

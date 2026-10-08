@@ -32,7 +32,7 @@ func TestGetBranchNamesTheRemoteItsPushGoesTo(t *testing.T) {
 	const forkRemote = "fork"
 
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) {
 		return gitrepo.Branch{Name: testBranchName, PushRemote: forkRemote}, nil
 	}
 
@@ -50,7 +50,7 @@ func TestGetBranchIsEmptyWhenNoRepositoryIsConfigured(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Branch = nil
+	deps.Git.Branch = nil
 
 	// Act
 	branch := decode[api.Branch](t, get(t, serve(t, deps, config.Default()), "/api/branch"))
@@ -66,7 +66,7 @@ func TestGetBranchReportsAFailure(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/branch")
@@ -84,7 +84,7 @@ func TestSnapshotBranchIsEmptyWhenTheReadFails(t *testing.T) {
 	// The failing read still hands back a branch, so only the error can empty
 	// the panel.
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName}, errSeam }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName}, errSeam }
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
@@ -100,7 +100,7 @@ func TestTheBranchMarksTheCommitsNotYetPushed(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) {
 		return gitrepo.Branch{
 			Name: testBranchName, Base: testBase, Upstream: gitrepo.DefaultRemote + "/" + testBranchName,
 			PushRemote: gitrepo.DefaultRemote, Ahead: 1,

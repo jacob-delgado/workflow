@@ -26,13 +26,13 @@ type forgeCounts struct {
 
 // counted is deps with its forge seams counting each read into counts.
 func counted(deps webserver.Deps, counts *forgeCounts) webserver.Deps {
-	find, check := deps.FindPull, deps.CheckCI
-	deps.FindPull = func(branch string) (forge.PullRequest, bool, error) {
+	find, check := deps.Forge.FindPullRequest, deps.Forge.CheckStatus
+	deps.Forge.FindPullRequest = func(branch string) (forge.PullRequest, bool, error) {
 		counts.finds++
 
 		return find(branch)
 	}
-	deps.CheckCI = func(pull forge.PullRequest, head string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
 		counts.checks++
 
 		return check(pull, head)
@@ -148,7 +148,7 @@ func TestStreamAsksTheForgeAgainForAnotherBranchOrHead(t *testing.T) {
 			var counts forgeCounts
 
 			deps := counted(filledDeps(), &counts)
-			deps.Branch = branchesInTurn(branches...)
+			deps.Git.Branch = branchesInTurn(branches...)
 
 			// Act
 			pushed := snapshots(t, streamPaced(t, deps, config.Default(), 0))
@@ -170,8 +170,8 @@ func TestStreamKeepsTheLastForgeAnswerWhenARefreshFails(t *testing.T) {
 	// the first ask is answered.
 	asked := 0
 	deps := filledDeps()
-	find := deps.FindPull
-	deps.FindPull = func(branch string) (forge.PullRequest, bool, error) {
+	find := deps.Forge.FindPullRequest
+	deps.Forge.FindPullRequest = func(branch string) (forge.PullRequest, bool, error) {
 		asked++
 		if asked > 1 {
 			return forge.PullRequest{}, false, errSeam
@@ -208,8 +208,8 @@ func TestStreamKeepsTheLastCIWhenItsReadFails(t *testing.T) {
 	// pull is found every time, and its CI only the first.
 	checked := 0
 	deps := filledDeps()
-	check := deps.CheckCI
-	deps.CheckCI = func(pull forge.PullRequest, head string) (forge.CI, error) {
+	check := deps.Forge.CheckStatus
+	deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
 		checked++
 		if checked > 1 {
 			return forge.CI{}, errSeam
@@ -263,8 +263,8 @@ func TestStreamDropsTheLastCIForAPullItWasNotReadFor(t *testing.T) {
 			// an interval on, finds later, whose CI cannot be read.
 			finds := 0
 			deps := filledDeps()
-			find, check := deps.FindPull, deps.CheckCI
-			deps.FindPull = func(branch string) (forge.PullRequest, bool, error) {
+			find, check := deps.Forge.FindPullRequest, deps.Forge.CheckStatus
+			deps.Forge.FindPullRequest = func(branch string) (forge.PullRequest, bool, error) {
 				finds++
 				if finds > 1 {
 					return tt.later, true, nil
@@ -274,7 +274,7 @@ func TestStreamDropsTheLastCIForAPullItWasNotReadFor(t *testing.T) {
 
 				return pull, tt.firstFound, err
 			}
-			deps.CheckCI = func(pull forge.PullRequest, head string) (forge.CI, error) {
+			deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
 				if finds > 1 {
 					return forge.CI{}, errSeam
 				}
@@ -303,10 +303,10 @@ func TestStreamDropsTheLastCIForANewHead(t *testing.T) {
 	// be read: what CI said of that commit says nothing of the next.
 	checks := 0
 	deps := filledDeps()
-	deps.Branch = branchesInTurn(gitrepo.Branch{Name: testBranchName, Head: "abc1"},
+	deps.Git.Branch = branchesInTurn(gitrepo.Branch{Name: testBranchName, Head: "abc1"},
 		gitrepo.Branch{Name: testBranchName, Head: "abc2"})
-	check := deps.CheckCI
-	deps.CheckCI = func(pull forge.PullRequest, head string) (forge.CI, error) {
+	check := deps.Forge.CheckStatus
+	deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
 		checks++
 		if checks > 1 {
 			return forge.CI{}, errSeam
@@ -330,7 +330,7 @@ func TestStreamWaitsOutTheIntervalAfterAFailedForgeRead(t *testing.T) {
 	// Arrange
 	asked := 0
 	deps := filledDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		asked++
 
 		return forge.PullRequest{}, false, errSeam
@@ -361,9 +361,9 @@ func TestStreamDropsTheLastForgeAnswerForAnotherBranch(t *testing.T) {
 	// The first branch's pull is found; the forge cannot answer for the next.
 	first := gitrepo.Branch{Name: testBranchName, Head: testCommitHash}
 	deps := filledDeps()
-	deps.Branch = branchesInTurn(first, gitrepo.Branch{Name: otherBranchName, Head: testCommitHash})
-	find := deps.FindPull
-	deps.FindPull = func(branch string) (forge.PullRequest, bool, error) {
+	deps.Git.Branch = branchesInTurn(first, gitrepo.Branch{Name: otherBranchName, Head: testCommitHash})
+	find := deps.Forge.FindPullRequest
+	deps.Forge.FindPullRequest = func(branch string) (forge.PullRequest, bool, error) {
 		if branch != first.Name {
 			return forge.PullRequest{}, false, errSeam
 		}
@@ -390,13 +390,13 @@ func TestStreamAsksTheForgeAgainOnceAPullIsOpenedHere(t *testing.T) {
 	// answer for the rest of the interval.
 	opened := false
 	deps := openableDeps()
-	create := deps.CreatePull
-	deps.CreatePull = func(request forge.NewPullRequest) (forge.PullRequest, error) {
+	create := deps.Forge.CreatePullRequest
+	deps.Forge.CreatePullRequest = func(request forge.NewPullRequest) (forge.PullRequest, error) {
 		opened = true
 
 		return create(request)
 	}
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 7, URL: prURL, Title: "opened"}, opened, nil
 	}
 	deps.Clock = paceStart

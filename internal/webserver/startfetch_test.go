@@ -35,17 +35,17 @@ type startCalls struct {
 // wire binds deps' fetch, branch and worktree creates over the calls, the
 // fetch answering fetchErr.
 func (c *startCalls) wire(deps webserver.Deps, fetchErr error) webserver.Deps {
-	deps.Fetch = func() error {
+	deps.Git.Fetch = func() error {
 		c.calls = append(c.calls, "fetch")
 
 		return fetchErr
 	}
-	deps.CreateBranch = func(name, _ string) error {
+	deps.Git.CreateBranch = func(name, _ string) error {
 		c.calls = append(c.calls, "branch "+name)
 
 		return nil
 	}
-	deps.CreateWorktree = func(name, _ string) (string, error) {
+	deps.Git.CreateWorktree = func(name, _ string) (string, error) {
 		c.calls = append(c.calls, "worktree "+name)
 
 		return "/home/dev/src/acme-" + name, nil
@@ -149,7 +149,7 @@ func TestStartWorkWithNoBaseHasNothingToFetch(t *testing.T) {
 	// Arrange
 	calls := &startCalls{}
 	deps := calls.wire(filledDeps(), errFetch)
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: prBase}, nil }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: prBase}, nil }
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/branches",

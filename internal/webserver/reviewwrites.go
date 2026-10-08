@@ -41,23 +41,23 @@ type pullRead struct {
 // readPull reads the branch and its pull request afresh, and its CI when asked
 // and there is a seam to read it with.
 func (s *server) readPull(withCI bool) (pullRead, error) {
-	if s.deps.Branch == nil || s.deps.FindPull == nil {
+	if s.deps.Git.Branch == nil || s.deps.Forge.FindPullRequest == nil {
 		return pullRead{}, nil
 	}
 
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return pullRead{}, err
 	}
 
-	pull, found, err := s.deps.FindPull(branch.Name)
+	pull, found, err := s.deps.Forge.FindPullRequest(branch.Name)
 	if err != nil {
 		return pullRead{}, err
 	}
 
 	read := pullRead{branch: branch, pull: pull, found: found}
-	if withCI && found && s.deps.CheckCI != nil {
-		read.ci, err = s.deps.CheckCI(pull, branch.Head)
+	if withCI && found && s.deps.Forge.CheckStatus != nil {
+		read.ci, err = s.deps.Forge.CheckStatus(pull, branch.Head)
 	}
 
 	return read, err
@@ -128,7 +128,7 @@ func (s *server) EditPullRequest(
 
 // editPull checks the edit and makes it on the branch's open pull request.
 func (s *server) editPull(edit forge.PullRequestEdit) (forge.PullRequest, error) {
-	if s.deps.EditPull == nil {
+	if s.deps.Forge.EditPullRequest == nil {
 		return forge.PullRequest{}, errReviewWriteUnavailable
 	}
 
@@ -141,7 +141,7 @@ func (s *server) editPull(edit forge.PullRequestEdit) (forge.PullRequest, error)
 		return forge.PullRequest{}, err
 	}
 
-	edited, err := s.deps.EditPull(pull, edit)
+	edited, err := s.deps.Forge.EditPullRequest(pull, edit)
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
@@ -158,7 +158,7 @@ var errMethodNotPermitted = errors.New("the repository does not permit merging b
 // mergeablePull is the branch's pull request, read afresh with its CI, when it
 // can be merged by loop.CanMerge — the terminal's own rule — or errNotMergeable.
 func (s *server) mergeablePull() (forge.PullRequest, error) {
-	if s.deps.Merge == nil || s.deps.MergeMethods == nil {
+	if s.deps.Forge.Merge == nil || s.deps.Forge.MergeMethods == nil {
 		return forge.PullRequest{}, errReviewWriteUnavailable
 	}
 
@@ -177,7 +177,7 @@ func (s *server) mergeablePull() (forge.PullRequest, error) {
 // permittedMethods is the merge methods the repository permits, or
 // errNoMergeMethod when it permits none.
 func (s *server) permittedMethods() ([]forge.MergeMethod, error) {
-	methods, err := s.deps.MergeMethods()
+	methods, err := s.deps.Forge.MergeMethods()
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func (s *server) merge(method forge.MergeMethod) (forge.PullRequest, error) {
 		return forge.PullRequest{}, errMethodNotPermitted
 	}
 
-	err = s.deps.Merge(pull, method)
+	err = s.deps.Forge.Merge(pull, method)
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
@@ -272,7 +272,7 @@ var errFinishRefused = errors.New("git refused the finish")
 // finish runs the finish once loop.CanFinish allows it, and answers the
 // branch now checked out.
 func (s *server) finish() (gitrepo.Branch, error) {
-	if s.deps.Finish == nil {
+	if s.deps.Git.Finish == nil {
 		return gitrepo.Branch{}, errReviewWriteUnavailable
 	}
 
@@ -290,7 +290,7 @@ func (s *server) finish() (gitrepo.Branch, error) {
 	s.indexWrites.Lock()
 	defer s.indexWrites.Unlock()
 
-	err = s.deps.Finish(read.branch.Name, base)
+	err = s.deps.Git.Finish(read.branch.Name, base)
 	if err != nil {
 		s.unexpected(err)
 
@@ -315,7 +315,7 @@ func (s *server) RerunChecks(context.Context, api.RerunChecksRequestObject) (api
 
 // rerun re-runs the failed CI once loop.CanRerun allows it.
 func (s *server) rerun() (bool, error) {
-	if s.deps.Rerun == nil {
+	if s.deps.Forge.Rerun == nil {
 		return false, errReviewWriteUnavailable
 	}
 
@@ -328,7 +328,7 @@ func (s *server) rerun() (bool, error) {
 		return false, errNothingToRerun
 	}
 
-	reran, err := s.deps.Rerun(read.pull, read.branch.Head)
+	reran, err := s.deps.Forge.Rerun(read.pull, read.branch.Head)
 	if err != nil {
 		return false, err
 	}

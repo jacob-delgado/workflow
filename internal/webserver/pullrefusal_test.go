@@ -35,7 +35,7 @@ func TestOpenPullRequestIsAConflictWhenOneIsAlreadyOpen(t *testing.T) {
 
 			// Arrange
 			deps := openableDeps()
-			deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{Number: 42, URL: prURL}, true, nil
 			}
 			handler := serveWith(t, deps, config.Default(), webserver.Info{Version: testVersion, ForgeKind: tt.kind})
@@ -57,7 +57,7 @@ func TestGetPullRequestDraftSaysThereIsNoWorkToPropose(t *testing.T) {
 
 	// Arrange
 	deps := openableDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")

@@ -22,139 +22,42 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
-	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/gitrepo"
-	"github.com/jacob-delgado/workflow/internal/hooks"
-	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/loop"
-	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
-	"github.com/jacob-delgado/workflow/internal/store"
 )
 
-// Deps is what the server asks of the world, as plain functions over the domain
-// clients — the same seams internal/seams declares, narrowed to what the API
-// needs, and Taskwarrior's bundle whole, since the API uses every function in
-// it. A nil function means the service is not configured. A list or
-// snapshot read then answers empty; the issue read answers 422, as no issue
+// Deps is what the server asks of the world: the seam groups internal/seams
+// declares, as the terminal interface takes them, and the few the server
+// alone asks for. A nil function means the service is not configured. A list
+// or snapshot read then answers empty; the issue read answers 422, as no issue
 // tracker is configured; a write whose own seam is nil answers 422, as not
 // available; and the announcement and pull request drafts, and the announce
 // and open writes past that check, answer 409, as there is nothing to announce
 // or open, when the branch read or the pull request find is missing.
 type Deps struct {
-	Search func(jql string, startAt int) (jira.SearchResult, error)
-	// SearchLenient is Search for which of a branch list's issue keys are the
-	// user's: a key the tracker does not know is skipped, not refused.
-	SearchLenient func(jql string, startAt int) (jira.SearchResult, error)
-	Issue         func(key jira.Key) (jira.IssueDetail, error)
-	BrowseURL     func(key jira.Key) string
-	Branch        func() (gitrepo.Branch, error)
-	Branches      func() ([]string, error)
-	Checkout      func(name string) error
-	CreateBranch  func(name, start string) error
-	// CreateWorktree creates a branch from start in a new worktree beside the
-	// repository, and says where.
-	CreateWorktree func(name, start string) (string, error)
-	// Fetch updates origin's tracking refs before work starts, so a new branch
-	// starts from what origin holds now. Nil starts from what is there.
-	Fetch   func() error
-	Commit  func(message string) (proc.Output, error)
-	Push    func(branch string) (proc.Output, error)
-	Changes func() ([]gitrepo.Change, error)
-	// Diff reads a changed file's diff against HEAD, a change as Changes read
-	// it — never a path a request names.
-	Diff func(change gitrepo.Change) ([]string, error)
-	// RunHook runs one git hook, and Rebase, Amend and Fixup rewrite the
-	// branch's history, each streaming its output, as seams.Hooks and
-	// seams.Git bind them; nil where there is no repository.
-	RunHook func(hook string) (proc.Output, error)
-	// HookExisting reports the hooks git would run that lefthook does not
-	// manage, and whether lefthook is configured; HookWrite writes a
-	// generated configuration and installs lefthook, as seams.Hooks binds
-	// them. Nil where there is no repository.
-	HookExisting func() ([]hooks.GitHook, bool)
-	HookWrite    func(generated hooks.Generated) error
-	Rebase       func(base string) (proc.Output, error)
-	Amend        func() (proc.Output, error)
-	Fixup        func(hash string) (proc.Output, error)
-	FindPull     func(branch string) (forge.PullRequest, bool, error)
-	CreatePull   func(request forge.NewPullRequest) (forge.PullRequest, error)
-	// EditPull changes a pull request's title and description, as the Review
-	// section's edit saves them.
-	EditPull func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)
-	// RewritePull changes a pull request's description as rewrite says, from
-	// the description as the forge holds it rather than as it is shown, as
-	// linking a branch to its issue adds the line naming it.
-	RewritePull func(pull forge.PullRequest, rewrite func(body string) (string, bool)) (bool, error)
-	Templates   func() []forge.Template
-	// ChangedPaths and CodeOwnersAt read the code owners of the branch's
-	// changes, proposed as the pull request draft's reviewers. Nil proposes
-	// nobody.
-	ChangedPaths func(base string) ([]string, error)
-	CodeOwnersAt func(base string) (codeowners.File, bool, error)
-	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)
-	// JobLog reads the end of a check's log, one the forge keeps a log for.
-	JobLog func(check forge.Check) (forge.JobLog, error)
-	// Rerun re-runs the failed CI on a pull request; Merge merges one by a
-	// method MergeMethods says the repository permits; Finish finishes a
-	// merged branch — switch to base, catch it up, delete it — as seams.Forge
-	// and seams.Git bind them. Nil where there is no forge, or no repository.
-	Rerun        func(pull forge.PullRequest, head string) (bool, error)
-	Merge        func(pull forge.PullRequest, method forge.MergeMethod) error
-	MergeMethods func() ([]forge.MergeMethod, error)
-	Finish       func(branch, base string) error
-	Author       func() (string, error)
-	Post         func(channel, text string) error
-	// RemoteBranches lists the branches on the remotes by name, without the
-	// remote's prefix, so a branch only the remote has is in flight too.
-	RemoteBranches func() ([]string, error)
-	// IssueLinks is every branch linked to an issue by hand, by branch name,
-	// so a branch whose name names none is still in flight for its issue.
-	IssueLinks func() map[string]string
-	// LinkIssue links a branch to an issue by hand, and UnlinkIssue forgets its
-	// link: for work begun outside workflow on a branch whose name names none.
-	LinkIssue   func(branch, issueKey string) error
-	UnlinkIssue func(branch string) error
-	// ReviewRequests lists the pull requests on the forge that ask for your
-	// review, across repositories — the queue `workflow reviews` prints.
-	ReviewRequests func() ([]forge.ReviewRequest, error)
-	// LinkPullRequest records a pull request as a link on an issue; nil where
-	// the tracker cannot take one — the forge's own issues.
-	LinkPullRequest func(issueKey jira.Key, pullURL, title string) error
-	Transitions     func(issueKey jira.Key) ([]jira.Transition, error)
-	Transition      func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
-	// Comment posts a comment on a Jira issue and answers it as Jira stored
-	// it; nil where no Jira is configured.
-	Comment func(issueKey jira.Key, text string) (jira.Comment, error)
-	// Assign sets an issue's assignee by username, and AddWorklog logs time
-	// spent on a Jira issue, as seams.Jira binds them; nil where no tracker
-	// takes them.
-	Assign     func(issueKey jira.Key, assignee string) error
-	AddWorklog func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error)
-	// Stage and Unstage move one change into and out of the index: a change as
-	// Changes read it, carrying a rename's original path — never a path a
-	// request names.
-	Stage   func(change gitrepo.Change) error
-	Unstage func(change gitrepo.Change) error
-	// Discard drops one change from the index and the work tree, which cannot
-	// be undone: a change as Changes read it, never a path a request names.
-	Discard func(change gitrepo.Change) error
-	// LastScope is the commit scope last used in this repository, if one was,
-	// and RecordScope remembers the one a commit just used: the store the
-	// terminal's composer learns from. Nil where there is no store.
-	LastScope   func() (string, bool)
-	RecordScope func(scope string) error
-	// Announced is every pull request announced in this repository, from any
-	// surface, and RecordAnnounce remembers one just made: the store the
-	// terminal and workflow announce keep it in. Nil where there is no store.
-	Announced      func() []loop.Announced
-	RecordAnnounce func(made loop.Announced) error
+	Jira      seams.Jira
+	Git       seams.Git
+	Forge     seams.Forge
+	Messaging seams.Messaging
+	Hooks     seams.Hooks
+	Store     seams.Store
 	// Tasks is what the server asks of Taskwarrior. A nil Install, or one that
 	// fails, answers the task list and the snapshot's summary as not available —
 	// never a 404 — and a write with a nil function is refused as unprocessable.
 	Tasks seams.Tasks
+	// Repositories is where the server works and any other directory read the
+	// same way.
+	Repositories seams.Repositories
+	// Settings lists and removes the local data, and sets up a first
+	// configuration file where none applies; Settings offers that only where
+	// its Setup.Write is wired. The server keeps its own read of the
+	// configuration, for its ETag, so it never calls Read or Save.
+	Settings seams.Settings
+	// Clock tells the time, for when the event stream last asked the forge.
+	// Nil means the system clock.
+	Clock func() time.Time
+
 	// HomeDir is your home directory, which Taskwarrior's words can name and an
 	// answer shows as ~. Nil, or one that fails, leaves them naming it.
 	HomeDir func() (string, error)
@@ -178,88 +81,23 @@ type Deps struct {
 	// token, host or kind saved in Settings needs no restart. Nil leaves the
 	// forge as it was started.
 	UseForgeSettings func(settings config.Forge) forge.Kind
-
+	// UseMessagingSettings applies messaging settings just saved to every post
+	// after the save. Nil leaves messaging as it was started.
+	UseMessagingSettings func(settings config.Messaging)
 	// PlaceSlackCredentials keeps a Slack user token's secrets, typed into
 	// Settings, where the configuration keeps them — refreshing the token once
 	// and saving the pair to the macOS keychain, and answering the
 	// configuration without them, or answering it unchanged where the file is
 	// where they are kept. Nil writes them into the file as they came.
 	PlaceSlackCredentials func(cfg config.Config) (config.Config, error)
-
 	// KeepJiraToken keeps a Jira token typed into Settings in the macOS
 	// keychain, under the item for its address, so the file saved reads it
 	// from there. Nil writes it into the file as it came.
 	KeepJiraToken func(service, secret string) error
-
-	// UseMessagingSettings applies messaging settings just saved to every post
-	// after the save. Nil leaves messaging as it was started.
-	UseMessagingSettings func(settings config.Messaging)
-
-	// LocalData is the store's directory and the database files in it, each
-	// with its size and what it holds, read without writing. RemoveLocalData
-	// removes the cache, or with store.CleanAll the kept associations too. Nil
-	// answers the Local data area as not available.
-	LocalData       func(ctx context.Context) (string, []store.DataFile, error)
-	RemoveLocalData func(scope store.CleanScope) error
-
-	// OwnerLinks, LinkOwner and ForgetOwner are whom each code owner on this
-	// repository's forge host is on Slack, kept between sessions; RepoGroups
-	// and SetRepoGroups the Slack user groups this repository may tag; and
-	// LastGroups and RecordGroups the groups its last announcement chose —
-	// each in the Slack workspace Workspace names, as seams.Store binds them.
-	// A nil OwnerLinks or RepoGroups answers People and groups as not
-	// available, and an announcement as tagging no one.
-	OwnerLinks    func(workspace string) ([]loop.OwnerLink, error)
-	LinkOwner     func(workspace string, decision loop.OwnerLink) error
-	ForgetOwner   func(workspace, owner string) error
-	RepoGroups    func(workspace string) ([]loop.SlackTarget, error)
-	SetRepoGroups func(workspace string, groups []loop.SlackTarget) error
-	LastGroups    func(workspace string) ([]string, bool)
-	RecordGroups  func(workspace string, ids []string) error
-
-	// IsGroup reports whether a bare CODEOWNERS name is a top-level GitLab
-	// group, which is tagged as a team, as seams.Forge binds it. Nil takes
-	// every bare name for a person.
-	IsGroup func(name string) (bool, error)
-
-	// Workspace is the ID of the Slack workspace the user token is for, as
-	// seams.Messaging binds it. When it cannot be read, an announcement tags
-	// no one and says why, and People and groups is refused with why. Nil
-	// is no Slack user token.
-	Workspace func() (string, error)
-
-	// ChannelMembers and UserGroups read the Slack directory an owner is
-	// linked from. Whether they are read at all follows the configuration in
-	// effect, which a save in Settings changes: only a Slack user token tags,
-	// and a read answered messaging.ErrNoCredential is no directory. Nil
-	// means an announcement offers no tags.
-	ChannelMembers func(channel string) ([]loop.SlackTarget, error)
-	UserGroups     func() ([]loop.SlackTarget, error)
-
-	// CommitsBetween, JiraActivity and ForgeActivity read back what you did
-	// over a period, for the Summary, beside Tasks' Touched. A nil one is a
-	// source the Summary does not ask.
-	CommitsBetween func(start, end time.Time) []loop.RepositoryCommits
-	JiraActivity   func(start, end time.Time) (jira.Activity, error)
-	ForgeActivity  func(start, end time.Time) (forge.Activity, error)
-	// Clock tells the time, for when the event stream last asked the forge.
-	// Nil means the system clock.
-	Clock func() time.Time
-
-	// Repositories is where the server works and any other directory read the
-	// same way. Favorites, Favor and Unfavor are the favorite directories the
-	// store keeps; Favor and Unfavor are nil where it keeps nothing.
-	Repositories seams.Repositories
-	Favorites    func() ([]string, error)
-	Favor        func(dir string) error
-	Unfavor      func(dir string) error
 	// Reach wires another directory as this one was wired, for a switch; nil
-	// where switching is not offered.
+	// where switching is not offered. A setup takes the file up through it,
+	// where the server works.
 	Reach func(dir string) (World, error)
-	// Setup sets up a first configuration file where none applies, as
-	// workflow config init does; Settings offers it only where its Write is
-	// wired. A setup takes the file up through Reach, where the server works.
-	Setup seams.Setup
 }
 
 // Info is the build and run facts the API reports and the server needs.

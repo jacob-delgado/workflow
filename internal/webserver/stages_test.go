@@ -85,8 +85,8 @@ func TestSnapshotStagesStartNowhereOnTheBase(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: prBase, Base: testBase}, nil }
-	deps.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: prBase, Base: testBase}, nil }
+	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
 
 	// Act
 	stages := framedStages(t, deps)
@@ -128,10 +128,10 @@ func TestSnapshotReadsTheCommitsStage(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Branch = func() (gitrepo.Branch, error) {
+			deps.Git.Branch = func() (gitrepo.Branch, error) {
 				return gitrepo.Branch{Name: testBranchName, Base: testBase, Head: filledHead, Commits: tt.commits}, nil
 			}
-			deps.Changes = func() ([]gitrepo.Change, error) { return tt.changes, nil }
+			deps.Git.Changes = func() ([]gitrepo.Change, error) { return tt.changes, nil }
 
 			// Act
 			stages := framedStages(t, deps)
@@ -221,8 +221,8 @@ func TestSnapshotReadsTheReviewStage(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.FindPull = func(string) (forge.PullRequest, bool, error) { return tt.pull, true, nil }
-			deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return tt.pull, true, nil }
+			deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
 				return forge.CI{State: tt.ci, Total: 1}, tt.ciErr
 			}
 
@@ -242,7 +242,7 @@ func TestSnapshotReadsTheReviewStageNotStartedWithNoPullRequest(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
 
 	// Act
 	stages := framedStages(t, deps)
@@ -276,7 +276,9 @@ func TestSnapshotReadsTheAnnounceStageNotStartedForAPullRequestClosedWithoutMerg
 	// closed: there is no pull request left for the loop to announce.
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
 	deps := memory.wire(filledDeps())
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return inState(forge.StateClosed, false), true, nil }
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+		return inState(forge.StateClosed, false), true, nil
+	}
 
 	// Act
 	stages := framedStages(t, deps)
@@ -329,7 +331,7 @@ func branchStagesOf(t *testing.T) (map[string][]api.Stage, []api.Stage) {
 	t.Helper()
 
 	deps := filledDeps()
-	deps.Branches = func() ([]string, error) { return []string{testBranchName, elsewhereBranch}, nil }
+	deps.Git.Branches = func() ([]string, error) { return []string{testBranchName, elsewhereBranch}, nil }
 	cfg := config.Default()
 	cfg.Jira.Project = testProject
 

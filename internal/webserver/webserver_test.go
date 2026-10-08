@@ -21,6 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
@@ -70,48 +71,54 @@ const (
 // nils a seam to exercise the not-configured path, or replaces one to fail.
 func filledDeps() webserver.Deps {
 	return webserver.Deps{
-		Search: func(string, int) (jira.SearchResult, error) {
-			return jira.SearchResult{
-				Issues: []jira.Issue{{
-					Key: testKey, Summary: testSummary, Status: "In Progress",
-					StatusCategory: "indeterminate", Type: "Bug", Priority: "High",
-				}},
-				Total: 1,
-			}, nil
+		Jira: seams.Jira{
+			Search: func(string, int) (jira.SearchResult, error) {
+				return jira.SearchResult{
+					Issues: []jira.Issue{{
+						Key: testKey, Summary: testSummary, Status: "In Progress",
+						StatusCategory: "indeterminate", Type: "Bug", Priority: "High",
+					}},
+					Total: 1,
+				}, nil
+			},
+			Issue: func(key jira.Key) (jira.IssueDetail, error) {
+				return jira.IssueDetail{
+					Issue: jira.Issue{
+						Key: key, Summary: testSummary, Status: "In Progress",
+						StatusCategory: "indeterminate", Type: "Bug",
+					},
+					Reporter:     testReporter,
+					Description:  "Tokens reach the log.",
+					Comments:     []jira.Comment{{Author: testReporter, Body: "Repro'd", Created: time.Unix(0, 0).UTC()}},
+					CommentTotal: 1,
+				}, nil
+			},
 		},
-		Issue: func(key jira.Key) (jira.IssueDetail, error) {
-			return jira.IssueDetail{
-				Issue: jira.Issue{
-					Key: key, Summary: testSummary, Status: "In Progress",
-					StatusCategory: "indeterminate", Type: "Bug",
-				},
-				Reporter:     testReporter,
-				Description:  "Tokens reach the log.",
-				Comments:     []jira.Comment{{Author: testReporter, Body: "Repro'd", Created: time.Unix(0, 0).UTC()}},
-				CommentTotal: 1,
-			}, nil
+		Git: seams.Git{
+			Branch: func() (gitrepo.Branch, error) {
+				return gitrepo.Branch{
+					Name: testBranchName, Base: testBase, Ahead: 2, Head: filledHead, PushRemote: gitrepo.DefaultRemote,
+					Commits: []gitrepo.Commit{{Hash: filledHead, Subject: testCommitSubject}},
+				}, nil
+			},
+			Changes: func() ([]gitrepo.Change, error) {
+				return []gitrepo.Change{{Path: "internal/config/config.go", Staged: 'M'}}, nil
+			},
 		},
-		Branch: func() (gitrepo.Branch, error) {
-			return gitrepo.Branch{
-				Name: testBranchName, Base: testBase, Ahead: 2, Head: filledHead, PushRemote: gitrepo.DefaultRemote,
-				Commits: []gitrepo.Commit{{Hash: filledHead, Subject: testCommitSubject}},
-			}, nil
-		},
-		Changes: func() ([]gitrepo.Change, error) {
-			return []gitrepo.Change{{Path: "internal/config/config.go", Staged: 'M'}}, nil
-		},
-		FindPull: func(string) (forge.PullRequest, bool, error) {
-			pull := forge.PullRequest{Number: 42, URL: "https://x/42", Title: "redact", Mergeable: forge.MergeClean}
+		Forge: seams.Forge{
+			FindPullRequest: func(string) (forge.PullRequest, bool, error) {
+				pull := forge.PullRequest{Number: 42, URL: "https://x/42", Title: "redact", Mergeable: forge.MergeClean}
 
-			return pull, true, nil
+				return pull, true, nil
+			},
+			CheckStatus: func(forge.PullRequest, string) (forge.CI, error) {
+				return forge.CI{
+					State: forge.CIPassed, Total: 3, Done: 3,
+					Checks: []forge.Check{{Name: "build", State: forge.CIPassed}},
+				}, nil
+			},
+			Author: func() (string, error) { return testAuthor, nil },
 		},
-		CheckCI: func(forge.PullRequest, string) (forge.CI, error) {
-			return forge.CI{
-				State: forge.CIPassed, Total: 3, Done: 3,
-				Checks: []forge.Check{{Name: "build", State: forge.CIPassed}},
-			}, nil
-		},
-		Author: func() (string, error) { return testAuthor, nil },
 	}
 }
 
@@ -291,30 +298,30 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 	t.Parallel()
 
 	nothingOpen := func(deps webserver.Deps) webserver.Deps {
-		deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+		deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
 
 		return deps
 	}
 	noCommits := func(deps webserver.Deps) webserver.Deps {
-		deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil }
+		deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil }
 
 		return deps
 	}
 	reviewersRefused := func(deps webserver.Deps) webserver.Deps {
-		deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+		deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
 			return forge.PullRequest{Number: 7, URL: prURL, Title: prTitle}, forge.ErrRefused
 		}
 
 		return deps
 	}
 	noCreate := func(deps webserver.Deps) webserver.Deps {
-		deps.CreatePull = nil
+		deps.Forge.CreatePullRequest = nil
 
 		return deps
 	}
 	unchanged := func(deps webserver.Deps) webserver.Deps { return deps }
 	linkable := func(deps webserver.Deps) webserver.Deps {
-		deps.LinkPullRequest = func(jira.Key, string, string) error { return nil }
+		deps.Jira.LinkPullRequest = func(jira.Key, string, string) error { return nil }
 
 		return deps
 	}
@@ -344,7 +351,7 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 
 			// Arrange
 			deps := tt.mutate(openableDeps())
-			deps.Post = func(string, string) error { return nil }
+			deps.Messaging.Post = func(string, string) error { return nil }
 			info := webserver.Info{Version: testVersion, ForgeKind: forge.KindGitLab}
 
 			// Act
@@ -396,7 +403,7 @@ func TestAnErrorIsAnRFC9457Problem(t *testing.T) {
 	// Any failure is answered as application/problem+json with the problem's type,
 	// title and status populated — the RFC 9457 shape, not the old code+message.
 	deps := filledDeps()
-	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
+	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")

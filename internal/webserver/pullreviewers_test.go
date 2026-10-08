@@ -28,17 +28,17 @@ func TestGetPullRequestDraftProposesTheCodeOwnersAsReviewers(t *testing.T) {
 	var read []string
 
 	deps := openableDeps()
-	deps.ChangedPaths = func(base string) ([]string, error) {
+	deps.Git.ChangedPaths = func(base string) ([]string, error) {
 		read = append(read, base)
 
 		return []string{"api/pull.go"}, nil
 	}
-	deps.CodeOwnersAt = func(base string) (codeowners.File, bool, error) {
+	deps.Git.CodeOwnersAt = func(base string) (codeowners.File, bool, error) {
 		read = append(read, base)
 
 		return codeowners.Parse("* @"+ownedUser+" @Me @"+ownedTeam, codeowners.GitHub), true, nil
 	}
-	deps.Author = func() (string, error) { return "me", nil }
+	deps.Forge.Author = func() (string, error) { return "me", nil }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
@@ -77,7 +77,7 @@ func TestOpenPullRequestRequestsTeamsAsTeams(t *testing.T) {
 	var request forge.NewPullRequest
 
 	deps := openableDeps()
-	deps.CreatePull = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
 		request = newPull
 
 		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title}, nil

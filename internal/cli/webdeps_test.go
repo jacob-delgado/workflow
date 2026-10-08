@@ -5,11 +5,11 @@ package cli_test
 
 import (
 	"errors"
+	"maps"
 	"reflect"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
-	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -65,27 +65,102 @@ func TestWebDepsChecksAKeymapAsTheInterfaceDoes(t *testing.T) {
 	}
 }
 
-func TestWebDepsHandsTheServerTheLenientSearch(t *testing.T) {
+func TestWebDepsHandsTheServerEachSeamTheInterfaceHasInItsPlace(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The two searches share a type, so only what each answers tells them apart.
-	var deps tui.Deps
+	// Seams that share a type — Stage, Unstage and Discard; Search and
+	// SearchLenient; Commit, Push, Rebase and the hook's run — would build
+	// wired crosswise, so each stub says which seam it is when it is called.
+	var (
+		deps   tui.Deps
+		called string
+	)
 
-	deps.Jira.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{Total: 1}, nil }
-	deps.Jira.SearchLenient = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{Total: 2}, nil }
+	interfaceSeams := wireNamedSeams(reflect.ValueOf(&deps).Elem(), "", &called)
 
 	// Act
-	search := cli.WebDeps(deps).SearchLenient
+	web := reflect.ValueOf(cli.WebDeps(deps))
 
 	// Assert
-	if search == nil {
-		t.Fatal("webserver.Deps.SearchLenient is nil")
+	checked := 0
+
+	for path, seam := range funcSeams(web, "") {
+		if !interfaceSeams[path] || seam.IsNil() {
+			continue
+		}
+
+		called = ""
+
+		callWithZeroes(seam)
+
+		checked++
+
+		if called != path {
+			t.Errorf("the server's %s calls the interface's %q, want its own", path, called)
+		}
 	}
 
-	if result, _ := search("key in (A-1)", 0); result.Total != 2 {
-		t.Error("webserver.Deps.SearchLenient is the strict search, which refuses a key Jira does not know")
+	if checked == 0 {
+		t.Error("no seam the server holds is one of the interface's")
 	}
+}
+
+// wireNamedSeams sets every function in value, and in the structs it holds,
+// to a stub that writes its own path, prefixed by prefix, to called and
+// answers zero values, and returns every path it set.
+func wireNamedSeams(value reflect.Value, prefix string, called *string) map[string]bool {
+	wired := map[string]bool{}
+
+	for seam, field := range value.Fields() {
+		path := prefix + seam.Name
+
+		switch {
+		case !field.CanSet():
+		case field.Kind() == reflect.Struct:
+			maps.Copy(wired, wireNamedSeams(field, path+".", called))
+		case field.Kind() == reflect.Func:
+			answer := zeroResults(field.Type())
+			field.Set(reflect.MakeFunc(field.Type(), func(args []reflect.Value) []reflect.Value {
+				*called = path
+
+				return answer(args)
+			}))
+
+			wired[path] = true
+		}
+	}
+
+	return wired
+}
+
+// funcSeams is every function in value, and in the structs it holds, by its
+// path, prefixed by prefix.
+func funcSeams(value reflect.Value, prefix string) map[string]reflect.Value {
+	found := map[string]reflect.Value{}
+
+	for seam, field := range value.Fields() {
+		path := prefix + seam.Name
+
+		switch field.Kind() { //nolint:exhaustive // only functions and the structs that hold them are seams.
+		case reflect.Struct:
+			maps.Copy(found, funcSeams(field, path+"."))
+		case reflect.Func:
+			found[path] = field
+		}
+	}
+
+	return found
+}
+
+// callWithZeroes calls seam with the zero value of each of its parameters.
+func callWithZeroes(seam reflect.Value) {
+	args := make([]reflect.Value, seam.Type().NumIn())
+	for index := range args {
+		args[index] = reflect.Zero(seam.Type().In(index))
+	}
+
+	seam.Call(args)
 }
 
 // nilSeams names every nil function in value, and in the structs it holds,

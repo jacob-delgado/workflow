@@ -34,9 +34,9 @@ func cleanDeps(t *testing.T, switched *string) webserver.Deps {
 	t.Helper()
 
 	deps := filledDeps()
-	deps.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: targetBranch}, nil }
-	deps.Checkout = func(name string) error {
+	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: targetBranch}, nil }
+	deps.Git.Checkout = func(name string) error {
 		*switched = name
 
 		return nil
@@ -79,7 +79,7 @@ func TestCheckoutSucceedsEvenIfTheRereadFails(t *testing.T) {
 	var switched string
 
 	deps := cleanDeps(t, &switched)
-	deps.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) {
 		if switched != "" {
 			return gitrepo.Branch{}, errSeam
 		}
@@ -107,7 +107,7 @@ func TestCheckoutRefusesADirtyTree(t *testing.T) {
 	// filledDeps' Changes reports a modified file, so the tree is dirty.
 	called := false
 	deps := filledDeps()
-	deps.Checkout = func(string) error {
+	deps.Git.Checkout = func(string) error {
 		called = true
 
 		return nil
@@ -140,8 +140,8 @@ func TestCheckoutReportsAFailedSwitch(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
-	deps.Checkout = func(string) error { return errSeam }
+	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
+	deps.Git.Checkout = func(string) error { return errSeam }
 
 	// Act
 	recorder := doCheckout(t, deps, "nope")
@@ -163,12 +163,12 @@ func TestCheckoutIsUnavailableWithoutAGitSeam(t *testing.T) {
 	// either means it is not available.
 	cases := map[string]func(webserver.Deps) webserver.Deps{
 		"no checkout seam": func(deps webserver.Deps) webserver.Deps {
-			deps.Checkout = nil
+			deps.Git.Checkout = nil
 
 			return deps
 		},
 		noBranchSeam: func(deps webserver.Deps) webserver.Deps {
-			deps.Branch = nil
+			deps.Git.Branch = nil
 
 			return deps
 		},
@@ -180,7 +180,7 @@ func TestCheckoutIsUnavailableWithoutAGitSeam(t *testing.T) {
 
 			// Arrange
 			deps := mutate(filledDeps())
-			deps.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
+			deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
 
 			// Act
 			recorder := doCheckout(t, deps, targetBranch)
@@ -202,7 +202,7 @@ func TestCheckoutTreatsAMissingChangesSeamAsClean(t *testing.T) {
 	var switched string
 
 	deps := cleanDeps(t, &switched)
-	deps.Changes = nil
+	deps.Git.Changes = nil
 
 	// Act
 	recorder := doCheckout(t, deps, targetBranch)
@@ -225,8 +225,8 @@ func TestCheckoutNeverForwardsGitsOwnWords(t *testing.T) {
 	// own words can name the remote; the detail names the branch and what to do,
 	// and never the host.
 	deps := filledDeps()
-	deps.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
-	deps.Checkout = func(string) error {
+	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
+	deps.Git.Checkout = func(string) error {
 		return fmt.Errorf("switching to %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
 			targetBranch, errSeam, gitHost)
 	}

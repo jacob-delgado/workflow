@@ -48,7 +48,7 @@ func TestTheContractRefusesWhatTheServerCannotUse(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Post = func(string, string) error { return nil }
+			deps.Messaging.Post = func(string, string) error { return nil }
 			handler := serve(t, deps, config.Default())
 
 			// Act
@@ -97,7 +97,7 @@ func TestACommentWhoseDateCouldNotBeReadCarriesNone(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Issue = func(key jira.Key) (jira.IssueDetail, error) {
+	deps.Jira.Issue = func(key jira.Key) (jira.IssueDetail, error) {
 		return jira.IssueDetail{
 			Issue:    jira.Issue{Key: key, Summary: testSummary},
 			Comments: []jira.Comment{{Author: testReporter, Body: "Repro'd"}}, CommentTotal: 1,
@@ -118,7 +118,7 @@ func TestAReviewRequestWithNoTimeOpenedCarriesNone(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.ReviewRequests = func() ([]forge.ReviewRequest, error) {
+	deps.Forge.ReviewRequests = func() ([]forge.ReviewRequest, error) {
 		return []forge.ReviewRequest{{Number: 7, URL: "https://x/7", Title: "docs", Author: testAuthor}}, nil
 	}
 
@@ -137,7 +137,7 @@ func TestAReviewRequestCarriesTheTimeItWasOpened(t *testing.T) {
 	// Arrange
 	opened := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
 	deps := filledDeps()
-	deps.ReviewRequests = func() ([]forge.ReviewRequest, error) {
+	deps.Forge.ReviewRequests = func() ([]forge.ReviewRequest, error) {
 		return []forge.ReviewRequest{{Number: 7, URL: "https://x/7", Title: "docs", OpenedAt: opened}}, nil
 	}
 

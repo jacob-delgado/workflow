@@ -56,7 +56,7 @@ func (s *server) SwitchRepository(
 func (s *server) AddFavorite(
 	_ context.Context, request api.AddFavoriteRequestObject,
 ) (api.AddFavoriteResponseObject, error) {
-	err := s.changeFavorite(s.deps.Favor, request.Body.Dir)
+	err := s.changeFavorite(s.deps.Store.Favor, request.Body.Dir)
 	if err != nil {
 		return problemAnswer[api.AddFavoritedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -68,7 +68,7 @@ func (s *server) AddFavorite(
 func (s *server) RemoveFavorite(
 	_ context.Context, request api.RemoveFavoriteRequestObject,
 ) (api.RemoveFavoriteResponseObject, error) {
-	err := s.changeFavorite(s.deps.Unfavor, request.Params.Dir)
+	err := s.changeFavorite(s.deps.Store.Unfavor, request.Params.Dir)
 	if err != nil {
 		return problemAnswer[api.RemoveFavoritedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -139,8 +139,8 @@ func listingDTO(dir, home string, listing workdirs.Listing) api.DirectoryListing
 // reaches the wire.
 func (s *server) repositoriesDTO() api.Repositories {
 	view := RepositoriesView{
-		Repositories: s.deps.Repositories, Favorites: s.deps.Favorites,
-		FavoritesKept: s.deps.Favor != nil && !s.info.DryRun,
+		Repositories: s.deps.Repositories, Favorites: s.deps.Store.Favorites,
+		FavoritesKept: s.deps.Store.Favor != nil && !s.info.DryRun,
 	}
 
 	report, err := view.Report(func(err error) string {

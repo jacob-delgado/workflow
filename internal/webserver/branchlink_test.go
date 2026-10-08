@@ -32,28 +32,28 @@ type linking struct {
 // edit.
 func linkingDeps(record *linking, detached bool) webserver.Deps {
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) {
 		return gitrepo.Branch{Name: unnamedBranch, Detached: detached}, nil
 	}
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 9, Title: "Speed up search", Body: "Speeds it up.\n"}, true, nil
 	}
-	deps.LinkIssue = func(branch, issueKey string) error {
+	deps.Git.LinkIssue = func(branch, issueKey string) error {
 		record.linked = append(record.linked, branch+" "+issueKey)
 
 		return nil
 	}
-	deps.UnlinkIssue = func(branch string) error {
+	deps.Git.UnlinkIssue = func(branch string) error {
 		record.unlinked = append(record.unlinked, branch)
 
 		return nil
 	}
-	deps.EditPull = func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
+	deps.Forge.EditPullRequest = func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
 		record.editedWhole = append(record.editedWhole, edit.Body)
 
 		return pull, nil
 	}
-	deps.RewritePull = func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
+	deps.Forge.RewriteDescription = func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
 		body, changed := rewrite(cmp.Or(record.held, pull.Body))
 		if changed {
 			record.edited = append(record.edited, body)
@@ -177,7 +177,7 @@ func TestThePreviewAnswersABranchGitCouldNotRead(t *testing.T) {
 
 	// Arrange
 	deps := linkingDeps(&linking{}, false)
-	deps.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, fmt.Errorf("reading HEAD in %s: %w", repoPath, errSeam)
 	}
 
@@ -225,8 +225,8 @@ func TestALinkGitCannotKeepIsUnprocessable(t *testing.T) {
 			// Arrange
 			deps := linkingDeps(&linking{}, false)
 			refused := fmt.Errorf("%w: exit status 4", gitrepo.ErrIssueLinkNotSaved)
-			deps.LinkIssue = func(string, string) error { return refused }
-			deps.UnlinkIssue = func(string) error { return refused }
+			deps.Git.LinkIssue = func(string, string) error { return refused }
+			deps.Git.UnlinkIssue = func(string) error { return refused }
 
 			// Act
 			answer := send(t, serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
@@ -245,7 +245,7 @@ func TestAPullRequestThatCannotBeEditedLeavesTheBranchUnlinked(t *testing.T) {
 	// Arrange
 	record := &linking{}
 	deps := linkingDeps(record, false)
-	deps.RewritePull = func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
+	deps.Forge.RewriteDescription = func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
 		return false, fmt.Errorf("editing #9: %w", forge.ErrUnreachable)
 	}
 
@@ -265,7 +265,7 @@ func TestALinkNotKeptAfterThePullRequestIsEditedIsReported(t *testing.T) {
 	// Arrange
 	record := &linking{}
 	deps := linkingDeps(record, false)
-	deps.LinkIssue = func(string, string) error { return gitrepo.ErrIssueLinkNotSaved }
+	deps.Git.LinkIssue = func(string, string) error { return gitrepo.ErrIssueLinkNotSaved }
 
 	// Act
 	answer := send(t, serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",
@@ -293,7 +293,7 @@ func TestLinkingAndUnlinkingWithoutTheSeamAnswerAlike(t *testing.T) {
 
 			// Arrange
 			deps := linkingDeps(&linking{}, false)
-			deps.LinkIssue, deps.UnlinkIssue = nil, nil
+			deps.Git.LinkIssue, deps.Git.UnlinkIssue = nil, nil
 
 			// Act
 			answer := send(t, serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
