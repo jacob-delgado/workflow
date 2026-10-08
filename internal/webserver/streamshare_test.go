@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -257,6 +258,57 @@ func TestASlowForgeReadHoldsUpNoOtherStream(t *testing.T) {
 		}
 	case <-time.After(frameWait):
 		t.Error("the other stream's frame waited on the forge read under way")
+	}
+}
+
+// failingAuthor binds deps' author read to read, on a forge that cannot say
+// who the author is, counting each ask in asked.
+func failingAuthor(deps webserver.Deps, read *slowRead, asked *atomic.Int32) webserver.Deps {
+	deps.Author = func() (string, error) {
+		asked.Add(1)
+		read.call()
+
+		return "", errSeam
+	}
+
+	return deps
+}
+
+func TestASlowAuthorReadHoldsUpNoOtherStream(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The forge could not say who the author is, so it is asked again once the
+	// interval has passed, and that ask is slow.
+	var asked atomic.Int32
+
+	clock, author := newSharedClock(), newSlowRead()
+	deps := failingAuthor(filledDeps(), author, &asked)
+	deps.Clock = clock.read
+	handler := serve(t, deps, config.Default())
+	streamOnce(t, handler, "/api/events")
+	clock.pastTheForgeInterval()
+	author.slowDown()
+	asking := frameInFlight(t, handler, author)
+
+	defer func() {
+		close(author.release)
+		<-asking
+	}()
+
+	// Act
+	other := make(chan *httptest.ResponseRecorder, 1)
+
+	go func() { other <- streamOnce(t, handler, "/api/events") }()
+
+	// Assert
+	select {
+	case <-other:
+		if got := asked.Load(); got != 2 {
+			t.Errorf("asked the forge who the author is %d times over two intervals, want once in each", got)
+		}
+	case <-time.After(frameWait):
+		t.Error("the other stream's frame waited on the author read under way")
 	}
 }
 

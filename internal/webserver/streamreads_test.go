@@ -120,12 +120,34 @@ func TestStreamAsksTheForgeWhoTheAuthorIsOnce(t *testing.T) {
 	}
 }
 
-func TestStreamAsksForTheAuthorAgainAfterAFailedRead(t *testing.T) {
+func TestStreamHoldsAFailedAuthorReadForTheForgeInterval(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The first read fails and the second answers: the failure is asked again on
-	// the next frame, and the answer is kept from then on.
+	asked := 0
+	deps := filledDeps()
+	deps.Author = func() (string, error) {
+		asked++
+
+		return "", errSeam
+	}
+
+	// Act
+	pushed := snapshots(t, streamFrames(t, deps))
+
+	// Assert
+	if asked != 1 {
+		t.Errorf("asked a forge that cannot say who the author is %d times across %d frames within the interval, want once",
+			asked, len(pushed))
+	}
+}
+
+func TestStreamAsksForTheAuthorAgainAnIntervalAfterAFailedRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The first read fails and the second answers: the failure is asked again
+	// once the forge interval has passed, and the answer is kept from then on.
 	asked := 0
 	deps := filledDeps()
 	deps.Author = func() (string, error) {
@@ -138,7 +160,7 @@ func TestStreamAsksForTheAuthorAgainAfterAFailedRead(t *testing.T) {
 	}
 
 	// Act
-	pushed := snapshots(t, streamFrames(t, deps))
+	pushed := snapshots(t, streamPaced(t, deps, config.Default(), 20*time.Second))
 
 	// Assert
 	if len(pushed) < streamedFrames {
