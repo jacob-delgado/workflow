@@ -1201,6 +1201,28 @@ export type ReviewQueue = {
      * The open pull or merge requests that ask for your review, the longest-waiting first. Empty when none does, or when there is no forge to ask.
      */
     requests: Array<ReviewRequest>;
+    /**
+     * Every value the queue's filter offers, in the order it lists them, as the terminal's filter lists them: the repositories the requests are in, by name; every CI state and draft then ready, in a fixed order; then who asks, by name. A name is ordered by its code points. A value no request holds is offered only while it is picked.
+     */
+    facet_order: Array<ReviewFacet>;
+};
+
+/**
+ * One value a review request holds in one of the four facets the queue is narrowed by. Values picked in one facet widen the queue, and the facets narrow it together.
+ */
+export type ReviewFacet = {
+    /**
+     * The facet: the request's repository, how its CI stands, whether it is a draft, or who asks.
+     */
+    kind: 'repository' | 'ci' | 'draft' | 'author';
+    /**
+     * The value held: the repository ("" for none the forge named), the CI state, draft or ready, or the author.
+     */
+    value: string;
+    /**
+     * The value as every surface names it in the filter and in the line saying what the queue is narrowed to.
+     */
+    label: string;
 };
 
 export type ReviewRequest = {
@@ -1224,6 +1246,10 @@ export type ReviewRequest = {
      * RFC 3339; when it was opened, which is how long it has waited; left out when the forge did not give one.
      */
     opened_at?: string;
+    /**
+     * The value it holds in each facet the queue is narrowed by, in the order of the facets: its repository, its CI, draft or ready, and who asks.
+     */
+    facets: Array<ReviewFacet>;
 };
 
 /**

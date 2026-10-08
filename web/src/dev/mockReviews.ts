@@ -2,6 +2,7 @@ import type {
   JobLog,
   PullRequestDraft,
   PullRequestText,
+  ReviewFacet,
   ReviewQueue,
 } from '@/api/generated/types.gen.ts'
 
@@ -13,13 +14,50 @@ function opened(hoursAgo: number): string {
   return new Date(Date.now() - hoursAgo * hour).toISOString()
 }
 
+// facet is a value a request holds, as the server labels it.
+function facet(kind: ReviewFacet['kind'], value: string, label: string): ReviewFacet {
+  return { kind, value, label }
+}
+
+// The values the mockup's requests hold, by what they hold, as the server
+// describes them.
+const inWorkflow = facet('repository', 'acme/workflow', 'acme/workflow')
+const inBuildImages = facet('repository', 'acme/build-images', 'acme/build-images')
+const inHandbook = facet('repository', 'acme/handbook', 'acme/handbook')
+const ciFailed = facet('ci', 'failed', 'CI failed')
+const ciPassed = facet('ci', 'passed', 'CI passed')
+const ciRunning = facet('ci', 'running', 'CI running')
+const ciNone = facet('ci', 'none', 'CI none')
+const draft = facet('draft', 'draft', 'draft')
+const ready = facet('draft', 'ready', 'ready')
+const bySam = facet('author', 'sam.ortiz', 'by sam.ortiz')
+const byAna = facet('author', 'ana.lopez', 'by ana.lopez')
+const byLee = facet('author', 'lee.chen', 'by lee.chen')
+const byMia = facet('author', 'mia.okafor', 'by mia.okafor')
+
 // mockReviewQueue is the review queue `task web:mockup` lists: pull requests
 // across repositories, in every CI state, one a draft, waiting from under an
-// hour to over a week — oldest first, as the server sends it. Dev-only, and
-// code-split out of a production build.
+// hour to over a week — oldest first, as the server sends it, with the order
+// its filter offers their values in. Dev-only, and code-split out of a
+// production build.
 export function mockReviewQueue(): ReviewQueue {
   return {
     available: true,
+    facet_order: [
+      inBuildImages,
+      inHandbook,
+      inWorkflow,
+      ciFailed,
+      ciPassed,
+      ciRunning,
+      ciNone,
+      draft,
+      ready,
+      byAna,
+      byLee,
+      byMia,
+      bySam,
+    ],
     requests: [
       {
         number: 377,
@@ -30,6 +68,7 @@ export function mockReviewQueue(): ReviewQueue {
         draft: false,
         ci: 'failed',
         opened_at: opened(9 * 24),
+        facets: [inWorkflow, ciFailed, ready, bySam],
       },
       {
         number: 88,
@@ -40,6 +79,7 @@ export function mockReviewQueue(): ReviewQueue {
         draft: false,
         ci: 'passed',
         opened_at: opened(50),
+        facets: [inBuildImages, ciPassed, ready, byAna],
       },
       {
         number: 391,
@@ -50,6 +90,7 @@ export function mockReviewQueue(): ReviewQueue {
         draft: true,
         ci: 'running',
         opened_at: opened(3),
+        facets: [inWorkflow, ciRunning, draft, byLee],
       },
       {
         number: 12,
@@ -60,6 +101,7 @@ export function mockReviewQueue(): ReviewQueue {
         draft: false,
         ci: 'none',
         opened_at: opened(0.5),
+        facets: [inHandbook, ciNone, ready, byMia],
       },
     ],
   }

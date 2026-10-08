@@ -175,8 +175,8 @@ func TestSnapshotReadsTheReviewStage(t *testing.T) {
 		},
 		"review open, no CI to pass": {pull: openPull(), ci: forge.CINone, want: api.StageStateInFlight},
 		"review open, CI not read":   {pull: openPull(), ciErr: errCIUnread, want: api.StageStateInFlight},
-		"CI passed":                  {pull: openPull(), ci: forge.CIPassed, want: api.StageStateDone},
-		"CI failed":                  {pull: openPull(), ci: forge.CIFailed, want: api.StageStateFailed},
+		"its CI passed":              {pull: openPull(), ci: forge.CIPassed, want: api.StageStateDone},
+		"its CI failed":              {pull: openPull(), ci: forge.CIFailed, want: api.StageStateFailed},
 		"changes requested, with no CI, stop review reading done": {
 			pull: changesAsked(), ci: forge.CINone, want: api.StageStateFailed,
 		},

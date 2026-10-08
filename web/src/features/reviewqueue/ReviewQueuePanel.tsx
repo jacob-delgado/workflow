@@ -16,7 +16,7 @@ import { cn, contentMeasure, plural } from '@/lib/utils.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
 import { ciMark, StateMark } from '@/lib/StateMark.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
-import { admits, facetChoices, facetLabel, isPicked, toggleFacet } from './reviewFacets.ts'
+import { admits, facetChoices, isPicked, toggleFacet, type Facet } from './reviewFacets.ts'
 import {
   byRepository,
   ordered,
@@ -63,6 +63,7 @@ export function ReviewQueuePanel() {
   return (
     <Queue
       requests={query.data?.requests}
+      facetOrder={query.data?.facet_order}
       readAt={query.dataUpdatedAt}
       failure={
         query.isError
@@ -81,6 +82,9 @@ export function ReviewQueuePanel() {
 interface QueueProps {
   // requests is the queue as last read, or undefined when no read has landed.
   requests: ReviewRequest[] | undefined
+  // facetOrder is every value the filter offers, in the server's order, as
+  // the same read answered it.
+  facetOrder: Facet[] | undefined
   // readAt is when that read landed, which is what each age is counted from.
   readAt: number
   // failure is why the last read failed, while it stands.
@@ -99,7 +103,15 @@ interface QueueProps {
 // last read in view. The summary is a status line that stays mounted, so a
 // screen reader hears what each read found as it lands. The order and the
 // filter chosen hold across reads, and across visits to other sections.
-function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: QueueProps) {
+function Queue({
+  requests,
+  facetOrder,
+  readAt,
+  failure,
+  failed,
+  reading,
+  onReadAgain,
+}: QueueProps) {
   const { noun } = useForgeWords()
   const order = useUiStore((state) => state.reviewOrder)
   const setOrder = useUiStore((state) => state.setReviewOrder)
@@ -128,12 +140,12 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
         </Button>
       </div>
       <OrderSelect ref={sort} order={order} onOrder={setOrder} />
-      {requests === undefined ? null : (
+      {requests === undefined || facetOrder === undefined ? null : (
         <FilterChips
           label="Filter"
-          choices={facetChoices(requests, picked)}
+          choices={facetChoices(requests, facetOrder, picked)}
           isPicked={(facet) => isPicked(picked, facet)}
-          nameOf={facetLabel}
+          nameOf={(facet) => facet.label}
           keyOf={(facet) => `${facet.kind}:${facet.value}`}
           afterLast={sort}
           onToggle={(facet) => {

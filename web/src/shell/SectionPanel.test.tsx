@@ -47,7 +47,7 @@ test.each(['issues', 'branch', 'review', 'messaging'] as const)(
 
 test('routes the reviews section to its queue, which reads without waiting on the stream', async () => {
   // Arrange
-  fakeApi({ '/api/reviews': { available: true, requests: [] } })
+  fakeApi({ '/api/reviews': { available: true, requests: [], facet_order: [] } })
 
   // Act
   renderWithClient(<SectionPanel section="reviews" />)
