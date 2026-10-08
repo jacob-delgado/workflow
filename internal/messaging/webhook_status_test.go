@@ -5,6 +5,7 @@ package messaging_test
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -143,6 +144,62 @@ func TestAWebhookRefusalNeverQuotesTheWebhook(t *testing.T) {
 		if strings.Contains(err.Error(), secret) {
 			t.Errorf("Post = %v, which quotes %q", err, secret)
 		}
+	}
+}
+
+// visibleTail is how many of a secret's last characters config.Redact shows.
+const visibleTail = 4
+
+// quotedFragment is the first run of secret, one longer than the tail
+// config.Redact shows, that text quotes.
+func quotedFragment(text, secret string) (string, bool) {
+	for start := 0; start+visibleTail < len(secret); start++ {
+		if fragment := secret[start : start+visibleTail+1]; strings.Contains(text, fragment) {
+			return fragment, true
+		}
+	}
+
+	return "", false
+}
+
+func TestAWebhookRefusalNeverQuotesTheWebhookWherePageIsCut(t *testing.T) {
+	t.Parallel()
+
+	// Everything after the path's first segment is the credential.
+	const hookTail = "T0001/B0002/abcdefghijklmnopqrstuvwx"
+
+	address := "https://hooks.example.com/hooks/" + hookTail
+	quote := "Cannot POST /hooks/" + hookTail
+
+	// However much comes before the quote — text, the whole address quoted
+	// first, or controls that are taken out — the cut can fall inside it.
+	cases := map[string]string{}
+	for padding := range 700 {
+		cases[fmt.Sprintf("after %d bytes of text", padding)] = strings.Repeat(".", padding) + quote
+		cases[fmt.Sprintf("after the address and %d bytes", padding)] = address + " " + strings.Repeat(".", padding) + quote
+		cases[fmt.Sprintf("after %d controls", padding)] = strings.Repeat("\x1b[m", padding) + quote
+	}
+
+	for name, page := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			webhook := messagingWebhook(config.KindWebhook, address)
+			client := messaging.New(answeringWith(http.StatusNotFound, page), messaging.APIBase, webhook)
+
+			// Act
+			err := client.Post(t.Context(), "", message)
+
+			// Assert
+			if !errors.Is(err, messaging.ErrRejected) {
+				t.Fatalf("Post = %v, want %v", err, messaging.ErrRejected)
+			}
+
+			if fragment, quoted := quotedFragment(err.Error(), hookTail); quoted {
+				t.Errorf("Post = %q, which quotes %q of the webhook", err, fragment)
+			}
+		})
 	}
 }
 
