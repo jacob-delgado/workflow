@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -143,4 +144,24 @@ func showsRedirect(ctx context.Context) bool {
 	shown, _ := ctx.Value(redirectShown{}).(bool)
 
 	return shown
+}
+
+// ErrAnswerTooLarge reports an answer longer than the most a client reads.
+var ErrAnswerTooLarge = errors.New("the answer was larger than the most that is read")
+
+// Read reads an answer's body whole when it holds no more than limit bytes.
+// Past that it reads one byte more, to tell, and reports ErrAnswerTooLarge:
+// cut at the limit, an answer would decode as broken JSON, which says the
+// server sent nonsense rather than that it sent too much.
+func Read(body io.Reader, limit int64) ([]byte, error) {
+	read, err := io.ReadAll(io.LimitReader(body, limit+1))
+	if err != nil {
+		return nil, fmt.Errorf("the answer broke off: %w", err)
+	}
+
+	if int64(len(read)) > limit {
+		return nil, fmt.Errorf("%w (%d bytes)", ErrAnswerTooLarge, limit)
+	}
+
+	return read, nil
 }
