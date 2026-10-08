@@ -16,10 +16,17 @@ on:
 permissions:
   contents: read
 
+# A newer run builds the same image from a newer tree, so it replaces one in
+# flight rather than queueing behind it.
+concurrency:
+  group: container-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   container-check:
     name: Container check
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

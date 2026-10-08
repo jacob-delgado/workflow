@@ -45,6 +45,7 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write # commit the release PR
       pull-requests: write # open the release PR
@@ -58,6 +59,7 @@ jobs:
   gate:
     needs: release-please
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
     outputs:
@@ -106,6 +108,15 @@ jobs:
     needs: gate
     if: needs.gate.outputs.version != ''
     runs-on: ubuntu-latest
+    # The release group release.yml runs in, for the tag this job pushes, so
+    # tagging and the release it dispatches never overlap a hand-pushed one. A
+    # job's group and not the workflow's: a group keeps one run waiting and
+    # cancels any other, so a workflow-wide group could drop the run of a
+    # release commit queued behind two others, and its tag with it.
+    concurrency:
+      group: release-${{ needs.gate.outputs.version }}
+      cancel-in-progress: false
+    timeout-minutes: 10
     permissions:
       contents: write # push the tag
       pull-requests: write # flip the release PR's label
