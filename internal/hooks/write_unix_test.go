@@ -40,18 +40,18 @@ func pastTheLimit() string {
 // shortConfig is a configuration that fits under the limit.
 const shortConfig = "pre-commit:\n  commands: {}\n"
 
-// filesIn is every file below dir, by its path within dir.
-func filesIn(t *testing.T, dir string) []string {
+// entriesIn is every file and directory below dir, by its path within dir.
+func entriesIn(t *testing.T, dir string) []string {
 	t.Helper()
 
-	var files []string
+	var entries []string
 
-	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil || entry.IsDir() {
+	err := filepath.WalkDir(dir, func(path string, _ fs.DirEntry, err error) error {
+		if err != nil || path == dir {
 			return err
 		}
 
-		files = append(files, strings.TrimPrefix(path, dir))
+		entries = append(entries, strings.TrimPrefix(path, dir))
 
 		return nil
 	})
@@ -59,11 +59,11 @@ func filesIn(t *testing.T, dir string) []string {
 		t.Fatalf("reading %s: %v", dir, err)
 	}
 
-	return files
+	return entries
 }
 
 //nolint:paralleltest // the file size limit holds for every write the process makes, so these run alone.
-func TestAWriteCutShortLeavesNoFileBehind(t *testing.T) {
+func TestAWriteCutShortLeavesNothingBehind(t *testing.T) {
 	script := hooks.File{Path: ".lefthook/" + preCommit + "/" + preCommit, Contents: pastTheLimit()}
 
 	cases := map[string]hooks.Generated{
@@ -87,7 +87,7 @@ func TestAWriteCutShortLeavesNoFileBehind(t *testing.T) {
 				t.Errorf("Write = %v, want the write's own failure", err)
 			}
 
-			if left := filesIn(t, dir); len(left) != 0 {
+			if left := entriesIn(t, dir); len(left) != 0 {
 				t.Errorf("a write cut short left %q behind, want nothing", left)
 			}
 		})
