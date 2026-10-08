@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -85,9 +84,7 @@ type githubActivityItem struct {
 }
 
 func (g githubActivityItem) event(kind EventKind, at time.Time) Event {
-	_, repository, _ := strings.Cut(g.RepositoryURL, "/repos/")
-
-	return Event{At: at, Kind: kind, Number: g.Number, Title: g.Title, URL: g.URL, Repository: repository}
+	return Event{At: at, Kind: kind, Number: g.Number, Title: g.Title, URL: g.URL, Repository: g.repository()}
 }
 
 // githubActivity searches for the pull requests you opened, had merged and
@@ -148,10 +145,8 @@ func githubReviewed(ctx context.Context, client Client, start time.Time) ([]Even
 	var events []Event
 
 	for _, item := range found.Items {
-		_, repository, _ := strings.Cut(item.RepositoryURL, "/repos/")
-
 		reviews, err := call[[]githubReview](ctx, client, http.MethodGet,
-			"/repos/"+escapedPath(repository)+"/pulls/"+strconv.Itoa(item.Number)+"/reviews?per_page=100", nil)
+			"/repos/"+escapedPath(item.repository())+"/pulls/"+strconv.Itoa(item.Number)+"/reviews?per_page=100", nil)
 		if err != nil {
 			return nil, false, err
 		}
@@ -197,7 +192,7 @@ func gitlabActivity(ctx context.Context, client Client, start, end time.Time) (A
 
 	kinds := map[string]EventKind{"opened": EventOpened, "accepted": EventMerged, "approved": EventReviewed}
 
-	activity := Activity{Events: nil, Truncated: truncated}
+	activity := Activity{Truncated: truncated}
 
 	for _, event := range listed {
 		if kind, ok := kinds[event.Action]; ok && event.TargetType == "MergeRequest" {

@@ -132,14 +132,20 @@ type githubReviewItem struct {
 	RepositoryURL string `json:"repository_url"`
 }
 
+// repository is the owner/name of the repository the item is in, as the
+// search names it in the API's own address for it.
+func (g githubReviewItem) repository() string {
+	_, repository, _ := strings.Cut(g.RepositoryURL, "/repos/")
+
+	return repository
+}
+
 // reviewRequest flattens a search item. GitHub's search does not carry CI, so it
 // is left unknown rather than fetched with a request per entry.
 func (g githubReviewItem) reviewRequest() ReviewRequest {
-	_, repository, _ := strings.Cut(g.RepositoryURL, "/repos/")
-
 	return ReviewRequest{
 		Number: g.Number, URL: g.URL, Title: g.Title, Draft: g.Draft,
-		Author: g.User.Login, Repository: repository, CI: CINone, OpenedAt: g.CreatedAt,
+		Author: g.User.Login, Repository: g.repository(), CI: CINone, OpenedAt: g.CreatedAt,
 	}
 }
 
