@@ -194,7 +194,7 @@ func unsavable(err error) (string, bool) {
 	case errors.Is(err, config.ErrTokenNotKept):
 		return "the keychain did not keep the Jira token typed, so nothing was saved; unlock it, then save again", true
 	case errors.Is(err, config.ErrCredentialInRepository) || errors.Is(err, config.ErrHomeOnly):
-		return "a credential typed here, a token command or variable, or a task program is kept in the home " +
+		return "a credential, a token command or variable, or a task program is kept in the home " +
 			"directory's file, never in the repository's; set it there", true
 	default:
 		return "", false
