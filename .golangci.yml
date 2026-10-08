@@ -7,7 +7,7 @@ version: "2"
 linters:
   default: all
   disable:
-    # Same shape: an allow/blocklist of modules that is empty today. Dependency
+    # An allow/blocklist of modules, with nothing to list today. Dependency
     # choices are gated by review (see CLAUDE.md) until there is a list worth
     # writing down.
     - gomodguard_v2
@@ -15,8 +15,11 @@ linters:
     # including third-party structs (cobra.Command has ~40 fields). Unusable in
     # practice; the zero value is part of Go's design.
     - exhaustruct_v5
-    # Deprecated, superseded by the _v5 linters enabled above. Leaving them on
-    # would double-report and emit deprecation warnings on every run.
+    # Deprecated, each superseded by a linter of the same name: exhaustruct by
+    # exhaustruct_v5 and gomodguard by gomodguard_v2, both off above for the
+    # reasons given there, and wsl by wsl_v5, which is on. Left on, each would
+    # check again what its successor checks, or what was turned off above, and
+    # print a deprecation warning on every run.
     - exhaustruct
     - gomodguard
     - wsl
