@@ -6,11 +6,9 @@ package forge
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
-	"strings"
 )
 
 // ErrNotSupported reports a question the forge has no answer for, as GitHub
@@ -76,8 +74,8 @@ func (c Client) IsGroup(ctx context.Context, name string) (bool, error) {
 		return false, ErrNotSupported
 	}
 
-	users, err := gitlabUsersNamed(ctx, c, name)
-	if err != nil || len(users) > 0 {
+	_, err := gitlabUserID(ctx, c, name)
+	if !errors.Is(err, ErrNoUser) {
 		return false, err
 	}
 
@@ -140,15 +138,15 @@ func gitlabResolveReviewers(ctx context.Context, client Client, request NewPullR
 
 // addUser looks a reviewer up by username and adds their id.
 func (r *gitlabReviewers) addUser(ctx context.Context, client Client, username string) {
-	found, err := gitlabUsersNamed(ctx, client, username)
+	userID, err := gitlabUserID(ctx, client, username)
 
 	switch {
+	case errors.Is(err, ErrNoUser):
+		r.addGroupNamedAsUser(ctx, client, username)
 	case err != nil:
 		r.miss(username, err)
-	case len(found) == 0:
-		r.addGroupNamedAsUser(ctx, client, username)
 	default:
-		r.add(found[0].ID)
+		r.add(userID)
 	}
 }
 
@@ -224,47 +222,6 @@ type gitlabUser struct {
 // named for a pull request cannot be set rather than being dropped in silence.
 var ErrNoUser = errors.New("no such user")
 
-// gitlabUserIDs resolves usernames to the ids GitLab wants for an issue's
-// assignees. An unknown name is an error, not a silently missing assignee.
-func gitlabUserIDs(ctx context.Context, client Client, usernames []string) ([]int64, error) {
-	ids, unknown, err := gitlabKnownIDs(ctx, client, usernames)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(unknown) > 0 {
-		return nil, fmt.Errorf("%w: %s", ErrNoUser, strings.Join(unknown, ", "))
-	}
-
-	return ids, nil
-}
-
-// gitlabKnownIDs looks each username up by name, returning the ids of those
-// GitLab knows and the names it does not. A lookup that fails is an error.
-func gitlabKnownIDs(ctx context.Context, client Client, usernames []string) ([]int64, []string, error) {
-	var (
-		ids     []int64
-		unknown []string
-	)
-
-	for _, username := range usernames {
-		found, err := gitlabUsersNamed(ctx, client, username)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if len(found) == 0 {
-			unknown = append(unknown, username)
-
-			continue
-		}
-
-		ids = append(ids, found[0].ID)
-	}
-
-	return ids, unknown, nil
-}
-
 // gitlabResolveAssignees resolves each assignee to the id GitLab sets one by.
 // It is best effort, as reviewers are: a name GitLab knows no user by, or one
 // whose lookup fails, is recorded in missed and the rest are still assigned.
@@ -272,23 +229,31 @@ func gitlabResolveAssignees(ctx context.Context, client Client, usernames []stri
 	var ids []int64
 
 	for _, username := range usernames {
-		found, err := gitlabUsersNamed(ctx, client, username)
-
-		switch {
-		case err != nil:
+		userID, err := gitlabUserID(ctx, client, username)
+		if err != nil {
 			missed.miss(username, err)
-		case len(found) == 0:
-			missed.miss(username, ErrNoUser)
-		default:
-			ids = append(ids, found[0].ID)
+
+			continue
 		}
+
+		ids = append(ids, userID)
 	}
 
 	return ids
 }
 
-// gitlabUsersNamed looks a user up by username: one user, or none when GitLab
-// knows nobody by that name.
-func gitlabUsersNamed(ctx context.Context, client Client, username string) ([]gitlabUser, error) {
-	return call[[]gitlabUser](ctx, client, http.MethodGet, "/users?"+url.Values{"username": {username}}.Encode(), nil)
+// gitlabUserID looks a user up by username for the id GitLab sets a reviewer
+// or assignee by: ErrNoUser when GitLab knows nobody by that name.
+func gitlabUserID(ctx context.Context, client Client, username string) (int64, error) {
+	found, err := call[[]gitlabUser](ctx, client, http.MethodGet,
+		"/users?"+url.Values{"username": {username}}.Encode(), nil)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(found) == 0 {
+		return 0, ErrNoUser
+	}
+
+	return found[0].ID, nil
 }
