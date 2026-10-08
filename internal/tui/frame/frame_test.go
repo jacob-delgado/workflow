@@ -267,7 +267,7 @@ func TestRailDrawsOneSharedRuleBetweenPanes(t *testing.T) {
 		ruleBelowFocus string
 	}{
 		"unicode": {style: frame.Light, ruleAboveFocus: "┢", ruleBelowFocus: "┡"},
-		"ascii":   {style: frame.LightASCII, ruleAboveFocus: "+", ruleBelowFocus: "+"},
+		"ascii":   {style: frame.LightASCII, ruleAboveFocus: "#", ruleBelowFocus: "#"},
 	}
 
 	for name, tt := range cases {
@@ -301,6 +301,52 @@ func TestRailDrawsOneSharedRuleBetweenPanes(t *testing.T) {
 				if lipgloss.Width(row) != 20 {
 					t.Errorf("row %q is not 20 cells wide", row)
 				}
+			}
+		})
+	}
+}
+
+// corners are a box's four corners, top-left, top-right, bottom-left and
+// bottom-right, read off the rows that draw its top and bottom rules.
+func corners(top, bottom string) [4]string {
+	first := func(row string) string { return string([]rune(row)[0]) }
+	last := func(row string) string { return string([]rune(row)[len([]rune(row))-1]) }
+
+	return [4]string{first(top), last(top), first(bottom), last(bottom)}
+}
+
+func TestAFocusedASCIIRailPaneHasTheCornersOfAFocusedBox(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		focused     int
+		top, bottom int
+	}{
+		"first":  {focused: 0, top: 0, bottom: 3},
+		"middle": {focused: 1, top: 3, bottom: 6},
+		"last":   {focused: 2, top: 6, bottom: 9},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			panes := []frame.RailPane{
+				{Title: "1 Issues", Body: "a\nb", Rows: 2},
+				{Title: "2 Branch", Body: "c\nd", Rows: 2},
+				{Title: "3 Commits", Body: "e\nf", Rows: 2},
+			}
+			panes[tt.focused].Focused = true
+			box := lines(frame.Render("x", "", 20, 3, frame.HeavyASCII))
+
+			// Act
+			rail := lines(frame.Rail(panes, 20, frame.LightASCII))
+
+			// Assert
+			got, want := corners(rail[tt.top], rail[tt.bottom]), corners(box[0], box[2])
+			if got != want {
+				t.Errorf("focused rail pane's corners = %q, a focused box's are %q:\n%s", got, want, strings.Join(rail, "\n"))
 			}
 		})
 	}
