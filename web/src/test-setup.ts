@@ -42,6 +42,11 @@ document.addEventListener('keydown', (event) => {
 })
 // jsdom lays nothing out, so it has nothing to scroll into view.
 Element.prototype.scrollIntoView = function scrollIntoView() {}
+// jsdom has no ReadableStream, and the vmThreads pool, unlike a plain worker,
+// leaks none of Node's into the page. A Response here is Node's, its body
+// Node's stream, so the page borrows that constructor, and a test can build
+// the streamed answer the client reads.
+globalThis.ReadableStream = new Response('').body?.constructor as typeof ReadableStream
 
 // jsdom leaves Node's Request in place, which cannot resolve a relative URL; a
 // browser resolves one against the page. The API client builds every request
