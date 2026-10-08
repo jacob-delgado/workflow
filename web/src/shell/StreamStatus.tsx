@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSnapshotStore, type StreamStatus as Status } from '@/api/snapshot.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
-import { narrowAgo, writtenMoment } from '@/lib/dates.ts'
+import { ago, second, writtenMoment } from '@/lib/dates.ts'
 import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 
 // Each state of the stream, by its words and its mark: nothing yet while it
@@ -78,7 +78,7 @@ function LastUpdate() {
       title={writtenMoment(landed)}
       className="text-xs text-muted-foreground tabular-nums"
     >
-      Updated {narrowAgo(Math.max(0, now - receivedAt))}
+      Updated {ago(receivedAt, now, { style: 'narrow' })}
     </time>
   )
 }
@@ -90,7 +90,7 @@ function useSecondClock(): number {
   useEffect(() => {
     const tick = setInterval(() => {
       setNow(Date.now())
-    }, 1_000)
+    }, second)
 
     return () => {
       clearInterval(tick)

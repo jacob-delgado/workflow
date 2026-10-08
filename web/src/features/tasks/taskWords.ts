@@ -1,9 +1,6 @@
 import type { Task, TaskList } from '@/api/generated/types.gen.ts'
+import { day, hour, minute } from '@/lib/dates.ts'
 import type { MarkState } from '@/lib/StateMark.tsx'
-
-const minute = 60_000
-const hour = 60 * minute
-const day = 24 * hour
 
 // How much of a uuid names a task that has no id, as Taskwarrior's own short
 // uuids do.
