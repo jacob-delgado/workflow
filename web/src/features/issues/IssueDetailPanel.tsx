@@ -258,7 +258,7 @@ const week = 7 * day
 // WrittenAt says when a comment was written: how long ago within the week,
 // and the day after; the exact moment shows on hover. A comment the tracker
 // gave no date for, which the server leaves the date out of, says nothing.
-function WrittenAt({ created }: { created: string | undefined }) {
+function WrittenAt({ created }: { created?: string }) {
   if (created === undefined) {
     return null
   }
