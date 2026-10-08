@@ -331,14 +331,14 @@ type Edit struct {
 // SaveEdit writes an edited configuration over the read it was made from,
 // keeping each credential the editor left masked, and returns what it wrote
 // with the revision it left. Files changed since the read are refused with
-// ErrChangedOnDisk, and a credential typed into the editor that would land in
-// a repository's file with ErrCredentialInRepository; either way nothing is
-// written. A Jira token typed is kept in the keychain item for its address
-// where KeepJiraToken is wired, and so lands in no file. Every credential but
-// those placed elsewhere is checked before any is placed, since placing the
-// Slack secrets spends the refresh token typed, and every one before the
-// keychain is handed the token, which replaces the item it held. Neither is
-// done for a write the files would then refuse.
+// ErrChangedOnDisk, and a credential the files read did not hold that would
+// land in a repository's file with ErrCredentialInRepository; either way
+// nothing is written. A Jira token typed is kept in the keychain item for its
+// address where KeepJiraToken is wired, and so lands in no file. Every
+// credential but those placed elsewhere is checked before any is placed,
+// since placing the Slack secrets spends the refresh token typed, and every
+// one before the keychain is handed the token, which replaces the item it
+// held. Neither is done for a write the files would then refuse.
 func SaveEdit(edit Edit) (Config, Revision, error) {
 	incoming := KeepStored(edit.Edited, edit.Read, edit.Removed)
 	incoming.Path, incoming.Files = edit.Files.Target(), edit.Files
