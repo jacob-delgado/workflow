@@ -8,20 +8,11 @@
 #   scripts/check-license-headers_test.sh
 set -euo pipefail
 
-# A git hook or `git rebase --exec` exports the variables that locate its
-# repository; the repositories this test builds must not inherit them.
-# shellcheck disable=SC2046 # word splitting is the point: one name per word
-unset $(git rev-parse --local-env-vars)
-
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly check="${here}/check-license-headers.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 readonly copyright='// Copyright 2026 Jacob Delgado'
 readonly spdx='// SPDX-License-Identifier: Apache-2.0'
@@ -29,37 +20,12 @@ readonly spdx='// SPDX-License-Identifier: Apache-2.0'
 # expect_args runs the gate over explicit files and checks its exit.
 #   expect_args <pass|fail> <name> <file>...
 expect_args() {
-  local want="$1" name="$2" got
-  shift 2
-  cases=$((cases + 1))
-
-  if "${check}" "$@" >/dev/null 2>&1; then
-    got="pass"
-  else
-    got="fail"
-  fi
-
-  if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want ${want}, got ${got}" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit "$1" "$2" "${check}" "${@:3}"
 }
 
 # expect_dir runs the gate with no arguments inside a directory.
 expect_dir() {
-  local want="$1" name="$2" dir="$3" got
-  cases=$((cases + 1))
-
-  if (cd "${dir}" && "${check}") >/dev/null 2>&1; then
-    got="pass"
-  else
-    got="fail"
-  fi
-
-  if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want ${want}, got ${got}" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit "$1" "$2" run_in "$3" "${check}"
 }
 
 # A file with both header lines passes.
@@ -98,9 +64,4 @@ mkdir -p "${notrepo}"
 printf 'package x\n' >"${notrepo}/bare.go"
 expect_dir fail "a directory that is not a repository" "${notrepo}"
 
-if ((failures > 0)); then
-  echo "check-license-headers_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "check-license-headers_test: ${cases} case(s) passed."
+finish_tests

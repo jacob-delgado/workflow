@@ -13,59 +13,23 @@
 # for the gate to read.
 set -euo pipefail
 
-# A git hook or `git rebase --exec` exports the variables that locate its
-# repository; the repositories this test builds must not inherit them.
-# shellcheck disable=SC2046 # word splitting is the point: one name per word
-unset $(git rev-parse --local-env-vars)
-
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly check="${here}/check-tradeoffs.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
-
-# run_gate runs the gate in a directory, keeping its output in <dir>.out, and
-# prints pass or fail.
-run_gate() {
-  local dir="$1"
-  if (cd "${dir}" && "${check}") >"${dir}.out" 2>&1; then
-    echo "pass"
-  else
-    echo "fail"
-  fi
-}
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # expect runs the gate in a directory and compares its exit to pass or fail.
 #   expect <pass|fail> <name> <dir>
 expect() {
-  local want="$1" name="$2" dir="$3" got
-  cases=$((cases + 1))
-  got="$(run_gate "${dir}")"
-
-  if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want ${want}, got ${got}" >&2
-    sed 's/^/  /' "${dir}.out" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit "$1" "$2" run_in "$3" "${check}"
 }
 
 # expect_named runs the gate in a directory, wants it to fail, and wants its
 # output to carry the given text.
 #   expect_named <name> <dir> <text>
 expect_named() {
-  local name="$1" dir="$2" text="$3" got
-  cases=$((cases + 1))
-  got="$(run_gate "${dir}")"
-
-  if [[ "${got}" != "fail" ]] || ! grep -qF -- "${text}" "${dir}.out"; then
-    echo "FAIL ${name}: want a failure naming '${text}', got ${got}:" >&2
-    sed 's/^/  /' "${dir}.out" >&2
-    failures=$((failures + 1))
-  fi
+  expect_output fail "$1" "$3" run_in "$2" "${check}"
 }
 
 # backlog writes a TECH_DEBT.md holding an open entry and a register of two
@@ -227,9 +191,4 @@ notrepo="${workdir}/notrepo"
 mkdir -p "${notrepo}"
 expect fail "a directory that is not a repository" "${notrepo}"
 
-if ((failures > 0)); then
-  echo "check-tradeoffs_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "check-tradeoffs_test: ${cases} case(s) passed."
+finish_tests

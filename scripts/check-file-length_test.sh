@@ -7,37 +7,16 @@
 #   scripts/check-file-length_test.sh
 set -euo pipefail
 
-# A git hook or `git rebase --exec` exports the variables that locate its
-# repository; the repositories this test builds must not inherit them.
-# shellcheck disable=SC2046 # word splitting is the point: one name per word
-unset $(git rev-parse --local-env-vars)
-
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly check="${here}/check-file-length.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # expect runs the gate in a directory and compares its exit to pass or fail.
 #   expect <pass|fail> <name> <dir>
 expect() {
-  local want="$1" name="$2" dir="$3" got
-  cases=$((cases + 1))
-
-  if (cd "${dir}" && "${check}") >/dev/null 2>&1; then
-    got="pass"
-  else
-    got="fail"
-  fi
-
-  if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want ${want}, got ${got}" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit "$1" "$2" run_in "$3" "${check}"
 }
 
 # over_length writes a file of 901 lines, past the 800-line hard ceiling.
@@ -143,15 +122,6 @@ mkdir -p "${listed}"
 git -C "${listed}" init -q
 soft_length >"${listed}/Panel.tsx"
 git -C "${listed}" add Panel.tsx
-cases=$((cases + 1))
-if ! (cd "${listed}" && "${check}" --list) 2>/dev/null | grep -q 'Panel\.tsx'; then
-  echo "FAIL --list names a TypeScript file: Panel.tsx is missing" >&2
-  failures=$((failures + 1))
-fi
+expect_output pass "--list names a TypeScript file" "Panel.tsx" run_in "${listed}" "${check}" --list
 
-if ((failures > 0)); then
-  echo "check-file-length_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "check-file-length_test: ${cases} case(s) passed."
+finish_tests

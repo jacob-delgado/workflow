@@ -12,29 +12,13 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly script="${here}/tool-versions.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # expect runs the script against a mise.toml and checks its exit.
 #   expect <pass|fail> <name> <mise.toml path>
 expect() {
-  local want="$1" name="$2" toml="$3" got
-  cases=$((cases + 1))
-
-  if MISE_TOML="${toml}" "${script}" >/dev/null 2>&1; then
-    got="pass"
-  else
-    got="fail"
-  fi
-
-  if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want ${want}, got ${got}" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit "$1" "$2" env MISE_TOML="$3" "${script}"
 }
 
 # complete writes a mise.toml holding every pin the script reads.
@@ -67,12 +51,8 @@ complete >"${full}"
 expect pass "a complete mise.toml" "${full}"
 
 # Its output names the build args, so the container gets the pinned versions.
-flags="$(MISE_TOML="${full}" "${script}")"
-cases=$((cases + 1))
-if [[ "${flags}" != *"--build-arg GO_VERSION=1.27.1"* ]]; then
-  echo "FAIL output names GO_VERSION: got ${flags}" >&2
-  failures=$((failures + 1))
-fi
+expect_output pass "output names GO_VERSION" "--build-arg GO_VERSION=1.27.1" \
+  env MISE_TOML="${full}" "${script}"
 
 # A mise.toml missing a pin the script needs fails rather than emitting a blank.
 missing_pin="${workdir}/missing-pin.toml"
@@ -82,9 +62,4 @@ expect fail "a mise.toml missing a pin" "${missing_pin}"
 # A mise.toml that is not there fails.
 expect fail "a missing mise.toml" "${workdir}/does-not-exist.toml"
 
-if ((failures > 0)); then
-  echo "tool-versions_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "tool-versions_test: ${cases} case(s) passed."
+finish_tests
