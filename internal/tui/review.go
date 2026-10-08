@@ -133,7 +133,7 @@ func (m Model) reviewRail(_ int) string {
 	case !m.review.loaded:
 		return m.marks.reading()
 	case m.review.err != nil:
-		return m.failureSummary(m.review.err)
+		return m.kit().failureSummary(m.review.err)
 	case !m.review.found:
 		return "no " + m.vocab.noun + " yet"
 	}
@@ -151,14 +151,14 @@ func (m Model) reviewRail(_ int) string {
 // reviewDetail describes the pull request, or what opening one needs.
 func (m Model) reviewDetail(width int) string {
 	if m.outsideRepository() {
-		return m.failureBlock(m.branch.err, width)
+		return m.kit().failureBlock(m.branch.err, width)
 	}
 
 	if !m.review.found {
 		lines := []string{m.reviewRail(0)}
 
 		if m.review.err != nil {
-			lines = append(lines, "", m.failureBlock(m.review.err, width))
+			lines = append(lines, "", m.kit().failureBlock(m.review.err, width))
 		}
 
 		if m.canOpenPullRequest() {
@@ -189,7 +189,7 @@ func (m Model) reviewDetail(width int) string {
 	}
 
 	if m.review.ciErr != nil {
-		lines = append(lines, "", m.failureBlock(m.review.ciErr, width))
+		lines = append(lines, "", m.kit().failureBlock(m.review.ciErr, width))
 	}
 
 	if m.canEditPullRequest() {

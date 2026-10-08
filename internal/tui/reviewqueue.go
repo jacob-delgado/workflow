@@ -161,7 +161,7 @@ func (m Model) reviewQueueRail(_ int) string {
 	case !m.reviewQueue.loaded:
 		return m.marks.reading()
 	case m.reviewQueue.err != nil:
-		return m.failureSummary(m.reviewQueue.err)
+		return m.kit().failureSummary(m.reviewQueue.err)
 	case len(m.reviewQueue.all) == 0:
 		return "none waiting on you"
 	}
@@ -177,7 +177,7 @@ func (m Model) reviewQueueDetail(width int) string {
 	case !m.reviewQueue.loaded:
 		return m.marks.reading()
 	case m.reviewQueue.err != nil:
-		return m.failureBlock(m.reviewQueue.err, width)
+		return m.kit().failureBlock(m.reviewQueue.err, width)
 	case len(m.reviewQueue.all) == 0:
 		return "No " + m.vocab.noun + "s are waiting on your review."
 	}
@@ -256,7 +256,7 @@ func (m Model) reviewTail(request forge.ReviewRequest, now time.Time) string {
 func (m Model) ciStateGlyph(state forge.CIState) string {
 	return map[forge.CIState]string{
 		forge.CINone: m.marks.unknown, forge.CIRunning: m.marks.inFlight,
-		forge.CIPassed: m.marks.done, forge.CIFailed: m.failedGlyph(),
+		forge.CIPassed: m.marks.done, forge.CIFailed: m.kit().failedGlyph(),
 	}[state]
 }
 

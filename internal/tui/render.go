@@ -347,7 +347,7 @@ func (m Model) configErrorStatus(width int) string {
 	}
 
 	return m.styles.strong.Render("configuration error") + "\n" +
-		m.failureBlock(m.loadErr, width) + "\n" +
+		m.kit().failureBlock(m.loadErr, width) + "\n" +
 		m.styles.label.Render("start over with `workflow config init --force`")
 }
 

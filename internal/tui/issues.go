@@ -211,12 +211,12 @@ func (l issueList) move(step int) issueList {
 // render draws as many rows as fit, scrolled so the selection stays on screen,
 // and marks a failed search beneath the issues it kept. mark, when there is
 // one, is a column after each issue's status glyph.
-func (l issueList) render(marks glyphs, sty styles, rows int, mark func(jira.Key) string) string {
-	failed := unreadRow(sty, marks, l.err, "failed")
+func (l issueList) render(kit renderKit, rows int, mark func(jira.Key) string) string {
+	failed := kit.unreadRow(l.err, "failed")
 
 	switch {
 	case !l.settled:
-		return marks.reading()
+		return kit.marks.reading()
 	case l.err != nil && len(l.found.Issues) == 0:
 		return failed
 	case len(l.found.Issues) == 0:
@@ -224,14 +224,14 @@ func (l issueList) render(marks glyphs, sty styles, rows int, mark func(jira.Key
 	case len(l.visible()) == 0:
 		return l.nothingAdmitted()
 	case l.err != nil:
-		return l.listing(marks, sty, l.listRows(rows), mark) + "\n" + failed
+		return l.listing(kit, l.listRows(rows), mark) + "\n" + failed
 	case len(l.found.Unavailable) > 0:
-		missing := failedGlyph(sty, marks) + " not read: " + strings.Join(l.found.Unavailable, ", ")
+		missing := kit.failedGlyph() + " not read: " + strings.Join(l.found.Unavailable, ", ")
 
-		return l.listing(marks, sty, l.listRows(rows), mark) + "\n" + missing
+		return l.listing(kit, l.listRows(rows), mark) + "\n" + missing
 	}
 
-	return l.listing(marks, sty, rows, mark)
+	return l.listing(kit, rows, mark)
 }
 
 // shownKey is an issue's key as the list shows it: a forge issue's number
@@ -255,7 +255,7 @@ func isForgeKey(issueKey jira.Key) bool {
 // listing is the issues the filter admits, as many as fit in rows, scrolled so
 // the selection stays on screen, each with its status by name. A nil mark draws
 // no column, and neither does in flight until the branches are listed.
-func (l issueList) listing(marks glyphs, sty styles, rows int, mark func(jira.Key) string) string {
+func (l issueList) listing(kit renderKit, rows int, mark func(jira.Key) string) string {
 	visible := l.visible()
 	first, last := window(l.selected, len(visible), rows)
 	lines := make([]string, 0, last-first)
@@ -267,8 +267,8 @@ func (l issueList) listing(marks glyphs, sty styles, rows int, mark func(jira.Ke
 
 	for index := first; index < last; index++ {
 		issue := visible[index]
-		lines = append(lines, marks.marker(index == l.selected)+marks.status(issue.StatusCategory)+column(issue.Key)+
-			l.inFlightColumn(marks, sty, issue.Key)+" "+shownKey(issue.Key)+" "+sty.label.Render(issue.Status)+" "+
+		lines = append(lines, kit.marks.marker(index == l.selected)+kit.marks.status(issue.StatusCategory)+column(issue.Key)+
+			l.inFlightColumn(kit, issue.Key)+" "+shownKey(issue.Key)+" "+kit.styles.label.Render(issue.Status)+" "+
 			issue.Summary)
 	}
 

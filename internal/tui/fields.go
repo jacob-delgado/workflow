@@ -134,7 +134,7 @@ func (f fieldForm) view(kit renderKit, width, rows int) []string {
 	}
 
 	if f.problem != nil {
-		lines = append(lines, failureLine(kit.styles, kit.marks, fmt.Errorf("%s %w", field.Name, f.problem)))
+		lines = append(lines, kit.failureLine(fmt.Errorf("%s %w", field.Name, f.problem)))
 	}
 
 	return lines

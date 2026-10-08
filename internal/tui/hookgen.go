@@ -75,7 +75,7 @@ var _ failable[hookgenOffer] = hookgenOffer{}
 // view lists the hooks found and the configuration that would run them, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
 func (o hookgenOffer) view(kit renderKit, width, _ int) (string, string) {
-	lines := pinnedOutcome(kit.styles, kit.marks, o.send, "writing", width)
+	lines := kit.pinnedOutcome(o.send, "writing", width)
 	lines = append(lines,
 		wrap("Found "+plural(len(o.hooks), "hook")+" in .git/hooks that lefthook does not manage:", width), "",
 	)

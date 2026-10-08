@@ -169,7 +169,7 @@ func (c commentComposer) view(kit renderKit, width, rows int) (string, string) {
 // layout is the lines above the box, the lines below it, and the box's height
 // in rows rows.
 func (c commentComposer) layout(kit renderKit, width, rows int) ([]string, []string, int) {
-	above := pinnedOutcome(kit.styles, kit.marks, c.send, "", width)
+	above := kit.pinnedOutcome(c.send, "", width)
 	above = append(above, kit.styles.strong.Render(c.mode.line()),
 		wrap(shownKey(c.issue.Key)+" "+c.issue.Summary, width), "")
 

@@ -79,7 +79,7 @@ func (m Model) diffSection(width int) []string {
 	case m.diff.path != change.Path:
 		return append(lines, m.styles.label.Render("reading the diff"+m.marks.ellipsis))
 	case m.diff.err != nil:
-		return append(lines, m.failureLine(m.diff.err))
+		return append(lines, m.kit().failureLine(m.diff.err))
 	case len(m.diff.lines) == 0:
 		return append(lines, m.styles.label.Render("no textual change"))
 	}

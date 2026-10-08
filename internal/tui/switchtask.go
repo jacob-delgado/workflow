@@ -253,7 +253,7 @@ func (p branchPicker) view(kit renderKit, _, rows int) (string, string) {
 	case !p.settled:
 		lines = append(lines, "reading the branches"+kit.marks.ellipsis)
 	case p.listErr != nil:
-		lines = append(lines, failureLine(kit.styles, kit.marks, p.listErr))
+		lines = append(lines, kit.failureLine(p.listErr))
 	case len(p.branches.items) == 0:
 		lines = append(lines, "No other task branch to switch to.")
 	default:
@@ -278,11 +278,11 @@ func (p branchPicker) notAskedNote(kit renderKit) []string {
 	// A failure with no sentence of its own already says what was being asked,
 	// and a second lead would push its reason off the row.
 	if _, known := errorSentence(p.notAsked); !known {
-		return []string{failureLine(kit.styles, kit.marks, p.notAsked), ""}
+		return []string{kit.failureLine(p.notAsked), ""}
 	}
 
 	return []string{
-		failedGlyph(kit.styles, kit.marks) + " could not ask which issues are yours: " + inFull(p.notAsked), "",
+		kit.failedGlyph() + " could not ask which issues are yours: " + inFull(p.notAsked), "",
 	}
 }
 
@@ -315,7 +315,7 @@ func (p branchPicker) outcome(kit renderKit) []string {
 	case p.send.sending:
 		return []string{"", "switching" + kit.marks.ellipsis}
 	case p.send.err != nil:
-		return []string{"", failureLine(kit.styles, kit.marks, p.send.err)}
+		return []string{"", kit.failureLine(p.send.err)}
 	default:
 		return nil
 	}

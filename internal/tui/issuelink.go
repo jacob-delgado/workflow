@@ -59,7 +59,7 @@ func (m Model) pullOffers() []string {
 
 // view previews the link the confirmation would add.
 func (l issueLinker) view(kit renderKit, width, _ int) (string, string) {
-	lines := pinnedOutcome(kit.styles, kit.marks, l.send, "linking", width)
+	lines := kit.pinnedOutcome(l.send, "linking", width)
 	lines = append(lines,
 		"Add this "+l.vocab.noun+"'s link to "+shownKey(l.issueKey)+"?", "",
 		l.vocab.sigil+strconv.Itoa(l.pull.Number)+" "+l.pull.Title, l.pull.URL)
