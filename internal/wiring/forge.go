@@ -463,7 +463,16 @@ func templatesFor(settings config.Forge, where Workspace) []forge.Template {
 		return nil
 	}
 
-	return forge.FindTemplates(os.DirFS(where.Root), repo.Kind)
+	// A Root follows no link out of the repository: a cloned one could link a
+	// template to a file of the user's, which would then fill in a description
+	// they may post.
+	root, err := os.OpenRoot(where.Root)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = root.Close() }()
+
+	return forge.FindTemplates(root.FS(), repo.Kind)
 }
 
 // activitySeam reads what you did on the forge the repository's remote names,
