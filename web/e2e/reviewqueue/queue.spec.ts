@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { ReviewQueue, ReviewRequest } from '../src/api/generated/types.gen.ts'
-import { openSection, pinTheme, themes, widths, height } from './cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from './tabwalk.ts'
+import type { ReviewQueue, ReviewRequest } from '../../src/api/generated/types.gen.ts'
+import { openSection, pinTheme, themes, widths, height } from '../support/cockpit.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Reviews section against a queue answered here: it is read again on
 // opening once 30 seconds have passed, and its filter narrows it.

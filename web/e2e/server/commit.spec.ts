@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { expect, test } from '@playwright/test'
-import { openSection } from '../cockpit.ts'
+import { openSection } from '../support/cockpit.ts'
 import { openServed } from './served.ts'
 
 // originSubject is the subject of the newest commit on docs/notes, the branch

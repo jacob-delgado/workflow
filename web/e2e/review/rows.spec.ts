@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { height, openCockpit, openSection, themes } from '../cockpit.ts'
+import { height, openCockpit, openSection, themes } from '../support/cockpit.ts'
 
 // The Review section's rows set every value at one left edge, whether or not a
 // state's mark stands before it: a mark holds its own slot, and a value with

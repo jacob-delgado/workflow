@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test'
-import { themeStorageKey } from '../src/shell/themeKey.ts'
+import { themeStorageKey } from '../../src/shell/themeKey.ts'
 
 // The populated cockpit as the specs that hold it or picture it open it: in
 // both themes, at a narrow, a middling and a wide window.
