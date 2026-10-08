@@ -575,9 +575,10 @@ after `workflow slack login`. A blank address or webhook leaves that part out.
 **Write ~/src/api/.workflow.json** — named for the file chosen — checks the
 token with Jira first, saying *Checking with Jira…*. A check that does not
 pass says why, beside the button, and writes nothing; **Write it anyway** keeps
-the address and token unchecked — except an address that is not an http or
-https address, or that carries a username and password, which is never kept. Once written, the server works with the file
-as it does after a switch: the event stream reconnects, every section is read
+the address and token unchecked — except an address that is not an https
+address, or http to this machine, or that carries a username and password,
+which is never kept. Once written, the server works with the file as it does
+after a switch: the event stream reconnects, every section is read
 again, and Settings shows the file with what was written said above it —
 whom Jira knows the token as, that the keychain keeps it, and, for a file in a
 repository git does not ignore, to add it to `.gitignore`. A file already
