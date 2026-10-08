@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
@@ -106,15 +107,10 @@ func (d Deps) resolvedFailures(found []hooks.Location) []hooks.Location {
 	return kept
 }
 
-// defaultCIInterval is how often CI is asked about when nothing says otherwise:
-// often enough to post soon after a pass, rarely enough not to spend a forge's
-// rate limit on it.
-const defaultCIInterval = 20 * time.Second
-
 // ciInterval is how often CI is asked about.
 func (d Deps) ciInterval() time.Duration {
 	if d.CIInterval <= 0 {
-		return defaultCIInterval
+		return config.DefaultCIInterval
 	}
 
 	return d.CIInterval

@@ -33,6 +33,10 @@ func TestACommitConventionFallsBackToTheBuiltInDefaults(t *testing.T) {
 	if got := built.RefsLine("PROJ-1"); got != "Refs: PROJ-1" {
 		t.Errorf("RefsLine() = %q, want the default Refs trailer", got)
 	}
+
+	if got := built.RefsLabel(); got != "Refs" {
+		t.Errorf("RefsLabel() = %q, want the default Refs", got)
+	}
 }
 
 func TestACommitConventionAllowsOnlyItsConfiguredTypes(t *testing.T) {

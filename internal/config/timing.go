@@ -12,16 +12,29 @@ import (
 // ErrInvalidTiming reports a timing setting that is not a positive duration.
 var ErrInvalidTiming = errors.New("invalid timing")
 
+// DefaultRequestTimeout bounds every request to a service when
+// timing.request_timeout names none — each doctor --online check, and every
+// request the interface and the web server make. Go's http.Client has no
+// default deadline, so an unreachable on-prem host would otherwise hang
+// doctor, or leave a pane loading forever.
+const DefaultRequestTimeout = 10 * time.Second
+
+// DefaultCIInterval is how often CI is asked about while it runs when
+// timing.ci_interval names no interval, and how long the forge's answer serves
+// the web page's stream: often enough to see a check finish soon after it
+// does, rarely enough not to spend a forge's rate limit on it.
+const DefaultCIInterval = 20 * time.Second
+
 // Timing is how long the interface waits, for a network or a service that is
 // slower or more rate-limited than the defaults assume. Each is a Go duration
 // string, such as "20s" or "3m"; empty keeps the default.
 type Timing struct {
-	// RequestTimeout bounds each request to a service. The default is ten
-	// seconds.
+	// RequestTimeout bounds each request to a service. The default is
+	// DefaultRequestTimeout.
 	RequestTimeout string `json:"request_timeout"`
 	// CIInterval is how often CI is asked about while it runs, and how often
 	// the web page's stream asks the forge about the branch. The default is
-	// twenty seconds.
+	// DefaultCIInterval.
 	CIInterval string `json:"ci_interval"`
 }
 

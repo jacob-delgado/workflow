@@ -106,6 +106,11 @@ func (c CommitConvention) SubjectLimit() int {
 	return c.subjectLimit
 }
 
+// RefsLabel is the label of the issue trailer this convention appends.
+func (c CommitConvention) RefsLabel() string {
+	return c.refsLabel
+}
+
 // RefsLine is the issue trailer this convention appends, "<label>: <issueKey>".
 func (c CommitConvention) RefsLine(issueKey string) string {
 	return c.refsLabel + ": " + issueKey
