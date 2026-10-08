@@ -93,9 +93,6 @@ type keyMap struct {
 	// full is every binding grouped for the help, accumulated as the bindings
 	// are created so it cannot omit one. FullHelp returns it verbatim.
 	full [][]key.Binding
-	// byAction is every binding by the action it answers, so a key context,
-	// which names actions, can say whether a press is live in it.
-	byAction map[string]key.Binding
 }
 
 // The help groups, in the order helpGroups names them. Every binding is created
@@ -220,7 +217,7 @@ func compileKeys(marks glyphs, reviewNoun, messagingService string, overrides ma
 	runningKeys(&builder, &keys)
 	everywhereKeys(&builder, &keys)
 
-	keys.full, keys.byAction = builder.groups, builder.byAction
+	keys.full = builder.groups
 
 	return keys, builder
 }

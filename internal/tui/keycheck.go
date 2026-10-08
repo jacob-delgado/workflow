@@ -10,9 +10,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -117,25 +114,8 @@ func (c keyContext) covers(placed placement) bool {
 	return slices.Contains(c.groups, placed.group) || slices.Contains(c.actions, placed.action)
 }
 
-// liveIn reports whether msg presses a key live in context.
-func (k keyMap) liveIn(context keyContext, msg tea.KeyPressMsg) bool {
-	for _, group := range context.groups {
-		if key.Matches(msg, k.full[group]...) {
-			return true
-		}
-	}
-
-	for _, action := range context.actions {
-		if key.Matches(msg, k.byAction[action]) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // keyContexts are the sets of bindings live together, one per keyboard surface:
-// each pane's, which its handler obeys, and the overlays'.
+// each pane's, with the actions its handler answers, and the overlays'.
 func keyContexts() []keyContext {
 	contexts := make([]keyContext, 0, paneCount)
 	for each := range pane(paneCount) {

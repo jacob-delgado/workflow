@@ -123,8 +123,8 @@ type behavior struct {
 	readsBranch bool
 	// answers are the key actions handle answers, beside the moving and
 	// everywhere keys every pane takes. With those they are the pane's key
-	// context: a press outside it never reaches handle, and CheckKeys refuses
-	// two actions in it on one key, so the check reads what dispatch obeys.
+	// context, in which CheckKeys refuses two actions bound to one key. handle
+	// still sees every key, so the list never turns one off.
 	answers []string
 }
 
@@ -135,16 +135,6 @@ func behaviorOf(target pane) behavior {
 		paneReview: reviewBehavior, paneMessaging: messagingBehavior, paneReviews: reviewQueueBehavior,
 		paneTasks: tasksBehavior, paneSummary: summaryBehavior, paneRepositories: repositoriesBehavior,
 	}[target]()
-}
-
-// handlePaneKey hands a key to the focused pane's handler when it is live in the
-// pane's key context, and does nothing with one that is not.
-func (m Model) handlePaneKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if !m.keys.liveIn(m.focus.keyContext(), msg) {
-		return m, nil
-	}
-
-	return behaviorOf(m.focus).handle(m, msg)
 }
 
 // keyContext is the keys live on the pane: the moving and everywhere keys
