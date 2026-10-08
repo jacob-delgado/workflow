@@ -348,8 +348,9 @@ without agreement on direction.
 
 A smell is a *hint* to look closer, not a defect to reflexively refactor — weigh
 it against YAGNI and the rule of three first (a two-case `switch` is not yet a
-registry). A parenthetical marks which linter catches it (**lint**) or which rule
-above it restates (*see*). The rest is review-time judgment.
+registry). A parenthetical marks which linter catches it (**lint**), which gate
+script fails it (**gate**), or which rule above it restates (*see*). The rest is
+review-time judgment.
 
 **Bloaters** — grown too big to hold in your head:
 
@@ -428,7 +429,9 @@ above it restates (*see*). The rest is review-time judgment.
   (**lint** nakedret).
 - *Stutter* — `config.ConfigLoader`, `tui.TUIModel` → drop the package prefix.
 - *Premature goroutines/channels* — concurrency with no measured need → simple
-  synchronous code first (*see YAGNI*).
+  synchronous code first (*see YAGNI*); a goroutine starts only in
+  `internal/proc`, the tests, and the exceptions the gate writes down with their
+  reasons (**gate** `scripts/check-goroutines.sh`, `task lint:goroutines`).
 
 ### TDD process
 
