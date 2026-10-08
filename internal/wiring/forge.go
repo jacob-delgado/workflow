@@ -39,37 +39,9 @@ type forgeSetup struct {
 	log           *RequestLog
 }
 
-// mergeSeams builds the two merge seams over a connect, kept out of forgeDeps
-// so that builder stays within its length.
-func mergeSeams(ctx context.Context, connect func() (forgeConnection, error)) (
-	func(forge.PullRequest, forge.MergeMethod) error,
-	func() ([]forge.MergeMethod, error),
-) {
-	merge := func(pull forge.PullRequest, method forge.MergeMethod) error {
-		connection, err := connect()
-		if err != nil {
-			return err
-		}
-
-		return connection.client.Merge(ctx, connection.repo, pull, method)
-	}
-
-	methods := func() ([]forge.MergeMethod, error) {
-		connection, err := connect()
-		if err != nil {
-			return nil, err
-		}
-
-		return connection.client.MergeMethods(ctx, connection.repo)
-	}
-
-	return merge, methods
-}
-
 // forgeDeps is what a surface asks of GitHub or GitLab, each seam reaching
 // the forge through connect.
 func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConnection, error)) seams.Forge {
-	merge, mergeMethods := mergeSeams(ctx, connect)
 	kind := ForgeKind(setup.settings(), setup.where.Remote)
 
 	return seams.Forge{
@@ -81,62 +53,74 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 
 			return connection.client.FindPullRequest(ctx, connection.repo, branch)
 		},
-		CreatePullRequest:  createPullSeam(ctx, connect),
-		Activity:           activitySeam(ctx, connect),
-		EditPullRequest:    editPullSeam(ctx, connect),
+		CreatePullRequest: func(request forge.NewPullRequest) (forge.PullRequest, error) {
+			return ask(connect, func(on forgeConnection) (forge.PullRequest, error) {
+				return on.client.CreatePullRequest(ctx, on.repo, request)
+			})
+		},
+		Activity: func(start, end time.Time) (forge.Activity, error) {
+			return ask(connect, func(on forgeConnection) (forge.Activity, error) {
+				return on.client.Activity(ctx, on.repo.Kind, start, end)
+			})
+		},
+		EditPullRequest: func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
+			return ask(connect, func(on forgeConnection) (forge.PullRequest, error) {
+				return on.client.EditPullRequest(ctx, on.repo, pull, edit)
+			})
+		},
 		RewriteDescription: rewriteSeam(ctx, connect),
 		CheckStatus: func(pull forge.PullRequest, head string) (forge.CI, error) {
-			connection, err := connect()
-			if err != nil {
-				return forge.CI{}, err
-			}
-
-			return connection.client.CheckStatus(ctx, connection.repo, pull, head)
+			return ask(connect, func(on forgeConnection) (forge.CI, error) {
+				return on.client.CheckStatus(ctx, on.repo, pull, head)
+			})
 		},
 		JobLog: func(check forge.Check) (forge.JobLog, error) {
-			connection, err := connect()
-			if err != nil {
-				return forge.JobLog{}, err
-			}
-
-			return connection.client.JobLog(ctx, connection.repo, check)
+			return ask(connect, func(on forgeConnection) (forge.JobLog, error) { return on.client.JobLog(ctx, on.repo, check) })
 		},
 		Rerun: func(pull forge.PullRequest, head string) (bool, error) {
-			connection, err := connect()
-			if err != nil {
-				return false, err
-			}
-
-			return connection.client.RerunChecks(ctx, connection.repo, pull, head)
+			return ask(connect, func(on forgeConnection) (bool, error) {
+				return on.client.RerunChecks(ctx, on.repo, pull, head)
+			})
 		},
-		Merge:        merge,
-		MergeMethods: mergeMethods,
+		Merge: func(pull forge.PullRequest, method forge.MergeMethod) error {
+			return tell(connect, func(on forgeConnection) error { return on.client.Merge(ctx, on.repo, pull, method) })
+		},
+		MergeMethods: func() ([]forge.MergeMethod, error) {
+			return ask(connect, func(on forgeConnection) ([]forge.MergeMethod, error) {
+				return on.client.MergeMethods(ctx, on.repo)
+			})
+		},
 		ReviewRequests: func() ([]forge.ReviewRequest, error) {
-			connection, err := connect()
-			if err != nil {
-				return nil, err
-			}
-
-			return connection.client.ReviewRequests(ctx, connection.repo.Kind)
+			return ask(connect, func(on forgeConnection) ([]forge.ReviewRequest, error) {
+				return on.client.ReviewRequests(ctx, on.repo.Kind)
+			})
 		},
 		Templates:    func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
-		Author:       authorSeam(ctx, connect),
+		Author:       func() (string, error) { return ask(connect, authorName(ctx)) },
 		GroupMembers: groupMembersSeam(ctx, kind, connect),
 		IsGroup:      isGroupSeam(ctx, kind, connect),
 		Kind:         kind,
 	}
 }
 
-// authorSeam is the who-opened-it seam, split out to keep forgeDeps within its
-// length: it connects, then asks the forge who the credential belongs to.
-func authorSeam(ctx context.Context, connect func() (forgeConnection, error)) func() (string, error) {
-	return func() (string, error) {
-		connection, err := connect()
-		if err != nil {
-			return "", err
-		}
+// rewriteSeam is the rewrite-a-description seam, split out to keep forgeDeps
+// within its length: it asks the client to rewrite the description as the
+// forge holds it.
+func rewriteSeam(
+	ctx context.Context, connect func() (forgeConnection, error),
+) func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
+	return func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
+		return ask(connect, func(on forgeConnection) (bool, error) {
+			return on.client.RewriteDescription(ctx, on.repo, pull, rewrite)
+		})
+	}
+}
 
-		identity, err := connection.client.Whoami(ctx)
+// authorName asks the forge whom the credential its requests carry belongs to,
+// by the name the forge shows them by.
+func authorName(ctx context.Context) func(forgeConnection) (string, error) {
+	return func(on forgeConnection) (string, error) {
+		identity, err := on.client.Whoami(ctx)
 
 		return identity.Name(), err
 	}
@@ -152,12 +136,7 @@ func groupMembersSeam(
 	}
 
 	return func(group string) ([]string, error) {
-		connection, err := connect()
-		if err != nil {
-			return nil, err
-		}
-
-		return connection.client.GroupMembers(ctx, group)
+		return ask(connect, func(on forgeConnection) ([]string, error) { return on.client.GroupMembers(ctx, group) })
 	}
 }
 
@@ -181,12 +160,7 @@ func isGroupSeam(
 			return group, nil
 		}
 
-		connection, err := connect()
-		if err != nil {
-			return false, err
-		}
-
-		group, err = connection.client.IsGroup(ctx, name)
+		group, err := ask(connect, func(on forgeConnection) (bool, error) { return on.client.IsGroup(ctx, name) })
 		if err == nil {
 			known.keep(name, group)
 		}
@@ -218,52 +192,6 @@ func (k groupsKnown) keep(name string, group bool) {
 	defer k.mutex.Unlock()
 
 	k.answers[strings.ToLower(name)] = group
-}
-
-// createPullSeam is the open-a-pull-request seam, split out to keep forgeDeps
-// within its length: it connects, then asks the client to open it.
-func createPullSeam(
-	ctx context.Context, connect func() (forgeConnection, error),
-) func(forge.NewPullRequest) (forge.PullRequest, error) {
-	return func(request forge.NewPullRequest) (forge.PullRequest, error) {
-		connection, err := connect()
-		if err != nil {
-			return forge.PullRequest{}, err
-		}
-
-		return connection.client.CreatePullRequest(ctx, connection.repo, request)
-	}
-}
-
-// editPullSeam is the edit-pull-request seam, split out to keep forgeDeps within
-// its length: it connects, then asks the client to edit the title and body.
-func editPullSeam(
-	ctx context.Context, connect func() (forgeConnection, error),
-) func(forge.PullRequest, forge.PullRequestEdit) (forge.PullRequest, error) {
-	return func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
-		connection, err := connect()
-		if err != nil {
-			return forge.PullRequest{}, err
-		}
-
-		return connection.client.EditPullRequest(ctx, connection.repo, pull, edit)
-	}
-}
-
-// rewriteSeam is the rewrite-a-description seam, split out to keep forgeDeps
-// within its length: it connects, then asks the client to rewrite the
-// description as the forge holds it.
-func rewriteSeam(
-	ctx context.Context, connect func() (forgeConnection, error),
-) func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
-	return func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
-		connection, err := connect()
-		if err != nil {
-			return false, err
-		}
-
-		return connection.client.RewriteDescription(ctx, connection.repo, pull, rewrite)
-	}
 }
 
 // resolveRepo reads the forge repository the remote points at and applies the
@@ -336,6 +264,30 @@ func onceConnected[T any](connect func() (T, error)) func() (T, error) {
 
 		return cached, nil
 	}
+}
+
+// ask connects with connect, then asks the connection what question does: the
+// one shape every seam over a client found on first use takes, Jira's,
+// Taskwarrior's and the forge's alike.
+func ask[C, T any](connect func() (C, error), question func(C) (T, error)) (T, error) {
+	connection, err := connect()
+	if err != nil {
+		var none T
+
+		return none, err
+	}
+
+	return question(connection)
+}
+
+// tell connects with connect, then applies change to the connection.
+func tell[C any](connect func() (C, error), change func(C) error) error {
+	connection, err := connect()
+	if err != nil {
+		return err
+	}
+
+	return change(connection)
 }
 
 // liveForge is the forge settings every forge call reads: those workflow
@@ -488,19 +440,4 @@ func templatesFor(settings config.Forge, where Workspace) []forge.Template {
 	defer func() { _ = root.Close() }()
 
 	return forge.FindTemplates(root.FS(), repo.Kind)
-}
-
-// activitySeam reads what you did on the forge the repository's remote names,
-// in any repository on it.
-func activitySeam(
-	ctx context.Context, connect func() (forgeConnection, error),
-) func(start, end time.Time) (forge.Activity, error) {
-	return func(start, end time.Time) (forge.Activity, error) {
-		connection, err := connect()
-		if err != nil {
-			return forge.Activity{}, err
-		}
-
-		return connection.client.Activity(ctx, connection.repo.Kind, start, end)
-	}
 }

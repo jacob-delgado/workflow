@@ -52,65 +52,41 @@ func taskSeams(ctx context.Context, install func() (taskwarrior.Install, error))
 	return seams.Tasks{
 		Install: install,
 		Pending: func() (taskwarrior.List, error) {
-			return askTaskwarrior(client, func(tasks taskwarrior.Client) (taskwarrior.List, error) { return tasks.Pending(ctx) })
+			return ask(client, func(tasks taskwarrior.Client) (taskwarrior.List, error) { return tasks.Pending(ctx) })
 		},
 		Touched: func(since time.Time) ([]taskwarrior.Task, error) {
-			return askTaskwarrior(client, func(tasks taskwarrior.Client) ([]taskwarrior.Task, error) {
+			return ask(client, func(tasks taskwarrior.Client) ([]taskwarrior.Task, error) {
 				return tasks.Touched(ctx, since)
 			})
 		},
 		Linked: func() ([]taskwarrior.Task, error) {
-			return askTaskwarrior(client, func(tasks taskwarrior.Client) ([]taskwarrior.Task, error) {
+			return ask(client, func(tasks taskwarrior.Client) ([]taskwarrior.Task, error) {
 				return tasks.Linked(ctx)
 			})
 		},
 		Add: func(line string) (string, error) {
-			return askTaskwarrior(client, func(tasks taskwarrior.Client) (string, error) { return tasks.Add(ctx, line) })
+			return ask(client, func(tasks taskwarrior.Client) (string, error) { return tasks.Add(ctx, line) })
 		},
 		Start: func(uuid string) error {
-			return tellTaskwarrior(client, func(tasks taskwarrior.Client) error { return tasks.Start(ctx, uuid) })
+			return tell(client, func(tasks taskwarrior.Client) error { return tasks.Start(ctx, uuid) })
 		},
 		Stop: func(uuid string) error {
-			return tellTaskwarrior(client, func(tasks taskwarrior.Client) error { return tasks.Stop(ctx, uuid) })
+			return tell(client, func(tasks taskwarrior.Client) error { return tasks.Stop(ctx, uuid) })
 		},
 		Done: func(uuid string) error {
-			return tellTaskwarrior(client, func(tasks taskwarrior.Client) error { return tasks.Done(ctx, uuid) })
+			return tell(client, func(tasks taskwarrior.Client) error { return tasks.Done(ctx, uuid) })
 		},
 		Annotate: func(uuid, text string) error {
-			return tellTaskwarrior(client, func(tasks taskwarrior.Client) error { return tasks.Annotate(ctx, uuid, text) })
+			return tell(client, func(tasks taskwarrior.Client) error { return tasks.Annotate(ctx, uuid, text) })
 		},
 		Modify: func(uuid, line string) error {
-			return tellTaskwarrior(client, func(tasks taskwarrior.Client) error { return tasks.Modify(ctx, uuid, line) })
+			return tell(client, func(tasks taskwarrior.Client) error { return tasks.Modify(ctx, uuid, line) })
 		},
 		Undo: func() (string, error) {
-			return askTaskwarrior(client, func(tasks taskwarrior.Client) (string, error) { return tasks.Undo(ctx) })
+			return ask(client, func(tasks taskwarrior.Client) (string, error) { return tasks.Undo(ctx) })
 		},
 		Sync: func() (string, error) {
-			return askTaskwarrior(client, func(tasks taskwarrior.Client) (string, error) { return tasks.Sync(ctx) })
+			return ask(client, func(tasks taskwarrior.Client) (string, error) { return tasks.Sync(ctx) })
 		},
 	}
-}
-
-// askTaskwarrior finds Taskwarrior, then asks it what ask does.
-func askTaskwarrior[T any](
-	client func() (taskwarrior.Client, error), ask func(taskwarrior.Client) (T, error),
-) (T, error) {
-	tasks, err := client()
-	if err != nil {
-		var none T
-
-		return none, err
-	}
-
-	return ask(tasks)
-}
-
-// tellTaskwarrior finds Taskwarrior, then has it make the change tell does.
-func tellTaskwarrior(client func() (taskwarrior.Client, error), tell func(taskwarrior.Client) error) error {
-	tasks, err := client()
-	if err != nil {
-		return err
-	}
-
-	return tell(tasks)
 }
