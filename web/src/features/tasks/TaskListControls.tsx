@@ -6,7 +6,6 @@ import { Input, Select } from '@/lib/Field.tsx'
 import {
   isTaskFacetPicked,
   taskFacetChoices,
-  taskFacetLabel,
   toggleTaskFacet,
   type TaskFacet,
 } from './taskFacets.ts'
@@ -14,7 +13,8 @@ import { taskOrderWords, type TaskOrder } from './taskOrder.ts'
 
 interface TaskListControlsProps {
   tasks: Task[]
-  now: number
+  // facetOrder is every value the filter offers, in the server's order.
+  facetOrder: TaskFacet[]
   order: TaskOrder
   onOrder: (order: TaskOrder) => void
   text: string
@@ -29,7 +29,7 @@ interface TaskListControlsProps {
 // sideways in a narrow window.
 export function TaskListControls({
   tasks,
-  now,
+  facetOrder,
   order,
   onOrder,
   text,
@@ -79,9 +79,9 @@ export function TaskListControls({
       </div>
       <FilterChips
         label="Filter"
-        choices={taskFacetChoices(tasks, picked, now)}
+        choices={taskFacetChoices(tasks, facetOrder, picked)}
         isPicked={(facet) => isTaskFacetPicked(picked, facet)}
-        nameOf={taskFacetLabel}
+        nameOf={(facet) => facet.label}
         keyOf={(facet) => `${facet.kind}:${facet.value}`}
         onToggle={(facet) => {
           onPick((current) => toggleTaskFacet(current, facet))

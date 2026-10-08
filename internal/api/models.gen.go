@@ -735,6 +735,39 @@ func (e StatusChangeFieldKind) Valid() bool {
 	}
 }
 
+// Defines values for TaskState.
+const (
+	TaskStateCompleted TaskState = "completed"
+	TaskStateDeleted   TaskState = "deleted"
+	TaskStatePending   TaskState = "pending"
+	TaskStateRecurring TaskState = "recurring"
+	TaskStateStarted   TaskState = "started"
+	TaskStateUnknown   TaskState = "unknown"
+	TaskStateWaiting   TaskState = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the TaskState enum.
+func (e TaskState) Valid() bool {
+	switch e {
+	case TaskStateCompleted:
+		return true
+	case TaskStateDeleted:
+		return true
+	case TaskStatePending:
+		return true
+	case TaskStateRecurring:
+		return true
+	case TaskStateStarted:
+		return true
+	case TaskStateUnknown:
+		return true
+	case TaskStateWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TaskStatus.
 const (
 	TaskStatusCompleted TaskStatus = "completed"
@@ -756,6 +789,33 @@ func (e TaskStatus) Valid() bool {
 	case TaskStatusRecurring:
 		return true
 	case TaskStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskFacetKind.
+const (
+	TaskFacetKindIssue    TaskFacetKind = "issue"
+	TaskFacetKindPriority TaskFacetKind = "priority"
+	TaskFacetKindProject  TaskFacetKind = "project"
+	TaskFacetKindState    TaskFacetKind = "state"
+	TaskFacetKindTag      TaskFacetKind = "tag"
+)
+
+// Valid indicates whether the value is a known member of the TaskFacetKind enum.
+func (e TaskFacetKind) Valid() bool {
+	switch e {
+	case TaskFacetKindIssue:
+		return true
+	case TaskFacetKindPriority:
+		return true
+	case TaskFacetKindProject:
+		return true
+	case TaskFacetKindState:
+		return true
+	case TaskFacetKindTag:
 		return true
 	default:
 		return false
@@ -2459,6 +2519,9 @@ type Task struct {
 	// Entry When the task was created.
 	Entry time.Time `json:"entry"`
 
+	// Facets Every value the task holds, one or more in each kind the list is narrowed by: its state, priority, project and issue, then each of its tags, or no tag.
+	Facets []TaskFacet `json:"facets"`
+
 	// ID The working-set number; 0 for a task not in the working set.
 	ID int `json:"id"`
 
@@ -2477,11 +2540,20 @@ type Task struct {
 	Priority string `json:"priority"`
 
 	// Project Empty when the task has none.
-	Project   string     `json:"project"`
+	Project string `json:"project"`
+
+	// Ranks A task's place in each order the Tasks list sorts by, 0 first, among the tasks of the list that carries it, every tie broken down to the uuid, so a narrowed list keeps the same order.
+	Ranks     TaskRanks  `json:"ranks"`
 	Scheduled *time.Time `json:"scheduled,omitempty"`
 
+	// Searchable The fields text typed to narrow the list is matched against, each lower-cased: the description, the project, the issue key, each tag written +tag, and the id written #id when the task has one. Typed text matches a task when one field holds it, lower-cased letter by letter; a match never spans two fields.
+	Searchable []string `json:"searchable"`
+
 	// Start When the task was started; present only while it is.
-	Start  *time.Time `json:"start,omitempty"`
+	Start *time.Time `json:"start,omitempty"`
+
+	// State Where the task stands as the list words it, when the server read it: started for a pending task begun, waiting for a pending one whose wait is still ahead, else its status. A wait passing changes it with no write, so a page holding the list reads it again once the earliest wait still ahead has passed.
+	State  TaskState  `json:"state"`
 	Status TaskStatus `json:"status"`
 	Tags   []string   `json:"tags"`
 
@@ -2497,6 +2569,9 @@ type Task struct {
 	// Wait Until when the task is hidden from the list's usual reports.
 	Wait *time.Time `json:"wait,omitempty"`
 }
+
+// TaskState Where the task stands as the list words it, when the server read it: started for a pending task begun, waiting for a pending one whose wait is still ahead, else its status. A wait passing changes it with no write, so a page holding the list reads it again once the earliest wait still ahead has passed.
+type TaskState string
 
 // TaskStatus defines model for Task.Status.
 type TaskStatus string
@@ -2535,6 +2610,25 @@ type TaskBranch struct {
 	WorktreeShown *string `json:"worktree_shown,omitempty"`
 }
 
+// TaskFacet One value a task holds in one of the five kinds the Tasks list is narrowed by. Values picked in one kind widen the list, and the kinds narrow it together.
+type TaskFacet struct {
+	// Kind The kind: the task's state as the list words it, its priority, its project, a tag, or whether it is linked to an issue.
+	Kind TaskFacetKind `json:"kind"`
+
+	// Label The value as every surface names it, in the filter and where a row shows what the list is sorted by.
+	//
+	// Example: priority H
+	Label string `json:"label"`
+
+	// Value The value held: the state, the priority, the project or the tag, "" for none of each, or linked or unlinked.
+	//
+	// Example: H
+	Value string `json:"value"`
+}
+
+// TaskFacetKind The kind: the task's state as the list words it, its priority, its project, a tag, or whether it is linked to an issue.
+type TaskFacetKind string
+
 // TaskLine A line in Taskwarrior's own grammar: words, with attributes such as project:web, due:friday or +tag among them.
 type TaskLine struct {
 	// Line The line, as it would follow `task add` or `task <id> modify`.
@@ -2554,6 +2648,9 @@ type TaskList struct {
 	// Context The name of Taskwarrior's active context, whose filter the list applies; empty for none.
 	Context string `json:"context"`
 
+	// FacetOrder Every value the list's filter offers, in the order it lists them, as the terminal's filter lists them: the states as the state order ranks them; priorities H, M, L, any other the tasks hold by name, then none; the projects and the tags the tasks hold, by name, none last; with an issue, then without. A value only a waiting task holds is offered for its state alone. A value no task holds is offered only while it is picked. Empty when Taskwarrior is not available.
+	FacetOrder []TaskFacet `json:"facet_order"`
+
 	// Reason Why Taskwarrior is not available, safe to show; empty when it is.
 	Reason string `json:"reason"`
 
@@ -2572,6 +2669,27 @@ type TaskList struct {
 
 // TaskListReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts, or the list after a write that was made could not be read. Absent when Taskwarrior is available.
 type TaskListReasonCode string
+
+// TaskRanks A task's place in each order the Tasks list sorts by, 0 first, among the tasks of the list that carries it, every tie broken down to the uuid, so a narrowed list keeps the same order.
+type TaskRanks struct {
+	// ID By working-set id, a task outside the working set last.
+	ID int `json:"id"`
+
+	// Issue Linked tasks by issue key in natural order, so PROJ-2 before PROJ-10, unlinked last.
+	Issue int `json:"issue"`
+
+	// Priority High, medium and low, then any other priority, then none.
+	Priority int `json:"priority"`
+
+	// State Started, then pending, waiting, recurring, completed and deleted.
+	State int `json:"state"`
+
+	// Tag By the tags taken in order, untagged last.
+	Tag int `json:"tag"`
+
+	// Urgency Most urgent first, by Taskwarrior's urgency.
+	Urgency int `json:"urgency"`
+}
 
 // TaskText The text of a note on a task.
 type TaskText struct {

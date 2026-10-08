@@ -4374,7 +4374,7 @@ components:
       description: >-
         Your pending Taskwarrior tasks, and what the server knows of the
         Taskwarrior that answered.
-      required: [available, reason, context, sync_available, said, tasks]
+      required: [available, reason, context, sync_available, said, tasks, facet_order]
       properties:
         available:
           type: boolean
@@ -4425,6 +4425,74 @@ components:
             The pending tasks of the active context, most urgent first, waiting
             ones included. Empty when Taskwarrior is not available.
           items: {$ref: "#/components/schemas/Task"}
+        facet_order:
+          type: array
+          description: >-
+            Every value the list's filter offers, in the order it lists them,
+            as the terminal's filter lists them: the states as the state order
+            ranks them; priorities H, M, L, any other the tasks hold by name,
+            then none; the projects and the tags the tasks hold, by name, none
+            last; with an issue, then without. A value only a waiting task
+            holds is offered for its state alone. A value no task holds is
+            offered only while it is picked. Empty when Taskwarrior is not
+            available.
+          items: {$ref: "#/components/schemas/TaskFacet"}
+      additionalProperties: false
+
+    TaskFacet:
+      type: object
+      description: >-
+        One value a task holds in one of the five kinds the Tasks list is
+        narrowed by. Values picked in one kind widen the list, and the kinds
+        narrow it together.
+      required: [kind, value, label]
+      properties:
+        kind:
+          type: string
+          enum: [state, priority, project, tag, issue]
+          description: >-
+            The kind: the task's state as the list words it, its priority, its
+            project, a tag, or whether it is linked to an issue.
+        value:
+          type: string
+          description: >-
+            The value held: the state, the priority, the project or the tag,
+            "" for none of each, or linked or unlinked.
+          example: H
+        label:
+          type: string
+          description: >-
+            The value as every surface names it, in the filter and where a row
+            shows what the list is sorted by.
+          example: priority H
+      additionalProperties: false
+
+    TaskRanks:
+      type: object
+      description: >-
+        A task's place in each order the Tasks list sorts by, 0 first, among
+        the tasks of the list that carries it, every tie broken down to the
+        uuid, so a narrowed list keeps the same order.
+      required: [urgency, state, id, tag, issue, priority]
+      properties:
+        urgency:
+          type: integer
+          description: Most urgent first, by Taskwarrior's urgency.
+        state:
+          type: integer
+          description: Started, then pending, waiting, recurring, completed and deleted.
+        id:
+          type: integer
+          description: By working-set id, a task outside the working set last.
+        tag:
+          type: integer
+          description: By the tags taken in order, untagged last.
+        issue:
+          type: integer
+          description: Linked tasks by issue key in natural order, so PROJ-2 before PROJ-10, unlinked last.
+        priority:
+          type: integer
+          description: High, medium and low, then any other priority, then none.
       additionalProperties: false
 
     TasksSummary:
@@ -4458,7 +4526,7 @@ components:
       description: >-
         One task as Taskwarrior holds it. A date the task does not have is
         absent, never the zero time.
-      required: [uuid, id, description, status, project, priority, tags, entry, modified, urgency, annotations, issue_key, issue_url]
+      required: [uuid, id, description, status, state, project, priority, tags, entry, modified, urgency, annotations, issue_key, issue_url, facets, ranks, searchable]
       properties:
         uuid:
           type: string
@@ -4470,6 +4538,15 @@ components:
         status:
           type: string
           enum: [pending, completed, deleted, waiting, recurring]
+        state:
+          type: string
+          enum: [started, pending, waiting, recurring, completed, deleted, unknown]
+          description: >-
+            Where the task stands as the list words it, when the server read
+            it: started for a pending task begun, waiting for a pending one
+            whose wait is still ahead, else its status. A wait passing changes
+            it with no write, so a page holding the list reads it again once
+            the earliest wait still ahead has passed.
         project:
           type: string
           description: Empty when the task has none.
@@ -4524,6 +4601,23 @@ components:
             the tracker builds issue pages (Jira); otherwise (the forge's issues
             as the tracker, or a task naming no issue) the task's jiraurl
             attribute when it is an http or https address; empty otherwise.
+        facets:
+          type: array
+          description: >-
+            Every value the task holds, one or more in each kind the list is
+            narrowed by: its state, priority, project and issue, then each of
+            its tags, or no tag.
+          items: {$ref: "#/components/schemas/TaskFacet"}
+        ranks: {$ref: "#/components/schemas/TaskRanks"}
+        searchable:
+          type: array
+          description: >-
+            The fields text typed to narrow the list is matched against, each
+            lower-cased: the description, the project, the issue key, each tag
+            written +tag, and the id written #id when the task has one. Typed
+            text matches a task when one field holds it, lower-cased letter by
+            letter; a match never spans two fields.
+          items: {type: string}
       additionalProperties: false
 
     TaskAnnotation:

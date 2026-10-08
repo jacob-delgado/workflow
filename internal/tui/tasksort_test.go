@@ -85,3 +85,20 @@ func TestTheTaskDetailNamesItsPriority(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "workflow · priority M")
 }
+
+func TestSortingByTagNamesAnUntaggedTaskAsTheFilterDoes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := withTasks()
+	changeTask(repo, looseTaskUUID, func(task *taskwarrior.Task) { task.Tags = nil })
+	tasks := typing(t, repo.live(t, 140, 40), tasksPane)
+
+	// Act
+	// Most urgent, state, id, then tag: three presses.
+	view := typing(t, tasks, sortTasksKey, sortTasksKey, sortTasksKey).View().Content
+
+	// Assert
+	requireInOrder(t, view, "by tag", "Renew the cert", "no tag")
+	refuseScreen(t, view, "no tags")
+}

@@ -205,13 +205,18 @@ test('the first task is selected and its detail shown; choosing another shows it
 
 test('the detail gives the task its facts and its notes', async () => {
   // Arrange
-  const noted = {
-    ...tokenLeak,
+  const noted = makeTask({
+    uuid: tokenLeak.uuid,
+    id: tokenLeak.id,
+    description: tokenLeak.description,
+    issue_key: tokenLeak.issue_key,
+    issue_url: tokenLeak.issue_url,
+    urgency: tokenLeak.urgency,
     project: 'api',
     priority: 'H',
     tags: ['jira', 'security'],
     annotations: [{ entry: '2026-09-21T09:00:00Z', description: 'Ana can review it' }],
-  }
+  })
   fakeApi({ [tasksPath]: makeTaskList([noted]) })
 
   // Act

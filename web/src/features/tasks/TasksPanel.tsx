@@ -91,13 +91,13 @@ function Board({ list, failure, failed, reading, onReadAgain }: BoardProps) {
   const [text, setText] = useState('')
   const listing = { order, picked, text }
   const linked = new Set(issues.map((issue) => issue.key))
-  const groups = list === undefined ? undefined : groupTasks(list.tasks, linked, now, listing)
+  const groups = list === undefined ? undefined : groupTasks(list.tasks, linked, listing)
   // The count a narrowed list is out of is what the list shows unnarrowed,
   // which leaves out the waiting tasks only a narrowing lists.
   const unnarrowed =
     list === undefined
       ? 0
-      : listedOf(groupTasks(list.tasks, linked, now, { order, picked: [], text: '' })).length
+      : listedOf(groupTasks(list.tasks, linked, { order, picked: [], text: '' })).length
   const narrowed = list !== undefined && list.tasks.length > 0 && narrows(listing)
 
   return (
@@ -118,7 +118,7 @@ function Board({ list, failure, failed, reading, onReadAgain }: BoardProps) {
         {list === undefined ? null : (
           <TaskListControls
             tasks={list.tasks}
-            now={now}
+            facetOrder={list.facet_order}
             order={order}
             onOrder={setOrder}
             text={text}

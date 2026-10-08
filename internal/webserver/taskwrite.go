@@ -151,7 +151,7 @@ func (s *server) listNotReadAgain(said string, err error) api.TaskList {
 	code := api.TaskListReasonCodeUnavailable
 
 	return api.TaskList{
-		Available: false, ReasonCode: &code, Said: said, Tasks: []api.Task{},
+		Available: false, ReasonCode: &code, Said: said, Tasks: []api.Task{}, FacetOrder: []api.TaskFacet{},
 		Reason: "The change was made, but your tasks could not be read again: " + s.taskFault(err).Detail,
 	}
 }
