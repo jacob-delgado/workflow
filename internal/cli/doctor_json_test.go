@@ -447,3 +447,30 @@ func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
 		})
 	}
 }
+
+func TestDoctorJSONSaysWhyThereIsNoRepository(t *testing.T) {
+	cases := map[string]struct {
+		path string
+		want string
+	}{
+		"git not on PATH":     {path: "", want: "git is not on PATH"},
+		"outside a work tree": {path: os.Getenv("PATH"), want: "is not in a git work tree"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			t.Setenv("PATH", tt.path)
+
+			// Act
+			printed, _ := runStreams(t, t.TempDir(), unusedPrompt(t), "doctor", "--json")
+
+			// Assert
+			repository, _ := decodeReport(t, printed.stdout)["repository"].(map[string]any)
+			if problem, _ := repository["problem"].(string); !strings.Contains(problem, tt.want) ||
+				repository["inside_work_tree"] != false {
+				t.Errorf("repository = %v, want it outside a work tree because %q", repository, tt.want)
+			}
+		})
+	}
+}

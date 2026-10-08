@@ -254,7 +254,9 @@ Under `--dry-run` it prints the pull request it would open, with `number`
 opened — declined, refused or failed — prints nothing.
 
 `workflow doctor --json` prints the report as an object: `version`; `repository`
-(`inside_work_tree`, `root`, `branch`, `detached`, `remote`, `forge`);
+(`inside_work_tree`, `root`, `branch`, `detached`, `remote`, `forge`, or, outside
+a work tree, `problem`: that git is not on `PATH`, that the directory is in no
+work tree, or that the working directory cannot be read);
 `tooling`, one entry per program (`name`, `found`, `required`, `effect`, and
 `detail` where finding it took more than a look at `PATH`: the Taskwarrior
 version and path found, or why none is usable);

@@ -7,13 +7,10 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/gitrepo"
-	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // doctorReport is the whole report as data. It carries the same facts, and the
@@ -27,16 +24,6 @@ type doctorReport struct {
 	Configuration *configFacts     `json:"configuration,omitempty"`
 	ConfigProblem string           `json:"config_problem,omitempty"`
 	Credentials   credentialsFacts `json:"credentials"`
-}
-
-// repositoryFacts is the git repository the working directory is in.
-type repositoryFacts struct {
-	InsideWorkTree bool   `json:"inside_work_tree"`
-	Root           string `json:"root,omitempty"`
-	Branch         string `json:"branch,omitempty"`
-	Detached       bool   `json:"detached"`
-	Remote         string `json:"remote,omitempty"`
-	Forge          string `json:"forge,omitempty"`
 }
 
 // toolFacts is one external program and whether it was found, and what its
@@ -104,31 +91,6 @@ func runDoctorJSON(ctx context.Context, out io.Writer, run doctorRun) error {
 	}
 
 	return errors.Join(toolingErr, configErr, credErr)
-}
-
-// repositoryFactsFor gathers the git facts, returning the raw remote alongside
-// so the credential check can parse it — the facts carry only the masked form.
-func repositoryFactsFor(ctx context.Context) (repositoryFacts, string) {
-	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
-	// a working directory once it is removed.
-	dir, err := os.Getwd()
-	if err != nil {
-		return repositoryFacts{InsideWorkTree: false}, ""
-	}
-
-	repo, err := gitrepo.At(proc.Run, dir).Describe(ctx)
-	if err != nil {
-		return repositoryFacts{InsideWorkTree: false}, ""
-	}
-
-	return repositoryFacts{
-		InsideWorkTree: true,
-		Root:           repo.Root,
-		Branch:         repo.Branch,
-		Detached:       repo.Detached,
-		Remote:         config.DisplayURL(repo.Remote),
-		Forge:          forgeLabel(repo.Remote),
-	}, repo.Remote
 }
 
 // configurationFacts is the configuration in effect and the same review the
