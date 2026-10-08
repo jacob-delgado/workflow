@@ -446,7 +446,7 @@ func TestADryRunOffersNoPeopleAndGroups(t *testing.T) {
 	refuseScreen(t, view, "People and groups")
 }
 
-func TestWithNoStoreThePreviewLinksAndTagsNoOne(t *testing.T) {
+func TestWithNoKeptSeamsThePreviewLinksAndTagsNoOne(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -472,6 +472,6 @@ func TestWithNoStoreThePreviewLinksAndTagsNoOne(t *testing.T) {
 
 	// Assert: the post tags no one
 	if text := postedText(t, unkept); strings.Contains(text, "<@") || strings.Contains(text, "<!subteam") {
-		t.Errorf("a post with no store tagged someone: %q", text)
+		t.Errorf("a post with no kept seams tagged someone: %q", text)
 	}
 }
