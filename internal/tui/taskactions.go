@@ -38,31 +38,31 @@ func (m Model) tasksKeys() []key.Binding {
 	}
 
 	task, selected := m.currentTask()
-	keys := m.taskVerbKeys(task, selected)
+	keys := m.tasks.verbKeys(m.keys, task, selected)
 
 	if m.issueListed(task) {
 		keys = append(keys, relabel(m.keys.confirm, "go to issue"))
 	}
 
 	keys = append(keys, m.linkKeys(m.taskIssueURL())...)
-	keys = append(keys, m.taskListKeys()...)
+	keys = append(keys, m.tasks.listKeys(m.keys)...)
 
-	return append(append(keys, m.keys.refresh), m.syncKeys()...)
+	return append(append(keys, m.keys.refresh), m.tasks.syncKeys(m.keys)...)
 }
 
-// taskVerbKeys are the keys that change tasks: those on the selected task where
+// verbKeys are the keys that change tasks: those on the selected task where
 // one is, and adding and undoing; none while a write is on its way.
-func (m Model) taskVerbKeys(task taskwarrior.Task, selected bool) []key.Binding {
+func (s tasksState) verbKeys(keys keyMap, task taskwarrior.Task, selected bool) []key.Binding {
 	switch {
-	case m.tasks.writing:
+	case s.writing:
 		return nil
 	case !selected:
-		return []key.Binding{m.keys.addTask, m.keys.undoTask}
+		return []key.Binding{keys.addTask, keys.undoTask}
 	}
 
 	return []key.Binding{
-		relabel(m.keys.startStop, startOrStop(task)), m.keys.markDone, m.keys.addTask, m.keys.annotateTask,
-		m.keys.modifyTask, m.keys.undoTask,
+		relabel(keys.startStop, startOrStop(task)), keys.markDone, keys.addTask, keys.annotateTask,
+		keys.modifyTask, keys.undoTask,
 	}
 }
 
@@ -82,12 +82,12 @@ const verbStart = "start"
 
 // syncKeys offers syncing, where the taskrc names a backend to sync with and no
 // write is on its way.
-func (m Model) syncKeys() []key.Binding {
-	if !m.tasks.install.SyncConfigured || m.tasks.writing {
+func (s tasksState) syncKeys(keys keyMap) []key.Binding {
+	if !s.install.SyncConfigured || s.writing {
 		return nil
 	}
 
-	return []key.Binding{m.keys.syncTasks}
+	return []key.Binding{keys.syncTasks}
 }
 
 // handleTasksKey answers the Tasks pane's own keys: its verbs, once Taskwarrior

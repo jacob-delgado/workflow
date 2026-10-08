@@ -152,84 +152,99 @@ func (s reviewQueueState) indexOf(want forge.ReviewRequest) int {
 	return max(0, min(index, len(s.requests)-1))
 }
 
-// reviewQueueRail summarizes the queue: how many pull requests wait, or why the
-// queue could not be read.
-func (m Model) reviewQueueRail(_ int) string {
+// reviewsView is what the Reviews pane draws with beside its own state: the
+// glyphs and styles, the clock its requests' ages are told by, what a change
+// is called on this forge, and whether the forge lists review requests at all.
+type reviewsView struct {
+	kit    renderKit
+	now    time.Time
+	vocab  reviewVocab
+	listed bool
+}
+
+// reviewsView is the Reviews pane's view of the rest of the interface.
+func (m Model) reviewsView() reviewsView {
+	return reviewsView{kit: m.kit(), now: m.deps.now(), vocab: m.vocab, listed: m.deps.Forge.ReviewRequests != nil}
+}
+
+// rail summarizes the queue: how many pull requests wait, or why the queue
+// could not be read.
+func (s reviewQueueState) rail(view reviewsView) string {
 	switch {
-	case m.deps.Forge.ReviewRequests == nil:
+	case !view.listed:
 		return "no forge for reviews"
-	case !m.reviewQueue.loaded:
-		return m.marks.reading()
-	case m.reviewQueue.err != nil:
-		return m.kit().failureSummary(m.reviewQueue.err)
-	case len(m.reviewQueue.all) == 0:
+	case !s.loaded:
+		return view.kit.marks.reading()
+	case s.err != nil:
+		return view.kit.failureSummary(s.err)
+	case len(s.all) == 0:
 		return "none waiting on you"
 	}
 
-	return strconv.Itoa(len(m.reviewQueue.all)) + " waiting"
+	return strconv.Itoa(len(s.all)) + " waiting"
 }
 
-// reviewQueueDetail lists the queue, oldest-first, one request to a line.
-func (m Model) reviewQueueDetail(width int) string {
+// detail lists the queue, oldest-first, one request to a line.
+func (s reviewQueueState) detail(view reviewsView, width int) string {
 	switch {
-	case m.deps.Forge.ReviewRequests == nil:
-		return wrap("This forge does not list the "+m.vocab.noun+"s waiting on your review.", width)
-	case !m.reviewQueue.loaded:
-		return m.marks.reading()
-	case m.reviewQueue.err != nil:
-		return m.kit().failureBlock(m.reviewQueue.err, width)
-	case len(m.reviewQueue.all) == 0:
-		return "No " + m.vocab.noun + "s are waiting on your review."
+	case !view.listed:
+		return wrap("This forge does not list the "+view.vocab.noun+"s waiting on your review.", width)
+	case !s.loaded:
+		return view.kit.marks.reading()
+	case s.err != nil:
+		return view.kit.failureBlock(s.err, width)
+	case len(s.all) == 0:
+		return "No " + view.vocab.noun + "s are waiting on your review."
 	}
 
-	return strings.Join(m.reviewLines(), "\n")
+	return strings.Join(s.lines(view), "\n")
 }
 
-// reviewLines draws the queue line by line, as lineRequests maps them: the
-// order it is in, when it is not the usual, and each repository's heading when
-// grouped by repository.
-func (m Model) reviewLines() []string {
-	rows, lines := m.reviewRows(), m.reviewQueue.lineRequests()
+// lines draws the queue line by line, as lineRequests maps them: the order it
+// is in, when it is not the usual, and each repository's heading when grouped
+// by repository.
+func (s reviewQueueState) lines(view reviewsView) []string {
+	rows, lines := s.rows(view), s.lineRequests()
 	drawn := make([]string, 0, len(lines))
 
 	for line, index := range lines {
-		drawn = append(drawn, m.reviewLine(rows, lines, line, index))
+		drawn = append(drawn, s.line(view.kit, rows, lines, line, index))
 	}
 
 	return drawn
 }
 
-// reviewLine is the line numbered line: a request's row; the order and
-// filters, and the blank under them, which are the only lines lineRequests
-// opens with that draw no request; what says nothing matches the filters; or
-// the heading of the repository the next row is in.
-func (m Model) reviewLine(rows []string, lines []int, line, index int) string {
+// line is the line numbered line: a request's row; the order and filters, and
+// the blank under them, which are the only lines lineRequests opens with that
+// draw no request; what says nothing matches the filters; or the heading of
+// the repository the next row is in.
+func (s reviewQueueState) line(kit renderKit, rows []string, lines []int, line, index int) string {
 	switch {
 	case index >= 0:
 		return rows[index]
 	case line == 0:
-		return m.styles.label.Render(m.reviewQueue.heading(m.marks))
+		return kit.styles.label.Render(s.heading(kit.marks))
 	case line == 1:
 		return ""
 	case len(rows) == 0:
 		return "No review request matches the filters."
 	default:
-		return m.styles.strong.Render(m.reviewQueue.repositoryAfter(lines[line+1]))
+		return kit.styles.strong.Render(s.repositoryAfter(lines[line+1]))
 	}
 }
 
-// reviewRows draws each queued request: how its CI stands, its number and
-// title, then a faint tail of where it is, who wants it and how long it has
-// waited. The forge client has already neutralized every value.
-func (m Model) reviewRows() []string {
-	now := m.deps.now()
-	rows := make([]string, 0, len(m.reviewQueue.requests))
+// rows draws each queued request: how its CI stands, its number and title,
+// then a faint tail of where it is, who wants it and how long it has waited.
+// The forge client has already neutralized every value.
+func (s reviewQueueState) rows(view reviewsView) []string {
+	kit := view.kit
+	rows := make([]string, 0, len(s.requests))
 
-	for index, request := range m.reviewQueue.requests {
-		head := m.marks.marker(index == m.reviewQueue.selected) + m.ciStateGlyph(request.CI) +
-			" " + m.vocab.sigil + strconv.Itoa(request.Number) + " " + request.Title
+	for index, request := range s.requests {
+		head := kit.marks.marker(index == s.selected) + kit.ciGlyph(request.CI) +
+			" " + view.vocab.sigil + strconv.Itoa(request.Number) + " " + request.Title
 
-		rows = append(rows, head+"  "+m.styles.label.Render(m.reviewTail(request, now)))
+		rows = append(rows, head+"  "+kit.styles.label.Render(reviewTail(kit.marks, request, view.now)))
 	}
 
 	return rows
@@ -238,25 +253,25 @@ func (m Model) reviewRows() []string {
 // reviewTail is the faint metadata after a queued request's title: its
 // repository, who wants the review, how long it has waited, and whether it is
 // a draft, as the Review pane labels the branch's own.
-func (m Model) reviewTail(request forge.ReviewRequest, now time.Time) string {
-	tail := "by " + request.Author + m.marks.separator + age(now, request.OpenedAt)
+func reviewTail(marks glyphs, request forge.ReviewRequest, now time.Time) string {
+	tail := "by " + request.Author + marks.separator + age(now, request.OpenedAt)
 	if request.Draft {
-		tail += m.marks.separator + "draft"
+		tail += marks.separator + "draft"
 	}
 
 	if request.Repository != "" {
-		return request.Repository + m.marks.separator + tail
+		return request.Repository + marks.separator + tail
 	}
 
 	return tail
 }
 
-// ciStateGlyph is how a CI state looks, by shape, shared by the Review pane and
+// ciGlyph is how a CI state looks, by shape, shared by the Review pane and
 // the queue.
-func (m Model) ciStateGlyph(state forge.CIState) string {
+func (kit renderKit) ciGlyph(state forge.CIState) string {
 	return map[forge.CIState]string{
-		forge.CINone: m.marks.unknown, forge.CIRunning: m.marks.inFlight,
-		forge.CIPassed: m.marks.done, forge.CIFailed: m.kit().failedGlyph(),
+		forge.CINone: kit.marks.unknown, forge.CIRunning: kit.marks.inFlight,
+		forge.CIPassed: kit.marks.done, forge.CIFailed: kit.failedGlyph(),
 	}[state]
 }
 
@@ -268,7 +283,7 @@ func (m Model) reviewQueueKeys() []key.Binding {
 		return nil
 	}
 
-	keys := m.linkKeys(m.selectedReviewURL())
+	keys := m.linkKeys(m.reviewQueue.selectedURL())
 	if m.reviewQueue.sortable() {
 		keys = append(keys, m.keys.sortReviews)
 	}
@@ -291,9 +306,9 @@ func (s reviewQueueState) narrowable() bool {
 	return s.sortable() && len(s.all) > 0
 }
 
-// selectedReviewURL is the selected request's URL, or empty when none is.
-func (m Model) selectedReviewURL() string {
-	if request, ok := m.reviewQueue.current(); ok {
+// selectedURL is the selected request's URL, or empty when none is.
+func (s reviewQueueState) selectedURL() string {
+	if request, ok := s.current(); ok {
 		return request.URL
 	}
 
@@ -312,11 +327,13 @@ func (m Model) handleReviewQueueKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.filterReviews) && m.reviewQueue.narrowable():
 		return m.openFacetPicker()
 	case key.Matches(msg, m.keys.up, m.keys.down):
-		return m.moveReviewBy(m.keys.stepOf(msg)), nil
+		m.reviewQueue = m.reviewQueue.movedBy(m.keys.stepOf(msg), m.detailRows())
+
+		return m, nil
 	case key.Matches(msg, m.keys.openLink):
-		return m.openLink(m.selectedReviewURL())
+		return m.openLink(m.reviewQueue.selectedURL())
 	case key.Matches(msg, m.keys.copyLink):
-		return m.copyLink(m.selectedReviewURL())
+		return m.copyLink(m.reviewQueue.selectedURL())
 	case key.Matches(msg, m.keys.refresh):
 		return m.refreshPane(paneReviews)
 	}
@@ -324,15 +341,13 @@ func (m Model) handleReviewQueueKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// moveReviewBy moves the selection delta requests down, or up for a negative
+// movedBy moves the selection delta requests down, or up for a negative
 // delta, stopping at either end, and scrolls the detail so the selected
-// request stays on screen.
-func (m Model) moveReviewBy(delta int) Model {
-	m.reviewQueue.selected = max(0, min(m.reviewQueue.selected+delta, len(m.reviewQueue.requests)-1))
+// request stays in rows.
+func (s reviewQueueState) movedBy(delta, rows int) reviewQueueState {
+	s.selected = max(0, min(s.selected+delta, len(s.requests)-1))
 
-	m.reviewQueue = m.reviewQueue.following(m.detailRows())
-
-	return m
+	return s.following(rows)
 }
 
 // pickReview selects the request on a clicked line of the detail.
@@ -391,9 +406,15 @@ func (s reviewQueueState) repositoryAfter(index int) string {
 // reviewQueueBehavior is the Reviews pane's behavior.
 func reviewQueueBehavior() behavior {
 	return behavior{
-		rail: Model.reviewQueueRail, detail: Model.reviewQueueDetail, narrow: nil,
-		keys: Model.reviewQueueKeys, handle: Model.handleReviewQueueKey, pick: Model.pickReview,
-		move: commandless(Model.moveReviewBy), refresh: Model.refreshReviewQueue,
+		rail:   func(m Model, _ int) string { return m.reviewQueue.rail(m.reviewsView()) },
+		detail: func(m Model, width int) string { return m.reviewQueue.detail(m.reviewsView(), width) },
+		keys:   Model.reviewQueueKeys, handle: Model.handleReviewQueueKey, pick: Model.pickReview, narrow: nil,
+		move: func(m Model, delta int) (Model, tea.Cmd) {
+			m.reviewQueue = m.reviewQueue.movedBy(delta, m.detailRows())
+
+			return m, nil
+		},
+		refresh: Model.refreshReviewQueue,
 		loading: func(m Model) bool { return m.reviewQueue.loading },
 		scroll:  func(m *Model) *int { return &m.reviewQueue.scroll }, listInDetail: true,
 		answers: []string{"sort-reviews", "filter-reviews", actionOpenLink, actionCopyLink, actionRefresh},

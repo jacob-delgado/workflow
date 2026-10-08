@@ -59,7 +59,7 @@ func (m Model) offerStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
 	}
 
 	task, tracked := m.trackingTask(issue.Key)
-	started := m.startedTasks()
+	started := m.tasks.started()
 
 	switch {
 	case tracked && len(started) > 0:
@@ -73,13 +73,13 @@ func (m Model) offerStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
 	}
 }
 
-// startedTasks is every started task, pending or linked, once each and in the
+// started is every started task, pending or linked, once each and in the
 // Tasks pane's order. Where an offer is made none is the issue's own, so each is
 // another issue's or none's, and stops before the issue's task starts.
-func (m Model) startedTasks() []taskwarrior.Task {
+func (s tasksState) started() []taskwarrior.Task {
 	var started []taskwarrior.Task
 
-	for _, task := range slices.Concat(m.tasks.pending, m.tasks.linked) {
+	for _, task := range slices.Concat(s.pending, s.linked) {
 		counted := slices.ContainsFunc(started, func(each taskwarrior.Task) bool { return each.UUID == task.UUID })
 		if task.Active() && !counted {
 			started = append(started, task)
@@ -92,7 +92,7 @@ func (m Model) startedTasks() []taskwarrior.Task {
 // startedOn reports whether any task linked to an issue is started, whether or
 // not the Tasks pane lists it: the issue's own work is running already.
 func (m Model) startedOn(issueKey jira.Key) bool {
-	return slices.ContainsFunc(m.linkedTo(issueKey), taskwarrior.Task.Active)
+	return slices.ContainsFunc(m.tasks.linkedTo(issueKey), taskwarrior.Task.Active)
 }
 
 // listedIssue is an issue as the Issues pane lists it, or, where the pane has

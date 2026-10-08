@@ -107,7 +107,7 @@ const describedAtLeast = 8
 // activeTaskTail is the active task at the spine's right edge, in Taskwarrior's
 // hue, in the room the stages leave it. Nothing when no task is active.
 func (m Model) activeTaskTail(shape layout.Layout, stages string) string {
-	task, active := m.activeTask()
+	task, active := m.tasks.active()
 	if !active {
 		return ""
 	}
