@@ -37,6 +37,30 @@ func guardLoopback(next http.Handler) http.Handler {
 	})
 }
 
+// contentPolicy is the content security policy every answer carries: the
+// app's scripts, styles, fonts and requests come from its own origin only,
+// never a script written into the page or built from a string; it embeds no
+// plugin, posts no form elsewhere, and is framed by no page — a page on
+// another origin cannot lay the app under its own to steer a click.
+const contentPolicy = "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; " +
+	"object-src 'none'"
+
+// withPolicyHeaders gives every answer — the app, the API, and a guard's
+// refusal — the content policy, and the headers that say the same to a
+// browser that reads only those: never framed, never sniffed for a type other
+// than the one sent, and never named as the referrer of a link followed out.
+func withPolicyHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		header := w.Header()
+		header.Set("Content-Security-Policy", contentPolicy)
+		header.Set("X-Frame-Options", "DENY")
+		header.Set("X-Content-Type-Options", "nosniff")
+		header.Set("Referrer-Policy", "no-referrer")
+
+		next.ServeHTTP(w, request)
+	})
+}
+
 // refuseWritesInDryRun makes the whole surface read-only when the server runs
 // with --dry-run: a state-changing request is answered 403 without reaching a
 // handler, so no write — a checkout, a commit, a push — happens. When dry-run is

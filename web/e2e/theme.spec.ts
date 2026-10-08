@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { pinTheme } from './cockpit.ts'
 
 // The "system" choice resolves to the OS color scheme — before paint, in the
-// inline script in index.html, and as it changes, through the matchMedia
+// script index.html loads first, public/theme.js, and as it changes, through the matchMedia
 // listener useApplyTheme registers. Neither is reachable from the jsdom unit
 // tests, so it is proven here end to end.
 test('the system theme resolves to the OS scheme and follows it as it changes', async ({
