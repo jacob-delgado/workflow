@@ -154,8 +154,9 @@ func jiraErrors() []knownError {
 	return []knownError{
 		setUp("Jira has no token", jira.ErrNoCredential),
 		{config.ErrInvalidBaseURL, wording{
-			brief: "jira.base_url is not a URL",
-			full:  "`jira.base_url` is not an absolute http or https address. Fix it; `workflow doctor` checks it.",
+			brief: "jira.base_url cannot be used",
+			full: "`jira.base_url` is not an absolute https address, or http to this machine. Fix it; " +
+				"`workflow doctor` checks it.",
 		}},
 		{config.ErrCredentialInBaseURL, wording{
 			brief: "jira.base_url holds a password",

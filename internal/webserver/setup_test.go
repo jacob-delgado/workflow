@@ -520,8 +520,9 @@ func TestSetupNeverKeepsAnAddressThatIsNotOne(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]string{
-		"not an address":       "jira.example.com",
-		"a password inside it": "https://fred:hunter2@jira.example.com",
+		"not an address":          "jira.example.com",
+		"a password inside it":    "https://fred:hunter2@jira.example.com",
+		"http to another machine": "http://jira.example.com",
 	}
 
 	for name, address := range cases {
@@ -540,7 +541,7 @@ func TestSetupNeverKeepsAnAddressThatIsNotOne(t *testing.T) {
 			_, statErr := os.Stat(run.where.Path(setup.Repository))
 
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
-				!strings.Contains(failure.Detail, "not an http or https address") ||
+				!strings.Contains(failure.Detail, "not an https address, or http to this machine,") ||
 				strings.Contains(failure.Detail, "keep") || strings.Contains(failure.Detail, "hunter2") ||
 				!errors.Is(statErr, os.ErrNotExist) {
 				t.Errorf("status %d, problem %+v, file %v; want 422 unprocessable naming the address, "+

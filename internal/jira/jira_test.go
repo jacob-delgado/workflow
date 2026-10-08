@@ -373,6 +373,35 @@ func TestMyselfRefusesABaseURLItCannotUse(t *testing.T) {
 	}
 }
 
+func TestAnHTTPBaseURLOffThisMachineIsRefusedBeforeAnythingIsSent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Over http the token and every jira.headers value would cross the network
+	// in the clear.
+	var sent atomic.Bool
+
+	settings := bearerConfig("http://jira.example.com")
+	settings.Headers = map[string]config.Secret{"X-Proxy-Key": "proxy-secret"}
+	client := jira.New(func(*http.Request) (*http.Response, error) {
+		sent.Store(true)
+
+		return nil, errFixtureTimeout
+	}, settings)
+
+	// Act
+	_, err := client.Myself(t.Context())
+
+	// Assert
+	if !errors.Is(err, config.ErrInvalidBaseURL) || sent.Load() {
+		t.Errorf("Myself = %v after sending: %t; want config.ErrInvalidBaseURL and nothing sent", err, sent.Load())
+	}
+
+	if strings.Contains(err.Error(), token) || strings.Contains(err.Error(), "proxy-secret") {
+		t.Errorf("Myself = %v, which quotes a credential", err)
+	}
+}
+
 func TestMyselfReportsAnUnreachableServer(t *testing.T) {
 	t.Parallel()
 
