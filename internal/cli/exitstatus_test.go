@@ -136,6 +136,7 @@ func redirecting(writer http.ResponseWriter, request *http.Request) {
 // answeringWith answers every request with status and body.
 func answeringWith(status int, body string) http.HandlerFunc {
 	return func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(status)
 		_, _ = writer.Write([]byte(body))
 	}

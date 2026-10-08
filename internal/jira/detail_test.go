@@ -283,6 +283,7 @@ func TestAddCommentPostsTheBodyAndReturnsTheComment(t *testing.T) {
 		sent.Store(body.Body)
 
 		writer.Header().Set("X-Ausername", "fred")
+		writer.Header().Set("Content-Type", jsonMediaType)
 		writer.WriteHeader(http.StatusCreated)
 		_, _ = writer.Write([]byte(`{"author":{"displayName":"Fred"},"body":"Patch up",` +
 			`"created":"2026-09-16T08:00:00.000-0600"}`))
@@ -322,6 +323,7 @@ func TestAddCommentPostsItsTextUnconvertedEvenWithMarkdownOn(t *testing.T) {
 		_ = json.NewDecoder(request.Body).Decode(&body)
 		sent.Store(body.Body)
 
+		writer.Header().Set("Content-Type", jsonMediaType)
 		writer.WriteHeader(http.StatusCreated)
 		_, _ = writer.Write([]byte(`{"author":{"displayName":"Fred"},"body":"x",` +
 			`"created":"2026-09-16T08:00:00.000-0600"}`))
@@ -363,6 +365,7 @@ func TestLinkPullRequestPostsARemoteLink(t *testing.T) {
 		_ = json.NewDecoder(request.Body).Decode(&body)
 		sent.Store(body.Object.URL + " " + body.Object.Title)
 
+		writer.Header().Set("Content-Type", jsonMediaType)
 		writer.WriteHeader(http.StatusCreated)
 		_, _ = writer.Write([]byte(`{"id":10001}`))
 	})
@@ -404,6 +407,7 @@ func TestAddCommentReportsAnUnreadableAnswer(t *testing.T) {
 
 	// Arrange
 	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", jsonMediaType)
 		writer.WriteHeader(http.StatusCreated)
 		_, _ = writer.Write([]byte("{not json"))
 	})
