@@ -48,8 +48,40 @@ func TestRunWithinLeavesATighterParentDeadlineUnclaimed(t *testing.T) {
 	_, err := proc.RunWithin(parent, time.Minute, os.Args[0], "-test.run=^$")
 
 	// Assert
-	if err == nil || errors.Is(err, proc.ErrTimedOut) {
-		t.Errorf("RunWithin under a caller's tighter deadline returned %v, want a failure that is not its own timeout", err)
+	if !errors.Is(err, context.DeadlineExceeded) || errors.Is(err, proc.ErrTimedOut) {
+		t.Errorf("RunWithin under a caller's tighter deadline returned %v, want the caller's own deadline", err)
+	}
+}
+
+func TestRunWithinAnswersACallersCancelAsCanceled(t *testing.T) {
+	// Not parallel: t.Setenv turns this test binary into the sleeping helper.
+	// Arrange
+	t.Setenv(helperMode, "sleep")
+
+	parent, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	time.AfterFunc(100*time.Millisecond, cancel)
+
+	// Act
+	_, err := proc.RunWithin(parent, time.Minute, os.Args[0], "-test.run=^$")
+
+	// Assert
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("RunWithin the caller canceled returned %v, want context.Canceled", err)
+	}
+}
+
+func TestRunReportsAFailureStatusAsAnExitError(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	_, err := proc.Run(t.Context(), "sh", "-c", `echo "fatal: no such ref" >&2; exit 3`)
+
+	// Assert
+	exit, ok := errors.AsType[*proc.ExitError](err)
+	if !ok || exit.Program != "sh" || exit.Code != 3 || exit.Stderr != "fatal: no such ref" {
+		t.Errorf("Run's failure = %#v, want ExitError{sh, 3, %q}", err, "fatal: no such ref")
 	}
 }
 
