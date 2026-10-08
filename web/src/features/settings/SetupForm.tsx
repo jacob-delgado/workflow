@@ -51,9 +51,9 @@ export function SetupArea({ onWritten }: { onWritten: (result: SetupResult) => v
 }
 
 // SetupForm asks where the file goes, then Jira's address and token, checked
-// with Jira before anything is written, the keychain where there is one, and
-// a Slack webhook; then writes the file, which the server works with from
-// then on.
+// with Jira before anything is written, the keychain where it can keep the
+// token for the file chosen, and a Slack webhook; then writes the file, which
+// the server works with from then on.
 function SetupForm({
   offer,
   onWritten,
@@ -68,9 +68,10 @@ function SetupForm({
       jira_base_url: '',
       jira_token: '',
       webhook_url: '',
-      keychain: offer.keychain,
+      keychain: offer.places.some((place) => place.keychain),
     },
   })
+  const chosen = useWatch({ control, name: 'place' })
   const setUp = useSetUp()
   // Whether Write it anyway is offered: from a write Jira's check refused until
   // a write is refused for another reason. A refused write anyway leaves it
@@ -78,7 +79,7 @@ function SetupForm({
   const [anyway, setAnyway] = useState(false)
   const write = useAsyncAction(
     async (values: SetupValues, keepUnchecked: boolean) => {
-      const keychain = offer.keychain && values.keychain
+      const keychain = offersKeychain(offer.places, values.place) && values.keychain
       try {
         onWritten(await setUp({ ...values, keychain, keep_unchecked: keepUnchecked }))
       } catch (caught) {
@@ -110,7 +111,7 @@ function SetupForm({
         className="flex flex-col gap-section"
       >
         <PlaceChoice places={offer.places} register={register} />
-        <JiraQuestions register={register} keychain={offer.keychain} />
+        <JiraQuestions register={register} keychain={offersKeychain(offer.places, chosen)} />
         <SlackQuestion register={register} />
         <SetupWrite
           places={offer.places}
@@ -131,6 +132,13 @@ function SetupForm({
 // put its fields in the form.
 type Register = UseFormRegister<SetupValues>
 
+// offersKeychain reports whether the keychain can keep the token for the file
+// at place: where one is wired, the home directory's file alone, the one file
+// that may read it back.
+function offersKeychain(places: SetupPlace[], place: SetupPlaceName): boolean {
+  return places.some((each) => each.place === place && each.keychain)
+}
+
 // PlaceChoice asks where the file goes, saying where each place applies.
 function PlaceChoice({ places, register }: { places: SetupPlace[]; register: Register }) {
   return (
@@ -150,7 +158,7 @@ function PlaceChoice({ places, register }: { places: SetupPlace[]; register: Reg
 }
 
 // JiraQuestions ask for Jira's address and token, and offer the keychain
-// where there is one.
+// where it can keep the token.
 function JiraQuestions({ register, keychain }: { register: Register; keychain: boolean }) {
   return (
     <fieldset className="flex flex-col gap-group">

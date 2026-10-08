@@ -928,7 +928,8 @@ export const zSetupPlaceName = z.enum(['repository', 'home']);
 export const zSetupPlace = z.object({
     place: zSetupPlaceName,
     path: z.string(),
-    shown: z.string()
+    shown: z.string(),
+    keychain: z.boolean()
 });
 
 /**
@@ -936,8 +937,7 @@ export const zSetupPlace = z.object({
  */
 export const zSetupOffer = z.object({
     needed: z.boolean(),
-    places: z.array(zSetupPlace),
-    keychain: z.boolean()
+    places: z.array(zSetupPlace)
 });
 
 export const zSetupRequest = z.object({

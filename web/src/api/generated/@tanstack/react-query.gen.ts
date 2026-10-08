@@ -348,7 +348,7 @@ export const getSetupQueryKey = (options?: Options<GetSetupData>) => createQuery
 /**
  * Whether a first configuration file is needed here, and where it may go.
  *
- * Says whether no configuration file applies where the server works, so Settings offers to set one up rather than edit one; where the file may go — the repository's root, or the working directory outside a repository, and the home directory — and whether the OS keychain can keep the Jira token out of it. Reading works under --dry-run.
+ * Says whether no configuration file applies where the server works, so Settings offers to set one up rather than edit one; where the file may go — the repository's root, or the working directory outside a repository, and the home directory — and for each whether the OS keychain can keep the Jira token out of it. Reading works under --dry-run.
  */
 export const getSetupOptions = (options?: Options<GetSetupData>) => queryOptions<GetSetupResponse, GetSetupError, GetSetupResponse, ReturnType<typeof getSetupQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

@@ -28,6 +28,14 @@ const (
 	keychainCommand = "security find-generic-password -s workflow-jira -w"
 )
 
+// Questions a first run asks.
+const (
+	askedToken    = "Your Jira personal access token"
+	askedKeychain = "Where should the token be kept?"
+	askedWebhook  = "A Slack incoming webhook URL"
+	authenticated = "authenticates as Fred F. User (fred)"
+)
+
 // firstRun is a session with no configuration file and no issues, over a
 // setup that writes where the test chose and checks the token with a Jira
 // that answers with status, keeping a token in a fake keychain.
@@ -84,28 +92,42 @@ func (r *firstRun) model(t *testing.T, dryRun bool) tui.Model {
 	return drain(t, model, model.Init())
 }
 
-// toTheToken is the keys that open the form, keep the repository, and type
-// Jira's address and token, up to the check.
-func toTheToken() []string {
-	keys := []string{keyEnter, keyEnter}
-	keys = append(append(keys, letters(firstRunJira)...), keyEnter)
+// jiraTyped is the keys that type Jira's address and token, up to the check.
+func jiraTyped() []string {
+	keys := append(letters(firstRunJira), keyEnter)
 
 	return append(append(keys, letters(firstRunToken)...), keyEnter)
 }
 
-// throughEveryQuestion is toTheToken, then the keychain row moved to with
-// the key given and chosen, and the webhook, up to the last look before the
-// write.
-func throughEveryQuestion(keychain string) []string {
-	keys := append(toTheToken(), keychain, keyEnter)
-
-	return append(append(keys, letters(firstRunWebhook)...), keyEnter)
+// toTheToken is the keys that open the form, keep the repository, and type
+// Jira's address and token, up to the check.
+func toTheToken() []string {
+	return append([]string{keyEnter, keyEnter}, jiraTyped()...)
 }
 
-// throughEveryQuestionAtHome is throughEveryQuestion with the home directory
-// chosen for the file, the one file the keychain can keep the token for.
+// toTheTokenAtHome is toTheToken with the home directory chosen for the file,
+// the one file the keychain is offered for.
+func toTheTokenAtHome() []string {
+	return append([]string{keyEnter, downAction, keyEnter}, jiraTyped()...)
+}
+
+// webhookTyped is the keys that type the webhook, up to the last look before
+// the write.
+func webhookTyped() []string {
+	return append(letters(firstRunWebhook), keyEnter)
+}
+
+// throughEveryQuestion is toTheToken, then the webhook, up to the last look
+// before the write: the keychain is not offered for the repository's file.
+func throughEveryQuestion() []string {
+	return append(toTheToken(), webhookTyped()...)
+}
+
+// throughEveryQuestionAtHome is toTheTokenAtHome, then the keychain row moved
+// to with the key given and chosen, and the webhook, up to the last look
+// before the write.
 func throughEveryQuestionAtHome(keychain string) []string {
-	return append([]string{keyEnter, downAction}, throughEveryQuestion(keychain)[1:]...)
+	return append(append(toTheTokenAtHome(), keychain, keyEnter), webhookTyped()...)
 }
 
 func TestTheNoFileScreenOffersToSetOneUpHere(t *testing.T) {
@@ -127,12 +149,24 @@ func TestSetUpChecksTheTokenAndNeverShowsIt(t *testing.T) {
 	t.Parallel()
 
 	// Act
+	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), toTheTokenAtHome()...)
+
+	// Assert
+	view := asked.View().Content
+	requireScreen(t, view, authenticated, askedKeychain)
+	refuseScreen(t, view, firstRunToken)
+}
+
+func TestSetUpInARepositoryAsksNothingOfTheKeychain(t *testing.T) {
+	t.Parallel()
+
+	// Act
 	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), toTheToken()...)
 
 	// Assert
 	view := asked.View().Content
-	requireScreen(t, view, "authenticates as Fred F. User (fred)", "Where should the token be kept?")
-	refuseScreen(t, view, firstRunToken)
+	requireScreen(t, view, authenticated, askedWebhook)
+	refuseScreen(t, view, askedKeychain)
 }
 
 func TestSetUpWritesTheFileWithTheTokenInTheKeychainAndReopens(t *testing.T) {
@@ -167,16 +201,35 @@ func TestSetUpKeepsTheTokenInTheFileWhenTheKeychainIsDeclined(t *testing.T) {
 
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
-	answered := typing(t, run.model(t, false), throughEveryQuestion("down")...)
+	answered := typing(t, run.model(t, false), throughEveryQuestionAtHome("down")...)
 
 	// Act
 	written, cmd := pressed(t, answered, keyEnter)
 	drain(t, written, cmd)
 
 	// Assert
-	cfg, _, err := config.LoadLayersAt(config.Files{Home: run.where.Path(setup.Repository)})
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: run.where.Path(setup.Home)})
 	if err != nil || cfg.Jira.Token.Reveal() != firstRunToken || run.stored != "" {
 		t.Errorf("wrote %+v (%v), keychain %q; want the token in the file alone", cfg.Jira, err, run.stored)
+	}
+}
+
+func TestSetUpInARepositoryKeepsTheTokenInTheFileAsAskedByDefault(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	answered := typing(t, run.model(t, false), append(toTheToken(), keyEnter)...)
+
+	// Act
+	written, cmd := pressed(t, answered, keyEnter)
+	written = drain(t, written, cmd)
+
+	// Assert
+	cfg, _, err := config.LoadLayersAt(config.Files{Repo: run.where.Path(setup.Repository)})
+	if err != nil || cfg.Jira.Token.Reveal() != firstRunToken || run.stored != "" || written.Destination().Dir != apiCmd {
+		t.Errorf("wrote %+v (%v), keychain %q, reopened in %q; want the token in the repository's file and workflow "+
+			"reopened", cfg.Redacted().Jira, err, run.stored, written.Destination().Dir)
 	}
 }
 
@@ -185,7 +238,7 @@ func TestSetUpArrivesOnTheIssuesPaneSayingSo(t *testing.T) {
 
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
-	answered := typing(t, run.model(t, false), throughEveryQuestion("down")...)
+	answered := typing(t, run.model(t, false), throughEveryQuestion()...)
 	written, cmd := pressed(t, answered, keyEnter)
 	written = drain(t, written, cmd)
 	reopened := sized(t, tui.New(completeConfig(), nil, reposWorld().deps()), 120, 40)
@@ -279,6 +332,18 @@ func TestSetUpUnderDryRunWritesNothing(t *testing.T) {
 	requireScreen(t, held.View().Content, "dry run: would write")
 }
 
+func TestSetUpUnderDryRunOffersNoKeychainAtHome(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, true), toTheTokenAtHome()...)
+
+	// Assert
+	view := asked.View().Content
+	requireScreen(t, view, authenticated, askedWebhook)
+	refuseScreen(t, view, askedKeychain)
+}
+
 func TestSettingsWithNoFileOpensTheSetUp(t *testing.T) {
 	t.Parallel()
 
@@ -300,7 +365,7 @@ func TestSetUpInARepositorySaysToIgnoreTheFile(t *testing.T) {
 		t.Fatalf("making the repository: %v", err)
 	}
 
-	answered := typing(t, run.model(t, false), throughEveryQuestion("down")...)
+	answered := typing(t, run.model(t, false), throughEveryQuestion()...)
 	written, cmd := pressed(t, answered, keyEnter)
 	written = drain(t, written, cmd)
 	reopened := sized(t, tui.New(completeConfig(), nil, reposWorld().deps()), 120, 40)
@@ -316,7 +381,7 @@ func TestSetUpsLastLookNamesEveryAnswerButTheCredentials(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), throughEveryQuestion("up")...)
+	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), throughEveryQuestionAtHome("up")...)
 
 	// Assert
 	view := asked.View().Content
@@ -362,17 +427,18 @@ func TestSetUpTypesTheTokenAgainWhenAsked(t *testing.T) {
 	again := typing(t, newFirstRun(t, http.StatusUnauthorized).model(t, false), append(toTheToken(), keyEnter)...)
 
 	// Assert
-	requireScreen(t, again.View().Content, "Your Jira personal access token")
+	requireScreen(t, again.View().Content, askedToken)
 }
 
 func TestSetUpKeepsAFailedCheckWhenAsked(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	kept := typing(t, newFirstRun(t, http.StatusUnauthorized).model(t, false), append(toTheToken(), "down", keyEnter)...)
+	kept := typing(t, newFirstRun(t, http.StatusUnauthorized).model(t, false),
+		append(toTheTokenAtHome(), "down", keyEnter)...)
 
 	// Assert
-	requireScreen(t, kept.View().Content, "Where should the token be kept?")
+	requireScreen(t, kept.View().Content, askedKeychain)
 }
 
 func TestSetUpEscWalksBackThroughTheQuestions(t *testing.T) {
@@ -382,10 +448,11 @@ func TestSetUpEscWalksBackThroughTheQuestions(t *testing.T) {
 		keys []string
 		want string
 	}{
-		"from the write":           {keys: throughEveryQuestion("up"), want: "A Slack incoming webhook URL"},
-		"from the webhook":         {keys: append(toTheToken(), keyEnter), want: "Where should the token be kept?"},
-		"from the keychain":        {keys: toTheToken(), want: "Your Jira personal access token"},
-		"from a check":             {keys: toTheToken(), want: "Your Jira personal access token"},
+		"from the write":           {keys: throughEveryQuestion(), want: askedWebhook},
+		"from the webhook":         {keys: toTheToken(), want: askedToken},
+		"from the webhook at home": {keys: append(toTheTokenAtHome(), keyEnter), want: askedKeychain},
+		"from the keychain":        {keys: toTheTokenAtHome(), want: askedToken},
+		"from a check":             {keys: toTheToken(), want: askedToken},
 		"with Jira left out":       {keys: []string{keyEnter, keyEnter, keyEnter}, want: "Jira's address"},
 		"from the token":           {keys: []string{keyEnter, keyEnter, "a", keyEnter}, want: "Jira's address"},
 		"cancels at the first one": {keys: []string{keyEnter}, want: "enter sets one up here."},
@@ -417,7 +484,7 @@ func TestSetUpSaysWhyAWriteWasRefused(t *testing.T) {
 
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
-	answered := typing(t, run.model(t, false), throughEveryQuestion("up")...)
+	answered := typing(t, run.model(t, false), throughEveryQuestion()...)
 
 	err := os.WriteFile(run.where.Path(setup.Repository), []byte(`{}`), config.FileMode)
 	if err != nil {

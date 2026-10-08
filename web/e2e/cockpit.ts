@@ -52,7 +52,7 @@ export async function openCockpit(
 
 // noFile answers the page as a server with no configuration file: the
 // configuration not found, and a setup offered in the repository or the home
-// directory, with a keychain.
+// directory, with a keychain for the home file.
 const noFile = {
   status: 404,
   contentType: 'application/problem+json',
@@ -80,14 +80,19 @@ export async function openFirstRun(
     route.fulfill({
       json: {
         needed: true,
-        keychain: true,
         places: [
           {
             place: 'repository',
             path: '/home/ana/src/api/.workflow.json',
             shown: '~/src/api/.workflow.json',
+            keychain: false,
           },
-          { place: 'home', path: '/home/ana/.workflow.json', shown: '~/.workflow.json' },
+          {
+            place: 'home',
+            path: '/home/ana/.workflow.json',
+            shown: '~/.workflow.json',
+            keychain: true,
+          },
         ],
       },
     }),

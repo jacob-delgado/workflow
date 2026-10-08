@@ -64,9 +64,14 @@ func heldBackSetup(deps seams.Setup) seams.Setup {
 	if offer := deps.Offer; offer != nil {
 		deps.Offer = func() setup.Offer {
 			offered := offer()
-			offered.Keychain = false
 
-			return offered
+			places := make([]setup.Destination, 0, len(offered.Places))
+			for _, place := range offered.Places {
+				place.Keychain = false
+				places = append(places, place)
+			}
+
+			return setup.Offer{Places: places}
 		}
 	}
 

@@ -117,11 +117,7 @@ func (m Model) openSetup() (Model, tea.Cmd) {
 		shown = append(shown, m.shownDir(place.Path))
 	}
 
-	// The keychain is offered first wherever there is one: it keeps the token
-	// out of a file a repository could commit.
-	m.overlay = setupForm{
-		marks: m.marks, styles: m.styles, offer: offer, shown: shown, step: stepPlace, keychain: offer.Keychain,
-	}
+	m.overlay = setupForm{marks: m.marks, styles: m.styles, offer: offer, shown: shown, step: stepPlace}
 
 	return m, nil
 }
@@ -161,7 +157,7 @@ func (f setupForm) answered() []string {
 		rows = append(rows, f.answeredRow("", f.marks.done+" authenticates as "+f.who))
 	}
 
-	if f.step > stepKeychain && f.answers.Jira.BaseURL != "" && f.offer.Keychain {
+	if f.step > stepKeychain && f.answers.Jira.BaseURL != "" && f.keychainOffered() {
 		rows = append(rows, f.answeredRow("Token", f.tokenKept()))
 	}
 
@@ -441,7 +437,7 @@ func (f setupForm) beforeWebhook() setupStep {
 	switch {
 	case f.answers.Jira.BaseURL == "":
 		return stepJiraURL
-	case f.offer.Keychain:
+	case f.keychainOffered():
 		return stepKeychain
 	default:
 		return stepJiraToken
@@ -460,11 +456,17 @@ func (f setupForm) afterJiraURL() setupStep {
 
 // afterJira is the question asked once Jira's address and token are kept.
 func (f setupForm) afterJira() setupStep {
-	if f.offer.Keychain {
+	if f.keychainOffered() {
 		return stepKeychain
 	}
 
 	return stepWebhook
+}
+
+// keychainOffered reports a keychain that can keep the token for the file
+// chosen: the home directory's, the one file that may read it back.
+func (f setupForm) keychainOffered() bool {
+	return f.offer.Places[f.place].Keychain
 }
 
 // at is the form asking step: a field to type into, empty for a credential
@@ -526,7 +528,10 @@ func (f setupForm) choiceCount() int {
 func (f setupForm) chosen() setupForm {
 	switch f.step {
 	case stepPlace:
+		// The keychain is offered first wherever it can keep the token: it
+		// keeps the token out of the file.
 		f.place = f.choice
+		f.keychain = f.keychainOffered()
 
 		return f.at(stepJiraURL)
 	case stepKeychain:
