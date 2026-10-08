@@ -238,7 +238,7 @@ goes to the server-fixed path, never one a request supplies.
   the config is shown, logged, or rendered — keeping only a token's last four
   characters. Redaction is the plan; `gitleaks` is the backstop.
 
-### The store — `workflow.db`
+### The store — `workflow.db` and `kept.db`
 
 The store is what lets the tool feel like it remembers you: the scope you last
 committed under here, which pull requests you have already announced, and the
@@ -254,13 +254,21 @@ It is **on by default**; `store.disabled: true` in the config turns it off, and
 with it off the code path is identical to having no store at all — a disabled
 store no-ops every method, so the "nothing kept between sessions" behavior is
 still one flag away. Where the filesystem keeps Unix modes, the directory is
-`0700` and the file `0600`, set on every open so that a directory which already
-existed is narrowed too. The one exception is `--dry-run`: a command opens a
-store that is already there read-only, so it never creates one or writes a row
-to it. Like any reader of a write-ahead-logged database, SQLite may leave the
-log's two owner-only companion files, `workflow.db-wal` and `workflow.db-shm`,
-beside it until the next live open clears them. The interface and `--web` open
-none at all.
+`0700` and each file in it `0600`, set on every open so that a directory which
+already existed is narrowed too.
+
+Beside `workflow.db`, `kept.db` holds what the user decided and cannot be seen
+again: whom a forge owner is on Slack, a repository's groups, the favorite
+directories. A `--dry-run` never makes either file or changes what one holds.
+The interface and `--web` read nothing from the cache, and read `kept.db`
+read-only when it is already there, for the owner links, groups and favorites;
+a command reads the file it needs the same way, and only when it is there. A
+dry run reads `workflow.db` as it is, whichever build made it, and a `kept.db`
+another build's schema made as empty. Like any reader of a write-ahead-logged
+database, SQLite may leave the two owner-only companion files of the file it
+read — `kept.db-wal` and `kept.db-shm` after a read of `kept.db`,
+`workflow.db-wal` and `workflow.db-shm` after one of `workflow.db` — until the
+next live open of that file removes them.
 
 Two invariants make the store safe to keep unencrypted:
 
@@ -342,8 +350,8 @@ The schema has one version, stamped into the file as `PRAGMA user_version` by
 the open that makes the file, before its first table; a file at another version
 that holds tables is discarded with its `-wal` and `-shm` companions and made
 again, since nothing the store keeps is worth carrying across a schema change. A
-`--dry-run` command's read-only open reads a file as it is and neither checks
-nor stamps it. There are no migrations: a schema change is a `CREATE TABLE` edit
+`--dry-run` command's read-only open reads `workflow.db` as it is and neither
+checks nor stamps it. There are no migrations: a schema change is a `CREATE TABLE` edit
 and a `schemaVersion` bump.
 
 ## Trust boundaries and data flow
