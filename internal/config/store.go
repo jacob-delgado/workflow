@@ -11,8 +11,11 @@ package config
 // holds a secret.
 type Store struct {
 	// Disabled turns the store off, so workflow keeps nothing between
-	// sessions: it works the conveniences out afresh each time, tags no one in
-	// an announcement, since it cannot keep who is whom, and keeps no
-	// favorites. For a machine where no workflow state should touch the disk.
+	// sessions: nothing the user decides, and none of the conveniences, which
+	// it works out afresh each time. No announcement tags anyone, since who is
+	// whom cannot be kept: the terminal's ready-for-review preview lists each
+	// code owner as not linked and offers no link, and workflow announce and
+	// the web tag no one. No favorites are kept. For a machine where no
+	// workflow state should touch the disk.
 	Disabled bool `json:"disabled"`
 }
