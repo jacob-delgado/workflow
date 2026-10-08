@@ -1,11 +1,13 @@
-// The Arrange-Act-Assert check the e2e specs answer to, as cmd/testshape is
-// the Go tests' (CLAUDE.md, "Arrange, Act, Assert — marked in every test"):
-// each test body marks its parts, in order, each on a line of its own between
-// the body's statements; a flow of several Acts labels every step; every
-// Assert reaches an expect, or a helper named for one, so it asserts
-// something; and an Arrange or an Act checks no value, which is an Assert of a
-// step of its own. An awaited expect on a locator stays allowed there: it
-// waits for the page, as a step must before the next.
+// The Arrange-Act-Assert check the web's tests answer to, the e2e specs and
+// the unit tests alike, as cmd/testshape is the Go tests' (CLAUDE.md, "Arrange,
+// Act, Assert — marked in every test"): each test body marks its parts, in
+// order, each on a line of its own between the body's statements; a flow of
+// several Acts labels every step, while a single cycle carries no label, and
+// an Arrange never does, since the test name is the label; every Assert
+// reaches an expect, or a helper named for one, so it asserts something; and
+// an Arrange or an Act checks no value, which is an Assert of a step of its
+// own. An awaited expect on a locator stays allowed there: it waits for the
+// page, as a step must before the next.
 
 // keywords are the markers, as written after "// ".
 const keywords = new Map([
@@ -92,22 +94,40 @@ function looksLikeMarker(comment) {
 }
 
 // isTest reports whether a call is a test: test(…), test.only(…) and the
-// like, with a function body last; not a hook, a describe or an extension.
+// like, or a table's test.each(…)(…), with a function body last; not a hook,
+// a describe or an extension.
 function isTest(call) {
-  const { callee } = call
-  const named =
-    (callee.type === 'Identifier' && callee.name === 'test') ||
-    (callee.type === 'MemberExpression' &&
-      callee.object.type === 'Identifier' &&
-      callee.object.name === 'test' &&
-      ['only', 'skip', 'fixme', 'fail'].includes(callee.property.name))
   const body = call.arguments.at(-1)
 
   return (
-    named &&
+    namesTest(call.callee) &&
     body !== undefined &&
     ['ArrowFunctionExpression', 'FunctionExpression'].includes(body.type) &&
     body.body.type === 'BlockStatement'
+  )
+}
+
+// namesTest reports whether a callee is test, one of its modifiers, or the
+// test a table's test.each(…) makes.
+function namesTest(callee) {
+  if (callee.type === 'Identifier') {
+    return callee.name === 'test'
+  }
+
+  if (callee.type === 'CallExpression') {
+    return isTestMember(callee.callee, ['each'])
+  }
+
+  return isTestMember(callee, ['only', 'skip', 'fixme', 'fail'])
+}
+
+// isTestMember reports whether a callee is test.<one of names>.
+function isTestMember(callee, names) {
+  return (
+    callee.type === 'MemberExpression' &&
+    callee.object.type === 'Identifier' &&
+    callee.object.name === 'test' &&
+    names.includes(callee.property.name)
   )
 }
 
@@ -259,16 +279,29 @@ function checks(statement) {
   )
 }
 
-// checkSections reports unlabeled steps of a flow, sections with nothing in
-// them, Asserts that reach no expect, and a value checked outside an Assert.
+// labelProblem names what a marker's label gets wrong: a flow of several
+// cycles labels every Act and Assert, and a single cycle or an Arrange carries
+// none.
+function labelProblem(marker, cycles) {
+  if (marker.kind === 'arrange' || cycles === 1) {
+    return marker.labeled ? 'labelUnexpected' : undefined
+  }
+
+  return marker.labeled ? undefined : 'labelRequired'
+}
+
+// checkSections reports labels where they do not belong or missing where they
+// do, sections with nothing in them, Asserts that reach no expect, and a value
+// checked outside an Assert.
 function checkSections(context, owned) {
-  const cycles = owned.filter(({ marker }) => ['act', 'actAndAssert'].includes(marker.kind))
+  const cycles = owned.filter(({ marker }) => ['act', 'actAndAssert'].includes(marker.kind)).length
   for (const { marker, statements } of owned) {
     const loc = marker.comment.loc
     const asserting = ['assert', 'actAndAssert'].includes(marker.kind)
     const checked = asserting ? undefined : statements.find(checks)
-    if (cycles.length > 1 && marker.kind !== 'arrange' && !marker.labeled) {
-      context.report({ loc, messageId: 'labelRequired' })
+    const label = labelProblem(marker, cycles)
+    if (label !== undefined) {
+      context.report({ loc, messageId: label })
     } else if (statements.length === 0) {
       context.report({ loc, messageId: 'emptySection' })
     } else if (asserting && !statements.some(expects)) {
@@ -296,6 +329,8 @@ export const arrangeActAssert = {
       markerOrder: 'The markers are out of order: {{problem}}.',
       labelRequired:
         'A flow of several steps labels every Act and Assert, as in // Act: open the preview.',
+      labelUnexpected:
+        'A single Act and Assert carries no label, and an Arrange never does: the test name is the label.',
       emptySection: 'This section holds nothing: drop its marker, or put its step under it.',
       assertWithoutExpect:
         'This Assert reaches no expect, nor a helper named for one, so it asserts nothing.',

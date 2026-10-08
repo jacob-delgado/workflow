@@ -231,6 +231,9 @@ export default tseslint.config(
     plugins: { vitest },
     rules: {
       ...vitest.configs.recommended.rules,
+      // A unit test is a test, never an it: the marker rule below reads test,
+      // and a second spelling would be a test it never sees.
+      'vitest/consistent-test-it': ['error', { fn: 'test', withinDescribe: 'test' }],
       'testing-library/no-node-access': 'off',
       'no-restricted-syntax': [
         'error',
@@ -283,20 +286,23 @@ export default tseslint.config(
   // The e2e specs and their helpers, held to Playwright's recommended rules: a
   // locator a user could not name (a CSS or XPath string), a wait on the
   // network going idle or on the clock, and an assertion that does not retry
-  // all fail. Every test body marks its Arrange, Act and Assert, and each
-  // Assert reaches an expect, as cmd/testshape holds the Go tests to.
+  // all fail.
   {
     files: ['e2e/**/*.ts'],
-    plugins: {
-      playwright,
-      local: { rules: { 'arrange-act-assert': arrangeActAssert } },
-    },
+    plugins: { playwright },
     rules: {
       ...playwrightRules,
       'playwright/no-raw-locators': 'error',
       'playwright/expect-expect': ['error', { assertFunctionNames: ['expectReachableAndClean'] }],
-      'local/arrange-act-assert': 'error',
     },
+  },
+  // Every test body, a unit test's or an e2e spec's, marks its Arrange, Act
+  // and Assert, labels the steps of a flow and nothing else, and has each
+  // Assert reach an expect, as cmd/testshape holds the Go tests to.
+  {
+    files: ['**/*.test.{ts,tsx}', 'e2e/**/*.ts'],
+    plugins: { local: { rules: { 'arrange-act-assert': arrangeActAssert } } },
+    rules: { 'local/arrange-act-assert': 'error' },
   },
   // JSON (package.json, tsconfig*.json): correctness rules (duplicate keys,
   // invalid values). `flat/prettier` drops the stylistic rules so prettier still

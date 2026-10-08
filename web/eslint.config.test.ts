@@ -101,3 +101,22 @@ test('a state left out of Shape fails the lint', async () => {
     says: expect.any(String) as string,
   })
 })
+
+test.each([
+  {
+    rule: 'local/arrange-act-assert',
+    says: 'carries no label',
+    code: "test('t', () => {\n  // Act: add\n  const sum = 1 + 1\n\n  // Assert\n  expect(sum).toBe(2)\n})\n",
+  },
+  {
+    rule: 'vitest/consistent-test-it',
+    says: '',
+    code: "it('t', () => {\n  // Act\n  const sum = 1 + 1\n\n  // Assert\n  expect(sum).toBe(2)\n})\n",
+  },
+])('$rule fires on the unit test that breaks it: "$says"', async ({ rule, says, code }) => {
+  // Act
+  const broken = await brokenBy(code, 'src/App.test.tsx')
+
+  // Assert
+  expect(broken).toContainEqual({ rule, says: expect.stringContaining(says) as string })
+})
