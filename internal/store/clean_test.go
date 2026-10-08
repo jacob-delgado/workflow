@@ -9,6 +9,7 @@ package store_test
 // write makes the file again.
 
 import (
+	"database/sql"
 	"errors"
 	"io/fs"
 	"os"
@@ -109,6 +110,76 @@ func TestEachDatabaseIsListedWithItsKindSizeAndContents(t *testing.T) {
 
 	if !slices.Equal(got, want) {
 		t.Errorf("Files listed %+v, want %+v", got, want)
+	}
+}
+
+func TestEveryTableIsCountedInWhatItsFileHolds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Each file is made whole with its first write, so every table its schema
+	// creates is there to count, and a summary leaving one out is short.
+	dir := t.TempDir()
+	keepBoth(t, dir)
+
+	// Act
+	files, err := store.Files(t.Context(), dir)
+
+	// Assert
+	if err != nil || len(files) != 2 {
+		t.Fatalf("Files = %+v, %v; want the cache and the kept file", files, err)
+	}
+
+	for _, file := range files {
+		if tables := tablesIn(t, filepath.Join(dir, file.Name)); len(file.Holds) != tables {
+			t.Errorf("%s says it holds %d kinds of thing, %+v, but has %d tables",
+				file.Name, len(file.Holds), file.Holds, tables)
+		}
+	}
+}
+
+// tablesIn is how many tables the database at path has, read as another
+// program would.
+func tablesIn(t *testing.T, path string) int {
+	t.Helper()
+
+	database, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("opening %s: %v", path, err)
+	}
+
+	t.Cleanup(func() { _ = database.Close() })
+
+	var count int
+
+	err = database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'`).Scan(&count)
+	if err != nil {
+		t.Fatalf("counting the tables of %s: %v", path, err)
+	}
+
+	return count
+}
+
+func TestAChoiceOfGroupsIsCountedInWhatTheKeptFileHolds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	kept := store.New(dir, false)
+	listBoth(t, kept)
+
+	err := kept.RecordGroups(t.Context(), repo, workspaceA, []string{}, theTime())
+	if err != nil {
+		t.Fatalf("RecordGroups returned %v, want nil", err)
+	}
+
+	// Act
+	files, err := store.Files(t.Context(), dir)
+
+	// Assert
+	index := slices.IndexFunc(files, func(file store.DataFile) bool { return file.Kind == store.DataKept })
+	if err != nil || index < 0 || heldCount(files[index], "group choices") != 1 {
+		t.Errorf("Files = %+v, %v; want the kept file holding one group choice", files, err)
 	}
 }
 
