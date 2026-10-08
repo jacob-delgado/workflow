@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Input, Select } from '@/lib/Field.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
-import { useViews } from './issueApi.ts'
+import { useViews } from '@/features/issues/issueApi.ts'
 
 interface ListControlsProps {
   filter: string
