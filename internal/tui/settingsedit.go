@@ -342,7 +342,8 @@ func (f settingsForm) toggled(keys keyMap, msg tea.KeyPressMsg, field setting) s
 
 	on, _ := f.value(field.path).(bool)
 
-	return f.with(field.path, !on)
+	// Laid out again, since a hint can name a setting turned on or off.
+	return f.with(field.path, !on).laidOut()
 }
 
 // chosen moves a choice on, on enter or →, or back, on ←.

@@ -66,6 +66,20 @@ func TestTheTokenHintNamesTheKeychainItIsTakenFromOverTheOtherSources(t *testing
 	requireScreen(t, view, "Taken from your keychain, for this address.")
 }
 
+func TestTheTokenHintFollowsTheKeychainAsItIsTurnedOn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.settings.Jira.Token = ""
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), append(toRow(keychainRow), "space", "k")...).View().Content
+
+	// Assert
+	requireScreen(t, view, "Taken from your keychain, for this address.")
+}
+
 func TestTheTokenHintSaysWhereATypedTokenIsKept(t *testing.T) {
 	t.Parallel()
 
