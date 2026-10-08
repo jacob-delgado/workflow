@@ -15,9 +15,9 @@ import (
 // The two commands a finish runs through the Runner, and the pull it hands to
 // its caller, named so the tests read as the sequence.
 const (
-	finishSwitch = "git -C /work switch main"
+	finishSwitch = "git -C /work switch -- main"
 	finishPull   = "the caller's pull"
-	finishDelete = "git -C /work branch -D feat/token"
+	finishDelete = "git -C /work branch -D -- feat/token"
 )
 
 // errStepFailed is a finish step git refused.
@@ -69,7 +69,7 @@ func TestFinishBranchStopsAtTheStepThatFails(t *testing.T) {
 		"the switch": {
 			replies: map[string]reply{finishSwitch: {err: errStepFailed}},
 			pullErr: nil,
-			named:   "git switch main",
+			named:   "git switch -- main",
 			want:    []string{finishSwitch},
 		},
 		// The pull cannot fast-forward, so the branch must not be deleted.
@@ -82,7 +82,7 @@ func TestFinishBranchStopsAtTheStepThatFails(t *testing.T) {
 		"the delete": {
 			replies: map[string]reply{finishSwitch: {}, finishDelete: {err: errStepFailed}},
 			pullErr: nil,
-			named:   "git branch -D feat/token",
+			named:   "git branch -D -- feat/token",
 			want:    []string{finishSwitch, finishPull, finishDelete},
 		},
 	}
