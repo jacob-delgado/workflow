@@ -121,26 +121,57 @@ func (r Repository) Checkout(ctx context.Context, name string) error {
 // Branch.HasUnpushedWork), so the commits -D discards are the ones origin and
 // the merge already hold.
 func (r Repository) FinishBranch(ctx context.Context, branch, base string, pull func() error) error {
-	err := r.finishStep(ctx, "switch", "--", base)
+	steps := finishSteps(base, branch)
+
+	err := r.finishStep(ctx, steps.toBase)
 	if err != nil {
 		return err
 	}
 
 	err = pull()
 	if err != nil {
-		return fmt.Errorf("git pull --ff-only: %w", err)
+		return fmt.Errorf("%s: %w", shownCommand(steps.pull), err)
 	}
 
-	return r.finishStep(ctx, "branch", "-D", "--", branch)
+	return r.finishStep(ctx, steps.drop)
+}
+
+// finishing is the git arguments of each command a finish runs, in order.
+type finishing struct {
+	toBase, pull, drop []string
+}
+
+// finishSteps are the commands that finish branch onto base: switch to base,
+// fast-forward it, and force-delete branch. Each puts "--" before its name,
+// since the base comes from what origin says its default branch is.
+func finishSteps(base, branch string) finishing {
+	return finishing{
+		toBase: []string{"switch", "--", base},
+		pull:   PullCommand("").Args,
+		drop:   []string{"branch", "-D", "--", branch},
+	}
+}
+
+// FinishCommands are the commands FinishBranch runs to finish branch onto
+// base, in order, written as a person would type them: what a preview shows
+// before the force delete in them is confirmed.
+func FinishCommands(base, branch string) []string {
+	steps := finishSteps(base, branch)
+
+	return []string{shownCommand(steps.toBase), shownCommand(steps.pull), shownCommand(steps.drop)}
+}
+
+// shownCommand is a git command as a person would type it.
+func shownCommand(args []string) string {
+	return gitProgram + " " + strings.Join(args, " ")
 }
 
 // finishStep runs one of the git commands a finish runs itself, naming it in
-// its failure. Each puts "--" before its name, since the base comes from what
-// origin says its default branch is.
-func (r Repository) finishStep(ctx context.Context, step ...string) error {
+// its failure.
+func (r Repository) finishStep(ctx context.Context, step []string) error {
 	_, err := r.run(ctx, gitProgram, append([]string{"-C", r.dir}, step...)...)
 	if err != nil {
-		return fmt.Errorf("git %s: %w", strings.Join(step, " "), err)
+		return fmt.Errorf("%s: %w", shownCommand(step), err)
 	}
 
 	return nil

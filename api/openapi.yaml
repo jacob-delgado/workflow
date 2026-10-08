@@ -3968,6 +3968,14 @@ components:
             rule the server routes it by; absent when the branch was never
             linked.
           allOf: [{$ref: "#/components/schemas/IssueTracker"}]
+        finish_commands:
+          type: array
+          description: >-
+            The git commands finishing the branch runs, in order, as the server
+            runs them — what the finish's last look shows before the force
+            delete in them is confirmed. Absent for a detached HEAD or a branch
+            with no base to finish onto.
+          items: {type: string}
         detached:
           type: boolean
           description: Whether HEAD is detached rather than on a branch.
