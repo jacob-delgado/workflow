@@ -4,9 +4,9 @@ import { useThemeStore } from './themeStore.ts'
 const darkQuery = '(prefers-color-scheme: dark)'
 
 // useApplyTheme writes the resolved theme onto the document and, while the
-// choice is "system", follows the OS as it changes. The pre-paint script in
-// index.html sets the opening value, so this only keeps it current — mounted
-// once, at the app shell.
+// choice is "system", follows the OS as it changes. The pre-paint script
+// index.html loads sets the opening value, so this only keeps it current —
+// mounted once, at the app shell.
 export function useApplyTheme(): void {
   const choice = useThemeStore((state) => state.choice)
 
