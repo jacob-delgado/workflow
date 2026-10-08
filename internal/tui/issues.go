@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/places"
 )
 
 // issuesLoaded carries the search's answer back into the update loop. startAt is
@@ -95,7 +96,7 @@ type issueList struct {
 	// places narrows the list to the issues in them; branchKeys and taskWords
 	// are what an issue's marks are read from, and branchesKnown whether the
 	// branches could be listed at all.
-	places        []place
+	places        []places.Place
 	branchKeys    map[jira.Key]bool
 	branchesKnown bool
 	taskWords     map[jira.Key]string
@@ -116,7 +117,7 @@ func (l issueList) visible() []jira.Issue {
 
 	for _, issue := range l.found.Issues {
 		if strings.Contains(strings.ToLower(shownKey(issue.Key)+" "+issue.Summary), needle) &&
-			admits(l.places, issue.Status, l.marksOf(issue.Key)) {
+			places.Admits(l.places, issue.Status, l.marksOf(issue.Key)) {
 			matching = append(matching, issue)
 		}
 	}

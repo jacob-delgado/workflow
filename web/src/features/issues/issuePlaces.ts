@@ -6,8 +6,9 @@ import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
 // of workflow's own marks. Places in one group widen the list, and the two
 // groups narrow it together.
 //
-// Trade-off TRADE-21: these rules are written again in
-// internal/tui/issueplaces.go, and twin-named tests pin the two.
+// internal/places works these rules out again, and both copies answer to the
+// one case file testdata/twins/places.json, so a change to either alone fails
+// its own tests.
 type PlaceKind = 'status' | 'mark'
 
 export interface Place {
@@ -31,25 +32,45 @@ export function samePlace(a: Place, b: Place): boolean {
   return a.kind === b.kind && a.name === b.name
 }
 
-// marksOf is the marks an issue is in: in flight when a branch names it, how
-// its tasks stand when Taskwarrior can be asked and one is linked, and on the
-// forge when it is the repository's own forge issue rather than Jira's.
-export function marksOf(issue: Issue, branchKeys: Set<string>, tasks: TasksSummary): string[] {
+// Standing is what an issue's marks are read from: whether a branch names it,
+// the words for how its linked tasks stand (empty with none, or none known),
+// and whether it is the forge's issue rather than Jira's.
+export interface Standing {
+  inFlight: boolean
+  task: string
+  forge: boolean
+}
+
+// standingMarks is the marks an issue so standing is in, in the order the
+// picker lists them.
+export function standingMarks(standing: Standing): string[] {
   const marks: string[] = []
-  if (branchKeys.has(issue.key)) {
+  if (standing.inFlight) {
     marks.push(inFlight)
   }
 
-  const taskMark = tasks.available ? issueTaskMark(linkedTo(tasks.linked, issue.key)) : undefined
-  if (taskMark !== undefined) {
-    marks.push(taskMark.words)
+  if (standing.task !== '') {
+    marks.push(standing.task)
   }
 
-  if (issue.tracker === 'forge') {
+  if (standing.forge) {
     marks.push(forgeIssue)
   }
 
   return marks
+}
+
+// marksOf is the marks an issue is in: in flight when a branch names it, how
+// its tasks stand when Taskwarrior can be asked and one is linked, and on the
+// forge when it is the repository's own forge issue rather than Jira's.
+export function marksOf(issue: Issue, branchKeys: Set<string>, tasks: TasksSummary): string[] {
+  const taskMark = tasks.available ? issueTaskMark(linkedTo(tasks.linked, issue.key)) : undefined
+
+  return standingMarks({
+    inFlight: branchKeys.has(issue.key),
+    task: taskMark?.words ?? '',
+    forge: issue.tracker === 'forge',
+  })
 }
 
 // admits reports whether an issue is in the picked places: in any picked

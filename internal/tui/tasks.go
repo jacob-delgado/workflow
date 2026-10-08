@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/places"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
@@ -524,11 +525,11 @@ func (m Model) taskStanding(issueKey jira.Key) (string, string) {
 
 	switch {
 	case slices.ContainsFunc(linked, taskwarrior.Task.Active):
-		return m.marks.inFlight, markTaskActive
+		return m.marks.inFlight, places.TaskActive
 	case slices.ContainsFunc(linked, stillToDo):
-		return m.marks.notStarted, markTracked
+		return m.marks.notStarted, places.Tracked
 	case len(linked) > 0:
-		return m.marks.done, markTaskDone
+		return m.marks.done, places.TaskDone
 	default:
 		return m.marks.unknown, ""
 	}
