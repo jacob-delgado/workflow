@@ -50,6 +50,39 @@ test('the Jira token is described by the variable it is taken from', async () =>
   expect(description(token)).toMatch(/Taken from token_env: JIRA_TOKEN/)
 })
 
+test('the Jira token is described by the keychain it is taken from, over the other sources', async () => {
+  // Arrange
+  readsAs({
+    ...mockConfig,
+    jira: {
+      ...mockConfig.jira,
+      token: '',
+      keychain: true,
+      token_command: 'pass show jira',
+      token_env: 'JIRA_TOKEN',
+    },
+  })
+
+  // Act
+  const token = await jiraToken()
+
+  // Assert
+  expect(description(token)).toMatch(/Taken from your keychain, for this address\./)
+})
+
+test('the Jira token says where one typed is kept', async () => {
+  // Arrange
+  readsAs({ ...mockConfig, jira: { ...mockConfig.jira, token: '' } })
+
+  // Act
+  const token = await jiraToken()
+
+  // Assert
+  expect(description(token)).toBe(
+    'A personal access token, kept in your keychain for this address on macOS or in the file elsewhere.',
+  )
+})
+
 test('the Announcement hint names its placeholders, Slack only, and the empty default', async () => {
   // Arrange
   readsAs(mockConfig)

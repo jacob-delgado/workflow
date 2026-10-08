@@ -93,6 +93,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		},
 		//nolint:bodyclose // Wrap only relays the response; the refresh reads and closes its body.
 		PlaceSlackCredentials: PlaceSlackCredentials(ctx, log.Wrap("slack", httpTransport), SystemKeychain()),
+		KeepJiraToken:         SystemKeychain().JiraTokenKeeper(ctx),
 	}
 
 	deps := tui.Deps{
@@ -105,7 +106,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Store:        storeDeps(ctx, onDisk(cfg), cfg, where),
 		Tasks:        taskDeps(ctx, cfg.Taskwarrior),
 		Repositories: repositoriesDeps(ctx, cfg, where),
-		Settings:     settingsDeps(ctx, cfg.Layers(), controls.PlaceSlackCredentials),
+		Settings:     settingsDeps(ctx, cfg.Layers(), controls),
 		Clock:        nil,
 		CIInterval:   cfg.CIInterval(),
 		Notify:       ringTerminal,
@@ -138,6 +139,10 @@ type Controls struct {
 	// configuration without them; elsewhere the file keeps them, and it answers
 	// the configuration unchanged.
 	PlaceSlackCredentials func(cfg config.Config) (config.Config, error)
+	// KeepJiraToken keeps a Jira token typed into the web's Settings or the
+	// terminal's in the macOS keychain, under the item for its address, so the
+	// file saved reads it from there; nil elsewhere, where the file keeps it.
+	KeepJiraToken func(service, secret string) error
 }
 
 // ciFinished is a terminal bell followed by an OSC 9 desktop notification. A

@@ -186,6 +186,11 @@ type Deps struct {
 	// where they are kept. Nil writes them into the file as they came.
 	PlaceSlackCredentials func(cfg config.Config) (config.Config, error)
 
+	// KeepJiraToken keeps a Jira token typed into Settings in the macOS
+	// keychain, under the item for its address, so the file saved reads it
+	// from there. Nil writes it into the file as it came.
+	KeepJiraToken func(service, secret string) error
+
 	// UseMessagingSettings applies messaging settings just saved to every post
 	// after the save. Nil leaves messaging as it was started.
 	UseMessagingSettings func(settings config.Messaging)

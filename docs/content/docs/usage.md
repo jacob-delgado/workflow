@@ -847,7 +847,9 @@ repository's over your home's as described in
 file is as Settings found it: one changed since — edited on disk, or saved
 from the web — is not written over, and `r` reads it again in place of your
 edits. Slack's user-token secrets are kept where the web's Settings keeps
-them. Once saved, workflow reopens in the same directory, as a switch to
+them, and so is a Jira token you type: on macOS, in the keychain item for
+the Jira address, the file saved reading it from there, which the row under
+the token turns on and off. Once saved, workflow reopens in the same directory, as a switch to
 another one does, so what was saved applies at once; the session's Jira
 comments, Tasks view and Summary period go with it. When reopening would lose
 work — a commit message or pull request being written, an announcement waiting

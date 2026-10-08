@@ -110,7 +110,11 @@ never copied into a file in a working tree, and a later change at home still
 reaches the repository. Nor is a credential you type there — a token, a
 header's value, a webhook URL, a Slack secret not kept in the keychain — or a
 setting only your home file may make: the save is refused, writing nothing, and
-you set it in your home file instead. A credential already in the repository's
+you set it in your home file instead. A Jira token you type is the exception
+where workflow drives the keychain (macOS): it goes to the keychain item for
+the Jira address, never into a file, and the file saved reads it from there,
+so a repository that points Jira at another address takes a token of its own
+from Settings. A credential already in the repository's
 file is kept, and can be removed. `workflow config init` in a repository, over a home
 file, starts from the home file's settings — a question left blank keeps the
 home file's answer — and `--template` writes an empty layer rather than blanks
@@ -322,8 +326,12 @@ name one item.
 
 `workflow config init --global` offers to keep the token there for you: it
 saves it in the item for the address you typed and writes `"keychain": true`
-into your home file, so the file never holds the token. To see or remove an
-item, use Keychain Access, or
+into your home file, so the file never holds the token. Settings — the
+terminal's and the web's — does the same with a Jira token you type, for the
+address in the form, whichever file it saves: your home file, or a
+repository's that points Jira somewhere else, which then reads the token kept
+for its own address. A token the keychain will not keep saves nothing. To see
+or remove an item, use Keychain Access, or
 `security find-generic-password -s 'workflow-jira https://jira.example.com'`.
 
 Elsewhere workflow drives no keychain, and `jira.keychain` gives no token. On

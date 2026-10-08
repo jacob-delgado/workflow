@@ -25,6 +25,10 @@ var ErrChangedOnDisk = errors.New("the configuration file changed on disk")
 // ErrNotARevision is ParseRevision's refusal of text no Revision writes.
 var ErrNotARevision = errors.New("not a configuration file revision")
 
+// ErrTokenNotKept is a save's refusal: the keychain did not keep the Jira
+// token typed into the editor, so nothing was written.
+var ErrTokenNotKept = errors.New("the keychain did not keep the Jira token typed; nothing was saved")
+
 // Revision is one state of the configuration file: a keyed SHA-256 (HMAC) of
 // its bytes, or, as the zero value, no file at all. Two revisions are the same
 // state exactly when they are ==. A hash of the contents rather than a
@@ -318,6 +322,10 @@ type Edit struct {
 	// editor, where the configuration keeps them, and answers the configuration
 	// to write. Nil keeps them in the file.
 	PlaceSlackCredentials func(Config) (Config, error)
+	// KeepJiraToken keeps a Jira token typed into the editor in the OS
+	// keychain, under the item service names, so the file written reads it
+	// from there. Nil, where no keychain is wired, keeps it in the file.
+	KeepJiraToken func(service, secret string) error
 }
 
 // SaveEdit writes an edited configuration over the read it was made from,
@@ -325,18 +333,25 @@ type Edit struct {
 // with the revision it left. Files changed since the read are refused with
 // ErrChangedOnDisk, and a credential typed into the editor that would land in
 // a repository's file with ErrCredentialInRepository; either way nothing is
-// written. Every credential but the Slack secrets is checked before those are
-// placed, since placing them spends the refresh token typed.
+// written. A Jira token typed is kept in the keychain item for its address
+// where KeepJiraToken is wired, and so lands in no file. Every credential but
+// those placed elsewhere is checked before any is placed, since placing the
+// Slack secrets spends the refresh token typed.
 func SaveEdit(edit Edit) (Config, Revision, error) {
 	incoming := KeepStored(edit.Edited, edit.Read, edit.Removed)
 	incoming.Path, incoming.Files = edit.Files.Target(), edit.Files
 
-	err := edit.refuseTyped(incoming, fileSecretFields(incoming))
+	err := edit.refuseTyped(incoming, edit.heldSecretFields(incoming))
 	if err != nil {
 		return Config{}, Revision{}, err
 	}
 
 	incoming, err = edit.placeSlackCredentials(incoming)
+	if err != nil {
+		return Config{}, Revision{}, err
+	}
+
+	incoming, err = edit.keepJiraToken(incoming)
 	if err != nil {
 		return Config{}, Revision{}, err
 	}
@@ -374,10 +389,64 @@ func (edit Edit) placeSlackCredentials(incoming Config) (Config, error) {
 
 	// Placing spends the typed refresh token, so it is done only over the file
 	// the write that follows will find.
-	current, err := RevisionOfLayers(edit.Files)
-	if err != nil || current != edit.Over {
-		return Config{}, fmt.Errorf("placing the Slack secrets: %w", ErrChangedOnDisk)
+	err := edit.unchangedFor("placing the Slack secrets")
+	if err != nil {
+		return Config{}, err
 	}
 
 	return edit.PlaceSlackCredentials(incoming)
+}
+
+// heldSecretFields are the credentials incoming may hold in the file: every
+// one but a Jira token typed that the keychain will keep.
+func (edit Edit) heldSecretFields(incoming Config) []secretField {
+	fields := fileSecretFields(incoming)
+	if !edit.keepsJiraToken(incoming) {
+		fields = append(fields, jiraTokenField())
+	}
+
+	return fields
+}
+
+// keepsJiraToken reports a Jira token typed into the editor — not sent back as
+// it was shown — for an address, where a keychain can keep it.
+func (edit Edit) keepsJiraToken(incoming Config) bool {
+	typed := incoming.Jira.Token != "" && incoming.Jira.Token != edit.Read.Jira.Token
+
+	return typed && incoming.Jira.BaseURL != "" && edit.KeepJiraToken != nil
+}
+
+// keepJiraToken keeps a Jira token typed into the editor in the keychain item
+// for its address, and answers the configuration to write: reading it from
+// there, the token out of the file. It is done only over the files the write
+// that follows will find, so a refused save leaves the keychain as it was.
+func (edit Edit) keepJiraToken(incoming Config) (Config, error) {
+	if !edit.keepsJiraToken(incoming) {
+		return incoming, nil
+	}
+
+	err := edit.unchangedFor("keeping the Jira token")
+	if err != nil {
+		return Config{}, err
+	}
+
+	err = edit.KeepJiraToken(incoming.Jira.KeychainService(), incoming.Jira.Token.Reveal())
+	if err != nil {
+		return Config{}, fmt.Errorf("%w: %w", ErrTokenNotKept, err)
+	}
+
+	incoming.Jira.Token, incoming.Jira.Keychain = "", true
+
+	return incoming, nil
+}
+
+// unchangedFor refuses, as doing, files that are no longer at the revision
+// the edit was made over.
+func (edit Edit) unchangedFor(doing string) error {
+	current, err := RevisionOfLayers(edit.Files)
+	if err != nil || current != edit.Over {
+		return fmt.Errorf("%s: %w", doing, ErrChangedOnDisk)
+	}
+
+	return nil
 }
