@@ -226,6 +226,17 @@ tasks:
         scripts/check-generated.sh internal/web/dist
         "The embedded web bundle is out of date. Run 'task web:build' and commit internal/web/dist."
 
+  # Prettier writes what `web:lint`'s `prettier --check` reads, so `task fmt`,
+  # which runs this, leaves nothing for the lint to refuse.
+  web:fmt:
+    desc: Format the web frontend in place (prettier)
+    deps: [web:install]
+    dir: web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    cmds:
+      - corepack yarn fmt
+
   web:test:
     desc: Run the web frontend's unit tests with the coverage floor
     deps: [web:install]
@@ -470,6 +481,7 @@ tasks:
       - shfmt -i 2 -ci -bn -w {{.SHELL_FILES}}
       - markdownlint-cli2 --fix
       - taplo fmt
+      - task: web:fmt
 
   docs:gen:
     desc: Regenerate the command reference from the Cobra command tree
