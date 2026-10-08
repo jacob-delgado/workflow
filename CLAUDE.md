@@ -453,12 +453,13 @@ mark that part `// Act & Assert`. One Act per test: independent scenarios run
 back to back are separate tests or table cases. The exception is a flow whose
 intermediate states are themselves the contract ("nothing is posted before the
 preview is confirmed"), which labels every step instead — `// Act: open the
-preview`, `// Assert: nothing is sent yet` — while a single-cycle test carries no
-labels, because its name is the label. A table test puts the markers inside each
-`t.Run` closure and a fuzz test inside `f.Fuzz`; the cases, the loop and the
-seeds carry none. A test whose Assert reaches no `t.Error` or `t.Fatal`, directly
-or through a helper, asserts nothing and is useless. `cmd/testshape` fails a body
-whose markers are missing, malformed or out of order, or whose Assert reaches no
+preview`, `// Assert: nothing is sent yet` — while a single-cycle test carries
+no labels, because its name is the label. A table test puts the markers inside
+each `t.Run` closure, a fuzz test inside `f.Fuzz`, and a test on a fake clock
+inside its `synctest.Test` bubble; the cases, the loop and the seeds carry none.
+A test whose Assert reaches no `t.Error` or `t.Fatal`, directly or through a
+helper, asserts nothing and is useless. `cmd/testshape` fails a body whose
+markers are missing, malformed or out of order, or whose Assert reaches no
 failure; it runs in `task lint`, on commit, and in CI. The e2e specs answer to
 its TypeScript twin, `web/eslint-rules/arrange-act-assert.js`, in `yarn lint`.
 It is a floor: it cannot tell a meaningful assertion from one that passes
