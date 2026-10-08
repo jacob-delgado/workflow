@@ -204,16 +204,20 @@ test('offers turning the store off and rides it back through a save', async () =
   servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  // Act: open Settings
   const view = render(
     <QueryClientProvider client={client}>
       <SettingsPanel />
     </QueryClientProvider>,
   )
+
+  // Assert: the store is on, and turning it off is offered
   const toggle = await screen.findByRole('checkbox', { name: /nothing on disk/i })
   expect((toggle as HTMLInputElement).checked).toBe(false)
-  await user.click(toggle)
 
-  // Act: save, then reopen against the same client
+  // Act: turn it off, save, then reopen against the same client
+  await user.click(toggle)
   await user.click(screen.getByRole('button', { name: /save changes/i }))
   await screen.findByText(/saved/i)
   view.unmount()
@@ -223,7 +227,7 @@ test('offers turning the store off and rides it back through a save', async () =
     </QueryClientProvider>,
   )
 
-  // Assert
+  // Assert: it comes back off
   const reopened = await screen.findByRole('checkbox', { name: /nothing on disk/i })
   expect((reopened as HTMLInputElement).checked).toBe(true)
 })
@@ -343,17 +347,20 @@ test('toggling Markdown comments rides back through a save', async () => {
   servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  // Act: open Settings
   const view = render(
     <QueryClientProvider client={client}>
       <SettingsPanel />
     </QueryClientProvider>,
   )
-  const toggle = await screen.findByRole('checkbox', { name: /markdown/i })
-  // On by default, so the save carries it off.
-  expect((toggle as HTMLInputElement).checked).toBe(true)
-  await user.click(toggle)
 
-  // Act: save, then reopen against the same client
+  // Assert: on by default, so the save carries it off
+  const toggle = await screen.findByRole('checkbox', { name: /markdown/i })
+  expect((toggle as HTMLInputElement).checked).toBe(true)
+
+  // Act: turn it off, save, then reopen against the same client
+  await user.click(toggle)
   await user.click(screen.getByRole('button', { name: /save changes/i }))
   await screen.findByText(/saved/i)
   view.unmount()
@@ -363,7 +370,7 @@ test('toggling Markdown comments rides back through a save', async () => {
     </QueryClientProvider>,
   )
 
-  // Assert
+  // Assert: it comes back off
   const reopened = await screen.findByRole('checkbox', { name: /markdown/i })
   expect((reopened as HTMLInputElement).checked).toBe(false)
 })

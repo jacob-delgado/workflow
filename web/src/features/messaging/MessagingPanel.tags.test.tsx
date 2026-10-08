@@ -163,17 +163,19 @@ test('the post carries the groups checked', async () => {
 })
 
 test('a missing scope is named, and the announcement still posts', async () => {
-  // Arrange
+  // Act: open the preview
   const { user } = await opensPreview(
     { text, channel: '#dev', tagging: { ...tagging, missing_scope: 'users:read' } },
     { members: { '#dev': { entries: [], missing_scope: 'users:read' } } },
   )
+
+  // Assert: the missing scope is named
   expect(screen.getByRole('note').textContent).toContain('users:read')
 
-  // Act
+  // Act: announce
   await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
-  // Assert
+  // Assert: it still posts
   expect(await screen.findByText('Announced to #dev.')).toBeTruthy()
 })
 
@@ -197,17 +199,21 @@ test('an announcement that tags no one posts without mentions', async () => {
 test('an announcement whose Slack workspace is unknown says why and posts untagged', async () => {
   // Arrange
   const reason = "can't tell which Slack workspace this token is for"
+
+  // Act: open the preview
   const { requests, user } = await opensPreview({
     text,
     channel: '#dev',
     tagging: { available: false, unavailable_reason: reason, owners: [], groups: [] },
   })
+
+  // Assert: it says why it tags no one
   expect(screen.getByRole('note').textContent).toContain(reason)
 
-  // Act
+  // Act: announce
   await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
-  // Assert
+  // Assert: it posts untagged
   await screen.findByText('Announced to #dev.')
   expect(await bodyOf(requests, '/api/announce')).toEqual({ channel: '#dev', text })
 })

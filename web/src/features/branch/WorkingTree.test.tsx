@@ -265,6 +265,8 @@ test('Stage all makes the commit form live', async () => {
   const user = userEvent.setup()
   const unstaged = [change('a.go'), change('notes.txt', { kind: 'untracked' })]
   streamTree(unstaged)
+
+  // Act: draw the panel
   render(<BranchPanel />)
 
   // Assert: nothing is staged, so the form waits and says what to do, and

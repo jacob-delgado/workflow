@@ -132,14 +132,18 @@ test('forgetting an owner asks first, then forgets them', async () => {
   const requests = answers()
   const user = userEvent.setup()
   renderWithClient(<PeopleAndGroups />)
+
+  // Act: ask to forget dan
   await user.click(await screen.findByRole('button', { name: 'Forget dan…' }))
+
+  // Assert: a question asks first, and takes focus
   const question = screen.getByRole('group', { name: 'Forget dan?' })
   expect(document.activeElement).toBe(question)
 
-  // Act
+  // Act: forget
   await user.click(within(question).getByRole('button', { name: 'Forget' }))
 
-  // Assert
+  // Assert: dan is forgotten
   expect(await screen.findByText('Forgot dan: they are asked about again.')).toBeTruthy()
   const forgot = requests.find((asked) => asked.method === 'DELETE')
   expect(forgot === undefined ? '' : new URL(forgot.url).search).toBe('?owner=dan')
