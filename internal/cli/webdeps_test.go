@@ -30,13 +30,13 @@ func TestWebDepsHandsTheServerEverySeam(t *testing.T) {
 	// Assert
 	for _, name := range nilSeams(web, "webserver.Deps") {
 		// Unexpected is where the server reports its own failures, the next
-		// three are the wiring's own controls over the settings the server
+		// four are the wiring's own controls over the settings the server
 		// saves, and Reach is the command line's way to wire another
 		// directory; none is one of the interface's seams, so the interface
 		// has none to hand it.
 		if name == "webserver.Deps.Unexpected" || name == "webserver.Deps.UseForgeSettings" ||
 			name == "webserver.Deps.UseMessagingSettings" || name == "webserver.Deps.PlaceSlackCredentials" ||
-			name == "webserver.Deps.Reach" {
+			name == "webserver.Deps.KeepJiraToken" || name == "webserver.Deps.Reach" {
 			continue
 		}
 

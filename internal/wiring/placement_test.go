@@ -43,8 +43,9 @@ const (
 // fakeSecurity is macOS's security as the keychain drives it: it keeps the
 // line each store hands it and reads the secret back.
 type fakeSecurity struct {
-	lock sync.Mutex
-	kept string
+	lock   sync.Mutex
+	kept   string
+	stored string
 }
 
 // run answers security's two commands: -i, which reads a store from its
@@ -55,6 +56,7 @@ func (s *fakeSecurity) run(_ context.Context, program proc.Command, input []byte
 
 	if program.Args[0] == "-i" {
 		line := string(input)
+		s.stored = line
 		start := strings.Index(line, ` -w "`) + len(` -w "`)
 		s.kept = strings.NewReplacer(`\"`, `"`, `\\`, `\`).Replace(strings.TrimSuffix(line[start:], "\"\n"))
 
@@ -62,6 +64,14 @@ func (s *fakeSecurity) run(_ context.Context, program proc.Command, input []byte
 	}
 
 	return []byte(s.kept + "\n"), nil
+}
+
+// line is the last line a store handed the fake.
+func (s *fakeSecurity) line() string {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	return s.stored
 }
 
 // held is the secret the fake keeps.
@@ -105,8 +115,12 @@ func typedInto(secret, refresh config.Secret) config.Config {
 	return cfg
 }
 
-// macOS is the system whose keychain workflow drives.
-const macOS = "darwin"
+// macOS is the system whose keychain workflow drives, and noKeychainOS one
+// whose keychain it does not.
+const (
+	macOS        = "darwin"
+	noKeychainOS = "freebsd"
+)
 
 // keptPair is the user token's secrets the keychain already keeps.
 const keptPair = `{"client_secret":"client-secret-kept","refresh_token":"` + keptRefresh + `"}`
@@ -183,7 +197,7 @@ func TestPlacingSlackSecretsOffMacOSLeavesThemInTheConfiguration(t *testing.T) {
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{}
-	place := wiring.PlaceSlackCredentials(t.Context(), slack.do, wiring.Keychain{GOOS: "freebsd", Run: security.run})
+	place := wiring.PlaceSlackCredentials(t.Context(), slack.do, wiring.Keychain{GOOS: noKeychainOS, Run: security.run})
 	typed := typedInto(typedSecret, typedRefresh)
 
 	// Act

@@ -539,7 +539,11 @@ three fields — Client ID, Client secret and Refresh token; on macOS a save
 refreshes the token with them and keeps the secrets in the keychain rather
 than the file, and where the file already keeps them it keeps what you type
 (see [Configuration]({{< relref "/docs/configuration" >}})). The access token
-and its expiry have no field: workflow writes them. A change to the
+and its expiry have no field: workflow writes them. On macOS a Jira token you
+type goes to the keychain item for the Jira address, never into a file, and
+**Read the token from your keychain** is saved checked, so a repository whose
+file points Jira at another address takes a token of its own here; a token
+the keychain will not keep saves nothing. A change to the
 Taskwarrior part applies when workflow restarts, as the part says: workflow finds Taskwarrior as it starts,
 and until the restart the Tasks section says to restart rather than read
 Taskwarrior. What the form has no field for is kept unchanged when you

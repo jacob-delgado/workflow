@@ -188,7 +188,7 @@ func TestAKeychainWhereNoneIsWiredIsNoToken(t *testing.T) {
 
 	// Arrange
 	held := &keychainHolding{tokens: map[string]string{homeItem: homeToken}}
-	elsewhere := wiring.Keychain{GOOS: "freebsd", Run: held.run}
+	elsewhere := wiring.Keychain{GOOS: noKeychainOS, Run: held.run}
 
 	// Act
 	token, _, err := wiring.ResolveToken(t.Context(), config.Jira{BaseURL: homeJira, Keychain: true}, elsewhere)
@@ -215,5 +215,34 @@ func TestAnUnreadableKeychainItemIsToldWithoutWhatSecurityPrinted(t *testing.T) 
 	// Assert
 	if err == nil || strings.Contains(err.Error(), "SECRET-VALUE") {
 		t.Errorf("ResolveToken = %v, want the failure told without what security printed", err)
+	}
+}
+
+func TestATokenKeptOnMacOSGoesToTheItemNamed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	security := &fakeSecurity{}
+	keep := onMacOS(security).JiraTokenKeeper(t.Context())
+
+	// Act
+	err := keep(secondItem, secondToken)
+
+	// Assert
+	if err != nil || security.held() != secondToken || !strings.Contains(security.line(), `-s "`+secondItem+`"`) {
+		t.Errorf("keep = %v, the keychain holds the token %t in %q; want it under the item named",
+			err, security.held() == secondToken, security.line())
+	}
+}
+
+func TestNoTokenKeeperIsWiredWhereThereIsNoKeychain(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	keep := wiring.Keychain{GOOS: noKeychainOS, Run: (&fakeSecurity{}).run}.JiraTokenKeeper(t.Context())
+
+	// Assert
+	if keep != nil {
+		t.Error("a keeper is wired where workflow drives no keychain, want none")
 	}
 }
