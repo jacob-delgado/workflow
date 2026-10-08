@@ -351,21 +351,16 @@ func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where W
 			// neutralize any terminal control it may carry before the composer shows it.
 			return sanitize.Line(scope), found
 		},
-		RecordScope: func(scope string) {
-			_ = kept.RecordScope(ctx, repo, sanitize.Line(scope), time.Now())
+		RecordScope: func(scope string) error {
+			return kept.RecordScope(ctx, repo, sanitize.Line(scope), time.Now())
 		},
 		Announced: func() []loop.Announced {
 			recorded, _ := kept.Announces(ctx, repo)
 
-			made := make([]loop.Announced, 0, len(recorded))
-			for _, announce := range recorded {
-				made = append(made, loop.Announced{Pull: announce.Pull, Moment: messaging.Moment(announce.Moment)})
-			}
-
-			return made
+			return knownAnnouncements(recorded)
 		},
-		RecordAnnounce: func(made loop.Announced) {
-			_ = kept.RecordAnnounce(ctx, repo, store.Announce{Pull: made.Pull, Moment: int(made.Moment)}, time.Now())
+		RecordAnnounce: func(made loop.Announced) error {
+			return kept.RecordAnnounce(ctx, repo, store.Announce{Pull: made.Pull, Moment: int(made.Moment)}, time.Now())
 		},
 		CachedIssues: func(view string) ([]jira.Issue, bool) {
 			cached, found, _ := kept.CachedIssues(ctx, instance, view)
@@ -375,13 +370,44 @@ func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where W
 
 			return cacheableRows(fromCachedIssues(cached))
 		},
-		CacheIssues: func(view string, issues []jira.Issue) {
+		CacheIssues: func(view string, issues []jira.Issue) error {
 			rows, keep := cacheableRows(issues)
-			if keep {
-				_ = kept.CacheIssues(ctx, instance, view, toCachedIssues(rows), time.Now())
+			if !keep {
+				return nil
 			}
+
+			return kept.CacheIssues(ctx, instance, view, toCachedIssues(rows), time.Now())
 		},
 	})
+}
+
+// knownAnnouncements are the announcements recorded at a moment this build
+// knows. The store is a file on disk, and a row it holds at any other moment
+// stands for no announcement this build could make, so it is dropped.
+func knownAnnouncements(recorded []store.Announce) []loop.Announced {
+	made := make([]loop.Announced, 0, len(recorded))
+
+	for _, announce := range recorded {
+		moment, known := knownMoment(announce.Moment)
+		if known {
+			made = append(made, loop.Announced{Pull: announce.Pull, Moment: moment})
+		}
+	}
+
+	return made
+}
+
+// knownMoment is the moment a stored one stands for, and whether this build
+// knows it.
+func knownMoment(stored int) (messaging.Moment, bool) {
+	moment := messaging.Moment(stored)
+
+	switch moment {
+	case messaging.MomentReady, messaging.MomentMerged, messaging.MomentCIRed:
+		return moment, true
+	}
+
+	return 0, false
 }
 
 // instanceKey identifies a Jira instance for the store without keeping its URL:

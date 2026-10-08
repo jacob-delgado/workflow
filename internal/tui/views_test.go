@@ -242,7 +242,11 @@ func TestAViewsIssuesAreCachedUnderTheScopedQuery(t *testing.T) {
 
 	var cachedUnder []string
 
-	deps.Store.CacheIssues = func(view string, _ []jira.Issue) { cachedUnder = append(cachedUnder, view) }
+	deps.Store.CacheIssues = func(view string, _ []jira.Issue) error {
+		cachedUnder = append(cachedUnder, view)
+
+		return nil
+	}
 	model := sized(t, tui.New(repo.cfg, nil, deps), 120, 40)
 
 	// Act

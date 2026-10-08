@@ -406,18 +406,34 @@ func (s *server) recordedAnnouncements() []loop.Announced {
 }
 
 // recordAnnouncement remembers an announcement just made, in the store and in
-// what the next frame tells.
-func (s *server) recordAnnouncement(made loop.Announced) {
+// what the next frame tells, which tells it whether the store kept it or not,
+// since it was made; it says why the store could not.
+func (s *server) recordAnnouncement(made loop.Announced) error {
 	if s.deps.RecordAnnounce == nil {
-		return
+		return nil
 	}
 
-	s.deps.RecordAnnounce(made)
+	err := s.deps.RecordAnnounce(made)
 
 	s.announced.mu.Lock()
 	defer s.announced.mu.Unlock()
 
 	s.announced.made = append(s.announced.made, made)
+
+	return err
+}
+
+// delivered is how a delivery went, as an announcement: one posted that the
+// store could not remember was made all the same, so its failure is noted
+// rather than answered.
+func (s *server) delivered(err error) error {
+	if errors.Is(err, loop.ErrNotRemembered) {
+		s.unexpected(err)
+
+		return nil
+	}
+
+	return err
 }
 
 // announcedAlready reports that made was announced already, from any surface.
@@ -452,7 +468,7 @@ func (s *server) deliver(post announcePost) error {
 		return errAnnouncedAlready
 	}
 
-	return loop.Deliver(s.deps.Post, post.memory, post.delivery)
+	return s.delivered(loop.Deliver(s.deps.Post, post.memory, post.delivery))
 }
 
 // announcedBefore refuses to announce pull at a moment it was announced at

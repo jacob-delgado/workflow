@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -33,15 +34,19 @@ func TestRememberScopeRecordsTheScopeAsTheSubjectWritesIt(t *testing.T) {
 			// Arrange
 			var recorded []string
 
-			record := func(scope string) { recorded = append(recorded, scope) }
+			record := func(scope string) error {
+				recorded = append(recorded, scope)
+
+				return nil
+			}
 
 			// Act
-			reported := loop.RememberScope(record, tt.scope)
+			reported, err := loop.RememberScope(record, tt.scope)
 
 			// Assert
-			if !slices.Equal(recorded, tt.wantRecorded) || reported != (tt.wantRecorded != nil) {
-				t.Errorf("RememberScope(%q) recorded %q and reported %t, want %q", tt.scope, recorded, reported,
-					tt.wantRecorded)
+			if err != nil || !slices.Equal(recorded, tt.wantRecorded) || reported != (tt.wantRecorded != nil) {
+				t.Errorf("RememberScope(%q) recorded %q and reported %t, %v; want %q", tt.scope, recorded, reported,
+					err, tt.wantRecorded)
 			}
 		})
 	}
@@ -50,8 +55,26 @@ func TestRememberScopeRecordsTheScopeAsTheSubjectWritesIt(t *testing.T) {
 func TestRememberScopeWithNothingToRecordIntoReportsNothingRecorded(t *testing.T) {
 	t.Parallel()
 
-	// Act & Assert
-	if loop.RememberScope(nil, usedScope) {
-		t.Error("RememberScope with no store reported the scope recorded")
+	// Act
+	reported, err := loop.RememberScope(nil, usedScope)
+
+	// Assert
+	if reported || err != nil {
+		t.Errorf("RememberScope with no store = %t, %v; want nothing recorded", reported, err)
+	}
+}
+
+func TestRememberScopeSaysWhyARecordWasNotKept(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	record := func(string) error { return errSeam }
+
+	// Act
+	reported, err := loop.RememberScope(record, usedScope)
+
+	// Assert
+	if !reported || !errors.Is(err, errSeam) {
+		t.Errorf("RememberScope = %t, %v; want the scope handed over and why it was not kept", reported, err)
 	}
 }
