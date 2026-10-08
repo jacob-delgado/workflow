@@ -22,8 +22,14 @@ import (
 // it was given up on, as the terminal does.
 const failedAtFormat = "15:04"
 
-// errNothingHeld is a drop asked for with no announcement waiting for CI.
-var errNothingHeld = errors.New("no announcement is waiting for CI; it was posted, dropped, or never held")
+var (
+	// errNothingHeld is a drop asked for with no announcement waiting for CI.
+	errNothingHeld = errors.New("no announcement is waiting for CI; it was posted, dropped, or never held")
+	// errHeldAnnouncing is a drop, a hold or a post asked for while the
+	// announcement held for CI is being posted, which it would race.
+	errHeldAnnouncing = errors.New("the announcement held for CI is being posted now; it goes once, " +
+		"so ask again once it has")
+)
 
 // heldAnnouncement is the announcement held until a pull request's CI passes,
 // as the terminal's w in the preview holds one while it is open; the server
@@ -32,9 +38,9 @@ var errNothingHeld = errors.New("no announcement is waiting for CI; it was poste
 // of the stream settles it too, so a page sees it go on the first frame with
 // green CI. It lives in memory alone: a server that stops, or is switched to
 // another directory, loses it unposted. round counts each hold and drop, so a
-// post that finishes after the announcement was replaced or dropped leaves
-// the newer state be. Its lock is its own, since the stream, the timed reads
-// of the CI and the writes all reach it.
+// read of the CI set for one before stops. Once taken to post it is neither
+// replaced nor dropped until the post is done. Its lock is its own, since the
+// stream, the timed reads of the CI and the writes all reach it.
 type heldAnnouncement struct {
 	mu    sync.Mutex
 	post  announcePost
@@ -68,7 +74,7 @@ func (s *server) announceWhenGreen(post announcePost) api.AnnounceResponseObject
 	case forge.CIPassed:
 		return s.announceNow(post)
 	case forge.CIRunning:
-		return api.Announce202JSONResponse(s.hold(post, branch))
+		return s.holdAnswer(post, branch)
 	case forge.CINone, forge.CIFailed:
 	}
 
@@ -108,11 +114,27 @@ func (s *server) ciNow(pull forge.PullRequest) (gitrepo.Branch, forge.CI, error)
 	return branch, ci, err
 }
 
+// holdAnswer holds post, answering 202 with it waiting, or 409 while the
+// one held before it is being posted.
+func (s *server) holdAnswer(post announcePost, branch gitrepo.Branch) api.AnnounceResponseObject {
+	queued, err := s.hold(post, branch)
+	if err != nil {
+		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
+	}
+
+	return api.Announce202JSONResponse(queued)
+}
+
 // hold keeps post until its pull request's CI passes, replacing any held
-// before it, and sets the first of its reads of the CI.
-func (s *server) hold(post announcePost, branch gitrepo.Branch) api.QueuedAnnouncement {
+// before it, and sets the first of its reads of the CI; it refuses while the
+// one before is being posted.
+func (s *server) hold(post announcePost, branch gitrepo.Branch) (api.QueuedAnnouncement, error) {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
+
+	if s.held.shown.State == api.QueuedAnnouncementStateAnnouncing {
+		return api.QueuedAnnouncement{}, errHeldAnnouncing
+	}
 
 	s.held.stopWatching()
 	s.held.round++
@@ -122,7 +144,7 @@ func (s *server) hold(post announcePost, branch gitrepo.Branch) api.QueuedAnnoun
 	}
 	s.held.check = s.checkHeldAfter(s.held.round)
 
-	return s.held.shown
+	return s.held.shown, nil
 }
 
 // checkHeldAfter reads the CI for the announcement held in round once the
@@ -174,7 +196,8 @@ func (s *server) settleOnRead() {
 // settleHeld settles the held announcement against branch's review: posts it
 // once its CI has passed, drops it with the reason once its CI has failed or
 // its pull request is no longer the branch's open one, and otherwise keeps it
-// waiting. Only one caller can take it to post, so it is never posted twice.
+// waiting. Only one caller can take it to post, and nothing replaces or drops
+// it while it posts, so it is never posted twice.
 func (s *server) settleHeld(branch gitrepo.Branch, review api.Review) {
 	s.held.mu.Lock()
 
@@ -193,11 +216,11 @@ func (s *server) settleHeld(branch gitrepo.Branch, review api.Review) {
 		s.held.settle(api.QueuedAnnouncementStateDropped, reason)
 		s.held.mu.Unlock()
 	case heldPost:
-		post, round := s.held.post, s.held.round
+		post := s.held.post
 		s.held.settle(api.QueuedAnnouncementStateAnnouncing, "")
 		s.held.mu.Unlock()
 
-		s.postHeld(post, round)
+		s.postHeld(post)
 	}
 }
 
@@ -232,33 +255,34 @@ func (s *server) heldVerdict(branch gitrepo.Branch, review api.Review) (string, 
 	}
 }
 
-// postHeld posts the announcement taken to post in round, and records how it
-// went, unless it was replaced or dropped meanwhile.
-func (s *server) postHeld(post announcePost, round int) {
-	err := loop.Deliver(s.deps.Post, post.memory, post.delivery)
+// postHeld posts the announcement taken to post, and records how it went: a
+// moment announced meanwhile, from a page or a terminal, drops it unposted.
+func (s *server) postHeld(post announcePost) {
+	err := s.deliver(post)
 
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
-	if s.held.round != round {
-		return
+	switch {
+	case errors.Is(err, errAnnouncedAlready):
+		s.held.settle(api.QueuedAnnouncementStateDropped, s.announcedBefore(post.pull.Number).Detail)
+	case err != nil:
+		s.held.settle(api.QueuedAnnouncementStateDropped, s.fault(err).Detail)
+	default:
+		s.held.settle(api.QueuedAnnouncementStateAnnounced, "")
 	}
-
-	if err != nil {
-		failure := s.fault(err)
-		s.held.settle(api.QueuedAnnouncementStateDropped, failure.Detail)
-
-		return
-	}
-
-	s.held.settle(api.QueuedAnnouncementStateAnnounced, "")
 }
 
 // dropHeld drops the announcement waiting for CI, unposted, and forgets what
-// was said of the last one, reporting whether one was waiting.
-func (s *server) dropHeld() bool {
+// was said of the last one, reporting whether one was waiting; it refuses
+// while one is being posted, which goes on and is reported as it ends.
+func (s *server) dropHeld() (bool, error) {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
+
+	if s.held.shown.State == api.QueuedAnnouncementStateAnnouncing {
+		return false, errHeldAnnouncing
+	}
 
 	waiting := s.held.shown.State == api.QueuedAnnouncementStateWaiting
 
@@ -266,7 +290,7 @@ func (s *server) dropHeld() bool {
 	s.held.round++
 	s.held.post, s.held.branch, s.held.shown = announcePost{}, "", api.QueuedAnnouncement{}
 
-	return waiting
+	return waiting, nil
 }
 
 // heldStatus is how the held announcement stands, for a frame: nil when none
@@ -288,9 +312,14 @@ func (s *server) heldStatus() *api.QueuedAnnouncement {
 func (s *server) CancelQueuedAnnouncement(
 	_ context.Context, _ api.CancelQueuedAnnouncementRequestObject,
 ) (api.CancelQueuedAnnouncementResponseObject, error) {
-	if !s.dropHeld() {
+	waiting, err := s.dropHeld()
+	if err == nil && !waiting {
+		err = errNothingHeld
+	}
+
+	if err != nil {
 		return api.CancelQueuedAnnouncement409ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeConflict, errNothingHeld.Error())), nil
+			problem(api.ProblemCodeConflict, err.Error())), nil
 	}
 
 	return api.CancelQueuedAnnouncement204Response{}, nil

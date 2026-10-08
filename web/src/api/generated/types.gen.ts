@@ -3706,7 +3706,7 @@ export type CancelQueuedAnnouncementData = {
 
 export type CancelQueuedAnnouncementErrors = {
     /**
-     * No announcement is waiting for CI.
+     * No announcement is waiting for CI, or the one held is being posted now, which goes on.
      */
     409: Problem;
     /**

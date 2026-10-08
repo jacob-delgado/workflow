@@ -1781,7 +1781,10 @@ paths:
         is remembered in the store, as the terminal's are, and a moment the
         store remembers announced already — from here, the terminal or
         workflow announce — is refused with 409, as the terminal offers no
-        announcement it has made.
+        announcement it has made. The check and the post are one step, so of
+        two asks at once one posts and the other is that 409; and while a held
+        announcement is being posted, announcing now or holding another is a
+        409 too.
       tags: [messaging]
       requestBody:
         required: true
@@ -1836,7 +1839,9 @@ paths:
         "204":
           description: The waiting announcement was dropped; nothing was posted.
         "409":
-          description: No announcement is waiting for CI.
+          description: >-
+            No announcement is waiting for CI, or the one held is being posted
+            now, which goes on.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
