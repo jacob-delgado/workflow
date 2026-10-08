@@ -3,8 +3,9 @@
 # passed, were skipped and failed for each, with the coverage report.
 #
 # It prints a markdown table to stdout, and when $GITHUB_STEP_SUMMARY is set it
-# appends the same markdown there, so a CI run shows the numbers without opening
-# a log.
+# appends the same markdown there. It is the local report (`task test:summary`):
+# CI's Test summary job builds its table from what the test jobs uploaded
+# instead, so no suite runs twice there.
 #
 # Usage: test-summary.sh <go-package-root>...
 #
