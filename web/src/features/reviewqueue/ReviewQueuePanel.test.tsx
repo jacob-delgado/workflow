@@ -76,10 +76,12 @@ test('the Reviews section lists requests by role and name', async () => {
   ).toEqual(['acme/api', 'by ana', '3d ago', 'Draft'])
 })
 
+// The words are the label the server gives the request's CI facet, the ones
+// the filter offers it by.
 test('draws how CI stands on each request as its mark, beside the words', async () => {
   // Arrange
   const stands = [
-    { ci: 'none', words: 'CI not reported', mark: 'unknown' },
+    { ci: 'none', words: 'CI none', mark: 'unknown' },
     { ci: 'running', words: 'CI running', mark: 'in-flight' },
     { ci: 'passed', words: 'CI passed', mark: 'done' },
     { ci: 'failed', words: 'CI failed', mark: 'failed' },

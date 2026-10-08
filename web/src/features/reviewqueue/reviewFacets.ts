@@ -46,6 +46,12 @@ export function facetChoices(
   return [...offered, ...unoffered]
 }
 
+// labelOf is the label of the value a request holds in a facet, as the server
+// labels it, or empty should it hold none.
+export function labelOf(request: ReviewRequest, kind: Facet['kind']): string {
+  return request.facets.find((facet) => facet.kind === kind)?.label ?? ''
+}
+
 // isPicked reports whether facet is among the picked.
 export function isPicked(picked: Facet[], facet: Facet): boolean {
   return picked.some((chosen) => sameFacet(chosen, facet))
