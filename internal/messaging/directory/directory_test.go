@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package wiring_test
+package directory_test
 
 // The Slack directory — a channel's members, the workspace's users and user
 // groups — is read once and held for the session, so the announcement preview
@@ -20,10 +20,8 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
-	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
-	"github.com/jacob-delgado/workflow/internal/slackauth"
-	"github.com/jacob-delgado/workflow/internal/wiring"
+	"github.com/jacob-delgado/workflow/internal/messaging/directory"
 )
 
 // fakeSlack is a stand-in Slack Web API answering each directory read from a
@@ -184,10 +182,10 @@ func (c *clock) advance(by time.Duration) {
 }
 
 // directoryOver is a session directory over client, on a clock that starts now.
-func directoryOver(client messaging.Client) (*wiring.SlackDirectory, *clock) {
+func directoryOver(client messaging.Client) (*directory.Slack, *clock) {
 	moment := &clock{at: time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)}
 
-	return wiring.NewSlackDirectory(func() (messaging.Client, error) { return client, nil }, moment.now), moment
+	return directory.New(func() (messaging.Client, error) { return client, nil }, moment.now), moment
 }
 
 // switchable is a Slack client that settings can take away and give back.
@@ -222,10 +220,10 @@ func TestChannelMembersAreTheChannelsPeopleByTheirSlackNames(t *testing.T) {
 
 	// Arrange
 	_, client := startSlack(t, directoryBodies())
-	directory, _ := directoryOver(client)
+	slackDirectory, _ := directoryOver(client)
 
 	// Act
-	members, err := directory.ChannelMembers(t.Context(), "#dev")
+	members, err := slackDirectory.ChannelMembers(t.Context(), "#dev")
 
 	// Assert
 	want := channelMembers()
@@ -239,16 +237,16 @@ func TestTheDirectoryIsReadOnceWithinTenMinutes(t *testing.T) {
 
 	// Arrange
 	slack, client := startSlack(t, directoryBodies())
-	directory, moment := directoryOver(client)
-	_, _ = directory.ChannelMembers(t.Context(), "dev")
-	_, _ = directory.UserGroups(t.Context())
+	slackDirectory, moment := directoryOver(client)
+	_, _ = slackDirectory.ChannelMembers(t.Context(), "dev")
+	_, _ = slackDirectory.UserGroups(t.Context())
 	before := slack.requests()
 
 	moment.advance(9 * time.Minute)
 
 	// Act
-	_, _ = directory.ChannelMembers(t.Context(), "dev")
-	_, _ = directory.UserGroups(t.Context())
+	_, _ = slackDirectory.ChannelMembers(t.Context(), "dev")
+	_, _ = slackDirectory.UserGroups(t.Context())
 
 	// Assert
 	if after := slack.requests(); after != before {
@@ -261,13 +259,13 @@ func TestTheDirectoryIsReadAgainOnceTenMinutesPass(t *testing.T) {
 
 	// Arrange
 	slack, client := startSlack(t, directoryBodies())
-	directory, moment := directoryOver(client)
-	_, _ = directory.UserGroups(t.Context())
+	slackDirectory, moment := directoryOver(client)
+	_, _ = slackDirectory.UserGroups(t.Context())
 
 	moment.advance(10 * time.Minute)
 
 	// Act
-	_, _ = directory.UserGroups(t.Context())
+	_, _ = slackDirectory.UserGroups(t.Context())
 
 	// Assert
 	if asked := slack.count("/usergroups.list"); asked != 2 {
@@ -280,13 +278,13 @@ func TestRefreshReadsTheDirectoryAgain(t *testing.T) {
 
 	// Arrange
 	slack, client := startSlack(t, directoryBodies())
-	directory, _ := directoryOver(client)
-	_, _ = directory.ChannelMembers(t.Context(), "dev")
+	slackDirectory, _ := directoryOver(client)
+	_, _ = slackDirectory.ChannelMembers(t.Context(), "dev")
 
-	directory.Refresh()
+	slackDirectory.Refresh()
 
 	// Act
-	_, _ = directory.ChannelMembers(t.Context(), "dev")
+	_, _ = slackDirectory.ChannelMembers(t.Context(), "dev")
 
 	// Assert
 	if asked := slack.count("/users.list"); asked != 2 {
@@ -300,13 +298,13 @@ func TestNoUserTokenReadsAsNoCredentialWhateverIsHeld(t *testing.T) {
 	// Arrange
 	_, client := startSlack(t, directoryBodies())
 	settings := &switchable{client: client, available: true}
-	directory := wiring.NewSlackDirectory(settings.current, time.Now)
-	_, _ = directory.UserGroups(t.Context())
+	slackDirectory := directory.New(settings.current, time.Now)
+	_, _ = slackDirectory.UserGroups(t.Context())
 
 	settings.set(false)
 
 	// Act
-	_, err := directory.UserGroups(t.Context())
+	_, err := slackDirectory.UserGroups(t.Context())
 
 	// Assert
 	if !errors.Is(err, messaging.ErrNoCredential) {
@@ -320,17 +318,17 @@ func TestTheDirectoryIsReadAfreshWhenAUserTokenComesBack(t *testing.T) {
 	// Arrange
 	slack, client := startSlack(t, directoryBodies())
 	settings := &switchable{client: client, available: true}
-	directory := wiring.NewSlackDirectory(settings.current, time.Now)
-	_, _ = directory.UserGroups(t.Context())
+	slackDirectory := directory.New(settings.current, time.Now)
+	_, _ = slackDirectory.UserGroups(t.Context())
 
 	settings.set(false)
 
-	_, _ = directory.UserGroups(t.Context())
+	_, _ = slackDirectory.UserGroups(t.Context())
 
 	settings.set(true)
 
 	// Act
-	_, _ = directory.UserGroups(t.Context())
+	_, _ = slackDirectory.UserGroups(t.Context())
 
 	// Assert
 	if asked := slack.count("/usergroups.list"); asked != 2 {
@@ -343,13 +341,13 @@ func TestUserGroupsAreTheWorkspacesGroups(t *testing.T) {
 
 	// Arrange
 	_, client := startSlack(t, directoryBodies())
-	directory, _ := directoryOver(client)
+	slackDirectory, _ := directoryOver(client)
 
 	// Act
-	groups, err := directory.UserGroups(t.Context())
+	groups, err := slackDirectory.UserGroups(t.Context())
 
 	// Assert
-	want := []loop.SlackTarget{{ID: "S0CP", Label: "control-plane-pod"}}
+	want := []messaging.SlackTarget{{ID: "S0CP", Label: "control-plane-pod"}}
 	if err != nil || !slices.Equal(groups, want) {
 		t.Errorf("UserGroups = %v, %v; want %v", groups, err, want)
 	}
@@ -362,11 +360,11 @@ func TestAMissingScopeIsReportedAndNotHeld(t *testing.T) {
 	bodies := directoryBodies()
 	bodies["/usergroups.list"] = `{"ok":false,"error":"missing_scope","needed":"usergroups:read"}`
 	slack, client := startSlack(t, bodies)
-	directory, _ := directoryOver(client)
-	_, _ = directory.UserGroups(t.Context())
+	slackDirectory, _ := directoryOver(client)
+	_, _ = slackDirectory.UserGroups(t.Context())
 
 	// Act
-	_, err := directory.UserGroups(t.Context())
+	_, err := slackDirectory.UserGroups(t.Context())
 
 	// Assert
 	var missing *messaging.MissingScopeError
@@ -379,94 +377,18 @@ func TestAMissingScopeIsReportedAndNotHeld(t *testing.T) {
 	}
 }
 
-func TestTheDirectorySeamsAreBoundForASlackUserToken(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	cfg := halfLoggedIn(t)
-
-	// Act
-	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
-
-	// Assert
-	if seams.ChannelMembers == nil || seams.UserGroups == nil || seams.RefreshDirectory == nil {
-		t.Error("a directory seam is nil under a Slack user token")
-	}
-}
-
-func TestAWebhookBindsADirectoryThatHasNoCredential(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// Settings may switch to a Slack user token while workflow runs, so the
-	// seams are there; until then they answer ErrNoCredential.
-	cfg := config.Config{Messaging: config.Messaging{Kind: config.KindSlack, WebhookURL: "https://hooks.example.com/x"}}
-	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
-
-	// Act
-	if seams.UserGroups == nil {
-		t.Fatal("no directory seam is bound for a webhook, so a switch to a user token could not tag")
-	}
-
-	_, err := seams.UserGroups()
-
-	// Assert
-	if !errors.Is(err, messaging.ErrNoCredential) || errors.Is(err, slackauth.ErrNotLoggedIn) {
-		t.Errorf("UserGroups under a webhook = %v, want ErrNoCredential without asking for a token", err)
-	}
-}
-
-func TestSettingsSwitchedToASlackUserTokenReadTheDirectory(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// The configuration file is the one Settings saves the user token's
-	// settings to; workflow started with a webhook.
-	cfg := halfLoggedIn(t)
-	userToken := cfg.Messaging
-	cfg.Messaging = config.Messaging{Kind: config.KindSlack, WebhookURL: "https://hooks.example.com/x"}
-	deps, controls := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
-
-	controls.UseMessagingSettings(userToken)
-
-	// Act
-	_, err := deps.Messaging.UserGroups()
-
-	// Assert
-	if !errors.Is(err, slackauth.ErrNotLoggedIn) {
-		t.Errorf("UserGroups after switching to a user token = %v, want the token asked for", err)
-	}
-}
-
-func TestSettingsSwitchedAwayFromSlackStopReadingTheDirectory(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	deps, controls := wiring.Deps(t.Context(), halfLoggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
-
-	controls.UseMessagingSettings(config.Messaging{Kind: config.KindTeams, WebhookURL: "https://teams.example.com/x"})
-
-	// Act
-	_, err := deps.Messaging.UserGroups()
-
-	// Assert
-	if !errors.Is(err, messaging.ErrNoCredential) || errors.Is(err, slackauth.ErrNotLoggedIn) {
-		t.Errorf("UserGroups after switching to Teams = %v, want ErrNoCredential without asking for a token", err)
-	}
-}
-
 func TestConcurrentReadsOfAChannelShareOneSetOfRequests(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	slack, client := startSlack(t, directoryBodies())
 	arrived, release := slack.hold(t, "/users.conversations")
-	directory, _ := directoryOver(client)
+	slackDirectory, _ := directoryOver(client)
 
 	var readers sync.WaitGroup
 
 	for range 2 {
-		readers.Go(func() { _, _ = directory.ChannelMembers(t.Context(), "dev") })
+		readers.Go(func() { _, _ = slackDirectory.ChannelMembers(t.Context(), "dev") })
 	}
 
 	<-arrived
@@ -489,18 +411,18 @@ func TestRefreshDoesNotWaitForASlowReadNorKeepItsResult(t *testing.T) {
 	// Arrange
 	slack, client := startSlack(t, directoryBodies())
 	arrived, release := slack.hold(t, "/users.list")
-	directory, _ := directoryOver(client)
+	slackDirectory, _ := directoryOver(client)
 
 	var reader sync.WaitGroup
 
-	reader.Go(func() { _, _ = directory.ChannelMembers(t.Context(), "dev") })
+	reader.Go(func() { _, _ = slackDirectory.ChannelMembers(t.Context(), "dev") })
 
 	<-arrived
 
 	refreshed := make(chan struct{})
 
 	// Act
-	go func() { directory.Refresh(); close(refreshed) }()
+	go func() { slackDirectory.Refresh(); close(refreshed) }()
 
 	// Assert
 	select {
@@ -512,7 +434,7 @@ func TestRefreshDoesNotWaitForASlowReadNorKeepItsResult(t *testing.T) {
 	release()
 	reader.Wait()
 
-	_, _ = directory.ChannelMembers(t.Context(), "dev")
+	_, _ = slackDirectory.ChannelMembers(t.Context(), "dev")
 
 	if asked := slack.count("/users.list"); asked != 2 {
 		t.Errorf("users.list was asked %d times, want the read begun before Refresh not kept", asked)
@@ -524,10 +446,10 @@ func TestAChannelInAWorkspaceTooLargeToListIsLabeledOneByOne(t *testing.T) {
 
 	// Arrange
 	slack, client := startSlack(t, tooLargeToList())
-	directory, _ := directoryOver(client)
+	slackDirectory, _ := directoryOver(client)
 
 	// Act
-	members, err := directory.ChannelMembers(t.Context(), "#dev")
+	members, err := slackDirectory.ChannelMembers(t.Context(), "#dev")
 
 	// Assert
 	want := channelMembers()
@@ -541,8 +463,8 @@ func TestAChannelInAWorkspaceTooLargeToListIsLabeledOneByOne(t *testing.T) {
 }
 
 // channelMembers are #dev's members as the directory labels them.
-func channelMembers() []loop.SlackTarget {
-	return []loop.SlackTarget{{ID: "U0ADA", Label: "Ada"}, {ID: "U0BOB", Label: "Bob B"}}
+func channelMembers() []messaging.SlackTarget {
+	return []messaging.SlackTarget{{ID: "U0ADA", Label: "Ada"}, {ID: "U0BOB", Label: "Bob B"}}
 }
 
 // tooLargeToList are the answers of a workspace past users.list's page cap,
@@ -564,10 +486,10 @@ func TestAMemberSlackAsksToWaitForIsLabeledOnceTheWaitIsOver(t *testing.T) {
 	slack, client := startSlack(t, tooLargeToList())
 	slack.limit("/users.info?user=U0BOB", 1, "1")
 
-	directory, _ := directoryOver(client)
+	slackDirectory, _ := directoryOver(client)
 
 	// Act
-	members, err := directory.ChannelMembers(t.Context(), "#dev")
+	members, err := slackDirectory.ChannelMembers(t.Context(), "#dev")
 
 	// Assert
 	want := channelMembers()
@@ -583,12 +505,12 @@ func TestAWaitTooLongFailsTheReadAndKeepsWhoWasLabeled(t *testing.T) {
 	slack, client := startSlack(t, tooLargeToList())
 	slack.limit("/users.info?user=U0BOB", 1, "3600")
 
-	directory, _ := directoryOver(client)
+	slackDirectory, _ := directoryOver(client)
 	started := time.Now()
 
 	// Act
-	_, failed := directory.ChannelMembers(t.Context(), "#dev")
-	members, err := directory.ChannelMembers(t.Context(), "#dev")
+	_, failed := slackDirectory.ChannelMembers(t.Context(), "#dev")
+	members, err := slackDirectory.ChannelMembers(t.Context(), "#dev")
 
 	// Assert
 	if !errors.Is(failed, httpx.ErrRateLimited) || time.Since(started) > time.Minute {
@@ -612,12 +534,12 @@ func TestAWaitForSlackEndsWithTheRead(t *testing.T) {
 	slack, client := startSlack(t, tooLargeToList())
 	slack.limit("/users.info?user=U0BOB", 1, "30")
 
-	directory, _ := directoryOver(client)
+	slackDirectory, _ := directoryOver(client)
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	t.Cleanup(cancel)
 
 	// Act
-	_, err := directory.ChannelMembers(ctx, "#dev")
+	_, err := slackDirectory.ChannelMembers(ctx, "#dev")
 
 	// Assert
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -630,20 +552,100 @@ func TestAReadLateInTheTenMinutesIsHeldForTenMinutesOfItsOwn(t *testing.T) {
 
 	// Arrange
 	slack, client := startSlack(t, directoryBodies())
-	directory, moment := directoryOver(client)
-	_, _ = directory.UserGroups(t.Context())
+	slackDirectory, moment := directoryOver(client)
+	_, _ = slackDirectory.UserGroups(t.Context())
 
 	moment.advance(9 * time.Minute)
 
-	_, _ = directory.ChannelMembers(t.Context(), "dev")
+	_, _ = slackDirectory.ChannelMembers(t.Context(), "dev")
 
 	moment.advance(2 * time.Minute)
 
 	// Act
-	_, _ = directory.ChannelMembers(t.Context(), "dev")
+	_, _ = slackDirectory.ChannelMembers(t.Context(), "dev")
 
 	// Assert
 	if asked := slack.count("/users.list"); asked != 1 {
 		t.Errorf("users.list was asked %d times, want once: it was read two minutes ago", asked)
+	}
+}
+
+func TestTheWorkspaceIsReadOnceWithTheDirectory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack, client := startSlack(t, directoryBodies())
+	slackDirectory, _ := directoryOver(client)
+	_, _ = slackDirectory.Workspace(t.Context())
+
+	// Act
+	workspace, err := slackDirectory.Workspace(t.Context())
+
+	// Assert
+	if err != nil || workspace != "T0EXAMPLE" {
+		t.Errorf("Workspace = %q, %v; want T0EXAMPLE", workspace, err)
+	}
+
+	if asked := slack.count("/auth.test"); asked != 1 {
+		t.Errorf("auth.test was asked %d times, want once", asked)
+	}
+}
+
+func TestRefreshReadsTheWorkspaceAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack, client := startSlack(t, directoryBodies())
+	slackDirectory, _ := directoryOver(client)
+	_, _ = slackDirectory.Workspace(t.Context())
+
+	slackDirectory.Refresh()
+
+	// Act
+	_, _ = slackDirectory.Workspace(t.Context())
+
+	// Assert
+	if asked := slack.count("/auth.test"); asked != 2 {
+		t.Errorf("auth.test was asked %d times, want it asked again after a refresh", asked)
+	}
+}
+
+func TestAWorkspaceSlackWouldNotNameIsAnErrorAskedAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	bodies := directoryBodies()
+	bodies["/auth.test"] = `{"ok":false,"error":"invalid_auth"}`
+	slack, client := startSlack(t, bodies)
+	slackDirectory, _ := directoryOver(client)
+	_, _ = slackDirectory.Workspace(t.Context())
+
+	// Act
+	workspace, err := slackDirectory.Workspace(t.Context())
+
+	// Assert
+	if !errors.Is(err, messaging.ErrRejected) || workspace != "" {
+		t.Errorf("Workspace = %q, %v; want Slack's refusal", workspace, err)
+	}
+
+	if asked := slack.count("/auth.test"); asked != 2 {
+		t.Errorf("auth.test was asked %d times, want a failure asked again", asked)
+	}
+}
+
+func TestNoUserTokenHasNoWorkspace(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	_, client := startSlack(t, directoryBodies())
+	settings := &switchable{client: client, available: false}
+	slackDirectory := directory.New(settings.current, time.Now)
+
+	// Act
+	_, err := slackDirectory.Workspace(t.Context())
+
+	// Assert
+	if !errors.Is(err, messaging.ErrNoCredential) {
+		t.Errorf("Workspace with no user token = %v, want ErrNoCredential", err)
 	}
 }
