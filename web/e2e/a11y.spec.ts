@@ -8,8 +8,8 @@ import {
   pinTheme,
   sectionNames as populatedSectionNames,
   themes,
-} from './cockpit.ts'
-import { streams } from './tabwalk.ts'
+} from './support/cockpit.ts'
+import { streams } from './support/tabwalk.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are

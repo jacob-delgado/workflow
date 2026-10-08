@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { CreatedWorktree, Snapshot } from '../../src/api/generated/types.gen.ts'
 import { mockRepositories } from '../../src/dev/mockRepositories.ts'
-import { height, pinTheme, themes, widths } from '../cockpit.ts'
-import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../tabwalk.ts'
+import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
+import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
 
 // Starting work on an issue in a new worktree from its detail, and the switch
 // to the worktree offered once it is made.
