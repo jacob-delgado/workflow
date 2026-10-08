@@ -11,142 +11,8 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/places"
 )
-
-// The marks an issue can be in, in the order the picker lists them, as the web
-// words them.
-//
-// Trade-off TRADE-21: these words and the place rules below are written again in
-// web/src/features/issues/issuePlaces.ts.
-const (
-	markInFlight   = "in flight"
-	markTaskActive = "task active"
-	markTracked    = "tracked"
-	markTaskDone   = "task done"
-	markForge      = "forge issue"
-)
-
-// placeKind is which of the two groups a place is in. Places in one group
-// widen the list, and the two groups narrow it together.
-type placeKind int
-
-const (
-	placeStatus placeKind = iota
-	placeMark
-)
-
-// place is where an issue can be: one of its tracker's status names, or one of
-// workflow's own marks.
-type place struct {
-	kind placeKind
-	name string
-}
-
-// admits reports whether an issue in status, with marks, is in the picked
-// places: in any picked status, when a status is picked, and holding any picked
-// mark, when a mark is picked.
-func admits(picked []place, status string, marks []string) bool {
-	return admitsIn(picked, placeStatus, []string{status}) && admitsIn(picked, placeMark, marks)
-}
-
-// admitsIn reports whether any of names is picked in the kind's group, or
-// nothing is picked there at all.
-func admitsIn(picked []place, kind placeKind, names []string) bool {
-	constrained := false
-
-	for _, chosen := range picked {
-		if chosen.kind != kind {
-			continue
-		}
-
-		constrained = true
-
-		if slices.Contains(names, chosen.name) {
-			return true
-		}
-	}
-
-	return !constrained
-}
-
-// placeChoices is every place the loaded issues are in, with how many are in
-// each — statuses by category, not started first, then as they first appear,
-// then the marks in their fixed order — and every picked place no loaded issue
-// is in, at zero, so it can still be unpicked.
-func placeChoices(issues []jira.Issue, marksOf func(jira.Key) []string, picked []place) []offered[place] {
-	counts := map[place]int{}
-
-	for _, issue := range issues {
-		counts[place{kind: placeStatus, name: issue.Status}]++
-
-		for _, mark := range marksOf(issue.Key) {
-			counts[place{kind: placeMark, name: mark}]++
-		}
-	}
-
-	var choices []offered[place]
-
-	for _, offering := range slices.Concat(statusPlaces(issues), pickedStatusesGone(issues, picked), markPlaces()) {
-		if counts[offering] > 0 || slices.Contains(picked, offering) {
-			choices = append(choices, offered[place]{value: offering, count: counts[offering]})
-		}
-	}
-
-	return choices
-}
-
-// statusPlaces is each status the issues are in, once, not started first, then
-// in flight, then done, then any in a category Jira does not name (its "No
-// Category", or none), and within each in the order they first appear.
-func statusPlaces(issues []jira.Issue) []place {
-	var places []place
-
-	add := func(keep func(jira.StatusCategory) bool) {
-		for _, issue := range issues {
-			status := place{kind: placeStatus, name: issue.Status}
-			if keep(issue.StatusCategory) && !slices.Contains(places, status) {
-				places = append(places, status)
-			}
-		}
-	}
-
-	named := []jira.StatusCategory{jira.CategoryNew, jira.CategoryIndeterminate, jira.CategoryDone}
-	for _, category := range named {
-		add(func(of jira.StatusCategory) bool { return of == category })
-	}
-
-	add(func(of jira.StatusCategory) bool { return !slices.Contains(named, of) })
-
-	return places
-}
-
-// pickedStatusesGone is each picked status no loaded issue is in any more, in
-// the order it was picked, so the picker can still offer to unpick it.
-func pickedStatusesGone(issues []jira.Issue, picked []place) []place {
-	var gone []place
-
-	for _, chosen := range picked {
-		if chosen.kind == placeStatus && !slices.ContainsFunc(issues, func(issue jira.Issue) bool {
-			return issue.Status == chosen.name
-		}) {
-			gone = append(gone, chosen)
-		}
-	}
-
-	return gone
-}
-
-// markPlaces is every mark, in the order the picker lists them.
-func markPlaces() []place {
-	marks := []string{markInFlight, markTaskActive, markTracked, markTaskDone, markForge}
-	places := make([]place, 0, len(marks))
-
-	for _, mark := range marks {
-		places = append(places, place{kind: placeMark, name: mark})
-	}
-
-	return places
-}
 
 // issueBranchesListed carries which issues a local or remote branch names back
 // into the update loop. A listing git could not make leaves in flight unknown
@@ -229,21 +95,9 @@ func (m Model) withTaskWords() Model {
 // marksOf is the marks an issue is in: in flight when a branch names it, and
 // how its tasks stand when one is linked.
 func (l issueList) marksOf(issueKey jira.Key) []string {
-	var marks []string
-
-	if l.branchesKnown && l.branchKeys[issueKey] {
-		marks = append(marks, markInFlight)
-	}
-
-	if word := l.taskWords[issueKey]; word != "" {
-		marks = append(marks, word)
-	}
-
-	if isForgeKey(issueKey) {
-		marks = append(marks, markForge)
-	}
-
-	return marks
+	return places.Standing{
+		InFlight: l.branchesKnown && l.branchKeys[issueKey], Task: l.taskWords[issueKey], Forge: isForgeKey(issueKey),
+	}.Marks()
 }
 
 // keepingSelection is the list after change, with the selection held on the
@@ -260,21 +114,28 @@ func (l issueList) keepingSelection(change func(issueList) issueList) issueList 
 }
 
 var (
-	_ overlay   = checklist[place]{}
-	_ clickable = checklist[place]{}
-	_ steppable = checklist[place]{}
+	_ overlay   = checklist[places.Place]{}
+	_ clickable = checklist[places.Place]{}
+	_ steppable = checklist[places.Place]{}
 )
 
 // openPlacePicker opens the checklist on the places the loaded issues are in,
 // with those already picked checked. Applying it keeps the selection on the
 // issue it was on while that issue is still listed.
 func (m Model) openPlacePicker() (Model, tea.Cmd) {
-	m.overlay = checklist[place]{
+	choices := places.Choices(m.issues.found.Issues, m.issues.marksOf, m.issues.places)
+	offers := make([]offered[places.Place], 0, len(choices))
+
+	for _, choice := range choices {
+		offers = append(offers, offered[places.Place]{value: choice.Place, count: choice.Count})
+	}
+
+	m.overlay = checklist[places.Place]{
 		marks: m.marks, title: filterTitle, none: "no issue to filter",
-		choices: pickList[offered[place]]{items: placeChoices(m.issues.found.Issues, m.issues.marksOf, m.issues.places)},
+		choices: pickList[offered[places.Place]]{items: offers},
 		chosen:  slices.Clone(m.issues.places),
-		label:   func(picked place) string { return picked.name },
-		apply: func(m Model, chosen []place) (Model, tea.Cmd) {
+		label:   func(picked places.Place) string { return picked.Name },
+		apply: func(m Model, chosen []places.Place) (Model, tea.Cmd) {
 			m.issues = m.issues.keepingSelection(func(l issueList) issueList {
 				l.places = chosen
 
@@ -296,7 +157,7 @@ func (l issueList) narrowingLine(marks glyphs) string {
 	if len(l.places) > 0 {
 		names := make([]string, 0, len(l.places))
 		for _, picked := range l.places {
-			names = append(names, picked.name)
+			names = append(names, picked.Name)
 		}
 
 		parts = append(parts, "places: "+strings.Join(names, ", "))
