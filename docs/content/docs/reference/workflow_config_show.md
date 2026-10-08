@@ -20,6 +20,12 @@ exits 3, as doctor does.
 workflow config show [flags]
 ```
 
+### Examples
+
+```
+  workflow config show | jq -r .jira.base_url   # one setting in effect, as data
+```
+
 ### Options
 
 ```
