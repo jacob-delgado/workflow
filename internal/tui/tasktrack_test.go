@@ -71,6 +71,25 @@ func TestTrackOnAnUntrackedIssueOpensThePrefilledLine(t *testing.T) {
 	requireTaskWrites(t, repo, "task add "+untrackedLine, "task annotate "+addedTaskUUID+" "+untrackedPage)
 }
 
+func TestTrackOnAnIssueWhoseKeyIsNotOneWordOpensNoLine(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The key stands before the line's --, so a word after it would reach
+	// Taskwarrior as an rc override of its own.
+	repo := withAnUntrackedIssue()
+	repo.issues[2].Key = untrackedIssue + " rc.hooks=on"
+	model := typing(t, repo.live(t, 200, 40), selectTheUntrackedIssue()...)
+
+	// Act
+	view := typing(t, model, "T").View().Content
+
+	// Assert
+	requireScreen(t, view, "not one word")
+	refuseScreen(t, view, "task add …")
+	requireTaskWrites(t, repo)
+}
+
 func TestTrackOnATrackedIssueGoesToItsTask(t *testing.T) {
 	t.Parallel()
 

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -56,11 +55,12 @@ func (s *server) TrackIssue(
 		return s.issueNotRead(key, err), nil
 	}
 
-	if len(strings.Fields(string(detail.Issue.Key))) != 1 {
-		return trackRefused("the tracker's key for the issue is not one word, so Taskwarrior cannot take it"), nil
+	write, err := s.track(detail.Issue)
+	if err != nil {
+		return trackRefused(err.Error()), nil
 	}
 
-	list, prob, code := s.taskCommand(s.track(detail.Issue), s.taskFault)
+	list, prob, code := s.taskCommand(write, s.taskFault)
 	if prob != nil {
 		return api.TrackIssuedefaultApplicationProblemPlusJSONResponse{Body: *prob, StatusCode: code}, nil
 	}
@@ -90,12 +90,17 @@ func (s *server) issueNotRead(key jira.Key, err error) api.TrackIssueResponseObj
 // track is the write that tracks issue: the add of its task, then the
 // annotation with its page, skipped when the tracker gives none, since
 // Taskwarrior refuses an empty one. An annotation that fails leaves the task
-// added, so the write says so rather than failing.
-func (s *server) track(issue jira.Issue) func() (taskChange, error) {
+// added, so the write says so rather than failing. An issue whose key
+// TrackLine refuses has no write.
+func (s *server) track(issue jira.Issue) (func() (taskChange, error), error) {
 	page := s.browseURL(issue.Key)
-	line := taskwarrior.TrackLine(taskwarrior.IssueLink{
+
+	line, err := taskwarrior.TrackLine(taskwarrior.IssueLink{
 		Key: string(issue.Key), Summary: issue.Summary, URL: page, Priority: issue.Priority,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	return func() (taskChange, error) {
 		uuid, err := s.deps.Tasks.Add(line)
@@ -111,7 +116,7 @@ func (s *server) track(issue jira.Issue) func() (taskChange, error) {
 		}
 
 		return taskChange{added: uuid}, nil
-	}
+	}, nil
 }
 
 // UndoTasks reverts Taskwarrior's last change, and says how much it reverted.
