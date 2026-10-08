@@ -220,6 +220,7 @@ func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
 	fmt.Fprintf(out, "Wrote %s (mode %#o).\n", path, config.FileMode)
 	fmt.Fprintf(out, "\nNext: add your Jira and Slack tokens, then run `workflow doctor`.\n")
 	fmt.Fprintf(out, "`workflow --help` explains how to create each token.\n")
+	warnIfNotIgnored(cmd.Context(), out, path)
 
 	return nil
 }
@@ -241,9 +242,11 @@ func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
 		return err
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "Wrote %s (mode %#o), over %s.\n"+
+	out := cmd.ErrOrStderr()
+	fmt.Fprintf(out, "Wrote %s (mode %#o), over %s.\n"+
 		"\nNext: add only the settings this repository changes; the rest come from %s.\n",
 		path, config.FileMode, opts.layers.Home, opts.layers.Home)
+	warnIfNotIgnored(cmd.Context(), out, path)
 
 	return nil
 }
@@ -421,14 +424,15 @@ func keepIfChecked(prompt Prompt, what string, checkErr error) (bool, error) {
 }
 
 // warnIfNotIgnored says so when the file is inside a repository but not ignored
-// by git, since it is about to hold credentials. Outside a repository there is
-// nothing to warn about.
+// by git, since credentials go in it — typed into the guided setup, or pasted
+// into the template or a repository's layer by hand. Outside a repository there
+// is nothing to warn about.
 func warnIfNotIgnored(ctx context.Context, out io.Writer, path string) {
 	if !setup.NotIgnored(ctx, path) {
 		return
 	}
 
-	fmt.Fprintf(out, "\nWarning: %s is not ignored by git. It holds credentials —\n", filepath.Base(path))
+	fmt.Fprintf(out, "\nWarning: %s is not ignored by git, and credentials go in it —\n", filepath.Base(path))
 	fmt.Fprintf(out, "add it to .gitignore so it is never committed.\n")
 }
 
