@@ -101,7 +101,7 @@ func (e alsoError) Is(target error) bool { return target == e.also }
 // reason reads Jira's explanation from a failed answer, or "" when the body is
 // not one — such as the HTML page of a proxy standing where Jira should be.
 func (c Client) reason(body io.Reader) string {
-	raw, err := io.ReadAll(io.LimitReader(body, reasonLimit))
+	raw, err := httpx.Read(body, reasonLimit)
 	if err != nil {
 		return ""
 	}
