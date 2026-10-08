@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -196,15 +197,16 @@ func readLayers(files Files) (layer, layer, error) {
 	return home, repo, err
 }
 
-// readLayer reads the file at path; a path that names none, or a file that is
-// not there, is a layer that does not exist rather than an error.
+// readLayer reads the file at path, refusing one someone else could have
+// written; a path that names none, or a file that is not there, is a layer
+// that does not exist rather than an error.
 func readLayer(path string) (layer, error) {
 	if path == "" {
 		return layer{}, nil
 	}
 
 	//nolint:gosec // the path is the user's own config file, by design
-	contents, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return layer{path: path}, nil
 	}
@@ -213,7 +215,28 @@ func readLayer(path string) (layer, error) {
 		return layer{}, fmt.Errorf("reading %s: %w", path, err)
 	}
 
+	contents, err := readTrusted(file)
+	if err != nil {
+		return layer{}, fmt.Errorf("%s: %w", path, err)
+	}
+
 	return layer{path: path, contents: contents, exists: true}, nil
+}
+
+// readTrusted reads file to its end, and closes it, once the file it opened
+// is one only the user could have written.
+func readTrusted(file *os.File) ([]byte, error) {
+	info, err := file.Stat()
+	if err == nil {
+		err = refuseUntrusted(info)
+	}
+
+	var contents []byte
+	if err == nil {
+		contents, err = io.ReadAll(file)
+	}
+
+	return contents, errors.Join(err, file.Close())
 }
 
 // parseLayers checks each file's keys, merges the files and validates the
