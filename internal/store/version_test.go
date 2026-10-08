@@ -40,15 +40,12 @@ func stampVersion(t *testing.T, dir string, version int) {
 func readPragma(t *testing.T, dir, name string) int {
 	t.Helper()
 
-	database, err := sql.Open("sqlite", filepath.Join(dir, "workflow.db"))
-	if err != nil {
-		t.Fatalf("opening the database to read %s: %v", name, err)
-	}
+	database := openFile(t, filepath.Join(dir, "workflow.db"))
 	defer func() { _ = database.Close() }()
 
 	var value int
 
-	err = database.QueryRowContext(t.Context(), "PRAGMA "+name).Scan(&value)
+	err := database.QueryRowContext(t.Context(), "PRAGMA "+name).Scan(&value)
 	if err != nil {
 		t.Fatalf("reading %s: %v", name, err)
 	}
@@ -216,11 +213,7 @@ func TestAReadOfAStoreAtThisVersionWritesNothing(t *testing.T) {
 func heldOpenWithARow(t *testing.T, dir string) *sql.Conn {
 	t.Helper()
 
-	holder, err := sql.Open("sqlite", filepath.Join(dir, "workflow.db")+"?_pragma=journal_mode(WAL)")
-	if err != nil {
-		t.Fatalf("opening the file as another program: %v", err)
-	}
-
+	holder := openFile(t, filepath.Join(dir, "workflow.db")+"?_pragma=journal_mode(WAL)")
 	t.Cleanup(func() { _ = holder.Close() })
 
 	held, err := holder.Conn(t.Context())

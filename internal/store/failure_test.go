@@ -21,6 +21,8 @@ import (
 	"syscall"
 	"testing"
 
+	"modernc.org/sqlite"
+
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -68,6 +70,19 @@ type statement struct {
 	args  []any
 }
 
+// openFile opens the database file named, as another program would, past the
+// store: SQLite's own address, the file's path with any parameters after it.
+func openFile(t *testing.T, name string) *sql.DB {
+	t.Helper()
+
+	connector, err := sqlite.NewConnector(name)
+	if err != nil {
+		t.Fatalf("opening %s: %v", name, err)
+	}
+
+	return sql.OpenDB(connector)
+}
+
 // seedDatabase leaves a database in dir for the store to find, as if another
 // program had written it: each statement runs in order. The file is stamped
 // with the store's own schema version, so the store keeps it and meets what
@@ -83,13 +98,10 @@ func seedDatabase(t *testing.T, dir string, statements ...statement) {
 func seedDatabaseAt(t *testing.T, dir string, version int, statements ...statement) {
 	t.Helper()
 
-	database, err := sql.Open("sqlite", filepath.Join(dir, "workflow.db"))
-	if err != nil {
-		t.Fatalf("opening the database to seed: %v", err)
-	}
+	database := openFile(t, filepath.Join(dir, "workflow.db"))
 	defer func() { _ = database.Close() }()
 
-	_, err = database.ExecContext(t.Context(), fmt.Sprintf("PRAGMA user_version = %d", version))
+	_, err := database.ExecContext(t.Context(), fmt.Sprintf("PRAGMA user_version = %d", version))
 	if err != nil {
 		t.Fatalf("stamping the seeded database with version %d: %v", version, err)
 	}
