@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // Summary is what every source read for a period.
@@ -73,24 +75,13 @@ func yearLines(year Year) []string {
 // commit's subject — and the text is Markdown that Teams and Discord render,
 // where "[Click](https://evil)" unescaped would be a live link.
 func itemLines(items []Item) []string {
-	escape := markdownEscaper()
-
 	lines := make([]string, 0, len(items))
 	for _, item := range items {
-		lines = append(lines, "- "+strings.Join(nonEmpty(item.Kind.Verb(), item.Ref, escape.Replace(item.Title)), " "))
+		words := nonEmpty(item.Kind.Verb(), item.Ref, sanitize.EscapeMarkdown(item.Title))
+		lines = append(lines, "- "+strings.Join(words, " "))
 	}
 
 	return lines
-}
-
-// markdownEscaper backslash-escapes every character Markdown reads as markup
-// inside a line, as messaging escapes an announcement's values.
-func markdownEscaper() *strings.Replacer {
-	return strings.NewReplacer(
-		`\`, `\\`, "`", "\\`", "[", "\\[", "]", "\\]",
-		"(", "\\(", ")", "\\)", "*", "\\*", "_", "\\_",
-		"~", "\\~", "|", "\\|", "#", "\\#", ">", "\\>",
-	)
 }
 
 // notes say which sources could not be read, and which had more than they
