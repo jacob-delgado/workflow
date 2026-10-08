@@ -193,67 +193,71 @@ func (s *server) readReview() (api.Review, error) {
 
 	read, err := s.readForge(branch)
 
-	return read.review, err
+	return s.reviewDTO(branch, read), err
 }
 
-// forgeRead is what one read of the forge found for a branch: the review, and
-// the error of a CI read that failed, which leaves the review without CI just
-// as no CI would.
+// forgeRead is what one read of the forge found for a branch, in the forge's
+// own terms: whether it has a pull request, which one, and its CI. The CI is
+// read only for an open pull request; when it is not read, or its read fails,
+// ciRead is false and the CI is the zero CI, which reports none, and a read
+// that failed leaves its error in ciErr.
 type forgeRead struct {
-	review api.Review
+	found  bool
+	pull   forge.PullRequest
+	ci     forge.CI
+	ciRead bool
 	ciErr  error
 }
 
 // readForge is the branch's pull request and its CI, or none found when no
 // forge is configured: the one read behind GET /api/review and the event
-// stream's forge cache, which hands it the branch its frame read.
+// stream's forge cache, which hands it the branch its frame read. A merged
+// pull request has no live CI, so it is not asked about, as the terminal does
+// not ask; a CI read that fails leaves the pull request without it rather than
+// failing the whole read.
 func (s *server) readForge(branch gitrepo.Branch) (forgeRead, error) {
 	if s.deps.FindPull == nil {
-		return forgeRead{review: api.Review{Found: false}}, nil
+		return forgeRead{}, nil
 	}
 
 	pull, found, err := s.deps.FindPull(branch.Name)
-	if err != nil {
+	if err != nil || !found {
 		return forgeRead{}, err
 	}
 
-	read := s.review(pull, found, branch.Head)
-	if found {
-		read.review.Issue = s.linkedIssue(branch, pull)
+	read := forgeRead{found: true, pull: pull}
+	if s.deps.CheckCI == nil || !pull.IsOpen() {
+		return read, nil
 	}
+
+	status, ciErr := s.deps.CheckCI(pull, branch.Head)
+	if ciErr == nil {
+		read.ci, read.ciRead = status, true
+	}
+
+	read.ciErr = ciErr
 
 	return read, nil
 }
 
-// review assembles the review state, folding in CI when an open pull request is
-// found and CI can be read. A merged pull request has no live CI, so it is not
-// asked about, as the terminal does not ask. A CI read that fails leaves the pull
-// request without it rather than failing the whole answer, its error beside and
-// its problem in ci_error.
-func (s *server) review(pull forge.PullRequest, found bool, head string) forgeRead {
-	result := api.Review{Found: found}
-	if !found {
-		return forgeRead{review: result}
+// reviewDTO maps what the forge said of branch onto the wire: the pull
+// request with the issue it is for, its CI when it was read, and the problem
+// of a CI read that failed.
+func (s *server) reviewDTO(branch gitrepo.Branch, read forgeRead) api.Review {
+	result := api.Review{Found: read.found}
+	if !read.found {
+		return result
 	}
 
-	dto := pullDTO(pull)
-	result.Pull = &dto
+	pull := pullDTO(read.pull)
+	result.Pull, result.Issue, result.CiError = &pull, s.linkedIssue(branch, read.pull), panelProblem(read.ciErr)
 
-	if s.deps.CheckCI == nil || !pull.IsOpen() {
-		return forgeRead{review: result}
+	if read.ciRead {
+		ci := ciDTO(read.ci)
+		result.Ci = &ci
 	}
 
-	status, err := s.deps.CheckCI(pull, head)
-	if err != nil {
-		result.CiError = panelProblem(err)
-
-		return forgeRead{review: result, ciErr: err}
-	}
-
-	ci := ciDTO(status)
-	result.Ci = &ci
-
-	return forgeRead{review: result}
+	return result
 }
 
 // ListReviews returns the pull requests on the forge that ask for your review,

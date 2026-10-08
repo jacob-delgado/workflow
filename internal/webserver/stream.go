@@ -45,7 +45,7 @@ type forgeCache struct {
 	held   bool
 	key    forgeKey
 	readAt time.Time
-	review api.Review
+	read   forgeRead
 	// failed is why the last read did not answer, or nil when it did.
 	failed error
 }
@@ -112,7 +112,7 @@ func (c *forgeCache) drop() {
 // number, so the CI held for it can stand in for a CI read that failed; the CI
 // of another pull request, or of none, cannot. The caller holds the lock.
 func (c *forgeCache) holdsPull(number int) bool {
-	return c.review.Pull != nil && c.review.Pull.Number == number
+	return c.read.found && c.read.pull.Number == number
 }
 
 // streamEvents serves the Server-Sent Events stream: a snapshot on connect, then
@@ -190,15 +190,16 @@ func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, sna
 // beside its panel, in problems, so the empty panel is not taken for an answer.
 func (s *server) snapshot(view string) api.Snapshot {
 	branch, branchErr := s.frameBranch()
-	review, reviewErr := s.snapshotReview(branch, branchErr)
+	read, reviewErr := s.snapshotReview(branch, branchErr)
 
 	// A queued announcement waits on what the forge says; a read that failed
 	// says nothing of the pull request, so it neither posts nor drops one.
 	if branchErr == nil && reviewErr == nil {
-		s.settleHeld(branch, review)
+		s.settleHeld(branch, read)
 	}
 
-	review.Announced = s.reviewAnnounced(review)
+	review := s.reviewDTO(branch, read)
+	review.Announced = s.reviewAnnounced(read)
 	issues, issuesErr := s.snapshotIssues(view)
 	changes, changesErr := s.snapshotChanges()
 	commit := s.commitConvention()
@@ -437,18 +438,18 @@ func (s *server) snapshotChanges() (api.ChangeList, error) {
 // can be found, or the forge has not answered for this branch at this head.
 // Its error is why the forge did not answer, or why the branch it would be
 // asked about could not be read.
-func (s *server) snapshotReview(branch gitrepo.Branch, branchErr error) (api.Review, error) {
+func (s *server) snapshotReview(branch gitrepo.Branch, branchErr error) (forgeRead, error) {
 	if branchErr != nil {
-		return api.Review{Found: false}, branchErr
+		return forgeRead{}, branchErr
 	}
 
 	return s.forgeReview(branch)
 }
 
-// forgeReview is the branch's review from the forge cache, read again when the
+// forgeReview is what the forge cache holds of the branch, read again when the
 // cache holds none for the branch at its head, or once the forge interval has
 // passed since the last read, with why the last read failed, if it did.
-func (s *server) forgeReview(branch gitrepo.Branch) (api.Review, error) {
+func (s *server) forgeReview(branch gitrepo.Branch) (forgeRead, error) {
 	interval := s.forgeInterval()
 	key := forgeKey{branch: branch.Name, head: branch.Head}
 
@@ -459,24 +460,23 @@ func (s *server) forgeReview(branch gitrepo.Branch) (api.Review, error) {
 	held := s.forgeAnswer.held && s.forgeAnswer.key == key
 
 	if held && now.Sub(s.forgeAnswer.readAt) < interval {
-		return s.forgeAnswer.review, s.forgeAnswer.failed
+		return s.forgeAnswer.read, s.forgeAnswer.failed
 	}
 
 	read, err := s.readForge(branch)
 	s.forgeAnswer.readAt, s.forgeAnswer.failed = now, err
 
 	if err != nil && held {
-		return s.forgeAnswer.review, err
+		return s.forgeAnswer.read, err
 	}
 
-	review := read.review
-	if held && read.ciErr != nil && s.forgeAnswer.holdsPull(review.Pull.Number) {
-		review.Ci = s.forgeAnswer.review.Ci
+	if held && read.ciErr != nil && s.forgeAnswer.holdsPull(read.pull.Number) {
+		read.ci, read.ciRead = s.forgeAnswer.read.ci, s.forgeAnswer.read.ciRead
 	}
 
-	s.forgeAnswer.held, s.forgeAnswer.key, s.forgeAnswer.review = true, key, review
+	s.forgeAnswer.held, s.forgeAnswer.key, s.forgeAnswer.read = true, key, read
 
-	return review, err
+	return read, err
 }
 
 // forgeInterval is how long a forge answer serves the stream:
