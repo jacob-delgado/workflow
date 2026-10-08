@@ -388,7 +388,9 @@ each repository's requests with its name, the longest-waiting first within it â€
 the orders the terminal's `s` cycles through. **Filter** narrows them, as the
 terminal's `f` does: a button for each repository, CI state, draft or ready, and
 author the queue holds, each with how many requests hold it. Values in one of
-those widen the list, and the four narrow it together. The order and the
+those widen the list, and the four narrow it together. A value picked stays
+on offer, at zero, once no request holds it, so it can be unpicked; a
+repository or author the queue no longer holds comes last. The order and the
 filter chosen stay while you visit other sections. The section asks the
 forge when you open it, unless it asked within the last 30 seconds, and
 **Refresh** asks again.
@@ -403,13 +405,17 @@ context says it narrows the list. Each row marks whether the task is started,
 then its id, what it is, and quietly its issue, when it is due and its
 urgency. **Sort** orders each group by urgency, state, ID, tag, issue or
 priority, as the terminal's `O` does, and sorted by tag or priority each row
-shows its tags or priority. **Search** keeps the tasks whose description,
+shows its tags or priority, as the filter names them: *no tag* or *no
+priority* for a task with none. **Search** keeps the tasks whose description,
 project, `+tag`, issue key or `#id` holds what you type, and the **Filter**
 chips narrow the list by state, priority, project, tag and whether a task has
 an issue, each with its count; pressing **waiting** lists the waiting tasks.
-The order and the chips stay while you visit other sections.
-The section reads Taskwarrior when you open it and when **Refresh**
-asks, rather than from the stream. It needs Taskwarrior 3.5.0 or newer, found
+A value picked stays on offer, at zero, once no task holds it, so it can be
+unpicked; a project or tag no task holds any longer comes last. The order and
+the chips stay while you visit other sections. The section reads Taskwarrior
+when you open it, when **Refresh** asks, and again once the earliest wait
+still ahead has passed, since that changes where a task stands with nothing
+written, rather than from the stream. It needs Taskwarrior 3.5.0 or newer, found
 as [Configuration]({{< relref "/docs/configuration#taskwarrior" >}})
 describes; without one it says why â€” and, where the `task` on `PATH` is
 another program, go-task most likely, that Settings can name Taskwarrior's
