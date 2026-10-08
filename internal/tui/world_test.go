@@ -203,7 +203,10 @@ type world struct {
 	// records whether that run's own Stop was called.
 	runBlocks bool
 	runStop   *bool
-	tasks     *taskWorld
+	// stopExitsClean has a blocking run, once stopped, exit as if it had
+	// finished, as a program that traps the signal does.
+	stopExitsClean bool
+	tasks          *taskWorld
 	// slack is the Slack directory and the kept associations; nil has neither.
 	slack *slackWorld
 }
@@ -250,7 +253,12 @@ func (w *world) blockingOutput() proc.Output {
 		}
 	}
 
-	return proc.Output{Lines: lines, Wait: func() error { return errRunStopped }, Stop: stop}
+	wait := func() error { return errRunStopped }
+	if w.stopExitsClean {
+		wait = func() error { return nil }
+	}
+
+	return proc.Output{Lines: lines, Wait: wait, Stop: stop}
 }
 
 // newWorld is a repository on a feature branch for an issue in progress, with
