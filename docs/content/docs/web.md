@@ -59,13 +59,19 @@ alone; each still has its name, shown on hover and read by a screen reader.
 **The theme** button cycles System, Light and Dark. System follows your
 operating system; the choice is remembered in this browser.
 
-**The stream** keeps the page current. The server reads the repository and
-the services every five seconds and pushes what it finds, so nothing on the
-page needs refreshing by hand. The forge — the pull request, its reviews and
-its CI — is asked less often: at most once every `timing.ci_interval` (twenty
-seconds unless set), however many tabs are open, and at once when another
-branch is checked out, its head commit moves, or the page opens a pull
-request. A forge read that fails keeps the last answer for the same branch
+**The stream** keeps the page current. Every five seconds the server pushes
+each open tab what it finds, so nothing on the page needs refreshing by hand.
+Each push reads the repository afresh — the branch, the working tree, the
+branches and worktrees, the commit scope — and Taskwarrior, all on this
+machine. What it asks over the network is shared by every tab: the issue
+search is made at most once every `timing.ci_interval` (twenty seconds unless
+set) for each view, and again on the next push after a status change or an
+assignment made here; which of the branches' issues are yours, once a minute;
+and the forge — the pull request, its reviews and its CI — at most once every
+`timing.ci_interval`, and at once when another branch is checked out, its
+head commit moves, or the page opens a pull request. A tab that has an
+answer to show is never held up by another tab's read of the forge or the
+tracker. A forge read that fails keeps the last answer for the same branch
 and head commit, and says why beside it. A read that fails shows as a
 failure in its section, with the reason, rather than as an empty one: the
 Issues list does not say no issue matches, the Branch section does not say

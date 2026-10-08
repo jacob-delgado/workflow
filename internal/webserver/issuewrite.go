@@ -121,6 +121,8 @@ func (s *server) TransitionIssue(
 		return problemAnswer[api.TransitionIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
+	s.issuesHeld.drop()
+
 	return api.TransitionIssue200JSONResponse{Key: request.Key, Status: move.ToStatus}, nil
 }
 
@@ -266,6 +268,8 @@ func (s *server) ChangeStatus(
 		return problemAnswer[api.ChangeStatusdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
+	s.issuesHeld.drop()
+
 	return api.ChangeStatus200JSONResponse{Key: request.Key, Status: move.ToStatus}, nil
 }
 
@@ -383,6 +387,8 @@ func (s *server) AssignIssue(
 	if err != nil {
 		return problemAnswer[api.AssignIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
+
+	s.issuesHeld.drop()
 
 	return api.AssignIssue200JSONResponse{Key: request.Key, Assignee: assignee}, nil
 }
