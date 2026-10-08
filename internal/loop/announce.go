@@ -225,8 +225,9 @@ type Delivery struct {
 // has gone out, records what it made, so a later session knows not to make it
 // again, and the groups it tagged. A post that fails records nothing; the
 // error is the post's own, for the caller to word. A post that went out but
-// was not remembered is ErrNotRemembered, carrying why: the post was made, and
-// the caller says so with NotRememberedWarning.
+// was not remembered is ErrNotRemembered, carrying why, which
+// NotRememberedReason reads: the post was made, and the caller says so with
+// NotRememberedWarning.
 func Deliver(post func(channel, text string) error, memory AnnounceMemory, delivery Delivery) error {
 	if post == nil {
 		return ErrAnnounceUnavailable
@@ -249,10 +250,39 @@ func Deliver(post func(channel, text string) error, memory AnnounceMemory, deliv
 
 	err = memory.Record(delivery.Made)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrNotRemembered, err)
+		return notRememberedError{why: err}
 	}
 
 	return nil
+}
+
+// notRememberedError is ErrNotRemembered carrying why the store could not
+// remember the announcement Deliver posted.
+type notRememberedError struct {
+	why error
+}
+
+var _ error = notRememberedError{}
+
+func (e notRememberedError) Error() string {
+	return ErrNotRemembered.Error() + ": " + e.why.Error()
+}
+
+func (e notRememberedError) Unwrap() []error {
+	return []error{ErrNotRemembered, e.why}
+}
+
+// NotRememberedReason reports whether err is Deliver's word that it posted an
+// announcement the store could not remember, wrapped or not, and why the store
+// could not: what the terminal and workflow announce say after
+// NotRememberedWarning.
+func NotRememberedReason(err error) (string, bool) {
+	var notKept notRememberedError
+	if !errors.As(err, &notKept) {
+		return "", false
+	}
+
+	return notKept.why.Error(), true
 }
 
 // textWithTags is the text, then the tags on a line of their own when there
