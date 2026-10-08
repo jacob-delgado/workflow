@@ -61,6 +61,7 @@ func commentJira(t *testing.T, markdown bool) (string, *commentsPosted) {
 		posted.bodies = append(posted.bodies, sent.Body)
 		posted.mu.Unlock()
 
+		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(http.StatusCreated)
 		_, _ = writer.Write([]byte(`{"author":{"displayName":"Ana"},"body":"posted"}`))
 	}))

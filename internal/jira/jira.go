@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
@@ -24,6 +25,10 @@ import (
 // 401 and says it cannot be read anonymously, which is what makes it a probe;
 // /rest/api/2/serverInfo, the obvious alternative, answers 200 to strangers.
 const myselfPath = "/rest/api/2/myself"
+
+// jsonMediaType is what Jira is asked to answer in, and what an answer must be
+// before it is decoded.
+const jsonMediaType = "application/json"
 
 // bodyLimit bounds how much of an answer is read. An issue with a thousand
 // comments is a few megabytes; an answer past this is not one worth decoding.
@@ -53,6 +58,9 @@ var (
 	ErrRejected = errors.New("jira rejected the request")
 	// ErrUnexpectedStatus reports any other status.
 	ErrUnexpectedStatus = errors.New("unexpected response status")
+	// ErrNotJSON reports an answer that was not JSON, which usually means the
+	// base URL reaches a sign-in page or a proxy rather than Jira's REST API.
+	ErrNotJSON = errors.New("the answer was not JSON")
 	// ErrUnreachable reports a request that never got an answer.
 	ErrUnreachable = errors.New("could not reach the server")
 )
@@ -111,7 +119,7 @@ func (c Client) newRequest(ctx context.Context, method, pathAndQuery string, bod
 	}
 
 	// Without this Jira answers errors in XML rather than JSON.
-	request.Header.Set("Accept", "application/json")
+	request.Header.Set("Accept", jsonMediaType)
 	authenticate(request, c.settings)
 
 	// After the token, so a proxy in front of Jira can be given the header it
@@ -139,7 +147,7 @@ func (c Client) newJSONRequest(ctx context.Context, method, path string, body an
 		return nil, err
 	}
 
-	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Content-Type", jsonMediaType)
 
 	return request, nil
 }
@@ -177,12 +185,39 @@ func (c Client) exchange(request *http.Request) ([]byte, error) {
 		return nil, err
 	}
 
+	err = mustBeJSON(response)
+	if err != nil {
+		return nil, err
+	}
+
 	body, err := httpx.Read(response.Body, bodyLimit)
 	if err != nil {
 		return nil, fmt.Errorf("reading the answer from %s: %w", c.settings.BaseURL, err)
 	}
 
 	return sanitize.JSON(body), nil
+}
+
+// mustBeJSON rejects an answer with a body that is not JSON. An answer with no
+// body, as a 204 or an empty 201 is, has nothing to be anything.
+//
+// A base URL that reaches a sign-in page or a proxy rather than Jira answers
+// 200 with HTML, and decoding that produces "invalid character '<'" — which
+// tells nobody what went wrong.
+func mustBeJSON(response *http.Response) error {
+	if response.StatusCode == http.StatusNoContent || response.ContentLength == 0 {
+		return nil
+	}
+
+	contentType := response.Header.Get("Content-Type")
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil || mediaType != jsonMediaType {
+		return fmt.Errorf("%w but %q — does jira.base_url reach Jira itself rather than a sign-in page?",
+			ErrNotJSON, contentType)
+	}
+
+	return nil
 }
 
 // decode sends a built request and unmarshals the answer into T — the

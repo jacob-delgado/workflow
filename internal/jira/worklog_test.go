@@ -37,6 +37,7 @@ func TestAddWorklogPostsTheDurationAndNoteAndReturnsTheWorklog(t *testing.T) {
 		sentComment.Store(body.Comment)
 
 		writer.Header().Set("X-Ausername", "fred")
+		writer.Header().Set("Content-Type", jsonMediaType)
 		writer.WriteHeader(http.StatusCreated)
 		_, _ = writer.Write([]byte(`{"id":"10101","timeSpent":"2h"}`))
 	})
