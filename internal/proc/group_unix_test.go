@@ -45,6 +45,53 @@ func TestStartKillsTheGrandchildWhenTheRunIsCanceled(t *testing.T) {
 	}
 }
 
+func TestARunEndsThoughAProcessItLeftBehindHoldsItsOutput(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The helper exits at once, leaving a sleeper that holds the pipe open for
+	// a minute, as a hook that backgrounds a server does.
+	output, err := proc.Start(t.Context(), child(t.TempDir(), "background"))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	type ending struct {
+		lines []string
+		err   error
+	}
+
+	ended := make(chan ending, 1)
+
+	// Act
+	go func() {
+		lines, err := collect(t, output)
+		ended <- ending{lines: lines, err: err}
+	}()
+
+	// Assert
+	select {
+	case end := <-ended:
+		t.Cleanup(func() { killAll(end.lines) })
+
+		if end.err != nil || len(end.lines) != 1 {
+			t.Errorf("the run ended with %q and %v, want the pid it printed and no failure", end.lines, end.err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Lines stayed open and Wait blocked while the process left behind held the output")
+	}
+}
+
+// killAll kills each process a line names by its pid.
+func killAll(lines []string) {
+	for _, line := range lines {
+		pid, err := strconv.Atoi(strings.TrimSpace(line))
+		if err == nil {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+		}
+	}
+}
+
 // grandchildPID reads the pid the helper printed for the process it spawned.
 func grandchildPID(t *testing.T, output proc.Output) int {
 	t.Helper()

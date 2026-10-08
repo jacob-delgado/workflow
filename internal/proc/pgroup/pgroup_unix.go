@@ -14,9 +14,11 @@ import (
 	"time"
 )
 
-// killGrace is how long Wait is given to return after the group is signaled
-// before the pipes are force-closed, so a grandchild still holding the output
-// open cannot keep Wait blocked once its parent is gone.
+// killGrace is how long Wait gives the child to exit once the group is
+// signaled before it kills the child itself. It closes no output: exec closes
+// only the pipes it made, and a streamed run hands the child a pipe of its own,
+// so a process still holding the output once the child is gone is for the
+// run's reader to stop waiting on (proc's outputGrace).
 const killGrace = 2 * time.Second
 
 // Isolate puts command in its own process group and, when its context is
