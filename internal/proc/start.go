@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/proc/pgroup"
 )
@@ -24,6 +25,14 @@ const maxLine = 1 << 20
 // lineBuffer is how many lines may wait for a reader before the program is made
 // to wait instead.
 const lineBuffer = 64
+
+// outputGrace is how long a run's output may keep it waiting once the program
+// has exited. A process the program left behind — a server a hook backgrounded,
+// a daemon that left the group — holds the pipe open long after, so past the
+// grace the pipe is closed and the run ends. It counts only the time spent
+// waiting on the pipe, never on whoever reads Lines, so a slow reader still
+// gets every line the program wrote.
+const outputGrace = 2 * time.Second
 
 // Command is a program to run, and where and how to run it.
 type Command struct {
@@ -106,15 +115,13 @@ func Start(ctx context.Context, program Command) (Output, error) {
 
 	lines := make(chan string, lineBuffer)
 	done := make(chan error, 1)
+	run := stream{
+		name: program.Name, command: command, reader: reader,
+		sender: &lineSender{mu: sync.Mutex{}, lines: lines, closed: false, abandoned: make(chan struct{})},
+	}
 
 	go func() {
-		scanErr := deliver(runCtx, reader, lines)
-
-		close(lines)
-
-		_ = reader.Close()
-
-		result := exited(program.Name, command.Wait(), scanErr)
+		result := run.follow(runCtx)
 
 		// The program has been reaped; releasing the context now frees it whether
 		// or not Stop was ever called, without disturbing that result or firing
@@ -131,18 +138,183 @@ func Start(ctx context.Context, program Command) (Output, error) {
 	return Output{Lines: lines, Wait: sync.OnceValue(func() error { return <-done }), Stop: cancel}, nil
 }
 
+// stream is one streamed run as its reader follows it.
+type stream struct {
+	name    string
+	command *exec.Cmd
+	reader  *os.File
+	sender  *lineSender
+}
+
+// follow delivers the run's output until it ends, or until the program has
+// exited and the pipe has kept it waiting outputGrace, and reports how the
+// program ended. The program is waited for on its own, since a process it
+// left behind can hold the pipe open past its exit.
+func (s stream) follow(ctx context.Context) error {
+	waited := make(chan error, 1)
+
+	go func() {
+		waited <- s.command.Wait()
+	}()
+
+	onPipe := make(chan bool)
+	scanned := make(chan error, 1)
+
+	go func() {
+		scanned <- deliver(ctx, s.reader, s.sender, s.waiting(onPipe))
+	}()
+
+	waitErr, scanErr := s.watch(waited, onPipe, scanned)
+
+	s.sender.close()
+
+	_ = s.reader.Close()
+
+	return exited(s.name, waitErr, scanErr)
+}
+
+// waiting is how deliver says it is, or is no longer, waiting on the pipe,
+// which stops mattering once the run has abandoned its output.
+func (s stream) waiting(onPipe chan<- bool) func(bool) {
+	return func(waiting bool) {
+		select {
+		case onPipe <- waiting:
+		case <-s.sender.abandoned:
+		}
+	}
+}
+
+// watch follows the run to the end of its output, counting outputGrace down
+// while the program has exited and deliver waits on the pipe. Past it the
+// pipe is closed, which ends a read in progress on Unix, and the output is
+// abandoned, so the run ends even where that read cannot be ended.
+func (s stream) watch(waited <-chan error, onPipe <-chan bool, scanned <-chan error) (error, error) {
+	var (
+		waitErr error
+		reading bool
+	)
+
+	grace := pipeGrace{left: outputGrace, started: time.Time{}, timer: nil}
+	exit := waited
+
+	for {
+		select {
+		case reading = <-onPipe:
+			grace.run(exit == nil && reading)
+		case waitErr = <-exit:
+			exit = nil
+
+			grace.run(reading)
+		case scanErr := <-scanned:
+			if exit != nil {
+				waitErr = <-exit
+			}
+
+			return waitErr, scanErr
+		case <-grace.expired():
+			s.sender.abandon()
+
+			_ = s.reader.Close()
+
+			return waitErr, nil
+		}
+	}
+}
+
+// pipeGrace counts a duration down only while it runs, so the time a reader
+// spends waiting on someone else is not counted against it.
+type pipeGrace struct {
+	left    time.Duration
+	started time.Time
+	timer   *time.Timer
+}
+
+// run starts or pauses the count.
+func (g *pipeGrace) run(running bool) {
+	switch {
+	case running && g.timer == nil:
+		g.started = time.Now()
+		g.timer = time.NewTimer(g.left)
+	case !running && g.timer != nil:
+		g.timer.Stop()
+		g.left -= time.Since(g.started)
+		g.timer = nil
+	}
+}
+
+// expired delivers once the count reaches zero, and never while it is paused.
+func (g *pipeGrace) expired() <-chan time.Time {
+	if g.timer == nil {
+		return nil
+	}
+
+	return g.timer.C
+}
+
+// lineSender hands lines to Lines until it is closed, and drops any after, so
+// Lines can close while a read the run abandoned is still in progress.
+type lineSender struct {
+	mu     sync.Mutex
+	lines  chan string
+	closed bool
+	// abandoned closes when the run stops waiting for the rest of its output, so
+	// a send or a read still in progress delivers nothing more.
+	abandoned chan struct{}
+}
+
+// send hands a line on, unless ctx is done or the output is abandoned or
+// closed, so the program is never left writing to a pipe nobody empties.
+func (s *lineSender) send(ctx context.Context, line string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.closed {
+		return
+	}
+
+	select {
+	case s.lines <- line:
+	case <-ctx.Done():
+	case <-s.abandoned:
+	}
+}
+
+// abandon gives up on the rest of the output, ending a send in progress.
+func (s *lineSender) abandon() {
+	close(s.abandoned)
+}
+
+// close closes Lines, once.
+func (s *lineSender) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !s.closed {
+		s.closed = true
+		close(s.lines)
+	}
+}
+
 // deliver sends each line until the output ends, and never leaves the program
 // writing to a pipe that nobody empties: once ctx is done it keeps reading
-// without sending, and after a line too long to scan it discards the rest.
-func deliver(ctx context.Context, output io.Reader, lines chan<- string) error {
+// without sending, and after a line too long to scan it discards the rest. It
+// says through waiting when it starts and stops waiting on the pipe.
+func deliver(ctx context.Context, output io.Reader, sender *lineSender, waiting func(bool)) error {
 	scanner := bufio.NewScanner(output)
 	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxLine)
 
-	for scanner.Scan() {
-		select {
-		case lines <- scanner.Text():
-		case <-ctx.Done():
+	for {
+		waiting(true)
+
+		more := scanner.Scan()
+
+		waiting(false)
+
+		if !more {
+			break
 		}
+
+		sender.send(ctx, scanner.Text())
 	}
 
 	err := scanner.Err()
