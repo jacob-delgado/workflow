@@ -13,8 +13,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // Every seam gets past its connect guard and returns the forge's answer, which
@@ -192,10 +194,15 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 // once for both, not once for each.
 func TestTheTrackerAndForgeSeamsLookUpTheForgeTokenOnce(t *testing.T) {
 	// Arrange
+	// Over HTTP, to a forge nothing answers for: the token is found when the
+	// connection is made, whatever becomes of the requests sent through it.
+	const closedForge = "127.0.0.1:1"
+
 	ghStub := installForgeCLI(t, "gh", forgeReplies{})
 	t.Setenv("GITHUB_TOKEN", "")
 
-	cfg, where := githubCLIWorkspace(t)
+	cfg := config.Config{Forge: config.Forge{Kind: githubKind, Host: closedForge}}
+	where := wiring.Workspace{Root: t.TempDir(), Remote: "https://" + closedForge + "/owner/repo.git"}
 	deps := wired(t, cfg, where, nil)
 
 	// Act
@@ -203,8 +210,9 @@ func TestTheTrackerAndForgeSeamsLookUpTheForgeTokenOnce(t *testing.T) {
 	_, _, findErr := deps.Forge.FindPullRequest(featureBranch)
 
 	// Assert
-	if searchErr != nil || findErr != nil {
-		t.Fatalf("Search = %v, FindPullRequest = %v; want both answered", searchErr, findErr)
+	if searchErr == nil || findErr == nil {
+		t.Fatalf("Search = %v, FindPullRequest = %v; want both refused by a forge nothing answers for",
+			searchErr, findErr)
 	}
 
 	if lookups := ghStub.tokenLookups(); lookups != 1 {
