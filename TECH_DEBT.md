@@ -424,38 +424,6 @@ chase" then names the allowlist as the exception list.
 **Done when.** The gate fails a new untested `err != nil` arm, and the
 measured share is at least two points above the floor.
 
-### DEBT-241 Pay down TRADE-2: split the test files past 700 lines and stop pinning counts in prose
-
-Severity: low · Confidence: measured · Size: M
-
-**Where.** `scripts/check-file-length.sh` (site comment at `:46`), TRADE-2;
-`internal/messaging/post_test.go` (768), `internal/webserver/runs_test.go`
-(769), `web/src/features/review/ReviewPanel.test.tsx` (710),
-`internal/codeowners/codeowners_test.go` (707),
-`web/src/features/issues/WorkStory.test.tsx` (702).
-
-**Today.** TRADE-2's trigger has fired: `post_test.go`, given at 766, is 768,
-and it holds a second behavior (the announcement's text and templating,
-`TestAnnouncementText` to `TestAConfiguredTemplateStillEscapesAHostileValue`).
-Most pinned counts are stale (`composer_test.go` 595 not 568,
-`BranchPanel.test.tsx` 573 not 513), `jira/detail_test.go` is now under 500,
-and the premise of seven skimmable files is gone: 59 files are past the soft
-target, 38 of them tests, five past 700, none of those five but `post_test.go`
-in the entry. Unlisted examples include `internal/cli/root_test.go`,
-`internal/tui/help_test.go`, `tasks_test.go`,
-`internal/convention/convention_test.go` and
-`internal/gitrepo/branch_test.go`. The warning is noise.
-
-**Fix.** Move the announcement-text tests out of `post_test.go` into
-`announcement_test.go` (and optionally the webhook tests into
-`webhook_test.go`); split the other four past 700 by the behavior they group,
-with shared fixtures in a sibling helper file. Lower the hard ceiling for test
-files to 700 in `check-file-length.sh` so it cannot drift again. Paying this
-closes TRADE-2: delete the entry and its site comment.
-
-**Done when.** No file in `check-file-length.sh --list` exceeds 700, `task
-check` passes, and TRADE-2 is gone.
-
 ### DEBT-243 Concurrency tests synchronize on wall-clock time
 
 Severity: low · Confidence: read · Size: M
@@ -489,18 +457,15 @@ hold time, and `go test -race -count=20` passes for them.
 
 Severity: low · Confidence: read · Size: S
 
-**Where.** TRADE-2 and TRADE-18 in this file; the register's ordering
-(TRADE-28 between TRADE-23 and TRADE-24); `scripts/check-tradeoffs.sh`.
+**Where.** TRADE-18 in this file; the register's ordering (TRADE-28 between
+TRADE-23 and TRADE-24); `scripts/check-tradeoffs.sh`.
 
-**Today.** The entries this edition keeps were rewritten to `b9ab000`, but two
-left until their paydown still cite what the code no longer has. Six of the
-seven lengths TRADE-2 pins have moved: `post_test.go` is 515 lines, not 766,
-`detail_test.go` is back under the target at 474, and `check-file-length.sh
---list` flags 45 test files past it, not seven. TRADE-18 names `targetDir`
-(now `whereInit`), places `connectLeniently` in `cli.go` (now `connect.go`)
-and `repositoryFactsFor` in `doctor_json.go` (now `doctor.go`), counts
-`reportRepository`, which no longer reads the working directory, among seven
-conditions that are now six, and cites lines that have all moved.
+**Today.** The entries this edition keeps were rewritten to `b9ab000`, but one
+left until its paydown still cites what the code no longer has. TRADE-18 names
+`targetDir` (now `whereInit`), places `connectLeniently` in `cli.go` (now
+`connect.go`) and `repositoryFactsFor` in `doctor_json.go` (now `doctor.go`),
+counts `reportRepository`, which no longer reads the working directory, among
+seven conditions that are now six, and cites lines that have all moved.
 `check-tradeoffs.sh` checks IDs, not the files and lines an entry cites, so
 nothing catches this.
 
@@ -970,9 +935,9 @@ TRADE-5, TRADE-8, TRADE-9, TRADE-11, TRADE-13, TRADE-14, TRADE-24, TRADE-25,
 TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is true at
 `b9ab000`. TRADE-16 was paid down to the two calls it now names, and
 TRADE-21 and TRADE-28 to two copies held to one shared case file, and each
-stays. TRADE-2, TRADE-6, TRADE-10, TRADE-12, TRADE-18, TRADE-19, TRADE-23 and
-TRADE-29 are to be paid down by the entries above whose titles name them, and
-each stays here, as it was, until its entry is paid.
+stays. TRADE-6, TRADE-10, TRADE-12, TRADE-18, TRADE-19, TRADE-23 and TRADE-29
+are to be paid down by the entries above whose titles name them, and each
+stays here, as it was, until its entry is paid.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
@@ -980,34 +945,6 @@ and a group links to a Slack user group. A bare name decided as a person
 before GitLab was asked, as every one was, is asked about again as a team once
 GitLab knows it as a group; one GitLab cannot be asked about stays what it was
 decided as. Its ID is not reused.
-
-### TRADE-2 Seven test files stay past the 500-line soft target
-
-All seven are under the 800 ceiling (`scripts/check-file-length.sh
---list`). They were left whole on purpose when the source files past the
-target were split by concern; each holds the cases of one behavior.
-Announcing: `internal/messaging/post_test.go` (766, the post to each
-service and the announcement's text) and `internal/tui/messaging_test.go`
-(614, the terminal's Messaging pane). Opening a pull request:
-`internal/webserver/pullrequest_test.go` (585, the web's draft and open).
-Staging, committing and pushing: `internal/tui/composer_test.go` (568, the
-terminal's commit composer), `internal/webserver/staging_test.go` (533, the
-web's stage and unstage) and `web/src/features/branch/BranchPanel.test.tsx`
-(513, the web's commit and push). Reading and writing an issue:
-`internal/jira/detail_test.go` (501, Jira's issue read, comment and pull
-request link). The counts are pinned: a commit that changes the length of
-one of these files updates its count here.
-
-**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
-2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
-
-**Cost.** `scripts/check-file-length.sh` still warns on every run, so a
-source file newly past the target is one more line among seven a reader has
-learned to skim.
-
-**Reopen when.** One of the seven passes 700 lines, or grows at all once
-past it (`post_test.go` is at 766), or starts holding the cases of a second
-behavior.
 
 ### TRADE-3 The web is read-only under `--dry-run`
 
