@@ -7,6 +7,21 @@ import { queryClient } from './queryClient.ts'
 import './api/client.ts'
 import './index.css'
 
+declare global {
+  interface ImportMetaEnv {
+    // Set by `task web:mockup` to run the page against the mockup's server.
+    readonly VITE_MOCK?: string
+  }
+}
+
+// `task web:mockup` sets VITE_MOCK, and the mockup's server stands in for
+// workflow's before the page asks it anything; a production build leaves it
+// out.
+if (import.meta.env.VITE_MOCK === 'true') {
+  const { installMockServer } = await import('./dev/mockServer.ts')
+  installMockServer()
+}
+
 const root = document.getElementById('root')
 if (root) {
   createRoot(root).render(

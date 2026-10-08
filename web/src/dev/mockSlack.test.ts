@@ -7,9 +7,8 @@ import { beforeEach, vi } from 'vitest'
 async function fresh() {
   const slack = await import('./mockSlack.ts')
   const localData = await import('./mockLocalData.ts')
-  const { apiErrorMessage } = await import('@/api/apiError.ts')
 
-  return { ...slack, ...localData, apiErrorMessage }
+  return { ...slack, ...localData }
 }
 
 beforeEach(() => {
@@ -41,23 +40,13 @@ test.each([
 
 test('a refusal says why, as the server words it', async () => {
   // Arrange
-  const { apiErrorMessage, mockLinkPerson } = await fresh()
+  const { mockLinkPerson } = await fresh()
 
   // Act
-  const caught = (() => {
-    try {
-      mockLinkPerson({ owner: 'ben', slack_id: 'S0POD', not_on_slack: false })
-    } catch (refused) {
-      return refused
-    }
-
-    return undefined
-  })()
+  const linking = () => mockLinkPerson({ owner: 'ben', slack_id: 'S0POD', not_on_slack: false })
 
   // Assert
-  expect(apiErrorMessage(caught, 'fallback')).toBe(
-    'a team links to a Slack user group, and a person to a Slack user',
-  )
+  expect(linking).toThrow('a team links to a Slack user group, and a person to a Slack user')
 })
 
 test('the mockup links a member of the channel named', async () => {

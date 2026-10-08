@@ -14,33 +14,14 @@ import { listTasksOptions, listTasksQueryKey } from '@/api/generated/@tanstack/r
 import type { TaskList } from '@/api/generated/types.gen.ts'
 import { rememberCompleted, rememberTrack } from './taskMemo.ts'
 
-// The VITE_MOCK check is read inline (not via a helper) so Vite statically
-// replaces it and code-splits the dev fixture out of a production build, while
-// tests can still stub it at runtime.
-
 // useTasks reads your pending tasks, most urgent first, or why no Taskwarrior
 // can be asked. Taskwarrior changes outside the page — a task added in a
 // terminal, a hook, a sync — and nothing pushes the list, so it is read again
 // each time the section opens. A failed read is not retried on its own: the
 // server has already said what went wrong, and a Taskwarrior that timed out
-// would only be kept waiting again — Try again is the user's to press. Under
-// VITE_MOCK it serves the mockup's list, so the section is filled with no
-// backend.
+// would only be kept waiting again — Try again is the user's to press.
 export function useTasks() {
-  const options = { ...listTasksOptions(), staleTime: 0, retry: false }
-
-  return useQuery(
-    import.meta.env.VITE_MOCK === 'true'
-      ? {
-          ...options,
-          queryFn: async (): Promise<TaskList> => {
-            const { mockTaskList } = await import('@/dev/mockTasks.ts')
-
-            return mockTaskList()
-          },
-        }
-      : options,
-  )
+  return useQuery({ ...listTasksOptions(), staleTime: 0, retry: false })
 }
 
 // AnsweredTasks is the task list as a read or a write last answered it, and
@@ -59,23 +40,9 @@ export function useAnsweredTasks(): AnsweredTasks {
   return { list: data, answeredAt: dataUpdatedAt }
 }
 
-// A task write's request: the SDK call, answered with the list after it.
+// A task write's request: the SDK call, answered with the list after it. A
+// refusal throws the API error, whose message is safe to show.
 type Send = () => Promise<{ data: TaskList }>
-
-// answerOf sends a write and returns the list it answered. A refusal throws the
-// API error, whose message is safe to show. Under VITE_MOCK nothing is sent,
-// and the mockup's list answers as it is.
-async function answerOf(send: Send): Promise<TaskList> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockTaskList } = await import('@/dev/mockTasks.ts')
-
-    return mockTaskList()
-  }
-
-  const { data } = await send()
-
-  return data
-}
 
 // TaskWrites are the changes the page makes to your tasks, each answering the
 // list after it.
@@ -102,7 +69,7 @@ interface TaskWrites {
 export function useTaskWrites(): TaskWrites {
   const queryClient = useQueryClient()
   const write = async (send: Send): Promise<TaskList> => {
-    const answered = await answerOf(send)
+    const { data: answered } = await send()
     await queryClient.cancelQueries({ queryKey: listTasksQueryKey() })
     queryClient.setQueryData(listTasksQueryKey(), answered)
 

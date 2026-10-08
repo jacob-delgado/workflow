@@ -1,6 +1,5 @@
-import { vi } from 'vitest'
 import { zAnnouncementTagging, zPeople, zSlackDirectory } from '@/api/generated/zod.gen.ts'
-import { previewAnnouncement } from '@/features/messaging/announceApi.ts'
+import { mockAnnouncement } from './mockAnnouncement.ts'
 import { mockConfig } from './mockConfig.ts'
 import { mockIssueDetail } from './mockIssues.ts'
 import { mockSnapshot } from './mockSnapshot.ts'
@@ -48,9 +47,8 @@ test.each(templates)(
   },
 )
 
-test('the mock preview is the mock announcement filled from the mock snapshot', async () => {
+test('the mock announcement is the mock template filled from the mock snapshot', () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
   const template = mockConfig.messaging.announcement ?? ''
   const current = mockSnapshot.branches.find((branch) => branch.current)
   const issue = mockSnapshot.issues.issues.find((listed) => listed.key === current?.issue_key)
@@ -67,11 +65,11 @@ test('the mock preview is the mock announcement filled from the mock snapshot', 
   )
 
   // Act
-  const preview = await previewAnnouncement()
+  const { text } = mockAnnouncement
 
   // Assert
-  expect(preview.text).toBe(filled)
-  expect(placeholdersIn(preview.text)).toEqual([])
+  expect(text).toBe(filled)
+  expect(placeholdersIn(text)).toEqual([])
 })
 
 test('the mock Slack takes the shapes the server sends', () => {

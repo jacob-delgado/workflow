@@ -213,19 +213,6 @@ test('says it is reading the issue until the detail arrives', () => {
   expect(screen.getByText(/reading PROJ-1/i)).toBeTruthy()
 })
 
-test('reads a mock issue under VITE_MOCK', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-
-  // Act
-  renderWithClient(<IssueDetailPanel issueKey="PROJ-412" />)
-
-  // Assert
-  expect(
-    await screen.findByRole('heading', { level: 2, name: /redact tokens before they reach/i }),
-  ).toBeTruthy()
-})
-
 test('says to press Try again when a read is refused with no reason', async () => {
   // Arrange
   serveIssue({}, 500)

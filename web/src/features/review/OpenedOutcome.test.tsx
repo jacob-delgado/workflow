@@ -1,6 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { vi } from 'vitest'
 import type { FollowUp, OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -361,21 +360,4 @@ test('a server restarted under --dry-run holds the offer back and says so', asyn
   // Assert
   expect(await screen.findByText(/held back by --dry-run/i)).toBeTruthy()
   expect(writesTo(requests)).not.toContain('POST /api/issues/PROJ-412/link')
-})
-
-test('the mockup opens and follows up with no server behind it', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-  const user = userEvent.setup()
-  const fetch = vi.mocked(globalThis.fetch)
-  await openThePullRequest(user)
-
-  // Act
-  await user.click(screen.getByRole('button', { name: /link it on/i }))
-  await user.click(screen.getByRole('button', { name: /^move /i }))
-
-  // Assert
-  expect(await screen.findByText(/^Linked #\d+ on /)).toBeTruthy()
-  expect(await screen.findByText(/^Moved /)).toBeTruthy()
-  expect(fetch).not.toHaveBeenCalled()
 })

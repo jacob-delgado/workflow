@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook } from '@testing-library/react'
 import { vi } from 'vitest'
 import { FakeEventSource } from '@/test/fakeEventSource.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
@@ -148,38 +148,6 @@ test('marks the stream reconnecting when it errors', () => {
 
   // Assert
   expect(useSnapshotStore.getState().status).toBe('reconnecting')
-})
-
-test('seeds mock data instead of connecting when VITE_MOCK is set', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-
-  // Act
-  renderHook(() => {
-    useEventStream(null, vi.fn())
-  })
-
-  // Assert
-  await waitFor(() => {
-    expect(useSnapshotStore.getState().snapshot?.review.found).toBe(true)
-  })
-  expect(FakeEventSource.instances).toHaveLength(0)
-  expect(useSnapshotStore.getState().receivedAt).toBeGreaterThan(0)
-})
-
-test('records the chosen view under VITE_MOCK', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-
-  // Act
-  renderHook(() => {
-    useEventStream('Team bugs', vi.fn())
-  })
-
-  // Assert
-  await waitFor(() => {
-    expect(useSnapshotStore.getState().view).toBe('Team bugs')
-  })
 })
 
 test('opens the default view with no query', () => {

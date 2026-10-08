@@ -3,7 +3,7 @@ import { mockTasksSummary } from './mockTasks.ts'
 
 // A rich, believable snapshot for `task web:mockup`: enough in every section to
 // navigate the whole cockpit without a real Jira, forge, or Slack. Dev-only —
-// loaded only when VITE_MOCK is set, and code-split out of a production build.
+// pushed down the mockup's event stream (mockServer.ts).
 export const mockSnapshot: Snapshot = {
   here: '/home/ana/src/api',
   issues: {

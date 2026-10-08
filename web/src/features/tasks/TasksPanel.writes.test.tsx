@@ -427,37 +427,6 @@ test('a refused line says why and keeps what was typed', async () => {
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Modify' }))
 })
 
-test('the mockup answers a write without a server', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-  const user = userEvent.setup()
-  renderWithClient(<TasksPanel />)
-  await screen.findByRole('article')
-  await user.click(screen.getByRole('button', { name: 'Undo…' }))
-
-  // Act
-  await user.click(screen.getByRole('button', { name: 'Undo' }))
-
-  // Assert
-  expect(await screen.findByText('Undone.')).toBeTruthy()
-  expect(globalThis.fetch).not.toHaveBeenCalled()
-})
-
-test('the mockup adds a task without a server', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-  const user = userEvent.setup()
-  renderWithClient(<TasksPanel />)
-  await user.type(await screen.findByRole('textbox', { name: 'task add' }), 'Water the plants')
-
-  // Act
-  await user.click(screen.getByRole('button', { name: 'Add' }))
-
-  // Assert
-  expect(await screen.findByText('Added the task.')).toBeTruthy()
-  expect(globalThis.fetch).not.toHaveBeenCalled()
-})
-
 test('a write the dry run holds back says so, and sends nothing', async () => {
   // Arrange
   useHealthStore.setState({ health: makeHealth({ dry_run: true }) })

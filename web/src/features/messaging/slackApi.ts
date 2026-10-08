@@ -6,10 +6,6 @@ import {
 } from '@/api/generated/@tanstack/react-query.gen.ts'
 import type { People, PersonLink, SlackDirectory } from '@/api/generated/types.gen.ts'
 
-// The VITE_MOCK check is read inline (not via a helper) so Vite statically
-// replaces it and code-splits the dev fixture out of a production build, while
-// tests can still stub it at runtime.
-
 // directoryHold is how long a directory read is kept before it is asked
 // again: the server keeps its own for ten minutes, so asking sooner reads the
 // same.
@@ -17,12 +13,6 @@ const directoryHold = 10 * 60 * 1000
 
 // readMembers reads the people in channel — the configured one when empty.
 async function readMembers(channel: string, signal?: AbortSignal): Promise<SlackDirectory> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockSlackMembers } = await import('@/dev/mockSlack.ts')
-
-    return mockSlackMembers(channel)
-  }
-
   const query = channel === '' ? {} : { channel }
   const { data } = await getSlackMembers({ query, signal, throwOnError: true })
 
@@ -44,12 +34,6 @@ export function useSlackMembers(channel: string, enabled: boolean) {
 
 // readGroups reads the workspace's user groups.
 async function readGroups(signal?: AbortSignal): Promise<SlackDirectory> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockSlackGroups } = await import('@/dev/mockSlack.ts')
-
-    return mockSlackGroups()
-  }
-
   const { data } = await getSlackGroups({ signal, throwOnError: true })
 
   return data
@@ -72,12 +56,6 @@ export function useSlackGroups(enabled: boolean) {
 // Slack's directory gives, never the page's. A refusal throws the API error,
 // whose message is safe to show.
 export async function savePerson(link: PersonLink): Promise<People> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockLinkPerson } = await import('@/dev/mockSlack.ts')
-
-    return mockLinkPerson(link)
-  }
-
   const { data } = await linkPerson({ body: link, throwOnError: true })
 
   return data

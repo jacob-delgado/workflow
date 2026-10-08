@@ -1,6 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { vi } from 'vitest'
 import type { LocalData as Listing } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
@@ -189,17 +188,4 @@ test('a listing that could not be read says so and offers to read again', async 
 
   // Assert
   expect(await screen.findByRole('table', { name: 'Local data files' })).toBeTruthy()
-})
-
-test('the mockup lists its store without a server', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-
-  // Act
-  renderWithClient(<LocalData />)
-
-  // Assert
-  const table = await screen.findByRole('table', { name: 'Local data files' })
-  expect(within(table).getByText('kept.db')).toBeTruthy()
-  expect(globalThis.fetch).not.toHaveBeenCalled()
 })

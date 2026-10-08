@@ -11,9 +11,43 @@ import { AppShell } from '@/shell/AppShell.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
+// servesSettings answers Settings' reads as a server keeps them: the mockup's
+// configuration to start and, after a save, what was saved, at the revision
+// it was saved at; a store of one file; and one owner linked on Slack.
+function servesSettings(): Request[] {
+  let stored: unknown = mockConfig
+  let revision = 1
+
+  return fakeApi({
+    '/api/config': async (_at: URL, asked: Request) => {
+      if (asked.method === 'PUT') {
+        stored = await asked.clone().json()
+        revision += 1
+      }
+
+      return Response.json(stored, { headers: { ETag: `"read-${String(revision)}"` } })
+    },
+    '/api/local-data': {
+      dir: '/home/ana/.local/state/workflow',
+      files: [{ name: 'workflow.db', kind: 'cache', bytes: 4096, holds: [] }],
+    },
+    '/api/people': {
+      owners: [
+        {
+          owner: 'carla',
+          kind: 'user',
+          state: 'linked',
+          slack: { id: 'U0CARLA', label: 'Carla Diaz' },
+        },
+      ],
+    },
+    '/api/repo-groups': { repository: 'acme/workflow', groups: [] },
+  })
+}
+
 test('says it is reading until the configuration arrives', () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
 
   // Act
   renderWithClient(<SettingsPanel />)
@@ -25,7 +59,7 @@ test('says it is reading until the configuration arrives', () => {
 
 test('loads the configuration into the form', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   renderWithClient(<SettingsPanel />)
 
   // Act
@@ -37,7 +71,7 @@ test('loads the configuration into the form', async () => {
 
 test('loads the configured messaging service into the Service select', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   renderWithClient(<SettingsPanel />)
 
   // Act
@@ -54,7 +88,7 @@ test('loads the configured messaging service into the Service select', async () 
 
 test('surfaces the commit-convention fields', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   renderWithClient(<SettingsPanel />)
 
   // Act
@@ -68,7 +102,7 @@ test('surfaces the commit-convention fields', async () => {
 
 test('surfaces the branch and pull-request fields', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   renderWithClient(<SettingsPanel />)
 
   // Act
@@ -82,7 +116,7 @@ test('surfaces the branch and pull-request fields', async () => {
 
 test("the hints name the forge's own noun: a merge request on GitLab", async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   useHealthStore.setState({ health: makeHealth(gitLabWords) })
 
   // Act
@@ -105,7 +139,7 @@ test("the hints name the forge's own noun: a merge request on GitLab", async () 
 
 test('editing the commit types saves them as a trimmed list', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const view = render(
@@ -134,7 +168,7 @@ test('editing the commit types saves them as a trimmed list', async () => {
 
 test('an emptied subject limit saves as 0, which keeps the default', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const view = render(
@@ -164,7 +198,7 @@ test('an emptied subject limit saves as 0, which keeps the default', async () =>
 
 test('offers turning the store off and rides it back through a save', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const view = render(
@@ -193,7 +227,7 @@ test('offers turning the store off and rides it back through a save', async () =
 
 test('the Taskwarrior fieldset says its changes apply when workflow restarts', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
 
   // Act
   renderWithClient(<SettingsPanel />)
@@ -209,7 +243,7 @@ test('the Taskwarrior fieldset says its changes apply when workflow restarts', a
 
 test("the Taskwarrior fieldset's program and switch ride back through a save", async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const view = render(
@@ -244,7 +278,7 @@ test("the Taskwarrior fieldset's program and switch ride back through a save", a
 
 test('confirms when the configuration is saved', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
@@ -258,7 +292,7 @@ test('confirms when the configuration is saved', async () => {
 
 test('a clicked Save keeps the focus it was clicked with once it has saved', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
@@ -274,7 +308,7 @@ test('a clicked Save keeps the focus it was clicked with once it has saved', asy
 
 test('a Save clicked by a pointer that gives it no focus hands focus to what it said', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
 
@@ -290,7 +324,7 @@ test('a Save clicked by a pointer that gives it no focus hands focus to what it 
 
 test('the configuration form is named by the Settings heading', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   useUiStore.setState({ section: 'settings' })
 
   // Act
@@ -302,7 +336,7 @@ test('the configuration form is named by the Settings heading', async () => {
 
 test('toggling Markdown comments rides back through a save', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const view = render(
@@ -332,7 +366,7 @@ test('toggling Markdown comments rides back through a save', async () => {
 
 test('a save updates the cache so reopening Settings shows the change', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const view = render(
@@ -457,7 +491,7 @@ test('offers to try again when the configuration cannot be loaded', async () => 
 
 test('the form the first read loads leaves focus where it was', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
 
   // Act
   renderWithClient(<SettingsPanel />)
@@ -469,7 +503,7 @@ test('the form the first read loads leaves focus where it was', async () => {
 
 test('sets up Slack with a user token, not a bot token', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   renderWithClient(<SettingsPanel />)
 
   // Act
@@ -484,7 +518,7 @@ test('sets up Slack with a user token, not a bot token', async () => {
 
 test("the switch that lists this repository's forge issues rides back through a save", async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const view = render(
@@ -512,7 +546,7 @@ test("the switch that lists this repository's forge issues rides back through a 
 
 test('shows the local data under its own heading below the configuration', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
 
   // Act
   renderWithClient(<SettingsPanel />)
@@ -526,7 +560,7 @@ test('shows the local data under its own heading below the configuration', async
 
 test('shows people and groups between the configuration and the local data', async () => {
   // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
+  servesSettings()
 
   // Act
   renderWithClient(<SettingsPanel />)

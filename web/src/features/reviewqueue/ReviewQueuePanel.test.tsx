@@ -117,19 +117,6 @@ test('draws a draft as the not-started mark, before the word', async () => {
   expect(markShape(await screen.findByText('Draft'))).toBe(drawnMark('not-started'))
 })
 
-test('the mockup lists its own queue without a server', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-
-  // Act
-  renderWithClient(<ReviewQueuePanel />)
-
-  // Assert
-  const list = await screen.findByRole('list', { name: 'Waiting on your review' })
-  expect(within(list).getAllByRole('listitem').length).toBeGreaterThan(1)
-  expect(globalThis.fetch).not.toHaveBeenCalled()
-})
-
 test('a request the forge names no repository for says only who asks', async () => {
   // Arrange
   fakeApi({ [reviewsPath]: queueOf(makeReviewRequest({ repository: '' })) })
