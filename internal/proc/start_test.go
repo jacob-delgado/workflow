@@ -67,6 +67,18 @@ func actAsHelper(mode string) {
 		fmt.Fprintln(os.Stdout, grand.Process.Pid)
 
 		_ = grand.Wait()
+	case "background":
+		// Leave a sleeping copy of this binary behind holding standard output, as
+		// a hook that backgrounds a server does, print its pid, and exit at once.
+		//nolint:noctx // this test binary re-run as the sleeper above, in a helper that has no context to thread
+		grand := exec.Command(os.Args[0], "-test.run=^$")
+
+		grand.Env = append(os.Environ(), helperMode+"=sleep")
+		grand.Stdout = os.Stdout
+
+		_ = grand.Start()
+
+		fmt.Fprintln(os.Stdout, grand.Process.Pid)
 	case "long":
 		// A line past what Start will deliver, then more output the program
 		// must still be able to write.
