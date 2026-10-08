@@ -27,7 +27,7 @@ const served = payloads(frames).map((data, index) => [
 ])
 
 test('the server wrote a frame for each workspace', () => {
-  // Assert
+  // Act & Assert
   expect(served.map(([name]) => name)).toEqual(workspaces)
 })
 

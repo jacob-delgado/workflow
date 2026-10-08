@@ -463,6 +463,8 @@ test('offers and opens a merge request in GitLab words throughout', async () => 
     status: 'live',
     snapshot: makeSnapshot({ review: { found: false, announced: false } }),
   })
+
+  // Act: draw the panel
   render(<ReviewPanel />)
 
   // Assert: the offer names a merge request
@@ -646,13 +648,17 @@ test("shows a failed check's log on demand", async () => {
     }),
   })
   const user = userEvent.setup()
+
+  // Act: draw the panel
   render(<ReviewPanel />)
+
+  // Assert: no log is read before it is asked for
   expect(requests).toHaveLength(0)
 
-  // Act
+  // Act: ask for the log
   await user.click(screen.getByRole('button', { name: 'Show log of unit-race' }))
 
-  // Assert
+  // Assert: it shows, and says its earlier lines are cut
   expect(await screen.findByText(/--- FAIL: TestRetry/)).toBeTruthy()
   expect(screen.getByText(/earlier lines are not shown/)).toBeTruthy()
 })

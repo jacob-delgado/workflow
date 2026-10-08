@@ -99,14 +99,18 @@ test('rebases only after a last look at what it rewrites', async () => {
   foldable()
   const user = userEvent.setup()
   render(<BranchPanel />)
+
+  // Act: ask to rebase
   await user.click(screen.getByRole('button', { name: 'Rebase onto main' }))
+
+  // Assert: a last look, and nothing run yet
   const look = screen.getByRole('form', { name: 'Rebase fix/PROJ-1 onto main' })
   expect(mockStartRun).not.toHaveBeenCalled()
 
-  // Act
+  // Act: confirm
   await user.click(within(look).getByRole('button', { name: 'Rebase' }))
 
-  // Assert
+  // Assert: the rebase runs
   expect(mockStartRun).toHaveBeenLastCalledWith({ kind: 'rebase' }, expect.any(Function))
 })
 
