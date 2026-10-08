@@ -231,18 +231,10 @@ says so.
 
 ## Development
 
-```sh
-task --list        # every task, with a description
-task run           # run the TUI from source
-task test          # tests with the race detector
-task cover:branch  # condition coverage: which conditions went only one way
-task check         # the full gate: lint, tests, coverage floors, vuln, secrets
-```
-
-`task check` is what CI runs. See [ARCHITECTURE.md](ARCHITECTURE.md) for how the
-system fits together — the surfaces, the seams, and the two kinds of local state
-— [CONTRIBUTING.md](CONTRIBUTING.md) for the setup and conventions, and
-[CLAUDE.md](CLAUDE.md) for the code standards this project holds itself to.
+[CONTRIBUTING.md](CONTRIBUTING.md) has the setup, the tasks and the gate a
+change must pass; [ARCHITECTURE.md](ARCHITECTURE.md) how the system fits
+together — the surfaces, the seams, and the two kinds of local state — and
+[CLAUDE.md](CLAUDE.md) the code standards this project holds itself to.
 
 ## Documentation
 
