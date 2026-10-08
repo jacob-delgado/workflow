@@ -1,5 +1,112 @@
 # Changelog
 
+## [0.8.0](https://github.com/jacob-delgado/workflow/compare/v0.7.0...v0.8.0) (2026-10-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** PUT /api/config requires jira.token, forge.token, messaging.client_secret, messaging.refresh_token and messaging.webhook_url in its body; send the masked value or "" to keep a credential, and null to remove it.
+* the refusal announce and summary --post print on stderr when Slack will not deliver to the channel no longer ends "then press enter to try again", and its sentences are joined by a semicolon ("you are not in #dev; join it"). A script matching the old text must match the new.
+* **cli:** on a GitLab remote, reviews writes each number with "!" rather than "#" on stdout and says "No merge requests are waiting on your review." on stderr, and pr's and announce's refusals say "merge request". A script parsing "#N" from reviews on GitLab must accept "!N".
+* announce's "to" line on stdout and its dry-run and "Announced to" lines on stderr name the destination as Target() does: the channel, "(no channel set)", or "the channel its webhook is bound to" in place of "the configured SERVICE channel". A script matching the old phrase must match the new one.
+* `workflow config init` with nothing to answer its prompts now exits 2 (usage) instead of 1. A script that ran the guided init unattended should pass --template, or check for status 2.
+
+### Features
+
+* **api:** name the key each action has with no ui.keys entry ([0df3d6b](https://github.com/jacob-delgado/workflow/commit/0df3d6ba85f32b73ea873262bd3bbd14a33fafac))
+* **api:** remove a stored credential when a save sends null ([962fe97](https://github.com/jacob-delgado/workflow/commit/962fe97d9fb86d0b9471345e515c78c6eec79ec2))
+* name the store's directory in doctor, or why there is none ([f16adef](https://github.com/jacob-delgado/workflow/commit/f16adeff534bfb07e64ca806435e2476f89e9360))
+* say what a slow command is reading while it waits ([c580b7e](https://github.com/jacob-delgado/workflow/commit/c580b7e3bd8b31115d2f3e426e39d24ebfdbcbba))
+* **tui:** edit every section of the configuration in Settings ([79f23ce](https://github.com/jacob-delgado/workflow/commit/79f23ce0864a61ac6ee0ea4b417d86ce14714c6c))
+* **tui:** jump to a list's ends with home, end and G ([46e61c6](https://github.com/jacob-delgado/workflow/commit/46e61c63e61278bfeaa59610ae488d477b7eeca8))
+* **tui:** remove a stored credential from Settings ([fff426b](https://github.com/jacob-delgado/workflow/commit/fff426b5c90a3a82ceea0fcf320994d10875f4aa))
+* **web:** borrow the terminal's rename, header count and Copy URL ([023a046](https://github.com/jacob-delgado/workflow/commit/023a046820c9660a7f2110126ec7902b56e499ac))
+* **web:** edit every section of the configuration in Settings ([7be1b7c](https://github.com/jacob-delgado/workflow/commit/7be1b7c917f8d0882e24cf11a847d46b0a3df0a9))
+* **web:** mark what the stream just changed, and when CI settles ([8ed5acc](https://github.com/jacob-delgado/workflow/commit/8ed5accba7c514f3d945f5f3b59bd08d4b209407))
+* **web:** remove a stored credential from Settings ([4aadf8c](https://github.com/jacob-delgado/workflow/commit/4aadf8c5543585127bfde850d4049da1364e2aea))
+
+
+### Bug Fixes
+
+* **cli:** word pr, announce and reviews in the forge's own vocabulary ([e9f6c39](https://github.com/jacob-delgado/workflow/commit/e9f6c39e4bd2507b79863b3af191304e7676da78))
+* **config:** refuse jira.headers and prefixes that name one thing twice ([aeb6b78](https://github.com/jacob-delgado/workflow/commit/aeb6b782b27598c2c69edcec36ff4070160d4368))
+* end pr by naming announce when messaging is set up ([d7b4d97](https://github.com/jacob-delgado/workflow/commit/d7b4d976785031d11c166121d86b902934b246cb))
+* keep the progress note off a terminal that cannot erase ([10e707f](https://github.com/jacob-delgado/workflow/commit/10e707fa07c613b78885d905e08a3c9f9e89016a))
+* name announce's destination in the words the interface uses ([3efa6f0](https://github.com/jacob-delgado/workflow/commit/3efa6f00def1638f3284729ae6fb7d74f4864cb9))
+* point config init with no terminal at --template ([a4f8d86](https://github.com/jacob-delgado/workflow/commit/a4f8d86801dedc34a1518d6667d6a1aa15f1af50))
+* **settings:** refuse a header or prefix the terminal already lists ([b7f804e](https://github.com/jacob-delgado/workflow/commit/b7f804edaec05b79cdb9a492f7a52cb582448e40))
+* **settings:** refuse a web header or prefix named as an earlier row ([d96ecf5](https://github.com/jacob-delgado/workflow/commit/d96ecf5996cf742170f1061fe2ff90f037880e74))
+* **settings:** say where the token, channel and announcement apply ([de3b929](https://github.com/jacob-delgado/workflow/commit/de3b92977e49a197f249304c540ff229d5595ede))
+* **settings:** show the default a title source or service leaves empty ([bcef5cf](https://github.com/jacob-delgado/workflow/commit/bcef5cf3aead9cf07a824cfbb71b1b93edfbb915))
+* show a date field's shape as YYYY-MM-DD in hint and refusal ([0083174](https://github.com/jacob-delgado/workflow/commit/0083174663c62931d12c966a068c0c79e3702326))
+* tell a channel's refusal as its fix, on every surface ([3481985](https://github.com/jacob-delgado/workflow/commit/3481985a16f9b7a03291f76a97951a6d94660284))
+* tell the dirty-tree refusal in one sentence on every surface ([79e221b](https://github.com/jacob-delgado/workflow/commit/79e221bcc0c64494af4e2d0f018bc859609ae49c))
+* **tui:** draw a chosen row as a checkbox, not a status ([31e89c5](https://github.com/jacob-delgado/workflow/commit/31e89c5aaba4d52b13a980c4785995f78067ab66))
+* **tui:** mark a draft review request on its row in the queue ([286fb93](https://github.com/jacob-delgado/workflow/commit/286fb9340647d01fb7959232b7d077345776769a))
+* **tui:** mark every pane's title in flight while its read is out ([c1bcd29](https://github.com/jacob-delgado/workflow/commit/c1bcd298e73a769c55cf77d14be3ee8ad7035238))
+* **tui:** name the bound key in every sentence that offers one ([0ebb06c](https://github.com/jacob-delgado/workflow/commit/0ebb06c974b4010287f149d3ab51d693b90e7921))
+* **tui:** offer Start after a worktree, and name the issue on review ([6ea6771](https://github.com/jacob-delgado/workflow/commit/6ea6771b6a0298e0d650bd16286d639ce26ff5e1))
+* **tui:** say a refused keymap whole, and mark only moved keys edited ([1034458](https://github.com/jacob-delgado/workflow/commit/103445883c959149d29d5643a211831a9d93b2e4))
+* **tui:** tell unset messaging in the shared set-up advice ([482e0fd](https://github.com/jacob-delgado/workflow/commit/482e0fd0a37ee6b932ed8c8013d459135c6df530))
+* **tui:** word the review queue and editor help in the forge's nouns ([d5aeb3e](https://github.com/jacob-delgado/workflow/commit/d5aeb3e046d24c0010cb10f19a1e3e5a7905b13f))
+* **web:** announce the server's address only once it holds the port ([068712b](https://github.com/jacob-delgado/workflow/commit/068712b049dfa37871357c337b7dc5b88f709be9))
+* **web:** confirm Copy URL inside the queue row it copied from ([81ec360](https://github.com/jacob-delgado/workflow/commit/81ec360b8bde39be4e06f0773989801fc01e3bab))
+* **web:** count in words, and say each count in one form ([814a5ef](https://github.com/jacob-delgado/workflow/commit/814a5ef05607b351bba353a01f5f8d22fc2bbf51))
+* **web:** draw the key table only while Rebind keys is open ([41bd8a7](https://github.com/jacob-delgado/workflow/commit/41bd8a7e3513f7b31a863ca2d9b1fea067d2c623))
+* **web:** keep every issue row at one right edge ([1c928da](https://github.com/jacob-delgado/workflow/commit/1c928da158dfcc4de84ff374ba4901fe387f4283))
+* **web:** keep focus on a control held while its request runs ([7a902f1](https://github.com/jacob-delgado/workflow/commit/7a902f1cc5b126ac4f51a7529715a38d1dc2750f))
+* **web:** mark how much of each file is staged with a StateMark ([42911ab](https://github.com/jacob-delgado/workflow/commit/42911aba05eb2fb00d66db29b6d6c92152c61545))
+* **web:** mark the Review rows' states and a queued draft ([58a9a7e](https://github.com/jacob-delgado/workflow/commit/58a9a7e65e619b9a8063053e60092532e12ab3cf))
+* **web:** one case for placeholders, and words that match the state ([8ca3f85](https://github.com/jacob-delgado/workflow/commit/8ca3f85165d6869cadf6cfa5bd37aa2b82df7787))
+* **web:** point a detached HEAD at Issues for a way out ([1f8f284](https://github.com/jacob-delgado/workflow/commit/1f8f28422145368685a64dee311f79bccd162309))
+* **web:** say a clean working tree under its heading ([5fba456](https://github.com/jacob-delgado/workflow/commit/5fba4569f4c390aea1c45fcb0bd1262ccfff3328))
+* **web:** say a failed configuration read as a failure ([b006894](https://github.com/jacob-delgado/workflow/commit/b006894792142911ade813b30fd0203dbfe43b95))
+* **web:** say a stage not done, and a value missing, one way each ([6041a8e](https://github.com/jacob-delgado/workflow/commit/6041a8e0fcf5b37266a53bd70aa75ffbfeeb5502))
+* **web:** say the empty review queue as the terminal and reviews do ([67c0d8f](https://github.com/jacob-delgado/workflow/commit/67c0d8f087977507e4c99eb7485e28f147514b7f))
+* **web:** say what forge links, story stages and two controls do ([14d6639](https://github.com/jacob-delgado/workflow/commit/14d663972eabee866892b3047485d32fe8d4a25a))
+* **web:** set every Review value at one left edge ([c4081e6](https://github.com/jacob-delgado/workflow/commit/c4081e693254d0ae0591d4b8374990509d730e83))
+* **web:** set every section's content at one named measure ([86b5615](https://github.com/jacob-delgado/workflow/commit/86b561516043fe8d93fd3c0b3de758d050307379))
+* **web:** set story branch names in the code face, rows at text-sm ([4a7dd03](https://github.com/jacob-delgado/workflow/commit/4a7dd033ed4c20f7491e49ec2ac97fcb1bcac58a))
+* **web:** word a section's wait by the stream's state, as the header ([c32c52c](https://github.com/jacob-delgado/workflow/commit/c32c52cefe80931620d0b48f8514edd4d7938572))
+* **web:** write a date as the terminal does, YYYY-MM-DD ([9288db0](https://github.com/jacob-delgado/workflow/commit/9288db012e3fdf54d0142b49979c19b62de46d4d))
+
+
+### Documentation
+
+* lead scriptable commands' help with examples and exit statuses ([2ac289e](https://github.com/jacob-delgado/workflow/commit/2ac289eaab4babac8649fa04af0771aa5ccd6fba))
+* list pr's pointer to announce among its stderr lines ([5980d2f](https://github.com/jacob-delgado/workflow/commit/5980d2fc32924b53970d733a35211bec2e5ef168))
+* say what config init does, and who ignores the file ([6c77fac](https://github.com/jacob-delgado/workflow/commit/6c77fac632c95f19ac5e6eed7857f958e297d7cc))
+* **ux:** close the command line entries the branch fixed ([70f2646](https://github.com/jacob-delgado/workflow/commit/70f2646e07bf923a9e43601a79f08afcfca66db0))
+* **ux:** close the Settings entries the branch fixed ([7690447](https://github.com/jacob-delgado/workflow/commit/769044747aa1016a5394b3d065ec9f06a91efa77))
+* **ux:** close the terminal entries the branch fixed ([8f91cba](https://github.com/jacob-delgado/workflow/commit/8f91cbaadd6f94d64ed8d0446585f8e086b8c34c))
+* **ux:** close the web focus and link entries the branch fixed ([4110611](https://github.com/jacob-delgado/workflow/commit/4110611168c4c47ceb526b9fa59695d7f8564f1d))
+* **ux:** close the web layout entries the branch fixed ([b82e88e](https://github.com/jacob-delgado/workflow/commit/b82e88e3554e27d7693d59a2538760ca6c4b2a72))
+* **ux:** close the web liveness entries the branch fixed ([1446c35](https://github.com/jacob-delgado/workflow/commit/1446c3536e0d8776dca491c50a54ec4e2c175d94))
+* **ux:** close the wording entries the branch fixed ([481d15a](https://github.com/jacob-delgado/workflow/commit/481d15afbe6b9d4e6f0df2565711ab5135c1a5e4))
+
+
+### Build & Packaging
+
+* Bump smol-toml from 1.8.0 to 1.9.0 in /web ([b0e6d6d](https://github.com/jacob-delgado/workflow/commit/b0e6d6d99bc5e88a2ab827524cf657d54c5a5349))
+* Bump the go group with 2 updates ([d63fe8d](https://github.com/jacob-delgado/workflow/commit/d63fe8d873b426047a6e62e51670a9b84130db97))
+* Bump the web group across 1 directory with 11 updates ([b9ab000](https://github.com/jacob-delgado/workflow/commit/b9ab000294003896932469bbe352748a1aa4b6cf))
+
+
+### CI
+
+* Bump jdx/mise-action from 4.3.0 to 5.0.1 ([0b949b8](https://github.com/jacob-delgado/workflow/commit/0b949b8d7c32e60faea8784c69b7b9e5ac81b703))
+
+
+### Tests
+
+* **cli:** wait for the web server to start, not for five seconds ([cf1d17a](https://github.com/jacob-delgado/workflow/commit/cf1d17a84ecdc4978d5fb481eb833d115dcd0cfa))
+* **settings:** cover editing and removing entries in the terminal ([7d9053a](https://github.com/jacob-delgado/workflow/commit/7d9053a8149eae38302509fb28071cbb746e3103))
+* **settings:** cover the refresh token's removal and default keys ([48c12a8](https://github.com/jacob-delgado/workflow/commit/48c12a80525f0d6936c13363faff3c0afdae0b13))
+* **settings:** hold Jira headers and the client secret to KeepStored ([34519f3](https://github.com/jacob-delgado/workflow/commit/34519f3f6b21cae1490d10b9f2d6dddc7de73f93))
+* **web:** count a disclosure's summary as a Tab stop in the walk ([0542f9e](https://github.com/jacob-delgado/workflow/commit/0542f9e647a75b50f9fc6fd1a257c5818cb4f1b2))
+* **web:** say when Tab leaves a focus-ring check off its control ([9894e7d](https://github.com/jacob-delgado/workflow/commit/9894e7defc859847a2b4bfaf1e91aef63773e323))
+* **web:** walk the Repositories section once its picker has drawn ([b24dc2e](https://github.com/jacob-delgado/workflow/commit/b24dc2e24e1d1afe55c223b75fe482d915bfed3e))
+
 ## [0.7.0](https://github.com/jacob-delgado/workflow/compare/v0.6.0...v0.7.0) (2026-10-06)
 
 
