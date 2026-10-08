@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"maps"
 	"os"
+	"slices"
+	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/fileowner"
 )
@@ -21,6 +23,12 @@ var ErrUntrustedFile = errors.New("someone other than you could have written thi
 // working tree can carry one to any file of the user's, which a save would
 // replace.
 var ErrLinkedFile = errors.New("a configuration file in a repository may not be a link")
+
+// ErrCredentialInRepository is an edit that would write a credential typed
+// into the editor into a repository's file, a file in a working tree git
+// could commit.
+var ErrCredentialInRepository = errors.New("a credential typed into Settings is never written into a " +
+	"repository's file, which git could commit; set it in the home directory's file")
 
 // ErrHomeOnly is a repository's file setting what only the home directory's
 // file may: a program to run, or an environment variable to read.
@@ -208,4 +216,65 @@ func refuseLink(path string) error {
 	}
 
 	return nil
+}
+
+// secretField is one credential of a configuration, by its path in the file.
+type secretField struct {
+	path  string
+	value func(Config) Secret
+}
+
+// slackSecretFields are the Slack user token's credentials, which an editor
+// may hand to be kept outside the file.
+func slackSecretFields() []secretField {
+	return []secretField{
+		{path: "messaging.client_secret", value: func(cfg Config) Secret { return cfg.Messaging.ClientSecret }},
+		{path: "messaging.refresh_token", value: func(cfg Config) Secret { return cfg.Messaging.RefreshToken }},
+		{path: "messaging.access_token", value: func(cfg Config) Secret { return cfg.Messaging.AccessToken }},
+	}
+}
+
+// fileSecretFields are every other credential cfg holds, each of Jira's
+// headers among them.
+func fileSecretFields(cfg Config) []secretField {
+	headers := make([]secretField, 0, len(cfg.Jira.Headers))
+	for name := range cfg.Jira.Headers {
+		headers = append(headers, secretField{
+			path: "jira.headers", value: func(cfg Config) Secret { return cfg.Jira.Headers[name] },
+		})
+	}
+
+	return append([]secretField{
+		{path: "jira.token", value: func(cfg Config) Secret { return cfg.Jira.Token }},
+		{path: "forge.token", value: func(cfg Config) Secret { return cfg.Forge.Token }},
+		{path: "messaging.webhook_url", value: func(cfg Config) Secret { return cfg.Messaging.WebhookURL }},
+	}, headers...)
+}
+
+// refuseTyped refuses incoming, edit's read with the editor's changes, when
+// edit saves to a repository's file and incoming holds a credential among
+// fields that the read did not hold the same: one typed into the editor. One
+// kept, inherited or removed is no refusal.
+func (edit Edit) refuseTyped(incoming Config, fields []secretField) error {
+	if edit.Files.Repo == "" {
+		return nil
+	}
+
+	var typed []string
+
+	for _, field := range fields {
+		value := field.value(incoming)
+		if value != "" && value != field.value(edit.Read) {
+			typed = append(typed, field.path)
+		}
+	}
+
+	if len(typed) == 0 {
+		return nil
+	}
+
+	slices.Sort(typed)
+
+	return fmt.Errorf("%s: %w: %s", edit.Files.Repo, ErrCredentialInRepository,
+		strings.Join(slices.Compact(typed), ", "))
 }
