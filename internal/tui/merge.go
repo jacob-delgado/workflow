@@ -94,7 +94,7 @@ func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	merged := m.closeOverlay().noticed(m.marks.done + " merged " + m.vocab.sigil + strconv.Itoa(msg.pull.Number))
-	if issueKey, named := merged.jiraIssue(); named {
+	if issueKey, named := merged.branch.jiraIssue(merged.cfg.Jira.Project); named {
 		merged.followUp = merged.offerMarkDone(issueKey)
 	}
 

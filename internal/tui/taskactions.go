@@ -132,11 +132,17 @@ func (m Model) handleTaskVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	case key.Matches(msg, m.keys.markDone):
 		act = m.markDone
 	case key.Matches(msg, m.keys.addTask):
-		act = m.openAddLine
+		act = func() (Model, tea.Cmd) { return m.openTaskLine(addTaskLine(m.deps.Tasks.Add), "") }
 	case key.Matches(msg, m.keys.annotateTask):
-		act = m.openAnnotateLine
+		// The line's words are added to the selected task as an annotation.
+		act = func() (Model, tea.Cmd) {
+			return m.openSelectedTaskLine("Annotate", "annotate", "annotated", m.deps.Tasks.Annotate)
+		}
 	case key.Matches(msg, m.keys.modifyTask):
-		act = m.openModifyLine
+		// The line's words change the selected task.
+		act = func() (Model, tea.Cmd) {
+			return m.openSelectedTaskLine("Modify", "modify", "modified", m.deps.Tasks.Modify)
+		}
 	case key.Matches(msg, m.keys.undoTask):
 		act = m.undoTasks
 	case key.Matches(msg, m.keys.syncTasks) && m.tasks.install.SyncConfigured:

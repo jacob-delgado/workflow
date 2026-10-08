@@ -64,14 +64,6 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 	return m, tea.Batch(detail, find, m.messaging.loadAuthor(m.deps))
 }
 
-// refreshBranch reads the branch again, and the work tree with it.
-func (m Model) refreshBranch() (Model, tea.Cmd) {
-	read := loadBranch(m.deps)
-	m.branch.loading = read != nil
-
-	return m, tea.Batch(read, loadChanges(m.deps))
-}
-
 // loadBranch is the command that reads the branch.
 func loadBranch(deps Deps) tea.Cmd {
 	read := deps.Git.Branch
@@ -221,11 +213,6 @@ func (m Model) branchOffers() []offer {
 	}
 }
 
-// branchKeys is the Branch pane's footer: the offers that act right now.
-func (m Model) branchKeys() []key.Binding {
-	return liveKeys(m.branchOffers())
-}
-
 // canSwitchTask reports that the repository can list and switch branches.
 func canSwitchTask(deps Deps) bool {
 	return deps.Git.Branches != nil && deps.Git.Checkout != nil
@@ -273,20 +260,23 @@ func (s branchState) issue(project string) (jira.Key, bool) {
 	return jira.Key(key.Key), ok
 }
 
-// handleBranchKey answers the Branch pane's own keys, as its footer offers
-// them.
-func (m Model) handleBranchKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	return m.answer(m.branchOffers(), msg)
-}
-
 // branchBehavior is the Branch pane's behavior.
 func branchBehavior() behavior {
 	return behavior{
 		rail:   func(m Model, _ int) string { return m.branch.rail(m.kit()) },
 		detail: func(m Model, width int) string { return m.branch.detail(m.branchView(), width) }, narrow: nil,
-		keys: Model.branchKeys, handle: Model.handleBranchKey, pick: nil,
-		refresh: Model.refreshBranch, loading: func(m Model) bool { return m.branch.loading },
-		scroll: func(m *Model) *int { return &m.branch.scroll }, readsBranch: true,
+		keys:   func(m Model) []key.Binding { return liveKeys(m.branchOffers()) },
+		handle: func(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) { return m.answer(m.branchOffers(), msg) },
+		pick:   nil,
+		// refresh reads the branch again, and the work tree with it.
+		refresh: func(m Model) (Model, tea.Cmd) {
+			read := loadBranch(m.deps)
+			m.branch.loading = read != nil
+
+			return m, tea.Batch(read, loadChanges(m.deps))
+		},
+		loading: func(m Model) bool { return m.branch.loading },
+		scroll:  func(m *Model) *int { return &m.branch.scroll }, readsBranch: true,
 		answers: []string{"new-branch", "switch-branch", "link-issue", "rebase", "push", actionRefresh},
 	}
 }

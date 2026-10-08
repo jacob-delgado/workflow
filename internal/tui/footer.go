@@ -20,7 +20,7 @@ func (m Model) footer(width int) string {
 	case m.showsNotice() || !m.hasNotice():
 		return ansi.Truncate(" "+m.footerRow(width-1), width, "")
 	case m.notice.text != "":
-		return m.noticeRow(width)
+		return m.notice.row(m.kit(), width)
 	}
 
 	return m.narrowingFooter(width)
@@ -51,7 +51,7 @@ func (m Model) footerRow(room int) string {
 		keys = slices.Concat(behaviorOf(m.focus).keys(m), m.keys.ShortHelp())
 	}
 
-	return fitKeys(m.keyRow(), keys, room, m.footerRank)
+	return fitKeys(m.kit().keyRow(), keys, room, m.keys.rank)
 }
 
 // capturedKeys is the footer of whatever has the keyboard to itself — an open
@@ -68,20 +68,19 @@ func (m Model) capturedKeys() ([]key.Binding, bool) {
 	}
 }
 
-// footerRank orders the keys a footer too narrow for all of them gives up:
+// rank orders the keys a footer too narrow for all of them gives up:
 // the lowest rank goes first.
 type footerRank int
 
-// footerRank is how long binding holds its place in a footer too narrow for
+// rank is how long binding holds its place in a footer too narrow for
 // every key, told by the keys it answers to, whatever it is labeled here.
-func (m Model) footerRank(binding key.Binding) footerRank {
+func (k keyMap) rank(binding key.Binding) footerRank {
 	switch {
-	case answersAs(binding, m.keys.toggleHelp, m.keys.closeOverlay, m.keys.quit, m.keys.interrupt):
+	case answersAs(binding, k.toggleHelp, k.closeOverlay, k.quit, k.interrupt):
 		return rankWayOut
-	case answersAs(binding, m.keys.confirm):
+	case answersAs(binding, k.confirm):
 		return rankAct
-	case answersAs(binding, m.keys.up, m.keys.down, m.keys.first, m.keys.last, m.keys.scrollUp, m.keys.scrollDown,
-		m.keys.next, m.keys.previous, m.keys.jump):
+	case answersAs(binding, k.up, k.down, k.first, k.last, k.scrollUp, k.scrollDown, k.next, k.previous, k.jump):
 		return rankMovement
 	}
 
@@ -133,12 +132,12 @@ func ellipsisOf(row help.Model) string {
 // keyRow is the footer's key renderer, in this session's styles and marks, with
 // no width of its own: footerRow decides what fits, since the renderer's own
 // cut, finding no room for its ellipsis, lets a key run past the edge.
-func (m Model) keyRow() help.Model {
+func (kit renderKit) keyRow() help.Model {
 	row := help.New()
-	row.Styles.ShortKey = m.styles.strong
-	row.Styles.ShortDesc = m.styles.label
-	row.Styles.ShortSeparator = m.styles.label
-	row.ShortSeparator, row.Ellipsis = m.marks.helpSeparator, m.marks.ellipsis
+	row.Styles.ShortKey = kit.styles.strong
+	row.Styles.ShortDesc = kit.styles.label
+	row.Styles.ShortSeparator = kit.styles.label
+	row.ShortSeparator, row.Ellipsis = kit.marks.helpSeparator, kit.marks.ellipsis
 
 	return row
 }

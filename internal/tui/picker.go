@@ -9,6 +9,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -237,7 +238,7 @@ func (m Model) pickStatusFor(issue jira.Issue, offer statusOffer) (Model, tea.Cm
 // category with "in progress". The picker names the issue as the list has it,
 // summary and status, and only the key when it is not listed.
 func (m Model) offerReviewStatus(issueKey jira.Key) (Model, tea.Cmd) {
-	if !m.offersReviewStatus() {
+	if !offersReviewStatus(m.cfg, m.deps) {
 		return m.closeOverlay(), nil
 	}
 
@@ -251,8 +252,8 @@ func (m Model) offerReviewStatus(issueKey jira.Key) (Model, tea.Cmd) {
 
 // offersReviewStatus reports whether an open pull request is followed by the
 // offer of the review status: one is configured, and Jira can list the moves.
-func (m Model) offersReviewStatus() bool {
-	return m.cfg.Jira.ReviewStatus != "" && m.deps.Jira.Transitions != nil
+func offersReviewStatus(cfg config.Config, deps Deps) bool {
+	return cfg.Jira.ReviewStatus != "" && deps.Jira.Transitions != nil
 }
 
 // header is the rows above the picker's list: the issue, its status, and a

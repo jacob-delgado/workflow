@@ -80,7 +80,7 @@ func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
-	reload := tea.Batch(loadBranch(m.deps), loadChanges(m.deps), m.listIssueBranches())
+	reload := tea.Batch(loadBranch(m.deps), loadChanges(m.deps), listIssueBranches(m.cfg, m.deps))
 
 	// Set before the status picker opens, so the offer waits behind it.
 	if msg.forIssue {
@@ -139,7 +139,7 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	reload := m.listIssueBranches()
+	reload := listIssueBranches(m.cfg, m.deps)
 	if m.repositories.read {
 		reload = tea.Batch(reload, m.loadRepositories())
 	}

@@ -27,7 +27,7 @@ func (m Model) searching() Model {
 // with the branches that mark its issues in flight, which may have changed
 // since.
 func (m Model) relistIssues() tea.Cmd {
-	return tea.Batch(m.searchIssues(), m.listIssueBranches())
+	return tea.Batch(m.searchIssues(), listIssueBranches(m.cfg, m.deps))
 }
 
 // searchPage is the command that reads one page of issues, from startAt.

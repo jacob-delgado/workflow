@@ -122,8 +122,8 @@ func (h helpOverlay) scrollBy(m Model, delta int) helpOverlay {
 // openHelp opens the key list, rendering it from the current bindings.
 func (m Model) openHelp() (Model, tea.Cmd) {
 	m.overlay = helpOverlay{
-		wide:   m.helpView(),
-		narrow: m.helpColumn(0, len(helpGroups(m.cfg.Messaging.Service()))),
+		wide:   m.keys.helpView(m.styles, m.cfg.Messaging.Service()),
+		narrow: m.keys.helpColumn(m.styles, m.cfg.Messaging.Service(), 0, len(helpGroups(m.cfg.Messaging.Service()))),
 	}
 
 	return m, nil
@@ -134,11 +134,11 @@ const helpColumnGap = 4
 
 // helpView lists every key, grouped by where it works, in two columns so the
 // whole set fits a short pane with less scrolling.
-func (m Model) helpView() string {
-	groups := m.keys.FullHelp()
+func (k keyMap) helpView(sty styles, service string) string {
+	groups := k.FullHelp()
 	split := balancedSplit(groups)
-	left := m.helpColumn(0, split)
-	right := m.helpColumn(split, len(groups))
+	left := k.helpColumn(sty, service, 0, split)
+	right := k.helpColumn(sty, service, split, len(groups))
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, lipgloss.NewStyle().PaddingLeft(helpColumnGap).Render(right))
 }
@@ -191,9 +191,9 @@ func columnLines(heights []int) int {
 // helpColumn renders the help groups in a range, one key a line under each
 // group's name. A binding with no help text of its own is left out; it rides
 // another's line.
-func (m Model) helpColumn(first, last int) string {
-	groups := m.keys.FullHelp()[first:last]
-	names := helpGroups(m.cfg.Messaging.Service())[first:last]
+func (k keyMap) helpColumn(sty styles, service string, first, last int) string {
+	groups := k.FullHelp()[first:last]
+	names := helpGroups(service)[first:last]
 	keyWidth := widestHelpKey(groups) + 1
 
 	var lines []string
@@ -203,7 +203,7 @@ func (m Model) helpColumn(first, last int) string {
 			lines = append(lines, "")
 		}
 
-		lines = append(lines, m.styles.strong.Render(names[index]))
+		lines = append(lines, sty.strong.Render(names[index]))
 
 		for _, binding := range group {
 			shown := binding.Help().Key

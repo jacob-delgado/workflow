@@ -15,6 +15,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -81,7 +82,7 @@ var (
 // store and git, arrive after it opens.
 func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	draft := m.draft
-	conv := m.commitConvention()
+	conv := commitConvention(m.cfg)
 	types := conv.Types()
 	issueKey, _ := m.branch.issue(m.cfg.Jira.Project)
 	m, opened := m.opening()
@@ -103,8 +104,8 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 
 // commitConvention is the team's commit convention: their own types, subject
 // limit and issue trailer where configured, and the built-in defaults otherwise.
-func (m Model) commitConvention() convention.CommitConvention {
-	return convention.NewCommitConvention(m.cfg.Commit.Types, m.cfg.Commit.SubjectLimit, m.cfg.Commit.RefsTrailer)
+func commitConvention(cfg config.Config) convention.CommitConvention {
+	return convention.NewCommitConvention(cfg.Commit.Types, cfg.Commit.SubjectLimit, cfg.Commit.RefsTrailer)
 }
 
 // startingType is the type the composer opens on: a kept draft's type wins, so a

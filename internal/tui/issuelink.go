@@ -31,8 +31,8 @@ var _ failable[issueLinker] = issueLinker{}
 // jiraIssue is the Jira issue the current branch names, and whether it names
 // one: never the bare forge issue number a branch can carry instead, which is
 // what a pull request's follow-ups on Jira must not reach.
-func (m Model) jiraIssue() (jira.Key, bool) {
-	return loop.JiraIssue(m.branch.branch, m.cfg.Jira.Project)
+func (s branchState) jiraIssue(project string) (jira.Key, bool) {
+	return loop.JiraIssue(s.branch, project)
 }
 
 // pullOffers are what opening a pull request goes on to offer, in order, for a
@@ -40,7 +40,7 @@ func (m Model) jiraIssue() (jira.Key, bool) {
 // the link, and to move that issue to the review status, when one is
 // configured. None when the branch names no Jira issue.
 func (m Model) pullOffers() []string {
-	issueKey, named := m.jiraIssue()
+	issueKey, named := m.branch.jiraIssue(m.cfg.Jira.Project)
 	if !named {
 		return nil
 	}
@@ -50,7 +50,7 @@ func (m Model) pullOffers() []string {
 		offers = append(offers, "to link it on "+shownKey(issueKey))
 	}
 
-	if m.offersReviewStatus() {
+	if offersReviewStatus(m.cfg, m.deps) {
 		offers = append(offers, "to move "+shownKey(issueKey)+" to "+sanitize.Line(m.cfg.Jira.ReviewStatus))
 	}
 

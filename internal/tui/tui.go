@@ -212,7 +212,7 @@ func keysFrom(input io.Reader) []tea.ProgramOption {
 // own.
 func (m Model) Init() tea.Cmd {
 	loads := []tea.Cmd{
-		m.searchIssues(), m.listIssueBranches(), loadBranch(m.deps), loadChanges(m.deps), findHooks(m.deps),
+		m.searchIssues(), listIssueBranches(m.cfg, m.deps), loadBranch(m.deps), loadChanges(m.deps), findHooks(m.deps),
 		loadReviewQueue(m.deps), loadAnnounces(m.deps), m.tasks.load(m.deps),
 	}
 
@@ -253,6 +253,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+}
+
+// settled opens the follow-up once no overlay is open. Every route through
+// Update ends here, so an offer made while another overlay had the keyboard
+// opens the moment that overlay closes, and never on top of it.
+func (m Model) settled(cmd tea.Cmd) (Model, tea.Cmd) {
+	if m.overlay != nil || m.followUp == nil {
+		return m, cmd
+	}
+
+	open := m.followUp
+	m.followUp = nil
+	opened, more := open(m)
+
+	return opened, tea.Batch(cmd, more)
 }
 
 // handleKey answers a key press. ctrl+c always quits. Otherwise an open overlay

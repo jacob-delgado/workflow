@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
@@ -61,7 +62,7 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 	m.review.loading = false
 	m.review.checkedAt = m.deps.now()
 
-	ring := m.ciFinishNotice(was, msg.ci.State)
+	ring := ciFinishNotice(m.cfg, m.deps, was, msg.ci.State)
 
 	m, post := m.postIfGreen()
 
@@ -72,13 +73,13 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 // settled result, if the developer asked to be told and the interface can reach
 // the terminal to ring it. It fires only on the change, not on later checks that
 // find CI already finished.
-func (m Model) ciFinishNotice(was, now forge.CIState) tea.Cmd {
+func ciFinishNotice(cfg config.Config, deps Deps, was, now forge.CIState) tea.Cmd {
 	settled := now == forge.CIPassed || now == forge.CIFailed
-	if !m.cfg.UI.Notify || m.deps.Notify == nil || was != forge.CIRunning || !settled {
+	if !cfg.UI.Notify || deps.Notify == nil || was != forge.CIRunning || !settled {
 		return nil
 	}
 
-	notify := m.deps.Notify
+	notify := deps.Notify
 
 	return func() tea.Msg {
 		notify()
@@ -100,7 +101,9 @@ func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
 	m.review.polling = true
 	poll := ciPoll{review: m.reviewsBegun}
 
-	return m, tea.Batch(then, m.deps.after(m.pollInterval(), func(time.Time) tea.Msg { return poll }))
+	wait := m.messaging.pollInterval(m.cfg.UI.Notify, m.deps)
+
+	return m, tea.Batch(then, m.deps.after(wait, func(time.Time) tea.Msg { return poll }))
 }
 
 // notifyPollInterval is how often CI is asked about when the developer only
@@ -111,12 +114,12 @@ const notifyPollInterval = 3 * time.Minute
 // pollInterval is how long to wait before asking about CI again. A post waiting
 // on CI wants a prompt answer, and a configured interval is always honored; a
 // bare notification, with no interval set, is content with a slower beat.
-func (m Model) pollInterval() time.Duration {
-	if m.cfg.UI.Notify && !m.messaging.pending.waiting() && m.deps.CIInterval <= 0 {
+func (s messagingState) pollInterval(notify bool, deps Deps) time.Duration {
+	if notify && !s.pending.waiting() && deps.CIInterval <= 0 {
 		return notifyPollInterval
 	}
 
-	return m.deps.ciInterval()
+	return deps.ciInterval()
 }
 
 // ciPoll is time to ask about CI again, for the review it was scheduled in,

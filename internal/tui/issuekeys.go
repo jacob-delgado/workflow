@@ -22,27 +22,12 @@ func (m Model) handleIssuesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m.answer(m.issuesOffers(), msg)
 }
 
-// beginIssueFilter starts typing a filter over the list.
-func (m Model) beginIssueFilter() (Model, tea.Cmd) {
-	m.issues = m.issues.beginFilter()
-
-	return m, nil
-}
-
 // readSelectedIssue reads the selected issue in full, in the collapsed layout
 // where it takes the list's place.
 func (m Model) readSelectedIssue() (Model, tea.Cmd) {
 	m.issues.viewing = true
 
 	return m.loadDetail()
-}
-
-// backToIssueList returns the collapsed layout from the issue read in full to
-// the list.
-func (m Model) backToIssueList() (Model, tea.Cmd) {
-	m.issues.viewing = false
-
-	return m, nil
 }
 
 // handleIssueFilterKey builds the filter from keystrokes: printable runes extend
@@ -68,7 +53,7 @@ func (m Model) handleIssueFilterKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		return m.loadDetail()
 	default:
-		return m.extendFilterWith(msg)
+		return m.extendFilterBy(typedText(msg))
 	}
 }
 
@@ -81,12 +66,6 @@ func (Model) filterKeys() []key.Binding {
 		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "keep search")),
 		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear search")),
 	}
-}
-
-// extendFilterWith adds a key's text to the filter when it types something,
-// and does nothing for a key that does not.
-func (m Model) extendFilterWith(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	return m.extendFilterBy(typedText(msg))
 }
 
 // extendFilterBy adds text to the filter, typed or pasted, and does nothing
@@ -111,22 +90,6 @@ func typedText(msg tea.KeyPressMsg) string {
 	return msg.Text
 }
 
-// refreshIssues reads the list again, and the issue shown in full whether or not
-// it changed, so r retries a detail load that failed. An issue the selection has
-// only just reached is left to the read its rest will start.
-func (m Model) refreshIssues() (Model, tea.Cmd) {
-	m = m.searching()
-
-	selected, ok := m.issues.current()
-	if !ok {
-		return m, m.relistIssues()
-	}
-
-	m, detail := m.reloadDetail(selected.Key)
-
-	return m, tea.Batch(m.relistIssues(), detail)
-}
-
 // issuesOffers are the Issues pane's keys: in the collapsed layout, reading
 // the selected issue or going back to the list; the verbs its seams can carry
 // out on the selected issue and its links; then the list's own keys. With no
@@ -146,11 +109,6 @@ func (m Model) issuesOffers() []offer {
 		return slices.Concat(m.readingOffers(), m.issueVerbOffers(selected), m.linkOffers(m.issues.browseURL(m.deps)),
 			m.issueListOffers())
 	}
-}
-
-// issuesKeys is the Issues pane's footer: the offers that act right now.
-func (m Model) issuesKeys() []key.Binding {
-	return liveKeys(m.issuesOffers())
 }
 
 // issueVerbOffers are the verbs for the selected issue whose seams are wired:
@@ -186,7 +144,13 @@ func (m Model) readingOffers() []offer {
 	case !m.shape().Collapsed():
 		return nil
 	case m.issues.viewing:
-		return []offer{{binding: relabel(m.keys.closeOverlay, escBack+" to list"), can: true, act: m.backToIssueList}}
+		back := func() (Model, tea.Cmd) {
+			m.issues.viewing = false
+
+			return m, nil
+		}
+
+		return []offer{{binding: relabel(m.keys.closeOverlay, escBack+" to list"), can: true, act: back}}
 	default:
 		return []offer{{binding: relabel(m.keys.confirm, "read issue"), can: true, act: m.readSelectedIssue}}
 	}
@@ -198,7 +162,11 @@ func (m Model) issueListOffers() []offer {
 	filterable := m.issues.filterable()
 
 	return []offer{
-		{binding: m.keys.searchIssues, can: filterable, act: m.beginIssueFilter},
+		{binding: m.keys.searchIssues, can: filterable, act: func() (Model, tea.Cmd) {
+			m.issues = m.issues.beginFilter()
+
+			return m, nil
+		}},
 		{binding: m.keys.filterIssues, can: filterable, act: m.openPlacePicker},
 		{binding: m.keys.nextView, can: len(m.views) > 1, act: m.nextIssueView},
 		{binding: m.keys.loadMore, can: m.issues.hasMore(), act: m.loadMoreIssues},

@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/places"
@@ -44,10 +45,10 @@ func (msg issueBranchesListed) apply(m Model) (Model, tea.Cmd) {
 
 // listIssueBranches is the command that lists the local and remote branches and
 // reads the issue each names; nil with no git to ask.
-func (m Model) listIssueBranches() tea.Cmd {
+func listIssueBranches(cfg config.Config, deps Deps) tea.Cmd {
 	lister := branchLister{
-		local: m.deps.Git.Branches, remote: m.deps.Git.RemoteBranches, links: m.deps.Git.IssueLinks,
-		project: m.cfg.Jira.Project,
+		local: deps.Git.Branches, remote: deps.Git.RemoteBranches, links: deps.Git.IssueLinks,
+		project: cfg.Jira.Project,
 	}
 	if lister.local == nil {
 		return nil
