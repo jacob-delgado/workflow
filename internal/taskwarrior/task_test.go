@@ -5,6 +5,7 @@ package taskwarrior_test
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 	"slices"
 	"strings"
@@ -302,15 +303,43 @@ func TestTrackLinePutsTheDescriptionAfterTheDoubleDash(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := taskwarrior.TrackLine(test.issue)
+			got, err := taskwarrior.TrackLine(test.issue)
 
 			// Assert
-			if got != test.want {
-				t.Errorf("TrackLine = %q, want %q", got, test.want)
+			if err != nil || got != test.want {
+				t.Errorf("TrackLine = %q, %v, want %q", got, err, test.want)
 			}
 
 			if strings.Contains(got, "\n") {
 				t.Errorf("TrackLine = %q, want one line", got)
+			}
+		})
+	}
+}
+
+func TestTrackLineRefusesAKeyThatIsNotOneWord(t *testing.T) {
+	t.Parallel()
+
+	// The key comes from the tracker and stands before the line's --, so a
+	// word after it would reach Taskwarrior as an attribute or rc override.
+	cases := map[string]string{
+		"words after the key":     "X rc.hooks=on project:evil",
+		"a tab inside the key":    "X\trc.hooks=on",
+		"space around the key":    " PROJ-42",
+		"a line break in the key": "PROJ-42\nrc.hooks=on",
+		"no key at all":           "",
+	}
+
+	for name, key := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			line, err := taskwarrior.TrackLine(taskwarrior.IssueLink{Key: key, Summary: "Fix it"})
+
+			// Assert
+			if !errors.Is(err, taskwarrior.ErrKeyNotOneWord) || line != "" {
+				t.Errorf("TrackLine(%q) = %q, %v, want %v", key, line, err, taskwarrior.ErrKeyNotOneWord)
 			}
 		})
 	}
