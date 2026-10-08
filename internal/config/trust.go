@@ -17,6 +17,11 @@ import (
 // have written: one another user owns, or one others may write.
 var ErrUntrustedFile = errors.New("someone other than you could have written this configuration file")
 
+// ErrLinkedFile is a repository's configuration file that is a link: a
+// working tree can carry one to any file of the user's, which a save would
+// replace.
+var ErrLinkedFile = errors.New("a configuration file in a repository may not be a link")
+
 // ErrHomeOnly is a repository's file setting what only the home directory's
 // file may: a program to run, or an environment variable to read.
 var ErrHomeOnly = errors.New("only the home directory's file may set it")
@@ -184,6 +189,22 @@ func refuseUntrusted(info fs.FileInfo) error {
 		return fmt.Errorf("%w: another user owns it", ErrUntrustedFile)
 	case mode&othersWritable != 0, mode&groupWritable != 0 && owner.Group != owner.User:
 		return fmt.Errorf("%w: its mode, %#o, lets others write it; run chmod go-w on it", ErrUntrustedFile, mode)
+	}
+
+	return nil
+}
+
+// refuseLink refuses path when it is a link, to a file or to none yet: a
+// read would follow it, and a save replace whatever it names. The home file
+// may be a link, as a dotfiles checkout makes it; a repository's may not.
+func refuseLink(path string) error {
+	if path == "" {
+		return nil
+	}
+
+	info, err := os.Lstat(path)
+	if err == nil && info.Mode()&fs.ModeSymlink != 0 {
+		return fmt.Errorf("%s: %w", path, ErrLinkedFile)
 	}
 
 	return nil
