@@ -402,10 +402,11 @@ tasks:
     desc: Lint the Markdown
     cmds:
       # CI's Lint job passes LINT_MARKDOWN=false for a pull request that changes
-      # no Markdown, nothing under docs/ and not the markdownlint config
-      # (scripts/markdown-changed.sh); everywhere else every file is linted.
+      # no Markdown, nothing under docs/, not the markdownlint config and not
+      # mise.toml, which pins markdownlint-cli2 (scripts/markdown-changed.sh);
+      # everywhere else every file is linted.
       - >-
-        {{if eq .LINT_MARKDOWN "false"}}echo "Markdown lint skipped: this change touches no Markdown, docs/ or its config"{{else}}markdownlint-cli2{{end}}
+        {{if eq .LINT_MARKDOWN "false"}}echo "Markdown lint skipped: this change touches no Markdown, docs/, its config or its pin"{{else}}markdownlint-cli2{{end}}
 
   lint:toml:
     desc: Lint and format-check the TOML
