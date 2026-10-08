@@ -112,7 +112,6 @@ test('a loaded page hands focus to its first issue, in view in the list, at 640 
   page,
 }) => {
   // Arrange
-  // 700 px tall, so the list scrolls in its pane.
   await streams(page, pagedSnapshot)
   await page.route(/\/api\/issues\?/, (route) =>
     route.fulfill({
@@ -124,6 +123,7 @@ test('a loaded page hands focus to its first issue, in view in the list, at 640 
       },
     }),
   )
+  // 700 px tall, so the list scrolls in its pane.
   await page.setViewportSize({ width: 640, height: 700 })
   await page.goto('/')
 

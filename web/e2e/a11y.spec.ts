@@ -33,14 +33,10 @@ for (const theme of themes) {
   for (const name of hermeticSections) {
     test(`no accessibility violations in ${name} in the ${theme} theme`, async ({ page }) => {
       // Arrange
-      // Pin the theme before the app paints, so the whole run is in it, and
-      // answer the health read as a --dry-run server would, so the read-only
-      // banner is on screen for the scan (the hermetic server has no API). The
-      // review queue's read, the task list's, the repositories' and the
-      // configuration's fail as unreachable, and every other read the section
-      // makes as a route the server does not have (the test support/fixtures.ts
-      // makes), so each reason and its Try again are scanned; the populated
-      // build scans the queue, the tasks and the form themselves.
+      // The hermetic server has no API: the health read answers as a dry run
+      // would, so the read-only banner is scanned, and every other read fails,
+      // so each reason and its Try again are scanned. The populated build
+      // scans the queue, the tasks and the form themselves.
       await pinTheme(page, theme)
       await page.route('**/api/health', (route) =>
         route.fulfill({
