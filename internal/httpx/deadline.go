@@ -62,7 +62,7 @@ func (d deadlines) RoundTrip(request *http.Request) (*http.Response, error) {
 	}
 
 	body := &boundedBody{
-		body: response.Body, cause: func() error { return context.Cause(ctx) }, timer: timer, cancel: cancel, idle: 0,
+		body: response.Body, cause: func() error { return context.Cause(ctx) }, timer: timer, cancel: cancel,
 	}
 	if streams(request.Context()) {
 		body.idle = d.timeout
