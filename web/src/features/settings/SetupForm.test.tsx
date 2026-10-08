@@ -10,17 +10,18 @@ import { makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
-// offer is a setup offered where no file applies, with a keychain.
+// offer is a setup offered where no file applies, with a keychain for the
+// home file.
 const offer: SetupOffer = {
   needed: true,
-  keychain: true,
   places: [
     {
       place: 'repository',
       path: '/home/ana/src/api/.workflow.json',
       shown: '~/src/api/.workflow.json',
+      keychain: false,
     },
-    { place: 'home', path: '/home/ana/.workflow.json', shown: '~/.workflow.json' },
+    { place: 'home', path: '/home/ana/.workflow.json', shown: '~/.workflow.json', keychain: true },
   ],
 }
 
@@ -94,7 +95,7 @@ test('with no file, Settings asks where one goes and what config init asks', asy
   ).toHaveProperty('checked', true)
   expect(within(form).getByRole('textbox', { name: 'Address' })).toBeTruthy()
   expect(within(form).getByLabelText('Personal access token')).toHaveProperty('type', 'password')
-  expect(within(form).getByRole('checkbox', { name: /keychain/ })).toHaveProperty('checked', true)
+  expect(within(form).queryByRole('checkbox', { name: /keychain/ })).toBeNull()
   expect(within(form).getByLabelText('Incoming webhook URL')).toHaveProperty('type', 'password')
   expect(screen.queryByRole('textbox', { name: 'Base URL' })).toBeNull()
 })
@@ -123,6 +124,25 @@ test('setting up sends the answers, says what it wrote, and opens the file in Se
       keep_unchecked: false,
     },
   ])
+})
+
+test('the defaults in a repository write its file with the token in it, nothing refused', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const sent = firstRun((request) =>
+    request.keychain
+      ? problem(422, 'unprocessable', 'the keychain can keep the token only for the home file')
+      : Response.json({ ...written, keychain: false }),
+  )
+  renderWithClient(<SettingsPanel />)
+  await answerJira(user)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Write ~/src/api/.workflow.json' }))
+
+  // Assert
+  expect(await screen.findByText(/Wrote ~\/src\/api\/\.workflow\.json/)).toBeTruthy()
+  expect(sent.map((request) => [request.place, request.keychain])).toEqual([['repository', false]])
 })
 
 test('a check that does not pass says why and offers to write it anyway', async () => {
@@ -210,15 +230,33 @@ test('an address that is no address is never offered to be written anyway', asyn
   expect(screen.queryByRole('button', { name: 'Write it anyway' })).toBeNull()
 })
 
-test('the keychain is not offered where there is none', async () => {
+test('choosing the home directory offers the keychain, checked', async () => {
   // Arrange
-  firstRun(() => Response.json(written), { ...offer, keychain: false })
-
-  // Act
+  const user = userEvent.setup()
+  firstRun(() => Response.json(written))
   renderWithClient(<SettingsPanel />)
 
+  // Act
+  await user.click(await screen.findByRole('radio', { name: /~\/\.workflow\.json/ }))
+
   // Assert
-  await screen.findByRole('form', { name: 'Set up workflow' })
+  expect(screen.getByRole('checkbox', { name: /keychain/ })).toHaveProperty('checked', true)
+})
+
+test('the keychain is not offered where there is none', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  firstRun(() => Response.json(written), {
+    ...offer,
+    places: offer.places.map((place) => ({ ...place, keychain: false })),
+  })
+  renderWithClient(<SettingsPanel />)
+
+  // Act
+  await user.click(await screen.findByRole('radio', { name: /~\/\.workflow\.json/ }))
+
+  // Assert
+  expect(screen.getByRole('radio', { name: /~\/\.workflow\.json/ })).toHaveProperty('checked', true)
   expect(screen.queryByRole('checkbox', { name: /keychain/ })).toBeNull()
 })
 

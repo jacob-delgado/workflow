@@ -131,9 +131,10 @@ func TestSetupIsOfferedWhereNoFileApplies(t *testing.T) {
 	offer := decode[api.SetupOffer](t, get(t, run.handler(t), setupPath))
 
 	// Assert
-	if !offer.Needed || !offer.Keychain || len(offer.Places) != 2 ||
-		offer.Places[0].Place != api.SetupPlaceNameRepository || offer.Places[1].Shown != "~/"+config.FileName {
-		t.Errorf("offer = %+v, want setup needed, the repository first and home shown from home", offer)
+	if !offer.Needed || len(offer.Places) != 2 || offer.Places[0].Place != api.SetupPlaceNameRepository ||
+		offer.Places[0].Keychain || offer.Places[1].Shown != "~/"+config.FileName || !offer.Places[1].Keychain {
+		t.Errorf("offer = %+v, want setup needed, the repository first and home shown from home, "+
+			"the keychain for home alone", offer)
 	}
 }
 

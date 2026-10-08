@@ -84,7 +84,7 @@ func TestSetupWritesTheFileWithTheTokenInTheKeychainWhenChosen(t *testing.T) {
 		t.Errorf("wrote %q (%v), keychain %q; want the token in the keychain alone", contents, err, kept)
 	}
 
-	if offer := deps.Offer(); !offer.Keychain || offer.Places[1].Path != written.Path {
-		t.Errorf("Offer = %+v, want the keychain and the home file %s", offer, written.Path)
+	if offer := deps.Offer(); !offer.Places[1].Keychain || offer.Places[1].Path != written.Path {
+		t.Errorf("Offer = %+v, want the home file %s, the keychain offered for it", offer, written.Path)
 	}
 }

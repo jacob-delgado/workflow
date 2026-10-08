@@ -2026,9 +2026,6 @@ type RunRequest struct {
 
 // SetupOffer The first-run setup offered where the server works.
 type SetupOffer struct {
-	// Keychain The OS keychain can keep the Jira token out of the file.
-	Keychain bool `json:"keychain"`
-
 	// Needed No configuration file applies where the server works, so one can be set up.
 	Needed bool `json:"needed"`
 
@@ -2038,6 +2035,9 @@ type SetupOffer struct {
 
 // SetupPlace defines model for SetupPlace.
 type SetupPlace struct {
+	// Keychain The OS keychain can keep the Jira token out of this file: one is wired, and the file is the home directory's, the one file that may hold the command that reads the token back.
+	Keychain bool `json:"keychain"`
+
 	// Path The file it would be, as an absolute path.
 	Path string `json:"path"`
 

@@ -1166,8 +1166,9 @@ paths:
         Says whether no configuration file applies where the server works, so
         Settings offers to set one up rather than edit one; where the file may
         go — the repository's root, or the working directory outside a
-        repository, and the home directory — and whether the OS keychain can
-        keep the Jira token out of it. Reading works under --dry-run.
+        repository, and the home directory — and for each whether the OS
+        keychain can keep the Jira token out of it. Reading works under
+        --dry-run.
       tags: [config]
       responses:
         "200":
@@ -4718,7 +4719,7 @@ components:
     SetupOffer:
       type: object
       description: The first-run setup offered where the server works.
-      required: [needed, places, keychain]
+      required: [needed, places]
       properties:
         needed:
           type: boolean
@@ -4727,18 +4728,21 @@ components:
           type: array
           description: Where the file may go, the repository first.
           items: {$ref: "#/components/schemas/SetupPlace"}
-        keychain:
-          type: boolean
-          description: The OS keychain can keep the Jira token out of the file.
       additionalProperties: false
 
     SetupPlace:
       type: object
-      required: [place, path, shown]
+      required: [place, path, shown, keychain]
       properties:
         place: {$ref: "#/components/schemas/SetupPlaceName"}
         path: {type: string, description: "The file it would be, as an absolute path."}
         shown: {type: string, description: "The file written from your home."}
+        keychain:
+          type: boolean
+          description: >-
+            The OS keychain can keep the Jira token out of this file: one is
+            wired, and the file is the home directory's, the one file that may
+            hold the command that reads the token back.
       additionalProperties: false
 
     SetupPlaceName:

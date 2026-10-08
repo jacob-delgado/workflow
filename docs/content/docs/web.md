@@ -557,12 +557,12 @@ With no `.workflow.json` where the server works, Settings asks what
 `workflow config init` asks instead of showing a form of defaults. First,
 where the file goes: the repository, where it applies across it, or your home
 directory, where it applies everywhere. Then Jira's address and your personal
-access token, typed into a field that shows nothing of it; where the OS
-keychain is wired (macOS), **Keep the token in your keychain, out of the file**
-is checked, and unchecked the file keeps it, readable only by you. The keychain
-keeps it only for your home file, the one file that may hold the command that
-reads it back; asked for with the repository's, the write is refused and says
-so. Last, a
+access token, typed into a field that shows nothing of it. With your home
+directory chosen and the OS keychain wired (macOS), **Keep the token in your
+keychain, out of the file** is offered, checked; unchecked, the file keeps it,
+readable only by you. It is offered for your home file alone, the one file
+that may hold the command that reads the token back, so a repository's file
+keeps the token itself. Last, a
 Slack incoming webhook, saved unchecked; blank posts with your Slack user token
 after `workflow slack login`. A blank address or webhook leaves that part out.
 
