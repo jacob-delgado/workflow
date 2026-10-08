@@ -717,7 +717,9 @@ what is kept, never from the request, and a post whose linked owners are not
 composed announcement beside `text`, the one the edit began from, and
 `when: ci_passes`, which holds it until the CI passes and answers `202`;
 `DELETE /api/announce/queued` drops a held one, and each frame of
-`GET /api/events` carries it as `queued_announcement`.
+`GET /api/events` carries it as `queued_announcement`. Two announcements asked
+at once post once, the other answered `409`; while a held one is being posted,
+announcing, holding another or dropping it is a `409` too.
 
 The issue writes sit under `/api/issues/{key}/`: `GET` and `POST transitions`
 list the status changes with the fields each needs and make one,
