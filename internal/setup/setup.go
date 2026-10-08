@@ -33,6 +33,9 @@ var (
 	// ErrNoHome reports a file asked for in a home directory where none is
 	// known.
 	ErrNoHome = errors.New("there is no home directory here to keep the file in")
+	// ErrNoToken reports a token asked to be kept in the keychain that is
+	// empty: storing it would replace whatever the keychain kept before.
+	ErrNoToken = errors.New("there is no token to keep in the keychain")
 	// ErrKeychainAtHome reports the token asked to be kept in the keychain
 	// for a file other than the home directory's: the file reads it back with
 	// a jira.token_command, which only the home file may set.
@@ -187,10 +190,16 @@ func Identify(user jira.User) string {
 }
 
 // Keep moves the token in settings into the OS keychain through store, so the
-// file holds the token_command that reads it back rather than the secret.
+// file holds the token_command that reads it back rather than the secret. An
+// empty token is refused with ErrNoToken before store is asked: kept, it would
+// replace whatever the keychain held.
 func Keep(store func(secret string) (string, error), settings config.Jira) (config.Jira, error) {
 	if store == nil {
 		return settings, ErrNoKeychain
+	}
+
+	if settings.Token == "" {
+		return settings, ErrNoToken
 	}
 
 	tokenCommand, err := store(settings.Token.Reveal())

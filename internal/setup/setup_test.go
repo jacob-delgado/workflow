@@ -18,6 +18,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/setup"
 )
 
+// jiraAddress is the Jira address these tests answer with.
+const jiraAddress = "https://jira.example.com"
+
 // typedToken is the Jira token these tests type.
 const typedToken = "typed-jira-token"
 
@@ -71,7 +74,7 @@ func answered(place setup.Place) setup.Request {
 	return setup.Request{
 		Place: place,
 		Answers: setup.Answers{
-			Jira: config.Jira{BaseURL: "https://jira.example.com", Token: typedToken},
+			Jira: config.Jira{BaseURL: jiraAddress, Token: typedToken},
 		},
 	}
 }
@@ -355,7 +358,7 @@ func TestWriteInARepositoryLiesOverTheHomeFile(t *testing.T) {
 
 	// Assert
 	cfg, _, err := config.LoadLayersAt(guide.Where.Layers(setup.Repository))
-	if err != nil || cfg.Jira.Project != "HOME" || cfg.Jira.BaseURL != "https://jira.example.com" {
+	if err != nil || cfg.Jira.Project != "HOME" || cfg.Jira.BaseURL != jiraAddress {
 		t.Errorf("read %+v (%v) over %s, want the repository's answers over the home file's project",
 			cfg.Jira, err, written.Path)
 	}
@@ -557,5 +560,86 @@ func TestLayersStandAloneWithoutAHomeDirectory(t *testing.T) {
 	// Assert
 	if layers != (config.Files{}) {
 		t.Errorf("Layers without a home directory = %+v, want the file to stand alone", layers)
+	}
+}
+
+func TestKeepRefusesAnEmptyToken(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := &keychain{}
+
+	// Act
+	_, err := setup.Keep(kept.store, config.Jira{BaseURL: jiraAddress})
+
+	// Assert
+	if !errors.Is(err, setup.ErrNoToken) || kept.stored != "" {
+		t.Errorf("Keep = %v, keychain %q; want ErrNoToken and nothing stored", err, kept.stored)
+	}
+}
+
+func TestWriteWithAnEmptyTokenLeavesTheKeychainAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	stored := false
+	guide := guideIn(t, acceptingJira())
+	guide.StoreSecret = func(string) (string, error) {
+		stored = true
+
+		return keychainReader, nil
+	}
+	request := setup.Request{
+		Place: setup.Home, Answers: setup.Answers{Jira: config.Jira{BaseURL: jiraAddress}},
+		Keychain: true,
+	}
+
+	// Act
+	written, err := guide.Write(t.Context(), request)
+
+	// Assert
+	if err != nil || stored || written.Keychain {
+		t.Errorf("Write = %+v, %v, keychain called %t; want the file written with nothing for the keychain",
+			written, err, stored)
+	}
+}
+
+func TestWriteWhoseFileCannotBeMadeLeavesTheKeychainAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := &keychain{}
+	guide := setup.Guide{
+		Where: setup.Where{WorkDir: t.TempDir(), HomeDir: filepath.Join(t.TempDir(), "gone")},
+		Doer:  acceptingJira(), StoreSecret: kept.store,
+	}
+	request := answered(setup.Home)
+	request.Keychain = true
+
+	// Act
+	_, err := guide.Write(t.Context(), request)
+
+	// Assert
+	if err == nil || kept.stored != "" {
+		t.Errorf("Write = %v, keychain %q; want the write refused before the keychain is touched", err, kept.stored)
+	}
+}
+
+func TestWriteWhoseKeychainFailsLeavesNoFile(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	guide := guideIn(t, acceptingJira())
+	guide.StoreSecret = func(string) (string, error) { return "", errKeychainLocked }
+	request := answered(setup.Home)
+	request.Keychain = true
+
+	// Act
+	_, err := guide.Write(t.Context(), request)
+
+	// Assert
+	_, statErr := os.Lstat(guide.Where.Path(setup.Home))
+	if !errors.Is(err, errKeychainLocked) || !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("Write = %v, file %v; want the keychain's refusal and no file left", err, statErr)
 	}
 }
