@@ -328,9 +328,10 @@ tasks:
   test:summary:
     desc: Report unit and e2e test counts (pass/skip/fail) and coverage (advisory)
     cmds:
-      # Runs the Go, web (vitest) and Playwright suites and prints one markdown
-      # table of counts and coverage. In CI it also appends to the run summary.
-      # Advisory: it reports, it does not gate — the gates are the test jobs.
+      # Runs the Go, web (vitest) and Playwright suites here and prints one
+      # markdown table of counts and coverage. Advisory: it reports, it does not
+      # gate. CI's Test summary job reports the same from what its test jobs
+      # uploaded, and runs no suite again.
       # It runs the Go tests too, so it takes the same roots and the same scrub
       # as `test`.
       - unset $(git rev-parse --local-env-vars); scripts/test-summary.sh {{.GO_PKGS}}
