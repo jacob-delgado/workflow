@@ -48,13 +48,15 @@ func TestTaskwarriorProgramAndDisabledAreRead(t *testing.T) {
 	}
 }
 
-func TestATaskwarriorProgramOnTwoLinesIsRefused(t *testing.T) {
+func TestATaskwarriorProgramThatIsNoNameOrAbsolutePathIsRefused(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]string{
 		"a line feed":       `a\nb`,
 		"a carriage return": `a\rb`,
 		"a NUL":             `a\u0000b`,
+		"a relative path":   `bin/task`,
+		"a leading space":   ` /opt/task`,
 	}
 
 	for name, program := range cases {
@@ -81,7 +83,7 @@ func TestATaskwarriorProgramIsKeptAsWritten(t *testing.T) {
 
 	// Arrange
 	homeDir := t.TempDir()
-	write(t, homeDir, `{"taskwarrior": {"program": " /opt/my task "}}`)
+	write(t, homeDir, `{"taskwarrior": {"program": "/opt/my task "}}`)
 
 	// Act
 	cfg, err := config.Load(t.TempDir(), homeDir)
@@ -90,7 +92,7 @@ func TestATaskwarriorProgramIsKeptAsWritten(t *testing.T) {
 	}
 
 	// Assert
-	if cfg.Taskwarrior.Program != " /opt/my task " {
+	if cfg.Taskwarrior.Program != "/opt/my task " {
 		t.Errorf("taskwarrior.program = %q, want it kept as written, spaces and all", cfg.Taskwarrior.Program)
 	}
 }
