@@ -5,6 +5,7 @@ package tui
 
 import (
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
@@ -54,7 +55,7 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 
 	m.overlay = branchCreator{
 		input: newInput(name), issue: issue, forIssue: forIssue,
-		base: m.branch.branch.Base, baseAge: m.baseAge(),
+		base: m.branch.branch.Base, baseAge: m.branch.baseAge(m.deps.now()),
 		canWorktree: m.deps.Git.CreateWorktree != nil, applyKey: m.keys.confirm.Help().Key,
 	}
 
@@ -63,12 +64,12 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 
 // baseAge says how long ago the base last moved, or nothing when git could not
 // say — so a branch started from a stale base reads as such.
-func (m Model) baseAge() string {
-	if m.branch.branch.BaseUpdated.IsZero() {
+func (s branchState) baseAge(now time.Time) string {
+	if s.branch.BaseUpdated.IsZero() {
 		return ""
 	}
 
-	return age(m.deps.now(), m.branch.branch.BaseUpdated)
+	return age(now, s.branch.BaseUpdated)
 }
 
 // view shows the name and where the branch will start.

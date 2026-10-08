@@ -96,15 +96,15 @@ func (m Model) openPeople() (Model, tea.Cmd) {
 	people.groups, readGroups = readUserGroups(m.deps, opened)
 	m.overlay = people
 
-	return m, tea.Batch(m.readPeople(opened), readRepoGroups(m.deps, opened), readMembers, readGroups)
+	return m, tea.Batch(m.branch.readPeople(m.deps, opened), readRepoGroups(m.deps, opened), readMembers, readGroups)
 }
 
 // readPeople reads who was decided on this forge host, and the owners of this
 // branch's changes, who may not have been asked about yet, for the overlay
 // opened as opened.
-func (m Model) readPeople(opened int) tea.Cmd {
-	owners := taggedOwnerSeams(m.deps)
-	links, base, readWorkspace := m.deps.Store.OwnerLinks, m.branch.branch.BaseName(), m.deps.Messaging.Workspace
+func (s branchState) readPeople(deps Deps, opened int) tea.Cmd {
+	owners := taggedOwnerSeams(deps)
+	links, base, readWorkspace := deps.Store.OwnerLinks, s.branch.BaseName(), deps.Messaging.Workspace
 
 	return func() tea.Msg {
 		var decided []loop.OwnerLink
@@ -359,7 +359,7 @@ func (msg peopleSaved) apply(m Model) (Model, tea.Cmd) {
 
 	open.send = sendState{}
 
-	return m.withBeneath(open), m.readPeople(open.opened)
+	return m.withBeneath(open), m.branch.readPeople(m.deps, open.opened)
 }
 
 // openedAs is the count of overlays opened when People and groups opened.

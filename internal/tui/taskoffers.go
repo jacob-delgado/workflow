@@ -34,14 +34,14 @@ func (m Model) settled(cmd tea.Cmd) (Model, tea.Cmd) {
 // canOffer reports whether a moment of the loop can offer a change of a task:
 // Taskwarrior takes writes, and has answered, so which issues are tracked is
 // known — an offer made after a failed read could track an issue twice.
-func (m Model) canOffer() bool {
-	return m.deps.Tasks.Start != nil && m.tasks.answered()
+func (s tasksState) canOffer(deps Deps) bool {
+	return deps.Tasks.Start != nil && s.answered()
 }
 
 // offeredTask is the task an offer would change — the one that tracks an issue —
 // and whether there is one to offer: none where no offer can be made at all.
 func (m Model) offeredTask(issueKey jira.Key) (taskwarrior.Task, bool) {
-	if !m.canOffer() {
+	if !m.tasks.canOffer(m.deps) {
 		return taskwarrior.Task{}, false
 	}
 
@@ -54,7 +54,7 @@ func (m Model) offeredTask(issueKey jira.Key) (taskwarrior.Task, bool) {
 // anything else is stopped first. Nil when there is nothing to offer: no offer
 // can be made, or the issue's own work is started already.
 func (m Model) offerStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
-	if !m.canOffer() || m.startedOn(issue.Key) {
+	if !m.tasks.canOffer(m.deps) || m.tasks.startedOn(issue.Key) {
 		return nil
 	}
 
@@ -91,16 +91,16 @@ func (s tasksState) started() []taskwarrior.Task {
 
 // startedOn reports whether any task linked to an issue is started, whether or
 // not the Tasks pane lists it: the issue's own work is running already.
-func (m Model) startedOn(issueKey jira.Key) bool {
-	return slices.ContainsFunc(m.tasks.linkedTo(issueKey), taskwarrior.Task.Active)
+func (s tasksState) startedOn(issueKey jira.Key) bool {
+	return slices.ContainsFunc(s.linkedTo(issueKey), taskwarrior.Task.Active)
 }
 
 // listedIssue is an issue as the Issues pane lists it, or, where the pane has
 // not read it — a branch switched to for an issue in another view — the issue
 // known by its key alone, whose track line is then prefilled with no summary or
 // priority.
-func (m Model) listedIssue(issueKey jira.Key) jira.Issue {
-	if issue, listed := m.issues.find(issueKey); listed {
+func (l issueList) listedIssue(issueKey jira.Key) jira.Issue {
+	if issue, listed := l.find(issueKey); listed {
 		return issue
 	}
 

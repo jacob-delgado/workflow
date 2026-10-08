@@ -52,7 +52,7 @@ func (m Model) screen() string {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.rail(shape), body)
 	}
 
-	rows := []string{m.spine(shape), body}
+	rows := []string{m.spineView().draw(shape), body}
 	if m.showsNotice() {
 		rows = append(rows, m.noticeLine(shape.Footer.Width))
 	}

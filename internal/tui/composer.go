@@ -87,7 +87,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	m, opened := m.opening()
 
 	composer := commitComposer{
-		conv: conv, types: types, kind: m.startingType(conv, draft),
+		conv: conv, types: types, kind: m.branch.startingType(conv, draft),
 		focus: fieldSubject, scope: newInput(cmp.Or(draft.scope, m.cfg.Commit.DefaultScope)),
 		subject: newInput(draft.subject), body: draft.body,
 		issueKey: issueKey, staged: m.changes.staged(), breaking: draft.breaking,
@@ -95,7 +95,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	}
 	composer.scope.Blur()
 
-	paths := m.stagedPaths()
+	paths := m.changes.stagedPaths()
 	m.overlay = composer.withScopeSuggestions(scopeSuggestions(paths, nil))
 
 	return m, readScopes(m.deps, opened, paths, draft.scope == "")
@@ -110,14 +110,14 @@ func (m Model) commitConvention() convention.CommitConvention {
 // startingType is the type the composer opens on: a kept draft's type wins, so a
 // failed commit reopens as it was; otherwise the branch's own prefix, which
 // already says what kind of change this is; otherwise the first type offered.
-func (m Model) startingType(conv convention.CommitConvention, draft commitDraft) int {
+func (s branchState) startingType(conv convention.CommitConvention, draft commitDraft) int {
 	types := conv.Types()
 
 	if draft.kind != "" {
 		return max(0, slices.Index(types, draft.kind))
 	}
 
-	if branchType, ok := conv.BranchType(m.branch.branch.Name); ok {
+	if branchType, ok := conv.BranchType(s.branch.Name); ok {
 		return max(0, slices.Index(types, branchType))
 	}
 

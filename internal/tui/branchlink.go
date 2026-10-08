@@ -51,8 +51,8 @@ var (
 
 // canLinkIssue reports a checked-out branch and a repository that can keep a
 // link for it.
-func (m Model) canLinkIssue() bool {
-	return m.deps.Git.LinkIssue != nil && m.branch.loaded && !m.branch.branch.Detached && m.branch.branch.Name != ""
+func (s branchState) canLinkIssue(deps Deps) bool {
+	return deps.Git.LinkIssue != nil && s.loaded && !s.branch.Detached && s.branch.Name != ""
 }
 
 // openBranchLink opens the link form on the checked-out branch, holding the
