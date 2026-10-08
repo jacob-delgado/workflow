@@ -1,0 +1,12 @@
+# Versions adopted before they are seven days old, because each fixes a
+# published vulnerability: the age gate guards against unknown compromised
+# releases, and a known-CVE fix overrides it, always.
+# scripts/check-dependency-age.sh passes a version listed here at any age.
+#
+# One per line, the name as the file that pins it spells it (a Go module path,
+# an npm package, a mise.toml tool key), its version as pinned there, and the
+# CVE or GHSA id it fixes:
+#
+#     <name> <version> <advisory>
+#
+# Remove a line once its version is a week old; it has done its job.
