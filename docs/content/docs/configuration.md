@@ -1031,13 +1031,10 @@ Enterprise Grid user, a Slack Connect member, an org-wide user group. That an
 owner is not on Slack is kept per workspace as well, since a person may be in
 one workspace and not another. When Slack cannot say which workspace the
 token is for, nobody is tagged: the announcement posts untagged and says why.
-Links kept before workspaces were — by an earlier build — belong to no
-workspace, so each such owner is asked about once more; an owner an earlier
-build marked not on Slack stays so in every workspace until decided again. The terminal's
-announcement preview and the web's ask
-whom an owner not yet decided is, and the web's Settings and the terminal's
-`P` overlay change or forget a decision; `workflow announce` tags only whom
-is already decided, and names the rest in its preview.
+The terminal's announcement preview and the web's ask whom an owner not yet
+decided is, and the web's Settings and the terminal's `P` overlay change or
+forget a decision; `workflow announce` tags only whom is already decided, and
+names the rest in its preview.
 
 The store **never holds a secret**, and nothing it is keyed by is one. The
 commit scope and what was announced are kept per repository: the origin remote's
