@@ -1,4 +1,3 @@
-import type { Locator, Page } from '@playwright/test'
 import {
   confirmSteps,
   height,
@@ -24,17 +23,6 @@ test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
 })
 
-// settled is what shows once a section has drawn what it will with no API to
-// answer it: Reviews, Tasks, Summary, Repositories and Settings each read their own endpoint
-// after their heading appears, and the read fails here, so the scan waits on
-// its Try again — the first, where Settings offers one for each of its reads;
-// every other section settles with its heading.
-function settled(page: Page, name: string): Locator {
-  return ['Reviews', 'Tasks', 'Summary', 'Repositories', 'Settings'].includes(name)
-    ? page.getByRole('button', { name: 'Try again' }).first()
-    : page.getByRole('heading', { level: 1, name })
-}
-
 // unreachable is the answer a read gets when the service behind it is down.
 const unreachable = problem(
   'unreachable',
@@ -48,9 +36,11 @@ for (const theme of themes) {
       // it, and answer the health read as a --dry-run server would, so the
       // read-only banner is on screen for the scan (the hermetic server has
       // no API). The review queue's read, the task list's, the repositories'
-      // and the configuration's fail, so each reason and its Try again are
-      // scanned, whenever the answer comes; the populated build scans the
-      // queue, the tasks and the form themselves.
+      // and the configuration's fail as unreachable, and every other read the
+      // section makes as a route the server does not have (the test
+      // support/fixtures.ts makes), so each reason and its Try again are
+      // scanned; the populated build scans the queue, the tasks and the form
+      // themselves.
       await pinTheme(page, theme)
       await page.route('**/api/health', (route) =>
         route.fulfill({
@@ -64,13 +54,9 @@ for (const theme of themes) {
       await page.goto('/')
       await expect(page.getByText(/every write is held back/i)).toBeVisible()
 
-      // Act: open the section and let it settle.
-      await page
-        .getByRole('navigation', { name: 'Sections' })
-        .getByRole('button', { name, exact: true })
-        .click()
-      await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
-      await expect(settled(page, name)).toBeVisible()
+      // Act: open the section and let it settle, every read of its own
+      // answered.
+      await openSection(page, name)
 
       // Assert
       expect(await axeViolations(page)).toBe('')
