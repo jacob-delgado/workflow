@@ -92,21 +92,29 @@ func statusState(state string) CIState {
 }
 
 // runState reads one GitHub check run. Only a completed run has a conclusion.
-//
-// The conclusions that pass are named and every other one fails, including one
-// GitHub adds later: announcing green on a conclusion nobody has heard of is
-// the worse mistake.
 func runState(status, conclusion string) CIState {
 	if status != "completed" {
 		return CIRunning
 	}
 
-	passing := map[string]bool{succeeded: true, "neutral": true, skipped: true}
-	if passing[conclusion] {
+	if passingConclusion(conclusion) {
 		return CIPassed
 	}
 
 	return CIFailed
+}
+
+// passingConclusion reports a GitHub check run's or workflow run's conclusion
+// that passes. The ones that pass are named and every other one fails,
+// including one GitHub adds later: announcing green on a conclusion nobody has
+// heard of is the worse mistake.
+func passingConclusion(conclusion string) bool {
+	switch conclusion {
+	case succeeded, "neutral", skipped:
+		return true
+	default:
+		return false
+	}
 }
 
 // ci is the tally's verdict: any failure fails it, then anything unfinished
