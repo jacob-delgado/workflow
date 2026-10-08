@@ -23,7 +23,8 @@ export async function previewAnnouncement(channel = ''): Promise<Announcement> {
 
 // announce posts previewed — the announcement as its preview showed it — to
 // channel on the configured service, and returns it as posted, with the channel
-// it went to, for the panel to say where. The server posts that text or
+// it went to, for the panel to say where, and the server's warning when the
+// store could not remember it, so a later session may offer it again. The server posts that text or
 // nothing: an announcement that reads differently by the time of the post (CI
 // turned red, the pull request merged) is refused, to be previewed again. A
 // refusal — that, no pull request, a failed post — throws the API error, whose
@@ -49,10 +50,12 @@ export async function announce(
 }
 
 // Held says whether an announcement asked to wait for CI is held, or went at
-// once because its CI had passed by then, and where it goes.
+// once because its CI had passed by then, where it goes, and the server's
+// warning when it went but could not be remembered.
 export interface Held {
   held: boolean
   channel: string
+  warning?: string | undefined
 }
 
 // announceWhenCIPasses asks the server to hold the previewed announcement
@@ -70,7 +73,11 @@ export async function announceWhenCIPasses(
     throwOnError: true,
   })
 
-  return { held: result.response.status === 202, channel: result.data.channel }
+  return {
+    held: result.response.status === 202,
+    channel: result.data.channel,
+    warning: result.data.warning,
+  }
 }
 
 // stopWaiting drops the announcement held for CI, unposted.

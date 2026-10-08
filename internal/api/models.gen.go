@@ -903,6 +903,11 @@ type Announcement struct {
 
 	// Text The message that would be posted.
 	Text string `json:"text"`
+
+	// Warning Set only on a post that went out but that the store could not remember, so a later session may offer it again; the post is not a failure. Left out on a preview.
+	//
+	// Example: Posted, but not remembered: it may be offered again.
+	Warning *string `json:"warning,omitempty"`
 }
 
 // AnnouncementTagging Whom a ready-for-review announcement proposes to tag on Slack: the code owners of the branch's changes, and the user groups it offers.
@@ -1910,6 +1915,11 @@ type QueuedAnnouncement struct {
 	// Reason Why a dropped announcement was not posted: the CI failed, the branch's pull request is another one, or the post failed.
 	Reason *string                 `json:"reason,omitempty"`
 	State  QueuedAnnouncementState `json:"state"`
+
+	// Warning Set only on one announced that the store could not remember, so a later session may offer it again.
+	//
+	// Example: Posted, but not remembered: it may be offered again.
+	Warning *string `json:"warning,omitempty"`
 }
 
 // QueuedAnnouncementState defines model for QueuedAnnouncement.State.

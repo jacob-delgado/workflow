@@ -13,6 +13,7 @@ import { announce, announceWhenCIPasses, previewAnnouncement } from './announceA
 import { AnnouncePreview } from './AnnouncePreview.tsx'
 import { HeldAnnouncement } from './HeldAnnouncement.tsx'
 import { mentionsOf, pickFrom, type TagPick } from './tagPick.ts'
+import { withWarning } from './withWarning.ts'
 
 export function MessagingPanel() {
   const snapshot = useLiveSnapshot()
@@ -301,7 +302,8 @@ function sendingOf(post: AsyncState, hold: AsyncState): 'post' | 'hold' | null {
 }
 
 // useAnnouncePost is the post of a previewed announcement to channel, which
-// says where it went through onAnnounced. Only an announcement that tags asks
+// says where it went through onAnnounced, and that it may be offered again
+// when the store could not remember it. Only an announcement that tags asks
 // for mentions, and only an edited one carries its edit, so one that does
 // neither posts as it always has.
 function useAnnouncePost(channel: string, service: string, onAnnounced: (said: string) => void) {
@@ -318,7 +320,11 @@ function useAnnouncePost(channel: string, service: string, onAnnounced: (said: s
     {
       fallback: 'Nothing was announced. Try again, or run workflow announce from a terminal.',
       // A webhook has no channel of its own to name, so the service stands in.
-      done: (posted) => `Announced to ${posted.channel === '' ? service : posted.channel}.`,
+      done: (posted) =>
+        withWarning(
+          `Announced to ${posted.channel === '' ? service : posted.channel}.`,
+          posted.warning,
+        ),
       onDone: onAnnounced,
     },
   )
@@ -326,7 +332,7 @@ function useAnnouncePost(channel: string, service: string, onAnnounced: (said: s
 
 // useAnnounceHold holds a previewed announcement to channel until the pull
 // request's CI passes, and says so through onAnnounced — or that it went at
-// once, when the CI had passed by then.
+// once, when the CI had passed by then, as a post says it.
 function useAnnounceHold(channel: string, service: string, onAnnounced: (said: string) => void) {
   return useAsyncAction(
     (previewed: string, mentions?: AnnounceMentions, edited?: string) =>
@@ -336,7 +342,9 @@ function useAnnounceHold(channel: string, service: string, onAnnounced: (said: s
       done: (answer) => {
         const where = answer.channel === '' ? service : answer.channel
 
-        return answer.held ? `Will announce to ${where} once CI passes.` : `Announced to ${where}.`
+        return answer.held
+          ? `Will announce to ${where} once CI passes.`
+          : withWarning(`Announced to ${where}.`, answer.warning)
       },
       onDone: onAnnounced,
     },

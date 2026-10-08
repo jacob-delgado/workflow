@@ -315,7 +315,10 @@ the new one. Once a pull request was announced at the moment it is at now —
 ready for review, its CI red, merged — from here, the terminal or `workflow
 announce`, the section says so in place of the offer, as the terminal offers
 no announcement it has made; each announcement made here is remembered for
-the terminal and `workflow announce` too.
+the terminal and `workflow announce` too. One the store cannot remember — a
+full disk, say — is posted all the same, and the line saying where it went
+adds *Posted, but not remembered: it may be offered again.*, as a held one
+does once it goes; the server's log says why.
 
 **Edit**, in the preview, turns the message into a box to change it in, as
 the terminal's `e` opens it in your editor; **Announce now** then sends the

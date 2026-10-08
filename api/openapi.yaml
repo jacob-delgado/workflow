@@ -1789,7 +1789,9 @@ paths:
         is remembered in the store, as the terminal's are, and a moment the
         store remembers announced already — from here, the terminal or
         workflow announce — is refused with 409, as the terminal offers no
-        announcement it has made. The check and the post are one step, so of
+        announcement it has made. A post the store cannot remember went all
+        the same: it is answered as posted, with a warning that a later
+        session may offer it again, as a held one's frame says too. The check and the post are one step, so of
         two asks at once one posts and the other is that 409; and while a held
         announcement is being posted, announcing now or holding another is a
         409 too.
@@ -3510,6 +3512,13 @@ components:
             Whether a preview's announcement can be held until the pull
             request's CI passes: it is ready for review and its CI is still
             running. Left out where it cannot, and on a post.
+        warning:
+          type: string
+          description: >-
+            Set only on a post that went out but that the store could not
+            remember, so a later session may offer it again; the post is not
+            a failure. Left out on a preview.
+          example: "Posted, but not remembered: it may be offered again."
       additionalProperties: false
 
     AnnounceRequest:
@@ -3568,6 +3577,12 @@ components:
           description: >-
             Why a dropped announcement was not posted: the CI failed, the
             branch's pull request is another one, or the post failed.
+        warning:
+          type: string
+          description: >-
+            Set only on one announced that the store could not remember, so
+            a later session may offer it again.
+          example: "Posted, but not remembered: it may be offered again."
       additionalProperties: false
 
     StagingRequest:
