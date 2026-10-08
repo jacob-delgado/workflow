@@ -31,14 +31,6 @@ documentation site.
 
 With Go:
 
-```sh
-go install github.com/jacob-delgado/workflow/cmd/workflow@latest
-```
-
-The binary lands in `$(go env GOPATH)/bin`, which needs to be on your `PATH`.
-`@latest` resolves to the newest release tag; for a reproducible install, name
-the version instead:
-
 <!-- x-release-please-start-version -->
 
 ```sh
@@ -47,33 +39,17 @@ go install github.com/jacob-delgado/workflow/cmd/workflow@v0.8.0
 
 <!-- x-release-please-end -->
 
-From a [release](https://github.com/jacob-delgado/workflow/releases/latest),
-the binary for your platform:
-[Install](https://jacob-delgado.github.io/workflow/docs/install/#from-a-release)
-says what each release carries and how to verify it.
-
-From source, using [mise](https://mise.jdx.dev) for the pinned toolchain and
-[go-task](https://taskfile.dev) as the runner:
-
-```sh
-git clone https://github.com/jacob-delgado/workflow.git
-cd workflow
-mise trust && mise install
-task build            # builds bin/workflow
-```
-
-There is also a devcontainer (VS Code, GoLand, Codespaces, or the devcontainer
-CLI), and a build container for running the same checks without installing
-anything: `task container:check`.
+[Install](https://jacob-delgado.github.io/workflow/docs/install/) says what
+workflow needs beside it, where that binary lands, and the other two ways to get
+it: [from a release](https://jacob-delgado.github.io/workflow/docs/install/#from-a-release)
+or [from source](https://jacob-delgado.github.io/workflow/docs/install/#from-source).
+To build and check it in a container or a devcontainer instead, see
+[Development setup](CONTRIBUTING.md#development-setup).
 
 ## Configure
 
-```sh
-workflow config init      # asks, then writes .workflow.json for you alone
-workflow doctor           # says what is still missing
-```
-
-`.workflow.json` looks like this:
+[First run](https://jacob-delgado.github.io/workflow/docs/install/#first-run)
+says how to set it up. `.workflow.json` looks like this:
 
 ```json
 {
