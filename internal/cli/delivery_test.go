@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -100,5 +102,39 @@ func TestAnnounceRefusedForItsChannelSaysTheFixAndNoKey(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "you are not in #dev; join it") ||
 		strings.Contains(err.Error(), "press enter") {
 		t.Errorf("announce = %v, want the fix for the channel and no key named", err)
+	}
+}
+
+func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
+	// Arrange
+	// A file stands where the store's directory goes, so nothing is kept.
+	var posts atomic.Int32
+
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, announcingConfig(webhook(t, &posts)))
+
+	where := place{dir: repo, home: t.TempDir(), state: t.TempDir()}
+	writeStoreBlocker(t, where.state)
+
+	// Act
+	printed, err := runStreamsAt(t, where, unusedPrompt(t), "announce", "--yes")
+
+	// Assert
+	if err != nil || posts.Load() != 1 || !strings.Contains(printed.stderr, "Announced to") ||
+		!strings.Contains(printed.stderr, "could not be remembered") {
+		t.Errorf("announce --yes = %v after %d posts, saying:\n%s\nwant the announcement made and the store's "+
+			"failure said", err, posts.Load(), printed.stderr)
+	}
+}
+
+// writeStoreBlocker puts a file where the store's directory goes under
+// state, $XDG_STATE_HOME, so the store can keep nothing.
+func writeStoreBlocker(t *testing.T, state string) {
+	t.Helper()
+
+	err := os.WriteFile(filepath.Join(state, "workflow"), nil, 0o600)
+	if err != nil {
+		t.Fatalf("putting a file where the store goes: %v", err)
 	}
 }

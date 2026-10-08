@@ -21,6 +21,10 @@ var (
 	ErrNoPullRequest = errors.New("there is no pull request to announce")
 	// ErrAnnounceUnavailable refuses an announcement with no way to post one.
 	ErrAnnounceUnavailable = errors.New("announcing is not available")
+	// ErrNotRemembered reports an announcement that was posted but could not
+	// be remembered, so a later session may offer to post it again.
+	ErrNotRemembered = errors.New("the announcement was posted, but could not be remembered; " +
+		"a later session may offer to post it again")
 	// ErrEmptyAnnouncement refuses an announcement edited down to nothing:
 	// guidance, not a failure.
 	ErrEmptyAnnouncement = errors.New("nothing to announce: the message was empty")
@@ -187,7 +191,7 @@ type Announced struct {
 // of none is a choice too.
 type AnnounceMemory struct {
 	Recorded     func() []Announced
-	Record       func(Announced)
+	Record       func(Announced) error
 	RecordGroups func(ids []string) error
 }
 
@@ -213,7 +217,9 @@ type Delivery struct {
 // Deliver posts the delivery, its tags on a line after the text, and, once it
 // has gone out, records what it made, so a later session knows not to make it
 // again, and the groups it tagged. A post that fails records nothing; the
-// error is the post's own, for the caller to word.
+// error is the post's own, for the caller to word. A post that went out but
+// was not remembered is ErrNotRemembered, carrying why: the post was made, and
+// the caller says so with the warning.
 func Deliver(post func(channel, text string) error, memory AnnounceMemory, delivery Delivery) error {
 	if post == nil {
 		return ErrAnnounceUnavailable
@@ -224,14 +230,19 @@ func Deliver(post func(channel, text string) error, memory AnnounceMemory, deliv
 		return err
 	}
 
-	if memory.Record != nil {
-		memory.Record(delivery.Made)
-	}
-
 	if memory.RecordGroups != nil {
 		// The post has gone out, which is what the caller asked for: a choice
 		// not remembered is only offered unchecked next time.
 		_ = memory.RecordGroups(delivery.groupIDs())
+	}
+
+	if memory.Record == nil {
+		return nil
+	}
+
+	err = memory.Record(delivery.Made)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrNotRemembered, err)
 	}
 
 	return nil

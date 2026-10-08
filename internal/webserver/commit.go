@@ -200,9 +200,15 @@ func (s *server) learnedScope() (string, bool) {
 // the terminal's too, and when it recorded one has the next frame read the
 // store once for what it kept — nothing, with the store off, which leaves
 // commit.default_scope to open the form, as it does in the terminal. The record
-// comes first, so a frame reading in between caches no older scope.
+// comes first, so a frame reading in between caches no older scope. A store
+// that could not keep it is noted, since the commit it followed was made.
 func (s *server) rememberScope(scope string) {
-	if !loop.RememberScope(s.deps.RecordScope, scope) {
+	recorded, err := loop.RememberScope(s.deps.RecordScope, scope)
+	if err != nil {
+		s.unexpected(err)
+	}
+
+	if !recorded {
 		return
 	}
 

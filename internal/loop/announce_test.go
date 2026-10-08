@@ -366,7 +366,11 @@ func (d *deliveries) post(err error) func(channel, text string) error {
 
 // memory records every announcement made.
 func (d *deliveries) memory() loop.AnnounceMemory {
-	return loop.AnnounceMemory{Record: func(made loop.Announced) { d.recorded = append(d.recorded, made) }}
+	return loop.AnnounceMemory{Record: func(made loop.Announced) error {
+		d.recorded = append(d.recorded, made)
+
+		return nil
+	}}
 }
 
 // merged is the delivery these tests send: the pull request's merge, to #dev.
@@ -437,5 +441,22 @@ func TestDeliverPostsWithNothingToRememberItIn(t *testing.T) {
 	// Assert
 	if err != nil || len(sent.posted) != 1 {
 		t.Errorf("Deliver = %v, posted %q; want it posted though nothing records it", err, sent.posted)
+	}
+}
+
+func TestDeliverPostedButNotRememberedSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var sent deliveries
+
+	forgetting := loop.AnnounceMemory{Record: func(loop.Announced) error { return errSeam }}
+
+	// Act
+	err := loop.Deliver(sent.post(nil), forgetting, merged())
+
+	// Assert
+	if !errors.Is(err, loop.ErrNotRemembered) || !errors.Is(err, errSeam) || len(sent.posted) != 1 {
+		t.Errorf("Deliver = %v, posted %q; want it posted, then ErrNotRemembered with why", err, sent.posted)
 	}
 }

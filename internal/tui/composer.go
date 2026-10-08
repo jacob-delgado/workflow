@@ -389,11 +389,21 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 	return m.startRun(commitRun(), func() (proc.Output, error) { return commit(message) },
 		func(done Model) (Model, tea.Cmd) {
 			done.draft = commitDraft{}
-			done = done.closeOverlay().noticed(done.marks.done + " committed " + subject.String())
-			loop.RememberScope(done.deps.Store.RecordScope, subject.Scope)
+			_, err := loop.RememberScope(done.deps.Store.RecordScope, subject.Scope)
+			done = done.closeOverlay().noticed(done.marks.done + " committed " + subject.String() + scopeNotKept(err))
 
 			return done, tea.Batch(done.loadChanges(), done.loadBranch())
 		})
+}
+
+// scopeNotKept is what a store that could not keep a commit's scope says
+// after the commit: nothing when it kept it.
+func scopeNotKept(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	return "; its scope was not remembered: " + err.Error()
 }
 
 // commitRun is a commit, which the repository's hooks can refuse.
