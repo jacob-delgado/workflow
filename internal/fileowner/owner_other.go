@@ -7,6 +7,12 @@ package fileowner
 
 import "io/fs"
 
+// Owner is the user and group a file belongs to.
+type Owner struct {
+	User  int
+	Group int
+}
+
 // Of reports no owner off Unix: Windows decides who may write a file by its
 // access list, which no user and group id stand for.
 func Of(_ fs.FileInfo) (Owner, bool) {
