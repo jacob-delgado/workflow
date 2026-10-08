@@ -6,12 +6,16 @@ package config
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
-// ErrInvalidTaskwarriorProgram reports a taskwarrior.program that is not one
-// line: a name or a path cannot hold a line break or a NUL.
-var ErrInvalidTaskwarriorProgram = errors.New("taskwarrior.program must be a program name or a path on one line")
+// ErrInvalidTaskwarriorProgram reports a taskwarrior.program that is not a
+// name looked up on PATH or an absolute path, on one line: a path relative to
+// the working directory names another program in each directory workflow
+// starts in, and a name or a path cannot hold a line break or a NUL.
+var ErrInvalidTaskwarriorProgram = errors.New(
+	"taskwarrior.program must be a program name or an absolute path, on one line")
 
 // Taskwarrior configures the optional Taskwarrior integration, on whenever a
 // Taskwarrior 3.5.0 or newer is found.
@@ -26,11 +30,15 @@ type Taskwarrior struct {
 	Disabled bool `json:"disabled"`
 }
 
-// validateTaskwarrior refuses a program with a line break or a NUL in it. It
-// trims nothing: a path may begin or end with a space.
+// validateTaskwarrior refuses a program with a line break or a NUL in it, or
+// named by a path relative to the working directory. It trims nothing: a
+// path may end with a space, and one that begins with a space is relative.
 func (c Config) validateTaskwarrior() error {
-	if strings.ContainsAny(c.Taskwarrior.Program, "\n\r\x00") {
-		return fmt.Errorf("%w: %q", ErrInvalidTaskwarriorProgram, c.Taskwarrior.Program)
+	program := c.Taskwarrior.Program
+
+	relative := program != "" && !filepath.IsAbs(program) && filepath.Base(program) != program
+	if relative || strings.ContainsAny(program, "\n\r\x00") {
+		return fmt.Errorf("%w: %q", ErrInvalidTaskwarriorProgram, program)
 	}
 
 	return nil

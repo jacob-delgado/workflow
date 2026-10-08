@@ -36,6 +36,10 @@ const (
 )
 
 var (
+	// ErrRelativeProgram reports a task program named by a path relative to
+	// the working directory, which names a different program in each
+	// directory workflow starts in, a working tree's own among them.
+	ErrRelativeProgram = errors.New("the task program must be a name looked up on PATH or an absolute path")
 	// ErrNotInstalled reports no task program to try, or none there to run.
 	ErrNotInstalled = errors.New("taskwarrior is not installed")
 	// ErrNotTaskwarrior reports task programs that did not answer _version as
@@ -170,8 +174,9 @@ func runnable(path, goos string) bool {
 	return info.Mode().IsRegular() && (goos == windows || info.Mode()&0o111 != 0)
 }
 
-// Detect finds Taskwarrior. With program set only it is tried; otherwise each
-// candidate in order, each asked from the filesystem root. The first that
+// Detect finds Taskwarrior. With program set only it is tried, and never when
+// it is a path relative to the working directory, which is ErrRelativeProgram;
+// otherwise each candidate in order, each asked from the filesystem root. The first that
 // answers _version with MinimumVersion or newer wins; a candidate that fails
 // _version is not Taskwarrior, one that answers with an older version is too
 // old, one that is not there is neither, and once every candidate has been
@@ -191,6 +196,10 @@ func Detect(ctx context.Context, program string, candidates []string, run Runner
 	tried := candidates
 	if program != "" {
 		tried = []string{program}
+	}
+
+	if relativeToWorkingDirectory(program) {
+		return Install{}, fmt.Errorf("%w: %s", ErrRelativeProgram, program)
 	}
 
 	if len(tried) == 0 {
@@ -257,19 +266,16 @@ func askVersion(ctx context.Context, run Runner, candidate string) (string, erro
 	return version, nil
 }
 
-// probe is a detection run of program from the filesystem root, so a Taskfile
-// in the working directory never runs; a relative path is made absolute
-// first, since it names a program from the working directory, not the root.
-func probe(program string, args ...string) proc.Command {
-	name := program
-	if !filepath.IsAbs(program) && filepath.Base(program) != program {
-		absolute, err := filepath.Abs(program)
-		if err == nil {
-			name = absolute
-		}
-	}
+// relativeToWorkingDirectory reports a program named by a relative path: one
+// that is neither absolute nor a bare name looked up on PATH.
+func relativeToWorkingDirectory(program string) bool {
+	return program != "" && !filepath.IsAbs(program) && filepath.Base(program) != program
+}
 
-	return proc.Command{Dir: filepath.VolumeName(name) + string(filepath.Separator), Name: name, Args: args}
+// probe is a detection run of program from the filesystem root, so a Taskfile
+// in the working directory never runs.
+func probe(program string, args ...string) proc.Command {
+	return proc.Command{Dir: filepath.VolumeName(program) + string(filepath.Separator), Name: program, Args: args}
 }
 
 // versionFailure words why candidate did not answer _version: only
