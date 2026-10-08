@@ -1,8 +1,12 @@
 import {
+  ago,
+  day,
   headingDay,
+  hour,
+  minute,
   monthHeading,
-  narrowAgo,
   relativeTime,
+  second,
   writtenDate,
   writtenDay,
   writtenMoment,
@@ -46,13 +50,48 @@ test('a time relative to now is said in words', () => {
   expect(relativeTime(-2, 'day')).toBe('2 days ago')
 })
 
+// now is the moment every time ago below is told from.
+const now = noonOn(2026, 9, 18).getTime()
+
 test.each([
   [400, 'just now'],
-  [3_000, '3s ago'],
+  [3 * second, '3s ago'],
   [59_999, '59s ago'],
-  [5 * 60_000, '5m ago'],
-  [2 * 3_600_000 + 1, '2h ago'],
+  [5 * minute, '5m ago'],
+  [2 * hour + 1, '2h ago'],
+  [3 * day, '72h ago'],
 ])('%i ms ago, in a figure, is %s', (elapsed, words) => {
   // Act & Assert
-  expect(narrowAgo(elapsed)).toBe(words)
+  expect(ago(now - elapsed, now, { style: 'narrow' })).toBe(words)
 })
+
+test.each([
+  [30 * second, 'just now'],
+  [15 * minute, '15m ago'],
+  [5 * hour, '5h ago'],
+  [9 * day, '9d ago'],
+  [31 * day, '2026-08-18'],
+])('%i ms ago, as the terminal says it, is %s', (elapsed, words) => {
+  // Act & Assert
+  expect(ago(now - elapsed, now, { style: 'terminal', dateAfter: 30 * day })).toBe(words)
+})
+
+test.each([
+  [30 * second, 'just now'],
+  [5 * minute, '5 minutes ago'],
+  [2 * hour, '2 hours ago'],
+  [day + hour, 'yesterday'],
+  [3 * day, '3 days ago'],
+  [8 * day, '2026-09-10'],
+])('%i ms ago, in words, is %s', (elapsed, words) => {
+  // Act & Assert
+  expect(ago(now - elapsed, now, { style: 'words', dateAfter: 7 * day })).toBe(words)
+})
+
+test.each(['narrow', 'terminal', 'words'] as const)(
+  'a moment the server could not give is some time ago, said %s',
+  (style) => {
+    // Act & Assert
+    expect(ago(Date.parse('0001-01-01T00:00:00Z'), now, { style })).toBe('some time ago')
+  },
+)

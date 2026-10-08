@@ -54,13 +54,50 @@ export function relativeTime(count: number, unit: Intl.RelativeTimeFormatUnit): 
   return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(count, unit)
 }
 
-const second = 1_000
-const minute = 60 * second
-const hour = 60 * minute
+// The lengths of time the web counts in, in milliseconds.
+export const second = 1_000
+export const minute = 60 * second
+export const hour = 60 * minute
+export const day = 24 * hour
 
-// narrowAgo is how long ago something was, in milliseconds, as a figure for a
-// line that has no room for words: just now, then 3s ago, 5m ago, 2h ago.
-export function narrowAgo(elapsed: number): string {
+// AgoStyle is how a time ago is worded: narrow, a figure for a line with no
+// room for words (3s ago, 2h ago); terminal, as the terminal's lists say it
+// (5m ago, 3d ago); words, in running text (5 minutes ago, yesterday).
+type AgoStyle = 'narrow' | 'terminal' | 'words'
+
+interface AgoOptions {
+  style: AgoStyle
+  // dateAfter is how long ago a moment may be before its date is said
+  // instead, YYYY-MM-DD; never, unless given.
+  dateAfter?: number
+}
+
+// ago is how long before now a moment was, both in milliseconds since the
+// epoch, in the style asked for. Under a minute it is just now, but for the
+// narrow style, which counts seconds; and a moment at or before the epoch —
+// the zero time a server sends for a date it was not given — is some time ago.
+export function ago(at: number, now: number, { style, dateAfter = Infinity }: AgoOptions): string {
+  const elapsed = now - at
+  if (at <= 0) {
+    return 'some time ago'
+  }
+
+  if (elapsed >= dateAfter) {
+    return writtenDate(new Date(at))
+  }
+
+  switch (style) {
+    case 'narrow':
+      return narrowAgo(elapsed)
+    case 'terminal':
+      return terminalAgo(elapsed)
+    case 'words':
+      return wordsAgo(elapsed)
+  }
+}
+
+// narrowAgo is a time ago as a figure: just now, then 3s ago, 5m ago, 2h ago.
+function narrowAgo(elapsed: number): string {
   if (elapsed < second) {
     return 'just now'
   }
@@ -75,6 +112,38 @@ export function narrowAgo(elapsed: number): string {
   }
 
   return narrow.format(-Math.floor(elapsed / hour), 'hour')
+}
+
+// terminalAgo is a time ago as the terminal's lists say it: just now, then
+// 5m ago, 2h ago, 3d ago.
+function terminalAgo(elapsed: number): string {
+  if (elapsed < minute) {
+    return 'just now'
+  }
+
+  if (elapsed < hour) {
+    return `${String(Math.floor(elapsed / minute))}m ago`
+  }
+
+  return elapsed < day
+    ? `${String(Math.floor(elapsed / hour))}h ago`
+    : `${String(Math.floor(elapsed / day))}d ago`
+}
+
+// wordsAgo is a time ago in words: just now, then 5 minutes ago, 2 hours ago,
+// yesterday, 3 days ago.
+function wordsAgo(elapsed: number): string {
+  if (elapsed < minute) {
+    return 'just now'
+  }
+
+  if (elapsed < hour) {
+    return relativeTime(-Math.floor(elapsed / minute), 'minute')
+  }
+
+  return elapsed < day
+    ? relativeTime(-Math.floor(elapsed / hour), 'hour')
+    : relativeTime(-Math.floor(elapsed / day), 'day')
 }
 
 // civilNoon is noon UTC on a calendar date, so formatting it in UTC can never
