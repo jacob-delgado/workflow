@@ -11,6 +11,8 @@ package wiring_test
 import (
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -148,5 +150,30 @@ func TestTheForgeFallsBackToHTTPWhenTheCLIToolIsMissing(t *testing.T) {
 	// needs a token the CLI would have carried itself.
 	if !errors.Is(err, forge.ErrNoToken) {
 		t.Errorf("FindPullRequest = %v, want %v", err, forge.ErrNoToken)
+	}
+}
+
+func TestTheForgeCLIKeepsARefusalsReasonWhole(t *testing.T) {
+	// Arrange
+	// gh holds no token it will hand over, so the forge client carries a
+	// stand-in for one; the forge's reason must come through as it wrote it.
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "gh"), "#!/bin/sh\n"+
+		"if [ \"$1\" = auth ]; then exit 1; fi\n"+
+		"printf 'HTTP/1.1 403 Forbidden\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n"+
+		"printf '{\"message\":\"the client cannot do this\"}'\n", 0o755)
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	cfg, where := githubCLIWorkspace(t)
+	seams := wired(t, cfg, where, nil).Forge
+
+	// Act
+	_, _, err := seams.FindPullRequest("feat/x")
+
+	// Assert
+	if !errors.Is(err, forge.ErrRefused) || !strings.Contains(err.Error(), "the client cannot do this") {
+		t.Errorf("FindPullRequest = %v, want the forge's refusal with its reason whole", err)
 	}
 }
