@@ -2,15 +2,16 @@ import { GitBranch } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Branch, Change } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
-import { useHoldShortcuts, useShortcut } from '@/features/keyboard/useShortcut.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
-import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
+import { useFocusHandback } from '@/lib/focus.ts'
 import { CodeValue } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { ReadFailure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure, definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
+import { LastLook } from '@/lib/LastLook.tsx'
 import { RunOutput, useGitRun, type GitRunner } from './GitRun.tsx'
 import { HistoryActions, onFeatureBranch, RebaseAction } from './HistoryActions.tsx'
 import { HookSetup } from './HookSetup.tsx'
@@ -233,35 +234,20 @@ interface PushConfirmProps {
 }
 
 // PushConfirm asks before the push, naming what goes where as the terminal's
-// last look does, and takes focus as it opens, so a screen reader hears the
-// question. It counts no commits: the count since the base is not what the push
-// sends, and without a base it is not known at all.
+// last look does. It counts no commits: the count since the base is not what
+// the push sends, and without a base it is not known at all.
 function PushConfirm({ branch, onCancel, onPush }: PushConfirmProps) {
-  const question = useFocusOnMount<HTMLDivElement>()
-  useHoldShortcuts()
-
   return (
-    <div
-      ref={question}
-      role="group"
-      aria-labelledby="push-question"
-      tabIndex={-1}
-      className="flex flex-wrap items-center gap-item text-sm"
-    >
-      <span id="push-question">
-        Push <span className="font-mono">{branch.name}</span> to{' '}
-        <span className="font-mono">{branch.push_remote}</span>?
-      </span>
-      {/* The buttons keep their words whole: a long branch name wraps them
-          under the question rather than squeeze them. */}
-      <span className="flex shrink-0 items-center gap-item">
-        <Button variant="secondary" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button variant="primary" onClick={onPush}>
-          Push
-        </Button>
-      </span>
-    </div>
+    <LastLook
+      question={
+        <>
+          Push <span className="font-mono">{branch.name}</span> to{' '}
+          <span className="font-mono">{branch.push_remote}</span>?
+        </>
+      }
+      act="Push"
+      onAct={onPush}
+      onCancel={onCancel}
+    />
   )
 }

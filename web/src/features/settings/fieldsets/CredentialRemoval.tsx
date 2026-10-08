@@ -1,10 +1,10 @@
-import { useId, useState } from 'react'
-import { useHoldShortcuts } from '@/features/keyboard/useShortcut.ts'
+import { useState } from 'react'
 import { Button } from '@/lib/Button.tsx'
-import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
+import { useFocusHandback } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { Failure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { LastLook } from '@/lib/LastLook.tsx'
 import { type Removal, removalConsequence, removalWords, useRemovals } from '../removal.ts'
 
 interface CredentialRemovalProps {
@@ -80,35 +80,21 @@ interface RemoveQuestionProps {
   onRemove: () => void
 }
 
-// RemoveQuestion asks before a removal, and takes focus as it opens, so a
-// screen reader hears the question.
+// RemoveQuestion asks before a removal.
 function RemoveQuestion({ removal, onCancel, onRemove }: RemoveQuestionProps) {
-  const question = useFocusOnMount<HTMLDivElement>()
-  const questionId = useId()
-  useHoldShortcuts()
-  const words = removalWords(removal)
-
   return (
-    <div
-      ref={question}
-      role="group"
-      aria-labelledby={questionId}
-      tabIndex={-1}
-      className="flex basis-full flex-col items-start gap-item text-sm"
-    >
-      <p id={questionId}>Remove {words} from the file?</p>
-      <p className="text-muted-foreground">
-        {removalConsequence(removal)}It cannot be undone: the file keeps no copy, and the save is
-        made at once, without the form&apos;s other changes.
-      </p>
-      <div className="flex items-center gap-item">
-        <Button variant="secondary" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button variant="primary" onClick={onRemove}>
-          Remove
-        </Button>
-      </div>
-    </div>
+    <LastLook
+      question={`Remove ${removalWords(removal)} from the file?`}
+      cost={
+        <>
+          {removalConsequence(removal)}It cannot be undone: the file keeps no copy, and the save is
+          made at once, without the form&apos;s other changes.
+        </>
+      }
+      act="Remove"
+      className="basis-full"
+      onAct={onRemove}
+      onCancel={onCancel}
+    />
   )
 }
