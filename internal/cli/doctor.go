@@ -88,11 +88,11 @@ func newDoctorCmd(prompt Prompt) *cobra.Command {
 			note := newProgressNote(cmd.ErrOrStderr(), prompt.IsTerminal)
 			defer note.clear()
 
-			cfg, loadErr := loadFromEnvironment(cmd)
 			run := doctorRun{
-				cfg: cfg, loadErr: loadErr, online: online, dryRun: dryRunRequested(cmd), log: requestLog, note: note,
-				env: environmentOf(cmd),
+				online: online, dryRun: dryRunRequested(cmd), log: requestLog, note: note, env: environmentOf(cmd),
 			}
+			run.dir, run.dirErr = workingDir(cmd)
+			run.cfg, run.loadErr = run.configuration()
 			out := note.around(outputOf(cmd)).artifact
 
 			if asJSON {
@@ -109,10 +109,14 @@ func newDoctorCmd(prompt Prompt) *cobra.Command {
 	return cmd
 }
 
-// doctorRun is what one doctor run reports on: the configuration and why it did
-// not load, if it did not; whether to check the credentials online; and the
-// request log those checks are outlined in, nil for none.
+// doctorRun is what one doctor run reports on: the directory it was run from,
+// or why that cannot be named; the configuration and why it did not load, if
+// it did not; whether to check the credentials online; and the request log
+// those checks are outlined in, nil for none.
 type doctorRun struct {
+	// dir is read once, so every section reports on the same directory.
+	dir     string
+	dirErr  error
 	cfg     config.Config
 	loadErr error
 	online  bool
@@ -126,6 +130,16 @@ type doctorRun struct {
 	env Environment
 }
 
+// configuration loads the configuration that applies in the directory run was
+// run from, or passes on why that directory cannot be named.
+func (run doctorRun) configuration() (config.Config, error) {
+	if run.dirErr != nil {
+		return config.Config{}, run.dirErr
+	}
+
+	return config.Load(run.dir, run.env.Process.Home)
+}
+
 // runDoctor writes the report. Every section runs even when an earlier one found
 // a problem: someone running doctor wants the whole picture, not the first thing
 // that went wrong.
@@ -136,7 +150,7 @@ func runDoctor(ctx context.Context, out io.Writer, run doctorRun) error {
 	field(out, "Version", buildinfo.Current())
 	fmt.Fprintln(out)
 
-	repository, remote := repositoryFactsFor(ctx, run.env)
+	repository, remote := repositoryFactsFor(ctx, run)
 	reportRepository(out, repository)
 	fmt.Fprintln(out)
 
@@ -168,18 +182,18 @@ type repositoryFacts struct {
 	Problem        string `json:"problem,omitempty"`
 }
 
-// repositoryFactsFor gathers the git facts, returning the raw remote alongside
-// so the other sections can parse it — the facts carry only the masked form,
-// since a remote can carry a credential just as a base URL can.
-func repositoryFactsFor(ctx context.Context, env Environment) (repositoryFacts, string) {
-	dir, err := env.WorkingDir()
-	if err != nil {
-		return repositoryFacts{Problem: fmt.Sprintf("cannot read the working directory: %v", err)}, ""
+// repositoryFactsFor gathers the git facts of the directory run was run from,
+// returning the raw remote alongside so the other sections can parse it — the
+// facts carry only the masked form, since a remote can carry a credential just
+// as a base URL can.
+func repositoryFactsFor(ctx context.Context, run doctorRun) (repositoryFacts, string) {
+	if run.dirErr != nil {
+		return repositoryFacts{Problem: run.dirErr.Error()}, ""
 	}
 
-	repo, err := gitrepo.At(env.Process.Run, dir).Describe(ctx)
+	repo, err := gitrepo.At(run.env.Process.Run, run.dir).Describe(ctx)
 	if err != nil {
-		return repositoryFacts{Problem: noRepositoryReason(dir, err)}, ""
+		return repositoryFacts{Problem: noRepositoryReason(run.dir, err)}, ""
 	}
 
 	return repositoryFacts{

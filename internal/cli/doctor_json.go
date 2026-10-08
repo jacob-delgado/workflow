@@ -58,7 +58,7 @@ type credentialsFacts struct {
 // runDoctorJSON writes the report as JSON and returns the same aggregate error
 // the prose report would, so a script can read the exit code as well as the data.
 func runDoctorJSON(ctx context.Context, out io.Writer, run doctorRun) error {
-	repository, remote := repositoryFactsFor(ctx, run.env)
+	repository, remote := repositoryFactsFor(ctx, run)
 	tooling, toolingErr := toolingFacts(ctx, run, remote)
 
 	report := doctorReport{
