@@ -21,10 +21,10 @@ const boldSentinel = "\x00"
 // on plain prose — a bare asterisk between spaces or an underscore inside a word
 // is left alone rather than read as emphasis.
 //
-// The web's Preview converts again in
-// web/src/features/issues/wiki/wikiFromMarkdown.ts, and both copies answer to
-// the one case file testdata/wiki_from_markdown.json, so a change to either
-// alone fails its own tests.
+// Trade-off TRADE-28: these rules are written again in
+// web/src/features/issues/wiki/wikiFromMarkdown.ts, for the web's Preview, and
+// both copies answer to the one case file testdata/wiki_from_markdown.json, so
+// a change to either alone fails its own tests.
 func WikiFromMarkdown(md string) string {
 	lines := strings.Split(md, "\n")
 	out := make([]string, 0, len(lines))
