@@ -1,0 +1,108 @@
+{
+  "about": "The place rules' cases, read by internal/places and by web/src/features/issues/issuePlaces.test.ts alike, so a change to either copy alone fails its own tests. Every issue's marks are given; marks cases say how a standing becomes them.",
+  "issues": [
+    { "key": "PROJ-506", "tracker": "jira", "status": "Parked", "category": "undefined", "marks": [] },
+    { "key": "PROJ-507", "tracker": "jira", "status": "Shipped", "category": "done", "marks": ["task done"] },
+    { "key": "PROJ-501", "tracker": "jira", "status": "Intake", "category": "new", "marks": [] },
+    { "key": "PROJ-502", "tracker": "jira", "status": "Fixing", "category": "indeterminate", "marks": [] },
+    { "key": "PROJ-503", "tracker": "jira", "status": "Fixing", "category": "indeterminate", "marks": ["task active"] },
+    { "key": "PROJ-504", "tracker": "jira", "status": "In development", "category": "indeterminate", "marks": ["in flight"] },
+    { "key": "PROJ-505", "tracker": "jira", "status": "In development", "category": "indeterminate", "marks": ["tracked"] },
+    { "key": "57", "tracker": "forge", "status": "Open", "category": "new", "marks": ["forge issue"] }
+  ],
+  "marks": [
+    { "name": "an issue nothing marks", "standing": { "in_flight": false, "task": "", "forge": false }, "want": [] },
+    { "name": "a branch names the issue", "standing": { "in_flight": true, "task": "", "forge": false }, "want": ["in flight"] },
+    { "name": "a linked task tracks the issue", "standing": { "in_flight": false, "task": "tracked", "forge": false }, "want": ["tracked"] },
+    {
+      "name": "every mark, in the picker's order",
+      "standing": { "in_flight": true, "task": "task active", "forge": true },
+      "want": ["in flight", "task active", "forge issue"]
+    }
+  ],
+  "admits": [
+    {
+      "name": "nothing picked lists every issue",
+      "picked": [],
+      "want": ["PROJ-506", "PROJ-507", "PROJ-501", "PROJ-502", "PROJ-503", "PROJ-504", "PROJ-505", "57"]
+    },
+    {
+      "name": "two statuses list either",
+      "picked": [{ "kind": "status", "name": "Intake" }, { "kind": "status", "name": "Fixing" }],
+      "want": ["PROJ-501", "PROJ-502", "PROJ-503"]
+    },
+    {
+      "name": "a status and a mark list both",
+      "picked": [{ "kind": "status", "name": "In development" }, { "kind": "mark", "name": "in flight" }],
+      "want": ["PROJ-504"]
+    },
+    {
+      "name": "two marks list either",
+      "picked": [{ "kind": "mark", "name": "in flight" }, { "kind": "mark", "name": "task active" }],
+      "want": ["PROJ-503", "PROJ-504"]
+    },
+    { "name": "a status no issue is in lists none", "picked": [{ "kind": "status", "name": "Closed" }], "want": [] },
+    { "name": "the forge mark lists the forge's issues", "picked": [{ "kind": "mark", "name": "forge issue" }], "want": ["57"] }
+  ],
+  "choices": [
+    {
+      "name": "statuses by category then as they first appear, then the marks, each with its count",
+      "issues": ["PROJ-506", "PROJ-507", "PROJ-501", "PROJ-502", "PROJ-503", "PROJ-504", "PROJ-505", "57"],
+      "picked": [],
+      "want": [
+        { "kind": "status", "name": "Intake", "count": 1 },
+        { "kind": "status", "name": "Open", "count": 1 },
+        { "kind": "status", "name": "Fixing", "count": 2 },
+        { "kind": "status", "name": "In development", "count": 2 },
+        { "kind": "status", "name": "Shipped", "count": 1 },
+        { "kind": "status", "name": "Parked", "count": 1 },
+        { "kind": "mark", "name": "in flight", "count": 1 },
+        { "kind": "mark", "name": "task active", "count": 1 },
+        { "kind": "mark", "name": "tracked", "count": 1 },
+        { "kind": "mark", "name": "task done", "count": 1 },
+        { "kind": "mark", "name": "forge issue", "count": 1 }
+      ]
+    },
+    {
+      "name": "a mark no issue holds is not offered",
+      "issues": ["PROJ-501", "PROJ-503"],
+      "picked": [],
+      "want": [
+        { "kind": "status", "name": "Intake", "count": 1 },
+        { "kind": "status", "name": "Fixing", "count": 1 },
+        { "kind": "mark", "name": "task active", "count": 1 }
+      ]
+    },
+    {
+      "name": "a picked status no issue is in stays offered at zero, after the statuses",
+      "issues": ["PROJ-501", "PROJ-504"],
+      "picked": [{ "kind": "status", "name": "Fixing" }],
+      "want": [
+        { "kind": "status", "name": "Intake", "count": 1 },
+        { "kind": "status", "name": "In development", "count": 1 },
+        { "kind": "status", "name": "Fixing", "count": 0 },
+        { "kind": "mark", "name": "in flight", "count": 1 }
+      ]
+    },
+    {
+      "name": "picked statuses no issue is in keep the order they were picked",
+      "issues": ["PROJ-501"],
+      "picked": [{ "kind": "status", "name": "Shipped" }, { "kind": "status", "name": "Fixing" }],
+      "want": [
+        { "kind": "status", "name": "Intake", "count": 1 },
+        { "kind": "status", "name": "Shipped", "count": 0 },
+        { "kind": "status", "name": "Fixing", "count": 0 }
+      ]
+    },
+    {
+      "name": "a picked mark no issue holds stays offered at zero",
+      "issues": ["PROJ-501"],
+      "picked": [{ "kind": "mark", "name": "task done" }],
+      "want": [
+        { "kind": "status", "name": "Intake", "count": 1 },
+        { "kind": "mark", "name": "task done", "count": 0 }
+      ]
+    },
+    { "name": "no issues and nothing picked offer nothing", "issues": [], "picked": [], "want": [] }
+  ]
+}
