@@ -232,7 +232,7 @@ function IssueRow({ issue }: { issue: LinkedIssue }) {
     <>
       <dt className="text-muted-foreground">Issue</dt>
       <Value className="font-mono">
-        {issue.url === '' ? shown : <NewTabLink href={issue.url}>{shown}</NewTabLink>}
+        <NewTabLink href={issue.url}>{shown}</NewTabLink>
       </Value>
     </>
   )

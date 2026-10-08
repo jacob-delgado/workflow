@@ -185,7 +185,9 @@ issue again; a refusal stays beside the form, which keeps what was entered.
 The comments are drawn from Jira's wiki markup: bold, italic, struck and code
 text, links, headings, quotes, lists and code blocks. Anything else, such as a
 table, a panel or a color, shows as the text it is, and an image is offered as
-a link rather than loaded. Under the thread, a box takes a comment; on a Jira
+a link rather than loaded. A link opens in a new tab, and only to an http or
+https address; one to anywhere else, an email address among them, shows as
+the text it is. Under the thread, a box takes a comment; on a Jira
 issue it says it is reading how comments are written until the configuration
 answers, then draws in that shape. On a Jira
 issue the comment is Markdown, as `jira.markdown_comments` is on by default:
