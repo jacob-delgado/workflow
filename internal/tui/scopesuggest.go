@@ -12,27 +12,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/convention"
 )
 
-// onFieldNav accepts a pending scope completion when tab could take one, and
-// otherwise moves to the next field.
-//
-// Trade-off TRADE-6: prComposer.onFieldNav is its twin; the two stay apart until
-// a third composer needs them.
-func (c commitComposer) onFieldNav(m Model, msg tea.KeyPressMsg) commitComposer {
-	if c.focus == fieldScope && c.scopeCanComplete() {
-		return c.typed(m, msg)
-	}
-
-	return c.focusOn((c.focus + 1) % composerFields)
-}
-
-// scopeCanComplete reports a scope suggestion that would extend what is typed, so
-// tab completes it rather than moving on.
-func (c commitComposer) scopeCanComplete() bool {
-	suggestion := c.scope.CurrentSuggestion()
-
-	return suggestion != "" && suggestion != c.scope.Value()
-}
-
 // withScopeSuggestions offers suggestions as completions for the scope field.
 // With nothing to suggest the field is left plain.
 func (c commitComposer) withScopeSuggestions(suggestions []string) commitComposer {

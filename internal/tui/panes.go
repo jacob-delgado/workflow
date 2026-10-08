@@ -51,6 +51,27 @@ func (p pane) label(messaging string) string {
 	return strconv.Itoa(int(p)+1) + " " + p.title(messaging)
 }
 
+// ring is a position among size places that wraps around at either end: the
+// focused pane, a composer's field or commit type, the calendar's column.
+type ring[T ~int] struct {
+	at, size T
+}
+
+// around is the ring of size places standing at at.
+func around[T ~int](at, size T) ring[T] {
+	return ring[T]{at: at, size: size}
+}
+
+// next is the place after the ring's, the first after the last.
+func (r ring[T]) next() T {
+	return (r.at + 1) % r.size
+}
+
+// prev is the place before the ring's, the last before the first.
+func (r ring[T]) prev() T {
+	return (r.at + r.size - 1) % r.size
+}
+
 // paneNumbers are the digit keys that jump to each pane, "1" through the last,
 // derived from paneCount so a new pane is reachable without a second edit.
 func paneNumbers() []string {

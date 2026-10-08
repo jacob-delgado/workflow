@@ -307,9 +307,9 @@ func (m Model) handleGlobalKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.toggleHelp):
 		return m.openHelp()
 	case key.Matches(msg, m.keys.next):
-		return m.switchTo((m.focus + 1) % paneCount)
+		return m.switchTo(around(m.focus, paneCount).next())
 	case key.Matches(msg, m.keys.previous):
-		return m.switchTo((m.focus + paneCount - 1) % paneCount)
+		return m.switchTo(around(m.focus, paneCount).prev())
 	case key.Matches(msg, m.keys.jump):
 		// CheckKeys refuses to move jump-to-pane, so the binding only matches the
 		// pane digits, 1 through paneCount, and the digit is always a valid pane.

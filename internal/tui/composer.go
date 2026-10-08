@@ -253,12 +253,12 @@ func (c commitComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 		return m, c.editBody(m)
 	case key.Matches(msg, m.keys.toggleBreaking):
 		c.breaking = !c.breaking
-	case key.Matches(msg, m.keys.nextField):
-		c = c.onFieldNav(m, msg)
-	case key.Matches(msg, m.keys.prevField):
-		c = c.focusOn((c.focus + composerFields - 1) % composerFields)
+	case key.Matches(msg, m.keys.nextField, m.keys.prevField):
+		c = onFieldNav(c, m.keys, msg)
+	case c.focus == fieldType && key.Matches(msg, m.keys.cycleRight, m.keys.cycleLeft):
+		c = c.cycledType(m.keys, msg)
 	default:
-		c = c.typed(m, msg)
+		c = c.typed(msg)
 	}
 
 	m.overlay = c
@@ -266,16 +266,28 @@ func (c commitComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 	return m, nil
 }
 
-// typed hands a key to the part with focus: the type cycles, text is typed.
-func (c commitComposer) typed(m Model, msg tea.KeyPressMsg) commitComposer {
-	switch {
-	case c.focus == fieldType && key.Matches(msg, m.keys.cycleRight):
-		c.kind = (c.kind + 1) % len(c.types)
-	case c.focus == fieldType && key.Matches(msg, m.keys.cycleLeft):
-		c.kind = (c.kind + len(c.types) - 1) % len(c.types)
-	case c.focus == fieldScope:
+// cycledType is the composer with its commit type moved one along, the way
+// the cycle key pressed goes.
+func (c commitComposer) cycledType(keys keyMap, msg tea.KeyPressMsg) commitComposer {
+	types := around(c.kind, len(c.types))
+	if key.Matches(msg, keys.cycleRight) {
+		c.kind = types.next()
+	} else {
+		c.kind = types.prev()
+	}
+
+	c.send.err = nil
+
+	return c
+}
+
+// typed hands a key, or a paste, to the scope or the subject, whichever has
+// focus; the type, which cycles, takes none.
+func (c commitComposer) typed(msg tea.Msg) commitComposer {
+	switch c.focus {
+	case fieldScope:
 		c.scope, _ = c.scope.Update(msg)
-	case c.focus == fieldSubject:
+	case fieldSubject:
 		c.subject, _ = c.subject.Update(msg)
 	}
 
@@ -287,19 +299,64 @@ func (c commitComposer) typed(m Model, msg tea.KeyPressMsg) commitComposer {
 // pasted types a paste into the scope or the subject, whichever has focus; the
 // type, which cycles, takes none.
 func (c commitComposer) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	switch c.focus {
-	case fieldScope:
-		c.scope, _ = c.scope.Update(paste)
-	case fieldSubject:
-		c.subject, _ = c.subject.Update(paste)
-	default:
+	if c.focus == fieldType {
 		return m, nil
 	}
 
-	c.send.err = nil
-	m.overlay = c
+	m.overlay = c.typed(paste)
 
 	return m, nil
+}
+
+// fields is where focus stands among the composer's parts.
+func (c commitComposer) fields() ring[int] {
+	return around(c.focus, composerFields)
+}
+
+// suggesting is the scope while it has focus, the one part that completes
+// what is typed.
+func (c commitComposer) suggesting() (textinput.Model, bool) {
+	return c.scope, c.focus == fieldScope
+}
+
+// navigable is a composer whose fields the next-field and previous-field keys
+// move between, where tab may first accept what the focused field suggests.
+type navigable[T any] interface {
+	// fields is where focus stands among the composer's fields.
+	fields() ring[int]
+	// suggesting is the field with focus, when it is one that completes what
+	// is typed.
+	suggesting() (textinput.Model, bool)
+	focusOn(field int) T
+	typed(msg tea.Msg) T
+}
+
+var (
+	_ navigable[commitComposer] = commitComposer{}
+	_ navigable[prComposer]     = prComposer{}
+)
+
+// onFieldNav moves a composer's focus to the previous field, or on
+// next-field to the next one, unless the focused field has a completion tab
+// would accept, which it then takes as typed.
+func onFieldNav[T navigable[T]](composer T, keys keyMap, msg tea.KeyPressMsg) T {
+	if key.Matches(msg, keys.prevField) {
+		return composer.focusOn(composer.fields().prev())
+	}
+
+	if field, suggests := composer.suggesting(); suggests && completesOnTab(field) {
+		return composer.typed(msg)
+	}
+
+	return composer.focusOn(composer.fields().next())
+}
+
+// completesOnTab reports a suggestion in field that would extend what is
+// typed, so tab completes it rather than moving on.
+func completesOnTab(field textinput.Model) bool {
+	suggestion := field.CurrentSuggestion()
+
+	return suggestion != "" && suggestion != field.Value()
 }
 
 // focusOn moves focus to a part, and the text cursor with it.

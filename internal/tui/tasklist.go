@@ -34,7 +34,7 @@ const taskOrderCount = 6
 
 // next is the order after o, back to the first after the last.
 func (o taskOrder) next() taskOrder {
-	return (o + 1) % taskOrderCount
+	return around(o, taskOrderCount).next()
 }
 
 // title names the order where the list says how it is sorted.
