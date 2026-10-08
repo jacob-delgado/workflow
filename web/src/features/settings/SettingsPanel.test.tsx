@@ -207,7 +207,7 @@ test('the Taskwarrior fieldset says its changes apply when workflow restarts', a
   ).toBeTruthy()
 })
 
-test("the Taskwarrior fieldset's program and switch ride back through a save", async () => {
+test("the Taskwarrior fieldset's switch rides back through a save, and its program as the file holds it", async () => {
   // Arrange
   vi.stubEnv('VITE_MOCK', 'true')
   const user = userEvent.setup()
@@ -220,7 +220,7 @@ test("the Taskwarrior fieldset's program and switch ride back through a save", a
   const program = await screen.findByRole('textbox', {
     name: 'Task program',
     description:
-      'Empty tries every task in an absolute PATH directory and keeps the first that is Taskwarrior 3.5.0 or newer.',
+      'Set in the file: workflow runs it as you, so Settings keeps it as it is. Empty tries every task in an absolute PATH directory and keeps the first that is Taskwarrior 3.5.0 or newer.',
   })
   await user.type(program, '/opt/homebrew/bin/task')
   await user.click(screen.getByRole('checkbox', { name: /turn off the taskwarrior integration/i }))
@@ -237,7 +237,7 @@ test("the Taskwarrior fieldset's program and switch ride back through a save", a
 
   // Assert
   const reopened = await screen.findByRole('textbox', { name: 'Task program' })
-  expect((reopened as HTMLInputElement).value).toBe('/opt/homebrew/bin/task')
+  expect((reopened as HTMLInputElement).value).toBe('')
   const off = screen.getByRole('checkbox', { name: /turn off the taskwarrior integration/i })
   expect((off as HTMLInputElement).checked).toBe(true)
 })

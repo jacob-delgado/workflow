@@ -48,14 +48,6 @@ func savedSettings(
 func TestTheTaskListSaysSavedTaskwarriorSettingsApplyAtTheNextStart(t *testing.T) {
 	t.Parallel()
 
-	// A found go-task: the search at start answered that task on PATH was not
-	// Taskwarrior.
-	goTaskFound := func() seams.Tasks {
-		fake := fakeTaskwarrior()
-		fake.fail["install"] = fmt.Errorf("%w: tried /usr/local/bin/task", taskwarrior.ErrNotTaskwarrior)
-
-		return fake.seams()
-	}
 	cases := map[string]struct {
 		tasks  seams.Tasks
 		start  config.Taskwarrior
@@ -64,10 +56,6 @@ func TestTheTaskListSaysSavedTaskwarriorSettingsApplyAtTheNextStart(t *testing.T
 		"turned back on": {
 			tasks: seams.Tasks{}, start: config.Taskwarrior{Disabled: true},
 			change: func(settings *config.Taskwarrior) { settings.Disabled = false },
-		},
-		"a program named": {
-			tasks:  goTaskFound(),
-			change: func(settings *config.Taskwarrior) { settings.Program = taskwarriorProgram },
 		},
 		"turned off": {
 			tasks:  fakeTaskwarrior().seams(),
@@ -95,6 +83,36 @@ func TestTheTaskListSaysSavedTaskwarriorSettingsApplyAtTheNextStart(t *testing.T
 				t.Errorf("reason_code = %v, want %q", list.ReasonCode, api.TaskListReasonCodeUnavailable)
 			}
 		})
+	}
+}
+
+func TestTheTaskListSaysAProgramNamedInTheFileAppliesAtTheNextStart(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The search at start answered that task on PATH was not Taskwarrior, and
+	// the file has named a program since; a read of the configuration takes
+	// the edit up, as Settings opening does.
+	fake := fakeTaskwarrior()
+	fake.fail["install"] = fmt.Errorf("%w: tried /usr/local/bin/task", taskwarrior.ErrNotTaskwarrior)
+
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), config.FileName)
+
+	deps := filledDeps()
+	deps.Tasks = fake.seams()
+	handler := serve(t, deps, cfg)
+
+	rewrite(t, cfg.Path, `{"taskwarrior": {"program": "`+taskwarriorProgram+`"}}`)
+	get(t, handler, "/api/config")
+
+	// Act
+	recorder := get(t, handler, tasksPath)
+
+	// Assert
+	list := decode[api.TaskList](t, recorder)
+	if recorder.Code != http.StatusOK || list.Available || list.Reason != settingsChanged {
+		t.Errorf("answer = %d %+v, want 200, not available, reason %q", recorder.Code, list, settingsChanged)
 	}
 }
 
