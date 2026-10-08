@@ -2,10 +2,11 @@
 #
 # Tests for e2e-server.sh: it builds the fixture at a path that is missing,
 # an empty directory or one it made before, and serves it on the port it is
-# given; and it refuses, leaving it exactly as it was, a path that is a file,
-# a symbolic link or a directory holding files it did not make. A stub stands
-# in for bin/workflow, writes down the arguments it was run with and exits at
-# once, so the script returns once the fixture is built.
+# given; it refuses, leaving it exactly as it was, a path that is a file, a
+# symbolic link or a directory holding files it did not make; and it stops,
+# making nothing, when someone else makes the path again as it is cleared. A
+# stub stands in for bin/workflow, writes down the arguments it was run with
+# and exits at once, so the script returns once the fixture is built.
 #
 # Usage:
 #   scripts/e2e-server_test.sh
@@ -139,6 +140,37 @@ expect_fixture() {
   fi
 }
 
+# expect_raced wants the script to refuse a path someone else makes again in
+# the moment between its clearing the path and its making it: an rm first on
+# PATH clears the path and makes it anew, open to everyone and, when the test
+# runs as root, owned by nobody. The script must stop there, serving nothing
+# and making nothing inside that directory.
+#   expect_raced <name> <path>
+expect_raced() {
+  local name="$1" path="$2" shim="${workdir}/shim" got made
+  cases=$((cases + 1))
+  mkdir -p "${shim}"
+  {
+    printf '#!/bin/sh\n'
+    printf '"%s" "$@"\n' "$(command -v rm)"
+    printf 'mkdir -m 777 -- "%s"\n' "${path}"
+    if ((EUID == 0)); then
+      printf 'chown 65534 -- "%s"\n' "${path}"
+    fi
+  } >"${shim}/rm"
+  chmod +x "${shim}/rm"
+  got="$(PATH="${shim}:${PATH}" serve "${path}")"
+  made="$(find "${path}" -mindepth 1 -print -quit 2>/dev/null || true)"
+
+  if [[ "${got}" != "fail" ]]; then
+    failed "${name}" "${path}" "want a refusal, got a fixture"
+  elif [[ -e "${ran_with}" ]]; then
+    failed "${name}" "${path}" "the server ran"
+  elif [[ -n "${made}" ]]; then
+    failed "${name}" "${path}" "the script made ${made} inside a directory it did not make"
+  fi
+}
+
 file="${workdir}/file"
 printf 'not a fixture\n' >"${file}"
 expect_refused "a file" "${file}"
@@ -167,6 +199,8 @@ if [[ -e "${rebuilt}/stale.txt" ]]; then
   echo "FAIL a directory the script made before: stale.txt survived the rebuild" >&2
   failures=$((failures + 1))
 fi
+
+expect_raced "a path made again by someone else between clearing and making" "${workdir}/raced"
 
 if ((failures > 0)); then
   echo "e2e-server_test: ${failures} of ${cases} case(s) failed." >&2
