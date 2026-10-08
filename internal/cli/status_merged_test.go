@@ -83,3 +83,24 @@ func TestStatusLineReadsAMergedAnnouncementAsDone(t *testing.T) {
 		t.Errorf("status line does not read the merged announcement as done:\n%s", printed.stdout)
 	}
 }
+
+func TestStatusLineReadsAnAnnouncementOfAClosedPullRequestAsNotStarted(t *testing.T) {
+	// Arrange
+	// The store remembers pull request 7 announced as ready, before it was
+	// closed without merging: there is no pull request left to announce.
+	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	fakeGh(t, ghResponses{pulls: closedPull("Add login")})
+	repo := statusFeatureRepo(t, server.URL)
+	home := announcedEarlier(t, messaging.MomentReady)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "status")
+	if err != nil {
+		t.Fatalf("status: %v (%+v)", err, printed)
+	}
+
+	// Assert
+	if !strings.Contains(printed.stdout, "○ Review") || !strings.Contains(printed.stdout, "○ Slack") {
+		t.Errorf("status line reads a closed pull request's announcement as made:\n%s", printed.stdout)
+	}
+}

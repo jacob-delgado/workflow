@@ -104,6 +104,12 @@ func TestStagesDeriveHowFarTheWorkHasGot(t *testing.T) {
 			},
 			want: []progress.State{done, done, done, done, todo},
 		},
+		"a pull request closed without merging, remembered as announced": {
+			work: progress.Work{
+				OnFeatureBranch: true, IssueNamed: true, Commits: 1, PullRequest: progress.NoPullRequest, Announced: true,
+			},
+			want: []progress.State{done, done, done, todo, todo},
+		},
 		"a post waiting for CI": {
 			work: progress.Work{
 				OnFeatureBranch: true, IssueNamed: true, Commits: 1,
