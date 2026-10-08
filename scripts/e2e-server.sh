@@ -4,7 +4,8 @@
 #
 # Usage: e2e-server.sh <fixture-dir> <port>
 #
-# The fixture is rebuilt under <fixture-dir> on every run:
+# The fixture is rebuilt under <fixture-dir> on every run, in a directory the
+# script makes private to itself:
 #
 #   home/        the server's home directory, empty but for what it writes
 #   origin.git   a bare repository standing in for the remote
@@ -62,7 +63,15 @@ if [[ -d "${fixture_dir}" && ! -f "${marker}" ]] \
   exit 1
 fi
 rm -rf -- "${fixture_dir}"
-mkdir -p -- "${home}" "${repo}"
+# Made without -p, so a path someone else makes again in the moment after it
+# is cleared is refused rather than taken up: the fixture's directory is then
+# this script's own, private to it, and nobody else can plant a .gitconfig or a
+# .workflow.json for git and the server to read.
+if ! mkdir -m 700 -- "${fixture_dir}"; then
+  echo "e2e-server: ${fixture_dir} could not be made afresh; not using it" >&2
+  exit 1
+fi
+mkdir -- "${home}" "${repo}"
 touch -- "${marker}"
 
 "${hermetic[@]}" git init --quiet --bare --initial-branch=main -- "${origin}"
