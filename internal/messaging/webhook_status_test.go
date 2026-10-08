@@ -163,3 +163,29 @@ func TestAWebhookRefusalIsCutShort(t *testing.T) {
 		t.Errorf("Post = %d bytes of error, want the refusal's reason cut short", len(err.Error()))
 	}
 }
+
+func TestAPostRefusedWithNoReasonSaysItsStatus(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]config.Messaging{
+		"through a webhook":   messagingWebhook(config.KindWebhook, "https://hooks.example.com/hook"),
+		"with a user's token": userCredentials(),
+	}
+
+	for name, creds := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client := messaging.New(answering(http.StatusBadRequest), messaging.APIBase, creds).WithToken(heldToken)
+
+			// Act
+			err := client.Post(t.Context(), "#dev", message)
+
+			// Assert
+			if !errors.Is(err, messaging.ErrPostRefused) || !strings.Contains(err.Error(), "status 400") {
+				t.Errorf("Post = %v, want the message refused, naming the status", err)
+			}
+		})
+	}
+}
