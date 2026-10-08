@@ -127,7 +127,7 @@ export async function openCockpit(
 
 // noFile answers the page as a server with no configuration file: the
 // configuration not found, and a setup offered in the repository or the home
-// directory, with a keychain for each.
+// directory, with a keychain for the home file.
 const noFile = problem(
   'not_found',
   'no .workflow.json applies where the server works; set one up in Settings',
@@ -153,7 +153,7 @@ export async function openFirstRun(
             place: 'repository',
             path: '/home/ana/src/api/.workflow.json',
             shown: '~/src/api/.workflow.json',
-            keychain: true,
+            keychain: false,
           },
           {
             place: 'home',

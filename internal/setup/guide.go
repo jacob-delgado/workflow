@@ -22,8 +22,8 @@ type Guide struct {
 }
 
 // Destination is a place a file may go, the file it would be, and whether
-// the keychain can keep the token for that file: wherever one is wired, since
-// any file may read the item kept for its Jira address.
+// the keychain can keep the token for that file: where one is wired, for the
+// home directory's file alone, which the first run offers it for.
 type Destination struct {
 	Place    Place
 	Path     string
@@ -51,15 +51,15 @@ type Written struct {
 	NotIgnored bool
 }
 
-// Offer is where the file may go here, and whether the keychain can keep the
-// token for each.
+// Offer is where the file may go here, and for which file the keychain can
+// keep the token.
 func (g Guide) Offer() Offer {
 	places := g.Where.Places()
 
 	destinations := make([]Destination, 0, len(places))
 	for _, place := range places {
 		destinations = append(destinations, Destination{
-			Place: place, Path: g.Where.Path(place), Keychain: g.StoreSecret != nil,
+			Place: place, Path: g.Where.Path(place), Keychain: g.StoreSecret != nil && g.Where.IsHomeFile(place),
 		})
 	}
 
@@ -122,8 +122,9 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 }
 
 // keychainFor reports whether the keychain keeps the token request asks it
-// to: never with Jira left out or no token to keep, and refused where there
-// is no keychain.
+// to: never with Jira left out or no token to keep, refused where there is no
+// keychain, and refused for a file other than the home directory's, which the
+// first run offers it for alone.
 func (g Guide) keychainFor(request Request) (bool, error) {
 	if !request.Keychain || request.Answers.Jira.BaseURL == "" || request.Answers.Jira.Token == "" {
 		return false, nil
@@ -131,6 +132,10 @@ func (g Guide) keychainFor(request Request) (bool, error) {
 
 	if g.StoreSecret == nil {
 		return false, ErrNoKeychain
+	}
+
+	if !g.Where.IsHomeFile(request.Place) {
+		return false, ErrKeychainAtHome
 	}
 
 	return true, nil

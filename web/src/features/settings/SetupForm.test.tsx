@@ -10,8 +10,8 @@ import { makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
-// offer is a setup offered where no file applies, with a keychain for each
-// file.
+// offer is a setup offered where no file applies, with a keychain for the
+// home file.
 const offer: SetupOffer = {
   needed: true,
   places: [
@@ -19,7 +19,7 @@ const offer: SetupOffer = {
       place: 'repository',
       path: '/home/ana/src/api/.workflow.json',
       shown: '~/src/api/.workflow.json',
-      keychain: true,
+      keychain: false,
     },
     { place: 'home', path: '/home/ana/.workflow.json', shown: '~/.workflow.json', keychain: true },
   ],
@@ -95,7 +95,7 @@ test('with no file, Settings asks where one goes and what config init asks', asy
   ).toHaveProperty('checked', true)
   expect(within(form).getByRole('textbox', { name: 'Address' })).toBeTruthy()
   expect(within(form).getByLabelText('Personal access token')).toHaveProperty('type', 'password')
-  expect(within(form).getByRole('checkbox', { name: /keychain/ })).toHaveProperty('checked', true)
+  expect(within(form).queryByRole('checkbox', { name: /keychain/ })).toBeNull()
   expect(within(form).getByLabelText('Incoming webhook URL')).toHaveProperty('type', 'password')
   expect(screen.queryByRole('textbox', { name: 'Base URL' })).toBeNull()
 })
@@ -126,28 +126,14 @@ test('setting up sends the answers, says what it wrote, and opens the file in Se
   ])
 })
 
-test('the defaults in a repository keep its token in the keychain', async () => {
+test('the defaults in a repository write its file with the token in it, nothing refused', async () => {
   // Arrange
   const user = userEvent.setup()
-  const sent = firstRun(() => Response.json(written))
-  renderWithClient(<SettingsPanel />)
-  await answerJira(user)
-
-  // Act
-  await user.click(screen.getByRole('button', { name: 'Write ~/src/api/.workflow.json' }))
-
-  // Assert
-  expect(await screen.findByText(/Wrote ~\/src\/api\/\.workflow\.json/)).toBeTruthy()
-  expect(sent.map((request) => [request.place, request.keychain])).toEqual([['repository', true]])
-})
-
-test('a file the keychain is not offered for keeps the token in it', async () => {
-  // Arrange
-  const user = userEvent.setup()
-  const sent = firstRun(() => Response.json({ ...written, keychain: false }), {
-    ...offer,
-    places: offer.places.map((place) => ({ ...place, keychain: place.place === 'home' })),
-  })
+  const sent = firstRun((request) =>
+    request.keychain
+      ? problem(422, 'unprocessable', 'the keychain can keep the token only for the home file')
+      : Response.json({ ...written, keychain: false }),
+  )
   renderWithClient(<SettingsPanel />)
   await answerJira(user)
 

@@ -30,7 +30,7 @@ func (s *server) setupNeeded() bool {
 }
 
 // GetSetup says whether a first configuration file is needed here, where it
-// may go, and whether the keychain can keep the token for each.
+// may go, and for which file the keychain can keep the token.
 func (s *server) GetSetup(context.Context, api.GetSetupRequestObject) (api.GetSetupResponseObject, error) {
 	offer := api.SetupOffer{Needed: s.setupNeeded(), Places: []api.SetupPlace{}}
 	if s.deps.Setup.Offer == nil {
@@ -151,6 +151,10 @@ func (s *server) setupRefusal(err error) api.SetUpResponseObject {
 	case errors.Is(err, setup.ErrNoKeychain):
 		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"there is no keychain here to keep the token in; keep it in the file instead"))
+	case errors.Is(err, setup.ErrKeychainAtHome):
+		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+			"the keychain can keep the token only for the file in the home directory; "+
+				"write the file there, or keep the token in the file"))
 	case errors.Is(err, setup.ErrNoHome):
 		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"there is no home directory here to keep the file in; keep it in the repository instead"))

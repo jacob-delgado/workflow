@@ -131,9 +131,9 @@ func TestSetupIsOfferedWhereNoFileApplies(t *testing.T) {
 
 	// Assert
 	if !offer.Needed || len(offer.Places) != 2 || offer.Places[0].Place != api.SetupPlaceNameRepository ||
-		!offer.Places[0].Keychain || offer.Places[1].Shown != "~/"+config.FileName || !offer.Places[1].Keychain {
+		offer.Places[0].Keychain || offer.Places[1].Shown != "~/"+config.FileName || !offer.Places[1].Keychain {
 		t.Errorf("offer = %+v, want setup needed, the repository first and home shown from home, "+
-			"the keychain for each", offer)
+			"the keychain for home alone", offer)
 	}
 }
 
@@ -425,7 +425,7 @@ func TestSetupRefusesTheKeychainWhereThereIsNone(t *testing.T) {
 	}
 }
 
-func TestSetupKeepsTheTokenOfARepositoryFileInTheKeychain(t *testing.T) {
+func TestSetupRefusesTheKeychainForAFileOtherThanTheHomeFile(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -435,13 +435,11 @@ func TestSetupKeepsTheTokenOfARepositoryFileInTheKeychain(t *testing.T) {
 	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, true, false))
 
 	// Assert
-	result := decode[api.SetupResult](t, recorder)
-
-	written, err := os.ReadFile(result.Path)
-	if recorder.Code != http.StatusOK || !result.Keychain || run.stored != setupToken || err != nil ||
-		strings.Contains(string(written), setupToken) || !strings.Contains(string(written), `"keychain": true`) {
-		t.Errorf("status %d, result %+v, file %q (%v); want the repository's file reading the keychain, "+
-			"which keeps the token", recorder.Code, result, written, err)
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
+		!strings.Contains(failure.Detail, "home") || run.stored != "" {
+		t.Errorf("status %d, problem %+v, keychain %q; want 422 naming the home file and nothing stored",
+			recorder.Code, failure, run.stored)
 	}
 }
 
