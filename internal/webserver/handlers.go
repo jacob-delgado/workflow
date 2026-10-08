@@ -34,15 +34,29 @@ func (s *server) forgeKindNow() forge.Kind {
 	return s.forgeKind
 }
 
-// GetHealth reports the build, whether writes are held back, and the forge's own
-// words for a proposed change, so the browser names it as the terminal does.
+// GetHealth reports the build, whether writes are held back, which forge the
+// repository is on, and that forge's own words for a proposed change, so the
+// browser names it as the terminal does.
 func (s *server) GetHealth(_ context.Context, _ api.GetHealthRequestObject) (api.GetHealthResponseObject, error) {
+	kind := s.forgeKindNow()
+
 	return api.GetHealth200JSONResponse{
 		Version:    s.info.Version,
 		DryRun:     s.info.DryRun,
-		ForgeNoun:  s.forgeKindNow().Noun(),
-		ForgeSigil: s.forgeKindNow().Sigil(),
+		ForgeKind:  forgeKindDTO(kind),
+		ForgeNoun:  kind.Noun(),
+		ForgeSigil: kind.Sigil(),
 	}, nil
+}
+
+// forgeKindDTO maps which forge the repository is on onto its wire word. A
+// map, so exhaustive keeps it complete.
+func forgeKindDTO(kind forge.Kind) api.HealthForgeKind {
+	return map[forge.Kind]api.HealthForgeKind{
+		forge.KindGitHub:  api.HealthForgeKindGithub,
+		forge.KindGitLab:  api.HealthForgeKindGitlab,
+		forge.KindUnknown: api.HealthForgeKindUnknown,
+	}[kind]
 }
 
 // ListViews lists the configured issue views, or the one built-in list.

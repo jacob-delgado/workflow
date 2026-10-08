@@ -248,16 +248,23 @@ func TestGetHealthReportsTheBuild(t *testing.T) {
 	}
 }
 
-func TestGetHealthNamesTheForgesOwnWords(t *testing.T) {
+func TestGetHealthNamesTheForgeAndItsOwnWords(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
 		kind                forge.Kind
+		wantKind            api.HealthForgeKind
 		wantNoun, wantSigil string
 	}{
-		"GitLab":          {kind: forge.KindGitLab, wantNoun: "merge request", wantSigil: "!"},
-		"GitHub":          {kind: forge.KindGitHub, wantNoun: "pull request", wantSigil: "#"},
-		"a forge unnamed": {kind: forge.KindUnknown, wantNoun: "pull request", wantSigil: "#"},
+		"GitLab": {
+			kind: forge.KindGitLab, wantKind: api.HealthForgeKindGitlab, wantNoun: "merge request", wantSigil: "!",
+		},
+		"GitHub": {
+			kind: forge.KindGitHub, wantKind: api.HealthForgeKindGithub, wantNoun: "pull request", wantSigil: "#",
+		},
+		"a forge unnamed": {
+			kind: forge.KindUnknown, wantKind: api.HealthForgeKindUnknown, wantNoun: "pull request", wantSigil: "#",
+		},
 	}
 
 	for name, tt := range cases {
@@ -272,8 +279,9 @@ func TestGetHealthNamesTheForgesOwnWords(t *testing.T) {
 
 			// Assert
 			health := decode[api.Health](t, recorder)
-			if health.ForgeNoun != tt.wantNoun || health.ForgeSigil != tt.wantSigil {
-				t.Errorf("health = %+v, want forge_noun %q and forge_sigil %q", health, tt.wantNoun, tt.wantSigil)
+			if health.ForgeKind != tt.wantKind || health.ForgeNoun != tt.wantNoun || health.ForgeSigil != tt.wantSigil {
+				t.Errorf("health = %+v, want forge_kind %q, forge_noun %q and forge_sigil %q",
+					health, tt.wantKind, tt.wantNoun, tt.wantSigil)
 			}
 		})
 	}

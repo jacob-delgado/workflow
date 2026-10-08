@@ -112,6 +112,7 @@ test('the mockup is a writable build', async () => {
   expect(data).toEqual({
     version: 'mockup',
     dry_run: false,
+    forge_kind: 'github',
     forge_noun: 'pull request',
     forge_sigil: '#',
   })

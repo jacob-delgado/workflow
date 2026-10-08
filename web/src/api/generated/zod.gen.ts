@@ -496,6 +496,11 @@ export const zOpenPullRequestRequest = z.object({
 export const zHealth = z.object({
     version: z.string(),
     dry_run: z.boolean(),
+    forge_kind: z.enum([
+        'github',
+        'gitlab',
+        'unknown'
+    ]),
     forge_noun: z.string(),
     forge_sigil: z.string()
 });

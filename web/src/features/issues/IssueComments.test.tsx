@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Comment, IssueDetail } from '@/api/generated/types.gen.ts'
+import type { Comment, Health, IssueDetail } from '@/api/generated/types.gen.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth } from '@/test/fixtures.ts'
@@ -318,9 +318,11 @@ test("a forge issue's thread is drawn from Markdown", async () => {
   expect(within(thread).getByRole('strong').textContent).toBe('it')
 })
 
-test.each([
+test.each<[string, Partial<Health>, boolean]>([
   ['GitLab', gitLabWords, true],
+  ['GitLab, by its kind whatever its words', { forge_kind: 'gitlab' }, true],
   ['GitHub', {}, false],
+  ['a forge the server cannot name', { forge_kind: 'unknown' }, false],
 ])('on %s the box says whether a slash line is a quick action', async (_, words, said) => {
   // Arrange
   useHealthStore.setState({ health: makeHealth(words) })

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useHealthStore } from '@/api/health.ts'
-import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
+import type { Comment, Health, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
 import { ago, day, writtenMoment } from '@/lib/dates.ts'
@@ -276,19 +276,18 @@ function WrittenAt({ created }: { created: string | undefined }) {
   )
 }
 
+// The forges by name, as the server's health tells them apart; one it cannot
+// name, or one not yet read, is just the forge.
+const forgeNames: Record<Health['forge_kind'], string> = {
+  github: 'GitHub',
+  gitlab: 'GitLab',
+  unknown: 'the forge',
+}
+
 // useTrackerName names where an issue lives, for its link: Jira, or the forge
-// the repository is on — just "the forge" until the server's health says
-// which. A merge request is GitLab's word for what GitHub calls a pull
-// request.
+// the repository is on, by which forge the server's health says it is.
 function useTrackerName(tracker: IssueDetail['tracker']): string {
-  const noun = useHealthStore((state) => state.health?.forge_noun)
-  if (tracker === 'jira') {
-    return 'Jira'
-  }
+  const kind = useHealthStore((state) => state.health?.forge_kind ?? 'unknown')
 
-  if (noun === undefined) {
-    return 'the forge'
-  }
-
-  return noun === 'merge request' ? 'GitLab' : 'GitHub'
+  return tracker === 'jira' ? 'Jira' : forgeNames[kind]
 }

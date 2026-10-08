@@ -54,21 +54,26 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   }
 }
 
-// A contract-valid health answer for tests: a writable server on a forge that
+// A contract-valid health answer for tests: a writable server on GitHub, which
 // says "pull request", with the fields a case cares about overridden.
 export function makeHealth(overrides: Partial<Health> = {}): Health {
   return {
     version: '1.2.3',
     dry_run: false,
+    forge_kind: 'github',
     forge_noun: 'pull request',
     forge_sigil: '#',
     ...overrides,
   }
 }
 
-// What a server on a GitLab remote says in its health: GitLab's own words for a
-// proposed change and the mark before its number.
-export const gitLabWords: Partial<Health> = { forge_noun: 'merge request', forge_sigil: '!' }
+// What a server on a GitLab remote says in its health: that it is GitLab, and
+// GitLab's own words for a proposed change and the mark before its number.
+export const gitLabWords: Partial<Health> = {
+  forge_kind: 'gitlab',
+  forge_noun: 'merge request',
+  forge_sigil: '!',
+}
 
 // A contract-valid Taskwarrior task for tests — task 12, pending and not
 // started, tracking PROJ-42 — with the fields a case cares about overridden.

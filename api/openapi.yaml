@@ -3754,7 +3754,7 @@ components:
 
     Health:
       type: object
-      required: [version, dry_run, forge_noun, forge_sigil]
+      required: [version, dry_run, forge_kind, forge_noun, forge_sigil]
       properties:
         version:
           type: string
@@ -3762,6 +3762,16 @@ components:
         dry_run:
           type: boolean
           description: Whether writes are held back (the --dry-run flag).
+        forge_kind:
+          type: string
+          enum: [github, gitlab, unknown]
+          description: >-
+            Which forge the repository is on under the settings in effect:
+            forge.kind when it names one, else the one origin's host names;
+            unknown when neither says, as outside a repository or on a
+            self-hosted forge the settings do not name. What the page decides
+            by, where forge_noun and forge_sigil are only words to show.
+          example: gitlab
         forge_noun:
           type: string
           description: >-

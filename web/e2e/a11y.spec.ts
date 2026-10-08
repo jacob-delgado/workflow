@@ -44,7 +44,13 @@ for (const theme of themes) {
       await pinTheme(page, theme)
       await page.route('**/api/health', (route) =>
         route.fulfill({
-          json: { version: '1.2.3', dry_run: true, forge_noun: 'pull request', forge_sigil: '#' },
+          json: {
+            version: '1.2.3',
+            dry_run: true,
+            forge_kind: 'github',
+            forge_noun: 'pull request',
+            forge_sigil: '#',
+          },
         }),
       )
       await page.route('**/api/reviews', (route) => route.fulfill(unreachable))
