@@ -206,11 +206,14 @@ type Messaging struct {
 }
 
 // Store is what a surface asks of the on-disk store, bound to this repository.
-// The wiring binds every function. A disabled store, or one with nowhere to
-// keep its file, no-ops through them, and a command's --dry-run reads a store
-// already on disk and writes nothing. Nil functions mean the surface was given
-// no store at all, as the terminal is under a dry run, and it simply learns
-// nothing. Under a dry run, --web is handed the bound functions and calls none.
+// The wiring binds every cache function, and a disabled store, or one with
+// nowhere to keep its file, no-ops through them; it binds the kept seams only
+// where the store keeps something, as OwnerLinks says. A command's --dry-run
+// binds a store that reads what is already on disk and writes nothing. A nil
+// function means the surface was given no such seam, and it simply learns
+// nothing from it: under a dry run the terminal is given only the kept reads,
+// and --web, handed every bound function, reads nothing from the cache and
+// reads kept.db read-only.
 type Store struct {
 	// LastScope is the commit scope last used in this repository, if one was, so
 	// the composer can open on it.

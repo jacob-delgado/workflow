@@ -136,8 +136,8 @@ func readProposal(store seams.Store, workspace string) (tagProposal, error) {
 	return proposal, errors.Join(linksErr, groupsErr)
 }
 
-// readKept reads a list the store keeps in workspace, or nothing when there
-// is no store, as under a dry run.
+// readKept reads a list the store keeps in workspace, or nothing when the
+// store keeps none, as a disabled one does.
 func readKept[T any](read func(workspace string) ([]T, error), workspace string) ([]T, error) {
 	if read == nil {
 		return nil, nil

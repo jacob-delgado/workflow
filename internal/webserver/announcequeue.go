@@ -387,8 +387,9 @@ func (s *server) pullName(number int) string {
 // announcedCache is what the store remembers announcing in this repository,
 // from any surface, read again once the forge's interval has passed — as the
 // review it is told against is — so an announcement made from a terminal
-// shows within one. One made here is added at once. A dry run reads no store,
-// so it holds nothing. Its lock is its own, since every open stream reads it.
+// shows within one. One made here is added at once. A dry run reads nothing
+// from the cache, so it holds nothing. Its lock is its own, since every open
+// stream reads it.
 type announcedCache struct {
 	mu     sync.Mutex
 	held   bool

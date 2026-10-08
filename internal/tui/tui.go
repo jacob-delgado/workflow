@@ -150,7 +150,9 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 // WithDryRun is the interface holding back every write — to Jira, the forge,
 // the messaging service, Taskwarrior, git and files — and saying instead what
 // it would have done. Reads stay live, so what it says is about the real state
-// of things, and it opens no store.
+// of things. Of the store it keeps only the kept reads — whom a post would tag,
+// and the favorites — which --dry-run binds to kept.db, read read-only, and it
+// reads nothing from the cache.
 func (m Model) WithDryRun() Model {
 	m.deps = heldBack(m.deps)
 	m.dryRun = true

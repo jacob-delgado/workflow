@@ -167,12 +167,12 @@ func TestTheStoreIsReadOnceAcrossFrames(t *testing.T) {
 	}
 }
 
-func TestADryRunSuggestsTheDefaultWithoutOpeningTheStore(t *testing.T) {
+func TestADryRunSuggestsTheDefaultWithoutReadingTheCache(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// A dry run opens no store, so it reads no learned scope; the configured
-	// default still applies.
+	// A dry run reads nothing from the cache, so it reads no learned scope;
+	// the configured default still applies.
 	store := &scopeStore{scope: learnedScope, holds: true}
 	deps := filledDeps()
 	store.wire(&deps)
