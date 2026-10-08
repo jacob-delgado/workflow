@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -157,11 +156,8 @@ func TestTheStoreIsReadOnceAcrossFrames(t *testing.T) {
 			deps := filledDeps()
 			store.wire(&deps)
 
-			info := webserver.Info{Version: testVersion, StreamInterval: 2 * time.Millisecond}
-			handler := serveWith(t, deps, config.Default(), info)
-
 			// Act
-			pushes := streamUntilRepushed(t, handler)
+			pushes := len(snapshots(t, streamFrames(t, deps)))
 
 			// Assert
 			if reads := store.readCount(); pushes < 2 || reads != 1 {
