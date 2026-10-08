@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import {
   height,
   openCockpit,
@@ -9,6 +9,7 @@ import {
   widths,
 } from './support/cockpit.ts'
 import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from './support/tabwalk.ts'
+import { expect, test } from './support/fixtures.ts'
 
 // The populated cockpit at a narrow, a middling and a wide window, in both
 // themes: nothing scrolls sideways, the page does not scroll at all, every
