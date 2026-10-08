@@ -102,11 +102,9 @@ function CheckLog({ id, name }: { id: string; name: string }) {
         aria-label={
           read.state === 'running' ? `Reading the log of ${name}…` : `Show log of ${name}`
         }
-        aria-disabled={read.state === 'running'}
+        held={read.state === 'running'}
         onClick={() => {
-          if (read.state !== 'running') {
-            void read.run(id)
-          }
+          void read.run(id)
         }}
       >
         {read.state === 'running' ? 'Reading the log…' : 'Show log'}
