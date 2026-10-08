@@ -2510,11 +2510,16 @@ paths:
         The first is pushed on connect and another every few seconds after,
         whether or not anything changed: the upstreams send no notice of a
         change, so the server reads them again on that cadence. The browser
-        subscribes once and updates from the pushes rather than polling. The
-        review is the forge's answer, read at most once every
-        timing.ci_interval (twenty seconds unless set) for every stream
-        together, and again at once for another branch or head commit, or after
-        a pull request is opened here. A read that fails keeps the last answer
+        subscribes once and updates from the pushes rather than polling. Each
+        frame reads git and Taskwarrior afresh. The issues are the tracker's
+        answer for the view, searched at most once every timing.ci_interval
+        for every stream together, and again after a status change or an
+        assignment made here. The review is the forge's answer, read at most
+        once every timing.ci_interval (twenty seconds unless set) for every
+        stream together, and again at once for another branch or head commit,
+        or after a pull request is opened here. Neither read holds up a frame
+        that has an answer held to show while another stream's read is under
+        way. A read that fails keeps the last answer
         for the same branch and head commit, and with no answer to keep reports
         none found until a read succeeds. Which branches are for your issues is
         the tracker's answer too, asked again once a minute or when the
