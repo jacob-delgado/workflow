@@ -124,25 +124,36 @@ func (s *server) taskWrite(uuid string, act func(uuid string) error) (api.TaskLi
 		return api.TaskList{}, &prob
 	}
 
-	return s.taskListAfter(taskChange{})
+	return s.taskListAfter(taskChange{}), nil
 }
 
 // taskListAfter is the list a write answers once it has landed, with what the
-// write said and the task it added, or the problem of the read that could not
-// make it.
-func (s *server) taskListAfter(change taskChange) (api.TaskList, *api.Problem) {
+// write said and the task it added. The write stands whether or not the list
+// after it can be read, so a read that fails is answered as a list marked
+// unavailable, saying why, rather than as a failure a retry would repeat the
+// write over.
+func (s *server) taskListAfter(change taskChange) api.TaskList {
 	list, err := s.readTaskList(change.said)
 	if err != nil {
-		prob := s.taskFault(err)
-
-		return api.TaskList{}, &prob
+		list = s.listNotReadAgain(change.said, err)
 	}
 
 	if change.added != "" {
 		list.Added = &change.added
 	}
 
-	return list, nil
+	return list
+}
+
+// listNotReadAgain is the list a write that landed answers when the list
+// after it could not be read: unavailable, with why in taskFault's words.
+func (s *server) listNotReadAgain(said string, err error) api.TaskList {
+	code := api.TaskListReasonCodeUnavailable
+
+	return api.TaskList{
+		Available: false, ReasonCode: &code, Said: said, Tasks: []api.Task{},
+		Reason: "The change was made, but your tasks could not be read again: " + s.taskFault(err).Detail,
+	}
 }
 
 // withText is write with text bound, a write on a task by its uuid alone; nil

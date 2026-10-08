@@ -146,7 +146,7 @@ func TestAWriteTaskwarriorDeclinesIs409(t *testing.T) {
 	}
 }
 
-func TestAWriteWhoseListCannotBeReadAgainAnswersTheReadsProblem(t *testing.T) {
+func TestAWriteWhoseListTimesOutSaysWhyTheListIsMissing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -157,10 +157,11 @@ func TestAWriteWhoseListCannotBeReadAgainAnswersTheReadsProblem(t *testing.T) {
 	recorder := send(t, serve(t, tasksDeps(fake), config.Default()), http.MethodPost, taskPath(plainUUID, "start"), "")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
-	if fake.count("start") != 1 || recorder.Code != http.StatusBadGateway ||
-		failure.Detail != "Taskwarrior did not answer in time" {
-		t.Errorf("answer = %d %+v, calls = %q, want the start made and the read's 502", recorder.Code, failure, fake.asked())
+	list := decode[api.TaskList](t, recorder)
+	if fake.count("start") != 1 || recorder.Code != http.StatusOK ||
+		!strings.HasSuffix(list.Reason, "Taskwarrior did not answer in time") {
+		t.Errorf("answer = %d %+v, calls = %q, want the start made, answered 200 with the read's reason",
+			recorder.Code, list, fake.asked())
 	}
 }
 
@@ -369,6 +370,51 @@ func TestAnnotateAndModifyRequireText(t *testing.T) {
 				t.Errorf("answer = %d, calls = %q, want 422 before Taskwarrior is asked", recorder.Code, fake.asked())
 			}
 		})
+	}
+}
+
+func TestATaskWriteThatLandedIsAnsweredWhenTheListCannotBeReadAgain(t *testing.T) {
+	t.Parallel()
+
+	for name, write := range taskWrites() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			fake := fakeTaskwarrior()
+			fake.fail["pending"] = fmt.Errorf("reading %s: %w", dataPath, errSeam)
+
+			// Act
+			recorder := send(t, serve(t, tasksDeps(fake), config.Default()), http.MethodPost, write.path, write.body)
+
+			// Assert
+			list := decode[api.TaskList](t, recorder)
+			if recorder.Code != http.StatusOK || list.Available || !strings.Contains(list.Reason, "could not be read again") {
+				t.Errorf("answer = %d %+v, want 200 with the list marked unavailable, saying it could not be read again",
+					recorder.Code, list)
+			}
+
+			if strings.Contains(recorder.Body.String(), dataPath) {
+				t.Errorf("body = %q, names the data directory", recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestAnAddThatLandedNamesItsTaskWhenTheListCannotBeReadAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fake := fakeTaskwarrior()
+	fake.fail["pending"] = errSeam
+
+	// Act
+	recorder := send(t, serve(t, tasksDeps(fake), config.Default()), http.MethodPost, tasksPath, addBody)
+
+	// Assert
+	list := decode[api.TaskList](t, recorder)
+	if recorder.Code != http.StatusOK || list.Added == nil || *list.Added != addedUUID {
+		t.Errorf("answer = %d, added = %v; want 200 naming the added task %s", recorder.Code, list.Added, addedUUID)
 	}
 }
 
