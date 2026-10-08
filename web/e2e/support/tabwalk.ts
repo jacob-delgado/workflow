@@ -1,5 +1,5 @@
 import { AxeBuilder } from '@axe-core/playwright'
-import type { Page } from '@playwright/test'
+import type { JSHandle, Locator, Page } from '@playwright/test'
 
 // What the layout and accessibility specs share: a lap of the Tab order that
 // says which drawn controls it reached, which it never reached and which had
@@ -10,10 +10,10 @@ import type { Page } from '@playwright/test'
 // pixel at a scrolled edge.
 const inView = 0.99
 
-// tabStops are where Tab stops: every link, button, field and disclosure's
-// summary not disabled or taken out of the order.
-function tabStops(): HTMLElement[] {
-  const candidates = document.querySelectorAll<HTMLElement>(
+// tabStops are where Tab stops in a part of the page: every link, button,
+// field and disclosure's summary not disabled or taken out of the order.
+function tabStops(part: ParentNode): HTMLElement[] {
+  const candidates = part.querySelectorAll<HTMLElement>(
     'a[href], button, input, select, textarea, details > summary, [tabindex]',
   )
 
@@ -37,12 +37,15 @@ interface Stop {
   words: string
   // shown is how much of the focused control is in view.
   shown: number
+  // inside is whether the focused control is in the part of the page walked.
+  inside: boolean
 }
 
-// focusedStop says which control has focus, and how much of it is in view:
-// what focus must reveal of it, clipped by the window and by every part of the
-// page around it that scrolls or clips.
-function focusedStop(controls: HTMLElement[]): Stop {
+// focusedStop says which control has focus, whether it is in the part of the
+// page walked, and how much of it is in view: what focus must reveal of it,
+// clipped by the window and by every part of the page around it that scrolls
+// or clips.
+function focusedStop(controls: HTMLElement[], part: ParentNode): Stop {
   // revealed is what focus must bring into view: the whole control, or a text
   // area's first line, since the browser brings the caret into view, not the
   // whole box.
@@ -80,7 +83,7 @@ function focusedStop(controls: HTMLElement[]): Stop {
 
   const focused = document.activeElement
   if (!(focused instanceof HTMLElement) || focused === document.body) {
-    return { index: -1, words: 'the page', shown: 1 }
+    return { index: -1, words: 'the page', shown: 1, inside: true }
   }
 
   const { left, right, width } = focused.getBoundingClientRect()
@@ -96,6 +99,7 @@ function focusedStop(controls: HTMLElement[]): Stop {
     index: controls.indexOf(focused),
     words: focused.textContent.trim(),
     shown: Number.isFinite(share) ? share : 0,
+    inside: part.contains(focused),
   }
 }
 
@@ -126,38 +130,70 @@ function controlNames(controls: HTMLElement[]): string[] {
 }
 
 // TabWalk is what one lap of the Tab order found: the drawn controls it
-// reached, those it never reached, and those that had focus while out of view.
+// reached, those it never reached, those that had focus while out of view,
+// and the stops it made outside the part of the page walked.
 interface TabWalk {
   reached: string[]
   missed: string[]
   hidden: string[]
+  left: string[]
 }
 
-// walkTabOrder presses Tab once round the page — each stop, and the page
-// itself as the order wraps — and reports what it reached, what it never
-// reached, and what had focus while out of view.
-export async function walkTabOrder(page: Page): Promise<TabWalk> {
-  const stops = await page.evaluateHandle(tabStops)
-  const lap = (await stops.evaluate((all) => all.length)) + 1
+// Walk says what a lap walks: the whole page, or the part of it within a
+// locator — an open dialog, say, which Tab must not leave.
+interface Walk {
+  within?: Locator
+}
+
+// walkTabOrder presses Tab once round the page, or the part of it walked —
+// each stop, and the page itself as the order wraps — and reports what it
+// reached, what it never reached, what had focus while out of view, and where
+// it stopped outside the part walked. The lap ends as focus comes back to its
+// first stop, so it follows the browser's own order: a part that scrolls with
+// nothing in it to take focus, a dialog that scrolls among them, is a stop
+// there that no selector names.
+export async function walkTabOrder(page: Page, { within }: Walk = {}): Promise<TabWalk> {
+  const part = await walked(page, within)
+  const stops = await part.evaluateHandle(tabStops)
+  const most = 2 * (await stops.evaluate((all) => all.length)) + 2
   const controls = await stops.evaluateHandle(drawnOnly)
   const names = await controls.evaluate(controlNames)
+  const walk: TabWalk = { reached: [], missed: [], hidden: [], left: [] }
   const reached = new Set<number>()
-  const hidden: string[] = []
-  for (let step = 0; step < lap; step++) {
-    await page.keyboard.press('Tab')
-    const stop = await controls.evaluate(focusedStop)
-    reached.add(stop.index)
-    if (stop.shown < inView) {
+  await page.keyboard.press('Tab')
+  const first = await page.evaluateHandle(() => document.activeElement)
+  for (let step = 0; step < most; step++) {
+    const stop = await controls.evaluate(focusedStop, part)
+    if (stop.inside) {
+      reached.add(stop.index)
+    } else {
+      walk.left.push(stop.words)
+    }
+    if (stop.inside && stop.shown < inView) {
       const name = names[stop.index] ?? stop.words
-      hidden.push(`${name} (${String(Math.round(stop.shown * 100))}% in view)`)
+      walk.hidden.push(`${name} (${String(Math.round(stop.shown * 100))}% in view)`)
+    }
+
+    await page.keyboard.press('Tab')
+    if (await first.evaluate((began) => began === document.activeElement)) {
+      walk.reached = names.filter((_, index) => reached.has(index))
+      walk.missed = names.filter((_, index) => !reached.has(index))
+
+      return walk
     }
   }
 
-  return {
-    reached: names.filter((_, index) => reached.has(index)),
-    missed: names.filter((_, index) => !reached.has(index)),
-    hidden,
+  throw new Error(`Tab did not come back round to its first stop in ${String(most)} presses`)
+}
+
+// walked is the part of the page a lap walks: the one within the locator, or
+// the whole document.
+function walked(page: Page, within?: Locator): Promise<JSHandle<ParentNode>> {
+  if (within === undefined) {
+    return page.evaluateHandle((): ParentNode => document)
   }
+
+  return within.evaluateHandle((part): ParentNode => part)
 }
 
 // sidewaysScrollers names what scrolls sideways: the page, or any part of it.
