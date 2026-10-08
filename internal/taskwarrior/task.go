@@ -5,6 +5,7 @@ package taskwarrior
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -89,8 +90,15 @@ func PriorityFor(jiraPriority string) string {
 //	jiraid:PROJ-42 jiraurl:https://… +jira priority:H -- PROJ-42: <summary>
 //
 // (priority left out when PriorityFor gives ""). The summary is one line
-// (sanitize.Line) and follows --, so a due:tomorrow in it stays words.
-func TrackLine(issue IssueLink) string {
+// (sanitize.Line) and follows --, so a due:tomorrow in it stays words. The key
+// stands before the --, so one that is not exactly one word is refused with
+// ErrKeyNotOneWord: Taskwarrior would read a word after it as an attribute or
+// an rc override of its own.
+func TrackLine(issue IssueLink) (string, error) {
+	if fields := strings.Fields(issue.Key); len(fields) != 1 || fields[0] != issue.Key {
+		return "", fmt.Errorf("%w: %q", ErrKeyNotOneWord, issue.Key)
+	}
+
 	words := []string{LinkUDA + ":" + issue.Key, LinkURLUDA + ":" + issue.URL, "+" + LinkTag}
 
 	if priority := PriorityFor(issue.Priority); priority != "" {
@@ -99,8 +107,12 @@ func TrackLine(issue IssueLink) string {
 
 	words = append(words, "--", issue.Key+":", sanitize.Line(issue.Summary))
 
-	return strings.Join(words, " ")
+	return strings.Join(words, " "), nil
 }
+
+// ErrKeyNotOneWord refuses an issue key Taskwarrior would read as more than
+// one word.
+var ErrKeyNotOneWord = errors.New("the issue key is not one word")
 
 // dateLayout is how export writes a date: UTC, to the second.
 const dateLayout = "20060102T150405Z"
