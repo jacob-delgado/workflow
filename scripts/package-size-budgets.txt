@@ -79,8 +79,12 @@ internal/config 17
 # githubpeople.go, the reviewers, assignees and labels GitHub takes only once a
 # pull is open, and 17 is githubissues.go, GitHub's assigned issues read and
 # closed, both out of github.go once it held pulls, issues, the review queue,
-# reviewers and merge past the 500-line target, as members.go is GitLab's.
-internal/forge 17
+# reviewers and merge past the 500-line target, as members.go is GitLab's; 18
+# is reviewqueue.go, a request awaiting your review, the orders the queue is
+# listed in and the facets it is narrowed by, out of pulls.go so the facets the
+# terminal and the web each wrote could move here without taking it past the
+# 500-line target.
+internal/forge 18
 
 # internal/tui — the Bubble Tea interface, spelled one file per pane, overlay
 # and composer. Every file hangs its behavior off the one shared Model, so the
