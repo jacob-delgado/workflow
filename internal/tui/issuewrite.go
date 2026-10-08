@@ -30,9 +30,9 @@ func assignAction(assign func(jira.Key, string) error) issueAction {
 		title:  "Assign",
 		prompt: "assignee (username)",
 		write:  assign,
-		done:   func(issueKey jira.Key, value string) string { return "assigned " + string(issueKey) + " to " + value },
+		done:   func(issueKey jira.Key, value string) string { return "assigned " + shownKey(issueKey) + " to " + value },
 		would: func(issueKey jira.Key, value string) string {
-			return "would assign " + string(issueKey) + " to " + value
+			return "would assign " + shownKey(issueKey) + " to " + value
 		},
 	}
 }
@@ -50,8 +50,8 @@ func worklogAction(add func(jira.Key, string, string) (jira.Worklog, error)) iss
 		title:  "Log work",
 		prompt: "time spent (e.g. 2h, 30m)",
 		write:  write,
-		done:   func(issueKey jira.Key, value string) string { return "logged " + value + " on " + string(issueKey) },
-		would:  func(issueKey jira.Key, value string) string { return "would log " + value + " on " + string(issueKey) },
+		done:   func(issueKey jira.Key, value string) string { return "logged " + value + " on " + shownKey(issueKey) },
+		would:  func(issueKey jira.Key, value string) string { return "would log " + value + " on " + shownKey(issueKey) },
 	}
 }
 
@@ -118,10 +118,10 @@ func (w issueWrite) view(width, _ int) (string, string) {
 
 	outcome := w.outcome()
 	lines := make([]string, 0, 4+len(outcome)) //nolint:mnd // the four header lines above the outcome.
-	lines = append(lines, string(w.issue.Key)+" "+w.issue.Summary, "", w.action.prompt, w.input.View())
+	lines = append(lines, shownKey(w.issue.Key)+" "+w.issue.Summary, "", w.action.prompt, w.input.View())
 	lines = append(lines, outcome...)
 
-	return w.action.title + " " + string(w.issue.Key), strings.Join(lines, "\n")
+	return w.action.title + " " + shownKey(w.issue.Key), strings.Join(lines, "\n")
 }
 
 // outcome says how sending is going, or names a value the form still needs.

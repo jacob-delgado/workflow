@@ -356,7 +356,7 @@ func (c branchCreator) view(width, _ int) (string, string) {
 
 	lines := pinnedOutcome(c.styles, c.marks, c.send, "creating", width)
 	if c.forIssue {
-		lines = append(lines, "for "+string(c.issue.Key)+" "+c.issue.Summary, "")
+		lines = append(lines, "for "+shownKey(c.issue.Key)+" "+c.issue.Summary, "")
 	}
 
 	lines = append(lines, c.input.View(), "", c.start())
@@ -376,7 +376,7 @@ func (c branchCreator) view(width, _ int) (string, string) {
 // title names the creator for the issue it is for, when it is for one.
 func (c branchCreator) title() string {
 	if c.forIssue {
-		return "Start work on " + string(c.issue.Key)
+		return "Start work on " + shownKey(c.issue.Key)
 	}
 
 	return "New branch"

@@ -48,11 +48,11 @@ func (m Model) pullOffers() []string {
 
 	var offers []string
 	if m.deps.Jira.LinkPullRequest != nil {
-		offers = append(offers, "to link it on "+string(issueKey))
+		offers = append(offers, "to link it on "+shownKey(issueKey))
 	}
 
 	if m.offersReviewStatus() {
-		offers = append(offers, "to move "+string(issueKey)+" to "+m.cfg.Jira.ReviewStatus)
+		offers = append(offers, "to move "+shownKey(issueKey)+" to "+m.cfg.Jira.ReviewStatus)
 	}
 
 	return offers
@@ -62,10 +62,10 @@ func (m Model) pullOffers() []string {
 func (l issueLinker) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(l.styles, l.marks, l.send, "linking", width)
 	lines = append(lines,
-		"Add this "+l.vocab.noun+"'s link to "+string(l.issueKey)+"?", "",
+		"Add this "+l.vocab.noun+"'s link to "+shownKey(l.issueKey)+"?", "",
 		l.vocab.sigil+strconv.Itoa(l.pull.Number)+" "+l.pull.Title, l.pull.URL)
 
-	return "Link on " + string(l.issueKey), strings.Join(lines, "\n")
+	return "Link on " + shownKey(l.issueKey), strings.Join(lines, "\n")
 }
 
 // footer offers linking the pull request or skipping it.
@@ -118,7 +118,7 @@ func (msg issueLinked) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.noticed(m.marks.done + " linked " + m.vocab.sigil +
-		strconv.Itoa(msg.pull.Number) + " on " + string(msg.issueKey))
+		strconv.Itoa(msg.pull.Number) + " on " + shownKey(msg.issueKey))
 
 	return m.offerReviewStatus(msg.issueKey)
 }
