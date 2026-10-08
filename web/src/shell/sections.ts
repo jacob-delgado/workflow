@@ -15,9 +15,9 @@ import type { Section } from './uiStore.ts'
 // The label, rail icon and hue of each section — one source, read by the nav
 // rail and by the content area's heading. The hue is the system the section
 // belongs to, as the terminal's spine colors its stages (internal/tui/spine.go):
-// Jira's issues, git's branch, the forge's pull requests, the messaging
-// service, and Taskwarrior's tasks, and git's repositories. The Summary reads them all and Settings
-// belongs to none of them, so both stay in the ink.
+// Jira's issues, git's branch and repositories, the forge's pull requests and
+// reviews, the messaging service, and Taskwarrior's tasks. The Summary reads
+// them all and Settings belongs to none of them, so both stay in the ink.
 export const sectionMeta: Record<Section, { label: string; Icon: LucideIcon; hue: string }> = {
   issues: { label: 'Issues', Icon: CircleDot, hue: 'text-jira' },
   branch: { label: 'Branch', Icon: GitBranch, hue: 'text-git' },
