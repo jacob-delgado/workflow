@@ -4,12 +4,14 @@ import { QueryClient } from '@tanstack/react-query'
 // The stream — not polling — keeps the cockpit fresh, writing each snapshot to
 // useSnapshotStore (src/api/snapshot.ts) rather than to this cache, so by
 // default a query fetches once and neither refetches on window focus nor goes
-// stale on its own; a query that must be read again sets its own staleTime. A
-// test pins these defaults, because they are the cockpit's freshness policy,
-// not an incidental choice.
+// stale on its own; a query that must be read again sets its own staleTime,
+// and one that changes with no event to say so its own refetchInterval, as the
+// Tasks list does once a wait passes (useTasks). A test pins these defaults,
+// because they are the cockpit's freshness policy, not an incidental choice.
 //
-// Trade-off TRADE-4: no read here refetches on its own; the stream alone keeps
-// the cockpit fresh.
+// Trade-off TRADE-4: by default no read here refetches on its own; the stream
+// keeps the cockpit fresh, and only the Tasks list reads itself again, once
+// the earliest wait still ahead has passed.
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
