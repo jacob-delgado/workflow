@@ -48,7 +48,7 @@ func TestWriteStaysInsideTheRepositoryPastALinkedScriptsDirectory(t *testing.T) 
 				t.Error("Write followed the link and succeeded, want it refused")
 			}
 
-			if left := filesIn(t, outside); len(left) != 0 {
+			if left := entriesIn(t, outside); len(left) != 0 {
 				t.Errorf("Write left %q outside the repository, want nothing", left)
 			}
 		})
