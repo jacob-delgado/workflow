@@ -67,21 +67,13 @@ interface UnreadProps {
 
 // Unread is a read that failed: why, as a Failure keyed by how many refusals
 // there have been, over a Try again that reads it again. While it reads, Try
-// again is marked busy rather than disabled, so it keeps the focus it was
-// pressed with through another refusal, and a press while busy starts nothing.
+// again is held rather than disabled, so it keeps the focus it was pressed
+// with through another refusal, and a press while held starts nothing.
 export function Unread({ reason, refusals, retrying, onRetry }: UnreadProps) {
   return (
     <div className="flex flex-col items-start gap-item">
       <Failure key={refusals}>{reason}</Failure>
-      <Button
-        variant="secondary"
-        aria-disabled={retrying}
-        onClick={() => {
-          if (!retrying) {
-            onRetry()
-          }
-        }}
-      >
+      <Button variant="secondary" held={retrying} onClick={onRetry}>
         {retrying ? 'Trying again…' : 'Try again'}
       </Button>
     </div>
