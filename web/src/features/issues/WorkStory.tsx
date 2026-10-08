@@ -364,10 +364,11 @@ interface StoryStageProps {
 }
 
 // StoryStage is one stage of the story: the mark of how far it has come, in
-// its system's hue, on the line down to the next, and the stage itself as a
-// control that opens its section — a chevron after its title says so at rest, and
-// its description names the section for a screen reader. The first stage not
-// done is the current step: where the work is at.
+// the hue of the section it opens — red when it failed — on the line down to
+// the next, and the stage itself as a control that opens that section — a
+// chevron after its title says so at rest, and its description names the
+// section for a screen reader. The first stage not done is the current step:
+// where the work is at.
 function StoryStage({ stage, current, last, onOpen }: StoryStageProps) {
   const opens = useId()
 
