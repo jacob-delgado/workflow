@@ -639,29 +639,27 @@ replace the command list with a link to Scripting.
 code is missing from its table, and the web.md passages agree with their
 tables.
 
-### DEBT-286 Gate texts say "two build-tagged twins", the golangci comments misname what is off, and the container docs misplace the release build
+### DEBT-286 The golangci comments misname what is off, and the container docs misplace the release build
 
 Severity: low · Confidence: read · Size: S
 
-**Where.** `scripts/gobco-report.sh:44`, `:53`, `Taskfile.yml:27`, `:35`;
-`.golangci.yml:18`, `CONTRIBUTING.md:124`;
-`.github/workflows/container.yml:3`, `build/Dockerfile:1`,
+**Where.** `.golangci.yml:18`, `CONTRIBUTING.md:125`;
+`.github/workflows/container.yml:3`, `:41`, `build/Dockerfile:1`,
 `.github/workflows/release.yml:55`.
 
-**Today.** `UNANALYZABLE` names one package, yet gobco-report's header and the
-Taskfile speak of two. `.golangci.yml` says the deprecated linters are
-"superseded by the _v5 linters enabled above" where both generations are
-disabled, and CONTRIBUTING says every linter is enabled though five are off.
-The container workflow says the release binaries are built in the container;
-`release.yml` builds them on the runner with mise.
+**Today.** `.golangci.yml` says the deprecated linters are "superseded by the
+_v5 linters enabled above" where both generations are disabled, and
+CONTRIBUTING says every linter is enabled though five are off. The container
+workflow and the Dockerfile say the release binaries are built in the
+container; `release.yml` builds them on the runner with mise.
 
-**Fix.** Name the one package; reword the golangci comment and CONTRIBUTING
-("every linter but the few `.golangci.yml` disables, each with its reason");
-say the container runs the gate on demand and weekly.
+**Fix.** Reword the golangci comment and CONTRIBUTING ("every linter but the
+few `.golangci.yml` disables, each with its reason"); say the container runs
+the gate on demand and weekly.
 
-**Done when.** `grep -rn 'two build-tagged\|Two packages are there'
-Taskfile.yml scripts` finds nothing, and no file claims the release is built
-in the container.
+**Done when.** No comment in `.golangci.yml` calls a disabled linter enabled,
+CONTRIBUTING names the linters that are off, and no file claims the release is
+built in the container.
 
 ### DEBT-287 configuration.md says any `NO_COLOR` value turns color off, but an empty one does not
 
