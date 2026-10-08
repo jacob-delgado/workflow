@@ -256,11 +256,33 @@ func importNames(file *ast.File) map[string]bool {
 			continue
 		}
 
-		// The last element is the name a package is usually imported as.
-		names[path.Base(importPath(spec))] = true
+		names[usualName(importPath(spec))] = true
 	}
 
 	return names
+}
+
+// usualName is the name a package is usually imported as: its path's last
+// element, less a major version, whether a final `/v2` element or gopkg.in's
+// `.v2` suffix.
+func usualName(importPath string) string {
+	name := path.Base(importPath)
+	if majorVersion(name) && strings.Contains(importPath, "/") {
+		name = path.Base(path.Dir(importPath))
+	}
+
+	if dot := strings.LastIndex(name, "."); dot > 0 && majorVersion(name[dot+1:]) {
+		name = name[:dot]
+	}
+
+	return name
+}
+
+// majorVersion reports whether a path element is a major version, such as v2.
+func majorVersion(element string) bool {
+	digits, found := strings.CutPrefix(element, "v")
+
+	return found && digits != "" && strings.Trim(digits, "0123456789") == ""
 }
 
 // importPath is an import's path without its quotes. The parser has already
