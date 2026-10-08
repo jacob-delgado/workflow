@@ -238,7 +238,7 @@ only the keys that do something right now.
 
 | Key | Where | Does |
 | --- | --- | --- |
-| `tab` / `1`–`7` | anywhere | Move between panes |
+| `tab` / `1`–`9` | anywhere | Move between panes |
 | `t` / `c` / `b` | Issues | Change status, comment, branch for the issue |
 | `space` / `a` / `c` | Commits | Stage a file, stage all, commit |
 | `h` | Commits | Run the pre-commit hook |
@@ -255,11 +255,13 @@ write back. The
 whole loop.
 
 `workflow --web` serves the loop in a browser instead, at
-`http://127.0.0.1:13579`: seven sections — Issues, Branch, Review, your
-messaging service, Reviews, Tasks and Settings — kept live by the server, in a
-light or a dark theme. `--web --dry-run` makes it read-only. Re-running CI,
-merging, finishing a branch and most issue writes stay in the terminal for now;
-[the web page](https://jacob-delgado.github.io/workflow/docs/web/) says which.
+`http://127.0.0.1:13579`: nine sections — Issues, Branch, Review, your
+messaging service, Reviews, Tasks, Summary, Repositories and Settings — kept
+live by the server, in a light or a dark theme. `--web --dry-run` makes it
+read-only. Only the offers to change a Taskwarrior task at the loop's moments
+stay in the terminal, where the web has its Tasks buttons instead;
+[the web page](https://jacob-delgado.github.io/workflow/docs/web/#what-stays-in-the-terminal)
+says so.
 
 ## Development
 
