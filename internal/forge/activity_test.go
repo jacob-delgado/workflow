@@ -24,6 +24,13 @@ const githubFoundNothing = `{"total_count":0,"items":[]}`
 // userPath is where either forge says who the token belongs to.
 const userPath = "/user"
 
+// pull3Reviews is where GitHub lists the reviews of o/r's pull 3, and
+// reviewedPull3 is a review of it as described tells one.
+const (
+	pull3Reviews  = "/repos/o/r/pulls/3/reviews"
+	reviewedPull3 = "reviewed o/r#3"
+)
+
 // activityForge answers each request by the first route whose key its path
 // and query contain, or with an empty list.
 func activityForge(t *testing.T, routes map[string]string) forge.Client {
@@ -62,7 +69,7 @@ func TestGitHubActivityIsWhatYouOpenedMergedAndReviewed(t *testing.T) {
 		"author%3A%40me+created":     `{"total_count":1,"items":[` + pull("1", "2026-10-02T09:00:00Z") + `]}`,
 		"author%3A%40me+is%3Amerged": `{"total_count":1,"items":[` + pull("2", "2026-10-02T10:00:00Z") + `]}`,
 		"reviewed-by%3A%40me":        `{"total_count":1,"items":[` + pull("3", "2026-10-01T08:00:00Z") + `]}`,
-		"/repos/o/r/pulls/3/reviews": `[{"user":{"login":"ana"},"submitted_at":"2026-10-02T11:00:00Z"},` +
+		pull3Reviews: `[{"user":{"login":"ana"},"submitted_at":"2026-10-02T11:00:00Z"},` +
 			`{"user":{"login":"ben"},"submitted_at":"2026-10-02T12:00:00Z"}]`,
 	})
 
@@ -70,7 +77,7 @@ func TestGitHubActivityIsWhatYouOpenedMergedAndReviewed(t *testing.T) {
 	activity, err := client.Activity(t.Context(), forge.KindGitHub, start, start.Add(24*time.Hour))
 
 	// Assert
-	want := []string{"opened o/r#1", "merged o/r#2", "reviewed o/r#3"}
+	want := []string{"opened o/r#1", "merged o/r#2", reviewedPull3}
 	if got := described(activity.Events); err != nil || strings.Join(got, ", ") != strings.Join(want, ", ") {
 		t.Errorf("Activity = %v, %v; want %v", got, err, want)
 	}
@@ -90,17 +97,52 @@ func TestGitHubReviewsAreReadOldestFirstAndOnlyAsManyAsAreLookedUp(t *testing.T)
 		"order=asc&per_page=20&q=is%3Apr+reviewed-by%3A%40me+updated%3A%3E%3D2026-10-02T00%3A00%3A00Z&sort=updated": `{` +
 			`"total_count":21,"items":[{"number":3,"title":"pull 3","html_url":"https://github.com/o/r/pull/3",` +
 			`"repository_url":"https://api.github.com/repos/o/r"}]}`,
-		"/repos/o/r/pulls/3/reviews": `[{"user":{"login":"ana"},"submitted_at":"2026-10-02T11:00:00Z"}]`,
+		pull3Reviews: `[{"user":{"login":"ana"},"submitted_at":"2026-10-02T11:00:00Z"}]`,
 	})
 
 	// Act
 	activity, err := client.Activity(t.Context(), forge.KindGitHub, start, start.Add(24*time.Hour))
 
 	// Assert
-	if got := described(activity.Events); err != nil || len(got) != 1 || got[0] != "reviewed o/r#3" ||
+	if got := described(activity.Events); err != nil || len(got) != 1 || got[0] != reviewedPull3 ||
 		!activity.Truncated {
 		t.Errorf("Activity = %v (more: %v), %v; want the one review, and that there were more", got,
 			activity.Truncated, err)
+	}
+}
+
+func TestGitHubActivityCountsAReviewPastTheFirstPage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A hundred reviews of ben's fill the first page; ana's is the 101st.
+	start := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+	bens := strings.TrimSuffix(strings.Repeat(
+		`{"user":{"login":"ben"},"submitted_at":"2026-10-02T10:00:00Z"},`, 100), ",")
+	client, _ := recordingForge(t, func(asked recorded) (int, string) {
+		query, _ := url.ParseQuery(asked.query)
+
+		switch {
+		case asked.path == userPath:
+			return http.StatusOK, githubAna
+		case strings.Contains(query.Get("q"), "reviewed-by:"):
+			return http.StatusOK, `{"total_count":1,"items":[{"number":3,"title":"pull 3",` +
+				`"html_url":"https://github.com/o/r/pull/3","repository_url":"https://api.github.com/repos/o/r"}]}`
+		case asked.path == pull3Reviews && query.Get("page") == "2":
+			return http.StatusOK, `[{"user":{"login":"ana"},"submitted_at":"2026-10-02T11:00:00Z"}]`
+		case asked.path == pull3Reviews:
+			return http.StatusOK, "[" + bens + "]"
+		default:
+			return http.StatusOK, githubFoundNothing
+		}
+	})
+
+	// Act
+	activity, err := client.Activity(t.Context(), forge.KindGitHub, start, start.Add(24*time.Hour))
+
+	// Assert
+	if got := described(activity.Events); err != nil || len(got) != 1 || got[0] != reviewedPull3 {
+		t.Errorf("Activity = %v, %v; want ana's review on the second page", got, err)
 	}
 }
 
