@@ -153,7 +153,8 @@ the commits once there is one, and the review once the pull request's CI
 passes or it merges, failed on a CI failure or changes asked for. The
 announcement is done once the pull request was announced at the moment it is
 at now — from the browser, the terminal or `workflow announce`, as the store
-remembers. The server reads the working tree and the forge for the
+remembers — but not for one closed without merging, which the loop no longer
+follows. The server reads the working tree and the forge for the
 checked-out branch alone, so for an issue on another branch only the issue
 and the branch read done, and for an issue with no branch yet the issue reads
 in flight, picked as the terminal's top row reads an issue selected, and

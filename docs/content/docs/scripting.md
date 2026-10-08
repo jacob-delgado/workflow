@@ -150,7 +150,8 @@ stage is named for the messaging service `messaging.kind` configures —
 rather than by that name. That stage reads `done` once the branch's pull
 request was announced at the moment it is at now — ready for review, CI red,
 or merged — by `announce` or the interface, as the store remembers it; with
-`store.disabled` it never does.
+`store.disabled` it never does, nor for a pull request closed without merging,
+which the loop no longer follows.
 `issue` and `summary` are left out when the branch names no issue.
 
 `workflow status --json DIR…` prints an array, one object per directory in
