@@ -143,7 +143,7 @@ func (s *server) snapshot(view string) api.Snapshot {
 // errNoBranch when no repository is configured, and with the read's error when
 // it fails.
 func (s *server) frameBranch() (gitrepo.Branch, error) {
-	if s.deps.Branch == nil {
+	if s.deps.Git.Branch == nil {
 		return gitrepo.Branch{}, errNoBranch
 	}
 
@@ -198,11 +198,11 @@ func nothingToAsk(err error) bool {
 // read fails, holds no branch only the remote has when the remote read fails,
 // and marks none when checkedOut is empty, as it is when the branch is unknown.
 func (s *server) snapshotBranches(checkedOut string) []api.TaskBranch {
-	if s.deps.Branches == nil {
+	if s.deps.Git.Branches == nil {
 		return []api.TaskBranch{}
 	}
 
-	local, err := s.deps.Branches()
+	local, err := s.deps.Git.Branches()
 	if err != nil {
 		return []api.TaskBranch{}
 	}
@@ -251,11 +251,11 @@ func (s *server) otherWorktrees() map[string]gitrepo.Worktree {
 // remoteBranches lists the remote's branches, or none outside a repository or
 // when the read fails: the local ones are listed all the same.
 func (s *server) remoteBranches() []string {
-	if s.deps.RemoteBranches == nil {
+	if s.deps.Git.RemoteBranches == nil {
 		return nil
 	}
 
-	names, err := s.deps.RemoteBranches()
+	names, err := s.deps.Git.RemoteBranches()
 	if err != nil {
 		return nil
 	}
@@ -266,11 +266,11 @@ func (s *server) remoteBranches() []string {
 // issueLinks is every branch linked to an issue by hand, or none when there is
 // no repository to ask.
 func (s *server) issueLinks() map[string]string {
-	if s.deps.IssueLinks == nil {
+	if s.deps.Git.IssueLinks == nil {
 		return nil
 	}
 
-	return s.deps.IssueLinks()
+	return s.deps.Git.IssueLinks()
 }
 
 // issueKeys is the issue each of names is for, by its link in links or its
@@ -293,7 +293,7 @@ func issueKeys(names []string, links map[string]string, project string) []jira.K
 // the stream opened.
 func (s *server) snapshotIssues(view string) (api.IssuesPage, error) {
 	jql, known := resolveJQL(s.config(), view)
-	if s.deps.Search == nil || !known {
+	if s.deps.Jira.Search == nil || !known {
 		return issuesPageDTO(jira.SearchResult{}, 0), nil
 	}
 

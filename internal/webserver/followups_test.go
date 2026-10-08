@@ -32,9 +32,9 @@ func openFollowable(t *testing.T, deps webserver.Deps, cfg config.Config) (api.O
 func followableDeps() webserver.Deps {
 	deps := openableDeps()
 	written := writableDeps(new([]linkCall), new([]jira.Transition))
-	deps.LinkPullRequest = written.LinkPullRequest
-	deps.Transitions = written.Transitions
-	deps.Transition = written.Transition
+	deps.Jira.LinkPullRequest = written.Jira.LinkPullRequest
+	deps.Jira.Transitions = written.Jira.Transitions
+	deps.Jira.Transition = written.Jira.Transition
 
 	return deps
 }
@@ -85,15 +85,15 @@ func TestOpenPullRequestOffersOnlyWhatApplies(t *testing.T) {
 		// offers no move rather than failing the open.
 		"the moves cannot be read": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Transitions = func(jira.Key) ([]jira.Transition, error) { return nil, errSeam }
+				deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) { return nil, errSeam }
 			},
 			cfg: reviewConfig(), want: "link " + testKey,
 		},
 		"no way to move": {
-			unwire: func(deps *webserver.Deps) { deps.Transition = nil }, cfg: reviewConfig(), want: "link " + testKey,
+			unwire: func(deps *webserver.Deps) { deps.Jira.Transition = nil }, cfg: reviewConfig(), want: "link " + testKey,
 		},
 		"a tracker that takes no link": {
-			unwire: func(deps *webserver.Deps) { deps.LinkPullRequest = nil },
+			unwire: func(deps *webserver.Deps) { deps.Jira.LinkPullRequest = nil },
 			cfg:    reviewConfig(), want: "transition " + testKey + " to " + reviewStatus,
 		},
 	}
@@ -126,7 +126,7 @@ func TestOpenPullRequestOffersNothingForABranchNamingNoJiraIssue(t *testing.T) {
 
 			// Arrange
 			deps := followableDeps()
-			deps.Branch = func() (gitrepo.Branch, error) {
+			deps.Git.Branch = func() (gitrepo.Branch, error) {
 				branch := pushedBranch()
 				branch.Name = name
 

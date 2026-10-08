@@ -72,8 +72,8 @@ func newForgeWorld() *forgeWorld {
 // posting into it.
 func (w *forgeWorld) deps() webserver.Deps {
 	deps := filledDeps()
-	checkedOut := deps.Branch
-	deps.Branch = func() (gitrepo.Branch, error) {
+	checkedOut := deps.Git.Branch
+	deps.Git.Branch = func() (gitrepo.Branch, error) {
 		branch, err := checkedOut()
 
 		w.mu.Lock()
@@ -90,7 +90,7 @@ func (w *forgeWorld) deps() webserver.Deps {
 
 		return branch, err
 	}
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
@@ -98,7 +98,7 @@ func (w *forgeWorld) deps() webserver.Deps {
 
 		return forge.PullRequest{Number: w.pull, URL: url, Title: "Redact tokens", State: w.state}, !w.gone, w.pullErr
 	}
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
@@ -110,7 +110,7 @@ func (w *forgeWorld) deps() webserver.Deps {
 
 		return w.now
 	}
-	deps.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_, text string) error {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
@@ -412,7 +412,7 @@ func TestAnnouncingWhenCIPassesWithNoCISeamIsAConflict(t *testing.T) {
 	// Arrange
 	world := newForgeWorld()
 	deps := world.deps()
-	deps.CheckCI = nil
+	deps.Forge.CheckStatus = nil
 	handler := serve(t, deps, config.Default())
 
 	// Act

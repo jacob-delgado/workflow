@@ -38,8 +38,8 @@ type announceMemory struct {
 
 // wire binds deps' announcement memory, and a post that goes, over m.
 func (m *announceMemory) wire(deps webserver.Deps) webserver.Deps {
-	deps.Post = func(string, string) error { return nil }
-	deps.Announced = func() []loop.Announced {
+	deps.Messaging.Post = func(string, string) error { return nil }
+	deps.Store.Announced = func() []loop.Announced {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 
@@ -47,7 +47,7 @@ func (m *announceMemory) wire(deps webserver.Deps) webserver.Deps {
 
 		return slices.Concat(m.held, m.recorded)
 	}
-	deps.RecordAnnounce = func(made loop.Announced) error {
+	deps.Store.RecordAnnounce = func(made loop.Announced) error {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 
@@ -91,7 +91,7 @@ func TestAnnounceRefusesWhatWasAlreadyAnnounced(t *testing.T) {
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
 	deps := memory.wire(filledDeps())
 	posted := 0
-	deps.Post = func(string, string) error {
+	deps.Messaging.Post = func(string, string) error {
 		posted++
 
 		return nil
@@ -185,7 +185,7 @@ func TestAnnouncedMomentFollowsTheCI(t *testing.T) {
 	// Arrange
 	memory := &announceMemory{held: []loop.Announced{{Pull: 42, Moment: messaging.MomentCIRed}}}
 	deps := memory.wire(filledDeps())
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}, nil
 	}
 
@@ -228,7 +228,7 @@ func TestAnnounceTheStoreCannotRememberIsMadeAndNoted(t *testing.T) {
 	// Arrange
 	memory := &announceMemory{}
 	deps := memory.wire(filledDeps())
-	deps.RecordAnnounce = func(loop.Announced) error { return errStoreFull }
+	deps.Store.RecordAnnounce = func(loop.Announced) error { return errStoreFull }
 
 	var noted []string
 
@@ -260,7 +260,7 @@ func TestAnnounceWarnsOnlyOfAPostTheStoreCannotRemember(t *testing.T) {
 
 			// Arrange
 			deps := (&announceMemory{}).wire(filledDeps())
-			deps.RecordAnnounce = func(loop.Announced) error { return tt.recordErr }
+			deps.Store.RecordAnnounce = func(loop.Announced) error { return tt.recordErr }
 
 			// Act
 			recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
@@ -283,7 +283,7 @@ func TestAHeldAnnouncementTheStoreCannotRememberWarnsSo(t *testing.T) {
 	// Arrange
 	world := newForgeWorld()
 	deps := world.deps()
-	deps.RecordAnnounce = func(loop.Announced) error { return errStoreFull }
+	deps.Store.RecordAnnounce = func(loop.Announced) error { return errStoreFull }
 	handler := serve(t, deps, config.Default())
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })

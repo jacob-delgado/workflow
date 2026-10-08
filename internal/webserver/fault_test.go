@@ -98,7 +98,7 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 
 			// Arrange
 			deps := writableDeps(new([]linkCall), new([]jira.Transition))
-			deps.Transition = func(jira.Key, jira.Transition, []jira.FieldValue) error { return tt.err }
+			deps.Jira.Transition = func(jira.Key, jira.Transition, []jira.FieldValue) error { return tt.err }
 
 			// Act
 			recorder := post(t, deps, reviewConfig(), movePath)
@@ -150,7 +150,7 @@ func TestAForgeFailureSaysWhatToDo(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{}, false, fmt.Errorf("reading https://%s/api/v3: %w", forgeHost, tt.cause)
 			}
 
@@ -197,7 +197,7 @@ func TestARateLimitAsksTheCallerToWait(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, tt.err }
+			deps.Jira.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, tt.err }
 
 			// Act
 			recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
@@ -251,13 +251,13 @@ func TestAMissingIssueIsNotFoundBeforeARefusal(t *testing.T) {
 	}{
 		"reading the moves": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Transitions = func(jira.Key) ([]jira.Transition, error) { return nil, missing }
+				deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) { return nil, missing }
 			},
 			path: movePath,
 		},
 		"the link": {
 			unwire: func(deps *webserver.Deps) {
-				deps.LinkPullRequest = func(jira.Key, string, string) error { return missing }
+				deps.Jira.LinkPullRequest = func(jira.Key, string, string) error { return missing }
 			},
 			path: linkPath,
 		},
@@ -327,7 +327,7 @@ func TestOnlyAFailureNoClassExplainsIsHandedToUnexpected(t *testing.T) {
 			var heard []error
 
 			deps := filledDeps()
-			deps.Search = func(string, int) (jira.SearchResult, error) {
+			deps.Jira.Search = func(string, int) (jira.SearchResult, error) {
 				return jira.SearchResult{}, fmt.Errorf("searching: %w", tt.cause)
 			}
 			deps.Unexpected = func(_ config.Config, err error) { heard = append(heard, err) }

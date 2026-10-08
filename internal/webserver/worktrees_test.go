@@ -119,7 +119,7 @@ func TestCreateWorktreeStartsWorkOnTheIssueBesideTheRepository(t *testing.T) {
 	var made, from string
 
 	deps := worktreeDeps()
-	deps.CreateWorktree = func(name, start string) (string, error) {
+	deps.Git.CreateWorktree = func(name, start string) (string, error) {
 		made, from = name, start
 
 		return apiRoot + "-" + strings.ReplaceAll(name, "/", "-"), nil
@@ -145,8 +145,8 @@ func TestCreateWorktreeRefusesWhenTheBranchExists(t *testing.T) {
 	// Arrange
 	called := false
 	deps := worktreeDeps()
-	deps.Branches = func() ([]string, error) { return []string{wantBranchName(t)}, nil }
-	deps.CreateWorktree = func(string, string) (string, error) {
+	deps.Git.Branches = func() ([]string, error) { return []string{wantBranchName(t)}, nil }
+	deps.Git.CreateWorktree = func(string, string) (string, error) {
 		called = true
 
 		return "", nil
@@ -166,7 +166,7 @@ func TestCreateWorktreeNeverForwardsGitsOwnWords(t *testing.T) {
 
 	// Arrange
 	deps := worktreeDeps()
-	deps.CreateWorktree = func(string, string) (string, error) { return "", errWorktreeList }
+	deps.Git.CreateWorktree = func(string, string) (string, error) { return "", errWorktreeList }
 
 	// Act
 	recorder := postWorktree(t, deps, webserver.Info{Version: testVersion})
@@ -199,7 +199,7 @@ func TestCreateWorktreeIsRefusedInDryRun(t *testing.T) {
 	// Arrange
 	called := false
 	deps := worktreeDeps()
-	deps.CreateWorktree = func(string, string) (string, error) {
+	deps.Git.CreateWorktree = func(string, string) (string, error) {
 		called = true
 
 		return "", nil
@@ -221,7 +221,7 @@ func TestASnapshotBranchSaysWhichOtherWorktreeHasItCheckedOut(t *testing.T) {
 	// git refuses to check out a branch another worktree has, so the page
 	// offers a switch there instead, and needs to know where it is.
 	deps := worktreeDeps()
-	deps.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	deps.Git.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
 	deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{
 			{Dir: apiRoot, Branch: testBranchName, Head: worktreeHead},
@@ -267,7 +267,7 @@ func TestTwoStartsOfWorkAtOnceMakeOneBranch(t *testing.T) {
 	)
 
 	deps := worktreeDeps()
-	deps.Branches = func() ([]string, error) {
+	deps.Git.Branches = func() ([]string, error) {
 		guard.Lock()
 		defer guard.Unlock()
 
@@ -280,12 +280,12 @@ func TestTwoStartsOfWorkAtOnceMakeOneBranch(t *testing.T) {
 
 		made = append(made, name)
 	}
-	deps.CreateBranch = func(name, _ string) error {
+	deps.Git.CreateBranch = func(name, _ string) error {
 		create(name)
 
 		return nil
 	}
-	deps.CreateWorktree = func(name, _ string) (string, error) {
+	deps.Git.CreateWorktree = func(name, _ string) (string, error) {
 		create(name)
 
 		return apiFeature, nil
@@ -316,7 +316,7 @@ func TestASnapshotBranchHeldByAWorktreeThatIsGoneSaysSo(t *testing.T) {
 	// git will not check out a branch a worktree holds, even one gone, until
 	// the worktree is pruned, so the page says so rather than offering either.
 	deps := worktreeDeps()
-	deps.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	deps.Git.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
 	deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{
 			{Dir: apiRoot, Branch: testBranchName, Head: worktreeHead},

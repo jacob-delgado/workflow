@@ -36,7 +36,7 @@ func TestTheBranchCarriesTheCommandsAFinishRuns(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Branch = func() (gitrepo.Branch, error) { return tt.branch, nil }
+			deps.Git.Branch = func() (gitrepo.Branch, error) { return tt.branch, nil }
 
 			// Act
 			answer := send(t, serve(t, deps, config.Default()), http.MethodGet, "/api/branch", "")

@@ -130,7 +130,7 @@ func TestARefusedWriteChangesNothing(t *testing.T) {
 	// Arrange
 	called := false
 	deps := filledDeps()
-	deps.Checkout = func(string) error {
+	deps.Git.Checkout = func(string) error {
 		called = true
 
 		return nil

@@ -106,32 +106,32 @@ func newFakeKept() *fakeKept {
 // wire hands the fake to deps, with the branch's changes owned by ben, carla
 // and the acme/control-plane team.
 func (f *fakeKept) wire(deps *webserver.Deps) {
-	deps.ChangedPaths = func(string) ([]string, error) { return []string{"internal/api/server.go"}, nil }
-	deps.CodeOwnersAt = func(string) (codeowners.File, bool, error) {
+	deps.Git.ChangedPaths = func(string) ([]string, error) { return []string{"internal/api/server.go"}, nil }
+	deps.Git.CodeOwnersAt = func(string) (codeowners.File, bool, error) {
 		return codeowners.Parse("internal/ @ben @carla @acme/control-plane\n", codeowners.GitHub), true, nil
 	}
-	deps.OwnerLinks = func(workspace string) ([]loop.OwnerLink, error) { return f.links, f.in(workspace) }
-	deps.LinkOwner = f.link
-	deps.ForgetOwner = func(workspace, owner string) error {
+	deps.Store.OwnerLinks = func(workspace string) ([]loop.OwnerLink, error) { return f.links, f.in(workspace) }
+	deps.Store.LinkOwner = f.link
+	deps.Store.ForgetOwner = func(workspace, owner string) error {
 		f.links = f.without(owner)
 
 		return f.in(workspace)
 	}
-	deps.RepoGroups = func(workspace string) ([]loop.SlackTarget, error) { return f.repoGroups, f.in(workspace) }
-	deps.SetRepoGroups = func(workspace string, groups []loop.SlackTarget) error {
+	deps.Store.RepoGroups = func(workspace string) ([]loop.SlackTarget, error) { return f.repoGroups, f.in(workspace) }
+	deps.Store.SetRepoGroups = func(workspace string, groups []loop.SlackTarget) error {
 		f.repoGroups = groups
 
 		return f.in(workspace)
 	}
-	deps.LastGroups = func(string) ([]string, bool) { return f.last, f.chosen }
-	deps.RecordGroups = func(workspace string, ids []string) error {
+	deps.Store.LastGroups = func(string) ([]string, bool) { return f.last, f.chosen }
+	deps.Store.RecordGroups = func(workspace string, ids []string) error {
 		f.recorded = append(f.recorded, ids)
 
 		return f.in(workspace)
 	}
-	deps.Workspace = func() (string, error) { return f.workspace, f.workspaceErr }
-	deps.ChannelMembers = func(string) ([]loop.SlackTarget, error) { return f.members, f.membersErr }
-	deps.UserGroups = func() ([]loop.SlackTarget, error) { return f.groups, f.groupsErr }
+	deps.Messaging.Workspace = func() (string, error) { return f.workspace, f.workspaceErr }
+	deps.Messaging.ChannelMembers = func(string) ([]loop.SlackTarget, error) { return f.members, f.membersErr }
+	deps.Messaging.UserGroups = func() ([]loop.SlackTarget, error) { return f.groups, f.groupsErr }
 }
 
 // link records whom owner is, replacing what was decided.
@@ -159,7 +159,7 @@ func keptServer(t *testing.T, fake *fakeKept, info webserver.Info) http.Handler 
 	t.Helper()
 
 	deps := filledDeps()
-	deps.Post = func(string, string) error { return nil }
+	deps.Messaging.Post = func(string, string) error { return nil }
 	fake.wire(&deps)
 
 	return serveWith(t, deps, slackUserConfig(), info)

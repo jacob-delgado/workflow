@@ -39,7 +39,7 @@ var errWorktreeRefused = errors.New("git refused the new worktree")
 func (s *server) CreateBranch(
 	_ context.Context, request api.CreateBranchRequestObject,
 ) (api.CreateBranchResponseObject, error) {
-	if s.deps.CreateBranch == nil || s.deps.Issue == nil || s.deps.Branch == nil {
+	if s.deps.Git.CreateBranch == nil || s.deps.Jira.Issue == nil || s.deps.Git.Branch == nil {
 		return createBranchUnprocessable("creating a branch is not available"), nil
 	}
 
@@ -88,7 +88,7 @@ func (s *server) startWork(issueKey string, fetch func() error) (gitrepo.Branch,
 	}
 
 	err = s.createUnlessTaken(name, errCreateRefused, fetch, func(base string) error {
-		return s.deps.CreateBranch(name, base)
+		return s.deps.Git.CreateBranch(name, base)
 	})
 	if err != nil {
 		return gitrepo.Branch{}, err
@@ -100,7 +100,7 @@ func (s *server) startWork(issueKey string, fetch func() error) (gitrepo.Branch,
 // branchNameFor is the branch the convention names for the issue, from its type
 // and summary read through the tracker.
 func (s *server) branchNameFor(issueKey string) (string, error) {
-	detail, err := s.deps.Issue(jira.Key(issueKey))
+	detail, err := s.deps.Jira.Issue(jira.Key(issueKey))
 	if err != nil {
 		return "", fmt.Errorf("reading %s: %w", issueKey, err)
 	}
@@ -111,11 +111,11 @@ func (s *server) branchNameFor(issueKey string) (string, error) {
 // branchExists reports whether a local branch already goes by name. Without a
 // branch-list seam it cannot tell, and reads as absent so the create is tried.
 func (s *server) branchExists(name string) (bool, error) {
-	if s.deps.Branches == nil {
+	if s.deps.Git.Branches == nil {
 		return false, nil
 	}
 
-	names, err := s.deps.Branches()
+	names, err := s.deps.Git.Branches()
 	if err != nil {
 		return false, err
 	}
@@ -126,7 +126,7 @@ func (s *server) branchExists(name string) (bool, error) {
 // currentBranchBase is the base a new branch starts from — the checked-out
 // branch's base (origin's default), or empty to branch from HEAD.
 func (s *server) currentBranchBase() string {
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return ""
 	}
@@ -141,7 +141,7 @@ func (s *server) fetchFor(asked *bool) func() error {
 		return nil
 	}
 
-	return s.deps.Fetch
+	return s.deps.Git.Fetch
 }
 
 // createBranchUnprocessable is the 422 response for a branch the server will not
@@ -195,7 +195,7 @@ func (s *server) CreateWorktree(
 ) (api.CreateWorktreeResponseObject, error) {
 	key := request.Body.IssueKey
 
-	if s.deps.CreateWorktree == nil || s.deps.Issue == nil || s.deps.Branch == nil {
+	if s.deps.Git.CreateWorktree == nil || s.deps.Jira.Issue == nil || s.deps.Git.Branch == nil {
 		return createWorktreeUnprocessable("creating a worktree is not available"), nil
 	}
 
@@ -206,7 +206,7 @@ func (s *server) CreateWorktree(
 		err = s.createUnlessTaken(name, errWorktreeRefused, s.fetchFor(request.Body.Fetch), func(base string) error {
 			var made error
 
-			dir, made = s.deps.CreateWorktree(name, base)
+			dir, made = s.deps.Git.CreateWorktree(name, base)
 
 			return made
 		})

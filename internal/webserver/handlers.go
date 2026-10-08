@@ -69,11 +69,11 @@ func (s *server) ListIssues(
 		return api.ListIssues404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, unknownView(view))), nil
 	}
 
-	if s.deps.Search == nil {
+	if s.deps.Jira.Search == nil {
 		return api.ListIssues200JSONResponse(issuesPageDTO(jira.SearchResult{}, startAt)), nil
 	}
 
-	result, err := s.deps.Search(jql, startAt)
+	result, err := s.deps.Jira.Search(jql, startAt)
 	if err != nil {
 		return problemAnswer[api.ListIssuesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -83,12 +83,12 @@ func (s *server) ListIssues(
 
 // GetIssue returns one issue in full.
 func (s *server) GetIssue(_ context.Context, request api.GetIssueRequestObject) (api.GetIssueResponseObject, error) {
-	if s.deps.Issue == nil {
+	if s.deps.Jira.Issue == nil {
 		return problemAnswer[api.GetIssuedefaultApplicationProblemPlusJSONResponse](
 			problem(api.ProblemCodeUnprocessable, "no issue tracker is configured")), nil
 	}
 
-	detail, err := s.deps.Issue(jira.Key(request.Key))
+	detail, err := s.deps.Jira.Issue(jira.Key(request.Key))
 	if err != nil {
 		if errors.Is(err, jira.ErrNotFound) || errors.Is(err, forge.ErrNoRepository) {
 			return api.GetIssue404ApplicationProblemPlusJSONResponse(
@@ -104,11 +104,11 @@ func (s *server) GetIssue(_ context.Context, request api.GetIssueRequestObject) 
 // browseURL is the issue's page in the tracker, or "" when no tracker link is
 // wired.
 func (s *server) browseURL(key jira.Key) string {
-	if s.deps.BrowseURL == nil {
+	if s.deps.Jira.BrowseURL == nil {
 		return ""
 	}
 
-	return s.deps.BrowseURL(key)
+	return s.deps.Jira.BrowseURL(key)
 }
 
 // GetBranch returns the current branch, or an empty one when no repository is
@@ -126,11 +126,11 @@ func (s *server) GetBranch(_ context.Context, _ api.GetBranchRequestObject) (api
 // configured: the one read behind GET /api/branch and the event stream's frame
 // (frameBranch), which reads it once for every panel that describes it.
 func (s *server) readBranch() (gitrepo.Branch, error) {
-	if s.deps.Branch == nil {
+	if s.deps.Git.Branch == nil {
 		return gitrepo.Branch{}, nil
 	}
 
-	return s.deps.Branch()
+	return s.deps.Git.Branch()
 }
 
 // branchAfter re-reads the branch once a write to it has landed. A re-read
@@ -138,7 +138,7 @@ func (s *server) readBranch() (gitrepo.Branch, error) {
 // knows it — is answered rather than a completed write reported as failed; the
 // event stream brings the rest.
 func (s *server) branchAfter(fallback gitrepo.Branch) gitrepo.Branch {
-	after, err := s.deps.Branch()
+	after, err := s.deps.Git.Branch()
 	if err != nil {
 		return fallback
 	}
@@ -161,11 +161,11 @@ func (s *server) ListChanges(_ context.Context, _ api.ListChangesRequestObject) 
 // configured: the one read behind GET /api/changes and the event stream's
 // changes panel.
 func (s *server) readChanges() ([]gitrepo.Change, error) {
-	if s.deps.Changes == nil {
+	if s.deps.Git.Changes == nil {
 		return nil, nil
 	}
 
-	return s.deps.Changes()
+	return s.deps.Git.Changes()
 }
 
 // GetReview returns the branch's pull request and its CI, if one is found.
@@ -182,11 +182,11 @@ func (s *server) GetReview(_ context.Context, _ api.GetReviewRequestObject) (api
 // when no repository or forge is configured: the read behind GET /api/review.
 // Without a forge the branch is not read, since nothing would ask about it.
 func (s *server) readReview() (api.Review, error) {
-	if s.deps.Branch == nil || s.deps.FindPull == nil {
+	if s.deps.Git.Branch == nil || s.deps.Forge.FindPullRequest == nil {
 		return api.Review{Found: false}, nil
 	}
 
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return api.Review{}, err
 	}
@@ -216,21 +216,21 @@ type forgeRead struct {
 // not ask; a CI read that fails leaves the pull request without it rather than
 // failing the whole read.
 func (s *server) readForge(branch gitrepo.Branch) (forgeRead, error) {
-	if s.deps.FindPull == nil {
+	if s.deps.Forge.FindPullRequest == nil {
 		return forgeRead{}, nil
 	}
 
-	pull, found, err := s.deps.FindPull(branch.Name)
+	pull, found, err := s.deps.Forge.FindPullRequest(branch.Name)
 	if err != nil || !found {
 		return forgeRead{}, err
 	}
 
 	read := forgeRead{found: true, pull: pull}
-	if s.deps.CheckCI == nil || !pull.IsOpen() {
+	if s.deps.Forge.CheckStatus == nil || !pull.IsOpen() {
 		return read, nil
 	}
 
-	status, ciErr := s.deps.CheckCI(pull, branch.Head)
+	status, ciErr := s.deps.Forge.CheckStatus(pull, branch.Head)
 	if ciErr == nil {
 		read.ci, read.ciRead = status, true
 	}
@@ -268,11 +268,11 @@ func (s *server) reviewDTO(branch gitrepo.Branch, read forgeRead) api.Review {
 func (s *server) ListReviews(
 	_ context.Context, _ api.ListReviewsRequestObject,
 ) (api.ListReviewsResponseObject, error) {
-	if s.deps.ReviewRequests == nil {
+	if s.deps.Forge.ReviewRequests == nil {
 		return api.ListReviews200JSONResponse(noReviewQueue()), nil
 	}
 
-	requests, err := s.deps.ReviewRequests()
+	requests, err := s.deps.Forge.ReviewRequests()
 	if noForgeToAsk(err) {
 		return api.ListReviews200JSONResponse(noReviewQueue()), nil
 	}
@@ -308,7 +308,7 @@ func (s *server) readMessaging() api.MessagingDestination {
 // readAuthor resolves who a post would come from, or an empty string when the
 // forge is not configured or cannot say.
 func (s *server) readAuthor() string {
-	if s.deps.Author == nil {
+	if s.deps.Forge.Author == nil {
 		return ""
 	}
 
@@ -374,7 +374,7 @@ func (s *server) GetCheckLog(
 		return api.GetCheckLog404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, err.Error())), nil
 	}
 
-	if err == nil && (s.deps.JobLog == nil || !check.LogAvailable) {
+	if err == nil && (s.deps.Forge.JobLog == nil || !check.LogAvailable) {
 		err = forge.ErrNoLog
 	}
 
@@ -384,7 +384,7 @@ func (s *server) GetCheckLog(
 
 	var log forge.JobLog
 	if err == nil {
-		log, err = s.deps.JobLog(check)
+		log, err = s.deps.Forge.JobLog(check)
 	}
 
 	if err != nil {
@@ -397,16 +397,16 @@ func (s *server) GetCheckLog(
 // currentCheck is the check with checkID among the current pull request's CI,
 // read afresh, or errNoSuchCheck.
 func (s *server) currentCheck(checkID string) (forge.Check, error) {
-	if s.deps.Branch == nil || s.deps.FindPull == nil || s.deps.CheckCI == nil {
+	if s.deps.Git.Branch == nil || s.deps.Forge.FindPullRequest == nil || s.deps.Forge.CheckStatus == nil {
 		return forge.Check{}, errNoSuchCheck
 	}
 
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return forge.Check{}, err
 	}
 
-	pull, found, err := s.deps.FindPull(branch.Name)
+	pull, found, err := s.deps.Forge.FindPullRequest(branch.Name)
 	if err != nil {
 		return forge.Check{}, err
 	}
@@ -415,7 +415,7 @@ func (s *server) currentCheck(checkID string) (forge.Check, error) {
 		return forge.Check{}, errNoSuchCheck
 	}
 
-	status, err := s.deps.CheckCI(pull, branch.Head)
+	status, err := s.deps.Forge.CheckStatus(pull, branch.Head)
 	if err != nil {
 		return forge.Check{}, err
 	}

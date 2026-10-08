@@ -23,7 +23,7 @@ func TestSnapshotListsTaskBranchesMarkingTheCheckedOutOne(t *testing.T) {
 	// Arrange
 	// filledDeps' Branch is on fix/PROJ-412, so that is the one in flight on HEAD.
 	deps := filledDeps()
-	deps.Branches = func() ([]string, error) {
+	deps.Git.Branches = func() ([]string, error) {
 		return []string{testBranchName, "feat/PROJ-500-metrics", "main"}, nil
 	}
 	cfg := config.Default()
@@ -56,7 +56,7 @@ func TestSnapshotBranchesAreEmptyWhenListingFails(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Branches = func() ([]string, error) { return nil, errSeam }
+	deps.Git.Branches = func() ([]string, error) { return nil, errSeam }
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
@@ -83,8 +83,8 @@ func TestNoTaskBranchIsCurrentWhenTheCheckedOutBranchIsUnknown(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Branch = branch
-			deps.Branches = func() ([]string, error) { return []string{testBranchName}, nil }
+			deps.Git.Branch = branch
+			deps.Git.Branches = func() ([]string, error) { return []string{testBranchName}, nil }
 			cfg := config.Default()
 			cfg.Jira.Project = testProject
 
@@ -108,7 +108,7 @@ func TestSnapshotBranchesAreAnEmptyArrayWithoutAGitSeam(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Branches = nil
+	deps.Git.Branches = nil
 
 	// Act
 	body := streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String()
@@ -141,9 +141,9 @@ const (
 // with fail, counting each ask.
 func scopedDeps(yours []jira.Key, fail error, asked *atomic.Int32) webserver.Deps {
 	deps := filledDeps()
-	deps.Branches = func() ([]string, error) { return []string{yourLocalBranch, otherLocalBranch}, nil }
-	deps.RemoteBranches = func() ([]string, error) { return []string{yourLocalBranch, yourRemoteBranch}, nil }
-	deps.SearchLenient = func(jql string, _ int) (jira.SearchResult, error) {
+	deps.Git.Branches = func() ([]string, error) { return []string{yourLocalBranch, otherLocalBranch}, nil }
+	deps.Git.RemoteBranches = func() ([]string, error) { return []string{yourLocalBranch, yourRemoteBranch}, nil }
+	deps.Jira.SearchLenient = func(jql string, _ int) (jira.SearchResult, error) {
 		if strings.HasPrefix(jql, keyInYourSearch) {
 			asked.Add(1)
 		}
@@ -213,7 +213,7 @@ func TestSnapshotBranchesKeepTheCheckedOutBranchWhoseIssueIsNotYours(t *testing.
 	var asked atomic.Int32
 
 	deps := scopedDeps([]jira.Key{yourIssue}, nil, &asked)
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: otherLocalBranch}, nil }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: otherLocalBranch}, nil }
 
 	// Act
 	body := streamOnce(t, serve(t, deps, scopedConfig()), "/api/events").Body.String()
@@ -272,9 +272,9 @@ func TestSnapshotBranchesAskTheTrackerAgain(t *testing.T) {
 			var asked atomic.Int32
 
 			deps := scopedDeps([]jira.Key{yourIssue}, nil, &asked)
-			deps.RemoteBranches = nil
+			deps.Git.RemoteBranches = nil
 			frame := 0
-			deps.Branches = func() ([]string, error) {
+			deps.Git.Branches = func() ([]string, error) {
 				names := tt.branches[min(frame, len(tt.branches)-1)]
 				frame++
 
@@ -301,10 +301,10 @@ func TestSnapshotBranchesFollowTheTrackersLatestAnswer(t *testing.T) {
 	var asked atomic.Int32
 
 	deps := scopedDeps([]jira.Key{yourIssue}, nil, &asked)
-	deps.RemoteBranches = nil
+	deps.Git.RemoteBranches = nil
 	frames := [][]string{{yourLocalBranch}, {otherLocalBranch}, {yourLocalBranch, otherLocalBranch}}
 	frame := 0
-	deps.Branches = func() ([]string, error) {
+	deps.Git.Branches = func() ([]string, error) {
 		names := frames[min(frame, len(frames)-1)]
 		frame++
 
@@ -371,9 +371,9 @@ func TestSnapshotBranchesCountTheIssueOfANewBranchAsYoursWhileTheTrackerIsDown(t
 	var asked atomic.Int32
 
 	deps := scopedDeps([]jira.Key{yourIssue}, nil, &asked)
-	deps.RemoteBranches = nil
-	answered := deps.SearchLenient
-	deps.SearchLenient = func(jql string, startAt int) (jira.SearchResult, error) {
+	deps.Git.RemoteBranches = nil
+	answered := deps.Jira.SearchLenient
+	deps.Jira.SearchLenient = func(jql string, startAt int) (jira.SearchResult, error) {
 		if asked.Load() >= 1 {
 			asked.Add(1)
 
@@ -383,7 +383,7 @@ func TestSnapshotBranchesCountTheIssueOfANewBranchAsYoursWhileTheTrackerIsDown(t
 		return answered(jql, startAt)
 	}
 	frame := 0
-	deps.Branches = func() ([]string, error) {
+	deps.Git.Branches = func() ([]string, error) {
 		frame++
 		if frame == 1 {
 			return []string{yourLocalBranch, otherLocalBranch}, nil
@@ -413,8 +413,8 @@ func TestSnapshotBranchesKeepTheLastAnswerWhenALaterAskFails(t *testing.T) {
 	var asked atomic.Int32
 
 	deps := scopedDeps([]jira.Key{yourIssue}, nil, &asked)
-	answered := deps.SearchLenient
-	deps.SearchLenient = func(jql string, startAt int) (jira.SearchResult, error) {
+	answered := deps.Jira.SearchLenient
+	deps.Jira.SearchLenient = func(jql string, startAt int) (jira.SearchResult, error) {
 		if asked.Load() >= 1 {
 			asked.Add(1)
 
@@ -442,8 +442,8 @@ func TestSnapshotBranchesAreTheLocalOnesWhenTheRemoteCannotBeRead(t *testing.T) 
 
 	// Arrange
 	deps := filledDeps()
-	deps.Branches = func() ([]string, error) { return []string{yourLocalBranch}, nil }
-	deps.RemoteBranches = func() ([]string, error) { return nil, errSeam }
+	deps.Git.Branches = func() ([]string, error) { return []string{yourLocalBranch}, nil }
+	deps.Git.RemoteBranches = func() ([]string, error) { return nil, errSeam }
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, scopedConfig()), "/api/events").Body.String())

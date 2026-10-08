@@ -28,7 +28,7 @@ var errSwitchRefused = errors.New("git refused the switch")
 func (s *server) Checkout(
 	_ context.Context, request api.CheckoutRequestObject,
 ) (api.CheckoutResponseObject, error) {
-	if s.deps.Checkout == nil || s.deps.Branch == nil {
+	if s.deps.Git.Checkout == nil || s.deps.Git.Branch == nil {
 		return unprocessable("checking out is not available"), nil
 	}
 
@@ -56,7 +56,7 @@ func (s *server) switchTo(name string) (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, err
 	}
 
-	err = s.deps.Checkout(name)
+	err = s.deps.Git.Checkout(name)
 	if err != nil {
 		return gitrepo.Branch{}, fmt.Errorf("%w: checking out %s: %w", errSwitchRefused, name, err)
 	}
@@ -68,11 +68,11 @@ func (s *server) switchTo(name string) (gitrepo.Branch, error) {
 // moves uncommitted work onto another branch. A missing changes seam reads as
 // clean rather than blocking the switch.
 func (s *server) refuseADirtyTree() error {
-	if s.deps.Changes == nil {
+	if s.deps.Git.Changes == nil {
 		return nil
 	}
 
-	changes, err := s.deps.Changes()
+	changes, err := s.deps.Git.Changes()
 	if err != nil {
 		return err
 	}

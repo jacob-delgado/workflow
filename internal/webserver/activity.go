@@ -106,7 +106,7 @@ func (s *server) PostActivity(
 
 	settings, channel := s.config().Messaging, s.channelOr(orZero(body.Channel))
 
-	err = loop.PostSummary(s.deps.Post, settings.Kind, channel, body.Text)
+	err = loop.PostSummary(s.deps.Messaging.Post, settings.Kind, channel, body.Text)
 	if errors.Is(err, loop.ErrSummaryUnavailable) || errors.Is(err, loop.ErrEmptySummary) {
 		return activityPostRefused(err.Error()), nil
 	}
@@ -143,9 +143,9 @@ func destination(channel string, settings config.Messaging) string {
 // activityReads asks every source the server reaches, one after another.
 func (s *server) activityReads(start, end time.Time) []activity.Read {
 	return loop.ReadAll(loop.SummaryReads(loop.ActivitySeams{
-		Commits: s.deps.CommitsBetween, Touched: s.deps.Tasks.Touched,
-		Jira: s.deps.JiraActivity, BrowseURL: s.deps.BrowseURL,
-		Forge: s.deps.ForgeActivity, ForgeKind: s.forgeKindNow(),
+		Commits: s.deps.Git.CommitsBetween, Touched: s.deps.Tasks.Touched,
+		Jira: s.deps.Jira.Activity, BrowseURL: s.deps.Jira.BrowseURL,
+		Forge: s.deps.Forge.Activity, ForgeKind: s.forgeKindNow(),
 	}, start, end))
 }
 

@@ -62,13 +62,13 @@ type staging struct {
 // deps wires the recording seams over workTree.
 func (s *staging) deps() webserver.Deps {
 	deps := filledDeps()
-	deps.Changes = func() ([]gitrepo.Change, error) { return workTree(), nil }
-	deps.Stage = func(change gitrepo.Change) error {
+	deps.Git.Changes = func() ([]gitrepo.Change, error) { return workTree(), nil }
+	deps.Git.Stage = func(change gitrepo.Change) error {
 		s.staged = append(s.staged, change)
 
 		return nil
 	}
-	deps.Unstage = func(change gitrepo.Change) error {
+	deps.Git.Unstage = func(change gitrepo.Change) error {
 		s.unstaged = append(s.unstaged, change)
 
 		return nil
@@ -226,10 +226,10 @@ func TestStagingIsUnavailableWithoutItsSeams(t *testing.T) {
 		unwire   func(*webserver.Deps)
 		endpoint string
 	}{
-		"no stage seam":             {unwire: func(deps *webserver.Deps) { deps.Stage = nil }, endpoint: stagePath},
-		"no unstage seam":           {unwire: func(deps *webserver.Deps) { deps.Unstage = nil }, endpoint: unstagePath},
-		"no changes seam to stage":  {unwire: func(deps *webserver.Deps) { deps.Changes = nil }, endpoint: stagePath},
-		"no changes seam to remove": {unwire: func(deps *webserver.Deps) { deps.Changes = nil }, endpoint: unstagePath},
+		"no stage seam":             {unwire: func(deps *webserver.Deps) { deps.Git.Stage = nil }, endpoint: stagePath},
+		"no unstage seam":           {unwire: func(deps *webserver.Deps) { deps.Git.Unstage = nil }, endpoint: unstagePath},
+		"no changes seam to stage":  {unwire: func(deps *webserver.Deps) { deps.Git.Changes = nil }, endpoint: stagePath},
+		"no changes seam to remove": {unwire: func(deps *webserver.Deps) { deps.Git.Changes = nil }, endpoint: unstagePath},
 	}
 
 	for name, tt := range cases {
@@ -261,7 +261,7 @@ func TestStagingReportsAChangesReadFailure(t *testing.T) {
 	var tree staging
 
 	deps := tree.deps()
-	deps.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
+	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
 
 	// Act
 	recorder := sendStaging(t, deps, stagePath, `{"path":"`+editedPath+`"}`)
@@ -296,8 +296,8 @@ func TestStagingNeverForwardsGitsOwnWords(t *testing.T) {
 			var tree staging
 
 			deps := tree.deps()
-			deps.Stage = func(gitrepo.Change) error { return refused }
-			deps.Unstage = func(gitrepo.Change) error { return refused }
+			deps.Git.Stage = func(gitrepo.Change) error { return refused }
+			deps.Git.Unstage = func(gitrepo.Change) error { return refused }
 
 			// Act
 			recorder := sendStaging(t, deps, tt.endpoint, tt.body)
@@ -325,7 +325,7 @@ func TestStagingAnswersTheTreeAsReadBeforeWhenTheRereadFails(t *testing.T) {
 
 	deps := tree.deps()
 	reads := 0
-	deps.Changes = func() ([]gitrepo.Change, error) {
+	deps.Git.Changes = func() ([]gitrepo.Change, error) {
 		reads++
 		if reads > 1 {
 			return nil, errSeam
@@ -355,7 +355,7 @@ func TestStagingAnswersTheTreeAsItNowStands(t *testing.T) {
 
 	deps := tree.deps()
 	reads := 0
-	deps.Changes = func() ([]gitrepo.Change, error) {
+	deps.Git.Changes = func() ([]gitrepo.Change, error) {
 		reads++
 
 		changes := workTree()
@@ -395,7 +395,7 @@ func TestStagingWritesWaitForEachOther(t *testing.T) {
 	var writing atomic.Int32
 
 	deps := tree.deps()
-	deps.Stage = func(gitrepo.Change) error {
+	deps.Git.Stage = func(gitrepo.Change) error {
 		defer writing.Add(-1)
 
 		if writing.Add(1) > 1 {
@@ -438,13 +438,13 @@ func TestEveryIndexWriteWaitsForAStageUnderWay(t *testing.T) {
 		"a commit": {
 			path: "/api/commit", body: `{"type":"fix","subject":"redact tokens"}`,
 			seam: func(deps *webserver.Deps, beside func() error) {
-				deps.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), beside() }
+				deps.Git.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), beside() }
 			},
 		},
 		"a new branch": {
 			path: "/api/branches", body: `{"issue_key":"` + startIssue + `"}`,
 			seam: func(deps *webserver.Deps, beside func() error) {
-				deps.CreateBranch = func(string, string) error { return beside() }
+				deps.Git.CreateBranch = func(string, string) error { return beside() }
 			},
 		},
 	}
@@ -463,7 +463,7 @@ func TestEveryIndexWriteWaitsForAStageUnderWay(t *testing.T) {
 			)
 
 			deps := tree.deps()
-			deps.Stage = func(gitrepo.Change) error {
+			deps.Git.Stage = func(gitrepo.Change) error {
 				writing.Add(1)
 				close(holding)
 				time.Sleep(indexHeld)

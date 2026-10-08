@@ -128,11 +128,11 @@ func (s *server) ciNow(pull forge.PullRequest) (gitrepo.Branch, forge.CI, error)
 		return gitrepo.Branch{}, forge.CI{}, err
 	}
 
-	if s.deps.CheckCI == nil {
+	if s.deps.Forge.CheckStatus == nil {
 		return branch, forge.CI{}, nil
 	}
 
-	ci, err := s.deps.CheckCI(pull, branch.Head)
+	ci, err := s.deps.Forge.CheckStatus(pull, branch.Head)
 
 	return branch, ci, err
 }
@@ -400,7 +400,7 @@ type announcedCache struct {
 // once the forge's interval has passed, or none without a store or under a
 // dry run.
 func (s *server) recordedAnnouncements() []loop.Announced {
-	if s.deps.Announced == nil || s.info.DryRun {
+	if s.deps.Store.Announced == nil || s.info.DryRun {
 		return nil
 	}
 
@@ -409,7 +409,7 @@ func (s *server) recordedAnnouncements() []loop.Announced {
 
 	now := s.now()
 	if !s.announced.held || now.Sub(s.announced.readAt) >= s.forgeInterval() {
-		s.announced.made, s.announced.held, s.announced.readAt = s.deps.Announced(), true, now
+		s.announced.made, s.announced.held, s.announced.readAt = s.deps.Store.Announced(), true, now
 	}
 
 	return slices.Clone(s.announced.made)
@@ -419,11 +419,11 @@ func (s *server) recordedAnnouncements() []loop.Announced {
 // what the next frame tells, which tells it whether the store kept it or not,
 // since it was made; it says why the store could not.
 func (s *server) recordAnnouncement(made loop.Announced) error {
-	if s.deps.RecordAnnounce == nil {
+	if s.deps.Store.RecordAnnounce == nil {
 		return nil
 	}
 
-	err := s.deps.RecordAnnounce(made)
+	err := s.deps.Store.RecordAnnounce(made)
 
 	s.announced.mu.Lock()
 	defer s.announced.mu.Unlock()
@@ -480,7 +480,7 @@ func (s *server) deliver(post announcePost) (string, error) {
 		return "", errAnnouncedAlready
 	}
 
-	return s.delivered(loop.Deliver(s.deps.Post, post.memory, post.delivery))
+	return s.delivered(loop.Deliver(s.deps.Messaging.Post, post.memory, post.delivery))
 }
 
 // announcedBefore refuses to announce pull at a moment it was announced at

@@ -61,131 +61,17 @@ func WebServerAt(addr string) RunWeb {
 	}
 }
 
-// WebDeps adapts the interface's dependency bundle to the web server's narrower
-// one. They are the same seams, which is why the web server is another consumer
-// of the wiring rather than a second implementation. A seam the interface wires
-// is never dropped on the way: the server would answer that write as not
-// available. The server also takes the interface's keymap (withKeys).
+// WebDeps hands the web server the interface's seam groups whole, with the
+// keymap the interface checks and binds, so a seam a group gains reaches the
+// server with no edit here. They are the same seams, which is why the web
+// server is another consumer of the wiring rather than a second
+// implementation.
 func WebDeps(deps tui.Deps) webserver.Deps {
-	return withKeys(withReviewWrites(withGitRuns(withIssueWrites(withRepositories(withSummarySources(webserver.Deps{
-		Search:        deps.Jira.Search,
-		SearchLenient: deps.Jira.SearchLenient,
-		Issue:         deps.Jira.Issue,
-		BrowseURL:     deps.Jira.BrowseURL,
-		Branch:        deps.Git.Branch,
-		Branches:      deps.Git.Branches,
-		Checkout:      deps.Git.Checkout,
-		CreateBranch:  deps.Git.CreateBranch,
-		Commit:        deps.Git.Commit,
-		Push:          deps.Git.Push,
-		Changes:       deps.Git.Changes,
-		Diff:          deps.Git.Diff,
-		FindPull:      deps.Forge.FindPullRequest,
-		CreatePull:    deps.Forge.CreatePullRequest,
-		Templates:     deps.Forge.Templates,
-		ChangedPaths:  deps.Git.ChangedPaths,
-		CodeOwnersAt:  deps.Git.CodeOwnersAt,
-		CheckCI:       deps.Forge.CheckStatus,
-		JobLog:        deps.Forge.JobLog,
-		Author:        deps.Forge.Author,
-		Post:          deps.Messaging.Post,
-		IsGroup:       deps.Forge.IsGroup,
-
-		ReviewRequests: deps.Forge.ReviewRequests,
-		Stage:          deps.Git.Stage,
-		Unstage:        deps.Git.Unstage,
-		Discard:        deps.Git.Discard,
-
-		RemoteBranches: deps.Git.RemoteBranches,
-		IssueLinks:     deps.Git.IssueLinks,
-		LinkIssue:      deps.Git.LinkIssue,
-		UnlinkIssue:    deps.Git.UnlinkIssue,
-		EditPull:       deps.Forge.EditPullRequest,
-		RewritePull:    deps.Forge.RewriteDescription,
-
-		LastScope:      deps.Store.LastScope,
-		RecordScope:    deps.Store.RecordScope,
-		Announced:      deps.Store.Announced,
-		RecordAnnounce: deps.Store.RecordAnnounce,
-		Tasks:          deps.Tasks,
-		HomeDir:        os.UserHomeDir,
-
-		OwnerLinks:    deps.Store.OwnerLinks,
-		LinkOwner:     deps.Store.LinkOwner,
-		ForgetOwner:   deps.Store.ForgetOwner,
-		RepoGroups:    deps.Store.RepoGroups,
-		SetRepoGroups: deps.Store.SetRepoGroups,
-		LastGroups:    deps.Store.LastGroups,
-		RecordGroups:  deps.Store.RecordGroups,
-		Workspace:     deps.Messaging.Workspace,
-
-		ChannelMembers: deps.Messaging.ChannelMembers,
-		UserGroups:     deps.Messaging.UserGroups,
-
-		LocalData:       localData,
-		RemoveLocalData: cleanLocalData,
-
-		Clock: deps.Clock,
-	}, deps), deps), deps), deps), deps))
-}
-
-// withKeys gives the web server the interface's keymap: its check, so Settings
-// never saves a ui.keys map the interface would refuse to start on, and its
-// actions, so the page binds the keys the interface's help lists.
-func withKeys(web webserver.Deps) webserver.Deps {
-	web.CheckKeys, web.KeyActions = tui.CheckKeys, tui.KeyActions
-
-	return web
-}
-
-// withReviewWrites gives the web server the review's writes on the forge — a
-// re-run, a merge and the methods it may use — and the finish of a merged
-// branch.
-func withReviewWrites(web webserver.Deps, deps tui.Deps) webserver.Deps {
-	web.Rerun, web.Merge, web.MergeMethods = deps.Forge.Rerun, deps.Forge.Merge, deps.Forge.MergeMethods
-	web.Finish = deps.Git.Finish
-
-	return web
-}
-
-// withGitRuns gives the web server the git runs that stream their output — the
-// pre-commit hook, a rebase, an amend and a fixup — and lefthook's setup.
-func withGitRuns(web webserver.Deps, deps tui.Deps) webserver.Deps {
-	web.RunHook, web.Rebase, web.Amend, web.Fixup = deps.Hooks.Run, deps.Git.Rebase, deps.Git.Amend, deps.Git.Fixup
-	web.HookExisting, web.HookWrite = deps.Hooks.Existing, deps.Hooks.Write
-
-	return web
-}
-
-// withIssueWrites gives the web server the tracker's writes: the pull
-// request's link, a status change, a comment, an assignee and a worklog.
-func withIssueWrites(web webserver.Deps, deps tui.Deps) webserver.Deps {
-	web.LinkPullRequest, web.Comment = deps.Jira.LinkPullRequest, deps.Jira.Comment
-	web.Transitions, web.Transition = deps.Jira.Transitions, deps.Jira.Transition
-	web.Assign, web.AddWorklog = deps.Jira.Assign, deps.Jira.AddWorklog
-
-	return web
-}
-
-// withRepositories gives the web server where it works, a first
-// configuration file to set up there, the directories it can switch to, a
-// new worktree to make, and the favorites the store keeps.
-func withRepositories(web webserver.Deps, deps tui.Deps) webserver.Deps {
-	web.Repositories, web.Setup = deps.Repositories, deps.Settings.Setup
-	web.CreateWorktree, web.Fetch = deps.Git.CreateWorktree, deps.Git.Fetch
-	web.Favorites, web.Favor, web.Unfavor = deps.Store.Favorites, deps.Store.Favor, deps.Store.Unfavor
-
-	return web
-}
-
-// withSummarySources gives the web server the reads the Summary asks of git,
-// Jira and the forge, Taskwarrior's coming with its seams.
-func withSummarySources(web webserver.Deps, deps tui.Deps) webserver.Deps {
-	web.CommitsBetween = deps.Git.CommitsBetween
-	web.JiraActivity = deps.Jira.Activity
-	web.ForgeActivity = deps.Forge.Activity
-
-	return web
+	return webserver.Deps{
+		Jira: deps.Jira, Git: deps.Git, Forge: deps.Forge, Messaging: deps.Messaging, Hooks: deps.Hooks,
+		Store: deps.Store, Tasks: deps.Tasks, Repositories: deps.Repositories, Settings: deps.Settings,
+		Clock: deps.Clock, HomeDir: os.UserHomeDir, CheckKeys: tui.CheckKeys, KeyActions: tui.KeyActions,
+	}
 }
 
 // webSetupStep names the page's own way to set up a first file, beside

@@ -28,8 +28,8 @@ func oldHooks() []hooks.GitHook {
 // or not, and the configuration written kept in written.
 func hookDeps(found []hooks.GitHook, configured bool, written *[]hooks.Generated) webserver.Deps {
 	deps := filledDeps()
-	deps.HookExisting = func() ([]hooks.GitHook, bool) { return found, configured }
-	deps.HookWrite = func(generated hooks.Generated) error {
+	deps.Hooks.Existing = func() ([]hooks.GitHook, bool) { return found, configured }
+	deps.Hooks.Write = func(generated hooks.Generated) error {
 		*written = append(*written, generated)
 
 		return nil
@@ -132,7 +132,7 @@ func TestSettingUpHooksThatFailsKeepsItsWordsOff(t *testing.T) {
 
 	// Arrange
 	deps := hookDeps(oldHooks(), false, &[]hooks.Generated{})
-	deps.HookWrite = func(hooks.Generated) error { return fmt.Errorf("writing %s/lefthook.yml: %w", repoPath, errSeam) }
+	deps.Hooks.Write = func(hooks.Generated) error { return fmt.Errorf("writing %s/lefthook.yml: %w", repoPath, errSeam) }
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, hookSetupAt, `{}`)
@@ -194,7 +194,7 @@ func TestSettingUpHooksWithNoWayToWriteIsNotAvailable(t *testing.T) {
 
 	// Arrange
 	deps := hookDeps(oldHooks(), false, &[]hooks.Generated{})
-	deps.HookWrite = nil
+	deps.Hooks.Write = nil
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, hookSetupAt, `{}`)

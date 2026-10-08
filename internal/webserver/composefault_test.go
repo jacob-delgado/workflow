@@ -56,12 +56,12 @@ func TestAnUnreachableForgeIsNotNothingToAnnounce(t *testing.T) {
 			posted := false
 
 			deps := filledDeps()
-			deps.Post = func(string, string) error {
+			deps.Messaging.Post = func(string, string) error {
 				posted = true
 
 				return nil
 			}
-			deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{}, false, fmt.Errorf("%w: https://%s", forge.ErrUnreachable, host)
 			}
 
@@ -99,13 +99,13 @@ func TestAFailedBranchReadIsNotNothingToOpen(t *testing.T) {
 			wrote := 0
 
 			deps := openableDeps()
-			deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, readErr }
-			deps.Push = func(string) (proc.Output, error) {
+			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, readErr }
+			deps.Git.Push = func(string) (proc.Output, error) {
 				wrote++
 
 				return fakeOutput(nil, nil), nil
 			}
-			deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+			deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
 				wrote++
 
 				return forge.PullRequest{}, nil

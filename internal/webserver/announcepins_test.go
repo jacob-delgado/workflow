@@ -37,7 +37,7 @@ func keptOver(t *testing.T, fake *fakeKept, cfg config.Config, posted *string) h
 
 	deps := filledDeps()
 	fake.wire(&deps)
-	deps.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_, text string) error {
 		*posted = text
 
 		return nil
@@ -91,7 +91,7 @@ func TestGetAnnouncementChecksTheScopeAgainstTheChannelPreviewed(t *testing.T) {
 
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
-	deps.ChannelMembers = func(channel string) ([]loop.SlackTarget, error) {
+	deps.Messaging.ChannelMembers = func(channel string) ([]loop.SlackTarget, error) {
 		asked = append(asked, channel)
 
 		return nil, &messaging.MissingScopeError{Needed: usersRead}
@@ -213,7 +213,7 @@ func TestLinkPersonChecksTheMemberInTheChannelPickedFrom(t *testing.T) {
 
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
-	deps.ChannelMembers = func(channel string) ([]loop.SlackTarget, error) {
+	deps.Messaging.ChannelMembers = func(channel string) ([]loop.SlackTarget, error) {
 		asked = append(asked, channel)
 
 		return []loop.SlackTarget{ben()}, nil

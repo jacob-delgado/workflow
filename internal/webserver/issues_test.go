@@ -35,7 +35,7 @@ func TestListIssuesIsEmptyWhenTheTrackerIsNotConfigured(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Search = nil
+	deps.Jira.Search = nil
 
 	// Act
 	page := decode[api.IssuesPage](t, get(t, serve(t, deps, config.Default()), "/api/issues"))
@@ -51,7 +51,7 @@ func TestListIssuesReportsASeamFailure(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, errSeam }
+	deps.Jira.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
@@ -74,7 +74,7 @@ func TestListIssuesRefusesAnUnknownView(t *testing.T) {
 	// A typo in the view must not quietly answer with the default view's issues.
 	searched := false
 	deps := filledDeps()
-	deps.Search = func(string, int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(string, int) (jira.SearchResult, error) {
 		searched = true
 
 		return jira.SearchResult{}, nil
@@ -101,7 +101,7 @@ func TestListIssuesUsesTheNamedView(t *testing.T) {
 	var gotJQL string
 
 	deps := filledDeps()
-	deps.Search = func(jql string, _ int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(jql string, _ int) (jira.SearchResult, error) {
 		gotJQL = jql
 
 		return jira.SearchResult{}, nil
@@ -136,14 +136,14 @@ func TestGetIssueLinksTheIssueAndNamesItsAssignee(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	issue := deps.Issue
-	deps.Issue = func(key jira.Key) (jira.IssueDetail, error) {
+	issue := deps.Jira.Issue
+	deps.Jira.Issue = func(key jira.Key) (jira.IssueDetail, error) {
 		detail, err := issue(key)
 		detail.Assignee = testAuthor
 
 		return detail, err
 	}
-	deps.BrowseURL = func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) }
+	deps.Jira.BrowseURL = func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) }
 
 	// Act
 	detail := decode[api.IssueDetail](t, get(t, serve(t, deps, config.Default()), "/api/issues/"+testKey))
@@ -193,7 +193,7 @@ func TestGetIssueIsUnprocessableWithoutATracker(t *testing.T) {
 	// No tracker configured is not a missing issue: 404 is reserved for an issue
 	// that genuinely does not exist, so this answers 422.
 	deps := filledDeps()
-	deps.Issue = nil
+	deps.Jira.Issue = nil
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
@@ -210,7 +210,7 @@ func TestGetIssueIsNotFoundForAMissingIssue(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrNotFound }
+	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrNotFound }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-404")
@@ -231,7 +231,7 @@ func TestGetIssueIsUnreachableWhenTheTrackerIsDown(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrUnreachable }
+	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrUnreachable }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
@@ -248,7 +248,7 @@ func TestGetIssueReportsAFailure(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
+	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
@@ -264,7 +264,7 @@ func TestListIssuesSaysEachIssuesTrackerAndWhichCouldNotBeRead(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Search = func(string, int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{
 			Issues:      []jira.Issue{{Key: "57", Summary: "Typo"}, {Key: testKey, Summary: "Leak"}},
 			Total:       2,

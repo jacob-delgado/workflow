@@ -70,19 +70,21 @@ func (r *firstRun) deps(t *testing.T) webserver.Deps {
 
 	deps := webserver.Deps{
 		Repositories: seams.Repositories{Here: seams.Place{Dir: r.where.WorkDir}, Home: r.where.HomeDir},
-		Setup: seams.Setup{
-			Offer: guide.Offer,
-			Check: func(settings config.Jira) (string, error) { return guide.Check(t.Context(), settings) },
-			Write: func(request setup.Request) (setup.Written, error) { return guide.Write(t.Context(), request) },
+		Unexpected:   func(_ config.Config, err error) { r.noted = append(r.noted, err.Error()) },
+		Settings: seams.Settings{
+			Setup: seams.Setup{
+				Offer: guide.Offer,
+				Check: func(settings config.Jira) (string, error) { return guide.Check(t.Context(), settings) },
+				Write: func(request setup.Request) (setup.Written, error) { return guide.Write(t.Context(), request) },
+			},
 		},
-		Unexpected: func(_ config.Config, err error) { r.noted = append(r.noted, err.Error()) },
 	}
 	deps.Reach = func(dir string) (webserver.World, error) {
 		r.reached = append(r.reached, dir)
 
 		cfg, err := config.Load(dir, r.where.HomeDir)
 		next := deps
-		next.Setup = seams.Setup{}
+		next.Settings.Setup = seams.Setup{}
 
 		return webserver.World{Deps: next, Config: cfg, Info: webserver.Info{Version: testVersion}}, err
 	}
@@ -332,11 +334,11 @@ func TestTwoSetupsAtOnceWriteOnce(t *testing.T) {
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
 	deps := run.deps(t)
-	check := deps.Setup.Check
+	check := deps.Settings.Setup.Check
 
 	var asked atomic.Int32
 
-	deps.Setup.Check = func(settings config.Jira) (string, error) {
+	deps.Settings.Setup.Check = func(settings config.Jira) (string, error) {
 		asked.Add(1)
 		time.Sleep(100 * time.Millisecond)
 
@@ -413,7 +415,9 @@ func TestSetupRefusesTheKeychainWhereThereIsNone(t *testing.T) {
 	run := newFirstRun(t, http.StatusOK)
 	deps := run.deps(t)
 	guide := setup.Guide{Where: run.where, Doer: jira.Doer(run.jira)}
-	deps.Setup.Write = func(request setup.Request) (setup.Written, error) { return guide.Write(t.Context(), request) }
+	deps.Settings.Setup.Write = func(request setup.Request) (setup.Written, error) {
+		return guide.Write(t.Context(), request)
+	}
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, true, false))

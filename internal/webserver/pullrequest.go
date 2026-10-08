@@ -47,8 +47,8 @@ func (s *server) GetPullRequestDraft(
 func (s *server) templateNames(chosen string) ([]string, string) {
 	names := []string{}
 
-	if s.deps.Templates != nil {
-		for _, template := range s.deps.Templates() {
+	if s.deps.Forge.Templates != nil {
+		for _, template := range s.deps.Forge.Templates() {
 			names = append(names, template.Name)
 		}
 	}
@@ -83,12 +83,12 @@ func (s *server) OpenPullRequest(
 		return openUnprocessable("a title and a base branch are required"), nil
 	}
 
-	err = loop.EnsurePushed(s.deps.Push, branch)
+	err = loop.EnsurePushed(s.deps.Git.Push, branch)
 	if err != nil {
 		return openUnprocessable(pushFailure(err)), nil
 	}
 
-	pull, err := s.deps.CreatePull(newPull)
+	pull, err := s.deps.Forge.CreatePullRequest(newPull)
 	if err != nil && !pull.Opened() {
 		return s.openFailure(err), nil
 	}
@@ -155,7 +155,7 @@ func (s *server) openRefusal(err error) api.OpenPullRequestResponseObject {
 // canOpenPull reports whether the seams the open needs are wired: creating the
 // pull request, reading the branch, and pushing it first when it is not yet up.
 func (s *server) canOpenPull() bool {
-	return s.deps.CreatePull != nil && s.deps.Branch != nil && s.deps.Push != nil
+	return s.deps.Forge.CreatePullRequest != nil && s.deps.Git.Branch != nil && s.deps.Git.Push != nil
 }
 
 // composePullRequest builds the pull request to propose for the checked-out
@@ -168,11 +168,11 @@ func (s *server) composePullRequest(template string) (forge.NewPullRequest, gitr
 	cfg := s.config()
 
 	draft, branch, err := loop.ComposePull(loop.PullSeams{
-		Branch:    s.deps.Branch,
-		FindPull:  s.deps.FindPull,
-		Templates: s.deps.Templates,
-		Issue:     s.deps.Issue,
-		BrowseURL: s.deps.BrowseURL,
+		Branch:    s.deps.Git.Branch,
+		FindPull:  s.deps.Forge.FindPullRequest,
+		Templates: s.deps.Forge.Templates,
+		Issue:     s.deps.Jira.Issue,
+		BrowseURL: s.deps.Jira.BrowseURL,
 		Owners:    s.ownerSeams(),
 	}, loop.PullOptions{
 		Project:     cfg.Jira.Project,
@@ -187,9 +187,9 @@ func (s *server) composePullRequest(template string) (forge.NewPullRequest, gitr
 // author the server already knows once it has asked.
 func (s *server) ownerSeams() loop.OwnerSeams {
 	owners := loop.OwnerSeams{
-		ChangedPaths: s.deps.ChangedPaths, CodeOwnersAt: s.deps.CodeOwnersAt, Author: nil, IsGroup: nil,
+		ChangedPaths: s.deps.Git.ChangedPaths, CodeOwnersAt: s.deps.Git.CodeOwnersAt, Author: nil, IsGroup: nil,
 	}
-	if s.deps.Author != nil {
+	if s.deps.Forge.Author != nil {
 		owners.Author = s.cachedAuthor
 	}
 

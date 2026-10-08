@@ -26,9 +26,9 @@ const (
 
 // GetLocalData lists the store's directory and the database files in it.
 func (s *server) GetLocalData(
-	ctx context.Context, _ api.GetLocalDataRequestObject,
+	_ context.Context, _ api.GetLocalDataRequestObject,
 ) (api.GetLocalDataResponseObject, error) {
-	data, err := s.localData(ctx)
+	data, err := s.localData()
 	if err != nil {
 		return problemAnswer[api.GetLocalDatadefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -39,9 +39,9 @@ func (s *server) GetLocalData(
 // RemoveLocalData removes the cache, or with scope all the kept file too, and
 // answers what is left.
 func (s *server) RemoveLocalData(
-	ctx context.Context, request api.RemoveLocalDataRequestObject,
+	_ context.Context, request api.RemoveLocalDataRequestObject,
 ) (api.RemoveLocalDataResponseObject, error) {
-	if s.deps.RemoveLocalData == nil {
+	if s.deps.Settings.RemoveLocalData == nil {
 		return api.RemoveLocalData422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			errNoLocalData.Error())), nil
 	}
@@ -51,11 +51,11 @@ func (s *server) RemoveLocalData(
 		api.RemoveLocalDataParamsScopeAll:   store.CleanAll,
 	}[request.Params.Scope]
 
-	err := s.keptWrite(func() error { return s.deps.RemoveLocalData(scope) })
+	err := s.keptWrite(func() error { return s.deps.Settings.RemoveLocalData(scope) })
 	if err == nil {
 		var data api.LocalData
 
-		data, err = s.localData(ctx)
+		data, err = s.localData()
 		if err == nil {
 			return api.RemoveLocalData200JSONResponse(data), nil
 		}
@@ -65,12 +65,12 @@ func (s *server) RemoveLocalData(
 }
 
 // localData reads the store's directory and files into the answer's shape.
-func (s *server) localData(ctx context.Context) (api.LocalData, error) {
-	if s.deps.LocalData == nil {
+func (s *server) localData() (api.LocalData, error) {
+	if s.deps.Settings.LocalData == nil {
 		return api.LocalData{}, errNoLocalData
 	}
 
-	dir, files, err := s.deps.LocalData(ctx)
+	dir, files, err := s.deps.Settings.LocalData()
 	if err != nil {
 		return api.LocalData{}, err
 	}

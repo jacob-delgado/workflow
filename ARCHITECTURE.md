@@ -91,8 +91,9 @@ what lets its tests hand it canned answers with no network.
 Every grouped seam but `Editor` is declared in `internal/seams` (`seams.Jira`,
 `seams.Git`, `seams.Store` and the rest), over the domain packages' own types
 and `loop.Announced`, so any surface can take one without importing the
-terminal. The command line and the terminal take the bundles, and the web server
-takes the same functions narrowed into a `webserver.Deps` by `cli.WebDeps`.
+terminal. The command line, the terminal and the web server all take the
+bundles: `webserver.Deps` holds them whole, as `cli.WebDeps` hands them over,
+so a seam added to a bundle reaches every surface with no edit in between.
 `Editor` speaks Bubble Tea's messages and commands, so it stays in `tui`, and
 the bundle `wiring` returns is still a `tui.Deps`. The
 `seams-below-the-surfaces` `depguard` rule in `.golangci.yml` allows

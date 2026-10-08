@@ -7,7 +7,6 @@ package webserver_test
 // kept write and a clean never run at once.
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -100,7 +99,7 @@ func TestRemoveLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 	linking := make(chan struct{})
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
-	deps.LinkOwner = func(string, loop.OwnerLink) error {
+	deps.Store.LinkOwner = func(string, loop.OwnerLink) error {
 		writing.Store(true)
 		close(linking)
 		time.Sleep(keptWriteHeld)
@@ -108,8 +107,8 @@ func TestRemoveLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 
 		return nil
 	}
-	deps.LocalData = func(context.Context) (string, []store.DataFile, error) { return storeDir, nil, nil }
-	deps.RemoveLocalData = func(store.CleanScope) error {
+	deps.Settings.LocalData = func() (string, []store.DataFile, error) { return storeDir, nil, nil }
+	deps.Settings.RemoveLocalData = func(store.CleanScope) error {
 		overlapped.Store(writing.Load())
 
 		return nil

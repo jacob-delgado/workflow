@@ -68,11 +68,11 @@ func TestARunWithNothingToWorkOnIsRefusedBeforeItRuns(t *testing.T) {
 			deps := runDeps(calls, passing)
 
 			if tt.branch != nil {
-				deps.Branch = tt.branch
+				deps.Git.Branch = tt.branch
 			}
 
 			if tt.changes != nil {
-				deps.Changes = tt.changes
+				deps.Git.Changes = tt.changes
 			}
 
 			// Act
@@ -113,11 +113,11 @@ func TestARunWhoseReadsFailHasNothingToWorkOn(t *testing.T) {
 			deps := runDeps(calls, passing)
 
 			if tt.branch != nil {
-				deps.Branch = tt.branch
+				deps.Git.Branch = tt.branch
 			}
 
 			if tt.changes != nil {
-				deps.Changes = tt.changes
+				deps.Git.Changes = tt.changes
 			}
 
 			// Act
@@ -138,7 +138,7 @@ func TestARunThatIsNotWiredIsNotAvailable(t *testing.T) {
 
 	// Arrange
 	deps := runDeps(&runCalls{}, passing)
-	deps.RunHook = nil
+	deps.Hooks.Run = nil
 
 	// Act
 	recorder := startRun(t, serve(t, deps, config.Default()), preCommitRun)
@@ -154,10 +154,10 @@ func TestEveryRunIsUnavailableWithoutItsSeam(t *testing.T) {
 		body  string
 		unset func(*webserver.Deps)
 	}{
-		"a rebase":          {body: rebaseRun, unset: func(deps *webserver.Deps) { deps.Rebase = nil }},
-		"an amend":          {body: amendRun, unset: func(deps *webserver.Deps) { deps.Amend = nil }},
-		"a fixup":           {body: `{"kind":"fixup"}`, unset: func(deps *webserver.Deps) { deps.Fixup = nil }},
-		"an amend, no tree": {body: amendRun, unset: func(deps *webserver.Deps) { deps.Changes = nil }},
+		"a rebase":          {body: rebaseRun, unset: func(deps *webserver.Deps) { deps.Git.Rebase = nil }},
+		"an amend":          {body: amendRun, unset: func(deps *webserver.Deps) { deps.Git.Amend = nil }},
+		"a fixup":           {body: `{"kind":"fixup"}`, unset: func(deps *webserver.Deps) { deps.Git.Fixup = nil }},
+		"an amend, no tree": {body: amendRun, unset: func(deps *webserver.Deps) { deps.Git.Changes = nil }},
 	}
 
 	for name, tt := range cases {
@@ -186,7 +186,7 @@ func TestEveryRunWithoutABranchSeamIsNotAvailable(t *testing.T) {
 
 			// Arrange
 			deps := runDeps(&runCalls{}, passing)
-			deps.Branch = nil
+			deps.Git.Branch = nil
 
 			// Act
 			recorder := startRun(t, serve(t, deps, config.Default()), body)
@@ -202,7 +202,7 @@ func TestARunThatCannotStartKeepsGitsWordsOff(t *testing.T) {
 
 	// Arrange
 	deps := runDeps(&runCalls{}, passing)
-	deps.Rebase = func(string) (proc.Output, error) {
+	deps.Git.Rebase = func(string) (proc.Output, error) {
 		return proc.Output{}, fmt.Errorf("git -C %s rebase: %w", repoPath, errSeam)
 	}
 

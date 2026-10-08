@@ -15,9 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/store"
-	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // storeDirIn is where a run with home as its home keeps its store.
@@ -255,15 +253,17 @@ func TestDBCleanExitsAsRefusedWhenAFileCannotBeRemoved(t *testing.T) {
 func TestTheWebListsAndCleansTheStoreDBCleanDoes(t *testing.T) {
 	// Arrange
 	where, dir := storedHome(t)
-	for name, value := range isolatedEnvironment(where.home) {
-		t.Setenv(name, value)
+
+	ran := runRootAt(t, where, "--web")
+	if ran.err != nil || ran.servers != 1 {
+		t.Fatalf("workflow --web = %v, served %d times; want the server", ran.err, ran.servers)
 	}
 
-	web := cli.WebDeps(tui.Deps{})
+	local := ran.deps.Settings
 
 	// Act
-	cleanErr := web.RemoveLocalData(store.CleanCache)
-	listed, files, listErr := web.LocalData(t.Context())
+	cleanErr := local.RemoveLocalData(store.CleanCache)
+	listed, files, listErr := local.LocalData()
 
 	// Assert
 	if cleanErr != nil || listErr != nil {

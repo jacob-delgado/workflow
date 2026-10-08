@@ -78,21 +78,21 @@ func (s *server) taggingLive() bool {
 
 // channelMembers is the people in channel, the configured one when empty.
 func (s *server) channelMembers(channel string) ([]loop.SlackTarget, error) {
-	if !s.taggingLive() || s.deps.ChannelMembers == nil {
+	if !s.taggingLive() || s.deps.Messaging.ChannelMembers == nil {
 		return nil, errNoSlackDirectory
 	}
 
-	return directoryRead(s.deps.ChannelMembers(s.channelOr(channel)))
+	return directoryRead(s.deps.Messaging.ChannelMembers(s.channelOr(channel)))
 }
 
 // userGroups is the workspace's user groups; a workspace that has none, or
 // does not let the token read them, lists none.
 func (s *server) userGroups() ([]loop.SlackTarget, error) {
-	if !s.taggingLive() || s.deps.UserGroups == nil {
+	if !s.taggingLive() || s.deps.Messaging.UserGroups == nil {
 		return nil, errNoSlackDirectory
 	}
 
-	groups, err := directoryRead(s.deps.UserGroups())
+	groups, err := directoryRead(s.deps.Messaging.UserGroups())
 	if errors.Is(err, messaging.ErrNoUserGroups) {
 		return nil, nil
 	}

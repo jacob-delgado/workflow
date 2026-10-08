@@ -126,7 +126,7 @@ func TestStreamUsesTheNamedView(t *testing.T) {
 	var gotJQL string
 
 	deps := filledDeps()
-	deps.Search = func(jql string, _ int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(jql string, _ int) (jira.SearchResult, error) {
 		gotJQL = jql
 
 		return jira.SearchResult{}, nil
@@ -164,7 +164,7 @@ func TestViewsDTOScopesEachViewToYou(t *testing.T) {
 			var searched string
 
 			deps := filledDeps()
-			deps.Search = func(jql string, _ int) (jira.SearchResult, error) {
+			deps.Jira.Search = func(jql string, _ int) (jira.SearchResult, error) {
 				searched = jql
 
 				return jira.SearchResult{}, nil
@@ -257,10 +257,12 @@ func TestStreamSnapshotDegradesWhenSeamsFail(t *testing.T) {
 	// Every read fails; the stream must still push a snapshot, with each failing
 	// panel empty rather than the whole snapshot lost, and saying why beside it.
 	deps := filledDeps()
-	deps.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, errSeam }
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-	deps.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errSeam }
+	deps.Jira.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, errSeam }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, errSeam
+	}
 
 	// Act
 	recorder := streamOnce(t, serve(t, deps, config.Default()), "/api/events")
@@ -449,9 +451,9 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 	// flight, one only the remote has, a learned scope, the started task and
 	// the linked ones — and one with nothing wired at all.
 	filled := filledDeps()
-	filled.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
-	filled.RemoteBranches = func() ([]string, error) { return []string{testBranchName, "feat/PROJ-7-flag"}, nil }
-	filled.LastScope = func() (string, bool) { return "api", true }
+	filled.Git.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	filled.Git.RemoteBranches = func() ([]string, error) { return []string{testBranchName, "feat/PROJ-7-flag"}, nil }
+	filled.Store.LastScope = func() (string, bool) { return "api", true }
 	filled.Tasks = fakeTaskwarrior().seams()
 
 	cfg := config.Default()

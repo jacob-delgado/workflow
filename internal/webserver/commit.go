@@ -36,7 +36,7 @@ var (
 // back, the branch as it stood with no head or commits named: the commit landed
 // all the same.
 func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api.CommitResponseObject, error) {
-	if s.deps.Commit == nil || s.deps.Changes == nil || s.deps.Branch == nil {
+	if s.deps.Git.Commit == nil || s.deps.Git.Changes == nil || s.deps.Git.Branch == nil {
 		return commitUnprocessable("committing is not available"), nil
 	}
 
@@ -98,7 +98,7 @@ func (s *server) commitStaged(
 	s.indexWrites.Lock()
 	defer s.indexWrites.Unlock()
 
-	changes, err := s.deps.Changes()
+	changes, err := s.deps.Git.Changes()
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
@@ -121,7 +121,7 @@ func (s *server) commitStaged(
 // branchBeforeCommit is the checked-out branch as a commit finds it, or an empty
 // one when it cannot be read: the commit goes ahead with no issue to refer to.
 func (s *server) branchBeforeCommit() gitrepo.Branch {
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return gitrepo.Branch{}
 	}
@@ -142,7 +142,7 @@ func withoutCommits(before gitrepo.Branch) gitrepo.Branch {
 // runCommit runs the commit, draining its output so the hooks run to completion,
 // and reports a failing commit with the output that explains why.
 func (s *server) runCommit(message string) error {
-	output, err := s.deps.Commit(message)
+	output, err := s.deps.Git.Commit(message)
 	if err != nil {
 		return fmt.Errorf("%w: %w", errCommitNotStarted, err)
 	}
@@ -182,8 +182,8 @@ func (s *server) learnedScope() (string, bool) {
 	s.scope.mu.Lock()
 	defer s.scope.mu.Unlock()
 
-	if !s.scope.read && s.deps.LastScope != nil && !s.info.DryRun {
-		s.scope.value, s.scope.found = s.deps.LastScope()
+	if !s.scope.read && s.deps.Store.LastScope != nil && !s.info.DryRun {
+		s.scope.value, s.scope.found = s.deps.Store.LastScope()
 	}
 
 	s.scope.read = true
@@ -198,7 +198,7 @@ func (s *server) learnedScope() (string, bool) {
 // comes first, so a frame reading in between caches no older scope. A store
 // that could not keep it is noted, since the commit it followed was made.
 func (s *server) rememberScope(scope string) {
-	recorded, err := loop.RememberScope(s.deps.RecordScope, scope)
+	recorded, err := loop.RememberScope(s.deps.Store.RecordScope, scope)
 	if err != nil {
 		s.unexpected(err)
 	}

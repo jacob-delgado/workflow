@@ -61,7 +61,7 @@ func TestATasksIssueLinkIsTheTrackersPage(t *testing.T) {
 
 			deps := tasksDeps(fake)
 			if tt.tracker {
-				deps.BrowseURL = trackerPage
+				deps.Jira.BrowseURL = trackerPage
 			}
 
 			// Act
@@ -90,7 +90,7 @@ func TestTheSnapshotsTaskLinksAreTheTrackersPage(t *testing.T) {
 	}
 
 	deps := tasksDeps(fake)
-	deps.BrowseURL = trackerPage
+	deps.Jira.BrowseURL = trackerPage
 
 	// Act
 	body := streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String()

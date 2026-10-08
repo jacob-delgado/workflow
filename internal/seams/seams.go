@@ -8,10 +8,10 @@
 // test can hand it canned answers without a network, a repository or a
 // subprocess.
 //
-// The command line and the terminal interface take these bundles, and the web
-// server takes the same functions narrowed into a webserver.Deps by
-// cli.WebDeps — Taskwarrior's bundle whole, since the API uses every function
-// in it — so any surface can import them without importing the terminal.
+// The command line, the terminal interface and the web server all take these
+// bundles — the web server's webserver.Deps holds them whole, as cli.WebDeps
+// hands them over — so any surface can import them without importing the
+// terminal.
 // The package therefore imports only the domain packages, internal/loop and
 // internal/setup, and nothing that imports a surface. A depguard rule in
 // .golangci.yml holds that direction.

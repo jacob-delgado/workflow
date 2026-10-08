@@ -39,7 +39,7 @@ type scopeStore struct {
 
 // wire hands the store's seams to deps.
 func (s *scopeStore) wire(deps *webserver.Deps) {
-	deps.LastScope = func() (string, bool) {
+	deps.Store.LastScope = func() (string, bool) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
@@ -47,7 +47,7 @@ func (s *scopeStore) wire(deps *webserver.Deps) {
 
 		return s.scope, s.holds
 	}
-	deps.RecordScope = func(scope string) error {
+	deps.Store.RecordScope = func(scope string) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
@@ -79,7 +79,7 @@ func withDefaultScope(scope string) config.Config {
 // committable is filledDeps with a staged change and a commit that lands.
 func committable() webserver.Deps {
 	deps := filledDeps()
-	deps.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
+	deps.Git.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
 	return deps
 }
@@ -235,7 +235,7 @@ func TestCommitRecordsTheScope(t *testing.T) {
 			tt.store.wire(&deps)
 
 			if tt.commitFails {
-				deps.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, errSeam), nil }
+				deps.Git.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, errSeam), nil }
 			}
 
 			handler := serve(t, deps, withDefaultScope(configuredScope))

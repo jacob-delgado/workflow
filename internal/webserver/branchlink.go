@@ -29,7 +29,7 @@ func (s *server) LinkBranchIssue(
 	_ context.Context, request api.LinkBranchIssueRequestObject,
 ) (api.LinkBranchIssueResponseObject, error) {
 	ref, known := convention.RefOf(strings.TrimSpace(request.Body.Key))
-	if !known || s.deps.LinkIssue == nil {
+	if !known || s.deps.Git.LinkIssue == nil {
 		return api.LinkBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			refusal(known, errNotAnIssue, errCannotLink))), nil
 	}
@@ -54,7 +54,7 @@ func (s *server) LinkBranchIssue(
 func (s *server) UnlinkBranchIssue(
 	_ context.Context, _ api.UnlinkBranchIssueRequestObject,
 ) (api.UnlinkBranchIssueResponseObject, error) {
-	if s.deps.UnlinkIssue == nil {
+	if s.deps.Git.UnlinkIssue == nil {
 		return api.UnlinkBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			errCannotLink.Error())), nil
 	}
@@ -65,7 +65,7 @@ func (s *server) UnlinkBranchIssue(
 	}
 
 	if err == nil {
-		err = s.deps.UnlinkIssue(branch.Name)
+		err = s.deps.Git.UnlinkIssue(branch.Name)
 	}
 
 	if err != nil {
@@ -113,11 +113,11 @@ func refusal(ok bool, reason, not error) string {
 // linkableBranch is the checked-out branch, or errNoBranchToLink when HEAD is
 // on none.
 func (s *server) linkableBranch() (gitrepo.Branch, error) {
-	if s.deps.Branch == nil {
+	if s.deps.Git.Branch == nil {
 		return gitrepo.Branch{}, errNoBranchToLink
 	}
 
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
@@ -142,7 +142,7 @@ func (s *server) linkIssue(branch string, ref convention.IssueRef, updatePull bo
 		}
 	}
 
-	return s.deps.LinkIssue(branch, ref.Key)
+	return s.deps.Git.LinkIssue(branch, ref.Key)
 }
 
 // namePullIssue adds the issue's line to the open pull request's description,
@@ -151,7 +151,7 @@ func (s *server) linkIssue(branch string, ref convention.IssueRef, updatePull bo
 // shown, whose controls and marks are neutralized, so nothing else of it
 // changes.
 func (s *server) namePullIssue(ref convention.IssueRef) error {
-	if s.deps.RewritePull == nil {
+	if s.deps.Forge.RewriteDescription == nil {
 		return nil
 	}
 
@@ -161,7 +161,7 @@ func (s *server) namePullIssue(ref convention.IssueRef) error {
 	}
 
 	issueURL := s.browseURL(jira.Key(ref.Key))
-	_, err = s.deps.RewritePull(pull, func(body string) (string, bool) {
+	_, err = s.deps.Forge.RewriteDescription(pull, func(body string) (string, bool) {
 		return convention.WithIssueLine(body, ref.Key, issueURL)
 	})
 
@@ -172,7 +172,7 @@ func (s *server) namePullIssue(ref convention.IssueRef) error {
 // there is one: none when HEAD is on no branch or there is no forge to ask.
 // A branch git could not read is that failure, not the absence of one.
 func (s *server) openPull() (forge.PullRequest, bool, error) {
-	if s.deps.FindPull == nil {
+	if s.deps.Forge.FindPullRequest == nil {
 		return forge.PullRequest{}, false, nil
 	}
 
@@ -185,7 +185,7 @@ func (s *server) openPull() (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, err
 	}
 
-	pull, found, err := s.deps.FindPull(branch.Name)
+	pull, found, err := s.deps.Forge.FindPullRequest(branch.Name)
 	if err != nil {
 		return forge.PullRequest{}, false, err
 	}

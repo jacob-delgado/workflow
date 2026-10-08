@@ -36,7 +36,7 @@ var (
 func (s *server) LinkPullRequest(
 	_ context.Context, request api.LinkPullRequestRequestObject,
 ) (api.LinkPullRequestResponseObject, error) {
-	if s.deps.LinkPullRequest == nil || s.deps.Branch == nil || s.deps.FindPull == nil {
+	if s.deps.Jira.LinkPullRequest == nil || s.deps.Git.Branch == nil || s.deps.Forge.FindPullRequest == nil {
 		return api.LinkPullRequest422ApplicationProblemPlusJSONResponse(
 			problem(api.ProblemCodeUnprocessable, "linking a "+s.noun()+" on an issue is not available")), nil
 	}
@@ -48,7 +48,7 @@ func (s *server) LinkPullRequest(
 		return s.linkRefusal(err, issueKey), nil
 	}
 
-	err = s.deps.LinkPullRequest(issueKey, pull.URL, pull.Title)
+	err = s.deps.Jira.LinkPullRequest(issueKey, pull.URL, pull.Title)
 	if err != nil {
 		return problemAnswer[api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -59,7 +59,7 @@ func (s *server) LinkPullRequest(
 // branchPull is the pull request the forge has for the checked-out branch, when
 // that branch names issueKey.
 func (s *server) branchPull(issueKey jira.Key) (forge.PullRequest, error) {
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return forge.PullRequest{}, fmt.Errorf("reading the branch: %w", err)
 	}
@@ -69,7 +69,7 @@ func (s *server) branchPull(issueKey jira.Key) (forge.PullRequest, error) {
 		return forge.PullRequest{}, errNotTheBranchIssue
 	}
 
-	pull, found, err := s.deps.FindPull(branch.Name)
+	pull, found, err := s.deps.Forge.FindPullRequest(branch.Name)
 	if err != nil {
 		return forge.PullRequest{}, fmt.Errorf("finding the branch's pull request: %w", err)
 	}
@@ -103,7 +103,7 @@ func (s *server) linkRefusal(err error, issueKey jira.Key) api.LinkPullRequestRe
 func (s *server) TransitionIssue(
 	_ context.Context, request api.TransitionIssueRequestObject,
 ) (api.TransitionIssueResponseObject, error) {
-	if s.deps.Transitions == nil || s.deps.Transition == nil {
+	if s.deps.Jira.Transitions == nil || s.deps.Jira.Transition == nil {
 		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(
 			problem(api.ProblemCodeUnprocessable, "moving an issue is not available")), nil
 	}
@@ -111,12 +111,12 @@ func (s *server) TransitionIssue(
 	issueKey := jira.Key(request.Key)
 	status := s.config().Jira.ReviewStatus
 
-	move, err := loop.FindReviewTransition(s.deps.Transitions, issueKey, status)
+	move, err := loop.FindReviewTransition(s.deps.Jira.Transitions, issueKey, status)
 	if err != nil {
 		return s.transitionRefusal(err, issueKey, status), nil
 	}
 
-	err = s.deps.Transition(issueKey, move, nil)
+	err = s.deps.Jira.Transition(issueKey, move, nil)
 	if err != nil {
 		return problemAnswer[api.TransitionIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -155,13 +155,13 @@ func (s *server) AddComment(
 	issueKey := jira.Key(request.Key)
 
 	switch {
-	case s.deps.Comment == nil:
+	case s.deps.Jira.Comment == nil:
 		return commentRefusal("commenting on an issue is not available; configure Jira or a forge to comment"), nil
 	case strings.TrimSpace(request.Body.Text) == "":
 		return commentRefusal("a comment needs text"), nil
 	}
 
-	posted, err := s.deps.Comment(issueKey, loop.CommentMarkupOf(s.config().Jira, issueKey).Stored(request.Body.Text))
+	posted, err := s.deps.Jira.Comment(issueKey, loop.CommentMarkupOf(s.config().Jira, issueKey).Stored(request.Body.Text))
 	if err != nil {
 		return s.commentFailure(err), nil
 	}
@@ -200,15 +200,15 @@ func (s *server) followUps(branch gitrepo.Branch) []api.FollowUp {
 		return offers
 	}
 
-	if s.deps.LinkPullRequest != nil {
+	if s.deps.Jira.LinkPullRequest != nil {
 		offers = append(offers, api.FollowUp{Action: api.FollowUpActionLink, IssueKey: string(issueKey)})
 	}
 
-	if s.deps.Transition == nil {
+	if s.deps.Jira.Transition == nil {
 		return offers
 	}
 
-	move, ok := loop.ReviewTransition(s.deps.Transitions, issueKey, s.config().Jira.ReviewStatus)
+	move, ok := loop.ReviewTransition(s.deps.Jira.Transitions, issueKey, s.config().Jira.ReviewStatus)
 	if ok {
 		offers = append(offers, api.FollowUp{
 			Action: api.FollowUpActionTransition, IssueKey: string(issueKey), Status: &move.ToStatus,
@@ -232,12 +232,12 @@ var (
 func (s *server) ListStatusChanges(
 	_ context.Context, request api.ListStatusChangesRequestObject,
 ) (api.ListStatusChangesResponseObject, error) {
-	if s.deps.Transitions == nil {
+	if s.deps.Jira.Transitions == nil {
 		return api.ListStatusChanges422ApplicationProblemPlusJSONResponse(
 			problem(api.ProblemCodeUnprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
 	}
 
-	moves, err := s.deps.Transitions(jira.Key(request.Key))
+	moves, err := s.deps.Jira.Transitions(jira.Key(request.Key))
 	if err != nil {
 		return problemAnswer[api.ListStatusChangesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -251,7 +251,7 @@ func (s *server) ListStatusChanges(
 func (s *server) ChangeStatus(
 	_ context.Context, request api.ChangeStatusRequestObject,
 ) (api.ChangeStatusResponseObject, error) {
-	if s.deps.Transitions == nil || s.deps.Transition == nil {
+	if s.deps.Jira.Transitions == nil || s.deps.Jira.Transition == nil {
 		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(
 			problem(api.ProblemCodeUnprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
 	}
@@ -263,7 +263,7 @@ func (s *server) ChangeStatus(
 		return s.statusChangeRefusal(err, issueKey), nil
 	}
 
-	err = s.deps.Transition(issueKey, move, values)
+	err = s.deps.Jira.Transition(issueKey, move, values)
 	if err != nil {
 		return problemAnswer[api.ChangeStatusdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -278,7 +278,7 @@ func (s *server) ChangeStatus(
 func (s *server) statusChange(
 	issueKey jira.Key, asked api.StatusChangeRequest,
 ) (jira.Transition, []jira.FieldValue, error) {
-	moves, err := s.deps.Transitions(issueKey)
+	moves, err := s.deps.Jira.Transitions(issueKey)
 	if err != nil {
 		return jira.Transition{}, nil, fmt.Errorf("reading the status changes of %s: %w", issueKey, err)
 	}
@@ -377,13 +377,13 @@ func (s *server) AssignIssue(
 	assignee := strings.TrimSpace(request.Body.Assignee)
 
 	switch {
-	case s.deps.Assign == nil:
+	case s.deps.Jira.Assign == nil:
 		return assignRefusal("assigning an issue is not available; configure Jira or a forge"), nil
 	case assignee == "":
 		return assignRefusal("an assignee needs a username"), nil
 	}
 
-	err := s.deps.Assign(jira.Key(request.Key), assignee)
+	err := s.deps.Jira.Assign(jira.Key(request.Key), assignee)
 	if err != nil {
 		return problemAnswer[api.AssignIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -406,7 +406,7 @@ func (s *server) LogWork(_ context.Context, request api.LogWorkRequestObject) (a
 	spent := strings.TrimSpace(request.Body.TimeSpent)
 
 	switch {
-	case s.deps.AddWorklog == nil:
+	case s.deps.Jira.AddWorklog == nil:
 		return worklogRefusal("logging work is not available; configure Jira to log work"), nil
 	case trackerOf(issueKey) == api.IssueTrackerForge:
 		return worklogRefusal("a forge issue keeps no worklog; log work on a Jira issue"), nil
@@ -414,7 +414,7 @@ func (s *server) LogWork(_ context.Context, request api.LogWorkRequestObject) (a
 		return worklogRefusal("logging work needs a duration, such as 2h or 30m"), nil
 	}
 
-	logged, err := s.deps.AddWorklog(issueKey, spent, strings.TrimSpace(orZero(request.Body.Comment)))
+	logged, err := s.deps.Jira.AddWorklog(issueKey, spent, strings.TrimSpace(orZero(request.Body.Comment)))
 	if err != nil {
 		return problemAnswer[api.LogWorkdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}

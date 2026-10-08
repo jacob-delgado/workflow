@@ -75,8 +75,8 @@ func TestAnnounceRefusesAnAnnouncementThatChangedSinceItsPreview(t *testing.T) {
 	posts := 0
 
 	deps := filledDeps()
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{State: ciState}, nil }
-	deps.Post = func(string, string) error {
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{State: ciState}, nil }
+	deps.Messaging.Post = func(string, string) error {
 		posts++
 
 		return nil
@@ -107,7 +107,7 @@ func TestAnnouncePostsTheTextItsPreviewShowed(t *testing.T) {
 	var posted string
 
 	deps := filledDeps()
-	deps.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_, text string) error {
 		posted = text
 
 		return nil
@@ -139,7 +139,7 @@ func TestAnnouncePostsThePreviewWhenTheAuthorReadFailsAfterIt(t *testing.T) {
 
 	asked := 0
 	deps := filledDeps()
-	deps.Author = func() (string, error) {
+	deps.Forge.Author = func() (string, error) {
 		asked++
 		if asked > 1 {
 			return "", errSeam
@@ -147,7 +147,7 @@ func TestAnnouncePostsThePreviewWhenTheAuthorReadFailsAfterIt(t *testing.T) {
 
 		return testAuthor, nil
 	}
-	deps.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_, text string) error {
 		posted = text
 
 		return nil
@@ -200,7 +200,7 @@ func TestGetAnnouncementUsesTheForgeNounAndIssueLink(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.BrowseURL = func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) }
+	deps.Jira.BrowseURL = func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) }
 	info := webserver.Info{Version: testVersion, ForgeKind: forge.KindGitLab}
 
 	// Act
@@ -235,7 +235,7 @@ func TestGetAnnouncementMarksAMergedPull(t *testing.T) {
 	// Arrange
 	// The branch's pull request has merged, so the announcement marks the merge.
 	deps := filledDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 42, URL: "https://x/42", Title: "redact", State: forge.StateMerged}, true, nil
 	}
 
@@ -254,7 +254,7 @@ func TestGetAnnouncementMarksRedCI(t *testing.T) {
 	// Arrange
 	// The open pull request's CI has failed, so the announcement marks that.
 	deps := filledDeps()
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed}, nil
 	}
 
@@ -274,7 +274,7 @@ func TestGetAnnouncementFallsBackToReadyWhenCICannotBeRead(t *testing.T) {
 	// The CI read fails, so the open pull request's announcement stays "ready for
 	// review" rather than marking a red CI on a result it could not read.
 	deps := filledDeps()
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed}, errSeam
 	}
 
@@ -298,7 +298,7 @@ func TestAnnouncePostsToTheChosenChannel(t *testing.T) {
 	)
 
 	deps := filledDeps()
-	deps.Post = func(channel, text string) error {
+	deps.Messaging.Post = func(channel, text string) error {
 		toChannel = channel
 		posted = text
 
@@ -333,7 +333,7 @@ func TestAnnounceFallsBackToTheConfiguredChannel(t *testing.T) {
 	var toChannel string
 
 	deps := filledDeps()
-	deps.Post = func(channel, _ string) error {
+	deps.Messaging.Post = func(channel, _ string) error {
 		toChannel = channel
 
 		return nil
@@ -394,7 +394,7 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Post = func(string, string) error {
+			deps.Messaging.Post = func(string, string) error {
 				return fmt.Errorf("posting to https://hooks.slack.com/services/%s: %w", webhookSecret, tt.cause)
 			}
 
@@ -436,7 +436,7 @@ func TestGetAnnouncementIsAConflictWithoutAPullRequest(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
@@ -454,12 +454,12 @@ func TestAnnouncingIsAConflictWithoutAPullRequest(t *testing.T) {
 	// finds none or there is no forge to ask.
 	cases := map[string]func(webserver.Deps) webserver.Deps{
 		"no pull request found": func(deps webserver.Deps) webserver.Deps {
-			deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
 
 			return deps
 		},
 		noForgeSeam: func(deps webserver.Deps) webserver.Deps {
-			deps.FindPull = nil
+			deps.Forge.FindPullRequest = nil
 
 			return deps
 		},
@@ -471,7 +471,7 @@ func TestAnnouncingIsAConflictWithoutAPullRequest(t *testing.T) {
 
 			// Arrange
 			deps := mutate(filledDeps())
-			deps.Post = func(string, string) error { return nil }
+			deps.Messaging.Post = func(string, string) error { return nil }
 
 			// Act
 			recorder := doAnnounce(t, deps, config.Default(), "#dev")
