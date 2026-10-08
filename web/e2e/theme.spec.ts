@@ -9,7 +9,6 @@ test('the system theme resolves to the OS scheme and follows it as it changes', 
   page,
 }) => {
   // Arrange
-  // Choose "system" and open under a dark OS.
   await pinTheme(page, 'system')
   await page.emulateMedia({ colorScheme: 'dark' })
 

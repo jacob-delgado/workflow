@@ -40,7 +40,6 @@ async function opensLinkForm(page: Page): Promise<void> {
 
 test('shows the description first, then links and updates the pull request', async ({ page }) => {
   // Arrange
-  // The preview and the link answered here, the link's body kept.
   await page.route('**/api/branch/issue/preview**', (route) => route.fulfill({ json: preview }))
   const sent: unknown[] = []
   await page.route('**/api/branch/issue', (route) => {
@@ -90,13 +89,11 @@ for (const theme of themes) {
       await opensLinkForm(page)
 
       // Act
-      // Ask for PROJ-7, and let its description land.
       await page.getByRole('textbox', { name: 'Issue' }).fill('PROJ-7')
       await page.getByRole('button', { name: 'Link', exact: true }).click()
       await expect(page.getByRole('button', { name: 'Link and update #12' })).toBeVisible()
 
       // Assert
-      // Tab reaches the form's controls, and it is clean.
       await expectReachableAndClean(page, {
         reaches: ['Issue', 'Link and update #12', 'Link only', 'Cancel'],
       })

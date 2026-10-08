@@ -17,18 +17,18 @@ test('the page the server serves loads themed, with nothing its content policy r
   page,
 }) => {
   // Arrange
-  // A dark choice saved, and the console heard from the start.
+  // The console is heard from the start, so a refusal while the page loads is
+  // caught.
   const messages: ConsoleMessage[] = []
   page.on('console', (message) => messages.push(message))
   await pinTheme(page, 'dark')
 
   // Act
-  // Load the page, and open a section the stream's frames fill.
+  // Branch is a section the stream's frames fill.
   await openServed(page)
   await openSection(page, 'Branch')
 
   // Assert
-  // Themed before paint, and nothing refused.
   // eslint-disable-next-line no-restricted-syntax, playwright/no-raw-locators -- data-theme is the resolved theme itself, the value the pre-paint script sets; no role, name or text carries it
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   expect(policyViolations(messages)).toEqual([])
@@ -52,7 +52,7 @@ test('a page opened without the session says to open the address the server prin
   page,
 }) => {
   // Act
-  // The bare address, in a browser that holds no session.
+  // This browser holds no session.
   await page.goto('/')
 
   // Assert

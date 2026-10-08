@@ -73,12 +73,10 @@ for (const theme of themes) {
       await opensBranch(page, { theme, width, snapshot: workingTreeSnapshot })
 
       // Act
-      // Stage the untracked file.
       await page.getByRole('button', { name: 'Stage notes.txt' }).click()
       await expect(page.getByText('Staged notes.txt.')).toBeVisible()
 
       // Assert
-      // Tab reaches Stage all and the commit, and it is clean.
       await expectReachableAndClean(page, {
         reaches: ['Stage all', 'Commit staged changes'],
       })
@@ -144,8 +142,8 @@ test('the branch and the header fit 320 px, wrapping a name wider than the conte
   page,
 }) => {
   // Arrange
-  // The stream's branch and working tree, and a source build's version in the
-  // header, at the narrowest width a page must reflow to.
+  // 320 px is the narrowest width a page must reflow to, here with a source
+  // build's version in the header.
   await streams(page, unbrokenSnapshot)
   await page.route('**/api/health', (route) => route.fulfill({ json: sourceBuild }))
   await page.setViewportSize({ width: 320, height })
@@ -155,8 +153,6 @@ test('the branch and the header fit 320 px, wrapping a name wider than the conte
   await openSection(page, 'Branch')
 
   // Assert
-  // Nothing scrolls sideways; the file's path takes a line of its own; and the
-  // terms' column is as wide as its widest term.
   const path = page.getByText(/^internal\/tui\/testdata/)
   const row = page.getByRole('listitem').filter({ has: path })
   await expect(path).toBeVisible()
@@ -173,18 +169,15 @@ for (const theme of themes) {
       page,
     }) => {
       // Arrange
-      // A stage the server refuses, of a file whose name is wider than the
-      // content.
+      // The refused file's name is wider than the content.
       await page.route('**/api/stage', (route) => route.fulfill(refused))
       await opensBranch(page, { theme, width, snapshot: unbrokenSnapshot })
 
       // Act
-      // Stage the file, and let the refusal land.
       await page.getByRole('button', { name: /^Stage internal\/tui/ }).click()
       await expect(page.getByRole('alert')).toHaveText(/could not be completed/)
 
       // Assert
-      // Tab reaches every drawn control beside the refusal, and it is clean.
       await expectReachableAndClean(page)
     })
   }

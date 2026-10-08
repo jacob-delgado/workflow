@@ -222,7 +222,6 @@ test('previews the message, then posts it on confirm', async () => {
   render(<MessagingPanel />)
 
   // Act
-  // Open the preview, then confirm.
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
   await screen.findByText('octocat announced the pull request')
   await user.click(screen.getByRole('button', { name: 'Announce now' }))
@@ -239,7 +238,6 @@ test('posts to the channel chosen in the preview', async () => {
   render(<MessagingPanel />)
 
   // Act
-  // Open the preview, choose #releases, then confirm.
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
   await screen.findByText('octocat announced the pull request')
   await user.selectOptions(screen.getByRole('combobox'), '#releases')
@@ -267,7 +265,6 @@ test('posts to the first known channel when none is configured', async () => {
   render(<MessagingPanel />)
 
   // Act
-  // Open the preview and confirm without touching the channel.
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
   await screen.findByText('octocat announced the pull request')
   await user.click(screen.getByRole('button', { name: 'Announce now' }))
@@ -294,13 +291,11 @@ test('locks the confirm while a post is in flight', async () => {
   render(<MessagingPanel />)
 
   // Act
-  // Open the preview and confirm, leaving the post unresolved.
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
   await screen.findByText('octocat announced the pull request')
   await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
   // Assert
-  // The confirm now reads "Announcing…" and is held, and only one post fired.
   const posting = await screen.findByRole('button', { name: 'Announcing…' })
   expect(posting.getAttribute('aria-disabled')).toBe('true')
   expect(mockAnnounce).toHaveBeenCalledTimes(1)

@@ -72,7 +72,6 @@ test('lists the store, confirms, removes the cache and reads the listing again',
   page,
 }) => {
   // Arrange
-  // The Local data area, its cache's removal asked for.
   const asked = await answersStore(page)
   await opensLocalData(page)
   await page.getByRole('button', { name: 'Remove cache…' }).click()
@@ -83,7 +82,6 @@ test('lists the store, confirms, removes the cache and reads the listing again',
   await question.getByRole('button', { name: 'Remove' }).click()
 
   // Assert
-  // Said, removed from the listing, and read again after the removal.
   await expect(page.getByRole('status').filter({ hasText: 'Removed workflow.db.' })).toBeVisible()
   const table = page.getByRole('table', { name: 'Local data files' })
   await expect(table.getByText('workflow.db')).toBeHidden()
@@ -114,18 +112,15 @@ for (const theme of themes) {
       { tag: '@populated' },
       async ({ page }) => {
         // Arrange
-        // The populated Settings, in this theme, at this width.
         await openCockpit(page, { width, height }, theme)
         await openSection(page, 'Settings')
         await expect(page.getByRole('table', { name: 'Local data files' })).toBeVisible()
 
         // Act
-        // Open the confirm step that clears everything.
         await page.getByRole('button', { name: 'Remove everything…' }).click()
         await expect(page.getByRole('group', { name: /remove workflow\.db/i })).toBeFocused()
 
         // Assert
-        // Tab reaches the step's controls, and it is clean.
         await expectReachableAndClean(page, { reaches: ['Cancel', 'Remove'] })
       },
     )
