@@ -217,10 +217,7 @@ const refusals = [
   {
     of: "a failed read's",
     act: async (page: Page) => {
-      await page
-        .getByRole('navigation', { name: 'Sections' })
-        .getByRole('button', { name: 'Tasks', exact: true })
-        .click()
+      await openSection(page, 'Tasks')
     },
   },
 ]
