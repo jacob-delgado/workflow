@@ -29,6 +29,25 @@ var ErrNotFound = errors.New("program not found on PATH")
 // deadline, a Ctrl-C — does not answer to it.
 var ErrTimedOut = errors.New("gave up waiting")
 
+// ExitError is a program that ran and ended with a failure status of its own:
+// which program, the status, and what it wrote to standard error, sanitized.
+type ExitError struct {
+	Program string
+	Code    int
+	Stderr  string
+}
+
+var _ error = (*ExitError)(nil)
+
+// Error is the program, its status and its reason, as git or gh would put it.
+func (e *ExitError) Error() string {
+	if e.Stderr == "" {
+		return fmt.Sprintf("%s: exit status %d", e.Program, e.Code)
+	}
+
+	return fmt.Sprintf("%s: exit status %d: %s", e.Program, e.Code, e.Stderr)
+}
+
 // DefaultRunTimeout bounds a Run so a hung quick read — a git status on a dead
 // network mount, a gh call to a host that never answers — recovers on its own,
 // with an error answering to ErrTimedOut, rather than leaving a pane on
@@ -63,33 +82,11 @@ func RunCommand(ctx context.Context, program Command) ([]byte, error) {
 }
 
 // runWithin runs a program bounded by timeout and returns its standard output,
-// wrapping a non-zero exit's standard error into the error. The tighter of
-// timeout and ctx's own deadline wins.
-//
-// The bound travels as the context's cause because Wait reports the killed
-// process's own "signal: killed" over the context's error; the cause is what
-// tells a run this bound stopped from one the caller's context ended.
+// or nothing when it fails. The tighter of timeout and ctx's own deadline wins.
 func runWithin(ctx context.Context, timeout time.Duration, program Command) ([]byte, error) {
-	ctx, cancel := context.WithTimeoutCause(ctx, timeout, fmt.Errorf("%w after %s", ErrTimedOut, timeout))
-	defer cancel()
-
-	command, err := build(ctx, program)
+	output, err := captureWithin(ctx, timeout, program, nil)
 	if err != nil {
 		return nil, err
-	}
-
-	var stderr bytes.Buffer
-
-	command.Stderr = &stderr
-
-	output, err := command.Output()
-	if err != nil {
-		cause := context.Cause(ctx)
-		if errors.Is(cause, ErrTimedOut) {
-			return nil, fmt.Errorf("%s: %w", program.Name, cause)
-		}
-
-		return nil, fmt.Errorf("%s: %w: %s", program.Name, err, strings.TrimSpace(sanitize.Text(stderr.String())))
 	}
 
 	return output, nil
@@ -114,7 +111,12 @@ func CaptureWithin(ctx context.Context, timeout time.Duration, program Command, 
 }
 
 // captureWithin is Capture bounded by timeout, or unbounded when timeout is
-// not positive. The bound travels as the context's cause, as in runWithin.
+// not positive.
+//
+// The bound travels as the context's cause because Wait reports the killed
+// process's own "signal: killed" over the context's error; the cause is what
+// tells a run this bound stopped from one the caller's context ended, whose own
+// error, context.Canceled or context.DeadlineExceeded, is returned instead.
 func captureWithin(ctx context.Context, timeout time.Duration, program Command, input []byte) ([]byte, error) {
 	if timeout > 0 {
 		var cancel context.CancelFunc
@@ -138,31 +140,41 @@ func captureWithin(ctx context.Context, timeout time.Duration, program Command, 
 
 	err = command.Run()
 	if err != nil {
-		if ctx.Err() != nil {
-			return stdout.Bytes(), fmt.Errorf("%s: %w", program.Name, context.Cause(ctx))
-		}
-
-		return stdout.Bytes(), fmt.Errorf("%s: %w: %s",
-			program.Name, err, strings.TrimSpace(sanitize.Text(stderr.String())))
+		return stdout.Bytes(), failed(ctx, program.Name, err, &stderr)
 	}
 
 	return stdout.Bytes(), nil
 }
 
+// failed is how a run that returned err ended: the context's cause once ctx is
+// done, an ExitError for a program that exited with a status of its own, and
+// otherwise exec's error, a signal say, with what the program wrote to stderr.
+func failed(ctx context.Context, name string, err error, stderr *bytes.Buffer) error {
+	if ctx.Err() != nil {
+		return fmt.Errorf("%s: %w", name, context.Cause(ctx))
+	}
+
+	reason := strings.TrimSpace(sanitize.Text(stderr.String()))
+
+	exit, ok := errors.AsType[*exec.ExitError](err)
+	if ok && exit.Exited() {
+		return &ExitError{Program: name, Code: exit.ExitCode(), Stderr: reason}
+	}
+
+	return fmt.Errorf("%s: %w: %s", name, err, reason)
+}
+
 // Failure reads a program's non-zero exit out of an error Run, RunCommand or
 // Capture returned: its exit code and what it wrote to standard error, and
 // whether the error was an exit at all — a program not found, one stopped at
-// its bound, or one killed by a signal is not. It knows the shape those
-// functions wrap the exit in, so no caller has to.
+// its bound, or one killed by a signal is not.
 func Failure(err error) (int, string, bool) {
-	var exit *exec.ExitError
-	if !errors.As(err, &exit) || !exit.Exited() {
+	exit, ok := errors.AsType[*ExitError](err)
+	if !ok {
 		return 0, "", false
 	}
 
-	_, stderr, _ := strings.Cut(err.Error(), exit.Error()+": ")
-
-	return exit.ExitCode(), strings.TrimSpace(stderr), true
+	return exit.Code, exit.Stderr, true
 }
 
 // LookPath reports where a program is, or an error if it is not on PATH. It is
