@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -33,6 +32,9 @@ var (
 	// ErrUnreachable reports a refresh that never reached Slack, or an answer
 	// that could not be read.
 	ErrUnreachable = errors.New("could not reach Slack to refresh the user token")
+	// ErrUnexpectedStatus reports a refresh Slack answered with a status other
+	// than the 200 its every verdict comes with, or the 429 that asks to wait.
+	ErrUnexpectedStatus = errors.New("slack answered the refresh with an unexpected status")
 )
 
 // refreshPath is Slack's method that swaps a refresh token for a new pair.
@@ -94,7 +96,9 @@ func (r Refresher) Refresh(ctx context.Context, credentials Credentials) (Creden
 	return r.renewed(credentials, answer)
 }
 
-// ask sends the refresh and reads Slack's answer.
+// ask sends the refresh and reads Slack's answer. Slack gives every verdict,
+// a refusal included, with a 200; a 429 asks to wait, and any other status
+// says something its body is no verdict on.
 func (r Refresher) ask(request *http.Request) (refreshAnswer, error) {
 	response, err := r.Do(request)
 	if err != nil {
@@ -102,11 +106,24 @@ func (r Refresher) ask(request *http.Request) (refreshAnswer, error) {
 	}
 	defer func() { _ = response.Body.Close() }()
 
+	switch response.StatusCode {
+	case http.StatusOK:
+	case http.StatusTooManyRequests:
+		return refreshAnswer{}, httpx.RateLimited(response.Header)
+	default:
+		return refreshAnswer{}, fmt.Errorf("%w: %d", ErrUnexpectedStatus, response.StatusCode)
+	}
+
+	body, err := httpx.Read(response.Body, answerLimit)
+	if err != nil {
+		return refreshAnswer{}, fmt.Errorf("%w: %w", ErrUnreachable, err)
+	}
+
 	var answer refreshAnswer
 
-	err = json.NewDecoder(io.LimitReader(response.Body, answerLimit)).Decode(&answer)
+	err = json.Unmarshal(body, &answer)
 	if err != nil {
-		return refreshAnswer{}, fmt.Errorf("%w: its answer (status %d) was not JSON", ErrUnreachable, response.StatusCode)
+		return refreshAnswer{}, fmt.Errorf("%w: its answer was not JSON", ErrUnreachable)
 	}
 
 	return answer, nil
