@@ -97,43 +97,58 @@ func drain(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
 	deadline := time.NewTimer(failsafe)
 	defer deadline.Stop()
 
-	return settle(t, model, cmd, func(next tea.Cmd) (tea.Msg, bool) {
-		return await(t, next, deadline.C), true
+	return settle(t, model, cmd, driver{
+		run: func(next tea.Cmd) (tea.Msg, bool) { return await(t, next, deadline.C), true },
+		deliver: func(model tui.Model, msg tea.Msg) (tui.Model, tea.Cmd) {
+			updated, follow := model.Update(msg)
+
+			return concrete(t, updated), follow
+		},
 	})
 }
 
 // drainPast is drain leaving out every command held keeps from answering: a
 // seam the test has armed held on, so that it never answers, while the screen is
 // looked at with its answer still out. Any other command is waited for as drain
-// waits, so a slow fake is never mistaken for a held one.
+// waits, so a slow fake is never mistaken for a held one, and a message the model
+// itself waits on held for fails the test.
 func drainPast(t *testing.T, held *hold, model tui.Model, cmd tea.Cmd) tui.Model {
 	t.Helper()
 
 	deadline := time.NewTimer(failsafe)
 	defer deadline.Stop()
 
-	return settle(t, model, cmd, func(next tea.Cmd) (tea.Msg, bool) {
-		answer := make(chan tea.Msg, 1)
+	return settle(t, model, cmd, driver{
+		run: func(next tea.Cmd) (tea.Msg, bool) {
+			answer := make(chan tea.Msg, 1)
 
-		go func() { answer <- next() }()
+			go func() { answer <- next() }()
 
-		select {
-		case msg := <-answer:
-			return msg, true
-		case <-held.waiting:
-			return nil, false
-		case <-deadline.C:
-			t.Fatalf("the model had not settled after %v: a fake is blocked, or the model never stops asking", failsafe)
+			select {
+			case msg := <-answer:
+				return msg, true
+			case <-held.waiting:
+				return nil, false
+			case <-deadline.C:
+				t.Fatalf("the model had not settled after %v: a fake is blocked, or the model never stops asking", failsafe)
 
-			return nil, false
-		}
+				return nil, false
+			}
+		},
+		deliver: func(model tui.Model, msg tea.Msg) (tui.Model, tea.Cmd) { return held.update(t, model, msg) },
 	})
 }
 
+// driver is how a drain runs a command for its message, reporting whether it
+// answered, and how it hands a message to the model.
+type driver struct {
+	run     func(tea.Cmd) (tea.Msg, bool)
+	deliver func(tui.Model, tea.Msg) (tui.Model, tea.Cmd)
+}
+
 // settle runs a command and every command it leads to, as drain describes,
-// asking run for each one's message; a command run leaves unanswered leads to
-// nothing.
-func settle(t *testing.T, model tui.Model, cmd tea.Cmd, run func(tea.Cmd) (tea.Msg, bool)) tui.Model {
+// with drive; a command it leaves unanswered leads to nothing.
+func settle(t *testing.T, model tui.Model, cmd tea.Cmd, drive driver) tui.Model {
 	t.Helper()
 
 	var clock fakeClock
@@ -157,7 +172,7 @@ func settle(t *testing.T, model tui.Model, cmd tea.Cmd, run func(tea.Cmd) (tea.M
 			continue
 		}
 
-		msg, answered := run(next)
+		msg, answered := drive.run(next)
 		if !answered {
 			continue
 		}
@@ -168,9 +183,9 @@ func settle(t *testing.T, model tui.Model, cmd tea.Cmd, run func(tea.Cmd) (tea.M
 		case scheduled:
 			clock.schedule(msg)
 		default:
-			updated, follow := model.Update(msg)
-			model = concrete(t, updated)
+			var follow tea.Cmd
 
+			model, follow = drive.deliver(model, msg)
 			pending = append(pending, follow)
 		}
 	}
@@ -233,14 +248,44 @@ func (h *hold) wait() {
 	<-h.release
 }
 
+// update hands msg to model as Bubble Tea would, failing the test when the
+// model itself waits on the hold to deal with it: a key or an answer is dealt
+// with at once, and whatever has to wait on a service goes in a command.
+func (h *hold) update(t *testing.T, model tui.Model, msg tea.Msg) (tui.Model, tea.Cmd) {
+	t.Helper()
+
+	type updated struct {
+		model  tea.Model
+		follow tea.Cmd
+	}
+
+	answer := make(chan updated, 1)
+
+	go func() {
+		next, follow := model.Update(msg)
+		answer <- updated{model: next, follow: follow}
+	}()
+
+	select {
+	case got := <-answer:
+		return concrete(t, got.model), got.follow
+	case <-h.waiting:
+		t.Fatalf("the model waited on a held seam itself to deal with %T; that belongs in a command", msg)
+	case <-time.After(failsafe):
+		t.Fatalf("the model had not dealt with %T after %v", msg, failsafe)
+	}
+
+	return model, nil
+}
+
 // holding presses keys in order, as typing does, leaving out whatever held keeps
 // from answering.
 func holding(t *testing.T, held *hold, model tui.Model, keys ...string) tui.Model {
 	t.Helper()
 
 	for _, key := range keys {
-		updated, cmd := model.Update(keyMsg(key))
-		model = drainPast(t, held, concrete(t, updated), cmd)
+		updated, cmd := held.update(t, model, keyMsg(key))
+		model = drainPast(t, held, updated, cmd)
 	}
 
 	return model
