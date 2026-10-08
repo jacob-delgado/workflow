@@ -196,6 +196,27 @@ test('draws the stages the server sends for an issue with no branch', () => {
   ])
 })
 
+// The Issue stage's words say what its state does: the server reads an issue
+// with no branch, open in its story, as picked, and one it sends not started
+// as not picked up.
+test.each<{ state: Stage['state']; said: string }>([
+  { state: 'in_flight', said: 'Picked, not branched for yet' },
+  { state: 'not_started', said: 'Not picked up yet' },
+])('the Issue stage of an issue with no branch read $state says $said', ({ state, said }) => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ unstarted_stages: makeStages({ issue: state }) }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-999" />)
+
+  // Assert
+  const stage = screen.getByRole('button', { name: /^Issue/ })
+  expect(within(stage).getByText(said)).toBeTruthy()
+})
+
 test('says the pull request was announced when the server reads the stage done', () => {
   // Arrange
   streamOnHead({ stages: makeStages({ announce: 'done' }) })
