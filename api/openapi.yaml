@@ -1757,10 +1757,12 @@ paths:
         post or is not set up. Given mentions, it tags the linked user owners
         and the groups named on a line after the text; a group the
         announcement did not offer, or mentions where it tags no one, is a
-        422 and nothing is posted; a service that cannot be reached, or asks to
-        wait, is a 502. The mentions carry the user IDs the preview showed
-        tagged: when the linked owners read now differ (a link changed in
-        Settings or a terminal since), nothing is posted and the answer is
+        422 and nothing is posted; a service that cannot be reached, or
+        answers with a redirect, is a 502, and one that asks to wait is a 503
+        with code rate_limited, with Retry-After when it named the wait. The
+        mentions carry the user IDs the preview showed tagged: when the linked
+        owners read now differ (a link changed in Settings or a terminal
+        since), nothing is posted and the answer is
         409, as for changed text. Tagging needs a Slack user token in the
         configuration in effect at the post. No answer carries the service's
         own error, which can name the webhook. Given edited_text, that text is
@@ -2037,10 +2039,12 @@ paths:
         fails, the title or base is missing, the forge turns the pull request
         down, with the forge's reason, or the repository's forge cannot be
         told apart, which says to set forge.kind and forge.host. Any other failed open is
-        answered as a read's failure is: 502 when the forge cannot be reached,
-        asks to wait or redirects, 404 when it will not show the repository,
-        and 422 when the forge token is missing or refused, or the forge
-        settings are incomplete or reach no forge API. A reviewer either forge
+        answered as a read's failure is: 502 when the forge cannot be reached
+        or answers with a redirect, 503 with code rate_limited when it asks to
+        wait (with Retry-After when it named the wait), 404 when it will not
+        show the repository, and 422 when the forge token is missing or
+        refused, or the forge settings are incomplete or reach no forge API. A
+        reviewer either forge
         will not take, or an assignee GitLab does not know, does not stop the
         pull request: it opens with the reviewers and assignees the forge
         took, and the answer carries a warning.
@@ -2472,9 +2476,11 @@ paths:
         gets a heading's words alone. Nothing about the post is kept, as an
         announcement is. The period is refused with 422 as GET /api/activity
         refuses it, and so is blank text or text too long for the service; a
-        service that refuses the post or is not set up is a 422, and one that
-        cannot be reached, or asks to wait, a 502. No answer carries the service's own error, which can name
-        the webhook. Under --dry-run it is refused with a plain-text 403, as
+        service that refuses the post or is not set up is a 422, one that
+        cannot be reached, or answers with a redirect, a 502, and one that asks
+        to wait a 503 with code rate_limited, with Retry-After when it named the
+        wait. No answer carries the service's own error, which can name the
+        webhook. Under --dry-run it is refused with a plain-text 403, as
         every write is.
       tags: [summary]
       requestBody:
