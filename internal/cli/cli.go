@@ -182,12 +182,9 @@ func NewRootCmd(prompt Prompt) *cobra.Command {
 // caller hands it, so a test can see what bare `workflow` and `workflow --web`
 // open without a terminal or a port.
 func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Command {
-	var (
-		dryRun bool
-		web    bool
-		port   int
-	)
+	var flags rootFlags
 
+	opening := surfaces{run: run, serveAt: serveAt}
 	root := &cobra.Command{
 		Use:           "workflow",
 		Short:         "Run your Jira, Git forge and messaging workflow, in the terminal or a browser",
@@ -196,38 +193,61 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Co
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
-		PreRunE:       func(cmd *cobra.Command, _ []string) error { return checkPort(cmd, web, port) },
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			conn, err := connectLeniently(cmd)
-			if err != nil {
-				return err
-			}
-			defer conn.closeLog()
-
-			conn = conn.withSetup(cmd, prompt.StoreSecret)
-
-			if web {
-				return serveWeb(cmd, conn, serveAt(webserver.LoopbackAddr(port)), dryRun)
-			}
-
-			return runInterfaces(cmd, run, conn, dryRun)
-		},
+		PreRunE:       func(cmd *cobra.Command, _ []string) error { return checkPort(cmd, flags.web, flags.port) },
+		RunE:          func(cmd *cobra.Command, _ []string) error { return opening.open(cmd, prompt, flags) },
 	}
 
-	// Declared once, on the root, for every command: a script passes them before
-	// the command's name or after it. Each command reads them back by name.
-	root.PersistentFlags().BoolVar(&dryRun, dryRunFlag, false,
+	flags.declare(root)
+	root.AddCommand(subcommands(prompt)...)
+
+	return root
+}
+
+// rootFlags are the root's flags: a dry run, which every command reads, and
+// --web and --port, which choose what bare workflow opens.
+type rootFlags struct {
+	dryRun bool
+	web    bool
+	port   int
+}
+
+// declare declares the flags on root: --dry-run and --log once, for every
+// command, so a script passes them before the command's name or after it, and
+// each command reads them back by name; --web and --port on the root alone.
+func (f *rootFlags) declare(root *cobra.Command) {
+	root.PersistentFlags().BoolVar(&f.dryRun, dryRunFlag, false,
 		"hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, "+
 			"and say what it would have done")
 	root.PersistentFlags().String(logFlag, "",
 		"append a one-line outline of each request (method, path, status, duration) to `FILE`, for a bug report")
-	root.Flags().BoolVar(&web, "web", false,
+	root.Flags().BoolVar(&f.web, "web", false,
 		"serve the web interface on http://127.0.0.1 instead of opening the terminal interface")
-	root.Flags().IntVar(&port, portFlag, webserver.DefaultPort, "the port --web serves on, from 1 to 65535")
+	root.Flags().IntVar(&f.port, portFlag, webserver.DefaultPort, "the port --web serves on, from 1 to 65535")
+}
 
-	root.AddCommand(subcommands(prompt)...)
+// surfaces are what bare workflow can open: the terminal interface, or the
+// web server on a port.
+type surfaces struct {
+	run     RunInterface
+	serveAt RunWebAt
+}
 
-	return root
+// open wires the working directory, offering a first run where it works, and
+// opens the web server where flags ask for it and the interface otherwise.
+func (s surfaces) open(cmd *cobra.Command, prompt Prompt, flags rootFlags) error {
+	conn, err := connectLeniently(cmd)
+	if err != nil {
+		return err
+	}
+	defer conn.closeLog()
+
+	conn = conn.withSetup(cmd, prompt.StoreSecret)
+
+	if flags.web {
+		return serveWeb(cmd, conn, s.serveAt(webserver.LoopbackAddr(flags.port)), flags.dryRun)
+	}
+
+	return runInterfaces(cmd, s.run, conn, flags.dryRun)
 }
 
 // interfaceInput bundles what opening the terminal interface needs, so the
