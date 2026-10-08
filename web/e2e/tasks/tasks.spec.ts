@@ -2,7 +2,7 @@ import type { Locator, Page } from '@playwright/test'
 import type { Snapshot, Task, TaskList, TasksSummary } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { expect, issuesOf, problem, snapshotWith, streams, test } from '../support/fixtures.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 
 // Your Taskwarrior tasks as the browser draws them, against answers given
 // here: where a refusal sits against its row's buttons, how the header's task
@@ -270,26 +270,16 @@ for (const theme of themes) {
       await page.goto('/')
       await openSection(page, 'Tasks')
 
-      // Act: narrow to priority H, sort by tag, type a filter, and Tab once
-      // round the page.
+      // Act: narrow to priority H, sort by tag, and type a filter.
       const narrow = page.getByRole('group', { name: 'Filter' })
       await narrow.getByRole('button', { name: 'priority H 1' }).click()
       await page.getByRole('combobox', { name: 'Sort' }).selectOption('By tag')
       await page.getByRole('searchbox', { name: 'Search' }).fill('staging')
       await expect(page.getByText('1 of 2 tasks matches, by tag.')).toBeVisible()
-      const { reached, missed, hidden } = await walkTabOrder(page)
 
-      // Assert: nothing scrolls sideways, nor the page down; Tab reaches the
-      // sort, the filter and the pressed chip, each in view; and axe finds
-      // nothing, a pressed chip's contrast included.
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
-      expect(reached, 'reached by Tab').toEqual(
-        expect.arrayContaining(['Sort', 'Search', 'priority H 1']),
-      )
-      expect(missed, 'never reached by Tab').toEqual([])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Assert: Tab reaches the sort, the filter and the pressed chip, and it
+      // is clean, a pressed chip's contrast included.
+      await expectReachableAndClean(page, { reaches: ['Sort', 'Search', 'priority H 1'] })
     })
   }
 }

@@ -1,6 +1,8 @@
+import type { Page } from '@playwright/test'
+import type { Snapshot } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { branchWith, expect, problem, snapshotWith, streams, test } from '../support/fixtures.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean, sidewaysScrollers } from '../support/reachable.ts'
 
 // The Branch section's working tree: a file staged, a stage the server
 // refuses, and names wider than the narrowest window.
@@ -43,31 +45,42 @@ const workingTreeSnapshot = snapshotWith({
   },
 })
 
+// opensBranch opens the Branch section in a theme, in a window of a width, on
+// the working tree streamed.
+async function opensBranch(
+  page: Page,
+  { theme, width, snapshot }: { theme: string; width: number; snapshot: Snapshot },
+): Promise<void> {
+  await pinTheme(page, theme)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width, height })
+  await streams(page, snapshot)
+  await page.goto('/')
+  await openSection(page, 'Branch')
+}
+
 for (const theme of themes) {
-  test(`no accessibility violations in the working tree in the ${theme} theme`, async ({
-    page,
-  }) => {
-    // Arrange: the stream's working tree, and the stage answered here, so a
-    // file's outcome line is on screen beside the buttons and the form.
-    await pinTheme(page, theme)
-    await page.emulateMedia({ reducedMotion: 'reduce' })
-    await streams(page, workingTreeSnapshot)
-    await page.route('**/api/stage', (route) =>
-      route.fulfill({ json: workingTreeSnapshot.changes }),
-    )
-    await page.goto('/')
-    await page
-      .getByRole('navigation', { name: 'Sections' })
-      .getByRole('button', { name: 'Branch' })
-      .click()
+  for (const width of widths) {
+    test(`a staged file fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
+      page,
+    }) => {
+      // Arrange: the stage answered here, so a file's outcome line is on
+      // screen beside the buttons and the commit form.
+      await page.route('**/api/stage', (route) =>
+        route.fulfill({ json: workingTreeSnapshot.changes }),
+      )
+      await opensBranch(page, { theme, width, snapshot: workingTreeSnapshot })
 
-    // Act: stage the untracked file.
-    await page.getByRole('button', { name: 'Stage notes.txt' }).click()
-    await expect(page.getByText('Staged notes.txt.')).toBeVisible()
+      // Act: stage the untracked file.
+      await page.getByRole('button', { name: 'Stage notes.txt' }).click()
+      await expect(page.getByText('Staged notes.txt.')).toBeVisible()
 
-    // Assert: axe finds nothing on the working tree and its commit form.
-    expect(await axeViolations(page), `${theme} / working tree`).toBe('')
-  })
+      // Assert: Tab reaches Stage all and the commit, and it is clean.
+      await expectReachableAndClean(page, {
+        reaches: ['Stage all', 'Commit staged changes'],
+      })
+    })
+  }
 }
 
 // refused is what a write gets when the server cannot complete it.
@@ -75,27 +88,6 @@ const refused = problem(
   'internal',
   'the request could not be completed; try again, and run workflow doctor if it keeps failing',
 )
-
-for (const theme of themes) {
-  test(`no accessibility violations beside a refused write in the ${theme} theme`, async ({
-    page,
-  }) => {
-    // Arrange: the stream's working tree, and a stage the server refuses.
-    await pinTheme(page, theme)
-    await page.emulateMedia({ reducedMotion: 'reduce' })
-    await streams(page, workingTreeSnapshot)
-    await page.route('**/api/stage', (route) => route.fulfill(refused))
-    await page.goto('/')
-    await openSection(page, 'Branch')
-
-    // Act: stage the untracked file, and let the refusal land.
-    await page.getByRole('button', { name: 'Stage notes.txt' }).click()
-    await expect(page.getByRole('alert')).toHaveText(/could not be completed/)
-
-    // Assert: axe finds nothing on the refusal and the working tree around it.
-    expect(await axeViolations(page), `${theme} / refused write`).toBe('')
-  })
-}
 
 // A branch and a file whose names each hold a word wider than the content.
 const unbrokenSnapshot = snapshotWith({
@@ -170,28 +162,23 @@ test('the branch and the header fit 320 px, wrapping a name wider than the conte
   expect(await page.getByRole('term').evaluateAll(termsSlack), 'the terms column').toBeLessThan(1)
 })
 
-for (const width of widths) {
-  test(`a refused write fits ${String(width)} px, every control reached in view`, async ({
-    page,
-  }) => {
-    // Arrange: the stream's working tree, and a stage the server refuses.
-    await streams(page, unbrokenSnapshot)
-    await page.route('**/api/stage', (route) => route.fulfill(refused))
-    await page.emulateMedia({ reducedMotion: 'reduce' })
-    await page.setViewportSize({ width, height })
-    await page.goto('/')
-    await openSection(page, 'Branch')
+for (const theme of themes) {
+  for (const width of widths) {
+    test(`a refused write fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
+      page,
+    }) => {
+      // Arrange: a stage the server refuses, of a file whose name is wider
+      // than the content.
+      await page.route('**/api/stage', (route) => route.fulfill(refused))
+      await opensBranch(page, { theme, width, snapshot: unbrokenSnapshot })
 
-    // Act: stage the file, let the refusal land, and Tab once round the page.
-    await page.getByRole('button', { name: /^Stage internal\/tui/ }).click()
-    await expect(page.getByRole('alert')).toBeVisible()
-    const { missed, hidden } = await walkTabOrder(page)
+      // Act: stage the file, and let the refusal land.
+      await page.getByRole('button', { name: /^Stage internal\/tui/ }).click()
+      await expect(page.getByRole('alert')).toHaveText(/could not be completed/)
 
-    // Assert: nothing scrolls sideways, nor the page down; and Tab reaches
-    // every drawn control beside the refusal, each in view.
-    expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-    expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
-    expect(missed, 'never reached by Tab').toEqual([])
-    expect(hidden, 'out of view with focus').toEqual([])
-  })
+      // Assert: Tab reaches every drawn control beside the refusal, and it is
+      // clean.
+      await expectReachableAndClean(page)
+    })
+  }
 }
