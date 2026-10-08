@@ -26,12 +26,6 @@ export function linkedTo(tasks: Task[], issueKey: string): Task[] {
   return tasks.filter((task) => task.issue_key === issueKey)
 }
 
-// statusWords names a task's state in Taskwarrior's own words, a started task
-// as started.
-export function statusWords(task: Task): string {
-  return isActive(task) ? 'started' : task.status
-}
-
 // markOf is how far a task has got, by shape — started, completed, or not
 // started yet — as the terminal's glyph for it is.
 export function markOf(task: Task): MarkState {

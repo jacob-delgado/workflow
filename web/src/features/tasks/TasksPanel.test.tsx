@@ -150,7 +150,7 @@ test('tasks all of one kind are one list, with no headings over it', async () =>
 
 test('the mark beside each task is how far it has got, by shape, beside its words', async () => {
   // Arrange
-  const started = { ...tokenLeak, start: hoursFromNow(-1) }
+  const started = { ...tokenLeak, start: hoursFromNow(-1), state: 'started' as const }
   fakeApi({ [tasksPath]: makeTaskList([started, certificate]) })
 
   // Act
@@ -243,7 +243,12 @@ test('the detail gives the task its facts and its notes', async () => {
 
 test('the detail of a started task says how long ago it was started, and when it is due', async () => {
   // Arrange
-  const started = { ...tokenLeak, start: hoursFromNow(-1.2), due: hoursFromNow(-2) }
+  const started = {
+    ...tokenLeak,
+    start: hoursFromNow(-1.2),
+    state: 'started' as const,
+    due: hoursFromNow(-2),
+  }
   fakeApi({ [tasksPath]: makeTaskList([started]) })
 
   // Act

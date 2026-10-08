@@ -1,5 +1,5 @@
 import { makeTask } from '@/test/fixtures.ts'
-import { dueWords, elapsedWords, markOf, statusWords } from './taskWords.ts'
+import { dueWords, elapsedWords, markOf } from './taskWords.ts'
 
 const minute = 60_000
 const now = Date.parse('2026-09-28T12:00:00Z')
@@ -36,13 +36,13 @@ test.each([
 })
 
 test.each([
-  ['a started task', makeTask({ start: before(10) }), 'started', 'in-flight'],
-  ['a task not started', makeTask(), 'pending', 'not-started'],
-  ['a waiting task', makeTask({ status: 'waiting' }), 'waiting', 'not-started'],
-  ['a recurring task', makeTask({ status: 'recurring' }), 'recurring', 'not-started'],
-  ['a completed task', makeTask({ status: 'completed', end: before(5) }), 'completed', 'done'],
-  ['a deleted task', makeTask({ status: 'deleted' }), 'deleted', 'not-started'],
-])("names %s in Taskwarrior's words, and marks it by shape", (_, task, words, mark) => {
+  ['a started task', makeTask({ start: before(10) }), 'in-flight'],
+  ['a task not started', makeTask(), 'not-started'],
+  ['a waiting task', makeTask({ status: 'waiting' }), 'not-started'],
+  ['a recurring task', makeTask({ status: 'recurring' }), 'not-started'],
+  ['a completed task', makeTask({ status: 'completed', end: before(5) }), 'done'],
+  ['a deleted task', makeTask({ status: 'deleted' }), 'not-started'],
+])('marks %s by shape', (_, task, mark) => {
   // Act & Assert
-  expect([statusWords(task), markOf(task)]).toEqual([words, mark])
+  expect(markOf(task)).toBe(mark)
 })

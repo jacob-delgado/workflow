@@ -31,12 +31,32 @@ const room = makeTask({
   urgency: 1,
   issue_key: '',
 })
+// held is pending to Taskwarrior, with a wait still ahead, so the server words
+// its state as waiting.
+const held = makeTask({
+  uuid: 'd',
+  id: 4,
+  description: 'Call the vendor',
+  state: 'waiting',
+  wait: '2099-01-03T00:00:00Z',
+  urgency: 0.5,
+  issue_key: '',
+})
 
 // chips is each chip the filter offers, as it names it, in order.
 function chips(): string[] {
   return within(screen.getByRole('group', { name: 'Filter' }))
     .getAllByRole('button')
     .map((chip) => chip.textContent)
+}
+
+// factOf is what a task's detail says of it under a term, if it says anything.
+function factOf(detail: HTMLElement, term: string): string | undefined {
+  const terms = within(detail)
+    .getAllByRole('term')
+    .map((shown) => shown.textContent)
+
+  return within(detail).getAllByRole('definition')[terms.indexOf(term)]?.textContent
 }
 
 function rows(): string[] {
@@ -91,6 +111,32 @@ test('picking waiting lists the waiting tasks, each saying until when', async ()
 
   // Assert
   expect(rows()).toEqual([expect.stringMatching(/Book the room.*waits until 2099-01-02/)])
+})
+
+test('a pending task picked as waiting reads waiting in its row, as the server words it', async () => {
+  // Arrange
+  fakeApi({ '/api/tasks': makeTaskList([leak, held]) })
+  renderWithClient(<TasksPanel />)
+  const narrow = await screen.findByRole('group', { name: 'Filter' })
+
+  // Act
+  await userEvent.click(within(narrow).getByRole('button', { name: 'waiting 1' }))
+
+  // Assert
+  expect(rows()).toEqual([expect.stringMatching(/^waiting#4Call the vendor/)])
+})
+
+test("a pending task picked as waiting has the server's state in its detail", async () => {
+  // Arrange
+  fakeApi({ '/api/tasks': makeTaskList([leak, held]) })
+  renderWithClient(<TasksPanel />)
+  const narrow = await screen.findByRole('group', { name: 'Filter' })
+
+  // Act
+  await userEvent.click(within(narrow).getByRole('button', { name: 'waiting 1' }))
+
+  // Assert
+  expect(factOf(screen.getByRole('article'), 'State')).toBe('waiting')
 })
 
 test('the filter offers its chips in the order the server offers them, as it labels them', async () => {
