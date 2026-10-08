@@ -1,5 +1,5 @@
 import type { StatusCategory } from '@/api/generated/types.gen.ts'
-import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
+import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 
 // The tracker groups every workflow's statuses into three categories, and the
 // mark follows the category, as the interface's issue list does, so "In

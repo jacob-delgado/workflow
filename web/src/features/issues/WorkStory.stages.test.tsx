@@ -3,7 +3,7 @@ import type { Change, Ci, CiState, PullRequest, Snapshot } from '@/api/generated
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
-import type { MarkState } from '@/shell/StateMark.tsx'
+import type { MarkState } from '@/lib/StateMark.tsx'
 import { WorkStory } from './WorkStory.tsx'
 
 // The story's stages follow the rules internal/progress writes for the
