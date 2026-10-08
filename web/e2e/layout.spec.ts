@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import {
+  confirmSteps,
   height,
   openCockpit,
   openFirstRun,
@@ -101,68 +102,6 @@ test(
     }
   },
 )
-
-// The steps a click opens on the populated build before a write goes out, and
-// the controls each adds, which Tab must reach in view.
-const confirmSteps = [
-  {
-    step: 'push confirmation',
-    section: 'Branch',
-    opener: 'Push branch',
-    group: /^Push /,
-    adds: ['Cancel', 'Push'],
-  },
-  {
-    step: 'discard confirmation',
-    section: 'Branch',
-    opener: 'Discard internal/config/redact.go…',
-    group: 'Discard the changes to internal/config/redact.go?',
-    adds: ['Cancel', 'Discard'],
-  },
-  {
-    step: 'announcement preview',
-    section: 'Slack',
-    opener: 'Announce to Slack',
-    group: 'Announcement preview',
-    // The mockup's announcement tags: an owner to link, and a group to check.
-    adds: [
-      'Channel',
-      'Slack user for ben',
-      'ben is not on Slack',
-      '@api-reviewers',
-      'Cancel',
-      'Announce now',
-    ],
-  },
-  {
-    step: 'summary preview',
-    section: 'Summary',
-    opener: 'Post…',
-    group: 'Summary preview',
-    adds: ['Edit', 'Channel', 'Cancel', 'Post'],
-  },
-  {
-    step: 'forget confirmation in People and groups',
-    section: 'Settings',
-    opener: 'Forget carla…',
-    group: 'Forget carla?',
-    adds: ['Cancel', 'Forget'],
-  },
-  {
-    step: 'credential removal in Settings',
-    section: 'Settings',
-    opener: 'Remove the Jira token…',
-    group: 'Remove the Jira token from the file?',
-    adds: ['Cancel', 'Remove'],
-  },
-  {
-    step: 'remove confirmation in Local data',
-    section: 'Settings',
-    opener: 'Remove cache…',
-    group: 'Remove workflow.db?',
-    adds: ['Cancel', 'Remove'],
-  },
-]
 
 for (const theme of themes) {
   for (const width of widths) {
