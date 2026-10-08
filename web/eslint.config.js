@@ -1,3 +1,4 @@
+import comments from '@eslint-community/eslint-plugin-eslint-comments'
 import js from '@eslint/js'
 import jsonc from 'eslint-plugin-jsonc'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
@@ -89,6 +90,17 @@ export default tseslint.config(
   // about the code — fail on it rather than warn, so the annotated escapes from
   // the ban lists below stay honest.
   { linterOptions: { reportUnusedDisableDirectives: 'error' } },
+  // Every disable says why on the directive itself, after `--`, and names the
+  // rules it turns off: a reason in the comment above drifts from the line it
+  // excuses, and a bare `eslint-disable` turns off rules nobody chose.
+  {
+    files: ['**/*.{js,mjs,cjs,ts,tsx}'],
+    plugins: { '@eslint-community/eslint-comments': comments },
+    rules: {
+      '@eslint-community/eslint-comments/require-description': 'error',
+      '@eslint-community/eslint-comments/no-unlimited-disable': 'error',
+    },
+  },
   // Plain JS (this config): recommended rules only — the type-checked set below
   // needs tsconfig coverage this file lacks.
   {

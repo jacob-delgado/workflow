@@ -158,9 +158,7 @@ function Options({ listId, shown, active, hue, optionId, onRun }: OptionsProps) 
           </div>
           {shown.map((entry, index) =>
             entry.group === group ? (
-              // An option never has the focus — the combobox keeps it, and its own
-              // keys choose and run one — so a press is its only listener.
-              // eslint-disable-next-line jsx-a11y/click-events-have-key-events
+              // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- an option never has the focus: the combobox keeps it, and its own keys choose and run one, so a press is its only listener
               <div
                 key={entry.id}
                 id={optionId(index)}

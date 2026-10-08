@@ -24,6 +24,14 @@ test.each([
     rule: 'jsx-a11y/no-autofocus',
     code: 'export function Search() {\n  return <input aria-label="Search" autoFocus />\n}\n',
   },
+  {
+    rule: '@eslint-community/eslint-comments/require-description',
+    code: '// eslint-disable-next-line no-console\nconsole.log("hi")\n',
+  },
+  {
+    rule: '@eslint-community/eslint-comments/no-unlimited-disable',
+    code: '/* eslint-disable -- every rule, for no rule in particular */\nconsole.log("hi")\n',
+  },
 ])('$rule fires on the app code that breaks it', async ({ rule, code }) => {
   // Act
   const broken = await rulesBroken(code, 'src/App.tsx')
