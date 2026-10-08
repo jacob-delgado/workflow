@@ -81,9 +81,9 @@ jobs:
       # so CI and a developer's machine cannot disagree about them. The run's
       # events are kept for the test summary's counts.
       - run: task test:cover GO_TEST_JSON=tmp/go-events.json
-      # Condition coverage. gobco reads every package but the build-tagged twins
-      # scripts/gobco-report.sh lists as unreadable (it fails on any other that
-      # drops out of the report unannounced).
+      # Condition coverage. gobco reads every package with tests, a package of
+      # build-tagged twins a file at a time, and scripts/gobco-report.sh fails
+      # on any it cannot read rather than drop it from the report.
       - run: task cover:branch
       # Consumed by the summary and coverage-baseline jobs below.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
