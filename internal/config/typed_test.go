@@ -92,6 +92,34 @@ func TestSaveEditPlacesNoSlackSecretsWhenAnotherCredentialIsRefused(t *testing.T
 	}
 }
 
+func TestSaveEditPlacesNoSlackSecretsWhenAHomeOnlySettingIsRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files, read, revision := readLayered(t, `{"jira": {"project": "OSS"}}`)
+	edited := read.Redacted()
+	edited.Messaging.RefreshToken, edited.Taskwarrior.Program = typedRefresh, taskProgram
+
+	placed := false
+	place := func(cfg config.Config) (config.Config, error) {
+		placed = true
+		cfg.Messaging.ClientSecret, cfg.Messaging.RefreshToken = "", ""
+
+		return cfg, nil
+	}
+
+	// Act
+	_, _, err := config.SaveEdit(config.Edit{
+		Files: files, Read: read, Over: revision, Edited: edited, PlaceSlackCredentials: place,
+	})
+
+	// Assert
+	if !errors.Is(err, config.ErrHomeOnly) || placed {
+		t.Errorf("SaveEdit = %v, placed %t; want the Task program refused before the refresh token is spent",
+			err, placed)
+	}
+}
+
 func TestSaveEditKeepsTheSlackSecretsPlacedOutsideTheRepositoryFile(t *testing.T) {
 	t.Parallel()
 

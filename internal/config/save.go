@@ -337,7 +337,8 @@ type Edit struct {
 // where KeepJiraToken is wired, and so lands in no file. Every credential but
 // those placed elsewhere is checked before any is placed, since placing the
 // Slack secrets spends the refresh token typed, and every one before the
-// keychain is handed the token, which replaces the item it held.
+// keychain is handed the token, which replaces the item it held. Neither is
+// done for a write the files would then refuse.
 func SaveEdit(edit Edit) (Config, Revision, error) {
 	incoming := KeepStored(edit.Edited, edit.Read, edit.Removed)
 	incoming.Path, incoming.Files = edit.Files.Target(), edit.Files
@@ -388,9 +389,9 @@ func (edit Edit) placeSlackCredentials(incoming Config) (Config, error) {
 		return incoming, nil
 	}
 
-	// Placing spends the typed refresh token, so it is done only over the file
-	// the write that follows will find.
-	err := edit.unchangedFor("placing the Slack secrets")
+	// Placing spends the typed refresh token, so it is done only for a write
+	// that will be made.
+	err := edit.writableFor("placing the Slack secrets", incoming)
 	if err != nil {
 		return Config{}, err
 	}
@@ -419,14 +420,17 @@ func (edit Edit) keepsJiraToken(incoming Config) bool {
 
 // keepJiraToken keeps a Jira token typed into the editor in the keychain item
 // for its address, and answers the configuration to write: reading it from
-// there, the token out of the file. It is done only over the files the write
-// that follows will find, so a refused save leaves the keychain as it was.
+// there, the token out of the file. It is done only for a write that will be
+// made, so a refused save leaves the keychain as it was.
 func (edit Edit) keepJiraToken(incoming Config) (Config, error) {
 	if !edit.keepsJiraToken(incoming) {
 		return incoming, nil
 	}
 
-	err := edit.unchangedFor("keeping the Jira token")
+	written := incoming
+	written.Jira.Token, written.Jira.Keychain = "", true
+
+	err := edit.writableFor("keeping the Jira token", written)
 	if err != nil {
 		return Config{}, err
 	}
@@ -436,18 +440,20 @@ func (edit Edit) keepJiraToken(incoming Config) (Config, error) {
 		return Config{}, fmt.Errorf("%w: %w", ErrTokenNotKept, err)
 	}
 
-	incoming.Jira.Token, incoming.Jira.Keychain = "", true
-
-	return incoming, nil
+	return written, nil
 }
 
-// unchangedFor refuses, as doing, files that are no longer at the revision
-// the edit was made over.
-func (edit Edit) unchangedFor(doing string) error {
-	current, err := RevisionOfLayers(edit.Files)
-	if err != nil || current != edit.Over {
+// writableFor refuses, writing nothing, a write of cfg that SaveLayers would
+// refuse: files no longer at the revision the edit was made over, refused as
+// doing, or a repository's file cfg would make a setting only the home file
+// may, refused as the write would be.
+func (edit Edit) writableFor(doing string, cfg Config) error {
+	home, repo, err := readLayers(edit.Files)
+	if err != nil || layersRevision(home, repo) != edit.Over {
 		return fmt.Errorf("%s: %w", doing, ErrChangedOnDisk)
 	}
 
-	return nil
+	_, err = layerContents(edit.Files, home, cfg)
+
+	return err
 }
