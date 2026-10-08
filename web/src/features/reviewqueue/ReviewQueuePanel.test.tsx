@@ -91,11 +91,12 @@ test('the Reviews section lists requests by role and name', async () => {
 })
 
 // The words are the label the server gives the request's CI facet, the ones
-// the filter offers it by.
+// the filter offers it by. One is a label the page could not spell from the
+// CI's value, so the row is seen to read the server's.
 test('draws how CI stands on each request as its mark, beside the words', async () => {
   // Arrange
   const stands = [
-    { ci: 'none', words: 'CI none', mark: 'unknown' },
+    { ci: 'none', words: 'CI unreported', mark: 'unknown' },
     { ci: 'running', words: 'CI running', mark: 'in-flight' },
     { ci: 'passed', words: 'CI passed', mark: 'done' },
     { ci: 'failed', words: 'CI failed', mark: 'failed' },
