@@ -89,21 +89,20 @@ func TestTheHourTheClocksRepeatIsTwoHoursNamedApart(t *testing.T) {
 	}
 }
 
-func TestMergingOrdersByTimeAndKeepsACommitSeenTwiceOnce(t *testing.T) {
+func TestMergingOrdersEveryListsItemsByTime(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// A commit on two branches, or read from two repositories that share it,
-	// is one piece of work.
 	commit := activity.Item{At: at(t, "2026-10-02T10:00:00Z"), Kind: activity.Committed, Ref: "abc1234", Title: "fix"}
 	task := activity.Item{At: at(t, "2026-10-02T09:00:00Z"), Kind: activity.TaskCompleted, Ref: "12", Title: "done"}
+	later := activity.Item{At: at(t, "2026-10-02T11:00:00Z"), Kind: activity.Committed, Ref: "def5678", Title: "test"}
 
 	// Act
-	merged := activity.Merge([]activity.Item{commit}, []activity.Item{task, commit})
+	merged := activity.Merge([]activity.Item{commit, later}, []activity.Item{task})
 
 	// Assert
-	if len(merged) != 2 || merged[0] != task || merged[1] != commit {
-		t.Errorf("Merge = %+v, want the task then the commit, once", merged)
+	if len(merged) != 3 || merged[0] != task || merged[1] != commit || merged[2] != later {
+		t.Errorf("Merge = %+v, want the task, then the commit, then the later commit", merged)
 	}
 }
 
