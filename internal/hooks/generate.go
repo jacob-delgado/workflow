@@ -411,7 +411,7 @@ type repository struct {
 }
 
 // writeAll creates the configuration and then each script, and on any failure
-// removes what it created, so a write that stops part-way leaves no
+// removes what it created, directories too, so a write that stops part-way leaves no
 // lefthook.yml naming scripts it never wrote — which would otherwise block the
 // offer from ever being tried again.
 func (r repository) writeAll(generated Generated) error {
@@ -433,11 +433,13 @@ func (r repository) writeAll(generated Generated) error {
 	for _, script := range generated.Scripts {
 		name := filepath.FromSlash(script.Path)
 
-		err = r.root.MkdirAll(filepath.Dir(name), dirMode)
+		made, err := r.makeDirs(filepath.Dir(name))
+		written = append(written, made...)
+
 		if err != nil {
 			remove()
 
-			return fmt.Errorf("creating %s: %w", filepath.Dir(script.Path), err)
+			return err
 		}
 
 		err = r.create(name, script.Contents, scriptMode)
@@ -451,6 +453,32 @@ func (r repository) writeAll(generated Generated) error {
 	}
 
 	return nil
+}
+
+// makeDirs creates dir and each parent it lacks, as MkdirAll would, and reports
+// the ones it created, outermost first, so a write that fails can remove them
+// again.
+func (r repository) makeDirs(dir string) ([]string, error) {
+	var made []string
+
+	current := ""
+
+	for part := range strings.SplitSeq(dir, string(filepath.Separator)) {
+		current = filepath.Join(current, part)
+
+		err := r.root.Mkdir(current, dirMode)
+		if errors.Is(err, fs.ErrExist) {
+			continue
+		}
+
+		if err != nil {
+			return made, fmt.Errorf("creating %s: %w", current, err)
+		}
+
+		made = append(made, current)
+	}
+
+	return made, nil
 }
 
 // create writes a new file, refusing one that already exists, and removes the
