@@ -489,18 +489,20 @@ hold time, and `go test -race -count=20` passes for them.
 
 Severity: low · Confidence: read · Size: S
 
-**Where.** TRADE-1, TRADE-2, TRADE-13, TRADE-15, TRADE-16, TRADE-18 and
-TRADE-20 in this file; the register's ordering (TRADE-28 between TRADE-23 and
-TRADE-24); `scripts/check-tradeoffs.sh`.
+**Where.** TRADE-2 and TRADE-18 in this file; the register's ordering
+(TRADE-28 between TRADE-23 and TRADE-24); `scripts/check-tradeoffs.sh`.
 
-**Today.** The entries this edition keeps were rewritten to `b9ab000`, but the
-ones left until their paydown still cite what the code no longer has: TRADE-18
-names `targetDir` (now `whereInit`) and places `connectLeniently` in `cli.go`;
-TRADE-20 places its check at `cli.go:315`; TRADE-15 lists two of three
-`sql.Open` sites (`openKept` is missing); TRADE-16's eleven lines have all
-moved; TRADE-1 says `internal/forge` fills the default and ends its Decided
-paragraph with a sentence about TRADE-4's `freshFor`. `check-tradeoffs.sh`
-checks IDs, not the files and lines an entry cites, so nothing catches this.
+**Today.** The entries this edition keeps were rewritten to `b9ab000`, but two
+left until their paydown still cite what the code no longer has. Six of the
+seven lengths TRADE-2 pins have moved: `post_test.go` is 515 lines, not 766,
+`detail_test.go` is back under the target at 474, and `check-file-length.sh
+--list` flags 45 test files past it, not seven. TRADE-18 names `targetDir`
+(now `whereInit`), places `connectLeniently` in `cli.go` (now `connect.go`)
+and `repositoryFactsFor` in `doctor_json.go` (now `doctor.go`), counts
+`reportRepository`, which no longer reads the working directory, among seven
+conditions that are now six, and cites lines that have all moved.
+`check-tradeoffs.sh` checks IDs, not the files and lines an entry cites, so
+nothing catches this.
 
 **Fix.** When each paydown above lands its entry is deleted; until then cite
 symbols, not lines, and sort the register by ID. Optionally have
