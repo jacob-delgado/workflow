@@ -76,7 +76,7 @@ func (r *firstRun) deps(t *testing.T) webserver.Deps {
 			Check: func(settings config.Jira) (string, error) { return guide.Check(t.Context(), settings) },
 			Write: func(request setup.Request) (setup.Written, error) { return guide.Write(t.Context(), request) },
 		},
-		Unexpected: func(err error) { r.noted = append(r.noted, err.Error()) },
+		Unexpected: func(_ config.Config, err error) { r.noted = append(r.noted, err.Error()) },
 	}
 	deps.Reach = func(dir string) (webserver.World, error) {
 		r.reached = append(r.reached, dir)
