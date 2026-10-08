@@ -2,8 +2,8 @@ import { Monitor, Moon, Sun } from 'lucide-react'
 import { useThemeStore, type ThemeChoice } from './themeStore.ts'
 
 // How each choice presents in the header: its icon and the word a screen reader
-// announces. Building the map here rather than as a module constant keeps the
-// component the single place the choice is turned into UI.
+// announces. The map sits beside the toggle, the one place a choice is turned
+// into UI.
 const choiceMeta: Record<ThemeChoice, { label: string; Icon: typeof Sun }> = {
   system: { label: 'System', Icon: Monitor },
   light: { label: 'Light', Icon: Sun },

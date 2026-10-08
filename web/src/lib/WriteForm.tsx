@@ -32,7 +32,7 @@ export function LabeledInput({
   )
 }
 
-interface WriteFormFrameProps {
+interface WriteFormProps {
   label: string
   act: string
   busy: string | null
@@ -43,9 +43,9 @@ interface WriteFormFrameProps {
   children: ReactNode
 }
 
-// WriteForm is a form that is the last look at a write: what will be sent, a refusal beside
-// it, and its send and Cancel. It takes focus as it opens, and nothing in it
-// can be sent twice while a send is in flight. While it sends, its fields and
+// WriteForm is a form that is the last look at a write: what will be sent, a
+// refusal beside it, and its send and Cancel. It takes focus as it opens, and
+// nothing in it can be sent twice while a send is in flight. While it sends, its fields and
 // buttons are held rather than disabled: each keeps the focus it had — the send
 // pressed, or the field Enter was pressed in — and a field's change is stopped
 // before its own handler hears it, so what is shown stays what was sent.
@@ -58,7 +58,7 @@ export function WriteForm({
   onSend,
   onCancel,
   children,
-}: WriteFormFrameProps) {
+}: WriteFormProps) {
   const shown = useFocusOnMount<HTMLFormElement>()
   const sending = busy !== null
   return (
