@@ -3,9 +3,10 @@
 // jira.markdown_comments is on, so the composer's Preview shows what Jira
 // will be sent.
 //
-// internal/jira/wiki.go converts again before posting, and both copies answer
-// to the one case file internal/jira/testdata/wiki_from_markdown.json, so a
-// change to either alone fails its own tests.
+// Trade-off TRADE-28: these rules are written again in internal/jira/wiki.go,
+// which converts before posting, and both copies answer to the one case file
+// internal/jira/testdata/wiki_from_markdown.json, so a change to either alone
+// fails its own tests.
 export function wikiFromMarkdown(markdown: string): string {
   const out: string[] = []
   let inFence = false
