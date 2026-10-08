@@ -21,9 +21,8 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly report="${here}/gobco-report.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 real_go="$(command -v go)"
 readonly real_go
@@ -56,44 +55,23 @@ chmod +x "${workdir}/bin/gobco" "${workdir}/bin/go"
 # Statistics for one condition seen both ways: two arms of two.
 readonly both_ways='[{"TrueCount":1,"FalseCount":1}]'
 
-failures=0
-cases=0
-
 # expect runs the report with the stand-ins, and compares its exit and output.
-#   expect <ok|fails> <name> <stats> <untested> <want in output> [arg...]
+#   expect <pass|fail> <name> <stats> <untested> <want in output> [arg...]
 expect() {
-  local want_exit="$1" name="$2" stats="$3" untested="$4" want_output="$5"
-  local out_dir="${workdir}/out${cases}" output="${workdir}/output${cases}" got_exit="ok"
-  shift 5
-  cases=$((cases + 1))
-
-  if ! PATH="${workdir}/bin:${PATH}" REAL_GO="${real_go}" OUT_DIR="${out_dir}" \
-    GOBCO_STUB_STATS="${stats}" GO_STUB_UNTESTED="${untested}" \
-    "${report}" "$@" >"${output}" 2>&1; then
-    got_exit="fails"
-  fi
-
-  if [[ "${got_exit}" != "${want_exit}" ]] || ! grep -qF -- "${want_output}" "${output}"; then
-    echo "FAIL ${name}: want ${want_exit} saying '${want_output}', got ${got_exit}:" >&2
-    sed 's/^/    /' "${output}" >&2
-    failures=$((failures + 1))
-  fi
+  expect_output "$1" "$2" "$5" env PATH="${workdir}/bin:${PATH}" REAL_GO="${real_go}" \
+    OUT_DIR="${workdir}/out" GOBCO_STUB_STATS="$3" GO_STUB_UNTESTED="$4" \
+    "${report}" "${@:6}"
 }
 
-expect fails "no floor argument" "${both_ways}" "" "usage: gobco-report.sh <floor>"
-expect fails "a gobco that wrote no statistics" "" "" \
+expect fail "no floor argument" "${both_ways}" "" "usage: gobco-report.sh <floor>"
+expect fail "a gobco that wrote no statistics" "" "" \
   "gobco produced no statistics" 50 "${module}/internal/buildinfo"
 
 # The whole module, as the gate runs it: every package listed without tests is
 # one NO_TESTS names, so taking a name out of it fails this case.
-expect ok "every untested package accounted for" "${both_ways}" "" \
+expect pass "every untested package accounted for" "${both_ways}" "" \
   "Condition coverage 100.0% (floor 50%)." 50
-expect fails "an untested package NO_TESTS does not name" "${both_ways}" "${module}/internal/untested" \
+expect fail "an untested package NO_TESTS does not name" "${both_ways}" "${module}/internal/untested" \
   "packages with no tests and not in NO_TESTS: internal/untested" 50
 
-if ((failures > 0)); then
-  echo "gobco-report_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "gobco-report_test: ${cases} case(s) passed."
+finish_tests

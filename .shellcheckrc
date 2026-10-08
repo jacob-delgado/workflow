@@ -11,3 +11,9 @@ enable=all
 # handled on the next line, and the suggested workaround (assign to a temp
 # variable first) makes each one longer without making it safer.
 disable=SC2312
+
+# The script tests source scripts/lib/testing.sh. Follow it, found from the
+# sourcing script's own directory, so the names it defines are checked as
+# defined rather than flagged as unassigned in every test.
+external-sources=true
+source-path=SCRIPTDIR
