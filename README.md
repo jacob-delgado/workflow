@@ -85,14 +85,10 @@ rest, tokens included, without a copy of them. A token goes only where it was
 written for: a repository's file that points Jira, the forge or the messaging
 service somewhere else inherits none of your home file's credentials for it.
 
-workflow keeps a little state between sessions in an on-disk store — the commit
-scope you last used, which pull requests you have announced, and the last issue
-list it saw, and what you decided: whom each code owner is on Slack, the groups
-each repository tags, your favorite directories — under your platform's data
-directory, and never a secret. It is on by default; set
-`"store": { "disabled": true }` to keep nothing on disk. See
-[Configuration](https://jacob-delgado.github.io/workflow/docs/configuration/) for
-where it lives and how it is keyed.
+workflow keeps a little state between sessions on disk, never a secret;
+[What is kept between sessions][kept] says what, where, and how to turn it off.
+
+[kept]: https://jacob-delgado.github.io/workflow/docs/configuration/#what-is-kept-between-sessions
 
 ### Jira token (on-premises / Data Center)
 
