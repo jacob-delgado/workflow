@@ -4,7 +4,8 @@ import { walkTabOrder } from './tabwalk.ts'
 // What the Tab walk the layout specs lean on reports of a page of its own.
 
 test('a control Tab reaches but the page never draws is out of view', async ({ page }) => {
-  // Arrange: a button between two others, drawn at no size at all.
+  // Arrange
+  // A button between two others, drawn at no size at all.
   await page.setContent(`
     <button>Before</button>
     <button style="width: 0; height: 0; padding: 0; border: 0; overflow: hidden">Undrawn</button>
@@ -19,7 +20,8 @@ test('a control Tab reaches but the page never draws is out of view', async ({ p
 })
 
 test('a walk within a dialog names the stop that leaves it', async ({ page }) => {
-  // Arrange: a dialog shown without trapping focus, a button before it.
+  // Arrange
+  // A dialog shown without trapping focus, a button before it.
   await page.setContent(`
     <button>Outside</button>
     <dialog open><button>Inside</button></dialog>
@@ -34,7 +36,8 @@ test('a walk within a dialog names the stop that leaves it', async ({ page }) =>
 })
 
 test('a walk within a dialog counts its controls alone, clipped by its box', async ({ page }) => {
-  // Arrange: a modal dialog over a button, one of its own a box clips away.
+  // Arrange
+  // A modal dialog over a button, one of its own a box clips away.
   await page.setContent(`
     <button>Behind</button>
     <dialog>

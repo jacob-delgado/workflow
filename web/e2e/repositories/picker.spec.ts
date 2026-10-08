@@ -113,8 +113,9 @@ for (const theme of themes) {
       await page.setViewportSize({ width, height })
       await opensRepositories(page)
 
-      // Act & Assert: Tab reaches the favorite, each favorite's switch and
-      // removal, and the picker.
+      // Act & Assert
+      // Tab reaches the favorite, each favorite's switch and removal, and the
+      // picker.
       await expectReachableAndClean(page, {
         reaches: [
           'Add to favorites',

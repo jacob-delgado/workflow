@@ -16,16 +16,19 @@ function policyViolations(messages: ConsoleMessage[]): string[] {
 test('the page the server serves loads themed, with nothing its content policy refuses', async ({
   page,
 }) => {
-  // Arrange: a dark choice saved, and the console heard from the start.
+  // Arrange
+  // A dark choice saved, and the console heard from the start.
   const messages: ConsoleMessage[] = []
   page.on('console', (message) => messages.push(message))
   await pinTheme(page, 'dark')
 
-  // Act: load the page, and open a section the stream's frames fill.
+  // Act
+  // Load the page, and open a section the stream's frames fill.
   await openServed(page)
   await openSection(page, 'Branch')
 
-  // Assert: themed before paint, and nothing refused.
+  // Assert
+  // Themed before paint, and nothing refused.
   // eslint-disable-next-line no-restricted-syntax, playwright/no-raw-locators -- data-theme is the resolved theme itself, the value the pre-paint script sets; no role, name or text carries it
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   expect(policyViolations(messages)).toEqual([])
@@ -48,7 +51,8 @@ test('the page takes its session out of the address, and the stream goes live wi
 test('a page opened without the session says to open the address the server printed', async ({
   page,
 }) => {
-  // Act: the bare address, in a browser that holds no session.
+  // Act
+  // The bare address, in a browser that holds no session.
   await page.goto('/')
 
   // Assert

@@ -8,7 +8,8 @@ import { pinTheme } from './support/cockpit.ts'
 test('the system theme resolves to the OS scheme and follows it as it changes', async ({
   page,
 }) => {
-  // Arrange: choose "system" and open under a dark OS
+  // Arrange
+  // Choose "system" and open under a dark OS.
   await pinTheme(page, 'system')
   await page.emulateMedia({ colorScheme: 'dark' })
 

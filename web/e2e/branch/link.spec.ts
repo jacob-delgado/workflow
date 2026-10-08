@@ -39,7 +39,8 @@ async function opensLinkForm(page: Page): Promise<void> {
 }
 
 test('shows the description first, then links and updates the pull request', async ({ page }) => {
-  // Arrange: the preview and the link answered here, the link's body kept.
+  // Arrange
+  // The preview and the link answered here, the link's body kept.
   await page.route('**/api/branch/issue/preview**', (route) => route.fulfill({ json: preview }))
   const sent: unknown[] = []
   await page.route('**/api/branch/issue', (route) => {
@@ -81,19 +82,21 @@ for (const theme of themes) {
     test(`the description to link fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
-      // Arrange: the form, in this theme, at this width.
+      // Arrange
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
       await page.route('**/api/branch/issue/preview**', (route) => route.fulfill({ json: preview }))
       await opensLinkForm(page)
 
-      // Act: ask for PROJ-7, and let its description land.
+      // Act
+      // Ask for PROJ-7, and let its description land.
       await page.getByRole('textbox', { name: 'Issue' }).fill('PROJ-7')
       await page.getByRole('button', { name: 'Link', exact: true }).click()
       await expect(page.getByRole('button', { name: 'Link and update #12' })).toBeVisible()
 
-      // Assert: Tab reaches the form's controls, and it is clean.
+      // Assert
+      // Tab reaches the form's controls, and it is clean.
       await expectReachableAndClean(page, {
         reaches: ['Issue', 'Link and update #12', 'Link only', 'Cancel'],
       })
