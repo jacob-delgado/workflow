@@ -9,6 +9,10 @@
 // terminal that obeys escape sequences: clear the screen, draw over what is
 // already there, set the window title, write the clipboard. Anyone able to edit
 // a Jira summary could otherwise do those things to everyone who reads it.
+//
+// The same text bound for a reader that renders Markdown — a Teams or Discord
+// message — has its markup escaped here too, so a title cannot become a live
+// link, and unescaped again for a reader that shows the backslashes.
 package sanitize
 
 import (

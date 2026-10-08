@@ -317,7 +317,7 @@ type markup struct {
 func markupFor(kind config.MessagingKind) markup {
 	switch kind {
 	case config.KindTeams, config.KindDiscord:
-		return markup{link: markdownLink, escape: markdownEscape}
+		return markup{link: markdownLink, escape: sanitize.EscapeMarkdown}
 	case config.KindWebhook:
 		return markup{link: plainLink, escape: keepText}
 	case config.KindSlack:
@@ -344,27 +344,16 @@ func slackMarkup() markup {
 // than trusted as a link target.
 func markdownLink(url, title string) string {
 	if !isWebURL(url) {
-		return markdownEscape(title)
+		return sanitize.EscapeMarkdown(title)
 	}
 
-	return "[" + markdownEscape(title) + "](" + strings.ReplaceAll(url, ")", "%29") + ")"
+	return "[" + sanitize.EscapeMarkdown(title) + "](" + strings.ReplaceAll(url, ")", "%29") + ")"
 }
 
 // plainLink renders the title followed by its bare URL, for a plain webhook that
 // reads no markup but will usually auto-link a URL of its own accord.
 func plainLink(url, title string) string {
 	return title + " " + url
-}
-
-// markdownEscape backslash-escapes the Markdown metacharacters, so a value
-// anyone can write is shown literally rather than read as emphasis, code or a
-// link. It is the Markdown counterpart to slackEscape.
-func markdownEscape(text string) string {
-	return strings.NewReplacer(
-		`\`, `\\`, "`", "\\`", "[", "\\[", "]", "\\]",
-		"(", "\\(", ")", "\\)", "*", "\\*", "_", "\\_",
-		"~", "\\~", "|", "\\|", "#", "\\#", ">", "\\>",
-	).Replace(text)
 }
 
 // keepText is the identity escape, for the plain webhook kind alone: it is plain

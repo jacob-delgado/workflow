@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // deepestHeading is the most # a Markdown heading opens with.
@@ -79,7 +80,7 @@ func blockMarkupFor(kind config.MessagingKind) blockMarkup {
 	case config.KindDiscord:
 		return blockMarkup{escape: keepText, heading: discordHeading, item: markdownItem}
 	case config.KindWebhook:
-		return blockMarkup{escape: markdownUnescape, heading: headingWords, item: markdownItem}
+		return blockMarkup{escape: sanitize.UnescapeMarkdown, heading: headingWords, item: markdownItem}
 	case config.KindSlack:
 		return slackBlocks()
 	default:
@@ -91,20 +92,10 @@ func blockMarkupFor(kind config.MessagingKind) blockMarkup {
 // bullet, and &, < and > escaped so a title cannot ping a channel.
 func slackBlocks() blockMarkup {
 	return blockMarkup{
-		escape:  func(line string) string { return slackEscape(markdownUnescape(line)) },
+		escape:  func(line string) string { return slackEscape(sanitize.UnescapeMarkdown(line)) },
 		heading: func(_ int, text string) string { return "*" + text + "*" },
 		item:    func(text string) string { return "• " + text },
 	}
-}
-
-// markdownUnescape drops the backslash from each character a summary's text
-// escaped, for a service that reads no Markdown and would show the backslash.
-func markdownUnescape(text string) string {
-	return strings.NewReplacer(
-		`\\`, `\`, "\\`", "`", "\\[", "[", "\\]", "]",
-		"\\(", "(", "\\)", ")", "\\*", "*", "\\_", "_",
-		"\\~", "~", "\\|", "|", "\\#", "#", "\\>", ">",
-	).Replace(text)
 }
 
 // markdownBold is a heading as a bold line of Markdown.
