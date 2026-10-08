@@ -33,6 +33,11 @@ var (
 	// ErrNoHome reports a file asked for in a home directory where none is
 	// known.
 	ErrNoHome = errors.New("there is no home directory here to keep the file in")
+	// ErrKeychainAtHome reports the token asked to be kept in the keychain
+	// for a file other than the home directory's: the file reads it back with
+	// a jira.token_command, which only the home file may set.
+	ErrKeychainAtHome = errors.New("the keychain can keep the token only for the home directory's file; " +
+		"write the file there, or keep the token in the file")
 )
 
 // Place is where setup writes the file.
@@ -60,6 +65,13 @@ func (w Where) Path(place Place) string {
 	}
 
 	return filepath.Join(config.RepoRoot(w.WorkDir), config.FileName)
+}
+
+// IsHomeFile reports whether the file for place is the home directory's: the
+// home place, or the repository's where the repository's root is the home
+// directory.
+func (w Where) IsHomeFile(place Place) bool {
+	return w.HomeDir != "" && w.Path(place) == w.Path(Home)
 }
 
 // Places are where the file may go here: the repository, and the home

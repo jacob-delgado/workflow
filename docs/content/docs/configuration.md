@@ -87,9 +87,18 @@ credentials with it:
 | `messaging` | `kind` | `webhook_url` and the Slack user token (`client_id`, `client_secret`, `refresh_token`, `access_token`, `expires_at`) |
 
 A repository's file that leaves the address alone, or repeats the home file's,
-still inherits them, and one that moves it may set credentials of its own. A
+still inherits them, and one that moves it may set a token of its own. A
 Slack user token is only ever sent to Slack, so a repository naming another
 `channel` keeps it; a webhook URL is its own address.
+
+**Only your home file may run a program or read the environment.** Three
+settings do: `jira.token_command` runs a program, `jira.token_env` reads an
+environment variable and sends what it holds to Jira, and `taskwarrior.program`
+names the program run as Taskwarrior. A file found in or above the current
+directory — a repository's, or the current directory's outside one — that sets
+any of them to anything but empty is refused when it loads, with an error naming
+the file and the setting, and a save that would write one there is refused the
+same way. Set them in `~/.workflow.json`, which the repository's file layers over.
 
 A save writes the repository's file when there is one: Settings, the web's or
 the terminal's, writes only what differs from your home file, so a token inherited from home is
@@ -109,8 +118,8 @@ them on stderr, so there is never a question about which were read.
 | `version` | no | The file format's version, which `workflow config init` writes first. `"1"` is the only one this build reads; empty (the default) means the current one, and any other value is refused when the file loads rather than half-read against a format it was not written for. |
 | `jira.base_url` | for Jira as the tracker | Root URL of your Jira instance, e.g. `https://jira.example.com`. Leave it empty to use the forge's issues instead: the Issues pane then lists the open issues assigned to you on your forge. An address that is not an absolute `http` or `https` URL, or that carries a username and password, is refused when the file loads, without quoting it. |
 | `jira.token` | one of these three, with `jira.base_url` | Personal access token. |
-| `jira.token_command` | one of these three, with `jira.base_url` | A program that prints the token, e.g. `pass show jira/token`. See below. |
-| `jira.token_env` | one of these three, with `jira.base_url` | An environment variable that holds the token. |
+| `jira.token_command` | one of these three, with `jira.base_url` | A program that prints the token, e.g. `pass show jira/token`. Your home file's alone; see [Where it looks](#where-it-looks-and-what-wins). See below. |
+| `jira.token_env` | one of these three, with `jira.base_url` | An environment variable that holds the token. Your home file's alone, as `token_command` is. |
 | `jira.user` | no | Only for instances requiring HTTP Basic. See below. |
 | `jira.views` | no | Named issue lists (`name` + `jql`) the pane moves between with `v`. Empty keeps the one built-in list. See below. |
 | `jira.headers` | no | Extra HTTP headers sent with every Jira request, for a Jira reached through an SSO proxy that checks one. Values are masked wherever the configuration is shown. Two names that differ only in case are one HTTP header, and are refused. See below. |
@@ -148,7 +157,7 @@ them on stderr, so there is never a question about which were read.
 | `commit.refs_trailer` | no | The label of the trailer that names the issue in a commit body, e.g. `Closes`. Defaults to `Refs`. It is a single word with no colon; anything else is refused when the file loads. |
 | `pull_request.title_source` | no | Where a proposed pull request's title comes from: `commit` (the default) takes the branch's oldest commit subject, `issue` the issue's key and summary. Any other value is refused when the file loads. See [Pull requests](#pull-requests). |
 | `store.disabled` | no | Keep nothing on disk between sessions. Defaults to `false` — the store remembers a few conveniences, never a secret. See [What is kept between sessions](#what-is-kept-between-sessions). |
-| `taskwarrior.program` | no | The Taskwarrior program to run, and the only one tried: a path, such as `/opt/homebrew/bin/task`, or a name looked up on `PATH`. Empty (the default) tries every `task` in an absolute `PATH` directory, in order, and keeps the first that is Taskwarrior 3.5.0 or newer; a Taskwarrior that has never been run, whose taskrc has a malformed line, or that cannot start ends the search there. A value with a line break or a NUL in it is refused when the file loads. A change applies when workflow next starts. See [Taskwarrior](#taskwarrior). |
+| `taskwarrior.program` | no | The Taskwarrior program to run, and the only one tried: a path, such as `/opt/homebrew/bin/task`, or a name looked up on `PATH`. Empty (the default) tries every `task` in an absolute `PATH` directory, in order, and keeps the first that is Taskwarrior 3.5.0 or newer; a Taskwarrior that has never been run, whose taskrc has a malformed line, or that cannot start ends the search there. A value with a line break or a NUL in it is refused when the file loads. Your home file's alone; see [Where it looks](#where-it-looks-and-what-wins). A change applies when workflow next starts. See [Taskwarrior](#taskwarrior). |
 | `taskwarrior.disabled` | no | Turn the Taskwarrior integration off even where Taskwarrior is installed. Defaults to `false`. A change applies when workflow next starts. |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
@@ -287,9 +296,13 @@ for again the next time.
 ### The operating system's keychain
 
 The keychain is where a token belongs, and a `token_command` reaches it without
-this program linking anything. On macOS, `workflow config init` offers to do the
-whole thing for you: it saves the token with `security` and writes the reading
-command into the file, so the file holds a `token_command` and never the token.
+this program linking anything. On macOS, `workflow config init --global` offers
+to do the whole thing for you: it saves the token with `security` and writes the
+reading command into your home file, so the file holds a `token_command` and
+never the token. Only the home file may hold a `token_command`, so the keychain
+is offered for it alone: setting up a repository's file, keep the token in the
+file, or set up the home file with the keychain and let the repository's file
+inherit it.
 
 On Linux, store the token once and point `token_command` at it by hand:
 

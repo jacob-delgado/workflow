@@ -50,6 +50,17 @@ type streams struct {
 	stderr string
 }
 
+// runAtHome is run with dir as the home directory as well, so the file there
+// is the home file, the one file that may set a program to run or a variable
+// to read.
+func runAtHome(t *testing.T, dir string, args ...string) (string, error) {
+	t.Helper()
+
+	printed, err := runStreamsAt(t, place{dir: dir, home: dir}, unusedPrompt(t), args...)
+
+	return printed.stdout + printed.stderr, err
+}
+
 // runStreams is runGuided with the two streams kept apart, for a test that
 // says which one a line belongs on: the artifact on stdout, what is said about
 // it on stderr.

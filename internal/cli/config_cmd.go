@@ -92,7 +92,7 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 				return runConfigInit(cmd, path, opts)
 			}
 
-			return runGuidedInit(cmd, path, opts, prompt)
+			return runGuidedInit(cmd, path, opts, keychainAt(where, place, prompt))
 		},
 	}
 
@@ -156,6 +156,17 @@ func whereInit(global bool) (setup.Where, error) {
 	}
 
 	return setup.Where{WorkDir: workDir, HomeDir: configHome()}, nil
+}
+
+// keychainAt is prompt offering the keychain only for the home directory's
+// file: the token is read back by a jira.token_command, which only that file
+// may set.
+func keychainAt(where setup.Where, place setup.Place, prompt Prompt) Prompt {
+	if !where.IsHomeFile(place) {
+		prompt.StoreSecret = nil
+	}
+
+	return prompt
 }
 
 // placeFor is where --global says the file goes.

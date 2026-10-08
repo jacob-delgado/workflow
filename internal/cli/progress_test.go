@@ -53,7 +53,7 @@ func progressCases() map[string]progressCase {
 				fakeGh(t, ghResponses{})
 				repo := workedRepository(t, "Add the widget")
 				git(t, repo, "remote", "add", "origin", "https://github.com/owner/repo.git")
-				writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+missingTaskwarrior+`}`)
+				writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},"taskwarrior":{"disabled":true}}`)
 
 				return repo, strings.Fields("summary --from " + summaryDay + " --to " + summaryDay)
 			},

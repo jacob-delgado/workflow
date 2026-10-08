@@ -162,12 +162,12 @@ func loadFile(path string) (Credentials, error) {
 
 // saveFile writes credentials into path, one of files, over the revision it
 // read, so an edit landing between the read and the write is refused rather
-// than lost. The repository's file over a home file is written as the layer it
-// is; any other is written whole, as itself.
+// than lost. The repository's file is written as the layer it is; the home
+// file is written whole, as itself.
 func saveFile(files config.Files, path string, credentials Credentials) error {
-	layers := config.Files{Repo: path}
-	if path == files.Repo {
-		layers = files
+	layers := files
+	if path == files.Home {
+		layers = config.Files{Home: path}
 	}
 
 	cfg, revision, err := config.LoadLayersAt(layers)
