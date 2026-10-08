@@ -579,6 +579,7 @@ export const zCommit = z.object({
 export const zBranch = z.object({
     name: z.string(),
     issue_link: z.string(),
+    issue_link_tracker: zIssueTracker.optional(),
     detached: z.boolean(),
     head: z.string(),
     upstream: z.string(),

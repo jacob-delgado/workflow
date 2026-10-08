@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { Issue } from '@/api/generated/types.gen.ts'
 import type { Facet } from '@/features/reviewqueue/reviewFacets.ts'
 import type { ReviewOrder } from '@/features/reviewqueue/reviewOrder.ts'
 import type { TaskFacet } from '@/features/tasks/taskFacets.ts'
@@ -23,12 +24,16 @@ export const sections = [
 
 export type Section = (typeof sections)[number]
 
+// IssueRef is an issue by its key and the tracker it lives in, as the server
+// names it: a key alone says nothing the page should read its tracker from.
+export type IssueRef = Pick<Issue, 'key' | 'tracker'>
+
 interface UiState {
   section: Section
   setSection: (section: Section) => void
-  // The issue whose detail the Issues section shows, by key, or null for none.
-  selectedIssue: string | null
-  selectIssue: (key: string | null) => void
+  // The issue whose detail the Issues section shows, or null for none.
+  selectedIssue: IssueRef | null
+  selectIssue: (issue: IssueRef | null) => void
   // The issue view the stream carries, by name, or null for the server's default.
   view: string | null
   setView: (view: string | null) => void
@@ -60,8 +65,8 @@ export const useUiStore = create<UiState>((set) => ({
     set({ section })
   },
   selectedIssue: null,
-  selectIssue: (key) => {
-    set({ selectedIssue: key })
+  selectIssue: (issue) => {
+    set({ selectedIssue: issue === null ? null : { key: issue.key, tracker: issue.tracker } })
   },
   view: null,
   setView: (view) => {
