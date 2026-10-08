@@ -51,7 +51,9 @@ func worklogAction(add func(jira.Key, string, string) (jira.Worklog, error)) iss
 		prompt: "time spent (e.g. 2h, 30m)",
 		write:  write,
 		done:   func(issueKey jira.Key, value string) string { return "logged " + value + " on " + shownKey(issueKey) },
-		would:  func(issueKey jira.Key, value string) string { return "would log " + value + " on " + shownKey(issueKey) },
+		would: func(issueKey jira.Key, value string) string {
+			return "would log " + value + " on " + shownKey(issueKey)
+		},
 	}
 }
 
