@@ -7,13 +7,13 @@ import (
 	"context"
 	"errors"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
@@ -191,8 +191,8 @@ func checkFailure(err error) api.SetUpResponseObject {
 // address and no token, and what to do.
 func checkRefusal(err error) string {
 	for _, refusal := range checkRefusals() {
-		if slices.ContainsFunc(refusal.causes, func(cause error) bool { return errors.Is(err, cause) }) {
-			return refusal.detail + "; check it, or keep it anyway"
+		if refusal.Matches(err) {
+			return refusal.Detail + "; check it, or keep it anyway"
 		}
 	}
 
@@ -200,19 +200,19 @@ func checkRefusal(err error) string {
 }
 
 // checkRefusals are the reasons a check tells apart.
-func checkRefusals() []faultClass {
-	return []faultClass{
+func checkRefusals() []report.Class {
+	return []report.Class{
 		{
-			causes: []error{jira.ErrUnauthorized, jira.ErrForbidden, jira.ErrNoCredential},
-			code:   api.ProblemCodeCheckFailed, detail: "Jira did not accept the token",
+			Causes: []error{jira.ErrUnauthorized, jira.ErrForbidden, jira.ErrNoCredential},
+			Code:   api.ProblemCodeCheckFailed, Detail: "Jira did not accept the token",
 		},
 		{
-			causes: []error{jira.ErrUnreachable, httpx.ErrRedirected, httpx.ErrRateLimited},
-			code:   api.ProblemCodeCheckFailed, detail: "Jira could not be reached at that address",
+			Causes: []error{jira.ErrUnreachable, httpx.ErrRedirected, httpx.ErrRateLimited},
+			Code:   api.ProblemCodeCheckFailed, Detail: "Jira could not be reached at that address",
 		},
 		{
-			causes: []error{jira.ErrNoAPI, jira.ErrNotFound},
-			code:   api.ProblemCodeCheckFailed, detail: "no Jira answers at that address",
+			Causes: []error{jira.ErrNoAPI, jira.ErrNotFound},
+			Code:   api.ProblemCodeCheckFailed, Detail: "no Jira answers at that address",
 		},
 	}
 }

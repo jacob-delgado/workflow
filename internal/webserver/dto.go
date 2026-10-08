@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
@@ -254,23 +255,7 @@ func pullState(state forge.PullState) api.PullRequestState {
 
 // reviewQueueDTO maps the review queue onto the wire.
 func reviewQueueDTO(requests []forge.ReviewRequest) api.ReviewQueue {
-	return api.ReviewQueue{Available: true, Requests: ReviewRequests(requests)}
-}
-
-// ReviewRequests maps the requests waiting on your review onto the wire, an
-// empty list rather than null when none waits: the requests GET /api/reviews
-// answers, and what `workflow reviews --json` prints.
-func ReviewRequests(requests []forge.ReviewRequest) []api.ReviewRequest {
-	queue := make([]api.ReviewRequest, 0, len(requests))
-	for _, request := range requests {
-		queue = append(queue, api.ReviewRequest{
-			Number: request.Number, URL: request.URL, Title: request.Title, Author: request.Author,
-			Repository: request.Repository, Draft: request.Draft, Ci: ciState(request.CI),
-			OpenedAt: optionalTime(request.OpenedAt),
-		})
-	}
-
-	return queue
+	return api.ReviewQueue{Available: true, Requests: report.ReviewRequests(requests)}
 }
 
 // noReviewQueue is the answer where there is no forge to ask: not available,

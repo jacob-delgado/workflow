@@ -5,17 +5,11 @@ package webserver
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
-	"slices"
 	"strings"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
-	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/httpx"
-	"github.com/jacob-delgado/workflow/internal/loop"
-	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/report"
 )
 
 // problemBase is where a problem's type URI points: one anchor per code on the
@@ -100,11 +94,8 @@ func writeRequestError(w http.ResponseWriter, _ *http.Request, _ error) {
 // what to do. The error goes to Unexpected, since the answer carries none of it.
 func (s *server) writeResponseError(w http.ResponseWriter, _ *http.Request, err error) {
 	s.unexpected(err)
-	writeProblem(w, api.ProblemCodeInternal, "the server could not answer; "+tryAgain)
+	writeProblem(w, api.ProblemCodeInternal, "the server could not answer; "+report.TryAgain)
 }
-
-// tryAgain is what to do about a failure nothing more is known of.
-const tryAgain = "try again, and run workflow doctor if it keeps failing"
 
 // fault maps a seam's error onto an RFC 9457 problem, its status the code's. The class
 // comes from the error — one of faultClasses (no repository to work in, a
@@ -132,62 +123,13 @@ func (s *server) unexpected(err error) {
 }
 
 // faultProblem classifies a seam's error into the problem shown for it: the
-// first class it belongs to, reported true, or an opaque internal error,
-// reported false.
+// first of faultClasses it belongs to, reported true, or an opaque internal
+// error, reported false.
 func faultProblem(err error) (api.Problem, bool) {
-	// A token the forge turned down is told in forge.Advice's words, the ones
-	// the terminal shows: the forge, the scope it asks for, and its own reason
-	// for the refusal, which is the forge's and never carries its address.
-	if advice, ok := forge.Advice(err); ok {
-		return problem(api.ProblemCodeUnprocessable, advice), true
-	}
+	told, classified := report.Classify(err, faultClasses())
 
-	// A message Slack would not deliver carries the fix for its channel, which
-	// names a channel and Slack's code but never an address.
-	if refused, ok := errors.AsType[messaging.PostRefusedError](err); ok {
-		return problem(api.ProblemCodeUnprocessable, refused.Error()), true
-	}
+	prob := problem(told.Code, told.Detail)
+	prob.RetryAfter = told.RetryAfter
 
-	for _, class := range faultClasses() {
-		if slices.ContainsFunc(class.causes, func(cause error) bool { return errors.Is(err, cause) }) {
-			prob := problem(setUpCode(class.code, err), class.detail)
-			prob.RetryAfter = askedWait(err)
-
-			return prob, true
-		}
-	}
-
-	return problem(api.ProblemCodeInternal, "the request could not be completed; "+tryAgain), false
-}
-
-// askedWait is how many seconds an upstream's rate limit asked to wait, when it
-// said; nil for any other failure.
-func askedWait(err error) *int {
-	limited, ok := errors.AsType[*httpx.RateLimitError](err)
-	if !ok {
-		return nil
-	}
-
-	return new(int(limited.Wait / time.Second))
-}
-
-// setUpDetail is how to set up what cause says is missing, in the words
-// every surface shares (loop.SetUpAdvice), so the web, the command line and
-// the terminal tell it alike.
-func setUpDetail(cause error) string {
-	advice, _ := loop.SetUpAdvice(cause)
-
-	return advice
-}
-
-// setUpCode is code, or not_set_up for an error loop.NotSetUp says found
-// nothing set up to ask, so every answer — an error, a panel's problem, a
-// summary's source — tells setting up apart from a refusal the one way the
-// command line does too. The class still words it, with how to set it up.
-func setUpCode(code api.ProblemCode, err error) api.ProblemCode {
-	if loop.NotSetUp(err) {
-		return api.ProblemCodeNotSetUp
-	}
-
-	return code
+	return prob, classified
 }

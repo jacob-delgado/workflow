@@ -21,7 +21,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
-	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
@@ -161,18 +160,6 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 // real terminal.
 type RunInterface func(ctx context.Context, model tui.Model, in io.Reader, out io.Writer) (tui.Next, error)
 
-// RunWeb starts the local web server and blocks until the context is canceled.
-// What it says about the server goes to notes, stderr: the server has no
-// artifact for stdout to carry.
-type RunWeb func(
-	ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
-) error
-
-// RunWebAt is the web server that serves on addr. It is WebServerAt in
-// production and a fake in tests, so the --web and --port flags' wiring can be
-// exercised without binding a port.
-type RunWebAt func(addr string) RunWeb
-
 // NewRootCmd builds the command tree. Bare `workflow` opens the TUI. The prompt
 // is how `config init` asks for credentials; a zero one is fine for a caller
 // that only walks the tree, such as the reference generator.
@@ -224,7 +211,7 @@ func (f *rootFlags) declare(root *cobra.Command) {
 		"append a one-line outline of each request (method, path, status, duration) to `FILE`, for a bug report")
 	root.Flags().BoolVar(&f.web, "web", false,
 		"serve the web interface on http://127.0.0.1 instead of opening the terminal interface")
-	root.Flags().IntVar(&f.port, portFlag, webserver.DefaultPort, "the port --web serves on, from 1 to 65535")
+	root.Flags().IntVar(&f.port, portFlag, defaultWebPort, "the port --web serves on, from 1 to 65535")
 }
 
 // surfaces are what bare workflow can open: the terminal interface, or the
@@ -246,7 +233,7 @@ func (s surfaces) open(cmd *cobra.Command, prompt Prompt, flags rootFlags) error
 	conn = conn.withSetup(cmd, prompt.StoreSecret)
 
 	if flags.web {
-		return serveWeb(cmd, conn, s.serveAt(webserver.LoopbackAddr(flags.port)), flags.dryRun)
+		return serveWeb(cmd, conn, s.serveAt, flags)
 	}
 
 	return runInterfaces(cmd, s.run, conn, flags.dryRun)
