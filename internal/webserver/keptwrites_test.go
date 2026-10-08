@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,9 +24,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-// overlapWait is how long a test lets a write that should wait show it does
-// not.
-const overlapWait = 50 * time.Millisecond
+// keptWriteHeld is how long a fake kept write takes: long enough that a
+// removal asked once it has begun arrives while it is under way.
+const keptWriteHeld = 50 * time.Millisecond
 
 func TestSetRepoGroupsIsRefusedWithoutASlackWorkspace(t *testing.T) {
 	t.Parallel()
@@ -89,46 +90,47 @@ func TestRemoveLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	linking, release, cleaned := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	// The removal is asked once the kept write has begun, and notes whether
+	// that write was still under way when it ran.
+	var (
+		writing    atomic.Bool
+		overlapped atomic.Bool
+	)
+
+	linking := make(chan struct{})
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
 	deps.LinkOwner = func(string, loop.OwnerLink) error {
+		writing.Store(true)
 		close(linking)
-		<-release
+		time.Sleep(keptWriteHeld)
+		writing.Store(false)
 
 		return nil
 	}
 	deps.LocalData = func(context.Context) (string, []store.DataFile, error) { return storeDir, nil, nil }
 	deps.RemoveLocalData = func(store.CleanScope) error {
-		close(cleaned)
+		overlapped.Store(writing.Load())
 
 		return nil
 	}
 	handler := serveWith(t, deps, slackUserConfig(), webserver.Info{Version: testVersion})
 
-	var requests sync.WaitGroup
+	var write sync.WaitGroup
 
-	requests.Go(func() { send(t, handler, http.MethodPut, peoplePath, `{"owner":"ben","not_on_slack":true}`) })
+	write.Go(func() { send(t, handler, http.MethodPut, peoplePath, `{"owner":"ben","not_on_slack":true}`) })
 	<-linking
-	requests.Go(func() { send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "") })
 
 	// Act
-	var overlapped bool
+	removed := send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
 
-	select {
-	case <-cleaned:
-		overlapped = true
-	case <-time.After(overlapWait):
-	}
-
-	close(release)
+	write.Wait()
 
 	// Assert
-	if overlapped {
-		t.Error("the clean ran while a kept write was under way")
+	if removed.Code != http.StatusOK || overlapped.Load() {
+		t.Errorf("removal = %d, ran while a kept write was under way: %v; want 200, after it",
+			removed.Code, overlapped.Load())
 	}
-
-	requests.Wait()
 }
 
 func TestRemoveLocalDataSaysAFileNotRemovedMayLeaveOthersGone(t *testing.T) {
