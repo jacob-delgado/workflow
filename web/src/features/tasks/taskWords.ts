@@ -1,5 +1,5 @@
 import type { Task, TaskList } from '@/api/generated/types.gen.ts'
-import { day, hour, minute } from '@/lib/dates.ts'
+import { day, hour, minute, writtenDate } from '@/lib/dates.ts'
 import type { MarkState } from '@/lib/StateMark.tsx'
 
 // How much of a uuid names a task that has no id, as Taskwarrior's own short
@@ -106,10 +106,7 @@ export function waitsUntilWords(task: Task): string {
     return 'waiting'
   }
 
-  const until = new Date(task.wait)
-  const day = (part: number) => String(part).padStart(2, '0')
-
-  return `waits until ${String(until.getFullYear())}-${day(until.getMonth() + 1)}-${day(until.getDate())}`
+  return `waits until ${writtenDate(new Date(task.wait))}`
 }
 
 // taskNumber is a task's working-set id, or '' where the id means nothing: only
