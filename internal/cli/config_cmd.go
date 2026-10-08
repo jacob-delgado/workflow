@@ -269,13 +269,32 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 		return err
 	}
 
-	if opts.dryRun {
-		prompt.StoreSecret = nil
-	}
-
-	requestLog, closeLog, err := requestLogFor(cmd)
+	guided, err := guidedAnswers(cmd, path, opts, prompt)
 	if err != nil {
 		return err
+	}
+
+	if opts.dryRun {
+		return previewConfig(cmd, path, guided.cfg)
+	}
+
+	return writeGuided(cmd, path, opts, guided)
+}
+
+// guidedFile is the configuration the guided setup's answers make over the
+// home file beneath, and the revision of that home file it was made over.
+type guidedFile struct {
+	cfg  config.Config
+	over config.Revision
+}
+
+// guidedAnswers asks setup's questions for the file at path, checking the Jira
+// token over the request log, and lays the answers over the home file beneath.
+// With nothing to answer them, it says to write the template instead.
+func guidedAnswers(cmd *cobra.Command, path string, opts initOptions, prompt Prompt) (guidedFile, error) {
+	requestLog, closeLog, err := requestLogFor(cmd)
+	if err != nil {
+		return guidedFile{}, err
 	}
 	defer closeLog()
 
@@ -284,28 +303,37 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 
 	beneath, over, err := setup.Beneath(opts.layers)
 	if err != nil {
-		return err
+		return guidedFile{}, err
 	}
 
-	answers, err := askAnswers(cmd.Context(), out, prompt, requestLog.Wrap("jira", onlineDoer(config.Config{})))
+	answers, err := askAnswers(cmd.Context(), out, guidedPrompt(prompt, opts.dryRun),
+		requestLog.Wrap("jira", onlineDoer(config.Config{})))
 	if errors.Is(err, io.EOF) || errors.Is(err, errNoTerminal) {
-		return fmt.Errorf("%w; pass --template to write a file to edit by hand", errNoTerminal)
+		return guidedFile{}, fmt.Errorf("%w; pass --template to write a file to edit by hand", errNoTerminal)
 	}
 
+	return guidedFile{cfg: answers.Over(beneath), over: over}, err
+}
+
+// guidedPrompt is prompt as the guided setup asks with it: offering no keychain
+// under a dry run, which would store the token.
+func guidedPrompt(prompt Prompt, dryRun bool) Prompt {
+	if dryRun {
+		prompt.StoreSecret = nil
+	}
+
+	return prompt
+}
+
+// writeGuided writes the file the guided setup made at path, and says what to
+// do next.
+func writeGuided(cmd *cobra.Command, path string, opts initOptions, guided guidedFile) error {
+	err := opts.write(path, guided.cfg, guided.over)
 	if err != nil {
 		return err
 	}
 
-	cfg := answers.Over(beneath)
-	if opts.dryRun {
-		return previewConfig(cmd, path, cfg)
-	}
-
-	err = opts.write(path, cfg, over)
-	if err != nil {
-		return err
-	}
-
+	out := cmd.ErrOrStderr()
 	fmt.Fprintf(out, "\nWrote %s (mode %#o). Run `workflow doctor` to check it again.\n", path, config.FileMode)
 	warnIfNotIgnored(cmd.Context(), out, path)
 

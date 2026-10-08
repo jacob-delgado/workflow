@@ -153,49 +153,88 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 // it, and announces it once confirmed, remembering it so a later run does not
 // repeat it unasked.
 func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
-	if seams.Post == nil {
-		return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, for Slack, run "+
-			"workflow slack login — then check them with workflow doctor", errMessagingNotConfigured, config.FileName)
-	}
-
-	announcement, pull, err := loop.ComposeAnnouncement(seams.Compose, seams.Messaging, seams.Project, seams.Kind)
-	if errors.Is(err, loop.ErrNoPullRequest) {
-		return forgeWordedError{errNoPullRequest, "there is no " + seams.Kind.Noun() +
-			" on this branch to announce; open one with `workflow pr`"}
-	}
-
+	composed, err := composeFor(seams)
 	if err != nil {
 		return err
 	}
 
-	made := loop.Announced{Pull: pull.Number, Moment: announcement.Moment}
-
-	again := seams.Memory.Holds(made)
-	if again && !offerAgain(out.notes, seams.Kind.Sigil()+strconv.Itoa(pull.Number), opts) {
+	again := seams.Memory.Holds(composed.made())
+	if again && !offerAgain(out.notes, seams.Kind.Sigil()+strconv.Itoa(composed.pull.Number), opts) {
 		return nil
 	}
 
-	service := seams.Messaging.Service()
-	target := seams.Messaging.Target()
-	text := announcement.Text()
-	fmt.Fprintln(out.artifact, text)
-	fmt.Fprintln(out.artifact, "to "+target)
+	pending := previewAnnouncement(out, seams, composed)
 
-	mentions, memory := tagAnnouncement(out, seams, announcement.Moment, pull.Base)
+	say := announcePrompt(seams.Messaging.Service(), seams.Messaging.Target(), again, opts)
 
-	proceed, err := opts.proceed(out.notes, seams.Confirm, announcePrompt(service, target, again, opts))
+	proceed, err := opts.proceed(out.notes, seams.Confirm, say)
 	if err != nil || !proceed {
 		return unattendedAgain(err, again)
 	}
 
-	err = loop.Deliver(seams.Post, memory, loop.Delivery{
-		Channel: seams.Messaging.Channel, Text: text, Made: made, Mentions: mentions,
-	})
-	if err != nil {
-		return fmt.Errorf("announcing to %s: %w", service, err)
+	return deliverAnnouncement(out.notes, seams, pending)
+}
+
+// composedAnnouncement is the announcement composed for the branch's pull
+// request, and that pull request.
+type composedAnnouncement struct {
+	announcement messaging.Announcement
+	pull         forge.PullRequest
+}
+
+// made is what announcing it makes: the pull request at its moment.
+func (c composedAnnouncement) made() loop.Announced {
+	return loop.Announced{Pull: c.pull.Number, Moment: c.announcement.Moment}
+}
+
+// composeFor composes the announcement seams can post, refusing where nothing
+// can post it or the branch has no pull request to announce.
+func composeFor(seams announceSeams) (composedAnnouncement, error) {
+	if seams.Post == nil {
+		return composedAnnouncement{}, fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, "+
+			"for Slack, run workflow slack login — then check them with workflow doctor",
+			errMessagingNotConfigured, config.FileName)
 	}
 
-	fmt.Fprintln(out.notes, "Announced to "+target+".")
+	announcement, pull, err := loop.ComposeAnnouncement(seams.Compose, seams.Messaging, seams.Project, seams.Kind)
+	if errors.Is(err, loop.ErrNoPullRequest) {
+		return composedAnnouncement{}, forgeWordedError{errNoPullRequest, "there is no " + seams.Kind.Noun() +
+			" on this branch to announce; open one with `workflow pr`"}
+	}
+
+	return composedAnnouncement{announcement: announcement, pull: pull}, err
+}
+
+// pendingAnnouncement is an announcement previewed and not yet sent: what
+// delivering it posts, and the memory that records it once it has gone out.
+type pendingAnnouncement struct {
+	delivery loop.Delivery
+	memory   loop.AnnounceMemory
+}
+
+// previewAnnouncement prints the announcement and where it would go, then
+// whom it tags, and holds it ready to deliver.
+func previewAnnouncement(out output, seams announceSeams, composed composedAnnouncement) pendingAnnouncement {
+	text := composed.announcement.Text()
+	fmt.Fprintln(out.artifact, text)
+	fmt.Fprintln(out.artifact, "to "+seams.Messaging.Target())
+
+	mentions, memory := tagAnnouncement(out, seams, composed.announcement.Moment, composed.pull.Base)
+
+	return pendingAnnouncement{
+		delivery: loop.Delivery{Channel: seams.Messaging.Channel, Text: text, Made: composed.made(), Mentions: mentions},
+		memory:   memory,
+	}
+}
+
+// deliverAnnouncement posts pending and says where it went.
+func deliverAnnouncement(notes io.Writer, seams announceSeams, pending pendingAnnouncement) error {
+	err := loop.Deliver(seams.Post, pending.memory, pending.delivery)
+	if err != nil {
+		return fmt.Errorf("announcing to %s: %w", seams.Messaging.Service(), err)
+	}
+
+	fmt.Fprintln(notes, "Announced to "+seams.Messaging.Target()+".")
 
 	return nil
 }
