@@ -233,16 +233,43 @@ func Beneath(layers config.Files) (config.Config, config.Revision, error) {
 	return beneath, over, nil
 }
 
-// Save writes cfg to path: a file of its own, or, over a home file, the layer
-// that differs from it.
-func Save(path string, layers config.Files, cfg config.Config, over config.Revision) error {
-	if layers.Home == "" {
-		return config.Save(path, cfg)
+// Save writes cfg to the file for place, replacing whatever is there: over a
+// home file, the layer that differs from it, while the pair is at the
+// revision over, and otherwise a file of its own. A file other than the home
+// file that is a link is refused, as RefuseLinked refuses it, and nothing is
+// written.
+func (w Where) Save(place Place, cfg config.Config, over config.Revision) error {
+	layers := w.Layers(place)
+	if layers.Home != "" {
+		_, err := config.SaveLayers(layers, cfg, over)
+
+		return err
 	}
 
-	_, err := config.SaveLayers(layers, cfg, over)
+	err := w.RefuseLinked(place)
+	if err != nil {
+		return err
+	}
 
-	return err
+	return config.Save(w.Path(place), cfg)
+}
+
+// RefuseLinked refuses the file for place when it is a link, to a file or to
+// none yet, with config.ErrLinkedFile: replacing it would write wherever it
+// points. Only the home file may be one, as a dotfiles checkout makes it.
+func (w Where) RefuseLinked(place Place) error {
+	if w.IsHomeFile(place) {
+		return nil
+	}
+
+	path := w.Path(place)
+
+	info, err := os.Lstat(path)
+	if err == nil && info.Mode()&fs.ModeSymlink != 0 {
+		return fmt.Errorf("%s: %w", path, config.ErrLinkedFile)
+	}
+
+	return nil
 }
 
 // Create writes cfg to path as Save does, but only as a new file: anything

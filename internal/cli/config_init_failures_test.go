@@ -232,3 +232,65 @@ func TestGuidedInitWithNothingToReadPointsToTheTemplate(t *testing.T) {
 		})
 	}
 }
+
+// outsideRepository is what a file outside a repository, which the
+// repository's configuration file links to, holds before config init runs.
+const outsideRepository = "export PATH=$HOME/bin:$PATH\n"
+
+// linkedRepositoryFile is a repository whose configuration file is a link to
+// a file outside it holding outsideRepository, with no home file, and that
+// file.
+func linkedRepositoryFile(t *testing.T) (string, string) {
+	t.Helper()
+
+	repo := t.TempDir()
+
+	err := os.Mkdir(filepath.Join(repo, ".git"), 0o700)
+	if err != nil {
+		t.Fatalf("making the repository: %v", err)
+	}
+
+	target := filepath.Join(t.TempDir(), "profile")
+
+	err = os.WriteFile(target, []byte(outsideRepository), 0o600)
+	if err != nil {
+		t.Fatalf("writing the file outside the repository: %v", err)
+	}
+
+	err = os.Symlink(target, filepath.Join(repo, config.FileName))
+	if err != nil {
+		t.Fatalf("linking the repository's file outside it: %v", err)
+	}
+
+	return repo, target
+}
+
+func TestConfigInitForceRefusesARepositoryFileThatIsALink(t *testing.T) {
+	// Arrange
+	repo, target := linkedRepositoryFile(t)
+
+	// Act
+	output, err := run(t, repo, "config", "init", "--template", "--force")
+
+	// Assert
+	if !errors.Is(err, config.ErrLinkedFile) {
+		t.Errorf("config init --template --force through a link = %v (%s), want ErrLinkedFile", err, output)
+	}
+
+	unchanged(t, target, outsideRepository)
+}
+
+func TestGuidedInitForceRefusesARepositoryFileThatIsALinkBeforeAsking(t *testing.T) {
+	// Arrange
+	repo, target := linkedRepositoryFile(t)
+
+	// Act
+	output, err := run(t, repo, "config", "init", "--force")
+
+	// Assert
+	if !errors.Is(err, config.ErrLinkedFile) {
+		t.Errorf("config init --force through a link = %v (%s), want ErrLinkedFile before any question", err, output)
+	}
+
+	unchanged(t, target, outsideRepository)
+}

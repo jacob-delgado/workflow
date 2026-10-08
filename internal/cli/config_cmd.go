@@ -35,12 +35,14 @@ func newConfigCmd(prompt Prompt) *cobra.Command {
 	return cmd
 }
 
-// initOptions are config init's flags.
+// initOptions are config init's flags, and where the file goes.
 type initOptions struct {
 	force    bool
 	global   bool
 	template bool
 	dryRun   bool
+	where    setup.Where
+	place    setup.Place
 	// layers are the home file the new one lies over, and the new one; empty
 	// when it stands alone.
 	layers config.Files
@@ -51,7 +53,7 @@ type initOptions struct {
 // refusal was checked is still never written through.
 func (opts initOptions) write(path string, cfg config.Config, over config.Revision) error {
 	if opts.force {
-		return setup.Save(path, opts.layers, cfg, over)
+		return opts.where.Save(opts.place, cfg, over)
 	}
 
 	return setup.Create(path, opts.layers, cfg, over)
@@ -84,15 +86,15 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 				return err
 			}
 
-			place := placeFor(opts.global)
-			path := where.Path(place)
-			opts.layers = where.Layers(place)
+			opts.where, opts.place = where, placeFor(opts.global)
+			path := where.Path(opts.place)
+			opts.layers = where.Layers(opts.place)
 
 			if opts.template {
 				return runConfigInit(cmd, path, opts)
 			}
 
-			return runGuidedInit(cmd, path, opts, keychainAt(where, place, prompt))
+			return runGuidedInit(cmd, path, opts, keychainAt(where, opts.place, prompt))
 		},
 	}
 
@@ -178,13 +180,14 @@ func placeFor(global bool) setup.Place {
 	return setup.Repository
 }
 
-// refuseOverwrite refuses to clobber an existing file unless force says
+// refuseOverwrite refuses to clobber an existing file unless --force says
 // otherwise — that file holds credentials that are not recoverable once
-// overwritten. A dry run is refused the same way, since it previews what would
-// happen.
-func refuseOverwrite(path string, force bool) error {
-	if force {
-		return nil
+// overwritten — and even then a file other than the home file that is a
+// link, which the write would follow. A dry run is refused the same way,
+// since it previews what would happen.
+func (opts initOptions) refuseOverwrite(path string) error {
+	if opts.force {
+		return opts.where.RefuseLinked(opts.place)
 	}
 
 	err := setup.RefuseExisting(path)
@@ -208,7 +211,7 @@ func previewConfig(cmd *cobra.Command, path string, cfg config.Config) error {
 // home file it writes an empty layer instead: the template's blanks would hide
 // every setting the home file makes.
 func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
-	err := refuseOverwrite(path, opts.force)
+	err := opts.refuseOverwrite(path)
 	if err != nil {
 		return err
 	}
@@ -264,7 +267,7 @@ func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
 // there. A dry run asks and checks the same, but offers no keychain — which
 // would store the token — and prints the file rather than writing it.
 func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Prompt) error {
-	err := refuseOverwrite(path, opts.force)
+	err := opts.refuseOverwrite(path)
 	if err != nil {
 		return err
 	}
