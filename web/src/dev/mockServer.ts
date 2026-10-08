@@ -211,6 +211,7 @@ function allRoutes(): Routes {
     'GET /api/health': () => ({
       version: 'mockup',
       dry_run: false,
+      forge_kind: 'github',
       forge_noun: 'pull request',
       forge_sigil: '#',
     }),

@@ -843,6 +843,10 @@ export type Health = {
      */
     dry_run: boolean;
     /**
+     * Which forge the repository is on under the settings in effect: forge.kind when it names one, else the one origin's host names; unknown when neither says, as outside a repository or on a self-hosted forge the settings do not name. What the page decides by, where forge_noun and forge_sigil are only words to show.
+     */
+    forge_kind: 'github' | 'gitlab' | 'unknown';
+    /**
      * What the repository's forge calls a proposed change, lowercase — a "merge request" on GitLab and a "pull request" everywhere else — so the browser says what the terminal and the command line say.
      */
     forge_noun: string;
