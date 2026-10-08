@@ -23,39 +23,9 @@ same context in three browser tabs.
 
 ## Status
 
-The whole loop works, and is new: expect rough edges, and a configuration
-format that may still change before 1.0.
-
-- `workflow` opens the TUI. Pick up an assigned Jira issue, comment on it or
-  change its status, branch for it, stage and commit through the repository's
-  own hooks — opening a failure at its line in `$EDITOR` — push, open the pull
-  or merge request from the repository's template, follow its CI, and announce
-  it to your team. `?` lists the keys.
-- `workflow --dry-run` does all of that with every write held back, saying what
-  it would have done.
-- `workflow --web` serves the same loop in a browser, on `127.0.0.1` alone —
-  issues, branch, commit, push, the pull request and its announcement, your
-  review queue and the settings — pushed live as the repository changes.
-- With no Jira configured, the Issues pane lists the issues assigned to you on
-  your forge (GitHub or GitLab) instead — pick one up, branch for it, and the
-  pull request closes it on merge.
-- A repository with hooks in `.git/hooks` and no lefthook configuration is
-  offered a `lefthook.yml` that runs them.
-- `workflow doctor` reports the repository, tooling and configuration in effect;
-  `workflow doctor --online` asks Jira and your forge whether their credentials
-  work, and Slack whether your user token does, refreshing it if it is due; a
-  webhook cannot be checked without posting, so it is reported unchecked.
-- `workflow config init` sets up the configuration, answering the prompts
-  (`--template` writes a blank file to edit) — or, with no file, the terminal
-  interface and the web's Settings ask the same questions —
-  and `workflow config show` prints the one in effect, credentials masked.
-- `workflow summary` says what you did over a period — the commits you wrote,
-  the tasks you touched, what you did to Jira issues and the pull requests you
-  opened, had merged and reviewed — as the Summary pane reads it; `--json`
-  prints it for a script, and `--post` posts it to your team after a preview.
-- `workflow reviews` lists the pull requests on your forge that are waiting on
-  your review — the longest-waiting first, with the author, how CI stands and
-  how long each has waited.
+What works today, and what may still change before 1.0, is the
+[Status](https://jacob-delgado.github.io/workflow/#status) on the
+documentation site.
 
 ## Install
 
