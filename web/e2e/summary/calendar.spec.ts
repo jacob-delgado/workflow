@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import { mockActivity } from '../../src/dev/mockActivity.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { expect, problem, test } from '../support/fixtures.ts'
-import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 
 // The Summary section: what was done, the calendar it is picked in, and the
 // period each pick reads.
@@ -118,15 +118,10 @@ for (const theme of themes) {
       await page.setViewportSize({ width, height })
       await opensSummary(page)
 
-      // Act: Tab once round the page.
-      const { reached, missed, hidden } = await walkTabOrder(page)
-
-      // Assert: nothing scrolls sideways; Tab reaches the steps, the copy, the
-      // links, the selects, the day in focus and the month and year, each in
-      // view; and axe finds nothing.
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(reached, 'reached by Tab').toEqual(
-        expect.arrayContaining([
+      // Act & Assert: Tab reaches the steps, the copy, the links, the
+      // selects, the day in focus and the month and year.
+      await expectReachableAndClean(page, {
+        reaches: [
           'Earlier',
           'Later',
           'Today',
@@ -137,11 +132,8 @@ for (const theme of themes) {
           'Tuesday, September 15, 2026',
           'Whole month',
           'Whole year',
-        ]),
-      )
-      expect(missed, 'never reached by Tab').toEqual([])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+        ],
+      })
     })
   }
 }

@@ -1,7 +1,7 @@
 import type { Issue } from '../../src/api/generated/types.gen.ts'
-import { height, openCockpit, pinTheme, themes } from '../support/cockpit.ts'
+import { height, openCockpit, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { expect, issuesOf, snapshotWith, streams, test } from '../support/fixtures.ts'
-import { axeViolations } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 
 // The issue list: its controls and an open issue's detail beside it, a later
 // page of the view loaded into it, and its rows, each summary on one line and
@@ -48,42 +48,46 @@ const issueDetail = {
 }
 
 for (const theme of themes) {
-  test(`no accessibility violations in the issue list and detail in the ${theme} theme`, async ({
-    page,
-  }) => {
-    // Arrange: the hermetic server has no API, so the stream, the views and the
-    // issue are answered here — enough for the list's controls and the detail.
-    await pinTheme(page, theme)
-    await page.emulateMedia({ reducedMotion: 'reduce' })
-    await streams(page, issuesSnapshot)
-    await page.route('**/api/views', (route) =>
-      route.fulfill({
-        json: {
-          views: [
-            { name: 'Assigned to me', jql: 'assignee = currentUser()' },
-            { name: 'Team bugs', jql: 'type = Bug' },
-          ],
-        },
-      }),
-    )
-    await page.route('**/api/issues/PROJ-1', (route) => route.fulfill({ json: issueDetail }))
-    await page.goto('/')
-    await expect(page.getByRole('button', { name: /load more/i })).toBeVisible()
-    await expect(page.getByRole('combobox', { name: 'View' })).toBeVisible()
+  for (const width of widths) {
+    test(`the issue list and detail fit ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
+      page,
+    }) => {
+      // Arrange: the stream, the views and the issue answered here — enough
+      // for the list's controls and the detail.
+      await pinTheme(page, theme)
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.setViewportSize({ width, height })
+      await streams(page, issuesSnapshot)
+      await page.route('**/api/views', (route) =>
+        route.fulfill({
+          json: {
+            views: [
+              { name: 'Assigned to me', jql: 'assignee = currentUser()' },
+              { name: 'Team bugs', jql: 'type = Bug' },
+            ],
+          },
+        }),
+      )
+      await page.route('**/api/issues/PROJ-1', (route) => route.fulfill({ json: issueDetail }))
+      await page.goto('/')
+      await expect(page.getByRole('button', { name: /load more/i })).toBeVisible()
+      await expect(page.getByRole('combobox', { name: 'View' })).toBeVisible()
 
-    // Act: narrow the list to a place, so a pressed Where button is scanned,
-    // then open the first issue and let its detail land.
-    const inProgress = page
-      .getByRole('group', { name: 'Filter' })
-      .getByRole('button', { name: /^In Progress/ })
-    await inProgress.click()
-    await expect(inProgress).toHaveAttribute('aria-pressed', 'true')
-    await page.getByRole('button', { name: /redact tokens/i }).click()
-    await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
+      // Act: narrow the list to a place, so a pressed Where button is on
+      // screen, then open the first issue and let its detail land.
+      const inProgress = page
+        .getByRole('group', { name: 'Filter' })
+        .getByRole('button', { name: /^In Progress/ })
+      await inProgress.click()
+      await expect(inProgress).toHaveAttribute('aria-pressed', 'true')
+      await page.getByRole('button', { name: /redact tokens/i }).click()
+      await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
 
-    // Assert: axe finds nothing on the list beside the open detail.
-    expect(await axeViolations(page), `${theme} / issues`).toBe('')
-  })
+      // Assert: Tab reaches the view, and the list beside the open detail is
+      // clean.
+      await expectReachableAndClean(page, { reaches: ['View'] })
+    })
+  }
 }
 
 const issuesTotal = 12

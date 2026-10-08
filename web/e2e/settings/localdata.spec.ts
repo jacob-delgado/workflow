@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import type { LocalData } from '../../src/api/generated/types.gen.ts'
 import { height, openCockpit, openSection, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 import { expect, test } from '../support/fixtures.ts'
 
 // Settings' Local data area: the store's files listed, each removal behind a
@@ -110,20 +110,12 @@ for (const theme of themes) {
         await openSection(page, 'Settings')
         await expect(page.getByRole('table', { name: 'Local data files' })).toBeVisible()
 
-        // Act: open the confirm step that clears everything, and Tab once round.
+        // Act: open the confirm step that clears everything.
         await page.getByRole('button', { name: 'Remove everything…' }).click()
         await expect(page.getByRole('group', { name: /remove workflow\.db/i })).toBeFocused()
-        const { reached, missed, hidden } = await walkTabOrder(page)
 
-        // Assert: nothing scrolls sideways, nor the page down; Tab reaches the
-        // step's controls and every other drawn one, each in view; and axe
-        // finds nothing.
-        expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-        expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
-        expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(['Cancel', 'Remove']))
-        expect(missed, 'never reached by Tab').toEqual([])
-        expect(hidden, 'out of view with focus').toEqual([])
-        expect(await axeViolations(page), 'axe').toBe('')
+        // Assert: Tab reaches the step's controls, and it is clean.
+        await expectReachableAndClean(page, { reaches: ['Cancel', 'Remove'] })
       },
     )
   }

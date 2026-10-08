@@ -3,7 +3,7 @@ import type { Comment, IssueDetail } from '../../src/api/generated/types.gen.ts'
 import { mockConfig } from '../../src/dev/mockConfig.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { expect, issuesOf, snapshotWith, streams, test } from '../support/fixtures.ts'
-import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 
 // Commenting on a Jira issue from its detail: the thread, the composer under
 // it, and what a posted comment does.
@@ -109,18 +109,10 @@ for (const theme of themes) {
       await opensIssue(page, true)
       await page.getByRole('textbox', { name: 'Comment on PROJ-1' }).fill('Ship **it** with `care`')
 
-      // Act: Tab once round the page.
-      const { reached, missed, hidden } = await walkTabOrder(page)
-
-      // Assert: nothing scrolls sideways; Tab reaches the tabs, the formatting
-      // and the button, each in view; and axe finds nothing.
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(reached, 'reached by Tab').toEqual(
-        expect.arrayContaining(['Write', 'Bold', 'Bulleted list', 'Comment']),
-      )
-      expect(missed, 'never reached by Tab').toEqual([])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Act & Assert: Tab reaches the tabs, the formatting and the button.
+      await expectReachableAndClean(page, {
+        reaches: ['Write', 'Bold', 'Bulleted list', 'Comment'],
+      })
     })
   }
 }
@@ -183,21 +175,14 @@ for (const theme of themes) {
     await opensForgeIssue(page)
     await page.getByRole('textbox', { name: 'Comment on #57' }).fill('/close')
 
-    // Act: Tab once round the page.
-    const { reached, missed, hidden } = await walkTabOrder(page)
-
-    // Assert: the thread is drawn from Markdown, the hint is on screen, Tab
-    // reaches the tabs, the formatting and the button, and axe finds nothing.
+    // Act & Assert: the thread is drawn from Markdown, the hint is on screen,
+    // and Tab reaches the tabs, the formatting and the button.
     await expect(page.getByRole('list', { name: 'Comments' }).getByRole('strong')).toHaveText(
       'main',
     )
     await expect(
       page.getByText('A line starting with / runs as a GitLab quick action.'),
     ).toBeVisible()
-    expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-    expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(['Write', 'Bold', 'Comment']))
-    expect(missed, 'never reached by Tab').toEqual([])
-    expect(hidden, 'out of view with focus').toEqual([])
-    expect(await axeViolations(page), 'axe').toBe('')
+    await expectReachableAndClean(page, { reaches: ['Write', 'Bold', 'Comment'] })
   })
 }

@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import type { ReviewQueue, ReviewRequest } from '../../src/api/generated/types.gen.ts'
 import { openSection, pinTheme, themes, widths, height } from '../support/cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 import { expect, test } from '../support/fixtures.ts'
 
 // The Reviews section against a queue answered here: it is read again on
@@ -179,21 +179,13 @@ for (const theme of themes) {
       await page.goto('/')
       await openSection(page, 'Reviews')
 
-      // Act: narrow it, group it, and Tab once round the page.
+      // Act: narrow it, and group it.
       await press(page, 'ready 3')
       await page.getByRole('combobox', { name: 'Sort' }).selectOption('By repository')
       await expect(page.getByRole('heading', { level: 3 }).first()).toBeVisible()
-      const { reached, missed, hidden } = await walkTabOrder(page)
 
-      // Assert: nothing scrolls sideways, nor the page down; Tab reaches the
-      // sort and the filter, and every other drawn control, each in view; and
-      // axe finds nothing.
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
-      expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(['Sort', 'ready 3']))
-      expect(missed, 'never reached by Tab').toEqual([])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Assert: Tab reaches the sort and the filter, and it is clean.
+      await expectReachableAndClean(page, { reaches: ['Sort', 'ready 3'] })
     })
   }
 }

@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import type { PullRequest, Snapshot } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
-import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 
 // The Review section's writes on the branch's pull request — edit, merge,
 // finish, re-run — each from a form that is its last look.
@@ -104,7 +104,7 @@ test('a merge goes by the method chosen, only from its preview', async ({ page }
 // rest, so the merge's other method is the one stop Tab passes by.
 const looks: Record<
   string,
-  { pull: PullRequest; ci: 'passed' | 'failed'; button: string; form: string; arrows?: string[] }
+  { pull: PullRequest; ci: 'passed' | 'failed'; button: string; form: string; passedBy?: string[] }
 > = {
   'the editor': { pull: ready, ci: 'passed', button: 'Edit pull request', form: 'Edit #42' },
   'the merge preview': {
@@ -112,7 +112,7 @@ const looks: Record<
     ci: 'passed',
     button: 'Merge',
     form: 'Merge #42',
-    arrows: ['Rebase and merge'],
+    passedBy: ['Rebase and merge'],
   },
   'the re-run look': {
     pull: ready,
@@ -141,14 +141,8 @@ for (const theme of themes) {
       await page.getByRole('button', { name: look.button, exact: true }).click()
       await expect(page.getByRole('form', { name: look.form })).toBeVisible()
 
-      // Act: Tab once round the page.
-      const { missed, hidden } = await walkTabOrder(page)
-
-      // Assert
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(missed, 'never reached by Tab').toEqual(look.arrows ?? [])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Act & Assert: Tab once round the page.
+      await expectReachableAndClean(page, { passedBy: look.passedBy })
     })
   }
 }
