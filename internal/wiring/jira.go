@@ -32,12 +32,12 @@ func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira
 
 	return seams.Jira{
 		Search: func(jql string, startAt int) (jira.SearchResult, error) {
-			return askJira(jiraClient, func(client jira.Client) (jira.SearchResult, error) {
+			return ask(jiraClient, func(client jira.Client) (jira.SearchResult, error) {
 				return client.Search(ctx, jql, startAt)
 			})
 		},
 		SearchLenient: func(jql string, startAt int) (jira.SearchResult, error) {
-			return askJira(jiraClient, func(client jira.Client) (jira.SearchResult, error) {
+			return ask(jiraClient, func(client jira.Client) (jira.SearchResult, error) {
 				return client.SearchLenient(ctx, jql, startAt)
 			})
 		},
@@ -62,7 +62,7 @@ func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira
 			})
 		},
 		Activity: func(start, end time.Time) (jira.Activity, error) {
-			return askJira(jiraClient, func(client jira.Client) (jira.Activity, error) {
+			return ask(jiraClient, func(client jira.Client) (jira.Activity, error) {
 				return client.Activity(ctx, start, end)
 			})
 		},
@@ -104,28 +104,6 @@ func connectJira(
 	return jira.New(log.Wrap("jira", httpTransport), settings), nil
 }
 
-// askJira connects to Jira, then asks it what ask does.
-func askJira[T any](jiraClient func() (jira.Client, error), ask func(jira.Client) (T, error)) (T, error) {
-	client, err := jiraClient()
-	if err != nil {
-		var none T
-
-		return none, err
-	}
-
-	return ask(client)
-}
-
-// tellJira connects to Jira, then has it make the change tell does.
-func tellJira(jiraClient func() (jira.Client, error), tell func(jira.Client) error) error {
-	client, err := jiraClient()
-	if err != nil {
-		return err
-	}
-
-	return tell(client)
-}
-
 // askJiraIssue asks Jira about the issue issueKey names. A key with no project
 // part is refused as missing without asking, or finding the token to ask with:
 // Jira reads a bare number as an issue's id, so a forge issue's 42 would reach
@@ -133,7 +111,7 @@ func tellJira(jiraClient func() (jira.Client, error), tell func(jira.Client) err
 // not a number the same way, so every surface falls back as it does for an
 // issue the tracker lacks.
 func askJiraIssue[T any](
-	jiraClient func() (jira.Client, error), issueKey jira.Key, ask func(jira.Client) (T, error),
+	jiraClient func() (jira.Client, error), issueKey jira.Key, question func(jira.Client) (T, error),
 ) (T, error) {
 	if !isJiraKey(issueKey) {
 		var none T
@@ -141,17 +119,17 @@ func askJiraIssue[T any](
 		return none, notAJiraIssue(issueKey)
 	}
 
-	return askJira(jiraClient, ask)
+	return ask(jiraClient, question)
 }
 
 // tellJiraIssue has Jira change the issue issueKey names, refusing a key with
 // no project part as askJiraIssue does.
-func tellJiraIssue(jiraClient func() (jira.Client, error), issueKey jira.Key, tell func(jira.Client) error) error {
+func tellJiraIssue(jiraClient func() (jira.Client, error), issueKey jira.Key, change func(jira.Client) error) error {
 	if !isJiraKey(issueKey) {
 		return notAJiraIssue(issueKey)
 	}
 
-	return tellJira(jiraClient, tell)
+	return tell(jiraClient, change)
 }
 
 // notAJiraIssue is the refusal of a key with no project part: missing, as an
