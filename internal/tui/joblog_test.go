@@ -25,6 +25,21 @@ func withAFailedJob(logged bool) *world {
 	return failing
 }
 
+// withALongLog is the world with one failed job whose log runs to a hundred
+// numbered lines, line 000 to line 099, far taller than the pane.
+func withALongLog() *world {
+	failing := withAFailedJob(true)
+
+	lines := make([]string, 0, 100)
+	for index := range 100 {
+		lines = append(lines, fmt.Sprintf("line %03d", index))
+	}
+
+	failing.jobLog = forge.JobLog{Text: strings.Join(lines, "\n")}
+
+	return failing
+}
+
 func TestLOnAFailedCheckShowsTheEndOfItsLog(t *testing.T) {
 	t.Parallel()
 
@@ -78,14 +93,7 @@ func TestScrollingUpPastTheTopOfALogStopsThere(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	failing := withAFailedJob(true)
-
-	lines := make([]string, 0, 100)
-	for index := range 100 {
-		lines = append(lines, fmt.Sprintf("line %03d", index))
-	}
-
-	failing.jobLog = forge.JobLog{Text: strings.Join(lines, "\n")}
+	failing := withALongLog()
 	opened := typing(t, failing.live(t, 120, 40), "4", "c", downAction, "l")
 
 	// Act
@@ -172,4 +180,51 @@ func TestALogTheForgeCannotReadSaysWhyBesideTheChecks(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "unit-race", "the job's log has expired")
 	refuseScreen(t, view, "reading the log")
+}
+
+func TestPgDnPagesALongLogDown(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	atTheTop := typing(t, withALongLog().live(t, 120, 40), "4", "c", downAction, "l", "home")
+
+	// Act
+	view := typing(t, atTheTop, "pgdown").View().Content
+
+	// Assert
+	refuseScreen(t, view, "line 000", "line 001", "line 002")
+}
+
+func TestPgUpPagesALongLogUp(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	atTheEnd := typing(t, withALongLog().live(t, 120, 40), "4", "c", downAction, "l")
+
+	// Act
+	view := typing(t, atTheEnd, "pgup").View().Content
+
+	// Assert
+	refuseScreen(t, view, "line 099", "line 098", "line 097")
+}
+
+func TestALongLogOffersTheScrollKeys(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, withALongLog().live(t, 120, 40), "4", "c", downAction, "l").View().Content
+
+	// Assert
+	requireScreen(t, footerLine(view), "esc back", "pgup/K scroll up", "pgdn/J scroll down")
+}
+
+func TestALogThatFitsOffersNoScrollKeys(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, withAFailedJob(true).live(t, 120, 40), "4", "c", downAction, "l").View().Content
+
+	// Assert
+	requireScreen(t, footerLine(view), "esc back")
+	refuseScreen(t, footerLine(view), "scroll")
 }
