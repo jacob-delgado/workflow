@@ -338,22 +338,6 @@ always leave one space.
 **Done when.** A test with `ui.ascii` on shows "left/right" followed by a
 space and "change type".
 
-### DEBT-186 `editor.Parse` cuts a draft at the scissors text even mid-line
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `Parse` and `Scissors` (`internal/editor/editor.go:127`).
-
-**Today.** `strings.Cut(raw, Scissors)` ends the text at any occurrence,
-though the doc says "from this line down" and git honors the scissors only as
-a whole line. A body quoting git's scissors line mid-line is silently cut.
-
-**Fix.** Stop at the first line equal to `Scissors` after trimming trailing
-spaces.
-
-**Done when.** An editor test with the scissors mid-line before the real one
-keeps the first line whole.
-
 ### DEBT-187 Every overlay repeats the close, step and scroll key code, and the job log skips the page keys
 
 Severity: low · Confidence: read · Size: M
@@ -1097,26 +1081,6 @@ listed unanalyzable package and a stub `go version -m` reporting another Go.
 
 **Done when.** The suite fails when the floor check is deleted.
 
-### DEBT-247 The goroutine gate cannot see `sync.WaitGroup.Go`, and one already runs in wiring
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** The pattern (`scripts/check-goroutines.sh:53`), `eachAtOnce`
-(`internal/wiring/repositories.go:238`).
-
-**Today.** The gate greps for the `go` keyword, so `wg.Go(func(){…})` passes.
-`eachAtOnce` reads repositories side by side that way, outside
-`internal/proc`, and the gate reports none. It is bounded and correct, but the
-stated rule (concurrency only in `tea.Cmd` and `internal/proc`) no longer
-holds and the gate cannot tell.
-
-**Fix.** Catch `.Go(func` (or a type-aware forbidigo rule on
-`(*sync.WaitGroup).Go`), and record `eachAtOnce` as an allowed exception or
-move it behind `internal/proc`.
-
-**Done when.** A fixture using `wg.Go` outside `internal/proc` fails the gate,
-and the wiring use carries a written exception.
-
 ### DEBT-248 `ci-gate` passes any skipped job, not just the one meant to skip
 
 Severity: low · Confidence: read · Size: S
@@ -1366,40 +1330,6 @@ each job's tools.
 
 **Done when.** The summary job runs no test suite, and the node-only jobs
 install only node.
-
-### DEBT-267 The gitrepo test helper `with` mutates the fixture it is given
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `with` (`internal/gitrepo/gitrepo_test.go:80`).
-
-**Today.** `maps.Copy` writes into the caller's map; it works only because
-every caller passes a fresh one. A shared fixture would leak answers between
-parallel tests.
-
-**Fix.** Clone first: `merged := maps.Clone(replies); maps.Copy(merged,
-changes)`.
-
-**Done when.** `with` does not write to its argument and `go test -race
-./internal/gitrepo` passes.
-
-### DEBT-268 testshape misnames versioned imports, so a library call can count as a failing helper
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `importNames` (`internal/testshape/scope.go:249`), `selectorFails`
-(`internal/testshape/failures.go:234`), `methodOutcome`
-(`internal/testshape/receivers.go:56`).
-
-**Today.** An unaliased `go.yaml.in/yaml/v3` is recorded as `v3`, so
-`yaml.X(t)` falls through to matching test-package methods by name; a
-same-named asserting method makes an Assert that only calls a library count as
-reaching a failure. No test hits it today.
-
-**Fix.** Drop a trailing `/vN` (and gopkg.in's `.vN`) before taking the base.
-
-**Done when.** A fixture calling an unaliased `/v2` package's `Check(t)`
-beside an unrelated asserting `Check` reports assert-without-failure.
 
 ### DEBT-276 No lint for the e2e specs: raw locators, `networkidle`, non-retrying asserts and Arrange-Act-Assert pass
 
@@ -1684,73 +1614,6 @@ and `taskwarrior`, all allowed by depguard.
 
 ## Across the surfaces
 
-### DEBT-290 A streamed run never ends while any descendant holds the output pipe
-
-Severity: medium · Confidence: read · Size: M
-
-**Where.** `Start` and `deliver` (`internal/proc/start.go:89`, `:110`,
-`:137`), `killGrace` and `Isolate` (`internal/proc/pgroup/pgroup_unix.go:17`,
-`:32`).
-
-**Today.** `Start` hands the child an `os.Pipe` write end, so exec makes no
-pipes of its own and `WaitDelay` has nothing to close; the reader calls `Wait`
-only after `deliver` reads to EOF. A hook that backgrounds a process holding
-stdout (`server &`, or a daemon that called setsid and escaped the group kill)
-keeps the pipe open after the child exits: `Lines` never closes, `Wait` blocks
-forever, the run shows as running in the TUI or web, and a goroutine and
-descriptor leak per run. `killGrace`'s comment claims the opposite.
-
-**Fix.** Wait for the child's exit in its own goroutine; once it exits, give
-`deliver` the grace period and then close the reader. Fix the comment.
-
-**Done when.** A Unix test whose helper backgrounds a `sleep 60` holding
-stdout and exits 0 sees `Lines` close and `Wait` return within seconds, under
-`-race`.
-
-### DEBT-291 Draining a streamed program is copied five times, each treating its lines differently
-
-Severity: medium · Confidence: read · Size: S
-
-**Where.** `Push` (`internal/loop/push.go:57`), `streamToEnd`
-(`internal/wiring/wiring.go:276`), `installLefthook` (`:435`), `runCommit`
-(`internal/webserver/commit.go:152`), `streamRun`
-(`internal/webserver/runs.go:278`), `pushFailure` (`internal/cli/pr.go:395`).
-
-**Today.** Five places range over `output.Lines`, wait and build an error from
-the lines, and each one prepares the lines in its own way. How a caller sees a
-program's output depends on which copy it picked, and a sixth caller will
-copy whichever it finds first.
-
-**Fix.** Add `proc.Output.Drain() ([]string, error)` returning the prepared
-lines and the exit error, used by every drain-to-slice caller.
-
-**Done when.** No `for line := range output.Lines` remains in `internal/loop`
-or `internal/wiring`, and one test of `Drain` covers what every caller
-receives.
-
-### DEBT-294 A Jira-only tracker sends bare forge numbers to Jira for assign and transition
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `jiraDeps` (`internal/wiring/jira.go:28`), `readJiraIssue` and
-friends (`:125`), `trackerDeps` (`internal/wiring/forgeissues.go:40`),
-`AssignIssue`, `TransitionIssue`, `ChangeStatus`
-(`internal/webserver/issuewrite.go:385`, `:107`, `:259`), `combinedTracker`
-(`internal/wiring/tracker.go:33`).
-
-**Today.** `jiraDeps` refuses a key with no project part for reads and
-comments, because Jira reads a bare number as an issue id; its transition and
-assign seams have no guard, and a Jira-only tracker returns `jiraDeps`
-unwrapped. A hand-made web request for `42` changes Jira issue id 42, someone
-else's issue. (The web's log-work and link paths already refuse such keys
-upstream, and the combined tracker routes by shape.)
-
-**Fix.** Route every key-taking `jiraDeps` seam through one guard that returns
-`jira.ErrNotFound`.
-
-**Done when.** A wiring test with a Jira-only config asserts assign and
-transition on "42" return `ErrNotFound` and send no request.
-
 ### DEBT-295 The forge's kind and group seams are fixed at start-up though forge settings are live
 
 Severity: low · Confidence: read · Size: M
@@ -1772,98 +1635,6 @@ group cache is keyed by name only and survives a host change.
 
 **Done when.** A wiring test starts with GitHub, applies GitLab settings and
 sees `IsGroup` reach the fake GitLab endpoint.
-
-### DEBT-302 Discard and Unstage treat any failed HEAD probe as an unborn branch
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `Unstage` (`internal/gitrepo/status.go:208`), `discardArgs`
-(`:243`), `readFailure` (`internal/gitrepo/gitrepo.go:64`).
-
-**Today.** Both run `git rev-parse --verify --quiet HEAD` and on any error
-take the no-commit-yet path, `git rm --force` or `git rm --cached`. A probe
-that times out (the 30 s per-command bound) while the next command succeeds
-makes Discard of a committed file delete it and stage the deletion, instead of
-restoring it. The probe is written twice and does not use `readFailure`.
-
-**Fix.** One `hasHead(ctx) (bool, error)` that answers an error for a timeout
-or a missing git and false only for git's "no such ref".
-
-**Done when.** A test whose HEAD probe answers `proc.ErrTimedOut` sees Discard
-return an error and run no `rm`.
-
-### DEBT-303 `proc.Run` hides a caller's cancel that `Capture` reports, and `Failure` re-parses its own message
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `runWithin` and `captureWithin` (`internal/proc/proc.go:72`,
-`:118`), `Failure` (`:157`),
-`TestRunWithinLeavesATighterParentDeadlineUnclaimed`
-(`internal/proc/proc_test.go:38`), `ExitStatus` handling
-(`internal/cli/cli.go:146`), the taskwarrior callers
-(`internal/taskwarrior/client.go:204`).
-
-**Today.** `captureWithin` returns `context.Cause` once the context is done;
-`runWithin` wraps exec's "signal: killed", so `errors.Is(err,
-context.Canceled)` is false for every git read, and the CLI patches it back at
-the top. Both format `"%s: %w: %s"` and `Failure` recovers stderr with
-`strings.Cut` on the message, so taskwarrior's refusal classification depends
-on a format string in another file. The Run test passes for any error.
-
-**Fix.** Have `runWithin` call `captureWithin`, and return a typed
-`ExitError{Program, Code, Stderr}` that `Failure` reads with `errors.As`;
-tighten the test to `context.DeadlineExceeded`.
-
-**Done when.** A test asserts `RunWithin` answers a caller's cancel as
-`context.Canceled`, and `Failure` holds no `strings.Cut`.
-
-### DEBT-304 Hook generation leaves directories behind, drops set options and skips hooks that mention lefthook
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `Write` and `remove` (`internal/hooks/generate.go:387`, `:397`),
-`filesIn` and `TestAWriteCutShortLeavesNoFileBehind`
-(`internal/hooks/write_unix_test.go:43`, `:66`), `plainCommands`, `setOption`
-and `errexitOption` (`generate.go:254`, `:283`, `:291`), `ExistingHooks`
-(`:87`).
-
-**Today.** A write cut short removes its files but not the `.lefthook/<hook>`
-directories, and the test meant to prove "nothing behind" skips directories.
-Conversion accepts any `set -flags` line and discards it, so `set -ef`
-(noglob) or `set -en` (noexec) converts and the glob expands or commands now
-run; gobco confirms that case is untested. And a hand-written hook that merely
-mentions "lefthook" (a comment, an `npx lefthook` step) is treated as
-lefthook's own shim and left out of the generated configuration.
-
-**Fix.** Record and remove the directories `MkdirAll` made, and list them in
-the test; accept only errexit-compatible set lines (`e`, `u`, `x`); recognize
-lefthook's shim by its header or `call_lefthook`, not the word.
-
-**Done when.** The cut-short test asserts an empty directory, `set -ef` and
-`set -en` scripts stay scripts, and a hook with only a lefthook comment
-appears in `ExistingHooks`.
-
-### DEBT-306 The Jira key shape is written three times, and the web's copy disagrees
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `issueKey` and `wholeJiraKey`
-(`internal/convention/convention.go:56`, `:171`), `forgeNumber` (`:199`),
-`forgeIssueNumber` (`internal/convention/pullrequest.go:120`), `jiraKey`
-(`web/src/features/repositories/useFollowSwitch.ts:8`).
-
-**Today.** Go spells `[A-Z][A-Z0-9_]+-[1-9][0-9]*` twice; the web's
-`^[A-Z][A-Z0-9_]*-\d+$` accepts `A-1` and `PROJ-01`. Within convention,
-`forgeNumber` requires no leading zero while `forgeIssueNumber` accepts any
-digits, so `0` would be worded "Closes #0". Every caller parses through the
-strict rule first, so no user reaches the difference today.
-
-**Fix.** Build both Go regexps from one constant, keep one forge-number
-predicate, and expose the selected issue's tracker in the API so the web stops
-re-deriving it.
-
-**Done when.** One Go constant and no TypeScript copy of the key shape remain,
-and `PullRequestBody` with key "0" no longer writes "Closes #0".
 
 ### DEBT-307 The CLI imports the web server and the terminal package for logic every surface shares
 
@@ -1913,169 +1684,6 @@ from one source in wiring.
 
 **Done when.** `WebDeps` is under 25 lines and a seam added to a group needs
 no edit in `internal/cli`.
-
-### DEBT-309 One concept, several spellings: CI words, glyphs, finish commands, sizes and settings
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `statusGlyph` and `ciWord` (`internal/cli/status.go:536`, `:562`),
-`unicodeGlyphs` and `asciiGlyphs` (`internal/tui/glyphs.go:35`), `ciWord`
-(`internal/tui/reviewfacets.go:56`), `ciState`
-(`internal/webserver/dto.go:258`); `finishPreview.commands`
-(`internal/tui/finish.go:78`), `web/src/features/review/PullActions.tsx:360`,
-`FinishBranch` (`internal/gitrepo/branching.go:119`); `humanBytes`
-(`internal/tui/localdata.go:135`, `internal/cli/dbclean_cmd.go:154`,
-`web/src/features/settings/people/LocalData.tsx:111`) and the removal wording
-(`internal/tui/localdata.go:206`); `settingsForm.settings`
-(`internal/tui/settingsfields.go:81`) and
-`web/src/features/settings/fieldsets/*.tsx`.
-
-**Today.** The CI-state words are mapped three times and the stage glyphs
-twice, though the CLI's line claims to mirror the spine. The finish preview's
-commands, which a destructive `-D` is confirmed against, are written in the
-TUI and the web apart from what gitrepo runs. Byte sizes and the removal
-consequences are written in the TUI, the CLI and the web. The terminal's
-Settings form copies the web's labels and hints by hand (already drifting),
-restates owners' defaults as prose ("0 keeps 72", "empty keeps 20s") and
-addresses settings by dotted strings the compiler cannot check.
-
-**Fix.** A `Word()` on the CI state and a `Glyph(ascii)` on the progress
-state; `gitrepo.FinishCommands(base, branch)` used by the runner and the TUI
-and served to the web; one `humanBytes` and consequence wording in
-`internal/store`; a test that every settings path resolves to a
-`config.Config` json tag, with hints built from the owning constants (one
-shared settings table is the larger option).
-
-**Done when.** Non-test Go holds one `◐` literal and one CI-word map,
-`ff-only` appears in `internal/tui` and `web/src` only through the shared
-source, one `humanBytes` exists in Go, and the settings-path test passes.
-
-### DEBT-310 The wiring's adapters and types are written several ways
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `askJira` and `tellJira` (`internal/wiring/jira.go:100`),
-`askTaskwarrior` and `tellTaskwarrior` (`internal/wiring/tasks.go:95`), the
-fourteen `connect()` arms and the funlen helpers of
-`internal/wiring/forge.go`; `SlackTarget` and `OwnerLink`
-(`internal/loop/tags.go:18`, `:27`; `internal/messaging/directory.go:91`;
-`internal/store/owners.go:49`), `fromStoreLinks` to `toStoreTargets`
-(`internal/wiring/kept.go:116`), `asLoopTargets`
-(`internal/wiring/slackdirectory.go:420`); `SlackDirectory`
-(`internal/wiring/slackdirectory.go:39`).
-
-**Today.** Jira and Taskwarrior each define the same generic "get the client,
-then call" pair, and `forge.go` hand-rolls it fourteen times, with four
-helpers whose only reason is "keep forgeDeps within its length".
-`loop.SlackTarget` is identical to `messaging.SlackTarget`, and loop already
-imports messaging; the `OwnerLink` copies are converted field by field.
-`SlackDirectory`, 455 lines of single-flight, expiry and rate-limit patience,
-is behavior rather than binding. (The store's own plain-string types are a
-deliberate boundary and stay.)
-
-**Fix.** One `ask[C, T]` and `tell[C]` in wiring used by all three; make
-`loop.SlackTarget` an alias of messaging's and delete `asLoopTargets`; move
-`SlackDirectory` to a `messaging/directory` subpackage (messaging itself would
-cycle through loop).
-
-**Done when.** `askJira` and `askTaskwarrior` are gone, `forge.go` holds at
-most two hand-rolled connects, and `internal/wiring` has no `SlackDirectory`
-type.
-
-### DEBT-312 Loop's contracts are uneven: a nil post panics, setup advice lives in the Summary, and Merge's doc is wrong
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `PostSummary` (`internal/loop/summary.go:405`), `Deliver` and
-`Push` (`internal/loop/announce.go:218`, `internal/loop/push.go:48`),
-`NotSetUp`, `SetUpAdvice` and `setUpCauses` (`internal/loop/summary.go:76`,
-`:87`, `:107`), `Merge` (`internal/activity/item.go:135`), `CommitsRead`
-(`internal/loop/summary.go:51`).
-
-**Today.** `Deliver` and `Push` refuse a nil seam with a sentinel;
-`PostSummary` calls it and panics, so each surface keeps its own guard. The
-advice every surface uses to word missing setup lives in the Summary's file
-and is tested in `setup_test.go` with no `setup.go`. `Merge` documents
-deduplicating a commit shared by two repositories, which `CommitsRead` already
-does by full hash; Merge's own check by ref can never match across
-repositories.
-
-**Fix.** Return a sentinel from `PostSummary` for a nil post; move the setup
-advice to `loop/setup.go`; drop Merge's dedupe and its doc claim.
-
-**Done when.** `PostSummary(nil, …)` returns the sentinel, `summary.go` holds
-only Summary reads and posting, and Merge's doc matches it.
-
-### DEBT-316 `priorityRank` needs three `//nolint:mnd`, and the H, M, L order is written twice
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `priorityRank` (`internal/taskwarrior/order.go:161`),
-`offeredFacets` (`internal/taskwarrior/narrow.go:236`).
-
-**Today.** Ranks 2, 4 and 3 are literals behind three suppressions, and the
-order is also a literal slice in `offeredFacets`.
-
-**Fix.** One ordered list, ranked by `slices.Index` with named ranks for other
-and none, used by both.
-
-**Done when.** `grep nolint internal/taskwarrior/order.go` returns nothing and
-the order and narrow tests pass.
-
-### DEBT-317 Small inconsistencies in gitrepo, workdirs, the forge's token and db-clean
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `gitProgram` (`internal/gitrepo/branch.go:23`) against the literals
-in `gitrepo.go`, `branch.go`, `status.go` and `branching.go:26`; `List`
-(`internal/workdirs/workdirs.go:52`); `ReachForge`
-(`internal/wiring/forge.go:437`); `databases` (`internal/store/clean.go:81`).
-
-**Today.** `gitProgram` is "the program every command here runs", yet a dozen
-calls pass `"git"`. `List` stats every entry and checks `.git` in each
-directory before cutting to its limit. With `forge.cli` on, `ReachForge` still
-resolves a real token (possibly running `gh auth token`) that the CLI
-transport never uses. db-clean's table summary restates the schema by hand and
-already misses `repo_choice`.
-
-**Fix.** Use `gitProgram` everywhere; filter by name and `DirEntry.Type()`
-first and check `.git` only for kept entries; resolve only without the CLI
-transport; add a test that every `CREATE TABLE` has a summary entry.
-
-**Done when.** No `"git"` program literal remains in `internal/gitrepo`, a
-10k-entry benchmark makes O(limit) `.git` checks, a `forge.cli` test runs no
-token command, and a seeded `repo_choice` shows in the summary.
-
-### DEBT-321 Pay down TRADE-21 and TRADE-28: twin rules read one shared case file
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `internal/tui/issueplaces.go`,
-`web/src/features/issues/issuePlaces.ts` and their tests;
-`jira.WikiFromMarkdown` (`internal/jira/wiki.go`),
-`web/src/features/issues/wiki/wikiFromMarkdown.ts`, `fenceLine`, and their
-tests.
-
-**Today.** Both trade-offs keep rules in Go and TypeScript, for good reasons
-(marks come from reads the browser makes separately; Preview converts on every
-keystroke), but their stated cost, "a change made to one copy alone passes
-that copy's tests", is cheap to remove. The cases are written twice in
-different shapes, and nothing checks the twins hold the same data. The wiki
-converters already differ where the languages do: Go's `TrimSpace` trims
-U+0085 and JavaScript's `trim` U+FEFF, so a fence line ending in either gets a
-different `{code:lang}`. With TRADE-29 and TRADE-33 the pattern is past the
-rule of three.
-
-**Fix.** A JSON case corpus per rule set (`testdata/twins/places.json`,
-`internal/jira/testdata/wiki_from_markdown.json`), read by a Go test and by
-the TypeScript test through `readFileSync`, replacing both hand tables; move
-the place rules into a small exported package so the Go test is black-box; add
-the two fence cases and align the trims. Rewrite each entry with its cost as
-"made twice, against one shared case file that fails whichever copy
-disagrees"; reuse the loader for TRADE-33 (TRADE-29 is paid by DEBT-328).
-
-**Done when.** Editing either copy alone fails its own suite against the
-shared corpus, and `task check` and the web unit tests are green.
 
 ### DEBT-323 Pay down TRADE-23: the server describes each review request's facets
 
@@ -2135,7 +1743,7 @@ them where the handler builds the list. Cut the TypeScript to sorting by
 `searchable`. Since a wait passing changes a task's state with no event,
 invalidate the tasks query at the earliest `wait` still ahead. Move the order
 and facet cases to Go. Paying this closes TRADE-29: delete the entry and its
-four site comments, and drop TRADE-29 from DEBT-321's fix.
+four site comments.
 
 **Done when.** `rg 'priorityRank|naturalOrder|stateRank' web/src` finds
 nothing, no facet label is spelled in `web/src/features/tasks`, and `task
@@ -2207,8 +1815,7 @@ the build fails.
 **Fix.** Change the bullet to: "*Premature goroutines/channels* — concurrency
 with no measured need → simple synchronous code first; a bare `go` statement
 is allowed only in `internal/proc` and tests (**gate**
-`scripts/check-goroutines.sh`, `task lint:goroutines`)." Widen the gate as
-DEBT-247 asks.
+`scripts/check-goroutines.sh`, `task lint:goroutines`)."
 
 **Done when.** CLAUDE.md names `check-goroutines.sh` beside the smell.
 
@@ -2248,10 +1855,10 @@ The pre-1.0 audit re-judged every entry on 2026-10-07. TRADE-3, TRADE-4,
 TRADE-5, TRADE-7, TRADE-8, TRADE-9, TRADE-11, TRADE-13, TRADE-14, TRADE-24,
 TRADE-25, TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is
 true at `b9ab000`. TRADE-16 was paid down to the two calls it now names, and
+TRADE-21 and TRADE-28 to two copies held to one shared case file, and each
 stays. TRADE-1, TRADE-2, TRADE-6, TRADE-10, TRADE-12, TRADE-18, TRADE-19,
-TRADE-21, TRADE-23, TRADE-28 and TRADE-29 are to be paid down by the entries
-above whose titles name them, and each stays here, as it was, until its entry
-is paid.
+TRADE-23 and TRADE-29 are to be paid down by the entries above whose titles
+name them, and each stays here, as it was, until its entry is paid.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
@@ -2623,24 +2230,27 @@ listed as seen only one way.
 ### TRADE-21 The place rules are written twice
 
 The Issues list narrows to places — a Jira status, or one of the marks in
-flight, task active, tracked and task done — in the terminal
-(`internal/tui/issueplaces.go`) and in the web
-(`web/src/features/issues/issuePlaces.ts`), each working out an issue's
-marks and which places admit it from what that surface already holds. The
-two copies are pinned by twin-named test cases in
-`internal/tui/issueplaces_test.go` and
-`web/src/features/issues/issuePlaces.test.ts`.
+flight, task active, tracked, task done and forge issue — in the terminal
+(`internal/places/places.go`) and in the web
+(`web/src/features/issues/issuePlaces.ts`), each working out an issue's marks
+and which places admit it from what that surface already holds. Both copies
+read their cases from one file, `testdata/twins/places.json`, and each decodes
+it strictly, so a case one side would not read fails rather than passing
+unread.
 
 **Decided.** 2026-09-30, when both surfaces gained the place filter: the
 marks are read from data each surface already has, the branches and the
 linked tasks, and moving the rule to the server would mean sending each
-issue's marks in the snapshot for a filter that runs in the browser.
+issue's marks in the snapshot for a filter that runs in the browser. Kept in
+the pre-1.0 paydown, which held both copies to one shared case file.
 
-**Cost.** A change to what a place means is made twice, and a change made
-to one copy alone passes that copy's tests.
+**Cost.** A change to what a place means is made twice, against one shared
+case file that fails whichever copy disagrees with it; a rule the file holds
+no case for can still differ between the two.
 
 **Reopen when.** The snapshot comes to carry each issue's marks for another
-reason, or the two copies are found to disagree.
+reason, or the two copies are found to disagree on a case the file does not
+hold.
 
 ### TRADE-23 The review facets are written twice
 
@@ -2671,21 +2281,23 @@ the two copies are found to disagree.
 With `jira.markdown_comments` on, a comment written as Markdown is posted
 as Jira's wiki markup by `jira.WikiFromMarkdown` (`internal/jira/wiki.go`),
 and the web's comment Preview draws the same conversion from its own copy
-(`web/src/features/issues/wiki/wikiFromMarkdown.ts`). The two are pinned
-by twin-named cases in `internal/jira/wiki_test.go` and
-`web/src/features/issues/wiki/wikiFromMarkdown.test.ts`.
+(`web/src/features/issues/wiki/wikiFromMarkdown.ts`). Both copies read their
+cases from one file, `internal/jira/testdata/wiki_from_markdown.json`, and
+each decodes it strictly.
 
 **Decided.** 2026-10-01, when the web gained commenting: Preview redraws
 on every keystroke, and asking the server for each one would be a write
 under the dry-run guard's rule (it refuses every non-GET) or a GET carrying
 the whole comment in its URL. Converting in the browser shows exactly what
-will be sent with no request at all.
+will be sent with no request at all. Kept in the pre-1.0 paydown, which held
+both copies to one shared case file.
 
-**Cost.** A change to how a Markdown construct converts is made twice, and
-a change made to one copy alone passes that copy's tests.
+**Cost.** A change to how a Markdown construct converts is made twice,
+against one shared case file that fails whichever copy disagrees with it; a
+construct the file holds no case for can still convert differently.
 
 **Reopen when.** The server comes to render comments itself, or the two
-copies are found to disagree.
+copies are found to disagree on a construct the file does not hold.
 
 **Revisited.** 2026-10-05, in #174: the web's copy now also draws a forge
 issue's thread and Preview, converting its Markdown to wiki markup for
@@ -2736,7 +2348,7 @@ ships, not after.
 ### TRADE-26 The Slack directory is read whole, once a session
 
 **Decided.** To offer a channel's members by name,
-`internal/wiring/slackdirectory.go` reads `users.list` whole (Slack's Tier 2,
+`internal/messaging/directory/directory.go` reads `users.list` whole (Slack's Tier 2,
 up to `messaging.UserListPages`, 20 pages, about 4,000 people) and labels
 members from it; past that cap it labels the channel's members one by one
 through `users.info` (Tier 4). Every read is shared by everyone asking at
@@ -2855,8 +2467,8 @@ reported.
 **Decided.** The Summary's dates (a day, a week or a month moved, a month's
 last day, a whole month or year, a month as weeks from Monday, and a period
 stepped by its own length) are worked out in `internal/activity/period.go` and
-again in `web/src/features/summary/civilDate.ts`, pinned by twin-named cases
-in `period_test.go` and `civilDate.test.ts`. The web's calendar moves on every
+again in `web/src/features/summary/civilDate.ts`, both answering to one case
+file, `internal/activity/testdata/civil_dates.json`. The web's calendar moves on every
 key (`MonthGrid`'s arrows, Page Up and Page Down, Home and End), so it cannot
 wait on a request for arithmetic. The server still decides the default period
 and reads every period, so only the moves are twinned, never which days were
@@ -2865,9 +2477,10 @@ audit: nearly all of it is the Gregorian calendar, whose rules do not change,
 and the one rule of workflow's own, that a whole month or year steps as one,
 is a few lines.
 
-**Cost.** A change to how a period steps is made twice, and a mistake in one
-copy's leap-year or month-end arithmetic passes that copy's own cases until
-DEBT-321's shared case file pins both.
+**Cost.** A change to how a period steps is made twice, against one shared
+case file that fails whichever copy disagrees with it; a mistake in one copy's
+leap-year or month-end arithmetic on a date the file holds no case for still
+passes that copy's tests.
 
 **Reopen when.** The two copies are found to disagree, the step rule changes,
 or `Temporal.PlainDate` is in every browser the web supports, so the browser's
