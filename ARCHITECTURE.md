@@ -445,8 +445,12 @@ exist only to hold a line:
   whose `Host` is not a loopback host (closing DNS-rebinding), requires a
   state-changing request that carries an `Origin` to be same-origin (closing
   cross-origin CSRF from a co-resident page), and — under `--dry-run` —
-  refuses every write at one gate, making the whole surface read-only. There is
-  no auth scheme, by design: a single local user over loopback.
+  refuses every write at one gate, making the whole surface read-only. Every
+  API request must also present the run's session, a secret each run makes as
+  it starts and gives its page in the address it prints, so a program on the
+  machine that was never shown that address cannot drive the API. Beyond that
+  there are no accounts or logins, by design: a single local user over
+  loopback.
 - **Secrets are masked before any output** and are never written to the store;
   the token no-leak tests ship with any change that touches a credential path.
 - **Web API errors leak nothing.** Every error a handler returns is an RFC 9457
