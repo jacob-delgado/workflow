@@ -108,7 +108,7 @@ func (d localData) fileLines(width int) []string {
 
 	for _, file := range d.files {
 		lines = append(lines,
-			fmt.Sprintf("%-12s %-6s %10s", file.Name, file.Kind, humanBytes(file.Bytes)),
+			fmt.Sprintf("%-12s %-6s %10s", file.Name, file.Kind, store.HumanBytes(file.Bytes)),
 			wrap("  "+holdings(file.Holds), width))
 	}
 
@@ -128,21 +128,6 @@ func holdings(holds []store.Held) string {
 	}
 
 	return strings.Join(parts, ", ")
-}
-
-// humanBytes is a size in bytes, KiB or MiB, with one decimal past bytes, as
-// workflow db-clean prints it.
-func humanBytes(size int64) string {
-	const unit = 1024
-
-	switch {
-	case size < unit:
-		return fmt.Sprintf("%d B", size)
-	case size < unit*unit:
-		return fmt.Sprintf("%.1f KiB", float64(size)/unit)
-	default:
-		return fmt.Sprintf("%.1f MiB", float64(size)/(unit*unit))
-	}
 }
 
 // footer offers each removal there is something for, another read after a
@@ -203,16 +188,9 @@ func (d localData) reaches(scope store.CleanScope) string {
 // it and that it cannot be undone.
 func (d localData) askToRemove(m Model, scope store.CleanScope) Model {
 	names := d.reaches(scope)
-	consequence := "The last scope, what was announced and the cached issue lists are made again as you work."
-
-	if scope == store.CleanAll {
-		consequence = "Whom each code owner is on Slack and each repository's groups go with it: " +
-			"people and group associations will be asked again."
-	}
-
 	look := lastLook{
 		marks: m.marks, styles: m.styles, title: "Remove local data", verb: "remove", doing: "removing",
-		body: "Remove " + names + "?\n\n" + consequence + " It cannot be undone.",
+		body: "Remove " + names + "?\n\n" + scope.Consequence() + " It cannot be undone.",
 	}
 	look.proceed = func(m Model) (Model, tea.Cmd) {
 		if m.dryRun {

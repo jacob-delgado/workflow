@@ -123,6 +123,14 @@ export const zBranchIssuePreview = z.object({
     changes: z.boolean()
 });
 
+/**
+ * What a removal of each scope takes with it, in the words every surface's last look warns with before anything is removed.
+ */
+export const zLocalDataConsequences = z.object({
+    cache: z.string(),
+    all: z.string()
+});
+
 export const zLocalDataHeld = z.object({
     what: z.string(),
     count: z.int().gte(0)
@@ -135,6 +143,7 @@ export const zLocalDataFile = z.object({
     name: z.string(),
     kind: z.enum(['cache', 'kept']),
     bytes: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    size: z.string(),
     holds: z.array(zLocalDataHeld)
 });
 
@@ -144,6 +153,7 @@ export const zLocalDataFile = z.object({
 export const zLocalData = z.object({
     dir: z.string(),
     files: z.array(zLocalDataFile),
+    consequences: zLocalDataConsequences,
     dry_run: z.boolean().optional()
 });
 

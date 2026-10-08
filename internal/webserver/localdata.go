@@ -75,7 +75,12 @@ func (s *server) localData(ctx context.Context) (api.LocalData, error) {
 		return api.LocalData{}, err
 	}
 
-	data := api.LocalData{Dir: dir, Files: make([]api.LocalDataFile, 0, len(files))}
+	data := api.LocalData{
+		Dir: dir, Files: make([]api.LocalDataFile, 0, len(files)),
+		Consequences: api.LocalDataConsequences{
+			Cache: store.CleanCache.Consequence(), All: store.CleanAll.Consequence(),
+		},
+	}
 
 	if s.info.DryRun {
 		dryRun := true
@@ -97,7 +102,8 @@ func localDataFileDTO(file store.DataFile) api.LocalDataFile {
 	}
 
 	return api.LocalDataFile{
-		Name: file.Name, Kind: api.LocalDataFileKind(file.Kind), Bytes: file.Bytes, Holds: holds,
+		Name: file.Name, Kind: api.LocalDataFileKind(file.Kind), Bytes: file.Bytes, Size: store.HumanBytes(file.Bytes),
+		Holds: holds,
 	}
 }
 

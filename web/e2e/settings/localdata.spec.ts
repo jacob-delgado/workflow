@@ -15,6 +15,7 @@ const listing = {
       name: 'workflow.db',
       kind: 'cache',
       bytes: 94_208,
+      size: '92.0 KiB',
       holds: [
         { what: 'scopes', count: 3 },
         { what: 'cached issues', count: 41 },
@@ -24,9 +25,17 @@ const listing = {
       name: 'kept.db',
       kind: 'kept',
       bytes: 24_576,
+      size: '24.0 KiB',
       holds: [{ what: 'repository groups', count: 2 }],
     },
   ],
+  consequences: {
+    cache:
+      'The last scope, what was announced and the cached issue lists are made again as you work.',
+    all:
+      "Whom each code owner is on Slack and each repository's groups go with it: " +
+      'people and group associations will be asked again.',
+  },
 } satisfies LocalData
 
 // answersStore answers the local data from a store that a removal empties as
@@ -43,7 +52,7 @@ async function answersStore(page: Page): Promise<string[]> {
       files = scope === 'all' ? [] : files.filter((file) => file.kind === 'kept')
     }
 
-    return route.fulfill({ json: { dir: listing.dir, files } })
+    return route.fulfill({ json: { ...listing, files } })
   })
 
   return asked
