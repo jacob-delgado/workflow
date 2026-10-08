@@ -23,8 +23,8 @@ import (
 // errStoreFull is a store that could not write.
 var errStoreFull = errors.New("database or disk is full")
 
-// notRemembered is what an announcement posted but not remembered warns, as
-// the terminal and workflow announce say it.
+// notRemembered is the web's warning on an announcement posted but not
+// remembered: its short form of loop.ErrNotRemembered.
 const notRemembered = "Posted, but not remembered: it may be offered again."
 
 // announceMemory is the store's record of what was announced, as a fake: what
