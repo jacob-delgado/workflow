@@ -407,7 +407,7 @@ function ComposerFooter({ ids, hint, quickActions, length, busy, onSend }: Compo
           {plural(length, 'character')}
         </span>
       </p>
-      <Button variant="primary" aria-disabled={busy} onClick={onSend}>
+      <Button variant="primary" held={busy} onClick={onSend}>
         {busy ? 'Commenting…' : 'Comment'}
       </Button>
     </div>

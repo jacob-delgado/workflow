@@ -124,16 +124,7 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
             </p>
           )}
         </div>
-        <Button
-          variant="secondary"
-          aria-disabled={reading}
-          onClick={() => {
-            if (!reading) {
-              onReadAgain()
-            }
-          }}
-          className="shrink-0"
-        >
+        <Button variant="secondary" held={reading} onClick={onReadAgain} className="shrink-0">
           {readAgainLabel(failed, reading)}
         </Button>
       </div>

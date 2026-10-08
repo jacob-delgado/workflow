@@ -45,14 +45,22 @@ const noAllCaps = [
 // fields' held prop, in web/src/lib), never disabled: the disabled attribute
 // drops its focus to the page in Chromium and WebKit, and a keyboard user who
 // pressed it hears the refusal from nowhere (UX-106). disabled stays for a
-// control off for a reason that names no run — nothing chosen yet.
+// control off for a reason that names no run — nothing chosen yet. Nor does a
+// Button hold itself by hand with aria-disabled and a guard in its onClick:
+// held is both, in one place.
 const runningNames =
-  /^(busy|running|sending|opening|writing|linking|posting|going|retrying|saving|isFetching|isPending)$/
+  /^(busy|running|sending|opening|writing|linking|posting|going|retrying|reading|saving|isFetching|isFetchingNextPage|isPending)$/
+const aRun = `:matches(Identifier[name=${String(runningNames)}], Literal[value='running'])`
 const heldNotDisabled = [
   {
-    selector: `JSXAttribute[name.name='disabled'] :matches(Identifier[name=${String(runningNames)}], Literal[value='running'])`,
+    selector: `JSXAttribute[name.name='disabled'] ${aRun}`,
     message:
       'Hold a control while its run goes with held (web/src/lib/Button.tsx, Field.tsx), not disabled, which drops its focus to the page.',
+  },
+  {
+    selector: `JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='aria-disabled'] ${aRun}`,
+    message:
+      'Hold a Button while its run goes with held (web/src/lib/Button.tsx), which sets aria-disabled and swallows the press, not with aria-disabled and a guard of its own.',
   },
 ]
 

@@ -210,15 +210,7 @@ function Controls({
         </p>
       )}
       <div className="flex flex-wrap items-center gap-item">
-        <Button
-          variant="secondary"
-          aria-disabled={reading}
-          onClick={() => {
-            if (!reading) {
-              onReadAgain()
-            }
-          }}
-        >
+        <Button variant="secondary" held={reading} onClick={onReadAgain}>
           {readAgainLabel(failed, reading)}
         </Button>
         {list === undefined ? null : (
