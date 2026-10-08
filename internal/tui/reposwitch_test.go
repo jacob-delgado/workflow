@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -228,7 +229,7 @@ func TestTabCompletesTheOneDirectoryThatFits(t *testing.T) {
 
 	// Arrange
 	working := reposWorld()
-	working.dirs.listings = map[string][]string{"/home/ana/src": {"cli", "www"}}
+	working.dirs.listings = map[string][]string{srcDir: {"cli", "www"}}
 	typed := goingTo(t, working, "~/src/w")
 
 	// Act
@@ -439,7 +440,7 @@ func TestAnAnswerForAPathSinceChangedIsDropped(t *testing.T) {
 
 	// Arrange
 	working := reposWorld()
-	working.dirs.listings = map[string][]string{"/home/ana/src": {"web"}}
+	working.dirs.listings = map[string][]string{srcDir: {"web"}}
 	typed := goingTo(t, working, "~/src/w")
 	asked, complete := pressed(t, typed, keyTab)
 	retyped := typing(t, asked, "x")
@@ -469,4 +470,34 @@ func TestALookAnsweredAfterThePromptWasReopenedIsDropped(t *testing.T) {
 	view := answered.View().Content
 	requireScreen(t, view, "Go to a directory", "> ~/src/api")
 	refuseScreen(t, view, "Switch directory")
+}
+
+// zeroWidthName is a directory's name holding a zero-width space, which a
+// name is drawn with as U+FFFD, and zeroWidthDir the directory under src.
+const (
+	zeroWidthSpace = '\u200b'
+	zeroWidthName  = "zero" + string(zeroWidthSpace) + "width"
+	zeroWidthDir   = srcDir + "/" + zeroWidthName
+)
+
+func TestTabCompletesTheNameAsItIsOnDisk(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := reposWorld()
+	working.dirs.listings = map[string][]string{srcDir: {"cli", zeroWidthName}}
+	working.dirs.places[zeroWidthDir] = seams.Place{Dir: zeroWidthDir, Root: zeroWidthDir}
+	completed, _ := pressedAndAnswered(t, goingTo(t, working, "~/src/z"), keyTab)
+	asked, _ := pressedAndAnswered(t, completed, keyEnter)
+
+	// Act
+	left, cmd := pressed(t, asked, keyEnter)
+
+	// Assert
+	requireScreen(t, completed.View().Content, "> ~/src/zero�width/")
+	refuseScreen(t, completed.View().Content, string(zeroWidthSpace))
+
+	if !quits(cmd) || left.Destination().Dir != zeroWidthDir {
+		t.Errorf("left for %q (quit %v), want %q", left.Destination().Dir, quits(cmd), zeroWidthDir)
+	}
 }
