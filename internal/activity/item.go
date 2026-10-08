@@ -132,25 +132,12 @@ type Read struct {
 	NotSetUp  error
 }
 
-// Merge is the items of every list, oldest first, with a commit seen more
-// than once — on two branches, or in two repositories that share it — kept
-// once.
+// Merge is the items of every list, oldest first, items at the same moment in
+// the order they were listed. It keeps every item: a commit two repositories
+// share is read once by the read that lists them (loop.CommitsRead), by its
+// full hash, where an item's abbreviated Ref could not tell it apart.
 func Merge(lists ...[]Item) []Item {
-	var merged []Item
-
-	seen := map[string]bool{}
-
-	for _, item := range slices.Concat(lists...) {
-		if item.Kind == Committed && item.Ref != "" {
-			if seen[item.Ref] {
-				continue
-			}
-
-			seen[item.Ref] = true
-		}
-
-		merged = append(merged, item)
-	}
+	merged := slices.Concat(lists...)
 
 	slices.SortStableFunc(merged, func(a, b Item) int { return a.At.Compare(b.At) })
 
