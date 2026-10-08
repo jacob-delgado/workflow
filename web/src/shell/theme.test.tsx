@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import App from '@/App.tsx'
 import { listenerCount } from '@/test/matchMedia.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import indexHtml from '../../index.html?raw'
+import themeScript from '../../public/theme.js?raw'
 import { themeStorageKey } from './themeKey.ts'
 import { readStoredChoice } from './themeStore.ts'
 
@@ -75,8 +75,8 @@ test('a saved choice is restored, and anything unexpected falls back to system',
 })
 
 test('the page reads the saved choice before paint under the key the store saves it at', () => {
-  // Act: the key index.html's pre-paint script reads
-  const read = /localStorage\.getItem\('([^']*)'\)/.exec(indexHtml)?.[1]
+  // Act: the key the pre-paint script, public/theme.js, reads
+  const read = /localStorage\.getItem\('([^']*)'\)/.exec(themeScript)?.[1]
 
   // Assert
   expect(read).toBe(themeStorageKey)
