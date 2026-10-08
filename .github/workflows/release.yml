@@ -26,10 +26,19 @@ on:
 permissions:
   contents: read
 
+# One release run per tag at a time, never cancelled: a tag pushed by hand and
+# a dispatch for it would otherwise race to publish the same release, and a
+# publish cut off midway leaves a release without all its assets. The tag job
+# in release-please.yml joins this group too.
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Build and verify
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -89,6 +98,7 @@ jobs:
     name: Attest and publish
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write # create the release and upload assets
       id-token: write # Sigstore mints a short-lived signing certificate
@@ -173,6 +183,7 @@ jobs:
     name: Republish the docs site
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       actions: write # dispatch pages.yml
     steps:
