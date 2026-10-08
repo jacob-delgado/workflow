@@ -165,3 +165,72 @@ func TestListTasksOffersNothingWithNoTaskwarrior(t *testing.T) {
 		t.Errorf("list = %+v, want unavailable with an empty facet_order", list)
 	}
 }
+
+// ranksOf is the ranks of the task with uuid among tasks, failing the test
+// when none has it.
+func ranksOf(t *testing.T, tasks []api.Task, uuid string) api.TaskRanks {
+	t.Helper()
+
+	at := slices.IndexFunc(tasks, func(task api.Task) bool { return task.UUID == uuid })
+	if at < 0 {
+		t.Fatalf("tasks = %+v, want one with uuid %s", tasks, uuid)
+	}
+
+	return tasks[at].Ranks
+}
+
+func TestTheSnapshotRanksTheActiveTaskAmongTheListThatHoldsIt(t *testing.T) {
+	t.Parallel()
+
+	// urgent is more urgent than the started task and numbered before it, so
+	// among your pending tasks the started one ranks second by both. Among the
+	// linked ones, PROJ-7's done task comes before it by issue.
+	urgent := plainTask()
+	urgent.ID, urgent.Urgency = 1, 20
+
+	cases := map[string]struct {
+		pending []taskwarrior.Task
+		// heldBy is the ranks the list holding the started task gives it.
+		heldBy func(t *testing.T, list api.TaskList, summary api.TasksSummary) api.TaskRanks
+	}{
+		"your pending tasks": {
+			pending: []taskwarrior.Task{urgent, startedTask()},
+			heldBy: func(t *testing.T, list api.TaskList, _ api.TasksSummary) api.TaskRanks {
+				t.Helper()
+
+				return ranksOf(t, list.Tasks, startedUUID)
+			},
+		},
+		"the linked tasks, when the context hides it": {
+			pending: []taskwarrior.Task{urgent},
+			heldBy: func(t *testing.T, _ api.TaskList, summary api.TasksSummary) api.TaskRanks {
+				t.Helper()
+
+				return ranksOf(t, summary.Linked, startedUUID)
+			},
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			fake := fakeTaskwarrior()
+			fake.pending.Tasks = tt.pending
+			deps := tasksDeps(fake)
+			deps.Clock = func() time.Time { return taskDay().Add(3 * time.Hour) }
+			handler := serve(t, deps, config.Default())
+			list := decode[api.TaskList](t, get(t, handler, tasksPath))
+
+			// Act
+			summary := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String()).Tasks
+
+			// Assert
+			want := tt.heldBy(t, list, summary)
+			if summary.Active == nil || summary.Active.Ranks != want {
+				t.Errorf("active = %+v, want ranks %+v, as the list holding it ranks it", summary.Active, want)
+			}
+		})
+	}
+}
