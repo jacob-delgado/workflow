@@ -1076,8 +1076,11 @@ anything. A file set aside that still could not be removed is listed as
 running session simply makes a fresh cache on its next write.
 
 The store is on by default. Set `store.disabled` to keep nothing on disk; with it
-set, workflow works the conveniences out afresh each time, tags no one in an
-announcement, since it cannot keep who is whom, and keeps no favorites:
+set, workflow keeps nothing you decide and works the conveniences out afresh
+each time. No announcement tags anyone, since who is whom cannot be kept: the
+terminal's ready-for-review preview lists each code owner as not linked and
+offers no link, and `workflow announce` and the web tag no one. No favorites
+are kept:
 
 ```json
 {
