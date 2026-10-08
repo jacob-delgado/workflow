@@ -190,7 +190,7 @@ export type Problem = {
 
 export type BranchIssueRequest = {
     /**
-     * A Jira key, or a forge issue number with or without its
+     * A Jira key, or a forge issue number with or without its #.
      */
     key: string;
     /**
@@ -201,7 +201,7 @@ export type BranchIssueRequest = {
 
 export type BranchIssuePreview = {
     /**
-     * The issue's key, a forge number without its
+     * The issue's key, a forge number without its #.
      */
     key: string;
     /**
@@ -1140,7 +1140,7 @@ export type Review = {
 
 export type LinkedIssue = {
     /**
-     * The issue's key, a forge number without its
+     * The issue's key, a forge number without its #.
      */
     key: string;
     tracker: IssueTracker;
@@ -3529,7 +3529,7 @@ export type PreviewBranchIssueData = {
     path?: never;
     query: {
         /**
-         * A Jira key, or a forge issue number with or without its
+         * A Jira key, or a forge issue number with or without its #.
          */
         key: string;
     };
