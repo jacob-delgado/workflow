@@ -4531,7 +4531,13 @@ components:
         reason:
           type: string
           description: Why Taskwarrior is not available, safe to show; empty when it is.
-        active: {$ref: "#/components/schemas/Task"}
+        active:
+          description: >-
+            The started task: the first among your pending tasks, ranked among
+            them as the Tasks list ranks it, else the first among the linked
+            tasks, ranked among those, as when the active context hides it
+            from the pending ones. Absent when none is started.
+          allOf: [{$ref: "#/components/schemas/Task"}]
         linked:
           type: array
           description: >-

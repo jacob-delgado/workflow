@@ -187,17 +187,30 @@ func (s *server) heldDetection() (taskwarrior.Install, error) {
 }
 
 // tasksSummaryDTO maps what Taskwarrior answered onto the stream's summary: the
-// first started task, pending or linked, as the terminal's spine shows it, and
-// every linked task.
+// started task and every linked task.
 func (s *server) tasksSummaryDTO(pending, linked []taskwarrior.Task) api.TasksSummary {
-	summary := api.TasksSummary{Available: true, Reason: "", Linked: s.tasksDTO(knownTasks(linked))}
-
-	tasks := slices.Concat(pending, linked)
-	if started := slices.IndexFunc(tasks, taskwarrior.Task.Active); started >= 0 {
-		summary.Active = &s.tasksDTO(tasks[started : started+1])[0]
-	}
+	known := knownTasks(linked)
+	summary := api.TasksSummary{Available: true, Reason: "", Linked: s.tasksDTO(known)}
+	summary.Active = s.activeTask(knownTasks(pending), known, summary.Linked)
 
 	return summary
+}
+
+// activeTask is the first started task, pending or else linked, as the
+// terminal's spine shows it, ranked among the list that holds it: your pending
+// tasks, as the Tasks list ranks it, or the linked ones, given here as
+// linkedDTO, when the active context hides it from the pending. It is nil when
+// none is started.
+func (s *server) activeTask(pending, linked []taskwarrior.Task, linkedDTO []api.Task) *api.Task {
+	if started := slices.IndexFunc(pending, taskwarrior.Task.Active); started >= 0 {
+		return &s.tasksDTO(pending)[started]
+	}
+
+	if started := slices.IndexFunc(linked, taskwarrior.Task.Active); started >= 0 {
+		return &linkedDTO[started]
+	}
+
+	return nil
 }
 
 // knownTasks is tasks but each whose status the spec does not know: a synced

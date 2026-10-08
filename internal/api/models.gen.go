@@ -2677,7 +2677,7 @@ type TaskText struct {
 
 // TasksSummary What the event stream carries of your Taskwarrior tasks: the started one, as active — absent when none is started — and every task linked to an issue. Until Taskwarrior has answered both reads the summary makes, it is not available, with no active task and no linked one.
 type TasksSummary struct {
-	// Active One task as Taskwarrior holds it. A date the task does not have is absent, never the zero time.
+	// Active The started task: the first among your pending tasks, ranked among them as the Tasks list ranks it, else the first among the linked tasks, ranked among those, as when the active context hides it from the pending ones. Absent when none is started.
 	Active *Task `json:"active,omitempty"`
 
 	// Available Whether Taskwarrior answered: false when there is none to ask, as in TaskList, and when it was found but could not be read.

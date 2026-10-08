@@ -1358,6 +1358,9 @@ export type TasksSummary = {
      * Why Taskwarrior is not available, safe to show; empty when it is.
      */
     reason: string;
+    /**
+     * The started task: the first among your pending tasks, ranked among them as the Tasks list ranks it, else the first among the linked tasks, ranked among those, as when the active context hides it from the pending ones. Absent when none is started.
+     */
     active?: Task;
     /**
      * Every task linked to an issue, whatever its status but deleted, and whatever context hides it. Empty unless available.
