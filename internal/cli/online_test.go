@@ -35,6 +35,7 @@ func jiraServer(t *testing.T, status int, body string, reached *atomic.Bool) *ht
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		reached.Store(true)
+		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(status)
 		_, _ = writer.Write([]byte(body))
 	}))
