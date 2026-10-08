@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -54,14 +53,6 @@ type configFacts struct {
 type credentialsFacts struct {
 	Checked bool             `json:"checked"`
 	Results []credentialLine `json:"results,omitempty"`
-}
-
-// credentialLine is one service's check: its status, and the same masked detail
-// the prose report shows.
-type credentialLine struct {
-	Service string `json:"service"`
-	Status  string `json:"status"`
-	Detail  string `json:"detail"`
 }
 
 // runDoctorJSON writes the report as JSON and returns the same aggregate error
@@ -113,54 +104,16 @@ func configurationFacts(cfg config.Config) (configFacts, error) {
 }
 
 // credentialFacts runs the online checks through the same functions the prose
-// report uses, capturing their already-masked output as data. Reusing them is
-// what keeps the two reports from ever masking differently.
+// report uses, keeping each one's line as data: one model, so the two reports
+// can never mask or word a check differently.
 func credentialFacts(ctx context.Context, run doctorRun, remote string) (credentialsFacts, error) {
 	if !run.online {
 		return credentialsFacts{Checked: false}, nil
 	}
 
-	checks := credentialChecks(ctx, run, remote)
-	results := make([]credentialLine, 0, len(checks))
-	outcomes := make([]error, 0, len(checks))
+	var results []credentialLine
 
-	for _, check := range checks {
-		run.note.show("Checking", check.name)
+	err := checkCredentials(ctx, run, remote, func(line credentialLine) { results = append(results, line) })
 
-		line, err := captureCheck(check.service, check.run)
-		results = append(results, line)
-		outcomes = append(outcomes, err)
-	}
-
-	return credentialsFacts{Checked: true, Results: results}, credentialVerdict(outcomes...)
-}
-
-// captureCheck runs one prose check into a buffer and repackages its outcome as
-// data. The buffer holds an already-masked line, so nothing a token touches
-// escapes here that the prose report would not print itself.
-func captureCheck(service string, check func(io.Writer) error) (credentialLine, error) {
-	var buffer strings.Builder
-
-	err := check(&buffer)
-	detail := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(buffer.String()), service))
-
-	return credentialLine{Service: service, Status: credentialStatus(err), Detail: detail}, err
-}
-
-// credentialStatus names an outcome for the reader to act on: a working
-// credential, one doctor could not ask about, none to ask with, one the service
-// refused, or a service that never answered.
-func credentialStatus(err error) string {
-	switch {
-	case err == nil:
-		return "ok"
-	case errors.Is(err, errUnchecked):
-		return "unchecked"
-	case errors.Is(err, errCredentialMissing):
-		return "missing"
-	case errors.Is(err, errUnreachable):
-		return "unreachable"
-	default:
-		return "rejected"
-	}
+	return credentialsFacts{Checked: true, Results: results}, err
 }
