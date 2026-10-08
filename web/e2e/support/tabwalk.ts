@@ -88,11 +88,14 @@ function focusedStop(controls: HTMLElement[]): Stop {
   const view = visibleArea(focused)
   const across = Math.max(0, Math.min(right, view.right) - Math.max(left, view.left))
   const down = Math.max(0, Math.min(bottom, view.bottom) - Math.max(top, view.top))
+  // A control drawn at no size shows none of itself, where its share of
+  // itself in view would read 0 over 0.
+  const share = (across * down) / (width * (bottom - top))
 
   return {
     index: controls.indexOf(focused),
     words: focused.textContent.trim(),
-    shown: (across * down) / (width * (bottom - top)),
+    shown: Number.isFinite(share) ? share : 0,
   }
 }
 
