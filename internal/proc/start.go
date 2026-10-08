@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/proc/pgroup"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // maxLine is the longest line Start delivers whole. A longer one — a minified
@@ -59,6 +60,19 @@ type Output struct {
 	// own. Wait then reports the program as killed. Calling it more than once, or
 	// after the program has already exited, does nothing.
 	Stop func()
+}
+
+// Drain reads every line to the end, neutralized as text a program wrote
+// (sanitize.Text), then how the program ended, as Wait reports it: the one way
+// a caller that only needs the output once the program is done reads it, so
+// every such caller sees the same lines.
+func (o Output) Drain() ([]string, error) {
+	var lines []string
+	for line := range o.Lines {
+		lines = append(lines, sanitize.Text(line))
+	}
+
+	return lines, o.Wait()
 }
 
 // Start runs a program and streams its output, for work long enough that
