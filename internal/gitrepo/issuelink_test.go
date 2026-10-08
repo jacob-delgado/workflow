@@ -21,6 +21,9 @@ const (
 	listLinks = `git -C /work config --get-regexp ^branch\..*\.workflow-issue$`
 )
 
+// linkedKey is the issue my-thing is linked to.
+const linkedKey = "PROJ-7"
+
 // errUnset is git config's answer for a key it does not hold.
 var errUnset = errors.New("exit status 1")
 
@@ -31,7 +34,7 @@ func TestIssueLinkReadsTheBranchesLink(t *testing.T) {
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{readLink: {out: []byte("PROJ-7\n")}}), workDir)
 
 	// Act & Assert
-	if got := repo.IssueLink(t.Context(), "my-thing"); got != "PROJ-7" {
+	if got := repo.IssueLink(t.Context(), "my-thing"); got != linkedKey {
 		t.Errorf("IssueLink = %q, want PROJ-7", got)
 	}
 }
@@ -48,6 +51,20 @@ func TestIssueLinkIsEmptyForABranchWithNone(t *testing.T) {
 	}
 }
 
+func TestIssueLinkLeavesOutAValueThatCannotBeShown(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Any tool or script can write .git/config, so a value holding a terminal
+	// control is dropped before it reaches a screen.
+	repo := gitrepo.At(fakeRunner(t, map[string]reply{readLink: {out: []byte("PROJ-1\x1b]0;x\a\n")}}), workDir)
+
+	// Act & Assert
+	if got := repo.IssueLink(t.Context(), "my-thing"); got != "" {
+		t.Errorf("IssueLink = %q, want none for a value that cannot be shown", got)
+	}
+}
+
 func TestSetIssueLinkKeepsItInGitsConfiguration(t *testing.T) {
 	t.Parallel()
 
@@ -55,7 +72,7 @@ func TestSetIssueLinkKeepsItInGitsConfiguration(t *testing.T) {
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{writeLink: {}}), workDir)
 
 	// Act
-	err := repo.SetIssueLink(t.Context(), "my-thing", "PROJ-7")
+	err := repo.SetIssueLink(t.Context(), "my-thing", linkedKey)
 	// Assert
 	if err != nil {
 		t.Errorf("SetIssueLink = %v", err)
@@ -69,7 +86,7 @@ func TestSetIssueLinkThatGitCannotWriteSaysSo(t *testing.T) {
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{writeLink: {err: errUnset}}), workDir)
 
 	// Act
-	err := repo.SetIssueLink(t.Context(), "my-thing", "PROJ-7")
+	err := repo.SetIssueLink(t.Context(), "my-thing", linkedKey)
 
 	// Assert
 	if !errors.Is(err, gitrepo.ErrIssueLinkNotSaved) {
@@ -155,7 +172,7 @@ func TestIssueLinksListsEveryBranchesLink(t *testing.T) {
 	links := repo.IssueLinks(t.Context())
 
 	// Assert
-	want := map[string]string{"my-thing": "PROJ-7", "fix/v1.2-typo": "42"}
+	want := map[string]string{"my-thing": linkedKey, "fix/v1.2-typo": "42"}
 	if !maps.Equal(links, want) {
 		t.Errorf("IssueLinks = %v, want %v", links, want)
 	}
@@ -170,5 +187,27 @@ func TestIssueLinksWithNoneIsEmpty(t *testing.T) {
 	// Act & Assert
 	if links := repo.IssueLinks(t.Context()); len(links) != 0 {
 		t.Errorf("IssueLinks = %v, want none", links)
+	}
+}
+
+func TestIssueLinksLeavesOutWhatIsNotABranchesShowableLink(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := gitrepo.At(fakeRunner(t, map[string]reply{listLinks: {
+		out: []byte("branch.my-thing.workflow-issue PROJ-7\n" +
+			"branch.odd.workflow-issue PROJ-1\x1b]0;x\a\n" +
+			"branch.bidi\u202e.workflow-issue PROJ-2\n" +
+			"branch.two-lines.workflow-issue PROJ-3\nand its second line\n" +
+			"branch.no-value.workflow-issue\n"),
+	}}), workDir)
+
+	// Act
+	links := repo.IssueLinks(t.Context())
+
+	// Assert
+	want := map[string]string{"my-thing": linkedKey, "two-lines": "PROJ-3"}
+	if !maps.Equal(links, want) {
+		t.Errorf("IssueLinks = %q, want only %q", links, want)
 	}
 }
