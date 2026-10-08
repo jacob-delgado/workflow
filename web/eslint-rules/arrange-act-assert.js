@@ -93,18 +93,20 @@ function looksLikeMarker(comment) {
   return ['arrange', 'act', 'assert', 'act & assert'].includes(keyword)
 }
 
-// isTest reports whether a call is a test: test(…), test.only(…) and the
-// like, or a table's test.each(…)(…), with a function body last; not a hook,
-// a describe or an extension.
-function isTest(call) {
-  const body = call.arguments.at(-1)
+// testBody is the body of a test — test(…), test.only(…) and the like, or a
+// table's test.each(…)(…) — wherever among its arguments the test function
+// sits, since Vitest takes a timeout after it and Playwright and Vitest take
+// options before it. A hook, a describe or an extension has none.
+function testBody(call) {
+  if (!namesTest(call.callee)) {
+    return undefined
+  }
 
-  return (
-    namesTest(call.callee) &&
-    body !== undefined &&
-    ['ArrowFunctionExpression', 'FunctionExpression'].includes(body.type) &&
-    body.body.type === 'BlockStatement'
+  const fn = call.arguments.find((argument) =>
+    ['ArrowFunctionExpression', 'FunctionExpression'].includes(argument.type),
   )
+
+  return fn?.body.type === 'BlockStatement' ? fn.body : undefined
 }
 
 // namesTest reports whether a callee is test, one of its modifiers, or the
@@ -341,8 +343,9 @@ export const arrangeActAssert = {
   create(context) {
     return {
       CallExpression(call) {
-        if (isTest(call)) {
-          checkBody(context, call, call.arguments.at(-1).body)
+        const body = testBody(call)
+        if (body !== undefined) {
+          checkBody(context, call, body)
         }
       },
     }
