@@ -5,7 +5,7 @@
 # CI run instead of one per dependency. Majors are deliberately left out of the
 # groups: a breaking bump should arrive as its own pull request, with its own CI
 # evidence, and be reviewable on its own merits. One web package also arrives
-# alone, for the reason its npm entry gives.
+# alone, and one web major is held back, for the reasons its npm entry gives.
 #
 # COOLDOWN APPLIES ONLY TO SCHEDULED VERSION UPDATES. Dependabot *security*
 # updates — the ones raised from a published advisory against something already
@@ -48,6 +48,15 @@ updates:
         # bump must land with `corepack yarn gen` output or gen:check fails.
         # It arrives as its own pull request so it cannot hold up the group.
         exclude-patterns: ["@hey-api/openapi-ts"]
+    # ESLint stays on 9: eslint-plugin-jsx-a11y and eslint-plugin-react declare
+    # ESLint 9 at most, and run under 10 only outside their peer range. This
+    # lifts once both declare ESLint 10. @eslint/js moves with it, since each
+    # of its majors asks for the ESLint of the same major.
+    ignore:
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
 
   # The actions used by CI, all of which are SHA-pinned with a version comment;
   # Dependabot updates both together. Official GitHub actions are a trusted
