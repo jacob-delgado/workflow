@@ -100,17 +100,17 @@ jobs:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
       - run: task build
 
-  # The web frontend: its own lockfile-pinned toolchain, gated the same way the
-  # Go code is. mise provisions the pinned Node; Corepack provides the yarn the
-  # web/package.json packageManager field names. --immutable uses the committed
-  # lockfile as-is (so the 7-day age gate, applied only when resolving, does not
-  # re-run here) and fails if it and package.json disagree.
+  # The web frontend, gated by the same tasks `task check` runs, so a web lint
+  # step added there is added here: the client regenerated from
+  # api/openapi.yaml with no drift, the lint, the unit tests with their
+  # coverage floor, and the committed bundle rebuilt with no drift. mise
+  # provisions the pinned Node, and the tasks run the yarn its packageManager
+  # field names through Corepack. web:install's --immutable uses the committed
+  # lockfile as-is (so the 7-day age gate, applied only when resolving, does
+  # not re-run here) and fails if it and package.json disagree.
   web:
     name: Web
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -118,20 +118,11 @@ jobs:
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
-      - name: Enable Corepack
-        run: corepack enable
-      - name: Install dependencies
-        run: yarn install --immutable
-      # The typed client is generated from api/openapi.yaml; regenerate and fail
-      # on any diff, so a contract change that was not regenerated is caught here
-      # rather than shipping a client that disagrees with the server.
-      - name: Check the generated client is up to date
-        run: yarn gen:check
-      - run: yarn lint
-      - run: yarn test --reporter=default --reporter=json --outputFile.json=reports/web-unit.json
+      - run: task web:gen:check
+      - run: task web:lint
+      - run: task web:test -- --reporter=default --reporter=json --outputFile.json=reports/web-unit.json
       - name: Count the web unit tests
         if: always()
-        working-directory: .
         run: |
           mkdir -p tmp/test-counts
           scripts/test-counts.sh vitest web/reports/web-unit.json "Web unit" > tmp/test-counts/web-unit.json
@@ -141,17 +132,7 @@ jobs:
           name: test-counts-web-unit
           path: tmp/test-counts/web-unit.json
           retention-days: 7
-      - run: yarn build
-      # The build writes internal/web/dist, which is committed so `go install`
-      # embeds the app; fail when the committed bundle is not this build's.
-      - name: Check the committed bundle is up to date
-        run: |
-          if ! git diff --quiet -- ../internal/web/dist \
-            || [ -n "$(git ls-files --others --exclude-standard -- ../internal/web/dist)" ]; then
-            echo "::error::The embedded web bundle is out of date. Run 'task web:build' and commit internal/web/dist."
-            git status --short -- ../internal/web/dist
-            exit 1
-          fi
+      - run: task web:dist:check
 
   # The frontend end-to-end run: build the SPA, serve it with Vite preview, and
   # drive it in a real browser, including an axe accessibility sweep. No backend:
