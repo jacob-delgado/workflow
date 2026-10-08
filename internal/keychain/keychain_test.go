@@ -108,7 +108,6 @@ func TestStorerSavesUnderTheServiceNamedUpdatably(t *testing.T) {
 
 	// Act
 	err := store(jiraItem, "s3cret")
-
 	// Assert
 	if err != nil {
 		t.Errorf("store = %v, want the secret kept", err)
