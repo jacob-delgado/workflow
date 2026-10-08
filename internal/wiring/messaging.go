@@ -192,8 +192,8 @@ func SlackRefresher(clientID string, do httpx.Doer) slackauth.Refresher {
 // SlackToken hands out cfg's Slack user token, refreshing it through do when it
 // is about to run out, under a lock every workflow on the machine shares. Its
 // failures read as the messaging client's: none set up is no credential, a
-// Slack not reached is unreachable, and a refresh Slack refused is a
-// credential it would not accept.
+// Slack not reached is unreachable, a wait Slack asked for is a rate limit,
+// and a refresh Slack refused is a credential it would not accept.
 func SlackToken(cfg config.Config, do httpx.Doer) messaging.TokenSource {
 	source := slackauth.Source{
 		Store: SlackStore(cfg), Refresher: SlackRefresher(cfg.Messaging.ClientID, do),
@@ -208,17 +208,21 @@ func SlackToken(cfg config.Config, do httpx.Doer) messaging.TokenSource {
 }
 
 // asMessagingError is a token source's failure as the messaging client's error.
-// A lock held elsewhere is no refusal of the token, so it keeps its own words.
+// A lock held elsewhere, and a wait Slack asked for, are no refusal of the
+// token, so they keep their own words; a status Slack gave no verdict with is
+// the messaging client's unexpected status.
 func asMessagingError(err error) error {
 	switch {
 	case err == nil:
 		return nil
 	case errors.Is(err, slackauth.ErrNotLoggedIn), errors.Is(err, slackauth.ErrNotKept):
 		return fmt.Errorf("%w: %w", messaging.ErrNoCredential, err)
-	case errors.Is(err, slackauth.ErrLocked):
+	case errors.Is(err, slackauth.ErrLocked), errors.Is(err, httpx.ErrRateLimited):
 		return err
 	case errors.Is(err, slackauth.ErrUnreachable):
 		return fmt.Errorf("%w: %w", messaging.ErrUnreachable, err)
+	case errors.Is(err, slackauth.ErrUnexpectedStatus):
+		return fmt.Errorf("%w: %w", messaging.ErrUnexpectedStatus, err)
 	default:
 		return fmt.Errorf("%w: %w", messaging.ErrRejected, err)
 	}
