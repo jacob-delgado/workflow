@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react'
-import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
+import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 
 // The attributes that make a mark's shape — which parts it draws, where, and
 // whether each is filled or outlined — and not its color: a state must be

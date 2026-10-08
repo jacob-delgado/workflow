@@ -3,7 +3,7 @@ import type { CiState } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { useConfigRead } from '@/features/settings/configApi.ts'
-import { ciMark, StateMark } from '@/shell/StateMark.tsx'
+import { ciMark, StateMark } from '@/lib/StateMark.tsx'
 
 // Watched is the branch's pull request, by number, and how its CI stood when
 // the stream last said.

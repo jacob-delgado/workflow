@@ -3,7 +3,7 @@ import type { PullRequest } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
-import type { MarkState } from '@/shell/StateMark.tsx'
+import type { MarkState } from '@/lib/StateMark.tsx'
 import { ReviewPanel } from './ReviewPanel.tsx'
 
 // Each state the Review section's rows say is drawn by its mark, before its
