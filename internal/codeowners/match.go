@@ -12,9 +12,17 @@ import (
 // included.
 const globstar = "**"
 
-// pattern is a CODEOWNERS path pattern. On GitHub it is split into segments,
-// each a path.Match glob or a globstar; on GitLab it is its source.
+// pattern is a CODEOWNERS path pattern compiled in one dialect: the pattern as
+// that dialect normalizes it, which GitLab keys a section's rules by, and how
+// the dialect matches a path against it.
 type pattern struct {
+	normalized string
+	matches    func(candidate target) bool
+}
+
+// githubPattern is a pattern as GitHub reads it: split into segments, each a
+// path.Match glob or a globstar.
+type githubPattern struct {
 	segments []string
 	// directoryOnly is a pattern with a trailing slash: it names a directory,
 	// so it matches what is under one and never a file of that name.
@@ -22,11 +30,11 @@ type pattern struct {
 	// coversContents is a pattern that, matching a directory, matches
 	// everything under it. dir/* does not: it covers direct children only.
 	coversContents bool
-	// source is the pattern as GitLab normalizes it, which GitLab keys a
-	// section's rules by and matches whole paths against; empty on GitHub,
-	// which matches segments.
-	source string
 }
+
+// gitlabPattern is a pattern as GitLab's normalize_pattern leaves it, which
+// GitLab matches against the whole path.
+type gitlabPattern string
 
 // target is a path to match, both as GitLab matches it, rooted at a slash,
 // and as GitHub does, split into segments.
@@ -47,15 +55,19 @@ func newTarget(path string) target {
 // compile reads a raw pattern as dialect reads it.
 func compile(raw string, dialect Dialect) (pattern, bool) {
 	if dialect == GitLab {
-		return compileGitLab(raw), true
+		normalized := normalizeGitLab(raw)
+
+		return pattern{normalized: normalized, matches: gitlabPattern(normalized).matches}, true
 	}
 
-	return compileGitHub(raw)
+	compiled, ok := compileGitHub(raw)
+
+	return pattern{normalized: raw, matches: compiled.matches}, ok
 }
 
 // compileGitHub reads a raw pattern as GitHub does. A leading slash anchors it
 // to the repository root, as does a slash anywhere but the end.
-func compileGitHub(raw string) (pattern, bool) {
+func compileGitHub(raw string) (githubPattern, bool) {
 	trimmed, directoryOnly := strings.CutSuffix(raw, "/")
 	trimmed, anchored := strings.CutPrefix(trimmed, "/")
 
@@ -65,26 +77,18 @@ func compileGitHub(raw string) (pattern, bool) {
 
 	segments := splitPath(trimmed)
 	if len(segments) == 0 {
-		return pattern{}, false
+		return githubPattern{}, false
 	}
 
 	if !anchored {
 		segments = append([]string{globstar}, segments...)
 	}
 
-	return pattern{
+	return githubPattern{
 		segments:       segments,
 		directoryOnly:  directoryOnly,
 		coversContents: directoryOnly || segments[len(segments)-1] != "*",
 	}, true
-}
-
-// compileGitLab reads a raw pattern as GitLab's normalize_pattern does; the
-// pattern is then matched against the whole path as File.fnmatch? does, so only
-// a pattern ending in a slash, which GitLab extends with **/*, covers a
-// directory's contents.
-func compileGitLab(raw string) pattern {
-	return pattern{segments: nil, directoryOnly: false, coversContents: false, source: normalizeGitLab(raw)}
 }
 
 // normalizeGitLab is GitLab's normalize_pattern: * is everything, an escaped
@@ -118,14 +122,16 @@ func splitPath(slashed string) []string {
 	return strings.FieldsFunc(slashed, func(character rune) bool { return character == '/' })
 }
 
-// matches reports whether the pattern matches a path: on GitLab as fnmatch
-// does; on GitHub the whole of it, or — when the pattern covers a directory's
-// contents — a directory it is under.
-func (p pattern) matches(candidate target) bool {
-	if p.source != "" {
-		return fnmatch(p.source, candidate.rooted)
-	}
+// matches reports whether the pattern matches the whole of a path rooted at a
+// slash, as GitLab's File.fnmatch? does: only a pattern ending in a slash,
+// which normalizeGitLab extends with **/*, covers a directory's contents.
+func (p gitlabPattern) matches(candidate target) bool {
+	return fnmatch(string(p), candidate.rooted)
+}
 
+// matches reports whether the pattern matches the whole of a path, or — when
+// it covers a directory's contents — a directory the path is under.
+func (p githubPattern) matches(candidate target) bool {
 	segments := candidate.segments
 	prefixes := p.matchedPrefixes(segments)
 	whole := len(segments)
@@ -150,7 +156,7 @@ func (p pattern) matches(candidate target) bool {
 // matchedPrefixes reports, for each length, whether the pattern matches the
 // path's first that many segments. It walks the pattern once over the path,
 // so a pattern full of globstars stays linear in each.
-func (p pattern) matchedPrefixes(segments []string) []bool {
+func (p githubPattern) matchedPrefixes(segments []string) []bool {
 	reached := make([]bool, len(segments)+1)
 	reached[0] = true
 
