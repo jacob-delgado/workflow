@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { CreatedWorktree, Snapshot } from '../../src/api/generated/types.gen.ts'
+import type { CreatedWorktree } from '../../src/api/generated/types.gen.ts'
 import { mockRepositories } from '../../src/dev/mockRepositories.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
+import { branchWith, issuesOf, snapshotWith, streams } from '../support/fixtures.ts'
+import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // Starting work on an issue in a new worktree from its detail, and the switch
 // to the worktree offered once it is made.
@@ -17,38 +18,16 @@ const issue = {
   priority: 'Medium',
 } as const
 
-const snapshot = {
-  issues: { total: 1, start_at: 0, unavailable: [], issues: [issue] },
-  branch: {
+const snapshot = snapshotWith({
+  issues: issuesOf([issue]),
+  branch: branchWith({
     name: 'main',
-    issue_link: '',
-    detached: false,
     head: '300a7be',
     upstream: 'origin/main',
     push_remote: 'origin',
-    ahead: 0,
-    behind: 0,
     base: 'origin/main',
-    commits: [],
-  },
-  changes: { changes: [] },
-  review: { found: false, announced: false },
-  messaging: {
-    kind: 'slack',
-    service: 'Slack',
-    configured: false,
-    channel: '',
-    channels: [],
-    author: '',
-  },
-  branches: [],
-  commit_types: ['feat', 'fix'],
-  subject_limit: 72,
-  suggested_scope: '',
-  hooks_unmanaged: 0,
-  tasks: { available: true, reason: '', linked: [] },
-  here: '/home/ana/src/api',
-} satisfies Snapshot
+  }),
+})
 
 const made: CreatedWorktree = {
   dir: '/home/ana/src/api-feat-PROJ-7-rate-limits',
