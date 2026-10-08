@@ -67,15 +67,16 @@ machine. What it asks over the network is shared by every tab: the issue
 search is made at most once every `timing.ci_interval` (twenty seconds unless
 set) for each view, and again on the next push after a status change or an
 assignment made here; which of the branches' issues are yours, once a minute;
-and the forge — the pull request, its reviews and its CI — at most once every
+the forge — the pull request, its reviews and its CI — at most once every
 `timing.ci_interval`, and at once when another branch is checked out, its
-head commit moves, or the page opens a pull request. A tab that has an
-answer to show is never held up by another tab's read of the forge or the
-tracker. A forge read that fails keeps the last answer for the same branch
-and head commit, and says why beside it. A read that fails shows as a
-failure in its section, with the reason, rather than as an empty one: the
-Issues list does not say no issue matches, the Branch section does not say
-the directory is no repository, and the Review section does not offer to
+head commit moves, or the page opens a pull request; and who the forge says
+you are, until it answers, at most once every `timing.ci_interval`. A tab
+that has an answer to show is never held up by another tab's read of the
+forge or the tracker. A forge read that fails keeps the last answer for the
+same branch and head commit, and says why beside it. A read that fails shows
+as a failure in its section, with the reason, rather than as an empty one:
+the Issues list does not say no issue matches, the Branch section does not
+say the directory is no repository, and the Review section does not offer to
 open a pull request, while Jira, git or the forge cannot be read. A service
 that is not set up — no Jira or forge token, an origin that names no forge —
 is no failure: the section says, in the muted color beside the not-started
