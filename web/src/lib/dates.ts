@@ -89,14 +89,11 @@ interface AgoOptions {
 
 // ago is how long before now a moment was, both in milliseconds since the
 // epoch, in the style asked for. Under a minute it is just now, but for the
-// narrow style, which counts seconds; and a moment at or before the epoch —
-// the zero time a server sends for a date it was not given — is some time ago.
+// narrow style, which counts seconds. A moment is always given: the server
+// leaves out a time it was not given, and the field that would carry it is
+// optional, so a caller says what an unknown time reads as before asking.
 export function ago(at: number, now: number, { style, dateAfter = Infinity }: AgoOptions): string {
   const elapsed = now - at
-  if (at <= 0) {
-    return 'some time ago'
-  }
-
   if (elapsed >= dateAfter) {
     return writtenDate(new Date(at))
   }
