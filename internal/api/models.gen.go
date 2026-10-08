@@ -519,6 +519,30 @@ func (e QueuedAnnouncementState) Valid() bool {
 	}
 }
 
+// Defines values for ReviewFacetKind.
+const (
+	ReviewFacetKindAuthor     ReviewFacetKind = "author"
+	ReviewFacetKindCi         ReviewFacetKind = "ci"
+	ReviewFacetKindDraft      ReviewFacetKind = "draft"
+	ReviewFacetKindRepository ReviewFacetKind = "repository"
+)
+
+// Valid indicates whether the value is a known member of the ReviewFacetKind enum.
+func (e ReviewFacetKind) Valid() bool {
+	switch e {
+	case ReviewFacetKindAuthor:
+		return true
+	case ReviewFacetKindCi:
+		return true
+	case ReviewFacetKindDraft:
+		return true
+	case ReviewFacetKindRepository:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RunState.
 const (
 	RunStateInProgress RunState = "in_progress"
@@ -2081,10 +2105,32 @@ type Review struct {
 	Pull *PullRequest `json:"pull,omitempty"`
 }
 
+// ReviewFacet One value a review request holds in one of the four facets the queue is narrowed by. Values picked in one facet widen the queue, and the facets narrow it together.
+type ReviewFacet struct {
+	// Kind The facet: the request's repository, how its CI stands, whether it is a draft, or who asks.
+	Kind ReviewFacetKind `json:"kind"`
+
+	// Label The value as every surface names it in the filter and in the line saying what the queue is narrowed to.
+	//
+	// Example: CI failed
+	Label string `json:"label"`
+
+	// Value The value held: the repository ("" for none the forge named), the CI state, draft or ready, or the author.
+	//
+	// Example: example/repo
+	Value string `json:"value"`
+}
+
+// ReviewFacetKind The facet: the request's repository, how its CI stands, whether it is a draft, or who asks.
+type ReviewFacetKind string
+
 // ReviewQueue defines model for ReviewQueue.
 type ReviewQueue struct {
 	// Available Whether there is a forge to ask. False outside a repository, and when origin is on no forge workflow can read — not GitHub or GitLab, or a self-hosted one forge.kind and forge.host do not name — and requests is then empty.
 	Available bool `json:"available"`
+
+	// FacetOrder Every value the queue's filter offers, in the order it lists them, as the terminal's filter lists them: the repositories the requests are in, by name; every CI state and draft then ready, in a fixed order; then who asks, by name. A name is ordered by its code points. A value no request holds is offered only while it is picked.
+	FacetOrder []ReviewFacet `json:"facet_order"`
 
 	// Requests The open pull or merge requests that ask for your review, the longest-waiting first. Empty when none does, or when there is no forge to ask.
 	Requests []ReviewRequest `json:"requests"`
@@ -2096,6 +2142,9 @@ type ReviewRequest struct {
 	Author string  `json:"author"`
 	Ci     CIState `json:"ci"`
 	Draft  bool    `json:"draft"`
+
+	// Facets The value it holds in each facet the queue is narrowed by, in the order of the facets: its repository, its CI, draft or ready, and who asks.
+	Facets []ReviewFacet `json:"facets"`
 
 	// Number The GitHub number or GitLab IID.
 	Number int `json:"number"`

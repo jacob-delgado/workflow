@@ -1,6 +1,10 @@
-import type { ReviewRequest } from '@/api/generated/types.gen.ts'
+import type { ReviewFacet, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { makeReviewRequest } from '@/test/fixtures.ts'
-import { admits, facetChoices, facetLabel, toggleFacet, type Facet } from './reviewFacets.ts'
+import { admits, facetChoices, toggleFacet } from './reviewFacets.ts'
+
+// The page counts, picks and admits over the facets the server describes; how
+// a value is labeled and the order it is offered in are the server's, pinned by
+// internal/forge/reviewfacets_test.go.
 
 // The requests the terminal's facetsWorld queues, oldest first: #5, a draft
 // by kwan in example/repo with CI running; #12 by kwan in example/other,
@@ -19,81 +23,82 @@ const requests: ReviewRequest[] = [
   makeReviewRequest({ number: 7, author: 'mira', repository: 'example/repo', ci: 'failed' }),
 ]
 
-const repository = (value: string): Facet => ({ kind: 'repository', value })
-const ci = (value: string): Facet => ({ kind: 'ci', value })
-const draft = (value: string): Facet => ({ kind: 'draft', value })
-const author = (value: string): Facet => ({ kind: 'author', value })
+// held is the facet of kind holding value, as the requests above carry it.
+function held(kind: ReviewFacet['kind'], value: string): ReviewFacet {
+  const facet = requests
+    .flatMap((request) => request.facets)
+    .find((one) => one.kind === kind && one.value === value)
+  if (facet === undefined) {
+    throw new Error(`no request holds ${kind} ${value}`)
+  }
 
-function listed(picked: Facet[]): number[] {
-  return requests.filter((request) => admits(picked, request)).map((request) => request.number)
+  return facet
 }
 
-// Twins of TestFacetsWidenWithinAndNarrowTogether in
-// internal/tui/reviewfacets_test.go.
+// A value the server offered once, which no request above holds.
+const byAna: ReviewFacet = { kind: 'author', value: 'ana', label: 'by ana' }
+
+// choiceLines is each choice as the filter names it: its label and count.
+function choiceLines(choices: ReturnType<typeof facetChoices>): string[] {
+  return choices.map((choice) => `${choice.value.label} ${String(choice.count)}`)
+}
+
 test.each([
   {
     name: 'two repositories list either',
-    picked: [repository('example/other'), repository('example/repo')],
+    picked: () => [held('repository', 'example/other'), held('repository', 'example/repo')],
     want: [5, 12, 7],
   },
   {
     name: 'a repository and a CI state list both',
-    picked: [repository('example/repo'), ci('failed')],
+    picked: () => [held('repository', 'example/repo'), held('ci', 'failed')],
     want: [7],
   },
   {
     name: 'two CI states list either',
-    picked: [ci('failed'), ci('none')],
+    picked: () => [held('ci', 'failed'), held('ci', 'none')],
     want: [3, 7],
   },
   {
     name: 'draft and an author list both',
-    picked: [draft('draft'), author('kwan')],
+    picked: () => [held('draft', 'draft'), held('author', 'kwan')],
     want: [5],
   },
 ])('$name', ({ picked, want }) => {
   // Act
-  const got = listed(picked)
+  const got = requests.filter((request) => admits(picked(), request))
 
   // Assert
-  expect(got).toEqual(want)
+  expect(got.map((request) => request.number)).toEqual(want)
 })
 
-// Twin of TestFOpensTheReviewsFilterWithCounts.
-test('offers repositories, CI states, draft or ready, then authors, each with its count', () => {
+test('counts each value the server offers, in its order, leaving out what none holds', () => {
+  // Arrange
+  const order = [held('author', 'mira'), held('ci', 'failed'), byAna, held('repository', '')]
+
   // Act
-  const choices = facetChoices(requests, [])
+  const choices = facetChoices(requests, order, [])
 
   // Assert
-  expect(choices.map((choice) => `${facetLabel(choice.value)}  ${String(choice.count)}`)).toEqual([
-    'no repository  1',
-    'example/other  1',
-    'example/repo  2',
-    'CI failed  1',
-    'CI passed  1',
-    'CI running  1',
-    'CI none  1',
-    'draft  1',
-    'ready  3',
-    'by kwan  2',
-    'by mira  2',
-  ])
+  expect(choiceLines(choices)).toEqual(['by mira 2', 'CI failed 1', 'no repository 1'])
 })
 
-test('a picked value no request holds is still offered, at zero', () => {
+test('offers a picked value the server no longer offers last, at zero', () => {
   // Act
-  const choices = facetChoices(requests, [author('ana')])
+  const choices = facetChoices(requests, [held('author', 'kwan')], [byAna])
 
   // Assert
-  expect(choices.map((choice) => `${facetLabel(choice.value)}  ${String(choice.count)}`)).toContain(
-    'by ana  0',
-  )
+  expect(choiceLines(choices)).toEqual(['by kwan 2', 'by ana 0'])
 })
 
 test('toggling a picked value unpicks it', () => {
+  // Arrange
+  const failed = held('ci', 'failed')
+  const kwan = held('author', 'kwan')
+
   // Act
-  const picked = toggleFacet([ci('failed'), author('kwan')], ci('failed'))
+  const picked = toggleFacet([failed, kwan], failed)
 
   // Assert
-  expect(picked).toEqual([author('kwan')])
+  expect(picked).toEqual([kwan])
 })

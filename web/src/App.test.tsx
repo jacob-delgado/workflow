@@ -139,7 +139,7 @@ test('opens the Reviews section on the queue waiting on you', async () => {
   const user = userEvent.setup()
   fakeApi({
     '/api/health': makeHealth(),
-    '/api/reviews': { available: true, requests: [makeReviewRequest()] },
+    '/api/reviews': { available: true, requests: [makeReviewRequest()], facet_order: [] },
   })
   renderWithClient(<App />)
 

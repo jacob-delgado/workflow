@@ -20,9 +20,9 @@ function hoursAgo(hours: number): string {
 }
 
 // queueOf is an available queue of the requests given, oldest first as the
-// server sends it.
+// server sends it, with nothing for the filter to offer.
 function queueOf(...requests: ReturnType<typeof makeReviewRequest>[]): ReviewQueue {
-  return { available: true, requests }
+  return { available: true, requests, facet_order: [] }
 }
 
 // refused is a problem answer, as the server gives a failed read.
@@ -236,7 +236,7 @@ test('an empty queue says nothing is waiting', async () => {
 
 test('with no forge to ask, says what would give it one', async () => {
   // Arrange
-  fakeApi({ [reviewsPath]: { available: false, requests: [] } })
+  fakeApi({ [reviewsPath]: { available: false, requests: [], facet_order: [] } })
 
   // Act
   renderWithClient(<ReviewQueuePanel />)

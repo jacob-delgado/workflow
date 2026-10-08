@@ -63,3 +63,150 @@ func ByRepository(requests []ReviewRequest) []ReviewRequest {
 
 	return queue
 }
+
+// ReviewFacetKind is one of the four facets the review queue is narrowed by:
+// a request's repository, how its CI stands, whether it is a draft, and who
+// asks. Values picked in one facet widen the queue, and the facets narrow it
+// together. The rules are written here alone: the terminal's filter calls
+// them, and the web server ships each request's facets and the order they
+// are offered in.
+type ReviewFacetKind int
+
+// The facets, in the order the filter offers them.
+const (
+	FacetRepository ReviewFacetKind = iota
+	FacetCI
+	FacetDraft
+	FacetAuthor
+)
+
+// The draft facet's two values.
+const (
+	ReviewDraft = "draft"
+	ReviewReady = "ready"
+)
+
+// ReviewFacet is one value a request can hold in one facet: its repository
+// ("" for none the forge named), how its CI stands, in CIState's words, draft
+// or ready, or who asks.
+type ReviewFacet struct {
+	Kind  ReviewFacetKind
+	Value string
+}
+
+// Label is how every surface names a facet value, in the filter and in the
+// line that says what the queue is narrowed to.
+func (f ReviewFacet) Label() string {
+	if f.Kind == FacetRepository && f.Value == "" {
+		return "no repository"
+	}
+
+	return map[ReviewFacetKind]string{FacetRepository: "", FacetCI: "CI ", FacetDraft: "", FacetAuthor: "by "}[f.Kind] +
+		f.Value
+}
+
+// Facets is the value the request holds in each facet.
+func (r ReviewRequest) Facets() []ReviewFacet {
+	readiness := ReviewReady
+	if r.Draft {
+		readiness = ReviewDraft
+	}
+
+	return []ReviewFacet{
+		{Kind: FacetRepository, Value: r.Repository},
+		{Kind: FacetCI, Value: r.CI.Word()},
+		{Kind: FacetDraft, Value: readiness},
+		{Kind: FacetAuthor, Value: r.Author},
+	}
+}
+
+// OfferedReviewFacets is every value the queue's filter offers, in the order
+// it lists them: the repositories the requests are in, by name, every CI
+// state and draft then ready in a fixed order, and who asks, by name. A name
+// is ordered by its UTF-8 bytes, which is code point order.
+func OfferedReviewFacets(requests []ReviewRequest) []ReviewFacet {
+	named := func(kind ReviewFacetKind) []ReviewFacet {
+		var values []string
+
+		for _, request := range requests {
+			for _, held := range request.Facets() {
+				if held.Kind == kind {
+					values = append(values, held.Value)
+				}
+			}
+		}
+
+		slices.Sort(values)
+
+		return reviewFacetsOf(kind, slices.Compact(values))
+	}
+
+	return slices.Concat(
+		named(FacetRepository),
+		reviewFacetsOf(FacetCI, []string{CIFailed.Word(), CIPassed.Word(), CIRunning.Word(), CINone.Word()}),
+		reviewFacetsOf(FacetDraft, []string{ReviewDraft, ReviewReady}),
+		named(FacetAuthor),
+	)
+}
+
+// reviewFacetsOf is a facet of kind for each of values.
+func reviewFacetsOf(kind ReviewFacetKind, values []string) []ReviewFacet {
+	facets := make([]ReviewFacet, 0, len(values))
+
+	for _, value := range values {
+		facets = append(facets, ReviewFacet{Kind: kind, Value: value})
+	}
+
+	return facets
+}
+
+// ReviewFacetChoice is a value the filter offers, with how many requests hold
+// it.
+type ReviewFacetChoice struct {
+	Facet ReviewFacet
+	Count int
+}
+
+// ReviewChoices is every value the requests hold, with how many hold each, in
+// the order OfferedReviewFacets offers them, then every picked value none
+// holds, at zero, in the order it was picked, so it can still be unpicked.
+func ReviewChoices(requests []ReviewRequest, picked []ReviewFacet) []ReviewFacetChoice {
+	counts := map[ReviewFacet]int{}
+
+	for _, request := range requests {
+		for _, held := range request.Facets() {
+			counts[held]++
+		}
+	}
+
+	var choices []ReviewFacetChoice
+
+	for _, offering := range OfferedReviewFacets(requests) {
+		if counts[offering] > 0 || slices.Contains(picked, offering) {
+			choices = append(choices, ReviewFacetChoice{Facet: offering, Count: counts[offering]})
+		}
+	}
+
+	for _, chosen := range picked {
+		if counts[chosen] == 0 && !slices.ContainsFunc(choices, func(choice ReviewFacetChoice) bool {
+			return choice.Facet == chosen
+		}) {
+			choices = append(choices, ReviewFacetChoice{Facet: chosen})
+		}
+	}
+
+	return choices
+}
+
+// AdmitsReview reports whether a request holds a picked value in every facet
+// something is picked in.
+func AdmitsReview(picked []ReviewFacet, request ReviewRequest) bool {
+	for _, held := range request.Facets() {
+		constrained := slices.ContainsFunc(picked, func(chosen ReviewFacet) bool { return chosen.Kind == held.Kind })
+		if constrained && !slices.Contains(picked, held) {
+			return false
+		}
+	}
+
+	return true
+}

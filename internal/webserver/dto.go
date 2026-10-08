@@ -252,31 +252,52 @@ func pullState(state forge.PullState) api.PullRequestState {
 	}[state]
 }
 
-// reviewQueueDTO maps the review queue onto the wire.
+// reviewQueueDTO maps the review queue onto the wire, with the values its
+// filter offers, in order.
 func reviewQueueDTO(requests []forge.ReviewRequest) api.ReviewQueue {
-	return api.ReviewQueue{Available: true, Requests: ReviewRequests(requests)}
+	return api.ReviewQueue{
+		Available: true, Requests: ReviewRequests(requests),
+		FacetOrder: reviewFacetsDTO(forge.OfferedReviewFacets(requests)),
+	}
 }
 
-// ReviewRequests maps the requests waiting on your review onto the wire, an
-// empty list rather than null when none waits: the requests GET /api/reviews
-// answers, and what `workflow reviews --json` prints.
+// ReviewRequests maps the requests waiting on your review onto the wire, each
+// with its facets, an empty list rather than null when none waits: the
+// requests GET /api/reviews answers, and what `workflow reviews --json`
+// prints.
 func ReviewRequests(requests []forge.ReviewRequest) []api.ReviewRequest {
 	queue := make([]api.ReviewRequest, 0, len(requests))
 	for _, request := range requests {
 		queue = append(queue, api.ReviewRequest{
 			Number: request.Number, URL: request.URL, Title: request.Title, Author: request.Author,
 			Repository: request.Repository, Draft: request.Draft, Ci: ciState(request.CI),
-			OpenedAt: optionalTime(request.OpenedAt),
+			OpenedAt: optionalTime(request.OpenedAt), Facets: reviewFacetsDTO(request.Facets()),
 		})
 	}
 
 	return queue
 }
 
+// reviewFacetsDTO maps review facets onto the wire, each with its label, an
+// empty list rather than null. A map, so exhaustive keeps the kinds complete.
+func reviewFacetsDTO(facets []forge.ReviewFacet) []api.ReviewFacet {
+	kinds := map[forge.ReviewFacetKind]api.ReviewFacetKind{
+		forge.FacetRepository: api.ReviewFacetKindRepository, forge.FacetCI: api.ReviewFacetKindCi,
+		forge.FacetDraft: api.ReviewFacetKindDraft, forge.FacetAuthor: api.ReviewFacetKindAuthor,
+	}
+
+	out := make([]api.ReviewFacet, 0, len(facets))
+	for _, facet := range facets {
+		out = append(out, api.ReviewFacet{Kind: kinds[facet.Kind], Value: facet.Value, Label: facet.Label()})
+	}
+
+	return out
+}
+
 // noReviewQueue is the answer where there is no forge to ask: not available,
-// and empty.
+// and empty, with nothing for its filter to offer.
 func noReviewQueue() api.ReviewQueue {
-	return api.ReviewQueue{Available: false, Requests: []api.ReviewRequest{}}
+	return api.ReviewQueue{Available: false, Requests: []api.ReviewRequest{}, FacetOrder: []api.ReviewFacet{}}
 }
 
 // ciDTO maps a CI result and its checks.

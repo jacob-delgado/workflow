@@ -23,7 +23,7 @@ type reviewQueueState struct {
 	// lists of it, narrowed to the picked facets and in order.
 	all      []forge.ReviewRequest
 	order    reviewOrder
-	facets   []facet
+	facets   []forge.ReviewFacet
 	requests []forge.ReviewRequest
 	loaded   bool
 	err      error

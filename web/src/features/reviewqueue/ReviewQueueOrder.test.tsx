@@ -47,9 +47,9 @@ const nowhere = makeReviewRequest({
 })
 
 // queueOf is an available queue of the requests given, oldest first as the
-// server sends it.
+// server sends it, with nothing for the filter to offer.
 function queueOf(...requests: ReturnType<typeof makeReviewRequest>[]): ReviewQueue {
-  return { available: true, requests }
+  return { available: true, requests, facet_order: [] }
 }
 
 // linksIn is the address each request listed in container opens, in order.

@@ -165,7 +165,9 @@ whole array.
 `GET /api/reviews` answers (see [Scripting the API]({{< relref "/docs/web#scripting-the-api" >}})):
 `opened_at` is when each was opened, an RFC 3339 time, from which a script
 works out how long it has waited, and is left out when the forge gave no time;
-the line's `3d` is for reading.
+the line's `3d` is for reading. `facets` is the value each holds in the four
+facets the terminal's and the browser's filter narrow the queue by — its
+repository, its CI, draft or ready, and who asks — each with its `label`.
 
 ```json
 [
@@ -173,6 +175,12 @@ the line's `3d` is for reading.
     "author": "ana",
     "ci": "passed",
     "draft": false,
+    "facets": [
+      {"kind": "repository", "label": "acme/api", "value": "acme/api"},
+      {"kind": "ci", "label": "CI passed", "value": "passed"},
+      {"kind": "draft", "label": "ready", "value": "ready"},
+      {"kind": "author", "label": "by ana", "value": "ana"}
+    ],
     "number": 42,
     "opened_at": "2026-10-05T09:12:00Z",
     "repository": "acme/api",

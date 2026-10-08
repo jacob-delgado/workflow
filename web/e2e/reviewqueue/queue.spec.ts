@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import type { ReviewQueue, ReviewRequest } from '../../src/api/generated/types.gen.ts'
+import type { ReviewFacet, ReviewQueue, ReviewRequest } from '../../src/api/generated/types.gen.ts'
 import { openSection, pinTheme, themes, widths, height } from '../support/cockpit.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
 import { expect, test } from '../support/fixtures.ts'
@@ -8,6 +8,25 @@ import { expect, test } from '../support/fixtures.ts'
 // opening once 30 seconds have passed, and its filter narrows it.
 
 const hour = 3_600_000
+
+// facetsOf is what the server says a request holds in each facet, labeled as
+// it labels them.
+function facetsOf(
+  fields: Pick<ReviewRequest, 'author' | 'repository' | 'draft' | 'ci'>,
+): ReviewFacet[] {
+  const readiness = fields.draft ? 'draft' : 'ready'
+
+  return [
+    {
+      kind: 'repository',
+      value: fields.repository,
+      label: fields.repository === '' ? 'no repository' : fields.repository,
+    },
+    { kind: 'ci', value: fields.ci, label: `CI ${fields.ci}` },
+    { kind: 'draft', value: readiness, label: readiness },
+    { kind: 'author', value: fields.author, label: `by ${fields.author}` },
+  ]
+}
 
 // requestNumbered is a queued request, opened some hours before now.
 function requestNumbered(
@@ -20,13 +39,33 @@ function requestNumbered(
     url: `https://forge.example.com/pull/${String(number)}`,
     title: `change number ${String(number)}`,
     opened_at: new Date(Date.now() - hoursAgo * hour).toISOString(),
+    facets: facetsOf(fields),
     ...fields,
   }
 }
 
-// The queue the terminal's facetsWorld lists, oldest first.
+// offered is a value the server offers the queue's filter.
+function offered(kind: ReviewFacet['kind'], value: string, label: string): ReviewFacet {
+  return { kind, value, label }
+}
+
+// The queue the terminal's facetsWorld lists, oldest first, with what the
+// server offers its filter, in its order.
 const queue = {
   available: true,
+  facet_order: [
+    offered('repository', '', 'no repository'),
+    offered('repository', 'example/other', 'example/other'),
+    offered('repository', 'example/repo', 'example/repo'),
+    offered('ci', 'failed', 'CI failed'),
+    offered('ci', 'passed', 'CI passed'),
+    offered('ci', 'running', 'CI running'),
+    offered('ci', 'none', 'CI none'),
+    offered('draft', 'draft', 'draft'),
+    offered('draft', 'ready', 'ready'),
+    offered('author', 'kwan', 'by kwan'),
+    offered('author', 'mira', 'by mira'),
+  ],
   requests: [
     requestNumbered(5, 40, {
       author: 'kwan',
