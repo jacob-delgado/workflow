@@ -52,8 +52,9 @@ for (const theme of themes) {
     test(`the issue list and detail fit ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
-      // Arrange: the stream, the views and the issue answered here — enough
-      // for the list's controls and the detail.
+      // Arrange
+      // The stream, the views and the issue answered here — enough for the
+      // list's controls and the detail.
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
@@ -73,8 +74,9 @@ for (const theme of themes) {
       await expect(page.getByRole('button', { name: /load more/i })).toBeVisible()
       await expect(page.getByRole('combobox', { name: 'View' })).toBeVisible()
 
-      // Act: narrow the list to a place, so a pressed Where button is on
-      // screen, then open the first issue and let its detail land.
+      // Act
+      // Narrow the list to a place, so a pressed Where button is on screen,
+      // then open the first issue and let its detail land.
       const inProgress = page
         .getByRole('group', { name: 'Filter' })
         .getByRole('button', { name: /^In Progress/ })
@@ -83,8 +85,8 @@ for (const theme of themes) {
       await page.getByRole('button', { name: /redact tokens/i }).click()
       await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
 
-      // Assert: Tab reaches the view, and the list beside the open detail is
-      // clean.
+      // Assert
+      // Tab reaches the view, and the list beside the open detail is clean.
       await expectReachableAndClean(page, { reaches: ['View'] })
     })
   }
@@ -113,8 +115,9 @@ const pagedSnapshot = snapshotWith({
 test('a loaded page hands focus to its first issue, in view in the list, at 640 px', async ({
   page,
 }) => {
-  // Arrange: the stream's eight issues, and the next page answered here, in a
-  // window where the list scrolls in its pane.
+  // Arrange
+  // The stream's eight issues, and the next page answered here, in a window
+  // where the list scrolls in its pane.
   await streams(page, pagedSnapshot)
   await page.route(/\/api\/issues\?/, (route) =>
     route.fulfill({
@@ -132,7 +135,8 @@ test('a loaded page hands focus to its first issue, in view in the list, at 640 
   // Act
   await page.getByRole('button', { name: 'Load more' }).click()
 
-  // Assert: the first issue the page added has focus, and is in view.
+  // Assert
+  // The first issue the page added has focus, and is in view.
   const added = page.getByRole('button', { name: /^PROJ-9/ })
   await expect(added).toBeFocused()
   await expect(added).toBeInViewport({ ratio: 1 })
@@ -145,7 +149,8 @@ test(
     // Arrange
     await openCockpit(page, { width: 1440, height }, 'dark')
 
-    // Act: how many lines each row's summary, its last line, is set on.
+    // Act
+    // How many lines each row's summary, its last line, is set on.
     const lines = await page
       .getByRole('list', { name: 'Issues' })
       .getByRole('button')

@@ -130,14 +130,16 @@ for (const theme of themes) {
     test(`the status change form fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
-      // Arrange: the change to Resolved chosen, in this theme, at this width.
+      // Arrange
+      // The change to Resolved chosen, in this theme, at this width.
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
       await opensIssue(page)
       await choosesResolved(page)
 
-      // Act & Assert: Tab reaches the fields and the buttons.
+      // Act & Assert
+      // Tab reaches the fields and the buttons.
       await expectReachableAndClean(page, {
         reaches: ['New status', 'Due date', 'Resolution', 'Cancel', 'Change to Resolved'],
       })
@@ -153,7 +155,8 @@ for (const theme of themes) {
       await opensIssue(page)
       await page.getByRole('button', { name: action }).click()
 
-      // Act & Assert: Tab once round the page.
+      // Act & Assert
+      // Tab once round the page.
       await expectReachableAndClean(page, { reaches: ['Cancel', action] })
     })
   }

@@ -16,7 +16,8 @@ for (const theme of themes) {
       `the ? sheet fits ${String(width)} px in the ${theme} theme, trapped and clean`,
       { tag: '@populated' },
       async ({ page }) => {
-        // Arrange: the populated cockpit, its issue open, focus on the issue.
+        // Arrange
+        // The populated cockpit, its issue open, focus on the issue.
         await openCockpit(page, { width, height }, theme)
         const opener = page.getByRole('button', { name: /redact tokens before/i })
         await opener.focus()
@@ -49,15 +50,18 @@ for (const theme of themes) {
       `the palette fits ${String(width)} px in the ${theme} theme, trapped and clean`,
       { tag: '@populated' },
       async ({ page }) => {
-        // Arrange: the populated cockpit, on Branch.
+        // Arrange
+        // The populated cockpit, on Branch.
         await openCockpit(page, { width, height }, theme)
         await openSection(page, 'Branch')
 
-        // Act: open the palette, and narrow it.
+        // Act
+        // Open the palette, and narrow it.
         await page.keyboard.press('Control+k')
         await page.keyboard.type('stage')
 
-        // Assert: it lists Stage all first, fits, keeps Tab, and is clean.
+        // Assert
+        // It lists Stage all first, fits, keeps Tab, and is clean.
         const palette = page.getByRole('dialog', { name: 'Command palette' })
         await expect(palette.getByRole('option').first()).toHaveText(/^stage all/)
         await expectReachableAndClean(page, { within: palette })
@@ -67,7 +71,8 @@ for (const theme of themes) {
 }
 
 test('Ctrl+K, "stage all", Enter stages every change', { tag: '@populated' }, async ({ page }) => {
-  // Arrange: the populated cockpit, on Branch.
+  // Arrange
+  // The populated cockpit, on Branch.
   await openCockpit(page, { width: 1440, height }, 'dark')
   await openSection(page, 'Branch')
 

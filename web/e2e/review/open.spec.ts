@@ -67,11 +67,13 @@ for (const theme of themes) {
       // Arrange
       await opensReview(page, theme, width)
 
-      // Act: compose the pull request, which opens as a form to edit.
+      // Act
+      // Compose the pull request, which opens as a form to edit.
       await page.getByRole('button', { name: 'Open a pull request' }).click()
       await expect(page.getByRole('form', { name: 'Open a pull request' })).toBeVisible()
 
-      // Assert: Tab reaches each of the form's fields, and it is clean.
+      // Assert
+      // Tab reaches each of the form's fields, and it is clean.
       await expectReachableAndClean(page, { reaches: formControls })
     })
   }
@@ -82,8 +84,9 @@ for (const theme of themes) {
     test(`the offers after opening fit ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
-      // Arrange: the open and the link answered here, so the open's outcome,
-      // its offers and a done offer's status line are all on screen.
+      // Arrange
+      // The open and the link answered here, so the open's outcome, its offers
+      // and a done offer's status line are all on screen.
       await page.route('**/api/pull-request', (route) =>
         route.fulfill({
           json: {
@@ -100,11 +103,13 @@ for (const theme of themes) {
       await page.getByRole('button', { name: 'Open a pull request' }).click()
       await page.getByRole('button', { name: 'Open pull request' }).click()
 
-      // Act: link it, leaving the move offered beside what the link said.
+      // Act
+      // Link it, leaving the move offered beside what the link said.
       await page.getByRole('button', { name: 'Link it on PROJ-1' }).click()
       await expect(page.getByText('Linked #7 on PROJ-1.')).toBeVisible()
 
-      // Assert: Tab reaches the move still offered, and it is clean.
+      // Assert
+      // Tab reaches the move still offered, and it is clean.
       await expectReachableAndClean(page, { reaches: ['Move PROJ-1 to In Review'] })
     })
   }

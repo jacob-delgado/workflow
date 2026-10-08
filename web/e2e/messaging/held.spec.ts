@@ -105,7 +105,8 @@ for (const theme of themes) {
     test(`the edited preview fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
-      // Arrange: the preview's text open to edit, in this theme, at this width.
+      // Arrange
+      // The preview's text open to edit, in this theme, at this width.
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
@@ -113,7 +114,8 @@ for (const theme of themes) {
       await openAnnouncementPreview(page)
       await page.getByRole('button', { name: 'Edit' }).click()
 
-      // Act & Assert: Tab reaches the text and both ways to announce it.
+      // Act & Assert
+      // Tab reaches the text and both ways to announce it.
       await expectReachableAndClean(page, {
         reaches: ['Announcement text', 'Announce when CI passes', 'Announce now'],
       })

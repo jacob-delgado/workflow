@@ -24,7 +24,8 @@ for (const theme of themes) {
         `${name} fits ${String(width)} px in the ${theme} theme, reachable and clean`,
         { tag: '@populated' },
         async ({ page }) => {
-          // Arrange: the populated cockpit at this width, in this theme.
+          // Arrange
+          // The populated cockpit at this width, in this theme.
           await openCockpit(page, { width, height }, theme)
 
           // Act
@@ -45,12 +46,14 @@ for (const theme of themes) {
     test(`the first-run setup fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
-      // Arrange: Settings with no file, at this width, in this theme.
+      // Arrange
+      // Settings with no file, at this width, in this theme.
       await openFirstRun(page, { width, height }, theme)
 
-      // Act & Assert: Tab reaches every question and the write, passing by
-      // the home directory's radio button, which the arrow keys reach from the
-      // one chosen.
+      // Act & Assert
+      // Tab reaches every question and the write, passing by the home
+      // directory's radio button, which the arrow keys reach from the one
+      // chosen.
       await expectReachableAndClean(page, {
         reaches: ['Write ~/src/api/.workflow.json'],
         passedBy: ['~/.workflow.jsonYour home directory: it applies everywhere.'],
@@ -79,8 +82,9 @@ for (const name of sectionNames.filter((section) => section !== 'Branch')) {
     `${name} sets its content at the Branch section's measure in a wide window`,
     { tag: '@populated' },
     async ({ page }) => {
-      // Arrange: the populated cockpit at the wide width, and the measure
-      // Branch's commit form is set at.
+      // Arrange
+      // The populated cockpit at the wide width, and the measure Branch's
+      // commit form is set at.
       await openCockpit(page, { width: 1440, height }, 'dark')
       await openSection(page, 'Branch')
       const measure = await widestContent(page)
@@ -88,7 +92,8 @@ for (const name of sectionNames.filter((section) => section !== 'Branch')) {
       // Act
       await openSection(page, name)
 
-      // Assert: nothing in it is set wider than Branch's form.
+      // Assert
+      // Nothing in it is set wider than Branch's form.
       expect(await widestContent(page), 'wider than Branch').toBeLessThanOrEqual(measure + 1)
     },
   )
@@ -101,15 +106,18 @@ for (const theme of themes) {
         `the ${step} fits ${String(width)} px in the ${theme} theme, reachable and clean`,
         { tag: '@populated' },
         async ({ page }) => {
-          // Arrange: the populated cockpit at this width, on the step's section.
+          // Arrange
+          // The populated cockpit at this width, on the step's section.
           await openCockpit(page, { width, height }, theme)
           await openSection(page, section)
 
-          // Act: open the step.
+          // Act
+          // Open the step.
           await page.getByRole('button', { name: opener }).click()
           await expect(page.getByRole('group', { name: group })).toBeVisible()
 
-          // Assert: Tab reaches the step's controls, and it is clean.
+          // Assert
+          // Tab reaches the step's controls, and it is clean.
           await expectReachableAndClean(page, { reaches: adds })
         },
       )
@@ -137,7 +145,8 @@ for (const { width, named } of railCases) {
       const rail = page.getByRole('navigation', { name: 'Sections' })
       const buttons = sectionNames.map((name) => rail.getByRole('button', { name, exact: true }))
 
-      // Act: measure each name as it is drawn.
+      // Act
+      // Measure each name as it is drawn.
       const drawn = await Promise.all(
         buttons.map(async (button, index) => {
           const name = await button.getByText(sectionNames[index], { exact: true }).boundingBox()
@@ -146,8 +155,8 @@ for (const { width, named } of railCases) {
         }),
       )
 
-      // Assert: each button keeps its name, as its title too, drawn only from
-      // md up.
+      // Assert
+      // Each button keeps its name, as its title too, drawn only from md up.
       for (const [index, button] of buttons.entries()) {
         await expect(button).toBeVisible()
         await expect(button).toHaveAttribute('title', sectionNames[index])
@@ -164,16 +173,19 @@ for (const width of widths) {
     `the header stays in view as a long section scrolls at ${String(width)} px`,
     { tag: '@populated' },
     async ({ page }) => {
-      // Arrange: the settings, longer than the window.
+      // Arrange
+      // The settings, longer than the window.
       await page.setViewportSize({ width, height })
       await page.goto('/')
       await openSection(page, 'Settings')
       const save = page.getByRole('button', { name: 'Save changes' })
 
-      // Act: take the form's last control into view.
+      // Act
+      // Take the form's last control into view.
       await save.focus()
 
-      // Assert: it is in view, and so is the header above it.
+      // Assert
+      // It is in view, and so is the header above it.
       await expect(save).toBeInViewport()
       await expect(page.getByRole('button', { name: /change theme/i })).toBeInViewport()
     },
@@ -237,7 +249,8 @@ for (const width of widths) {
     `a section opens at its top at ${String(width)} px`,
     { tag: '@populated' },
     async ({ page }) => {
-      // Arrange: the settings, scrolled to their end.
+      // Arrange
+      // The settings, scrolled to their end.
       await page.setViewportSize({ width, height })
       await page.goto('/')
       await openSection(page, 'Settings')
