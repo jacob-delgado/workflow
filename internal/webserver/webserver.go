@@ -168,8 +168,11 @@ type Deps struct {
 	KeyActions func(reviewNoun, messagingService string, overrides map[string]string) []seams.KeyAction
 	// Unexpected hears each failure the server answers as an internal error —
 	// one no class of failure explains, or an answer that could not be
-	// written — whose cause the answer leaves out. Nil says nothing.
-	Unexpected func(err error)
+	// written — whose cause the answer leaves out, with the configuration in
+	// effect when it failed: a credential taken up since the server started,
+	// from a switch or a save in Settings, is that configuration's. Nil says
+	// nothing.
+	Unexpected func(inEffect config.Config, err error)
 	// UseForgeSettings applies forge settings just saved to every forge call
 	// after the save, and reports which forge the remote is on under them, so a
 	// token, host or kind saved in Settings needs no restart. Nil leaves the
