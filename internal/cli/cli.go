@@ -125,8 +125,10 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 	// The command tree carries no context; ctx reaches each command through
 	// Cobra's ExecuteContext below, which is how cmd.Context() is set.
 	root := NewRootCmd(prompt) //nolint:contextcheck // ctx is delivered by ExecuteContext, not the constructor.
+	checked := &checkedOutput{out: stdout}
+
 	root.SetArgs(args)
-	root.SetOut(stdout)
+	root.SetOut(checked)
 	root.SetErr(stderr)
 	// cobra adds its help and completion commands only as the tree runs, after
 	// any walk could meet them. Adding them here lets markMisuse reach them too,
@@ -136,7 +138,7 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 	root.InitDefaultCompletionCmd()
 	markMisuse(root)
 
-	err := root.ExecuteContext(ctx)
+	err := checked.failed(root.ExecuteContext(ctx))
 	if err == nil {
 		return nil
 	}
@@ -269,7 +271,7 @@ type interfaceInput struct {
 func inputFor(cmd *cobra.Command, conn connection, dryRun bool) interfaceInput {
 	return interfaceInput{
 		cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.controls.ResolveAhead,
-		dryRun: dryRun, noColorEnv: os.Getenv("NO_COLOR"), out: cmd.OutOrStdout(),
+		dryRun: dryRun, noColorEnv: os.Getenv("NO_COLOR"), out: terminalOut(cmd),
 		arrive: func(model tui.Model) tui.Model { return model },
 	}
 }
