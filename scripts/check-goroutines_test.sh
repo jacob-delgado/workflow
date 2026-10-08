@@ -50,6 +50,21 @@ plain() {
   printf 'package x\n\nfunc run() {}\n'
 }
 
+# waitgroup starts one through sync.WaitGroup.Go, which has no `go` keyword.
+waitgroup() {
+  printf 'package x\n\nfunc run() {\n\tvar wg sync.WaitGroup\n\twg.Go(func() {})\n}\n'
+}
+
+# excepted is the one goroutine the gate's written exception names.
+excepted() {
+  printf 'package x\n\nfunc run() {\n\trunning.Go(func() {\n\t})\n}\n'
+}
+
+# excepted_and_another holds the excepted goroutine and a second one beside it.
+excepted_and_another() {
+  printf 'package x\n\nfunc run() {\n\trunning.Go(func() {\n\t})\n\tgo work()\n}\n'
+}
+
 # repo makes a git repository with one file at path holding contents.
 #   repo <dir> <path> <contents-command>
 repo() {
@@ -74,6 +89,26 @@ expect pass "a goroutine in internal/proc" "${proc}"
 test="${workdir}/test"
 repo "${test}" "internal/tui/run_test.go" goroutine
 expect pass "a goroutine in a test file" "${test}"
+
+# A goroutine started through WaitGroup.Go is still a goroutine.
+waitgo="${workdir}/waitgo"
+repo "${waitgo}" "internal/tui/run.go" waitgroup
+expect fail "a WaitGroup.Go in app code" "${waitgo}"
+
+# The written exception excuses the one goroutine it names, where it names it.
+exception="${workdir}/exception"
+repo "${exception}" "internal/wiring/repositories.go" excepted
+expect pass "the goroutine the exception names" "${exception}"
+
+# The same statement elsewhere is not excused.
+elsewhere="${workdir}/elsewhere"
+repo "${elsewhere}" "internal/wiring/other.go" excepted
+expect fail "the excepted statement in another file" "${elsewhere}"
+
+# Nor is a second goroutine in the excepted file.
+another="${workdir}/another"
+repo "${another}" "internal/wiring/repositories.go" excepted_and_another
+expect fail "a second goroutine beside the excepted one" "${another}"
 
 # A file with no goroutine passes.
 clean="${workdir}/clean"
