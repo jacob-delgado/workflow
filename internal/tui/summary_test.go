@@ -332,3 +332,45 @@ func TestTheRailCountsOneThingDoneInTheSingular(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "2026-09-15: 1 thing done")
 }
+
+func TestAnAnswerForAPeriodSinceLeftIsDropped(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// r reads the period again; its answers are held back while [ moves to the
+	// day before and reads that, and git has since moved on to another commit.
+	busy := summaryWorld()
+	opened := typing(t, busy.live(t, 120, 40), summaryKey)
+	rereading, staleReads := pressed(t, opened, "r")
+	stepped := typing(t, rereading, "[")
+	busy.done.commits = []gitrepo.DatedCommit{{Short: "def5678", Subject: "Read for a period left", Authored: tuesday(10)}}
+
+	// Act
+	view := drain(t, stepped, staleReads).View().Content
+
+	// Assert
+	requireScreen(t, view, "2026-09-14", "Fix the token leak")
+	refuseScreen(t, view, "Read for a period left")
+}
+
+func TestAKeysRestForAPeriodSinceLeftReadsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The first [ comes to rest only after the second has moved on and read
+	// the period it rests on.
+	busy := summaryWorld()
+	opened := typing(t, busy.live(t, 120, 40), summaryKey)
+	passing, firstRest := pressed(t, opened, "[")
+	rested := typing(t, passing, "[")
+
+	// Act
+	view := drain(t, rested, firstRest).View().Content
+
+	// Assert
+	requireScreen(t, view, "2026-09-13")
+
+	if reads := busy.asked("summary git "); len(reads) != 2 {
+		t.Errorf("git read for %q, want the first period and the one the keys rest on, nothing more", reads)
+	}
+}

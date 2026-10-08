@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // The Tasks pane's keys that filter and narrow its list.
@@ -196,4 +197,82 @@ func TestTheCursorComesBackToItsTaskWhenAFilterThatHidItIsCleared(t *testing.T) 
 
 	// Assert
 	requireScreen(t, view, "▸ ○   3 "+secondIssue)
+}
+
+// typedTasksFilter is the Tasks pane with cert typed into its filter, which is
+// still taking keys.
+func typedTasksFilter(t *testing.T) tui.Model {
+	t.Helper()
+
+	tasks := typing(t, withTasks().live(t, 120, 40), tasksPane)
+
+	return typing(t, tasks, append([]string{filterTasksKey}, letters("cert")...)...)
+}
+
+func TestEnterKeepsTheTasksFilterAndHandsTheKeysBack(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := typing(t, typedTasksFilter(t), keyEnter)
+
+	// Act
+	// x types nothing once the filter is kept: it is no key of the pane's.
+	view := typing(t, kept, "x").View().Content
+
+	// Assert
+	requireScreen(t, view, "Renew the cert")
+	refuseScreen(t, view, "search: certx", secondIssue+": Add retries")
+}
+
+func TestTheUpArrowMovesUpWhileFilteringWhateverUpIsBoundTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := withTasks()
+	repo.cfg.UI.Keys = map[string]string{downAction: "n", "up": "p"}
+	filtering := typing(t, repo.live(t, 120, 40), tasksPane, filterTasksKey, downAction)
+
+	// Act
+	view := typing(t, filtering, upAction).View().Content
+
+	// Assert
+	requireScreen(t, view, "▸ ◐  12 "+issueKey)
+}
+
+func TestBackspaceTakesTheLastLetterOffTheTasksFilter(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, typedTasksFilter(t), "x", keyBackspace).View().Content
+
+	// Assert
+	requireScreen(t, view, "search: cert", "Renew the cert")
+	refuseScreen(t, view, "search: certx")
+}
+
+func TestLeavingTheTasksPaneDropsItsFilter(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string][]string{
+		"while it is typed": nil,
+		"once it is kept":   {keyEnter},
+	}
+
+	for name, keys := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// A click leaves the pane even while its filter takes every key.
+			filtered := typing(t, typedTasksFilter(t), keys...)
+			left := click(t, filtered, 5, screenRow(t, filtered.View().Content, "1 Issues"))
+
+			// Act
+			view := typing(t, left, tasksPane).View().Content
+
+			// Assert
+			requireScreen(t, view, "Renew the cert", secondIssue+": Add retries")
+			refuseScreen(t, view, "search: cert")
+		})
+	}
 }
