@@ -119,7 +119,7 @@ func TestARepositoryLayerBorrowsAHomeCredentialOnlyForTheSameAddress(t *testing.
 		{
 			name: "jira kept with a token's sources", home: tokenSourcesHome,
 			repo: `{"jira": {"project": "OSS"}}`,
-			want: heldCredentials{JiraCommand: jiraTokenCommand, JiraEnv: "JIRA_TOKEN"},
+			want: heldCredentials{JiraCommand: jiraTokenCommand, JiraEnv: jiraTokenVariable},
 		},
 		{
 			name: "forge moved elsewhere", home: credentialedHome, repo: `{"forge": {"host": "evil.example"}}`,

@@ -62,6 +62,20 @@ func TestMessagingModeReflectsTheKind(t *testing.T) {
 			messaging: config.Messaging{ClientID: slackClientID, Channel: devChannel},
 			want:      config.MessagingUser,
 		},
+		// A file keeping the user token's credentials posts with it, whichever
+		// of them it holds.
+		"slack holding only a refresh token": {
+			messaging: config.Messaging{Kind: config.KindSlack, RefreshToken: "xoxe-1-held"},
+			want:      config.MessagingUser,
+		},
+		"slack holding only an access token": {
+			messaging: config.Messaging{Kind: config.KindSlack, AccessToken: "xoxe.xoxp-held"},
+			want:      config.MessagingUser,
+		},
+		"slack holding only a client secret": {
+			messaging: config.Messaging{Kind: config.KindSlack, ClientSecret: "client-secret-held"},
+			want:      config.MessagingUser,
+		},
 	}
 
 	for name, tt := range cases {
@@ -71,6 +85,33 @@ func TestMessagingModeReflectsTheKind(t *testing.T) {
 			// Act & Assert
 			if got := tt.messaging.Mode(); got != tt.want {
 				t.Errorf("Mode() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHoldsUserTokenSecretsNamesAFileKeepingAnyOfThem(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		messaging config.Messaging
+		want      bool
+	}{
+		"nothing held":           {messaging: config.Messaging{}, want: false},
+		"the app's client ID":    {messaging: config.Messaging{ClientID: slackClientID}, want: false},
+		"a client secret":        {messaging: config.Messaging{ClientSecret: "client-secret-held"}, want: true},
+		"a refresh token":        {messaging: config.Messaging{RefreshToken: "xoxe-1-held"}, want: true},
+		"an access token":        {messaging: config.Messaging{AccessToken: "xoxe.xoxp-held"}, want: true},
+		"a webhook is no secret": {messaging: config.Messaging{WebhookURL: webhookURL}, want: false},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.messaging.HoldsUserTokenSecrets(); got != tt.want {
+				t.Errorf("HoldsUserTokenSecrets() = %t, want %t", got, tt.want)
 			}
 		})
 	}

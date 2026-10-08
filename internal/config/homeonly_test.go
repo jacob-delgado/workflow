@@ -13,8 +13,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
-// jiraTokenCommand is a token_command the home file sets.
-const jiraTokenCommand = "pass show jira"
+// jiraTokenCommand and jiraTokenVariable are a token_command and a token_env
+// the home file sets.
+const (
+	jiraTokenCommand  = "pass show jira"
+	jiraTokenVariable = "JIRA_TOKEN"
+)
 
 // homeOnlySettings are, by key, a file setting each thing only the home file
 // may: a program to run, or an environment variable to read.
@@ -154,18 +158,28 @@ func TestASaveWritesAHomeOnlyKeyIntoTheHomeFile(t *testing.T) {
 	}
 }
 
-func TestAConfigurationBuiltOverOneFileTakesItForTheHomeFile(t *testing.T) {
+func TestLayersAreTheFilesAConfigurationWasReadFrom(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	cfg := config.Default()
-	cfg.Path = filepath.Join(t.TempDir(), config.FileName)
+	read := config.Files{Home: "/home/u/.workflow.json", Repo: "/src/api/.workflow.json"}
 
-	// Act
-	files := cfg.Layers()
+	cases := map[string]struct {
+		cfg  config.Config
+		want config.Files
+	}{
+		"read from both files": {cfg: config.Config{Files: read, Path: read.Repo}, want: read},
+		"built over one file":  {cfg: config.Config{Path: read.Home}, want: config.Files{Home: read.Home}},
+		"built over none":      {cfg: config.Default(), want: config.Files{}},
+	}
 
-	// Assert
-	if files != (config.Files{Home: cfg.Path}) {
-		t.Errorf("Layers = %+v, want the one file as the home file", files)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.cfg.Layers(); got != tt.want {
+				t.Errorf("Layers = %+v, want %+v", got, tt.want)
+			}
+		})
 	}
 }
