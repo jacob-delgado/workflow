@@ -82,6 +82,14 @@ func transportFaults() []faultClass {
 			detail: "the service answered with a redirect, refused so the credential goes nowhere else; " +
 				"check its configured address",
 		},
+		{
+			causes: []error{httpx.ErrAnswerTooLarge},
+			code:   api.ProblemCodeUnreachable, detail: "the service answered with more than workflow reads at once",
+		},
+		{
+			causes: []error{httpx.ErrTimedOut},
+			code:   api.ProblemCodeUnreachable, detail: "the service took too long to answer; try again",
+		},
 	}
 }
 
