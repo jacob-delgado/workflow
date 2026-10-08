@@ -2,13 +2,14 @@ import type { Page } from '@playwright/test'
 import { mockDirectories, mockRepositories } from '../../src/dev/mockRepositories.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
-import { expect, test } from '../support/fixtures.ts'
+import { expect, problem, test } from '../support/fixtures.ts'
 
 // The Repositories section: where the server works, the favorites, the
 // directory picker, and a switch asked once more before it is made.
 
 // opensRepositories answers the section's reads as the mockup does, keeps
-// each switch asked, and opens the section.
+// each switch asked, answering it with where the mockup shows that directory,
+// and opens the section.
 async function opensRepositories(page: Page): Promise<string[]> {
   const switched: string[] = []
   await page.route('**/api/repositories', (route) => route.fulfill({ json: mockRepositories() }))
@@ -21,9 +22,13 @@ async function opensRepositories(page: Page): Promise<string[]> {
     const asked = route.request().postDataJSON() as { dir: string }
     switched.push(asked.dir)
     const after = mockRepositories()
+    const known = [...after.favorites, ...after.worktrees].find((place) => place.dir === asked.dir)
+    if (known === undefined) {
+      return route.fulfill(problem('not_found', `${asked.dir} is not a directory`))
+    }
 
     return route.fulfill({
-      json: { ...after, here: { ...after.here, dir: asked.dir, shown: '~/src/web' } },
+      json: { ...after, here: { ...after.here, dir: known.dir, shown: known.shown } },
     })
   })
   await page.goto('/')
@@ -67,7 +72,7 @@ test('another worktree is switched to once the switch is confirmed', async ({ pa
     .click()
 
   // Assert
-  await expect(page.getByText('Switched to ~/src/web.')).toBeVisible()
+  await expect(page.getByText('Switched to ~/src/api-review.')).toBeVisible()
   expect(switched).toEqual(['/home/ana/src/api-review'])
 })
 
