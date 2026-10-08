@@ -18,7 +18,10 @@ task dev        # the Go API and event stream on 127.0.0.1:13579, rebuilt on any
                 # and the web UI on :5173 with hot reload (installs deps, proxies /api to :13579)
 ```
 
-Then open <http://localhost:5173>. To run the two halves apart, use two shells
+Then open `http://localhost:5173/#session=…`, with the session the Go API
+printed after `#session=` in its own address: the API answers only a request
+that presents it. Each start of the API makes a new one, so after a rebuild
+open the address it prints next. To run the two halves apart, use two shells
 instead; the Go API is then built once rather than rebuilt on a change:
 
 ```sh

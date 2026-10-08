@@ -29,12 +29,7 @@ func fakeUI() fstest.MapFS {
 func serveUI(t *testing.T, ui fs.FS) http.Handler {
 	t.Helper()
 
-	handler, err := webserver.Handler(webserver.Deps{}, config.Default(), webserver.Info{Version: testVersion}, ui)
-	if err != nil {
-		t.Fatalf("building the handler: %v", err)
-	}
-
-	return handler
+	return serveWorld(t, webserver.World{Config: config.Default(), Info: webserver.Info{Version: testVersion}}, ui)
 }
 
 func TestTheAppIsServedAtTheRoot(t *testing.T) {
@@ -148,7 +143,7 @@ func TestEveryAnswerRefusesToBeFramedOrSniffed(t *testing.T) {
 		"the app's root":       {host: loopbackHost, target: "/"},
 		"the app's index":      {host: loopbackHost, target: "/index.html"},
 		"an asset":             {host: loopbackHost, target: "/assets/app.js"},
-		"the API":              {host: loopbackHost, target: "/api/health"},
+		"the API":              {host: loopbackHost, target: healthPath},
 		"a refused host's ask": {host: "evil.example:13579", target: "/"},
 	}
 

@@ -2,6 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { FakeEventSource } from '@/test/fakeEventSource.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
+import { useSessionStore } from './session.ts'
 import { useEventStream, useLiveSnapshot, useSnapshotStore } from './snapshot.ts'
 
 const validSnapshot = makeSnapshot({
@@ -282,6 +283,47 @@ test('marks a refused default stream reconnecting, with no view to hand back', (
   // Assert
   expect(onViewRefused).not.toHaveBeenCalled()
   expect(useSnapshotStore.getState().status).toBe('reconnecting')
+})
+
+test("the stream presents the page's session in its query, where an EventSource can", () => {
+  // Arrange
+  useSessionStore.setState({ token: 'ABC234' })
+
+  // Act
+  renderHook(() => {
+    useEventStream('Team bugs', vi.fn())
+  })
+
+  // Assert
+  const opened = new URL(FakeEventSource.latest().url, window.location.href)
+  expect(opened.pathname).toBe('/api/events')
+  expect(opened.searchParams.get('session')).toBe('ABC234')
+  expect(opened.searchParams.get('view')).toBe('Team bugs')
+})
+
+test('a refused default stream asks the server why, which a refused session answers', async () => {
+  // Arrange
+  const asked: string[] = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((request: Request) => {
+      asked.push(new URL(request.url).pathname)
+
+      return Promise.resolve(Response.json({}, { status: 401 }))
+    }),
+  )
+  renderHook(() => {
+    useEventStream(null, vi.fn())
+  })
+
+  // Act
+  FakeEventSource.latest().refuse()
+
+  // Assert
+  await waitFor(() => {
+    expect(useSessionStore.getState().refused).toBe(true)
+  })
+  expect(asked).toEqual(['/api/health'])
 })
 
 test('a section read before the first snapshot throws rather than render nothing', () => {

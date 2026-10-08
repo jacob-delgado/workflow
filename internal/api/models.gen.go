@@ -365,6 +365,7 @@ const (
 	ProblemCodePreconditionRequired ProblemCode = "precondition_required"
 	ProblemCodeRateLimited          ProblemCode = "rate_limited"
 	ProblemCodeTooLong              ProblemCode = "too_long"
+	ProblemCodeUnauthorized         ProblemCode = "unauthorized"
 	ProblemCodeUnprocessable        ProblemCode = "unprocessable"
 	ProblemCodeUnreachable          ProblemCode = "unreachable"
 )
@@ -393,6 +394,8 @@ func (e ProblemCode) Valid() bool {
 	case ProblemCodeRateLimited:
 		return true
 	case ProblemCodeTooLong:
+		return true
+	case ProblemCodeUnauthorized:
 		return true
 	case ProblemCodeUnprocessable:
 		return true
@@ -1747,7 +1750,7 @@ type PostLengthUnit string
 
 // Problem An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
 type Problem struct {
-	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all.
+	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
 	Code ProblemCode `json:"code"`
 
 	// Detail A human-readable explanation specific to this occurrence.
@@ -1768,7 +1771,7 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
-// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all.
+// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
 type ProblemCode string
 
 // PullRequest defines model for PullRequest.

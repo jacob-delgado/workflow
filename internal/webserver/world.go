@@ -123,7 +123,7 @@ func (w *worlds) install(world World) (*server, error) {
 		close(w.current.retired)
 	}
 
-	w.current, w.handler = srv, w.spec.validate(apiHandler)
+	w.current, w.handler = srv, apiHandler
 
 	return srv, nil
 }

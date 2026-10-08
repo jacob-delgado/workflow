@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -129,12 +131,58 @@ func serve(t *testing.T, deps webserver.Deps, cfg config.Config) http.Handler {
 func serveWith(t *testing.T, deps webserver.Deps, cfg config.Config, info webserver.Info) http.Handler {
 	t.Helper()
 
-	handler, err := webserver.Handler(deps, cfg, info, fstest.MapFS{})
+	return serveWorld(t, webserver.World{Deps: deps, Config: cfg, Info: info}, fstest.MapFS{})
+}
+
+// serveWorld builds the handler for world with assets mounted, under a session
+// of its own that it presents on each request as the page does. Handler fails
+// only on a spec that cannot load, which is a build defect.
+func serveWorld(t *testing.T, world webserver.World, assets fs.FS) http.Handler {
+	t.Helper()
+
+	session := webserver.NewSession()
+
+	handler, err := webserver.Handler(world, assets, session)
 	if err != nil {
 		t.Fatalf("building the handler: %v", err)
 	}
 
-	return handler
+	return presenting(t, session, handler)
+}
+
+// presenting hands handler each request with session presented as the page
+// presents it, unless the request presents one itself, as a test of the
+// session's check does.
+func presenting(t *testing.T, session webserver.Session, handler http.Handler) http.Handler {
+	t.Helper()
+
+	authorization := "Bearer " + sessionToken(t, session)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("Authorization") == "" {
+			request.Header.Set("Authorization", authorization)
+		}
+
+		handler.ServeHTTP(w, request)
+	})
+}
+
+// sessionToken is the session the address the server prints carries, read
+// from its fragment as the page reads it.
+func sessionToken(t *testing.T, session webserver.Session) string {
+	t.Helper()
+
+	address, err := url.Parse(session.Address(loopbackHost))
+	if err != nil {
+		t.Fatalf("reading the session's address: %v", err)
+	}
+
+	token, found := strings.CutPrefix(address.Fragment, "session=")
+	if !found || token == "" {
+		t.Fatalf("address %s carries no session in its fragment", address)
+	}
+
+	return token
 }
 
 // get sends a GET and returns the recorder.

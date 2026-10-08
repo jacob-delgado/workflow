@@ -267,3 +267,18 @@ test('a frame that fails the schema shows the stream out of date in the header',
     .find((region) => region.textContent.includes('Out of date'))
   expect(stream?.textContent).toMatch(/reload the page/)
 })
+
+test('a page whose session the server refuses says to open the address workflow printed', async () => {
+  // Arrange
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => Promise.resolve(Response.json({}, { status: 401 }))),
+  )
+
+  // Act
+  renderWithClient(<App />)
+
+  // Assert
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toMatch(/open the address workflow --web printed/i)
+})

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -96,9 +97,9 @@ func notesAfterAFailedSearch(t *testing.T, cfg config.Config, cause error) strin
 
 	go func() { done <- cli.WebServerAt("127.0.0.1:0")(ctx, cfg, deps, webserver.Info{}, notes) }()
 
-	base := servingAt(t, notes, done)
-	awaitServing(t, base)
-	askOnce(t, base+"/api/issues")
+	served := servingAt(t, notes, done)
+	awaitServing(t, served.base)
+	askOnce(t, served, "/api/issues")
 	cancel()
 
 	err := <-done
@@ -151,25 +152,39 @@ func awaitServing(t *testing.T, base string) {
 	}
 }
 
-// askOnce sends one GET to target and drops the answer.
-func askOnce(t *testing.T, target string) {
+// askOnce sends one GET for path to the server served, presenting its session,
+// and drops the answer.
+func askOnce(t *testing.T, served servingAddress, path string) {
 	t.Helper()
 
-	response, err := getURL(t, target)
+	response, err := getURLPresenting(t, served.base+path, served.authorization)
 	if err != nil {
-		t.Fatalf("asking %s: %v", target, err)
+		t.Fatalf("asking %s: %v", path, err)
 	}
 
 	_ = response.Body.Close()
 }
 
-// getURL sends a GET to target over the test's context.
+// getURL sends a GET to target over the test's context, presenting no
+// session: an answer of any kind says the server is up.
 func getURL(t *testing.T, target string) (*http.Response, error) {
+	t.Helper()
+
+	return getURLPresenting(t, target, "")
+}
+
+// getURLPresenting sends a GET to target over the test's context, with
+// authorization as its Authorization header when it is not empty.
+func getURLPresenting(t *testing.T, target, authorization string) (*http.Response, error) {
 	t.Helper()
 
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
 	if err != nil {
 		t.Fatalf("building a request for %s: %v", target, err)
+	}
+
+	if authorization != "" {
+		request.Header.Set("Authorization", authorization)
 	}
 
 	return http.DefaultClient.Do(request) //nolint:wrapcheck // the caller reports it whole
@@ -209,8 +224,8 @@ func TestTheWebServerSaysTheAddressItBound(t *testing.T) {
 		done <- cli.WebServerAt("127.0.0.1:0")(ctx, config.Default(), webserver.Deps{}, webserver.Info{}, notes)
 	}()
 
-	base := servingAt(t, notes, done)
-	awaitServing(t, base)
+	served := servingAt(t, notes, done)
+	awaitServing(t, served.base)
 	cancel()
 
 	err := <-done
@@ -219,9 +234,52 @@ func TestTheWebServerSaysTheAddressItBound(t *testing.T) {
 		t.Errorf("the web server stopped with %v, want a clean stop", err)
 	}
 
-	if strings.HasSuffix(base, ":0") {
-		t.Errorf("the web server said it serves %s, want the port it bound", base)
+	if strings.HasSuffix(served.base, ":0") {
+		t.Errorf("the web server said it serves %s, want the port it bound", served.base)
 	}
+}
+
+func TestTheWebServerAnswersOnlyTheSessionItsAddressCarries(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	notes := &sharedNotes{}
+	done := make(chan error, 1)
+
+	go func() {
+		done <- cli.WebServerAt("127.0.0.1:0")(ctx, config.Default(), webserver.Deps{}, webserver.Info{}, notes)
+	}()
+
+	served := servingAt(t, notes, done)
+	awaitServing(t, served.base)
+
+	// Act
+	presented := healthStatus(t, served.base, served.authorization)
+	unpresented := healthStatus(t, served.base, "")
+
+	// Assert
+	if presented != http.StatusOK || unpresented != http.StatusUnauthorized {
+		t.Errorf("the health read answered %d with the printed session and %d without, want 200 and 401",
+			presented, unpresented)
+	}
+}
+
+// healthStatus is the status GET /api/health at base answers, presenting
+// authorization when it is not empty.
+func healthStatus(t *testing.T, base, authorization string) int {
+	t.Helper()
+
+	response, err := getURLPresenting(t, base+"/api/health", authorization)
+	if err != nil {
+		t.Fatalf("reading the health: %v", err)
+	}
+
+	_ = response.Body.Close()
+
+	return response.StatusCode
 }
 
 func TestTheWebServerSaysNothingOfServingOnAPortItCannotBind(t *testing.T) {
@@ -257,9 +315,31 @@ func TestTheWebServerSaysNothingOfServingOnAPortItCannotBind(t *testing.T) {
 // rather than waited out.
 const startupBound = time.Minute
 
-// servingAt is the base URL the web server said it serves at, once it says so.
-// A server that stops before saying it fails the test with its error.
-func servingAt(t *testing.T, notes *sharedNotes, done <-chan error) string {
+// servingAddress is where the web server said it serves, and the Authorization a
+// request there presents: the session its address carries, read from the
+// fragment as the page reads it.
+type servingAddress struct{ base, authorization string }
+
+// servedAt reads the address the web server prints.
+func servedAt(t *testing.T, address string) servingAddress {
+	t.Helper()
+
+	parsed, err := url.Parse(address)
+	if err != nil {
+		t.Fatalf("reading the address %q: %v", address, err)
+	}
+
+	token, found := strings.CutPrefix(parsed.Fragment, "session=")
+	if !found || token == "" {
+		t.Fatalf("the address %q carries no session", address)
+	}
+
+	return servingAddress{base: parsed.Scheme + "://" + parsed.Host, authorization: "Bearer " + token}
+}
+
+// servingAt is where the web server said it serves, once it says so. A
+// server that stops before saying it fails the test with its error.
+func servingAt(t *testing.T, notes *sharedNotes, done <-chan error) servingAddress {
 	t.Helper()
 
 	deadline := time.Now().Add(startupBound)
@@ -267,7 +347,7 @@ func servingAt(t *testing.T, notes *sharedNotes, done <-chan error) string {
 	for {
 		_, rest, found := strings.Cut(notes.String(), "serving ")
 		if address, _, said := strings.Cut(rest, " "); found && said {
-			return address
+			return servedAt(t, address)
 		}
 
 		if time.Now().After(deadline) {
