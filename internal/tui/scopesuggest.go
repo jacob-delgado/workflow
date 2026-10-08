@@ -82,10 +82,10 @@ func (read scopesRead) apply(m Model) (Model, tea.Cmd) {
 }
 
 // stagedPaths are the paths of the files staged for the next commit.
-func (m Model) stagedPaths() []string {
+func (l changeList) stagedPaths() []string {
 	var paths []string
 
-	for _, change := range m.changes.changes {
+	for _, change := range l.changes {
 		if change.IsStaged() {
 			paths = append(paths, change.Path)
 		}

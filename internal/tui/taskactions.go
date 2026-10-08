@@ -40,7 +40,7 @@ func (m Model) tasksKeys() []key.Binding {
 	task, selected := m.currentTask()
 	keys := m.tasks.verbKeys(m.keys, task, selected)
 
-	if m.issueListed(task) {
+	if m.issues.holdsTask(task) {
 		keys = append(keys, relabel(m.keys.confirm, "go to issue"))
 	}
 
@@ -172,10 +172,10 @@ func (m Model) taskIssueURL() string {
 	return m.deps.Jira.BrowseURL(jira.Key(task.IssueKey))
 }
 
-// issueListed reports whether a task is for an issue the Issues pane lists: only
+// holdsTask reports whether a task is for an issue the Issues pane lists: only
 // then is there a row to go to.
-func (m Model) issueListed(task taskwarrior.Task) bool {
-	_, listed := m.issues.find(jira.Key(task.IssueKey))
+func (l issueList) holdsTask(task taskwarrior.Task) bool {
+	_, listed := l.find(jira.Key(task.IssueKey))
 
 	return task.Linked() && listed
 }
@@ -184,7 +184,7 @@ func (m Model) issueListed(task taskwarrior.Task) bool {
 // it, when the pane lists it.
 func (m Model) goToTaskIssue() (Model, tea.Cmd) {
 	task, ok := m.currentTask()
-	if !ok || !m.issueListed(task) {
+	if !ok || !m.issues.holdsTask(task) {
 		return m, nil
 	}
 
@@ -319,7 +319,7 @@ func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
 	m.tasks.writing = false
 
 	if msg.err != nil {
-		return m.noticedFailure(msg.err), m.loadTasks()
+		return m.noticedFailure(msg.err), m.tasks.load(m.deps)
 	}
 
 	note := taskNote(msg.verb, msg.id, msg.uuid) + msg.after
@@ -327,7 +327,7 @@ func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
 		note += ": " + msg.said
 	}
 
-	return m.noticed(m.marks.done + " " + note), m.loadTasks()
+	return m.noticed(m.marks.done + " " + note), m.tasks.load(m.deps)
 }
 
 // taskNote says what was done to a task: by its id, or by the start of its uuid

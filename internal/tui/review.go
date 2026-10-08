@@ -67,10 +67,10 @@ func (m Model) refreshReview() (Model, tea.Cmd) {
 	return m, read
 }
 
-// findPullRequest is the command that looks for the branch's open pull request.
-func (m Model) findPullRequest() tea.Cmd {
-	find, branch := m.deps.Forge.FindPullRequest, m.branch.branch.Name
-	if find == nil || !m.branch.onFeatureBranch() {
+// findPull is the command that looks for the branch's open pull request.
+func (s branchState) findPull(deps Deps) tea.Cmd {
+	find, branch := deps.Forge.FindPullRequest, s.branch.Name
+	if find == nil || !s.onFeatureBranch() {
 		return nil
 	}
 
@@ -122,7 +122,7 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m.checkingCI(m.loadAuthor())
+	return m.checkingCI(m.messaging.loadAuthor(m.deps))
 }
 
 // rail is the pull request and its CI, in brief, or why there is none.
@@ -192,7 +192,7 @@ func (m Model) reviewDetail(width int) string {
 		lines = append(lines, "", m.kit().failureBlock(m.review.ciErr, width))
 	}
 
-	if m.canEditPullRequest() {
+	if m.review.canEditPull(m.deps) {
 		lines = append(lines, "", m.keys.edit.Help().Key+" edits its title and description.")
 	}
 
@@ -247,10 +247,10 @@ func (s reviewState) hasOpenPull() bool {
 	return s.found && s.pull.IsOpen()
 }
 
-// canEditPullRequest reports an open pull request whose title and body can be
+// canEditPull reports an open pull request whose title and body can be
 // edited here; a merged one cannot be.
-func (m Model) canEditPullRequest() bool {
-	return m.review.hasOpenPull() && m.deps.Forge.EditPullRequest != nil
+func (s reviewState) canEditPull(deps Deps) bool {
+	return s.hasOpenPull() && deps.Forge.EditPullRequest != nil
 }
 
 // reviewKeys offers opening a pull request, listing its checks, or checking
@@ -266,19 +266,19 @@ func (m Model) reviewKeys() []key.Binding {
 		keys = append(keys, m.keys.newPullRequest)
 	}
 
-	if m.canEditPullRequest() {
+	if m.review.canEditPull(m.deps) {
 		keys = append(keys, m.keys.edit)
 	}
 
-	if m.canOpenChecks() {
+	if m.review.canOpenChecks(m.deps) {
 		keys = append(keys, m.keys.checks)
 	}
 
-	if m.canRerun() {
+	if m.review.canRerun(m.deps) {
 		keys = append(keys, m.keys.rerun)
 	}
 
-	if m.canMerge() {
+	if m.review.canMerge(m.deps) {
 		keys = append(keys, m.keys.merge)
 	}
 
@@ -304,7 +304,7 @@ func (s reviewState) pullURL() string {
 // handleReviewKey answers the Review pane's own keys.
 func (m Model) handleReviewKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.checks) && m.canOpenChecks():
+	case key.Matches(msg, m.keys.checks) && m.review.canOpenChecks(m.deps):
 		return m.openChecks()
 	case key.Matches(msg, m.keys.rerun):
 		return m.previewRerun()
@@ -325,7 +325,7 @@ func (m Model) handleReviewCompose(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.newPullRequest) && m.canOpenPullRequest():
 		return m.openPullRequestComposer()
-	case key.Matches(msg, m.keys.edit) && m.canEditPullRequest():
+	case key.Matches(msg, m.keys.edit) && m.review.canEditPull(m.deps):
 		return m.openPullRequestEditor()
 	default:
 		return m.handleReviewLink(msg)

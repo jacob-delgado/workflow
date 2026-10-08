@@ -149,15 +149,15 @@ func (m Model) issuesNarrow(rows int) string {
 	return m.issuesRail(rows)
 }
 
-// issueURL is the selected issue's browse URL, or empty when there is no issue
+// browseURL is the selected issue's browse URL, or empty when there is no issue
 // selected or no way to build one.
-func (m Model) issueURL() string {
-	selected, ok := m.issues.current()
-	if !ok || m.deps.Jira.BrowseURL == nil {
+func (l issueList) browseURL(deps Deps) string {
+	selected, ok := l.current()
+	if !ok || deps.Jira.BrowseURL == nil {
 		return ""
 	}
 
-	return m.deps.Jira.BrowseURL(selected.Key)
+	return deps.Jira.BrowseURL(selected.Key)
 }
 
 // moveIssue moves the selection, reads the newly selected issue once the

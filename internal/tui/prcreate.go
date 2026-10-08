@@ -126,7 +126,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	m = m.beginReview(reviewState{pull: msg.pull, found: true, loaded: true})
 	m.prDraft = prDraft{}
 
-	cmds := tea.Batch(m.checkCI(), m.loadAuthor())
+	cmds := tea.Batch(m.checkCI(), m.messaging.loadAuthor(m.deps))
 
 	// With a Jira issue, offer to link the pull request on it — so the team that
 	// watches Jira learns of it — and then to move it to the review status. When

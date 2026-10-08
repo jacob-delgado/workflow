@@ -52,8 +52,8 @@ func (m Model) openChecks() (Model, tea.Cmd) {
 
 // canOpenChecks reports that there are checks to list and an opener to reach
 // their pages.
-func (m Model) canOpenChecks() bool {
-	return len(m.review.ci.Checks) > 0 && m.deps.OpenURL != nil
+func (s reviewState) canOpenChecks(deps Deps) bool {
+	return len(s.ci.Checks) > 0 && deps.OpenURL != nil
 }
 
 // view lists the checks, each by its state and name.
@@ -186,14 +186,14 @@ func (msg checkOpened) apply(m Model) (Model, tea.Cmd) {
 // canRerun reports a failed pull request whose checks can be re-run. A pull
 // request that has merged is left alone even if a stale CI read still reads as
 // failed: there is nothing to re-run once it is in.
-func (m Model) canRerun() bool {
-	return m.review.found && m.deps.Forge.Rerun != nil && loop.CanRerun(m.review.pull, m.review.ci)
+func (s reviewState) canRerun(deps Deps) bool {
+	return s.found && deps.Forge.Rerun != nil && loop.CanRerun(s.pull, s.ci)
 }
 
 // previewRerun holds the re-run of the failed checks for a last look, naming the
 // pull request it restarts CI on: a forge write, which goes only once confirmed.
 func (m Model) previewRerun() (Model, tea.Cmd) {
-	if !m.canRerun() {
+	if !m.review.canRerun(m.deps) {
 		return m, nil
 	}
 
