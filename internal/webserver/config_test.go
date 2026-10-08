@@ -107,6 +107,61 @@ func TestUpdateConfigWritesTheFile(t *testing.T) {
 	}
 }
 
+// layeredConfig is a configuration read from a home file and a repository's
+// file over it, as the server reads one working in a repository.
+func layeredConfig(t *testing.T) config.Config {
+	t.Helper()
+
+	home, repo := filepath.Join(t.TempDir(), config.FileName), filepath.Join(t.TempDir(), config.FileName)
+
+	for path, contents := range map[string]string{home: `{}`, repo: `{"jira": {"project": "OSS"}}`} {
+		err := os.WriteFile(path, []byte(contents), config.FileMode)
+		if err != nil {
+			t.Fatalf("writing %s: %v", path, err)
+		}
+	}
+
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: home, Repo: repo})
+	if err != nil {
+		t.Fatalf("reading the layers: %v", err)
+	}
+
+	return cfg
+}
+
+func TestUpdateConfigKeepsWhatOnlyTheHomeFileMayHoldOutOfTheRepositoryFile(t *testing.T) {
+	t.Parallel()
+
+	const typedToken = "forge-token-typed-in-settings"
+
+	cases := map[string]func(*config.Config){
+		"a typed credential": func(cfg *config.Config) { cfg.Forge.Token = typedToken },
+		"a program to run":   func(cfg *config.Config) { cfg.Taskwarrior.Program = "/opt/homebrew/bin/task" },
+	}
+
+	for name, change := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			cfg := layeredConfig(t)
+			next := cfg
+			change(&next)
+
+			// Act
+			recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable ||
+				!strings.Contains(failure.Detail, "home") || strings.Contains(failure.Detail, typedToken) {
+				t.Errorf("status %d, problem %+v; want 422 saying the home file holds it, without the token",
+					recorder.Code, failure)
+			}
+		})
+	}
+}
+
 func TestUpdateConfigRejectsAnInvalidConfig(t *testing.T) {
 	t.Parallel()
 
