@@ -5,6 +5,7 @@ package webserver_test
 
 import (
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -91,5 +92,32 @@ func TestSnapshotBranchIsEmptyWhenTheReadFails(t *testing.T) {
 	// Assert
 	if snap.Branch.Name != "" || snap.Branch.Commits == nil {
 		t.Errorf("branch = %+v, want an empty branch with an empty commit list", snap.Branch)
+	}
+}
+
+func TestTheBranchMarksTheCommitsNotYetPushed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.Branch = func() (gitrepo.Branch, error) {
+		return gitrepo.Branch{
+			Name: testBranchName, Base: testBase, Upstream: gitrepo.DefaultRemote + "/" + testBranchName,
+			PushRemote: gitrepo.DefaultRemote, Ahead: 1,
+			Commits: []gitrepo.Commit{{Hash: "aaa1111", Subject: "feat: first"}, {Hash: "bbb2222", Subject: "fix: second"}},
+		}, nil
+	}
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	marked := make([]bool, 0, len(snap.Branch.Commits))
+	for _, commit := range snap.Branch.Commits {
+		marked = append(marked, commit.Unpushed)
+	}
+
+	if !slices.Equal(marked, []bool{false, true}) {
+		t.Errorf("unpushed = %v, want only the commit the upstream lacks", marked)
 	}
 }
