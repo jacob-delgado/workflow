@@ -47,14 +47,10 @@ go install github.com/jacob-delgado/workflow/cmd/workflow@v0.8.0
 
 <!-- x-release-please-end -->
 
-From a [release](https://github.com/jacob-delgado/workflow/releases) — binaries
-are published for macOS (arm64), Linux (amd64) and Windows (amd64), each with a
-checksum and a build provenance attestation:
-
-```sh
-sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify workflow_darwin_arm64 --repo jacob-delgado/workflow
-```
+From a [release](https://github.com/jacob-delgado/workflow/releases/latest),
+the binary for your platform:
+[Install](https://jacob-delgado.github.io/workflow/docs/install/#from-a-release)
+says what each release carries and how to verify it.
 
 From source, using [mise](https://mise.jdx.dev) for the pinned toolchain and
 [go-task](https://taskfile.dev) as the runner:
@@ -258,11 +254,10 @@ previews it locally.
 
 ## Releases
 
-Versioning is automated from the commit history with release-please: merging its
-release pull request tags the version and publishes binaries for macOS (arm64),
-Linux (amd64) and Windows (amd64), each with a SHA256 checksum and a build
-provenance attestation. The same pull request moves the pinned version under
-[Install](#install) to the new tag.
+Versioning is automated from the commit history with release-please.
+[CONTRIBUTING.md](CONTRIBUTING.md#releases) says how a release is cut, and
+[Install](https://jacob-delgado.github.io/workflow/docs/install/#from-a-release)
+what each one carries.
 
 ## Security
 
