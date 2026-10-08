@@ -132,48 +132,71 @@ func TestAStatusChangeMadeHereIsSearchedForOnTheNextFrame(t *testing.T) {
 	}
 }
 
-// slowForge is a forge whose next pull request read, once the test says so,
-// waits until the test lets it go, and then answers what the forge held as
-// it began.
-type slowForge struct {
+// slowRead is a read over the network whose next call, once the test says
+// so, waits until the test lets it go.
+type slowRead struct {
 	mu      sync.Mutex
 	slow    bool
-	pull    bool
 	started chan struct{}
 	release chan struct{}
 }
 
+// newSlowRead is a read that answers at once.
+func newSlowRead() *slowRead {
+	return &slowRead{started: make(chan struct{}, 1), release: make(chan struct{})}
+}
+
+// call is the read's call: at once, or, when the read is slowed down, once the
+// test lets it go.
+func (r *slowRead) call() {
+	r.mu.Lock()
+	slow := r.slow
+	r.slow = false
+	r.mu.Unlock()
+
+	if slow {
+		r.started <- struct{}{}
+
+		<-r.release
+	}
+}
+
+// slowDown makes the next call wait until it is let go.
+func (r *slowRead) slowDown() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.slow = true
+}
+
+// slowForge is a forge whose next pull request read, once the test says so,
+// waits until the test lets it go, and then answers what the forge held as
+// it began.
+type slowForge struct {
+	*slowRead
+
+	mu   sync.Mutex
+	pull bool
+}
+
 // newSlowForge is a forge that answers at once, finding no pull request.
 func newSlowForge() *slowForge {
-	return &slowForge{started: make(chan struct{}, 1), release: make(chan struct{})}
+	return &slowForge{slowRead: newSlowRead()}
 }
 
 // wire binds deps' pull request read to the forge.
 func (f *slowForge) wire(deps webserver.Deps) webserver.Deps {
 	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
 		f.mu.Lock()
-		slow, found := f.slow, f.pull
-		f.slow = false
+		found := f.pull
 		f.mu.Unlock()
 
-		if slow {
-			f.started <- struct{}{}
-
-			<-f.release
-		}
+		f.call()
 
 		return forge.PullRequest{Number: 42, URL: pull42, Title: pullTitle, State: forge.StateOpen}, found, nil
 	}
 
 	return deps
-}
-
-// slowDown makes the next read wait until it is let go.
-func (f *slowForge) slowDown() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.slow = true
 }
 
 // openThePull makes the forge find the pull request from now on.
@@ -185,8 +208,8 @@ func (f *slowForge) openThePull() {
 }
 
 // frameInFlight starts a frame of its own stream on handler, which ends once
-// the forge read it waits on is let go, and waits for that read to start.
-func frameInFlight(t *testing.T, handler http.Handler, forge *slowForge) <-chan *httptest.ResponseRecorder {
+// the slow read it waits on is let go, and waits for that read to start.
+func frameInFlight(t *testing.T, handler http.Handler, read *slowRead) <-chan *httptest.ResponseRecorder {
 	t.Helper()
 
 	frame := make(chan *httptest.ResponseRecorder, 1)
@@ -194,9 +217,9 @@ func frameInFlight(t *testing.T, handler http.Handler, forge *slowForge) <-chan 
 	go func() { frame <- streamOnce(t, handler, "/api/events") }()
 
 	select {
-	case <-forge.started:
+	case <-read.started:
 	case <-time.After(frameWait):
-		t.Fatal("the frame never asked the forge")
+		t.Fatal("the frame never made the slow read")
 	}
 
 	return frame
@@ -214,7 +237,7 @@ func TestASlowForgeReadHoldsUpNoOtherStream(t *testing.T) {
 	streamOnce(t, handler, "/api/events")
 	clock.pastTheForgeInterval()
 	slow.slowDown()
-	reading := frameInFlight(t, handler, slow)
+	reading := frameInFlight(t, handler, slow.slowRead)
 
 	defer func() {
 		close(slow.release)
@@ -253,7 +276,7 @@ func TestAPullRequestOpenedDuringAForgeReadShowsOnTheNextFrame(t *testing.T) {
 	handler := serve(t, deps, config.Default())
 
 	slow.slowDown()
-	reading := frameInFlight(t, handler, slow)
+	reading := frameInFlight(t, handler, slow.slowRead)
 
 	opened := make(chan int, 1)
 
