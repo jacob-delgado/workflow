@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+
+	"github.com/jacob-delgado/workflow/internal/sqlitefile"
 )
 
 // keptName is the kept database's file name, beside the cache's dbName. It holds
@@ -117,7 +119,7 @@ func (s Store) openKept(ctx context.Context) (*sql.DB, error) {
 	}
 
 	path := filepath.Join(s.dir, keptName)
-	database := connect(fileDSN(path, fmt.Sprintf(keptPragmas, busyTimeoutMillis)))
+	database := sqlitefile.Open(path, fmt.Sprintf(keptPragmas, busyTimeoutMillis))
 
 	err = prepareKept(ctx, database)
 	if err != nil {
