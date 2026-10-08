@@ -316,9 +316,11 @@ read:
    another build's schema made is left as it is, reads as empty, and refuses
    every write with `ErrKeptSchemaDiffers`, which names
    `workflow db-clean --all`. Trusting nothing on read stays safe here because
-   a row it cannot trust costs a question rather than a failure: a row of the
-   wrong shape is left out, and the people or group association it held reads
-   as never made, which workflow asks for again.
+   a row it cannot trust costs a choice made again rather than a failure: a
+   row of the wrong shape is left out. The people or group association it held
+   reads as never made, which workflow asks for again; a favorite directory
+   reads as never marked, which workflow never asks about, so it stays off the
+   list until you mark it again.
 
 ## The store schema
 
