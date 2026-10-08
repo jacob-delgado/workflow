@@ -356,7 +356,11 @@ type jobLogView struct {
 	scroll int
 }
 
-var _ overlay = jobLogView{}
+var (
+	_ overlay    = jobLogView{}
+	_ scrollable = jobLogView{}
+	_ steppable  = jobLogView{}
+)
 
 // lines is the log as drawn, under a mark saying where the forge cut it short.
 func (v jobLogView) lines() []string {
@@ -383,25 +387,41 @@ func (v jobLogView) view(_, rows int) (string, string) {
 	return v.check.Name + v.marks.separator + "log", strings.Join(lines[start:end], "\n")
 }
 
-// footer offers scrolling the log and going back.
+// scrolls reports a log taller than the pane, so the scroll keys move it.
+func (v jobLogView) scrolls(_, rows int) bool {
+	return len(v.lines()) > rows
+}
+
+// footer offers stepping through the log and going back. A log taller than
+// the pane adds the scroll keys after these.
 func (v jobLogView) footer(keys keyMap) []key.Binding {
 	return []key.Binding{keys.up, keys.down, relabel(keys.closeOverlay, escBack)}
 }
 
-// handleKey scrolls the log, or goes back to the checks.
+// handleKey steps or pages through the log, or goes back to the checks.
 func (v jobLogView) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.overlay = v.back
 
 		return m, nil
+	case key.Matches(msg, m.keys.scrollDown):
+		return v.step(m, m.halfPage()), nil
+	case key.Matches(msg, m.keys.scrollUp):
+		return v.step(m, -m.halfPage()), nil
 	case key.Matches(msg, m.keys.cursorKeys()...):
-		// The log is scrolled up from its end, so a step down the log is one
-		// fewer row scrolled.
-		v.scroll = max(0, min(v.scroll-m.keys.stepOf(msg), v.topScroll(m.detailRows())))
+		return v.step(m, m.keys.stepOf(msg)), nil
 	}
 
+	return m, nil
+}
+
+// step moves delta lines down the log, as up and down do, stopping at either
+// end. The log is scrolled up from its end, so a step down the log is one
+// fewer row scrolled.
+func (v jobLogView) step(m Model, delta int) Model {
+	v.scroll = max(0, min(v.scroll-delta, v.topScroll(m.detailRows())))
 	m.overlay = v
 
-	return m, nil
+	return m
 }
