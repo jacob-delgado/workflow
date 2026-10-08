@@ -5,11 +5,9 @@ package tui
 
 import (
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -81,55 +79,6 @@ func (msg detailDue) apply(m Model) (Model, tea.Cmd) {
 	return m.loadDetail()
 }
 
-// searchIssues is the command that fills, or refreshes, the Issues pane with its
-// first page.
-func (m Model) searchIssues() tea.Cmd {
-	return m.searchPage(0)
-}
-
-// searching marks the Issues list in flight for a search of its first page
-// about to start, when there is a tracker to search.
-func (m Model) searching() Model {
-	m.issues.loading = m.deps.Jira.Search != nil
-
-	return m
-}
-
-// relistIssues is the command that reads the Issues pane's first page again,
-// with the branches that mark its issues in flight, which may have changed
-// since.
-func (m Model) relistIssues() tea.Cmd {
-	return tea.Batch(m.searchIssues(), m.listIssueBranches())
-}
-
-// searchPage is the command that reads one page of issues, from startAt.
-func (m Model) searchPage(startAt int) tea.Cmd {
-	search := m.deps.Jira.Search
-	if search == nil {
-		return nil
-	}
-
-	jql := m.activeView().jql
-
-	return func() tea.Msg {
-		found, err := search(jql, startAt)
-
-		return issuesLoaded{found: found, err: err, startAt: startAt, jql: jql}
-	}
-}
-
-// loadMoreIssues reads the next page when the list is truncated and one is not
-// already on its way.
-func (m Model) loadMoreIssues() (Model, tea.Cmd) {
-	if m.issues.loading || !m.issues.hasMore() || m.deps.Jira.Search == nil {
-		return m, nil
-	}
-
-	m.issues.loading = true
-
-	return m, m.searchPage(len(m.issues.found.Issues))
-}
-
 // loadDetail reads the selected issue in full, unless it already is.
 func (m Model) loadDetail() (Model, tea.Cmd) {
 	selected, ok := m.issues.current()
@@ -199,83 +148,6 @@ func (m Model) issuesNarrow(rows int) string {
 	return m.issuesRail(rows)
 }
 
-// issuesOffers are the Issues pane's keys: in the collapsed layout, reading
-// the selected issue or going back to the list; the verbs its seams can carry
-// out on the selected issue and its links; then the list's own keys. With no
-// issue selected, or the first run's setup offered, a branch can still be
-// started from nothing.
-func (m Model) issuesOffers() []offer {
-	selected, ok := m.issues.current()
-
-	switch {
-	case m.setupShown():
-		setup := offer{binding: relabel(m.keys.confirm, "set up"), can: true, act: m.openSetup}
-
-		return slices.Concat([]offer{setup, m.newBranchOffer()}, m.issueListOffers())
-	case !ok:
-		return slices.Concat([]offer{m.newBranchOffer()}, m.issueListOffers())
-	default:
-		return slices.Concat(m.readingOffers(), m.issueVerbOffers(selected), m.linkOffers(m.issueURL()),
-			m.issueListOffers())
-	}
-}
-
-// issuesKeys is the Issues pane's footer: the offers that act right now.
-func (m Model) issuesKeys() []key.Binding {
-	return liveKeys(m.issuesOffers())
-}
-
-// issueVerbOffers are the verbs for the selected issue whose seams are wired:
-// status, comment, then the branch, which moves the loop on, ahead of assign,
-// log work and tracking it in Taskwarrior — or going to its task — since a
-// narrow footer drops the last verbs first.
-func (m Model) issueVerbOffers(selected jira.Issue) []offer {
-	return []offer{
-		{binding: m.keys.changeStatus, can: m.deps.Jira.Transitions != nil, act: m.openStatusPicker},
-		{binding: m.keys.comment, can: m.deps.Jira.Comment != nil, act: m.startComment},
-		{binding: m.keys.startWork, can: m.canCreateBranch(), act: m.openBranchCreator},
-		{binding: m.keys.assign, can: m.deps.Jira.Assign != nil, act: m.openAssign},
-		{
-			binding: m.keys.logWork, can: m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key),
-			act: m.openLogWork,
-		},
-		{binding: m.trackKey(selected.Key), can: m.canTrack(selected.Key), act: m.trackSelectedIssue},
-	}
-}
-
-// newBranchOffer is starting a branch named for no issue, which the branch key
-// does on the Issues pane when none is selected.
-func (m Model) newBranchOffer() offer {
-	return offer{binding: relabel(m.keys.startWork, "new branch"), can: m.canCreateBranch(), act: m.openBranchCreator}
-}
-
-// readingOffers are, in the collapsed layout where the list and the issue take
-// turns, reading the selected issue in full or going back to the list.
-func (m Model) readingOffers() []offer {
-	switch {
-	case !m.shape().Collapsed():
-		return nil
-	case m.issues.viewing:
-		return []offer{{binding: relabel(m.keys.closeOverlay, escBack+" to list"), can: true, act: m.backToIssueList}}
-	default:
-		return []offer{{binding: relabel(m.keys.confirm, "read issue"), can: true, act: m.readSelectedIssue}}
-	}
-}
-
-// issueListOffers are the keys that manage the list itself: filter it, narrow
-// it to places, switch view, read the next page, search again.
-func (m Model) issueListOffers() []offer {
-	filterable := m.issues.filterable()
-
-	return []offer{
-		{binding: m.keys.searchIssues, can: filterable, act: m.beginIssueFilter},
-		{binding: m.keys.filterIssues, can: filterable, act: m.openPlacePicker},
-		{binding: m.keys.nextView, can: len(m.views) > 1, act: m.nextIssueView},
-		{binding: m.keys.loadMore, can: m.issues.hasMore(), act: m.loadMoreIssues},
-		{binding: m.keys.refresh, can: true, act: func() (Model, tea.Cmd) { return m.refreshPane(paneIssues) }},
-	}
-}
-
 // issueURL is the selected issue's browse URL, or empty when there is no issue
 // selected or no way to build one.
 func (m Model) issueURL() string {
@@ -297,16 +169,6 @@ func (m Model) moveIssue(step int) (Model, tea.Cmd) {
 	m, page := m.pageIfAtEnd()
 
 	return m, tea.Batch(page, m.soonDetail())
-}
-
-// pageIfAtEnd reads the next page once the selection reaches the last loaded
-// issue of a truncated list.
-func (m Model) pageIfAtEnd() (Model, tea.Cmd) {
-	if m.issues.selected < len(m.issues.found.Issues)-1 {
-		return m, nil
-	}
-
-	return m.loadMoreIssues()
 }
 
 // soonDetail reads the selected issue after detailDelay, unless it is already
@@ -457,24 +319,4 @@ func (m Model) issueRelations(detail jira.IssueDetail) []string {
 	}
 
 	return lines
-}
-
-// age says how long ago something happened, as briefly as is still clear.
-func age(now, then time.Time) string {
-	elapsed := now.Sub(then)
-
-	switch {
-	case then.IsZero():
-		return "some time ago"
-	case elapsed < time.Minute:
-		return "just now"
-	case elapsed < time.Hour:
-		return strconv.Itoa(int(elapsed.Minutes())) + "m ago"
-	case elapsed < day:
-		return strconv.Itoa(int(elapsed.Hours())) + "h ago"
-	case elapsed < month:
-		return strconv.Itoa(int(elapsed/day)) + "d ago"
-	default:
-		return then.Format(time.DateOnly)
-	}
 }

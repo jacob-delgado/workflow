@@ -4,8 +4,12 @@
 package tui
 
 import (
+	"slices"
+
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
 // handleIssuesKey answers the Issues pane's own keys: moving through the
@@ -121,4 +125,81 @@ func (m Model) refreshIssues() (Model, tea.Cmd) {
 	m, detail := m.reloadDetail(selected.Key)
 
 	return m, tea.Batch(m.relistIssues(), detail)
+}
+
+// issuesOffers are the Issues pane's keys: in the collapsed layout, reading
+// the selected issue or going back to the list; the verbs its seams can carry
+// out on the selected issue and its links; then the list's own keys. With no
+// issue selected, or the first run's setup offered, a branch can still be
+// started from nothing.
+func (m Model) issuesOffers() []offer {
+	selected, ok := m.issues.current()
+
+	switch {
+	case m.setupShown():
+		setup := offer{binding: relabel(m.keys.confirm, "set up"), can: true, act: m.openSetup}
+
+		return slices.Concat([]offer{setup, m.newBranchOffer()}, m.issueListOffers())
+	case !ok:
+		return slices.Concat([]offer{m.newBranchOffer()}, m.issueListOffers())
+	default:
+		return slices.Concat(m.readingOffers(), m.issueVerbOffers(selected), m.linkOffers(m.issueURL()),
+			m.issueListOffers())
+	}
+}
+
+// issuesKeys is the Issues pane's footer: the offers that act right now.
+func (m Model) issuesKeys() []key.Binding {
+	return liveKeys(m.issuesOffers())
+}
+
+// issueVerbOffers are the verbs for the selected issue whose seams are wired:
+// status, comment, then the branch, which moves the loop on, ahead of assign,
+// log work and tracking it in Taskwarrior — or going to its task — since a
+// narrow footer drops the last verbs first.
+func (m Model) issueVerbOffers(selected jira.Issue) []offer {
+	return []offer{
+		{binding: m.keys.changeStatus, can: m.deps.Jira.Transitions != nil, act: m.openStatusPicker},
+		{binding: m.keys.comment, can: m.deps.Jira.Comment != nil, act: m.startComment},
+		{binding: m.keys.startWork, can: m.canCreateBranch(), act: m.openBranchCreator},
+		{binding: m.keys.assign, can: m.deps.Jira.Assign != nil, act: m.openAssign},
+		{
+			binding: m.keys.logWork, can: m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key),
+			act: m.openLogWork,
+		},
+		{binding: m.trackKey(selected.Key), can: m.canTrack(selected.Key), act: m.trackSelectedIssue},
+	}
+}
+
+// newBranchOffer is starting a branch named for no issue, which the branch key
+// does on the Issues pane when none is selected.
+func (m Model) newBranchOffer() offer {
+	return offer{binding: relabel(m.keys.startWork, "new branch"), can: m.canCreateBranch(), act: m.openBranchCreator}
+}
+
+// readingOffers are, in the collapsed layout where the list and the issue take
+// turns, reading the selected issue in full or going back to the list.
+func (m Model) readingOffers() []offer {
+	switch {
+	case !m.shape().Collapsed():
+		return nil
+	case m.issues.viewing:
+		return []offer{{binding: relabel(m.keys.closeOverlay, escBack+" to list"), can: true, act: m.backToIssueList}}
+	default:
+		return []offer{{binding: relabel(m.keys.confirm, "read issue"), can: true, act: m.readSelectedIssue}}
+	}
+}
+
+// issueListOffers are the keys that manage the list itself: filter it, narrow
+// it to places, switch view, read the next page, search again.
+func (m Model) issueListOffers() []offer {
+	filterable := m.issues.filterable()
+
+	return []offer{
+		{binding: m.keys.searchIssues, can: filterable, act: m.beginIssueFilter},
+		{binding: m.keys.filterIssues, can: filterable, act: m.openPlacePicker},
+		{binding: m.keys.nextView, can: len(m.views) > 1, act: m.nextIssueView},
+		{binding: m.keys.loadMore, can: m.issues.hasMore(), act: m.loadMoreIssues},
+		{binding: m.keys.refresh, can: true, act: func() (Model, tea.Cmd) { return m.refreshPane(paneIssues) }},
+	}
 }

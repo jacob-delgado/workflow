@@ -4,13 +4,11 @@
 package tui
 
 import (
-	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -421,76 +419,4 @@ func needs(marks glyphs, move jira.Transition) string {
 	}
 
 	return marks.separator + "needs " + strings.Join(names, ", ")
-}
-
-// fixupTitle titles the pane while the fixup picker is open.
-const fixupTitle = "Fix up a commit"
-
-// fixupPicker chooses which unpushed commit to record a fixup! of.
-type fixupPicker struct {
-	commits pickList[gitrepo.Commit]
-}
-
-var (
-	_ overlay   = fixupPicker{}
-	_ steppable = fixupPicker{}
-)
-
-// openFixupPicker offers the branch's unpushed commits, the most recent first so
-// the likeliest target is the default selection.
-func (m Model) openFixupPicker() (Model, tea.Cmd) {
-	newestFirst := slices.Clone(m.branch.branch.Unpushed())
-	slices.Reverse(newestFirst)
-	m.overlay = fixupPicker{commits: pickList[gitrepo.Commit]{items: newestFirst}}
-
-	return m, nil
-}
-
-// header is the rows above the fixup picker's list: a prompt and a blank.
-func (p fixupPicker) header() []string {
-	return []string{"Fold the staged changes into which commit?", ""}
-}
-
-// view draws the commits to choose from, in as many rows as fit.
-func (p fixupPicker) view(kit renderKit, _, rows int) (string, string) {
-	lines := p.header()
-	lines = append(lines, p.commits.rows(kit.marks, rows-len(lines), func(commit gitrepo.Commit) string {
-		return commitRow(kit.styles, commit)
-	})...)
-
-	return fixupTitle, strings.Join(lines, "\n")
-}
-
-// commitRow names a commit by its hash and subject.
-func commitRow(sty styles, commit gitrepo.Commit) string {
-	return sty.label.Render(commit.Hash) + " " + commit.Subject
-}
-
-// footer offers moving, choosing and leaving.
-func (p fixupPicker) footer(keys keyMap) []key.Binding {
-	return keys.listKeys()
-}
-
-// handleKey moves the selection, chooses a commit to fix up, or leaves.
-func (p fixupPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if listed, answered := m.listKey(p, msg); answered {
-		return listed, nil
-	}
-
-	if !key.Matches(msg, m.keys.confirm) {
-		return m, nil
-	}
-
-	// The picker opens only over unpushed commits, so one is always chosen.
-	chosen, _ := p.commits.chosen()
-
-	return m.applyFixup(chosen.Hash, chosen.Subject)
-}
-
-// step moves the choice of commit by delta.
-func (p fixupPicker) step(m Model, delta int) Model {
-	p.commits = p.commits.moved(delta)
-	m.overlay = p
-
-	return m
 }

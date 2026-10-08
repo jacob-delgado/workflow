@@ -324,3 +324,63 @@ func (p messagingPreview) failed(err error) messagingPreview {
 
 	return p
 }
+
+// handleTagKey answers the tag section's keys in the preview.
+func (p messagingPreview) handleTagKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	if !p.tagging.interactive() {
+		return m, nil
+	}
+
+	switch {
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		p.tagging = p.tagging.moved(m.keys.stepOf(msg))
+	case key.Matches(msg, m.keys.toggleOption):
+		p.tagging = p.tagging.toggled()
+	case key.Matches(msg, m.keys.linkToSlack):
+		return p.pickLink(m)
+	case key.Matches(msg, m.keys.notOnSlack):
+		return p.markNotOnSlack(m)
+	}
+
+	m.overlay = p
+
+	return m, nil
+}
+
+// pickLink opens the picker on the owner under the cursor: the channel's
+// members for a person, the user groups for a team.
+func (p messagingPreview) pickLink(m Model) (Model, tea.Cmd) {
+	owner, onOwner := p.tagging.selectedOwner()
+	if !onOwner || !p.tagging.canLink {
+		return m, nil
+	}
+
+	m.overlay = newOwnerPicker(m, owner.Owner, owner.Team, p)
+
+	return m, nil
+}
+
+// openedAs is the count of overlays opened when the preview opened.
+func (p messagingPreview) openedAs() int {
+	return p.opened
+}
+
+// directoryFor is the directory the owner picker chooses from: the channel's
+// members for a person, the user groups for a team.
+func (p messagingPreview) directoryFor(team bool) directory {
+	if team {
+		return p.tagging.groups
+	}
+
+	return p.tagging.members
+}
+
+// markNotOnSlack saves that the owner under the cursor is not on Slack.
+func (p messagingPreview) markNotOnSlack(m Model) (Model, tea.Cmd) {
+	owner, onOwner := p.tagging.selectedOwner()
+	if !onOwner || !p.tagging.canLink {
+		return m, nil
+	}
+
+	return m, m.saveLink(decided(owner.Owner, owner.Team, nil), p.opened)
+}
