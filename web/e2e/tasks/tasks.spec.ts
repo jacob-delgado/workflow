@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import type { Snapshot, Task, TaskList, TasksSummary } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { issuesOf, snapshotWith, streams } from '../support/fixtures.ts'
+import { issuesOf, problem, snapshotWith, streams } from '../support/fixtures.ts'
 import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // Your Taskwarrior tasks as the browser draws them, against answers given
@@ -51,16 +51,6 @@ function listOf(...tasks: Task[]): TaskList {
   return { available: true, reason: '', context: '', sync_available: false, said: '', tasks }
 }
 
-// refused is a problem answer, as the server gives a read or a write it
-// refuses.
-function refused(status: number, code: string, detail: string) {
-  return {
-    status,
-    contentType: 'application/problem+json',
-    body: JSON.stringify({ title: 'Refused', status, detail, code }),
-  }
-}
-
 // Edges are where an element is drawn, in pixels from the window's edges.
 interface Edges {
   top: number
@@ -88,7 +78,7 @@ test('a refused start sits below its row of buttons, not between them', async ({
   await streams(page, withTasks({ available: true, reason: '', linked: [tracking] }))
   await page.route('**/api/tasks', (route) => route.fulfill({ json: listOf(tracking) }))
   await page.route('**/api/tasks/*/start', (route) =>
-    route.fulfill(refused(409, 'conflict', 'the task is already in that state')),
+    route.fulfill(problem('conflict', 'the task is already in that state')),
   )
   await page.setViewportSize({ width: 1024, height })
   await page.goto('/')
@@ -239,11 +229,9 @@ for (const { of, act } of refusals) {
   test(`${of} refusal keeps its line breaks`, async ({ page }) => {
     // Arrange: a read and a track Taskwarrior refuses in two lines.
     await streams(page, withTasks({ available: true, reason: '', linked: [] }))
-    await page.route('**/api/tasks', (route) =>
-      route.fulfill(refused(502, 'unreachable', twoLines)),
-    )
+    await page.route('**/api/tasks', (route) => route.fulfill(problem('unreachable', twoLines)))
     await page.route('**/api/tasks/track', (route) =>
-      route.fulfill(refused(422, 'unprocessable', twoLines)),
+      route.fulfill(problem('unprocessable', twoLines)),
     )
     await page.goto('/')
 

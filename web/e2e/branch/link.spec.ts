@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { BranchIssuePreview } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { branchWith, snapshotWith, streams } from '../support/fixtures.ts'
+import { branchWith, problem, snapshotWith, streams } from '../support/fixtures.ts'
 import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Branch section's Link an issue, for work begun outside workflow on a
@@ -27,17 +27,7 @@ const preview = {
 } satisfies BranchIssuePreview
 
 // noSuchIssue is the answer to a key that names no issue.
-const noSuchIssue = {
-  status: 404,
-  contentType: 'application/problem+json',
-  body: JSON.stringify({
-    type: 'https://jacob-delgado.github.io/workflow/docs/errors/#not_found',
-    title: 'Not found',
-    status: 404,
-    detail: 'PROJ-999 names no issue',
-    code: 'not_found',
-  }),
-}
+const noSuchIssue = problem('not_found', 'PROJ-999 names no issue')
 
 // opensLinkForm opens the Branch section on the unlinked branch, and its form.
 async function opensLinkForm(page: Page): Promise<void> {

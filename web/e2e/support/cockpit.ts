@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 import { themeStorageKey } from '../../src/shell/themeKey.ts'
+import { problem } from './fixtures.ts'
 
 // The populated cockpit as the specs that hold it or picture it open it: in
 // both themes, at a narrow, a middling and a wide window.
@@ -53,17 +54,10 @@ export async function openCockpit(
 // noFile answers the page as a server with no configuration file: the
 // configuration not found, and a setup offered in the repository or the home
 // directory, with a keychain.
-const noFile = {
-  status: 404,
-  contentType: 'application/problem+json',
-  body: JSON.stringify({
-    type: 'https://jacob-delgado.github.io/workflow/docs/errors/#not-found',
-    title: 'Not found',
-    status: 404,
-    detail: 'no .workflow.json applies where the server works; set one up in Settings',
-    code: 'not_found',
-  }),
-}
+const noFile = problem(
+  'not_found',
+  'no .workflow.json applies where the server works; set one up in Settings',
+)
 
 // openFirstRun opens Settings in a theme in a window of a size, on a server
 // with no configuration file, where it sets one up.

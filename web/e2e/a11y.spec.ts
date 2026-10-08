@@ -8,6 +8,7 @@ import {
   sectionNames as populatedSectionNames,
   themes,
 } from './support/cockpit.ts'
+import { problem } from './support/fixtures.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are
@@ -43,17 +44,10 @@ function settled(page: Page, name: string): Locator {
 }
 
 // unreachable is the answer a read gets when the service behind it is down.
-const unreachable = {
-  status: 502,
-  contentType: 'application/problem+json',
-  body: JSON.stringify({
-    type: 'https://jacob-delgado.github.io/workflow/docs/errors/#unreachable',
-    title: 'Upstream unreachable',
-    status: 502,
-    detail: 'the service could not be reached; check the network, then try again',
-    code: 'unreachable',
-  }),
-}
+const unreachable = problem(
+  'unreachable',
+  'the service could not be reached; check the network, then try again',
+)
 
 // scan returns the WCAG A/AA violations axe finds on whatever is on screen.
 async function scan(page: Page) {
@@ -113,17 +107,9 @@ for (const theme of themes) {
     // Act: a check that does not pass, which offers to write it anyway.
     await page.route('**/api/config/setup', (route) =>
       route.request().method() === 'POST'
-        ? route.fulfill({
-            status: 422,
-            contentType: 'application/problem+json',
-            body: JSON.stringify({
-              type: 'https://jacob-delgado.github.io/workflow/docs/errors/#check-failed',
-              title: 'Check failed',
-              status: 422,
-              detail: 'Jira did not accept the token; check it, or keep it anyway',
-              code: 'check_failed',
-            }),
-          })
+        ? route.fulfill(
+            problem('check_failed', 'Jira did not accept the token; check it, or keep it anyway'),
+          )
         : route.fallback(),
     )
     await page.getByRole('textbox', { name: 'Address' }).fill('https://jira.example.com')
