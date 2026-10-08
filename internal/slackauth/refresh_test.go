@@ -6,6 +6,7 @@ package slackauth_test
 import (
 	"errors"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
 )
 
@@ -174,5 +176,63 @@ func TestRefreshReportsASlackThatDidNotAnswer(t *testing.T) {
 	// Assert
 	if !errors.Is(err, slackauth.ErrUnreachable) {
 		t.Errorf("Refresh = %v, want %v", err, slackauth.ErrUnreachable)
+	}
+}
+
+// slackAnswering is a Slack that answers oauth.v2.access with status, header
+// and body.
+func slackAnswering(t *testing.T, status int, header http.Header, body string) slackauth.Refresher {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		maps.Copy(writer.Header(), header)
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(status)
+		_, _ = writer.Write([]byte(body))
+	}))
+	t.Cleanup(server.Close)
+
+	return refresherFor(server)
+}
+
+func TestRefreshReportsSlacksAnswerThatIsNoVerdict(t *testing.T) {
+	t.Parallel()
+
+	// A refresh refused is 200 and ok:false; any other status is Slack saying
+	// something else, and the body it sends with it is no verdict.
+	tooLarge := `{"ok":false,"error":"` + strings.Repeat("x", 64<<10+1-len(`{"ok":false,"error":""}`)) + `"}`
+
+	cases := map[string]struct {
+		status int
+		header http.Header
+		body   string
+		want   error
+	}{
+		"asked to wait": {
+			status: http.StatusTooManyRequests, header: http.Header{"Retry-After": {"30"}},
+			body: `{"ok":false,"error":"ratelimited"}`, want: httpx.ErrRateLimited,
+		},
+		"in trouble": {
+			status: http.StatusInternalServerError, body: `{"ok":false,"error":"fatal_error"}`,
+			want: slackauth.ErrUnexpectedStatus,
+		},
+		"an answer past the limit": {status: http.StatusOK, body: tooLarge, want: httpx.ErrAnswerTooLarge},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			refresher := slackAnswering(t, tt.status, tt.header, tt.body)
+
+			// Act
+			_, err := refresher.Refresh(t.Context(), startingPair())
+
+			// Assert
+			if !errors.Is(err, tt.want) || errors.Is(err, slackauth.ErrRefreshRefused) {
+				t.Errorf("Refresh = %v, want %v and not a refusal", err, tt.want)
+			}
+		})
 	}
 }
