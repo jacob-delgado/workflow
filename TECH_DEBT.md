@@ -424,33 +424,6 @@ chase" then names the allowlist as the exception list.
 **Done when.** The gate fails a new untested `err != nil` arm, and the
 measured share is at least two points above the floor.
 
-### DEBT-243 Concurrency tests synchronize on wall-clock time
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `patience` and `drainPast` (`internal/tui/harness_test.go:108`,
-`:113`), `internal/webserver/runs_test.go:737`,
-`internal/webserver/stream_test.go:245`,
-`internal/webserver/announcequeue_test.go:333`,
-`TestConcurrentReadsOfAChannelShareOneSetOfRequests`
-(`internal/wiring/slackdirectory_test.go:474`).
-
-**Today.** `drainPast` drops any command not answered within 200 ms, assuming
-only a held seam is that slow. A run test sleeps 50 ms hoping a stage claimed
-the index; a stream test sleeps 40 ms hoping a frame follows a save; the
-single-flight test sleeps 50 ms hoping the second reader joined, and passes
-against a cache-after-completion implementation when it did not. The module is
-on Go 1.27 and no test uses `testing/synctest`; `internal/webserver`'s tests
-take 213 s under `-race`.
-
-**Fix.** Have the fakes signal on channels (a held seam reports it is
-blocking; the directory fake signals the second arrival), drop only commands
-blocked on an armed hold, and use `synctest` bubbles for stream and queue
-timing.
-
-**Done when.** `time.Sleep` in these packages' tests is only seam-internal
-hold time, and `go test -race -count=20` passes for them.
-
 ## The docs
 
 ### DEBT-278 The trade-off register's text no longer matches the code or itself
