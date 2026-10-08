@@ -29,21 +29,22 @@ pre-commit:
   commands:
     # golangci-lint owns formatting (gofmt, gofumpt, goimports, gci per
     # .golangci.yml); `fmt` applies it, then `run --fix` lints and autofixes.
-    # --new-from-rev keeps the hook scoped to what this commit changes.
     golangci-lint-fmt:
       glob: "*.go"
       run: golangci-lint fmt {staged_files}
       stage_fixed: true
 
-    # --new-from-rev keeps the hook scoped to what this commit changes, but HEAD~
-    # does not exist on a repository's first commit — and a hook that errors out
-    # there is a hook that teaches you to pass --no-verify on day one. Fall back
-    # to linting everything when there is no parent.
+    # --new-from-rev=HEAD keeps the hook scoped to what this commit changes: at
+    # pre-commit the commit is not made yet, so its change is the difference
+    # from HEAD, and an issue already in HEAD does not fail an unrelated
+    # commit. Before the first commit there is no HEAD to compare with, and a
+    # hook that errors out there teaches --no-verify on day one, so it lints
+    # everything instead.
     golangci-lint:
       glob: "*.go"
       run: |
-        if git rev-parse --verify --quiet HEAD~ >/dev/null; then
-          golangci-lint run --new-from-rev=HEAD~ --fix
+        if git rev-parse --verify --quiet HEAD >/dev/null; then
+          golangci-lint run --new-from-rev=HEAD --fix
         else
           golangci-lint run --fix
         fi
@@ -127,7 +128,7 @@ pre-push:
       glob: "{*.go,go.mod,go.sum}"
       run: task test
 
-    # The pre-commit hook runs golangci-lint with --new-from-rev=HEAD~, so it
+    # The pre-commit hook runs golangci-lint with --new-from-rev=HEAD, so it
     # only ever sees the lines this commit changed. That is the right trade for
     # a per-commit hook and it means gocyclo, gocognit and funlen never look at
     # a function that grew in a file this commit did not touch. This closes it.
