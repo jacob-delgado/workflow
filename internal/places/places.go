@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package places is where an issue can be, for narrowing the Issues list: one
-// of its tracker's status names, or one of workflow's own marks. The web works
-// the same rules out again in web/src/features/issues/issuePlaces.ts, and both
-// copies answer to the one case file testdata/twins/places.json, so a change to
-// either alone fails its own tests.
+// of its tracker's status names, or one of workflow's own marks.
 package places
 
 import (
@@ -13,6 +10,11 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
+
+// Trade-off TRADE-21: these words and the place rules below are written again
+// in web/src/features/issues/issuePlaces.ts, and both copies answer to the one
+// case file testdata/twins/places.json, so a change to either alone fails its
+// own tests.
 
 // The marks an issue can be in, in the order the picker lists them, as both
 // surfaces word them.
