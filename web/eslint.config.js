@@ -246,6 +246,29 @@ export default tseslint.config(
       ],
     },
   },
+  // Every hermetic spec takes test from e2e/support/fixtures.ts, whose page
+  // refuses the API a spec leaves unanswered, so no request goes on through
+  // Vite preview to a developer's own `workflow --web`. The server-backed specs
+  // drive a real server, and fixtures.ts is where that test is made.
+  {
+    files: ['e2e/**/*.ts'],
+    ignores: ['e2e/server/**', 'e2e/support/fixtures.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@playwright/test',
+              importNames: ['test'],
+              message:
+                'Take test from e2e/support/fixtures.ts, whose page refuses the API a spec leaves unanswered.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // JSON (package.json, tsconfig*.json): correctness rules (duplicate keys,
   // invalid values). `flat/prettier` drops the stylistic rules so prettier still
   // owns formatting.

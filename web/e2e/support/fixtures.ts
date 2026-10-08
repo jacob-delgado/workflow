@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import { test as playwright, type Page } from '@playwright/test'
 import type {
   Branch,
   Issue,
@@ -8,8 +8,9 @@ import type {
 } from '../../src/api/generated/types.gen.ts'
 
 // The answers the hermetic specs give the page: the event stream's frame, built
-// from one empty frame so each spec names only the parts it varies, and a
-// refusal, built as the server builds one.
+// from one empty frame so each spec names only the parts it varies; a
+// refusal, built as the server builds one; and a refusal for every route a
+// spec leaves unanswered.
 
 // emptyBranch is a branch with nothing checked out: no name, no head, no
 // upstream, nothing ahead or behind.
@@ -122,3 +123,22 @@ export function problem(code: Problem['code'], detail: string): Refusal {
     } satisfies Problem,
   }
 }
+
+// test is Playwright's, with every /api route answered before a spec answers
+// any: a read or a write the spec leaves alone is refused as a route the
+// server does not have, rather than going on through Vite preview to the port
+// a developer's own `workflow --web` listens on. A spec's routes come after,
+// so they take precedence, and one that falls back reaches this.
+export const test = playwright.extend<{ unanswered: undefined }>({
+  unanswered: [
+    async ({ page }, use) => {
+      await page.route('**/api/**', (route) =>
+        route.fulfill(problem('not_found', 'this spec does not answer this route')),
+      )
+      await use(undefined)
+    },
+    { auto: true },
+  ],
+})
+
+export { expect } from '@playwright/test'
