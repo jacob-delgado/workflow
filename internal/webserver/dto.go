@@ -122,6 +122,7 @@ func branchDTO(branch gitrepo.Branch) api.Branch {
 	return api.Branch{
 		IssueLink:        branch.IssueLink,
 		IssueLinkTracker: linkTracker(branch.IssueLink),
+		FinishCommands:   finishCommands(branch),
 		Name:             branch.Name,
 		Detached:         branch.Detached,
 		Head:             branch.Head,
@@ -132,6 +133,18 @@ func branchDTO(branch gitrepo.Branch) api.Branch {
 		Base:             branch.Base,
 		Commits:          commits,
 	}
+}
+
+// finishCommands are the commands finishing branch runs, or nil for one with
+// no branch or no base to finish onto.
+func finishCommands(branch gitrepo.Branch) *[]string {
+	if branch.Detached || branch.Name == "" || branch.BaseName() == "" {
+		return nil
+	}
+
+	commands := gitrepo.FinishCommands(branch.BaseName(), branch.Name)
+
+	return &commands
 }
 
 // linkTracker is where the issue a branch was linked to lives, or nil for a

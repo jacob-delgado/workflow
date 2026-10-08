@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
@@ -74,9 +75,9 @@ type finishPreview struct {
 
 var _ failable[finishPreview] = finishPreview{}
 
-// commands are the three git commands a finish runs, as they are shown and run.
+// commands are the three git commands a finish runs, as gitrepo runs them.
 func (p finishPreview) commands() []string {
-	return []string{"git switch " + p.base, "git pull --ff-only", "git branch -D " + p.branch}
+	return gitrepo.FinishCommands(p.base, p.branch)
 }
 
 // view draws the merged pull request and the commands that finish its branch,
