@@ -143,6 +143,43 @@ func TestSnapshotSaysWhetherThePullWasAnnouncedAtItsMoment(t *testing.T) {
 	}
 }
 
+func TestSnapshotReadsAPullRequestClosedWithoutMergingAsNotAnnounced(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The store remembers pull request 42 announced as ready, before it was
+	// closed without merging: the loop follows no pull request now, so the
+	// review says so as the announce stage does.
+	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
+	deps := memory.wire(filledDeps())
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return inState(forge.StateClosed, false), true, nil }
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	if snap.Review.Announced {
+		t.Error("review.announced reads a pull request closed without merging as announced")
+	}
+}
+
+func TestAnnounceRefusesAPullRequestClosedWithoutMergingAsNoneToAnnounce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Remembered as announced before it was closed, it is still none to
+	// announce: not one announced already.
+	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
+	deps := memory.wire(filledDeps())
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return inState(forge.StateClosed, false), true, nil }
+
+	// Act
+	recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
+
+	// Assert
+	assertProblem(t, recorder, http.StatusConflict, "there is no pull request to announce")
+}
+
 func TestSnapshotSeesAnAnnouncementMadeHereAtOnce(t *testing.T) {
 	t.Parallel()
 

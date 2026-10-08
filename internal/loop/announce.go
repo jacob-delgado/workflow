@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/progress"
 )
 
 var (
@@ -123,7 +124,7 @@ func Announcement(facts AnnouncementFacts, cfg config.Messaging, kind forge.Kind
 }
 
 // pullToAnnounce reads the checked-out branch and the pull request found for it,
-// open or merged.
+// open or merged: one closed without merging is none to announce.
 func pullToAnnounce(seams AnnounceSeams) (gitrepo.Branch, forge.PullRequest, error) {
 	if seams.Branch == nil || seams.FindPull == nil {
 		return gitrepo.Branch{}, forge.PullRequest{}, ErrNoPullRequest
@@ -139,11 +140,20 @@ func pullToAnnounce(seams AnnounceSeams) (gitrepo.Branch, forge.PullRequest, err
 		return gitrepo.Branch{}, forge.PullRequest{}, fmt.Errorf("reading the pull request: %w", err)
 	}
 
-	if !found {
+	if !followed(pull, found) {
 		return gitrepo.Branch{}, forge.PullRequest{}, ErrNoPullRequest
 	}
 
 	return branch, pull, nil
+}
+
+// followed reports that a find answered a pull request the loop follows: one
+// found, open or merged. progress reads one closed without merging as none —
+// its review not started, the next step to open one again — so it is not one
+// to announce, nor one announced: the pull request opened next is announced
+// afresh.
+func followed(pull forge.PullRequest, found bool) bool {
+	return found && progress.PullStateOf(pull.State) != progress.NoPullRequest
 }
 
 // momentOf is the pull request's moment, reading its CI only when the moment
@@ -210,6 +220,14 @@ func (m AnnounceMemory) Holds(made Announced) bool {
 	}
 
 	return slices.Contains(m.Recorded(), made)
+}
+
+// HoldsNow reports that a find answered a pull request the loop follows, and
+// that it was announced at the moment it is at now, by its CI: the one rule
+// every surface reads the announce stage, and whether to say the pull request
+// was announced, by.
+func (m AnnounceMemory) HoldsNow(pull forge.PullRequest, found bool, ci forge.CI) bool {
+	return followed(pull, found) && m.Holds(Announced{Pull: pull.Number, Moment: AnnounceMoment(pull, ci)})
 }
 
 // Delivery is an announcement on its way out: the channel it goes to — empty

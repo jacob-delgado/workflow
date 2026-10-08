@@ -323,7 +323,9 @@ the new one. Once a pull request was announced at the moment it is at now —
 ready for review, its CI red, merged — from here, the terminal or `workflow
 announce`, the section says so in place of the offer, as the terminal offers
 no announcement it has made; each announcement made here is remembered for
-the terminal and `workflow announce` too. One the store cannot remember — a
+the terminal and `workflow announce` too. A pull request closed without
+merging is none to announce: the section asks for one to be opened, as it
+does with none at all. One the store cannot remember — a
 full disk, say — is posted all the same, and the line saying where it went
 adds *Posted, but not remembered: it may be offered again.*, as a held one
 does once it goes, and as the terminal and `workflow announce` say it; the

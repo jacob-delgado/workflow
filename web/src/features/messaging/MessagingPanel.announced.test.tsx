@@ -4,8 +4,8 @@ import { makeSnapshot } from '@/test/fixtures.ts'
 import { MessagingPanel } from './MessagingPanel.tsx'
 
 // announcedPull streams a configured Slack with pull request #42, announced or
-// not at the moment it is at now.
-function announcedPull(announced: boolean) {
+// not at the moment it is at now, open unless it was closed.
+function announcedPull(announced: boolean, state: 'open' | 'closed' = 'open') {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
@@ -24,7 +24,7 @@ function announcedPull(announced: boolean) {
           number: 42,
           url: 'https://x/42',
           title: 'redact',
-          state: 'open',
+          state,
           draft: false,
           approvals: 0,
           changes_requested: false,
@@ -56,4 +56,20 @@ test('offers the announcement while it has not been made', () => {
 
   // Assert
   expect(screen.getByRole('button', { name: 'Announce to Slack' })).toBeTruthy()
+})
+
+test('offers nothing to announce for a pull request closed without merging', () => {
+  // Arrange
+  // A closed pull request is none the loop follows, so the server never reads
+  // it as announced, and there is nothing to announce until one is open again.
+  announcedPull(false, 'closed')
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(
+    screen.getByText('Open a pull request first — there is nothing to announce yet.'),
+  ).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /^Announce to/ })).toBeNull()
 })

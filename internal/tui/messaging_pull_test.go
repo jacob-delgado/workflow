@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 // secondPullURL is the pull request for other work: another branch, for the
@@ -131,6 +133,26 @@ func TestEachPullRequestIsAnnouncedOnce(t *testing.T) {
 	// Assert: it is still announced, and is not offered again
 	requireScreen(t, back, "state  ● announced")
 	refuseScreen(t, footerLine(back), "p announce")
+}
+
+func TestAPullRequestClosedWithoutMergingIsNothingToAnnounce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The store remembers pull request 42 announced as ready, before it was
+	// closed without merging: the loop follows no pull request now, so the
+	// pane reads it as the top row does, with nothing announced or to announce.
+	closed := newWorld()
+	closed.pull.State = forge.StateClosed
+	closed.storedAnnounces = []loop.Announced{{Pull: 42, Moment: messaging.MomentReady}}
+
+	// Act
+	view := typing(t, closed.live(t, 120, 40), "5").View().Content
+
+	// Assert
+	requireScreen(t, view, "Open a pull request first (4 Review)", "○ Slack")
+	refuseScreen(t, view, "● announced")
+	refuseScreen(t, footerLine(view), "p announce")
 }
 
 func TestAPostWaitingForCIDoesNotOutliveABranchSwitch(t *testing.T) {
