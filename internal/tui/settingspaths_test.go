@@ -18,7 +18,7 @@ import (
 func everySettingSet() config.Config {
 	cfg := settingsFile()
 	cfg.Jira = config.Jira{
-		BaseURL: "https://jira.every.example", Token: "jira-every-1111", User: "every-user", Project: "EVERY",
+		BaseURL: "https://jira.every.example", Token: "jira-token-every-1111", User: "every-user", Project: "EVERY",
 		ReviewStatus: "Every Review", MarkdownComments: true,
 		Views:   []config.JiraView{{Name: "every-view", JQL: "project = EVERY"}},
 		Headers: map[string]config.Secret{"X-Every": "header-every-2222"},
@@ -26,7 +26,7 @@ func everySettingSet() config.Config {
 	cfg.Issues.Forge = true
 	cfg.Messaging = config.Messaging{
 		Kind: config.KindTeams, ClientID: "every-client", ClientSecret: "secret-every-3333",
-		RefreshToken: "xoxe-every-4444", WebhookURL: "https://hooks.every.example/5555", Channel: "#every",
+		RefreshToken: "xoxe-1-every-4444", WebhookURL: "https://hooks.every.example/5555", Channel: "#every",
 		Channels: []string{"#more-every"}, Announcement: "every {title}",
 	}
 	cfg.Forge = config.Forge{Kind: "gitlab", Host: "git.every.example", Token: "forge-every-6666", CLI: true}
