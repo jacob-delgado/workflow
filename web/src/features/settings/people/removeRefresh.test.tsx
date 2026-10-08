@@ -16,8 +16,12 @@ const kept = {
   name: 'kept.db',
   kind: 'kept',
   bytes: 512,
+  size: '512 B',
   holds: [{ what: 'owner decisions', count: 1 }],
 } satisfies Listing['files'][number]
+
+// consequences are the warnings the server gives with the listing.
+const consequences = { cache: 'cache words', all: 'everything words' }
 
 // keptUntilRemoved answers People and groups and Local data as a server whose
 // kept file removing everything removes; it returns every request made.
@@ -28,7 +32,7 @@ function keptUntilRemoved(): Request[] {
     '/api/local-data': (_: URL, asked: Request) => {
       removed ||= asked.method === 'DELETE'
 
-      return { dir: '/d', files: removed ? [] : [kept] }
+      return { dir: '/d', files: removed ? [] : [kept], consequences }
     },
     '/api/people': () => ({
       owners: removed ? [] : [{ owner: 'dan', kind: 'user', state: 'not_on_slack' }],
@@ -107,7 +111,7 @@ test('a removal that fails reads the listing again, since part may be gone', asy
       }
       reads += 1
 
-      return { dir: '/d', files: [kept] }
+      return { dir: '/d', files: [kept], consequences }
     },
   })
   const user = userEvent.setup()

@@ -33,6 +33,32 @@ const (
 	CleanAll
 )
 
+// Consequence is what a clean of the scope takes with it, in the words every
+// surface's last look warns with before anything is removed.
+func (s CleanScope) Consequence() string {
+	if s == CleanAll {
+		return "Whom each code owner is on Slack and each repository's groups go with it: " +
+			"people and group associations will be asked again."
+	}
+
+	return "The last scope, what was announced and the cached issue lists are made again as you work."
+}
+
+// HumanBytes is a size in bytes, KiB or MiB, with one decimal past bytes: how
+// every surface shows a database file's size.
+func HumanBytes(size int64) string {
+	const unit = 1024
+
+	switch {
+	case size < unit:
+		return fmt.Sprintf("%d B", size)
+	case size < unit*unit:
+		return fmt.Sprintf("%.1f KiB", float64(size)/unit)
+	default:
+		return fmt.Sprintf("%.1f MiB", float64(size)/(unit*unit))
+	}
+}
+
 // asideSuffix marks a file a clean has set aside and is about to remove.
 const asideSuffix = ".cleaning"
 
