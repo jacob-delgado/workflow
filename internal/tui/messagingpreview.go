@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"errors"
 	"slices"
 	"strings"
 
@@ -18,6 +19,13 @@ import (
 // messagingHelp is what the editor shows below a message being composed. The markup
 // depends on the service, so the note stays general rather than naming one.
 const messagingHelp = "Edit the message above this line."
+
+// Why a preview opened over another post does not post: that one, waiting for
+// CI, went while the preview was open.
+var (
+	errAnnouncementOnItsWay = errors.New("an announcement is on its way; wait for it before posting another")
+	errAlreadyAnnounced     = errors.New("this was announced while the preview was open; esc closes it")
+)
 
 // messagingPreview is an announcement about to be sent.
 type messagingPreview struct {
@@ -57,17 +65,34 @@ func (p messagingPreview) destination() string {
 
 // outgoingAnnouncement is an announcement as it leaves: the channel it is sent
 // to, empty for a webhook's own, and where that is as the notice names it; what
-// it says and the moment it marks; and whom it tags.
+// it says and the moment it marks; whom it tags; and the count of overlays
+// opened when its preview opened, so its answer reaches that preview alone.
 type outgoingAnnouncement struct {
 	channel, to, text string
 	moment            messaging.Moment
 	tags              postTags
+	opened            int
 }
 
 // outgoing is the announcement this preview sends, as it stands.
 func (p messagingPreview) outgoing() outgoingAnnouncement {
 	return outgoingAnnouncement{
 		channel: p.channel, to: p.destination(), text: p.text, moment: p.moment, tags: p.tagging.postTags(),
+		opened: p.opened,
+	}
+}
+
+// refusal is why the preview cannot post now: a post waiting for CI went while
+// it was open and has not answered, or has, announcing the moment this one
+// marks.
+func (p messagingPreview) refusal(m Model) error {
+	switch {
+	case m.messaging.send.sending:
+		return errAnnouncementOnItsWay
+	case slices.Contains(m.messaging.posted, loop.Announced{Pull: m.review.pull.Number, Moment: p.moment}):
+		return errAlreadyAnnounced
+	default:
+		return nil
 	}
 }
 
@@ -153,6 +178,11 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 
 // post posts the message now.
 func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
+	refusal := p.refusal(m)
+	if refusal != nil {
+		return m.noticedGuidance(refusal), nil
+	}
+
 	if strings.TrimSpace(p.text) == "" {
 		return m.closeOverlay().noticedGuidance(loop.ErrEmptyAnnouncement), nil
 	}
@@ -180,6 +210,11 @@ func (p messagingPreview) waitsForCI() bool {
 func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	if !p.waitsForCI() {
 		return m, nil
+	}
+
+	refusal := p.refusal(m)
+	if refusal != nil {
+		return m.noticedGuidance(refusal), nil
 	}
 
 	if m.review.ci.State == forge.CIPassed {
@@ -215,7 +250,7 @@ func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
 	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
 	return m, func() tea.Msg {
-		return messagingPosted{made: made, to: out.to, err: loop.Deliver(post, memory, delivery)}
+		return messagingPosted{made: made, to: out.to, opened: out.opened, err: loop.Deliver(post, memory, delivery)}
 	}
 }
 
@@ -234,25 +269,33 @@ func (p messagingPreview) applyEdit(m Model, text string, err error) (Model, tea
 }
 
 // messagingPosted reports how posting went, the announcement it made — a pull
-// request and the moment it marked — and where it went.
+// request and the moment it marked — where it went, and the count of overlays
+// opened when the preview it was written in opened.
 type messagingPosted struct {
-	made loop.Announced
-	to   string
-	err  error
+	made   loop.Announced
+	to     string
+	opened int
+	err    error
 }
 
-// apply records the post, or why it failed — in the preview if it is open, and
-// in the pane if the post was one waiting for CI.
+// apply records the post, or why it failed, in the pane, and in the preview it
+// was written in while that is still open. A post that waited for CI was
+// written in a preview long closed, so it leaves one opened since as it is.
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
+	preview, open := beneath[messagingPreview](m, msg.opened)
+
 	if msg.err != nil {
 		m.messaging.send = m.messaging.send.failed(msg.err)
+		if open {
+			m = m.withBeneath(preview.failed(msg.err))
+		}
 
-		return keepOpenWith[messagingPreview](m, msg.err).noticedFailure(msg.err), nil
+		return m.noticedFailure(msg.err), nil
 	}
 
 	m.messaging.posted, m.messaging.send = append(slices.Clone(m.messaging.posted), msg.made), sendState{}
 
-	if _, open := m.overlay.(messagingPreview); open {
+	if open {
 		m = m.closeOverlay()
 	}
 
