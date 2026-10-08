@@ -11,10 +11,10 @@ export class HeldBack extends Refusal {}
 // falls back when there is none. The typed client throws the error body as-is —
 // an RFC 9457 problem details object ({ type, title, status, detail, code }) —
 // rather than as an Error, so the problem's detail is preferred, then its title.
-// A hold, or another refusal the page words, says what it is; any other thrown Error — a fetch that never reached
-// the server, an answer that fails the schema — carries no reason fit to show,
-// so the fallback says what to do instead. Shared by the write actions that
-// surface a refusal to the user.
+// A hold, or another refusal the page words, says what it is; any other thrown
+// Error — a fetch that never reached the server, an answer that fails the
+// schema — carries no reason fit to show, so the fallback says what to do
+// instead. Shared by the write actions that surface a refusal to the user.
 export function apiErrorMessage(caught: unknown, fallback: string): string {
   if (caught instanceof Refusal) {
     return caught.message
