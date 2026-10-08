@@ -6,14 +6,15 @@ const hermeticURL = 'http://localhost:4173'
 const mockURL = 'http://localhost:4174'
 
 // This e2e run has no backend. It serves two builds of the SPA with Vite
-// preview: the production build, whose specs answer the API themselves
-// (page.route) and otherwise see the shell and its empty states; and a
-// VITE_MOCK build, which fills every section from the mockup's fixtures, so the
-// axe scan and the screenshots see what a populated cockpit draws. A spec meant
-// for the populated build carries the @populated tag, and runs only there. The
-// specs under e2e/server drive writes against a running `workflow --web`
-// instead, in a run of their own (playwright.server.config.ts), so this one
-// leaves them out.
+// preview, which proxies nothing: the production build, whose specs answer the
+// API themselves (page.route) and otherwise see the shell and its empty
+// states, every route a spec leaves alone refused by the test that
+// e2e/support/fixtures.ts makes; and a VITE_MOCK build, which fills every
+// section from the mockup's fixtures, so the axe scan and the screenshots see
+// what a populated cockpit draws. A spec meant for the populated build carries
+// the @populated tag, and runs only there. The specs under e2e/server drive
+// writes against a running `workflow --web` instead, in a run of their own
+// (playwright.server.config.ts), so this one leaves them out.
 export default defineConfig({
   testDir: 'e2e',
   testIgnore: 'server/**',

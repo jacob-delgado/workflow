@@ -1,7 +1,8 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import type { LocalData } from '../../src/api/generated/types.gen.ts'
 import { height, openCockpit, openSection, themes, widths } from '../support/cockpit.ts'
 import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expect, test } from '../support/fixtures.ts'
 
 // Settings' Local data area: the store's files listed, each removal behind a
 // confirm step, and the listing read again once a removal is done. The flows run
