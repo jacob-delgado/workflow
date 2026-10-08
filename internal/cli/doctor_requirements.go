@@ -37,7 +37,7 @@ type configReview struct {
 // reviewConfiguration gathers everything doctor checks in a loaded
 // configuration, once for both reports.
 func reviewConfiguration(cfg config.Config) configReview {
-	problems := append(cfg.Problems(), forgeKindProblem(cfg.Forge)...)
+	problems := cfg.Problems()
 
 	keyErr := tui.CheckKeys(cfg.UI.Keys)
 	if keyErr != nil {
@@ -87,20 +87,6 @@ func reportRequirements(out io.Writer, path string, review configReview) {
 
 	fmt.Fprintf(out, "\nEdit %s, then run `workflow doctor` again.\n", path)
 	fmt.Fprintf(out, "`workflow --help` explains how to create each token.\n")
-}
-
-// forgeKindProblem reports a forge.kind that names no forge this build knows.
-func forgeKindProblem(settings config.Forge) []string {
-	if settings.Kind == "" {
-		return nil
-	}
-
-	_, err := forge.ParseKind(settings.Kind)
-	if err != nil {
-		return []string{fmt.Sprintf("forge.kind %q is not github or gitlab", settings.Kind)}
-	}
-
-	return nil
 }
 
 // reportList prints a headed list of items, or nothing when there are none.

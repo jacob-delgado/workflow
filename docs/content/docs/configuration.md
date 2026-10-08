@@ -104,7 +104,7 @@ them on stderr, so there is never a question about which were read.
 | Field | Required | Description |
 | --- | --- | --- |
 | `version` | no | The file format's version, which `workflow config init` writes first. `"1"` is the only one this build reads; empty (the default) means the current one, and any other value is refused when the file loads rather than half-read against a format it was not written for. |
-| `jira.base_url` | for Jira as the tracker | Root URL of your Jira instance, e.g. `https://jira.example.com`. Leave it empty to use the forge's issues instead: the Issues pane then lists the open issues assigned to you on your forge. |
+| `jira.base_url` | for Jira as the tracker | Root URL of your Jira instance, e.g. `https://jira.example.com`. Leave it empty to use the forge's issues instead: the Issues pane then lists the open issues assigned to you on your forge. An address that is not an absolute `http` or `https` URL, or that carries a username and password, is refused when the file loads, without quoting it. |
 | `jira.token` | one of these three, with `jira.base_url` | Personal access token. |
 | `jira.token_command` | one of these three, with `jira.base_url` | A program that prints the token, e.g. `pass show jira/token`. See below. |
 | `jira.token_env` | one of these three, with `jira.base_url` | An environment variable that holds the token. |
@@ -122,7 +122,7 @@ them on stderr, so there is never a question about which were read.
 | `messaging.channel` | with a Slack user token | Channel to post in, e.g. `#dev-workflow`. You must be in it. A webhook carries its own. |
 | `messaging.channels` | no | Further channels a user-token announcement can go to, for a change that concerns another team, e.g. `["#platform"]`. The announcement preview offers them after `messaging.channel`, which is always a choice; you must be in each. A webhook carries its own channel and offers none. |
 | `messaging.announcement` | no | Slack template for the review message, from `{author}`, `{noun}`, `{title}`, `{url}`, `{key}`, `{summary}`, `{issue_url}`. Empty, or any non-Slack kind, uses the built-in message. |
-| `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. |
+| `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. Anything else is refused when the file loads. |
 | `forge.host` | with `forge.kind` | The host `forge.kind` and `forge.token` are for, e.g. `git.example.com`. |
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
 | `forge.cli` | no | Route forge API calls through the forge's own command-line tool — `gh` for GitHub, `glab` for GitLab — instead of over HTTP, so the login that tool already holds carries the request. This is what reaches a forge behind an SSO gateway a bare token cannot. Falls back to HTTP when the tool is not installed. Defaults to `false`. |

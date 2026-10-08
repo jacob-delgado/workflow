@@ -184,31 +184,21 @@ func TestUpdateConfigNamesEveryRefusalOnOneLine(t *testing.T) {
 	}
 }
 
-func TestUpdateConfigKeepsAMaskedBaseURLPassword(t *testing.T) {
+func TestUpdateConfigRefusesABaseURLCarryingALogin(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// jira.base_url carries a password (it becomes Basic auth); a client sends
-	// back the masked URL the read returned. The stored password must survive.
 	cfg := config.Default()
 	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
-	cfg.Jira.BaseURL = "https://user:s3cret@jira.example.com"
+	posted := cfg
+	posted.Jira.BaseURL = "https://user:s3cret@jira.example.com"
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, cfg.Redacted()))
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, posted))
 
 	// Assert
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
-	}
-
-	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
-	if err != nil {
-		t.Fatalf("reading the saved file: %v", err)
-	}
-
-	if saved.Jira.BaseURL != "https://user:s3cret@jira.example.com" {
-		t.Errorf("saved base_url = %q, want the stored password kept behind the mask", saved.Jira.BaseURL)
+	if recorder.Code != http.StatusUnprocessableEntity || strings.Contains(recorder.Body.String(), "s3cret") {
+		t.Errorf("status = %d, body %s; want 422 without the password", recorder.Code, recorder.Body.String())
 	}
 }
 

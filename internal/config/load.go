@@ -108,7 +108,7 @@ func Parse(r io.Reader) (Config, error) {
 		return Default(), err
 	}
 
-	err = errors.Join(cfg.validateVersion(), cfg.validateTiming(),
+	err = errors.Join(cfg.validateVersion(), cfg.validateJira(), cfg.validateForge(), cfg.validateTiming(),
 		cfg.validateBranch(), cfg.validateViews(), cfg.validateHeaders(), cfg.validateCommit(), cfg.validatePullRequest(),
 		cfg.validateMessaging(), cfg.validateUI(), cfg.validateTaskwarrior())
 	if err != nil {

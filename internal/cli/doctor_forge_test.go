@@ -346,17 +346,19 @@ func TestDoctorNamesTheTrackerInEffect(t *testing.T) {
 // A base URL can carry a password, and this output is what the bug report
 // template invites people to paste. The exit is left unasserted: it answers to
 // how the configuration reads a password there, not to the masking.
-func TestDoctorMasksAJiraBaseURLsPassword(t *testing.T) {
+func TestDoctorRefusesAJiraBaseURLsPasswordWithoutPrintingIt(t *testing.T) {
 	// Arrange
 	dir := workTree(t, githubSSHRemote)
 	writeFile(t, dir, jiraTracker("https://fred:hunter2@jira.example.com"))
 
 	// Act
-	output, _ := run(t, dir, "doctor")
+	output, err := run(t, dir, "doctor")
 
 	// Assert
-	if got := fieldValue(output, "Tracker"); got != "Jira at https://xxxxx@jira.example.com" {
-		t.Errorf("Tracker = %q, want the password masked:\n%s", got, output)
+	wantExit(t, err, 3)
+
+	if !strings.Contains(output, "jira.base_url carries a username and password") {
+		t.Errorf("doctor did not refuse jira.base_url for its login:\n%s", output)
 	}
 
 	if strings.Contains(output, "hunter2") {

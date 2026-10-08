@@ -272,12 +272,12 @@ configured, or a `token_command` or `token_env` that gave none — exits 3 as a
 answers with a redirect, or asks you to wait, is `unreachable` and exits 5: it
 never judged the credential. A check `doctor` could not make is `unchecked` and
 counts toward no exit status: a webhook, which only posting would test; Jira
-when the forge's issues are the tracker, since there is no Jira to ask, or at a
-`jira.base_url` that is not an http or https address or that carries a login;
-and a forge it cannot name — no repository remote, a host other than
+when the forge's issues are the tracker, since there is no Jira to ask; and a
+forge it cannot name — no repository remote, or a host other than
 `github.com`, a `ghe.com` tenant or `gitlab.com` with no `forge.kind` and
-`forge.host` for it, or a `forge.kind` that cannot be used. An unusable address
-or `forge.kind` fails the configuration instead.
+`forge.host` for it. A `jira.base_url` that is not an http or https address or
+that carries a login, and a `forge.kind` that names neither forge, are refused
+when the file loads, so they fail the configuration and nothing is checked.
 
 `workflow config show` prints the configuration file's own shape, as
 [Configuration]({{< relref "/docs/configuration" >}}) describes it.

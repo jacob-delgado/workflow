@@ -7,9 +7,11 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"slices"
+	"strings"
 )
 
 // FileName is the configuration file's name in both search locations.
@@ -50,6 +52,8 @@ var (
 	// ErrSameName reports two names a map holds apart that are matched as one:
 	// two jira.headers equal but for case, or two branch.prefixes types.
 	ErrSameName = errors.New("two names that are matched as one")
+	// ErrUnknownForgeKind reports a forge.kind that names neither forge.
+	ErrUnknownForgeKind = errors.New("forge.kind is not github or gitlab")
 )
 
 // Jira describes how to reach an on-premises Jira instance.
@@ -353,19 +357,13 @@ func (m Messaging) missing() []string {
 	return nil
 }
 
-// Problems reports settings that are present but malformed — filled in wrong —
-// as opposed to Missing, which reports what is still empty. A configuration can
-// be complete and still not work, so doctor should say which values are bad
-// rather than call a set-but-invalid file all clear.
+// Problems reports settings that load but are unwise — a webhook sent over
+// plain http — as opposed to Missing, which reports what is still empty. A
+// configuration can be complete and still not work, so doctor should say
+// which values are bad rather than call such a file all clear; a value that
+// can never work is refused when the file loads instead.
 func (c Config) Problems() []string {
 	var problems []string
-
-	if base := c.Jira.BaseURL; base != "" {
-		err := CheckBaseURL(base)
-		if err != nil {
-			problems = append(problems, err.Error())
-		}
-	}
 
 	if hook := c.Messaging.WebhookURL; hook != "" && !secureURL(hook.Reveal()) {
 		problems = append(problems, "messaging.webhook_url is not an https URL")
@@ -433,4 +431,26 @@ func (f Forge) missing() []string {
 	}
 
 	return nil
+}
+
+// validateJira refuses a jira.base_url that can never be Jira's address, so a
+// password in it never reaches the store's key for the instance or a caller
+// that forgot to check it. None at all is no Jira, which is valid.
+func (c Config) validateJira() error {
+	if c.Jira.BaseURL == "" {
+		return nil
+	}
+
+	return CheckBaseURL(c.Jira.BaseURL)
+}
+
+// validateForge refuses a forge.kind that names neither forge, read as the
+// forge reads it: without case or surrounding space.
+func (c Config) validateForge() error {
+	switch strings.ToLower(strings.TrimSpace(c.Forge.Kind)) {
+	case "", "github", "gitlab":
+		return nil
+	default:
+		return fmt.Errorf("%w: %q", ErrUnknownForgeKind, c.Forge.Kind)
+	}
 }

@@ -348,3 +348,53 @@ func TestRepoRootOutsideARepositoryIsTheDirectoryItself(t *testing.T) {
 		t.Errorf("RepoRoot(%q) = %q, want the directory unchanged", dir, got)
 	}
 }
+
+func TestParseRefusesAnAddressOrAForgeItCannotUse(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		body string
+		want error
+	}{
+		"a base URL with a login": {
+			body: `{"jira": {"base_url": "https://u:p@jira.example.com"}}`, want: config.ErrCredentialInBaseURL,
+		},
+		"a base URL that is no address": {
+			body: `{"jira": {"base_url": "jira.example.com"}}`, want: config.ErrInvalidBaseURL,
+		},
+		"a forge kind naming no forge": {body: `{"forge": {"kind": "gitlub"}}`, want: config.ErrUnknownForgeKind},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			_, err := config.Parse(strings.NewReader(tt.body))
+
+			// Assert
+			if !errors.Is(err, config.ErrInvalid) || !errors.Is(err, tt.want) {
+				t.Errorf("Parse = %v, want ErrInvalid wrapping %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseTakesEitherForgeByName(t *testing.T) {
+	t.Parallel()
+
+	// Read as the forge reads it: without case or surrounding space.
+	for _, kind := range []string{"", "GitHub", " gitlab "} {
+		t.Run(kind, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			cfg, err := config.Parse(strings.NewReader(`{"forge": {"kind": "` + kind + `", "host": "git.example.com"}}`))
+
+			// Assert
+			if err != nil || cfg.Forge.Kind != kind {
+				t.Errorf("Parse = forge.kind %q, %v; want %q read", cfg.Forge.Kind, err, kind)
+			}
+		})
+	}
+}
