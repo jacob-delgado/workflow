@@ -18,7 +18,6 @@ import (
 const (
 	githubSearchPath  = "/search/issues"
 	gitlabReviewsPath = "/merge_requests"
-	gitlabUserPath    = "/user"
 )
 
 // gitlabWhoami is the answer GitLab gives to /user for the review fixtures.
@@ -60,7 +59,7 @@ func TestReviewRequestsListsWhatEachForgeReturns(t *testing.T) {
 		"asks GitLab for its merge requests": {
 			kind: forge.KindGitLab,
 			routes: map[string]string{
-				gitlabUserPath: gitlabWhoami,
+				userPath: gitlabWhoami,
 				gitlabReviewsPath: `[{"iid":7,"web_url":"https://gitlab.com/grp/proj/-/merge_requests/7",` +
 					`"title":"fix: token","draft":false,"created_at":"2026-09-15T08:00:00Z",` +
 					`"author":{"username":"ben"},"references":{"full":"grp/proj!7"},` +
@@ -75,7 +74,7 @@ func TestReviewRequestsListsWhatEachForgeReturns(t *testing.T) {
 		"GitLab with no pipeline yet reports no CI": {
 			kind: forge.KindGitLab,
 			routes: map[string]string{
-				gitlabUserPath: gitlabWhoami,
+				userPath: gitlabWhoami,
 				gitlabReviewsPath: `[{"iid":9,"web_url":"https://gitlab.com/grp/proj/-/merge_requests/9",` +
 					`"title":"chore: bump","draft":false,"created_at":"2026-09-15T08:00:00Z",` +
 					`"author":{"username":"cass"},"references":{"full":"grp/proj!9"}}]`,
@@ -137,7 +136,7 @@ func TestReviewRequestsReadsEveryPage(t *testing.T) {
 		"GitLab reads on until a short page": {
 			kind: forge.KindGitLab,
 			pages: map[string][]string{
-				gitlabUserPath:    {gitlabWhoami},
+				userPath:          {gitlabWhoami},
 				gitlabReviewsPath: {listingOf(1, 100, gitlabNumbered), listingOf(101, 1, gitlabNumbered)},
 			},
 			want: 101,
@@ -167,7 +166,7 @@ func TestReviewRequestsFiltersGitLabByReviewer(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := recordingForge(t, routing(map[string]string{gitlabUserPath: gitlabWhoami}))
+	client, seen := recordingForge(t, routing(map[string]string{userPath: gitlabWhoami}))
 
 	// Act
 	_, err := client.ReviewRequests(t.Context(), forge.KindGitLab)
@@ -209,7 +208,7 @@ func TestReviewRequestsReportsAGitLabListingFailure(t *testing.T) {
 	// Arrange
 	// GitLab answers who you are, then sends something that is not a listing.
 	client, _ := recordingForge(t, routing(map[string]string{
-		gitlabUserPath:    gitlabWhoami,
+		userPath:          gitlabWhoami,
 		gitlabReviewsPath: `{"message":"nope"}`,
 	}))
 
