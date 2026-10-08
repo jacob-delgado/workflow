@@ -148,8 +148,10 @@ test("a started task's mark is drawn in one hue in the header and the Tasks list
   const inHeader = await markHue(page.getByRole('button', { name: /active task/i }))
   const inList = await markHue(page.getByRole('list', { name: 'Tasks' }).getByRole('button'))
 
-  // Assert
-  expect(inList).toBe(inHeader)
+  // Assert: the header draws its mark, which a hue read off it says, and the
+  // list draws its own in that hue.
+  expect(inHeader, 'the header draws its mark').toMatch(/^rgb/)
+  expect(inList, "the list's mark in the header's hue").toBe(inHeader)
 })
 
 // markSeat says where a row's mark sits beside its description: centered on
