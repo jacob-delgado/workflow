@@ -17,6 +17,7 @@ import (
 // The directories the Repositories cases work in, under anaHome.
 const (
 	anaHome = "/home/ana"
+	srcDir  = "/home/ana/src"
 	apiRoot = "/home/ana/src/api"
 	apiCmd  = "/home/ana/src/api/cmd"
 	webRoot = "/home/ana/src/web"
