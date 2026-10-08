@@ -252,8 +252,9 @@ internal/wiring 14
 # state mark and the empty state, moved in from the shell, which drew neither
 # for itself alone: every section draws them, and a lib primitive (a read's
 # status) draws the mark, so lib stays a leaf that imports neither the shell
-# nor a feature.
-web/src/lib 15
+# nor a feature. 16 is the last look, the one shape of every question asked
+# before a write, with the hold it puts on the single-key shortcuts.
+web/src/lib 16
 
 # web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
 # `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by

@@ -1,5 +1,6 @@
 import type { HookSetup as Offer } from '@/api/generated/types.gen.ts'
-import { useHoldShortcuts, useShortcut } from '@/features/keyboard/useShortcut.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
+import { useHoldShortcuts } from '@/lib/LastLook.tsx'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'

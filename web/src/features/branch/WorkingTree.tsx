@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Change, FileDiff, Problem } from '@/api/generated/types.gen.ts'
 import { useChangedByStream } from '@/api/snapshot.ts'
-import { useHoldShortcuts, useShortcutProps } from '@/features/keyboard/useShortcut.ts'
+import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -9,6 +9,7 @@ import { Failure, ReadFailure } from '@/lib/Status.tsx'
 import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, keyedByText } from '@/lib/utils.ts'
+import { LastLook } from '@/lib/LastLook.tsx'
 import { CommitForm, type CommitConvention } from './CommitForm.tsx'
 import {
   discardFile,
@@ -402,11 +403,8 @@ interface DiscardConfirmProps {
 }
 
 // DiscardConfirm asks before a file's changes are dropped, since a discard
-// cannot be undone — the terminal's last look on x — and takes the focus as it
-// opens, so a screen reader hears the question.
+// cannot be undone — the terminal's last look on x — and drops them.
 function DiscardConfirm({ change, teller, onClose }: DiscardConfirmProps) {
-  const question = useFocusOnMount<HTMLDivElement>()
-  useHoldShortcuts()
   const discarding = useAsyncAction(() => discardFile(change.path), {
     fallback: `${change.path} was not discarded. Try again, or discard it from a terminal to see why.`,
     done: () => `Discarded ${change.path}.`,
@@ -418,41 +416,22 @@ function DiscardConfirm({ change, teller, onClose }: DiscardConfirmProps) {
   })
 
   return (
-    <div
-      ref={question}
-      role="group"
-      aria-label={`Discard the changes to ${change.path}?`}
-      tabIndex={-1}
-      className="flex flex-col items-start gap-item rounded-lg border border-border p-3 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-    >
-      <p>
-        Discard the changes to <code>{change.path}</code>?
-      </p>
-      <p className="text-muted-foreground">{discardCost(change)}</p>
-      {discarding.state === 'error' ? (
-        <p role="alert" className="text-destructive">
-          {discarding.error}
-        </p>
-      ) : null}
-      <div className="flex items-center gap-item">
-        <Button
-          variant="secondary"
-          held={discarding.state === 'running'}
-          onClick={() => {
-            onClose(false)
-          }}
-        >
-          Cancel
-        </Button>
-        <Button
-          variant="primary"
-          held={discarding.state === 'running'}
-          onClick={() => void discarding.run()}
-        >
-          {discarding.state === 'running' ? 'Discarding…' : 'Discard'}
-        </Button>
-      </div>
-    </div>
+    <LastLook
+      question={
+        <>
+          Discard the changes to <code>{change.path}</code>?
+        </>
+      }
+      cost={discardCost(change)}
+      act="Discard"
+      acting="Discarding…"
+      write={discarding}
+      className="rounded-lg border border-border p-3"
+      onAct={() => void discarding.run()}
+      onCancel={() => {
+        onClose(false)
+      }}
+    />
   )
 }
 
