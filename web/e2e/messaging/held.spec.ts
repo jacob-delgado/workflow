@@ -4,8 +4,8 @@ import type {
   QueuedAnnouncement,
   Snapshot,
 } from '../../src/api/generated/types.gen.ts'
-import { height, pinTheme, themes, widths } from '../cockpit.ts'
-import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../tabwalk.ts'
+import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
+import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
 
 // The announcement edited before it goes, and held until the pull request's
 // CI passes, as the terminal's e and w in the preview do. The flows run on
