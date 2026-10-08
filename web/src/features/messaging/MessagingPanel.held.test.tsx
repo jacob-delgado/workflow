@@ -9,7 +9,7 @@ import { MessagingPanel } from './MessagingPanel.tsx'
 // Editing the announcement before it goes, and holding it until the pull
 // request's CI passes, as the terminal's e and w in the preview do; and saying
 // of one posted that the store could not remember that it may be offered
-// again, as the terminal and workflow announce say too, in words of their own.
+// again, in the sentence the terminal and workflow announce say too.
 
 const pull: PullRequest = {
   number: 42,

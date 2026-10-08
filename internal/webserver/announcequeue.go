@@ -433,19 +433,15 @@ func (s *server) recordAnnouncement(made loop.Announced) error {
 	return err
 }
 
-// notRememberedWarning is the web's short form of loop.ErrNotRemembered, said
-// of an announcement posted that the store could not remember. Why the store
-// could not goes to the log alone: its error can name the file.
-const notRememberedWarning = "Posted, but not remembered: it may be offered again."
-
 // delivered is how a delivery went, as an announcement, and the warning to
 // say of it: one posted that the store could not remember was made all the
 // same, so its failure is noted and warned of rather than answered as one.
+// Why the store could not goes to the log alone: its error can name the file.
 func (s *server) delivered(err error) (string, error) {
 	if errors.Is(err, loop.ErrNotRemembered) {
 		s.unexpected(err)
 
-		return notRememberedWarning, nil
+		return loop.NotRememberedWarning, nil
 	}
 
 	return "", err

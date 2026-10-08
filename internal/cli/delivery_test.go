@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -121,8 +122,11 @@ func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
 	printed, err := runStreamsAt(t, where, unusedPrompt(t), "announce", "--yes")
 
 	// Assert
-	if err != nil || posts.Load() != 1 || !strings.Contains(printed.stderr, "Announced to") ||
-		!strings.Contains(printed.stderr, "could not be remembered") {
+	// The line saying where it went, then the sentence every surface says of
+	// it, then why.
+	saidSo := regexp.MustCompile(`(?m)^Announced to .+\.\n` +
+		regexp.QuoteMeta("Posted, but not remembered: it may be offered again.") + ` \S`)
+	if err != nil || posts.Load() != 1 || !saidSo.MatchString(printed.stderr) {
 		t.Errorf("announce --yes = %v after %d posts, saying:\n%s\nwant the announcement made and the store's "+
 			"failure said", err, posts.Load(), printed.stderr)
 	}

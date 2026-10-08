@@ -987,12 +987,12 @@ own. A favorite is kept as the directory's path alone; whether it is still
 there, and whether it is a repository, is read from the disk each time.
 
 A store that cannot keep what it is given — a full disk, a file another
-program holds — never stops what was being done, and says so: an
-announcement is posted and the interface, `workflow announce` and the
-`--web` page add that it could not be remembered, so a later session may
-offer it again, with why in the `--web` server's log; a commit's scope and an
-issue list not kept are said in the interface's footer, and in the server's
-log under `--web`.
+program holds — never stops what was being done, and says so. An
+announcement is posted, and the interface, `workflow announce` and the
+`--web` page all add *Posted, but not remembered: it may be offered again.*;
+the interface and `workflow announce` then say why, and under `--web` the
+server's log does. A commit's scope and an issue list not kept are said in
+the interface's footer, and in the server's log under `--web`.
 
 Those associations are what tagging an announcement reads. Whom a code owner
 is on Slack is kept per forge host (`github.com`, say), since an owner is the

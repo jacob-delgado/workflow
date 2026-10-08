@@ -543,7 +543,10 @@ dropped, saying so, rather than sent for something you never previewed. A pull
 request is announced once at each moment — ready for review, CI red, merged —
 and the messaging pane and the top row say whether the one on screen has been.
 The store remembers what was announced, so a later session does not offer the
-same announcement again.
+same announcement again. One it cannot remember — a full disk, say — is posted
+all the same, and the notice adds *Posted, but not remembered: it may be
+offered again.* and why; `workflow announce` says the same, and the `--web`
+page the sentence alone.
 
 ### Track it in Taskwarrior
 
