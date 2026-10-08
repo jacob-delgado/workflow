@@ -1,0 +1,26 @@
+# The SHA-256 of every file build/Dockerfile downloads, one line per tool,
+# version and architecture (as dpkg names it):
+#
+#     <tool> <version> <amd64|arm64> <sha256>
+#
+# The Dockerfile checks each download against its line with
+# scripts/verify-download.sh and stops the build on a mismatch or a missing
+# line. scripts/check-tool-checksums.sh (`task lint`) holds this file to
+# mise.toml: bumping one of these tools there means replacing its two lines
+# here with the sha256sum of each new file, past the same week-long age gate.
+node 24.21.0 amd64 fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6
+node 24.21.0 arm64 6ad1325edbdb5649c379b75a237147a666c95d4f9ae8d340fef2d1575d289ad2
+shellcheck 0.11.0 amd64 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+shellcheck 0.11.0 arm64 12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588
+jq 1.8.2 amd64 b1c22172dd303f3be49e935aa56aa48a8b7a46e0bc838b4997d3bb451495870f
+jq 1.8.2 arm64 8b85c817833814ddca00a144c33705546355afccf0cf39b188f3cdb48b852309
+lefthook 2.1.14 amd64 2be3187101b3a2edd5edf8b546aa2e3820531c517b4cd0216601a9c06f07c42d
+lefthook 2.1.14 arm64 47736ec15b894e29a3d3a8e7b550dd2ae47416dcc588371794783735608edf50
+typos 1.50.1 amd64 edf0545109aee6a22751d04ddecb97c45be47d3aa0409564fb895eeeace91b1e
+typos 1.50.1 arm64 a48feb58c517977ca953e634507c72819d64df8717c33ced3e43868d174fd39e
+hadolint 2.15.1 amd64 c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
+hadolint 2.15.1 arm64 f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d
+taplo 0.10.0 amd64 8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156
+taplo 0.10.0 arm64 033681d01eec8376c3fd38fa3703c79316f5e14bb013d859943b60a07bccdcc3
+zizmor 1.30.1 amd64 e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a
+zizmor 1.30.1 arm64 7ff1dce33bdd18fd2a4affe63bdd47efcccca97b2cec1c1863ec26e9e2647540
