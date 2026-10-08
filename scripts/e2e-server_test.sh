@@ -14,13 +14,8 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly here
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-# This test's own git must not follow the environment it was started with.
-# shellcheck disable=SC2046 # word splitting is the point: one name per word
-unset $(git rev-parse --local-env-vars)
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # The script serves the bin/workflow beside its own directory, so a copy of it
 # serves the stub.
@@ -37,9 +32,6 @@ readonly port=24680
 
 readonly -a git=(env -i "PATH=${PATH}" "HOME=${workdir}" GIT_CONFIG_NOSYSTEM=1 git)
 
-failures=0
-cases=0
-
 # serve runs the script on a fixture path and the port, keeping its output in
 # <path>.out, and prints pass or fail.
 serve() {
@@ -55,10 +47,8 @@ serve() {
 # failed records a failed case, with the script's output.
 #   failed <name> <path> <what went wrong>
 failed() {
-  local name="$1" path="$2" problem="$3"
-  echo "FAIL ${name}: ${problem}" >&2
-  sed 's/^/  /' "${path}.out" >&2
-  failures=$((failures + 1))
+  fail_case "$1" "$3"
+  sed 's/^/  /' "$2.out" >&2
 }
 
 # snapshot describes a path as it stands: every entry under it, where each
@@ -80,7 +70,7 @@ snapshot() {
 #   expect_refused <name> <path>
 expect_refused() {
   local name="$1" path="$2" before got after
-  cases=$((cases + 1))
+  count_case
   before="$(snapshot "${path}")"
   got="$(serve "${path}")"
   after="$(snapshot "${path}")"
@@ -122,7 +112,7 @@ fixture_problem() {
 #   expect_fixture <name> <path>
 expect_fixture() {
   local name="$1" path="$2" got problem served
-  cases=$((cases + 1))
+  count_case
   got="$(serve "${path}")"
 
   if [[ "${got}" != "pass" ]]; then
@@ -163,14 +153,9 @@ rebuilt="${workdir}/rebuilt"
 expect_fixture "a first build" "${rebuilt}"
 printf 'stale\n' >"${rebuilt}/stale.txt"
 expect_fixture "a directory the script made before" "${rebuilt}"
+count_case
 if [[ -e "${rebuilt}/stale.txt" ]]; then
-  echo "FAIL a directory the script made before: stale.txt survived the rebuild" >&2
-  failures=$((failures + 1))
+  fail_case "a rebuild" "stale.txt survived it"
 fi
 
-if ((failures > 0)); then
-  echo "e2e-server_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "e2e-server_test: ${cases} case(s) passed."
+finish_tests

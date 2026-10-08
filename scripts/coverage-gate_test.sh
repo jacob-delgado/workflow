@@ -11,12 +11,8 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly gate="${here}/coverage-gate.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # A minimal module with two functions, one covered and one not, so its profile
 # measures 50.0%. go tool cover resolves the profile's paths against this module,
@@ -49,20 +45,7 @@ EOF
 # expect runs the gate from the module and checks its exit.
 #   expect <pass|fail> <name> <arg>...
 expect() {
-  local want="$1" name="$2" got
-  shift 2
-  cases=$((cases + 1))
-
-  if (cd "${module}" && "${gate}" "$@") >/dev/null 2>&1; then
-    got="pass"
-  else
-    got="fail"
-  fi
-
-  if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want ${want}, got ${got}" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit "$1" "$2" run_in "${module}" "${gate}" "${@:3}"
 }
 
 # 50% coverage clears a floor of 40 and misses a floor of 60.
@@ -77,9 +60,4 @@ expect fail "a missing profile" "${module}/does-not-exist.out" 40
 : >"${module}/empty.out"
 expect fail "an empty profile" "${module}/empty.out" 40
 
-if ((failures > 0)); then
-  echo "coverage-gate_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "coverage-gate_test: ${cases} case(s) passed."
+finish_tests

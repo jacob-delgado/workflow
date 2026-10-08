@@ -10,29 +10,13 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly check="${here}/check-go-version.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # expect runs the gate in a directory and compares its exit to pass or fail.
 #   expect <pass|fail> <name> <dir>
 expect() {
-  local want="$1" name="$2" dir="$3" got
-  cases=$((cases + 1))
-
-  if (cd "${dir}" && "${check}") >/dev/null 2>&1; then
-    got="pass"
-  else
-    got="fail"
-  fi
-
-  if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want ${want}, got ${got}" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit "$1" "$2" run_in "$3" "${check}"
 }
 
 # tree writes the five version sources into a fresh directory.
@@ -68,9 +52,4 @@ tree "${missing}" "1.27" "1.27.1" "1.27.1" "1.27.1" "1.27"
 rm "${missing}/mise.toml"
 expect fail "a source that cannot be read" "${missing}"
 
-if ((failures > 0)); then
-  echo "check-go-version_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "check-go-version_test: ${cases} case(s) passed."
+finish_tests
