@@ -4,13 +4,14 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "esnext",
-    "types": ["vite/client", "vitest/globals"],
+    "types": ["vite/client"],
     "skipLibCheck": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
-    /* `@/` is the src root — mirrored in vite.config.ts and vitest.config.ts.
-       No "baseUrl": TS 6 deprecates it, and relative path targets don't need it. */
+    /* `@/` is the src root, declared here alone: Vite, Vitest and the test
+       project read it from this file. No "baseUrl": TS 6 deprecates it, and
+       relative path targets don't need it. */
     "paths": { "@/*": ["./src/*"] },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
@@ -26,5 +27,8 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  /* The tests and their helpers are tsconfig.test.json's, which adds Vitest's
+     globals, so a stray expect() in the app does not compile. */
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test", "src/test-setup.ts"]
 }
