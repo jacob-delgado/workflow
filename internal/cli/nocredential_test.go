@@ -12,8 +12,10 @@ import (
 // A token_env that gives nothing is a configured source, so the error names
 // the variable rather than saying no token is configured.
 func TestAJiraTokenVariableThatGivesNothingIsNamedNotCalledUnconfigured(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	t.Setenv(emptyTokenVariable, "")
+	setVariable(t, emptyTokenVariable, "")
 
 	repo := repoForBranch(t, "https://jira.example.net")
 	writeFile(t, repo, `{"jira": {"base_url": "https://jira.example.net", "token_env": "`+emptyTokenVariable+`"}}`)
@@ -31,6 +33,8 @@ func TestAJiraTokenVariableThatGivesNothingIsNamedNotCalledUnconfigured(t *testi
 // in, rather than called a token that is not configured. The file keeps the
 // token's credentials, so no keychain is read.
 func TestASlackUserTokenNotLoggedInNamesTheLogin(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 
@@ -48,6 +52,8 @@ func TestASlackUserTokenNotLoggedInNamesTheLogin(t *testing.T) {
 }
 
 func TestDoctorUnderDryRunHoldsBackARefreshThatWouldWrite(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	path := writeFile(t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999",`+

@@ -22,7 +22,7 @@ import (
 // when forge.cli asks for it and the tool is installed, and otherwise over HTTP.
 // The bool reports that the CLI was chosen, so the caller knows the request
 // carries its own authentication and no token is required.
-func forgeTransport(
+func (e Environment) forgeTransport(
 	ctx context.Context, settings config.Forge, repo forge.Repo, base string, httpTransport httpx.Doer,
 ) (forge.Doer, bool) {
 	if !settings.CLI {
@@ -30,11 +30,11 @@ func forgeTransport(
 	}
 
 	program, ok := forgeProgram(repo.Kind)
-	if !ok || !proc.Available(program) {
+	if !ok || !e.Available(program) {
 		return httpTransport, false
 	}
 
-	return forgeCLIDoer(ctx, proc.Capture, program, base, repo.Kind), true
+	return forgeCLIDoer(ctx, e.capture, program, base, repo.Kind), true
 }
 
 // cliToken stands in for the forge client's token when the CLI carries the

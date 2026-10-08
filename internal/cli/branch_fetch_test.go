@@ -46,6 +46,8 @@ func advanceOrigin(t *testing.T, origin string) string {
 }
 
 func TestBranchFetchStartsFromWhatOriginHoldsNow(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, origin := repoWithOrigin(t, server.URL)
@@ -66,6 +68,8 @@ func TestBranchFetchStartsFromWhatOriginHoldsNow(t *testing.T) {
 }
 
 func TestBranchFetchSaysItFetchesFirst(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, _ := repoWithOrigin(t, server.URL)
@@ -85,6 +89,8 @@ func TestBranchFetchSaysItFetchesFirst(t *testing.T) {
 }
 
 func TestBranchFetchThatFailsCreatesNothing(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, origin := repoWithOrigin(t, server.URL)
@@ -111,6 +117,8 @@ func TestBranchFetchThatFailsCreatesNothing(t *testing.T) {
 }
 
 func TestBranchWorktreePrintsTheDirectoryItMade(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
@@ -140,6 +148,8 @@ func TestBranchWorktreePrintsTheDirectoryItMade(t *testing.T) {
 }
 
 func TestBranchWorktreeDryRunSaysWhereItWouldWork(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)

@@ -23,12 +23,9 @@ var errUnexpectedPrompt = errors.New("unexpected prompt read")
 
 // run executes the command tree in dir and returns everything it printed.
 //
-// It changes the working directory, because that is the input the command tree
-// reads; t.Chdir restores it when the test ends. These tests therefore do not
-// call t.Parallel().
-//
-// Each run gets an empty home of its own and none of the developer's
-// environment: see isolatedEnvironment.
+// Each run is handed an Environment of its own, run from dir with an empty home
+// of its own and none of the developer's environment, so the tests run side by
+// side: see environmentFor and isolatedEnvironment.
 func run(t *testing.T, dir string, args ...string) (string, error) {
 	t.Helper()
 
@@ -83,17 +80,9 @@ type place struct {
 func runStreamsAt(t *testing.T, where place, prompt cli.Prompt, args ...string) (streams, error) {
 	t.Helper()
 
-	for name, value := range isolatedEnvironment(where.home) {
-		t.Setenv(name, value)
-	}
-
-	t.Setenv("XDG_STATE_HOME", where.state)
-
-	t.Chdir(where.dir)
-
 	var stdout, stderr bytes.Buffer
 
-	err := cli.Execute(args, &stdout, &stderr, prompt)
+	err := cli.Execute(args, &stdout, &stderr, prompt, environmentFor(t, where))
 
 	return streams{stdout: stdout.String(), stderr: stderr.String()}, err
 }
@@ -101,16 +90,13 @@ func runStreamsAt(t *testing.T, where place, prompt cli.Prompt, args ...string) 
 // isolatedEnvironment is the environment every run gets, so nothing of the
 // developer's own decides a result or is touched by one: the home is the
 // test's — a ~/.workflow.json would stand in for a missing file — and the store
-// is kept under it, not in $XDG_STATE_HOME or %AppData%, where the developer's
-// own store is; and git reads no configuration but the repository's — a global
-// commit.gpgsign would fail a commit.
-func isolatedEnvironment(home string) map[string]string {
+// is kept under it, in $XDG_STATE_HOME only where the test chose one, never in
+// %AppData%, where the developer's own store is.
+func isolatedEnvironment(where place) map[string]string {
 	return map[string]string{
-		"HOME":                home,
-		"XDG_STATE_HOME":      "",
-		"AppData":             filepath.Join(home, "AppData"),
-		"GIT_CONFIG_GLOBAL":   os.DevNull,
-		"GIT_CONFIG_NOSYSTEM": "1",
+		"HOME":           where.home,
+		"XDG_STATE_HOME": where.state,
+		"AppData":        filepath.Join(where.home, "AppData"),
 	}
 }
 
@@ -175,6 +161,8 @@ func writeFile(t *testing.T, dir, contents string) string {
 }
 
 func TestConfigInitWritesATemplate(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -202,6 +190,8 @@ func TestConfigInitWritesATemplate(t *testing.T) {
 }
 
 func TestConfigInitRefusesToOverwriteWithoutForce(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -236,6 +226,8 @@ func TestConfigInitRefusesToOverwriteWithoutForce(t *testing.T) {
 }
 
 func TestConfigInitForceOverwrites(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	path := writeFile(t, dir, `{"jira": {"base_url": "https://old.example.com"}}`)
@@ -259,6 +251,8 @@ func TestConfigInitForceOverwrites(t *testing.T) {
 }
 
 func TestConfigInitForceLeavesTheModeItReports(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	path := writeFile(t, dir, `{}`)
@@ -287,6 +281,8 @@ func TestConfigInitForceLeavesTheModeItReports(t *testing.T) {
 }
 
 func TestConfigShowMasksTokens(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -314,6 +310,8 @@ func TestConfigShowMasksTokens(t *testing.T) {
 }
 
 func TestHelpExplainsBothTokens(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, err := run(t, t.TempDir(), "--help")
 	if err != nil {
@@ -347,6 +345,8 @@ func TestHelpExplainsBothTokens(t *testing.T) {
 }
 
 func TestConfigShowMasksTheWebhookURL(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -370,6 +370,8 @@ func TestConfigShowMasksTheWebhookURL(t *testing.T) {
 }
 
 func TestConfigShowReadsTheHomeConfigurationWhenTheDirectoryHasNone(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	home := t.TempDir()
 	path := writeFile(t, home, `{"messaging": {"channel": "#from-home"}}`)
@@ -388,6 +390,8 @@ func TestConfigShowReadsTheHomeConfigurationWhenTheDirectoryHasNone(t *testing.T
 }
 
 func TestConfigShowNamesHowToCreateAConfiguration(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "config", "show")
 
@@ -405,6 +409,8 @@ func TestConfigShowNamesHowToCreateAConfiguration(t *testing.T) {
 }
 
 func TestConfigShowExitsLikeDoctorWithoutAConfig(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	_, doctorErr := run(t, t.TempDir(), "doctor")
 
@@ -418,6 +424,8 @@ func TestConfigShowExitsLikeDoctorWithoutAConfig(t *testing.T) {
 }
 
 func TestConfigShowWritesOnlyJSONToStdout(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	path := writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"}}`)
@@ -443,6 +451,8 @@ func TestConfigShowWritesOnlyJSONToStdout(t *testing.T) {
 }
 
 func TestConfigShowRefusesAMalformedConfiguration(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, "{not json")
@@ -459,6 +469,8 @@ func TestConfigShowRefusesAMalformedConfiguration(t *testing.T) {
 }
 
 func TestEverySurfaceNamesBothSetupSteps(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string][]string{
 		"config show": {"config", "show"},
 		"doctor":      {"doctor"},
@@ -466,6 +478,8 @@ func TestEverySurfaceNamesBothSetupSteps(t *testing.T) {
 
 	for name, args := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := t.TempDir()
 
@@ -483,6 +497,8 @@ func TestEverySurfaceNamesBothSetupSteps(t *testing.T) {
 }
 
 func TestTheVersionFlagPrintsTheBuild(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, err := run(t, t.TempDir(), "--version")
 	// Assert
@@ -496,6 +512,8 @@ func TestTheVersionFlagPrintsTheBuild(t *testing.T) {
 }
 
 func TestDoctorReportsTheVersionFirst(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, _ := run(t, t.TempDir(), "doctor")
 

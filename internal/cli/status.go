@@ -159,19 +159,24 @@ type directoryStatus struct {
 func statusesOf(
 	cmd *cobra.Command, note *progressNote, dirs []string, requestLog *wiring.RequestLog,
 ) []directoryStatus {
-	home := configHome()
-	labels := repoLabels(dirs, home)
+	labels := repoLabels(dirs, configHome(cmd))
 	statuses := make([]directoryStatus, 0, len(dirs))
 
 	for index, dir := range dirs {
 		note.show("Reading", labels[index])
 
-		conn := connectAt(cmd, dir, home, requestLog)
-		facts, err := statusOf(conn)
+		status := directoryStatus{dir: dir, label: labels[index]}
 
-		statuses = append(statuses, directoryStatus{
-			dir: dir, label: labels[index], facts: facts, ascii: conn.cfg.UI.ASCII, err: err,
-		})
+		found, err := fromWorkingDir(cmd, dir)
+		if err != nil {
+			status.err = err
+		} else {
+			conn := connectAt(cmd, found, requestLog)
+			status.facts, status.err = statusOf(conn)
+			status.ascii = conn.cfg.UI.ASCII
+		}
+
+		statuses = append(statuses, status)
 	}
 
 	return statuses

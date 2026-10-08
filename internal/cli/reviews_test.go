@@ -50,6 +50,8 @@ func reviewsRepo(t *testing.T) string {
 }
 
 func TestReviewsWithoutAForgeReportsSo(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	// No repository, so no remote names a forge.
 	_, err := run(t, t.TempDir(), "reviews")
@@ -63,6 +65,8 @@ func TestReviewsWithoutAForgeReportsSo(t *testing.T) {
 }
 
 func TestReviewsOnAHostThatNamesNoForgeReportsSo(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The hostname says neither GitHub nor GitLab, and no forge.kind says which.
 	repo := repoWithRemote(t, onPremisesRemote)
@@ -79,6 +83,8 @@ func TestReviewsOnAHostThatNamesNoForgeReportsSo(t *testing.T) {
 }
 
 func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{search: reviewSearch(
 		reviewItem(7, "ben", "grp/proj", time.Now().Add(-50*time.Hour)),
@@ -107,6 +113,8 @@ func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
 }
 
 func TestReviewsOmitsAnUnknownRepository(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{search: reviewSearch(
 		reviewItem(5, "ana", "", time.Now().Add(-time.Hour)),
@@ -126,6 +134,8 @@ func TestReviewsOmitsAnUnknownRepository(t *testing.T) {
 }
 
 func TestReviewsWithNothingWaitingSaysSo(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The default search answers with no items.
 	fakeGh(t, ghResponses{})
@@ -147,6 +157,8 @@ func TestReviewsWithNothingWaitingSaysSo(t *testing.T) {
 }
 
 func TestReviewsReportsAForgeFailure(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// An unreadable search body makes the forge client fail to decode the answer.
 	fakeGh(t, ghResponses{search: "{"})
@@ -162,6 +174,8 @@ func TestReviewsReportsAForgeFailure(t *testing.T) {
 }
 
 func TestReviewsAsJSONReportsEachOldestFirstWithWhenItWasOpened(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	now := time.Now().UTC().Truncate(time.Second)
 	opened := map[int]time.Time{
@@ -211,6 +225,8 @@ const (
 )
 
 func TestReviewsSortsAsAsked(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		sort string
 		want []string
@@ -222,6 +238,8 @@ func TestReviewsSortsAsAsked(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			now := time.Now()
 			fakeGh(t, ghResponses{search: reviewSearch(
@@ -255,6 +273,8 @@ func TestReviewsSortsAsAsked(t *testing.T) {
 }
 
 func TestReviewsRefusesASortItDoesNotKnow(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{search: reviewSearch()})
 	repo := reviewsRepo(t)

@@ -21,6 +21,8 @@ import (
 // a repository or Slack they fail with a reason rather than a panic.
 
 func TestBranchCommandNeedsATracker(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	// With no Jira configured the forge's issues are the tracker, and with no
 	// repository there is no remote to name the forge, so there is no tracker to
@@ -36,6 +38,8 @@ func TestBranchCommandNeedsATracker(t *testing.T) {
 }
 
 func TestPRCommandReadsTheBranch(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	// Outside a repository there is no branch to open a pull request for.
 	_, err := run(t, t.TempDir(), "pr")
@@ -49,6 +53,8 @@ func TestPRCommandReadsTheBranch(t *testing.T) {
 }
 
 func TestAnnounceCommandNeedsMessaging(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	_, err := run(t, t.TempDir(), "announce")
 
@@ -61,6 +67,8 @@ func TestAnnounceCommandNeedsMessaging(t *testing.T) {
 }
 
 func TestDeclineNoticeGoesToStderr(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
@@ -81,6 +89,8 @@ func TestDeclineNoticeGoesToStderr(t *testing.T) {
 }
 
 func TestDryRunLineGoesToStderr(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := prRepo(t, "fix/PROJ-2-thing")
 
@@ -99,6 +109,8 @@ func TestDryRunLineGoesToStderr(t *testing.T) {
 }
 
 func TestConfirmWithoutATerminalNamesYes(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// Stdin is piped and empty, so the confirmation reads end-of-file.
 	repo := prRepo(t, "fix/PROJ-2-thing")
@@ -116,6 +128,8 @@ func TestConfirmWithoutATerminalNamesYes(t *testing.T) {
 }
 
 func TestConfigInitSaysWhatItWroteOnStderr(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -159,6 +173,8 @@ func completeBranch(t *testing.T, dir, toComplete string) string {
 }
 
 func TestBranchCompletionOffersAssignedIssues(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, searchFixture("PROJ-7", "PROJ-8"), new(atomic.Bool))
 	dir := t.TempDir()
@@ -174,6 +190,8 @@ func TestBranchCompletionOffersAssignedIssues(t *testing.T) {
 }
 
 func TestBranchCompletionFiltersByPrefix(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, searchFixture("PROJ-7", "TASK-3"), new(atomic.Bool))
 	dir := t.TempDir()
@@ -193,6 +211,8 @@ func TestBranchCompletionFiltersByPrefix(t *testing.T) {
 }
 
 func TestBranchCompletionOffersNothingWhenTheTrackerCannotBeReached(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The tracker would have keys to offer, but every request fails.
 	server := jiraServer(t, http.StatusInternalServerError, searchFixture("PROJ-7"), new(atomic.Bool))

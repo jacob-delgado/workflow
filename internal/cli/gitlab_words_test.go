@@ -44,6 +44,8 @@ func requireGitLabWords(t *testing.T, said, want string) {
 }
 
 func TestPRRefusesASecondMergeRequestInGitLabsWords(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGlabListing(t, openMergeRequest())
 	repo := gitlabRepo(t, "fix/PROJ-2-thing")
@@ -61,6 +63,8 @@ func TestPRRefusesASecondMergeRequestInGitLabsWords(t *testing.T) {
 }
 
 func TestPRRefusesABranchWithNoCommitsInGitLabsWords(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGlab(t)
 	repo := gitlabRepo(t, "fix/PROJ-2-thing")
@@ -79,6 +83,8 @@ func TestPRRefusesABranchWithNoCommitsInGitLabsWords(t *testing.T) {
 }
 
 func TestAnnounceRefusesABranchWithNoMergeRequestInGitLabsWords(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGlab(t)
 	repo := gitlabRepo(t, "fix/PROJ-2-thing")
@@ -96,6 +102,8 @@ func TestAnnounceRefusesABranchWithNoMergeRequestInGitLabsWords(t *testing.T) {
 }
 
 func TestReviewsListsMergeRequestsInGitLabsWords(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGlabListing(t, openMergeRequest())
 	repo := gitlabRepo(t, "work")
@@ -113,6 +121,8 @@ func TestReviewsListsMergeRequestsInGitLabsWords(t *testing.T) {
 }
 
 func TestReviewsWithNothingWaitingSaysSoInGitLabsWords(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGlab(t)
 	repo := gitlabRepo(t, "work")

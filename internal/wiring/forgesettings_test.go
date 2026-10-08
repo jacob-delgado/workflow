@@ -32,7 +32,7 @@ func TestForgeSettingsSavedWhileRunningReachTheNextCall(t *testing.T) {
 	// Arrange
 	installForgeCLI(t, "gh", forgeReplies{})
 	where := wiring.Workspace{Root: t.TempDir(), Remote: onPremisesRemote}
-	deps, controls := wiring.Deps(t.Context(), config.Config{}, where, nil)
+	deps, controls := processEnvironment().Deps(t.Context(), config.Config{}, where, nil)
 
 	// Act
 	kind := controls.UseForgeSettings(throughCLIOnPremises())
@@ -48,7 +48,7 @@ func TestForgeSettingsSavedWhileRunningReplaceTheConnectionMade(t *testing.T) {
 	// Arrange
 	installForgeCLI(t, "gh", forgeReplies{})
 	where := wiring.Workspace{Root: t.TempDir(), Remote: onPremisesRemote}
-	deps, controls := wiring.Deps(t.Context(), config.Config{Forge: throughCLIOnPremises()}, where, nil)
+	deps, controls := processEnvironment().Deps(t.Context(), config.Config{Forge: throughCLIOnPremises()}, where, nil)
 
 	_, _, err := deps.Forge.FindPullRequest("feat/x")
 	if err != nil {

@@ -311,12 +311,10 @@ linters:
       # variable file paths. gosec stays fully strict on production code.
       - path: _test\.go$
         linters: [gosec]
-      # The CLI tests drive the command tree through its real input: the process
-      # working directory. t.Chdir sets it per test and panics if the test is
-      # parallel, so these cannot be — and that is the tradeoff that buys tests
-      # against the actual argument-to-output path rather than a seam built to
-      # make the linter happy.
-      - path: internal/cli/.*_test\.go$
+      # This CLI test interrupts its own process, as Ctrl+C does, which every
+      # run beside it would hear too, so it runs alone. Every other CLI test is
+      # handed an Environment of its own and runs in parallel.
+      - path: internal/cli/interrupt_test\.go$
         linters: [paralleltest]
       # The wiring tests run the real git and lefthook, which read their
       # configuration, TMPDIR and PATH from the environment. t.Setenv is the

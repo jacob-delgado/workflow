@@ -66,6 +66,8 @@ func repoForBranch(t *testing.T, jiraURL string) string {
 }
 
 func TestBranchCreatesTheBranchForTheIssue(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
@@ -89,6 +91,8 @@ func TestBranchCreatesTheBranchForTheIssue(t *testing.T) {
 }
 
 func TestBranchRefusesAnIssueThatAlreadyHasABranch(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
@@ -107,6 +111,8 @@ func TestBranchRefusesAnIssueThatAlreadyHasABranch(t *testing.T) {
 }
 
 func TestBranchExistsSaysHowToSwitch(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
@@ -122,6 +128,8 @@ func TestBranchExistsSaysHowToSwitch(t *testing.T) {
 }
 
 func TestBranchPreviewSaysItSwitchesToTheBranch(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
@@ -145,6 +153,8 @@ func TestBranchPreviewSaysItSwitchesToTheBranch(t *testing.T) {
 }
 
 func TestBranchHelpSaysItSwitchesToTheBranch(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "branch", "--help")
 	// Assert
@@ -160,6 +170,8 @@ func TestBranchHelpSaysItSwitchesToTheBranch(t *testing.T) {
 }
 
 func TestBranchDryRunCreatesNothing(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Story", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
@@ -182,6 +194,8 @@ func TestBranchDryRunCreatesNothing(t *testing.T) {
 }
 
 func TestBranchCreatesAfterConfirmation(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The confirmation is answered "yes", so the branch is created.
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
@@ -200,6 +214,8 @@ func TestBranchCreatesAfterConfirmation(t *testing.T) {
 }
 
 func TestBranchDeclinedCreatesNothing(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
@@ -230,6 +246,8 @@ func TestBranchDeclinedCreatesNothing(t *testing.T) {
 }
 
 func TestBranchCutsFromHeadWithoutAConventionalBase(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The repository's only branch is neither main nor master, so there is no
 	// base to name and the branch is cut from HEAD.
@@ -254,6 +272,8 @@ func TestBranchCutsFromHeadWithoutAConventionalBase(t *testing.T) {
 }
 
 func TestBranchStopsWhenTheConfirmationCannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The confirmation prompt fails, so the branch is not created.
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
@@ -278,6 +298,8 @@ func TestBranchStopsWhenTheConfirmationCannotBeRead(t *testing.T) {
 }
 
 func TestBranchReportsAFailedCreate(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A branch named "fix" blocks creating "fix/PROJ-7-login": a ref cannot be
 	// both a name and a directory of names.
@@ -297,6 +319,8 @@ func TestBranchReportsAFailedCreate(t *testing.T) {
 }
 
 func TestBranchReportsAnUnreadableRepository(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The tracker is reachable, but the working directory is not a repository, so
 	// the existing branches cannot be listed.
@@ -316,6 +340,8 @@ func TestBranchReportsAnUnreadableRepository(t *testing.T) {
 }
 
 func TestBranchReportsATrackerServerError(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The tracker answers every request with a server error, so the issue cannot
 	// be read and no branch is named. The tracker did answer, so this is not the
@@ -335,6 +361,8 @@ func TestBranchReportsATrackerServerError(t *testing.T) {
 }
 
 func TestBranchFromABranchWhoseNameCannotBeShownCutsFromHead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// main is there to be the base, but the checked-out branch's name holds a
 	// character with no width, so where it stands is not read and the new

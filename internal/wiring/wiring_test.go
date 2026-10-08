@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gittest"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
@@ -86,10 +87,18 @@ func write(t *testing.T, path, contents string, mode os.FileMode) {
 
 // wired is the seams wiring.Deps builds over cfg and where, each service's
 // token left to be found on first use.
+// processEnvironment is the wiring's environment as this process holds it,
+// which these tests set with t.Setenv; call it after setting what it reads.
+func processEnvironment() wiring.Environment {
+	home, _ := os.UserHomeDir()
+
+	return wiring.Environment{Home: home, Getenv: os.Getenv, StateDir: store.DefaultDir, LookPath: proc.LookPath}
+}
+
 func wired(t *testing.T, cfg config.Config, where wiring.Workspace, log *wiring.RequestLog) tui.Deps {
 	t.Helper()
 
-	deps, _ := wiring.Deps(t.Context(), cfg, where, log)
+	deps, _ := processEnvironment().Deps(t.Context(), cfg, where, log)
 
 	return deps
 }
@@ -120,7 +129,7 @@ func TestLocateFindsTheRepositoryFromAnywhereInIt(t *testing.T) {
 	}
 
 	// Act
-	where := wiring.Locate(t.Context(), inside)
+	where := processEnvironment().Locate(t.Context(), inside)
 
 	// Assert
 	if where.Root != root || where.Remote != githubRemote {
@@ -135,7 +144,7 @@ func TestLocateOutsideARepositoryIsTheDirectoryItself(t *testing.T) {
 	outside := t.TempDir()
 
 	// Act
-	where := wiring.Locate(t.Context(), outside)
+	where := processEnvironment().Locate(t.Context(), outside)
 
 	// Assert
 	if where.Root != outside || where.Remote != "" {

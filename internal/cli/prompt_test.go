@@ -15,6 +15,8 @@ import (
 )
 
 func TestLineReaderKeepsAFinalLineTypedWithoutANewline(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	read := cli.LineReader(bufio.NewReader(strings.NewReader("first\r\nlast")), io.Discard)
 
@@ -35,6 +37,8 @@ func TestLineReaderKeepsAFinalLineTypedWithoutANewline(t *testing.T) {
 }
 
 func TestLineReaderPrintsThePromptBeforeReading(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var prompts strings.Builder
 
@@ -75,6 +79,8 @@ func pipedInput(t *testing.T, text string) *os.File {
 }
 
 func TestSecretReaderAnswersAPipeAsTheEndOfTheInput(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	read := cli.SecretReader(pipedInput(t, "not-a-secret\n"), io.Discard)
 
@@ -99,6 +105,8 @@ func pipedPrompt(t *testing.T, text string) cli.Prompt {
 }
 
 func TestGuidedInitOverAPipeSaysToWriteTheTemplate(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -113,6 +121,8 @@ func TestGuidedInitOverAPipeSaysToWriteTheTemplate(t *testing.T) {
 }
 
 func TestSlackLoginOverAPipeSaysToRunItAtATerminal(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	path := writeFile(t, dir, slackUserTokenFile)

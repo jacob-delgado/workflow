@@ -173,6 +173,8 @@ func reviewRepoAnswering(t *testing.T, transitions string, answers jiraAnswers) 
 }
 
 func TestPRLinksThePullOnTheIssue(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, writes := reviewRepo(t, reviewMoves)
 
@@ -203,6 +205,8 @@ func TestPRLinksThePullOnTheIssue(t *testing.T) {
 }
 
 func TestPRReportsAFailedLinkAndStillMovesTheIssue(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, writes := reviewRepoAnswering(t, reviewMoves,
 		jiraAnswers{link: http.StatusInternalServerError, transition: http.StatusNoContent})
@@ -226,6 +230,8 @@ func TestPRReportsAFailedLinkAndStillMovesTheIssue(t *testing.T) {
 }
 
 func TestPRReportsAFailedMove(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		link    int
 		reports []string
@@ -239,6 +245,8 @@ func TestPRReportsAFailedMove(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			repo, _ := reviewRepoAnswering(t, reviewMoves,
 				jiraAnswers{link: tt.link, transition: http.StatusInternalServerError})
@@ -259,6 +267,8 @@ func TestPRReportsAFailedMove(t *testing.T) {
 }
 
 func TestPRAsksToLinkThenToMove(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, _ := reviewRepo(t, reviewMoves)
 
@@ -279,6 +289,8 @@ func TestPRAsksToLinkThenToMove(t *testing.T) {
 }
 
 func TestPRLeavesTheIssueUnlinkedWhenDeclined(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, writes := reviewRepo(t, reviewMoves)
 
@@ -300,6 +312,8 @@ func TestPRLeavesTheIssueUnlinkedWhenDeclined(t *testing.T) {
 }
 
 func TestPRStopsAtTheLinkWhenNothingCanAnswer(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The open is answered, then the input ends before the link question.
 	repo, writes := reviewRepo(t, reviewMoves)
@@ -331,6 +345,8 @@ func TestPRStopsAtTheLinkWhenNothingCanAnswer(t *testing.T) {
 }
 
 func TestPRLinksNothingForABranchWithoutAnIssue(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{})
 	baseURL, writes := reviewJira(t)
@@ -352,6 +368,8 @@ func TestPRLinksNothingForABranchWithoutAnIssue(t *testing.T) {
 }
 
 func TestPRDoesNotLinkAForgeIssueNumberOnJira(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The branch names the forge's issue 42, not a Jira one: Jira would refuse
 	// the link, or read 42 as the id of an unrelated issue.
@@ -375,6 +393,8 @@ func TestPRDoesNotLinkAForgeIssueNumberOnJira(t *testing.T) {
 }
 
 func TestPRYesHelpNamesEverythingItAnswers(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "pr", "--help")
 	// Assert
@@ -391,6 +411,8 @@ func TestPRYesHelpNamesEverythingItAnswers(t *testing.T) {
 }
 
 func TestPRMovesTheIssueToTheReviewStatus(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, applied := reviewRepo(t, reviewMoves)
 
@@ -418,6 +440,8 @@ func TestPRMovesTheIssueToTheReviewStatus(t *testing.T) {
 }
 
 func TestPRLeavesTheIssueWhenTheReviewMoveIsDeclined(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, applied := reviewRepo(t, reviewMoves)
 
@@ -442,6 +466,8 @@ func TestPRLeavesTheIssueWhenTheReviewMoveIsDeclined(t *testing.T) {
 }
 
 func TestPRDoesNotMoveToAReviewStatusItCannotComplete(t *testing.T) {
+	t.Parallel()
+
 	// A workflow that never reaches In Review, and one that gates it behind a
 	// required field the command cannot fill: both leave the issue untouched.
 	noReview := `{"transitions":[{"id":"11","name":"Start Progress",` +
@@ -458,6 +484,8 @@ func TestPRDoesNotMoveToAReviewStatusItCannotComplete(t *testing.T) {
 
 	for name, transitions := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			repo, applied := reviewRepo(t, transitions)
 

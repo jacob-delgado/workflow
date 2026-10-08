@@ -31,6 +31,8 @@ func fieldValue(output, label string) string {
 }
 
 func TestDoctorReportsAMissingFile(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, err := run(t, t.TempDir(), "doctor")
 
@@ -43,6 +45,8 @@ func TestDoctorReportsAMissingFile(t *testing.T) {
 }
 
 func TestDoctorNamesMissingFields(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"}}`)
@@ -69,6 +73,8 @@ func TestDoctorNamesMissingFields(t *testing.T) {
 }
 
 func TestDoctorAcceptsACompleteConfig(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
@@ -84,6 +90,8 @@ func TestDoctorAcceptsACompleteConfig(t *testing.T) {
 }
 
 func TestDoctorReportsAConflictingKeyOverride(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// commit and stage-all both live on the Branch and Commits panes, so binding
 	// commit to stage-all's key is a conflict doctor should catch.
@@ -106,6 +114,8 @@ func TestDoctorReportsAConflictingKeyOverride(t *testing.T) {
 }
 
 func TestDoctorFailsOnAConfigurationOthersCanRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	path := writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
@@ -143,6 +153,8 @@ func git(t *testing.T, dir string, args ...string) {
 }
 
 func TestDoctorReportsTheRepositoryItIsIn(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	gitInit(t, dir)
@@ -179,6 +191,8 @@ func TestDoctorReportsTheRepositoryItIsIn(t *testing.T) {
 }
 
 func TestDoctorReportsADirectoryOutsideAnyRepository(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, _ := run(t, t.TempDir(), "doctor")
 
@@ -189,6 +203,8 @@ func TestDoctorReportsADirectoryOutsideAnyRepository(t *testing.T) {
 }
 
 func TestDoctorReportsTheExternalTooling(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, _ := run(t, t.TempDir(), "doctor")
 
@@ -211,6 +227,8 @@ func TestDoctorReportsTheExternalTooling(t *testing.T) {
 }
 
 func TestDoctorReportsADetachedHead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	gitInit(t, dir)
@@ -230,10 +248,12 @@ func TestDoctorReportsADetachedHead(t *testing.T) {
 }
 
 func TestDoctorFailsWhenRequiredToolingIsMissing(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// An empty PATH is the only portable way to make every program unfindable,
 	// which is what proves the required/optional distinction actually bites.
-	t.Setenv("PATH", "")
+	setVariable(t, "PATH", "")
 
 	// Act
 	output, err := run(t, t.TempDir(), "doctor")
@@ -258,6 +278,8 @@ func TestDoctorFailsWhenRequiredToolingIsMissing(t *testing.T) {
 }
 
 func TestDoctorReportsAMalformedConfiguration(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, "{not json")
@@ -279,6 +301,8 @@ func TestDoctorReportsAMalformedConfiguration(t *testing.T) {
 }
 
 func TestDoctorSaysItCannotReadTheConfiguration(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	if os.Geteuid() == 0 {
 		t.Skip("root opens a file whatever its mode, so the sealed one would be read")
@@ -308,6 +332,8 @@ func TestDoctorSaysItCannotReadTheConfiguration(t *testing.T) {
 }
 
 func TestDoctorAcceptsAWebhookWithoutAChannel(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -339,6 +365,8 @@ func TestDoctorAcceptsAWebhookWithoutAChannel(t *testing.T) {
 }
 
 func TestDoctorDoesNotTouchTheNetworkWithoutTheFlag(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var reached atomic.Bool
 
@@ -374,6 +402,8 @@ func repoWithRemote(t *testing.T, remote string) string {
 }
 
 func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
+	t.Parallel()
+
 	// githubForge is how doctor names github.com's owner/repo, however the
 	// remote is written.
 	const githubForge = "GitHub owner/repo at https://api.github.com"
@@ -414,6 +444,8 @@ func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := repoWithRemote(t, tt.remote)
 
@@ -433,6 +465,8 @@ func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 }
 
 func TestDoctorSaysWhenThereIsNoRemote(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	gitInit(t, dir)
@@ -453,6 +487,8 @@ const invalidValuesConfig = `{"jira":{"base_url":"https://jira.example.com","tok
 	`"messaging":{"webhook_url":"http://hooks.example.com/x"},"ui":{"keys":{"commit":"a"}}}`
 
 func TestDoctorReportsSetButInvalidValues(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, invalidValuesConfig)

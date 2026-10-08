@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -39,6 +38,8 @@ func wantExit(t *testing.T, err error, want int) {
 }
 
 func TestExitStatusDistinguishesFailureKinds(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		err  error
 		want int
@@ -94,6 +95,8 @@ func TestExitStatusDistinguishesFailureKinds(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Act & Assert
 			wantExit(t, tt.err, tt.want)
 		})
@@ -159,6 +162,8 @@ func answeringWith(status int, body string) http.HandlerFunc {
 }
 
 func TestAServiceAnswerExitsInItsFamily(t *testing.T) {
+	t.Parallel()
+
 	// Each error is the one the service's own client makes of the answer, so
 	// the family is the one a command meeting it exits with.
 	cases := map[string]struct {
@@ -192,6 +197,8 @@ func TestAServiceAnswerExitsInItsFamily(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			server := httptest.NewServer(tt.answer)
 			t.Cleanup(server.Close)
@@ -206,6 +213,8 @@ func TestAServiceAnswerExitsInItsFamily(t *testing.T) {
 }
 
 func TestExitStatusMarksMisuse(t *testing.T) {
+	t.Parallel()
+
 	// Each case names what its message must still say: cobra's words are all a
 	// user sees of what was wrong.
 	cases := map[string]struct {
@@ -224,6 +233,8 @@ func TestExitStatusMarksMisuse(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Act
 			_, err := run(t, t.TempDir(), strings.Fields(tt.args)...)
 
@@ -241,6 +252,8 @@ func TestExitStatusMarksMisuse(t *testing.T) {
 const rootHelp = "Run 'workflow --help' for usage."
 
 func TestUnknownCommandPointsAtHelp(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		args  string
 		meant string
@@ -254,6 +267,8 @@ func TestUnknownCommandPointsAtHelp(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Act
 			printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), strings.Fields(tt.args)...)
 
@@ -270,6 +285,8 @@ func TestUnknownCommandPointsAtHelp(t *testing.T) {
 }
 
 func TestMisuseWithNothingToSuggestPointsAtHelpAlone(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		args string
 		help string
@@ -281,6 +298,8 @@ func TestMisuseWithNothingToSuggestPointsAtHelpAlone(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Act
 			_, err := run(t, t.TempDir(), strings.Fields(tt.args)...)
 
@@ -295,6 +314,8 @@ func TestMisuseWithNothingToSuggestPointsAtHelpAlone(t *testing.T) {
 }
 
 func TestBareConfigPrintsItsHelp(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "config")
 
@@ -309,6 +330,8 @@ func TestBareConfigPrintsItsHelp(t *testing.T) {
 }
 
 func TestCompletionWritesItsScriptToStdout(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "completion", "bash")
 	// Assert
@@ -321,24 +344,9 @@ func TestCompletionWritesItsScriptToStdout(t *testing.T) {
 	}
 }
 
-func TestAnInterruptedGitCommandExitsAsInterrupted(t *testing.T) {
-	// Arrange
-	repo := featureRepo(t)
-	// A git that raises Ctrl+C on the process running it and then hangs until it
-	// is stopped: the interrupt lands mid-subprocess, where what comes back is
-	// git's own exit status rather than the interrupt.
-	fakeGit := t.TempDir()
-	writeExecutable(t, filepath.Join(fakeGit, "git"), "#!/bin/sh\nkill -INT $PPID\nexec sleep 5\n", 0o755)
-	t.Setenv("PATH", fakeGit+string(os.PathListSeparator)+os.Getenv("PATH"))
-
-	// Act
-	_, err := run(t, repo, "status")
-
-	// Assert
-	wantExit(t, err, 130)
-}
-
 func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	// A file that exists but does not parse is not replaced by the defaults: a
 	// command run on settings nobody chose would act on the wrong things.
 	cases := [][]string{
@@ -353,6 +361,8 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 	for _, args := range cases {
 		name := strings.Join(args, " ")
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := t.TempDir()
 			writeFile(t, dir, "{not json")
@@ -371,6 +381,8 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 }
 
 func TestACommandRefusesAConfigurationItCannotOpen(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	if os.Geteuid() == 0 {
 		t.Skip("root opens a file whatever its mode, so the sealed one would be read")
@@ -398,6 +410,8 @@ func TestACommandRefusesAConfigurationItCannotOpen(t *testing.T) {
 }
 
 func TestExitStatusPutsMisuseBeforeEveryOtherKind(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	_, misuse := run(t, t.TempDir(), "status", "--no-such-flag")
 
@@ -406,10 +420,12 @@ func TestExitStatusPutsMisuseBeforeEveryOtherKind(t *testing.T) {
 }
 
 func TestExitStatusPutsTheConfigurationBeforeMissingTooling(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// No PATH, so git is missing, and no configuration either: doctor reports
 	// both, and the configuration is what a script should act on first.
-	t.Setenv("PATH", "")
+	setVariable(t, "PATH", "")
 
 	// Act
 	_, err := run(t, t.TempDir(), "doctor")
@@ -419,11 +435,13 @@ func TestExitStatusPutsTheConfigurationBeforeMissingTooling(t *testing.T) {
 }
 
 func TestExitStatusOfMissingToolingAlone(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
 		` "messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
-	t.Setenv("PATH", "")
+	setVariable(t, "PATH", "")
 
 	// Act
 	_, err := run(t, dir, "doctor")

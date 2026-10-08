@@ -19,6 +19,8 @@ const (
 const addressWithLogin = "https://" + addressUser + ":" + addressPassword + "@jira.example.com"
 
 func TestDoctorJSONOnlineAsksNoJiraAtAnAddressItCannotUse(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]string{
 		"not an http or https address": "ftp://jira.example.com",
 		"an address carrying a login":  addressWithLogin,
@@ -26,6 +28,8 @@ func TestDoctorJSONOnlineAsksNoJiraAtAnAddressItCannotUse(t *testing.T) {
 
 	for name, address := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			// The file does not load, so the run exits 3 for the address it
 			// names; Jira is never asked, so no credential is what is wrong.
@@ -51,8 +55,9 @@ func TestDoctorJSONOnlineAsksNoJiraAtAnAddressItCannotUse(t *testing.T) {
 }
 
 func TestDoctorRefusesAForgeKindNamingNoForge(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
 	dir := forgeKindRepository(t, `"kind": "bitbucket", "host": "`+unreachableHost+`"`)
 
 	// Act
@@ -67,6 +72,8 @@ func TestDoctorRefusesAForgeKindNamingNoForge(t *testing.T) {
 }
 
 func TestDoctorOnlinePrintsNoPartOfTheLoginInJiraAddress(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]string{
 		"the prose report": "doctor --online",
 		"the JSON report":  "doctor --json --online",
@@ -74,6 +81,8 @@ func TestDoctorOnlinePrintsNoPartOfTheLoginInJiraAddress(t *testing.T) {
 
 	for name, command := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := t.TempDir()
 			writeConfigFor(t, dir, addressWithLogin)

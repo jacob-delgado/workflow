@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/user"
 	"strings"
 
@@ -39,7 +38,9 @@ var errTokenCommandFailed = errors.New("the token command failed")
 //
 // A command is split on spaces and run as a program, no shell, so it stays pure
 // Go and works on every platform; wrap a pipeline in a script if one is needed.
-func ResolveToken(ctx context.Context, settings config.Jira, system Keychain) (config.Secret, string, error) {
+func (e Environment) ResolveToken(
+	ctx context.Context, settings config.Jira, system Keychain,
+) (config.Secret, string, error) {
 	switch {
 	case settings.Token != "":
 		return settings.Token, sourceFile, nil
@@ -48,9 +49,9 @@ func ResolveToken(ctx context.Context, settings config.Jira, system Keychain) (c
 	case settings.TokenEnv != "":
 		variable := settings.TokenEnv
 
-		return config.Secret(strings.TrimSpace(os.Getenv(variable))), "the " + variable + " environment variable", nil
+		return config.Secret(strings.TrimSpace(e.Getenv(variable))), "the " + variable + " environment variable", nil
 	case settings.TokenCommand != "":
-		return fromCommand(ctx, settings.TokenCommand)
+		return e.fromCommand(ctx, settings.TokenCommand)
 	default:
 		return "", sourceNone, nil
 	}
@@ -66,7 +67,7 @@ func (k Keychain) JiraTokenKeeper(ctx context.Context) func(service, secret stri
 	}
 
 	return func(service, secret string) error {
-		item, _ := keychain.Open(k.GOOS, service, k.Run, user.Current, os.Getenv)
+		item, _ := keychain.Open(k.GOOS, service, k.Run, user.Current, k.Getenv)
 
 		bounded, cancel := context.WithTimeout(ctx, proc.DefaultRunTimeout)
 		defer cancel()
@@ -81,7 +82,7 @@ func (k Keychain) jiraToken(ctx context.Context, settings config.Jira) (config.S
 	service := settings.KeychainService()
 	source := "the keychain item " + service
 
-	item, wired := keychain.Open(k.GOOS, service, k.Run, user.Current, os.Getenv)
+	item, wired := keychain.Open(k.GOOS, service, k.Run, user.Current, k.Getenv)
 	if !wired {
 		return "", source, fmt.Errorf("%w: jira.keychain reads none here", keychain.ErrNotWired)
 	}
@@ -95,13 +96,13 @@ func (k Keychain) jiraToken(ctx context.Context, settings config.Jira) (config.S
 }
 
 // fromCommand runs the token command and returns its trimmed output.
-func fromCommand(ctx context.Context, command string) (config.Secret, string, error) {
+func (e Environment) fromCommand(ctx context.Context, command string) (config.Secret, string, error) {
 	fields := strings.Fields(command)
 	if len(fields) == 0 {
 		return "", sourceCommand, nil
 	}
 
-	out, err := proc.Run(ctx, fields[0], fields[1:]...)
+	out, err := e.Run(ctx, fields[0], fields[1:]...)
 	if err != nil {
 		return "", sourceCommand, commandFailure(fields[0], err)
 	}
@@ -126,8 +127,10 @@ func commandFailure(program string, err error) error {
 // resolveSetToken finds the token a source the configuration sets gives, and
 // refuses one that gives nothing: sent, an empty credential would only be
 // turned away, for a reason the user could not act on.
-func resolveSetToken(ctx context.Context, settings config.Jira, system Keychain) (config.Secret, error) {
-	token, source, err := ResolveToken(ctx, settings, system)
+func (e Environment) resolveSetToken(
+	ctx context.Context, settings config.Jira, system Keychain,
+) (config.Secret, error) {
+	token, source, err := e.ResolveToken(ctx, settings, system)
 	if err != nil {
 		return "", err
 	}

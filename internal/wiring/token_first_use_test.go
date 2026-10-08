@@ -317,7 +317,7 @@ func TestResolvingAheadRunsTheJiraTokenCommandOnceForEveryLaterSearch(t *testing
 	jiraStandIn := newStandInJira(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: jiraStandIn.url, TokenCommand: tokens.command}
-	deps, controls := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := processEnvironment().Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act: resolve ahead
 	controls.ResolveAhead()
@@ -352,7 +352,7 @@ func TestResolvingAheadRetriesAFailedJiraTokenCommandOnFirstUse(t *testing.T) {
 	tokens := newFailingTokenCommand(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: newStandInJira(t).url, TokenCommand: tokens.command}
-	deps, controls := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := processEnvironment().Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 	controls.ResolveAhead()
 
 	// Act
@@ -377,7 +377,7 @@ func TestResolvingAheadLeavesTheTokenCommandOfAJiraNotInUseUnrun(t *testing.T) {
 	tokens := newTokenCommand(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{TokenCommand: tokens.command}
-	_, controls := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	_, controls := processEnvironment().Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act
 	controls.ResolveAhead()

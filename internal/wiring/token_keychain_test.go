@@ -11,6 +11,7 @@ package wiring_test
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -74,7 +75,7 @@ func (k *keychainHolding) services() []string {
 func macOSHolding(tokens map[string]string) (*keychainHolding, wiring.Keychain) {
 	held := &keychainHolding{tokens: tokens}
 
-	return held, wiring.Keychain{GOOS: macOS, Run: held.run}
+	return held, wiring.Keychain{GOOS: macOS, Run: held.run, Getenv: os.Getenv}
 }
 
 // writeConfig writes contents to a configuration file in a directory of its
@@ -112,7 +113,7 @@ func TestTheHomeTokenIsNeverSentToASecondAddress(t *testing.T) {
 	held, system := macOSHolding(map[string]string{homeItem: homeToken})
 
 	// Act
-	token, _, err := wiring.ResolveToken(t.Context(), movedJira(t), system)
+	token, _, err := processEnvironment().ResolveToken(t.Context(), movedJira(t), system)
 
 	// Assert
 	if !errors.Is(err, keychain.ErrNotStored) || token != "" {
@@ -132,7 +133,7 @@ func TestASecondAddressReadsTheTokenKeptForIt(t *testing.T) {
 	_, system := macOSHolding(map[string]string{homeItem: homeToken, secondItem: secondToken})
 
 	// Act
-	token, source, err := wiring.ResolveToken(t.Context(), movedJira(t), system)
+	token, source, err := processEnvironment().ResolveToken(t.Context(), movedJira(t), system)
 
 	// Assert
 	if err != nil || token != secondToken {
@@ -173,7 +174,7 @@ func TestResolveTokenTakesTheKeychainAfterTheFileAndBeforeTheOtherSources(t *tes
 			_, system := macOSHolding(map[string]string{homeItem: homeToken})
 
 			// Act
-			token, _, err := wiring.ResolveToken(t.Context(), tt.settings, system)
+			token, _, err := processEnvironment().ResolveToken(t.Context(), tt.settings, system)
 
 			// Assert
 			if err != nil || token.Reveal() != tt.want {
@@ -188,10 +189,12 @@ func TestAKeychainWhereNoneIsWiredIsNoToken(t *testing.T) {
 
 	// Arrange
 	held := &keychainHolding{tokens: map[string]string{homeItem: homeToken}}
-	elsewhere := wiring.Keychain{GOOS: noKeychainOS, Run: held.run}
+	elsewhere := wiring.Keychain{GOOS: noKeychainOS, Run: held.run, Getenv: os.Getenv}
 
 	// Act
-	token, _, err := wiring.ResolveToken(t.Context(), config.Jira{BaseURL: homeJira, Keychain: true}, elsewhere)
+	process := processEnvironment()
+
+	token, _, err := process.ResolveToken(t.Context(), config.Jira{BaseURL: homeJira, Keychain: true}, elsewhere)
 
 	// Assert
 	if !errors.Is(err, keychain.ErrNotWired) || token != "" || len(held.services()) != 0 {
@@ -207,10 +210,10 @@ func TestAnUnreadableKeychainItemIsToldWithoutWhatSecurityPrinted(t *testing.T) 
 	printed := func(context.Context, proc.Command, []byte) ([]byte, error) {
 		return nil, &proc.ExitError{Program: "security", Code: unreadableItem, Stderr: "SECRET-VALUE nearby"}
 	}
-	system := wiring.Keychain{GOOS: macOS, Run: printed}
+	system := wiring.Keychain{GOOS: macOS, Run: printed, Getenv: os.Getenv}
 
 	// Act
-	_, _, err := wiring.ResolveToken(t.Context(), config.Jira{BaseURL: homeJira, Keychain: true}, system)
+	_, _, err := processEnvironment().ResolveToken(t.Context(), config.Jira{BaseURL: homeJira, Keychain: true}, system)
 
 	// Assert
 	if err == nil || strings.Contains(err.Error(), "SECRET-VALUE") {
@@ -239,7 +242,7 @@ func TestNoTokenKeeperIsWiredWhereThereIsNoKeychain(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	keep := wiring.Keychain{GOOS: noKeychainOS, Run: (&fakeSecurity{}).run}.JiraTokenKeeper(t.Context())
+	keep := wiring.Keychain{GOOS: noKeychainOS, Run: (&fakeSecurity{}).run, Getenv: os.Getenv}.JiraTokenKeeper(t.Context())
 
 	// Assert
 	if keep != nil {

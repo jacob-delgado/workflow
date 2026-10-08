@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
-	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -90,9 +88,10 @@ func newDoctorCmd(prompt Prompt) *cobra.Command {
 			note := newProgressNote(cmd.ErrOrStderr(), prompt.IsTerminal)
 			defer note.clear()
 
-			cfg, loadErr := loadFromEnvironment()
+			cfg, loadErr := loadFromEnvironment(cmd)
 			run := doctorRun{
 				cfg: cfg, loadErr: loadErr, online: online, dryRun: dryRunRequested(cmd), log: requestLog, note: note,
+				env: environmentOf(cmd),
 			}
 			out := note.around(outputOf(cmd)).artifact
 
@@ -122,6 +121,9 @@ type doctorRun struct {
 	log    *wiring.RequestLog
 	// note names the service --online is asking while it waits for the answer.
 	note *progressNote
+	// env is the process doctor reports on: where it was run from, and the
+	// home, variables, store and programs it finds there.
+	env Environment
 }
 
 // runDoctor writes the report. Every section runs even when an earlier one found
@@ -134,14 +136,14 @@ func runDoctor(ctx context.Context, out io.Writer, run doctorRun) error {
 	field(out, "Version", buildinfo.Current())
 	fmt.Fprintln(out)
 
-	repository, remote := repositoryFactsFor(ctx)
+	repository, remote := repositoryFactsFor(ctx, run.env)
 	reportRepository(out, repository)
 	fmt.Fprintln(out)
 
-	toolingErr := reportTooling(ctx, out, run.cfg, remote)
+	toolingErr := reportTooling(ctx, out, run, remote)
 	fmt.Fprintln(out)
 
-	field(out, "Store", storeFactsFor(run.cfg).label())
+	field(out, "Store", storeFactsFor(run).label())
 	fmt.Fprintln(out)
 
 	configErr := reportConfiguration(out, run, remote)
@@ -169,15 +171,13 @@ type repositoryFacts struct {
 // repositoryFactsFor gathers the git facts, returning the raw remote alongside
 // so the other sections can parse it — the facts carry only the masked form,
 // since a remote can carry a credential just as a base URL can.
-func repositoryFactsFor(ctx context.Context) (repositoryFacts, string) {
-	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
-	// a working directory once it is removed.
-	dir, err := os.Getwd()
+func repositoryFactsFor(ctx context.Context, env Environment) (repositoryFacts, string) {
+	dir, err := env.WorkingDir()
 	if err != nil {
 		return repositoryFacts{Problem: fmt.Sprintf("cannot read the working directory: %v", err)}, ""
 	}
 
-	repo, err := gitrepo.At(proc.Run, dir).Describe(ctx)
+	repo, err := gitrepo.At(env.Process.Run, dir).Describe(ctx)
 	if err != nil {
 		return repositoryFacts{Problem: noRepositoryReason(dir, err)}, ""
 	}
@@ -349,12 +349,12 @@ type storeFacts struct {
 }
 
 // storeFactsFor finds the store's directory as the store itself does.
-func storeFactsFor(cfg config.Config) storeFacts {
-	if cfg.Store.Disabled {
+func storeFactsFor(run doctorRun) storeFacts {
+	if run.cfg.Store.Disabled {
 		return storeFacts{Disabled: true}
 	}
 
-	dir, err := store.DefaultDir()
+	dir, err := run.env.Process.StateDir()
 	if err != nil {
 		return storeFacts{Problem: err.Error()}
 	}

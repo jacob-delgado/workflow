@@ -11,6 +11,8 @@ import (
 )
 
 func TestStatusCountsNoChangesItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// There is a change to count, but git cannot read the index to count it,
 	// while the branch and its commits still read.

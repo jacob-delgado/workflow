@@ -87,16 +87,7 @@ func namesAPlace(dir string) bool {
 
 // homeDir is your home directory, or "" when none is known.
 func (s *server) homeDir() string {
-	if s.deps.HomeDir == nil {
-		return ""
-	}
-
-	home, err := s.deps.HomeDir()
-	if err != nil {
-		return ""
-	}
-
-	return home
+	return s.deps.Repositories.Home
 }
 
 // networkAddress matches what names a machine on the network: a URL, or a host
