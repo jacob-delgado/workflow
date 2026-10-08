@@ -1,6 +1,6 @@
 import { useRef, type ReactNode, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
-import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
+import type { ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
@@ -12,11 +12,11 @@ import { Meta } from '@/lib/Meta.tsx'
 import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { Reading } from '@/lib/Status.tsx'
-import { cn, contentMeasure, plural } from '@/lib/utils.ts'
+import { capitalized, cn, contentMeasure, plural } from '@/lib/utils.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
 import { ciMark, StateMark } from '@/lib/StateMark.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
-import { admits, facetChoices, isPicked, toggleFacet, type Facet } from './reviewFacets.ts'
+import { admits, facetChoices, isPicked, labelOf, toggleFacet, type Facet } from './reviewFacets.ts'
 import {
   byRepository,
   ordered,
@@ -25,15 +25,6 @@ import {
   type ReviewOrder,
 } from './reviewOrder.ts'
 import { useReviewQueue } from './reviewQueueApi.ts'
-
-// ciLabel says how CI stands on a request, in words: the queue is read without
-// a request per entry, so a forge whose listing carries no summary reports none.
-const ciLabel: Record<CiState, string> = {
-  none: 'CI not reported',
-  running: 'CI running',
-  passed: 'CI passed',
-  failed: 'CI failed',
-}
 
 // A request opened more than a month before the queue was read is dated
 // rather than counted, as the terminal dates it.
@@ -293,7 +284,10 @@ interface RequestRowProps {
 // RequestRow is one request: its number in the forge's own mark and its title;
 // where it is, who asks, how long it has waited and whether it is a draft; how
 // its CI stands; a link to open it and a control to copy its URL; and, under
-// them, what the last copy said, in the row whose URL it copied.
+// them, what the last copy said, in the row whose URL it copied. Who asks,
+// draft and how CI stands are said in the labels the server gives the
+// request's facets, the words the filter offers them by; a forge whose
+// listing carries no CI summary reports none.
 function RequestRow({ request, readAt }: RequestRowProps) {
   const { sigil } = useForgeWords()
   const copied = useOutcome()
@@ -307,14 +301,14 @@ function RequestRow({ request, readAt }: RequestRowProps) {
       </p>
       <Meta className="text-sm text-muted-foreground">
         {request.repository === '' ? null : request.repository}
-        {`by ${request.author}`}
+        {labelOf(request, 'author')}
         <time dateTime={request.opened_at}>{waited(request.opened_at, readAt)}</time>
-        {request.draft ? <DraftTag /> : null}
+        {request.draft ? <DraftTag label={labelOf(request, 'draft')} /> : null}
       </Meta>
       <div className="flex flex-wrap items-center gap-x-group gap-y-item text-sm">
         <span className="flex items-center gap-1.5">
           <StateMark state={ciMark[request.ci]} />
-          {ciLabel[request.ci]}
+          {labelOf(request, 'ci')}
         </span>
         <NewTabLink href={request.url}>
           Open <span className="sr-only">{mark}</span>
@@ -326,14 +320,14 @@ function RequestRow({ request, readAt }: RequestRowProps) {
   )
 }
 
-// DraftTag says a request is a draft, not yet ready for review: its mark
-// carries the state, so the word stays in the plain foreground among the
-// muted facts, and sits on their baseline while the mark centers on it.
-function DraftTag() {
+// DraftTag says a request is a draft, not yet ready for review, by its label:
+// its mark carries the state, so the word stays in the plain foreground among
+// the muted facts, and sits on their baseline while the mark centers on it.
+function DraftTag({ label }: { label: string }) {
   return (
     <span className="inline-flex items-baseline gap-tight text-foreground">
       <StateMark state="not-started" className="self-center" />
-      Draft
+      {capitalized(label)}
     </span>
   )
 }
