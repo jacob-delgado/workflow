@@ -4,14 +4,11 @@
 package forge_test
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -28,41 +25,6 @@ const apiSlug = "api"
 
 // githubUnprocessable is GitHub's 422 for a reviewer it cannot request.
 const githubUnprocessable = `{"message":"Reviews may only be requested from collaborators."}`
-
-// scriptedForge answers each request as answer says, from what was asked, and
-// records every request with its decoded JSON body.
-func scriptedForge(t *testing.T, answer func(asked recorded) (int, string)) (forge.Client, *[]recorded) {
-	t.Helper()
-
-	var (
-		lock sync.Mutex
-		seen []recorded
-	)
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		var body map[string]any
-
-		_ = json.NewDecoder(request.Body).Decode(&body)
-		asked := recorded{
-			method: request.Method, path: request.URL.EscapedPath(), query: request.URL.RawQuery, body: body,
-		}
-
-		lock.Lock()
-
-		seen = append(seen, asked)
-
-		lock.Unlock()
-
-		status, text := answer(asked)
-
-		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-		writer.WriteHeader(status)
-		_, _ = writer.Write([]byte(text))
-	}))
-	t.Cleanup(server.Close)
-
-	return forge.New(server.Client().Do, server.URL, secret), &seen
-}
 
 // names reads a JSON list of strings out of a recorded body.
 func names(body map[string]any, key string) []string {
@@ -97,7 +59,7 @@ func TestCreatePullRequestOnGitHubAddsEveryReviewerItCanWhenOneIsTurnedDown(t *t
 	t.Parallel()
 
 	// Arrange
-	client, seen := scriptedForge(t, githubRefusingStrangers)
+	client, seen := recordingForge(t, githubRefusingStrangers)
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
@@ -138,7 +100,7 @@ func TestCreatePullRequestOnGitHubDoesNotRetryReviewersTheTokenMayNotRequest(t *
 	t.Parallel()
 
 	// Arrange
-	client, seen := scriptedForge(t, func(asked recorded) (int, string) {
+	client, seen := recordingForge(t, func(asked recorded) (int, string) {
 		if asked.path == githubReviewersPath {
 			return http.StatusForbidden, `{"message":"Resource not accessible by personal access token"}`
 		}
@@ -234,7 +196,7 @@ func TestCreateMergeRequestOnGitLabOpensWithThePeopleItKnows(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, seen := scriptedForge(t, test.answer)
+			client, seen := recordingForge(t, test.answer)
 			request := test.request
 			request.Title, request.Head, request.Base = prTitle, featureBranch, baseBranch
 

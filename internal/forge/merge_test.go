@@ -17,7 +17,7 @@ func TestMergePullRequestOnGitHubSendsTheMethod(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeAnswering(t, http.StatusOK, `{"merged":true}`)
+	client, seen := recordingForge(t, answering(http.StatusOK, `{"merged":true}`))
 
 	// Act
 	err := client.Merge(t.Context(), githubRepo(), forge.PullRequest{Number: 42}, forge.MergeSquash)
@@ -52,7 +52,7 @@ func TestMergeMergeRequestOnGitLabSquashesOnlyForSquash(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, seen := forgeAnswering(t, http.StatusOK, `{"state":"merged"}`)
+			client, seen := recordingForge(t, answering(http.StatusOK, `{"state":"merged"}`))
 
 			// Act
 			err := client.Merge(t.Context(), gitlabRepo(), forge.PullRequest{Number: 8}, tt.method)
@@ -77,8 +77,8 @@ func TestMergeMethodsOnGitHubReadsTheAllowFlags(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := forgeAnswering(t, http.StatusOK,
-		`{"allow_merge_commit":true,"allow_squash_merge":false,"allow_rebase_merge":true}`)
+	client, seen := recordingForge(t, answering(http.StatusOK,
+		`{"allow_merge_commit":true,"allow_squash_merge":false,"allow_rebase_merge":true}`))
 
 	// Act
 	methods, err := client.MergeMethods(t.Context(), githubRepo())
@@ -119,7 +119,7 @@ func TestMergeMethodsOnGitLabReadsTheProjectSettings(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeAnswering(t, http.StatusOK, tt.body)
+			client, _ := recordingForge(t, answering(http.StatusOK, tt.body))
 
 			// Act
 			methods, err := client.MergeMethods(t.Context(), gitlabRepo())
@@ -153,7 +153,7 @@ func TestMergeAndItsMethodsNeedAForgeThatIsKnown(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeAnswering(t, http.StatusOK, `{}`)
+			client, _ := recordingForge(t, answering(http.StatusOK, `{}`))
 
 			// Act
 			err := act(client)
@@ -177,7 +177,7 @@ func TestMergeMethodsSurfacesAReadFailure(t *testing.T) {
 
 			// Arrange
 			// The token cannot read the repository's merge settings.
-			client, _ := forgeAnswering(t, http.StatusForbidden, `{"message":"nope"}`)
+			client, _ := recordingForge(t, answering(http.StatusForbidden, `{"message":"nope"}`))
 
 			// Act
 			_, err := client.MergeMethods(t.Context(), repo)
@@ -218,7 +218,7 @@ func TestARefusedMergeSaysWhy(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := forgeAnswering(t, http.StatusForbidden, tt.body)
+			client, _ := recordingForge(t, answering(http.StatusForbidden, tt.body))
 
 			// Act
 			err := client.Merge(t.Context(), tt.repo, forge.PullRequest{Number: 42}, forge.MergeCommit)

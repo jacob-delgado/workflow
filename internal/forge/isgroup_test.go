@@ -32,7 +32,7 @@ func TestIsGroupTellsAGitLabGroupFromAPerson(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := scriptedForge(t, gitlabKnowing(map[string]string{userAna: "7"},
+			client, _ := recordingForge(t, gitlabKnowing(map[string]string{userAna: "7"},
 				map[string]string{"/groups/acme/members": `[]`}))
 
 			// Act
@@ -50,7 +50,7 @@ func TestIsGroupSaysWhyItCannotTell(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, _ := scriptedForge(t, func(recorded) (int, string) {
+	client, _ := recordingForge(t, func(recorded) (int, string) {
 		return http.StatusBadGateway, `{"message":"502 Bad Gateway"}`
 	})
 
@@ -67,7 +67,7 @@ func TestIsGroupIsNotOfferedOnGitHub(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, seen := scriptedForge(t, func(recorded) (int, string) { return http.StatusOK, "[]" })
+	client, seen := recordingForge(t, func(recorded) (int, string) { return http.StatusOK, "[]" })
 
 	// Act
 	_, err := client.On(forge.KindGitHub).IsGroup(t.Context(), "acme")

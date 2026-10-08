@@ -38,8 +38,8 @@ func TestGitLabCIListsThePipelineAsOneCheck(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client, _ := forgeAnswering(t, http.StatusOK,
-		`{"iid":8,"head_pipeline":{"status":"failed","web_url":"https://gl/pipelines/9"}}`)
+	client, _ := recordingForge(t, answering(http.StatusOK,
+		`{"iid":8,"head_pipeline":{"status":"failed","web_url":"https://gl/pipelines/9"}}`))
 
 	// Act
 	got, err := client.CheckStatus(t.Context(), gitlabRepo(), forge.PullRequest{Number: 8}, headCommit)

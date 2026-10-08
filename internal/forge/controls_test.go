@@ -19,7 +19,7 @@ func TestAnAccountNameCannotDriveTheTerminal(t *testing.T) {
 	// Arrange
 	// doctor prints the name, so a forge — or anything answering as one —
 	// must not be able to put an escape sequence in front of the reader.
-	client := serveForge(t, answerJSON(`{"login":"octo\u001b[2Jcat"}`))
+	client, _ := recordingForge(t, answering(http.StatusOK, `{"login":"octo\u001b[2Jcat"}`))
 
 	// Act
 	identity, err := client.Whoami(t.Context())

@@ -29,24 +29,6 @@ const (
 	gitlabBody = `{"username":"octocat","id":1,"state":"active"}`
 )
 
-// serveForge starts a forge API and returns a client pointed at it.
-func serveForge(t *testing.T, handler http.HandlerFunc) forge.Client {
-	t.Helper()
-
-	server := httptest.NewServer(handler)
-	t.Cleanup(server.Close)
-
-	return forge.New(server.Client().Do, server.URL, secret)
-}
-
-// answerJSON writes a JSON body with the right media type.
-func answerJSON(body string) http.HandlerFunc {
-	return func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-		_, _ = writer.Write([]byte(body))
-	}
-}
-
 func TestWhoamiReadsEitherForgesName(t *testing.T) {
 	t.Parallel()
 
@@ -60,7 +42,7 @@ func TestWhoamiReadsEitherForgesName(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client := serveForge(t, answerJSON(body))
+			client, _ := recordingForge(t, answering(http.StatusOK, body))
 
 			// Act
 			identity, err := client.Whoami(t.Context())
@@ -77,24 +59,7 @@ func TestWhoamiSendsACredentialAndAUserAgent(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	var (
-		gotAuth      atomic.Value
-		gotUserAgent atomic.Value
-		gotURI       atomic.Value
-		gotPath      atomic.Value
-	)
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		gotAuth.Store(request.Header.Get("Authorization"))
-		gotUserAgent.Store(request.Header.Get("User-Agent"))
-		gotURI.Store(request.RequestURI)
-		gotPath.Store(request.URL.Path)
-
-		answerJSON(githubBody)(writer, request)
-	}))
-	t.Cleanup(server.Close)
-
-	client := forge.New(server.Client().Do, server.URL, secret)
+	client, seen := recordingForge(t, answering(http.StatusOK, githubBody))
 
 	// Act
 	_, err := client.Whoami(t.Context())
@@ -103,23 +68,23 @@ func TestWhoamiSendsACredentialAndAUserAgent(t *testing.T) {
 	}
 
 	// Assert
-	if got := gotAuth.Load(); got != "Bearer "+secret {
+	asked := lastRequest(t, seen)
+	if got := asked.header.Get("Authorization"); got != "Bearer "+secret {
 		t.Errorf("Authorization = %q, want a bearer token", got)
 	}
 
 	// GitHub answers 403 to a request with no User-Agent, which a status map
 	// would otherwise report as a refused credential.
-	agent, _ := gotUserAgent.Load().(string)
-	if agent == "" {
+	if asked.header.Get("User-Agent") == "" {
 		t.Error("no User-Agent was sent; GitHub answers 403 without one")
 	}
 
-	if got := gotPath.Load(); got != "/user" {
-		t.Errorf("path = %q, want /user", got)
+	if asked.path != "/user" {
+		t.Errorf("path = %q, want /user", asked.path)
 	}
 
-	if uri, _ := gotURI.Load().(string); strings.Contains(uri, secret) {
-		t.Errorf("the request URI carried the token: %q", uri)
+	if strings.Contains(asked.path+"?"+asked.query, secret) {
+		t.Errorf("the request URI carried the token: %q", asked.path+"?"+asked.query)
 	}
 }
 
@@ -301,7 +266,7 @@ func TestWhoamiReportsAnUnreadableBody(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	client := serveForge(t, answerJSON("{not json"))
+	client, _ := recordingForge(t, answering(http.StatusOK, "{not json"))
 
 	// Act
 	_, err := client.Whoami(t.Context())
@@ -321,7 +286,7 @@ func TestWhoamiRefusesARedirect(t *testing.T) {
 	second := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		secondHopSawHeader.Store(request.Header.Get("Authorization") != "")
 
-		answerJSON(githubBody)(writer, request)
+		writeJSON(writer, http.StatusOK, githubBody)
 	}))
 	t.Cleanup(second.Close)
 
@@ -349,15 +314,8 @@ func TestTokenScopesReadsWhatGitLabGrantedTheToken(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	var gotPath atomic.Value
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		gotPath.Store(request.URL.Path)
-		answerJSON(`{"id":1,"name":"workflow","scopes":["read_api","read_user"],"active":true}`)(writer, request)
-	}))
-	t.Cleanup(server.Close)
-
-	client := forge.New(server.Client().Do, server.URL, "t")
+	client, seen := recordingForge(t, answering(http.StatusOK,
+		`{"id":1,"name":"workflow","scopes":["read_api","read_user"],"active":true}`))
 
 	// Act
 	scopes, err := client.TokenScopes(t.Context())
@@ -367,7 +325,7 @@ func TestTokenScopesReadsWhatGitLabGrantedTheToken(t *testing.T) {
 		t.Errorf("TokenScopes = %q, %v; want read_api read_user", scopes, err)
 	}
 
-	if got, _ := gotPath.Load().(string); got != "/personal_access_tokens/self" {
+	if got := lastRequest(t, seen).path; got != "/personal_access_tokens/self" {
 		t.Errorf("asked %q, want GitLab's personal_access_tokens/self", got)
 	}
 }
