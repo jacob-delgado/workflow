@@ -44,7 +44,6 @@ func TestACommandFromARemovedDirectorySaysItCannotNameIt(t *testing.T) {
 	cases := map[string][]string{
 		"reading the status":                   strings.Fields("status"),
 		"reading a directory named relatively": strings.Fields("status ."),
-		"logging to a file named relatively":   strings.Fields("--log requests.log status"),
 		"showing the configuration":            strings.Fields("config show"),
 		"writing a template":                   strings.Fields("config init --template"),
 	}
@@ -62,6 +61,21 @@ func TestACommandFromARemovedDirectorySaysItCannotNameIt(t *testing.T) {
 					name, err, printed)
 			}
 		})
+	}
+}
+
+func TestALogNamedRelativelyFromARemovedDirectorySaysItCannotBeOpened(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	// doctor opens the log before anything else reads the directory, so only
+	// the log's own reading of it can fail first.
+	printed, err := runFromARemovedDirectory(t, t.TempDir(), "--log", "requests.log", "doctor")
+
+	// Assert
+	if err == nil || !strings.HasPrefix(err.Error(), "workflow: opening the request log: "+workdirUnread) {
+		t.Errorf("--log requests.log from a removed directory = %v, want it to say the log cannot be opened "+
+			"for the directory it cannot name (%+v)", err, printed)
 	}
 }
 
