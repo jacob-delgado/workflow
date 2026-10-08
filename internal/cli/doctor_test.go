@@ -453,13 +453,11 @@ func TestDoctorSaysWhenThereIsNoRemote(t *testing.T) {
 	}
 }
 
-// invalidValuesConfig misses nothing but fills four values in wrong: a base URL
-// that is not http(s), an insecure webhook, a forge kind that names no forge,
-// and a key override that collides. Each still loads, so only doctor's review
-// of the loaded file can catch them — in both of its reports.
-const invalidValuesConfig = `{"jira":{"base_url":"ftp://jira.example.com","token":"t"},` +
-	`"messaging":{"webhook_url":"http://hooks.example.com/x"},` +
-	`"forge":{"kind":"githb","host":"github.com"},"ui":{"keys":{"commit":"a"}}}`
+// invalidValuesConfig misses nothing but fills two values in wrong: an
+// insecure webhook and a key override that collides. Each still loads, so only
+// doctor's review of the loaded file can catch them — in both of its reports.
+const invalidValuesConfig = `{"jira":{"base_url":"https://jira.example.com","token":"t"},` +
+	`"messaging":{"webhook_url":"http://hooks.example.com/x"},"ui":{"keys":{"commit":"a"}}}`
 
 func TestDoctorReportsSetButInvalidValues(t *testing.T) {
 	// Arrange
@@ -476,7 +474,7 @@ func TestDoctorReportsSetButInvalidValues(t *testing.T) {
 
 	wantExit(t, err, 3)
 
-	for _, want := range []string{"Problems", "jira.base_url", "messaging.webhook_url", "forge.kind", "stage-all"} {
+	for _, want := range []string{"Problems", "messaging.webhook_url", "stage-all"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("doctor did not flag %q:\n%s", want, out)
 		}

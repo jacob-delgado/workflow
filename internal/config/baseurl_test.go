@@ -19,45 +19,22 @@ const (
 	loginPassword = "sekret"
 )
 
-func TestProblemsRefusesABaseURLWithALoginWithoutQuotingIt(t *testing.T) {
+func TestALoadRefusesABaseURLWithALoginWithoutQuotingIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	cfg := config.Config{Jira: config.Jira{BaseURL: "https://" + loginUser + ":" + loginPassword + "@" + jiraHost}}
+	body := `{"jira": {"base_url": "https://` + loginUser + ":" + loginPassword + "@" + jiraHost + `"}}`
 
 	// Act
-	got := cfg.Problems()
+	_, err := config.Parse(strings.NewReader(body))
 
 	// Assert
-	named := 0
-
-	for _, problem := range got {
-		if strings.Contains(problem, "jira.base_url") {
-			named++
-		}
-
-		if strings.Contains(problem, loginUser) || strings.Contains(problem, loginPassword) {
-			t.Errorf("Problems() = %q, want no problem quoting the login", got)
-		}
+	if !errors.Is(err, config.ErrCredentialInBaseURL) {
+		t.Errorf("Parse = %v, want ErrCredentialInBaseURL", err)
 	}
 
-	if named != 1 {
-		t.Errorf("Problems() = %q, want jira.base_url named once", got)
-	}
-}
-
-func TestProblemsAcceptsAnAbsoluteBaseURL(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	cfg := config.Config{Jira: config.Jira{BaseURL: "https://" + jiraHost + "/jira"}}
-
-	// Act
-	got := cfg.Problems()
-
-	// Assert
-	if len(got) != 0 {
-		t.Errorf("Problems() = %q, want none", got)
+	if strings.Contains(err.Error(), loginUser) || strings.Contains(err.Error(), loginPassword) {
+		t.Errorf("Parse = %v, want a refusal that does not quote the login", err)
 	}
 }
 
