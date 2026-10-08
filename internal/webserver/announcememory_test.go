@@ -227,7 +227,7 @@ func TestAnnounceTheStoreCannotRememberIsMadeAndNoted(t *testing.T) {
 
 	var noted []string
 
-	deps.Unexpected = func(err error) { noted = append(noted, err.Error()) }
+	deps.Unexpected = func(_ config.Config, err error) { noted = append(noted, err.Error()) }
 
 	// Act
 	recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
