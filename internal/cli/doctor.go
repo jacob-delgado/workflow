@@ -134,60 +134,83 @@ func runDoctor(ctx context.Context, out io.Writer, run doctorRun) error {
 	field(out, "Version", buildinfo.Current())
 	fmt.Fprintln(out)
 
-	repo := reportRepository(ctx, out)
+	repository, remote := repositoryFactsFor(ctx)
+	reportRepository(out, repository)
 	fmt.Fprintln(out)
 
-	toolingErr := reportTooling(ctx, out, run.cfg, repo.Remote)
+	toolingErr := reportTooling(ctx, out, run.cfg, remote)
 	fmt.Fprintln(out)
 
 	field(out, "Store", storeFactsFor(run.cfg).label())
 	fmt.Fprintln(out)
 
-	configErr := reportConfiguration(out, run, repo.Remote)
+	configErr := reportConfiguration(out, run, remote)
 	if run.loadErr != nil {
 		return errors.Join(toolingErr, configErr)
 	}
 
-	return errors.Join(toolingErr, configErr, reportCredentials(ctx, out, run, repo.Remote))
+	return errors.Join(toolingErr, configErr, reportCredentials(ctx, out, run, remote))
 }
 
-// reportRepository describes the git repository the working directory is in. A
-// directory outside any work tree is reported rather than returned as an error:
-// `workflow doctor` is exactly what someone runs to find that out.
-func reportRepository(ctx context.Context, out io.Writer) gitrepo.Repo {
+// repositoryFacts is the git repository the working directory is in, or why
+// there is none, as both reports give it. A directory outside any work tree is
+// a fact rather than an error: `workflow doctor` is exactly what someone runs
+// to find that out.
+type repositoryFacts struct {
+	InsideWorkTree bool   `json:"inside_work_tree"`
+	Root           string `json:"root,omitempty"`
+	Branch         string `json:"branch,omitempty"`
+	Detached       bool   `json:"detached"`
+	Remote         string `json:"remote,omitempty"`
+	Forge          string `json:"forge,omitempty"`
+	Problem        string `json:"problem,omitempty"`
+}
+
+// repositoryFactsFor gathers the git facts, returning the raw remote alongside
+// so the other sections can parse it — the facts carry only the masked form,
+// since a remote can carry a credential just as a base URL can.
+func repositoryFactsFor(ctx context.Context) (repositoryFacts, string) {
 	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
 	// a working directory once it is removed.
 	dir, err := os.Getwd()
 	if err != nil {
-		field(out, "Repository", fmt.Sprintf("(cannot read the working directory: %v)", err))
-
-		return gitrepo.Repo{}
+		return repositoryFacts{Problem: fmt.Sprintf("cannot read the working directory: %v", err)}, ""
 	}
 
 	repo, err := gitrepo.At(proc.Run, dir).Describe(ctx)
 	if err != nil {
-		field(out, "Repository", noRepositoryReason(dir, err))
-
-		return gitrepo.Repo{}
+		return repositoryFacts{Problem: noRepositoryReason(dir, err)}, ""
 	}
 
-	field(out, "Repository", repo.Root)
-	field(out, "Branch", branchLabel(repo))
-	// A remote can carry a credential just as a base URL can.
-	field(out, "Remote", config.DisplayURL(repo.Remote))
-	field(out, "Forge", forgeLabel(repo.Remote))
-
-	return repo
+	return repositoryFacts{
+		InsideWorkTree: true, Root: repo.Root, Branch: repo.Branch, Detached: repo.Detached,
+		Remote: config.DisplayURL(repo.Remote), Forge: forgeLabel(repo.Remote),
+	}, repo.Remote
 }
 
 // noRepositoryReason says why dir has no repository to report: git is not
 // installed, or dir is outside any work tree.
 func noRepositoryReason(dir string, err error) string {
 	if errors.Is(err, proc.ErrNotFound) {
-		return "(none — git is not on PATH)"
+		return "git is not on PATH"
 	}
 
-	return fmt.Sprintf("(none — %s is not in a git work tree)", dir)
+	return dir + " is not in a git work tree"
+}
+
+// reportRepository writes the repository section from facts, or why there is
+// no repository to report.
+func reportRepository(out io.Writer, facts repositoryFacts) {
+	if !facts.InsideWorkTree {
+		field(out, "Repository", "(none — "+facts.Problem+")")
+
+		return
+	}
+
+	field(out, "Repository", facts.Root)
+	field(out, "Branch", branchLabel(facts))
+	field(out, "Remote", facts.Remote)
+	field(out, "Forge", facts.Forge)
 }
 
 // forgeLabel says which forge the remote points at, and where its API lives.
@@ -213,12 +236,12 @@ func forgeLabel(remote string) string {
 }
 
 // branchLabel names the checked-out branch, or says why there isn't one.
-func branchLabel(repo gitrepo.Repo) string {
-	if repo.Detached {
+func branchLabel(facts repositoryFacts) string {
+	if facts.Detached {
 		return "(detached HEAD — check out a branch before starting work)"
 	}
 
-	return repo.Branch
+	return facts.Branch
 }
 
 // reportConfiguration writes the configuration section. The remote names the
