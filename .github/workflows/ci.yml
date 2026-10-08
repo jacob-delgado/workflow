@@ -484,10 +484,15 @@ jobs:
         run: |
           set -euo pipefail
           echo "${RESULTS}" | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
-          # `skipped` passes: commit-lint is pull-request-only by design, and a
-          # job that did not need to run is not a failure. `failure` and
-          # `cancelled` fail the gate.
-          if echo "${RESULTS}" | jq -e 'to_entries | map(select(.value.result != "success" and .value.result != "skipped")) | length > 0' >/dev/null; then
+          # Every job must succeed. `skipped` passes for commit-lint alone,
+          # which is pull-request-only by design; a skip anywhere else is an
+          # `if:` added or mistyped on a job that then never ran, and fails the
+          # gate as `failure` and `cancelled` do.
+          if echo "${RESULTS}" | jq -e '
+            to_entries
+            | map(select(.value.result != "success"
+                and (.key != "commit-lint" or .value.result != "skipped")))
+            | length > 0' >/dev/null; then
             echo "::error::A required job did not succeed — see the list above."
             exit 1
           fi
