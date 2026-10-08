@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
+import { civilDay, civilNoon } from '@/lib/dates.ts'
 import { Select } from '@/lib/Field.tsx'
 import {
   monthOf,
@@ -41,7 +42,7 @@ interface PeriodPickerProps {
 export function PeriodCalendar({ period, today, onPick }: PeriodPickerProps) {
   const [view, setView] = useState<[number, number]>(() => yearMonth(period.to))
   const [year, month] = view
-  const shownDay = `${String(year)}-${String(month).padStart(2, '0')}-01`
+  const shownDay = civilDay(civilNoon(year, month, 1))
 
   return (
     <section aria-label="Calendar" className="flex flex-col gap-group">

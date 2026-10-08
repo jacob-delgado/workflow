@@ -1,10 +1,11 @@
 import type { Activity, ActivityDay, ActivityItem } from '../api/generated/types.gen.ts'
-import type { Period } from '../features/summary/civilDate.ts'
 
 // mockActivity is a working day for the mockup, whatever period is asked: a
 // commit, a task finished, an issue moved and a pull request opened, with
-// Jira's comments unread, so every hue and the source note are on screen.
-export function mockActivity(period: Period | null): Activity {
+// Jira's comments unread, so every hue and the source note are on screen. It
+// reads the period as the answer names one, so the e2e specs that import it
+// type-check it without the app's own modules.
+export function mockActivity(period: Pick<Activity, 'from' | 'to'> | null): Activity {
   const from = period?.from ?? '2026-09-15'
 
   return {
