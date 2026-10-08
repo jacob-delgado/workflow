@@ -513,10 +513,15 @@ than observable, public behavior.
   days. Go has no native gate: before `go get`, check the publish date
   (`curl https://proxy.golang.org/<module>/@v/<version>.info`) and pick an older
   version if it is younger than a week. The same rule governs `mise.toml` pins.
-  **Known-CVE fixes override the cooldown — always.** The gate guards against
-  *unknown* compromised releases, not *published* security fixes. Dependabot's
-  cooldown deliberately exempts `actions/*` and `github/*`: they are GitHub's own
-  first-party actions, and this age-gate rule is what governs them by hand.
+  `scripts/check-dependency-age.sh` holds every pull request to it (CI's Lint
+  job; `task deps:age` by hand): each version it adds to `go.mod`,
+  `docs/go.mod`, `web/yarn.lock` or `mise.toml` must be a week old.
+  **Known-CVE fixes override the cooldown — always.** List such a version in
+  `scripts/dependency-age-exceptions.txt` with its advisory. The gate guards
+  against *unknown* compromised releases, not *published* security fixes.
+  Dependabot's cooldown deliberately exempts `actions/*` and `github/*`: they
+  are GitHub's own first-party actions, and this age-gate rule is what governs
+  them by hand.
 
 - **Tool versions are exact, and they live in `mise.toml`.** `build/Dockerfile`
   reads them through `scripts/tool-versions.sh`, and CI provisions them with
