@@ -112,6 +112,36 @@ func TestASlackAddressOnThisMachineIsAskedInsteadOfSlack(t *testing.T) {
 	}
 }
 
+func TestAPostFromARepositoryFindsTheUserTokenTheHomeFileKeeps(t *testing.T) {
+	// Arrange
+	var slack slackSeen
+
+	t.Setenv(wiring.SlackAPIVariable, "http://"+net.JoinHostPort("127.0.0.1", slack.start(t)))
+
+	home := loggedIn(t).Path
+	repo := filepath.Join(t.TempDir(), config.FileName)
+
+	err := os.WriteFile(repo, []byte(`{"jira": {"project": "OSS"}}`), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing the repository's file: %v", err)
+	}
+
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: home, Repo: repo})
+	if err != nil {
+		t.Fatalf("loading the layers: %v", err)
+	}
+
+	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
+
+	// Act
+	err = seams.Post("", "hi")
+
+	// Assert
+	if seen := slack.seen(); err != nil || len(seen) != 1 || seen[0] != "Bearer "+loggedInToken {
+		t.Errorf("Post = %v, the fake was sent %q; want the post with the home file's user token", err, seen)
+	}
+}
+
 func TestASlackAddressInClearTextOffThisMachineSendsNothing(t *testing.T) {
 	for name, address := range map[string]func(port string) string{
 		// 0.0.0.0 reaches this machine's listeners on Linux and macOS, so
