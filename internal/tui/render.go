@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
+	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
 // detailPadding is the columns a bordered detail pane spends on its border and
@@ -402,4 +403,39 @@ func age(now, then time.Time) string {
 	default:
 		return then.Format(time.DateOnly)
 	}
+}
+
+// shownDir is a directory written from your home, with anything in its name
+// that could drive the terminal neutralized: it is read from a file on disk.
+func shownDir(deps Deps, dir string) string {
+	return shownFrom(deps.Repositories.Home, dir)
+}
+
+// shownFrom is dir written from home, neutralized.
+func shownFrom(home, dir string) string {
+	return sanitize.Line(workdirs.Shown(dir, home))
+}
+
+// cutMiddle shortens a path wider than width in its middle, keeping its root
+// and its last element — "~/src/…/feature-x" — so the row it heads stays one
+// line; the full path is in the Working in block. A last element too wide on
+// its own keeps its end.
+func cutMiddle(path string, width int, ellipsis string) string {
+	if ansi.StringWidth(path) <= width {
+		return path
+	}
+
+	parts := strings.Split(path, "/")
+	leading, last := parts[:len(parts)-1], parts[len(parts)-1]
+
+	for kept := len(leading) - 1; kept >= 1; kept-- {
+		cut := strings.Join(leading[:kept], "/") + "/" + ellipsis + "/" + last
+		if ansi.StringWidth(cut) <= width {
+			return cut
+		}
+	}
+
+	room := max(0, width-ansi.StringWidth(ellipsis))
+
+	return ellipsis + ansi.TruncateLeft(last, max(0, ansi.StringWidth(last)-room), "")
 }
