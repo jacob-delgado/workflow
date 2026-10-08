@@ -67,8 +67,9 @@ In scope:
 - Credential handling in particular — anything that writes a Jira, forge or
   messaging credential (a token, or a webhook URL, which is itself the
   credential) somewhere it should not go, logs one, or prints one unmasked, is
-  a security bug. `.workflow.json` is written `0600`, is gitignored, and every
-  code path that surfaces a token passes it through `config.Redact` first.
+  a security bug. `.workflow.json` is written `0600`, `workflow config init`
+  and the first run warn when git would not ignore it, and every code path
+  that surfaces a token passes it through `config.Redact` first.
 - The configuration's trust boundary. A `.workflow.json` in a repository, or in
   the current directory outside one, may have come from anyone, so it may not
   set what runs a program or reads the environment (`jira.token_command`,
@@ -76,20 +77,27 @@ In scope:
   an address it moves; only `~/.workflow.json` may. No configuration file is
   read that another user owns or that others may write. A way around any of
   these is a security bug.
-- Data at rest. The on-disk store (`internal/store`, a SQLite database under the
-  OS-native data directory) keeps workflow state between sessions — the commit
-  scope last used per repository, what was announced, and the last issue list
-  seen (the non-secret fields a first pane needs — issue keys, summaries,
-  statuses, status categories, types and priorities — so a session can open on
-  it before the tracker answers). It **never** holds a secret: no token, no
-  credential. The repository it keys by is reduced to the remote's
-  credential-free host and path, or is the repository's root path when there
-  is no remote it can parse; the Jira instance is reduced to a hash of its URL;
-  and the cached issue list is keyed by that hash and the list's JQL query.
-  Where the filesystem keeps Unix modes, the database is written `0600` inside
-  a `0700` directory, so it is readable only by its owner. `store.disabled`
-  turns it off entirely, keeping nothing on disk — anything the store persists
-  that a token would not is still a bug.
+- Data at rest. The on-disk store (`internal/store`) keeps workflow state
+  between sessions in two SQLite files under the OS-native data directory.
+  `workflow.db` is a cache of conveniences a session can make again: the
+  commit scope last used per repository, what was announced there, and the
+  last issue list seen (the non-secret fields a first pane needs — issue keys,
+  summaries, statuses, status categories, types and priorities — so a session
+  can open on it before the tracker answers). `kept.db` holds what the user
+  decided: which Slack user or user group each forge owner is, with the label
+  each was last seen with, or that an owner is not on Slack; the user groups
+  each repository offers and the ones chosen last; the Slack workspace ID each
+  of those decisions belongs to; and the paths of the directories marked as
+  favorites. Neither **ever** holds a secret: no token, no credential. A
+  repository is keyed by its remote reduced to the credential-free host and
+  path, or by its root path when there is no remote it can parse; an owner by
+  the forge's host and the owner's name; the Jira instance by a hash of its
+  URL, and the cached issue list by that hash and the list's JQL query; and a
+  favorite by its path. Where the filesystem keeps Unix modes, the store's
+  directory is made `0700` and each file `0600`, which also keeps the `-wal`
+  and `-shm` files SQLite writes beside them from anyone else, so both are
+  readable only by their owner. `store.disabled` turns the store off entirely,
+  keeping nothing on disk. A credential reaching either file is a bug.
 
 Out of scope:
 
