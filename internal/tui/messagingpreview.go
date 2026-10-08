@@ -309,11 +309,10 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 // remember, on its one row: the warning every surface says, then why. It adds
 // nothing when the store remembered it.
 func (m Model) notKept(err error) string {
-	if err == nil {
+	why, notKept := loop.NotRememberedReason(err)
+	if !notKept {
 		return ""
 	}
-
-	why := strings.TrimPrefix(err.Error(), loop.ErrNotRemembered.Error()+": ")
 
 	return m.marks.separator + loop.NotRememberedWarning + " " + why
 }
