@@ -121,223 +121,6 @@ the six arms, and `go test ./internal/cli` wall time drops.
 
 ## The terminal interface
 
-### DEBT-176 An announcement can be posted twice when a preview is open as a queued post fires
-
-Severity: medium · Confidence: read · Size: S
-
-**Where.** `Model.canPost` (`internal/tui/messaging.go:245`), `postQueued`
-(`:347`), `messagingPreview.handleKey`
-(`internal/tui/messagingpreview.go:95`), `Model.sendToMessaging` (`:191`),
-`messagingPosted.apply` (`:227`).
-
-**Today.** `canPost` refuses while a post is sending but not while one waits
-for CI, so the user can open a new preview over a queued post. When CI passes,
-`postQueued` sends the queued post while that preview stays open; its
-`handleKey` checks only its own `send.sending`, so enter posts the same
-announcement again, and `loop.Deliver` does not deduplicate. When the queued
-post answers, `messagingPosted` (which carries no opened count) closes
-whichever preview is open on success, dropping its edits, or pins the queued
-post's error into it on failure. The team channel reads the announcement
-twice.
-
-**Fix.** Carry the opened count in `messagingPosted` and act on the overlay
-only through `beneath[messagingPreview](m, opened)`, and have the preview
-refuse to post while `m.messaging.send.sending` is set.
-
-**Done when.** A test queues a post with `w`, opens a second preview, lets CI
-pass and presses enter: the world sees one post, and the preview stays open
-until esc.
-
-### DEBT-177 The success notice names the default channel, not the one posted to
-
-Severity: medium · Confidence: read · Size: S
-
-**Where.** `messagingPosted.apply` (`internal/tui/messagingpreview.go:240`),
-`sendToMessaging` (`:191`), `summaryPosted`
-(`internal/tui/summarypost.go:177`).
-
-**Today.** The notice reads "announced to " plus `cfg.Messaging.Target()`, the
-default channel, but a post can go to a channel cycled in the preview or held
-with a queued post, and `messagingPosted` carries no destination. The dry-run
-and queued notices use the destination; `summaryPosted` carries `to` and gets
-it right. After choosing `#team-b`, the footer says the team was told in
-`#dev-workflow`.
-
-**Fix.** Carry the destination in `messagingPosted`, set from
-`p.destination()` or the pending channel, and use it in the notice.
-
-**Done when.** `TestTheChannelCanBeChangedBeforePosting` also asserts the
-screen reads "announced to " and the chosen channel.
-
-### DEBT-178 Two forms draw their send failure on one clipped line, beside a shared helper that wraps it
-
-Severity: medium · Confidence: read · Size: S
-
-**Where.** `pinnedOutcome` and `failureLine` (`internal/tui/failure.go:510`,
-`:473`), `issueWrite.outcome` (`internal/tui/issuewrite.go:127`, with a
-`//nolint:mnd` at `:120`), `branchLinker.outcome`
-(`internal/tui/branchlink.go:107`); `TestAnOverlayShowsAFailureFully`
-(`internal/tui/overlay_outcome_test.go`).
-
-**Today.** Nine overlays draw a refusal under their title through
-`pinnedOutcome`, which wraps it with `failureBlock`. The assign, log-work and
-link-branch forms instead append the one-row `failureLine` at the bottom,
-which `frame.fit` truncates at the box width, so a long Jira or forge refusal
-cannot be read. The overlay-outcome test's table leaves out these forms, and
-the nolint exists only to size this hand-made layout.
-
-**Fix.** Use `pinnedOutcome` in both, adding the form's own problem as a line
-after it, add the forms to the outcome test, and drop the nolint.
-
-**Done when.** A test with a long, multi-line refusal on the assign form shows
-the whole reason, and the nolint at `issuewrite.go:120` is gone.
-
-### DEBT-179 Footer key lists and key handlers check the same conditions separately, and disagree
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `branchKeys`, `canSwitchTask`, `handleBranchKey` and `branchOffer`
-(`internal/tui/branch.go:189`, `:216`, `:264`, `:271`), `commitsKeys` and
-`handleCommitsKey` (`internal/tui/commits.go:196`, `:247`),
-`outsideRepository` (`branch.go:126`).
-
-**Today.** Each pane works out its live keys twice, once for the footer and
-once to dispatch. Outside a repository the footer offers nothing, yet `s`
-still opens the branch picker (its check reads only the seams, which wiring
-always sets) and `h` still runs `lefthook run pre-commit`. The test for that
-case checks only the footer. Each new verb is added in two or three places.
-
-**Fix.** One offer list per pane (binding, `can()`, action), from which the
-footer filters and the handler dispatches, as `branchOffer` already half does;
-apply it to Branch, Commits and Issues.
-
-**Done when.** A test outside a repository presses `s` on Branch and `h` on
-Commits and sees no overlay and no hook run.
-
-### DEBT-180 Blocking git, SQLite and file reads run inside `Update`
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `openCommitComposer` (`internal/tui/composer.go:99`, through
-`withScopeSuggestions` and `RecentSubjects`), `startingScope` (`:138`,
-`Store.LastScope`), the commit's done callback (`:393`, `loop.RememberScope`),
-`issuesLoaded.apply` and `cacheIssues` (`internal/tui/issues.go:33`, `:49`),
-`proposePullRequest` (`internal/tui/prcomposer.go:123`, `RemoteBranches` at
-`:141` and `Templates` at `:143`).
-
-**Today.** Opening the commit composer runs `git log` and a SQLite read on the
-key press; a finished commit and every issue page write to SQLite from
-`Update`; opening the pull request composer runs `git for-each-ref` and reads
-template files. The reviewers and title-issue reads beside them are commands,
-and `Init`'s comment says loads run in a command so a slow service never
-freezes the screen. With the store's 5 s busy timeout, a lock held by `--web`
-or another session freezes the interface on `c` for up to 5 s.
-
-**Fix.** Open both composers at once and fill their suggestions, scope and
-template from commands that answer with the opened count, as `reviewersRead`
-does; make the issue-cache and scope writes commands.
-
-**Done when.** A test whose `RecentSubjects` and `Templates` fakes block still
-draws each composer at once, and no Store or Git seam is called directly in an
-`apply` or a `handleKey`.
-
-### DEBT-181 A stale go-to-directory answer acts on a prompt reopened since
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `dirPrompt.handleKey` (`internal/tui/reposwitch.go:372`),
-`dirLooked.apply` (`:416`), `dirCompleted.apply` (`:483`).
-
-**Today.** esc closes the prompt while a path is being checked, and the
-comment expects the answer to find the prompt gone. `dirLooked.apply` only
-checks that some `dirPrompt` is open, so open, type A, enter, esc, reopen,
-type B lands A's answer in the new prompt: A's refusal pinned under B, or a
-switch confirmation for a directory the user abandoned. `dirCompleted.apply`
-guards the same case by comparing the typed value.
-
-**Fix.** Carry the typed text or an opened count in `dirLooked` and drop an
-answer that no longer matches.
-
-**Done when.** A test that parks the first look, escapes, reopens and types
-another path, then releases the first look, still shows "Go to a directory"
-and no switch confirmation.
-
-### DEBT-182 Tab completion writes the sanitized directory name into the path
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `dirPrompt.complete` (`internal/tui/reposwitch.go:513`),
-`dirCompleted.apply` (`:483`), `workdirs.List`
-(`internal/workdirs/workdirs.go:52`).
-
-**Today.** Completion passes every entry name through `sanitize.Line` and then
-puts those names into the input and the shared prefix. A directory whose name
-holds a control or bidi character completes to a path that does not exist, and
-enter fails with "not there" for no visible reason.
-
-**Fix.** Keep the raw names for the value and the prefix, and sanitize only
-what is drawn, including the input's own rendering.
-
-**Done when.** A test listing a subdirectory with a sanitized rune completes
-and looks up the exact on-disk path.
-
-### DEBT-183 A dry-run commit loses its message; a dry-run comment keeps it
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `commitComposer.commit` (`internal/tui/composer.go:382`), the live
-path (`:386`), esc (`:261`), `commentPreview.post`
-(`internal/tui/comment.go:113`).
-
-**Today.** Under `--dry-run`, enter closes the composer with "dry run: would
-commit …" without saving the draft, so `c` reopens it empty (or with an older
-draft). The live path and esc keep the draft, and a dry-run comment keeps its
-own.
-
-**Fix.** Set `m.draft = c.draft()` before the dry-run notice.
-
-**Done when.** A dry-run test composes, presses enter, presses `c` and finds
-the subject still there.
-
-### DEBT-184 Forge issue keys lose their `#` in the assign and link messages
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `assignAction.done` and `.would` (`internal/tui/issuewrite.go:33`),
-`issueWrite.view` (`:121`), `branchLinker.link`
-(`internal/tui/branchlink.go:247`), `branchLinked.said` (`:318`), `shownKey`
-(`internal/tui/issues.go:295`).
-
-**Today.** `shownKey` writes a forge number as `#42`, and the unlink messages
-use it, but the assign form's title, its "assigned 42 to …", the dry-run link
-notice and "linked branch to 42" write `string(key)`, so one issue reads `#42`
-and then `42`.
-
-**Fix.** Use `shownKey` wherever a key is shown, and `string(key)` only for
-what a seam is sent.
-
-**Done when.** A test assigning a forge issue and linking a branch to `#42`
-reads `#42` in each notice.
-
-### DEBT-185 Help pads keys with `%-10s`, so a ten-character key runs into its description
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `helpColumn` (`internal/tui/help.go:216`), `composerKeys`
-(`internal/tui/keys.go:349`), `asciiGlyphs.sideways`
-(`internal/tui/glyphs.go:51`).
-
-**Today.** With `ui.ascii` the type-cycle key shows as `left/right`, exactly
-ten characters, so the help reads "left/rightchange type". Any `ui.keys`
-override of ten or more characters does the same, and `%-10s` counts runes,
-not cells.
-
-**Fix.** Size the column from the widest shown key with `lipgloss.Width` and
-always leave one space.
-
-**Done when.** A test with `ui.ascii` on shows "left/right" followed by a
-space and "change type".
-
 ### DEBT-187 Every overlay repeats the close, step and scroll key code, and the job log skips the page keys
 
 Severity: low · Confidence: read · Size: M
@@ -394,9 +177,9 @@ the list from the handlers, so a pane that starts answering another group's
 key lets a conflicting `ui.keys` override pass. The Repositories context
 already lists up and down, which its groups cover.
 
-**Fix.** Build the contexts from each pane's offer list (DEBT-179); until then
-drop the redundant entries and add a test that every binding a handler matches
-is covered by its context.
+**Fix.** Build the contexts from each pane's list of offers
+(`internal/tui/panes.go`); until then drop the redundant entries and add a
+test that every binding a handler matches is covered by its context.
 
 **Done when.** A test fails when a handler answers an action missing from its
 key context.
@@ -503,30 +286,6 @@ each definition.
 
 **Done when.** Every type with `apply(Model)` has exactly one assertion beside
 it, and `overlay.go` holds no partial list.
-
-### DEBT-195 Stale-answer and data-loss guards in the terminal are never exercised
-
-Severity: low · Confidence: measured · Size: M
-
-**Where.** `summaryAnswered.apply` and `summaryRested.apply`
-(`internal/tui/summary.go:58`, `:80`), `runFinished.apply`
-(`internal/tui/run.go:163`), `writeInFlight` and `lostOnLeaving`
-(`internal/tui/reposwitch.go:253` to `:275`), `handleTaskFilterKey` and
-`withoutTaskFilter` (`internal/tui/tasklist.go:391` to `:409`).
-
-**Today.** gobco lists each guard seen only one way: a Summary answer for a
-period already left (270 times false, never true), a stopped run reported as
-stopped, each warning before a directory switch (an announcement sending, a
-task write in flight, a body-only commit draft, a post waiting for CI;
-`prDraft.edited` never evaluated), and enter, up, backspace and leaving in the
-Tasks filter. A regression in any of these passes the suite.
-
-**Fix.** Black-box tests: step the period while a source is parked, then
-release it; stop a run and deliver its killed exit; switch with each kind of
-unsaved work and assert the last look names it; type a Tasks filter, then
-enter, backspace and leave.
-
-**Done when.** `task cover:branch` no longer lists those lines as seen one way.
 
 ### DEBT-196 Pay down TRADE-6: one field ring for the composers, the calendar and the pane switch
 
@@ -1042,26 +801,6 @@ timing.
 
 **Done when.** `time.Sleep` in these packages' tests is only seam-internal
 hold time, and `go test -race -count=20` passes for them.
-
-### DEBT-245 Guards that stop a second send while one is in flight are never tested
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `internal/tui/issuewrite.go:130`, `:143`, `:153`, `:170`,
-`internal/tui/issuelink.go:73`, `:83`, `internal/tui/branchlink.go:109` to
-`:143`, `jobLogView.handleKey` (`internal/tui/checks.go:390`), `logRead.apply`
-(`:332`); `hold` (`internal/tui/harness_test.go:203`).
-
-**Today.** gobco lists `send.sending` as never true in the assign, work-log,
-Jira-link and branch-link forms, so no test presses enter or pastes while one
-of those writes is in flight; dropping the guard would send a Jira write twice
-and fail nothing. Esc from a job log (202 times false) and a failed log read
-are also untested.
-
-**Fix.** Use `hold` to keep each write seam from answering, press enter again
-and assert one call; add tests for esc from a job log and a failing `JobLog`.
-
-**Done when.** gobco reports both outcomes for these conditions.
 
 ### DEBT-246 `gobco-report`'s own test never checks that coverage below the floor fails
 
