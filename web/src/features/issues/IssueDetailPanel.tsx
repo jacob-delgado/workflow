@@ -4,7 +4,7 @@ import { useHealthStore } from '@/api/health.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
-import { relativeTime, writtenDate, writtenMoment } from '@/lib/dates.ts'
+import { ago, day, writtenMoment } from '@/lib/dates.ts'
 import { Meta } from '@/lib/Meta.tsx'
 import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { Reading, Unread } from '@/lib/Status.tsx'
@@ -251,6 +251,10 @@ function initialsOf(name: string): string {
   return (first + last).toUpperCase()
 }
 
+// A comment is said by how long ago it was written within the week, and by
+// its date after that.
+const week = 7 * day
+
 // WrittenAt says when a comment was written: how long ago within the week,
 // and the day after; the exact moment shows on hover. The zero time the server
 // sends for a date the tracker could not give says nothing.
@@ -266,36 +270,9 @@ function WrittenAt({ created }: { created: string }) {
       title={writtenMoment(written)}
       className="text-xs text-muted-foreground"
     >
-      {sinceWritten(written, new Date())}
+      {ago(written.getTime(), new Date().getTime(), { style: 'words', dateAfter: week })}
     </time>
   )
-}
-
-const minute = 60_000
-const hour = 60 * minute
-const day = 24 * hour
-
-// sinceWritten is how long ago written was, within the week, and its date
-// after that.
-function sinceWritten(written: Date, now: Date): string {
-  const ago = now.getTime() - written.getTime()
-  if (ago < minute) {
-    return 'just now'
-  }
-
-  if (ago < hour) {
-    return relativeTime(-Math.floor(ago / minute), 'minute')
-  }
-
-  if (ago < day) {
-    return relativeTime(-Math.floor(ago / hour), 'hour')
-  }
-
-  if (ago < 7 * day) {
-    return relativeTime(-Math.floor(ago / day), 'day')
-  }
-
-  return writtenDate(written)
 }
 
 // useTrackerName names where an issue lives, for its link: Jira, or the forge

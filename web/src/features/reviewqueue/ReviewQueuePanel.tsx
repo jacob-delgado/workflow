@@ -5,7 +5,7 @@ import { useForgeWords } from '@/api/health.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { CopyURL } from '@/lib/CopyURL.tsx'
-import { writtenDate } from '@/lib/dates.ts'
+import { ago, day } from '@/lib/dates.ts'
 import { Select } from '@/lib/Field.tsx'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { Meta } from '@/lib/Meta.tsx'
@@ -35,9 +35,8 @@ const ciLabel: Record<CiState, string> = {
   failed: 'CI failed',
 }
 
-const minute = 60_000
-const hour = 60 * minute
-const day = 24 * hour
+// A request opened more than a month before the queue was read is dated
+// rather than counted, as the terminal dates it.
 const month = 30 * day
 
 // ReviewQueuePanel lists the pull requests on the forge that wait on your
@@ -297,7 +296,9 @@ function RequestRow({ request, readAt }: RequestRowProps) {
       <Meta className="text-sm text-muted-foreground">
         {request.repository === '' ? null : request.repository}
         {`by ${request.author}`}
-        <time dateTime={request.opened_at}>{waited(request.opened_at, readAt)}</time>
+        <time dateTime={request.opened_at}>
+          {ago(Date.parse(request.opened_at), readAt, { style: 'terminal', dateAfter: month })}
+        </time>
         {request.draft ? <DraftTag /> : null}
       </Meta>
       <div className="flex flex-wrap items-center gap-x-group gap-y-item text-sm">
@@ -325,34 +326,6 @@ function DraftTag() {
       Draft
     </span>
   )
-}
-
-// waited is how long before the queue was read a request was opened, in the
-// terminal's words: just now, then minutes, hours and days, and past a month
-// the date, YYYY-MM-DD. The server sends the zero time for a date the forge
-// did not give.
-function waited(openedAt: string, readAt: number): string {
-  const opened = Date.parse(openedAt)
-  if (opened <= 0) {
-    return 'some time ago'
-  }
-
-  const elapsed = readAt - opened
-  if (elapsed < minute) {
-    return 'just now'
-  }
-
-  if (elapsed < hour) {
-    return `${String(Math.floor(elapsed / minute))}m ago`
-  }
-
-  if (elapsed < day) {
-    return `${String(Math.floor(elapsed / hour))}h ago`
-  }
-
-  return elapsed < month
-    ? `${String(Math.floor(elapsed / day))}d ago`
-    : writtenDate(new Date(opened))
 }
 
 // NoForgeToAsk says there is no forge to read the queue from here, and what
