@@ -13,6 +13,7 @@ const cache = {
   name: 'workflow.db',
   kind: 'cache',
   bytes: 94_208,
+  size: '92.0 KiB',
   holds: [
     { what: 'scopes', count: 3 },
     { what: 'cached issues', count: 41 },
@@ -23,8 +24,16 @@ const kept = {
   name: 'kept.db',
   kind: 'kept',
   bytes: 512,
+  size: 'half a KiB',
   holds: [{ what: 'repository groups', count: 2 }],
 } satisfies Listing['files'][number]
+
+// consequences are what the server says each removal takes with it, which the
+// page warns with as they are.
+const consequences = {
+  cache: 'The cache comes back as you work.',
+  all: 'Who is who goes with it, and will be asked again.',
+} satisfies Listing['consequences']
 
 // storeHolding answers the listing with files until a removal takes what its
 // scope reaches, recording each request.
@@ -37,7 +46,7 @@ function storeHolding(files: Listing['files']): Request[] {
         left = at.searchParams.get('scope') === 'all' ? [] : left.filter((f) => f.kind === 'kept')
       }
 
-      return { dir, files: left }
+      return { dir, files: left, consequences }
     },
   })
 }
@@ -51,7 +60,7 @@ function refusing(): void {
             { status: 409, code: 'conflict', title: 'Conflict', type: '', detail: 'held open' },
             { status: 409 },
           )
-        : { dir, files: [cache, kept] },
+        : { dir, files: [cache, kept], consequences },
   })
 }
 
@@ -69,7 +78,7 @@ test('lists the directory and each file with its kind, size and what it holds', 
   expect(rows.map((row) => row.textContent)).toEqual([
     'FileKindSizeHolds',
     'workflow.dbCache92.0 KiBscopes: 3, cached issues: 41',
-    'kept.dbKept512 Brepository groups: 2',
+    'kept.dbKepthalf a KiBrepository groups: 2',
   ])
 })
 
@@ -103,14 +112,14 @@ test('Remove cache… asks first, in a group that takes focus, and Cancel sends 
   expect(requests.map((request) => request.method)).toEqual(['GET'])
 })
 
-test('Remove everything… warns associations will be asked again, removes and reads again', async () => {
+test('Remove everything… warns as the server says, removes and reads again', async () => {
   // Arrange
   const user = userEvent.setup()
   const requests = storeHolding([cache, kept])
   renderWithClient(<LocalData />)
   await user.click(await screen.findByRole('button', { name: 'Remove everything…' }))
   const question = screen.getByRole('group', { name: /remove workflow\.db and kept\.db\?/i })
-  expect(question.textContent).toMatch(/people and group associations will be asked again/i)
+  expect(question.textContent).toContain(consequences.all)
 
   // Act
   await user.click(within(question).getByRole('button', { name: 'Remove' }))
