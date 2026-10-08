@@ -287,7 +287,7 @@ type messagingPosted struct {
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 	preview, open := beneath[messagingPreview](m, msg.opened)
 
-	if msg.err != nil && !errors.Is(msg.err, loop.ErrNotRemembered) {
+	if _, notKept := loop.NotRememberedReason(msg.err); msg.err != nil && !notKept {
 		m.messaging.send = m.messaging.send.failed(msg.err)
 		if open {
 			m = m.withBeneath(preview.failed(msg.err))
