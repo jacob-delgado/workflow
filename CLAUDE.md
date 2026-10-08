@@ -45,6 +45,7 @@ internal/jira/        Jira Data Center REST v2
 internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, templates, CI, issues
 internal/messaging/   posting to Slack, Teams, Discord or a plain webhook
 internal/httpx/       the redirect-refusing HTTP transport the clients share
+internal/fileowner/   who owns a file, as Unix keeps it (build-tagged twins)
 internal/gitrepo/     reading and changing the repository through git
 internal/workdirs/    the directories workflow can work in: listing, checking, naming
 internal/codeowners/  who owns which paths, as GitHub or GitLab reads CODEOWNERS
