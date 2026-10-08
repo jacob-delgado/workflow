@@ -119,7 +119,9 @@ written over, so edit it in Settings.
 
 Status 422. The request was understood but cannot be carried out as asked — an
 invalid configuration body (a `ui.keys` map the terminal interface would
-refuse to start on among them), a configuration file on disk that no longer reads
+refuse to start on among them, or one that changes `jira.token_command`,
+`jira.token_env` or `taskwarrior.program`, which change only in the file
+itself), a configuration file on disk that no longer reads
 as valid (the configuration in effect stands), a request for an issue when no
 tracker is configured, no `jira.review_status` to move an issue to, a change
 Jira refused, a comment with no text or with no tracker to post it to, a

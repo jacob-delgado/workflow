@@ -531,7 +531,10 @@ Taskwarrior part applies when workflow restarts, as the part says: workflow find
 and until the restart the Tasks section says to restart rather than read
 Taskwarrior. What the form has no field for is kept unchanged when you
 save: `version`, `jira.token_command`, `jira.token_env`, and the Slack access
-token and its expiry. Settings
+token and its expiry. The task program is shown but not typed into: workflow
+runs it, and `jira.token_command`, as you, and reads the variable
+`jira.token_env` names, so they change only in the file itself, and a save
+over the API that carries another value for one is refused. Settings
 reads the file each time it opens, and a save checks that the file has not
 changed since: when it has (edited on disk, rewritten by
 `workflow config init --force`, or saved from another tab), nothing is written,

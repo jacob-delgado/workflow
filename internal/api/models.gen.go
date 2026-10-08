@@ -1415,11 +1415,15 @@ type JiraConfig struct {
 	ReviewStatus *string `json:"review_status,omitempty"`
 
 	// Token Masked on read, or empty when none is stored; on write, empty or masked keeps the stored value and null removes it.
-	Token        *string     `json:"token"`
-	TokenCommand *string     `json:"token_command,omitempty"`
-	TokenEnv     *string     `json:"token_env,omitempty"`
-	User         *string     `json:"user,omitempty"`
-	Views        *[]JiraView `json:"views,omitempty"`
+	Token *string `json:"token"`
+
+	// TokenCommand A program that prints the token. workflow runs it as you, so a save keeps it as the file holds it, left out or not; one carrying another value is refused 422. It changes only in the file.
+	TokenCommand *string `json:"token_command,omitempty"`
+
+	// TokenEnv An environment variable that holds the token. Held as token_command is: a save keeps it, and one carrying another value is refused 422.
+	TokenEnv *string     `json:"token_env,omitempty"`
+	User     *string     `json:"user,omitempty"`
+	Views    *[]JiraView `json:"views,omitempty"`
 }
 
 // JiraView defines model for JiraView.
@@ -2345,7 +2349,7 @@ type TaskwarriorConfig struct {
 	// Disabled Turn off the Taskwarrior integration even where Taskwarrior is installed.
 	Disabled *bool `json:"disabled,omitempty"`
 
-	// Program The task program to run: a name looked up on PATH, or a path. Empty tries every task in an absolute PATH directory and keeps the first that is Taskwarrior 3.5.0 or newer.
+	// Program The task program to run: a name looked up on PATH, or a path. Empty tries every task in an absolute PATH directory and keeps the first that is Taskwarrior 3.5.0 or newer. workflow runs it as you, so a save keeps it as the file holds it, left out or not; one carrying another value is refused 422. It changes only in the file.
 	Program *string `json:"program,omitempty"`
 }
 

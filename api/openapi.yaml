@@ -1071,7 +1071,11 @@ paths:
         messaging.access_token, which goes with the client secret or the
         refresh token. A Jira header left out of jira.headers is removed. The body is validated the same way a file read is,
         and its ui.keys map is checked as the terminal interface checks one
-        before it starts; a body that fails either is rejected with 422. With
+        before it starts; a body that fails either is rejected with 422. What
+        workflow runs, or reads the environment by, as you — jira.token_command,
+        jira.token_env and taskwarrior.program — is kept as the file holds it,
+        and a body carrying another value for one is rejected with 422 naming
+        it. With
         no configuration file where the server works there is none to write
         over, and it answers 404: a first one is set up through
         /api/config/setup.
@@ -4766,8 +4770,18 @@ components:
           description: >-
             Masked on read, or empty when none is stored; on write, empty or
             masked keeps the stored value and null removes it.
-        token_command: {type: string}
-        token_env: {type: string}
+        token_command:
+          type: string
+          description: >-
+            A program that prints the token. workflow runs it as you, so a save
+            keeps it as the file holds it, left out or not; one carrying
+            another value is refused 422. It changes only in the file.
+        token_env:
+          type: string
+          description: >-
+            An environment variable that holds the token. Held as
+            token_command is: a save keeps it, and one carrying another value
+            is refused 422.
         user: {type: string}
         headers:
           type: object
@@ -4994,7 +5008,9 @@ components:
           description: >-
             The task program to run: a name looked up on PATH, or a path. Empty
             tries every task in an absolute PATH directory and keeps the first
-            that is Taskwarrior 3.5.0 or newer.
+            that is Taskwarrior 3.5.0 or newer. workflow runs it as you, so a
+            save keeps it as the file holds it, left out or not; one carrying
+            another value is refused 422. It changes only in the file.
         disabled:
           type: boolean
           description: >-

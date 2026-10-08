@@ -88,17 +88,29 @@ interface TextFieldProps {
   hint?: string
   type?: 'text' | 'url' | 'password' | 'number'
   readAs?: ReadAs
+  // readOnly shows a setting a save keeps as the file holds it: it rides
+  // back as it was read, and is not typed into.
+  readOnly?: boolean
 }
 
 // TextField is a field typed into: text, a URL, a secret, or a count, which
 // is never below zero and reads as a number.
-export function TextField({ register, name, label, hint, type = 'text', readAs }: TextFieldProps) {
+export function TextField({
+  register,
+  name,
+  label,
+  hint,
+  type = 'text',
+  readAs,
+  readOnly = false,
+}: TextFieldProps) {
   return (
     <Field name={name} label={label} hint={hint}>
       <Input
         id={name}
         type={type}
         min={type === 'number' ? 0 : undefined}
+        readOnly={readOnly}
         aria-describedby={hint ? hintId(name) : undefined}
         {...register(name, { setValueAs: type === 'number' ? readCount : readAs })}
       />
