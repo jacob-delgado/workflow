@@ -71,8 +71,8 @@ func gitHookNames() []string {
 }
 
 // ExistingHooks finds the hooks git would run from a hooks directory, in git's
-// order: files named for a hook, runnable as one, that lefthook does not already
-// manage. Whether a file is runnable is decided by goos, since Windows has no
+// order: files named for a hook, runnable as one, that are not lefthook's own
+// shim. Whether a file is runnable is decided by goos, since Windows has no
 // executable bit to check.
 func ExistingHooks(hooksDir fs.FS, goos string) []GitHook {
 	var found []GitHook
@@ -84,7 +84,7 @@ func ExistingHooks(hooksDir fs.FS, goos string) []GitHook {
 		}
 
 		script, err := fs.ReadFile(hooksDir, name)
-		if err != nil || strings.Contains(string(script), "lefthook") {
+		if err != nil || lefthooksShim(string(script)) {
 			continue
 		}
 
@@ -92,6 +92,20 @@ func ExistingHooks(hooksDir fs.FS, goos string) []GitHook {
 	}
 
 	return found
+}
+
+// lefthooksShim reports a hook lefthook installed itself: one that carries its
+// version header or calls its call_lefthook function. A hook that only mentions
+// lefthook, in a comment or as a step, is the repository's own.
+func lefthooksShim(script string) bool {
+	for line := range strings.SplitSeq(script, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "# lefthook_version:") || strings.HasPrefix(line, "call_lefthook") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // runnableHook reports whether git would run a file as a hook: executable on
