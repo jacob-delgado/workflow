@@ -78,6 +78,10 @@ docs/                 the Hugo documentation site
 .github/              CI workflows, and the issue and pull request templates
 ```
 
+`task lint:layout` fails when a Go package has no line here, or a line names a
+directory that holds nothing: a new package brings its line, saying what it
+holds.
+
 ## Common commands
 
 | Command | Does |
