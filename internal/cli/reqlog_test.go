@@ -184,3 +184,27 @@ func TestDryRunReachesConfigInit(t *testing.T) {
 		t.Errorf("workflow --dry-run config init = %v, file %v, want nothing written:\n%s", err, statErr, output)
 	}
 }
+
+func TestLogReachesSlackLogin(t *testing.T) {
+	// Arrange
+	fakeSlack(t, map[string]slackAnswer{slackRefresh: {http.StatusOK, slackRenewed}})
+
+	dir := t.TempDir()
+	writeFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
+
+	logPath := filepath.Join(t.TempDir(), "requests.log")
+	prompt := asking([]string{slackClientID}, typedLogin(), new([]string), new([]string))
+
+	// Act
+	output, err := runGuided(t, dir, prompt, "--log", logPath, "slack", "login")
+	if err != nil {
+		t.Fatalf("slack login: %v (%s)", err, output)
+	}
+
+	// Assert
+	logged := readLog(t, logPath)
+	if !strings.Contains(logged, "slack POST "+slackRefresh) || !strings.Contains(logged, "slack POST "+slackAuthTest) {
+		t.Errorf("the request log does not outline the login's refresh and its auth.test:\n%s", logged)
+	}
+}

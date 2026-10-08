@@ -73,32 +73,35 @@ the first.`,
 			}
 			defer conn.closeLog()
 
-			return slackLogin(cmd.Context(), outputOf(cmd).notes, prompt, conn.cfg, dryRunRequested(cmd))
+			return slackLogin(cmd, prompt, conn)
 		},
 	}
 }
 
-// slackLogin sets up cfg's Slack user token, or says what it would do under a
-// dry run. It makes no artifact, so all it says goes to notes.
-func slackLogin(ctx context.Context, notes io.Writer, prompt Prompt, cfg config.Config, dryRun bool) error {
-	err := loginAllowed(cfg)
+// slackLogin sets up the Slack user token of the configuration conn wired,
+// outlining its requests in conn's request log, or says what it would do under
+// a dry run. It makes no artifact, so all it says goes to notes.
+func slackLogin(cmd *cobra.Command, prompt Prompt, conn connection) error {
+	notes := outputOf(cmd).notes
+
+	err := loginAllowed(conn.cfg)
 	if err != nil {
 		return err
 	}
 
-	if dryRun {
+	if dryRunRequested(cmd) {
 		fmt.Fprintf(notes, "dry run: would ask for the Slack app's client ID and secret and a refresh token, "+
-			"refresh it once, and keep it in %s; nothing was asked or written\n", wiring.SlackStore(cfg).Where())
+			"refresh it once, and keep it in %s; nothing was asked or written\n", wiring.SlackStore(conn.cfg).Where())
 
 		return nil
 	}
 
-	clientID, starting, err := askForLogin(prompt)
+	answers, err := askForLogin(prompt)
 	if err != nil {
 		return err
 	}
 
-	return keepFirstToken(ctx, notes, cfg, clientID, starting)
+	return keepFirstToken(cmd.Context(), notes, conn, answers)
 }
 
 // loginAllowed refuses a login the configuration cannot take.
@@ -115,25 +118,34 @@ func loginAllowed(cfg config.Config) error {
 	}
 }
 
+// loginAnswers are what a login is typed: the app's client ID, and the
+// credentials its first refresh starts from.
+type loginAnswers struct {
+	clientID string
+	starting slackauth.Credentials
+}
+
 // askForLogin asks for the app's client ID on screen, then its secret and the
 // refresh token off it.
-func askForLogin(prompt Prompt) (string, slackauth.Credentials, error) {
+func askForLogin(prompt Prompt) (loginAnswers, error) {
 	clientID, err := askFor(prompt.Line, "Slack app client ID (Basic Information): ", "client ID")
 	if err != nil {
-		return "", slackauth.Credentials{}, err
+		return loginAnswers{}, err
 	}
 
 	secret, err := askFor(prompt.Secret, "Slack app client secret (not shown): ", "client secret")
 	if err != nil {
-		return "", slackauth.Credentials{}, err
+		return loginAnswers{}, err
 	}
 
 	refresh, err := askFor(prompt.Secret, "Refresh token, xoxe-1-… (not shown): ", "refresh token")
 	if err != nil {
-		return "", slackauth.Credentials{}, err
+		return loginAnswers{}, err
 	}
 
-	return clientID, slackauth.Credentials{ClientSecret: config.Secret(secret), RefreshToken: config.Secret(refresh)}, nil
+	starting := slackauth.Credentials{ClientSecret: config.Secret(secret), RefreshToken: config.Secret(refresh)}
+
+	return loginAnswers{clientID: clientID, starting: starting}, nil
 }
 
 // askFor asks question through ask and refuses a blank answer, naming what.
@@ -173,17 +185,16 @@ func nameSlackApp(cfg config.Config, clientID string) (config.Config, error) {
 	return held, nil
 }
 
-// keepFirstToken refreshes the starting credentials once, as the app clientID
-// names, keeps what Slack gives back where cfg keeps a user token, and only
-// then names the app in the file, so a refresh Slack refuses changes nothing;
-// then it says whose token it is.
-func keepFirstToken(
-	ctx context.Context, notes io.Writer, cfg config.Config, clientID string, starting slackauth.Credentials,
-) error {
-	transport := onlineDoer(cfg)
-	store := wiring.SlackStore(cfg)
+// keepFirstToken refreshes the starting credentials once, as the app typed
+// names, keeps what Slack gives back where the configuration keeps a user
+// token, and only then names the app in the file, so a refresh Slack refuses
+// changes nothing; then it says whose token it is. Each request is outlined in
+// conn's request log.
+func keepFirstToken(ctx context.Context, notes io.Writer, conn connection, answers loginAnswers) error {
+	transport := conn.requestLog.Wrap("slack", onlineDoer(conn.cfg))
+	store := wiring.SlackStore(conn.cfg)
 
-	renewed, err := wiring.SlackRefresher(clientID, transport).Refresh(ctx, starting)
+	renewed, err := wiring.SlackRefresher(answers.clientID, transport).Refresh(ctx, answers.starting)
 	if err != nil {
 		return err
 	}
@@ -193,12 +204,12 @@ func keepFirstToken(
 		return err
 	}
 
-	cfg, err = nameSlackApp(cfg, clientID)
+	named, err := nameSlackApp(conn.cfg, answers.clientID)
 	if err != nil {
 		return err
 	}
 
-	return sayWhoseToken(ctx, notes, cfg, transport, store.Where())
+	return sayWhoseToken(ctx, notes, named, transport, store.Where())
 }
 
 // sayWhoseToken asks Slack whose the token cfg keeps in where is, and says so.
