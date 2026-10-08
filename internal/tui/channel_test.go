@@ -42,12 +42,14 @@ func TestTheChannelCanBeChangedBeforePosting(t *testing.T) {
 	requireScreen(t, preview.View().Content, "to  "+devChannel, "change channel")
 
 	// Act: cycle to the other channel and post
-	typing(t, preview, "right", keyEnter)
+	posted := typing(t, preview, "right", keyEnter)
 
-	// Assert: the post went to the chosen channel
+	// Assert: the post went to the chosen channel, and the notice names it
 	if got := world.channelPostedTo(); got != teamChannel {
 		t.Errorf("posted to %q, want the chosen channel #team-b", got)
 	}
+
+	requireScreen(t, posted.View().Content, "announced to "+teamChannel)
 }
 
 func TestOneChannelOffersNoChange(t *testing.T) {

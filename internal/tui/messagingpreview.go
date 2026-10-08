@@ -55,6 +55,22 @@ func (p messagingPreview) destination() string {
 	return p.fallback
 }
 
+// outgoingAnnouncement is an announcement as it leaves: the channel it is sent
+// to, empty for a webhook's own, and where that is as the notice names it; what
+// it says and the moment it marks; and whom it tags.
+type outgoingAnnouncement struct {
+	channel, to, text string
+	moment            messaging.Moment
+	tags              postTags
+}
+
+// outgoing is the announcement this preview sends, as it stands.
+func (p messagingPreview) outgoing() outgoingAnnouncement {
+	return outgoingAnnouncement{
+		channel: p.channel, to: p.destination(), text: p.text, moment: p.moment, tags: p.tagging.postTags(),
+	}
+}
+
 var (
 	_ editable                   = messagingPreview{}
 	_ failable[messagingPreview] = messagingPreview{}
@@ -148,7 +164,7 @@ func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 	p.send = starting()
 	m.overlay = p
 
-	return m.sendToMessaging(p.channel, p.text, p.moment, p.tagging.postTags())
+	return m.sendToMessaging(p.outgoing())
 }
 
 // waitsForCI reports whether this post can wait for CI to pass. Only a "ready
@@ -177,28 +193,30 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.inFlight + " will announce to " + p.destination() + " once CI passes")
 	m.messaging.pending, m.messaging.send.err, m.messaging.dropped = queuedPost{
-		pull: m.review.pull.Number, text: p.text, channel: p.channel, tags: p.tagging.postTags(),
+		pull: m.review.pull.Number, post: p.outgoing(),
 	}, nil, ""
 
 	return m.keepPolling(m.checkCI())
 }
 
-// sendToMessaging posts text marking moment with its tags, and once it has
-// gone out records it in the store, with the groups it tagged when it offered
-// any, the way every surface delivers an announcement. It replaces any post
-// waiting for CI: that one would otherwise follow it once CI passed, and the
-// channel would read it twice.
-func (m Model) sendToMessaging(channel, text string, moment messaging.Moment, tags postTags) (Model, tea.Cmd) {
+// sendToMessaging posts an announcement, and once it has gone out records it
+// in the store, with the groups it tagged when it offered any, the way every
+// surface delivers an announcement. It replaces any post waiting for CI: that
+// one would otherwise follow it once CI passed, and the channel would read it
+// twice.
+func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
 	post, memory := m.deps.Messaging.Post, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
-	if record := m.deps.Store.RecordGroups; tags.offersGroups && record != nil {
-		memory.RecordGroups = func(ids []string) error { return record(tags.workspace, ids) }
+	if record := m.deps.Store.RecordGroups; out.tags.offersGroups && record != nil {
+		memory.RecordGroups = func(ids []string) error { return record(out.tags.workspace, ids) }
 	}
 
-	made := loop.Announced{Pull: m.review.pull.Number, Moment: moment}
-	delivery := loop.Delivery{Channel: channel, Text: text, Made: made, Mentions: tags.mentions}
+	made := loop.Announced{Pull: m.review.pull.Number, Moment: out.moment}
+	delivery := loop.Delivery{Channel: out.channel, Text: out.text, Made: made, Mentions: out.tags.mentions}
 	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
-	return m, func() tea.Msg { return messagingPosted{made: made, err: loop.Deliver(post, memory, delivery)} }
+	return m, func() tea.Msg {
+		return messagingPosted{made: made, to: out.to, err: loop.Deliver(post, memory, delivery)}
+	}
 }
 
 // applyEdit puts the edited message back in the preview, or records why the
@@ -215,10 +233,11 @@ func (p messagingPreview) applyEdit(m Model, text string, err error) (Model, tea
 	return m, nil
 }
 
-// messagingPosted reports how posting went, and the announcement it made: a pull
-// request and the moment it marked.
+// messagingPosted reports how posting went, the announcement it made — a pull
+// request and the moment it marked — and where it went.
 type messagingPosted struct {
 	made loop.Announced
+	to   string
 	err  error
 }
 
@@ -237,7 +256,7 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		m = m.closeOverlay()
 	}
 
-	return m.noticed(m.marks.done + " announced to " + m.cfg.Messaging.Target()), nil
+	return m.noticed(m.marks.done + " announced to " + msg.to), nil
 }
 
 // failed is the preview kept open with the reason the post failed.
