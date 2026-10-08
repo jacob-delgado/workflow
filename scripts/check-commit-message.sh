@@ -23,13 +23,20 @@
 # and no body may contain BEGIN_NESTED_COMMIT, which makes the rest of the
 # message separate commits. release-please also breaks lines at a bare carriage
 # return, so this does too.
+#
+# The body is wrapped at 72 characters, as CLAUDE.md asks, since every commit
+# lands on main as written. Only prose is held to it: a line holding a URL, a
+# line of an indented or fenced block, and the trailers of a last paragraph
+# made only of trailers cannot wrap, and are left as they are.
 set -euo pipefail
 
 readonly subject_pattern='^(feat|fix|chore|docs|refactor|test|perf|build|ci|revert|style)(\([a-z0-9_-]+\))?!?: .+'
 readonly breaking_subject_pattern='^[a-z]+(\([a-z0-9_-]+\))?!: '
 
-# CLAUDE.md: the subject is at most 72 characters and does not end with a period.
+# CLAUDE.md: the subject is at most 72 characters and does not end with a period,
+# and the body is wrapped at 72.
 readonly subject_limit=72
+readonly body_limit=72
 
 # What release-please's parser counts as whitespace before a continuation:
 # space, tab, vertical tab, form feed, no-break space and zero-width no-break
@@ -48,6 +55,34 @@ usage() {
 refuse() {
   printf '%s\n' "$@" >&2
   exit 1
+}
+
+# overlong_prose prints each prose line of a body past the limit, numbered as a
+# line of the whole message. It counts characters rather than bytes, in any
+# locale, by not counting a UTF-8 continuation byte.
+overlong_prose() {
+  LC_ALL=C awk -v limit="${body_limit}" '
+    function is_trailer(text) { return text ~ /^[A-Za-z0-9][A-Za-z0-9-]*: / }
+    { line[NR] = $0 }
+    /^[ \t]*$/ { last_blank = NR }
+    END {
+      trailers = last_blank < NR
+      for (i = last_blank + 1; i <= NR; i++) {
+        if (!is_trailer(line[i]) && line[i] !~ /^[ \t]/) trailers = 0
+      }
+      for (i = 1; i <= NR; i++) {
+        text = line[i]
+        if (text ~ /^(```|~~~)/) { fenced = !fenced; continue }
+        if (fenced || text ~ /^[ \t]/ || text ~ /[A-Za-z][A-Za-z0-9+.-]*:\/\//) continue
+        if (trailers && i > last_blank) continue
+        chars = text
+        gsub(/[\200-\277]/, "", chars)
+        if (length(chars) > limit) {
+          printf "  line %d is %d characters: %s\n", i + 1, length(chars), text
+        }
+      }
+    }
+  ' <<<"$1"
 }
 
 if [[ $# -ne 1 || ! -f "$1" ]]; then
@@ -80,6 +115,12 @@ fi
 
 if [[ "${subject}" == *. ]]; then
   refuse "The subject ends with a period, which CLAUDE.md forbids: ${subject}"
+fi
+
+overlong="$(overlong_prose "${body}")"
+if [[ -n "${overlong}" ]]; then
+  refuse "The body is not wrapped at ${body_limit} characters: ${subject}" "${overlong}" \
+    "  Rewrap the prose. A URL, an indented or fenced block and the trailers may run long."
 fi
 
 if grep -q 'BEGIN_NESTED_COMMIT' <<<"${body}"; then
