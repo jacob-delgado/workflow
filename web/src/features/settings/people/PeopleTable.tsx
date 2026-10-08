@@ -11,11 +11,10 @@ import { useSlackGroups, useSlackMembers } from '@/features/messaging/slackApi.t
 import { Button } from '@/lib/Button.tsx'
 import { Select } from '@/lib/Field.tsx'
 import { Reading, Unread } from '@/lib/Status.tsx'
-import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { LastLook } from '@/lib/LastLook.tsx'
 import { usePeople, usePeopleWrites } from './peopleApi.ts'
-import { useHoldShortcuts } from '@/features/keyboard/useShortcut.ts'
 
 // notOnSlack is the choice that marks an owner not on Slack; no Slack ID
 // reads like it.
@@ -300,11 +299,8 @@ interface ForgetConfirmProps {
   onClose: (forgotten: boolean) => void
 }
 
-// ForgetConfirm asks before forgetting an owner, and takes focus as it opens,
-// so a screen reader hears the question.
+// ForgetConfirm asks before forgetting an owner, and forgets them.
 function ForgetConfirm({ owner, forget, tell, onClose }: ForgetConfirmProps) {
-  const question = useFocusOnMount<HTMLDivElement>()
-  useHoldShortcuts()
   const forgetting = useAsyncAction(forget, {
     fallback: `${owner} was not forgotten. Try again.`,
     done: () => `Forgot ${owner}: they are asked about again.`,
@@ -316,40 +312,16 @@ function ForgetConfirm({ owner, forget, tell, onClose }: ForgetConfirmProps) {
   })
 
   return (
-    <div
-      ref={question}
-      role="group"
-      aria-label={`Forget ${owner}?`}
-      tabIndex={-1}
-      className="flex flex-col items-start gap-item"
-    >
-      <p>Forget {owner}?</p>
-      <p className="text-muted-foreground">
-        The next ready-for-review announcement asks whom they are on Slack again.
-      </p>
-      {forgetting.state === 'error' ? (
-        <p role="alert" className="text-destructive">
-          {forgetting.error}
-        </p>
-      ) : null}
-      <div className="flex items-center gap-item">
-        <Button
-          variant="secondary"
-          held={forgetting.state === 'running'}
-          onClick={() => {
-            onClose(false)
-          }}
-        >
-          Cancel
-        </Button>
-        <Button
-          variant="primary"
-          held={forgetting.state === 'running'}
-          onClick={() => void forgetting.run(owner)}
-        >
-          {forgetting.state === 'running' ? 'Forgetting…' : 'Forget'}
-        </Button>
-      </div>
-    </div>
+    <LastLook
+      question={`Forget ${owner}?`}
+      cost="The next ready-for-review announcement asks whom they are on Slack again."
+      act="Forget"
+      acting="Forgetting…"
+      write={forgetting}
+      onAct={() => void forgetting.run(owner)}
+      onCancel={() => {
+        onClose(false)
+      }}
+    />
   )
 }

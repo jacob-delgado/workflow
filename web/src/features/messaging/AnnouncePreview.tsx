@@ -5,7 +5,7 @@ import { Select, TextArea } from '@/lib/Field.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { TagPicker } from './TagPicker.tsx'
 import type { TagPick } from './tagPick.ts'
-import { useHoldShortcuts } from '@/features/keyboard/useShortcut.ts'
+import { useHoldShortcuts } from '@/lib/LastLook.tsx'
 
 interface AnnouncePreviewProps {
   text: string

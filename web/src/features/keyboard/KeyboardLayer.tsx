@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { KeyAction } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { shortcutsHeld } from '@/lib/LastLook.tsx'
 import { sectionLabel, sectionMeta } from '@/shell/sections.ts'
 import { sections, useUiStore, type Section } from '@/shell/uiStore.ts'
 import { helpAction, jumpAction, paneSections } from './boundActions.ts'
@@ -9,7 +10,7 @@ import { CommandPalette, type PaletteEntry } from './CommandPalette.tsx'
 import { opensPalette, plainKey, pressable, takesTyping } from './keyNames.ts'
 import { keysOf, useKeysStore, useReadKeys } from './keysApi.ts'
 import { ShortcutSheet } from './ShortcutSheet.tsx'
-import { answerWith, liveRegistrations, shortcutsHeld } from './useShortcut.ts'
+import { answerWith, liveRegistrations } from './useShortcut.ts'
 
 type Open = 'sheet' | 'palette' | null
 

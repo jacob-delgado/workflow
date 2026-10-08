@@ -2,12 +2,13 @@ import { useState } from 'react'
 import type { Activity, MessagingDestination, PostLength } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
-import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
+import { useFocusHandback } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { LastLook } from '@/lib/LastLook.tsx'
 import { ChannelSelect, PreviewText } from '@/features/messaging/AnnouncePreview.tsx'
 import { postSummary } from './summaryApi.ts'
-import { useHoldShortcuts, useShortcut } from '@/features/keyboard/useShortcut.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 
 // webhookChannel is where a post goes that names no channel: a webhook's own.
 const webhookChannel = 'the channel its webhook is bound to'
@@ -65,11 +66,9 @@ interface PostPreviewProps {
   onClose: (posted: boolean) => void
 }
 
-// PostPreview is the summary about to be posted and where, taking focus as it
-// opens, so what is about to be sent is what a screen reader reads next.
+// PostPreview is the summary about to be posted and where: a last look, named
+// by what it shows rather than by a question, whose Post alone sends.
 function PostPreview({ activity, messaging, teller, onClose }: PostPreviewProps) {
-  const shown = useFocusOnMount<HTMLDivElement>()
-  useHoldShortcuts()
   const [channel, setChannel] = useState(
     messaging.channel === '' ? (messaging.channels[0] ?? '') : messaging.channel,
   )
@@ -89,12 +88,18 @@ function PostPreview({ activity, messaging, teller, onClose }: PostPreviewProps)
   const busy = post.state === 'running'
 
   return (
-    <div
-      ref={shown}
-      role="group"
-      aria-label="Summary preview"
-      tabIndex={-1}
-      className="flex w-full flex-col gap-group rounded-lg border border-border p-4"
+    <LastLook
+      label="Summary preview"
+      act="Post"
+      acting="Posting…"
+      write={post}
+      className="w-full items-stretch gap-group rounded-lg border border-border p-4"
+      onAct={() => {
+        void post.run(edited ?? activity.text)
+      }}
+      onCancel={() => {
+        onClose(false)
+      }}
     >
       <PreviewText
         label="Summary text"
@@ -114,36 +119,9 @@ function PostPreview({ activity, messaging, teller, onClose }: PostPreviewProps)
           onChannel={setChannel}
         />
       ) : (
-        <p className="text-sm text-muted-foreground">
-          To {channel === '' ? webhookChannel : channel}
-        </p>
+        <p className="text-muted-foreground">To {channel === '' ? webhookChannel : channel}</p>
       )}
-      {post.state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {post.error}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-item">
-        <Button
-          variant="secondary"
-          held={busy}
-          onClick={() => {
-            onClose(false)
-          }}
-        >
-          Cancel
-        </Button>
-        <Button
-          variant="primary"
-          held={busy}
-          onClick={() => {
-            void post.run(edited ?? activity.text)
-          }}
-        >
-          {busy ? 'Posting…' : 'Post'}
-        </Button>
-      </div>
-    </div>
+    </LastLook>
   )
 }
 
