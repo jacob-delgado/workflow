@@ -508,6 +508,32 @@ export const zHealth = z.object({
 });
 
 /**
+ * One stage of the loop for the checked-out branch.
+ */
+export const zStage = z.object({
+    step: z.enum([
+        'issue',
+        'branch',
+        'commits',
+        'review',
+        'announce'
+    ]),
+    name: z.string(),
+    system: z.enum([
+        'tracker',
+        'git',
+        'forge',
+        'messaging'
+    ]),
+    state: z.enum([
+        'not_started',
+        'in_flight',
+        'done',
+        'failed'
+    ])
+});
+
+/**
  * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the origin names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
  */
 export const zPanelProblems = z.object({
@@ -927,6 +953,7 @@ export const zSnapshot = z.object({
     branch: zBranch,
     changes: zChangeList,
     review: zReview,
+    stages: z.array(zStage),
     messaging: zMessagingDestination,
     queued_announcement: zQueuedAnnouncement.optional(),
     hooks_unmanaged: z.int(),

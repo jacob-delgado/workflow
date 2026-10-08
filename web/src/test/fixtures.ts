@@ -3,6 +3,7 @@ import type {
   Health,
   ReviewRequest,
   Snapshot,
+  Stage,
   Task,
   TaskList,
 } from '@/api/generated/types.gen.ts'
@@ -26,8 +27,31 @@ export function makeBranch(overrides: Partial<Branch> = {}): Branch {
   }
 }
 
+// StageStates is how far each stage of the loop has got, by its step.
+type StageStates = Partial<Record<Stage['step'], Stage['state']>>
+
+// makeStages is the loop's five stages as the server sends them, in its order
+// and named as it names them, each not started but where states says.
+export function makeStages(states: StageStates = {}): Stage[] {
+  const stage = (step: Stage['step'], name: string, system: Stage['system']): Stage => ({
+    step,
+    name,
+    system,
+    state: states[step] ?? 'not_started',
+  })
+
+  return [
+    stage('issue', 'Issue', 'tracker'),
+    stage('branch', 'Branch', 'git'),
+    stage('commits', 'Commits', 'git'),
+    stage('review', 'Review', 'forge'),
+    stage('announce', 'Slack', 'messaging'),
+  ]
+}
+
 // A complete, contract-valid snapshot for tests, with the fields a case cares
-// about overridden. Kept here so every panel test starts from the same shape
+// about overridden. Its stages are those of its branch, which names an issue
+// and has nothing committed. Kept here so every panel test starts from the same shape
 // the stream actually pushes.
 export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   return {
@@ -36,6 +60,7 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     branch: makeBranch(),
     changes: { changes: [] },
     review: { found: false, announced: false },
+    stages: makeStages({ issue: 'done', branch: 'done' }),
     messaging: {
       kind: 'slack',
       service: 'Slack',

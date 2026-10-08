@@ -13,9 +13,11 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/progress"
 )
 
 // defaultStreamInterval is how often the event stream re-pushes a snapshot when
@@ -113,7 +115,7 @@ func (s *server) snapshot(view string) api.Snapshot {
 	changes, changesErr := s.snapshotChanges()
 	commit := s.commitConvention()
 
-	return api.Snapshot{
+	frame := api.Snapshot{
 		Issues:  issues,
 		Branch:  branchDTO(branch),
 		Changes: changes,
@@ -135,6 +137,87 @@ func (s *server) snapshot(view string) api.Snapshot {
 		Tasks: s.snapshotTasks(),
 		Here:  s.deps.Repositories.Here.Dir,
 	}
+	frame.Stages = s.frameStages(branch, read, frame)
+
+	return frame
+}
+
+// frameStages is the loop's stages for the frame's branch, derived by
+// progress, as the terminal's spine and `workflow status` derive them, from
+// what the frame read: the branch, its pull request and CI as the forge last
+// answered, the files still to commit, whether the pull request was announced
+// at its moment, and an announcement held for its CI. An issue picked but not
+// yet branched for is the terminal's session knowledge, not the server's, so
+// the issue stage is done once the branch names one and not started before.
+func (s *server) frameStages(branch gitrepo.Branch, read forgeRead, frame api.Snapshot) []api.Stage {
+	_, named := loop.IssueOf(branch, s.config().Jira.Project)
+	work := progress.Work{
+		OnFeatureBranch:    loop.OnFeatureBranch(branch),
+		IssueNamed:         named,
+		Commits:            len(branch.Commits),
+		UncommittedChanges: len(frame.Changes.Changes),
+		PullRequest:        read.pullState(),
+		CI:                 read.ciState(),
+		ChangesRequested:   read.found && read.pull.ChangesRequested,
+		Announced:          frame.Review.Announced,
+		PostPending:        heldForCI(frame.QueuedAnnouncement),
+	}
+
+	return stagesDTO(progress.Stages(work, s.config().Messaging.Service()))
+}
+
+// pullState is where the read's pull request stands for the loop: none, when
+// the forge found none.
+func (r forgeRead) pullState() progress.PullState {
+	if !r.found {
+		return progress.NoPullRequest
+	}
+
+	return progress.PullStateOf(r.pull.State)
+}
+
+// ciState is how the read's CI stands, a CI not read counting as none, as
+// `workflow status` counts it.
+func (r forgeRead) ciState() forge.CIState {
+	if !r.ciRead {
+		return forge.CINone
+	}
+
+	return r.ci.State
+}
+
+// heldForCI reports an announcement waiting for its CI, or being posted once
+// it passed: not yet made, nor given up on.
+func heldForCI(held *api.QueuedAnnouncement) bool {
+	return held != nil &&
+		(held.State == api.QueuedAnnouncementStateWaiting || held.State == api.QueuedAnnouncementStateAnnouncing)
+}
+
+// stagesDTO maps the loop's stages onto the wire, each by its step, name,
+// system and state. Maps, so exhaustive keeps each complete.
+func stagesDTO(stages []progress.Stage) []api.Stage {
+	steps := map[progress.Step]api.StageStep{
+		progress.StepIssue: api.StageStepIssue, progress.StepBranch: api.StageStepBranch,
+		progress.StepCommits: api.StageStepCommits, progress.StepReview: api.StageStepReview,
+		progress.StepAnnounce: api.StageStepAnnounce,
+	}
+	systems := map[progress.System]api.StageSystem{
+		progress.Tracker: api.StageSystemTracker, progress.Git: api.StageSystemGit,
+		progress.Forge: api.StageSystemForge, progress.Messaging: api.StageSystemMessaging,
+	}
+	states := map[progress.State]api.StageState{
+		progress.NotStarted: api.StageStateNotStarted, progress.InFlight: api.StageStateInFlight,
+		progress.Done: api.StageStateDone, progress.Failed: api.StageStateFailed,
+	}
+
+	out := make([]api.Stage, 0, len(stages))
+	for _, stage := range stages {
+		out = append(out, api.Stage{
+			Step: steps[stage.Step], Name: stage.Name, System: systems[stage.System], State: states[stage.State],
+		})
+	}
+
+	return out
 }
 
 // frameBranch is the checked-out branch, read once for the whole frame through

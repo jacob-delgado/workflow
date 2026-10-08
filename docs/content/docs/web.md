@@ -143,14 +143,15 @@ tasks stand: *tracked*, *task active* or *task done*.
 
 The selected issue's detail shows its type, priority, reporter and assignee, a
 link to open it in Jira, its description and its comments, and its **work
-story**: the branch, the changes, the pull request and the announcement, each
-step opening the section it belongs to. A step reads done, not yet, or failed
-by the rules of the terminal's top row and `workflow status`: the changes are
-done once there is a commit, and the pull request is done once its CI passes
-or it merges, and failed on a CI failure or changes asked for. The
-announcement is done once the pull request was announced at the moment it is
-at now — from the browser, the terminal or `workflow announce`, as the store
-remembers. From the
+story**: the issue, the branch, the changes, the pull request and the
+announcement, each step opening the section it belongs to. For the issue whose
+branch is checked out, a step reads done, not yet, or failed as the server
+works it out, by the rules of the terminal's top row and `workflow status`: the
+issue is done once the branch names it, the changes once there is a commit, and
+the pull request once its CI passes or it merges, failed on a CI failure or
+changes asked for. The announcement is done once the pull request was
+announced at the moment it is at now — from the browser, the terminal or
+`workflow announce`, as the store remembers. From the
 story, **Start work** fetches origin, so the branch starts from what origin
 holds now, then creates and checks out a branch named for the issue, and
 **Switch branch** switches to one it already has. **Start work in a new

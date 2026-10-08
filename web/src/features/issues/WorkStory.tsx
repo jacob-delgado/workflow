@@ -33,10 +33,8 @@ const stageMark: Record<StageState, MarkState> = {
   upcoming: 'not-started',
 }
 
-// How far a stage has got, read from the stream by the rules internal/progress
-// writes for the spine and `workflow status`. Trade-off TRADE-10: the rules are
-// written twice, and WorkStory.stages.test.tsx holds the two equal. Which
-// pending stage the work is at is the story's own reading (stageState).
+// How far a stage has got: done, failed, or neither yet. Which pending stage the
+// work is at is the story's own reading (stageState).
 type Reached = 'done' | 'failed' | 'pending'
 
 interface Stage {
@@ -48,132 +46,159 @@ interface Stage {
   reached: Reached
 }
 
-// The loop, top to bottom: branch for the issue, commit the work, open the pull
-// request and get CI green, announce it. An issue with no local branch has not
-// started. One with a branch that is not checked out has begun, but the detail
-// panels describe only the checked-out branch, so its later stages wait. The
-// issue on HEAD reads every stage's state from the stream. The pull request is
-// named in the forge's own words — a merge request on GitLab.
+type SnapshotStage = Snapshot['stages'][number]
+type Step = SnapshotStage['step']
+
+// The issue's place in the loop: no local branch yet, a branch that is not
+// checked out, or the branch on HEAD.
+type Place = 'not-started' | 'elsewhere' | 'on-head'
+
+// The loop, top to bottom, as the server sends its stages: the issue picked
+// up, branched for, the work committed, the pull request opened and CI green,
+// and announced. Each stage is titled and opens a section by its step; the pull
+// request is named in the forge's own words — a merge request on GitLab.
+function stageLook(step: Step, noun: string): Pick<Stage, 'title' | 'section'> {
+  switch (step) {
+    case 'issue':
+      return { title: 'Issue', section: 'issues' }
+    case 'branch':
+      return { title: 'Branch', section: 'branch' }
+    case 'commits':
+      return { title: 'Changes', section: 'branch' }
+    case 'review':
+      return { title: capitalized(noun), section: 'review' }
+    case 'announce':
+      return { title: 'Announce', section: 'messaging' }
+  }
+}
+
+// buildStages is the issue's story over the stages the server sends. The
+// stages describe the checked-out branch, so the issue on HEAD reads each
+// stage's state from them, as the server read it. An issue with no local branch
+// has not started. One with a branch that is not checked out has been picked up
+// and branched for, but the detail panels describe only the checked-out
+// branch, so its later stages wait.
 function buildStages(
   snapshot: Snapshot,
   branch: TaskBranch | undefined,
   words: ForgeWords,
 ): Stage[] {
+  const place = placeOf(branch)
+  const detailOf = detailFor(place, snapshot, branch?.name ?? '', words)
+
+  return snapshot.stages.map((stage) => ({
+    ...stageLook(stage.step, words.noun),
+    reached: place === 'on-head' ? reachedOf(stage.state) : reachedAway(stage.step, place),
+    detail: detailOf(stage),
+  }))
+}
+
+// placeOf is where the issue's work stands, by its branch.
+function placeOf(branch: TaskBranch | undefined): Place {
   if (!branch) {
-    return notStartedStages(words.noun, snapshot.messaging)
-  }
-  if (!branch.current) {
-    return offHeadStages(branch.name, words.noun, snapshot.messaging)
+    return 'not-started'
   }
 
-  return onHeadStages(snapshot, words)
+  return branch.current ? 'on-head' : 'elsewhere'
 }
 
-// notStartedStages is the story for an issue with no local branch yet.
-function notStartedStages(noun: string, messaging: Snapshot['messaging']): Stage[] {
-  return [
-    {
-      title: 'Branch',
-      section: 'branch',
-      reached: 'pending',
-      detail: ['No branch for this issue yet'],
-    },
-    { title: 'Changes', section: 'branch', reached: 'pending', detail: ['Nothing committed yet'] },
-    { title: capitalized(noun), section: 'review', reached: 'pending', detail: [`No ${noun} yet`] },
-    {
-      title: 'Announce',
-      section: 'messaging',
-      reached: 'pending',
-      detail: [announceDetail(messaging)],
-    },
-  ]
+// reachedOf is how far a stage the server read has got, for the story: under
+// way and not begun alike are pending, the first of them the stage the work is
+// at.
+function reachedOf(state: SnapshotStage['state']): Reached {
+  switch (state) {
+    case 'done':
+      return 'done'
+    case 'failed':
+      return 'failed'
+    case 'in_flight':
+    case 'not_started':
+      return 'pending'
+  }
 }
 
-// offHeadStages is the story for an in-flight issue whose branch is not checked
-// out: the branch exists, but its changes and pull request are only visible from
-// the checked-out branch, so those stages stay pending here.
-function offHeadStages(
+// reachedAway is how far a stage has got for an issue not on HEAD: an issue
+// with a branch has been picked up and branched for; nothing else of it is
+// shown here.
+function reachedAway(step: Step, place: Place): Reached {
+  const branched = place === 'elsewhere' && (step === 'issue' || step === 'branch')
+
+  return branched ? 'done' : 'pending'
+}
+
+// detailFor is what each stage has come to, in the story of the issue's place;
+// branchName is the issue's branch, where it has one.
+function detailFor(
+  place: Place,
+  snapshot: Snapshot,
   branchName: string,
-  noun: string,
+  words: ForgeWords,
+): (stage: SnapshotStage) => ReactNode[] {
+  switch (place) {
+    case 'not-started':
+      return (stage) => [notStartedDetail(stage.step, words.noun, snapshot.messaging)]
+    case 'elsewhere':
+      return (stage) => [elsewhereDetail(stage.step, branchName, snapshot.messaging)]
+    case 'on-head':
+      return (stage) => onHeadDetail(stage, snapshot, words)
+  }
+}
+
+// notStartedDetail is a stage's detail for an issue with no local branch yet.
+function notStartedDetail(step: Step, noun: string, messaging: Snapshot['messaging']): string {
+  switch (step) {
+    case 'issue':
+      return 'Not picked up yet'
+    case 'branch':
+      return 'No branch for this issue yet'
+    case 'commits':
+      return 'Nothing committed yet'
+    case 'review':
+      return `No ${noun} yet`
+    case 'announce':
+      return announceDetail(messaging)
+  }
+}
+
+// elsewhereDetail is a stage's detail for an issue in flight on a branch that
+// is not checked out: its changes and pull request are only visible from the
+// checked-out branch.
+function elsewhereDetail(
+  step: Step,
+  branchName: string,
   messaging: Snapshot['messaging'],
-): Stage[] {
-  const elsewhere = 'Shown for the checked-out branch'
-
-  return [
-    {
-      title: 'Branch',
-      section: 'branch',
-      reached: 'done',
-      detail: [<BranchName key="branch" name={branchName} />],
-    },
-    { title: 'Changes', section: 'branch', reached: 'pending', detail: [elsewhere] },
-    { title: capitalized(noun), section: 'review', reached: 'pending', detail: [elsewhere] },
-    {
-      title: 'Announce',
-      section: 'messaging',
-      reached: 'pending',
-      detail: [announceDetail(messaging)],
-    },
-  ]
+): ReactNode {
+  switch (step) {
+    case 'issue':
+      return 'Picked up'
+    case 'branch':
+      return <BranchName key="branch" name={branchName} />
+    case 'commits':
+    case 'review':
+      return 'Shown for the checked-out branch'
+    case 'announce':
+      return announceDetail(messaging)
+  }
 }
 
-// onHeadStages is the full story for the issue that owns the checked-out branch,
-// with each stage's state read from the stream.
-function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
-  const { branch, messaging } = snapshot
-
-  return [
-    {
-      title: 'Branch',
-      section: 'branch',
-      reached: branch.name === '' ? 'pending' : 'done',
-      detail:
-        branch.name === ''
-          ? ['Not on a branch yet']
-          : [<BranchName key="branch" name={branch.name} />, `${String(branch.ahead)} ahead`],
-    },
-    {
-      title: 'Changes',
-      section: 'branch',
-      // Done on a commit, as progress.commitState reads it: files still to
-      // commit do not undo one already made, and a fresh branch with nothing
-      // committed is still at this stage however clean its tree.
-      reached: branch.commits.length > 0 ? 'done' : 'pending',
-      detail: [changesDetail(snapshot)],
-    },
-    {
-      title: capitalized(words.noun),
-      section: 'review',
-      reached: reviewReached(snapshot),
-      detail: reviewDetail(snapshot, words),
-    },
-    {
-      title: 'Announce',
-      section: 'messaging',
-      reached: snapshot.review.announced ? 'done' : 'pending',
-      detail: [snapshot.review.announced ? 'Announced' : announceDetail(messaging)],
-    },
-  ]
-}
-
-// reviewReached follows the pull request as progress.reviewState does. A merged
-// one's review is over, and one closed without merging counts as none. Changes
-// asked for fail the stage as a CI failure does, both something to go back to;
-// only a passed CI reads done, so a forge with no CI leaves it in flight. A
-// draft reads as any pull request.
-function reviewReached({ review }: Snapshot): Reached {
-  const { pull, ci } = review
-  if (!review.found || !pull || pull.state === 'closed') {
-    return 'pending'
+// onHeadDetail is a stage's detail for the issue that owns the checked-out
+// branch, from what the stream says of that branch.
+function onHeadDetail(stage: SnapshotStage, snapshot: Snapshot, words: ForgeWords): ReactNode[] {
+  const { branch } = snapshot
+  switch (stage.step) {
+    case 'issue':
+      return [stage.state === 'done' ? 'Picked up' : 'Not picked up yet']
+    case 'branch':
+      return branch.name === ''
+        ? ['Not on a branch yet']
+        : [<BranchName key="branch" name={branch.name} />, `${String(branch.ahead)} ahead`]
+    case 'commits':
+      return [changesDetail(snapshot)]
+    case 'review':
+      return reviewDetail(snapshot, words)
+    case 'announce':
+      return [stage.state === 'done' ? 'Announced' : announceDetail(snapshot.messaging)]
   }
-  if (pull.state === 'merged') {
-    return 'done'
-  }
-  if (ci?.state === 'failed' || pull.changes_requested) {
-    return 'failed'
-  }
-
-  return ci?.state === 'passed' ? 'done' : 'pending'
 }
 
 // announceDetail describes the Announce stage not yet done: not announced, to

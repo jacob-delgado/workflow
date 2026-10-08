@@ -150,6 +150,16 @@ export const mockSnapshot: Snapshot = {
       ],
     },
   },
+  // The stages the server derives for the checked-out branch: its issue picked
+  // up, branched for and committed on, its pull request in review while CI
+  // runs, and not yet announced.
+  stages: [
+    { step: 'issue', name: 'Issue', system: 'tracker', state: 'done' },
+    { step: 'branch', name: 'Branch', system: 'git', state: 'done' },
+    { step: 'commits', name: 'Commits', system: 'git', state: 'done' },
+    { step: 'review', name: 'Review', system: 'forge', state: 'in_flight' },
+    { step: 'announce', name: 'Slack', system: 'messaging', state: 'not_started' },
+  ],
   messaging: {
     kind: 'slack',
     service: 'Slack',
