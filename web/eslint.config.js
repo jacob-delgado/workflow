@@ -1,11 +1,13 @@
 import js from '@eslint/js'
 import jsonc from 'eslint-plugin-jsonc'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
+import playwright from 'eslint-plugin-playwright'
 import reactHooks from 'eslint-plugin-react-hooks'
 import testingLibrary from 'eslint-plugin-testing-library'
 import vitest from '@vitest/eslint-plugin'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
+import { arrangeActAssert } from './eslint-rules/arrange-act-assert.js'
 
 // React escapes all interpolated content; never bypass it (all source + tests).
 const noReactEscapeBypass = [
@@ -82,6 +84,15 @@ const noTestImplDetails = [
     message: 'Reading .style.* inside expect() asserts presentation — assert the semantic state.',
   },
 ]
+
+// Playwright's recommended rules for the e2e specs, each one it would only warn
+// on raised to an error: a warning passes yarn lint, so it would be noise.
+const playwrightRules = Object.fromEntries(
+  Object.entries(playwright.configs['flat/recommended'].rules).map(([rule, level]) => [
+    rule,
+    level === 'warn' ? 'error' : level,
+  ]),
+)
 
 export default tseslint.config(
   { ignores: ['dist', 'coverage', 'playwright-report', 'test-results', 'src/api/generated'] },
@@ -202,6 +213,24 @@ export default tseslint.config(
           ],
         },
       ],
+    },
+  },
+  // The e2e specs and their helpers, held to Playwright's recommended rules: a
+  // locator a user could not name (a CSS or XPath string), a wait on the
+  // network going idle or on the clock, and an assertion that does not retry
+  // all fail. Every test body marks its Arrange, Act and Assert, and each
+  // Assert reaches an expect, as cmd/testshape holds the Go tests to.
+  {
+    files: ['e2e/**/*.ts'],
+    plugins: {
+      playwright,
+      local: { rules: { 'arrange-act-assert': arrangeActAssert } },
+    },
+    rules: {
+      ...playwrightRules,
+      'playwright/no-raw-locators': 'error',
+      'playwright/expect-expect': ['error', { assertFunctionNames: ['expectReachableAndClean'] }],
+      'local/arrange-act-assert': 'error',
     },
   },
   // JSON (package.json, tsconfig*.json): correctness rules (duplicate keys,

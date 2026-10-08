@@ -14,7 +14,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts', './src/test/dropFocusOnDisable.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'eslint-rules/**/*.test.js'],
     // Vitest blanks every stylesheet unless told otherwise; the token test reads
     // index.css as text (`?raw`) to check the theme's contrast.
     css: { include: [/src\/index\.css/] },
