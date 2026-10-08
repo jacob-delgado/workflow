@@ -166,14 +166,23 @@ func TestTemplatesAreReadOnlyFromInsideTheRepository(t *testing.T) {
 	write(t, filepath.Join(elsewhere, "Default.md"), "a key of the user's\n", 0o600)
 
 	cases := map[string]struct {
-		remote, link, target string
+		remote string
+		// inside is a template the repository holds, which is read.
+		inside string
+		// link is where the repository links to target, outside it.
+		link, target string
 	}{
 		"a github template linked to a file outside": {
-			remote: githubRemote, link: ".github/PULL_REQUEST_TEMPLATE.md",
-			target: filepath.Join(elsewhere, "Default.md"),
+			remote: githubRemote, inside: "docs/pull_request_template.md",
+			link: ".github/PULL_REQUEST_TEMPLATE.md", target: filepath.Join(elsewhere, "Default.md"),
 		},
-		"a gitlab folder linked to one outside": {
-			remote: remoteGitLab, link: ".gitlab/merge_request_templates", target: elsewhere,
+		"a github folder linked to one outside": {
+			remote: githubRemote, inside: "docs/pull_request_template.md",
+			link: ".github/PULL_REQUEST_TEMPLATE", target: elsewhere,
+		},
+		"a gitlab template linked to a file outside": {
+			remote: remoteGitLab, inside: ".gitlab/merge_request_templates/Real.md",
+			link: ".gitlab/merge_request_templates/Leak.md", target: filepath.Join(elsewhere, "Default.md"),
 		},
 	}
 
@@ -183,13 +192,18 @@ func TestTemplatesAreReadOnlyFromInsideTheRepository(t *testing.T) {
 
 			// Arrange
 			root := t.TempDir()
+			inside, link := filepath.Join(root, filepath.FromSlash(tt.inside)), filepath.Join(root, filepath.FromSlash(tt.link))
 
-			err := os.MkdirAll(filepath.Dir(filepath.Join(root, tt.link)), 0o750)
-			if err != nil {
-				t.Fatal(err)
+			for _, dir := range []string{filepath.Dir(inside), filepath.Dir(link)} {
+				err := os.MkdirAll(dir, 0o750)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 
-			err = os.Symlink(tt.target, filepath.Join(root, tt.link))
+			write(t, inside, "## What\n", 0o600)
+
+			err := os.Symlink(tt.target, link)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -200,8 +214,13 @@ func TestTemplatesAreReadOnlyFromInsideTheRepository(t *testing.T) {
 			found := seams.Templates()
 
 			// Assert
-			if len(found) != 0 {
-				t.Errorf("Templates = %+v, want none read from outside the repository", found)
+			paths := make([]string, 0, len(found))
+			for _, template := range found {
+				paths = append(paths, template.Path)
+			}
+
+			if want := []string{tt.inside}; !slices.Equal(paths, want) {
+				t.Errorf("Templates = %+v, want %q alone, the one inside the repository", found, want)
 			}
 		})
 	}
