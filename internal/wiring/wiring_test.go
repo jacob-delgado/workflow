@@ -7,13 +7,13 @@ import (
 	"errors"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/gittest"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -47,16 +47,12 @@ func isolateGit(t *testing.T) {
 	t.Setenv("LC_ALL", "C")
 }
 
-// git runs git in dir, failing the test if it fails.
+// git runs git in dir, failing the test if it fails, and returns what it
+// printed.
 func git(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 
-	output, err := exec.CommandContext(t.Context(), "git", append([]string{"-C", dir}, args...)...).CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %v: %v (%s)", args, err, output)
-	}
-
-	return strings.TrimSpace(string(output))
+	return gittest.Run(t, dir, args...)
 }
 
 // repository is a new repository on main with one commit.
