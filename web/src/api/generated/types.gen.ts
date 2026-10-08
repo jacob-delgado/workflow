@@ -1027,6 +1027,10 @@ export type Branch = {
      */
     issue_link_tracker?: IssueTracker;
     /**
+     * The git commands finishing the branch runs, in order, as the server runs them — what the finish's last look shows before the force delete in them is confirmed. Absent for a detached HEAD or a branch with no base to finish onto.
+     */
+    finish_commands?: Array<string>;
+    /**
      * Whether HEAD is detached rather than on a branch.
      */
     detached: boolean;

@@ -46,12 +46,16 @@ function ciOf(state: Ci['state']): Ci {
   }
 }
 
+// finishCommands stand for the commands the server says a finish runs, which
+// the finish's last look shows as they are.
+const finishCommands = ['the switch to main', 'the catch-up', 'the force delete of fix/PROJ-1']
+
 // streamPull streams the branch's pull request and its CI.
 function streamPull(pull: PullRequest, ci?: Ci) {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branch: makeBranch({ name: 'fix/PROJ-1', ahead: 0 }),
+      branch: makeBranch({ name: 'fix/PROJ-1', ahead: 0, finish_commands: finishCommands }),
       review: { found: true, announced: false, pull, ci },
     }),
   })
@@ -112,7 +116,7 @@ test('finishes a merged branch after a look at the commands it runs', async () =
   render(<ReviewPanel />)
   await user.click(screen.getByRole('button', { name: 'Finish the branch' }))
   const form = screen.getByRole('form', { name: 'Finish fix/PROJ-1' })
-  expect(form.textContent).toContain('git branch -D fix/PROJ-1')
+  expect(form.textContent).toContain(finishCommands.join('\n'))
 
   // Act
   await user.click(within(form).getByRole('button', { name: 'Finish' }))
