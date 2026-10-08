@@ -34,6 +34,7 @@ internal/wiring/      connects every surface's seams to the real clients
 internal/loop/        the loop composed once for every surface, over their seams
 internal/progress/    how far along the loop the work is, derived each time
 internal/activity/    what was done over a period, grouped by year, month, day and hour
+internal/places/      where an issue can be, for narrowing the Issues list on both surfaces
 internal/tui/         the Bubble Tea interface; every outside call is a Deps seam
 internal/tui/frame/   a titled, bordered box of an exact size
 internal/tui/layout/  where each region of the interface goes, per terminal size
@@ -45,6 +46,7 @@ internal/sqlitefile/  a SQLite file opened by its path through the pure-Go drive
 internal/jira/        Jira Data Center REST v2
 internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, templates, CI, issues
 internal/messaging/   posting to Slack, Teams, Discord or a plain webhook
+internal/messaging/directory/ the Slack directory people are tagged from, read once and held
 internal/httpx/       the redirect-refusing HTTP transport the clients share
 internal/fileowner/   who owns a file, as Unix keeps it (build-tagged twins)
 internal/filelock/    an advisory lock on an open file (build-tagged twins)
