@@ -83,6 +83,34 @@ x
 
 ${prose90}"
 
+# Dependabot writes its own body, which no setting rewraps, so a body it signs
+# is left as it is. This is f06e1fb's message, verbatim.
+expect pass "a body Dependabot signed" "build: Bump ghcr.io/devcontainers/features/docker-in-docker
+
+Bumps ghcr.io/devcontainers/features/docker-in-docker from 2.17.0 to 4.1.1.
+
+---
+updated-dependencies:
+- dependency-name: ghcr.io/devcontainers/features/docker-in-docker
+  dependency-version: 4.1.1
+  dependency-type: direct:production
+  update-type: version-update:semver-major
+...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+"
+expect fail "the same body signed by a person" "build: Bump ghcr.io/devcontainers/features/docker-in-docker
+
+Bumps ghcr.io/devcontainers/features/docker-in-docker from 2.17.0 to 4.1.1.
+
+Signed-off-by: A Person <a@example.com>"
+expect fail "a Dependabot sign-off that is not a trailer" "fix: a
+
+${prose90}
+
+Signed-off-by: dependabot[bot] <support@github.com>
+and a second prose line."
+
 # Under `git commit -v` the message file carries the diff below a scissors line,
 # and git's boilerplate comment lines above it; neither is the commit message,
 # so a BREAKING-CHANGE in a diff hunk must not refuse the commit.
