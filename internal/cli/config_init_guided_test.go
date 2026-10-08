@@ -135,7 +135,7 @@ func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 
 func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	// Arrange
-	dir := t.TempDir()
+	where := place{dir: t.TempDir(), home: t.TempDir()}
 	jiraURL := workingJira(t)
 
 	var stored atomic.Value
@@ -148,13 +148,13 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	}
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "config", "init")
+	printed, err := runStreamsAt(t, where, prompt, "config", "init", "--global")
 	if err != nil {
-		t.Fatalf("config init: %v (%s)", err, output)
+		t.Fatalf("config init --global: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	cfg, err := config.Load(dir, t.TempDir())
+	cfg, err := config.Load(t.TempDir(), where.home)
 	if err != nil {
 		t.Fatalf("loading: %v", err)
 	}
@@ -162,6 +162,30 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	if cfg.Jira.Token != "" || cfg.Jira.TokenCommand == "" || stored.Load() != guidedToken {
 		t.Errorf("token not moved to the keychain: token=%q command=%q stored=%v",
 			cfg.Jira.Token, cfg.Jira.TokenCommand, stored.Load())
+	}
+}
+
+func TestGuidedInitOffersNoKeychainForAFileOutsideHome(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	jiraURL := workingJira(t)
+
+	// Were the keychain offered, the "y" would take it.
+	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt.StoreSecret = func(string) (string, error) {
+		t.Error("stored the token for a file the keychain's token_command cannot be set in")
+
+		return "", errPromptBroke
+	}
+
+	// Act
+	output, err := runGuided(t, dir, prompt, "config", "init")
+
+	// Assert
+	cfg, loadErr := config.Load(dir, t.TempDir())
+	if err != nil || loadErr != nil || cfg.Jira.Token != guidedToken {
+		t.Errorf("config init = %v (%s), loaded %+v (%v); want the token kept in the file, no keychain offered",
+			err, output, cfg.Redacted().Jira, loadErr)
 	}
 }
 
@@ -203,7 +227,7 @@ func TestGuidedInitReportsAKeychainFailure(t *testing.T) {
 	prompt.StoreSecret = func(string) (string, error) { return "", errPromptBroke }
 
 	// Act
-	_, err := runGuided(t, dir, prompt, "config", "init")
+	_, err := runGuided(t, dir, prompt, "config", "init", "--global")
 
 	// Assert
 	if !errors.Is(err, errPromptBroke) {

@@ -263,3 +263,25 @@ func TestSecretsTheRepositoryFileHoldsStayThereAndItStaysAnOverlay(t *testing.T)
 		t.Errorf("the repository file holds %s; want the new pair in it and nothing it inherits", repo)
 	}
 }
+
+func TestAHomeFileNamingATokenCommandStillKeepsThePair(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files := config.Files{
+		Home: configFile(t, `{"jira": {"base_url": "https://jira.example.com", "token_command": "pass show jira"},`+
+			` "messaging": {"kind": "slack", "client_id": "`+clientID+`", "channel": "#dev"}}`),
+		Repo: configFile(t, `{"jira": {"project": "OSS"}}`),
+	}
+
+	// Act
+	err := slackauth.FileStore(files).Save(t.Context(), pairExpiringIn(0))
+
+	// Assert
+	cfg, _, loadErr := config.LoadLayersAt(files)
+	if err != nil || loadErr != nil || cfg.Messaging.RefreshToken.Reveal() != oldRefresh ||
+		cfg.Jira.TokenCommand != "pass show jira" {
+		t.Errorf("Save = %v; loaded %+v (%v); want the pair kept beside the home file's token_command",
+			err, cfg.Redacted().Messaging, loadErr)
+	}
+}
