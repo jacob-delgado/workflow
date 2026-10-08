@@ -128,7 +128,7 @@ places, and **Load more** while the view holds more. Filter offers the statuses
 the loaded issues are in and the marks *in flight*, *task active*, *tracked*,
 *task done* and *forge issue*, each with how many issues it holds; pressing one narrows the
 list, and pressing it again undoes that. Statuses widen each other, as marks
-do, and the two narrow together, as the terminal's `p` does. A repository
+do, and the two narrow together, as the terminal's `f` does. A repository
 that lists its forge's issues beside Jira's (`issues.forge`) numbers them as
 the forge does, `#57`, links each to its page with **Open in GitHub** or
 **Open in GitLab**, and says so above the list, among its controls, when the
@@ -376,7 +376,7 @@ first: where each is, who asks, how long it has waited, whether it is a draft,
 and how its CI stands, each with a link to open it and **Copy URL**. **Sort**
 lists them **Oldest first**, **Newest first** or **By repository**, which heads
 each repository's requests with its name, the longest-waiting first within it —
-the orders the terminal's `s` cycles through. **Filter** narrows them, as the
+the orders the terminal's `O` cycles through. **Filter** narrows them, as the
 terminal's `f` does: a button for each repository, CI state, draft or ready, and
 author the queue holds, each with how many requests hold it. Values in one of
 those widen the list, and the four narrow it together. The order and the
@@ -653,9 +653,10 @@ errors]({{< relref "/docs/errors" >}}) lists the codes.
 
 ## Scripting the API
 
-Five reads answer what a section shows, for a script on the same machine; the
-page itself takes the first four from its stream, and reads the fifth as its
-Tasks section opens.
+These requests answer what a section shows, for a script on the same
+machine: eight reads, and the Repositories section's two writes, which switch
+where the server works and keep or forget a favorite. The page takes the first
+four reads from its stream, and makes the others as its sections need them.
 [`api/openapi.yaml`](https://github.com/jacob-delgado/workflow/blob/main/api/openapi.yaml)
 describes each answer's fields, and every other request the API serves.
 
@@ -699,8 +700,9 @@ curl -s -H "Authorization: Bearer $session" http://127.0.0.1:13579/api/activity 
     http://127.0.0.1:13579/api/activity/post
 ```
 
-They are reads, so they answer under `--dry-run` too. When git or the forge
-fails, the branch, changes and review reads answer a problem, so a script can
+The reads answer under `--dry-run` too, and the writes are refused there, as
+every write is. When git or the forge fails, the branch, changes and review
+reads answer a problem, so a script can
 tell a failure from nothing to show; the event stream carries the same
 problem beside the panel it emptied, in the snapshot's `problems`, and a CI
 read that failed in the review's `ci_error`. A service that is not set up —
