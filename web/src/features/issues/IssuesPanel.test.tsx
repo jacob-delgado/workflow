@@ -217,7 +217,7 @@ test('shows the work story for the selected issue', async () => {
 
   // Assert
   expect(screen.getByRole('heading', { name: /work story/i })).toBeTruthy()
-  expect(screen.getByText('Announce')).toBeTruthy()
+  expect(screen.getByRole('button', { name: /^Slack/ })).toBeTruthy()
 })
 
 test("the issue's detail shows its tasks between its work story and its description", async () => {

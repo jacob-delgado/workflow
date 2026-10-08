@@ -143,8 +143,10 @@ tasks stand: *tracked*, *task active* or *task done*.
 
 The selected issue's detail shows its type, priority, reporter and assignee, a
 link to open it in Jira, its description and its comments, and its **work
-story**: the issue, the branch, the changes, the pull request and the
-announcement, each step opening the section it belongs to. For the issue whose
+story**: the loop's stages, titled as the terminal's top row and `workflow
+status` name them — Issue, Branch, Commits, Review, and the messaging service
+the work is announced on, such as Slack — each opening the section it belongs
+to. For the issue whose
 branch is checked out, a step reads done, not yet, or failed as the server
 works it out, by the rules of the terminal's top row and `workflow status`: the
 issue is done once the branch names it, the changes once there is a commit, and

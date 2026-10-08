@@ -154,11 +154,11 @@ export const mockSnapshot: Snapshot = {
   // up, branched for and committed on, its pull request in review while CI
   // runs, and not yet announced.
   stages: [
-    { step: 'issue', name: 'Issue', system: 'tracker', state: 'done' },
-    { step: 'branch', name: 'Branch', system: 'git', state: 'done' },
-    { step: 'commits', name: 'Commits', system: 'git', state: 'done' },
-    { step: 'review', name: 'Review', system: 'forge', state: 'in_flight' },
-    { step: 'announce', name: 'Slack', system: 'messaging', state: 'not_started' },
+    { step: 'issue', name: 'Issue', state: 'done' },
+    { step: 'branch', name: 'Branch', state: 'done' },
+    { step: 'commits', name: 'Commits', state: 'done' },
+    { step: 'review', name: 'Review', state: 'in_flight' },
+    { step: 'announce', name: 'Slack', state: 'not_started' },
   ],
   messaging: {
     kind: 'slack',

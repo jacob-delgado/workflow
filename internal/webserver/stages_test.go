@@ -49,14 +49,11 @@ func TestSnapshotCarriesTheLoopsStagesInOrder(t *testing.T) {
 
 	// Assert
 	want := []api.Stage{
-		{Step: api.StageStepIssue, Name: "Issue", System: api.StageSystemTracker, State: api.StageStateDone},
-		{Step: api.StageStepBranch, Name: "Branch", System: api.StageSystemGit, State: api.StageStateDone},
-		{Step: api.StageStepCommits, Name: "Commits", System: api.StageSystemGit, State: api.StageStateDone},
-		{Step: api.StageStepReview, Name: "Review", System: api.StageSystemForge, State: api.StageStateDone},
-		{
-			Step: api.StageStepAnnounce, Name: config.KindSlack.Service(), System: api.StageSystemMessaging,
-			State: api.StageStateNotStarted,
-		},
+		{Step: api.StageStepIssue, Name: "Issue", State: api.StageStateDone},
+		{Step: api.StageStepBranch, Name: "Branch", State: api.StageStateDone},
+		{Step: api.StageStepCommits, Name: "Commits", State: api.StageStateDone},
+		{Step: api.StageStepReview, Name: "Review", State: api.StageStateDone},
+		{Step: api.StageStepAnnounce, Name: config.KindSlack.Service(), State: api.StageStateNotStarted},
 	}
 	if !slices.Equal(stages, want) {
 		t.Errorf("stages = %+v, want %+v", stages, want)

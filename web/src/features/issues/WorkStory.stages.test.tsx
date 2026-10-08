@@ -40,15 +40,18 @@ function storyTitles(): string[] {
     .map((stage) => within(stage).getByRole('button').firstChild?.textContent ?? '')
 }
 
-test('lists every stage the server sends, in its order, each titled for the story', () => {
+test('lists every stage the server sends, in its order, each titled by the name it is sent with', () => {
   // Arrange
-  streamOnHead({ stages: makeStages() })
+  const onTeams = makeStages().map((stage) =>
+    stage.step === 'announce' ? { ...stage, name: 'Teams' } : stage,
+  )
+  streamOnHead({ stages: onTeams })
 
   // Act
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  expect(storyTitles()).toEqual(['Issue', 'Branch', 'Changes', 'Pull request', 'Announce'])
+  expect(storyTitles()).toEqual(['Issue', 'Branch', 'Commits', 'Review', 'Teams'])
 })
 
 test('lists only the stages the server sends', () => {
@@ -59,7 +62,7 @@ test('lists only the stages the server sends', () => {
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  expect(storyTitles()).toEqual(['Issue', 'Branch', 'Changes', 'Announce'])
+  expect(storyTitles()).toEqual(['Issue', 'Branch', 'Commits', 'Slack'])
 })
 
 // How a stage the server read is drawn: in the state it was read in, whatever
@@ -88,7 +91,7 @@ test.each<{ state: Stage['state']; drawn: string; mark: MarkState }>([
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  expect(storyStage('Pull request')).toEqual({ mark: drawnMark(mark), state: drawn })
+  expect(storyStage('Review')).toEqual({ mark: drawnMark(mark), state: drawn })
 })
 
 test('draws an announcement waiting on CI in flight, behind a review in flight', () => {
@@ -107,7 +110,7 @@ test('draws an announcement waiting on CI in flight, behind a review in flight',
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  expect([storyStage('Pull request'), storyStage('Announce')]).toEqual([
+  expect([storyStage('Review'), storyStage('Slack')]).toEqual([
     { mark: drawnMark('in-flight'), state: 'in flight' },
     { mark: drawnMark('in-flight'), state: 'in flight' },
   ])
@@ -121,7 +124,7 @@ test('draws the changes of a fresh branch not started, as the server reads them'
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  expect(storyStage('Changes')).toEqual({ mark: drawnMark('not-started'), state: 'not started' })
+  expect(storyStage('Commits')).toEqual({ mark: drawnMark('not-started'), state: 'not started' })
 })
 
 test('marks the first stage not done as the step the work is at', () => {
@@ -136,7 +139,7 @@ test('marks the first stage not done as the step the work is at', () => {
     screen
       .getAllByRole('button', { current: 'step' })
       .map((stage) => stage.firstChild?.textContent),
-  ).toEqual(['Changes'])
+  ).toEqual(['Commits'])
 })
 
 // An issue on a branch not checked out has been picked up and branched for;
@@ -160,7 +163,7 @@ test('reads the stages of an issue on a branch not checked out by where it stand
   render(<WorkStory issueKey="PROJ-2" />)
 
   // Assert
-  expect(['Branch', 'Changes', 'Pull request'].map(storyStage)).toEqual([
+  expect(['Branch', 'Commits', 'Review'].map(storyStage)).toEqual([
     { mark: drawnMark('done'), state: 'done' },
     { mark: drawnMark('in-flight'), state: 'in flight' },
     { mark: drawnMark('not-started'), state: 'not started' },
@@ -175,7 +178,7 @@ test('says the pull request was announced when the server reads the stage done',
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  expect(screen.getByRole('button', { name: /^Announce/ }).textContent).toContain('Announced')
+  expect(screen.getByRole('button', { name: /^Slack/ }).textContent).toContain('Announced')
 })
 
 // An open pull request, ready for review, with nothing asked of it.
@@ -249,5 +252,5 @@ test.each([
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  expect(screen.getByRole('button', { name: /^Changes/ }).textContent).toContain(said)
+  expect(screen.getByRole('button', { name: /^Commits/ }).textContent).toContain(said)
 })

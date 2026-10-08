@@ -660,30 +660,6 @@ func (e StageStep) Valid() bool {
 	}
 }
 
-// Defines values for StageSystem.
-const (
-	StageSystemForge     StageSystem = "forge"
-	StageSystemGit       StageSystem = "git"
-	StageSystemMessaging StageSystem = "messaging"
-	StageSystemTracker   StageSystem = "tracker"
-)
-
-// Valid indicates whether the value is a known member of the StageSystem enum.
-func (e StageSystem) Valid() bool {
-	switch e {
-	case StageSystemForge:
-		return true
-	case StageSystemGit:
-		return true
-	case StageSystemMessaging:
-		return true
-	case StageSystemTracker:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for StatusCategory.
 const (
 	StatusCategoryDone          StatusCategory = "done"
@@ -2396,7 +2372,7 @@ type Snapshot struct {
 	// Run The git run going now (POST /api/runs), with its last 200 lines, so a page opened while it runs sees it; absent when none is going.
 	Run *Run `json:"run,omitempty"`
 
-	// Stages The loop's stages for the checked-out branch, in order — its issue, the branch, its commits, its pull request's review and the announcement — each with how far it has got, by the rules the terminal's spine and `workflow status` read, so every surface shows the same stages in the same states. A panel whose read failed, or a service not set up, counts as nothing done there.
+	// Stages The loop's stages for the checked-out branch, in order — its issue, the branch, its commits, its pull request's review and the announcement — each named as the terminal's spine and `workflow status` name it and in the state their rules give it, so every surface shows the same stages, by the same names, in the same states. They are read from what the frame holds: the review from the pull request and CI the review panel shows, and a working tree that could not be read as nothing to commit.
 	Stages []Stage `json:"stages"`
 
 	// SubjectLimit The longest a new commit's header may be, in characters, counted as the terminal composer counts it — the type, scope, breaking mark and subject together: commit.subject_limit when the configuration sets one, else the built-in 72. A commit whose header is longer is refused.
@@ -2415,7 +2391,7 @@ type Snapshot struct {
 
 // Stage One stage of the loop for the checked-out branch.
 type Stage struct {
-	// Name The stage as the terminal's spine and `workflow status` name it: Issue, Branch, Commits, Review, and the messaging service the work is announced on, as the configuration names it.
+	// Name The stage as every surface titles it, as the terminal's spine and `workflow status` name it: Issue, Branch, Commits, Review, and the messaging service the work is announced on, as the configuration names it.
 	//
 	// Example: Review
 	Name string `json:"name"`
@@ -2425,9 +2401,6 @@ type Stage struct {
 
 	// Step Which stage of the loop this is, whatever it is named.
 	Step StageStep `json:"step"`
-
-	// System Where the stage's work happens, which the terminal's spine colors it by.
-	System StageSystem `json:"system"`
 }
 
 // StageState How far it has got: not begun, under way, complete, or failed — a CI failure or changes asked for, something to go back to.
@@ -2435,9 +2408,6 @@ type StageState string
 
 // StageStep Which stage of the loop this is, whatever it is named.
 type StageStep string
-
-// StageSystem Where the stage's work happens, which the terminal's spine colors it by.
-type StageSystem string
 
 // StagingRequest What to stage or unstage: one changed file, or all of them — one or the other, never both.
 type StagingRequest struct {
