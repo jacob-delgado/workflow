@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
@@ -122,18 +123,18 @@ func unavailableReason(err error) (api.TaskListReasonCode, string) {
 		return api.TaskListReasonCodeUnavailable, "Taskwarrior could not start; workflow doctor says why."
 	}
 
-	reasons := append(taskwarriorReasons(),
-		taskwarriorReason{
-			cause: errTurnedOff, code: api.TaskListReasonCodeTurnedOff, text: "Turned off by taskwarrior.disabled.",
+	reasons := append(report.TaskwarriorReasons(),
+		report.TaskwarriorReason{
+			Cause: errTurnedOff, Code: api.TaskListReasonCodeTurnedOff, Text: "Turned off by taskwarrior.disabled.",
 		},
-		taskwarriorReason{
-			cause: errSettingsChanged, code: api.TaskListReasonCodeUnavailable,
-			text: "Taskwarrior settings changed; restart workflow to apply.",
+		report.TaskwarriorReason{
+			Cause: errSettingsChanged, Code: api.TaskListReasonCodeUnavailable,
+			Text: "Taskwarrior settings changed; restart workflow to apply.",
 		})
 
 	for _, reason := range reasons {
-		if errors.Is(err, reason.cause) {
-			return reason.code, reason.text
+		if errors.Is(err, reason.Cause) {
+			return reason.Code, reason.Text
 		}
 	}
 

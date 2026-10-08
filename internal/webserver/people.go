@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -254,17 +255,17 @@ func (s *server) peopleFault(err error) api.Problem {
 // peopleFaults are the failures People and groups answers in their own
 // words: its own refusals, the kept store's and Slack's directory's, none of
 // which names a host or a path.
-func peopleFaults() []faultClass {
+func peopleFaults() []report.Class {
 	refusals := []error{
 		errNoSlackDirectory, errNoPeopleStore, errOneOrTheOther, errWrongKind, errNotInDirectory,
 		store.ErrInvalidOwner, store.ErrInvalidSlackID,
 		messaging.ErrChannelNotFound, messaging.ErrLookupRefused, messaging.ErrDirectoryTooLarge,
 	}
 
-	classes := make([]faultClass, 0, len(refusals))
+	classes := make([]report.Class, 0, len(refusals))
 	for _, refusal := range refusals {
 		classes = append(classes,
-			faultClass{causes: []error{refusal}, code: api.ProblemCodeUnprocessable, detail: refusal.Error()})
+			report.Class{Causes: []error{refusal}, Code: api.ProblemCodeUnprocessable, Detail: refusal.Error()})
 	}
 
 	return classes

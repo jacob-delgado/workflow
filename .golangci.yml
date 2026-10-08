@@ -153,6 +153,46 @@ linters:
             - github.com/jacob-delgado/workflow/internal/gitrepo
             - github.com/jacob-delgado/workflow/internal/jira
             - github.com/jacob-delgado/workflow/internal/proc
+        # internal/report builds what every surface reports in the API's own
+        # shapes — the Summary, the directories, the review queue, the words for
+        # a failure — so the web server and the command line both import it,
+        # and it sits below them beside internal/api. strict mode allows only
+        # the domain packages, internal/loop and internal/seams, whose answers
+        # it reads, and the API's generated types, so no surface drifts into
+        # what the surfaces share.
+        report-below-the-surfaces:
+          list-mode: strict
+          files:
+            - "**/internal/report/**"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/oapi-codegen/runtime/types
+            - github.com/jacob-delgado/workflow/internal/activity
+            - github.com/jacob-delgado/workflow/internal/api
+            - github.com/jacob-delgado/workflow/internal/config
+            - github.com/jacob-delgado/workflow/internal/forge
+            - github.com/jacob-delgado/workflow/internal/gitrepo
+            - github.com/jacob-delgado/workflow/internal/httpx
+            - github.com/jacob-delgado/workflow/internal/jira
+            - github.com/jacob-delgado/workflow/internal/loop
+            - github.com/jacob-delgado/workflow/internal/messaging
+            - github.com/jacob-delgado/workflow/internal/seams
+            - github.com/jacob-delgado/workflow/internal/store
+            - github.com/jacob-delgado/workflow/internal/taskwarrior
+            - github.com/jacob-delgado/workflow/internal/workdirs
+        # The command line serves --web from web.go and from nowhere else: what
+        # it prints in the API's shapes — the Summary, the repositories, the
+        # review queue, a failure's words — comes from internal/report, which
+        # the web server reads too, never from the server itself.
+        cli-serves-the-web-only-from-web-go:
+          files:
+            - "**/internal/cli/**"
+            - "!**/internal/cli/web.go"
+            - "!$test"
+          deny:
+            - pkg: github.com/jacob-delgado/workflow/internal/webserver
+              desc: the command line imports the web server only to serve --web, in web.go; share through internal/report
         # The web server is a surface beside the terminal, not built on it: what
         # the two share lives in internal/loop and the domain packages. wiring is
         # denied with it, because wiring imports the terminal.

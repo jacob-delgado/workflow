@@ -21,6 +21,21 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
+// RunWeb starts the local web server and blocks until the context is canceled.
+// What it says about the server goes to notes, stderr: the server has no
+// artifact for stdout to carry.
+type RunWeb func(
+	ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
+) error
+
+// RunWebAt is the web server that serves on addr. It is WebServerAt in
+// production and a fake in tests, so the --web and --port flags' wiring can be
+// exercised without binding a port.
+type RunWebAt func(addr string) RunWeb
+
+// defaultWebPort is the port --web serves on when --port is not given.
+const defaultWebPort = webserver.DefaultPort
+
 // WebServerAt is the web server, built over the seams and served on addr until
 // the context is canceled, under a session it makes as it starts. It says
 // where it serves only once it holds the port, naming the port it bound, so a
@@ -78,12 +93,13 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 // config init.
 const webSetupStep = "Set one up in Settings, on the page served below."
 
-// serveWeb serves the web interface over conn through serve, first saying when
-// the configuration did not load cleanly — or, with no file, the ways to set
-// one up, as every surface names them — and hands the server the wiring's
-// control over the forge settings a save in Settings changes, and a way to
-// reach another directory, wired as this one was, for a switch.
-func serveWeb(cmd *cobra.Command, conn connection, serve RunWeb, dryRun bool) error {
+// serveWeb serves the web interface over conn through the server serveAt
+// makes on the loopback port flags name, first saying when the configuration
+// did not load cleanly — or, with no file, the ways to set one up, as every
+// surface names them — and hands the server the wiring's control over the
+// forge settings a save in Settings changes, and a way to reach another
+// directory, wired as this one was, for a switch.
+func serveWeb(cmd *cobra.Command, conn connection, serveAt RunWebAt, flags rootFlags) error {
 	switch {
 	case errors.Is(conn.loadErr, config.ErrNotFound):
 		fmt.Fprintf(cmd.ErrOrStderr(), "%s\n\n%s\n%s\n%s\n\n",
@@ -94,7 +110,8 @@ func serveWeb(cmd *cobra.Command, conn connection, serve RunWeb, dryRun bool) er
 
 	conn.controls.ResolveAhead()
 
-	world := webWorld(cmd, conn, dryRun)
+	world := webWorld(cmd, conn, flags.dryRun)
+	serve := serveAt(webserver.LoopbackAddr(flags.port))
 
 	return serve(cmd.Context(), world.Config, world.Deps, world.Info, cmd.ErrOrStderr())
 }

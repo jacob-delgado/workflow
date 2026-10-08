@@ -15,8 +15,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
-	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
 // errFlagsApart refuses flags summary does not take together: --json is the
@@ -139,9 +139,9 @@ func runSummary(out output, seams summarySeams, opts summaryOptions) error {
 	unread := unreadSources(summary.Reads)
 
 	if opts.asJSON {
-		report := webserver.ActivityReport(summary, today, now.Location(), webserver.FaultDetail)
-		report.PostLength = webserver.PostLength(seams.Messaging, report.Text)
-		err = encodeJSON(out.artifact, report)
+		answer := report.Activity(summary, today, now.Location(), report.FaultDetail)
+		answer.PostLength = report.PostLength(seams.Messaging, answer.Text)
+		err = encodeJSON(out.artifact, answer)
 		noteLeftOut(out.notes, summary.Reads)
 
 		return errors.Join(err, unread)
@@ -179,7 +179,7 @@ func noteLeftOut(notes io.Writer, reads []activity.Read) {
 	for _, read := range reads {
 		if read.NotSetUp != nil {
 			fmt.Fprintln(notes, read.Source.Title()+" is not set up, so it was left out: "+
-				webserver.FaultDetail(read.NotSetUp))
+				report.FaultDetail(read.NotSetUp))
 		}
 	}
 }
