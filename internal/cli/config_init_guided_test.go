@@ -133,6 +133,20 @@ func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 	}
 }
 
+func TestConfigInitTemplateWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	gitInit(t, dir)
+
+	// Act
+	printed, err := runStreams(t, dir, unusedPrompt(t), "config", "init", "--template")
+
+	// Assert
+	if err != nil || !strings.Contains(printed.stderr, "not ignored by git") {
+		t.Errorf("config init --template = %v, said:\n%s\nwant a git-ignore warning on stderr", err, printed.stderr)
+	}
+}
+
 func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	// Arrange
 	where := place{dir: t.TempDir(), home: t.TempDir()}

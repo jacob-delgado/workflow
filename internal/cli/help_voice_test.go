@@ -10,6 +10,7 @@ package cli_test
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -90,5 +91,20 @@ func TestTheReviewsSummaryNamesBothForgesNouns(t *testing.T) {
 	// Assert
 	if err != nil || !strings.Contains(output, "List the pull or merge requests that are waiting on your review") {
 		t.Errorf("--help = %v, want reviews' summary to say pull or merge requests:\n%s", err, output)
+	}
+}
+
+func TestTheRootLongHelpFitsInEightyColumns(t *testing.T) {
+	// Arrange
+	const columns = 80
+
+	// Act
+	root := cli.NewRootCmd(cli.Prompt{})
+
+	// Assert
+	for line := range strings.Lines(root.Long) {
+		if width := utf8.RuneCountInString(strings.TrimRight(line, "\n")); width > columns {
+			t.Errorf("the root's long help has a line %d columns wide, past %d: %q", width, columns, line)
+		}
 	}
 }
