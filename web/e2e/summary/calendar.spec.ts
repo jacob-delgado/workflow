@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { mockActivity } from '../../src/dev/mockActivity.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
+import { problem } from '../support/fixtures.ts'
 import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Summary section: what was done, the calendar it is picked in, and the
@@ -75,17 +76,12 @@ test('a period the server refuses leaves the calendar to pick another', async ({
   // Arrange
   await opensSummary(page)
   await page.route('**/api/activity?from=2026-09-14**', (route) =>
-    route.fulfill({
-      status: 422,
-      contentType: 'application/problem+json',
-      json: {
-        type: 'about:blank',
-        title: 'Unprocessable',
-        status: 422,
-        code: 'unprocessable',
-        detail: 'the period could not be read: the period is longer than a year and a day',
-      },
-    }),
+    route.fulfill(
+      problem(
+        'unprocessable',
+        'the period could not be read: the period is longer than a year and a day',
+      ),
+    ),
   )
   await page.getByRole('gridcell', { name: 'Tuesday, September 15, 2026' }).focus()
 
