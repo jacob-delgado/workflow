@@ -114,8 +114,7 @@ func (s *server) postFor(body api.AnnounceRequest) (announcePost, api.AnnounceRe
 
 	made := loop.Announced{Pull: pull.Number, Moment: announcement.Moment}
 	if s.announcedAlready(made) {
-		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
-			s.pullName(pull.Number)+" was already announced at this moment, here or from a terminal"))
+		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(pull.Number))
 	}
 
 	mentions, memory, refusal := s.postMentions(body.Mentions, announcement.Moment)
@@ -171,16 +170,50 @@ func (s *server) postMentions(
 
 // announceNow posts the announcement at once, dropping any held for CI, which
 // would otherwise follow it once CI passed, and the channel would read it
-// twice.
+// twice. It is a 409 while the held one is being posted, and when the
+// announcement was made meanwhile.
 func (s *server) announceNow(post announcePost) api.AnnounceResponseObject {
-	s.dropHeld()
+	_, err := s.dropHeld()
+	if err != nil {
+		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
+	}
 
-	err := loop.Deliver(s.deps.Post, post.memory, post.delivery)
+	err = s.deliver(post)
+	if errors.Is(err, errAnnouncedAlready) {
+		return api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(post.pull.Number))
+	}
+
 	if err != nil {
 		return s.announceFault(err)
 	}
 
 	return api.Announce200JSONResponse(announcementDTO(post.delivery.Text, post.delivery.Channel))
+}
+
+// errAnnouncedAlready is an announcement made already at its moment, from
+// here or from a terminal.
+var errAnnouncedAlready = errors.New("announced already at this moment")
+
+// deliver posts post, and records what it made, unless that was made already.
+// The check, the post and the record are one step under delivering, so two
+// asks at once — two tabs, or a held announcement and one made now — post it
+// once, and the second learns it was made.
+func (s *server) deliver(post announcePost) error {
+	s.delivering.Lock()
+	defer s.delivering.Unlock()
+
+	if s.announcedAlready(post.delivery.Made) {
+		return errAnnouncedAlready
+	}
+
+	return loop.Deliver(s.deps.Post, post.memory, post.delivery)
+}
+
+// announcedBefore refuses to announce pull at a moment it was announced at
+// already.
+func (s *server) announcedBefore(pull int) api.Problem {
+	return problem(api.ProblemCodeConflict,
+		s.pullName(pull)+" was already announced at this moment, here or from a terminal")
 }
 
 // announcement is the announcement for the checked-out branch's pull request,
