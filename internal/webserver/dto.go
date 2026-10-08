@@ -286,20 +286,16 @@ func ciDTO(status forge.CI) api.CI {
 	}
 }
 
-// ciState maps the forge's CI state onto its wire word. A map, not a switch, so
-// there is no last-case arm gobco can never see; exhaustive keeps it complete.
+// ciState is the forge's CI state as the API writes it, in the forge's own
+// word for it.
 func ciState(state forge.CIState) api.CIState {
-	return map[forge.CIState]api.CIState{
-		forge.CINone:    api.CIStateNone,
-		forge.CIRunning: api.CIStateRunning,
-		forge.CIPassed:  api.CIStatePassed,
-		forge.CIFailed:  api.CIStateFailed,
-	}[state]
+	return api.CIState(state.Word())
 }
 
 // queuedState maps how a held announcement stands onto its wire word. A map,
-// as ciState is, so exhaustive keeps it complete; heldNone has no word, since
-// a frame then shows no held announcement at all.
+// not a switch, so there is no last-case arm gobco can never see; exhaustive
+// keeps it complete. heldNone has no word, since a frame then shows no held
+// announcement at all.
 func queuedState(state heldState) api.QueuedAnnouncementState {
 	return map[heldState]api.QueuedAnnouncementState{
 		heldNone:       "",
