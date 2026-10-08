@@ -134,19 +134,26 @@ func TestUpdateConfigKeepsWhatOnlyTheHomeFileMayHoldOutOfTheRepositoryFile(t *te
 
 	const typedToken = "forge-token-typed-in-settings"
 
-	cases := map[string]func(*config.Config){
-		"a typed credential": func(cfg *config.Config) { cfg.Forge.Token = typedToken },
-		"a program to run":   func(cfg *config.Config) { cfg.Taskwarrior.Program = "/opt/homebrew/bin/task" },
+	// A program to run is one a save never changes at all, so it is refused
+	// naming the setting before the repository's file is considered.
+	cases := map[string]struct {
+		change func(*config.Config)
+		want   string
+	}{
+		"a typed credential": {func(cfg *config.Config) { cfg.Forge.Token = typedToken }, "home"},
+		"a program to run": {
+			func(cfg *config.Config) { cfg.Taskwarrior.Program = "/opt/homebrew/bin/task" }, "taskwarrior.program",
+		},
 	}
 
-	for name, change := range cases {
+	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
 			cfg := layeredConfig(t)
 			next := cfg
-			change(&next)
+			tt.change(&next)
 
 			// Act
 			recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
@@ -154,9 +161,9 @@ func TestUpdateConfigKeepsWhatOnlyTheHomeFileMayHoldOutOfTheRepositoryFile(t *te
 			// Assert
 			failure := decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
-				!strings.Contains(failure.Detail, "home") || strings.Contains(failure.Detail, typedToken) {
-				t.Errorf("status %d, problem %+v; want 422 saying the home file holds it, without the token",
-					recorder.Code, failure)
+				!strings.Contains(failure.Detail, tt.want) || strings.Contains(failure.Detail, typedToken) {
+				t.Errorf("status %d, problem %+v; want 422 naming %q, without the token",
+					recorder.Code, failure, tt.want)
 			}
 		})
 	}
