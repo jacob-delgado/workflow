@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, within } from '@testing-library/react'
+import { QueryClient } from '@tanstack/react-query'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Issue } from '@/api/generated/types.gen.ts'
@@ -391,11 +391,7 @@ test("a failed read is said at once, never retried behind the user's back", asyn
   const client = new QueryClient()
 
   // Act
-  render(
-    <QueryClientProvider client={client}>
-      <TasksPanel />
-    </QueryClientProvider>,
-  )
+  renderWithClient(<TasksPanel />, client)
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe(
@@ -485,20 +481,12 @@ test('reads the tasks again each time the section opens', async () => {
   // staleTime says so.
   const requests = fakeApi({ [tasksPath]: makeTaskList([certificate]) })
   const client = appQueryClient()
-  const view = render(
-    <QueryClientProvider client={client}>
-      <TasksPanel />
-    </QueryClientProvider>,
-  )
+  const view = renderWithClient(<TasksPanel />, client)
   await screen.findByRole('list', { name: 'Tasks' })
   view.unmount()
 
   // Act
-  render(
-    <QueryClientProvider client={client}>
-      <TasksPanel />
-    </QueryClientProvider>,
-  )
+  renderWithClient(<TasksPanel />, client)
 
   // Assert
   await screen.findByRole('list', { name: 'Tasks' })

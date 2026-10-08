@@ -338,7 +338,7 @@ test('a read nobody pressed Try again for keeps the latest refusal beside an iss
 test('a retried issue read again later leaves focus where the user put it', async () => {
   // Arrange
   // Only the clock is faked: staleness is judged from Date.now(), and a stale
-  // issue is read again when the page is shown again.
+  // issue is read again when the connection comes back.
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
   const answers = [
@@ -357,7 +357,8 @@ test('a retried issue read again later leaves focus where the user put it', asyn
 
   // Act
   act(() => {
-    window.dispatchEvent(new Event('visibilitychange'))
+    onlineManager.setOnline(false)
+    onlineManager.setOnline(true)
   })
 
   // Assert
@@ -383,7 +384,8 @@ test('Try again beside an issue already read hands focus to its heading', async 
   await screen.findByText('Tokens reach the request log.')
   vi.setSystemTime(new Date('2026-09-23T12:01:01Z'))
   act(() => {
-    window.dispatchEvent(new Event('visibilitychange'))
+    onlineManager.setOnline(false)
+    onlineManager.setOnline(true)
   })
   const retry = await screen.findByRole('button', { name: 'Try again' })
 
@@ -414,7 +416,8 @@ test('a Try again refused again beside an issue already read keeps its focus', a
   await screen.findByText('Tokens reach the request log.')
   vi.setSystemTime(new Date('2026-09-23T12:01:01Z'))
   act(() => {
-    window.dispatchEvent(new Event('visibilitychange'))
+    onlineManager.setOnline(false)
+    onlineManager.setOnline(true)
   })
   const retry = await screen.findByRole('button', { name: 'Try again' })
 
@@ -455,7 +458,8 @@ test('a Try again in flight beside an issue already read keeps its focus and is 
   await screen.findByText('Tokens reach the request log.')
   vi.setSystemTime(new Date('2026-09-23T12:01:01Z'))
   act(() => {
-    window.dispatchEvent(new Event('visibilitychange'))
+    onlineManager.setOnline(false)
+    onlineManager.setOnline(true)
   })
   const retry = await screen.findByRole('button', { name: 'Try again' })
   await user.click(retry)
