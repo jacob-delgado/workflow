@@ -135,6 +135,26 @@ func TestThePreviewShowsTheDescriptionWithTheIssue(t *testing.T) {
 	}
 }
 
+func TestThePreviewAnswersABranchGitCouldNotRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := linkingDeps(&linking{}, false)
+	deps.Branch = func() (gitrepo.Branch, error) {
+		return gitrepo.Branch{}, fmt.Errorf("reading HEAD in %s: %w", repoPath, errSeam)
+	}
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/branch/issue/preview?key=%2342")
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusInternalServerError || failure.Code != api.ProblemCodeInternal {
+		t.Errorf("status/code = %d/%s, want 500/internal rather than no pull request to update",
+			recorder.Code, failure.Code)
+	}
+}
+
 func TestUnlinkingForgetsTheLink(t *testing.T) {
 	t.Parallel()
 
