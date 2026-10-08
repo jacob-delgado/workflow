@@ -4,10 +4,12 @@
 package wiring_test
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -32,16 +34,40 @@ func TestTheGroupMembersSeamListsAGitLabGroupsActiveMembers(t *testing.T) {
 	}
 }
 
-func TestThereIsNoGroupMembersSeamOnGitHub(t *testing.T) {
+func TestGroupMembersOnGitHubAsksNothing(t *testing.T) {
 	// Arrange
-	installForgeCLI(t, "gh", forgeReplies{})
+	githubCLI := installForgeCLI(t, "gh", forgeReplies{})
 	cfg, where := githubCLIWorkspace(t)
-
-	// Act
 	forgeSeams := wired(t, cfg, where, nil).Forge
 
+	// Act
+	_, err := forgeSeams.GroupMembers("acme")
+
 	// Assert
-	if forgeSeams.GroupMembers != nil {
-		t.Error("GroupMembers is bound on GitHub, whose teams review as teams")
+	if !errors.Is(err, forge.ErrNotSupported) {
+		t.Errorf("GroupMembers on GitHub = %v, want %v: its teams review as teams", err, forge.ErrNotSupported)
+	}
+
+	if args := githubCLI.args(); len(args) != 0 {
+		t.Errorf("gh was called as %v, want GitHub never asked for a group's members", args)
+	}
+}
+
+func TestIsGroupOnGitHubTakesEveryBareNameForAPersonWithoutAsking(t *testing.T) {
+	// Arrange
+	githubCLI := installForgeCLI(t, "gh", forgeReplies{})
+	cfg, where := githubCLIWorkspace(t)
+	forgeSeams := wired(t, cfg, where, nil).Forge
+
+	// Act
+	group, err := forgeSeams.IsGroup("acme")
+
+	// Assert
+	if err != nil || group {
+		t.Errorf("IsGroup(acme) on GitHub = %v, %v; want a person, since its teams are spelled org/team", group, err)
+	}
+
+	if args := githubCLI.args(); len(args) != 0 {
+		t.Errorf("gh was called as %v, want GitHub never asked whether a name is a group", args)
 	}
 }

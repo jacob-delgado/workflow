@@ -218,8 +218,8 @@ type Deps struct {
 	RecordGroups  func(workspace string, ids []string) error
 
 	// IsGroup reports whether a bare CODEOWNERS name is a top-level GitLab
-	// group, which is tagged as a team, as seams.Forge binds it. Nil, as on
-	// GitHub, takes every bare name for a person.
+	// group, which is tagged as a team, as seams.Forge binds it. Nil takes
+	// every bare name for a person.
 	IsGroup func(name string) (bool, error)
 
 	// Workspace is the ID of the Slack workspace the user token is for, as
