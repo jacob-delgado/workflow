@@ -8,6 +8,7 @@ package wiring_test
 // wiring.Deps against a stand-in Jira and a stand-in gh.
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -258,5 +259,62 @@ func TestTheForgeTrackerLinksAndAssignsAnIssue(t *testing.T) {
 	args := ghStub.args()
 	if err != nil || !containsAll(args, "-X", "POST") || !strings.Contains(args[len(args)-1], "/issues/42/assignees") {
 		t.Errorf("Assign = %v; gh was called as %v, want a POST to 42's assignees", err, args)
+	}
+}
+
+func TestJiraAloneAsksNothingOfAForgeNumber(t *testing.T) {
+	t.Parallel()
+
+	// Jira's REST API reads a bare number as an issue's id, so a forge issue's
+	// 42 sent there would change whichever Jira issue has that id. Every seam
+	// that names an issue refuses it as missing, before Jira is asked.
+	cases := map[string]func(tracker seams.Jira) error{
+		seamIssue: func(tracker seams.Jira) error {
+			_, err := tracker.Issue("42")
+
+			return err
+		},
+		seamTransitions: func(tracker seams.Jira) error {
+			_, err := tracker.Transitions("42")
+
+			return err
+		},
+		seamTransition: func(tracker seams.Jira) error {
+			return tracker.Transition("42", jira.Transition{ID: "31"}, nil)
+		},
+		seamComment: func(tracker seams.Jira) error {
+			_, err := tracker.Comment("42", "on it")
+
+			return err
+		},
+		"Assign": func(tracker seams.Jira) error { return tracker.Assign("42", "ana") },
+		"AddWorklog": func(tracker seams.Jira) error {
+			_, err := tracker.AddWorklog("42", "1h", "")
+
+			return err
+		},
+		"LinkPullRequest": func(tracker seams.Jira) error {
+			return tracker.LinkPullRequest("42", "https://github.com/owner/repo/pull/7", "work")
+		},
+	}
+
+	for name, ask := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			stand := &fakeJira{}
+			cfg := config.Default()
+			cfg.Jira = config.Jira{BaseURL: stand.serve(t), Token: jiraToken}
+			tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil).Jira
+
+			// Act
+			err := ask(tracker)
+
+			// Assert
+			if !errors.Is(err, jira.ErrNotFound) || len(stand.requests()) != 0 {
+				t.Errorf("%s(42) = %v, Jira asked %v; want jira.ErrNotFound before Jira is asked", name, err, stand.requests())
+			}
+		})
 	}
 }
