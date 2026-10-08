@@ -202,8 +202,13 @@ internal/tui 64
 # themselves; slackdirectory.go (the Slack directory reads People and groups
 # and the announcement pick from) and repogroups.go (the user groups a
 # repository may tag) out of people.go, which keeps whom each code owner is.
+# 36 is streamcache.go, the reads every open stream shares, held for an
+# interval and made outside their locks one at a time — the forge's answer,
+# each view's issues and which branches' issues are yours — out of stream.go,
+# which keeps the frame they fill and would have passed the 500-line target
+# with the issues' cache.
 # Frozen here so that growth stays deliberate.
-internal/webserver 35
+internal/webserver 36
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and

@@ -337,6 +337,9 @@ type server struct {
 	// interval.
 	forgeAnswer forgeCache
 
+	// issuesHeld is each view's first page of issues, held for an interval.
+	issuesHeld issuesCache
+
 	// assigned is which of the branches' issues the tracker last said are yours.
 	assigned assignedCache
 
