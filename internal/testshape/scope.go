@@ -21,8 +21,12 @@ const (
 	kindF
 )
 
-// testingPath is the testing package's import path.
-const testingPath = "testing"
+// The import paths of the testing package, and of testing/synctest, whose
+// Test runs a test's body in a bubble.
+const (
+	testingPath  = "testing"
+	synctestPath = "testing/synctest"
+)
 
 // scope is what a body in one top-level declaration can see: the file's
 // imports, the declaration's testing values, and the closures stored and the
@@ -48,7 +52,7 @@ func newScope(p *pkg, file *ast.File, function *ast.FuncDecl) scope {
 		pkg: p, imports: importNames(file), values: map[string]valueKind{},
 		closures: map[string]*ast.FuncLit{}, stored: map[*ast.FuncLit]bool{}, types: map[string]seenType{},
 	}
-	testing := testingName(file)
+	testing := importedAs(file, testingPath)
 
 	if function.Recv != nil {
 		visible.declareFields(function.Recv)
@@ -228,10 +232,11 @@ func selectorIn(expr ast.Expr, pkg string) string {
 	return selector.Sel.Name
 }
 
-// testingName is the name a file imports testing under, or empty.
-func testingName(file *ast.File) string {
+// importedAs is the name a file imports the package at wanted under, or empty
+// when it does not import it.
+func importedAs(file *ast.File, wanted string) string {
 	for _, spec := range file.Imports {
-		if importPath(spec) != testingPath {
+		if importPath(spec) != wanted {
 			continue
 		}
 
@@ -239,7 +244,7 @@ func testingName(file *ast.File) string {
 			return spec.Name.Name
 		}
 
-		return "testing"
+		return usualName(wanted)
 	}
 
 	return ""

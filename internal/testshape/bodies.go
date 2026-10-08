@@ -11,10 +11,12 @@ import (
 	"unicode/utf8"
 )
 
-// The arguments t.Run and f.Fuzz take; the function is the last.
+// The arguments t.Run, f.Fuzz and synctest.Test take; the function is the
+// last.
 const (
-	runArguments  = 2
-	fuzzArguments = 1
+	runArguments    = 2
+	fuzzArguments   = 1
+	bubbleArguments = 2
 )
 
 // isTest reports whether a declaration is a test go test runs: TestX(*testing.T)
@@ -39,7 +41,7 @@ func (p *pkg) isTest(file *ast.File, function *ast.FuncDecl) bool {
 		return false
 	}
 
-	kind, isValue := kindOf(params[0].Type, testingName(file))
+	kind, isValue := kindOf(params[0].Type, importedAs(file, testingPath))
 
 	return isValue && kind == want
 }
@@ -77,7 +79,7 @@ func (b bodyCheck) violation(pos token.Pos, rule Rule) Violation {
 	return Violation{Position: b.pkg.fset.Position(pos), Test: b.test, Rule: rule, Message: b.pkg.messages[rule]}
 }
 
-// subtest is a t.Run or f.Fuzz call and the function it runs.
+// subtest is a t.Run, f.Fuzz or synctest.Test call and the function it runs.
 type subtest struct {
 	function ast.Expr
 }
@@ -97,8 +99,8 @@ func (b bodyCheck) body(body *ast.BlockStmt, reportAt token.Pos) []Violation {
 	return b.outer(body, subtests, literals)
 }
 
-// subtests are the t.Run and f.Fuzz calls in a body, not counting those inside
-// another subtest.
+// subtests are the t.Run, f.Fuzz and synctest.Test calls in a body, not
+// counting those inside another subtest.
 func (b bodyCheck) subtests(body *ast.BlockStmt) []subtest {
 	var found []subtest
 
@@ -121,8 +123,12 @@ func (b bodyCheck) subtests(body *ast.BlockStmt) []subtest {
 	return found
 }
 
-// subtestFunction is the function a t.Run or f.Fuzz call runs.
+// subtestFunction is the function a t.Run, f.Fuzz or synctest.Test call runs.
 func (b bodyCheck) subtestFunction(call *ast.CallExpr) (ast.Expr, bool) {
+	if b.isBubble(call) {
+		return call.Args[bubbleArguments-1], true
+	}
+
 	kind, method, isValue := b.scope.methodOnValue(call)
 
 	switch {
@@ -135,6 +141,12 @@ func (b bodyCheck) subtestFunction(call *ast.CallExpr) (ast.Expr, bool) {
 	default:
 		return nil, false
 	}
+}
+
+// isBubble reports whether call is synctest.Test, which runs its function as
+// the test's body, in a bubble of its own.
+func (b bodyCheck) isBubble(call *ast.CallExpr) bool {
+	return len(call.Args) == bubbleArguments && selectorIn(call.Fun, importedAs(b.file, synctestPath)) == "Test"
 }
 
 // literalsOf are the function literals subtests run.

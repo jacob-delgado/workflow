@@ -381,3 +381,108 @@ func TestTwoNames(t, u *testing.T) {}
 		})
 	}
 }
+
+// bubbled is a fixture file holding one TestX with body, whose file imports
+// testing/synctest as well, under alias when one is given. The body's first
+// line is line 6.
+func bubbled(alias, body string) string {
+	imports := `import ("testing"; ` + strings.TrimSpace(alias+` "testing/synctest"`) + ")\n\n"
+
+	return "package fixture_test\n\n" + imports + "func TestX(t *testing.T) {\n" + body + "}\n"
+}
+
+func TestABubbleCarriesTheMarkers(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		source string
+		want   []found
+	}{
+		"markers inside the bubble": {source: bubbled("", `	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Act
+		got := 1
+
+		// Assert
+		if got != 1 {
+			t.Error("got")
+		}
+	})
+`)},
+		"markers inside a bubble under another name": {source: bubbled("bubble", `	bubble.Test(t, func(t *testing.T) {
+		// Act & Assert
+		if got := 1; got != 1 {
+			t.Error("got")
+		}
+	})
+`)},
+		"a bubble in each case of a table": {source: bubbled("", `	for _, want := range []int{1} {
+		t.Run("case", func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				// Act & Assert
+				if got := want; got != want {
+					t.Error("got")
+				}
+			})
+		})
+	}
+`)},
+		"a marker outside the bubble": {
+			source: bubbled("", `	// Arrange
+	want := 1
+
+	synctest.Test(t, func(t *testing.T) {
+		// Act & Assert
+		if got := want; got != want {
+			t.Error("got")
+		}
+	})
+`),
+			want: []found{at(6, testshape.TableMarker)},
+		},
+		"a bubble with no markers": {
+			source: bubbled("", `	synctest.Test(t, func(t *testing.T) {
+		_ = 1
+	})
+`),
+			want: []found{at(6, testshape.MissingMarkers)},
+		},
+		"a bubble run from a function value": {
+			source: bubbled("", `	check := func(t *testing.T) {
+		t.Helper()
+	}
+
+	synctest.Test(t, check)
+`),
+			want: []found{at(10, testshape.SubtestLiteral)},
+		},
+		"Test on something that is not synctest": {
+			source: bubbled("", `	// Arrange
+	seams := suite{}
+
+	// Act
+	got := seams.Test(t, nil)
+
+	// Assert
+	if !got {
+		t.Error("test")
+	}
+`) + "\ntype suite struct{}\n\nfunc (suite) Test(*testing.T, func(*testing.T)) bool { return true }\n",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := check(t, tt.source)
+
+			// Assert
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("violations = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
