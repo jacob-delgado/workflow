@@ -136,6 +136,18 @@ func TestASummaryIsPostedRenderedForItsService(t *testing.T) {
 	}
 }
 
+func TestASummaryWithNoWayToPostItIsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	err := loop.PostSummary(nil, config.KindSlack, "#team", "# 2026-10-01\n\n- committed abc1234 Fix it\n")
+
+	// Assert
+	if !errors.Is(err, loop.ErrSummaryUnavailable) {
+		t.Errorf("PostSummary with no post = %v, want ErrSummaryUnavailable", err)
+	}
+}
+
 func TestABlankSummaryIsNotPosted(t *testing.T) {
 	t.Parallel()
 
