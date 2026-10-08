@@ -1,5 +1,7 @@
 import {
   ago,
+  civilDay,
+  civilNoon,
   day,
   headingDay,
   hour,
@@ -7,6 +9,7 @@ import {
   monthHeading,
   relativeTime,
   second,
+  writtenCount,
   writtenDate,
   writtenDay,
   writtenMoment,
@@ -95,3 +98,29 @@ test.each(['narrow', 'terminal', 'words'] as const)(
     expect(ago(Date.parse('0001-01-01T00:00:00Z'), now, { style })).toBe('some time ago')
   },
 )
+
+test.each(['not a date', '2026-02-30', '2026-9-5', ''])(
+  'a calendar date the server got wrong, "%s", is written as it came',
+  (date) => {
+    // Act & Assert
+    expect(writtenDay(date)).toBe(date)
+  },
+)
+
+test.each(['not a date', '2026-13-01'])(
+  'a heading for "%s", no calendar date, is the text',
+  (date) => {
+    // Act & Assert
+    expect(headingDay(date)).toBe(date)
+  },
+)
+
+test('noon on a calendar day is that day in UTC', () => {
+  // Act & Assert
+  expect(civilDay(civilNoon(2026, 2, 28))).toBe('2026-02-28')
+})
+
+test('a count is written with its thousands marked, as the copy writes numbers', () => {
+  // Act & Assert
+  expect(writtenCount(1_234_567)).toBe('1,234,567')
+})

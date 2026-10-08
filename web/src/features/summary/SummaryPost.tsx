@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Activity, MessagingDestination, PostLength } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { writtenCount } from '@/lib/dates.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
@@ -125,18 +126,12 @@ function PostPreview({ activity, messaging, teller, onClose }: PostPreviewProps)
   )
 }
 
-// counted writes a number as the page writes counts, with its thousands
-// marked.
-function counted(count: number): string {
-  return count.toLocaleString('en-US')
-}
-
 // PostLengthLine says how long the summary is, rendered for the service,
 // against what the service takes — a warning when it is longer, since the
 // post would be refused — or, once edited, only the limit, which the server
 // measures the edit against as it is posted.
 function PostLengthLine({ length, edited }: { length: PostLength; edited: boolean }) {
-  const limit = `${counted(length.limit)} ${length.unit}`
+  const limit = `${writtenCount(length.limit)} ${length.unit}`
   if (edited) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -148,15 +143,15 @@ function PostLengthLine({ length, edited }: { length: PostLength; edited: boolea
   if (length.count > length.limit) {
     return (
       <p className="text-sm text-destructive">
-        Too long for {length.service}: {counted(length.count)} of {limit}. Pick a shorter period, or
-        edit it down.
+        Too long for {length.service}: {writtenCount(length.count)} of {limit}. Pick a shorter
+        period, or edit it down.
       </p>
     )
   }
 
   return (
     <p className="text-sm text-muted-foreground">
-      {counted(length.count)} of {limit} {length.service} takes
+      {writtenCount(length.count)} of {limit} {length.service} takes
     </p>
   )
 }
