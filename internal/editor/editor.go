@@ -125,17 +125,23 @@ func Draft(text, help string) string {
 	return text + "\n\n" + Scissors + "\n" + help + "\n"
 }
 
-// Parse is what the user wrote: everything above the scissors line, with the
-// trailing space editors leave behind removed.
+// Parse is what the user wrote: everything above the first line that is the
+// scissors line, with the trailing space editors leave behind removed. As in
+// git, the scissors count only as a whole line, so a body quoting them keeps
+// that line.
 func Parse(raw string) string {
-	text, _, _ := strings.Cut(raw, Scissors)
+	var kept []string
 
-	lines := strings.Split(text, "\n")
-	for index, line := range lines {
-		lines[index] = strings.TrimRight(line, " \t\r")
+	for line := range strings.SplitSeq(raw, "\n") {
+		trimmed := strings.TrimRight(line, " \t\r")
+		if trimmed == Scissors {
+			break
+		}
+
+		kept = append(kept, trimmed)
 	}
 
-	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
+	return strings.TrimRight(strings.Join(kept, "\n"), "\n")
 }
 
 // Edit hands text to the user's editor and reports what they saved, through
