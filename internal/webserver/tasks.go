@@ -54,7 +54,8 @@ func (s *server) ListTasks(_ context.Context, _ api.ListTasksRequestObject) (api
 
 // readTaskList is the list a read answers and every write ends on, so the
 // page replaces what it shows with what Taskwarrior holds now. said is what
-// undo or sync printed, or what a write has to add.
+// undo or sync printed, or what a write has to add. The clock is read once, so
+// the tasks' states and the values the filter offers describe one moment.
 func (s *server) readTaskList(said string) (api.TaskList, error) {
 	install, err := s.unlessSettingsChanged(s.installed)
 	if err != nil {
@@ -70,11 +71,11 @@ func (s *server) readTaskList(said string) (api.TaskList, error) {
 		return api.TaskList{}, err
 	}
 
-	tasks := knownTasks(pending.Tasks)
+	tasks, now := knownTasks(pending.Tasks), s.now()
 
 	return api.TaskList{
 		Available: true, Reason: "", Context: pending.Context, SyncAvailable: install.SyncConfigured,
-		Said: said, Tasks: s.tasksDTO(tasks), FacetOrder: taskFacetsDTO(taskwarrior.OfferedFacets(tasks, s.now())),
+		Said: said, Tasks: s.tasksDTO(tasks, now), FacetOrder: taskFacetsDTO(taskwarrior.OfferedFacets(tasks, now)),
 	}, nil
 }
 
@@ -166,7 +167,7 @@ func (s *server) snapshotTasks() api.TasksSummary {
 		return unanswered
 	}
 
-	return s.tasksSummaryDTO(pending.Tasks, linked)
+	return s.tasksSummaryDTO(pending.Tasks, linked, s.now())
 }
 
 // heldDetection is which Taskwarrior answers, for the stream: a search that
@@ -186,12 +187,12 @@ func (s *server) heldDetection() (taskwarrior.Install, error) {
 	return install, err
 }
 
-// tasksSummaryDTO maps what Taskwarrior answered onto the stream's summary: the
-// started task and every linked task.
-func (s *server) tasksSummaryDTO(pending, linked []taskwarrior.Task) api.TasksSummary {
+// tasksSummaryDTO maps what Taskwarrior answered onto the stream's summary, as
+// the tasks stand at now: the started task and every linked task.
+func (s *server) tasksSummaryDTO(pending, linked []taskwarrior.Task, now time.Time) api.TasksSummary {
 	known := knownTasks(linked)
-	summary := api.TasksSummary{Available: true, Reason: "", Linked: s.tasksDTO(known)}
-	summary.Active = s.activeTask(knownTasks(pending), known, summary.Linked)
+	summary := api.TasksSummary{Available: true, Reason: "", Linked: s.tasksDTO(known, now)}
+	summary.Active = s.activeTask(knownTasks(pending), known, summary.Linked, now)
 
 	return summary
 }
@@ -201,9 +202,9 @@ func (s *server) tasksSummaryDTO(pending, linked []taskwarrior.Task) api.TasksSu
 // tasks, as the Tasks list ranks it, or the linked ones, given here as
 // linkedDTO, when the active context hides it from the pending. It is nil when
 // none is started.
-func (s *server) activeTask(pending, linked []taskwarrior.Task, linkedDTO []api.Task) *api.Task {
+func (s *server) activeTask(pending, linked []taskwarrior.Task, linkedDTO []api.Task, now time.Time) *api.Task {
 	if started := slices.IndexFunc(pending, taskwarrior.Task.Active); started >= 0 {
-		return &s.tasksDTO(pending)[started]
+		return &s.tasksDTO(pending, now)[started]
 	}
 
 	if started := slices.IndexFunc(linked, taskwarrior.Task.Active); started >= 0 {
@@ -223,10 +224,9 @@ func knownTasks(tasks []taskwarrior.Task) []taskwarrior.Task {
 	})
 }
 
-// tasksDTO maps tasks onto the wire, an empty list rather than null, each with
-// its place in every order among them, as the server's clock reads now.
-func (s *server) tasksDTO(tasks []taskwarrior.Task) []api.Task {
-	now := s.now()
+// tasksDTO maps tasks onto the wire, an empty list rather than null, each as
+// it stands at now, with its place in every order among them.
+func (s *server) tasksDTO(tasks []taskwarrior.Task, now time.Time) []api.Task {
 	ranks := taskwarrior.RanksOf(tasks, now)
 	out := make([]api.Task, 0, len(tasks))
 
