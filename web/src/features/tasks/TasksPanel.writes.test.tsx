@@ -204,6 +204,32 @@ test('a write keeps its answer over a read that was in flight when it landed', a
   expect(screen.queryByRole('button', { name: 'Start' })).toBeNull()
 })
 
+test('a write whose list could not be read again reads it once more', async () => {
+  // Arrange
+  // The start landed, but the server could not read the list after it, so it
+  // answers the list unavailable with why; the page reads the list itself.
+  const user = userEvent.setup()
+  const notReadAgain =
+    'The change was made, but your tasks could not be read again: Taskwarrior did not answer in time'
+  const lists = [makeTaskList([tokenLeak]), makeTaskList([started])]
+  fakeApi({
+    [tasksPath]: () => (lists.length > 1 ? lists.shift() : lists[0]),
+    [`${taskPath}/start`]: makeTaskList([], {
+      available: false,
+      reason: notReadAgain,
+      reason_code: 'unavailable',
+    }),
+  })
+  renderWithClient(<TasksPanel />)
+
+  // Act
+  await user.click(await screen.findByRole('button', { name: 'Start' }))
+
+  // Assert
+  expect(await screen.findByRole('button', { name: 'Stop' })).toBeTruthy()
+  expect(screen.queryByText(notReadAgain)).toBeNull()
+})
+
 test('a write that sorts the list anew keeps the detail on the task it showed', async () => {
   // Arrange
   // Started, the token leak is listed first, so its detail is shown; stopped,

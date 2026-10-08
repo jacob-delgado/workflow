@@ -159,7 +159,7 @@ func (s *server) taskCommand(
 		return api.TaskList{}, &prob
 	}
 
-	return s.taskListAfter(change)
+	return s.taskListAfter(change), nil
 }
 
 // addLine is the add of line, which adds the task it names, or nil when add is.

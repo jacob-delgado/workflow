@@ -436,9 +436,10 @@ func TestTaskFaultsNeverLeakAPath(t *testing.T) {
 			method: http.MethodGet, path: tasksPath, verb: pendingRead, cause: taskwarrior.ErrRefused,
 			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
+		// The start is made, so it answers the list, unavailable with why.
 		"a refused read of the list after a write": {
 			method: http.MethodPost, path: start, verb: pendingRead, cause: taskwarrior.ErrRefused,
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
+			wantStatus: http.StatusOK,
 		},
 		// The task is created, so the track answers the list, and said carries
 		// the refusal: the web's form of the terminal's ErrAnnotateFailed.
@@ -464,9 +465,10 @@ func TestTaskFaultsNeverLeakAPath(t *testing.T) {
 				Code   api.ProblemCode `json:"code"`
 				Detail string          `json:"detail"`
 				Said   string          `json:"said"`
+				Reason string          `json:"reason"`
 			}](t, recorder)
 			if fake.count(tt.verb) != 1 || recorder.Code != tt.wantStatus || answer.Code != tt.wantCode ||
-				answer.Detail+answer.Said == "" {
+				answer.Detail+answer.Said+answer.Reason == "" {
 				t.Errorf("answer = %d %s, calls = %q, want %d %q saying why", recorder.Code, recorder.Body.String(),
 					fake.asked(), tt.wantStatus, tt.wantCode)
 			}
