@@ -105,25 +105,9 @@ func (s Store) CacheIssues(ctx context.Context, instance, view string, issues []
 	}
 	defer func() { _ = database.Close() }()
 
-	// Trade-off TRADE-16: a deferred BEGIN takes no lock, so it fails only when
-	// ctx ends between the schema step, which used it, and this call.
-	transaction, err := database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("caching the issues: %w", err)
-	}
-	defer func() { _ = transaction.Rollback() }()
-
-	err = writeCachedIssues(ctx, transaction, instance, view, issues, now)
-	if err != nil {
-		return err
-	}
-
-	err = transaction.Commit()
-	if err != nil {
-		return fmt.Errorf("caching the issues: %w", err)
-	}
-
-	return nil
+	return inTransaction(ctx, database, "caching the issues", func(transaction *sql.Tx) error {
+		return writeCachedIssues(ctx, transaction, instance, view, issues, now)
+	})
 }
 
 // writeCachedIssues upserts the parent view row and replaces its child issue rows

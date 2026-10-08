@@ -12,6 +12,7 @@ package store_test
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -353,5 +354,58 @@ func TestStoresOpeningAFreshKeptFileTogetherAllPrepareIt(t *testing.T) {
 	links, err := store.New(dir, false).OwnerLinks(t.Context(), forgeHost, workspaceA)
 	if err != nil || len(links) != len(owners) {
 		t.Errorf("OwnerLinks = %+v, %v; want every owner decided", links, err)
+	}
+}
+
+func TestAKeptWriteWhoseContextEndedWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	linkAna(t, store.New(dir, false))
+
+	ended, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	// Act
+	err := store.New(dir, false).LinkOwner(ended, forgeHost, workspaceA, decided("bo", ana()), theTime())
+
+	// Assert
+	links, readErr := store.New(dir, false).OwnerLinks(t.Context(), forgeHost, workspaceA)
+	if !errors.Is(err, context.Canceled) || readErr != nil || len(links) != 1 {
+		t.Errorf("LinkOwner = %v; links %+v (%v); want the ended context reported and nothing written",
+			err, links, readErr)
+	}
+}
+
+func TestAKeptWriteWhileAnotherWriterHoldsTheFileWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	linkAna(t, store.New(dir, false))
+
+	writer, err := openKeptFile(t, dir).Conn(t.Context())
+	if err != nil {
+		t.Fatalf("taking a connection: %v", err)
+	}
+	defer func() { _ = writer.Close() }()
+
+	_, err = writer.ExecContext(t.Context(), "BEGIN IMMEDIATE")
+	if err != nil {
+		t.Fatalf("holding the write lock: %v", err)
+	}
+	defer func() { _, _ = writer.ExecContext(t.Context(), "ROLLBACK") }()
+
+	// Act
+	// The write waits out the store's busy timeout for the lock, and is then
+	// refused as its transaction begins.
+	err = store.New(dir, false).LinkOwner(t.Context(), forgeHost, workspaceA, decided("bo", ana()), theTime())
+
+	// Assert
+	links, readErr := store.New(dir, false).OwnerLinks(t.Context(), forgeHost, workspaceA)
+	if err == nil || !strings.Contains(err.Error(), "writing the kept data") || readErr != nil || len(links) != 1 {
+		t.Errorf("LinkOwner = %v; links %+v (%v); want the write refused as it begins and nothing written",
+			err, links, readErr)
 	}
 }
