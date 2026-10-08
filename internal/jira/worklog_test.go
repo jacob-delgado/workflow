@@ -28,7 +28,7 @@ func TestAddWorklogPostsTheDurationAndNoteAndReturnsTheWorklog(t *testing.T) {
 		requested.Store(request.Method + " " + request.URL.EscapedPath() + " " + request.Header.Get("Content-Type"))
 
 		var body struct {
-			TimeSpent string `json:"timeSpent"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+			TimeSpent string `json:"timeSpent"`
 			Comment   string `json:"comment"`
 		}
 

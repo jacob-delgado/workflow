@@ -15,8 +15,6 @@ type Worklog struct {
 }
 
 // wireWorklog is a worklog as the API returns it.
-//
-//nolint:tagliatelle // Jira's field names on the wire, not ours to pick
 type wireWorklog struct {
 	ID        string `json:"id"`
 	TimeSpent string `json:"timeSpent"`
@@ -32,7 +30,7 @@ func (w wireWorklog) worklog() Worklog {
 // worklog as Jira recorded it.
 func (c Client) AddWorklog(ctx context.Context, issueKey Key, timeSpent, comment string) (Worklog, error) {
 	request, err := c.newJSONRequest(ctx, http.MethodPost, issuePath(issueKey)+"/worklog", struct {
-		TimeSpent string `json:"timeSpent"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+		TimeSpent string `json:"timeSpent"`
 		Comment   string `json:"comment,omitempty"`
 	}{TimeSpent: timeSpent, Comment: comment})
 

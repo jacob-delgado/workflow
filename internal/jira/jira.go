@@ -61,8 +61,6 @@ var (
 type Doer = httpx.Doer
 
 // User is who a credential authenticates as.
-//
-//nolint:tagliatelle // these are Jira's field names on the wire, not ours to pick
 type User struct {
 	// DisplayName is the human name, which an instance may be configured to
 	// withhold; Name is the login, which it does not.
