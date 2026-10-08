@@ -425,3 +425,17 @@ func itemLine(item activity.Item) string {
 
 	return strings.Join(words, " ")
 }
+
+// summaryBehavior is the Summary pane's behavior.
+func summaryBehavior() behavior {
+	return behavior{
+		rail: Model.summaryRail, detail: Model.summaryDetail, narrow: nil,
+		keys: Model.summaryKeys, handle: Model.handleSummaryKey, pick: nil, move: commandless(Model.moveSummaryBy),
+		refresh: Model.refreshSummary, loading: Model.summaryLoading,
+		scroll: func(m *Model) *int { return &m.summary.scroll }, listInDetail: true,
+		answers: []string{
+			"earlier", "later", "today", "calendar", "copy-summary", "post-summary", actionOpenLink, actionCopyLink,
+			actionRefresh,
+		},
+	}
+}

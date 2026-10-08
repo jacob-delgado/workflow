@@ -378,3 +378,17 @@ func (m Model) activeTask() (taskwarrior.Task, bool) {
 
 	return tasks[index], true
 }
+
+// tasksBehavior is the Tasks pane's behavior.
+func tasksBehavior() behavior {
+	return behavior{
+		rail: Model.tasksRail, detail: Model.tasksDetail, narrow: nil,
+		keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask, move: commandless(Model.moveTaskBy),
+		refresh: Model.refreshTasks, loading: func(m Model) bool { return m.tasks.loading },
+		scroll: func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
+		answers: []string{
+			"start-stop", "mark-done", "add-task", "annotate-task", "modify-task", "undo-task", "sync-tasks",
+			"search-tasks", "filter-tasks", "sort-tasks", actionOpenLink, actionCopyLink, actionRefresh,
+		},
+	}
+}

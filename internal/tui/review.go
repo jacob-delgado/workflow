@@ -343,3 +343,17 @@ func (m Model) handleReviewLink(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 }
+
+// reviewBehavior is the Review pane's behavior.
+func reviewBehavior() behavior {
+	return behavior{
+		rail: Model.reviewRail, detail: Model.reviewDetail, narrow: nil,
+		keys: Model.reviewKeys, handle: Model.handleReviewKey, pick: nil,
+		refresh: Model.refreshReview, loading: func(m Model) bool { return m.review.loading },
+		scroll: func(m *Model) *int { return &m.review.scroll }, readsBranch: true,
+		answers: []string{
+			"open-pull-request", "edit", "checks", "rerun-checks", "merge", "finish-branch", actionOpenLink,
+			actionCopyLink, actionRefresh,
+		},
+	}
+}
