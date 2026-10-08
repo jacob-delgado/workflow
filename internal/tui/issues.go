@@ -32,48 +32,96 @@ type issuesLoaded struct {
 // apply caches a fresh first page, then, when the answer is for the view on
 // screen, records it and asks for the selected issue in full.
 func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
-	m = m.cacheIssues(msg)
+	cache := m.cacheIssues(msg)
 
 	if msg.jql != m.activeView().jql {
-		return m, nil
+		return m, cache
 	}
 
 	m.issues = m.issues.settle(msg)
-	m = m.resumeIssue()
+	m, detail := m.resumeIssue().loadDetail()
 
-	return m.loadDetail()
+	return m, tea.Batch(cache, detail)
 }
 
-// cacheIssues stores a freshly-loaded first page, so a later session opens on it
-// before the tracker answers, and says so when the store could not keep it.
-// Only a first page is cached; a failure and further pages are not.
-func (m Model) cacheIssues(msg issuesLoaded) Model {
-	if msg.err != nil || msg.startAt != 0 || m.deps.Store.CacheIssues == nil {
-		return m
+// cacheIssues is the command that stores a freshly-loaded first page, so a
+// later session opens on it before the tracker answers, off the update loop,
+// and says so when the store could not keep it. Only a first page is cached; a
+// failure and further pages are not.
+func (m Model) cacheIssues(msg issuesLoaded) tea.Cmd {
+	write := m.deps.Store.CacheIssues
+	if msg.err != nil || msg.startAt != 0 || write == nil {
+		return nil
 	}
 
-	err := m.deps.Store.CacheIssues(msg.jql, msg.found.Issues)
-	if err != nil {
-		return m.noticed("the issue list was not kept for the next session: " + err.Error())
-	}
+	return func() tea.Msg {
+		err := write(msg.jql, msg.found.Issues)
+		if err != nil {
+			return storeNotKept{notice: "the issue list was not kept for the next session: " + err.Error()}
+		}
 
-	return m
+		return nil
+	}
 }
 
 // seededIssues is the last issue list cached for the active view, settled and
 // shown at once so a session opens on it before the tracker answers, or an empty
-// list when the store has nothing for it.
+// list when the store has nothing for it. It reads the store, so it is for the
+// interface being made, before any key; a view switched to reads it with
+// readCachedIssues.
 func (m Model) seededIssues() issueList {
 	if m.deps.Store.CachedIssues == nil {
 		return issueList{}
 	}
 
-	cached, ok := m.deps.Store.CachedIssues(m.activeView().jql)
-	if !ok {
+	return seeded(m.deps.Store.CachedIssues(m.activeView().jql))
+}
+
+// seeded is an issue list settled on what the cache held, or an empty one when
+// it held nothing.
+func seeded(cached []jira.Issue, held bool) issueList {
+	if !held {
 		return issueList{}
 	}
 
 	return issueList{found: jira.SearchResult{Issues: cached, Total: len(cached)}, settled: true}
+}
+
+// readCachedIssues is the command that reads the cache for the active view off
+// the update loop, so a view switched to shows its last list while its search
+// is out.
+func (m Model) readCachedIssues() tea.Cmd {
+	read, jql := m.deps.Store.CachedIssues, m.activeView().jql
+	if read == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		cached, held := read(jql)
+
+		return cachedIssuesRead{jql: jql, list: seeded(cached, held)}
+	}
+}
+
+// cachedIssuesRead is the list the cache held for the view searched with jql.
+type cachedIssuesRead struct {
+	jql  string
+	list issueList
+}
+
+var _ applier = cachedIssuesRead{}
+
+// apply shows the cached list while the view it was read for is still shown
+// and its search has not answered; an answer, or a list the cache did not hold,
+// leaves the pane as it is.
+func (read cachedIssuesRead) apply(m Model) (Model, tea.Cmd) {
+	if read.jql != m.activeView().jql || m.issues.settled || !read.list.settled {
+		return m, nil
+	}
+
+	m.issues.found, m.issues.settled = read.list.found, true
+
+	return m, nil
 }
 
 // issueList is the Issues pane's state. Loading, failed, empty and listing are

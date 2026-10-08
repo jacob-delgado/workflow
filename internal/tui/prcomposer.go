@@ -65,6 +65,9 @@ type prComposer struct {
 	head      string
 	templates []forge.Template
 	template  int
+	// templatesRead reports the repository's templates read, which they are
+	// once the composer is open.
+	templatesRead bool
 	// proposedFrom is what the title and body were proposed from, which a
 	// template chosen later, or the issue read later, proposes from again.
 	proposedFrom loop.DraftInput
@@ -93,7 +96,8 @@ var (
 // issue, which the issue's answer replaces while it is still untouched. The
 // code owners are read for the reviewers the same way, unless a kept draft
 // already says who reviews: one closed before the owners answered, its
-// reviewers never typed, is read for again.
+// reviewers never typed, is read for again. The templates and the remote
+// branches are read after it opens, too.
 func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	branch := m.branch.branch
 	issueKey, _ := m.branchIssue()
@@ -112,11 +116,12 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 		reviewers = m.readReviewers(proposed)
 	}
 
+	starts := m.readPullRequestStarts(proposed.opened)
 	if listed {
-		return m, reviewers
+		return m, tea.Batch(starts, reviewers)
 	}
 
-	return m, tea.Batch(m.readTitleIssue(proposed), reviewers)
+	return m, tea.Batch(starts, m.readTitleIssue(proposed), reviewers)
 }
 
 // proposePullRequest is the composer filled from the branch's commits, the
@@ -139,13 +144,72 @@ func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summ
 	composer.reviewers.Blur()
 	composer.assignees.Blur()
 	composer.labels.Blur()
-	composer = composer.withBaseSuggestions(m.deps.Git.RemoteBranches)
-
-	if m.deps.Forge.Templates != nil {
-		composer.templates = m.deps.Forge.Templates()
-	}
+	composer.templatesRead = m.deps.Forge.Templates == nil
 
 	return composer.withTemplate(0)
+}
+
+// readPullRequestStarts is the command that reads, for the composer opened as
+// opened, the repository's templates and the remote branches its base can
+// complete to: files and git, read off the update loop so the composer never
+// waits on them.
+func (m Model) readPullRequestStarts(opened int) tea.Cmd {
+	templates, remoteBranches := m.deps.Forge.Templates, m.deps.Git.RemoteBranches
+	if templates == nil && remoteBranches == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		read := pullRequestStartsRead{opened: opened, templatesRead: templates != nil}
+		if templates != nil {
+			read.templates = templates()
+		}
+
+		if remoteBranches != nil {
+			// A failure to list is no reason to refuse the composer: its base
+			// is simply left without completions.
+			read.branches, _ = remoteBranches()
+		}
+
+		return read
+	}
+}
+
+// pullRequestStartsRead is the templates and the remote branches read for the
+// pull request composer opened as opened.
+type pullRequestStartsRead struct {
+	opened        int
+	templates     []forge.Template
+	templatesRead bool
+	branches      []string
+}
+
+var _ applier = pullRequestStartsRead{}
+
+// apply offers the remote branches as the base's completions, and the
+// templates: the body is proposed again from the first while it is still the
+// one proposed, unless the composer they were read for has closed — even if
+// another has opened since — or is being sent.
+func (read pullRequestStartsRead) apply(m Model) (Model, tea.Cmd) {
+	composer, open := m.overlay.(prComposer)
+	if !open || composer.opened != read.opened || composer.send.sending {
+		return m, nil
+	}
+
+	composer = composer.withBaseSuggestions(read.branches)
+
+	if read.templatesRead {
+		composer.templates, composer.templatesRead = read.templates, true
+		composer.template = min(composer.template, max(0, len(read.templates)-1))
+	}
+
+	if read.templatesRead && !composer.edited {
+		composer = composer.withTemplate(composer.template)
+	}
+
+	m.overlay = composer
+
+	return m, nil
 }
 
 // readTitleIssue reads the composer's issue for its title, when the title is to
@@ -241,15 +305,9 @@ func (read reviewersRead) apply(m Model) (Model, tea.Cmd) {
 }
 
 // withBaseSuggestions offers the remote branches as completions for the base
-// field, when the repository can list them. A failure to list is no reason to
-// refuse the composer, so the field is simply left without completions.
-func (c prComposer) withBaseSuggestions(remoteBranches func() ([]string, error)) prComposer {
-	if remoteBranches == nil {
-		return c
-	}
-
-	branches, err := remoteBranches()
-	if err != nil {
+// field; with none listed the field is left plain.
+func (c prComposer) withBaseSuggestions(branches []string) prComposer {
+	if len(branches) == 0 {
 		return c
 	}
 
@@ -316,7 +374,10 @@ func (c prComposer) view(width, _ int) (string, string) {
 // templateName names the template in use, and how many there are to choose
 // from.
 func (c prComposer) templateName() string {
-	if len(c.templates) == 0 {
+	switch {
+	case !c.templatesRead:
+		return "template " + c.marks.reading()
+	case len(c.templates) == 0:
 		return "no template in this repository"
 	}
 
