@@ -618,9 +618,11 @@ func TestWriteWithAnEmptyTokenLeavesTheKeychainAlone(t *testing.T) {
 	written, err := guide.Write(t.Context(), request)
 
 	// Assert
-	if err != nil || stored || written.Keychain {
-		t.Errorf("Write = %+v, %v, keychain called %t; want the file written with nothing for the keychain",
-			written, err, stored)
+	cfg, _, loadErr := config.LoadLayersAt(config.Files{Home: written.Path})
+	if err != nil || stored || written.Keychain || written.Path != guide.Where.Path(setup.Home) || loadErr != nil ||
+		cfg.Jira.BaseURL != jiraAddress || cfg.Jira.Token != "" || cfg.Jira.TokenCommand != "" {
+		t.Errorf("Write = %+v, %v, keychain called %t; wrote %+v (%v); want the home file written with Jira's "+
+			"address and no token, and nothing for the keychain", written, err, stored, cfg.Redacted().Jira, loadErr)
 	}
 }
 

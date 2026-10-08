@@ -24,12 +24,12 @@ import (
 // nobody is the user and group id of the account that owns nothing.
 const nobody = 65534
 
-// withMode is a configuration file holding `{}` at mode, made so whatever the
-// umask.
+// withMode is a configuration file setting Jira's project to ossProject at
+// mode, made so whatever the umask.
 func withMode(t *testing.T, mode os.FileMode) string {
 	t.Helper()
 
-	path := write(t, t.TempDir(), `{}`)
+	path := write(t, t.TempDir(), `{"jira": {"project": "`+ossProject+`"}}`)
 
 	err := os.Chmod(path, mode)
 	if err != nil {
@@ -179,10 +179,11 @@ func TestAConfigurationFileOnlyItsOwnerCanWriteIsTaken(t *testing.T) {
 			files := config.Files{Home: withMode(t, mode)}
 
 			// Act
-			_, _, err := config.LoadLayersAt(files)
+			cfg, _, err := config.LoadLayersAt(files)
+
 			// Assert
-			if err != nil {
-				t.Errorf("LoadLayersAt of a %#o file = %v; want it taken", mode, err)
+			if err != nil || cfg.Jira.Project != ossProject {
+				t.Errorf("LoadLayersAt of a %#o file = %+v, %v; want it taken, its project read", mode, cfg.Jira, err)
 			}
 		})
 	}
@@ -224,9 +225,11 @@ func TestAConfigurationFileItsOwnersOwnGroupCanWriteIsTaken(t *testing.T) {
 	}
 
 	// Act
-	_, _, err = config.LoadLayersAt(config.Files{Home: path})
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
+
 	// Assert
-	if err != nil {
-		t.Errorf("LoadLayersAt = %v; want a file only its owner's own group may write taken", err)
+	if err != nil || cfg.Jira.Project != ossProject {
+		t.Errorf("LoadLayersAt = %+v, %v; want a file only its owner's own group may write taken, its project read",
+			cfg.Jira, err)
 	}
 }
