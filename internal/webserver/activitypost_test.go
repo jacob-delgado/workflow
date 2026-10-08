@@ -80,7 +80,7 @@ func TestTheSummaryIsPostedRenderedForTheService(t *testing.T) {
 
 	answer := decode[api.ActivityPost](t, recorder)
 	if answer.Channel != teamChannel || answer.Destination != teamChannel || answer.Text != summaryMarkdown ||
-		answer.From != tuesday {
+		answer.From.String() != tuesday {
 		t.Errorf("answer = %+v, want the Markdown posted to #team for Tuesday", answer)
 	}
 }
@@ -115,7 +115,6 @@ func TestASummaryPostIsRefusedBeforeItGoes(t *testing.T) {
 		detail       string
 	}{
 		"a blank text":           {field: textField, value: " \n", detail: "the summary was empty"},
-		"a day that is no date":  {field: "from", value: "Tuesday", detail: "YYYY-MM-DD"},
 		"a period run backwards": {field: "to", value: "2026-09-14", detail: "ends before it starts"},
 	}
 

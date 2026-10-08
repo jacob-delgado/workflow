@@ -190,8 +190,10 @@ test('gives the date of a request that has waited over a month', async () => {
 
 test('says a request whose opening the forge did not give waited some time', async () => {
   // Arrange
-  // The server sends the zero time for a date the forge did not give.
-  fakeApi({ [reviewsPath]: queueOf(makeReviewRequest({ opened_at: '0001-01-01T00:00:00Z' })) })
+  // The server leaves the time out when the forge did not give one.
+  const undated = makeReviewRequest()
+  delete undated.opened_at
+  fakeApi({ [reviewsPath]: queueOf(undated) })
 
   // Act
   renderWithClient(<ReviewQueuePanel />)

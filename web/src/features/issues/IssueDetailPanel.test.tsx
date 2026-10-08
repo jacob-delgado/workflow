@@ -161,12 +161,8 @@ test('says how many comments the tracker holds beyond those shown', async () => 
 
 test('leaves out a comment date the tracker could not give', async () => {
   // Arrange
-  // The server sends the zero time when Jira's date was unreadable.
-  serveIssue(
-    detailOf({
-      comments: [{ author: 'Ana Lopez', body: 'Undated.', created: '0001-01-01T00:00:00Z' }],
-    }),
-  )
+  // The server leaves the date out when Jira's could not be read.
+  serveIssue(detailOf({ comments: [{ author: 'Ana Lopez', body: 'Undated.' }] }))
 
   // Act
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
