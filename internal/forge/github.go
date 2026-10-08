@@ -5,8 +5,6 @@ package forge
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -149,23 +147,6 @@ func (g githubReviewItem) reviewRequest() ReviewRequest {
 	}
 }
 
-// githubIssues lists the open issues in the repository assigned to the token
-// owner. It searches with a repo filter, so @me needs no username, and with
-// is:issue so the pull requests that search also returns are left out.
-func githubIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error) {
-	found, _, err := githubSearch[githubIssue](ctx, client, "is:issue is:open assignee:@me repo:"+repo.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	issues := make([]Issue, 0, len(found))
-	for _, item := range found {
-		issues = append(issues, item.issue())
-	}
-
-	return issues, nil
-}
-
 // githubSearchServes is how many results GitHub's search serves, however many
 // it finds: a page past them is refused rather than answered empty.
 const githubSearchServes = 1000
@@ -191,53 +172,6 @@ func githubSearch[T any](ctx context.Context, client Client, query string) ([]T,
 	})
 
 	return items, truncated || found > githubSearchServes, err
-}
-
-// githubIssue is an issue as GitHub sends it, from the search or a single read.
-type githubIssue struct {
-	Number int    `json:"number"`
-	URL    string `json:"html_url"`
-	Title  string `json:"title"`
-	Body   string `json:"body"`
-	State  string `json:"state"`
-	User   struct {
-		Login string `json:"login"`
-	} `json:"user"`
-	Comments int `json:"comments"`
-}
-
-func (g githubIssue) issue() Issue {
-	return Issue{Number: g.Number, URL: g.URL, Title: g.Title}
-}
-
-func (g githubIssue) detail() IssueDetail {
-	return IssueDetail{
-		Issue: g.issue(), Body: g.Body, Author: g.User.Login, Closed: g.State == wireClosed, CommentCount: g.Comments,
-	}
-}
-
-// githubReadIssue reads one issue's body and author.
-func githubReadIssue(ctx context.Context, client Client, repo Repo, number int) (IssueDetail, error) {
-	read, err := repoCall[githubIssue](ctx, client, repo, http.MethodGet,
-		githubRepoPath(repo)+issuesSegment+"/"+strconv.Itoa(number), nil)
-	if err != nil {
-		return IssueDetail{}, err
-	}
-
-	return read.detail(), nil
-}
-
-// githubIssueState is the PATCH body that closes an issue.
-type githubIssueState struct {
-	State string `json:"state"`
-}
-
-// githubCloseIssue closes an issue by setting its state to closed.
-func githubCloseIssue(ctx context.Context, client Client, repo Repo, number int) error {
-	_, err := repoCall[githubIssue](ctx, client, repo, http.MethodPatch,
-		githubRepoPath(repo)+issuesSegment+"/"+strconv.Itoa(number), githubIssueState{State: wireClosed})
-
-	return err
 }
 
 // githubReviews lists the pull requests that request the token owner's review.
@@ -356,152 +290,6 @@ func githubCreate(ctx context.Context, client Client, repo Repo, request NewPull
 	pull := created.pullRequest()
 
 	return pull, githubAddPeople(ctx, client, repo, pull.Number, request)
-}
-
-// githubAddPeople requests reviewers and adds assignees and labels to a pull
-// request already opened. GitHub names each list by the same key it reads it
-// back under, and takes reviewers on the pull while assignees and labels go on
-// its issue side. Reviewers it would not add are reported only once the
-// assignees and labels are in, so a mistyped name costs nothing else.
-func githubAddPeople(ctx context.Context, client Client, repo Repo, number int, request NewPullRequest) error {
-	pull := githubPullPath(repo, number)
-	issue := githubRepoPath(repo) + issuesSegment + "/" + strconv.Itoa(number)
-
-	reviewersErr := githubRequestReviewers(ctx, client, repo, pull, request)
-	if reviewersErr != nil && !errors.Is(reviewersErr, ErrSomePeopleNotAdded) {
-		return reviewersErr
-	}
-
-	err := githubPostList(ctx, client, repo, issue+"/assignees", "assignees", request.Assignees)
-	if err != nil {
-		return err
-	}
-
-	err = githubPostList(ctx, client, repo, issue+"/labels", "labels", request.Labels)
-	if err != nil {
-		return err
-	}
-
-	return reviewersErr
-}
-
-// githubReviewersBody is the body that requests reviewers: users by login and
-// teams by slug, each left out when empty.
-type githubReviewersBody struct {
-	Reviewers     []string `json:"reviewers,omitempty"`
-	TeamReviewers []string `json:"team_reviewers,omitempty"`
-}
-
-// githubTeam is a team reviewer as CODEOWNERS names it, "org/team", and the
-// slug GitHub asks for it by.
-type githubTeam struct {
-	name, slug string
-}
-
-// githubRequestReviewers requests a pull request's reviewers, users and teams in
-// one call. GitHub turns the whole call down for one name it cannot request, so
-// a call turned down is asked again a name at a time, and only the names still
-// turned down are reported. A team of another organization is never asked for:
-// GitHub would read its slug as the repository's own organization's team.
-func githubRequestReviewers(ctx context.Context, client Client, repo Repo, pull string, request NewPullRequest) error {
-	teams, foreign := githubTeamsOf(repo, request.TeamReviewers)
-
-	missed := missedPeople{}
-	for _, team := range foreign {
-		missed.miss(team, ErrTeamOfAnotherOrg)
-	}
-
-	body := githubReviewersBody{Reviewers: request.Reviewers, TeamReviewers: slugsOf(teams)}
-	if len(body.Reviewers)+len(body.TeamReviewers) == 0 {
-		return missed.err()
-	}
-
-	err := githubAskReviewers(ctx, client, repo, pull, body)
-	if err == nil {
-		return missed.err()
-	}
-
-	if !errors.Is(err, ErrRejected) && !errors.Is(err, ErrUnexpectedStatus) {
-		return err
-	}
-
-	return githubReviewersOneByOne(ctx, client, repo, pull, request.Reviewers, teams, missed)
-}
-
-// githubReviewersOneByOne requests each user, then each team, alone, and
-// reports the ones turned down with those already missed.
-func githubReviewersOneByOne(
-	ctx context.Context, client Client, repo Repo, pull string, users []string, teams []githubTeam,
-	missed missedPeople,
-) error {
-	ask := func(name string, body githubReviewersBody) {
-		err := githubAskReviewers(ctx, client, repo, pull, body)
-		if err != nil {
-			missed.miss(name, err)
-		}
-	}
-
-	for _, user := range users {
-		ask(user, githubReviewersBody{Reviewers: []string{user}})
-	}
-
-	for _, team := range teams {
-		ask(team.name, githubReviewersBody{TeamReviewers: []string{team.slug}})
-	}
-
-	return missed.err()
-}
-
-// githubAskReviewers sends one request for reviewers.
-func githubAskReviewers(ctx context.Context, client Client, repo Repo, pull string, body githubReviewersBody) error {
-	_, err := repoCall[json.RawMessage](ctx, client, repo, http.MethodPost, pull+"/requested_reviewers", body)
-
-	return err
-}
-
-// githubTeamsOf splits "org/team" names into the teams of the repository's
-// own organization, with their slugs, and the names of any other's. GitHub
-// reads an organization's name without regard to case.
-func githubTeamsOf(repo Repo, names []string) ([]githubTeam, []string) {
-	org, _, _ := strings.Cut(repo.Path, "/")
-
-	var (
-		own     []githubTeam
-		foreign []string
-	)
-
-	for _, name := range names {
-		teamOrg, slug, found := strings.Cut(name, "/")
-		if found && strings.EqualFold(teamOrg, org) {
-			own = append(own, githubTeam{name: name, slug: slug})
-		} else {
-			foreign = append(foreign, name)
-		}
-	}
-
-	return own, foreign
-}
-
-// slugsOf is each team's slug.
-func slugsOf(teams []githubTeam) []string {
-	slugs := make([]string, 0, len(teams))
-	for _, team := range teams {
-		slugs = append(slugs, team.slug)
-	}
-
-	return slugs
-}
-
-// githubPostList posts a named list to an endpoint, doing nothing when the list
-// is empty so no needless request is made.
-func githubPostList(ctx context.Context, client Client, repo Repo, path, key string, values []string) error {
-	if len(values) == 0 {
-		return nil
-	}
-
-	_, err := repoCall[json.RawMessage](ctx, client, repo, http.MethodPost, path, map[string][]string{key: values})
-
-	return err
 }
 
 // githubMergeBody is the body that merges a pull request: the method to use.

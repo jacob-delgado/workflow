@@ -66,8 +66,12 @@ internal/config 17
 # user lookups out of gitlab.go with it, for the same reason; 15 is
 # activity.go, what you did on the forge over a period for the Summary, read
 # by searches on GitHub and from your events on GitLab, beside the issues and
-# pull requests it reads them out of rather than inside either file.
-internal/forge 15
+# pull requests it reads them out of rather than inside either file; 16 is
+# githubpeople.go, the reviewers, assignees and labels GitHub takes only once a
+# pull is open, and 17 is githubissues.go, GitHub's assigned issues read and
+# closed, both out of github.go once it held pulls, issues, the review queue,
+# reviewers and merge past the 500-line target, as members.go is GitLab's.
+internal/forge 17
 
 # internal/tui — the Bubble Tea interface, one file per pane, overlay and
 # composer. It is a single responsibility (drive the terminal UI) spelled
