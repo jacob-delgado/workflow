@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 
 // AsyncState is where a one-shot write stands: not yet run (or backed out of),
@@ -25,7 +25,9 @@ interface ActionWords<A extends unknown[], T> {
 // preview — and tracks it for the control that starts it: running while the
 // promise is pending, done with what it answered and what that means once it
 // resolves, and holding the failure's message, safe to show, when it rejects.
-// reset puts it back to idle, for a step the user backs out of. It lives here,
+// reset puts it back to idle, for a step the user backs out of, and lets go of
+// a run still going: what that run answers is not heard, by the hook or by
+// onDone, since only the latest run's answer is the control's. It lives here,
 // beside no one feature, so every write shares the one state machine rather
 // than declaring its own.
 export function useAsyncAction<A extends unknown[], T>(
@@ -37,12 +39,18 @@ export function useAsyncAction<A extends unknown[], T>(
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [code, setCode] = useState('')
+  const latest = useRef(0)
 
   const run = async (...args: A): Promise<void> => {
+    latest.current += 1
+    const thisRun = latest.current
     words.onStart?.()
     setState('running')
     try {
       const answered = await action(...args)
+      if (thisRun !== latest.current) {
+        return
+      }
       const said = words.done?.(answered, ...args) ?? ''
       setResult(() => answered)
       setMessage(said)
@@ -51,6 +59,9 @@ export function useAsyncAction<A extends unknown[], T>(
       setState('done')
       words.onDone?.(said, answered)
     } catch (caught) {
+      if (thisRun !== latest.current) {
+        return
+      }
       setError(apiErrorMessage(caught, words.fallback))
       setCode(problemCode(caught))
       setState('error')
@@ -58,6 +69,9 @@ export function useAsyncAction<A extends unknown[], T>(
   }
 
   const reset = () => {
+    latest.current += 1
+    setResult(undefined)
+    setMessage('')
     setError('')
     setCode('')
     setState('idle')
