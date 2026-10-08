@@ -243,7 +243,9 @@ test('shows a not-started story for an issue that does not own the branch', () =
 
   // Assert
   expect(screen.getByText(/not in progress/i)).toBeTruthy()
-  expect(screen.getByRole('button', { name: /^Issue/ }).textContent).toContain('Not picked up yet')
+  expect(screen.getByRole('button', { name: /^Issue/ }).textContent).toContain(
+    'Picked, not branched for yet',
+  )
   expect(screen.getByText(/no branch for this issue yet/i)).toBeTruthy()
 })
 
