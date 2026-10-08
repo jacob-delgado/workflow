@@ -136,11 +136,11 @@ func (s *server) planRun(asked api.RunRequest) (plannedRun, error) {
 
 // planPreCommit runs the pre-commit hook on what is staged.
 func (s *server) planPreCommit(api.RunRequest) (plannedRun, error) {
-	if s.deps.RunHook == nil {
+	if s.deps.Hooks.Run == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
-	run := s.deps.RunHook
+	run := s.deps.Hooks.Run
 
 	return plannedRun{
 		kind: api.RunKindPreCommit, title: preCommitHook,
@@ -151,16 +151,16 @@ func (s *server) planPreCommit(api.RunRequest) (plannedRun, error) {
 
 // planRebase replays the checked-out branch onto its base.
 func (s *server) planRebase(api.RunRequest) (plannedRun, error) {
-	if s.deps.Rebase == nil || s.deps.Branch == nil {
+	if s.deps.Git.Rebase == nil || s.deps.Git.Branch == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil || !loop.CanRebase(branch) {
 		return plannedRun{}, errNothingToRebase
 	}
 
-	rebase := s.deps.Rebase
+	rebase := s.deps.Git.Rebase
 
 	return plannedRun{
 		kind: api.RunKindRebase, title: "git rebase",
@@ -174,7 +174,7 @@ func (s *server) planRebase(api.RunRequest) (plannedRun, error) {
 // planAmend folds the staged changes into the branch's last commit, which
 // must be one not yet pushed.
 func (s *server) planAmend(api.RunRequest) (plannedRun, error) {
-	if s.deps.Amend == nil {
+	if s.deps.Git.Amend == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
@@ -186,7 +186,7 @@ func (s *server) planAmend(api.RunRequest) (plannedRun, error) {
 	last := foldable[len(foldable)-1]
 
 	return plannedRun{
-		kind: api.RunKindAmend, title: "git commit --amend", start: s.deps.Amend,
+		kind: api.RunKindAmend, title: "git commit --amend", start: s.deps.Git.Amend,
 		succeeded: "Amended " + last.Subject + ".", refused: "The amend was refused.",
 	}, nil
 }
@@ -194,7 +194,7 @@ func (s *server) planAmend(api.RunRequest) (plannedRun, error) {
 // planFixup records a fixup! of the commit asked for, which must be one not
 // yet pushed.
 func (s *server) planFixup(asked api.RunRequest) (plannedRun, error) {
-	if s.deps.Fixup == nil {
+	if s.deps.Git.Fixup == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
@@ -208,7 +208,7 @@ func (s *server) planFixup(asked api.RunRequest) (plannedRun, error) {
 		return plannedRun{}, errNotFoldable
 	}
 
-	chosen, fixup := foldable[at], s.deps.Fixup
+	chosen, fixup := foldable[at], s.deps.Git.Fixup
 
 	return plannedRun{
 		kind: api.RunKindFixup, title: "git commit --fixup",
@@ -220,16 +220,16 @@ func (s *server) planFixup(asked api.RunRequest) (plannedRun, error) {
 // foldable is the commits staged changes can be folded into, by loop's rule,
 // or errNothingToFold.
 func (s *server) foldable() ([]gitrepo.Commit, error) {
-	if s.deps.Branch == nil || s.deps.Changes == nil {
+	if s.deps.Git.Branch == nil || s.deps.Git.Changes == nil {
 		return nil, errRunUnavailable
 	}
 
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return nil, errNothingToFold
 	}
 
-	changes, err := s.deps.Changes()
+	changes, err := s.deps.Git.Changes()
 	if err != nil {
 		return nil, errNothingToFold
 	}

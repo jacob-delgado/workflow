@@ -39,7 +39,7 @@ func TestGetReviewReportsNoPull(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
 
 	// Act
 	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
@@ -55,7 +55,7 @@ func TestGetReviewHasNothingWithoutAForge(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.FindPull = nil
+	deps.Forge.FindPullRequest = nil
 
 	// Act
 	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
@@ -71,7 +71,7 @@ func TestGetReviewHasNothingWhenNoRepositoryIsConfigured(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Branch = nil
+	deps.Git.Branch = nil
 
 	// Act
 	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
@@ -87,7 +87,7 @@ func TestGetReviewReportsABranchFailure(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/review")
@@ -103,7 +103,9 @@ func TestGetReviewReportsAPullFailure(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errSeam }
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, errSeam
+	}
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/review")
@@ -119,7 +121,7 @@ func TestGetReviewOmitsCIWhenItCannotBeRead(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{}, errSeam }
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{}, errSeam }
 
 	// Act
 	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
@@ -140,7 +142,7 @@ func TestGetReviewOmitsCIWhenUnavailable(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.CheckCI = nil
+	deps.Forge.CheckStatus = nil
 
 	// Act
 	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
@@ -159,10 +161,10 @@ func TestGetReviewAsksNoCIAboutAMergedPull(t *testing.T) {
 	var asked atomic.Int32
 
 	deps := filledDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 42, State: forge.StateMerged}, true, nil
 	}
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
 		asked.Add(1)
 
 		return forge.CI{State: forge.CIPassed}, nil
@@ -199,7 +201,7 @@ func TestGetReviewCarriesThePullRequestsState(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{Number: 42, State: tt.state}, true, nil
 			}
 
@@ -221,7 +223,7 @@ func TestGetReviewMapsEveryCIState(t *testing.T) {
 	// One CI carrying every state — the overall state and one check per state —
 	// so the mapping is exercised for all of them at once.
 	deps := filledDeps()
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{
 			State: forge.CIRunning,
 			Checks: []forge.Check{
@@ -266,7 +268,7 @@ func TestGetReviewMapsMergeability(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{Number: 1, Mergeable: tt.from}, true, nil
 			}
 
@@ -288,7 +290,7 @@ func TestSnapshotReviewIsNotFoundWhenTheBranchReadFails(t *testing.T) {
 	// The forge would find a pull request for any branch, so only the failed
 	// branch read can leave the review empty.
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName}, errSeam }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName}, errSeam }
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
@@ -306,7 +308,7 @@ func TestSnapshotReviewIsNotFoundWhenThePullReadFails(t *testing.T) {
 	// The failing find still hands back a pull request, so only the error can
 	// empty the review.
 	deps := filledDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 42}, true, errSeam
 	}
 
@@ -326,7 +328,7 @@ func TestSnapshotReviewIsNotFoundWithoutAForge(t *testing.T) {
 	// The branch is read and known, so only the missing forge can leave the
 	// review empty.
 	deps := filledDeps()
-	deps.FindPull = nil
+	deps.Forge.FindPullRequest = nil
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())

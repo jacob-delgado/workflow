@@ -43,18 +43,18 @@ type linkCall struct {
 // fields-less move to the review status. Each write records what it was asked.
 func writableDeps(links *[]linkCall, moves *[]jira.Transition) webserver.Deps {
 	deps := filledDeps()
-	deps.LinkPullRequest = func(issueKey jira.Key, pullURL, title string) error {
+	deps.Jira.LinkPullRequest = func(issueKey jira.Key, pullURL, title string) error {
 		*links = append(*links, linkCall{issueKey: issueKey, url: pullURL, title: title})
 
 		return nil
 	}
-	deps.Transitions = func(jira.Key) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
 		return []jira.Transition{
 			{ID: "11", ToStatus: "Blocked"},
 			{ID: "21", ToStatus: reviewStatus},
 		}, nil
 	}
-	deps.Transition = func(_ jira.Key, to jira.Transition, _ []jira.FieldValue) error {
+	deps.Jira.Transition = func(_ jira.Key, to jira.Transition, _ []jira.FieldValue) error {
 		*moves = append(*moves, to)
 
 		return nil
@@ -85,7 +85,7 @@ func TestLinkRecordsThePullOnTheIssue(t *testing.T) {
 	var links []linkCall
 
 	deps := writableDeps(&links, new([]jira.Transition))
-	openPull, _, _ := deps.FindPull(testBranchName)
+	openPull, _, _ := deps.Forge.FindPullRequest(testBranchName)
 
 	// Act
 	recorder := post(t, deps, config.Default(), linkPath)
@@ -126,7 +126,7 @@ func TestLinkRefusesAKeyTheBranchDoesNotName(t *testing.T) {
 			var links []linkCall
 
 			deps := writableDeps(&links, new([]jira.Transition))
-			deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: tt.branch}, nil }
+			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: tt.branch}, nil }
 
 			// Act
 			recorder := post(t, deps, config.Default(), "/api/issues/"+tt.key+"/link")
@@ -146,7 +146,7 @@ func TestLinkRefusesABranchWithNoPullRequest(t *testing.T) {
 	var links []linkCall
 
 	deps := writableDeps(&links, new([]jira.Transition))
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
 
 	// Act
 	recorder := post(t, deps, config.Default(), linkPath)
@@ -161,9 +161,9 @@ func TestLinkIsUnavailableWithoutItsSeams(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]func(*webserver.Deps){
-		"no link seam": func(deps *webserver.Deps) { deps.LinkPullRequest = nil },
-		noBranchSeam:   func(deps *webserver.Deps) { deps.Branch = nil },
-		noForgeSeam:    func(deps *webserver.Deps) { deps.FindPull = nil },
+		"no link seam": func(deps *webserver.Deps) { deps.Jira.LinkPullRequest = nil },
+		noBranchSeam:   func(deps *webserver.Deps) { deps.Git.Branch = nil },
+		noForgeSeam:    func(deps *webserver.Deps) { deps.Forge.FindPullRequest = nil },
 	}
 
 	for name, unwire := range cases {
@@ -194,13 +194,13 @@ func TestLinkReportsWhatItCouldNotRead(t *testing.T) {
 	}{
 		"the branch cannot be read": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+				deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 			},
 			wantCode: http.StatusInternalServerError,
 		},
 		"the forge cannot be reached": {
 			unwire: func(deps *webserver.Deps) {
-				deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+				deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 					return forge.PullRequest{}, false, fmt.Errorf("%w: https://%s", forge.ErrUnreachable, forgeHost)
 				}
 			},
@@ -267,7 +267,7 @@ func TestTransitionRefusesAFormTransition(t *testing.T) {
 	var moves []jira.Transition
 
 	deps := writableDeps(new([]linkCall), &moves)
-	deps.Transitions = func(jira.Key) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
 		return []jira.Transition{{ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: "resolution"}}}}, nil
 	}
 
@@ -288,7 +288,7 @@ func TestTransitionRefusesAMoveJiraDoesNotOffer(t *testing.T) {
 	var moves []jira.Transition
 
 	deps := writableDeps(new([]linkCall), &moves)
-	deps.Transitions = func(jira.Key) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
 		return []jira.Transition{{ID: "31", ToStatus: "Done"}}, nil
 	}
 
@@ -310,9 +310,9 @@ func TestTransitionNeedsAReviewStatusAndATracker(t *testing.T) {
 	}{
 		"no review status configured": {unwire: func(*webserver.Deps) {}, cfg: config.Default()},
 		"no transitions seam": {
-			unwire: func(deps *webserver.Deps) { deps.Transitions = nil }, cfg: reviewConfig(),
+			unwire: func(deps *webserver.Deps) { deps.Jira.Transitions = nil }, cfg: reviewConfig(),
 		},
-		"no transition seam": {unwire: func(deps *webserver.Deps) { deps.Transition = nil }, cfg: reviewConfig()},
+		"no transition seam": {unwire: func(deps *webserver.Deps) { deps.Jira.Transition = nil }, cfg: reviewConfig()},
 	}
 
 	for name, tt := range cases {
@@ -375,19 +375,19 @@ func TestUnreachableJiraDetailOmitsItsHost(t *testing.T) {
 	}{
 		"the link": {
 			unwire: func(deps *webserver.Deps) {
-				deps.LinkPullRequest = func(jira.Key, string, string) error { return unreachable }
+				deps.Jira.LinkPullRequest = func(jira.Key, string, string) error { return unreachable }
 			},
 			path: linkPath,
 		},
 		"reading the moves": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Transitions = func(jira.Key) ([]jira.Transition, error) { return nil, unreachable }
+				deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) { return nil, unreachable }
 			},
 			path: movePath,
 		},
 		"the move": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Transition = func(jira.Key, jira.Transition, []jira.FieldValue) error { return unreachable }
+				deps.Jira.Transition = func(jira.Key, jira.Transition, []jira.FieldValue) error { return unreachable }
 			},
 			path: movePath,
 		},
@@ -430,7 +430,7 @@ type commentCall struct {
 // asked and answers it as Jira would store it.
 func commentingDeps(comments *[]commentCall) webserver.Deps {
 	deps := filledDeps()
-	deps.Comment = func(issueKey jira.Key, text string) (jira.Comment, error) {
+	deps.Jira.Comment = func(issueKey jira.Key, text string) (jira.Comment, error) {
 		*comments = append(*comments, commentCall{issueKey: issueKey, text: text})
 
 		return jira.Comment{Author: "Ana Lima", Body: text}, nil
@@ -482,7 +482,7 @@ func TestACommentIsRefusedWhereItCannotBePosted(t *testing.T) {
 	}{
 		"blank text": {path: commentPath, body: `{"text":"  \n\t "}`},
 		"no Jira to reach": {
-			unwire: func(deps *webserver.Deps) { deps.Comment = nil },
+			unwire: func(deps *webserver.Deps) { deps.Jira.Comment = nil },
 			path:   commentPath,
 			body:   `{"text":"hi"}`,
 		},
@@ -537,7 +537,7 @@ func TestACommentJiraCannotTakeSaysWhyWithoutItsHost(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
+			deps.Jira.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
 
 			// Act
 			recorder := postComment(t, deps, commentPath, `{"text":"hi"}`)
@@ -636,7 +636,7 @@ func TestACommentTheForgeCannotTakeSaysWhyWithoutItsHost(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
+			deps.Jira.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
 
 			// Act
 			recorder := postComment(t, deps, forgeCommentPath, `{"text":"hi"}`)

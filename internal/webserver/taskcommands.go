@@ -45,11 +45,11 @@ func (s *server) TrackIssue(
 		return trackRefused("an issue key is required"), nil
 	case s.deps.Tasks.Add == nil:
 		return trackRefused(notAvailable), nil
-	case s.deps.Issue == nil:
+	case s.deps.Jira.Issue == nil:
 		return trackRefused("no issue tracker is configured"), nil
 	}
 
-	detail, err := s.deps.Issue(key)
+	detail, err := s.deps.Jira.Issue(key)
 	if err != nil {
 		return s.issueNotRead(key, err), nil
 	}

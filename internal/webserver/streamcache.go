@@ -205,7 +205,7 @@ func (s *server) frameIssues(jql string) (jira.SearchResult, error) {
 	return sharedRead(
 		func() turn[jira.SearchResult] { return s.issuesHeld.serve(jql, s.now(), s.forgeInterval()) },
 		func(dropped int) (jira.SearchResult, error) {
-			result, err := s.deps.Search(jql, 0)
+			result, err := s.deps.Jira.Search(jql, 0)
 			s.issuesHeld.land(jql, dropped, heldPage{result: result, failed: err, readAt: s.now()})
 
 			return result, err
@@ -317,7 +317,7 @@ func (c *assignedCache) yours(keys []jira.Key) map[jira.Key]bool {
 // counting every issue, with no tracker to ask or none that has answered. A
 // failed ask is no failure here: the answer held stands in for it.
 func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
-	if s.deps.SearchLenient == nil {
+	if s.deps.Jira.SearchLenient == nil {
 		return nil
 	}
 
@@ -326,7 +326,7 @@ func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
 	yours, _ := sharedRead(
 		func() turn[map[jira.Key]bool] { return s.assigned.serve(asked, s.now()) },
 		func(int) (map[jira.Key]bool, error) {
-			mine, err := loop.AssignedKeys(s.deps.SearchLenient, asked)
+			mine, err := loop.AssignedKeys(s.deps.Jira.SearchLenient, asked)
 
 			return s.assigned.land(asked, s.now(), mine, err), nil
 		},
@@ -401,7 +401,7 @@ func (s *server) cachedAuthor() (string, error) {
 	return sharedRead(
 		func() turn[string] { return s.author.serve(s.now(), s.forgeInterval()) },
 		func(int) (string, error) {
-			name, err := s.deps.Author()
+			name, err := s.deps.Forge.Author()
 			if err != nil {
 				return s.author.land(s.now(), "", fmt.Errorf("reading the author: %w", err))
 			}

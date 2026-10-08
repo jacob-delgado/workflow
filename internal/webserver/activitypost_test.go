@@ -65,7 +65,7 @@ func TestTheSummaryIsPostedRenderedForTheService(t *testing.T) {
 	var posts []postedSummary
 
 	deps := filledDeps()
-	deps.Post = recordingPost(&posts)
+	deps.Messaging.Post = recordingPost(&posts)
 	fields := tuesdaysSummary()
 	fields[channelField] = teamChannel
 
@@ -92,7 +92,7 @@ func TestAWebhookSummaryPostSaysItWentToTheWebhooksChannel(t *testing.T) {
 	var posts []postedSummary
 
 	deps := filledDeps()
-	deps.Post = recordingPost(&posts)
+	deps.Messaging.Post = recordingPost(&posts)
 	cfg := config.Default()
 	cfg.Messaging = config.Messaging{Kind: config.KindTeams, WebhookURL: "https://example.com/hook"}
 
@@ -126,7 +126,7 @@ func TestASummaryPostIsRefusedBeforeItGoes(t *testing.T) {
 			var posts []postedSummary
 
 			deps := filledDeps()
-			deps.Post = recordingPost(&posts)
+			deps.Messaging.Post = recordingPost(&posts)
 			fields := tuesdaysSummary()
 			fields[tt.field] = tt.value
 
@@ -164,7 +164,7 @@ func TestAFailedSummaryPostNamesNeitherTheWebhookNorTheHost(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Post = func(string, string) error { return tt.err }
+			deps.Messaging.Post = func(string, string) error { return tt.err }
 
 			// Act
 			recorder := postActivity(t, serve(t, deps, config.Default()), tuesdaysSummary())
@@ -183,7 +183,7 @@ func TestASummaryPostWithNothingToPostThroughIsRefused(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Post = nil
+	deps.Messaging.Post = nil
 
 	// Act
 	recorder := postActivity(t, serve(t, deps, config.Default()), tuesdaysSummary())
@@ -201,7 +201,7 @@ func TestASummaryPostIsRefusedUnderADryRun(t *testing.T) {
 	var posts []postedSummary
 
 	deps := filledDeps()
-	deps.Post = recordingPost(&posts)
+	deps.Messaging.Post = recordingPost(&posts)
 	handler := serveWith(t, deps, config.Default(), webserver.Info{Version: testVersion, DryRun: true})
 
 	// Act
@@ -220,7 +220,7 @@ func TestASummaryTooLongForDiscordIsRefusedBeforeItGoes(t *testing.T) {
 	var posts []postedSummary
 
 	deps := filledDeps()
-	deps.Post = recordingPost(&posts)
+	deps.Messaging.Post = recordingPost(&posts)
 	cfg := config.Default()
 	cfg.Messaging = config.Messaging{Kind: config.KindDiscord, WebhookURL: "https://discord.example/api/webhooks/1/x"}
 	fields := tuesdaysSummary()

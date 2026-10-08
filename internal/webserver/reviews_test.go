@@ -26,7 +26,7 @@ const reviewsPath = "/api/reviews"
 // fails with err.
 func queueDeps(requests []forge.ReviewRequest, err error) webserver.Deps {
 	deps := filledDeps()
-	deps.ReviewRequests = func() ([]forge.ReviewRequest, error) { return requests, err }
+	deps.Forge.ReviewRequests = func() ([]forge.ReviewRequest, error) { return requests, err }
 
 	return deps
 }
@@ -178,7 +178,7 @@ func TestListReviewsSaysThereIsNoForgeToAsk(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.ReviewRequests = seam
+			deps.Forge.ReviewRequests = seam
 
 			// Act
 			recorder := get(t, serve(t, deps, config.Default()), reviewsPath)

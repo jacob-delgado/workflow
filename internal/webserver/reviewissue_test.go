@@ -24,13 +24,13 @@ const unnamedBranch = "my-thing"
 // with a pull request whose description is body.
 func reviewOn(link, body string) webserver.Deps {
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) {
 		return gitrepo.Branch{Name: unnamedBranch, IssueLink: link}, nil
 	}
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 9, Title: "Speed up search", Body: body}, true, nil
 	}
-	deps.BrowseURL = func(key jira.Key) string { return "https://tracker.example/" + string(key) }
+	deps.Jira.BrowseURL = func(key jira.Key) string { return "https://tracker.example/" + string(key) }
 
 	return deps
 }
@@ -81,7 +81,7 @@ func TestTheReviewSaysWhyAFailedCheckFailed(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Checks: []forge.Check{{
 			ID: "501", Name: "unit-race", Stage: "test", Reason: "script failure", State: forge.CIFailed,
 			LogAvailable: true,
@@ -119,12 +119,12 @@ func deref[T any](value *T) T {
 // keeps, recording each log read.
 func failingDeps(read *[]string) webserver.Deps {
 	deps := filledDeps()
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Checks: []forge.Check{
 			{ID: "501", Name: "unit-race", State: forge.CIFailed, LogAvailable: true},
 		}}, nil
 	}
-	deps.JobLog = func(check forge.Check) (forge.JobLog, error) {
+	deps.Forge.JobLog = func(check forge.Check) (forge.JobLog, error) {
 		*read = append(*read, check.ID)
 
 		return forge.JobLog{Text: "--- FAIL: TestRetry", Truncated: true}, nil
@@ -170,7 +170,7 @@ func TestACheckLogWhoseForgeCannotBeReachedIsNotANotFound(t *testing.T) {
 	var read []string
 
 	deps := failingDeps(&read)
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
 	}
 
@@ -200,7 +200,7 @@ func TestACheckLogTheForgeCouldNotHandOverIsAnUpstreamFault(t *testing.T) {
 			var read []string
 
 			deps := failingDeps(&read)
-			deps.JobLog = func(forge.Check) (forge.JobLog, error) { return forge.JobLog{}, cause }
+			deps.Forge.JobLog = func(forge.Check) (forge.JobLog, error) { return forge.JobLog{}, cause }
 
 			// Act
 			answer := get(t, serve(t, deps, config.Default()), "/api/review/checks/501/log")

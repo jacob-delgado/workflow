@@ -394,7 +394,7 @@ func TestAGitTimeoutIsNotWordedAsTaskwarriors(t *testing.T) {
 	// Git's reads time out with the same sentinel Taskwarrior's do; only a
 	// Taskwarrior read may say Taskwarrior did not answer.
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, fmt.Errorf("reading the branch: %w after 10s", proc.ErrTimedOut)
 	}
 

@@ -27,7 +27,7 @@ func postTagged(t *testing.T, fake *fakeKept, posted *string) http.Handler {
 
 	deps := filledDeps()
 	fake.wire(&deps)
-	deps.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_, text string) error {
 		*posted = text
 
 		return nil
@@ -139,7 +139,9 @@ func TestGetAnnouncementTagsNoOneUnlessReadyForReview(t *testing.T) {
 	// Arrange
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
-	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{State: forge.CIFailed}, nil }
+	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+		return forge.CI{State: forge.CIFailed}, nil
+	}
 	handler := serve(t, deps, slackUserConfig())
 
 	// Act
@@ -220,7 +222,7 @@ func TestAnnounceRefusesMentionsWhereNoOneIsTagged(t *testing.T) {
 	var posted string
 
 	deps := filledDeps()
-	deps.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_, text string) error {
 		posted = text
 
 		return nil

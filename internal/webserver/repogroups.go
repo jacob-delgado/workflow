@@ -44,7 +44,7 @@ func (s *server) SetRepoGroups(
 
 // repoGroups is this repository's user groups, with its name.
 func (s *server) repoGroups() (api.RepoGroups, error) {
-	if s.deps.RepoGroups == nil {
+	if s.deps.Store.RepoGroups == nil {
 		return api.RepoGroups{}, errNoPeopleStore
 	}
 
@@ -53,7 +53,7 @@ func (s *server) repoGroups() (api.RepoGroups, error) {
 	err := s.inWorkspace(func(workspace string) error {
 		var err error
 
-		groups, err = s.deps.RepoGroups(workspace)
+		groups, err = s.deps.Store.RepoGroups(workspace)
 
 		return err
 	})
@@ -66,13 +66,13 @@ func (s *server) repoGroups() (api.RepoGroups, error) {
 
 // setRepoGroups keeps ids, each once, as this repository's user groups.
 func (s *server) setRepoGroups(ids []string) error {
-	if s.deps.SetRepoGroups == nil || s.deps.RepoGroups == nil {
+	if s.deps.Store.SetRepoGroups == nil || s.deps.Store.RepoGroups == nil {
 		return errNoPeopleStore
 	}
 
 	return s.inWorkspace(func(workspace string) error {
 		return s.keptWrite(func() error {
-			saved, err := s.deps.RepoGroups(workspace)
+			saved, err := s.deps.Store.RepoGroups(workspace)
 			if err != nil {
 				return err
 			}
@@ -82,7 +82,7 @@ func (s *server) setRepoGroups(ids []string) error {
 				return err
 			}
 
-			return s.deps.SetRepoGroups(workspace, groups)
+			return s.deps.Store.SetRepoGroups(workspace, groups)
 		})
 	})
 }

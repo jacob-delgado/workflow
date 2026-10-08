@@ -134,7 +134,7 @@ func TestTwoAnnouncementsAskedAtOnceArePostedOnce(t *testing.T) {
 	memory := &announceMemory{}
 	deps := memory.wire(filledDeps())
 	service := newSlowPost()
-	deps.Post = service.post
+	deps.Messaging.Post = service.post
 	handler := serve(t, deps, config.Default())
 	answers := make(chan int, 2)
 	announce := func() { answers <- postAnnounce(t, handler, map[string]string{channelField: ""}).Code }
@@ -170,7 +170,7 @@ func postingHeld(t *testing.T) (http.Handler, *heldPost, <-chan *httptest.Respon
 	world := newForgeWorld()
 	deps := world.deps()
 	service := newHeldPost()
-	deps.Post = service.post
+	deps.Messaging.Post = service.post
 	handler := serve(t, deps, config.Default())
 
 	if recorder := announceWhenGreen(t, handler, nil); recorder.Code != http.StatusAccepted {

@@ -60,9 +60,9 @@ func (s *server) ForgetPerson(
 	_ context.Context, request api.ForgetPersonRequestObject,
 ) (api.ForgetPersonResponseObject, error) {
 	err := errNoPeopleStore
-	if s.deps.ForgetOwner != nil {
+	if s.deps.Store.ForgetOwner != nil {
 		err = s.inWorkspace(func(workspace string) error {
-			return s.keptWrite(func() error { return s.deps.ForgetOwner(workspace, request.Params.Owner) })
+			return s.keptWrite(func() error { return s.deps.Store.ForgetOwner(workspace, request.Params.Owner) })
 		})
 	}
 
@@ -81,7 +81,7 @@ func (s *server) ForgetPerson(
 // people is every decided owner, then the branch's undecided ones, users
 // before teams, each as an announcement would tag them.
 func (s *server) people() (api.People, error) {
-	if s.deps.OwnerLinks == nil {
+	if s.deps.Store.OwnerLinks == nil {
 		return api.People{}, errNoPeopleStore
 	}
 
@@ -90,7 +90,7 @@ func (s *server) people() (api.People, error) {
 	err := s.inWorkspace(func(workspace string) error {
 		var err error
 
-		links, err = s.deps.OwnerLinks(workspace)
+		links, err = s.deps.Store.OwnerLinks(workspace)
 
 		return err
 	})
@@ -138,17 +138,17 @@ func peopleOwners(links []loop.OwnerLink, branchOwners codeowners.Owners) codeow
 // as a group among the teams, or nobody when they cannot be read: People
 // lists them only to be decided ahead of an announcement.
 func (s *server) branchOwners() codeowners.Owners {
-	if s.deps.Branch == nil {
+	if s.deps.Git.Branch == nil {
 		return codeowners.Owners{}
 	}
 
-	branch, err := s.deps.Branch()
+	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return codeowners.Owners{}
 	}
 
 	seams := s.ownerSeams()
-	seams.IsGroup = s.deps.IsGroup
+	seams.IsGroup = s.deps.Forge.IsGroup
 
 	owners, err := loop.OwnersOf(seams, branch.Base)
 	if err != nil {
@@ -160,7 +160,7 @@ func (s *server) branchOwners() codeowners.Owners {
 
 // linkPerson checks link and records it.
 func (s *server) linkPerson(link api.PersonLink) error {
-	if s.deps.LinkOwner == nil {
+	if s.deps.Store.LinkOwner == nil {
 		return errNoPeopleStore
 	}
 
@@ -184,7 +184,7 @@ func (s *server) linkPerson(link api.PersonLink) error {
 			decision.OnSlack, decision.Slack = true, target
 		}
 
-		return s.keptWrite(func() error { return s.deps.LinkOwner(workspace, decision) })
+		return s.keptWrite(func() error { return s.deps.Store.LinkOwner(workspace, decision) })
 	})
 }
 
@@ -214,7 +214,7 @@ func (s *server) inWorkspace(use func(workspace string) error) error {
 		return errNoSlackDirectory
 	}
 
-	workspace, err := loop.TagWorkspace(s.deps.Workspace)
+	workspace, err := loop.TagWorkspace(s.deps.Messaging.Workspace)
 	if errors.Is(err, messaging.ErrNoCredential) {
 		return errNoSlackDirectory
 	}

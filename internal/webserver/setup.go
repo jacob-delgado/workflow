@@ -26,18 +26,18 @@ const noFileHere = "no " + config.FileName + " applies where the server works; s
 // setupNeeded reports a server with no configuration file to read or write,
 // where a first one can be set up.
 func (s *server) setupNeeded() bool {
-	return s.files == (config.Files{}) && s.deps.Setup.Write != nil
+	return s.files == (config.Files{}) && s.deps.Settings.Setup.Write != nil
 }
 
 // GetSetup says whether a first configuration file is needed here, where it
 // may go, and whether the keychain can keep the token for each.
 func (s *server) GetSetup(context.Context, api.GetSetupRequestObject) (api.GetSetupResponseObject, error) {
 	offer := api.SetupOffer{Needed: s.setupNeeded(), Places: []api.SetupPlace{}}
-	if s.deps.Setup.Offer == nil {
+	if s.deps.Settings.Setup.Offer == nil {
 		return api.GetSetup200JSONResponse(offer), nil
 	}
 
-	for _, place := range s.deps.Setup.Offer().Places {
+	for _, place := range s.deps.Settings.Setup.Offer().Places {
 		offer.Places = append(offer.Places, api.SetupPlace{
 			Place: api.SetupPlaceName(place.Place), Path: place.Path, Shown: s.shownFile(place.Path),
 			Keychain: place.Keychain,
@@ -90,7 +90,7 @@ func (s *server) setUp(body api.SetupRequest) api.SetUpResponseObject {
 		return checkFailure(err)
 	}
 
-	written, err := s.deps.Setup.Write(setup.Request{
+	written, err := s.deps.Settings.Setup.Write(setup.Request{
 		Place: setup.Place(body.Place), Answers: answers, Keychain: body.Keychain,
 	})
 	if err != nil {
@@ -105,11 +105,11 @@ func (s *server) setUp(body api.SetupRequest) api.SetUpResponseObject {
 
 // fileMade reports a file, or anything else, now at a place setup offers.
 func (s *server) fileMade() bool {
-	if s.deps.Setup.Offer == nil {
+	if s.deps.Settings.Setup.Offer == nil {
 		return false
 	}
 
-	for _, place := range s.deps.Setup.Offer().Places {
+	for _, place := range s.deps.Settings.Setup.Offer().Places {
 		_, err := os.Lstat(place.Path)
 		if err == nil {
 			return true
@@ -135,7 +135,7 @@ func (s *server) checkTyped(settings config.Jira, keepUnchecked bool) (string, e
 		return "", nil
 	}
 
-	who, err := s.deps.Setup.Check(settings)
+	who, err := s.deps.Settings.Setup.Check(settings)
 	if err != nil && keepUnchecked && setup.Keepable(err) {
 		return "", nil
 	}

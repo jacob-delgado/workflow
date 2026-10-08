@@ -61,7 +61,7 @@ func leakyWords() string {
 // trackableDeps is tasksDeps with the tracker's page for each issue.
 func trackableDeps(fake *taskFake) webserver.Deps {
 	deps := tasksDeps(fake)
-	deps.BrowseURL = func(key jira.Key) string { return "https://jira.example/browse/" + string(key) }
+	deps.Jira.BrowseURL = func(key jira.Key) string { return "https://jira.example/browse/" + string(key) }
 
 	return deps
 }
@@ -108,7 +108,7 @@ func TestTrackIssueBuildsTheLineFromTheIssueAndAnnotatesIt(t *testing.T) {
 	// Arrange
 	fake := fakeTaskwarrior()
 	deps := trackableDeps(fake)
-	deps.Issue = func(key jira.Key) (jira.IssueDetail, error) {
+	deps.Jira.Issue = func(key jira.Key) (jira.IssueDetail, error) {
 		return jira.IssueDetail{Issue: jira.Issue{Key: key, Summary: testSummary, Priority: "High"}}, nil
 	}
 
@@ -161,7 +161,7 @@ func TestTrackIssueOfAnUnknownIssueIs404(t *testing.T) {
 	// Arrange
 	fake := fakeTaskwarrior()
 	deps := trackableDeps(fake)
-	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrNotFound }
+	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrNotFound }
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, trackPath, trackBody)
@@ -189,18 +189,19 @@ func TestTrackIssueIsRefusedWithoutWhatItNeeds(t *testing.T) {
 			body: `{"issue_key":""}`, mutate: func(*webserver.Deps) {}, wantStatus: http.StatusUnprocessableEntity,
 		},
 		"no tracker": {
-			body: trackBody, mutate: func(deps *webserver.Deps) { deps.Issue = nil }, wantStatus: http.StatusUnprocessableEntity,
+			body: trackBody, wantStatus: http.StatusUnprocessableEntity,
+			mutate: func(deps *webserver.Deps) { deps.Jira.Issue = nil },
 		},
 		"a forge that will not show the repository": {
 			body: trackBody, wantStatus: http.StatusNotFound,
 			mutate: func(deps *webserver.Deps) {
-				deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, forge.ErrNoRepository }
+				deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, forge.ErrNoRepository }
 			},
 		},
 		"a tracker that cannot be reached": {
 			body: trackBody, wantStatus: http.StatusBadGateway,
 			mutate: func(deps *webserver.Deps) {
-				deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrUnreachable }
+				deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrUnreachable }
 			},
 		},
 		// Words after the key would reach Taskwarrior as words of their own,
@@ -208,7 +209,7 @@ func TestTrackIssueIsRefusedWithoutWhatItNeeds(t *testing.T) {
 		"a tracker key that is not one word": {
 			body: trackBody, wantStatus: http.StatusUnprocessableEntity,
 			mutate: func(deps *webserver.Deps) {
-				deps.Issue = func(jira.Key) (jira.IssueDetail, error) {
+				deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) {
 					return jira.IssueDetail{Issue: jira.Issue{Key: testKey + " rc.hooks.location=/tmp", Summary: testSummary}}, nil
 				}
 			},

@@ -35,7 +35,7 @@ func TestTheBranchNamesTheTrackerItsLinkedIssueLivesIn(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Branch = func() (gitrepo.Branch, error) {
+			deps.Git.Branch = func() (gitrepo.Branch, error) {
 				return gitrepo.Branch{Name: unnamedBranch, IssueLink: tt.link}, nil
 			}
 

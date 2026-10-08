@@ -81,10 +81,10 @@ func (c *runCalls) asked() []string {
 // fix/PROJ-412 off origin/main — with every run's seam answering output.
 func runDeps(calls *runCalls, output func() proc.Output) webserver.Deps {
 	deps := filledDeps()
-	deps.RunHook = func(hook string) (proc.Output, error) { return calls.record("hook "+hook, output()) }
-	deps.Rebase = func(base string) (proc.Output, error) { return calls.record("rebase "+base, output()) }
-	deps.Amend = func() (proc.Output, error) { return calls.record("amend", output()) }
-	deps.Fixup = func(hash string) (proc.Output, error) { return calls.record("fixup "+hash, output()) }
+	deps.Hooks.Run = func(hook string) (proc.Output, error) { return calls.record("hook "+hook, output()) }
+	deps.Git.Rebase = func(base string) (proc.Output, error) { return calls.record("rebase "+base, output()) }
+	deps.Git.Amend = func() (proc.Output, error) { return calls.record("amend", output()) }
+	deps.Git.Fixup = func(hash string) (proc.Output, error) { return calls.record("fixup "+hash, output()) }
 
 	return deps
 }

@@ -42,9 +42,9 @@ func pushedBranch() gitrepo.Branch {
 // what they were asked to do.
 func openableDeps() webserver.Deps {
 	deps := filledDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
-	deps.Push = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
-	deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+	deps.Git.Push = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
+	deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
 		return forge.PullRequest{Number: 7, URL: prURL, Title: "opened", Mergeable: forge.MergeClean}, nil
 	}
 
@@ -58,7 +58,7 @@ func TestOpenPullRequestForwardsReviewersAssigneesAndLabels(t *testing.T) {
 	var request forge.NewPullRequest
 
 	deps := openableDeps()
-	deps.CreatePull = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
 		request = newPull
 
 		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title}, nil
@@ -95,7 +95,7 @@ func TestOpenPullRequestKeepsAPullWhoseReviewersCouldNotBeAdded(t *testing.T) {
 	// Arrange
 	// The pull opens, but the token cannot add its reviewers.
 	deps := openableDeps()
-	deps.CreatePull = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
 		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title}, forge.ErrRefused
 	}
 
@@ -179,7 +179,7 @@ func TestGetPullRequestDraftBuildsTheBodyFromTheRepositoryTemplate(t *testing.T)
 	const marker = "<!-- repository pull request template -->"
 
 	deps := openableDeps()
-	deps.Templates = func() []forge.Template {
+	deps.Forge.Templates = func() []forge.Template {
 		return []forge.Template{{Name: "default", Path: ".github/pull_request_template.md", Body: marker}}
 	}
 
@@ -197,7 +197,7 @@ func TestGetPullRequestDraftDoesNotNeedPushForAPublishedBranch(t *testing.T) {
 
 	// Arrange
 	deps := openableDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
@@ -215,7 +215,7 @@ func TestGetPullRequestDraftComposesOverAMergedPull(t *testing.T) {
 	// The branch's earlier pull request has merged, and it still carries commits,
 	// so a merged pull is not a conflict — a fresh one can be proposed.
 	deps := openableDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 1, State: forge.StateMerged}, true, nil
 	}
 
@@ -235,7 +235,9 @@ func TestGetPullRequestDraftComposesWhenTheForgeCannotBeRead(t *testing.T) {
 	// A forge that cannot say whether a pull request is open does not stand in
 	// the way of proposing one; the open is where the forge's own answer lands.
 	deps := openableDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errSeam }
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, errSeam
+	}
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
@@ -257,8 +259,10 @@ func TestOpenPullRequestOpensWhenTheForgeCannotBeRead(t *testing.T) {
 	opened := false
 
 	deps := openableDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errSeam }
-	deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, errSeam
+	}
+	deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
 		opened = true
 
 		return forge.PullRequest{Number: 7, URL: prURL, Title: prTitle}, nil
@@ -281,21 +285,21 @@ func TestGetPullRequestDraftIsAConflictWhenNothingToOpen(t *testing.T) {
 	commit := []gitrepo.Commit{{Hash: testCommitHash, Subject: testCommitSubject}}
 	cases := map[string]func(webserver.Deps) webserver.Deps{
 		"a pull request is already open": func(deps webserver.Deps) webserver.Deps {
-			deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{Number: 1}, true, nil
 			}
 
 			return deps
 		},
 		"the branch has no commits": func(deps webserver.Deps) webserver.Deps {
-			deps.Branch = func() (gitrepo.Branch, error) {
+			deps.Git.Branch = func() (gitrepo.Branch, error) {
 				return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil
 			}
 
 			return deps
 		},
 		"the tree is not on a branch": func(deps webserver.Deps) webserver.Deps {
-			deps.Branch = func() (gitrepo.Branch, error) {
+			deps.Git.Branch = func() (gitrepo.Branch, error) {
 				return gitrepo.Branch{Name: "", Detached: true, Commits: commit}, nil
 			}
 
@@ -331,12 +335,12 @@ func TestOpenPullRequestPushesThenOpens(t *testing.T) {
 	)
 
 	deps := openableDeps()
-	deps.Push = func(string) (proc.Output, error) {
+	deps.Git.Push = func(string) (proc.Output, error) {
 		calls = append(calls, "push")
 
 		return fakeOutput(nil, nil), nil
 	}
-	deps.CreatePull = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
 		calls = append(calls, "open")
 		request = newPull
 
@@ -373,7 +377,7 @@ func TestOpenPullRequestOpensADraftWhenAsked(t *testing.T) {
 	var request forge.NewPullRequest
 
 	deps := openableDeps()
-	deps.CreatePull = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
 		request = newPull
 
 		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title, Draft: true}, nil
@@ -399,8 +403,8 @@ func TestOpenPullRequestDoesNotPushAnAlreadyPublishedBranch(t *testing.T) {
 	pushed := false
 
 	deps := openableDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
-	deps.Push = func(string) (proc.Output, error) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.Git.Push = func(string) (proc.Output, error) {
 		pushed = true
 
 		return fakeOutput(nil, nil), nil
@@ -452,7 +456,7 @@ func TestOpenPullRequestReportsAFailedPush(t *testing.T) {
 
 	// Arrange
 	deps := openableDeps()
-	deps.Push = func(string) (proc.Output, error) {
+	deps.Git.Push = func(string) (proc.Output, error) {
 		return fakeOutput([]string{"! [rejected]"}, errSeam), nil
 	}
 
@@ -473,8 +477,8 @@ func TestOpenPullRequestReportsAFailedOpen(t *testing.T) {
 	opened := false
 
 	deps := openableDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
-	deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
 		opened = true
 
 		return forge.PullRequest{}, forge.ErrRejected
@@ -500,8 +504,8 @@ func TestOpenPullRequestIsUnreachableAndHidesTheForgeHost(t *testing.T) {
 	// An unreachable forge carries its host in the error; the answer must be a 502
 	// whose detail does not leak that host.
 	deps := openableDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
-	deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
 		return forge.PullRequest{}, fmt.Errorf("%w: https://git.internal.example", forge.ErrUnreachable)
 	}
 
@@ -531,9 +535,13 @@ func TestOpenPullRequestDetailOmitsAnUnknownForgesHost(t *testing.T) {
 
 	unknown := fmt.Errorf("%s — set forge.kind and forge.host: %w", host, forge.ErrUnknownForge)
 	deps := openableDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, unknown }
-	deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) { return forge.PullRequest{}, unknown }
+	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, unknown
+	}
+	deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
+		return forge.PullRequest{}, unknown
+	}
 
 	// Act
 	recorder := doOpen(t, deps, openRequestBody)
@@ -558,12 +566,12 @@ func TestOpenPullRequestIsUnavailableWithoutItsSeams(t *testing.T) {
 	// available rather than a server error.
 	cases := map[string]func(webserver.Deps) webserver.Deps{
 		"no create seam": func(deps webserver.Deps) webserver.Deps {
-			deps.CreatePull = nil
+			deps.Forge.CreatePullRequest = nil
 
 			return deps
 		},
 		"no push seam": func(deps webserver.Deps) webserver.Deps {
-			deps.Push = nil
+			deps.Git.Push = nil
 
 			return deps
 		},

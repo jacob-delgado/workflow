@@ -283,8 +283,8 @@ func taskFacetsDTO(facets []taskwarrior.Facet) []api.TaskFacet {
 // Taskwarrior's data, which a hand edit or any synced replica can have written;
 // else none.
 func (s *server) taskIssueURL(task taskwarrior.Task) string {
-	if task.IssueKey != "" && s.deps.BrowseURL != nil {
-		return s.deps.BrowseURL(jira.Key(task.IssueKey))
+	if task.IssueKey != "" && s.deps.Jira.BrowseURL != nil {
+		return s.deps.Jira.BrowseURL(jira.Key(task.IssueKey))
 	}
 
 	address, err := url.Parse(task.IssueURL)

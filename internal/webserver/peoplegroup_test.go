@@ -23,12 +23,12 @@ func acmeOwnedServer(t *testing.T, fake *fakeKept) http.Handler {
 	t.Helper()
 
 	deps := filledDeps()
-	deps.Post = func(string, string) error { return nil }
+	deps.Messaging.Post = func(string, string) error { return nil }
 	fake.wire(&deps)
-	deps.CodeOwnersAt = func(string) (codeowners.File, bool, error) {
+	deps.Git.CodeOwnersAt = func(string) (codeowners.File, bool, error) {
 		return codeowners.Parse("* @acme\n", codeowners.GitLab), true, nil
 	}
-	deps.IsGroup = func(name string) (bool, error) { return name == "acme", nil }
+	deps.Forge.IsGroup = func(name string) (bool, error) { return name == "acme", nil }
 
 	return serveWith(t, deps, slackUserConfig(), webserver.Info{Version: testVersion})
 }

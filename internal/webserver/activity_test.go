@@ -33,7 +33,7 @@ func wednesday() time.Time { return time.Date(2026, 9, 16, 16, 0, 0, 0, time.UTC
 func activityDeps(starts *[]time.Time) webserver.Deps {
 	deps := filledDeps()
 	deps.Clock = wednesday
-	deps.CommitsBetween = func(start, _ time.Time) []loop.RepositoryCommits {
+	deps.Git.CommitsBetween = func(start, _ time.Time) []loop.RepositoryCommits {
 		*starts = append(*starts, start)
 
 		return []loop.RepositoryCommits{{Repository: "", Failed: nil, Commits: []gitrepo.DatedCommit{{
@@ -41,10 +41,10 @@ func activityDeps(starts *[]time.Time) webserver.Deps {
 			Authored: time.Date(2026, 9, 15, 9, 30, 0, 0, time.UTC),
 		}}}}
 	}
-	deps.ForgeActivity = func(time.Time, time.Time) (forge.Activity, error) {
+	deps.Forge.Activity = func(time.Time, time.Time) (forge.Activity, error) {
 		return forge.Activity{}, fmt.Errorf("%w: https://git.internal.example", forge.ErrUnreachable)
 	}
-	deps.JiraActivity = nil
+	deps.Jira.Activity = nil
 
 	return deps
 }
@@ -190,10 +190,10 @@ func TestEverySourceTheServerReachesIsRead(t *testing.T) {
 
 	deps := activityDeps(&starts)
 	deps.Tasks.Touched = func(time.Time) ([]taskwarrior.Task, error) { return nil, nil }
-	deps.JiraActivity = func(start, _ time.Time) (jira.Activity, error) {
+	deps.Jira.Activity = func(start, _ time.Time) (jira.Activity, error) {
 		return jira.Activity{Events: []jira.Event{{At: start.Add(time.Hour), Kind: jira.EventMoved, Key: "PROJ-1"}}}, nil
 	}
-	deps.BrowseURL = nil
+	deps.Jira.BrowseURL = nil
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodGet, activityPath, "")
@@ -241,7 +241,7 @@ func TestASourceThatCannotBeReadSaysWhatToDo(t *testing.T) {
 		"git with no user.email": {
 			source: api.ActivitySourceNameGit,
 			fail: func(deps *webserver.Deps) {
-				deps.CommitsBetween = func(time.Time, time.Time) []loop.RepositoryCommits {
+				deps.Git.CommitsBetween = func(time.Time, time.Time) []loop.RepositoryCommits {
 					return []loop.RepositoryCommits{{Repository: "", Commits: nil, Failed: gitrepo.ErrNoIdentity}}
 				}
 			},
@@ -250,7 +250,7 @@ func TestASourceThatCannotBeReadSaysWhatToDo(t *testing.T) {
 		"a remote naming no forge repository": {
 			source: api.ActivitySourceNameForge,
 			fail: func(deps *webserver.Deps) {
-				deps.ForgeActivity = func(time.Time, time.Time) (forge.Activity, error) {
+				deps.Forge.Activity = func(time.Time, time.Time) (forge.Activity, error) {
 					return forge.Activity{}, fmt.Errorf("%w: https://git.internal.example/", forge.ErrNotARemote)
 				}
 			},
@@ -259,7 +259,7 @@ func TestASourceThatCannotBeReadSaysWhatToDo(t *testing.T) {
 		"a forge that cannot be told": {
 			source: api.ActivitySourceNameForge,
 			fail: func(deps *webserver.Deps) {
-				deps.ForgeActivity = func(time.Time, time.Time) (forge.Activity, error) {
+				deps.Forge.Activity = func(time.Time, time.Time) (forge.Activity, error) {
 					return forge.Activity{}, fmt.Errorf("%w: git.internal.example", forge.ErrUnknownForge)
 				}
 			},
@@ -295,10 +295,10 @@ func TestASourceNotSetUpIsMarkedApartFromOneThatFailed(t *testing.T) {
 	var starts []time.Time
 
 	deps := activityDeps(&starts)
-	deps.CommitsBetween = func(time.Time, time.Time) []loop.RepositoryCommits {
+	deps.Git.CommitsBetween = func(time.Time, time.Time) []loop.RepositoryCommits {
 		return []loop.RepositoryCommits{{Repository: "", Commits: nil, Failed: gitrepo.ErrNoIdentity}}
 	}
-	deps.JiraActivity = func(time.Time, time.Time) (jira.Activity, error) {
+	deps.Jira.Activity = func(time.Time, time.Time) (jira.Activity, error) {
 		return jira.Activity{}, fmt.Errorf("%w: reading the token", jira.ErrNoCredential)
 	}
 	deps.Tasks.Touched = func(time.Time) ([]taskwarrior.Task, error) { return nil, taskwarrior.ErrNotInstalled }
@@ -354,8 +354,8 @@ func TestARepositoryThatCannotBeReadIsNamedInWhatToDo(t *testing.T) {
 			var starts []time.Time
 
 			deps := activityDeps(&starts)
-			read := deps.CommitsBetween
-			deps.CommitsBetween = func(start, end time.Time) []loop.RepositoryCommits {
+			read := deps.Git.CommitsBetween
+			deps.Git.CommitsBetween = func(start, end time.Time) []loop.RepositoryCommits {
 				here := read(start, end)
 				here[0].Repository = "acme/api"
 

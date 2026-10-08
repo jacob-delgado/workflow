@@ -74,7 +74,7 @@ type announcePost struct {
 // and a post that fails, are classified by fault, whose details never carry
 // the error's own text, which can name the forge or the webhook.
 func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) (api.AnnounceResponseObject, error) {
-	if s.deps.Post == nil {
+	if s.deps.Messaging.Post == nil {
 		return announceUnprocessable("announcing is not available"), nil
 	}
 
@@ -203,12 +203,12 @@ func (s *server) announcement() (messaging.Announcement, forge.PullRequest, erro
 	cfg := s.config()
 
 	return loop.ComposeAnnouncement(loop.AnnounceSeams{
-		Branch:    s.deps.Branch,
-		FindPull:  s.deps.FindPull,
+		Branch:    s.deps.Git.Branch,
+		FindPull:  s.deps.Forge.FindPullRequest,
 		Author:    s.authorSeam(),
-		Issue:     s.deps.Issue,
-		BrowseURL: s.deps.BrowseURL,
-		CheckCI:   s.deps.CheckCI,
+		Issue:     s.deps.Jira.Issue,
+		BrowseURL: s.deps.Jira.BrowseURL,
+		CheckCI:   s.deps.Forge.CheckStatus,
 	}, cfg.Messaging, cfg.Jira.Project, s.forgeKindNow())
 }
 
@@ -217,7 +217,7 @@ func (s *server) announcement() (messaging.Announcement, forge.PullRequest, erro
 // when the forge cannot say by the time of the post. It is nil, as the loop
 // takes for no author, when no forge is configured.
 func (s *server) authorSeam() func() (string, error) {
-	if s.deps.Author == nil {
+	if s.deps.Forge.Author == nil {
 		return nil
 	}
 
@@ -269,7 +269,7 @@ func (s *server) tagging(moment messaging.Moment, channel string) *api.Announcem
 		return nil
 	}
 
-	workspace, err := loop.TagWorkspace(s.deps.Workspace)
+	workspace, err := loop.TagWorkspace(s.deps.Messaging.Workspace)
 	if errors.Is(err, messaging.ErrNoCredential) {
 		return nil
 	}
@@ -301,11 +301,11 @@ func (s *server) tagging(moment messaging.Moment, channel string) *api.Announcem
 // Slack holds no credential for that token. Any other failure is the
 // preview's to show.
 func (s *server) canReadDirectory(channel string) bool {
-	if !s.taggingLive() || s.deps.ChannelMembers == nil {
+	if !s.taggingLive() || s.deps.Messaging.ChannelMembers == nil {
 		return false
 	}
 
-	_, err := s.deps.ChannelMembers(s.channelOr(channel))
+	_, err := s.deps.Messaging.ChannelMembers(s.channelOr(channel))
 
 	return !errors.Is(err, messaging.ErrNoCredential)
 }
@@ -339,20 +339,20 @@ func workspaceRefusal(err error) string {
 // proposal, so a kept read that fails proposes fewer rather than holding the
 // announcement back.
 func (s *server) proposedTags(moment messaging.Moment, workspace string) (loop.Tags, bool) {
-	if moment != messaging.MomentReady || s.deps.OwnerLinks == nil || s.deps.RepoGroups == nil {
+	if moment != messaging.MomentReady || s.deps.Store.OwnerLinks == nil || s.deps.Store.RepoGroups == nil {
 		return loop.Tags{}, false
 	}
 
-	links, _ := s.deps.OwnerLinks(workspace)
-	repoGroups, _ := s.deps.RepoGroups(workspace)
+	links, _ := s.deps.Store.OwnerLinks(workspace)
+	repoGroups, _ := s.deps.Store.RepoGroups(workspace)
 
 	var (
 		last   []string
 		chosen bool
 	)
 
-	if s.deps.LastGroups != nil {
-		last, chosen = s.deps.LastGroups(workspace)
+	if s.deps.Store.LastGroups != nil {
+		last, chosen = s.deps.Store.LastGroups(workspace)
 	}
 
 	return loop.ProposeTags(s.branchOwners(), links, repoGroups, last, chosen, moment), true
@@ -409,9 +409,9 @@ func (s *server) mentions(asked *api.AnnounceMentions, moment messaging.Moment) 
 	}
 
 	memory := loop.AnnounceMemory{Recorded: nil, Record: nil, RecordGroups: nil}
-	if len(tags.Groups) > 0 && s.deps.RecordGroups != nil {
+	if len(tags.Groups) > 0 && s.deps.Store.RecordGroups != nil {
 		memory.RecordGroups = func(ids []string) error {
-			return s.keptWrite(func() error { return s.deps.RecordGroups(workspace, ids) })
+			return s.keptWrite(func() error { return s.deps.Store.RecordGroups(workspace, ids) })
 		}
 	}
 
@@ -428,7 +428,7 @@ func (s *server) tagsAsPreviewed(previewed []string, moment messaging.Moment) (l
 		return loop.Tags{}, "", errNoTags
 	}
 
-	workspace, err := loop.TagWorkspace(s.deps.Workspace)
+	workspace, err := loop.TagWorkspace(s.deps.Messaging.Workspace)
 	if err != nil {
 		return loop.Tags{}, "", errNoTags
 	}
