@@ -13,17 +13,17 @@ import (
 )
 
 // Guide is setup as a form asks for it, all answers at once: where it runs,
-// the transport Jira is checked over, and the OS keychain, nil where none is
-// wired.
+// the transport Jira is checked over, and the OS keychain, keeping a secret
+// under the item named, nil where none is wired.
 type Guide struct {
 	Where       Where
 	Doer        jira.Doer
-	StoreSecret func(secret string) (string, error)
+	StoreSecret func(service, secret string) error
 }
 
 // Destination is a place a file may go, the file it would be, and whether
 // the keychain can keep the token for that file: where one is wired, for the
-// home directory's file alone, the one file that may read it back.
+// home directory's file alone, which the first run offers it for.
 type Destination struct {
 	Place    Place
 	Path     string
@@ -72,11 +72,11 @@ func (g Guide) Check(ctx context.Context, settings config.Jira) (string, error) 
 }
 
 // Write writes the file request asks for, unless one is already there: the
-// answers over the home file it lies over, the token in the keychain when
-// asked. It checks nothing; a form checks the token first and says how that
-// went. Everything that can refuse the write does before the keychain is
-// touched, and the file is made before the keychain keeps the token, so a
-// write that fails leaves the keychain as it was.
+// answers over the home file it lies over, the token in the keychain item for
+// its address when asked. It checks nothing; a form checks the token first and
+// says how that went. Everything that can refuse the write does before the
+// keychain is touched, and the file is made before the keychain keeps the
+// token, so a write that fails leaves the keychain as it was.
 func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 	if request.Place == Home && g.Where.HomeDir == "" {
 		return Written{}, ErrNoHome
@@ -103,7 +103,7 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 
 	cfg := request.Answers.Over(beneath)
 	if keychain {
-		cfg.Jira.Token = ""
+		cfg.Jira = inKeychain(cfg.Jira)
 	}
 
 	err = Create(path, layers, cfg, over)
@@ -112,7 +112,7 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 	}
 
 	if keychain {
-		err = g.keepInKeychain(path, cfg, request.Answers.Jira.Token)
+		err = g.keepInKeychain(path, request.Answers.Jira)
 		if err != nil {
 			return Written{}, err
 		}
@@ -123,8 +123,8 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 
 // keychainFor reports whether the keychain keeps the token request asks it
 // to: never with Jira left out or no token to keep, refused where there is no
-// keychain, and refused for a file other than the home directory's, the one
-// file that may read it back.
+// keychain, and refused for a file other than the home directory's, which the
+// first run offers it for alone.
 func (g Guide) keychainFor(request Request) (bool, error) {
 	if !request.Keychain || request.Answers.Jira.BaseURL == "" || request.Answers.Jira.Token == "" {
 		return false, nil
@@ -141,18 +141,15 @@ func (g Guide) keychainFor(request Request) (bool, error) {
 	return true, nil
 }
 
-// keepInKeychain keeps token in the keychain and points the home file just
-// made at path, holding cfg, at it. The file goes again when the keychain
-// does not keep the token, so a failed setup leaves neither behind.
-func (g Guide) keepInKeychain(path string, cfg config.Config, token config.Secret) error {
-	cfg.Jira.Token = token
-
-	settings, err := Keep(g.StoreSecret, cfg.Jira)
+// keepInKeychain keeps the token answered in the keychain item for its
+// address, which the file just made at path reads it from. The file goes
+// again when the keychain does not keep the token, so a failed setup leaves
+// neither behind.
+func (g Guide) keepInKeychain(path string, answered config.Jira) error {
+	_, err := Keep(g.StoreSecret, answered)
 	if err != nil {
 		return errors.Join(err, os.Remove(path))
 	}
 
-	cfg.Jira = settings
-
-	return config.Save(path, cfg)
+	return nil
 }

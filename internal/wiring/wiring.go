@@ -52,7 +52,7 @@ func gitRunner(ctx context.Context, name string, args ...string) ([]byte, error)
 // client, so a change to how it is built is made here once.
 //
 // Jira finds its token the first time it is asked, so a command that never
-// reaches Jira never runs its token command. The returned Controls'
+// reaches Jira never runs its token command or reads the keychain. The returned Controls'
 // ResolveAhead finds it now instead, for the interface and the web server to
 // call before they start: once either holds the terminal, a token command that
 // asks on it could not be answered. A token not found then is looked for again
@@ -65,7 +65,10 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 	connect := connectedWith(settings.current, func(current config.Forge) (forgeConnection, error) {
 		return connectForge(ctx, setup, current)
 	})
-	jiraClient := onceConnected(func() (jira.Client, error) { return connectJira(ctx, cfg.Jira, httpTransport, log) })
+	jiraClient := onceConnected(func() (jira.Client, error) {
+		//nolint:bodyclose // Wrap only relays the response; the jira client reads and closes its body.
+		return connectJira(ctx, cfg.Jira, SystemKeychain(), log.Wrap("jira", httpTransport))
+	})
 	messagingSettings := &liveMessaging{settings: cfg.Messaging}
 	messagingSet := messagingSetup{
 		settings: messagingSettings.current, files: cfg.Layers(), httpTransport: httpTransport, log: log,

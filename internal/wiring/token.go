@@ -8,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/user"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/keychain"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
@@ -28,23 +30,49 @@ var errNoToken = errors.New("no token")
 // errTokenCommandFailed is a token command that ran and gave no token.
 var errTokenCommandFailed = errors.New("the token command failed")
 
-// ResolveToken finds a credential from the literal in the file, an environment
-// variable, or a command, in that order, and names where it came from — so a
-// token need never be written into the file.
+// ResolveToken finds the Jira token settings name — the file's own, the
+// keychain item kept for its address, read through system, an environment
+// variable, or a command, in that order — and names where it came from, so a
+// token need never be written into the file. The keychain item is the one for
+// the address the token goes to, so a token kept for another address is never
+// read for this one.
 //
 // A command is split on spaces and run as a program, no shell, so it stays pure
 // Go and works on every platform; wrap a pipeline in a script if one is needed.
-func ResolveToken(ctx context.Context, literal config.Secret, command, envVar string) (config.Secret, string, error) {
+func ResolveToken(ctx context.Context, settings config.Jira, system Keychain) (config.Secret, string, error) {
 	switch {
-	case literal != "":
-		return literal, sourceFile, nil
-	case envVar != "":
-		return config.Secret(strings.TrimSpace(os.Getenv(envVar))), "the " + envVar + " environment variable", nil
-	case command != "":
-		return fromCommand(ctx, command)
+	case settings.Token != "":
+		return settings.Token, sourceFile, nil
+	case settings.Keychain:
+		return system.jiraToken(ctx, settings)
+	case settings.TokenEnv != "":
+		variable := settings.TokenEnv
+
+		return config.Secret(strings.TrimSpace(os.Getenv(variable))), "the " + variable + " environment variable", nil
+	case settings.TokenCommand != "":
+		return fromCommand(ctx, settings.TokenCommand)
 	default:
 		return "", sourceNone, nil
 	}
+}
+
+// jiraToken reads the token the keychain keeps for settings' address, naming
+// the item it read as its source.
+func (k Keychain) jiraToken(ctx context.Context, settings config.Jira) (config.Secret, string, error) {
+	service := settings.KeychainService()
+	source := "the keychain item " + service
+
+	item, wired := keychain.Open(k.GOOS, service, k.Run, user.Current, os.Getenv)
+	if !wired {
+		return "", source, fmt.Errorf("%w: jira.keychain reads none here", keychain.ErrNotWired)
+	}
+
+	token, err := item.Read(ctx)
+	if err != nil {
+		return "", source, fmt.Errorf("reading the Jira token: %w", err)
+	}
+
+	return config.Secret(strings.TrimSpace(token)), source, nil
 }
 
 // fromCommand runs the token command and returns its trimmed output.
@@ -79,8 +107,8 @@ func commandFailure(program string, err error) error {
 // resolveSetToken finds the token a source the configuration sets gives, and
 // refuses one that gives nothing: sent, an empty credential would only be
 // turned away, for a reason the user could not act on.
-func resolveSetToken(ctx context.Context, literal config.Secret, command, envVar string) (config.Secret, error) {
-	token, source, err := ResolveToken(ctx, literal, command, envVar)
+func resolveSetToken(ctx context.Context, settings config.Jira, system Keychain) (config.Secret, error) {
+	token, source, err := ResolveToken(ctx, settings, system)
 	if err != nil {
 		return "", err
 	}

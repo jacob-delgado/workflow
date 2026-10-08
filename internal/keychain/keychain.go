@@ -30,14 +30,16 @@ var ErrNotStored = errors.New("the keychain holds no secret under that name")
 // gives the account name security needs to store a secret under.
 var ErrNoAccount = errors.New("no account name to store the secret under: neither the current user nor $USER names one")
 
-// jiraService is the name the Jira token is stored under. A token_command
-// already saved in a configuration file names it, so it stays as it is.
-const jiraService = "workflow-jira"
+// ErrNotKept reports a keychain that did not keep the secret it was handed.
+var ErrNotKept = errors.New("the keychain did not keep the secret")
 
-// lookupCommand is the token_command that reads the Jira token back out of the
-// keychain, printing it and nothing else. It names no account, so it finds the
-// token whichever login name it was stored under.
-const lookupCommand = "security find-generic-password -s " + jiraService + " -w"
+// ErrNotRead reports a keychain that could not be read for a reason other
+// than holding no such secret.
+var ErrNotRead = errors.New("the keychain could not be read")
+
+// ErrNotWired reports a system with no keychain workflow drives: every one but
+// macOS.
+var ErrNotWired = errors.New("workflow drives no keychain on this system")
 
 // itemNotFound is the status security exits with when the keychain holds no
 // such item (errSecItemNotFound).
@@ -66,7 +68,7 @@ type Item struct {
 // Open is the keychain item for service on goos, and false where no keychain is
 // wired: everywhere but macOS, whose built-in `security` it drives.
 func Open(goos, service string, run Runner, currentUser UserLookup, getenv func(string) string) (Item, bool) {
-	if goos != "darwin" {
+	if !wired(goos) {
 		return Item{}, false
 	}
 
@@ -91,11 +93,26 @@ func (i Item) Store(ctx context.Context, secret string) error {
 	}
 
 	_, err = i.run(ctx, proc.Command{Name: "security", Args: []string{"-i"}}, []byte(line))
+	if err != nil {
+		return failed(ErrNotKept, err)
+	}
 
-	return err
+	return nil
+}
+
+// failed is why security did not do what it was asked, as outcome, told by
+// its exit status alone and never in its words: a store hands it the secret
+// on its input, and what it prints as it fails can quote that input back.
+func failed(outcome, err error) error {
+	if code, _, exited := proc.Failure(err); exited {
+		return fmt.Errorf("%w: security exited with status %d", outcome, code)
+	}
+
+	return fmt.Errorf("%w: %w", outcome, err)
 }
 
 // Read is the secret the item holds, or ErrNotStored when there is none.
+// Any other failure is ErrNotRead.
 func (i Item) Read(ctx context.Context) (string, error) {
 	account, err := accountName(i.currentUser, i.getenv)
 	if err != nil {
@@ -110,39 +127,39 @@ func (i Item) Read(ctx context.Context) (string, error) {
 	}
 
 	if err != nil {
-		return "", err
+		return "", failed(ErrNotRead, err)
 	}
 
 	return strings.TrimRight(string(output), "\n"), nil
 }
 
-// Storer is how config init keeps the Jira token in the keychain on goos: a
-// function that stores a secret through run and returns the token_command that
-// reads it back. It is nil where storing is not wired for goos, so the guided
-// flow keeps the token in the file there. Reading a secret back through a
-// token_command works more widely — anywhere its own tool is installed — but
-// storing is wired for macOS here, through the built-in `security`.
+// Storer keeps a secret under the service named, in the keychain on goos,
+// through run. It is nil where storing is not wired for goos, so a caller
+// keeps the secret elsewhere there. Storing is wired for macOS, through the
+// built-in `security`.
 func Storer(
 	goos string, run Runner, currentUser UserLookup, getenv func(string) string,
-) func(secret string) (string, error) {
-	item, ok := Open(goos, jiraService, run, currentUser, getenv)
-	if !ok {
+) func(service, secret string) error {
+	if !wired(goos) {
 		return nil
 	}
 
-	return func(secret string) (string, error) {
+	return func(service, secret string) error {
+		item := Item{service: service, run: run, currentUser: currentUser, getenv: getenv}
+
 		// Bounded as proc.Run bounds a quick read, so a security that never
-		// answers cannot hold config init open.
+		// answers cannot hold the caller open.
 		ctx, cancel := context.WithTimeout(context.Background(), proc.DefaultRunTimeout)
 		defer cancel()
 
-		err := item.Store(ctx, secret)
-		if err != nil {
-			return "", err
-		}
-
-		return lookupCommand, nil
+		return item.Store(ctx, secret)
 	}
+}
+
+// wired reports a keychain workflow drives on goos: macOS's, through its
+// built-in security.
+func wired(goos string) bool {
+	return goos == "darwin"
 }
 
 // accountName is the login name of the user running this program: the one
@@ -166,12 +183,13 @@ func accountName(currentUser UserLookup, getenv func(string) string) (string, er
 
 // storeLine is security's command line that saves secret for account under
 // service, updating an existing entry (-U) rather than adding a second one.
+// The service is quoted too, since a Jira token's names the address it is for.
 func storeLine(service, account, secret string) (string, error) {
 	if strings.ContainsAny(secret, "\n\x00") {
 		return "", fmt.Errorf("%w: it holds a line break or a NUL byte", ErrSecretNotOneLine)
 	}
 
-	line := "add-generic-password -U -a " + quoted(account) + " -s " + service + " -w " + quoted(secret) + "\n"
+	line := "add-generic-password -U -a " + quoted(account) + " -s " + quoted(service) + " -w " + quoted(secret) + "\n"
 	if len(line) > maxLine {
 		return "", fmt.Errorf("%w: it is longer than the %d bytes security reads", ErrSecretNotOneLine, maxLine)
 	}

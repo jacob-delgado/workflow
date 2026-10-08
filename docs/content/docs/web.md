@@ -565,10 +565,10 @@ where the file goes: the repository, where it applies across it, or your home
 directory, where it applies everywhere. Then Jira's address and your personal
 access token, typed into a field that shows nothing of it. With your home
 directory chosen and the OS keychain wired (macOS), **Keep the token in your
-keychain, out of the file** is offered, checked; unchecked, the file keeps it,
-readable only by you. It is offered for your home file alone, the one file
-that may hold the command that reads the token back, so a repository's file
-keeps the token itself. Last, a
+keychain, out of the file** is offered, checked: the token goes to the keychain
+item for Jira's address, and the file holds `"keychain": true`, which reads it
+back. Unchecked, the file keeps it, readable only by you. It is offered for
+your home file alone, so a repository's file keeps the token itself. Last, a
 Slack incoming webhook, saved unchecked; blank posts with your Slack user token
 after `workflow slack login`. A blank address or webhook leaves that part out.
 
