@@ -69,7 +69,7 @@ func TestRunKeepsTheDevelopersConfigurationOut(t *testing.T) {
 	}
 }
 
-func TestHookEnvironmentNamesTheRepositorysGitDirectoryAndIndex(t *testing.T) {
+func TestHookEnvironmentNamesTheGitDirectoryAndIndexOfTheRepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
