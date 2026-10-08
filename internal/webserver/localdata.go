@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -111,11 +112,11 @@ func localDataFileDTO(file store.DataFile) api.LocalDataFile {
 // a file held open is a conflict with the state on disk; no store, no
 // directory or something not the store's own in a file's place cannot be
 // carried out.
-func localDataFaults() []faultClass {
-	return []faultClass{
-		{causes: []error{errNoLocalData}, code: api.ProblemCodeUnprocessable, detail: errNoLocalData.Error()},
-		{causes: []error{store.ErrNoDir}, code: api.ProblemCodeUnprocessable, detail: noStoreDirDetail},
-		{causes: []error{store.ErrCleanRefused}, code: api.ProblemCodeUnprocessable, detail: notStoreFileDetail},
-		{causes: []error{store.ErrNotCleaned}, code: api.ProblemCodeConflict, detail: heldOpenDetail},
+func localDataFaults() []report.Class {
+	return []report.Class{
+		{Causes: []error{errNoLocalData}, Code: api.ProblemCodeUnprocessable, Detail: errNoLocalData.Error()},
+		{Causes: []error{store.ErrNoDir}, Code: api.ProblemCodeUnprocessable, Detail: noStoreDirDetail},
+		{Causes: []error{store.ErrCleanRefused}, Code: api.ProblemCodeUnprocessable, Detail: notStoreFileDetail},
+		{Causes: []error{store.ErrNotCleaned}, Code: api.ProblemCodeConflict, Detail: heldOpenDetail},
 	}
 }

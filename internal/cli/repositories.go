@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
-	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
 // newRepositoriesCmd builds `workflow repositories`.
@@ -50,7 +50,7 @@ func runRepositoriesCommand(cmd *cobra.Command, asJSON bool) error {
 	}
 	defer conn.closeLog()
 
-	view := webserver.RepositoriesView{
+	view := report.RepositoriesView{
 		Repositories:  conn.deps.Repositories,
 		Favorites:     conn.deps.Store.Favorites,
 		FavoritesKept: conn.deps.Store.Favor != nil && !dryRunRequested(cmd),

@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/report"
 )
 
 // errUnknownSort is a --sort naming no order the queue can be listed in.
@@ -96,7 +96,7 @@ func runReviews(out output, seams reviewsSeams, opts reviewsOptions) error {
 
 	reviews := order(answered)
 	if opts.asJSON {
-		return encodeJSON(out.artifact, webserver.ReviewRequests(reviews))
+		return encodeJSON(out.artifact, report.ReviewRequests(reviews))
 	}
 
 	renderReviews(out, reviews, seams.Now(), seams.Kind)

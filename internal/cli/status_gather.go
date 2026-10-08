@@ -13,8 +13,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/progress"
+	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
-	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
 // statusFacts is everything the line and the JSON are built from, and the
@@ -110,7 +110,7 @@ func serviceNotes(reads []serviceRead) []string {
 // notSetUpNote says a service is not set up, and how to set it up, in the
 // words the web's problem gives it.
 func notSetUpNote(name string, err error) string {
-	return name + " is not set up: " + webserver.FaultDetail(err)
+	return name + " is not set up: " + report.FaultDetail(err)
 }
 
 // forgeName names the forge as the subject of a note: by its name when the
