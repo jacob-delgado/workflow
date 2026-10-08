@@ -14,8 +14,8 @@ import (
 
 // readRepoGroups reads the user groups this repository tags, for the overlay
 // opened as opened.
-func (m Model) readRepoGroups(opened int) tea.Cmd {
-	read, readWorkspace := m.deps.Store.RepoGroups, m.deps.Messaging.Workspace
+func readRepoGroups(deps Deps, opened int) tea.Cmd {
+	read, readWorkspace := deps.Store.RepoGroups, deps.Messaging.Workspace
 
 	return func() tea.Msg {
 		var groups []loop.SlackTarget
@@ -164,7 +164,7 @@ func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
 		open = open.failed(msg.err)
 		open.repoReading = true
 
-		return m.withBeneath(open), m.readRepoGroups(open.opened)
+		return m.withBeneath(open), readRepoGroups(m.deps, open.opened)
 	}
 
 	open.send = sendState{}

@@ -18,8 +18,8 @@ import (
 // opened, the repository's templates and the remote branches its base can
 // complete to: files and git, read off the update loop so the composer never
 // waits on them.
-func (m Model) readPullRequestStarts(opened int) tea.Cmd {
-	templates, remoteBranches := m.deps.Forge.Templates, m.deps.Git.RemoteBranches
+func readPullRequestStarts(deps Deps, opened int) tea.Cmd {
+	templates, remoteBranches := deps.Forge.Templates, deps.Git.RemoteBranches
 	if templates == nil && remoteBranches == nil {
 		return nil
 	}
@@ -80,8 +80,8 @@ func (read pullRequestStartsRead) apply(m Model) (Model, tea.Cmd) {
 // readTitleIssue reads the composer's issue for its title, when the title is to
 // come from the issue. A failed read leaves the summary empty, so the title
 // stays the one proposed, as the command line's does.
-func (m Model) readTitleIssue(composer prComposer) tea.Cmd {
-	read, from := m.deps.Jira.Issue, composer.proposedFrom
+func readTitleIssue(deps Deps, composer prComposer) tea.Cmd {
+	read, from := deps.Jira.Issue, composer.proposedFrom
 	if from.TitleSource != convention.TitleFromIssue || from.IssueKey == "" || read == nil {
 		return nil
 	}
@@ -129,9 +129,9 @@ func (read titleIssueRead) apply(m Model) (Model, tea.Cmd) {
 // composer's base, to propose them as its reviewers. The read diffs and reads
 // git, and asks the forge who the author is, so it does not hold the composer
 // back.
-func (m Model) readReviewers(composer prComposer) tea.Cmd {
+func readReviewers(deps Deps, composer prComposer) tea.Cmd {
 	owners := loop.OwnerSeams{
-		ChangedPaths: m.deps.Git.ChangedPaths, CodeOwnersAt: m.deps.Git.CodeOwnersAt, Author: m.deps.Forge.Author,
+		ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
 	}
 	if owners.ChangedPaths == nil || owners.CodeOwnersAt == nil {
 		return nil
@@ -183,10 +183,10 @@ func (c prComposer) withBaseSuggestions(branches []string) prComposer {
 }
 
 // browseURL links an issue, when there is an issue and a way to link it.
-func (m Model) browseURL(issueKey jira.Key) string {
-	if issueKey == "" || m.deps.Jira.BrowseURL == nil {
+func browseURL(deps Deps, issueKey jira.Key) string {
+	if issueKey == "" || deps.Jira.BrowseURL == nil {
 		return ""
 	}
 
-	return m.deps.Jira.BrowseURL(issueKey)
+	return deps.Jira.BrowseURL(issueKey)
 }

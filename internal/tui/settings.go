@@ -78,8 +78,8 @@ var (
 )
 
 // canEditSettings reports that the configuration files can be read.
-func (m Model) canEditSettings() bool {
-	return m.deps.Settings.Read != nil
+func canEditSettings(deps Deps) bool {
+	return deps.Settings.Read != nil
 }
 
 // openSettings opens Settings and starts reading the configuration files.
@@ -120,7 +120,7 @@ func (msg settingsRead) apply(m Model) (Model, tea.Cmd) {
 	// whatever the seam gave it, and a credential left alone goes back masked.
 	form.values, form.readErr = seed(msg.cfg.Redacted(), msg.err)
 	form = form.laidOut()
-	form.path, form.shownPath, form.over = msg.cfg.Path, m.shownDir(msg.cfg.Path), msg.over
+	form.path, form.shownPath, form.over = msg.cfg.Path, shownDir(m.deps, msg.cfg.Path), msg.over
 	m.overlay = form
 
 	return m, nil
@@ -356,7 +356,7 @@ func (f settingsForm) save(m Model) (Model, tea.Cmd) {
 	}
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would save " + m.shownDir(f.path)), nil
+		return m.closeOverlay().noticed("dry run: would save " + shownDir(m.deps, f.path)), nil
 	}
 
 	f.problem, f.send = nil, starting()

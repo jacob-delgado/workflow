@@ -61,15 +61,15 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 // refreshCommits reads the work tree again, and the branch and the hooks with
 // it.
 func (m Model) refreshCommits() (Model, tea.Cmd) {
-	read := m.loadChanges()
+	read := loadChanges(m.deps)
 	m.changes.loading = read != nil
 
-	return m, tea.Batch(read, m.loadBranch(), m.findHooks())
+	return m, tea.Batch(read, loadBranch(m.deps), findHooks(m.deps))
 }
 
 // loadChanges is the command that reads the work tree's status.
-func (m Model) loadChanges() tea.Cmd {
-	read := m.deps.Git.Changes
+func loadChanges(deps Deps) tea.Cmd {
+	read := deps.Git.Changes
 	if read == nil {
 		return nil
 	}
@@ -340,7 +340,7 @@ func (msg staged) apply(m Model) (Model, tea.Cmd) {
 		m = m.noticedFailure(msg.err)
 	}
 
-	return m, m.loadChanges()
+	return m, loadChanges(m.deps)
 }
 
 // runPreCommit runs the pre-commit hook on what is staged, without committing.

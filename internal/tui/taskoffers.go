@@ -63,9 +63,9 @@ func (m Model) offerStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
 
 	switch {
 	case tracked && len(started) > 0:
-		return m.offerSwitch(started, task)
+		return offerSwitch(m.deps, started, task)
 	case tracked:
-		return m.offerToStart(task)
+		return offerToStart(m.deps, task)
 	case len(started) > 0:
 		return m.offerStopThenTrack(started, issue)
 	default:
@@ -108,8 +108,8 @@ func (m Model) listedIssue(issueKey jira.Key) jira.Issue {
 }
 
 // offerToStart offers to start the task that tracks an issue.
-func (m Model) offerToStart(task taskwarrior.Task) func(Model) (Model, tea.Cmd) {
-	start := m.deps.Tasks.Start
+func offerToStart(deps Deps, task taskwarrior.Task) func(Model) (Model, tea.Cmd) {
+	start := deps.Tasks.Start
 
 	return offering(lastLook{
 		title: "Start the task", verb: verbStart, doing: "starting",
@@ -124,7 +124,7 @@ func (m Model) offerToStart(task taskwarrior.Task) func(Model) (Model, tea.Cmd) 
 // prefilled in its grammar as the track key's is, whose task is started once it
 // is added and annotated.
 func (m Model) offerTrackAndStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
-	track := trackIssue{url: m.browseURL(issue.Key), thenStart: true}
+	track := trackIssue{url: browseURL(m.deps, issue.Key), thenStart: true}
 	prefill, err := taskwarrior.TrackLine(taskwarrior.IssueLink{
 		Key: string(issue.Key), Summary: issue.Summary, URL: track.url, Priority: issue.Priority,
 	})
@@ -144,8 +144,8 @@ func (m Model) offerTrackAndStart(issue jira.Issue) func(Model) (Model, tea.Cmd)
 
 // offerSwitch offers to stop the started tasks and start the one that tracks the
 // issue work begins on.
-func (m Model) offerSwitch(started []taskwarrior.Task, task taskwarrior.Task) func(Model) (Model, tea.Cmd) {
-	stop, start := m.deps.Tasks.Stop, m.deps.Tasks.Start
+func offerSwitch(deps Deps, started []taskwarrior.Task, task taskwarrior.Task) func(Model) (Model, tea.Cmd) {
+	stop, start := deps.Tasks.Stop, deps.Tasks.Start
 
 	return offering(lastLook{
 		title: "Switch the task", verb: verbSwitch, doing: "switching",
@@ -258,14 +258,14 @@ func (m Model) offerMarkDone(issueKey jira.Key) func(Model) (Model, tea.Cmd) {
 		return nil
 	}
 
-	return opening(m.doneAsked(task))
+	return opening(doneAsked(m.deps, task))
 }
 
 // doneAsked is the last look at marking task done, asked from the Tasks pane
 // or offered once its issue is done: Taskwarrior runs the task's hooks, and
 // only an undo while it is the last change takes it back.
-func (m Model) doneAsked(task taskwarrior.Task) lastLook {
-	done := m.deps.Tasks.Done
+func doneAsked(deps Deps, task taskwarrior.Task) lastLook {
+	done := deps.Tasks.Done
 
 	return asking(lastLook{
 		title: "Mark the task done", verb: "mark done", doing: "marking done",

@@ -111,7 +111,7 @@ func (m Model) taskBranches(listed branchesListed) []taskBranch {
 		branch.issueKey, branch.summary = jira.Key(key.Key), issue.Summary
 
 		if worktree, elsewhere := listed.worktrees[branch.name]; elsewhere {
-			branch.worktree, branch.worktreeShown = worktree.Dir, m.shownDir(worktree.Dir)
+			branch.worktree, branch.worktreeShown = worktree.Dir, shownDir(m.deps, worktree.Dir)
 			branch.worktreeGone = worktree.Missing
 		}
 
@@ -454,7 +454,7 @@ func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 		m.followUp = m.offerStart(m.listedIssue(jira.Key(issueKey.Key)))
 	}
 
-	return m, tea.Batch(m.loadBranch(), m.loadChanges())
+	return m, tea.Batch(loadBranch(m.deps), loadChanges(m.deps))
 }
 
 // failed is the switcher kept open with the reason it could not switch.
