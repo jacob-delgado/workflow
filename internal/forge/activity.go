@@ -96,12 +96,12 @@ func (g githubActivityItem) event(kind EventKind, at time.Time) Event {
 func githubActivity(ctx context.Context, client Client, start, end time.Time) (Activity, error) {
 	span := start.UTC().Format(time.RFC3339) + ".." + end.UTC().Format(time.RFC3339)
 
-	opened, err := githubSearch[githubActivityItem](ctx, client, "is:pr author:@me created:"+span)
+	opened, openedCut, err := githubSearch[githubActivityItem](ctx, client, "is:pr author:@me created:"+span)
 	if err != nil {
 		return Activity{}, err
 	}
 
-	merged, err := githubSearch[githubActivityItem](ctx, client, "is:pr author:@me is:merged merged:"+span)
+	merged, mergedCut, err := githubSearch[githubActivityItem](ctx, client, "is:pr author:@me is:merged merged:"+span)
 	if err != nil {
 		return Activity{}, err
 	}
@@ -116,8 +116,9 @@ func githubActivity(ctx context.Context, client Client, start, end time.Time) (A
 		activity.Events = append(activity.Events, item.event(EventMerged, item.PullRequest.MergedAt))
 	}
 
-	reviewed, truncated, err := githubReviewed(ctx, client, start)
-	activity.Events, activity.Truncated = append(activity.Events, reviewed...), truncated
+	reviewed, reviewedCut, err := githubReviewed(ctx, client, start)
+	activity.Events = append(activity.Events, reviewed...)
+	activity.Truncated = openedCut || mergedCut || reviewedCut
 
 	return activity, err
 }
@@ -185,7 +186,7 @@ func gitlabActivity(ctx context.Context, client Client, start, end time.Time) (A
 		sortParameter: {"asc"},
 	}
 
-	listed, err := readPages(func(page int) ([]gitlabEvent, int, error) {
+	listed, truncated, err := readPages(func(page int) ([]gitlabEvent, int, error) {
 		one, err := call[[]gitlabEvent](ctx, client, http.MethodGet, "/events?"+pageQuery(query, page), nil)
 
 		return one, uncounted, err
@@ -196,7 +197,7 @@ func gitlabActivity(ctx context.Context, client Client, start, end time.Time) (A
 
 	kinds := map[string]EventKind{"opened": EventOpened, "accepted": EventMerged, "approved": EventReviewed}
 
-	var activity Activity
+	activity := Activity{Events: nil, Truncated: truncated}
 
 	for _, event := range listed {
 		if kind, ok := kinds[event.Action]; ok && event.TargetType == "MergeRequest" {

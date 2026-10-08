@@ -233,7 +233,7 @@ func gitlabIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error
 	query := url.Values{queryState: {stateOpened}, "assignee_username": {viewer.Name()}}
 	path := gitlabProjectPath(repo) + issuesSegment + "?"
 
-	listed, err := readPages(func(page int) ([]gitlabIssue, int, error) {
+	listed, _, err := readPages(func(page int) ([]gitlabIssue, int, error) {
 		one, err := repoCall[[]gitlabIssue](ctx, client, repo, http.MethodGet, path+pageQuery(query, page), nil)
 
 		return one, uncounted, err
@@ -286,7 +286,7 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 
 	query := url.Values{"scope": {queryAll}, queryState: {stateOpened}, "reviewer_username": {viewer.Name()}}
 
-	merges, err := readPages(func(page int) ([]gitlabReviewMerge, int, error) {
+	merges, _, err := readPages(func(page int) ([]gitlabReviewMerge, int, error) {
 		one, err := call[[]gitlabReviewMerge](ctx, client, http.MethodGet, "/merge_requests?"+pageQuery(query, page), nil)
 
 		return one, uncounted, err
