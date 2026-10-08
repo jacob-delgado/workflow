@@ -655,7 +655,7 @@ tasks:
         {{.BUILD_IMAGE}} task release:binaries
 
   release:binaries:
-    desc: Cross-compile every release platform into dist/ (runs in the container)
+    desc: Cross-compile every release platform into dist/ (the release job runs it on its runner)
     # web:build produces internal/web/dist once; every platform embeds the same
     # frontend below.
     deps: [web:build]
