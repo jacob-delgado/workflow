@@ -1057,12 +1057,19 @@ directory, readable only by you. What the cache holds is disposable: remove it
 and the next session simply rebuilds it, and a cache a build with another schema
 made is discarded and rebuilt the same way. `kept.db` is never discarded: one
 a build with another schema made is read as empty and left as it is, and
-workflow says to run `workflow db-clean --all` to start it fresh. A `--dry-run` never creates it or changes
-what it holds: neither the interface nor `--web` opens it at all, and a command
-such as `announce` or `status` opens it read-only, and only when it is already
-there. That read may leave SQLite's two owner-only companion files,
-`workflow.db-wal` and `workflow.db-shm`, beside the database until the next
-session's open removes them.
+workflow says to run `workflow db-clean --all` to start it fresh.
+
+A `--dry-run` never makes either file or changes what one holds. The interface
+and `--web` read nothing from the cache — Local data still counts what each
+file holds — and read `kept.db` read-only when it is already there, for whom
+an announcement would tag and your favorites; a command such as `announce` or
+`status` reads the file it needs the same way, and only when it is there. A
+dry run reads `workflow.db` as it is, whichever build made it, and a `kept.db`
+another build's schema made as empty. Such a read may leave SQLite's two
+owner-only companion files beside the file it read — `kept.db-wal` and
+`kept.db-shm` after a read of `kept.db`, `workflow.db-wal` and
+`workflow.db-shm` after one of `workflow.db` — until a session without
+`--dry-run` next opens that file and removes them.
 
 To see the two files, their sizes and what each holds, and to remove them, run
 `workflow db-clean` (or open **Local data** in the web interface's Settings, or

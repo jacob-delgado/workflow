@@ -263,8 +263,9 @@ without agreement on direction.
     has **migrations**, since workflow is only installed fresh: change the
     `CREATE TABLE`, bump the version, and move on (see *YAGNI*). A bump of
     `schemaVersion` never touches `kept.db`. A `--dry-run` store's read-only
-    open reads either file as it is, neither checks, stamps nor changes it,
-    and never makes one that is missing.
+    open reads `workflow.db` as it is and a `kept.db` at another version as
+    empty, never stamps or changes either file, and never makes one that is
+    missing.
 
 - **License headers**: every `.go` file begins with the two SPDX lines from
   CONTRIBUTING.md. `scripts/check-license-headers.sh` gates this in lefthook,
