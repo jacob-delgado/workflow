@@ -76,11 +76,14 @@ func recordingRunner(t *testing.T, replies map[string]reply) (gitrepo.Runner, *[
 	}, &ran
 }
 
-// with is replies with some answers changed.
+// with is a copy of replies with some answers changed. It leaves replies as it
+// was, so a fixture shared between parallel tests never carries one test's
+// answers into another.
 func with(replies map[string]reply, changes map[string]reply) map[string]reply {
-	maps.Copy(replies, changes)
+	merged := maps.Clone(replies)
+	maps.Copy(merged, changes)
 
-	return replies
+	return merged
 }
 
 // onABranch is a complete, healthy repository.
