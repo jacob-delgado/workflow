@@ -96,7 +96,7 @@ func (s *slackFake) answer(writer http.ResponseWriter, request *http.Request) {
 	s.lock.Unlock()
 
 	if request.URL.Path == slackAuthTest {
-		writer.Header().Set("X-OAuth-Scopes", granted)
+		writer.Header().Set("X-Oauth-Scopes", granted)
 	}
 
 	if request.URL.Path == slackPostMessage {
