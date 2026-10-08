@@ -623,6 +623,10 @@ export type Announcement = {
      * Whether a preview's announcement can be held until the pull request's CI passes: it is ready for review and its CI is still running. Left out where it cannot, and on a post.
      */
     can_wait_for_ci?: boolean;
+    /**
+     * Set only on a post that went out but that the store could not remember, so a later session may offer it again; the post is not a failure. Left out on a preview.
+     */
+    warning?: string;
 };
 
 /**
@@ -665,6 +669,10 @@ export type QueuedAnnouncement = {
      * Why a dropped announcement was not posted: the CI failed, the branch's pull request is another one, or the post failed.
      */
     reason?: string;
+    /**
+     * Set only on one announced that the store could not remember, so a later session may offer it again.
+     */
+    warning?: string;
 };
 
 /**

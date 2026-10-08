@@ -4,6 +4,7 @@ import { Button } from '@/lib/Button.tsx'
 import { Failure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { stopWaiting } from './announceApi.ts'
+import { withWarning } from './withWarning.ts'
 
 interface HeldAnnouncementProps {
   held: QueuedAnnouncement | undefined
@@ -12,7 +13,8 @@ interface HeldAnnouncementProps {
 }
 
 // HeldAnnouncement says how the announcement held until CI passes stands, as
-// the server's stream tells it: waiting, with Stop waiting; going; gone; or
+// the server's stream tells it: waiting, with Stop waiting; going; gone, and
+// that it may be offered again when the store could not remember it; or
 // dropped, with why, as a failure. The server holds it while it runs, so it
 // stands whether or not this page was open when it was held.
 export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProps) {
@@ -34,7 +36,11 @@ export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProp
     case 'announcing':
       return <p className="text-sm text-muted-foreground">Announcing to {where}…</p>
     case 'announced':
-      return <p className="text-sm">Announced to {where} once CI passed.</p>
+      return (
+        <p className="text-sm">
+          {withWarning(`Announced to ${where} once CI passed.`, held.warning)}
+        </p>
+      )
     case 'dropped':
       return <Failure>Not announced: {held.reason ?? 'it was dropped'}.</Failure>
   }

@@ -385,7 +385,8 @@ export const zAnnouncement = z.object({
     text: z.string(),
     channel: z.string(),
     tagging: zAnnouncementTagging.optional(),
-    can_wait_for_ci: z.boolean().optional()
+    can_wait_for_ci: z.boolean().optional(),
+    warning: z.string().optional()
 });
 
 /**
@@ -411,7 +412,8 @@ export const zQueuedAnnouncement = z.object({
     ]),
     channel: z.string(),
     pull: z.int(),
-    reason: z.string().optional()
+    reason: z.string().optional(),
+    warning: z.string().optional()
 });
 
 /**
