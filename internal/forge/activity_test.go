@@ -18,6 +18,12 @@ import (
 // githubAna is GitHub's answer to who the token belongs to: ana.
 const githubAna = `{"login":"ana"}`
 
+// githubFoundNothing is GitHub's search finding nothing.
+const githubFoundNothing = `{"total_count":0,"items":[]}`
+
+// userPath is where either forge says who the token belongs to.
+const userPath = "/user"
+
 // activityForge answers each request by the first route whose key its path
 // and query contain, or with an empty list.
 func activityForge(t *testing.T, routes map[string]string) forge.Client {
@@ -80,7 +86,7 @@ func TestGitHubReviewsAreReadOldestFirstAndOnlyAsManyAsAreLookedUp(t *testing.T)
 	start := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
 	client := activityForge(t, map[string]string{
 		"/user?":         githubAna,
-		"author%3A%40me": `{"total_count":0,"items":[]}`,
+		"author%3A%40me": githubFoundNothing,
 		"order=asc&per_page=20&q=is%3Apr+reviewed-by%3A%40me+updated%3A%3E%3D2026-10-02T00%3A00%3A00Z&sort=updated": `{` +
 			`"total_count":21,"items":[{"number":3,"title":"pull 3","html_url":"https://github.com/o/r/pull/3",` +
 			`"repository_url":"https://api.github.com/repos/o/r"}]}`,
@@ -157,32 +163,41 @@ func TestGitLabActivityPastThePageCapSaysThereWasMore(t *testing.T) {
 func TestGitHubActivityPastWhatTheSearchServesSaysThereWasMore(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
 	// GitHub's search serves its first 1,000 results however many it finds.
-	start := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
-	opened := `{"number":1,"title":"pull 1","html_url":"https://github.com/o/r/pull/1",` +
-		`"repository_url":"https://api.github.com/repos/o/r","created_at":"2026-10-02T09:00:00Z"}`
-	client, _ := recordingForge(t, func(asked recorded) (int, string) {
-		query, _ := url.ParseQuery(asked.query)
+	pull := `{"number":1,"title":"pull 1","html_url":"https://github.com/o/r/pull/1",` +
+		`"repository_url":"https://api.github.com/repos/o/r","created_at":"2026-10-02T09:00:00Z",` +
+		`"pull_request":{"merged_at":"2026-10-02T09:00:00Z"}}`
+	cases := map[string]string{"the opened search": "created:", "the merged search": "merged:"}
 
-		switch {
-		case asked.path == "/user":
-			return http.StatusOK, githubAna
-		case strings.Contains(query.Get("q"), "created:"):
-			return http.StatusOK, `{"total_count":1500,"items":[` +
-				strings.TrimSuffix(strings.Repeat(opened+",", 100), ",") + `]}`
-		default:
-			return http.StatusOK, `{"total_count":0,"items":[]}`
-		}
-	})
+	for name, search := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Act
-	activity, err := client.Activity(t.Context(), forge.KindGitHub, start, start.Add(24*time.Hour))
+			// Arrange
+			start := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+			client, _ := recordingForge(t, func(asked recorded) (int, string) {
+				query, _ := url.ParseQuery(asked.query)
 
-	// Assert
-	if err != nil || len(activity.Events) != 1000 || !activity.Truncated {
-		t.Errorf("Activity = %d events (more: %v), %v; want the 1,000 served, and that there were more",
-			len(activity.Events), activity.Truncated, err)
+				switch {
+				case asked.path == userPath:
+					return http.StatusOK, githubAna
+				case strings.Contains(query.Get("q"), search):
+					return http.StatusOK, `{"total_count":1500,"items":[` +
+						strings.TrimSuffix(strings.Repeat(pull+",", 100), ",") + `]}`
+				default:
+					return http.StatusOK, githubFoundNothing
+				}
+			})
+
+			// Act
+			activity, err := client.Activity(t.Context(), forge.KindGitHub, start, start.Add(24*time.Hour))
+
+			// Assert
+			if err != nil || len(activity.Events) != 1000 || !activity.Truncated {
+				t.Errorf("Activity = %d events (more: %v), %v; want the 1,000 served, and that there were more",
+					len(activity.Events), activity.Truncated, err)
+			}
+		})
 	}
 }
 

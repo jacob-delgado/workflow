@@ -54,7 +54,7 @@ func TestAssignedIssuesListsAForgesRepoIssues(t *testing.T) {
 		"asks GitLab for the project's assigned issues": {
 			repo: gitlabRepo(),
 			routes: map[string]string{
-				gitlabUserPath: gitlabWhoami,
+				userPath: gitlabWhoami,
 				gitlabIssuesList: `[{"iid":7,"web_url":"https://gitlab.com/group/sub/repo/-/issues/7",` +
 					`"title":"the bug"}]`,
 			},
@@ -183,14 +183,14 @@ func TestAssignedIssuesReadsEveryPage(t *testing.T) {
 		"GitLab reads on until a short page": {
 			repo: gitlabRepo(),
 			pages: map[string][]string{
-				gitlabUserPath:   {gitlabWhoami},
+				userPath:         {gitlabWhoami},
 				gitlabIssuesList: {gitlabPage(1), listingOf(101, 1, gitlabNumbered)},
 			},
 			want: 101,
 		},
 		"GitLab stops at the page bound": {
 			repo:  gitlabRepo(),
-			pages: map[string][]string{gitlabUserPath: {gitlabWhoami}, gitlabIssuesList: fullPages(21, gitlabPage)},
+			pages: map[string][]string{userPath: {gitlabWhoami}, gitlabIssuesList: fullPages(21, gitlabPage)},
 			want:  2000,
 		},
 	}

@@ -336,3 +336,28 @@ func TestGitHubCIReadsAStatusListingTooLongToReadAsRunning(t *testing.T) {
 		t.Errorf("CheckStatus = %+v, %v; want CIRunning for a listing read only in part", got, err)
 	}
 }
+
+func TestGitHubCIReadsAListingThatEndsShortOfItsCountAsRunning(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// GitHub counts five check runs and lists two: the three it left out may
+	// be the ones failing, so what was read cannot be called a pass.
+	client, _ := recordingForge(t, func(asked recorded) (int, string) {
+		if strings.HasSuffix(asked.path, "/check-runs") {
+			return http.StatusOK, `{"total_count":5,"check_runs":[` +
+				`{"id":1,"status":"completed","conclusion":"success","name":"a"},` +
+				`{"id":2,"status":"completed","conclusion":"success","name":"b"}]}`
+		}
+
+		return http.StatusOK, `{"total_count":0,"statuses":[]}`
+	})
+
+	// Act
+	got, err := client.CheckStatus(t.Context(), githubRepo(), forge.PullRequest{}, headCommit)
+
+	// Assert
+	if err != nil || got.State != forge.CIRunning {
+		t.Errorf("CheckStatus = %+v, %v; want CIRunning for a listing short of its count", got, err)
+	}
+}
