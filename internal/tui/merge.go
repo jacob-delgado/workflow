@@ -21,15 +21,15 @@ var errNoMergeMethod = errors.New("cannot merge: the repository permits no merge
 
 // canMerge reports a pull request that can be merged here: found, mergeable,
 // green and approved, with a forge that can merge it.
-func (m Model) canMerge() bool {
-	return m.review.found && m.deps.Forge.Merge != nil && loop.CanMerge(m.review.pull, m.review.ci)
+func (s reviewState) canMerge(deps Deps) bool {
+	return s.found && deps.Forge.Merge != nil && loop.CanMerge(s.pull, s.ci)
 }
 
 // startMerge opens the merge preview at once and reads which merge methods the
 // repository permits into it. Reading the methods is not a write, so it runs
 // even in a dry run; the merge itself waits for the preview to be confirmed.
 func (m Model) startMerge() (Model, tea.Cmd) {
-	if !m.canMerge() || m.deps.Forge.MergeMethods == nil {
+	if !m.review.canMerge(m.deps) || m.deps.Forge.MergeMethods == nil {
 		return m, nil
 	}
 
@@ -98,7 +98,7 @@ func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 		merged.followUp = merged.offerMarkDone(issueKey)
 	}
 
-	return merged, merged.findPullRequest()
+	return merged, merged.branch.findPull(merged.deps)
 }
 
 // failed is the preview kept open with the reason the merge was refused.

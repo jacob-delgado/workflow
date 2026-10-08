@@ -53,7 +53,7 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	m, detail := m.resumeIssue().loadDetail()
 
-	find := m.findPullRequest()
+	find := m.branch.findPull(m.deps)
 	if find == nil {
 		// No pull request is looked for, so a Review refresh waits on nothing more.
 		m.review.loading = false
@@ -61,7 +61,7 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	// Your forge name is asked for here, not only once a pull request is
 	// found, because assigning a forge issue starts from it on any branch.
-	return m, tea.Batch(detail, find, m.loadAuthor())
+	return m, tea.Batch(detail, find, m.messaging.loadAuthor(m.deps))
 }
 
 // refreshBranch reads the branch again, and the work tree with it.
@@ -127,10 +127,10 @@ func (s branchState) outsideRepository() bool {
 	return s.loaded && errors.Is(s.err, gitrepo.ErrNotARepository)
 }
 
-// canCreateBranch reports whether a branch can be started: git can create one,
+// canCreate reports whether a branch can be started: git can create one,
 // and the directory is a repository to create it in.
-func (m Model) canCreateBranch() bool {
-	return m.deps.Git.CreateBranch != nil && !m.branch.outsideRepository()
+func (s branchState) canCreate(deps Deps) bool {
+	return deps.Git.CreateBranch != nil && !s.outsideRepository()
 }
 
 // branchView is what the Branch pane draws with beside its own state: the
@@ -212,11 +212,11 @@ func (m Model) branchOffers() []offer {
 	}
 
 	return []offer{
-		{binding: m.keys.newBranch, can: m.canCreateBranch(), act: m.openBranchCreator},
+		{binding: m.keys.newBranch, can: m.branch.canCreate(m.deps), act: m.openBranchCreator},
 		{binding: m.keys.switchBranch, can: canSwitchTask(m.deps), act: m.openBranchPicker},
-		{binding: m.keys.linkIssue, can: m.canLinkIssue(), act: m.openBranchLink},
-		{binding: m.keys.rebase, can: m.canRebase(), act: m.previewRebase},
-		{binding: m.keys.push, can: m.canPush(), act: m.previewPush},
+		{binding: m.keys.linkIssue, can: m.branch.canLinkIssue(m.deps), act: m.openBranchLink},
+		{binding: m.keys.rebase, can: m.branch.canRebase(m.deps), act: m.previewRebase},
+		{binding: m.keys.push, can: m.branch.canPush(m.deps), act: m.previewPush},
 		{binding: m.keys.refresh, can: true, act: func() (Model, tea.Cmd) { return m.refreshPane(paneBranch) }},
 	}
 }
@@ -232,14 +232,14 @@ func canSwitchTask(deps Deps) bool {
 }
 
 // canRebase reports a feature branch with a base to catch up with.
-func (m Model) canRebase() bool {
-	return m.branch.onFeatureBranch() && loop.CanRebase(m.branch.branch) && m.deps.Git.Rebase != nil
+func (s branchState) canRebase(deps Deps) bool {
+	return s.onFeatureBranch() && loop.CanRebase(s.branch) && deps.Git.Rebase != nil
 }
 
 // canPush reports a branch with something to push.
-func (m Model) canPush() bool {
-	return m.branch.onFeatureBranch() && !m.branch.branch.Pushed() && len(m.branch.branch.Commits) > 0 &&
-		m.deps.Git.Push != nil
+func (s branchState) canPush(deps Deps) bool {
+	return s.onFeatureBranch() && !s.branch.Pushed() && len(s.branch.Commits) > 0 &&
+		deps.Git.Push != nil
 }
 
 // previewPush holds the push for a last look at what it sends and where.

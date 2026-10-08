@@ -96,7 +96,7 @@ func (m Model) trackSelectedIssue() (Model, tea.Cmd) {
 		return m.goToTrackingTask(selected.Key, task), nil
 	}
 
-	track := trackIssue{url: m.issueURL(), thenStart: false}
+	track := trackIssue{url: m.issues.browseURL(m.deps), thenStart: false}
 
 	line, err := taskwarrior.TrackLine(taskwarrior.IssueLink{
 		Key: string(selected.Key), Summary: selected.Summary, URL: track.url, Priority: selected.Priority,

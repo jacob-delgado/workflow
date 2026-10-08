@@ -131,22 +131,22 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 
 // refreshTasks asks Taskwarrior again.
 func (m Model) refreshTasks() (Model, tea.Cmd) {
-	read := m.loadTasks()
+	read := m.tasks.load(m.deps)
 	m.tasks.loading = read != nil
 
 	return m, read
 }
 
-// loadTasks is the command that asks Taskwarrior which it is, then its pending
+// load is the command that asks Taskwarrior which it is, then its pending
 // tasks, then the tasks linked to issues, in one command; nil when there is no
 // task program to ask.
-func (m Model) loadTasks() tea.Cmd {
-	install, pending, linked := m.deps.Tasks.Install, m.deps.Tasks.Pending, m.deps.Tasks.Linked
+func (s tasksState) load(deps Deps) tea.Cmd {
+	install, pending, linked := deps.Tasks.Install, deps.Tasks.Pending, deps.Tasks.Linked
 	if install == nil {
 		return nil
 	}
 
-	tracked := m.tasks.tracked
+	tracked := s.tracked
 
 	return func() tea.Msg {
 		found, err := install()

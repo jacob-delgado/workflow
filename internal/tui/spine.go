@@ -25,49 +25,73 @@ type stage struct {
 	hue   lipgloss.Style
 }
 
-// spine draws the loop's stages across the top, each in its system's color and
+// spineView is what the spine draws: the glyphs and styles, whether the
+// session holds its writes back, where you work, how far the work has got,
+// what the messaging service is called, the active task and the clock it has
+// run by.
+type spineView struct {
+	kit     renderKit
+	dryRun  bool
+	place   string
+	work    progress.Work
+	service string
+	task    taskwarrior.Task
+	active  bool
+	now     time.Time
+}
+
+// spineView is the spine's view of the rest of the interface.
+func (m Model) spineView() spineView {
+	task, active := m.tasks.active()
+
+	return spineView{
+		kit: m.kit(), dryRun: m.dryRun, place: placeLabel(m.deps), work: m.work(),
+		service: m.cfg.Messaging.Service(), task: task, active: active, now: m.deps.now(),
+	}
+}
+
+// draw draws the loop's stages across the top, each in its system's color and
 // with a glyph saying how far it has got, and the active task at its end. Short
 // of rows it drops the names.
-func (m Model) spine(shape layout.Layout) string {
-	stages := m.stages()
+func (v spineView) draw(shape layout.Layout) string {
+	stages := v.stages()
 	parts := make([]string, 0, len(stages))
 
 	for _, each := range stages {
 		if shape.CompactSpine() {
-			parts = append(parts, each.hue.Render(initial(each.name))+m.paintGlyph(each))
+			parts = append(parts, each.hue.Render(initial(each.name))+v.paintGlyph(each))
 		} else {
-			parts = append(parts, m.paintGlyph(each)+each.hue.Render(" "+each.name))
+			parts = append(parts, v.paintGlyph(each)+each.hue.Render(" "+each.name))
 		}
 	}
 
-	joined := " " + strings.Join(parts, m.marks.rule)
+	joined := " " + strings.Join(parts, v.kit.marks.rule)
 	if shape.CompactSpine() {
 		joined = " " + strings.Join(parts, " ")
 	}
 
-	joined = m.ledByPlace(joined, shape.Spine.Width)
+	joined = v.ledByPlace(joined, shape.Spine.Width)
 
-	if m.dryRun {
-		joined = " " + m.styles.strong.Render("DRY RUN") + m.marks.separator + strings.TrimLeft(joined, " ")
+	if v.dryRun {
+		joined = " " + v.kit.styles.strong.Render("DRY RUN") + v.kit.marks.separator + strings.TrimLeft(joined, " ")
 	}
 
-	return ansi.Truncate(joined+m.activeTaskTail(shape, joined), shape.Spine.Width, "")
+	return ansi.Truncate(joined+v.activeTaskTail(shape, joined), shape.Spine.Width, "")
 }
 
 // ledByPlace leads the stages with where you work, faint, when there is room
 // for both and for DRY RUN; the place is the first thing to give way, since
 // the Repositories pane says it in full.
-func (m Model) ledByPlace(stages string, width int) string {
-	place := placeLabel(m.deps)
-	if place == "" {
+func (v spineView) ledByPlace(stages string, width int) string {
+	if v.place == "" {
 		return stages
 	}
 
-	led := " " + m.styles.label.Render(place) + m.marks.separator + strings.TrimLeft(stages, " ")
+	led := " " + v.kit.styles.label.Render(v.place) + v.kit.marks.separator + strings.TrimLeft(stages, " ")
 
 	room := width
-	if m.dryRun {
-		room -= ansi.StringWidth("DRY RUN" + m.marks.separator)
+	if v.dryRun {
+		room -= ansi.StringWidth("DRY RUN" + v.kit.marks.separator)
 	}
 
 	if ansi.StringWidth(led) > room {
@@ -106,20 +130,19 @@ const describedAtLeast = 8
 
 // activeTaskTail is the active task at the spine's right edge, in Taskwarrior's
 // hue, in the room the stages leave it. Nothing when no task is active.
-func (m Model) activeTaskTail(shape layout.Layout, stages string) string {
-	task, active := m.tasks.active()
-	if !active {
+func (v spineView) activeTaskTail(shape layout.Layout, stages string) string {
+	if !v.active {
 		return ""
 	}
 
 	room := shape.Spine.Width - ansi.StringWidth(stages) - 1
 
-	tail := m.fittedTaskTail(task, room, shape.CompactSpine())
+	tail := v.fittedTaskTail(room, shape.CompactSpine())
 	if tail == "" {
 		return ""
 	}
 
-	return strings.Repeat(" ", room+1-ansi.StringWidth(tail)) + m.styles.tasks.Render(tail)
+	return strings.Repeat(" ", room+1-ansi.StringWidth(tail)) + v.kit.styles.tasks.Render(tail)
 }
 
 // fittedTaskTail is the active task in room columns: what it is, its
@@ -127,10 +150,11 @@ func (m Model) activeTaskTail(shape layout.Layout, stages string) string {
 // Only how long on a compact spine, or where fewer than describedAtLeast
 // columns of the description would show; and nothing where not even that fits,
 // since a time cut short reads as another.
-func (m Model) fittedTaskTail(task taskwarrior.Task, room int, compact bool) string {
-	since := elapsed(task.Start, m.deps.now())
-	brief := m.marks.inFlight + " " + since
-	described := room - ansi.StringWidth(brief+m.marks.separator)
+func (v spineView) fittedTaskTail(room int, compact bool) string {
+	marks, task := v.kit.marks, v.task
+	since := elapsed(task.Start, v.now)
+	brief := marks.inFlight + " " + since
+	described := room - ansi.StringWidth(brief+marks.separator)
 
 	switch {
 	case ansi.StringWidth(brief) > room:
@@ -138,8 +162,8 @@ func (m Model) fittedTaskTail(task taskwarrior.Task, room int, compact bool) str
 	case compact || described < min(describedAtLeast, ansi.StringWidth(task.Description)):
 		return brief
 	default:
-		return m.marks.inFlight + " " + ansi.Truncate(task.Description, described, m.marks.ellipsis) +
-			m.marks.separator + since
+		return marks.inFlight + " " + ansi.Truncate(task.Description, described, marks.ellipsis) +
+			marks.separator + since
 	}
 }
 
@@ -167,9 +191,9 @@ func initial(name string) string {
 
 // paintGlyph colors a stage's glyph: red where it failed, so red reads the same
 // on the spine as everywhere else, and the system's own hue otherwise.
-func (m Model) paintGlyph(s stage) string {
-	if s.glyph == m.marks.failed {
-		return m.styles.failure.Render(s.glyph)
+func (v spineView) paintGlyph(s stage) string {
+	if s.glyph == v.kit.marks.failed {
+		return v.kit.styles.failure.Render(s.glyph)
 	}
 
 	return s.hue.Render(s.glyph)
@@ -178,19 +202,20 @@ func (m Model) paintGlyph(s stage) string {
 // stages works out how far along the loop the work is, in the hue of each
 // stage's system, from the shared derivation both this spine and `workflow
 // status` read.
-func (m Model) stages() []stage {
+func (v spineView) stages() []stage {
+	sty := v.kit.styles
 	// Trade-off TRADE-5: the hue tells the systems apart by color alone; the
 	// stage's name, or its initial when compact, is what names the stage.
 	hues := map[progress.System]lipgloss.Style{
-		progress.Tracker: m.styles.jira, progress.Git: m.styles.git,
-		progress.Forge: m.styles.forge, progress.Messaging: m.styles.messaging,
+		progress.Tracker: sty.jira, progress.Git: sty.git,
+		progress.Forge: sty.forge, progress.Messaging: sty.messaging,
 	}
 
-	derived := progress.Stages(m.work(), m.cfg.Messaging.Service())
+	derived := progress.Stages(v.work, v.service)
 	stages := make([]stage, len(derived))
 
 	for index, each := range derived {
-		stages[index] = stage{name: each.Name, glyph: m.glyphFor(each.State), hue: hues[each.System]}
+		stages[index] = stage{name: each.Name, glyph: glyphFor(v.kit.marks, each.State), hue: hues[each.System]}
 	}
 
 	return stages
@@ -207,7 +232,7 @@ func (m Model) work() progress.Work {
 		IssueSelected:      selected,
 		Commits:            len(m.branch.branch.Commits),
 		UncommittedChanges: len(m.changes.changes),
-		PullRequest:        m.pullState(),
+		PullRequest:        m.review.pullState(),
 		CI:                 m.review.ci.State,
 		ChangesRequested:   m.review.pull.ChangesRequested,
 		Announced:          m.announced(),
@@ -217,22 +242,22 @@ func (m Model) work() progress.Work {
 
 // pullState is where the branch's pull request stands, for the stages: a
 // merged one, as the rail says, has finished its review.
-func (m Model) pullState() progress.PullState {
-	if !m.review.found {
+func (s reviewState) pullState() progress.PullState {
+	if !s.found {
 		return progress.NoPullRequest
 	}
 
-	return progress.PullStateOf(m.review.pull.State)
+	return progress.PullStateOf(s.pull.State)
 }
 
 // glyphFor is the mark for a stage's state, in this session's glyph set. A
 // map, not a switch, so there is no last-case arm gobco can never see;
 // exhaustive keeps it complete.
-func (m Model) glyphFor(state progress.State) string {
+func glyphFor(marks glyphs, state progress.State) string {
 	return map[progress.State]string{
-		progress.Done:       m.marks.done,
-		progress.InFlight:   m.marks.inFlight,
-		progress.Failed:     m.marks.failed,
-		progress.NotStarted: m.marks.notStarted,
+		progress.Done:       marks.done,
+		progress.InFlight:   marks.inFlight,
+		progress.Failed:     marks.failed,
+		progress.NotStarted: marks.notStarted,
 	}[state]
 }

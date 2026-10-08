@@ -451,7 +451,7 @@ func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.done + " switched to " + msg.name)
 	if issueKey, named := loop.NamedIssue(msg.name, map[string]string{msg.name: msg.link}, m.cfg.Jira.Project); named {
-		m.followUp = m.offerStart(m.listedIssue(jira.Key(issueKey.Key)))
+		m.followUp = m.offerStart(m.issues.listedIssue(jira.Key(issueKey.Key)))
 	}
 
 	return m, tea.Batch(loadBranch(m.deps), loadChanges(m.deps))

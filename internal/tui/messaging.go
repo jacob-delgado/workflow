@@ -94,9 +94,9 @@ func (quitGuard) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // loadAuthor is the command that asks the forge whose credential it holds:
 // you, as the announcement and a forge issue's assignee name you.
-func (m Model) loadAuthor() tea.Cmd {
-	author := m.deps.Forge.Author
-	if author == nil || m.messaging.author != "" {
+func (s messagingState) loadAuthor(deps Deps) tea.Cmd {
+	author := deps.Forge.Author
+	if author == nil || s.author != "" {
 		return nil
 	}
 
@@ -168,7 +168,7 @@ func (m Model) messagingDetail(width int) string {
 			config.FileName+"; `--online` also asks Slack about your user token.", width)
 	}
 
-	if m.pullState() == progress.NoPullRequest {
+	if m.review.pullState() == progress.NoPullRequest {
 		reviewPane := paneReview.label(m.cfg.Messaging.Service())
 
 		return wrap("Open a "+m.vocab.noun+" first ("+reviewPane+"); the message links to it.\n\n"+
@@ -246,7 +246,7 @@ func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
 // canPost reports a pull request to announce, a way to post it, and no post
 // of it already made or on its way.
 func (m Model) canPost() bool {
-	return m.pullState() != progress.NoPullRequest && m.deps.Messaging.Post != nil &&
+	return m.review.pullState() != progress.NoPullRequest && m.deps.Messaging.Post != nil &&
 		m.cfg.Messaging.Mode() != config.MessagingNone && !m.announced() && !m.messaging.send.sending
 }
 

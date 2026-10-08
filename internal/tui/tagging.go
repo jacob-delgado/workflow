@@ -83,15 +83,15 @@ func (m Model) withTagging(preview messagingPreview) (messagingPreview, tea.Cmd)
 	preview.tagging.members, readMembers = readChannelMembers(m.deps, preview.channel, preview.opened)
 	preview.tagging.groups, readGroups = readUserGroups(m.deps, preview.opened)
 
-	return preview, tea.Batch(m.readTags(preview.opened), readMembers, readGroups)
+	return preview, tea.Batch(m.branch.readTags(m.deps, preview.opened), readMembers, readGroups)
 }
 
 // readTags reads whom the announcement proposes to tag: the owners of the
 // branch's changes against its base, and what the store kept about them in
 // the Slack workspace the token is for, for the preview opened as opened.
-func (m Model) readTags(opened int) tea.Cmd {
-	owners := taggedOwnerSeams(m.deps)
-	store, base, readWorkspace := m.deps.Store, m.branch.branch.BaseName(), m.deps.Messaging.Workspace
+func (s branchState) readTags(deps Deps, opened int) tea.Cmd {
+	owners := taggedOwnerSeams(deps)
+	store, base, readWorkspace := deps.Store, s.branch.BaseName(), deps.Messaging.Workspace
 
 	return func() tea.Msg {
 		found, ownersErr := loop.OwnersOf(owners, base)

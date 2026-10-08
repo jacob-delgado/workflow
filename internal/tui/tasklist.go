@@ -265,7 +265,7 @@ func (m Model) trackingTask(issueKey jira.Key) (taskwarrior.Task, bool) {
 // where the pane does not list it, says which task it is and why.
 func (m Model) goToTrackingTask(issueKey jira.Key, task taskwarrior.Task) Model {
 	groups := m.taskGroups()
-	if shown, ok := m.listedTrackingTask(issueKey, groups); ok {
+	if shown, ok := m.tasks.listedTracking(issueKey, groups); ok {
 		task = shown
 	}
 
@@ -280,11 +280,11 @@ func (m Model) goToTrackingTask(issueKey jira.Key, task taskwarrior.Task) Model 
 	return m
 }
 
-// listedTrackingTask is a task that tracks an issue and that the pane lists as
+// listedTracking is a task that tracks an issue and that the pane lists as
 // it is narrowed now, so going to the issue's task lands on one in view
 // whenever there is one.
-func (m Model) listedTrackingTask(issueKey jira.Key, groups taskGroups) (taskwarrior.Task, bool) {
-	for _, task := range m.tasks.linkedTo(issueKey) {
+func (s tasksState) listedTracking(issueKey jira.Key, groups taskGroups) (taskwarrior.Task, bool) {
+	for _, task := range s.linkedTo(issueKey) {
 		if stillToDo(task) && groups.lists(task.UUID) {
 			return task, true
 		}

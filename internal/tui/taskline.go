@@ -271,5 +271,5 @@ func (msg taskLineSent) apply(m Model) (Model, tea.Cmd) {
 
 	m.tasks.writing = false
 
-	return m, m.loadTasks()
+	return m, m.tasks.load(m.deps)
 }

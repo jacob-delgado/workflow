@@ -143,7 +143,7 @@ func (m Model) issuesOffers() []offer {
 	case !ok:
 		return slices.Concat([]offer{m.newBranchOffer()}, m.issueListOffers())
 	default:
-		return slices.Concat(m.readingOffers(), m.issueVerbOffers(selected), m.linkOffers(m.issueURL()),
+		return slices.Concat(m.readingOffers(), m.issueVerbOffers(selected), m.linkOffers(m.issues.browseURL(m.deps)),
 			m.issueListOffers())
 	}
 }
@@ -161,7 +161,7 @@ func (m Model) issueVerbOffers(selected jira.Issue) []offer {
 	return []offer{
 		{binding: m.keys.changeStatus, can: m.deps.Jira.Transitions != nil, act: m.openStatusPicker},
 		{binding: m.keys.comment, can: m.deps.Jira.Comment != nil, act: m.startComment},
-		{binding: m.keys.startWork, can: m.canCreateBranch(), act: m.openBranchCreator},
+		{binding: m.keys.startWork, can: m.branch.canCreate(m.deps), act: m.openBranchCreator},
 		{binding: m.keys.assign, can: m.deps.Jira.Assign != nil, act: m.openAssign},
 		{
 			binding: m.keys.logWork, can: m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key),
@@ -174,7 +174,9 @@ func (m Model) issueVerbOffers(selected jira.Issue) []offer {
 // newBranchOffer is starting a branch named for no issue, which the branch key
 // does on the Issues pane when none is selected.
 func (m Model) newBranchOffer() offer {
-	return offer{binding: relabel(m.keys.startWork, "new branch"), can: m.canCreateBranch(), act: m.openBranchCreator}
+	return offer{
+		binding: relabel(m.keys.startWork, "new branch"), can: m.branch.canCreate(m.deps), act: m.openBranchCreator,
+	}
 }
 
 // readingOffers are, in the collapsed layout where the list and the issue take
