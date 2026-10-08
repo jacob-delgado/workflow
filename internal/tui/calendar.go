@@ -87,7 +87,7 @@ func (c calendar) view(kit renderKit, _, _ int) (string, string) {
 	}
 
 	if c.err != nil {
-		lines = append(lines, "", failureLine(kit.styles, kit.marks, c.err))
+		lines = append(lines, "", kit.failureLine(c.err))
 	}
 
 	return "Calendar", strings.Join(lines, "\n")

@@ -75,7 +75,7 @@ func (p peopleOverlay) groupLines(kit renderKit, width, rows int) []string {
 
 	for _, err := range []error{p.groups.err, p.repoErr} {
 		if err != nil {
-			lines = append(lines, failureBlock(kit.styles, kit.marks, err, width))
+			lines = append(lines, kit.failureBlock(err, width))
 		}
 	}
 

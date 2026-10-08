@@ -159,7 +159,7 @@ func (f setupForm) asking(kit renderKit, width int) []string {
 	case stepPlace:
 		return append(f.choices(kit, f.placeChoices(kit)), kit.styles.label.Render(setupQuestions()[f.step].hint))
 	case stepCheckFailed:
-		return append([]string{failureLine(kit.styles, kit.marks, f.checkErr), ""}, f.choices(kit, f.failedRows())...)
+		return append([]string{kit.failureLine(f.checkErr), ""}, f.choices(kit, f.failedRows())...)
 	case stepKeychain:
 		return f.choices(kit, []string{"In your keychain, out of the file", "In the file, which only you can read"})
 	case stepWrite:
@@ -226,7 +226,7 @@ func (f setupForm) outcome(kit renderKit, width int) []string {
 		return []string{"", "checking the token with Jira" + kit.marks.ellipsis}
 	}
 
-	if outcome := pinnedOutcome(kit.styles, kit.marks, f.send, "writing", width); outcome != nil {
+	if outcome := kit.pinnedOutcome(f.send, "writing", width); outcome != nil {
 		return append([]string{""}, outcome...)
 	}
 

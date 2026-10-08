@@ -375,7 +375,7 @@ func (m Model) summaryNotes(width int) []string {
 		name := read.Source.Title()
 
 		for _, failure := range loop.Failures(read.Failed) {
-			notes = append(notes, m.failedGlyph()+" "+failedSourceLine(name, failure))
+			notes = append(notes, m.kit().failedGlyph()+" "+failedSourceLine(name, failure))
 		}
 
 		if read.NotSetUp != nil {

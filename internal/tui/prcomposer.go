@@ -173,7 +173,7 @@ func (c prComposer) view(kit renderKit, width, _ int) (string, string) {
 		return kit.marks.marker(c.focus == focus) + fmt.Sprintf("%-9s ", label) + input.View()
 	}
 
-	lines := pinnedOutcome(kit.styles, kit.marks, c.send, "opening", width)
+	lines := kit.pinnedOutcome(c.send, "opening", width)
 	lines = append(lines,
 		field(prFieldTitle, "title", c.title),
 		field(prFieldBase, "base", c.base),

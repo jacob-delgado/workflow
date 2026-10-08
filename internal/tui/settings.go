@@ -153,7 +153,7 @@ func (f settingsForm) view(kit renderKit, width, rows int) (string, string) {
 	case f.reading:
 		return settingsTitle, "reading the configuration" + kit.marks.ellipsis
 	case f.readErr != nil:
-		return settingsTitle, failureBlock(kit.styles, kit.marks, f.readErr, width)
+		return settingsTitle, kit.failureBlock(f.readErr, width)
 	}
 
 	foot := splitLines(f.footLines(kit, width)...)
@@ -184,14 +184,14 @@ func (f settingsForm) footLines(kit renderKit, width int) []string {
 	}
 
 	if f.problem != nil {
-		lines = append(lines, "", failureBlock(kit.styles, kit.marks, f.problem, width))
+		lines = append(lines, "", kit.failureBlock(f.problem, width))
 	}
 
 	if f.said != "" {
 		lines = append(lines, "", wrap(f.said, width))
 	}
 
-	return append(lines, pinnedOutcome(kit.styles, kit.marks, f.send, "saving", width)...)
+	return append(lines, kit.pinnedOutcome(f.send, "saving", width)...)
 }
 
 // rows draws the settings in as many lines as fit, each section headed,

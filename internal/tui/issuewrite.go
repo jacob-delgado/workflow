@@ -111,8 +111,8 @@ func (m Model) openIssueWrite(build func(jira.Issue) (issueAction, string)) (Mod
 func (w issueWrite) view(kit renderKit, width, _ int) (string, string) {
 	w.input.SetWidth(max(1, width-len(w.input.Prompt)-1))
 
-	lines := append(pinnedOutcome(kit.styles, kit.marks, w.send, "sending", width),
-		pinnedProblem(kit.styles, kit.marks, w.problem, width)...)
+	lines := append(kit.pinnedOutcome(w.send, "sending", width),
+		kit.pinnedProblem(w.problem, width)...)
 	lines = append(lines, shownKey(w.issue.Key)+" "+w.issue.Summary, "", w.action.prompt, w.input.View())
 
 	return w.action.title + " " + shownKey(w.issue.Key), strings.Join(lines, "\n")

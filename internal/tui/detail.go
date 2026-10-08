@@ -133,7 +133,7 @@ func (m Model) resumeIssue() Model {
 // issuesRail is the Issues pane's list, each issue marked with its task state
 // when there is a Taskwarrior to ask.
 func (m Model) issuesRail(rows int) string {
-	return m.issues.render(m.marks, m.styles, rows, m.taskMarks())
+	return m.issues.render(m.kit(), rows, m.taskMarks())
 }
 
 // issuesNarrow is the collapsed Issues view: the full issue — or the reason
@@ -204,7 +204,7 @@ func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
 // failure.
 func (m Model) issueDetailView(width int) string {
 	if m.issues.err != nil {
-		return m.failureBlock(m.issues.err, width) + "\n\n" + m.status(width)
+		return m.kit().failureBlock(m.issues.err, width) + "\n\n" + m.status(width)
 	}
 
 	selected, ok := m.issues.current()
@@ -249,7 +249,7 @@ func (m Model) fullDetail(issueKey jira.Key, width int) []string {
 	case m.detail.key != issueKey || !m.detail.loaded:
 		return []string{"", m.styles.label.Render("reading the description and comments" + m.marks.ellipsis)}
 	case m.detail.err != nil:
-		return []string{"", m.failureBlock(m.detail.err, width), "press " + m.keys.refresh.Help().Key + " to try again"}
+		return []string{"", m.kit().failureBlock(m.detail.err, width), "press " + m.keys.refresh.Help().Key + " to try again"}
 	}
 
 	detail := m.detail.detail

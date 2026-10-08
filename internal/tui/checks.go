@@ -83,7 +83,7 @@ func checkGlyph(kit renderKit, state forge.CIState) string {
 	case forge.CIPassed:
 		return kit.marks.done
 	case forge.CIFailed:
-		return failedGlyph(kit.styles, kit.marks)
+		return kit.failedGlyph()
 	case forge.CIRunning:
 		return kit.marks.inFlight
 	case forge.CINone:
@@ -97,7 +97,7 @@ func checkGlyph(kit renderKit, state forge.CIState) string {
 func (c checkList) outcomeLines(kit renderKit) []string {
 	switch {
 	case c.err != nil:
-		return []string{"", failureLine(kit.styles, kit.marks, c.err)}
+		return []string{"", kit.failureLine(c.err)}
 	case c.outcome != "":
 		return []string{"", c.outcome}
 	default:
@@ -281,7 +281,7 @@ func (m Model) failedChecks() []string {
 			name = check.Stage + m.marks.separator + check.Name
 		}
 
-		lines = append(lines, "  "+failedGlyph(m.styles, m.marks)+" "+name)
+		lines = append(lines, "  "+m.kit().failedGlyph()+" "+name)
 
 		if check.Reason != "" {
 			lines = append(lines, "    "+check.Reason)

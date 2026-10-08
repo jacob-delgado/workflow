@@ -116,7 +116,7 @@ func (m Model) commitsRail(_ int) string {
 	case !m.changes.loaded:
 		return m.marks.reading()
 	case m.changes.err != nil:
-		return unreadRow(m.styles, m.marks, m.changes.err, "status failed")
+		return m.kit().unreadRow(m.changes.err, "status failed")
 	}
 
 	counts := strconv.Itoa(m.changes.staged()) + " of " + strconv.Itoa(len(m.changes.changes)) + " staged"
@@ -127,7 +127,7 @@ func (m Model) commitsRail(_ int) string {
 // commitsDetail lists the changed files, then the branch's commits.
 func (m Model) commitsDetail(width int) string {
 	if m.outsideRepository() {
-		return m.failureBlock(m.branch.err, width)
+		return m.kit().failureBlock(m.branch.err, width)
 	}
 
 	if !m.changes.loaded {
@@ -135,7 +135,7 @@ func (m Model) commitsDetail(width int) string {
 	}
 
 	if m.changes.err != nil {
-		return m.failureBlock(m.changes.err, width)
+		return m.kit().failureBlock(m.changes.err, width)
 	}
 
 	lines := m.changeRows()

@@ -298,7 +298,7 @@ func (p ownerPicker) view(kit renderKit, width, rows int) (string, string) {
 	case p.from.reading:
 		lines = append(lines, "", kit.marks.inFlight+" still reading Slack's directory"+kit.marks.ellipsis)
 	case p.from.err != nil:
-		lines = append(lines, "", failureBlock(kit.styles, kit.marks, p.from.err, width))
+		lines = append(lines, "", kit.failureBlock(p.from.err, width))
 	}
 
 	return "Link " + p.owner + " to Slack", strings.Join(lines, "\n")

@@ -141,7 +141,7 @@ func (c commitComposer) view(kit renderKit, width, _ int) (string, string) {
 	c.scope.SetWidth(inner)
 	c.subject.SetWidth(inner)
 
-	lines := pinnedOutcome(kit.styles, kit.marks, c.send, "", width)
+	lines := kit.pinnedOutcome(c.send, "", width)
 	lines = append(
 		lines,
 		c.label(kit, fieldType, "type    ")+c.typeChoice(kit),
@@ -150,7 +150,7 @@ func (c commitComposer) view(kit renderKit, width, _ int) (string, string) {
 
 	scopeProblem := c.scopeProblem()
 	if scopeProblem != nil {
-		lines = append(lines, "  "+failureLine(kit.styles, kit.marks, scopeProblem))
+		lines = append(lines, "  "+kit.failureLine(scopeProblem))
 	}
 
 	lines = append(
@@ -162,7 +162,7 @@ func (c commitComposer) view(kit renderKit, width, _ int) (string, string) {
 
 	problem := c.conv.Validate(subject)
 	if problem != nil && strings.TrimSpace(c.subject.Value()) != "" {
-		lines = append(lines, "  "+failureLine(kit.styles, kit.marks, problem))
+		lines = append(lines, "  "+kit.failureLine(problem))
 	}
 
 	return "Commit", strings.Join(append(append(lines, ""), c.footnotes()...), "\n")

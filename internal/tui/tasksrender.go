@@ -32,7 +32,7 @@ func (m Model) tasksRail(_ int) string {
 	case !m.tasks.loaded:
 		return m.marks.reading()
 	case m.tasks.err != nil:
-		return m.failureSummary(m.tasks.err)
+		return m.kit().failureSummary(m.tasks.err)
 	case m.tasks.writing:
 		return m.marks.inFlight + " sending" + m.marks.ellipsis
 	}
@@ -69,7 +69,7 @@ func (m Model) withoutTaskwarriorRail() string {
 		return "turned off"
 	}
 
-	return m.failureSummary(taskwarrior.ErrNotInstalled)
+	return m.kit().failureSummary(taskwarrior.ErrNotInstalled)
 }
 
 // withoutTaskwarriorDetail is withoutTaskwarriorRail in full, for the detail.
@@ -78,7 +78,7 @@ func (m Model) withoutTaskwarriorDetail(width int) string {
 		return wrap("Turned off by taskwarrior.disabled.", width)
 	}
 
-	return wrap(m.failureLine(taskwarrior.ErrNotInstalled), width)
+	return wrap(m.kit().failureLine(taskwarrior.ErrNotInstalled), width)
 }
 
 // tasksDetail lists the pending tasks, then describes the selected one.
@@ -91,7 +91,7 @@ func (m Model) tasksDetail(width int) string {
 	case !m.tasks.loaded:
 		return m.marks.reading()
 	case m.tasks.err != nil:
-		return m.failureBlock(m.tasks.err, width)
+		return m.kit().failureBlock(m.tasks.err, width)
 	case len(groups.listed()) == 0 && len(m.tasks.pending) > 0 && m.tasks.listing.narrows():
 		return strings.Join(append(m.taskRows(groups, width), "No task matches the filters."), "\n")
 	case len(groups.listed()) == 0:

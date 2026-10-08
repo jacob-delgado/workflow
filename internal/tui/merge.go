@@ -139,14 +139,14 @@ var (
 // view draws the pull request and the methods it may be merged by, the merge's
 // outcome pinned under the title.
 func (p mergePicker) view(kit renderKit, width, _ int) (string, string) {
-	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "merging", width)
+	lines := kit.pinnedOutcome(p.send, "merging", width)
 	lines = append(lines, p.vocab.sigil+strconv.Itoa(p.pull.Number)+" "+p.pull.Title, "")
 
 	switch {
 	case !p.settled:
 		lines = append(lines, "reading the merge methods"+kit.marks.ellipsis)
 	case p.listErr != nil:
-		lines = append(lines, failureLine(kit.styles, kit.marks, p.listErr))
+		lines = append(lines, kit.failureLine(p.listErr))
 	default:
 		lines = append(lines, "Merge by:")
 		for index, method := range p.methods {

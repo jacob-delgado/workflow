@@ -148,13 +148,13 @@ func (m Model) messagingState() string {
 	case m.messaging.send.sending:
 		return m.marks.inFlight + " announcing" + m.marks.ellipsis
 	case m.messaging.send.err != nil:
-		return m.failureSummary(m.messaging.send.err)
+		return m.kit().failureSummary(m.messaging.send.err)
 	case m.announced():
 		return m.marks.done + " announced"
 	case m.messaging.pending.waiting():
 		return m.marks.inFlight + " announces when CI passes"
 	case m.messaging.dropped != "":
-		return m.failedGlyph() + " not announced: " + m.messaging.dropped
+		return m.kit().failedGlyph() + " not announced: " + m.messaging.dropped
 	default:
 		return m.marks.notStarted + " nothing announced"
 	}
@@ -184,7 +184,7 @@ func (m Model) messagingDetail(width int) string {
 	}
 
 	if m.messaging.send.err != nil {
-		lines = append(lines, "", m.failureBlock(m.messaging.send.err, width))
+		lines = append(lines, "", m.kit().failureBlock(m.messaging.send.err, width))
 	}
 
 	return wrap(strings.Join(lines, "\n"), width)

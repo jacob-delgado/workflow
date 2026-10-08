@@ -150,7 +150,7 @@ func (m Model) ciSummary() string {
 
 	switch {
 	case m.review.ciErr != nil:
-		return m.failureSummary(m.review.ciErr)
+		return m.kit().failureSummary(m.review.ciErr)
 	case !m.review.checked:
 		return "reading" + m.marks.ellipsis
 	case reported.State == forge.CINone:

@@ -240,7 +240,7 @@ func (m Model) repositoriesDetail(width int) string {
 	if worktrees > 0 || m.repositories.worktreesErr != nil {
 		lines = append(lines, "", m.styles.strong.Render("Worktrees"))
 		if m.repositories.worktreesErr != nil {
-			lines = append(lines, m.failureSummary(m.repositories.worktreesErr))
+			lines = append(lines, m.kit().failureSummary(m.repositories.worktreesErr))
 		}
 
 		for index := 1; index <= worktrees; index++ {
@@ -252,7 +252,7 @@ func (m Model) repositoriesDetail(width int) string {
 
 	switch {
 	case m.repositories.err != nil:
-		lines = append(lines, m.failureSummary(m.repositories.err))
+		lines = append(lines, m.kit().failureSummary(m.repositories.err))
 	case !m.repositories.read:
 		lines = append(lines, m.marks.reading())
 	case len(rows) == 1+worktrees:

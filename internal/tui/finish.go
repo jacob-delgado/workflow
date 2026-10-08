@@ -81,7 +81,7 @@ func (p finishPreview) commands() []string {
 // view draws the merged pull request and the commands that finish its branch,
 // the finish's outcome pinned under the title.
 func (p finishPreview) view(kit renderKit, width, _ int) (string, string) {
-	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "finishing", width)
+	lines := kit.pinnedOutcome(p.send, "finishing", width)
 	lines = append(lines, p.vocab.sigil+strconv.Itoa(p.pull.Number)+" merged; finish "+p.branch+" by running:", "")
 
 	for _, command := range p.commands() {

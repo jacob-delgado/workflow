@@ -53,7 +53,7 @@ func (m Model) openPullRequestEditor() (Model, tea.Cmd) {
 func (p prEditor) view(kit renderKit, width, _ int) (string, string) {
 	p.title.SetWidth(max(1, width-prLabelWidth))
 
-	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "saving", width)
+	lines := kit.pinnedOutcome(p.send, "saving", width)
 	lines = append(lines,
 		kit.marks.marker(true)+fmt.Sprintf("%-9s ", "title")+p.title.View(),
 		fmt.Sprintf("  %-9s %s%d", "on", p.vocab.sigil, p.pull.Number),
