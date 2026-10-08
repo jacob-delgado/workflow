@@ -50,6 +50,8 @@ test('a refusal says why, as the server words it', async () => {
     } catch (refused) {
       return refused
     }
+
+    return undefined
   })()
 
   // Assert

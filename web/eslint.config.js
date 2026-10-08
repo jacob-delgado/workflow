@@ -2,6 +2,7 @@ import comments from '@eslint-community/eslint-plugin-eslint-comments'
 import js from '@eslint/js'
 import jsonc from 'eslint-plugin-jsonc'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
+import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import testingLibrary from 'eslint-plugin-testing-library'
 import vitest from '@vitest/eslint-plugin'
@@ -123,6 +124,7 @@ export default tseslint.config(
       // e2e is the belt to this suspenders.
       jsxA11y.flatConfigs.strict,
     ],
+    plugins: { react },
     languageOptions: {
       globals: globals.browser,
       parserOptions: {
@@ -130,8 +132,18 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+    settings: { react: { version: 'detect' } },
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
+      // A switch over a union names every member, as Go's exhaustive asks: a
+      // new state then fails the lint where it is not drawn, rather than
+      // drawing nothing.
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      // A list item carries a key, and one that names the item, not its place:
+      // a key by index hands one row's state to the next when a row comes or
+      // goes.
+      'react/jsx-key': 'error',
+      'react/no-array-index-key': 'error',
       complexity: ['error', 10],
       // Code-smell caps (see CLAUDE.md "Code smells"): long parameter list, deep
       // nesting, callback pyramids, nested ternaries, and parameter mutation.

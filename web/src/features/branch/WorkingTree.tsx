@@ -8,7 +8,7 @@ import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Failure, ReadFailure } from '@/lib/Status.tsx'
 import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { cn } from '@/lib/utils.ts'
+import { cn, keyedByText } from '@/lib/utils.ts'
 import { CommitForm, type CommitConvention } from './CommitForm.tsx'
 import {
   discardFile,
@@ -302,10 +302,8 @@ function DiffText({ diff }: { diff: FileDiff }) {
     >
       {diff.lines.length === 0
         ? 'git reports no difference.'
-        : diff.lines.map((line, index) => (
-            // A diff's lines repeat, so a line is known by where it is: the diff is
-            // read once and never reordered.
-            <span key={index} className={lineTone(line)}>
+        : keyedByText(diff.lines, (line) => line).map(({ key, item: line }) => (
+            <span key={key} className={lineTone(line)}>
               {line}
               {'\n'}
             </span>

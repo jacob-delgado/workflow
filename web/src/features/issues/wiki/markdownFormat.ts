@@ -25,7 +25,9 @@ export function applyFormat(format: Format, text: string, start: number, end: nu
       return link(text, start, end)
     case 'list':
       return list(text, start, end)
-    default:
+    case 'bold':
+    case 'italic':
+    case 'code':
       return wrap(text, start, end, marks[format])
   }
 }

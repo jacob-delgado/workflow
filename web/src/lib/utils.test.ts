@@ -1,4 +1,4 @@
-import { cn, plural } from './utils.ts'
+import { cn, keyedByText, plural } from './utils.ts'
 
 test.each([
   ['gap-item', 'gap-section', 'gap-section'],
@@ -17,4 +17,24 @@ test.each([
 ])('counts %i %s in words: %s', (count, noun, said) => {
   // Act & Assert
   expect(plural(count, noun)).toBe(said)
+})
+
+test('repeated text is keyed apart by how often it came before', () => {
+  // Act
+  const keyed = keyedByText([' a', '+b', ' a'], (line) => line)
+
+  // Assert
+  expect(new Set(keyed.map(({ key }) => key)).size).toBe(3)
+  expect(keyed.map(({ item }) => item)).toEqual([' a', '+b', ' a'])
+})
+
+test('an item keeps its key when another before it goes', () => {
+  // Arrange
+  const before = keyedByText(['one', 'two', 'three'], (word) => word)
+
+  // Act
+  const after = keyedByText(['one', 'three'], (word) => word)
+
+  // Assert
+  expect(after[1]?.key).toBe(before[2]?.key)
 })
