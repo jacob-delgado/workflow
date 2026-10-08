@@ -77,6 +77,10 @@ func TestListTasksDescribesEachTasksFacets(t *testing.T) {
 		},
 	}
 
+	if len(list.Tasks) != len(want) {
+		t.Fatalf("tasks = %+v, want %d", list.Tasks, len(want))
+	}
+
 	for index, task := range list.Tasks {
 		if got := taskFacetLines(task.Facets); !slices.Equal(got, want[index]) {
 			t.Errorf("task %s facets = %q, want %q", task.UUID, got, want[index])
