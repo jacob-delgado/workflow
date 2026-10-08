@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"cmp"
 	"errors"
 	"slices"
 	"strconv"
@@ -67,6 +68,9 @@ type commitComposer struct {
 	// editBodyKey is the key edit-body is bound to, which the offer of a body
 	// names.
 	editBodyKey string
+	// opened is the count of overlays opened when this one opened, so the
+	// scopes read for it land in it alone.
+	opened int
 }
 
 var (
@@ -74,25 +78,29 @@ var (
 	_ pasteable = commitComposer{}
 )
 
-// openCommitComposer opens the composer on the draft kept, or on a fresh one.
+// openCommitComposer opens the composer on the draft kept, or on a fresh one,
+// at once: the scope last used here and the scopes in the log, which read the
+// store and git, arrive after it opens.
 func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	draft := m.draft
 	conv := m.commitConvention()
 	types := conv.Types()
 	issueKey, _ := m.branchIssue()
+	m, opened := m.opening()
 
 	composer := commitComposer{
 		marks: m.marks, styles: m.styles, conv: conv, types: types, kind: m.startingType(conv, draft),
-		focus: fieldSubject, scope: newInput(m.startingScope(draft)), subject: newInput(draft.subject), body: draft.body,
+		focus: fieldSubject, scope: newInput(cmp.Or(draft.scope, m.cfg.Commit.DefaultScope)),
+		subject: newInput(draft.subject), body: draft.body,
 		issueKey: issueKey, staged: m.changes.staged(), breaking: draft.breaking,
-		editBodyKey: m.keys.editBody.Help().Key,
+		editBodyKey: m.keys.editBody.Help().Key, opened: opened,
 	}
 	composer.scope.Blur()
-	composer = composer.withScopeSuggestions(m.stagedPaths(), m.deps.Git.RecentSubjects)
 
-	m.overlay = composer
+	paths := m.stagedPaths()
+	m.overlay = composer.withScopeSuggestions(scopeSuggestions(paths, nil))
 
-	return m, nil
+	return m, m.readScopes(opened, paths, draft.scope == "")
 }
 
 // commitConvention is the team's commit convention: their own types, subject
@@ -116,24 +124,6 @@ func (m Model) startingType(conv convention.CommitConvention, draft commitDraft)
 	}
 
 	return 0
-}
-
-// startingScope is the scope the composer opens on: a kept draft's scope wins,
-// so a failed commit reopens as it was; otherwise the scope last used in this
-// repository, learned from the last commit; otherwise the configured default;
-// otherwise blank.
-func (m Model) startingScope(draft commitDraft) string {
-	if draft.scope != "" {
-		return draft.scope
-	}
-
-	if m.deps.Store.LastScope != nil {
-		if learned, ok := m.deps.Store.LastScope(); ok {
-			return learned
-		}
-	}
-
-	return m.cfg.Commit.DefaultScope
 }
 
 // assembled is the subject as it stands.
@@ -384,21 +374,20 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 	return m.startRun(commitRun(), func() (proc.Output, error) { return commit(message) },
 		func(done Model) (Model, tea.Cmd) {
 			done.draft = commitDraft{}
-			_, err := loop.RememberScope(done.deps.Store.RecordScope, subject.Scope)
-			done = done.closeOverlay().noticed(done.marks.done + " committed " + subject.String() + scopeNotKept(err))
+			committed := done.marks.done + " committed " + subject.String()
+			done = done.closeOverlay().noticed(committed)
+			record := done.deps.Store.RecordScope
+			remember := func() tea.Msg {
+				_, err := loop.RememberScope(record, subject.Scope)
+				if err != nil {
+					return storeNotKept{notice: committed + "; its scope was not remembered: " + err.Error()}
+				}
 
-			return done, tea.Batch(done.loadChanges(), done.loadBranch())
+				return nil
+			}
+
+			return done, tea.Batch(done.loadChanges(), done.loadBranch(), remember)
 		})
-}
-
-// scopeNotKept is what a store that could not keep a commit's scope says
-// after the commit: nothing when it kept it.
-func scopeNotKept(err error) string {
-	if err == nil {
-		return ""
-	}
-
-	return "; its scope was not remembered: " + err.Error()
 }
 
 // commitRun is a commit, which the repository's hooks can refuse.
