@@ -15,7 +15,7 @@
 # and fails the lint gate unless it agrees with go.mod, mise.toml and the README.
 # scripts/tool-versions.sh passes the mise.toml value in at build time, and the
 # two are held equal by that check. Do not drop the default — the gate reads it.
-ARG GO_VERSION=1.27.1
+ARG GO_VERSION=1.27.2
 # Pinned by digest as well as by tag, so what gets pulled cannot change under a
 # tag that was re-pushed. The digest is the multi-architecture index, so amd64
 # and arm64 both resolve from it. It moves by hand, with each Go bump: Dependabot
@@ -24,7 +24,7 @@ ARG GO_VERSION=1.27.1
 # holds, so GO_VERSION and the digest move together. scripts/check-go-version.sh
 # holds GO_VERSION to mise.toml's Go, and the check below stops the build when
 # the digest holds another.
-FROM golang:${GO_VERSION}-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd52bba1431dc2f7c0705862728
+FROM golang:${GO_VERSION}-trixie@sha256:e58d6f83b3416618d8bcac2b3dde1b7f7e3c4a77d25e88637f8bbae81536c48d
 
 # go.mod names only the series, so GOTOOLCHAIN=local would accept a base image
 # one patch behind mise.toml's Go and build quietly against it. Stop here

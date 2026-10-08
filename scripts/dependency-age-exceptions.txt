@@ -10,3 +10,4 @@
 #     <name> <version> <advisory>
 #
 # Remove a line once its version is a week old; it has done its job.
+go 1.27.2 CVE-2026-78659
