@@ -77,6 +77,11 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 			"Use --template to write a blank file to fill in by hand rather than being\n" +
 			"asked. With --dry-run it runs the same checks, writes nothing and stores\n" +
 			"nothing in the keychain, and prints the file it would write, masked.",
+		Example: examples(
+			`workflow config init              # answer the prompts, the Jira token checked`,
+			`workflow config init --template   # a blank file to fill in by hand`,
+			`workflow config init --global     # one file in your home, for every directory`,
+		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.dryRun = dryRunRequested(cmd)
@@ -126,6 +131,9 @@ func newConfigShowCmd() *cobra.Command {
 			"The JSON alone goes to stdout, so it pipes into jq; the file it came from is\n" +
 			"named on stderr. With no configuration file it says how to create one and\n" +
 			"exits 3, as doctor does.",
+		Example: examples(
+			`workflow config show | jq -r .jira.base_url   # one setting in effect, as data`,
+		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := loadFromEnvironment()

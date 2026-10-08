@@ -27,6 +27,13 @@ the first.
 workflow slack login [flags]
 ```
 
+### Examples
+
+```
+  workflow slack login             # set up the user token, at a terminal
+  workflow --dry-run slack login   # where it would keep the token, asking nothing
+```
+
 ### Options
 
 ```
