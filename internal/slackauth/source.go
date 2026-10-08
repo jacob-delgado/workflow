@@ -17,8 +17,8 @@ const refreshAhead = 10 * time.Minute
 
 // Source hands out the user token to post with: the one kept in Store while it
 // has time left, otherwise a new one from Refresher, kept in its place. A
-// refresh is made under Lock, so two processes never spend the same refresh
-// token, which works once.
+// refresh is made under Lock, so while each process that refreshes takes it,
+// two never spend the same refresh token, which works once.
 type Source struct {
 	Store     Store
 	Refresher Refresher
