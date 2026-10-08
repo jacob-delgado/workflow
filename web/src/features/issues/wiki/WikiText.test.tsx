@@ -35,26 +35,28 @@ test('markers inside a word are left as they are', () => {
   expect(screen.queryByRole('strong')).toBeNull()
 })
 
-test('a labeled link and a bare one open in a new tab, without an opener', () => {
+test('a labeled link and a bare one open in a new tab, without an opener, and say so', () => {
   // Act
-  renderWiki('See [the docs|https://example.com/docs] or [mailto:ana@example.com]')
+  renderWiki('See [the docs|https://example.com/docs] or [http://example.com/faq]')
 
   // Assert
-  const docs = screen.getByRole('link', { name: 'the docs' })
+  const docs = screen.getByRole('link', { name: 'the docs (opens in a new tab)' })
   expect(docs.getAttribute('href')).toBe('https://example.com/docs')
   expect(docs.getAttribute('target')).toBe('_blank')
   expect(docs.getAttribute('rel')).toBe('noopener noreferrer')
-  expect(screen.getByRole('link', { name: 'mailto:ana@example.com' })).toBeTruthy()
+  expect(
+    screen.getByRole('link', { name: 'http://example.com/faq (opens in a new tab)' }),
+  ).toBeTruthy()
 })
 
-test('a link to anything but the web or mail stays text', () => {
+test('a link to anything but the web stays text', () => {
   // Act
-  renderWiki('[click|javascript:alert(1)] [data:text/html,x]')
+  renderWiki('[click|javascript:alert(1)] [data:text/html,x] [mailto:ana@example.com]')
 
   // Assert
   expect(screen.queryByRole('link')).toBeNull()
   expect(paragraphs().map((line) => line.textContent)).toEqual([
-    '[click|javascript:alert(1)] [data:text/html,x]',
+    '[click|javascript:alert(1)] [data:text/html,x] [mailto:ana@example.com]',
   ])
 })
 
@@ -64,7 +66,9 @@ test('an image is offered as a link to it, never loaded', () => {
 
   // Assert
   expect(screen.queryByRole('img')).toBeNull()
-  expect(screen.getByRole('link', { name: 'https://example.com/shot.png' })).toBeTruthy()
+  expect(
+    screen.getByRole('link', { name: 'https://example.com/shot.png (opens in a new tab)' }),
+  ).toBeTruthy()
 })
 
 test('headings, a quote and lists are drawn as blocks', () => {
@@ -133,7 +137,7 @@ test('emphasis inside a link label is drawn too', () => {
   renderWiki('[*bold* docs|https://example.com]')
 
   // Assert
-  const link = screen.getByRole('link', { name: 'bold docs' })
+  const link = screen.getByRole('link', { name: 'bold docs (opens in a new tab)' })
   expect(within(link).getByRole('strong').textContent).toBe('bold')
 })
 
