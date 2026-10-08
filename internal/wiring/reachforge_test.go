@@ -81,3 +81,25 @@ func TestTheForgeCLIRunsNothingForARequestBodyItCannotRead(t *testing.T) {
 		t.Errorf("gh was run as %v for a request whose body could not be read", args)
 	}
 }
+
+func TestReachingAForgeThroughItsCLIAsksForNoToken(t *testing.T) {
+	// Arrange
+	// No token in the environment, so finding one would ask gh for it: the CLI
+	// signs every request itself, and that ask would be for nothing.
+	ghStub := installForgeCLI(t, "gh", forgeReplies{})
+	t.Setenv("GITHUB_TOKEN", "")
+
+	cfg, _ := githubCLIWorkspace(t)
+
+	// Act
+	access, err := wiring.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
+
+	// Assert
+	if err != nil || access.Via != "through gh" {
+		t.Fatalf("ReachForge = %+v, %v; want the forge reached through gh", access, err)
+	}
+
+	if lookups := ghStub.tokenLookups(); lookups != 0 {
+		t.Errorf("gh auth token ran %d times, want none: the CLI carries its own login", lookups)
+	}
+}
