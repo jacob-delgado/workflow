@@ -6,9 +6,9 @@ import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
 // of workflow's own marks. Places in one group widen the list, and the two
 // groups narrow it together.
 //
-// internal/places works these rules out again, and both copies answer to the
-// one case file testdata/twins/places.json, so a change to either alone fails
-// its own tests.
+// Trade-off TRADE-21: these rules are written again in internal/places, and
+// both copies answer to the one case file testdata/twins/places.json, so a
+// change to either alone fails its own tests.
 type PlaceKind = 'status' | 'mark'
 
 export interface Place {
