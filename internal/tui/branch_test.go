@@ -83,6 +83,44 @@ func TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys(t *testing.T) {
 	}
 }
 
+func TestOutsideARepositoryARepoKeyTheFooterLeavesOutDoesNothing(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		keys     []string
+		unwanted string
+	}{
+		"switching branch on Branch":   {keys: []string{"2", "s"}, unwanted: "Switch to another task's branch"},
+		"running the hooks on Commits": {keys: []string{"3", "h"}, unwanted: "┏━ pre-commit"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			repo := newWorld()
+			deps := repo.deps()
+			outsideARepository(&deps)
+			model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
+			model = drain(t, model, model.Init())
+			listed := len(repo.asked("branches"))
+
+			// Act
+			view := typing(t, model, tt.keys...).View().Content
+
+			// Assert
+			requireScreen(t, view, "This is not inside a git repository")
+			refuseScreen(t, view, tt.unwanted)
+
+			if hooks, branches := repo.asked("hook "), repo.asked("branches"); len(hooks) != 0 || len(branches) != listed {
+				t.Errorf("outside a repository the key ran %q and listed the branches %d more times",
+					hooks, len(branches)-listed)
+			}
+		})
+	}
+}
+
 // forkRemote is a remote a repository can push to in place of origin.
 const forkRemote = "fork"
 
