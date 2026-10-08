@@ -374,6 +374,19 @@ func TestOnAnEightyColumnTerminalTheHelpNamesEveryKeyWhole(t *testing.T) {
 	requireScreen(t, pages, "In a composer or preview", "ctrl+g    worktree", "w         announce when CI passes")
 }
 
+func TestTheHelpLeavesASpaceAfterAKeyAsWideAsItsColumn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	ascii := asciiInterface(t, newWorld(), 160, 70)
+
+	// Act
+	view := typing(t, ascii, "?").View().Content
+
+	// Assert
+	requireScreen(t, view, "left/right change type")
+}
+
 func TestTheHelpCutsNoLineShortAtThePanesEdge(t *testing.T) {
 	t.Parallel()
 

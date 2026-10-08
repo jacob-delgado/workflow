@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -195,26 +194,43 @@ func columnLines(heights []int) int {
 // group's name. A binding with no help text of its own is left out; it rides
 // another's line.
 func (m Model) helpColumn(first, last int) string {
-	groups := m.keys.FullHelp()
-	names := helpGroups(m.cfg.Messaging.Service())
+	groups := m.keys.FullHelp()[first:last]
+	names := helpGroups(m.cfg.Messaging.Service())[first:last]
+	keyWidth := widestHelpKey(groups) + 1
 
 	var lines []string
 
-	for index := first; index < last; index++ {
-		if index > first {
+	for index, group := range groups {
+		if index > 0 {
 			lines = append(lines, "")
 		}
 
 		lines = append(lines, m.styles.strong.Render(names[index]))
 
-		for _, binding := range groups[index] {
-			if binding.Help().Key == "" {
+		for _, binding := range group {
+			shown := binding.Help().Key
+			if shown == "" {
 				continue
 			}
 
-			lines = append(lines, "  "+fmt.Sprintf("%-10s", binding.Help().Key)+binding.Help().Desc)
+			padding := strings.Repeat(" ", keyWidth-lipgloss.Width(shown))
+			lines = append(lines, "  "+shown+padding+binding.Help().Desc)
 		}
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// widestHelpKey is how many cells the widest key shown in groups takes, so
+// every description in a column starts past it, whatever ui.keys binds.
+func widestHelpKey(groups [][]key.Binding) int {
+	widest := 0
+
+	for _, group := range groups {
+		for _, binding := range group {
+			widest = max(widest, lipgloss.Width(binding.Help().Key))
+		}
+	}
+
+	return widest
 }
