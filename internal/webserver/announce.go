@@ -190,32 +190,6 @@ func (s *server) announceNow(post announcePost) api.AnnounceResponseObject {
 	return api.Announce200JSONResponse(announcementDTO(post.delivery.Text, post.delivery.Channel))
 }
 
-// errAnnouncedAlready is an announcement made already at its moment, from
-// here or from a terminal.
-var errAnnouncedAlready = errors.New("announced already at this moment")
-
-// deliver posts post, and records what it made, unless that was made already.
-// The check, the post and the record are one step under delivering, so two
-// asks at once — two tabs, or a held announcement and one made now — post it
-// once, and the second learns it was made.
-func (s *server) deliver(post announcePost) error {
-	s.delivering.Lock()
-	defer s.delivering.Unlock()
-
-	if s.announcedAlready(post.delivery.Made) {
-		return errAnnouncedAlready
-	}
-
-	return loop.Deliver(s.deps.Post, post.memory, post.delivery)
-}
-
-// announcedBefore refuses to announce pull at a moment it was announced at
-// already.
-func (s *server) announcedBefore(pull int) api.Problem {
-	return problem(api.ProblemCodeConflict,
-		s.pullName(pull)+" was already announced at this moment, here or from a terminal")
-}
-
 // announcement is the announcement for the checked-out branch's pull request,
 // composed from the pull request, the branch's issue, and the configured
 // template, and the pull request it announces. It fails with
