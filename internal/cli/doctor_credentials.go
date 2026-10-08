@@ -397,7 +397,8 @@ func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings conf
 
 	user, err := client.Myself(ctx)
 	// The configuration section fails an address the client cannot use, whether
-	// it is not an http or https URL or it carries a login; here it only means
+	// it is not an https URL or an http one to this machine, or it carries a
+	// login; here it only means
 	// there is no Jira to ask.
 	if errors.Is(err, config.ErrInvalidBaseURL) || errors.Is(err, config.ErrCredentialInBaseURL) {
 		return credentialUnchecked(out, "jira", err.Error()+" — the configuration section fails it; Jira was not asked")

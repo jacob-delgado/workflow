@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -164,4 +165,17 @@ func Read(body io.Reader, limit int64) ([]byte, error) {
 	}
 
 	return read, nil
+}
+
+// OnThisMachine reports a host name, without its port, that only this machine
+// answers to: localhost, or a loopback address. A credential is sent over
+// plain http only to such a host, where it never crosses a network.
+func OnThisMachine(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+
+	ip := net.ParseIP(host)
+
+	return ip != nil && ip.IsLoopback()
 }

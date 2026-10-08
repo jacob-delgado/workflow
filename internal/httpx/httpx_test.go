@@ -195,3 +195,34 @@ func TestARequestThatAsksIsShownItsRedirectRatherThanFollowingIt(t *testing.T) {
 		_ = response.Body.Close()
 	}
 }
+
+func TestOnThisMachineNamesOnlyAHostThisMachineAnswersTo(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		host string
+		want bool
+	}{
+		"localhost":                 {host: "localhost", want: true},
+		"localhost in capitals":     {host: "LocalHost", want: true},
+		"the IPv4 loopback":         {host: "127.0.0.1", want: true},
+		"another IPv4 loopback":     {host: "127.8.9.10", want: true},
+		"the IPv6 loopback":         {host: "::1", want: true},
+		"a name":                    {host: "jira.example.com", want: false},
+		"a name ending in its name": {host: "jira.localhost.example.com", want: false},
+		"a private address":         {host: "10.0.0.1", want: false},
+		"every address":             {host: "0.0.0.0", want: false},
+		"nothing":                   {host: "", want: false},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := httpx.OnThisMachine(tt.host); got != tt.want {
+				t.Errorf("OnThisMachine(%q) = %t, want %t", tt.host, got, tt.want)
+			}
+		})
+	}
+}

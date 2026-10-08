@@ -184,7 +184,8 @@ func (s *server) takeUp() bool {
 func checkFailure(err error) api.SetUpResponseObject {
 	if !setup.Keepable(err) {
 		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
-			"Jira's address is not an http or https address without a username or password; type it again"))
+			"Jira's address is not an https address, or http to this machine, without a username or password; "+
+				"type it again"))
 	}
 
 	return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeCheckFailed, checkRefusal(err)))
