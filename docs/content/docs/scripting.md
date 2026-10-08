@@ -153,8 +153,10 @@ or merged — by `announce` or the interface, as the store remembers it; with
 `store.disabled` it never does.
 `issue` and `summary` are left out when the branch names no issue.
 
-`workflow status --json DIR…` prints an array, one object per directory, each
-with a `repository` label. A directory that cannot be read has an `error`
+`workflow status --json DIR…` prints an array, one object per directory in
+the order given, each with `dir`, the directory as it was given, and a
+`repository` label: its base name, or its path written from your home where
+two directories given share a base name. A directory that cannot be read has an `error`
 instead of the stages — `"not a git repository"`, or why its repository
 could not be read — and the command then exits non-zero after printing the
 whole array.
