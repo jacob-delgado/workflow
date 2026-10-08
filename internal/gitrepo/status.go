@@ -193,7 +193,7 @@ const literalPathspecs = "--literal-pathspecs"
 func (r Repository) Stage(ctx context.Context, change Change) error {
 	args := append([]string{"-C", r.dir, literalPathspecs, "add", "--all", "--"}, change.paths()...)
 
-	_, err := r.run(ctx, "git", args...)
+	_, err := r.run(ctx, gitProgram, args...)
 	if err != nil {
 		return fmt.Errorf("staging %s: %w", sanitize.Line(change.Path), err)
 	}
