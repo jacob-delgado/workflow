@@ -38,24 +38,62 @@ func reportCredentials(ctx context.Context, out io.Writer, run doctorRun, remote
 
 	fmt.Fprint(out, "\nCredentials:\n")
 
+	return checkCredentials(ctx, run, remote, func(line credentialLine) {
+		fmt.Fprintf(out, "  %-10s %s\n", line.Service, line.Detail)
+	})
+}
+
+// credentialLine is one service's check, as both reports give it: the
+// service, how the check went, and the already-masked detail.
+type credentialLine struct {
+	Service string `json:"service"`
+	Status  string `json:"status"`
+	Detail  string `json:"detail"`
+}
+
+// checkCredentials makes each online check in turn, naming the service it is
+// asking in the progress note, hands answered each one's line as it comes,
+// and returns the run's verdict.
+func checkCredentials(ctx context.Context, run doctorRun, remote string, answered func(credentialLine)) error {
 	checks := credentialChecks(ctx, run, remote)
 	outcomes := make([]error, 0, len(checks))
 
 	for _, check := range checks {
 		run.note.show("Checking", check.name)
-		outcomes = append(outcomes, check.run(out))
+
+		line, err := check.run()
+		line.Status = credentialStatus(err)
+		answered(line)
+
+		outcomes = append(outcomes, err)
 	}
 
 	return credentialVerdict(outcomes...)
 }
 
-// credentialCheck is one service doctor --online asks: its key in the JSON
-// report, its name in the progress note, and the check, which writes its
-// already-masked line to the writer it is given.
+// credentialStatus names an outcome for the reader to act on: a working
+// credential, one doctor could not ask about, none to ask with, one the service
+// refused, or a service that never answered.
+func credentialStatus(err error) string {
+	switch {
+	case err == nil:
+		return "ok"
+	case errors.Is(err, errUnchecked):
+		return "unchecked"
+	case errors.Is(err, errCredentialMissing):
+		return "missing"
+	case errors.Is(err, errUnreachable):
+		return "unreachable"
+	default:
+		return "rejected"
+	}
+}
+
+// credentialCheck is one service doctor --online asks: its name in the
+// progress note, and the check, which answers with its line and its outcome.
 type credentialCheck struct {
-	service string
-	name    string
-	run     func(out io.Writer) error
+	name string
+	run  func() (credentialLine, error)
 }
 
 // credentialChecks are the online checks, in the order both reports make
@@ -64,14 +102,14 @@ func credentialChecks(ctx context.Context, run doctorRun, remote string) []crede
 	cfg, doers := run.cfg, onlineDoers(run.cfg, run.log)
 
 	return []credentialCheck{
-		{service: "jira", name: "Jira", run: func(out io.Writer) error { return checkJira(ctx, out, doers.jira, cfg.Jira) }},
+		{name: "Jira", run: func() (credentialLine, error) { return checkJira(ctx, doers.jira, cfg.Jira) }},
 		{
-			service: strings.ToLower(cfg.Messaging.Service()), name: cfg.Messaging.Service(),
-			run: func(out io.Writer) error { return checkMessaging(ctx, out, doers.messaging, run) },
+			name: cfg.Messaging.Service(),
+			run:  func() (credentialLine, error) { return checkMessaging(ctx, doers.messaging, run) },
 		},
 		{
-			service: "forge", name: forgeNoun(wiring.ForgeKind(cfg.Forge, remote)),
-			run: func(out io.Writer) error { return checkForge(ctx, out, run, remote) },
+			name: forgeNoun(wiring.ForgeKind(cfg.Forge, remote)),
+			run:  func() (credentialLine, error) { return checkForge(ctx, run, remote) },
 		},
 	}
 }
@@ -160,22 +198,22 @@ func apiBase(repo forge.Repo) (string, bool) {
 // It reports the credential's SOURCE rather than the token: knowing which of
 // three places a credential was taken from, or that the forge's own CLI signed
 // the request, is what answers "why is it using that one?".
-func checkForge(ctx context.Context, out io.Writer, run doctorRun, remote string) error {
+func checkForge(ctx context.Context, run doctorRun, remote string) (credentialLine, error) {
 	repo, ok := forgeRepo(remote)
 	if !ok {
-		return credentialUnchecked(out, "forge", "no repository remote, so there is no forge to ask")
+		return credentialUnchecked("forge", "no repository remote, so there is no forge to ask")
 	}
 
 	// The configuration section fails a forge.kind that cannot be used; here it
 	// only means there is no forge to ask.
 	repo, err := repo.WithConfiguredKind(wiring.ForgeSettings(run.cfg.Forge))
 	if err != nil {
-		return credentialUnchecked(out, "forge", err.Error())
+		return credentialUnchecked("forge", err.Error())
 	}
 
 	base, known := apiBase(repo)
 	if !known {
-		return credentialUnchecked(out, "forge",
+		return credentialUnchecked("forge",
 			repo.Host+" is not github.com, a ghe.com tenant or gitlab.com — set forge.kind and forge.host")
 	}
 
@@ -189,12 +227,12 @@ func checkForge(ctx context.Context, out io.Writer, run doctorRun, remote string
 
 	access, err := wiring.ReachForge(ctx, run.cfg.Forge, repo, base, httpx.Client(timeout).Do)
 	if err != nil {
-		return credentialMissing(out, "forge", noForgeTokenMessage(proc.Available, repo.Kind, repo.Host))
+		return credentialMissing("forge", noForgeTokenMessage(proc.Available, repo.Kind, repo.Host))
 	}
 
 	client := forge.New(run.log.Wrap("forge", access.Doer), base, access.Token).On(repo.Kind)
 
-	return askForge(ctx, out, client, repo.Kind, access.Via)
+	return askForge(ctx, client, repo.Kind, access.Via)
 }
 
 // noForgeTokenMessage explains why no forge token resolved. When gh is the
@@ -220,18 +258,16 @@ func noForgeTokenMessage(available func(string) bool, kind forge.Kind, host stri
 // askForge asks the forge who the credential belongs to, and says beside the
 // answer where that credential came from, or which CLI signed the request —
 // and, on GitLab, when the token can read but not write.
-func askForge(ctx context.Context, out io.Writer, client forge.Client, kind forge.Kind, via string) error {
+func askForge(ctx context.Context, client forge.Client, kind forge.Kind, via string) (credentialLine, error) {
 	identity, err := client.Whoami(ctx)
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %v (%s)\n", "forge", unansweredBecause(ctx, err), via)
-
-		return credentialOutcome(err, "forge")
+		return credentialFailed("forge", fmt.Sprintf("%s (%s)", unansweredBecause(ctx, err), via), err)
 	}
 
-	fmt.Fprintf(out, "  %-10s authenticates as %s (%s)%s\n",
-		"forge", identity.Name(), via, writeScopeNote(ctx, client, kind))
-
-	return nil
+	return credentialLine{
+		Service: "forge",
+		Detail:  fmt.Sprintf("authenticates as %s (%s)%s", identity.Name(), via, writeScopeNote(ctx, client, kind)),
+	}, nil
 }
 
 // writeScopeNote warns of a GitLab token without the api scope, which reads
@@ -270,7 +306,7 @@ func unansweredBecause(ctx context.Context, err error) string {
 // belongs to, refreshing the token first when it is about to run out, as a
 // post would. Only a Slack user token can be checked; a webhook is
 // uncheckable.
-func checkMessaging(ctx context.Context, out io.Writer, doer messaging.Doer, run doctorRun) error {
+func checkMessaging(ctx context.Context, doer messaging.Doer, run doctorRun) (credentialLine, error) {
 	cfg := run.cfg
 	label := strings.ToLower(cfg.Messaging.Service())
 
@@ -287,18 +323,16 @@ func checkMessaging(ctx context.Context, out io.Writer, doer messaging.Doer, run
 	// way to test a webhook is to post into somebody's channel. A token due a
 	// refresh under --dry-run is the same: asking would mean writing.
 	if errors.Is(err, messaging.ErrWebhookUncheckable) || errors.Is(err, errRefreshHeldBack) {
-		return credentialUnchecked(out, label, err.Error())
+		return credentialUnchecked(label, err.Error())
 	}
 
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %v\n", label, err)
-
-		return credentialOutcome(err, label)
+		return credentialFailed(label, err.Error(), err)
 	}
 
-	fmt.Fprintf(out, "  %-10s %s in %s (%s)\n", label, identity.User, identity.Team, userTokenNote(ctx, cfg))
-
-	return nil
+	return credentialLine{
+		Service: label, Detail: fmt.Sprintf("%s in %s (%s)", identity.User, identity.Team, userTokenNote(ctx, cfg)),
+	}, nil
 }
 
 // userTokenSource is the user token doctor asks Slack about: the one a post
@@ -357,37 +391,39 @@ func credentialOutcome(err error, service string) error {
 	}
 }
 
+// credentialFailed is service's line when asking it failed with err, said as
+// detail, and the outcome credentialOutcome finds in err.
+func credentialFailed(service, detail string, err error) (credentialLine, error) {
+	return credentialLine{Service: service, Detail: detail}, credentialOutcome(err, service)
+}
+
 // credentialMissing says why service has no credential to ask about, and
 // reports it missing rather than rejected: nothing was put to the service.
-func credentialMissing(out io.Writer, service, why string) error {
-	fmt.Fprintf(out, "  %-10s %s\n", service, why)
-
-	return fmt.Errorf("%w: %s", errCredentialMissing, service)
+func credentialMissing(service, why string) (credentialLine, error) {
+	return credentialLine{Service: service, Detail: why}, fmt.Errorf("%w: %s", errCredentialMissing, service)
 }
 
 // credentialUnchecked says why doctor could not ask about service's credential,
 // and reports it unchecked: a check not made is neither a pass nor a failure.
-func credentialUnchecked(out io.Writer, service, why string) error {
-	fmt.Fprintf(out, "  %-10s %s\n", service, why)
-
-	return fmt.Errorf("%w: %s", errUnchecked, service)
+func credentialUnchecked(service, why string) (credentialLine, error) {
+	return credentialLine{Service: service, Detail: why}, fmt.Errorf("%w: %s", errUnchecked, service)
 }
 
 // checkJira asks Jira who the configured token authenticates as. With no
 // jira.base_url there is no Jira to ask: the forge's issues are the tracker, and
 // the forge's own check covers them.
-func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings config.Jira) error {
+func checkJira(ctx context.Context, doer jira.Doer, settings config.Jira) (credentialLine, error) {
 	if !settings.Configured() {
-		return credentialUnchecked(out, "jira", "not configured — the forge's issues are the tracker")
+		return credentialUnchecked("jira", "not configured — the forge's issues are the tracker")
 	}
 
 	token, source, err := wiring.ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
 	if err != nil {
-		return credentialMissing(out, "jira", err.Error())
+		return credentialMissing("jira", err.Error())
 	}
 
 	if token == "" && settings.AuthMode() != config.AuthNone {
-		return credentialMissing(out, "jira", "no token from "+source)
+		return credentialMissing("jira", "no token from "+source)
 	}
 
 	settings.Token = token
@@ -399,16 +435,14 @@ func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings conf
 	// login; here it only means
 	// there is no Jira to ask.
 	if errors.Is(err, config.ErrInvalidBaseURL) || errors.Is(err, config.ErrCredentialInBaseURL) {
-		return credentialUnchecked(out, "jira", err.Error()+" — the configuration section fails it; Jira was not asked")
+		return credentialUnchecked("jira", err.Error()+" — the configuration section fails it; Jira was not asked")
 	}
 
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %v (token from %s)\n", "jira", err, source)
-
-		return credentialOutcome(err, "jira")
+		return credentialFailed("jira", fmt.Sprintf("%v (token from %s)", err, source), err)
 	}
 
-	fmt.Fprintf(out, "  %-10s authenticates as %s (token from %s)\n", "jira", setup.Identify(user), source)
-
-	return nil
+	return credentialLine{
+		Service: "jira", Detail: fmt.Sprintf("authenticates as %s (token from %s)", setup.Identify(user), source),
+	}, nil
 }
