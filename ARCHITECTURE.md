@@ -2,8 +2,9 @@
 
 This document is the map of `workflow` — what the pieces are, how they fit, and
 why the two kinds of local state (the `.workflow.json` **config** and the
-`workflow.db` **store**) are separate. It is the orientation a newcomer reads
-before the code; `CLAUDE.md` holds the day-to-day rules for changing it.
+**store**, `workflow.db` and `kept.db`) are separate. It is the orientation a
+newcomer reads before the code; `CLAUDE.md` holds the day-to-day rules for
+changing it.
 
 ## What it is
 
@@ -13,8 +14,9 @@ convention, open the pull or merge request, and tell the team. It ships as a
 **single static binary** a developer runs on their own machine — built pure Go
 (`CGO_ENABLED=0`) so it cross-compiles to every platform `RELEASE_PLATFORMS`
 names in `Taskfile.yml` — with **no server and no service to run**. The only
-things it keeps between sessions are a config file you author and a small state
-database it writes for itself.
+things it keeps between sessions are a config file you author and two small
+state databases it writes for itself: `workflow.db`, a cache, and `kept.db`,
+what you decided.
 
 ## One core, three surfaces
 
@@ -54,7 +56,7 @@ flowchart TB
         end
         subgraph localstate["Local state"]
             cfg[".workflow.json<br/>config — intent"]
-            store["workflow.db<br/>store — memory"]
+            store["workflow.db · kept.db<br/>store — memory"]
         end
     end
 
@@ -176,7 +178,7 @@ HTTP transport and one subprocess seam.
 | `internal/gitrepo` | Reads and changes the repository through git, via a caller-supplied `Runner` |
 | `internal/taskwarrior` | Your Taskwarrior tasks — read them, change them, and the Tasks list's orders and narrowing |
 | `internal/proc` | The one place a subprocess is spawned |
-| `internal/store` | The on-disk state database (this document's second half) |
+| `internal/store` | The on-disk state databases, `workflow.db` and `kept.db` (this document's second half) |
 
 The `messaging` package was formerly `slack`; the `slack` **kind** and the Slack
 user token remain first-class within it, but the package and its transport errors
@@ -196,17 +198,28 @@ flowchart LR
         rest["forge · messaging · commit · branch · pull_request · ui · timing"]
         storeCfg["store.disabled"]
     end
-    subgraph store["workflow.db — memory, machine-written, read+write"]
+    subgraph store["store — memory, machine-written, read+write"]
         direction TB
-        scopes["scopes"]
-        announces["announces"]
-        cache["issue_cache + cached_issue"]
+        subgraph cachedb["workflow.db — the cache"]
+            scopes["scopes"]
+            announces["announces"]
+            cache["issue_cache + cached_issue"]
+        end
+        subgraph keptdb["kept.db — what you decided"]
+            owners["owner_decision + owner_slack + owner_not_on_slack"]
+            groups["repo_group + repo_choice + repo_choice_group"]
+            labels["slack_entity"]
+            favorites["favorite_dir"]
+        end
     end
     src["git remote or working root"]
+    codeowners["forge host + CODEOWNERS owner"]
 
     jiraCfg -->|"sha256(base_url) → instance key"| cache
     src -->|"host/path → repo key"| scopes
     src --> announces
+    src --> groups
+    codeowners -->|"owner key"| owners
     storeCfg -. "true → the whole store no-ops" .-> store
 ```
 
@@ -240,11 +253,13 @@ goes to the server-fixed path, never one a request supplies.
 
 ### The store — `workflow.db` and `kept.db`
 
-The store is what lets the tool feel like it remembers you: the scope you last
-committed under here, which pull requests you have already announced, and the
-last issue list it saw (so the first pane paints instantly, before the live
-search returns). It is a SQLite database (`modernc.org/sqlite`, pure Go) under
-the OS-native data directory:
+The store is what lets the tool feel like it remembers you. `workflow.db` is
+the cache: the scope you last committed under here, which pull requests you have
+already announced, and the last issue list it saw (so the first pane paints
+instantly, before the live search returns). `kept.db`, beside it, holds what the
+user decided and cannot be seen again: whom a forge owner is on Slack, a
+repository's groups, the favorite directories. Both are SQLite databases
+(`modernc.org/sqlite`, pure Go) under the OS-native data directory:
 
 - macOS — `~/Library/Application Support/workflow`
 - Linux — `$XDG_STATE_HOME/workflow`, else `~/.local/state/workflow`
@@ -257,38 +272,55 @@ still one flag away. Where the filesystem keeps Unix modes, the directory is
 `0700` and each file in it `0600`, set on every open so that a directory which
 already existed is narrowed too.
 
-Beside `workflow.db`, `kept.db` holds what the user decided and cannot be seen
-again: whom a forge owner is on Slack, a repository's groups, the favorite
-directories. A `--dry-run` never makes either file or changes what one holds.
-The interface and `--web` read nothing from the cache, and read `kept.db`
-read-only when it is already there, for the owner links, groups and favorites;
-a command reads the file it needs the same way, and only when it is there. A
-dry run reads `workflow.db` as it is, whichever build made it, and a `kept.db`
-another build's schema made as empty. Like any reader of a write-ahead-logged
-database, SQLite may leave the two owner-only companion files of the file it
-read — `kept.db-wal` and `kept.db-shm` after a read of `kept.db`,
-`workflow.db-wal` and `workflow.db-shm` after one of `workflow.db` — until the
-next live open of that file removes them.
+A `--dry-run` never makes either file or changes what one holds. The interface
+and `--web` read nothing from the cache — Local data still counts what each
+file holds — and read `kept.db` read-only when it is already there, for the
+owner links, groups and favorites; a command reads the file it needs the same
+way, and only when it is there. A dry run reads `workflow.db` as it is,
+whichever build made it, and a `kept.db` another build's schema made as empty.
+Like any reader of a write-ahead-logged database, SQLite may leave the two
+owner-only companion files of the file it read — `kept.db-wal` and
+`kept.db-shm` after a read of `kept.db`, `workflow.db-wal` and
+`workflow.db-shm` after one of `workflow.db` — until the next live open of that
+file removes them.
 
-Two invariants make the store safe to keep unencrypted:
+Three invariants make the store safe to keep unencrypted and to distrust on
+read:
 
-1. **It never holds a secret.** It is keyed only by credential-free identifiers.
-   The repository key is the remote's parsed **host and path** (so clones of the
-   same repo share state) — parsed, never taken raw, precisely so a credential
-   embedded in an HTTPS remote's userinfo cannot reach the file — or the
-   repository's **root path** when there is no remote or it does not parse. The
-   Jira instance key is a **SHA-256 of the base URL**, never the URL itself, and
-   the issue cache is keyed by it and by the **view's JQL** query.
-2. **What it holds is disposable.** The issue cache is a convenience; losing it
-   costs one live fetch. No feature depends on the store being present or
+1. **It never holds a secret.** Neither file is keyed by anything but
+   credential-free identifiers. The repository key, which keys `workflow.db`'s
+   scopes and announcements and `kept.db`'s groups, is the remote's parsed
+   **host and path** (so clones of the same repo share state) — parsed, never
+   taken raw, precisely so a credential embedded in an HTTPS remote's userinfo
+   cannot reach the file — or the repository's **root path** when there is no
+   remote or it does not parse. The Jira instance key is a **SHA-256 of the
+   base URL**, never the URL itself, and the issue cache is keyed by it and by
+   the **view's JQL** query. In `kept.db`, an owner is keyed by the **forge's
+   host and the owner's name**, each Slack link, not-on-Slack mark and group
+   also by the **Slack workspace ID** it belongs to, and a favorite by its
+   **path**.
+2. **What `workflow.db` holds is disposable.** The issue cache is a convenience;
+   losing it costs one live fetch, and a file another build's schema made is
+   discarded and made again. No feature depends on the cache being present or
    truthful — which is what makes trusting-nothing-on-read (below) a safe stance
    rather than a broken one.
+3. **What `kept.db` holds is kept, and still not trusted.** It is what the user
+   decided and a session cannot see again, so it is never discarded: a file
+   another build's schema made is left as it is, reads as empty, and refuses
+   every write with `ErrKeptSchemaDiffers`, which names
+   `workflow db-clean --all`. Trusting nothing on read stays safe here because
+   a row it cannot trust costs a question rather than a failure: a row of the
+   wrong shape is left out, and the people or group association it held reads
+   as never made, which workflow asks for again.
 
 ## The store schema
 
-The schema is **Third Normal Form**, every table is **`STRICT`**, and it is the
-worked example of the database rules in `CLAUDE.md`. Read the authoritative
-column list in `internal/store/store.go`; the diagram below is the shape.
+Both files' schemas are **Third Normal Form**, every table is **`STRICT`**, and
+they are the worked example of the database rules in `CLAUDE.md`. The diagram
+below is `workflow.db`'s shape; read its authoritative column list in
+`internal/store/store.go`. `kept.db`'s tables are `keptSchema` in
+`internal/store/kept.go`, which joins `ownersSchema`, `groupsSchema` and
+`favoritesSchema` from `owners.go`, `groups.go` and `favorites.go`.
 
 ```mermaid
 erDiagram
@@ -346,22 +378,28 @@ Three rules from `CLAUDE.md` are visible in the schema:
   the whole group in one transaction** — upsert the parent, delete the children,
   insert the new ones — so a view is never left half-updated.
 
-The schema has one version, stamped into the file as `PRAGMA user_version` by
-the open that makes the file, before its first table; a file at another version
-that holds tables is discarded with its `-wal` and `-shm` companions and made
-again, since nothing the store keeps is worth carrying across a schema change. A
-`--dry-run` command's read-only open reads `workflow.db` as it is and neither
-checks nor stamps it. There are no migrations: a schema change is a `CREATE TABLE` edit
-and a `schemaVersion` bump.
+`workflow.db`'s schema has one version, `schemaVersion`, stamped into the file
+as `PRAGMA user_version` by the open that makes the file, before its first
+table; a file at another version that holds tables is discarded with its `-wal`
+and `-shm` companions and made again, since nothing the cache keeps is worth
+carrying across a schema change. `kept.db`'s schema also has one version,
+`keptSchemaVersion` in `internal/store/kept.go`, made and stamped in one
+`BEGIN IMMEDIATE` transaction that re-reads it; a file at another version is
+never discarded — it reads as empty and refuses writes with
+`ErrKeptSchemaDiffers`, naming `workflow db-clean --all`. A `--dry-run`
+command's read-only open stamps neither file: it reads `workflow.db` as it is,
+whichever build made it, and a `kept.db` another build's schema made as empty.
+There are no migrations: a schema change is a `CREATE TABLE` edit and a bump of
+that file's version, and a `schemaVersion` bump never touches `kept.db`.
 
 ## Trust boundaries and data flow
 
 Two sources of bytes are treated as untrusted: **the network** (issue summaries,
-PR titles, authors — attacker-influenceable text) and **the disk** (the store is
-a file outside our process that could be tampered with). Neither is allowed to
-carry a terminal control sequence into the TUI or an unescaped string into an
-announcement. Text is sanitized through `internal/sanitize` on the way in as
-defense in depth, and again at the seam that renders it on the way out.
+PR titles, authors — attacker-influenceable text) and **the disk** (the store's
+two files are outside our process and could be tampered with). Neither is
+allowed to carry a terminal control sequence into the TUI or an unescaped string
+into an announcement. Text is sanitized through `internal/sanitize` on the way
+in as defense in depth, and again at the seam that renders it on the way out.
 
 The instant-start flow shows both the caching and that read boundary:
 
@@ -422,4 +460,5 @@ exist only to hold a line:
   generated from it. `task gen:verify` fails when the Go code drifts from it
   and `task web:gen:check` when the TypeScript client does; CI runs both.
 - `internal/wiring/wiring.go` — the one place the seams meet the clients.
-- `internal/store/store.go` — the authoritative schema.
+- `internal/store/store.go` — `workflow.db`'s authoritative schema, and
+  `internal/store/kept.go` — `kept.db`'s.
