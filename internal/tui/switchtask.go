@@ -286,7 +286,7 @@ func (p branchPicker) notAskedNote() []string {
 // loaded the issue, and the branch name so there is no doubt which will be
 // checked out — marked when only the remote has it.
 func (p branchPicker) label(branch taskBranch) string {
-	named := string(branch.issueKey)
+	named := shownKey(branch.issueKey)
 	if branch.summary != "" {
 		named += " " + branch.summary
 	}
