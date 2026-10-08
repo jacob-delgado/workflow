@@ -50,6 +50,11 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 			err:        fmt.Errorf("%w: https://%s/rest/api/2/issue/PROJ-412/transitions", jira.ErrNoAPI, jiraHost),
 			wantStatus: unprocessable, want: "no Jira API answers",
 		},
+		// A sign-in page answering for Jira at the configured address.
+		"an answer that is not JSON": {
+			err:        fmt.Errorf("reading the answer from https://%s: %w", jiraHost, jira.ErrNotJSON),
+			wantStatus: unprocessable, want: "no Jira API answers",
+		},
 		"a credential not accepted": {
 			err:        fmt.Errorf("reading https://%s: %w", jiraHost, jira.ErrUnauthorized),
 			wantStatus: unprocessable, want: credentialRefused,

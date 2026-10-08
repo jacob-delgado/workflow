@@ -177,6 +177,11 @@ func jiraErrors() []knownError {
 			brief: "no Jira API at that address",
 			full:  "No Jira REST API answered at `jira.base_url`. Check the address; `workflow doctor --online` tests it.",
 		}},
+		{jira.ErrNotJSON, wording{
+			brief: "the answer was not JSON",
+			full: "Jira's answer was not JSON, which usually means `jira.base_url` reaches a sign-in page, not Jira. " +
+				"`workflow doctor --online` tests it.",
+		}},
 		{jira.ErrNotFound, wording{
 			brief: "no such issue",
 			full:  "No such issue: it may have moved, or the token cannot see it.",
