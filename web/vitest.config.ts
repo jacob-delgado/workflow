@@ -7,17 +7,38 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
-      environment: 'jsdom',
-      // One jsdom per worker rather than per file, each file still in a
-      // context of its own: making jsdom for each of a hundred files cost
-      // over a minute of the run.
-      pool: 'vmThreads',
-      globals: true,
-      setupFiles: ['./src/test-setup.ts', './src/test/dropFocusOnDisable.ts'],
-      include: ['src/**/*.test.{ts,tsx}'],
-      // Vitest blanks every stylesheet unless told otherwise; the token test reads
-      // index.css as text (`?raw`) to check the theme's contrast.
-      css: { include: [/src\/index\.css/] },
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: 'unit',
+            environment: 'jsdom',
+            // One jsdom per worker rather than per file, each file still in a
+            // context of its own: making jsdom for each of a hundred files
+            // cost over a minute of the run.
+            pool: 'vmThreads',
+            globals: true,
+            setupFiles: ['./src/test-setup.ts', './src/test/dropFocusOnDisable.ts'],
+            include: ['src/**/*.test.{ts,tsx}'],
+            // Vitest blanks every stylesheet unless told otherwise; the token
+            // test reads index.css as text (`?raw`) to check the theme's
+            // contrast.
+            css: { include: [/src\/index\.css/] },
+          },
+        },
+        {
+          // The lint's own rules, each shown firing on code that breaks it.
+          // ESLint runs in Node, and its first typed lint builds the
+          // TypeScript program, which takes seconds.
+          extends: true,
+          test: {
+            name: 'lint',
+            environment: 'node',
+            include: ['eslint.config.test.ts'],
+            testTimeout: 60_000,
+          },
+        },
+      ],
       coverage: {
         provider: 'v8',
         // text for the console; json-summary feeds `task test:summary`.
