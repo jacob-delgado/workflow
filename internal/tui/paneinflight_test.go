@@ -135,7 +135,7 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			held.armed.Store(true)
 
 			// Act
-			view := holding(t, started, tt.pane, "r").View().Content
+			view := holding(t, held, started, tt.pane, "r").View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want)
@@ -172,7 +172,7 @@ func TestOpeningTheRepositoriesPaneSaysItsFirstReadIsUnderWay(t *testing.T) {
 	held.armed.Store(true)
 
 	// Act
-	view := holding(t, started, "9").View().Content
+	view := holding(t, held, started, "9").View().Content
 
 	// Assert
 	refuseScreen(t, view, "favorites, read when opened")

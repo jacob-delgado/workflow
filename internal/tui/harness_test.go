@@ -102,24 +102,17 @@ func drain(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
 	})
 }
 
-// patience is how long on the wall clock drainPast waits for a command before
-// leaving it out: far longer than any fake takes to answer, and short enough
-// that a test holding one back stays quick.
-const patience = 200 * time.Millisecond
-
-// drainPast is drain leaving out every command that has not answered within
-// patience: a seam a test holds so that it never answers, while the screen is
-// looked at with its answer still out.
-func drainPast(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
+// drainPast is drain leaving out every command held keeps from answering: a
+// seam the test has armed held on, so that it never answers, while the screen is
+// looked at with its answer still out. Any other command is waited for as drain
+// waits, so a slow fake is never mistaken for a held one.
+func drainPast(t *testing.T, held *hold, model tui.Model, cmd tea.Cmd) tui.Model {
 	t.Helper()
 
-	deadline := time.Now().Add(failsafe)
+	deadline := time.NewTimer(failsafe)
+	defer deadline.Stop()
 
 	return settle(t, model, cmd, func(next tea.Cmd) (tea.Msg, bool) {
-		if time.Now().After(deadline) {
-			t.Fatalf("the model had not settled after %v: it never stops asking", failsafe)
-		}
-
 		answer := make(chan tea.Msg, 1)
 
 		go func() { answer <- next() }()
@@ -127,7 +120,11 @@ func drainPast(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
 		select {
 		case msg := <-answer:
 			return msg, true
-		case <-time.After(patience):
+		case <-held.waiting:
+			return nil, false
+		case <-deadline.C:
+			t.Fatalf("the model had not settled after %v: a fake is blocked, or the model never stops asking", failsafe)
+
 			return nil, false
 		}
 	})
@@ -201,9 +198,12 @@ func await(t *testing.T, cmd tea.Cmd, deadline <-chan time.Time) tea.Msg {
 }
 
 // hold keeps a seam from answering once it is armed, as a service that has
-// stopped answering does; the test's cleanup lets every held answer go.
+// stopped answering does, and says so each time a call starts waiting on it, so
+// a drain leaves out exactly the commands it holds; the test's cleanup lets every
+// held answer go.
 type hold struct {
 	armed   atomic.Bool
+	waiting chan struct{}
 	release chan struct{}
 }
 
@@ -211,7 +211,7 @@ type hold struct {
 func newHold(t *testing.T) *hold {
 	t.Helper()
 
-	held := &hold{release: make(chan struct{})}
+	held := &hold{waiting: make(chan struct{}), release: make(chan struct{})}
 
 	t.Cleanup(func() { close(held.release) })
 
@@ -219,21 +219,28 @@ func newHold(t *testing.T) *hold {
 }
 
 // wait returns at once until the hold is armed, and after that only once the
-// test has ended.
+// test has ended, having told the drain running its call that it waits.
 func (h *hold) wait() {
-	if h.armed.Load() {
-		<-h.release
+	if !h.armed.Load() {
+		return
 	}
+
+	select {
+	case h.waiting <- struct{}{}:
+	case <-h.release:
+	}
+
+	<-h.release
 }
 
-// holding presses keys in order, as typing does, leaving out whatever a held
-// seam keeps from answering.
-func holding(t *testing.T, model tui.Model, keys ...string) tui.Model {
+// holding presses keys in order, as typing does, leaving out whatever held keeps
+// from answering.
+func holding(t *testing.T, held *hold, model tui.Model, keys ...string) tui.Model {
 	t.Helper()
 
 	for _, key := range keys {
 		updated, cmd := model.Update(keyMsg(key))
-		model = drainPast(t, concrete(t, updated), cmd)
+		model = drainPast(t, held, concrete(t, updated), cmd)
 	}
 
 	return model
