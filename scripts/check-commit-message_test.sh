@@ -34,6 +34,55 @@ expect fail "a subject over 72 characters" "feat: $(printf 'x%.0s' {1..70})"
 expect pass "a subject at exactly 72 characters" "feat: $(printf 'x%.0s' {1..66})"
 expect fail "a subject ending in a period" "fix: redact the token."
 
+# CLAUDE.md: the body is wrapped at 72. Prose past it is refused; a URL, the
+# trailers, and an indented or fenced block cannot wrap and are left alone.
+# Characters are counted, not bytes, so an em dash is one.
+prose90="$(printf 'word %.0s' {1..18})"
+prose72="$(printf 'x%.0s' {1..72})"
+dashes72="$(printf '\342\200\224%.0s' {1..72})"
+readonly prose90 prose72 dashes72
+expect fail "a 90-character prose body line" "fix: a
+
+${prose90}"
+expect pass "a body line at exactly 72 characters" "fix: a
+
+${prose72}"
+expect pass "72 characters that are not 72 bytes" "fix: a
+
+${dashes72}"
+expect pass "a long line holding a URL" "fix: a
+
+See https://example.com/${prose90// /-} for the rest."
+expect pass "long trailers" "fix: a
+
+Body.
+
+Co-Authored-By: ${prose90// /-} <noreply@example.com>
+Reviewed-by: ${prose90// /-}"
+expect fail "a long line in a last paragraph that is not all trailers" "fix: a
+
+Body.
+
+Note: ${prose90}
+and a second prose line."
+expect pass "an indented block" "fix: a
+
+The output was:
+
+    ${prose90}"
+expect pass "a fenced block" "fix: a
+
+\`\`\`text
+${prose90}
+\`\`\`"
+expect fail "prose after a fenced block closes" "fix: a
+
+\`\`\`text
+x
+\`\`\`
+
+${prose90}"
+
 # Under `git commit -v` the message file carries the diff below a scissors line,
 # and git's boilerplate comment lines above it; neither is the commit message,
 # so a BREAKING-CHANGE in a diff hunk must not refuse the commit.
