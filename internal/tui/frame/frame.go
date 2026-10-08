@@ -35,11 +35,35 @@ const (
 
 // Heavy is the focused weight of the same character set.
 func (s Style) Heavy() Style {
-	if s == LightASCII || s == HeavyASCII {
+	if s.ascii() {
 		return HeavyASCII
 	}
 
 	return Heavy
+}
+
+// light is the unfocused weight of the same character set.
+func (s Style) light() Style {
+	if s.ascii() {
+		return LightASCII
+	}
+
+	return Light
+}
+
+// ascii reports a style drawn in plain ASCII.
+func (s Style) ascii() bool {
+	return s == LightASCII || s == HeavyASCII
+}
+
+// weighed is the glyph set of style's character set at the weight focus
+// gives: heavy for the pane with focus, light for every other.
+func (s Style) weighed(focused bool) borders {
+	if focused {
+		return glyphs(s.Heavy())
+	}
+
+	return glyphs(s.light())
 }
 
 // borders is the glyph set for one weight: the box, and the mark for text cut
@@ -52,19 +76,12 @@ type borders struct {
 
 // glyphs returns the glyph set for a style.
 func glyphs(style Style) borders {
-	//nolint:exhaustive // Light is absent by design; its lookup miss returns the default light border below.
-	sets := map[Style]borders{
+	return map[Style]borders{
+		Light:      {"┌", "┐", "└", "┘", "─", "│", ellipsis},
 		Heavy:      {"┏", "┓", "┗", "┛", "━", "┃", ellipsis},
 		LightASCII: {"+", "+", "+", "+", "-", "|", asciiEllipsis},
 		HeavyASCII: {"#", "#", "#", "#", "=", "#", asciiEllipsis},
-	}
-
-	set, ok := sets[style]
-	if !ok {
-		return borders{"┌", "┐", "└", "┘", "─", "│", ellipsis}
-	}
-
-	return set
+	}[style]
 }
 
 // minimumSide is the smallest dimension that can hold a border on both sides.
@@ -97,7 +114,7 @@ func Render(title, body string, width, height int, style Style) string {
 	inner := width - minimumSide
 	rows := make([]string, 0, height)
 
-	rows = append(rows, top(lines, title, inner))
+	rows = append(rows, ruleLine(lines.topLeft, lines.topRight, lines, title, inner))
 
 	content := strings.Split(body, "\n")
 
@@ -137,15 +154,6 @@ func Plain(title, body string, width, height int, style Style) string {
 	}
 
 	return strings.Join(rows, "\n")
-}
-
-// top draws the top border with the title set into it. The title is clipped but
-// never padded: the rest of the line is rule, not spaces.
-func top(lines borders, title string, inner int) string {
-	label := ansi.Truncate(lines.horizontal+" "+title+" ", inner, lines.ellipsis)
-	fill := strings.Repeat(lines.horizontal, inner-lipgloss.Width(label))
-
-	return lines.topLeft + label + fill + lines.topRight
 }
 
 // padded fits text inside a border with a cell of space on each side, dropping
@@ -197,63 +205,25 @@ func Rail(panes []RailPane, width int, style Style) string {
 		return blank(width, RailHeight(panes))
 	}
 
-	ascii := style == LightASCII || style == HeavyASCII
-	mark := ellipsisFor(ascii)
 	inner := width - minimumSide
-
-	rows := []string{railTop(panes[0], inner, ascii, mark)}
+	first := style.weighed(panes[0].Focused)
+	rows := []string{ruleLine(first.topLeft, first.topRight, first, panes[0].Title, inner)}
 
 	for index, pane := range panes {
 		if index > 0 {
-			rows = append(rows, railRule(panes[index-1].Focused, pane.Focused, pane.Title, inner, ascii, mark))
+			rows = append(rows, railRule(panes[index-1], pane, style, inner))
 		}
 
-		rows = append(rows, railContent(pane, inner, ascii, mark)...)
+		rows = append(rows, railContent(pane, inner, style.weighed(pane.Focused))...)
 	}
 
-	return strings.Join(append(rows, railBottom(panes[len(panes)-1].Focused, inner, ascii)), "\n")
-}
+	last := style.weighed(panes[len(panes)-1].Focused)
 
-// ellipsisFor is the mark for cut text in a glyph set.
-func ellipsisFor(ascii bool) string {
-	if ascii {
-		return asciiEllipsis
-	}
-
-	return ellipsis
-}
-
-// railSide is a pane's vertical border, heavy when it has focus.
-func railSide(focused, ascii bool) string {
-	switch {
-	case ascii && focused:
-		return "#"
-	case ascii:
-		return "|"
-	case focused:
-		return "┃"
-	default:
-		return "│"
-	}
-}
-
-// railHorizontal is a rule's line, heavy when it touches the focused pane.
-func railHorizontal(heavy, ascii bool) string {
-	switch {
-	case ascii && heavy:
-		return "="
-	case ascii:
-		return "-"
-	case heavy:
-		return "━"
-	default:
-		return "─"
-	}
+	return strings.Join(append(rows, last.bottomLeft+strings.Repeat(last.horizontal, inner)+last.bottomRight), "\n")
 }
 
 // railContent draws a pane's content rows between its sides.
-func railContent(pane RailPane, inner int, ascii bool, mark string) []string {
-	side := railSide(pane.Focused, ascii)
+func railContent(pane RailPane, inner int, lines borders) []string {
 	content := strings.Split(pane.Body, "\n")
 	rows := make([]string, 0, pane.Rows)
 
@@ -263,75 +233,47 @@ func railContent(pane RailPane, inner int, ascii bool, mark string) []string {
 			text = content[index]
 		}
 
-		rows = append(rows, side+padded(text, inner, mark)+side)
+		rows = append(rows, lines.vertical+padded(text, inner, lines.ellipsis)+lines.vertical)
 	}
 
 	return rows
 }
 
-// railTop is the top edge, carrying the first pane's title.
-func railTop(pane RailPane, inner int, ascii bool, mark string) string {
-	left, right := railCorners(pane.Focused, ascii, true)
+// railRule is the shared rule between two panes, carrying the lower one's
+// title, drawn heavy when it touches the focused pane.
+func railRule(above, below RailPane, style Style, inner int) string {
+	left, right := railJunctions(style.weighed(above.Focused), style.weighed(below.Focused))
 
-	return ruleLine(left, railHorizontal(pane.Focused, ascii), right, pane.Title, inner, mark)
+	return ruleLine(left, right, style.weighed(above.Focused || below.Focused), below.Title, inner)
 }
 
-// railBottom is the bottom edge, with no title to carry.
-func railBottom(focused bool, inner int, ascii bool) string {
-	left, right := railCorners(focused, ascii, false)
-	horizontal := railHorizontal(focused, ascii)
-
-	return left + strings.Repeat(horizontal, inner) + right
-}
-
-// railRule is the shared rule between two panes, carrying the lower one's title.
-func railRule(aboveFocused, belowFocused bool, title string, inner int, ascii bool, mark string) string {
-	left, right := railJunctions(aboveFocused, belowFocused, ascii)
-	horizontal := railHorizontal(aboveFocused || belowFocused, ascii)
-
-	return ruleLine(left, horizontal, right, title, inner, mark)
-}
-
-// ruleLine sets a title into a rule between the given left and right glyphs.
-func ruleLine(left, horizontal, right, title string, inner int, mark string) string {
-	label := ansi.Truncate(horizontal+" "+title+" ", inner, mark)
-	fill := strings.Repeat(horizontal, inner-lipgloss.Width(label))
+// ruleLine sets a title into a rule in lines' weight between the given left
+// and right glyphs. The title is clipped but never padded: the rest of the
+// line is rule, not spaces.
+func ruleLine(left, right string, lines borders, title string, inner int) string {
+	label := ansi.Truncate(lines.horizontal+" "+title+" ", inner, lines.ellipsis)
+	fill := strings.Repeat(lines.horizontal, inner-lipgloss.Width(label))
 
 	return left + label + fill + right
 }
 
-// railCorners are the box's corners at the top or the bottom, heavy when that
-// pane has focus.
-func railCorners(focused, ascii, atTop bool) (string, string) {
-	switch {
-	case ascii:
-		return "+", "+"
-	case atTop && focused:
-		return "┏", "┓"
-	case atTop:
-		return "┌", "┐"
-	case focused:
-		return "┗", "┛"
-	default:
-		return "└", "┘"
-	}
-}
-
-// railJunctions are the left and right glyphs of a shared rule, by which of the
-// panes it touches have focus.
-func railJunctions(aboveFocused, belowFocused, ascii bool) (string, string) {
-	if ascii {
-		return "+", "+"
+// railJunctions are the left and right ends of the rule a box drawn in above
+// shares with one drawn in below: the glyphs that join their sides. In ASCII
+// a focused box keeps its corners where it meets another, as a box drawn on
+// its own does.
+func railJunctions(above, below borders) (string, string) {
+	ends := map[[2]string][2]string{
+		{"│", "│"}: {"├", "┤"},
+		{"│", "┃"}: {"┢", "┪"},
+		{"┃", "│"}: {"┡", "┩"},
+		{"┃", "┃"}: {"┣", "┫"},
+		{"|", "|"}: {"+", "+"},
+		{"|", "#"}: {"#", "#"},
+		{"#", "|"}: {"#", "#"},
+		{"#", "#"}: {"#", "#"},
 	}
 
-	pairs := map[[2]bool][2]string{
-		{false, false}: {"├", "┤"},
-		{false, true}:  {"┢", "┪"},
-		{true, false}:  {"┡", "┩"},
-		{true, true}:   {"┣", "┫"},
-	}
-
-	pair := pairs[[2]bool{aboveFocused, belowFocused}]
+	pair := ends[[2]string{above.vertical, below.vertical}]
 
 	return pair[0], pair[1]
 }
