@@ -36,12 +36,12 @@ type wireReason struct {
 // request it understood and turned down, such as a pull request that already
 // exists, becomes a rejection. A 404 keeps its own error, and a token turned
 // down is a RefusalError, made before this is reached.
-func explained(statusErr error, body io.Reader) error {
+func (c Client) explained(statusErr error, body io.Reader) error {
 	if !errors.Is(statusErr, ErrUnexpectedStatus) {
 		return statusErr
 	}
 
-	reason, given := reasonIn(body)
+	reason, given := c.reasonIn(body)
 	if !given {
 		return statusErr
 	}
@@ -49,9 +49,10 @@ func explained(statusErr error, body io.Reader) error {
 	return fmt.Errorf("%w: %s", ErrRejected, reason)
 }
 
-// reasonIn reads the forge's own reason out of a refusal's body, reporting
-// false when it gave none that can be read.
-func reasonIn(body io.Reader) (string, bool) {
+// reasonIn reads the forge's own reason out of a refusal's body, with the
+// token masked wherever it quotes it, reporting false when it gave none that
+// can be read.
+func (c Client) reasonIn(body io.Reader) (string, bool) {
 	raw, err := io.ReadAll(io.LimitReader(body, reasonLimit))
 	if err != nil {
 		return "", false
@@ -64,9 +65,17 @@ func reasonIn(body io.Reader) (string, bool) {
 		return "", false
 	}
 
-	reason := answer.text()
+	reason := c.masked(answer.text())
 
 	return reason, reason != ""
+}
+
+// masked is text with the token put as its mask wherever it appears: a gateway
+// in front of a forge can quote the Authorization header back. The token is
+// never empty here, since no request is sent without one, which matters:
+// replacing "" would splice the mask between every character.
+func (c Client) masked(text string) string {
+	return strings.ReplaceAll(text, c.token.Secret(), c.token.String())
 }
 
 // text joins every part of the reason that was given, and names the scope the

@@ -148,3 +148,39 @@ func TestARefusalsReasonNamesNoAddress(t *testing.T) {
 		t.Errorf("Advice = %q, want the reason kept with its address left out", advice)
 	}
 }
+
+func TestARefusalsReasonNeverCarriesTheToken(t *testing.T) {
+	t.Parallel()
+
+	// A gateway in front of a self-managed forge can quote the request's
+	// Authorization header back in its explanation.
+	echoed := `{"message":"Bearer ` + secret + ` is not valid here"}`
+
+	cases := map[string]int{
+		"a token not accepted": http.StatusUnauthorized,
+		"a token refused":      http.StatusForbidden,
+		"a request rejected":   http.StatusUnprocessableEntity,
+	}
+
+	for name, status := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client := clientOn(t, forge.KindGitLab, status, echoed)
+
+			// Act
+			_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{})
+
+			// Assert
+			advice, _ := forge.Advice(err)
+			if err == nil || strings.Contains(err.Error(), secret) || strings.Contains(advice, secret) {
+				t.Errorf("CreatePullRequest = %v, advice %q; want the forge's reason without the token", err, advice)
+			}
+
+			if !strings.Contains(err.Error(), "is not valid here") {
+				t.Errorf("CreatePullRequest = %v, want the rest of the forge's reason kept", err)
+			}
+		})
+	}
+}

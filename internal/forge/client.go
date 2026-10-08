@@ -308,7 +308,7 @@ func (c Client) answerError(response *http.Response) error {
 	case status == nil:
 		return nil
 	case errors.Is(status, ErrUnauthorized) || errors.Is(status, ErrRefused):
-		reason, _ := reasonIn(response.Body)
+		reason, _ := c.reasonIn(response.Body)
 
 		return &RefusalError{Kind: c.kind, Status: status, Reason: reason}
 	case response.StatusCode >= http.StatusInternalServerError:
@@ -316,7 +316,7 @@ func (c Client) answerError(response *http.Response) error {
 		// of the forge, and can name a host behind it: it explains nothing.
 		return status
 	default:
-		return explained(status, response.Body)
+		return c.explained(status, response.Body)
 	}
 }
 
