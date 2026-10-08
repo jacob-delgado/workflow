@@ -1,46 +1,22 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { Branch, BranchIssuePreview, Snapshot } from '../../src/api/generated/types.gen.ts'
+import type { BranchIssuePreview } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
+import { branchWith, snapshotWith, streams } from '../support/fixtures.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Branch section's Link an issue, for work begun outside workflow on a
 // branch whose name names no issue: the form that asks which, the pull
 // request's description shown before it changes, and a key that names none.
 
-const branch = {
+const branch = branchWith({
   name: 'spike/search-speed',
-  issue_link: '',
-  detached: false,
   head: 'abc1234',
   upstream: 'origin/spike/search-speed',
   push_remote: 'origin',
-  ahead: 0,
-  behind: 0,
   base: 'origin/main',
-  commits: [],
-} satisfies Branch
+})
 
-const snapshot = {
-  issues: { total: 0, start_at: 0, unavailable: [], issues: [] },
-  branch,
-  changes: { changes: [] },
-  review: { found: false, announced: false },
-  messaging: {
-    kind: 'slack',
-    service: 'Slack',
-    configured: false,
-    channel: '',
-    channels: [],
-    author: '',
-  },
-  branches: [],
-  commit_types: ['feat', 'fix'],
-  subject_limit: 72,
-  suggested_scope: '',
-  hooks_unmanaged: 0,
-  tasks: { available: true, reason: '', linked: [] },
-  here: '/home/ana/src/api',
-} satisfies Snapshot
+const snapshot = snapshotWith({ branch })
 
 // The description linking PROJ-7 would leave on the branch's pull request.
 const preview = {

@@ -5,7 +5,8 @@ import type {
   Snapshot,
 } from '../../src/api/generated/types.gen.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
+import { branchWith, snapshotWith, streams } from '../support/fixtures.ts'
+import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The announcement edited before it goes, and held until the pull request's
 // CI passes, as the terminal's e and w in the preview do. The flows run on
@@ -25,21 +26,14 @@ const pull = {
 // snapshotHolding is the cockpit with pull request 7 open, its CI running, and
 // the held announcement given, if any.
 function snapshotHolding(held?: QueuedAnnouncement): Snapshot {
-  return {
-    issues: { total: 0, start_at: 0, unavailable: [], issues: [] },
-    branch: {
+  return snapshotWith({
+    branch: branchWith({
       name: 'fix/PROJ-7-redact',
-      issue_link: '',
-      detached: false,
       head: 'abc1234',
       upstream: 'origin/fix/PROJ-7-redact',
       push_remote: 'origin',
-      ahead: 0,
-      behind: 0,
       base: 'origin/main',
-      commits: [],
-    },
-    changes: { changes: [] },
+    }),
     review: {
       found: true,
       announced: false,
@@ -55,14 +49,7 @@ function snapshotHolding(held?: QueuedAnnouncement): Snapshot {
       author: 'ana',
     },
     queued_announcement: held,
-    branches: [],
-    commit_types: ['feat', 'fix'],
-    subject_limit: 72,
-    suggested_scope: '',
-    hooks_unmanaged: 0,
-    tasks: { available: true, reason: '', linked: [] },
-    here: '/home/ana/src/api',
-  }
+  })
 }
 
 const text = 'ana opened a pull request: Redact tokens in the request log'
