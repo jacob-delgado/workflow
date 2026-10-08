@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import type { CreatedWorktree } from '../../src/api/generated/types.gen.ts'
 import { mockRepositories } from '../../src/dev/mockRepositories.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { branchWith, issuesOf, snapshotWith, streams } from '../support/fixtures.ts'
+import { branchWith, issuesOf, problem, snapshotWith, streams } from '../support/fixtures.ts'
 import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // Starting work on an issue in a new worktree from its detail, and the switch
@@ -100,17 +100,9 @@ test('a fetch that fails offers to branch from what you have', async ({ page }) 
   await page.route('**/api/worktrees', (route) => {
     asked.push(route.request().postDataJSON())
     if (asked.length === 1) {
-      return route.fulfill({
-        status: 502,
-        contentType: 'application/problem+json',
-        json: {
-          type: 'https://jacob-delgado.github.io/workflow/docs/errors/#fetch-failed',
-          title: 'Fetch failed',
-          status: 502,
-          code: 'fetch_failed',
-          detail: 'origin could not be fetched, so nothing was made for PROJ-7',
-        },
-      })
+      return route.fulfill(
+        problem('fetch_failed', 'origin could not be fetched, so nothing was made for PROJ-7'),
+      )
     }
 
     return route.fulfill({ json: made })
