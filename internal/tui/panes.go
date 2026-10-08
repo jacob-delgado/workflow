@@ -185,6 +185,61 @@ func behaviorOf(target pane) behavior {
 	}[target]
 }
 
+// answersOf is the key actions a pane's handler answers, beside the moving and
+// everywhere keys every pane takes. With those they are the pane's key
+// context: a press outside it never reaches the handler, and CheckKeys refuses
+// two actions in it on one key, so the check reads what dispatch obeys.
+func answersOf(target pane) []string {
+	return [paneCount][]string{
+		paneIssues: {
+			"change-status", "comment", "assign", "log-work", "start-work", "track-issue", actionOpenLink,
+			actionCopyLink, "search-issues", "filter-issues", "switch-view", "load-more", actionRefresh,
+		},
+		paneBranch: {"new-branch", "switch-branch", "link-issue", "rebase", "push", actionRefresh},
+		paneCommits: {
+			"stage", "stage-all", "unstage-all", "discard-change", "commit", "amend", "fixup", "run-pre-commit",
+			"set-up-lefthook", actionRefresh,
+		},
+		paneReview: {
+			"open-pull-request", "edit", "checks", "rerun-checks", "merge", "finish-branch", actionOpenLink,
+			actionCopyLink, actionRefresh,
+		},
+		paneMessaging: {"post", "people-and-groups", actionRefresh},
+		paneReviews:   {"sort-reviews", "filter-reviews", actionOpenLink, actionCopyLink, actionRefresh},
+		paneTasks: {
+			"start-stop", "mark-done", "add-task", "annotate-task", "modify-task", "undo-task", "sync-tasks",
+			"search-tasks", "filter-tasks", "sort-tasks", actionOpenLink, actionCopyLink, actionRefresh,
+		},
+		paneSummary: {
+			"earlier", "later", "today", "calendar", "copy-summary", "post-summary", actionOpenLink, actionCopyLink,
+			actionRefresh,
+		},
+		paneRepositories: {"favorite-directory", "go-to-directory", "settings", "local-data", actionRefresh},
+	}[target]
+}
+
+// handlePaneKey hands a key to the focused pane's handler when it is live in the
+// pane's key context, and does nothing with one that is not.
+func (m Model) handlePaneKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	if !m.keys.liveIn(m.focus.keyContext(), msg) {
+		return m, nil
+	}
+
+	return behaviorOf(m.focus).handle(m, msg)
+}
+
+// keyContext is the keys live on the pane: the moving and everywhere keys
+// every pane takes, and the actions its handler answers. It is named for the
+// pane in a conflict CheckKeys reports, the messaging pane for no particular
+// service, since the check runs before one is chosen.
+func (p pane) keyContext() keyContext {
+	return keyContext{
+		name:    "the " + p.title("messaging") + " pane",
+		groups:  []int{groupMoving, groupEverywhere},
+		actions: answersOf(p),
+	}
+}
+
 // commandless is a list's move that asks for nothing once it has moved, as a
 // pane's move, which may.
 func commandless(move func(Model, int) Model) func(Model, int) (Model, tea.Cmd) {

@@ -88,24 +88,49 @@ func TestCheckKeysRefusesTwoActionsSharingAKeyInOneContext(t *testing.T) {
 	}
 }
 
-func TestCheckKeysNamesTheReviewPanesForNoParticularService(t *testing.T) {
+func TestCheckKeysNamesTheMessagingPaneForNoParticularService(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// merge and edit both answer on the Review pane. The check runs before any
-	// service is chosen, so the context it names must fit Teams as well as Slack.
-	colliding := map[string]string{mergeAction: "e"}
+	// post and people-and-groups both answer on the messaging pane. The check
+	// runs before any service is chosen, so the pane it names must fit Teams as
+	// well as Slack.
+	colliding := map[string]string{"post": "P"}
 
 	// Act
 	err := tui.CheckKeys(colliding)
 
 	// Assert
-	if err == nil {
-		t.Fatal("CheckKeys accepted merge rebound onto edit's key")
+	if !errors.Is(err, tui.ErrKeyConflict) {
+		t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConflict", colliding, err)
 	}
 
-	if got := err.Error(); !strings.Contains(got, "the Review and messaging panes") {
-		t.Errorf("CheckKeys error %q does not name the Review and messaging panes", got)
+	if got := err.Error(); !strings.Contains(got, "the messaging pane") {
+		t.Errorf("CheckKeys error %q does not name the messaging pane", got)
+	}
+}
+
+// Each pane is a keyboard surface of its own: an action on one and an action
+// on another are never live at once, so one key may serve both.
+func TestCheckKeysLetsTwoPanesShareAKey(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]map[string]string{
+		"merge on the Review pane onto post on the messaging pane":     {mergeAction: "p"},
+		"new-branch on the Branch pane onto stage on the Commits pane": {"new-branch": "space"},
+	}
+
+	for name, rebound := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			err := tui.CheckKeys(rebound)
+			// Assert
+			if err != nil {
+				t.Errorf("CheckKeys(%v) = %v, want the two panes' actions free to share a key", rebound, err)
+			}
+		})
 	}
 }
 
