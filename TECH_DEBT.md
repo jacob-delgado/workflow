@@ -225,12 +225,12 @@ and footer and the shared `age()`; `picker.go` an unrelated `fixupPicker`;
 `reposwitch.go` the `dirPrompt`; `taskactions.go` the `taskLine` overlay and
 issue tracking. `taskactions.go` is 62 lines from the 800-line ceiling that
 fails the gate, so the next Tasks feature forces an unplanned split. The
-package is at its budget (64/64).
+package holds 64 files under its cohesive ceiling of 80.
 
 **Fix.** Split file per concern inside the package: `branchcreator.go`,
 `errorwords.go`, `issuesearch.go`, `fixup.go`, `dirprompt.go`, `taskline.go`,
-`tasktrack.go`, `footer.go`, `setupsteps.go`, under the cohesive budget
-DEBT-238 proposes.
+`tasktrack.go`, `footer.go`, `setupsteps.go`, under the package's cohesive
+ceiling.
 
 **Done when.** `scripts/check-file-length.sh --list` flags none of these files.
 
@@ -384,41 +384,6 @@ places.
 
 ## The gates, the build and the tests
 
-### DEBT-238 Pay down TRADE-1: cohesive packages get a ceiling instead of zero headroom
-
-Severity: medium · Confidence: measured · Size: M
-
-**Where.** `scripts/package-size-budgets.txt` (site comment at `:27`),
-`scripts/check-package-size.sh`, `scripts/package-size-budget-history.md`,
-CLAUDE.md's "Package & directory size".
-
-**Today.** TRADE-1's trigger, one budget rising three times with no lowering
-row, has fired many times over: 21 `internal/tui` rows since 2026-09-25 (45 to
-64), the last two after the 2026-10-05 note that kept the entry, while
-`internal/webserver` went 20 to 31, `internal/cli` 15 to 20 and
-`internal/forge` 12 to 15. Every row gives the same WHY ("the same
-responsibility … not a second reason to change"), so for the file-per-pane,
-file-per-endpoint and file-per-command packages CLAUDE.md says must not be
-split, the zero-headroom budget is a ritual that has never led to a split. Six
-more directories sit at the default 12/12 (`web/e2e`,
-`web/src/features/branch`, `issues`, `settings/fieldsets`, `tasks`,
-`web/src/shell`). TRADE-1's text also says `internal/forge` fills the default,
-which it no longer does.
-
-**Fix.** Give the budgets file a second kind of entry for groupings that are
-file-per-concern by design (`internal/tui 80 cohesive`, `internal/webserver 40
-cohesive`, `internal/cli 28 cohesive`): it fails only past its ceiling, is
-exempt from the budget-above-count ratchet, and carries one WHY naming its
-spelling rule. Teach `check-package-size.sh` the kind and print headroom in
-`--list`; keep zero headroom for every other entry; a ceiling raise still
-needs a history row. Change CLAUDE.md so "zero-headroom both ways" applies to
-ratcheted entries and says what makes a grouping cohesive. Paying this closes
-TRADE-1: delete the entry and its site comment.
-
-**Done when.** `task lint` passes, a 65th file in `internal/tui` needs no
-budget edit, a 13th file in `web/src/shell` still fails with the split-or-bump
-message, and `--list` prints cohesive headroom.
-
 ### DEBT-239 Pay down TRADE-19: the gate fails a never-run condition or an unseen error arm
 
 Severity: medium · Confidence: measured · Size: L
@@ -517,288 +482,6 @@ timing.
 
 **Done when.** `time.Sleep` in these packages' tests is only seam-internal
 hold time, and `go test -race -count=20` passes for them.
-
-### DEBT-246 `gobco-report`'s own test never checks that coverage below the floor fails
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** The cases in `scripts/gobco-report_test.sh:83`, the floor check
-(`scripts/gobco-report.sh:273`), `unexpected` (`:218`),
-`require_current_gobco` (`:116`).
-
-**Today.** The four cases cover a missing floor, no statistics, all untested
-packages accounted for (100% against 50) and an unlisted package. No case
-measures below the floor, so deleting the floor check passes; nor are a
-failing gobco, the `UNANALYZABLE` skip or a gobco built by another Go covered.
-
-**Fix.** Add cases for stats below the floor, a stub gobco that exits 1, a
-listed unanalyzable package and a stub `go version -m` reporting another Go.
-
-**Done when.** The suite fails when the floor check is deleted.
-
-### DEBT-248 `ci-gate` passes any skipped job, not just the one meant to skip
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `ci-gate` (`.github/workflows/ci.yml:471`, the filter at `:490`).
-
-**Today.** The jq filter accepts `skipped` for every job; only `commit-lint`
-skips by design. An `if:` added to, or mistyped on, any other job turns the
-single required check green with that job never run.
-
-**Fix.** Accept `skipped` only for `commit-lint` by name.
-
-**Done when.** Adding `if: false` to the lint job makes `ci-gate` fail.
-
-### DEBT-249 yamllint runs without `--strict`, and its warnings hide truncated API descriptions
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `lint:yaml` (`Taskfile.yml:392`), the hook (`lefthook.yml:72`),
-`api/openapi.yaml:1560`, `:2895`, `:2908`, `:4086`.
-
-**Today.** `yamllint .` exits 0 on warnings, and four "missing starting space
-in comment" warnings pass every run. They mark a real defect: each line is a
-plain scalar ending "without its #.", which YAML reads as a comment, so the
-description ends "with or without its" and the truncation has reached
-`models.gen.go` and `types.gen.ts`.
-
-**Fix.** Quote those four descriptions and run `yamllint --strict`.
-
-**Done when.** `task lint:yaml` fails on a warning, and the generated
-descriptions end with "#.".
-
-### DEBT-250 The generated-code drift checks ignore new untracked files
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `gen:verify` (`Taskfile.yml:501`), `gen:check`
-(`web/package.json:11`), `web:dist:check` (`Taskfile.yml:219`).
-
-**Today.** Both run `git diff`, which ignores untracked files. When a hey-api
-upgrade or config change makes `openapi-ts` emit a new file, the check passes
-with it uncommitted and later CI steps compile against the regenerated tree.
-`web:dist:check` already handles this with `git ls-files --others`.
-(oapi-codegen writes fixed files, so the Go side has almost no trigger.)
-
-**Fix.** Add an untracked-files check, or use `git status --porcelain` over
-the generated directory, in both.
-
-**Done when.** Regenerating with an extra output file left uncommitted fails
-`gen:check`.
-
-### DEBT-251 A markdownlint version bump skips the Markdown lint on its own pull request
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** The pattern (`scripts/markdown-changed.sh:25`), the pin
-(`mise.toml:60`), the Lint job (`.github/workflows/ci.yml:34`).
-
-**Today.** The lint runs on a pull request only when docs, `*.md` or the lint
-config changed. A pull request that bumps markdownlint-cli2 in `mise.toml`,
-changing what the lint accepts, skips it, and the new rules first run on main.
-
-**Fix.** Also match `^mise\.toml$`, with a case in `markdown-changed_test.sh`.
-
-**Done when.** The test has a case where a `mise.toml`-only change exits 0.
-
-### DEBT-252 The pre-commit golangci-lint compares against `HEAD~`, one commit wider than it says
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** The `golangci-lint` command (`lefthook.yml:38`).
-
-**Today.** In pre-commit the commit is not made yet, so what it changes is the
-diff from HEAD; `--new-from-rev=HEAD~` also lints every line of the previous
-commit, so an issue already in HEAD fails an unrelated commit. The fallback
-reasoning is also wrong: on the second commit `HEAD~` is missing and the hook
-lints the whole tree.
-
-**Fix.** Use `--new-from-rev=HEAD`, falling back when `git rev-parse --verify
---quiet HEAD` fails, and fix the comment.
-
-**Done when.** With a lint issue committed in HEAD and an unrelated clean
-staged change, the hook passes.
-
-### DEBT-253 The commit-message gate does not check the 72-column body wrap CLAUDE.md asks for
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `scripts/check-commit-message.sh:28` to `:100`.
-
-**Today.** It checks the subject's pattern, length and period and the breaking
-markers, never a body line, so long bodies pass lefthook and CI though
-CLAUDE.md asks for a body "wrapped at 72", and every commit lands on main as
-written.
-
-**Fix.** Refuse prose body lines over 72 characters, except URLs, trailers and
-indented or fenced blocks.
-
-**Done when.** The test has a case where a 90-character prose body line fails.
-
-### DEBT-254 No CI job sets `timeout-minutes`, and several workflows lack a concurrency group
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** Every job in `.github/workflows/*.yml`; `codeql.yml`,
-`container.yml`, `release-please.yml`, `release.yml`.
-
-**Today.** A hung Playwright server, gobco run or container gate holds a
-runner for the six-hour default. Those four workflows have no `concurrency:`;
-release races are narrow (a hand tag push plus a dispatch), so the cost is
-mostly runner minutes.
-
-**Fix.** Set `timeout-minutes` per job, and add a non-cancelling release group
-to the release workflows and a cancelling group to CodeQL.
-
-**Done when.** `grep -L timeout-minutes .github/workflows/*.yml` prints
-nothing and zizmor and actionlint stay clean.
-
-### DEBT-255 Dependabot's docker entry cannot update the build image's `FROM` line
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** The `/build` entry (`.github/dependabot.yml:71`), `FROM
-golang:${GO_VERSION}-trixie@sha256:…` and its comment (`build/Dockerfile:21`,
-`:25`).
-
-**Today.** Dependabot does not substitute build ARGs, so it cannot parse the
-`FROM` reference, and no Dependabot PR has ever touched the Dockerfile, though
-the comment says Dependabot updates the line. A digest bump without
-`mise.toml` and `GO_VERSION` would fail the check after `FROM` anyway.
-
-**Fix.** Remove the entry and say in the Dockerfile that the digest moves by
-hand with a Go bump, guarded by `check-go-version.sh`.
-
-**Done when.** The `/build` entry is gone and the Dockerfile comment matches.
-
-### DEBT-256 `postCreate` skips the hooks in a worktree, and the devcontainer image floats
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `.devcontainer/postCreate.sh:94`,
-`.devcontainer/devcontainer.json:3`.
-
-**Today.** In a worktree or submodule `.git` is a file, so `-d` is false and
-lefthook is never installed, with a misleading "No .git directory yet". The
-base image and the docker-in-docker feature float on tags, while the build
-container pins by digest.
-
-**Fix.** Test with `git -C "$workspace" rev-parse --git-dir`, and pin the
-image and feature by digest for Dependabot's devcontainers ecosystem to move.
-
-**Done when.** postCreate installs hooks in a `git worktree add` checkout and
-the image carries an `@sha256` digest.
-
-### DEBT-257 `task fmt` does not format the web
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `fmt` (`Taskfile.yml:478`), `fmt` and `lint` scripts
-(`web/package.json:12`, `:14`).
-
-**Today.** CLAUDE.md lists `task fmt` as formatting everything, but it skips
-prettier, while `yarn lint` fails on `prettier --check`; a developer who ran
-`task fmt` still fails `task check` on web formatting.
-
-**Fix.** Add a `web:fmt` task running `corepack yarn fmt` to `fmt`.
-
-**Done when.** After `task fmt` on a misformatted `.tsx`, `task web:lint`
-passes its prettier step.
-
-### DEBT-258 CI's Web job re-implements the web tasks, with a second copy of the bundle check
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** The `web` job (`.github/workflows/ci.yml:107`, the bundle check at
-`:146`), `web:install` to `web:dist:check` (`Taskfile.yml:181` to `:247`).
-
-**Today.** Every other job calls `task`. This one runs `corepack enable`,
-`yarn` steps and its own copy of `web:dist:check`, and the copies differ (bare
-`yarn` against `corepack yarn`, no git-environment scrub), so a new web lint
-step is made in two places.
-
-**Fix.** Run `task web:gen:check web:lint web:test web:dist:check`, passing
-the extra reporters through `CLI_ARGS`, and delete the inline check.
-
-**Done when.** The Web job's steps are `task` calls and `ci.yml` holds no `git
-diff --quiet -- ../internal/web/dist`.
-
-### DEBT-259 The Go package roots are written out in three places
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `GO_PKGS` (`Taskfile.yml:10`), `unit-go` (`lefthook.yml:135`),
-`go_roots` (`scripts/gobco-report.sh:162`).
-
-**Today.** `./cmd/... ./internal/... ./api/...` is written three times, each
-with its own comment about the stray Go package in `web/node_modules`, and the
-pre-push hook repeats `task test` rather than calling it. A missed copy
-silently leaves a package out of the pre-push tests or the condition gate.
-`test-summary.sh` already takes the roots as arguments.
-
-**Fix.** Pass `GO_PKGS` to `gobco-report.sh` (the explicit package list moving
-to a flag) and have `unit-go` run `task test`.
-
-**Done when.** No copy of the roots remains in `lefthook.yml` or `scripts/`.
-
-### DEBT-260 Every script test re-implements one harness, and `test:scripts` runs each twice
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `scripts/*_test.sh` and `scripts/release/*_test.sh` (21 files;
-`expect` in `check-goroutines_test.sh:23`), `test:scripts`
-(`Taskfile.yml:263`), `scripts/hook-environment_test.sh:32`.
-
-**Today.** Each declares its own counters, an `expect` (14 copies), a work
-directory and trap, the closing summary, and in nine the git-environment
-scrub. `test:scripts` lists every test by hand, and
-`hook-environment_test.sh`, on that list, runs every other test again under a
-hook's environment, so each runs twice per `task test`, the second time
-silently.
-
-**Fix.** A `scripts/lib/testing.sh` with setup, expect-exit, expect-output and
-finish, sourced by each; have `test:scripts` run the hook-environment test,
-which already runs every test once.
-
-**Done when.** No `^failures=0` remains in a script test, and each script test
-runs once per `task test:scripts`.
-
-### DEBT-261 CI repeats work and installs the whole toolchain in every job
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `summary` (`.github/workflows/ci.yml:259`), `build` (`:90`),
-`e2e-server` (`:233`), `cross` (`:283`), every `jdx/mise-action` step,
-`scripts/test-summary.sh`.
-
-**Today.** The advisory summary reruns the Go tests with `-race`, vitest with
-coverage and Playwright, though those jobs upload their counts; `task build`
-runs in build and e2e-server, and the web bundle in four jobs; every mise step
-installs all of `mise.toml` (Go, golangci-lint, hugo, gobco, gitleaks, node)
-even in node-only jobs. The summary is not on the required path, so the cost
-is runner minutes and slower installs.
-
-**Fix.** Build the summary from the uploaded artifacts with `needs:`, drop the
-build job or have it upload `bin/`, and pass `install_args` to install only
-each job's tools.
-
-**Done when.** The summary job runs no test suite, and the node-only jobs
-install only node.
-
-### DEBT-277 Package-size gate advice cites features that do not exist here
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** The split advice (`scripts/check-package-size.sh:196`).
-
-**Today.** It says "features/genres came out of features/lists exactly that
-way"; neither has ever existed in this repository.
-
-**Fix.** Cite a real split from `scripts/package-size-budget-history.md`, or
-drop the example.
-
-**Done when.** `grep -n genres scripts/check-package-size.sh` returns nothing.
 
 ## The docs
 
@@ -1285,9 +968,9 @@ TRADE-5, TRADE-7, TRADE-8, TRADE-9, TRADE-11, TRADE-13, TRADE-14, TRADE-24,
 TRADE-25, TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is
 true at `b9ab000`. TRADE-16 was paid down to the two calls it now names, and
 TRADE-21 and TRADE-28 to two copies held to one shared case file, and each
-stays. TRADE-1, TRADE-2, TRADE-6, TRADE-10, TRADE-12, TRADE-18, TRADE-19,
-TRADE-23 and TRADE-29 are to be paid down by the entries above whose titles
-name them, and each stays here, as it was, until its entry is paid.
+stays. TRADE-2, TRADE-6, TRADE-10, TRADE-12, TRADE-18, TRADE-19, TRADE-23 and
+TRADE-29 are to be paid down by the entries above whose titles name them, and
+each stays here, as it was, until its entry is paid.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
@@ -1295,36 +978,6 @@ and a group links to a Slack user group. A bare name decided as a person
 before GitLab was asked, as every one was, is asked about again as a team once
 GitLab knows it as a group; one GitLab cannot be asked about stays what it was
 decided as. Its ID is not reused.
-
-### TRADE-1 Every package with a declared file budget sits exactly at it
-
-The numbers are in `scripts/package-size-budgets.txt`, and
-`scripts/check-package-size.sh --list` shows the standings. That is the
-gate working as designed, since a budget left above its count fails too:
-the next file in any of them is a decision (a split, or a bump with the WHY
-rewritten and a history row), not an accident. A directory the file does
-not list answers to the default, which `internal/forge` and `web/src/shell`
-fill exactly, so the next file in either is a first entry with its WHY.
-
-**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
-2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
-The detail's and the queue's minute became `freshFor`'s 30 seconds on
-2026-09-30, to match the terminal's refresh on switch.
-
-**Cost.** Any change adding a file there must carry its budget row in the
-same commit or fail `task check`.
-
-**Reopen when.** One directory's budget rises three times in rows of
-`scripts/package-size-budget-history.md` dated after 2026-09-25, with no
-row lowering it between them.
-
-**Revisited.** 2026-10-05, in #170: the trigger had fired for
-`internal/tui` (45 → 50 in #164 and #165), and seven more files are
-planned there — `keycheck.go`, then the Tasks listing, the comment
-composer, the Summary pane and its calendar, and the Repositories pane and
-its directory prompt. Each is a pane or an overlay of the one interface
-CLAUDE.md says must not be split to chase a number, so each rises with its
-own row and WHY rather than reopening how the package is budgeted.
 
 ### TRADE-2 Seven test files stay past the 500-line soft target
 
