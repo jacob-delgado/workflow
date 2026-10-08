@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 )
 
 func TestAnAccountNameCannotDriveTheTerminal(t *testing.T) {
@@ -62,5 +63,25 @@ func TestAnAnswerThatBreaksOffIsAnError(t *testing.T) {
 	// Assert
 	if !errors.Is(err, errBrokeOff) {
 		t.Errorf("Whoami returned %v, want the read failure", err)
+	}
+}
+
+func TestAnAnswerPastTheLimitIsTooLarge(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Valid JSON a byte past the 16 MiB read: cut there, it would read as
+	// broken JSON.
+	const forgeLimit = 16 << 20
+
+	padding := strings.Repeat("x", forgeLimit+1-len(`{"login":""}`))
+	client, _ := recordingForge(t, answering(http.StatusOK, `{"login":"`+padding+`"}`))
+
+	// Act
+	_, err := client.Whoami(t.Context())
+
+	// Assert
+	if !errors.Is(err, httpx.ErrAnswerTooLarge) {
+		t.Errorf("Whoami = %v, want ErrAnswerTooLarge", err)
 	}
 }

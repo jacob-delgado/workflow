@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -154,5 +155,25 @@ func TestAnAnswerThatBreaksOffIsAnError(t *testing.T) {
 				t.Errorf("Search returned %v, want %v", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestAnAnswerPastTheLimitIsTooLarge(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Valid JSON a byte past the 16 MiB read: cut there, it would read as
+	// broken JSON.
+	const jiraLimit = 16 << 20
+
+	padding := strings.Repeat("x", jiraLimit+1-len(`{"name":""}`))
+	client := serve(t, answer(`{"name":"`+padding+`"}`, "fred"))
+
+	// Act
+	_, err := client.Myself(t.Context())
+
+	// Assert
+	if !errors.Is(err, httpx.ErrAnswerTooLarge) {
+		t.Errorf("Myself = %v, want ErrAnswerTooLarge", err)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
@@ -53,7 +54,7 @@ func (c Client) explained(statusErr error, body io.Reader) error {
 // token masked wherever it quotes it, reporting false when it gave none that
 // can be read.
 func (c Client) reasonIn(body io.Reader) (string, bool) {
-	raw, err := io.ReadAll(io.LimitReader(body, reasonLimit))
+	raw, err := httpx.Read(body, reasonLimit)
 	if err != nil {
 		return "", false
 	}
