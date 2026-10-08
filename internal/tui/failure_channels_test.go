@@ -149,6 +149,14 @@ func everySeamFailure() map[string]spoken {
 			fmt.Errorf("finding: %w", fmt.Errorf("%w (in 30s)", httpx.ErrRateLimited)), "rate limited",
 			"Rate limited. Wait a minute, then try again.",
 		},
+		"an answer too large": {
+			fmt.Errorf("searching: %w", httpx.ErrAnswerTooLarge), "the answer was too large",
+			"The service answered with more than workflow reads at once. Try again with less.",
+		},
+		"an answer too slow": {
+			fmt.Errorf("searching: %w", httpx.ErrTimedOut), "the service was too slow",
+			"The service took too long to answer. Raise `timing.request_timeout`, or try again.",
+		},
 		"not a repository": {
 			fmt.Errorf("finding: %w", fmt.Errorf("%w: /tmp", gitrepo.ErrNotARepository)), "not a git repository",
 			"This is not inside a git repository. Start workflow from a repository's work tree.",
