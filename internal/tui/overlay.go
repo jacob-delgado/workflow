@@ -43,6 +43,20 @@ type steppable interface {
 	step(m Model, delta int) Model
 }
 
+// listKey answers the keys every list overlay answers alike: esc closes it,
+// and the cursor keys step it. answered is false for any other key, which the
+// list answers itself.
+func (m Model) listKey(list steppable, msg tea.KeyPressMsg) (Model, bool) {
+	switch {
+	case key.Matches(msg, m.keys.closeOverlay):
+		return m.closeOverlay(), true
+	case key.Matches(msg, m.keys.cursorKeys()...):
+		return list.step(m, m.keys.stepOf(msg)), true
+	default:
+		return m, false
+	}
+}
+
 // pasteable is an overlay with a text field that takes a paste: pasted types
 // text into the field that has the keyboard, as typing it would.
 type pasteable interface {
@@ -330,18 +344,16 @@ func (checklist[F]) footer(keys keyMap) []key.Binding {
 
 // handleKey answers a key while the checklist has the keyboard.
 func (c checklist[F]) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	if listed, answered := m.listKey(c, msg); answered {
+		return listed, nil
+	}
+
 	switch {
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.confirm):
 		return c.apply(m.closeOverlay(), c.chosen)
 	case key.Matches(msg, m.keys.toggleOption):
-		c = c.toggled()
-	case key.Matches(msg, m.keys.cursorKeys()...):
-		return c.step(m, m.keys.stepOf(msg)), nil
+		m.overlay = c.toggled()
 	}
-
-	m.overlay = c
 
 	return m, nil
 }
