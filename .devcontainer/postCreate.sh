@@ -91,11 +91,13 @@ fi
 log "go mod download"
 mise exec -- go mod download
 
-if [[ -d "${workspace}/.git" ]]; then
+# Asked of git rather than of a .git directory: in a linked worktree or a
+# submodule .git is a file, and the hooks belong there all the same.
+if git -C "${workspace}" rev-parse --git-dir >/dev/null 2>&1; then
   log "lefthook install — pre-commit, commit-msg and pre-push hooks"
   mise exec -- lefthook install
 else
-  log "No .git directory yet; run 'task setup' after 'git init' to add the hooks."
+  log "Not a git repository yet; run 'task setup' after 'git init' to add the hooks."
 fi
 
 log "Installed toolchain:"
