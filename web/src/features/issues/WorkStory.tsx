@@ -7,7 +7,7 @@ import { Button } from '@/lib/Button.tsx'
 import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { capitalized, cn, plural } from '@/lib/utils.ts'
+import { cn, plural } from '@/lib/utils.ts'
 import { sectionMeta } from '@/shell/sections.ts'
 import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
@@ -24,9 +24,10 @@ type SnapshotStage = Snapshot['stages'][number]
 type Step = SnapshotStage['step']
 
 // How far a stage has got, drawn by its mark: not started, in flight, done or
-// failed. The mark takes the hue of the system the stage belongs to, as the
-// interface's spine does (internal/tui/spine.go), so a stage and the section
-// it opens share a color — except a failed stage, red as the spine paints it.
+// failed. The mark takes the hue of the section the stage opens, as the
+// interface's spine colors a stage by where its work happens
+// (internal/tui/spine.go), so a stage and its section share a color — except a
+// failed stage, red as the spine paints it.
 type StageState = Exclude<MarkState, 'unknown'>
 
 // A stage's state in the server's words, as the story draws it.
@@ -46,6 +47,9 @@ const stateWords: Record<StageState, string> = {
 }
 
 interface Stage {
+  step: Step
+  // title is the stage as the server names it, as the terminal's spine and
+  // `workflow status` do: the last is the messaging service's name.
   title: string
   // detail is what the stage has come to, as facts said apart; a branch among
   // them is set in the code face (BranchName).
@@ -58,22 +62,20 @@ interface Stage {
 // checked out, or the branch on HEAD.
 type Place = 'not-started' | 'elsewhere' | 'on-head'
 
-// The loop, top to bottom, as the server sends its stages: the issue picked
-// up, branched for, the work committed, the pull request opened and CI green,
-// and announced. Each stage is titled and opens a section by its step; the pull
-// request is named in the forge's own words — a merge request on GitLab.
-function stageLook(step: Step, noun: string): Pick<Stage, 'title' | 'section'> {
+// sectionOf is the section a stage of the loop opens, by its step: the issue
+// picked up, branched for, the work committed, the pull request opened and CI
+// green, and announced.
+function sectionOf(step: Step): Section {
   switch (step) {
     case 'issue':
-      return { title: 'Issue', section: 'issues' }
+      return 'issues'
     case 'branch':
-      return { title: 'Branch', section: 'branch' }
     case 'commits':
-      return { title: 'Changes', section: 'branch' }
+      return 'branch'
     case 'review':
-      return { title: capitalized(noun), section: 'review' }
+      return 'review'
     case 'announce':
-      return { title: 'Announce', section: 'messaging' }
+      return 'messaging'
   }
 }
 
@@ -93,7 +95,9 @@ function buildStages(
   const detailOf = detailFor(place, snapshot, branch?.name ?? '', words)
 
   return snapshot.stages.map((stage, index) => ({
-    ...stageLook(stage.step, words.noun),
+    step: stage.step,
+    title: stage.name,
+    section: sectionOf(stage.step),
     state: stateOf(stage, index),
     detail: detailOf(stage),
   }))
@@ -357,7 +361,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
       <ol className="flex flex-col">
         {stages.map((stage, index) => (
           <StoryStage
-            key={stage.title}
+            key={stage.step}
             stage={stage}
             current={index === at}
             last={index === stages.length - 1}

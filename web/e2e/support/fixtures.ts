@@ -36,11 +36,11 @@ const emptySnapshot = {
   changes: { changes: [] },
   review: { found: false, announced: false },
   stages: [
-    { step: 'issue', name: 'Issue', system: 'tracker', state: 'not_started' },
-    { step: 'branch', name: 'Branch', system: 'git', state: 'not_started' },
-    { step: 'commits', name: 'Commits', system: 'git', state: 'not_started' },
-    { step: 'review', name: 'Review', system: 'forge', state: 'not_started' },
-    { step: 'announce', name: 'Slack', system: 'messaging', state: 'not_started' },
+    { step: 'issue', name: 'Issue', state: 'not_started' },
+    { step: 'branch', name: 'Branch', state: 'not_started' },
+    { step: 'commits', name: 'Commits', state: 'not_started' },
+    { step: 'review', name: 'Review', state: 'not_started' },
+    { step: 'announce', name: 'Slack', state: 'not_started' },
   ],
   messaging: {
     kind: 'slack',

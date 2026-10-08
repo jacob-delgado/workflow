@@ -519,12 +519,6 @@ export const zStage = z.object({
         'announce'
     ]),
     name: z.string(),
-    system: z.enum([
-        'tracker',
-        'git',
-        'forge',
-        'messaging'
-    ]),
     state: z.enum([
         'not_started',
         'in_flight',

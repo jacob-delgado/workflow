@@ -69,7 +69,7 @@ test('lays out the in-flight stages for the issue that owns the branch', () => {
 
   // Assert
   expect(screen.getByText('Branch')).toBeTruthy()
-  expect(screen.getByText('Pull request')).toBeTruthy()
+  expect(screen.getByText('Review')).toBeTruthy()
   expect(screen.getByText(/1 file to commit/)).toBeTruthy()
 })
 
@@ -414,7 +414,7 @@ test.each([
   render(<WorkStory issueKey={issueKey} />)
 
   // Assert
-  expect(screen.getByText('Merge request')).toBeTruthy()
+  expect(document.body.textContent).toMatch(/merge request/)
   expect(document.body.textContent).not.toMatch(/pull request/i)
 })
 
