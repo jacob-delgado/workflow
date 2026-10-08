@@ -2,9 +2,9 @@ import { RuleTester } from 'eslint'
 import tseslint from 'typescript-eslint'
 import { arrangeActAssert } from './arrange-act-assert.js'
 
-// The marker check e2e specs answer to, as cmd/testshape is the Go tests':
-// each case is a spec body, valid when its markers hold and each Assert
-// reaches an expect.
+// The marker check the web's tests answer to, as cmd/testshape is the Go
+// tests': each case is a test body, valid when its markers hold and each
+// Assert reaches an expect.
 const tester = new RuleTester({ languageOptions: { parser: tseslint.parser } })
 
 tester.run('arrange-act-assert', arrangeActAssert, {
@@ -57,6 +57,27 @@ tester.run('arrange-act-assert', arrangeActAssert, {
 
   // Act & Assert
   expect(1).toBe(1)
+})`,
+    },
+    {
+      name: 'a single cycle, its words in an ordinary comment under the bare marker',
+      code: `test('t', async ({ page }) => {
+  // Act
+  // open the preview
+  await page.click('x')
+
+  // Assert
+  expect(sent).toEqual([])
+})`,
+    },
+    {
+      name: 'a table test whose body marks its parts',
+      code: `test.each(cases)('t $name', async ({ name }) => {
+  // Act
+  const said = say(name)
+
+  // Assert
+  expect(said).toBe(name)
 })`,
     },
     {
@@ -130,6 +151,63 @@ tester.run('arrange-act-assert', arrangeActAssert, {
   expect(sent).toEqual(['y'])
 })`,
       errors: [{ messageId: 'labelRequired' }],
+    },
+    {
+      name: 'a single Act labeled',
+      code: `test('t', async ({ page }) => {
+  // Act: open the preview
+  await page.click('x')
+
+  // Assert
+  expect(sent).toEqual([])
+})`,
+      errors: [{ messageId: 'labelUnexpected' }],
+    },
+    {
+      name: 'a single Assert labeled',
+      code: `test('t', async ({ page }) => {
+  // Act
+  await page.click('x')
+
+  // Assert: nothing is sent
+  expect(sent).toEqual([])
+})`,
+      errors: [{ messageId: 'labelUnexpected' }],
+    },
+    {
+      name: 'a single Act & Assert labeled',
+      code: `test('t', async () => {
+  // Act & Assert: one is one
+  expect(1).toBe(1)
+})`,
+      errors: [{ messageId: 'labelUnexpected' }],
+    },
+    {
+      name: 'an Arrange labeled, in a flow that labels every step',
+      code: `test('t', async ({ page }) => {
+  // Arrange: the home page
+  await page.goto('/')
+
+  // Act: open the preview
+  await page.click('x')
+
+  // Assert: nothing is sent yet
+  expect(sent).toEqual([])
+
+  // Act: confirm
+  await page.click('y')
+
+  // Assert: it is sent
+  expect(sent).toEqual(['y'])
+})`,
+      errors: [{ messageId: 'labelUnexpected' }],
+    },
+    {
+      name: 'a table test with no markers',
+      code: `test.each(cases)('t $name', async ({ name }) => {
+  expect(say(name)).toBe(name)
+})`,
+      errors: [{ messageId: 'missingMarkers' }],
     },
     {
       name: 'a section with nothing in it',
