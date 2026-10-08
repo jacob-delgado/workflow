@@ -1,9 +1,7 @@
 # Contributing to workflow
 
-Thank you for your interest in contributing to workflow! workflow is a Go
-command-line and terminal UI tool that integrates Jira, a messaging service
-(Slack, Teams or Discord), and GitHub or GitLab to help developers run their
-workflow from the terminal.
+Thank you for your interest in contributing to workflow! The
+[README](README.md) says what it is and what it does.
 
 Everyone participating in this project is expected to follow the
 [Code of Conduct](CODE_OF_CONDUCT.md).
