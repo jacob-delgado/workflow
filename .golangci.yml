@@ -75,7 +75,9 @@ linters:
         # internal/activity groups and words what was done over a period from
         # what each source read, which a caller hands it: it holds no clock and
         # does no I/O, so a test can pin any day and any zone. strict mode
-        # allows only the standard packages that keep it so.
+        # allows only the standard packages that keep it so, and
+        # internal/sanitize, which does neither, for the one Markdown escape
+        # the Summary's text and messaging's rendering of it share.
         activity-without-io:
           list-mode: strict
           files:
@@ -91,6 +93,7 @@ linters:
             - time
             - unicode
             - unicode/utf8
+            - github.com/jacob-delgado/workflow/internal/sanitize
         # internal/seams declares the seam bundles the surfaces share, so it sits
         # below all three and above internal/loop, whose Announced record
         # seams.Store speaks (loop can therefore never take a bundle: that would be
