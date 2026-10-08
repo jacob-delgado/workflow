@@ -1054,6 +1054,11 @@ in which case the store keeps nothing and says nothing.
   `--force` leaves it that way whatever mode the file it replaces had.
 - `workflow doctor` fails while anyone but you can read or write the file, and
   names the `chmod 600` that puts it right.
+- On Linux and macOS, a file someone else could have written is not read at
+  all: one another user owns, one anyone else may write, or one a group may
+  write that is not your own (the group with your user id, which a umask of
+  `002` gives every file you make). workflow stops with an error naming the
+  file, and `chmod go-w` on it puts it right.
 - `workflow config init` warns when the file is not ignored by git; add it to
   `.gitignore`.
 - `workflow config show` masks every credential — Jira, Slack, the webhook URL

@@ -74,8 +74,13 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # exercises the Unix path end to end. It lives in its own package so this one
 # entry does not cost internal/proc its coverage.
 #
-# Trade-off TRADE-7: this package's conditions go unmeasured.
-readonly UNANALYZABLE="internal/proc/pgroup"
+# internal/fileowner is the same kind of twin: Of reads a file's user and group
+# ids from Unix's stat, and reports none elsewhere. It holds one type assertion;
+# what an owner means, which file is refused for it, is decided and measured in
+# internal/config.
+#
+# Trade-off TRADE-7: these packages' conditions go unmeasured.
+readonly UNANALYZABLE="internal/proc/pgroup internal/fileowner"
 
 # Packages with no tests, each with the reason it has none. gobco measures
 # conditions by running a package's tests, so a package without any cannot be
