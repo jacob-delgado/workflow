@@ -1,6 +1,5 @@
 import type { Task, TaskList, TasksSummary } from '@/api/generated/types.gen.ts'
-
-const minute = 60_000
+import { minute } from '@/lib/dates.ts'
 
 // at is the RFC 3339 time some minutes from now — before it when negative — so
 // the mockup's ages and due dates read the same whenever it is shown.
