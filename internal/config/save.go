@@ -336,7 +336,8 @@ type Edit struct {
 // written. A Jira token typed is kept in the keychain item for its address
 // where KeepJiraToken is wired, and so lands in no file. Every credential but
 // those placed elsewhere is checked before any is placed, since placing the
-// Slack secrets spends the refresh token typed.
+// Slack secrets spends the refresh token typed, and every one before the
+// keychain is handed the token, which replaces the item it held.
 func SaveEdit(edit Edit) (Config, Revision, error) {
 	incoming := KeepStored(edit.Edited, edit.Read, edit.Removed)
 	incoming.Path, incoming.Files = edit.Files.Target(), edit.Files
@@ -351,12 +352,12 @@ func SaveEdit(edit Edit) (Config, Revision, error) {
 		return Config{}, Revision{}, err
 	}
 
-	incoming, err = edit.keepJiraToken(incoming)
+	err = edit.refuseTyped(incoming, slackSecretFields())
 	if err != nil {
 		return Config{}, Revision{}, err
 	}
 
-	err = edit.refuseTyped(incoming, slackSecretFields())
+	incoming, err = edit.keepJiraToken(incoming)
 	if err != nil {
 		return Config{}, Revision{}, err
 	}

@@ -177,3 +177,37 @@ func TestSettingsWritesNothingWhenTheKeychainKeepsNoToken(t *testing.T) {
 			"nothing written", err, saved.Jira.Token.Reveal() == homeToken)
 	}
 }
+
+// slackUserJiraHome is a home file with Jira at jiraURL that keeps a Slack
+// user token's secrets itself.
+const slackUserJiraHome = `{"jira": {"base_url": "` + jiraURL + `", "token": "` + homeToken + `"},
+  "messaging": {"client_id": "1.2", "client_secret": "client-secret-home", "refresh_token": "xoxe-1-home"}}`
+
+func TestSettingsTouchesNoKeychainWhenATypedSlackSecretIsRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files := layeredOver(t, slackUserJiraHome, otherAddressRepo)
+
+	read, revision, err := config.LoadLayersAt(files)
+	if err != nil {
+		t.Fatalf("reading the layers: %v", err)
+	}
+
+	edited := read.Redacted()
+	edited.Jira.Token, edited.Messaging.RefreshToken = typedToken, typedRefresh
+	kept := keptTokens{}
+	place := func(cfg config.Config) (config.Config, error) { return cfg, nil }
+
+	// Act
+	_, _, err = config.SaveEdit(config.Edit{
+		Files: files, Read: read, Over: revision, Edited: edited,
+		PlaceSlackCredentials: place, KeepJiraToken: kept.keep,
+	})
+
+	// Assert
+	if !errors.Is(err, config.ErrCredentialInRepository) || len(kept) != 0 {
+		t.Errorf("SaveEdit = %v, the keychain handed %d; want the Slack refresh token refused before the "+
+			"keychain is touched", err, len(kept))
+	}
+}
