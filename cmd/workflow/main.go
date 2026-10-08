@@ -29,25 +29,17 @@ func main() {
 }
 
 // terminalPrompt answers a command's questions from the terminal: a visible
-// line through a reader shared across prompts, and a secret read without echo
-// through x/term, and whether a stream is a terminal, by x/term too. The two
-// reads and the check live here, in the untested main, because
-// reading a real terminal is what a test cannot do; keeping a secret in the
-// keychain and composing in the editor come from their own packages.
+// line through a reader shared across prompts, a secret read without echo, and
+// whether a stream is a terminal, by x/term. The check lives here, in the
+// untested main, because a real terminal is what a test cannot make; keeping
+// a secret in the keychain and composing in the editor come from their own
+// packages.
 func terminalPrompt() cli.Prompt {
 	reader := bufio.NewReader(os.Stdin)
 
 	return cli.Prompt{
-		Line: cli.LineReader(reader, os.Stderr),
-		Secret: func(prompt string) (string, error) {
-			fmt.Fprint(os.Stderr, prompt)
-
-			secret, err := term.ReadPassword(int(os.Stdin.Fd()))
-
-			fmt.Fprintln(os.Stderr)
-
-			return string(secret), err
-		},
+		Line:        cli.LineReader(reader, os.Stderr),
+		Secret:      cli.SecretReader(os.Stdin, os.Stderr),
 		StoreSecret: keychain.Storer(runtime.GOOS, proc.Capture, user.Current, os.Getenv),
 		Input:       reader,
 		IsTerminal:  isTerminal,
