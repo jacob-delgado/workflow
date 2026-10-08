@@ -64,6 +64,19 @@ const heldNotDisabled = [
   },
 ]
 
+// An address in an href comes from a server — a CI check's target, a pull
+// request's page — and reaches the page only through NewTabLink, which allows
+// http and https alone (CLAUDE.md, "The web server does not sanitize on the
+// way out"). React escapes text, not what an href leads to.
+const linkThroughNewTabLink = [
+  {
+    selector:
+      "JSXOpeningElement[name.name='a'] > JSXAttribute[name.name='href'] > JSXExpressionContainer",
+    message:
+      'Link to an address through NewTabLink (web/src/lib/NewTabLink.tsx), which allows only http and https, not an <a href={…}> of your own.',
+  },
+]
+
 // Black-box test smells: assert on user-facing semantics, not implementation
 // details. `no-node-access` would catch these but over-fires on the legitimate
 // focus tests (`document.activeElement`) and on the state-mark test that climbs
@@ -168,12 +181,27 @@ export default tseslint.config(
         ...noOpacityDimming,
         ...noAllCaps,
         ...heldNotDisabled,
+        ...linkThroughNewTabLink,
       ],
       // A label wrapping one of web/src/lib's fields labels the control it
       // draws, as one wrapping the native element does.
       'jsx-a11y/label-has-associated-control': [
         'error',
         { controlComponents: ['Input', 'Select', 'TextArea'], depth: 3 },
+      ],
+    },
+  },
+  // NewTabLink is the one link that writes an href from an expression, after
+  // checking it.
+  {
+    files: ['src/lib/NewTabLink.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...noReactEscapeBypass,
+        ...noOpacityDimming,
+        ...noAllCaps,
+        ...heldNotDisabled,
       ],
     },
   },

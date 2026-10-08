@@ -556,6 +556,10 @@ than observable, public behavior.
   `dangerouslySetInnerHTML` and `innerHTML`, so server text reaches the page only
   as inert text — rendering server text as HTML, or handing it to a sink React
   does not escape, ends that exemption and brings the sanitize pass to that seam.
+  A URL attribute is such a sink: a URL from the server reaches an `href` only
+  through `NewTabLink` (`web/src/lib/NewTabLink.tsx`), which allows http and
+  https alone, and the web lint fails any other `<a href={…}>`; any other
+  attribute sink ends the exemption.
 
 - **Use `tmp/` under the repo root for ad-hoc scratch files** — never `/tmp/…` or
   any path outside the repo. PR-body drafts, intermediate output, log dumps:

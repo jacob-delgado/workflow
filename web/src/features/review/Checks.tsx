@@ -72,7 +72,7 @@ function CheckRow({ check }: { check: Check }) {
         <StateMark state={ciMark[check.state]} />
         <Meta>
           {check.stage ? <span className="text-muted-foreground">{check.stage}</span> : null}
-          {check.url === '' ? check.name : <NewTabLink href={check.url}>{check.name}</NewTabLink>}
+          <NewTabLink href={check.url}>{check.name}</NewTabLink>
         </Meta>
         <span className="text-muted-foreground">{check.state}</span>
       </span>
