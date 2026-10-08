@@ -56,9 +56,9 @@ type UI struct {
 	WebShortcuts bool `json:"web_shortcuts"`
 }
 
-// DrawColor reports whether the system hues should be drawn. NO_COLOR (set to
-// any value) and ui.color "never" both turn them off; bold, faint and reverse
-// stay.
+// DrawColor reports whether the system hues should be drawn. NO_COLOR set to
+// a non-empty value and ui.color "never" both turn them off; bold, faint and
+// reverse stay. An empty NO_COLOR keeps them, as no-color.org asks.
 func (u UI) DrawColor(noColorEnv string) bool {
 	return noColorEnv == "" && u.Color != colorNever
 }
