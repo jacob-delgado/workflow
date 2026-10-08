@@ -514,6 +514,21 @@ func TestADryRunCommitsNothing(t *testing.T) {
 	}
 }
 
+func TestADryRunCommitKeepsItsMessageForTheNextComposer(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dry := newWorld()
+	model := sized(t, dryInterface(dry), 120, 40)
+	described := typing(t, drain(t, model, model.Init()), commitKeys("redact tokens")...)
+
+	// Act
+	reopened := typing(t, described, "c").View().Content
+
+	// Assert
+	requireScreen(t, reopened, "fix: redact tokens")
+}
+
 // lintJobStarts is how lefthook opens a lint job's output.
 const lintJobStarts = "┃  lint ❯ "
 
