@@ -161,18 +161,21 @@ instead of the stages — `"not a git repository"`, or why its repository
 could not be read — and the command then exits non-zero after printing the
 whole array.
 
-`workflow reviews --json` prints an array, oldest first:
+`workflow reviews --json` prints an array, oldest first, of the requests
+`GET /api/reviews` answers (see [Scripting the API]({{< relref "/docs/web#scripting-the-api" >}})):
+`opened_at` is when each was opened, an RFC 3339 time, from which a script
+works out how long it has waited; the line's `3d` is for reading.
 
 ```json
 [
   {
-    "number": 42,
-    "title": "fix(config): redact the webhook",
     "author": "ana",
-    "repository": "acme/api",
-    "draft": false,
     "ci": "passed",
-    "age": "3d",
+    "draft": false,
+    "number": 42,
+    "opened_at": "2026-10-05T09:12:00Z",
+    "repository": "acme/api",
+    "title": "fix(config): redact the webhook",
     "url": "https://github.com/acme/api/pull/42"
   }
 ]
