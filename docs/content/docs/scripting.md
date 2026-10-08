@@ -164,7 +164,8 @@ whole array.
 `workflow reviews --json` prints an array, oldest first, of the requests
 `GET /api/reviews` answers (see [Scripting the API]({{< relref "/docs/web#scripting-the-api" >}})):
 `opened_at` is when each was opened, an RFC 3339 time, from which a script
-works out how long it has waited; the line's `3d` is for reading.
+works out how long it has waited, and is left out when the forge gave no time;
+the line's `3d` is for reading.
 
 ```json
 [
