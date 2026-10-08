@@ -65,15 +65,16 @@ func TestTheWebServerMasksACredentialSavedInSettings(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	dir := t.TempDir()
-	path := filepath.Join(dir, config.FileName)
+	// A credential typed in Settings is kept in the home directory's file.
+	home := t.TempDir()
+	path := filepath.Join(home, config.FileName)
 
 	err := os.WriteFile(path, []byte(`{"jira":{"token":"`+shownToken+`"}}`), config.FileMode)
 	if err != nil {
 		t.Fatalf("writing the configuration: %v", err)
 	}
 
-	cfg, err := config.Load(dir, t.TempDir())
+	cfg, err := config.Load(t.TempDir(), home)
 	if err != nil {
 		t.Fatalf("loading the configuration: %v", err)
 	}
