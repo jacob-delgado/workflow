@@ -103,15 +103,19 @@ test('pre-commit runs at once and shows what it writes', async ({ page }) => {
 test('a rebase waits on its last look', async ({ page }) => {
   // Arrange
   const asked = await opensBranch(page)
-  await page.getByRole('button', { name: 'Rebase onto main' }).click()
   const look = page.getByRole('form', { name: 'Rebase fix/PROJ-1-redact onto main' })
+
+  // Act: ask for the rebase.
+  await page.getByRole('button', { name: 'Rebase onto main' }).click()
+
+  // Assert: its last look is open, and nothing has run yet.
   await expect(look).toBeVisible()
   expect(asked).toEqual([])
 
-  // Act
+  // Act: rebase from the look.
   await look.getByRole('button', { name: 'Rebase' }).click()
 
-  // Assert
+  // Assert: the rebase runs, and shows what it writes.
   await expect(page.getByRole('region', { name: 'Output of git rebase' })).toBeVisible()
   expect(asked).toEqual([{ kind: 'rebase' }])
 })

@@ -19,7 +19,7 @@ for (const theme of themes) {
       // Assert: where each value's words begin, past any mark before them.
       const starts = await page
         .getByRole('region', { name: /^#128/ })
-        .locator('dd')
+        .getByRole('definition')
         .evaluateAll((values) =>
           values.map((value) => {
             const walker = document.createTreeWalker(value, NodeFilter.SHOW_TEXT)
