@@ -10,6 +10,9 @@ import (
 	"slices"
 	"unicode"
 	"unicode/utf8"
+
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Errors CheckKeys returns for a ui.keys map that cannot be used. Callers
@@ -122,63 +125,57 @@ func (b *helpBuilder) unknownActions(overrides map[string]string) error {
 // keyContext is a set of bindings all live at once — one keyboard surface — and a
 // name for it. A key bound twice within one context is ambiguous; the same key
 // meaning different things across two contexts is not. A binding belongs to a
-// context by help group, or by being named in alsoLive: a few bindings are
-// handled on a surface whose help group they are not filed under, and modeling
-// the context by group alone would miss the conflicts they cause there.
+// context by its help group, or by its action being one the context names.
 type keyContext struct {
-	name     string
-	groups   []int
-	alsoLive []string
+	name    string
+	groups  []int
+	actions []string
 }
 
 // covers reports that a placement's binding is live in the context: its help
-// group is one of the context's, or its action is one the context also runs.
+// group is one of the context's, or its action is one the context names.
 func (c keyContext) covers(placed placement) bool {
-	return slices.Contains(c.groups, placed.group) || slices.Contains(c.alsoLive, placed.action)
+	return slices.Contains(c.groups, placed.group) || slices.Contains(c.actions, placed.action)
 }
 
-// keyContexts are the sets of bindings live together, one per keyboard surface.
-// Most of a surface's keys come from its help groups, but some bindings are
-// handled outside the group they are filed under, so a context also names those:
-// the list actions refresh, open-link and copy-link are filed under Issues, yet
-// refresh acts on the Branch, Commits, Review, messaging, review-requests and
-// Tasks panes, and open-link and copy-link on the Review, review-requests and
-// Tasks panes; edit acts on the Review pane as well as in a preview; and an
-// overlay's list reads up and down, first and last, which a composer otherwise
-// excludes so that its tab can mean next-field rather than next-pane, and
-// People and groups reads refresh to read the Slack directory again. An overlay's own keys, the branch creator's
-// worktree and the messaging preview's wait for CI and channel among them, are
-// filed with the composer's, so they are live there and not on the pane behind
-// it.
+// liveIn reports whether msg presses a key live in context.
+func (k keyMap) liveIn(context keyContext, msg tea.KeyPressMsg) bool {
+	for _, group := range context.groups {
+		if key.Matches(msg, k.full[group]...) {
+			return true
+		}
+	}
+
+	for _, action := range context.actions {
+		if key.Matches(msg, k.byAction[action]) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// keyContexts are the sets of bindings live together, one per keyboard surface:
+// each pane's, which its handler obeys, and the overlays'.
 func keyContexts() []keyContext {
+	contexts := make([]keyContext, 0, paneCount)
+	for each := range pane(paneCount) {
+		contexts = append(contexts, each.keyContext())
+	}
+
+	return append(contexts, overlayContexts()...)
+}
+
+// overlayContexts are the keyboard surfaces an overlay opens. A running
+// command answers its own keys and the moving ones. A composer or preview
+// reads its own keys, the branch creator's worktree and the messaging
+// preview's wait for CI and channel among them, and an overlay's list reads
+// up and down, first and last, which a composer otherwise leaves out so its
+// tab can mean next-field rather than next-pane; People and groups reads
+// refresh to read the Slack directory again. The comment composer moves with
+// up and down and hands its body to the editor.
+func overlayContexts() []keyContext {
 	return []keyContext{
-		{"the Issues pane", []int{groupMoving, groupEverywhere, groupIssues}, nil},
-		{"the Branch and Commits panes", []int{groupMoving, groupEverywhere, groupBranchCommits}, []string{actionRefresh}},
-		{
-			"the Review and messaging panes",
-			[]int{groupMoving, groupEverywhere, groupReviewMessaging},
-			[]string{actionOpenLink, actionCopyLink, actionRefresh, "edit"},
-		},
-		{
-			"the review-requests pane",
-			[]int{groupMoving, groupEverywhere, groupReviews},
-			[]string{actionOpenLink, actionCopyLink, actionRefresh},
-		},
-		{
-			"the Tasks pane",
-			[]int{groupMoving, groupEverywhere, groupTasks},
-			[]string{actionOpenLink, actionCopyLink, actionRefresh},
-		},
-		{
-			"the Summary pane",
-			[]int{groupMoving, groupEverywhere, groupSummary},
-			[]string{actionOpenLink, actionCopyLink, actionRefresh},
-		},
-		{
-			"the Repositories pane",
-			[]int{groupMoving, groupEverywhere, groupRepositories},
-			[]string{actionUp, actionDown, actionRefresh},
-		},
 		{"a running command", []int{groupMoving, groupEverywhere, groupRunning}, nil},
 		{
 			"a composer or preview",
