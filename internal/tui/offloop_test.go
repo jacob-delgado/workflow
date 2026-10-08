@@ -135,6 +135,7 @@ func TestAKeyIsAnsweredWhileTheReadsAndWritesItStartsAreOut(t *testing.T) {
 			view := holding(t, held, started, tt.keys...).View().Content
 
 			// Assert
+			held.requireReached(t)
 			requireScreen(t, view, tt.want)
 		})
 	}
