@@ -400,12 +400,13 @@ func refusalErrors() []error {
 }
 
 // unreachableErrors are a service that never answered the request itself: it
-// could not be reached, answered only to say wait, or answered with a redirect
-// the client refused to follow. A script may try again later.
+// could not be reached, answered only to say wait, answered with a redirect
+// the client refused to follow, or took too long to finish its answer. A
+// script may try again later.
 func unreachableErrors() []error {
 	return []error{
 		jira.ErrUnreachable, forge.ErrUnreachable, messaging.ErrUnreachable,
-		errUnreachable, httpx.ErrRateLimited, httpx.ErrRedirected,
+		errUnreachable, httpx.ErrRateLimited, httpx.ErrRedirected, httpx.ErrTimedOut,
 	}
 }
 

@@ -317,6 +317,14 @@ func programErrors() []knownError {
 			brief: "rate limited",
 			full:  "Rate limited. Wait a minute, then try again.",
 		}},
+		{httpx.ErrAnswerTooLarge, wording{
+			brief: "the answer was too large",
+			full:  "The service answered with more than workflow reads at once. Try again with less.",
+		}},
+		{httpx.ErrTimedOut, wording{
+			brief: "the service was too slow",
+			full:  "The service took too long to answer. Raise `timing.request_timeout`, or try again.",
+		}},
 		{gitrepo.ErrNotARepository, wording{
 			brief: "not a git repository",
 			full:  "This is not inside a git repository. Start workflow from a repository's work tree.",
