@@ -34,7 +34,13 @@ export function samePlace(a: Place, b: Place): boolean {
 // marksOf is the marks an issue is in: in flight when a branch names it, how
 // its tasks stand when Taskwarrior can be asked and one is linked, and on the
 // forge when it is the repository's own forge issue rather than Jira's.
-export function marksOf(issue: Issue, branchKeys: Set<string>, tasks: TasksSummary): string[] {
+// branchKeys is the keys the local branches name, as a set or as the branches
+// grouped by key.
+export function marksOf(
+  issue: Issue,
+  branchKeys: Pick<ReadonlySet<string>, 'has'>,
+  tasks: TasksSummary,
+): string[] {
   const marks: string[] = []
   if (branchKeys.has(issue.key)) {
     marks.push(inFlight)
