@@ -4,11 +4,80 @@
 package webserver
 
 import (
+	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"errors"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 )
+
+// errNoSession is a request that presented no session, or another run's.
+var errNoSession = errors.New("the request presented no session of this run")
+
+// sessionField names the session where a request or an address carries it
+// beside other things: in the event stream's query, as the contract's
+// sessionQuery scheme names it, and in the fragment of the page's address.
+const sessionField = "session"
+
+// Session admits a request to the API: a secret one run of the server makes
+// as it starts and hands to its page in the address it prints, so a program
+// on this machine that was never shown that address cannot drive the API, as
+// it could when reaching the loopback interface was all a request needed. The
+// contract's security schemes say where a request presents it, and the
+// request validator checks it there before any handler runs.
+type Session struct {
+	token string
+}
+
+// NewSession makes a session no other run shares.
+func NewSession() Session {
+	return Session{token: rand.Text()}
+}
+
+// Address is where a browser opens the page served at hostPort under this
+// session. The session rides in the fragment, which a browser sends to no
+// server, so it reaches only the page, which keeps it and takes it out of the
+// address bar.
+func (s Session) Address(hostPort string) string {
+	page := url.URL{Scheme: "http", Host: hostPort, Path: "/", Fragment: sessionField + "=" + s.token}
+
+	return page.String()
+}
+
+// admits checks a security scheme the contract names for the request's
+// operation: the session as a bearer token in Authorization, or, where the
+// contract takes it in the query, there. Neither the zero Session nor an empty
+// one presented admits anything, and the comparison takes as long whatever
+// was presented.
+func (s Session) admits(_ context.Context, input *openapi3filter.AuthenticationInput) error {
+	presented := presentedSession(input.RequestValidationInput.Request, input.SecurityScheme)
+	if s.token == "" || subtle.ConstantTimeCompare([]byte(presented), []byte(s.token)) != 1 {
+		return errNoSession
+	}
+
+	return nil
+}
+
+// presentedSession is the session request presents where scheme says: the
+// query parameter scheme names, or the bearer token in Authorization.
+func presentedSession(request *http.Request, scheme *openapi3.SecurityScheme) string {
+	if scheme.In == openapi3.ParameterInQuery {
+		return request.URL.Query().Get(scheme.Name)
+	}
+
+	authScheme, token, _ := strings.Cut(request.Header.Get("Authorization"), " ")
+	if !strings.EqualFold(authScheme, "Bearer") {
+		return ""
+	}
+
+	return token
+}
 
 // guardLoopback rejects a request whose Host names anything but the loopback
 // interface. The server binds 127.0.0.1 only, yet a browser can still be aimed

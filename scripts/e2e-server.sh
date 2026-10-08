@@ -12,6 +12,9 @@
 #                docs/notes, made from it with no upstream and checked out,
 #                since a spec publishes a branch of its own and never the
 #                base; and one untracked file, notes.txt, for a spec to stage
+#   server.log   what the server says on stderr, which it also still says
+#                there: the address it serves, whose session a spec opens the
+#                page with
 #
 # The server runs from repo/ with no configuration file and without --dry-run,
 # so a write the page sends lands in git: nothing else is there to reach. It
@@ -75,4 +78,4 @@ printf '# Fixture\n' >"${repo}/README.md"
 printf 'Staged, committed and pushed through the page.\n' >"${repo}/notes.txt"
 
 cd "${repo}"
-exec "${hermetic[@]}" "${binary}" --web --port "${port}"
+exec "${hermetic[@]}" "${binary}" --web --port "${port}" 2> >(tee "${fixture_dir}/server.log" >&2)

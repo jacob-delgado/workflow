@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { expect, test } from '@playwright/test'
 import { openSection } from '../cockpit.ts'
+import { openServed } from './served.ts'
 
 // originSubject is the subject of the newest commit on docs/notes, the branch
 // the served repository publishes, in the bare repository it pushes to, read by
@@ -25,7 +26,7 @@ function originSubject(): string {
 // the push carries it.
 test('stages, commits and pushes a file through the page the server serves', async ({ page }) => {
   // Arrange: the served repository's Branch section, notes.txt untracked in it.
-  await page.goto('/')
+  await openServed(page)
   await openSection(page, 'Branch')
 
   // Act: stage the untracked file.

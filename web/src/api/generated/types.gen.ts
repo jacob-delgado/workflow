@@ -179,9 +179,9 @@ export type Problem = {
      */
     detail: string;
     /**
-     * A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all.
+     * A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
      */
-    code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'not_set_up' | 'too_long' | 'precondition_required' | 'unreachable' | 'rate_limited' | 'fetch_failed' | 'check_failed' | 'internal';
+    code: 'bad_request' | 'unauthorized' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'not_set_up' | 'too_long' | 'precondition_required' | 'unreachable' | 'rate_limited' | 'fetch_failed' | 'check_failed' | 'internal';
     /**
      * For rate_limited, how many seconds the upstream asked to wait, when it said; the answer's Retry-After header says the same.
      */

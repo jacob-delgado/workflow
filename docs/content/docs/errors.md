@@ -44,6 +44,17 @@ or path parameter that did not fit the contract (a task write whose uuid is not
 one, say), or a configuration save whose `If-Match` is not in the form of the
 `ETag` a read of the configuration returns.
 
+## Unauthorized
+
+Status 401, with `WWW-Authenticate: Bearer`. The request presented no session
+of the running `workflow --web`, or another run's. Each run makes a session as
+it starts, and the address it prints carries it after `#session=`; a request
+presents it as `Authorization: Bearer <session>`, and the event stream may take
+it as `?session=` instead (see
+[Scripting the API]({{< relref "/docs/web#scripting-the-api" >}})). The session
+is checked before anything else about the request, and a page opened without
+one says to open the printed address.
+
 ## Not found
 
 Status 404. The addressed resource does not exist: most often an issue that is

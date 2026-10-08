@@ -23,12 +23,13 @@ trap 'rm -rf "${workdir}"' EXIT
 unset $(git rev-parse --local-env-vars)
 
 # The script serves the bin/workflow beside its own directory, so a copy of it
-# serves the stub.
+# serves the stub, which says where it serves on stderr as the server does.
 readonly root="${workdir}/root"
 readonly ran_with="${root}/bin/ran-with"
+readonly said='workflow web: serving http://127.0.0.1:24680/#session=STUB'
 mkdir -p "${root}/scripts" "${root}/bin"
 cp "${here}/e2e-server.sh" "${root}/scripts/"
-printf '#!/bin/sh\necho "$*" >"%s"\nexit 0\n' "${ran_with}" >"${root}/bin/workflow"
+printf '#!/bin/sh\necho "$*" >"%s"\necho "%s" >&2\nexit 0\n' "${ran_with}" "${said}" >"${root}/bin/workflow"
 chmod +x "${root}/bin/workflow"
 
 # port is the port each case asks the script to serve on: not the one the
@@ -117,11 +118,25 @@ fixture_problem() {
   fi
 }
 
+# log_problem prints what the fixture's server.log lacks, or nothing when it
+# holds what the server said, waiting a moment for it: tee writes it beside
+# the server, which may have exited first.
+log_problem() {
+  local log="$1/server.log"
+  for _ in {1..50}; do
+    if grep -qxF -- "${said}" "${log}" 2>/dev/null; then
+      return
+    fi
+    sleep 0.1
+  done
+  echo "server.log does not hold what the server said"
+}
+
 # expect_fixture wants the script to build the whole fixture at a path and
-# serve it on the port.
+# serve it on the port, keeping what the server says in its server.log.
 #   expect_fixture <name> <path>
 expect_fixture() {
-  local name="$1" path="$2" got problem served
+  local name="$1" path="$2" got problem served logged
   cases=$((cases + 1))
   got="$(serve "${path}")"
 
@@ -132,10 +147,13 @@ expect_fixture() {
 
   problem="$(fixture_problem "${path}")"
   served="$(cat -- "${ran_with}" 2>/dev/null || true)"
+  logged="$(log_problem "${path}")"
   if [[ -n "${problem}" ]]; then
     failed "${name}" "${path}" "${problem}"
   elif [[ "${served}" != "--web --port ${port}" ]]; then
     failed "${name}" "${path}" "the server ran with '${served}', want '--web --port ${port}'"
+  elif [[ -n "${logged}" ]]; then
+    failed "${name}" "${path}" "${logged}"
   fi
 }
 
