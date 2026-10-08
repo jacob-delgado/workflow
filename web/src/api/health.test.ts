@@ -4,21 +4,6 @@ import { makeHealth } from '@/test/fixtures.ts'
 import { useHealth, useHealthStore } from './health.ts'
 import { useSnapshotStore } from './snapshot.ts'
 
-test('reads a writable mockup under VITE_MOCK', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-
-  // Act
-  renderHook(() => {
-    useHealth()
-  })
-
-  // Assert
-  await waitFor(() => {
-    expect(useHealthStore.getState().health?.dry_run).toBe(false)
-  })
-})
-
 test('stays empty when the health read fails', async () => {
   // Arrange
   // test-setup's fetch refuses every request, as an unreachable server would.

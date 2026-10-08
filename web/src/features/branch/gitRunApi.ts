@@ -13,24 +13,15 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { zRunEvent } from '@/api/generated/zod.gen.ts'
 
-// The VITE_MOCK check is read inline (not via a helper) so Vite statically
-// replaces it and drops the SDK call from a production build's mock path, while
-// tests can still stub the module.
-
 // startRun starts a git run — pre-commit, a rebase, an amend or a fixup — and
 // hands each event it streams to onEvent as it lands: the run as it starts,
 // each line of output, the run as it ended, which it answers. A refusal before
 // anything ran throws the API error, whose message is safe to show; an event
-// that does not match the contract is dropped. Under VITE_MOCK it streams a
-// short run that passes.
+// that does not match the contract is dropped.
 export async function startRun(
   request: RunRequest,
   onEvent: (event: RunEvent) => void,
 ): Promise<Run> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    return mockRun(request, onEvent)
-  }
-
   const result = await postRun({ body: request, parseAs: 'stream', throwOnError: true })
   const body: unknown = result.data
   if (!(body instanceof ReadableStream)) {
@@ -93,49 +84,14 @@ function parsed(line: string): RunEvent | null {
 }
 
 // stopRun stops the run going, its program and all it started. A refusal —
-// none is going — throws the API error. Under VITE_MOCK it is a no-op.
+// none is going — throws the API error.
 export async function stopRun(): Promise<void> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    return
-  }
-
   await deleteRun({ throwOnError: true })
 }
 
-// mockRun is the mockup's run: it writes two lines and passes.
-function mockRun(request: RunRequest, onEvent: (event: RunEvent) => void): Run {
-  const lines = ['lefthook v1.11.0  hook: pre-commit', '✔️ golangci-lint (2.31 seconds)']
-  const run: Run = {
-    kind: request.kind,
-    title: request.kind === 'pre_commit' ? 'pre-commit' : `git ${request.kind}`,
-    state: 'in_progress',
-    outcome: '',
-    lines: [],
-  }
-  onEvent({ run })
-  for (const line of lines) {
-    onEvent({ line })
-  }
-
-  const ended: Run = { ...run, state: 'succeeded', outcome: 'It went through.', lines }
-  onEvent({ run: ended })
-
-  return ended
-}
-
 // readHookSetup reads the lefthook configuration offered for the hooks
-// lefthook does not manage. A refusal throws the API error. Under VITE_MOCK it
-// offers one for an old pre-commit hook.
+// lefthook does not manage. A refusal throws the API error.
 export async function readHookSetup(): Promise<HookSetup> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    return {
-      offered: true,
-      hooks: [{ name: 'pre-commit', lines: 3 }],
-      config: 'pre-commit:\n  jobs:\n    - name: go-vet\n      run: go vet ./...\n',
-      scripts: 0,
-    }
-  }
-
   const result = await getHookSetup({ throwOnError: true })
 
   return result.data
@@ -143,12 +99,8 @@ export async function readHookSetup(): Promise<HookSetup> {
 
 // writeHookSetup writes the offered configuration — or, verbatim, one keeping
 // every hook whole as a script — and installs lefthook. A refusal throws the
-// API error. Under VITE_MOCK it writes nothing.
+// API error.
 export async function writeHookSetup(verbatim: boolean): Promise<HookSetupWritten> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    return { scripts: verbatim ? 1 : 0 }
-  }
-
   const result = await setUpHooks({ body: { verbatim }, throwOnError: true })
 
   return result.data

@@ -7,23 +7,12 @@ import {
 } from '@/api/generated/@tanstack/react-query.gen.ts'
 import type { LocalData } from '@/api/generated/types.gen.ts'
 
-// The VITE_MOCK check is read inline (not via a helper) so Vite statically
-// replaces it and code-splits the dev fixture out of a production build, while
-// tests can still stub it at runtime.
-
 // RemoveScope is how much a removal takes: the cache alone, or the kept
 // associations too.
 export type RemoveScope = 'cache' | 'all'
 
-// readLocalData reads the store's directory and its database files. Under
-// VITE_MOCK it serves the mockup's store, as a removal there has left it.
+// readLocalData reads the store's directory and its database files.
 async function readLocalData(signal?: AbortSignal): Promise<LocalData> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockLocalData } = await import('@/dev/mockLocalData.ts')
-
-    return mockLocalData()
-  }
-
   const { data } = await getLocalData({ signal, throwOnError: true })
 
   return data
@@ -43,15 +32,8 @@ export function useLocalData() {
 
 // remove removes what scope reaches and answers what is left. A refusal — a
 // file held open, something not the store's own in a file's place, --dry-run
-// — throws the API error, whose message is safe to show. Under VITE_MOCK the
-// mockup's store forgets what scope reaches, so the read after shows it gone.
+// — throws the API error, whose message is safe to show.
 async function remove(scope: RemoveScope): Promise<LocalData> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockRemoveLocalData } = await import('@/dev/mockLocalData.ts')
-
-    return mockRemoveLocalData(scope)
-  }
-
   const { data } = await removeLocalData({ query: { scope }, throwOnError: true })
 
   return data

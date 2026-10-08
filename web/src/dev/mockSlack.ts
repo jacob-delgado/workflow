@@ -1,4 +1,3 @@
-import { Refusal } from '@/api/apiError.ts'
 import type {
   AnnouncementTagging,
   OwnerTag,
@@ -26,6 +25,10 @@ const membersIn: Record<string, SlackTarget[]> = {
   [configuredChannel]: [ana, { id: 'U0BEN', label: 'Ben Ito' }, carla],
   '#releases': [ana, { id: 'U0ERIN', label: 'Erin Park' }],
 }
+
+// MockRefusal is a write the mockup's Slack refuses, in the server's words,
+// which the mockup's server answers as the server's refusal.
+export class MockRefusal extends Error {}
 
 // What the server refuses a link with, in its words.
 const refusals = {
@@ -96,7 +99,7 @@ export function mockLinkPerson(link: PersonLink): People {
     ? { owner: link.owner, kind, state: 'not_on_slack' }
     : { owner: link.owner, kind, state: 'linked', slack: listed(link, kind) }
   if (link.not_on_slack === (link.slack_id !== undefined)) {
-    throw new Refusal(refusals.oneOrTheOther)
+    throw new MockRefusal(refusals.oneOrTheOther)
   }
   held.decided = [...held.decided.filter((owner) => owner.owner !== link.owner), decided]
 
@@ -108,12 +111,12 @@ export function mockLinkPerson(link: PersonLink): People {
 function listed(link: PersonLink, kind: OwnerTag['kind']): SlackTarget {
   const id = link.slack_id ?? ''
   if ((kind === 'team') !== id.startsWith('S')) {
-    throw new Refusal(refusals.wrongKind)
+    throw new MockRefusal(refusals.wrongKind)
   }
   const directory = kind === 'team' ? groups : membersOf(link.channel ?? '')
   const found = directory.find((target) => target.id === id)
   if (found === undefined) {
-    throw new Refusal(refusals.notListed)
+    throw new MockRefusal(refusals.notListed)
   }
 
   return found
