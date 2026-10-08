@@ -952,6 +952,9 @@ type Branch struct {
 	// Detached Whether HEAD is detached rather than on a branch.
 	Detached bool `json:"detached"`
 
+	// FinishCommands The git commands finishing the branch runs, in order, as the server runs them — what the finish's last look shows before the force delete in them is confirmed. Absent for a detached HEAD or a branch with no base to finish onto.
+	FinishCommands *[]string `json:"finish_commands,omitempty"`
+
 	// Head The commit SHA; empty before the first commit, and in a write's answer when the branch could not be read back after the write landed.
 	Head string `json:"head"`
 
