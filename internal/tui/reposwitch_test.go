@@ -451,3 +451,22 @@ func TestAnAnswerForAPathSinceChangedIsDropped(t *testing.T) {
 	requireScreen(t, answered.View().Content, "> ~/src/wx")
 	refuseScreen(t, answered.View().Content, "~/src/web/")
 }
+
+func TestALookAnsweredAfterThePromptWasReopenedIsDropped(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The first path is looked at, then abandoned with esc; the prompt is
+	// opened again and another path typed before that look answers.
+	typed := goingTo(t, reposWorld(), "~/src/web")
+	looking, look := pressed(t, typed, keyEnter)
+	reopened := typing(t, looking, append([]string{keyEsc, "g"}, letters("~/src/api")...)...)
+
+	// Act
+	answered, _ := finish(t, reopened, look)
+
+	// Assert
+	view := answered.View().Content
+	requireScreen(t, view, "Go to a directory", "> ~/src/api")
+	refuseScreen(t, view, "Switch directory")
+}
