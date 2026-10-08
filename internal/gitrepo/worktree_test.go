@@ -61,3 +61,18 @@ func TestWorktreeAddReportsAFailure(t *testing.T) {
 		t.Errorf("WorktreeAdd returned %v, want git's error", err)
 	}
 }
+
+func TestWorktreeAddRefusesAStartGitWouldReadAsAnOption(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run, ran := recordingRunner(t, map[string]reply{})
+
+	// Act
+	_, err := gitrepo.At(run, workDir).WorktreeAdd(t.Context(), "fix/PROJ-1", "--detach")
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrOptionLikeRef) || len(*ran) != 0 {
+		t.Errorf("WorktreeAdd ran %q and returned %v, want nothing run and %v", *ran, err, gitrepo.ErrOptionLikeRef)
+	}
+}

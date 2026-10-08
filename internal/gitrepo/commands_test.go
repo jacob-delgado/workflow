@@ -60,6 +60,21 @@ func TestCreateBranchStartsFromTheBaseWithoutTrackingIt(t *testing.T) {
 	}
 }
 
+func TestCreateBranchRefusesAStartGitWouldReadAsAnOption(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run, ran := recordingRunner(t, map[string]reply{})
+
+	// Act
+	err := gitrepo.At(run, workDir).CreateBranch(t.Context(), "fix/PROJ-1-x", "--orphan=x")
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrOptionLikeRef) || len(*ran) != 0 {
+		t.Errorf("CreateBranch ran %q and returned %v, want nothing run and %v", *ran, err, gitrepo.ErrOptionLikeRef)
+	}
+}
+
 func TestPushCommandRunsInTheRepositoryWithoutPrompts(t *testing.T) {
 	t.Parallel()
 
@@ -68,7 +83,7 @@ func TestPushCommandRunsInTheRepositoryWithoutPrompts(t *testing.T) {
 
 	// Assert
 	if push.Dir != workDir || push.Name != gitProgram ||
-		!slices.Equal(push.Args, []string{"push", "--set-upstream", "upstream", "fix/PROJ-1-x"}) {
+		!slices.Equal(push.Args, []string{"push", "--set-upstream", "--", "upstream", "fix/PROJ-1-x"}) {
 		t.Errorf("PushCommand = %+v", push)
 	}
 
