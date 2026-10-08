@@ -39,13 +39,17 @@ export default defineConfig({
   projects: [
     {
       name: 'server',
-      // The spec reads what a push landed from here, with git.
-      metadata: { origin: join(fixture, 'origin.git') },
+      // The spec reads what a push landed from origin, with git, and opens the
+      // page at the address the server printed, with its session, from
+      // serverLog.
+      metadata: { origin: join(fixture, 'origin.git'), serverLog: join(fixture, 'server.log') },
       use: { ...devices['Desktop Chrome'], baseURL: serverURL },
     },
   ],
   webServer: {
     command: `../scripts/e2e-server.sh '${fixture}' ${port}`,
+    // Answered 401, with no session, once the server is up: Playwright takes
+    // that as ready.
     url: `${serverURL}/api/health`,
     // Never a server already listening on the run's port: whatever answers
     // there, a developer's `workflow --web --port 13580` say, would serve

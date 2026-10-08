@@ -94,6 +94,7 @@ export const zProblem = z.object({
     detail: z.string(),
     code: z.enum([
         'bad_request',
+        'unauthorized',
         'not_found',
         'method_not_allowed',
         'conflict',

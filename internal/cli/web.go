@@ -22,15 +22,18 @@ import (
 )
 
 // WebServerAt is the web server, built over the seams and served on addr until
-// the context is canceled. It says where it serves only once it holds the
-// port, naming the port it bound, so a port another program holds is a
-// failure rather than a claim, and port 0 names the port the system chose.
-// Production serves only a webserver.LoopbackAddr, through NewRootCmd; a test
-// hands it port 0. The handler reads the configuration file cfg came from once
-// more, so it starts from an edit made since, with that edit's revision. Building it fails when the embedded spec
-// cannot load, a build defect, or when that file cannot be read again. Each
-// failure the server answers as internal goes to notes, a line each, its
-// cause's own lines joined by "; " and every credential cfg holds masked.
+// the context is canceled, under a session it makes as it starts. It says
+// where it serves only once it holds the port, naming the port it bound, so a
+// port another program holds is a failure rather than a claim, and port 0
+// names the port the system chose; the address it prints carries the session,
+// which only a request that presents it gets past. Production serves only a
+// webserver.LoopbackAddr, through NewRootCmd; a test hands it port 0. The
+// handler reads the configuration file cfg came from once more, so it starts
+// from an edit made since, with that edit's revision. Building it fails when
+// the embedded spec cannot load, a build defect, or when that file cannot be
+// read again. Each failure the server answers as internal goes to notes, a
+// line each, its cause's own lines joined by "; " and every credential cfg
+// holds masked.
 func WebServerAt(addr string) RunWeb {
 	return func(
 		ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
@@ -40,7 +43,9 @@ func WebServerAt(addr string) RunWeb {
 			fmt.Fprintf(notes, "workflow web: %s\n", strings.Join(lines, "; "))
 		}
 
-		handler, err := webserver.Handler(deps, cfg, info, web.Assets())
+		session := webserver.NewSession()
+
+		handler, err := webserver.Handler(webserver.World{Deps: deps, Config: cfg, Info: info}, web.Assets(), session)
 		if err != nil {
 			return fmt.Errorf("building the web server: %w", err)
 		}
@@ -50,7 +55,7 @@ func WebServerAt(addr string) RunWeb {
 			return fmt.Errorf("serving the web API: %w", err)
 		}
 
-		fmt.Fprintf(notes, "workflow web: serving http://%s — press Ctrl+C to stop\n", listener.Addr())
+		fmt.Fprintf(notes, "workflow web: serving %s — press Ctrl+C to stop\n", session.Address(listener.Addr().String()))
 
 		return webserver.Serve(ctx, listener, handler)
 	}

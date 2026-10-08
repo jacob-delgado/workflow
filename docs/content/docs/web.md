@@ -18,12 +18,24 @@ workflow --web --dry-run    # the same, read-only
 workflow --web --port 7001  # serve http://127.0.0.1:7001
 ```
 
-Run it inside a repository, then open the address it prints on stderr. It
-listens on the loopback interface alone, on port 13579 unless `--port` names
-another (1 to 65535; `--port` goes only with `--web`), and refuses a write
-from a page served anywhere else, so a site open in another tab cannot drive
-it; nor can a site show the page inside one of its own. `ctrl+c` in the
-terminal stops it. With no `.workflow.json` to read, it
+Run it inside a repository, then open the address it prints on stderr,
+which looks like `http://127.0.0.1:13579/#session=…`. It listens on the
+loopback interface alone, on port 13579 unless `--port` names another (1 to
+65535; `--port` goes only with `--web`), and refuses a write from a page
+served anywhere else, so a site open in another tab cannot drive it; nor can
+a site show the page inside one of its own. `ctrl+c` in the terminal stops
+it.
+
+**The session.** Each run makes a session as it starts, and only a request
+that presents it is answered, so another program or another account on the
+machine cannot drive the server just by reaching the loopback address. The
+address it prints carries the session after `#session=`, in the part a
+browser never sends to a server: the page keeps it in this browser for that
+address, takes it out of the address bar, and presents it on every request.
+A tab opened later at the same address uses the one kept. A page opened
+without it, or after the server was started again, says to open the address
+the running server printed. Treat that address as you would a password while
+the server runs; it is no use once the run ends. With no `.workflow.json` to read, it
 says so on stderr and serves anyway: **Settings** sets a first one up (see
 [Setting up](#setting-up)), as `workflow config init` does at a prompt.
 
@@ -606,7 +618,8 @@ you, and the button is there to try again; a read that fails says why above
 **Try again**. While a section reads, a line beginning *Reading* says what.
 Behind that, the API answers a
 failed request with an RFC 9457 problem details object whose `code` a script
-can rely on; only the loopback, same-origin and `--dry-run` guards, which
+can rely on, a request presenting no session among them (`401`,
+`unauthorized`); only the loopback, same-origin and `--dry-run` guards, which
 refuse a request before it reaches the API, answer in plain text. [Web API
 errors]({{< relref "/docs/errors" >}}) lists the codes.
 
@@ -631,8 +644,14 @@ describes each answer's fields, and every other request the API serves.
 | `GET /api/directories` | The directories in one, to browse for one to switch to |
 | `GET /api/tasks` | Your pending Taskwarrior tasks, most urgent first, waiting ones included, with the active context and whether a sync backend is set |
 
+Every request presents the run's session, the part of the printed address
+after `#session=`, as `Authorization: Bearer <session>`; one without it is
+answered `401` with code `unauthorized`. The event stream, which a browser's
+`EventSource` opens with no header of its own, also takes it as `?session=`.
+
 ```sh
-curl -s http://127.0.0.1:13579/api/review
+session=…  # the part after #session= in the address workflow --web printed
+curl -s -H "Authorization: Bearer $session" http://127.0.0.1:13579/api/review
 ```
 
 `GET /api/repositories`'s answer needs no server: `workflow repositories
@@ -646,8 +665,10 @@ server renders the Markdown for the service as it posts it and keeps nothing
 of the post; it answers where the text went, in `destination`.
 
 ```sh
-curl -s http://127.0.0.1:13579/api/activity | jq '{from, to, text}' |
-  curl -s -H 'Content-Type: application/json' -d @- http://127.0.0.1:13579/api/activity/post
+curl -s -H "Authorization: Bearer $session" http://127.0.0.1:13579/api/activity |
+  jq '{from, to, text}' |
+  curl -s -H "Authorization: Bearer $session" -H 'Content-Type: application/json' -d @- \
+    http://127.0.0.1:13579/api/activity/post
 ```
 
 They are reads, so they answer under `--dry-run` too. When git or the forge
@@ -676,7 +697,8 @@ and the run as it ended, with its `state` and `outcome`. `DELETE
 /api/runs/current` stops it.
 
 ```sh
-curl -sN -H 'Content-Type: application/json' -d '{"kind":"pre_commit"}' \
+curl -sN -H "Authorization: Bearer $session" -H 'Content-Type: application/json' \
+  -d '{"kind":"pre_commit"}' \
   http://127.0.0.1:13579/api/runs
 ```
 

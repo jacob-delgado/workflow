@@ -384,34 +384,39 @@ type scopeCache struct {
 
 var _ api.StrictServerInterface = (*server)(nil)
 
-// Handler builds the http.Handler that serves the web interface: the API under
-// /api, checked against the contract by the request validator, and the embedded
-// single-page app under every other path. The whole surface is behind the
-// loopback guard, so a browser aimed at the server from a foreign origin is
-// refused, and every answer carries the content policy, so no other page can
-// frame the app. The server starts from the configuration file at cfg.Path
-// as startingPoint reads it, not from cfg alone, which the process read a
-// moment before. It fails when the embedded spec cannot be loaded or routed,
-// which is a build defect, or when that file cannot be read.
-func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handler, error) {
+// Handler builds the http.Handler that serves the web interface for first,
+// the directory it starts in: the API under /api, checked against the contract
+// by the request validator, which admits only a request presenting session,
+// and the embedded single-page app, assets, under every other path. The whole
+// surface is behind the loopback guard, so a browser aimed at the server from
+// a foreign origin is refused, and every answer carries the content policy, so
+// no other page can frame the app. The server starts from the configuration
+// file at first.Config.Path as startingPoint reads it, not from that
+// configuration alone, which the process read a moment before. It fails when
+// the embedded spec cannot be loaded or routed, which is a build defect, or
+// when that file cannot be read.
+func Handler(first World, assets fs.FS, session Session) (http.Handler, error) {
 	// Trade-off TRADE-14: the embedded spec loads in every build a test runs.
-	spec, err := loadContract()
+	spec, err := loadContract(session)
 	if err != nil {
 		return nil, err
 	}
 
-	held, err := newWorlds(World{Deps: deps, Config: cfg, Info: info}, spec)
+	held, err := newWorlds(first, spec)
 	if err != nil {
 		return nil, err
 	}
 
-	// The API is validated against the contract; the app is not, since its paths
-	// are not in the spec, so only the /api subtree passes through the validator.
+	// The API is validated against the contract, before a write takes the gate
+	// a switch waits on or is held to the directory its page shows, so a
+	// request presenting no session learns nothing of either; the app is not,
+	// since its paths are not in the spec, so only the /api subtree passes
+	// through the validator.
 	root := http.NewServeMux()
-	root.Handle("/api/", held)
+	root.Handle("/api/", spec.validate(held))
 	root.Handle("/", spaHandler(assets))
 
-	return withPolicyHeaders(guardLoopback(refuseWritesInDryRun(info.DryRun, root))), nil
+	return withPolicyHeaders(guardLoopback(refuseWritesInDryRun(first.Info.DryRun, root))), nil
 }
 
 // startingPoint is the configuration the server starts from, with the revision

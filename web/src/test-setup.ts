@@ -2,6 +2,7 @@ import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
 import './api/client.ts'
 import { useHealthStore } from './api/health.ts'
+import { sessionStorageKey, useSessionStore } from './api/session.ts'
 import { useSnapshotStore } from './api/snapshot.ts'
 import { useKeysStore } from './features/keyboard/keysApi.ts'
 import { useRegistry } from './features/keyboard/useShortcut.ts'
@@ -15,6 +16,7 @@ import { useUiStore } from './shell/uiStore.ts'
 const initialUi = useUiStore.getInitialState()
 const initialSnapshot = useSnapshotStore.getInitialState()
 const initialHealth = useHealthStore.getInitialState()
+const initialSession = useSessionStore.getInitialState()
 const initialTaskMemo = useTaskMemo.getInitialState()
 const initialKeys = useKeysStore.getInitialState()
 
@@ -76,11 +78,13 @@ afterEach(() => {
   useUiStore.setState(initialUi)
   useSnapshotStore.setState(initialSnapshot)
   useHealthStore.setState(initialHealth)
+  useSessionStore.setState(initialSession)
   useTaskMemo.setState(initialTaskMemo)
   useKeysStore.setState(initialKeys)
   useRegistry.setState({ registered: [], holds: 0 })
   useThemeStore.setState({ choice: 'system' })
   localStorage.removeItem(themeStorageKey)
+  localStorage.removeItem(sessionStorageKey)
   FakeEventSource.reset()
   resetMatchMedia()
   vi.unstubAllEnvs()

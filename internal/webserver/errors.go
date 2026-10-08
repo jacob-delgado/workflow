@@ -48,6 +48,7 @@ func codeMeaning(code api.ProblemCode) (int, string) {
 		title  string
 	}{
 		api.ProblemCodeBadRequest:           {status: http.StatusBadRequest, title: "Bad request"},
+		api.ProblemCodeUnauthorized:         {status: http.StatusUnauthorized, title: "Unauthorized"},
 		api.ProblemCodeNotFound:             {status: http.StatusNotFound, title: "Not found"},
 		api.ProblemCodeMethodNotAllowed:     {status: http.StatusMethodNotAllowed, title: "Method not allowed"},
 		api.ProblemCodeConflict:             {status: http.StatusConflict, title: "Conflict"},

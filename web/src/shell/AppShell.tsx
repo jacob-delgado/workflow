@@ -1,6 +1,7 @@
-import { Lock, Workflow } from 'lucide-react'
+import { KeyRound, Lock, Workflow } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useHealth, useHealthStore } from '@/api/health.ts'
+import { useSessionStore } from '@/api/session.ts'
 import { useEventStream, useSnapshotStore } from '@/api/snapshot.ts'
 import { useRefreshViews } from '@/features/issues/issueApi.ts'
 import { KeyboardLayer } from '@/features/keyboard/KeyboardLayer.tsx'
@@ -83,6 +84,7 @@ export function AppShell() {
           </span>
         </p>
       ) : null}
+      <SessionRefused />
       <div className="flex min-h-0 flex-1">
         <NavRail />
         <main
@@ -97,6 +99,29 @@ export function AppShell() {
       </div>
       <KeyboardLayer />
     </div>
+  )
+}
+
+// SessionRefused says, once the server has refused the page's session, how to
+// open the page with one; until then it draws nothing.
+function SessionRefused() {
+  const refused = useSessionStore((state) => state.refused)
+  if (!refused) {
+    return null
+  }
+
+  return (
+    <p
+      role="alert"
+      className="flex items-center gap-2 border-b border-border bg-muted px-4 py-2 text-sm"
+    >
+      <KeyRound aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+      <span>
+        workflow refused this page: it holds no session of the running server. Open the address{' '}
+        <code className="font-mono">workflow --web</code> printed as it started; each run prints a
+        new one.
+      </span>
+    </p>
   )
 }
 
