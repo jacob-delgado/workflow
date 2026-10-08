@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { branchWith, snapshotWith, streams } from '../support/fixtures.ts'
+import { branchWith, problem, snapshotWith, streams } from '../support/fixtures.ts'
 import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Branch section's working tree: a file staged, a stage the server
@@ -72,18 +72,10 @@ for (const theme of themes) {
 }
 
 // refused is what a write gets when the server cannot complete it.
-const refused = {
-  status: 500,
-  contentType: 'application/problem+json',
-  body: JSON.stringify({
-    type: 'https://jacob-delgado.github.io/workflow/docs/errors/#internal',
-    title: 'Internal error',
-    status: 500,
-    detail:
-      'the request could not be completed; try again, and run workflow doctor if it keeps failing',
-    code: 'internal',
-  }),
-}
+const refused = problem(
+  'internal',
+  'the request could not be completed; try again, and run workflow doctor if it keeps failing',
+)
 
 for (const theme of themes) {
   test(`no accessibility violations beside a refused write in the ${theme} theme`, async ({
@@ -185,7 +177,7 @@ for (const width of widths) {
   }) => {
     // Arrange: the stream's working tree, and a stage the server refuses.
     await streams(page, unbrokenSnapshot)
-    await page.route('**/api/stage', (route) => route.fulfill({ status: 500 }))
+    await page.route('**/api/stage', (route) => route.fulfill(refused))
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.setViewportSize({ width, height })
     await page.goto('/')
