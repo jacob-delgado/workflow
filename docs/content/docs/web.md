@@ -671,9 +671,10 @@ errors]({{< relref "/docs/errors" >}}) lists the codes.
 ## Scripting the API
 
 These requests answer what a section shows, for a script on the same
-machine: eight reads, and the Repositories section's two writes, which switch
-where the server works and keep or forget a favorite. The page takes the first
-four reads from its stream, and makes the others as its sections need them.
+machine: eight reads, and the Repositories section's three writes — a `PUT`
+that switches where the server works, and a `PUT` and a `DELETE` on one path
+that keep or forget a favorite. The page takes the first four reads from its
+stream, and makes the others as its sections need them.
 [`api/openapi.yaml`](https://github.com/jacob-delgado/workflow/blob/main/api/openapi.yaml)
 describes each answer's fields, and every other request the API serves.
 
