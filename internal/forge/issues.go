@@ -6,6 +6,7 @@ package forge
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
@@ -163,13 +164,17 @@ type gitlabAssignees struct {
 
 // gitlabAssignIssue makes username the issue's assignee.
 func gitlabAssignIssue(ctx context.Context, client Client, repo Repo, number int, username string) error {
-	ids, err := gitlabUserIDs(ctx, client, []string{username})
+	userID, err := gitlabUserID(ctx, client, username)
+	if errors.Is(err, ErrNoUser) {
+		return fmt.Errorf("%w: %s", ErrNoUser, username)
+	}
+
 	if err != nil {
 		return err
 	}
 
 	_, err = repoCall[gitlabIssue](ctx, client, repo, http.MethodPut,
-		gitlabProjectPath(repo)+issuesSegment+"/"+strconv.Itoa(number), gitlabAssignees{AssigneeIDs: ids})
+		gitlabProjectPath(repo)+issuesSegment+"/"+strconv.Itoa(number), gitlabAssignees{AssigneeIDs: []int64{userID}})
 
 	return err
 }
