@@ -53,15 +53,13 @@ const droppedTimeFormat = "15:04"
 // the pull request it was written for, because the one on screen can change
 // while it waits, and a message is only ever sent for the one its writer saw.
 type queuedPost struct {
-	pull    int
-	text    string
-	channel string
-	tags    postTags
+	pull int
+	post outgoingAnnouncement
 }
 
 // waiting reports a post that has not been sent or given up on.
 func (q queuedPost) waiting() bool {
-	return q.text != ""
+	return q.post.text != ""
 }
 
 // quitGuard asks before quitting while a post is waiting for CI, which quitting
@@ -342,12 +340,9 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 	return settle()
 }
 
-// postQueued sends the post that waited for CI. It is always a "ready for
-// review" one: that is what waits for CI.
+// postQueued sends the post that waited for CI.
 func (m Model) postQueued() (Model, tea.Cmd) {
-	pending := m.messaging.pending
-
-	return m.sendToMessaging(pending.channel, pending.text, messaging.MomentReady, pending.tags)
+	return m.sendToMessaging(m.messaging.pending.post)
 }
 
 // dropQueued gives up on the post that waited for CI, which failed, and says
