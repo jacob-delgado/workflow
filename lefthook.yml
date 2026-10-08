@@ -4,7 +4,7 @@
 # Skip all hooks for one commit: LEFTHOOK=0 git commit ...
 #
 # Pre-commit hooks run against ONLY the staged diff ({staged_files}). Pre-push
-# runs six commands over the working tree: unit-go (the Go tests) and
+# runs six commands over the working tree: unit-go (`task test`) and
 # lint-go-all (golangci-lint) when the push carries a Go change, web (the web's
 # lint, client-drift check and unit tests) when it carries a web/ or API-spec
 # change, and file-length, package-size and tradeoffs on every push. The rest of
@@ -108,7 +108,7 @@ pre-commit:
     gitleaks:
       run: gitleaks git --staged --redact --no-banner
 
-# Pre-push: the Go tests (unit-go), golangci-lint over every Go file
+# Pre-push: the tests (unit-go), golangci-lint over every Go file
 # (lint-go-all), the web's gates (web), and the three whole-tree checks a
 # staged-diff hook cannot see (file-length, package-size, tradeoffs). A red
 # result here is a guaranteed red CI, and learning that locally costs far less
@@ -116,23 +116,16 @@ pre-commit:
 pre-push:
   parallel: false
   commands:
-    # The module's own packages, as Taskfile.yml's GO_PKGS names them. Not
-    # `./...`: web/node_modules ships a stray Go package (flatted's Go port),
-    # and every `task check` now installs it.
-    #
-    # Git exports the variables that locate this repository to its hooks, and
-    # from a linked worktree GIT_DIR is an absolute path into the shared one:
-    # a test's `git -C <temp dir>` then works on this repository instead. One
-    # pre-push set core.bare, moved main and rewrote the config that way. The
-    # packages that run git clear them in their TestMain; clearing them here
-    # as well, with git's own list (githooks(5)), covers a package that starts
-    # running git before it has one. Taskfile.yml's tasks that run the Go tests
-    # do the same, for `git rebase --exec 'task check'`.
+    # The tests as `task test` runs them: the module's own packages, which
+    # Taskfile.yml's GO_PKGS names, under the race detector, then the gate
+    # scripts' own tests. The task clears the variables git exports to a hook
+    # before it runs a test: from a linked worktree GIT_DIR is an absolute path
+    # into the shared repository, and a test's `git -C <temp dir>` would then
+    # work on it instead. One pre-push set core.bare, moved main and rewrote
+    # the config that way.
     unit-go:
       glob: "{*.go,go.mod,go.sum}"
-      run: |
-        unset $(git rev-parse --local-env-vars)
-        go test -race ./cmd/... ./internal/... ./api/...
+      run: task test
 
     # The pre-commit hook runs golangci-lint with --new-from-rev=HEAD~, so it
     # only ever sees the lines this commit changed. That is the right trade for
@@ -148,8 +141,8 @@ pre-push:
     # with its coverage floor). The spec is in the glob because a change to it
     # alone is what leaves the generated client behind.
     #
-    # The same scrub as unit-go: from a linked worktree git exports GIT_DIR
-    # but not GIT_WORK_TREE, so the client check's
+    # The same scrub `task test` makes: from a linked worktree git exports
+    # GIT_DIR but not GIT_WORK_TREE, so the client check's
     # `git diff -- src/api/generated`, run from web/, would take web/ as the
     # top of the worktree and match nothing.
     web:

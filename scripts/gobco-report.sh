@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # Condition coverage for the Go packages, via rillig/gobco.
 #
-# Usage: gobco-report.sh <floor> [package...]
+# Usage: gobco-report.sh <floor> <package root>...
+#        gobco-report.sh --package <import path> [--package <import path>]... <floor>
+#
+# The roots are the caller's: `task cover:branch` passes Taskfile.yml's
+# GO_PKGS, the one place they are written. Every package under them is
+# measured or accounted for. --package measures the packages it names instead,
+# and only those.
 #
 # What this measures that `go test -cover` cannot: Go ships STATEMENT coverage,
 # so an `if a && b` counts as covered the moment the line runs. gobco rewrites
@@ -129,11 +135,30 @@ require_current_gobco() {
   fi
 }
 
+usage() {
+  echo "usage: gobco-report.sh <floor> <package root>..." >&2
+  echo "       gobco-report.sh --package <import path> [--package <import path>]... <floor>" >&2
+  exit 2
+}
+
+named=""
+while [[ "${1:-}" == "--package" ]]; do
+  [[ -n "${2:-}" ]] || usage
+  named="${named} $2"
+  shift 2
+done
+
 # Required, not defaulted: a floor of 0 would pass whatever the measurement, so
 # a caller that forgot to pass one should fail here rather than measure nothing.
-floor="${1:?usage: gobco-report.sh <floor> [package...]}"
-readonly floor
-shift || true
+(($# > 0)) || usage
+readonly floor="$1"
+shift
+
+# Roots, or packages by name, never both and never neither: a report that chose
+# roots of its own could measure less than the gate means without a trace.
+if [[ -n "${named}" && $# -gt 0 ]] || [[ -z "${named}" && $# -eq 0 ]]; then
+  usage
+fi
 
 readonly ratchet_slack=2
 
@@ -148,22 +173,14 @@ cd "${repo_root}"
 
 module="$(go list -m)"
 
-if [[ $# -gt 0 ]]; then
-  packages="$*"
+if [[ -n "${named}" ]]; then
+  packages="${named}"
 else
-  # Every package in the module is accounted for: one with tests is measured,
+  # Every package under the roots is accounted for: one with tests is measured,
   # one without must be named in NO_TESTS with its reason. A new package that has
   # neither tests nor an entry fails here rather than quietly leaving the total.
-  #
-  # Explicit roots, not ./...: web/node_modules ships stray Go (flatted's Go
-  # port) that ./... would sweep in as an untested package and fail this gate.
-  # The module's own code is cmd/, internal/ and api/, the roots Taskfile.yml's
-  # GO_PKGS names.
-  go_roots="./cmd/... ./internal/... ./api/..."
-  # shellcheck disable=SC2086 # the roots are a deliberate multi-arg word list
-  packages="$(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ${go_roots})"
-  # shellcheck disable=SC2086 # the roots are a deliberate multi-arg word list
-  untested="$(go list -f '{{if not (or .TestGoFiles .XTestGoFiles)}}{{.ImportPath}}{{end}}' ${go_roots})"
+  packages="$(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' "$@")"
+  untested="$(go list -f '{{if not (or .TestGoFiles .XTestGoFiles)}}{{.ImportPath}}{{end}}' "$@")"
 
   unaccounted=""
   for package in ${untested}; do

@@ -32,6 +32,8 @@ real_go="$(command -v go)"
 readonly real_go
 module="$(cd "${here}/.." && "${real_go}" list -m)"
 readonly module
+go_pkgs="$(sed -n 's/^  GO_PKGS: //p' "${here}/../Taskfile.yml")"
+readonly go_pkgs
 
 mkdir -p "${workdir}/bin"
 cat >"${workdir}/bin/gobco" <<'STUB'
@@ -76,33 +78,43 @@ expect() {
 
 expect fail "no floor argument" "${both_ways}" "" "usage: gobco-report.sh <floor>"
 expect fail "a gobco that wrote no statistics" "" "" \
-  "gobco produced no statistics" 50 "${module}/internal/buildinfo"
+  "gobco produced no statistics" --package "${module}/internal/buildinfo" 50
 
 # The floor is the gate: 50% measured is under a floor of 60.
 expect fail "a measure below the floor" "${one_way}" "" \
-  "Condition coverage 50.0% is below the 60% floor." 60 "${module}/internal/buildinfo"
+  "Condition coverage 50.0% is below the 60% floor." --package "${module}/internal/buildinfo" 60
 
 # A package gobco cannot read fails the run by name, since the percentage
 # would otherwise cover less than it claims.
 GOBCO_STUB_UNREADABLE=./internal/buildinfo expect fail "a package gobco cannot read" \
-  "${both_ways}" "" "gobco could not read: internal/buildinfo" 50 "${module}/internal/buildinfo"
+  "${both_ways}" "" "gobco could not read: internal/buildinfo" --package "${module}/internal/buildinfo" 50
 
 # Unless UNANALYZABLE names it: then it is skipped, the rest is measured, and
 # the report says which package went unmeasured.
 GOBCO_STUB_UNREADABLE=./internal/proc/pgroup expect pass "a package UNANALYZABLE names" \
   "${both_ways}" "" "Not measured — gobco cannot read these (reasons in this script's UNANALYZABLE):
-  internal/proc/pgroup" 50 "${module}/internal/proc/pgroup" "${module}/internal/buildinfo"
+  internal/proc/pgroup" --package "${module}/internal/proc/pgroup" \
+  --package "${module}/internal/buildinfo" 50
 
 # gobco reads the standard library with the go/types of the Go that built it,
 # so one built by another Go is refused before it measures anything.
 GO_STUB_BUILT_BY=go1.0 expect fail "a gobco built by another Go" "${both_ways}" "" \
-  "gobco was built by go1.0" 50 "${module}/internal/buildinfo"
+  "gobco was built by go1.0" --package "${module}/internal/buildinfo" 50
 
-# The whole module, as the gate runs it: every package listed without tests is
-# one NO_TESTS names, so taking a name out of it fails this case.
+# The whole module, as the gate runs it, over the package roots Taskfile.yml's
+# GO_PKGS names: every package listed without tests is one NO_TESTS names, so
+# taking a name out of it fails this case.
+# shellcheck disable=SC2086 # the roots are a deliberate multi-arg word list
 expect pass "every untested package accounted for" "${both_ways}" "" \
-  "Condition coverage 100.0% (floor 50%)." 50
+  "Condition coverage 100.0% (floor 50%)." 50 ${go_pkgs}
+# shellcheck disable=SC2086 # the roots are a deliberate multi-arg word list
 expect fail "an untested package NO_TESTS does not name" "${both_ways}" "${module}/internal/untested" \
-  "packages with no tests and not in NO_TESTS: internal/untested" 50
+  "packages with no tests and not in NO_TESTS: internal/untested" 50 ${go_pkgs}
+
+# The roots are the caller's to give, never the report's to guess, and a run
+# given packages by name measures those and nothing else.
+expect fail "no package roots" "${both_ways}" "" "usage: gobco-report.sh <floor> <package root>..." 50
+expect fail "roots and packages both" "${both_ways}" "" "usage: gobco-report.sh <floor> <package root>..." \
+  --package "${module}/internal/buildinfo" 50 ./internal/...
 
 finish_tests
