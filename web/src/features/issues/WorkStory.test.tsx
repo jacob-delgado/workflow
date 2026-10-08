@@ -410,11 +410,34 @@ test('shows the reason when starting work is refused, with focus still on Start 
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Start work' }))
 })
 
+// reviewLine is the words of the Review stage that name the forge's change.
+function reviewLine(): string | null {
+  const stage = screen.getByRole('button', { name: /^Review/ })
+
+  return within(stage).getByText(/request/).textContent
+}
+
+// noteLine is the note above the story, by how it begins.
+function noteLine(begins: RegExp): () => string | null {
+  return () => screen.getByText(begins).textContent
+}
+
 test.each([
-  ['not started', 'PROJ-999'],
-  ['in flight elsewhere', 'PROJ-2'],
-  ['on the checked-out branch', 'PROJ-1'],
-])('names the merge request on GitLab for an issue %s', (_, issueKey) => {
+  ['not started, in its Review stage', 'PROJ-999', reviewLine, 'No merge request yet'],
+  [
+    'not started, in the note above its story',
+    'PROJ-999',
+    noteLine(/^Not in progress/),
+    'Not in progress — its branch, changes, and merge request appear here once you start work on it.',
+  ],
+  [
+    'in flight elsewhere, in the note above its story',
+    'PROJ-2',
+    noteLine(/^In progress on/),
+    'In progress on feat/PROJ-2-metrics — its changes and merge request show when it is the branch you are on.',
+  ],
+  ['on the checked-out branch, in its Review stage', 'PROJ-1', reviewLine, 'No merge request yet'],
+])('names the merge request on GitLab for an issue %s', (_, issueKey, line, said) => {
   // Arrange
   useHealthStore.setState({ health: makeHealth(gitLabWords) })
   offHead()
@@ -423,7 +446,7 @@ test.each([
   render(<WorkStory issueKey={issueKey} />)
 
   // Assert
-  expect(document.body.textContent).toMatch(/merge request/)
+  expect(line()).toBe(said)
   expect(document.body.textContent).not.toMatch(/pull request/i)
 })
 
