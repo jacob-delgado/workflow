@@ -318,7 +318,8 @@ no announcement it has made; each announcement made here is remembered for
 the terminal and `workflow announce` too. One the store cannot remember — a
 full disk, say — is posted all the same, and the line saying where it went
 adds *Posted, but not remembered: it may be offered again.*, as a held one
-does once it goes; the server's log says why.
+does once it goes, and as the terminal and `workflow announce` say it; the
+server's log says why, which those two print after the sentence.
 
 **Edit**, in the preview, turns the message into a box to change it in, as
 the terminal's `e` opens it in your editor; **Announce now** then sends the

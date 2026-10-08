@@ -228,7 +228,8 @@ func previewAnnouncement(out output, seams announceSeams, composed composedAnnou
 }
 
 // deliverAnnouncement posts pending and says where it went, and, for one
-// posted that the store could not remember, why it was not.
+// posted that the store could not remember, the warning every surface says,
+// then why.
 func deliverAnnouncement(notes io.Writer, seams announceSeams, pending pendingAnnouncement) error {
 	err := loop.Deliver(seams.Post, pending.memory, pending.delivery)
 	if err != nil && !errors.Is(err, loop.ErrNotRemembered) {
@@ -238,7 +239,8 @@ func deliverAnnouncement(notes io.Writer, seams announceSeams, pending pendingAn
 	fmt.Fprintln(notes, "Announced to "+seams.Messaging.Target()+".")
 
 	if err != nil {
-		fmt.Fprintln(notes, sanitize.Line(err.Error()))
+		why := strings.TrimPrefix(err.Error(), loop.ErrNotRemembered.Error()+": ")
+		fmt.Fprintln(notes, loop.NotRememberedWarning+" "+sanitize.Line(why))
 	}
 
 	return nil
