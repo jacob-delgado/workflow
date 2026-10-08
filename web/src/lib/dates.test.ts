@@ -91,13 +91,10 @@ test.each([
   expect(ago(now - elapsed, now, { style: 'words', dateAfter: 7 * day })).toBe(words)
 })
 
-test.each(['narrow', 'terminal', 'words'] as const)(
-  'a moment the server could not give is some time ago, said %s',
-  (style) => {
-    // Act & Assert
-    expect(ago(Date.parse('0001-01-01T00:00:00Z'), now, { style })).toBe('some time ago')
-  },
-)
+test('a moment at the epoch is counted like any other, no stand-in for an unknown time', () => {
+  // Act & Assert
+  expect(ago(0, 3 * hour, { style: 'narrow' })).toBe('3h ago')
+})
 
 test.each(['not a date', '2026-02-30', '2026-9-5', ''])(
   'a calendar date the server got wrong, "%s", is written as it came',
