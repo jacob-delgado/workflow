@@ -87,7 +87,8 @@ func TestDoctorFromARemovedDirectoryStillReports(t *testing.T) {
 	// Assert
 	// doctor is what someone runs to find out what is wrong, so the report still
 	// comes, naming the directory it could not read in place of a repository.
-	if got := fieldValue(printed.stdout, "Repository"); !strings.HasPrefix(got, "(cannot read the working directory") {
+	got := fieldValue(printed.stdout, "Repository")
+	if !strings.HasPrefix(got, "(none — cannot read the working directory") {
 		t.Errorf("Repository = %q, want it to say the working directory cannot be read:\n%s", got, printed.stdout)
 	}
 
