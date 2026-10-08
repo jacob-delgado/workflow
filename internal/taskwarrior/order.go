@@ -157,20 +157,27 @@ func sortedTags(task Task) []string {
 	return tags
 }
 
-// priorityRank places Taskwarrior's priorities: H, M, L, any other value, none.
+// namedPriorities is Taskwarrior's own priorities, highest first.
+func namedPriorities() []string {
+	return []string{"H", "M", "L"}
+}
+
+// priorityRank places Taskwarrior's priorities: the named ones in their order,
+// then any other value Taskwarrior was configured with, then none.
 func priorityRank(priority string) int {
-	switch priority {
-	case "H":
-		return 0
-	case "M":
-		return 1
-	case "L":
-		return 2 //nolint:mnd // the third of three named priorities
-	case "":
-		return 4 //nolint:mnd // after any value Taskwarrior was configured with
-	default:
-		return 3 //nolint:mnd // a configured value outside H, M and L
+	named := namedPriorities()
+	if rank := slices.Index(named, priority); rank >= 0 {
+		return rank
 	}
+
+	otherRank := len(named)
+	noneRank := otherRank + 1
+
+	if priority == "" {
+		return noneRank
+	}
+
+	return otherRank
 }
 
 // naturalCompare compares two keys reading each run of ASCII digits as a

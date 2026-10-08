@@ -228,7 +228,7 @@ func offeredFacets(counts map[Facet]int, picked []Facet) []Facet {
 
 	return slices.Concat(
 		states,
-		ranked(FacetPriority, []string{"H", "M", "L"}, counts, picked),
+		ranked(FacetPriority, namedPriorities(), counts, picked),
 		ranked(FacetProject, nil, counts, picked),
 		ranked(FacetTag, nil, counts, picked),
 		[]Facet{{Kind: FacetIssue, Value: WithIssue}, {Kind: FacetIssue, Value: NoIssue}},
