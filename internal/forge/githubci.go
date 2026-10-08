@@ -169,13 +169,11 @@ func githubWorkflowRuns(ctx context.Context, client Client, repo Repo, head stri
 	return runs, err
 }
 
-// runFailed reports a completed workflow run that did not pass, by the same rule
-// runState reads a status by, so every run the Review pane calls failed — a
+// runFailed reports a completed workflow run that did not pass, by the rule
+// runState reads a check run by, so every run the Review pane calls failed — a
 // timed-out or canceled one included, not only a plain "failure" — is re-run.
 func runFailed(conclusion string) bool {
-	passing := map[string]bool{succeeded: true, "neutral": true, skipped: true}
-
-	return conclusion != "" && !passing[conclusion]
+	return conclusion != "" && !passingConclusion(conclusion)
 }
 
 // githubPages reads a GitHub listing to its end, and reports whether there was
