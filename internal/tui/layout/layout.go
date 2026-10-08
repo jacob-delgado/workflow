@@ -69,16 +69,28 @@ type Layout struct {
 	Footer Box
 }
 
-// Compute lays out a terminal of the given size with railPanes stacked panels,
-// the one at index focused having focus.
-func Compute(width, height, railPanes, focused int) Layout {
-	body := max(0, height-spineRows-footerRows)
+// Terminal is the size of the screen being laid out, in cells.
+type Terminal struct {
+	Width, Height int
+}
+
+// Rail is how many panes the rail stacks, and which of them, counted from
+// zero, has focus.
+type Rail struct {
+	Panes, Focused int
+}
+
+// Compute lays out a terminal of the given size with the rail's panes stacked
+// down its left.
+func Compute(terminal Terminal, rail Rail) Layout {
+	width := terminal.Width
+	body := max(0, terminal.Height-spineRows-footerRows)
 
 	result := Layout{
 		Spine:  Box{X: 0, Y: 0, Width: width, Height: spineRows},
 		Rail:   nil,
 		Detail: Box{X: 0, Y: spineRows, Width: width, Height: body},
-		Footer: Box{X: 0, Y: max(0, height-footerRows), Width: width, Height: footerRows},
+		Footer: Box{X: 0, Y: max(0, terminal.Height-footerRows), Width: width, Height: footerRows},
 	}
 
 	if width < collapseBelow {
@@ -86,7 +98,7 @@ func Compute(width, height, railPanes, focused int) Layout {
 	}
 
 	railWidth := clamp(width*railPercent/percent, railMin, railMax)
-	result.Rail = stack(railWidth, body, railPanes, focused)
+	result.Rail = stack(railWidth, body, rail)
 	result.Detail = Box{X: railWidth, Y: spineRows, Width: width - railWidth, Height: body}
 
 	return result
@@ -99,10 +111,10 @@ const noticeRows = 1
 // footer: the body shrinks by that row so the rail and detail stay aligned, the
 // notice takes the row the footer would have had, and the footer moves to the
 // true bottom. It returns the layout and the notice's box.
-func ComputeWithNotice(width, height, railPanes, focused int) (Layout, Box) {
-	result := Compute(width, height-noticeRows, railPanes, focused)
-	notice := Box{X: 0, Y: result.Footer.Y, Width: width, Height: noticeRows}
-	result.Footer.Y = max(0, height-footerRows)
+func ComputeWithNotice(terminal Terminal, rail Rail) (Layout, Box) {
+	result := Compute(Terminal{Width: terminal.Width, Height: terminal.Height - noticeRows}, rail)
+	notice := Box{X: 0, Y: result.Footer.Y, Width: terminal.Width, Height: noticeRows}
+	result.Footer.Y = max(0, terminal.Height-footerRows)
 
 	return result, notice
 }
@@ -137,10 +149,10 @@ func (l Layout) RailAt(column, row int) (int, bool) {
 // without focus and the rest to the focused one, or evenly on a terminal too
 // short for that to help — and gives each pane a box that spans its content and
 // the shared rule above it, so the boxes stay contiguous for hit-testing.
-func stack(width, body, panes, focused int) []Box {
-	content := allocateContent(max(0, body-panes-railRules), panes, focused)
+func stack(width, body int, rail Rail) []Box {
+	content := allocateContent(max(0, body-rail.Panes-railRules), rail)
 
-	boxes := make([]Box, 0, panes)
+	boxes := make([]Box, 0, rail.Panes)
 	row := spineRows
 
 	for _, rows := range content {
@@ -158,7 +170,8 @@ func stack(width, body, panes, focused int) []Box {
 // and the focused one takes whatever is left. Rows are only ever added, so a
 // taller terminal never gives the focused pane fewer. With not even a row each
 // and focusedMinimum for the focused one, the rows are split evenly.
-func allocateContent(total, panes, focused int) []int {
+func allocateContent(total int, rail Rail) []int {
+	panes := rail.Panes
 	if total < (panes-1)+focusedMinimum {
 		return evenHeights(total, panes)
 	}
@@ -172,14 +185,14 @@ func allocateContent(total, panes, focused int) []int {
 	spare := total - (panes - 1) - focusedRows
 
 	for index := range rows {
-		if index != focused && spare > 0 {
+		if index != rail.Focused && spare > 0 {
 			grown := min(compactContent-1, spare)
 			rows[index] += grown
 			spare -= grown
 		}
 	}
 
-	rows[focused] = focusedRows + spare
+	rows[rail.Focused] = focusedRows + spare
 
 	return rows
 }
@@ -209,14 +222,14 @@ func clamp(value, low, high int) int {
 // NoticeKeepsFocus reports whether a notice can have a row of its own without
 // taking the focused rail pane under the rows it had without one, down to
 // focusedMinimum: where it would, the notice belongs in the footer's row.
-func NoticeKeepsFocus(width, height, railPanes, focused int) bool {
-	without := Compute(width, height, railPanes, focused)
+func NoticeKeepsFocus(terminal Terminal, rail Rail) bool {
+	without := Compute(terminal, rail)
 	if without.Collapsed() {
 		return true
 	}
 
-	with, _ := ComputeWithNotice(width, height, railPanes, focused)
-	had := min(without.Rail[focused].Height, focusedMinimum+railRules)
+	with, _ := ComputeWithNotice(terminal, rail)
+	had := min(without.Rail[rail.Focused].Height, focusedMinimum+railRules)
 
-	return with.Rail[focused].Height >= had
+	return with.Rail[rail.Focused].Height >= had
 }
