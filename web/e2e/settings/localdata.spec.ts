@@ -64,10 +64,7 @@ async function answersStore(page: Page): Promise<string[]> {
 // reads and removes on its own.
 async function opensLocalData(page: Page): Promise<void> {
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: 'Sections' })
-    .getByRole('button', { name: 'Settings', exact: true })
-    .click()
+  await openSection(page, 'Settings')
   await expect(page.getByRole('table', { name: 'Local data files' })).toBeVisible()
 }
 

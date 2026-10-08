@@ -68,10 +68,7 @@ async function answersPeople(page: Page): Promise<Asked> {
 // opensPeople opens Settings and waits for its People and groups table.
 async function opensPeople(page: Page): Promise<void> {
   await page.goto('/')
-  await page
-    .getByRole('navigation', { name: 'Sections' })
-    .getByRole('button', { name: 'Settings', exact: true })
-    .click()
+  await openSection(page, 'Settings')
   await expect(page.getByRole('table', { name: 'Code owners on Slack' })).toBeVisible()
 }
 
