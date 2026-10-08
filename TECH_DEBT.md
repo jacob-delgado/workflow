@@ -363,31 +363,6 @@ TRADE-10: delete the entry and its site comments (`progress.go:14`,
 **Done when.** The web derives no stage state, `rg 'reviewReached' web/src`
 finds nothing, and `task check` is green.
 
-### DEBT-202 The e2e "reachable and clean" assertions are hand-copied about seventeen times and have drifted
-
-Severity: medium · Confidence: read · Size: M
-
-**Where.** `walkTabOrder`, `sidewaysScrollers`, `pageScrolls` and
-`axeViolations` (`web/e2e/tabwalk.ts:139` to `:203`), `heldToTheLayout`
-(`web/e2e/keyboard/keyboard.spec.ts:47`), the blocks in
-`issues/comments.spec.ts`, `issues/worktree.spec.ts`, `issues/writes.spec.ts`,
-`messaging/held.spec.ts`, `review/writes.spec.ts`, `summary/calendar.spec.ts`,
-`repositories/picker.spec.ts`, `layout.spec.ts:583` and `:609`.
-
-**Today.** Every surface spec writes its own sideways, page-scroll, missed,
-hidden and axe expectations. Seven specs never check the page scroll CLAUDE.md
-requires ("must not scroll the page"), with nothing saying why; layout.spec's
-pull request form and refused-write tests skip axe and run in one theme;
-keyboard.spec has a third form. The layout floor is enforced unevenly per
-surface without anyone having decided so, and a new spec copies whichever
-block it starts from.
-
-**Fix.** Export `expectReachableAndClean(page, {reaches?, passedBy?})` that
-runs all five checks, and use it everywhere.
-
-**Done when.** One definition of the block remains under `web/e2e`, and every
-surface spec calls the helper.
-
 ### DEBT-216 The forge's kind is inferred from the display noun "merge request"
 
 Severity: low · Confidence: read · Size: S
@@ -406,223 +381,6 @@ GitLab quick-action hints.
 places.
 
 **Done when.** No `'merge request'` literal remains in `web/src` outside tests.
-
-### DEBT-226 Eleven e2e files copy the whole stream frame to vary a field or two
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `issuesSnapshot` (`web/e2e/a11y.spec.ts:231`), `pagedSnapshot`
-(`web/e2e/layout.spec.ts:420`), `web/e2e/branchlink.spec.ts:24`, `withTasks`
-(`web/e2e/tasks.spec.ts:37`), `web/e2e/issues/comments.spec.ts:21`,
-`worktree.spec.ts:20`, `writes.spec.ts:20`,
-`web/e2e/messaging/held.spec.ts:28`, `tags.spec.ts:27`,
-`web/e2e/review/writes.spec.ts:21`, `web/e2e/branch/runs.spec.ts:10`.
-
-**Today.** Each spells every field of the frame. `satisfies Snapshot` catches
-a missing field, so drift is not silent, but each new field is an eleven-file
-edit, and the noise hides what each test varies. `src/dev/mockSnapshot.ts`
-exists and no spec builds from it.
-
-**Fix.** An `e2e/fixtures.ts` with `emptySnapshot()` and
-`snapshotWith(overrides)`, typed with `satisfies Snapshot`.
-
-**Done when.** `grep -rn "commit_types: \['feat', 'fix'\]" web/e2e` returns
-one line.
-
-### DEBT-227 `a11y.spec.ts` and `layout.spec.ts` each keep `confirmSteps`, `pullDraft` and an axe scan
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `scan`, `confirmSteps`, `pullDraft`, `sectionNames`
-(`web/e2e/a11y.spec.ts:61`, `:171`, `:342`, `:17`), `confirmSteps` and
-`pullDraft` (`web/e2e/layout.spec.ts:176`, `:557`), `axeViolations`
-(`web/e2e/tabwalk.ts:203`).
-
-**Today.** `scan()` repeats `axeViolations` and its summary line nine times;
-`confirmSteps` is written twice and has drifted: only layout's has the
-credential removal, so that confirmation is never axe-scanned in either theme.
-`pullDraft` is the same in both, and a11y keeps its own section list.
-
-**Fix.** Share `confirmSteps` and `pullDraft` from one fixtures module, use
-`axeViolations`, and derive the section list from `cockpit.ts`.
-
-**Done when.** Each is defined once under `web/e2e` and the credential removal
-is scanned in both themes.
-
-### DEBT-228 Problem-detail fixtures in the e2e specs are untyped, and some are not RFC 9457 shapes
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `noFile` (`web/e2e/cockpit.ts:58`), `web/e2e/a11y.spec.ts:48`,
-`:492`, `noSuchIssue` (`web/e2e/branchlink.spec.ts:49`), `refused`
-(`web/e2e/tasks.spec.ts:81`), `web/e2e/issues/worktree.spec.ts:119`,
-`web/e2e/summary/calendar.spec.ts:82`, `web/e2e/layout.spec.ts:615`; `problem`
-(`internal/webserver/errors.go:41`).
-
-**Today.** Each spec writes its problem bodies by hand and none is checked
-against `Problem`. branchlink anchors `#not_found` where the server writes
-`#not-found`, tasks omits `type`, calendar uses `about:blank`, and layout
-fulfills a bare 500. The client reads only detail, title and code, so no test
-passes wrongly today; the specs exercise shapes the server never sends.
-
-**Fix.** One `problem(code, status, detail)` builder typed `satisfies Problem`
-that derives `type` as the server does.
-
-**Done when.** `application/problem+json` appears under `web/e2e` only in the
-builder.
-
-### DEBT-229 The repositories fake answers every switch as `~/src/web`, and a test asserts it
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `opensRepositories` (`web/e2e/repositories/picker.spec.ts:19`), the
-worktree test's assert (`:69`), `ConfirmSwitch`
-(`web/src/features/repositories/ConfirmSwitch.tsx:34`).
-
-**Today.** The fake echoes the asked directory but always answers `shown:
-'~/src/web'`, so switching to `~/src/api-review` asserts "Switched to
-~/src/web.", a reply the server never sends. CLAUDE.md's L principle calls a
-fake that cuts corners broken.
-
-**Fix.** Map the asked directory to its shown path from the mock list, and
-assert "Switched to ~/src/api-review."
-
-**Done when.** The fake has no hard-coded shown path and the test asserts the
-api-review message.
-
-### DEBT-230 Three e2e tests would pass if their Act did nothing
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** "a year picked some way back still offers the years since"
-(`web/e2e/summary/calendar.spec.ts:102`), "an issue opens at the top of its
-pane at 1440 px" (`web/e2e/panes.spec.ts:72`), "switching back to Reviews
-within 30 seconds reads nothing again" (`web/e2e/reviews.spec.ts:81`).
-
-**Today.** The year test only asserts 2026 is offered, which it is before the
-select runs. The pane test scrolls `article.parentElement` and never checks
-the scroll happened, so a markup change makes it vacuous. The reviews test
-proves no second read with `waitForLoadState('networkidle')`, which resolves
-at once after the first load, so a refetch with `freshFor` at 0 can land after
-the assert.
-
-**Fix.** Assert the picked year and an earlier offered year; assert in the
-Arrange that the heading is out of view; bound the negative with `expect.poll`
-over the read count or a route that fails on a second hit.
-
-**Done when.** Removing each Act makes its test fail, and `web/e2e` holds no
-`networkidle`.
-
-### DEBT-231 The section sweeps run nine independent scenarios as one test
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `web/e2e/layout.spec.ts:19` (`test.slow()` at `:27`), `:97`
-(`:103`), `web/e2e/a11y.spec.ts:68`, `:146`, `web/e2e/screens.spec.ts:33`.
-
-**Today.** Each loops over the sections inside one test body, each pass its
-own Act and Assert, and needs `test.slow()` for the budget. The first failing
-section hides the rest, and CLAUDE.md asks for one Act per test.
-
-**Fix.** Generate one test per section, as the confirm-step tables already do.
-
-**Done when.** No `test.slow()` remains in `web/e2e`, and each section's
-layout and axe result is its own test.
-
-### DEBT-232 The hermetic a11y sweep scans sections before their reads settle
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `settled` (`web/e2e/a11y.spec.ts:41`), the routes (`:77`),
-`readings` and `openSection` (`web/e2e/cockpit.ts:109`, `:118`).
-
-**Today.** `settled()` hard-codes which sections read and waits only for the
-first "Try again". Settings also reads people, groups and local data, which
-the test does not route, so they retry with backoff while axe scans whatever
-mix of "Reading…" is on screen. `cockpit.ts` already waits for no Reading
-status.
-
-**Fix.** Route every `/api` read in the test and open each section with
-`openSection`.
-
-**Done when.** `settled()` is deleted and the sweep uses `openSection`.
-
-### DEBT-233 Nine places click the Sections rail by hand instead of `openSection`
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `web/e2e/messaging/held.spec.ts:84`, `messaging/tags.spec.ts:129`,
-`settings/localdata.spec.ts:54`, `settings/people.spec.ts:66`,
-`tasks.spec.ts:254`, `a11y.spec.ts:398`, `:474`,
-`summary/calendar.spec.ts:22`, `repositories/picker.spec.ts:28`; `openSection`
-(`web/e2e/cockpit.ts:118`).
-
-**Today.** Settle waits are skipped inconsistently, `opensPreview` is the same
-in two messaging specs, and calendar.spec's unscoped, non-exact
-`getByRole('button', {name: 'Summary'})` would match any button containing the
-word. A rail rename touches nine files.
-
-**Fix.** Use `openSection` everywhere, with a variant that does not wait on
-reads where a failing read is the point, and share `opensPreview`.
-
-**Done when.** The Sections navigation locator appears only in `cockpit.ts`
-and the rail's own layout tests.
-
-### DEBT-234 The keyboard trap walk re-implements the Tab walk with narrower rules
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `trappedLap` (`web/e2e/keyboard/keyboard.spec.ts:15`), `tabStops`
-and `focusedStop` (`web/e2e/tabwalk.ts:18`, `:48`), `ShortcutSheet`
-(`web/src/features/keyboard/ShortcutSheet.tsx:53`).
-
-**Today.** It counts stops with a narrower selector and checks in-view against
-the window only, while the shared walk clips by scroll ancestors. The shortcut
-sheet scrolls inside its dialog, so a control scrolled out of the dialog's box
-still counts as in view.
-
-**Fix.** Give `walkTabOrder` a `within` option reusing `tabStops` and
-`focusedStop`, and use it for the trap.
-
-**Done when.** keyboard.spec.ts runs no `querySelectorAll` of its own.
-
-### DEBT-235 `layout.spec.ts` and `a11y.spec.ts` are past 500 lines, holding surface tests that have folders
-
-Severity: low · Confidence: measured · Size: M
-
-**Where.** `web/e2e/layout.spec.ts` (633 lines: the issue paging test `:451`,
-the 320 px branch test `:531`, the pull request form `:583`, the refused write
-`:610`), `web/e2e/a11y.spec.ts` (525: issue list and detail `:291`, the form
-`:355`, offers `:377`, working tree `:464`, refused write `:506`).
-
-**Today.** Beside the cross-section sweeps, each holds hermetic tests of one
-surface whose folder (`issues/`, `review/`, `branch/`) already exists, so
-coverage of a surface is split between places.
-
-**Fix.** Move the surface tests into their folders, leaving the two files as
-the sweeps.
-
-**Done when.** `scripts/check-file-length.sh --list` shows both under 500.
-
-### DEBT-236 The `web/e2e` root is at its budget with single-surface specs left outside their folders
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `web/e2e/branchlink.spec.ts`, `reviews.spec.ts`, `tasks.spec.ts`,
-`streams` (`web/e2e/tabwalk.ts:164`).
-
-**Today.** The root sits at 12/12. `branchlink.spec.ts` belongs in the
-existing `branch/`; `reviews.spec.ts` and `tasks.spec.ts` are single-surface
-specs; `tabwalk.ts` also carries `streams`, `sidewaysScrollers`, `pageScrolls`
-and `axeViolations`, which are not about the Tab walk. CLAUDE.md asks an
-end-to-end surface to break into per-surface folders.
-
-**Fix.** Move `branchlink` to `branch/`, add `reviews/` (or settle the
-review/reviews naming) and `tasks/`, and move the stream and fixture helpers
-to a fixtures module.
-
-**Done when.** The root holds only cross-section specs and helpers and is
-under its budget.
 
 ## The gates, the build and the tests
 
@@ -701,30 +459,6 @@ chase" then names the allowlist as the exception list.
 **Done when.** The gate fails a new untested `err != nil` arm, and the
 measured share is at least two points above the floor.
 
-### DEBT-240 Hermetic e2e runs proxy every unrouted `/api` call to a developer's real `workflow --web`
-
-Severity: medium · Confidence: read · Size: S
-
-**Where.** `server.proxy` (`web/vite.config.ts:27`), the `webServer` entries
-(`web/playwright.config.ts:46`, `:56`), `web/e2e/smoke.spec.ts:3`,
-`web/e2e/a11y.spec.ts:77`.
-
-**Today.** `vite preview` inherits `server.proxy`, so on the hermetic projects
-any `/api` request a spec does not route (`smoke` routes nothing; others route
-a few endpoints) goes to `127.0.0.1:13579`, the default port of `workflow
---web`. The loopback guard passes it (the proxy rewrites Host, and a
-same-origin GET carries no Origin). The config's "This e2e run has no backend"
-is false whenever a developer's server is up: the run reads their real issues
-and repository, becomes non-deterministic, and retained traces record the
-data. CI has no server there.
-
-**Fix.** Give `vite preview` an empty proxy (`preview: { proxy: {} }`), or
-register a catch-all `**/api/**` route answering a 404 problem in a shared
-fixture each spec's routes override.
-
-**Done when.** With `workflow --web` on 13579, `yarn test:e2e` makes no
-request to it, and a test asserts an unrouted read gets the fixture's 404.
-
 ### DEBT-241 Pay down TRADE-2: split the test files past 700 lines and stop pinning counts in prose
 
 Severity: low · Confidence: measured · Size: M
@@ -756,24 +490,6 @@ closes TRADE-2: delete the entry and its site comment.
 
 **Done when.** No file in `check-file-length.sh --list` exceeds 700, `task
 check` passes, and TRADE-2 is gone.
-
-### DEBT-242 The Tab walk never reports focus landing on an undrawn, zero-size control
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `drawnOnly` (`web/e2e/tabwalk.ts:28`), `focusedStop` (`:89`),
-`walkTabOrder` (`:149`).
-
-**Today.** For a focused element of zero width or height, `shown` is 0/0, NaN,
-and `NaN < inView` is false, so the stop is never reported hidden; a stop
-`drawnOnly` filtered out gets index −1 and is silently ignored. A tabbable 0×0
-control passes the layout guard CLAUDE.md calls enforced. (Index −1 alone
-cannot mean hidden: the skip link and the page itself legitimately have it.)
-
-**Fix.** Treat a non-finite `shown` as 0 and report the stop by its words.
-
-**Done when.** A fixture with a tabbable 0×0 button makes the walk's `hidden`
-non-empty.
 
 ### DEBT-243 Concurrency tests synchronize on wall-clock time
 
@@ -1069,32 +785,6 @@ each job's tools.
 
 **Done when.** The summary job runs no test suite, and the node-only jobs
 install only node.
-
-### DEBT-276 No lint for the e2e specs: raw locators, `networkidle`, non-retrying asserts and Arrange-Act-Assert pass
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** The e2e block (`web/eslint.config.js:172`),
-`web/e2e/review/rows.spec.ts:22`, `tasks.spec.ts:161`, `:191`, `:280`,
-`issues/comments.spec.ts:120`, `reviews.spec.ts:98`,
-`review/writes.spec.ts:104`, `branch/runs.spec.ts:121`, `screens.spec.ts:33`;
-`cmd/testshape`.
-
-**Today.** The specs answer only to the four black-box patterns the units do,
-so `locator('dd')`, `locator('svg')`, `waitForLoadState('networkidle')` and
-`expect(await x.innerText())` pass, and a `[data-…]` selector is not caught.
-`cmd/testshape` reads only Go, so in TypeScript the Arrange-Act-Assert markers
-hold by habit: two flows assert a precondition inside an unlabeled Arrange
-where CLAUDE.md asks labeled steps.
-
-**Fix.** Add `eslint-plugin-playwright` (a new dev dependency, to be approved)
-with `no-raw-locators`, `no-networkidle`, `prefer-web-first-assertions` and
-`no-wait-for-timeout`, or extend `no-restricted-syntax` to ban CSS strings in
-`.locator(`; add a small AST check for the markers, or say in CLAUDE.md the
-marker rule is gated in Go only; relabel the two flows.
-
-**Done when.** `yarn lint` fails on a new `page.locator('svg')` in `web/e2e`
-and on a spec Assert with no `expect`.
 
 ### DEBT-277 Package-size gate advice cites features that do not exist here
 
