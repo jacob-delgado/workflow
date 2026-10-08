@@ -91,6 +91,7 @@ docs/                 the Hugo documentation site
 | `task fmt` | format everything in place |
 | `task cloc` | count the source lines, and the Go test ratio (advisory) |
 | `task check` | **the full gate** — lint, tests + coverage, govulncheck, gitleaks; plus the web's lint, client-drift check and unit tests |
+| `task e2e` | the web's Playwright suites, which `task check` leaves out: run it too for a change under `web/` or `internal/webserver` |
 | `task container:check` | the same gate inside the build container |
 
 The toolchain is pinned in `mise.toml`. After cloning: `mise trust && mise
@@ -283,7 +284,7 @@ without agreement on direction.
 - **Accessibility is enforced, not aspirational (the `--web` app).**
   `eslint-plugin-jsx-a11y` runs at **strict** in the web lint (`web/eslint.config.js`,
   in `yarn lint` / `task check`), and a runtime **axe** scan
-  (`web/e2e/a11y.spec.ts`, `yarn test:e2e`) fails on any WCAG 2.1 A/AA violation —
+  (`web/e2e/a11y.spec.ts`, in `task e2e`) fails on any WCAG 2.1 A/AA violation —
   across every section **and both themes**, because a light theme is only real
   once its contrast holds. `web/e2e/layout.spec.ts` stands guard beside it: every
   section at a narrow, a middling and a wide window, in both themes, must not
@@ -505,9 +506,10 @@ passes, dependency bumps, configuration-only changes, and repo scaffolding that
 carries no behavior. Use judgment for refactors — extracting a helper rarely
 needs a new test, but changing observable behavior does.
 
-**Before declaring any task done**, run `task check`. Never present work as
-complete while the build is red or tests are failing — say what's broken and why
-instead.
+**Before declaring any task done**, run `task check`; for a change under `web/`
+or `internal/webserver` also run `task e2e`, since `task check` leaves the
+Playwright suites out. Never present work as complete while the build is red or
+tests are failing — say what's broken and why instead.
 
 ### What to avoid
 
