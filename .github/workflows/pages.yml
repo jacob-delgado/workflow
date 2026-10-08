@@ -31,10 +31,11 @@ on:
   # release.yml.
   workflow_dispatch:
 
+# The default token only reads. The deploy job alone holds the Pages rights:
+# the build runs repository code (the reference generator, Hugo over the
+# site), so it runs on a read-only token and hands the site on as an artifact.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # One deploy at a time, and never cancel one in flight: cancelling mid-publish
 # can leave the live site half-updated.
@@ -43,19 +44,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Build and deploy
+  build:
+    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # cache: false for the same reason as release.yml: this job publishes
+      # cache: false for the same reason as release.yml: this job builds
       # the site people read, so a restored tool cache is state carried in
       # from an earlier run that should not influence what gets published.
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
@@ -74,9 +74,22 @@ jobs:
       - name: Build the site
         run: task docs:build
 
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: docs/public
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write # publish the site
+      id-token: write # deploy-pages proves the deployment with an OIDC token
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
