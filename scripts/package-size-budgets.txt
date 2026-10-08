@@ -233,15 +233,16 @@ internal/cli 20
 internal/loop 14
 
 # internal/wiring — connects every surface's seams to the real clients: one
-# file per service it reaches (Jira, the forge and its CLI, Taskwarrior, the
-# Slack directory, the store) and repositories.go, where the interface runs —
+# file per service it reaches (Jira, the forge and its CLI, Taskwarrior,
+# messaging with the Slack directory it binds, the store) and repositories.go,
+# where the interface runs —
 # the workspace a directory is in, and the key the store names a repository
 # by — so the directory a surface works in is read in one place — and
 # settings.go, the configuration files and the local data the terminal reads
 # and changes, over config.SaveEdit and the store's own listing and clean. One
 # responsibility — build the seams over the real clients — spelled
 # service-per-file.
-internal/wiring 14
+internal/wiring 13
 
 # web/src/lib — the web's shared drawing primitives, each drawn in one place
 # so every section draws it alike (UX.md's visual system): a button, a field, a

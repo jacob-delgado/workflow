@@ -21,7 +21,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/keychain"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/messaging/directory"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
@@ -82,12 +84,12 @@ type messagingSetup struct {
 // Slack directory is read through the session's directory, which answers
 // messaging.ErrNoCredential while the settings in effect have no Slack user
 // token.
-func messagingDeps(ctx context.Context, setup messagingSetup, directory *SlackDirectory) seams.Messaging {
+func messagingDeps(ctx context.Context, setup messagingSetup, slack *directory.Slack) seams.Messaging {
 	bound := seams.Messaging{Post: func(channel, text string) error {
 		return messagingClient(setup).Post(ctx, channel, text)
 	}}
 
-	return withDirectory(ctx, bound, directory)
+	return withDirectory(ctx, bound, slack)
 }
 
 // messagingClient builds the client a post is made with: over the webhook the
@@ -266,4 +268,30 @@ func keptUnlessTyped(ctx context.Context, keychain slackauth.Store, settings con
 	}
 
 	return starting
+}
+
+// slackUserClient is the client a directory reads with: built from the
+// settings in effect, and messaging.ErrNoCredential while they post with no
+// Slack user token — a webhook, Teams or Discord cannot read the directory.
+// Only Slack has a user-token mode, so the mode alone says the service is
+// Slack.
+func slackUserClient(setup messagingSetup) func() (messaging.Client, error) {
+	return func() (messaging.Client, error) {
+		if setup.settings().Mode() != config.MessagingUser {
+			return messaging.Client{}, messaging.ErrNoCredential
+		}
+
+		return messagingClient(setup), nil
+	}
+}
+
+// withDirectory is bound with the directory's reads.
+func withDirectory(ctx context.Context, bound seams.Messaging, slack *directory.Slack) seams.Messaging {
+	bound.ChannelMembers = func(channel string) ([]loop.SlackTarget, error) { return slack.ChannelMembers(ctx, channel) }
+	bound.UserGroups = func() ([]loop.SlackTarget, error) { return slack.UserGroups(ctx) }
+	bound.RefreshDirectory = slack.Refresh
+	bound.Workspace = func() (string, error) { return slack.Workspace(ctx) }
+	bound.Grant = func() (messaging.Grant, error) { return slack.Grant(ctx) }
+
+	return bound
 }

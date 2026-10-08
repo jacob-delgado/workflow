@@ -29,6 +29,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/messaging/directory"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -75,7 +76,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 	messagingSet := messagingSetup{
 		settings: messagingSettings.current, path: cfg.Path, httpTransport: httpTransport, log: log,
 	}
-	directory := NewSlackDirectory(slackUserClient(messagingSet), time.Now)
+	slack := directory.New(slackUserClient(messagingSet), time.Now)
 
 	// A failure here is left for first use, which looks again and reports it.
 	// The Slack user token needs no finding ahead: no command of the user's is
@@ -91,7 +92,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		UseMessagingSettings: func(settings config.Messaging) {
 			messagingSettings.replace(settings)
 			// What was read belongs to the old settings' workspace and token.
-			directory.Refresh()
+			slack.Refresh()
 		},
 		//nolint:bodyclose // Wrap only relays the response; the refresh reads and closes its body.
 		PlaceSlackCredentials: placeSlackCredentials(ctx, log.Wrap("slack", httpTransport)),
@@ -101,7 +102,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Jira:         trackerDeps(ctx, cfg, jiraClient, connect),
 		Git:          gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
 		Forge:        forgeDeps(ctx, setup, connect),
-		Messaging:    messagingDeps(ctx, messagingSet, directory),
+		Messaging:    messagingDeps(ctx, messagingSet, slack),
 		Hooks:        hookDeps(ctx, where.Root),
 		Editor:       editorDeps(where.Root),
 		Store:        storeDeps(ctx, onDisk(cfg), cfg, where),
