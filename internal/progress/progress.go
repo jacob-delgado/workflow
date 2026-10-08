@@ -4,14 +4,10 @@
 // Package progress works out how far along the developer loop a piece of work
 // is — pick an issue, branch, commit, open a review, announce it — from what
 // the repository and the services report. It keeps no state of its own: every
-// stage is derived fresh, not read from the store. Both the terminal interface's
-// spine and `workflow status` read it. The web's work story
-// (web/src/features/issues/WorkStory.tsx) is the second place the rules are
-// written, in TypeScript; its tests (WorkStory.stages.test.tsx) pin the same
-// rules, a case with a twin in progress_test.go named for it. The two are
-// kept equal by hand, so a rule changed here must be changed there too.
-//
-// Trade-off TRADE-10: the stage rules are written twice, here and in the web.
+// stage is derived fresh, not read from the store. It is the one place the
+// stage rules are written: the terminal interface's spine and `workflow status`
+// read it, and the web server ships its stages in every frame of the stream,
+// which the web's work story draws.
 package progress
 
 import "github.com/jacob-delgado/workflow/internal/forge"
@@ -64,9 +60,27 @@ const (
 	Messaging
 )
 
-// Stage is one step of the loop, the system its work happens in, and how far
-// it has got.
+// Step is which stage of the loop a stage is, whatever it is named: the last
+// is named for the messaging service the work is announced on.
+type Step int
+
+const (
+	// StepIssue is the issue the work is for.
+	StepIssue Step = iota
+	// StepBranch is the branch made for it.
+	StepBranch
+	// StepCommits is the work committed on it.
+	StepCommits
+	// StepReview is its pull request's review and CI.
+	StepReview
+	// StepAnnounce is the pull request announced on the messaging service.
+	StepAnnounce
+)
+
+// Stage is one step of the loop, as it is named, the system its work happens
+// in, and how far it has got.
 type Stage struct {
+	Step   Step
 	Name   string
 	System System
 	State  State
@@ -133,11 +147,11 @@ type Work struct {
 // on — Slack, Teams, Discord or Webhook — as the configuration names it.
 func Stages(work Work, messagingService string) []Stage {
 	return []Stage{
-		{Name: "Issue", System: Tracker, State: issueState(work)},
-		{Name: "Branch", System: Git, State: branchState(work)},
-		{Name: "Commits", System: Git, State: commitState(work)},
-		{Name: "Review", System: Forge, State: reviewState(work)},
-		{Name: messagingService, System: Messaging, State: announceState(work)},
+		{Step: StepIssue, Name: "Issue", System: Tracker, State: issueState(work)},
+		{Step: StepBranch, Name: "Branch", System: Git, State: branchState(work)},
+		{Step: StepCommits, Name: "Commits", System: Git, State: commitState(work)},
+		{Step: StepReview, Name: "Review", System: Forge, State: reviewState(work)},
+		{Step: StepAnnounce, Name: messagingService, System: Messaging, State: announceState(work)},
 	}
 }
 

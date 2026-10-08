@@ -585,6 +585,81 @@ func (e SetupPlaceName) Valid() bool {
 	}
 }
 
+// Defines values for StageState.
+const (
+	StageStateDone       StageState = "done"
+	StageStateFailed     StageState = "failed"
+	StageStateInFlight   StageState = "in_flight"
+	StageStateNotStarted StageState = "not_started"
+)
+
+// Valid indicates whether the value is a known member of the StageState enum.
+func (e StageState) Valid() bool {
+	switch e {
+	case StageStateDone:
+		return true
+	case StageStateFailed:
+		return true
+	case StageStateInFlight:
+		return true
+	case StageStateNotStarted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StageStep.
+const (
+	StageStepAnnounce StageStep = "announce"
+	StageStepBranch   StageStep = "branch"
+	StageStepCommits  StageStep = "commits"
+	StageStepIssue    StageStep = "issue"
+	StageStepReview   StageStep = "review"
+)
+
+// Valid indicates whether the value is a known member of the StageStep enum.
+func (e StageStep) Valid() bool {
+	switch e {
+	case StageStepAnnounce:
+		return true
+	case StageStepBranch:
+		return true
+	case StageStepCommits:
+		return true
+	case StageStepIssue:
+		return true
+	case StageStepReview:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StageSystem.
+const (
+	StageSystemForge     StageSystem = "forge"
+	StageSystemGit       StageSystem = "git"
+	StageSystemMessaging StageSystem = "messaging"
+	StageSystemTracker   StageSystem = "tracker"
+)
+
+// Valid indicates whether the value is a known member of the StageSystem enum.
+func (e StageSystem) Valid() bool {
+	switch e {
+	case StageSystemForge:
+		return true
+	case StageSystemGit:
+		return true
+	case StageSystemMessaging:
+		return true
+	case StageSystemTracker:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StatusCategory.
 const (
 	StatusCategoryDone          StatusCategory = "done"
@@ -2199,6 +2274,9 @@ type Snapshot struct {
 	// Run The git run going now (POST /api/runs), with its last 200 lines, so a page opened while it runs sees it; absent when none is going.
 	Run *Run `json:"run,omitempty"`
 
+	// Stages The loop's stages for the checked-out branch, in order — its issue, the branch, its commits, its pull request's review and the announcement — each with how far it has got, by the rules the terminal's spine and `workflow status` read, so every surface shows the same stages in the same states. A panel whose read failed, or a service not set up, counts as nothing done there.
+	Stages []Stage `json:"stages"`
+
 	// SubjectLimit The longest a new commit's header may be, in characters, counted as the terminal composer counts it — the type, scope, breaking mark and subject together: commit.subject_limit when the configuration sets one, else the built-in 72. A commit whose header is longer is refused.
 	//
 	// Example: 72
@@ -2212,6 +2290,32 @@ type Snapshot struct {
 	// Tasks What the event stream carries of your Taskwarrior tasks: the started one, as active — absent when none is started — and every task linked to an issue. Until Taskwarrior has answered both reads the summary makes, it is not available, with no active task and no linked one.
 	Tasks TasksSummary `json:"tasks"`
 }
+
+// Stage One stage of the loop for the checked-out branch.
+type Stage struct {
+	// Name The stage as the terminal's spine and `workflow status` name it: Issue, Branch, Commits, Review, and the messaging service the work is announced on, as the configuration names it.
+	//
+	// Example: Review
+	Name string `json:"name"`
+
+	// State How far it has got: not begun, under way, complete, or failed — a CI failure or changes asked for, something to go back to.
+	State StageState `json:"state"`
+
+	// Step Which stage of the loop this is, whatever it is named.
+	Step StageStep `json:"step"`
+
+	// System Where the stage's work happens, which the terminal's spine colors it by.
+	System StageSystem `json:"system"`
+}
+
+// StageState How far it has got: not begun, under way, complete, or failed — a CI failure or changes asked for, something to go back to.
+type StageState string
+
+// StageStep Which stage of the loop this is, whatever it is named.
+type StageStep string
+
+// StageSystem Where the stage's work happens, which the terminal's spine colors it by.
+type StageSystem string
 
 // StagingRequest What to stage or unstage: one changed file, or all of them — one or the other, never both.
 type StagingRequest struct {

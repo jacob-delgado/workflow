@@ -864,6 +864,10 @@ export type Snapshot = {
     branch: Branch;
     changes: ChangeList;
     review: Review;
+    /**
+     * The loop's stages for the checked-out branch, in order — its issue, the branch, its commits, its pull request's review and the announcement — each with how far it has got, by the rules the terminal's spine and `workflow status` read, so every surface shows the same stages in the same states. A panel whose read failed, or a service not set up, counts as nothing done there.
+     */
+    stages: Array<Stage>;
     messaging: MessagingDestination;
     queued_announcement?: QueuedAnnouncement;
     /**
@@ -892,6 +896,28 @@ export type Snapshot = {
     suggested_scope: string;
     tasks: TasksSummary;
     problems?: PanelProblems;
+};
+
+/**
+ * One stage of the loop for the checked-out branch.
+ */
+export type Stage = {
+    /**
+     * Which stage of the loop this is, whatever it is named.
+     */
+    step: 'issue' | 'branch' | 'commits' | 'review' | 'announce';
+    /**
+     * The stage as the terminal's spine and `workflow status` name it: Issue, Branch, Commits, Review, and the messaging service the work is announced on, as the configuration names it.
+     */
+    name: string;
+    /**
+     * Where the stage's work happens, which the terminal's spine colors it by.
+     */
+    system: 'tracker' | 'git' | 'forge' | 'messaging';
+    /**
+     * How far it has got: not begun, under way, complete, or failed — a CI failure or changes asked for, something to go back to.
+     */
+    state: 'not_started' | 'in_flight' | 'done' | 'failed';
 };
 
 /**

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { gitLabWords, makeBranch, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
+import { gitLabWords, makeBranch, makeHealth, makeSnapshot, makeStages } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
@@ -80,11 +80,7 @@ test("draws each stage as the mark of how far it has come, beside the stage's st
     status: 'live',
     snapshot: makeSnapshot({
       branches: onHead,
-      changes: {
-        changes: [
-          { path: 'a.go', kind: 'modified', staged: false, has_unstaged: true, conflicted: false },
-        ],
-      },
+      stages: makeStages({ issue: 'done', branch: 'done', commits: 'in_flight' }),
     }),
   })
 
@@ -95,11 +91,13 @@ test("draws each stage as the mark of how far it has come, beside the stage's st
   const stages = screen.getAllByRole('listitem')
   expect(stages.map(markShape)).toEqual([
     drawnMark('done'),
+    drawnMark('done'),
     drawnMark('in-flight'),
     drawnMark('not-started'),
     drawnMark('not-started'),
   ])
   expect(stages.map((stage) => within(stage).getByRole('button').textContent)).toEqual([
+    expect.stringContaining('done'),
     expect.stringContaining('done'),
     expect.stringContaining('active'),
     expect.stringContaining('upcoming'),
@@ -239,6 +237,7 @@ test('shows a not-started story for an issue that does not own the branch', () =
 
   // Assert
   expect(screen.getByText(/not in progress/i)).toBeTruthy()
+  expect(screen.getByRole('button', { name: /^Issue/ }).textContent).toContain('Not picked up yet')
   expect(screen.getByText(/no branch for this issue yet/i)).toBeTruthy()
 })
 
@@ -263,6 +262,7 @@ test('shows an in-progress-elsewhere story for an issue on a branch not checked 
   )
   // Both the changes and pull-request stages defer to the checked-out branch.
   expect(screen.getAllByText(/shown for the checked-out branch/i)).toHaveLength(2)
+  expect(screen.getByRole('button', { name: /^Issue/ }).textContent).toContain('Picked up')
 })
 
 test('each stage says the section it opens', () => {
@@ -273,7 +273,7 @@ test('each stage says the section it opens', () => {
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  const opens = ['Opens Branch', 'Opens Branch', 'Opens Review', 'Opens Messaging']
+  const opens = ['Opens Issues', 'Opens Branch', 'Opens Branch', 'Opens Review', 'Opens Messaging']
   const stages = screen.getAllByRole('listitem')
   expect(
     stages.map((stage, at) => within(stage).queryByRole('button', { description: opens[at] })),

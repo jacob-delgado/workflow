@@ -3801,7 +3801,7 @@ components:
       description: >-
         The full read state carried by one event-stream message: everything the
         cockpit shows, together.
-      required: [issues, branch, changes, review, messaging, branches, commit_types, subject_limit, suggested_scope, tasks, here, hooks_unmanaged]
+      required: [issues, branch, changes, review, stages, messaging, branches, commit_types, subject_limit, suggested_scope, tasks, here, hooks_unmanaged]
       properties:
         here:
           type: string
@@ -3812,6 +3812,16 @@ components:
         branch: {$ref: "#/components/schemas/Branch"}
         changes: {$ref: "#/components/schemas/ChangeList"}
         review: {$ref: "#/components/schemas/Review"}
+        stages:
+          type: array
+          description: >-
+            The loop's stages for the checked-out branch, in order — its issue,
+            the branch, its commits, its pull request's review and the
+            announcement — each with how far it has got, by the rules the
+            terminal's spine and `workflow status` read, so every surface shows
+            the same stages in the same states. A panel whose read failed, or a
+            service not set up, counts as nothing done there.
+          items: {$ref: "#/components/schemas/Stage"}
         messaging: {$ref: "#/components/schemas/MessagingDestination"}
         queued_announcement:
           $ref: "#/components/schemas/QueuedAnnouncement"
@@ -3872,6 +3882,34 @@ components:
         tasks: {$ref: "#/components/schemas/TasksSummary"}
         problems:
           $ref: "#/components/schemas/PanelProblems"
+      additionalProperties: false
+
+    Stage:
+      type: object
+      description: One stage of the loop for the checked-out branch.
+      required: [step, name, system, state]
+      properties:
+        step:
+          type: string
+          enum: [issue, branch, commits, review, announce]
+          description: Which stage of the loop this is, whatever it is named.
+        name:
+          type: string
+          description: >-
+            The stage as the terminal's spine and `workflow status` name it:
+            Issue, Branch, Commits, Review, and the messaging service the work
+            is announced on, as the configuration names it.
+          example: Review
+        system:
+          type: string
+          enum: [tracker, git, forge, messaging]
+          description: Where the stage's work happens, which the terminal's spine colors it by.
+        state:
+          type: string
+          enum: [not_started, in_flight, done, failed]
+          description: >-
+            How far it has got: not begun, under way, complete, or failed — a
+            CI failure or changes asked for, something to go back to.
       additionalProperties: false
 
     PanelProblems:
