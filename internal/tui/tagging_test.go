@@ -445,3 +445,33 @@ func TestADryRunOffersNoPeopleAndGroups(t *testing.T) {
 	// Assert
 	refuseScreen(t, view, "People and groups")
 }
+
+func TestWithNoStoreThePreviewLinksAndTagsNoOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	unkept := taggingWorld()
+	deps := unkept.deps()
+	deps.Store.OwnerLinks, deps.Store.LinkOwner, deps.Store.ForgetOwner = nil, nil, nil
+	deps.Store.RepoGroups, deps.Store.SetRepoGroups = nil, nil
+	deps.Store.LastGroups, deps.Store.RecordGroups = nil, nil
+	model := sized(t, tui.New(unkept.cfg, nil, deps), 140, 40)
+	model = drain(t, model, model.Init())
+
+	// Act: open the preview
+	preview := typing(t, model, "5", "p")
+
+	// Assert: every owner is listed, none linked, and none can be
+	view := preview.View().Content
+	requireScreen(t, view, "? not linked", "tags  nobody")
+	refuseScreen(t, view, carlaName, podName, "not on Slack")
+	refuseScreen(t, footerLine(view), "link to Slack")
+
+	// Act: try to link, and announce
+	typing(t, preview, "a", keyEnter)
+
+	// Assert: the post tags no one
+	if text := postedText(t, unkept); strings.Contains(text, "<@") || strings.Contains(text, "<!subteam") {
+		t.Errorf("a post with no store tagged someone: %q", text)
+	}
+}
