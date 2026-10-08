@@ -150,7 +150,8 @@ for (const theme of themes) {
       await page.getByRole('button', { name: look.button, exact: true }).click()
       await expect(page.getByRole('form', { name: look.form })).toBeVisible()
 
-      // Act & Assert: Tab once round the page.
+      // Act & Assert
+      // Tab once round the page.
       await expectReachableAndClean(page, { passedBy: look.passedBy })
     })
   }

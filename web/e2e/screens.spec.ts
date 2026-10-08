@@ -60,22 +60,25 @@ for (const theme of themes) {
         `screenshots ${name} in the ${theme} theme at ${String(width)} px`,
         { tag: '@populated' },
         async ({ page }, testInfo) => {
-          // Arrange: the populated cockpit in this theme at this width, with
-          // the checked-out issue open so the Issues screen shows its story.
+          // Arrange
+          // The populated cockpit in this theme at this width, with the
+          // checked-out issue open so the Issues screen shows its story.
           await openCockpit(page, { width, height }, theme)
 
-          // Act: open the section, let it settle, and grow the window to hold
-          // all of it.
+          // Act
+          // Open the section, let it settle, and grow the window to hold all of
+          // it.
           await openSection(page, name)
           await fitToContent(page, width)
 
-          // Assert: the section is on screen, saved as drawn, with the pointer
-          // parked off the controls so none is caught mid-hover. Under reduced
-          // motion every element transitions every property for 0.01ms
+          // Assert
+          // The section is on screen, saved as drawn, with the pointer parked
+          // off the controls so none is caught mid-hover. Under reduced motion
+          // every element transitions every property for 0.01ms
           // (web/src/index.css), so an inherited color reaches an icon's
           // strokes a frame or more after the text beside it: the capture
-          // finishes those transitions first rather than catching the colors
-          // of the section it left on the way out.
+          // finishes those transitions first rather than catching the colors of
+          // the section it left on the way out.
           await expect(page.getByRole('heading', { level: 1, name })).toBeInViewport()
           await page.mouse.move(0, 0)
           await page.screenshot({

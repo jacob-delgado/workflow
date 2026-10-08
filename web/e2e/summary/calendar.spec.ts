@@ -103,8 +103,8 @@ test('a year picked some way back still offers the years since', async ({ page }
   // Act
   await year.selectOption('2021')
 
-  // Assert: 2021 is shown, offered among the years before it and every year
-  // since.
+  // Assert
+  // 2021 is shown, offered among the years before it and every year since.
   await expect(year).toHaveValue('2021')
   await expect(year.getByRole('option', { name: '2016' })).toBeAttached()
   await expect(year.getByRole('option', { name: '2026' })).toBeAttached()
@@ -121,8 +121,9 @@ for (const theme of themes) {
       await page.setViewportSize({ width, height })
       await opensSummary(page)
 
-      // Act & Assert: Tab reaches the steps, the copy, the links, the
-      // selects, the day in focus and the month and year.
+      // Act & Assert
+      // Tab reaches the steps, the copy, the links, the selects, the day in
+      // focus and the month and year.
       await expectReachableAndClean(page, {
         reaches: [
           'Earlier',

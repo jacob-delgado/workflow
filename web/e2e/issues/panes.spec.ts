@@ -45,11 +45,13 @@ for (const { width, detail, contentScrolls } of paneCases) {
     `the detail sits ${detail} the issue list at ${String(width)} px, which scrolls in its pane`,
     { tag: '@populated' },
     async ({ page }) => {
-      // Arrange: the checked-out issue open, in a window shorter than the list.
+      // Arrange
+      // The checked-out issue open, in a window shorter than the list.
       await openCockpit(page, { width, height: 600 }, 'dark')
       const list = page.getByRole('list', { name: 'Issues' })
 
-      // Act: measure the list, the detail, and what scrolls.
+      // Act
+      // Measure the list, the detail, and what scrolls.
       const drawn = placement(await boxOf(list), await boxOf(page.getByRole('article')))
       const listScrolls = await list.evaluate((pane) => pane.scrollHeight > pane.clientHeight)
       const scrolls = await page
@@ -70,7 +72,8 @@ test(
   'an issue opens at the top of its pane at 1440 px',
   { tag: '@populated' },
   async ({ page }) => {
-    // Arrange: the checked-out issue open, in a window shorter than it.
+    // Arrange
+    // The checked-out issue open, in a window shorter than it.
     await openCockpit(page, { width: 1440, height: 600 }, 'dark')
 
     // Act: read it to its end.
@@ -98,7 +101,8 @@ test(
   'the selected issue is in view as the issues reopen at 640 px',
   { tag: '@populated' },
   async ({ page }) => {
-    // Arrange: the list's last issue selected, and another section opened.
+    // Arrange
+    // The list's last issue selected, and another section opened.
     await openCockpit(page, { width: 640, height }, 'dark')
     const last = page.getByRole('button', { name: /^PROJ-377/ })
     await last.click()
