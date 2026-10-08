@@ -42,40 +42,40 @@ const unreachable = problem(
 )
 
 for (const theme of themes) {
-  test(`no accessibility violations across the sections in the ${theme} theme`, async ({
-    page,
-  }) => {
-    // Arrange: pin the theme before the app paints, so the whole run is in it,
-    // and answer the health read as a --dry-run server would, so the read-only
-    // banner is on screen for every scan (the hermetic server has no API).
-    await pinTheme(page, theme)
-    await page.route('**/api/health', (route) =>
-      route.fulfill({
-        json: { version: '1.2.3', dry_run: true, forge_noun: 'pull request', forge_sigil: '#' },
-      }),
-    )
-    // The review queue's read, the task list's and the configuration's fail,
-    // so each reason and its Try again are scanned, whenever the answer comes; the
-    // populated build scans the queue, the tasks and the form themselves.
-    await page.route('**/api/reviews', (route) => route.fulfill(unreachable))
-    await page.route('**/api/tasks', (route) => route.fulfill(unreachable))
-    await page.route('**/api/repositories', (route) => route.fulfill(unreachable))
-    await page.route('**/api/config', (route) => route.fulfill(unreachable))
-    await page.goto('/')
-    await expect(page.getByText(/every write is held back/i)).toBeVisible()
+  for (const name of hermeticSections) {
+    test(`no accessibility violations in ${name} in the ${theme} theme`, async ({ page }) => {
+      // Arrange: pin the theme before the app paints, so the whole run is in
+      // it, and answer the health read as a --dry-run server would, so the
+      // read-only banner is on screen for the scan (the hermetic server has
+      // no API). The review queue's read, the task list's, the repositories'
+      // and the configuration's fail, so each reason and its Try again are
+      // scanned, whenever the answer comes; the populated build scans the
+      // queue, the tasks and the form themselves.
+      await pinTheme(page, theme)
+      await page.route('**/api/health', (route) =>
+        route.fulfill({
+          json: { version: '1.2.3', dry_run: true, forge_noun: 'pull request', forge_sigil: '#' },
+        }),
+      )
+      await page.route('**/api/reviews', (route) => route.fulfill(unreachable))
+      await page.route('**/api/tasks', (route) => route.fulfill(unreachable))
+      await page.route('**/api/repositories', (route) => route.fulfill(unreachable))
+      await page.route('**/api/config', (route) => route.fulfill(unreachable))
+      await page.goto('/')
+      await expect(page.getByText(/every write is held back/i)).toBeVisible()
 
-    const nav = page.getByRole('navigation', { name: 'Sections' })
-
-    for (const name of hermeticSections) {
       // Act: open the section and let it settle.
-      await nav.getByRole('button', { name, exact: true }).click()
+      await page
+        .getByRole('navigation', { name: 'Sections' })
+        .getByRole('button', { name, exact: true })
+        .click()
       await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
       await expect(settled(page, name)).toBeVisible()
 
-      // Assert: axe finds nothing on this section in this theme.
-      expect(await axeViolations(page), `${theme} / ${name}`).toBe('')
-    }
-  })
+      // Assert
+      expect(await axeViolations(page)).toBe('')
+    })
+  }
 }
 
 for (const theme of themes) {
@@ -103,28 +103,27 @@ for (const theme of themes) {
 }
 
 for (const theme of themes) {
-  test(
-    `no accessibility violations across the populated sections in the ${theme} theme`,
-    {
-      tag: '@populated',
-    },
-    async ({ page }) => {
-      // Arrange: pin the theme before the app paints, and open the checked-out
-      // issue, so its detail and work story are on screen beside the list.
-      await pinTheme(page, theme)
-      await page.goto('/')
-      await page.getByRole('button', { name: /redact tokens before/i }).click()
-      await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
+  for (const name of sectionNames) {
+    test(
+      `no accessibility violations in the populated ${name} in the ${theme} theme`,
+      { tag: '@populated' },
+      async ({ page }) => {
+        // Arrange: pin the theme before the app paints, and open the
+        // checked-out issue, so its detail and work story are on screen
+        // beside the list.
+        await pinTheme(page, theme)
+        await page.goto('/')
+        await page.getByRole('button', { name: /redact tokens before/i }).click()
+        await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
 
-      for (const name of sectionNames) {
         // Act: open the section and let it settle.
         await openSection(page, name)
 
-        // Assert: axe finds nothing on this section, filled, in this theme.
-        expect(await axeViolations(page), `${theme} / populated ${name}`).toBe('')
-      }
-    },
-  )
+        // Assert
+        expect(await axeViolations(page)).toBe('')
+      },
+    )
+  }
 }
 
 for (const theme of themes) {

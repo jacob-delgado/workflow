@@ -19,26 +19,22 @@ import { expect, test } from './support/fixtures.ts'
 
 for (const theme of themes) {
   for (const width of widths) {
-    test(
-      `every section fits ${String(width)} px in the ${theme} theme, reachable and clean`,
-      { tag: '@populated' },
-      async ({ page }) => {
-        // Nine sections, each walked and scanned by axe, are nine tests' work
-        // in one: the budget for one runs out on a busy machine.
-        test.slow()
+    for (const name of sectionNames) {
+      test(
+        `${name} fits ${String(width)} px in the ${theme} theme, reachable and clean`,
+        { tag: '@populated' },
+        async ({ page }) => {
+          // Arrange: the populated cockpit at this width, in this theme.
+          await openCockpit(page, { width, height }, theme)
 
-        // Arrange: the populated cockpit at this width, in this theme.
-        await openCockpit(page, { width, height }, theme)
-
-        for (const name of sectionNames) {
-          // Act: open the section.
+          // Act
           await openSection(page, name)
 
-          // Assert: it is reachable and clean.
+          // Assert
           await expectReachableAndClean(page)
-        }
-      },
-    )
+        },
+      )
+    }
   }
 }
 
@@ -78,30 +74,25 @@ async function widestContent(page: Page): Promise<number> {
   return Math.max(...widths.flat())
 }
 
-test(
-  "every section sets its content at the Branch section's measure in a wide window",
-  { tag: '@populated' },
-  async ({ page }) => {
-    // Nine sections, each opened and measured, in one test.
-    test.slow()
+for (const name of sectionNames.filter((section) => section !== 'Branch')) {
+  test(
+    `${name} sets its content at the Branch section's measure in a wide window`,
+    { tag: '@populated' },
+    async ({ page }) => {
+      // Arrange: the populated cockpit at the wide width, and the measure
+      // Branch's commit form is set at.
+      await openCockpit(page, { width: 1440, height }, 'dark')
+      await openSection(page, 'Branch')
+      const measure = await widestContent(page)
 
-    // Arrange: the populated cockpit at the wide width, and the measure
-    // Branch's commit form is set at.
-    await openCockpit(page, { width: 1440, height }, 'dark')
-    await openSection(page, 'Branch')
-    const measure = await widestContent(page)
-
-    for (const name of sectionNames) {
-      // Act: open the section.
+      // Act
       await openSection(page, name)
 
       // Assert: nothing in it is set wider than Branch's form.
-      expect(await widestContent(page), `${name}: wider than Branch`).toBeLessThanOrEqual(
-        measure + 1,
-      )
-    }
-  },
-)
+      expect(await widestContent(page), 'wider than Branch').toBeLessThanOrEqual(measure + 1)
+    },
+  )
+}
 
 for (const theme of themes) {
   for (const width of widths) {
