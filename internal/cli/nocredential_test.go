@@ -19,7 +19,7 @@ func TestAJiraTokenVariableThatGivesNothingIsNamedNotCalledUnconfigured(t *testi
 	writeFile(t, repo, `{"jira": {"base_url": "https://jira.example.net", "token_env": "`+emptyTokenVariable+`"}}`)
 
 	// Act
-	_, err := run(t, repo, "branch", "PROJ-7", "--yes")
+	_, err := runAtHome(t, repo, "branch", "PROJ-7", "--yes")
 
 	// Assert
 	if err == nil || strings.Contains(err.Error(), "is configured") || !strings.Contains(err.Error(), emptyTokenVariable) {

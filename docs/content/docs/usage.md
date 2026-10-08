@@ -796,7 +796,9 @@ both anyway, or leave Jira out; an address that is not an http or https
 address, or that carries a username and password, is never kept, so it offers
 to type the address again or leave Jira out. Where the OS keychain is wired (macOS), it then
 asks where to keep the token: in the keychain, so the file holds only the
-command that reads it back, or in the file, which only you can read. Last comes
+command that reads it back, or in the file, which only you can read. The
+keychain keeps it only for your home file, the one file that may hold that
+command; chosen for the repository's, the write is refused and says so. Last comes
 a Slack incoming webhook, saved unchecked, or left blank to post with your Slack
 user token after `workflow slack login`. A blank address or webhook skips that
 question, and `esc` goes back one.

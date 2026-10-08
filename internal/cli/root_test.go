@@ -397,7 +397,7 @@ func TestTheWebFlagTellsTheServerTheTaskwarriorSettingsItStartedWith(t *testing.
 	writeFile(t, dir, `{"taskwarrior": {"program": "/opt/homebrew/bin/task", "disabled": true}}`)
 
 	// Act
-	ran := runRoot(t, dir, "--web")
+	ran := runRootAt(t, place{dir: dir, home: dir}, "--web")
 
 	// Assert
 	want := config.Taskwarrior{Program: "/opt/homebrew/bin/task", Disabled: true}
@@ -517,7 +517,7 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 			}
 
 			// Act
-			_, _, err = executeRoot(t, place{dir: dir, home: t.TempDir()},
+			_, _, err = executeRoot(t, place{dir: dir, home: dir},
 				func(context.Context, tui.Model, io.Writer) (tui.Next, error) {
 					countRuns()
 

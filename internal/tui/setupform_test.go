@@ -102,6 +102,12 @@ func throughEveryQuestion(keychain string) []string {
 	return append(append(keys, letters(firstRunWebhook)...), keyEnter)
 }
 
+// throughEveryQuestionAtHome is throughEveryQuestion with the home directory
+// chosen for the file, the one file the keychain can keep the token for.
+func throughEveryQuestionAtHome(keychain string) []string {
+	return append([]string{keyEnter, downAction}, throughEveryQuestion(keychain)[1:]...)
+}
+
 func TestTheNoFileScreenOffersToSetOneUpHere(t *testing.T) {
 	t.Parallel()
 
@@ -134,7 +140,7 @@ func TestSetUpWritesTheFileWithTheTokenInTheKeychainAndReopens(t *testing.T) {
 
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
-	answered := typing(t, run.model(t, false), throughEveryQuestion("up")...)
+	answered := typing(t, run.model(t, false), throughEveryQuestionAtHome("up")...)
 
 	// Act
 	written, cmd := pressed(t, answered, keyEnter)
@@ -145,12 +151,12 @@ func TestSetUpWritesTheFileWithTheTokenInTheKeychainAndReopens(t *testing.T) {
 		t.Fatalf("the write ended for %q, want workflow reopened in %s", written.Destination().Dir, apiCmd)
 	}
 
-	contents, err := os.ReadFile(run.where.Path(setup.Repository))
+	contents, err := os.ReadFile(run.where.Path(setup.Home))
 	if err != nil || strings.Contains(string(contents), firstRunToken) || run.stored != firstRunToken {
 		t.Errorf("wrote %q (%v), keychain %q; want the token in the keychain alone", contents, err, run.stored)
 	}
 
-	cfg, _, err := config.LoadLayersAt(config.Files{Home: run.where.Path(setup.Repository)})
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: run.where.Path(setup.Home)})
 	if err != nil || cfg.Jira.BaseURL != firstRunJira || cfg.Messaging.WebhookURL != firstRunWebhook {
 		t.Errorf("wrote %+v (%v), want Jira's address and the webhook", cfg, err)
 	}
@@ -179,7 +185,7 @@ func TestSetUpArrivesOnTheIssuesPaneSayingSo(t *testing.T) {
 
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
-	answered := typing(t, run.model(t, false), throughEveryQuestion("up")...)
+	answered := typing(t, run.model(t, false), throughEveryQuestion("down")...)
 	written, cmd := pressed(t, answered, keyEnter)
 	written = drain(t, written, cmd)
 	reopened := sized(t, tui.New(completeConfig(), nil, reposWorld().deps()), 120, 40)
@@ -294,7 +300,7 @@ func TestSetUpInARepositorySaysToIgnoreTheFile(t *testing.T) {
 		t.Fatalf("making the repository: %v", err)
 	}
 
-	answered := typing(t, run.model(t, false), throughEveryQuestion("up")...)
+	answered := typing(t, run.model(t, false), throughEveryQuestion("down")...)
 	written, cmd := pressed(t, answered, keyEnter)
 	written = drain(t, written, cmd)
 	reopened := sized(t, tui.New(completeConfig(), nil, reposWorld().deps()), 120, 40)

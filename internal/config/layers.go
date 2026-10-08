@@ -58,10 +58,11 @@ func (f Files) Each() []string {
 }
 
 // Layers are the files c was read from, or the one file Path names when it
-// was set without them, as a configuration built in place of a read is.
+// was set without them, as a configuration built in place of a read is: a
+// file of the user's own, which is the home file.
 func (c Config) Layers() Files {
 	if c.Files == (Files{}) && c.Path != "" {
-		return Files{Repo: c.Path}
+		return Files{Home: c.Path}
 	}
 
 	return c.Files
@@ -235,7 +236,8 @@ func parseLayers(files Files, home, repo layer) (Config, error) {
 // JSON object: an object in both is merged key by key, and anything else the
 // repository sets — a list, a string, an explicit false — replaces the home
 // file's. A section the repository points somewhere else inherits none of the
-// home file's credentials for it.
+// home file's credentials for it, and a setting only the home file may make is
+// refused.
 func mergeLayers(home, repo layer) ([]byte, error) {
 	beneath, err := layerValue(home)
 	if err != nil {
@@ -245,6 +247,13 @@ func mergeLayers(home, repo layer) ([]byte, error) {
 	over, err := layerValue(repo)
 	if err != nil {
 		return nil, err
+	}
+
+	if repo.exists {
+		err = refuseHomeOnly(repo.path, repo.contents)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	moved, err := movedSections(beneath, over)
@@ -299,10 +308,29 @@ func mergeValues(base, over any) any {
 	return merged
 }
 
-// layerContents is what the file files saves to holds for cfg: every setting,
+// layerContents is what the file files saves to holds for cfg, refused when
+// that is the repository's file and it would make a setting only the home file
+// may.
+func layerContents(files Files, home layer, cfg Config) ([]byte, error) {
+	contents, err := targetContents(files, home, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if files.Repo != "" {
+		err = refuseHomeOnly(files.Repo, contents)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return contents, nil
+}
+
+// targetContents is what the file files saves to holds for cfg: every setting,
 // unless it lies over a home file, when it is only what differs from that. The
 // home file is read unvalidated, since it need only be valid with its layer.
-func layerContents(files Files, home layer, cfg Config) ([]byte, error) {
+func targetContents(files Files, home layer, cfg Config) ([]byte, error) {
 	if files.Repo == "" || !home.exists {
 		return encode(cfg)
 	}

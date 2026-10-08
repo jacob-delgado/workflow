@@ -69,6 +69,12 @@ In scope:
   credential) somewhere it should not go, logs one, or prints one unmasked, is
   a security bug. `.workflow.json` is written `0600`, is gitignored, and every
   code path that surfaces a token passes it through `config.Redact` first.
+- The configuration's trust boundary. A `.workflow.json` in a repository, or in
+  the current directory outside one, may have come from anyone, so it may not
+  set what runs a program or reads the environment (`jira.token_command`,
+  `jira.token_env`, `taskwarrior.program`) and inherits no home credential for
+  an address it moves; only `~/.workflow.json` may. A way around either is a
+  security bug.
 - Data at rest. The on-disk store (`internal/store`, a SQLite database under the
   OS-native data directory) keeps workflow state between sessions — the commit
   scope last used per repository, what was announced, and the last issue list

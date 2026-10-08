@@ -14,7 +14,8 @@ import (
 )
 
 // missingTaskwarrior is a configuration naming a task program that does not
-// exist, so Taskwarrior reads as not installed whatever is on PATH.
+// exist, so Taskwarrior reads as not installed whatever is on PATH. Only the
+// home file may name one, so a test with it runs with the repository as home.
 const missingTaskwarrior = `"taskwarrior":{"program":"/nonexistent/workflow-test/task"}`
 
 func TestSummaryLeavesOutASourceThatIsNotSetUp(t *testing.T) {
@@ -24,7 +25,8 @@ func TestSummaryLeavesOutASourceThatIsNotSetUp(t *testing.T) {
 	writeFile(t, repo, `{`+missingTaskwarrior+`}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay)
+	printed, err := runStreamsAt(t, place{dir: repo, home: repo}, unusedPrompt(t),
+		"summary", "--from", summaryDay, "--to", summaryDay)
 
 	// Assert
 	if err != nil || !strings.Contains(printed.stdout, "Add the widget") {
@@ -53,7 +55,8 @@ func TestSummaryFailsWhenAConfiguredForgeRefuses(t *testing.T) {
 	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+missingTaskwarrior+`}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay)
+	printed, err := runStreamsAt(t, place{dir: repo, home: repo}, unusedPrompt(t),
+		"summary", "--from", summaryDay, "--to", summaryDay)
 
 	// Assert
 	if !strings.Contains(printed.stdout, "Add the widget") || err == nil ||
@@ -69,7 +72,8 @@ func TestSummaryAsJSONMarksASourceNotSetUpApartFromOneThatFailed(t *testing.T) {
 	writeFile(t, repo, `{"jira":{"base_url":"`+jira.URL+`","token":"t"},`+missingTaskwarrior+`}`)
 
 	// Act
-	printed, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay, asJSON)
+	printed, _ := runStreamsAt(t, place{dir: repo, home: repo}, unusedPrompt(t),
+		"summary", "--from", summaryDay, "--to", summaryDay, asJSON)
 
 	// Assert
 	var got api.Activity

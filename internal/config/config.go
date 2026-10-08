@@ -65,6 +65,7 @@ type Jira struct {
 	Token Secret `json:"token"`
 	// TokenCommand is a program that prints the token, such as
 	// "pass show jira/token"; TokenEnv is an environment variable that holds it.
+	// Only the home directory's file may set either.
 	TokenCommand string `json:"token_command"`
 	TokenEnv     string `json:"token_env"`
 	// User is optional. Leave it empty for token (Bearer) authentication; set it

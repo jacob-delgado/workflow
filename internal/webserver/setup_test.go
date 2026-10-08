@@ -103,8 +103,15 @@ func (r *firstRun) handler(t *testing.T) http.Handler {
 func setupBody(t *testing.T, keychain, keep bool) string {
 	t.Helper()
 
+	return setupBodyAt(t, api.Repository, keychain, keep)
+}
+
+// setupBodyAt is setupBody for the file at place.
+func setupBodyAt(t *testing.T, place api.SetupPlaceName, keychain, keep bool) string {
+	t.Helper()
+
 	body, err := json.Marshal(api.SetupRequest{
-		Place: api.Repository, JiraBaseURL: setupJira, JiraToken: setupToken,
+		Place: place, JiraBaseURL: setupJira, JiraToken: setupToken,
 		WebhookURL: "", Keychain: keychain, KeepUnchecked: keep,
 	})
 	if err != nil {
@@ -150,7 +157,7 @@ func TestSetupWritesTheFileAndServesItWithoutTheToken(t *testing.T) {
 	run := newFirstRun(t, http.StatusOK)
 
 	// Act
-	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, true, false))
+	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBodyAt(t, api.Home, true, false))
 
 	// Assert
 	result := decode[api.SetupResult](t, recorder)
@@ -415,6 +422,24 @@ func TestSetupRefusesTheKeychainWhereThereIsNone(t *testing.T) {
 	failure := decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable {
 		t.Errorf("status %d, problem %+v; want 422 unprocessable", recorder.Code, failure)
+	}
+}
+
+func TestSetupRefusesTheKeychainForAFileOtherThanTheHomeFile(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+
+	// Act
+	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, true, false))
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable ||
+		!strings.Contains(failure.Detail, "home") || run.stored != "" {
+		t.Errorf("status %d, problem %+v, keychain %q; want 422 naming the home file and nothing stored",
+			recorder.Code, failure, run.stored)
 	}
 }
 
