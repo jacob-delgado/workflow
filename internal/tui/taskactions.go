@@ -703,9 +703,13 @@ func (m Model) trackSelectedIssue() (Model, tea.Cmd) {
 	}
 
 	track := trackIssue{url: m.issueURL(), thenStart: false}
-	line := taskwarrior.TrackLine(taskwarrior.IssueLink{
+
+	line, err := taskwarrior.TrackLine(taskwarrior.IssueLink{
 		Key: string(selected.Key), Summary: selected.Summary, URL: track.url, Priority: selected.Priority,
 	})
+	if err != nil {
+		return m.noticedFailure(err), nil
+	}
 
 	return m.openTaskLine(taskLine{
 		title: "Track " + string(selected.Key), command: addCommand, write: addLine(m.deps.Tasks.Add),
