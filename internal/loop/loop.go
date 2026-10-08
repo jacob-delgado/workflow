@@ -9,9 +9,9 @@
 // the terminal interface and the web server each hand it their seams — plain
 // functions over the domain clients — and word its refusals in their own terms.
 //
-// It sits below the three surfaces and above the domain packages: it imports
-// config, convention, forge, gitrepo, jira, messaging and proc, and nothing that
-// imports it back. A depguard rule in .golangci.yml holds that direction.
+// It sits below the three surfaces and above the domain packages, and imports
+// nothing that imports it back. The depguard rule loop-below-the-surfaces in
+// .golangci.yml lists what it may import and holds that direction.
 package loop
 
 import (
