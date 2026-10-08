@@ -133,7 +133,7 @@ func (m Model) openPlacePicker() (Model, tea.Cmd) {
 	}
 
 	m.overlay = checklist[places.Place]{
-		marks: m.marks, title: filterTitle, none: "no issue to filter",
+		title: filterTitle, none: "no issue to filter",
 		choices: pickList[offered[places.Place]]{items: offers},
 		chosen:  slices.Clone(m.issues.places),
 		label:   func(picked places.Place) string { return picked.Name },

@@ -83,8 +83,6 @@ func (d commentDrafts) keeping(issueKey jira.Key, text string) commentDrafts {
 // Trade-off TRADE-30: it is the one multi-line text written in the interface
 // rather than handed to $EDITOR, which ctrl+o still reaches.
 type commentComposer struct {
-	marks  glyphs
-	styles styles
 	issue  jira.Issue
 	text   textarea.Model
 	mode   writingMode
@@ -110,7 +108,7 @@ func (m Model) startComment() (Model, tea.Cmd) {
 	selected, _ := m.issues.current()
 	markup := loop.CommentMarkupOf(m.cfg.Jira, selected.Key)
 	m.overlay = commentComposer{
-		marks: m.marks, styles: m.styles, issue: selected, mode: modeNormal,
+		issue: selected, mode: modeNormal,
 		text:   newCommentText(m.commentDrafts.on(selected.Key)),
 		markup: markup, quickActions: markup == loop.MarkupForgeMarkdown && m.deps.Forge.Kind == forge.KindGitLab,
 		editor: m.deps.Editor.Edit != nil,
@@ -161,8 +159,8 @@ func newCommentText(draft string) textarea.Model {
 // effect under it while there is room. The mode line comes first after any
 // pinned failure: the frame clips from the bottom, and layout sizes the box so
 // nothing above it is pushed out.
-func (c commentComposer) view(width, rows int) (string, string) {
-	above, below, height := c.layout(width, rows)
+func (c commentComposer) view(kit renderKit, width, rows int) (string, string) {
+	above, below, height := c.layout(kit, width, rows)
 	c = c.fitted(width, height)
 
 	return "Comment on " + shownKey(c.issue.Key), strings.Join(slices.Concat(above, []string{c.text.View()}, below), "\n")
@@ -170,14 +168,14 @@ func (c commentComposer) view(width, rows int) (string, string) {
 
 // layout is the lines above the box, the lines below it, and the box's height
 // in rows rows.
-func (c commentComposer) layout(width, rows int) ([]string, []string, int) {
-	above := pinnedOutcome(c.styles, c.marks, c.send, "", width)
-	above = append(above, c.styles.strong.Render(c.mode.line()),
+func (c commentComposer) layout(kit renderKit, width, rows int) ([]string, []string, int) {
+	above := pinnedOutcome(kit.styles, kit.marks, c.send, "", width)
+	above = append(above, kit.styles.strong.Render(c.mode.line()),
 		wrap(shownKey(c.issue.Key)+" "+c.issue.Summary, width), "")
 
-	below := []string{"", c.styles.label.Render(wrap(markupCheat(c.markup), width))}
+	below := []string{"", kit.styles.label.Render(wrap(markupCheat(c.markup), width))}
 	if c.quickActions {
-		below = append(below, c.styles.label.Render(wrap(quickActionNote, width)))
+		below = append(below, kit.styles.label.Render(wrap(quickActionNote, width)))
 	}
 
 	height := rows - rowsOf(above) - rowsOf(below)
@@ -247,7 +245,7 @@ func (c commentComposer) footer(keys keyMap) []key.Binding {
 // handleKey answers a key in the mode the composer is in. The box is sized as
 // it is drawn first, so the cursor moves over the lines on screen.
 func (c commentComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	_, _, height := c.layout(m.detailWidth(), m.detailRows())
+	_, _, height := c.layout(m.kit(), m.detailWidth(), m.detailRows())
 	c = c.fitted(m.detailWidth(), height)
 
 	if c.mode == modeInsert {
@@ -347,7 +345,7 @@ func (c commentComposer) preview(m Model) Model {
 		return m.noticedGuidance(errEmptyComment)
 	}
 
-	m.overlay = commentPreview{marks: c.marks, styles: c.styles, composer: c}
+	m.overlay = commentPreview{composer: c}
 
 	return m
 }

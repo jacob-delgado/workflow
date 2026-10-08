@@ -322,7 +322,7 @@ func asking(look lastLook, wouldDo string, send tea.Cmd) lastLook {
 // opening is a follow-up that opens a last look.
 func opening(look lastLook) func(Model) (Model, tea.Cmd) {
 	return func(m Model) (Model, tea.Cmd) {
-		look.marks, look.styles, look.leave = m.marks, m.styles, escSkip
+		look.leave = escSkip
 		m.overlay = look
 
 		return m, nil

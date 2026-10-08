@@ -43,8 +43,6 @@ const settingsAbout = "A save reopens workflow here, so it applies at once."
 // and a save writes every edit together over the read, as the web's does, so
 // a file changed since is refused rather than written over.
 type settingsForm struct {
-	marks  glyphs
-	styles styles
 	// noun is the forge's word for a pull request, and actions the keys the
 	// interface binds, which the fields are laid out with.
 	noun    string
@@ -88,7 +86,7 @@ func (m Model) canEditSettings() bool {
 func (m Model) openSettings() (Model, tea.Cmd) {
 	m, opened := m.opening()
 	m.overlay = settingsForm{
-		marks: m.marks, styles: m.styles, noun: m.vocab.noun, opened: opened, reading: true,
+		noun: m.vocab.noun, opened: opened, reading: true,
 		actions: KeyActions(m.vocab.noun, m.cfg.Messaging.Service(), nil),
 	}.laidOut()
 	read := m.deps.Settings.Read
@@ -148,18 +146,18 @@ func (f settingsForm) value(path string) any {
 
 // view draws the settings under their sections, the selected one's hint, and
 // how a save is going.
-func (f settingsForm) view(width, rows int) (string, string) {
+func (f settingsForm) view(kit renderKit, width, rows int) (string, string) {
 	head := splitLines(wrap("Saves to "+f.shownPath+". "+settingsAbout, width), "")
 
 	switch {
 	case f.reading:
-		return settingsTitle, "reading the configuration" + f.marks.ellipsis
+		return settingsTitle, "reading the configuration" + kit.marks.ellipsis
 	case f.readErr != nil:
-		return settingsTitle, failureBlock(f.styles, f.marks, f.readErr, width)
+		return settingsTitle, failureBlock(kit.styles, kit.marks, f.readErr, width)
 	}
 
-	foot := splitLines(f.footLines(width)...)
-	list := f.rows(width, rows-len(head)-len(foot))
+	foot := splitLines(f.footLines(kit, width)...)
+	list := f.rows(kit, width, rows-len(head)-len(foot))
 
 	return settingsTitle, strings.Join(append(append(head, list...), foot...), "\n")
 }
@@ -172,7 +170,7 @@ func splitLines(texts ...string) []string {
 
 // footLines are the selected setting's hint, its field while it is edited,
 // and the outcome of the last key.
-func (f settingsForm) footLines(width int) []string {
+func (f settingsForm) footLines(kit renderKit, width int) []string {
 	lines := []string{""}
 
 	if hint := f.current().hint; hint != "" {
@@ -186,19 +184,19 @@ func (f settingsForm) footLines(width int) []string {
 	}
 
 	if f.problem != nil {
-		lines = append(lines, "", failureBlock(f.styles, f.marks, f.problem, width))
+		lines = append(lines, "", failureBlock(kit.styles, kit.marks, f.problem, width))
 	}
 
 	if f.said != "" {
 		lines = append(lines, "", wrap(f.said, width))
 	}
 
-	return append(lines, pinnedOutcome(f.styles, f.marks, f.send, "saving", width)...)
+	return append(lines, pinnedOutcome(kit.styles, kit.marks, f.send, "saving", width)...)
 }
 
 // rows draws the settings in as many lines as fit, each section headed,
 // scrolled so the selected one stays in sight.
-func (f settingsForm) rows(width, space int) []string {
+func (f settingsForm) rows(kit renderKit, width, space int) []string {
 	var (
 		lines    []string
 		selected int
@@ -206,14 +204,14 @@ func (f settingsForm) rows(width, space int) []string {
 
 	for index, field := range f.fields {
 		if index == 0 || field.section != f.fields[index-1].section {
-			lines = append(lines, f.styles.strong.Render(field.section))
+			lines = append(lines, kit.styles.strong.Render(field.section))
 		}
 
 		if index == f.selected {
 			selected = len(lines)
 		}
 
-		lines = append(lines, ansi.Truncate(f.row(field, index == f.selected), width, f.marks.ellipsis))
+		lines = append(lines, ansi.Truncate(f.row(kit, field, index == f.selected), width, kit.marks.ellipsis))
 	}
 
 	first, last := window(selected, len(lines), space)
@@ -223,7 +221,7 @@ func (f settingsForm) rows(width, space int) []string {
 
 // row is one setting: its label and its value, or a checkbox for one that is
 // on or off, marked when it was edited.
-func (f settingsForm) row(field setting, selected bool) string {
+func (f settingsForm) row(kit renderKit, field setting, selected bool) string {
 	edited := ""
 	if f.isEdited(field) {
 		edited = "  (edited)"
@@ -233,13 +231,13 @@ func (f settingsForm) row(field setting, selected bool) string {
 	case settingToggle:
 		on, _ := f.value(field.path).(bool)
 
-		return f.marks.marker(selected) + checkbox(on) + field.label + edited
+		return kit.marks.marker(selected) + checkbox(on) + field.label + edited
 	case settingAdd:
-		return f.marks.marker(selected) + field.label
+		return kit.marks.marker(selected) + field.label
 	case settingText, settingURL, settingSecret, settingCount, settingList, settingChoice, settingEntry:
 	}
 
-	return f.marks.marker(selected) + fmt.Sprintf("%-15s %s", field.label, f.shown(field)) + edited
+	return kit.marks.marker(selected) + fmt.Sprintf("%-15s %s", field.label, f.shown(field)) + edited
 }
 
 // current is the selected setting; the cursor never leaves the settings.

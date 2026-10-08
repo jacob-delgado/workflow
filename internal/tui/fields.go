@@ -117,10 +117,10 @@ func (f fieldForm) field() jira.Field {
 }
 
 // view draws the field being filled in.
-func (f fieldForm) view(marks glyphs, sty styles, width, rows int) []string {
+func (f fieldForm) view(kit renderKit, width, rows int) []string {
 	field := f.field()
 	lines := []string{
-		transitionLabel(marks, f.transition) + " needs:",
+		transitionLabel(kit.marks, f.transition) + " needs:",
 		field.Name + " (" + strconv.Itoa(f.index+1) + " of " + strconv.Itoa(len(f.transition.Fields)) + ")",
 	}
 
@@ -130,11 +130,11 @@ func (f fieldForm) view(marks glyphs, sty styles, width, rows int) []string {
 		input.SetWidth(max(1, width-len(input.Prompt)-1))
 		lines = append(lines, input.View())
 	} else {
-		lines = append(lines, f.optionLines(marks, rows-len(lines)-1)...)
+		lines = append(lines, f.optionLines(kit.marks, rows-len(lines)-1)...)
 	}
 
 	if f.problem != nil {
-		lines = append(lines, failureLine(sty, marks, fmt.Errorf("%s %w", field.Name, f.problem)))
+		lines = append(lines, failureLine(kit.styles, kit.marks, fmt.Errorf("%s %w", field.Name, f.problem)))
 	}
 
 	return lines

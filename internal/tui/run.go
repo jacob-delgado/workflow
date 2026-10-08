@@ -28,11 +28,9 @@ type runKind struct{ title, refusal string }
 // a hook. When it fails, every place a tool pointed at can be opened in the
 // editor at its line.
 type commandRun struct {
-	marks  glyphs
-	styles styles
-	kind   runKind
-	id     int
-	start  starter
+	kind  runKind
+	id    int
+	start starter
 	// succeeded is what happens once the program exits cleanly; nil keeps the
 	// output on screen until it is closed.
 	succeeded func(m Model) (Model, tea.Cmd)
@@ -68,7 +66,7 @@ var (
 func (m Model) startRun(kind runKind, start starter, succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd) {
 	m.runs++
 	m.overlay = commandRun{
-		marks: m.marks, styles: m.styles, kind: kind, id: m.runs, start: start, succeeded: succeeded,
+		kind: kind, id: m.runs, start: start, succeeded: succeeded,
 		placeScan: hooks.NewFailureScan(runtime.GOOS),
 	}
 
@@ -211,11 +209,11 @@ func rowsIn(wrapped string) int {
 
 // view shows the jobs as lefthook reports them, then either the places to jump
 // to or the tail of the output, and how the run stands.
-func (r commandRun) view(width, rows int) (string, string) {
-	lines := r.header(width)
+func (r commandRun) view(kit renderKit, width, rows int) (string, string) {
+	lines := r.header(kit, width)
 
 	if len(r.failures.items) > 0 && !r.showOutput {
-		lines = append(lines, r.failures.rows(r.marks, rows-len(lines), placeRow)...)
+		lines = append(lines, r.failures.rows(kit.marks, rows-len(lines), placeRow)...)
 	} else {
 		lines = append(lines, tail(r.lines, rows-len(lines))...)
 	}
@@ -226,10 +224,10 @@ func (r commandRun) view(width, rows int) (string, string) {
 // header is the rows above the list: the state, a wrapped jobs line when there
 // is one, and a blank. The view draws it and the click measures it, so the two
 // cannot drift apart the way a hardcoded row count would.
-func (r commandRun) header(width int) []string {
-	lines := []string{r.state()}
+func (r commandRun) header(kit renderKit, width int) []string {
+	lines := []string{r.state(kit)}
 
-	if jobs := r.jobs(); jobs != "" {
+	if jobs := r.jobs(kit); jobs != "" {
 		lines = append(lines, wrap(jobs, width))
 	}
 
@@ -238,44 +236,44 @@ func (r commandRun) header(width int) []string {
 
 // state says whether the run is going, passed, or failed — and, when it failed,
 // what step failed rather than the exit code the step happened to end with.
-func (r commandRun) state() string {
+func (r commandRun) state(kit renderKit) string {
 	switch {
 	case !r.done:
-		return r.marks.inFlight + " running" + r.marks.ellipsis
+		return kit.marks.inFlight + " running" + kit.marks.ellipsis
 	case r.stopped:
-		return r.marks.notStarted + " stopped"
+		return kit.marks.notStarted + " stopped"
 	case r.err != nil:
-		return r.failureHeadline()
+		return r.failureHeadline(kit)
 	default:
-		return r.marks.done + " done"
+		return kit.marks.done + " done"
 	}
 }
 
 // failureHeadline is the run kind's refusal for a bare failure status — git's
 // "exit status 1", which says nothing on its own. An error that carries its
 // cause, a message that could not be written say, is told as every failure is.
-func (r commandRun) failureHeadline() string {
+func (r commandRun) failureHeadline(kit renderKit) string {
 	if errors.Is(r.err, proc.ErrExitStatus) {
-		return failedGlyph(r.styles, r.marks) + " " + r.kind.refusal
+		return failedGlyph(kit.styles, kit.marks) + " " + r.kind.refusal
 	}
 
-	return failureLine(r.styles, r.marks, r.err)
+	return failureLine(kit.styles, kit.marks, r.err)
 }
 
 // jobs is lefthook's jobs, each with its glyph, when the output is lefthook's.
-func (r commandRun) jobs() string {
+func (r commandRun) jobs(kit renderKit) string {
 	parsed := r.jobList
 	parts := make([]string, 0, len(parsed))
 
 	for _, job := range parsed {
 		glyph := map[hooks.JobState]string{
-			hooks.JobRunning: r.marks.inFlight, hooks.JobPassed: r.marks.done,
-			hooks.JobFailed: failedGlyph(r.styles, r.marks), hooks.JobSkipped: r.marks.notStarted,
+			hooks.JobRunning: kit.marks.inFlight, hooks.JobPassed: kit.marks.done,
+			hooks.JobFailed: failedGlyph(kit.styles, kit.marks), hooks.JobSkipped: kit.marks.notStarted,
 		}[job.State]
 		parts = append(parts, glyph+" "+job.Name)
 	}
 
-	return strings.Join(parts, r.marks.separator)
+	return strings.Join(parts, kit.marks.separator)
 }
 
 // placeRow names a place to jump to by its file, line and what the tool said.
@@ -377,7 +375,7 @@ func (r commandRun) click(m Model, line int) (Model, tea.Cmd) {
 
 	// The offset is the header the view drew, in display rows — the jobs line
 	// wraps to as many rows as it took, so a click below it skips every one.
-	offset := rowsIn(strings.Join(r.header(m.detailWidth()), "\n"))
+	offset := rowsIn(strings.Join(r.header(m.kit(), m.detailWidth()), "\n"))
 	r.failures = r.failures.clicked(line-offset, m.detailRows()-offset)
 	m.overlay = r
 

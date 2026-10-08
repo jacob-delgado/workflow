@@ -61,8 +61,6 @@ func worklogAction(add func(jira.Key, string, string) (jira.Worklog, error)) iss
 // confirm to send it. It reports its outcome like the status picker, so a
 // refusal is seen rather than lost.
 type issueWrite struct {
-	marks   glyphs
-	styles  styles
 	issue   jira.Issue
 	action  issueAction
 	input   textinput.Model
@@ -101,7 +99,7 @@ func (m Model) openIssueWrite(build func(jira.Issue) (issueAction, string)) (Mod
 	selected, _ := m.issues.current()
 	action, start := build(selected)
 	m.overlay = issueWrite{
-		marks: m.marks, styles: m.styles, issue: selected, action: action, input: newInput(start),
+		issue: selected, action: action, input: newInput(start),
 	}
 
 	return m, nil
@@ -110,11 +108,11 @@ func (m Model) openIssueWrite(build func(jira.Issue) (issueAction, string)) (Mod
 // view draws the value being typed, with how sending it is going, or the value
 // the form still needs, pinned under the title so a long refusal is wrapped and
 // seen rather than clipped.
-func (w issueWrite) view(width, _ int) (string, string) {
+func (w issueWrite) view(kit renderKit, width, _ int) (string, string) {
 	w.input.SetWidth(max(1, width-len(w.input.Prompt)-1))
 
-	lines := append(pinnedOutcome(w.styles, w.marks, w.send, "sending", width),
-		pinnedProblem(w.styles, w.marks, w.problem, width)...)
+	lines := append(pinnedOutcome(kit.styles, kit.marks, w.send, "sending", width),
+		pinnedProblem(kit.styles, kit.marks, w.problem, width)...)
 	lines = append(lines, shownKey(w.issue.Key)+" "+w.issue.Summary, "", w.action.prompt, w.input.View())
 
 	return w.action.title + " " + shownKey(w.issue.Key), strings.Join(lines, "\n")

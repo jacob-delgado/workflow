@@ -224,15 +224,9 @@ func (m Model) markDone() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m.lookAt(m.doneAsked(task)), nil
-}
+	m.overlay = m.doneAsked(task)
 
-// lookAt opens look, which esc closes.
-func (m Model) lookAt(look lastLook) Model {
-	look.marks, look.styles = m.marks, m.styles
-	m.overlay = look
-
-	return m
+	return m, nil
 }
 
 // taskChange names one change of a task in its own verb: verb is the change,
@@ -266,7 +260,7 @@ func (m Model) actOnTask(change taskChange, write func(uuid string) error) (Mode
 func (m Model) undoTasks() (Model, tea.Cmd) {
 	undo := m.deps.Tasks.Undo
 
-	return m.lookAt(asking(lastLook{
+	m.overlay = asking(lastLook{
 		title: "Undo in Taskwarrior", verb: "undo", doing: "undoing",
 		body: "Undo Taskwarrior's last change?\n\nTaskwarrior has no redo.",
 	}, "undo Taskwarrior's last change", func() tea.Msg {
@@ -276,7 +270,9 @@ func (m Model) undoTasks() (Model, tea.Cmd) {
 		}
 
 		return offerAnswered{acted: taskActed{verb: "undone", uuid: "", id: 0, said: said, err: err}, then: nil}
-	})), nil
+	})
+
+	return m, nil
 }
 
 // nothingToUndo reports an undo Taskwarrior had nothing to revert for: no task
@@ -297,14 +293,16 @@ func (nothingToUndo) apply(m Model) (Model, tea.Cmd) {
 func (m Model) syncTasks() (Model, tea.Cmd) {
 	sync := m.deps.Tasks.Sync
 
-	return m.lookAt(asking(lastLook{
+	m.overlay = asking(lastLook{
 		title: "Sync Taskwarrior", verb: "sync", doing: "syncing",
 		body: "Sync Taskwarrior with its server?\n\nYour tasks are sent there, and its changes taken.",
 	}, "sync Taskwarrior", func() tea.Msg {
 		said, err := sync()
 
 		return offerAnswered{acted: taskActed{verb: "synced", uuid: "", id: 0, said: said, err: err}, then: nil}
-	})), nil
+	})
+
+	return m, nil
 }
 
 // taskActed reports how a change of a task went: what was done, to which task —
@@ -367,8 +365,6 @@ func shortened(uuid string) string {
 // taskLine is one line in Taskwarrior's own grammar being typed for a task
 // command — add, annotate or modify — and how sending it is going.
 type taskLine struct {
-	marks  glyphs
-	styles styles
 	// title is the overlay's: "Add a task", "Track PROJ-42", "Annotate 12".
 	title string
 	// command is what the line is typed after — "task add", "task 12 annotate"
@@ -397,7 +393,6 @@ var (
 // The input is sized to the overlay before prefill is set, so a line wider than
 // the overlay opens scrolled to the cursor at its end.
 func (m Model) openTaskLine(line taskLine, prefill string) (Model, tea.Cmd) {
-	line.marks, line.styles = m.marks, m.styles
 	line.input = sizedInput(newInput(""), m.detailWidth())
 	line.input.SetValue(prefill)
 	m.overlay = line
@@ -461,25 +456,25 @@ func addLine(add func(line string) (string, error)) func(line string) taskLineSe
 }
 
 // view draws the command, the line being typed, and how sending it is going.
-func (l taskLine) view(width, _ int) (string, string) {
+func (l taskLine) view(kit renderKit, width, _ int) (string, string) {
 	l.input = sizedInput(l.input, width)
 	l.input.SetCursor(l.input.Position())
 
-	lines := append([]string{l.command + " " + l.marks.ellipsis, l.input.View()}, l.outcome(width)...)
+	lines := append([]string{l.command + " " + kit.marks.ellipsis, l.input.View()}, l.outcome(kit, width)...)
 
 	return l.title, strings.Join(lines, "\n")
 }
 
 // outcome says how sending is going, or that the line is still empty. A
 // refusal is wrapped rather than cut, so Taskwarrior's own words are all seen.
-func (l taskLine) outcome(width int) []string {
+func (l taskLine) outcome(kit renderKit, width int) []string {
 	switch {
 	case l.sending.sending:
-		return []string{"", "sending" + l.marks.ellipsis}
+		return []string{"", "sending" + kit.marks.ellipsis}
 	case l.sending.err != nil:
-		return []string{"", wrap(failureLine(l.styles, l.marks, l.sending.err), width)}
+		return []string{"", wrap(failureLine(kit.styles, kit.marks, l.sending.err), width)}
 	case l.problem != nil:
-		return []string{"", failureLine(l.styles, l.marks, l.problem)}
+		return []string{"", failureLine(kit.styles, kit.marks, l.problem)}
 	default:
 		return nil
 	}

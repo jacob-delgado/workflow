@@ -71,11 +71,9 @@ const (
 // token, and a messaging webhook — then the file written, and workflow
 // reopened with it.
 type setupForm struct {
-	marks  glyphs
-	styles styles
-	offer  setup.Offer
-	shown  []string
-	step   setupStep
+	offer setup.Offer
+	shown []string
+	step  setupStep
 	// choice is the row the cursor is on in a step that is a list.
 	choice  int
 	place   int
@@ -117,15 +115,15 @@ func (m Model) openSetup() (Model, tea.Cmd) {
 		shown = append(shown, m.shownDir(place.Path))
 	}
 
-	m.overlay = setupForm{marks: m.marks, styles: m.styles, offer: offer, shown: shown, step: stepPlace}
+	m.overlay = setupForm{offer: offer, shown: shown, step: stepPlace}
 
 	return m, nil
 }
 
 // view draws the answers given so far, the question asked now, and how the
 // check or the write is going.
-func (f setupForm) view(width, _ int) (string, string) {
-	answered := f.answered()
+func (f setupForm) view(kit renderKit, width, _ int) (string, string) {
+	answered := f.answered(kit)
 	if len(answered) > 0 {
 		answered = append(answered, "")
 	}
@@ -133,36 +131,36 @@ func (f setupForm) view(width, _ int) (string, string) {
 	lines := slices.Concat(
 		[]string{"No " + config.FileName + " applies here. Leave a question blank to skip it.", ""},
 		answered,
-		[]string{f.styles.strong.Render(f.question())},
-		f.asking(width),
-		f.outcome(width),
+		[]string{kit.styles.strong.Render(f.question())},
+		f.asking(kit, width),
+		f.outcome(kit, width),
 	)
 
 	return setupTitle, wrap(strings.Join(lines, "\n"), width)
 }
 
 // answered is a row for each question already answered.
-func (f setupForm) answered() []string {
+func (f setupForm) answered(kit renderKit) []string {
 	var rows []string
 
 	if f.step > stepPlace {
-		rows = append(rows, f.answeredRow("File", f.shown[f.place]))
+		rows = append(rows, answeredRow(kit, "File", f.shown[f.place]))
 	}
 
 	if f.step > stepJiraURL {
-		rows = append(rows, f.answeredRow("Jira", orSkipped(f.answers.Jira.BaseURL)))
+		rows = append(rows, answeredRow(kit, "Jira", orSkipped(f.answers.Jira.BaseURL)))
 	}
 
 	if f.who != "" && f.step > stepJiraToken {
-		rows = append(rows, f.answeredRow("", f.marks.done+" authenticates as "+f.who))
+		rows = append(rows, answeredRow(kit, "", kit.marks.done+" authenticates as "+f.who))
 	}
 
 	if f.step > stepKeychain && f.answers.Jira.BaseURL != "" && f.keychainOffered() {
-		rows = append(rows, f.answeredRow("Token", f.tokenKept()))
+		rows = append(rows, answeredRow(kit, "Token", f.tokenKept()))
 	}
 
 	if f.step > stepWebhook {
-		rows = append(rows, f.answeredRow("Slack", orSkipped(f.webhookShown())))
+		rows = append(rows, answeredRow(kit, "Slack", orSkipped(f.webhookShown())))
 	}
 
 	return rows
@@ -188,8 +186,8 @@ func (f setupForm) webhookShown() string {
 }
 
 // answeredRow is one answered question: its label, faint, and the answer.
-func (f setupForm) answeredRow(label, value string) string {
-	return f.styles.label.Render(fmt.Sprintf("%-7s", label)) + value
+func answeredRow(kit renderKit, label, value string) string {
+	return kit.styles.label.Render(fmt.Sprintf("%-7s", label)) + value
 }
 
 // orSkipped is an answer, or that it was skipped.
@@ -243,21 +241,21 @@ func setupQuestions() map[setupStep]setupQuestion {
 }
 
 // asking is the field or the choices for the question asked now, and its hint.
-func (f setupForm) asking(width int) []string {
+func (f setupForm) asking(kit renderKit, width int) []string {
 	switch f.step {
 	case stepPlace:
-		return append(f.choices(f.placeChoices()), f.styles.label.Render(setupQuestions()[f.step].hint))
+		return append(f.choices(kit, f.placeChoices(kit)), kit.styles.label.Render(setupQuestions()[f.step].hint))
 	case stepCheckFailed:
-		return append([]string{failureLine(f.styles, f.marks, f.checkErr), ""}, f.choices(f.failedRows())...)
+		return append([]string{failureLine(kit.styles, kit.marks, f.checkErr), ""}, f.choices(kit, f.failedRows())...)
 	case stepKeychain:
-		return f.choices([]string{"In your keychain, out of the file", "In the file, which only you can read"})
+		return f.choices(kit, []string{"In your keychain, out of the file", "In the file, which only you can read"})
 	case stepWrite:
-		return []string{f.styles.label.Render("Then workflow reopens here with it.")}
+		return []string{kit.styles.label.Render("Then workflow reopens here with it.")}
 	case stepJiraURL, stepJiraToken, stepWebhook:
 		input := f.input
 		input.SetWidth(max(1, width-len(input.Prompt)-1))
 
-		return []string{input.View(), f.styles.label.Render(setupQuestions()[f.step].hint)}
+		return []string{input.View(), kit.styles.label.Render(setupQuestions()[f.step].hint)}
 	}
 
 	return nil
@@ -286,7 +284,7 @@ func (f setupForm) failedRows() []string {
 }
 
 // placeChoices are the places the file may go, each with what sees it.
-func (f setupForm) placeChoices() []string {
+func (f setupForm) placeChoices(kit renderKit) []string {
 	width := 0
 	for _, shown := range f.shown {
 		width = max(width, len(shown))
@@ -294,7 +292,7 @@ func (f setupForm) placeChoices() []string {
 
 	rows := make([]string, 0, len(f.offer.Places))
 	for index, place := range f.offer.Places {
-		rows = append(rows, fmt.Sprintf("%-*s", width, f.shown[index])+f.styles.label.Render("  "+placeSeenBy(place.Place)))
+		rows = append(rows, fmt.Sprintf("%-*s", width, f.shown[index])+kit.styles.label.Render("  "+placeSeenBy(place.Place)))
 	}
 
 	return rows
@@ -310,22 +308,22 @@ func placeSeenBy(place setup.Place) string {
 }
 
 // choices are rows to choose from, the cursor's marked.
-func (f setupForm) choices(rows []string) []string {
+func (f setupForm) choices(kit renderKit, rows []string) []string {
 	lines := make([]string, 0, len(rows))
 	for index, row := range rows {
-		lines = append(lines, f.marks.marker(index == f.choice)+row)
+		lines = append(lines, kit.marks.marker(index == f.choice)+row)
 	}
 
 	return lines
 }
 
 // outcome is how the check or the write is going.
-func (f setupForm) outcome(width int) []string {
+func (f setupForm) outcome(kit renderKit, width int) []string {
 	if f.checking {
-		return []string{"", "checking the token with Jira" + f.marks.ellipsis}
+		return []string{"", "checking the token with Jira" + kit.marks.ellipsis}
 	}
 
-	if outcome := pinnedOutcome(f.styles, f.marks, f.send, "writing", width); outcome != nil {
+	if outcome := pinnedOutcome(kit.styles, kit.marks, f.send, "writing", width); outcome != nil {
 		return append([]string{""}, outcome...)
 	}
 

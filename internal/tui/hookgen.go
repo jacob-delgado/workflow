@@ -57,7 +57,7 @@ func (msg hooksFound) apply(m Model) (Model, tea.Cmd) {
 // reopens after a skip.
 func (m Model) openHookgen() (Model, tea.Cmd) {
 	m.overlay = hookgenOffer{
-		marks: m.marks, styles: m.styles, hooks: m.hookgen.hooks, generated: hooks.Structured(m.hookgen.hooks),
+		hooks: m.hookgen.hooks, generated: hooks.Structured(m.hookgen.hooks),
 	}
 
 	return m, nil
@@ -65,8 +65,6 @@ func (m Model) openHookgen() (Model, tea.Cmd) {
 
 // hookgenOffer is a lefthook configuration offered for a repository's hooks.
 type hookgenOffer struct {
-	marks     glyphs
-	styles    styles
 	hooks     []hooks.GitHook
 	generated hooks.Generated
 	send      sendState
@@ -76,15 +74,15 @@ var _ failable[hookgenOffer] = hookgenOffer{}
 
 // view lists the hooks found and the configuration that would run them, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
-func (o hookgenOffer) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(o.styles, o.marks, o.send, "writing", width)
+func (o hookgenOffer) view(kit renderKit, width, _ int) (string, string) {
+	lines := pinnedOutcome(kit.styles, kit.marks, o.send, "writing", width)
 	lines = append(lines,
 		wrap("Found "+plural(len(o.hooks), "hook")+" in .git/hooks that lefthook does not manage:", width), "",
 	)
 
 	for _, hook := range o.hooks {
 		count := strconv.Itoa(strings.Count(strings.TrimRight(hook.Script, "\n"), "\n") + 1)
-		lines = append(lines, "  "+hook.Name+o.marks.separator+count+" lines")
+		lines = append(lines, "  "+hook.Name+kit.marks.separator+count+" lines")
 	}
 
 	// The configuration is clipped rather than wrapped: a YAML line broken in

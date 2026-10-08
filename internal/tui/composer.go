@@ -52,8 +52,6 @@ type commitDraft struct {
 // commitComposer assembles a Conventional Commit subject from its parts, so it
 // is always well-formed, and measures it against the limit as it is typed.
 type commitComposer struct {
-	marks    glyphs
-	styles   styles
 	conv     convention.CommitConvention
 	types    []string
 	kind     int
@@ -89,7 +87,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	m, opened := m.opening()
 
 	composer := commitComposer{
-		marks: m.marks, styles: m.styles, conv: conv, types: types, kind: m.startingType(conv, draft),
+		conv: conv, types: types, kind: m.startingType(conv, draft),
 		focus: fieldSubject, scope: newInput(cmp.Or(draft.scope, m.cfg.Commit.DefaultScope)),
 		subject: newInput(draft.subject), body: draft.body,
 		issueKey: issueKey, staged: m.changes.staged(), breaking: draft.breaking,
@@ -135,7 +133,7 @@ func (c commitComposer) assembled() convention.Subject {
 
 // view shows each part, the subject they make with its length against the
 // limit, the start of the body, and the trailer.
-func (c commitComposer) view(width, _ int) (string, string) {
+func (c commitComposer) view(kit renderKit, width, _ int) (string, string) {
 	subject := c.assembled()
 	length := strconv.Itoa(utf8.RuneCountInString(subject.String())) + "/" + strconv.Itoa(c.conv.SubjectLimit())
 
@@ -143,36 +141,36 @@ func (c commitComposer) view(width, _ int) (string, string) {
 	c.scope.SetWidth(inner)
 	c.subject.SetWidth(inner)
 
-	lines := pinnedOutcome(c.styles, c.marks, c.send, "", width)
+	lines := pinnedOutcome(kit.styles, kit.marks, c.send, "", width)
 	lines = append(
 		lines,
-		c.label(fieldType, "type    ")+c.typeChoice(),
-		c.label(fieldScope, "scope   ")+c.scope.View(),
+		c.label(kit, fieldType, "type    ")+c.typeChoice(kit),
+		c.label(kit, fieldScope, "scope   ")+c.scope.View(),
 	)
 
 	scopeProblem := c.scopeProblem()
 	if scopeProblem != nil {
-		lines = append(lines, "  "+failureLine(c.styles, c.marks, scopeProblem))
+		lines = append(lines, "  "+failureLine(kit.styles, kit.marks, scopeProblem))
 	}
 
 	lines = append(
 		lines,
-		c.label(fieldSubject, "subject ")+c.subject.View(),
+		c.label(kit, fieldSubject, "subject ")+c.subject.View(),
 		"",
 		"  "+sanitize.Line(subject.String())+"  "+length,
 	)
 
 	problem := c.conv.Validate(subject)
 	if problem != nil && strings.TrimSpace(c.subject.Value()) != "" {
-		lines = append(lines, "  "+failureLine(c.styles, c.marks, problem))
+		lines = append(lines, "  "+failureLine(kit.styles, kit.marks, problem))
 	}
 
 	return "Commit", strings.Join(append(append(lines, ""), c.footnotes()...), "\n")
 }
 
 // label marks the field with focus.
-func (c commitComposer) label(field int, text string) string {
-	return c.marks.marker(field == c.focus) + text
+func (c commitComposer) label(kit renderKit, field int, text string) string {
+	return kit.marks.marker(field == c.focus) + text
 }
 
 // scopeProblem reports what is wrong with the scope as it stands, so the reason
@@ -195,13 +193,13 @@ func (c commitComposer) scopeProblem() error {
 
 // typeChoice shows the chosen type among its neighbors. The types are the
 // configuration's, so each is drawn as text alone.
-func (c commitComposer) typeChoice() string {
+func (c commitComposer) typeChoice(kit renderKit) string {
 	parts := make([]string, 0, len(c.types))
 
 	for index, kind := range c.types {
 		kind = sanitize.Line(kind)
 		if index == c.kind {
-			kind = c.marks.chosenOpen + kind + c.marks.chosenClose
+			kind = kit.marks.chosenOpen + kind + kit.marks.chosenClose
 		}
 
 		parts = append(parts, kind)

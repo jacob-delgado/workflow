@@ -134,11 +134,13 @@ func (m Model) previewDiscard() (Model, tea.Cmd) {
 		body += "\n\n" + strings.Join(m.diff.lines[:min(len(m.diff.lines), discardPreviewLines)], "\n")
 	}
 
-	return m.lookAt(lastLook{
+	m.overlay = lastLook{
 		title: "Discard changes", verb: "discard", doing: "discarding",
 		body:    body + "\n\nThis cannot be undone.",
 		proceed: func(m Model) (Model, tea.Cmd) { return m.discardChange(change) },
-	}), nil
+	}
+
+	return m, nil
 }
 
 // discardChange drops change from the index and the work tree, the look open

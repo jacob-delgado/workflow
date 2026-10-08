@@ -147,7 +147,7 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 	rows, width := m.detailRows(), m.detailWidth()
 
 	if m.overlay != nil {
-		title, body := m.overlay.view(width, rows)
+		title, body := m.overlay.view(m.kit(), width, rows)
 
 		// Most overlays act, and wear the heavy focus border; one that only
 		// reports, like the key list, marks itself for the light one.

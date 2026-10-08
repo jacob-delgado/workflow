@@ -23,11 +23,24 @@ import (
 // Overlays are values. handleKey returns the whole model, so an overlay can
 // replace itself, close itself, or change what the panes show as it finishes.
 type overlay interface {
-	// view is the overlay's title and body, in as many rows as fit.
-	view(width, rows int) (string, string)
+	// view is the overlay's title and body, drawn with kit in as many rows as
+	// fit.
+	view(kit renderKit, width, rows int) (string, string)
 	// footer is the keys that do something in it right now.
 	footer(keys keyMap) []key.Binding
 	handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
+}
+
+// renderKit is what an overlay draws with: the interface's glyphs and styles,
+// handed to its view rather than copied into every overlay that opens.
+type renderKit struct {
+	marks  glyphs
+	styles styles
+}
+
+// kit is the glyphs and styles the interface draws with.
+func (m Model) kit() renderKit {
+	return renderKit{styles: m.styles, marks: m.marks}
 }
 
 // clickable is an overlay whose rows can be chosen with the mouse. line is the
@@ -194,10 +207,8 @@ func keepOpenWith[T failable[T]](m Model, err error) Model {
 // keys until the answer, and a refusal stays pinned under its title until esc —
 // or closes the look or opens a run in its place.
 type lastLook struct {
-	marks  glyphs
-	styles styles
-	title  string
-	body   string
+	title string
+	body  string
 	// verb names the act on the confirm key: "push", "re-run", "rebase".
 	verb string
 	// doing is the act in flight, pinned under the title while proceed's request
@@ -217,8 +228,8 @@ type lastLook struct {
 var _ failable[lastLook] = lastLook{}
 
 // view names the act and what it acts on, its outcome pinned under the title.
-func (l lastLook) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(l.styles, l.marks, l.send, l.doing, width)
+func (l lastLook) view(kit renderKit, width, _ int) (string, string) {
+	lines := pinnedOutcome(kit.styles, kit.marks, l.send, l.doing, width)
 
 	return l.title, strings.Join(append(lines, wrap(l.body, width)), "\n")
 }
@@ -311,7 +322,6 @@ type offered[F comparable] struct {
 // — the Issues list by place, the review queue by facet, the Tasks list — opens
 // one, and says through apply what applying it changes.
 type checklist[F comparable] struct {
-	marks       glyphs
 	title, none string
 	choices     pickList[offered[F]]
 	chosen      []F
@@ -320,12 +330,12 @@ type checklist[F comparable] struct {
 }
 
 // view draws the checklist in as many rows as fit.
-func (c checklist[F]) view(_, rows int) (string, string) {
+func (c checklist[F]) view(kit renderKit, _, rows int) (string, string) {
 	if len(c.choices.items) == 0 {
 		return c.title, c.none
 	}
 
-	return c.title, strings.Join(c.choices.rows(c.marks, rows, c.choiceRow), "\n")
+	return c.title, strings.Join(c.choices.rows(kit.marks, rows, c.choiceRow), "\n")
 }
 
 // choiceRow is a value, checked when it is picked, with how many hold it.

@@ -27,8 +27,6 @@ var errNothingToRerun = errors.New("nothing to re-run: this failure has no job t
 // checkList lists the pull request's checks, so which one failed is plain, and
 // opens the page of whichever is selected.
 type checkList struct {
-	marks   glyphs
-	styles  styles
 	checks  pickList[forge.Check]
 	outcome string
 	err     error
@@ -45,7 +43,7 @@ var (
 // only when canOpenChecks reports there are checks and an opener for their pages.
 func (m Model) openChecks() (Model, tea.Cmd) {
 	m.overlay = checkList{
-		marks: m.marks, styles: m.styles, checks: pickList[forge.Check]{items: m.review.ci.Checks},
+		checks:  pickList[forge.Check]{items: m.review.ci.Checks},
 		openKey: m.keys.confirm.Help().Key,
 	}
 
@@ -59,11 +57,13 @@ func (m Model) canOpenChecks() bool {
 }
 
 // view lists the checks, each by its state and name.
-func (c checkList) view(_, rows int) (string, string) {
+func (c checkList) view(kit renderKit, _, rows int) (string, string) {
 	lines := make([]string, 0, len(c.checks.items)+headerAndOutcomeRows)
 	lines = append(lines, "Open a check's page with "+c.openKey+".", "")
-	lines = append(lines, c.checks.rows(c.marks, rows-len(lines)-outcomeRows, c.checkRow)...)
-	lines = append(lines, c.outcomeLines()...)
+	lines = append(lines, c.checks.rows(kit.marks, rows-len(lines)-outcomeRows, func(check forge.Check) string {
+		return checkRow(kit, check)
+	})...)
+	lines = append(lines, c.outcomeLines(kit)...)
 
 	return checksTitle, strings.Join(lines, "\n")
 }
@@ -73,31 +73,31 @@ func (c checkList) view(_, rows int) (string, string) {
 const headerAndOutcomeRows = 4
 
 // checkRow names a check by how it stands and its name.
-func (c checkList) checkRow(check forge.Check) string {
-	return c.stateGlyph(check.State) + " " + check.Name
+func checkRow(kit renderKit, check forge.Check) string {
+	return checkGlyph(kit, check.State) + " " + check.Name
 }
 
-// stateGlyph is how a check stands, by shape.
-func (c checkList) stateGlyph(state forge.CIState) string {
+// checkGlyph is how a check stands, by shape.
+func checkGlyph(kit renderKit, state forge.CIState) string {
 	switch state {
 	case forge.CIPassed:
-		return c.marks.done
+		return kit.marks.done
 	case forge.CIFailed:
-		return failedGlyph(c.styles, c.marks)
+		return failedGlyph(kit.styles, kit.marks)
 	case forge.CIRunning:
-		return c.marks.inFlight
+		return kit.marks.inFlight
 	case forge.CINone:
-		return c.marks.unknown
+		return kit.marks.unknown
 	}
 
-	return c.marks.unknown
+	return kit.marks.unknown
 }
 
 // outcomeLines say how the last open went, if one was tried.
-func (c checkList) outcomeLines() []string {
+func (c checkList) outcomeLines(kit renderKit) []string {
 	switch {
 	case c.err != nil:
-		return []string{"", failureLine(c.styles, c.marks, c.err)}
+		return []string{"", failureLine(kit.styles, kit.marks, c.err)}
 	case c.outcome != "":
 		return []string{"", c.outcome}
 	default:
@@ -199,9 +199,9 @@ func (m Model) previewRerun() (Model, tea.Cmd) {
 
 	pull, head := m.review.pull, m.branch.branch.Head
 	m.overlay = lastLook{
-		marks: m.marks, styles: m.styles, title: "Re-run checks",
-		body: "Re-run the failed checks on " + m.vocab.sigil + strconv.Itoa(pull.Number) + " " + pull.Title + "?",
-		verb: "re-run", doing: "re-running",
+		title: "Re-run checks",
+		body:  "Re-run the failed checks on " + m.vocab.sigil + strconv.Itoa(pull.Number) + " " + pull.Title + "?",
+		verb:  "re-run", doing: "re-running",
 		proceed: func(m Model) (Model, tea.Cmd) { return m.rerunChecks(pull, head) },
 	}
 
@@ -303,7 +303,7 @@ func (c checkList) readLog(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	c.err, c.outcome = nil, "reading the log"+c.marks.ellipsis
+	c.err, c.outcome = nil, "reading the log"+m.marks.ellipsis
 	m.overlay = c
 	read := m.deps.Forge.JobLog
 
@@ -339,7 +339,7 @@ func (msg logRead) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	list.outcome = ""
-	m.overlay = jobLogView{marks: m.marks, check: msg.check, log: msg.log, back: list}
+	m.overlay = jobLogView{check: msg.check, log: msg.log, back: list}
 
 	return m, nil
 }
@@ -347,7 +347,6 @@ func (msg logRead) apply(m Model) (Model, tea.Cmd) {
 // jobLogView is the end of a failed check's log, scrolled to its last lines,
 // where the failure is; esc goes back to the checks.
 type jobLogView struct {
-	marks  glyphs
 	check  forge.Check
 	log    forge.JobLog
 	back   checkList
@@ -361,33 +360,44 @@ var (
 )
 
 // lines is the log as drawn, under a mark saying where the forge cut it short.
-func (v jobLogView) lines() []string {
+func (v jobLogView) lines(marks glyphs) []string {
 	lines := strings.Split(v.log.Text, "\n")
 	if v.log.Truncated {
-		lines = append([]string{v.marks.ellipsis + " earlier lines are not shown"}, lines...)
+		lines = append([]string{marks.ellipsis + " earlier lines are not shown"}, lines...)
 	}
 
 	return lines
 }
 
+// height is how many lines the log draws, the mark of a log cut short among
+// them.
+func (v jobLogView) height() int {
+	height := strings.Count(v.log.Text, "\n") + 1
+	if v.log.Truncated {
+		height++
+	}
+
+	return height
+}
+
 // topScroll is the scroll that shows the log's first line at the top of a
 // full window of rows: scrolling further would only drop lines from the end.
 func (v jobLogView) topScroll(rows int) int {
-	return max(0, len(v.lines())-max(1, rows))
+	return max(0, v.height()-max(1, rows))
 }
 
 // view draws as many of the log's last lines as fit, scrolled up by scroll.
-func (v jobLogView) view(_, rows int) (string, string) {
-	lines := v.lines()
+func (v jobLogView) view(kit renderKit, _, rows int) (string, string) {
+	lines := v.lines(kit.marks)
 	end := len(lines) - min(v.scroll, v.topScroll(rows))
 	start := max(0, end-max(1, rows))
 
-	return v.check.Name + v.marks.separator + "log", strings.Join(lines[start:end], "\n")
+	return v.check.Name + kit.marks.separator + "log", strings.Join(lines[start:end], "\n")
 }
 
 // scrolls reports a log taller than the pane, so the scroll keys move it.
 func (v jobLogView) scrolls(_, rows int) bool {
-	return len(v.lines()) > rows
+	return v.height() > rows
 }
 
 // footer offers stepping through the log and going back. A log taller than
