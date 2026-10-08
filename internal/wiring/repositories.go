@@ -235,6 +235,10 @@ func sharedDir(ctx context.Context, candidate Workspace) string {
 
 // eachAtOnce runs each for every index below count, readsAtOnce at a time,
 // and returns once all have run. Each writes only its own index.
+//
+// Its goroutines are the one written exception scripts/check-goroutines.sh
+// makes outside internal/proc: every read runs git, and one after another the
+// Repositories pane would wait on them all.
 func eachAtOnce(count int, each func(index int)) {
 	var running sync.WaitGroup
 
