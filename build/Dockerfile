@@ -18,10 +18,12 @@
 ARG GO_VERSION=1.27.1
 # Pinned by digest as well as by tag, so what gets pulled cannot change under a
 # tag that was re-pushed. The digest is the multi-architecture index, so amd64
-# and arm64 both resolve from it. Dependabot's docker ecosystem updates this
-# line. Once a digest is given the tag is not consulted: the digest alone
-# decides which Go the image holds, so GO_VERSION and the digest move together,
-# and the check below stops the build when they do not.
+# and arm64 both resolve from it. It moves by hand, with each Go bump: Dependabot
+# cannot read a FROM that names its image through a build ARG. Once a digest is
+# given the tag is not consulted: the digest alone decides which Go the image
+# holds, so GO_VERSION and the digest move together. scripts/check-go-version.sh
+# holds GO_VERSION to mise.toml's Go, and the check below stops the build when
+# the digest holds another.
 FROM golang:${GO_VERSION}-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd52bba1431dc2f7c0705862728
 
 # go.mod names only the series, so GOTOOLCHAIN=local would accept a base image
