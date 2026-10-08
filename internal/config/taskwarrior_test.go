@@ -10,6 +10,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
+// taskProgram is a Task program named by its path, as a home file sets it.
+const taskProgram = "/opt/homebrew/bin/task"
+
 func TestTaskwarriorIsOnAndUnconfiguredByDefault(t *testing.T) {
 	t.Parallel()
 
@@ -34,7 +37,7 @@ func TestTaskwarriorProgramAndDisabledAreRead(t *testing.T) {
 
 	// Arrange
 	homeDir := t.TempDir()
-	write(t, homeDir, `{"taskwarrior": {"program": "/opt/homebrew/bin/task", "disabled": true}}`)
+	write(t, homeDir, `{"taskwarrior": {"program": "`+taskProgram+`", "disabled": true}}`)
 
 	// Act
 	cfg, err := config.Load(t.TempDir(), homeDir)
@@ -43,7 +46,7 @@ func TestTaskwarriorProgramAndDisabledAreRead(t *testing.T) {
 	}
 
 	// Assert
-	if cfg.Taskwarrior.Program != "/opt/homebrew/bin/task" || !cfg.Taskwarrior.Disabled {
+	if cfg.Taskwarrior.Program != taskProgram || !cfg.Taskwarrior.Disabled {
 		t.Errorf("taskwarrior = %+v, want the program and disabled read from the file", cfg.Taskwarrior)
 	}
 }

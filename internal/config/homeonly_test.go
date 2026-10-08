@@ -140,7 +140,7 @@ func TestASaveRefusesToWriteAHomeOnlyKeyIntoTheRepositoryFile(t *testing.T) {
 		t.Fatalf("loading: %v", err)
 	}
 
-	cfg.Taskwarrior.Program = "/opt/homebrew/bin/task"
+	cfg.Taskwarrior.Program = taskProgram
 
 	// Act
 	_, err = config.SaveLayers(files, cfg, over)
