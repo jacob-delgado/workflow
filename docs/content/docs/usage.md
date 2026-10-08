@@ -216,6 +216,7 @@ lists, by where it works.
 | | `space` | Pick an option in a field that takes several |
 | | `v` | Keep every existing hook whole as a script, in the lefthook offer |
 | | `ctrl+g` | In the branch creator, create the branch in a new git worktree rather than switching to it |
+| | `l` | In the checks list, show the end of a failed check's log, where a GitHub Actions run or a GitLab job keeps one |
 | | `w` | In the announcement preview, announce once CI passes |
 | | `u` | In the link form, on a branch already linked, unlink its issue |
 | | `c` / `C` | In Local data, remove the cache, or everything, after a last look |
@@ -238,7 +239,8 @@ lists, by where it works.
 | | `esc` | Leave without doing it; the bottom row says how: *discard* drops what you wrote, *close* keeps it — a composer says the draft was kept — *cancel* leaves a form or a last look unsent, *back* steps out of a nested step, *skip* passes an offer up, and *stay* leaves a guard |
 | | `m` | Turn mouse capture off or on, for this session |
 | | `?` | Every key |
-| | `q` | Quit (`ctrl+c` works even with a preview open) |
+| | `q` | Quit |
+| | `ctrl+c` | Quit from anywhere, even while typing or with a preview open |
 
 Every key here but the pane numbers, `1`–`9`, can be rebound with `ui.keys`;
 see [Configuration]({{< relref "/docs/configuration" >}}). A map that moves an
