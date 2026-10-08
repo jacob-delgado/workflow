@@ -25,6 +25,9 @@ const (
 // errNoToken is a token source that is set but gives nothing to send.
 var errNoToken = errors.New("no token")
 
+// errTokenCommandFailed is a token command that ran and gave no token.
+var errTokenCommandFailed = errors.New("the token command failed")
+
 // ResolveToken finds a credential from the literal in the file, an environment
 // variable, or a command, in that order, and names where it came from — so a
 // token need never be written into the file.
@@ -44,9 +47,7 @@ func ResolveToken(ctx context.Context, literal config.Secret, command, envVar st
 	}
 }
 
-// fromCommand runs the token command and returns its trimmed output. Its error
-// is deliberately generic: a failed command's message is not the token, but it
-// is not worth risking in output either.
+// fromCommand runs the token command and returns its trimmed output.
 func fromCommand(ctx context.Context, command string) (config.Secret, string, error) {
 	fields := strings.Fields(command)
 	if len(fields) == 0 {
@@ -55,10 +56,24 @@ func fromCommand(ctx context.Context, command string) (config.Secret, string, er
 
 	out, err := proc.Run(ctx, fields[0], fields[1:]...)
 	if err != nil {
-		return "", sourceCommand, fmt.Errorf("running the token command: %w", err)
+		return "", sourceCommand, commandFailure(fields[0], err)
 	}
 
 	return config.Secret(strings.TrimSpace(string(out))), sourceCommand, nil
+}
+
+// commandFailure is why the token command gave no token, told by the kind of
+// failure alone and never in proc's words, which carry what the program wrote
+// to standard error: a command that reads a secret can print it, or what leads
+// to it, as it fails.
+func commandFailure(program string, err error) error {
+	for _, kind := range []error{proc.ErrNotFound, proc.ErrTimedOut} {
+		if errors.Is(err, kind) {
+			return fmt.Errorf("%w: %s: %w", errTokenCommandFailed, program, kind)
+		}
+	}
+
+	return fmt.Errorf("%w: %s; run it yourself to see why", errTokenCommandFailed, program)
 }
 
 // resolveSetToken finds the token a source the configuration sets gives, and
