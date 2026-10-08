@@ -275,7 +275,8 @@ leaves the forge's issues as the tracker — `jira_url`, `jira_auth_mode`,
 `unchecked` — and `detail`). It exits as the prose report does: a field missing,
 a value filled in wrong or a file other users can reach exits 3. A `rejected`
 credential is one the service refused. A credential that is `missing` — none
-configured, or a `token_command` or `token_env` that gave none — exits 3 as a
+configured, or a keychain item, `token_command` or `token_env` that gave
+none — exits 3 as a
 `rejected` one does, though it was never put to the service. A service that
 answers with a redirect, or asks you to wait, is `unreachable` and exits 5: it
 never judged the credential. A check `doctor` could not make is `unchecked` and

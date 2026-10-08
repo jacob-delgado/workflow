@@ -1444,6 +1444,9 @@ type JiraConfig struct {
 	// Headers Extra request headers; values masked on read. On write, a value empty or masked keeps the stored one, and a header left out is removed.
 	Headers *map[string]string `json:"headers,omitempty"`
 
+	// Keychain Read the token from the OS keychain item kept for base_url (macOS), one item for each address, so a token is only ever read back for the address it was kept for. After the file's own token, and before token_env and token_command.
+	Keychain *bool `json:"keychain,omitempty"`
+
 	// MarkdownComments Post comments written in Markdown as Jira's wiki markup.
 	MarkdownComments *bool   `json:"markdown_comments,omitempty"`
 	Project          *string `json:"project,omitempty"`
@@ -2068,7 +2071,7 @@ type SetupOffer struct {
 
 // SetupPlace defines model for SetupPlace.
 type SetupPlace struct {
-	// Keychain The OS keychain can keep the Jira token out of this file: one is wired, and the file is the home directory's, the one file that may hold the command that reads the token back.
+	// Keychain The OS keychain can keep the Jira token out of this file: one is wired, and the file is the home directory's, which the first run offers it for alone.
 	Keychain bool `json:"keychain"`
 
 	// Path The file it would be, as an absolute path.
@@ -2110,7 +2113,7 @@ type SetupResult struct {
 	// JiraUser Whom the token authenticates as; empty when Jira was left out or kept unchecked.
 	JiraUser string `json:"jira_user"`
 
-	// Keychain The OS keychain keeps the token, and the file the command that reads it back.
+	// Keychain The OS keychain keeps the token, in the item for Jira's address, and the file reads it from there (jira.keychain).
 	Keychain bool `json:"keychain"`
 
 	// NotIgnored The file is in a repository that does not ignore it, so it could be committed.

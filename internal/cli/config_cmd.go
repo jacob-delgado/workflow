@@ -169,8 +169,7 @@ func whereInit(global bool) (setup.Where, error) {
 }
 
 // keychainAt is prompt offering the keychain only for the home directory's
-// file: the token is read back by a jira.token_command, which only that file
-// may set.
+// file, as every first run offers it.
 func keychainAt(where setup.Where, place setup.Place, prompt Prompt) Prompt {
 	if !where.IsHomeFile(place) {
 		prompt.StoreSecret = nil
@@ -411,9 +410,9 @@ func checkTyped(ctx context.Context, out io.Writer, doer jira.Doer, settings con
 	return nil
 }
 
-// keepTokenSafe offers to move the token into the OS keychain, so the file holds
-// a token_command rather than the secret. It is a no-op where the keychain is
-// not wired for the platform.
+// keepTokenSafe offers to move the token into the OS keychain, under the item
+// for its address, so the file reads it from there rather than holding the
+// secret. It is a no-op where the keychain is not wired for the platform.
 func keepTokenSafe(out io.Writer, prompt Prompt, settings config.Jira) (config.Jira, error) {
 	if prompt.StoreSecret == nil {
 		return settings, nil
@@ -429,7 +428,8 @@ func keepTokenSafe(out io.Writer, prompt Prompt, settings config.Jira) (config.J
 		return settings, err
 	}
 
-	fmt.Fprintf(out, "  %-10s stored in the keychain; the file will hold a token_command\n", "jira")
+	fmt.Fprintf(out, "  %-10s stored in the keychain as %q; the file reads it from there\n", "jira",
+		settings.KeychainService())
 
 	return settings, nil
 }

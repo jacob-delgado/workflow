@@ -157,10 +157,10 @@ func TestGuidedInitStopsWhenNothingAnswersTheKeychainOffer(t *testing.T) {
 	prompt := cli.Prompt{
 		Line:   answersThenEnds(workingJira(t)),
 		Secret: answersThenEnds(guidedToken),
-		StoreSecret: func(string) (string, error) {
+		StoreSecret: func(string, string) error {
 			stored.Store(true)
 
-			return "", nil
+			return nil
 		},
 	}
 

@@ -186,7 +186,7 @@ func everyNotSetUpCause() map[string]spoken {
 	return map[string]spoken{
 		"jira no credential": {
 			fmt.Errorf("searching: %w", jira.ErrNoCredential), "Jira has no token",
-			"Jira has no token; set jira.token, or check that jira.token_command or jira.token_env gives one",
+			"Jira has no token; set jira.token, or check that jira.keychain, jira.token_command or jira.token_env gives one",
 		},
 		"forge no token": briefOnly(
 			fmt.Errorf("connecting: %w", fmt.Errorf("%w: %s", forge.ErrNoToken, forge.Sources(forge.KindGitLab, "gitlab.com"))),

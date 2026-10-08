@@ -104,6 +104,28 @@ func TestDoctorOnlineNamesATokenSourceWithoutShowingIt(t *testing.T) {
 	}
 }
 
+func TestDoctorOnlineSaysTheKeychainGaveNoTokenWithoutAskingJira(t *testing.T) {
+	// Arrange
+	var reached atomic.Bool
+
+	dir := t.TempDir()
+	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
+	writeFile(t, dir, `{"jira": {"base_url": "`+server.URL+`", "keychain": true}, `+slackWebhook+`}`)
+
+	// Act
+	output, err := runAtHome(t, dir, "doctor", "--online")
+
+	// Assert
+	if err == nil || reached.Load() {
+		t.Fatalf("doctor --online = %v, reached Jira %v; want the token missing, Jira unasked:\n%s",
+			err, reached.Load(), output)
+	}
+
+	if !strings.Contains(output, "keychain") {
+		t.Errorf("doctor does not say the keychain gave no token:\n%s", output)
+	}
+}
+
 func TestDoctorOnlineFailsOnARejectedCredential(t *testing.T) {
 	// Arrange
 	var reached atomic.Bool

@@ -71,6 +71,12 @@ type Jira struct {
 	// Only the home directory's file may set either.
 	TokenCommand string `json:"token_command"`
 	TokenEnv     string `json:"token_env"`
+	// Keychain reads the token from the OS keychain item KeychainService names
+	// for BaseURL, so the file holds no secret. It names no program and reads
+	// only the item for the address in effect, so any file may set it, and a
+	// repository's file that moves BaseURL keeps it: it then reads the item
+	// for its own address, never the one for the home file's.
+	Keychain bool `json:"keychain"`
 	// User is optional. Leave it empty for token (Bearer) authentication; set it
 	// to authenticate with HTTP Basic instead.
 	User string `json:"user"`
@@ -254,10 +260,22 @@ func (j Jira) AuthMode() AuthMode {
 	}
 }
 
-// hasToken reports that a token is configured — in the file, or from a command
-// or an environment variable resolved at runtime.
+// keychainServicePrefix begins the name of every keychain item a Jira token is
+// kept in; the address it is for completes it.
+const keychainServicePrefix = "workflow-jira "
+
+// KeychainService is the name of the OS keychain item the token for BaseURL is
+// kept in: one item for each address, so a token is only ever read back for
+// the address it was kept for. An address and the same one with trailing
+// slashes, which a request reaches alike, name one item.
+func (j Jira) KeychainService() string {
+	return keychainServicePrefix + strings.TrimRight(j.BaseURL, "/")
+}
+
+// hasToken reports that a token is configured — in the file, or from the
+// keychain, a command or an environment variable resolved at runtime.
 func (j Jira) hasToken() bool {
-	return j.Token != "" || j.TokenCommand != "" || j.TokenEnv != ""
+	return j.Token != "" || j.Keychain || j.TokenCommand != "" || j.TokenEnv != ""
 }
 
 // Service names the messaging service posts go to, for display.

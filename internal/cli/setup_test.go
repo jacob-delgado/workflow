@@ -127,15 +127,14 @@ func asModel(t *testing.T, model tea.Model) tui.Model {
 	return concrete
 }
 
-// keychainReader is the token_command the fake keychain names.
-const keychainReader = "security find-generic-password -s workflow-jira -w"
-
 // firstRunOutcome is what a first run through the interface left: every
-// interface opened, in order, and what the keychain was handed.
+// interface opened, in order, and what the keychain was handed, under which
+// item.
 type firstRunOutcome struct {
-	opened []tui.Model
-	stored string
-	err    error
+	opened  []tui.Model
+	service string
+	stored  string
+	err     error
 }
 
 // setUpThroughTheInterface runs bare workflow where the test chose, logging
@@ -146,10 +145,10 @@ func setUpThroughTheInterface(t *testing.T, where place, jiraURL, logPath string
 
 	outcome := &firstRunOutcome{}
 	prompt := unusedPrompt(t)
-	prompt.StoreSecret = func(secret string) (string, error) {
-		outcome.stored = secret
+	prompt.StoreSecret = func(service, secret string) error {
+		outcome.service, outcome.stored = service, secret
 
-		return keychainReader, nil
+		return nil
 	}
 
 	runInterface := func(_ context.Context, model tui.Model, _ io.Writer) (tui.Next, error) {
@@ -199,8 +198,10 @@ func TestTheInterfaceSetsUpAFirstFileAndReopensWithIt(t *testing.T) {
 	}
 
 	contents, err := os.ReadFile(filepath.Join(where.home, config.FileName))
-	if err != nil || strings.Contains(string(contents), setupToken) || outcome.stored != setupToken {
-		t.Errorf("wrote %q (%v), keychain %q; want the token in the keychain alone", contents, err, outcome.stored)
+	if err != nil || strings.Contains(string(contents), setupToken) || outcome.stored != setupToken ||
+		!strings.HasPrefix(outcome.service, "workflow-jira http") {
+		t.Errorf("wrote %q (%v), keychain %q under %q; want the token in the keychain item for its address alone",
+			contents, err, outcome.stored, outcome.service)
 	}
 }
 

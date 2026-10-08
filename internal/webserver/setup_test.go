@@ -29,7 +29,6 @@ const (
 	setupPath      = "/api/config/setup"
 	setupJira      = "https://jira.internal.example"
 	setupToken     = "typed-in-the-page-5150"
-	setupKeychain  = "security find-generic-password -s workflow-jira -w"
 	setupAnswering = `{"displayName":"Fred F. User","name":"fred"}`
 )
 
@@ -63,10 +62,10 @@ func (r *firstRun) jira(request *http.Request) (*http.Response, error) {
 func (r *firstRun) deps(t *testing.T) webserver.Deps {
 	t.Helper()
 
-	guide := setup.Guide{Where: r.where, Doer: jira.Doer(r.jira), StoreSecret: func(secret string) (string, error) {
+	guide := setup.Guide{Where: r.where, Doer: jira.Doer(r.jira), StoreSecret: func(_, secret string) error {
 		r.stored = secret
 
-		return setupKeychain, nil
+		return nil
 	}}
 
 	deps := webserver.Deps{

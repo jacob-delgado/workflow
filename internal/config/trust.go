@@ -48,7 +48,8 @@ type credentialSection struct {
 // credentialSections are the sections holding a credential, each with the
 // address the credential is sent to and the keys that make up the credential.
 // A Slack user token goes only to Slack, so for messaging the address is the
-// service; a webhook URL is its own address.
+// service; a webhook URL is its own address. jira.keychain is no credential:
+// it reads the keychain item for the address in effect, whichever that is.
 func credentialSections() []credentialSection {
 	return []credentialSection{
 		{

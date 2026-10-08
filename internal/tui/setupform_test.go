@@ -25,7 +25,6 @@ const (
 	firstRunJira    = "https://jira.example.com"
 	firstRunToken   = "first-run-token-4242"
 	firstRunWebhook = "https://hooks.slack.com/services/T0/B0/firstrun"
-	keychainCommand = "security find-generic-password -s workflow-jira -w"
 )
 
 // Questions a first run asks.
@@ -55,10 +54,10 @@ func (r *firstRun) jira(request *http.Request) (*http.Response, error) {
 }
 
 // keep is the fake keychain.
-func (r *firstRun) keep(secret string) (string, error) {
+func (r *firstRun) keep(_, secret string) error {
 	r.stored = secret
 
-	return keychainCommand, nil
+	return nil
 }
 
 // newFirstRun is a first run over a Jira that answers with status.

@@ -1610,7 +1610,7 @@ export type SetupPlace = {
      */
     shown: string;
     /**
-     * The OS keychain can keep the Jira token out of this file: one is wired, and the file is the home directory's, the one file that may hold the command that reads the token back.
+     * The OS keychain can keep the Jira token out of this file: one is wired, and the file is the home directory's, which the first run offers it for alone.
      */
     keychain: boolean;
 };
@@ -1658,7 +1658,7 @@ export type SetupResult = {
      */
     jira_user: string;
     /**
-     * The OS keychain keeps the token, and the file the command that reads it back.
+     * The OS keychain keeps the token, in the item for Jira's address, and the file reads it from there (jira.keychain).
      */
     keychain: boolean;
     /**
@@ -1685,6 +1685,10 @@ export type JiraConfig = {
      * An environment variable that holds the token. Held as token_command is: a save keeps it, and one carrying another value is refused 422.
      */
     token_env?: string;
+    /**
+     * Read the token from the OS keychain item kept for base_url (macOS), one item for each address, so a token is only ever read back for the address it was kept for. After the file's own token, and before token_env and token_command.
+     */
+    keychain?: boolean;
     user?: string;
     /**
      * Extra request headers; values masked on read. On write, a value empty or masked keeps the stored one, and a header left out is removed.
@@ -3166,7 +3170,7 @@ export type SetUpErrors = {
      */
     409: Problem;
     /**
-     * Jira did not accept the token, or could not be asked, and the request did not say to keep it unchecked (code check_failed; send keep_unchecked to write it anyway); or Jira's address is not an https address, or http to this machine, without a username and password, which is never kept, keep_unchecked or not (code unprocessable); or the keychain was asked for where there is none, or for a file other than the home directory's, the one file that may read its token back. Nothing was written.
+     * Jira did not accept the token, or could not be asked, and the request did not say to keep it unchecked (code check_failed; send keep_unchecked to write it anyway); or Jira's address is not an https address, or http to this machine, without a username and password, which is never kept, keep_unchecked or not (code unprocessable); or the keychain was asked for where there is none, or for a file other than the home directory's, which the first run offers it for alone. Nothing was written.
      */
     422: Problem;
     /**
