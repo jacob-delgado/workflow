@@ -41,6 +41,7 @@ internal/webserver/   the --web REST API and event stream, bound to 127.0.0.1
 internal/web/         the built web app, committed so every build embeds it
 internal/api/         the Go types and server interface generated from api/
 internal/store/       the on-disk SQLite store; never a secret
+internal/sqlitefile/  a SQLite file opened by its path through the pure-Go driver
 internal/jira/        Jira Data Center REST v2
 internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, templates, CI, issues
 internal/messaging/   posting to Slack, Teams, Discord or a plain webhook
