@@ -1059,6 +1059,9 @@ in which case the store keeps nothing and says nothing.
   write that is not your own (the group with your user id, which a umask of
   `002` gives every file you make). workflow stops with an error naming the
   file, and `chmod go-w` on it puts it right.
+- A repository's file, or the current directory's outside one, may not be a
+  link: a working tree can carry one to any file of yours, which a save would
+  replace. Your home file may be one, as a dotfiles checkout makes it.
 - `workflow config init` warns when the file is not ignored by git; add it to
   `.gitignore`.
 - `workflow config show` masks every credential — Jira, Slack, the webhook URL

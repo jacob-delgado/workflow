@@ -185,9 +185,15 @@ func CreateLayers(files Files, cfg Config, over Revision) error {
 	return createPrivate(files.Target(), contents)
 }
 
-// readLayers reads the home and repository files.
+// readLayers reads the home and repository files, refusing a repository's
+// file that is a link.
 func readLayers(files Files) (layer, layer, error) {
 	home, err := readLayer(files.Home)
+	if err != nil {
+		return layer{}, layer{}, err
+	}
+
+	err = refuseLink(files.Repo)
 	if err != nil {
 		return layer{}, layer{}, err
 	}
