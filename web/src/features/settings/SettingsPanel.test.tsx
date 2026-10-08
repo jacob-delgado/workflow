@@ -29,7 +29,8 @@ function servesSettings(): Request[] {
     },
     '/api/local-data': {
       dir: '/home/ana/.local/state/workflow',
-      files: [{ name: 'workflow.db', kind: 'cache', bytes: 4096, holds: [] }],
+      files: [{ name: 'workflow.db', kind: 'cache', bytes: 4096, size: '4.0 KiB', holds: [] }],
+      consequences: { cache: 'The cache is made again.', all: 'Everything is asked again.' },
     },
     '/api/people': {
       owners: [
