@@ -1124,7 +1124,10 @@ paths:
         "422":
           description: >-
             The configuration is invalid, or holds a ui.keys map the terminal
-            interface would refuse to start on; nothing was written.
+            interface would refuse to start on, or, saved to a repository's
+            file, holds a credential typed into it or a setting only the home
+            directory's file may make (jira.token_command, jira.token_env,
+            taskwarrior.program); nothing was written.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -1224,7 +1227,9 @@ paths:
             keep_unchecked to write it anyway); or Jira's address is not an
             http or https address without a username and password, which is
             never kept, keep_unchecked or not (code unprocessable); or the
-            keychain was asked for where there is none. Nothing was written.
+            keychain was asked for where there is none, or for a file other
+            than the home directory's, the one file that may read its token
+            back. Nothing was written.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
