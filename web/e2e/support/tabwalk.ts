@@ -1,6 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
-import type { Snapshot } from '../src/api/generated/types.gen.ts'
+import type { Snapshot } from '../../src/api/generated/types.gen.ts'
 
 // What the layout and accessibility specs share: a lap of the Tab order that
 // says which drawn controls it reached, which it never reached and which had

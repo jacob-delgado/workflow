@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { PullRequest, Snapshot } from '../../src/api/generated/types.gen.ts'
-import { height, openSection, pinTheme, themes, widths } from '../cockpit.ts'
-import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../tabwalk.ts'
+import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
+import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Review section's writes on the branch's pull request — edit, merge,
 // finish, re-run — each from a form that is its last look.
