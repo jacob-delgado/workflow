@@ -46,26 +46,10 @@ func facetsOf(request forge.ReviewRequest) []facet {
 
 	return []facet{
 		{kind: facetRepository, value: request.Repository},
-		{kind: facetCI, value: ciWord(request.CI)},
+		{kind: facetCI, value: request.CI.Word()},
 		{kind: facetDraft, value: readiness},
 		{kind: facetAuthor, value: request.Author},
 	}
-}
-
-// The CI states as the filter, the Review pane and the API word them.
-const (
-	ciWordNone    = "none"
-	ciWordRunning = "running"
-	ciWordPassed  = "passed"
-	ciWordFailed  = "failed"
-)
-
-// ciWord is a CI state in words.
-func ciWord(state forge.CIState) string {
-	return [...]string{
-		forge.CINone: ciWordNone, forge.CIRunning: ciWordRunning, forge.CIPassed: ciWordPassed,
-		forge.CIFailed: ciWordFailed,
-	}[state]
 }
 
 // label is how the filter, and the line above the queue, name a facet value.
@@ -147,7 +131,9 @@ func offeredFacets(counts map[facet]int, picked []facet) []facet {
 
 	return slices.Concat(
 		named(facetRepository),
-		facetsNamed(facetCI, []string{ciWordFailed, ciWordPassed, ciWordRunning, ciWordNone}),
+		facetsNamed(facetCI, []string{
+			forge.CIFailed.Word(), forge.CIPassed.Word(), forge.CIRunning.Word(), forge.CINone.Word(),
+		}),
 		facetsNamed(facetDraft, []string{"draft", "ready"}),
 		named(facetAuthor),
 	)
