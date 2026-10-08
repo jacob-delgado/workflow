@@ -911,7 +911,7 @@ export type Snapshot = {
 };
 
 /**
- * One stage of the loop for the checked-out branch.
+ * One stage of the loop for an issue's work: the checked-out branch's (Snapshot.stages), another branch's as the server knows it without checking it out (TaskBranch.stages), or an issue's not yet branched for (Snapshot.unstarted_stages).
  */
 export type Stage = {
     /**
