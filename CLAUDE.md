@@ -169,17 +169,23 @@ without agreement on direction.
   also answers to a **file budget**, gated by `scripts/check-package-size.sh`
   against `scripts/package-size-budgets.txt` (`task lint`, `task check`, CI, and
   lefthook pre-push; `--list`, or `task package-size`, prints the standings).
-  **Read the numbers there, never here** — a prose restatement drifts. Budgets
-  are zero-headroom both ways: over the number fails, and so does a budget left
-  sitting *above* its directory's count (a forgotten post-split ratchet). Counts
+  **Read the numbers there, never here** — a prose restatement drifts. An entry
+  is one of two kinds. A **ratcheted** budget is zero-headroom both ways: over
+  the number fails, and so does a budget left sitting *above* its directory's
+  count (a forgotten post-split ratchet). A **cohesive** ceiling is for a
+  grouping that is file-per-concern by design — one responsibility spelled a
+  file per pane, per endpoint or per command, each new one a new file, as
+  `internal/tui`, `internal/webserver` and `internal/cli` are — which fails only
+  past its ceiling and has no ratchet; its WHY names that spelling rule.
+  Anything else is ratcheted, and both kinds are earned by size. Counts
   are source files: unit tests, stylesheets and generated code don't count, but
   integration tests (`*_integration_test.go`) and e2e specs (everything under
   `web/e2e/`) do — an end-to-end surface must break into per-surface folders
   rather than hide a hundred scenario files in one directory. A trip has
   two honest answers, named in the gate's own output: **split** when the grouping
-  really carries a second reason to change, or **bump** (raise the number,
-  rewrite the WHY above the entry, and append a row to
-  `scripts/package-size-budget-history.md`) when the new file is the same
+  really carries a second reason to change, or **bump** (raise the number, a
+  budget or a ceiling alike, rewrite the WHY above the entry, and append a row
+  to `scripts/package-size-budget-history.md`) when the new file is the same
   responsibility one concern wider. "The gate was in the way" is neither.
 
 - **McCabe cyclomatic complexity ≤ 10 — enforced, not aspirational.** `gocyclo`
