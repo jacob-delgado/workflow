@@ -129,6 +129,27 @@ func TestSettingsTouchesNoKeychainWhenAnotherCredentialIsRefused(t *testing.T) {
 	}
 }
 
+func TestSettingsTouchesNoKeychainWhenAHomeOnlySettingIsRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files, read, revision := readLayered(t, otherAddressRepo)
+	edited := read.Redacted()
+	edited.Jira.Token, edited.Taskwarrior.Program = typedToken, taskProgram
+	kept := keptTokens{}
+
+	// Act
+	_, _, err := config.SaveEdit(config.Edit{
+		Files: files, Read: read, Over: revision, Edited: edited, KeepJiraToken: kept.keep,
+	})
+
+	// Assert
+	if !errors.Is(err, config.ErrHomeOnly) || len(kept) != 0 {
+		t.Errorf("SaveEdit = %v, the keychain handed %d; want the Task program refused before the keychain is "+
+			"touched", err, len(kept))
+	}
+}
+
 func TestSettingsTouchesNoKeychainOverFilesChangedSinceTheRead(t *testing.T) {
 	t.Parallel()
 
