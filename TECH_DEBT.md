@@ -496,8 +496,7 @@ key press; a finished commit and every issue page write to SQLite from
 template files. The reviewers and title-issue reads beside them are commands,
 and `Init`'s comment says loads run in a command so a slow service never
 freezes the screen. With the store's 5 s busy timeout, a lock held by `--web`
-or another session freezes the interface on `c` for up to 5 s. (DEBT-311 is
-about the store's error-less write seams.)
+or another session freezes the interface on `c` for up to 5 s.
 
 **Fix.** Open both composers at once and fill their suggestions, scope and
 template from commands that answer with the opened count, as `reviewersRead`
@@ -2000,25 +1999,6 @@ forges and a log's first request, and Merge and Rerun with no token.
 
 **Done when.** gobco's worklist drops those lines.
 
-### DEBT-264 Credential conditions in `internal/config` are never seen true by its tests
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `hasToken` (`internal/config/config.go:252`),
-`HoldsUserTokenSecrets` and `hasUserToken` (`:323`, `:329`), `Layers`
-(`internal/config/layers.go:62`), `CreateLayers` (`:166`).
-
-**Today.** A `token_env`-only Jira, a messaging block holding only a refresh
-or access token, the `Layers()` path fallback and the whole of `CreateLayers`
-(its refusal over a changed file included) are never seen by a test, though
-they decide the auth mode, which file holds Slack secrets and whether a
-credential write is refused.
-
-**Fix.** Table cases for each, and a test that `CreateLayers` over a changed
-home file returns `ErrChangedOnDisk`.
-
-**Done when.** `task cover:branch` no longer lists those conditions.
-
 ### DEBT-265 Three forge test helpers each rebuild one recording fake server
 
 Severity: low · Confidence: read · Size: S
@@ -2492,30 +2472,6 @@ and `taskwarrior`, all allowed by depguard.
 
 ## Across the surfaces
 
-### DEBT-289 `Guide.Write` stores the token in the keychain before the file write that can still fail
-
-Severity: medium · Confidence: read · Size: S
-
-**Where.** `Guide.Write` (`internal/setup/guide.go:72`, `Keep` at `:88`),
-`Keep` (`internal/setup/setup.go:179`), `storeLine`
-(`internal/keychain/keychain.go:172`), `checkTyped`
-(`internal/webserver/setup.go:146`), the TUI's setup form
-(`internal/tui/setupform.go:571`).
-
-**Today.** `Write` keeps the token (`add-generic-password -U`, replacing any
-`workflow-jira` item) before `Beneath` and `Create`, either of which can still
-fail, so a failed setup can leave the keychain changed with no file pointing
-at it. It keeps whenever the base URL is set, even with an empty token: a
-blank token kept unchecked (both setup surfaces allow it) stores "" over an
-existing keychain token, which another configuration may rely on. macOS only,
-first-run setup only.
-
-**Fix.** Refuse `Keep` for an empty token with a sentinel, and run `Beneath`
-before `Keep`, or delete the item when `Create` fails.
-
-**Done when.** Setup tests show `Write` with an empty token never calls the
-store, and a `Write` whose `Create` fails leaves it uncalled.
-
 ### DEBT-290 A streamed run never ends while any descendant holds the output pipe
 
 Severity: medium · Confidence: read · Size: M
@@ -2584,33 +2540,6 @@ on both forges, and use it in place of `githubPages`'s counting.
 
 **Done when.** A `gitlabActivity` test serving 21 full pages gets `Truncated
 == true`, and a GitHub search past 1,000 does too.
-
-### DEBT-293 Pay down TRADE-17: the keychain placement takes its platform and runner as arguments
-
-Severity: medium · Confidence: measured · Size: M
-
-**Where.** `SlackStore` and `placeSlackCredentials`
-(`internal/wiring/messaging.go:160`, `:224`), `keptUnlessTyped`,
-`keychain.Open` (`internal/keychain/keychain.go:68`), `slackauth.Choose`.
-
-**Today.** TRADE-17's trigger is already true: `keychain.Open` takes the
-platform, a runner, a user lookup and `getenv`, and `slackauth.Choose` takes
-the platform; only the wiring hard-codes `runtime.GOOS` and `proc.Capture`. So
-gobco reports every condition from `messaging.go:226` to `:264` never
-evaluated, including `keptUnlessTyped`, which takes a blank typed secret from
-the keychain. This is credential code CLAUDE.md asks to cover above the floor.
-
-**Fix.** Thread the platform and runner through `SlackStore`,
-`placeSlackCredentials` and the exported path that reaches it, with production
-passing `runtime.GOOS` and `proc.Capture`. Test with `darwin`, a fake runner
-and a fake Slack: the returned configuration has the secrets cleared, the
-runner stored the refreshed pair, a blank typed refresh token is taken from
-the fake keychain, a refusal maps to `messaging.ErrRejected`, and no secret
-reaches an error unmasked. Paying this closes TRADE-17: delete the entry and
-its site comment.
-
-**Done when.** gobco lists none of `messaging.go:226` to `:264` as never
-evaluated.
 
 ### DEBT-294 A Jira-only tracker sends bare forge numbers to Jira for assign and transition
 
@@ -2844,23 +2773,6 @@ lefthook's shim by its header or `call_lefthook`, not the word.
 `set -en` scripts stay scripts, and a hook with only a lefthook comment
 appears in `ExistingHooks`.
 
-### DEBT-305 A relative `XDG_STATE_HOME` puts the store under the working directory, which db-clean refuses
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `Dir` (`internal/store/dir.go:24`, `:39`), `Clean`
-(`internal/store/clean.go:222`).
-
-**Today.** `Dir` joins `XDG_STATE_HOME` and `AppData` without checking they
-are absolute (the XDG spec says to ignore a relative value), so the store is
-made relative to wherever workflow started, possibly inside a working tree,
-and `db-clean` refuses it as relative.
-
-**Fix.** Ignore a non-absolute value and fall back to the home-based default.
-
-**Done when.** `Dir("linux", "/home/u", XDG_STATE_HOME="state")` returns
-`/home/u/.local/state/workflow`.
-
 ### DEBT-306 The Jira key shape is written three times, and the web's copy disagrees
 
 Severity: low · Confidence: read · Size: S
@@ -3000,28 +2912,6 @@ cycle through loop).
 most two hand-rolled connects, and `internal/wiring` has no `SlackDirectory`
 type.
 
-### DEBT-311 Store write seams return no error, and the announcement memory trusts its moments
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `RecordScope`, `RecordAnnounce`, `CacheIssues`
-(`internal/seams/seams.go:213`), `storeDeps` (`internal/wiring/wiring.go:340`
-to `:381`), `LastGroups` (`internal/wiring/kept.go:40`),
-`AnnounceMemory.Holds`.
-
-**Today.** The seams have no error result, so every failure is dropped with `_
-=`, including the announcement record: on a full disk or locked file an
-announcement is not remembered and the next session posts again with no
-warning. A disabled store no-ops by design; a failing one looks the same. The
-stored moment is cast without validation (harmless, since it can only fail to
-match).
-
-**Fix.** Give the write seams an error result that surfaces can note, and drop
-rows with an unknown moment on read.
-
-**Done when.** `grep '_ = kept\.' internal/wiring` returns nothing, and a test
-shows an out-of-range moment row is not returned.
-
 ### DEBT-312 Loop's contracts are uneven: a nil post panics, setup advice lives in the Summary, and Merge's doc is wrong
 
 Severity: low · Confidence: read · Size: S
@@ -3095,29 +2985,6 @@ derive the tables from one list and add a round-trip test.
 **Done when.** `post.go` is transport only, and a test asserts unescape of
 escape returns its input for every metacharacter.
 
-### DEBT-315 Unused and unreachable code in config, messaging and taskwarrior
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `LoadFile`, `LoadFileAt`, `parseFile`
-(`internal/config/load.go:100`, `:115`, `:135`), `RevisionOf`, `SaveOver`
-(`internal/config/save.go:72`, `:133`), `ErrChangedOnDisk`'s doc
-(`save.go:20`); `Client.Workspace` (`internal/messaging/messaging.go:165`);
-`Task.State` (`internal/taskwarrior/order.go:51`), `Facet.Label` and `noneOf`
-(`internal/taskwarrior/narrow.go:52`, `:65`).
-
-**Today.** `deadcode` reports the five config functions and `Client.Workspace`
-unreachable outside tests; the config ones carry four nolints and tests that
-pin dead behavior, and `ErrChangedOnDisk` is still called "SaveOver's
-refusal". `State`'s `case Waiting` can never run, and `noneOf` indexes a fixed
-array by an exported int, panicking for an unknown kind.
-
-**Fix.** Delete them, moving any valuable config cases onto `SaveLayers`; drop
-the dead case; make `noneOf` a switch returning "" for an unknown kind.
-
-**Done when.** `deadcode ./...` reports nothing in these packages, and
-`Facet{Kind: 9}.Label()` does not panic.
-
 ### DEBT-316 `priorityRank` needs three `//nolint:mnd`, and the H, M, L order is written twice
 
 Severity: low · Confidence: measured · Size: S
@@ -3175,55 +3042,6 @@ another id, and `auth.test` with and without scopes.
 
 **Done when.** gobco no longer lists those conditions.
 
-### DEBT-319 Pay down TRADE-15: the store opens its driver without a lookup that can fail
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `openDatabase` (`internal/store/store.go:306`), `openAsItIs`
-(`:434`), `openKept` (`internal/store/kept.go:132`), the DSN constants
-(`store.go:72`, `kept.go:25`).
-
-**Today.** `sql.Open("sqlite", dsn)` is written three times, past the rule of
-three, and the register names two (with a stale third line). Each keeps an
-error arm only a missing driver registration can reach. The writing opens
-build plain-path DSNs while `openAsItIs` already escapes its path into a
-`file:` URI.
-
-**Fix.** One `connect(dsn) *sql.DB` returning `sql.OpenDB` over a small
-`driver.Connector` that opens through `(&sqlite.Driver{}).Open`, with `var _
-driver.Connector = connector{}`; build all three DSNs as escaped `file:` URIs
-through one helper, with a test first that a store directory containing `?`
-keeps its file inside that directory and foreign keys on. Paying this closes
-TRADE-15: delete the entry and its site comments.
-
-**Done when.** `rg 'sql.Open\(' internal/store` finds nothing and `task check`
-is green.
-
-### DEBT-320 Pay down TRADE-16: one call where two made a race, and one transaction helper
-
-Severity: low · Confidence: measured · Size: M
-
-**Where.** `readVersion` and `holdsTables` (`internal/store/store.go:374`),
-`CacheIssues` (`internal/store/cache.go:108`), `keptWithin` and
-`makeKeptSchema` (`internal/store/kept.go:62`, `:181`), `followDanglingLink`
-and `linkDestination` (`internal/config/save.go:250`, `:277`), `stamp` and
-`removeDatabase` (`store.go:402`, `:415`).
-
-**Today.** Most of TRADE-16's arms exist because two calls are made where one
-would do: `holdsTables` re-queries the schema `readVersion` just loaded;
-begin, rollback and commit are written three times; `followDanglingLink` stats
-and then reads the link. gobco also lists many untested `kept.go` arms no
-entry covers.
-
-**Fix.** Read the version and whether tables exist in one statement; add
-`inTransaction(ctx, db, write)` used by all three, with a test that a canceled
-context fails a kept write; read the link first, treating not-exist or EINVAL
-as "the path itself". Shrink TRADE-16 to `stamp` and `removeDatabase`, cited
-by name.
-
-**Done when.** gobco no longer lists `cache.go:111`, the `holdsTables` arm or
-the two link arms, and TRADE-16 names only `stamp` and `removeDatabase`.
-
 ### DEBT-321 Pay down TRADE-21 and TRADE-28: twin rules read one shared case file
 
 Severity: low · Confidence: read · Size: M
@@ -3254,35 +3072,6 @@ disagrees"; reuse the loader for TRADE-33 (TRADE-29 is paid by DEBT-328).
 
 **Done when.** Editing either copy alone fails its own suite against the
 shared corpus, and `task check` and the web unit tests are green.
-
-### DEBT-322 Pay down TRADE-22: the Slack refresh lock is an operating-system lock
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `tryLock`, `lockStale` and the unlock
-(`internal/slackauth/lock.go:67`, `:72`), `Source.Token`
-(`internal/slackauth/source.go:20`, `:43`), `go.mod`,
-`scripts/gobco-report.sh`.
-
-**Today.** Beside the race TRADE-22 records, the unlock is a bare
-`os.Remove(path)`: a holder that runs past a minute (a keychain write waiting
-on a prompt) has its lock taken over as stale, and its unlock then deletes the
-next holder's, so a third process refreshes alongside and spends a single-use
-refresh token. A lock left by a crash blocks every refresh for a minute while
-waiters give up after ten seconds. `Source`'s doc ("two processes never spend
-the same refresh token") overclaims.
-
-**Fix.** Hold an advisory lock on an open file: `lock_unix.go` with
-`syscall.Flock` and `lock_windows.go` with `windows.LockFileEx`, polled until
-the wait ends; unlock by closing, never removing. Delete `lockStale`, the
-takeover and its test, and add tests that a lock file left by no live holder
-is taken at once and a holder past a minute keeps its lock. Promote
-`golang.org/x/sys`, already required indirectly, to a direct requirement, and
-name the build-tagged twin in `UNANALYZABLE` if gobco cannot read it. Paying
-this closes TRADE-22: delete the entry and its site comment.
-
-**Done when.** Cross-compiling to every `RELEASE_PLATFORMS` target succeeds,
-TRADE-22 is gone, and `task check` is green.
 
 ### DEBT-323 Pay down TRADE-23: the server describes each review request's facets
 
@@ -3454,10 +3243,11 @@ comment naming an ID the register does not hold.
 The pre-1.0 audit re-judged every entry on 2026-10-07. TRADE-3, TRADE-4,
 TRADE-5, TRADE-7, TRADE-8, TRADE-9, TRADE-11, TRADE-13, TRADE-14, TRADE-24,
 TRADE-25, TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is
-true at `b9ab000`. TRADE-1, TRADE-2, TRADE-6, TRADE-10, TRADE-12, TRADE-15 to
-TRADE-19, TRADE-21 to TRADE-23, TRADE-28 and TRADE-29 are to be paid down by
-the entries above whose titles name them, and each stays here, as it was,
-until its entry is paid.
+true at `b9ab000`. TRADE-16 was paid down to the two calls it now names, and
+stays. TRADE-1, TRADE-2, TRADE-6, TRADE-10, TRADE-12, TRADE-18, TRADE-19,
+TRADE-21, TRADE-23, TRADE-28 and TRADE-29 are to be paid down by the entries
+above whose titles name them, and each stays here, as it was, until its entry
+is paid.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
@@ -3746,72 +3536,24 @@ is read, not checked.
 **Reopen when.** The contract is read from anywhere but the binary (a file, a
 flag, a download), or a broken contract reaches a release.
 
-### TRADE-15 A driver the store imports is taken to be registered
-
-Three conditions fail only for a database driver that is not registered:
-`sql.Open` in `openDatabase`, its check in `openCurrent`, and `sql.Open`
-in `Store.openAsItIs` (`internal/store/store.go:277`, `:230`, `:368`). The package imports its own, so
-no exported call lets a test cause either, and a seam added only for the
-test would be code kept for the test's sake.
-
-**Decided.** 2026-09-26, in #146.
-
-**Cost.** Three error arms no test runs, so what a store says when it cannot
-open its driver is read rather than checked.
-
-**Reopen when.** One of these failures is reported with a message that
-does not say what failed, the store comes to choose its driver at run
-time, or a seam over the driver arrives for another reason.
-
 ### TRADE-16 Failures only a change between two calls can cause
 
-Eleven conditions follow a call that has just read or made the same
-thing, so they fail only when the file system or the context changes
-between the two, a race no test can hold open without a seam. Saving the
-configuration through a link: `followDanglingLink` reads a link `os.Lstat`
-has just found (`internal/config/save.go:218`), and `linkDestination`'s
-two reads follow what the system has just resolved (`:234`, `:245`).
-Caching the issue list: `BeginTx` in `Store.CacheIssues`
-(`internal/store/cache.go:111`) takes no lock, so it fails only when the
-context ends between the schema step, which used it, and the transaction.
-Opening the store at this build's schema version: `holdsTables` lists the
-schema the connection just loaded (`internal/store/store.go:308`, checked
-in `openCurrent`, `:246`); `removeDatabase` removes files the open that
-just read the version held (`:347`, checked in `remakeDatabase`, `:318`,
-and again in `openCurrent`, `:256`, where a driver not registered would
-fail the reopen too); and `stamp` writes to a file the open just made or
-read (`:332`, checked in `openCurrent`, `:262`).
+Two calls follow one that has just read or made the same file, so they fail
+only when the file system changes between the two, a race no test can hold
+open without a seam. Opening the store at this build's schema version:
+`removeDatabase` removes the files the open that just read the version held
+(`internal/store/store.go`, checked in `remakeDatabase`), and `stamp` writes
+the version into a file the open just made or read (checked in
+`openCurrent`).
 
-**Decided.** 2026-09-26, in #146.
+**Decided.** 2026-09-26, in #146; narrowed to these two calls in the pre-1.0
+paydown, which made one call of each other pair.
 
-**Cost.** Eleven error arms no test runs, so what each says when the race
-is lost is read rather than checked.
+**Cost.** Two error arms no test runs, so what each says when the race is
+lost is read rather than checked.
 
-**Reopen when.** One of these failures is reported, or a change to the
-calls lets a test fail the second without the first.
-
-### TRADE-17 The keychain the web's Settings fills is never seen filled
-
-One Slack path is only ever seen failing: the web's Settings placing typed
-secrets in the macOS keychain (`placeSlackCredentials`,
-`internal/wiring/messaging.go`). It runs only on macOS and writes the
-real keychain, which no test may. The refresh it makes is tested against
-a local server in `internal/slackauth`, and the web server's side of a
-Settings save against a fake placement. `workflow doctor --online`
-accepting a user token and `workflow slack login` keeping what Slack
-gives back are tested against a fake Slack, which `WORKFLOW_SLACK_API`
-points them at.
-
-**Decided.** 2026-09-26, in #146; widened on 2026-09-30 when the Slack bot
-token gave way to the rotating user token and `workflow slack login`;
-narrowed on 2026-10-01, in #166, once `WORKFLOW_SLACK_API` let tests
-stand a fake in for Slack.
-
-**Cost.** What a Settings save leaves in the keychain once Slack accepts
-the secrets is never checked end to end.
-
-**Reopen when.** The keychain can be pointed at a store a test owns, or
-a Settings save on macOS is reported to keep the wrong secrets.
+**Reopen when.** One of these failures is reported, or a change to the calls
+lets a test fail the second without the first.
 
 ### TRADE-18 Conditions only Linux's tests reach
 
@@ -3895,28 +3637,6 @@ to one copy alone passes that copy's tests.
 
 **Reopen when.** The snapshot comes to carry each issue's marks for another
 reason, or the two copies are found to disagree.
-
-### TRADE-22 A stale refresh lock can be taken over twice
-
-The Slack refresh lock (`internal/slackauth/lock.go`) is a file made with
-`O_CREATE|O_EXCL`, and one older than a minute is taken as left behind by
-a process that ended mid-refresh and is removed. Two processes that both
-find it stale at the same moment can both remove it, and the second's
-remove can take the fresh lock the first just made, so both refresh.
-
-**Decided.** 2026-09-30, in #162: the race needs a lock left behind by a
-crash and two workflows waiting on it in the same instant, and its harm is
-bounded — the second refresh spends a refresh token already spent, Slack
-refuses it, and nothing is saved, so the pair the first kept stands and
-the next post uses it. An operating-system lock (`flock`, `LockFileEx`)
-would end the race and the minute's wait, at the cost of a lock written
-per platform.
-
-**Cost.** In that rare case one post fails, saying the refresh was refused,
-and a lock left behind blocks every refresh for up to a minute.
-
-**Reopen when.** A refused refresh is traced to two refreshes at once, or
-the lock wait is seen to block a post.
 
 ### TRADE-23 The review facets are written twice
 
