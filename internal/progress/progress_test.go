@@ -163,6 +163,26 @@ func TestEachStageNamesTheSystemItsWorkHappensIn(t *testing.T) {
 	}
 }
 
+func TestEachStageSaysWhichStepOfTheLoopItIs(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	stages := progress.Stages(progress.Work{}, "Webhook")
+
+	// Assert
+	steps := make([]progress.Step, len(stages))
+	for index, stage := range stages {
+		steps[index] = stage.Step
+	}
+
+	want := []progress.Step{
+		progress.StepIssue, progress.StepBranch, progress.StepCommits, progress.StepReview, progress.StepAnnounce,
+	}
+	if !slices.Equal(steps, want) {
+		t.Errorf("stage steps = %v, want %v", steps, want)
+	}
+}
+
 func TestPullStateOfFollowsTheReviewAFoundPullRequestHas(t *testing.T) {
 	t.Parallel()
 
