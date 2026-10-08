@@ -1,23 +1,21 @@
 import { useEffect, useState } from 'react'
 import type { Task } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { minute } from '@/lib/dates.ts'
 import { StateMark } from '@/lib/StateMark.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { elapsedWords, isActive } from './taskWords.ts'
 
-// How often the clock the task words count from moves on: they count minutes.
-const tick = 60_000
-
 // useNow is the time the task words count from — how long a task has run, how
-// soon one is due — read as the component mounts and again each minute, so a
-// page left open keeps counting.
+// soon one is due — read as the component mounts and again each minute, since
+// the words count minutes, so a page left open keeps counting.
 export function useNow(): number {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(Date.now())
-    }, tick)
+    }, minute)
 
     return () => {
       clearInterval(timer)
