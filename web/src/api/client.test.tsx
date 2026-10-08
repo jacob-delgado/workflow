@@ -4,7 +4,9 @@ import { vi } from 'vitest'
 import { BranchPanel } from '@/features/branch/BranchPanel.tsx'
 import { makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { client } from './generated/client.gen.ts'
+import { getHealth } from './generated/sdk.gen.ts'
 import { useHealthStore } from './health.ts'
+import { useSessionStore } from './session.ts'
 import { useSnapshotStore } from './snapshot.ts'
 import './client.ts'
 
@@ -132,4 +134,70 @@ test('a directory named outside ASCII still names itself on a write', async () =
   await vi.waitFor(() => {
     expect(headers).toEqual([encodeURIComponent('/home/josé/日本')])
   })
+})
+
+// presentedAuthorization stands in for fetch, answering every request with the
+// server's health, and records the Authorization each request presented.
+function presentedAuthorization() {
+  const presented: (string | null)[] = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((request: Request) => {
+      presented.push(request.headers.get('Authorization'))
+
+      return Promise.resolve(Response.json(makeHealth()))
+    }),
+  )
+
+  return presented
+}
+
+test("every request presents the page's session as a bearer token", async () => {
+  // Arrange
+  const presented = presentedAuthorization()
+  useSessionStore.setState({ token: 'ABC234' })
+
+  // Act
+  await getHealth()
+
+  // Assert
+  expect(presented).toEqual(['Bearer ABC234'])
+})
+
+test('a page holding no session presents none', async () => {
+  // Arrange
+  const presented = presentedAuthorization()
+
+  // Act
+  await getHealth()
+
+  // Assert
+  expect(presented).toEqual([null])
+})
+
+test('an answer refusing the session marks it refused', async () => {
+  // Arrange
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() =>
+      Promise.resolve(
+        Response.json(
+          {
+            type: 'about:blank',
+            title: 'Unauthorized',
+            status: 401,
+            detail: 'no session',
+            code: 'unauthorized',
+          },
+          { status: 401, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
+      ),
+    ),
+  )
+
+  // Act
+  await getHealth()
+
+  // Assert
+  expect(useSessionStore.getState().refused).toBe(true)
 })

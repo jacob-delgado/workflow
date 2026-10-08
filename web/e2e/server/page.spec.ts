@@ -1,5 +1,6 @@
 import { expect, test, type ConsoleMessage } from '@playwright/test'
 import { openSection, pinTheme } from '../cockpit.ts'
+import { openServed, printedAddress } from './served.ts'
 
 // policyViolations collects what the browser reports refusing under the
 // server's content policy, from the moment the page starts to load.
@@ -21,11 +22,37 @@ test('the page the server serves loads themed, with nothing its content policy r
   await pinTheme(page, 'dark')
 
   // Act: load the page, and open a section the stream's frames fill.
-  await page.goto('/')
+  await openServed(page)
   await openSection(page, 'Branch')
 
   // Assert: themed before paint, and nothing refused.
   // eslint-disable-next-line no-restricted-syntax -- data-theme is the resolved theme itself, the value the pre-paint script sets; no role, name or text carries it
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   expect(policyViolations(messages)).toEqual([])
+})
+
+// The address the server prints carries the page's session in its fragment,
+// which the browser sends to no server: the page keeps it, takes it out of
+// the address bar, and presents it on every request and on the stream.
+test('the page takes its session out of the address, and the stream goes live with it', async ({
+  page,
+}) => {
+  // Act
+  await openServed(page)
+
+  // Assert
+  await expect(page.getByRole('status').filter({ hasText: 'Live' })).toBeVisible()
+  await expect(page).toHaveURL(new URL('/', printedAddress()).href)
+})
+
+test('a page opened without the session says to open the address the server printed', async ({
+  page,
+}) => {
+  // Act: the bare address, in a browser that holds no session.
+  await page.goto('/')
+
+  // Assert
+  await expect(page.getByRole('alert')).toContainText(
+    'Open the address workflow --web printed as it started',
+  )
 })

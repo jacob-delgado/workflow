@@ -1,7 +1,9 @@
 import { useEffect, useEffectEvent, useState } from 'react'
 import { create } from 'zustand'
+import { getHealth } from './generated/sdk.gen.ts'
 import { zSnapshot } from './generated/zod.gen.ts'
 import type { Snapshot } from './generated/types.gen.ts'
+import { useSessionStore } from './session.ts'
 
 // StreamStatus is how current the snapshot is: connecting before the first
 // frame, live while frames land, reconnecting while the connection is down, and
@@ -138,6 +140,12 @@ export function useEventStream(view: string | null, onViewRefused: () => void): 
         return
       }
 
+      // EventSource says nothing of why it was refused; a read of the health
+      // does, and a refused session marks itself (client.ts).
+      if (source.readyState === EventSource.CLOSED) {
+        void getHealth()
+      }
+
       useSnapshotStore.setState({ status: 'reconnecting', reason: '' })
     })
 
@@ -157,11 +165,21 @@ function parseJSON(text: string): unknown {
   }
 }
 
-// eventsURL is the stream's address for a view, with no query for the default.
+// eventsURL is the stream's address for a view, or the default for null,
+// presenting the page's session in the query: an EventSource sends no header
+// of its own, and the stream alone takes the session there.
 function eventsURL(view: string | null): string {
-  if (view === null) {
-    return '/api/events'
+  const query = new URLSearchParams()
+  if (view !== null) {
+    query.set('view', view)
   }
 
-  return `/api/events?${new URLSearchParams({ view }).toString()}`
+  const { token } = useSessionStore.getState()
+  if (token !== '') {
+    query.set('session', token)
+  }
+
+  const asked = query.toString()
+
+  return asked === '' ? '/api/events' : `/api/events?${asked}`
 }

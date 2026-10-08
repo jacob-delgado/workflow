@@ -24,6 +24,7 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  */
 export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, GetHealthErrors, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, GetHealthErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetHealthResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/health',
     ...options
 });
@@ -33,6 +34,7 @@ export const getHealth = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const listViews = <ThrowOnError extends boolean = false>(options?: Options<ListViewsData, ThrowOnError>): RequestResult<ListViewsResponses, ListViewsErrors, ThrowOnError> => (options?.client ?? client).get<ListViewsResponses, ListViewsErrors, ThrowOnError>({
     responseValidator: async (data) => await zListViewsResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/views',
     ...options
 });
@@ -42,6 +44,7 @@ export const listViews = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const listIssues = <ThrowOnError extends boolean = false>(options?: Options<ListIssuesData, ThrowOnError>): RequestResult<ListIssuesResponses, ListIssuesErrors, ThrowOnError> => (options?.client ?? client).get<ListIssuesResponses, ListIssuesErrors, ThrowOnError>({
     responseValidator: async (data) => await zListIssuesResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/issues',
     ...options
 });
@@ -51,6 +54,7 @@ export const listIssues = <ThrowOnError extends boolean = false>(options?: Optio
  */
 export const getIssue = <ThrowOnError extends boolean = false>(options: Options<GetIssueData, ThrowOnError>): RequestResult<GetIssueResponses, GetIssueErrors, ThrowOnError> => (options.client ?? client).get<GetIssueResponses, GetIssueErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetIssueResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/issues/{key}',
     ...options
 });
@@ -62,6 +66,7 @@ export const getIssue = <ThrowOnError extends boolean = false>(options: Options<
  */
 export const linkPullRequest = <ThrowOnError extends boolean = false>(options: Options<LinkPullRequestData, ThrowOnError>): RequestResult<LinkPullRequestResponses, LinkPullRequestErrors, ThrowOnError> => (options.client ?? client).post<LinkPullRequestResponses, LinkPullRequestErrors, ThrowOnError>({
     responseValidator: async (data) => await zLinkPullRequestResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/issues/{key}/link',
     ...options
 });
@@ -73,6 +78,7 @@ export const linkPullRequest = <ThrowOnError extends boolean = false>(options: O
  */
 export const transitionIssue = <ThrowOnError extends boolean = false>(options: Options<TransitionIssueData, ThrowOnError>): RequestResult<TransitionIssueResponses, TransitionIssueErrors, ThrowOnError> => (options.client ?? client).post<TransitionIssueResponses, TransitionIssueErrors, ThrowOnError>({
     responseValidator: async (data) => await zTransitionIssueResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/issues/{key}/transition',
     ...options
 });
@@ -84,6 +90,7 @@ export const transitionIssue = <ThrowOnError extends boolean = false>(options: O
  */
 export const addComment = <ThrowOnError extends boolean = false>(options: Options<AddCommentData, ThrowOnError>): RequestResult<AddCommentResponses, AddCommentErrors, ThrowOnError> => (options.client ?? client).post<AddCommentResponses, AddCommentErrors, ThrowOnError>({
     responseValidator: async (data) => await zAddCommentResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/issues/{key}/comment',
     ...options,
     headers: {
@@ -99,6 +106,7 @@ export const addComment = <ThrowOnError extends boolean = false>(options: Option
  */
 export const listStatusChanges = <ThrowOnError extends boolean = false>(options: Options<ListStatusChangesData, ThrowOnError>): RequestResult<ListStatusChangesResponses, ListStatusChangesErrors, ThrowOnError> => (options.client ?? client).get<ListStatusChangesResponses, ListStatusChangesErrors, ThrowOnError>({
     responseValidator: async (data) => await zListStatusChangesResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/issues/{key}/transitions',
     ...options
 });
@@ -110,6 +118,7 @@ export const listStatusChanges = <ThrowOnError extends boolean = false>(options:
  */
 export const changeStatus = <ThrowOnError extends boolean = false>(options: Options<ChangeStatusData, ThrowOnError>): RequestResult<ChangeStatusResponses, ChangeStatusErrors, ThrowOnError> => (options.client ?? client).post<ChangeStatusResponses, ChangeStatusErrors, ThrowOnError>({
     responseValidator: async (data) => await zChangeStatusResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/issues/{key}/transitions',
     ...options,
     headers: {
@@ -125,6 +134,7 @@ export const changeStatus = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const assignIssue = <ThrowOnError extends boolean = false>(options: Options<AssignIssueData, ThrowOnError>): RequestResult<AssignIssueResponses, AssignIssueErrors, ThrowOnError> => (options.client ?? client).put<AssignIssueResponses, AssignIssueErrors, ThrowOnError>({
     responseValidator: async (data) => await zAssignIssueResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/issues/{key}/assignee',
     ...options,
     headers: {
@@ -140,6 +150,7 @@ export const assignIssue = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const logWork = <ThrowOnError extends boolean = false>(options: Options<LogWorkData, ThrowOnError>): RequestResult<LogWorkResponses, LogWorkErrors, ThrowOnError> => (options.client ?? client).post<LogWorkResponses, LogWorkErrors, ThrowOnError>({
     responseValidator: async (data) => await zLogWorkResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/issues/{key}/worklog',
     ...options,
     headers: {
@@ -153,6 +164,7 @@ export const logWork = <ThrowOnError extends boolean = false>(options: Options<L
  */
 export const getBranch = <ThrowOnError extends boolean = false>(options?: Options<GetBranchData, ThrowOnError>): RequestResult<GetBranchResponses, GetBranchErrors, ThrowOnError> => (options?.client ?? client).get<GetBranchResponses, GetBranchErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetBranchResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/branch',
     ...options
 });
@@ -162,6 +174,7 @@ export const getBranch = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const listChanges = <ThrowOnError extends boolean = false>(options?: Options<ListChangesData, ThrowOnError>): RequestResult<ListChangesResponses, ListChangesErrors, ThrowOnError> => (options?.client ?? client).get<ListChangesResponses, ListChangesErrors, ThrowOnError>({
     responseValidator: async (data) => await zListChangesResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/changes',
     ...options
 });
@@ -173,6 +186,7 @@ export const listChanges = <ThrowOnError extends boolean = false>(options?: Opti
  */
 export const getChangeDiff = <ThrowOnError extends boolean = false>(options: Options<GetChangeDiffData, ThrowOnError>): RequestResult<GetChangeDiffResponses, GetChangeDiffErrors, ThrowOnError> => (options.client ?? client).get<GetChangeDiffResponses, GetChangeDiffErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetChangeDiffResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/changes/diff',
     ...options
 });
@@ -184,6 +198,7 @@ export const getChangeDiff = <ThrowOnError extends boolean = false>(options: Opt
  */
 export const startRun = <ThrowOnError extends boolean = false>(options: Options<StartRunData, ThrowOnError>): RequestResult<StartRunResponses, StartRunErrors, ThrowOnError> => (options.client ?? client).post<StartRunResponses, StartRunErrors, ThrowOnError>({
     responseValidator: async (data) => await zStartRunResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/runs',
     ...options,
     headers: {
@@ -199,6 +214,7 @@ export const startRun = <ThrowOnError extends boolean = false>(options: Options<
  */
 export const getHookSetup = <ThrowOnError extends boolean = false>(options?: Options<GetHookSetupData, ThrowOnError>): RequestResult<GetHookSetupResponses, GetHookSetupErrors, ThrowOnError> => (options?.client ?? client).get<GetHookSetupResponses, GetHookSetupErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetHookSetupResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/hooks/setup',
     ...options
 });
@@ -210,6 +226,7 @@ export const getHookSetup = <ThrowOnError extends boolean = false>(options?: Opt
  */
 export const setUpHooks = <ThrowOnError extends boolean = false>(options: Options<SetUpHooksData, ThrowOnError>): RequestResult<SetUpHooksResponses, SetUpHooksErrors, ThrowOnError> => (options.client ?? client).post<SetUpHooksResponses, SetUpHooksErrors, ThrowOnError>({
     responseValidator: async (data) => await zSetUpHooksResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/hooks/setup',
     ...options,
     headers: {
@@ -225,6 +242,7 @@ export const setUpHooks = <ThrowOnError extends boolean = false>(options: Option
  */
 export const stopRun = <ThrowOnError extends boolean = false>(options?: Options<StopRunData, ThrowOnError>): RequestResult<StopRunResponses, StopRunErrors, ThrowOnError> => (options?.client ?? client).delete<StopRunResponses, StopRunErrors, ThrowOnError>({
     responseValidator: async (data) => await zStopRunResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/runs/current',
     ...options
 });
@@ -236,6 +254,7 @@ export const stopRun = <ThrowOnError extends boolean = false>(options?: Options<
  */
 export const stage = <ThrowOnError extends boolean = false>(options: Options<StageData, ThrowOnError>): RequestResult<StageResponses, StageErrors, ThrowOnError> => (options.client ?? client).post<StageResponses, StageErrors, ThrowOnError>({
     responseValidator: async (data) => await zStageResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/stage',
     ...options,
     headers: {
@@ -251,6 +270,7 @@ export const stage = <ThrowOnError extends boolean = false>(options: Options<Sta
  */
 export const unstage = <ThrowOnError extends boolean = false>(options: Options<UnstageData, ThrowOnError>): RequestResult<UnstageResponses, UnstageErrors, ThrowOnError> => (options.client ?? client).post<UnstageResponses, UnstageErrors, ThrowOnError>({
     responseValidator: async (data) => await zUnstageResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/unstage',
     ...options,
     headers: {
@@ -266,6 +286,7 @@ export const unstage = <ThrowOnError extends boolean = false>(options: Options<U
  */
 export const discard = <ThrowOnError extends boolean = false>(options: Options<DiscardData, ThrowOnError>): RequestResult<DiscardResponses, DiscardErrors, ThrowOnError> => (options.client ?? client).post<DiscardResponses, DiscardErrors, ThrowOnError>({
     responseValidator: async (data) => await zDiscardResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/discard',
     ...options,
     headers: {
@@ -281,6 +302,7 @@ export const discard = <ThrowOnError extends boolean = false>(options: Options<D
  */
 export const getMergeMethods = <ThrowOnError extends boolean = false>(options?: Options<GetMergeMethodsData, ThrowOnError>): RequestResult<GetMergeMethodsResponses, GetMergeMethodsErrors, ThrowOnError> => (options?.client ?? client).get<GetMergeMethodsResponses, GetMergeMethodsErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetMergeMethodsResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/pull-request/merge',
     ...options
 });
@@ -292,6 +314,7 @@ export const getMergeMethods = <ThrowOnError extends boolean = false>(options?: 
  */
 export const mergePullRequest = <ThrowOnError extends boolean = false>(options: Options<MergePullRequestData, ThrowOnError>): RequestResult<MergePullRequestResponses, MergePullRequestErrors, ThrowOnError> => (options.client ?? client).post<MergePullRequestResponses, MergePullRequestErrors, ThrowOnError>({
     responseValidator: async (data) => await zMergePullRequestResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/pull-request/merge',
     ...options,
     headers: {
@@ -307,6 +330,7 @@ export const mergePullRequest = <ThrowOnError extends boolean = false>(options: 
  */
 export const finishBranch = <ThrowOnError extends boolean = false>(options?: Options<FinishBranchData, ThrowOnError>): RequestResult<FinishBranchResponses, FinishBranchErrors, ThrowOnError> => (options?.client ?? client).post<FinishBranchResponses, FinishBranchErrors, ThrowOnError>({
     responseValidator: async (data) => await zFinishBranchResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/branch/finish',
     ...options
 });
@@ -318,6 +342,7 @@ export const finishBranch = <ThrowOnError extends boolean = false>(options?: Opt
  */
 export const rerunChecks = <ThrowOnError extends boolean = false>(options?: Options<RerunChecksData, ThrowOnError>): RequestResult<RerunChecksResponses, RerunChecksErrors, ThrowOnError> => (options?.client ?? client).post<RerunChecksResponses, RerunChecksErrors, ThrowOnError>({
     responseValidator: async (data) => await zRerunChecksResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/review/rerun',
     ...options
 });
@@ -329,6 +354,7 @@ export const rerunChecks = <ThrowOnError extends boolean = false>(options?: Opti
  */
 export const getCheckLog = <ThrowOnError extends boolean = false>(options: Options<GetCheckLogData, ThrowOnError>): RequestResult<GetCheckLogResponses, GetCheckLogErrors, ThrowOnError> => (options.client ?? client).get<GetCheckLogResponses, GetCheckLogErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetCheckLogResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/review/checks/{id}/log',
     ...options
 });
@@ -338,6 +364,7 @@ export const getCheckLog = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const getReview = <ThrowOnError extends boolean = false>(options?: Options<GetReviewData, ThrowOnError>): RequestResult<GetReviewResponses, GetReviewErrors, ThrowOnError> => (options?.client ?? client).get<GetReviewResponses, GetReviewErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetReviewResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/review',
     ...options
 });
@@ -349,6 +376,7 @@ export const getReview = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const listReviews = <ThrowOnError extends boolean = false>(options?: Options<ListReviewsData, ThrowOnError>): RequestResult<ListReviewsResponses, ListReviewsErrors, ThrowOnError> => (options?.client ?? client).get<ListReviewsResponses, ListReviewsErrors, ThrowOnError>({
     responseValidator: async (data) => await zListReviewsResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/reviews',
     ...options
 });
@@ -358,6 +386,7 @@ export const listReviews = <ThrowOnError extends boolean = false>(options?: Opti
  */
 export const getMessaging = <ThrowOnError extends boolean = false>(options?: Options<GetMessagingData, ThrowOnError>): RequestResult<GetMessagingResponses, GetMessagingErrors, ThrowOnError> => (options?.client ?? client).get<GetMessagingResponses, GetMessagingErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetMessagingResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/messaging',
     ...options
 });
@@ -369,6 +398,7 @@ export const getMessaging = <ThrowOnError extends boolean = false>(options?: Opt
  */
 export const getConfig = <ThrowOnError extends boolean = false>(options?: Options<GetConfigData, ThrowOnError>): RequestResult<GetConfigResponses, GetConfigErrors, ThrowOnError> => (options?.client ?? client).get<GetConfigResponses, GetConfigErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetConfigResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/config',
     ...options
 });
@@ -380,6 +410,7 @@ export const getConfig = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const updateConfig = <ThrowOnError extends boolean = false>(options: Options<UpdateConfigData, ThrowOnError>): RequestResult<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError> => (options.client ?? client).put<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError>({
     responseValidator: async (data) => await zUpdateConfigResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/config',
     ...options,
     headers: {
@@ -395,6 +426,7 @@ export const updateConfig = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const getKeys = <ThrowOnError extends boolean = false>(options?: Options<GetKeysData, ThrowOnError>): RequestResult<GetKeysResponses, GetKeysErrors, ThrowOnError> => (options?.client ?? client).get<GetKeysResponses, GetKeysErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetKeysResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/keys',
     ...options
 });
@@ -406,6 +438,7 @@ export const getKeys = <ThrowOnError extends boolean = false>(options?: Options<
  */
 export const getSetup = <ThrowOnError extends boolean = false>(options?: Options<GetSetupData, ThrowOnError>): RequestResult<GetSetupResponses, GetSetupErrors, ThrowOnError> => (options?.client ?? client).get<GetSetupResponses, GetSetupErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetSetupResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/config/setup',
     ...options
 });
@@ -417,6 +450,7 @@ export const getSetup = <ThrowOnError extends boolean = false>(options?: Options
  */
 export const setUp = <ThrowOnError extends boolean = false>(options: Options<SetUpData, ThrowOnError>): RequestResult<SetUpResponses, SetUpErrors, ThrowOnError> => (options.client ?? client).post<SetUpResponses, SetUpErrors, ThrowOnError>({
     responseValidator: async (data) => await zSetUpResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/config/setup',
     ...options,
     headers: {
@@ -432,6 +466,7 @@ export const setUp = <ThrowOnError extends boolean = false>(options: Options<Set
  */
 export const removeLocalData = <ThrowOnError extends boolean = false>(options: Options<RemoveLocalDataData, ThrowOnError>): RequestResult<RemoveLocalDataResponses, RemoveLocalDataErrors, ThrowOnError> => (options.client ?? client).delete<RemoveLocalDataResponses, RemoveLocalDataErrors, ThrowOnError>({
     responseValidator: async (data) => await zRemoveLocalDataResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/local-data',
     ...options
 });
@@ -443,6 +478,7 @@ export const removeLocalData = <ThrowOnError extends boolean = false>(options: O
  */
 export const getLocalData = <ThrowOnError extends boolean = false>(options?: Options<GetLocalDataData, ThrowOnError>): RequestResult<GetLocalDataResponses, GetLocalDataErrors, ThrowOnError> => (options?.client ?? client).get<GetLocalDataResponses, GetLocalDataErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetLocalDataResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/local-data',
     ...options
 });
@@ -454,6 +490,7 @@ export const getLocalData = <ThrowOnError extends boolean = false>(options?: Opt
  */
 export const getSlackMembers = <ThrowOnError extends boolean = false>(options?: Options<GetSlackMembersData, ThrowOnError>): RequestResult<GetSlackMembersResponses, GetSlackMembersErrors, ThrowOnError> => (options?.client ?? client).get<GetSlackMembersResponses, GetSlackMembersErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetSlackMembersResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/slack/members',
     ...options
 });
@@ -465,6 +502,7 @@ export const getSlackMembers = <ThrowOnError extends boolean = false>(options?: 
  */
 export const getSlackGroups = <ThrowOnError extends boolean = false>(options?: Options<GetSlackGroupsData, ThrowOnError>): RequestResult<GetSlackGroupsResponses, GetSlackGroupsErrors, ThrowOnError> => (options?.client ?? client).get<GetSlackGroupsResponses, GetSlackGroupsErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetSlackGroupsResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/slack/groups',
     ...options
 });
@@ -476,6 +514,7 @@ export const getSlackGroups = <ThrowOnError extends boolean = false>(options?: O
  */
 export const forgetPerson = <ThrowOnError extends boolean = false>(options: Options<ForgetPersonData, ThrowOnError>): RequestResult<ForgetPersonResponses, ForgetPersonErrors, ThrowOnError> => (options.client ?? client).delete<ForgetPersonResponses, ForgetPersonErrors, ThrowOnError>({
     responseValidator: async (data) => await zForgetPersonResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/people',
     ...options
 });
@@ -487,6 +526,7 @@ export const forgetPerson = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const getPeople = <ThrowOnError extends boolean = false>(options?: Options<GetPeopleData, ThrowOnError>): RequestResult<GetPeopleResponses, GetPeopleErrors, ThrowOnError> => (options?.client ?? client).get<GetPeopleResponses, GetPeopleErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetPeopleResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/people',
     ...options
 });
@@ -498,6 +538,7 @@ export const getPeople = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const linkPerson = <ThrowOnError extends boolean = false>(options: Options<LinkPersonData, ThrowOnError>): RequestResult<LinkPersonResponses, LinkPersonErrors, ThrowOnError> => (options.client ?? client).put<LinkPersonResponses, LinkPersonErrors, ThrowOnError>({
     responseValidator: async (data) => await zLinkPersonResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/people',
     ...options,
     headers: {
@@ -513,6 +554,7 @@ export const linkPerson = <ThrowOnError extends boolean = false>(options: Option
  */
 export const getRepoGroups = <ThrowOnError extends boolean = false>(options?: Options<GetRepoGroupsData, ThrowOnError>): RequestResult<GetRepoGroupsResponses, GetRepoGroupsErrors, ThrowOnError> => (options?.client ?? client).get<GetRepoGroupsResponses, GetRepoGroupsErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetRepoGroupsResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/repo-groups',
     ...options
 });
@@ -524,6 +566,7 @@ export const getRepoGroups = <ThrowOnError extends boolean = false>(options?: Op
  */
 export const setRepoGroups = <ThrowOnError extends boolean = false>(options: Options<SetRepoGroupsData, ThrowOnError>): RequestResult<SetRepoGroupsResponses, SetRepoGroupsErrors, ThrowOnError> => (options.client ?? client).put<SetRepoGroupsResponses, SetRepoGroupsErrors, ThrowOnError>({
     responseValidator: async (data) => await zSetRepoGroupsResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/repo-groups',
     ...options,
     headers: {
@@ -537,6 +580,7 @@ export const setRepoGroups = <ThrowOnError extends boolean = false>(options: Opt
  */
 export const unlinkBranchIssue = <ThrowOnError extends boolean = false>(options?: Options<UnlinkBranchIssueData, ThrowOnError>): RequestResult<UnlinkBranchIssueResponses, UnlinkBranchIssueErrors, ThrowOnError> => (options?.client ?? client).delete<UnlinkBranchIssueResponses, UnlinkBranchIssueErrors, ThrowOnError>({
     responseValidator: async (data) => await zUnlinkBranchIssueResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/branch/issue',
     ...options
 });
@@ -548,6 +592,7 @@ export const unlinkBranchIssue = <ThrowOnError extends boolean = false>(options?
  */
 export const linkBranchIssue = <ThrowOnError extends boolean = false>(options: Options<LinkBranchIssueData, ThrowOnError>): RequestResult<LinkBranchIssueResponses, LinkBranchIssueErrors, ThrowOnError> => (options.client ?? client).put<LinkBranchIssueResponses, LinkBranchIssueErrors, ThrowOnError>({
     responseValidator: async (data) => await zLinkBranchIssueResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/branch/issue',
     ...options,
     headers: {
@@ -561,6 +606,7 @@ export const linkBranchIssue = <ThrowOnError extends boolean = false>(options: O
  */
 export const previewBranchIssue = <ThrowOnError extends boolean = false>(options: Options<PreviewBranchIssueData, ThrowOnError>): RequestResult<PreviewBranchIssueResponses, PreviewBranchIssueErrors, ThrowOnError> => (options.client ?? client).get<PreviewBranchIssueResponses, PreviewBranchIssueErrors, ThrowOnError>({
     responseValidator: async (data) => await zPreviewBranchIssueResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/branch/issue/preview',
     ...options
 });
@@ -572,6 +618,7 @@ export const previewBranchIssue = <ThrowOnError extends boolean = false>(options
  */
 export const checkout = <ThrowOnError extends boolean = false>(options: Options<CheckoutData, ThrowOnError>): RequestResult<CheckoutResponses, CheckoutErrors, ThrowOnError> => (options.client ?? client).post<CheckoutResponses, CheckoutErrors, ThrowOnError>({
     responseValidator: async (data) => await zCheckoutResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/checkout',
     ...options,
     headers: {
@@ -587,6 +634,7 @@ export const checkout = <ThrowOnError extends boolean = false>(options: Options<
  */
 export const createBranch = <ThrowOnError extends boolean = false>(options: Options<CreateBranchData, ThrowOnError>): RequestResult<CreateBranchResponses, CreateBranchErrors, ThrowOnError> => (options.client ?? client).post<CreateBranchResponses, CreateBranchErrors, ThrowOnError>({
     responseValidator: async (data) => await zCreateBranchResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/branches',
     ...options,
     headers: {
@@ -602,6 +650,7 @@ export const createBranch = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const createWorktree = <ThrowOnError extends boolean = false>(options: Options<CreateWorktreeData, ThrowOnError>): RequestResult<CreateWorktreeResponses, CreateWorktreeErrors, ThrowOnError> => (options.client ?? client).post<CreateWorktreeResponses, CreateWorktreeErrors, ThrowOnError>({
     responseValidator: async (data) => await zCreateWorktreeResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/worktrees',
     ...options,
     headers: {
@@ -617,6 +666,7 @@ export const createWorktree = <ThrowOnError extends boolean = false>(options: Op
  */
 export const getAnnouncement = <ThrowOnError extends boolean = false>(options?: Options<GetAnnouncementData, ThrowOnError>): RequestResult<GetAnnouncementResponses, GetAnnouncementErrors, ThrowOnError> => (options?.client ?? client).get<GetAnnouncementResponses, GetAnnouncementErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetAnnouncementResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/announcement',
     ...options
 });
@@ -628,6 +678,7 @@ export const getAnnouncement = <ThrowOnError extends boolean = false>(options?: 
  */
 export const announce = <ThrowOnError extends boolean = false>(options: Options<AnnounceData, ThrowOnError>): RequestResult<AnnounceResponses, AnnounceErrors, ThrowOnError> => (options.client ?? client).post<AnnounceResponses, AnnounceErrors, ThrowOnError>({
     responseValidator: async (data) => await zAnnounceResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/announce',
     ...options,
     headers: {
@@ -643,6 +694,7 @@ export const announce = <ThrowOnError extends boolean = false>(options: Options<
  */
 export const cancelQueuedAnnouncement = <ThrowOnError extends boolean = false>(options?: Options<CancelQueuedAnnouncementData, ThrowOnError>): RequestResult<CancelQueuedAnnouncementResponses, CancelQueuedAnnouncementErrors, ThrowOnError> => (options?.client ?? client).delete<CancelQueuedAnnouncementResponses, CancelQueuedAnnouncementErrors, ThrowOnError>({
     responseValidator: async (data) => await zCancelQueuedAnnouncementResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/announce/queued',
     ...options
 });
@@ -654,6 +706,7 @@ export const cancelQueuedAnnouncement = <ThrowOnError extends boolean = false>(o
  */
 export const push = <ThrowOnError extends boolean = false>(options?: Options<PushData, ThrowOnError>): RequestResult<PushResponses, PushErrors, ThrowOnError> => (options?.client ?? client).post<PushResponses, PushErrors, ThrowOnError>({
     responseValidator: async (data) => await zPushResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/push',
     ...options
 });
@@ -665,6 +718,7 @@ export const push = <ThrowOnError extends boolean = false>(options?: Options<Pus
  */
 export const commit = <ThrowOnError extends boolean = false>(options: Options<CommitData, ThrowOnError>): RequestResult<CommitResponses, CommitErrors, ThrowOnError> => (options.client ?? client).post<CommitResponses, CommitErrors, ThrowOnError>({
     responseValidator: async (data) => await zCommitResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/commit',
     ...options,
     headers: {
@@ -680,6 +734,7 @@ export const commit = <ThrowOnError extends boolean = false>(options: Options<Co
  */
 export const getPullRequestDraft = <ThrowOnError extends boolean = false>(options?: Options<GetPullRequestDraftData, ThrowOnError>): RequestResult<GetPullRequestDraftResponses, GetPullRequestDraftErrors, ThrowOnError> => (options?.client ?? client).get<GetPullRequestDraftResponses, GetPullRequestDraftErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetPullRequestDraftResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/pull-request/draft',
     ...options
 });
@@ -691,6 +746,7 @@ export const getPullRequestDraft = <ThrowOnError extends boolean = false>(option
  */
 export const getPullRequestText = <ThrowOnError extends boolean = false>(options?: Options<GetPullRequestTextData, ThrowOnError>): RequestResult<GetPullRequestTextResponses, GetPullRequestTextErrors, ThrowOnError> => (options?.client ?? client).get<GetPullRequestTextResponses, GetPullRequestTextErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetPullRequestTextResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/pull-request',
     ...options
 });
@@ -702,6 +758,7 @@ export const getPullRequestText = <ThrowOnError extends boolean = false>(options
  */
 export const editPullRequest = <ThrowOnError extends boolean = false>(options: Options<EditPullRequestData, ThrowOnError>): RequestResult<EditPullRequestResponses, EditPullRequestErrors, ThrowOnError> => (options.client ?? client).patch<EditPullRequestResponses, EditPullRequestErrors, ThrowOnError>({
     responseValidator: async (data) => await zEditPullRequestResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/pull-request',
     ...options,
     headers: {
@@ -717,6 +774,7 @@ export const editPullRequest = <ThrowOnError extends boolean = false>(options: O
  */
 export const openPullRequest = <ThrowOnError extends boolean = false>(options: Options<OpenPullRequestData, ThrowOnError>): RequestResult<OpenPullRequestResponses, OpenPullRequestErrors, ThrowOnError> => (options.client ?? client).post<OpenPullRequestResponses, OpenPullRequestErrors, ThrowOnError>({
     responseValidator: async (data) => await zOpenPullRequestResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/pull-request',
     ...options,
     headers: {
@@ -732,6 +790,7 @@ export const openPullRequest = <ThrowOnError extends boolean = false>(options: O
  */
 export const listTasks = <ThrowOnError extends boolean = false>(options?: Options<ListTasksData, ThrowOnError>): RequestResult<ListTasksResponses, ListTasksErrors, ThrowOnError> => (options?.client ?? client).get<ListTasksResponses, ListTasksErrors, ThrowOnError>({
     responseValidator: async (data) => await zListTasksResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/tasks',
     ...options
 });
@@ -743,6 +802,7 @@ export const listTasks = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const addTask = <ThrowOnError extends boolean = false>(options: Options<AddTaskData, ThrowOnError>): RequestResult<AddTaskResponses, AddTaskErrors, ThrowOnError> => (options.client ?? client).post<AddTaskResponses, AddTaskErrors, ThrowOnError>({
     responseValidator: async (data) => await zAddTaskResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/tasks',
     ...options,
     headers: {
@@ -758,6 +818,7 @@ export const addTask = <ThrowOnError extends boolean = false>(options: Options<A
  */
 export const trackIssue = <ThrowOnError extends boolean = false>(options: Options<TrackIssueData, ThrowOnError>): RequestResult<TrackIssueResponses, TrackIssueErrors, ThrowOnError> => (options.client ?? client).post<TrackIssueResponses, TrackIssueErrors, ThrowOnError>({
     responseValidator: async (data) => await zTrackIssueResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/tasks/track',
     ...options,
     headers: {
@@ -773,6 +834,7 @@ export const trackIssue = <ThrowOnError extends boolean = false>(options: Option
  */
 export const undoTasks = <ThrowOnError extends boolean = false>(options?: Options<UndoTasksData, ThrowOnError>): RequestResult<UndoTasksResponses, UndoTasksErrors, ThrowOnError> => (options?.client ?? client).post<UndoTasksResponses, UndoTasksErrors, ThrowOnError>({
     responseValidator: async (data) => await zUndoTasksResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/tasks/undo',
     ...options
 });
@@ -784,6 +846,7 @@ export const undoTasks = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const syncTasks = <ThrowOnError extends boolean = false>(options?: Options<SyncTasksData, ThrowOnError>): RequestResult<SyncTasksResponses, SyncTasksErrors, ThrowOnError> => (options?.client ?? client).post<SyncTasksResponses, SyncTasksErrors, ThrowOnError>({
     responseValidator: async (data) => await zSyncTasksResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/tasks/sync',
     ...options
 });
@@ -795,6 +858,7 @@ export const syncTasks = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const startTask = <ThrowOnError extends boolean = false>(options: Options<StartTaskData, ThrowOnError>): RequestResult<StartTaskResponses, StartTaskErrors, ThrowOnError> => (options.client ?? client).post<StartTaskResponses, StartTaskErrors, ThrowOnError>({
     responseValidator: async (data) => await zStartTaskResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/tasks/{uuid}/start',
     ...options
 });
@@ -806,6 +870,7 @@ export const startTask = <ThrowOnError extends boolean = false>(options: Options
  */
 export const stopTask = <ThrowOnError extends boolean = false>(options: Options<StopTaskData, ThrowOnError>): RequestResult<StopTaskResponses, StopTaskErrors, ThrowOnError> => (options.client ?? client).post<StopTaskResponses, StopTaskErrors, ThrowOnError>({
     responseValidator: async (data) => await zStopTaskResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/tasks/{uuid}/stop',
     ...options
 });
@@ -817,6 +882,7 @@ export const stopTask = <ThrowOnError extends boolean = false>(options: Options<
  */
 export const completeTask = <ThrowOnError extends boolean = false>(options: Options<CompleteTaskData, ThrowOnError>): RequestResult<CompleteTaskResponses, CompleteTaskErrors, ThrowOnError> => (options.client ?? client).post<CompleteTaskResponses, CompleteTaskErrors, ThrowOnError>({
     responseValidator: async (data) => await zCompleteTaskResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/tasks/{uuid}/done',
     ...options
 });
@@ -828,6 +894,7 @@ export const completeTask = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const annotateTask = <ThrowOnError extends boolean = false>(options: Options<AnnotateTaskData, ThrowOnError>): RequestResult<AnnotateTaskResponses, AnnotateTaskErrors, ThrowOnError> => (options.client ?? client).post<AnnotateTaskResponses, AnnotateTaskErrors, ThrowOnError>({
     responseValidator: async (data) => await zAnnotateTaskResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/tasks/{uuid}/annotations',
     ...options,
     headers: {
@@ -843,6 +910,7 @@ export const annotateTask = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const modifyTask = <ThrowOnError extends boolean = false>(options: Options<ModifyTaskData, ThrowOnError>): RequestResult<ModifyTaskResponses, ModifyTaskErrors, ThrowOnError> => (options.client ?? client).post<ModifyTaskResponses, ModifyTaskErrors, ThrowOnError>({
     responseValidator: async (data) => await zModifyTaskResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/tasks/{uuid}/modify',
     ...options,
     headers: {
@@ -858,6 +926,7 @@ export const modifyTask = <ThrowOnError extends boolean = false>(options: Option
  */
 export const getActivity = <ThrowOnError extends boolean = false>(options?: Options<GetActivityData, ThrowOnError>): RequestResult<GetActivityResponses, GetActivityErrors, ThrowOnError> => (options?.client ?? client).get<GetActivityResponses, GetActivityErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetActivityResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/activity',
     ...options
 });
@@ -869,6 +938,7 @@ export const getActivity = <ThrowOnError extends boolean = false>(options?: Opti
  */
 export const postActivity = <ThrowOnError extends boolean = false>(options: Options<PostActivityData, ThrowOnError>): RequestResult<PostActivityResponses, PostActivityErrors, ThrowOnError> => (options.client ?? client).post<PostActivityResponses, PostActivityErrors, ThrowOnError>({
     responseValidator: async (data) => await zPostActivityResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/activity/post',
     ...options,
     headers: {
@@ -884,6 +954,11 @@ export const postActivity = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const streamEvents = <ThrowOnError extends boolean = false>(options?: Options<StreamEventsData, ThrowOnError, StreamEventsResponse>): Promise<ServerSentEventsResult<StreamEventsResponses>> => (options?.client ?? client).sse.get<StreamEventsResponses, StreamEventsErrors, ThrowOnError>({
     responseValidator: async (data) => await zStreamEventsResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'query',
+            name: 'session',
+            type: 'apiKey'
+        }],
     url: '/api/events',
     ...options
 });
@@ -895,6 +970,7 @@ export const streamEvents = <ThrowOnError extends boolean = false>(options?: Opt
  */
 export const getRepositories = <ThrowOnError extends boolean = false>(options?: Options<GetRepositoriesData, ThrowOnError>): RequestResult<GetRepositoriesResponses, GetRepositoriesErrors, ThrowOnError> => (options?.client ?? client).get<GetRepositoriesResponses, GetRepositoriesErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetRepositoriesResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/repositories',
     ...options
 });
@@ -906,6 +982,7 @@ export const getRepositories = <ThrowOnError extends boolean = false>(options?: 
  */
 export const switchRepository = <ThrowOnError extends boolean = false>(options: Options<SwitchRepositoryData, ThrowOnError>): RequestResult<SwitchRepositoryResponses, SwitchRepositoryErrors, ThrowOnError> => (options.client ?? client).put<SwitchRepositoryResponses, SwitchRepositoryErrors, ThrowOnError>({
     responseValidator: async (data) => await zSwitchRepositoryResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/repositories/here',
     ...options,
     headers: {
@@ -921,6 +998,7 @@ export const switchRepository = <ThrowOnError extends boolean = false>(options: 
  */
 export const removeFavorite = <ThrowOnError extends boolean = false>(options: Options<RemoveFavoriteData, ThrowOnError>): RequestResult<RemoveFavoriteResponses, RemoveFavoriteErrors, ThrowOnError> => (options.client ?? client).delete<RemoveFavoriteResponses, RemoveFavoriteErrors, ThrowOnError>({
     responseValidator: async (data) => await zRemoveFavoriteResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/repositories/favorites',
     ...options
 });
@@ -932,6 +1010,7 @@ export const removeFavorite = <ThrowOnError extends boolean = false>(options: Op
  */
 export const addFavorite = <ThrowOnError extends boolean = false>(options: Options<AddFavoriteData, ThrowOnError>): RequestResult<AddFavoriteResponses, AddFavoriteErrors, ThrowOnError> => (options.client ?? client).put<AddFavoriteResponses, AddFavoriteErrors, ThrowOnError>({
     responseValidator: async (data) => await zAddFavoriteResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/repositories/favorites',
     ...options,
     headers: {
@@ -947,6 +1026,7 @@ export const addFavorite = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const getDirectories = <ThrowOnError extends boolean = false>(options?: Options<GetDirectoriesData, ThrowOnError>): RequestResult<GetDirectoriesResponses, GetDirectoriesErrors, ThrowOnError> => (options?.client ?? client).get<GetDirectoriesResponses, GetDirectoriesErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetDirectoriesResponse.parseAsync(data),
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/directories',
     ...options
 });

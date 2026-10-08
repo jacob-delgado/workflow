@@ -145,7 +145,10 @@ func webActivity(t *testing.T, repo, query string) api.Activity {
 		t.Fatalf("workflow --web: %v", ran.err)
 	}
 
-	handler, err := webserver.Handler(ran.deps, ran.cfg, ran.info, fstest.MapFS{})
+	session := webserver.NewSession()
+
+	handler, err := webserver.Handler(webserver.World{Deps: ran.deps, Config: ran.cfg, Info: ran.info}, fstest.MapFS{},
+		session)
 	if err != nil {
 		t.Fatalf("webserver.Handler: %v", err)
 	}
@@ -154,6 +157,7 @@ func webActivity(t *testing.T, repo, query string) api.Activity {
 	t.Cleanup(server.Close)
 
 	request, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL+"/api/activity"+query, nil)
+	request.Header.Set("Authorization", servedAt(t, session.Address(server.Listener.Addr().String())).authorization)
 
 	response, err := server.Client().Do(request)
 	if err != nil {

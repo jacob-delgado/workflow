@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
@@ -62,12 +63,13 @@ type contract struct {
 	router routers.Router
 }
 
-// loadContract loads the embedded spec and routes its paths. Like a spec that
-// does not load, one whose paths cannot be routed is a build defect, returned
-// for Handler to surface at startup.
+// loadContract loads the embedded spec and routes its paths, admitting a
+// request only where it presents session as the spec's security schemes say.
+// Like a spec that does not load, one whose paths cannot be routed is a build
+// defect, returned for Handler to surface at startup.
 //
 // Trade-off TRADE-14: no test runs on a broken spec, so neither error arm runs.
-func loadContract() (contract, error) {
+func loadContract(session Session) (contract, error) {
 	doc, err := loadSpec()
 	if err != nil {
 		return contract{}, err
@@ -79,6 +81,7 @@ func loadContract() (contract, error) {
 	}
 
 	validate := nethttpmiddleware.OapiRequestValidatorWithOptions(doc, &nethttpmiddleware.Options{
+		Options:              openapi3filter.Options{AuthenticationFunc: session.admits},
 		DoNotValidateServers: true,
 		ErrorHandlerWithOpts: answerValidationError(router, contractMethods(doc.Paths)),
 	})
@@ -103,10 +106,12 @@ func (c contract) switches(request *http.Request) bool {
 
 // answerValidationError answers a request the contract rejects. A known path
 // asked with a method it declares no operation for is not allowed, and Allow
-// lists the methods it does; an unknown path is a not-found; every other
-// mismatch — a bad parameter, a body that does not fit the schema — is a bad
-// request. The specific validation detail stays off the wire; that the request
-// did not match the contract is what the caller acts on.
+// lists the methods it does; an unknown path is a not-found; a request that
+// presents no session of this run is unauthorized, before anything else about
+// it is checked; every other mismatch — a bad parameter, a body that does not
+// fit the schema — is a bad request. The specific validation detail stays off
+// the wire; that the request did not match the contract is what the caller
+// acts on.
 func answerValidationError(router routers.Router, methods []string) nethttpmiddleware.ErrorHandlerWithOpts {
 	return func(
 		ctx context.Context, err error, w http.ResponseWriter, request *http.Request, opts nethttpmiddleware.ErrorHandlerOpts,
@@ -118,11 +123,18 @@ func answerValidationError(router routers.Router, methods []string) nethttpmiddl
 			writeProblem(w, api.ProblemCodeMethodNotAllowed, "this endpoint does not answer that method; it answers "+allowed)
 		case opts.StatusCode == http.StatusNotFound:
 			writeProblem(w, api.ProblemCodeNotFound, "no such endpoint")
+		case opts.StatusCode == http.StatusUnauthorized:
+			w.Header().Set("WWW-Authenticate", `Bearer realm="workflow"`)
+			writeProblem(w, api.ProblemCodeUnauthorized, noSession)
 		default:
 			writeProblem(w, api.ProblemCodeBadRequest, "the request did not match the API contract")
 		}
 	}
 }
+
+// noSession is what a request presenting no session of this run is told.
+const noSession = "this request presented no session of the running workflow --web; " +
+	"open the address it printed as it started, which carries one"
 
 // contractMethods is every method an operation in paths takes, sorted, without
 // repeats: the methods worth asking the router about at any one path.

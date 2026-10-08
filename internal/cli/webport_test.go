@@ -109,7 +109,7 @@ func TestTheWebFlagServesOnThePortItIsGiven(t *testing.T) {
 			port, addr, served.answered, served.err)
 	}
 
-	if !strings.Contains(served.notes, "serving http://"+addr+" ") {
+	if !strings.Contains(served.notes, "serving http://"+addr+"/#session=") {
 		t.Errorf("workflow --web --port %s said %q, want where it serves", port, served.notes)
 	}
 }

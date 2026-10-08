@@ -129,7 +129,7 @@ func TestHandlerRefusesAConfigurationPathItCannotRead(t *testing.T) {
 	cfg.Path = t.TempDir()
 
 	// Act
-	_, err := webserver.Handler(webserver.Deps{}, cfg, webserver.Info{}, fstest.MapFS{})
+	_, err := webserver.Handler(webserver.World{Config: cfg}, fstest.MapFS{}, webserver.NewSession())
 
 	// Assert
 	if err == nil {
@@ -185,14 +185,16 @@ func TestHandlerStartsFromWhatTheProcessReadWhenTheFileHasTurnedInvalid(t *testi
 	cfg.Path = path
 	cfg.Jira.Views = []config.JiraView{{Name: sprintView, JQL: "sprint = 1"}}
 
+	session := webserver.NewSession()
+
 	// Act
-	handler, err := webserver.Handler(webserver.Deps{}, cfg, webserver.Info{}, fstest.MapFS{})
+	handler, err := webserver.Handler(webserver.World{Config: cfg}, fstest.MapFS{}, session)
 	// Assert
 	if err != nil {
 		t.Fatalf("Handler over a file that is not valid = %v, want it served anyway", err)
 	}
 
-	views := decode[api.ViewList](t, get(t, handler, "/api/views"))
+	views := decode[api.ViewList](t, get(t, presenting(t, session, handler), "/api/views"))
 	if len(views.Views) != 1 || views.Views[0].Name != sprintView {
 		t.Errorf("views = %+v, want the configuration the process read", views.Views)
 	}

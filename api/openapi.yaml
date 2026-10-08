@@ -8,7 +8,8 @@
 #
 # Field naming is snake_case, matching the rest of the project's JSON (the
 # `tagliatelle` linter). Enum values are snake_case too. The server binds to
-# 127.0.0.1 only; there is no auth (a single local user), so no security scheme.
+# 127.0.0.1 only, and answers only a request that presents the session the run
+# made as it started (the session security scheme).
 openapi: 3.0.3
 info:
   title: workflow web API
@@ -34,6 +35,8 @@ servers:
     description: >-
       The local server, bound to the loopback interface only. Its port is the
       one `workflow --web --port` names; 13579 when it names none.
+security:
+  - session: []
 tags:
   - name: meta
     description: Server and build information.
@@ -2514,6 +2517,11 @@ paths:
         posted once the CI has passed, dropped once it has failed — and the
         frame's queued_announcement says how it stands.
       tags: [events]
+      # A browser's EventSource opens the stream with no header of its own, so
+      # the stream alone also takes the session in its query.
+      security:
+        - session: []
+        - sessionQuery: []
       parameters:
         - name: view
           in: query
@@ -2695,6 +2703,25 @@ paths:
         default: {$ref: "#/components/responses/Problem"}
 
 components:
+  securitySchemes:
+    session:
+      type: http
+      scheme: bearer
+      description: >-
+        The session this run of `workflow --web` made as it started: the
+        address it prints carries it after #session=, in the fragment, which a
+        browser sends to no server, and the page it serves presents it on
+        every request as Authorization: Bearer <session>. A request presenting
+        none, or another, is answered 401 with code unauthorized. Each run
+        makes a new one.
+    sessionQuery:
+      type: apiKey
+      in: query
+      name: session
+      description: >-
+        The same session in the query, which only the event stream takes: a
+        browser's EventSource opens it with no header of its own.
+
   parameters:
     TaskUUID:
       name: uuid
@@ -2894,8 +2921,10 @@ components:
             no Taskwarrior installed, no git user.email — whose detail says how
             to set it up; unprocessable is a request or a setting that cannot
             be used as it is; rate_limited is an upstream asking to be asked
-            again later, unreachable one that could not be reached at all.
-          enum: [bad_request, not_found, method_not_allowed, conflict, unprocessable, not_set_up, too_long, precondition_required, unreachable, rate_limited, fetch_failed, check_failed, internal]
+            again later, unreachable one that could not be reached at all;
+            unauthorized is a request that presented no session, or another
+            run's.
+          enum: [bad_request, unauthorized, not_found, method_not_allowed, conflict, unprocessable, not_set_up, too_long, precondition_required, unreachable, rate_limited, fetch_failed, check_failed, internal]
         retry_after:
           type: integer
           minimum: 1
