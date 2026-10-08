@@ -53,13 +53,13 @@ test('lists every stage the server sends, in its order, each titled for the stor
 
 test('lists only the stages the server sends', () => {
   // Arrange
-  streamOnHead({ stages: makeStages().filter((stage) => stage.step !== 'issue') })
+  streamOnHead({ stages: makeStages().filter((stage) => stage.step !== 'review') })
 
   // Act
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  expect(storyTitles()).toEqual(['Branch', 'Changes', 'Pull request', 'Announce'])
+  expect(storyTitles()).toEqual(['Issue', 'Branch', 'Changes', 'Announce'])
 })
 
 // How a stage the server read is drawn: done and failed as they are, and one
