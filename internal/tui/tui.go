@@ -10,11 +10,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/colorprofile"
+	"golang.org/x/term"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
@@ -170,14 +172,14 @@ func (m Model) WithoutColor() Model {
 	return m
 }
 
-// Run starts the interface, reading keys from in and drawing on out, and
+// Run starts the interface, reading keys from in — or from the terminal the
+// process runs on, when in is a file that is not one — and drawing on out, and
 // blocks until the user quits, or switches directory, which Next says. The
 // context cancels the program, so a caller can shut the interface down. The
 // alternate screen and mouse mode are set declaratively in View, as v2 asks.
 func Run(ctx context.Context, model Model, in io.Reader, out io.Writer) (Next, error) {
-	options := append(
-		[]tea.ProgramOption{tea.WithInput(in), tea.WithOutput(out), tea.WithContext(ctx)}, model.programOptions...,
-	)
+	options := append(keysFrom(in), tea.WithOutput(out), tea.WithContext(ctx))
+	options = append(options, model.programOptions...)
 
 	ended, err := tea.NewProgram(model, options...).Run()
 	if err != nil {
@@ -187,6 +189,21 @@ func Run(ctx context.Context, model Model, in io.Reader, out io.Writer) (Next, e
 	final, _ := ended.(Model)
 
 	return final.next, nil
+}
+
+// keysFrom is where the program reads keys: from input, unless input is a
+// file that is not a terminal — the pipe or /dev/null standard input may be —
+// which holds no keys. Then it names no input, and Bubble Tea opens the
+// terminal the process runs on, as it does by default: `workflow < /dev/null`
+// still takes keys from the person at it, and an editor the interface hands
+// off to gets that terminal rather than the pipe.
+func keysFrom(input io.Reader) []tea.ProgramOption {
+	file, isFile := input.(*os.File)
+	if isFile && !term.IsTerminal(int(file.Fd())) {
+		return nil
+	}
+
+	return []tea.ProgramOption{tea.WithInput(input)}
 }
 
 // Init implements tea.Model: it starts every load the panes need. Each runs
