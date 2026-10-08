@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/wiring"
+	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
 // statusSeams are what `workflow status` reads to build its line. They are
@@ -52,12 +53,13 @@ func newStatusCmd(prompt Prompt) *cobra.Command {
 			"A service that refuses to answer leaves its stage as though there were nothing\n" +
 			"to say — CI none — and is named on standard error, one line each; so is one that\n" +
 			"is not set up, such as a forge with no token, with how to set it up.\n\n" +
-			"Given one or more directories, it prints a labeled line for each, so\n" +
-			"`workflow status ~/src/*` reports every repository at once. Each reads its\n" +
-			"own configuration. A directory that cannot be read still gets its line,\n" +
-			"saying why, and the command then fails, as it does outside a repository: it\n" +
-			"exits 3 when a directory's configuration does not load, otherwise 4 when one\n" +
-			"is not a git repository — as bare status exits 4 outside one — otherwise 1.",
+			"Given one or more directories, it prints a line for each, labeled with its\n" +
+			"name, or with its path where two share a name, so `workflow status ~/src/*`\n" +
+			"reports every repository at once. Each reads its own configuration. A\n" +
+			"directory that cannot be read still gets its line, saying why, and the\n" +
+			"command then fails, as it does outside a repository: it exits 3 when a\n" +
+			"directory's configuration does not load, otherwise 4 when one is not a git\n" +
+			"repository — as bare status exits 4 outside one — otherwise 1.",
 		Example: examples(
 			`workflow status --json        # where the work stands, as data`,
 			`workflow status ~/src/*       # every repository at once, a line each`,
@@ -142,6 +144,9 @@ func unreadDirectories(statuses []directoryStatus) error {
 
 // directoryStatus is one named directory's status, or why it has none.
 type directoryStatus struct {
+	// dir is the directory as it was given, and label what names it in the
+	// output.
+	dir   string
 	label string
 	facts statusFacts
 	ascii bool
@@ -155,16 +160,17 @@ func statusesOf(
 	cmd *cobra.Command, note *progressNote, dirs []string, requestLog *wiring.RequestLog,
 ) []directoryStatus {
 	home := configHome()
+	labels := repoLabels(dirs, home)
 	statuses := make([]directoryStatus, 0, len(dirs))
 
-	for _, dir := range dirs {
-		note.show("Reading", repoLabel(dir))
+	for index, dir := range dirs {
+		note.show("Reading", labels[index])
 
 		conn := connectAt(cmd, dir, home, requestLog)
 		facts, err := statusOf(conn)
 
 		statuses = append(statuses, directoryStatus{
-			label: repoLabel(dir), facts: facts, ascii: conn.cfg.UI.ASCII, err: err,
+			dir: dir, label: labels[index], facts: facts, ascii: conn.cfg.UI.ASCII, err: err,
 		})
 	}
 
@@ -208,15 +214,29 @@ func trackerName(conn connection) string {
 	return forgeName(conn.deps.Forge.Kind)
 }
 
-// repoLabel names a directory in the output: its base name, or the path itself
-// when the base name would not say which repository it is.
-func repoLabel(dir string) string {
-	base := filepath.Base(dir)
-	if base == "." {
-		return dir
+// repoLabels names each directory in the output: by its base name, or, where
+// that would not say which repository it is — "." or a base name another of
+// dirs shares — by its path, written from home.
+func repoLabels(dirs []string, home string) []string {
+	named := make(map[string]int, len(dirs))
+	for _, dir := range dirs {
+		named[filepath.Base(dir)]++
 	}
 
-	return base
+	labels := make([]string, len(dirs))
+
+	for index, dir := range dirs {
+		base := filepath.Base(dir)
+		if base == "." || named[base] > 1 {
+			labels[index] = workdirs.Shown(dir, home)
+
+			continue
+		}
+
+		labels[index] = base
+	}
+
+	return labels
 }
 
 // runStatus gathers the current state and prints it, as a line or as JSON,
