@@ -47,8 +47,11 @@
 # ui.go, the terminal's section moved out of config.go to carry the validation
 # it had gone without; 15 is taskwarrior.go, the optional Taskwarrior
 # integration's program and switch; 16 is layers.go, which finds the home and
-# repository files and reads and saves the repository's as a layer over home.
-internal/config 16
+# repository files and reads and saves the repository's as a layer over home;
+# 17 is trust.go, what a repository's file may take from the home file and set
+# itself, which layers.go carried until the settings only the home file may
+# set joined the credentials a moved section withholds.
+internal/config 17
 
 # internal/forge — GitHub and GitLab: the client and its transport (client.go,
 # host.go, token.go, reason.go), the remote a repository names (remote.go),
