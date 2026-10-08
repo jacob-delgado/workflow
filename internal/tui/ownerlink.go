@@ -68,6 +68,8 @@ type membersRead struct {
 	found   directory
 }
 
+var _ applier = membersRead{}
+
 // apply hands the members to the overlay that asked for them: the preview,
 // unless its channel has changed since, or People and groups, whose channel
 // never does.
@@ -92,6 +94,8 @@ type userGroupsRead struct {
 	opened int
 	found  directory
 }
+
+var _ applier = userGroupsRead{}
 
 // apply hands the groups to the preview, or to People and groups.
 func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
@@ -196,6 +200,8 @@ type ownerLinked struct {
 	link   loop.OwnerLink
 	err    error
 }
+
+var _ applier = ownerLinked{}
 
 // apply shows the link where it was made: in the preview's tags, or in
 // People and groups.

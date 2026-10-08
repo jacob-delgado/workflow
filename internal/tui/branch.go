@@ -35,6 +35,8 @@ type branchLoaded struct {
 	err    error
 }
 
+var _ applier = branchLoaded{}
+
 // apply records the branch, selects the issue it is for, and looks for its pull
 // request.
 func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {

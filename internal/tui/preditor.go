@@ -172,6 +172,8 @@ type pullEdited struct {
 	err  error
 }
 
+var _ applier = pullEdited{}
+
 // apply shows the updated pull request, or keeps the editor open with why the
 // forge turned the change down.
 func (msg pullEdited) apply(m Model) (Model, tea.Cmd) {

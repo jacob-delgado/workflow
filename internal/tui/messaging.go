@@ -113,6 +113,8 @@ type authorFound struct {
 	err  error
 }
 
+var _ applier = authorFound{}
+
 // apply records the name. Not knowing it only makes the announcement say less.
 func (msg authorFound) apply(m Model) (Model, tea.Cmd) {
 	if msg.err == nil {

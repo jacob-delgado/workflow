@@ -164,6 +164,8 @@ type checkOpened struct {
 	err  error
 }
 
+var _ applier = checkOpened{}
+
 // apply records the outcome on the open list, or does nothing when it has since
 // closed.
 func (msg checkOpened) apply(m Model) (Model, tea.Cmd) {
@@ -229,6 +231,8 @@ type rerunRequested struct {
 	reran bool
 	err   error
 }
+
+var _ applier = rerunRequested{}
 
 // apply returns the pane to "running" and restarts the poll once a re-run has
 // started, or says nothing could be re-run — a failure the forge has no

@@ -22,6 +22,8 @@ type issueBranchesListed struct {
 	err  error
 }
 
+var _ applier = issueBranchesListed{}
+
 // apply records which issues have a branch, and reads the selected issue when
 // the change moved the selection. A listing that failed changes nothing: the
 // branches last listed still stand, rather than every issue dropping out of

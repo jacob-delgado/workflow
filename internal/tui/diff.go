@@ -49,6 +49,8 @@ type diffLoaded struct {
 	err   error
 }
 
+var _ applier = diffLoaded{}
+
 func (msg diffLoaded) apply(m Model) (Model, tea.Cmd) {
 	// A faster key may have moved the selection on; keep the diff only if it is
 	// still the selected file's.
