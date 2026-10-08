@@ -264,7 +264,7 @@ func (m Model) ciSummary() string {
 		return m.ciGlyph() + " no checks reported" + m.checkedAtSuffix()
 	}
 
-	state := ciWord(reported.State)
+	state := reported.State.Word()
 
 	if reported.Total > 0 {
 		state += " (" + strconv.Itoa(reported.Done) + " of " + strconv.Itoa(reported.Total) + " finished)"

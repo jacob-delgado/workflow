@@ -9,7 +9,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/progress"
 )
@@ -55,11 +54,11 @@ func renderStatusLine(out io.Writer, facts statusFacts, ascii bool) {
 
 	marks := make([]string, len(facts.stages))
 	for index, stage := range facts.stages {
-		marks[index] = statusGlyph(stage.State, ascii) + " " + stage.Name
+		marks[index] = stage.State.Glyph(ascii) + " " + stage.Name
 	}
 
 	line.WriteString(strings.Join(marks, "  "))
-	line.WriteString("  CI " + ciWord(facts.ci))
+	line.WriteString("  CI " + facts.ci.Word())
 
 	fmt.Fprintln(out, line.String())
 }
@@ -84,7 +83,7 @@ func renderStatusJSON(out io.Writer, facts statusFacts) error {
 		Issue:   facts.issue,
 		Summary: facts.summary,
 		Stages:  stageReports(facts.stages),
-		CI:      ciWord(facts.ci),
+		CI:      facts.ci.Word(),
 	})
 }
 
@@ -113,7 +112,7 @@ func statusesJSON(out io.Writer, statuses []directoryStatus) error {
 		} else {
 			facts := status.facts
 			report.Issue, report.Summary = facts.issue, facts.summary
-			report.Stages, report.CI = stageReports(facts.stages), ciWord(facts.ci)
+			report.Stages, report.CI = stageReports(facts.stages), facts.ci.Word()
 		}
 
 		reports = append(reports, report)
@@ -132,24 +131,6 @@ func stageReports(stages []progress.Stage) []stageReport {
 	return reports
 }
 
-// statusGlyph is the mark for a stage state, plain by default or ASCII. The
-// marks are a map, not a switch, so there is no last-case arm gobco can never
-// see; exhaustive keeps it complete, as it does stateWord's and ciWord's.
-func statusGlyph(state progress.State, ascii bool) string {
-	marks := map[progress.State]struct{ unicode, plain string }{
-		progress.Done:       {unicode: "●", plain: "#"},
-		progress.InFlight:   {unicode: "◐", plain: "*"},
-		progress.Failed:     {unicode: "✗", plain: "x"},
-		progress.NotStarted: {unicode: "○", plain: "o"},
-	}[state]
-
-	if ascii {
-		return marks.plain
-	}
-
-	return marks.unicode
-}
-
 // stateWord names a stage state for JSON.
 func stateWord(state progress.State) string {
 	return map[progress.State]string{
@@ -157,15 +138,5 @@ func stateWord(state progress.State) string {
 		progress.InFlight:   "in_flight",
 		progress.Failed:     "failed",
 		progress.NotStarted: "not_started",
-	}[state]
-}
-
-// ciWord names how CI stands for the line and the JSON.
-func ciWord(state forge.CIState) string {
-	return map[forge.CIState]string{
-		forge.CIRunning: "running",
-		forge.CIPassed:  "passed",
-		forge.CIFailed:  "failed",
-		forge.CINone:    "none",
 	}[state]
 }
