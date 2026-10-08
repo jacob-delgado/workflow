@@ -331,18 +331,17 @@ func (p branchPicker) footer(keys keyMap) []key.Binding {
 
 // handleKey answers a key while the switcher has the keyboard.
 func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case p.send.sending:
+	if p.send.sending {
 		return m, nil
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.cursorKeys()...):
-		return p.step(m, m.keys.stepOf(msg)), nil
-	case key.Matches(msg, m.keys.confirm):
-		return p.choose(m)
 	}
 
-	m.overlay = p
+	if listed, answered := m.listKey(p, msg); answered {
+		return listed, nil
+	}
+
+	if key.Matches(msg, m.keys.confirm) {
+		return p.choose(m)
+	}
 
 	return m, nil
 }

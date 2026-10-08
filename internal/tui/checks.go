@@ -117,18 +117,16 @@ func (c checkList) footer(keys keyMap) []key.Binding {
 
 // handleKey answers a key while the checks are listed.
 func (c checkList) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	if listed, answered := m.listKey(c, msg); answered {
+		return listed, nil
+	}
+
 	switch {
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.cursorKeys()...):
-		return c.step(m, m.keys.stepOf(msg)), nil
 	case key.Matches(msg, m.keys.confirm):
 		return c.open(m)
 	case key.Matches(msg, m.keys.showLog):
 		return c.readLog(m)
 	}
-
-	m.overlay = c
 
 	return m, nil
 }

@@ -350,15 +350,17 @@ func (p peopleOverlay) footer(keys keyMap) []key.Binding {
 
 // handleKey answers the keys every tab shares, then the shown tab's own.
 func (p peopleOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case p.send.sending:
+	if p.send.sending {
 		return m, nil
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
+	}
+
+	if listed, answered := m.listKey(p, msg); answered {
+		return listed, nil
+	}
+
+	switch {
 	case key.Matches(msg, m.keys.nextField):
 		p.tab = 1 - p.tab
-	case key.Matches(msg, m.keys.cursorKeys()...):
-		return p.step(m, m.keys.stepOf(msg)), nil
 	case p.tab == tabGroups:
 		return p.handleGroupKey(m, msg)
 	default:
