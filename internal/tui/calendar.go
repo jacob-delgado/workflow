@@ -227,9 +227,9 @@ func (c calendar) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.confirm):
 		return c.show(m)
 	case key.Matches(msg, m.keys.nextField):
-		c.column = (c.column + 1) % calendarColumns
+		c.column = around(c.column, calendarColumns).next()
 	case key.Matches(msg, m.keys.prevField):
-		c.column = (c.column + calendarColumns - 1) % calendarColumns
+		c.column = around(c.column, calendarColumns).prev()
 	case key.Matches(msg, m.keys.toggleOption):
 		c.mark, c.marked = c.cursor, !c.marked
 	default:

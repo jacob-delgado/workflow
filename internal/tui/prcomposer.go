@@ -422,11 +422,11 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		return m, c.editBody(m)
 	case key.Matches(msg, m.keys.nextTemplate) && c.canNextTemplate():
-		c = c.withTemplate((c.template + 1) % len(c.templates))
+		c = c.withTemplate(around(c.template, len(c.templates)).next())
 	case key.Matches(msg, m.keys.toggleDraft):
 		c.draft = !c.draft
 	case key.Matches(msg, m.keys.nextField, m.keys.prevField):
-		c = c.onFieldNav(msg, m.keys)
+		c = onFieldNav(c, m.keys, msg)
 	default:
 		c = c.typed(msg)
 	}
@@ -436,29 +436,15 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// onFieldNav accepts a pending base completion when tab could take one, and
-// otherwise moves to the next field.
-//
-// Trade-off TRADE-6: commitComposer.onFieldNav is its twin; the two stay apart
-// until a third composer needs them.
-func (c prComposer) onFieldNav(msg tea.KeyPressMsg, keys keyMap) prComposer {
-	if c.focus == prFieldBase && key.Matches(msg, keys.nextField) && c.baseCanComplete() {
-		return c.typed(msg)
-	}
-
-	if key.Matches(msg, keys.prevField) {
-		return c.focusOn((c.focus + prFields - 1) % prFields)
-	}
-
-	return c.focusOn((c.focus + 1) % prFields)
+// fields is where focus stands among the composer's fields.
+func (c prComposer) fields() ring[int] {
+	return around(c.focus, prFields)
 }
 
-// baseCanComplete reports a base suggestion that would extend what is typed, so
-// tab completes it rather than moving on.
-func (c prComposer) baseCanComplete() bool {
-	suggestion := c.base.CurrentSuggestion()
-
-	return suggestion != "" && suggestion != c.base.Value()
+// suggesting is the base while it has focus, the one field that completes
+// what is typed.
+func (c prComposer) suggesting() (textinput.Model, bool) {
+	return c.base, c.focus == prFieldBase
 }
 
 // focusOn moves focus to a field, and the text cursor with it.

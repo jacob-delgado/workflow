@@ -362,7 +362,7 @@ const (
 
 // next is the order after this one, round to the first.
 func (o reviewOrder) next() reviewOrder {
-	return (o + 1) % orderCount
+	return around(o, orderCount).next()
 }
 
 // title says the order, above a queue listed in it.
