@@ -5,9 +5,11 @@ package gitrepo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
@@ -203,14 +205,17 @@ func (r Repository) Stage(ctx context.Context, change Change) error {
 // alone. Before the first commit there is no HEAD to restore from, so the file
 // is removed from the index instead.
 func (r Repository) Unstage(ctx context.Context, change Change) error {
-	args := append([]string{"-C", r.dir, literalPathspecs, "restore", "--staged", "--"}, change.paths()...)
-
-	_, err := r.run(ctx, "git", "-C", r.dir, "rev-parse", "--verify", "--quiet", "HEAD")
+	committed, err := r.hasHead(ctx)
 	if err != nil {
-		args = append([]string{"-C", r.dir, literalPathspecs, "rm", "--cached", "--quiet", "--"}, change.paths()...)
+		return fmt.Errorf("unstaging %s: %w", sanitize.Line(change.Path), err)
 	}
 
-	_, err = r.run(ctx, "git", args...)
+	args := []string{"-C", r.dir, literalPathspecs, "rm", "--cached", "--quiet", "--"}
+	if committed {
+		args = []string{"-C", r.dir, literalPathspecs, "restore", "--staged", "--"}
+	}
+
+	_, err = r.run(ctx, gitProgram, append(args, change.paths()...)...)
 	if err != nil {
 		return fmt.Errorf("unstaging %s: %w", sanitize.Line(change.Path), err)
 	}
@@ -224,9 +229,12 @@ func (r Repository) Unstage(ctx context.Context, change Change) error {
 // Before the first commit there is no HEAD to restore from, so the file is
 // removed from both instead.
 func (r Repository) Discard(ctx context.Context, change Change) error {
-	args := r.discardArgs(ctx, change)
+	args, err := r.discardArgs(ctx, change)
+	if err != nil {
+		return fmt.Errorf("discarding %s: %w", sanitize.Line(change.Path), err)
+	}
 
-	_, err := r.run(ctx, gitProgram, append(args, change.paths()...)...)
+	_, err = r.run(ctx, gitProgram, append(args, change.paths()...)...)
 	if err != nil {
 		return fmt.Errorf("discarding %s: %w", sanitize.Line(change.Path), err)
 	}
@@ -235,15 +243,42 @@ func (r Repository) Discard(ctx context.Context, change Change) error {
 }
 
 // discardArgs is the git command, up to its paths, that discards change.
-func (r Repository) discardArgs(ctx context.Context, change Change) []string {
+func (r Repository) discardArgs(ctx context.Context, change Change) ([]string, error) {
 	if change.Untracked() {
-		return []string{"-C", r.dir, literalPathspecs, "clean", "--force", "--"}
+		return []string{"-C", r.dir, literalPathspecs, "clean", "--force", "--"}, nil
 	}
 
-	_, err := r.run(ctx, gitProgram, "-C", r.dir, "rev-parse", "--verify", "--quiet", headRef)
+	committed, err := r.hasHead(ctx)
 	if err != nil {
-		return []string{"-C", r.dir, literalPathspecs, "rm", "--force", "--quiet", "--"}
+		return nil, err
 	}
 
-	return []string{"-C", r.dir, literalPathspecs, "restore", "--source=" + headRef, "--staged", "--worktree", "--"}
+	if !committed {
+		return []string{"-C", r.dir, literalPathspecs, "rm", "--force", "--quiet", "--"}, nil
+	}
+
+	return []string{"-C", r.dir, literalPathspecs, "restore", "--source=" + headRef, "--staged", "--worktree", "--"}, nil
+}
+
+// noSuchRef is the status `rev-parse --verify --quiet` exits with, saying
+// nothing, for a ref that does not exist.
+const noSuchRef = 1
+
+// hasHead reports whether HEAD names a commit: false only when git answers
+// that it does not, as before the first commit, and readFailure's error for a
+// probe that says nothing either way — one that timed out, found no git, or ran
+// outside a repository — so neither Discard nor Unstage removes a file on a
+// guess.
+func (r Repository) hasHead(ctx context.Context) (bool, error) {
+	_, err := r.run(ctx, gitProgram, "-C", r.dir, "rev-parse", "--verify", "--quiet", headRef)
+	if err == nil {
+		return true, nil
+	}
+
+	exit, ok := errors.AsType[*proc.ExitError](err)
+	if ok && exit.Code == noSuchRef {
+		return false, nil
+	}
+
+	return false, readFailure(ctx, r.run, r.dir, "reading HEAD", err)
 }
