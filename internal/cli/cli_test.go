@@ -322,7 +322,7 @@ func TestHelpExplainsBothTokens(t *testing.T) {
 		"workflow slack login",
 		config.FileName,
 		"LAYERED",
-		"no higher than the repository root",
+		"up to the repository root",
 		"Jira is optional",
 		"answering the prompts",
 		"--template",
