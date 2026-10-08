@@ -75,8 +75,9 @@ can rely on from them: exit codes, which stream carries what, `--json`,
   that wait on your review, the longest-waiting first until `O` sorts them
   another way. `f` filters them by repository, CI state, draft or ready, and
   author — values in one of those widen the list, and the four narrow it
-  together — and a line above the queue names the sort and the filters while
-  either is not the usual. The seventh, Tasks, is
+  together, and a value checked stays, at zero, once no request holds it, a
+  repository or author the queue no longer holds last — and a line above the
+  queue names the sort and the filters while either is not the usual. The seventh, Tasks, is
   your own [Taskwarrior](#track-it-in-taskwarrior) list, the eighth,
   [Summary](#summary), what you did over a day or a range of them, and the
   ninth, [Repositories](#repositories), where you work and the directories
@@ -607,7 +608,8 @@ natural order, so `PROJ-2` comes before `PROJ-10`, with unlinked tasks last)
 and by priority (`H`, `M`, `L`, any other value your taskrc allows, then
 none). A faint line above the rows names
 the order, every tie stays most urgent first, and when the order is by tag or
-by priority each row's tail shows it. The order lasts for the session, through
+by priority each row's tail shows it, as the filter names it: `no tag` or `no
+priority` for a task with none. The order lasts for the session, through
 every read.
 
 `/` searches the list as you type, as the Issues search does: a task stays when
@@ -617,7 +619,9 @@ holds the text, ignoring case; `enter` keeps the search and `esc` clears it.
 tasks hold, and whether they have an issue, each with how many tasks hold it
 (a waiting task counts only toward its state):
 values checked in one group widen the list, and the groups narrow it
-together. Checking **waiting** lists the waiting tasks, each saying until
+together. A value checked stays, at zero, once no task holds it, so it can be
+unchecked; a project or tag no task holds any longer comes last. Checking
+**waiting** lists the waiting tasks, each saying until
 when. The faint line above the rows names what narrows the list; the rail
 still counts every pending task, and a task the list hides still tracks its
 issue, so `T` on that issue names it and why it is hidden. A filter that
