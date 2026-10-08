@@ -113,7 +113,7 @@ func jiraFaults() []faultClass {
 			detail: "Jira did not accept the configured credential; workflow doctor checks it",
 		},
 		{
-			causes: []error{jira.ErrNoAPI},
+			causes: []error{jira.ErrNoAPI, jira.ErrNotJSON},
 			code:   api.ProblemCodeUnprocessable, detail: "no Jira API answers at jira.base_url; workflow doctor checks it",
 		},
 	}
