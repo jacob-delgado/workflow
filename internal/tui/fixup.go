@@ -15,11 +15,11 @@ import (
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
-// canFoldStaged reports whether the staged changes can go into an unpushed
+// canFold reports whether the staged changes can go into an unpushed
 // commit — amended into the last, or fixed up into a chosen one — which is safe
 // only while those commits are local.
-func (m Model) canFoldStaged() bool {
-	return len(loop.Foldable(m.changes.changes, m.branch.branch)) > 0
+func (l changeList) canFold(branch gitrepo.Branch) bool {
+	return len(loop.Foldable(l.changes, branch)) > 0
 }
 
 // startAmend previews folding the staged changes into the last commit.

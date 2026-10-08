@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -131,24 +132,6 @@ func (m Model) resumeIssue() Model {
 	return m
 }
 
-// issuesRail is the Issues pane's list, each issue marked with its task state
-// when there is a Taskwarrior to ask.
-func (m Model) issuesRail(rows int) string {
-	return m.issues.render(m.kit(), rows, m.tasks.issueMarks(m.kit()))
-}
-
-// issuesNarrow is the collapsed Issues view: the full issue — or the reason
-// there is none, and the setup steps — when there is nothing to scan or enter
-// asked to read one, otherwise the list.
-func (m Model) issuesNarrow(rows int) string {
-	_, ok := m.issues.current()
-	if !ok || m.issues.viewing {
-		return m.issueDetailView(m.detailWidth())
-	}
-
-	return m.issuesRail(rows)
-}
-
 // browseURL is the selected issue's browse URL, or empty when there is no issue
 // selected or no way to build one.
 func (l issueList) browseURL(deps Deps) string {
@@ -205,12 +188,12 @@ func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
 // failure.
 func (m Model) issueDetailView(width int) string {
 	if m.issues.err != nil {
-		return m.kit().failureBlock(m.issues.err, width) + "\n\n" + m.status(width)
+		return m.kit().failureBlock(m.issues.err, width) + "\n\n" + m.configStatus().block(width)
 	}
 
 	selected, ok := m.issues.current()
 	if !ok {
-		return m.status(width)
+		return m.configStatus().block(width)
 	}
 
 	lines := []string{
@@ -346,11 +329,39 @@ func issueRelations(kit renderKit, detail jira.IssueDetail) []string {
 
 // issuesBehavior is the Issues pane's behavior.
 func issuesBehavior() behavior {
+	// The rail is the list, its rows marked by how their issues' tasks stand.
+	rail := func(m Model, rows int) string { return m.issues.render(m.kit(), rows, m.tasks.issueMarks(m.kit())) }
+
 	return behavior{
-		rail: Model.issuesRail, detail: Model.issueDetailView, narrow: Model.issuesNarrow,
-		keys: Model.issuesKeys, handle: Model.handleIssuesKey, pick: Model.pickIssue, move: Model.moveIssue,
-		refresh: Model.refreshIssues, loading: func(m Model) bool { return m.issues.loading },
-		scroll: func(m *Model) *int { return &m.detail.scroll },
+		rail: rail, detail: Model.issueDetailView,
+		// With the rail gone the list and the selected issue take turns: the
+		// issue once it is being read, or when there is no list to pick from.
+		narrow: func(m Model, rows int) string {
+			if _, ok := m.issues.current(); !ok || m.issues.viewing {
+				return m.issueDetailView(m.detailWidth())
+			}
+
+			return rail(m, rows)
+		},
+		keys:   func(m Model) []key.Binding { return liveKeys(m.issuesOffers()) },
+		handle: Model.handleIssuesKey, pick: Model.pickIssue, move: Model.moveIssue,
+		// refresh reads the list again, and the issue shown in full whether or not
+		// it changed, so r retries a detail load that failed. An issue the selection has
+		// only just reached is left to the read its rest will start.
+		refresh: func(m Model) (Model, tea.Cmd) {
+			m = m.searching()
+
+			selected, ok := m.issues.current()
+			if !ok {
+				return m, m.relistIssues()
+			}
+
+			m, detail := m.reloadDetail(selected.Key)
+
+			return m, tea.Batch(m.relistIssues(), detail)
+		},
+		loading: func(m Model) bool { return m.issues.loading },
+		scroll:  func(m *Model) *int { return &m.detail.scroll },
 		answers: []string{
 			"change-status", "comment", "assign", "log-work", "start-work", "track-issue", actionOpenLink,
 			actionCopyLink, "search-issues", "filter-issues", "switch-view", "load-more", actionRefresh,

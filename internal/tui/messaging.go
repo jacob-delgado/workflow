@@ -27,7 +27,7 @@ var (
 	errCIFailedUnannounced = errors.New("CI failed, so nothing was announced")
 )
 
-// messagingState is what has been announced, and how far the messaging pane's
+// standing is what has been announced, and how far the messaging pane's
 // detail is scrolled. The announcements made this session are seeded at startup
 // from the store's record of earlier ones, so a restart does not forget them.
 type messagingState struct {
@@ -137,26 +137,26 @@ func (m Model) announcement(moment messaging.Moment) string {
 	}, m.cfg.Messaging, m.deps.Forge.Kind).Text()
 }
 
-// messagingRail is where messages go and what has been posted.
-func (m Model) messagingRail(_ int) string {
-	return sanitize.Line(m.cfg.Messaging.Target()) + "\n" + m.messagingState()
+// rail is where messages go and what has been posted.
+func (s messagingState) rail(kit renderKit, target string, review reviewState) string {
+	return sanitize.Line(target) + "\n" + s.standing(kit, review)
 }
 
-// messagingState says what has been announced this session.
-func (m Model) messagingState() string {
+// standing says what has been announced this session.
+func (s messagingState) standing(kit renderKit, review reviewState) string {
 	switch {
-	case m.messaging.send.sending:
-		return m.marks.inFlight + " announcing" + m.marks.ellipsis
-	case m.messaging.send.err != nil:
-		return m.kit().failureSummary(m.messaging.send.err)
-	case m.announced():
-		return m.marks.done + " announced"
-	case m.messaging.pending.waiting():
-		return m.marks.inFlight + " announces when CI passes"
-	case m.messaging.dropped != "":
-		return m.kit().failedGlyph() + " not announced: " + m.messaging.dropped
+	case s.send.sending:
+		return kit.marks.inFlight + " announcing" + kit.marks.ellipsis
+	case s.send.err != nil:
+		return kit.failureSummary(s.send.err)
+	case s.announced(review):
+		return kit.marks.done + " announced"
+	case s.pending.waiting():
+		return kit.marks.inFlight + " announces when CI passes"
+	case s.dropped != "":
+		return kit.failedGlyph() + " not announced: " + s.dropped
 	default:
-		return m.marks.notStarted + " nothing announced"
+		return kit.marks.notStarted + " nothing announced"
 	}
 }
 
@@ -172,7 +172,7 @@ func (m Model) messagingDetail(width int) string {
 		reviewPane := paneReview.label(m.cfg.Messaging.Service())
 
 		return wrap("Open a "+m.vocab.noun+" first ("+reviewPane+"); the message links to it.\n\n"+
-			m.messagingRail(0), width)
+			m.messaging.rail(m.kit(), m.cfg.Messaging.Target(), m.review), width)
 	}
 
 	lines := []string{
@@ -180,7 +180,7 @@ func (m Model) messagingDetail(width int) string {
 		"",
 		m.styles.label.Render("to     ") + sanitize.Line(m.cfg.Messaging.Target()),
 		m.styles.label.Render("CI     ") + m.review.ciSummary(m.kit()),
-		m.styles.label.Render("state  ") + m.messagingState(),
+		m.styles.label.Render("state  ") + m.messaging.standing(m.kit(), m.review),
 	}
 
 	if m.messaging.send.err != nil {
@@ -193,19 +193,10 @@ func (m Model) messagingDetail(width int) string {
 // announced reports that the pull request on screen was already posted at its
 // current moment — a merge announced counts, an opening does not — this session
 // or, from the store, an earlier one, by the rule every surface reads it by.
-func (m Model) announced() bool {
-	posted := loop.AnnounceMemory{Recorded: func() []loop.Announced { return m.messaging.posted }}
+func (s messagingState) announced(review reviewState) bool {
+	posted := loop.AnnounceMemory{Recorded: func() []loop.Announced { return s.posted }}
 
-	return posted.HoldsNow(m.review.pull, m.review.found, m.review.ci)
-}
-
-// refreshMessaging reads what was announced again, and the pull request and
-// its CI the announcement is written from.
-func (m Model) refreshMessaging() (Model, tea.Cmd) {
-	read := loadAnnounces(m.deps)
-	m.messaging.loading = read != nil
-
-	return m, tea.Batch(read, loadBranch(m.deps))
+	return posted.HoldsNow(review.pull, review.found, review.ci)
 }
 
 // loadAnnounces reads what was announced in an earlier session from the store, so
@@ -247,7 +238,7 @@ func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
 // of it already made or on its way.
 func (m Model) canPost() bool {
 	return m.review.pullState() != progress.NoPullRequest && m.deps.Messaging.Post != nil &&
-		m.cfg.Messaging.Mode() != config.MessagingNone && !m.announced() && !m.messaging.send.sending
+		m.cfg.Messaging.Mode() != config.MessagingNone && !m.messaging.announced(m.review) && !m.messaging.send.sending
 }
 
 // messagingKeys offers composing the post, and managing whom posts tag.
@@ -258,7 +249,7 @@ func (m Model) messagingKeys() []key.Binding {
 		keys = append(keys, m.keys.compose)
 	}
 
-	if m.managesPeople() {
+	if managesPeople(m.cfg, m.deps) {
 		keys = append(keys, m.keys.peopleAndGroups)
 	}
 
@@ -270,7 +261,7 @@ func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.refresh):
 		return m.refreshPane(paneMessaging)
-	case key.Matches(msg, m.keys.peopleAndGroups) && m.managesPeople():
+	case key.Matches(msg, m.keys.peopleAndGroups) && managesPeople(m.cfg, m.deps):
 		return m.openPeople()
 	case key.Matches(msg, m.keys.compose) && m.canPost():
 		return m.previewAnnouncement()
@@ -282,7 +273,7 @@ func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // previewAnnouncement opens the preview of the post marking the pull
 // request's current moment, and starts reading whom it tags.
 func (m Model) previewAnnouncement() (Model, tea.Cmd) {
-	channels, channel := m.cfg.Messaging.ChannelChoices(), m.defaultChannel()
+	channels, channel := m.cfg.Messaging.ChannelChoices(), defaultChannel(m.cfg)
 	moment := loop.AnnounceMoment(m.review.pull, m.review.ci)
 	m, opened := m.opening()
 
@@ -299,8 +290,8 @@ func (m Model) previewAnnouncement() (Model, tea.Cmd) {
 // defaultChannel is the channel a post goes to unless another is chosen: the
 // first a Slack user token can post to, or none for a webhook, which carries
 // its own.
-func (m Model) defaultChannel() string {
-	channels := m.cfg.Messaging.ChannelChoices()
+func defaultChannel(cfg config.Config) string {
+	channels := cfg.Messaging.ChannelChoices()
 	if len(channels) == 0 {
 		return ""
 	}
@@ -367,10 +358,21 @@ func (m Model) keepQueued() (Model, tea.Cmd) {
 // messagingBehavior is the messaging pane's behavior.
 func messagingBehavior() behavior {
 	return behavior{
-		rail: Model.messagingRail, detail: Model.messagingDetail, narrow: nil,
+		rail: func(m Model, _ int) string {
+			return m.messaging.rail(m.kit(), m.cfg.Messaging.Target(), m.review)
+		},
+		detail: Model.messagingDetail, narrow: nil,
 		keys: Model.messagingKeys, handle: Model.handleMessagingKey, pick: nil,
-		refresh: Model.refreshMessaging, loading: func(m Model) bool { return m.messaging.loading },
-		scroll: func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,
+		// refresh reads what was announced again, and the pull request and
+		// its CI the announcement is written from.
+		refresh: func(m Model) (Model, tea.Cmd) {
+			read := loadAnnounces(m.deps)
+			m.messaging.loading = read != nil
+
+			return m, tea.Batch(read, loadBranch(m.deps))
+		},
+		loading: func(m Model) bool { return m.messaging.loading },
+		scroll:  func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,
 		answers: []string{"post", "people-and-groups", actionRefresh},
 	}
 }

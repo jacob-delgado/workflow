@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -46,7 +47,14 @@ func (m Model) View() tea.View {
 // spine above and the keys below.
 func (m Model) screen() string {
 	shape := m.shape()
-	body := m.detailView(shape)
+	box := shape.Detail
+	title, body, style := m.detailContent(shape)
+
+	if shape.Borderless() {
+		body = frame.Plain(title, body, box.Width, box.Height, style)
+	} else {
+		body = frame.Render(title, body, box.Width, box.Height, style)
+	}
 
 	if !shape.Collapsed() {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.rail(shape), body)
@@ -72,15 +80,15 @@ func (m Model) noticeLine(width int) string {
 		return ansi.Truncate(" "+sanitize.Text("search: "+m.tasks.listing.narrowing.Text), width, m.marks.ellipsis)
 	}
 
-	return m.noticeRow(width)
+	return m.notice.row(m.kit(), width)
 }
 
-// noticeRow is the notice on one row, cut with a mark where it does not fit,
+// row is the notice on one row, cut with a mark where it does not fit,
 // and in the failure style when it reports one, as red means everywhere else.
-func (m Model) noticeRow(width int) string {
-	text := ansi.Truncate(sanitize.Text(m.notice.text), max(0, width-1), m.marks.ellipsis)
-	if m.notice.failed {
-		text = m.styles.failure.Render(text)
+func (n notice) row(kit renderKit, width int) string {
+	text := ansi.Truncate(sanitize.Text(n.text), max(0, width-1), kit.marks.ellipsis)
+	if n.failed {
+		text = kit.styles.failure.Render(text)
 	}
 
 	return " " + text
@@ -123,19 +131,6 @@ func (m Model) rail(shape layout.Layout) string {
 	}
 
 	return frame.Rail(panes, width, m.marks.border)
-}
-
-// detailView draws the detail pane, without its border where the terminal is
-// too narrow for one.
-func (m Model) detailView(shape layout.Layout) string {
-	box := shape.Detail
-	title, body, style := m.detailContent(shape)
-
-	if shape.Borderless() {
-		return frame.Plain(title, body, box.Width, box.Height, style)
-	}
-
-	return frame.Render(title, body, box.Width, box.Height, style)
 }
 
 // detailContent picks what the detail pane shows: an open overlay, then the
@@ -187,16 +182,11 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 // shows in the title until the answer arrives.
 func (m Model) paneTitle(p pane, title string) string {
 	title += m.viewSuffix(p) + m.tasks.suffix(m.kit(), p)
-	if m.loading(p) {
+	if behaviorOf(p).loading(m) {
 		return title + " " + m.marks.inFlight
 	}
 
 	return title
-}
-
-// loading reports a pane waiting on a load it started.
-func (m Model) loading(p pane) bool {
-	return behaviorOf(p).loading(m)
 }
 
 // detailRows is how many rows of content the detail pane holds.
@@ -308,28 +298,49 @@ func messagingLabel(service string) string {
 	return fmt.Sprintf("%-7s", strings.ToLower(service))
 }
 
-// status is the status line's text: the configuration this session is running
+// configStatus is what the status block says of the configuration: the
+// glyphs and styles, the configuration and why it could not be read, your
+// home its files are written from, the key that sets one up, and whether a
+// first run can set one up here.
+type configStatus struct {
+	kit     renderKit
+	cfg     config.Config
+	loadErr error
+	home    string
+	confirm key.Binding
+	setUp   bool
+}
+
+// configStatus is the status block's view of the interface.
+func (m Model) configStatus() configStatus {
+	return configStatus{
+		kit: m.kit(), cfg: m.cfg, loadErr: m.loadErr, home: m.deps.Repositories.Home,
+		confirm: m.keys.confirm, setUp: m.offersSetup(),
+	}
+}
+
+// block is the status line's text: the configuration this session is running
 // with and what it still lacks, or, when none loaded, why.
-func (m Model) status(width int) string {
-	if m.loadErr != nil {
-		return m.configErrorStatus(width)
+func (c configStatus) block(width int) string {
+	if c.loadErr != nil {
+		return c.failure(width)
 	}
 
-	label := m.styles.label
+	label := c.kit.styles.label
 
 	lines := []string{
-		label.Render("config ") + shownFiles(m.deps.Repositories.Home, m.cfg.Layers()),
-		label.Render("jira   ") + sanitize.Line(config.DisplayURL(m.cfg.Jira.BaseURL)) +
-			label.Render(m.marks.separator+m.cfg.Jira.AuthMode().String()),
-		label.Render(messagingLabel(m.cfg.Messaging.Service())) + sanitize.Line(m.cfg.Messaging.Target()) +
-			label.Render(m.marks.separator+m.cfg.Messaging.Mode().String()),
+		label.Render("config ") + shownFiles(c.home, c.cfg.Layers()),
+		label.Render("jira   ") + sanitize.Line(config.DisplayURL(c.cfg.Jira.BaseURL)) +
+			label.Render(c.kit.marks.separator+c.cfg.Jira.AuthMode().String()),
+		label.Render(messagingLabel(c.cfg.Messaging.Service())) + sanitize.Line(c.cfg.Messaging.Target()) +
+			label.Render(c.kit.marks.separator+c.cfg.Messaging.Mode().String()),
 	}
 
-	missing := m.cfg.Missing()
+	missing := c.cfg.Missing()
 	if len(missing) > 0 {
 		lines = append(lines,
 			"",
-			m.styles.strong.Render("incomplete: ")+strings.Join(missing, ", "),
+			c.kit.styles.strong.Render("incomplete: ")+strings.Join(missing, ", "),
 			label.Render("run `workflow doctor` for detail"),
 		)
 	}
@@ -337,31 +348,31 @@ func (m Model) status(width int) string {
 	return strings.Join(lines, "\n")
 }
 
-// configErrorStatus renders the screen shown when no configuration loaded. It
+// failure renders the screen shown when no configuration loaded. It
 // names both setup steps, in the one wording every surface shares — with the
 // key that sets one up here first, where one can be — and gives each problem
 // an invalid file has a row of its own, wrapped to width.
-func (m Model) configErrorStatus(width int) string {
-	if errors.Is(m.loadErr, config.ErrNotFound) {
-		return m.styles.strong.Render(config.NoConfigHeadline) + "\n" +
-			m.setupStep() + "\n" +
-			m.styles.label.Render(config.DoctorStep)
+func (c configStatus) failure(width int) string {
+	if errors.Is(c.loadErr, config.ErrNotFound) {
+		return c.kit.styles.strong.Render(config.NoConfigHeadline) + "\n" +
+			c.setUpStep() + "\n" +
+			c.kit.styles.label.Render(config.DoctorStep)
 	}
 
-	return m.styles.strong.Render("configuration error") + "\n" +
-		m.kit().failureBlock(m.loadErr, width) + "\n" +
-		m.styles.label.Render("start over with `workflow config init --force`")
+	return c.kit.styles.strong.Render("configuration error") + "\n" +
+		c.kit.failureBlock(c.loadErr, width) + "\n" +
+		c.kit.styles.label.Render("start over with `workflow config init --force`")
 }
 
-// setupStep names how to set up a first file: the key that does it here,
+// setUpStep names how to set up a first file: the key that does it here,
 // where one can be, or config init.
-func (m Model) setupStep() string {
-	if !m.offersSetup() {
-		return m.styles.label.Render(config.InitStep)
+func (c configStatus) setUpStep() string {
+	if !c.setUp {
+		return c.kit.styles.label.Render(config.InitStep)
 	}
 
-	return m.styles.strong.Render(m.keys.confirm.Help().Key) + " sets one up here.\n" +
-		m.styles.label.Render("Or "+strings.ToLower(config.InitStep[:1])+config.InitStep[1:])
+	return c.kit.styles.strong.Render(c.confirm.Help().Key) + " sets one up here.\n" +
+		c.kit.styles.label.Render("Or "+strings.ToLower(config.InitStep[:1])+config.InitStep[1:])
 }
 
 // plural counts things, in words.

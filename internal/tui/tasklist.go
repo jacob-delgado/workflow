@@ -270,7 +270,10 @@ func (m Model) goToTrackingTask(issueKey jira.Key, task taskwarrior.Task) Model 
 	}
 
 	if !groups.lists(task.UUID) {
-		return m.noticed(shownKey(issueKey) + " is tracked by task " + taskName(task) + ", " + m.unlistedBecause(task))
+		now := m.deps.now()
+		why := m.tasks.unlistedBecause(m.keys, m.tasks.groupsBy(taskListing{}, m.issues, now), task, now)
+
+		return m.noticed(shownKey(issueKey) + " is tracked by task " + taskName(task) + ", " + why)
 	}
 
 	m = m.focusOn(paneTasks)
@@ -293,28 +296,27 @@ func (s tasksState) listedTracking(issueKey jira.Key, groups taskGroups) (taskwa
 	return taskwarrior.Task{}, false
 }
 
-// unlistedBecause is why the Tasks pane does not list a task still to do: it
-// waits, until a day in the clock's zone; it is the template a recurring task's
-// instances are made from; a track has just added it, and no read since has
-// held it; the active context hides it; or, with no context to hide it, it
-// changed between the pending read and the linked one, which reading them
-// again settles.
-func (m Model) unlistedBecause(task taskwarrior.Task) string {
-	now := m.deps.now()
-
+// unlistedBecause is why the Tasks pane does not list a task still to do:
+// the list with nothing narrowing it, unnarrowed, holds it, so the filter
+// hides it; it waits, until a day in the clock's zone; it is the template a
+// recurring task's instances are made from; a track has just added it, and
+// no read since has held it; the active context hides it; or, with no
+// context to hide it, it changed between the pending read and the linked
+// one, which reading them again settles.
+func (s tasksState) unlistedBecause(keys keyMap, unnarrowed taskGroups, task taskwarrior.Task, now time.Time) string {
 	switch {
-	case m.tasks.groupsBy(taskListing{}, m.issues, now).lists(task.UUID):
-		return "which the Tasks pane's filter hides; " + m.keys.filterTasks.Help().Key + " there changes it"
+	case unnarrowed.lists(task.UUID):
+		return "which the Tasks pane's filter hides; " + keys.filterTasks.Help().Key + " there changes it"
 	case task.Waiting(now):
 		return "which waits until " + task.Wait.In(now.Location()).Format(time.DateOnly)
 	case task.Status == taskwarrior.Recurring:
 		return "a recurring template"
-	case m.tasks.stubbed(task.UUID):
-		return "just added; " + m.keys.refresh.Help().Key + " in the Tasks pane reads it"
-	case m.tasks.context == "":
-		return "not among the tasks just read; " + m.keys.refresh.Help().Key + " in the Tasks pane reads them again"
+	case s.stubbed(task.UUID):
+		return "just added; " + keys.refresh.Help().Key + " in the Tasks pane reads it"
+	case s.context == "":
+		return "not among the tasks just read; " + keys.refresh.Help().Key + " in the Tasks pane reads them again"
 	default:
-		return "outside context " + m.tasks.context
+		return "outside context " + s.context
 	}
 }
 
