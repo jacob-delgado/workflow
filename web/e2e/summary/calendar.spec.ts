@@ -103,7 +103,10 @@ test('a year picked some way back still offers the years since', async ({ page }
   // Act
   await year.selectOption('2021')
 
-  // Assert
+  // Assert: 2021 is shown, offered among the years before it and every year
+  // since.
+  await expect(year).toHaveValue('2021')
+  await expect(year.getByRole('option', { name: '2016' })).toBeAttached()
   await expect(year.getByRole('option', { name: '2026' })).toBeAttached()
 })
 

@@ -70,19 +70,22 @@ test(
   'an issue opens at the top of its pane at 1440 px',
   { tag: '@populated' },
   async ({ page }) => {
-    // Arrange: the checked-out issue read to its end, in a window shorter than it.
+    // Arrange: the checked-out issue open, in a window shorter than it.
     await openCockpit(page, { width: 1440, height: 600 }, 'dark')
-    await page.getByRole('article').evaluate((article) => {
-      const pane = article.parentElement
-      if (pane !== null) {
-        pane.scrollTop = pane.scrollHeight
-      }
-    })
 
-    // Act
+    // Act: read it to its end.
+    await page.getByRole('article').hover()
+    await page.mouse.wheel(0, 10_000)
+
+    // Assert: its heading has scrolled out of view.
+    await expect(
+      page.getByRole('heading', { level: 2, name: /redact tokens before/i }),
+    ).not.toBeInViewport()
+
+    // Act: open another issue.
     await page.getByRole('button', { name: /refuse to start/i }).click()
 
-    // Assert
+    // Assert: it opens at its top.
     await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
     const heading = page.getByRole('heading', { level: 2, name: /refuse to start/i })
     await expect(heading).toBeInViewport({ ratio: 1 })
