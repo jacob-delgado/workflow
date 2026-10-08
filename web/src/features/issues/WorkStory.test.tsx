@@ -99,9 +99,9 @@ test("draws each stage as the mark of how far it has come, beside the stage's st
   expect(stages.map((stage) => within(stage).getByRole('button').textContent)).toEqual([
     expect.stringContaining('done'),
     expect.stringContaining('done'),
-    expect.stringContaining('active'),
-    expect.stringContaining('upcoming'),
-    expect.stringContaining('upcoming'),
+    expect.stringContaining('in flight'),
+    expect.stringContaining('not started'),
+    expect.stringContaining('not started'),
   ])
 })
 

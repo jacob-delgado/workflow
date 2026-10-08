@@ -20,22 +20,30 @@ import {
 } from './StartInWorktree.tsx'
 import { startWork } from './startWorkApi.ts'
 
-type StageState = 'done' | 'failed' | 'active' | 'upcoming'
+type SnapshotStage = Snapshot['stages'][number]
+type Step = SnapshotStage['step']
 
-// A stage's mark: done, failed, the stage the work is at, and the stages still
-// to come. It takes the hue of the system the stage belongs to, as the
+// How far a stage has got, drawn by its mark: not started, in flight, done or
+// failed. The mark takes the hue of the system the stage belongs to, as the
 // interface's spine does (internal/tui/spine.go), so a stage and the section
 // it opens share a color — except a failed stage, red as the spine paints it.
-const stageMark: Record<StageState, MarkState> = {
+type StageState = Exclude<MarkState, 'unknown'>
+
+// A stage's state in the server's words, as the story draws it.
+const drawnState: Record<SnapshotStage['state'], StageState> = {
+  not_started: 'not-started',
+  in_flight: 'in-flight',
   done: 'done',
   failed: 'failed',
-  active: 'in-flight',
-  upcoming: 'not-started',
 }
 
-// How far a stage has got: done, failed, or neither yet. Which pending stage the
-// work is at is the story's own reading (stageState).
-type Reached = 'done' | 'failed' | 'pending'
+// A stage's state as the story says it beside the mark.
+const stateWords: Record<StageState, string> = {
+  'not-started': 'not started',
+  'in-flight': 'in flight',
+  done: 'done',
+  failed: 'failed',
+}
 
 interface Stage {
   title: string
@@ -43,11 +51,8 @@ interface Stage {
   // them is set in the code face (BranchName).
   detail: ReactNode[]
   section: Section
-  reached: Reached
+  state: StageState
 }
-
-type SnapshotStage = Snapshot['stages'][number]
-type Step = SnapshotStage['step']
 
 // The issue's place in the loop: no local branch yet, a branch that is not
 // checked out, or the branch on HEAD.
@@ -73,22 +78,23 @@ function stageLook(step: Step, noun: string): Pick<Stage, 'title' | 'section'> {
 }
 
 // buildStages is the issue's story over the stages the server sends. The
-// stages describe the checked-out branch, so the issue on HEAD reads each
-// stage's state from them, as the server read it. An issue with no local branch
-// has not started. One with a branch that is not checked out has been picked up
-// and branched for, but the detail panels describe only the checked-out
-// branch, so its later stages wait.
+// stages describe the checked-out branch, so the issue on HEAD draws each in
+// the state the server read it in. An issue with no local branch has not
+// started. One with a branch that is not checked out has been picked up and
+// branched for, but the detail panels describe only the checked-out branch, so
+// its later stages wait.
 function buildStages(
   snapshot: Snapshot,
   branch: TaskBranch | undefined,
   words: ForgeWords,
 ): Stage[] {
   const place = placeOf(branch)
+  const stateOf = stateFor(place, snapshot.stages)
   const detailOf = detailFor(place, snapshot, branch?.name ?? '', words)
 
-  return snapshot.stages.map((stage) => ({
+  return snapshot.stages.map((stage, index) => ({
     ...stageLook(stage.step, words.noun),
-    reached: place === 'on-head' ? reachedOf(stage.state) : reachedAway(stage.step, place),
+    state: stateOf(stage, index),
     detail: detailOf(stage),
   }))
 }
@@ -102,28 +108,30 @@ function placeOf(branch: TaskBranch | undefined): Place {
   return branch.current ? 'on-head' : 'elsewhere'
 }
 
-// reachedOf is how far a stage the server read has got, for the story: under
-// way and not begun alike are pending, the first of them the stage the work is
-// at.
-function reachedOf(state: SnapshotStage['state']): Reached {
-  switch (state) {
-    case 'done':
-      return 'done'
-    case 'failed':
-      return 'failed'
-    case 'in_flight':
-    case 'not_started':
-      return 'pending'
+// stateFor is how far each stage has got, in the story of the issue's place:
+// on HEAD, as the server read it; otherwise by where the issue stands, since
+// the server's stages are the checked-out branch's — an issue with a branch
+// has been picked up and branched for, the next stage is the step it is at,
+// and those after it are not started.
+function stateFor(
+  place: Place,
+  stages: SnapshotStage[],
+): (stage: SnapshotStage, index: number) => StageState {
+  if (place === 'on-head') {
+    return (stage) => drawnState[stage.state]
   }
-}
 
-// reachedAway is how far a stage has got for an issue not on HEAD: an issue
-// with a branch has been picked up and branched for; nothing else of it is
-// shown here.
-function reachedAway(step: Step, place: Place): Reached {
-  const branched = place === 'elsewhere' && (step === 'issue' || step === 'branch')
+  const branched = (stage: SnapshotStage) =>
+    place === 'elsewhere' && (stage.step === 'issue' || stage.step === 'branch')
+  const at = stages.findIndex((stage) => !branched(stage))
 
-  return branched ? 'done' : 'pending'
+  return (stage, index) => {
+    if (branched(stage)) {
+      return 'done'
+    }
+
+    return index === at ? 'in-flight' : 'not-started'
+  }
 }
 
 // detailFor is what each stage has come to, in the story of the issue's place;
@@ -243,17 +251,6 @@ function reviewDetail(snapshot: Snapshot, { noun, sigil }: ForgeWords): string[]
   return [number, review.ci.state === 'none' ? 'No checks reported' : `CI ${review.ci.state}`]
 }
 
-function stageState(stage: Stage, index: number, activeIndex: number): StageState {
-  if (stage.reached !== 'pending') {
-    return stage.reached
-  }
-  if (index === activeIndex) {
-    return 'active'
-  }
-
-  return 'upcoming'
-}
-
 // BranchName is a branch as the story names it: in the code face, as the
 // Branch section's heading sets it, since it is what a reader would type.
 function BranchName({ name }: { name: string }) {
@@ -349,7 +346,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
 
   const branch = snapshot.branches.find((entry) => entry.issue_key === issueKey)
   const stages = buildStages(snapshot, branch, words)
-  const activeIndex = stages.findIndex((stage) => stage.reached !== 'done')
+  const at = stages.findIndex((stage) => stage.state !== 'done')
   const note = storyNote(branch, words.noun)
 
   return (
@@ -362,7 +359,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
           <StoryStage
             key={stage.title}
             stage={stage}
-            state={stageState(stage, index, activeIndex)}
+            current={index === at}
             last={index === stages.length - 1}
             onOpen={setSection}
           />
@@ -374,7 +371,9 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
 
 interface StoryStageProps {
   stage: Stage
-  state: StageState
+  // current is whether the stage is the step the work is at: the first not
+  // done.
+  current: boolean
   last: boolean
   onOpen: (section: Section) => void
 }
@@ -382,16 +381,17 @@ interface StoryStageProps {
 // StoryStage is one stage of the story: the mark of how far it has come, in
 // its system's hue, on the line down to the next, and the stage itself as a
 // control that opens its section — a chevron after its title says so at rest, and
-// its description names the section for a screen reader.
-function StoryStage({ stage, state, last, onOpen }: StoryStageProps) {
+// its description names the section for a screen reader. The first stage not
+// done is the current step: where the work is at.
+function StoryStage({ stage, current, last, onOpen }: StoryStageProps) {
   const opens = useId()
 
   return (
     <li className="flex gap-item">
       <div className="flex flex-col items-center gap-tight pt-1.5">
         <StateMark
-          state={stageMark[state]}
-          className={cn('size-4', state !== 'failed' && sectionMeta[stage.section].hue)}
+          state={stage.state}
+          className={cn('size-4', stage.state !== 'failed' && sectionMeta[stage.section].hue)}
         />
         {last ? null : <span className="w-px flex-1 bg-border" />}
       </div>
@@ -399,6 +399,7 @@ function StoryStage({ stage, state, last, onOpen }: StoryStageProps) {
       <button
         type="button"
         aria-describedby={opens}
+        aria-current={current ? 'step' : undefined}
         onClick={() => {
           onOpen(stage.section)
         }}
@@ -408,7 +409,7 @@ function StoryStage({ stage, state, last, onOpen }: StoryStageProps) {
           {stage.title}
           <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
         </span>
-        <span className="sr-only">{state}</span>
+        <span className="sr-only">{stateWords[stage.state]}</span>
         <Meta className="text-sm text-muted-foreground">{stage.detail}</Meta>
       </button>
       <span id={opens} hidden>
