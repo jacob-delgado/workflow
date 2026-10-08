@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -136,22 +135,11 @@ func slackAPIBase() (string, error) {
 		return "", ErrSlackAPIRefused
 	}
 
-	if address.Scheme == "https" || address.Scheme == "http" && onThisMachine(address.Hostname()) {
+	if address.Scheme == "https" || address.Scheme == "http" && httpx.OnThisMachine(address.Hostname()) {
 		return value, nil
 	}
 
 	return "", ErrSlackAPIRefused
-}
-
-// onThisMachine reports a host name only this machine answers to.
-func onThisMachine(host string) bool {
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-
-	ip := net.ParseIP(host)
-
-	return ip != nil && ip.IsLoopback()
 }
 
 // Keychain is the operating system's keychain as the wiring reaches it: the
