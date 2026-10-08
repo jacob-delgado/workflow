@@ -8,7 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
+
+	"golang.org/x/term"
 
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
@@ -31,7 +34,8 @@ var errNoTerminal = errors.New("no terminal to answer on")
 type Prompt struct {
 	// Line prints prompt and reads one visible line, for an address or a choice.
 	Line func(prompt string) (string, error)
-	// Secret prints prompt and reads one line without echoing it, for a token.
+	// Secret prints prompt and reads one line without echoing it, for a token;
+	// with no terminal to read it from, it answers io.EOF.
 	Secret func(prompt string) (string, error)
 	// StoreSecret saves secret in the OS keychain and returns the token_command
 	// that reads it back. It is nil where storing is not wired for the platform,
@@ -79,6 +83,32 @@ func LineReader(input *bufio.Reader, prompts io.Writer) func(prompt string) (str
 		}
 
 		return strings.TrimRight(line, "\r\n"), err
+	}
+}
+
+// SecretReader is Prompt.Secret over input: it prints each prompt to prompts
+// and reads one line from input without echoing it. Input that is no terminal
+// — a pipe, a file — has no echo to turn off, and Line's buffered reader may
+// already hold what follows its line, so it is answered as the end of the
+// input, which every question words as how to go on without one.
+func SecretReader(input *os.File, prompts io.Writer) func(prompt string) (string, error) {
+	return func(prompt string) (string, error) {
+		descriptor := int(input.Fd())
+		if !term.IsTerminal(descriptor) {
+			return "", io.EOF
+		}
+
+		fmt.Fprint(prompts, prompt)
+
+		secret, err := term.ReadPassword(descriptor)
+
+		fmt.Fprintln(prompts)
+
+		if err != nil {
+			return "", fmt.Errorf("reading the answer: %w", err)
+		}
+
+		return string(secret), nil
 	}
 }
 
