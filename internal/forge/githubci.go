@@ -81,7 +81,7 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 
 	var tally ciTally
 
-	statuses, statusesComplete, err := githubPages(ctx, client, repo, commit+"/status",
+	statuses, statusesCut, err := githubPages(ctx, client, repo, commit+"/status",
 		func(page githubCombined) ([]githubCommitStatus, int) { return page.Statuses, page.TotalCount })
 	if err != nil {
 		return CI{}, err
@@ -94,7 +94,7 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 		tally.add(Check{Name: status.Context, State: statusState(status.State), URL: status.TargetURL})
 	}
 
-	runs, runsComplete, err := githubPages(ctx, client, repo, commit+"/check-runs",
+	runs, runsCut, err := githubPages(ctx, client, repo, commit+"/check-runs",
 		func(page githubRuns) ([]githubCheckRun, int) { return page.Runs, page.TotalCount })
 	if err != nil {
 		return CI{}, err
@@ -104,7 +104,7 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 		tally.add(run.check())
 	}
 
-	if !statusesComplete || !runsComplete {
+	if statusesCut || runsCut {
 		tally.running = true
 	}
 
@@ -160,11 +160,13 @@ func githubWorkflowRuns(ctx context.Context, client Client, repo Repo, head stri
 	path := githubRepoPath(repo) + "/actions/runs?"
 	query := url.Values{"head_sha": {head}}
 
-	return readPages(func(page int) ([]githubRun, int, error) {
+	runs, _, err := readPages(func(page int) ([]githubRun, int, error) {
 		list, err := repoCall[githubRunList](ctx, client, repo, http.MethodGet, path+pageQuery(query, page), nil)
 
 		return list.Runs, list.TotalCount, err
 	})
+
+	return runs, err
 }
 
 // runFailed reports a completed workflow run that did not pass, by the same rule
@@ -176,25 +178,15 @@ func runFailed(conclusion string) bool {
 	return conclusion != "" && !passing[conclusion]
 }
 
-// githubPages reads a GitHub listing to its end, and reports whether it read as
-// many items as GitHub counts: a listing cut short by the bound, or by a page
-// short of the count, is not the whole of it. items takes a page apart into its
-// items and total_count.
+// githubPages reads a GitHub listing to its end, and reports whether there was
+// more than it read. items takes a page apart into its items and total_count.
 func githubPages[P, T any](
 	ctx context.Context, client Client, repo Repo, path string, items func(P) ([]T, int),
 ) ([]T, bool, error) {
-	counted := 0
-
-	listed, err := readPages(func(page int) ([]T, int, error) {
+	return readPages(func(page int) ([]T, int, error) {
 		answer, err := repoCall[P](ctx, client, repo, http.MethodGet, path+"?"+pageQuery(nil, page), nil)
 		found, total := items(answer)
-		counted = total
 
 		return found, total, err
 	})
-	if err != nil {
-		return nil, false, err
-	}
-
-	return listed, len(listed) >= counted, nil
 }
