@@ -273,14 +273,9 @@ func streamToEnd(ctx context.Context, command proc.Command) error {
 		return err
 	}
 
-	var printed []string
-	for line := range output.Lines {
-		printed = append(printed, line)
-	}
-
-	err = output.Wait()
+	printed, err := output.Drain()
 	if err != nil {
-		return fmt.Errorf("%w:\n%s", err, sanitize.Text(strings.Join(printed, "\n")))
+		return fmt.Errorf("%w:\n%s", err, strings.Join(printed, "\n"))
 	}
 
 	return nil
@@ -432,12 +427,7 @@ func installLefthook(ctx context.Context, root string) error {
 		return fmt.Errorf("installing lefthook: %w", err)
 	}
 
-	var said []string
-	for line := range output.Lines {
-		said = append(said, sanitize.Text(line))
-	}
-
-	err = output.Wait()
+	said, err := output.Drain()
 	if err != nil {
 		return fmt.Errorf("installing lefthook: %w: %s", err, strings.Join(said, "; "))
 	}

@@ -149,12 +149,7 @@ func (s *server) runCommit(message string) error {
 		return fmt.Errorf("%w: %w", errCommitNotStarted, err)
 	}
 
-	var lines []string
-	for line := range output.Lines {
-		lines = append(lines, line)
-	}
-
-	err = output.Wait()
+	lines, err := output.Drain()
 	if err != nil {
 		return fmt.Errorf("%w:\n%s", errCommitFailed, strings.Join(lines, "\n"))
 	}

@@ -71,7 +71,6 @@ linters:
             - github.com/jacob-delgado/workflow/internal/jira
             - github.com/jacob-delgado/workflow/internal/messaging
             - github.com/jacob-delgado/workflow/internal/proc
-            - github.com/jacob-delgado/workflow/internal/sanitize
             - github.com/jacob-delgado/workflow/internal/taskwarrior
         # internal/activity groups and words what was done over a period from
         # what each source read, which a caller hands it: it holds no clock and
