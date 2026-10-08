@@ -149,3 +149,17 @@ func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigInitTemplateOverAHomeFileWarnsWhenTheLayerIsNotGitIgnored(t *testing.T) {
+	// Arrange
+	where := homeAndRepository(t)
+	gitInit(t, where.dir)
+
+	// Act
+	printed, err := runStreamsAt(t, where, unusedPrompt(t), "config", "init", "--template")
+
+	// Assert
+	if err != nil || !strings.Contains(printed.stderr, "not ignored by git") {
+		t.Errorf("config init --template = %v, said:\n%s\nwant a git-ignore warning for the layer", err, printed.stderr)
+	}
+}
