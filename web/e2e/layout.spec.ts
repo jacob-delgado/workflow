@@ -8,8 +8,8 @@ import {
   sectionNames,
   themes,
   widths,
-} from './cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from './tabwalk.ts'
+} from './support/cockpit.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from './support/tabwalk.ts'
 
 // The populated cockpit at a narrow, a middling and a wide window, in both
 // themes: nothing scrolls sideways, the page does not scroll at all, every

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { HookSetup, RunEvent, Snapshot } from '../../src/api/generated/types.gen.ts'
-import { height, openSection, pinTheme, themes, widths } from '../cockpit.ts'
-import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../tabwalk.ts'
+import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
+import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Branch section's git runs — pre-commit, a rebase, an amend, a fixup —
 // streamed as they go, each that rewrites history behind a last look; a

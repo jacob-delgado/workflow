@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import type { Snapshot, Task, TaskList, TasksSummary } from '../src/api/generated/types.gen.ts'
-import { height, openSection, pinTheme, themes, widths } from './cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from './tabwalk.ts'
+import type { Snapshot, Task, TaskList, TasksSummary } from '../../src/api/generated/types.gen.ts'
+import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
 
 // Your Taskwarrior tasks as the browser draws them, against answers given
 // here: where a refusal sits against its row's buttons, how the header's task

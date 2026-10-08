@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { height, openCockpit, openSection, themes, widths } from '../cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers } from '../tabwalk.ts'
+import { height, openCockpit, openSection, themes, widths } from '../support/cockpit.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers } from '../support/tabwalk.ts'
 
 // The page's keyboard beyond Tab on the populated build, whose keys have the
 // single-key shortcuts on: the ? sheet and the Ctrl+K palette, each at a
