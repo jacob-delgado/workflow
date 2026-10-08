@@ -6,6 +6,7 @@ package cli_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -472,5 +473,36 @@ func TestDoctorJSONSaysWhyThereIsNoRepository(t *testing.T) {
 				t.Errorf("repository = %v, want it outside a work tree because %q", repository, tt.want)
 			}
 		})
+	}
+}
+
+func TestDoctorOnlineSaysTheSameOfEachCredentialInProseAndJSON(t *testing.T) {
+	// Arrange
+	server := jiraServer(t, http.StatusOK, jiraFixture, new(atomic.Bool))
+	dir := t.TempDir()
+	writeConfigFor(t, dir, server.URL)
+
+	prose, _ := runStreams(t, dir, unusedPrompt(t), "doctor", "--online")
+
+	// Act
+	asJSON, _ := runStreams(t, dir, unusedPrompt(t), "doctor", "--online", "--json")
+
+	// Assert
+	credentials, _ := decodeReport(t, asJSON.stdout)["credentials"].(map[string]any)
+	results, _ := credentials["results"].([]any)
+
+	if len(results) != 3 {
+		t.Fatalf("the online report has %d results, want Jira's, messaging's and the forge's:\n%s",
+			len(results), asJSON.stdout)
+	}
+
+	for _, result := range results {
+		line, _ := result.(map[string]any)
+		service, _ := line["service"].(string)
+		detail, _ := line["detail"].(string)
+
+		if said := fmt.Sprintf("  %-10s %s\n", service, detail); detail == "" || !strings.Contains(prose.stdout, said) {
+			t.Errorf("the JSON says %q of %s, which the prose report does not:\n%s", detail, service, prose.stdout)
+		}
 	}
 }
