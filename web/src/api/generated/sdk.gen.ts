@@ -434,7 +434,7 @@ export const getKeys = <ThrowOnError extends boolean = false>(options?: Options<
 /**
  * Whether a first configuration file is needed here, and where it may go.
  *
- * Says whether no configuration file applies where the server works, so Settings offers to set one up rather than edit one; where the file may go — the repository's root, or the working directory outside a repository, and the home directory — and whether the OS keychain can keep the Jira token out of it. Reading works under --dry-run.
+ * Says whether no configuration file applies where the server works, so Settings offers to set one up rather than edit one; where the file may go — the repository's root, or the working directory outside a repository, and the home directory — and for each whether the OS keychain can keep the Jira token out of it. Reading works under --dry-run.
  */
 export const getSetup = <ThrowOnError extends boolean = false>(options?: Options<GetSetupData, ThrowOnError>): RequestResult<GetSetupResponses, GetSetupErrors, ThrowOnError> => (options?.client ?? client).get<GetSetupResponses, GetSetupErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetSetupResponse.parseAsync(data),

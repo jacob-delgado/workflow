@@ -21,17 +21,18 @@ type Guide struct {
 	StoreSecret func(secret string) (string, error)
 }
 
-// Destination is a place a file may go, and the file it would be.
+// Destination is a place a file may go, the file it would be, and whether
+// the keychain can keep the token for that file: where one is wired, for the
+// home directory's file alone, the one file that may read it back.
 type Destination struct {
-	Place Place
-	Path  string
+	Place    Place
+	Path     string
+	Keychain bool
 }
 
-// Offer is what a form offers: where the file may go, the repository first,
-// and whether the keychain can keep the token.
+// Offer is what a form offers: where the file may go, the repository first.
 type Offer struct {
-	Places   []Destination
-	Keychain bool
+	Places []Destination
 }
 
 // Request is a setup a form asks for: where, the answers, and whether the
@@ -50,16 +51,19 @@ type Written struct {
 	NotIgnored bool
 }
 
-// Offer is where the file may go here, and whether the keychain is wired.
+// Offer is where the file may go here, and for which file the keychain can
+// keep the token.
 func (g Guide) Offer() Offer {
 	places := g.Where.Places()
 
 	destinations := make([]Destination, 0, len(places))
 	for _, place := range places {
-		destinations = append(destinations, Destination{Place: place, Path: g.Where.Path(place)})
+		destinations = append(destinations, Destination{
+			Place: place, Path: g.Where.Path(place), Keychain: g.StoreSecret != nil && g.Where.IsHomeFile(place),
+		})
 	}
 
-	return Offer{Places: destinations, Keychain: g.StoreSecret != nil}
+	return Offer{Places: destinations}
 }
 
 // Check asks Jira who the token in settings authenticates as.

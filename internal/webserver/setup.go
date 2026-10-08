@@ -30,21 +30,19 @@ func (s *server) setupNeeded() bool {
 }
 
 // GetSetup says whether a first configuration file is needed here, where it
-// may go, and whether the keychain can keep the token.
+// may go, and for which file the keychain can keep the token.
 func (s *server) GetSetup(context.Context, api.GetSetupRequestObject) (api.GetSetupResponseObject, error) {
-	offer := api.SetupOffer{Needed: s.setupNeeded(), Places: []api.SetupPlace{}, Keychain: false}
+	offer := api.SetupOffer{Needed: s.setupNeeded(), Places: []api.SetupPlace{}}
 	if s.deps.Setup.Offer == nil {
 		return api.GetSetup200JSONResponse(offer), nil
 	}
 
-	offered := s.deps.Setup.Offer()
-	for _, place := range offered.Places {
+	for _, place := range s.deps.Setup.Offer().Places {
 		offer.Places = append(offer.Places, api.SetupPlace{
 			Place: api.SetupPlaceName(place.Place), Path: place.Path, Shown: s.shownFile(place.Path),
+			Keychain: place.Keychain,
 		})
 	}
-
-	offer.Keychain = offered.Keychain
 
 	return api.GetSetup200JSONResponse(offer), nil
 }

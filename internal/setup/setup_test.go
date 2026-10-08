@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -321,7 +322,7 @@ func TestCheckReportsATokenJiraRefuses(t *testing.T) {
 	}
 }
 
-func TestOfferNamesBothPlacesAndWhetherTheKeychainCanKeepTheToken(t *testing.T) {
+func TestOfferNamesBothPlacesAndTheKeychainForTheHomeFileAlone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -332,9 +333,28 @@ func TestOfferNamesBothPlacesAndWhetherTheKeychainCanKeepTheToken(t *testing.T) 
 	offer := guide.Offer()
 
 	// Assert
-	if len(offer.Places) != 2 || offer.Places[0].Place != setup.Repository || offer.Places[1].Place != setup.Home ||
-		offer.Places[1].Path != guide.Where.Path(setup.Home) || !offer.Keychain {
-		t.Errorf("Offer = %+v, want the repository then home, and the keychain", offer)
+	want := []setup.Destination{
+		{Place: setup.Repository, Path: guide.Where.Path(setup.Repository), Keychain: false},
+		{Place: setup.Home, Path: guide.Where.Path(setup.Home), Keychain: true},
+	}
+	if !slices.Equal(offer.Places, want) {
+		t.Errorf("Offer = %+v, want the repository then home, the keychain for home alone", offer.Places)
+	}
+}
+
+func TestOfferNamesTheKeychainForARepositoryRootedAtHome(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	home := t.TempDir()
+	guide := setup.Guide{Where: setup.Where{WorkDir: home, HomeDir: home}, StoreSecret: (&keychain{}).store}
+
+	// Act
+	offer := guide.Offer()
+
+	// Assert
+	if !offer.Places[0].Keychain {
+		t.Errorf("Offer = %+v, want the keychain for the repository's file, which is the home file", offer.Places)
 	}
 }
 
@@ -422,8 +442,8 @@ func TestOfferNamesNoKeychainWhereThereIsNone(t *testing.T) {
 	offer := guideIn(t, acceptingJira()).Offer()
 
 	// Assert
-	if offer.Keychain {
-		t.Errorf("Offer = %+v, want no keychain", offer)
+	if slices.ContainsFunc(offer.Places, func(place setup.Destination) bool { return place.Keychain }) {
+		t.Errorf("Offer = %+v, want no keychain for any place", offer.Places)
 	}
 }
 

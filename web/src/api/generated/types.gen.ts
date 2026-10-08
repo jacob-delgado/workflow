@@ -1562,10 +1562,6 @@ export type SetupOffer = {
      * Where the file may go, the repository first.
      */
     places: Array<SetupPlace>;
-    /**
-     * The OS keychain can keep the Jira token out of the file.
-     */
-    keychain: boolean;
 };
 
 export type SetupPlace = {
@@ -1578,6 +1574,10 @@ export type SetupPlace = {
      * The file written from your home.
      */
     shown: string;
+    /**
+     * The OS keychain can keep the Jira token out of this file: one is wired, and the file is the home directory's, the one file that may hold the command that reads the token back.
+     */
+    keychain: boolean;
 };
 
 /**
