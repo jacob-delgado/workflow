@@ -244,25 +244,18 @@ func (s Store) makeDir() error {
 func openCurrent(ctx context.Context, path string) (*sql.DB, error) {
 	database := openDatabase(path)
 
-	version, err := readVersionOnOpen(ctx, database)
+	state, err := readStateOnOpen(ctx, database)
 	if err != nil {
 		_ = database.Close()
 
 		return nil, err
 	}
 
-	if version == schemaVersion {
+	if state.version == schemaVersion {
 		return database, nil
 	}
 
-	stale, err := holdsTables(ctx, database)
-	if err != nil {
-		_ = database.Close()
-
-		return nil, err
-	}
-
-	if stale {
+	if state.holdsTables {
 		_ = database.Close()
 
 		database, err = remakeDatabase(path)
@@ -286,18 +279,29 @@ type rowReader interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
-// readVersion reads the version stamped in the file. A file that is not a
-// database, or whose schema cannot be read, fails here, since the connection's
-// own pragmas load the schema; either is reported and left alone.
-func readVersion(ctx context.Context, database rowReader) (int, error) {
-	var version int
+// fileState is what a database file holds as it is read: the schema version
+// stamped in it, and whether it holds a table, which a fresh file does not,
+// so one at no version is new rather than another build's.
+type fileState struct {
+	version     int
+	holdsTables bool
+}
 
-	err := database.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version)
+// readState reads the version stamped in the file and whether it holds a
+// table, in one statement. A file that is not a database, or whose schema
+// cannot be read, fails here, since the connection's own pragmas load the
+// schema; either is reported and left alone.
+func readState(ctx context.Context, database rowReader) (fileState, error) {
+	var state fileState
+
+	err := database.QueryRowContext(ctx,
+		`SELECT user_version, EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table') FROM pragma_user_version`).
+		Scan(&state.version, &state.holdsTables)
 	if err != nil {
-		return 0, fmt.Errorf("reading the store schema version: %w", err)
+		return fileState{}, fmt.Errorf("reading the store schema version: %w", err)
 	}
 
-	return version, nil
+	return state, nil
 }
 
 // openingRetries and openingPause bound how long a connection's first read
@@ -313,20 +317,20 @@ const (
 // primaryCode masks an extended SQLite result code to its primary one.
 const primaryCode = 0xff
 
-// readVersionOnOpen is readVersion on a connection's first use, which runs the
+// readStateOnOpen is readState on a connection's first use, which runs the
 // connection's pragmas, journal_mode(WAL) among them: it reads again while
 // that switch loses to another connection's, since by then the file is in WAL
 // and the switch costs nothing.
-func readVersionOnOpen(ctx context.Context, database *sql.DB) (int, error) {
-	version, err := readVersion(ctx, database)
+func readStateOnOpen(ctx context.Context, database *sql.DB) (fileState, error) {
+	state, err := readState(ctx, database)
 
 	for attempt := 0; attempt < openingRetries && isBusy(err); attempt++ {
 		time.Sleep(openingPause)
 
-		version, err = readVersion(ctx, database)
+		state, err = readState(ctx, database)
 	}
 
-	return version, err
+	return state, err
 }
 
 // isBusy reports SQLite failing for a lock another connection holds.
@@ -336,21 +340,28 @@ func isBusy(err error) bool {
 	return errors.As(err, &failure) && failure.Code()&primaryCode == sqlite3.SQLITE_BUSY
 }
 
-// holdsTables reports a file with a table in it: a fresh file holds none, so it
-// is new rather than another version's.
-func holdsTables(ctx context.Context, database *sql.DB) (bool, error) {
-	var held bool
-
-	// Trade-off TRADE-16: the connection that just read the version loaded the
-	// schema this listing reads, so the listing fails only when the file
-	// changes between the two calls.
-	err := database.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table')`).
-		Scan(&held)
+// inTransaction runs write in one transaction on database, committing only
+// when write succeeds, so a write that fails part way leaves nothing of what
+// it did. A failure to begin or commit is reported as doing, what the
+// transaction was for.
+func inTransaction(ctx context.Context, database *sql.DB, doing string, write func(*sql.Tx) error) error {
+	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
-		return false, fmt.Errorf("listing the store tables: %w", err)
+		return fmt.Errorf("%s: %w", doing, err)
+	}
+	defer func() { _ = transaction.Rollback() }()
+
+	err = write(transaction)
+	if err != nil {
+		return err
 	}
 
-	return held, nil
+	err = transaction.Commit()
+	if err != nil {
+		return fmt.Errorf("%s: %w", doing, err)
+	}
+
+	return nil
 }
 
 // remakeDatabase discards the database at path and opens a fresh one there.
