@@ -45,14 +45,34 @@ type heldAnnouncement struct {
 	mu    sync.Mutex
 	post  announcePost
 	round int
-	// branch and pull are what the announcement was written for: a branch
-	// that now has another pull request, or none, is another moment.
+	// branch is what the announcement was written for, with the pull request
+	// it announces: a branch that now has another pull request, or none, is
+	// another moment.
 	branch string
-	shown  api.QueuedAnnouncement
+	// state is how it stands, and reason why it was dropped, when it was.
+	state  heldState
+	reason string
 	// check is the timer of the next read of the CI for the announcement
 	// waiting now; nil when none waits.
 	check *time.Timer
 }
+
+// heldState is how the held announcement stands.
+type heldState int
+
+const (
+	// heldNone is none held, or the last dropped by hand or replaced by a
+	// post made now: a frame shows none.
+	heldNone heldState = iota
+	// heldWaiting waits for its CI to pass.
+	heldWaiting
+	// heldAnnouncing is being posted, once its CI passed.
+	heldAnnouncing
+	// heldAnnounced was posted.
+	heldAnnounced
+	// heldDropped was given up on, unposted, for its reason.
+	heldDropped
+)
 
 // announceWhenGreen holds a ready-for-review announcement until its pull
 // request's CI passes, answering 202 with it waiting; posts it at once when CI
@@ -132,19 +152,16 @@ func (s *server) hold(post announcePost, branch gitrepo.Branch) (api.QueuedAnnou
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
-	if s.held.shown.State == api.QueuedAnnouncementStateAnnouncing {
+	if s.held.state == heldAnnouncing {
 		return api.QueuedAnnouncement{}, errHeldAnnouncing
 	}
 
 	s.held.stopWatching()
 	s.held.round++
-	s.held.post, s.held.branch = post, branch.Name
-	s.held.shown = api.QueuedAnnouncement{
-		State: api.QueuedAnnouncementStateWaiting, Channel: post.delivery.Channel, Pull: post.pull.Number, Reason: nil,
-	}
+	s.held.post, s.held.branch, s.held.state, s.held.reason = post, branch.Name, heldWaiting, ""
 	s.held.check = s.checkHeldAfter(s.held.round)
 
-	return s.held.shown, nil
+	return s.held.queued(), nil
 }
 
 // checkHeldAfter reads the CI for the announcement held in round once the
@@ -173,7 +190,7 @@ func (s *server) checkHeld(round int) {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
-	if s.held.round == round && s.held.shown.State == api.QueuedAnnouncementStateWaiting {
+	if s.held.round == round && s.held.state == heldWaiting {
 		s.held.check = s.checkHeldAfter(round)
 	}
 }
@@ -187,37 +204,38 @@ func (s *server) settleOnRead() {
 		return
 	}
 
-	review, err := s.forgeReview(branch)
+	read, err := s.forgeReview(branch)
 	if err == nil {
-		s.settleHeld(branch, review)
+		s.settleHeld(branch, read)
 	}
 }
 
-// settleHeld settles the held announcement against branch's review: posts it
+// settleHeld settles the held announcement against what the forge read of
+// branch: posts it
 // once its CI has passed, drops it with the reason once its CI has failed or
 // its pull request is no longer the branch's open one, and otherwise keeps it
 // waiting. Only one caller can take it to post, and nothing replaces or drops
 // it while it posts, so it is never posted twice.
-func (s *server) settleHeld(branch gitrepo.Branch, review api.Review) {
+func (s *server) settleHeld(branch gitrepo.Branch, read forgeRead) {
 	s.held.mu.Lock()
 
-	if s.held.shown.State != api.QueuedAnnouncementStateWaiting {
+	if s.held.state != heldWaiting {
 		s.held.mu.Unlock()
 
 		return
 	}
 
-	reason, verdict := s.heldVerdict(branch, review)
+	reason, verdict := s.heldVerdict(branch, read)
 
 	switch verdict {
 	case heldKeep:
 		s.held.mu.Unlock()
 	case heldDrop:
-		s.held.settle(api.QueuedAnnouncementStateDropped, reason)
+		s.held.settle(heldDropped, reason)
 		s.held.mu.Unlock()
 	case heldPost:
 		post := s.held.post
-		s.held.settle(api.QueuedAnnouncementStateAnnouncing, "")
+		s.held.settle(heldAnnouncing, "")
 		s.held.mu.Unlock()
 
 		s.postHeld(post)
@@ -234,21 +252,22 @@ const (
 	heldPost
 )
 
-// heldVerdict is what becomes of the held announcement given branch's
-// review, and the reason when it is dropped. The caller holds the lock.
-func (s *server) heldVerdict(branch gitrepo.Branch, review api.Review) (string, heldVerdict) {
-	number := s.held.shown.Pull
+// heldVerdict is what becomes of the held announcement given what the forge
+// read of branch, and the reason when it is dropped. The caller holds the
+// lock.
+func (s *server) heldVerdict(branch gitrepo.Branch, read forgeRead) (string, heldVerdict) {
+	number := s.held.post.pull.Number
 
 	switch {
-	case branch.Name != s.held.branch || review.Pull == nil || review.Pull.Number != number:
+	case branch.Name != s.held.branch || !read.found || read.pull.Number != number:
 		return s.pullName(number) + " is no longer this branch's " + s.noun(), heldDrop
-	case review.Pull.State == api.PullRequestStateMerged:
+	case read.pull.State == forge.StateMerged:
 		return s.pullName(number) + " merged before its CI passed", heldDrop
-	case review.Ci == nil:
+	case !read.ciRead:
 		return "", heldKeep
-	case review.Ci.State == api.CIStatePassed:
+	case read.ci.State == forge.CIPassed:
 		return "", heldPost
-	case review.Ci.State == api.CIStateFailed:
+	case read.ci.State == forge.CIFailed:
 		return "CI failed at " + s.now().Format(failedAtFormat), heldDrop
 	default:
 		return "", heldKeep
@@ -265,11 +284,11 @@ func (s *server) postHeld(post announcePost) {
 
 	switch {
 	case errors.Is(err, errAnnouncedAlready):
-		s.held.settle(api.QueuedAnnouncementStateDropped, s.announcedBefore(post.pull.Number).Detail)
+		s.held.settle(heldDropped, s.announcedBefore(post.pull.Number).Detail)
 	case err != nil:
-		s.held.settle(api.QueuedAnnouncementStateDropped, s.fault(err).Detail)
+		s.held.settle(heldDropped, s.fault(err).Detail)
 	default:
-		s.held.settle(api.QueuedAnnouncementStateAnnounced, "")
+		s.held.settle(heldAnnounced, "")
 	}
 }
 
@@ -280,15 +299,15 @@ func (s *server) dropHeld() (bool, error) {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
-	if s.held.shown.State == api.QueuedAnnouncementStateAnnouncing {
+	if s.held.state == heldAnnouncing {
 		return false, errHeldAnnouncing
 	}
 
-	waiting := s.held.shown.State == api.QueuedAnnouncementStateWaiting
+	waiting := s.held.state == heldWaiting
 
 	s.held.stopWatching()
 	s.held.round++
-	s.held.post, s.held.branch, s.held.shown = announcePost{}, "", api.QueuedAnnouncement{}
+	s.held.post, s.held.branch, s.held.state, s.held.reason = announcePost{}, "", heldNone, ""
 
 	return waiting, nil
 }
@@ -299,11 +318,11 @@ func (s *server) heldStatus() *api.QueuedAnnouncement {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
-	if s.held.shown.State == "" {
+	if s.held.state == heldNone {
 		return nil
 	}
 
-	shown := s.held.shown
+	shown := s.held.queued()
 
 	return &shown
 }
@@ -327,9 +346,18 @@ func (s *server) CancelQueuedAnnouncement(
 
 // settle moves the held announcement to state, with the reason when it was
 // dropped, and stops its reads of the CI. The caller holds the lock.
-func (h *heldAnnouncement) settle(state api.QueuedAnnouncementState, reason string) {
+func (h *heldAnnouncement) settle(state heldState, reason string) {
 	h.stopWatching()
-	h.shown.State, h.shown.Reason = state, optional(reason)
+	h.state, h.reason = state, reason
+}
+
+// queued is how the held announcement stands, on the wire. The caller holds
+// the lock.
+func (h *heldAnnouncement) queued() api.QueuedAnnouncement {
+	return api.QueuedAnnouncement{
+		State: queuedState(h.state), Channel: h.post.delivery.Channel, Pull: h.post.pull.Number,
+		Reason: optional(h.reason),
+	}
 }
 
 // stopWatching stops the next read of the CI for the announcement waiting,
@@ -397,22 +425,13 @@ func (s *server) announcedAlready(made loop.Announced) bool {
 	return loop.AnnounceMemory{Recorded: s.recordedAnnouncements}.Holds(made)
 }
 
-// reviewAnnounced reports that the review's pull request was announced at the
-// moment it is at now, read from its pull request and CI as the terminal reads
-// them.
-func (s *server) reviewAnnounced(review api.Review) bool {
-	if review.Pull == nil {
+// reviewAnnounced reports that the pull request the forge read was announced
+// at the moment it is at now, by the rule the terminal and the command line
+// read it by.
+func (s *server) reviewAnnounced(read forgeRead) bool {
+	if !read.found {
 		return false
 	}
 
-	moment := messaging.MomentReady
-
-	switch {
-	case review.Pull.State == api.PullRequestStateMerged:
-		moment = messaging.MomentMerged
-	case review.Ci != nil && review.Ci.State == api.CIStateFailed:
-		moment = messaging.MomentCIRed
-	}
-
-	return s.announcedAlready(loop.Announced{Pull: review.Pull.Number, Moment: moment})
+	return s.announcedAlready(loop.Announced{Pull: read.pull.Number, Moment: loop.AnnounceMoment(read.pull, read.ci)})
 }
