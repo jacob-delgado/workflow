@@ -159,7 +159,7 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 // the configuration, building the model, applying dry run and color off, and
 // opening the next interface where a switch asks — can be exercised without a
 // real terminal.
-type RunInterface func(ctx context.Context, model tui.Model, out io.Writer) (tui.Next, error)
+type RunInterface func(ctx context.Context, model tui.Model, in io.Reader, out io.Writer) (tui.Next, error)
 
 // RunWeb starts the local web server and blocks until the context is canceled.
 // What it says about the server goes to notes, stderr: the server has no
@@ -261,6 +261,7 @@ type interfaceInput struct {
 	resolveAhead func()
 	dryRun       bool
 	noColorEnv   string
+	in           io.Reader
 	out          io.Writer
 	// arrive is what the model is told before it runs: nothing for the first
 	// interface, and where a switch went, or why it could not, after one.
@@ -271,7 +272,7 @@ type interfaceInput struct {
 func inputFor(cmd *cobra.Command, conn connection, dryRun bool) interfaceInput {
 	return interfaceInput{
 		cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.controls.ResolveAhead,
-		dryRun: dryRun, noColorEnv: os.Getenv("NO_COLOR"), out: terminalOut(cmd),
+		dryRun: dryRun, noColorEnv: os.Getenv("NO_COLOR"), in: cmd.InOrStdin(), out: terminalOut(cmd),
 		arrive: func(model tui.Model) tui.Model { return model },
 	}
 }
@@ -386,7 +387,7 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 
 	input.resolveAhead()
 
-	return run(ctx, input.arrive(model), input.out)
+	return run(ctx, input.arrive(model), input.in, input.out)
 }
 
 // subcommands are every `workflow` subcommand: the read commands, the guided

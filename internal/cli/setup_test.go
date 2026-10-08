@@ -151,7 +151,7 @@ func setUpThroughTheInterface(t *testing.T, where place, jiraURL, logPath string
 		return nil
 	}
 
-	runInterface := func(_ context.Context, model tui.Model, _ io.Writer) (tui.Next, error) {
+	runInterface := func(_ context.Context, model tui.Model, _ io.Reader, _ io.Writer) (tui.Next, error) {
 		outcome.opened = append(outcome.opened, model)
 		if len(outcome.opened) > 1 {
 			return tui.Next{}, nil
