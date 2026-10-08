@@ -35,6 +35,11 @@ func newDBCleanCmd(prompt Prompt) *cobra.Command {
 			"again. --all also removes kept.db, whom each code owner is on Slack and each\n" +
 			"repository's groups, which are then asked again. Nothing is removed under\n" +
 			"--dry-run.",
+		Example: examples(
+			`workflow db-clean --dry-run   # each file and what it holds, nothing removed`,
+			`workflow db-clean --yes       # remove the cache, unattended`,
+			`workflow db-clean --all       # also forget whom each code owner is on Slack`,
+		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			scope := map[bool]store.CleanScope{false: store.CleanCache, true: store.CleanAll}[all]

@@ -6,24 +6,46 @@ package cli_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
+
+	"github.com/jacob-delgado/workflow/internal/cli"
 )
 
-func TestScriptableCommandsLeadTheirHelpWithExamples(t *testing.T) {
-	for command := range strings.FieldsSeq("status reviews repositories summary branch pr announce comment doctor") {
-		t.Run(command, func(t *testing.T) {
+func TestEveryCommandLeadsItsHelpWithExamples(t *testing.T) {
+	for _, path := range leafCommands(cli.NewRootCmd(cli.Prompt{})) {
+		t.Run(path, func(t *testing.T) {
 			// Act
-			output, err := run(t, t.TempDir(), command, "--help")
+			output, err := run(t, t.TempDir(), append(strings.Fields(path)[1:], "--help")...)
 			// Assert
 			if err != nil {
-				t.Fatalf("%s --help: %v", command, err)
+				t.Fatalf("%s --help: %v", path, err)
 			}
 
 			_, examples, found := strings.Cut(output, "Examples:")
-			if !found || !strings.Contains(examples, command) {
-				t.Errorf("%s --help has no example of itself:\n%s", command, output)
+			if !found || !strings.Contains(examples, path) {
+				t.Errorf("%s --help has no example of itself:\n%s", path, output)
 			}
 		})
 	}
+}
+
+// leafCommands is the path of every command under root that has none under it,
+// the commands a person runs rather than the groups that hold them.
+func leafCommands(root *cobra.Command) []string {
+	var paths []string
+
+	for _, child := range root.Commands() {
+		if child.HasSubCommands() {
+			paths = append(paths, leafCommands(child)...)
+
+			continue
+		}
+
+		paths = append(paths, child.CommandPath())
+	}
+
+	return paths
 }
 
 func TestASynopsisThatSaysFailsNamesTheExitStatus(t *testing.T) {

@@ -65,6 +65,10 @@ users:read, channels:read, groups:read and usergroups:read; without them the
 announcement posts untagged and says which scope to add. workflow refreshes the
 token before its twelve hours run out, and keeps each new one where this put
 the first.`,
+		Example: examples(
+			`workflow slack login             # set up the user token, at a terminal`,
+			`workflow --dry-run slack login   # where it would keep the token, asking nothing`,
+		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			conn, err := connect(cmd)
