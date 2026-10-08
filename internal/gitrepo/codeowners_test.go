@@ -10,6 +10,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 func TestCodeOwnersAtReadsTheDialectsFileAtOriginsBase(t *testing.T) {
@@ -54,6 +55,25 @@ func TestCodeOwnersAtFindsNoFile(t *testing.T) {
 	// Assert
 	if err != nil || found || len(file.OwnersOf([]string{goFile}).Users) != 0 {
 		t.Errorf("CodeOwnersAt = %v, %v, want no file", found, err)
+	}
+}
+
+func TestCodeOwnersAtReportsAReadThatTimedOut(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := gitrepo.At(fakeRunner(t, map[string]reply{
+		verifyOriginMain: {out: []byte("0123abcd\n")},
+		verifyOriginRef:  {out: []byte("0123abcd\n")},
+		"git -C /work show origin/main:.github/CODEOWNERS": {err: proc.ErrTimedOut},
+	}), workDir)
+
+	// Act
+	_, found, err := repo.CodeOwnersAt(t.Context(), "main", codeowners.GitHub)
+
+	// Assert
+	if !errors.Is(err, proc.ErrTimedOut) || found {
+		t.Errorf("CodeOwnersAt = %v, %v, want the timeout and no file", found, err)
 	}
 }
 
