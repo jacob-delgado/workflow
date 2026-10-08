@@ -86,15 +86,19 @@ async function opensReview(page: Page, snapshot: Snapshot): Promise<string[]> {
 test('a merge goes by the method chosen, only from its preview', async ({ page }) => {
   // Arrange
   const sent = await opensReview(page, withPull(ready, 'passed'))
-  await page.getByRole('button', { name: 'Merge', exact: true }).click()
   const preview = page.getByRole('form', { name: 'Merge #42' })
+
+  // Act: open the preview, and choose a method.
+  await page.getByRole('button', { name: 'Merge', exact: true }).click()
   await preview.getByRole('radio', { name: 'Rebase and merge' }).check()
+
+  // Assert: nothing is merged yet.
   expect(sent).toEqual([])
 
-  // Act
+  // Act: merge from the preview.
   await preview.getByRole('button', { name: 'Merge', exact: true }).click()
 
-  // Assert
+  // Assert: merged, by the method chosen.
   await expect(page.getByText('Merged #42.')).toBeVisible()
   expect(sent).toEqual(['POST merge {"method":"rebase"}'])
 })
