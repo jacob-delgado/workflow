@@ -287,6 +287,7 @@ export function Verb({
     return (
       <AskFirst
         ask={ask}
+        running={running}
         onCancel={() => {
           write.reset()
           handBack()
@@ -331,13 +332,16 @@ export function Verb({
 
 // AskFirst is a write's last look: the question and its cost, Cancel, and the
 // write's own button. It takes the focus as it opens, so a screen reader hears
-// the question.
+// the question. Cancel is held while the write runs: the write has left by
+// then, and backing out cannot call it back.
 function AskFirst({
   ask,
+  running,
   onCancel,
   children,
 }: {
   ask: Ask
+  running: boolean
   onCancel: () => void
   children: ReactNode
 }) {
@@ -356,7 +360,7 @@ function AskFirst({
       <p id={questionId}>{ask.question}</p>
       <p className="text-muted-foreground">{ask.cost}</p>
       <div className="flex flex-wrap items-center gap-item">
-        <Button variant="secondary" onClick={onCancel}>
+        <Button variant="secondary" held={running} onClick={onCancel}>
           Cancel
         </Button>
         {children}

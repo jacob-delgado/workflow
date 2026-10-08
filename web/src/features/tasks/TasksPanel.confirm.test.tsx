@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { fakeApi } from '@/test/fakeApi.ts'
+import { fakeApi, held } from '@/test/fakeApi.ts'
 import { makeTask, makeTaskList } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { TasksPanel } from './TasksPanel.tsx'
@@ -113,4 +113,27 @@ test.each(looks)('Cancel on the look $question sends nothing', async (look) => {
   expect(screen.queryByRole('group', { name: look.question })).toBeNull()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: look.opener }))
   expect(postedPaths(requests)).toEqual([])
+})
+
+test.each(looks)('Cancel on the look $question is held while $confirm goes', async (look) => {
+  // Arrange
+  const user = userEvent.setup()
+  const answer = held<Response>()
+  fakeApi({
+    [tasksPath]: makeTaskList([tokenLeak], { sync_available: true }),
+    [look.path]: () => answer.promise,
+  })
+  renderWithClient(<TasksPanel />)
+  await user.click(await screen.findByRole('button', { name: look.opener }))
+  const asked = screen.getByRole('group', { name: look.question })
+  await user.click(within(asked).getByRole('button', { name: look.confirm }))
+
+  // Act
+  await user.click(within(asked).getByRole('button', { name: 'Cancel' }))
+
+  // Assert
+  expect(screen.getByRole('group', { name: look.question })).toBe(asked)
+  expect(within(asked).getByRole('button', { name: 'Cancel' }).getAttribute('aria-disabled')).toBe(
+    'true',
+  )
 })
