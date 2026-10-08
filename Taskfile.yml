@@ -353,6 +353,7 @@ tasks:
       - task: lint:packagesize
       - task: lint:goversion
       - task: lint:miseversion
+      - task: lint:checksums
       - task: lint:goroutines
       - task: lint:tradeoffs
       - task: docs:check
@@ -453,6 +454,11 @@ tasks:
     desc: Check that the mise version agrees across mise.toml, the workflows and the devcontainer
     cmds:
       - scripts/check-mise-version.sh
+
+  lint:checksums:
+    desc: Check that every build-container download is pinned to a SHA-256 at mise.toml's version
+    cmds:
+      - scripts/check-tool-checksums.sh
 
   lint:goroutines:
     desc: Check that no `go` statement sits outside internal/proc and the tests
