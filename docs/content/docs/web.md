@@ -380,7 +380,9 @@ runs: tagging follows the configuration in effect.
 
 The pull requests on your forge that wait on your review, the longest-waiting
 first: where each is, who asks, how long it has waited, whether it is a draft,
-and how its CI stands, each with a link to open it and **Copy URL**. **Sort**
+and how its CI stands, in the words the filter offers them by — `CI none`
+where the forge's listing reports no CI — each with a link to open it and
+**Copy URL**. **Sort**
 lists them **Oldest first**, **Newest first** or **By repository**, which heads
 each repository's requests with its name, the longest-waiting first within it —
 the orders the terminal's `s` cycles through. **Filter** narrows them, as the
