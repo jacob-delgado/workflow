@@ -67,11 +67,11 @@ func (l *liveMessaging) replace(settings config.Messaging) {
 }
 
 // messagingSetup is what a post is made from: the settings in effect, the
-// configuration file a user token's credentials may be kept in, and the
+// configuration files a user token's credentials may be kept in, and the
 // transport and request log.
 type messagingSetup struct {
 	settings      func() config.Messaging
-	path          string
+	files         config.Files
 	httpTransport httpx.Doer
 	log           *RequestLog
 }
@@ -107,7 +107,7 @@ func messagingClient(setup messagingSetup) messaging.Client {
 	base, toSlack := SlackAPI(do)
 
 	return messaging.New(toSlack, base, settings).
-		WithToken(SlackToken(config.Config{Messaging: settings, Path: setup.path}, do))
+		WithToken(SlackToken(config.Config{Messaging: settings, Path: setup.files.Target(), Files: setup.files}, do))
 }
 
 // SlackAPI is where the Slack Web API is asked and the transport to ask it
