@@ -1,11 +1,6 @@
-// Refusal is a refusal worded by the page's own code, as the server words
-// one — the mockup's stand-in for the server — so its message is meant to be
-// shown.
-export class Refusal extends Error {}
-
 // HeldBack is a write the page itself held back before it left the browser —
 // under --dry-run — so its message is the page's own words, meant to be shown.
-export class HeldBack extends Refusal {}
+export class HeldBack extends Error {}
 
 // apiErrorMessage pulls the human-readable reason from a thrown API error and
 // falls back when there is none. The typed client throws the error body as-is —
@@ -16,7 +11,7 @@ export class HeldBack extends Refusal {}
 // schema — carries no reason fit to show, so the fallback says what to do
 // instead. Shared by the write actions that surface a refusal to the user.
 export function apiErrorMessage(caught: unknown, fallback: string): string {
-  if (caught instanceof Refusal) {
+  if (caught instanceof HeldBack) {
     return caught.message
   }
 

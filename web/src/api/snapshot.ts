@@ -98,22 +98,6 @@ export function useEventStream(view: string | null, onViewRefused: () => void): 
   const viewRefused = useEffectEvent(onViewRefused)
 
   useEffect(() => {
-    // `task web:mockup` sets VITE_MOCK so the whole cockpit can be navigated
-    // against rich fixture data with no backend. The mock is code-split, so it
-    // is never pulled into a production build.
-    if (import.meta.env.VITE_MOCK === 'true') {
-      void import('@/dev/mockSnapshot.ts').then((module) => {
-        useSnapshotStore.setState({
-          snapshot: module.mockSnapshot,
-          view,
-          status: 'live',
-          receivedAt: Date.now(),
-        })
-      })
-
-      return
-    }
-
     useSnapshotStore.setState({ status: 'connecting', reason: '' })
     const source = new EventSource(eventsURL(view))
 

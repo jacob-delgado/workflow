@@ -7,14 +7,10 @@ import {
 } from '@/api/generated/@tanstack/react-query.gen.ts'
 import type { Config } from '@/api/generated/types.gen.ts'
 
-// The VITE_MOCK check is read inline (not via a helper) so Vite statically
-// replaces it and code-splits the dev fixture out of a production build, while
-// tests can still stub it at runtime.
-
 // ConfigRead is the configuration as a read or a save returned it, with the
 // revision of the file it stands for: what the next save names, so it is
 // written only over the file as it was read. Undefined when the answer named
-// none, as under VITE_MOCK, where no file is written.
+// none.
 export interface ConfigRead {
   config: Config
   revision: string | undefined
@@ -26,15 +22,7 @@ function revisionOf(response: Response): string | undefined {
 }
 
 // readConfig reads the configuration with secrets masked, and its revision.
-// Under VITE_MOCK it serves the fixture (code-split, dev-only) so Settings
-// works with no backend.
 async function readConfig(signal?: AbortSignal): Promise<ConfigRead> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockConfig } = await import('@/dev/mockConfig.ts')
-
-    return { config: mockConfig, revision: undefined }
-  }
-
   const { data, response } = await getConfig({ signal, throwOnError: true })
 
   return { config: data, revision: revisionOf(response) }
@@ -48,9 +36,7 @@ async function readConfig(signal?: AbortSignal): Promise<ConfigRead> {
 // would take an open form, and the edits in it, away — and a failed read is
 // not retried on its own: a problem answer, such as a file on disk that is not
 // valid, stands until the file changes, and retrying would only hide its
-// reason behind "Reading…" for seconds. Try again is the user's to press. Under
-// VITE_MOCK there is no file to change, and reading the fixture again would
-// undo a save's echo.
+// reason behind "Reading…" for seconds. Try again is the user's to press.
 function configQuery() {
   return queryOptions({
     queryKey: getConfigQueryKey(),
@@ -67,7 +53,7 @@ function configQuery() {
 
       return read
     },
-    staleTime: import.meta.env.VITE_MOCK === 'true' ? Infinity : 0,
+    staleTime: 0,
     refetchOnReconnect: false,
     retry: false,
   })
@@ -81,13 +67,8 @@ export function useConfigRead() {
 // saveConfig writes the whole configuration back over the revision named, and
 // returns it as stored, with secrets re-masked, and the revision written. A
 // secret left at its masked value keeps the stored one — the server preserves
-// it — so the form need not special-case them. Under VITE_MOCK the save is a
-// no-op that echoes the input.
+// it — so the form need not special-case them.
 async function saveConfig(config: Config, over: string | undefined): Promise<ConfigRead> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    return { config, revision: over }
-  }
-
   const { data, response } = await updateConfig({
     body: config,
     headers: over === undefined ? undefined : { 'If-Match': over },
@@ -99,8 +80,7 @@ async function saveConfig(config: Config, over: string | undefined): Promise<Con
 
 // useSaveConfig saves the configuration over the revision it was read at, and
 // refreshes the cached copy with the stored result, so a surface that reads the
-// cache before its next read — and every one, under VITE_MOCK, which never
-// reads again — shows the save. The issue views and the keys live in the
+// cache before its next read shows the save. The issue views and the keys live in the
 // configuration too, so they are read again: the view select offers only the
 // views the server lists, and a key moved or turned on works at once.
 export function useSaveConfig(): (config: Config, over: string | undefined) => Promise<ConfigRead> {

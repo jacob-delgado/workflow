@@ -13,17 +13,8 @@ import type {
 // previewAnnouncement composes the announcement without posting it, for the
 // confirm step to show, with whom it proposes to tag when the server has a
 // Slack user token — an owner not yet linked checked against channel's
-// members, the configured channel's when empty. Under VITE_MOCK it serves the
-// fixture (code-split, dev-only): the mock template filled from the mock
-// snapshot, and the mock Slack's tags.
+// members, the configured channel's when empty.
 export async function previewAnnouncement(channel = ''): Promise<Announcement> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const { mockAnnouncement } = await import('@/dev/mockAnnouncement.ts')
-    const { mockTagging } = await import('@/dev/mockSlack.ts')
-
-    return { ...mockAnnouncement, tagging: mockTagging() }
-  }
-
   const query = channel === '' ? {} : { channel }
   const result = await getAnnouncement({ query, throwOnError: true })
 
@@ -42,20 +33,13 @@ export async function previewAnnouncement(channel = ''): Promise<Announcement> {
 // text, refusing the post when the people linked are no longer the ones
 // shown. Given edited, the text the preview was edited to, that is posted in
 // place of previewed, which the server still checks against the announcement
-// composed now. Under VITE_MOCK it answers with the mock preview, posted to
-// the channel asked for.
+// composed now.
 export async function announce(
   channel: string,
   previewed: string,
   mentions?: AnnounceMentions,
   edited?: string,
 ): Promise<Announcement> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    const preview = await previewAnnouncement()
-
-    return { ...preview, text: edited ?? preview.text, channel }
-  }
-
   const result = await postAnnounce({
     body: announceBody(channel, previewed, mentions, edited),
     throwOnError: true,
@@ -74,17 +58,13 @@ export interface Held {
 // announceWhenCIPasses asks the server to hold the previewed announcement
 // until the pull request's CI passes — posting it at once if it has — as
 // announce does with the same arguments. The server holds it while it runs,
-// and the stream says how it stands. Under VITE_MOCK it is held.
+// and the stream says how it stands.
 export async function announceWhenCIPasses(
   channel: string,
   previewed: string,
   mentions?: AnnounceMentions,
   edited?: string,
 ): Promise<Held> {
-  if (import.meta.env.VITE_MOCK === 'true') {
-    return { held: true, channel }
-  }
-
   const result = await postAnnounce({
     body: { ...announceBody(channel, previewed, mentions, edited), when: 'ci_passes' },
     throwOnError: true,
@@ -93,12 +73,9 @@ export async function announceWhenCIPasses(
   return { held: result.response.status === 202, channel: result.data.channel }
 }
 
-// stopWaiting drops the announcement held for CI, unposted. Under VITE_MOCK it
-// sends nothing.
+// stopWaiting drops the announcement held for CI, unposted.
 export async function stopWaiting(): Promise<void> {
-  if (import.meta.env.VITE_MOCK !== 'true') {
-    await cancelQueuedAnnouncement({ throwOnError: true })
-  }
+  await cancelQueuedAnnouncement({ throwOnError: true })
 }
 
 // announceBody is a post's request: the channel, the previewed text, and the

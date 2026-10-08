@@ -8,7 +8,6 @@ import { useUiStore } from '@/shell/uiStore.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { vi } from 'vitest'
 
 // The page's keyboard beyond Tab, as a user meets it: ? lists the keys, a key
 // does what the terminal's does where single-key shortcuts are on, and Ctrl+K
@@ -508,19 +507,4 @@ test('the palette says when nothing is called what was typed', async () => {
   // Assert
   const palette = screen.getByRole('dialog', { name: 'Command palette' })
   expect(within(palette).getByRole('status').textContent).toMatch(/Nothing here is called that/)
-})
-
-test('the mockup serves its own keys', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-  const user = userEvent.setup()
-  openOn(withIssue, keysWith(false))
-  await keysRead('c')
-
-  // Act
-  await user.keyboard('?')
-
-  // Assert
-  const issues = within(screen.getByRole('dialog')).getByRole('table', { name: 'Issues' })
-  expect(within(issues).getByRole('row', { name: 't change status' })).toBeTruthy()
 })
