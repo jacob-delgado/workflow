@@ -1,5 +1,5 @@
 import { expect, test, type ConsoleMessage } from '@playwright/test'
-import { openSection, pinTheme } from '../cockpit.ts'
+import { openSection, pinTheme } from '../support/cockpit.ts'
 import { openServed, printedAddress } from './served.ts'
 
 // policyViolations collects what the browser reports refusing under the
@@ -26,7 +26,7 @@ test('the page the server serves loads themed, with nothing its content policy r
   await openSection(page, 'Branch')
 
   // Assert: themed before paint, and nothing refused.
-  // eslint-disable-next-line no-restricted-syntax -- data-theme is the resolved theme itself, the value the pre-paint script sets; no role, name or text carries it
+  // eslint-disable-next-line no-restricted-syntax, playwright/no-raw-locators -- data-theme is the resolved theme itself, the value the pre-paint script sets; no role, name or text carries it
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   expect(policyViolations(messages)).toEqual([])
 })
