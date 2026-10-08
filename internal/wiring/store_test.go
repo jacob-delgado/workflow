@@ -37,7 +37,10 @@ func TestTheStoreNeverHoldsARemotesCredential(t *testing.T) {
 	deps := wired(t, config.Default(), where, nil)
 
 	// Act
-	deps.Store.RecordScope("api")
+	err := deps.Store.RecordScope("api")
+	if err != nil {
+		t.Fatalf("recording the scope: %v", err)
+	}
 
 	// Assert
 	dir, err := store.DefaultDir()
@@ -121,7 +124,11 @@ func TestADryRunReadsWhatALiveSessionAnnounced(t *testing.T) {
 
 	where := wiring.Workspace{Root: t.TempDir(), Remote: "https://github.com/org/repo.git"}
 	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
-	wired(t, config.Default(), where, nil).Store.RecordAnnounce(merged)
+
+	err := wired(t, config.Default(), where, nil).Store.RecordAnnounce(merged)
+	if err != nil {
+		t.Fatalf("recording the announcement: %v", err)
+	}
 
 	// Act
 	posts := wiring.ReadOnlyStore(t.Context(), config.Default(), where).Announced()
@@ -144,7 +151,11 @@ func TestAnOriginNamingNoRepositoryKeysTheStoreByTheWorkingTree(t *testing.T) {
 	root := t.TempDir()
 	noRepository := wiring.Workspace{Root: root, Remote: "https://alice:" + token + "@github.com/repo.git"}
 	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
-	wired(t, config.Default(), noRepository, nil).Store.RecordAnnounce(merged)
+
+	err := wired(t, config.Default(), noRepository, nil).Store.RecordAnnounce(merged)
+	if err != nil {
+		t.Fatalf("recording the announcement: %v", err)
+	}
 
 	// Act
 	posts := wiring.ReadOnlyStore(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}).Announced()

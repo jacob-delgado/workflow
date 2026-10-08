@@ -31,7 +31,7 @@ type issuesLoaded struct {
 // apply caches a fresh first page, then, when the answer is for the view on
 // screen, records it and asks for the selected issue in full.
 func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
-	m.cacheIssues(msg)
+	m = m.cacheIssues(msg)
 
 	if msg.jql != m.activeView().jql {
 		return m, nil
@@ -44,14 +44,19 @@ func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
 }
 
 // cacheIssues stores a freshly-loaded first page, so a later session opens on it
-// before the tracker answers. Only a first page is cached; a failure and further
-// pages are not.
-func (m Model) cacheIssues(msg issuesLoaded) {
+// before the tracker answers, and says so when the store could not keep it.
+// Only a first page is cached; a failure and further pages are not.
+func (m Model) cacheIssues(msg issuesLoaded) Model {
 	if msg.err != nil || msg.startAt != 0 || m.deps.Store.CacheIssues == nil {
-		return
+		return m
 	}
 
-	m.deps.Store.CacheIssues(msg.jql, msg.found.Issues)
+	err := m.deps.Store.CacheIssues(msg.jql, msg.found.Issues)
+	if err != nil {
+		return m.noticed("the issue list was not kept for the next session: " + err.Error())
+	}
+
+	return m
 }
 
 // seededIssues is the last issue list cached for the active view, settled and

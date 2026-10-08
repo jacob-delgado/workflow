@@ -40,7 +40,10 @@ func TestTheIssueCacheNeverKeepsAForgeRow(t *testing.T) {
 	}
 
 	// Act
-	deps.Store.CacheIssues("assigned", listed)
+	err := deps.Store.CacheIssues("assigned", listed)
+	if err != nil {
+		t.Fatalf("caching the issues: %v", err)
+	}
 
 	// Assert
 	cached, found := deps.Store.CachedIssues("assigned")
@@ -87,7 +90,10 @@ func TestAListOfOnlyForgeIssuesIsNotCachedAsAnEmptyOne(t *testing.T) {
 	deps := wired(t, cachedJiraConfig(t), wiring.Workspace{Root: t.TempDir()}, nil)
 
 	// Act
-	deps.Store.CacheIssues("assigned", []jira.Issue{{Key: "42", Summary: "the forge's issue"}})
+	err := deps.Store.CacheIssues("assigned", []jira.Issue{{Key: "42", Summary: "the forge's issue"}})
+	if err != nil {
+		t.Fatalf("caching the issues: %v", err)
+	}
 
 	// Assert
 	if cached, found := deps.Store.CachedIssues("assigned"); found {
