@@ -58,7 +58,7 @@ var (
 // it was on while that is still listed.
 func (m Model) openFacetPicker() (Model, tea.Cmd) {
 	m.overlay = checklist[forge.ReviewFacet]{
-		marks: m.marks, title: filterTitle, none: "no request to filter",
+		title: filterTitle, none: "no request to filter",
 		choices: pickList[offered[forge.ReviewFacet]]{items: facetChoices(m.reviewQueue.all, m.reviewQueue.facets)},
 		chosen:  slices.Clone(m.reviewQueue.facets),
 		label:   forge.ReviewFacet.Label,

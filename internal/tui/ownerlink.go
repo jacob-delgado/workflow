@@ -234,8 +234,9 @@ type linkChoice struct {
 // ownerPicker chooses whom an owner is on Slack, from a directory narrowed by
 // what is typed, and goes back to the overlay it was opened from.
 type ownerPicker struct {
-	marks  glyphs
-	styles styles
+	// arrows names the arrow keys that move the choice, in the interface's
+	// glyphs.
+	arrows string
 	owner  string
 	team   bool
 	from   directory
@@ -251,7 +252,9 @@ var (
 
 // newOwnerPicker opens the picker on owner, over the overlay it goes back to.
 func newOwnerPicker(m Model, owner string, team bool, back linksOwners) ownerPicker {
-	picker := ownerPicker{marks: m.marks, styles: m.styles, owner: owner, team: team, from: directory{}, back: back}
+	picker := ownerPicker{
+		arrows: m.marks.upKey + "/" + m.marks.downKey, owner: owner, team: team, from: directory{}, back: back,
+	}
 
 	return picker.over(back)
 }
@@ -287,15 +290,15 @@ func (p ownerPicker) filtered(filter string) ownerPicker {
 
 // view draws the filter, then the choices in as many rows as fit, then how
 // the directory read went.
-func (p ownerPicker) view(width, rows int) (string, string) {
+func (p ownerPicker) view(kit renderKit, width, rows int) (string, string) {
 	lines := []string{"filter  " + sanitize.Line(p.filter), ""}
-	lines = append(lines, p.list.rows(p.marks, rows-len(lines)-outcomeRows, p.choiceRow)...)
+	lines = append(lines, p.list.rows(kit.marks, rows-len(lines)-outcomeRows, p.choiceRow)...)
 
 	switch {
 	case p.from.reading:
-		lines = append(lines, "", p.marks.inFlight+" still reading Slack's directory"+p.marks.ellipsis)
+		lines = append(lines, "", kit.marks.inFlight+" still reading Slack's directory"+kit.marks.ellipsis)
 	case p.from.err != nil:
-		lines = append(lines, "", failureBlock(p.styles, p.marks, p.from.err, width))
+		lines = append(lines, "", failureBlock(kit.styles, kit.marks, p.from.err, width))
 	}
 
 	return "Link " + p.owner + " to Slack", strings.Join(lines, "\n")
@@ -314,7 +317,7 @@ func (p ownerPicker) choiceRow(choice linkChoice) string {
 func (p ownerPicker) footer(_ keyMap) []key.Binding {
 	return []key.Binding{
 		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "link")),
-		key.NewBinding(key.WithKeys("up", "down"), key.WithHelp(p.marks.upKey+"/"+p.marks.downKey, "select")),
+		key.NewBinding(key.WithKeys("up", "down"), key.WithHelp(p.arrows, "select")),
 		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 	}
 }

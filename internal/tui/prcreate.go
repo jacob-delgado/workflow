@@ -139,7 +139,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 
 	switch {
 	case named && m.deps.Jira.LinkPullRequest != nil:
-		m.overlay = issueLinker{marks: m.marks, styles: m.styles, vocab: m.vocab, issueKey: issueKey, pull: msg.pull}
+		m.overlay = issueLinker{vocab: m.vocab, issueKey: issueKey, pull: msg.pull}
 
 		return m, cmds
 	case named:

@@ -75,7 +75,7 @@ func (f settingsForm) remove(m Model) (Model, tea.Cmd) {
 	removal, stored := f.storedRemoval(field)
 	switch {
 	case stored:
-		m.overlay = f.askToRemove(m, removal)
+		m.overlay = f.askToRemove(removal)
 	case f.removable(field):
 		m.overlay = f.removedEntry(field)
 	default:
@@ -87,14 +87,14 @@ func (f settingsForm) remove(m Model) (Model, tea.Cmd) {
 
 // askToRemove holds a removal for a last look, saying it is written at once,
 // without the form's other edits, and cannot be undone.
-func (f settingsForm) askToRemove(m Model, removal credentialRemoval) lastLook {
+func (f settingsForm) askToRemove(removal credentialRemoval) lastLook {
 	consequence := ""
 	if removal.credential == config.CredentialClientSecret || removal.credential == config.CredentialRefreshToken {
 		consequence = "The access token made from it goes too. "
 	}
 
 	look := lastLook{
-		marks: m.marks, styles: m.styles, title: "Remove a credential", verb: "remove", doing: "removing",
+		title: "Remove a credential", verb: "remove", doing: "removing",
 		leave: escBack, back: f,
 		body: "Remove " + removal.words() + " from " + f.shownPath + "?\n\n" + consequence +
 			"It cannot be undone: the file keeps no copy. It is written at once, without your other edits " +

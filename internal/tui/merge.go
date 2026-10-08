@@ -33,7 +33,7 @@ func (m Model) startMerge() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = mergePicker{marks: m.marks, styles: m.styles, vocab: m.vocab, pull: m.review.pull}
+	m.overlay = mergePicker{vocab: m.vocab, pull: m.review.pull}
 	methods := m.deps.Forge.MergeMethods
 
 	return m, func() tea.Msg {
@@ -122,8 +122,6 @@ func mergeMethodLabel(method forge.MergeMethod) string {
 // mergePicker previews merging a pull request: which of the permitted methods
 // to use, sent only once it is confirmed.
 type mergePicker struct {
-	marks    glyphs
-	styles   styles
 	vocab    reviewVocab
 	pull     forge.PullRequest
 	methods  []forge.MergeMethod
@@ -140,19 +138,19 @@ var (
 
 // view draws the pull request and the methods it may be merged by, the merge's
 // outcome pinned under the title.
-func (p mergePicker) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(p.styles, p.marks, p.send, "merging", width)
+func (p mergePicker) view(kit renderKit, width, _ int) (string, string) {
+	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "merging", width)
 	lines = append(lines, p.vocab.sigil+strconv.Itoa(p.pull.Number)+" "+p.pull.Title, "")
 
 	switch {
 	case !p.settled:
-		lines = append(lines, "reading the merge methods"+p.marks.ellipsis)
+		lines = append(lines, "reading the merge methods"+kit.marks.ellipsis)
 	case p.listErr != nil:
-		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
+		lines = append(lines, failureLine(kit.styles, kit.marks, p.listErr))
 	default:
 		lines = append(lines, "Merge by:")
 		for index, method := range p.methods {
-			lines = append(lines, p.marks.marker(index == p.selected)+mergeMethodLabel(method))
+			lines = append(lines, kit.marks.marker(index == p.selected)+mergeMethodLabel(method))
 		}
 	}
 

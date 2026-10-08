@@ -28,8 +28,6 @@ var errNotAnIssue = errors.New("name an issue: a Jira key like PROJ-7, or a forg
 // already linked it names the issue instead, and unlinks it at once: the
 // description is left as it is, so nothing leaves the machine.
 type branchLinker struct {
-	marks  glyphs
-	styles styles
 	vocab  reviewVocab
 	branch string
 	// linked is the issue the branch is linked to by hand, or empty when it is
@@ -75,7 +73,7 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 	}
 
 	m.overlay = branchLinker{
-		marks: m.marks, styles: m.styles, vocab: m.vocab, branch: m.branch.branch.Name,
+		vocab: m.vocab, branch: m.branch.branch.Name,
 		linked: jira.Key(m.branch.branch.IssueLink), pull: pull, hasPull: hasPull, input: newInput(start),
 	}
 
@@ -85,9 +83,9 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 // view draws the issue being chosen, or the description it will add itself
 // to, with how sending is going or why the form cannot send pinned under the
 // title, so a long refusal is wrapped and seen rather than clipped.
-func (l branchLinker) view(width, _ int) (string, string) {
-	lines := append(pinnedOutcome(l.styles, l.marks, l.send, l.doing(), width),
-		pinnedProblem(l.styles, l.marks, l.problem, width)...)
+func (l branchLinker) view(kit renderKit, width, _ int) (string, string) {
+	lines := append(pinnedOutcome(kit.styles, kit.marks, l.send, l.doing(), width),
+		pinnedProblem(kit.styles, kit.marks, l.problem, width)...)
 
 	if l.linked != "" {
 		lines = append(lines, l.branch+" is linked to "+shownKey(l.linked)+".")
@@ -311,7 +309,7 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 
 	ref, _ := convention.RefOf(string(msg.issueKey))
 	if ref.Tracker == convention.TrackerJira && msg.pull.Number != 0 && m.deps.Jira.LinkPullRequest != nil {
-		m.overlay = issueLinker{marks: m.marks, styles: m.styles, vocab: m.vocab, issueKey: msg.issueKey, pull: msg.pull}
+		m.overlay = issueLinker{vocab: m.vocab, issueKey: msg.issueKey, pull: msg.pull}
 	}
 
 	return m, m.loadBranch()

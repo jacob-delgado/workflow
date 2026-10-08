@@ -71,7 +71,7 @@ type quitGuard struct{}
 var _ overlay = quitGuard{}
 
 // view says what quitting would cost.
-func (quitGuard) view(width, _ int) (string, string) {
+func (quitGuard) view(_ renderKit, width, _ int) (string, string) {
 	return "Quit", wrap("An announcement is waiting for CI and will be lost.", width)
 }
 
@@ -287,7 +287,7 @@ func (m Model) previewAnnouncement() (Model, tea.Cmd) {
 	m, opened := m.opening()
 
 	preview, readTags := m.withTagging(messagingPreview{
-		marks: m.marks, styles: m.styles, text: m.announcement(moment), fallback: m.cfg.Messaging.Target(),
+		text: m.announcement(moment), fallback: m.cfg.Messaging.Target(),
 		channel: channel, channels: channels, moment: moment, service: m.cfg.Messaging.Service(),
 		noCI: m.review.checked && m.review.ci.State == forge.CINone, opened: opened,
 	})

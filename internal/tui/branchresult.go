@@ -134,7 +134,9 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 		offer := m.switchLook(path)
 		offer.title, offer.leave = "Switch to the new worktree", escSkip
 
-		return m.lookAt(offer), nil
+		m.overlay = offer
+
+		return m, nil
 	}
 
 	reload := m.listIssueBranches()

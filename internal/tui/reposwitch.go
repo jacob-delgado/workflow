@@ -149,7 +149,9 @@ func (m Model) leaveFor(dir string) (Model, tea.Cmd) {
 		return m.noticed("wait for " + busy + " to finish before switching"), nil
 	}
 
-	return m.lookAt(m.switchLook(dir)), nil
+	m.overlay = m.switchLook(dir)
+
+	return m, nil
 }
 
 // switchLook is the last look at switching to dir, which names what the
@@ -209,7 +211,9 @@ func (m Model) reopenWith(saved reopening) (Model, tea.Cmd) {
 	case m.writeInFlight() == "" && len(m.lostOnLeaving()) == 0:
 		return m.reopen(dir, saved)
 	default:
-		return m.lookAt(m.reopenLook(dir, saved)), nil
+		m.overlay = m.reopenLook(dir, saved)
+
+		return m, nil
 	}
 }
 
@@ -306,8 +310,6 @@ func (m Model) switchToSelected() (Model, tea.Cmd) {
 // your home after a ~, completed by tab from the directories there and gone
 // to once it is checked to be one.
 type dirPrompt struct {
-	marks      glyphs
-	styles     styles
 	base, home string
 	input      textinput.Model
 	// choices are the directories that fit what was typed, when tab found
@@ -335,8 +337,8 @@ func (m Model) openDirPrompt() (Model, tea.Cmd) {
 	m, opened := m.opening()
 
 	m.overlay = dirPrompt{
-		marks: m.marks, styles: m.styles, input: input,
-		base: m.deps.Repositories.Here.Dir, home: m.deps.Repositories.Home, opened: opened,
+		input: input,
+		base:  m.deps.Repositories.Here.Dir, home: m.deps.Repositories.Home, opened: opened,
 	}
 
 	return m, nil
@@ -345,7 +347,7 @@ func (m Model) openDirPrompt() (Model, tea.Cmd) {
 // view draws the path being typed, what tab found, and why a path could not
 // be gone to. The path and the names tab found are as they are on disk, so
 // they are neutralized only as they are drawn.
-func (p dirPrompt) view(width, _ int) (string, string) {
+func (p dirPrompt) view(kit renderKit, width, _ int) (string, string) {
 	p.input.SetWidth(max(1, width-len(p.input.Prompt)-1))
 
 	lines := []string{"Type a path: from where you work, or from your home after ~.", "", drawnField(p.input)}
@@ -355,14 +357,14 @@ func (p dirPrompt) view(width, _ int) (string, string) {
 			shown = append(shown, sanitize.Line(choice))
 		}
 
-		lines = append(lines, "", p.styles.label.Render(strings.Join(shown, "  ")))
+		lines = append(lines, "", kit.styles.label.Render(strings.Join(shown, "  ")))
 	}
 
 	switch {
 	case p.looking:
-		lines = append(lines, "", "reading"+p.marks.ellipsis)
+		lines = append(lines, "", "reading"+kit.marks.ellipsis)
 	case p.problem != nil:
-		lines = append(lines, "", failureLine(p.styles, p.marks, p.problem))
+		lines = append(lines, "", failureLine(kit.styles, kit.marks, p.problem))
 	case p.note != "":
 		lines = append(lines, "", p.note)
 	}

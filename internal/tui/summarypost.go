@@ -21,9 +21,7 @@ const summaryPostHelp = "Edit the summary above this line. It is Markdown, poste
 // summaryPost is the Summary about to be posted, as messagingPreview is an
 // announcement: the text, where it goes, and how the post stands.
 type summaryPost struct {
-	marks  glyphs
-	styles styles
-	text   string
+	text string
 	// fallback is where a post goes when no channel is chosen — a webhook's own
 	// channel, or the note that none is set.
 	fallback string
@@ -54,7 +52,7 @@ func (m Model) canPostSummary() bool {
 // write, so it is neutralized before the terminal or the editor sees it.
 func (m Model) previewSummaryPost() (Model, tea.Cmd) {
 	m.overlay = summaryPost{
-		marks: m.marks, styles: m.styles, text: sanitize.Text(m.shownSummary().Text(m.deps.now().Location())),
+		text:     sanitize.Text(m.shownSummary().Text(m.deps.now().Location())),
 		fallback: m.cfg.Messaging.Target(), channel: m.defaultChannel(), channels: m.cfg.Messaging.ChannelChoices(),
 		service: m.cfg.Messaging.Service(), kind: m.cfg.Messaging.Kind,
 	}
@@ -75,8 +73,8 @@ func (p summaryPost) destination() string {
 // view shows the Summary as it will be posted, where, and how long it is
 // against what the service takes, its outcome pinned under the title so a
 // long refusal is seen, not clipped.
-func (p summaryPost) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
+func (p summaryPost) view(kit renderKit, width, _ int) (string, string) {
+	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "posting", width)
 	lines = append(lines, wrap(p.text, width), "",
 		"to  "+p.destination()+", "+loop.SummaryLength(p.kind, p.text).String())
 

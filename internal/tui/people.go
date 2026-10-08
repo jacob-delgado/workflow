@@ -45,8 +45,6 @@ type person struct {
 // on Slack, and which user groups this repository tags. Its writes are saved
 // at once, and a refusal stays pinned under its title until the next one.
 type peopleOverlay struct {
-	marks   glyphs
-	styles  styles
 	tab     peopleTab
 	people  pickList[person]
 	reading bool
@@ -91,7 +89,7 @@ func (m Model) openPeople() (Model, tea.Cmd) {
 
 	m, opened := m.opening()
 	people := peopleOverlay{
-		marks: m.marks, styles: m.styles, reading: true, repoReading: true, channel: m.defaultChannel(),
+		reading: true, repoReading: true, channel: m.defaultChannel(),
 		opened: opened,
 	}
 	people.members, readMembers = m.readMembers(people.channel, opened)
@@ -243,71 +241,71 @@ func (p peopleOverlay) withChoices() peopleOverlay {
 }
 
 // view draws the refusal pinned under the title, the tabs, and the tab shown.
-func (p peopleOverlay) view(width, rows int) (string, string) {
-	lines := pinnedOutcome(p.styles, p.marks, p.send, "saving", width)
-	lines = append(lines, p.tabs(), "")
+func (p peopleOverlay) view(kit renderKit, width, rows int) (string, string) {
+	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "saving", width)
+	lines = append(lines, p.tabs(kit), "")
 
-	body := map[peopleTab]func(int, int) []string{tabPeople: p.peopleLines, tabGroups: p.groupLines}[p.tab]
+	body := map[peopleTab]func(renderKit, int, int) []string{tabPeople: p.peopleLines, tabGroups: p.groupLines}[p.tab]
 
-	return peopleTitle, strings.Join(append(lines, body(width, rows-len(lines))...), "\n")
+	return peopleTitle, strings.Join(append(lines, body(kit, width, rows-len(lines))...), "\n")
 }
 
 // tabs names both tabs, the one shown marked.
-func (p peopleOverlay) tabs() string {
+func (p peopleOverlay) tabs(kit renderKit) string {
 	names := map[peopleTab]string{tabPeople: "People", tabGroups: "Groups"}
 	shown := names[p.tab]
-	names[p.tab] = p.marks.chosenOpen + shown + p.marks.chosenClose
+	names[p.tab] = kit.marks.chosenOpen + shown + kit.marks.chosenClose
 
 	return names[tabPeople] + "  " + names[tabGroups]
 }
 
 // peopleLines is the People tab.
-func (p peopleOverlay) peopleLines(width, rows int) []string {
+func (p peopleOverlay) peopleLines(kit renderKit, width, rows int) []string {
 	switch {
 	case p.reading:
-		return []string{p.marks.inFlight + " reading who was decided" + p.marks.ellipsis}
+		return []string{kit.marks.inFlight + " reading who was decided" + kit.marks.ellipsis}
 	case p.readErr != nil:
-		return []string{failureBlock(p.styles, p.marks, p.readErr, width)}
+		return []string{failureBlock(kit.styles, kit.marks, p.readErr, width)}
 	case len(p.people.items) == 0:
 		return []string{"nobody decided yet, and no code owner of this branch's changes to ask about"}
 	default:
-		return p.people.rows(p.marks, rows, p.personRow)
+		return p.people.rows(kit.marks, rows, func(row person) string { return personRow(kit, row) })
 	}
 }
 
 // personRow is an owner and what is known of them on Slack.
-func (p peopleOverlay) personRow(row person) string {
+func personRow(kit renderKit, row person) string {
 	state := "? not asked yet"
 
 	switch {
 	case row.decided && row.link.OnSlack:
-		state = strings.TrimSpace(p.marks.arrow) + " " + slackName(row.link.Slack, row.team)
+		state = strings.TrimSpace(kit.marks.arrow) + " " + slackName(row.link.Slack, row.team)
 	case row.decided:
-		state = p.marks.unknown + " not on Slack"
+		state = kit.marks.unknown + " not on Slack"
 	}
 
 	return fmt.Sprintf("%-*s ", ownerColumn, row.owner) + state
 }
 
 // groupLines is the Groups tab.
-func (p peopleOverlay) groupLines(width, rows int) []string {
+func (p peopleOverlay) groupLines(kit renderKit, width, rows int) []string {
 	var lines []string
 
 	for _, err := range []error{p.groups.err, p.repoErr} {
 		if err != nil {
-			lines = append(lines, failureBlock(p.styles, p.marks, err, width))
+			lines = append(lines, failureBlock(kit.styles, kit.marks, err, width))
 		}
 	}
 
 	if p.groups.reading {
-		lines = append(lines, p.marks.inFlight+" reading the user groups"+p.marks.ellipsis)
+		lines = append(lines, kit.marks.inFlight+" reading the user groups"+kit.marks.ellipsis)
 	}
 
 	if p.repoReading {
-		lines = append(lines, p.marks.inFlight+" reading the groups this repository tags"+p.marks.ellipsis)
+		lines = append(lines, kit.marks.inFlight+" reading the groups this repository tags"+kit.marks.ellipsis)
 	}
 
-	return append(lines, p.choices.rows(p.marks, rows-len(lines), p.choiceRow)...)
+	return append(lines, p.choices.rows(kit.marks, rows-len(lines), p.choiceRow)...)
 }
 
 // choiceRow is a group, checked when the repository tags it.
@@ -411,7 +409,7 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 func (p peopleOverlay) askToForget(m Model, owner string) Model {
 	forget, opened, readWorkspace := m.deps.Store.ForgetOwner, p.opened, m.deps.Messaging.Workspace
 
-	return m.lookAt(lastLook{
+	m.overlay = lastLook{
 		title: "Forget a person", verb: "forget", leave: escBack, back: p,
 		body: "Forget " + owner + "?\n\nThe next ready-for-review announcement asks whom they are on Slack again.",
 		proceed: func(m Model) (Model, tea.Cmd) {
@@ -421,7 +419,9 @@ func (p peopleOverlay) askToForget(m Model, owner string) Model {
 				return peopleSaved{opened: opened, err: err}
 			})
 		},
-	})
+	}
+
+	return m
 }
 
 // handleGroupKey checks or unchecks a group, or reads the directory again.

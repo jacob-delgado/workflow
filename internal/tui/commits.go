@@ -423,7 +423,7 @@ type amendPreview struct {
 var _ overlay = amendPreview{}
 
 // view describes the amend as it will happen.
-func (p amendPreview) view(width, _ int) (string, string) {
+func (p amendPreview) view(_ renderKit, width, _ int) (string, string) {
 	return "Amend the last commit", wrap("Fold the staged changes into "+p.subject+"?", width)
 }
 
