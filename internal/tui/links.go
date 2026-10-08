@@ -8,24 +8,24 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// linkKeys offers opening and copying a URL, each only when its seam is present.
-// An empty url offers nothing: there is no link to act on.
+// linkOffers are opening and copying a URL, each only when its seam is
+// present. An empty url offers neither: there is no link to act on.
+func (m Model) linkOffers(url string) []offer {
+	return []offer{
+		{
+			binding: m.keys.openLink, can: url != "" && m.deps.OpenURL != nil,
+			act: func() (Model, tea.Cmd) { return m.openLink(url) },
+		},
+		{
+			binding: m.keys.copyLink, can: url != "" && m.deps.Copy != nil,
+			act: func() (Model, tea.Cmd) { return m.copyLink(url) },
+		},
+	}
+}
+
+// linkKeys is the footer's link keys: the link offers that act right now.
 func (m Model) linkKeys(url string) []key.Binding {
-	if url == "" {
-		return nil
-	}
-
-	var keys []key.Binding
-
-	if m.deps.OpenURL != nil {
-		keys = append(keys, m.keys.openLink)
-	}
-
-	if m.deps.Copy != nil {
-		keys = append(keys, m.keys.copyLink)
-	}
-
-	return keys
+	return liveKeys(m.linkOffers(url))
 }
 
 // openLink opens url in the browser, leaving the reason on screen if the opener
