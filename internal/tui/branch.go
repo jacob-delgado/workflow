@@ -91,23 +91,23 @@ func (s branchState) onFeatureBranch() bool {
 	return s.loaded && s.err == nil && loop.OnFeatureBranch(s.branch)
 }
 
-// branchRail is the branch's name and where it stands against its upstream.
-func (m Model) branchRail(_ int) string {
+// rail is the branch's name and where it stands against its upstream.
+func (s branchState) rail(kit renderKit) string {
 	switch {
-	case !m.branch.loaded:
-		return m.marks.reading()
-	case m.branch.err != nil:
-		return m.kit().unreadRow(m.branch.err, "could not read the branch")
-	case m.branch.branch.Detached:
+	case !s.loaded:
+		return kit.marks.reading()
+	case s.err != nil:
+		return kit.unreadRow(s.err, "could not read the branch")
+	case s.branch.Detached:
 		return "detached HEAD"
 	}
 
-	return m.styles.strong.Render(m.branch.branch.Name) + "\n" + m.upstreamState()
+	return kit.styles.strong.Render(s.branch.Name) + "\n" + s.upstream(kit)
 }
 
-// upstreamState says where the branch stands against the remote it pushes to.
-func (m Model) upstreamState() string {
-	branch := m.branch.branch
+// upstream says where the branch stands against the remote it pushes to.
+func (s branchState) upstream(kit renderKit) string {
+	branch := s.branch
 
 	switch {
 	case branch.Pushed():
@@ -115,7 +115,7 @@ func (m Model) upstreamState() string {
 	case branch.Upstream != branch.PushTarget():
 		return "not pushed yet"
 	default:
-		return m.marks.ahead + strconv.Itoa(branch.Ahead) + " " + m.marks.behind + strconv.Itoa(branch.Behind) +
+		return kit.marks.ahead + strconv.Itoa(branch.Ahead) + " " + kit.marks.behind + strconv.Itoa(branch.Behind) +
 			" against " + branch.Upstream
 	}
 }
@@ -123,63 +123,80 @@ func (m Model) upstreamState() string {
 // outsideRepository reports the interface started outside a git work tree, the
 // one branch fault every repository-backed pane shows alone, in the failure
 // table's words, and offers no repository key for.
-func (m Model) outsideRepository() bool {
-	return m.branch.loaded && errors.Is(m.branch.err, gitrepo.ErrNotARepository)
+func (s branchState) outsideRepository() bool {
+	return s.loaded && errors.Is(s.err, gitrepo.ErrNotARepository)
 }
 
 // canCreateBranch reports whether a branch can be started: git can create one,
 // and the directory is a repository to create it in.
 func (m Model) canCreateBranch() bool {
-	return m.deps.Git.CreateBranch != nil && !m.outsideRepository()
+	return m.deps.Git.CreateBranch != nil && !m.branch.outsideRepository()
 }
 
-// branchDetail describes the branch and what to do with it.
-func (m Model) branchDetail(width int) string {
+// branchView is what the Branch pane draws with beside its own state: the
+// glyphs and styles, the keys it names, the Jira project a branch's name is
+// read for an issue in, and the issues the Issues pane lists.
+type branchView struct {
+	kit     renderKit
+	keys    keyMap
+	project string
+	issues  issueList
+}
+
+// branchView is the Branch pane's view of the rest of the interface.
+func (m Model) branchView() branchView {
+	return branchView{kit: m.kit(), keys: m.keys, project: m.cfg.Jira.Project, issues: m.issues}
+}
+
+// detail describes the branch and what to do with it.
+func (s branchState) detail(view branchView, width int) string {
+	kit := view.kit
+
 	switch {
-	case !m.branch.loaded:
-		return m.branchRail(0)
-	case m.outsideRepository():
-		return m.kit().failureBlock(m.branch.err, width)
-	case m.branch.err != nil:
+	case !s.loaded:
+		return s.rail(kit)
+	case s.outsideRepository():
+		return kit.failureBlock(s.err, width)
+	case s.err != nil:
 		// Why, in the words of whatever refused: a directory that is no
 		// repository is one reason among several, and only the reason says
 		// what to do about it.
-		return wrap(m.branchRail(0), width) + "\n\n" + m.kit().failureBlock(m.branch.err, width)
-	case m.branch.branch.Detached:
-		return wrap(m.branchRail(0)+"\n\nCheck out a branch, or press "+m.keys.newBranch.Help().Key+
+		return wrap(s.rail(kit), width) + "\n\n" + kit.failureBlock(s.err, width)
+	case s.branch.Detached:
+		return wrap(s.rail(kit)+"\n\nCheck out a branch, or press "+view.keys.newBranch.Help().Key+
 			" to start one for the selected issue.", width)
 	}
 
-	branch := m.branch.branch
+	label := kit.styles.label
 	lines := []string{
-		m.styles.strong.Render(branch.Name),
+		kit.styles.strong.Render(s.branch.Name),
 		"",
-		m.styles.label.Render("base      ") + m.valueOr(branch.Base, "(none found)"),
-		m.styles.label.Render("upstream  ") + m.upstreamState(),
-		m.styles.label.Render("commits   ") + strconv.Itoa(len(branch.Commits)) + " not on the base",
+		label.Render("base      ") + valueOr(kit.styles, s.branch.Base, "(none found)"),
+		label.Render("upstream  ") + s.upstream(kit),
+		label.Render("commits   ") + strconv.Itoa(len(s.branch.Commits)) + " not on the base",
 	}
 
-	if branchKey, named := loop.IssueOf(branch, m.cfg.Jira.Project); named {
-		issue, listed := m.issues.find(jira.Key(branchKey.Key))
-		lines = append(lines, m.styles.label.Render("issue     ")+branchKey.Key+" "+issue.Summary+m.unlisted(listed))
+	if branchKey, named := loop.IssueOf(s.branch, view.project); named {
+		issue, listed := view.issues.find(jira.Key(branchKey.Key))
+		lines = append(lines, label.Render("issue     ")+branchKey.Key+" "+issue.Summary+unlisted(kit.styles, listed))
 	}
 
 	return wrap(strings.Join(lines, "\n"), width)
 }
 
 // unlisted marks an issue the branch names that is not among those assigned.
-func (m Model) unlisted(listed bool) string {
+func unlisted(sty styles, listed bool) string {
 	if listed {
 		return ""
 	}
 
-	return m.styles.label.Render("(not among your open issues)")
+	return sty.label.Render("(not among your open issues)")
 }
 
 // valueOr is a value, or what to say when there is none.
-func (m Model) valueOr(value, none string) string {
+func valueOr(sty styles, value, none string) string {
 	if value == "" {
-		return m.styles.label.Render(none)
+		return sty.label.Render(none)
 	}
 
 	return value
@@ -190,7 +207,7 @@ func (m Model) valueOr(value, none string) string {
 // base, pushing it, and reading it again. Outside a repository there is no
 // branch to act on, and none is offered.
 func (m Model) branchOffers() []offer {
-	if m.outsideRepository() {
+	if m.branch.outsideRepository() {
 		return nil
 	}
 
@@ -248,10 +265,10 @@ func (m Model) previewRebase() (Model, tea.Cmd) {
 	return m, nil
 }
 
-// branchIssue is the issue the current branch is for, by its link or its name,
-// typed as a jira.Key, and whether it is for one.
-func (m Model) branchIssue() (jira.Key, bool) {
-	key, ok := loop.IssueOf(m.branch.branch, m.cfg.Jira.Project)
+// issue is the issue the branch is for, by its link or its name in the
+// Jira project, typed as a jira.Key, and whether it is for one.
+func (s branchState) issue(project string) (jira.Key, bool) {
+	key, ok := loop.IssueOf(s.branch, project)
 
 	return jira.Key(key.Key), ok
 }
@@ -265,7 +282,8 @@ func (m Model) handleBranchKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // branchBehavior is the Branch pane's behavior.
 func branchBehavior() behavior {
 	return behavior{
-		rail: Model.branchRail, detail: Model.branchDetail, narrow: nil,
+		rail:   func(m Model, _ int) string { return m.branch.rail(m.kit()) },
+		detail: func(m Model, width int) string { return m.branch.detail(m.branchView(), width) }, narrow: nil,
 		keys: Model.branchKeys, handle: Model.handleBranchKey, pick: nil,
 		refresh: Model.refreshBranch, loading: func(m Model) bool { return m.branch.loading },
 		scroll: func(m *Model) *int { return &m.branch.scroll }, readsBranch: true,

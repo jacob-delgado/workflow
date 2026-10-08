@@ -77,7 +77,7 @@ func (msg repositoriesRead) apply(m Model) (Model, tea.Cmd) {
 	m.repositories.favorites, m.repositories.err, m.repositories.read = msg.favorites, msg.err, true
 	m.repositories.loading = false
 	m.repositories.worktrees, m.repositories.worktreesErr = msg.worktrees, msg.worktreesErr
-	m.repositories.selected = min(m.repositories.selected, len(m.repositoryRows())-1)
+	m.repositories.selected = min(m.repositories.selected, len(m.repositories.rows(m.deps.Repositories.Here))-1)
 
 	return m, nil
 }
@@ -131,14 +131,31 @@ func (m Model) refreshRepositories() (Model, tea.Cmd) {
 	return m, m.loadRepositories()
 }
 
-// repositoryRows are where you work, then the repository's other worktrees
-// as git lists them, then every other favorite, as kept.
-func (m Model) repositoryRows() []repositoryRow {
-	here := repositoryRow{dir: m.deps.Repositories.Here.Dir, place: m.deps.Repositories.Here, here: true}
-	rows := append([]repositoryRow{here}, m.worktreeRows()...)
+// repositoriesView is what the Repositories pane draws with beside its own
+// state: the glyphs and styles, the keys it names, where you work, and your
+// home, which every directory is written from.
+type repositoriesView struct {
+	kit  renderKit
+	keys keyMap
+	here seams.Place
+	home string
+}
 
-	for _, favorite := range m.repositories.favorites {
-		if m.isOtherWorktree(favorite.dir) {
+// repositoriesView is the Repositories pane's view of the rest of the
+// interface.
+func (m Model) repositoriesView() repositoriesView {
+	return repositoriesView{
+		kit: m.kit(), keys: m.keys, here: m.deps.Repositories.Here, home: m.deps.Repositories.Home,
+	}
+}
+
+// rows are where you work, then the repository's other worktrees as git
+// lists them, then every other favorite, as kept.
+func (s repositoriesState) rows(here seams.Place) []repositoryRow {
+	rows := append([]repositoryRow{{dir: here.Dir, place: here, here: true}}, s.worktreeRows(here.Root)...)
+
+	for _, favorite := range s.favorites {
+		if s.isOtherWorktree(favorite.dir, here.Root) {
 			// Listed, starred, among the worktrees.
 			continue
 		}
@@ -157,17 +174,17 @@ func (m Model) repositoryRows() []repositoryRow {
 	return rows
 }
 
-// worktreeRows are the repository's worktrees but the one where you work, each
-// a favorite when one is kept by its directory.
-func (m Model) worktreeRows() []repositoryRow {
+// worktreeRows are the repository's worktrees but the one where you work, at
+// hereRoot, each a favorite when one is kept by its directory.
+func (s repositoriesState) worktreeRows(hereRoot string) []repositoryRow {
 	var rows []repositoryRow
 
-	for at, worktree := range m.repositories.worktrees {
-		if worktree.Dir == m.deps.Repositories.Here.Root {
+	for at, worktree := range s.worktrees {
+		if worktree.Dir == hereRoot {
 			continue
 		}
 
-		row := repositoryRow{dir: worktree.Dir, worktree: &m.repositories.worktrees[at], favorite: m.isFavorite(worktree.Dir)}
+		row := repositoryRow{dir: worktree.Dir, worktree: &s.worktrees[at], favorite: s.isFavorite(worktree.Dir)}
 		if worktree.Missing {
 			row.err = errWorktreeGone
 		}
@@ -179,36 +196,40 @@ func (m Model) worktreeRows() []repositoryRow {
 }
 
 // isOtherWorktree reports dir one of the worktrees listed beside where you
-// work.
-func (m Model) isOtherWorktree(dir string) bool {
-	return dir != m.deps.Repositories.Here.Root &&
-		slices.ContainsFunc(m.repositories.worktrees, func(worktree gitrepo.Worktree) bool { return worktree.Dir == dir })
+// work, at hereRoot.
+func (s repositoriesState) isOtherWorktree(dir, hereRoot string) bool {
+	return dir != hereRoot &&
+		slices.ContainsFunc(s.worktrees, func(worktree gitrepo.Worktree) bool { return worktree.Dir == dir })
 }
 
 // isFavorite reports a favorite kept by exactly dir.
-func (m Model) isFavorite(dir string) bool {
-	return slices.ContainsFunc(m.repositories.favorites, func(favorite favoritePlace) bool { return favorite.dir == dir })
+func (s repositoriesState) isFavorite(dir string) bool {
+	return slices.ContainsFunc(s.favorites, func(favorite favoritePlace) bool { return favorite.dir == dir })
 }
 
-// selectedRepository is the row the cursor is on.
-func (m Model) selectedRepository() repositoryRow {
-	rows := m.repositoryRows()
+// selectedRow is the row the cursor is on.
+func (s repositoriesState) selectedRow(here seams.Place) repositoryRow {
+	rows := s.rows(here)
 
-	return rows[min(max(0, m.repositories.selected), len(rows)-1)]
+	return rows[min(max(0, s.selected), len(rows)-1)]
 }
 
 // shownDir is a directory written from your home, with anything in its name
 // that could drive the terminal neutralized: it is read from a file on disk.
 func (m Model) shownDir(dir string) string {
-	return sanitize.Line(workdirs.Shown(dir, m.deps.Repositories.Home))
+	return shownFrom(m.deps.Repositories.Home, dir)
 }
 
-// repositoriesRail is where you work, and how many favorites there are once
-// read.
-func (m Model) repositoriesRail(rows int) string {
-	lines := []string{m.shownDir(m.deps.Repositories.Here.Dir)}
+// shownFrom is dir written from home, neutralized.
+func shownFrom(home, dir string) string {
+	return sanitize.Line(workdirs.Shown(dir, home))
+}
+
+// rail is where you work, and how many favorites there are once read.
+func (s repositoriesState) rail(view repositoriesView, rows int) string {
+	lines := []string{shownFrom(view.home, view.here.Dir)}
 	if rows > 1 {
-		lines = append(lines, m.styles.label.Render(m.favoritesCount()))
+		lines = append(lines, view.kit.styles.label.Render(s.favoritesCount(view)))
 	}
 
 	return strings.Join(lines, "\n")
@@ -216,11 +237,11 @@ func (m Model) repositoriesRail(rows int) string {
 
 // favoritesCount says how many favorites there are, or that they are read
 // when the pane is opened.
-func (m Model) favoritesCount() string {
-	switch count := len(m.repositoryRows()) - 1 - len(m.worktreeRows()); {
-	case !m.repositories.read && m.repositories.loading:
-		return m.marks.reading()
-	case !m.repositories.read:
+func (s repositoriesState) favoritesCount(view repositoriesView) string {
+	switch count := len(s.rows(view.here)) - 1 - len(s.worktreeRows(view.here.Root)); {
+	case !s.read && s.loading:
+		return view.kit.marks.reading()
+	case !s.read:
 		return "favorites, read when opened"
 	case count == 1:
 		return "1 other favorite"
@@ -229,18 +250,19 @@ func (m Model) favoritesCount() string {
 	}
 }
 
-// repositoriesDetail is where you work, in full, then the other worktrees and
-// the favorites, the cursor's row marked.
-func (m Model) repositoriesDetail(width int) string {
-	rows, worktrees := m.repositoryRows(), len(m.worktreeRows())
-	line := func(index int) string { return m.repositoryLine(rows[index], index == m.repositories.selected, width) }
+// detail is where you work, in full, then the other worktrees and the
+// favorites, the cursor's row marked.
+func (s repositoriesState) detail(view repositoriesView, width int) string {
+	kit := view.kit
+	rows, worktrees := s.rows(view.here), len(s.worktreeRows(view.here.Root))
+	line := func(index int) string { return view.line(rows[index], index == s.selected, width) }
 
-	lines := append(m.workingIn(m.deps.Repositories.Here), "", line(0))
+	lines := append(view.workingIn(view.here), "", line(0))
 
-	if worktrees > 0 || m.repositories.worktreesErr != nil {
-		lines = append(lines, "", m.styles.strong.Render("Worktrees"))
-		if m.repositories.worktreesErr != nil {
-			lines = append(lines, m.kit().failureSummary(m.repositories.worktreesErr))
+	if worktrees > 0 || s.worktreesErr != nil {
+		lines = append(lines, "", kit.styles.strong.Render("Worktrees"))
+		if s.worktreesErr != nil {
+			lines = append(lines, kit.failureSummary(s.worktreesErr))
 		}
 
 		for index := 1; index <= worktrees; index++ {
@@ -248,15 +270,15 @@ func (m Model) repositoriesDetail(width int) string {
 		}
 	}
 
-	lines = append(lines, "", m.styles.strong.Render("Favorites"))
+	lines = append(lines, "", kit.styles.strong.Render("Favorites"))
 
 	switch {
-	case m.repositories.err != nil:
-		lines = append(lines, m.kit().failureSummary(m.repositories.err))
-	case !m.repositories.read:
-		lines = append(lines, m.marks.reading())
+	case s.err != nil:
+		lines = append(lines, kit.failureSummary(s.err))
+	case !s.read:
+		lines = append(lines, kit.marks.reading())
 	case len(rows) == 1+worktrees:
-		lines = append(lines, "No favorites yet; "+m.keys.favoriteDir.Help().Key+" marks the directory under the cursor.")
+		lines = append(lines, "No favorites yet; "+view.keys.favoriteDir.Help().Key+" marks the directory under the cursor.")
 	}
 
 	for index := 1 + worktrees; index < len(rows); index++ {
@@ -268,17 +290,17 @@ func (m Model) repositoriesDetail(width int) string {
 
 // workingIn is a place in full: the directory, the repository it is in and
 // the path within, origin, and the configuration that applies.
-func (m Model) workingIn(place seams.Place) []string {
-	field := func(name, value string) string { return m.styles.label.Render(padded(name, labelWidth)) + value }
-	lines := []string{m.styles.strong.Render("Working in"), field("directory", m.shownDir(place.Dir))}
+func (v repositoriesView) workingIn(place seams.Place) []string {
+	field := func(name, value string) string { return v.kit.styles.label.Render(padded(name, labelWidth)) + value }
+	lines := []string{v.kit.styles.strong.Render("Working in"), field("directory", shownFrom(v.home, place.Dir))}
 
 	if place.Root == "" {
 		lines = append(lines, field("repository", "not in a repository"))
 	} else {
-		lines = append(lines, field("repository", m.shownDir(place.Root)), field("within", within(place)))
+		lines = append(lines, field("repository", shownFrom(v.home, place.Root)), field("within", within(place)))
 	}
 
-	return append(lines, field("origin", origin(place)), field("configuration", m.shownFiles(place.Config)))
+	return append(lines, field("origin", origin(place)), field("configuration", shownFiles(v.home, place.Config)))
 }
 
 // labelWidth is how wide the Working in block's names are drawn, the longest
@@ -304,28 +326,30 @@ func origin(place seams.Place) string {
 	return sanitize.Line(place.Remote.Host + "/" + place.Remote.Path)
 }
 
-// shownFiles is the configuration files that apply, each written from your
-// home, the repository's over your home's.
-func (m Model) shownFiles(files config.Files) string {
+// shownFiles is the configuration files that apply, each written from home,
+// the repository's over home's.
+func shownFiles(home string, files config.Files) string {
 	if files == (config.Files{}) {
 		return "none, so the defaults apply"
 	}
 
-	return config.Files{Repo: m.shownDir(files.Repo), Home: m.shownDir(files.Home)}.String()
+	return config.Files{Repo: shownFrom(home, files.Repo), Home: shownFrom(home, files.Home)}.String()
 }
 
-// repositoryLine is one row: the cursor, whether it is a favorite, the
-// directory, and what is there.
-func (m Model) repositoryLine(row repositoryRow, selected bool, width int) string {
-	mark := strings.Repeat(" ", len([]rune(m.marks.favorite)))
+// line is one row: the cursor, whether it is a favorite, the directory, and
+// what is there.
+func (v repositoriesView) line(row repositoryRow, selected bool, width int) string {
+	marks := v.kit.marks
+
+	mark := strings.Repeat(" ", len([]rune(marks.favorite)))
 	if row.favorite {
-		mark = m.marks.favorite
+		mark = marks.favorite
 	}
 
-	lead := m.marks.marker(selected) + mark + " "
-	dir := cutMiddle(m.shownDir(row.dir), width-ansi.StringWidth(lead), m.marks.ellipsis)
+	lead := marks.marker(selected) + mark + " "
+	dir := cutMiddle(shownFrom(v.home, row.dir), width-ansi.StringWidth(lead), marks.ellipsis)
 
-	return lead + dir + m.marks.separator + m.repositoryState(row)
+	return lead + dir + marks.separator + repositoryState(row)
 }
 
 // cutMiddle shortens a path wider than width in its middle, keeping its root
@@ -353,7 +377,7 @@ func cutMiddle(path string, width int, ellipsis string) string {
 }
 
 // repositoryState is what is at a row's directory now.
-func (m Model) repositoryState(row repositoryRow) string {
+func repositoryState(row repositoryRow) string {
 	switch {
 	case row.worktree != nil:
 		return worktreeState(*row.worktree)
@@ -406,12 +430,12 @@ func (m Model) repositoriesKeys() []key.Binding {
 	return append(keys, m.keys.refresh)
 }
 
-// moveRepositoryBy moves the cursor delta rows down, or up for a negative
-// delta, stopping at either end.
-func (m Model) moveRepositoryBy(delta int) Model {
-	m.repositories.selected = max(0, min(m.repositories.selected+delta, len(m.repositoryRows())-1))
+// movedBy moves the cursor delta rows down, or up for a negative delta,
+// stopping at either end.
+func (s repositoriesState) movedBy(delta int, here seams.Place) repositoriesState {
+	s.selected = max(0, min(s.selected+delta, len(s.rows(here))-1))
 
-	return m
+	return s
 }
 
 // handleRepositoriesKey moves the cursor, marks or forgets a favorite, or
@@ -419,9 +443,11 @@ func (m Model) moveRepositoryBy(delta int) Model {
 func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.up, m.keys.down):
-		return m.moveRepositoryBy(m.keys.stepOf(msg)), nil
+		m.repositories = m.repositories.movedBy(m.keys.stepOf(msg), m.deps.Repositories.Here)
+
+		return m, nil
 	case key.Matches(msg, m.keys.favoriteDir):
-		return m.toggleFavorite(m.selectedRepository())
+		return m.toggleFavorite(m.repositories.selectedRow(m.deps.Repositories.Here))
 	case key.Matches(msg, m.keys.confirm):
 		return m.switchToSelected()
 	case key.Matches(msg, m.keys.refresh):
@@ -491,9 +517,15 @@ func (m Model) toggleFavorite(row repositoryRow) (Model, tea.Cmd) {
 // repositoriesBehavior is the Repositories pane's behavior.
 func repositoriesBehavior() behavior {
 	return behavior{
-		rail: Model.repositoriesRail, detail: Model.repositoriesDetail, narrow: nil,
-		keys: Model.repositoriesKeys, handle: Model.handleRepositoriesKey, pick: nil,
-		move: commandless(Model.moveRepositoryBy), refresh: Model.refreshRepositories,
+		rail:   func(m Model, rows int) string { return m.repositories.rail(m.repositoriesView(), rows) },
+		detail: func(m Model, width int) string { return m.repositories.detail(m.repositoriesView(), width) },
+		keys:   Model.repositoriesKeys, handle: Model.handleRepositoriesKey, pick: nil, narrow: nil,
+		move: func(m Model, delta int) (Model, tea.Cmd) {
+			m.repositories = m.repositories.movedBy(delta, m.deps.Repositories.Here)
+
+			return m, nil
+		},
+		refresh: Model.refreshRepositories,
 		loading: func(m Model) bool { return m.repositories.loading },
 		scroll:  func(m *Model) *int { return &m.repositories.scroll }, listInDetail: true,
 		answers: []string{"favorite-directory", "go-to-directory", "settings", "local-data", actionRefresh},

@@ -98,7 +98,7 @@ var (
 // branches are read after it opens, too.
 func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	branch := m.branch.branch
-	issueKey, _ := m.branchIssue()
+	issueKey, _ := m.branch.issue(m.cfg.Jira.Project)
 	issue, listed := m.issues.find(issueKey)
 	proposed := m.proposePullRequest(branch, issueKey, issue.Summary)
 

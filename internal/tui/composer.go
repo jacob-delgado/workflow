@@ -83,7 +83,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	draft := m.draft
 	conv := m.commitConvention()
 	types := conv.Types()
-	issueKey, _ := m.branchIssue()
+	issueKey, _ := m.branch.issue(m.cfg.Jira.Project)
 	m, opened := m.opening()
 
 	composer := commitComposer{

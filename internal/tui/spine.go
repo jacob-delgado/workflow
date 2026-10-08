@@ -198,7 +198,7 @@ func (m Model) stages() []stage {
 
 // work is what the panes know, gathered for the shared stage derivation.
 func (m Model) work() progress.Work {
-	_, named := m.branchIssue()
+	_, named := m.branch.issue(m.cfg.Jira.Project)
 	_, selected := m.issues.current()
 
 	return progress.Work{

@@ -118,7 +118,7 @@ func (m Model) readDetail() (Model, tea.Cmd) {
 // has it and nobody has chosen an issue yet: coming back to work in progress
 // starts where it was left.
 func (m Model) resumeIssue() Model {
-	branchKey, named := m.branchIssue()
+	branchKey, named := m.branch.issue(m.cfg.Jira.Project)
 	if m.issues.moved || !named {
 		return m
 	}
