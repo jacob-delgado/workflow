@@ -330,15 +330,15 @@ func (p statusPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	case p.form.open():
 		return p.handleFormKey(m, msg)
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.cursorKeys()...):
-		return p.step(m, m.keys.stepOf(msg)), nil
-	case key.Matches(msg, m.keys.confirm):
-		return p.choose(m)
 	}
 
-	m.overlay = p
+	if listed, answered := m.listKey(p, msg); answered {
+		return listed, nil
+	}
+
+	if key.Matches(msg, m.keys.confirm) {
+		return p.choose(m)
+	}
 
 	return m, nil
 }
@@ -473,21 +473,18 @@ func (p fixupPicker) footer(keys keyMap) []key.Binding {
 
 // handleKey moves the selection, chooses a commit to fix up, or leaves.
 func (p fixupPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.cursorKeys()...):
-		return p.step(m, m.keys.stepOf(msg)), nil
-	case key.Matches(msg, m.keys.confirm):
-		// The picker opens only over unpushed commits, so one is always chosen.
-		chosen, _ := p.commits.chosen()
-
-		return m.applyFixup(chosen.Hash, chosen.Subject)
+	if listed, answered := m.listKey(p, msg); answered {
+		return listed, nil
 	}
 
-	m.overlay = p
+	if !key.Matches(msg, m.keys.confirm) {
+		return m, nil
+	}
 
-	return m, nil
+	// The picker opens only over unpushed commits, so one is always chosen.
+	chosen, _ := p.commits.chosen()
+
+	return m.applyFixup(chosen.Hash, chosen.Subject)
 }
 
 // step moves the choice of commit by delta.
