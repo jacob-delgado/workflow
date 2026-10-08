@@ -8,6 +8,10 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: 'jsdom',
+      // One jsdom per worker rather than per file, each file still in a
+      // context of its own: making jsdom for each of a hundred files cost
+      // over a minute of the run.
+      pool: 'vmThreads',
       globals: true,
       setupFiles: ['./src/test-setup.ts', './src/test/dropFocusOnDisable.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
