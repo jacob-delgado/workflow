@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/jacob-delgado/workflow/internal/activity"
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -26,7 +28,7 @@ func (s *server) GetActivity(
 	now := s.now()
 	today := activity.DateOf(now)
 
-	period, err := activity.PeriodAsked(orZero(request.Params.From), orZero(request.Params.To), today)
+	period, err := activity.PeriodAsked(dayAsked(request.Params.From), dayAsked(request.Params.To), today)
 	if err != nil {
 		return periodRefused(err), nil
 	}
@@ -63,15 +65,26 @@ func periodRefused(err error) api.GetActivityResponseObject {
 	return api.GetActivity422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, periodReason(err)))
 }
 
-// periodReason says why a period could not be read, in words of its own: a
-// date that could not be read is not repeated back.
+// periodReason says why a period of days that are each a date cannot be
+// summed up: it runs backwards, or for too long. A day that is no date never
+// gets here; the contract refuses it.
 func periodReason(err error) string {
-	reason := err.Error()
-	if errors.Is(err, activity.ErrNotADate) {
-		reason = "from and to are each a date written as YYYY-MM-DD"
+	return "the period cannot be summed up: " + err.Error()
+}
+
+// dayAsked is a day the contract read as a date, written year-month-day, or
+// empty when none was asked.
+func dayAsked(day *openapi_types.Date) string {
+	if day == nil {
+		return ""
 	}
 
-	return "the period could not be read: " + reason
+	return day.String()
+}
+
+// wireDate is a day as the contract writes a date.
+func wireDate(day activity.Date) openapi_types.Date {
+	return openapi_types.Date{Time: time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC)}
 }
 
 // Trade-off TRADE-32: a posted Summary is not recorded, as an announcement is.
@@ -90,7 +103,7 @@ func (s *server) PostActivity(
 
 	body := *request.Body
 
-	period, err := activity.PeriodAsked(body.From, body.To, activity.DateOf(s.now()))
+	period, err := activity.PeriodAsked(body.From.String(), body.To.String(), activity.DateOf(s.now()))
 	if err != nil {
 		return activityPostRefused(periodReason(err)), nil
 	}
@@ -111,7 +124,7 @@ func (s *server) PostActivity(
 	}
 
 	return api.PostActivity200JSONResponse{
-		From: period.From.String(), To: period.To.String(), Channel: channel,
+		From: wireDate(period.From), To: wireDate(period.To), Channel: channel,
 		Destination: destination(channel, settings), Text: body.Text,
 	}, nil
 }
@@ -154,7 +167,7 @@ func ActivityReport(
 	}
 
 	return api.Activity{
-		From: summary.Period.From.String(), To: summary.Period.To.String(), Today: today.String(),
+		From: wireDate(summary.Period.From), To: wireDate(summary.Period.To), Today: wireDate(today),
 		Sources: sources, Years: yearsDTO(activity.Group(summary.Items(), loc)), Text: summary.Text(loc),
 	}
 }

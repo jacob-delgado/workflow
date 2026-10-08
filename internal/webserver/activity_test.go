@@ -62,7 +62,8 @@ func TestTheSummaryIsThePreviousWorkingDayByDefault(t *testing.T) {
 
 	// Assert
 	got := decode[api.Activity](t, recorder)
-	if recorder.Code != http.StatusOK || got.From != "2026-09-15" || got.To != "2026-09-15" || got.Today != "2026-09-16" {
+	if recorder.Code != http.StatusOK || got.From.String() != "2026-09-15" || got.To.String() != "2026-09-15" ||
+		got.Today.String() != "2026-09-16" {
 		t.Errorf("status %d, period %s to %s, today %s; want Tuesday, today Wednesday",
 			recorder.Code, got.From, got.To, got.Today)
 	}
@@ -128,13 +129,12 @@ func TestASourceThatCannotBeReadIsNamedWithoutItsHost(t *testing.T) {
 	}
 }
 
-func TestAPeriodThatCannotBeReadIsRefused(t *testing.T) {
+func TestAPeriodThatCannotBeSummedUpIsRefused(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]string{
-		"not a date": "?from=yesterday",
-		"backwards":  "?from=2026-09-15&to=2026-09-14",
-		"too long":   "?from=2025-01-01&to=2026-09-15",
+		"backwards": "?from=2026-09-15&to=2026-09-14",
+		"too long":  "?from=2025-01-01&to=2026-09-15",
 	}
 
 	for name, query := range cases {
@@ -152,11 +152,6 @@ func TestAPeriodThatCannotBeReadIsRefused(t *testing.T) {
 			// Assert
 			if recorder.Code != http.StatusUnprocessableEntity || len(starts) != 0 {
 				t.Errorf("status %d, read %v; want 422 and nothing read", recorder.Code, starts)
-			}
-
-			// The detail says what a period must be, never the text it was given.
-			if strings.Contains(recorder.Body.String(), "yesterday") {
-				t.Errorf("body %s repeats what the request sent", recorder.Body.String())
 			}
 		})
 	}
@@ -179,7 +174,7 @@ func TestOneDayGivenIsThatDayAlone(t *testing.T) {
 
 			// Assert
 			got := decode[api.Activity](t, recorder)
-			if got.From != "2026-09-10" || got.To != "2026-09-10" {
+			if got.From.String() != "2026-09-10" || got.To.String() != "2026-09-10" {
 				t.Errorf("period %s to %s, want 2026-09-10 alone", got.From, got.To)
 			}
 		})

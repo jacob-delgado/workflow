@@ -156,27 +156,6 @@ func TestCheckoutReportsAFailedSwitch(t *testing.T) {
 	}
 }
 
-func TestCheckoutRejectsAnEmptyBranch(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	var switched string
-
-	deps := cleanDeps(t, &switched)
-
-	// Act
-	recorder := doCheckout(t, deps, "")
-
-	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want 422 for an empty branch", recorder.Code)
-	}
-
-	if switched != "" {
-		t.Errorf("checked out %q, want no switch for an empty branch", switched)
-	}
-}
-
 func TestCheckoutIsUnavailableWithoutAGitSeam(t *testing.T) {
 	t.Parallel()
 

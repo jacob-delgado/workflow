@@ -660,11 +660,19 @@ test('renders nothing before a snapshot arrives', () => {
 })
 
 test.each([
-  ['a channel', { service: 'Slack', configured: true, channel: '#dev' }, 'Not announced to #dev'],
-  ['a webhook of its own', { service: 'Teams', configured: true, channel: '' }, 'Not announced'],
+  [
+    'a channel',
+    { kind: 'slack' as const, service: 'Slack', configured: true, channel: '#dev' },
+    'Not announced to #dev',
+  ],
+  [
+    'a webhook of its own',
+    { kind: 'teams' as const, service: 'Teams', configured: true, channel: '' },
+    'Not announced',
+  ],
   [
     'nothing set up',
-    { service: 'Slack', configured: false, channel: '' },
+    { kind: 'slack' as const, service: 'Slack', configured: false, channel: '' },
     'Not announced: Slack is not set up',
   ],
 ])(

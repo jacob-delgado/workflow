@@ -1001,9 +1001,9 @@ export type Comment = {
     author: string;
     body: string;
     /**
-     * RFC 3339; the zero time if the tracker's date was unreadable.
+     * RFC 3339; left out when the tracker's date could not be read.
      */
-    created: string;
+    created?: string;
 };
 
 /**
@@ -1156,9 +1156,9 @@ export type ReviewRequest = {
     draft: boolean;
     ci: CiState;
     /**
-     * RFC 3339; when it was opened, which is how long it has waited — the zero time if the forge did not give one.
+     * RFC 3339; when it was opened, which is how long it has waited; left out when the forge did not give one.
      */
-    opened_at: string;
+    opened_at?: string;
 };
 
 /**
@@ -1507,7 +1507,11 @@ export type CiState = 'none' | 'running' | 'passed' | 'failed';
 
 export type MessagingDestination = {
     /**
-     * The service posts go to — Slack, Teams, Discord or webhook.
+     * The service posts go to, for a client to switch on.
+     */
+    kind: 'slack' | 'teams' | 'discord' | 'webhook';
+    /**
+     * The service's name, for showing — Slack, Teams, Discord or Webhook; kind is what to switch on.
      */
     service: string;
     /**
@@ -4282,7 +4286,7 @@ export type GetActivityData = {
 
 export type GetActivityErrors = {
     /**
-     * The period could not be read as asked.
+     * The period cannot be summed up as asked: it ends before it starts, or runs longer than a year and a day. A from or to that is not a date is a 400.
      */
     422: Problem;
     /**
@@ -4311,7 +4315,7 @@ export type PostActivityData = {
 
 export type PostActivityErrors = {
     /**
-     * The period could not be read, the text was blank, the text rendered for the service is longer than it takes (code too_long, naming the length against the limit; nothing was sent), or the post could not be made.
+     * The period ends before it starts or runs longer than a year and a day (a from or to that is not a date is a 400), the text was blank, the text rendered for the service is longer than it takes (code too_long, naming the length against the limit; nothing was sent), or the post could not be made.
      */
     422: Problem;
     /**

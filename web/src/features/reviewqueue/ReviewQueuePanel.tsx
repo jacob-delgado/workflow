@@ -338,13 +338,14 @@ function DraftTag() {
 
 // waited is how long before the queue was read a request was opened, in the
 // terminal's words: just now, then minutes, hours and days, and past a month
-// the date, YYYY-MM-DD. The server sends the zero time for a date the forge
-// did not give.
-function waited(openedAt: string, readAt: number): string {
-  const opened = Date.parse(openedAt)
-  if (opened <= 0) {
+// the date, YYYY-MM-DD. A request the forge gave no time for, which the
+// server leaves the time out of, waited some time.
+function waited(openedAt: string | undefined, readAt: number): string {
+  if (openedAt === undefined) {
     return 'some time ago'
   }
+
+  const opened = Date.parse(openedAt)
 
   const elapsed = readAt - opened
   if (elapsed < minute) {

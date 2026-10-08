@@ -39,10 +39,6 @@ var errWorktreeRefused = errors.New("git refused the new worktree")
 func (s *server) CreateBranch(
 	_ context.Context, request api.CreateBranchRequestObject,
 ) (api.CreateBranchResponseObject, error) {
-	if request.Body.IssueKey == "" {
-		return createBranchUnprocessable("an issue is required"), nil
-	}
-
 	if s.deps.CreateBranch == nil || s.deps.Issue == nil || s.deps.Branch == nil {
 		return createBranchUnprocessable("creating a branch is not available"), nil
 	}
@@ -199,10 +195,7 @@ func (s *server) CreateWorktree(
 ) (api.CreateWorktreeResponseObject, error) {
 	key := request.Body.IssueKey
 
-	switch {
-	case key == "":
-		return createWorktreeUnprocessable("an issue is required"), nil
-	case s.deps.CreateWorktree == nil || s.deps.Issue == nil || s.deps.Branch == nil:
+	if s.deps.CreateWorktree == nil || s.deps.Issue == nil || s.deps.Branch == nil {
 		return createWorktreeUnprocessable("creating a worktree is not available"), nil
 	}
 

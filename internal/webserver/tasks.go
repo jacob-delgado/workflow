@@ -254,16 +254,6 @@ func annotationsDTO(annotations []taskwarrior.Annotation) []api.TaskAnnotation {
 	return out
 }
 
-// optionalTime carries a date the task does not have to the wire as an absent
-// field, never as the zero time.
-func optionalTime(date time.Time) *time.Time {
-	if date.IsZero() {
-		return nil
-	}
-
-	return &date
-}
-
 // orEmpty is texts, or an empty list rather than null on the wire.
 func orEmpty(texts []string) []string {
 	if texts == nil {

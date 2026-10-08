@@ -41,8 +41,10 @@ The codes below are the whole set.
 
 Status 400. The request could not be understood — a malformed body, a query
 or path parameter that did not fit the contract (a task write whose uuid is not
-one, say), or a configuration save whose `If-Match` is not in the form of the
-`ETag` a read of the configuration returns.
+one, a Summary whose `from` or `to` is not a date written `YYYY-MM-DD`, an
+empty branch to check out or issue to start work on, say), or a configuration
+save whose `If-Match` is not in the form of the `ETag` a read of the
+configuration returns.
 
 ## Unauthorized
 

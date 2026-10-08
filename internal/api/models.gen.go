@@ -5,6 +5,8 @@ package api
 
 import (
 	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for ActivitySourceName.
@@ -289,6 +291,30 @@ func (e MessagingConfigKind) Valid() bool {
 	case MessagingConfigKindTeams:
 		return true
 	case MessagingConfigKindWebhook:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MessagingDestinationKind.
+const (
+	MessagingDestinationKindDiscord MessagingDestinationKind = "discord"
+	MessagingDestinationKindSlack   MessagingDestinationKind = "slack"
+	MessagingDestinationKindTeams   MessagingDestinationKind = "teams"
+	MessagingDestinationKindWebhook MessagingDestinationKind = "webhook"
+)
+
+// Valid indicates whether the value is a known member of the MessagingDestinationKind enum.
+func (e MessagingDestinationKind) Valid() bool {
+	switch e {
+	case MessagingDestinationKindDiscord:
+		return true
+	case MessagingDestinationKindSlack:
+		return true
+	case MessagingDestinationKindTeams:
+		return true
+	case MessagingDestinationKindWebhook:
 		return true
 	default:
 		return false
@@ -709,7 +735,7 @@ func (e RemoveLocalDataParamsScope) Valid() bool {
 // Activity defines model for Activity.
 type Activity struct {
 	// From The period's first day, YYYY-MM-DD.
-	From string `json:"from"`
+	From openapi_types.Date `json:"from"`
 
 	// PostLength How long the summary's text is once rendered for the messaging service set up, as that service measures it, against the most it takes. Left out where no messaging is set up, or where the service names no limit (a plain webhook). A post longer than the limit is refused with too_long, and nothing is sent.
 	PostLength *PostLength `json:"post_length,omitempty"`
@@ -721,11 +747,11 @@ type Activity struct {
 	Text string `json:"text"`
 
 	// To The period's last day, YYYY-MM-DD.
-	To string `json:"to"`
+	To openapi_types.Date `json:"to"`
 
 	// Today The day it is where the server runs, YYYY-MM-DD, so a later period is not offered.
-	Today string         `json:"today"`
-	Years []ActivityYear `json:"years"`
+	Today openapi_types.Date `json:"today"`
+	Years []ActivityYear     `json:"years"`
 }
 
 // ActivityDay defines model for ActivityDay.
@@ -783,13 +809,13 @@ type ActivityPost struct {
 	Destination string `json:"destination"`
 
 	// From The period's first day, YYYY-MM-DD.
-	From string `json:"from"`
+	From openapi_types.Date `json:"from"`
 
 	// Text The Markdown posted, before it was rendered for the service.
 	Text string `json:"text"`
 
 	// To The period's last day, YYYY-MM-DD.
-	To string `json:"to"`
+	To openapi_types.Date `json:"to"`
 }
 
 // ActivityPostRequest The period a Summary is of, its Markdown to post, and where.
@@ -798,13 +824,13 @@ type ActivityPostRequest struct {
 	Channel *string `json:"channel,omitempty"`
 
 	// From The period's first day, YYYY-MM-DD.
-	From string `json:"from"`
+	From openapi_types.Date `json:"from"`
 
 	// Text The Summary's Markdown, as GET /api/activity wrote it or as it was edited.
 	Text string `json:"text"`
 
 	// To The period's last day, YYYY-MM-DD.
-	To string `json:"to"`
+	To openapi_types.Date `json:"to"`
 }
 
 // ActivitySource defines model for ActivitySource.
@@ -1049,8 +1075,8 @@ type Comment struct {
 	Author string `json:"author"`
 	Body   string `json:"body"`
 
-	// Created RFC 3339; the zero time if the tracker's date was unreadable.
-	Created time.Time `json:"created"`
+	// Created RFC 3339; left out when the tracker's date could not be read.
+	Created *time.Time `json:"created,omitempty"`
 }
 
 // CommentRequest A comment to post on an issue.
@@ -1597,9 +1623,15 @@ type MessagingDestination struct {
 	// Configured Whether a transport is set up to post — a user token or a webhook. A webhook service has no channel, so channel presence cannot stand in for this.
 	Configured bool `json:"configured"`
 
-	// Service The service posts go to — Slack, Teams, Discord or webhook.
+	// Kind The service posts go to, for a client to switch on.
+	Kind MessagingDestinationKind `json:"kind"`
+
+	// Service The service's name, for showing — Slack, Teams, Discord or Webhook; kind is what to switch on.
 	Service string `json:"service"`
 }
+
+// MessagingDestinationKind The service posts go to, for a client to switch on.
+type MessagingDestinationKind string
 
 // MovedIssue An issue that was just moved, and the status it is now in.
 type MovedIssue struct {
@@ -1939,8 +1971,8 @@ type ReviewRequest struct {
 	// Number The GitHub number or GitLab IID.
 	Number int `json:"number"`
 
-	// OpenedAt RFC 3339; when it was opened, which is how long it has waited — the zero time if the forge did not give one.
-	OpenedAt time.Time `json:"opened_at"`
+	// OpenedAt RFC 3339; when it was opened, which is how long it has waited; left out when the forge did not give one.
+	OpenedAt *time.Time `json:"opened_at,omitempty"`
 
 	// Repository The owner/name (GitHub) or group/project (GitLab) it is in, since the queue spans repositories; empty when the forge did not say.
 	//
@@ -2445,10 +2477,10 @@ type TaskUUID = string
 // GetActivityParams defines parameters for GetActivity.
 type GetActivityParams struct {
 	// From The first day, written as YYYY-MM-DD.
-	From *string `form:"from,omitempty" json:"from,omitempty"`
+	From *openapi_types.Date `form:"from,omitempty" json:"from,omitempty"`
 
 	// To The last day, written as YYYY-MM-DD.
-	To *string `form:"to,omitempty" json:"to,omitempty"`
+	To *openapi_types.Date `form:"to,omitempty" json:"to,omitempty"`
 }
 
 // GetAnnouncementParams defines parameters for GetAnnouncement.

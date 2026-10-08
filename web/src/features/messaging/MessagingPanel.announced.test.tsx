@@ -10,6 +10,7 @@ function announcedPull(announced: boolean) {
     status: 'live',
     snapshot: makeSnapshot({
       messaging: {
+        kind: 'slack',
         service: 'Slack',
         configured: true,
         channel: '#dev',
