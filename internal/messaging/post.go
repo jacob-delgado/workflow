@@ -9,9 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -145,9 +147,10 @@ func refusal(code, channel string) error {
 	return PostRefusedError{Reason: rejectionReason(code, channel)}
 }
 
-// PostRefusedError is a message Slack would not deliver, with the reason: the
-// fix for its channel, or Slack's own code for one this does not explain. The
-// reason names a channel and a code, never an address, so every surface can
+// PostRefusedError is a message the service would not deliver, with the
+// reason: from Slack, the fix for its channel, or Slack's own code for one this
+// does not explain; from a webhook, the service's own words, cut short, with
+// the webhook masked. The reason never names the webhook, so every surface can
 // show it.
 type PostRefusedError struct {
 	Reason string
@@ -249,19 +252,86 @@ func (c Client) deliver(request *http.Request) ([]byte, error) {
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	body, err := httpx.Read(response.Body, bodyLimit)
+	switch status := response.StatusCode; {
+	case status >= http.StatusOK && status < http.StatusMultipleChoices:
+		return c.accepted(response.Body)
+	case status == http.StatusTooManyRequests:
+		return nil, httpx.RateLimited(response.Header)
+	case status >= http.StatusBadRequest && status < http.StatusInternalServerError:
+		return nil, refusedPost(status, c.reasonIn(response.Body))
+	default:
+		return nil, fmt.Errorf("%w: %d", ErrUnexpectedStatus, status)
+	}
+}
+
+// accepted reads the body of an answer that accepted the post.
+func (c Client) accepted(body io.Reader) ([]byte, error) {
+	read, err := httpx.Read(body, bodyLimit)
 	if err != nil {
 		return nil, fmt.Errorf("reading the answer from %s: %w", c.creds.Service(), err)
 	}
 
-	switch {
-	case response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices:
-		return body, nil
-	case response.StatusCode == http.StatusTooManyRequests:
-		return nil, httpx.RateLimited(response.Header)
-	case response.StatusCode >= http.StatusBadRequest && response.StatusCode < http.StatusInternalServerError:
-		return nil, fmt.Errorf("%w: %s", ErrRejected, strings.TrimSpace(sanitize.Text(string(body))))
-	default:
-		return nil, fmt.Errorf("%w: %d", ErrUnexpectedStatus, response.StatusCode)
+	return read, nil
+}
+
+// reasonLimit bounds how much of a refusal is read for its reason: a
+// service's reason is a line, and a page longer than this is none.
+const reasonLimit = 512
+
+// reasonIn is the reason a refusal's body gives, cut at reasonLimit, with
+// every terminal control taken out and the webhook masked wherever it is
+// quoted: a webhook server's error page can quote the request it refused.
+func (c Client) reasonIn(body io.Reader) string {
+	read, err := io.ReadAll(io.LimitReader(body, reasonLimit))
+	if err != nil {
+		return ""
 	}
+
+	return c.masked(strings.TrimSpace(sanitize.Text(strings.ToValidUTF8(string(read), ""))))
+}
+
+// masked is text with the webhook's address, and its path and query alone,
+// each put as config.Redact shows it. A path of one slash is no secret, and
+// masking it would mask every slash.
+func (c Client) masked(text string) string {
+	address, err := url.Parse(c.creds.WebhookURL.Reveal())
+	if c.creds.WebhookURL == "" || err != nil {
+		return text
+	}
+
+	for _, secret := range []string{
+		c.creds.WebhookURL.Reveal(), address.String(), address.EscapedPath(),
+		address.Path, address.RawQuery,
+	} {
+		if len(secret) > 1 {
+			text = strings.ReplaceAll(text, secret, config.Redact(secret))
+		}
+	}
+
+	return text
+}
+
+// refusedPost is a 4xx a post was answered with, and reason, what the answer
+// said: a credential not accepted — a 401, a 403, a 404 at an address with
+// nothing behind it, or one of Slack's codes for a webhook that no longer
+// works — is ErrRejected, and anything else, such as a message too long, is a
+// message refused.
+func refusedPost(status int, reason string) error {
+	credential := status == http.StatusUnauthorized || status == http.StatusForbidden ||
+		status == http.StatusNotFound || slices.Contains(webhookCredentialCodes(), reason)
+	if credential {
+		return fmt.Errorf("%w: %s", ErrRejected, reason)
+	}
+
+	if reason == "" {
+		reason = "status " + strconv.Itoa(status)
+	}
+
+	return PostRefusedError{Reason: reason}
+}
+
+// webhookCredentialCodes are the codes a Slack incoming webhook answers with
+// when the webhook itself no longer works, whatever its status.
+func webhookCredentialCodes() []string {
+	return []string{"invalid_token", "no_service", "no_service_id", "no_team", "team_disabled"}
 }

@@ -42,14 +42,17 @@ var (
 	// ErrWebhookUncheckable reports that a webhook cannot be verified.
 	ErrWebhookUncheckable = errors.New("an incoming webhook cannot be checked without posting with it")
 	// ErrRejected reports a credential the service would not accept: Slack's no
-	// to a token, or any service's 4xx answer to a post.
+	// to a token, or a webhook a service answered a post to with a 401, a 403,
+	// a 404, or one of Slack's codes for a webhook that no longer works.
 	ErrRejected = errors.New("the credential was not accepted")
 	// ErrTokenExpired reports a user token Slack called expired after the
 	// source was asked for a newer one, which it answers as ErrRejected too.
 	ErrTokenExpired = errors.New("the Slack user token has expired")
-	// ErrPostRefused reports a message Slack would not deliver, for a reason
-	// that is not about the credential. Its words name no verb, because an
-	// announcement and the Summary both post through here.
+	// ErrPostRefused reports a message the service would not deliver, for a
+	// reason that is not about the credential: Slack's for its channel, or any
+	// other 4xx a webhook answers a post with, such as a message too long. Its
+	// words name no verb, because an announcement and the Summary both post
+	// through here.
 	ErrPostRefused = errors.New("the message was refused")
 	// ErrUnexpectedStatus reports a response status the API does not document.
 	ErrUnexpectedStatus = errors.New("unexpected response status")
