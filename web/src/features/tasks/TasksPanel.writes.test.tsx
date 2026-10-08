@@ -25,7 +25,11 @@ const certificate = makeTask({
   issue_key: '',
   issue_url: '',
 })
-const started: Task = { ...tokenLeak, start: new Date(Date.now() - 600_000).toISOString() }
+const started: Task = {
+  ...tokenLeak,
+  start: new Date(Date.now() - 600_000).toISOString(),
+  state: 'started',
+}
 const taskPath = `${tasksPath}/${tokenLeak.uuid}`
 
 // refused is a problem answer, as the server gives a write it refuses.

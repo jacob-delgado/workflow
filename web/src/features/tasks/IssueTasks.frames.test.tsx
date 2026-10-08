@@ -53,7 +53,9 @@ test('a task started from the card shows as started at once, ahead of the stream
   const user = userEvent.setup()
   streamLinked(tracking)
   fakeApi({
-    [`${trackingPath}/start`]: makeTaskList([{ ...tracking, start: new Date().toISOString() }]),
+    [`${trackingPath}/start`]: makeTaskList([
+      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+    ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
 
@@ -91,7 +93,9 @@ test('a frame that lands after a write shows the task as the stream has it', asy
   const user = userEvent.setup()
   streamLinked(tracking)
   fakeApi({
-    [`${trackingPath}/start`]: makeTaskList([{ ...tracking, start: new Date().toISOString() }]),
+    [`${trackingPath}/start`]: makeTaskList([
+      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+    ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
   await user.click(screen.getByRole('button', { name: 'Start task 12' }))
@@ -115,7 +119,9 @@ test('a frame newer than the list that has the task done offers Track', async ()
   const user = userEvent.setup()
   streamLinked(tracking)
   fakeApi({
-    [`${trackingPath}/start`]: makeTaskList([{ ...tracking, start: new Date().toISOString() }]),
+    [`${trackingPath}/start`]: makeTaskList([
+      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+    ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
   await user.click(screen.getByRole('button', { name: 'Start task 12' }))
@@ -123,7 +129,10 @@ test('a frame newer than the list that has the task done offers Track', async ()
 
   // Act
   act(() => {
-    streamTasks({ linked: [{ ...tracking, status: 'completed' }] }, Date.now() + 1)
+    streamTasks(
+      { linked: [{ ...tracking, status: 'completed', state: 'completed' }] },
+      Date.now() + 1,
+    )
   })
 
   // Assert
@@ -145,7 +154,7 @@ test('a frame newer than the list no longer lists a task only the list held', as
   streamLinked(tracking)
   fakeApi({
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString() },
+      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
       rotating,
     ]),
   })
@@ -170,7 +179,9 @@ test("a frame that lands in the same millisecond as a write's answer leaves the 
   const user = userEvent.setup()
   streamLinked(tracking)
   fakeApi({
-    [`${trackingPath}/start`]: makeTaskList([{ ...tracking, start: new Date().toISOString() }]),
+    [`${trackingPath}/start`]: makeTaskList([
+      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+    ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
   await user.click(screen.getByRole('button', { name: 'Start task 12' }))
@@ -200,6 +211,7 @@ test('a task marked done from the card shows done at once, with nothing left to 
   await screen.findByText('Marked task 12 done.')
   const row = screen.getByRole('listitem')
   expect(markShape(row)).toBe(drawnMark('done'))
+  expect(row.textContent).toMatch(/completed$/)
   expect(within(row).queryAllByRole('button')).toEqual([])
 })
 
@@ -225,7 +237,10 @@ test('a card opened again before the stream has the done still shows the task do
 })
 
 test.each([
-  ['has the task done', [{ ...tracking, status: 'completed' as const }]],
+  [
+    'has the task done',
+    [{ ...tracking, status: 'completed' as const, state: 'completed' as const }],
+  ],
   ['no longer holds the task', []],
 ])(
   'once a frame %s, a later frame that brings the task back offers it again',
@@ -438,7 +453,10 @@ test('once a frame holds the tracked task, the issue can be tracked again when i
 
   // Act
   act(() => {
-    streamTasks({ linked: [{ ...tracking, status: 'completed' }] }, Date.now() + 2)
+    streamTasks(
+      { linked: [{ ...tracking, status: 'completed', state: 'completed' }] },
+      Date.now() + 2,
+    )
   })
 
   // Assert

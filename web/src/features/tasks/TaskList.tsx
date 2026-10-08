@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils.ts'
 import { StateMark } from '@/lib/StateMark.tsx'
 import { listsWaiting, matchesNarrowing, type TaskNarrowing } from './taskFacets.ts'
 import { orderedTasks, type TaskOrder } from './taskOrder.ts'
-import { dueWords, markOf, statusWords, taskNumber, waitsUntilWords } from './taskWords.ts'
+import { dueWords, markOf, taskNumber, waitsUntilWords } from './taskWords.ts'
 
 // TaskGroups is the pending tasks as the section lists them: those for an
 // issue the Issues list holds, then the others, each in the chosen order, and
@@ -170,7 +170,7 @@ function TaskRow({ task, current, now, order, onSelect }: TaskRowProps) {
         <span className="flex h-5 shrink-0 items-center">
           <StateMark state={markOf(task)} className="text-taskwarrior" />
         </span>
-        <span className="sr-only">{statusWords(task)}</span>
+        <span className="sr-only">{task.state}</span>
         {number === '' ? null : (
           <span className="shrink-0 text-xs leading-5 text-muted-foreground tabular-nums">
             #{number}
