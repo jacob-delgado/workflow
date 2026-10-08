@@ -111,6 +111,12 @@ func TestPullRequestBodyStartsFromTheTemplate(t *testing.T) {
 			want: "## Commits\n\n- chore: bump\n\nCloses #42\n",
 		},
 		"nothing to say": {template: "", subjects: nil, key: "", url: "", want: ""},
+		// Neither tracker writes a key so: a forge issue's number has no leading
+		// zero, and a Jira key has a project.
+		"a key no tracker writes is not linked": {
+			template: "", subjects: []string{"chore: bump"}, key: "0", url: "",
+			want: "## Commits\n\n- chore: bump\n",
+		},
 	}
 
 	for name, tt := range cases {
