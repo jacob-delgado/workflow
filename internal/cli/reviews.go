@@ -130,7 +130,7 @@ func reviewLine(review forge.ReviewRequest, now time.Time, kind forge.Kind) stri
 
 	return fmt.Sprintf("%s%d  %s  %sby %s  CI %s  %s  %s",
 		kind.Sigil(), review.Number, review.Title, repository, review.Author,
-		ciWord(review.CI), humanizeAge(now, review.OpenedAt), review.URL)
+		review.CI.Word(), humanizeAge(now, review.OpenedAt), review.URL)
 }
 
 // humanizeAge is how long ago then was, rounded down to minutes, hours or days.
@@ -166,7 +166,7 @@ func renderReviewsJSON(out io.Writer, reviews []forge.ReviewRequest, now time.Ti
 		reports = append(reports, reviewReport{
 			Number: review.Number, Title: review.Title, Author: review.Author,
 			Repository: review.Repository, Draft: review.Draft,
-			CI: ciWord(review.CI), Age: humanizeAge(now, review.OpenedAt), URL: review.URL,
+			CI: review.CI.Word(), Age: humanizeAge(now, review.OpenedAt), URL: review.URL,
 		})
 	}
 

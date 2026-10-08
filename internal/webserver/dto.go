@@ -266,15 +266,10 @@ func ciDTO(status forge.CI) api.CI {
 	}
 }
 
-// ciState maps the forge's CI state onto its wire word. A map, not a switch, so
-// there is no last-case arm gobco can never see; exhaustive keeps it complete.
+// ciState is the forge's CI state as the API writes it, in the forge's own
+// word for it.
 func ciState(state forge.CIState) api.CIState {
-	return map[forge.CIState]api.CIState{
-		forge.CINone:    api.None,
-		forge.CIRunning: api.Running,
-		forge.CIPassed:  api.Passed,
-		forge.CIFailed:  api.Failed,
-	}[state]
+	return api.CIState(state.Word())
 }
 
 // messagingDTO maps the messaging destination: the service in use, the channel,

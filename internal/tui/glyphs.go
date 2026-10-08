@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 )
 
@@ -32,7 +33,8 @@ type glyphs struct {
 // unicodeGlyphs is the default set.
 func unicodeGlyphs() glyphs {
 	return glyphs{
-		notStarted: "○", inFlight: "◐", done: "●", failed: "✗", unknown: "·",
+		notStarted: progress.NotStarted.Glyph(false), inFlight: progress.InFlight.Glyph(false),
+		done: progress.Done.Glyph(false), failed: progress.Failed.Glyph(false), unknown: "·",
 		selected: "▸ ", unselected: "  ",
 		arrow: " → ", separator: " · ", rule: " ─ ",
 		ellipsis: "…", ahead: "↑", behind: "↓", chosenOpen: "‹", chosenClose: "›", favorite: "★",
@@ -44,7 +46,8 @@ func unicodeGlyphs() glyphs {
 // asciiGlyphs is the set for ui.ascii.
 func asciiGlyphs() glyphs {
 	return glyphs{
-		notStarted: "o", inFlight: "*", done: "#", failed: "x", unknown: ".",
+		notStarted: progress.NotStarted.Glyph(true), inFlight: progress.InFlight.Glyph(true),
+		done: progress.Done.Glyph(true), failed: progress.Failed.Glyph(true), unknown: ".",
 		selected: "> ", unselected: "  ",
 		arrow: " -> ", separator: " - ", rule: " - ",
 		ellipsis: "...", ahead: "+", behind: "-", chosenOpen: "<", chosenClose: ">", favorite: "^",

@@ -17,6 +17,24 @@ const (
 	CIFailed
 )
 
+// Word names the state in the one word every surface writes it in — the
+// review filter's value, the command line's status and the API's CI state. A
+// map, not a switch, so there is no last-case arm gobco can never see;
+// exhaustive keeps it complete.
+func (s CIState) Word() string {
+	return map[CIState]string{
+		CINone: ciNoneWord, CIRunning: ciRunningWord, CIPassed: ciPassedWord, CIFailed: ciFailedWord,
+	}[s]
+}
+
+// The words Word names each CI state in.
+const (
+	ciNoneWord    = "none"
+	ciRunningWord = "running"
+	ciPassedWord  = "passed"
+	ciFailedWord  = "failed"
+)
+
 // Check is one reported check on a change: what it is called, where it stands,
 // and the page that shows it in full — and, for one that failed, why, in the
 // stage it ran in, and whether its log can be read.
