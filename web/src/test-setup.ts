@@ -1,22 +1,18 @@
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
 import './api/client.ts'
-import { useHealthStore } from './api/health.ts'
-import { useSnapshotStore } from './api/snapshot.ts'
-import { useKeysStore } from './features/keyboard/keysApi.ts'
-import { useRegistry } from './features/keyboard/useShortcut.ts'
-import { useTaskMemo } from './features/tasks/taskMemo.ts'
 import { FakeEventSource } from './test/fakeEventSource.ts'
 import { installMatchMedia, resetMatchMedia } from './test/matchMedia.ts'
+import { resetStores } from './test/stores.ts'
 import { themeStorageKey } from './shell/themeKey.ts'
-import { useThemeStore } from './shell/themeStore.ts'
-import { useUiStore } from './shell/uiStore.ts'
 
-const initialUi = useUiStore.getInitialState()
-const initialSnapshot = useSnapshotStore.getInitialState()
-const initialHealth = useHealthStore.getInitialState()
-const initialTaskMemo = useTaskMemo.getInitialState()
-const initialKeys = useKeysStore.getInitialState()
+// Every zustand store the app makes is recorded as it is made, so each one is
+// put back as it was made after every test, a store added later included.
+vi.mock('zustand', async (importOriginal) => {
+  const { recordingZustand } = await import('./test/stores.ts')
+
+  return recordingZustand(await importOriginal())
+})
 
 // jsdom has no EventSource, and the stream hook opens one on mount. Install the
 // controllable fake as the global so components that open the stream render,
@@ -73,13 +69,7 @@ beforeEach(() => {
 // next. This file is also where jsdom polyfills go as components need them.
 afterEach(() => {
   cleanup()
-  useUiStore.setState(initialUi)
-  useSnapshotStore.setState(initialSnapshot)
-  useHealthStore.setState(initialHealth)
-  useTaskMemo.setState(initialTaskMemo)
-  useKeysStore.setState(initialKeys)
-  useRegistry.setState({ registered: [], holds: 0 })
-  useThemeStore.setState({ choice: 'system' })
+  resetStores()
   localStorage.removeItem(themeStorageKey)
   FakeEventSource.reset()
   resetMatchMedia()

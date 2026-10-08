@@ -22,7 +22,7 @@ export interface Registration {
 // they were drawn, and how many confirms drawn now hold the single keys. Only
 // the section shown draws its controls, so an action is answered where its
 // terminal pane would answer it.
-export const useRegistry = create<{ registered: Registration[]; holds: number }>(() => ({
+const useRegistry = create<{ registered: Registration[]; holds: number }>(() => ({
   registered: [],
   holds: 0,
 }))
