@@ -40,8 +40,9 @@ func forgeTransport(
 // cliToken stands in for the forge client's token when the CLI carries the
 // authentication itself. The client refuses to send a request with no token, and
 // the CLI transport never reads this one, so a placeholder satisfies the guard
-// without a real credential.
-const cliToken = "cli"
+// without a real credential. The client masks its token wherever a forge's
+// reason quotes it, so the placeholder is no word a forge writes.
+const cliToken = "workflow-signed-by-the-forge-cli"
 
 // forgeCapture runs a program with a request body on standard input and returns
 // its standard output, the seam the CLI transport is tested through.
