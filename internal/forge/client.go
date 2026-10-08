@@ -367,22 +367,28 @@ func pageQuery(query url.Values, page int) string {
 
 // readPages reads a paged listing to its end: a page short of full, or as many
 // items as the forge counts in all, whichever comes first within maxPages.
-// fetch reads one page and returns its items and the forge's count.
-func readPages[T any](fetch func(page int) ([]T, int, error)) ([]T, error) {
+// fetch reads one page and returns its items and the forge's count. It reports
+// whether there was more than it read: maxPages full pages short of the count,
+// or a page short of full before a listing the forge counts reached its count.
+func readPages[T any](fetch func(page int) ([]T, int, error)) ([]T, bool, error) {
 	var listed []T
 
 	for page := 1; page <= maxPages; page++ {
 		items, total, err := fetch(page)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		listed = append(listed, items...)
 
-		if len(items) < perPage || len(listed) >= total {
-			break
+		if len(listed) >= total {
+			return listed, false, nil
+		}
+
+		if len(items) < perPage {
+			return listed, total != uncounted, nil
 		}
 	}
 
-	return listed, nil
+	return listed, true, nil
 }

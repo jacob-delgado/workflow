@@ -147,7 +147,7 @@ func (g githubReviewItem) reviewRequest() ReviewRequest {
 // owner. It searches with a repo filter, so @me needs no username, and with
 // is:issue so the pull requests that search also returns are left out.
 func githubIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error) {
-	found, err := githubSearch[githubIssue](ctx, client, "is:issue is:open assignee:@me repo:"+repo.Path)
+	found, _, err := githubSearch[githubIssue](ctx, client, "is:issue is:open assignee:@me repo:"+repo.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -172,14 +172,19 @@ type githubSearchPage[T any] struct {
 }
 
 // githubSearch reads every item an issue search finds, as far as the search
-// serves them.
-func githubSearch[T any](ctx context.Context, client Client, query string) ([]T, error) {
-	return readPages(func(page int) ([]T, int, error) {
-		found, err := call[githubSearchPage[T]](ctx, client, http.MethodGet,
-			"/search/issues?"+pageQuery(url.Values{"q": {query}}, page), nil)
+// serves them, and reports whether it found more than were read.
+func githubSearch[T any](ctx context.Context, client Client, query string) ([]T, bool, error) {
+	found := 0
 
-		return found.Items, min(found.TotalCount, githubSearchServes), err
+	items, truncated, err := readPages(func(page int) ([]T, int, error) {
+		answer, err := call[githubSearchPage[T]](ctx, client, http.MethodGet,
+			"/search/issues?"+pageQuery(url.Values{"q": {query}}, page), nil)
+		found = answer.TotalCount
+
+		return answer.Items, min(answer.TotalCount, githubSearchServes), err
 	})
+
+	return items, truncated || found > githubSearchServes, err
 }
 
 // githubIssue is an issue as GitHub sends it, from the search or a single read.
@@ -231,7 +236,7 @@ func githubCloseIssue(ctx context.Context, client Client, repo Repo, number int)
 
 // githubReviews lists the pull requests that request the token owner's review.
 func githubReviews(ctx context.Context, client Client) ([]ReviewRequest, error) {
-	found, err := githubSearch[githubReviewItem](ctx, client, githubSearchQuery)
+	found, _, err := githubSearch[githubReviewItem](ctx, client, githubSearchQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -278,11 +283,13 @@ func githubReviewState(ctx context.Context, client Client, repo Repo, pull *Pull
 // first, to the end of the listing: a reviewer's latest stance is the one past
 // the first page.
 func githubPullReviews(ctx context.Context, client Client, repo Repo, base string) ([]githubReview, error) {
-	return readPages(func(page int) ([]githubReview, int, error) {
+	reviews, _, err := readPages(func(page int) ([]githubReview, int, error) {
 		one, err := repoCall[[]githubReview](ctx, client, repo, http.MethodGet, base+"/reviews?"+pageQuery(nil, page), nil)
 
 		return one, uncounted, err
 	})
+
+	return reviews, err
 }
 
 // mergeability reads GitHub's tri-state mergeable flag: null means still being
