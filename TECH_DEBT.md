@@ -363,27 +363,6 @@ TRADE-10: delete the entry and its site comments (`progress.go:14`,
 **Done when.** The web derives no stage state, `rg 'reviewReached' web/src`
 finds nothing, and `task check` is green.
 
-### DEBT-216 The forge's kind is inferred from the display noun "merge request"
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `useTrackerName`
-(`web/src/features/issues/IssueDetailPanel.tsx:315`), `gitLabNoun`
-(`web/src/features/issues/CommentComposer.tsx:384`), `Health` in
-`api/openapi.yaml` (`:3660`).
-
-**Today.** Both compare `health.forge_noun`, a word meant for display, with
-"merge request" to decide whether the forge is GitLab; anything else is named
-GitHub. A wording change or a third forge mislabels the tracker link and the
-GitLab quick-action hints.
-
-**Fix.** Add a `forge_kind` enum to `Health`, regenerate, and read it in both
-places.
-
-**Done when.** No `'merge request'` literal remains in `web/src` outside tests.
-
-## The gates, the build and the tests
-
 ### DEBT-239 Pay down TRADE-19: the gate fails a never-run condition or an unseen error arm
 
 Severity: medium · Confidence: measured · Size: L
