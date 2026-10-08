@@ -133,6 +133,22 @@ func redirecting(writer http.ResponseWriter, request *http.Request) {
 	http.Redirect(writer, request, "https://sso.example.com/login", http.StatusFound)
 }
 
+// stalling begins a JSON answer and sends nothing more for longer than the
+// commands' client waits, or until the client goes.
+func stalling(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "application/json")
+	_, _ = writer.Write([]byte(`{"name":`))
+
+	if flusher, ok := writer.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	select {
+	case <-time.After(3 * time.Second):
+	case <-request.Context().Done():
+	}
+}
+
 // answeringWith answers every request with status and body.
 func answeringWith(status int, body string) http.HandlerFunc {
 	return func(writer http.ResponseWriter, _ *http.Request) {
@@ -166,7 +182,10 @@ func TestAServiceAnswerExitsInItsFamily(t *testing.T) {
 		},
 		// A redirect is refused so the credential goes nowhere else: the service
 		// never answered the request, as a script waiting on 5 expects.
-		"jira answered with a redirect":      {answer: redirecting, ask: askJira, want: 5},
+		"jira answered with a redirect": {answer: redirecting, ask: askJira, want: 5},
+		// An answer begun and never finished: the service may answer in full
+		// another time.
+		"jira stalled mid-answer":            {answer: stalling, ask: askJira, want: 5},
 		"the forge answered with a redirect": {answer: redirecting, ask: askForge, want: 5},
 		"slack answered with a redirect":     {answer: redirecting, ask: postToSlack, want: 5},
 	}
