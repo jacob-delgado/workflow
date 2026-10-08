@@ -6,6 +6,7 @@ package webserver_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -309,6 +310,58 @@ func TestASlowAuthorReadHoldsUpNoOtherStream(t *testing.T) {
 		}
 	case <-time.After(frameWait):
 		t.Error("the other stream's frame waited on the author read under way")
+	}
+}
+
+// slowTracker binds deps' search for which issues are yours to read, which
+// then answers as deps' own did.
+func slowTracker(deps webserver.Deps, read *slowRead) webserver.Deps {
+	answer := deps.SearchLenient
+	deps.SearchLenient = func(jql string, startAt int) (jira.SearchResult, error) {
+		read.call()
+
+		return answer(jql, startAt)
+	}
+
+	return deps
+}
+
+func TestASlowAskForYourIssuesHoldsUpNoOtherStream(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The tracker said which issues are yours, and is asked again once the
+	// minute has passed; that ask is slow.
+	var asked atomic.Int32
+
+	clock, tracker := newSharedClock(), newSlowRead()
+	deps := slowTracker(scopedDeps([]jira.Key{yourIssue}, nil, &asked), tracker)
+	deps.Clock = clock.read
+	handler := serve(t, deps, scopedConfig())
+	streamOnce(t, handler, "/api/events")
+	clock.pastTheForgeInterval()
+	tracker.slowDown()
+	asking := frameInFlight(t, handler, tracker)
+
+	defer func() {
+		close(tracker.release)
+		<-asking
+	}()
+
+	// Act
+	other := make(chan *httptest.ResponseRecorder, 1)
+
+	go func() { other <- streamOnce(t, handler, "/api/events") }()
+
+	// Assert
+	select {
+	case recorder := <-other:
+		want := []string{yourLocalBranch}
+		if got := listed(firstSnapshot(t, recorder.Body.String()).Branches); !slices.Equal(got, want) {
+			t.Errorf("the other stream's branches = %v, want the answer held, %v", got, want)
+		}
+	case <-time.After(frameWait):
+		t.Error("the other stream's frame waited on the tracker's ask under way")
 	}
 }
 
