@@ -24,14 +24,14 @@ export async function previewAnnouncement(channel = ''): Promise<Announcement> {
 // announce posts previewed — the announcement as its preview showed it — to
 // channel on the configured service, and returns it as posted, with the channel
 // it went to, for the panel to say where, and the server's warning when the
-// store could not remember it, so a later session may offer it again. The server posts that text or
-// nothing: an announcement that reads differently by the time of the post (CI
-// turned red, the pull request merged) is refused, to be previewed again. A
-// refusal — that, no pull request, a failed post — throws the API error, whose
-// message is safe to show. Given mentions — the people the preview showed
-// tagged and the user groups checked, for an announcement that tags — the
-// server tags the linked code owners and the groups on a line after the
-// text, refusing the post when the people linked are no longer the ones
+// store could not remember it, so a later session may offer it again. The
+// server posts that text or nothing: an announcement that reads differently by
+// the time of the post (CI turned red, the pull request merged) is refused, to
+// be previewed again. A refusal — that, no pull request, a failed post — throws
+// the API error, whose message is safe to show. Given mentions — the people the
+// preview showed tagged and the user groups checked, for an announcement that
+// tags — the server tags the linked code owners and the groups on a line after
+// the text, refusing the post when the people linked are no longer the ones
 // shown. Given edited, the text the preview was edited to, that is posted in
 // place of previewed, which the server still checks against the announcement
 // composed now.
