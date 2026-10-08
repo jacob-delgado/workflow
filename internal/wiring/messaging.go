@@ -154,13 +154,31 @@ func onThisMachine(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-// SlackStore is where cfg keeps its Slack user token's credentials: the macOS
-// keychain, or the configuration file. doctor, the login and every post go
-// through it, so they cannot come to look in different places.
-func SlackStore(cfg config.Config) slackauth.Store {
-	item, _ := keychain.Open(runtime.GOOS, slackauth.KeychainService, proc.Capture, user.Current, os.Getenv)
+// Keychain is the operating system's keychain as the wiring reaches it: the
+// system workflow runs on, and how security is run there.
+type Keychain struct {
+	GOOS string
+	Run  keychain.Runner
+}
 
-	return slackauth.Choose(runtime.GOOS, cfg, item)
+// SystemKeychain is the keychain of the system workflow runs on.
+func SystemKeychain() Keychain {
+	return Keychain{GOOS: runtime.GOOS, Run: proc.Capture}
+}
+
+// SlackStore is where cfg keeps its Slack user token's credentials on the
+// system workflow runs on, as Keychain.SlackStore says.
+func SlackStore(cfg config.Config) slackauth.Store {
+	return SystemKeychain().SlackStore(cfg)
+}
+
+// SlackStore is where cfg keeps its Slack user token's credentials with k:
+// the macOS keychain, or the configuration file. doctor, the login and every
+// post go through it, so they cannot come to look in different places.
+func (k Keychain) SlackStore(cfg config.Config) slackauth.Store {
+	item, _ := keychain.Open(k.GOOS, slackauth.KeychainService, k.Run, user.Current, os.Getenv)
+
+	return slackauth.Choose(k.GOOS, cfg, item)
 }
 
 // SlackRefresher refreshes the Slack user token of the app clientID names,
@@ -217,13 +235,17 @@ func slackLockPath(configPath string) string {
 	return filepath.Join(dir, slackLockName)
 }
 
-// placeSlackCredentials is Controls.PlaceSlackCredentials, refreshing through
-// transport.
-//
-// Trade-off TRADE-17: no test sees a placement kept; that takes the real keychain.
-func placeSlackCredentials(ctx context.Context, transport httpx.Doer) func(config.Config) (config.Config, error) {
+// PlaceSlackCredentials is Controls.PlaceSlackCredentials with system's
+// keychain, refreshing through transport. Where the keychain keeps a Slack
+// user token's secrets, those typed into Settings are spent on a refresh at
+// once and the new pair kept there, and the configuration it answers holds
+// none of them; elsewhere it answers the configuration as it was, for the
+// file to keep them.
+func PlaceSlackCredentials(
+	ctx context.Context, transport httpx.Doer, system Keychain,
+) func(config.Config) (config.Config, error) {
 	return func(cfg config.Config) (config.Config, error) {
-		if runtime.GOOS != "darwin" {
+		if system.GOOS != "darwin" {
 			return cfg, nil
 		}
 
@@ -231,14 +253,14 @@ func placeSlackCredentials(ctx context.Context, transport httpx.Doer) func(confi
 		without.Messaging.ClientSecret, without.Messaging.RefreshToken = "", ""
 		without.Messaging.AccessToken, without.Messaging.ExpiresAt = "", ""
 
-		starting := keptUnlessTyped(ctx, SlackStore(without), cfg.Messaging)
+		starting := keptUnlessTyped(ctx, system.SlackStore(without), cfg.Messaging)
 
 		renewed, err := SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(ctx, starting)
 		if err != nil {
 			return config.Config{}, asMessagingError(err)
 		}
 
-		err = SlackStore(without).Keep(ctx, renewed)
+		err = system.SlackStore(without).Keep(ctx, renewed)
 		if err != nil {
 			return config.Config{}, err
 		}

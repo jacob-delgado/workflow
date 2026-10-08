@@ -94,7 +94,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 			directory.Refresh()
 		},
 		//nolint:bodyclose // Wrap only relays the response; the refresh reads and closes its body.
-		PlaceSlackCredentials: placeSlackCredentials(ctx, log.Wrap("slack", httpTransport)),
+		PlaceSlackCredentials: PlaceSlackCredentials(ctx, log.Wrap("slack", httpTransport), SystemKeychain()),
 	}
 
 	deps := tui.Deps{
