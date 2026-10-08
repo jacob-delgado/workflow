@@ -272,7 +272,7 @@ func (m Model) goToTrackingTask(issueKey jira.Key, task taskwarrior.Task) Model 
 	}
 
 	if !groups.lists(task.UUID) {
-		return m.noticed(string(issueKey) + " is tracked by task " + taskName(task) + ", " + m.unlistedBecause(task))
+		return m.noticed(shownKey(issueKey) + " is tracked by task " + taskName(task) + ", " + m.unlistedBecause(task))
 	}
 
 	m = m.focusOn(paneTasks)

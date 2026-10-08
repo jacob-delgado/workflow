@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // forgeIssue is the forge issue listed ahead of Jira's, numbered as a forge
@@ -69,6 +70,55 @@ func TestAssigningAForgeIssueStartsWithYourForgeNameOnABranchWithNoPullRequest(t
 
 	// Assert
 	requireScreen(t, view, "Assign", "jacob")
+}
+
+func TestAForgeIssueKeepsItsHashWhereverItIsNamed(t *testing.T) {
+	t.Parallel()
+
+	assign := []string{upAction, "a", keyEnter}
+	link := []string{"2", "i", "ctrl+u", "#", "4", "2", keyEnter}
+	offConventionWorld := func() *world { return onOffConventionBranch(false) }
+
+	cases := map[string]struct {
+		repo func() *world
+		dry  bool
+		keys []string
+		want string
+	}{
+		"the assign form's title": {repo: withForgeIssue, keys: []string{upAction, "a"}, want: "Assign #57"},
+		"starting work":           {repo: withForgeIssue, keys: []string{upAction, "b"}, want: "Start work on #57"},
+		"assigning":               {repo: withForgeIssue, keys: assign, want: "assigned #57 to jacob"},
+		"assigning in a dry run": {
+			repo: withForgeIssue, dry: true, keys: assign, want: "dry run: would assign #57 to jacob",
+		},
+		"linking a branch": {repo: offConventionWorld, keys: link, want: "linked my-thing to #42"},
+		"linking a branch in a dry run": {
+			repo: offConventionWorld, dry: true, keys: link, want: "dry run: would link my-thing to #42",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			repo := tt.repo()
+
+			model := tui.New(repo.cfg, nil, repo.deps())
+			if tt.dry {
+				model = model.WithDryRun()
+			}
+
+			started := sized(t, model, placesViewWidth, placesViewHeight)
+			started = drain(t, started, started.Init())
+
+			// Act
+			view := typing(t, started, tt.keys...).View().Content
+
+			// Assert
+			requireScreen(t, view, tt.want)
+		})
+	}
 }
 
 func TestTheIssuesListSaysWhenTheForgeCouldNotBeRead(t *testing.T) {

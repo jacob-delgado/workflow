@@ -712,7 +712,7 @@ func (m Model) trackSelectedIssue() (Model, tea.Cmd) {
 	}
 
 	return m.openTaskLine(taskLine{
-		title: "Track " + string(selected.Key), command: addCommand, write: addLine(m.deps.Tasks.Add),
+		title: "Track " + shownKey(selected.Key), command: addCommand, write: addLine(m.deps.Tasks.Add),
 		after: track.follow(m.deps.Tasks), heldBack: track.heldBack(), tracks: selected.Key,
 	}, line)
 }
