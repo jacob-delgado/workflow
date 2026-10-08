@@ -38,20 +38,16 @@ async function fitToContent(page: Page, width: number): Promise<void> {
 
 for (const theme of themes) {
   for (const width of widths) {
-    test(
-      `screenshots every section in the ${theme} theme at ${String(width)} px`,
-      {
-        tag: '@populated',
-      },
-      async ({ page }, testInfo) => {
-        // Arrange: the populated cockpit in this theme at this width, with the
-        // checked-out issue open so the Issues screen shows its story.
-        await openCockpit(page, { width, height }, theme)
+    for (const name of sectionNames) {
+      test(
+        `screenshots ${name} in the ${theme} theme at ${String(width)} px`,
+        { tag: '@populated' },
+        async ({ page }, testInfo) => {
+          // Arrange: the populated cockpit in this theme at this width, with
+          // the checked-out issue open so the Issues screen shows its story.
+          await openCockpit(page, { width, height }, theme)
 
-        for (const name of sectionNames) {
-          // Act: open the section in a window of the height the run began at,
-          // and let it settle.
-          await page.setViewportSize({ width, height })
+          // Act: open the section, and let it settle.
           await openSection(page, name)
 
           // Assert: the screen is saved as drawn, with the pointer parked off
@@ -59,8 +55,8 @@ for (const theme of themes) {
           // every element transitions every property for 0.01ms
           // (web/src/index.css), so an inherited color reaches an icon's
           // strokes a frame or more after the text beside it: the capture
-          // finishes those transitions first rather than catching the last
-          // section's colors on the way out.
+          // finishes those transitions first rather than catching the colors
+          // of the section it left on the way out.
           await fitToContent(page, width)
           await page.mouse.move(0, 0)
           await page.screenshot({
@@ -68,8 +64,8 @@ for (const theme of themes) {
             fullPage: true,
             animations: 'disabled',
           })
-        }
-      },
-    )
+        },
+      )
+    }
   }
 }
