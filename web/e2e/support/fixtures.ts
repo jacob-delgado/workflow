@@ -85,6 +85,7 @@ const problemBase = 'https://jacob-delgado.github.io/workflow/docs/errors/'
 // (codeMeaning in internal/webserver/errors.go).
 const meanings: Record<Problem['code'], { status: number; title: string }> = {
   bad_request: { status: 400, title: 'Bad request' },
+  unauthorized: { status: 401, title: 'Unauthorized' },
   not_found: { status: 404, title: 'Not found' },
   method_not_allowed: { status: 405, title: 'Method not allowed' },
   conflict: { status: 409, title: 'Conflict' },
@@ -93,6 +94,7 @@ const meanings: Record<Problem['code'], { status: number; title: string }> = {
   too_long: { status: 422, title: 'Too long' },
   precondition_required: { status: 428, title: 'Precondition required' },
   unreachable: { status: 502, title: 'Upstream unreachable' },
+  rate_limited: { status: 503, title: 'Rate limited' },
   fetch_failed: { status: 502, title: 'Fetch failed' },
   check_failed: { status: 422, title: 'Check failed' },
   internal: { status: 500, title: 'Internal error' },
