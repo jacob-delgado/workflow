@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // composerLabelWidth is the columns a composer field's marker, label, prompt and
@@ -177,7 +178,7 @@ func (c commitComposer) view(width, _ int) (string, string) {
 		lines,
 		c.label(fieldSubject, "subject ")+c.subject.View(),
 		"",
-		"  "+subject.String()+"  "+length,
+		"  "+sanitize.Line(subject.String())+"  "+length,
 	)
 
 	problem := c.conv.Validate(subject)
@@ -211,11 +212,13 @@ func (c commitComposer) scopeProblem() error {
 	return nil
 }
 
-// typeChoice shows the chosen type among its neighbors.
+// typeChoice shows the chosen type among its neighbors. The types are the
+// configuration's, so each is drawn as text alone.
 func (c commitComposer) typeChoice() string {
 	parts := make([]string, 0, len(c.types))
 
 	for index, kind := range c.types {
+		kind = sanitize.Line(kind)
 		if index == c.kind {
 			kind = c.marks.chosenOpen + kind + c.marks.chosenClose
 		}
@@ -238,7 +241,7 @@ func (c commitComposer) footnotes() []string {
 	}
 
 	if c.issueKey != "" {
-		lines = append(lines, "", c.conv.RefsLine(string(c.issueKey)))
+		lines = append(lines, "", sanitize.Line(c.conv.RefsLine(string(c.issueKey))))
 	}
 
 	lines = append(lines, "", plural(c.staged, "file")+" staged")
