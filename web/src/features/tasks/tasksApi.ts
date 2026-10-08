@@ -95,16 +95,23 @@ interface TaskWrites {
 // after it, which replaces the cached one at once, so the section shows what
 // Taskwarrior holds now without reading it again. A read still in flight as
 // the answer lands may bring the list from before the write, so it is
-// canceled first rather than let land after and put that list back. A done
-// and a track are remembered too, for what the list cannot say of them until
-// the stream catches up: that the task is done, and which task tracks the
-// issue where the active context leaves it out.
+// canceled first rather than let land after and put that list back. A write
+// that landed but whose list the server could not read again answers it
+// unavailable, saying why; the list shown stays, and is read once more,
+// rather than give way to a Taskwarrior that is there. A done and a track are
+// remembered too, for what the list cannot say of them until the stream
+// catches up: that the task is done, and which task tracks the issue where the
+// active context leaves it out.
 export function useTaskWrites(): TaskWrites {
   const queryClient = useQueryClient()
   const write = async (send: Send): Promise<TaskList> => {
     const answered = await answerOf(send)
     await queryClient.cancelQueries({ queryKey: listTasksQueryKey() })
-    queryClient.setQueryData(listTasksQueryKey(), answered)
+    if (answered.available) {
+      queryClient.setQueryData(listTasksQueryKey(), answered)
+    } else {
+      void queryClient.invalidateQueries({ queryKey: listTasksQueryKey() })
+    }
 
     return answered
   }

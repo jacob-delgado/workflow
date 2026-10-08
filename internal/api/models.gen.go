@@ -2289,7 +2289,7 @@ type TaskList struct {
 	// Added The uuid of the task the write this list answers added — an add or a track — so the page can name it even when the active context leaves it out of tasks. Absent after any other write, and on a read.
 	Added *string `json:"added,omitempty"`
 
-	// Available Whether there is a Taskwarrior to ask: false when it is turned off by taskwarrior.disabled, not installed, not Taskwarrior (go-task is also called task), too old, never run, or its taskrc has a malformed line.
+	// Available Whether there is a Taskwarrior to ask: false when it is turned off by taskwarrior.disabled, not installed, not Taskwarrior (go-task is also called task), too old, never run, or its taskrc has a malformed line. Also false in the answer to a write that was made when the list after it could not be read: reason says so, the write stands, and a read of the list asks again.
 	Available bool `json:"available"`
 
 	// Context The name of Taskwarrior's active context, whose filter the list applies; empty for none.
@@ -2298,7 +2298,7 @@ type TaskList struct {
 	// Reason Why Taskwarrior is not available, safe to show; empty when it is.
 	Reason string `json:"reason"`
 
-	// ReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts. Absent when Taskwarrior is available.
+	// ReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts, or the list after a write that was made could not be read. Absent when Taskwarrior is available.
 	ReasonCode *TaskListReasonCode `json:"reason_code,omitempty"`
 
 	// Said What the write this list answers has to add: how many operations an undo reverted, what a sync printed, or that a tracked issue's task was created but not annotated. Empty otherwise.
@@ -2311,7 +2311,7 @@ type TaskList struct {
 	Tasks []Task `json:"tasks"`
 }
 
-// TaskListReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts. Absent when Taskwarrior is available.
+// TaskListReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts, or the list after a write that was made could not be read. Absent when Taskwarrior is available.
 type TaskListReasonCode string
 
 // TaskText The text of a note on a task.
