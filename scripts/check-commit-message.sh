@@ -27,7 +27,9 @@
 # The body is wrapped at 72 characters, as CLAUDE.md asks, since every commit
 # lands on main as written. Only prose is held to it: a line holding a URL, a
 # line of an indented or fenced block, and the trailers of a last paragraph
-# made only of trailers cannot wrap, and are left as they are.
+# made only of trailers cannot wrap, and are left as they are. So is a body
+# whose trailers carry Dependabot's sign-off: the bot writes that body, no
+# setting rewraps it, and its module paths run long.
 set -euo pipefail
 
 readonly subject_pattern='^(feat|fix|chore|docs|refactor|test|perf|build|ci|revert|style)(\([a-z0-9_-]+\))?!?: .+'
@@ -37,6 +39,7 @@ readonly breaking_subject_pattern='^[a-z]+(\([a-z0-9_-]+\))?!: '
 # and the body is wrapped at 72.
 readonly subject_limit=72
 readonly body_limit=72
+readonly dependabot_trailer='Signed-off-by: dependabot[bot] <support@github.com>'
 
 # What release-please's parser counts as whitespace before a continuation:
 # space, tab, vertical tab, form feed, no-break space and zero-width no-break
@@ -58,10 +61,11 @@ refuse() {
 }
 
 # overlong_prose prints each prose line of a body past the limit, numbered as a
-# line of the whole message. It counts characters rather than bytes, in any
-# locale, by not counting a UTF-8 continuation byte.
+# line of the whole message, and nothing for a body Dependabot signed. It counts
+# characters rather than bytes, in any locale, by not counting a UTF-8
+# continuation byte.
 overlong_prose() {
-  LC_ALL=C awk -v limit="${body_limit}" '
+  LC_ALL=C awk -v limit="${body_limit}" -v bot="${dependabot_trailer}" '
     function is_trailer(text) { return text ~ /^[A-Za-z0-9][A-Za-z0-9-]*: / }
     { line[NR] = $0 }
     /^[ \t]*$/ { last_blank = NR }
@@ -69,7 +73,9 @@ overlong_prose() {
       trailers = last_blank < NR
       for (i = last_blank + 1; i <= NR; i++) {
         if (!is_trailer(line[i]) && line[i] !~ /^[ \t]/) trailers = 0
+        if (line[i] == bot) signed_by_bot = 1
       }
+      if (trailers && signed_by_bot) exit
       for (i = 1; i <= NR; i++) {
         text = line[i]
         if (text ~ /^(```|~~~)/) { fenced = !fenced; continue }
