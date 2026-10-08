@@ -156,8 +156,23 @@ func (c Client) TokenScopes(ctx context.Context) ([]string, error) {
 	return answer.Scopes, err
 }
 
-// call sends one request to the forge and decodes the answer into T.
+// call sends one request to the forge and decodes the answer into T, with
+// nothing in it able to drive a terminal.
 func call[T any](ctx context.Context, client Client, method, path string, payload any) (T, error) {
+	return decoded[T](ctx, client, method, path, payload, client.exchange)
+}
+
+// readAsWritten reads what is at path for text about to be written back
+// rather than shown, decoded as the forge wrote it.
+func readAsWritten[T any](ctx context.Context, client Client, path string) (T, error) {
+	return decoded[T](ctx, client, http.MethodGet, path, nil, client.asWritten)
+}
+
+// decoded sends one request to the forge, reads the answer's body as read
+// does, and decodes it into T.
+func decoded[T any](
+	ctx context.Context, client Client, method, path string, payload any, read func(*http.Request) ([]byte, error),
+) (T, error) {
 	var answer T
 
 	if client.token == "" {
@@ -169,7 +184,7 @@ func call[T any](ctx context.Context, client Client, method, path string, payloa
 		return answer, err
 	}
 
-	body, err := client.exchange(request)
+	body, err := read(request)
 	if err != nil {
 		return answer, err
 	}
@@ -252,6 +267,20 @@ func (c Client) newRequest(ctx context.Context, method, path string, payload any
 // forge accepted the request, answered in JSON, and nothing in the answer can
 // drive a terminal.
 func (c Client) exchange(request *http.Request) ([]byte, error) {
+	body, err := c.asWritten(request)
+	if err != nil {
+		return nil, err
+	}
+
+	// Every string in the answer is about to be shown, and a forge — or
+	// anything answering in its place — chose it.
+	return sanitize.JSON(body), nil
+}
+
+// asWritten performs the request and returns the answer's body as the forge
+// wrote it, only once the forge accepted the request and answered in JSON. It
+// is for text about to be written back, never shown: shown, it is exchange's.
+func (c Client) asWritten(request *http.Request) ([]byte, error) {
 	response, err := c.do(request)
 	if err != nil {
 		return nil, httpx.Unreachable(ErrUnreachable, c.base, err)
@@ -273,9 +302,7 @@ func (c Client) exchange(request *http.Request) ([]byte, error) {
 		return nil, fmt.Errorf("reading the answer from %s: %w", c.base, err)
 	}
 
-	// Every string in the answer is about to be shown, and a forge — or
-	// anything answering in its place — chose it.
-	return sanitize.JSON(body), nil
+	return body, nil
 }
 
 // mustBeJSON rejects an answer that is not JSON.

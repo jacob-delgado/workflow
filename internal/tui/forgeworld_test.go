@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"cmp"
 	"slices"
 	"strconv"
 	"strings"
@@ -97,6 +98,12 @@ func (w *world) forgeCalls() seams.Forge {
 			updated.Title, updated.Body = edit.Title, edit.Body
 
 			return updated, nil
+		},
+		RewriteDescription: func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
+			body, changed := rewrite(cmp.Or(w.heldDescription, pull.Body))
+			w.record("rewrite " + strconv.Itoa(pull.Number) + "\n" + body)
+
+			return changed, w.editPullErr
 		},
 		CheckStatus: func(_ forge.PullRequest, head string) (forge.CI, error) {
 			w.record("ci " + head)

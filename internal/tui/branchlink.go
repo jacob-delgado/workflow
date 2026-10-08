@@ -227,7 +227,7 @@ func (l branchLinker) choose(m Model) (Model, tea.Cmd) {
 	l.chosen = jira.Key(ref.Key)
 
 	// Only a description the forge can edit is shown as about to change.
-	if l.hasPull && m.deps.Forge.EditPullRequest != nil {
+	if l.hasPull && m.deps.Forge.RewriteDescription != nil {
 		if body, changed := convention.WithIssueLine(l.pull.Body, ref.Key, m.issueBrowseURL(l.chosen)); changed {
 			l.body = body
 			m.overlay = l
@@ -240,8 +240,10 @@ func (l branchLinker) choose(m Model) (Model, tea.Cmd) {
 }
 
 // link adds the issue's line to the pull request's description when it was
-// shown, then keeps the link, holding both back in a dry run. The edit goes
-// first so a forge that refuses it leaves the branch as it was.
+// shown, then keeps the link, holding both back in a dry run. The line is
+// added to the description as the forge holds it, not to the one shown, whose
+// controls and marks are neutralized, so nothing else of it changes. The edit
+// goes first so a forge that refuses it leaves the branch as it was.
 func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would link " + l.branch + " to " + string(l.chosen)), nil
@@ -249,20 +251,27 @@ func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 
 	l.send = starting()
 	m.overlay = l
-	linkIssue, edit := m.deps.Git.LinkIssue, m.deps.Forge.EditPullRequest
-	branch, issueKey, pull, body := l.branch, l.chosen, l.pull, l.body
+	linkIssue, rewrite := m.deps.Git.LinkIssue, m.deps.Forge.RewriteDescription
+	branch, issueKey, pull, describe := l.branch, l.chosen, l.pull, l.body != ""
+	issueURL := m.issueBrowseURL(issueKey)
 
 	return m, func() tea.Msg {
-		var err error
-		if body != "" {
-			_, err = edit(pull, forge.PullRequestEdit{Title: pull.Title, Body: body})
+		var (
+			described bool
+			err       error
+		)
+
+		if describe {
+			described, err = rewrite(pull, func(body string) (string, bool) {
+				return convention.WithIssueLine(body, string(issueKey), issueURL)
+			})
 		}
 
 		if err == nil {
 			err = linkIssue(branch, string(issueKey))
 		}
 
-		return branchLinked{branch: branch, issueKey: issueKey, pull: pull, described: body != "", err: err}
+		return branchLinked{branch: branch, issueKey: issueKey, pull: pull, described: described, err: err}
 	}
 }
 

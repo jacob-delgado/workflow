@@ -5,6 +5,7 @@ package forge
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -77,6 +78,27 @@ func gitlabUpdate(
 	}
 
 	return updated.pullRequest(), nil
+}
+
+// gitlabDescription is a merge request's description alone, as GitLab holds it
+// and as the PUT that replaces it, and no other field, sends it.
+type gitlabDescription struct {
+	Description string `json:"description"`
+}
+
+// gitlabRewrite rewrites a merge request's description, leaving its title.
+func gitlabRewrite(
+	ctx context.Context, client Client, repo Repo, number int, rewrite func(string) (string, bool),
+) (bool, error) {
+	path := gitlabMergePath(repo, number)
+
+	return rewritten(ctx, client, repo, path, func(held gitlabDescription) string { return held.Description }, rewrite,
+		func(body string) error {
+			_, err := repoCall[json.RawMessage](ctx, client, repo, http.MethodPut, path,
+				gitlabDescription{Description: body})
+
+			return err
+		})
 }
 
 // gitlabMergeable reads GitLab's merge_status. Anything but the two settled

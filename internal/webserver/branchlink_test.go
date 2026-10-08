@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"cmp"
 	"fmt"
 	"net/http"
 	"strings"
@@ -16,10 +17,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-// linking records what the link endpoints asked of git and the forge.
+// linking records what the link endpoints asked of git and the forge: each
+// description rewritten, and each edit of a title and description whole. held
+// is the description as the forge holds it, empty for the one shown.
 type linking struct {
 	linked, unlinked []string
 	edited           []string
+	editedWhole      []string
+	held             string
 }
 
 // linkingDeps is filledDeps on a branch begun outside workflow, with an open
@@ -44,9 +49,17 @@ func linkingDeps(record *linking, detached bool) webserver.Deps {
 		return nil
 	}
 	deps.EditPull = func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
-		record.edited = append(record.edited, edit.Body)
+		record.editedWhole = append(record.editedWhole, edit.Body)
 
 		return pull, nil
+	}
+	deps.RewritePull = func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
+		body, changed := rewrite(cmp.Or(record.held, pull.Body))
+		if changed {
+			record.edited = append(record.edited, body)
+		}
+
+		return changed, nil
 	}
 
 	return deps
@@ -69,6 +82,30 @@ func TestLinkingTheBranchKeepsTheLinkAndUpdatesThePullRequest(t *testing.T) {
 
 	if len(record.edited) != 1 || record.edited[0] != "Speeds it up.\n\nCloses #42\n" {
 		t.Errorf("edited %q, want the closing line added to #9's description", record.edited)
+	}
+}
+
+func TestLinkingAddsTheIssueLineToTheDescriptionTheForgeHolds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// What is shown of a description has its controls and bidirectional marks
+	// replaced and its carriage returns dropped; the forge holds it as written.
+	record := &linking{held: "Speeds it up.\r\n\u202Eright to left\u202C\r\n"}
+	handler := serve(t, linkingDeps(record, false), config.Default())
+
+	// Act
+	answer := send(t, handler, http.MethodPut, "/api/branch/issue", `{"key":"#42","update_pull":true}`)
+
+	// Assert
+	if answer.Code != http.StatusOK || len(record.edited) != 1 ||
+		record.edited[0] != "Speeds it up.\r\n\u202Eright to left\u202C\r\n\nCloses #42\n" {
+		t.Errorf("status %d, rewrote %q; want the closing line added to the description as written",
+			answer.Code, record.edited)
+	}
+
+	if len(record.editedWhole) != 0 {
+		t.Errorf("edited %q whole, want the title and the shown description left alone", record.editedWhole)
 	}
 }
 
@@ -208,8 +245,8 @@ func TestAPullRequestThatCannotBeEditedLeavesTheBranchUnlinked(t *testing.T) {
 	// Arrange
 	record := &linking{}
 	deps := linkingDeps(record, false)
-	deps.EditPull = func(forge.PullRequest, forge.PullRequestEdit) (forge.PullRequest, error) {
-		return forge.PullRequest{}, fmt.Errorf("editing #9: %w", forge.ErrUnreachable)
+	deps.RewritePull = func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
+		return false, fmt.Errorf("editing #9: %w", forge.ErrUnreachable)
 	}
 
 	// Act

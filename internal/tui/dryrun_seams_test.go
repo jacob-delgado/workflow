@@ -22,6 +22,7 @@ func readOnly(w *world) tui.Deps {
 	deps.Git.LinkIssue, deps.Git.UnlinkIssue, deps.Git.Discard = nil, nil, nil
 	deps.Settings.Save, deps.Settings.RemoveLocalData = nil, nil
 	deps.Forge.CreatePullRequest, deps.Forge.EditPullRequest, deps.Forge.Rerun, deps.Forge.Merge = nil, nil, nil, nil
+	deps.Forge.RewriteDescription = nil
 	deps.Messaging.Post = nil
 	deps.Hooks = seams.Hooks{Run: nil, Existing: deps.Hooks.Existing, Write: nil}
 	deps.Tasks = seams.Tasks{}

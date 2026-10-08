@@ -91,7 +91,7 @@ func TestConfirmingTheDescriptionLinksAndUpdatesThePullRequest(t *testing.T) {
 	view := typing(t, repo.live(t, 120, 40), "2", "i", keyEnter, keyEnter).View().Content
 
 	// Assert
-	edits := repo.asked("edit 42")
+	edits := repo.asked("rewrite 42")
 	if len(edits) != 1 || !strings.Contains(edits[0], "Jira: ["+issueKey+"]") || len(repo.asked("link-issue")) != 1 {
 		t.Errorf("edited %q and linked %q; want the issue line added and the branch linked", edits, repo.asked("link-issue"))
 	}
@@ -110,8 +110,32 @@ func TestAPullRequestThatCannotBeEditedLeavesTheBranchUnlinked(t *testing.T) {
 	typing(t, repo.live(t, 120, 40), "2", "i", keyEnter, keyEnter)
 
 	// Assert
-	if edits, linked := repo.asked("edit 42"), repo.asked("link-issue"); len(edits) != 1 || len(linked) != 0 {
+	if edits, linked := repo.asked("rewrite 42"), repo.asked("link-issue"); len(edits) != 1 || len(linked) != 0 {
 		t.Errorf("edited %q and linked %q; want the edit tried and the branch left unlinked", edits, linked)
+	}
+}
+
+func TestLinkingAddsTheIssueLineToTheDescriptionTheForgeHolds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// What is shown of a description has its controls and bidirectional marks
+	// replaced and its carriage returns dropped; the forge holds it as written.
+	repo := onOffConventionBranch(true)
+	repo.heldDescription = "Fixes the parser.\r\n\u202Eright to left\u202C\r\n"
+
+	// Act
+	typing(t, repo.live(t, 120, 40), "2", "i", keyEnter, keyEnter)
+
+	// Assert
+	rewrites := repo.asked("rewrite 42")
+	if len(rewrites) != 1 || !strings.HasPrefix(rewrites[0], "rewrite 42\n"+repo.heldDescription) ||
+		!strings.Contains(rewrites[0], "Jira: ["+issueKey+"]") {
+		t.Errorf("rewrote %q, want the issue line added to the description as written", rewrites)
+	}
+
+	if edits := repo.asked("edit 42"); len(edits) != 0 {
+		t.Errorf("edited %q, want the title and the shown description left alone", edits)
 	}
 }
 
@@ -124,7 +148,7 @@ func TestLinkingWhereThePullRequestCannotBeEditedLinksWithoutShowingADescription
 	// Arrange
 	repo := onOffConventionBranch(true)
 	uneditable := repo.deps()
-	uneditable.Forge.EditPullRequest = nil
+	uneditable.Forge.RewriteDescription = nil
 	model := sized(t, tui.New(repo.cfg, nil, uneditable), 120, 40)
 
 	// Act
