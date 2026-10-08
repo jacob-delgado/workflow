@@ -86,8 +86,9 @@ SECURITY
 
   .workflow.json holds live credentials. "workflow config init" writes
   it readable only by you and warns when the file is not ignored by git (add
-  it to .gitignore), and "workflow config show" masks every one of them — including messaging.webhook_url, which is a
-  credential in its own right rather than merely an address.
+  it to .gitignore), and "workflow config show" masks every one of them —
+  including messaging.webhook_url, which is a credential in its own right
+  rather than merely an address.
 
 ```
 workflow [flags]
