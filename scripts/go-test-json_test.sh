@@ -15,12 +15,8 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly wrapper="${here}/go-test-json.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 readonly stub_bin="${workdir}/bin"
 mkdir -p "${stub_bin}"
@@ -52,13 +48,6 @@ exit "${STUB_EXIT:-0}"
 EOF
 chmod +x "${stub_bin}/go"
 
-# fail records a failed case with its reason.
-#   fail <name> <reason>
-fail() {
-  echo "FAIL ${1}: ${2}" >&2
-  failures=$((failures + 1))
-}
-
 # run_wrapper runs the wrapper against the stub, leaving its output in
 # ${workdir}/out.txt and its exit in ${status}.
 #   run_wrapper <exit-go-gives> <go-test-args>...
@@ -72,55 +61,50 @@ run_wrapper() {
 run_wrapper 1 -race ./...
 
 # Assert: it exits as go test did.
-cases=$((cases + 1))
+count_case
 if ((status != 1)); then
-  fail "exit status" "want 1, got ${status}"
+  fail_case "exit status" "want 1, got ${status}"
 fi
 
 # Assert: the events are kept whole for counting, a stray line and all.
-cases=$((cases + 1))
+count_case
 if ! cmp -s "${workdir}/events.json" "${workdir}/events.out"; then
-  fail "events file" "want the event stream kept as go gave it"
+  fail_case "events file" "want the event stream kept as go gave it"
 fi
 
 # Assert: the stray line stopped nothing, so the tests still count.
-cases=$((cases + 1))
+count_case
 if [[ "$("${here}/test-counts.sh" go "${workdir}/events.out" "Go unit")" != *'"passed":1,"skipped":0,"failed":1'* ]]; then
-  fail "counts past a stray line" "got: $("${here}/test-counts.sh" go "${workdir}/events.out" "Go unit")"
+  fail_case "counts past a stray line" "got: $("${here}/test-counts.sh" go "${workdir}/events.out" "Go unit")"
 fi
 
 # Assert: go test ran with -json and the arguments given.
-cases=$((cases + 1))
+count_case
 if [[ "$(cat "${workdir}/go.calls")" != "test -json -race ./..." ]]; then
-  fail "arguments" "got: $(cat "${workdir}/go.calls")"
+  fail_case "arguments" "got: $(cat "${workdir}/go.calls")"
 fi
 
 # Assert: package lines, the build error and the failed test's output show.
 for want in $'ok  \texample/c' $'FAIL\texample/a' 'b.go:3:1: syntax error' 'a_test.go:9: got 1, want 2' '--- FAIL: TestBreaks'; do
-  cases=$((cases + 1))
+  count_case
   if ! grep -qF -- "${want}" "${workdir}/out.txt"; then
-    fail "shows ${want}" "got:"$'\n'"$(cat "${workdir}/out.txt")"
+    fail_case "shows ${want}" "got:"$'\n'"$(cat "${workdir}/out.txt")"
   fi
 done
 
 # Assert: a passing test's verbose lines do not.
-cases=$((cases + 1))
+count_case
 if grep -qF -- 'TestPasses' "${workdir}/out.txt"; then
-  fail "quiet passes" "want no line for a passing test, got:"$'\n'"$(cat "${workdir}/out.txt")"
+  fail_case "quiet passes" "want no line for a passing test, got:"$'\n'"$(cat "${workdir}/out.txt")"
 fi
 
 # Act: a run that passes.
 run_wrapper 0 ./...
 
 # Assert
-cases=$((cases + 1))
+count_case
 if ((status != 0)); then
-  fail "passing exit" "want 0, got ${status}"
+  fail_case "passing exit" "want 0, got ${status}"
 fi
 
-if ((failures > 0)); then
-  echo "go-test-json_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "go-test-json_test: ${cases} case(s) passed."
+finish_tests

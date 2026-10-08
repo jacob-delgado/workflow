@@ -15,12 +15,8 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly check="${here}/check-docs-drift.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # The committed reference: a hand-written _index.md and one generated page.
 reference="${workdir}/reference"
@@ -47,19 +43,7 @@ chmod +x "${drift}"
 # expect runs the gate with a generator and checks its exit.
 #   expect <pass|fail> <name> <generator>
 expect() {
-  local want="$1" name="$2" gen="$3" got
-  cases=$((cases + 1))
-
-  if DOCS_REFERENCE="${reference}" DOCSGEN="${gen}" "${check}" >/dev/null 2>&1; then
-    got="pass"
-  else
-    got="fail"
-  fi
-
-  if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want ${want}, got ${got}" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit "$1" "$2" env DOCS_REFERENCE="${reference}" DOCSGEN="$3" "${check}"
 }
 
 # A generator that reproduces the committed reference passes.
@@ -68,9 +52,4 @@ expect pass "the reference is current" "${in_sync}"
 # A generator whose output differs fails — the check's whole point.
 expect fail "the reference has drifted" "${drift}"
 
-if ((failures > 0)); then
-  echo "check-docs-drift_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "check-docs-drift_test: ${cases} case(s) passed."
+finish_tests
