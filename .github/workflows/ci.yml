@@ -8,6 +8,10 @@ on:
 # The default token reads the repository and nothing more. One job asks for
 # more: coverage-comment holds pull-requests: write, to post the coverage report
 # on its pull request. Every other job only reads.
+#
+# Each mise step installs only the tools its job runs (install_args), not the
+# whole of mise.toml: a node-only job has no use for Go, golangci-lint, hugo or
+# gobco, and installing them is most of its setup time.
 permissions:
   contents: read
 
@@ -28,6 +32,7 @@ jobs:
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+          install_args: go task golangci-lint shellcheck shfmt yamllint typos actionlint hadolint taplo zizmor node npm:markdownlint-cli2
       # A pull request lints its Markdown only when it changes Markdown, docs/,
       # the markdownlint config or mise.toml, which pins the linter; a push to
       # main lints all of it, and a change that cannot be compared with its base
@@ -55,18 +60,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # lefthook for the wiring tests that run it, jq and node for the gate
+      # scripts' own tests.
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+          install_args: go task jq node lefthook go:github.com/rillig/gobco
       # Both floors come from the same Taskfile variables the local gate reads,
       # so CI and a developer's machine cannot disagree about them. The run's
-      # events are kept for the pull request comment's test counts.
+      # events are kept for the test summary's counts.
       - run: task test:cover GO_TEST_JSON=tmp/go-events.json
       # Condition coverage. gobco reads every package but the build-tagged twins
       # scripts/gobco-report.sh lists as unreadable (it fails on any other that
       # drops out of the report unannounced).
       - run: task cover:branch
-      # Consumed by the coverage-comment and coverage-baseline jobs below.
+      # Consumed by the summary and coverage-baseline jobs below.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverage
@@ -74,31 +82,14 @@ jobs:
             coverage.out
             tmp/gobco/
           retention-days: 7
-      # Counted whether the tests passed or not, so the comment shows a failure
+      # Uploaded whether the tests passed or not, so the summary shows a failure
       # as a count rather than leaving the row blank.
-      - name: Count the Go tests
-        if: always()
-        run: |
-          mkdir -p tmp/test-counts
-          scripts/test-counts.sh go tmp/go-events.json "Go unit" > tmp/test-counts/go-unit.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: test-counts-go-unit
-          path: tmp/test-counts/go-unit.json
+          name: report-go-unit
+          path: tmp/go-events.json
           retention-days: 7
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
-        with:
-          version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
-      - run: task build
 
   # The web frontend, gated by the same tasks `task check` runs, so a web lint
   # step added there is added here: the client regenerated from
@@ -118,19 +109,15 @@ jobs:
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+          install_args: node task
       - run: task web:gen:check
       - run: task web:lint
       - run: task web:test -- --reporter=default --reporter=json --outputFile.json=reports/web-unit.json
-      - name: Count the web unit tests
-        if: always()
-        run: |
-          mkdir -p tmp/test-counts
-          scripts/test-counts.sh vitest web/reports/web-unit.json "Web unit" > tmp/test-counts/web-unit.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: test-counts-web-unit
-          path: tmp/test-counts/web-unit.json
+          name: report-web-unit
+          path: web/reports/web-unit.json
           retention-days: 7
       - run: task web:dist:check
 
@@ -153,6 +140,7 @@ jobs:
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+          install_args: node
       - name: Enable Corepack
         run: corepack enable
       - name: Install dependencies
@@ -160,17 +148,11 @@ jobs:
       - name: Install the Playwright browser
         run: yarn playwright install --with-deps chromium
       - run: yarn test:e2e
-      - name: Count the end-to-end tests
-        if: always()
-        working-directory: .
-        run: |
-          mkdir -p tmp/test-counts
-          scripts/test-counts.sh playwright web/reports/e2e.json "E2E" > tmp/test-counts/e2e.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: test-counts-e2e
-          path: tmp/test-counts/e2e.json
+          name: report-e2e
+          path: web/reports/e2e.json
           retention-days: 7
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
@@ -206,6 +188,7 @@ jobs:
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+          install_args: go task node
       - name: Enable Corepack
         run: corepack enable
       - name: Install dependencies
@@ -216,17 +199,11 @@ jobs:
         run: task build
         working-directory: .
       - run: yarn test:e2e:server
-      - name: Count the server-backed end-to-end tests
-        if: always()
-        working-directory: .
-        run: |
-          mkdir -p tmp/test-counts
-          scripts/test-counts.sh playwright web/reports/e2e-server.json "E2E (server)" > tmp/test-counts/e2e-server.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: test-counts-e2e-server
-          path: tmp/test-counts/e2e-server.json
+          name: report-e2e-server
+          path: web/reports/e2e-server.json
           retention-days: 7
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
@@ -235,33 +212,72 @@ jobs:
           path: web/playwright-report/
           retention-days: 7
 
-  # Advisory, not a gate: run the unit and e2e suites once more to post one
-  # consolidated table of counts and coverage to the run summary. The Test, Web
-  # and E2E jobs above are what actually gate; this only reports.
+  # Advisory, not a gate: one table of every suite's counts and the coverage,
+  # with its change against main's last baseline, written to the run summary
+  # and handed to the coverage comment. It runs no suite: it reads what the
+  # Test, Web and E2E jobs uploaded, whether they passed or not, so a failed
+  # suite shows as its counts and one that never reported as dashes.
   summary:
     name: Test summary
+    needs: [test, web, e2e, e2e-server]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # go for the coverage gate's `go tool cover`, jq for the counts and the
+      # coverage summary, node for the rendering.
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
-      - name: Enable Corepack
-        run: corepack enable
-      - name: Install dependencies
-        run: yarn install --immutable
-        working-directory: web
-      - name: Install the Playwright browser
-        run: yarn playwright install --with-deps chromium
-        working-directory: web
-      - name: Report the test counts and coverage
-        run: task test:summary
+          install_args: go jq node
+      # Each absent when its job stopped before uploading it.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true
+        with:
+          pattern: report-*
+          merge-multiple: true
+          path: tmp/reports
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true
+        with:
+          name: coverage
+      # On a pull request the exact-SHA key never hits, so the prefix
+      # restore-key resolves to the most recent baseline cached from main.
+      - name: Restore main's baseline
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          key: coverage-baseline-${{ github.sha }}
+          restore-keys: |
+            coverage-baseline-
+          path: coverage-baseline.json
+      - name: Count each suite's tests
+        run: |
+          mkdir -p tmp/test-counts
+          scripts/test-counts.sh go tmp/reports/go-events.json "Go unit" > tmp/test-counts/go-unit.json
+          scripts/test-counts.sh vitest tmp/reports/web-unit.json "Web unit" > tmp/test-counts/web-unit.json
+          scripts/test-counts.sh playwright tmp/reports/e2e.json "E2E" > tmp/test-counts/e2e.json
+          scripts/test-counts.sh playwright tmp/reports/e2e-server.json "E2E (server)" > tmp/test-counts/e2e-server.json
+      - name: Compute the coverage summary
+        run: |
+          if [ -f coverage.out ]; then
+            scripts/coverage-summary.sh coverage.out tmp/gobco > pr-coverage.json
+          fi
+      - name: Render the report
+        run: |
+          node scripts/pr-comment.mjs pr-coverage.json coverage-baseline.json tmp/test-counts > ci-report.md
+          cat ci-report.md >>"${GITHUB_STEP_SUMMARY}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ci-report
+          path: ci-report.md
+          retention-days: 7
 
   # The release build, run on every change so a broken cross-compilation — or a
   # loop that names every target the same and ships one — is caught on the pull
-  # request rather than at the tag.
+  # request rather than at the tag. With E2E (server)'s `task build`, it is
+  # also what proves the binary builds, so no job of its own builds it again.
   cross:
     name: Cross-compile
     runs-on: ubuntu-latest
@@ -272,6 +288,7 @@ jobs:
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+          install_args: go task node
       - run: task release:binaries
       - run: task release:verify
 
@@ -290,6 +307,7 @@ jobs:
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+          install_args: go task go:golang.org/x/vuln/cmd/govulncheck go:github.com/zricethezav/gitleaks/v8
       - run: task vuln
       - run: task secrets
       - run: task secrets:history
@@ -308,6 +326,7 @@ jobs:
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+          install_args: go jq
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: coverage
@@ -318,21 +337,22 @@ jobs:
           key: coverage-baseline-${{ github.sha }}
           path: coverage-baseline.json
 
-  # Report coverage on the PR itself. Informational: the floors in the test job
-  # are what fail a build, and this job is deliberately not something to gate on.
+  # Post the summary's report on the PR itself. Informational: the floors in the
+  # test job are what fail a build, and this job is deliberately not something
+  # to gate on. It checks nothing out and installs nothing: it posts the
+  # markdown the summary job rendered.
   coverage-comment:
     name: Coverage comment
-    # Every suite that counts its tests, whether they passed or not — a failing
-    # suite is the one whose counts matter most — with the coverage from Test
-    # when it got that far. Not for a run a newer push cancelled: that run's
-    # partial counts would overwrite the comment until the newer one lands.
-    needs: [test, web, e2e, e2e-server]
+    # Not for a run a newer push cancelled: that run's partial counts would
+    # overwrite the comment until the newer one lands.
+    needs: [summary]
     # Same-repository pull requests only. A fork's PR runs with a read-only token,
     # so the pull-requests: write this job asks for is not granted and it would
     # fail rather than comment — and it is reporting, never a gate, so skipping it
     # on forks costs nothing.
     if: >-
       !cancelled() &&
+      needs.summary.result == 'success' &&
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -340,43 +360,13 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
-        with:
-          version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
-      # Absent when the Test job failed before uploading it; the comment then
-      # reads n/a for coverage.
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        continue-on-error: true
-        with:
-          name: coverage
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: test-counts-*
-          merge-multiple: true
-          path: tmp/test-counts
-      # The exact-SHA key never hits on a PR, so the prefix restore-key resolves
-      # to the most recent baseline cached from main.
-      - name: Restore main's baseline
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          key: coverage-baseline-${{ github.sha }}
-          restore-keys: |
-            coverage-baseline-
-          path: coverage-baseline.json
-      - name: Compute this PR's summary
-        run: |
-          if [ -f coverage.out ]; then
-            scripts/coverage-summary.sh coverage.out tmp/gobco > pr-coverage.json
-          fi
-      - name: Render the comment
-        run: node scripts/pr-comment.mjs pr-coverage.json coverage-baseline.json tmp/test-counts > pr-comment.md
+          name: ci-report
       - name: Upsert the comment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          COMMENT: pr-comment.md
+          COMMENT: ci-report.md
         with:
           script: |
             const fs = require('fs')
@@ -452,7 +442,7 @@ jobs:
   # of mistake: add a job here, add it to `needs`, and protection keeps working.
   ci-gate:
     name: ci-gate
-    needs: [lint, test, build, web, e2e, e2e-server, cross, scan, commit-lint]
+    needs: [lint, test, web, e2e, e2e-server, cross, scan, commit-lint]
     # always(), so the gate reports a verdict even when a dependency fails —
     # without it the gate would be skipped, and a skipped required check never
     # goes green.
@@ -480,8 +470,8 @@ jobs:
           echo "All required jobs succeeded."
 
   # Deliberately NOT in the gate: Test summary, Coverage comment and Coverage
-  # baseline. All three are reporting, not gating — Test summary reruns suites
-  # the Test, Web and E2E jobs already gate on, and the coverage FLOORS live
-  # inside the Test job, so a coverage regression already fails there. The
+  # baseline. All three are reporting, not gating — Test summary reports what
+  # the Test, Web and E2E jobs uploaded, and the coverage FLOORS live inside the
+  # Test job, so a coverage regression already fails there. The
   # baseline job is also skipped on pull requests by design, and a gate should
   # not have to special-case that.

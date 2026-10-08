@@ -61,6 +61,8 @@ jobs:
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
           cache: false
+          # Go for the reference's generator and Hugo's modules, Hugo for the site.
+          install_args: go task hugo-extended
 
       # Fails if the committed command reference disagrees with the command
       # tree, so the site can never publish documentation for flags that no
