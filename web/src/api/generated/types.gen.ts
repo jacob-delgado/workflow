@@ -1610,7 +1610,7 @@ export type SetupPlace = {
      */
     shown: string;
     /**
-     * The OS keychain can keep the Jira token out of this file: one is wired, and the file is the home directory's, which the first run offers it for alone.
+     * The OS keychain can keep the Jira token out of this file, in the item for Jira's address, which any file may read: one is wired.
      */
     keychain: boolean;
 };
@@ -3170,7 +3170,7 @@ export type SetUpErrors = {
      */
     409: Problem;
     /**
-     * Jira did not accept the token, or could not be asked, and the request did not say to keep it unchecked (code check_failed; send keep_unchecked to write it anyway); or Jira's address is not an https address, or http to this machine, without a username and password, which is never kept, keep_unchecked or not (code unprocessable); or the keychain was asked for where there is none, or for a file other than the home directory's, which the first run offers it for alone. Nothing was written.
+     * Jira did not accept the token, or could not be asked, and the request did not say to keep it unchecked (code check_failed; send keep_unchecked to write it anyway); or Jira's address is not an https address, or http to this machine, without a username and password, which is never kept, keep_unchecked or not (code unprocessable); or the keychain was asked for where there is none. Nothing was written.
      */
     422: Problem;
     /**
