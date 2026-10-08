@@ -10,10 +10,10 @@ import (
 	"time"
 )
 
-// FacetKind is one of the ways the Tasks list can be narrowed.
-//
-// Trade-off TRADE-29: the narrowing below is written again in
-// web/src/features/tasks/taskFacets.ts, and twin-named tests pin the two.
+// FacetKind is one of the ways the Tasks list can be narrowed. The rules are
+// written here alone: the terminal's Tasks pane calls them, and the web server
+// ships each task's facets and fields to match, and the order the values are
+// offered in.
 type FacetKind int
 
 // The kinds, in the order the list offers them.
@@ -149,9 +149,8 @@ func pickedKinds(picked []Facet) []FacetKind {
 	return kinds
 }
 
-// mentions reports text, ignoring case, within one of the task's fields: its
-// description, project, a tag written +tag, its issue key, or its id written
-// #id. A match never spans two fields.
+// mentions reports text, ignoring case, within one of the task's fields. A
+// match never spans two fields.
 func (t Task) mentions(text string) bool {
 	if text == "" {
 		return true
@@ -159,13 +158,15 @@ func (t Task) mentions(text string) bool {
 
 	needle := strings.ToLower(text)
 
-	return slices.ContainsFunc(t.searchable(), func(field string) bool {
-		return strings.Contains(strings.ToLower(field), needle)
+	return slices.ContainsFunc(t.Searchable(), func(field string) bool {
+		return strings.Contains(field, needle)
 	})
 }
 
-// searchable is every field typed text is matched against.
-func (t Task) searchable() []string {
+// Searchable is every field typed text is matched against, lower-cased, as
+// typed text is before it is matched: the task's description, project and
+// issue key, each tag written +tag, and its id written #id when it has one.
+func (t Task) Searchable() []string {
 	fields := []string{t.Description, t.Project, t.IssueKey}
 
 	for _, tag := range t.Tags {
@@ -174,6 +175,10 @@ func (t Task) searchable() []string {
 
 	if t.ID > 0 {
 		fields = append(fields, "#"+strconv.Itoa(t.ID))
+	}
+
+	for index, field := range fields {
+		fields[index] = strings.ToLower(field)
 	}
 
 	return fields
@@ -204,10 +209,43 @@ func (t Task) Facets(now time.Time) []Facet {
 }
 
 // Choices is every value the tasks hold, with how many hold each, in the order
-// the list offers them, and every picked value none holds, at zero, so it can
-// be unpicked. A count is over the tasks the list shows with nothing picked —
-// the waiting tasks left out — but for the waiting state, which counts them.
+// OfferedFacets offers them, and then every picked value it does not offer,
+// at zero, in the order it was picked, so it can be unpicked. A count is over
+// the tasks the list shows with nothing picked — the waiting tasks left out —
+// but for the waiting state, which counts them.
 func Choices(tasks []Task, picked []Facet, now time.Time) []FacetChoice {
+	counts := heldCounts(tasks, now)
+	offered := offeredFacets(counts)
+
+	var choices []FacetChoice
+
+	for _, offering := range offered {
+		if counts[offering] > 0 || slices.Contains(picked, offering) {
+			choices = append(choices, FacetChoice{Facet: offering, Count: counts[offering]})
+		}
+	}
+
+	for _, chosen := range picked {
+		if !slices.Contains(offered, chosen) {
+			choices = append(choices, FacetChoice{Facet: chosen})
+		}
+	}
+
+	return choices
+}
+
+// OfferedFacets is every value the list offers to narrow to at now, in order:
+// the states as ByState ranks them; priorities H, M, L, any other the tasks
+// hold by name, then none; projects and tags the tasks hold by name, none
+// last; with an issue, then without. A value only a waiting task holds is not
+// offered but for its state, as Choices counts it.
+func OfferedFacets(tasks []Task, now time.Time) []Facet {
+	return offeredFacets(heldCounts(tasks, now))
+}
+
+// heldCounts is how many of the tasks hold each value at now, a waiting task
+// counted for its state alone.
+func heldCounts(tasks []Task, now time.Time) map[Facet]int {
 	counts := map[Facet]int{}
 
 	for _, task := range tasks {
@@ -218,21 +256,12 @@ func Choices(tasks []Task, picked []Facet, now time.Time) []FacetChoice {
 		}
 	}
 
-	var choices []FacetChoice
-
-	for _, offering := range offeredFacets(counts, picked) {
-		if counts[offering] > 0 || slices.Contains(picked, offering) {
-			choices = append(choices, FacetChoice{Facet: offering, Count: counts[offering]})
-		}
-	}
-
-	return choices
+	return counts
 }
 
-// offeredFacets is every value the list could offer, in order: the states as
-// ByState ranks them; priorities H, M, L, any other by name, then none;
-// projects and tags by name, none last; with an issue, then without.
-func offeredFacets(counts map[Facet]int, picked []Facet) []Facet {
+// offeredFacets is every value the list offers, in order, the named ones of
+// each kind those counts holds.
+func offeredFacets(counts map[Facet]int) []Facet {
 	states := make([]Facet, 0, int(StateUnknown)+1)
 	for state := StateStarted; state <= StateUnknown; state++ {
 		states = append(states, Facet{Kind: FacetState, Value: state.String()})
@@ -240,16 +269,16 @@ func offeredFacets(counts map[Facet]int, picked []Facet) []Facet {
 
 	return slices.Concat(
 		states,
-		ranked(FacetPriority, namedPriorities(), counts, picked),
-		ranked(FacetProject, nil, counts, picked),
-		ranked(FacetTag, nil, counts, picked),
+		ranked(FacetPriority, namedPriorities(), counts),
+		ranked(FacetProject, nil, counts),
+		ranked(FacetTag, nil, counts),
 		[]Facet{{Kind: FacetIssue, Value: WithIssue}, {Kind: FacetIssue, Value: NoIssue}},
 	)
 }
 
 // ranked is a kind's values in order: those named first, in their order, then
-// the rest held or picked, by name, then none.
-func ranked(kind FacetKind, first []string, counts map[Facet]int, picked []Facet) []Facet {
+// the rest held, by name, then none.
+func ranked(kind FacetKind, first []string, counts map[Facet]int) []Facet {
 	var rest []string
 
 	for facet := range counts {
@@ -258,15 +287,9 @@ func ranked(kind FacetKind, first []string, counts map[Facet]int, picked []Facet
 		}
 	}
 
-	for _, facet := range picked {
-		if facet.Kind == kind && facet.Value != "" && !slices.Contains(first, facet.Value) {
-			rest = append(rest, facet.Value)
-		}
-	}
-
 	slices.Sort(rest)
 
-	values := slices.Concat(first, slices.Compact(rest), []string{""})
+	values := slices.Concat(first, rest, []string{""})
 	facets := make([]Facet, 0, len(values))
 
 	for _, value := range values {

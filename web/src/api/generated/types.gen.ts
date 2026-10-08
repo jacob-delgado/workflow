@@ -1280,6 +1280,58 @@ export type TaskList = {
      * The pending tasks of the active context, most urgent first, waiting ones included. Empty when Taskwarrior is not available.
      */
     tasks: Array<Task>;
+    /**
+     * Every value the list's filter offers, in the order it lists them, as the terminal's filter lists them: the states as the state order ranks them; priorities H, M, L, any other the tasks hold by name, then none; the projects and the tags the tasks hold, by name, none last; with an issue, then without. A value only a waiting task holds is offered for its state alone. A value no task holds is offered only while it is picked. Empty when Taskwarrior is not available.
+     */
+    facet_order: Array<TaskFacet>;
+};
+
+/**
+ * One value a task holds in one of the five kinds the Tasks list is narrowed by. Values picked in one kind widen the list, and the kinds narrow it together.
+ */
+export type TaskFacet = {
+    /**
+     * The kind: the task's state as the list words it, its priority, its project, a tag, or whether it is linked to an issue.
+     */
+    kind: 'state' | 'priority' | 'project' | 'tag' | 'issue';
+    /**
+     * The value held: the state, the priority, the project or the tag, "" for none of each, or linked or unlinked.
+     */
+    value: string;
+    /**
+     * The value as every surface names it, in the filter and where a row shows what the list is sorted by.
+     */
+    label: string;
+};
+
+/**
+ * A task's place in each order the Tasks list sorts by, 0 first, among the tasks of the list that carries it, every tie broken down to the uuid, so a narrowed list keeps the same order.
+ */
+export type TaskRanks = {
+    /**
+     * Most urgent first, by Taskwarrior's urgency.
+     */
+    urgency: number;
+    /**
+     * Started, then pending, waiting, recurring, completed and deleted.
+     */
+    state: number;
+    /**
+     * By working-set id, a task outside the working set last.
+     */
+    id: number;
+    /**
+     * By the tags taken in order, untagged last.
+     */
+    tag: number;
+    /**
+     * Linked tasks by issue key in natural order, so PROJ-2 before PROJ-10, unlinked last.
+     */
+    issue: number;
+    /**
+     * High, medium and low, then any other priority, then none.
+     */
+    priority: number;
 };
 
 /**
@@ -1312,6 +1364,10 @@ export type Task = {
     id: number;
     description: string;
     status: 'pending' | 'completed' | 'deleted' | 'waiting' | 'recurring';
+    /**
+     * Where the task stands as the list words it, when the server read it: started for a pending task begun, waiting for a pending one whose wait is still ahead, else its status. A wait passing changes it with no write, so a page holding the list reads it again once the earliest wait still ahead has passed.
+     */
+    state: 'started' | 'pending' | 'waiting' | 'recurring' | 'completed' | 'deleted' | 'unknown';
     /**
      * Empty when the task has none.
      */
@@ -1363,6 +1419,15 @@ export type Task = {
      * The issue's page: the tracker's, for a task naming an issue where the tracker builds issue pages (Jira); otherwise (the forge's issues as the tracker, or a task naming no issue) the task's jiraurl attribute when it is an http or https address; empty otherwise.
      */
     issue_url: string;
+    /**
+     * Every value the task holds, one or more in each kind the list is narrowed by: its state, priority, project and issue, then each of its tags, or no tag.
+     */
+    facets: Array<TaskFacet>;
+    ranks: TaskRanks;
+    /**
+     * The fields text typed to narrow the list is matched against, each lower-cased: the description, the project, the issue key, each tag written +tag, and the id written #id when the task has one. Typed text matches a task when one field holds it, lower-cased letter by letter; a match never spans two fields.
+     */
+    searchable: Array<string>;
 };
 
 /**

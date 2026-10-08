@@ -198,3 +198,60 @@ func TestAFacetOfAKindTheListDoesNotKnowHasNoLabel(t *testing.T) {
 		t.Errorf("Label() = %q, want none for a kind the list does not know", label)
 	}
 }
+
+func TestTheListOffersEveryValueInItsOrder(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	offered := taskwarrior.OfferedFacets(narrowedTasks(), orderNow())
+
+	// Assert
+	got := make([]string, 0, len(offered))
+	for _, facet := range offered {
+		got = append(got, facet.Label())
+	}
+
+	want := []string{
+		taskwarrior.StateStarted.String(), "pending", "waiting", "recurring", "completed", "deleted", "unknown",
+		"priority H", "priority M", "priority L", "no priority",
+		"project api", "project infra", "no project",
+		"+ci", "+web", "no tag",
+		"with issue", "no issue",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("offered %q, want %q", got, want)
+	}
+}
+
+func TestAPickedValueTheListNoLongerOffersComesLastAtZero(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	gone := taskwarrior.Facet{Kind: taskwarrior.FacetProject, Value: "aardvark"}
+
+	// Act
+	choices := taskwarrior.Choices(narrowedTasks(), []taskwarrior.Facet{gone}, orderNow())
+
+	// Assert
+	if last := choices[len(choices)-1]; last != (taskwarrior.FacetChoice{Facet: gone}) {
+		t.Errorf("last choice = %+v, want the project no task holds, at 0", last)
+	}
+}
+
+func TestATasksSearchableFieldsAreLowerCased(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	task := taskwarrior.Task{
+		ID: 12, Description: "Fix İstanbul TLS", Project: "Docs", Tags: []string{"Web"}, IssueKey: "PROJ-7",
+	}
+
+	// Act
+	fields := task.Searchable()
+
+	// Assert
+	want := []string{"fix istanbul tls", "docs", "proj-7", "+web", "#12"}
+	if !slices.Equal(fields, want) {
+		t.Errorf("Searchable() = %q, want %q", fields, want)
+	}
+}

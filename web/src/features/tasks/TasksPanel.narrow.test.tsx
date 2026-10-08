@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { TaskFacet } from '@/api/generated/types.gen.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeTask, makeTaskList } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
@@ -30,6 +31,13 @@ const room = makeTask({
   urgency: 1,
   issue_key: '',
 })
+
+// chips is each chip the filter offers, as it names it, in order.
+function chips(): string[] {
+  return within(screen.getByRole('group', { name: 'Filter' }))
+    .getAllByRole('button')
+    .map((chip) => chip.textContent)
+}
 
 function rows(): string[] {
   return within(screen.getByRole('list', { name: 'Tasks' }))
@@ -85,6 +93,64 @@ test('picking waiting lists the waiting tasks, each saying until when', async ()
   expect(rows()).toEqual([expect.stringMatching(/Book the room.*waits until 2099-01-02/)])
 })
 
+test('the filter offers its chips in the order the server offers them, as it labels them', async () => {
+  // Arrange
+  const order: TaskFacet[] = [
+    { kind: 'priority', value: 'H', label: 'priority High' },
+    { kind: 'state', value: 'pending', label: 'pending' },
+  ]
+  fakeApi({ '/api/tasks': makeTaskList([leak, cert], { facet_order: order }) })
+
+  // Act
+  renderWithClient(<TasksPanel />)
+
+  // Assert
+  await screen.findByRole('group', { name: 'Filter' })
+  expect(chips()).toEqual(['priority High 1', 'pending 2'])
+})
+
+test('typed text matches the fields the server says it matches', async () => {
+  // Arrange
+  const known = makeTask({ ...leak, searchable: ['fix the token leak', 'p-7 ops'] })
+  fakeApi({ '/api/tasks': makeTaskList([known, cert]) })
+  renderWithClient(<TasksPanel />)
+  const filter = await screen.findByRole('searchbox', { name: 'Search' })
+
+  // Act
+  await userEvent.type(filter, 'P-7 OPS')
+
+  // Assert
+  expect(rows()).toEqual([expect.stringMatching(/Fix the token leak/)])
+})
+
+test('a task the server reads as waiting is counted, not listed', async () => {
+  // Arrange
+  // Pending, with no wait of its own the page could read, but the server says
+  // it waits.
+  const later = makeTask({ ...cert, state: 'waiting' })
+  fakeApi({ '/api/tasks': makeTaskList([leak, later]) })
+
+  // Act
+  renderWithClient(<TasksPanel />)
+
+  // Assert
+  expect(await screen.findByText('1 waiting')).toBeTruthy()
+  expect(rows()).toEqual([expect.stringMatching(/Fix the token leak/)])
+})
+
+test('a picked value the server no longer offers comes last, at zero', async () => {
+  // Arrange
+  useUiStore.setState({ taskFilter: [{ kind: 'project', value: 'gone', label: 'project gone' }] })
+  fakeApi({ '/api/tasks': makeTaskList([leak]) })
+
+  // Act
+  renderWithClient(<TasksPanel />)
+
+  // Assert
+  await screen.findByRole('group', { name: 'Filter' })
+  expect(chips().at(-1)).toBe('project gone 0')
+})
+
 test('a filter matching nothing says so', async () => {
   // Arrange
   renderPanel()
@@ -102,7 +168,7 @@ test('unpicking the last chip, which no task holds, leaves focus on the filter',
   // Arrange
   // A pick kept from earlier, with no task holding it any more: its chip is
   // the group's last, and goes when it is unpicked.
-  useUiStore.setState({ taskFilter: [{ kind: 'project', value: 'gone' }] })
+  useUiStore.setState({ taskFilter: [{ kind: 'project', value: 'gone', label: 'project gone' }] })
   fakeApi({ '/api/tasks': makeTaskList([]) })
   renderWithClient(<TasksPanel />)
   const chip = await screen.findByRole('button', { name: 'project gone 0' })

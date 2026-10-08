@@ -1,5 +1,11 @@
 import type { Locator, Page } from '@playwright/test'
-import type { Snapshot, Task, TaskList, TasksSummary } from '../../src/api/generated/types.gen.ts'
+import type {
+  Snapshot,
+  Task,
+  TaskFacet,
+  TaskList,
+  TasksSummary,
+} from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { expect, issuesOf, problem, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
@@ -9,8 +15,47 @@ import { expectReachableAndClean } from '../support/reachable.ts'
 // chip gives way in a narrow window, where a mark sits beside a description
 // that wraps, the hue a task's mark is drawn in, and a refusal's line breaks.
 
-// tracking is a task Taskwarrior holds for PROJ-1, pending and not started.
-const tracking = {
+// TaskFields are a task's own fields, without what the server describes of it.
+type TaskFields = Omit<Task, 'state' | 'facets' | 'ranks' | 'searchable'>
+
+// described is a task as the server answers it: where it stands, the values
+// it holds labeled as the server labels them, first in every order, and the
+// fields typed text matches, lower-cased — written out for the data here.
+function described(task: TaskFields): Task {
+  const state = task.start === undefined ? task.status : 'started'
+  const named = (kind: TaskFacet['kind'], value: string, label: string, none: string) => ({
+    kind,
+    value,
+    label: value === '' ? none : label,
+  })
+  const tags = task.tags.length === 0 ? [''] : task.tags
+
+  return {
+    ...task,
+    state,
+    facets: [
+      named('state', state, state, 'no state'),
+      named('priority', task.priority, `priority ${task.priority}`, 'no priority'),
+      named('project', task.project, `project ${task.project}`, 'no project'),
+      task.issue_key === ''
+        ? { kind: 'issue', value: 'unlinked', label: 'no issue' }
+        : { kind: 'issue', value: 'linked', label: 'with issue' },
+      ...tags.map((tag) => named('tag', tag, `+${tag}`, 'no tag')),
+    ],
+    ranks: { urgency: 0, state: 0, id: 0, tag: 0, issue: 0, priority: 0 },
+    searchable: [
+      task.description,
+      task.project,
+      task.issue_key,
+      ...task.tags.map((tag) => `+${tag}`),
+      `#${String(task.id)}`,
+    ].map((field) => field.toLowerCase()),
+  }
+}
+
+// trackingFields are a task Taskwarrior holds for PROJ-1, pending and not
+// started.
+const trackingFields = {
   uuid: '5f1d7a3c-9b2e-4c8d-a6f0-3e1b2c4d5a6f',
   id: 1,
   description: 'PROJ-1: Refuse to start when the config names an unknown forge',
@@ -24,10 +69,13 @@ const tracking = {
   annotations: [],
   issue_key: 'PROJ-1',
   issue_url: '',
-} satisfies Task
+} satisfies TaskFields
+
+// tracking is that task as the server answers it.
+const tracking = described(trackingFields)
 
 // started is the same task, started.
-const started = { ...tracking, start: '2026-09-28T09:00:00Z' } satisfies Task
+const started = described({ ...trackingFields, start: '2026-09-28T09:00:00Z' })
 
 // withTasks is a stream frame of one issue, PROJ-1, and of your tasks as given.
 function withTasks(tasks: TasksSummary): Snapshot {
@@ -46,9 +94,25 @@ function withTasks(tasks: TasksSummary): Snapshot {
   })
 }
 
-// listOf is the task list as the server answers a read of it.
+// listOf is the task list as the server answers a read of it, offering each
+// value the tasks hold, in the order they hold them.
 function listOf(...tasks: Task[]): TaskList {
-  return { available: true, reason: '', context: '', sync_available: false, said: '', tasks }
+  const offered: TaskFacet[] = []
+  for (const facet of tasks.flatMap((task) => task.facets)) {
+    if (!offered.some((one) => one.kind === facet.kind && one.value === facet.value)) {
+      offered.push(facet)
+    }
+  }
+
+  return {
+    available: true,
+    reason: '',
+    context: '',
+    sync_available: false,
+    said: '',
+    tasks,
+    facet_order: offered,
+  }
 }
 
 // Edges are where an element is drawn, in pixels from the window's edges.
@@ -177,11 +241,11 @@ function markSeat(row: Element, description: string): string {
 
 // wordy is a task whose description wraps onto several lines wherever it is
 // drawn.
-const wordy = {
-  ...tracking,
+const wordy = described({
+  ...trackingFields,
   description:
     `PROJ-1: ${'Refuse to start when the configuration names a forge it does not know. '.repeat(3)}`.trim(),
-} satisfies Task
+})
 
 test("a mark sits centered on a wrapped description's first line, in the list and the card", async ({
   page,
@@ -254,8 +318,8 @@ for (const { of, act } of refusals) {
 }
 
 // renew is a task for no issue, with a priority and a tag, to narrow to.
-const renew = {
-  ...tracking,
+const renew = described({
+  ...trackingFields,
   uuid: '6a2e8b4d-0c3f-4d9e-b7a1-4f2c3d5e6b7a',
   id: 2,
   description: 'Renew the staging certificate',
@@ -263,7 +327,7 @@ const renew = {
   tags: ['ops'],
   urgency: 4.1,
   issue_key: '',
-} satisfies Task
+})
 
 for (const theme of themes) {
   for (const width of widths) {

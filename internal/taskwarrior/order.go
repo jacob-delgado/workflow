@@ -68,10 +68,52 @@ func (t Task) pendingState(now time.Time) State {
 	}
 }
 
-// The orders below are the Tasks list's.
-//
-// Trade-off TRADE-29: they are written again in
-// web/src/features/tasks/taskOrder.ts, and twin-named tests pin the two.
+// The orders below are the Tasks list's. They are written here alone: the
+// terminal's Tasks pane sorts by them, and the web server ships each task's
+// place in every one of them (RanksOf).
+
+// Ranks is a task's place in each of the list's orders, 0 first.
+type Ranks struct {
+	Urgency  int
+	State    int
+	ID       int
+	Tag      int
+	Issue    int
+	Priority int
+}
+
+// RanksOf is each task's place in every order among the tasks given, judged at
+// now where the order is by state, in the order the tasks are given. Every
+// order breaks each tie down to the uuid, so the places are those of one
+// order however the tasks are later narrowed.
+func RanksOf(tasks []Task, now time.Time) []Ranks {
+	orders := []struct {
+		sorted []Task
+		place  func(*Ranks, int)
+	}{
+		{ByUrgency(tasks), func(ranks *Ranks, at int) { ranks.Urgency = at }},
+		{ByState(tasks, now), func(ranks *Ranks, at int) { ranks.State = at }},
+		{ByID(tasks), func(ranks *Ranks, at int) { ranks.ID = at }},
+		{ByTag(tasks), func(ranks *Ranks, at int) { ranks.Tag = at }},
+		{ByIssue(tasks), func(ranks *Ranks, at int) { ranks.Issue = at }},
+		{ByPriority(tasks), func(ranks *Ranks, at int) { ranks.Priority = at }},
+	}
+
+	ranks := make([]Ranks, len(tasks))
+
+	for _, order := range orders {
+		places := make(map[string]int, len(order.sorted))
+		for place, task := range order.sorted {
+			places[task.UUID] = place
+		}
+
+		for index, task := range tasks {
+			order.place(&ranks[index], places[task.UUID])
+		}
+	}
+
+	return ranks
+}
 
 // ByUrgency orders most urgent first, then by id, then by uuid, so a refresh
 // keeps a stable order.

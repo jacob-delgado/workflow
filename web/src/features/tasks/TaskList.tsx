@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils.ts'
 import { StateMark } from '@/lib/StateMark.tsx'
 import { listsWaiting, matchesNarrowing, type TaskNarrowing } from './taskFacets.ts'
 import { orderedTasks, type TaskOrder } from './taskOrder.ts'
-import { dueWords, markOf, statusWords, taskNumber, waitsAt, waitsUntilWords } from './taskWords.ts'
+import { dueWords, markOf, statusWords, taskNumber, waitsUntilWords } from './taskWords.ts'
 
 // TaskGroups is the pending tasks as the section lists them: those for an
 // issue the Issues list holds, then the others, each in the chosen order, and
@@ -24,22 +24,21 @@ export interface TaskListing extends TaskNarrowing {
 
 // groupTasks sorts the pending tasks into the section's groups, as the
 // terminal's Tasks pane does: a task the narrowing leaves out is not listed, a
-// waiting task is counted rather than listed unless waiting is picked, and
-// each group is in order.
+// task the server reads as waiting is counted rather than listed unless
+// waiting is picked, and each group is in order.
 export function groupTasks(
   tasks: Task[],
   issueKeys: Set<string>,
-  now: number,
   listing: TaskListing,
 ): TaskGroups {
   const groups: TaskGroups = { forIssues: [], others: [], waiting: 0, order: listing.order }
 
   for (const task of tasks) {
-    if (!matchesNarrowing(listing, task, now)) {
+    if (!matchesNarrowing(listing, task)) {
       continue
     }
 
-    if (waitsAt(task, now) && !listsWaiting(listing.picked)) {
+    if (task.state === 'waiting' && !listsWaiting(listing.picked)) {
       groups.waiting++
     } else if (task.issue_key !== '' && issueKeys.has(task.issue_key)) {
       groups.forIssues.push(task)
@@ -48,8 +47,8 @@ export function groupTasks(
     }
   }
 
-  groups.forIssues = orderedTasks(groups.forIssues, listing.order, now)
-  groups.others = orderedTasks(groups.others, listing.order, now)
+  groups.forIssues = orderedTasks(groups.forIssues, listing.order)
+  groups.others = orderedTasks(groups.others, listing.order)
 
   return groups
 }
@@ -197,7 +196,7 @@ function rowTail(task: Task, now: number, order: TaskOrder): string[] {
     tail.push(dueWords(task.due, now))
   }
 
-  if (waitsAt(task, now)) {
+  if (task.state === 'waiting') {
     tail.push(waitsUntilWords(task))
   }
 
@@ -211,14 +210,16 @@ function rowTail(task: Task, now: number, order: TaskOrder): string[] {
   return tail
 }
 
-// sortKeyWords is a task's priority or tags, as the terminal words them, when
+// sortKeyWords is a task's priority or tags, as the server labels them, when
 // the list is sorted by that; nothing otherwise.
 function sortKeyWords(task: Task, order: TaskOrder): string {
   switch (order) {
     case 'priority':
-      return task.priority === '' ? 'no priority' : `priority ${task.priority}`
     case 'tag':
-      return task.tags.length === 0 ? 'no tags' : task.tags.map((tag) => `+${tag}`).join(' ')
+      return task.facets
+        .filter((facet) => facet.kind === order)
+        .map((facet) => facet.label)
+        .join(' ')
     case 'urgency':
     case 'id':
     case 'issue':
