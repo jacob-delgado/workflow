@@ -876,6 +876,10 @@ export type Snapshot = {
      * The loop's stages for the checked-out branch, in order — its issue, the branch, its commits, its pull request's review and the announcement — each named as the terminal's spine and `workflow status` name it and in the state their rules give it, so every surface shows the same stages, by the same names, in the same states. They are read from what the frame holds: the review from the pull request and CI the review panel shows, and a working tree that could not be read as nothing to commit.
      */
     stages: Array<Stage>;
+    /**
+     * The loop's stages for an issue with no branch yet, as its work story shows them while it is open: the issue picked but not yet branched for, as the terminal's spine reads an issue selected, and nothing after it begun. An issue with a branch has that branch's stages instead (TaskBranch.stages).
+     */
+    unstarted_stages: Array<Stage>;
     messaging: MessagingDestination;
     queued_announcement?: QueuedAnnouncement;
     /**
@@ -962,6 +966,10 @@ export type TaskBranch = {
      * Whether this is the checked-out branch.
      */
     current: boolean;
+    /**
+     * The loop's stages for the issue the branch is named for, named and ordered as the snapshot's stages are. The checked-out branch's are the snapshot's stages. Another branch's are what the server knows without checking it out: the issue picked up and the branch made, and nothing after them begun, since the working tree, the pull request and the announcement are read for the checked-out branch alone.
+     */
+    stages: Array<Stage>;
     /**
      * Whether only the remote has the branch.
      */

@@ -3,7 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { gitLabWords, makeBranch, makeHealth, makeSnapshot, makeStages } from '@/test/fixtures.ts'
+import {
+  gitLabWords,
+  makeBranch,
+  makeHealth,
+  makeSnapshot,
+  makeStages,
+  makeTaskBranch,
+} from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
@@ -39,8 +46,8 @@ function offHead() {
     status: 'live',
     snapshot: makeSnapshot({
       branches: [
-        { name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true },
-        { name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false },
+        makeTaskBranch({ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true }),
+        makeTaskBranch({ name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false }),
       ],
     }),
   })
@@ -48,7 +55,7 @@ function offHead() {
 
 // makeSnapshot's branch is fix/PROJ-1; a branches entry marks PROJ-1 as the one
 // checked out, so PROJ-1 owns the current work.
-const onHead = [{ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true }]
+const onHead = [makeTaskBranch({ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true })]
 
 test('lays out the in-flight stages for the issue that owns the branch', () => {
   // Arrange
@@ -246,8 +253,8 @@ test('shows an in-progress-elsewhere story for an issue on a branch not checked 
     status: 'live',
     snapshot: makeSnapshot({
       branches: [
-        { name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true },
-        { name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false },
+        makeTaskBranch({ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true }),
+        makeTaskBranch({ name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false }),
       ],
     }),
   })
@@ -495,7 +502,10 @@ test.each([
 
 test.each([
   ['not started', []],
-  ['in flight off HEAD', [{ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: false }]],
+  [
+    'in flight off HEAD',
+    [makeTaskBranch({ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: false })],
+  ],
 ])('the Announce stage of an issue %s says where it would announce to', (_, branches) => {
   // Arrange
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot({ branches }) })

@@ -3823,7 +3823,7 @@ components:
       description: >-
         The full read state carried by one event-stream message: everything the
         cockpit shows, together.
-      required: [issues, branch, changes, review, stages, messaging, branches, commit_types, subject_limit, suggested_scope, tasks, here, hooks_unmanaged]
+      required: [issues, branch, changes, review, stages, unstarted_stages, messaging, branches, commit_types, subject_limit, suggested_scope, tasks, here, hooks_unmanaged]
       properties:
         here:
           type: string
@@ -3845,6 +3845,15 @@ components:
             states. They are read from what the frame holds: the review from
             the pull request and CI the review panel shows, and a working tree
             that could not be read as nothing to commit.
+          items: {$ref: "#/components/schemas/Stage"}
+        unstarted_stages:
+          type: array
+          description: >-
+            The loop's stages for an issue with no branch yet, as its work
+            story shows them while it is open: the issue picked but not yet
+            branched for, as the terminal's spine reads an issue selected, and
+            nothing after it begun. An issue with a branch has that branch's
+            stages instead (TaskBranch.stages).
           items: {$ref: "#/components/schemas/Stage"}
         messaging: {$ref: "#/components/schemas/MessagingDestination"}
         queued_announcement:
@@ -3967,7 +3976,7 @@ components:
       description: >-
         A branch named for an issue, by the branch-name convention: a local
         one, or one only the remote has, which checking out creates here.
-      required: [name, issue_key, current]
+      required: [name, issue_key, current, stages]
       properties:
         name:
           type: string
@@ -3982,6 +3991,17 @@ components:
         current:
           type: boolean
           description: Whether this is the checked-out branch.
+        stages:
+          type: array
+          description: >-
+            The loop's stages for the issue the branch is named for, named and
+            ordered as the snapshot's stages are. The checked-out branch's are
+            the snapshot's stages. Another branch's are what the server knows
+            without checking it out: the issue picked up and the branch made,
+            and nothing after them begun, since the working tree, the pull
+            request and the announcement are read for the checked-out branch
+            alone.
+          items: {$ref: "#/components/schemas/Stage"}
         remote:
           type: boolean
           default: false

@@ -6,6 +6,7 @@ import type {
   Snapshot,
   Stage,
   Task,
+  TaskBranch,
   TaskFacet,
   TaskList,
   TaskRanks,
@@ -51,10 +52,24 @@ export function makeStages(states: StageStates = {}): Stage[] {
   ]
 }
 
+// A contract-valid branch named for an issue for tests — fix/PROJ-1, checked
+// out, its issue picked up and branched for — with the fields a case cares
+// about overridden.
+export function makeTaskBranch(overrides: Partial<TaskBranch> = {}): TaskBranch {
+  return {
+    name: 'fix/PROJ-1',
+    issue_key: 'PROJ-1',
+    current: true,
+    stages: makeStages({ issue: 'done', branch: 'done' }),
+    ...overrides,
+  }
+}
+
 // A complete, contract-valid snapshot for tests, with the fields a case cares
 // about overridden. Its stages are those of its branch, which names an issue
-// and has nothing committed. Kept here so every panel test starts from the same shape
-// the stream actually pushes.
+// and has nothing committed, and an issue with no branch reads as picked. Kept
+// here so every panel test starts from the same shape the stream actually
+// pushes.
 export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   return {
     here: '/home/ana/src/api',
@@ -63,6 +78,7 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     changes: { changes: [] },
     review: { found: false, announced: false },
     stages: makeStages({ issue: 'done', branch: 'done' }),
+    unstarted_stages: makeStages({ issue: 'in_flight' }),
     messaging: {
       kind: 'slack',
       service: 'Slack',

@@ -1,5 +1,26 @@
-import type { Snapshot } from '@/api/generated/types.gen.ts'
+import type { Snapshot, Stage } from '@/api/generated/types.gen.ts'
 import { mockTasksSummary } from './mockTasks.ts'
+
+// The stages of the checked-out branch's issue: picked up, branched for and
+// committed on, its pull request in review while CI runs, and not yet
+// announced.
+const checkedOutStages: Stage[] = [
+  { step: 'issue', name: 'Issue', state: 'done' },
+  { step: 'branch', name: 'Branch', state: 'done' },
+  { step: 'commits', name: 'Commits', state: 'done' },
+  { step: 'review', name: 'Review', state: 'in_flight' },
+  { step: 'announce', name: 'Slack', state: 'not_started' },
+]
+
+// The stages of an issue on a branch not checked out, as far as the server
+// knows them: picked up and branched for, and nothing after begun.
+const branchedStages: Stage[] = [
+  { step: 'issue', name: 'Issue', state: 'done' },
+  { step: 'branch', name: 'Branch', state: 'done' },
+  { step: 'commits', name: 'Commits', state: 'not_started' },
+  { step: 'review', name: 'Review', state: 'not_started' },
+  { step: 'announce', name: 'Slack', state: 'not_started' },
+]
 
 // A rich, believable snapshot for `task web:mockup`: enough in every section to
 // navigate the whole cockpit without a real Jira, forge, or Slack. Dev-only —
@@ -150,14 +171,13 @@ export const mockSnapshot: Snapshot = {
       ],
     },
   },
-  // The stages the server derives for the checked-out branch: its issue picked
-  // up, branched for and committed on, its pull request in review while CI
-  // runs, and not yet announced.
-  stages: [
-    { step: 'issue', name: 'Issue', state: 'done' },
-    { step: 'branch', name: 'Branch', state: 'done' },
-    { step: 'commits', name: 'Commits', state: 'done' },
-    { step: 'review', name: 'Review', state: 'in_flight' },
+  stages: checkedOutStages,
+  // An issue with no branch reads as picked, and nothing after it begun.
+  unstarted_stages: [
+    { step: 'issue', name: 'Issue', state: 'in_flight' },
+    { step: 'branch', name: 'Branch', state: 'not_started' },
+    { step: 'commits', name: 'Commits', state: 'not_started' },
+    { step: 'review', name: 'Review', state: 'not_started' },
     { step: 'announce', name: 'Slack', state: 'not_started' },
   ],
   messaging: {
@@ -171,9 +191,24 @@ export const mockSnapshot: Snapshot = {
   // Three issues in flight — the checked-out one plus two on other branches — so
   // the mockup shows the issues list marking several, and each with its own story.
   branches: [
-    { name: 'fix/PROJ-412-redact-tokens', issue_key: 'PROJ-412', current: true },
-    { name: 'feat/PROJ-418-webhook-retries', issue_key: 'PROJ-418', current: false },
-    { name: 'fix/PROJ-408-flaky-timeout', issue_key: 'PROJ-408', current: false },
+    {
+      name: 'fix/PROJ-412-redact-tokens',
+      issue_key: 'PROJ-412',
+      current: true,
+      stages: checkedOutStages,
+    },
+    {
+      name: 'feat/PROJ-418-webhook-retries',
+      issue_key: 'PROJ-418',
+      current: false,
+      stages: branchedStages,
+    },
+    {
+      name: 'fix/PROJ-408-flaky-timeout',
+      issue_key: 'PROJ-408',
+      current: false,
+      stages: branchedStages,
+    },
   ],
   // The built-in Conventional Commit types, as a server whose configuration
   // names none sends them.

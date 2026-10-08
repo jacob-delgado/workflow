@@ -79,28 +79,35 @@ function sectionOf(step: Step): Section {
   }
 }
 
-// buildStages is the issue's story over the stages the server sends. The
-// stages describe the checked-out branch, so the issue on HEAD draws each in
-// the state the server read it in. An issue with no local branch has not
-// started. One with a branch that is not checked out has been picked up and
-// branched for, but the detail panels describe only the checked-out branch, so
-// its later stages wait.
+// buildStages is the issue's story over the stages the server sends for it,
+// each drawn in the state the server read it in; only each stage's detail
+// depends on where the issue stands.
 function buildStages(
   snapshot: Snapshot,
   branch: TaskBranch | undefined,
   words: ForgeWords,
 ): Stage[] {
-  const place = placeOf(branch)
-  const stateOf = stateFor(place, snapshot.stages)
-  const detailOf = detailFor(place, snapshot, branch?.name ?? '', words)
+  const detailOf = detailFor(placeOf(branch), snapshot, branch?.name ?? '', words)
 
-  return snapshot.stages.map((stage, index) => ({
+  return storyStages(snapshot, branch).map((stage) => ({
     step: stage.step,
     title: stage.name,
     section: sectionOf(stage.step),
-    state: stateOf(stage, index),
+    state: drawnState[stage.state],
     detail: detailOf(stage),
   }))
+}
+
+// storyStages is the stages the server sends for the issue: the checked-out
+// branch's for the issue on HEAD, those it sends with the issue's own branch
+// for one not checked out, and those of an issue not yet started for one with
+// no branch.
+function storyStages(snapshot: Snapshot, branch: TaskBranch | undefined): SnapshotStage[] {
+  if (!branch) {
+    return snapshot.unstarted_stages
+  }
+
+  return branch.current ? snapshot.stages : branch.stages
 }
 
 // placeOf is where the issue's work stands, by its branch.
@@ -110,32 +117,6 @@ function placeOf(branch: TaskBranch | undefined): Place {
   }
 
   return branch.current ? 'on-head' : 'elsewhere'
-}
-
-// stateFor is how far each stage has got, in the story of the issue's place:
-// on HEAD, as the server read it; otherwise by where the issue stands, since
-// the server's stages are the checked-out branch's — an issue with a branch
-// has been picked up and branched for, the next stage is the step it is at,
-// and those after it are not started.
-function stateFor(
-  place: Place,
-  stages: SnapshotStage[],
-): (stage: SnapshotStage, index: number) => StageState {
-  if (place === 'on-head') {
-    return (stage) => drawnState[stage.state]
-  }
-
-  const branched = (stage: SnapshotStage) =>
-    place === 'elsewhere' && (stage.step === 'issue' || stage.step === 'branch')
-  const at = stages.findIndex((stage) => !branched(stage))
-
-  return (stage, index) => {
-    if (branched(stage)) {
-      return 'done'
-    }
-
-    return index === at ? 'in-flight' : 'not-started'
-  }
 }
 
 // detailFor is what each stage has come to, in the story of the issue's place;

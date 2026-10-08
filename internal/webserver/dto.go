@@ -172,16 +172,35 @@ type branchListing struct {
 	// out, and home what their directories are written from.
 	worktrees map[string]gitrepo.Worktree
 	home      string
+	// stages are the stages each branch's issue has.
+	stages branchStages
+}
+
+// branchStages is the loop's stages a listed branch's issue has: the
+// checked-out branch's, and those of a branch not checked out.
+type branchStages struct {
+	checkedOut []api.Stage
+	elsewhere  []api.Stage
+}
+
+// of is the stages of a branch's issue, by whether it is checked out.
+func (b branchStages) of(current bool) []api.Stage {
+	if current {
+		return b.checkedOut
+	}
+
+	return b.elsewhere
 }
 
 // taskBranchesDTO maps branch names to the issues they are named for, keeping
 // only the branches that name one of yours and the checked-out branch, whoever
 // its issue is assigned to — the work story reads the issue being worked on
-// from it — marking the checked-out branch, and saying of each whether only
-// the remote has it and which other worktree has it checked out — false and
-// empty too, as the client's schema defaults them, so a frame reads back as it
-// was sent. The slice is non-nil so the wire value is an empty
-// array rather than null, matching the snapshot's other collections.
+// from it — marking the checked-out branch, giving each its issue's stages,
+// and saying of each whether only the remote has it and which other worktree
+// has it checked out — false and empty too, as the client's schema defaults
+// them, so a frame reads back as it was sent. The slice is non-nil so the
+// wire value is an empty array rather than null, matching the snapshot's
+// other collections.
 func taskBranchesDTO(listing branchListing, current, project string) []api.TaskBranch {
 	branches := make([]api.TaskBranch, 0, len(listing.names))
 	for _, name := range listing.names {
@@ -201,6 +220,7 @@ func taskBranchesDTO(listing branchListing, current, project string) []api.TaskB
 			Name:            name,
 			IssueKey:        key.Key,
 			Current:         name == current,
+			Stages:          listing.stages.of(name == current),
 			Remote:          &remote,
 			Worktree:        &worktree.Dir,
 			WorktreeShown:   &shown,

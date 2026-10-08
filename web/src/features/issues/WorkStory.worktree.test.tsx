@@ -2,7 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
+import { makeBranch, makeSnapshot, makeTaskBranch } from '@/test/fixtures.ts'
 import { startWorkInWorktree } from './startWorkApi.ts'
 import { WorkStory } from './WorkStory.tsx'
 
@@ -83,13 +83,13 @@ test('the offer to switch stays once the snapshot shows the new branch', async (
       status: 'live',
       snapshot: makeSnapshot({
         branches: [
-          {
+          makeTaskBranch({
             name: 'feat/PROJ-999',
             issue_key: 'PROJ-999',
             current: false,
             worktree: '/home/ana/src/api-feat-PROJ-999',
             worktree_shown: '~/src/api-feat-PROJ-999',
-          },
+          }),
         ],
       }),
     })
@@ -108,14 +108,14 @@ test('a branch another worktree has checked out is switched to there, not checke
     status: 'live',
     snapshot: makeSnapshot({
       branches: [
-        { name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true },
-        {
+        makeTaskBranch({ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true }),
+        makeTaskBranch({
           name: 'feat/PROJ-2-metrics',
           issue_key: 'PROJ-2',
           current: false,
           worktree: '/home/ana/src/api-feat-PROJ-2-metrics',
           worktree_shown: '~/src/api-feat-PROJ-2-metrics',
-        },
+        }),
       ],
     }),
   })
@@ -154,7 +154,7 @@ test('the offer goes once the switch has made the branch the one checked out', a
       status: 'live',
       snapshot: makeSnapshot({
         here: '/home/ana/src/api-feat-PROJ-999',
-        branches: [{ name: 'feat/PROJ-999', issue_key: 'PROJ-999', current: true }],
+        branches: [makeTaskBranch({ name: 'feat/PROJ-999', issue_key: 'PROJ-999', current: true })],
       }),
     })
   })
@@ -185,15 +185,15 @@ test('a branch held by a worktree that is gone says how to free it', () => {
     status: 'live',
     snapshot: makeSnapshot({
       branches: [
-        { name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true },
-        {
+        makeTaskBranch({ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true }),
+        makeTaskBranch({
           name: 'feat/PROJ-2-metrics',
           issue_key: 'PROJ-2',
           current: false,
           worktree: '/home/ana/src/api-gone',
           worktree_shown: '~/src/api-gone',
           worktree_missing: true,
-        },
+        }),
       ],
     }),
   })
