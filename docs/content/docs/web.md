@@ -71,6 +71,10 @@ its first update says the same word:
 - **Out of date** — updates arrive but this page cannot read them, which
   happens when the server is a newer or older build than the page. Reload the
   page. Why is shown on hover and read by a screen reader.
+- **Disconnected** — what answered at the page's address was not workflow's
+  stream, so the browser gave it up: another program on the port, or a server
+  that failed before it could answer. Reload the page once workflow is running
+  there.
 
 **The forge's own words.** On GitLab the page says *merge request* and numbers
 one `!12`; on GitHub, *pull request* and `#12` — as the terminal does.

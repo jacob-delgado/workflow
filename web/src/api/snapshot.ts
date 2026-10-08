@@ -4,14 +4,20 @@ import { zSnapshot } from './generated/zod.gen.ts'
 import type { Snapshot } from './generated/types.gen.ts'
 
 // StreamStatus is how current the snapshot is: connecting before the first
-// frame, live while frames land, reconnecting while the connection is down, and
-// stale while it is up but its frames cannot be read — the snapshot on screen
-// is the last good one either way.
-export type StreamStatus = 'connecting' | 'live' | 'reconnecting' | 'stale'
+// frame, live while frames land, reconnecting while the connection is down,
+// stale while it is up but its frames cannot be read, and closed once the
+// browser has given it up for good — the snapshot on screen is the last good
+// one in each.
+export type StreamStatus = 'connecting' | 'live' | 'reconnecting' | 'stale' | 'closed'
 
 // unreadable is why a frame is dropped: a server newer or older than this page
 // reads the snapshot differently, and a reload fetches the page it serves.
 const unreadable = "the server's last update did not match what this page reads; reload the page"
+
+// givenUp is why the default stream is closed: what answered at the page's
+// address was no stream, and the browser does not ask again, so only a reload
+// reaches the server there now.
+const givenUp = 'workflow stopped sending this page updates; reload the page'
 
 interface SnapshotState {
   snapshot: Snapshot | null
@@ -134,6 +140,14 @@ export function useEventStream(view: string | null, onViewRefused: () => void): 
       // restart dropped from the configuration.
       if (view !== null && source.readyState === EventSource.CLOSED) {
         viewRefused()
+
+        return
+      }
+
+      // The default stream has no view to fall back from: a closed one stays
+      // closed until the page is loaded again.
+      if (source.readyState === EventSource.CLOSED) {
+        useSnapshotStore.setState({ status: 'closed', reason: givenUp })
 
         return
       }

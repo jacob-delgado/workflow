@@ -269,7 +269,7 @@ test('leaves a dropped view stream to reconnect on its own', () => {
   expect(useSnapshotStore.getState().status).toBe('reconnecting')
 })
 
-test('marks a refused default stream reconnecting, with no view to hand back', () => {
+test('marks a refused default stream closed, naming a reload, with no view to hand back', () => {
   // Arrange
   const onViewRefused = vi.fn()
   renderHook(() => {
@@ -281,7 +281,9 @@ test('marks a refused default stream reconnecting, with no view to hand back', (
 
   // Assert
   expect(onViewRefused).not.toHaveBeenCalled()
-  expect(useSnapshotStore.getState().status).toBe('reconnecting')
+  const { status, reason } = useSnapshotStore.getState()
+  expect(status).toBe('closed')
+  expect(reason).toMatch(/reload the page/)
 })
 
 test('a section read before the first snapshot throws rather than render nothing', () => {
