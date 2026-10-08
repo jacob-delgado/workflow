@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // Refusals of an announcement that never went: one given up on is a failure,
@@ -135,7 +136,7 @@ func (m Model) announcement(moment messaging.Moment) string {
 
 // messagingRail is where messages go and what has been posted.
 func (m Model) messagingRail(_ int) string {
-	return m.cfg.Messaging.Target() + "\n" + m.messagingState()
+	return sanitize.Line(m.cfg.Messaging.Target()) + "\n" + m.messagingState()
 }
 
 // messagingState says what has been announced this session.
@@ -173,7 +174,7 @@ func (m Model) messagingDetail(width int) string {
 	lines := []string{
 		m.announcement(loop.AnnounceMoment(m.review.pull, m.review.ci)),
 		"",
-		m.styles.label.Render("to     ") + m.cfg.Messaging.Target(),
+		m.styles.label.Render("to     ") + sanitize.Line(m.cfg.Messaging.Target()),
 		m.styles.label.Render("CI     ") + m.ciSummary(),
 		m.styles.label.Render("state  ") + m.messagingState(),
 	}
