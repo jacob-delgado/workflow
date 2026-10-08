@@ -29,6 +29,18 @@ func TestJiraAuthMode(t *testing.T) {
 			jira: config.Jira{BaseURL: jiraURL, Token: "", User: "jacob"},
 			want: config.AuthNone,
 		},
+		"a token command alone means bearer": {
+			jira: config.Jira{BaseURL: jiraURL, TokenCommand: jiraTokenCommand},
+			want: config.AuthBearer,
+		},
+		"a token variable alone means bearer": {
+			jira: config.Jira{BaseURL: jiraURL, TokenEnv: jiraTokenVariable},
+			want: config.AuthBearer,
+		},
+		"a token variable plus user means basic": {
+			jira: config.Jira{BaseURL: jiraURL, TokenEnv: jiraTokenVariable, User: "fred"},
+			want: config.AuthBasic,
+		},
 	}
 
 	for name, tt := range cases {
