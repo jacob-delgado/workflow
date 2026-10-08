@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
@@ -65,6 +66,19 @@ test('the Jira token is described by the keychain it is taken from, over the oth
 
   // Act
   const token = await jiraToken()
+
+  // Assert
+  expect(description(token)).toMatch(/Taken from your keychain, for this address\./)
+})
+
+test('the Jira token is said to come from the keychain once it is turned on', async () => {
+  // Arrange
+  readsAs({ ...mockConfig, jira: { ...mockConfig.jira, token: '' } })
+  const user = userEvent.setup()
+  const token = await jiraToken()
+
+  // Act
+  await user.click(screen.getByRole('checkbox', { name: /read the token from your keychain/i }))
 
   // Assert
   expect(description(token)).toMatch(/Taken from your keychain, for this address\./)

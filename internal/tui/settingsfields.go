@@ -88,12 +88,13 @@ func (f settingsForm) settings() []setting {
 // carries too.
 const keychainLabel = "Read the token from your keychain, kept there for this address (macOS)"
 
-// tokenHint says where the Jira token comes from: the file's own token wins,
-// then the keychain, then token_env, then token_command, so a token typed over
-// a source is used instead of it. None of the sources is a secret.
-func tokenHint(read map[string]any) string {
+// tokenHint says where the Jira token comes from: the file's own token as
+// read wins, then the keychain as the form holds it, then token_env, then
+// token_command, so a token typed over a source is used instead of it. None of
+// the sources is a secret.
+func tokenHint(read map[string]any, held func(string) any) string {
 	token, _ := valueAt(read, "jira.token").(string)
-	source := tokenSource(read)
+	source := tokenSource(held)
 
 	switch {
 	case source == "" && token != "":
@@ -112,10 +113,10 @@ const typedTokenKept = "kept in your keychain for this address on macOS or in th
 
 // tokenSource names the source the Jira token is read from when the file holds
 // none: the keychain over the variable over the command, or none of them.
-func tokenSource(read map[string]any) string {
-	keychain, _ := valueAt(read, "jira.keychain").(bool)
-	variable, _ := valueAt(read, "jira.token_env").(string)
-	command, _ := valueAt(read, "jira.token_command").(string)
+func tokenSource(held func(string) any) string {
+	keychain, _ := held("jira.keychain").(bool)
+	variable, _ := held("jira.token_env").(string)
+	command, _ := held("jira.token_command").(string)
 
 	switch {
 	case keychain:
@@ -144,7 +145,7 @@ func jiraSettings(noun string, read map[string]any, held func(string) any) []set
 
 	return slices.Concat([]setting{
 		{section: section, label: "Base URL", path: "jira.base_url", kind: settingURL},
-		{section: section, label: "Token", path: "jira.token", kind: settingSecret, hint: tokenHint(read)},
+		{section: section, label: "Token", path: "jira.token", kind: settingSecret, hint: tokenHint(read, held)},
 		{section: section, label: keychainLabel, path: "jira.keychain", kind: settingToggle},
 		{section: section, label: "User", path: "jira.user", hint: "Empty authenticates with the token as a bearer."},
 		{section: section, label: "Project", path: "jira.project"},
