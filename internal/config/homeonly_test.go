@@ -20,25 +20,41 @@ const (
 	jiraTokenVariable = "JIRA_TOKEN"
 )
 
+// homeOnlySetting is a file setting one thing only the home file may, the
+// value it sets, and that value as a configuration read from it holds it.
+type homeOnlySetting struct {
+	file, value string
+	read        func(config.Config) string
+}
+
 // homeOnlySettings are, by key, a file setting each thing only the home file
 // may: a program to run, or an environment variable to read.
-func homeOnlySettings() map[string]string {
-	return map[string]string{
-		"jira.token_command":  `{"jira": {"base_url": "https://jira.example.com", "token_command": "sh evil.sh"}}`,
-		"jira.token_env":      `{"jira": {"base_url": "https://jira.example.com", "token_env": "AWS_SECRET_ACCESS_KEY"}}`,
-		"taskwarrior.program": `{"taskwarrior": {"program": "/opt/evil/task"}}`,
+func homeOnlySettings() map[string]homeOnlySetting {
+	return map[string]homeOnlySetting{
+		"jira.token_command": {
+			file:  `{"jira": {"base_url": "https://jira.example.com", "token_command": "sh evil.sh"}}`,
+			value: "sh evil.sh", read: func(cfg config.Config) string { return cfg.Jira.TokenCommand },
+		},
+		"jira.token_env": {
+			file:  `{"jira": {"base_url": "https://jira.example.com", "token_env": "AWS_SECRET_ACCESS_KEY"}}`,
+			value: "AWS_SECRET_ACCESS_KEY", read: func(cfg config.Config) string { return cfg.Jira.TokenEnv },
+		},
+		"taskwarrior.program": {
+			file:  `{"taskwarrior": {"program": "/opt/evil/task"}}`,
+			value: "/opt/evil/task", read: func(cfg config.Config) string { return cfg.Taskwarrior.Program },
+		},
 	}
 }
 
 func TestARepositoryFileSettingAHomeOnlyKeyIsRefused(t *testing.T) {
 	t.Parallel()
 
-	for key, repo := range homeOnlySettings() {
+	for key, setting := range homeOnlySettings() {
 		t.Run(key, func(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			files := layeredOver(t, `{}`, repo)
+			files := layeredOver(t, `{}`, setting.file)
 
 			// Act
 			_, _, err := config.LoadLayersAt(files)
@@ -63,7 +79,7 @@ func TestARepositoryFileStandingAloneMaySetNoHomeOnlyKey(t *testing.T) {
 		t.Fatalf("making the repository marker: %v", err)
 	}
 
-	write(t, repoDir, homeOnlySettings()["jira.token_command"])
+	write(t, repoDir, homeOnlySettings()["jira.token_command"].file)
 
 	// Act
 	_, err = config.Load(repoDir, t.TempDir())
@@ -77,18 +93,19 @@ func TestARepositoryFileStandingAloneMaySetNoHomeOnlyKey(t *testing.T) {
 func TestTheHomeFileMaySetEveryHomeOnlyKey(t *testing.T) {
 	t.Parallel()
 
-	for key, home := range homeOnlySettings() {
+	for key, setting := range homeOnlySettings() {
 		t.Run(key, func(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			files := layeredOver(t, home, `{"jira": {"project": "OSS"}}`)
+			files := layeredOver(t, setting.file, `{"jira": {"project": "OSS"}}`)
 
 			// Act
-			_, _, err := config.LoadLayersAt(files)
+			cfg, _, err := config.LoadLayersAt(files)
+
 			// Assert
-			if err != nil {
-				t.Errorf("LoadLayersAt = %v; want the home file's %s taken", err, key)
+			if got := setting.read(cfg); err != nil || got != setting.value {
+				t.Errorf("LoadLayersAt = %v, %s %q; want the home file's %q taken", err, key, got, setting.value)
 			}
 		})
 	}
@@ -105,8 +122,10 @@ func TestARepositoryFileMayLeaveAHomeOnlyKeyEmpty(t *testing.T) {
 	cfg, _, err := config.LoadLayersAt(files)
 
 	// Assert
-	if err != nil || cfg.Jira.TokenCommand != "" || cfg.Jira.TokenEnv != "" {
-		t.Errorf("LoadLayersAt = %+v, %v; want the empty values to clear the home file's", cfg.Jira, err)
+	if err != nil || cfg.Jira.BaseURL != jiraURL || cfg.Jira.TokenCommand != "" ||
+		cfg.Jira.TokenEnv != "" {
+		t.Errorf("LoadLayersAt = %+v, %v; want the home file's address, the empty values clearing its token "+
+			"sources", cfg.Jira, err)
 	}
 }
 
