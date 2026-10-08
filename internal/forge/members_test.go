@@ -146,7 +146,7 @@ func TestCreateMergeRequestOnGitLabLeavesTheAuthorOutOfATeam(t *testing.T) {
 			`{"id":7,"username":"ana","state":"active","access_level":30}]`,
 	})
 	client, seen := recordingForge(t, func(asked recorded) (int, string) {
-		if asked.path == gitlabUserPath {
+		if asked.path == userPath {
 			return http.StatusOK, `{"id":9,"username":"ben"}`
 		}
 
