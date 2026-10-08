@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
 // errFinishDiverged is how a finish fails when git cannot fast-forward the
@@ -138,7 +139,7 @@ func TestTheFinishPreviewShowsTheThreeCommands(t *testing.T) {
 	preview := typing(t, model, "4", "F").View().Content
 
 	// Assert
-	requireScreen(t, preview, "git switch main", "git pull --ff-only", "git branch -D "+featureName)
+	requireScreen(t, preview, gitrepo.FinishCommands("main", featureName)...)
 }
 
 func TestFinishIsNotOfferedOnAnOpenPull(t *testing.T) {
@@ -173,7 +174,7 @@ func TestRefusedFinishStaysInItsPreview(t *testing.T) {
 
 	// Assert: the preview is still open, git's reason pinned in it whole, ready
 	// to try again
-	requireScreen(t, failed.View().Content, "git branch -D "+featureName, "✗ git pull --ff-only",
+	requireScreen(t, failed.View().Content, "git branch -D -- "+featureName, "✗ git pull --ff-only",
 		"fatal: Not possible to fast-forward", "enter finish")
 
 	// Act: close it

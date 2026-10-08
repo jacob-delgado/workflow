@@ -7,7 +7,7 @@ import { WriteForm } from '@/lib/WriteForm.tsx'
 import type { GitRunner } from './GitRun.tsx'
 
 // baseName is the base branch without its remote, main for origin/main.
-export function baseName(base: string): string {
+function baseName(base: string): string {
   const slash = base.indexOf('/')
 
   return slash < 0 ? base : base.slice(slash + 1)

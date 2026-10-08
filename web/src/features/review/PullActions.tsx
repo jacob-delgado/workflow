@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useForgeWords } from '@/api/health.ts'
 import type { Branch, Ci, MergeMethod, PullRequest } from '@/api/generated/types.gen.ts'
-import { baseName, onFeatureBranch } from '@/features/branch/HistoryActions.tsx'
+import { onFeatureBranch } from '@/features/branch/HistoryActions.tsx'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input, TextArea } from '@/lib/Field.tsx'
@@ -334,9 +334,9 @@ function MergeForm({ name, teller, onCancel }: FormProps) {
   )
 }
 
-// FinishForm is the finish's last look: the three git commands it runs.
+// FinishForm is the finish's last look: the git commands it runs, as the
+// server runs them.
 function FinishForm({ name, branch, teller, onCancel }: FormProps & { branch: Branch }) {
-  const base = baseName(branch.base)
   const finish = useAsyncAction(finishBranch, {
     fallback: `${branch.name} was not finished. Try again, or finish it with F in the terminal.`,
     done: (now) => `Finished ${branch.name}; now on ${now.name}.`,
@@ -357,7 +357,7 @@ function FinishForm({ name, branch, teller, onCancel }: FormProps & { branch: Br
         {name} merged; finish <span className="font-mono">{branch.name}</span> by running:
       </p>
       <pre className="text-xs [overflow-wrap:anywhere] whitespace-pre-wrap">
-        {[`git switch ${base}`, 'git pull --ff-only', `git branch -D ${branch.name}`].join('\n')}
+        {(branch.finish_commands ?? []).join('\n')}
       </pre>
     </WriteForm>
   )
