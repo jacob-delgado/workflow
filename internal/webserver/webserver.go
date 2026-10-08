@@ -81,10 +81,14 @@ type Deps struct {
 	Fixup        func(hash string) (proc.Output, error)
 	FindPull     func(branch string) (forge.PullRequest, bool, error)
 	CreatePull   func(request forge.NewPullRequest) (forge.PullRequest, error)
-	// EditPull changes a pull request's title and description, as linking a
-	// branch to its issue adds the line naming it.
-	EditPull  func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)
-	Templates func() []forge.Template
+	// EditPull changes a pull request's title and description, as the Review
+	// section's edit saves them.
+	EditPull func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)
+	// RewritePull changes a pull request's description as rewrite says, from
+	// the description as the forge holds it rather than as it is shown, as
+	// linking a branch to its issue adds the line naming it.
+	RewritePull func(pull forge.PullRequest, rewrite func(body string) (string, bool)) (bool, error)
+	Templates   func() []forge.Template
 	// ChangedPaths and CodeOwnersAt read the code owners of the branch's
 	// changes, proposed as the pull request draft's reviewers. Nil proposes
 	// nobody.

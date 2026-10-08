@@ -156,15 +156,18 @@ type world struct {
 	mergeMethodsErr error
 	authorErr       error
 
-	pull        forge.PullRequest
-	pullFound   bool
-	pullErr     error
-	openErr     error
-	editPullErr error
-	reviewerErr error
-	reviews     []forge.ReviewRequest
-	reviewsErr  error
-	ci          []forge.CI
+	pull forge.PullRequest
+	// heldDescription is the pull request's description as the forge holds it,
+	// before what is shown of it is neutralized; empty holds the shown one.
+	heldDescription string
+	pullFound       bool
+	pullErr         error
+	openErr         error
+	editPullErr     error
+	reviewerErr     error
+	reviews         []forge.ReviewRequest
+	reviewsErr      error
+	ci              []forge.CI
 	// jobLog is what the forge keeps of a failed job's log.
 	jobLog    forge.JobLog
 	templates []forge.Template

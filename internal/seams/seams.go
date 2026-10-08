@@ -133,7 +133,13 @@ type Forge struct {
 	FindPullRequest   func(branch string) (forge.PullRequest, bool, error)
 	CreatePullRequest func(request forge.NewPullRequest) (forge.PullRequest, error)
 	EditPullRequest   func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)
-	CheckStatus       func(pull forge.PullRequest, head string) (forge.CI, error)
+	// RewriteDescription changes a pull request's description as rewrite says,
+	// from the description as the forge holds it rather than as it is shown,
+	// and reports whether rewrite changed it: linking a branch adds the issue's
+	// line this way, so nothing else of the author's text changes. Nil when
+	// there is no forge.
+	RewriteDescription func(pull forge.PullRequest, rewrite func(body string) (string, bool)) (bool, error)
+	CheckStatus        func(pull forge.PullRequest, head string) (forge.CI, error)
 	// Rerun re-runs the failed CI on a pull request and reports whether anything
 	// was re-run. It needs a write scope the read path does not, so it can be
 	// refused where CheckStatus was not. Nil when there is no forge.
