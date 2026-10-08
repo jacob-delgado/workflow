@@ -158,7 +158,11 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 			"the terminal interface would not start on this keymap: "+err.Error()))
 	}
 
-	saved, written, err := s.save(incoming, removedIn(posted), over)
+	saved, written, err := s.save(posted, incoming, over)
+	if errors.Is(err, errHeldSetting) {
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, err.Error()))
+	}
+
 	if errors.Is(err, config.ErrChangedOnDisk) {
 		return api.UpdateConfig409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"the configuration changed since Settings read it; reload Settings and apply your change again"))
@@ -232,17 +236,16 @@ func (s *server) GetKeys(_ context.Context, _ api.GetKeysRequestObject) (api.Get
 	return api.GetKeys200JSONResponse{SingleKeyShortcuts: cfg.UI.WebShortcuts, Actions: actions}, nil
 }
 
-// save writes incoming over the read over, through config.SaveEdit, and
-// adopts it as the configuration in effect, at the revision it wrote. The
-// secrets it keeps are those of the configuration in effect, which a masked
-// field stands for only when that is the configuration the read showed, so a
-// save is made only over the read of it: a file edited and then put back is at
-// the revision named, but not at the configuration read, and two reads that
-// found no file stand for different configurations when another file came and
-// went between them.
-func (s *server) save(
-	incoming config.Config, removed []config.Credential, over basis,
-) (config.Config, config.Revision, error) {
+// save writes incoming, what posted decoded to, over the read over, through
+// config.SaveEdit, and adopts it as the configuration in effect, at the
+// revision it wrote. The secrets it keeps are those of the configuration in
+// effect, which a masked field stands for only when that is the configuration
+// the read showed, so a save is made only over the read of it: a file edited
+// and then put back is at the revision named, but not at the configuration
+// read, and two reads that found no file stand for different configurations
+// when another file came and went between them. The settings heldSettings
+// names it keeps as the configuration in effect holds them, too.
+func (s *server) save(posted api.Config, incoming config.Config, over basis) (config.Config, config.Revision, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -251,8 +254,13 @@ func (s *server) save(
 			"the configuration in effect is not the one read at %s: %w", over.etag(), config.ErrChangedOnDisk)
 	}
 
+	held, err := holdSettings(posted, incoming, s.cfg)
+	if err != nil {
+		return config.Config{}, config.Revision{}, err
+	}
+
 	saved, written, err := config.SaveEdit(config.Edit{
-		Files: s.files, Read: s.cfg, Over: over.file(), Edited: incoming, Removed: removed,
+		Files: s.files, Read: s.cfg, Over: over.file(), Edited: held, Removed: removedIn(posted),
 		PlaceSlackCredentials: s.placeSlackCredentials(),
 	})
 	if err != nil {
@@ -341,6 +349,43 @@ func configDTO(cfg config.Config) (api.Config, error) {
 	}
 
 	return out, nil
+}
+
+// errHeldSetting is a save over the API that changes a setting heldSettings
+// names.
+var errHeldSetting = errors.New("names a program or a variable workflow uses as you, " +
+	"so a save here keeps it as the file holds it; change it in the file itself")
+
+// heldSetting is a setting a save over the API never changes: what the save
+// carries for it, nil when it carries none, and what the configuration in
+// effect holds.
+type heldSetting struct {
+	name   string
+	posted *string
+	kept   string
+}
+
+// holdSettings is incoming with the settings workflow runs a program by, or
+// reads the environment by, as you — the command that prints the Jira token,
+// the variable that holds it, and the task program — as inEffect holds them,
+// whatever posted carried for them: a page or a program that drives the API
+// never chooses what workflow runs. A save that carries another value for one
+// is refused, naming it, rather than quietly kept as it was.
+func holdSettings(posted api.Config, incoming, inEffect config.Config) (config.Config, error) {
+	for _, setting := range []heldSetting{
+		{name: "jira.token_command", posted: posted.Jira.TokenCommand, kept: inEffect.Jira.TokenCommand},
+		{name: "jira.token_env", posted: posted.Jira.TokenEnv, kept: inEffect.Jira.TokenEnv},
+		{name: "taskwarrior.program", posted: posted.Taskwarrior.Program, kept: inEffect.Taskwarrior.Program},
+	} {
+		if setting.posted != nil && *setting.posted != setting.kept {
+			return config.Config{}, fmt.Errorf("%s %w", setting.name, errHeldSetting)
+		}
+	}
+
+	incoming.Jira.TokenCommand, incoming.Jira.TokenEnv = inEffect.Jira.TokenCommand, inEffect.Jira.TokenEnv
+	incoming.Taskwarrior.Program = inEffect.Taskwarrior.Program
+
+	return incoming, nil
 }
 
 // removedIn are the credentials a posted configuration removes: each sent as

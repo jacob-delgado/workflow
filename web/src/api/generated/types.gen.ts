@@ -1638,7 +1638,13 @@ export type JiraConfig = {
      * Masked on read, or empty when none is stored; on write, empty or masked keeps the stored value and null removes it.
      */
     token: string | null;
+    /**
+     * A program that prints the token. workflow runs it as you, so a save keeps it as the file holds it, left out or not; one carrying another value is refused 422. It changes only in the file.
+     */
     token_command?: string;
+    /**
+     * An environment variable that holds the token. Held as token_command is: a save keeps it, and one carrying another value is refused 422.
+     */
     token_env?: string;
     user?: string;
     /**
@@ -1817,7 +1823,7 @@ export type IssuesConfig = {
 
 export type TaskwarriorConfig = {
     /**
-     * The task program to run: a name looked up on PATH, or a path. Empty tries every task in an absolute PATH directory and keeps the first that is Taskwarrior 3.5.0 or newer.
+     * The task program to run: a name looked up on PATH, or a path. Empty tries every task in an absolute PATH directory and keeps the first that is Taskwarrior 3.5.0 or newer. workflow runs it as you, so a save keeps it as the file holds it, left out or not; one carrying another value is refused 422. It changes only in the file.
      */
     program?: string;
     /**
