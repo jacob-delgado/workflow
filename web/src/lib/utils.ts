@@ -47,3 +47,25 @@ export function splitList(text: string): string[] {
 export function plural(count: number, noun: string): string {
   return `${String(count)} ${count === 1 ? noun : `${noun}s`}`
 }
+
+// Keyed is a list item and the key React knows it by.
+export interface Keyed<T> {
+  key: string
+  item: T
+}
+
+// keyedByText keys each item of a list whose items carry no identity of their
+// own and may repeat — a diff's lines, a comment's blocks — by its text and how
+// many times that text came before it. Unlike its place in the list, the key
+// stays with the item when another before it comes or goes.
+export function keyedByText<T>(items: readonly T[], textOf: (item: T) => string): Keyed<T>[] {
+  const seen = new Map<string, number>()
+
+  return items.map((item) => {
+    const text = textOf(item)
+    const before = seen.get(text) ?? 0
+    seen.set(text, before + 1)
+
+    return { key: `${String(before)}:${text}`, item }
+  })
+}
