@@ -65,12 +65,12 @@ func redactHeaders(headers map[string]Secret) map[string]Secret {
 
 // RedactURL masks the userinfo of a URL, leaving the rest readable.
 //
-// A base URL is not a secret, so it is shown in full — but nothing stops someone
-// writing https://user:password@jira.example.com into jira.base_url, and doctor
-// prints that line into output the bug report template asks people to paste
-// into a public issue. The userinfo is masked whole rather than by its
-// password alone, because which half holds the part worth hiding is the
-// writer's choice, not something to be guessed from here.
+// An address is not a secret, so it is shown in full — but a git remote can
+// carry https://user:password@, and doctor prints it into output the bug
+// report template asks people to paste into a public issue. The userinfo is
+// masked whole rather than by its password alone, because which half holds
+// the part worth hiding is the writer's choice, not something to be guessed
+// from here.
 func RedactURL(raw string) string {
 	parsed, err := url.Parse(raw)
 	if err != nil || parsed.User == nil {
@@ -191,7 +191,6 @@ const (
 // and must not overwrite the real secret with the mask — unless the editor
 // removed it.
 func KeepStored(incoming, stored Config, removed []Credential) Config {
-	incoming.Jira.BaseURL = keepMaskedURL(incoming.Jira.BaseURL, stored.Jira.BaseURL)
 	incoming.Jira.Token = keepSecret(incoming.Jira.Token, stored.Jira.Token)
 	incoming.Messaging.ClientSecret = keepSecret(incoming.Messaging.ClientSecret, stored.Messaging.ClientSecret)
 	incoming.Messaging.RefreshToken = keepSecret(incoming.Messaging.RefreshToken, stored.Messaging.RefreshToken)
@@ -225,19 +224,6 @@ func (c Config) without(credential Credential) Config {
 	}
 
 	return c
-}
-
-// keepMaskedURL keeps the stored base URL when the incoming one is only its
-// masked form. jira.base_url may carry userinfo (it becomes Basic auth), which
-// the read masks like any other credential; the config editor sends that masked
-// URL back unchanged, and it must not overwrite the real password with the mask.
-// A genuinely edited URL differs from the mask and is taken as sent.
-func keepMaskedURL(incoming, stored string) string {
-	if incoming == RedactURL(stored) {
-		return stored
-	}
-
-	return incoming
 }
 
 // keepSecret returns the stored secret when the incoming one is empty or the

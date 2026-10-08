@@ -181,24 +181,6 @@ func TestSaveEditPlacesNothingOverFilesChangedSinceTheRead(t *testing.T) {
 	}
 }
 
-func TestKeepStoredTakesABaseURLEditedFromItsMask(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	stored := config.Default()
-	stored.Jira.BaseURL = "https://ana:hunter2@jira.example.com"
-	incoming := stored.Redacted()
-	incoming.Jira.BaseURL = "https://jira.example.org"
-
-	// Act
-	kept := config.KeepStored(incoming, stored, nil)
-
-	// Assert
-	if kept.Jira.BaseURL != "https://jira.example.org" {
-		t.Errorf("base URL = %q, want the edited one", kept.Jira.BaseURL)
-	}
-}
-
 func TestKeepStoredDropsJiraHeadersTheEditRemoved(t *testing.T) {
 	t.Parallel()
 
