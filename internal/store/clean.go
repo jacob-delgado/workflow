@@ -92,6 +92,7 @@ func databases() []database {
 			{"owner_not_on_slack", "owners not on Slack", `SELECT COUNT(*) FROM owner_not_on_slack`},
 			{"slack_entity", "Slack users and groups", `SELECT COUNT(*) FROM slack_entity`},
 			{"repo_group", "repository groups", `SELECT COUNT(*) FROM repo_group`},
+			{"repo_choice", "group choices", `SELECT COUNT(*) FROM repo_choice`},
 			{"repo_choice_group", "chosen groups", `SELECT COUNT(*) FROM repo_choice_group`},
 			{"favorite_dir", "favorite directories", `SELECT COUNT(*) FROM favorite_dir`},
 		}},
