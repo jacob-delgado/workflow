@@ -346,7 +346,7 @@ without agreement on direction.
 - **Boy Scout Rule — leave it better than you found it.** Every time you touch a
   file, improve one thing: rename a cryptic identifier, break up an oversized
   function, remove dead code, delete a stale comment, drop a branch. This is not
-  optional on feature or fix commits — it is part of the definition of done.
+  optional on a feature or fix branch — it is part of the definition of done.
   Land the improvement as its own commit (`refactor:`, `style:` or `chore:`) on
   the same branch, before or after the feature or fix commit, so each commit
   stays one logical change.
