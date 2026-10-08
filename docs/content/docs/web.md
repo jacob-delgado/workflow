@@ -22,7 +22,8 @@ Run it inside a repository, then open the address it prints on stderr. It
 listens on the loopback interface alone, on port 13579 unless `--port` names
 another (1 to 65535; `--port` goes only with `--web`), and refuses a write
 from a page served anywhere else, so a site open in another tab cannot drive
-it. `ctrl+c` in the terminal stops it. With no `.workflow.json` to read, it
+it; nor can a site show the page inside one of its own. `ctrl+c` in the
+terminal stops it. With no `.workflow.json` to read, it
 says so on stderr and serves anyway: **Settings** sets a first one up (see
 [Setting up](#setting-up)), as `workflow config init` does at a prompt.
 

@@ -96,6 +96,11 @@ export default tseslint.config(
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
   },
+  // public/ is served as it is, to the browser: the pre-paint theme script.
+  {
+    files: ['public/**/*.js'],
+    languageOptions: { globals: globals.browser, sourceType: 'script' },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

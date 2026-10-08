@@ -6,6 +6,7 @@ package webserver_test
 import (
 	"io/fs"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -137,5 +138,47 @@ func TestTheAppRefusesANonReadMethod(t *testing.T) {
 	// Assert
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want 405 — the app is read-only", recorder.Code)
+	}
+}
+
+func TestEveryAnswerRefusesToBeFramedOrSniffed(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct{ host, target string }{
+		"the app's root":       {host: loopbackHost, target: "/"},
+		"the app's index":      {host: loopbackHost, target: "/index.html"},
+		"an asset":             {host: loopbackHost, target: "/assets/app.js"},
+		"the API":              {host: loopbackHost, target: "/api/health"},
+		"a refused host's ask": {host: "evil.example:13579", target: "/"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, tt.target, nil)
+			request.Host = tt.host
+			recorder := httptest.NewRecorder()
+
+			// Act
+			serveUI(t, fakeUI()).ServeHTTP(recorder, request)
+
+			// Assert
+			policy := recorder.Header().Get("Content-Security-Policy")
+			for _, directive := range []string{"default-src 'self'", "frame-ancestors 'none'", "object-src 'none'"} {
+				if !strings.Contains(policy, directive) {
+					t.Errorf("Content-Security-Policy = %q, want it to hold %q", policy, directive)
+				}
+			}
+
+			for header, want := range map[string]string{
+				"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+			} {
+				if got := recorder.Header().Get(header); got != want {
+					t.Errorf("%s = %q, want %q", header, got, want)
+				}
+			}
+		})
 	}
 }
