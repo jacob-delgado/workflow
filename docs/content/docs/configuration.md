@@ -579,8 +579,7 @@ request when it cannot ask one name, such as someone who is not a collaborator,
 so workflow asks again one name at a time. GitLab sets reviewers and assignees
 by id, and a username it does not know, or one it cannot look up, has none, so
 the merge request opens with the reviewers and assignees it found. Either way
-the pull request opens, and a note names the people left off; before, an
-unknown GitLab reviewer or assignee stopped the merge request from opening.
+the pull request opens, and a note names the people left off.
 
 ### CODEOWNERS proposes the reviewers
 
@@ -687,8 +686,7 @@ twenty seconds, since a notification you stepped away for is not in a hurry.
 An announcement waiting for CI keeps the twenty-second beat, so it goes out
 soon after CI passes.
 
-A setting left out of the file keeps its default, so a configuration written
-before these existed behaves exactly as it did.
+A setting left out of the file keeps its default.
 
 ## Rebinding keys
 
@@ -712,10 +710,7 @@ problem, and Settings in `workflow --web` refuses to save it, when a map names
 an action that does not exist, moves `jump-to-pane` — its keys are the pane
 numbers, `1`–`9`, which no one key can stand in for — or binds two actions
 that are live at the same time to one key. The pane numbers work on every pane
-and while a command runs, so an action live there cannot take one; `7` joined
-them with the Tasks pane, `8` with the Summary pane and `9` with the
-Repositories pane, so a map that moved such an action to any of them before
-then is refused now.
+and while a command runs, so an action live there cannot take one.
 
 The actions you can rebind, grouped by where they work, are:
 

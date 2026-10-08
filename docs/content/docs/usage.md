@@ -240,13 +240,10 @@ lists, by where it works.
 | | `q` | Quit (`ctrl+c` works even with a preview open) |
 
 Every key here but the pane numbers, `1`–`9`, can be rebound with `ui.keys`;
-see [Configuration]({{< relref "/docs/configuration" >}}). `9` is new with the
-Repositories pane, as `8` was with the Summary pane: a `ui.keys` map that
-moved an action live on a pane, or while a command runs, to `9` worked before
-and now stops workflow from starting (`workflow doctor` names it), as a map
-using `1`–`8` always did. Likewise, a map that gave the Repositories pane's
-`f` to another action live there is now refused; rebinding the new action
-settles it.
+see [Configuration]({{< relref "/docs/configuration" >}}). A map that moves an
+action live on a pane, or while a command runs, onto a pane number, or that
+gives two actions live in one place the same key, stops workflow from starting,
+and `workflow doctor` names it.
 
 ## The loop
 
