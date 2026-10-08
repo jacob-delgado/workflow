@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 )
 
 // The control-plane group, as CODEOWNERS names it and as GitLab's API reads
@@ -208,5 +209,32 @@ func TestCreateMergeRequestOnGitLabOpensWithoutATeamItCannotRead(t *testing.T) {
 	opened := requestTo(*seen, gitlabMergesPath)
 	if !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(7)}) {
 		t.Errorf("reviewer_ids = %v, want ana's alone", opened.body["reviewer_ids"])
+	}
+}
+
+func TestCreateMergeRequestOnGitLabKeepsWhyAGroupNamedAsAUserWasNotRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// GitLab knows no user named platform, and asks to wait when its group is
+	// read: a reason to try again, not a name mistyped.
+	knowing := gitlabKnowing(nil, nil)
+	client, _ := recordingForge(t, func(asked recorded) (int, string) {
+		if asked.path == "/groups/platform/members" {
+			return http.StatusTooManyRequests, `{"message":"Retry later"}`
+		}
+
+		return knowing(asked)
+	})
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{"platform"},
+	})
+
+	// Assert
+	if !errors.Is(err, forge.ErrSomePeopleNotAdded) || !errors.Is(err, httpx.ErrRateLimited) ||
+		errors.Is(err, forge.ErrNoUser) {
+		t.Errorf("CreatePullRequest = %v; want platform missed for the rate limit, not as no such user", err)
 	}
 }

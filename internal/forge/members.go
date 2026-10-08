@@ -153,11 +153,16 @@ func (r *gitlabReviewers) addUser(ctx context.Context, client Client, username s
 }
 
 // addGroupNamedAsUser adds the members of the group a name no user has may
-// be, or misses it as no such user when it is no group either.
+// be, or misses it as no such user when GitLab knows no group by it either. A
+// read that failed otherwise — a rate limit, a refusal — keeps its own reason.
 func (r *gitlabReviewers) addGroupNamedAsUser(ctx context.Context, client Client, name string) {
 	members, err := gitlabGroupMembers(ctx, client, name)
+	if errors.Is(err, ErrNoAPI) {
+		err = ErrNoUser
+	}
+
 	if err != nil {
-		r.miss(name, ErrNoUser)
+		r.miss(name, err)
 
 		return
 	}
