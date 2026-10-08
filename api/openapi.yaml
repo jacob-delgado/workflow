@@ -2920,7 +2920,7 @@ components:
     LocalData:
       type: object
       description: The store's directory and the database files in it.
-      required: [dir, files]
+      required: [dir, files, consequences]
       properties:
         dir:
           type: string
@@ -2929,15 +2929,28 @@ components:
           type: array
           description: Each database file there, the cache first; a file not there is left out.
           items: {$ref: "#/components/schemas/LocalDataFile"}
+        consequences:
+          $ref: "#/components/schemas/LocalDataConsequences"
         dry_run:
           type: boolean
           description: Whether the server runs with --dry-run, which refuses a removal.
       additionalProperties: false
 
+    LocalDataConsequences:
+      type: object
+      description: >-
+        What a removal of each scope takes with it, in the words every
+        surface's last look warns with before anything is removed.
+      required: [cache, all]
+      properties:
+        cache: {type: string, description: What removing the cache takes with it.}
+        all: {type: string, description: What removing everything takes with it.}
+      additionalProperties: false
+
     LocalDataFile:
       type: object
       description: One database file, with its companions counted in its size.
-      required: [name, kind, bytes, holds]
+      required: [name, kind, bytes, size, holds]
       properties:
         name:
           type: string
@@ -2953,6 +2966,10 @@ components:
           format: int64
           minimum: 0
           description: Its size with its -wal and -shm companions.
+        size:
+          type: string
+          description: The same size as every surface shows it, in bytes, KiB or MiB.
+          example: 12.0 KiB
         holds:
           type: array
           description: >-

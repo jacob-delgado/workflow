@@ -132,7 +132,7 @@ func listDataFiles(out io.Writer, dir string, files []store.DataFile) {
 	}
 
 	for _, file := range files {
-		fmt.Fprintf(out, "  %-12s %-6s %10s  %s\n", file.Name, file.Kind, humanBytes(file.Bytes), holdings(file.Holds))
+		fmt.Fprintf(out, "  %-12s %-6s %10s  %s\n", file.Name, file.Kind, store.HumanBytes(file.Bytes), holdings(file.Holds))
 	}
 }
 
@@ -148,20 +148,6 @@ func holdings(holds []store.Held) string {
 	}
 
 	return strings.Join(parts, ", ")
-}
-
-// humanBytes is a size in bytes, KiB or MiB, with one decimal past bytes.
-func humanBytes(size int64) string {
-	const unit = 1024
-
-	switch {
-	case size < unit:
-		return fmt.Sprintf("%d B", size)
-	case size < unit*unit:
-		return fmt.Sprintf("%.1f KiB", float64(size)/unit)
-	default:
-		return fmt.Sprintf("%.1f MiB", float64(size)/(unit*unit))
-	}
 }
 
 // localData is the store's directory and the database files in it, as

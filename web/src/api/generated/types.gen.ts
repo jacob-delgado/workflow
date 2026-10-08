@@ -226,10 +226,25 @@ export type LocalData = {
      * Each database file there, the cache first; a file not there is left out.
      */
     files: Array<LocalDataFile>;
+    consequences: LocalDataConsequences;
     /**
      * Whether the server runs with --dry-run, which refuses a removal.
      */
     dry_run?: boolean;
+};
+
+/**
+ * What a removal of each scope takes with it, in the words every surface's last look warns with before anything is removed.
+ */
+export type LocalDataConsequences = {
+    /**
+     * What removing the cache takes with it.
+     */
+    cache: string;
+    /**
+     * What removing everything takes with it.
+     */
+    all: string;
 };
 
 /**
@@ -248,6 +263,10 @@ export type LocalDataFile = {
      * Its size with its -wal and -shm companions.
      */
     bytes: number;
+    /**
+     * The same size as every surface shows it, in bytes, KiB or MiB.
+     */
+    size: string;
     /**
      * How many of each thing it holds; empty when the file could not be read as a database.
      */
