@@ -123,9 +123,10 @@ func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
 
 	// Assert
 	// The line saying where it went, then the sentence every surface says of
-	// it, then why.
+	// it, then why, straight after it: the store's directory could not be
+	// made.
 	saidSo := regexp.MustCompile(`(?m)^Announced to .+\.\n` +
-		regexp.QuoteMeta("Posted, but not remembered: it may be offered again.") + ` \S`)
+		regexp.QuoteMeta("Posted, but not remembered: it may be offered again. creating the store directory: "))
 	if err != nil || posts.Load() != 1 || !saidSo.MatchString(printed.stderr) {
 		t.Errorf("announce --yes = %v after %d posts, saying:\n%s\nwant the announcement made and the store's "+
 			"failure said", err, posts.Load(), printed.stderr)
