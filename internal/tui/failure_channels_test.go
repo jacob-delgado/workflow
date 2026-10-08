@@ -64,6 +64,11 @@ func everySeamFailure() map[string]spoken {
 			fmt.Errorf("searching: %w", jira.ErrNoAPI), "no Jira API at that address",
 			"No Jira REST API answered at `jira.base_url`. Check the address; `workflow doctor --online` tests it.",
 		},
+		"jira not JSON": {
+			fmt.Errorf("searching: %w", jira.ErrNotJSON), "the answer was not JSON",
+			"Jira's answer was not JSON, which usually means `jira.base_url` reaches a sign-in page, not Jira. " +
+				"`workflow doctor --online` tests it.",
+		},
 		"jira not found": {
 			fmt.Errorf("reading PROJ-412: %w", jira.ErrNotFound), "no such issue",
 			"No such issue: it may have moved, or the token cannot see it.",
