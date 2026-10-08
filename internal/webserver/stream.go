@@ -7,10 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"net/http"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -30,90 +28,6 @@ const defaultStreamInterval = 5 * time.Second
 // enough to see a check finish soon after it does, rarely enough that a page
 // left open does not spend the forge's rate limit.
 const defaultForgeInterval = 20 * time.Second
-
-// forgeCache is the forge's part of a frame — the branch's pull request, its
-// reviews and its CI — held for every stream alike, so the forge is asked at
-// most once an interval however many pages are open, while the repository is
-// read on every frame. It holds the answer for one branch at one head commit:
-// a frame for another asks at once. A read that fails keeps the answer held
-// for the same branch and head until the next read is due, and a CI read that
-// fails keeps the CI held for the same pull request; either way the failure is
-// held beside the answer, so every frame until the next read says so. Its lock
-// is held across the read, so streams that find a read due together make one.
-type forgeCache struct {
-	mu     sync.Mutex
-	held   bool
-	key    forgeKey
-	readAt time.Time
-	read   forgeRead
-	// failed is why the last read did not answer, or nil when it did.
-	failed error
-}
-
-// forgeKey is what a forge answer was read for: a branch, by name, at a head.
-type forgeKey struct {
-	branch string
-	head   string
-}
-
-// assignedInterval is how long the tracker's answer to which of the branches'
-// issues are yours serves every stream: an issue is reassigned or finished
-// rarely, and each answer is a search of the tracker.
-const assignedInterval = time.Minute
-
-// assignedCache is which of the branches' issues the tracker last said are
-// yours, held for every stream alike and asked again when the branches name
-// other issues or assignedInterval has passed. An ask that fails keeps the last
-// answer until the next is due, and an issue that answer never covered counts
-// as yours, as every issue does with no answer yet, or no tracker to ask, so
-// the list never waits on the tracker. Its lock is held across the ask, so
-// streams that find one due together make one.
-type assignedCache struct {
-	mu     sync.Mutex
-	held   bool
-	keys   []jira.Key
-	readAt time.Time
-	// mine is the tracker's last answer, and answered the keys it was asked
-	// about, sorted; mine is nil until the tracker has answered.
-	mine     map[jira.Key]bool
-	answered []jira.Key
-}
-
-// yours is which of keys are yours by the last answer: those it said are, and
-// those it never covered; nil, counting every issue, before any answer. The
-// caller holds the lock.
-func (c *assignedCache) yours(keys []jira.Key) map[jira.Key]bool {
-	if c.mine == nil {
-		return nil
-	}
-
-	yours := maps.Clone(c.mine)
-
-	for _, key := range keys {
-		if _, covered := slices.BinarySearch(c.answered, key); !covered {
-			yours[key] = true
-		}
-	}
-
-	return yours
-}
-
-// drop forgets the held answer, so the next frame asks the forge: a write here
-// that changes what the forge would say shows on the next frame rather than an
-// interval later.
-func (c *forgeCache) drop() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.held = false
-}
-
-// holdsPull reports whether the held answer is about the pull request of this
-// number, so the CI held for it can stand in for a CI read that failed; the CI
-// of another pull request, or of none, cannot. The caller holds the lock.
-func (c *forgeCache) holdsPull(number int) bool {
-	return c.read.found && c.read.pull.Number == number
-}
 
 // streamEvents serves the Server-Sent Events stream: a snapshot on connect, then
 // another every interval, until the client disconnects and its request context is
@@ -378,43 +292,17 @@ func issueKeys(names []string, links map[string]string, project string) []jira.K
 	return keys
 }
 
-// yourIssues is which of keys name your issues, from the assigned cache: nil,
-// counting every issue, with no tracker to ask or none that has answered.
-func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
-	if s.deps.SearchLenient == nil {
-		return nil
-	}
-
-	asked := slices.Compact(slices.Sorted(slices.Values(keys)))
-
-	s.assigned.mu.Lock()
-	defer s.assigned.mu.Unlock()
-
-	now := s.now()
-	if s.assigned.held && slices.Equal(s.assigned.keys, asked) && now.Sub(s.assigned.readAt) < assignedInterval {
-		return s.assigned.yours(asked)
-	}
-
-	mine, err := loop.AssignedKeys(s.deps.SearchLenient, asked)
-	s.assigned.held, s.assigned.keys, s.assigned.readAt = true, asked, now
-
-	if err == nil {
-		s.assigned.mine, s.assigned.answered = mine, asked
-	}
-
-	return s.assigned.yours(asked)
-}
-
-// snapshotIssues is the first page of the view's issues, or an empty page when
-// the tracker is not configured, the search fails — with its error — or a
-// configuration save has removed the view since the stream opened.
+// snapshotIssues is the first page of the view's issues from the issues
+// cache, or an empty page when the tracker is not configured, the search
+// fails — with its error — or a configuration save has removed the view since
+// the stream opened.
 func (s *server) snapshotIssues(view string) (api.IssuesPage, error) {
 	jql, known := resolveJQL(s.config(), view)
 	if s.deps.Search == nil || !known {
 		return issuesPageDTO(jira.SearchResult{}, 0), nil
 	}
 
-	result, err := s.deps.Search(jql, 0)
+	result, err := s.frameIssues(jql)
 	if err != nil {
 		return issuesPageDTO(jira.SearchResult{}, 0), err
 	}
@@ -444,39 +332,6 @@ func (s *server) snapshotReview(branch gitrepo.Branch, branchErr error) (forgeRe
 	}
 
 	return s.forgeReview(branch)
-}
-
-// forgeReview is what the forge cache holds of the branch, read again when the
-// cache holds none for the branch at its head, or once the forge interval has
-// passed since the last read, with why the last read failed, if it did.
-func (s *server) forgeReview(branch gitrepo.Branch) (forgeRead, error) {
-	interval := s.forgeInterval()
-	key := forgeKey{branch: branch.Name, head: branch.Head}
-
-	s.forgeAnswer.mu.Lock()
-	defer s.forgeAnswer.mu.Unlock()
-
-	now := s.now()
-	held := s.forgeAnswer.held && s.forgeAnswer.key == key
-
-	if held && now.Sub(s.forgeAnswer.readAt) < interval {
-		return s.forgeAnswer.read, s.forgeAnswer.failed
-	}
-
-	read, err := s.readForge(branch)
-	s.forgeAnswer.readAt, s.forgeAnswer.failed = now, err
-
-	if err != nil && held {
-		return s.forgeAnswer.read, err
-	}
-
-	if held && read.ciErr != nil && s.forgeAnswer.holdsPull(read.pull.Number) {
-		read.ci, read.ciRead = s.forgeAnswer.read.ci, s.forgeAnswer.read.ciRead
-	}
-
-	s.forgeAnswer.held, s.forgeAnswer.key, s.forgeAnswer.read = true, key, read
-
-	return read, err
 }
 
 // forgeInterval is how long a forge answer serves the stream:
