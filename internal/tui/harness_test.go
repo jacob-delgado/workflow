@@ -214,10 +214,12 @@ func await(t *testing.T, cmd tea.Cmd, deadline <-chan time.Time) tea.Msg {
 
 // hold keeps a seam from answering once it is armed, as a service that has
 // stopped answering does, and says so each time a call starts waiting on it, so
-// a drain leaves out exactly the commands it holds; the test's cleanup lets every
+// a drain leaves out exactly the commands it holds; it counts those calls, so a
+// test can tell a held seam was reached at all, and the test's cleanup lets every
 // held answer go.
 type hold struct {
 	armed   atomic.Bool
+	reached atomic.Int32
 	waiting chan struct{}
 	release chan struct{}
 }
@@ -240,12 +242,25 @@ func (h *hold) wait() {
 		return
 	}
 
+	h.reached.Add(1)
+
 	select {
 	case h.waiting <- struct{}{}:
 	case <-h.release:
 	}
 
 	<-h.release
+}
+
+// requireReached fails the test unless a call has started waiting on the armed
+// hold, so a screen looked at "while the answer is out" proves an answer was
+// asked for at all.
+func (h *hold) requireReached(t *testing.T) {
+	t.Helper()
+
+	if h.reached.Load() == 0 {
+		t.Fatal("no call reached the held seam: what was pressed asked it for nothing")
+	}
 }
 
 // update hands msg to model as Bubble Tea would, failing the test when the
