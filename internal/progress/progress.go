@@ -136,8 +136,8 @@ type Work struct {
 	ChangesRequested bool
 	// Announced is that the pull request was announced on the messaging
 	// service at the moment it is at now, in this session or, as the store
-	// remembers, an earlier one. It counts only while there is a pull request
-	// to follow.
+	// remembers, an earlier one — as loop's AnnounceMemory.HoldsNow reads it,
+	// so never while there is no pull request to follow.
 	Announced bool
 	// PostPending is that an announcement is waiting for CI. Session knowledge.
 	PostPending bool
@@ -210,13 +210,11 @@ func reviewState(work Work) State {
 	}
 }
 
-// announceState is done once the pull request the loop follows is announced,
-// and in flight while an announcement waits for CI. One closed without merging
-// is none to follow, so an announcement made of it before is not the loop's:
-// the work is announced again once a pull request is open again.
+// announceState is done once the pull request is announced, and in flight while
+// an announcement waits for CI.
 func announceState(work Work) State {
 	switch {
-	case work.Announced && work.PullRequest != NoPullRequest:
+	case work.Announced:
 		return Done
 	case work.PostPending:
 		return InFlight

@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
@@ -157,14 +158,15 @@ func (m Model) messagingState() string {
 	}
 }
 
-// messagingDetail previews the announcement, or says what it needs first.
+// messagingDetail previews the announcement, or says what it needs first: a
+// pull request the loop follows, which one closed without merging is not.
 func (m Model) messagingDetail(width int) string {
 	if m.cfg.Messaging.Mode() == config.MessagingNone {
 		return wrap(m.marks.notStarted+" "+inFull(messaging.ErrNoCredential)+".\n\n`workflow doctor` checks "+
 			config.FileName+"; `--online` also asks Slack about your user token.", width)
 	}
 
-	if !m.review.found {
+	if m.pullState() == progress.NoPullRequest {
 		reviewPane := paneReview.label(m.cfg.Messaging.Service())
 
 		return wrap("Open a "+m.vocab.noun+" first ("+reviewPane+"); the message links to it.\n\n"+
@@ -188,11 +190,11 @@ func (m Model) messagingDetail(width int) string {
 
 // announced reports that the pull request on screen was already posted at its
 // current moment — a merge announced counts, an opening does not — this session
-// or, from the store, an earlier one.
+// or, from the store, an earlier one, by the rule every surface reads it by.
 func (m Model) announced() bool {
-	current := loop.Announced{Pull: m.review.pull.Number, Moment: loop.AnnounceMoment(m.review.pull, m.review.ci)}
+	posted := loop.AnnounceMemory{Recorded: func() []loop.Announced { return m.messaging.posted }}
 
-	return m.review.found && slices.Contains(m.messaging.posted, current)
+	return posted.HoldsNow(m.review.pull, m.review.found, m.review.ci)
 }
 
 // refreshMessaging reads what was announced again, and the pull request and
@@ -242,8 +244,8 @@ func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
 // canPost reports a pull request to announce, a way to post it, and no post
 // of it already made or on its way.
 func (m Model) canPost() bool {
-	return m.review.found && m.deps.Messaging.Post != nil && m.cfg.Messaging.Mode() != config.MessagingNone &&
-		!m.announced() && !m.messaging.send.sending
+	return m.pullState() != progress.NoPullRequest && m.deps.Messaging.Post != nil &&
+		m.cfg.Messaging.Mode() != config.MessagingNone && !m.announced() && !m.messaging.send.sending
 }
 
 // messagingKeys offers composing the post, and managing whom posts tag.

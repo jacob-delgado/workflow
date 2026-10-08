@@ -126,6 +126,13 @@ func TestComposeAnnouncementRefusesWithoutAPullRequest(t *testing.T) {
 
 			return seams
 		},
+		"a pull request closed without merging": func(seams loop.AnnounceSeams) loop.AnnounceSeams {
+			closed := openPull()
+			closed.State = forge.StateClosed
+			seams.FindPull = func(string) (forge.PullRequest, bool, error) { return closed, true, nil }
+
+			return seams
+		},
 	}
 
 	for name, mutate := range cases {
@@ -344,6 +351,39 @@ func TestAnnounceMemoryHoldsWhatAnEarlierSessionAnnounced(t *testing.T) {
 			// Act & Assert
 			if got := tt.memory.Holds(tt.made); got != tt.want {
 				t.Errorf("Holds(%+v) = %t, want %t", tt.made, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAnnounceMemoryHoldsNowOnlyAPullRequestTheLoopFollows(t *testing.T) {
+	t.Parallel()
+
+	ready := loop.Announced{Pull: 9, Moment: messaging.MomentReady}
+	closed := openPull()
+	closed.State = forge.StateClosed
+
+	cases := map[string]struct {
+		pull  forge.PullRequest
+		found bool
+		ci    forge.CI
+		want  bool
+	}{
+		"an open pull request announced as ready": {pull: openPull(), found: true, want: true},
+		"an open pull request whose CI turned red since": {
+			pull: openPull(), found: true, ci: forge.CI{State: forge.CIFailed},
+		},
+		"a pull request closed without merging, announced before": {pull: closed, found: true},
+		"no pull request found":                                   {pull: openPull()},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := remembering(ready).HoldsNow(tt.pull, tt.found, tt.ci); got != tt.want {
+				t.Errorf("HoldsNow(%+v, %t, %+v) = %t, want %t", tt.pull, tt.found, tt.ci, got, tt.want)
 			}
 		})
 	}

@@ -69,7 +69,7 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 		PullRequest:        review.state,
 		CI:                 review.ci,
 		ChangesRequested:   review.pull.ChangesRequested,
-		Announced:          announcedNow(seams.Memory, review.pull, review.ci),
+		Announced:          seams.Memory.HoldsNow(review.pull, review.found, forge.CI{State: review.ci}),
 	}, seams.Service)
 
 	return facts
@@ -134,16 +134,12 @@ func issueSummary(seams statusSeams, issueKey string) (string, error) {
 	return detail.Issue.Summary, nil
 }
 
-// announcedNow reports that the store remembers the pull request announced at
-// the moment it is at now, which is what the interface's top row reads too.
-func announcedNow(memory loop.AnnounceMemory, pull forge.PullRequest, ciState forge.CIState) bool {
-	return memory.Holds(loop.Announced{Pull: pull.Number, Moment: loop.AnnounceMoment(pull, forge.CI{State: ciState})})
-}
-
 // reviewRead is what the forge said of the branch's pull request: the pull,
-// where its review stands, its CI, and why the forge would not say, or nil.
+// whether there was one, where its review stands, its CI, and why the forge
+// would not say, or nil.
 type reviewRead struct {
 	pull  forge.PullRequest
+	found bool
 	state progress.PullState
 	ci    forge.CIState
 	err   error
@@ -168,13 +164,13 @@ func gatherReview(seams statusSeams, branch gitrepo.Branch, onFeature bool) revi
 	if !pull.IsOpen() {
 		// A merged pull request has no live CI to poll: its review is over, as
 		// the interface's spine and rail say too.
-		return reviewRead{pull: pull, state: progress.PullStateOf(pull.State), ci: forge.CINone}
+		return reviewRead{pull: pull, found: true, state: progress.PullStateOf(pull.State), ci: forge.CINone}
 	}
 
 	status, err := seams.CheckStatus(pull, branch.Head)
 	if err != nil {
-		return reviewRead{pull: pull, state: progress.PullRequestOpen, ci: forge.CINone, err: err}
+		return reviewRead{pull: pull, found: true, state: progress.PullRequestOpen, ci: forge.CINone, err: err}
 	}
 
-	return reviewRead{pull: pull, state: progress.PullRequestOpen, ci: status.State}
+	return reviewRead{pull: pull, found: true, state: progress.PullRequestOpen, ci: status.State}
 }

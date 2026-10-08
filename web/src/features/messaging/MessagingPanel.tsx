@@ -77,9 +77,11 @@ function firstNonEmpty(...values: string[]): string {
 }
 
 // AnnounceSection offers to announce the branch's pull request, once there is
-// one and it was not announced at this moment already — from here, the
-// terminal or workflow announce — and says where the announcement went, in a
-// line that stays when the controls step aside.
+// one the loop follows and it was not announced at this moment already — from
+// here, the terminal or workflow announce — and says where the announcement
+// went, in a line that stays when the controls step aside. One closed without
+// merging is none the loop follows, as the server reads it: there is nothing
+// to announce until one is open again.
 function AnnounceSection({
   messaging,
   review,
@@ -91,20 +93,20 @@ function AnnounceSection({
 }) {
   const { noun, sigil } = useForgeWords()
   const outcome = useOutcome()
-  const found = review.found && review.pull !== undefined && review.pull !== null
+  const pull = review.found && review.pull && review.pull.state !== 'closed' ? review.pull : null
 
   return (
     <section aria-labelledby="announce-heading" className="flex flex-col gap-group">
       <h2 id="announce-heading" className="text-base font-semibold">
         Announce
       </h2>
-      {found && review.announced ? (
+      {pull !== null && review.announced ? (
         <p className="text-sm text-muted-foreground">
           Announced {sigil}
-          {review.pull?.number} at this point already.
+          {pull.number} at this point already.
         </p>
       ) : null}
-      {found && !review.announced ? (
+      {pull !== null && !review.announced ? (
         <AnnounceControls
           service={messaging.service}
           channels={messaging.channels}
@@ -112,11 +114,11 @@ function AnnounceSection({
           onAnnounced={outcome.say}
         />
       ) : null}
-      {found ? null : (
+      {pull === null ? (
         <p className="text-sm text-muted-foreground">
           Open a {noun} first — there is nothing to announce yet.
         </p>
-      )}
+      ) : null}
       <HeldAnnouncement held={held} service={messaging.service} onSaid={outcome.say} />
       <OutcomeLine said={outcome.said} />
     </section>
