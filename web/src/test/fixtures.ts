@@ -1,6 +1,7 @@
 import type {
   Branch,
   Health,
+  IssueDetail,
   ReviewFacet,
   ReviewRequest,
   Snapshot,
@@ -116,6 +117,29 @@ export const gitLabWords: Partial<Health> = {
   forge_kind: 'gitlab',
   forge_noun: 'merge request',
   forge_sigil: '!',
+}
+
+// A contract-valid issue detail for tests — PROJ-1 in Jira, a bug in
+// progress with one comment — with the fields a case cares about overridden.
+export function makeIssueDetail(overrides: Partial<IssueDetail> = {}): IssueDetail {
+  return {
+    key: 'PROJ-1',
+    tracker: 'jira',
+    summary: 'Fix the token leak',
+    status: 'In Progress',
+    status_category: 'indeterminate',
+    type: 'Bug',
+    priority: 'High',
+    reporter: 'Ana Lopez',
+    assignee: 'octocat',
+    description: 'Tokens reach the request log.',
+    comments: [
+      { author: 'Sam Ortiz', body: "Repro'd on main.", created: '2026-09-20T10:00:00-06:00' },
+    ],
+    comment_total: 1,
+    url: 'https://jira.example.com/browse/PROJ-1',
+    ...overrides,
+  }
 }
 
 // A contract-valid Taskwarrior task for tests — task 12, pending and not
