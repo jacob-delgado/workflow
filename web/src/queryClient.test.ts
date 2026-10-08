@@ -1,6 +1,6 @@
 import { queryClient } from './queryClient.ts'
 
-test('does not refetch on its own — the event stream keeps the cache fresh', () => {
+test('by default a query does not refetch on its own — the event stream keeps the cache fresh', () => {
   // Act
   const queries = queryClient.getDefaultOptions().queries
 
