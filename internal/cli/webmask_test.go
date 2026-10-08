@@ -42,13 +42,13 @@ func TestTheWebServerMasksACredentialOfTheDirectoryItSwitchedTo(t *testing.T) {
 	}
 
 	// Act
-	notes := notesAfter(t, config.Default(), deps, func(base string) {
-		status := sendJSON(t, http.MethodPut, base+"/api/repositories/here", `{"dir":"/elsewhere"}`, "")
+	notes := notesAfter(t, config.Default(), deps, func(served servingAddress) {
+		status := sendJSON(t, served, http.MethodPut, "/api/repositories/here", `{"dir":"/elsewhere"}`, "")
 		if status != http.StatusOK {
 			t.Fatalf("the switch answered %d, want 200", status)
 		}
 
-		askOnce(t, base+"/api/issues")
+		askOnce(t, served, "/api/issues")
 	})
 
 	// Assert
@@ -79,9 +79,9 @@ func TestTheWebServerMasksACredentialSavedInSettings(t *testing.T) {
 	}
 
 	// Act
-	notes := notesAfter(t, cfg, failingSearch(errQuotesTheLaterToken), func(base string) {
-		saveJiraToken(t, base, laterToken)
-		askOnce(t, base+"/api/issues")
+	notes := notesAfter(t, cfg, failingSearch(errQuotesTheLaterToken), func(served servingAddress) {
+		saveJiraToken(t, served, laterToken)
+		askOnce(t, served, "/api/issues")
 	})
 
 	// Assert
@@ -102,8 +102,9 @@ func failingSearch(cause error) webserver.Deps {
 }
 
 // notesAfter serves the web API over deps and cfg, has use make its requests
-// at the base URL it serves, stops it, and returns what it said.
-func notesAfter(t *testing.T, cfg config.Config, deps webserver.Deps, use func(base string)) string {
+// at the address it serves, presenting its session, stops it, and returns
+// what it said.
+func notesAfter(t *testing.T, cfg config.Config, deps webserver.Deps, use func(served servingAddress)) string {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -112,9 +113,9 @@ func notesAfter(t *testing.T, cfg config.Config, deps webserver.Deps, use func(b
 
 	go func() { done <- cli.WebServerAt("127.0.0.1:0")(ctx, cfg, deps, webserver.Info{}, notes) }()
 
-	base := servingAt(t, notes, done)
-	awaitServing(t, base)
-	use(base)
+	served := servingAt(t, notes, done)
+	awaitServing(t, served.base)
+	use(served)
 	cancel()
 
 	err := <-done
@@ -125,12 +126,12 @@ func notesAfter(t *testing.T, cfg config.Config, deps webserver.Deps, use func(b
 	return notes.String()
 }
 
-// saveJiraToken saves token as Jira's in Settings at base: it reads the
+// saveJiraToken saves token as Jira's in Settings at served: it reads the
 // configuration, sets the token, and saves over the revision it read.
-func saveJiraToken(t *testing.T, base, token string) {
+func saveJiraToken(t *testing.T, served servingAddress, token string) {
 	t.Helper()
 
-	response, err := getURL(t, base+"/api/config")
+	response, err := getURLPresenting(t, served.base+"/api/config", served.authorization)
 	if err != nil {
 		t.Fatalf("reading the configuration: %v", err)
 	}
@@ -152,23 +153,25 @@ func saveJiraToken(t *testing.T, base, token string) {
 		t.Fatalf("encoding the configuration: %v", err)
 	}
 
-	status := sendJSON(t, http.MethodPut, base+"/api/config", string(body), response.Header.Get("ETag"))
+	status := sendJSON(t, served, http.MethodPut, "/api/config", string(body), response.Header.Get("ETag"))
 	if status != http.StatusOK {
 		t.Fatalf("saving the configuration answered %d, want 200", status)
 	}
 }
 
-// sendJSON sends body as JSON to target with method, over the revision etag
-// names when it is not empty, and returns the status it was answered with.
-func sendJSON(t *testing.T, method, target, body, etag string) int {
+// sendJSON sends body as JSON for path to the server served with method,
+// presenting its session, over the revision etag names when it is not empty,
+// and returns the status it was answered with.
+func sendJSON(t *testing.T, served servingAddress, method, path, body, etag string) int {
 	t.Helper()
 
-	request, err := http.NewRequestWithContext(t.Context(), method, target, strings.NewReader(body))
+	request, err := http.NewRequestWithContext(t.Context(), method, served.base+path, strings.NewReader(body))
 	if err != nil {
-		t.Fatalf("building a request for %s: %v", target, err)
+		t.Fatalf("building a request for %s: %v", path, err)
 	}
 
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", served.authorization)
 
 	if etag != "" {
 		request.Header.Set("If-Match", etag)
@@ -176,7 +179,7 @@ func sendJSON(t *testing.T, method, target, body, etag string) int {
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		t.Fatalf("sending %s %s: %v", method, target, err)
+		t.Fatalf("sending %s %s: %v", method, path, err)
 	}
 
 	_, _ = io.Copy(io.Discard, response.Body)
