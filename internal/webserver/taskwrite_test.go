@@ -311,7 +311,7 @@ func TestAnAnswerThatIsNotTaskwarriorsJSONIsHandedToUnexpected(t *testing.T) {
 	fake := fakeTaskwarrior()
 	fake.fail["start"] = fmt.Errorf("%w: reading the export", taskwarrior.ErrBadOutput)
 	deps := tasksDeps(fake)
-	deps.Unexpected = func(err error) { heard = append(heard, err) }
+	deps.Unexpected = func(_ config.Config, err error) { heard = append(heard, err) }
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, taskPath(startedUUID, "start"), "")

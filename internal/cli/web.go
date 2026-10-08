@@ -32,14 +32,14 @@ import (
 // from an edit made since, with that edit's revision. Building it fails when
 // the embedded spec cannot load, a build defect, or when that file cannot be
 // read again. Each failure the server answers as internal goes to notes, a
-// line each, its cause's own lines joined by "; " and every credential cfg
-// holds masked.
+// line each, its cause's own lines joined by "; " and every credential masked
+// that the configuration in effect when it failed holds.
 func WebServerAt(addr string) RunWeb {
 	return func(
 		ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
 	) error {
-		deps.Unexpected = func(err error) {
-			lines := strings.FieldsFunc(cfg.RedactText(err.Error()), func(r rune) bool { return r == '\n' || r == '\r' })
+		deps.Unexpected = func(inEffect config.Config, err error) {
+			lines := strings.FieldsFunc(inEffect.RedactText(err.Error()), func(r rune) bool { return r == '\n' || r == '\r' })
 			fmt.Fprintf(notes, "workflow web: %s\n", strings.Join(lines, "; "))
 		}
 
