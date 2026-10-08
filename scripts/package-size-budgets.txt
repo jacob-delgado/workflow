@@ -203,10 +203,11 @@ internal/tui 64
 # and the announcement pick from) and repogroups.go (the user groups a
 # repository may tag) out of people.go, which keeps whom each code owner is.
 # 36 is streamcache.go, the reads every open stream shares, held for an
-# interval and made outside their locks one at a time — the forge's answer,
-# each view's issues and which branches' issues are yours — out of stream.go,
-# which keeps the frame they fill and would have passed the 500-line target
-# with the issues' cache.
+# interval or for the server's life — the forge's answer and each view's
+# issues, made outside their locks one at a time, which branches' issues are
+# yours, who a post comes from and the commit scope — out of stream.go, which
+# keeps the frame they fill and would have passed the 500-line target with
+# the issues' cache, and webserver.go.
 # Frozen here so that growth stays deliberate.
 internal/webserver 36
 
