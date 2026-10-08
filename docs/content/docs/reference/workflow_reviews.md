@@ -15,7 +15,8 @@ List the open pull or merge requests on your forge that request your
 review, oldest first, with the author, how CI stands and how long each has
 been waiting. The forge is the one your repository's remote points at.
 --sort newest lists the latest first, and --sort repo groups them by
-repository, oldest first within each.
+repository, oldest first within each. --json prints the web API's review
+requests, each with when it was opened.
 
 ```
 workflow reviews [flags]

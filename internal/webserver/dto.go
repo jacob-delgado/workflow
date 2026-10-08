@@ -226,9 +226,15 @@ func pullState(state forge.PullState) api.PullRequestState {
 	}[state]
 }
 
-// reviewQueueDTO maps the review queue onto the wire, its requests an empty list
-// rather than null when none waits.
+// reviewQueueDTO maps the review queue onto the wire.
 func reviewQueueDTO(requests []forge.ReviewRequest) api.ReviewQueue {
+	return api.ReviewQueue{Available: true, Requests: ReviewRequests(requests)}
+}
+
+// ReviewRequests maps the requests waiting on your review onto the wire, an
+// empty list rather than null when none waits: the requests GET /api/reviews
+// answers, and what `workflow reviews --json` prints.
+func ReviewRequests(requests []forge.ReviewRequest) []api.ReviewRequest {
 	queue := make([]api.ReviewRequest, 0, len(requests))
 	for _, request := range requests {
 		queue = append(queue, api.ReviewRequest{
@@ -238,7 +244,7 @@ func reviewQueueDTO(requests []forge.ReviewRequest) api.ReviewQueue {
 		})
 	}
 
-	return api.ReviewQueue{Available: true, Requests: queue}
+	return queue
 }
 
 // noReviewQueue is the answer where there is no forge to ask: not available,
