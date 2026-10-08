@@ -37,7 +37,7 @@ func fromAHostileRepository() *world {
 	repo.cfg.Jira.ReviewStatus = "In Review" + clipboardWrite
 	repo.cfg.Messaging.Channel = devChannel + clipboardWrite
 	repo.cfg.Messaging.Channels = []string{teamChannel + clipboardWrite}
-	repo.cfg.UI.Keys = map[string]string{refreshAction: "ctrl+r" + clipboardWrite}
+	repo.cfg.UI.Keys = map[string]string{refreshAction: reboundRefreshKey + clipboardWrite}
 	repo.cfg.Commit.Types = []string{"fix" + clipboardWrite, "feat"}
 	repo.templates = []forge.Template{{Name: "bugfix" + clipboardWrite, Body: "## Bug\n"}}
 
@@ -71,7 +71,7 @@ func TestNamesARepositoryWritesReachTheTerminalAsText(t *testing.T) {
 		},
 		"the pull request opened": {repo: hostileWithoutAPull, keys: []string{"4", "n"}, shows: "template bugfix (1 of 1)"},
 		"the commit composed":     {repo: fromAHostileRepository, keys: []string{"3", "c"}, shows: "  fix: "},
-		"the key list":            {repo: fromAHostileRepository, keys: []string{"?"}, shows: "ctrl+r"},
+		"the key list":            {repo: fromAHostileRepository, keys: []string{"?"}, shows: reboundRefreshKey},
 		"the follow-ups a dry run names": {
 			repo: hostileWithoutAPull, dry: true, keys: []string{"4", "n", keyEnter}, shows: "to move PROJ-412 to In Review",
 		},
