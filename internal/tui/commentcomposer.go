@@ -107,11 +107,7 @@ var (
 // startComment opens the composer on the selected issue, on the draft kept for
 // it where there is one.
 func (m Model) startComment() (Model, tea.Cmd) {
-	selected, ok := m.issues.current()
-	if !ok || m.deps.Jira.Comment == nil {
-		return m, nil
-	}
-
+	selected, _ := m.issues.current()
 	markup := loop.CommentMarkupOf(m.cfg.Jira, selected.Key)
 	m.overlay = commentComposer{
 		marks: m.marks, styles: m.styles, issue: selected, mode: modeNormal,

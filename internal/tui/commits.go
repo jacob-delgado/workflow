@@ -192,90 +192,70 @@ func (m Model) stageGlyph(change gitrepo.Change) string {
 	}
 }
 
-// commitsKeys offers what can be done with the changes as they are.
-func (m Model) commitsKeys() []key.Binding {
+// commitsOffers are the Commits pane's keys, as far as the changes and the
+// seams allow: moving changes into and out of the index and dropping one,
+// turning the staged ones into a commit, an amend or a fixup, running the
+// hooks, offering lefthook for the repository's own, and reading it all again.
+// Outside a repository there is nothing to act on, and none is offered.
+func (m Model) commitsOffers() []offer {
 	if m.outsideRepository() {
 		return nil
 	}
 
-	keys := m.stagingKeys()
-
-	if m.changes.staged() > 0 && m.deps.Git.Commit != nil {
-		keys = append(keys, m.keys.commit)
-	}
-
-	keys = append(keys, m.foldKeys()...)
-
-	if m.deps.Hooks.Run != nil {
-		keys = append(keys, m.keys.runHooks)
-	}
-
-	if len(m.hookgen.hooks) > 0 {
-		keys = append(keys, m.keys.hookConfig)
-	}
-
-	return append(keys, m.keys.refresh)
+	return slices.Concat(m.stagingOffers(), m.committingOffers(), []offer{
+		{binding: m.keys.runHooks, can: m.deps.Hooks.Run != nil, act: m.runPreCommit},
+		{binding: m.keys.hookConfig, can: len(m.hookgen.hooks) > 0, act: m.openHookgen},
+		{binding: m.keys.refresh, can: true, act: func() (Model, tea.Cmd) { return m.refreshPane(paneCommits) }},
+	})
 }
 
-// stagingKeys offers moving the changes into and out of the index, and
-// dropping the selected one, as far as the changes and the seams allow.
-func (m Model) stagingKeys() []key.Binding {
-	var keys []key.Binding
+// commitsKeys is the Commits pane's footer: the offers that act right now.
+func (m Model) commitsKeys() []key.Binding {
+	return liveKeys(m.commitsOffers())
+}
 
+// stagingOffers are moving the changes into and out of the index, and
+// dropping the selected one.
+func (m Model) stagingOffers() []offer {
 	_, hasChange := m.changes.current()
+	stage, unstage := m.deps.Git.Stage, m.deps.Git.Unstage
 
-	if hasChange && m.deps.Git.Stage != nil {
-		keys = append(keys, m.keys.stage)
+	return []offer{
+		{binding: m.keys.stage, can: hasChange && stage != nil && unstage != nil, act: m.toggleStaged},
+		{binding: m.keys.stageAll, can: len(loop.Stageable(m.changes.changes)) > 0 && stage != nil, act: m.stageAll},
+		{binding: m.keys.unstageAll, can: m.changes.staged() > 0 && unstage != nil, act: m.unstageAll},
+		{binding: m.keys.discard, can: hasChange && m.deps.Git.Discard != nil, act: m.previewDiscard},
 	}
-
-	if len(loop.Stageable(m.changes.changes)) > 0 && m.deps.Git.Stage != nil {
-		keys = append(keys, m.keys.stageAll)
-	}
-
-	if m.changes.staged() > 0 && m.deps.Git.Unstage != nil {
-		keys = append(keys, m.keys.unstageAll)
-	}
-
-	if hasChange && m.deps.Git.Discard != nil {
-		keys = append(keys, m.keys.discard)
-	}
-
-	return keys
 }
 
-// handleCommitsKey answers the Commits pane's own keys.
+// committingOffers are turning the staged changes into a new commit, which
+// says what it needs when nothing is staged, or folding them into an unpushed
+// one: amended into the last, or fixed up into a chosen one.
+func (m Model) committingOffers() []offer {
+	commit := offer{
+		binding: m.keys.commit, can: m.changes.staged() > 0 && m.deps.Git.Commit != nil, act: m.openCommitComposer,
+	}
+	if m.deps.Git.Commit != nil {
+		commit.refusal = loop.RefuseNothingStaged(m.changes.changes)
+	}
+
+	foldable := m.canFoldStaged()
+
+	return []offer{
+		commit,
+		{binding: m.keys.amend, can: foldable && m.deps.Git.Amend != nil, act: m.startAmend},
+		{binding: m.keys.fixup, can: foldable && m.deps.Git.Fixup != nil, act: m.openFixupPicker},
+	}
+}
+
+// handleCommitsKey answers the Commits pane's own keys: moving through the
+// changes, and what its footer offers.
 func (m Model) handleCommitsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.up, m.keys.down):
+	if key.Matches(msg, m.keys.up, m.keys.down) {
 		return m.moveChangeBy(m.keys.stepOf(msg))
-	case key.Matches(msg, m.keys.stage, m.keys.stageAll, m.keys.unstageAll, m.keys.discard):
-		return m.handleStagingKey(msg)
-	case key.Matches(msg, m.keys.commit, m.keys.amend, m.keys.fixup):
-		return m.handleCommitAction(msg)
-	case key.Matches(msg, m.keys.runHooks) && m.deps.Hooks.Run != nil:
-		return m.runPreCommit()
-	case key.Matches(msg, m.keys.hookConfig) && len(m.hookgen.hooks) > 0:
-		return m.openHookgen()
-	case key.Matches(msg, m.keys.refresh):
-		return m.refreshPane(paneCommits)
 	}
 
-	return m, nil
-}
-
-// handleStagingKey routes the keys that move changes into and out of the
-// index, or drop them.
-func (m Model) handleStagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.stage):
-		return m.toggleStaged()
-	case key.Matches(msg, m.keys.stageAll):
-		return m.stageAll()
-	case key.Matches(msg, m.keys.unstageAll):
-		return m.unstageAll()
-	default:
-		return m.previewDiscard()
-	}
+	return m.answer(m.commitsOffers(), msg)
 }
 
 // moveChangeBy moves the selection delta files down, or up for a negative
@@ -303,11 +283,7 @@ func (m Model) pickChange(line, _ int, inRail bool) (Model, tea.Cmd) {
 
 // toggleStaged stages the selected file, or unstages it if it is wholly staged.
 func (m Model) toggleStaged() (Model, tea.Cmd) {
-	change, ok := m.changes.current()
-	if !ok || m.deps.Git.Stage == nil || m.deps.Git.Unstage == nil {
-		return m, nil
-	}
-
+	change, _ := m.changes.current()
 	unstage := change.IsStaged() && !change.HasUnstaged()
 
 	verb, act := "stage ", m.deps.Git.Stage
@@ -326,10 +302,6 @@ func (m Model) toggleStaged() (Model, tea.Cmd) {
 // every surface that stages all takes the same files.
 func (m Model) stageAll() (Model, tea.Cmd) {
 	pending := loop.Stageable(m.changes.changes)
-	if len(pending) == 0 || m.deps.Git.Stage == nil {
-		return m, nil
-	}
-
 	if m.dryRun {
 		return m.noticed("dry run: would stage " + plural(len(pending), "file")), nil
 	}
@@ -343,10 +315,6 @@ func (m Model) stageAll() (Model, tea.Cmd) {
 // once: it only undoes staging, which space or a can redo.
 func (m Model) unstageAll() (Model, tea.Cmd) {
 	count := m.changes.staged()
-	if count == 0 || m.deps.Git.Unstage == nil {
-		return m, nil
-	}
-
 	if m.dryRun {
 		return m.noticed("dry run: would unstage " + plural(count, "file")), nil
 	}
@@ -394,45 +362,8 @@ func (m Model) canFoldStaged() bool {
 	return len(loop.Foldable(m.changes.changes, m.branch.branch)) > 0
 }
 
-// foldKeys offers amending and fixing up, when there are staged changes and an
-// unpushed commit to fold them into.
-func (m Model) foldKeys() []key.Binding {
-	if !m.canFoldStaged() {
-		return nil
-	}
-
-	var keys []key.Binding
-
-	if m.deps.Git.Amend != nil {
-		keys = append(keys, m.keys.amend)
-	}
-
-	if m.deps.Git.Fixup != nil {
-		keys = append(keys, m.keys.fixup)
-	}
-
-	return keys
-}
-
-// handleCommitAction routes the keys that turn staged changes into a commit: a
-// new one, an amend of the last, or a fixup of a chosen one.
-func (m Model) handleCommitAction(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.commit):
-		return m.openCommitComposer()
-	case key.Matches(msg, m.keys.amend):
-		return m.startAmend()
-	default:
-		return m.openFixupPicker()
-	}
-}
-
 // startAmend previews folding the staged changes into the last commit.
 func (m Model) startAmend() (Model, tea.Cmd) {
-	if m.deps.Git.Amend == nil || !m.canFoldStaged() {
-		return m, nil
-	}
-
 	unpushed := m.branch.branch.Unpushed()
 	m.overlay = amendPreview{subject: unpushed[len(unpushed)-1].Subject}
 

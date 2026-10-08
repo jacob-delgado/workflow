@@ -79,7 +79,7 @@ var (
 // starts with the forge's name for you, when it is known: assigning one to
 // yourself is the usual reason to open it.
 func (m Model) openAssign() (Model, tea.Cmd) {
-	return m.openIssueWrite(m.deps.Jira.Assign != nil, func(issue jira.Issue) (issueAction, string) {
+	return m.openIssueWrite(func(issue jira.Issue) (issueAction, string) {
 		start := ""
 		if isForgeKey(issue.Key) {
 			start = m.messaging.author
@@ -92,20 +92,13 @@ func (m Model) openAssign() (Model, tea.Cmd) {
 // openLogWork opens the log-work form on the selected issue, which a forge
 // issue has no equivalent for.
 func (m Model) openLogWork() (Model, tea.Cmd) {
-	selected, _ := m.issues.current()
-
-	return m.openIssueWrite(m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key),
-		func(jira.Issue) (issueAction, string) { return worklogAction(m.deps.Jira.AddWorklog), "" })
+	return m.openIssueWrite(func(jira.Issue) (issueAction, string) { return worklogAction(m.deps.Jira.AddWorklog), "" })
 }
 
-// openIssueWrite opens a write form on the selected issue, when there is one and
-// the action's seam is present, holding the text build starts it with.
-func (m Model) openIssueWrite(available bool, build func(jira.Issue) (issueAction, string)) (Model, tea.Cmd) {
-	selected, ok := m.issues.current()
-	if !ok || !available {
-		return m, nil
-	}
-
+// openIssueWrite opens a write form on the selected issue, holding the text
+// build starts it with.
+func (m Model) openIssueWrite(build func(jira.Issue) (issueAction, string)) (Model, tea.Cmd) {
+	selected, _ := m.issues.current()
 	action, start := build(selected)
 	m.overlay = issueWrite{
 		marks: m.marks, styles: m.styles, issue: selected, action: action, input: newInput(start),

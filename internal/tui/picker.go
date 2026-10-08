@@ -208,10 +208,7 @@ var (
 // openStatusPicker opens the picker on the selected issue and starts listing its
 // transitions.
 func (m Model) openStatusPicker() (Model, tea.Cmd) {
-	selected, ok := m.issues.current()
-	if !ok {
-		return m, nil
-	}
+	selected, _ := m.issues.current()
 
 	return m.pickStatusFor(selected, statusOffer{})
 }
@@ -440,10 +437,6 @@ var (
 // openFixupPicker offers the branch's unpushed commits, the most recent first so
 // the likeliest target is the default selection.
 func (m Model) openFixupPicker() (Model, tea.Cmd) {
-	if m.deps.Git.Fixup == nil || !m.canFoldStaged() {
-		return m, nil
-	}
-
 	newestFirst := slices.Clone(m.branch.branch.Unpushed())
 	slices.Reverse(newestFirst)
 	m.overlay = fixupPicker{marks: m.marks, styles: m.styles, commits: pickList[gitrepo.Commit]{items: newestFirst}}

@@ -215,3 +215,48 @@ func (m Model) switchTo(target pane) (Model, tea.Cmd) {
 
 	return m.refreshPane(target)
 }
+
+// offer is one of a pane's keys: the binding its footer names, whether it acts
+// right now, what it does when it does, and, for a key that explains itself,
+// why it cannot when it cannot. A pane lists its offers once, and its footer
+// and its key handler both read that list, so a key the footer leaves out
+// never acts.
+type offer struct {
+	binding key.Binding
+	can     bool
+	act     func() (Model, tea.Cmd)
+	refusal error
+}
+
+// liveKeys is the bindings of the offers that act right now, in order, for a
+// footer.
+func liveKeys(offers []offer) []key.Binding {
+	var keys []key.Binding
+
+	for _, each := range offers {
+		if each.can {
+			keys = append(keys, each.binding)
+		}
+	}
+
+	return keys
+}
+
+// answer acts on the first offer msg presses that acts right now, or, when
+// none does, says why the first it presses that explains itself cannot. A key
+// no offer takes does nothing.
+func (m Model) answer(offers []offer, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	for _, each := range offers {
+		if each.can && key.Matches(msg, each.binding) {
+			return each.act()
+		}
+	}
+
+	for _, each := range offers {
+		if each.refusal != nil && key.Matches(msg, each.binding) {
+			return m.noticedGuidance(each.refusal), nil
+		}
+	}
+
+	return m, nil
+}
