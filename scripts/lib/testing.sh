@@ -16,7 +16,8 @@
 #   expect_output <want> <name> <text> <command> [arg...]
 #
 # where <want> is pass (exit 0), fail (any other exit) or an exact status, and
-# <text> must appear in what the command printed. The command runs in a
+# <text> must appear in what the command printed, as written: a text of two
+# lines wants those two lines together. The command runs in a
 # subshell, so a `cd` or an `exit` in it stays there; it may be a function of
 # the test's own, and `run_in <dir> <command>` runs one from a directory. What
 # it printed is kept in the file ${case_output} names, and shown when the case
@@ -111,7 +112,7 @@ expect_output() {
   shift 3
   run_case "$@"
 
-  if ! exit_matches "${want}" "${case_status}" || ! grep -qF -- "${text}" "${case_output}"; then
+  if ! exit_matches "${want}" "${case_status}" || [[ "$(<"${case_output}")" != *"${text}"* ]]; then
     fail_case "${name}" "want ${want} saying '${text}', got exit ${case_status}:"
     show_output
   fi
