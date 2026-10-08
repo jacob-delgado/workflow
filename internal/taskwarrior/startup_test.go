@@ -5,7 +5,6 @@ package taskwarrior_test
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -47,31 +46,24 @@ func TestDetectProbesFromTheFilesystemRoot(t *testing.T) {
 	}
 }
 
-func TestDetectProbesARelativeProgramByItsFullPath(t *testing.T) {
+func TestDetectNeverRunsAProgramRelativeToTheWorkingDirectory(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	relative := filepath.Join("bin", taskProgram)
+	for _, relative := range []string{filepath.Join("bin", taskProgram), "." + string(filepath.Separator) + taskProgram} {
+		t.Run(relative, func(t *testing.T) {
+			t.Parallel()
 
-	workDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("reading the working directory: %v", err)
-	}
+			// Arrange
+			fake := &fakeTask{replies: map[string]reply{versionWord: {stdout: versionAnswer}, showWord: {stdout: ""}}}
 
-	fake := &fakeTask{replies: map[string]reply{versionWord: {stdout: versionAnswer}, showWord: {stdout: ""}}}
+			// Act
+			_, err := taskwarrior.Detect(t.Context(), relative, nil, fake.run)
 
-	// Act
-	install, err := taskwarrior.Detect(t.Context(), relative, nil, fake.run)
-	// Assert
-	if err != nil || install.Program != relative {
-		t.Fatalf("Detect = %+v, %v; want %s", install, err, relative)
-	}
-
-	want := filepath.Join(workDir, relative)
-	for _, run := range fake.calls {
-		if run.program != want {
-			t.Errorf("Detect ran %s from the root, want %s, the program the working directory names", run.program, want)
-		}
+			// Assert
+			if !errors.Is(err, taskwarrior.ErrRelativeProgram) || len(fake.calls) != 0 {
+				t.Errorf("Detect = %v after running %+v; want ErrRelativeProgram and nothing run", err, fake.calls)
+			}
+		})
 	}
 }
 
