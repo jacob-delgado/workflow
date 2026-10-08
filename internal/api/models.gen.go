@@ -2392,7 +2392,7 @@ type Snapshot struct {
 	UnstartedStages []Stage `json:"unstarted_stages"`
 }
 
-// Stage One stage of the loop for the checked-out branch.
+// Stage One stage of the loop for an issue's work: the checked-out branch's (Snapshot.stages), another branch's as the server knows it without checking it out (TaskBranch.stages), or an issue's not yet branched for (Snapshot.unstarted_stages).
 type Stage struct {
 	// Name The stage as every surface titles it, as the terminal's spine and `workflow status` name it: Issue, Branch, Commits, Review, and the messaging service the work is announced on, as the configuration names it.
 	//
