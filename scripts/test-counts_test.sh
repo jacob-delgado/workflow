@@ -12,12 +12,8 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly counts="${here}/test-counts.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # Two passes, a skip and a failure, and a package-level pass left out.
 cat >"${workdir}/go.json" <<'EOF_GO'
@@ -60,22 +56,15 @@ cat >"${workdir}/playwright-nostart.json" <<'EOF_NOSTART'
 {"stats":{"expected":0,"skipped":0,"unexpected":0,"flaky":0},"errors":[{"message":"webServer timed out"}]}
 EOF_NOSTART
 
-# fail records a failed case with its reason.
-#   fail <name> <reason>
-fail() {
-  echo "FAIL ${1}: ${2}" >&2
-  failures=$((failures + 1))
-}
-
 # expect runs test-counts.sh and compares its output with want.
 #   expect <name> <want> <args>...
 expect() {
   local name="${1}" want="${2}" got
   shift 2
-  cases=$((cases + 1))
+  count_case
   got="$("${counts}" "$@" 2>/dev/null || echo "exit $?")"
   if [[ "${got}" != "${want}" ]]; then
-    fail "${name}" "want ${want}, got ${got}"
+    fail_case "${name}" "want ${want}, got ${got}"
   fi
 }
 
@@ -99,19 +88,7 @@ expect "a run that never started counts its errors as failed" '{"suite":"E2E","p
 expect "go events with no test at all" '{"suite":"Go unit","passed":null,"skipped":null,"failed":null}' \
   go "${workdir}/broken.json" "Go unit"
 
-# Act: an unknown kind of report.
-cases=$((cases + 1))
-status=0
-"${counts}" junit "${workdir}/go.json" "Go unit" >/dev/null 2>&1 || status=$?
+# Act & Assert: an unknown kind of report is refused rather than guessed at.
+expect_exit 2 "unknown kind" "${counts}" junit "${workdir}/go.json" "Go unit"
 
-# Assert: it refuses rather than guess.
-if ((status != 2)); then
-  fail "unknown kind" "want exit 2, got ${status}"
-fi
-
-if ((failures > 0)); then
-  echo "test-counts_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "test-counts_test: ${cases} case(s) passed."
+finish_tests

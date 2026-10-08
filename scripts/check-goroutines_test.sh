@@ -8,37 +8,16 @@
 #   scripts/check-goroutines_test.sh
 set -euo pipefail
 
-# A git hook or `git rebase --exec` exports the variables that locate its
-# repository; the repositories this test builds must not inherit them.
-# shellcheck disable=SC2046 # word splitting is the point: one name per word
-unset $(git rev-parse --local-env-vars)
-
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly check="${here}/check-goroutines.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # expect runs the gate in a directory and compares its exit to pass or fail.
 #   expect <pass|fail> <name> <dir>
 expect() {
-  local want="$1" name="$2" dir="$3" got
-  cases=$((cases + 1))
-
-  if (cd "${dir}" && "${check}") >/dev/null 2>&1; then
-    got="pass"
-  else
-    got="fail"
-  fi
-
-  if [[ "${got}" != "${want}" ]]; then
-    echo "FAIL ${name}: want ${want}, got ${got}" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit "$1" "$2" run_in "$3" "${check}"
 }
 
 # goroutine writes a Go file that starts one; plain writes one that does not.
@@ -121,9 +100,4 @@ mkdir -p "${notrepo}"
 goroutine >"${notrepo}/run.go"
 expect fail "a directory that is not a repository" "${notrepo}"
 
-if ((failures > 0)); then
-  echo "check-goroutines_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "check-goroutines_test: ${cases} case(s) passed."
+finish_tests

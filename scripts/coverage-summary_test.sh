@@ -11,12 +11,8 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly summary="${here}/coverage-summary.sh"
 
-workdir="$(mktemp -d)"
-readonly workdir
-trap 'rm -rf "${workdir}"' EXIT
-
-failures=0
-cases=0
+# shellcheck source=lib/testing.sh
+source "${here}/lib/testing.sh"
 
 # The same minimal 50%-covered module coverage-gate's own test uses; the summary
 # reads the statement number through the gate, so it must run from here.
@@ -53,29 +49,20 @@ printf '[{"TrueCount":1,"FalseCount":0}]\n' >"${stats}/pkg.json"
 # expect_fail runs the summary from the module and requires a non-zero exit.
 #   expect_fail <name> <arg>...
 expect_fail() {
-  local name="$1"
-  shift
-  cases=$((cases + 1))
-
-  if (cd "${module}" && "${summary}" "$@") >/dev/null 2>&1; then
-    echo "FAIL ${name}: want fail, got pass" >&2
-    failures=$((failures + 1))
-  fi
+  expect_exit fail "$1" run_in "${module}" "${summary}" "${@:2}"
 }
 
 # A valid profile and stats directory produce both metrics and nothing else:
 # half the statements ran, and one of the one condition's two arms was seen.
 # They are compared as numbers, since jq keeps the gate's "50.0" as written.
-cases=$((cases + 1))
+count_case
 if out="$(cd "${module}" && "${summary}" "${profile}" "${stats}")"; then
   if ! jq -e 'keys == ["branch", "statements"] and .statements == 50 and .branch == 50' \
     <<<"${out}" >/dev/null 2>&1; then
-    echo "FAIL summary: want statements 50 and branch 50, got ${out}" >&2
-    failures=$((failures + 1))
+    fail_case "summary" "want statements 50 and branch 50, got ${out}"
   fi
 else
-  echo "FAIL summary on valid inputs: exited non-zero" >&2
-  failures=$((failures + 1))
+  fail_case "summary on valid inputs" "exited non-zero"
 fi
 
 # A missing stats directory argument fails rather than summarizing half.
@@ -84,9 +71,4 @@ expect_fail "no stats directory argument" "${profile}"
 # No arguments at all fails.
 expect_fail "no arguments"
 
-if ((failures > 0)); then
-  echo "coverage-summary_test: ${failures} of ${cases} case(s) failed." >&2
-  exit 1
-fi
-
-echo "coverage-summary_test: ${cases} case(s) passed."
+finish_tests
