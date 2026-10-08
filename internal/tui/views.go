@@ -52,7 +52,7 @@ func (m Model) nextIssueView() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.viewIndex = (m.viewIndex + 1) % len(m.views)
+	m.viewIndex = around(m.viewIndex, len(m.views)).next()
 
 	previous := m.issues
 	m.issues = issueList{
