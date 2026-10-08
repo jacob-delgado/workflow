@@ -67,20 +67,9 @@ func sizedInput(input textinput.Model, width int) textinput.Model {
 	return input
 }
 
-// openAddLine opens a line whose words become a new task.
-func (m Model) openAddLine() (Model, tea.Cmd) {
-	return m.openTaskLine(taskLine{title: "Add a task", command: addCommand, write: addLine(m.deps.Tasks.Add)}, "")
-}
-
-// openAnnotateLine opens a line whose words are added to the selected task as an
-// annotation.
-func (m Model) openAnnotateLine() (Model, tea.Cmd) {
-	return m.openSelectedTaskLine("Annotate", "annotate", "annotated", m.deps.Tasks.Annotate)
-}
-
-// openModifyLine opens a line whose words change the selected task.
-func (m Model) openModifyLine() (Model, tea.Cmd) {
-	return m.openSelectedTaskLine("Modify", "modify", "modified", m.deps.Tasks.Modify)
+// addTaskLine is a line whose words become a new task.
+func addTaskLine(add func(line string) (string, error)) taskLine {
+	return taskLine{title: "Add a task", command: addCommand, write: addLine(add)}
 }
 
 // openSelectedTaskLine opens a line for a command on the selected task: title

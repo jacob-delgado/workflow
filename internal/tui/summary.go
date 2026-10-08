@@ -110,16 +110,6 @@ func (s summaryState) shownPeriod(now time.Time) activity.Period {
 	return activity.PreviousWorkingDay(activity.DateOf(now))
 }
 
-// refreshSummary reads the period shown, unless it has ended and every source
-// has read it in full: what was done then will not change.
-func (m Model) refreshSummary() (Model, tea.Cmd) {
-	if m.summary.readInFull() && m.summary.period.To.Before(today(m.deps)) {
-		return m, nil
-	}
-
-	return m.readSummary()
-}
-
 // loading reports a read of the period shown that some source has not
 // answered yet.
 func (s summaryState) loading() bool {
@@ -135,28 +125,37 @@ func (s summaryState) readInFull() bool {
 	})
 }
 
-// readSummary asks every source the deps reach for the period shown, each on
-// its own, so each fills in or fails as it answers.
-func (m Model) readSummary() (Model, tea.Cmd) {
-	m.summary.period, m.summary.chosen = m.summary.shownPeriod(m.deps.now()), true
-	m.summary.reading++
-	m.summary.reads, m.summary.complete = nil, false
+// read asks every source the deps reach for the period shown, each on its
+// own, so each fills in or fails as it answers.
+func (s summaryState) read(deps Deps) (summaryState, tea.Cmd) {
+	s.period, s.chosen = s.shownPeriod(deps.now()), true
+	s.reading++
+	s.reads, s.complete = nil, false
 
-	start, end := m.summary.period.Bounds(m.deps.now().Location())
-	reads := summaryReads(m.deps, start, end)
-	reading := m.summary.reading
+	start, end := s.period.Bounds(deps.now().Location())
+	reads := summaryReads(deps, start, end)
+	reading := s.reading
 
-	m.summary.asking = make([]activity.Source, 0, len(reads))
+	s.asking = make([]activity.Source, 0, len(reads))
 	commands := make([]tea.Cmd, 0, len(reads))
 
 	for _, source := range reads {
-		m.summary.asking = append(m.summary.asking, source.Source)
+		s.asking = append(s.asking, source.Source)
 		commands = append(commands, func() tea.Msg { return summaryAnswered{reading: reading, read: source.Read()} })
 	}
 
-	m.summary.complete = len(reads) == 0
+	s.complete = len(reads) == 0
 
-	return m, tea.Batch(commands...)
+	return s, tea.Batch(commands...)
+}
+
+// readSummary reads the period the Summary pane shows.
+func (m Model) readSummary() (Model, tea.Cmd) {
+	var read tea.Cmd
+
+	m.summary, read = m.summary.read(m.deps)
+
+	return m, read
 }
 
 // summaryReads are the reads of each source the deps reach, from start up to
@@ -192,50 +191,54 @@ func (s summaryState) items(now time.Time) []activity.Item {
 	return items
 }
 
-// stepSummary shows the period steps of its own length later, or earlier when
+// stepped shows the period steps of its own length later, or earlier when
 // steps is negative, and reads it once the keys rest; never one that starts
 // after today.
-func (m Model) stepSummary(steps int) (Model, tea.Cmd) {
-	moved := m.summary.shownPeriod(m.deps.now()).Step(steps)
-	if today(m.deps).Before(moved.From) {
-		return m, nil
+func (s summaryState) stepped(deps Deps, steps int) (summaryState, tea.Cmd) {
+	moved := s.shownPeriod(deps.now()).Step(steps)
+	if today(deps).Before(moved.From) {
+		return s, nil
 	}
 
-	m.summary.period, m.summary.chosen = moved, true
-	m.summary.reading++
-	m.summary.reads, m.summary.asking, m.summary.complete = nil, nil, false
-	m.summary.selected, m.summary.scroll = 0, 0
+	s.period, s.chosen = moved, true
+	s.reading++
+	s.reads, s.asking, s.complete = nil, nil, false
+	s.selected, s.scroll = 0, 0
 
-	reading := m.summary.reading
+	reading := s.reading
 
-	return m, m.deps.after(summaryRest, func(time.Time) tea.Msg { return summaryRested{reading: reading} })
+	return s, deps.after(summaryRest, func(time.Time) tea.Msg { return summaryRested{reading: reading} })
 }
 
-// showToday shows today and reads it at once.
-func (m Model) showToday() (Model, tea.Cmd) {
-	m.summary.period = activity.Period{From: today(m.deps), To: today(m.deps)}
-	m.summary.chosen, m.summary.selected, m.summary.scroll = true, 0, 0
+// onToday shows today, to be read at once.
+func (s summaryState) onToday(deps Deps) summaryState {
+	s.period = activity.Period{From: today(deps), To: today(deps)}
+	s.chosen, s.selected, s.scroll = true, 0, 0
 
-	return m.readSummary()
+	return s
 }
 
 // handleSummaryKey answers the Summary pane's keys: those that choose the
 // period, and those that act on what it lists.
 func (m Model) handleSummaryKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch {
 	case key.Matches(msg, m.keys.earlier):
-		return m.stepSummary(-1)
+		m.summary, cmd = m.summary.stepped(m.deps, -1)
 	case key.Matches(msg, m.keys.later):
-		return m.stepSummary(1)
+		m.summary, cmd = m.summary.stepped(m.deps, 1)
 	case key.Matches(msg, m.keys.today):
-		return m.showToday()
+		m.summary, cmd = m.summary.onToday(m.deps).read(m.deps)
 	case key.Matches(msg, m.keys.calendar):
 		return m.openCalendar()
 	case key.Matches(msg, m.keys.refresh):
 		return m.readSummary()
+	default:
+		return m.handleSummaryListKey(msg)
 	}
 
-	return m.handleSummaryListKey(msg)
+	return m, cmd
 }
 
 // handleSummaryListKey answers the keys that act on what the Summary lists:
@@ -437,8 +440,17 @@ func summaryBehavior() behavior {
 
 			return m, nil
 		},
-		refresh: Model.refreshSummary, loading: func(m Model) bool { return m.summary.loading() },
-		scroll: func(m *Model) *int { return &m.summary.scroll }, listInDetail: true,
+		// refresh reads the period shown, unless it has ended and every source
+		// has read it in full: what was done then will not change.
+		refresh: func(m Model) (Model, tea.Cmd) {
+			if m.summary.readInFull() && m.summary.period.To.Before(today(m.deps)) {
+				return m, nil
+			}
+
+			return m.readSummary()
+		},
+		loading: func(m Model) bool { return m.summary.loading() },
+		scroll:  func(m *Model) *int { return &m.summary.scroll }, listInDetail: true,
 		answers: []string{
 			"earlier", "later", "today", "calendar", "copy-summary", "post-summary", actionOpenLink, actionCopyLink,
 			actionRefresh,

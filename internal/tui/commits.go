@@ -55,16 +55,7 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 	// read rather than trust loadDiff's path guard.
 	m.diff = diffState{}
 
-	return m, m.loadDiff()
-}
-
-// refreshCommits reads the work tree again, and the branch and the hooks with
-// it.
-func (m Model) refreshCommits() (Model, tea.Cmd) {
-	read := loadChanges(m.deps)
-	m.changes.loading = read != nil
-
-	return m, tea.Batch(read, loadBranch(m.deps), findHooks(m.deps))
+	return m, m.diff.load(m.deps.Git.Diff, m.changes)
 }
 
 // loadChanges is the command that reads the work tree's status.
@@ -157,7 +148,9 @@ func (m Model) commitsDetail(width int) string {
 			m.keys.hookConfig.Help().Key+" to set up lefthook."))
 	}
 
-	lines = append(lines, m.diffSection(width)...)
+	if change, selected := m.changes.current(); selected && m.deps.Git.Diff != nil {
+		lines = append(lines, m.diff.section(m.kit(), change, width)...)
+	}
 
 	return strings.Join(lines, "\n")
 }
@@ -211,11 +204,6 @@ func (m Model) commitsOffers() []offer {
 	})
 }
 
-// commitsKeys is the Commits pane's footer: the offers that act right now.
-func (m Model) commitsKeys() []key.Binding {
-	return liveKeys(m.commitsOffers())
-}
-
 // stagingOffers are moving the changes into and out of the index, and
 // dropping the selected one.
 func (m Model) stagingOffers() []offer {
@@ -241,7 +229,7 @@ func (m Model) committingOffers() []offer {
 		commit.refusal = loop.RefuseNothingStaged(m.changes.changes)
 	}
 
-	foldable := m.canFoldStaged()
+	foldable := m.changes.canFold(m.branch.branch)
 
 	return []offer{
 		commit,
@@ -268,7 +256,7 @@ func (m Model) moveChangeBy(delta int) (Model, tea.Cmd) {
 
 	m.changes = m.changes.following(m.detailRows())
 
-	return m, m.loadDiff()
+	return m, m.diff.load(m.deps.Git.Diff, m.changes)
 }
 
 // pickChange selects the file on a clicked line of the detail.
@@ -280,7 +268,7 @@ func (m Model) pickChange(line, _ int, inRail bool) (Model, tea.Cmd) {
 
 	m.changes.selected = index
 
-	return m, m.loadDiff()
+	return m, m.diff.load(m.deps.Git.Diff, m.changes)
 }
 
 // toggleStaged stages the selected file, or unstages it if it is wholly staged.
@@ -364,9 +352,18 @@ func commitsBehavior() behavior {
 	return behavior{
 		rail:   func(m Model, _ int) string { return m.changes.rail(m.kit(), len(m.branch.branch.Commits)) },
 		detail: Model.commitsDetail, narrow: nil,
-		keys: Model.commitsKeys, handle: Model.handleCommitsKey, pick: Model.pickChange, move: Model.moveChangeBy,
-		refresh: Model.refreshCommits, loading: func(m Model) bool { return m.changes.loading },
-		scroll: func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,
+		keys:   func(m Model) []key.Binding { return liveKeys(m.commitsOffers()) },
+		handle: Model.handleCommitsKey, pick: Model.pickChange, move: Model.moveChangeBy,
+		// refresh reads the work tree again, and the branch and the hooks with
+		// it.
+		refresh: func(m Model) (Model, tea.Cmd) {
+			read := loadChanges(m.deps)
+			m.changes.loading = read != nil
+
+			return m, tea.Batch(read, loadBranch(m.deps), findHooks(m.deps))
+		},
+		loading: func(m Model) bool { return m.changes.loading },
+		scroll:  func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,
 		answers: []string{
 			"stage", "stage-all", "unstage-all", "discard-change", "commit", "amend", "fixup", "run-pre-commit",
 			"set-up-lefthook", actionRefresh,

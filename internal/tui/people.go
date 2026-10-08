@@ -78,9 +78,9 @@ var (
 // them, as a dry run's cannot, and a Slack user token that can read the
 // directory they are made from: the directory's seams may be bound where
 // messaging posts some other way, and then only refuse.
-func (m Model) managesPeople() bool {
-	return m.cfg.Messaging.Mode() == config.MessagingUser && m.deps.Store.OwnerLinks != nil &&
-		m.deps.Store.LinkOwner != nil && m.deps.Messaging.ChannelMembers != nil
+func managesPeople(cfg config.Config, deps Deps) bool {
+	return cfg.Messaging.Mode() == config.MessagingUser && deps.Store.OwnerLinks != nil &&
+		deps.Store.LinkOwner != nil && deps.Messaging.ChannelMembers != nil
 }
 
 // openPeople opens People and groups and starts reading everything it shows.
@@ -89,7 +89,7 @@ func (m Model) openPeople() (Model, tea.Cmd) {
 
 	m, opened := m.opening()
 	people := peopleOverlay{
-		reading: true, repoReading: true, channel: m.defaultChannel(),
+		reading: true, repoReading: true, channel: defaultChannel(m.cfg),
 		opened: opened,
 	}
 	people.members, readMembers = readChannelMembers(m.deps, people.channel, opened)

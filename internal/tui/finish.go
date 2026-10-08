@@ -25,12 +25,12 @@ func (m Model) mergedDetail(pull forge.PullRequest) string {
 		m.marks.done + " merged",
 	}
 
-	if m.canFinish() {
+	if m.review.canFinish(m.deps, m.branch) {
 		lines = append(lines, "", m.keys.finish.Help().Key+" finishes the branch: switch to "+
 			m.branch.branch.BaseName()+", pull, delete it.")
 	}
 
-	if m.canOpenPullRequest() {
+	if m.review.canOpenPull(m.deps, m.branch) {
 		lines = append(lines, "", m.keys.newPullRequest.Help().Key+" opens a new "+m.vocab.noun+
 			" from this branch's commits.")
 	}
@@ -41,15 +41,14 @@ func (m Model) mergedDetail(pull forge.PullRequest) string {
 // canFinish reports a merged branch that can be finished: its pull request
 // merged, we are on the feature branch with a base to return to, the repository
 // can finish it, and no unpushed commits would be lost to the force delete.
-func (m Model) canFinish() bool {
-	return m.review.found && m.deps.Git.Finish != nil && m.branch.onFeatureBranch() &&
-		loop.CanFinish(m.review.pull, m.branch.branch)
+func (s reviewState) canFinish(deps Deps, branch branchState) bool {
+	return s.found && deps.Git.Finish != nil && branch.onFeatureBranch() && loop.CanFinish(s.pull, branch.branch)
 }
 
 // startFinish opens the finish preview: the three git commands that switch to
 // base, catch it up, and delete the merged branch.
 func (m Model) startFinish() (Model, tea.Cmd) {
-	if !m.canFinish() {
+	if !m.review.canFinish(m.deps, m.branch) {
 		return m, nil
 	}
 

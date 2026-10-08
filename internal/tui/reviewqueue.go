@@ -63,14 +63,6 @@ func (s reviewQueueState) listed(previous forge.ReviewRequest, rows int) reviewQ
 	return s.following(rows)
 }
 
-// refreshReviewQueue reads the review queue again.
-func (m Model) refreshReviewQueue() (Model, tea.Cmd) {
-	read := loadReviewQueue(m.deps)
-	m.reviewQueue.loading = read != nil
-
-	return m, read
-}
-
 // loadReviewQueue is the command that reads the review queue from the forge.
 func loadReviewQueue(deps Deps) tea.Cmd {
 	list := deps.Forge.ReviewRequests
@@ -414,7 +406,13 @@ func reviewQueueBehavior() behavior {
 
 			return m, nil
 		},
-		refresh: Model.refreshReviewQueue,
+		// refresh reads the review queue again.
+		refresh: func(m Model) (Model, tea.Cmd) {
+			read := loadReviewQueue(m.deps)
+			m.reviewQueue.loading = read != nil
+
+			return m, read
+		},
 		loading: func(m Model) bool { return m.reviewQueue.loading },
 		scroll:  func(m *Model) *int { return &m.reviewQueue.scroll }, listInDetail: true,
 		answers: []string{"sort-reviews", "filter-reviews", actionOpenLink, actionCopyLink, actionRefresh},

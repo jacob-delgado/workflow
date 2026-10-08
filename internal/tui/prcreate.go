@@ -132,7 +132,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	// watches Jira learns of it — and then to move it to the review status. When
 	// Jira cannot take the link, go straight to the status offer. Noting it on the
 	// issue's task is offered once those are answered.
-	issueKey, named := m.jiraIssue()
+	issueKey, named := m.branch.jiraIssue(m.cfg.Jira.Project)
 	if named {
 		m.followUp = m.offerAnnotate(issueKey, msg.pull)
 	}

@@ -129,14 +129,6 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 	return m.withTaskWords().loadDetail()
 }
 
-// refreshTasks asks Taskwarrior again.
-func (m Model) refreshTasks() (Model, tea.Cmd) {
-	read := m.tasks.load(m.deps)
-	m.tasks.loading = read != nil
-
-	return m, read
-}
-
 // load is the command that asks Taskwarrior which it is, then its pending
 // tasks, then the tasks linked to issues, in one command; nil when there is no
 // task program to ask.
@@ -380,8 +372,15 @@ func tasksBehavior() behavior {
 		rail:   func(m Model, _ int) string { return m.tasks.rail(m.tasksView()) },
 		detail: func(m Model, width int) string { return m.tasks.detail(m.tasksView(), width) }, narrow: nil,
 		keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask, move: commandless(Model.moveTaskBy),
-		refresh: Model.refreshTasks, loading: func(m Model) bool { return m.tasks.loading },
-		scroll: func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
+		// refresh asks Taskwarrior again.
+		refresh: func(m Model) (Model, tea.Cmd) {
+			read := m.tasks.load(m.deps)
+			m.tasks.loading = read != nil
+
+			return m, read
+		},
+		loading: func(m Model) bool { return m.tasks.loading },
+		scroll:  func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
 		answers: []string{
 			"start-stop", "mark-done", "add-task", "annotate-task", "modify-task", "undo-task", "sync-tasks",
 			"search-tasks", "filter-tasks", "sort-tasks", actionOpenLink, actionCopyLink, actionRefresh,

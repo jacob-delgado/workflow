@@ -57,16 +57,6 @@ func forgeVocab(kind forge.Kind) reviewVocab {
 	return reviewVocab{noun: kind.Noun(), sigil: kind.Sigil()}
 }
 
-// refreshReview reads the branch again, which looks for its pull request, and
-// the find reads CI for the one it finds: so a refresh picks up a branch
-// switched in a shell, and never reads CI for a pull request since replaced.
-func (m Model) refreshReview() (Model, tea.Cmd) {
-	read := loadBranch(m.deps)
-	m.review.loading = read != nil
-
-	return m, read
-}
-
 // findPull is the command that looks for the branch's open pull request.
 func (s branchState) findPull(deps Deps) tea.Cmd {
 	find, branch := deps.Forge.FindPullRequest, s.branch.Name
@@ -161,7 +151,7 @@ func (m Model) reviewDetail(width int) string {
 			lines = append(lines, "", m.kit().failureBlock(m.review.err, width))
 		}
 
-		if m.canOpenPullRequest() {
+		if m.review.canOpenPull(m.deps, m.branch) {
 			lines = append(lines, "", m.keys.newPullRequest.Help().Key+
 				" opens one from this branch's commits and the repository's template.")
 		}
@@ -230,15 +220,14 @@ func mergeableLabel(mergeable forge.Mergeability) string {
 	return ""
 }
 
-// canOpenPullRequest reports a branch with commits and no open pull request —
+// canOpenPull reports a branch with commits and no open pull request —
 // none found, or only a merged one, whose branch may carry commits worth a new
 // one — as loop's refuseAnOpenPull allows. A failed find offers it all the
 // same, leaving the open to answer with the forge's reason, except for a
 // missing forge token, which no open gets past.
-func (m Model) canOpenPullRequest() bool {
-	return m.branch.onFeatureBranch() && len(m.branch.branch.Commits) > 0 && m.review.loaded &&
-		!errors.Is(m.review.err, forge.ErrNoToken) && !m.review.hasOpenPull() &&
-		m.deps.Forge.CreatePullRequest != nil
+func (s reviewState) canOpenPull(deps Deps, branch branchState) bool {
+	return branch.onFeatureBranch() && len(branch.branch.Commits) > 0 && s.loaded &&
+		!errors.Is(s.err, forge.ErrNoToken) && !s.hasOpenPull() && deps.Forge.CreatePullRequest != nil
 }
 
 // hasOpenPull reports a pull request found open on the branch. A find
@@ -262,7 +251,7 @@ func (m Model) reviewKeys() []key.Binding {
 
 	var keys []key.Binding
 
-	if m.canOpenPullRequest() {
+	if m.review.canOpenPull(m.deps, m.branch) {
 		keys = append(keys, m.keys.newPullRequest)
 	}
 
@@ -282,7 +271,7 @@ func (m Model) reviewKeys() []key.Binding {
 		keys = append(keys, m.keys.merge)
 	}
 
-	if m.canFinish() {
+	if m.review.canFinish(m.deps, m.branch) {
 		keys = append(keys, m.keys.finish)
 	}
 
@@ -323,7 +312,7 @@ func (m Model) handleReviewKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // a new one, or an edit of the open one.
 func (m Model) handleReviewCompose(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.newPullRequest) && m.canOpenPullRequest():
+	case key.Matches(msg, m.keys.newPullRequest) && m.review.canOpenPull(m.deps, m.branch):
 		return m.openPullRequestComposer()
 	case key.Matches(msg, m.keys.edit) && m.review.canEditPull(m.deps):
 		return m.openPullRequestEditor()
@@ -352,8 +341,17 @@ func reviewBehavior() behavior {
 		},
 		detail: Model.reviewDetail, narrow: nil,
 		keys: Model.reviewKeys, handle: Model.handleReviewKey, pick: nil,
-		refresh: Model.refreshReview, loading: func(m Model) bool { return m.review.loading },
-		scroll: func(m *Model) *int { return &m.review.scroll }, readsBranch: true,
+		// refresh reads the branch again, which looks for its pull request, and
+		// the find reads CI for the one it finds: so a refresh picks up a branch
+		// switched in a shell, and never reads CI for a pull request since replaced.
+		refresh: func(m Model) (Model, tea.Cmd) {
+			read := loadBranch(m.deps)
+			m.review.loading = read != nil
+
+			return m, read
+		},
+		loading: func(m Model) bool { return m.review.loading },
+		scroll:  func(m *Model) *int { return &m.review.scroll }, readsBranch: true,
 		answers: []string{
 			"open-pull-request", "edit", "checks", "rerun-checks", "merge", "finish-branch", actionOpenLink,
 			actionCopyLink, actionRefresh,

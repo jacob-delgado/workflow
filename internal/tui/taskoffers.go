@@ -16,21 +16,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
-// settled opens the follow-up once no overlay is open. Every route through
-// Update ends here, so an offer made while another overlay had the keyboard
-// opens the moment that overlay closes, and never on top of it.
-func (m Model) settled(cmd tea.Cmd) (Model, tea.Cmd) {
-	if m.overlay != nil || m.followUp == nil {
-		return m, cmd
-	}
-
-	open := m.followUp
-	m.followUp = nil
-	opened, more := open(m)
-
-	return opened, tea.Batch(cmd, more)
-}
-
 // canOffer reports whether a moment of the loop can offer a change of a task:
 // Taskwarrior takes writes, and has answered, so which issues are tracked is
 // known — an offer made after a failed read could track an issue twice.

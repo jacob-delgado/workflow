@@ -53,7 +53,7 @@ func (m Model) canPostSummary() bool {
 func (m Model) previewSummaryPost() (Model, tea.Cmd) {
 	m.overlay = summaryPost{
 		text:     sanitize.Text(m.summary.shown(m.deps.now()).Text(m.deps.now().Location())),
-		fallback: m.cfg.Messaging.Target(), channel: m.defaultChannel(), channels: m.cfg.Messaging.ChannelChoices(),
+		fallback: m.cfg.Messaging.Target(), channel: defaultChannel(m.cfg), channels: m.cfg.Messaging.ChannelChoices(),
 		service: m.cfg.Messaging.Service(), kind: m.cfg.Messaging.Kind,
 	}
 

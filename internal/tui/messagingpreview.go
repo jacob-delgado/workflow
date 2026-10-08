@@ -302,20 +302,20 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		m = m.closeOverlay()
 	}
 
-	return m.noticed(m.marks.done + " announced to " + msg.to + m.notKept(msg.err)), nil
+	return m.noticed(m.marks.done + " announced to " + msg.to + notKept(m.marks, msg.err)), nil
 }
 
 // notKept is what the notice adds of an announcement the store could not
 // remember, on its one row: the warning every surface says, then why. It adds
 // nothing when the store remembered it.
-func (m Model) notKept(err error) string {
+func notKept(marks glyphs, err error) string {
 	if err == nil {
 		return ""
 	}
 
 	why := strings.TrimPrefix(err.Error(), loop.ErrNotRemembered.Error()+": ")
 
-	return m.marks.separator + loop.NotRememberedWarning + " " + why
+	return marks.separator + loop.NotRememberedWarning + " " + why
 }
 
 // failed is the preview kept open with the reason the post failed.

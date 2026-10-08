@@ -235,7 +235,7 @@ func (m Model) work() progress.Work {
 		PullRequest:        m.review.pullState(),
 		CI:                 m.review.ci.State,
 		ChangesRequested:   m.review.pull.ChangesRequested,
-		Announced:          m.announced(),
+		Announced:          m.messaging.announced(m.review),
 		PostPending:        m.messaging.pending.waiting(),
 	}
 }
