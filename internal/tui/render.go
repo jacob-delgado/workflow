@@ -318,7 +318,7 @@ func (m Model) status(width int) string {
 	label := m.styles.label
 
 	lines := []string{
-		label.Render("config ") + m.shownFiles(m.cfg.Layers()),
+		label.Render("config ") + shownFiles(m.deps.Repositories.Home, m.cfg.Layers()),
 		label.Render("jira   ") + sanitize.Line(config.DisplayURL(m.cfg.Jira.BaseURL)) +
 			label.Render(m.marks.separator+m.cfg.Jira.AuthMode().String()),
 		label.Render(messagingLabel(m.cfg.Messaging.Service())) + sanitize.Line(m.cfg.Messaging.Target()) +

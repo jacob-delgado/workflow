@@ -288,7 +288,7 @@ func (m Model) lostOnLeaving() []string {
 // switchToSelected leaves for the directory the cursor is on, unless it is
 // where you work or is not there.
 func (m Model) switchToSelected() (Model, tea.Cmd) {
-	row := m.selectedRepository()
+	row := m.repositories.selectedRow(m.deps.Repositories.Here)
 
 	switch {
 	case row.here:

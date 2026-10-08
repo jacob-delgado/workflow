@@ -110,35 +110,35 @@ func (l changeList) staged() int {
 	return count
 }
 
-// commitsRail counts what is staged and changed, and the branch's commits.
-func (m Model) commitsRail(_ int) string {
+// rail counts what is staged and changed, and the branch's commits.
+func (l changeList) rail(kit renderKit, commits int) string {
 	switch {
-	case !m.changes.loaded:
-		return m.marks.reading()
-	case m.changes.err != nil:
-		return m.kit().unreadRow(m.changes.err, "status failed")
+	case !l.loaded:
+		return kit.marks.reading()
+	case l.err != nil:
+		return kit.unreadRow(l.err, "status failed")
 	}
 
-	counts := strconv.Itoa(m.changes.staged()) + " of " + strconv.Itoa(len(m.changes.changes)) + " staged"
+	counts := strconv.Itoa(l.staged()) + " of " + strconv.Itoa(len(l.changes)) + " staged"
 
-	return counts + "\n" + m.styles.label.Render(plural(len(m.branch.branch.Commits), "commit")+" on this branch")
+	return counts + "\n" + kit.styles.label.Render(plural(commits, "commit")+" on this branch")
 }
 
 // commitsDetail lists the changed files, then the branch's commits.
 func (m Model) commitsDetail(width int) string {
-	if m.outsideRepository() {
+	if m.branch.outsideRepository() {
 		return m.kit().failureBlock(m.branch.err, width)
 	}
 
 	if !m.changes.loaded {
-		return m.commitsRail(0)
+		return m.changes.rail(m.kit(), len(m.branch.branch.Commits))
 	}
 
 	if m.changes.err != nil {
 		return m.kit().failureBlock(m.changes.err, width)
 	}
 
-	lines := m.changeRows()
+	lines := m.changes.rows(m.marks)
 	if len(lines) == 0 {
 		lines = []string{"Nothing has changed."}
 	}
@@ -162,18 +162,18 @@ func (m Model) commitsDetail(width int) string {
 	return strings.Join(lines, "\n")
 }
 
-// changeRows draws each changed file: where it stands, git's two letters, and
-// its path — neutralized, because a file name can hold an escape sequence.
-func (m Model) changeRows() []string {
-	rows := make([]string, 0, len(m.changes.changes))
+// rows draws each changed file: where it stands, git's two letters, and its
+// path — neutralized, because a file name can hold an escape sequence.
+func (l changeList) rows(marks glyphs) []string {
+	rows := make([]string, 0, len(l.changes))
 
-	for index, change := range m.changes.changes {
+	for index, change := range l.changes {
 		path := sanitize.Line(change.Path)
 		if change.OriginalPath != "" {
-			path = sanitize.Line(change.OriginalPath) + m.marks.arrow + path
+			path = sanitize.Line(change.OriginalPath) + marks.arrow + path
 		}
 
-		rows = append(rows, m.marks.marker(index == m.changes.selected)+m.stageGlyph(change)+" "+
+		rows = append(rows, marks.marker(index == l.selected)+stageGlyph(marks, change)+" "+
 			fmt.Sprintf("%-11s", change.Kind())+path)
 	}
 
@@ -181,16 +181,16 @@ func (m Model) changeRows() []string {
 }
 
 // stageGlyph says by shape how much of a change is staged.
-func (m Model) stageGlyph(change gitrepo.Change) string {
+func stageGlyph(marks glyphs, change gitrepo.Change) string {
 	switch {
 	case change.Conflicted():
-		return m.marks.failed
+		return marks.failed
 	case change.IsStaged() && change.HasUnstaged():
-		return m.marks.inFlight
+		return marks.inFlight
 	case change.IsStaged():
-		return m.marks.done
+		return marks.done
 	default:
-		return m.marks.notStarted
+		return marks.notStarted
 	}
 }
 
@@ -200,7 +200,7 @@ func (m Model) stageGlyph(change gitrepo.Change) string {
 // hooks, offering lefthook for the repository's own, and reading it all again.
 // Outside a repository there is nothing to act on, and none is offered.
 func (m Model) commitsOffers() []offer {
-	if m.outsideRepository() {
+	if m.branch.outsideRepository() {
 		return nil
 	}
 
@@ -362,7 +362,8 @@ func preCommitRun() runKind {
 // commitsBehavior is the Commits pane's behavior.
 func commitsBehavior() behavior {
 	return behavior{
-		rail: Model.commitsRail, detail: Model.commitsDetail, narrow: nil,
+		rail:   func(m Model, _ int) string { return m.changes.rail(m.kit(), len(m.branch.branch.Commits)) },
+		detail: Model.commitsDetail, narrow: nil,
 		keys: Model.commitsKeys, handle: Model.handleCommitsKey, pick: Model.pickChange, move: Model.moveChangeBy,
 		refresh: Model.refreshCommits, loading: func(m Model) bool { return m.changes.loading },
 		scroll: func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,

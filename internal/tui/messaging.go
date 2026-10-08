@@ -128,7 +128,7 @@ func (msg authorFound) apply(m Model) (Model, tea.Cmd) {
 // from what the interface already holds: the author it read, the pull request
 // on screen, and the listed issue.
 func (m Model) announcement(moment messaging.Moment) string {
-	issueKey, _ := m.branchIssue()
+	issueKey, _ := m.branch.issue(m.cfg.Jira.Project)
 	issue, _ := m.issues.find(issueKey)
 
 	return loop.Announcement(loop.AnnouncementFacts{
