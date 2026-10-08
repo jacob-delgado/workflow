@@ -173,6 +173,12 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 			"Slack refused the client ID, client secret or refresh token; check them, then save again"))
 	}
 
+	if errors.Is(err, config.ErrCredentialInRepository) || errors.Is(err, config.ErrHomeOnly) {
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+			"a credential typed here, a token command or variable, or a task program is kept in the home "+
+				"directory's file, never in the repository's; set it there"))
+	}
+
 	if err != nil {
 		return problemAnswer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
