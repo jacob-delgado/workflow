@@ -21,13 +21,11 @@
 # The score is arms observed / arms present: every condition has two arms, and a
 # condition seen only one way scores 1 of 2.
 #
-# THE SKIP LIST IS THE HONEST PART, and it holds only build-tagged twins. Any
-# package named in UNANALYZABLE below is one this gate does not measure, with
-# the reason written beside it. A package that fails and is NOT on the list is a
-# hard error: a report that quietly dropped a package would still print a
-# healthy percentage while measuring less and less of the code, which is the one
-# failure mode a coverage gate must not have. The corollary is that adding an
-# entry is a real decision, never a way to make a red run green.
+# EVERY PACKAGE WITH TESTS IS MEASURED, and there is no skip list: one without
+# tests is named in NO_TESTS below, with the reason it has none. A package
+# gobco cannot read is a hard error: a report that quietly dropped a package
+# would still print a healthy percentage while measuring less and less of the
+# code, which is the one failure mode a coverage gate must not have.
 #
 # Other sharp edges, each measured rather than assumed:
 #
@@ -44,51 +42,20 @@
 #      writing it, panicking if the counter count changed. So each package gets
 #      its own file and the output directory is wiped first.
 #
-#   4. IT IGNORES BUILD TAGS, with no flag to change that. When a build-tagged
-#      file lands with a twin — a _windows.go, an embed and its stub — gobco
-#      fails on that package, and the fix is to add it to UNANALYZABLE with
-#      that reason, not to delete the twin. Two packages are there for it.
+#   4. IT IGNORES BUILD TAGS, with no flag to change that: it type-checks every
+#      file in a directory together, so a package of build-tagged twins — a
+#      _unix.go and its !unix half, an embed and its stub — redeclares itself
+#      and cannot be read whole. Its single-file mode reads one file alone,
+#      and runs the package's tests as the build takes it. So a package whose
+#      build leaves a source file out on this platform is measured a file at a
+#      time, over each file the build takes, and each of those must stand
+#      alone: declare what it uses, not lean on a sibling. One that cannot be
+#      read alone fails the run by name, like a package that cannot be read.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly repo_root
 readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
-
-# Packages gobco cannot read, each with the reason it cannot.
-#
-# Only the build-tagged twins below, and that is the correct state. It
-# previously held internal/cli and internal/tui, blamed on gobco dying inside
-# `math/rand/v2` with "method must have no type parameters". The symptom was
-# real; the diagnosis was not.
-#
-# gobco type-checks the standard library from SOURCE, using the go/types that is
-# compiled into it — which is the go/types of whichever Go BUILT gobco, not the
-# Go on PATH. A gobco built by Go 1.26 cannot parse Go 1.27's math/rand/v2,
-# which declares a generic method. Anything reaching it transitively (net/http,
-# Bubble Tea, Cobra) then looks unreadable.
-#
-# The binary here had been built by Go 1.26.6 and left in place when mise.toml
-# moved to 1.27.1 — a stale install, not a gobco limitation. Rebuilt under the
-# pinned Go, every package in this module reads fine. require_current_gobco
-# below now fails loudly on that mismatch, because the failure mode it caused is
-# the worst kind: the gate kept passing while quietly measuring less.
-#
-# internal/proc/pgroup is the build-tagged twin point 4 above anticipated: its
-# Isolate has a Unix half (Setpgid, a group SIGKILL) and a no-op half for the
-# rest, and gobco, ignoring build tags, reads both and dies on the redeclaration.
-# The platform glue carries no branch worth measuring; proc.Start's own test
-# exercises the Unix path end to end. It lives in its own package so this one
-# entry does not cost internal/proc its coverage.
-#
-# internal/fileowner is the same kind of twin: Of reads a file's user and group
-# ids from Unix's stat, and reports none elsewhere. It holds one type assertion;
-# what an owner means, which file is refused for it, is decided and measured in
-# internal/config. internal/filelock is another: TryLock takes a lock with
-# Unix's flock or Windows's LockFileEx, and the wait on it is measured in
-# internal/slackauth.
-#
-# Trade-off TRADE-7: these packages' conditions go unmeasured.
-readonly UNANALYZABLE="internal/proc/pgroup internal/fileowner internal/filelock"
 
 # Packages with no tests, each with the reason it has none. gobco measures
 # conditions by running a package's tests, so a package without any cannot be
@@ -96,9 +63,6 @@ readonly UNANALYZABLE="internal/proc/pgroup internal/fileowner internal/filelock
 # untested package would shrink what "every package" covers without a trace.
 # These three are thin mains: cmd/workflow wires cli.Execute, and cmd/docsgen
 # and cmd/testshape are the mains behind internal/ packages that carry the tests.
-# internal/proc/pgroup is platform glue with no test of its own: its Unix path is
-# exercised end to end by proc.Start's grandchild-kill test, and it is also in
-# UNANALYZABLE, so gobco could not measure it in any case.
 # internal/api is the oapi-codegen output — generated types and server surface
 # with no logic of ours; `task gen:verify` guards it. api is package apispec: a
 # single //go:embed of the OpenAPI document, data with no branches to measure.
@@ -106,10 +70,16 @@ readonly UNANALYZABLE="internal/proc/pgroup internal/fileowner internal/filelock
 # and so no condition; the wiring and terminal tests fill and call every field.
 # internal/rlimit is a test helper, imported only by tests: the config, editor,
 # hooks, proc and wiring tests that lower a resource limit through it run it.
-readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/proc/pgroup internal/api api internal/seams internal/rlimit"
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/api api internal/seams internal/rlimit"
 
-# gobco carries the go/types of the Go that built it (see above), so a gobco
-# built by an older Go silently shrinks what this gate covers. Refuse to run.
+# gobco type-checks the standard library from SOURCE, with the go/types compiled
+# into it: that of the Go that BUILT gobco, not the Go on PATH. One built by Go
+# 1.26 cannot parse Go 1.27's math/rand/v2, which declares a generic method, so
+# everything reaching it (net/http, Bubble Tea, Cobra) looked unreadable: a
+# stale install once put internal/cli and internal/tui on a skip list while the
+# gate kept passing, measuring less. A gobco built by any Go but the pinned one
+# is refused before it runs.
+#
 # gobco_binary prints the path of the gobco EXECUTABLE. With mise's shims ahead
 # of its install directories on PATH — its recommended setup for editors and
 # other non-interactive shells — `command -v` finds a shim, a script that
@@ -217,33 +187,54 @@ mkdir -p "${out_dir}"
 echo "Condition coverage (gobco, no -race):"
 echo
 
-skipped=""
 unexpected=""
+
+# twin_files prints the source files the build takes for a package, when it
+# leaves one out on this platform (point 4 above); nothing otherwise.
+#   twin_files <package dir>
+twin_files() {
+  local ignored
+  for ignored in $(go list -f '{{join .IgnoredGoFiles " "}}' "./$1"); do
+    if [[ "${ignored}" != *_test.go ]]; then
+      go list -f '{{join .GoFiles " "}}' "./$1"
+      return
+    fi
+  done
+}
 
 for package in ${packages}; do
   rel="${package#"${module}"/}"
-
-  if [[ " ${UNANALYZABLE} " == *" ${rel} "* ]]; then
-    skipped="${skipped} ${rel}"
-    continue
-  fi
-
   slug="${rel//\//_}"
+  files="$(twin_files "${rel}")"
 
   # gobco's per-condition output is the worklist — print it, since a percentage
   # alone tells nobody which test to write next. Trade-off TRADE-19: what it
   # lists stays the worklist here, not an entry in TECH_DEBT.md.
-  if ! gobco -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1; then
-    unexpected="${unexpected} ${rel}"
+  if [[ -z "${files}" ]]; then
+    gobco -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1 || unexpected="${unexpected} ${rel}"
+    continue
+  fi
+
+  # Each file's statistics apart, since gobco checks a -stats file it reuses
+  # (point 3), then merged as the package's once every file was read.
+  read_alone="${unexpected}"
+  mkdir -p "${out_dir}/files/${slug}"
+  for file in ${files}; do
+    gobco -stats "${out_dir}/files/${slug}/${file%.go}.json" -test=-vet=off "./${rel}/${file}" 2>&1 \
+      || unexpected="${unexpected} ${rel}/${file}"
+  done
+
+  if [[ "${unexpected}" == "${read_alone}" ]]; then
+    jq -s 'add' "${out_dir}/files/${slug}"/*.json >"${out_dir}/${slug}.json"
   fi
 done
 
 if [[ -n "${unexpected}" ]]; then
   echo >&2
   echo "gobco could not read:${unexpected}" >&2
-  echo "That package is not in this script's UNANALYZABLE list, so the measured" >&2
-  echo "percentage would silently cover less code than it claims. Fix the cause," >&2
-  echo "or add the package to UNANALYZABLE with the reason it cannot be read." >&2
+  echo "The measured percentage would silently cover less code than it claims," >&2
+  echo "so this fails. Fix the cause: a file of build-tagged twins must stand" >&2
+  echo "alone, since gobco reads each one on its own." >&2
   exit 1
 fi
 
@@ -277,21 +268,12 @@ total_percent="$(
     }
     END {
       if (arms == 0) exit 1
-      printf "  %-40s %4d / %-4d %6.1f%%\n", "TOTAL (readable packages)", hit, arms, 100 * hit / arms > "/dev/stderr"
+      printf "  %-40s %4d / %-4d %6.1f%%\n", "TOTAL", hit, arms, 100 * hit / arms > "/dev/stderr"
       printf "%.1f", 100 * hit / arms
     }'
 )"
 
 echo
-if [[ -n "${skipped}" ]]; then
-  echo "Not measured — gobco cannot read these (reasons in this script's UNANALYZABLE):"
-  for package in ${skipped}; do
-    echo "  ${package}"
-  done
-  echo "Their statement coverage is still gated by scripts/coverage-gate.sh."
-  echo
-fi
-
 measured_int="${total_percent%%.*}"
 
 if [[ "${measured_int}" -lt "${floor}" ]]; then
