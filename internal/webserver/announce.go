@@ -176,7 +176,7 @@ func (s *server) postMentions(
 func (s *server) announceNow(post announcePost) api.AnnounceResponseObject {
 	s.dropHeld()
 
-	err := loop.Deliver(s.deps.Post, post.memory, post.delivery)
+	err := s.delivered(loop.Deliver(s.deps.Post, post.memory, post.delivery))
 	if err != nil {
 		return s.announceFault(err)
 	}

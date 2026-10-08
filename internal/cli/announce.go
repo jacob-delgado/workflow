@@ -188,14 +188,26 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 		return unattendedAgain(err, again)
 	}
 
-	err = loop.Deliver(seams.Post, memory, loop.Delivery{
+	return deliverAnnouncement(out.notes, seams, memory, loop.Delivery{
 		Channel: seams.Messaging.Channel, Text: text, Made: made, Mentions: mentions,
 	})
-	if err != nil {
-		return fmt.Errorf("announcing to %s: %w", service, err)
+}
+
+// deliverAnnouncement posts delivery and says it was announced, and, for one
+// posted that the store could not remember, why it was not.
+func deliverAnnouncement(
+	notes io.Writer, seams announceSeams, memory loop.AnnounceMemory, delivery loop.Delivery,
+) error {
+	err := loop.Deliver(seams.Post, memory, delivery)
+	if err != nil && !errors.Is(err, loop.ErrNotRemembered) {
+		return fmt.Errorf("announcing to %s: %w", seams.Messaging.Service(), err)
 	}
 
-	fmt.Fprintln(out.notes, "Announced to "+target+".")
+	fmt.Fprintln(notes, "Announced to "+seams.Messaging.Target()+".")
+
+	if err != nil {
+		fmt.Fprintln(notes, sanitize.Line(err.Error()))
+	}
 
 	return nil
 }

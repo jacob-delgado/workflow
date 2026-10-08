@@ -209,18 +209,21 @@ type Store struct {
 	// LastScope is the commit scope last used in this repository, if one was, so
 	// the composer can open on it.
 	LastScope func() (string, bool)
-	// RecordScope remembers the commit scope just used in this repository.
-	RecordScope func(scope string)
+	// RecordScope remembers the commit scope just used in this repository,
+	// and says why it could not.
+	RecordScope func(scope string) error
 	// Announced is every pull request announced in this repository in an earlier
 	// session, so a surface starts knowing what has already been posted.
 	Announced func() []loop.Announced
-	// RecordAnnounce remembers that a pull request was just announced at a moment.
-	RecordAnnounce func(made loop.Announced)
+	// RecordAnnounce remembers that a pull request was just announced at a
+	// moment, and says why it could not: a later session would offer it again.
+	RecordAnnounce func(made loop.Announced) error
 	// CachedIssues is the issue list last seen for a view, so it can be shown at
 	// once before the tracker answers.
 	CachedIssues func(view string) ([]jira.Issue, bool)
-	// CacheIssues remembers the issue list just seen for a view.
-	CacheIssues func(view string, issues []jira.Issue)
+	// CacheIssues remembers the issue list just seen for a view, and says why
+	// it could not.
+	CacheIssues func(view string, issues []jira.Issue) error
 	// OwnerLinks is every forge owner decided on this repository's forge host
 	// as a Slack workspace, Messaging.Workspace, sees them: whom each is on
 	// Slack there, or that they are not on Slack there. An owner decided only

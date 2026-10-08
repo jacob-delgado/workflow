@@ -70,6 +70,8 @@ const (
 type world struct {
 	mu    sync.Mutex
 	calls []string
+	// storeErr is what every store write answers: nil, or why it kept nothing.
+	storeErr error
 	// elapsed is how far the clock has moved on from testNow.
 	elapsed time.Duration
 
@@ -364,22 +366,28 @@ func (w *world) storeDeps() seams.Store {
 		LastScope: func() (string, bool) {
 			return w.learnedScope, w.learnedScope != ""
 		},
-		RecordScope: func(scope string) {
+		RecordScope: func(scope string) error {
 			w.record("scope " + scope)
+
+			return w.storeErr
 		},
 		Announced: func() []loop.Announced {
 			w.record("history")
 
 			return w.storedAnnounces
 		},
-		RecordAnnounce: func(made loop.Announced) {
+		RecordAnnounce: func(made loop.Announced) error {
 			w.record("announce " + strconv.Itoa(made.Pull) + " " + strconv.Itoa(int(made.Moment)))
+
+			return w.storeErr
 		},
 		CachedIssues: func(_ string) ([]jira.Issue, bool) {
 			return w.cachedIssues, len(w.cachedIssues) > 0
 		},
-		CacheIssues: func(_ string, issues []jira.Issue) {
+		CacheIssues: func(_ string, issues []jira.Issue) error {
 			w.record("cache " + strconv.Itoa(len(issues)))
+
+			return w.storeErr
 		},
 	})
 }

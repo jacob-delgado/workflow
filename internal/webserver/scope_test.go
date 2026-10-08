@@ -48,7 +48,7 @@ func (s *scopeStore) wire(deps *webserver.Deps) {
 
 		return s.scope, s.holds
 	}
-	deps.RecordScope = func(scope string) {
+	deps.RecordScope = func(scope string) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
@@ -56,6 +56,8 @@ func (s *scopeStore) wire(deps *webserver.Deps) {
 		if !s.disabled {
 			s.scope, s.holds = scope, true
 		}
+
+		return nil
 	}
 }
 

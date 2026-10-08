@@ -4,8 +4,10 @@
 package webserver_test
 
 import (
+	"errors"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +18,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
+
+// errStoreFull is a store that could not write.
+var errStoreFull = errors.New("database or disk is full")
 
 // announceMemory is the store's record of what was announced, as a fake: what
 // it held to start with, and what was recorded since.
@@ -37,11 +42,13 @@ func (m *announceMemory) wire(deps webserver.Deps) webserver.Deps {
 
 		return slices.Concat(m.held, m.recorded)
 	}
-	deps.RecordAnnounce = func(made loop.Announced) {
+	deps.RecordAnnounce = func(made loop.Announced) error {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 
 		m.recorded = append(m.recorded, made)
+
+		return nil
 	}
 
 	return deps
@@ -207,5 +214,26 @@ func TestTheStoreIsReadAgainOnceTheForgeIntervalHasPassed(t *testing.T) {
 	// Assert
 	if memory.reads != 2 {
 		t.Errorf("the store was read %d times, want once, then again once the interval passed", memory.reads)
+	}
+}
+
+func TestAnnounceTheStoreCannotRememberIsMadeAndNoted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	memory := &announceMemory{}
+	deps := memory.wire(filledDeps())
+	deps.RecordAnnounce = func(loop.Announced) error { return errStoreFull }
+
+	var noted []string
+
+	deps.Unexpected = func(err error) { noted = append(noted, err.Error()) }
+
+	// Act
+	recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
+
+	// Assert
+	if recorder.Code != http.StatusOK || len(noted) != 1 || !strings.Contains(noted[0], "could not be remembered") {
+		t.Errorf("status %d, noted %q; want the announcement made and the store's failure noted", recorder.Code, noted)
 	}
 }

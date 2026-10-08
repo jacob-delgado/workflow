@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"errors"
 	"slices"
 	"strings"
 
@@ -225,7 +226,7 @@ type messagingPosted struct {
 // apply records the post, or why it failed — in the preview if it is open, and
 // in the pane if the post was one waiting for CI.
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
+	if msg.err != nil && !errors.Is(msg.err, loop.ErrNotRemembered) {
 		m.messaging.send = m.messaging.send.failed(msg.err)
 
 		return keepOpenWith[messagingPreview](m, msg.err).noticedFailure(msg.err), nil
@@ -237,7 +238,17 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		m = m.closeOverlay()
 	}
 
-	return m.noticed(m.marks.done + " announced to " + m.cfg.Messaging.Target()), nil
+	return m.noticed(m.marks.done + " announced to " + m.cfg.Messaging.Target() + notKept(msg.err)), nil
+}
+
+// notKept is what a store that could not remember an announcement says after
+// it, in short, since a notice is one row: nothing when it remembered it.
+func notKept(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	return "; it could not be remembered: " + strings.TrimPrefix(err.Error(), loop.ErrNotRemembered.Error()+": ")
 }
 
 // failed is the preview kept open with the reason the post failed.
