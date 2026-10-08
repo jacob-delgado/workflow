@@ -72,9 +72,10 @@ frontend's dependencies when they are missing. CI runs the same gates, and adds
 the Playwright end-to-end suites: `yarn test:e2e` in `web/`, and
 `yarn test:e2e:server`, which stages, commits and pushes through the binary
 `task build` makes. One gate is narrower in CI: a pull request that changes no
-Markdown file, nothing under `docs/` and not `.markdownlint-cli2.yaml` skips the
-Markdown lint (`scripts/markdown-changed.sh` decides); a push to `main` always
-runs it, and `task lint` locally always does.
+Markdown file, nothing under `docs/`, not `.markdownlint-cli2.yaml` and not
+`mise.toml`, which pins the Markdown linter, skips the Markdown lint
+(`scripts/markdown-changed.sh` decides); a push to `main` always runs it, and
+`task lint` locally always does.
 
 The frontend's production build lives in `internal/web/dist` and is committed,
 because `go install` fetches committed files alone and cannot run the Node
