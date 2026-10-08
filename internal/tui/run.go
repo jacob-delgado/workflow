@@ -91,6 +91,8 @@ type runStarted struct {
 	err    error
 }
 
+var _ applier = runStarted{}
+
 // apply begins reading the output, or reports the program not starting. It
 // keeps the run's Stop handle, so a stop key can end this run alone.
 func (msg runStarted) apply(m Model) (Model, tea.Cmd) {
@@ -125,6 +127,8 @@ type runLine struct {
 	output proc.Output
 }
 
+var _ applier = runLine{}
+
 // apply shows the line and waits for the next. The line is neutralized: tools
 // color their output, and a hook runs whatever a repository says to.
 func (msg runLine) apply(m Model) (Model, tea.Cmd) {
@@ -147,6 +151,8 @@ type runFinished struct {
 	id  int
 	err error
 }
+
+var _ applier = runFinished{}
 
 // apply records how the run ended, and hands a clean exit to whatever comes
 // next. A failed run's places are resolved by a command rather than here: one
@@ -185,6 +191,8 @@ type placesFound struct {
 	id     int
 	places []hooks.Location
 }
+
+var _ applier = placesFound{}
 
 // apply offers the places to jump to, while their run is still the one shown.
 func (msg placesFound) apply(m Model) (Model, tea.Cmd) {
@@ -392,6 +400,8 @@ func (r commandRun) openFailure(m Model) (Model, tea.Cmd) {
 type editorClosed struct {
 	err error
 }
+
+var _ applier = editorClosed{}
 
 // apply reports an editor that could not be opened.
 func (msg editorClosed) apply(m Model) (Model, tea.Cmd) {

@@ -112,6 +112,8 @@ type issueLinked struct {
 	err      error
 }
 
+var _ applier = issueLinked{}
+
 // apply reports the link, or keeps the confirmation open with Jira's reason.
 func (msg issueLinked) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {

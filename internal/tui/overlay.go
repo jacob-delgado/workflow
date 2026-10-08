@@ -85,6 +85,8 @@ type textEdited struct {
 	err  error
 }
 
+var _ applier = textEdited{}
+
 // apply hands the edited text to the open overlay, or drops it if the overlay
 // that asked has since closed.
 func (msg textEdited) apply(m Model) (Model, tea.Cmd) {
@@ -104,66 +106,6 @@ type applier interface {
 	apply(m Model) (Model, tea.Cmd)
 }
 
-// Every message the interface waits for is an applier.
-var (
-	_ applier = issuesLoaded{}
-	_ applier = detailLoaded{}
-	_ applier = detailDue{}
-	_ applier = transitionsListed{}
-	_ applier = transitionApplied{}
-	_ applier = commentPosted{}
-	_ applier = branchLoaded{}
-	_ applier = branchCreated{}
-	_ applier = worktreeCreated{}
-	_ applier = branchesListed{}
-	_ applier = issueBranchesListed{}
-	_ applier = treeChecked{}
-	_ applier = taskSwitched{}
-	_ applier = fetched{}
-	_ applier = changesLoaded{}
-	_ applier = diffLoaded{}
-	_ applier = staged{}
-	_ applier = runStarted{}
-	_ applier = runLine{}
-	_ applier = runFinished{}
-	_ applier = placesFound{}
-	_ applier = editorClosed{}
-	_ applier = textEdited{}
-	_ applier = pullFound{}
-	_ applier = ciChecked{}
-	_ applier = checkOpened{}
-	_ applier = ciPoll{}
-	_ applier = pullCreated{}
-	_ applier = pullEdited{}
-	_ applier = rerunRequested{}
-	_ applier = mergeMethodsLoaded{}
-	_ applier = mergeRequested{}
-	_ applier = finished{}
-	_ applier = issueLinked{}
-	_ applier = authorFound{}
-	_ applier = messagingPosted{}
-	_ applier = tagsRead{}
-	_ applier = membersRead{}
-	_ applier = userGroupsRead{}
-	_ applier = ownerLinked{}
-	_ applier = peopleListed{}
-	_ applier = repoGroupsListed{}
-	_ applier = directoryRefreshed{}
-	_ applier = peopleSaved{}
-	_ applier = repoGroupsSaved{}
-	_ applier = hooksFound{}
-	_ applier = hooksWritten{}
-	_ applier = taskActed{}
-	_ applier = taskLineSent{}
-	_ applier = nothingToUndo{}
-	_ applier = branchUnlinked{}
-	_ applier = localDataRead{}
-	_ applier = localDataRemoved{}
-	_ applier = settingsRead{}
-	_ applier = settingsSaved{}
-	_ applier = storeNotKept{}
-)
-
 // notice is the footer's one-line report of something that just happened, and
 // whether what happened is a failure, which it then draws in the failure style.
 type notice struct {
@@ -175,6 +117,8 @@ type notice struct {
 // loop once what it records was done: notice is what the footer says then, the
 // deed and why the next session will not remember it.
 type storeNotKept struct{ notice string }
+
+var _ applier = storeNotKept{}
 
 // apply says what was done, and what of it the store lost.
 func (msg storeNotKept) apply(m Model) (Model, tea.Cmd) { return m.noticed(msg.notice), nil }

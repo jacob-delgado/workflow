@@ -157,6 +157,8 @@ type tagsRead struct {
 	workspaceErr error
 }
 
+var _ applier = tagsRead{}
+
 // apply fills the preview's tag section, when the preview is still open.
 func (msg tagsRead) apply(m Model) (Model, tea.Cmd) {
 	preview, open := beneath[messagingPreview](m, msg.opened)

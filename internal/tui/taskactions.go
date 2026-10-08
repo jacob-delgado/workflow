@@ -283,6 +283,8 @@ func (m Model) undoTasks() (Model, tea.Cmd) {
 // was written, so the sentence for a write that changed nothing would mislead.
 type nothingToUndo struct{}
 
+var _ applier = nothingToUndo{}
+
 // apply closes the undo's look and says there was nothing to undo.
 func (nothingToUndo) apply(m Model) (Model, tea.Cmd) {
 	m.tasks.writing = false
@@ -317,6 +319,8 @@ type taskActed struct {
 	said  string
 	err   error
 }
+
+var _ applier = taskActed{}
 
 // apply says what was done, or why it failed, then reads the tasks again, which
 // the change may have moved. The write has answered, so the next may go.
@@ -589,6 +593,8 @@ type taskLineSent struct {
 	after taskFollow
 	stub  taskwarrior.Task
 }
+
+var _ applier = taskLineSent{}
 
 // apply keeps the line open with Taskwarrior's words when it refused it, or
 // closes it, says what was done, counts the issue it tracks as tracked, and goes

@@ -39,6 +39,8 @@ type changesLoaded struct {
 	err     error
 }
 
+var _ applier = changesLoaded{}
+
 // apply records the changes, keeping the selection on the same file.
 func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 	previous, _ := m.changes.current()
@@ -328,6 +330,8 @@ func (m Model) unstageAll() (Model, tea.Cmd) {
 type staged struct {
 	err error
 }
+
+var _ applier = staged{}
 
 // apply reads the status again, which is the only way to know what the index
 // now holds.

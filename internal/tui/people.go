@@ -182,6 +182,8 @@ type peopleListed struct {
 	err    error
 }
 
+var _ applier = peopleListed{}
+
 // apply lists them, the selection held on the owner it was on, or, where
 // they are no longer listed, on the one after.
 func (msg peopleListed) apply(m Model) (Model, tea.Cmd) {
@@ -209,6 +211,8 @@ type repoGroupsListed struct {
 	groups []loop.SlackTarget
 	err    error
 }
+
+var _ applier = repoGroupsListed{}
 
 // apply checks them in the groups checklist.
 func (msg repoGroupsListed) apply(m Model) (Model, tea.Cmd) {
@@ -462,6 +466,8 @@ type repoGroupsSaved struct {
 	err    error
 }
 
+var _ applier = repoGroupsSaved{}
+
 // apply says the groups were saved, or pins the refusal and reads them
 // again, so the checklist shows what is kept rather than the change refused.
 func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
@@ -519,6 +525,8 @@ type directoryRefreshed struct {
 	members directory
 }
 
+var _ applier = directoryRefreshed{}
+
 // apply shows what was read.
 func (msg directoryRefreshed) apply(m Model) (Model, tea.Cmd) {
 	open, isOpen := beneath[peopleOverlay](m, msg.opened)
@@ -536,6 +544,8 @@ type peopleSaved struct {
 	opened int
 	err    error
 }
+
+var _ applier = peopleSaved{}
 
 // apply pins a refusal, or reads the people again to show what changed.
 func (msg peopleSaved) apply(m Model) (Model, tea.Cmd) {

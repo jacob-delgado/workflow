@@ -133,6 +133,8 @@ type commentPosted struct {
 	err      error
 }
 
+var _ applier = commentPosted{}
+
 // apply closes the preview once the comment is posted and reads the issue again
 // to show it, or keeps the preview open with Jira's reason.
 func (msg commentPosted) apply(m Model) (Model, tea.Cmd) {
