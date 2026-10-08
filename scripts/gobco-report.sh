@@ -77,10 +77,12 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # internal/fileowner is the same kind of twin: Of reads a file's user and group
 # ids from Unix's stat, and reports none elsewhere. It holds one type assertion;
 # what an owner means, which file is refused for it, is decided and measured in
-# internal/config.
+# internal/config. internal/filelock is another: TryLock takes a lock with
+# Unix's flock or Windows's LockFileEx, and the wait on it is measured in
+# internal/slackauth.
 #
 # Trade-off TRADE-7: these packages' conditions go unmeasured.
-readonly UNANALYZABLE="internal/proc/pgroup internal/fileowner"
+readonly UNANALYZABLE="internal/proc/pgroup internal/fileowner internal/filelock"
 
 # Packages with no tests, each with the reason it has none. gobco measures
 # conditions by running a package's tests, so a package without any cannot be
