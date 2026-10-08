@@ -41,19 +41,25 @@ func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira
 				return client.SearchLenient(ctx, jql, startAt)
 			})
 		},
-		Issue: func(issueKey jira.Key) (jira.IssueDetail, error) { return readJiraIssue(ctx, jiraClient, issueKey) },
+		Issue: func(issueKey jira.Key) (jira.IssueDetail, error) {
+			return askJiraIssue(jiraClient, issueKey, func(client jira.Client) (jira.IssueDetail, error) {
+				return client.Issue(ctx, issueKey)
+			})
+		},
 		Transitions: func(issueKey jira.Key) ([]jira.Transition, error) {
-			return askJira(jiraClient, func(client jira.Client) ([]jira.Transition, error) {
+			return askJiraIssue(jiraClient, issueKey, func(client jira.Client) ([]jira.Transition, error) {
 				return client.Transitions(ctx, issueKey)
 			})
 		},
 		Transition: func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error {
-			return tellJira(jiraClient, func(client jira.Client) error {
+			return tellJiraIssue(jiraClient, issueKey, func(client jira.Client) error {
 				return client.ApplyTransition(ctx, issueKey, to, values)
 			})
 		},
 		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
-			return commentOnJira(ctx, jiraClient, issueKey, text)
+			return askJiraIssue(jiraClient, issueKey, func(client jira.Client) (jira.Comment, error) {
+				return client.AddComment(ctx, issueKey, text)
+			})
 		},
 		Activity: func(start, end time.Time) (jira.Activity, error) {
 			return askJira(jiraClient, func(client jira.Client) (jira.Activity, error) {
@@ -61,15 +67,17 @@ func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira
 			})
 		},
 		Assign: func(issueKey jira.Key, assignee string) error {
-			return tellJira(jiraClient, func(client jira.Client) error { return client.Assign(ctx, issueKey, assignee) })
+			return tellJiraIssue(jiraClient, issueKey, func(client jira.Client) error {
+				return client.Assign(ctx, issueKey, assignee)
+			})
 		},
 		AddWorklog: func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error) {
-			return askJira(jiraClient, func(client jira.Client) (jira.Worklog, error) {
+			return askJiraIssue(jiraClient, issueKey, func(client jira.Client) (jira.Worklog, error) {
 				return client.AddWorklog(ctx, issueKey, timeSpent, comment)
 			})
 		},
 		LinkPullRequest: func(issueKey jira.Key, pullURL, title string) error {
-			return tellJira(jiraClient, func(client jira.Client) error {
+			return tellJiraIssue(jiraClient, issueKey, func(client jira.Client) error {
 				return client.LinkPullRequest(ctx, issueKey, pullURL, title)
 			})
 		},
@@ -118,33 +126,38 @@ func tellJira(jiraClient func() (jira.Client, error), tell func(jira.Client) err
 	return tell(client)
 }
 
-// readJiraIssue reads one issue in full. A key with no project part is refused
-// as missing without asking, or finding the token to ask with, as the forge's
-// issues refuse a key that is not a number, so every surface falls back as it
-// does for an issue Jira lacks.
-func readJiraIssue(
-	ctx context.Context, jiraClient func() (jira.Client, error), issueKey jira.Key,
-) (jira.IssueDetail, error) {
+// askJiraIssue asks Jira about the issue issueKey names. A key with no project
+// part is refused as missing without asking, or finding the token to ask with:
+// Jira reads a bare number as an issue's id, so a forge issue's 42 would reach
+// whichever Jira issue has that id. The forge's issues refuse a key that is
+// not a number the same way, so every surface falls back as it does for an
+// issue the tracker lacks.
+func askJiraIssue[T any](
+	jiraClient func() (jira.Client, error), issueKey jira.Key, ask func(jira.Client) (T, error),
+) (T, error) {
 	if !isJiraKey(issueKey) {
-		return jira.IssueDetail{}, fmt.Errorf("%w: %w: %q", jira.ErrNotFound, errNotAJiraKey, issueKey)
+		var none T
+
+		return none, notAJiraIssue(issueKey)
 	}
 
-	return askJira(jiraClient, func(client jira.Client) (jira.IssueDetail, error) { return client.Issue(ctx, issueKey) })
+	return askJira(jiraClient, ask)
 }
 
-// commentOnJira posts a comment on a Jira issue. A key with no project part is
-// refused without asking, since Jira also reads an issue by its numeric id and
-// a forge issue's number would post on whichever Jira issue has it.
-func commentOnJira(
-	ctx context.Context, jiraClient func() (jira.Client, error), issueKey jira.Key, text string,
-) (jira.Comment, error) {
+// tellJiraIssue has Jira change the issue issueKey names, refusing a key with
+// no project part as askJiraIssue does.
+func tellJiraIssue(jiraClient func() (jira.Client, error), issueKey jira.Key, tell func(jira.Client) error) error {
 	if !isJiraKey(issueKey) {
-		return jira.Comment{}, fmt.Errorf("%w: %w: %q", jira.ErrNotFound, errNotAJiraKey, issueKey)
+		return notAJiraIssue(issueKey)
 	}
 
-	return askJira(jiraClient, func(client jira.Client) (jira.Comment, error) {
-		return client.AddComment(ctx, issueKey, text)
-	})
+	return tellJira(jiraClient, tell)
+}
+
+// notAJiraIssue is the refusal of a key with no project part: missing, as an
+// issue Jira lacks is.
+func notAJiraIssue(issueKey jira.Key) error {
+	return fmt.Errorf("%w: %w: %q", jira.ErrNotFound, errNotAJiraKey, issueKey)
 }
 
 // browseJiraIssue links an issue for someone to click, or is empty for a key
