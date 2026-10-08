@@ -109,3 +109,32 @@ func TestFinishBranchStopsAtTheStepThatFails(t *testing.T) {
 		})
 	}
 }
+
+func TestFinishCommandsAreTheCommandsAFinishRuns(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The preview a force delete is confirmed against shows these, so they
+	// must be the commands the finish runs, word for word.
+	run, ran := recordingRunner(t, map[string]reply{finishSwitch: {}, finishDelete: {}})
+
+	err := gitrepo.At(run, workDir).FinishBranch(t.Context(), "feat/token", "main", recordedPull(ran, nil))
+	if err != nil {
+		t.Fatalf("FinishBranch returned %v", err)
+	}
+
+	// Act
+	commands := gitrepo.FinishCommands("main", "feat/token")
+
+	// Assert
+	want := []string{
+		strings.Replace(finishSwitch, "-C /work ", "", 1),
+		strings.Join(gitrepo.PullCommand(workDir).Args, " "),
+		strings.Replace(finishDelete, "-C /work ", "", 1),
+	}
+	want[1] = "git " + want[1]
+
+	if !slices.Equal(commands, want) {
+		t.Errorf("FinishCommands = %q, want %q, as FinishBranch ran them", commands, want)
+	}
+}
