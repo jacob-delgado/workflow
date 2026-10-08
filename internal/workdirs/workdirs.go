@@ -63,13 +63,9 @@ func List(dir, prefix string) (Listing, error) {
 	var listing Listing
 
 	for _, item := range found {
-		name := item.Name()
-		if !strings.HasPrefix(name, prefix) || (strings.HasPrefix(name, ".") && !strings.HasPrefix(prefix, ".")) ||
-			!isDirectory(filepath.Join(dir, name)) {
-			continue
+		if offered(item.Name(), prefix) && directoryEntry(dir, item) {
+			listing.Entries = append(listing.Entries, Entry{Name: item.Name(), Repository: false})
 		}
-
-		listing.Entries = append(listing.Entries, Entry{Name: name, Repository: exists(filepath.Join(dir, name, ".git"))})
 	}
 
 	slices.SortFunc(listing.Entries, func(one, other Entry) int {
@@ -80,7 +76,29 @@ func List(dir, prefix string) (Listing, error) {
 		listing.Entries, listing.Truncated = listing.Entries[:ListLimit], true
 	}
 
+	// Asked only of the entries kept, so a directory of thousands costs a
+	// question for each one shown, not for each one there.
+	for index, entry := range listing.Entries {
+		listing.Entries[index].Repository = exists(filepath.Join(dir, entry.Name, ".git"))
+	}
+
 	return listing, nil
+}
+
+// offered reports a name a listing for prefix offers: one starting with it,
+// and not hidden unless prefix starts with the dot.
+func offered(name, prefix string) bool {
+	return strings.HasPrefix(name, prefix) && (!strings.HasPrefix(name, ".") || strings.HasPrefix(prefix, "."))
+}
+
+// directoryEntry reports an entry of dir a directory or a link to one. Only a
+// link is looked up: what the listing read already says what anything else is.
+func directoryEntry(dir string, item fs.DirEntry) bool {
+	if item.Type()&fs.ModeSymlink != 0 {
+		return isDirectory(filepath.Join(dir, item.Name()))
+	}
+
+	return item.IsDir()
 }
 
 // Check reports dir an absolute path to a directory that is there.
