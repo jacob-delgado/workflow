@@ -4,7 +4,7 @@
 #
 # Usage:
 #   scripts/check-package-size.sh          # the gate
-#   scripts/check-package-size.sh --list   # every directory, count, budget
+#   scripts/check-package-size.sh --list   # every directory, count, budget, kind
 #
 # Cohesion is the rule a human applies; this is the mechanical backstop under
 # it. Every number lives in scripts/package-size-budgets.txt next to the reason
@@ -44,10 +44,15 @@
 #   contains a space re-parses with a count of 0 and silently passes — the one
 #   failure mode a gate must never have.
 #
-# Budgets are ZERO-HEADROOM IN BOTH DIRECTIONS. Over the number fails, and so
-# does a budget left sitting ABOVE its directory's count: that is what a
-# forgotten post-split ratchet looks like, and it lets a folder quietly regrow
-# everything it just shed.
+# An entry is one of two kinds. A RATCHETED budget is ZERO-HEADROOM IN BOTH
+# DIRECTIONS: over the number fails, and so does a budget left sitting ABOVE
+# its directory's count, since that is what a forgotten post-split ratchet
+# looks like, and it lets a folder quietly regrow everything it just shed. A
+# COHESIVE ceiling is for a grouping spelled file-per-concern by design, one
+# file per pane or per endpoint or per command, which CLAUDE.md says must not
+# be split to chase a number: it fails only past the ceiling, so a new pane is
+# not a budget edit, and the ceiling is where the package's shape is looked at
+# again. Both are earned by size: an entry at or under the default is refused.
 
 set -euo pipefail
 
@@ -119,8 +124,9 @@ printf '%s\n' "${counts}" | awk \
   -v mode="${mode}" '
   function err(msg) { printf "::error:: %s\n", msg > "/dev/stderr"; fail = 1 }
 
-  # Pass 1: the budget file. An entry is "<dir> <budget|exempt>", and it MUST
-  # carry a # comment on the line directly above it — no blank line between.
+  # Pass 1: the budget file. An entry is "<dir> <budget>", "<dir> <ceiling>
+  # cohesive" or "<dir> exempt", and it MUST carry a # comment on the line
+  # directly above it — no blank line between.
   NR == FNR {
     line = $0
     sub(/[ \t]+$/, "", line)
@@ -132,11 +138,15 @@ printf '%s\n' "${counts}" | awk \
     }
     commented = 0
 
-    if (NF != 2) { err("malformed entry (want \"<dir> <budget|exempt>\"): " line); next }
+    if (NF < 2 || NF > 3 || (NF == 3 && $3 != "cohesive")) {
+      err("malformed entry (want \"<dir> <budget>\", \"<dir> <ceiling> cohesive\" or \"<dir> exempt\"): " line)
+      next
+    }
     if ($1 in budget || $1 in exempt) { err("duplicate entry for " $1); next }
-    if ($2 == "exempt") { exempt[$1] = 1; next }
+    if (NF == 2 && $2 == "exempt") { exempt[$1] = 1; next }
     if ($2 !~ /^[0-9]+$/) { err("budget for " $1 " must be a number or \"exempt\", got \"" $2 "\""); next }
     budget[$1] = $2 + 0
+    kind[$1] = (NF == 3) ? "cohesive" : "ratcheted"
     next
   }
 
@@ -151,24 +161,35 @@ printf '%s\n' "${counts}" | awk \
 
     declared = (dir in budget)
     max = declared ? budget[dir] : default_max
+    cohesive = declared && kind[dir] == "cohesive"
     seen[dir] = 1
 
     if (mode == "list") {
-      printf "%-46s %4d / %-4d (%s)\n", dir, n, max, declared ? "declared" : "default"
+      if (cohesive) {
+        printf "%-46s %4d / %-4d (cohesive, %d to the ceiling)\n", dir, n, max, max - n
+      } else {
+        printf "%-46s %4d / %-4d (%s)\n", dir, n, max, declared ? "ratcheted" : "default"
+      }
       next
     }
 
     if (n > max) {
-      err(dir " holds " n " files, budget " max (declared ? " — declared in " budget_file : " — the default") )
+      err(dir " holds " n " files, " (cohesive ? "ceiling " : "budget ") max \
+          (declared ? " — declared in " budget_file : " — the default"))
       offenders = 1
       next
     }
 
-    # Zero headroom: a declared budget must EQUAL the count it names. Slack is
+    if (cohesive && n <= default_max) {
+      err(dir " is at " n " files, which is at or under the default " default_max \
+          " — delete its cohesive entry; registration is earned by size.")
+    }
+
+    # Zero headroom: a ratcheted budget must EQUAL the count it names. Slack is
     # what a forgotten post-split ratchet leaves behind.
-    if (declared && n < max) {
+    if (declared && !cohesive && n < max) {
       err(dir " is at " n " files but declares a budget of " max " — that is " (max - n) \
-          " file(s) of headroom, and budgets here are zero-headroom by design. Ratchet it to " n \
+          " file(s) of headroom, and ratcheted budgets are zero-headroom by design. Ratchet it to " n \
           " (and append a row to " history_file "), or delete the entry if " n \
           " is at or under the default " default_max " — registration is earned by size.")
     }
@@ -201,7 +222,8 @@ printf '%s\n' "${counts}" | awk \
       print "" > "/dev/stderr"
       print "  2. BUMP — the new file is the same responsibility spelled one" > "/dev/stderr"
       print "     concern wider (another handler on an existing surface, another" > "/dev/stderr"
-      print "     store file for a new aggregate). Raise the number in:" > "/dev/stderr"
+      print "     store file for a new aggregate). Raise the number, a budget or" > "/dev/stderr"
+      print "     a cohesive ceiling alike, in:" > "/dev/stderr"
       print "       scripts/package-size-budgets.txt" > "/dev/stderr"
       print "     rewrite the WHY in the comment directly above the entry, and" > "/dev/stderr"
       print "     append a row to:" > "/dev/stderr"

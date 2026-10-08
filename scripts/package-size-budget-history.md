@@ -1,9 +1,10 @@
 # Package & directory size budget history
 
 The per-directory file budgets in `scripts/package-size-budgets.txt` get bumped
-when a grouping legitimately grows, and ratcheted down when a split lands. This
-is the running record of why each number moved, so a future maintainer doesn't
-have to `git blame` a comment block.
+when a grouping legitimately grows, and ratcheted down when a split lands. A
+cohesive ceiling moves only when it is raised, which is a decision like any
+bump. This is the running record of why each number moved, so a future
+maintainer doesn't have to `git blame` a comment block.
 
 Append a row when you change a number. Date in ISO 8601; **PR** is the number
 of the pull request that landed the change (`#NN`), and a backlog ID belongs in
@@ -84,3 +85,6 @@ gate was in the way" is not one of them.
 | 2026-10-07 | #194 | `web/src/lib` | 12 → 13 | `CopyURL.tsx` (UX-88): Copy URL and its outcome, moved out of the review queue so the Review section draws the same control beside a pull request's title, as the terminal offers `y` on both. It joins `NewTabLink.tsx` (UX-123) at the default's edge; the same responsibility (a primitive drawn alike everywhere it appears), not a second reason to change, so the directory is registered rather than split. |
 | 2026-10-07 | #195 | `internal/tui` | 62 → 63 | `settingsedit.go` (UX-87, UX-119): editing a row of Settings — typing a value, a toggle, a choice — and its collections, the Jira views and headers, the branch prefixes and `ui.keys`, a row per entry and a row that adds one, asked by name and then by value, and removing an entry, or a stored credential after a last look. `settings.go` keeps the form, its keys and the save, and would have passed the 500-line target with the collections; the same responsibility (drive the terminal UI), not a second reason to change. |
 | 2026-10-07 | #195 | `internal/tui` | 63 → 64 | `settingsremove.go` (UX-119): removing a credential the file holds from Settings — a token, the webhook URL, Slack's client secret or refresh token, or a Jira header — after a last look, written at once over the read without the form's other edits, which stay for `ctrl+s`. It is a write of its own, beside the save, and `settingsedit.go` would have passed the 500-line target with it; the same responsibility (drive the terminal UI), not a second reason to change. |
+| 2026-10-08 | pre-1.0 paydown | `internal/tui` | 64 → 80 cohesive | A cohesive ceiling in place of a zero-headroom budget (DEBT-238, closing TRADE-1). The package is the Bubble Tea interface spelled one file per pane, overlay and composer, which CLAUDE.md says must not be split; its budget rose 21 times since 2026-09-25 with the same WHY and never led to a split. It now fails only past 80, the 64 files it holds and the panes still to come. |
+| 2026-10-08 | pre-1.0 paydown | `internal/webserver` | 31 → 40 cohesive | A cohesive ceiling in place of a zero-headroom budget (DEBT-238, closing TRADE-1). The package is the loopback REST surface spelled one file per operation, and grows only when `api/openapi.yaml` gains one; its budget rose from 20 to 31 with the same WHY each time. It now fails only past 40. |
+| 2026-10-08 | pre-1.0 paydown | `internal/cli` | 20 → 28 cohesive | A cohesive ceiling in place of a zero-headroom budget (DEBT-238, closing TRADE-1). The package is the Cobra command tree spelled one file per command, and grows when the tool gains a command; its budget rose from 15 to 20 with the same WHY each time. It now fails only past 28. |
