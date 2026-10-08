@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // boldSentinel stands in for wiki-bold's single asterisk while the emphasis
@@ -20,9 +21,10 @@ const boldSentinel = "\x00"
 // on plain prose — a bare asterisk between spaces or an underscore inside a word
 // is left alone rather than read as emphasis.
 //
-// Trade-off TRADE-28: these rules are written again in
-// web/src/features/issues/wiki/wikiFromMarkdown.ts, and twin-named tests pin
-// the two.
+// The web's Preview converts again in
+// web/src/features/issues/wiki/wikiFromMarkdown.ts, and both copies answer to
+// the one case file testdata/wiki_from_markdown.json, so a change to either
+// alone fails its own tests.
 func WikiFromMarkdown(md string) string {
 	lines := strings.Split(md, "\n")
 	out := make([]string, 0, len(lines))
@@ -53,6 +55,17 @@ func WikiFromMarkdown(md string) string {
 // the fence state and swallow the rest of the comment.
 const maxFenceIndent = 3
 
+// byteOrderMark is U+FEFF, which JavaScript's trim takes as white space and
+// Go's does not.
+const byteOrderMark = '\uFEFF'
+
+// trimFence is text without the white space around it, as both converters read
+// it: Unicode's, with the next-line character Go's TrimSpace takes, and the byte
+// order mark JavaScript's trim takes, so Preview brackets a fence as this does.
+func trimFence(text string) string {
+	return strings.TrimFunc(text, func(r rune) bool { return unicode.IsSpace(r) || r == byteOrderMark })
+}
+
 // fenceLine turns a ``` fence into its wiki bracket: {code:lang} when it opens
 // with a language, {code} otherwise. It reports whether the line was a fence.
 func fenceLine(line string) (string, bool) {
@@ -60,12 +73,12 @@ func fenceLine(line string) (string, bool) {
 		return "", false
 	}
 
-	trimmed := strings.TrimSpace(line)
+	trimmed := trimFence(line)
 	if !strings.HasPrefix(trimmed, "```") {
 		return "", false
 	}
 
-	if lang := strings.TrimSpace(strings.TrimPrefix(trimmed, "```")); lang != "" {
+	if lang := trimFence(strings.TrimPrefix(trimmed, "```")); lang != "" {
 		return "{code:" + lang + "}", true
 	}
 
