@@ -47,15 +47,34 @@ type forgeKey struct {
 	head   string
 }
 
-// forgeTurn is what the cache gives a frame asking of a branch: the answer
+// turn is what a shared read's cache gives a frame asking of it: the answer
 // held and its failure, a read under way to wait for, or, with neither, the
 // go-ahead to read, with the drops counted as it began.
-type forgeTurn struct {
+type turn[V any] struct {
 	answered bool
-	read     forgeRead
+	value    V
 	failed   error
 	landing  <-chan struct{}
 	dropped  int
+}
+
+// sharedRead is a read every stream shares, made outside its cache's lock:
+// what serve answers, or, when serve hands back a read under way, what serve
+// answers once that read lands, or, when serve gives the go-ahead, what read
+// makes of it, given the drops counted as it began.
+func sharedRead[V any](serve func() turn[V], read func(dropped int) (V, error)) (V, error) {
+	for {
+		next := serve()
+
+		switch {
+		case next.answered:
+			return next.value, next.failed
+		case next.landing != nil:
+			<-next.landing
+		default:
+			return read(next.dropped)
+		}
+	}
 }
 
 // forgeReview is what the forge cache holds of the branch, read again when the
@@ -64,27 +83,21 @@ type forgeTurn struct {
 func (s *server) forgeReview(branch gitrepo.Branch) (forgeRead, error) {
 	key := forgeKey{branch: branch.Name, head: branch.Head}
 
-	for {
-		turn := s.forgeAnswer.serve(key, s.now(), s.forgeInterval())
-
-		switch {
-		case turn.answered:
-			return turn.read, turn.failed
-		case turn.landing != nil:
-			<-turn.landing
-		default:
+	return sharedRead(
+		func() turn[forgeRead] { return s.forgeAnswer.serve(key, s.now(), s.forgeInterval()) },
+		func(dropped int) (forgeRead, error) {
 			read, err := s.readForge(branch)
 
-			return s.forgeAnswer.land(key, turn.dropped, s.now(), read, err)
-		}
-	}
+			return s.forgeAnswer.land(key, dropped, s.now(), read, err)
+		},
+	)
 }
 
 // serve answers what the cache holds for key while it is fresh, and while a
 // read of key is under way; it hands back that read to wait for when nothing
 // is held for key, and otherwise starts the caller's own read, which land
 // ends.
-func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) forgeTurn {
+func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) turn[forgeRead] {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -92,11 +105,11 @@ func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) 
 	landing, reading := c.reading[key]
 
 	if held && (reading || now.Sub(c.readAt) < interval) {
-		return forgeTurn{answered: true, read: c.read, failed: c.failed}
+		return turn[forgeRead]{answered: true, value: c.read, failed: c.failed}
 	}
 
 	if reading {
-		return forgeTurn{landing: landing}
+		return turn[forgeRead]{landing: landing}
 	}
 
 	if c.reading == nil {
@@ -105,7 +118,7 @@ func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) 
 
 	c.reading[key] = make(chan struct{})
 
-	return forgeTurn{dropped: c.dropped}
+	return turn[forgeRead]{dropped: c.dropped}
 }
 
 // land holds what the read of key began after dropped drops found, and lets
@@ -185,40 +198,24 @@ type heldPage struct {
 	readAt time.Time
 }
 
-// issuesTurn is what the cache gives a frame asking for a view: the page
-// held, a search under way to wait for, or, with neither, the go-ahead to
-// search, with the drops counted as it began.
-type issuesTurn struct {
-	answered bool
-	page     heldPage
-	landing  <-chan struct{}
-	dropped  int
-}
-
 // frameIssues is the first page of the issues jql finds, from the issues
 // cache, searched again once it is older than the forge's interval.
 func (s *server) frameIssues(jql string) (jira.SearchResult, error) {
-	for {
-		turn := s.issuesHeld.serve(jql, s.now(), s.forgeInterval())
-
-		switch {
-		case turn.answered:
-			return turn.page.result, turn.page.failed
-		case turn.landing != nil:
-			<-turn.landing
-		default:
+	return sharedRead(
+		func() turn[jira.SearchResult] { return s.issuesHeld.serve(jql, s.now(), s.forgeInterval()) },
+		func(dropped int) (jira.SearchResult, error) {
 			result, err := s.deps.Search(jql, 0)
-			s.issuesHeld.land(jql, turn.dropped, heldPage{result: result, failed: err, readAt: s.now()})
+			s.issuesHeld.land(jql, dropped, heldPage{result: result, failed: err, readAt: s.now()})
 
 			return result, err
-		}
-	}
+		},
+	)
 }
 
 // serve answers the page held for jql while it is fresh, and while a search
 // of it is under way; it hands back that search to wait for when nothing is
 // held, and otherwise starts the caller's own search, which land ends.
-func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) issuesTurn {
+func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) turn[jira.SearchResult] {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -226,11 +223,11 @@ func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) i
 	landing, reading := c.reading[jql]
 
 	if held && (reading || now.Sub(page.readAt) < interval) {
-		return issuesTurn{answered: true, page: page}
+		return turn[jira.SearchResult]{answered: true, value: page.result, failed: page.failed}
 	}
 
 	if reading {
-		return issuesTurn{landing: landing}
+		return turn[jira.SearchResult]{landing: landing}
 	}
 
 	if c.reading == nil {
@@ -239,7 +236,7 @@ func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) i
 
 	c.reading[jql] = make(chan struct{})
 
-	return issuesTurn{dropped: c.dropped}
+	return turn[jira.SearchResult]{dropped: c.dropped}
 }
 
 // land holds the page the search of jql began after dropped drops found,
