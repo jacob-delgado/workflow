@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { isWebAddress, NewTabLink } from '@/lib/NewTabLink.tsx'
 import { keyedByText } from '@/lib/utils.ts'
 import { wikiFromMarkdown } from './wikiFromMarkdown.ts'
 
@@ -239,28 +240,11 @@ function LinkPiece({ match }: { match: RegExpExecArray }) {
   const { label, href, bare, image } = match.groups ?? {}
   const target = href ?? bare ?? image ?? ''
 
-  return isSafeLink(target) ? (
-    <WikiLink href={target}>{inline(label ?? target)}</WikiLink>
+  return isWebAddress(target) ? (
+    <NewTabLink href={target} className="inline underline underline-offset-2 hover:no-underline">
+      {inline(label ?? target)}
+    </NewTabLink>
   ) : (
     match[0]
-  )
-}
-
-// isSafeLink admits a link to the web or to mail, and nothing a browser would
-// run or render in place.
-function isSafeLink(href: string): boolean {
-  return /^(?:https?:\/\/|mailto:)/i.test(href)
-}
-
-function WikiLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-primary underline underline-offset-2 hover:no-underline"
-    >
-      {children}
-    </a>
   )
 }

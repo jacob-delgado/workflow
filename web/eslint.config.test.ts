@@ -69,6 +69,11 @@ test.each([
     says: 'with held',
     code: 'export function Send({ send }: { send: { state: string } }) {\n  return <Button variant="primary" aria-disabled={send.state === \'running\'}>Send</Button>\n}\n',
   },
+  {
+    rule: restricted,
+    says: 'NewTabLink',
+    code: 'export function Pull({ url }: { url: string }) {\n  return <a href={url}>The pull request</a>\n}\n',
+  },
 ])('$rule fires on the app code that breaks it: "$says"', async ({ rule, says, code }) => {
   // Act
   const broken = await brokenBy(code, 'src/App.tsx')
