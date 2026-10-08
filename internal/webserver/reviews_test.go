@@ -107,6 +107,10 @@ func TestListReviewsDescribesEachRequestsFacets(t *testing.T) {
 		{"repository||no repository", "ci|none|CI none", "draft|ready|ready", "author|kim|by kim"},
 	}
 
+	if len(queue.Requests) != len(want) {
+		t.Fatalf("queue = %+v, want %d requests", queue.Requests, len(want))
+	}
+
 	for index, request := range queue.Requests {
 		if got := facetLines(request.Facets); !slices.Equal(got, want[index]) {
 			t.Errorf("request #%d facets = %q, want %q", request.Number, got, want[index])
