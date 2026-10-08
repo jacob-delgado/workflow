@@ -33,4 +33,8 @@ export default defineConfig({
       '/api': { target: 'http://127.0.0.1:13579', changeOrigin: true },
     },
   },
+  // Vite preview serves the built page to the e2e run alone, which answers its
+  // own API: an empty proxy, so preview never inherits the one above and sends
+  // a spec's request on to a developer's own `workflow --web`.
+  preview: { proxy: {} },
 })

@@ -1,6 +1,5 @@
-import { expect, test } from '@playwright/test'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { branchWith, problem, snapshotWith, streams } from '../support/fixtures.ts'
+import { branchWith, expect, problem, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Branch section's working tree: a file staged, a stage the server

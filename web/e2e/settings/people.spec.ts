@@ -1,6 +1,7 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import type { OwnerTag, PersonLink, SlackTarget } from '../../src/api/generated/types.gen.ts'
 import { height, openCockpit, openSection } from '../support/cockpit.ts'
+import { expect, test } from '../support/fixtures.ts'
 
 // Settings' People and groups area: whom each code owner is on Slack, chosen
 // and saved at once, forgotten behind a confirm step, and the repository's

@@ -1,6 +1,6 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import type { Announcement, People, PersonLink } from '../../src/api/generated/types.gen.ts'
-import { branchWith, snapshotWith, streams } from '../support/fixtures.ts'
+import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
 
 // The announcement preview's tags: an owner linked to a member of the channel
 // picked and saved for next time, a user group checked, and the post that
