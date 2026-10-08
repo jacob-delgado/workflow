@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "gen": "openapi-ts",
-    "gen:check": "openapi-ts && git diff --exit-code -- src/api/generated",
+    "gen:check": "openapi-ts && ../scripts/check-generated.sh src/api/generated \"The generated client is out of date. Run 'yarn gen' and commit src/api/generated.\"",
     "lint": "eslint . && tsc -b && prettier --check . && knip && yarn lint:deps",
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
     "fmt": "prettier --write .",
