@@ -3030,7 +3030,7 @@ export type UpdateConfigErrors = {
      */
     409: Problem;
     /**
-     * The configuration is invalid, or holds a ui.keys map the terminal interface would refuse to start on; nothing was written.
+     * The configuration is invalid, or holds a ui.keys map the terminal interface would refuse to start on, or, saved to a repository's file, holds a credential typed into it or a setting only the home directory's file may make (jira.token_command, jira.token_env, taskwarrior.program); nothing was written.
      */
     422: Problem;
     /**
@@ -3117,7 +3117,7 @@ export type SetUpErrors = {
      */
     409: Problem;
     /**
-     * Jira did not accept the token, or could not be asked, and the request did not say to keep it unchecked (code check_failed; send keep_unchecked to write it anyway); or Jira's address is not an http or https address without a username and password, which is never kept, keep_unchecked or not (code unprocessable); or the keychain was asked for where there is none. Nothing was written.
+     * Jira did not accept the token, or could not be asked, and the request did not say to keep it unchecked (code check_failed; send keep_unchecked to write it anyway); or Jira's address is not an http or https address without a username and password, which is never kept, keep_unchecked or not (code unprocessable); or the keychain was asked for where there is none, or for a file other than the home directory's, the one file that may read its token back. Nothing was written.
      */
     422: Problem;
     /**
