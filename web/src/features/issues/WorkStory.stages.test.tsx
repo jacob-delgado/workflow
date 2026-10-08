@@ -28,7 +28,7 @@ function streamOnHead(overrides: Partial<Snapshot>) {
 // the state its button says in words.
 function storyStage(title: string): { mark: string; state: string } {
   const button = screen.getByRole('button', { name: new RegExp(`^${title}`) })
-  const state = within(button).getByText(/^(done|active|upcoming|failed)$/).textContent
+  const state = within(button).getByText(/^(done|failed|in flight|not started)$/).textContent
 
   return { mark: markShape(button.parentElement ?? button), state }
 }
@@ -62,15 +62,14 @@ test('lists only the stages the server sends', () => {
   expect(storyTitles()).toEqual(['Issue', 'Branch', 'Changes', 'Announce'])
 })
 
-// How a stage the server read is drawn: done and failed as they are, and one
-// under way or not begun as the stage the work is at when it is the first not
-// done, and still to come after it. The snapshot's own branch and pull request
-// say the opposite in each case, so the story is seen to read the stage.
+// How a stage the server read is drawn: in the state it was read in, whatever
+// stage it follows. The snapshot's own branch and pull request say the
+// opposite in each case, so the story is seen to read the stage.
 test.each<{ state: Stage['state']; drawn: string; mark: MarkState }>([
   { state: 'done', drawn: 'done', mark: 'done' },
   { state: 'failed', drawn: 'failed', mark: 'failed' },
-  { state: 'in_flight', drawn: 'active', mark: 'in-flight' },
-  { state: 'not_started', drawn: 'active', mark: 'in-flight' },
+  { state: 'in_flight', drawn: 'in flight', mark: 'in-flight' },
+  { state: 'not_started', drawn: 'not started', mark: 'not-started' },
 ])('draws a review stage the server reads $state as $drawn', ({ state, drawn, mark }) => {
   // Arrange
   const ci: Ci = {
@@ -92,18 +91,79 @@ test.each<{ state: Stage['state']; drawn: string; mark: MarkState }>([
   expect(storyStage('Pull request')).toEqual({ mark: drawnMark(mark), state: drawn })
 })
 
-test('draws the stages after the first not done as still to come', () => {
+test('draws an announcement waiting on CI in flight, behind a review in flight', () => {
   // Arrange
-  streamOnHead({ stages: makeStages({ issue: 'done', commits: 'done' }) })
+  streamOnHead({
+    stages: makeStages({
+      issue: 'done',
+      branch: 'done',
+      commits: 'done',
+      review: 'in_flight',
+      announce: 'in_flight',
+    }),
+  })
 
   // Act
   render(<WorkStory issueKey="PROJ-1" />)
 
   // Assert
-  expect([storyStage('Branch'), storyStage('Changes'), storyStage('Announce')]).toEqual([
-    { mark: drawnMark('in-flight'), state: 'active' },
+  expect([storyStage('Pull request'), storyStage('Announce')]).toEqual([
+    { mark: drawnMark('in-flight'), state: 'in flight' },
+    { mark: drawnMark('in-flight'), state: 'in flight' },
+  ])
+})
+
+test('draws the changes of a fresh branch not started, as the server reads them', () => {
+  // Arrange
+  streamOnHead({ stages: makeStages({ issue: 'done', branch: 'done' }) })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(storyStage('Changes')).toEqual({ mark: drawnMark('not-started'), state: 'not started' })
+})
+
+test('marks the first stage not done as the step the work is at', () => {
+  // Arrange
+  streamOnHead({ stages: makeStages({ issue: 'done', branch: 'done', review: 'in_flight' }) })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(
+    screen
+      .getAllByRole('button', { current: 'step' })
+      .map((stage) => stage.firstChild?.textContent),
+  ).toEqual(['Changes'])
+})
+
+// An issue on a branch not checked out has been picked up and branched for;
+// the server's stages describe the checked-out branch, not its own, so the
+// rest of its story waits: the next stage is the step it is at, and those
+// after it are not started.
+test('reads the stages of an issue on a branch not checked out by where it stands', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: [
+        { name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true },
+        { name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false },
+      ],
+      stages: makeStages({ issue: 'done', branch: 'done', commits: 'done', review: 'done' }),
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-2" />)
+
+  // Assert
+  expect(['Branch', 'Changes', 'Pull request'].map(storyStage)).toEqual([
     { mark: drawnMark('done'), state: 'done' },
-    { mark: drawnMark('not-started'), state: 'upcoming' },
+    { mark: drawnMark('in-flight'), state: 'in flight' },
+    { mark: drawnMark('not-started'), state: 'not started' },
   ])
 })
 
