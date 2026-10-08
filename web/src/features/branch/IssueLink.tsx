@@ -113,11 +113,9 @@ function Linked({ link, unlinker, outcome, onUnlinked }: LinkedProps) {
           variant="secondary"
           ref={unlinker}
           aria-label={`${unlink.state === 'running' ? 'Unlinking…' : 'Unlink'} ${shown}`}
-          aria-disabled={unlink.state === 'running'}
+          held={unlink.state === 'running'}
           onClick={() => {
-            if (unlink.state !== 'running') {
-              void unlink.run()
-            }
+            void unlink.run()
           }}
         >
           {unlink.state === 'running' ? 'Unlinking…' : 'Unlink'}

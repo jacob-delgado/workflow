@@ -424,7 +424,7 @@ function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssu
             {...shortcut}
             variant="secondary"
             size="sm"
-            aria-disabled={more.isFetchingNextPage}
+            held={more.isFetchingNextPage}
             onClick={() => {
               void onLoadMore()
             }}
