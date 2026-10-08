@@ -106,9 +106,10 @@ both printing the available ratchet when you clear them:
 - **Conditions** (`task cover:branch`, via [gobco](https://github.com/rillig/gobco))
   — was each condition seen both ways, each operand of an `a && b` on its own.
   Its output names every condition observed only one way, which is a worklist
-  of the tests still missing. gobco reads every package in this module but the
-  build-tagged twins `scripts/gobco-report.sh` lists as unreadable, and the
-  script fails if another ever drops out without being listed.
+  of the tests still missing. gobco measures every package in this module that
+  has tests. It reads a package of build-tagged twins one file at a time, so
+  each file the build takes must stand alone, and any package or file it cannot
+  read fails the gate.
 
 The web frontend's unit tests (`task web:test`) hold their own floor, the
 `thresholds` in `web/vitest.config.ts`.
