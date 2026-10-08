@@ -244,7 +244,9 @@ tasks:
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
     cmds:
-      - corepack yarn test
+      # {{.CLI_ARGS}} reaches vitest: CI's Web job adds its json reporter
+      # this way, `task web:test -- --reporter=json ...`.
+      - corepack yarn test {{.CLI_ARGS}}
 
   web:build:
     desc: Build the web frontend's production bundle into internal/web/dist for embedding
