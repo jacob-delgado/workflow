@@ -169,6 +169,11 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 		return Branch{}, err
 	}
 
+	err = noneAnOption(branch.Name, branch.Upstream, branch.Base)
+	if err != nil {
+		return Branch{}, err
+	}
+
 	if !branch.Detached {
 		branch.IssueLink = r.IssueLink(ctx, branch.Name)
 	}
@@ -218,6 +223,23 @@ func shownAsTheyAre(refs ...string) error {
 	for _, ref := range refs {
 		if shown := sanitize.Line(ref); shown != ref {
 			return fmt.Errorf("%w: %s", ErrUnshowableName, shown)
+		}
+	}
+
+	return nil
+}
+
+// noneAnOption refuses a ref, or its branch past the remote's name, that git
+// would read as an option: each is later handed to git, as the base a finish
+// switches to or the branch a push names, and a remote or a clone chooses
+// them. A base of origin/--orphan=x is the branch --orphan=x.
+func noneAnOption(refs ...string) error {
+	for _, ref := range refs {
+		_, branch, _ := strings.Cut(ref, "/")
+
+		err := errors.Join(notAnOption(ref), notAnOption(branch))
+		if err != nil {
+			return err
 		}
 	}
 
@@ -346,12 +368,13 @@ func PullCommand(dir string) proc.Command {
 //
 // Prompts are off: nobody can answer a credential prompt from inside the
 // interface, so git must fail with a reason rather than wait forever for input
-// that is never coming.
+// that is never coming. "--" ends git's options, so neither name is ever read
+// as one.
 func PushCommand(dir, remote, branch string) proc.Command {
 	return proc.Command{
 		Dir:  dir,
 		Name: gitProgram,
-		Args: []string{"push", "--set-upstream", remote, branch},
+		Args: []string{"push", "--set-upstream", "--", remote, branch},
 		Env:  []string{noTerminalPrompt},
 	}
 }
