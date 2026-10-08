@@ -8,9 +8,10 @@ const themeChoices = ['system', 'light', 'dark'] as const
 export type ThemeChoice = (typeof themeChoices)[number]
 
 // readStoredChoice recovers the saved choice, defaulting to "system" when there
-// is none or storage is blocked (a private window, cleared site data). Exported
-// so its restore path can be tested — the store reads it once, at load.
-export function readStoredChoice(): ThemeChoice {
+// is none or storage is blocked (a private window, cleared site data). The
+// store reads it once, at load, and index.html's pre-paint script applies the
+// same rules; theme.test.tsx holds the two to one theme for every value.
+function readStoredChoice(): ThemeChoice {
   try {
     const stored = localStorage.getItem(themeStorageKey)
     if (stored === 'light' || stored === 'dark' || stored === 'system') {
