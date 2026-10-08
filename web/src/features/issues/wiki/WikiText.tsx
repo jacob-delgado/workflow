@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
+import { keyedByText } from '@/lib/utils.ts'
 import { wikiFromMarkdown } from './wikiFromMarkdown.ts'
 
 // Trade-off TRADE-31: past these sizes a comment is drawn as plain text, its
@@ -42,9 +43,8 @@ function tooLargeToParse(body: string): boolean {
 export function WikiText({ markup }: { markup: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-item break-words">
-      {blocksOf(markup).map((block, index) => (
-        // Blocks are drawn from the text alone, so their order is their identity.
-        <BlockView key={index} block={block} />
+      {keyedByText(blocksOf(markup), (block) => JSON.stringify(block)).map(({ key, item }) => (
+        <BlockView key={key} block={item} />
       ))}
     </div>
   )
@@ -165,8 +165,8 @@ function ListView({ ordered, items }: { ordered: boolean; items: string[] }) {
 
   return (
     <List className={ordered ? 'list-decimal pl-5' : 'list-disc pl-5'}>
-      {items.map((item, index) => (
-        <li key={index}>{inline(item)}</li>
+      {keyedByText(items, (item) => item).map(({ key, item }) => (
+        <li key={key}>{inline(item)}</li>
       ))}
     </List>
   )
@@ -174,9 +174,12 @@ function ListView({ ordered, items }: { ordered: boolean; items: string[] }) {
 
 // withBreaks draws a paragraph's lines with the breaks they were written with.
 function withBreaks(lines: string[]): ReactNode[] {
-  return lines.flatMap((line, index) =>
-    index === 0 ? [inline(line)] : [<br key={index} />, inline(line)],
-  )
+  return keyedByText(lines, (line) => line).map(({ key, item }, place) => (
+    <Fragment key={key}>
+      {place === 0 ? null : <br />}
+      {inline(item)}
+    </Fragment>
+  ))
 }
 
 // inlineMarkup matches one piece of inline markup. Emphasis markers count only
