@@ -10,10 +10,17 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // errIndexLocked stands in for git refusing to touch a locked index.
 var errIndexLocked = errors.New("fatal: Unable to create '.git/index.lock': File exists")
+
+// noHead is how `rev-parse --verify --quiet HEAD` answers before the first
+// commit: exit 1, saying nothing.
+func noHead() reply {
+	return reply{err: &proc.ExitError{Program: "git", Code: 1}}
+}
 
 // renamedFrom and renamedTo are where the renamed file in these fixtures was,
 // and is.
@@ -158,7 +165,7 @@ func TestUnstageTakesTheChangeOutOfTheIndexWithoutTouchingTheWorkTree(t *testing
 		},
 		// With no commit there is nothing to restore from: restore --staged fails.
 		"before the first commit, the file leaves the index": {
-			head:   reply{err: errDetachedRead},
+			head:   noHead(),
 			change: gitrepo.Change{Path: "new.go"},
 			want:   "git -C /work --literal-pathspecs rm --cached --quiet -- new.go",
 		},
@@ -202,7 +209,7 @@ func TestDiscardPutsTheFileBackAsTheLastCommitHadIt(t *testing.T) {
 		},
 		// With no commit there is nothing to restore from, so the new file goes.
 		"a staged file, before the first commit": {
-			head:   reply{err: errDetachedRead},
+			head:   noHead(),
 			change: gitrepo.Change{Path: "new.go", Staged: 'A', Unstaged: ' '},
 			ran:    []string{verifyHead, "git -C /work --literal-pathspecs rm --force --quiet -- new.go"},
 		},
@@ -226,6 +233,62 @@ func TestDiscardPutsTheFileBackAsTheLastCommitHadIt(t *testing.T) {
 			// Assert
 			if err != nil || !slices.Equal(*ran, tt.ran) {
 				t.Errorf("Discard ran %q and returned %v, want %q", *ran, err, tt.ran)
+			}
+		})
+	}
+}
+
+func TestDiscardAndUnstageStopWhenHeadCannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	change := gitrepo.Change{Path: "kept.go", Staged: 'M', Unstaged: 'M'}
+	discard := func(repo gitrepo.Repository) error { return repo.Discard(t.Context(), change) }
+	unstage := func(repo gitrepo.Repository) error { return repo.Unstage(t.Context(), change) }
+
+	cases := map[string]struct {
+		replies map[string]reply
+		change  func(gitrepo.Repository) error
+		want    error
+		ran     []string
+	}{
+		// A probe that timed out says nothing about whether there is a commit, so
+		// neither may fall back to removing the file as if there were none.
+		"Discard, after a timeout": {
+			replies: map[string]reply{verifyHead: {err: proc.ErrTimedOut}},
+			change:  discard,
+			want:    proc.ErrTimedOut,
+			ran:     []string{verifyHead},
+		},
+		"Unstage, after a timeout": {
+			replies: map[string]reply{verifyHead: {err: proc.ErrTimedOut}},
+			change:  unstage,
+			want:    proc.ErrTimedOut,
+			ran:     []string{verifyHead},
+		},
+		"Discard, outside a repository": {
+			replies: map[string]reply{
+				verifyHead:   {err: &proc.ExitError{Program: "git", Code: 128, Stderr: "fatal: not a git repository"}},
+				showToplevel: {err: errNotARepository},
+			},
+			change: discard,
+			want:   gitrepo.ErrNotARepository,
+			ran:    []string{verifyHead, showToplevel},
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			run, ran := recordingRunner(t, tt.replies)
+
+			// Act
+			err := tt.change(gitrepo.At(run, workDir))
+
+			// Assert
+			if !errors.Is(err, tt.want) || !slices.Equal(*ran, tt.ran) {
+				t.Errorf("ran %q and returned %v, want %q and %v, with nothing removed", *ran, err, tt.ran, tt.want)
 			}
 		})
 	}
