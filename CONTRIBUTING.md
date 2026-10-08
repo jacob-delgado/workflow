@@ -133,8 +133,12 @@ informational — the floors and the suites' own jobs are what fail the build.
 
 ## Code style
 
-`task lint` is the arbiter — every golangci-lint linter is enabled, so the
-feedback is immediate and specific. [CLAUDE.md](CLAUDE.md) explains the standards
+`task lint` is the arbiter, so the feedback is immediate and specific.
+golangci-lint runs every linter it ships but five, which `.golangci.yml` turns
+off with the reason beside each: `gomodguard_v2`, with no module list to hold;
+`exhaustruct_v5`, unusable on third-party structs; and the deprecated
+`exhaustruct`, `gomodguard` and `wsl`, each superseded by a `_v2` or `_v5`
+linter of the same name. [CLAUDE.md](CLAUDE.md) explains the standards
 behind those settings: function size, complexity limits, error handling, the code
 smells worth watching, and the TDD process.
 
