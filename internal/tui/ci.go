@@ -141,7 +141,7 @@ func (msg ciPoll) apply(m Model) (Model, tea.Cmd) {
 
 // ciGlyph is how the branch's CI stands, by shape.
 func (m Model) ciGlyph() string {
-	return m.ciStateGlyph(m.review.ci.State)
+	return m.kit().ciGlyph(m.review.ci.State)
 }
 
 // ciSummary says how CI stands in words.

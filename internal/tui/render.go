@@ -103,7 +103,7 @@ func (m Model) rail(shape layout.Layout) string {
 		current := pane(index)
 		focused := current == m.focus && (m.overlay == nil || shape.Borderless())
 
-		title := m.paneTitle(current, current.label(m.cfg.Messaging.Service())+m.viewSuffix(current)+m.tasksSuffix(current))
+		title := m.paneTitle(current, current.label(m.cfg.Messaging.Service()))
 		if focused {
 			title = m.styles.strong.Render(title)
 		}
@@ -166,7 +166,7 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 		title = m.focus.label(m.cfg.Messaging.Service())
 	}
 
-	title = m.paneTitle(m.focus, title+m.viewSuffix(m.focus)+m.tasksSuffix(m.focus))
+	title = m.paneTitle(m.focus, title)
 
 	// A pane whose list lives in the detail wears the heavy focus border here,
 	// where the cursor is, rather than on its rail summary.
@@ -182,9 +182,11 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 	return title, scrolled(behavior.detail(m, width), *behavior.scroll(&m), rows), border
 }
 
-// paneTitle adds the in-flight glyph to a pane's title while it is loading, so a
-// refresh shows in the title until the answer arrives.
+// paneTitle is a pane's title with what narrows it — the issue view, the
+// task context — and the in-flight glyph while it is loading, so a refresh
+// shows in the title until the answer arrives.
 func (m Model) paneTitle(p pane, title string) string {
+	title += m.viewSuffix(p) + m.tasks.suffix(m.kit(), p)
 	if m.loading(p) {
 		return title + " " + m.marks.inFlight
 	}

@@ -81,7 +81,7 @@ func (m Model) withTaskWords() Model {
 
 		for _, task := range m.tasks.linked {
 			issueKey := jira.Key(task.IssueKey)
-			words[issueKey] = m.taskWord(issueKey)
+			words[issueKey] = m.tasks.issueWord(m.kit(), issueKey)
 		}
 	}
 

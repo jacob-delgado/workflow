@@ -133,7 +133,7 @@ func (m Model) resumeIssue() Model {
 // issuesRail is the Issues pane's list, each issue marked with its task state
 // when there is a Taskwarrior to ask.
 func (m Model) issuesRail(rows int) string {
-	return m.issues.render(m.kit(), rows, m.taskMarks())
+	return m.issues.render(m.kit(), rows, m.tasks.issueMarks(m.kit()))
 }
 
 // issuesNarrow is the collapsed Issues view: the full issue — or the reason
