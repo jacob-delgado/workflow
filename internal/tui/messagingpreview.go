@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // messagingHelp is what the editor shows below a message being composed. The markup
@@ -54,13 +55,14 @@ type messagingPreview struct {
 	opened int
 }
 
-// destination is where this post will go, as it is shown and as it is sent.
+// destination is where this post will go, as it is shown: the configuration
+// names it, so it is drawn as text alone.
 func (p messagingPreview) destination() string {
 	if p.channel != "" {
-		return p.channel
+		return sanitize.Line(p.channel)
 	}
 
-	return p.fallback
+	return sanitize.Line(p.fallback)
 }
 
 // outgoingAnnouncement is an announcement as it leaves: the channel it is sent
