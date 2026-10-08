@@ -1573,7 +1573,7 @@ paths:
           in: query
           required: true
           schema: {type: string}
-          description: A Jira key, or a forge issue number with or without its #.
+          description: "A Jira key, or a forge issue number with or without its #."
       responses:
         "200":
           description: >-
@@ -2969,7 +2969,7 @@ components:
       properties:
         key:
           type: string
-          description: A Jira key, or a forge issue number with or without its #.
+          description: "A Jira key, or a forge issue number with or without its #."
           example: PROJ-412
         update_pull:
           type: boolean
@@ -2982,7 +2982,7 @@ components:
       properties:
         key:
           type: string
-          description: The issue's key, a forge number without its #.
+          description: "The issue's key, a forge number without its #."
         pull:
           type: integer
           description: The open pull request's number, or 0 when the branch has none.
@@ -4192,7 +4192,7 @@ components:
       properties:
         key:
           type: string
-          description: The issue's key, a forge number without its #.
+          description: "The issue's key, a forge number without its #."
         tracker: {$ref: "#/components/schemas/IssueTracker"}
         url:
           type: string
