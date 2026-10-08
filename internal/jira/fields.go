@@ -130,7 +130,7 @@ func (v FieldValue) Check() error {
 // wireField is a field as expand=transitions.fields describes it.
 type wireField struct {
 	Required bool   `json:"required"`
-	Default  bool   `json:"hasDefaultValue"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+	Default  bool   `json:"hasDefaultValue"`
 	Name     string `json:"name"`
 	Schema   struct {
 		Type string `json:"type"`
@@ -141,7 +141,7 @@ type wireField struct {
 		ID    string `json:"id"`
 		Name  string `json:"name"`
 		Value string `json:"value"`
-	} `json:"allowedValues"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+	} `json:"allowedValues"`
 }
 
 // requiredFields lists the fields Jira will refuse a transition without: those

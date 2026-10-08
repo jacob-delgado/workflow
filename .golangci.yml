@@ -269,6 +269,11 @@ linters:
       # logging wrapper and flags the pass-through; there is nothing to close.
       - path: internal/wiring/reqlog_test\.go$
         linters: [bodyclose]
+      # The snake_case rule is for .workflow.json. Jira's REST is camelCase by
+      # contract, and internal/jira holds no JSON of ours: every tag there is
+      # Jira's field name on the wire, not ours to pick.
+      - path: internal/jira/
+        linters: [tagliatelle]
 
 formatters:
   # gofumpt is a strict superset of gofmt, and gci owns import grouping (it runs
