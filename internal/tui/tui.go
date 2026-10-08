@@ -402,7 +402,7 @@ const minNoticeHeight = 4
 // focused pane under the rows it needs to be read.
 func (m Model) showsNotice() bool {
 	return m.hasNotice() && m.height >= minNoticeHeight &&
-		layout.NoticeKeepsFocus(m.width, m.height, paneCount, int(m.focus))
+		layout.NoticeKeepsFocus(m.terminal(), m.railShape())
 }
 
 // hasNotice reports something for the notice row to say: a notice, or a search
@@ -422,10 +422,20 @@ func (m Model) showsFilter() bool {
 // takes one above the footer.
 func (m Model) shape() layout.Layout {
 	if m.showsNotice() {
-		result, _ := layout.ComputeWithNotice(m.width, m.height, paneCount, int(m.focus))
+		result, _ := layout.ComputeWithNotice(m.terminal(), m.railShape())
 
 		return result
 	}
 
-	return layout.Compute(m.width, m.height, paneCount, int(m.focus))
+	return layout.Compute(m.terminal(), m.railShape())
+}
+
+// terminal is the screen's size, as the terminal last reported it.
+func (m Model) terminal() layout.Terminal {
+	return layout.Terminal{Width: m.width, Height: m.height}
+}
+
+// railShape is every pane, stacked, with the focused one marked.
+func (m Model) railShape() layout.Rail {
+	return layout.Rail{Panes: paneCount, Focused: int(m.focus)}
 }

@@ -14,11 +14,16 @@ import (
 // Branch, Commits, Review, the messaging pane, Reviews and Tasks.
 const railPanes = 7
 
+// focusedFirst is a rail of panes with focus on the first.
+func focusedFirst(panes int) layout.Rail {
+	return layout.Rail{Panes: panes, Focused: 0}
+}
+
 func TestComputeReservesASpineAndAFooter(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	got := layout.Compute(120, 40, railPanes, 0)
+	got := layout.Compute(layout.Terminal{Width: 120, Height: 40}, focusedFirst(railPanes))
 
 	// Assert
 	if got.Spine != (layout.Box{X: 0, Y: 0, Width: 120, Height: 1}) {
@@ -34,12 +39,12 @@ func TestComputeWithNoticeReservesARowAboveTheFooter(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	shape, notice := layout.ComputeWithNotice(120, 40, railPanes, 0)
+	shape, notice := layout.ComputeWithNotice(layout.Terminal{Width: 120, Height: 40}, focusedFirst(railPanes))
 
 	// Assert
 	// The notice sits just above the footer, the footer stays at the bottom, and
 	// the body loses exactly the notice's row.
-	plain := layout.Compute(120, 40, railPanes, 0)
+	plain := layout.Compute(layout.Terminal{Width: 120, Height: 40}, focusedFirst(railPanes))
 	if notice.Y != 38 || shape.Footer.Y != 39 || shape.Detail.Height != plain.Detail.Height-1 {
 		t.Errorf("ComputeWithNotice = notice %+v, footer %+v, detail %+v; want a row reserved above a bottom footer",
 			notice, shape.Footer, shape.Detail)
@@ -50,7 +55,7 @@ func TestEightyColumnsKeepsTheRailBesideTheDetail(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	got := layout.Compute(80, 24, railPanes, 0)
+	got := layout.Compute(layout.Terminal{Width: 80, Height: 24}, focusedFirst(railPanes))
 
 	// Assert
 	if got.Collapsed() || len(got.Rail) != railPanes || got.Detail.Width != 56 {
@@ -80,7 +85,7 @@ func TestComputeGivesTheDetailWhatTheRailLeaves(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := layout.Compute(tt.width, tt.height, railPanes, 0)
+			got := layout.Compute(layout.Terminal{Width: tt.width, Height: tt.height}, focusedFirst(railPanes))
 
 			// Assert
 			if len(got.Rail) != tt.rails || got.Collapsed() != (tt.rails == 0) || got.Detail != tt.detail {
@@ -111,7 +116,7 @@ func TestComputeClampsTheRailWidth(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := layout.Compute(tt.width, 40, railPanes, 0)
+			got := layout.Compute(layout.Terminal{Width: tt.width, Height: 40}, focusedFirst(railPanes))
 
 			// Assert
 			if len(got.Rail) != railPanes || got.Rail[0].Width != tt.want {
@@ -148,8 +153,11 @@ func TestTheFocusedPaneTakesTheRoomTheOthersDoNotNeed(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
+			rail := layout.Rail{Panes: railPanes, Focused: tt.focused}
+
 			// Act & Assert
-			requireStacked(t, layout.Compute(120, tt.height, railPanes, tt.focused), tt.want, tt.height-3)
+			requireStacked(t, layout.Compute(layout.Terminal{Width: 120, Height: tt.height}, rail), tt.want, tt.height-3)
 		})
 	}
 }
@@ -175,8 +183,11 @@ func TestTheFocusedPaneGrowsFirstThenTheOthersThenItAgain(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
+			terminal := layout.Terminal{Width: 80, Height: tt.height}
+
 			// Act & Assert
-			requireStacked(t, layout.Compute(80, tt.height, railPanes, 0), tt.want, tt.height-3)
+			requireStacked(t, layout.Compute(terminal, focusedFirst(railPanes)), tt.want, tt.height-3)
 		})
 	}
 }
@@ -231,7 +242,7 @@ func TestTheShapeFollowsTheTerminal(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := layout.Compute(tt.width, tt.height, railPanes, 0)
+			got := layout.Compute(layout.Terminal{Width: tt.width, Height: tt.height}, focusedFirst(railPanes))
 
 			// Assert
 			if got.Collapsed() != tt.collapsed || got.Borderless() != tt.borderless || got.CompactSpine() != tt.compactSpine {
@@ -248,7 +259,7 @@ func TestComputeSurvivesATinyTerminal(t *testing.T) {
 	// Act
 	// A terminal can be resized to almost nothing mid-session. Negative sizes
 	// would panic inside the renderer, so everything floors at zero.
-	got := layout.Compute(120, 1, railPanes, 0)
+	got := layout.Compute(layout.Terminal{Width: 120, Height: 1}, focusedFirst(railPanes))
 
 	// Assert
 	if got.Detail.Height < 0 {
@@ -285,7 +296,7 @@ func TestRailAt(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			shape := layout.Compute(tt.width, tt.height, railPanes, 0)
+			shape := layout.Compute(layout.Terminal{Width: tt.width, Height: tt.height}, focusedFirst(railPanes))
 
 			// Act
 			index, ok := shape.RailAt(tt.column, tt.row)
@@ -317,7 +328,7 @@ func TestPanesPastSevenShrinkTheOthersToARowSoTheFocusedOneStaysUseful(t *testin
 			t.Parallel()
 
 			// Act & Assert
-			requireStacked(t, layout.Compute(80, 24, tt.panes, 0), tt.want, 21)
+			requireStacked(t, layout.Compute(layout.Terminal{Width: 80, Height: 24}, focusedFirst(tt.panes)), tt.want, 21)
 		})
 	}
 }
@@ -343,7 +354,7 @@ func focusedDrops(shortest, tallest int, counts ...int) []string {
 		previous := 0
 
 		for height := shortest; height <= tallest; height++ {
-			focused := layout.Compute(80, height, panes, 0).Rail[0].Height
+			focused := layout.Compute(layout.Terminal{Width: 80, Height: height}, focusedFirst(panes)).Rail[0].Height
 			if focused < previous {
 				drops = append(drops, fmt.Sprintf("%d panes at %d rows give the focused one %d rows, fewer than %d",
 					panes, height, focused, previous))
@@ -373,7 +384,7 @@ func TestANoticeRowIsGivenOnlyWhereTheFocusedPaneKeepsItsRows(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := layout.NoticeKeepsFocus(tt.width, tt.height, 9, 0)
+			got := layout.NoticeKeepsFocus(layout.Terminal{Width: tt.width, Height: tt.height}, focusedFirst(9))
 
 			// Assert
 			if got != tt.want {
