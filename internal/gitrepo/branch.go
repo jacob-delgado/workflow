@@ -143,7 +143,7 @@ func (b Branch) BaseName() string {
 // branch at all is an error: no commits, no upstream and no base are ordinary
 // states for a repository to be in, and each is left empty.
 func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
-	name, err := r.run(ctx, "git", "-C", r.dir, "branch", "--show-current")
+	name, err := r.run(ctx, gitProgram, "-C", r.dir, "branch", "--show-current")
 	if err != nil {
 		return Branch{}, readFailure(ctx, r.run, r.dir, "reading the current branch of "+r.dir, err)
 	}
@@ -249,7 +249,7 @@ func noneAnOption(refs ...string) error {
 // optional runs git and returns its trimmed output, or "" if it failed: for the
 // questions whose failure is an answer, such as a branch with no upstream.
 func optional(ctx context.Context, run Runner, args ...string) string {
-	out, err := run(ctx, "git", args...)
+	out, err := run(ctx, gitProgram, args...)
 	if err != nil {
 		return ""
 	}
@@ -412,7 +412,7 @@ func RebaseCommand(dir, base string) proc.Command {
 // HooksDir is where git looks for this repository's hooks, which core.hooksPath
 // can move anywhere.
 func (r Repository) HooksDir(ctx context.Context) (string, error) {
-	out, err := r.run(ctx, "git", "-C", r.dir, "rev-parse", "--git-path", "hooks")
+	out, err := r.run(ctx, gitProgram, "-C", r.dir, "rev-parse", "--git-path", "hooks")
 	if err != nil {
 		return "", fmt.Errorf("finding the hooks directory of %s: %w", r.dir, err)
 	}
