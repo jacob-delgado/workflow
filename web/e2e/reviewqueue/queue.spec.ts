@@ -9,44 +9,39 @@ import { expect, test } from '../support/fixtures.ts'
 
 const hour = 3_600_000
 
-// facetsOf is what the server says a request holds in each facet, labeled as
-// it labels them.
-function facetsOf(
-  fields: Pick<ReviewRequest, 'author' | 'repository' | 'draft' | 'ci'>,
-): ReviewFacet[] {
-  const readiness = fields.draft ? 'draft' : 'ready'
-
-  return [
-    {
-      kind: 'repository',
-      value: fields.repository,
-      label: fields.repository === '' ? 'no repository' : fields.repository,
-    },
-    { kind: 'ci', value: fields.ci, label: `CI ${fields.ci}` },
-    { kind: 'draft', value: readiness, label: readiness },
-    { kind: 'author', value: fields.author, label: `by ${fields.author}` },
-  ]
+// offered is a value the server offers the queue's filter, labeled as it
+// labels it.
+function offered(kind: ReviewFacet['kind'], value: string, label: string): ReviewFacet {
+  return { kind, value, label }
 }
 
-// requestNumbered is a queued request, opened some hours before now.
+// The values the queue below holds, each as the server labels it.
+const noRepository = offered('repository', '', 'no repository')
+const exampleOther = offered('repository', 'example/other', 'example/other')
+const exampleRepo = offered('repository', 'example/repo', 'example/repo')
+const ciFailed = offered('ci', 'failed', 'CI failed')
+const ciPassed = offered('ci', 'passed', 'CI passed')
+const ciRunning = offered('ci', 'running', 'CI running')
+const ciNone = offered('ci', 'none', 'CI none')
+const draft = offered('draft', 'draft', 'draft')
+const ready = offered('draft', 'ready', 'ready')
+const byKwan = offered('author', 'kwan', 'by kwan')
+const byMira = offered('author', 'mira', 'by mira')
+
+// requestNumbered is a queued request, opened some hours before now, with the
+// values it holds as the server describes them.
 function requestNumbered(
   number: number,
   hoursAgo: number,
-  fields: Pick<ReviewRequest, 'author' | 'repository' | 'draft' | 'ci'>,
+  fields: Pick<ReviewRequest, 'author' | 'repository' | 'draft' | 'ci' | 'facets'>,
 ): ReviewRequest {
   return {
     number,
     url: `https://forge.example.com/pull/${String(number)}`,
     title: `change number ${String(number)}`,
     opened_at: new Date(Date.now() - hoursAgo * hour).toISOString(),
-    facets: facetsOf(fields),
     ...fields,
   }
-}
-
-// offered is a value the server offers the queue's filter.
-function offered(kind: ReviewFacet['kind'], value: string, label: string): ReviewFacet {
-  return { kind, value, label }
 }
 
 // The queue the terminal's facetsWorld lists, oldest first, with what the
@@ -54,17 +49,17 @@ function offered(kind: ReviewFacet['kind'], value: string, label: string): Revie
 const queue = {
   available: true,
   facet_order: [
-    offered('repository', '', 'no repository'),
-    offered('repository', 'example/other', 'example/other'),
-    offered('repository', 'example/repo', 'example/repo'),
-    offered('ci', 'failed', 'CI failed'),
-    offered('ci', 'passed', 'CI passed'),
-    offered('ci', 'running', 'CI running'),
-    offered('ci', 'none', 'CI none'),
-    offered('draft', 'draft', 'draft'),
-    offered('draft', 'ready', 'ready'),
-    offered('author', 'kwan', 'by kwan'),
-    offered('author', 'mira', 'by mira'),
+    noRepository,
+    exampleOther,
+    exampleRepo,
+    ciFailed,
+    ciPassed,
+    ciRunning,
+    ciNone,
+    draft,
+    ready,
+    byKwan,
+    byMira,
   ],
   requests: [
     requestNumbered(5, 40, {
@@ -72,19 +67,28 @@ const queue = {
       repository: 'example/repo',
       draft: true,
       ci: 'running',
+      facets: [exampleRepo, ciRunning, draft, byKwan],
     }),
     requestNumbered(12, 26, {
       author: 'kwan',
       repository: 'example/other',
       draft: false,
       ci: 'passed',
+      facets: [exampleOther, ciPassed, ready, byKwan],
     }),
-    requestNumbered(3, 10, { author: 'mira', repository: '', draft: false, ci: 'none' }),
+    requestNumbered(3, 10, {
+      author: 'mira',
+      repository: '',
+      draft: false,
+      ci: 'none',
+      facets: [noRepository, ciNone, ready, byMira],
+    }),
     requestNumbered(7, 3, {
       author: 'mira',
       repository: 'example/repo',
       draft: false,
       ci: 'failed',
+      facets: [exampleRepo, ciFailed, ready, byMira],
     }),
   ],
 } satisfies ReviewQueue

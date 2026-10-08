@@ -31,21 +31,34 @@ function offer(kind: ReviewFacet['kind'], value: string, label: string): ReviewF
   return { kind, value, label }
 }
 
+// The values the queue below holds, each as the server labels it.
+const noRepository = offer('repository', '', 'no repository')
+const exampleOther = offer('repository', 'example/other', 'example/other')
+const exampleRepo = offer('repository', 'example/repo', 'example/repo')
+const ciFailed = offer('ci', 'failed', 'CI failed')
+const ciPassed = offer('ci', 'passed', 'CI passed')
+const ciRunning = offer('ci', 'running', 'CI running')
+const ciNone = offer('ci', 'none', 'CI none')
+const draft = offer('draft', 'draft', 'draft')
+const ready = offer('draft', 'ready', 'ready')
+const byKwan = offer('author', 'kwan', 'by kwan')
+const byMira = offer('author', 'mira', 'by mira')
+
 // facetsWorldOrder is what the server offers for the queue below, in its
 // order: repositories by name, every CI state and draft or ready in a fixed
 // order, then authors by name.
 const facetsWorldOrder: ReviewFacet[] = [
-  offer('repository', '', 'no repository'),
-  offer('repository', 'example/other', 'example/other'),
-  offer('repository', 'example/repo', 'example/repo'),
-  offer('ci', 'failed', 'CI failed'),
-  offer('ci', 'passed', 'CI passed'),
-  offer('ci', 'running', 'CI running'),
-  offer('ci', 'none', 'CI none'),
-  offer('draft', 'draft', 'draft'),
-  offer('draft', 'ready', 'ready'),
-  offer('author', 'kwan', 'by kwan'),
-  offer('author', 'mira', 'by mira'),
+  noRepository,
+  exampleOther,
+  exampleRepo,
+  ciFailed,
+  ciPassed,
+  ciRunning,
+  ciNone,
+  draft,
+  ready,
+  byKwan,
+  byMira,
 ]
 
 const queue: ReviewQueue = {
@@ -58,19 +71,28 @@ const queue: ReviewQueue = {
       draft: true,
       ci: 'running',
       opened_at: hoursAgo(40),
+      facets: [exampleRepo, ciRunning, draft, byKwan],
     }),
     requestNumbered(12, {
       author: 'kwan',
       repository: 'example/other',
       ci: 'passed',
       opened_at: hoursAgo(26),
+      facets: [exampleOther, ciPassed, ready, byKwan],
     }),
-    requestNumbered(3, { author: 'mira', repository: '', ci: 'none', opened_at: hoursAgo(10) }),
+    requestNumbered(3, {
+      author: 'mira',
+      repository: '',
+      ci: 'none',
+      opened_at: hoursAgo(10),
+      facets: [noRepository, ciNone, ready, byMira],
+    }),
     requestNumbered(7, {
       author: 'mira',
       repository: 'example/repo',
       ci: 'failed',
       opened_at: hoursAgo(3),
+      facets: [exampleRepo, ciFailed, ready, byMira],
     }),
   ],
 }
@@ -272,8 +294,13 @@ test('unpicking the only value left takes focus to Sort as the filter goes', asy
       return reads === 1
         ? {
             available: true,
-            requests: [requestNumbered(1, { author: 'kwan' })],
-            facet_order: [offer('author', 'kwan', 'by kwan')],
+            requests: [
+              requestNumbered(1, {
+                author: 'kwan',
+                facets: [offer('repository', 'acme/api', 'acme/api'), ciFailed, ready, byKwan],
+              }),
+            ],
+            facet_order: [byKwan],
           }
         : { available: true, requests: [], facet_order: [] }
     },

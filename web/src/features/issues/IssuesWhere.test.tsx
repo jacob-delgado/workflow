@@ -51,7 +51,7 @@ const snapshot = makeSnapshot({
   tasks: {
     available: true,
     reason: '',
-    linked: [makeTask({ issue_key: 'PROJ-502', start: '2026-09-30T09:00:00Z' })],
+    linked: [makeTask({ issue_key: 'PROJ-502', start: '2026-09-30T09:00:00Z', state: 'started' })],
   },
 })
 

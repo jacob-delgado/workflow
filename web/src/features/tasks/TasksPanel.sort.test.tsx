@@ -5,13 +5,21 @@ import { makeTask, makeTaskList } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { TasksPanel } from './TasksPanel.tsx'
 
-// Each task's place in every order, as the server ranks them.
+// Each task as the server describes it: its values, as it labels them, and
+// its place in every order.
 const urgent = makeTask({
   uuid: 'a',
   id: 1,
   description: 'Fix the token leak',
   urgency: 9.5,
   issue_key: '',
+  facets: [
+    { kind: 'state', value: 'pending', label: 'pending' },
+    { kind: 'priority', value: '', label: 'no priority' },
+    { kind: 'project', value: '', label: 'no project' },
+    { kind: 'issue', value: 'unlinked', label: 'no issue' },
+    { kind: 'tag', value: '', label: 'no tag' },
+  ],
   ranks: { urgency: 0, state: 0, id: 0, tag: 1, issue: 0, priority: 2 },
 })
 const certificate = makeTask({
@@ -21,6 +29,13 @@ const certificate = makeTask({
   urgency: 5.1,
   priority: 'H',
   issue_key: '',
+  facets: [
+    { kind: 'state', value: 'pending', label: 'pending' },
+    { kind: 'priority', value: 'H', label: 'priority H' },
+    { kind: 'project', value: '', label: 'no project' },
+    { kind: 'issue', value: 'unlinked', label: 'no issue' },
+    { kind: 'tag', value: '', label: 'no tag' },
+  ],
   ranks: { urgency: 1, state: 1, id: 1, tag: 2, issue: 1, priority: 0 },
 })
 const cache = makeTask({
@@ -31,6 +46,13 @@ const cache = makeTask({
   priority: 'L',
   tags: ['perf'],
   issue_key: '',
+  facets: [
+    { kind: 'state', value: 'pending', label: 'pending' },
+    { kind: 'priority', value: 'L', label: 'priority L' },
+    { kind: 'project', value: '', label: 'no project' },
+    { kind: 'issue', value: 'unlinked', label: 'no issue' },
+    { kind: 'tag', value: 'perf', label: '+perf' },
+  ],
   ranks: { urgency: 2, state: 2, id: 2, tag: 0, issue: 2, priority: 1 },
 })
 

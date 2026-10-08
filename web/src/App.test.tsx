@@ -172,7 +172,7 @@ test('opens the Tasks section on your tasks', async () => {
 test('the header shows the task you have started, and its chip opens Tasks', async () => {
   // Arrange
   const user = userEvent.setup()
-  const started = makeTask({ start: new Date().toISOString() })
+  const started = makeTask({ start: new Date().toISOString(), state: 'started' })
   fakeApi({ '/api/health': makeHealth(), '/api/tasks': makeTaskList([started]) })
   renderWithClient(<App />)
   act(() => {
