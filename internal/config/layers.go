@@ -68,17 +68,19 @@ func (c Config) Layers() Files {
 }
 
 // Locate finds the configuration files that apply: the nearest one walking up
-// from workDir, no higher than the repository root, layered over the one in
-// homeDir. It returns ErrNotFound when neither location has one.
+// from workDir, no higher than the repository root and no higher than workDir
+// outside one, layered over the one in homeDir. The home directory's file is
+// the home file wherever it is found from. It returns ErrNotFound when neither
+// location has one.
 func Locate(workDir, homeDir string) (Files, error) {
 	var files Files
 
-	if found, ok := nearest(workDir); ok {
-		files.Repo = found
+	if found, ok := fileIn(homeDir); ok {
+		files.Home = found
 	}
 
-	if found, ok := fileIn(homeDir); ok && found != files.Repo {
-		files.Home = found
+	if found, ok := nearest(workDir); ok && found != files.Home {
+		files.Repo = found
 	}
 
 	if files == (Files{}) {

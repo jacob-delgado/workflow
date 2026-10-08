@@ -13,29 +13,27 @@ import (
 	"path/filepath"
 )
 
-// nearest walks up from dir looking for the configuration file, so a session in
-// a subdirectory of a repository finds the repository's own file rather than
-// skipping it for the one at home. The search stops at the repository root — the
-// directory holding .git — so it never escapes into an unrelated parent.
+// nearest is the configuration file that applies in dir: the nearest one
+// walking up from dir to the root of the repository dir is in — the directory
+// holding .git — so a session in a subdirectory finds the repository's own
+// file rather than skipping it for the one at home. Outside a repository it is
+// dir's own file alone: a parent directory that is no repository's, a shared
+// /tmp among them, is somewhere anyone may have put one.
 func nearest(dir string) (string, bool) {
-	for dir != "" {
-		if candidate, ok := fileIn(dir); ok {
+	root, inRepository := enclosingRepository(dir)
+	if !inRepository {
+		return fileIn(dir)
+	}
+
+	for current := dir; ; current = filepath.Dir(current) {
+		if candidate, ok := fileIn(current); ok {
 			return candidate, true
 		}
 
-		if atRepoRoot(dir) {
+		if current == root {
 			return "", false
 		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", false
-		}
-
-		dir = parent
 	}
-
-	return "", false
 }
 
 // RepoRoot returns the root of the repository dir sits in — the nearest
@@ -43,9 +41,20 @@ func nearest(dir string) (string, bool) {
 // subdirectory below it. It returns dir unchanged when no repository encloses
 // it, which is where a lone file still belongs.
 func RepoRoot(dir string) string {
+	root, inRepository := enclosingRepository(dir)
+	if !inRepository {
+		return dir
+	}
+
+	return root
+}
+
+// enclosingRepository is the nearest of dir and its ancestors holding a .git,
+// and whether there is one.
+func enclosingRepository(dir string) (string, bool) {
 	for current := dir; current != ""; {
 		if atRepoRoot(current) {
-			return current
+			return current, true
 		}
 
 		parent := filepath.Dir(current)
@@ -56,7 +65,7 @@ func RepoRoot(dir string) string {
 		current = parent
 	}
 
-	return dir
+	return "", false
 }
 
 // fileIn is the configuration file in dir, when there is one.
