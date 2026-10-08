@@ -91,8 +91,8 @@ vars:
   CONTAINER_USER: >-
     {{if eq .CONTAINER_RUNTIME "podman"}}--userns=keep-id{{else}}--user "$(id -u):$(id -g)"{{end}}
   BUILD_IMAGE: '{{.BUILD_IMAGE | default "workflow-build:local"}}'
-  # Release targets, as GOOS/GOARCH pairs: Apple Silicon macOS, and amd64 on
-  # Linux and Windows.
+  # Release targets, as GOOS/GOARCH pairs. The one list of them: the docs name
+  # no platform, and point at the release's assets instead.
   RELEASE_PLATFORMS: >-
     darwin/arm64 linux/amd64 windows/amd64
 
