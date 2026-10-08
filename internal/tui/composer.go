@@ -76,15 +76,6 @@ var (
 
 // openCommitComposer opens the composer on the draft kept, or on a fresh one.
 func (m Model) openCommitComposer() (Model, tea.Cmd) {
-	if m.deps.Git.Commit == nil {
-		return m, nil
-	}
-
-	refusal := loop.RefuseNothingStaged(m.changes.changes)
-	if refusal != nil {
-		return m.noticedGuidance(refusal), nil
-	}
-
 	draft := m.draft
 	conv := m.commitConvention()
 	types := conv.Types()

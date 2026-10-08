@@ -124,11 +124,7 @@ const discardPreviewLines = 12
 // previewDiscard holds discarding the selected file's changes for a last look
 // at the file and the start of its diff, since a discard cannot be undone.
 func (m Model) previewDiscard() (Model, tea.Cmd) {
-	change, ok := m.changes.current()
-	if !ok || m.deps.Git.Discard == nil {
-		return m, nil
-	}
-
+	change, _ := m.changes.current()
 	path := sanitize.Line(change.Path)
 	body := "Discard the " + change.Kind() + " file " + path + ", staged and not?"
 
