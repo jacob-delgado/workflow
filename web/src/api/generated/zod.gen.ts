@@ -1079,6 +1079,7 @@ export const zJiraConfig = z.object({
     token: z.string().nullable(),
     token_command: z.string().optional(),
     token_env: z.string().optional(),
+    keychain: z.boolean().optional(),
     user: z.string().optional(),
     headers: z.record(z.string(), z.string()).nullish(),
     views: z.array(zJiraView).nullish(),

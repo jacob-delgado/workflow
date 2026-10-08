@@ -37,8 +37,8 @@ var (
 	// empty: storing it would replace whatever the keychain kept before.
 	ErrNoToken = errors.New("there is no token to keep in the keychain")
 	// ErrKeychainAtHome reports the token asked to be kept in the keychain
-	// for a file other than the home directory's: the file reads it back with
-	// a jira.token_command, which only the home file may set.
+	// for a file other than the home directory's: the first run offers the
+	// keychain for the home file alone.
 	ErrKeychainAtHome = errors.New("the keychain can keep the token only for the home directory's file; " +
 		"write the file there, or keep the token in the file")
 )
@@ -134,14 +134,15 @@ func (a Answers) Over(cfg config.Config) config.Config {
 }
 
 // withJira is settings with the address and token asked for in place of its
-// own, or settings as they were when the question was left blank.
+// own, read from where the answers keep it, or settings as they were when the
+// question was left blank.
 func withJira(settings, asked config.Jira) config.Jira {
 	if asked.BaseURL == "" {
 		return settings
 	}
 
-	settings.BaseURL, settings.Token, settings.TokenCommand, settings.TokenEnv =
-		asked.BaseURL, asked.Token, asked.TokenCommand, ""
+	settings.BaseURL, settings.Token, settings.Keychain = asked.BaseURL, asked.Token, asked.Keychain
+	settings.TokenCommand, settings.TokenEnv = "", ""
 
 	return settings
 }
@@ -189,11 +190,11 @@ func Identify(user jira.User) string {
 	return user.DisplayName + " (" + user.Name + ")"
 }
 
-// Keep moves the token in settings into the OS keychain through store, so the
-// file holds the token_command that reads it back rather than the secret. An
-// empty token is refused with ErrNoToken before store is asked: kept, it would
-// replace whatever the keychain held.
-func Keep(store func(secret string) (string, error), settings config.Jira) (config.Jira, error) {
+// Keep moves the token in settings into the OS keychain through store, under
+// the item for its address, so the file reads it from there rather than
+// holding the secret. An empty token is refused with ErrNoToken before store
+// is asked: kept, it would replace whatever the keychain held for the address.
+func Keep(store func(service, secret string) error, settings config.Jira) (config.Jira, error) {
 	if store == nil {
 		return settings, ErrNoKeychain
 	}
@@ -202,14 +203,19 @@ func Keep(store func(secret string) (string, error), settings config.Jira) (conf
 		return settings, ErrNoToken
 	}
 
-	tokenCommand, err := store(settings.Token.Reveal())
+	err := store(settings.KeychainService(), settings.Token.Reveal())
 	if err != nil {
 		return settings, fmt.Errorf("storing the token in the keychain: %w", err)
 	}
 
-	settings.Token, settings.TokenCommand = "", tokenCommand
+	return inKeychain(settings), nil
+}
 
-	return settings, nil
+// inKeychain is settings reading their token from the keychain alone.
+func inKeychain(settings config.Jira) config.Jira {
+	settings.Token, settings.Keychain, settings.TokenCommand, settings.TokenEnv = "", true, "", ""
+
+	return settings
 }
 
 // Beneath is the configuration a new file starts from — the home file's, when

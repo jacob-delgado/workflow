@@ -61,10 +61,10 @@ func TestSetupWritesTheFileWithTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	var kept string
 
 	where := setup.Where{WorkDir: t.TempDir(), HomeDir: t.TempDir()}
-	deps := wiring.SetupDeps(t.Context(), where, nil, func(secret string) (string, error) {
+	deps := wiring.SetupDeps(t.Context(), where, nil, func(_, secret string) error {
 		kept = secret
 
-		return "security find-generic-password -s workflow-jira -w", nil
+		return nil
 	})
 	request := setup.Request{
 		Place:    setup.Home,

@@ -1187,9 +1187,10 @@ paths:
       description: >-
         Asks what workflow config init asks, in one request: checks the Jira
         token with Jira over the server's own transport before anything is
-        written, keeps it in the OS keychain when asked — so the file holds
-        the command that reads it back — or in the file, which only you can
-        read, and saves a Slack incoming webhook unchecked. A blank Jira
+        written, keeps it in the OS keychain item for Jira's address when
+        asked — so the file holds jira.keychain, which reads it back from
+        there — or in the file, which only you can read, and saves a Slack
+        incoming webhook unchecked. A blank Jira
         address or webhook leaves that part out. Once the file is written the
         server works with it, as after a switch: open event streams end,
         asking the page to reconnect, and every read after answers with it.
@@ -1229,8 +1230,8 @@ paths:
             https address, or http to this machine, without a username and
             password, which is never kept, keep_unchecked or not (code
             unprocessable); or the keychain was asked for where there is none,
-            or for a file other than the home directory's, the one file that
-            may read its token back. Nothing was written.
+            or for a file other than the home directory's, which the first run
+            offers it for alone. Nothing was written.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -4787,8 +4788,8 @@ components:
           type: boolean
           description: >-
             The OS keychain can keep the Jira token out of this file: one is
-            wired, and the file is the home directory's, the one file that may
-            hold the command that reads the token back.
+            wired, and the file is the home directory's, which the first run
+            offers it for alone.
       additionalProperties: false
 
     SetupPlaceName:
@@ -4835,7 +4836,9 @@ components:
           description: Whom the token authenticates as; empty when Jira was left out or kept unchecked.
         keychain:
           type: boolean
-          description: The OS keychain keeps the token, and the file the command that reads it back.
+          description: >-
+            The OS keychain keeps the token, in the item for Jira's address,
+            and the file reads it from there (jira.keychain).
         not_ignored:
           type: boolean
           description: The file is in a repository that does not ignore it, so it could be committed.
@@ -4869,6 +4872,13 @@ components:
             An environment variable that holds the token. Held as
             token_command is: a save keeps it, and one carrying another value
             is refused 422.
+        keychain:
+          type: boolean
+          description: >-
+            Read the token from the OS keychain item kept for base_url (macOS),
+            one item for each address, so a token is only ever read back for
+            the address it was kept for. After the file's own token, and before
+            token_env and token_command.
         user: {type: string}
         headers:
           type: object

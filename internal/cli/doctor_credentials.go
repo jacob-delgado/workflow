@@ -417,7 +417,7 @@ func checkJira(ctx context.Context, doer jira.Doer, settings config.Jira) (crede
 		return credentialUnchecked("jira", "not configured — the forge's issues are the tracker")
 	}
 
-	token, source, err := wiring.ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
+	token, source, err := wiring.ResolveToken(ctx, settings, wiring.SystemKeychain())
 	if err != nil {
 		return credentialMissing("jira", err.Error())
 	}

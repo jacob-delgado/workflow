@@ -36,8 +36,8 @@ var (
 	// service that never answered.
 	errCredentialRejected = errors.New("a credential was rejected")
 	// errCredentialMissing reports a service doctor had no credential to ask
-	// about: none is configured, Jira's token_command or token_env gave none,
-	// or the Slack user token was never logged in.
+	// about: none is configured, Jira's keychain item, token_command or
+	// token_env gave none, or the Slack user token was never logged in.
 	errCredentialMissing = errors.New("a credential is missing")
 	// errRefreshHeldBack reports a Slack user token due a refresh that a dry
 	// run holds back, since the refresh writes the new pair where it is kept.

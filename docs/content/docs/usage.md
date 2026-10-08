@@ -798,10 +798,10 @@ check that does not pass names why and offers to type the token again, keep
 both anyway, or leave Jira out; an address that is not an https address, or
 http to this machine, or that carries a username and password, is never kept,
 so it offers to type the address again or leave Jira out. With your home directory chosen and the OS
-keychain wired (macOS), it then asks where to keep the token: in the keychain,
-so the file holds only the command that reads it back, or in the file, which
-only you can read. It asks for your home file alone, the one file that may
-hold that command, so a repository's file keeps the token itself. Last comes
+keychain wired (macOS), it then asks where to keep the token: in the keychain
+item for Jira's address, so the file holds only `"keychain": true`, which
+reads it back from there, or in the file, which only you can read. It asks for
+your home file alone, so a repository's file keeps the token itself. Last comes
 a Slack incoming webhook, saved unchecked, or left blank to post with your Slack
 user token after `workflow slack login`. A blank address or webhook skips that
 question, and `esc` goes back one.

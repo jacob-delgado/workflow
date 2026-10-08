@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -25,8 +26,8 @@ const jiraAddress = "https://jira.example.com"
 // typedToken is the Jira token these tests type.
 const typedToken = "typed-jira-token"
 
-// keychainReader is the token_command the fake keychain names.
-const keychainReader = "security find-generic-password -s workflow-jira -w"
+// jiraItem is the keychain item the token for jiraAddress is kept in.
+const jiraItem = "workflow-jira " + jiraAddress
 
 // errKeychainLocked is a keychain that would not store.
 var errKeychainLocked = errors.New("the keychain is locked")
@@ -51,16 +52,22 @@ func acceptingJira() jira.Doer {
 	return jiraAnswering(http.StatusOK, `{"displayName":"Fred F. User","name":"fred"}`, nil)
 }
 
-// keychain is a fake keychain that keeps what it is handed.
+// keychain is a fake keychain that keeps what it is handed, and the item it
+// was kept under.
 type keychain struct {
-	stored string
+	service, stored string
 }
 
-// store keeps secret and names the reader.
-func (k *keychain) store(secret string) (string, error) {
-	k.stored = secret
+// store keeps secret under service.
+func (k *keychain) store(service, secret string) error {
+	k.service, k.stored = service, secret
 
-	return keychainReader, nil
+	return nil
+}
+
+// refusingKeychain is a keychain that will not store.
+func refusingKeychain(string, string) error {
+	return errKeychainLocked
 }
 
 // guideIn is a guide for a fresh working directory and home, with no keychain.
@@ -102,12 +109,14 @@ func TestWriteKeepsTheTokenOutOfTheFileWhenTheKeychainIsChosen(t *testing.T) {
 		t.Fatalf("reading what was written: %v", err)
 	}
 
-	if strings.Contains(string(contents), typedToken) || !strings.Contains(string(contents), keychainReader) {
-		t.Errorf("the file holds the token or not its reader:\n%s", contents)
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: written.Path})
+	if err != nil || strings.Contains(string(contents), typedToken) || !cfg.Jira.Keychain {
+		t.Errorf("the file holds the token, or does not read the keychain (%v):\n%s", err, contents)
 	}
 
-	if kept.stored != typedToken || !written.Keychain {
-		t.Errorf("the keychain kept %q (written %+v), want the typed token", kept.stored, written)
+	if kept.stored != typedToken || kept.service != jiraItem || !written.Keychain {
+		t.Errorf("the keychain kept %q under %q (written %+v), want the typed token under %q",
+			kept.stored, kept.service, written, jiraItem)
 	}
 }
 
@@ -147,7 +156,7 @@ func TestWriteKeepsTheKeychainForARepositoryRootedAtHome(t *testing.T) {
 
 	// Assert
 	cfg, loadErr := config.Load(home, home)
-	if err != nil || loadErr != nil || cfg.Jira.TokenCommand != keychainReader || !written.Keychain {
+	if err != nil || loadErr != nil || !cfg.Jira.Keychain || cfg.Jira.Token != "" || !written.Keychain {
 		t.Errorf("Write = %+v, %v; loaded %+v (%v); want the home file reading the keychain",
 			written, err, cfg.Jira, loadErr)
 	}
@@ -206,7 +215,7 @@ func TestWriteReportsAKeychainThatWouldNotStore(t *testing.T) {
 
 	// Arrange
 	guide := guideIn(t, acceptingJira())
-	guide.StoreSecret = func(string) (string, error) { return "", errKeychainLocked }
+	guide.StoreSecret = refusingKeychain
 	request := answered(setup.Home)
 	request.Keychain = true
 
@@ -598,16 +607,39 @@ func TestKeepRefusesAnEmptyToken(t *testing.T) {
 	}
 }
 
+func TestKeepKeepsTheTokenInTheItemForItsAddress(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := &keychain{}
+	settings := config.Jira{BaseURL: "https://jira.other.example/", Token: typedToken, TokenCommand: "pass show jira"}
+
+	// Act
+	held, err := setup.Keep(kept.store, settings)
+
+	// Assert
+	want := config.Jira{BaseURL: settings.BaseURL, Keychain: true}
+	if err != nil || !reflect.DeepEqual(held, want) {
+		t.Errorf("Keep = keychain %t, a token %t, command %q, %v; want the keychain read alone",
+			held.Keychain, held.Token != "", held.TokenCommand, err)
+	}
+
+	if kept.service != "workflow-jira https://jira.other.example" || kept.stored != typedToken {
+		t.Errorf("the keychain kept %q under %q, want the token under the address's own item",
+			kept.stored, kept.service)
+	}
+}
+
 func TestWriteWithAnEmptyTokenLeavesTheKeychainAlone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	stored := false
 	guide := guideIn(t, acceptingJira())
-	guide.StoreSecret = func(string) (string, error) {
+	guide.StoreSecret = func(string, string) error {
 		stored = true
 
-		return keychainReader, nil
+		return nil
 	}
 	request := setup.Request{
 		Place: setup.Home, Answers: setup.Answers{Jira: config.Jira{BaseURL: jiraAddress}},
@@ -620,7 +652,7 @@ func TestWriteWithAnEmptyTokenLeavesTheKeychainAlone(t *testing.T) {
 	// Assert
 	cfg, _, loadErr := config.LoadLayersAt(config.Files{Home: written.Path})
 	if err != nil || stored || written.Keychain || written.Path != guide.Where.Path(setup.Home) || loadErr != nil ||
-		cfg.Jira.BaseURL != jiraAddress || cfg.Jira.Token != "" || cfg.Jira.TokenCommand != "" {
+		cfg.Jira.BaseURL != jiraAddress || cfg.Jira.Token != "" || cfg.Jira.Keychain {
 		t.Errorf("Write = %+v, %v, keychain called %t; wrote %+v (%v); want the home file written with Jira's "+
 			"address and no token, and nothing for the keychain", written, err, stored, cfg.Redacted().Jira, loadErr)
 	}
@@ -652,7 +684,7 @@ func TestWriteWhoseKeychainFailsLeavesNoFile(t *testing.T) {
 
 	// Arrange
 	guide := guideIn(t, acceptingJira())
-	guide.StoreSecret = func(string) (string, error) { return "", errKeychainLocked }
+	guide.StoreSecret = refusingKeychain
 	request := answered(setup.Home)
 	request.Keychain = true
 
