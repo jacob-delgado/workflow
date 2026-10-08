@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { FollowUp, OpenedPullRequest } from '@/api/generated/types.gen.ts'
@@ -219,8 +219,12 @@ test('a link said while focus was on the next offer leaves that offer its own ou
   transition.release()
 
   // Assert
+  // The line takes focus in an effect after the text is drawn, so it is
+  // waited for as the text is.
   const moved = await screen.findByText('Moved PROJ-412 to In Review.')
-  expect(document.activeElement).toBe(moved)
+  await waitFor(() => {
+    expect(document.activeElement).toBe(moved)
+  })
 })
 
 test('a second open offers its own link afresh', async () => {
