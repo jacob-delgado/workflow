@@ -195,9 +195,10 @@ func messagingFaults() []faultClass {
 			code:   api.ProblemCodeUnprocessable,
 			detail: "messaging.webhook_url is not an https address; copy the webhook's https address into it in Settings",
 		},
-		// Every 4xx a post meets is this one, and a webhook — the only transport
-		// Teams, Discord and a plain webhook have — is one workflow doctor cannot
-		// check, so the detail points at the settings rather than at doctor.
+		// A credential a post meets refused — the token, or a webhook that no
+		// longer works — is this one, and a webhook, the only transport Teams,
+		// Discord and a plain webhook have, is one workflow doctor cannot check,
+		// so the detail points at the settings rather than at doctor.
 		{
 			causes: []error{messaging.ErrRejected},
 			code:   api.ProblemCodeUnprocessable,
