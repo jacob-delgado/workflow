@@ -479,10 +479,10 @@ the gate enforces.
 says a line ran; condition coverage (gobco, `task cover:branch`) says whether an
 `if a && b` was ever seen with `b` false. Its per-condition output — "condition
 `err != nil` was 8 times false but never true" — is a worklist of missing test
-cases, not a percentage to chase. gobco reads every package in this module but
-the build-tagged twins `scripts/gobco-report.sh` names as unreadable
-(`UNANALYZABLE`); a package that becomes unreadable without being listed fails
-the gate rather than quietly shrinking what the number covers.
+cases, not a percentage to chase. gobco measures every package in this module
+that has tests. It reads a package of build-tagged twins one file at a time, so
+each file the build takes must stand alone, and any package or file it cannot
+read fails the gate rather than quietly shrinking what the number covers.
 
 **Raising the floor: the ratchet is `floor(measured) − 2`.** Two points is the
 whole tolerance — enough for an incidental refactor, not enough to land a feature
