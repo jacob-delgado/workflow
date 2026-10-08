@@ -193,17 +193,13 @@ func heldForCI(held *api.QueuedAnnouncement) bool {
 		(held.State == api.QueuedAnnouncementStateWaiting || held.State == api.QueuedAnnouncementStateAnnouncing)
 }
 
-// stagesDTO maps the loop's stages onto the wire, each by its step, name,
-// system and state. Maps, so exhaustive keeps each complete.
+// stagesDTO maps the loop's stages onto the wire, each by its step, name and
+// state. Maps, so exhaustive keeps each complete.
 func stagesDTO(stages []progress.Stage) []api.Stage {
 	steps := map[progress.Step]api.StageStep{
 		progress.StepIssue: api.StageStepIssue, progress.StepBranch: api.StageStepBranch,
 		progress.StepCommits: api.StageStepCommits, progress.StepReview: api.StageStepReview,
 		progress.StepAnnounce: api.StageStepAnnounce,
-	}
-	systems := map[progress.System]api.StageSystem{
-		progress.Tracker: api.StageSystemTracker, progress.Git: api.StageSystemGit,
-		progress.Forge: api.StageSystemForge, progress.Messaging: api.StageSystemMessaging,
 	}
 	states := map[progress.State]api.StageState{
 		progress.NotStarted: api.StageStateNotStarted, progress.InFlight: api.StageStateInFlight,
@@ -212,9 +208,7 @@ func stagesDTO(stages []progress.Stage) []api.Stage {
 
 	out := make([]api.Stage, 0, len(stages))
 	for _, stage := range stages {
-		out = append(out, api.Stage{
-			Step: steps[stage.Step], Name: stage.Name, System: systems[stage.System], State: states[stage.State],
-		})
+		out = append(out, api.Stage{Step: steps[stage.Step], Name: stage.Name, State: states[stage.State]})
 	}
 
 	return out

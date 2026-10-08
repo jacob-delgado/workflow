@@ -873,7 +873,7 @@ export type Snapshot = {
     changes: ChangeList;
     review: Review;
     /**
-     * The loop's stages for the checked-out branch, in order — its issue, the branch, its commits, its pull request's review and the announcement — each with how far it has got, by the rules the terminal's spine and `workflow status` read, so every surface shows the same stages in the same states. A panel whose read failed, or a service not set up, counts as nothing done there.
+     * The loop's stages for the checked-out branch, in order — its issue, the branch, its commits, its pull request's review and the announcement — each named as the terminal's spine and `workflow status` name it and in the state their rules give it, so every surface shows the same stages, by the same names, in the same states. They are read from what the frame holds: the review from the pull request and CI the review panel shows, and a working tree that could not be read as nothing to commit.
      */
     stages: Array<Stage>;
     messaging: MessagingDestination;
@@ -915,13 +915,9 @@ export type Stage = {
      */
     step: 'issue' | 'branch' | 'commits' | 'review' | 'announce';
     /**
-     * The stage as the terminal's spine and `workflow status` name it: Issue, Branch, Commits, Review, and the messaging service the work is announced on, as the configuration names it.
+     * The stage as every surface titles it, as the terminal's spine and `workflow status` name it: Issue, Branch, Commits, Review, and the messaging service the work is announced on, as the configuration names it.
      */
     name: string;
-    /**
-     * Where the stage's work happens, which the terminal's spine colors it by.
-     */
-    system: 'tracker' | 'git' | 'forge' | 'messaging';
     /**
      * How far it has got: not begun, under way, complete, or failed — a CI failure or changes asked for, something to go back to.
      */

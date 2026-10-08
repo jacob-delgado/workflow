@@ -36,19 +36,18 @@ type StageStates = Partial<Record<Stage['step'], Stage['state']>>
 // makeStages is the loop's five stages as the server sends them, in its order
 // and named as it names them, each not started but where states says.
 export function makeStages(states: StageStates = {}): Stage[] {
-  const stage = (step: Stage['step'], name: string, system: Stage['system']): Stage => ({
+  const stage = (step: Stage['step'], name: string): Stage => ({
     step,
     name,
-    system,
     state: states[step] ?? 'not_started',
   })
 
   return [
-    stage('issue', 'Issue', 'tracker'),
-    stage('branch', 'Branch', 'git'),
-    stage('commits', 'Commits', 'git'),
-    stage('review', 'Review', 'forge'),
-    stage('announce', 'Slack', 'messaging'),
+    stage('issue', 'Issue'),
+    stage('branch', 'Branch'),
+    stage('commits', 'Commits'),
+    stage('review', 'Review'),
+    stage('announce', 'Slack'),
   ]
 }
 

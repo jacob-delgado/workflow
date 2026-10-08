@@ -8,8 +8,8 @@ import type { TaskOrder } from '@/features/tasks/taskOrder.ts'
 
 // The cockpit's sections, in nav order: the interface's panes, in its order —
 // its Commits pane is part of Branch here — then Settings. The work story
-// (Branch → Changes → PR/CI → Announce) is reachable from an issue in the
-// Issues section; the rest are direct views.
+// (Issue → Branch → Commits → Review → the messaging service) is reachable
+// from an issue in the Issues section; the rest are direct views.
 export const sections = [
   'issues',
   'branch',

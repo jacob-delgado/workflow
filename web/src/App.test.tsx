@@ -233,7 +233,7 @@ test('a work-story stage moves focus to the section it opens', async () => {
   await user.click(screen.getByRole('button', { name: /redact tokens/i }))
 
   // Act
-  await user.click(screen.getByRole('button', { name: /^changes/i }))
+  await user.click(screen.getByRole('button', { name: /^Commits/ }))
 
   // Assert
   expect(screen.getByRole('heading', { level: 1, name: 'Branch' })).toBeTruthy()
