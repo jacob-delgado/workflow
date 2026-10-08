@@ -1,6 +1,8 @@
 # Build container: the pinned toolchain, without installing anything on the
-# host. It runs the same `task check` gate the host runs and cross-compiles the
-# release binaries.
+# host. It runs the same `task check` gate the host runs, and cross-compiles
+# the release targets by hand; the published release is built on a CI runner
+# by .github/workflows/release.yml, with mise, and CI builds this image only in
+# .github/workflows/container.yml, weekly and on demand.
 #
 # Never build this by hand — `task container:build` passes the versions in from
 # mise.toml (scripts/tool-versions.sh), which is what keeps this image from

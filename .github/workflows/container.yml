@@ -1,11 +1,12 @@
 name: Container
 
-# The build container is what the release binaries are built in and what
-# `task container:check` runs the gate inside, but nothing built it in CI — so a
-# drift in build/Dockerfile (a dead download URL, a base image that moved, a tool
-# version that no longer resolves) would surface only when someone built it by
-# hand. Build it and run the full gate inside it on a schedule, and on demand, so
-# that drift is caught on a Monday rather than at a release.
+# The build container is what `task container:check` runs the gate inside and
+# `task container:release` cross-compiles in, both by hand; the release itself
+# is built on a runner by release.yml, with mise. So nothing else builds the
+# image in CI, and a drift in build/Dockerfile (a dead download URL, a base
+# image that moved, a tool version that no longer resolves) would surface only
+# when someone built it. Build it and run the full gate inside it weekly and on
+# demand, so that drift is caught on a Monday rather than by a developer.
 on:
   schedule:
     # Weekly, Monday 09:00 UTC, after CodeQL and Scorecard.
@@ -38,5 +39,5 @@ jobs:
           install_args: task
       # Builds build/Dockerfile with the versions scripts/tool-versions.sh reads
       # from mise.toml, then runs `task check` inside it — the same gate a
-      # developer runs, in the container the release is built in.
+      # developer runs, in the container they can run it in.
       - run: task container:check
