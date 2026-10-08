@@ -183,15 +183,6 @@ type branchStages struct {
 	elsewhere  []api.Stage
 }
 
-// of is the stages of a branch's issue, by whether it is checked out.
-func (b branchStages) of(current bool) []api.Stage {
-	if current {
-		return b.checkedOut
-	}
-
-	return b.elsewhere
-}
-
 // taskBranchesDTO maps branch names to the issues they are named for, keeping
 // only the branches that name one of yours and the checked-out branch, whoever
 // its issue is assigned to — the work story reads the issue being worked on
@@ -216,11 +207,16 @@ func taskBranchesDTO(listing branchListing, current, project string) []api.TaskB
 			shown = workdirs.Shown(worktree.Dir, listing.home)
 		}
 
+		stages := listing.stages.elsewhere
+		if name == current {
+			stages = listing.stages.checkedOut
+		}
+
 		branches = append(branches, api.TaskBranch{
 			Name:            name,
 			IssueKey:        key.Key,
 			Current:         name == current,
-			Stages:          listing.stages.of(name == current),
+			Stages:          stages,
 			Remote:          &remote,
 			Worktree:        &worktree.Dir,
 			WorktreeShown:   &shown,
