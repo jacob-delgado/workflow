@@ -102,7 +102,7 @@ func TestDoctorJSONFailsOnSetButInvalidValues(t *testing.T) {
 	configuration, _ := decodeReport(t, output)["configuration"].(map[string]any)
 	problems, _ := configuration["problems"].([]any)
 
-	if missed := unmentioned(problems, "jira.base_url", "messaging.webhook_url", "forge.kind", "stage-all"); missed != "" {
+	if missed := unmentioned(problems, "messaging.webhook_url", "stage-all"); missed != "" {
 		t.Errorf("configuration.problems = %v, want an entry naming %q:\n%s", problems, missed, output)
 	}
 }
@@ -416,11 +416,6 @@ func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
 			writeConfigFor(t, dir, workingJira(t))
 
 			return dir
-		}},
-		"a forge.kind naming no forge": {wantExit: 3, setup: func(t *testing.T) string {
-			t.Helper()
-
-			return forgeKindRepository(t, `"kind": "bitbucket", "host": "`+unreachableHost+`"`)
 		}},
 		"a forge.kind with no forge.host": {wantExit: 3, setup: func(t *testing.T) string {
 			t.Helper()

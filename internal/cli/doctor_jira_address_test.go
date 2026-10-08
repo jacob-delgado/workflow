@@ -18,7 +18,7 @@ const (
 // addressWithLogin is a jira.base_url carrying that login.
 const addressWithLogin = "https://" + addressUser + ":" + addressPassword + "@jira.example.com"
 
-func TestDoctorJSONOnlineCallsJiraUncheckedAtAnAddressItCannotUse(t *testing.T) {
+func TestDoctorJSONOnlineAsksNoJiraAtAnAddressItCannotUse(t *testing.T) {
 	cases := map[string]string{
 		"not an http or https address": "ftp://jira.example.com",
 		"an address carrying a login":  addressWithLogin,
@@ -27,8 +27,8 @@ func TestDoctorJSONOnlineCallsJiraUncheckedAtAnAddressItCannotUse(t *testing.T) 
 	for name, address := range cases {
 		t.Run(name, func(t *testing.T) {
 			// Arrange
-			// The configuration section fails the address, so the run still exits 3;
-			// Jira is never asked, so no credential is what is wrong.
+			// The file does not load, so the run exits 3 for the address it
+			// names; Jira is never asked, so no credential is what is wrong.
 			dir := t.TempDir()
 			writeConfigFor(t, dir, address)
 
@@ -38,14 +38,31 @@ func TestDoctorJSONOnlineCallsJiraUncheckedAtAnAddressItCannotUse(t *testing.T) 
 			// Assert
 			wantExit(t, err, 3)
 
-			if got := credentialStatusIn(decodeReport(t, output), jiraService); got != uncheckedStatus {
-				t.Errorf("the online report calls a Jira at an unusable address %q, want unchecked:\n%s", got, output)
+			report := decodeReport(t, output)
+			if problem, _ := report["config_problem"].(string); !strings.Contains(problem, "jira.base_url") {
+				t.Errorf("config_problem = %q, want it to name jira.base_url:\n%s", problem, output)
 			}
 
-			if err != nil && strings.Contains(err.Error(), "a credential was rejected") {
-				t.Errorf("doctor --json --online = %v, want no credential rejected when Jira was never asked", err)
+			if credentials, _ := report["credentials"].(map[string]any); credentials["checked"] != false {
+				t.Errorf("the online report checked a credential at an unusable address:\n%s", output)
 			}
 		})
+	}
+}
+
+func TestDoctorRefusesAForgeKindNamingNoForge(t *testing.T) {
+	// Arrange
+	clearForgeEnvironment(t)
+	dir := forgeKindRepository(t, `"kind": "bitbucket", "host": "`+unreachableHost+`"`)
+
+	// Act
+	output, err := run(t, dir, "doctor")
+
+	// Assert
+	wantExit(t, err, 3)
+
+	if !strings.Contains(output, `forge.kind is not github or gitlab: "bitbucket"`) {
+		t.Errorf("doctor did not refuse forge.kind by name:\n%s", output)
 	}
 }
 
