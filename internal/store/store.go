@@ -35,10 +35,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
-	"modernc.org/sqlite" // registers the pure-Go "sqlite" driver, so CGO stays off
+	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
@@ -59,22 +58,6 @@ const dbName = "workflow.db"
 // file at another version is discarded whole and made again, so there are no
 // migrations to write.
 const schemaVersion = 1
-
-// busyTimeoutMillis is how long a write waits for another connection's lock
-// before giving up, so the interface and the web server sharing the file do not
-// fail on momentary contention.
-const busyTimeoutMillis = 5000
-
-// dsnPragmas turns on write-ahead logging and the busy timeout for every
-// connection, which is what lets two processes share the one file, and foreign
-// keys, which SQLite enforces per-connection so an ON DELETE CASCADE only fires
-// when it is on.
-const dsnPragmas = "?_pragma=busy_timeout(%d)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
-
-// readOnlyDSN opens the database file named in it for reading only, never
-// creating it, with the same busy timeout, so a read waits out another
-// connection's lock rather than failing.
-const readOnlyDSN = "file:%s?mode=ro&_pragma=busy_timeout(%d)"
 
 // ErrNoDir reports that no OS-native data directory could be determined.
 var ErrNoDir = errors.New("could not determine a data directory for the store")
@@ -208,7 +191,7 @@ func (s Store) nothingToReadIn(name string) bool {
 // store opens the database as it is instead.
 func (s Store) open(ctx context.Context) (*sql.DB, error) {
 	if s.readOnly {
-		return s.openAsItIs(dbName)
+		return s.openAsItIs(dbName), nil
 	}
 
 	err := s.makeDir()
@@ -259,10 +242,7 @@ func (s Store) makeDir() error {
 // each discard the other's remade file; the file on disk ends consistent, and
 // only what the loser wrote that session is lost.
 func openCurrent(ctx context.Context, path string) (*sql.DB, error) {
-	database, err := openDatabase(path)
-	if err != nil {
-		return nil, err
-	}
+	database := openDatabase(path)
 
 	version, err := readVersionOnOpen(ctx, database)
 	if err != nil {
@@ -296,19 +276,6 @@ func openCurrent(ctx context.Context, path string) (*sql.DB, error) {
 		_ = database.Close()
 
 		return nil, err
-	}
-
-	return database, nil
-}
-
-// openDatabase opens the database file at path with the shared-access pragmas,
-// making it where there is none.
-func openDatabase(path string) (*sql.DB, error) {
-	// Trade-off TRADE-15: sql.Open fails only for a driver not registered, and
-	// this package imports its driver.
-	database, err := sql.Open("sqlite", path+fmt.Sprintf(dsnPragmas, busyTimeoutMillis))
-	if err != nil {
-		return nil, fmt.Errorf("opening the store: %w", err)
 	}
 
 	return database, nil
@@ -393,7 +360,7 @@ func remakeDatabase(path string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	return openDatabase(path)
+	return openDatabase(path), nil
 }
 
 // stamp writes this build's schema version into the file. A PRAGMA binds no
@@ -424,27 +391,6 @@ func removeDatabase(path string) error {
 	}
 
 	return nil
-}
-
-// openAsItIs opens the database named, already on disk, for reading alone: it
-// makes no directory, prepares no schema, narrows no mode and writes no row.
-// Like any reader of a write-ahead-logged database, SQLite may leave the log's
-// two companion files beside it, owner-only, until the next live open clears
-// them.
-func (s Store) openAsItIs(name string) (*sql.DB, error) {
-	// Read-only takes a URI, where a percent sign escapes, a question mark starts
-	// the parameters and a hash ends the path, so the file's name escapes them.
-	escaped := strings.NewReplacer("%", "%25", "?", "%3F", "#", "%23").
-		Replace(filepath.ToSlash(filepath.Join(s.dir, name)))
-
-	// Trade-off TRADE-15: sql.Open fails only for a driver not registered, and
-	// this package imports its driver.
-	database, err := sql.Open("sqlite", fmt.Sprintf(readOnlyDSN, escaped, busyTimeoutMillis))
-	if err != nil {
-		return nil, fmt.Errorf("opening the store: %w", err)
-	}
-
-	return database, nil
 }
 
 // restrictToOwner sets path to perm. A failed chmod is tolerated: a filesystem

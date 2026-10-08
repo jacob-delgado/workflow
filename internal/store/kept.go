@@ -106,10 +106,7 @@ func (s Store) readKept(ctx context.Context) (*sql.DB, bool, error) {
 // read, which makes nothing, so a file not at this build's schema reads as
 // empty.
 func (s Store) readKeptAsItIs(ctx context.Context) (*sql.DB, bool, error) {
-	database, err := s.openAsItIs(keptName)
-	if err != nil {
-		return nil, false, err
-	}
+	database := s.openAsItIs(keptName)
 
 	version, err := readVersion(ctx, database)
 	if err != nil {
@@ -136,13 +133,7 @@ func (s Store) openKept(ctx context.Context) (*sql.DB, error) {
 	}
 
 	path := filepath.Join(s.dir, keptName)
-
-	// Trade-off TRADE-15: sql.Open fails only for a driver not registered, and
-	// this package imports its driver.
-	database, err := sql.Open("sqlite", path+fmt.Sprintf(keptPragmas, busyTimeoutMillis))
-	if err != nil {
-		return nil, fmt.Errorf("opening the kept data: %w", err)
-	}
+	database := connect(fileDSN(path, fmt.Sprintf(keptPragmas, busyTimeoutMillis)))
 
 	err = prepareKept(ctx, database)
 	if err != nil {
