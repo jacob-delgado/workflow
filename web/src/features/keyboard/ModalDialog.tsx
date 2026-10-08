@@ -42,10 +42,8 @@ export function ModalDialog({
     }
   }, [takesFocus])
 
-  // A press on the backdrop lands on the dialog itself, which closes it; Escape,
-  // through onCancel, is the keyboard's way out.
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- a press on the backdrop lands on the dialog itself, which closes it; Escape, through onCancel, is the keyboard's way out
     <dialog
       ref={dialog}
       aria-labelledby={namedBy}
