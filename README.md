@@ -188,9 +188,9 @@ back to HTTP when the tool is not installed.
 `.workflow.json` holds live credentials. `config init` writes it at mode `0600`,
 `doctor` fails while anyone else can read it, `config init` warns when the file
 is not ignored by git (add it to `.gitignore`), and `config show` masks every
-credential —
-including `messaging.webhook_url`, which is a password that happens to look like
-an address. Nothing in this repo will print a credential in full.
+credential — including `messaging.webhook_url`, which is a password that
+happens to look like an address. Nothing in this repo will print a credential in
+full.
 
 ## Use
 
@@ -257,10 +257,6 @@ Found a vulnerability? Please report it privately through a
 [security advisory](https://github.com/jacob-delgado/workflow/security/advisories/new)
 rather than opening an issue — see [SECURITY.md](SECURITY.md) for what to
 include and what to expect.
-
-`.workflow.json` holds live credentials. It is written `0600`, `config init`
-warns when git does not ignore it (add it to `.gitignore`), and every path that
-surfaces a token masks it first.
 
 ## License
 
