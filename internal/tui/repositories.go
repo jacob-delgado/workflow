@@ -214,17 +214,6 @@ func (s repositoriesState) selectedRow(here seams.Place) repositoryRow {
 	return rows[min(max(0, s.selected), len(rows)-1)]
 }
 
-// shownDir is a directory written from your home, with anything in its name
-// that could drive the terminal neutralized: it is read from a file on disk.
-func shownDir(deps Deps, dir string) string {
-	return shownFrom(deps.Repositories.Home, dir)
-}
-
-// shownFrom is dir written from home, neutralized.
-func shownFrom(home, dir string) string {
-	return sanitize.Line(workdirs.Shown(dir, home))
-}
-
 // rail is where you work, and how many favorites there are once read.
 func (s repositoriesState) rail(view repositoriesView, rows int) string {
 	lines := []string{shownFrom(view.home, view.here.Dir)}
@@ -350,30 +339,6 @@ func (v repositoriesView) line(row repositoryRow, selected bool, width int) stri
 	dir := cutMiddle(shownFrom(v.home, row.dir), width-ansi.StringWidth(lead), marks.ellipsis)
 
 	return lead + dir + marks.separator + repositoryState(row)
-}
-
-// cutMiddle shortens a path wider than width in its middle, keeping its root
-// and its last element — "~/src/…/feature-x" — so the row it heads stays one
-// line; the full path is in the Working in block. A last element too wide on
-// its own keeps its end.
-func cutMiddle(path string, width int, ellipsis string) string {
-	if ansi.StringWidth(path) <= width {
-		return path
-	}
-
-	parts := strings.Split(path, "/")
-	leading, last := parts[:len(parts)-1], parts[len(parts)-1]
-
-	for kept := len(leading) - 1; kept >= 1; kept-- {
-		cut := strings.Join(leading[:kept], "/") + "/" + ellipsis + "/" + last
-		if ansi.StringWidth(cut) <= width {
-			return cut
-		}
-	}
-
-	room := max(0, width-ansi.StringWidth(ellipsis))
-
-	return ellipsis + ansi.TruncateLeft(last, max(0, ansi.StringWidth(last)-room), "")
 }
 
 // repositoryState is what is at a row's directory now.
