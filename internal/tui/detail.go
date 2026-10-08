@@ -132,9 +132,9 @@ func (m Model) resumeIssue() Model {
 	return m
 }
 
-// browseURL is the selected issue's browse URL, or empty when there is no issue
+// selectedURL is the selected issue's browse URL, or empty when there is no issue
 // selected or no way to build one.
-func (l issueList) browseURL(deps Deps) string {
+func (l issueList) selectedURL(deps Deps) string {
 	selected, ok := l.current()
 	if !ok || deps.Jira.BrowseURL == nil {
 		return ""

@@ -106,7 +106,7 @@ func (m Model) issuesOffers() []offer {
 	case !ok:
 		return slices.Concat([]offer{m.newBranchOffer()}, m.issueListOffers())
 	default:
-		return slices.Concat(m.readingOffers(), m.issueVerbOffers(selected), m.linkOffers(m.issues.browseURL(m.deps)),
+		return slices.Concat(m.readingOffers(), m.issueVerbOffers(selected), m.linkOffers(m.issues.selectedURL(m.deps)),
 			m.issueListOffers())
 	}
 }
