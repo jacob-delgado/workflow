@@ -10,6 +10,12 @@ import (
 	"syscall"
 )
 
+// Owner is the user and group a file belongs to.
+type Owner struct {
+	User  int
+	Group int
+}
+
 // Of is the owner of the file info describes, and false when info is not one
 // the system described.
 func Of(info fs.FileInfo) (Owner, bool) {
