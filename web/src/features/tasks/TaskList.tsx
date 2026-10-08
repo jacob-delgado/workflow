@@ -219,7 +219,10 @@ function sortKeyWords(task: Task, order: TaskOrder): string {
       return task.priority === '' ? 'no priority' : `priority ${task.priority}`
     case 'tag':
       return task.tags.length === 0 ? 'no tags' : task.tags.map((tag) => `+${tag}`).join(' ')
-    default:
+    case 'urgency':
+    case 'id':
+    case 'issue':
+    case 'state':
       return ''
   }
 }

@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { ESLint } from 'eslint'
 import { expect, test } from 'vitest'
 
@@ -32,10 +34,35 @@ test.each([
     rule: '@eslint-community/eslint-comments/no-unlimited-disable',
     code: '/* eslint-disable -- every rule, for no rule in particular */\nconsole.log("hi")\n',
   },
+  {
+    rule: 'react/jsx-key',
+    code: 'export function Names({ names }: { names: string[] }) {\n  return <ul>{names.map((name) => <li>{name}</li>)}</ul>\n}\n',
+  },
+  {
+    rule: 'react/no-array-index-key',
+    code: 'export function Names({ names }: { names: string[] }) {\n  return <ul>{names.map((name, at) => <li key={at}>{name}</li>)}</ul>\n}\n',
+  },
 ])('$rule fires on the app code that breaks it', async ({ rule, code }) => {
   // Act
   const broken = await rulesBroken(code, 'src/App.tsx')
 
   // Assert
   expect(broken).toContain(rule)
+})
+
+test('a state left out of Shape fails the lint', async () => {
+  // Arrange
+  const path = 'src/shell/StateMark.tsx'
+  const drawn = await readFile(join(import.meta.dirname, path), 'utf8')
+  const unknownLeftOut = drawn.replace(
+    '    case \'unknown\':\n      return <circle cx="8" cy="8" r="2" fill="currentColor" />\n',
+    '',
+  )
+
+  // Act
+  const broken = await rulesBroken(unknownLeftOut, path)
+
+  // Assert
+  expect(unknownLeftOut).not.toBe(drawn)
+  expect(broken).toContain('@typescript-eslint/switch-exhaustiveness-check')
 })
