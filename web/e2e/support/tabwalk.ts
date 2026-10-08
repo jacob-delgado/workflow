@@ -1,10 +1,8 @@
-import { AxeBuilder } from '@axe-core/playwright'
 import type { JSHandle, Locator, Page } from '@playwright/test'
 
-// What the layout and accessibility specs share: a lap of the Tab order that
-// says which drawn controls it reached, which it never reached and which had
-// focus out of view; and what a layout is held to beside the walk — nothing
-// scrolls sideways, the page does not scroll, and axe finds nothing.
+// A lap of the Tab order, round the page or a part of it, that says which
+// drawn controls it reached, which it never reached, which had focus out of
+// view, and where it stopped outside the part walked.
 
 // A control counts as in view when this much of it is, allowing a rounding
 // pixel at a scrolled edge.
@@ -194,42 +192,4 @@ function walked(page: Page, within?: Locator): Promise<JSHandle<ParentNode>> {
   }
 
   return within.evaluateHandle((part): ParentNode => part)
-}
-
-// sidewaysScrollers names what scrolls sideways: the page, or any part of it.
-export function sidewaysScrollers(): string[] {
-  const scrollers: string[] = []
-  const page = document.scrollingElement
-  if (page !== null && page.scrollWidth > window.innerWidth) {
-    scrollers.push(`the page (${String(page.scrollWidth)} px in ${String(window.innerWidth)})`)
-  }
-
-  for (const element of document.querySelectorAll<HTMLElement>('body *')) {
-    const { overflowX } = getComputedStyle(element)
-    const scrolls = overflowX === 'auto' || overflowX === 'scroll'
-    if (scrolls && element.scrollWidth > element.clientWidth) {
-      const label = element.getAttribute('aria-label') ?? element.id
-      scrollers.push(
-        `<${element.localName}> ${label} (${String(element.scrollWidth)} px in ${String(element.clientWidth)})`,
-      )
-    }
-  }
-
-  return scrollers
-}
-
-// pageScrolls says whether the page itself scrolls down, which the shell never
-// does: the content, or a pane in it, scrolls instead.
-export function pageScrolls(): boolean {
-  return (document.scrollingElement?.scrollHeight ?? 0) > window.innerHeight
-}
-
-// axeViolations names the WCAG A/AA violations axe finds on screen, or is
-// empty.
-export async function axeViolations(page: Page): Promise<string> {
-  const { violations } = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-    .analyze()
-
-  return violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
 }
