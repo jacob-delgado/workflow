@@ -6,6 +6,7 @@ package forge_test
 import (
 	"io/fs"
 	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -123,5 +124,25 @@ func TestATemplateThatCannotBeReadIsLeftOut(t *testing.T) {
 	// Assert
 	if got, want := templateNames(found), []string{"feature"}; !slices.Equal(got, want) {
 		t.Errorf("FindTemplates = %q, want %q: the unreadable one left out, the other kept", got, want)
+	}
+}
+
+func TestATemplateLargerThanAnyDescriptionIsLeftOut(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// GitHub takes a description of 65,536 characters at most; a file past
+	// that is no template, and is not read whole to find out.
+	repo := fstest.MapFS{
+		".github/PULL_REQUEST_TEMPLATE/huge.md":  file(strings.Repeat("x", 64<<10+1)),
+		".github/PULL_REQUEST_TEMPLATE/large.md": file(strings.Repeat("x", 64<<10)),
+	}
+
+	// Act
+	found := forge.FindTemplates(repo, forge.KindGitHub)
+
+	// Assert
+	if got, want := templateNames(found), []string{"large"}; !slices.Equal(got, want) {
+		t.Errorf("FindTemplates = %q, want %q: the one past the limit left out", got, want)
 	}
 }
