@@ -316,6 +316,9 @@ type dirPrompt struct {
 	// gone to.
 	looking bool
 	problem error
+	// opened is the count of overlays opened when this one opened, so a look
+	// answering after esc finds no prompt, even one opened since.
+	opened int
 }
 
 var (
@@ -327,10 +330,11 @@ var (
 func (m Model) openDirPrompt() (Model, tea.Cmd) {
 	input := newInput("")
 	input.Placeholder = m.shownDir(m.deps.Repositories.Here.Dir)
+	m, opened := m.opening()
 
 	m.overlay = dirPrompt{
 		marks: m.marks, styles: m.styles, input: input,
-		base: m.deps.Repositories.Here.Dir, home: m.deps.Repositories.Home,
+		base: m.deps.Repositories.Here.Dir, home: m.deps.Repositories.Home, opened: opened,
 	}
 
 	return m, nil
@@ -371,7 +375,8 @@ func (p dirPrompt) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.closeOverlay):
 		// Even while a path is looked at: a mount that does not answer is not
-		// waited on, and its answer, when it comes, finds the prompt gone.
+		// waited on, and its answer, when it comes, finds the prompt gone, or
+		// another opened since, which it leaves alone.
 		return m.closeOverlay(), nil
 	case p.looking:
 		return m, nil
@@ -403,19 +408,22 @@ func (p dirPrompt) typed(m Model, msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// dirLooked is a typed path checked, and where it leads or why not.
+// dirLooked is a typed path checked, and where it leads or why not, for the
+// prompt opened as opened.
 type dirLooked struct {
-	dir  string
-	here bool
-	err  error
+	dir    string
+	here   bool
+	err    error
+	opened int
 }
 
 var _ applier = dirLooked{}
 
-// apply goes to the directory checked, or says why it cannot.
+// apply goes to the directory checked, or says why it cannot, when the prompt
+// that asked is still open.
 func (msg dirLooked) apply(m Model) (Model, tea.Cmd) {
 	prompt, open := m.overlay.(dirPrompt)
-	if !open {
+	if !open || prompt.opened != msg.opened {
 		return m, nil
 	}
 
@@ -443,14 +451,15 @@ func (p dirPrompt) look(m Model) (Model, tea.Cmd) {
 	}
 
 	dir := workdirs.Resolve(p.input.Value(), p.base, p.home)
-	base := p.base
+	base, opened := p.base, p.opened
 	p.looking = true
 	m.overlay = p
 
 	return m, func() tea.Msg {
 		place, err := look(dir)
+		here := place.Dir == base || workdirs.Same(place.Dir, base)
 
-		return dirLooked{dir: place.Dir, here: place.Dir == base || workdirs.Same(place.Dir, base), err: err}
+		return dirLooked{dir: place.Dir, here: here, err: err, opened: opened}
 	}
 }
 
