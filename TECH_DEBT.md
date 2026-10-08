@@ -334,35 +334,6 @@ this closes TRADE-12: delete the entry and its site comment.
 
 ## The web
 
-### DEBT-201 Pay down TRADE-10: the server ships the loop's stages
-
-Severity: medium · Confidence: read · Size: M
-
-**Where.** `progress.Stages` (`internal/progress/progress.go:118`),
-`onHeadStages` (`web/src/features/issues/WorkStory.tsx:122`),
-`web/src/features/issues/WorkStory.stages.test.tsx`, the snapshot builder in
-`internal/webserver`, `Snapshot` in `api/openapi.yaml`.
-
-**Today.** The stage rules are written in Go and again in TypeScript, and the
-copies have drifted in shape: Go derives five stages (Issue, Branch, Commits,
-Review, the service) and the web four, with no Issue stage, which is
-TRADE-10's "one surface shows a stage the other does not". Branch is decided
-differently (Go reads `OnFeatureBranch`, the web `branch.name !== ''`), and
-uncommitted changes make Commits in flight only in Go. The paired cases cover
-the review, changes-done and announce rules only. The server already holds
-every input.
-
-**Fix.** Add a required `stages` array to `Snapshot` (name, system, state),
-run `task gen` and `yarn gen`, and fill it from `progress.Stages` in the
-snapshot builder. Have `onHeadStages` read it, keeping only per-issue
-presentation in the web. Move the rule cases into webserver snapshot tests,
-and keep a web test that renders whatever stages arrive. Paying this closes
-TRADE-10: delete the entry and its site comments (`progress.go:14`,
-`WorkStory.tsx:37`).
-
-**Done when.** The web derives no stage state, `rg 'reviewReached' web/src`
-finds nothing, and `task check` is green.
-
 ### DEBT-239 Pay down TRADE-19: the gate fails a never-run condition or an unseen error arm
 
 Severity: medium · Confidence: measured · Size: L
@@ -714,70 +685,6 @@ from one source in wiring.
 **Done when.** `WebDeps` is under 25 lines and a seam added to a group needs
 no edit in `internal/cli`.
 
-### DEBT-323 Pay down TRADE-23: the server describes each review request's facets
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `internal/tui/reviewfacets.go:41`,
-`web/src/features/reviewqueue/reviewFacets.ts:28`, `ReviewRequest` and
-`ReviewQueue` in `api/openapi.yaml` (`:4119`), the reviews handler.
-
-**Today.** Every facet input is a plain field of a request the server already
-returns, so describing facets once per queue read costs nothing; TRADE-23's
-objection is to filtering on the server, not describing. The facet rules
-(labels, the CI order, draft before ready, sorting by name) are written twice,
-and can already disagree: Go sorts by UTF-8 bytes and JavaScript by UTF-16
-units. The twin pin is three TypeScript tests against nineteen Go ones.
-
-**Fix.** Move the rules to an exported domain home (`FacetsOf`, `Label`,
-`Offered`) the TUI calls; add `facets` to `ReviewRequest` and `facet_order` to
-`ReviewQueue`, regenerate, and fill them in the handler; cut the TypeScript to
-counting, toggling and admitting. Move ordering and label cases to Go. Paying
-this closes TRADE-23: delete the entry and both site comments.
-
-**Done when.** No facet word, order or label is spelled in `web/src`, and
-`task check` and the web unit tests are green.
-
-### DEBT-328 Pay down TRADE-29: the server ranks and describes each task
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `ByUrgency` to `ByPriority` and `Task.State`
-(`internal/taskwarrior/order.go:72`, `:40`), `Task.Facets`, `Choices`,
-`offeredFacets` and `Task.mentions` (`internal/taskwarrior/narrow.go`),
-`orderedTasks` and `stateOf` (`web/src/features/tasks/taskOrder.ts:47`,
-`:35`), `taskFacetChoices`, `matchesNarrowing` and `taskFacetLabel`
-(`web/src/features/tasks/taskFacets.ts`), `Task` and `TaskList` in
-`api/openapi.yaml` (`:4227`, `:4146`), `internal/webserver/tasks.go`.
-
-**Today.** Six orders, the state as the list words it, five facet kinds with
-their labels and offered order, and the typed-text match are written in Go and
-again in TypeScript, about 360 lines on the web. TRADE-29's objection is to
-asking the server for each order, not to the server describing each task: every
-input is a field of a task the server already sends, and the read and all ten
-task writes answer with the same list type, so ranks shipped with it apply at
-once with no request and nothing to race. The copies already differ: Go has an
-`unknown` state the web's `TaskState` lacks, and Go's `strings.ToLower` and
-JavaScript's `toLowerCase` fold some letters differently (U+0130 becomes one
-code point in Go and two in JavaScript), so the same typed text can match
-different tasks.
-
-**Fix.** Add to `Task` a required `state` (the list's word, from `Task.State`),
-`facets` (kind, value, label, from `Task.Facets`), `ranks` (one integer per
-order, the task's place in `ByUrgency` to `ByPriority`) and `searchable` (the
-fields text matches, lower-cased by Go); add `facet_order` to `TaskList`, the
-offered facets from `offeredFacets`; run `task gen` and `yarn gen`, and fill
-them where the handler builds the list. Cut the TypeScript to sorting by
-`ranks[order]`, counting and toggling facets, and an `includes` over
-`searchable`. Since a wait passing changes a task's state with no event,
-invalidate the tasks query at the earliest `wait` still ahead. Move the order
-and facet cases to Go. Paying this closes TRADE-29: delete the entry and its
-four site comments.
-
-**Done when.** `rg 'priorityRank|naturalOrder|stateRank' web/src` finds
-nothing, no facet label is spelled in `web/src/features/tasks`, and `task
-check` and the web unit tests are green.
-
 ## Rules this audit changes
 
 ### DEBT-324 Declare compiled regular expressions at package level
@@ -885,9 +792,11 @@ TRADE-5, TRADE-8, TRADE-9, TRADE-11, TRADE-13, TRADE-14, TRADE-24, TRADE-25,
 TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is true at
 `b9ab000`. TRADE-16 was paid down to the two calls it now names, and
 TRADE-21 and TRADE-28 to two copies held to one shared case file, and each
-stays. TRADE-6, TRADE-10, TRADE-12, TRADE-18, TRADE-19, TRADE-23 and TRADE-29
-are to be paid down by the entries above whose titles name them, and each
-stays here, as it was, until its entry is paid.
+stays. TRADE-10, TRADE-23 and TRADE-29, the rules the web wrote a second
+time, were paid down when the server took them over, and their entries are
+gone. TRADE-6, TRADE-12, TRADE-18 and TRADE-19 are to be paid down by the
+entries above whose titles name them, and each stays here, as it was, until its
+entry is paid.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
@@ -920,13 +829,16 @@ FEATURES.md entry or a user's report.
 on focus (`web/src/queryClient.ts`). The event stream pushes the cockpit's
 state into `useSnapshotStore`, so a cached read needs no refetch of its own; a
 read the stream does not carry sets its own `staleTime` beside it (`freshFor`,
-0, or `directoryHold`). The stream's connection state (`reconnecting`,
+0, or `directoryHold`), and the one that changes with no event to say so, the
+Tasks list, sets a `refetchInterval` that reads it again once the earliest wait
+still ahead has passed (`useTasks`). The stream's connection state (`reconnecting`,
 `stale`) is shown, so a dropped stream is visible. A configuration save checks
 the file's revision and refuses a changed file with 409; a change landing
 between that check and the write is not caught (`SaveOver`,
 `internal/config/save.go`), which is accepted for one user's local file.
-Recorded on 2026-09-24 in the audit (#140), and kept on 2026-10-07 in the
-pre-1.0 audit.
+Recorded on 2026-09-24 in the audit (#140), kept on 2026-10-07 in the pre-1.0
+audit, and given the Tasks list's interval when the server took over its rules
+(DEBT-328).
 
 **Cost.** A connection that stays open but stops sending frames looks live,
 and leaves stale data with no refetch to fall back on.
@@ -1003,27 +915,6 @@ audit.
 **Reopen when.** A report asks for host names to be taken out of a push's
 detail, or a push's detail comes to be shown to, logged for, or stored for
 anyone other than the user who pushed.
-
-### TRADE-10 The loop's stage rules are written twice
-
-Go's `internal/progress` (`progress.Stages`, read by the terminal's spine
-and `workflow status`) and the web's work story
-(`web/src/features/issues/WorkStory.tsx`, the TypeScript port) each derive
-the stages. `web/src/features/issues/WorkStory.stages.test.tsx` pins the
-same rules: a case there that has a twin in
-`internal/progress/progress_test.go` carries its name. A CI not read counts
-as none in Go, and a draft has no Go twin, since `progress.Work` carries no
-draft.
-
-**Decided.** 2026-09-26, in #145 (DEBT-139).
-
-**Cost.** A change to a stage rule is made twice, and the two agree only as
-far as the paired cases reach.
-
-**Reopen when.** The snapshot is asked to carry the stages, or the two
-drift: a rule in `progress.Stages` changes with no matching change to
-`WorkStory.tsx`, a pair of same-named cases disagrees about a stage's
-state, or one surface shows a stage the other does not.
 
 ### TRADE-11 The editor seam stays in the terminal package
 
@@ -1205,30 +1096,6 @@ no case for can still differ between the two.
 reason, or the two copies are found to disagree on a case the file does not
 hold.
 
-### TRADE-23 The review facets are written twice
-
-The review queue narrows by facet — its repository, how its CI stands,
-draft or ready, and who asks — in the terminal
-(`internal/tui/reviewfacets.go`) and in the web
-(`web/src/features/reviewqueue/reviewFacets.ts`), each working out a
-request's facets, the values on offer with their counts, and which picked
-values admit a request. The two copies are pinned by twin-named test cases
-in `internal/tui/reviewfacets_test.go` and
-`web/src/features/reviewqueue/reviewFacets.test.ts`.
-
-**Decided.** 2026-10-01, when both surfaces gained the reviews filter, on
-TRADE-21's reasoning: every facet is read from the request each surface
-already holds, and a filter the server ran would cost a read of the forge's
-queue, under its rate limits, for each change of a filter that runs in the
-browser and the terminal over what is loaded.
-
-**Cost.** A change to what a facet means, or to the order its values are
-offered in, is made twice, and a change made to one copy alone passes that
-copy's tests.
-
-**Reopen when.** The API comes to filter the queue for another reason, or
-the two copies are found to disagree.
-
 ### TRADE-28 Markdown is turned into wiki markup twice
 
 With `jira.markdown_comments` on, a comment written as Markdown is posted
@@ -1320,29 +1187,6 @@ refresh.
 **Reopen when.** Slack's rate limits are hit below the cap, or a large
 channel's first read through `users.info` is too slow to wait for; then lower
 `UserListPages`, or label members concurrently within Tier 4.
-
-### TRADE-29 The Tasks list's orders and narrowing are written twice
-
-The Tasks list sorts by urgency, state, id, tag, issue or priority, and is
-narrowed by facet and typed text, in the terminal
-(`internal/taskwarrior/order.go`, `narrow.go`) and in the browser
-(`web/src/features/tasks/taskOrder.ts`, `taskFacets.ts`). Each pair is
-pinned by twin-named cases in its tests.
-
-**Decided.** 2026-10-05, in #172: the web holds the whole list already,
-and an order changed in a select should apply at once. Asking the server
-for each order would carry it through the read and all ten task writes,
-each of which answers with the list, and race the answers when the order
-changes again before one lands. Taskwarrior's own report sort was no
-alternative: state as the list words it and natural issue-key order are
-not keys it has.
-
-**Cost.** A change to how an order breaks a tie, how a value ranks, or what
-typed text matches is made twice, and a change to one copy alone passes
-that copy's tests.
-
-**Reopen when.** The server comes to order the list itself, or the two
-copies are found to disagree.
 
 ### TRADE-30 A comment is written in a box drawn inside the interface
 
