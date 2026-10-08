@@ -5,6 +5,7 @@ package messaging
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
@@ -275,41 +277,93 @@ func (c Client) accepted(body io.Reader) ([]byte, error) {
 	return read, nil
 }
 
-// reasonLimit bounds how much of a refusal is read for its reason: a
+// reasonLimit bounds how much of a refusal is shown for its reason: a
 // service's reason is a line, and a page longer than this is none.
 const reasonLimit = 512
 
-// reasonIn is the reason a refusal's body gives, cut at reasonLimit, with
-// every terminal control taken out and the webhook masked wherever it is
+// reasonIn is the reason a refusal's body gives, its first reasonLimit bytes
+// with every terminal control taken out and the webhook masked wherever it is
 // quoted: a webhook server's error page can quote the request it refused.
+// The page is read a webhook's length past the cut and masked before it is
+// cut, so a quote the cut falls inside is masked whole rather than shown up
+// to the cut.
 func (c Client) reasonIn(body io.Reader) string {
-	read, err := io.ReadAll(io.LimitReader(body, reasonLimit))
+	parts := c.webhookParts()
+
+	lookahead := 0
+	if len(parts) > 0 {
+		lookahead = len(parts[0])
+	}
+
+	read, err := io.ReadAll(io.LimitReader(body, int64(reasonLimit+lookahead)))
 	if err != nil {
 		return ""
 	}
 
-	return c.masked(strings.TrimSpace(sanitize.Text(strings.ToValidUTF8(string(read), ""))))
-}
+	text := sanitize.Text(strings.ToValidUTF8(string(read), ""))
+	shown := min(reasonLimit, len(text))
 
-// masked is text with the webhook's address, and its path and query alone,
-// each put as config.Redact shows it. A path of one slash is no secret, and
-// masking it would mask every slash.
-func (c Client) masked(text string) string {
-	address, err := url.Parse(c.creds.WebhookURL.Reveal())
-	if c.creds.WebhookURL == "" || err != nil {
-		return text
+	if len(read) == reasonLimit+lookahead {
+		// The page may go on past what was read, so a quote in its last
+		// webhook's length may be cut short: none of that is shown.
+		shown = min(shown, len(text)-lookahead)
 	}
 
-	for _, secret := range []string{
-		c.creds.WebhookURL.Reveal(), address.String(), address.EscapedPath(),
-		address.Path, address.RawQuery,
-	} {
-		if len(secret) > 1 {
-			text = strings.ReplaceAll(text, secret, config.Redact(secret))
+	return strings.TrimSpace(maskedUpTo(text, shown, parts))
+}
+
+// webhookParts are the ways a page can quote the webhook — its address as
+// configured and as url.URL writes it, its path escaped and not, and its
+// query — longest first, so a part that holds another is masked whole. A
+// path of one slash is no secret, and masking it would mask every slash.
+func (c Client) webhookParts() []string {
+	revealed := c.creds.WebhookURL.Reveal()
+
+	address, err := url.Parse(revealed)
+	if revealed == "" || err != nil {
+		return nil
+	}
+
+	parts := slices.DeleteFunc(
+		[]string{revealed, address.String(), address.EscapedPath(), address.Path, address.RawQuery},
+		func(part string) bool { return len(part) <= 1 },
+	)
+	slices.SortStableFunc(parts, func(left, right string) int { return cmp.Compare(len(right), len(left)) })
+
+	return parts
+}
+
+// maskedUpTo is text's first shown bytes, ending on a character's boundary,
+// with each of parts put as config.Redact shows it wherever one begins among
+// them — whole, even where it runs past shown.
+func maskedUpTo(text string, shown int, parts []string) string {
+	var masked strings.Builder
+
+	for offset := 0; offset < shown; {
+		if part, quoted := quotedAt(text[offset:], parts); quoted {
+			masked.WriteString(config.Redact(part))
+			offset += len(part)
+
+			continue
+		}
+
+		_, size := utf8.DecodeRuneInString(text[offset:])
+		masked.WriteString(text[offset : offset+size])
+		offset += size
+	}
+
+	return masked.String()
+}
+
+// quotedAt is the first of parts that text begins with.
+func quotedAt(text string, parts []string) (string, bool) {
+	for _, part := range parts {
+		if strings.HasPrefix(text, part) {
+			return part, true
 		}
 	}
 
-	return text
+	return "", false
 }
 
 // refusedPost is a 4xx a post was answered with, and reason, what the answer
