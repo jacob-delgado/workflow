@@ -161,15 +161,20 @@ type Forge struct {
 	Author func() (string, error)
 	// GroupMembers lists a GitLab group's direct members who can review, by
 	// username, the group named by its full path, so a CODEOWNERS group can
-	// stand for its people. Nil on GitHub, whose teams review as teams, and
-	// with no forge.
+	// stand for its people. On GitHub, whose teams review as teams, and with
+	// no forge, it asks nothing and answers forge.ErrNotSupported. Which
+	// forge it is follows the settings in effect at each call.
 	GroupMembers func(group string) ([]string, error)
 	// IsGroup reports whether a bare CODEOWNERS name, @acme, is a top-level
-	// GitLab group rather than a user, so it is tagged as a team. Nil on
-	// GitHub, whose teams are spelled org/team, and with no forge.
+	// GitLab group rather than a user, so it is tagged as a team. On GitHub,
+	// whose teams are spelled org/team, and with no forge, it asks nothing and
+	// answers that the name is a person. Which forge it is follows the
+	// settings in effect at each call.
 	IsGroup func(name string) (bool, error)
-	// Kind is the forge the remote points at, so a surface can call a change a
-	// "pull request" or a "merge request".
+	// Kind is the forge the remote points at under the settings workflow
+	// started with, so a surface can call a change a "pull request" or a
+	// "merge request". A surface that saves forge settings while it runs
+	// learns the forge under them from the wiring's UseForgeSettings.
 	Kind forge.Kind
 	// Activity is what you did on the forge from start up to end, in any
 	// repository, for the Summary.

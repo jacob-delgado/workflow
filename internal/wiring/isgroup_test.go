@@ -47,3 +47,30 @@ func TestAGroupStaysAGroupWhenALaterLookupFails(t *testing.T) {
 		t.Errorf("IsGroup after a failed lookup = %v, %v; want the group it was already known as", group, err)
 	}
 }
+
+func TestIsGroupAsksGitLabOnceSettingsSavedWhileRunningSwitchToIt(t *testing.T) {
+	// Arrange
+	// The remote's host names no forge, so only the settings say which it is:
+	// GitHub at the start, GitLab once the web's Settings saves it.
+	installForgeCLI(t, "gh", forgeReplies{})
+	glab := installForgeCLI(t, "glab", forgeReplies{})
+	write(t, filepath.Join(glab.dir, "glab"), onceAGroupScript(glab.dir), 0o755)
+
+	where := wiring.Workspace{Root: t.TempDir(), Remote: onPremisesRemote}
+	deps, controls := wiring.Deps(t.Context(), config.Config{Forge: throughCLIOnPremises()}, where, nil)
+
+	controls.UseForgeSettings(config.Forge{CLI: true, Kind: "gitlab", Host: onPremisesHost})
+
+	isGroup := deps.Forge.IsGroup
+	if isGroup == nil {
+		t.Fatal("IsGroup is nil, so GitLab is never asked whether a name is a group")
+	}
+
+	// Act
+	group, err := isGroup("acme")
+
+	// Assert
+	if err != nil || !group {
+		t.Errorf("IsGroup(acme) after switching to GitLab = %v, %v; want the group GitLab knows", group, err)
+	}
+}

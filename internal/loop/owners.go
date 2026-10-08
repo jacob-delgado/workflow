@@ -15,8 +15,8 @@ import (
 // the paths the branch changes since base, the CODEOWNERS file base holds, who
 // is opening the pull request, and whether a bare name is a group. A nil
 // ChangedPaths or CodeOwnersAt means there are no owners to read; a nil Author
-// leaves nobody out; a nil IsGroup, as on GitHub, where every team is
-// org/team, takes every bare name for a person.
+// leaves nobody out; a nil IsGroup takes every bare name for a person, as
+// GitHub, where every team is org/team, does.
 type OwnerSeams struct {
 	ChangedPaths func(base string) ([]string, error)
 	CodeOwnersAt func(base string) (codeowners.File, bool, error)
