@@ -504,6 +504,17 @@ func (m Model) failureBlock(err error, width int) string {
 	return failureBlock(m.styles, m.marks, err, width)
 }
 
+// pinnedProblem is what a form finds wrong with what was typed, drawn under its
+// title as its pinned outcome is and wrapped the same way; nothing when
+// nothing is.
+func pinnedProblem(sty styles, marks glyphs, problem error, width int) []string {
+	if problem == nil {
+		return nil
+	}
+
+	return []string{failureBlock(sty, marks, problem, width), ""}
+}
+
 // pinnedOutcome is an overlay's outcome — the in-flight word or the refusal —
 // drawn under the title rather than at the bottom, so a long reason is wrapped
 // and seen instead of clipped below the fold. Empty when nothing has happened.

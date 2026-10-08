@@ -89,6 +89,18 @@ func TestAnOverlayShowsAFailureFully(t *testing.T) {
 			prepare: func(w *world) { w.pull.State, w.finishErr = forge.StateMerged, errLongReason },
 			keys:    []string{"4", "F", keyEnter},
 		},
+		"assign form": {
+			prepare: func(w *world) { w.assignErr = errLongReason },
+			keys:    []string{"a", "f", "r", "e", "d", keyEnter},
+		},
+		"log-work form": {
+			prepare: func(w *world) { w.worklogErr = errLongReason },
+			keys:    []string{"w", "2", "h", keyEnter},
+		},
+		"branch link form": {
+			prepare: func(w *world) { w.branch.IssueLink, w.unlinkErr = issueKey, errLongReason },
+			keys:    []string{"2", "i", "u"},
+		},
 	}
 
 	for name, tt := range cases {

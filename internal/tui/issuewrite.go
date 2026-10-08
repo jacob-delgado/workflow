@@ -114,30 +114,17 @@ func (m Model) openIssueWrite(available bool, build func(jira.Issue) (issueActio
 	return m, nil
 }
 
-// view draws the value being typed and how sending it is going.
+// view draws the value being typed, with how sending it is going, or the value
+// the form still needs, pinned under the title so a long refusal is wrapped and
+// seen rather than clipped.
 func (w issueWrite) view(width, _ int) (string, string) {
 	w.input.SetWidth(max(1, width-len(w.input.Prompt)-1))
 
-	outcome := w.outcome()
-	lines := make([]string, 0, 4+len(outcome)) //nolint:mnd // the four header lines above the outcome.
+	lines := append(pinnedOutcome(w.styles, w.marks, w.send, "sending", width),
+		pinnedProblem(w.styles, w.marks, w.problem, width)...)
 	lines = append(lines, shownKey(w.issue.Key)+" "+w.issue.Summary, "", w.action.prompt, w.input.View())
-	lines = append(lines, outcome...)
 
 	return w.action.title + " " + shownKey(w.issue.Key), strings.Join(lines, "\n")
-}
-
-// outcome says how sending is going, or names a value the form still needs.
-func (w issueWrite) outcome() []string {
-	switch {
-	case w.send.sending:
-		return []string{"", "sending" + w.marks.ellipsis}
-	case w.send.err != nil:
-		return []string{"", failureLine(w.styles, w.marks, w.send.err)}
-	case w.problem != nil:
-		return []string{"", failureLine(w.styles, w.marks, w.problem)}
-	default:
-		return nil
-	}
 }
 
 // footer offers sending or canceling; while sending, only quitting.

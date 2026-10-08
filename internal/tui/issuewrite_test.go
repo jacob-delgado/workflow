@@ -172,6 +172,27 @@ func TestAFailedIssueWriteKeepsTheFormOpenWithTheReason(t *testing.T) {
 	}
 }
 
+// errAssigneeRefused is Jira refusing an assignee at length, over more than
+// one line.
+var errAssigneeRefused = errors.New("jira: 400 Bad Request: the assignee could not be set\n" +
+	"assignee: User 'fred' cannot be assigned issues in project PROJ, " +
+	"because they lack the Assignable User permission " + outcomeTail)
+
+func TestARefusedAssignShowsItsWholeReason(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.assignErr = errAssigneeRefused
+	form := typing(t, repo.live(t, 80, 24), "a", "f", "r", "e", "d")
+
+	// Act
+	view := typing(t, form, keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "Assign "+issueKey, "the assignee could not be set", outcomeTail)
+}
+
 func TestCancelingAnIssueWriteSendsNothing(t *testing.T) {
 	t.Parallel()
 

@@ -83,40 +83,36 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 }
 
 // view draws the issue being chosen, or the description it will add itself
-// to, and how sending is going.
+// to, with how sending is going or why the form cannot send pinned under the
+// title, so a long refusal is wrapped and seen rather than clipped.
 func (l branchLinker) view(width, _ int) (string, string) {
+	lines := append(pinnedOutcome(l.styles, l.marks, l.send, l.doing(), width),
+		pinnedProblem(l.styles, l.marks, l.problem, width)...)
+
 	if l.linked != "" {
-		lines := append([]string{l.branch + " is linked to " + shownKey(l.linked) + "."}, l.outcome()...)
+		lines = append(lines, l.branch+" is linked to "+shownKey(l.linked)+".")
 
 		return "Link " + l.branch, strings.Join(lines, "\n")
 	}
 
 	l.input.SetWidth(max(1, width-len(l.input.Prompt)-1))
 
-	lines := []string{"Link " + l.branch + " to an issue: a Jira key, or a forge number.", "", l.input.View()}
+	lines = append(lines, "Link "+l.branch+" to an issue: a Jira key, or a forge number.", "", l.input.View())
 	if l.body != "" {
 		lines = append(lines, "", "Its "+l.vocab.noun+"'s description becomes:", "", l.body)
 	}
 
-	lines = append(lines, l.outcome()...)
-
 	return "Link " + l.branch, strings.Join(lines, "\n")
 }
 
-// outcome says how sending is going, or why the form cannot send.
-func (l branchLinker) outcome() []string {
-	switch {
-	case l.send.sending && l.linked != "":
-		return []string{"", "unlinking" + l.marks.ellipsis}
-	case l.send.sending:
-		return []string{"", "linking" + l.marks.ellipsis}
-	case l.send.err != nil:
-		return []string{"", failureLine(l.styles, l.marks, l.send.err)}
-	case l.problem != nil:
-		return []string{"", failureLine(l.styles, l.marks, l.problem)}
-	default:
-		return nil
+// doing names the request in flight: unlinking on a linked branch, linking
+// otherwise.
+func (l branchLinker) doing() string {
+	if l.linked != "" {
+		return "unlinking"
 	}
+
+	return "linking"
 }
 
 // footer offers choosing the issue, then linking it, or canceling.
