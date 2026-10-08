@@ -857,56 +857,6 @@ this closes TRADE-12: delete the entry and its site comment.
 
 ## The web
 
-### DEBT-198 Each stream frame re-queries the tracker, Taskwarrior and git for every open tab
-
-Severity: medium · Confidence: read · Size: M
-
-**Where.** `snapshot`, `snapshotIssues` and `forgeReview`
-(`internal/webserver/stream.go:191`, `:410`, `:451`), `snapshotTasks`
-(`internal/webserver/tasks.go:143`), `listForgeIssues`
-(`internal/wiring/forgeissues.go:61`), `docs/content/docs/web.md:49`.
-
-**Today.** Every five seconds, per connected stream, the server runs the
-tracker search uncached (Jira, or the forge's assigned-issues API when the
-forge is the tracker), Taskwarrior twice and several git reads; only the forge
-review is held for the CI interval. N tabs cost N searches every frame, about
-720 forge calls an hour per tab with forge issues. `forgeAnswer.mu` is also
-held across the forge's network read, so one slow forge stalls every stream's
-whole frame, git panels included. web.md bounds the review's reads but says
-nothing of the search's.
-
-**Fix.** Build one snapshot per tick and broadcast it to every subscriber, or
-hold issues per view for the forge interval as the forge cache does; read the
-forge outside the lock with a single-flight guard; say in web.md what each
-frame reads.
-
-**Done when.** A test with two open streams and a counting Search sees at most
-one search per interval, and a slow forge read does not delay another stream's
-frame.
-
-### DEBT-199 An announcement can post twice: the already-announced check and the post are not atomic
-
-Severity: medium · Confidence: read · Size: S
-
-**Where.** `postFor` and `announceNow` (`internal/webserver/announce.go:117`,
-`:176`), `settleHeld`, `postHeld` and `dropHeld`
-(`internal/webserver/announcequeue.go:178`, `:237`, `:257`), `loop.Deliver`
-(`internal/loop/announce.go:217`).
-
-**Today.** `postFor` checks `announcedAlready` under no lock, and `Deliver`
-records the announcement only after the post returns, so two concurrent `POST
-/api/announce` both post. An announce-now while a held announcement is posting
-also posts twice: `settleHeld` unlocks before `postHeld`, and `dropHeld` only
-bumps a round counter, which cannot stop a delivery in flight. gobco shows the
-round-mismatch arm (`announcequeue.go:243`) never true. The channel reads the
-announcement twice, which the feature exists to prevent.
-
-**Fix.** Hold one delivery mutex across the check, `Deliver` and the record,
-and answer 409 to announce-now while the held announcement is announcing.
-
-**Done when.** A test with a Post seam that blocks until released fires two
-concurrent announces and sees one post and one 409.
-
 ### DEBT-200 The mockup is an `if VITE_MOCK` branch copied into 26 production modules
 
 Severity: medium · Confidence: read · Size: L
@@ -992,27 +942,6 @@ runs all five checks, and use it everywhere.
 **Done when.** One definition of the block remains under `web/e2e`, and every
 surface spec calls the helper.
 
-### DEBT-203 Task writes that landed are reported as failures when the re-read fails
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `taskListAfter` (`internal/webserver/taskwrite.go:133`),
-`readTaskList` (`internal/webserver/tasks.go:68`), `taskCommand` and `track`
-(`internal/webserver/taskcommands.go:149`, `:94`).
-
-**Today.** After a successful add, track, annotate or start, `taskListAfter`
-re-reads the pending list and answers a problem if that read fails, so a write
-that happened is reported as failed, without the added task's uuid. The rest
-of the server avoids this on purpose (`branchAfter`, `changesAfter`, and tests
-that want 200 "despite the re-read failing"). A retry duplicates the task or
-annotation.
-
-**Fix.** On a failed re-read after a landed write, answer 200 with the list
-marked unavailable and its reason, plus `added` when a task was made.
-
-**Done when.** A test where the add succeeds and the re-read fails gets 200
-with `added` set and no problem body.
-
 ### DEBT-204 A permanently closed default stream reads "Reconnecting" forever
 
 Severity: low · Confidence: read · Size: S
@@ -1055,174 +984,6 @@ updates state only for the current run.
 
 **Done when.** A new `web/src/lib/useAsyncAction.test.ts` covering reset
 during a run passes.
-
-### DEBT-206 The announce queue decides on generated wire types and copies `loop.AnnounceMoment`
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `forgeCache` (`internal/webserver/stream.go:48`), `heldVerdict` and
-`reviewAnnounced` (`internal/webserver/announcequeue.go:216`, `:374`),
-`loop.AnnounceMoment` (`internal/loop/announce.go:45`).
-
-**Today.** The forge cache holds an `api.Review`, so `heldVerdict` and
-`reviewAnnounced` branch on `api.Merged`, `api.Passed` and `api.Failed`, and
-`reviewAnnounced` re-implements the moment rule (merged, then CI red, else
-ready) that the terminal and the CLI call. Both copies agree today; a new
-moment would leave the web disagreeing about whether a pull request was
-announced.
-
-**Fix.** Cache the domain read (pull request, CI and its error), map to
-`api.Review` only when building a snapshot, and call `loop.AnnounceMoment`.
-
-**Done when.** `announcequeue.go` compares to no `api.` enum and
-`reviewAnnounced` calls `loop.AnnounceMoment`.
-
-### DEBT-207 Fault classification is spread over seven functions returning a redundant status
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `fault` and `taskFault` (`internal/webserver/errors.go:113`,
-`:428`), `peopleFault` (`internal/webserver/people.go:510`), `localDataFault`
-(`internal/webserver/localdata.go:111`), `undoFault` and `syncFault`
-(`internal/webserver/taskcommands.go:196`, `:206`), `startRefusal`
-(`internal/webserver/branchcreate.go:71`).
-
-**Today.** Each returns `(api.Problem, int)` where the int always equals the
-problem's status; several pair a problem code with a hand-written
-`http.Status*` that only matches by agreement. About fifty call sites repeat
-`body, code := s.fault(err)`. Fixed-wording sentinels are classified in
-per-feature switches rather than in `faultClasses`, the one place CLAUDE.md
-names for a new class of failure.
-
-**Fix.** Return `api.Problem` alone and read its status; move context-free
-sentinels (`store.ErrNoDir`, `ErrCleanRefused`, `errNoPeopleStore` and the
-rest) into `faultClasses`.
-
-**Done when.** `grep '(api.Problem, int)' internal/webserver` finds nothing.
-
-### DEBT-208 `openPull`'s `//nolint:nilerr` hides a real git read failure
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `linkableBranch` and `openPull`
-(`internal/webserver/branchlink.go:121`, `:178`), `PreviewBranchIssue`
-(`:95`).
-
-**Today.** `openPull` answers "no pull request" for any `linkableBranch`
-error, not only `errNoBranchToLink`, so a failing git read makes the preview
-say there is no pull request to update, with 200. The nolint's reason ("no
-branch, or no forge") is narrower than what it swallows.
-
-**Fix.** Return nil only for `errNoBranchToLink` or no pull request found;
-propagate any other error and drop the nolint.
-
-**Done when.** A test whose Branch seam fails gets a 500 problem from the
-preview, and the nolint is gone.
-
-### DEBT-209 Generated enum constants are bare and inconsistently named
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `api/oapi-codegen-models.yaml`, `api/oapi-codegen-server.yaml`, the
-const blocks of `internal/api/models.gen.go` (`Failed`, `None`, `Link`,
-`User`, `Team`, `Open`, `Closed`, `Unknown`, `InProgress`, `Home`), six
-`x-enum-varnames` in `api/openapi.yaml`.
-
-**Today.** Without `always-prefix-enum-values`, enums become package-level
-names, so handlers read `review.Ci.State == api.Failed` and `api.User` with
-the type invisible; six are renamed by hand, and a new colliding value forces
-renaming unrelated identifiers.
-
-**Fix.** Set `compatibility: {always-prefix-enum-values: true}` in both
-configs, drop the hand renames, run `task gen` and update call sites.
-
-**Done when.** `models.gen.go` has no unprefixed enum constant and
-`api/openapi.yaml` no `x-enum-varnames`.
-
-### DEBT-210 The `events` tag doubles as a codegen exclusion switch, and routes are copied by hand
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `startRun` (`api/openapi.yaml:566`), the `events` tag (`:67`),
-`exclude-tags` (`api/oapi-codegen-server.yaml`), `install` and `isSwitch`
-(`internal/webserver/world.go:110`, `:154`).
-
-**Today.** `POST /api/runs` is tagged `events`, described as "a live stream of
-state snapshots", only so the strict server drops it. Both streaming routes
-are registered with string paths, and `isSwitch` hard-codes two more for the
-write gate. The tag misdocuments the API, and a renamed path breaks the
-strings.
-
-**Fix.** Tag `startRun` `repository`, exclude by operation ID
-(`exclude-operation-ids`, supported by the pinned oapi-codegen), and derive
-`isSwitch` from the routed operation.
-
-**Done when.** `startRun` carries the repository tag and `world.go` holds no
-`/api/repositories/here` or `/api/config/setup` literal.
-
-### DEBT-211 The contract states less than the server enforces, and uses zero times for "none"
-
-Severity: low · Confidence: read · Size: M · Breaking
-
-**Where.** `CheckoutRequest` and `CreateWorktreeRequest` (`api/openapi.yaml`,
-around `:3166` and `:3315`), `Comment.created` (`:3930`),
-`ReviewRequest.opened_at` (`:4119`), the `Activity` and `ActivityPostRequest`
-dates (`:4990`, `:5039`), `MessagingDestination.service` (`:4584`); the hand
-checks in `Checkout` (`internal/webserver/checkout.go:31`), `CreateBranch` and
-`CreateWorktree` (`internal/webserver/branchcreate.go:43`, `:209`).
-
-**Today.** Handlers refuse empty required strings by hand where the schema
-could say `minLength: 1`, as it does elsewhere; period dates are free strings
-with no `format: date`; `Comment.created` and `ReviewRequest.opened_at` are
-documented as the zero time when unreadable, so the web treats `0001-01-01` as
-missing (`IssueDetailPanel.tsx:255`, `ReviewQueuePanel.tsx:341`), the
-sentinel-as-absence smell CLAUDE.md lists; and `service` is a display word
-beside the `kind` enum.
-
-**Fix.** Add `minLength: 1` and `format: date` (a malformed period then
-answers 400 rather than 422), make the two times optional, and add a `kind`
-enum beside `service`; regenerate both clients.
-
-**Done when.** `POST /api/checkout` with an empty branch is refused 400 by the
-validator, and `Comment.created` is optional in the generated TypeScript type.
-
-### DEBT-212 A rate limit is answered as 502 "unreachable" with no `Retry-After`
-
-Severity: low · Confidence: read · Size: S · Breaking
-
-**Where.** `transportFaults` (`internal/webserver/errors.go:230`),
-`codeMeaning` (`:66`), `httpx.RateLimitedError`
-(`internal/httpx/httpx.go:63`), the `ProblemCode` enum in `api/openapi.yaml`.
-
-**Today.** A 429 from Jira, the forge or Slack becomes code `unreachable` with
-status 502 (Bad Gateway). The detail tells a person to wait, but a client
-reading the code cannot tell waiting from an outage, and the upstream's wait
-is dropped though `RateLimitedError` carries it.
-
-**Fix.** Add a `rate_limited` code mapped to 503 with `Retry-After` when
-known, and document it in `docs/content/docs/errors.md`.
-
-**Done when.** A test whose seam fails with `httpx.ErrRateLimited` gets a 503
-`rate_limited` problem with `Retry-After`, and the errors-doc test passes.
-
-### DEBT-213 `errors.go` and `people.go` are past the 500-line target with several concerns each
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `internal/webserver/errors.go` (568 lines),
-`internal/webserver/people.go` (578).
-
-**Today.** `errors.go` mixes problem construction, the fault tables,
-Taskwarrior refusal scrubbing and directory faults; `people.go` mixes Slack
-directory reads, owner linking, repository groups and the DTO mappers. A Slack
-change and a groups change edit the same file. The package is at its budget
-(31/31).
-
-**Fix.** Split `errors.go` into `problem.go`, `faults.go` and
-`taskrefusal.go`, and `people.go` into `slackdirectory.go` and
-`repogroups.go`, under the cohesive budget DEBT-238 proposes.
-
-**Done when.** `scripts/check-file-length.sh --list` flags neither file.
 
 ### DEBT-214 Seven confirm steps repeat one shape by hand, and have drifted
 
@@ -1691,28 +1452,6 @@ to a fixtures module.
 
 **Done when.** The root holds only cross-section specs and helpers and is
 under its budget.
-
-### DEBT-237 Pay down TRADE-20: the embedded app's root needs no error arm
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `Assets` (`internal/web/embed.go:21`), `WebServerAt`
-(`internal/cli/web.go:43`), `TestAssetsCarriesTheBuiltApp`
-(`internal/web/web_test.go`).
-
-**Today.** `embed.FS` does not implement `fs.SubFS`, so `fs.Sub(dist, "dist")`
-fails only for an invalid path, which the constant can never be. The two error
-arms are the "just in case" handling CLAUDE.md's YAGNI rule forbids, and gobco
-lists both as never true. TRADE-20 also cites the check at
-`internal/cli/cli.go:315`; it is in `web.go`.
-
-**Fix.** Make `Assets()` return `fs.FS` and panic if `fs.Sub` ever errs, as
-`regexp.MustCompile` does for a build defect; drop the arm in `WebServerAt`
-and update the test. Paying this closes TRADE-20: delete the entry and its two
-site comments.
-
-**Done when.** `Assets` returns no error, `grep -rn TRADE-20` finds nothing,
-and `task check` is green.
 
 ## The gates, the build and the tests
 
@@ -3716,8 +3455,9 @@ The pre-1.0 audit re-judged every entry on 2026-10-07. TRADE-3, TRADE-4,
 TRADE-5, TRADE-7, TRADE-8, TRADE-9, TRADE-11, TRADE-13, TRADE-14, TRADE-24,
 TRADE-25, TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is
 true at `b9ab000`. TRADE-1, TRADE-2, TRADE-6, TRADE-10, TRADE-12, TRADE-15 to
-TRADE-23, TRADE-28 and TRADE-29 are to be paid down by the entries above whose
-titles name them, and each stays here, as it was, until its entry is paid.
+TRADE-19, TRADE-21 to TRADE-23, TRADE-28 and TRADE-29 are to be paid down by
+the entries above whose titles name them, and each stays here, as it was,
+until its entry is paid.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
@@ -4133,23 +3873,6 @@ the share.
 **Reopen when.** The measured figure comes within one point of
 `BRANCH_COVERAGE_MIN`, or a defect ships through a condition the report
 listed as seen only one way.
-
-### TRADE-20 The embedded web app is taken to be rooted at dist
-
-Two conditions fail only when the embedded bundle cannot be opened at its
-directory: `fs.Sub` in `Assets` (`internal/web/embed.go:21`) and its check
-in `WebServerAt` (`internal/cli/cli.go:315`). `fs.Sub` fails only for an
-invalid path, the path is the constant `"dist"`, and the embed fails the
-build when that directory is missing, so no test can reach either arm.
-
-**Decided.** 2026-09-30, when every build came to embed the committed web
-app so `go install` carries it.
-
-**Cost.** Two error arms no test runs: what the server says for an app it
-cannot open is read rather than checked.
-
-**Reopen when.** The app is read from anywhere but the binary, or its root
-becomes something other than a constant.
 
 ### TRADE-21 The place rules are written twice
 
