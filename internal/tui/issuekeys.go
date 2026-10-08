@@ -8,92 +8,37 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// handleIssuesKey answers the Issues pane's own keys.
+// handleIssuesKey answers the Issues pane's own keys: moving through the
+// list, and what its footer offers.
 func (m Model) handleIssuesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.confirm) && m.setupShown():
-		return m.openSetup()
-	case key.Matches(msg, m.keys.up, m.keys.down):
+	if key.Matches(msg, m.keys.up, m.keys.down) {
 		return m.moveIssue(m.keys.stepOf(msg))
-	case key.Matches(msg, m.keys.openLink):
-		return m.openLink(m.issueURL())
-	case key.Matches(msg, m.keys.copyLink):
-		return m.copyLink(m.issueURL())
-	case key.Matches(msg, m.keys.searchIssues) && m.issues.filterable():
-		m.issues = m.issues.beginFilter()
-
-		return m, nil
 	}
 
-	if next, cmd, handled := m.handleIssueVerbKey(msg); handled {
-		return next, cmd
-	}
-
-	return m.handleIssueListKey(msg)
+	return m.answer(m.issuesOffers(), msg)
 }
 
-// handleIssueVerbKey answers the keys that act on the selected issue — change
-// its status, comment, assign, log work, branch for it, or track it in
-// Taskwarrior — reporting whether it claimed the key, so the caller can fall
-// through to the list keys.
-func (m Model) handleIssueVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
-	var act func() (Model, tea.Cmd)
+// beginIssueFilter starts typing a filter over the list.
+func (m Model) beginIssueFilter() (Model, tea.Cmd) {
+	m.issues = m.issues.beginFilter()
 
-	switch {
-	case key.Matches(msg, m.keys.changeStatus):
-		act = m.openStatusPicker
-	case key.Matches(msg, m.keys.comment):
-		act = m.startComment
-	case key.Matches(msg, m.keys.assign):
-		act = m.openAssign
-	case key.Matches(msg, m.keys.logWork):
-		act = m.openLogWork
-	case key.Matches(msg, m.keys.startWork):
-		act = m.openBranchCreator
-	case key.Matches(msg, m.keys.trackIssue):
-		act = m.trackSelectedIssue
-	default:
-		return m, nil, false
-	}
-
-	next, cmd := act()
-
-	return next, cmd, true
+	return m, nil
 }
 
-// handleIssueListKey answers the keys that manage the list itself — narrowing
-// it to places, switching view, loading the next page, refreshing — before
-// falling through to the keys that read an issue in full.
-func (m Model) handleIssueListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.filterIssues) && m.issues.filterable():
-		return m.openPlacePicker()
-	case key.Matches(msg, m.keys.nextView):
-		return m.nextIssueView()
-	case key.Matches(msg, m.keys.loadMore):
-		return m.loadMoreIssues()
-	case key.Matches(msg, m.keys.refresh):
-		return m.refreshPane(paneIssues)
-	default:
-		return m.handleIssueViewingKey(msg)
-	}
+// readSelectedIssue reads the selected issue in full, in the collapsed layout
+// where it takes the list's place.
+func (m Model) readSelectedIssue() (Model, tea.Cmd) {
+	m.issues.viewing = true
+
+	return m.loadDetail()
 }
 
-// handleIssueViewingKey answers the keys that, in the collapsed layout, read the
-// selected issue in full or return to scanning the list.
-func (m Model) handleIssueViewingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.confirm):
-		m.issues.viewing = true
+// backToIssueList returns the collapsed layout from the issue read in full to
+// the list.
+func (m Model) backToIssueList() (Model, tea.Cmd) {
+	m.issues.viewing = false
 
-		return m.loadDetail()
-	case key.Matches(msg, m.keys.closeOverlay):
-		m.issues.viewing = false
-
-		return m, nil
-	default:
-		return m, nil
-	}
+	return m, nil
 }
 
 // handleIssueFilterKey builds the filter from keystrokes: printable runes extend
