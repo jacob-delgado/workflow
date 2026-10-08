@@ -1,14 +1,15 @@
-import { type ReactNode, useId, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import type { Issue, Task, TaskList } from '@/api/generated/types.gen.ts'
-import { useHoldShortcuts, useShortcut } from '@/features/keyboard/useShortcut.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
-import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
+import { useFocusHandback } from '@/lib/focus.ts'
 import { writtenDate } from '@/lib/dates.ts'
 import { Meta } from '@/lib/Meta.tsx'
 import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, definitionList } from '@/lib/utils.ts'
+import { LastLook } from '@/lib/LastLook.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { useTaskWrites } from './tasksApi.ts'
 import { TaskLineForm } from './TaskLineForm.tsx'
@@ -285,20 +286,20 @@ export function Verb({
 
   if (ask !== undefined && asking) {
     return (
-      <AskFirst
-        ask={ask}
-        running={running}
+      <LastLook
+        question={ask.question}
+        cost={ask.cost}
+        act={label}
+        acting={busy}
+        write={write}
+        className="basis-full"
+        onAct={() => void write.run()}
         onCancel={() => {
           write.reset()
           handBack()
           setAsking(false)
         }}
-      >
-        <Button variant="primary" held={running} onClick={() => void write.run()}>
-          {running ? busy : label}
-        </Button>
-        {refusal}
-      </AskFirst>
+      />
     )
   }
 
@@ -327,44 +328,5 @@ export function Verb({
       </Button>
       {refusal}
     </>
-  )
-}
-
-// AskFirst is a write's last look: the question and its cost, Cancel, and the
-// write's own button. It takes the focus as it opens, so a screen reader hears
-// the question. Cancel is held while the write runs: the write has left by
-// then, and backing out cannot call it back.
-function AskFirst({
-  ask,
-  running,
-  onCancel,
-  children,
-}: {
-  ask: Ask
-  running: boolean
-  onCancel: () => void
-  children: ReactNode
-}) {
-  const question = useFocusOnMount<HTMLDivElement>()
-  const questionId = useId()
-  useHoldShortcuts()
-
-  return (
-    <div
-      ref={question}
-      role="group"
-      aria-labelledby={questionId}
-      tabIndex={-1}
-      className="flex basis-full flex-col items-start gap-item text-sm"
-    >
-      <p id={questionId}>{ask.question}</p>
-      <p className="text-muted-foreground">{ask.cost}</p>
-      <div className="flex flex-wrap items-center gap-item">
-        <Button variant="secondary" held={running} onClick={onCancel}>
-          Cancel
-        </Button>
-        {children}
-      </div>
-    </div>
   )
 }
