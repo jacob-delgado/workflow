@@ -2,11 +2,15 @@ import { expect, type Locator, type Page } from '@playwright/test'
 import { themeStorageKey } from '../../src/shell/themeKey.ts'
 import { problem } from './fixtures.ts'
 
-// The populated cockpit as the specs that hold it or picture it open it: in
-// both themes, at a narrow, a middling and a wide window.
+// How the specs open the cockpit and its parts: the populated cockpit, the
+// first-run setup, a section from the rail and the announcement preview; the
+// rail's sections and the populated build's confirm steps; and the themes and
+// windows each is held to, both themes at a narrow, a middling and a wide
+// window.
 export const themes = ['dark', 'light'] as const
 export const widths = [640, 1024, 1440] as const
 export const height = 900
+
 // sectionsWith are the rail's sections, its labels' accessible names and each
 // section's heading: the messaging one is named for the service set up, or
 // Messaging where none is.
@@ -164,8 +168,8 @@ export async function openFirstRun(
 // readings are the "Reading …" status lines a section shows while a read of
 // its own is in flight. Every read says one (web/src/lib/Status.tsx), and the
 // controls it fills in draw only as it ends: Summary's period, Settings' code
-// owners, groups and local data, each after the heading is up. A walk counted
-// before they draw runs out of Tabs before it gets back round to the header.
+// owners, groups and local data, each after the heading is up. A walk begun
+// before they draw would leave them out of the controls it counts.
 function readings(page: Page): Locator {
   return page
     .getByRole('main')
