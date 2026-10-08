@@ -6,7 +6,7 @@ import type {
 } from '../../src/api/generated/types.gen.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
-import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 
 // The announcement edited before it goes, and held until the pull request's
 // CI passes, as the terminal's e and w in the preview do. The flows run on
@@ -122,17 +122,10 @@ for (const theme of themes) {
       await opensPreview(page)
       await page.getByRole('button', { name: 'Edit' }).click()
 
-      // Act: Tab once round the page.
-      const { reached, missed, hidden } = await walkTabOrder(page)
-
-      // Assert
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(reached, 'reached by Tab').toEqual(
-        expect.arrayContaining(['Announcement text', 'Announce when CI passes', 'Announce now']),
-      )
-      expect(missed, 'never reached by Tab').toEqual([])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Act & Assert: Tab reaches the text and both ways to announce it.
+      await expectReachableAndClean(page, {
+        reaches: ['Announcement text', 'Announce when CI passes', 'Announce now'],
+      })
     })
   }
 
@@ -150,7 +143,6 @@ for (const theme of themes) {
     await expect(
       page.getByText('Waiting for CI on #7 to pass, then announcing to #dev.'),
     ).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Stop waiting' })).toBeVisible()
-    expect(await axeViolations(page), 'axe').toBe('')
+    await expectReachableAndClean(page, { reaches: ['Stop waiting'] })
   })
 }

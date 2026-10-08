@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import type { IssueDetail, StatusChange } from '../../src/api/generated/types.gen.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { expect, issuesOf, snapshotWith, streams, test } from '../support/fixtures.ts'
-import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 
 // Changing a Jira issue from its detail: its status with the fields the change
 // needs, its assignee, and the work logged on it.
@@ -137,24 +137,10 @@ for (const theme of themes) {
       await opensIssue(page)
       await choosesResolved(page)
 
-      // Act: Tab once round the page.
-      const { reached, missed, hidden } = await walkTabOrder(page)
-
-      // Assert: nothing scrolls sideways; Tab reaches the fields and the
-      // buttons, each in view; and axe finds nothing.
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(reached, 'reached by Tab').toEqual(
-        expect.arrayContaining([
-          'New status',
-          'Due date',
-          'Resolution',
-          'Cancel',
-          'Change to Resolved',
-        ]),
-      )
-      expect(missed, 'never reached by Tab').toEqual([])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Act & Assert: Tab reaches the fields and the buttons.
+      await expectReachableAndClean(page, {
+        reaches: ['New status', 'Due date', 'Resolution', 'Cancel', 'Change to Resolved'],
+      })
     })
   }
 
@@ -167,15 +153,8 @@ for (const theme of themes) {
       await opensIssue(page)
       await page.getByRole('button', { name: action }).click()
 
-      // Act: Tab once round the page.
-      const { reached, missed, hidden } = await walkTabOrder(page)
-
-      // Assert
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(['Cancel', action]))
-      expect(missed, 'never reached by Tab').toEqual([])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Act & Assert: Tab once round the page.
+      await expectReachableAndClean(page, { reaches: ['Cancel', action] })
     })
   }
 }

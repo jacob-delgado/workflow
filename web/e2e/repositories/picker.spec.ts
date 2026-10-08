@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { mockDirectories, mockRepositories } from '../../src/dev/mockRepositories.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 import { expect, test } from '../support/fixtures.ts'
 
 // The Repositories section: where the server works, the favorites, the
@@ -108,15 +108,10 @@ for (const theme of themes) {
       await page.setViewportSize({ width, height })
       await opensRepositories(page)
 
-      // Act: Tab once round the page.
-      const { reached, missed, hidden } = await walkTabOrder(page)
-
-      // Assert: nothing scrolls sideways; Tab reaches the favorite, each
-      // favorite's switch and removal, and the picker, each in view; and axe
-      // finds nothing.
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(reached, 'reached by Tab').toEqual(
-        expect.arrayContaining([
+      // Act & Assert: Tab reaches the favorite, each favorite's switch and
+      // removal, and the picker.
+      await expectReachableAndClean(page, {
+        reaches: [
           'Add to favorites',
           'Switch to ~/src/web',
           'Remove ~/old-site from favorites',
@@ -124,11 +119,8 @@ for (const theme of themes) {
           'Show',
           'Up',
           'Switch here',
-        ]),
-      )
-      expect(missed, 'never reached by Tab').toEqual([])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+        ],
+      })
     })
   }
 }

@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import type { HookSetup, RunEvent } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
-import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 
 // The Branch section's git runs — pre-commit, a rebase, an amend, a fixup —
 // streamed as they go, each that rewrites history behind a last look; a
@@ -116,36 +116,54 @@ test('a rebase waits on its last look', async ({ page }) => {
   expect(asked).toEqual([{ kind: 'rebase' }])
 })
 
-// olderCommit is the fixup's other choice, as its radio is named.
-const olderCommit = 'a1a1a1a fix: redact tokens'
-
-// steps open each of the Branch section's new looks, named for the test.
-const steps: Record<string, (page: Page) => Promise<void>> = {
-  'the rebase look': async (page) => {
-    await page.getByRole('button', { name: 'Rebase onto main' }).click()
+// steps open each of the Branch section's new looks, named for the test. A
+// radio group is one Tab stop, on the choice made; the arrow keys reach the
+// rest, so the fixup's older commit is the stop Tab passes by.
+const steps: { name: string; opens: (page: Page) => Promise<void>; passedBy?: string[] }[] = [
+  {
+    name: 'the rebase look',
+    opens: async (page) => {
+      await page.getByRole('button', { name: 'Rebase onto main' }).click()
+    },
   },
-  'the amend look': async (page) => {
-    await page.getByRole('button', { name: 'Amend last commit' }).click()
+  {
+    name: 'the amend look',
+    opens: async (page) => {
+      await page.getByRole('button', { name: 'Amend last commit' }).click()
+    },
   },
-  'the fixup look': async (page) => {
-    await page.getByRole('button', { name: 'Fix up a commit' }).click()
+  {
+    name: 'the fixup look',
+    opens: async (page) => {
+      await page.getByRole('button', { name: 'Fix up a commit' }).click()
+    },
+    passedBy: ['a1a1a1a fix: redact tokens'],
   },
-  'a run’s output': async (page) => {
-    await page.getByRole('button', { name: 'Run pre-commit' }).click()
-    await expect(page.getByRole('button', { name: 'Close' })).toBeVisible()
+  {
+    name: 'a run’s output',
+    opens: async (page) => {
+      await page.getByRole('button', { name: 'Run pre-commit' }).click()
+      await expect(page.getByRole('button', { name: 'Close' })).toBeVisible()
+    },
   },
-  'a file’s diff': async (page) => {
-    await page.getByRole('button', { name: 'Show diff of log.go' }).click()
-    await expect(page.getByRole('region', { name: 'Diff of log.go' })).toBeVisible()
+  {
+    name: 'a file’s diff',
+    opens: async (page) => {
+      await page.getByRole('button', { name: 'Show diff of log.go' }).click()
+      await expect(page.getByRole('region', { name: 'Diff of log.go' })).toBeVisible()
+    },
   },
-  'the lefthook offer': async (page) => {
-    await page.getByRole('button', { name: 'Set up lefthook' }).click()
-    await expect(page.getByRole('button', { name: 'Write lefthook.yml' })).toBeVisible()
+  {
+    name: 'the lefthook offer',
+    opens: async (page) => {
+      await page.getByRole('button', { name: 'Set up lefthook' }).click()
+      await expect(page.getByRole('button', { name: 'Write lefthook.yml' })).toBeVisible()
+    },
   },
-}
+]
 
 for (const theme of themes) {
-  for (const [name, opens] of Object.entries(steps)) {
+  for (const { name, opens, passedBy } of steps) {
     test(`${name} fits ${String(widths[0])} px in the ${theme} theme, reachable and clean`, async ({
       page,
     }) => {
@@ -156,16 +174,8 @@ for (const theme of themes) {
       await opensBranch(page)
       await opens(page)
 
-      // Act: Tab once round the page.
-      const { missed, hidden } = await walkTabOrder(page)
-
-      // Assert
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      // A radio group is one Tab stop, on the choice made; the arrow keys
-      // reach the rest, so the fixup's older commit is the stop Tab passes by.
-      expect(missed, 'never reached by Tab').toEqual(name === 'the fixup look' ? [olderCommit] : [])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Act & Assert: Tab once round the page.
+      await expectReachableAndClean(page, { passedBy })
     })
   }
 }

@@ -8,7 +8,7 @@ import {
   themes,
   widths,
 } from './support/cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from './support/tabwalk.ts'
+import { expectReachableAndClean, pageScrolls } from './support/reachable.ts'
 import { expect, test } from './support/fixtures.ts'
 
 // The populated cockpit at a narrow, a middling and a wide window, in both
@@ -30,18 +30,11 @@ for (const theme of themes) {
         await openCockpit(page, { width, height }, theme)
 
         for (const name of sectionNames) {
-          // Act: open the section, and Tab once round it.
+          // Act: open the section.
           await openSection(page, name)
-          const { missed, hidden } = await walkTabOrder(page)
 
-          // Assert: nothing scrolls sideways, nor the page down; Tab reaches
-          // every drawn control, each in view as it has focus; and axe finds
-          // nothing.
-          expect(await page.evaluate(sidewaysScrollers), `${name}: scrolls sideways`).toEqual([])
-          expect(await page.evaluate(pageScrolls), `${name}: the page scrolls`).toBe(false)
-          expect(missed, `${name}: never reached by Tab`).toEqual([])
-          expect(hidden, `${name}: out of view with focus`).toEqual([])
-          expect(await axeViolations(page), `${name}: axe`).toBe('')
+          // Assert: it is reachable and clean.
+          await expectReachableAndClean(page)
         }
       },
     )
@@ -58,24 +51,13 @@ for (const theme of themes) {
       // Arrange: Settings with no file, at this width, in this theme.
       await openFirstRun(page, { width, height }, theme)
 
-      // Act: Tab once round the page.
-      const { reached, missed, hidden } = await walkTabOrder(page)
-
-      // Assert: nothing scrolls sideways, nor the page down; Tab reaches every
-      // question and the write, each in view as it has focus; and axe finds
-      // nothing.
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
-      expect(reached, 'reached by Tab').toEqual(
-        expect.arrayContaining(['Write ~/src/api/.workflow.json']),
-      )
-      // The home directory's radio button is reached by the arrow keys from
-      // the one chosen, the one stop Tab passes by.
-      expect(missed, 'never reached by Tab').toEqual([
-        '~/.workflow.jsonYour home directory: it applies everywhere.',
-      ])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Act & Assert: Tab reaches every question and the write, passing by
+      // the home directory's radio button, which the arrow keys reach from the
+      // one chosen.
+      await expectReachableAndClean(page, {
+        reaches: ['Write ~/src/api/.workflow.json'],
+        passedBy: ['~/.workflow.jsonYour home directory: it applies everywhere.'],
+      })
     })
   }
 }
@@ -193,20 +175,12 @@ for (const theme of themes) {
           await openCockpit(page, { width, height }, theme)
           await openSection(page, section)
 
-          // Act: open the step, and Tab once round the page.
+          // Act: open the step.
           await page.getByRole('button', { name: opener }).click()
           await expect(page.getByRole('group', { name: group })).toBeVisible()
-          const { reached, missed, hidden } = await walkTabOrder(page)
 
-          // Assert: nothing scrolls sideways, nor the page down; Tab reaches
-          // the step's controls and every other drawn one, each in view as it
-          // has focus; and axe finds nothing.
-          expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-          expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
-          expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(adds))
-          expect(missed, 'never reached by Tab').toEqual([])
-          expect(hidden, 'out of view with focus').toEqual([])
-          expect(await axeViolations(page), 'axe').toBe('')
+          // Assert: Tab reaches the step's controls, and it is clean.
+          await expectReachableAndClean(page, { reaches: adds })
         },
       )
     }
