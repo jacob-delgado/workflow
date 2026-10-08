@@ -48,7 +48,7 @@ interface IssueRowsProps {
 // IssueRows is the list of issues, each row selecting its issue, marking it in
 // flight and how its tasks stand, and offering its branch to switch to.
 export function IssueRows({ issues, facts, rowRefs, outcome }: IssueRowsProps) {
-  const selected = useUiStore((state) => state.selectedIssue)
+  const selected = useUiStore((state) => state.selectedIssue?.key ?? null)
   const pane = useSelectedRowInView(rowRefs, selected)
 
   return (
@@ -109,7 +109,7 @@ function IssueRow({ issue, facts, rowRefs, selected, outcome }: IssueRowProps) {
         type="button"
         aria-current={selected ? true : undefined}
         onClick={() => {
-          selectIssue(issue.key)
+          selectIssue(issue)
         }}
         className="flex flex-col gap-tight rounded-md px-3 py-2 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >

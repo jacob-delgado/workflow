@@ -1023,6 +1023,10 @@ export type Branch = {
      */
     issue_link: string;
     /**
+     * The tracker the linked issue lives in, read from its key by the rule the server routes it by; absent when the branch was never linked.
+     */
+    issue_link_tracker?: IssueTracker;
+    /**
      * Whether HEAD is detached rather than on a branch.
      */
     detached: boolean;

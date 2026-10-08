@@ -119,7 +119,7 @@ interface ListAndDetailProps {
 // content around it is, so the text it keeps for a screen reader scrolls and
 // clips with it rather than growing the content.
 function ListAndDetail({ paging, shown, facts, unread, outcome }: ListAndDetailProps) {
-  const selected = useUiStore((state) => state.selectedIssue)
+  const selected = useUiStore((state) => state.selectedIssue?.key ?? null)
 
   if (unread !== null) {
     return (

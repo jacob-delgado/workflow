@@ -4040,6 +4040,12 @@ components:
           description: >-
             The issue the branch was linked to by hand, for work begun outside
             workflow; empty when it was never linked.
+        issue_link_tracker:
+          description: >-
+            The tracker the linked issue lives in, read from its key by the
+            rule the server routes it by; absent when the branch was never
+            linked.
+          allOf: [{$ref: "#/components/schemas/IssueTracker"}]
         detached:
           type: boolean
           description: Whether HEAD is detached rather than on a branch.
