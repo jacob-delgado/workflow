@@ -156,9 +156,7 @@ func (s *server) hold(post announcePost, branch gitrepo.Branch) (api.QueuedAnnou
 		return api.QueuedAnnouncement{}, errHeldAnnouncing
 	}
 
-	s.held.stopWatching()
-	s.held.round++
-	s.held.post, s.held.branch, s.held.state, s.held.reason = post, branch.Name, heldWaiting, ""
+	s.held.replace(post, branch.Name, heldWaiting)
 	s.held.check = s.checkHeldAfter(s.held.round)
 
 	return s.held.queued(), nil
@@ -305,9 +303,7 @@ func (s *server) dropHeld() (bool, error) {
 
 	waiting := s.held.state == heldWaiting
 
-	s.held.stopWatching()
-	s.held.round++
-	s.held.post, s.held.branch, s.held.state, s.held.reason = announcePost{}, "", heldNone, ""
+	s.held.replace(announcePost{}, "", heldNone)
 
 	return waiting, nil
 }
@@ -342,6 +338,15 @@ func (s *server) CancelQueuedAnnouncement(
 	}
 
 	return api.CancelQueuedAnnouncement204Response{}, nil
+}
+
+// replace holds post, written for branch, at state in place of the one
+// before, with nothing said of it yet: it stops the reads of the CI for the
+// one before and counts the round. The caller holds the lock.
+func (h *heldAnnouncement) replace(post announcePost, branch string, state heldState) {
+	h.stopWatching()
+	h.round++
+	h.post, h.branch, h.state, h.reason = post, branch, state, ""
 }
 
 // settle moves the held announcement to state, with the reason when it was
