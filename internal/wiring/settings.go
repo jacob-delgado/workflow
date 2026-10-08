@@ -16,12 +16,10 @@ import (
 )
 
 // settingsDeps reads and changes the configuration files and the local data,
-// for the terminal's Settings and Local data. Slack user-token secrets typed
-// into Settings are kept where place keeps them.
-func settingsDeps(
-	ctx context.Context, files config.Files, place func(config.Config) (config.Config, error),
-) seams.Settings {
-	editor := &configEditor{files: files, place: place}
+// for the terminal's Settings and Local data. Slack user-token secrets and a
+// Jira token typed into Settings are kept where controls keep them.
+func settingsDeps(ctx context.Context, files config.Files, controls Controls) seams.Settings {
+	editor := &configEditor{files: files, place: controls.PlaceSlackCredentials, keep: controls.KeepJiraToken}
 
 	return seams.Settings{
 		Read:            editor.read,
@@ -56,6 +54,7 @@ func SetupDeps(
 type configEditor struct {
 	files config.Files
 	place func(config.Config) (config.Config, error)
+	keep  func(service, secret string) error
 
 	mu   sync.Mutex
 	last config.Config
@@ -93,6 +92,7 @@ func (e *configEditor) save(
 
 	saved, written, err := config.SaveEdit(config.Edit{
 		Files: e.files, Read: e.last, Over: over, Edited: edited, Removed: removed, PlaceSlackCredentials: e.place,
+		KeepJiraToken: e.keep,
 	})
 	if err != nil {
 		return config.Config{}, config.Revision{}, err

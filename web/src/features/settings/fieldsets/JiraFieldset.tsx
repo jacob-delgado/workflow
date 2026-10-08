@@ -5,34 +5,42 @@ import type { SettingsValues } from '../formValues.ts'
 import { EntryList, matchedLower } from './EntryList.tsx'
 import { CheckboxField, Fieldset, SecretField, TextField, type Register } from './Field.tsx'
 
-// TokenSources are where the Jira token may come from besides the file: a
-// program that prints it, or a variable that holds it. Neither is a secret.
-type TokenSources = Pick<JiraConfig, 'token' | 'token_command' | 'token_env'>
+// TokenSources are where the Jira token may come from besides the file: the
+// keychain, a program that prints it, or a variable that holds it. None is a
+// secret.
+type TokenSources = Pick<JiraConfig, 'token' | 'keychain' | 'token_command' | 'token_env'>
+
+// typedTokenKept says where a Jira token typed here goes.
+const typedTokenKept = 'kept in your keychain for this address on macOS or in the file elsewhere'
 
 // tokenHint says where the Jira token comes from: the file's own token wins,
-// then token_env, then token_command, so a token typed over a source sends the
-// secret into the file the source kept it out of.
-function tokenHint({ token, token_command, token_env }: TokenSources): string {
-  const source = tokenSource(token_command, token_env)
+// then the keychain, then token_env, then token_command, so a token typed over
+// a source is used instead of it.
+function tokenHint({ token, ...sources }: TokenSources): string {
+  const source = tokenSource(sources)
   if (source === '') {
     return token
       ? 'Leave as-is to keep the stored token.'
-      : 'A personal access token. token_command or token_env, set in the file, keep it out of the file.'
+      : `A personal access token, ${typedTokenKept}.`
   }
 
   return token
     ? `The token stored here is used over ${source}.`
-    : `Taken from ${source}. A token typed here is kept in the file and used instead.`
+    : `Taken from ${source}. One typed here is used instead, ${typedTokenKept}.`
 }
 
 // tokenSource names the source the token is read from when the file holds
-// none: the variable over the command, or neither.
-function tokenSource(command: string | undefined, variable: string | undefined): string {
-  if (variable) {
-    return `token_env: ${variable}`
+// none: the keychain over the variable over the command, or none of them.
+function tokenSource({ keychain, token_command, token_env }: Omit<TokenSources, 'token'>): string {
+  if (keychain) {
+    return 'your keychain, for this address'
   }
 
-  return command ? `token_command: ${command}` : ''
+  if (token_env) {
+    return `token_env: ${token_env}`
+  }
+
+  return token_command ? `token_command: ${token_command}` : ''
 }
 
 interface JiraFieldsetProps {
@@ -43,25 +51,43 @@ interface JiraFieldsetProps {
   storedToken: string | null
 }
 
+// JiraToken is the credential: the token, said to come from where the token
+// in effect comes from, and whether the keychain item for the address keeps it.
+function JiraToken({ register, control, storedToken }: JiraFieldsetProps) {
+  const [keychain, command, variable] = useWatch({
+    control,
+    name: ['jira.keychain', 'jira.token_command', 'jira.token_env'],
+  })
+  const sources = { keychain, token_command: command, token_env: variable }
+
+  return (
+    <>
+      <SecretField
+        register={register}
+        name="jira.token"
+        label="Token"
+        hint={tokenHint({ token: storedToken, ...sources })}
+      />
+      <CheckboxField
+        register={register}
+        name="jira.keychain"
+        label="Read the token from your keychain, kept there for this address (macOS)"
+      />
+    </>
+  )
+}
+
 // JiraFieldset is where the tracker is and who reads it: its address, the
 // credential, the project and the status an issue moves to once in review —
 // and whether the repository's own forge issues join Jira's in the list.
 export function JiraFieldset({ register, control, storedToken }: JiraFieldsetProps) {
   const { noun } = useForgeWords()
-  const [command, variable, headers] = useWatch({
-    control,
-    name: ['jira.token_command', 'jira.token_env', 'jira.headers'],
-  })
+  const headers = useWatch({ control, name: 'jira.headers' })
 
   return (
     <Fieldset legend="Jira">
       <TextField register={register} name="jira.base_url" label="Base URL" type="url" />
-      <SecretField
-        register={register}
-        name="jira.token"
-        label="Token"
-        hint={tokenHint({ token: storedToken, token_command: command, token_env: variable })}
-      />
+      <JiraToken register={register} control={control} storedToken={storedToken} />
       <TextField
         register={register}
         name="jira.user"

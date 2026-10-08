@@ -235,8 +235,13 @@ func slackSecretFields() []secretField {
 	}
 }
 
-// fileSecretFields are every other credential cfg holds, each of Jira's
-// headers among them.
+// jiraTokenField is the Jira token, which an editor may hand to the keychain.
+func jiraTokenField() secretField {
+	return secretField{path: "jira.token", value: func(cfg Config) Secret { return cfg.Jira.Token }}
+}
+
+// fileSecretFields are every credential cfg holds but the Slack secrets and
+// the Jira token, each of Jira's headers among them.
 func fileSecretFields(cfg Config) []secretField {
 	headers := make([]secretField, 0, len(cfg.Jira.Headers))
 	for name := range cfg.Jira.Headers {
@@ -246,7 +251,6 @@ func fileSecretFields(cfg Config) []secretField {
 	}
 
 	return append([]secretField{
-		{path: "jira.token", value: func(cfg Config) Secret { return cfg.Jira.Token }},
 		{path: "forge.token", value: func(cfg Config) Secret { return cfg.Forge.Token }},
 		{path: "messaging.webhook_url", value: func(cfg Config) Secret { return cfg.Messaging.WebhookURL }},
 	}, headers...)

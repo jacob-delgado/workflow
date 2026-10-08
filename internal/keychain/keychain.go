@@ -68,7 +68,7 @@ type Item struct {
 // Open is the keychain item for service on goos, and false where no keychain is
 // wired: everywhere but macOS, whose built-in `security` it drives.
 func Open(goos, service string, run Runner, currentUser UserLookup, getenv func(string) string) (Item, bool) {
-	if !wired(goos) {
+	if !Wired(goos) {
 		return Item{}, false
 	}
 
@@ -140,7 +140,7 @@ func (i Item) Read(ctx context.Context) (string, error) {
 func Storer(
 	goos string, run Runner, currentUser UserLookup, getenv func(string) string,
 ) func(service, secret string) error {
-	if !wired(goos) {
+	if !Wired(goos) {
 		return nil
 	}
 
@@ -156,9 +156,9 @@ func Storer(
 	}
 }
 
-// wired reports a keychain workflow drives on goos: macOS's, through its
+// Wired reports a keychain workflow drives on goos: macOS's, through its
 // built-in security.
-func wired(goos string) bool {
+func Wired(goos string) bool {
 	return goos == "darwin"
 }
 
