@@ -39,9 +39,8 @@ func problem(code api.ProblemCode, detail string) api.Problem {
 }
 
 // codeMeaning is the HTTP status and human title fixed for each problem code. A
-// map, not a switch, as ciState is, so there is no last-case arm gobco can never
-// see; exhaustive keeps it complete, and every code is one of the spec's
-// constants.
+// map, not a switch, so there is no last-case arm gobco can never see;
+// exhaustive keeps it complete, and every code is one of the spec's constants.
 func codeMeaning(code api.ProblemCode) (int, string) {
 	meaning := map[api.ProblemCode]struct {
 		status int
