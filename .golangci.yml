@@ -49,6 +49,17 @@ linters:
           deny:
             - pkg: github.com/jacob-delgado/workflow/internal/rlimit
               desc: a test helper; lower a resource limit only from a _test.go file
+        # internal/gittest clears git's repository variables from the whole
+        # process and imports testing, which only a test's own process should
+        # do: a production path that did would undo a hook's GIT_DIR for every
+        # git workflow runs.
+        gittest-only-in-tests:
+          files:
+            - "$all"
+            - "!$test"
+          deny:
+            - pkg: github.com/jacob-delgado/workflow/internal/gittest
+              desc: a test helper; clear git's environment and run test git only from a _test.go file
         # internal/loop composes the loop once for the command line, the terminal
         # and the web, so it sits below all three and above the domain packages.
         # Importing a surface back, or wiring (which imports the terminal for
