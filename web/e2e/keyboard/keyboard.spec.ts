@@ -1,6 +1,6 @@
-import type { Locator, Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { height, openCockpit, openSection, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers } from '../support/tabwalk.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 import { expect, test } from '../support/fixtures.ts'
 
 // The page's keyboard beyond Tab on the populated build, whose keys have the
@@ -9,41 +9,11 @@ import { expect, test } from '../support/fixtures.ts'
 // page or sideways, Tab must stay inside each and reach every control in view,
 // and axe must find nothing with either open.
 
-// trappedLap presses Tab once round the open dialog's controls and one more,
-// and names each stop that left the dialog or was out of view with focus. The
-// lap wraps through the browser's own controls, which a modal dialog leaves
-// reachable, as the page's body: that stop is the wrap, not an escape.
-async function trappedLap(page: Page, dialog: Locator): Promise<string[]> {
-  const stops = await dialog.evaluate(
-    (shown) => shown.querySelectorAll('a[href], button, input, select, textarea').length,
-  )
-  const strays: string[] = []
-
-  for (let step = 0; step <= stops; step++) {
-    await page.keyboard.press('Tab')
-    const stray = await page.evaluate(() => {
-      const focused = document.activeElement
-      if (focused === document.body) {
-        return ''
-      }
-
-      if (!(focused instanceof HTMLElement) || focused.closest('dialog') === null) {
-        return `left the dialog for ${focused?.localName ?? 'nothing'}`
-      }
-
-      const box = focused.getBoundingClientRect()
-      const seen =
-        box.top >= 0 && box.left >= 0 && box.bottom <= innerHeight && box.right <= innerWidth
-
-      return seen ? '' : `${focused.textContent.trim()} out of view`
-    })
-    if (stray !== '') {
-      strays.push(stray)
-    }
-  }
-
-  return strays
-}
+// trapped is a lap of Tab round an open dialog that keeps it: every control
+// in it reached, each in view, and none outside it. The lap wraps through the
+// browser's own controls, which a modal dialog leaves reachable, as the
+// page's body: that stop is the wrap, not an escape.
+const trapped = { missed: [], hidden: [], left: [] }
 
 // heldToTheLayout names what is wrong with the page as it stands: what scrolls
 // sideways, the page scrolling down, and what axe finds.
@@ -76,7 +46,7 @@ for (const theme of themes) {
           sheet.getByRole('table', { name: 'Issues' }).getByRole('row', { name: 'c comment' }),
         ).toBeVisible()
         expect(await heldToTheLayout(page)).toEqual([])
-        expect(await trappedLap(page, sheet)).toEqual([])
+        expect(await walkTabOrder(page, { within: sheet })).toMatchObject(trapped)
 
         // Act: close it.
         await page.keyboard.press('Escape')
@@ -107,7 +77,7 @@ for (const theme of themes) {
         const palette = page.getByRole('dialog', { name: 'Command palette' })
         await expect(palette.getByRole('option').first()).toHaveText(/^stage all/)
         expect(await heldToTheLayout(page)).toEqual([])
-        expect(await trappedLap(page, palette)).toEqual([])
+        expect(await walkTabOrder(page, { within: palette })).toMatchObject(trapped)
       },
     )
   }
