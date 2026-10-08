@@ -11,7 +11,7 @@ import {
   streams,
   test,
 } from '../support/fixtures.ts'
-import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 
 // Starting work on an issue in a new worktree from its detail, and the switch
 // to the worktree offered once it is made.
@@ -142,16 +142,8 @@ for (const theme of themes) {
       await page.getByRole('button', { name: 'Start work in a new worktree' }).click()
       await expect(page.getByRole('button', { name: 'Switch to it' })).toBeVisible()
 
-      // Act: Tab once round the page.
-      const { reached, missed, hidden } = await walkTabOrder(page)
-
-      // Assert: nothing scrolls sideways; Tab reaches the switch, in view; and
-      // axe finds nothing.
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(['Switch to it']))
-      expect(missed, 'never reached by Tab').toEqual([])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Act & Assert: Tab reaches the switch.
+      await expectReachableAndClean(page, { reaches: ['Switch to it'] })
     })
   }
 }

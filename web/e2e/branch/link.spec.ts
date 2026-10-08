@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import type { BranchIssuePreview } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { branchWith, expect, problem, snapshotWith, streams, test } from '../support/fixtures.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 
 // The Branch section's Link an issue, for work begun outside workflow on a
 // branch whose name names no issue: the form that asks which, the pull
@@ -88,23 +88,15 @@ for (const theme of themes) {
       await page.route('**/api/branch/issue/preview**', (route) => route.fulfill({ json: preview }))
       await opensLinkForm(page)
 
-      // Act: ask for PROJ-7, let its description land, and Tab once round.
+      // Act: ask for PROJ-7, and let its description land.
       await page.getByRole('textbox', { name: 'Issue' }).fill('PROJ-7')
       await page.getByRole('button', { name: 'Link', exact: true }).click()
       await expect(page.getByRole('button', { name: 'Link and update #12' })).toBeVisible()
-      const { reached, missed, hidden } = await walkTabOrder(page)
 
-      // Assert: nothing scrolls sideways, nor the page down; Tab reaches the
-      // form's controls and every other drawn one, each in view; and axe
-      // finds nothing.
-      expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
-      expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
-      expect(reached, 'reached by Tab').toEqual(
-        expect.arrayContaining(['Issue', 'Link and update #12', 'Link only', 'Cancel']),
-      )
-      expect(missed, 'never reached by Tab').toEqual([])
-      expect(hidden, 'out of view with focus').toEqual([])
-      expect(await axeViolations(page), 'axe').toBe('')
+      // Assert: Tab reaches the form's controls, and it is clean.
+      await expectReachableAndClean(page, {
+        reaches: ['Issue', 'Link and update #12', 'Link only', 'Cancel'],
+      })
     })
   }
 }

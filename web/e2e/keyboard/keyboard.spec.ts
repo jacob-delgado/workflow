@@ -1,29 +1,14 @@
-import type { Page } from '@playwright/test'
 import { height, openCockpit, openSection, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
+import { expectReachableAndClean } from '../support/reachable.ts'
 import { expect, test } from '../support/fixtures.ts'
 
 // The page's keyboard beyond Tab on the populated build, whose keys have the
 // single-key shortcuts on: the ? sheet and the Ctrl+K palette, each at a
 // narrow, a middling and a wide window in both themes. Neither may scroll the
 // page or sideways, Tab must stay inside each and reach every control in view,
-// and axe must find nothing with either open.
-
-// trapped is a lap of Tab round an open dialog that keeps it: every control
-// in it reached, each in view, and none outside it. The lap wraps through the
-// browser's own controls, which a modal dialog leaves reachable, as the
-// page's body: that stop is the wrap, not an escape.
-const trapped = { missed: [], hidden: [], left: [] }
-
-// heldToTheLayout names what is wrong with the page as it stands: what scrolls
-// sideways, the page scrolling down, and what axe finds.
-async function heldToTheLayout(page: Page): Promise<string[]> {
-  return [
-    ...(await page.evaluate(sidewaysScrollers)),
-    ...((await page.evaluate(pageScrolls)) ? ['the page scrolls'] : []),
-    ...[await axeViolations(page)].filter((found) => found !== ''),
-  ]
-}
+// and axe must find nothing with either open. A lap of Tab round a modal
+// dialog wraps through the browser's own controls, which it leaves
+// reachable, as the page's body: that stop is the wrap, not an escape.
 
 for (const theme of themes) {
   for (const width of widths) {
@@ -45,8 +30,7 @@ for (const theme of themes) {
         await expect(
           sheet.getByRole('table', { name: 'Issues' }).getByRole('row', { name: 'c comment' }),
         ).toBeVisible()
-        expect(await heldToTheLayout(page)).toEqual([])
-        expect(await walkTabOrder(page, { within: sheet })).toMatchObject(trapped)
+        await expectReachableAndClean(page, { within: sheet })
 
         // Act: close it.
         await page.keyboard.press('Escape')
@@ -76,8 +60,7 @@ for (const theme of themes) {
         // Assert: it lists Stage all first, fits, keeps Tab, and is clean.
         const palette = page.getByRole('dialog', { name: 'Command palette' })
         await expect(palette.getByRole('option').first()).toHaveText(/^stage all/)
-        expect(await heldToTheLayout(page)).toEqual([])
-        expect(await walkTabOrder(page, { within: palette })).toMatchObject(trapped)
+        await expectReachableAndClean(page, { within: palette })
       },
     )
   }
