@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { mockDirectories, mockRepositories } from '../../src/dev/mockRepositories.ts'
-import { height, pinTheme, themes, widths } from '../cockpit.ts'
-import { axeViolations, sidewaysScrollers, walkTabOrder } from '../tabwalk.ts'
+import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
+import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Repositories section: where the server works, the favorites, the
 // directory picker, and a switch asked once more before it is made.

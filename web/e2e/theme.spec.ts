@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { pinTheme } from './cockpit.ts'
+import { pinTheme } from './support/cockpit.ts'
 
 // The "system" choice resolves to the OS color scheme — before paint, in the
 // script index.html loads first, public/theme.js, and as it changes, through the matchMedia

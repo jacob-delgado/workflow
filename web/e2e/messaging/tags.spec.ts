@@ -5,7 +5,7 @@ import type {
   PersonLink,
   Snapshot,
 } from '../../src/api/generated/types.gen.ts'
-import { streams } from '../tabwalk.ts'
+import { streams } from '../support/tabwalk.ts'
 
 // The announcement preview's tags: an owner linked to a member of the channel
 // picked and saved for next time, a user group checked, and the post that

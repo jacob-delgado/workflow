@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { height, openCockpit, openSection, themes } from './cockpit.ts'
+import { height, openCockpit, openSection, themes } from './support/cockpit.ts'
 
 // A section's one outward act is drawn at one size wherever it stands, and
 // every control beside it at the other: a reader learns the two sizes once.
