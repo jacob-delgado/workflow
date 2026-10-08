@@ -423,7 +423,7 @@ func TestDoctorOnlineRejectsAnUnknownForgeKind(t *testing.T) {
 func TestDoctorOnlineDistinguishesAnUnreachableServiceFromARejection(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "http://jira.invalid", "token": "t"}, `+slackWebhook+`}`)
+	writeFile(t, dir, `{"jira": {"base_url": "https://jira.invalid", "token": "t"}, `+slackWebhook+`}`)
 
 	// Act
 	output, err := run(t, dir, "doctor", "--online")
