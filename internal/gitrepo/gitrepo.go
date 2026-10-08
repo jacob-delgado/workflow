@@ -77,7 +77,7 @@ func readFailure(ctx context.Context, run Runner, dir, what string, err error) e
 // requireWorkTree answers nil for a directory inside a git work tree, by the
 // same probe Describe uses to find the root, and why not otherwise.
 func requireWorkTree(ctx context.Context, run Runner, dir string) error {
-	_, err := run(ctx, "git", "-C", dir, "rev-parse", "--show-toplevel")
+	_, err := run(ctx, gitProgram, "-C", dir, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return notInWorkTree(dir, err)
 	}
@@ -113,14 +113,14 @@ func (r Repository) CheckIgnored(ctx context.Context, path string) (bool, error)
 
 	// check-ignore exits zero when the path is ignored and non-zero when it is
 	// not, so a non-zero exit here is the answer "no", not a failure to answer.
-	_, err = r.run(ctx, "git", "-C", r.dir, "check-ignore", path)
+	_, err = r.run(ctx, gitProgram, "-C", r.dir, "check-ignore", path)
 
 	return err == nil, nil
 }
 
 // Describe reads the repository this one works in.
 func (r Repository) Describe(ctx context.Context) (Repo, error) {
-	root, err := r.run(ctx, "git", "-C", r.dir, "rev-parse", "--show-toplevel")
+	root, err := r.run(ctx, gitProgram, "-C", r.dir, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return Repo{}, notInWorkTree(r.dir, err)
 	}
@@ -129,7 +129,7 @@ func (r Repository) Describe(ctx context.Context) (Repo, error) {
 	// the name of an UNBORN branch on a repository with no commits, where
 	// rev-parse fails outright, and it prints nothing for a detached HEAD instead
 	// of the literal string "HEAD" that a branch could legitimately be called.
-	branch, err := r.run(ctx, "git", "-C", r.dir, "branch", "--show-current")
+	branch, err := r.run(ctx, gitProgram, "-C", r.dir, "branch", "--show-current")
 	if err != nil {
 		return Repo{}, fmt.Errorf("reading the current branch of %s: %w", r.dir, err)
 	}
@@ -147,7 +147,7 @@ func (r Repository) Describe(ctx context.Context) (Repo, error) {
 // SharedDir is the git directory every worktree of the repository shares,
 // which tells one repository from another where each worktree's root differs.
 func (r Repository) SharedDir(ctx context.Context) (string, error) {
-	out, err := r.run(ctx, "git", "-C", r.dir, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	out, err := r.run(ctx, gitProgram, "-C", r.dir, "rev-parse", "--path-format=absolute", "--git-common-dir")
 	if err != nil {
 		return "", notInWorkTree(r.dir, err)
 	}
@@ -159,7 +159,7 @@ func (r Repository) SharedDir(ctx context.Context) (string, error) {
 // not broken — everything except opening a pull request still works — so the
 // failure reads as "no remote" rather than becoming Describe's error.
 func originURL(ctx context.Context, run Runner, dir string) string {
-	out, err := run(ctx, "git", "-C", dir, "remote", "get-url", DefaultRemote)
+	out, err := run(ctx, gitProgram, "-C", dir, "remote", "get-url", DefaultRemote)
 	if err != nil {
 		return ""
 	}
