@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { Branch, BranchIssuePreview, Snapshot } from '../src/api/generated/types.gen.ts'
-import { height, openSection, pinTheme, themes, widths } from './cockpit.ts'
-import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from './tabwalk.ts'
+import type { Branch, BranchIssuePreview, Snapshot } from '../../src/api/generated/types.gen.ts'
+import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
+import { axeViolations, pageScrolls, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Branch section's Link an issue, for work begun outside workflow on a
 // branch whose name names no issue: the form that asks which, the pull
