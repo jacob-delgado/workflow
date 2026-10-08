@@ -47,11 +47,7 @@ func keptPath(dir string) string {
 func openKeptFile(t *testing.T, dir string) *sql.DB {
 	t.Helper()
 
-	database, err := sql.Open("sqlite", keptPath(dir))
-	if err != nil {
-		t.Fatalf("opening the kept database: %v", err)
-	}
-
+	database := openFile(t, keptPath(dir))
 	t.Cleanup(func() { _ = database.Close() })
 
 	return database
