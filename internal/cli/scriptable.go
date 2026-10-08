@@ -131,8 +131,16 @@ const logFlag = "log"
 // to read.
 func requestLogFor(cmd *cobra.Command) (*wiring.RequestLog, func(), error) {
 	path, _ := cmd.Flags().GetString(logFlag)
+	if path == "" {
+		return openRequestLog(path, cmd.ErrOrStderr())
+	}
 
-	return openRequestLog(path, cmd.ErrOrStderr())
+	found, err := fromWorkingDir(cmd, path)
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("opening the request log: %w", err)
+	}
+
+	return openRequestLog(found, cmd.ErrOrStderr())
 }
 
 // logFileMode is the permission a request log is created with. Like the
@@ -227,15 +235,13 @@ func encodeJSON(out io.Writer, value any) error {
 // assigned to you, for `workflow branch <tab>`. A tracker that cannot be reached
 // offers nothing rather than an error.
 func completeAssignedIssues(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
-	// a working directory once it is removed.
-	dir, err := os.Getwd()
+	dir, err := workingDir(cmd)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
 	// Completion runs on every <tab>, so it records nothing in a request log.
-	conn := connectAt(cmd, dir, configHome(), nil)
+	conn := connectAt(cmd, dir, nil)
 
 	result, err := conn.deps.Jira.Search(jira.AssignedToMe, 0)
 	if err != nil {

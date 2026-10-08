@@ -48,6 +48,8 @@ func shown(model tui.Model) string {
 }
 
 func TestASwitchOpensTheInterfaceAgainWhereItWasAskedToGo(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	start, other := twoDirectories(t)
 
@@ -69,21 +71,24 @@ func TestASwitchOpensTheInterfaceAgainWhereItWasAskedToGo(t *testing.T) {
 }
 
 func TestASwitchMovesTheWorkingDirectory(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	start, other := twoDirectories(t)
 
 	// Act
-	runRootSwitching(t, place{dir: start, home: t.TempDir()}, []tui.Next{{Dir: other}})
+	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, []tui.Next{{Dir: other}})
 
 	// Assert
 	// Whatever the new session runs — an editor, a hook — starts there too.
-	here, err := os.Getwd()
-	if err != nil || here != other {
-		t.Errorf("working directory = %q, %v; want %s", here, err, other)
+	if here := ran.workingDir(); here != other {
+		t.Errorf("working directory = %q, want %s", here, other)
 	}
 }
 
 func TestASwitchThatCannotBeMadeStaysWhereItWasAndSaysWhy(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]func(t *testing.T, other string) string{
 		"a directory not there": func(_ *testing.T, other string) string {
 			return filepath.Join(other, "gone")
@@ -103,6 +108,8 @@ func TestASwitchThatCannotBeMadeStaysWhereItWasAndSaysWhy(t *testing.T) {
 
 	for name, target := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			start, other := twoDirectories(t)
 			destination := target(t, other)
@@ -123,15 +130,16 @@ func TestASwitchThatCannotBeMadeStaysWhereItWasAndSaysWhy(t *testing.T) {
 				t.Errorf("the reopened interface does not say why:\n%s", shown(ran.model))
 			}
 
-			here, err := os.Getwd()
-			if err != nil || here != start {
-				t.Errorf("working directory = %q, %v; want it left in %s", here, err, start)
+			if here := ran.workingDir(); here != start {
+				t.Errorf("working directory = %q, want it left in %s", here, start)
 			}
 		})
 	}
 }
 
 func TestTheWebServerReachesAnotherDirectoryWiredAsTheFirst(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	start, other := twoDirectories(t)
 	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
@@ -145,13 +153,14 @@ func TestTheWebServerReachesAnotherDirectoryWiredAsTheFirst(t *testing.T) {
 		t.Fatalf("Reach = %+v, %v; want elsewhere, able to switch again", world.Info, err)
 	}
 
-	here, err := os.Getwd()
-	if err != nil || here != other {
-		t.Errorf("working directory = %q, %v; want %s", here, err, other)
+	if here := ran.workingDir(); here != other {
+		t.Errorf("working directory = %q, want %s", here, other)
 	}
 }
 
 func TestTheWebServerCannotReachADirectoryWhoseKeysWouldBeRefused(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	start, other := twoDirectories(t)
 
@@ -172,6 +181,8 @@ func TestTheWebServerCannotReachADirectoryWhoseKeysWouldBeRefused(t *testing.T) 
 }
 
 func TestTheWebServerCannotReachADirectoryWhoseConfigurationCannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A configuration file there that cannot be read would fail the switch
 	// after the process had moved; it is refused before.
@@ -188,8 +199,7 @@ func TestTheWebServerCannotReachADirectoryWhoseConfigurationCannotBeRead(t *test
 	_, err = ran.deps.Reach(other)
 
 	// Assert
-	here, getErr := os.Getwd()
-	if !errors.Is(err, webserver.ErrConfigurationUnreadable) || getErr != nil || here != start {
+	if here := ran.workingDir(); !errors.Is(err, webserver.ErrConfigurationUnreadable) || here != start {
 		t.Errorf("Reach = %v, now in %q; want ErrConfigurationUnreadable, still in %s", err, here, start)
 	}
 }

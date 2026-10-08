@@ -36,6 +36,8 @@ func doctorStore(t *testing.T, where place) storeFacts {
 }
 
 func TestDoctorNamesTheStoresDirectory(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	state := t.TempDir()
 	where := place{dir: t.TempDir(), home: t.TempDir(), state: state}
@@ -50,6 +52,8 @@ func TestDoctorNamesTheStoresDirectory(t *testing.T) {
 }
 
 func TestDoctorSaysWhenTheStoreHasNoDirectory(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := place{dir: t.TempDir(), home: ""}
 
@@ -64,6 +68,8 @@ func TestDoctorSaysWhenTheStoreHasNoDirectory(t *testing.T) {
 }
 
 func TestDoctorSaysWhenTheConfigurationTurnedTheStoreOff(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := place{dir: t.TempDir(), home: t.TempDir()}
 	writeFile(t, where.dir, `{"store": {"disabled": true}}`)
@@ -78,6 +84,8 @@ func TestDoctorSaysWhenTheConfigurationTurnedTheStoreOff(t *testing.T) {
 }
 
 func TestDoctorJSONReportsTheStore(t *testing.T) {
+	t.Parallel()
+
 	state := t.TempDir()
 	cases := map[string]struct {
 		where         place
@@ -100,6 +108,8 @@ func TestDoctorJSONReportsTheStore(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			where := tt.where
 			where.dir = t.TempDir()

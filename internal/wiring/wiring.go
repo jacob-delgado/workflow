@@ -37,15 +37,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// gitRunner runs git with its terminal prompts turned off. What it runs is quick
-// and local — the fetch, pull and push that reach the network stream through
-// proc.Start instead — but nothing inside the interface could answer a
-// credential prompt, so should one ask, git fails rather than seize the
-// terminal. It is the Runner every repository this package builds goes through.
-func gitRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
-	return proc.RunCommand(ctx, proc.Command{Name: name, Args: args, Env: []string{"GIT_TERMINAL_PROMPT=0"}})
-}
-
 // Deps connects the interface to the real Jira, repository, forge, messaging
 // service, lefthook and editor. A non-nil log records the outline of every
 // request each service makes. The services share one redirect-refusing HTTP
@@ -58,20 +49,22 @@ func gitRunner(ctx context.Context, name string, args ...string) ([]byte, error)
 // asks on it could not be answered. A token not found then is looked for again
 // on first use, where its failure is reported. The Slack user token is asked
 // for on every post, refreshed as it runs out.
-func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) (tui.Deps, Controls) {
+func (e Environment) Deps(
+	ctx context.Context, cfg config.Config, where Workspace, log *RequestLog,
+) (tui.Deps, Controls) {
 	httpTransport := httpx.Client(requestTimeout(cfg)).Do
 	settings := &liveForge{settings: cfg.Forge}
-	setup := forgeSetup{settings: settings.current, where: where, httpTransport: httpTransport, log: log}
+	setup := forgeSetup{settings: settings.current, where: where, httpTransport: httpTransport, log: log, env: e}
 	connect := connectedWith(settings.current, func(current config.Forge) (forgeConnection, error) {
 		return connectForge(ctx, setup, current)
 	})
 	jiraClient := onceConnected(func() (jira.Client, error) {
 		//nolint:bodyclose // Wrap only relays the response; the jira client reads and closes its body.
-		return connectJira(ctx, cfg.Jira, SystemKeychain(), log.Wrap("jira", httpTransport))
+		return e.connectJira(ctx, cfg.Jira, e.Keychain(), log.Wrap("jira", httpTransport))
 	})
 	messagingSettings := &liveMessaging{settings: cfg.Messaging}
 	messagingSet := messagingSetup{
-		settings: messagingSettings.current, files: cfg.Layers(), httpTransport: httpTransport, log: log,
+		settings: messagingSettings.current, files: cfg.Layers(), httpTransport: httpTransport, log: log, env: e,
 	}
 	slack := directory.New(slackUserClient(messagingSet), time.Now)
 
@@ -92,30 +85,30 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 			slack.Refresh()
 		},
 		//nolint:bodyclose // Wrap only relays the response; the refresh reads and closes its body.
-		PlaceSlackCredentials: PlaceSlackCredentials(ctx, log.Wrap("slack", httpTransport), SystemKeychain()),
-		KeepJiraToken:         SystemKeychain().JiraTokenKeeper(ctx),
+		PlaceSlackCredentials: e.PlaceSlackCredentials(ctx, log.Wrap("slack", httpTransport), e.Keychain()),
+		KeepJiraToken:         e.Keychain().JiraTokenKeeper(ctx),
 	}
 
 	deps := tui.Deps{
 		Jira:         trackerDeps(ctx, cfg, jiraClient, connect),
-		Git:          gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
+		Git:          e.gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
 		Forge:        forgeDeps(ctx, setup, connect),
 		Messaging:    messagingDeps(ctx, messagingSet, slack),
-		Hooks:        hookDeps(ctx, where.Root),
-		Editor:       editorDeps(where.Root),
-		Store:        storeDeps(ctx, onDisk(cfg), cfg, where),
-		Tasks:        taskDeps(ctx, cfg.Taskwarrior),
-		Repositories: repositoriesDeps(ctx, cfg, where),
-		Settings:     settingsDeps(ctx, cfg.Layers(), controls),
+		Hooks:        e.hookDeps(ctx, where.Root),
+		Editor:       e.editorDeps(where.Root),
+		Store:        storeDeps(ctx, e.onDisk(cfg), cfg, where),
+		Tasks:        e.taskDeps(ctx, cfg.Taskwarrior),
+		Repositories: e.repositoriesDeps(ctx, cfg, where),
+		Settings:     e.settingsDeps(ctx, cfg.Layers(), controls),
 		Clock:        nil,
 		CIInterval:   cfg.CIInterval(),
 		Notify:       ringTerminal,
-		OpenURL:      func(url string) error { return openInBrowser(ctx, url) },
+		OpenURL:      func(url string) error { return e.openInBrowser(ctx, url) },
 		Copy:         tea.SetClipboard,
 	}
 	// Favorites are read from the store as it is, never made, so a dry run's
 	// Summary reads them as well.
-	deps.Git.CommitsBetween = yourCommits(ctx, where, readFavorites(ctx, onDisk(cfg).ReadOnly()))
+	deps.Git.CommitsBetween = e.yourCommits(ctx, where, readFavorites(ctx, e.onDisk(cfg).ReadOnly()))
 
 	return deps, controls
 }
@@ -163,13 +156,13 @@ var errUnsafeBrowserURL = errors.New("refusing to open a non-http(s) URL")
 
 // openInBrowser opens a URL through the platform's own opener, so a check's page
 // on the forge is one keypress away from its line in the interface.
-func openInBrowser(ctx context.Context, raw string) error {
+func (e Environment) openInBrowser(ctx context.Context, raw string) error {
 	target, err := safeBrowserURL(raw)
 	if err != nil {
 		return err
 	}
 
-	_, err = proc.RunCommand(ctx, BrowserCommand(runtime.GOOS, target))
+	_, err = e.runCommand(ctx, BrowserCommand(runtime.GOOS, target))
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", target, err)
 	}
@@ -216,8 +209,8 @@ func requestTimeout(cfg config.Config) time.Duration {
 // gitDeps is what a surface asks of the repository. CODEOWNERS is read in the
 // dialect of the forge kind names at the time of the read, since Settings can
 // change the forge while workflow runs.
-func gitDeps(ctx context.Context, root string, kind func() forge.Kind) seams.Git {
-	repo := gitrepo.At(gitRunner, root)
+func (e Environment) gitDeps(ctx context.Context, root string, kind func() forge.Kind) seams.Git {
+	repo := gitrepo.At(e.git, root)
 
 	return seams.Git{
 		Branch:         func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
@@ -238,18 +231,20 @@ func gitDeps(ctx context.Context, root string, kind func() forge.Kind) seams.Git
 		CreateWorktree: func(name, start string) (string, error) {
 			return repo.WorktreeAdd(ctx, name, start)
 		},
-		Fetch:  func() error { return streamToEnd(ctx, gitrepo.FetchCommand(root)) },
-		Commit: func(message string) (proc.Output, error) { return commitWith(ctx, root, message) },
-		Amend:  func() (proc.Output, error) { return proc.Start(ctx, gitrepo.AmendCommand(root)) },
-		Fixup:  func(hash string) (proc.Output, error) { return proc.Start(ctx, gitrepo.FixupCommand(root, hash)) },
+		Fetch:  func() error { return e.streamToEnd(ctx, gitrepo.FetchCommand(root)) },
+		Commit: func(message string) (proc.Output, error) { return e.commitWith(ctx, root, message) },
+		Amend:  func() (proc.Output, error) { return e.start(ctx, gitrepo.AmendCommand(root)) },
+		Fixup:  func(hash string) (proc.Output, error) { return e.start(ctx, gitrepo.FixupCommand(root, hash)) },
 		Push: func(branch string) (proc.Output, error) {
-			return proc.Start(ctx, gitrepo.PushCommand(root, repo.PushRemote(ctx), branch))
+			return e.start(ctx, gitrepo.PushCommand(root, repo.PushRemote(ctx), branch))
 		},
 		Rebase: func(base string) (proc.Output, error) {
-			return proc.Start(ctx, gitrepo.RebaseCommand(root, base))
+			return e.start(ctx, gitrepo.RebaseCommand(root, base))
 		},
 		Finish: func(branch, base string) error {
-			return repo.FinishBranch(ctx, branch, base, func() error { return streamToEnd(ctx, gitrepo.PullCommand(root)) })
+			return repo.FinishBranch(ctx, branch, base, func() error {
+				return e.streamToEnd(ctx, gitrepo.PullCommand(root))
+			})
 		},
 		IssueLinks:  func() map[string]string { return repo.IssueLinks(ctx) },
 		LinkIssue:   func(branch, issueKey string) error { return repo.SetIssueLink(ctx, branch, issueKey) },
@@ -270,8 +265,8 @@ func codeOwnersDialect(kind forge.Kind) codeowners.Dialect {
 // streamToEnd runs a network git command unbounded and waits for it to exit. A
 // failure keeps what git printed, which is where its reason is: a network
 // error, a base that cannot fast-forward, a credential it could not ask for.
-func streamToEnd(ctx context.Context, command proc.Command) error {
-	output, err := proc.Start(ctx, command)
+func (e Environment) streamToEnd(ctx context.Context, command proc.Command) error {
+	output, err := e.start(ctx, command)
 	if err != nil {
 		return err
 	}
@@ -286,7 +281,7 @@ func streamToEnd(ctx context.Context, command proc.Command) error {
 
 // commitWith commits with a message written to a private temporary file, which
 // is removed once git has exited.
-func commitWith(ctx context.Context, root, message string) (proc.Output, error) {
+func (e Environment) commitWith(ctx context.Context, root, message string) (proc.Output, error) {
 	file, err := os.CreateTemp("", "workflow-commit-*.txt")
 	if err != nil {
 		return proc.Output{}, fmt.Errorf("writing the commit message: %w", err)
@@ -302,7 +297,7 @@ func commitWith(ctx context.Context, root, message string) (proc.Output, error) 
 		return proc.Output{}, fmt.Errorf("writing the commit message: %w", err)
 	}
 
-	output, err := proc.Start(ctx, gitrepo.CommitCommand(root, path))
+	output, err := e.start(ctx, gitrepo.CommitCommand(root, path))
 	if err != nil {
 		_ = os.Remove(path)
 
@@ -321,14 +316,14 @@ func commitWith(ctx context.Context, root, message string) (proc.Output, error) 
 
 // ReadOnlyStore is the store's seams for a dry run: they read what an earlier
 // session kept, when the store is already on disk, and never create or write it.
-func ReadOnlyStore(ctx context.Context, cfg config.Config, where Workspace) seams.Store {
-	return storeDeps(ctx, onDisk(cfg).ReadOnly(), cfg, where)
+func (e Environment) ReadOnlyStore(ctx context.Context, cfg config.Config, where Workspace) seams.Store {
+	return storeDeps(ctx, e.onDisk(cfg).ReadOnly(), cfg, where)
 }
 
-// onDisk is the store under the OS-native data directory, as the configuration
-// keeps it or disables it.
-func onDisk(cfg config.Config) store.Store {
-	dir, _ := store.DefaultDir()
+// onDisk is the store in the environment's state directory, as the
+// configuration keeps it or disables it.
+func (e Environment) onDisk(cfg config.Config) store.Store {
+	dir, _ := e.StateDir()
 
 	return store.New(dir, cfg.Store.Disabled)
 }
@@ -422,15 +417,15 @@ func instanceKey(baseURL string) string {
 
 // hookDeps is what a surface asks of lefthook — nothing at all when lefthook
 // is not installed, so its actions are not offered.
-func hookDeps(ctx context.Context, root string) seams.Hooks {
-	if !proc.Available("lefthook") {
+func (e Environment) hookDeps(ctx context.Context, root string) seams.Hooks {
+	if !e.Available("lefthook") {
 		return seams.Hooks{Run: nil, Existing: nil, Write: nil}
 	}
 
 	return seams.Hooks{
-		Run: func(hook string) (proc.Output, error) { return proc.Start(ctx, hooks.RunCommand(root, hook)) },
+		Run: func(hook string) (proc.Output, error) { return e.start(ctx, hooks.RunCommand(root, hook)) },
 		Existing: func() ([]hooks.GitHook, bool) {
-			dir, err := gitrepo.At(gitRunner, root).HooksDir(ctx)
+			dir, err := gitrepo.At(e.git, root).HooksDir(ctx)
 			if err != nil {
 				return nil, false
 			}
@@ -443,15 +438,15 @@ func hookDeps(ctx context.Context, root string) seams.Hooks {
 				return err
 			}
 
-			return installLefthook(ctx, root)
+			return e.installLefthook(ctx, root)
 		},
 	}
 }
 
 // installLefthook runs lefthook install in the repository — its root, not
 // wherever the process happens to be, which for a test is this repository.
-func installLefthook(ctx context.Context, root string) error {
-	output, err := proc.Start(ctx, proc.Command{Dir: root, Name: "lefthook", Args: []string{"install"}, Env: nil})
+func (e Environment) installLefthook(ctx context.Context, root string) error {
+	output, err := e.start(ctx, proc.Command{Dir: root, Name: "lefthook", Args: []string{"install"}, Env: nil})
 	if err != nil {
 		return fmt.Errorf("installing lefthook: %w", err)
 	}
@@ -465,13 +460,13 @@ func installLefthook(ctx context.Context, root string) error {
 }
 
 // editorDeps hands text and files to the user's editor.
-func editorDeps(root string) tui.EditorDeps {
+func (e Environment) editorDeps(root string) tui.EditorDeps {
 	return tui.EditorDeps{
 		Edit: func(text, help string, done func(string, error) tea.Msg) tea.Cmd {
-			return editor.Edit(os.Getenv, root, text, help, done)
+			return editor.Edit(e.Getenv, root, text, help, done)
 		},
 		Open: func(file string, line int, done func(error) tea.Msg) tea.Cmd {
-			return editor.Open(os.Getenv, root, file, line, done)
+			return editor.Open(e.Getenv, root, file, line, done)
 		},
 		Resolve: func(places []string) map[string]string {
 			return editor.Resolve(root, os.DirFS(root), places)

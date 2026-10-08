@@ -5,12 +5,10 @@ package wiring
 
 import (
 	"context"
-	"os"
 	"runtime"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
@@ -20,33 +18,33 @@ import (
 // says so and offers nothing. Which task program it is — go-task is also
 // called task — is settled by the first call that finds Taskwarrior, and kept;
 // until then every call looks again, so a Taskwarrior just set up is found.
-func taskDeps(ctx context.Context, settings config.Taskwarrior) seams.Tasks {
+func (e Environment) taskDeps(ctx context.Context, settings config.Taskwarrior) seams.Tasks {
 	if settings.Disabled {
 		return seams.Tasks{}
 	}
 
-	candidates := taskwarrior.Candidates(os.Getenv("PATH"), runtime.GOOS)
+	candidates := taskwarrior.Candidates(e.Getenv("PATH"), runtime.GOOS)
 	if settings.Program == "" && len(candidates) == 0 {
 		return seams.Tasks{}
 	}
 
 	install := onceConnected(func() (taskwarrior.Install, error) {
-		return taskwarrior.Detect(ctx, settings.Program, candidates, proc.CaptureWithin)
+		return taskwarrior.Detect(ctx, settings.Program, candidates, e.CaptureWithin)
 	})
 
-	return taskSeams(ctx, install)
+	return e.taskSeams(ctx, install)
 }
 
 // taskSeams binds each seam to the Taskwarrior install finds, asking it first
 // so a program that is not Taskwarrior answers every call with why.
-func taskSeams(ctx context.Context, install func() (taskwarrior.Install, error)) seams.Tasks {
+func (e Environment) taskSeams(ctx context.Context, install func() (taskwarrior.Install, error)) seams.Tasks {
 	client := func() (taskwarrior.Client, error) {
 		found, err := install()
 		if err != nil {
 			return taskwarrior.Client{}, err
 		}
 
-		return taskwarrior.New(proc.CaptureWithin, found), nil
+		return taskwarrior.New(e.CaptureWithin, found), nil
 	}
 
 	return seams.Tasks{

@@ -227,7 +227,7 @@ func TestNoForgeHostOffersNoOwnerLinks(t *testing.T) {
 func TestADryRunNeverMakesTheKeptFile(t *testing.T) {
 	// Arrange
 	dir := isolatedStoreDir(t)
-	readOnly := wiring.ReadOnlyStore(t.Context(), config.Default(),
+	readOnly := processEnvironment().ReadOnlyStore(t.Context(), config.Default(),
 		wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote})
 
 	// Act

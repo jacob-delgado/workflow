@@ -74,8 +74,12 @@ func progressCases() map[string]progressCase {
 }
 
 func TestASlowCommandSaysWhatItIsReadingOnATerminal(t *testing.T) {
+	t.Parallel()
+
 	for name, tt := range progressCases() {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir, args := tt.setUp(t)
 
@@ -100,8 +104,12 @@ func TestASlowCommandSaysWhatItIsReadingOnATerminal(t *testing.T) {
 }
 
 func TestASlowCommandSaysNothingOfItsProgressOffATerminal(t *testing.T) {
+	t.Parallel()
+
 	for name, tt := range progressCases() {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir, args := tt.setUp(t)
 

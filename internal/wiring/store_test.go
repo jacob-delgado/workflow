@@ -131,7 +131,7 @@ func TestADryRunReadsWhatALiveSessionAnnounced(t *testing.T) {
 	}
 
 	// Act
-	posts := wiring.ReadOnlyStore(t.Context(), config.Default(), where).Announced()
+	posts := processEnvironment().ReadOnlyStore(t.Context(), config.Default(), where).Announced()
 
 	// Assert
 	if len(posts) != 1 || posts[0] != merged {
@@ -158,7 +158,9 @@ func TestAnOriginNamingNoRepositoryKeysTheStoreByTheWorkingTree(t *testing.T) {
 	}
 
 	// Act
-	posts := wiring.ReadOnlyStore(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}).Announced()
+	process := processEnvironment()
+
+	posts := process.ReadOnlyStore(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}).Announced()
 
 	// Assert
 	if len(posts) != 1 || posts[0] != merged {

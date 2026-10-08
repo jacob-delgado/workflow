@@ -48,6 +48,8 @@ func asking(lines, secrets []string, askedLine, askedSecret *[]string) cli.Promp
 }
 
 func TestSlackLoginAsksForTheAppOnScreenAndItsSecretOffIt(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	path := writeFile(t, dir, slackUserTokenFile)
@@ -74,6 +76,8 @@ func TestSlackLoginAsksForTheAppOnScreenAndItsSecretOffIt(t *testing.T) {
 }
 
 func TestSlackLoginStopsAtAnEmptyClientID(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	path := writeFile(t, dir, slackUserTokenFile)
@@ -92,6 +96,8 @@ func TestSlackLoginStopsAtAnEmptyClientID(t *testing.T) {
 }
 
 func TestSlackLoginRefusesASlackPostingThroughAWebhook(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	contents := `{"messaging": {"kind": "slack", "webhook_url": "https://hooks.slack.example/services/not-real"}}`
@@ -109,6 +115,8 @@ func TestSlackLoginRefusesASlackPostingThroughAWebhook(t *testing.T) {
 }
 
 func TestSlackLoginUnderDryRunAsksAndWritesNothing(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	path := writeFile(t, dir, slackUserTokenFile)
@@ -125,6 +133,8 @@ func TestSlackLoginUnderDryRunAsksAndWritesNothing(t *testing.T) {
 }
 
 func TestSlackLoginNeedsAConfigurationFile(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -143,6 +153,8 @@ func TestSlackLoginNeedsAConfigurationFile(t *testing.T) {
 }
 
 func TestSlackLoginKeepsWhatSlackGivesBackAndSaysWhoseItIs(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeSlack(t, map[string]slackAnswer{slackRefresh: {http.StatusOK, slackRenewed}})
 
@@ -184,6 +196,8 @@ func unchanged(t *testing.T, path, contents string) {
 }
 
 func TestSlackLoginRefusalsExitInTheirFamily(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		contents string
 		prompt   func(t *testing.T) cli.Prompt
@@ -203,6 +217,8 @@ func TestSlackLoginRefusalsExitInTheirFamily(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := t.TempDir()
 			if tt.contents != "" {
@@ -219,6 +235,8 @@ func TestSlackLoginRefusalsExitInTheirFamily(t *testing.T) {
 }
 
 func TestSlackLoginWithNoTerminalSaysToRunItAtOne(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, slackUserTokenFile)
@@ -237,6 +255,8 @@ func TestSlackLoginWithNoTerminalSaysToRunItAtOne(t *testing.T) {
 }
 
 func TestSlackLoginThatSlackRefusesLeavesTheFileAsItWas(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeSlack(t, map[string]slackAnswer{slackRefresh: {http.StatusOK, `{"ok":false,"error":"invalid_grant"}`}})
 

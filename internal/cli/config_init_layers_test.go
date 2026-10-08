@@ -39,6 +39,8 @@ func homeAndRepository(t *testing.T) place {
 }
 
 func TestConfigInitTemplateOverAHomeFileWritesAnEmptyLayer(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := homeAndRepository(t)
 
@@ -57,6 +59,8 @@ func TestConfigInitTemplateOverAHomeFileWritesAnEmptyLayer(t *testing.T) {
 }
 
 func TestGuidedInitOverAHomeFileKeepsWhatWasLeftBlank(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := homeAndRepository(t)
 
@@ -74,6 +78,8 @@ func TestGuidedInitOverAHomeFileKeepsWhatWasLeftBlank(t *testing.T) {
 }
 
 func TestConfigShowNamesEveryFileInEffect(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := homeAndRepository(t)
 	writeFile(t, where.dir, `{"jira": {"project": "OSS"}}`)
@@ -89,6 +95,8 @@ func TestConfigShowNamesEveryFileInEffect(t *testing.T) {
 }
 
 func TestDoctorNamesEveryFileInEffect(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := homeAndRepository(t)
 	writeFile(t, where.dir, `{"jira": {"project": "OSS"}}`)
@@ -115,6 +123,8 @@ func TestDoctorNamesEveryFileInEffect(t *testing.T) {
 }
 
 func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		name, command string
 		prompt        func(t *testing.T) cli.Prompt
@@ -133,6 +143,8 @@ func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			where := homeAndRepository(t)
 			writeFile(t, where.dir, `{"jira": {"project": "OSS"}}`)
@@ -151,6 +163,8 @@ func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
 }
 
 func TestConfigInitTemplateOverAHomeFileWarnsWhenTheLayerIsNotGitIgnored(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := homeAndRepository(t)
 	gitInit(t, where.dir)

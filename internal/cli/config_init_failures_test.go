@@ -44,6 +44,8 @@ func answersThenEnds(answers ...string) func(string) (string, error) {
 }
 
 func TestConfigInitGlobalWithoutAHomeSaysSo(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := place{dir: t.TempDir(), home: ""}
 
@@ -60,6 +62,8 @@ func TestConfigInitGlobalWithoutAHomeSaysSo(t *testing.T) {
 }
 
 func TestConfigInitIntoADirectoryItCannotWriteSaysSo(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		args   []string
 		prompt func(t *testing.T) cli.Prompt
@@ -76,6 +80,8 @@ func TestConfigInitIntoADirectoryItCannotWriteSaysSo(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			if os.Geteuid() == 0 {
 				t.Skip("root writes into a directory whatever its mode, so the save would succeed")
@@ -104,6 +110,8 @@ func TestConfigInitIntoADirectoryItCannotWriteSaysSo(t *testing.T) {
 }
 
 func TestGuidedInitStopsWhenTheWebhookCannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// Jira is skipped, then reading the webhook fails.
 	dir := t.TempDir()
@@ -124,6 +132,8 @@ func TestGuidedInitStopsWhenTheWebhookCannotBeRead(t *testing.T) {
 }
 
 func TestGuidedInitStopsWhenNothingAnswersWhetherToKeepAFailedCheck(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The Jira check fails, and the input ends before the question of keeping
 	// the credential anyway can be answered.
@@ -147,6 +157,8 @@ func TestGuidedInitStopsWhenNothingAnswersWhetherToKeepAFailedCheck(t *testing.T
 }
 
 func TestGuidedInitStopsWhenNothingAnswersTheKeychainOffer(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The Jira check passes, and the input ends before the offer to keep the
 	// token in the keychain can be answered.
@@ -178,6 +190,8 @@ func TestGuidedInitStopsWhenNothingAnswersTheKeychainOffer(t *testing.T) {
 }
 
 func TestConfigInitRefusesALinkWhereTheFileWouldGo(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	elsewhere := filepath.Join(t.TempDir(), "elsewhere.json")
@@ -199,6 +213,8 @@ func TestConfigInitRefusesALinkWhereTheFileWouldGo(t *testing.T) {
 }
 
 func TestGuidedInitWithNothingToReadPointsToTheTemplate(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]cli.Prompt{
 		"the address": {
 			Line:   answersThenEnds(),
@@ -216,6 +232,8 @@ func TestGuidedInitWithNothingToReadPointsToTheTemplate(t *testing.T) {
 
 	for name, prompt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := t.TempDir()
 
@@ -266,6 +284,8 @@ func linkedRepositoryFile(t *testing.T) (string, string) {
 }
 
 func TestConfigInitForceRefusesARepositoryFileThatIsALink(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, target := linkedRepositoryFile(t)
 
@@ -281,6 +301,8 @@ func TestConfigInitForceRefusesARepositoryFileThatIsALink(t *testing.T) {
 }
 
 func TestGuidedInitForceRefusesARepositoryFileThatIsALinkBeforeAsking(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, target := linkedRepositoryFile(t)
 

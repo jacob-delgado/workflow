@@ -57,7 +57,7 @@ func TestIsGroupAsksGitLabOnceSettingsSavedWhileRunningSwitchToIt(t *testing.T) 
 	write(t, filepath.Join(glab.dir, "glab"), onceAGroupScript(glab.dir), 0o755)
 
 	where := wiring.Workspace{Root: t.TempDir(), Remote: onPremisesRemote}
-	deps, controls := wiring.Deps(t.Context(), config.Config{Forge: throughCLIOnPremises()}, where, nil)
+	deps, controls := processEnvironment().Deps(t.Context(), config.Config{Forge: throughCLIOnPremises()}, where, nil)
 
 	controls.UseForgeSettings(config.Forge{CLI: true, Kind: "gitlab", Host: onPremisesHost})
 

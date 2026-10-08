@@ -18,7 +18,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
-	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
@@ -102,7 +101,7 @@ func credentialChecks(ctx context.Context, run doctorRun, remote string) []crede
 	cfg, doers := run.cfg, onlineDoers(run.cfg, run.log)
 
 	return []credentialCheck{
-		{name: "Jira", run: func() (credentialLine, error) { return checkJira(ctx, doers.jira, cfg.Jira) }},
+		{name: "Jira", run: func() (credentialLine, error) { return checkJira(ctx, doers.jira, run.env.Process, cfg.Jira) }},
 		{
 			name: cfg.Messaging.Service(),
 			run:  func() (credentialLine, error) { return checkMessaging(ctx, doers.messaging, run) },
@@ -225,9 +224,11 @@ func checkForge(ctx context.Context, run doctorRun, remote string) (credentialLi
 	ctx, cancel := context.WithTimeoutCause(ctx, timeout, gaveUp)
 	defer cancel()
 
-	access, err := wiring.ReachForge(ctx, run.cfg.Forge, repo, base, httpx.Client(timeout).Do)
+	process := run.env.Process
+
+	access, err := process.ReachForge(ctx, run.cfg.Forge, repo, base, httpx.Client(timeout).Do)
 	if err != nil {
-		return credentialMissing("forge", noForgeTokenMessage(proc.Available, repo.Kind, repo.Host))
+		return credentialMissing("forge", noForgeTokenMessage(process.Available, repo.Kind, repo.Host))
 	}
 
 	client := forge.New(run.log.Wrap("forge", access.Doer), base, access.Token).On(repo.Kind)
@@ -310,11 +311,12 @@ func checkMessaging(ctx context.Context, doer messaging.Doer, run doctorRun) (cr
 	cfg := run.cfg
 	label := strings.ToLower(cfg.Messaging.Service())
 
-	base, toSlack := wiring.SlackAPI(doer)
+	process := run.env.Process
+	base, toSlack := process.SlackAPI(doer)
 
 	client := messaging.New(toSlack, base, cfg.Messaging)
 	if cfg.Messaging.Mode() == config.MessagingUser {
-		client = client.WithToken(userTokenSource(cfg, doer, run.dryRun))
+		client = client.WithToken(userTokenSource(process, cfg, doer, run.dryRun))
 	}
 
 	identity, err := client.AuthTest(ctx)
@@ -331,19 +333,21 @@ func checkMessaging(ctx context.Context, doer messaging.Doer, run doctorRun) (cr
 	}
 
 	return credentialLine{
-		Service: label, Detail: fmt.Sprintf("%s in %s (%s)", identity.User, identity.Team, userTokenNote(ctx, cfg)),
+		Service: label, Detail: fmt.Sprintf("%s in %s (%s)", identity.User, identity.Team, userTokenNote(ctx, process, cfg)),
 	}, nil
 }
 
 // userTokenSource is the user token doctor asks Slack about: the one a post
 // would use, or under a dry run the one held, without the refresh that would
 // write a new one where it is kept.
-func userTokenSource(cfg config.Config, doer messaging.Doer, dryRun bool) messaging.TokenSource {
+func userTokenSource(
+	process wiring.Environment, cfg config.Config, doer messaging.Doer, dryRun bool,
+) messaging.TokenSource {
 	if !dryRun {
-		return wiring.SlackToken(cfg, doer)
+		return process.SlackToken(cfg, doer)
 	}
 
-	store := wiring.SlackStore(cfg)
+	store := process.SlackStore(cfg)
 
 	return func(ctx context.Context, _ config.Secret) (config.Secret, error) {
 		held, err := store.Load(ctx)
@@ -362,8 +366,8 @@ func userTokenSource(cfg config.Config, doer messaging.Doer, dryRun bool) messag
 // userTokenNote says where cfg keeps its user token and how long it has left,
 // so the reader knows which keychain or file to look in and when the next
 // refresh is due.
-func userTokenNote(ctx context.Context, cfg config.Config) string {
-	store := wiring.SlackStore(cfg)
+func userTokenNote(ctx context.Context, process wiring.Environment, cfg config.Config) string {
+	store := process.SlackStore(cfg)
 
 	held, err := store.Load(ctx)
 	if err != nil {
@@ -412,12 +416,14 @@ func credentialUnchecked(service, why string) (credentialLine, error) {
 // checkJira asks Jira who the configured token authenticates as. With no
 // jira.base_url there is no Jira to ask: the forge's issues are the tracker, and
 // the forge's own check covers them.
-func checkJira(ctx context.Context, doer jira.Doer, settings config.Jira) (credentialLine, error) {
+func checkJira(
+	ctx context.Context, doer jira.Doer, process wiring.Environment, settings config.Jira,
+) (credentialLine, error) {
 	if !settings.Configured() {
 		return credentialUnchecked("jira", "not configured — the forge's issues are the tracker")
 	}
 
-	token, source, err := wiring.ResolveToken(ctx, settings, wiring.SystemKeychain())
+	token, source, err := process.ResolveToken(ctx, settings, process.Keychain())
 	if err != nil {
 		return credentialMissing("jira", err.Error())
 	}

@@ -21,6 +21,8 @@ import (
 const stageDone = "done"
 
 func TestStatusOutsideARepositoryReportsSo(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	_, err := run(t, t.TempDir(), "status")
 
@@ -33,9 +35,11 @@ func TestStatusOutsideARepositoryReportsSo(t *testing.T) {
 }
 
 func TestStatusWithoutGitNamesTheMissingProgram(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// An empty PATH is the portable way to make git unfindable.
-	t.Setenv("PATH", "")
+	setVariable(t, "PATH", "")
 
 	// Act
 	_, err := run(t, t.TempDir(), "status")
@@ -65,6 +69,8 @@ func featureRepo(t *testing.T) string {
 }
 
 func TestStatusHereReportsTheCurrentRepository(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := featureRepo(t)
 
@@ -81,6 +87,8 @@ func TestStatusHereReportsTheCurrentRepository(t *testing.T) {
 }
 
 func TestStatusExitsAlikeOutsideARepository(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	_, bareErr := run(t, dir, "status")
@@ -96,6 +104,8 @@ func TestStatusExitsAlikeOutsideARepository(t *testing.T) {
 }
 
 func TestStatusAcrossLabelsTheCurrentDirectory(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	// "." names the working directory, which is no repository here.
 	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "status", ".")
@@ -109,6 +119,8 @@ func TestStatusAcrossLabelsTheCurrentDirectory(t *testing.T) {
 }
 
 func TestStatusAcrossReportsEachRepository(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := featureRepo(t)
 	notRepo := t.TempDir()
@@ -128,6 +140,8 @@ func TestStatusAcrossReportsEachRepository(t *testing.T) {
 }
 
 func TestStatusAcrossPassesWhenEveryDirectoryIsARepository(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := featureRepo(t)
 
@@ -141,6 +155,8 @@ func TestStatusAcrossPassesWhenEveryDirectoryIsARepository(t *testing.T) {
 }
 
 func TestStatusAcrossSaysWhyARepositoryCannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A repository whose branch name holds a character with no width: it is a
 	// repository, but its branch cannot be shown as it is, so it is not read.
@@ -159,6 +175,8 @@ func TestStatusAcrossSaysWhyARepositoryCannotBeRead(t *testing.T) {
 }
 
 func TestStatusAcrossRefusesADirectoryWhoseConfigurationCannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := featureRepo(t)
 	writeFile(t, repo, "{not json")
@@ -175,6 +193,8 @@ func TestStatusAcrossRefusesADirectoryWhoseConfigurationCannotBeRead(t *testing.
 }
 
 func TestStatusAcrossAsJSONIsAnArray(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := featureRepo(t)
 	notRepo := t.TempDir()
@@ -220,6 +240,8 @@ func twoOfOneName(t *testing.T) (string, string) {
 }
 
 func TestStatusAcrossLabelsDirectoriesOfOneNameApart(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	first, second := twoOfOneName(t)
 
@@ -235,6 +257,8 @@ func TestStatusAcrossLabelsDirectoriesOfOneNameApart(t *testing.T) {
 }
 
 func TestStatusAcrossAsJSONNamesEachDirectory(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	first, second := twoOfOneName(t)
 
@@ -278,6 +302,8 @@ func statusFeatureRepo(t *testing.T, jiraURL string) string {
 }
 
 func TestStatusLineShowsTheIssueStagesAndCI(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A feature branch with an open pull request whose CI is still running.
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
@@ -299,6 +325,8 @@ func TestStatusLineShowsTheIssueStagesAndCI(t *testing.T) {
 }
 
 func TestStatusNamesTheLastStageForTheMessagingServiceInUse(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := featureRepo(t)
 	writeFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://outlook.office.example/webhook/x"}}`)
@@ -316,6 +344,8 @@ func TestStatusNamesTheLastStageForTheMessagingServiceInUse(t *testing.T) {
 }
 
 func TestStatusFailedCIReadsTheReviewFailed(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: failingStatus()})
@@ -334,6 +364,8 @@ func TestStatusFailedCIReadsTheReviewFailed(t *testing.T) {
 }
 
 func TestStatusJSONReportsTheSameAsData(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
@@ -364,6 +396,8 @@ func TestStatusJSONReportsTheSameAsData(t *testing.T) {
 }
 
 func TestStatusLineReadsTheAnnouncementAtTheCurrentMoment(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		status     string
 		remembered messaging.Moment
@@ -377,6 +411,8 @@ func TestStatusLineReadsTheAnnouncementAtTheCurrentMoment(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			// The store remembers pull request 7 announced at one moment, as an
 			// earlier announce, or session of the interface, leaves it.
@@ -400,6 +436,8 @@ func TestStatusLineReadsTheAnnouncementAtTheCurrentMoment(t *testing.T) {
 }
 
 func TestStatusJSONReadsAnEarlierAnnouncementAsDone(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: runningStatus()})
@@ -428,6 +466,8 @@ func TestStatusJSONReadsAnEarlierAnnouncementAsDone(t *testing.T) {
 }
 
 func TestStatusJSONNamesEachReviewState(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		status string
 		word   string
@@ -438,6 +478,8 @@ func TestStatusJSONNamesEachReviewState(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 			fakeGh(t, ghResponses{pulls: openPull("Add login"), status: tt.status})
@@ -458,6 +500,8 @@ func TestStatusJSONNamesEachReviewState(t *testing.T) {
 }
 
 func TestStatusWhenCICannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The pull request is open, but its CI cannot be read.
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
@@ -483,6 +527,8 @@ func TestStatusWhenCICannotBeRead(t *testing.T) {
 }
 
 func TestStatusInASCII(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
@@ -503,6 +549,8 @@ func TestStatusInASCII(t *testing.T) {
 }
 
 func TestStatusOnTheBaseBranchIsNotStarted(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A repository sitting on its base branch, with no issue and no work begun.
 	repo := t.TempDir()
@@ -523,6 +571,8 @@ func TestStatusOnTheBaseBranchIsNotStarted(t *testing.T) {
 }
 
 func TestStatusDegradesEachServiceOnAFeatureBranch(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A feature branch for an issue, but neither Jira nor the forge is configured
 	// to answer, so each service's stage degrades rather than failing the line.

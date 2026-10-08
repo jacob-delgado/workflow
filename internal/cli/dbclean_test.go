@@ -22,7 +22,7 @@ import (
 func storeDirIn(t *testing.T, home string) string {
 	t.Helper()
 
-	env := isolatedEnvironment(home)
+	env := isolatedEnvironment(place{home: home})
 
 	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
 		value, ok := env[name]
@@ -67,6 +67,8 @@ func present(dir, name string) bool {
 }
 
 func TestDBCleanListsWhatEachFileHolds(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where, dir := storedHome(t)
 
@@ -89,6 +91,8 @@ func TestDBCleanListsWhatEachFileHolds(t *testing.T) {
 }
 
 func TestDBCleanRemovesTheCacheOnceConfirmed(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where, dir := storedHome(t)
 
@@ -116,6 +120,8 @@ func TestDBCleanRemovesTheCacheOnceConfirmed(t *testing.T) {
 }
 
 func TestDBCleanLeavesEverythingWhenDeclined(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where, dir := storedHome(t)
 
@@ -136,6 +142,8 @@ func TestDBCleanLeavesEverythingWhenDeclined(t *testing.T) {
 }
 
 func TestDBCleanAllWarnsAndRemovesBothWithYes(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where, dir := storedHome(t)
 
@@ -156,6 +164,8 @@ func TestDBCleanAllWarnsAndRemovesBothWithYes(t *testing.T) {
 }
 
 func TestDBCleanDryRunOnlySaysWhatItWouldRemove(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where, dir := storedHome(t)
 
@@ -176,6 +186,8 @@ func TestDBCleanDryRunOnlySaysWhatItWouldRemove(t *testing.T) {
 }
 
 func TestDBCleanSaysWhenThereIsNothingToRemove(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where := place{dir: t.TempDir(), home: t.TempDir()}
 
@@ -196,6 +208,8 @@ func TestDBCleanSaysWhenThereIsNothingToRemove(t *testing.T) {
 }
 
 func TestDBCleanRefusesAFileThatIsNotTheStores(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	home := t.TempDir()
 	dir := storeDirIn(t, home)
@@ -225,6 +239,8 @@ func TestDBCleanRefusesAFileThatIsNotTheStores(t *testing.T) {
 }
 
 func TestDBCleanExitsAsRefusedWhenAFileCannotBeRemoved(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where, dir := storedHome(t)
 	// A directory nothing can be renamed in stands for a file another program
@@ -251,6 +267,8 @@ func TestDBCleanExitsAsRefusedWhenAFileCannotBeRemoved(t *testing.T) {
 }
 
 func TestTheWebListsAndCleansTheStoreDBCleanDoes(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	where, dir := storedHome(t)
 
@@ -276,6 +294,8 @@ func TestTheWebListsAndCleansTheStoreDBCleanDoes(t *testing.T) {
 }
 
 func TestDBCleanIsSummarizedAsRemovingTheLocalData(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, err := run(t, t.TempDir(), "--help")
 

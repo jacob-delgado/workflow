@@ -24,7 +24,7 @@ func announcedEarlier(t *testing.T, moment messaging.Moment) string {
 	t.Helper()
 
 	home := t.TempDir()
-	env := isolatedEnvironment(home)
+	env := isolatedEnvironment(place{home: home})
 
 	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
 		value, ok := env[name]
@@ -49,6 +49,8 @@ func announcedEarlier(t *testing.T, moment messaging.Moment) string {
 const alreadyAnnounced = "#7 was already announced at this moment in an earlier session"
 
 func TestAnnounceDryRunComposesTheReadyMoment(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// An open pull request with green CI is ready for review.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
@@ -74,6 +76,8 @@ func TestAnnounceDryRunComposesTheReadyMoment(t *testing.T) {
 }
 
 func TestAnnounceDryRunComposesTheMergedMoment(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: mergedPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -92,6 +96,8 @@ func TestAnnounceDryRunComposesTheMergedMoment(t *testing.T) {
 }
 
 func TestAnnounceDryRunComposesTheCIRedMoment(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// An open pull request whose CI has failed is announced as CI red.
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: failingStatus()})
@@ -111,6 +117,8 @@ func TestAnnounceDryRunComposesTheCIRedMoment(t *testing.T) {
 }
 
 func TestAnnounceDryRunNamesTheConfiguredChannel(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -130,6 +138,8 @@ func TestAnnounceDryRunNamesTheConfiguredChannel(t *testing.T) {
 }
 
 func TestAnnounceDryRunNamesNoChannelWhereNoneIsSet(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -149,6 +159,8 @@ func TestAnnounceDryRunNamesNoChannelWhereNoneIsSet(t *testing.T) {
 }
 
 func TestAnnounceDryRunSaysAWebhookKeepsItsOwnChannel(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A webhook posts where it is bound, whatever channel the file names.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
@@ -169,6 +181,8 @@ func TestAnnounceDryRunSaysAWebhookKeepsItsOwnChannel(t *testing.T) {
 }
 
 func TestAnnounceAsksByTheServiceName(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// With a Teams webhook, the question names Teams, not Slack.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
@@ -192,6 +206,8 @@ func TestAnnounceAsksByTheServiceName(t *testing.T) {
 }
 
 func TestAnnounceAsksToAnnounce(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -215,6 +231,8 @@ func TestAnnounceAsksToAnnounce(t *testing.T) {
 }
 
 func TestAnnounceSaysWhenAlreadyPosted(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -235,6 +253,8 @@ func TestAnnounceSaysWhenAlreadyPosted(t *testing.T) {
 }
 
 func TestAnnounceYesSkipsWhatWasAlreadyAnnounced(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A post would fail — the webhook is on a reserved domain — so succeeding is
 	// what proves nothing was posted.
@@ -259,6 +279,8 @@ func TestAnnounceYesSkipsWhatWasAlreadyAnnounced(t *testing.T) {
 }
 
 func TestAnnounceAsksBeforeAnnouncingAgain(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -280,6 +302,8 @@ func TestAnnounceAsksBeforeAnnouncingAgain(t *testing.T) {
 }
 
 func TestAnnounceAgainWithNoTerminalDoesNotPointAtYes(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// --yes leaves a moment already announced as it is, so the refusal must not
 	// send a script there: it names the one way to announce again.
@@ -301,6 +325,8 @@ func TestAnnounceAgainWithNoTerminalDoesNotPointAtYes(t *testing.T) {
 }
 
 func TestAnnounceOffersAMomentNotYetAnnounced(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The earlier session announced the pull request's merge; it is open now,
 	// which is another moment.
@@ -322,6 +348,8 @@ func TestAnnounceOffersAMomentNotYetAnnounced(t *testing.T) {
 }
 
 func TestAnnounceRefusesABranchWithNoPullRequest(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The forge is reachable and answers that the branch has no pull request.
 	fakeGh(t, ghResponses{pulls: "[]"})
@@ -340,6 +368,8 @@ func TestAnnounceRefusesABranchWithNoPullRequest(t *testing.T) {
 }
 
 func TestAnnounceRefusesABranchWithNoPullRequestInItsOwnWords(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The refusal is the command line's own sentence, not the shared layer's.
 	fakeGh(t, ghResponses{pulls: "[]"})
@@ -356,6 +386,8 @@ func TestAnnounceRefusesABranchWithNoPullRequestInItsOwnWords(t *testing.T) {
 }
 
 func TestNoPullRequestPointsAtPR(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: "[]"})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -371,6 +403,8 @@ func TestNoPullRequestPointsAtPR(t *testing.T) {
 }
 
 func TestMessagingNotConfiguredNamesTheKeysAndDoctor(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	_, err := run(t, t.TempDir(), "announce")
 
@@ -383,6 +417,8 @@ func TestMessagingNotConfiguredNamesTheKeysAndDoctor(t *testing.T) {
 }
 
 func TestAnnounceDryRunComposesForAKeylessBranch(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The branch names no issue, so the announcement is composed without one.
 	fakeGh(t, ghResponses{pulls: openPull("Cleanup")})
@@ -402,6 +438,8 @@ func TestAnnounceDryRunComposesForAKeylessBranch(t *testing.T) {
 }
 
 func TestAnnounceDryRunWithATrackerConfigured(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// With Jira reachable the announcement reads the issue and links it.
 	var reached atomic.Bool
@@ -430,6 +468,8 @@ func TestAnnounceDryRunWithATrackerConfigured(t *testing.T) {
 }
 
 func TestAnnounceDryRunWithoutAKnownAuthor(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The forge will not name the author, so the announcement reads without one.
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), userError: true})
@@ -449,6 +489,8 @@ func TestAnnounceDryRunWithoutAKnownAuthor(t *testing.T) {
 }
 
 func TestAnnounceReportsAFailedPost(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The pull request is found, but the Slack webhook cannot be reached.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
@@ -467,6 +509,8 @@ func TestAnnounceReportsAFailedPost(t *testing.T) {
 }
 
 func TestAnnounceOutsideARepositoryReportsSo(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// Slack is configured, but there is no repository to read a branch from.
 	dir := t.TempDir()
@@ -482,6 +526,8 @@ func TestAnnounceOutsideARepositoryReportsSo(t *testing.T) {
 }
 
 func TestAnnounceReportsWhenThePullRequestCannotBeRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// Slack is configured, so the command gets as far as looking for the pull
 	// request; with no forge there is none it can read.

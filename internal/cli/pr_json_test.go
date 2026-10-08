@@ -49,6 +49,8 @@ func decodePR(t *testing.T, stdout string) prReport {
 }
 
 func TestPRAsJSONPrintsWhatItOpened(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, _ := reviewRepo(t, reviewMoves)
 
@@ -82,6 +84,8 @@ func TestPRAsJSONPrintsWhatItOpened(t *testing.T) {
 }
 
 func TestPRAsJSONSaysAnOfferDeclined(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, _ := reviewRepo(t, reviewMoves)
 
@@ -100,6 +104,8 @@ func TestPRAsJSONSaysAnOfferDeclined(t *testing.T) {
 }
 
 func TestPRAsJSONDryRunPrintsTheDraft(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -129,6 +135,8 @@ func TestPRAsJSONDryRunPrintsTheDraft(t *testing.T) {
 }
 
 func TestPRAsJSONDeclinedPrintsNoReport(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, _ := reviewRepo(t, reviewMoves)
 

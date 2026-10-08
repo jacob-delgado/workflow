@@ -134,10 +134,13 @@ internal/loop 14
 # the workspace a directory is in, and the key the store names a repository
 # by — so the directory a surface works in is read in one place — and
 # settings.go, the configuration files and the local data the terminal reads
-# and changes, over config.SaveEdit and the store's own listing and clean. One
-# responsibility — build the seams over the real clients — spelled
-# service-per-file.
-internal/wiring 13
+# and changes, over config.SaveEdit and the store's own listing and clean. 14
+# is environment.go, what the wiring reads of the process — the home, the
+# variables, the store's directory and where a program is found — handed over
+# by the command line rather than read from the process, and the runs of a
+# program found there. One responsibility — build the seams over the real
+# clients — spelled service-per-file.
+internal/wiring 14
 
 # web/src/lib — the web's shared drawing primitives, each drawn in one place
 # so every section draws it alike (UX.md's visual system): a button, a field, a

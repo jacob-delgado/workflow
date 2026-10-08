@@ -29,7 +29,7 @@ func keptLinks(t *testing.T) string {
 	t.Helper()
 
 	home := t.TempDir()
-	env := isolatedEnvironment(home)
+	env := isolatedEnvironment(place{home: home})
 
 	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
 		value, ok := env[name]
@@ -59,6 +59,8 @@ func keptLinks(t *testing.T) string {
 }
 
 func TestAnnounceTagsNoOneWithoutAWorkspaceToReadLinksIn(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The token is set up but not logged in, so Slack cannot be asked which
 	// workspace it is for, and links kept in any workspace are left alone.
@@ -80,6 +82,8 @@ func TestAnnounceTagsNoOneWithoutAWorkspaceToReadLinksIn(t *testing.T) {
 }
 
 func TestAnnounceTagsNoOneThroughAWebhook(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := ownedRepo(t)
@@ -100,6 +104,8 @@ func TestAnnounceTagsNoOneThroughAWebhook(t *testing.T) {
 }
 
 func TestAnnounceTagsTheOwnersAndGroupsLinkedInTheWorkspaceInUse(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	slack := fakeSlack(t, nil)
@@ -129,6 +135,8 @@ func TestAnnounceTagsTheOwnersAndGroupsLinkedInTheWorkspaceInUse(t *testing.T) {
 }
 
 func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	fakeSlack(t, map[string]slackAnswer{
@@ -153,8 +161,12 @@ func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
 }
 
 func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
+	t.Parallel()
+
 	for _, scope := range []string{"users:read", "channels:read", "groups:read", "usergroups:read"} {
 		t.Run(scope, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			fakeGh(t, ghResponses{pulls: openPull("Add login")})
 			slack := fakeSlack(t, nil)
@@ -183,6 +195,8 @@ func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
 }
 
 func TestAnnounceReadsNoDirectoryToTellItsScopes(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// In a large workspace the directory is pages of users.list and a
 	// users.info per member; the announcement tags only whom is linked
@@ -212,6 +226,8 @@ func TestAnnounceReadsNoDirectoryToTellItsScopes(t *testing.T) {
 }
 
 func TestAnnounceWhenSlackCannotNameTheWorkspacePostsUntaggedAndSaysWhy(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	slack := fakeSlack(t, map[string]slackAnswer{slackAuthTest: {http.StatusServiceUnavailable, ""}})
@@ -265,6 +281,8 @@ func releaseBranchRepo(t *testing.T) string {
 }
 
 func TestAnnounceReadsTheOwnersAgainstThePullRequestsBase(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: `[{"number":7,"html_url":"https://github.com/acme/repo/pull/7",` +
 		`"title":"Add login","state":"open","draft":false,"base":{"ref":"release"}}]`})

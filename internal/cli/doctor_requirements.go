@@ -14,7 +14,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -125,7 +124,9 @@ type tool struct {
 // the repository's forge, since a developer may work with both. Built by a
 // function rather than held in a package-level variable, which
 // gochecknoglobals forbids.
-func externalTools(ctx context.Context, cfg config.Config, kind forge.Kind) []tool {
+func externalTools(ctx context.Context, run doctorRun, kind forge.Kind) []tool {
+	cfg := run.cfg
+
 	return []tool{
 		{
 			name:     "git",
@@ -152,7 +153,7 @@ func externalTools(ctx context.Context, cfg config.Config, kind forge.Kind) []to
 			name:     "taskwarrior",
 			required: false,
 			effect:   "the Tasks pane and section are not offered without it",
-			probe:    func() (bool, string) { return taskwarriorProbe(ctx, cfg.Taskwarrior) },
+			probe:    func() (bool, string) { return taskwarriorProbe(ctx, run.env.Process, cfg.Taskwarrior) },
 		},
 	}
 }
@@ -168,10 +169,11 @@ func forgeCLIEffect(settings config.Forge, repoKind, cliKind forge.Kind, usual s
 	return usual
 }
 
-// lookFor says whether program is there to use, and any detail its probe gives.
-func (program tool) lookFor() (bool, string) {
+// lookFor says whether program is there to use, found on the PATH available
+// searches, and any detail its probe gives.
+func (program tool) lookFor(available func(name string) bool) (bool, string) {
 	if program.probe == nil {
-		return proc.Available(program.name), ""
+		return available(program.name), ""
 	}
 
 	return program.probe()
@@ -180,14 +182,14 @@ func (program tool) lookFor() (bool, string) {
 // toolingFacts looks for each external program, and names any required one that
 // is absent. It is the one place the programs are looked for, so the prose and
 // JSON reports cannot disagree about what is installed.
-func toolingFacts(ctx context.Context, cfg config.Config, remote string) ([]toolFacts, error) {
-	programs := externalTools(ctx, cfg, wiring.ForgeKind(cfg.Forge, remote))
+func toolingFacts(ctx context.Context, run doctorRun, remote string) ([]toolFacts, error) {
+	programs := externalTools(ctx, run, wiring.ForgeKind(run.cfg.Forge, remote))
 	facts := make([]toolFacts, 0, len(programs))
 
 	var missing []string
 
 	for _, program := range programs {
-		installed, detail := program.lookFor()
+		installed, detail := program.lookFor(run.env.Process.Available)
 		facts = append(facts, toolFacts{
 			Name: program.name, Found: installed, Required: program.required, Effect: program.effect, Detail: detail,
 		})
@@ -206,10 +208,10 @@ func toolingFacts(ctx context.Context, cfg config.Config, remote string) ([]tool
 
 // reportTooling lists the external programs and returns an error naming any
 // required one that is absent. remote says which forge the repository is on.
-func reportTooling(ctx context.Context, out io.Writer, cfg config.Config, remote string) error {
+func reportTooling(ctx context.Context, out io.Writer, run doctorRun, remote string) error {
 	fmt.Fprintln(out, "Tooling:")
 
-	facts, err := toolingFacts(ctx, cfg, remote)
+	facts, err := toolingFacts(ctx, run, remote)
 	for _, program := range facts {
 		fmt.Fprintf(out, "  %-10s %s\n", program.Name, toolStatus(program))
 	}
@@ -237,14 +239,14 @@ func toolStatus(program toolFacts) string {
 // taskwarriorProbe finds Taskwarrior as the interface would, and says which it
 // found or why none is usable. Taskwarrior is found by asking each task on PATH,
 // not by its name alone: go-task, the Taskfile runner, is also called task.
-func taskwarriorProbe(ctx context.Context, settings config.Taskwarrior) (bool, string) {
+func taskwarriorProbe(ctx context.Context, process wiring.Environment, settings config.Taskwarrior) (bool, string) {
 	if settings.Disabled {
 		return false, "disabled by taskwarrior.disabled"
 	}
 
-	candidates := taskwarrior.Candidates(os.Getenv("PATH"), runtime.GOOS)
+	candidates := taskwarrior.Candidates(process.Getenv("PATH"), runtime.GOOS)
 
-	install, err := taskwarrior.Detect(ctx, settings.Program, candidates, proc.CaptureWithin)
+	install, err := taskwarrior.Detect(ctx, settings.Program, candidates, process.CaptureWithin)
 	if err != nil {
 		return false, taskwarriorTrouble(err)
 	}

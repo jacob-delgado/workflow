@@ -47,7 +47,8 @@ type Deps struct {
 	// never a 404 — and a write with a nil function is refused as unprocessable.
 	Tasks seams.Tasks
 	// Repositories is where the server works and any other directory read the
-	// same way.
+	// same way, and your home directory, which Taskwarrior's words can name
+	// and an answer shows as ~; none leaves them naming it.
 	Repositories seams.Repositories
 	// Settings lists and removes the local data, and sets up a first
 	// configuration file where none applies; Settings offers that only where
@@ -58,9 +59,6 @@ type Deps struct {
 	// Nil means the system clock.
 	Clock func() time.Time
 
-	// HomeDir is your home directory, which Taskwarrior's words can name and an
-	// answer shows as ~. Nil, or one that fails, leaves them naming it.
-	HomeDir func() (string, error)
 	// CheckKeys says why the terminal interface would refuse a ui.keys map,
 	// or nil where it would start on it. Nil here means no map is checked.
 	CheckKeys func(keys map[string]string) error

@@ -36,6 +36,8 @@ func decodeReport(t *testing.T, output string) map[string]any {
 }
 
 func TestDoctorJSONReportsTheFactsAsData(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "`+jiraSecret+`"}, `+slackWebhook+`}`)
@@ -90,6 +92,8 @@ func unmentioned(items []any, wants ...string) string {
 }
 
 func TestDoctorJSONFailsOnSetButInvalidValues(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, invalidValuesConfig)
@@ -109,6 +113,8 @@ func TestDoctorJSONFailsOnSetButInvalidValues(t *testing.T) {
 }
 
 func TestDoctorJSONNeverEchoesASecret(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "`+jiraSecret+`"}, `+slackWebhook+`}`)
@@ -125,6 +131,8 @@ func TestDoctorJSONNeverEchoesASecret(t *testing.T) {
 }
 
 func TestDoctorJSONReportsAMissingFileAsData(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, err := run(t, t.TempDir(), "doctor", "--json")
 
@@ -136,6 +144,8 @@ func TestDoctorJSONReportsAMissingFileAsData(t *testing.T) {
 }
 
 func TestDoctorJSONOnlineNamesTheIdentityWithoutTheToken(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var reached atomic.Bool
 
@@ -194,6 +204,8 @@ func credentialStatusIn(report map[string]any, service string) string {
 }
 
 func TestDoctorJSONOnlineReportsARedirectAsUnreachable(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := httptest.NewServer(http.HandlerFunc(redirecting))
 	t.Cleanup(server.Close)
@@ -211,10 +223,11 @@ func TestDoctorJSONOnlineReportsARedirectAsUnreachable(t *testing.T) {
 }
 
 func TestDoctorJSONOnlineChecksNothingWhenTheFileDidNotLoad(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// Every forge variable is cleared, so only gh could answer for the forge:
 	// a token in the environment would resolve first and gh would never run.
-	clearForgeEnvironment(t)
 	dir := repoWithRemote(t, githubSSHRemote)
 	writeFile(t, dir, "{not json")
 	ghRan := ghSignedOutRecording(t)
@@ -237,6 +250,8 @@ func TestDoctorJSONOnlineChecksNothingWhenTheFileDidNotLoad(t *testing.T) {
 }
 
 func TestDoctorJSONOnlineReportsARateLimitAsUnreachable(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := httptest.NewServer(http.HandlerFunc(askingToWait))
 	t.Cleanup(server.Close)
@@ -260,6 +275,8 @@ func TestDoctorJSONOnlineReportsARateLimitAsUnreachable(t *testing.T) {
 }
 
 func TestDoctorJSONOnlineCallsARefusedCredentialRejected(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool))
 
@@ -293,6 +310,8 @@ func configuredWith(t *testing.T, fields string) string {
 }
 
 func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		service string
 		setup   func(t *testing.T) string
@@ -326,7 +345,6 @@ func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
 		}},
 		"no forge token": {service: "forge", setup: func(t *testing.T) string {
 			t.Helper()
-			clearForgeEnvironment(t)
 			pathWithOnlyGit(t)
 
 			dir := repoWithRemote(t, githubSSHRemote)
@@ -338,6 +356,8 @@ func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := tt.setup(t)
 
@@ -359,11 +379,13 @@ func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
 }
 
 func TestDoctorJSONOnlineAsksJiraNothingWhenItsTokenEnvIsEmpty(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var reached atomic.Bool
 
 	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-	t.Setenv(emptyTokenVariable, "")
+	setVariable(t, emptyTokenVariable, "")
 	dir := configuredWith(t,
 		`"jira": {"base_url": "`+server.URL+`", "token_env": "`+emptyTokenVariable+`"}, `+slackWebhook)
 
@@ -395,6 +417,8 @@ func forgeKindRepository(t *testing.T, forgeFields string) string {
 }
 
 func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
+	t.Parallel()
+
 	// A forge.kind that cannot be used still exits 3, through the configuration
 	// section that names it; the forge's credential is not what is wrong.
 	cases := map[string]struct {
@@ -427,8 +451,9 @@ func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
-			clearForgeEnvironment(t)
 			dir := tt.setup(t)
 
 			// Act
@@ -445,6 +470,8 @@ func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
 }
 
 func TestDoctorJSONSaysWhyThereIsNoRepository(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		path string
 		want string
@@ -455,8 +482,10 @@ func TestDoctorJSONSaysWhyThereIsNoRepository(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
-			t.Setenv("PATH", tt.path)
+			setVariable(t, "PATH", tt.path)
 
 			// Act
 			printed, _ := runStreams(t, t.TempDir(), unusedPrompt(t), "doctor", "--json")
@@ -472,6 +501,8 @@ func TestDoctorJSONSaysWhyThereIsNoRepository(t *testing.T) {
 }
 
 func TestDoctorOnlineSaysTheSameOfEachCredentialInProseAndJSON(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	server := jiraServer(t, http.StatusOK, jiraFixture, new(atomic.Bool))
 	dir := t.TempDir()

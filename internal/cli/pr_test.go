@@ -35,6 +35,8 @@ func prRepo(t *testing.T, branch string) string {
 }
 
 func TestPRQuestionNamesThePush(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		published bool
 		want      string
@@ -45,6 +47,8 @@ func TestPRQuestionNamesThePush(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			fakeGh(t, ghResponses{})
 			repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -69,6 +73,8 @@ func TestPRQuestionNamesThePush(t *testing.T) {
 }
 
 func TestPROpensAMergeRequestInGitLabsWords(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGlab(t)
 	repo := prRepo(t, "fix/PROJ-2-thing")
@@ -95,6 +101,8 @@ func TestPROpensAMergeRequestInGitLabsWords(t *testing.T) {
 }
 
 func TestPRDryRunPreviewsWithoutOpening(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -123,6 +131,8 @@ func TestPRDryRunPreviewsWithoutOpening(t *testing.T) {
 }
 
 func TestPRComposesForABranchWithoutAnIssueKey(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The branch names no issue, so the pull request is composed without one.
 	repo := prRepo(t, "chore/cleanup")
@@ -140,6 +150,8 @@ func TestPRComposesForABranchWithoutAnIssueKey(t *testing.T) {
 }
 
 func TestPRDryRunPreviewsWithATrackerConfigured(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// With Jira reachable the compose reads the issue to link it; the preview is
 	// the same, and nothing is opened.
@@ -168,6 +180,8 @@ func TestPRDryRunPreviewsWithATrackerConfigured(t *testing.T) {
 }
 
 func TestPRDryRunOnAPushedBranchOmitsThePush(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The branch is already published, so the dry run would only open, not push.
 	fakeGh(t, ghResponses{})
@@ -188,6 +202,8 @@ func TestPRDryRunOnAPushedBranchOmitsThePush(t *testing.T) {
 }
 
 func TestPRTakesItsTitleFromTheConfiguredSource(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// With the issue as the title source, the previewed title is the issue rather
 	// than the branch's oldest commit ("work").
@@ -211,6 +227,8 @@ func TestPRTakesItsTitleFromTheConfiguredSource(t *testing.T) {
 }
 
 func TestPRTitlesAForgeIssueNumberFromItsCommitWithoutAskingJira(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The branch names the forge's issue 42, not a Jira one: Jira would read 42
 	// as the id of an unrelated issue and title the pull request after it.
@@ -234,6 +252,8 @@ func TestPRTitlesAForgeIssueNumberFromItsCommitWithoutAskingJira(t *testing.T) {
 }
 
 func TestPROpensThePullRequest(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The branch is already published and has no pull request, so one is opened.
 	fakeGh(t, ghResponses{})
@@ -254,6 +274,8 @@ func TestPROpensThePullRequest(t *testing.T) {
 }
 
 func TestPRPrintsTheOpenedPullRequestOnStdout(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The pull request's address is the artifact a script captures, so it is
 	// the one line that must be on stdout alone.
@@ -277,6 +299,8 @@ func TestPRPrintsTheOpenedPullRequestOnStdout(t *testing.T) {
 }
 
 func TestPRPushesThenOpensAnUnpublishedBranch(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The branch has never been pushed, so the flow pushes it — to a local bare
 	// remote here — and then opens the pull request.
@@ -304,6 +328,8 @@ func TestPRPushesThenOpensAnUnpublishedBranch(t *testing.T) {
 }
 
 func TestPRReportsAFailedOpen(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The branch is published, but the forge rejects the open.
 	fakeGh(t, ghResponses{createError: true})
@@ -321,6 +347,8 @@ func TestPRReportsAFailedOpen(t *testing.T) {
 }
 
 func TestPRReportsAFailedPush(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The push remote does not exist, so the branch cannot be published and no
 	// pull request is opened.
@@ -342,6 +370,8 @@ func TestPRReportsAFailedPush(t *testing.T) {
 }
 
 func TestPRRefusesASecondPullRequest(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The branch already has an open pull request, which the forge reports.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
@@ -360,6 +390,8 @@ func TestPRRefusesASecondPullRequest(t *testing.T) {
 }
 
 func TestPRRefusesASecondPullRequestInItsOwnWords(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The refusal is the command line's own sentence, not the shared layer's.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
@@ -376,6 +408,8 @@ func TestPRRefusesASecondPullRequestInItsOwnWords(t *testing.T) {
 }
 
 func TestPullAlreadyOpenCarriesItsURL(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
@@ -391,6 +425,8 @@ func TestPullAlreadyOpenCarriesItsURL(t *testing.T) {
 }
 
 func TestPRRefusesABranchWithNoCommits(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A branch level with main has nothing to propose.
 	repo := t.TempDir()
@@ -411,6 +447,8 @@ func TestPRRefusesABranchWithNoCommits(t *testing.T) {
 }
 
 func TestPRDoesNotMoveAForgeIssueNumberOnJira(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The branch names the forge's issue 42, not a Jira one, so there is no Jira
 	// issue to move to the review status: Jira would read 42 as the id of an
@@ -435,6 +473,8 @@ func TestPRDoesNotMoveAForgeIssueNumberOnJira(t *testing.T) {
 }
 
 func TestPRPointsToAnnounceOnlyWhenMessagingIsSetUp(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		configuration string
 		wantPointer   bool
@@ -451,6 +491,8 @@ func TestPRPointsToAnnounceOnlyWhenMessagingIsSetUp(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			fakeGh(t, ghResponses{})
 			repo := githubRepo(t, "fix/PROJ-2-thing")

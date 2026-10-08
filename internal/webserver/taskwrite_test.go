@@ -174,7 +174,7 @@ func TestAWriteTaskwarriorRefusesIs422WithItsWords(t *testing.T) {
 	refused := "Taskwarrior refused the command"
 	cases := map[string]struct {
 		words, wantDetail string
-		// homeUnknown has the home directory fail to be found.
+		// homeUnknown has no home directory known.
 		homeUnknown bool
 	}{
 		"its words": {words: notADate, wantDetail: refused + ": " + notADate},
@@ -248,7 +248,7 @@ func TestAWriteTaskwarriorRefusesIs422WithItsWords(t *testing.T) {
 
 			deps := tasksDeps(fake)
 			if tt.homeUnknown {
-				deps.HomeDir = func() (string, error) { return "", errSeam }
+				deps.Repositories.Home = ""
 			}
 
 			// Act
@@ -287,7 +287,7 @@ func TestARefusalKeepsWordsThatOnlyLookLikeAPlace(t *testing.T) {
 			fake.fail["modify"] = fmt.Errorf("%w: %s", taskwarrior.ErrRefused, tt.words)
 
 			deps := tasksDeps(fake)
-			deps.HomeDir = func() (string, error) { return tt.home, nil }
+			deps.Repositories.Home = tt.home
 
 			// Act
 			recorder := send(t, serve(t, deps, config.Default()),

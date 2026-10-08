@@ -16,7 +16,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // githubAPI is the API base of github.com, which no test here ever reaches.
@@ -40,7 +39,9 @@ func TestReachingAForgeOverHTTPCarriesTheTokenItFound(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
 	// Act
-	access, err := wiring.ReachForge(t.Context(), config.Forge{}, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
+	process := processEnvironment()
+
+	access, err := process.ReachForge(t.Context(), config.Forge{}, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
 
 	// Assert
 	if err != nil || access.Token.Secret() != token {
@@ -57,7 +58,9 @@ func TestTheForgeCLIRunsNothingForARequestBodyItCannotRead(t *testing.T) {
 	ghStub := installForgeCLI(t, "gh", forgeReplies{})
 	cfg, _ := githubCLIWorkspace(t)
 
-	access, err := wiring.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
+	process := processEnvironment()
+
+	access, err := process.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
 	if err != nil {
 		t.Fatalf("ReachForge through gh: %v", err)
 	}
@@ -92,7 +95,9 @@ func TestReachingAForgeThroughItsCLIAsksForNoToken(t *testing.T) {
 	cfg, _ := githubCLIWorkspace(t)
 
 	// Act
-	access, err := wiring.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
+	process := processEnvironment()
+
+	access, err := process.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
 
 	// Assert
 	if err != nil || access.Via != "through gh" {

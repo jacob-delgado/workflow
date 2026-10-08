@@ -25,6 +25,8 @@ func mergedStatusRepo(t *testing.T) string {
 }
 
 func TestStatusLineReadsAMergedPullRequestsReviewAsDone(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := mergedStatusRepo(t)
 
@@ -41,6 +43,8 @@ func TestStatusLineReadsAMergedPullRequestsReviewAsDone(t *testing.T) {
 }
 
 func TestStatusJSONReadsAMergedPullRequestsReviewAsDone(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := mergedStatusRepo(t)
 
@@ -66,6 +70,8 @@ func TestStatusJSONReadsAMergedPullRequestsReviewAsDone(t *testing.T) {
 }
 
 func TestStatusLineReadsAMergedAnnouncementAsDone(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The store remembers pull request 7 announced as merged, as announce
 	// leaves it once the merge is posted.
@@ -85,6 +91,8 @@ func TestStatusLineReadsAMergedAnnouncementAsDone(t *testing.T) {
 }
 
 func TestStatusLineReadsAnAnnouncementOfAClosedPullRequestAsNotStarted(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The store remembers pull request 7 announced as ready, before it was
 	// closed without merging: there is no pull request left to announce.

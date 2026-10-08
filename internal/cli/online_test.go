@@ -53,6 +53,8 @@ func workingJira(t *testing.T) string {
 }
 
 func TestDoctorOnlineReportsTheJiraUser(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var reached atomic.Bool
 
@@ -78,6 +80,8 @@ func TestDoctorOnlineReportsTheJiraUser(t *testing.T) {
 }
 
 func TestDoctorOnlineNamesATokenSourceWithoutShowingIt(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var reached atomic.Bool
 
@@ -105,6 +109,8 @@ func TestDoctorOnlineNamesATokenSourceWithoutShowingIt(t *testing.T) {
 }
 
 func TestDoctorOnlineSaysTheKeychainGaveNoTokenWithoutAskingJira(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var reached atomic.Bool
 
@@ -127,6 +133,8 @@ func TestDoctorOnlineSaysTheKeychainGaveNoTokenWithoutAskingJira(t *testing.T) {
 }
 
 func TestDoctorOnlineFailsOnARejectedCredential(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var reached atomic.Bool
 
@@ -154,6 +162,8 @@ func TestDoctorOnlineFailsOnARejectedCredential(t *testing.T) {
 }
 
 func TestDoctorOnlineFallsBackToTheLoginName(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var reached atomic.Bool
 
@@ -174,6 +184,8 @@ func TestDoctorOnlineFallsBackToTheLoginName(t *testing.T) {
 // Nothing is wrong with the configuration — there is simply nothing to ask,
 // because the only way to test a webhook is to post into someone's channel.
 func TestDoctorOnlineSaysAWebhookCannotBeChecked(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		command string
 		says    func(t *testing.T, output string) bool
@@ -190,6 +202,8 @@ func TestDoctorOnlineSaysAWebhookCannotBeChecked(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			var reached atomic.Bool
 
@@ -213,6 +227,8 @@ func TestDoctorOnlineSaysAWebhookCannotBeChecked(t *testing.T) {
 }
 
 func TestDoctorOnlineFailsWhenSlackIsNotConfigured(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	var reached atomic.Bool
 
@@ -233,21 +249,9 @@ func TestDoctorOnlineFailsWhenSlackIsNotConfigured(t *testing.T) {
 	}
 }
 
-// clearForgeEnvironment clears every variable the resolver consults, so a test
-// sees the same thing on a laptop and in CI — where GITHUB_TOKEN is often set.
-func clearForgeEnvironment(t *testing.T) {
-	t.Helper()
-
-	for _, name := range []string{
-		"GITHUB_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN", "GH_HOST",
-		"GITLAB_TOKEN", "GLAB_TOKEN", "GITLAB_HOST", "GL_HOST",
-	} {
-		t.Setenv(name, "")
-	}
-}
-
-// pathWithOnlyGit points PATH at a directory holding nothing but git, so the
-// forge CLI is absent while doctor can still read the repository. Emptying PATH
+// pathWithOnlyGit points PATH at the test's own programs alone, with git among
+// them, so the forge CLI is absent, unless the test installs one, while doctor
+// can still read the repository. Emptying PATH
 // outright would take git with it, and then there is no remote to resolve a
 // token for in the first place.
 func pathWithOnlyGit(t *testing.T) {
@@ -258,14 +262,12 @@ func pathWithOnlyGit(t *testing.T) {
 		t.Fatalf("these tests need git: %v", err)
 	}
 
-	dir := t.TempDir()
-
-	err = os.Symlink(gitPath, filepath.Join(dir, "git"))
+	err = os.Symlink(gitPath, filepath.Join(programsOf(t), "git"))
 	if err != nil {
 		t.Fatalf("linking git: %v", err)
 	}
 
-	t.Setenv("PATH", dir)
+	setVariable(t, "PATH", programsOf(t))
 }
 
 // unreachableForge is a remote on a host under .invalid, which RFC 6761 reserves
@@ -292,10 +294,11 @@ func repoWithConfig(t *testing.T, forgeToken string) string {
 }
 
 func TestDoctorOnlineNamesWhereTheForgeTokenCameFrom(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
-	t.Setenv("GH_ENTERPRISE_TOKEN", "forge-token-for-tests")
-	t.Setenv("GH_HOST", unreachableHost)
+	setVariable(t, "GH_ENTERPRISE_TOKEN", "forge-token-for-tests")
+	setVariable(t, "GH_HOST", unreachableHost)
 
 	dir := repoWithConfig(t, "")
 
@@ -316,10 +319,11 @@ func TestDoctorOnlineNamesWhereTheForgeTokenCameFrom(t *testing.T) {
 }
 
 func TestDoctorOnlineOffersGitHubsOwnVariableOnlyToGitHubsOwnHosts(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
 	pathWithOnlyGit(t)
-	t.Setenv("GITHUB_TOKEN", "forge-token-for-tests")
+	setVariable(t, "GITHUB_TOKEN", "forge-token-for-tests")
 
 	dir := repoWithConfig(t, "")
 
@@ -333,10 +337,11 @@ func TestDoctorOnlineOffersGitHubsOwnVariableOnlyToGitHubsOwnHosts(t *testing.T)
 }
 
 func TestDoctorOnlinePrefersTheEnvironmentOverTheConfiguration(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
-	t.Setenv("GH_ENTERPRISE_TOKEN", "from-the-environment")
-	t.Setenv("GH_HOST", unreachableHost)
+	setVariable(t, "GH_ENTERPRISE_TOKEN", "from-the-environment")
+	setVariable(t, "GH_HOST", unreachableHost)
 
 	dir := repoWithConfig(t, "from-the-file")
 
@@ -350,8 +355,9 @@ func TestDoctorOnlinePrefersTheEnvironmentOverTheConfiguration(t *testing.T) {
 }
 
 func TestDoctorOnlineFallsBackToTheConfiguredForgeToken(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
 	// Without gh on PATH the configuration is the last source standing.
 	pathWithOnlyGit(t)
 
@@ -367,8 +373,9 @@ func TestDoctorOnlineFallsBackToTheConfiguredForgeToken(t *testing.T) {
 }
 
 func TestDoctorOnlineReportsNoForgeTokenAtAll(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
 	pathWithOnlyGit(t)
 
 	dir := repoWithConfig(t, "")
@@ -391,8 +398,9 @@ func TestDoctorOnlineReportsNoForgeTokenAtAll(t *testing.T) {
 }
 
 func TestDoctorOnlineSaysThereIsNoForgeWithoutARemote(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
 
 	dir := t.TempDir()
 	gitInit(t, dir)
@@ -408,8 +416,9 @@ func TestDoctorOnlineSaysThereIsNoForgeWithoutARemote(t *testing.T) {
 }
 
 func TestDoctorOnlineAsksForForgeKindOnAnUnknownHost(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
 
 	dir := repoWithRemote(t, unreachableForge)
 	writeConfigFor(t, dir, workingJira(t))
@@ -426,8 +435,9 @@ func TestDoctorOnlineAsksForForgeKindOnAnUnknownHost(t *testing.T) {
 }
 
 func TestDoctorOnlineRejectsAnUnknownForgeKind(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	clearForgeEnvironment(t)
 
 	dir := repoWithRemote(t, unreachableForge)
 	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
@@ -443,6 +453,8 @@ func TestDoctorOnlineRejectsAnUnknownForgeKind(t *testing.T) {
 }
 
 func TestDoctorOnlineDistinguishesAnUnreachableServiceFromARejection(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.invalid", "token": "t"}, `+slackWebhook+`}`)
@@ -467,6 +479,8 @@ func TestDoctorOnlineDistinguishesAnUnreachableServiceFromARejection(t *testing.
 }
 
 func TestDoctorOnlineCountsARedirectAsUnreachable(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// A sign-in gateway in front of Jira answers with a redirect, which is
 	// refused: the credential was never put to Jira, so it was not rejected.
@@ -495,6 +509,8 @@ func askingToWait(writer http.ResponseWriter, _ *http.Request) {
 }
 
 func TestDoctorOnlineCountsARateLimitAsUnreachable(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// Jira asks the caller to wait, which says nothing of the credential.
 	server := httptest.NewServer(http.HandlerFunc(askingToWait))

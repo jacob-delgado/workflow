@@ -31,6 +31,8 @@ func everyCommand(root *cobra.Command) []*cobra.Command {
 }
 
 func TestEveryLongHelpOpensInTheImperative(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	root := cli.NewRootCmd(cli.Prompt{})
 
@@ -47,6 +49,8 @@ func TestEveryLongHelpOpensInTheImperative(t *testing.T) {
 }
 
 func TestConfigInitSummaryClaimsOnlyWhatItAsks(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, err := run(t, t.TempDir(), "config", "--help")
 
@@ -58,6 +62,8 @@ func TestConfigInitSummaryClaimsOnlyWhatItAsks(t *testing.T) {
 }
 
 func TestTheLogFlagNamesItsFile(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, err := run(t, t.TempDir(), "--help")
 
@@ -68,6 +74,8 @@ func TestTheLogFlagNamesItsFile(t *testing.T) {
 }
 
 func TestTheRootSummaryNamesBothInterfaces(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	root := cli.NewRootCmd(cli.Prompt{})
 
@@ -85,6 +93,8 @@ func TestTheRootSummaryNamesBothInterfaces(t *testing.T) {
 }
 
 func TestTheReviewsSummaryNamesBothForgesNouns(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	output, err := run(t, t.TempDir(), "--help")
 
@@ -95,6 +105,8 @@ func TestTheReviewsSummaryNamesBothForgesNouns(t *testing.T) {
 }
 
 func TestTheRootLongHelpFitsInEightyColumns(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	const columns = 80
 

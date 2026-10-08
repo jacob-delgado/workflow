@@ -101,6 +101,8 @@ func (h *capturingWebhook) posted() []string {
 }
 
 func TestSummaryReadsYourCommitsInThePeriod(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := workedRepository(t, "Add the widget")
 
@@ -114,6 +116,8 @@ func TestSummaryReadsYourCommitsInThePeriod(t *testing.T) {
 }
 
 func TestSummaryAsJSONIsWhatTheWebAnswersForThePeriod(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := workedRepository(t, "Add the widget")
 	query := "?from=" + summaryDay + "&to=2026-10-02"
@@ -178,6 +182,8 @@ func webActivity(t *testing.T, repo, query string) api.Activity {
 }
 
 func TestSummaryRefusesAPeriodItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := workedRepository(t, "Add the widget")
 
@@ -193,6 +199,8 @@ func TestSummaryRefusesAPeriodItCannotRead(t *testing.T) {
 }
 
 func TestSummaryRefusesFlagsThatDoNotGoTogether(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string][]string{
 		"--json with --post": {"summary", asJSON, "--post"},
 		"--yes without it":   {"summary", "--yes"},
@@ -200,6 +208,8 @@ func TestSummaryRefusesFlagsThatDoNotGoTogether(t *testing.T) {
 
 	for name, args := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			repo := workedRepository(t, "Add the widget")
 
@@ -217,6 +227,8 @@ func TestSummaryRefusesFlagsThatDoNotGoTogether(t *testing.T) {
 }
 
 func TestSummaryPostYesPostsTheTextRenderedForTheService(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
@@ -240,6 +252,8 @@ func TestSummaryPostYesPostsTheTextRenderedForTheService(t *testing.T) {
 }
 
 func TestSummaryPostPrintsOnlyTheSummaryOnStdout(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
@@ -258,6 +272,8 @@ func TestSummaryPostPrintsOnlyTheSummaryOnStdout(t *testing.T) {
 }
 
 func TestSummaryPostRefusesASummaryTooLongForTheServiceBeforeAsking(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, strings.Repeat("x", 2100))
@@ -278,6 +294,8 @@ func TestSummaryPostRefusesASummaryTooLongForTheServiceBeforeAsking(t *testing.T
 }
 
 func TestSummaryPostSaysHowLongItIsAgainstTheServicesLimit(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
@@ -295,6 +313,8 @@ func TestSummaryPostSaysHowLongItIsAgainstTheServicesLimit(t *testing.T) {
 }
 
 func TestSummaryPostDryRunPostsNothing(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
@@ -312,6 +332,8 @@ func TestSummaryPostDryRunPostsNothing(t *testing.T) {
 }
 
 func TestSummaryPostIsNotPostedWhenDeclined(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
@@ -328,6 +350,8 @@ func TestSummaryPostIsNotPostedWhenDeclined(t *testing.T) {
 }
 
 func TestSummaryPostWithoutMessagingSaysHowToSetItUp(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := workedRepository(t, "Add the widget")
 
@@ -343,6 +367,8 @@ func TestSummaryPostWithoutMessagingSaysHowToSetItUp(t *testing.T) {
 }
 
 func TestSummaryNamesASourceItCouldNotReadAfterPrintingTheRest(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	jira := jiraServer(t, http.StatusUnauthorized, `{}`, new(atomic.Bool))
 	repo := workedRepository(t, "Add the widget")
@@ -361,6 +387,8 @@ func TestSummaryNamesASourceItCouldNotReadAfterPrintingTheRest(t *testing.T) {
 }
 
 func TestSummaryNeutralizesWhatASourceSaysBeforeTheTerminal(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := workedRepository(t, "Fix \x1b]0;owned\x07 the title")
 
@@ -374,6 +402,8 @@ func TestSummaryNeutralizesWhatASourceSaysBeforeTheTerminal(t *testing.T) {
 }
 
 func TestStandupIsNoLongerACommand(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	_, err := run(t, t.TempDir(), "standup")
 
@@ -386,6 +416,8 @@ func TestStandupIsNoLongerACommand(t *testing.T) {
 }
 
 func TestSummaryPostReportsAFailedPostByItsService(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The webhook cannot be reached, so the confirmed post fails.
 	repo := workedRepository(t, "Add the widget")
@@ -401,6 +433,8 @@ func TestSummaryPostReportsAFailedPostByItsService(t *testing.T) {
 }
 
 func TestSummaryPostStopsAtTheQuestionWhenNothingCanAnswer(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")

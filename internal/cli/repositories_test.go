@@ -63,6 +63,8 @@ func repoWithWorktree(t *testing.T) (string, string) {
 }
 
 func TestRepositoriesAsJSONListsTheWorktrees(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, second := repoWithWorktree(t)
 
@@ -85,6 +87,8 @@ func TestRepositoriesAsJSONListsTheWorktrees(t *testing.T) {
 }
 
 func TestRepositoriesAsJSONSaysFavoritesCanBeKept(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, _ := repoWithWorktree(t)
 
@@ -102,6 +106,8 @@ func TestRepositoriesAsJSONSaysFavoritesCanBeKept(t *testing.T) {
 }
 
 func TestRepositoriesListsWhereItWorks(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, second := repoWithWorktree(t)
 
@@ -121,6 +127,8 @@ func TestRepositoriesListsWhereItWorks(t *testing.T) {
 }
 
 func TestRepositoriesOutsideARepositoryHasNoWorktrees(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -139,6 +147,8 @@ func TestRepositoriesOutsideARepositoryHasNoWorktrees(t *testing.T) {
 }
 
 func TestRepositoriesNotesADetachedLockedWorktree(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, second := repoWithWorktree(t)
 	git(t, second, "switch", "--quiet", "--detach")
@@ -159,6 +169,8 @@ func TestRepositoriesNotesADetachedLockedWorktree(t *testing.T) {
 }
 
 func TestRepositoriesSaysFavoritesAreNotKept(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		config string
 		args   []string
@@ -169,6 +181,8 @@ func TestRepositoriesSaysFavoritesAreNotKept(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			repo, _ := repoWithWorktree(t)
 			writeFile(t, repo, tt.config)
@@ -188,6 +202,8 @@ func TestRepositoriesSaysFavoritesAreNotKept(t *testing.T) {
 }
 
 func TestRepositoriesWithAConfigurationItCannotReadFails(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, _ := repoWithWorktree(t)
 	writeFile(t, repo, `{`)

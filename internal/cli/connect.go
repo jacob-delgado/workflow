@@ -5,8 +5,6 @@ package cli
 
 import (
 	"errors"
-	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -35,6 +33,9 @@ type connection struct {
 	// keychain keeps a token typed into the first run's form in the OS
 	// keychain; nil where none is wired, or under a dry run.
 	keychain func(service, secret string) error
+	// process is what the wiring read of the process: the home, variables,
+	// store and programs the command runs with.
+	process wiring.Environment
 }
 
 // connect wires a command to its working directory, recording each request in
@@ -60,11 +61,9 @@ func connect(cmd *cobra.Command) (connection, error) {
 // connectLeniently is connect keeping a configuration that did not load, for
 // the interface and the web server, which each show the user why.
 func connectLeniently(cmd *cobra.Command) (connection, error) {
-	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
-	// a working directory once it is removed.
-	dir, err := os.Getwd()
+	dir, err := workingDir(cmd)
 	if err != nil {
-		return connection{}, fmt.Errorf("determining the working directory: %w", err)
+		return connection{}, err
 	}
 
 	requestLog, closeLog, err := requestLogFor(cmd)
@@ -72,7 +71,7 @@ func connectLeniently(cmd *cobra.Command) (connection, error) {
 		return connection{}, err
 	}
 
-	conn := connectAt(cmd, dir, configHome(), requestLog)
+	conn := connectAt(cmd, dir, requestLog)
 	conn.closeLog = closeLog
 
 	return conn, nil
@@ -82,19 +81,19 @@ func connectLeniently(cmd *cobra.Command) (connection, error) {
 // recording each request in requestLog unless it is nil. Under --dry-run its
 // store is only read, and only when it is already on disk. It opens nothing, so
 // its close is a no-op.
-func connectAt(cmd *cobra.Command, dir, home string, requestLog *wiring.RequestLog) connection {
-	ctx := cmd.Context()
-	cfg, loadErr := config.Load(dir, home)
-	where := wiring.Locate(ctx, dir)
-	deps, controls := wiring.Deps(ctx, cfg, where, requestLog)
+func connectAt(cmd *cobra.Command, dir string, requestLog *wiring.RequestLog) connection {
+	ctx, process := cmd.Context(), environmentOf(cmd).Process
+	cfg, loadErr := config.Load(dir, process.Home)
+	where := process.Locate(ctx, dir)
+	deps, controls := process.Deps(ctx, cfg, where, requestLog)
 
 	if dryRunRequested(cmd) {
-		deps.Store = wiring.ReadOnlyStore(ctx, cfg, where)
+		deps.Store = process.ReadOnlyStore(ctx, cfg, where)
 	}
 
 	return connection{
 		cfg: cfg, loadErr: loadErr, where: where, deps: deps, controls: controls,
-		requestLog: requestLog, closeLog: func() {},
+		requestLog: requestLog, closeLog: func() {}, process: process,
 	}
 }
 
@@ -105,7 +104,7 @@ func (c connection) withSetup(cmd *cobra.Command, keychain func(service, secret 
 		keychain = nil
 	}
 
-	where := setup.Where{WorkDir: c.where.Dir, HomeDir: configHome()}
+	where := setup.Where{WorkDir: c.where.Dir, HomeDir: configHome(cmd)}
 	c.keychain = keychain
 	c.deps.Settings.Setup = wiring.SetupDeps(cmd.Context(), where, c.requestLog, keychain)
 

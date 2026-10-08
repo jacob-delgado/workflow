@@ -4,7 +4,6 @@
 package cli_test
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -33,8 +32,7 @@ func fakeTaskwarrior(t *testing.T, version, show string) string {
 func fakeTaskProgram(t *testing.T, versionAnswer, show string) string {
 	t.Helper()
 
-	dir := t.TempDir()
-	program := filepath.Join(dir, "task")
+	program := filepath.Join(programsOf(t), "task")
 
 	writeExecutable(t, program, "#!/bin/sh\n"+
 		"for last in \"$@\"; do :; done\n"+
@@ -42,7 +40,6 @@ func fakeTaskProgram(t *testing.T, versionAnswer, show string) string {
 		"_version) "+versionAnswer+" ;;\n"+
 		"_show) printf '%s\\n' '"+show+"' ;;\n"+
 		"esac\n", 0o755)
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	return program
 }
@@ -59,6 +56,8 @@ func taskwarriorRow(output string) string {
 }
 
 func TestDoctorReportsTaskwarriorWhenItAnswers(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	program := fakeTaskwarrior(t, "3.5.0", "uda.jiraid.type=string")
 
@@ -83,6 +82,8 @@ func TestDoctorReportsTaskwarriorWhenItAnswers(t *testing.T) {
 }
 
 func TestDoctorPrintsTheTaskwarriorItFound(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	program := fakeTaskwarrior(t, "3.5.0", "uda.jiraid.type=string")
 
@@ -96,6 +97,8 @@ func TestDoctorPrintsTheTaskwarriorItFound(t *testing.T) {
 }
 
 func TestDoctorTellsGoTaskFromTaskwarrior(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeTaskwarrior(t, "", "")
 
@@ -117,6 +120,8 @@ func TestDoctorTellsGoTaskFromTaskwarrior(t *testing.T) {
 }
 
 func TestDoctorHintsTheUDALinesWhenTaskrcLacksThem(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeTaskwarrior(t, "3.5.0", "data.location=/tmp")
 
@@ -131,6 +136,8 @@ func TestDoctorHintsTheUDALinesWhenTaskrcLacksThem(t *testing.T) {
 }
 
 func TestDoctorSaysTaskwarriorIsDisabled(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeTaskwarrior(t, "3.5.0", "")
 
@@ -147,6 +154,8 @@ func TestDoctorSaysTaskwarriorIsDisabled(t *testing.T) {
 }
 
 func TestDoctorSaysTaskrcIsMalformedWithoutQuotingIt(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// Taskwarrior quotes the line it cannot parse, secret and all.
 	fakeTaskProgram(t, `echo "Malformed entry 'sync.encryption_secret hunter2' in config file." >&2; exit 2`, "")
@@ -165,6 +174,8 @@ func TestDoctorSaysTaskrcIsMalformedWithoutQuotingIt(t *testing.T) {
 }
 
 func TestDoctorSaysTaskwarriorWasNeverRunAndWhichToRun(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// go-task can come first on PATH, so task alone may not run this one.
 	program := fakeTaskProgram(t, `echo 'Cannot proceed without rc file.' >&2; exit 2`, "")
@@ -179,6 +190,8 @@ func TestDoctorSaysTaskwarriorWasNeverRunAndWhichToRun(t *testing.T) {
 }
 
 func TestDoctorSaysWhyTaskwarriorCannotStart(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	const words = "Could not read include file '/opt/homebrew/Cellar/task/3.4.1/dark-256.theme'."
 
@@ -194,6 +207,8 @@ func TestDoctorSaysWhyTaskwarriorCannotStart(t *testing.T) {
 }
 
 func TestDoctorSaysTaskwarriorIsTooOld(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	program := fakeTaskwarrior(t, "2.6.2", "")
 

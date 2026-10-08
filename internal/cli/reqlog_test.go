@@ -13,6 +13,8 @@ import (
 )
 
 func TestRequestLogReportsAFileItCannotOpen(t *testing.T) {
+	t.Parallel()
+
 	// --log names a file whose parent directory does not exist, so opening the
 	// log fails before anything is asked of a service. The root opens it before
 	// it reaches the terminal, which is what makes the interface's case
@@ -28,6 +30,8 @@ func TestRequestLogReportsAFileItCannotOpen(t *testing.T) {
 	for _, args := range cases {
 		name := strings.Join(append([]string{"workflow"}, args...), " ")
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			logPath := filepath.Join(t.TempDir(), "missing-dir", "requests.log")
 
@@ -59,6 +63,8 @@ func readLog(t *testing.T, path string) string {
 }
 
 func TestLogReachesASubcommand(t *testing.T) {
+	t.Parallel()
+
 	// Bare status reads the directory it runs in; status DIR... wires each
 	// directory it is given on its own, and must log those requests too.
 	cases := [][]string{
@@ -69,6 +75,8 @@ func TestLogReachesASubcommand(t *testing.T) {
 	for _, args := range cases {
 		name := strings.Join(args, " ")
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 			fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
@@ -93,6 +101,8 @@ func TestLogReachesASubcommand(t *testing.T) {
 }
 
 func TestLogReachesDoctorOnline(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeConfigFor(t, dir, workingJira(t))
@@ -113,6 +123,8 @@ func TestLogReachesDoctorOnline(t *testing.T) {
 }
 
 func TestRequestLogWarnsOnceWhenItCouldNotBeWritten(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// Every write to /dev/full fails as a full disk would; where there is none,
 	// no file can be made to refuse writes from a test.
@@ -140,6 +152,8 @@ func TestRequestLogWarnsOnceWhenItCouldNotBeWritten(t *testing.T) {
 }
 
 func TestLogReachesTheGuidedInitsCheck(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	prompt := scripted([]string{workingJira(t)}, []string{guidedToken})
@@ -158,6 +172,8 @@ func TestLogReachesTheGuidedInitsCheck(t *testing.T) {
 }
 
 func TestDryRunIsAPersistentFlag(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := prRepo(t, "fix/PROJ-2-thing")
 
@@ -172,6 +188,8 @@ func TestDryRunIsAPersistentFlag(t *testing.T) {
 }
 
 func TestDryRunReachesConfigInit(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 
@@ -186,6 +204,8 @@ func TestDryRunReachesConfigInit(t *testing.T) {
 }
 
 func TestLogReachesSlackLogin(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeSlack(t, map[string]slackAnswer{slackRefresh: {http.StatusOK, slackRenewed}})
 

@@ -18,7 +18,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
@@ -43,7 +42,9 @@ type rootRun struct {
 	models []tui.Model
 	nexts  []tui.Next
 	// read is what the interface read from the input it was handed.
-	read    string
+	read string
+	// env is the Environment the run was handed, which a switch moves on.
+	env     cli.Environment
 	servers int
 	addr    string
 	cfg     config.Config
@@ -126,8 +127,8 @@ func (r *rootRun) huesDrawn() []string {
 }
 
 // runRoot runs the root command in dir over a stand-in interface and web
-// server, in an empty home of its own. Like run, it sets the working directory
-// and the environment, so its tests are not parallel.
+// server, in an empty home of its own. Like run, it hands the run an
+// Environment of its own.
 func runRoot(t *testing.T, dir string, args ...string) *rootRun {
 	t.Helper()
 
@@ -146,11 +147,18 @@ func runRootAt(t *testing.T, where place, args ...string) *rootRun {
 func runRootSwitching(t *testing.T, where place, nexts []tui.Next, args ...string) *rootRun {
 	t.Helper()
 
-	ran := rootRun{nexts: nexts}
+	ran := rootRun{nexts: nexts, env: environmentFor(t, where)}
 
-	ran.stdout, ran.stderr, ran.err = executeRoot(t, where, ran.runInterface, ran.serveWebAt, args...)
+	ran.stdout, ran.stderr, ran.err = executeRootIn(t, ran.env, ran.runInterface, ran.serveWebAt, args...)
 
 	return &ran
+}
+
+// workingDir is the directory the run is in now, after any switch it made.
+func (r *rootRun) workingDir() string {
+	dir, _ := r.env.WorkingDir()
+
+	return dir
 }
 
 // executeRoot runs the root command where the test chose over the interface
@@ -161,15 +169,18 @@ func executeRoot(
 ) (string, string, error) {
 	t.Helper()
 
-	for name, value := range isolatedEnvironment(where.home) {
-		t.Setenv(name, value)
-	}
+	return executeRootIn(t, environmentFor(t, where), run, serveAt, args...)
+}
 
-	t.Chdir(where.dir)
+// executeRootIn is executeRoot in env.
+func executeRootIn(
+	t *testing.T, env cli.Environment, run cli.RunInterface, serveAt cli.RunWebAt, args ...string,
+) (string, string, error) {
+	t.Helper()
 
 	var stdout, stderr bytes.Buffer
 
-	root := cli.NewRootCmdOver(unusedPrompt(t), run, serveAt)
+	root := cli.NewRootCmdOver(unusedPrompt(t), run, serveAt, env)
 	root.SetArgs(args)
 	root.SetIn(strings.NewReader(keysTyped))
 	root.SetOut(&stdout)
@@ -181,6 +192,8 @@ func executeRoot(
 }
 
 func TestBareWorkflowOpensTheInterfaceWithItsWritesLive(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	ran := runRoot(t, t.TempDir())
 
@@ -200,6 +213,8 @@ func TestBareWorkflowOpensTheInterfaceWithItsWritesLive(t *testing.T) {
 }
 
 func TestTheInterfaceReadsTheCommandsInput(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	ran := runRoot(t, t.TempDir())
 
@@ -214,6 +229,8 @@ func TestTheInterfaceReadsTheCommandsInput(t *testing.T) {
 }
 
 func TestDryRunOpensTheInterfaceHoldingItsWritesBack(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	ran := runRoot(t, t.TempDir(), "--dry-run")
 
@@ -227,38 +244,37 @@ func TestDryRunOpensTheInterfaceHoldingItsWritesBack(t *testing.T) {
 	}
 }
 
-// storeKept is where the run's own environment keeps the store, and whether
+// storeKept is where a run with home as its home keeps the store, and whether
 // its directory exists there.
-func storeKept(t *testing.T) (string, bool) {
+func storeKept(t *testing.T, home string) (string, bool) {
 	t.Helper()
 
-	dir, err := store.DefaultDir()
-	if err != nil {
-		t.Fatalf("finding the store directory: %v", err)
-	}
-
-	_, err = os.Stat(dir)
+	dir := storeDirIn(t, home)
+	_, err := os.Stat(dir)
 
 	return dir, err == nil
 }
 
 func TestADryRunInterfaceLeavesNoStoreOnDisk(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// With a Jira to key it by, the interface would seed its issue list from any
 	// store it is handed. Nothing on disk shows only that none was made; that a
 	// dry run drops the store is TestADryRunInterfaceOpensWithoutTheKeptIssueList.
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
+	where := place{dir: dir, home: t.TempDir()}
 
 	// Act
-	ran := runRoot(t, dir, "--dry-run")
+	ran := runRootAt(t, where, "--dry-run")
 
 	// Assert
 	if ran.err != nil || ran.interfaces != 1 {
 		t.Fatalf("workflow --dry-run = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
 	}
 
-	if kept, found := storeKept(t); found {
+	if kept, found := storeKept(t, where.home); found {
 		t.Errorf("workflow --dry-run made the store at %s, want nothing on disk", kept)
 	}
 }
@@ -266,24 +282,29 @@ func TestADryRunInterfaceLeavesNoStoreOnDisk(t *testing.T) {
 // The twin of the test above, so its Assert is seen to fail when the store is
 // opened: the same interface, its writes live, opens the store to seed its list.
 func TestTheInterfaceOpensTheStoreToSeedItsIssueList(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
+	where := place{dir: dir, home: t.TempDir()}
 
 	// Act
-	ran := runRoot(t, dir)
+	ran := runRootAt(t, where)
 
 	// Assert
 	if ran.err != nil || ran.interfaces != 1 {
 		t.Fatalf("workflow = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
 	}
 
-	if kept, found := storeKept(t); !found {
+	if kept, found := storeKept(t, where.home); !found {
 		t.Errorf("workflow opened no store at %s, want its issue list seeded from it", kept)
 	}
 }
 
 func TestColorTurnedOffOpensTheInterfaceWithoutHues(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		noColor       string
 		configuration string
@@ -294,10 +315,12 @@ func TestColorTurnedOffOpensTheInterfaceWithoutHues(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := t.TempDir()
 			writeFile(t, dir, tt.configuration)
-			t.Setenv("NO_COLOR", tt.noColor)
+			setVariable(t, "NO_COLOR", tt.noColor)
 
 			// Act
 			ran := runRoot(t, dir)
@@ -317,8 +340,10 @@ func TestColorTurnedOffOpensTheInterfaceWithoutHues(t *testing.T) {
 // The twin of the test above, so its Assert is seen to fail when the hues are
 // drawn: the same interface, with color left on, draws them.
 func TestColorLeftOnOpensTheInterfaceWithItsHues(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	t.Setenv("NO_COLOR", "")
+	setVariable(t, "NO_COLOR", "")
 
 	// Act
 	ran := runRoot(t, t.TempDir())
@@ -334,6 +359,8 @@ func TestColorLeftOnOpensTheInterfaceWithItsHues(t *testing.T) {
 }
 
 func TestAConflictingKeymapStopsTheInterfaceBeforeItOpens(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// commit and stage-all both live on the Branch and Commits panes, so binding
 	// commit to stage-all's key is a conflict.
@@ -354,6 +381,8 @@ func TestAConflictingKeymapStopsTheInterfaceBeforeItOpens(t *testing.T) {
 }
 
 func TestARefusedKeymapExitsAsAConfigurationProblem(t *testing.T) {
+	t.Parallel()
+
 	// Each map is one the file's owner fixes in the file, as doctor counts it.
 	keymaps := map[string]string{
 		"an action that does not exist": `{"no-such-action": "C"}`,
@@ -363,6 +392,8 @@ func TestARefusedKeymapExitsAsAConfigurationProblem(t *testing.T) {
 
 	for name, keymap := range keymaps {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := t.TempDir()
 			writeFile(t, dir, `{"ui": {"keys": `+keymap+`}}`)
@@ -379,6 +410,8 @@ func TestARefusedKeymapExitsAsAConfigurationProblem(t *testing.T) {
 }
 
 func TestTheWebFlagServesTheLoadedConfigurationInsteadOfTheInterface(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
@@ -407,6 +440,8 @@ func TestTheWebFlagServesTheLoadedConfigurationInsteadOfTheInterface(t *testing.
 }
 
 func TestTheWebFlagCarriesDryRunToTheServer(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	ran := runRoot(t, t.TempDir(), "--web", "--dry-run")
 
@@ -418,6 +453,8 @@ func TestTheWebFlagCarriesDryRunToTheServer(t *testing.T) {
 }
 
 func TestTheWebFlagTellsTheServerTheTaskwarriorSettingsItStartedWith(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"taskwarrior": {"program": "/opt/homebrew/bin/task", "disabled": true}}`)
@@ -434,6 +471,8 @@ func TestTheWebFlagTellsTheServerTheTaskwarriorSettingsItStartedWith(t *testing.
 }
 
 func TestTheWebFlagSaysWhyTheConfigurationDidNotLoadAndServesAnyway(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": `)
@@ -452,6 +491,8 @@ func TestTheWebFlagSaysWhyTheConfigurationDidNotLoadAndServesAnyway(t *testing.T
 }
 
 func TestTheWebFlagWithNoFileNamesTheWaysToSetOneUp(t *testing.T) {
+	t.Parallel()
+
 	// Act
 	ran := runRoot(t, t.TempDir(), "--web")
 
@@ -472,6 +513,8 @@ func TestTheWebFlagWithNoFileNamesTheWaysToSetOneUp(t *testing.T) {
 }
 
 func TestTheWebServerSaysWhereItServesAndStopsWithItsRun(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// Port 0 takes any free port, so the test never meets a workflow already
 	// serving on the loopback address; the run is canceled before it starts.
@@ -495,6 +538,8 @@ func TestTheWebServerSaysWhereItServesAndStopsWithItsRun(t *testing.T) {
 }
 
 func TestTheWebServerRefusesAConfigurationPathItCannotRead(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The configuration's path is a directory, so its revision cannot be read.
 	cfg := config.Default()
@@ -522,8 +567,12 @@ func TestTheWebServerRefusesAConfigurationPathItCannotRead(t *testing.T) {
 // token command that asks for a passphrase could not be answered, so the root
 // command runs Jira's and the messaging service's before either starts.
 func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
+	t.Parallel()
+
 	for name, args := range map[string][]string{"the interface": nil, "the web server": {"--web"}} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			dir := t.TempDir()
 			record := filepath.Join(dir, "runs")

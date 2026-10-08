@@ -34,17 +34,15 @@ var _ io.Writer = refusingOutput{}
 func (refusingOutput) Write([]byte) (int, error) { return 0, errOutputClosed }
 
 func TestDoctorJSONFailsWhenItsOutputCannotBeWritten(t *testing.T) {
-	// Arrange
-	for name, value := range isolatedEnvironment(t.TempDir()) {
-		t.Setenv(name, value)
-	}
+	t.Parallel()
 
-	t.Chdir(t.TempDir())
+	// Arrange
+	env := environmentFor(t, place{dir: t.TempDir(), home: t.TempDir()})
 
 	var stderr bytes.Buffer
 
 	// Act
-	err := cli.Execute(strings.Fields("doctor --json"), refusingOutput{}, &stderr, unusedPrompt(t))
+	err := cli.Execute(strings.Fields("doctor --json"), refusingOutput{}, &stderr, unusedPrompt(t), env)
 
 	// Assert
 	// A script reading the report would otherwise take a report cut short, or
@@ -57,6 +55,8 @@ func TestDoctorJSONFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 }
 
 func TestProseFailsWhenItsOutputCannotBeWritten(t *testing.T) {
+	t.Parallel()
+
 	// Each command, by name, and where it runs.
 	cases := map[string]func(t *testing.T) string{
 		statusCommand: featureRepo,
@@ -75,17 +75,13 @@ func TestProseFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 
 	for command, where := range cases {
 		t.Run(command, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
-			dir := where(t)
-
-			for variable, value := range isolatedEnvironment(t.TempDir()) {
-				t.Setenv(variable, value)
-			}
-
-			t.Chdir(dir)
+			env := environmentFor(t, place{dir: where(t), home: t.TempDir()})
 
 			// Act
-			err := cli.Execute([]string{command}, refusingOutput{}, io.Discard, unusedPrompt(t))
+			err := cli.Execute([]string{command}, refusingOutput{}, io.Discard, unusedPrompt(t), env)
 
 			// Assert
 			if !errors.Is(err, errOutputClosed) {

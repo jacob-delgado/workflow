@@ -13,8 +13,12 @@ import (
 )
 
 func TestEveryCommandLeadsItsHelpWithExamples(t *testing.T) {
+	t.Parallel()
+
 	for _, path := range leafCommands(cli.NewRootCmd(cli.Prompt{})) {
 		t.Run(path, func(t *testing.T) {
+			t.Parallel()
+
 			// Act
 			output, err := run(t, t.TempDir(), append(strings.Fields(path)[1:], "--help")...)
 			// Assert
@@ -49,6 +53,8 @@ func leafCommands(root *cobra.Command) []string {
 }
 
 func TestASynopsisThatSaysFailsNamesTheExitStatus(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]struct {
 		args string
 		want string
@@ -59,6 +65,8 @@ func TestASynopsisThatSaysFailsNamesTheExitStatus(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Act
 			output, err := run(t, t.TempDir(), strings.Fields(tt.args)...)
 

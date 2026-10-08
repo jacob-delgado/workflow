@@ -34,6 +34,8 @@ func ownedRepo(t *testing.T) string {
 }
 
 func TestPRPreviewsTheCodeOwnersAsReviewers(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{})
 	repo := ownedRepo(t)
@@ -53,6 +55,8 @@ func TestPRPreviewsTheCodeOwnersAsReviewers(t *testing.T) {
 }
 
 func TestPRRequestsTheCodeOwnersReview(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	sent := filepath.Join(t.TempDir(), "sent")
 	fakeGh(t, ghResponses{sentLog: sent})
@@ -75,6 +79,8 @@ func TestPRRequestsTheCodeOwnersReview(t *testing.T) {
 }
 
 func TestPRPreviewsNoReviewersWithoutCodeOwners(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo := prRepo(t, "fix/PROJ-2-thing")
 
@@ -91,6 +97,8 @@ func TestPRPreviewsNoReviewersWithoutCodeOwners(t *testing.T) {
 }
 
 func TestPRSaysTheMergeRequestOpenedWhenAReviewerCouldNotBeAdded(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// GitLab knows no user named ghost, so the merge request opens without
 	// that reviewer; it is open all the same.

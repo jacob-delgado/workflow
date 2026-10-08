@@ -5,7 +5,6 @@ package wiring
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -35,7 +34,7 @@ type Workspace struct {
 
 // Locate reads the repository dir is in. Outside one, every git action fails on
 // its own and says why, so this is not an error.
-func Locate(ctx context.Context, dir string) Workspace {
+func (e Environment) Locate(ctx context.Context, dir string) Workspace {
 	// git names the root with every link resolved; the directory is read the
 	// same way, so the path from one to the other never climbs out.
 	resolved, err := filepath.EvalSymlinks(dir)
@@ -43,7 +42,7 @@ func Locate(ctx context.Context, dir string) Workspace {
 		dir = resolved
 	}
 
-	repo, err := gitrepo.At(gitRunner, dir).Describe(ctx)
+	repo, err := gitrepo.At(e.git, dir).Describe(ctx)
 	if err != nil {
 		return Workspace{Root: dir, Remote: "", Dir: dir, Repository: false}
 	}
@@ -94,12 +93,10 @@ func parsedRemote(where Workspace) (forge.Repo, bool) {
 // repositoriesDeps is what a surface asks of the directories it can work in:
 // where this session works, and any other directory read the same way, with
 // the configuration files that would apply there.
-func repositoriesDeps(ctx context.Context, cfg config.Config, where Workspace) seams.Repositories {
-	home, _ := os.UserHomeDir()
-
+func (e Environment) repositoriesDeps(ctx context.Context, cfg config.Config, where Workspace) seams.Repositories {
 	return seams.Repositories{
 		Here: placeOf(where, cfg.Layers()),
-		Home: home,
+		Home: e.Home,
 		Look: func(dir string) (seams.Place, error) {
 			err := workdirs.Check(dir)
 			if err != nil {
@@ -108,12 +105,12 @@ func repositoriesDeps(ctx context.Context, cfg config.Config, where Workspace) s
 
 			// No configuration file there or above is not a failure: the
 			// defaults apply, as they would on switching.
-			files, _ := config.Locate(dir, home)
+			files, _ := config.Locate(dir, e.Home)
 
-			return placeOf(Locate(ctx, dir), files), nil
+			return placeOf(e.Locate(ctx, dir), files), nil
 		},
 		Subdirectories: workdirs.List,
-		Worktrees:      worktreesOf(ctx, where),
+		Worktrees:      e.worktreesOf(ctx, where),
 	}
 }
 
@@ -121,13 +118,13 @@ func repositoriesDeps(ctx context.Context, cfg config.Config, where Workspace) s
 // nil outside one. git never marks a locked worktree prunable, as one on a
 // drive since unmounted is, so a locked one's directory is looked for, and one
 // not there reads as gone.
-func worktreesOf(ctx context.Context, where Workspace) func() ([]gitrepo.Worktree, error) {
+func (e Environment) worktreesOf(ctx context.Context, where Workspace) func() ([]gitrepo.Worktree, error) {
 	if !where.Repository {
 		return nil
 	}
 
 	return func() ([]gitrepo.Worktree, error) {
-		worktrees, err := gitrepo.At(gitRunner, where.Root).Worktrees(ctx)
+		worktrees, err := gitrepo.At(e.git, where.Root).Worktrees(ctx)
 
 		for at, worktree := range worktrees {
 			if worktree.Locked && !worktree.Missing {
@@ -163,11 +160,11 @@ const readsAtOnce = 4
 // its directories are favorites, side by side and listed in that order. A
 // repository is named only when more than one is read. With none, where is
 // read regardless, so git says why there is nothing to read.
-func yourCommits(
+func (e Environment) yourCommits(
 	ctx context.Context, where Workspace, favorites func() ([]string, error),
 ) func(start, end time.Time) []loop.RepositoryCommits {
 	return func(start, end time.Time) []loop.RepositoryCommits {
-		repositories := commitRepositories(ctx, where, favorites)
+		repositories := e.commitRepositories(ctx, where, favorites)
 		if len(repositories) == 0 {
 			repositories = []Workspace{where}
 		}
@@ -176,7 +173,7 @@ func yourCommits(
 		read := make([]loop.RepositoryCommits, len(repositories))
 
 		eachAtOnce(len(repositories), func(at int) {
-			commits, err := gitrepo.At(gitRunner, repositories[at].Root).CommitsBetween(ctx, start, end)
+			commits, err := gitrepo.At(e.git, repositories[at].Root).CommitsBetween(ctx, start, end)
 			read[at] = loop.RepositoryCommits{Repository: names[at], Commits: commits, Failed: err}
 		})
 
@@ -189,7 +186,9 @@ func yourCommits(
 // told apart by the git directory their worktrees share, since each worktree
 // has a root of its own. A favorites list that cannot be read reads as none:
 // the Repositories pane says why, and the commits here are still yours to see.
-func commitRepositories(ctx context.Context, where Workspace, favorites func() ([]string, error)) []Workspace {
+func (e Environment) commitRepositories(
+	ctx context.Context, where Workspace, favorites func() ([]string, error),
+) []Workspace {
 	dirs, _ := favorites()
 	candidates := make([]Workspace, 1+len(dirs))
 	shared := make([]string, len(candidates))
@@ -197,10 +196,10 @@ func commitRepositories(ctx context.Context, where Workspace, favorites func() (
 	eachAtOnce(len(candidates), func(candidate int) {
 		candidates[candidate] = where
 		if candidate > 0 {
-			candidates[candidate] = Locate(ctx, dirs[candidate-1])
+			candidates[candidate] = e.Locate(ctx, dirs[candidate-1])
 		}
 
-		shared[candidate] = sharedDir(ctx, candidates[candidate])
+		shared[candidate] = e.sharedDir(ctx, candidates[candidate])
 	})
 
 	var repositories []Workspace
@@ -220,12 +219,12 @@ func commitRepositories(ctx context.Context, where Workspace, favorites func() (
 
 // sharedDir is the git directory a repository's worktrees share, or its root
 // when that cannot be read, and "" outside a repository.
-func sharedDir(ctx context.Context, candidate Workspace) string {
+func (e Environment) sharedDir(ctx context.Context, candidate Workspace) string {
 	if !candidate.Repository {
 		return ""
 	}
 
-	shared, err := gitrepo.At(gitRunner, candidate.Root).SharedDir(ctx)
+	shared, err := gitrepo.At(e.git, candidate.Root).SharedDir(ctx)
 	if err != nil {
 		return candidate.Root
 	}

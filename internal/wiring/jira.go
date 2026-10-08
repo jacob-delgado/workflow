@@ -88,9 +88,11 @@ func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira
 // running its command when either is set, and builds the client that carries
 // it over doer. A token source that gives none is no credential at all, and is
 // reported as such before anything is sent.
-func connectJira(ctx context.Context, settings config.Jira, system Keychain, doer jira.Doer) (jira.Client, error) {
+func (e Environment) connectJira(
+	ctx context.Context, settings config.Jira, system Keychain, doer jira.Doer,
+) (jira.Client, error) {
 	if settings.AuthMode() != config.AuthNone {
-		token, err := resolveSetToken(ctx, settings, system)
+		token, err := e.resolveSetToken(ctx, settings, system)
 		if err != nil {
 			return jira.Client{}, fmt.Errorf("%w: %w", jira.ErrNoCredential, err)
 		}

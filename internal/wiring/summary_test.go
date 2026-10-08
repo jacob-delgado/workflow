@@ -122,7 +122,7 @@ func TestYourCommitsAreFoundUnderAnEmailWithAPlus(t *testing.T) {
 	// git reads --author as a basic regular expression, where an escaped + is
 	// an operator rather than the + a plus address is written with.
 	root := committedOn(t, "me+work@example.com")
-	gitSeams := wired(t, config.Default(), wiring.Locate(t.Context(), root), nil).Git
+	gitSeams := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Git
 
 	// Act
 	read := gitSeams.CommitsBetween(summaryDay())
@@ -139,7 +139,7 @@ func TestAStashIsNotOneOfYourCommits(t *testing.T) {
 	write(t, filepath.Join(root, "notes.md"), "changed\n", 0o600)
 	git(t, root, "stash", "--quiet")
 
-	gitSeams := wired(t, config.Default(), wiring.Locate(t.Context(), root), nil).Git
+	gitSeams := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Git
 
 	// Act
 	read := gitSeams.CommitsBetween(summaryDay())
@@ -166,7 +166,7 @@ func favoring(t *testing.T, here string, favorites ...string) tui.Deps {
 	t.Helper()
 	homeOfItsOwn(t)
 
-	deps := wired(t, config.Default(), wiring.Locate(t.Context(), here), nil)
+	deps := wired(t, config.Default(), processEnvironment().Locate(t.Context(), here), nil)
 	for _, favorite := range favorites {
 		err := deps.Store.Favor(favorite)
 		if err != nil {
@@ -228,7 +228,7 @@ func TestOutsideARepositoryYourFavoritesAreStillRead(t *testing.T) {
 	favorite := committedOn(t, "me@example.com")
 	homeOfItsOwn(t)
 
-	deps := wired(t, config.Default(), wiring.Locate(t.Context(), t.TempDir()), nil)
+	deps := wired(t, config.Default(), processEnvironment().Locate(t.Context(), t.TempDir()), nil)
 
 	err := deps.Store.Favor(favorite)
 	if err != nil {
@@ -286,7 +286,9 @@ func TestAWorktreeOfTheRepositoryYouAreInIsNotReadTwice(t *testing.T) {
 func TestADryRunsSummaryMakesNoStore(t *testing.T) {
 	// Arrange
 	home := homeOfItsOwn(t)
-	gitSeams := wired(t, config.Default(), wiring.Locate(t.Context(), committedOn(t, "me@example.com")), nil).Git
+	process := processEnvironment()
+
+	gitSeams := wired(t, config.Default(), process.Locate(t.Context(), committedOn(t, "me@example.com")), nil).Git
 
 	// Act
 	gitSeams.CommitsBetween(summaryDay())

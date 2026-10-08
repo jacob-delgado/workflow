@@ -58,11 +58,11 @@ type credentialsFacts struct {
 // runDoctorJSON writes the report as JSON and returns the same aggregate error
 // the prose report would, so a script can read the exit code as well as the data.
 func runDoctorJSON(ctx context.Context, out io.Writer, run doctorRun) error {
-	repository, remote := repositoryFactsFor(ctx)
-	tooling, toolingErr := toolingFacts(ctx, run.cfg, remote)
+	repository, remote := repositoryFactsFor(ctx, run.env)
+	tooling, toolingErr := toolingFacts(ctx, run, remote)
 
 	report := doctorReport{
-		Version: buildinfo.Current(), Repository: repository, Tooling: tooling, Store: storeFactsFor(run.cfg),
+		Version: buildinfo.Current(), Repository: repository, Tooling: tooling, Store: storeFactsFor(run),
 	}
 
 	// Like the prose report, it checks no credential when the file did not

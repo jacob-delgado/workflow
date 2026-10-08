@@ -9,6 +9,8 @@ import (
 )
 
 func TestPRDryRunSaysWhatItWouldOfferOnceOpen(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	repo, writes := reviewRepo(t, reviewMoves)
 
@@ -35,6 +37,8 @@ func TestPRDryRunSaysWhatItWouldOfferOnceOpen(t *testing.T) {
 }
 
 func TestPRDryRunNamesNoOfferItWouldNotMake(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// The forge's own issues are the tracker: nothing takes a link, and no
 	// review status is configured.

@@ -14,7 +14,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/httpx"
-	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
@@ -37,6 +36,7 @@ type forgeSetup struct {
 	where         Workspace
 	httpTransport httpx.Doer
 	log           *RequestLog
+	env           Environment
 }
 
 // forgeDeps is what a surface asks of GitHub or GitLab, each seam reaching
@@ -246,13 +246,12 @@ func ForgeSettings(settings config.Forge) forge.Configured {
 	return forge.Configured{Kind: settings.Kind, Host: settings.Host, Token: forge.Token(settings.Token.Reveal())}
 }
 
-// ForgeResolver builds the resolver that finds a forge token. The interface and
-// doctor both go through it, so the two cannot come to look for a credential in
-// different places.
-func ForgeResolver(settings config.Forge) forge.Resolver {
-	return forge.Resolver{
-		Getenv: os.Getenv, Look: proc.LookPath, Run: proc.Run, Configured: ForgeSettings(settings),
-	}
+// ForgeResolver builds the resolver that finds a forge token, in the
+// environment's variables and through the forge's CLI on its PATH. The
+// interface and doctor both go through it, so the two cannot come to look for
+// a credential in different places.
+func (e Environment) ForgeResolver(settings config.Forge) forge.Resolver {
+	return forge.Resolver{Getenv: e.Getenv, Look: e.LookPath, Run: e.Run, Configured: ForgeSettings(settings)}
 }
 
 // onceConnected caches a connection once it succeeds, and retries after a
@@ -391,7 +390,7 @@ func connectForge(ctx context.Context, setup forgeSetup, settings config.Forge) 
 		return forgeConnection{}, fmt.Errorf("%s — set forge.kind and forge.host: %w", repo.Host, err)
 	}
 
-	access, err := ReachForge(ctx, settings, repo, base, setup.httpTransport)
+	access, err := setup.env.ReachForge(ctx, settings, repo, base, setup.httpTransport)
 	if err != nil {
 		return forgeConnection{}, err
 	}
@@ -422,10 +421,10 @@ type ForgeAccess struct {
 // token, since the CLI signs every request with the login it already holds.
 // The commands and doctor --online both reach the forge through here, so the
 // two cannot come to reach it differently.
-func ReachForge(
+func (e Environment) ReachForge(
 	ctx context.Context, settings config.Forge, repo forge.Repo, base string, httpTransport httpx.Doer,
 ) (ForgeAccess, error) {
-	transport, usingCLI := forgeTransport(ctx, settings, repo, base, httpTransport)
+	transport, usingCLI := e.forgeTransport(ctx, settings, repo, base, httpTransport)
 	if usingCLI {
 		program, _ := forgeProgram(repo.Kind)
 
@@ -434,7 +433,7 @@ func ReachForge(
 		return ForgeAccess{Doer: transport, Token: cliToken, Via: "through " + program}, nil
 	}
 
-	token, source, err := ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
+	token, source, err := e.ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
 	if err != nil {
 		return ForgeAccess{}, err
 	}

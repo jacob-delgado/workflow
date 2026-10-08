@@ -42,10 +42,15 @@ func newDBCleanCmd(prompt Prompt) *cobra.Command {
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			scope := map[bool]store.CleanScope{false: store.CleanCache, true: store.CleanAll}[all]
+			dir, err := environmentOf(cmd).Process.StateDir()
+			if err != nil {
+				return fmt.Errorf("finding the local data: %w", err)
+			}
+
+			clean := storeClean{dir: dir, scope: map[bool]store.CleanScope{false: store.CleanCache, true: store.CleanAll}[all]}
 			ask := func(question string) (bool, error) { return confirm(prompt, question) }
 
-			return runDBClean(cmd.Context(), outputOf(cmd), ask, scope, opts)
+			return runDBClean(cmd.Context(), outputOf(cmd), ask, clean, opts)
 		},
 	}
 
@@ -56,34 +61,42 @@ func newDBCleanCmd(prompt Prompt) *cobra.Command {
 	return cmd
 }
 
-// runDBClean lists the store's files, then removes those scope reaches once
+// storeClean is what a db-clean removes: the files a clean of scope reaches in
+// the store's directory, dir.
+type storeClean struct {
+	dir   string
+	scope store.CleanScope
+}
+
+// runDBClean lists the store's files, then removes those clean reaches once
 // confirmed.
 func runDBClean(
-	ctx context.Context, out output, ask func(string) (bool, error), scope store.CleanScope, opts writeOptions,
+	ctx context.Context, out output, ask func(string) (bool, error), clean storeClean, opts writeOptions,
 ) error {
-	dir, files, err := localData(ctx)
+	files, err := store.Files(ctx, clean.dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("reading the local data: %w", err)
 	}
 
-	listDataFiles(out.artifact, dir, files)
+	listDataFiles(out.artifact, clean.dir, files)
 
-	reached := reachedBy(files, scope)
+	reached := reachedBy(files, clean.scope)
 	if len(reached) == 0 {
 		fmt.Fprintln(out.notes, "Nothing to remove.")
 
 		return nil
 	}
 
-	return removeDataFiles(out, ask, dir, scope, reached, opts)
+	return removeDataFiles(out, ask, clean, reached, opts)
 }
 
-// removeDataFiles removes the files a clean of scope reaches once confirmed,
-// warning first when the kept file is among them.
+// removeDataFiles removes the files clean reaches once confirmed, warning
+// first when the kept file is among them.
 func removeDataFiles(
-	out output, ask func(string) (bool, error), dir string, scope store.CleanScope, reached []store.DataFile,
-	opts writeOptions,
+	out output, ask func(string) (bool, error), clean storeClean, reached []store.DataFile, opts writeOptions,
 ) error {
+	dir := clean.dir
+
 	names := make([]string, 0, len(reached))
 
 	for _, file := range reached {
@@ -104,7 +117,7 @@ func removeDataFiles(
 		return err
 	}
 
-	err = cleanLocalData(scope)
+	err = store.Clean(dir, clean.scope)
 	if err != nil {
 		return fmt.Errorf("removing the local data: %w", err)
 	}
@@ -153,30 +166,4 @@ func holdings(holds []store.Held) string {
 	}
 
 	return strings.Join(parts, ", ")
-}
-
-// localData is the store's directory and the database files in it, as
-// db-clean and the web's Local data area list them.
-func localData(ctx context.Context) (string, []store.DataFile, error) {
-	dir, err := store.DefaultDir()
-	if err != nil {
-		return "", nil, fmt.Errorf("finding the local data: %w", err)
-	}
-
-	files, err := store.Files(ctx, dir)
-	if err != nil {
-		return "", nil, fmt.Errorf("reading the local data: %w", err)
-	}
-
-	return dir, files, nil
-}
-
-// cleanLocalData removes the store's files a clean of scope reaches.
-func cleanLocalData(scope store.CleanScope) error {
-	dir, err := store.DefaultDir()
-	if err != nil {
-		return fmt.Errorf("finding the local data: %w", err)
-	}
-
-	return store.Clean(dir, scope)
 }

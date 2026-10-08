@@ -11,6 +11,8 @@ import (
 )
 
 func TestAnnounceYesDryRunPreviewsAMomentItWouldLeaveAsItIs(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
