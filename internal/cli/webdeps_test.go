@@ -142,10 +142,10 @@ func funcSeams(value reflect.Value, prefix string) map[string]reflect.Value {
 	for seam, field := range value.Fields() {
 		path := prefix + seam.Name
 
-		switch field.Kind() { //nolint:exhaustive // only functions and the structs that hold them are seams.
-		case reflect.Struct:
+		switch {
+		case field.Kind() == reflect.Struct:
 			maps.Copy(found, funcSeams(field, path+"."))
-		case reflect.Func:
+		case field.Kind() == reflect.Func:
 			found[path] = field
 		}
 	}
