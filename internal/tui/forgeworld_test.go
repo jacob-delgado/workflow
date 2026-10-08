@@ -119,7 +119,7 @@ func (w *world) forgeCalls() seams.Forge {
 		JobLog: func(check forge.Check) (forge.JobLog, error) {
 			w.record("job-log " + check.ID)
 
-			return w.jobLog, nil
+			return w.jobLog, w.jobLogErr
 		},
 		Rerun: func(_ forge.PullRequest, head string) (bool, error) {
 			w.record("rerun " + head)
