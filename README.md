@@ -145,8 +145,10 @@ service somewhere else inherits none of your home file's credentials for it.
 
 workflow keeps a little state between sessions in an on-disk store — the commit
 scope you last used, which pull requests you have announced, and the last issue
-list it saw — under your platform's data directory, and never a secret. It is on
-by default; set `"store": { "disabled": true }` to keep nothing on disk. See
+list it saw, and what you decided: whom each code owner is on Slack, the groups
+each repository tags, your favorite directories — under your platform's data
+directory, and never a secret. It is on by default; set
+`"store": { "disabled": true }` to keep nothing on disk. See
 [Configuration](https://jacob-delgado.github.io/workflow/docs/configuration/) for
 where it lives and how it is keyed.
 
