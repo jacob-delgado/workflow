@@ -79,7 +79,7 @@ func TestWhoamiSendsACredentialAndAUserAgent(t *testing.T) {
 		t.Error("no User-Agent was sent; GitHub answers 403 without one")
 	}
 
-	if asked.path != "/user" {
+	if asked.path != userPath {
 		t.Errorf("path = %q, want /user", asked.path)
 	}
 
@@ -221,7 +221,7 @@ func TestWhoamiRefusesWhatItCannotSend(t *testing.T) {
 	}{
 		"no token": {base: "https://api.example.com", token: "", want: forge.ErrNoToken},
 		"a base url.Parse refuses": {
-			base: "https://api.example.com/\x7f", token: secret, want: forge.ErrUnreachable,
+			base: unusableBase, token: secret, want: forge.ErrUnreachable,
 		},
 	}
 

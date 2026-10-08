@@ -27,7 +27,7 @@ func TestAWriteThatNeverReachesTheForgeSaysSo(t *testing.T) {
 	gone.Close()
 
 	cases := map[string]string{
-		"an address url.Parse refuses": "https://api.example.com/\x7f",
+		"an address url.Parse refuses": unusableBase,
 		"a forge that is not there":    goneBase,
 	}
 

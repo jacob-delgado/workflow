@@ -13,6 +13,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
+// unusableBase is an API address url.Parse refuses.
+const unusableBase = "https://api.example.com/\x7f"
+
 // recorded is what a fake forge saw of one request: its method, escaped path
 // and raw query, its headers, and its JSON body decoded.
 type recorded struct {

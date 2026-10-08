@@ -79,7 +79,7 @@ func TestAssignedIssuesOnGitLabReportsAListRefusedAfterTheViewerIsKnown(t *testi
 	// Arrange
 	// GitLab says who is asking, then will not list that person's issues.
 	client, seen := recordingForge(t, conversation(
-		map[string]string{gitlabUserPath: gitlabWhoami},
+		map[string]string{userPath: gitlabWhoami},
 		map[string]bool{gitlabIssuesList: true}))
 
 	// Act
