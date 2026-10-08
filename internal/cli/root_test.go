@@ -24,10 +24,12 @@ import (
 )
 
 // What the stand-in interface and web server write to the stream each is
-// handed, so a test can tell which stream that was.
+// handed, so a test can tell which stream that was, and what the command's
+// input holds, so a test can tell which input the interface read.
 const (
 	interfaceWrote = "interface"
 	serverWrote    = "server"
+	keysTyped      = "keys typed"
 )
 
 // rootRun is one run of the root command over a stand-in interface and web
@@ -38,8 +40,10 @@ type rootRun struct {
 	model      tui.Model
 	// models are every interface opened, in order; nexts are where each in
 	// turn asks to go when it ends, none past the last.
-	models  []tui.Model
-	nexts   []tui.Next
+	models []tui.Model
+	nexts  []tui.Next
+	// read is what the interface read from the input it was handed.
+	read    string
 	servers int
 	addr    string
 	cfg     config.Config
@@ -51,12 +55,19 @@ type rootRun struct {
 }
 
 // runInterface stands in for tui.Run, keeping the model it was handed and
-// writing interfaceWrote where the interface draws, then ending where nexts
-// says, in turn.
-func (r *rootRun) runInterface(_ context.Context, model tui.Model, out io.Writer) (tui.Next, error) {
+// what it read from its input, and writing interfaceWrote where the interface
+// draws, then ending where nexts says, in turn.
+func (r *rootRun) runInterface(_ context.Context, model tui.Model, in io.Reader, out io.Writer) (tui.Next, error) {
 	r.interfaces++
 	r.model = model
 	r.models = append(r.models, model)
+
+	read, err := io.ReadAll(in)
+	if err != nil {
+		return tui.Next{}, fmt.Errorf("reading the interface's input: %w", err)
+	}
+
+	r.read = string(read)
 
 	fmt.Fprint(out, interfaceWrote)
 
@@ -160,6 +171,7 @@ func executeRoot(
 
 	root := cli.NewRootCmdOver(unusedPrompt(t), run, serveAt)
 	root.SetArgs(args)
+	root.SetIn(strings.NewReader(keysTyped))
 	root.SetOut(&stdout)
 	root.SetErr(&stderr)
 
@@ -184,6 +196,20 @@ func TestBareWorkflowOpensTheInterfaceWithItsWritesLive(t *testing.T) {
 
 	if !strings.Contains(ran.stdout, interfaceWrote) || strings.Contains(ran.stderr, interfaceWrote) {
 		t.Errorf("the interface wrote to stdout %q and stderr %q, want its writes on stdout", ran.stdout, ran.stderr)
+	}
+}
+
+func TestTheInterfaceReadsTheCommandsInput(t *testing.T) {
+	// Act
+	ran := runRoot(t, t.TempDir())
+
+	// Assert
+	if ran.err != nil || ran.interfaces != 1 {
+		t.Fatalf("workflow = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
+	}
+
+	if ran.read != keysTyped {
+		t.Errorf("the interface read %q, want the command's input %q", ran.read, keysTyped)
 	}
 }
 
@@ -518,7 +544,7 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 
 			// Act
 			_, _, err = executeRoot(t, place{dir: dir, home: dir},
-				func(context.Context, tui.Model, io.Writer) (tui.Next, error) {
+				func(context.Context, tui.Model, io.Reader, io.Writer) (tui.Next, error) {
 					countRuns()
 
 					return tui.Next{}, nil
