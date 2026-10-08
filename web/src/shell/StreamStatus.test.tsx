@@ -39,11 +39,25 @@ test('says a dropped stream is reconnecting', () => {
   expect(screen.getByRole('status').textContent).toContain('Reconnecting')
 })
 
+test('says a stream the browser closed for good is disconnected, and to reload', () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'closed', reason: 'it stopped; reload the page' })
+
+  // Act
+  render(<StreamStatus />)
+
+  // Assert
+  const region = screen.getByRole('status')
+  expect(region.textContent).toContain('Disconnected')
+  expect(region.textContent).toContain('reload the page')
+})
+
 test.each([
   ['connecting', 'not-started'],
   ['live', 'done'],
   ['reconnecting', 'in-flight'],
   ['stale', 'failed'],
+  ['closed', 'failed'],
 ] as const)('draws a %s stream as the %s mark, beside its words', (status, mark) => {
   // Arrange
   useSnapshotStore.setState({ status })
