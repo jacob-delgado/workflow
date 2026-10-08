@@ -29,8 +29,6 @@ const reasonLimit = 64 << 10
 
 // reasons is Jira's error body: what was wrong with the request as a whole, and
 // what was wrong with each field.
-//
-//nolint:tagliatelle // Jira's field names on the wire, not ours to pick
 type reasons struct {
 	ErrorMessages []string          `json:"errorMessages"`
 	Errors        map[string]string `json:"errors"`

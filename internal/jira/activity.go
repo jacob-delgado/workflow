@@ -149,7 +149,7 @@ type wireActivityIssue struct {
 			Worklogs []struct {
 				Author    login  `json:"author"`
 				Started   string `json:"started"`
-				TimeSpent string `json:"timeSpent"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+				TimeSpent string `json:"timeSpent"`
 			} `json:"worklogs"`
 		} `json:"worklog"`
 	} `json:"fields"`
@@ -159,7 +159,7 @@ type wireActivityIssue struct {
 			Created string `json:"created"`
 			Items   []struct {
 				Field    string `json:"field"`
-				ToString string `json:"toString"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+				ToString string `json:"toString"`
 			} `json:"items"`
 		} `json:"histories"`
 	} `json:"changelog"`

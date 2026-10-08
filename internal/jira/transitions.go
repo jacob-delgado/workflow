@@ -45,7 +45,7 @@ type transitionsAnswer struct {
 			Name     string `json:"name"`
 			Category struct {
 				Key string `json:"key"`
-			} `json:"statusCategory"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+			} `json:"statusCategory"`
 		} `json:"to"`
 		Fields map[string]wireField `json:"fields"`
 	} `json:"transitions"`
