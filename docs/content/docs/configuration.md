@@ -710,7 +710,9 @@ rebind on its own. workflow refuses to start, `workflow doctor` reports the
 problem, and Settings in `workflow --web` refuses to save it, when a map names
 an action that does not exist, moves `jump-to-pane` — its keys are the pane
 numbers, `1`–`9`, which no one key can stand in for — or binds two actions
-that are live at the same time to one key. The pane numbers work on every pane
+that are live at the same time to one key. Each pane is a place of its own:
+an action that works on one pane and an action that works on another are never
+live at once, so they may share a key. The pane numbers work on every pane
 and while a command runs, so an action live there cannot take one.
 
 The actions you can rebind, grouped by where they work, are:

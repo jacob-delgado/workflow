@@ -319,7 +319,7 @@ func (m Model) handleGlobalKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.first, m.keys.last, m.keys.scrollDown, m.keys.scrollUp):
 		return m.handleViewKey(msg)
 	default:
-		return behaviorOf(m.focus).handle(m, msg)
+		return m.handlePaneKey(msg)
 	}
 }
 
