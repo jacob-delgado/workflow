@@ -129,7 +129,7 @@ func reviewLine(review forge.ReviewRequest, now time.Time, kind forge.Kind) stri
 
 	return fmt.Sprintf("%s%d  %s  %sby %s  CI %s  %s  %s",
 		kind.Sigil(), review.Number, review.Title, repository, review.Author,
-		ciWord(review.CI), humanizeAge(now, review.OpenedAt), review.URL)
+		review.CI.Word(), humanizeAge(now, review.OpenedAt), review.URL)
 }
 
 // humanizeAge is how long ago then was, rounded down to minutes, hours or days.

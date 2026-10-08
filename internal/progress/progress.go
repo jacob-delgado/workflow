@@ -30,6 +30,25 @@ const (
 	Failed
 )
 
+// Glyph is the mark a stage in the state is drawn with — the terminal's spine
+// and the command line's status line alike — or, with ascii, the stand-in
+// ui.ascii draws instead. A map, not a switch, so there is no last-case arm
+// gobco can never see; exhaustive keeps it complete.
+func (s State) Glyph(ascii bool) string {
+	marks := map[State]struct{ unicode, plain string }{
+		NotStarted: {unicode: "○", plain: "o"},
+		InFlight:   {unicode: "◐", plain: "*"},
+		Done:       {unicode: "●", plain: "#"},
+		Failed:     {unicode: "✗", plain: "x"},
+	}[s]
+
+	if ascii {
+		return marks.plain
+	}
+
+	return marks.unicode
+}
+
 // System is where a stage's work happens, which the terminal's spine colors it
 // by.
 type System int
