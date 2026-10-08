@@ -409,9 +409,8 @@ func checkPort(cmd *cobra.Command, web bool, port int) error {
 
 // loadFromEnvironment loads the configuration that applies where cmd runs,
 // searching up from its working directory to the repository root and then
-// the home directory. A missing or unreadable file is reported through the
-// error; the zero Config is still usable, which is what lets doctor explain
-// what is wrong.
+// the home directory. A missing or unreadable file, or a working directory
+// that cannot be named, is reported through the error.
 func loadFromEnvironment(cmd *cobra.Command) (config.Config, error) {
 	workDir, err := workingDir(cmd)
 	if err != nil {

@@ -89,8 +89,8 @@ func TestDoctorFromARemovedDirectoryStillReports(t *testing.T) {
 	// doctor is what someone runs to find out what is wrong, so the report still
 	// comes, naming the directory it could not read in place of a repository.
 	got := fieldValue(printed.stdout, "Repository")
-	if !strings.HasPrefix(got, "(none — cannot read the working directory") {
-		t.Errorf("Repository = %q, want it to say the working directory cannot be read:\n%s", got, printed.stdout)
+	if !strings.HasPrefix(got, "(none — "+workdirUnread) {
+		t.Errorf("Repository = %q, want it to say the working directory cannot be named:\n%s", got, printed.stdout)
 	}
 
 	if err == nil || !strings.Contains(err.Error(), workdirUnread) {
@@ -112,11 +112,50 @@ func TestDoctorJSONFromARemovedDirectoryReportsNoWorkTree(t *testing.T) {
 		t.Errorf("repository = %v, want no work tree for a directory that is gone", report["repository"])
 	}
 
+	if problem, _ := repository["problem"].(string); !strings.HasPrefix(problem, workdirUnread) {
+		t.Errorf("repository problem = %q, want the directory that could not be named", problem)
+	}
+
 	if problem, _ := report["config_problem"].(string); !strings.Contains(problem, workdirUnread) {
 		t.Errorf("config_problem = %q, want the directory that could not be read", problem)
 	}
 
 	wantExit(t, err, 1)
+}
+
+func TestDoctorReportsOnTheOneReadingOfItsDirectory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The directory is removed once doctor has read it: every section reports
+	// on that one reading, so none of them finds it gone.
+	dir := t.TempDir()
+	env := environmentFor(t, place{dir: dir, home: t.TempDir()})
+
+	var reads atomic.Int32
+
+	env.WorkingDir = func() (string, error) {
+		if reads.Add(1) > 1 {
+			return "", errDirectoryGone
+		}
+
+		return dir, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Act
+	err := cli.Execute([]string{doctorCommand}, &stdout, &stderr, unusedPrompt(t), env)
+
+	// Assert
+	want := "(none — " + dir + " is not in a git work tree)"
+	if got := fieldValue(stdout.String(), "Repository"); got != want {
+		t.Errorf("Repository = %q, want %q, from the one reading of the directory:\n%s", got, want, stdout.String())
+	}
+
+	if err == nil || strings.Contains(err.Error(), workdirUnread) {
+		t.Errorf("doctor = %v, want it to fail on the missing configuration, not on the directory", err)
+	}
 }
 
 func TestBranchCompletionFromARemovedDirectoryOffersNothing(t *testing.T) {
