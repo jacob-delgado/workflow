@@ -30,7 +30,7 @@ func readToSave(t *testing.T) (http.Handler, string, api.Config, string) {
 	path := filepath.Join(t.TempDir(), config.FileName)
 	rewrite(t, path, fileRunningAsYou)
 
-	cfg, err := config.LoadFile(path)
+	cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil {
 		t.Fatalf("loading the file: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestASaveLeavingOutWhatWorkflowRunsAsYouKeepsIt(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
 
-	saved, err := config.LoadFile(path)
+	saved, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil {
 		t.Fatalf("reading the saved file: %v", err)
 	}
