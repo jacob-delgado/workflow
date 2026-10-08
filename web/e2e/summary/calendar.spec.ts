@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { mockActivity } from '../../src/dev/mockActivity.ts'
-import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
+import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { expect, problem, test } from '../support/fixtures.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
 
@@ -20,7 +20,7 @@ async function opensSummary(page: Page): Promise<string[]> {
     return route.fulfill({ json: mockActivity(from === null || to === null ? null : { from, to }) })
   })
   await page.goto('/')
-  await page.getByRole('button', { name: 'Summary' }).click()
+  await openSection(page, 'Summary')
   await expect(page.getByRole('list', { name: /Tuesday, September 15, 2026/ })).toBeVisible()
 
   return asked
