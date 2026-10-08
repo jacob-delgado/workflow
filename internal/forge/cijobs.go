@@ -130,8 +130,11 @@ func jobLogPath(repo Repo, id string) (string, error) {
 }
 
 // logResponse asks for the log at path, following the forge's one redirect to
-// where it keeps it.
+// where it keeps it. A log can run to gigabytes and is read to its end, so it
+// is bounded part by part rather than whole.
 func (c Client) logResponse(ctx context.Context, path string) (*http.Response, error) {
+	ctx = httpx.Streaming(ctx)
+
 	request, err := c.newRequest(httpx.ShowingRedirect(ctx), http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err

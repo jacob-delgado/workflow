@@ -247,3 +247,38 @@ func TestJobLogOfACheckWithNoLogAsksNothing(t *testing.T) {
 		t.Errorf("JobLog = %v after %v; want ErrNoLog and nothing asked", err, *seen)
 	}
 }
+
+func TestJobLogReadsASlowLongLogToItsEnd(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Fifty megabytes, sent a megabyte at a time: the whole takes longer than
+	// the client's timeout, though no part of it is ever long in coming.
+	const megabytes = 50
+
+	chunk := strings.Repeat("filler line\n", (1<<20)/len("filler line\n"))
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "text/plain")
+		flusher, _ := writer.(http.Flusher)
+
+		for range megabytes {
+			_, _ = writer.Write([]byte(chunk))
+
+			flusher.Flush()
+			time.Sleep(30 * time.Millisecond)
+		}
+
+		_, _ = writer.Write([]byte("the real end\n"))
+	}))
+	t.Cleanup(server.Close)
+
+	client := forge.New(httpx.Client(time.Second).Do, server.URL, secret)
+
+	// Act
+	log, err := client.JobLog(t.Context(), gitlabRepo(), forge.Check{ID: "501", LogAvailable: true})
+
+	// Assert
+	if err != nil || !strings.HasSuffix(log.Text, "\nthe real end") {
+		t.Errorf("JobLog ends %q, %v; want the log's last line", log.Text[max(0, len(log.Text)-40):], err)
+	}
+}
