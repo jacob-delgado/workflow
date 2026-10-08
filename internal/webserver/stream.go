@@ -128,7 +128,7 @@ func (s *server) snapshot(view string) api.Snapshot {
 		QueuedAnnouncement: s.heldStatus(),
 		Run:                s.runShown(),
 		HooksUnmanaged:     s.hooksUnmanaged(),
-		Branches:           s.snapshotBranches(branch.Name),
+		UnstartedStages:    s.knownStages(progress.Work{IssueSelected: true}),
 
 		CommitTypes:    commit.Types(),
 		SubjectLimit:   commit.SubjectLimit(),
@@ -138,6 +138,7 @@ func (s *server) snapshot(view string) api.Snapshot {
 		Here:  s.deps.Repositories.Here.Dir,
 	}
 	frame.Stages = s.frameStages(branch, read, frame)
+	frame.Branches = s.snapshotBranches(branch.Name, frame.Stages)
 
 	return frame
 }
@@ -163,6 +164,12 @@ func (s *server) frameStages(branch gitrepo.Branch, read forgeRead, frame api.Sn
 		PostPending:        heldForCI(frame.QueuedAnnouncement),
 	}
 
+	return s.knownStages(work)
+}
+
+// knownStages is the loop's stages for work, the last named for the messaging
+// service the configuration names.
+func (s *server) knownStages(work progress.Work) []api.Stage {
 	return stagesDTO(progress.Stages(work, s.config().Messaging.Service()))
 }
 
@@ -269,12 +276,13 @@ func nothingToAsk(err error) bool {
 }
 
 // snapshotBranches lists the branches named for one of your issues, the local
-// ones and those only the remote has, marking the one checked out. These are
-// the issues in flight; the branch, changes and review panels describe only
-// the checked-out branch. It is empty outside a repository or when the local
-// read fails, holds no branch only the remote has when the remote read fails,
-// and marks none when checkedOut is empty, as it is when the branch is unknown.
-func (s *server) snapshotBranches(checkedOut string) []api.TaskBranch {
+// ones and those only the remote has, marking the one checked out, which has
+// the frame's stages. These are the issues in flight; the branch, changes and
+// review panels describe only the checked-out branch. It is empty outside a
+// repository or when the local read fails, holds no branch only the remote has
+// when the remote read fails, and marks none when checkedOut is empty, as it is
+// when the branch is unknown.
+func (s *server) snapshotBranches(checkedOut string, checkedOutStages []api.Stage) []api.TaskBranch {
 	if s.deps.Branches == nil {
 		return []api.TaskBranch{}
 	}
@@ -288,6 +296,13 @@ func (s *server) snapshotBranches(checkedOut string) []api.TaskBranch {
 	listing := branchListing{
 		names: slices.Clone(local), remote: map[string]bool{}, links: s.issueLinks(),
 		worktrees: s.otherWorktrees(), home: s.deps.Repositories.Home,
+		stages: branchStages{
+			checkedOut: checkedOutStages,
+			// A branch not checked out is known only to be named for an issue:
+			// the working tree, the forge and the store are read for the
+			// checked-out branch alone, so nothing after it reads as begun.
+			elsewhere: s.knownStages(progress.Work{OnFeatureBranch: true, IssueNamed: true}),
+		},
 	}
 
 	for _, name := range s.remoteBranches() {

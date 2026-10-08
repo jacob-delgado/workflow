@@ -146,14 +146,18 @@ link to open it in Jira, its description and its comments, and its **work
 story**: the loop's stages, titled as the terminal's top row and `workflow
 status` name them — Issue, Branch, Commits, Review, and the messaging service
 the work is announced on, such as Slack — each opening the section it belongs
-to. For the issue whose
-branch is checked out, a step reads done, not yet, or failed as the server
-works it out, by the rules of the terminal's top row and `workflow status`: the
-issue is done once the branch names it, the changes once there is a commit, and
-the pull request once its CI passes or it merges, failed on a CI failure or
-changes asked for. The announcement is done once the pull request was
-announced at the moment it is at now — from the browser, the terminal or
-`workflow announce`, as the store remembers. From the
+to. Each step reads done, in flight, not started or failed as the server works
+it out, by the rules of the terminal's top row and `workflow status`. For the
+issue whose branch is checked out, the issue is done once the branch names it,
+the commits once there is one, and the review once the pull request's CI
+passes or it merges, failed on a CI failure or changes asked for. The
+announcement is done once the pull request was announced at the moment it is
+at now — from the browser, the terminal or `workflow announce`, as the store
+remembers. The server reads the working tree and the forge for the
+checked-out branch alone, so for an issue on another branch only the issue
+and the branch read done, and for an issue with no branch yet the issue reads
+in flight, picked as the terminal's top row reads an issue selected, and
+nothing after it begun. From the
 story, **Start work** fetches origin, so the branch starts from what origin
 holds now, then creates and checks out a branch named for the issue, and
 **Switch branch** switches to one it already has. **Start work in a new

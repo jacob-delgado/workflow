@@ -42,6 +42,13 @@ const emptySnapshot = {
     { step: 'review', name: 'Review', state: 'not_started' },
     { step: 'announce', name: 'Slack', state: 'not_started' },
   ],
+  unstarted_stages: [
+    { step: 'issue', name: 'Issue', state: 'in_flight' },
+    { step: 'branch', name: 'Branch', state: 'not_started' },
+    { step: 'commits', name: 'Commits', state: 'not_started' },
+    { step: 'review', name: 'Review', state: 'not_started' },
+    { step: 'announce', name: 'Slack', state: 'not_started' },
+  ],
   messaging: {
     kind: 'slack',
     service: 'Slack',

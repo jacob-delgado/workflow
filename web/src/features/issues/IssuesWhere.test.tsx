@@ -2,7 +2,7 @@ import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { makeSnapshot, makeTask } from '@/test/fixtures.ts'
+import { makeSnapshot, makeTask, makeTaskBranch } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { IssuesPanel } from './IssuesPanel.tsx'
 
@@ -45,7 +45,9 @@ const snapshot = makeSnapshot({
       },
     ],
   },
-  branches: [{ name: 'fix/PROJ-504-speed-up-search', issue_key: 'PROJ-504', current: false }],
+  branches: [
+    makeTaskBranch({ name: 'fix/PROJ-504-speed-up-search', issue_key: 'PROJ-504', current: false }),
+  ],
   tasks: {
     available: true,
     reason: '',

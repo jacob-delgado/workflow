@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import type { Change, Ci, PullRequest, Snapshot, Stage } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeSnapshot, makeStages } from '@/test/fixtures.ts'
+import { makeSnapshot, makeStages, makeTaskBranch } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import type { MarkState } from '@/lib/StateMark.tsx'
 import { WorkStory } from './WorkStory.tsx'
@@ -18,7 +18,7 @@ function streamOnHead(overrides: Partial<Snapshot>) {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branches: [{ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true }],
+      branches: [makeTaskBranch({ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true })],
       ...overrides,
     }),
   })
@@ -142,18 +142,23 @@ test('marks the first stage not done as the step the work is at', () => {
   ).toEqual(['Commits'])
 })
 
-// An issue on a branch not checked out has been picked up and branched for;
-// the server's stages describe the checked-out branch, not its own, so the
-// rest of its story waits: the next stage is the step it is at, and those
-// after it are not started.
-test('reads the stages of an issue on a branch not checked out by where it stands', () => {
+// The stages of an issue not checked out are the server's too: those it sends
+// with the issue's branch, or, for an issue with no branch, those it sends for
+// an issue not yet started. Each case's states are ones the story could not
+// work out for itself, so it is seen to draw what it is sent.
+test('draws the stages the server sends with the branch of an issue not checked out', () => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
       branches: [
-        { name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true },
-        { name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false },
+        makeTaskBranch({ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true }),
+        makeTaskBranch({
+          name: 'feat/PROJ-2-metrics',
+          issue_key: 'PROJ-2',
+          current: false,
+          stages: makeStages({ issue: 'done', branch: 'done', review: 'in_flight' }),
+        }),
       ],
       stages: makeStages({ issue: 'done', branch: 'done', commits: 'done', review: 'done' }),
     }),
@@ -164,6 +169,27 @@ test('reads the stages of an issue on a branch not checked out by where it stand
 
   // Assert
   expect(['Branch', 'Commits', 'Review'].map(storyStage)).toEqual([
+    { mark: drawnMark('done'), state: 'done' },
+    { mark: drawnMark('not-started'), state: 'not started' },
+    { mark: drawnMark('in-flight'), state: 'in flight' },
+  ])
+})
+
+test('draws the stages the server sends for an issue with no branch', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: [makeTaskBranch({ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true })],
+      unstarted_stages: makeStages({ issue: 'done', branch: 'in_flight' }),
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-999" />)
+
+  // Assert
+  expect(['Issue', 'Branch', 'Commits'].map(storyStage)).toEqual([
     { mark: drawnMark('done'), state: 'done' },
     { mark: drawnMark('in-flight'), state: 'in flight' },
     { mark: drawnMark('not-started'), state: 'not started' },
@@ -205,7 +231,7 @@ test.each([
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branches: [{ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current }],
+      branches: [makeTaskBranch({ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current })],
     }),
   })
 
@@ -222,7 +248,9 @@ test('sets the branch name in the code face in the note over an issue in flight 
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branches: [{ name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false }],
+      branches: [
+        makeTaskBranch({ name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false }),
+      ],
     }),
   })
 

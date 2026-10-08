@@ -11,7 +11,7 @@ import { MessagingPanel } from '@/features/messaging/MessagingPanel.tsx'
 import { ReviewPanel } from '@/features/review/ReviewPanel.tsx'
 import { SettingsPanel } from '@/features/settings/SettingsPanel.tsx'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
+import { makeBranch, makeSnapshot, makeTaskBranch } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 
 // Every write the web makes, each from the control a person would use, against
@@ -113,14 +113,14 @@ const inFlight = makeSnapshot({
       },
     ],
   },
-  branches: [{ name: 'fix/PROJ-2', issue_key: 'PROJ-2', current: false }],
+  branches: [makeTaskBranch({ name: 'fix/PROJ-2', issue_key: 'PROJ-2', current: false })],
 })
 const onHead = {
   ...inFlight,
-  branches: [{ name: 'fix/PROJ-2', issue_key: 'PROJ-2', current: true }],
+  branches: [makeTaskBranch({ name: 'fix/PROJ-2', issue_key: 'PROJ-2', current: true })],
 }
 const started = makeSnapshot({
-  branches: [{ name: 'feat/PROJ-3-metrics', issue_key: 'PROJ-3', current: true }],
+  branches: [makeTaskBranch({ name: 'feat/PROJ-3-metrics', issue_key: 'PROJ-3', current: true })],
 })
 const withPull = makeSnapshot({ review: { found: true, announced: false, pull } })
 

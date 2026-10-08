@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Issue } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeBranch, makeSnapshot, makeTask } from '@/test/fixtures.ts'
+import { makeBranch, makeSnapshot, makeTask, makeTaskBranch } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { checkoutBranch } from './checkoutApi.ts'
@@ -244,7 +244,7 @@ test('marks only the issues a local branch names as in flight', () => {
   useSnapshotStore.setState((state) => ({
     snapshot: state.snapshot && {
       ...state.snapshot,
-      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: true }],
+      branches: [makeTaskBranch({ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: true })],
     },
   }))
 
@@ -275,7 +275,7 @@ test('marks an issue in flight with the in-flight mark, beside the words', () =>
   useSnapshotStore.setState((state) => ({
     snapshot: state.snapshot && {
       ...state.snapshot,
-      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: true }],
+      branches: [makeTaskBranch({ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: true })],
     },
   }))
 
@@ -388,7 +388,7 @@ test('checks out an in-flight branch from the list without opening the detail', 
   useSnapshotStore.setState((state) => ({
     snapshot: state.snapshot && {
       ...state.snapshot,
-      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false }],
+      branches: [makeTaskBranch({ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false })],
     },
   }))
   renderWithClient(<IssuesPanel />)
@@ -408,7 +408,7 @@ test('the row names its switch by what it is doing while it runs', async () => {
   useSnapshotStore.setState((state) => ({
     snapshot: state.snapshot && {
       ...state.snapshot,
-      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false }],
+      branches: [makeTaskBranch({ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false })],
     },
   }))
   renderWithClient(<IssuesPanel />)
@@ -426,7 +426,7 @@ test('does not offer to switch to the branch already on HEAD', () => {
   useSnapshotStore.setState((state) => ({
     snapshot: state.snapshot && {
       ...state.snapshot,
-      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: true }],
+      branches: [makeTaskBranch({ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: true })],
     },
   }))
 
@@ -448,7 +448,7 @@ test('shows the reason when a list checkout is refused, with focus still on it',
   useSnapshotStore.setState((state) => ({
     snapshot: state.snapshot && {
       ...state.snapshot,
-      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false }],
+      branches: [makeTaskBranch({ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false })],
     },
   }))
   renderWithClient(<IssuesPanel />)
@@ -473,8 +473,8 @@ test('is not offered when a branch on HEAD exists among several for one issue', 
     snapshot: state.snapshot && {
       ...state.snapshot,
       branches: [
-        { name: 'feat/PROJ-1-redo', issue_key: 'PROJ-1', current: true },
-        { name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false },
+        makeTaskBranch({ name: 'feat/PROJ-1-redo', issue_key: 'PROJ-1', current: true }),
+        makeTaskBranch({ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false }),
       ],
     },
   }))
@@ -496,8 +496,8 @@ test('checks out the most recent branch when several name one issue', async () =
     snapshot: state.snapshot && {
       ...state.snapshot,
       branches: [
-        { name: 'feat/PROJ-1-redo', issue_key: 'PROJ-1', current: false },
-        { name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false },
+        makeTaskBranch({ name: 'feat/PROJ-1-redo', issue_key: 'PROJ-1', current: false }),
+        makeTaskBranch({ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false }),
       ],
     },
   }))
