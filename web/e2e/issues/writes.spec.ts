@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { IssueDetail, Snapshot, StatusChange } from '../../src/api/generated/types.gen.ts'
+import type { IssueDetail, StatusChange } from '../../src/api/generated/types.gen.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
+import { issuesOf, snapshotWith, streams } from '../support/fixtures.ts'
+import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // Changing a Jira issue from its detail: its status with the fields the change
 // needs, its assignee, and the work logged on it.
@@ -16,38 +17,7 @@ const issue = {
   priority: 'High',
 } as const
 
-const snapshot = {
-  issues: { total: 1, start_at: 0, unavailable: [], issues: [issue] },
-  branch: {
-    name: '',
-    issue_link: '',
-    detached: false,
-    head: '',
-    upstream: '',
-    push_remote: '',
-    ahead: 0,
-    behind: 0,
-    base: '',
-    commits: [],
-  },
-  changes: { changes: [] },
-  review: { found: false, announced: false },
-  messaging: {
-    kind: 'slack',
-    service: 'Slack',
-    configured: false,
-    channel: '',
-    channels: [],
-    author: '',
-  },
-  branches: [],
-  commit_types: ['feat', 'fix'],
-  subject_limit: 72,
-  suggested_scope: '',
-  hooks_unmanaged: 0,
-  tasks: { available: true, reason: '', linked: [] },
-  here: '/home/ana/src/api',
-} satisfies Snapshot
+const snapshot = snapshotWith({ issues: issuesOf([issue]) })
 
 // statusChanges are what PROJ-1 offers: one that needs nothing, and one to
 // Resolved whose form needs a date, a list and a choice.

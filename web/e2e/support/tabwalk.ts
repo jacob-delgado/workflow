@@ -1,13 +1,10 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
-import type { Snapshot } from '../../src/api/generated/types.gen.ts'
 
 // What the layout and accessibility specs share: a lap of the Tab order that
 // says which drawn controls it reached, which it never reached and which had
-// focus out of view, and a hermetic stream that answers with one snapshot, so
-// a spec can open a step before it walks or scans it; and what a layout is
-// held to beside the walk — nothing scrolls sideways, the page does not
-// scroll, and axe finds nothing.
+// focus out of view; and what a layout is held to beside the walk — nothing
+// scrolls sideways, the page does not scroll, and axe finds nothing.
 
 // A control counts as in view when this much of it is, allowing a rounding
 // pixel at a scrolled edge.
@@ -158,16 +155,6 @@ export async function walkTabOrder(page: Page): Promise<TabWalk> {
     missed: names.filter((_, index) => !reached.has(index)),
     hidden,
   }
-}
-
-// streams answers the event stream with one snapshot.
-export async function streams(page: Page, snapshot: Snapshot): Promise<void> {
-  await page.route('**/api/events**', (route) =>
-    route.fulfill({
-      contentType: 'text/event-stream',
-      body: `event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`,
-    }),
-  )
 }
 
 // sidewaysScrollers names what scrolls sideways: the page, or any part of it.

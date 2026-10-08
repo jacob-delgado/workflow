@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { PullRequest, Snapshot } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { axeViolations, sidewaysScrollers, streams, walkTabOrder } from '../support/tabwalk.ts'
+import { branchWith, snapshotWith, streams } from '../support/fixtures.ts'
+import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The Review section's writes on the branch's pull request — edit, merge,
 // finish, re-run — each from a form that is its last look.
@@ -17,19 +18,14 @@ const ready: PullRequest = {
   mergeable: 'clean',
 }
 
-// snapshotWith is the branch's pull request in a state, its CI in another.
-function snapshotWith(pull: PullRequest, ci: 'passed' | 'failed'): Snapshot {
-  return {
-    issues: { total: 0, start_at: 0, unavailable: [], issues: [] },
-    branch: {
+// withPull is the branch's pull request in a state, its CI in another.
+function withPull(pull: PullRequest, ci: 'passed' | 'failed'): Snapshot {
+  return snapshotWith({
+    branch: branchWith({
       name: 'fix/PROJ-1-redact',
-      issue_link: '',
-      detached: false,
       head: 'b2b2b2b',
       upstream: 'origin/fix/PROJ-1-redact',
       push_remote: 'origin',
-      ahead: 0,
-      behind: 0,
       base: 'origin/main',
       commits: [{ hash: 'b2b2b2b2', subject: 'fix: redact tokens', unpushed: false }],
       finish_commands: [
@@ -37,8 +33,7 @@ function snapshotWith(pull: PullRequest, ci: 'passed' | 'failed'): Snapshot {
         'git pull --ff-only',
         'git branch -D -- fix/PROJ-1-redact',
       ],
-    },
-    changes: { changes: [] },
+    }),
     review: {
       found: true,
       announced: false,
@@ -51,22 +46,7 @@ function snapshotWith(pull: PullRequest, ci: 'passed' | 'failed'): Snapshot {
         checks: [{ name: 'build', state: ci, url: '', id: '7', log_available: true }],
       },
     },
-    messaging: {
-      kind: 'slack',
-      service: 'Slack',
-      configured: false,
-      channel: '',
-      channels: [],
-      author: '',
-    },
-    branches: [],
-    commit_types: ['feat', 'fix'],
-    subject_limit: 72,
-    suggested_scope: '',
-    hooks_unmanaged: 0,
-    tasks: { available: true, reason: '', linked: [] },
-    here: '/home/ana/src/api',
-  }
+  })
 }
 
 // opensReview serves the pull request's writes and opens the Review section.
@@ -110,7 +90,7 @@ async function opensReview(page: Page, snapshot: Snapshot): Promise<string[]> {
 
 test('a merge goes by the method chosen, only from its preview', async ({ page }) => {
   // Arrange
-  const sent = await opensReview(page, snapshotWith(ready, 'passed'))
+  const sent = await opensReview(page, withPull(ready, 'passed'))
   await page.getByRole('button', { name: 'Merge', exact: true }).click()
   const preview = page.getByRole('form', { name: 'Merge #42' })
   await preview.getByRole('radio', { name: 'Rebase and merge' }).check()
@@ -162,7 +142,7 @@ for (const theme of themes) {
       await pinTheme(page, theme)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width: widths[0], height })
-      await opensReview(page, snapshotWith(look.pull, look.ci))
+      await opensReview(page, withPull(look.pull, look.ci))
       await page.getByRole('button', { name: look.button, exact: true }).click()
       await expect(page.getByRole('form', { name: look.form })).toBeVisible()
 
