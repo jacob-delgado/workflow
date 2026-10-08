@@ -143,7 +143,7 @@ func TestARefusedWriteChangesNothing(t *testing.T) {
 	}
 
 	// Act
-	recorder := sessionRequest{method: http.MethodPost, target: "/api/checkout", body: `{"branch":"main"}`}.
+	recorder := sessionRequest{method: http.MethodPost, target: checkoutPath, body: `{"branch":"main"}`}.
 		send(t, handler)
 
 	// Assert

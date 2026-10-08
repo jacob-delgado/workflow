@@ -54,11 +54,11 @@ func TestListReviewsAnswersTheForgeQueue(t *testing.T) {
 	want := []api.ReviewRequest{
 		{
 			Number: 42, URL: older.URL, Title: older.Title, Author: "ana", Repository: "ex/api",
-			Draft: true, Ci: api.CIStateFailed, OpenedAt: opened,
+			Draft: true, Ci: api.CIStateFailed, OpenedAt: &opened,
 		},
 		{
 			Number: 7, URL: newer.URL, Title: newer.Title, Author: "sam", Repository: "",
-			Draft: false, Ci: api.CIStatePassed, OpenedAt: newer.OpenedAt,
+			Draft: false, Ci: api.CIStatePassed, OpenedAt: &newer.OpenedAt,
 		},
 	}
 
@@ -68,9 +68,9 @@ func TestListReviewsAnswersTheForgeQueue(t *testing.T) {
 }
 
 // sameRequest is whether two review requests on the wire match, comparing the
-// time with Equal, since a decoded time carries no monotonic reading.
+// times with Equal, since a decoded time carries no monotonic reading.
 func sameRequest(got, want api.ReviewRequest) bool {
-	sameTime := got.OpenedAt.Equal(want.OpenedAt)
+	sameTime := got.OpenedAt != nil && want.OpenedAt != nil && got.OpenedAt.Equal(*want.OpenedAt)
 	got.OpenedAt = want.OpenedAt
 
 	return sameTime && got == want

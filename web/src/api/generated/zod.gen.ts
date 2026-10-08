@@ -246,7 +246,7 @@ export const zRepoGroupsRequest = z.object({
  * The branch to check out.
  */
 export const zCheckoutRequest = z.object({
-    branch: z.string()
+    branch: z.string().min(1)
 });
 
 export const zUnmanagedHook = z.object({
@@ -326,7 +326,7 @@ export const zFileDiff = z.object({
  * The issue to start work on in a new worktree.
  */
 export const zCreateWorktreeRequest = z.object({
-    issue_key: z.string(),
+    issue_key: z.string().min(1),
     fetch: z.boolean().optional().default(true)
 });
 
@@ -343,7 +343,7 @@ export const zCreatedWorktree = z.object({
  * The issue to start work on by creating its branch.
  */
 export const zCreateBranchRequest = z.object({
-    issue_key: z.string(),
+    issue_key: z.string().min(1),
     fetch: z.boolean().optional().default(true)
 });
 
@@ -544,7 +544,7 @@ export const zIssuesPage = z.object({
 export const zComment = z.object({
     author: z.string(),
     body: z.string(),
-    created: z.iso.datetime({ offset: true })
+    created: z.iso.datetime({ offset: true }).optional()
 });
 
 export const zIssueDetail = z.object({
@@ -850,7 +850,7 @@ export const zReviewRequest = z.object({
     repository: z.string(),
     draft: z.boolean(),
     ci: zCiState,
-    opened_at: z.iso.datetime({ offset: true })
+    opened_at: z.iso.datetime({ offset: true }).optional()
 });
 
 export const zReviewQueue = z.object({
@@ -886,6 +886,12 @@ export const zReview = z.object({
 });
 
 export const zMessagingDestination = z.object({
+    kind: z.enum([
+        'slack',
+        'teams',
+        'discord',
+        'webhook'
+    ]),
     service: z.string(),
     configured: z.boolean(),
     channel: z.string(),
@@ -1099,8 +1105,8 @@ export const zPostLength = z.object({
  * The period a Summary is of, its Markdown to post, and where.
  */
 export const zActivityPostRequest = z.object({
-    from: z.string(),
-    to: z.string(),
+    from: z.iso.date(),
+    to: z.iso.date(),
     text: z.string().max(40000),
     channel: z.string().max(200).optional()
 });
@@ -1109,8 +1115,8 @@ export const zActivityPostRequest = z.object({
  * A Summary as it was posted.
  */
 export const zActivityPost = z.object({
-    from: z.string(),
-    to: z.string(),
+    from: z.iso.date(),
+    to: z.iso.date(),
     channel: z.string(),
     destination: z.string(),
     text: z.string()
@@ -1176,9 +1182,9 @@ export const zActivitySource = z.object({
 });
 
 export const zActivity = z.object({
-    from: z.string(),
-    to: z.string(),
-    today: z.string(),
+    from: z.iso.date(),
+    to: z.iso.date(),
+    today: z.iso.date(),
     sources: z.array(zActivitySource),
     years: z.array(zActivityYear),
     text: z.string(),
@@ -1676,8 +1682,8 @@ export const zModifyTaskPath = z.object({
 export const zModifyTaskResponse = zTaskList;
 
 export const zGetActivityQuery = z.object({
-    from: z.string().optional(),
-    to: z.string().optional()
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional()
 });
 
 /**

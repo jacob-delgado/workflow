@@ -57,8 +57,10 @@ export function byRepository(requests: ReviewRequest[]): RepositoryGroup[] {
   return groups
 }
 
+// openedAt is when request was opened, by the clock; one the forge gave no
+// time for counts as the earliest, as the server's own order has it.
 function openedAt(request: ReviewRequest): number {
-  return Date.parse(request.opened_at)
+  return request.opened_at === undefined ? Number.MIN_SAFE_INTEGER : Date.parse(request.opened_at)
 }
 
 // byteOrder compares code unit by code unit, as Go's strings.Compare does

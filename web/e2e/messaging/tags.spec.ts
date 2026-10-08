@@ -40,6 +40,7 @@ const snapshot = {
   changes: { changes: [] },
   review: { found: true, announced: false, pull },
   messaging: {
+    kind: 'slack',
     service: 'Slack',
     configured: true,
     channel: '#dev',

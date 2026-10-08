@@ -151,6 +151,7 @@ export const mockSnapshot: Snapshot = {
     },
   },
   messaging: {
+    kind: 'slack',
     service: 'Slack',
     configured: true,
     channel: '#dev-workflow',
