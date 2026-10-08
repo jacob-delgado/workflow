@@ -129,7 +129,7 @@ func (m Model) offerTrackAndStart(issue jira.Issue) func(Model) (Model, tea.Cmd)
 		Key: string(issue.Key), Summary: issue.Summary, URL: track.url, Priority: issue.Priority,
 	})
 	line := taskLine{
-		title: "Track and start " + string(issue.Key), command: addCommand, write: addLine(m.deps.Tasks.Add),
+		title: "Track and start " + shownKey(issue.Key), command: addCommand, write: addLine(m.deps.Tasks.Add),
 		after: track.follow(m.deps.Tasks), heldBack: track.heldBack(), tracks: issue.Key,
 	}
 
@@ -168,7 +168,7 @@ func (m Model) offerStopThenTrack(started []taskwarrior.Task, issue jira.Issue) 
 	stop, track := m.deps.Tasks.Stop, m.offerTrackAndStart(issue)
 	look := lastLook{
 		title: "Switch the task", verb: verbSwitch, doing: "stopping",
-		body: "Stop " + eachTask(started, describedTask) + ", then track and start " + string(issue.Key) + "?",
+		body: "Stop " + eachTask(started, describedTask) + ", then track and start " + shownKey(issue.Key) + "?",
 	}
 	look.proceed = func(m Model) (Model, tea.Cmd) {
 		switch {

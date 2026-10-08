@@ -164,7 +164,7 @@ func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[statusPicker](m, msg.err), nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.done + " " + string(msg.issueKey) + " is now " + msg.to.ToStatus)
+	m = m.closeOverlay().noticed(m.marks.done + " " + shownKey(msg.issueKey) + " is now " + msg.to.ToStatus)
 	m.followUp = m.offerForMove(msg.issueKey, msg.to)
 	m, detail := m.searching().reloadDetail(msg.issueKey)
 
@@ -262,7 +262,7 @@ func (m Model) offersReviewStatus() bool {
 // blank. The view draws it and the click measures it, so a change to one cannot
 // silently break the other's row math.
 func (p statusPicker) header() []string {
-	return []string{string(p.issue.Key) + " " + p.issue.Summary, "status  " + p.issue.Status, ""}
+	return []string{shownKey(p.issue.Key) + " " + p.issue.Summary, "status  " + p.issue.Status, ""}
 }
 
 // view draws the picker in as many rows as fit.
@@ -275,7 +275,7 @@ func (p statusPicker) view(width, rows int) (string, string) {
 	case p.listErr != nil:
 		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
 	case len(p.transitions.items) == 0:
-		lines = append(lines, "Jira offers no status change for "+string(p.issue.Key))
+		lines = append(lines, "Jira offers no status change for "+shownKey(p.issue.Key))
 	case p.form.open():
 		lines = append(lines, p.form.view(p.marks, p.styles, width, rows-len(lines)-outcomeRows)...)
 		lines = append(lines, p.outcome()...)
@@ -299,7 +299,7 @@ func (p statusPicker) outcome() []string {
 	case p.send.sending:
 		chosen, _ := p.transitions.chosen()
 
-		return []string{"", "changing " + string(p.issue.Key) + " to " + chosen.ToStatus + p.marks.ellipsis}
+		return []string{"", "changing " + shownKey(p.issue.Key) + " to " + chosen.ToStatus + p.marks.ellipsis}
 	case p.send.err != nil:
 		return []string{"", failureLine(p.styles, p.marks, p.send.err)}
 	default:
@@ -386,7 +386,7 @@ func (p statusPicker) apply(m Model, chosen jira.Transition, values []jira.Field
 	issueKey := p.issue.Key
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would change " + string(issueKey) + " to " + chosen.ToStatus), nil
+		return m.closeOverlay().noticed("dry run: would change " + shownKey(issueKey) + " to " + chosen.ToStatus), nil
 	}
 
 	p.send = starting()

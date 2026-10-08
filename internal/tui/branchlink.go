@@ -244,7 +244,7 @@ func (l branchLinker) choose(m Model) (Model, tea.Cmd) {
 // first so a forge that refuses it leaves the branch as it was.
 func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would link " + l.branch + " to " + string(l.chosen)), nil
+		return m.closeOverlay().noticed("dry run: would link " + l.branch + " to " + shownKey(l.chosen)), nil
 	}
 
 	l.send = starting()
@@ -315,7 +315,7 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 // said is what the link did, in the words its key offered: the branch linked,
 // and the pull request's description updated when it was.
 func (msg branchLinked) said(sigil string) string {
-	linked := "linked " + msg.branch + " to " + string(msg.issueKey)
+	linked := "linked " + msg.branch + " to " + shownKey(msg.issueKey)
 	if !msg.described {
 		return linked
 	}
