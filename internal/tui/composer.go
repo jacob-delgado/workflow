@@ -39,8 +39,9 @@ const (
 	composerFields
 )
 
-// commitDraft is a commit message being written, kept when a commit fails so
-// the composer opens on it again.
+// commitDraft is a commit message being written, kept when the composer closes
+// without a commit made — esc, a refused commit, a dry run — so it opens on it
+// again.
 type commitDraft struct {
 	kind, scope, subject, body string
 	breaking                   bool
@@ -72,8 +73,7 @@ var (
 	_ pasteable = commitComposer{}
 )
 
-// openCommitComposer opens the composer on the last draft, if a commit failed,
-// or on a fresh one.
+// openCommitComposer opens the composer on the draft kept, or on a fresh one.
 func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	if m.deps.Git.Commit == nil {
 		return m, nil
@@ -379,11 +379,12 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	m.draft = c.draft()
+
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would commit " + subject.String()), nil
 	}
 
-	m.draft = c.draft()
 	message, commit := c.conv.Message(subject, c.body, string(c.issueKey)), m.deps.Git.Commit
 
 	return m.startRun(commitRun(), func() (proc.Output, error) { return commit(message) },
