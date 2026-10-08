@@ -229,38 +229,38 @@ func (s tagSection) interactive() bool {
 }
 
 // lines draws the section below the destination.
-func (s tagSection) lines(marks glyphs, sty styles, width int) []string {
+func (s tagSection) lines(kit renderKit, width int) []string {
 	switch {
 	case !s.shown():
 		return nil
 	case s.missingScope() != "":
-		return []string{failedGlyph(sty, marks) + " tagging needs the " + s.missingScope() + " scope; this posts untagged"}
+		return []string{kit.failedGlyph() + " tagging needs the " + s.missingScope() + " scope; this posts untagged"}
 	case s.workspaceErr != nil:
-		return []string{failureBlock(sty, marks, s.workspaceErr, width), "this posts untagged"}
+		return []string{kit.failureBlock(s.workspaceErr, width), "this posts untagged"}
 	case s.reading:
-		return []string{marks.inFlight + " reading whom to tag" + marks.ellipsis}
+		return []string{kit.marks.inFlight + " reading whom to tag" + kit.marks.ellipsis}
 	}
 
-	lines := slices.Concat(s.ownerLines(marks), s.groupLines(marks), s.failureLines(marks, sty, width))
+	lines := slices.Concat(s.ownerLines(kit.marks), s.groupLines(kit.marks), s.failureLines(kit, width))
 
 	return append(lines, "tags  "+s.summary())
 }
 
 // failureLines say what could not be read or saved, and the scope groups
 // need when the token lacks it.
-func (s tagSection) failureLines(marks glyphs, sty styles, width int) []string {
+func (s tagSection) failureLines(kit renderKit, width int) []string {
 	var lines []string
 
 	groupsErr := s.groups.err
 	if scope := s.groups.missingScope(); scope != "" {
 		groupsErr = nil
 
-		lines = append(lines, failedGlyph(sty, marks)+" tagging groups needs the "+scope+" scope")
+		lines = append(lines, kit.failedGlyph()+" tagging groups needs the "+scope+" scope")
 	}
 
 	for _, err := range []error{s.readErr, s.members.err, groupsErr, s.linkErr} {
 		if err != nil && !errors.Is(err, messaging.ErrNoUserGroups) {
-			lines = append(lines, failureBlock(sty, marks, err, width))
+			lines = append(lines, kit.failureBlock(err, width))
 		}
 	}
 

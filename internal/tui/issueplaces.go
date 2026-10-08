@@ -176,14 +176,14 @@ func (l issueList) narrowingLine(marks glyphs) string {
 // issue. There is no column until the branches could be listed, since a column
 // of "no branch" would claim what is not known, nor while no listed issue has a
 // branch, when it would say nothing.
-func (l issueList) inFlightColumn(marks glyphs, sty styles, issueKey jira.Key) string {
+func (l issueList) inFlightColumn(kit renderKit, issueKey jira.Key) string {
 	switch {
 	case !l.branchesKnown || !l.anyInFlight():
 		return ""
 	case l.branchKeys[issueKey]:
-		return sty.git.Render(marks.inFlight)
+		return kit.styles.git.Render(kit.marks.inFlight)
 	default:
-		return marks.unknown
+		return kit.marks.unknown
 	}
 }
 

@@ -76,68 +76,56 @@ func markOf(marks glyphs, err error) string {
 // and the one place the interface decides between the two: what was never set
 // up is guidance, plain, with the not-started mark, since nothing was asked and
 // nothing refused; anything else broke, and is red with the failure mark.
-func voice(sty styles, marks glyphs, err error) (string, lipgloss.Style) {
+func (kit renderKit) voice(err error) (string, lipgloss.Style) {
 	if loop.NotSetUp(err) {
-		return marks.notStarted, lipgloss.NewStyle()
+		return kit.marks.notStarted, lipgloss.NewStyle()
 	}
 
-	return marks.failed, sty.failure
+	return kit.marks.failed, kit.styles.failure
 }
 
 // voicedMark is a cause's mark in its voice's style.
-func voicedMark(sty styles, marks glyphs, err error) string {
-	mark, style := voice(sty, marks, err)
+func (kit renderKit) voicedMark(err error) string {
+	mark, style := kit.voice(err)
 
 	return style.Render(mark)
 }
 
-// failedGlyph is the failure mark in red, so red always means something broke —
-// the free form lets a seam that carries only styles and glyphs redden it too.
-func failedGlyph(sty styles, marks glyphs) string {
-	return sty.failure.Render(marks.failed)
-}
-
-// failedGlyph is failedGlyph for a Model.
-func (m Model) failedGlyph() string {
-	return failedGlyph(m.styles, m.marks)
+// failedGlyph is the failure mark in red, so red always means something broke.
+func (kit renderKit) failedGlyph() string {
+	return kit.styles.failure.Render(kit.marks.failed)
 }
 
 // failureSummary is a failure on a summary row — a rail, and the line a detail
 // repeats from it: the red mark and the error in brief.
-func (m Model) failureSummary(err error) string {
-	return voicedMark(m.styles, m.marks, err) + " " + briefly(err)
+func (kit renderKit) failureSummary(err error) string {
+	return kit.voicedMark(err) + " " + briefly(err)
 }
 
 // unreadRow is a rail's row for a load that did not answer, pointing at the
 // detail that tells why: what failed, in the failure voice, or that it is not
 // set up, as guidance.
-func unreadRow(sty styles, marks glyphs, err error, failed string) string {
+func (kit renderKit) unreadRow(err error, failed string) string {
 	if loop.NotSetUp(err) {
 		failed = "not set up"
 	}
 
-	return voicedMark(sty, marks, err) + " " + failed + marks.separator + "see detail"
+	return kit.voicedMark(err) + " " + failed + kit.marks.separator + "see detail"
 }
 
 // failureLine is a failure on a row of its own with room to spare — an
 // overlay's outcome, a field's problem, a run's headline: the red mark and the
-// error in full, on the one row. The free form serves an overlay, which draws
-// with styles and glyphs but no Model.
-func failureLine(sty styles, marks glyphs, err error) string {
-	return voicedMark(sty, marks, err) + " " + inFull(err)
-}
-
-// failureLine is failureLine for a Model.
-func (m Model) failureLine(err error) string {
-	return failureLine(m.styles, m.marks, err)
+// error in full, on the one row.
+func (kit renderKit) failureLine(err error) string {
+	return kit.voicedMark(err) + " " + inFull(err)
 }
 
 // failureBlock is a failure given room of its own — a pane, an overlay's pinned
 // outcome: recognized as a sentence like failure, wrapped to a width and styled
 // per row, so every row opens and closes its own color and none runs on into
 // the border beside it.
-func failureBlock(sty styles, marks glyphs, err error, width int) string {
-	mark, style := voice(sty, marks, err)
+func (kit renderKit) failureBlock(err error, width int) string {
+	mark, style := kit.voice(err)
 
 	words, known := errorSentence(err)
 	if !known {
@@ -149,34 +137,29 @@ func failureBlock(sty styles, marks glyphs, err error, width int) string {
 	}
 
 	return style.Render(wrap(mark+" "+words.full, width)) + "\n" +
-		sty.label.Render(wrap(ownText(err), width))
-}
-
-// failureBlock is failureBlock for a Model.
-func (m Model) failureBlock(err error, width int) string {
-	return failureBlock(m.styles, m.marks, err, width)
+		kit.styles.label.Render(wrap(ownText(err), width))
 }
 
 // pinnedProblem is what a form finds wrong with what was typed, drawn under its
 // title as its pinned outcome is and wrapped the same way; nothing when
 // nothing is.
-func pinnedProblem(sty styles, marks glyphs, problem error, width int) []string {
+func (kit renderKit) pinnedProblem(problem error, width int) []string {
 	if problem == nil {
 		return nil
 	}
 
-	return []string{failureBlock(sty, marks, problem, width), ""}
+	return []string{kit.failureBlock(problem, width), ""}
 }
 
 // pinnedOutcome is an overlay's outcome — the in-flight word or the refusal —
 // drawn under the title rather than at the bottom, so a long reason is wrapped
 // and seen instead of clipped below the fold. Empty when nothing has happened.
-func pinnedOutcome(sty styles, marks glyphs, send sendState, doing string, width int) []string {
+func (kit renderKit) pinnedOutcome(send sendState, doing string, width int) []string {
 	switch {
 	case send.sending:
-		return []string{doing + marks.ellipsis, ""}
+		return []string{doing + kit.marks.ellipsis, ""}
 	case send.err != nil:
-		return []string{failureBlock(sty, marks, send.err, width), ""}
+		return []string{kit.failureBlock(send.err, width), ""}
 	default:
 		return nil
 	}

@@ -127,9 +127,9 @@ func (l taskLine) outcome(kit renderKit, width int) []string {
 	case l.sending.sending:
 		return []string{"", "sending" + kit.marks.ellipsis}
 	case l.sending.err != nil:
-		return []string{"", wrap(failureLine(kit.styles, kit.marks, l.sending.err), width)}
+		return []string{"", wrap(kit.failureLine(l.sending.err), width)}
 	case l.problem != nil:
-		return []string{"", failureLine(kit.styles, kit.marks, l.problem)}
+		return []string{"", kit.failureLine(l.problem)}
 	default:
 		return nil
 	}

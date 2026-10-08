@@ -229,7 +229,7 @@ var _ failable[lastLook] = lastLook{}
 
 // view names the act and what it acts on, its outcome pinned under the title.
 func (l lastLook) view(kit renderKit, width, _ int) (string, string) {
-	lines := pinnedOutcome(kit.styles, kit.marks, l.send, l.doing, width)
+	lines := kit.pinnedOutcome(l.send, l.doing, width)
 
 	return l.title, strings.Join(append(lines, wrap(l.body, width)), "\n")
 }

@@ -97,7 +97,7 @@ func (m Model) branchRail(_ int) string {
 	case !m.branch.loaded:
 		return m.marks.reading()
 	case m.branch.err != nil:
-		return unreadRow(m.styles, m.marks, m.branch.err, "could not read the branch")
+		return m.kit().unreadRow(m.branch.err, "could not read the branch")
 	case m.branch.branch.Detached:
 		return "detached HEAD"
 	}
@@ -139,12 +139,12 @@ func (m Model) branchDetail(width int) string {
 	case !m.branch.loaded:
 		return m.branchRail(0)
 	case m.outsideRepository():
-		return m.failureBlock(m.branch.err, width)
+		return m.kit().failureBlock(m.branch.err, width)
 	case m.branch.err != nil:
 		// Why, in the words of whatever refused: a directory that is no
 		// repository is one reason among several, and only the reason says
 		// what to do about it.
-		return wrap(m.branchRail(0), width) + "\n\n" + m.failureBlock(m.branch.err, width)
+		return wrap(m.branchRail(0), width) + "\n\n" + m.kit().failureBlock(m.branch.err, width)
 	case m.branch.branch.Detached:
 		return wrap(m.branchRail(0)+"\n\nCheck out a branch, or press "+m.keys.newBranch.Help().Key+
 			" to start one for the selected issue.", width)

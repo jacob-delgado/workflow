@@ -84,8 +84,8 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 // to, with how sending is going or why the form cannot send pinned under the
 // title, so a long refusal is wrapped and seen rather than clipped.
 func (l branchLinker) view(kit renderKit, width, _ int) (string, string) {
-	lines := append(pinnedOutcome(kit.styles, kit.marks, l.send, l.doing(), width),
-		pinnedProblem(kit.styles, kit.marks, l.problem, width)...)
+	lines := append(kit.pinnedOutcome(l.send, l.doing(), width),
+		kit.pinnedProblem(l.problem, width)...)
 
 	if l.linked != "" {
 		lines = append(lines, l.branch+" is linked to "+shownKey(l.linked)+".")

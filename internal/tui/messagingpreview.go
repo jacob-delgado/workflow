@@ -105,9 +105,9 @@ var (
 // view shows the message as it will be posted, where, and how CI stands, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
 func (p messagingPreview) view(kit renderKit, width, _ int) (string, string) {
-	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "announcing", width)
+	lines := kit.pinnedOutcome(p.send, "announcing", width)
 	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
-	lines = append(lines, p.tagging.lines(kit.marks, kit.styles, width)...)
+	lines = append(lines, p.tagging.lines(kit, width)...)
 
 	return "Announce to " + p.service, strings.Join(lines, "\n")
 }

@@ -254,10 +254,10 @@ func (r commandRun) state(kit renderKit) string {
 // cause, a message that could not be written say, is told as every failure is.
 func (r commandRun) failureHeadline(kit renderKit) string {
 	if errors.Is(r.err, proc.ErrExitStatus) {
-		return failedGlyph(kit.styles, kit.marks) + " " + r.kind.refusal
+		return kit.failedGlyph() + " " + r.kind.refusal
 	}
 
-	return failureLine(kit.styles, kit.marks, r.err)
+	return kit.failureLine(r.err)
 }
 
 // jobs is lefthook's jobs, each with its glyph, when the output is lefthook's.
@@ -268,7 +268,7 @@ func (r commandRun) jobs(kit renderKit) string {
 	for _, job := range parsed {
 		glyph := map[hooks.JobState]string{
 			hooks.JobRunning: kit.marks.inFlight, hooks.JobPassed: kit.marks.done,
-			hooks.JobFailed: failedGlyph(kit.styles, kit.marks), hooks.JobSkipped: kit.marks.notStarted,
+			hooks.JobFailed: kit.failedGlyph(), hooks.JobSkipped: kit.marks.notStarted,
 		}[job.State]
 		parts = append(parts, glyph+" "+job.Name)
 	}

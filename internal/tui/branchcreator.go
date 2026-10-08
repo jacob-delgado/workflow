@@ -75,7 +75,7 @@ func (m Model) baseAge() string {
 func (c branchCreator) view(kit renderKit, width, _ int) (string, string) {
 	c.input.SetWidth(max(1, width-len(c.input.Prompt)-1))
 
-	lines := pinnedOutcome(kit.styles, kit.marks, c.send, "creating", width)
+	lines := kit.pinnedOutcome(c.send, "creating", width)
 	if c.forIssue {
 		lines = append(lines, "for "+shownKey(c.issue.Key)+" "+c.issue.Summary, "")
 	}
@@ -87,7 +87,7 @@ func (c branchCreator) view(kit renderKit, width, _ int) (string, string) {
 	}
 
 	if c.fetchProblem != nil {
-		lines = append(lines, "", failureLine(kit.styles, kit.marks, c.fetchProblem),
+		lines = append(lines, "", kit.failureLine(c.fetchProblem),
 			"could not fetch; "+c.applyKey+" branches from what you already have")
 	}
 

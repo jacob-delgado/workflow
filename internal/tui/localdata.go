@@ -86,7 +86,7 @@ func (d localData) view(kit renderKit, width, _ int) (string, string) {
 	case d.reading:
 		lines = append(lines, "reading the local data"+kit.marks.ellipsis)
 	case d.err != nil:
-		lines = append(lines, failureBlock(kit.styles, kit.marks, d.err, width))
+		lines = append(lines, kit.failureBlock(d.err, width))
 	case len(d.files) == 0:
 		lines = append(lines, "Kept in "+d.dir, "", "No local data: there is nothing to remove.")
 	default:

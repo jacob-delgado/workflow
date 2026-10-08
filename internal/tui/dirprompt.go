@@ -75,7 +75,7 @@ func (p dirPrompt) view(kit renderKit, width, _ int) (string, string) {
 	case p.looking:
 		lines = append(lines, "", "reading"+kit.marks.ellipsis)
 	case p.problem != nil:
-		lines = append(lines, "", failureLine(kit.styles, kit.marks, p.problem))
+		lines = append(lines, "", kit.failureLine(p.problem))
 	case p.note != "":
 		lines = append(lines, "", p.note)
 	}

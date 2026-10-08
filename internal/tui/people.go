@@ -185,7 +185,7 @@ func (msg peopleListed) apply(m Model) (Model, tea.Cmd) {
 
 // view draws the refusal pinned under the title, the tabs, and the tab shown.
 func (p peopleOverlay) view(kit renderKit, width, rows int) (string, string) {
-	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "saving", width)
+	lines := kit.pinnedOutcome(p.send, "saving", width)
 	lines = append(lines, p.tabs(kit), "")
 
 	body := map[peopleTab]func(renderKit, int, int) []string{tabPeople: p.peopleLines, tabGroups: p.groupLines}[p.tab]
@@ -208,7 +208,7 @@ func (p peopleOverlay) peopleLines(kit renderKit, width, rows int) []string {
 	case p.reading:
 		return []string{kit.marks.inFlight + " reading who was decided" + kit.marks.ellipsis}
 	case p.readErr != nil:
-		return []string{failureBlock(kit.styles, kit.marks, p.readErr, width)}
+		return []string{kit.failureBlock(p.readErr, width)}
 	case len(p.people.items) == 0:
 		return []string{"nobody decided yet, and no code owner of this branch's changes to ask about"}
 	default:

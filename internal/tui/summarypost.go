@@ -74,7 +74,7 @@ func (p summaryPost) destination() string {
 // against what the service takes, its outcome pinned under the title so a
 // long refusal is seen, not clipped.
 func (p summaryPost) view(kit renderKit, width, _ int) (string, string) {
-	lines := pinnedOutcome(kit.styles, kit.marks, p.send, "posting", width)
+	lines := kit.pinnedOutcome(p.send, "posting", width)
 	lines = append(lines, wrap(p.text, width), "",
 		"to  "+p.destination()+", "+loop.SummaryLength(p.kind, p.text).String())
 
