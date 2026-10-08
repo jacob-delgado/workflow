@@ -307,3 +307,14 @@ func TestAPasteOnALinkedBranchTypesNothing(t *testing.T) {
 	refuseScreen(t, view, "#57")
 	requireScreen(t, view, offConvention+" is linked to "+issueKey)
 }
+
+func TestTheLinkFormOffersOnlyTheLinkUntilADescriptionIsShown(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, onOffConventionBranch(true).live(t, 120, 40), "2", "i").View().Content
+
+	// Assert
+	requireScreen(t, footerLine(view), "enter link")
+	refuseScreen(t, footerLine(view), "update the description")
+}
