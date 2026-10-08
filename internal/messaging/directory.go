@@ -409,7 +409,7 @@ func (c Client) get(
 	request.Header.Set("Authorization", "Bearer "+token.Reveal())
 	request.Header.Set("Accept", "application/json")
 
-	raw, err := c.deliver(request)
+	raw, err := c.deliver(request, refusedRead)
 	if err != nil {
 		return nil, listing{}, err
 	}

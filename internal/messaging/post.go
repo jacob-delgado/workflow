@@ -219,7 +219,7 @@ func (c Client) postJSON(ctx context.Context, address string, payload any, heade
 	request.Header = header
 	request.Header.Set("Content-Type", jsonContent)
 
-	return c.deliver(request)
+	return c.deliver(request, refusedPost)
 }
 
 // rejectionReason turns Slack's error code into a sentence that names the fix,
@@ -243,9 +243,10 @@ func rejectionReason(code, channel string) string {
 	return code
 }
 
-// deliver performs a post and returns the body of any 2xx answer. Neither error
-// names the address: for a webhook, the address is the credential.
-func (c Client) deliver(request *http.Request) ([]byte, error) {
+// deliver performs a request and returns the body of any 2xx answer, and a 4xx
+// as refused says it is, from its status and reason. Neither error names the
+// address: for a webhook, the address is the credential.
+func (c Client) deliver(request *http.Request, refused func(status int, reason string) error) ([]byte, error) {
 	response, err := c.do(request)
 	if err != nil {
 		return nil, httpx.Unreachable(ErrUnreachable, "", err)
@@ -258,7 +259,7 @@ func (c Client) deliver(request *http.Request) ([]byte, error) {
 	case status == http.StatusTooManyRequests:
 		return nil, httpx.RateLimited(response.Header)
 	case status >= http.StatusBadRequest && status < http.StatusInternalServerError:
-		return nil, refusedPost(status, c.reasonIn(response.Body))
+		return nil, refused(status, c.reasonIn(response.Body))
 	default:
 		return nil, fmt.Errorf("%w: %d", ErrUnexpectedStatus, status)
 	}
@@ -328,6 +329,12 @@ func refusedPost(status int, reason string) error {
 	}
 
 	return PostRefusedError{Reason: reason}
+}
+
+// refusedRead is a 4xx a directory read was answered with: a read has no
+// message to refuse, so it is the credential the service would not accept.
+func refusedRead(_ int, reason string) error {
+	return fmt.Errorf("%w: %s", ErrRejected, reason)
 }
 
 // webhookCredentialCodes are the codes a Slack incoming webhook answers with

@@ -411,3 +411,22 @@ func TestParseSlackIDsAcceptsOnlyTheirShape(t *testing.T) {
 		})
 	}
 }
+
+func TestADirectoryReadAnsweredWithA4xxIsNoMessageRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Only a post has a message to refuse.
+	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusBadRequest)
+		_, _ = writer.Write([]byte("invalid_arguments"))
+	})
+
+	// Act
+	_, err := client.Users(t.Context())
+
+	// Assert
+	if !errors.Is(err, messaging.ErrRejected) || errors.Is(err, messaging.ErrPostRefused) {
+		t.Errorf("Users = %v, want the read rejected, not a message refused", err)
+	}
+}
