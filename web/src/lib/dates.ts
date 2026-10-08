@@ -1,9 +1,13 @@
-// Every date the web writes is written here, in one locale: the interface's
-// copy is English, so its dates read the way that copy does, whatever the
-// browser reports. Two styles, one for running text — YYYY-MM-DD, as the
-// terminal writes every date — and one for a heading, so the same day reads
-// the same a section apart, and the same on both interfaces.
+// Every date the web writes is written here, in one locale, and so is every
+// count: the interface's copy is English, so its dates and numbers read the
+// way that copy does, whatever the browser reports. Two styles of date, one
+// for running text — YYYY-MM-DD, as the terminal writes every date — and one
+// for a heading, so the same day reads the same a section apart, and the same
+// on both interfaces.
 const locale = 'en-US'
+
+// A calendar date as the server and the terminal write one: YYYY-MM-DD.
+const civilPattern = /^(\d{4})-(\d{2})-(\d{2})$/
 
 const heading: Intl.DateTimeFormatOptions = {
   weekday: 'long',
@@ -21,25 +25,36 @@ export function writtenDate(at: Date): string {
   return `${String(at.getFullYear())}-${month}-${day}`
 }
 
-// writtenDay is a calendar date, YYYY-MM-DD, as running text says it.
+// writtenDay is a calendar date as running text says it: as it is written,
+// YYYY-MM-DD. Text the server sent that is no calendar date is shown as it
+// came, as headingDay shows it.
 export function writtenDay(date: string): string {
-  return civilNoon(date).toISOString().slice(0, 10)
+  return date
 }
 
 // headingDay is a calendar date, YYYY-MM-DD, as a heading or a day's
-// accessible name says it: Tuesday, September 15, 2026.
+// accessible name says it: Tuesday, September 15, 2026. Text that is no
+// calendar date is shown as it came.
 export function headingDay(date: string): string {
-  return civilNoon(date).toLocaleDateString(locale, { ...heading, timeZone: 'UTC' })
+  const noon = calendarNoon(date)
+
+  return noon === null ? date : noon.toLocaleDateString(locale, { ...heading, timeZone: 'UTC' })
 }
 
 // monthHeading is a month (1–12) of a year as a heading names it: September
 // 2026.
 export function monthHeading(year: number, month: number): string {
-  return new Date(Date.UTC(year, month - 1, 1, 12)).toLocaleDateString(locale, {
+  return civilNoon(year, month, 1).toLocaleDateString(locale, {
     month: 'long',
     year: 'numeric',
     timeZone: 'UTC',
   })
+}
+
+// writtenCount is a count as the copy writes a number: its thousands marked,
+// 1,234.
+export function writtenCount(count: number): string {
+  return count.toLocaleString(locale)
 }
 
 // writtenMoment is a moment's whole date and its time, for where the exact
@@ -146,10 +161,27 @@ function wordsAgo(elapsed: number): string {
     : relativeTime(-Math.floor(elapsed / day), 'day')
 }
 
-// civilNoon is noon UTC on a calendar date, so formatting it in UTC can never
-// land on the day before or after.
-function civilNoon(date: string): Date {
-  const [year, month, day] = date.split('-').map(Number)
+// civilNoon is noon UTC on a day of the calendar, its month 1–12: an instant
+// no clock change moves off its day, so formatting it in UTC can never land on
+// the day before or after.
+export function civilNoon(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month - 1, day, 12))
+}
 
-  return new Date(Date.UTC(year ?? 1, (month ?? 1) - 1, day ?? 1, 12))
+// civilDay is the calendar date an instant falls on in UTC, YYYY-MM-DD.
+export function civilDay(instant: Date): string {
+  return instant.toISOString().slice(0, 10)
+}
+
+// calendarNoon is noon UTC on a calendar date written YYYY-MM-DD, or null for
+// text that is not one or names a day its month does not have.
+export function calendarNoon(date: string): Date | null {
+  const match = civilPattern.exec(date)
+  if (match === null) {
+    return null
+  }
+
+  const noon = civilNoon(Number(match[1]), Number(match[2]), Number(match[3]))
+
+  return civilDay(noon) === date ? noon : null
 }

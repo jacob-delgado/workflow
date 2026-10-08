@@ -1,3 +1,5 @@
+import { calendarNoon, civilDay, civilNoon, day } from '@/lib/dates.ts'
+
 // Trade-off TRADE-33: these are internal/activity's dates written again, so
 // the calendar can move and pick a period with no request; twin-named cases in
 // civilDate.test.ts and period_test.go pin the two together.
@@ -12,19 +14,6 @@ export interface Period {
   to: CivilDate
 }
 
-const dayMs = 24 * 60 * 60 * 1000
-const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/
-
-// noon is the date at noon UTC, an instant no clock change moves off its day.
-function noon(year: number, month: number, day: number): Date {
-  return new Date(Date.UTC(year, month - 1, day, 12))
-}
-
-// written is an instant's day in UTC, YYYY-MM-DD.
-function written(instant: Date): CivilDate {
-  return instant.toISOString().slice(0, 10)
-}
-
 // parts are a date's year, month (1–12) and day.
 function parts(date: CivilDate): [number, number, number] {
   const [year = 0, month = 0, day = 0] = date.split('-').map(Number)
@@ -35,21 +24,14 @@ function parts(date: CivilDate): [number, number, number] {
 // parseDate reads a date written YYYY-MM-DD, or null for text that is not
 // one or names a day its month does not have.
 export function parseDate(text: string): CivilDate | null {
-  const match = datePattern.exec(text)
-  if (match === null) {
-    return null
-  }
-
-  const [year, month, day] = parts(text)
-
-  return written(noon(year, month, day)) === text ? text : null
+  return calendarNoon(text) === null ? null : text
 }
 
 // addDays is the date days later, or earlier when days is negative.
 export function addDays(date: CivilDate, days: number): CivilDate {
-  const [year, month, day] = parts(date)
+  const [year, month, dayOfMonth] = parts(date)
 
-  return written(new Date(noon(year, month, day).getTime() + days * dayMs))
+  return civilDay(civilNoon(year, month, dayOfMonth + days))
 }
 
 // daysIn is how many days a month (1–12) of a year has.
@@ -61,11 +43,11 @@ function daysIn(year: number, month: number): number {
 // the same day of the month, or the month's last where it has no such day.
 export function addMonths(date: CivilDate, months: number): CivilDate {
   const [year, month, day] = parts(date)
-  const first = noon(year, month + months, 1)
+  const first = civilNoon(year, month + months, 1)
   const toYear = first.getUTCFullYear()
   const toMonth = first.getUTCMonth() + 1
 
-  return written(noon(toYear, toMonth, Math.min(day, daysIn(toYear, toMonth))))
+  return civilDay(civilNoon(toYear, toMonth, Math.min(day, daysIn(toYear, toMonth))))
 }
 
 // monthOf is the whole month a date falls in.
@@ -73,8 +55,8 @@ export function monthOf(date: CivilDate): Period {
   const [year, month] = parts(date)
 
   return {
-    from: written(noon(year, month, 1)),
-    to: written(noon(year, month, daysIn(year, month))),
+    from: civilDay(civilNoon(year, month, 1)),
+    to: civilDay(civilNoon(year, month, daysIn(year, month))),
   }
 }
 
@@ -82,7 +64,7 @@ export function monthOf(date: CivilDate): Period {
 export function yearOf(date: CivilDate): Period {
   const [year] = parts(date)
 
-  return { from: written(noon(year, 1, 1)), to: written(noon(year, 12, 31)) }
+  return { from: civilDay(civilNoon(year, 1, 1)), to: civilDay(civilNoon(year, 12, 31)) }
 }
 
 // periodDays is how many days a period holds.
@@ -92,8 +74,9 @@ export function periodDays(period: Period): number {
 
   return (
     Math.round(
-      (noon(toYear, toMonth, toDay).getTime() - noon(fromYear, fromMonth, fromDay).getTime()) /
-        dayMs,
+      (civilNoon(toYear, toMonth, toDay).getTime() -
+        civilNoon(fromYear, fromMonth, fromDay).getTime()) /
+        day,
     ) + 1
   )
 }
@@ -126,12 +109,12 @@ function samePeriod(one: Period, other: Period): boolean {
 // monthWeeks are a month's days as weeks starting on Monday, a null for each
 // place before its first day and after its last.
 export function monthWeeks(year: number, month: number): (CivilDate | null)[][] {
-  const first = noon(year, month, 1)
+  const first = civilNoon(year, month, 1)
   const lead = (first.getUTCDay() + 6) % 7
   const days: (CivilDate | null)[] = Array.from({ length: lead }, () => null)
 
   for (let day = 1; day <= daysIn(year, month); day++) {
-    days.push(written(noon(year, month, day)))
+    days.push(civilDay(civilNoon(year, month, day)))
   }
 
   while (days.length % 7 !== 0) {
