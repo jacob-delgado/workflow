@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient } from '@tanstack/react-query'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { listReviewsQueryKey } from '@/api/generated/@tanstack/react-query.gen.ts'
@@ -280,11 +280,7 @@ test("a failed read is said at once, never retried behind the user's back", asyn
   const client = new QueryClient()
 
   // Act
-  render(
-    <QueryClientProvider client={client}>
-      <ReviewQueuePanel />
-    </QueryClientProvider>,
-  )
+  renderWithClient(<ReviewQueuePanel />, client)
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe('wait and try again')
@@ -471,11 +467,7 @@ test.each([
   client.setQueryData(listReviewsQueryKey(), queueOf(waitingLongest), { updatedAt: readAt })
 
   // Act
-  render(
-    <QueryClientProvider client={client}>
-      <ReviewQueuePanel />
-    </QueryClientProvider>,
-  )
+  renderWithClient(<ReviewQueuePanel />, client)
 
   // Assert
   expect(await screen.findByRole('list', { name: 'Waiting on your review' })).toBeTruthy()
@@ -539,19 +531,11 @@ async function openedTwice(seconds: number): Promise<Request[]> {
   vi.setSystemTime(new Date('2026-09-30T12:00:00Z'))
   const requests = fakeApi({ [reviewsPath]: () => queueOf(waitingLongest) })
   const client = appQueryClient()
-  const view = render(
-    <QueryClientProvider client={client}>
-      <ReviewQueuePanel />
-    </QueryClientProvider>,
-  )
+  const view = renderWithClient(<ReviewQueuePanel />, client)
   await screen.findByText('1 pull request waits on your review, oldest first.')
   view.unmount()
   vi.setSystemTime(new Date(Date.parse('2026-09-30T12:00:00Z') + seconds * 1000))
-  render(
-    <QueryClientProvider client={client}>
-      <ReviewQueuePanel />
-    </QueryClientProvider>,
-  )
+  renderWithClient(<ReviewQueuePanel />, client)
   await screen.findByText('1 pull request waits on your review, oldest first.')
 
   return requests

@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient } from '@tanstack/react-query'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
@@ -240,20 +240,12 @@ test('reopening Settings reads the file again before showing the form', async ()
   // The file is edited on disk while Settings is closed.
   configAnswers(configAt('read-1'), configAt('read-2', editedURL))
   const client = appQueryClient()
-  const view = render(
-    <QueryClientProvider client={client}>
-      <SettingsPanel />
-    </QueryClientProvider>,
-  )
+  const view = renderWithClient(<SettingsPanel />, client)
   await screen.findByLabelText('Base URL')
   view.unmount()
 
   // Act
-  render(
-    <QueryClientProvider client={client}>
-      <SettingsPanel />
-    </QueryClientProvider>,
-  )
+  renderWithClient(<SettingsPanel />, client)
 
   // Assert
   expect((await baseURL()).value).toBe(editedURL)
@@ -283,11 +275,7 @@ test('Settings says why a read was refused without first trying it again', async
   const client = new QueryClient()
 
   // Act
-  render(
-    <QueryClientProvider client={client}>
-      <SettingsPanel />
-    </QueryClientProvider>,
-  )
+  renderWithClient(<SettingsPanel />, client)
 
   // Assert
   expect(await screen.findByText(notValidOnDisk)).toBeTruthy()
