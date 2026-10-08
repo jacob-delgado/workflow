@@ -1,6 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { vi } from 'vitest'
 import type { IssueDetail } from '@/api/generated/types.gen.ts'
 import { mockStatusChanges } from '@/dev/mockIssues.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
@@ -297,40 +296,3 @@ test('an issue the tracker offers no status change says so', async () => {
   // Assert
   expect(await screen.findByText('The tracker offers no status change for PROJ-1.')).toBeTruthy()
 })
-
-test.each([
-  ['changes the status', 'Changed PROJ-1 to Blocked.'],
-  ['assigns', 'Assigned PROJ-1 to sam.'],
-  ['logs work', 'Logged 1h on PROJ-1.'],
-])('the mockup %s without a server', async (write, said) => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-  const requests = fakeApi({})
-  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
-
-  // Act
-  await mockWrite(write)
-
-  // Assert
-  expect(await screen.findByText(said)).toBeTruthy()
-  expect(requests.filter((request) => request.method !== 'GET')).toEqual([])
-})
-
-// mockWrite fills and sends the mockup's form for write.
-async function mockWrite(write: string) {
-  if (write === 'changes the status') {
-    await open('Change status')
-    await choose('11')
-    await userEvent.click(screen.getByRole('button', { name: 'Change to Blocked' }))
-  } else if (write === 'assigns') {
-    await open('Assign')
-    await userEvent.type(screen.getByRole('textbox', { name: 'Assignee' }), 'sam')
-    await userEvent.click(within(form('Assign PROJ-1')).getByRole('button', { name: 'Assign' }))
-  } else {
-    await open('Log work')
-    await userEvent.type(screen.getByRole('textbox', { name: 'Time spent' }), '1h')
-    await userEvent.click(
-      within(form('Log work on PROJ-1')).getByRole('button', { name: 'Log work' }),
-    )
-  }
-}

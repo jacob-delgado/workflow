@@ -47,8 +47,8 @@ export default mergeConfig(
         // Left out: the tests themselves; src/main.tsx, the entry point that only
         // mounts the app into the page; src/api/generated, hey-api's generated
         // SDK, types and zod schemas, which are not ours to test; src/test, the
-        // test-only helpers and fakes; and src/dev, the mock data `task
-        // web:mockup` loads when VITE_MOCK is set.
+        // test-only helpers and fakes; and src/dev, the mockup's server and its
+        // data, which `task web:mockup` installs in place of workflow's.
         exclude: [
           'src/**/*.test.{ts,tsx}',
           'src/main.tsx',

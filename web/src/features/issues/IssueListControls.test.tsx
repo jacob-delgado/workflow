@@ -1,6 +1,5 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { vi } from 'vitest'
 import App from '@/App.tsx'
 import { listViewsOptions } from '@/api/generated/@tanstack/react-query.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -133,19 +132,6 @@ test('offers no view select when the views cannot be read', async () => {
   })
   expect(screen.queryByRole('combobox', { name: /view/i })).toBeNull()
   expect(screen.getByText('Fix the token leak')).toBeTruthy()
-})
-
-test('offers the mock views under VITE_MOCK', async () => {
-  // Arrange
-  vi.stubEnv('VITE_MOCK', 'true')
-  useSnapshotStore.setState({ status: 'live', snapshot: oneIssue })
-
-  // Act
-  renderWithClient(<IssuesPanel />)
-
-  // Assert
-  const select = await screen.findByRole('combobox', { name: /view/i })
-  expect(within(select).getByRole('option', { name: 'Team bugs' })).toBeTruthy()
 })
 
 test('reads the chosen view before listing its issues', async () => {

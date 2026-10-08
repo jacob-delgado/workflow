@@ -5,54 +5,22 @@ import {
   listViewsOptions,
   listViewsQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen.ts'
-import type { IssueDetail, IssuesPage, ViewList } from '@/api/generated/types.gen.ts'
+import type { IssuesPage } from '@/api/generated/types.gen.ts'
 import { freshFor } from '@/queryClient.ts'
 
-// The VITE_MOCK check is read inline (not via a helper) so Vite statically
-// replaces it and code-splits the dev fixture out of a production build, while
-// tests can still stub it at runtime.
-
 // useIssue reads one issue in full — description, comments, reporter, assignee
-// and its link in the tracker. Under VITE_MOCK it serves a fixture built from
-// the mock snapshot's issue, so the detail works with no backend.
+// and its link in the tracker.
 export function useIssue(key: string) {
   // The event stream carries only the list's slim issues, so nothing pushes a
   // newer detail: past freshFor, it is read again the next time the issue opens.
-  const options = { ...getIssueOptions({ path: { key } }), staleTime: freshFor }
-
-  return useQuery(
-    import.meta.env.VITE_MOCK === 'true'
-      ? {
-          ...options,
-          queryFn: async (): Promise<IssueDetail> => {
-            const { mockIssueDetail } = await import('@/dev/mockIssues.ts')
-
-            return mockIssueDetail(key)
-          },
-        }
-      : options,
-  )
+  return useQuery({ ...getIssueOptions({ path: { key } }), staleTime: freshFor })
 }
 
 // useViews reads the configured issue views, in order — the ones the stream can
 // carry. Saving the configuration, reloading it, and a read of it that may have
-// taken up an edit refresh it (see configApi.ts). Under VITE_MOCK it serves the
-// fixture's views.
+// taken up an edit refresh it (see configApi.ts).
 export function useViews() {
-  const options = listViewsOptions()
-
-  return useQuery(
-    import.meta.env.VITE_MOCK === 'true'
-      ? {
-          ...options,
-          queryFn: async (): Promise<ViewList> => {
-            const { mockViews } = await import('@/dev/mockIssues.ts')
-
-            return mockViews
-          },
-        }
-      : options,
-  )
+  return useQuery(listViewsOptions())
 }
 
 // useRefreshViews returns a function that reads the configured views again,
