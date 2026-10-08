@@ -4,11 +4,10 @@ import type { LocalData as Listing, LocalDataFile } from '@/api/generated/types.
 import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Reading, Unread } from '@/lib/Status.tsx'
-import { useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { LastLook } from '@/lib/LastLook.tsx'
 import { type RemoveScope, useRemoveLocalData, useLocalData } from './localDataApi.ts'
-import { useHoldShortcuts } from '@/features/keyboard/useShortcut.ts'
 
 // LocalData is Settings' Local data area: where workflow keeps what it learns
 // between sessions, each database file with its size and what it holds, and
@@ -278,36 +277,20 @@ interface RemoveConfirmProps {
   onRemove: () => void
 }
 
-// RemoveConfirm asks before a removal, and takes focus as it opens, so a screen
-// reader hears the question. Removing everything says what is lost with the
-// kept file.
+// RemoveConfirm asks before a removal. Removing everything says what is lost
+// with the kept file.
 function RemoveConfirm({ scope, names, onCancel, onRemove }: RemoveConfirmProps) {
-  const question = useFocusOnMount<HTMLDivElement>()
-  useHoldShortcuts()
-  const questionId = useId()
-
   return (
-    <div
-      ref={question}
-      role="group"
-      aria-labelledby={questionId}
-      tabIndex={-1}
-      className="flex flex-col items-start gap-item text-sm"
-    >
-      <p id={questionId}>Remove {names}?</p>
-      <p className="text-muted-foreground">
-        {scope === 'all'
+    <LastLook
+      question={`Remove ${names}?`}
+      cost={
+        scope === 'all'
           ? 'Whom each code owner is on Slack and each repository’s groups go with it: people and group associations will be asked again.'
-          : 'The last scope, what was announced and the cached issue lists are made again as you work.'}
-      </p>
-      <div className="flex items-center gap-item">
-        <Button variant="secondary" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button variant="primary" onClick={onRemove}>
-          Remove
-        </Button>
-      </div>
-    </div>
+          : 'The last scope, what was announced and the cached issue lists are made again as you work.'
+      }
+      act="Remove"
+      onAct={onRemove}
+      onCancel={onCancel}
+    />
   )
 }
