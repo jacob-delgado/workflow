@@ -487,3 +487,15 @@ func (m Model) toggleFavorite(row repositoryRow) (Model, tea.Cmd) {
 
 	return m, func() tea.Msg { return favoriteToggled{dir: row.dir, added: !row.favorite, err: change(row.dir)} }
 }
+
+// repositoriesBehavior is the Repositories pane's behavior.
+func repositoriesBehavior() behavior {
+	return behavior{
+		rail: Model.repositoriesRail, detail: Model.repositoriesDetail, narrow: nil,
+		keys: Model.repositoriesKeys, handle: Model.handleRepositoriesKey, pick: nil,
+		move: commandless(Model.moveRepositoryBy), refresh: Model.refreshRepositories,
+		loading: func(m Model) bool { return m.repositories.loading },
+		scroll:  func(m *Model) *int { return &m.repositories.scroll }, listInDetail: true,
+		answers: []string{"favorite-directory", "go-to-directory", "settings", "local-data", actionRefresh},
+	}
+}

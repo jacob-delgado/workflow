@@ -121,101 +121,20 @@ type behavior struct {
 	// goes on to find its pull request and read CI: one such refresh leaves
 	// every pane it feeds fresh.
 	readsBranch bool
+	// answers are the key actions handle answers, beside the moving and
+	// everywhere keys every pane takes. With those they are the pane's key
+	// context: a press outside it never reaches handle, and CheckKeys refuses
+	// two actions in it on one key, so the check reads what dispatch obeys.
+	answers []string
 }
 
-// behaviorOf is a pane's behavior.
+// behaviorOf is a pane's behavior, each defined beside the pane it is.
 func behaviorOf(target pane) behavior {
-	return map[pane]behavior{
-		paneIssues: {
-			rail: Model.issuesRail, detail: Model.issueDetailView, narrow: Model.issuesNarrow,
-			keys: Model.issuesKeys, handle: Model.handleIssuesKey, pick: Model.pickIssue, move: Model.moveIssue,
-			refresh: Model.refreshIssues, loading: func(m Model) bool { return m.issues.loading },
-			scroll: func(m *Model) *int { return &m.detail.scroll },
-		},
-		paneBranch: {
-			rail: Model.branchRail, detail: Model.branchDetail, narrow: nil,
-			keys: Model.branchKeys, handle: Model.handleBranchKey, pick: nil,
-			refresh: Model.refreshBranch, loading: func(m Model) bool { return m.branch.loading },
-			scroll: func(m *Model) *int { return &m.branch.scroll }, readsBranch: true,
-		},
-		paneCommits: {
-			rail: Model.commitsRail, detail: Model.commitsDetail, narrow: nil,
-			keys: Model.commitsKeys, handle: Model.handleCommitsKey, pick: Model.pickChange, move: Model.moveChangeBy,
-			refresh: Model.refreshCommits, loading: func(m Model) bool { return m.changes.loading },
-			scroll: func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,
-		},
-		paneReview: {
-			rail: Model.reviewRail, detail: Model.reviewDetail, narrow: nil,
-			keys: Model.reviewKeys, handle: Model.handleReviewKey, pick: nil,
-			refresh: Model.refreshReview, loading: func(m Model) bool { return m.review.loading },
-			scroll: func(m *Model) *int { return &m.review.scroll }, readsBranch: true,
-		},
-		paneMessaging: {
-			rail: Model.messagingRail, detail: Model.messagingDetail, narrow: nil,
-			keys: Model.messagingKeys, handle: Model.handleMessagingKey, pick: nil,
-			refresh: Model.refreshMessaging, loading: func(m Model) bool { return m.messaging.loading },
-			scroll: func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,
-		},
-		paneReviews: {
-			rail: Model.reviewQueueRail, detail: Model.reviewQueueDetail, narrow: nil,
-			keys: Model.reviewQueueKeys, handle: Model.handleReviewQueueKey, pick: Model.pickReview,
-			move: commandless(Model.moveReviewBy), refresh: Model.refreshReviewQueue,
-			loading: func(m Model) bool { return m.reviewQueue.loading },
-			scroll:  func(m *Model) *int { return &m.reviewQueue.scroll }, listInDetail: true,
-		},
-		paneTasks: {
-			rail: Model.tasksRail, detail: Model.tasksDetail, narrow: nil,
-			keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask, move: commandless(Model.moveTaskBy),
-			refresh: Model.refreshTasks, loading: func(m Model) bool { return m.tasks.loading },
-			scroll: func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
-		},
-		paneSummary: {
-			rail: Model.summaryRail, detail: Model.summaryDetail, narrow: nil,
-			keys: Model.summaryKeys, handle: Model.handleSummaryKey, pick: nil, move: commandless(Model.moveSummaryBy),
-			refresh: Model.refreshSummary, loading: Model.summaryLoading,
-			scroll: func(m *Model) *int { return &m.summary.scroll }, listInDetail: true,
-		},
-		paneRepositories: {
-			rail: Model.repositoriesRail, detail: Model.repositoriesDetail, narrow: nil,
-			keys: Model.repositoriesKeys, handle: Model.handleRepositoriesKey, pick: nil,
-			move: commandless(Model.moveRepositoryBy), refresh: Model.refreshRepositories,
-			loading: func(m Model) bool { return m.repositories.loading },
-			scroll:  func(m *Model) *int { return &m.repositories.scroll }, listInDetail: true,
-		},
-	}[target]
-}
-
-// answersOf is the key actions a pane's handler answers, beside the moving and
-// everywhere keys every pane takes. With those they are the pane's key
-// context: a press outside it never reaches the handler, and CheckKeys refuses
-// two actions in it on one key, so the check reads what dispatch obeys.
-func answersOf(target pane) []string {
-	return [paneCount][]string{
-		paneIssues: {
-			"change-status", "comment", "assign", "log-work", "start-work", "track-issue", actionOpenLink,
-			actionCopyLink, "search-issues", "filter-issues", "switch-view", "load-more", actionRefresh,
-		},
-		paneBranch: {"new-branch", "switch-branch", "link-issue", "rebase", "push", actionRefresh},
-		paneCommits: {
-			"stage", "stage-all", "unstage-all", "discard-change", "commit", "amend", "fixup", "run-pre-commit",
-			"set-up-lefthook", actionRefresh,
-		},
-		paneReview: {
-			"open-pull-request", "edit", "checks", "rerun-checks", "merge", "finish-branch", actionOpenLink,
-			actionCopyLink, actionRefresh,
-		},
-		paneMessaging: {"post", "people-and-groups", actionRefresh},
-		paneReviews:   {"sort-reviews", "filter-reviews", actionOpenLink, actionCopyLink, actionRefresh},
-		paneTasks: {
-			"start-stop", "mark-done", "add-task", "annotate-task", "modify-task", "undo-task", "sync-tasks",
-			"search-tasks", "filter-tasks", "sort-tasks", actionOpenLink, actionCopyLink, actionRefresh,
-		},
-		paneSummary: {
-			"earlier", "later", "today", "calendar", "copy-summary", "post-summary", actionOpenLink, actionCopyLink,
-			actionRefresh,
-		},
-		paneRepositories: {"favorite-directory", "go-to-directory", "settings", "local-data", actionRefresh},
-	}[target]
+	return [paneCount]func() behavior{
+		paneIssues: issuesBehavior, paneBranch: branchBehavior, paneCommits: commitsBehavior,
+		paneReview: reviewBehavior, paneMessaging: messagingBehavior, paneReviews: reviewQueueBehavior,
+		paneTasks: tasksBehavior, paneSummary: summaryBehavior, paneRepositories: repositoriesBehavior,
+	}[target]()
 }
 
 // handlePaneKey hands a key to the focused pane's handler when it is live in the
@@ -236,7 +155,7 @@ func (p pane) keyContext() keyContext {
 	return keyContext{
 		name:    "the " + p.title("messaging") + " pane",
 		groups:  []int{groupMoving, groupEverywhere},
-		actions: answersOf(p),
+		actions: behaviorOf(p).answers,
 	}
 }
 

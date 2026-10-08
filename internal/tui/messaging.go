@@ -363,3 +363,14 @@ func (m Model) dropQueued() (Model, tea.Cmd) {
 func (m Model) keepQueued() (Model, tea.Cmd) {
 	return m, nil
 }
+
+// messagingBehavior is the messaging pane's behavior.
+func messagingBehavior() behavior {
+	return behavior{
+		rail: Model.messagingRail, detail: Model.messagingDetail, narrow: nil,
+		keys: Model.messagingKeys, handle: Model.handleMessagingKey, pick: nil,
+		refresh: Model.refreshMessaging, loading: func(m Model) bool { return m.messaging.loading },
+		scroll: func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,
+		answers: []string{"post", "people-and-groups", actionRefresh},
+	}
+}

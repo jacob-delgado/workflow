@@ -261,3 +261,14 @@ func (m Model) branchIssue() (jira.Key, bool) {
 func (m Model) handleBranchKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m.answer(m.branchOffers(), msg)
 }
+
+// branchBehavior is the Branch pane's behavior.
+func branchBehavior() behavior {
+	return behavior{
+		rail: Model.branchRail, detail: Model.branchDetail, narrow: nil,
+		keys: Model.branchKeys, handle: Model.handleBranchKey, pick: nil,
+		refresh: Model.refreshBranch, loading: func(m Model) bool { return m.branch.loading },
+		scroll: func(m *Model) *int { return &m.branch.scroll }, readsBranch: true,
+		answers: []string{"new-branch", "switch-branch", "link-issue", "rebase", "push", actionRefresh},
+	}
+}
