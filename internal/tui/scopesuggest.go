@@ -33,11 +33,9 @@ func (c commitComposer) scopeCanComplete() bool {
 	return suggestion != "" && suggestion != c.scope.Value()
 }
 
-// withScopeSuggestions offers the shared directory of the staged files and the
-// scopes already in use as completions for the scope field. With nothing to
-// suggest the field is left plain.
-func (c commitComposer) withScopeSuggestions(paths []string, recentSubjects func() ([]string, error)) commitComposer {
-	suggestions := scopeSuggestions(paths, recentSubjects)
+// withScopeSuggestions offers suggestions as completions for the scope field.
+// With nothing to suggest the field is left plain.
+func (c commitComposer) withScopeSuggestions(suggestions []string) commitComposer {
 	if len(suggestions) == 0 {
 		return c
 	}
@@ -46,6 +44,62 @@ func (c commitComposer) withScopeSuggestions(paths []string, recentSubjects func
 	c.scope.ShowSuggestions = true
 
 	return c
+}
+
+// readScopes is the command that reads, for the composer opened as opened,
+// the scope suggestions from paths and the log, and, when learn is set because
+// no kept draft names a scope, the scope last used in this repository: git and
+// the store are read off the update loop, so the composer never waits on them.
+func (m Model) readScopes(opened int, paths []string, learn bool) tea.Cmd {
+	recentSubjects, lastScope := m.deps.Git.RecentSubjects, m.deps.Store.LastScope
+	if !learn {
+		lastScope = nil
+	}
+
+	if recentSubjects == nil && lastScope == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		read := scopesRead{opened: opened, suggestions: scopeSuggestions(paths, recentSubjects)}
+		if lastScope == nil {
+			return read
+		}
+
+		if learned, ok := lastScope(); ok {
+			read.learned = learned
+		}
+
+		return read
+	}
+}
+
+// scopesRead is what the commit composer opened as opened suggests for its
+// scope, and the scope last used here, empty when none was learned.
+type scopesRead struct {
+	opened      int
+	suggestions []string
+	learned     string
+}
+
+var _ applier = scopesRead{}
+
+// apply offers the suggestions, and puts the scope last used in the field while
+// it still holds the configured default it opened on, unless the composer they
+// were read for has closed — even if another has opened since.
+func (read scopesRead) apply(m Model) (Model, tea.Cmd) {
+	composer, open := m.overlay.(commitComposer)
+	if !open || composer.opened != read.opened {
+		return m, nil
+	}
+
+	if read.learned != "" && composer.scope.Value() == m.cfg.Commit.DefaultScope {
+		composer.scope.SetValue(read.learned)
+	}
+
+	m.overlay = composer.withScopeSuggestions(read.suggestions)
+
+	return m, nil
 }
 
 // stagedPaths are the paths of the files staged for the next commit.
