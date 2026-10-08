@@ -46,7 +46,7 @@ func (m Model) tasksView() tasksView {
 		disabled: m.cfg.Taskwarrior.Disabled, issues: m.issues,
 	}
 
-	if branchIssue, named := m.branchIssue(); named {
+	if branchIssue, named := m.branch.issue(m.cfg.Jira.Project); named {
 		view.branchIssue, view.branchWork = branchIssue, m.branchAndPull()
 	}
 
