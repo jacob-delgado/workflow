@@ -866,10 +866,13 @@ that would change something — a status change, a comment, a branch, staging, a
 commit, a push, a pull request, an announcement, a change to a Taskwarrior task,
 a generated `lefthook.yml` — says what it would have done instead, as in
 `dry run: would start task 12`; the Tasks pane still reads and lists your tasks.
-The top row starts with `DRY RUN` while it is on. It opens no
-[store]({{< relref "/docs/configuration#what-is-kept-between-sessions" >}})
-either, so it starts without the cached issue list, your last commit scope and
-what was announced before.
+The top row starts with `DRY RUN` while it is on. It reads nothing from the
+cache, so it starts without the cached issue list, your last commit scope and
+what was announced before. What you decided — whom each code owner is on
+Slack, the groups a repository tags, your favorites — it reads from the
+store's `kept.db`, read-only, when one is already there, and it never makes or
+changes either of the
+[store's files]({{< relref "/docs/configuration#what-is-kept-between-sessions" >}}).
 
 ## Cleaning the local data
 
