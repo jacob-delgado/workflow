@@ -125,7 +125,7 @@ func (m Model) offerToStart(task taskwarrior.Task) func(Model) (Model, tea.Cmd) 
 // is added and annotated.
 func (m Model) offerTrackAndStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
 	track := trackIssue{url: m.browseURL(issue.Key), thenStart: true}
-	prefill := taskwarrior.TrackLine(taskwarrior.IssueLink{
+	prefill, err := taskwarrior.TrackLine(taskwarrior.IssueLink{
 		Key: string(issue.Key), Summary: issue.Summary, URL: track.url, Priority: issue.Priority,
 	})
 	line := taskLine{
@@ -133,7 +133,13 @@ func (m Model) offerTrackAndStart(issue jira.Issue) func(Model) (Model, tea.Cmd)
 		after: track.follow(m.deps.Tasks), heldBack: track.heldBack(), tracks: issue.Key,
 	}
 
-	return func(m Model) (Model, tea.Cmd) { return m.openTaskLine(line, prefill) }
+	return func(m Model) (Model, tea.Cmd) {
+		if err != nil {
+			return m.noticedFailure(err), nil
+		}
+
+		return m.openTaskLine(line, prefill)
+	}
 }
 
 // offerSwitch offers to stop the started tasks and start the one that tracks the
