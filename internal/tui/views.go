@@ -8,6 +8,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // defaultViewName titles the built-in list used when a configuration names no
@@ -68,5 +69,5 @@ func (m Model) viewSuffix(p pane) string {
 		return ""
 	}
 
-	return m.marks.separator + m.activeView().name
+	return m.marks.separator + sanitize.Line(m.activeView().name)
 }

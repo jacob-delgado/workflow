@@ -62,13 +62,14 @@ func (m Model) previewSummaryPost() (Model, tea.Cmd) {
 	return m, nil
 }
 
-// destination is where this post will go, as it is shown and as it is sent.
+// destination is where this post will go, as it is shown: the configuration
+// names it, so it is drawn as text alone.
 func (p summaryPost) destination() string {
 	if p.channel != "" {
-		return p.channel
+		return sanitize.Line(p.channel)
 	}
 
-	return p.fallback
+	return sanitize.Line(p.fallback)
 }
 
 // view shows the Summary as it will be posted, where, and how long it is

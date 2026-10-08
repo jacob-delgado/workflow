@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // prLabelWidth is the columns a pull request field's marker, label, prompt and
@@ -319,7 +320,7 @@ func (c prComposer) templateName() string {
 		return "no template in this repository"
 	}
 
-	return "template " + c.templates[c.template].Name +
+	return "template " + sanitize.Line(c.templates[c.template].Name) +
 		" (" + strconv.Itoa(c.template+1) + " of " + strconv.Itoa(len(c.templates)) + ")"
 }
 

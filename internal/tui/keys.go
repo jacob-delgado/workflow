@@ -10,6 +10,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
@@ -176,7 +177,7 @@ func (b *helpBuilder) place(group int, action, shown, help string, keys ...strin
 // when ui.keys names one, and the defaults otherwise.
 func (b *helpBuilder) bindingFor(action, shown, help string, keys []string) key.Binding {
 	if override, ok := b.overrides[action]; ok {
-		return key.NewBinding(key.WithKeys(override), key.WithHelp(override, help))
+		return key.NewBinding(key.WithKeys(override), key.WithHelp(sanitize.Line(override), help))
 	}
 
 	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(shown, help))
