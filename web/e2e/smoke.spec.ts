@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './support/fixtures.ts'
 
 test('serves the cockpit shell', async ({ page }) => {
   // Act

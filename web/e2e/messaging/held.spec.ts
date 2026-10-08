@@ -1,11 +1,11 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import type {
   Announcement,
   QueuedAnnouncement,
   Snapshot,
 } from '../../src/api/generated/types.gen.ts'
 import { height, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { branchWith, snapshotWith, streams } from '../support/fixtures.ts'
+import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { axeViolations, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // The announcement edited before it goes, and held until the pull request's

@@ -1,7 +1,6 @@
-import { expect, test } from '@playwright/test'
 import type { PullRequestDraft } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { snapshotWith, streams } from '../support/fixtures.ts'
+import { expect, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { axeViolations, pageScrolls, sidewaysScrollers, walkTabOrder } from '../support/tabwalk.ts'
 
 // Opening the branch's pull request from the Review section: the form it is

@@ -1,5 +1,5 @@
 import { AxeBuilder } from '@axe-core/playwright'
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import {
   height,
   openFirstRun,
@@ -8,7 +8,7 @@ import {
   sectionNames as populatedSectionNames,
   themes,
 } from './support/cockpit.ts'
-import { problem } from './support/fixtures.ts'
+import { expect, problem, test } from './support/fixtures.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are

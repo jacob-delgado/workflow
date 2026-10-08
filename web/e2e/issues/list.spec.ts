@@ -1,7 +1,6 @@
-import { expect, test } from '@playwright/test'
 import type { Issue } from '../../src/api/generated/types.gen.ts'
 import { height, openCockpit, pinTheme, themes } from '../support/cockpit.ts'
-import { issuesOf, snapshotWith, streams } from '../support/fixtures.ts'
+import { expect, issuesOf, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { axeViolations } from '../support/tabwalk.ts'
 
 // The issue list: its controls and an open issue's detail beside it, a later
