@@ -237,6 +237,7 @@ type dialect struct {
 	find       func(ctx context.Context, c Client, repo Repo, branch string) (PullRequest, bool, error)
 	create     func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
 	update     func(ctx context.Context, c Client, repo Repo, pull PullRequest, edit PullRequestEdit) (PullRequest, error)
+	rewrite    func(ctx context.Context, c Client, repo Repo, number int, by func(string) (string, bool)) (bool, error)
 	status     func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (CI, error)
 	rerun      func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (bool, error)
 	merge      func(ctx context.Context, c Client, repo Repo, pull PullRequest, method MergeMethod) error
@@ -259,14 +260,16 @@ func dialectFor(kind Kind) (dialect, error) {
 	//nolint:exhaustive // KindUnknown has no dialect on purpose; its lookup miss is the ErrUnknownForge below.
 	dialects := map[Kind]dialect{
 		KindGitHub: {
-			find: githubFind, create: githubCreate, update: githubUpdate, status: githubStatus, rerun: githubRerun,
+			find: githubFind, create: githubCreate, update: githubUpdate, rewrite: githubRewrite,
+			status: githubStatus, rerun: githubRerun,
 			merge: githubMergePull, methods: githubMergeMethods,
 			reviews: githubReviews, issues: githubIssues, readIssue: githubReadIssue, closeIssue: githubCloseIssue,
 			assign: githubAssignIssue, issueComments: githubIssueComments, commentOnIssue: githubCommentOnIssue,
 			activity: githubActivity,
 		},
 		KindGitLab: {
-			find: gitlabFind, create: gitlabCreate, update: gitlabUpdate, status: gitlabStatus, rerun: gitlabRerun,
+			find: gitlabFind, create: gitlabCreate, update: gitlabUpdate, rewrite: gitlabRewrite,
+			status: gitlabStatus, rerun: gitlabRerun,
 			merge: gitlabMergePull, methods: gitlabMergeMethods,
 			reviews: gitlabReviews, issues: gitlabIssues, readIssue: gitlabReadIssue, closeIssue: gitlabCloseIssue,
 			assign: gitlabAssignIssue, issueComments: gitlabIssueComments, commentOnIssue: gitlabCommentOnIssue,
@@ -346,6 +349,46 @@ func (c Client) EditPullRequest(
 	}
 
 	return speaks.update(ctx, c, repo, pull, edit)
+}
+
+// RewriteDescription changes an open pull request's description as rewrite
+// says — the issue's line added, as linking a branch adds it — and leaves its
+// title as it is. rewrite is handed the description as the forge holds it,
+// every control, bidirectional mark and line ending kept, rather than as it is
+// shown, so nothing but what rewrite changes is changed. It reports whether
+// rewrite changed anything, and writes nothing when it did not.
+func (c Client) RewriteDescription(
+	ctx context.Context, repo Repo, pull PullRequest, rewrite func(body string) (string, bool),
+) (bool, error) {
+	speaks, err := dialectFor(repo.Kind)
+	if err != nil {
+		return false, err
+	}
+
+	return speaks.rewrite(ctx, c, repo, pull.Number, rewrite)
+}
+
+// rewritten reads the description at path as the forge holds it, through
+// held, and writes rewrite's, through write, when rewrite changed it.
+func rewritten[T any](
+	ctx context.Context, client Client, repo Repo, path string, held func(T) string,
+	rewrite func(string) (string, bool), write func(body string) error,
+) (bool, error) {
+	answer, err := readAsWritten[T](ctx, client, path)
+	if errors.Is(err, ErrNoAPI) {
+		return false, fmt.Errorf("%w: %s", ErrNoRepository, repo.Path)
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	body, changed := rewrite(held(answer))
+	if !changed {
+		return false, nil
+	}
+
+	return true, write(body)
 }
 
 // CheckStatus reports how CI stands on a pull request whose head is the given

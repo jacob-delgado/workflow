@@ -236,6 +236,12 @@ func heldBackServices(deps Deps) Deps {
 		}
 	}
 
+	if deps.Forge.RewriteDescription != nil {
+		deps.Forge.RewriteDescription = func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
+			return false, errDryRun
+		}
+	}
+
 	if deps.Forge.Rerun != nil {
 		deps.Forge.Rerun = func(forge.PullRequest, string) (bool, error) { return false, errDryRun }
 	}

@@ -101,6 +101,7 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		LinkIssue:      deps.Git.LinkIssue,
 		UnlinkIssue:    deps.Git.UnlinkIssue,
 		EditPull:       deps.Forge.EditPullRequest,
+		RewritePull:    deps.Forge.RewriteDescription,
 
 		LastScope:      deps.Store.LastScope,
 		RecordScope:    deps.Store.RecordScope,

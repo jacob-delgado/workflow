@@ -5,6 +5,7 @@ package forge
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -84,6 +85,26 @@ func githubUpdate(
 	}
 
 	return updated.pullRequest(), nil
+}
+
+// githubDescription is a pull request's description alone, as GitHub holds it
+// and as the PATCH that replaces it, and no other field, sends it.
+type githubDescription struct {
+	Body string `json:"body"`
+}
+
+// githubRewrite rewrites a pull request's description, leaving its title.
+func githubRewrite(
+	ctx context.Context, client Client, repo Repo, number int, rewrite func(string) (string, bool),
+) (bool, error) {
+	path := githubPullPath(repo, number)
+
+	return rewritten(ctx, client, repo, path, func(held githubDescription) string { return held.Body }, rewrite,
+		func(body string) error {
+			_, err := repoCall[json.RawMessage](ctx, client, repo, http.MethodPatch, path, githubDescription{Body: body})
+
+			return err
+		})
 }
 
 // githubFind finds the open pull request from a branch. GitHub filters by head

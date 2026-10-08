@@ -146,9 +146,12 @@ func (s *server) linkIssue(branch string, ref convention.IssueRef, updatePull bo
 }
 
 // namePullIssue adds the issue's line to the open pull request's description,
-// unless there is none, no way to edit it, or it names the issue already.
+// unless there is none, no way to edit it, or it names the issue already. The
+// line is added to the description as the forge holds it, not to the one
+// shown, whose controls and marks are neutralized, so nothing else of it
+// changes.
 func (s *server) namePullIssue(ref convention.IssueRef) error {
-	if s.deps.EditPull == nil {
+	if s.deps.RewritePull == nil {
 		return nil
 	}
 
@@ -157,12 +160,10 @@ func (s *server) namePullIssue(ref convention.IssueRef) error {
 		return err
 	}
 
-	body, changed := convention.WithIssueLine(pull.Body, ref.Key, s.browseURL(jira.Key(ref.Key)))
-	if !changed {
-		return nil
-	}
-
-	_, err = s.deps.EditPull(pull, forge.PullRequestEdit{Title: pull.Title, Body: body})
+	issueURL := s.browseURL(jira.Key(ref.Key))
+	_, err = s.deps.RewritePull(pull, func(body string) (string, bool) {
+		return convention.WithIssueLine(body, ref.Key, issueURL)
+	})
 
 	return err
 }
