@@ -5,7 +5,10 @@ package messaging_test
 
 import (
 	"errors"
+	"io"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -47,5 +50,116 @@ func TestAWebhookPostIsDeliveredOnAny2xxAnswer(t *testing.T) {
 				t.Errorf("Post answered %d returned %v, want %v", tt.status, err, tt.want)
 			}
 		})
+	}
+}
+
+// answeringWith is a transport that answers every post with status and body.
+func answeringWith(status int, body string) messaging.Doer {
+	return func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body))}, nil
+	}
+}
+
+func TestAWebhookRefusalBlamesTheCredentialOnlyWhenItIsTheCredential(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		kind   config.MessagingKind
+		status int
+		body   string
+		want   error
+	}{
+		"discord: a message too long": {
+			kind: config.KindDiscord, status: http.StatusBadRequest,
+			body: `{"content":["Must be 2000 or fewer in length."]}`, want: messaging.ErrPostRefused,
+		},
+		"teams: a payload it cannot read": {
+			kind: config.KindTeams, status: http.StatusBadRequest,
+			body: "Bad payload received by generic incoming webhook.", want: messaging.ErrPostRefused,
+		},
+		"slack: an archived channel": {
+			kind: config.KindSlack, status: http.StatusGone, body: "channel_is_archived", want: messaging.ErrPostRefused,
+		},
+		"a token not accepted": {
+			kind: config.KindDiscord, status: http.StatusUnauthorized,
+			body: `{"message":"Invalid Webhook Token","code":50027}`, want: messaging.ErrRejected,
+		},
+		"a post forbidden": {
+			kind: config.KindWebhook, status: http.StatusForbidden, body: "forbidden", want: messaging.ErrRejected,
+		},
+		"an address with nothing behind it": {
+			kind: config.KindDiscord, status: http.StatusNotFound,
+			body: `{"message":"Unknown Webhook","code":10015}`, want: messaging.ErrRejected,
+		},
+		"slack: a workspace gone": {
+			kind: config.KindSlack, status: http.StatusGone, body: "team_disabled", want: messaging.ErrRejected,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			webhook := messagingWebhook(tt.kind, "https://hooks.example.com/hook/secret-part")
+			client := messaging.New(answeringWith(tt.status, tt.body), messaging.APIBase, webhook)
+
+			// Act
+			err := client.Post(t.Context(), "", message)
+
+			// Assert
+			if !errors.Is(err, tt.want) || errors.Is(err, messaging.ErrRejected) == errors.Is(err, messaging.ErrPostRefused) {
+				t.Errorf("Post answered %d %q = %v, want %v alone", tt.status, tt.body, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAWebhookRefusalNeverQuotesTheWebhook(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A plain webhook server's default 404 quotes the path it was asked, and a
+	// webhook's address is its credential.
+	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.WriteHeader(http.StatusNotFound)
+		_, _ = writer.Write([]byte("Cannot POST " + request.URL.Path + " at " + "https://" + request.Host +
+			request.URL.Path + "?" + request.URL.RawQuery))
+	}))
+	t.Cleanup(server.Close)
+
+	address := server.URL + "/hooks/secret-part-123?sig=signed-part-456"
+	client := messaging.New(server.Client().Do, messaging.APIBase, messagingWebhook(config.KindWebhook, address))
+
+	// Act
+	err := client.Post(t.Context(), "", message)
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "Cannot POST") {
+		t.Fatalf("Post = %v, want the server's reason", err)
+	}
+
+	for _, secret := range []string{address, "/hooks/secret-part-123", "secret-part", "signed-part"} {
+		if strings.Contains(err.Error(), secret) {
+			t.Errorf("Post = %v, which quotes %q", err, secret)
+		}
+	}
+}
+
+func TestAWebhookRefusalIsCutShort(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// An error page of a megabyte is no reason to print whole.
+	page := strings.Repeat("<p>refused</p>", 1<<16)
+	webhook := messagingWebhook(config.KindWebhook, "https://hooks.example.com/hook")
+	client := messaging.New(answeringWith(http.StatusBadRequest, page), messaging.APIBase, webhook)
+
+	// Act
+	err := client.Post(t.Context(), "", message)
+
+	// Assert
+	if !errors.Is(err, messaging.ErrPostRefused) || len(err.Error()) > 1024 {
+		t.Errorf("Post = %d bytes of error, want the refusal's reason cut short", len(err.Error()))
 	}
 }
