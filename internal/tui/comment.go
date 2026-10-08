@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"strconv"
@@ -154,18 +153,18 @@ func (p commentPreview) failed(err error) commentPreview {
 }
 
 // comments draws the most recent comments, oldest of them first.
-func (m Model) comments(detail jira.IssueDetail) []string {
+func (v readView) comments(detail jira.IssueDetail) []string {
 	if detail.CommentTotal == 0 {
 		return nil
 	}
 
-	shown := detail.Comments[max(0, len(detail.Comments)-cmp.Or(m.cfg.UI.CommentsShown, defaultCommentsShown)):]
+	shown := detail.Comments[max(0, len(detail.Comments)-v.commentsShown):]
 	heading := fmt.Sprintf("Comments %s of %s", strconv.Itoa(len(shown)), strconv.Itoa(detail.CommentTotal))
-	lines := []string{"", m.styles.strong.Render(heading)}
+	lines := []string{"", v.kit.styles.strong.Render(heading)}
 
 	for _, comment := range shown {
 		lines = append(lines, "",
-			m.styles.label.Render(sanitize.Line(comment.Author)+m.marks.separator+age(m.deps.now(), comment.Created)),
+			v.kit.styles.label.Render(sanitize.Line(comment.Author)+v.kit.marks.separator+age(v.now, comment.Created)),
 			sanitize.Text(comment.Body))
 	}
 

@@ -98,7 +98,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	paths := m.stagedPaths()
 	m.overlay = composer.withScopeSuggestions(scopeSuggestions(paths, nil))
 
-	return m, m.readScopes(opened, paths, draft.scope == "")
+	return m, readScopes(m.deps, opened, paths, draft.scope == "")
 }
 
 // commitConvention is the team's commit convention: their own types, subject
@@ -441,7 +441,7 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 				return nil
 			}
 
-			return done, tea.Batch(done.loadChanges(), done.loadBranch(), remember)
+			return done, tea.Batch(loadChanges(done.deps), loadBranch(done.deps), remember)
 		})
 }
 

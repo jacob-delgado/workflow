@@ -169,7 +169,7 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 
 	var readMembers tea.Cmd
 	if p.tagging.offered {
-		p.tagging.members, readMembers = m.readMembers(p.channel, p.opened)
+		p.tagging.members, readMembers = readChannelMembers(m.deps, p.channel, p.opened)
 	}
 
 	m.overlay = p
@@ -382,5 +382,5 @@ func (p messagingPreview) markNotOnSlack(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.saveLink(decided(owner.Owner, owner.Team, nil), p.opened)
+	return m, saveLink(m.deps, decided(owner.Owner, owner.Team, nil), p.opened)
 }

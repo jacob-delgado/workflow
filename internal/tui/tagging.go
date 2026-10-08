@@ -80,8 +80,8 @@ func (m Model) withTagging(preview messagingPreview) (messagingPreview, tea.Cmd)
 	var readMembers, readGroups tea.Cmd
 
 	preview.tagging = tagSection{offered: true, canLink: m.deps.Store.LinkOwner != nil, reading: true}
-	preview.tagging.members, readMembers = m.readMembers(preview.channel, preview.opened)
-	preview.tagging.groups, readGroups = m.readUserGroups(preview.opened)
+	preview.tagging.members, readMembers = readChannelMembers(m.deps, preview.channel, preview.opened)
+	preview.tagging.groups, readGroups = readUserGroups(m.deps, preview.opened)
 
 	return preview, tea.Batch(m.readTags(preview.opened), readMembers, readGroups)
 }
@@ -90,7 +90,7 @@ func (m Model) withTagging(preview messagingPreview) (messagingPreview, tea.Cmd)
 // branch's changes against its base, and what the store kept about them in
 // the Slack workspace the token is for, for the preview opened as opened.
 func (m Model) readTags(opened int) tea.Cmd {
-	owners := m.taggedOwnerSeams()
+	owners := taggedOwnerSeams(m.deps)
 	store, base, readWorkspace := m.deps.Store, m.branch.branch.BaseName(), m.deps.Messaging.Workspace
 
 	return func() tea.Msg {
@@ -111,10 +111,10 @@ func (m Model) readTags(opened int) tea.Cmd {
 // taggedOwnerSeams are what the owners a post tags are read through: the
 // forge tells a bare name that is a group from a person, since a group is
 // tagged through its user group.
-func (m Model) taggedOwnerSeams() loop.OwnerSeams {
+func taggedOwnerSeams(deps Deps) loop.OwnerSeams {
 	return loop.OwnerSeams{
-		ChangedPaths: m.deps.Git.ChangedPaths, CodeOwnersAt: m.deps.Git.CodeOwnersAt, Author: m.deps.Forge.Author,
-		IsGroup: m.deps.Forge.IsGroup,
+		ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
+		IsGroup: deps.Forge.IsGroup,
 	}
 }
 

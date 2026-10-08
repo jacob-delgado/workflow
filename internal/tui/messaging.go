@@ -132,7 +132,7 @@ func (m Model) announcement(moment messaging.Moment) string {
 
 	return loop.Announcement(loop.AnnouncementFacts{
 		Author: m.messaging.author, Pull: m.review.pull, IssueKey: issueKey,
-		IssueSummary: issue.Summary, IssueURL: m.browseURL(issueKey), Moment: moment,
+		IssueSummary: issue.Summary, IssueURL: browseURL(m.deps, issueKey), Moment: moment,
 	}, m.cfg.Messaging, m.deps.Forge.Kind).Text()
 }
 
@@ -177,7 +177,7 @@ func (m Model) messagingDetail(width int) string {
 		m.announcement(loop.AnnounceMoment(m.review.pull, m.review.ci)),
 		"",
 		m.styles.label.Render("to     ") + sanitize.Line(m.cfg.Messaging.Target()),
-		m.styles.label.Render("CI     ") + m.ciSummary(),
+		m.styles.label.Render("CI     ") + m.review.ciSummary(m.kit()),
 		m.styles.label.Render("state  ") + m.messagingState(),
 	}
 
@@ -200,20 +200,20 @@ func (m Model) announced() bool {
 // refreshMessaging reads what was announced again, and the pull request and
 // its CI the announcement is written from.
 func (m Model) refreshMessaging() (Model, tea.Cmd) {
-	read := m.loadAnnounces()
+	read := loadAnnounces(m.deps)
 	m.messaging.loading = read != nil
 
-	return m, tea.Batch(read, m.loadBranch())
+	return m, tea.Batch(read, loadBranch(m.deps))
 }
 
 // loadAnnounces reads what was announced in an earlier session from the store, so
 // a pull request already posted opens as posted rather than being offered again.
-func (m Model) loadAnnounces() tea.Cmd {
-	if m.deps.Store.Announced == nil {
+func loadAnnounces(deps Deps) tea.Cmd {
+	if deps.Store.Announced == nil {
 		return nil
 	}
 
-	read := m.deps.Store.Announced
+	read := deps.Store.Announced
 
 	return func() tea.Msg {
 		return announcesLoaded{made: read()}

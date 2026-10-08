@@ -66,7 +66,7 @@ func (m Model) openSetup() (Model, tea.Cmd) {
 
 	shown := make([]string, 0, len(offer.Places))
 	for _, place := range offer.Places {
-		shown = append(shown, m.shownDir(place.Path))
+		shown = append(shown, shownDir(m.deps, place.Path))
 	}
 
 	m.overlay = setupForm{offer: offer, shown: shown, step: stepPlace}

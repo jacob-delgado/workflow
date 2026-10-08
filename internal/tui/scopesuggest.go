@@ -29,8 +29,8 @@ func (c commitComposer) withScopeSuggestions(suggestions []string) commitCompose
 // the scope suggestions from paths and the log, and, when learn is set because
 // no kept draft names a scope, the scope last used in this repository: git and
 // the store are read off the update loop, so the composer never waits on them.
-func (m Model) readScopes(opened int, paths []string, learn bool) tea.Cmd {
-	recentSubjects, lastScope := m.deps.Git.RecentSubjects, m.deps.Store.LastScope
+func readScopes(deps Deps, opened int, paths []string, learn bool) tea.Cmd {
+	recentSubjects, lastScope := deps.Git.RecentSubjects, deps.Store.LastScope
 	if !learn {
 		lastScope = nil
 	}

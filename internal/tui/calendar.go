@@ -300,7 +300,7 @@ func (c calendar) chosen() (activity.Period, error) {
 // on why the period cannot be shown.
 func (c calendar) show(m Model) (Model, tea.Cmd) {
 	period, err := c.chosen()
-	if err == nil && m.today().Before(period.From) {
+	if err == nil && today(m.deps).Before(period.From) {
 		err = errNotYet
 	}
 

@@ -327,7 +327,7 @@ func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case !r.done:
 		return r.stopRun(m, msg)
 	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), tea.Batch(m.loadChanges(), m.loadBranch())
+		return m.closeOverlay(), tea.Batch(loadChanges(m.deps), loadBranch(m.deps))
 	case key.Matches(msg, m.keys.retry):
 		return m.startRun(r.kind, r.start, r.succeeded)
 	case key.Matches(msg, m.keys.confirm):
@@ -423,7 +423,7 @@ func (m Model) startPush(succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd
 		succeeded = func(done Model) (Model, tea.Cmd) {
 			done = done.closeOverlay().noticed(done.marks.done + " pushed " + name)
 
-			return done, done.loadBranch()
+			return done, loadBranch(done.deps)
 		}
 	}
 
@@ -449,7 +449,7 @@ func (m Model) startRebase() (Model, tea.Cmd) {
 	succeeded := func(done Model) (Model, tea.Cmd) {
 		done = done.closeOverlay().noticed(done.marks.done + " rebased onto " + base)
 
-		return done, done.loadBranch()
+		return done, loadBranch(done.deps)
 	}
 
 	return m.startRun(rebaseRun(), func() (proc.Output, error) { return rebase(base) }, succeeded)

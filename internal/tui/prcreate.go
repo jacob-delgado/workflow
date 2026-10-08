@@ -59,7 +59,7 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 		m.prDraft = c.snapshot()
 
 		return m.startPush(func(pushed Model) (Model, tea.Cmd) {
-			reload := pushed.loadBranch()
+			reload := loadBranch(pushed.deps)
 			pushed, create := c.create(pushed)
 
 			return pushed, tea.Batch(reload, create)

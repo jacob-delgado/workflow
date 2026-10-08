@@ -217,7 +217,7 @@ func (m Model) markDone() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = m.doneAsked(task)
+	m.overlay = doneAsked(m.deps, task)
 
 	return m, nil
 }

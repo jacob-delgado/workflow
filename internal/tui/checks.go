@@ -268,20 +268,20 @@ func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 // failedChecks are the review's failed checks under its CI line: the stage
 // each ran in and its name, then why it failed when the forge says, so the
 // pane names what broke rather than only that something did.
-func (m Model) failedChecks() []string {
+func (s reviewState) failedChecks(kit renderKit) []string {
 	var lines []string
 
-	for _, check := range m.review.ci.Checks {
+	for _, check := range s.ci.Checks {
 		if check.State != forge.CIFailed {
 			continue
 		}
 
 		name := check.Name
 		if check.Stage != "" {
-			name = check.Stage + m.marks.separator + check.Name
+			name = check.Stage + kit.marks.separator + check.Name
 		}
 
-		lines = append(lines, "  "+m.kit().failedGlyph()+" "+name)
+		lines = append(lines, "  "+kit.failedGlyph()+" "+name)
 
 		if check.Reason != "" {
 			lines = append(lines, "    "+check.Reason)

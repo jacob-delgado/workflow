@@ -86,7 +86,7 @@ var _ applier = issuesLoaded{}
 // apply caches a fresh first page, then, when the answer is for the view on
 // screen, records it and asks for the selected issue in full.
 func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
-	cache := m.cacheIssues(msg)
+	cache := cacheIssues(m.deps, msg)
 
 	if msg.jql != m.activeView().jql {
 		return m, cache
@@ -102,8 +102,8 @@ func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
 // later session opens on it before the tracker answers, off the update loop,
 // and says so when the store could not keep it. Only a first page is cached; a
 // failure and further pages are not.
-func (m Model) cacheIssues(msg issuesLoaded) tea.Cmd {
-	write := m.deps.Store.CacheIssues
+func cacheIssues(deps Deps, msg issuesLoaded) tea.Cmd {
+	write := deps.Store.CacheIssues
 	if msg.err != nil || msg.startAt != 0 || write == nil {
 		return nil
 	}

@@ -92,18 +92,18 @@ func (m Model) openPeople() (Model, tea.Cmd) {
 		reading: true, repoReading: true, channel: m.defaultChannel(),
 		opened: opened,
 	}
-	people.members, readMembers = m.readMembers(people.channel, opened)
-	people.groups, readGroups = m.readUserGroups(opened)
+	people.members, readMembers = readChannelMembers(m.deps, people.channel, opened)
+	people.groups, readGroups = readUserGroups(m.deps, opened)
 	m.overlay = people
 
-	return m, tea.Batch(m.readPeople(opened), m.readRepoGroups(opened), readMembers, readGroups)
+	return m, tea.Batch(m.readPeople(opened), readRepoGroups(m.deps, opened), readMembers, readGroups)
 }
 
 // readPeople reads who was decided on this forge host, and the owners of this
 // branch's changes, who may not have been asked about yet, for the overlay
 // opened as opened.
 func (m Model) readPeople(opened int) tea.Cmd {
-	owners := m.taggedOwnerSeams()
+	owners := taggedOwnerSeams(m.deps)
 	links, base, readWorkspace := m.deps.Store.OwnerLinks, m.branch.branch.BaseName(), m.deps.Messaging.Workspace
 
 	return func() tea.Msg {
@@ -301,7 +301,7 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 
 		return m, nil
 	case key.Matches(msg, m.keys.notOnSlack):
-		return p.saving(m, m.saveLink(decided(selected.owner, selected.team, nil), p.opened))
+		return p.saving(m, saveLink(m.deps, decided(selected.owner, selected.team, nil), p.opened))
 	case key.Matches(msg, m.keys.forgetOwner):
 		return p.askToForget(m, selected.owner), nil
 	default:

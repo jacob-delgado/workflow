@@ -66,15 +66,15 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 
 // refreshBranch reads the branch again, and the work tree with it.
 func (m Model) refreshBranch() (Model, tea.Cmd) {
-	read := m.loadBranch()
+	read := loadBranch(m.deps)
 	m.branch.loading = read != nil
 
-	return m, tea.Batch(read, m.loadChanges())
+	return m, tea.Batch(read, loadChanges(m.deps))
 }
 
 // loadBranch is the command that reads the branch.
-func (m Model) loadBranch() tea.Cmd {
-	read := m.deps.Git.Branch
+func loadBranch(deps Deps) tea.Cmd {
+	read := deps.Git.Branch
 	if read == nil {
 		return nil
 	}
@@ -213,7 +213,7 @@ func (m Model) branchOffers() []offer {
 
 	return []offer{
 		{binding: m.keys.newBranch, can: m.canCreateBranch(), act: m.openBranchCreator},
-		{binding: m.keys.switchBranch, can: m.canSwitchTask(), act: m.openBranchPicker},
+		{binding: m.keys.switchBranch, can: canSwitchTask(m.deps), act: m.openBranchPicker},
 		{binding: m.keys.linkIssue, can: m.canLinkIssue(), act: m.openBranchLink},
 		{binding: m.keys.rebase, can: m.canRebase(), act: m.previewRebase},
 		{binding: m.keys.push, can: m.canPush(), act: m.previewPush},
@@ -227,8 +227,8 @@ func (m Model) branchKeys() []key.Binding {
 }
 
 // canSwitchTask reports that the repository can list and switch branches.
-func (m Model) canSwitchTask() bool {
-	return m.deps.Git.Branches != nil && m.deps.Git.Checkout != nil
+func canSwitchTask(deps Deps) bool {
+	return deps.Git.Branches != nil && deps.Git.Checkout != nil
 }
 
 // canRebase reports a feature branch with a base to catch up with.

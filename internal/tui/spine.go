@@ -58,7 +58,7 @@ func (m Model) spine(shape layout.Layout) string {
 // for both and for DRY RUN; the place is the first thing to give way, since
 // the Repositories pane says it in full.
 func (m Model) ledByPlace(stages string, width int) string {
-	place := m.placeLabel()
+	place := placeLabel(m.deps)
 	if place == "" {
 		return stages
 	}
@@ -80,8 +80,8 @@ func (m Model) ledByPlace(stages string, width int) string {
 // placeLabel is where you work, briefly: the repository's name and the path
 // within it, or the directory's own name outside one; nothing when the
 // interface was not told.
-func (m Model) placeLabel() string {
-	here := m.deps.Repositories.Here
+func placeLabel(deps Deps) string {
+	here := deps.Repositories.Here
 	if here.Dir == "" {
 		return ""
 	}

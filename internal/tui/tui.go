@@ -194,8 +194,8 @@ func Run(ctx context.Context, model Model, out io.Writer) (Next, error) {
 // own.
 func (m Model) Init() tea.Cmd {
 	loads := []tea.Cmd{
-		m.searchIssues(), m.listIssueBranches(), m.loadBranch(), m.loadChanges(), m.findHooks(),
-		m.loadReviewQueue(), m.loadAnnounces(), m.loadTasks(),
+		m.searchIssues(), m.listIssueBranches(), loadBranch(m.deps), loadChanges(m.deps), findHooks(m.deps),
+		loadReviewQueue(m.deps), loadAnnounces(m.deps), m.loadTasks(),
 	}
 
 	// Opened on the Repositories pane, after a switch made from it, that pane

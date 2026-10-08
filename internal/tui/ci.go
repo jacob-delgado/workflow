@@ -140,21 +140,21 @@ func (msg ciPoll) apply(m Model) (Model, tea.Cmd) {
 }
 
 // ciGlyph is how the branch's CI stands, by shape.
-func (m Model) ciGlyph() string {
-	return m.kit().ciGlyph(m.review.ci.State)
+func (s reviewState) ciGlyph(kit renderKit) string {
+	return kit.ciGlyph(s.ci.State)
 }
 
 // ciSummary says how CI stands in words.
-func (m Model) ciSummary() string {
-	reported := m.review.ci
+func (s reviewState) ciSummary(kit renderKit) string {
+	reported := s.ci
 
 	switch {
-	case m.review.ciErr != nil:
-		return m.kit().failureSummary(m.review.ciErr)
-	case !m.review.checked:
-		return "reading" + m.marks.ellipsis
+	case s.ciErr != nil:
+		return kit.failureSummary(s.ciErr)
+	case !s.checked:
+		return "reading" + kit.marks.ellipsis
 	case reported.State == forge.CINone:
-		return m.ciGlyph() + " no checks reported" + m.checkedAtSuffix()
+		return s.ciGlyph(kit) + " no checks reported" + s.checkedAtSuffix(kit)
 	}
 
 	state := reported.State.Word()
@@ -163,15 +163,15 @@ func (m Model) ciSummary() string {
 		state += " (" + strconv.Itoa(reported.Done) + " of " + strconv.Itoa(reported.Total) + " finished)"
 	}
 
-	return m.ciGlyph() + " " + state + m.checkedAtSuffix()
+	return s.ciGlyph(kit) + " " + state + s.checkedAtSuffix(kit)
 }
 
-// checkedAtSuffix says when CI was last read, for a line that already says how
+// checkedAt says when CI was last read, for a line that already says how
 // it stands.
-func (m Model) checkedAtSuffix() string {
-	if m.review.checkedAt.IsZero() {
+func (s reviewState) checkedAtSuffix(kit renderKit) string {
+	if s.checkedAt.IsZero() {
 		return ""
 	}
 
-	return m.marks.separator + "checked " + m.review.checkedAt.Format(ciCheckedFormat)
+	return kit.marks.separator + "checked " + s.checkedAt.Format(ciCheckedFormat)
 }

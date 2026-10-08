@@ -65,15 +65,15 @@ func (s reviewQueueState) listed(previous forge.ReviewRequest, rows int) reviewQ
 
 // refreshReviewQueue reads the review queue again.
 func (m Model) refreshReviewQueue() (Model, tea.Cmd) {
-	read := m.loadReviewQueue()
+	read := loadReviewQueue(m.deps)
 	m.reviewQueue.loading = read != nil
 
 	return m, read
 }
 
 // loadReviewQueue is the command that reads the review queue from the forge.
-func (m Model) loadReviewQueue() tea.Cmd {
-	list := m.deps.Forge.ReviewRequests
+func loadReviewQueue(deps Deps) tea.Cmd {
+	list := deps.Forge.ReviewRequests
 	if list == nil {
 		return nil
 	}

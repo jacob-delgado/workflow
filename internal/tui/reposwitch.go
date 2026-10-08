@@ -71,10 +71,10 @@ func (m Model) Arrived(next Next) Model {
 	}
 
 	if next.saved.path != "" {
-		return m.noticed(m.marks.done + " saved " + m.shownDir(next.saved.path) + "; reopened with it")
+		return m.noticed(m.marks.done + " saved " + shownDir(m.deps, next.saved.path) + "; reopened with it")
 	}
 
-	return m.noticed(m.marks.done + " switched to " + m.shownDir(next.Dir))
+	return m.noticed(m.marks.done + " switched to " + shownDir(m.deps, next.Dir))
 }
 
 // StayedAfter is the interface reopened where it was after a switch to
@@ -82,18 +82,18 @@ func (m Model) Arrived(next Next) Model {
 func (m Model) StayedAfter(next Next, err error) Model {
 	m = m.carryIn(next.carried)
 	if next.saved.path != "" {
-		return m.noticedFailureLedBy("saved "+m.shownDir(next.saved.path)+" but could not reopen with it: ", err)
+		return m.noticedFailureLedBy("saved "+shownDir(m.deps, next.saved.path)+" but could not reopen with it: ", err)
 	}
 
-	return m.noticedFailureLedBy("could not switch to "+m.shownDir(next.Dir)+": ", err)
+	return m.noticedFailureLedBy("could not switch to "+shownDir(m.deps, next.Dir)+": ", err)
 }
 
 // arrivedSetUp is the interface reopened with the file a first run wrote, on
 // the Issues pane it was set up from.
 func (m Model) arrivedSetUp(saved reopening) Model {
-	said := m.marks.done + " set up with " + m.shownDir(saved.path)
+	said := m.marks.done + " set up with " + shownDir(m.deps, saved.path)
 	if saved.notIgnored {
-		said = m.marks.done + " set up; add it to .gitignore, since it holds credentials: " + m.shownDir(saved.path)
+		said = m.marks.done + " set up; add it to .gitignore, since it holds credentials: " + shownDir(m.deps, saved.path)
 	}
 
 	return m.focusOn(paneIssues).noticed(said)
@@ -153,7 +153,7 @@ func (m Model) leaveFor(dir string) (Model, tea.Cmd) {
 func (m Model) switchLook(dir string) lastLook {
 	return lastLook{
 		title: "Switch directory", verb: verbSwitch, leave: escStay,
-		body: leaveQuestion("Switch to "+m.shownDir(dir)+"?\n\nEvery pane is read again there.",
+		body: leaveQuestion("Switch to "+shownDir(m.deps, dir)+"?\n\nEvery pane is read again there.",
 			"Switching", m.lostOnLeaving()),
 		proceed: func(m Model) (Model, tea.Cmd) {
 			m = m.closeOverlay()
@@ -214,7 +214,7 @@ func (m Model) reopenWith(saved reopening) (Model, tea.Cmd) {
 // reopenLook is the last look at reopening in dir with the configuration
 // saved, which names what reopening would lose.
 func (m Model) reopenLook(dir string, saved reopening) lastLook {
-	question := "Saved " + m.shownDir(saved.path) + ". Reopen workflow here, so it applies now?\n\n" +
+	question := "Saved " + shownDir(m.deps, saved.path) + ". Reopen workflow here, so it applies now?\n\n" +
 		"Every pane is read again. Staying keeps it for when workflow next opens."
 
 	return lastLook{
@@ -234,7 +234,7 @@ func (m Model) reopenLook(dir string, saved reopening) lastLook {
 // savedForLater says the configuration at path was saved, and applies when
 // workflow next opens.
 func (m Model) savedForLater(path string) string {
-	return m.marks.done + " saved " + m.shownDir(path) + "; it applies once workflow reopens"
+	return m.marks.done + " saved " + shownDir(m.deps, path) + "; it applies once workflow reopens"
 }
 
 // reopen ends the interface for dir, the directory it works in, saying the
@@ -292,9 +292,9 @@ func (m Model) switchToSelected() (Model, tea.Cmd) {
 
 	switch {
 	case row.here:
-		return m.noticed("you already work in " + m.shownDir(row.dir)), nil
+		return m.noticed("you already work in " + shownDir(m.deps, row.dir)), nil
 	case row.err != nil:
-		return m.noticed(m.shownDir(row.dir) + " is not there"), nil
+		return m.noticed(shownDir(m.deps, row.dir) + " is not there"), nil
 	default:
 		return m.leaveFor(row.dir)
 	}
