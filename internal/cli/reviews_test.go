@@ -192,7 +192,7 @@ func TestReviewsAsJSONReportsEachOldestFirstWithWhenItWasOpened(t *testing.T) {
 			err, printed.stdout, printed.stderr)
 	}
 
-	if len(requests) != 3 || requests[0].Number != 10 || requests[0].Ci != api.None {
+	if len(requests) != 3 || requests[0].Number != 10 || requests[0].Ci != api.CIStateNone {
 		t.Fatalf("reviews JSON = %+v, want three reviews oldest-first with CI none", requests)
 	}
 
