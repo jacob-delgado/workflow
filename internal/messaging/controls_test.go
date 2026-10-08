@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -78,5 +79,45 @@ func TestAnAnswerThatBreaksOffIsAnError(t *testing.T) {
 	// Assert
 	if !errors.Is(err, errBrokeOff) {
 		t.Errorf("AuthTest returned %v, want the read failure", err)
+	}
+}
+
+// slackLimit is the most of an answer the Slack client reads.
+const slackLimit = 1 << 20
+
+func TestAnAnswerPastTheLimitIsTooLarge(t *testing.T) {
+	t.Parallel()
+
+	// Valid JSON a byte past the limit: cut there, it would read as broken JSON.
+	padding := strings.Repeat("x", slackLimit+1-len(`{"ok":true,"user":""}`))
+	tooLarge := `{"ok":true,"user":"` + padding + `"}`
+
+	cases := map[string]func(messaging.Client) error{
+		"auth.test": func(client messaging.Client) error {
+			_, err := client.AuthTest(t.Context())
+
+			return err
+		},
+		"a post": func(client messaging.Client) error { return client.Post(t.Context(), "#eng", message) },
+	}
+
+	for name, ask := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
+				writer.Header().Set("Content-Type", "application/json")
+				_, _ = writer.Write([]byte(tooLarge))
+			})
+
+			// Act
+			err := ask(client)
+
+			// Assert
+			if !errors.Is(err, httpx.ErrAnswerTooLarge) {
+				t.Errorf("the ask = %v, want ErrAnswerTooLarge", err)
+			}
+		})
 	}
 }
