@@ -72,7 +72,7 @@ pre-commit:
 
     yamllint:
       glob: "*.{yml,yaml}"
-      run: yamllint {staged_files}
+      run: yamllint --strict {staged_files}
 
     hadolint:
       glob: "*Dockerfile*"

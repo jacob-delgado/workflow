@@ -377,7 +377,10 @@ tasks:
   lint:yaml:
     desc: Lint the YAML
     cmds:
-      - yamllint .
+      # --strict, so a warning fails as an error does: yamllint exits 0 on a
+      # warning, and a "missing starting space in comment" warning once hid a
+      # description YAML had cut short at a " #".
+      - yamllint --strict .
 
   lint:docker:
     desc: Lint the build container's Dockerfile

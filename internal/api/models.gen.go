@@ -992,7 +992,7 @@ type BranchIssuePreview struct {
 	// Changes Whether linking would change the description at all.
 	Changes bool `json:"changes"`
 
-	// Key The issue's key, a forge number without its
+	// Key The issue's key, a forge number without its #.
 	Key string `json:"key"`
 
 	// Pull The open pull request's number, or 0 when the branch has none.
@@ -1001,7 +1001,7 @@ type BranchIssuePreview struct {
 
 // BranchIssueRequest defines model for BranchIssueRequest.
 type BranchIssueRequest struct {
-	// Key A Jira key, or a forge issue number with or without its
+	// Key A Jira key, or a forge issue number with or without its #.
 	//
 	// Example: PROJ-412
 	Key string `json:"key"`
@@ -1505,7 +1505,7 @@ type KeyList struct {
 
 // LinkedIssue defines model for LinkedIssue.
 type LinkedIssue struct {
-	// Key The issue's key, a forge number without its
+	// Key The issue's key, a forge number without its #.
 	Key string `json:"key"`
 
 	// Origin Where the issue was found: the link the branch was given by hand, the branch's name, or the pull request's title or description.
@@ -2514,7 +2514,7 @@ type GetAnnouncementParams struct {
 
 // PreviewBranchIssueParams defines parameters for PreviewBranchIssue.
 type PreviewBranchIssueParams struct {
-	// Key A Jira key, or a forge issue number with or without its
+	// Key A Jira key, or a forge issue number with or without its #.
 	Key string `form:"key" json:"key"`
 }
 
