@@ -7,17 +7,87 @@ import { problem } from './fixtures.ts'
 export const themes = ['dark', 'light'] as const
 export const widths = [640, 1024, 1440] as const
 export const height = 900
+// sectionsWith are the rail's sections, its labels' accessible names and each
+// section's heading: the messaging one is named for the service set up, or
+// Messaging where none is.
+export function sectionsWith(messaging: string): string[] {
+  return [
+    'Issues',
+    'Branch',
+    'Review',
+    messaging,
+    'Reviews',
+    'Tasks',
+    'Summary',
+    'Repositories',
+    'Settings',
+  ]
+}
+
 // The mockup's messaging service is Slack, so its section is named for it.
-export const sectionNames = [
-  'Issues',
-  'Branch',
-  'Review',
-  'Slack',
-  'Reviews',
-  'Tasks',
-  'Summary',
-  'Repositories',
-  'Settings',
+export const sectionNames = sectionsWith('Slack')
+
+// confirmSteps are the steps a click opens on the populated build before a
+// write goes out: each a group named for what it asks, and the controls it
+// adds, which Tab must reach.
+export const confirmSteps = [
+  {
+    step: 'push confirmation',
+    section: 'Branch',
+    opener: 'Push branch',
+    group: /^Push /,
+    adds: ['Cancel', 'Push'],
+  },
+  {
+    step: 'discard confirmation',
+    section: 'Branch',
+    opener: 'Discard internal/config/redact.go…',
+    group: 'Discard the changes to internal/config/redact.go?',
+    adds: ['Cancel', 'Discard'],
+  },
+  {
+    step: 'announcement preview',
+    section: 'Slack',
+    opener: 'Announce to Slack',
+    group: 'Announcement preview',
+    // The mockup's announcement tags: an owner to link, and a group to check.
+    adds: [
+      'Channel',
+      'Slack user for ben',
+      'ben is not on Slack',
+      '@api-reviewers',
+      'Cancel',
+      'Announce now',
+    ],
+  },
+  {
+    step: 'summary preview',
+    section: 'Summary',
+    opener: 'Post…',
+    group: 'Summary preview',
+    adds: ['Edit', 'Channel', 'Cancel', 'Post'],
+  },
+  {
+    step: 'forget confirmation in People and groups',
+    section: 'Settings',
+    opener: 'Forget carla…',
+    group: 'Forget carla?',
+    adds: ['Cancel', 'Forget'],
+  },
+  {
+    step: 'credential removal in Settings',
+    section: 'Settings',
+    opener: 'Remove the Jira token…',
+    group: 'Remove the Jira token from the file?',
+    adds: ['Cancel', 'Remove'],
+  },
+  {
+    step: 'remove confirmation in Local data',
+    section: 'Settings',
+    opener: 'Remove cache…',
+    group: 'Remove workflow.db?',
+    adds: ['Cancel', 'Remove'],
+  },
 ]
 
 // pinTheme saves a theme choice before the app paints, so the whole run is in
