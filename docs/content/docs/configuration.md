@@ -153,7 +153,7 @@ them on stderr, so there is never a question about which were read.
 | `forge.cli` | no | Route forge API calls through the forge's own command-line tool — `gh` for GitHub, `glab` for GitLab — instead of over HTTP, so the login that tool already holds carries the request. This is what reaches a forge behind an SSO gateway a bare token cannot. Falls back to HTTP when the tool is not installed. Defaults to `false`. |
 | `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
-| `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them; any other value is refused when the file loads. `NO_COLOR` also turns them off. |
+| `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them; any other value is refused when the file loads. `NO_COLOR`, set to a non-empty value, also turns them off. |
 | `ui.notify` | no | Ring the terminal (and raise a desktop notification where it relays one) when CI finishes; under `--web`, say so in the page's header. Defaults to `false`. |
 | `ui.comments_shown` | no | How many of an issue's most recent comments the detail pane draws. Defaults to 5, which `0` also keeps; a negative count is refused when the file loads. |
 | `ui.keys` | no | Rebind keys: a map from an action to the single key that triggers it, e.g. `{"commit": "C"}`. The help then shows the new key. See [Rebinding keys](#rebinding-keys) for the actions. |
@@ -671,7 +671,8 @@ than a guess.
 and magenta of the spine, the cyan of the started task at its end, and the red
 of a failure — while keeping bold, faint and the reverse-video cursor, which
 carry the same meaning without color.
-Setting the `NO_COLOR` environment variable to any value does the same. The
+Setting the `NO_COLOR` environment variable to a non-empty value does the same;
+set but empty, as [no-color.org](https://no-color.org) asks, it does not. The
 glyphs already say by shape what the colors say by hue, so nothing is lost.
 
 `ui.notify`, off unless you turn it on, rings the terminal when CI finishes —
