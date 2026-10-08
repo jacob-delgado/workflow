@@ -964,9 +964,9 @@ lint`, fails an entry missing its ID or one of its three fields, and a site
 comment naming an ID the register does not hold.
 
 The pre-1.0 audit re-judged every entry on 2026-10-07. TRADE-3, TRADE-4,
-TRADE-5, TRADE-7, TRADE-8, TRADE-9, TRADE-11, TRADE-13, TRADE-14, TRADE-24,
-TRADE-25, TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is
-true at `b9ab000`. TRADE-16 was paid down to the two calls it now names, and
+TRADE-5, TRADE-8, TRADE-9, TRADE-11, TRADE-13, TRADE-14, TRADE-24, TRADE-25,
+TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is true at
+`b9ab000`. TRADE-16 was paid down to the two calls it now names, and
 TRADE-21 and TRADE-28 to two copies held to one shared case file, and each
 stays. TRADE-2, TRADE-6, TRADE-10, TRADE-12, TRADE-18, TRADE-19, TRADE-23 and
 TRADE-29 are to be paid down by the entries above whose titles name them, and
@@ -1080,24 +1080,6 @@ must copy the pairs or extract them then.
 
 **Reopen when.** A third overlay binds the next-field and previous-field
 keys (`keys.nextField`, `keys.prevField`), which makes it a third composer.
-
-### TRADE-7 A condition-coverage skip list of one
-
-**Decided.** `scripts/gobco-report.sh` names `internal/proc/pgroup` in
-`UNANALYZABLE`. gobco ignores build tags, so it fails on the redeclared
-`Isolate` in `pgroup_unix.go` and `pgroup_other.go`, and the Unix half's
-syscalls cannot compile elsewhere, so the twin cannot be folded into one file.
-The package holds only that glue, so `internal/proc` keeps its condition
-coverage, and `proc.Start`'s grandchild-kill test exercises the Unix path end
-to end. A package that becomes unreadable without being named fails the gate.
-Recorded on 2026-09-24 in the audit (#140), and kept on 2026-10-07 in the
-pre-1.0 audit.
-
-**Cost.** pgroup's three `Cancel` conditions go unmeasured by gobco, and the
-next package of tagged twins must join the list.
-
-**Reopen when.** gobco reads build tags, or a second package whose files come
-in tagged twins appears.
 
 ### TRADE-8 The web's branch floor is v8's range-based count
 
