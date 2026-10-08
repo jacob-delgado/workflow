@@ -60,7 +60,8 @@ internal/rlimit/      lowering a resource limit around one test call (tests only
 internal/sanitize/    neutralizing terminal controls in server text
 internal/buildinfo/   which build is running, from what the Go toolchain stamps
 internal/testshape/   the Arrange-Act-Assert check behind cmd/testshape
-cmd/docsgen/          generates the command reference from the Cobra tree
+internal/docsgen/     the command reference behind cmd/docsgen, from the Cobra tree
+cmd/docsgen/          the thin main that runs internal/docsgen
 cmd/testshape/        the thin main that runs internal/testshape
 api/                  the OpenAPI contract for --web, embedded in the binary
 web/                  the React + TypeScript frontend --web serves
