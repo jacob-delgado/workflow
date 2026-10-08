@@ -145,8 +145,9 @@ func githubReviewed(ctx context.Context, client Client, start time.Time) ([]Even
 	var events []Event
 
 	for _, item := range found.Items {
-		reviews, err := call[[]githubReview](ctx, client, http.MethodGet,
-			"/repos/"+escapedPath(item.repository())+"/pulls/"+strconv.Itoa(item.Number)+"/reviews?per_page=100", nil)
+		repo := Repo{Kind: KindGitHub, Path: item.repository()}
+
+		reviews, err := githubPullReviews(ctx, client, repo, githubPullPath(repo, item.Number))
 		if err != nil {
 			return nil, false, err
 		}
