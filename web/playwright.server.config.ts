@@ -1,3 +1,4 @@
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { defineConfig, devices } from '@playwright/test'
@@ -11,11 +12,30 @@ const port = '13580'
 
 const serverURL = `http://127.0.0.1:${port}`
 
-// The fixture scripts/e2e-server.sh rebuilds on every run: a throwaway home,
-// a repository with one untracked file, and the bare repository it pushes to.
-// A fixed path, not a fresh temporary one, because each worker evaluates this
-// file again and must name the same directory the server was started in.
-const fixture = join(tmpdir(), 'workflow-e2e-server')
+// fixtureVariable names the run's fixture to each worker, which evaluates this
+// file again and must name the directory the server was started in.
+const fixtureVariable = 'WORKFLOW_E2E_FIXTURE'
+
+// runFixture is where scripts/e2e-server.sh builds the run's fixture: a
+// throwaway home, a repository with one untracked file, and the bare repository
+// it pushes to. The run makes it fresh, private and unguessable, and removes it
+// as the run ends; a worker takes the one the run made.
+function runFixture(): string {
+  const made = process.env[fixtureVariable]
+  if (made !== undefined) {
+    return made
+  }
+
+  const fresh = mkdtempSync(join(tmpdir(), 'workflow-e2e-server-'))
+  process.env[fixtureVariable] = fresh
+  process.on('exit', () => {
+    rmSync(fresh, { recursive: true, force: true })
+  })
+
+  return fresh
+}
+
+const fixture = runFixture()
 
 // The server-backed run: `workflow --web`, the binary `task build` makes with
 // the app embedded, serves the page and its API from that repository, so a
