@@ -168,11 +168,20 @@ func (s *server) namePullIssue(ref convention.IssueRef) error {
 }
 
 // openPull is the pull request open from the checked-out branch, and whether
-// there is one.
+// there is one: none when HEAD is on no branch or there is no forge to ask.
+// A branch git could not read is that failure, not the absence of one.
 func (s *server) openPull() (forge.PullRequest, bool, error) {
+	if s.deps.FindPull == nil {
+		return forge.PullRequest{}, false, nil
+	}
+
 	branch, err := s.linkableBranch()
-	if err != nil || s.deps.FindPull == nil {
-		return forge.PullRequest{}, false, nil //nolint:nilerr // no branch, or no forge, has no pull request to change
+	if errors.Is(err, errNoBranchToLink) {
+		return forge.PullRequest{}, false, nil
+	}
+
+	if err != nil {
+		return forge.PullRequest{}, false, err
 	}
 
 	pull, found, err := s.deps.FindPull(branch.Name)
