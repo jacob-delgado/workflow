@@ -16,9 +16,9 @@ workflow, in the terminal or a browser.
 
 CONFIGURATION
 
-  workflow reads .workflow.json from the current directory or the
-  nearest directory above it, no higher than the repository root, and falls
-  back to your home directory. A file found there is LAYERED over the one in
+  workflow reads .workflow.json from the current directory or, in a
+  repository, the nearest directory above it up to the repository root, and
+  falls back to your home directory. A file found there is LAYERED over the one in
   your home directory, setting by setting: the repository's file holds only
   what that repository changes, and inherits the rest, tokens included.
 
