@@ -39,6 +39,8 @@ type hooksFound struct {
 	configured bool
 }
 
+var _ applier = hooksFound{}
+
 // apply stores hooks that predate lefthook, so the Commits pane can offer to
 // generate a configuration for them — rather than seizing the first screen —
 // and forgets them once lefthook is configured, however that came about.
@@ -155,6 +157,8 @@ type hooksWritten struct {
 	err        error
 	configured bool
 }
+
+var _ applier = hooksWritten{}
 
 // apply closes the offer once a configuration exists, and makes it no more —
 // saying why when lefthook then failed to install — or, while none does, keeps

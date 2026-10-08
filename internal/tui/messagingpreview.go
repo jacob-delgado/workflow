@@ -281,6 +281,8 @@ type messagingPosted struct {
 	err    error
 }
 
+var _ applier = messagingPosted{}
+
 // apply records the post, or why it failed, in the pane, and in the preview it
 // was written in while that is still open. A post that waited for CI was
 // written in a preview long closed, so it leaves one opened since as it is.

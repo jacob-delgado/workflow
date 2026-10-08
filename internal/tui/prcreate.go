@@ -106,6 +106,8 @@ type pullCreated struct {
 	err  error
 }
 
+var _ applier = pullCreated{}
+
 // apply shows the new pull request and starts on its CI, or keeps the composer
 // open with the forge's reason. A pull that opened but whose reviewers could
 // not be added is shown all the same, with a note, rather than lost.

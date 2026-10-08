@@ -78,6 +78,8 @@ type transitionsListed struct {
 	err      error
 }
 
+var _ applier = transitionsListed{}
+
 // apply records a listing, unless it answers a question the open picker did not
 // ask — another issue's, or its own asked twice by closing and reopening, which
 // would replace a list someone is already choosing from.
@@ -154,6 +156,8 @@ type transitionApplied struct {
 	to       jira.Transition
 	err      error
 }
+
+var _ applier = transitionApplied{}
 
 // apply reports a transition's outcome. A refusal keeps the picker open with
 // Jira's reason, to choose again; a move that worked closes it and refreshes the

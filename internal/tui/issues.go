@@ -29,6 +29,8 @@ type issuesLoaded struct {
 	jql string
 }
 
+var _ applier = issuesLoaded{}
+
 // apply caches a fresh first page, then, when the answer is for the view on
 // screen, records it and asks for the selected issue in full.
 func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {

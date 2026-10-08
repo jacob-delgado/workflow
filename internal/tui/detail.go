@@ -49,6 +49,8 @@ type detailLoaded struct {
 	err    error
 }
 
+var _ applier = detailLoaded{}
+
 // apply records the issue, unless the selection has moved on from it or a later
 // read has started — a load and then a reload after a comment, say — whose
 // answer is the one to show, whichever of the two arrives last.
@@ -66,6 +68,8 @@ func (msg detailLoaded) apply(m Model) (Model, tea.Cmd) {
 type detailDue struct {
 	key jira.Key
 }
+
+var _ applier = detailDue{}
 
 // apply reads the issue, if the selection is still on it.
 func (msg detailDue) apply(m Model) (Model, tea.Cmd) {

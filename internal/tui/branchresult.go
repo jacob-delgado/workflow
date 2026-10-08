@@ -39,6 +39,8 @@ type fetched struct {
 	err  error
 }
 
+var _ applier = fetched{}
+
 // apply creates the branch once the fetch succeeds, or keeps the creator open
 // offering to branch from what is already there when the fetch fails.
 func (msg fetched) apply(m Model) (Model, tea.Cmd) {
@@ -65,6 +67,8 @@ type branchCreated struct {
 	forIssue bool
 	err      error
 }
+
+var _ applier = branchCreated{}
 
 // apply switches the panes to the new branch, or keeps the creator open with
 // git's reason. A branch for an issue not yet started then offers to move it
@@ -108,6 +112,8 @@ type worktreeCreated struct {
 	forIssue   bool
 	err        error
 }
+
+var _ applier = worktreeCreated{}
 
 // apply says where the worktree is, or keeps the creator open with git's reason.
 // The panes do not reload: the current checkout is untouched, and the worktree

@@ -140,6 +140,8 @@ type finished struct {
 	err    error
 }
 
+var _ applier = finished{}
+
 // apply reports the finish and reloads onto the base branch, or keeps the
 // preview open with why it failed — git's own words, every line of them —
 // pinned under its title until esc.

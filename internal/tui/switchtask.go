@@ -54,6 +54,8 @@ type branchesListed struct {
 	err       error
 }
 
+var _ applier = branchesListed{}
+
 // yours reports whether key names one of your issues.
 func (msg branchesListed) yours(key jira.Key) bool {
 	return msg.mine == nil || msg.mine[key]
@@ -398,6 +400,8 @@ type treeChecked struct {
 	err     error
 }
 
+var _ applier = treeChecked{}
+
 // apply switches to the chosen branch, or keeps the switcher open with the
 // reason it will not: the tree could not be read, or it holds uncommitted work
 // the switch would carry onto the other branch.
@@ -433,6 +437,8 @@ type taskSwitched struct {
 	link string
 	err  error
 }
+
+var _ applier = taskSwitched{}
 
 // apply reloads the panes for the branch switched to, or keeps the switcher open
 // with git's reason. A branch that names an issue offers to start its task too,

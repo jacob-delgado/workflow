@@ -49,6 +49,8 @@ type mergeMethodsLoaded struct {
 	err     error
 }
 
+var _ applier = mergeMethodsLoaded{}
+
 // apply fills the open preview with the permitted methods, or pins why it
 // cannot: a read the token could not make, or a repository that permits none.
 // It does nothing once the preview has closed, or once it has been filled — a
@@ -80,6 +82,8 @@ type mergeRequested struct {
 	pull forge.PullRequest
 	err  error
 }
+
+var _ applier = mergeRequested{}
 
 // apply reports a merge and refreshes the pane, or keeps the preview open with
 // why the merge was refused, pinned under its title until esc. A merge for the

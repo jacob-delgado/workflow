@@ -92,6 +92,8 @@ type pullFound struct {
 	err    error
 }
 
+var _ applier = pullFound{}
+
 // apply records the pull request, unless the branch has changed since, and
 // checks its CI and who opened it. A find that fails keeps the pull request
 // already found, beside the failure.
@@ -157,6 +159,8 @@ type ciChecked struct {
 	ci     forge.CI
 	err    error
 }
+
+var _ applier = ciChecked{}
 
 // apply records CI, posts a message that was waiting for it, rings the terminal
 // if CI has just finished, and keeps asking while there is something to wait for.
@@ -233,6 +237,8 @@ func (m Model) pollInterval() time.Duration {
 type ciPoll struct {
 	review int
 }
+
+var _ applier = ciPoll{}
 
 // apply asks again, unless it belongs to a review that has since been replaced,
 // in which case it does nothing and its chain ends here.
