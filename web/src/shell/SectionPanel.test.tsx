@@ -69,6 +69,7 @@ test('routes the tasks section to its list, which reads without waiting on the s
       sync_available: false,
       said: '',
       tasks: [],
+      facet_order: [],
     },
   })
 

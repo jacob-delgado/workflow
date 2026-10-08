@@ -60,7 +60,9 @@ func (s *server) readTaskList(said string) (api.TaskList, error) {
 	if err != nil {
 		code, reason := unavailableReason(err)
 
-		return api.TaskList{Available: false, Reason: reason, ReasonCode: &code, Tasks: []api.Task{}}, nil
+		return api.TaskList{
+			Available: false, Reason: reason, ReasonCode: &code, Tasks: []api.Task{}, FacetOrder: []api.TaskFacet{},
+		}, nil
 	}
 
 	pending, err := s.deps.Tasks.Pending()
@@ -68,9 +70,11 @@ func (s *server) readTaskList(said string) (api.TaskList, error) {
 		return api.TaskList{}, err
 	}
 
+	tasks := knownTasks(pending.Tasks)
+
 	return api.TaskList{
 		Available: true, Reason: "", Context: pending.Context, SyncAvailable: install.SyncConfigured,
-		Said: said, Tasks: s.tasksDTO(pending.Tasks),
+		Said: said, Tasks: s.tasksDTO(tasks), FacetOrder: taskFacetsDTO(taskwarrior.OfferedFacets(tasks, s.now())),
 	}, nil
 }
 
@@ -186,43 +190,78 @@ func (s *server) heldDetection() (taskwarrior.Install, error) {
 // first started task, pending or linked, as the terminal's spine shows it, and
 // every linked task.
 func (s *server) tasksSummaryDTO(pending, linked []taskwarrior.Task) api.TasksSummary {
-	summary := api.TasksSummary{Available: true, Reason: "", Linked: s.tasksDTO(linked)}
+	summary := api.TasksSummary{Available: true, Reason: "", Linked: s.tasksDTO(knownTasks(linked))}
 
 	tasks := slices.Concat(pending, linked)
 	if started := slices.IndexFunc(tasks, taskwarrior.Task.Active); started >= 0 {
-		active := s.taskDTO(tasks[started])
-		summary.Active = &active
+		summary.Active = &s.tasksDTO(tasks[started : started+1])[0]
 	}
 
 	return summary
 }
 
-// tasksDTO maps tasks onto the wire, an empty list rather than null, leaving
-// out a task whose status the spec does not know: a synced replica can hold
-// one, and a status outside the spec's enum fails the page's parse of the
-// whole answer, or the whole frame. The active task is pending, so never one.
+// knownTasks is tasks but each whose status the spec does not know: a synced
+// replica can hold one, and a status outside the spec's enum fails the page's
+// parse of the whole answer, or the whole frame. The active task is pending,
+// so never one.
+func knownTasks(tasks []taskwarrior.Task) []taskwarrior.Task {
+	return slices.DeleteFunc(slices.Clone(tasks), func(task taskwarrior.Task) bool {
+		return !api.TaskStatus(task.Status).Valid()
+	})
+}
+
+// tasksDTO maps tasks onto the wire, an empty list rather than null, each with
+// its place in every order among them, as the server's clock reads now.
 func (s *server) tasksDTO(tasks []taskwarrior.Task) []api.Task {
+	now := s.now()
+	ranks := taskwarrior.RanksOf(tasks, now)
 	out := make([]api.Task, 0, len(tasks))
 
-	for _, task := range tasks {
-		if api.TaskStatus(task.Status).Valid() {
-			out = append(out, s.taskDTO(task))
-		}
+	for index, task := range tasks {
+		out = append(out, s.taskDTO(task, ranks[index], now))
 	}
 
 	return out
 }
 
-// taskDTO maps a task onto the wire, each date it does not have absent.
-func (s *server) taskDTO(task taskwarrior.Task) api.Task {
+// taskDTO maps a task onto the wire, each date it does not have absent, with
+// where it stands at now, its facets, its ranks and the fields text matches.
+func (s *server) taskDTO(task taskwarrior.Task, ranks taskwarrior.Ranks, now time.Time) api.Task {
 	return api.Task{
 		UUID: task.UUID, ID: task.ID, Description: task.Description, Status: api.TaskStatus(task.Status),
-		Project: task.Project, Priority: task.Priority, Tags: orEmpty(task.Tags),
-		Due: optionalTime(task.Due), Wait: optionalTime(task.Wait), Scheduled: optionalTime(task.Scheduled),
+		State: api.TaskState(task.State(now).String()), Project: task.Project, Priority: task.Priority,
+		Tags: orEmpty(task.Tags),
+		Due:  optionalTime(task.Due), Wait: optionalTime(task.Wait), Scheduled: optionalTime(task.Scheduled),
 		Until: optionalTime(task.Until), Start: optionalTime(task.Start), End: optionalTime(task.End),
 		Entry: task.Entry, Modified: task.Modified, Urgency: task.Urgency,
 		Annotations: annotationsDTO(task.Annotations), IssueKey: task.IssueKey, IssueURL: s.taskIssueURL(task),
+		Facets: taskFacetsDTO(task.Facets(now)), Ranks: ranksDTO(ranks), Searchable: task.Searchable(),
 	}
+}
+
+// ranksDTO maps a task's place in each order onto the wire.
+func ranksDTO(ranks taskwarrior.Ranks) api.TaskRanks {
+	return api.TaskRanks{
+		Urgency: ranks.Urgency, State: ranks.State, ID: ranks.ID, Tag: ranks.Tag, Issue: ranks.Issue,
+		Priority: ranks.Priority,
+	}
+}
+
+// taskFacetsDTO maps task facets onto the wire, each with its label, an empty
+// list rather than null. A map, so exhaustive keeps the kinds complete.
+func taskFacetsDTO(facets []taskwarrior.Facet) []api.TaskFacet {
+	kinds := map[taskwarrior.FacetKind]api.TaskFacetKind{
+		taskwarrior.FacetState: api.TaskFacetKindState, taskwarrior.FacetPriority: api.TaskFacetKindPriority,
+		taskwarrior.FacetProject: api.TaskFacetKindProject, taskwarrior.FacetTag: api.TaskFacetKindTag,
+		taskwarrior.FacetIssue: api.TaskFacetKindIssue,
+	}
+
+	out := make([]api.TaskFacet, 0, len(facets))
+	for _, facet := range facets {
+		out = append(out, api.TaskFacet{Kind: kinds[facet.Kind], Value: facet.Value, Label: facet.Label()})
+	}
+
+	return out
 }
 
 // taskIssueURL is the page of the issue a task tracks: the tracker's, as the

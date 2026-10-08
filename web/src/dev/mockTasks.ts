@@ -1,4 +1,4 @@
-import type { Task, TaskList, TasksSummary } from '@/api/generated/types.gen.ts'
+import type { Task, TaskFacet, TaskList, TasksSummary } from '@/api/generated/types.gen.ts'
 import { minute } from '@/lib/dates.ts'
 
 // at is the RFC 3339 time some minutes from now — before it when negative — so
@@ -9,6 +9,26 @@ function at(minutes: number): string {
 
 const hours = 60
 const days = 24 * hours
+
+// facet is a value a task holds, as the server labels it.
+function facet(kind: TaskFacet['kind'], value: string, label: string): TaskFacet {
+  return { kind, value, label }
+}
+
+// The values the mockup's tasks hold, as the server describes them.
+const isStarted = facet('state', 'started', 'started')
+const isPending = facet('state', 'pending', 'pending')
+const isWaiting = facet('state', 'waiting', 'waiting')
+const atHigh = facet('priority', 'H', 'priority H')
+const atMedium = facet('priority', 'M', 'priority M')
+const atNone = facet('priority', '', 'no priority')
+const inWorkflow = facet('project', 'workflow', 'project workflow')
+const inOps = facet('project', 'ops', 'project ops')
+const inNoProject = facet('project', '', 'no project')
+const linked = facet('issue', 'linked', 'with issue')
+const unlinked = facet('issue', 'unlinked', 'no issue')
+const taggedJira = facet('tag', 'jira', '+jira')
+const untagged = facet('tag', '', 'no tag')
 
 // redacting is the started task, tracking the checked-out issue as tracking
 // it writes one — its key and page, the jira tag, its priority and a note of
@@ -31,6 +51,10 @@ const redacting: Task = {
   ],
   issue_key: 'PROJ-412',
   issue_url: 'https://jira.example.com/browse/PROJ-412',
+  state: 'started',
+  facets: [isStarted, atHigh, inWorkflow, linked, taggedJira],
+  ranks: { urgency: 0, state: 0, id: 0, tag: 0, issue: 1, priority: 0 },
+  searchable: ['proj-412: fix token redaction', 'workflow', 'proj-412', '+jira', '#1'],
 }
 
 // caching is a task still to do for another issue of yours, due in two days.
@@ -49,6 +73,16 @@ const caching: Task = {
   annotations: [{ entry: at(-5 * days), description: 'https://jira.example.com/browse/PROJ-408' }],
   issue_key: 'PROJ-408',
   issue_url: 'https://jira.example.com/browse/PROJ-408',
+  state: 'pending',
+  facets: [isPending, atMedium, inWorkflow, linked, taggedJira],
+  ranks: { urgency: 1, state: 1, id: 1, tag: 1, issue: 0, priority: 1 },
+  searchable: [
+    'proj-408: cache the forge ci status between polls',
+    'workflow',
+    'proj-408',
+    '+jira',
+    '#2',
+  ],
 }
 
 // certificate is a task no issue tracks, due tomorrow.
@@ -67,6 +101,10 @@ const certificate: Task = {
   annotations: [],
   issue_key: '',
   issue_url: '',
+  state: 'pending',
+  facets: [isPending, atNone, inOps, unlinked, untagged],
+  ranks: { urgency: 2, state: 2, id: 2, tag: 2, issue: 2, priority: 2 },
+  searchable: ['renew the staging tls certificate', 'ops', '', '#3'],
 }
 
 // retro is a task no issue tracks, hidden until later in the week.
@@ -85,6 +123,10 @@ const retro: Task = {
   annotations: [],
   issue_key: '',
   issue_url: '',
+  state: 'waiting',
+  facets: [isWaiting, atNone, inNoProject, unlinked, untagged],
+  ranks: { urgency: 3, state: 3, id: 3, tag: 3, issue: 3, priority: 3 },
+  searchable: ['book a room for the sprint retro', '', '', '#4'],
 }
 
 // mockTaskList is the task list `task web:mockup` shows: a started task for the
@@ -99,6 +141,26 @@ export function mockTaskList(): TaskList {
     sync_available: true,
     said: '',
     tasks: [redacting, caching, certificate, retro],
+    facet_order: [
+      isStarted,
+      isPending,
+      isWaiting,
+      facet('state', 'recurring', 'recurring'),
+      facet('state', 'completed', 'completed'),
+      facet('state', 'deleted', 'deleted'),
+      facet('state', 'unknown', 'unknown'),
+      atHigh,
+      atMedium,
+      facet('priority', 'L', 'priority L'),
+      atNone,
+      inOps,
+      inWorkflow,
+      inNoProject,
+      taggedJira,
+      untagged,
+      linked,
+      unlinked,
+    ],
   }
 }
 

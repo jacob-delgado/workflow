@@ -84,7 +84,12 @@ function TaskFacts({ task, issue, now }: Omit<TaskDetailProps, 'teller'>) {
       {task.project === '' ? null : <Fact term="Project">{task.project}</Fact>}
       {task.priority === '' ? null : <Fact term="Priority">{task.priority}</Fact>}
       {task.tags.length === 0 ? null : (
-        <Fact term="Tags">{task.tags.map((tag) => `+${tag}`).join(' ')}</Fact>
+        <Fact term="Tags">
+          {task.facets
+            .filter((facet) => facet.kind === 'tag')
+            .map((facet) => facet.label)
+            .join(' ')}
+        </Fact>
       )}
       {task.due === undefined ? null : (
         <Fact term="Due">

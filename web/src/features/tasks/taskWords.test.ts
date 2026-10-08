@@ -1,5 +1,5 @@
 import { makeTask } from '@/test/fixtures.ts'
-import { dueWords, elapsedWords, markOf, statusWords, waitsAt } from './taskWords.ts'
+import { dueWords, elapsedWords, markOf, statusWords } from './taskWords.ts'
 
 const minute = 60_000
 const now = Date.parse('2026-09-28T12:00:00Z')
@@ -45,14 +45,4 @@ test.each([
 ])("names %s in Taskwarrior's words, and marks it by shape", (_, task, words, mark) => {
   // Act & Assert
   expect([statusWords(task), markOf(task)]).toEqual([words, mark])
-})
-
-test.each([
-  ['a task Taskwarrior says is waiting', makeTask({ status: 'waiting' }), true],
-  ['a pending task hidden until later', makeTask({ wait: before(-60) }), true],
-  ['a pending task whose wait is over', makeTask({ wait: before(60) }), false],
-  ['a pending task with no wait', makeTask(), false],
-])('counts %s as waiting or not', (_, task, waiting) => {
-  // Act & Assert
-  expect(waitsAt(task, now)).toBe(waiting)
 })

@@ -313,7 +313,7 @@ func (m Model) taskRow(task taskwarrior.Task, selected bool, now time.Time) stri
 		tail = append(tail, "waits until "+task.Wait.In(now.Location()).Format(time.DateOnly))
 	}
 
-	if sortedBy := m.taskSortKey(task); sortedBy != "" {
+	if sortedBy := m.taskSortKey(task, now); sortedBy != "" {
 		tail = append(tail, sortedBy)
 	}
 
@@ -323,17 +323,14 @@ func (m Model) taskRow(task taskwarrior.Task, selected bool, now time.Time) stri
 }
 
 // taskSortKey is what a row adds to its tail so the order it is listed in can
-// be read off it: its priority, or its tags, when the list is sorted by that.
-func (m Model) taskSortKey(task taskwarrior.Task) string {
+// be read off it: its priority, or its tags, when the list is sorted by that,
+// as the filter names them.
+func (m Model) taskSortKey(task taskwarrior.Task, now time.Time) string {
 	switch m.tasks.listing.order {
 	case taskOrderPriority:
-		return priorityWords(task.Priority)
+		return facetLabels(task, taskwarrior.FacetPriority, now)
 	case taskOrderTag:
-		if len(task.Tags) == 0 {
-			return "no tags"
-		}
-
-		return "+" + strings.Join(task.Tags, " +")
+		return facetLabels(task, taskwarrior.FacetTag, now)
 	case taskOrderUrgency, taskOrderState, taskOrderID, taskOrderIssue:
 		return ""
 	}
@@ -341,13 +338,17 @@ func (m Model) taskSortKey(task taskwarrior.Task) string {
 	return ""
 }
 
-// priorityWords is a task's priority as the list words it.
-func priorityWords(priority string) string {
-	if priority == "" {
-		return "no priority"
+// facetLabels names the values a task holds in one kind, as the filter does.
+func facetLabels(task taskwarrior.Task, kind taskwarrior.FacetKind, now time.Time) string {
+	var labels []string
+
+	for _, facet := range task.Facets(now) {
+		if facet.Kind == kind {
+			labels = append(labels, facet.Label())
+		}
 	}
 
-	return "priority " + priority
+	return strings.Join(labels, " ")
 }
 
 // selectedTaskDetail describes the selected task: what it is, its facts, the
@@ -386,11 +387,11 @@ func (m Model) taskFacts(task taskwarrior.Task) string {
 	}
 
 	if task.Priority != "" {
-		facts = append(facts, priorityWords(task.Priority))
+		facts = append(facts, facetLabels(task, taskwarrior.FacetPriority, now))
 	}
 
 	if len(task.Tags) > 0 {
-		facts = append(facts, "+"+strings.Join(task.Tags, " +"))
+		facts = append(facts, facetLabels(task, taskwarrior.FacetTag, now))
 	}
 
 	if !task.Due.IsZero() {

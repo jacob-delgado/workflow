@@ -17,11 +17,39 @@ import { rememberCompleted, rememberTrack } from './taskMemo.ts'
 // useTasks reads your pending tasks, most urgent first, or why no Taskwarrior
 // can be asked. Taskwarrior changes outside the page — a task added in a
 // terminal, a hook, a sync — and nothing pushes the list, so it is read again
-// each time the section opens. A failed read is not retried on its own: the
-// server has already said what went wrong, and a Taskwarrior that timed out
-// would only be kept waiting again — Try again is the user's to press.
+// each time the section opens. A wait passing changes where a task stands
+// with no write at all, so the list is read again, too, once the earliest wait
+// still ahead has passed. A failed read is not retried on its own: the server
+// has already said what went wrong, and a Taskwarrior that timed out would
+// only be kept waiting again — Try again is the user's to press.
 export function useTasks() {
-  return useQuery({ ...listTasksOptions(), staleTime: 0, retry: false })
+  return useQuery({
+    ...listTasksOptions(),
+    staleTime: 0,
+    retry: false,
+    refetchInterval: (query) => untilNextWait(query.state.data, Date.now()),
+  })
+}
+
+// waitPassed is how long past a wait the list is read again, so the server's
+// clock is past it too.
+const waitPassed = 1_000
+
+// longestTimer is the longest a browser timer can wait: one longer fires at
+// once.
+const longestTimer = 2_147_483_647
+
+// untilNextWait is how long from now until the earliest wait still ahead among
+// the listed tasks has passed, or false when none is ahead.
+function untilNextWait(list: TaskList | undefined, now: number): number | false {
+  const ahead = (list?.tasks ?? [])
+    .map((task) => (task.wait === undefined ? Number.NaN : Date.parse(task.wait) - now))
+    .filter((left) => left > 0)
+  if (ahead.length === 0) {
+    return false
+  }
+
+  return Math.min(Math.min(...ahead) + waitPassed, longestTimer)
 }
 
 // AnsweredTasks is the task list as a read or a write last answered it, and

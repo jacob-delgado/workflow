@@ -681,6 +681,33 @@ export const zReviewFacet = z.object({
 });
 
 /**
+ * One value a task holds in one of the five kinds the Tasks list is narrowed by. Values picked in one kind widen the list, and the kinds narrow it together.
+ */
+export const zTaskFacet = z.object({
+    kind: z.enum([
+        'state',
+        'priority',
+        'project',
+        'tag',
+        'issue'
+    ]),
+    value: z.string(),
+    label: z.string()
+});
+
+/**
+ * A task's place in each order the Tasks list sorts by, 0 first, among the tasks of the list that carries it, every tie broken down to the uuid, so a narrowed list keeps the same order.
+ */
+export const zTaskRanks = z.object({
+    urgency: z.int(),
+    state: z.int(),
+    id: z.int(),
+    tag: z.int(),
+    issue: z.int(),
+    priority: z.int()
+});
+
+/**
  * A note on a task, and when it was written.
  */
 export const zTaskAnnotation = z.object({
@@ -702,6 +729,15 @@ export const zTask = z.object({
         'waiting',
         'recurring'
     ]),
+    state: z.enum([
+        'started',
+        'pending',
+        'waiting',
+        'recurring',
+        'completed',
+        'deleted',
+        'unknown'
+    ]),
     project: z.string(),
     priority: z.string(),
     tags: z.array(z.string()),
@@ -716,7 +752,10 @@ export const zTask = z.object({
     urgency: z.number(),
     annotations: z.array(zTaskAnnotation),
     issue_key: z.string(),
-    issue_url: z.string()
+    issue_url: z.string(),
+    facets: z.array(zTaskFacet),
+    ranks: zTaskRanks,
+    searchable: z.array(z.string())
 });
 
 /**
@@ -738,7 +777,8 @@ export const zTaskList = z.object({
     sync_available: z.boolean(),
     said: z.string(),
     added: z.string().optional(),
-    tasks: z.array(zTask)
+    tasks: z.array(zTask),
+    facet_order: z.array(zTaskFacet)
 });
 
 /**

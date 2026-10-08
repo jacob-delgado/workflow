@@ -21,14 +21,6 @@ export function stillToDo(task: Task): boolean {
   return task.status !== 'completed'
 }
 
-// waitsAt reports a task hidden until a date still after now.
-export function waitsAt(task: Task, now: number): boolean {
-  return (
-    task.status === 'waiting' ||
-    (task.status === 'pending' && task.wait !== undefined && Date.parse(task.wait) > now)
-  )
-}
-
 // linkedTo is every task linked to an issue.
 export function linkedTo(tasks: Task[], issueKey: string): Task[] {
   return tasks.filter((task) => task.issue_key === issueKey)

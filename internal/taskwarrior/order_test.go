@@ -163,3 +163,36 @@ func TestATaskStateIsWordedAsTheListShowsIt(t *testing.T) {
 		})
 	}
 }
+
+func TestRanksPlaceEachTaskInEveryOrder(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// a: started, no tags, PROJ-10, priority L, most urgent; b: pending, +web,
+	// PROJ-3, priority H; c: waiting, outside the working set, +ci, unlinked,
+	// no priority.
+	tasks := []taskwarrior.Task{
+		{
+			UUID: "a", ID: 5, Status: taskwarrior.Pending, Start: orderNow(), IssueKey: "PROJ-10",
+			Priority: "L", Urgency: 9,
+		},
+		{
+			UUID: "b", ID: 2, Status: taskwarrior.Pending, Tags: []string{tagWeb}, IssueKey: "PROJ-3",
+			Priority: "H", Urgency: 3,
+		},
+		{UUID: "c", Status: taskwarrior.Pending, Wait: orderNow().Add(time.Hour), Tags: []string{tagCI}, Urgency: 1},
+	}
+
+	// Act
+	ranks := taskwarrior.RanksOf(tasks, orderNow())
+
+	// Assert
+	want := []taskwarrior.Ranks{
+		{Urgency: 0, State: 0, ID: 1, Tag: 2, Issue: 1, Priority: 1},
+		{Urgency: 1, State: 1, ID: 0, Tag: 1, Issue: 0, Priority: 0},
+		{Urgency: 2, State: 2, ID: 2, Tag: 0, Issue: 2, Priority: 2},
+	}
+	if !slices.Equal(ranks, want) {
+		t.Errorf("RanksOf = %+v, want %+v", ranks, want)
+	}
+}
