@@ -4,6 +4,7 @@
 package forge
 
 import (
+	"io"
 	"io/fs"
 	"path"
 	"slices"
@@ -20,6 +21,10 @@ type Template struct {
 	Path string
 	Body string
 }
+
+// templateLimit is the longest template read, in bytes: GitHub takes a
+// description of 65,536 characters at most, so a file past it is no template.
+const templateLimit = 64 << 10
 
 // githubTemplateName is the name GitHub looks for, as a file or as a directory
 // of files, in any case.
@@ -109,17 +114,35 @@ func readTemplates(repo fs.FS, dir string) []Template {
 	return templates
 }
 
-// readTemplate reads one template, or nothing if it cannot be read. A template
-// file is anyone's commit, so what it says is neutralized before it is shown.
+// readTemplate reads one template, or nothing if it cannot be read or is
+// longer than templateLimit. A template file is anyone's commit, so what it
+// says is neutralized before it is shown.
 func readTemplate(repo fs.FS, file string) []Template {
-	body, err := fs.ReadFile(repo, file)
-	if err != nil {
+	body, ok := readUpTo(repo, file, templateLimit)
+	if !ok {
 		return nil
 	}
 
 	base := path.Base(file)
 
 	return []Template{{Name: strings.TrimSuffix(base, path.Ext(base)), Path: file, Body: sanitize.Text(string(body))}}
+}
+
+// readUpTo reads file whole when it holds no more than limit bytes, reading no
+// more than one past it to tell.
+func readUpTo(repo fs.FS, file string, limit int64) ([]byte, bool) {
+	opened, err := repo.Open(file)
+	if err != nil {
+		return nil, false
+	}
+	defer func() { _ = opened.Close() }()
+
+	body, err := io.ReadAll(io.LimitReader(opened, limit+1))
+	if err != nil || int64(len(body)) > limit {
+		return nil, false
+	}
+
+	return body, true
 }
 
 // templateFile reports a file name a forge reads as a template.
