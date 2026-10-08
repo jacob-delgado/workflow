@@ -225,7 +225,8 @@ test('opens a pull request from the composed form on confirm', async () => {
   })
   render(<ReviewPanel />)
 
-  // Act: open the form, then confirm it
+  // Act
+  // Open the form, then confirm it.
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
   await screen.findByRole('form', { name: /open a pull request/i })
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
@@ -246,7 +247,8 @@ test('opens a pull request with reviewers, assignees and labels', async () => {
   })
   render(<ReviewPanel />)
 
-  // Act: open the form, fill the people fields, then confirm
+  // Act
+  // Open the form, fill the people fields, then confirm.
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
   await screen.findByRole('form', { name: /open a pull request/i })
   await user.type(screen.getByLabelText(/reviewers/i), 'ana, ben')
@@ -254,7 +256,8 @@ test('opens a pull request with reviewers, assignees and labels', async () => {
   await user.type(screen.getByLabelText(/labels/i), 'bug, review')
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
 
-  // Assert: each comma-separated field is split into a trimmed list
+  // Assert
+  // Each comma-separated field is split into a trimmed list.
   expect(mockOpenPr).toHaveBeenCalledWith(
     expect.objectContaining({
       reviewers: ['ana', 'ben'],
@@ -284,13 +287,15 @@ test('pre-fills the reviewers with the code owners the draft proposes', async ()
   })
   render(<ReviewPanel />)
 
-  // Act: open the form, then confirm the proposal as it stands
+  // Act
+  // Open the form, then confirm the proposal as it stands.
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
   const reviewers = await screen.findByRole('textbox', { name: /reviewers/i })
   const shown = (reviewers as HTMLInputElement).value
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
 
-  // Assert: the owners are shown, then sent, teams among them
+  // Assert
+  // The owners are shown, then sent, teams among them.
   expect(shown).toBe('ana, acme/control-plane')
   expect(mockOpenPr).toHaveBeenCalledWith(
     expect.objectContaining({ reviewers: ['ana', 'acme/control-plane'] }),
@@ -357,12 +362,14 @@ test('locks the confirm while the pull request is opening', async () => {
   })
   render(<ReviewPanel />)
 
-  // Act: open the form and confirm, leaving the open unresolved
+  // Act
+  // Open the form and confirm, leaving the open unresolved.
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
   await screen.findByRole('form', { name: /open a pull request/i })
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
 
-  // Assert: the confirm now reads "Opening…" and is held, and only one open fired
+  // Assert
+  // The confirm now reads "Opening…" and is held, and only one open fired.
   const opening = await screen.findByRole('button', { name: /opening/i })
   expect(opening.getAttribute('aria-disabled')).toBe('true')
   expect(mockOpenPr).toHaveBeenCalledTimes(1)
@@ -388,7 +395,8 @@ test('keeps the form, the focus and the reason when opening is refused', async (
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
   await screen.findByRole('button', { name: 'Opening…' })
 
-  // Act: the open is refused once it has been seen going
+  // Act
+  // The open is refused once it has been seen going.
   act(() => {
     opened.refuse({
       code: 'unprocessable',
@@ -396,7 +404,8 @@ test('keeps the form, the focus and the reason when opening is refused', async (
     })
   })
 
-  // Assert: the forge's own reason shows and the form is still there to retry
+  // Assert
+  // The forge's own reason shows and the form is still there to retry.
   expect(await screen.findByText(/base branch trunk does not exist/i)).toBeTruthy()
   expect(screen.getByRole('form', { name: /open a pull request/i })).toBeTruthy()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open pull request' }))

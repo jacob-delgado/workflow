@@ -105,7 +105,8 @@ test('says nothing of another pull request whose CI is settled', async () => {
   streamCi('running', 128)
   renderWithClient(<CiSettled />)
 
-  // Act: the branch is checked out for another pull request, its CI done
+  // Act
+  // The branch is checked out for another pull request, its CI done.
   act(() => {
     streamCi('passed', 129)
   })
