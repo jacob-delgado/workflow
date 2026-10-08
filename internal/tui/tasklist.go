@@ -138,18 +138,16 @@ type taskGroups struct {
 
 // taskGroups sorts the pending tasks into the pane's groups, as listed now.
 func (m Model) taskGroups() taskGroups {
-	return m.taskGroupsBy(m.tasks.listing)
+	return m.tasks.groupsBy(m.tasks.listing, m.issues, m.deps.now())
 }
 
-// taskGroupsBy sorts the pending tasks into the pane's groups, in listing's
-// order.
-func (m Model) taskGroupsBy(listing taskListing) taskGroups {
-	now := m.deps.now()
-
+// groupsBy sorts the pending tasks into the pane's groups, in listing's
+// order, those for the issues listed apart from the others.
+func (s tasksState) groupsBy(listing taskListing, issues issueList, now time.Time) taskGroups {
 	var groups taskGroups
 
-	for _, task := range m.tasks.pending {
-		_, listed := m.issues.find(jira.Key(task.IssueKey))
+	for _, task := range s.pending {
+		_, listed := issues.find(jira.Key(task.IssueKey))
 
 		switch {
 		case !listing.narrowing.Matches(task, now):
@@ -250,14 +248,14 @@ func (s tasksState) following(groups taskGroups, rows int) tasksState {
 // the issue's mark counts it — one the Tasks pane lists where there is one, and
 // whether any task tracks it.
 func (m Model) trackingTask(issueKey jira.Key) (taskwarrior.Task, bool) {
-	tracking := slices.DeleteFunc(m.linkedTo(issueKey), func(task taskwarrior.Task) bool { return !stillToDo(task) })
+	tracking := slices.DeleteFunc(m.tasks.linkedTo(issueKey), func(task taskwarrior.Task) bool { return !stillToDo(task) })
 	if len(tracking) == 0 {
 		return taskwarrior.Task{}, false
 	}
 
 	// The list as the pane would show it with nothing narrowing it, so what the
 	// user has narrowed the view to never changes which task a write targets.
-	groups := m.taskGroupsBy(taskListing{})
+	groups := m.tasks.groupsBy(taskListing{}, m.issues, m.deps.now())
 	listed := slices.IndexFunc(tracking, func(task taskwarrior.Task) bool { return groups.lists(task.UUID) })
 
 	return tracking[max(0, listed)], true
@@ -286,7 +284,7 @@ func (m Model) goToTrackingTask(issueKey jira.Key, task taskwarrior.Task) Model 
 // it is narrowed now, so going to the issue's task lands on one in view
 // whenever there is one.
 func (m Model) listedTrackingTask(issueKey jira.Key, groups taskGroups) (taskwarrior.Task, bool) {
-	for _, task := range m.linkedTo(issueKey) {
+	for _, task := range m.tasks.linkedTo(issueKey) {
 		if stillToDo(task) && groups.lists(task.UUID) {
 			return task, true
 		}
@@ -305,7 +303,7 @@ func (m Model) unlistedBecause(task taskwarrior.Task) string {
 	now := m.deps.now()
 
 	switch {
-	case m.taskGroupsBy(taskListing{}).lists(task.UUID):
+	case m.tasks.groupsBy(taskListing{}, m.issues, now).lists(task.UUID):
 		return "which the Tasks pane's filter hides; " + m.keys.filterTasks.Help().Key + " there changes it"
 	case task.Waiting(now):
 		return "which waits until " + task.Wait.In(now.Location()).Format(time.DateOnly)
@@ -365,13 +363,13 @@ func (m Model) handleTaskListKey(msg tea.KeyPressMsg) (Model, bool) {
 	}
 }
 
-// taskListKeys are the footer's keys that change how the list is listed.
-func (m Model) taskListKeys() []key.Binding {
-	if len(m.tasks.pending) == 0 {
-		return []key.Binding{m.keys.sortTasks}
+// listKeys are the footer's keys that change how the list is listed.
+func (s tasksState) listKeys(keys keyMap) []key.Binding {
+	if len(s.pending) == 0 {
+		return []key.Binding{keys.sortTasks}
 	}
 
-	return []key.Binding{m.keys.searchTasks, m.keys.filterTasks, m.keys.sortTasks}
+	return []key.Binding{keys.searchTasks, keys.filterTasks, keys.sortTasks}
 }
 
 // filteringTasks reports the Tasks pane capturing keystrokes into its filter,

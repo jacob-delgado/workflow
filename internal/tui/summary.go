@@ -62,7 +62,7 @@ func (msg summaryAnswered) apply(m Model) (Model, tea.Cmd) {
 	m.summary.reads = append(m.summary.reads, msg.read)
 	m.summary.asking = remove(m.summary.asking, msg.read.Source)
 	m.summary.complete = len(m.summary.asking) == 0
-	m.summary.selected = min(m.summary.selected, max(0, len(m.summaryItems())-1))
+	m.summary.selected = min(m.summary.selected, max(0, len(m.summary.items(m.deps.now()))-1))
 
 	return m, nil
 }
@@ -100,37 +100,37 @@ func remove(sources []activity.Source, source activity.Source) []activity.Source
 // today is the day the clock says it is, where it says it.
 func (m Model) today() activity.Date { return activity.DateOf(m.deps.now()) }
 
-// summaryPeriod is the period the pane shows: the one chosen, or the previous
+// shownPeriod is the period the pane shows: the one chosen, or the previous
 // working day until one is.
-func (m Model) summaryPeriod() activity.Period {
-	if m.summary.chosen {
-		return m.summary.period
+func (s summaryState) shownPeriod(now time.Time) activity.Period {
+	if s.chosen {
+		return s.period
 	}
 
-	return activity.PreviousWorkingDay(m.today())
+	return activity.PreviousWorkingDay(activity.DateOf(now))
 }
 
 // refreshSummary reads the period shown, unless it has ended and every source
 // has read it in full: what was done then will not change.
 func (m Model) refreshSummary() (Model, tea.Cmd) {
-	if m.summaryReadInFull() && m.summary.period.To.Before(m.today()) {
+	if m.summary.readInFull() && m.summary.period.To.Before(m.today()) {
 		return m, nil
 	}
 
 	return m.readSummary()
 }
 
-// summaryLoading reports a read of the period shown that some source has not
+// loading reports a read of the period shown that some source has not
 // answered yet.
-func (m Model) summaryLoading() bool {
-	return m.summary.chosen && !m.summary.complete
+func (s summaryState) loading() bool {
+	return s.chosen && !s.complete
 }
 
-// summaryReadInFull reports every source answered for the period shown, and
+// readInFull reports every source answered for the period shown, and
 // none of them with a failure or left out as not set up, which may be set up
 // by the next refresh.
-func (m Model) summaryReadInFull() bool {
-	return m.summary.complete && !slices.ContainsFunc(m.summary.reads, func(read activity.Read) bool {
+func (s summaryState) readInFull() bool {
+	return s.complete && !slices.ContainsFunc(s.reads, func(read activity.Read) bool {
 		return read.Failed != nil || read.NotSetUp != nil
 	})
 }
@@ -138,7 +138,7 @@ func (m Model) summaryReadInFull() bool {
 // readSummary asks every source the deps reach for the period shown, each on
 // its own, so each fills in or fails as it answers.
 func (m Model) readSummary() (Model, tea.Cmd) {
-	m.summary.period, m.summary.chosen = m.summaryPeriod(), true
+	m.summary.period, m.summary.chosen = m.summary.shownPeriod(m.deps.now()), true
 	m.summary.reading++
 	m.summary.reads, m.summary.complete = nil, false
 
@@ -171,17 +171,17 @@ func (m Model) summaryReads(start, end time.Time) []loop.SourceRead {
 	}, start, end)
 }
 
-// shownSummary is what the sources have answered for the period shown.
-func (m Model) shownSummary() activity.Summary {
-	return activity.Summary{Period: m.summaryPeriod(), Reads: m.summary.reads}
+// shown is what the sources have answered for the period shown.
+func (s summaryState) shown(now time.Time) activity.Summary {
+	return activity.Summary{Period: s.shownPeriod(now), Reads: s.reads}
 }
 
-// summaryItems are the items answered so far, oldest first, as the detail
+// items are the items answered so far, oldest first, as the detail
 // lists them.
-func (m Model) summaryItems() []activity.Item {
+func (s summaryState) items(now time.Time) []activity.Item {
 	var items []activity.Item
 
-	for _, year := range activity.Group(m.shownSummary().Items(), m.deps.now().Location()) {
+	for _, year := range activity.Group(s.shown(now).Items(), now.Location()) {
 		for _, month := range year.Months {
 			for _, day := range month.Days {
 				for _, hour := range day.Hours {
@@ -198,7 +198,7 @@ func (m Model) summaryItems() []activity.Item {
 // steps is negative, and reads it once the keys rest; never one that starts
 // after today.
 func (m Model) stepSummary(steps int) (Model, tea.Cmd) {
-	moved := m.summaryPeriod().Step(steps)
+	moved := m.summary.shownPeriod(m.deps.now()).Step(steps)
 	if m.today().Before(moved.From) {
 		return m, nil
 	}
@@ -243,7 +243,7 @@ func (m Model) handleSummaryKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // handleSummaryListKey answers the keys that act on what the Summary lists:
 // moving the cursor, copying it all, and the selected item's link.
 func (m Model) handleSummaryListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	selected := m.selectedSummaryItem()
+	selected := m.summary.selectedItem(m.deps.now())
 
 	switch {
 	case key.Matches(msg, m.keys.copySummary):
@@ -251,7 +251,9 @@ func (m Model) handleSummaryListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.postSummary) && m.canPostSummary():
 		return m.previewSummaryPost()
 	case key.Matches(msg, m.keys.up, m.keys.down):
-		return m.moveSummaryBy(m.keys.stepOf(msg)), nil
+		m.summary = m.summary.movedBy(m.keys.stepOf(msg), m.deps.now())
+
+		return m, nil
 	case key.Matches(msg, m.keys.openLink):
 		return m.openLink(selected.URL)
 	case key.Matches(msg, m.keys.copyLink):
@@ -261,22 +263,22 @@ func (m Model) handleSummaryListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// moveSummaryBy moves the cursor delta items down, or up for a negative
+// movedBy moves the cursor delta items down, or up for a negative
 // delta, stopping at either end.
-func (m Model) moveSummaryBy(delta int) Model {
-	m.summary.selected = max(0, min(m.summary.selected+delta, len(m.summaryItems())-1))
+func (s summaryState) movedBy(delta int, now time.Time) summaryState {
+	s.selected = max(0, min(s.selected+delta, len(s.items(now))-1))
 
-	return m
+	return s
 }
 
-// selectedSummaryItem is the item the cursor is on, or none.
-func (m Model) selectedSummaryItem() activity.Item {
-	items := m.summaryItems()
-	if m.summary.selected >= len(items) {
+// selectedItem is the item the cursor is on, or none.
+func (s summaryState) selectedItem(now time.Time) activity.Item {
+	items := s.items(now)
+	if s.selected >= len(items) {
 		return activity.Item{}
 	}
 
-	return items[m.summary.selected]
+	return items[s.selected]
 }
 
 // copySummary copies the summary as Markdown and says so.
@@ -286,15 +288,15 @@ func (m Model) copySummary() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m.noticed(m.marks.done + " copied the summary of " + m.summaryPeriod().String()),
-		copyText(m.shownSummary().Text(m.deps.now().Location()))
+	return m.noticed(m.marks.done + " copied the summary of " + m.summary.shownPeriod(m.deps.now()).String()),
+		copyText(m.summary.shown(m.deps.now()).Text(m.deps.now().Location()))
 }
 
 // summaryKeys is what the pane offers: moving the period, today, copying,
 // posting, and the selected item's link.
 func (m Model) summaryKeys() []key.Binding {
 	keys := []key.Binding{m.keys.earlier, m.keys.later, m.keys.today, m.keys.calendar}
-	if m.deps.Copy != nil && len(m.summaryItems()) > 0 {
+	if m.deps.Copy != nil && len(m.summary.items(m.deps.now())) > 0 {
 		keys = append(keys, m.keys.copySummary)
 	}
 
@@ -302,22 +304,22 @@ func (m Model) summaryKeys() []key.Binding {
 		keys = append(keys, m.keys.postSummary)
 	}
 
-	return append(append(keys, m.linkKeys(m.selectedSummaryItem().URL)...), m.keys.refresh)
+	return append(append(keys, m.linkKeys(m.summary.selectedItem(m.deps.now()).URL)...), m.keys.refresh)
 }
 
-// summaryRail is the period shown and how much was done in it, on its first
+// rail is the period shown and how much was done in it, on its first
 // line, which is all a pane given one row shows; or, before the pane is first
 // looked at, that it is read then.
-func (m Model) summaryRail(_ int) string {
-	if !m.summary.chosen {
+func (s summaryState) rail(kit renderKit, now time.Time) string {
+	if !s.chosen {
 		return "what you did, read when opened"
 	}
 
-	period := m.summaryPeriod().String()
+	period := s.shownPeriod(now).String()
 
-	switch items := len(m.summaryItems()); {
-	case !m.summary.complete && items == 0:
-		return period + ": " + m.marks.reading()
+	switch items := len(s.items(now)); {
+	case !s.complete && items == 0:
+		return period + ": " + kit.marks.reading()
 	case items == 0:
 		return period + ": nothing done"
 	case items == 1:
@@ -327,14 +329,14 @@ func (m Model) summaryRail(_ int) string {
 	}
 }
 
-// summaryDetail is the period, then what each source could not say, then the
+// detail is the period, then what each source could not say, then the
 // items nested by year, month, day and hour, the cursor's marked.
-func (m Model) summaryDetail(width int) string {
-	lines := []string{m.styles.strong.Render(m.summaryPeriod().String()), ""}
-	lines = append(lines, m.summaryNotes(width)...)
+func (s summaryState) detail(kit renderKit, now time.Time, width int) string {
+	lines := []string{kit.styles.strong.Render(s.shownPeriod(now).String()), ""}
+	lines = append(lines, s.notes(kit, width)...)
 
-	years := activity.Group(m.shownSummary().Items(), m.deps.now().Location())
-	if len(years) == 0 && m.summary.complete {
+	years := activity.Group(s.shown(now).Items(), now.Location())
+	if len(years) == 0 && s.complete {
 		lines = append(lines, "Nothing was done in this period.")
 	}
 
@@ -342,16 +344,16 @@ func (m Model) summaryDetail(width int) string {
 
 	for _, year := range years {
 		for _, month := range year.Months {
-			lines = append(lines, m.styles.strong.Render(strconv.Itoa(year.Year)+" "+month.Month.String()))
+			lines = append(lines, kit.styles.strong.Render(strconv.Itoa(year.Year)+" "+month.Month.String()))
 
 			for _, day := range month.Days {
-				lines = append(lines, "", m.styles.strong.Render(day.Date.Weekday().String()+" "+day.Date.String()))
+				lines = append(lines, "", kit.styles.strong.Render(day.Date.Weekday().String()+" "+day.Date.String()))
 
 				for _, hour := range day.Hours {
-					lines = append(lines, m.styles.label.Render(hour.Label))
+					lines = append(lines, kit.styles.label.Render(hour.Label))
 
 					for _, item := range hour.Items {
-						lines = append(lines, wrap(summaryIndent+m.marks.marker(index == m.summary.selected)+itemLine(item), width))
+						lines = append(lines, wrap(summaryIndent+kit.marks.marker(index == s.selected)+itemLine(item), width))
 						index++
 					}
 				}
@@ -362,28 +364,28 @@ func (m Model) summaryDetail(width int) string {
 	return strings.Join(lines, "\n")
 }
 
-// summaryNotes say which sources are still being read, could not be read, are
+// notes say which sources are still being read, could not be read, are
 // not set up, or had more than they gave, each within width.
-func (m Model) summaryNotes(width int) []string {
+func (s summaryState) notes(kit renderKit, width int) []string {
 	var notes []string
 
-	for _, source := range m.summary.asking {
-		notes = append(notes, m.styles.label.Render("reading "+source.Name()+m.marks.ellipsis))
+	for _, source := range s.asking {
+		notes = append(notes, kit.styles.label.Render("reading "+source.Name()+kit.marks.ellipsis))
 	}
 
-	for _, read := range m.summary.reads {
+	for _, read := range s.reads {
 		name := read.Source.Title()
 
 		for _, failure := range loop.Failures(read.Failed) {
-			notes = append(notes, m.kit().failedGlyph()+" "+failedSourceLine(name, failure))
+			notes = append(notes, kit.failedGlyph()+" "+failedSourceLine(name, failure))
 		}
 
 		if read.NotSetUp != nil {
-			notes = append(notes, m.notSetUpNote(name, read.NotSetUp, width))
+			notes = append(notes, notSetUpNote(kit, name, read.NotSetUp, width))
 		}
 
 		if read.Truncated {
-			notes = append(notes, m.styles.label.Render(name+" had more than this shows."))
+			notes = append(notes, kit.styles.label.Render(name+" had more than this shows."))
 		}
 	}
 
@@ -397,10 +399,10 @@ func (m Model) summaryNotes(width int) []string {
 // notSetUpNote says a source was left out because it is not set up, and how
 // to set it up, as guidance — the not-started mark and the muted label — not
 // as a failure: nothing was asked, so nothing refused.
-func (m Model) notSetUpNote(name string, why error, width int) string {
-	note := wrap(m.marks.notStarted+" "+name+" is not set up, so it was left out: "+inFull(why), width)
+func notSetUpNote(kit renderKit, name string, why error, width int) string {
+	note := wrap(kit.marks.notStarted+" "+name+" is not set up, so it was left out: "+inFull(why), width)
 
-	return m.styles.label.Render(note)
+	return kit.styles.label.Render(note)
 }
 
 // failedSourceLine says a source could not be read and why, naming the
@@ -429,9 +431,15 @@ func itemLine(item activity.Item) string {
 // summaryBehavior is the Summary pane's behavior.
 func summaryBehavior() behavior {
 	return behavior{
-		rail: Model.summaryRail, detail: Model.summaryDetail, narrow: nil,
-		keys: Model.summaryKeys, handle: Model.handleSummaryKey, pick: nil, move: commandless(Model.moveSummaryBy),
-		refresh: Model.refreshSummary, loading: Model.summaryLoading,
+		rail:   func(m Model, _ int) string { return m.summary.rail(m.kit(), m.deps.now()) },
+		detail: func(m Model, width int) string { return m.summary.detail(m.kit(), m.deps.now(), width) },
+		keys:   Model.summaryKeys, handle: Model.handleSummaryKey, pick: nil, narrow: nil,
+		move: func(m Model, delta int) (Model, tea.Cmd) {
+			m.summary = m.summary.movedBy(delta, m.deps.now())
+
+			return m, nil
+		},
+		refresh: Model.refreshSummary, loading: func(m Model) bool { return m.summary.loading() },
 		scroll: func(m *Model) *int { return &m.summary.scroll }, listInDetail: true,
 		answers: []string{
 			"earlier", "later", "today", "calendar", "copy-summary", "post-summary", actionOpenLink, actionCopyLink,

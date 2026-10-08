@@ -165,11 +165,6 @@ func (m Model) loadTasks() tea.Cmd {
 	}
 }
 
-// selectedTask is the task the cursor is on, or no task when none is listed.
-func (m Model) selectedTask() taskwarrior.Task {
-	return m.taskGroups().at(m.tasks.selected)
-}
-
 // moveTaskBy moves the cursor delta rows down the listed tasks, or up for a
 // negative delta, stopping at either end, and scrolls the detail so the
 // selected task stays on screen.
@@ -208,47 +203,47 @@ func (m Model) pickTask(line, _ int, inRail bool) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// taskMarks is how the Issues rows mark each issue's task state, or nil, so the
+// issueMarks is how the Issues rows mark each issue's task state, or nil, so the
 // column is not drawn, until Taskwarrior has answered: without one, while it is
 // asked, and where it could not answer — go-task on PATH, a failed read — a
 // column of "no task" would claim what is not known.
-func (m Model) taskMarks() func(jira.Key) string {
-	if !m.tasks.answered() {
+func (s tasksState) issueMarks(kit renderKit) func(jira.Key) string {
+	if !s.answered() {
 		return nil
 	}
 
-	return m.taskMark
+	return func(issueKey jira.Key) string { return s.issueMark(kit, issueKey) }
 }
 
-// taskMark is an issue's task state by shape: nothing (·), tracked (○) while a
+// issueMark is an issue's task state by shape: nothing (·), tracked (○) while a
 // linked task is still to do, active (◐), or every linked task completed (●).
-func (m Model) taskMark(issueKey jira.Key) string {
-	glyph, _ := m.taskStanding(issueKey)
+func (s tasksState) issueMark(kit renderKit, issueKey jira.Key) string {
+	glyph, _ := s.standing(kit, issueKey)
 
 	return glyph
 }
 
-// taskWord is an issue's task state in the words its place goes by, or empty
+// issueWord is an issue's task state in the words its place goes by, or empty
 // with no task linked to it.
-func (m Model) taskWord(issueKey jira.Key) string {
-	_, word := m.taskStanding(issueKey)
+func (s tasksState) issueWord(kit renderKit, issueKey jira.Key) string {
+	_, word := s.standing(kit, issueKey)
 
 	return word
 }
 
-// taskStanding is how an issue's linked tasks stand, by shape and in words.
-func (m Model) taskStanding(issueKey jira.Key) (string, string) {
-	linked := m.linkedTo(issueKey)
+// standing is how an issue's linked tasks stand, by shape and in words.
+func (s tasksState) standing(kit renderKit, issueKey jira.Key) (string, string) {
+	linked := s.linkedTo(issueKey)
 
 	switch {
 	case slices.ContainsFunc(linked, taskwarrior.Task.Active):
-		return m.marks.inFlight, places.TaskActive
+		return kit.marks.inFlight, places.TaskActive
 	case slices.ContainsFunc(linked, stillToDo):
-		return m.marks.notStarted, places.Tracked
+		return kit.marks.notStarted, places.Tracked
 	case len(linked) > 0:
-		return m.marks.done, places.TaskDone
+		return kit.marks.done, places.TaskDone
 	default:
-		return m.marks.unknown, ""
+		return kit.marks.unknown, ""
 	}
 }
 
@@ -260,10 +255,10 @@ func stillToDo(task taskwarrior.Task) bool {
 }
 
 // linkedTo is every task linked to an issue.
-func (m Model) linkedTo(issueKey jira.Key) []taskwarrior.Task {
+func (s tasksState) linkedTo(issueKey jira.Key) []taskwarrior.Task {
 	var linked []taskwarrior.Task
 
-	for _, task := range m.tasks.linked {
+	for _, task := range s.linked {
 		if task.IssueKey == string(issueKey) {
 			linked = append(linked, task)
 		}
@@ -278,7 +273,7 @@ func (m Model) linkedTo(issueKey jira.Key) []taskwarrior.Task {
 // answered, or where it could not: the Tasks pane says why; nor for an issue
 // with no task where no task can be added.
 func (m Model) issueTasksBlock(issueKey jira.Key, width int) []string {
-	linked := m.linkedTo(issueKey)
+	linked := m.tasks.linkedTo(issueKey)
 	if !m.tasks.answered() || (len(linked) == 0 && m.deps.Tasks.Add == nil) {
 		return nil
 	}
@@ -294,7 +289,7 @@ func (m Model) issueTasksBlock(issueKey jira.Key, width int) []string {
 	now := m.deps.now()
 
 	for _, task := range linked {
-		lines = append(lines, m.issueTaskRows(task, now, width)...)
+		lines = append(lines, issueTaskRows(m.kit(), task, now, width)...)
 	}
 
 	return lines
@@ -303,7 +298,7 @@ func (m Model) issueTasksBlock(issueKey jira.Key, width int) []string {
 // issueTaskRows is one of an issue's tasks, wrapped on its own under a two-cell
 // indent, so a long one still reads as an item of the block: its glyph, id and
 // description, then its faint note.
-func (m Model) issueTaskRows(task taskwarrior.Task, now time.Time, width int) []string {
+func issueTaskRows(kit renderKit, task taskwarrior.Task, now time.Time, width int) []string {
 	room := max(1, width-len(taskIndent))
 
 	number := taskNumber(task)
@@ -311,8 +306,8 @@ func (m Model) issueTaskRows(task taskwarrior.Task, now time.Time, width int) []
 		number = "#" + number + " "
 	}
 
-	rows := strings.Split(wrap(m.taskGlyph(task)+" "+number+task.Description, room), "\n")
-	rows = m.withNote(rows, linkedTaskNote(task, now), room)
+	rows := strings.Split(wrap(taskGlyph(kit.marks, task)+" "+number+task.Description, room), "\n")
+	rows = withNote(kit.styles, rows, linkedTaskNote(task, now), room)
 
 	for index, row := range rows {
 		rows[index] = taskIndent + row
@@ -324,16 +319,16 @@ func (m Model) issueTaskRows(task taskwarrior.Task, now time.Time, width int) []
 // withNote is rows of text followed by a faint note: on the last row where it
 // fits, or wrapped onto rows of its own, each styled on its own so the style
 // never runs on past a row's end. An empty note adds nothing.
-func (m Model) withNote(rows []string, note string, width int) []string {
+func withNote(sty styles, rows []string, note string, width int) []string {
 	last := len(rows) - 1
 
 	switch {
 	case note == "":
 		return rows
 	case ansi.StringWidth(rows[last]+noteGap+note) <= width:
-		return append(rows[:last:last], rows[last]+noteGap+m.styles.label.Render(note))
+		return append(rows[:last:last], rows[last]+noteGap+sty.label.Render(note))
 	default:
-		return append(rows, strings.Split(m.styles.label.Render(wrap(note, width)), "\n")...)
+		return append(rows, strings.Split(sty.label.Render(wrap(note, width)), "\n")...)
 	}
 }
 
@@ -351,25 +346,25 @@ func linkedTaskNote(task taskwarrior.Task, now time.Time) string {
 	}
 }
 
-// tasksSuffix names the active context beside the Tasks pane's title, when one
+// suffix names the active context beside the Tasks pane's title, when one
 // narrows the list.
-func (m Model) tasksSuffix(p pane) string {
-	if p != paneTasks || m.tasks.context == "" {
+func (s tasksState) suffix(kit renderKit, p pane) string {
+	if p != paneTasks || s.context == "" {
 		return ""
 	}
 
-	return m.marks.separator + m.tasks.context
+	return kit.marks.separator + s.context
 }
 
-// activeTask is the first started task, pending or linked, if one is — and none
+// active is the first started task, pending or linked, if one is — and none
 // until Taskwarrior has answered, as the task marks and an issue's Tasks block
 // have it: after a failed read the Tasks pane shows the failure, not the task.
-func (m Model) activeTask() (taskwarrior.Task, bool) {
-	if !m.tasks.answered() {
+func (s tasksState) active() (taskwarrior.Task, bool) {
+	if !s.answered() {
 		return taskwarrior.Task{}, false
 	}
 
-	tasks := slices.Concat(m.tasks.pending, m.tasks.linked)
+	tasks := slices.Concat(s.pending, s.linked)
 
 	index := slices.IndexFunc(tasks, taskwarrior.Task.Active)
 	if index < 0 {
@@ -382,7 +377,8 @@ func (m Model) activeTask() (taskwarrior.Task, bool) {
 // tasksBehavior is the Tasks pane's behavior.
 func tasksBehavior() behavior {
 	return behavior{
-		rail: Model.tasksRail, detail: Model.tasksDetail, narrow: nil,
+		rail:   func(m Model, _ int) string { return m.tasks.rail(m.tasksView()) },
+		detail: func(m Model, width int) string { return m.tasks.detail(m.tasksView(), width) }, narrow: nil,
 		keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask, move: commandless(Model.moveTaskBy),
 		refresh: Model.refreshTasks, loading: func(m Model) bool { return m.tasks.loading },
 		scroll: func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,

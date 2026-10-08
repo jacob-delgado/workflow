@@ -67,7 +67,7 @@ var _ overlay = calendar{}
 
 // openCalendar opens the calendar on the last day the Summary shows.
 func (m Model) openCalendar() (Model, tea.Cmd) {
-	m.overlay = calendar{cursor: m.summaryPeriod().To, column: columnDay}
+	m.overlay = calendar{cursor: m.summary.shownPeriod(m.deps.now()).To, column: columnDay}
 
 	return m, nil
 }
