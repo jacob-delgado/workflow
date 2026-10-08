@@ -22,6 +22,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/setup"
+	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/wiring"
@@ -367,11 +368,12 @@ func exitFamilies() []exitFamily {
 // configurationErrors are a configuration that is missing, unreadable,
 // incomplete — a credential or an address not set, or set unusably — shared,
 // holding a credential a service would not accept, or a ui.keys map the
-// interface refuses, a Slack login the messaging section cannot take, and a
-// repository with no remote to name the forge, or one on a host neither it nor
-// forge.kind names: what the user fixes in the file, the environment, a login
-// or the repository's origin. A command meeting a credential that is not there
-// exits as doctor does, reading the same file.
+// interface refuses, a Slack login the messaging section cannot take or whose
+// credentials Slack will not refresh, and a repository with no remote to name
+// the forge, or one on a host neither it nor forge.kind names: what the user
+// fixes in the file, the environment, a login or the repository's origin. A
+// command meeting a credential that is not there exits as doctor does, reading
+// the same file.
 func configurationErrors() []error {
 	return []error{
 		config.ErrNotFound, config.ErrInvalid,
@@ -382,6 +384,7 @@ func configurationErrors() []error {
 		tui.ErrUnknownKeyAction, tui.ErrKeyConflict, tui.ErrKeyNotRebindable,
 		errCredentialRejected, errCredentialMissing, errIncomplete, errInvalid, errShared,
 		errMessagingNotConfigured, errLoginNeedsConfig, errLoginOverWebhook, errLoginNotSlack,
+		slackauth.ErrRefreshRefused, slackauth.ErrNotAUserToken,
 	}
 }
 
@@ -405,7 +408,7 @@ func refusalErrors() []error {
 // script may try again later.
 func unreachableErrors() []error {
 	return []error{
-		jira.ErrUnreachable, forge.ErrUnreachable, messaging.ErrUnreachable,
+		jira.ErrUnreachable, forge.ErrUnreachable, messaging.ErrUnreachable, slackauth.ErrUnreachable,
 		errUnreachable, httpx.ErrRateLimited, httpx.ErrRedirected, httpx.ErrTimedOut,
 	}
 }

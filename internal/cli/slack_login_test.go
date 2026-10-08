@@ -236,3 +236,24 @@ func TestSlackLoginWithNoTerminalSaysToRunItAtOne(t *testing.T) {
 
 	wantExit(t, err, 2)
 }
+
+func TestSlackLoginThatSlackRefusesLeavesTheFileAsItWas(t *testing.T) {
+	// Arrange
+	fakeSlack(t, map[string]slackAnswer{"/oauth.v2.access": {http.StatusOK, `{"ok":false,"error":"invalid_grant"}`}})
+
+	dir := t.TempDir()
+	// A working login's file, the app's secret kept in it, so nothing is read
+	// from the keychain of the machine the test runs on.
+	contents := `{"messaging": {"kind": "slack", "client_id": "` + slackClientID + `",` +
+		` "client_secret": "client-secret-old", "channel": "#dev"}}`
+	path := writeFile(t, dir, contents)
+
+	prompt := asking([]string{"9999.0000"}, []string{"client-secret-9999", "xoxe-1-first"}, new([]string), new([]string))
+
+	// Act
+	_, err := runGuided(t, dir, prompt, "slack", "login")
+
+	// Assert
+	unchanged(t, path, contents)
+	wantExit(t, err, 3)
+}
