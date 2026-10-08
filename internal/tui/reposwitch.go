@@ -6,6 +6,8 @@ package tui
 import (
 	"path/filepath"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
@@ -341,13 +343,19 @@ func (m Model) openDirPrompt() (Model, tea.Cmd) {
 }
 
 // view draws the path being typed, what tab found, and why a path could not
-// be gone to.
+// be gone to. The path and the names tab found are as they are on disk, so
+// they are neutralized only as they are drawn.
 func (p dirPrompt) view(width, _ int) (string, string) {
 	p.input.SetWidth(max(1, width-len(p.input.Prompt)-1))
 
-	lines := []string{"Type a path: from where you work, or from your home after ~.", "", p.input.View()}
+	lines := []string{"Type a path: from where you work, or from your home after ~.", "", drawnField(p.input)}
 	if len(p.choices) > 0 {
-		lines = append(lines, "", p.styles.label.Render(strings.Join(p.choices, "  ")))
+		shown := make([]string, 0, len(p.choices))
+		for _, choice := range p.choices {
+			shown = append(shown, sanitize.Line(choice))
+		}
+
+		lines = append(lines, "", p.styles.label.Render(strings.Join(shown, "  ")))
 	}
 
 	switch {
@@ -523,7 +531,7 @@ func (p dirPrompt) complete(m Model) (Model, tea.Cmd) {
 
 		names := make([]string, 0, len(listing.Entries))
 		for _, entry := range listing.Entries {
-			names = append(names, sanitize.Line(entry.Name))
+			names = append(names, entry.Name)
 		}
 
 		return dirCompleted{typed: p.input.Value(), head: head, partial: partial, names: names, err: err}
@@ -541,4 +549,19 @@ func sharedPrefix(names []string) string {
 	}
 
 	return string(shared)
+}
+
+// drawnField is a text field as it is drawn, with each character in it that
+// has no shape of its own — a direction mark, a zero-width space — shown as
+// U+FFFD, as sanitize.Line shows a name. The field's own styling is kept: its
+// value holds no other control, since the field drops each one as it is typed
+// or set.
+func drawnField(input textinput.Model) string {
+	return strings.Map(func(character rune) rune {
+		if unicode.In(character, unicode.Cf, unicode.Zl, unicode.Zp) {
+			return utf8.RuneError
+		}
+
+		return character
+	}, input.View())
 }
