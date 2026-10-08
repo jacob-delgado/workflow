@@ -116,6 +116,7 @@ const unbrokenSnapshot = snapshotWith({
 const sourceBuild = {
   version: 'ddbb935d6c04-dirty',
   dry_run: false,
+  forge_kind: 'github',
   forge_noun: 'pull request',
   forge_sigil: '#',
 }

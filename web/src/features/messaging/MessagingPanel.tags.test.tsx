@@ -221,7 +221,13 @@ test('an announcement whose Slack workspace is unknown says why and posts untagg
 test('under --dry-run an owner is not offered to link', async () => {
   // Arrange
   useHealthStore.setState({
-    health: { version: 'dev', dry_run: true, forge_noun: 'pull request', forge_sigil: '#' },
+    health: {
+      version: 'dev',
+      dry_run: true,
+      forge_kind: 'github',
+      forge_noun: 'pull request',
+      forge_sigil: '#',
+    },
   })
 
   // Act

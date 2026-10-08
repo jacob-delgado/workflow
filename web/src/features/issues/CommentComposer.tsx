@@ -56,7 +56,7 @@ function Composer({
   tracker,
   jiraMarkdown,
 }: CommentComposerProps & { jiraMarkdown: boolean }) {
-  const onGitLab = useHealthStore((state) => state.health?.forge_noun === gitLabNoun)
+  const onGitLab = useHealthStore((state) => state.health?.forge_kind === 'gitlab')
   const forgeIssue = tracker === 'forge'
   const markdown = forgeIssue || jiraMarkdown
   const shown = shownKey({ key: issueKey, tracker })
@@ -378,10 +378,6 @@ interface ComposerFooterProps {
   busy: boolean
   onSend: () => void
 }
-
-// gitLabNoun is what the server's health calls a proposed change on GitLab,
-// the one forge whose comments run slash lines as quick actions.
-const gitLabNoun = 'merge request'
 
 // hintFor says how a comment is read: by the forge, as Markdown, or by Jira,
 // as Markdown converted or as wiki markup.

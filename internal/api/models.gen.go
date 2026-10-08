@@ -192,6 +192,27 @@ func (e ForgeConfigKind) Valid() bool {
 	}
 }
 
+// Defines values for HealthForgeKind.
+const (
+	HealthForgeKindGithub  HealthForgeKind = "github"
+	HealthForgeKindGitlab  HealthForgeKind = "gitlab"
+	HealthForgeKindUnknown HealthForgeKind = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HealthForgeKind enum.
+func (e HealthForgeKind) Valid() bool {
+	switch e {
+	case HealthForgeKindGithub:
+		return true
+	case HealthForgeKindGitlab:
+		return true
+	case HealthForgeKindUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IssueTracker.
 const (
 	IssueTrackerForge IssueTracker = "forge"
@@ -1327,6 +1348,11 @@ type Health struct {
 	// DryRun Whether writes are held back (the --dry-run flag).
 	DryRun bool `json:"dry_run"`
 
+	// ForgeKind Which forge the repository is on under the settings in effect: forge.kind when it names one, else the one origin's host names; unknown when neither says, as outside a repository or on a self-hosted forge the settings do not name. What the page decides by, where forge_noun and forge_sigil are only words to show.
+	//
+	// Example: gitlab
+	ForgeKind HealthForgeKind `json:"forge_kind"`
+
 	// ForgeNoun What the repository's forge calls a proposed change, lowercase — a "merge request" on GitLab and a "pull request" everywhere else — so the browser says what the terminal and the command line say.
 	//
 	// Example: merge request
@@ -1340,6 +1366,11 @@ type Health struct {
 	// Version The binary's version, or a short commit for a dev build.
 	Version string `json:"version"`
 }
+
+// HealthForgeKind Which forge the repository is on under the settings in effect: forge.kind when it names one, else the one origin's host names; unknown when neither says, as outside a repository or on a self-hosted forge the settings do not name. What the page decides by, where forge_noun and forge_sigil are only words to show.
+//
+// Example: gitlab
+type HealthForgeKind string
 
 // HookSetup The lefthook configuration offered for hooks lefthook does not manage.
 type HookSetup struct {
