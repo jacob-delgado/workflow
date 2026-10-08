@@ -45,15 +45,23 @@ var (
 	ErrSubjectTooLong = errors.New("the subject is too long")
 )
 
-// issueKey matches a Jira issue key as Jira writes it: an uppercase project key
-// of at least two characters, a hyphen, and a number. Uppercase only, because
-// that is what Jira's development panel links, and because a lowercase match
-// would read "utf-8" in a branch name as an issue. Only the boundary before a
-// key is matched: the greedy number already ends where the digits do, and
-// consuming the character after it would leave the next match no boundary, so
-// the PROJ-412 in UTF-8-PROJ-412 would go unseen.
+// jiraKeyShape is a Jira issue key as Jira writes it: an uppercase project key
+// of at least two characters, a hyphen, and a number with no leading zero.
+// Uppercase only, because that is what Jira's development panel links, and
+// because a lowercase match would read "utf-8" in a branch name as an issue.
+// Every rule that reads a Jira key is built from it.
+const jiraKeyShape = `[A-Z][A-Z0-9_]+-` + forgeNumberShape
+
+// forgeNumberShape is a forge issue's number as the forge writes it: digits
+// with no leading zero. Every rule that reads a forge number is built from it.
+const forgeNumberShape = `[1-9][0-9]*`
+
+// issueKey matches a Jira issue key in text. Only the boundary before a key is
+// matched: the greedy number already ends where the digits do, and consuming
+// the character after it would leave the next match no boundary, so the
+// PROJ-412 in UTF-8-PROJ-412 would go unseen.
 func issueKey() *regexp.Regexp {
-	return regexp.MustCompile(`(?:^|[^A-Za-z0-9])([A-Z][A-Z0-9_]+-[1-9][0-9]*)`)
+	return regexp.MustCompile(`(?:^|[^A-Za-z0-9])(` + jiraKeyShape + `)`)
 }
 
 // scope is what a Conventional Commit scope may contain.
@@ -166,9 +174,9 @@ func RefOf(key string) (IssueRef, bool) {
 	return IssueRef{}, false
 }
 
-// wholeJiraKey matches a Jira key alone, in issueKey's shape.
+// wholeJiraKey matches a Jira key alone.
 func wholeJiraKey() *regexp.Regexp {
-	return regexp.MustCompile(`^[A-Z][A-Z0-9_]+-[1-9][0-9]*$`)
+	return regexp.MustCompile(`^` + jiraKeyShape + `$`)
 }
 
 // IssueInText finds the issue a pull request's title or description names: a
@@ -192,12 +200,12 @@ func IssueInText(text, project string) (IssueRef, bool) {
 // punctuation or the start — not a URL's fragment, docs#42, or an HTML
 // entity, &#42;.
 func mentionedIssue() *regexp.Regexp {
-	return regexp.MustCompile(`(?:^|[\s(\[,:;])#([1-9][0-9]*)\b`)
+	return regexp.MustCompile(`(?:^|[\s(\[,:;])#(` + forgeNumberShape + `)\b`)
 }
 
-// forgeNumber matches a forge issue number alone: digits with no leading zero.
+// forgeNumber matches a forge issue number alone.
 func forgeNumber() *regexp.Regexp {
-	return regexp.MustCompile(`^[1-9][0-9]*$`)
+	return regexp.MustCompile(`^` + forgeNumberShape + `$`)
 }
 
 // jiraKey finds the first Jira issue key in text, where a key's project counts.
@@ -230,7 +238,7 @@ func acceptedProject(candidate, configured string) bool {
 // a hyphen, as GitLab's own "42-fix-typo" branches are named. Anchoring it there
 // keeps a slug digit, or a token like the 256 in SHA-256, from reading as a key.
 func forgeIssueKey() *regexp.Regexp {
-	return regexp.MustCompile(`(?:^|/)([1-9][0-9]*)(?:-|$)`)
+	return regexp.MustCompile(`(?:^|/)(` + forgeNumberShape + `)(?:-|$)`)
 }
 
 // forgeKey finds a forge issue number in text.
