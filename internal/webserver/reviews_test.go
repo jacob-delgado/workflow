@@ -6,6 +6,7 @@ package webserver_test
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -67,13 +68,75 @@ func TestListReviewsAnswersTheForgeQueue(t *testing.T) {
 	}
 }
 
-// sameRequest is whether two review requests on the wire match, comparing the
-// times with Equal, since a decoded time carries no monotonic reading.
+// sameRequest is whether two review requests on the wire match, but for their
+// facets, comparing the times with Equal, since a decoded time carries no
+// monotonic reading.
 func sameRequest(got, want api.ReviewRequest) bool {
 	sameTime := got.OpenedAt != nil && want.OpenedAt != nil && got.OpenedAt.Equal(*want.OpenedAt)
-	got.OpenedAt = want.OpenedAt
+	got.OpenedAt, got.Facets, want.Facets = want.OpenedAt, nil, nil
 
-	return sameTime && got == want
+	return sameTime && reflect.DeepEqual(got, want)
+}
+
+// facetLines is each facet as kind|value|label, in order.
+func facetLines(facets []api.ReviewFacet) []string {
+	lines := make([]string, 0, len(facets))
+	for _, facet := range facets {
+		lines = append(lines, string(facet.Kind)+"|"+facet.Value+"|"+facet.Label)
+	}
+
+	return lines
+}
+
+func TestListReviewsDescribesEachRequestsFacets(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	requests := []forge.ReviewRequest{
+		{Number: 1, Author: "lee", Repository: "ex/tools", Draft: true, CI: forge.CIRunning},
+		{Number: 2, Author: "kim", CI: forge.CINone},
+	}
+
+	// Act
+	recorder := get(t, serve(t, queueDeps(requests, nil), config.Default()), reviewsPath)
+
+	// Assert
+	queue := decode[api.ReviewQueue](t, recorder)
+	want := [][]string{
+		{"repository|ex/tools|ex/tools", "ci|running|CI running", "draft|draft|draft", "author|lee|by lee"},
+		{"repository||no repository", "ci|none|CI none", "draft|ready|ready", "author|kim|by kim"},
+	}
+
+	for index, request := range queue.Requests {
+		if got := facetLines(request.Facets); !slices.Equal(got, want[index]) {
+			t.Errorf("request #%d facets = %q, want %q", request.Number, got, want[index])
+		}
+	}
+}
+
+func TestListReviewsShipsTheOrderTheFilterOffersItsValuesIn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	requests := []forge.ReviewRequest{
+		{Number: 1, Author: "ivy", Repository: "ex/web", CI: forge.CIRunning},
+		{Number: 2, Author: "lee", Repository: "ex/lib", Draft: true, CI: forge.CIFailed},
+	}
+
+	// Act
+	recorder := get(t, serve(t, queueDeps(requests, nil), config.Default()), reviewsPath)
+
+	// Assert
+	queue := decode[api.ReviewQueue](t, recorder)
+	want := []string{
+		"repository|ex/lib|ex/lib", "repository|ex/web|ex/web", "ci|failed|CI failed", "ci|passed|CI passed",
+		"ci|running|CI running", "ci|none|CI none", "draft|draft|draft", "draft|ready|ready",
+		"author|ivy|by ivy", "author|lee|by lee",
+	}
+
+	if got := facetLines(queue.FacetOrder); !slices.Equal(got, want) {
+		t.Errorf("facet_order = %q, want %q", got, want)
+	}
 }
 
 func TestListReviewsAnswersAnEmptyQueueAsAnEmptyList(t *testing.T) {
@@ -119,8 +182,8 @@ func TestListReviewsSaysThereIsNoForgeToAsk(t *testing.T) {
 			// Assert
 			body := recorder.Body.String()
 			if recorder.Code != http.StatusOK || !strings.Contains(body, `"available":false`) ||
-				!strings.Contains(body, `"requests":[]`) {
-				t.Errorf("answer = %d %s, want an unavailable, empty queue", recorder.Code, body)
+				!strings.Contains(body, `"requests":[]`) || !strings.Contains(body, `"facet_order":[]`) {
+				t.Errorf("answer = %d %s, want an unavailable, empty queue with nothing to offer", recorder.Code, body)
 			}
 
 			if strings.Contains(body, forgeHost) {

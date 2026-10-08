@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ReviewQueue } from '@/api/generated/types.gen.ts'
+import type { ReviewFacet, ReviewQueue } from '@/api/generated/types.gen.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeReviewRequest } from '@/test/fixtures.ts'
 import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
@@ -26,8 +26,31 @@ function requestNumbered(
   })
 }
 
+// offer is a value the server offers the filter, labeled as it labels it.
+function offer(kind: ReviewFacet['kind'], value: string, label: string): ReviewFacet {
+  return { kind, value, label }
+}
+
+// facetsWorldOrder is what the server offers for the queue below, in its
+// order: repositories by name, every CI state and draft or ready in a fixed
+// order, then authors by name.
+const facetsWorldOrder: ReviewFacet[] = [
+  offer('repository', '', 'no repository'),
+  offer('repository', 'example/other', 'example/other'),
+  offer('repository', 'example/repo', 'example/repo'),
+  offer('ci', 'failed', 'CI failed'),
+  offer('ci', 'passed', 'CI passed'),
+  offer('ci', 'running', 'CI running'),
+  offer('ci', 'none', 'CI none'),
+  offer('draft', 'draft', 'draft'),
+  offer('draft', 'ready', 'ready'),
+  offer('author', 'kwan', 'by kwan'),
+  offer('author', 'mira', 'by mira'),
+]
+
 const queue: ReviewQueue = {
   available: true,
+  facet_order: facetsWorldOrder,
   requests: [
     requestNumbered(5, {
       author: 'kwan',
@@ -89,6 +112,75 @@ test('offers each value the queue holds, with its count, none pressed', async ()
     'by mira 2',
   ])
   expect(buttons.every((button) => button.getAttribute('aria-pressed') === 'false')).toBe(true)
+})
+
+test('offers the values in the order the server offers them', async () => {
+  // Arrange
+  fakeApi({ [reviewsPath]: { ...queue, facet_order: facetsWorldOrder.toReversed() } })
+
+  // Act
+  renderWithClient(<ReviewQueuePanel />)
+
+  // Assert
+  const filter = await screen.findByRole('group', { name: 'Filter' })
+  expect(within(filter).getAllByRole('button').at(0)?.textContent).toBe('by mira 2')
+})
+
+test('names each value as the server labels it', async () => {
+  // Arrange
+  const named = makeReviewRequest({
+    facets: [offer('author', 'kwan', 'by Kwan Lee')],
+  })
+  fakeApi({
+    [reviewsPath]: {
+      available: true,
+      requests: [named],
+      facet_order: [offer('author', 'kwan', 'by Kwan Lee')],
+    },
+  })
+
+  // Act
+  renderWithClient(<ReviewQueuePanel />)
+
+  // Assert
+  const filter = await screen.findByRole('group', { name: 'Filter' })
+  expect(
+    within(filter)
+      .getAllByRole('button')
+      .map((button) => button.textContent),
+  ).toEqual(['by Kwan Lee 1'])
+})
+
+test('keeps a picked value the server no longer offers last, at zero', async () => {
+  // Arrange
+  let reads = 0
+  fakeApi({
+    [reviewsPath]: () => {
+      reads += 1
+
+      // Then only mira's two wait, and the server offers no kwan.
+      const unheld = ['kwan', 'example/other']
+
+      return reads === 1
+        ? queue
+        : {
+            ...queue,
+            requests: queue.requests.slice(2),
+            facet_order: facetsWorldOrder.filter((facet) => !unheld.includes(facet.value)),
+          }
+    },
+  })
+  renderWithClient(<ReviewQueuePanel />)
+  await screen.findByRole('group', { name: 'Filter' })
+  await press('by kwan 2')
+
+  // Act
+  await userEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+
+  // Assert
+  await screen.findByRole('button', { name: 'by kwan 0' })
+  const filter = screen.getByRole('group', { name: 'Filter' })
+  expect(within(filter).getAllByRole('button').at(-1)?.textContent).toBe('by kwan 0')
 })
 
 test('a repository and a CI state narrow the queue together, and the summary says so', async () => {
@@ -178,8 +270,12 @@ test('unpicking the only value left takes focus to Sort as the filter goes', asy
       reads += 1
 
       return reads === 1
-        ? { available: true, requests: [requestNumbered(1, { author: 'kwan' })] }
-        : { available: true, requests: [] }
+        ? {
+            available: true,
+            requests: [requestNumbered(1, { author: 'kwan' })],
+            facet_order: [offer('author', 'kwan', 'by kwan')],
+          }
+        : { available: true, requests: [], facet_order: [] }
     },
   })
   renderWithClient(<ReviewQueuePanel />)

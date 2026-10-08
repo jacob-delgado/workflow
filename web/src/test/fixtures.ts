@@ -1,6 +1,7 @@
 import type {
   Branch,
   Health,
+  ReviewFacet,
   ReviewRequest,
   Snapshot,
   Stage,
@@ -138,15 +139,37 @@ export function makeTaskList(tasks: Task[], overrides: Partial<TaskList> = {}): 
 // A contract-valid review request for tests — a pull request waiting three
 // days, CI failed — with the fields a case cares about overridden.
 export function makeReviewRequest(overrides: Partial<ReviewRequest> = {}): ReviewRequest {
-  return {
+  const request = {
     number: 42,
     url: 'https://github.com/acme/api/pull/42',
     title: 'fix: redact the token before it reaches the log',
     author: 'ana',
     repository: 'acme/api',
     draft: false,
-    ci: 'failed',
+    ci: 'failed' as const,
     opened_at: new Date(Date.now() - (3 * 24 + 1) * 3_600_000).toISOString(),
     ...overrides,
   }
+
+  return { ...request, facets: overrides.facets ?? reviewFacetsOf(request) }
+}
+
+// reviewFacetsOf is what the server ships as a request's facets, for the case
+// data a test gives: each value as the server labels it, here written out for
+// the data alone.
+function reviewFacetsOf(
+  request: Pick<ReviewRequest, 'repository' | 'ci' | 'draft' | 'author'>,
+): ReviewFacet[] {
+  const readiness = request.draft ? 'draft' : 'ready'
+
+  return [
+    {
+      kind: 'repository',
+      value: request.repository,
+      label: request.repository === '' ? 'no repository' : request.repository,
+    },
+    { kind: 'ci', value: request.ci, label: `CI ${request.ci}` },
+    { kind: 'draft', value: readiness, label: readiness },
+    { kind: 'author', value: request.author, label: `by ${request.author}` },
+  ]
 }

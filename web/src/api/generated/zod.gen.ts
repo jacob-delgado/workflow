@@ -667,6 +667,20 @@ export const zLinkedIssue = z.object({
 });
 
 /**
+ * One value a review request holds in one of the four facets the queue is narrowed by. Values picked in one facet widen the queue, and the facets narrow it together.
+ */
+export const zReviewFacet = z.object({
+    kind: z.enum([
+        'repository',
+        'ci',
+        'draft',
+        'author'
+    ]),
+    value: z.string(),
+    label: z.string()
+});
+
+/**
  * A note on a task, and when it was written.
  */
 export const zTaskAnnotation = z.object({
@@ -895,12 +909,14 @@ export const zReviewRequest = z.object({
     repository: z.string(),
     draft: z.boolean(),
     ci: zCiState,
-    opened_at: z.iso.datetime({ offset: true }).optional()
+    opened_at: z.iso.datetime({ offset: true }).optional(),
+    facets: z.array(zReviewFacet)
 });
 
 export const zReviewQueue = z.object({
     available: z.boolean(),
-    requests: z.array(zReviewRequest)
+    requests: z.array(zReviewRequest),
+    facet_order: z.array(zReviewFacet)
 });
 
 export const zCheck = z.object({
