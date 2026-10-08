@@ -1,7 +1,7 @@
 import type { Task } from '@/api/generated/types.gen.ts'
 import { Meta } from '@/lib/Meta.tsx'
 import { cn } from '@/lib/utils.ts'
-import { StateMark } from '@/shell/StateMark.tsx'
+import { StateMark } from '@/lib/StateMark.tsx'
 import { listsWaiting, matchesNarrowing, type TaskNarrowing } from './taskFacets.ts'
 import { orderedTasks, type TaskOrder } from './taskOrder.ts'
 import { dueWords, markOf, statusWords, taskNumber, waitsAt, waitsUntilWords } from './taskWords.ts'

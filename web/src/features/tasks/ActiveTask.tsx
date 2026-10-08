@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Task } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { StateMark } from '@/shell/StateMark.tsx'
+import { StateMark } from '@/lib/StateMark.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { elapsedWords, isActive } from './taskWords.ts'
 

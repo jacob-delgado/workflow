@@ -1,5 +1,5 @@
 import type { CiState } from '@/api/generated/types.gen.ts'
-import { cn } from '@/lib/utils.ts'
+import { cn } from './utils.ts'
 
 // A state in the interface's own vocabulary (internal/tui/glyphs.go): not
 // started ○, in flight ◐, done ●, failed ✗, and unknown · for a service that

@@ -248,8 +248,12 @@ internal/wiring 14
 # filter chips, focus, the async action, the shared class names, a link that
 # opens a new tab (UX-123) and Copy URL (UX-88), which the review queue and the
 # Review section both draw. One responsibility, one primitive per file; a
-# primitive used by one section stays in that section's folder.
-web/src/lib 13
+# primitive used by one section stays in that section's folder. 15 is the
+# state mark and the empty state, moved in from the shell, which drew neither
+# for itself alone: every section draws them, and a lib primitive (a read's
+# status) draws the mark, so lib stays a leaf that imports neither the shell
+# nor a feature.
+web/src/lib 15
 
 # web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
 # `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by

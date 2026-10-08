@@ -26,6 +26,16 @@ module.exports = {
       to: { path: '^src/api/generated/', dependencyTypesNot: ['type-only'] },
     },
     {
+      name: 'lib-is-a-leaf',
+      severity: 'error',
+      comment:
+        'src/lib holds the primitives every section draws alike, so it imports neither the ' +
+        'shell nor a feature: a primitive that reached up into either would carry that ' +
+        "part's concerns into every section that draws it.",
+      from: { path: '^src/lib/' },
+      to: { path: '^src/(shell|features)/' },
+    },
+    {
       name: 'not-to-unresolvable',
       severity: 'error',
       comment:

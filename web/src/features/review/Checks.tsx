@@ -6,7 +6,7 @@ import { Meta } from '@/lib/Meta.tsx'
 import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
-import { ciMark, StateMark } from '@/shell/StateMark.tsx'
+import { ciMark, StateMark } from '@/lib/StateMark.tsx'
 import { readCheckLog } from './checkLogApi.ts'
 
 // CiChecks is how the pull request's CI stands, headed by how many checks are
