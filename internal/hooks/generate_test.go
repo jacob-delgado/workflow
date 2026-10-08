@@ -157,6 +157,33 @@ func TestStructuredTurnsPlainCommandsIntoOrderedJobs(t *testing.T) {
 	}
 }
 
+func TestErrexitBesideOptionsAJobListKeepsStillConverts(t *testing.T) {
+	t.Parallel()
+
+	// nounset and xtrace change nothing a job list of plain commands does.
+	cases := map[string]string{
+		"errexit alone":                  "#!/bin/sh\nset -e\nmake\n",
+		"errexit with nounset":           "#!/bin/sh\nset -eu\nmake\n",
+		"errexit with nounset and trace": "#!/bin/sh\nset -eux\nmake\n",
+		"errexit by name":                "#!/bin/sh\nset -o errexit\nmake\n",
+		"trace on its own line":          "#!/bin/sh\nset -e\nset -x\nmake\n",
+	}
+
+	for name, script := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			generated := hooks.Structured([]hooks.GitHook{{Name: preCommit, Script: script}})
+
+			// Assert
+			if !strings.Contains(generated.Config, "      run: make\n") || len(generated.Scripts) != 0 {
+				t.Errorf("a hook with %s was not turned into jobs:\n%s", name, generated.Config)
+			}
+		})
+	}
+}
+
 func TestACommandThatReadsAsAnotherTypeStaysAString(t *testing.T) {
 	t.Parallel()
 
@@ -254,6 +281,13 @@ func TestAHookIsOnlyStructuredWhenEveryLineIsAPlainCommand(t *testing.T) {
 		"pipefail it cannot keep": "#!/bin/sh\nset -e\nset -o pipefail\n" +
 			"make lint | tee log\n",
 		"exit": "#!/bin/sh\nset -e\nexit 0\n",
+		// A piped job list honors no option, so one beside errexit that changes
+		// what a command does keeps the script whole: noglob would expand the
+		// glob as jobs, and noexec would run what the script never ran.
+		"noglob beside errexit":  "#!/bin/sh\nset -ef\nls *.go\n",
+		"noexec beside errexit":  "#!/bin/sh\nset -en\nrm -rf build\n",
+		"noglob on its own line": "#!/bin/sh\nset -e\nset -f\nls *.go\n",
+		"allexport":              "#!/bin/sh\nset -ea\nmake\n",
 		"no errexit at all": "#!/bin/sh\n# no set -e, so a failure must not stop the rest\n" +
 			"gofmt -l .\ngo vet ./...\n",
 	}
