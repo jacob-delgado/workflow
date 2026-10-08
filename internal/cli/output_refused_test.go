@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 )
@@ -16,6 +17,14 @@ import (
 // errOutputClosed is a stdout whose reader has gone, as when a pipe's far end
 // exits early.
 var errOutputClosed = errors.New("output closed")
+
+// The commands the refused-output tests run, each named more than once in the
+// package's tests.
+const (
+	statusCommand  = "status"
+	reviewsCommand = "reviews"
+	doctorCommand  = "doctor"
+)
 
 // refusingOutput fails every write.
 type refusingOutput struct{}
@@ -45,4 +54,45 @@ func TestDoctorJSONFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 	}
 
 	wantExit(t, err, 1)
+}
+
+func TestProseFailsWhenItsOutputCannotBeWritten(t *testing.T) {
+	// Each command, by name, and where it runs.
+	cases := map[string]func(t *testing.T) string{
+		statusCommand: featureRepo,
+		reviewsCommand: func(t *testing.T) string {
+			t.Helper()
+			fakeGh(t, ghResponses{search: reviewSearch(reviewItem(1, "ana", "ex/repo", time.Now()))})
+
+			return reviewsRepo(t)
+		},
+		doctorCommand: func(t *testing.T) string {
+			t.Helper()
+
+			return t.TempDir()
+		},
+	}
+
+	for command, where := range cases {
+		t.Run(command, func(t *testing.T) {
+			// Arrange
+			dir := where(t)
+
+			for variable, value := range isolatedEnvironment(t.TempDir()) {
+				t.Setenv(variable, value)
+			}
+
+			t.Chdir(dir)
+
+			// Act
+			err := cli.Execute([]string{command}, refusingOutput{}, io.Discard, unusedPrompt(t))
+
+			// Assert
+			if !errors.Is(err, errOutputClosed) {
+				t.Errorf("%s into an output that refuses writes = %v, want that failure returned", command, err)
+			}
+
+			wantExit(t, err, 1)
+		})
+	}
 }
