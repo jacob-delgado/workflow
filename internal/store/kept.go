@@ -59,23 +59,7 @@ func (s Store) keptWithin(ctx context.Context, write func(*sql.Tx) error) error 
 	}
 	defer func() { _ = database.Close() }()
 
-	transaction, err := database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("writing the kept data: %w", err)
-	}
-	defer func() { _ = transaction.Rollback() }()
-
-	err = write(transaction)
-	if err != nil {
-		return err
-	}
-
-	err = transaction.Commit()
-	if err != nil {
-		return fmt.Errorf("writing the kept data: %w", err)
-	}
-
-	return nil
+	return inTransaction(ctx, database, "writing the kept data", write)
 }
 
 // readKept opens the kept database for a read, and reports false when there
@@ -108,14 +92,14 @@ func (s Store) readKept(ctx context.Context) (*sql.DB, bool, error) {
 func (s Store) readKeptAsItIs(ctx context.Context) (*sql.DB, bool, error) {
 	database := s.openAsItIs(keptName)
 
-	version, err := readVersion(ctx, database)
+	state, err := readState(ctx, database)
 	if err != nil {
 		_ = database.Close()
 
 		return nil, false, err
 	}
 
-	if version != keptSchemaVersion {
+	if state.version != keptSchemaVersion {
 		_ = database.Close()
 
 		return nil, false, nil
@@ -150,12 +134,12 @@ func (s Store) openKept(ctx context.Context) (*sql.DB, error) {
 // prepareKept makes the schema in a fresh kept database and refuses one at
 // another version. A file already at this build's costs one read and no lock.
 func prepareKept(ctx context.Context, database *sql.DB) error {
-	version, err := readVersionOnOpen(ctx, database)
+	state, err := readStateOnOpen(ctx, database)
 	if err != nil {
 		return err
 	}
 
-	switch version {
+	switch state.version {
 	case keptSchemaVersion:
 		return nil
 	case 0:
@@ -169,37 +153,33 @@ func prepareKept(ctx context.Context, database *sql.DB) error {
 // lock as it begins and re-reads the version under it, since another process
 // may have made it meanwhile.
 func makeKeptSchema(ctx context.Context, database *sql.DB) error {
-	transaction, err := database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("preparing the kept data: %w", err)
-	}
-	defer func() { _ = transaction.Rollback() }()
+	return inTransaction(ctx, database, "preparing the kept data", func(transaction *sql.Tx) error {
+		state, err := readState(ctx, transaction)
+		if err != nil {
+			return err
+		}
 
-	version, err := readVersion(ctx, transaction)
-	if err != nil {
-		return err
-	}
+		if state.version != 0 {
+			return keptVersionCheck(state.version)
+		}
 
-	if version != 0 {
-		return keptVersionCheck(version)
-	}
+		return writeKeptSchema(ctx, transaction)
+	})
+}
 
+// writeKeptSchema makes every kept table and stamps this build's version.
+func writeKeptSchema(ctx context.Context, transaction *sql.Tx) error {
 	for _, statement := range keptSchema() {
-		_, err = transaction.ExecContext(ctx, statement)
+		_, err := transaction.ExecContext(ctx, statement)
 		if err != nil {
 			return fmt.Errorf("preparing the kept data: %w", err)
 		}
 	}
 
 	// A PRAGMA binds no placeholder; the version is this package's own constant.
-	_, err = transaction.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(keptSchemaVersion))
+	_, err := transaction.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(keptSchemaVersion))
 	if err != nil {
 		return fmt.Errorf("stamping the kept data's version: %w", err)
-	}
-
-	err = transaction.Commit()
-	if err != nil {
-		return fmt.Errorf("preparing the kept data: %w", err)
 	}
 
 	return nil
