@@ -4,15 +4,14 @@
 package activity_test
 
 import (
+	"encoding/json"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/activity"
 )
-
-// leapDay is the leap day the cases reach.
-const leapDay = "2028-02-29"
 
 // day is a civil date, written as a test reads it.
 func day(t *testing.T, text string) activity.Date {
@@ -154,30 +153,111 @@ func TestADayTheClocksSkipStartsWhereTheNextDayDoes(t *testing.T) {
 	}
 }
 
+// datesFile is the calendar's dates, the cases the web's calendar answers to
+// as well.
+const datesFile = "testdata/civil_dates.json"
+
+type periodCase struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type datesCorpus struct {
+	About string `json:"about"`
+	Parse []struct {
+		Name string `json:"name"`
+		Text string `json:"text"`
+		OK   bool   `json:"ok"`
+	} `json:"parse"`
+	AddDays []struct {
+		Name string `json:"name"`
+		From string `json:"from"`
+		Days int    `json:"days"`
+		Want string `json:"want"`
+	} `json:"add_days"`
+	AddMonths []struct {
+		Name   string `json:"name"`
+		From   string `json:"from"`
+		Months int    `json:"months"`
+		Want   string `json:"want"`
+	} `json:"add_months"`
+	Whole []struct {
+		Name  string     `json:"name"`
+		Date  string     `json:"date"`
+		Month periodCase `json:"month"`
+		Year  periodCase `json:"year"`
+	} `json:"whole"`
+	Step []struct {
+		Name  string     `json:"name"`
+		From  string     `json:"from"`
+		To    string     `json:"to"`
+		Steps int        `json:"steps"`
+		Days  int        `json:"days"`
+		Want  periodCase `json:"want"`
+	} `json:"step"`
+}
+
+// readDates is the shared cases, refusing a field this side would ignore so a
+// case cannot pin one copy and pass the other unread.
+func readDates(t *testing.T) datesCorpus {
+	t.Helper()
+
+	file, err := os.Open(datesFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() { _ = file.Close() }()
+
+	decoder := json.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+
+	var read datesCorpus
+
+	err = decoder.Decode(&read)
+	if err != nil {
+		t.Fatalf("%s: %v", datesFile, err)
+	}
+
+	return read
+}
+
+// shown is a period as the cases write it.
+func shown(period activity.Period) periodCase {
+	return periodCase{From: period.From.String(), To: period.To.String()}
+}
+
 func TestADateIsReadAndWrittenAsYearMonthDay(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]struct {
-		text string
-		ok   bool
-	}{
-		"a date":        {text: "2026-02-28", ok: true},
-		"no such day":   {text: "2026-02-30", ok: false},
-		"not a date":    {text: "yesterday", ok: false},
-		"with a time":   {text: "2026-02-28T10:00:00Z", ok: false},
-		"leap day kept": {text: leapDay, ok: true},
-	}
-
-	for name, testCase := range cases {
-		t.Run(name, func(t *testing.T) {
+	for _, testCase := range readDates(t).Parse {
+		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			date, err := activity.ParseDate(testCase.text)
+			date, err := activity.ParseDate(testCase.Text)
 
 			// Assert
-			if (err == nil) != testCase.ok || (testCase.ok && date.String() != testCase.text) {
-				t.Errorf("ParseDate(%q) = %v, %v; want ok %v and the same text back", testCase.text, date, err, testCase.ok)
+			if (err == nil) != testCase.OK || (testCase.OK && date.String() != testCase.Text) {
+				t.Errorf("ParseDate(%q) = %v, %v; want ok %v and the same text back", testCase.Text, date, err, testCase.OK)
+			}
+		})
+	}
+}
+
+func TestMovingByDaysCrossesMonthsAndYears(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range readDates(t).AddDays {
+		t.Run(testCase.Name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			moved := day(t, testCase.From).AddDays(testCase.Days)
+
+			// Assert
+			if moved.String() != testCase.Want {
+				t.Errorf("%s + %d days = %s, want %s", testCase.From, testCase.Days, moved, testCase.Want)
 			}
 		})
 	}
@@ -186,28 +266,16 @@ func TestADateIsReadAndWrittenAsYearMonthDay(t *testing.T) {
 func TestMovingByMonthsKeepsTheDayWhereTheMonthHasIt(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]struct {
-		from   string
-		months int
-		want   string
-	}{
-		"a day every month has":     {from: "2026-01-15", months: 1, want: "2026-02-15"},
-		"the 31st into a short one": {from: "2026-01-31", months: 1, want: "2026-02-28"},
-		"into a leap February":      {from: "2028-01-31", months: 1, want: leapDay},
-		"back over a year's end":    {from: "2026-01-31", months: -2, want: "2025-11-30"},
-		"a year on from a leap day": {from: leapDay, months: 12, want: "2029-02-28"},
-	}
-
-	for name, testCase := range cases {
-		t.Run(name, func(t *testing.T) {
+	for _, testCase := range readDates(t).AddMonths {
+		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			moved := day(t, testCase.from).AddMonths(testCase.months)
+			moved := day(t, testCase.From).AddMonths(testCase.Months)
 
 			// Assert
-			if moved != day(t, testCase.want) {
-				t.Errorf("%s + %d months = %s, want %s", testCase.from, testCase.months, moved, testCase.want)
+			if moved.String() != testCase.Want {
+				t.Errorf("%s + %d months = %s, want %s", testCase.From, testCase.Months, moved, testCase.Want)
 			}
 		})
 	}
@@ -216,49 +284,43 @@ func TestMovingByMonthsKeepsTheDayWhereTheMonthHasIt(t *testing.T) {
 func TestADatesMonthAndYearAreWholePeriods(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	date := day(t, "2028-02-10")
+	for _, testCase := range readDates(t).Whole {
+		t.Run(testCase.Name, func(t *testing.T) {
+			t.Parallel()
 
-	// Act
-	month, year := activity.MonthOf(date), activity.YearOf(date)
+			// Arrange
+			date := day(t, testCase.Date)
 
-	// Assert
-	if month.String() != "2028-02-01 to 2028-02-29" || year.String() != "2028-01-01 to 2028-12-31" {
-		t.Errorf("MonthOf = %s, YearOf = %s; want the leap February and the whole year", month, year)
+			// Act
+			month, year := activity.MonthOf(date), activity.YearOf(date)
+
+			// Assert
+			if shown(month) != testCase.Month || shown(year) != testCase.Year {
+				t.Errorf("MonthOf = %s, YearOf = %s; want %+v and %+v", month, year, testCase.Month, testCase.Year)
+			}
+		})
 	}
 }
 
 func TestAPeriodStepsByItsOwnLengthAndAWholeMonthOrYearByItself(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]struct {
-		from, to string
-		steps    int
-		want     string
-	}{
-		"days, earlier":          {from: "2025-06-11", to: "2025-06-13", steps: -1, want: "2025-06-08 to 2025-06-10"},
-		"days, later":            {from: "2025-06-20", to: "2025-06-20", steps: 1, want: "2025-06-21"},
-		"a whole month, earlier": {from: "2025-10-01", to: "2025-10-31", steps: -1, want: "2025-09-01 to 2025-09-30"},
-		"a whole month, later":   {from: "2025-01-01", to: "2025-01-31", steps: 1, want: "2025-02-01 to 2025-02-28"},
-		"a whole year, earlier":  {from: "2024-01-01", to: "2024-12-31", steps: -1, want: "2023-01-01 to 2023-12-31"},
-	}
-
-	for name, step := range cases {
-		t.Run(name, func(t *testing.T) {
+	for _, step := range readDates(t).Step {
+		t.Run(step.Name, func(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			period, err := activity.NewPeriod(day(t, step.from), day(t, step.to))
+			period, err := activity.NewPeriod(day(t, step.From), day(t, step.To))
 			if err != nil {
 				t.Fatalf("NewPeriod: %v", err)
 			}
 
 			// Act
-			stepped := period.Step(step.steps)
+			stepped := period.Step(step.Steps)
 
 			// Assert
-			if got := stepped.String(); got != step.want {
-				t.Errorf("Step(%d) = %s, want %s", step.steps, got, step.want)
+			if shown(stepped) != step.Want || period.Days() != step.Days {
+				t.Errorf("Step(%d) = %s of %d days, want %+v of %d", step.Steps, stepped, period.Days(), step.Want, step.Days)
 			}
 		})
 	}

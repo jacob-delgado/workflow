@@ -1,6 +1,6 @@
 // Trade-off TRADE-33: these are internal/activity's dates written again, so
-// the calendar can move and pick a period with no request; twin-named cases in
-// civilDate.test.ts and period_test.go pin the two together.
+// the calendar can move and pick a period with no request; both copies answer
+// to the one case file internal/activity/testdata/civil_dates.json.
 
 // A CivilDate is a day on the calendar, written YYYY-MM-DD, with no time and
 // no zone: the days a period names are the same whichever clock reads them.
