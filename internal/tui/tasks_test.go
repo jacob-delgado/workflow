@@ -110,7 +110,7 @@ func TestOneGroupHasNoHeadingAndNoWaitingCount(t *testing.T) {
 		want string
 	}{
 		"only tasks for listed issues": {kept: []string{activeTaskUUID, trackedTaskUUID}, want: "▸ ◐  12 " + issueKey},
-		"only other tasks":             {kept: []string{looseTaskUUID}, want: "▸ ○   9 Renew the cert"},
+		"only other tasks":             {kept: []string{looseTaskUUID}, want: nineSelected},
 	}
 
 	for name, tt := range cases {
