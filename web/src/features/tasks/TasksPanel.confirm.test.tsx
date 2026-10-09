@@ -1,20 +1,15 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { fakeApi, held } from '@/test/fakeApi.ts'
-import { makeTask, makeTaskList } from '@/test/fixtures.ts'
+import { makeTaskList } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { tokenLeak } from '@/test/tasks.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
 // Marking done, undoing and syncing each wait on a last look: a sync leaves
 // the machine, Taskwarrior has no redo, and done runs the task's hooks.
 
 const tasksPath = '/api/tasks'
-const tokenLeak = makeTask({
-  uuid: '11111111-1111-4111-8111-111111111111',
-  id: 1,
-  description: 'PROJ-1: Fix the token leak',
-  issue_key: 'PROJ-1',
-})
 
 const looks = [
   {

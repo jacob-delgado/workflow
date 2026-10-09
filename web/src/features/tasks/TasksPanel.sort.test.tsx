@@ -1,60 +1,84 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { makeTask, makeTaskList } from '@/test/fixtures.ts'
+import { describedTask, makeTaskList, taskFacet } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { TasksPanel } from './TasksPanel.tsx'
 
-// Each task as the server describes it: its values, as it labels them, and
-// its place in every order.
-const urgent = makeTask({
-  uuid: 'a',
-  id: 1,
-  description: 'Fix the token leak',
-  urgency: 9.5,
-  issue_key: '',
-  facets: [
-    { kind: 'state', value: 'pending', label: 'pending' },
-    { kind: 'priority', value: '', label: 'no priority' },
-    { kind: 'project', value: '', label: 'no project' },
-    { kind: 'issue', value: 'unlinked', label: 'no issue' },
-    { kind: 'tag', value: '', label: 'no tag' },
-  ],
-  ranks: { urgency: 0, state: 0, id: 0, tag: 1, issue: 0, priority: 2 },
-})
-const certificate = makeTask({
-  uuid: 'b',
-  id: 2,
-  description: 'Renew the certificate',
-  urgency: 5.1,
-  priority: 'H',
-  issue_key: '',
-  facets: [
-    { kind: 'state', value: 'pending', label: 'pending' },
-    { kind: 'priority', value: 'H', label: 'priority H' },
-    { kind: 'project', value: '', label: 'no project' },
-    { kind: 'issue', value: 'unlinked', label: 'no issue' },
-    { kind: 'tag', value: '', label: 'no tag' },
-  ],
-  ranks: { urgency: 1, state: 1, id: 1, tag: 2, issue: 1, priority: 0 },
-})
-const cache = makeTask({
-  uuid: 'c',
-  id: 3,
-  description: 'Tune the cache',
-  urgency: 3.2,
-  priority: 'L',
-  tags: ['perf'],
-  issue_key: '',
-  facets: [
-    { kind: 'state', value: 'pending', label: 'pending' },
-    { kind: 'priority', value: 'L', label: 'priority L' },
-    { kind: 'project', value: '', label: 'no project' },
-    { kind: 'issue', value: 'unlinked', label: 'no issue' },
-    { kind: 'tag', value: 'perf', label: '+perf' },
-  ],
-  ranks: { urgency: 2, state: 2, id: 2, tag: 0, issue: 2, priority: 1 },
-})
+// unlinked are the fields of a task with no project or issue.
+const unlinked = { status: 'pending', project: '', issue_key: '', issue_url: '' } as const
+
+// Each task as the server describes it: its values, as it labels them, the
+// fields typed text matches, and its place in every order.
+const urgent = describedTask(
+  {
+    ...unlinked,
+    uuid: 'a',
+    id: 1,
+    description: 'Fix the token leak',
+    priority: '',
+    tags: [],
+    urgency: 9.5,
+    ranks: { urgency: 0, state: 0, id: 0, tag: 1, issue: 0, priority: 2 },
+  },
+  {
+    state: 'pending',
+    facets: [
+      taskFacet.pending,
+      taskFacet.noPriority,
+      taskFacet.noProject,
+      taskFacet.noIssue,
+      taskFacet.noTag,
+    ],
+    searchable: ['fix the token leak', '', '', '#1'],
+  },
+)
+const certificate = describedTask(
+  {
+    ...unlinked,
+    uuid: 'b',
+    id: 2,
+    description: 'Renew the certificate',
+    priority: 'H',
+    tags: [],
+    urgency: 5.1,
+    ranks: { urgency: 1, state: 1, id: 1, tag: 2, issue: 1, priority: 0 },
+  },
+  {
+    state: 'pending',
+    facets: [
+      taskFacet.pending,
+      { kind: 'priority', value: 'H', label: 'priority H' },
+      taskFacet.noProject,
+      taskFacet.noIssue,
+      taskFacet.noTag,
+    ],
+    searchable: ['renew the certificate', '', '', '#2'],
+  },
+)
+const cache = describedTask(
+  {
+    ...unlinked,
+    uuid: 'c',
+    id: 3,
+    description: 'Tune the cache',
+    priority: 'L',
+    tags: ['perf'],
+    urgency: 3.2,
+    ranks: { urgency: 2, state: 2, id: 2, tag: 0, issue: 2, priority: 1 },
+  },
+  {
+    state: 'pending',
+    facets: [
+      taskFacet.pending,
+      { kind: 'priority', value: 'L', label: 'priority L' },
+      taskFacet.noProject,
+      taskFacet.noIssue,
+      { kind: 'tag', value: 'perf', label: '+perf' },
+    ],
+    searchable: ['tune the cache', '', '', '+perf', '#3'],
+  },
+)
 
 // rows is the description each listed row leads with, in order.
 function rows(): string[] {
@@ -132,7 +156,9 @@ test('sorting lists the tasks where the server ranks them, whatever their fields
 
 test('sorting by priority shows each task its priority as the server labels it', async () => {
   // Arrange
-  const labeled = makeTask({
+  // A label the page could not spell from the value, so the row is seen to
+  // read the server's.
+  const labeled = describedTask(certificate, {
     ...certificate,
     facets: certificate.facets.map((facet) =>
       facet.kind === 'priority' ? { ...facet, label: 'priority High' } : facet,

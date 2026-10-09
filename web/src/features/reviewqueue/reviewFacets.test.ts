@@ -1,5 +1,5 @@
 import type { ReviewFacet, ReviewRequest } from '@/api/generated/types.gen.ts'
-import { makeReviewRequest } from '@/test/fixtures.ts'
+import { describedReviewRequest } from '@/test/fixtures.ts'
 import { admits, facetChoices, toggleFacet } from './reviewFacets.ts'
 
 // The page counts, picks and admits over the facets the server describes; how
@@ -32,35 +32,24 @@ const byMira: ReviewFacet = { kind: 'author', value: 'mira', label: 'by mira' }
 // passed; #3 by mira in no repository, with no CI; and #7 by mira in
 // example/repo, failed.
 const requests: ReviewRequest[] = [
-  makeReviewRequest({
-    number: 5,
-    author: 'kwan',
-    repository: 'example/repo',
-    draft: true,
-    ci: 'running',
-    facets: [exampleRepo, ciRunning, draft, byKwan],
-  }),
-  makeReviewRequest({
-    number: 12,
-    author: 'kwan',
-    repository: 'example/other',
-    ci: 'passed',
-    facets: [exampleOther, ciPassed, ready, byKwan],
-  }),
-  makeReviewRequest({
-    number: 3,
-    author: 'mira',
-    repository: '',
-    ci: 'none',
-    facets: [noRepository, ciNone, ready, byMira],
-  }),
-  makeReviewRequest({
-    number: 7,
-    author: 'mira',
-    repository: 'example/repo',
-    ci: 'failed',
-    facets: [exampleRepo, ciFailed, ready, byMira],
-  }),
+  describedReviewRequest(
+    { number: 5, author: 'kwan', repository: 'example/repo', draft: true, ci: 'running' },
+    [exampleRepo, ciRunning, draft, byKwan],
+  ),
+  describedReviewRequest(
+    { number: 12, author: 'kwan', repository: 'example/other', draft: false, ci: 'passed' },
+    [exampleOther, ciPassed, ready, byKwan],
+  ),
+  describedReviewRequest({ number: 3, author: 'mira', repository: '', draft: false, ci: 'none' }, [
+    noRepository,
+    ciNone,
+    ready,
+    byMira,
+  ]),
+  describedReviewRequest(
+    { number: 7, author: 'mira', repository: 'example/repo', draft: false, ci: 'failed' },
+    [exampleRepo, ciFailed, ready, byMira],
+  ),
 ]
 
 // A value the server offered once, which no request above holds.

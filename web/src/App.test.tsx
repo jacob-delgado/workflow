@@ -10,6 +10,8 @@ import {
   makeSnapshot,
   makeTask,
   makeTaskList,
+  standing,
+  taskStanding,
 } from './test/fixtures.ts'
 import { renderWithClient } from './test/renderWithClient.tsx'
 
@@ -172,7 +174,7 @@ test('opens the Tasks section on your tasks', async () => {
 test('the header shows the task you have started, and its chip opens Tasks', async () => {
   // Arrange
   const user = userEvent.setup()
-  const started = makeTask({ start: new Date().toISOString(), state: 'started' })
+  const started = taskStanding(makeTask(), { start: new Date().toISOString() }, standing.started)
   fakeApi({ '/api/health': makeHealth(), '/api/tasks': makeTaskList([started]) })
   renderWithClient(<App />)
   act(() => {
