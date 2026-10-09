@@ -41,6 +41,12 @@ type tasksState struct {
 	// its add's answer.
 	tracked int
 	stubs   []trackStub
+	// dones counts the dones that have answered. justDone are the tasks those
+	// dones marked that no read begun since has answered: each is still listed
+	// as the read before its done had it, and offers neither a start nor a
+	// done until a read describes it again.
+	dones    int
+	justDone []doneMark
 	// listing is how the user has chosen to see the list, kept for the session
 	// across every read.
 	listing taskListing
@@ -53,6 +59,34 @@ type tasksState struct {
 type trackStub struct {
 	task  taskwarrior.Task
 	track int
+}
+
+// doneMark is a task a done marked, by its uuid, and which done it was,
+// counting from the first.
+type doneMark struct {
+	uuid string
+	done int
+}
+
+// markedDone is s with the task a done has just marked, as the next done.
+func (s tasksState) markedDone(uuid string) tasksState {
+	s.dones++
+	s.justDone = append(slices.Clip(s.justDone), doneMark{uuid: uuid, done: s.dones})
+
+	return s
+}
+
+// justMarkedDone reports whether a done has marked the task with a uuid that
+// no read begun since has answered.
+func (s tasksState) justMarkedDone(uuid string) bool {
+	return slices.ContainsFunc(s.justDone, func(mark doneMark) bool { return mark.uuid == uuid })
+}
+
+// stillUndescribed is the dones a read begun once dones had answered cannot
+// have described: the later dones'. A read that failed describes none, but
+// leaves no task to start or mark done either.
+func (s tasksState) stillUndescribed(dones int) []doneMark {
+	return slices.DeleteFunc(slices.Clone(s.justDone), func(mark doneMark) bool { return mark.done <= dones })
 }
 
 // justAdded is s with a task a track has just added, linked as the next track.
@@ -97,27 +131,29 @@ func (s tasksState) answered() bool {
 
 // tasksLoaded carries Taskwarrior's answer: the install, the pending list and
 // the linked tasks, or why one of them could not be read; and how many tracks
-// had answered when the read was begun.
+// and dones had answered when the read was begun.
 type tasksLoaded struct {
 	install taskwarrior.Install
 	pending taskwarrior.List
 	linked  []taskwarrior.Task
 	err     error
 	tracked int
+	dones   int
 }
 
 var _ applier = tasksLoaded{}
 
 // apply records Taskwarrior's answer, keeping the selection on the same task
 // across a refresh, as the Reviews pane keeps its pull request — or on the first
-// task, where that one is no longer listed — and each task a track added since
-// the read was begun.
+// task, where that one is no longer listed — and each task a track added, or a
+// done marked, since the read was begun.
 func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 	linked, stubs := m.tasks.relinked(msg.tracked, msg.linked)
 	m.tasks = tasksState{
 		install: msg.install, pending: msg.pending.Tasks, linked: linked, context: msg.pending.Context,
 		loaded: true, err: msg.err, selected: m.tasks.selected, writing: m.tasks.writing,
-		tracked: m.tasks.tracked, stubs: stubs, listing: m.tasks.listing,
+		tracked: m.tasks.tracked, stubs: stubs, dones: m.tasks.dones, justDone: m.tasks.stillUndescribed(msg.dones),
+		listing: m.tasks.listing,
 	}
 
 	groups := m.taskGroups()
@@ -138,22 +174,22 @@ func (s tasksState) load(deps Deps) tea.Cmd {
 		return nil
 	}
 
-	tracked := s.tracked
+	tracked, dones := s.tracked, s.dones
 
 	return func() tea.Msg {
 		found, err := install()
 		if err != nil {
-			return tasksLoaded{err: err, tracked: tracked}
+			return tasksLoaded{err: err, tracked: tracked, dones: dones}
 		}
 
 		list, err := pending()
 		if err != nil {
-			return tasksLoaded{install: found, err: err, tracked: tracked}
+			return tasksLoaded{install: found, err: err, tracked: tracked, dones: dones}
 		}
 
 		tasks, err := linked()
 
-		return tasksLoaded{install: found, pending: list, linked: tasks, err: err, tracked: tracked}
+		return tasksLoaded{install: found, pending: list, linked: tasks, err: err, tracked: tracked, dones: dones}
 	}
 }
 

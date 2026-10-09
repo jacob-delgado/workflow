@@ -51,13 +51,16 @@ func (m Model) tasksKeys() []key.Binding {
 }
 
 // verbKeys are the keys that change tasks: those on the selected task where
-// one is, and adding and undoing; none while a write is on its way.
+// one is, and adding and undoing; none while a write is on its way, and
+// neither a start nor a done on a task just marked done.
 func (s tasksState) verbKeys(keys keyMap, task taskwarrior.Task, selected bool) []key.Binding {
 	switch {
 	case s.writing:
 		return nil
 	case !selected:
 		return []key.Binding{keys.addTask, keys.undoTask}
+	case s.justMarkedDone(task.UUID):
+		return []key.Binding{keys.addTask, keys.annotateTask, keys.modifyTask, keys.undoTask}
 	}
 
 	return []key.Binding{
@@ -201,10 +204,19 @@ func (m Model) goToTaskIssue() (Model, tea.Cmd) {
 	return m.loadDetail()
 }
 
+// startableTask is the task the cursor is on where a start, a stop or a done
+// may change it: not one a done has just marked, which the list still shows as
+// the read before the done had it.
+func (m Model) startableTask() (taskwarrior.Task, bool) {
+	task, ok := m.currentTask()
+
+	return task, ok && !m.tasks.justMarkedDone(task.UUID)
+}
+
 // toggleTask stops the selected task when it is started, and starts it
 // otherwise.
 func (m Model) toggleTask() (Model, tea.Cmd) {
-	task, ok := m.currentTask()
+	task, ok := m.startableTask()
 
 	switch {
 	case !ok:
@@ -218,7 +230,7 @@ func (m Model) toggleTask() (Model, tea.Cmd) {
 
 // markDone asks, through a last look, to mark the selected task done.
 func (m Model) markDone() (Model, tea.Cmd) {
-	task, ok := m.currentTask()
+	task, ok := m.startableTask()
 	if !ok {
 		return m, nil
 	}

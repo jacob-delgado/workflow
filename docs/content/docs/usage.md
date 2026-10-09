@@ -639,6 +639,9 @@ change a task — `s`, `d`, `a`, `A`, `e`, `u` and `S` — leave the bottom row 
 do nothing until Taskwarrior answers; moving, `enter`, `o`, `y` and `r` still
 work. `T` on an issue no task tracks waits the same way, and an offer accepted,
 or a line sent, meanwhile stays open and says to try again once it answers.
+Each change reads the tasks again once it has answered; until that read
+answers, a task just marked done is still listed as it was, and `s` and `d`
+leave the bottom row and do nothing on it.
 
 **Marks on the issues.** Once Taskwarrior has answered, each Issues row carries
 a second glyph after its status: `◐` a task for the issue is started, `○` one

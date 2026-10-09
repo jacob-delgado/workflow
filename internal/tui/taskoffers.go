@@ -256,10 +256,29 @@ func doneAsked(deps Deps, task taskwarrior.Task) lastLook {
 		title: "Mark the task done", verb: "mark done", doing: "marking done",
 		body: "Mark task " + describedTask(task) + " done?",
 	}, "mark task "+taskName(task)+" done", func() tea.Msg {
-		return offerAnswered{acted: taskActed{
+		return doneAnswered{answer: offerAnswered{acted: taskActed{
 			verb: "marked", after: " done", uuid: task.UUID, id: shownID(task), said: "", err: done(task.UUID),
-		}, then: nil}
+		}, then: nil}}
 	})
+}
+
+// doneAnswered reports how a done went: told as any change of a task is, and,
+// once made, its task remembered as just marked done until a read begun after
+// it describes the task again.
+type doneAnswered struct {
+	answer offerAnswered
+}
+
+var _ applier = doneAnswered{}
+
+// apply remembers a done that was made before the read after it is begun, so
+// that read is one that describes the task again.
+func (msg doneAnswered) apply(m Model) (Model, tea.Cmd) {
+	if msg.answer.acted.err == nil {
+		m.tasks = m.tasks.markedDone(msg.answer.acted.uuid)
+	}
+
+	return msg.answer.apply(m)
 }
 
 // offerForMove is the follow-up once an issue has moved: to complete the task
