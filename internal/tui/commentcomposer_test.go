@@ -235,3 +235,35 @@ func TestAPinnedFailureLeavesRoomForTheMarkupLine(t *testing.T) {
 	// Assert
 	requireScreen(t, view, outcomeTail, "Jira's own markup")
 }
+
+func TestEachIssueKeepsADraftOfItsOwn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A draft is kept for the first issue, then another written on the second.
+	model := newWorld().live(t, 120, 40)
+	firstKept := typing(t, writing(t, model, "first thought"), keyEsc, keyEsc)
+	secondKept := typing(t, writing(t, typing(t, firstKept, downAction), "second thought"), keyEsc, keyEsc)
+
+	// Act
+	reopened := typing(t, secondKept, upAction, "c").View().Content
+
+	// Assert
+	requireScreen(t, reopened, "┏━ Comment on "+issueKey, "first thought")
+	refuseScreen(t, reopened, "second thought")
+}
+
+func TestADraftWrittenAgainReplacesTheOneKept(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := typing(t, writing(t, newWorld().live(t, 120, 40), "half"), keyEsc, keyEsc)
+	rewritten := typing(t, kept, append([]string{"c", "A"}, letters(" a thought")...)...)
+	closed := typing(t, rewritten, keyEsc, keyEsc)
+
+	// Act
+	view := typing(t, closed, "c").View().Content
+
+	// Assert
+	requireScreen(t, view, "half a thought")
+}
