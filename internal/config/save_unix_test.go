@@ -19,6 +19,7 @@ package config_test
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -63,5 +64,32 @@ func TestASaveCutShortLeavesTheConfigurationAsItWas(t *testing.T) {
 
 	if names := entryNames(t, dir); !slices.Equal(names, []string{config.FileName}) {
 		t.Errorf("the directory holds %q after the refused save, want only the configuration", names)
+	}
+}
+
+//nolint:paralleltest // the file size limit holds for every write the process makes, so this runs alone.
+func TestACreateCutShortLeavesNoFile(t *testing.T) {
+	// Arrange
+	// The new configuration encodes past the limit.
+	dir := t.TempDir()
+	path := filepath.Join(dir, config.FileName)
+
+	tooLong := savedConfig()
+	tooLong.Jira.BaseURL += "/" + strings.Repeat("a", fileSizeLimit)
+
+	lift := rlimit.Lower(t, syscall.RLIMIT_FSIZE, fileSizeLimit)
+
+	// Act
+	err := config.Create(path, tooLong)
+
+	lift()
+
+	// Assert
+	if !errors.Is(err, syscall.EFBIG) || !strings.Contains(err.Error(), config.FileName) {
+		t.Errorf("Create = %v, want the write's own failure, naming the file", err)
+	}
+
+	if names := entryNames(t, dir); len(names) != 0 {
+		t.Errorf("the directory holds %q after the refused create, want nothing", names)
 	}
 }
