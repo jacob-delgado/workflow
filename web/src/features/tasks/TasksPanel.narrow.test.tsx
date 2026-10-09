@@ -4,6 +4,7 @@ import type { TaskFacet } from '@/api/generated/types.gen.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { describedTask, makeTaskList, taskFacet } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { firstInEveryOrder, ranked, secondInEveryOrder } from '@/test/tasks.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
@@ -83,6 +84,12 @@ const held = describedTask(
   },
 )
 
+// The places the server gives the token leak and the certificate in a list of
+// them, with or without the room after: the token leak first but by priority,
+// where the certificate's H comes before none.
+const leakRanks = { urgency: 0, state: 0, id: 0, tag: 0, issue: 0, priority: 1 }
+const certRanks = { urgency: 1, state: 1, id: 1, tag: 1, issue: 1, priority: 0 }
+
 // offered is the values the tasks above hold, in the order the server offers
 // them.
 const offered: TaskFacet[] = [pending, waiting, priorityH, noPriority, noProject, noTag, noIssue]
@@ -110,7 +117,12 @@ function rows(): string[] {
 }
 
 function renderPanel() {
-  fakeApi({ '/api/tasks': makeTaskList([leak, cert, room], { facet_order: offered }) })
+  const listed = [
+    ranked(leak, leakRanks),
+    ranked(cert, certRanks),
+    ranked(room, { urgency: 2, state: 2, id: 2, tag: 2, issue: 2, priority: 2 }),
+  ]
+  fakeApi({ '/api/tasks': makeTaskList(listed, { facet_order: offered }) })
   renderWithClient(<TasksPanel />)
 }
 
@@ -159,7 +171,12 @@ test('picking waiting lists the waiting tasks, each saying until when', async ()
 
 test('a pending task picked as waiting reads waiting in its row, as the server words it', async () => {
   // Arrange
-  fakeApi({ '/api/tasks': makeTaskList([leak, held], { facet_order: offered }) })
+  fakeApi({
+    '/api/tasks': makeTaskList(
+      [ranked(leak, firstInEveryOrder), ranked(held, secondInEveryOrder)],
+      { facet_order: offered },
+    ),
+  })
   renderWithClient(<TasksPanel />)
   const narrow = await screen.findByRole('group', { name: 'Filter' })
 
@@ -172,7 +189,12 @@ test('a pending task picked as waiting reads waiting in its row, as the server w
 
 test("a pending task picked as waiting has the server's state in its detail", async () => {
   // Arrange
-  fakeApi({ '/api/tasks': makeTaskList([leak, held], { facet_order: offered }) })
+  fakeApi({
+    '/api/tasks': makeTaskList(
+      [ranked(leak, firstInEveryOrder), ranked(held, secondInEveryOrder)],
+      { facet_order: offered },
+    ),
+  })
   renderWithClient(<TasksPanel />)
   const narrow = await screen.findByRole('group', { name: 'Filter' })
 
@@ -189,7 +211,11 @@ test('the filter offers its chips in the order the server offers them, as it lab
     { kind: 'priority', value: 'H', label: 'priority High' },
     { kind: 'state', value: 'pending', label: 'pending' },
   ]
-  fakeApi({ '/api/tasks': makeTaskList([leak, cert], { facet_order: order }) })
+  fakeApi({
+    '/api/tasks': makeTaskList([ranked(leak, leakRanks), ranked(cert, certRanks)], {
+      facet_order: order,
+    }),
+  })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -204,7 +230,7 @@ test('typed text matches the fields the server says it matches', async () => {
   // The second field is one the page could not find in the task's own, so the
   // match is seen to read the server's.
   const known = describedTask(leak, { ...leak, searchable: ['fix the token leak', 'p-7 ops'] })
-  fakeApi({ '/api/tasks': makeTaskList([known, cert]) })
+  fakeApi({ '/api/tasks': makeTaskList([ranked(known, leakRanks), ranked(cert, certRanks)]) })
   renderWithClient(<TasksPanel />)
   const filter = await screen.findByRole('searchbox', { name: 'Search' })
 
@@ -224,7 +250,7 @@ test('a task the server reads as waiting is counted, not listed', async () => {
     facets: [waiting, priorityH, noProject, noIssue, noTag],
     searchable: cert.searchable,
   })
-  fakeApi({ '/api/tasks': makeTaskList([leak, later]) })
+  fakeApi({ '/api/tasks': makeTaskList([ranked(leak, leakRanks), ranked(later, certRanks)]) })
 
   // Act
   renderWithClient(<TasksPanel />)

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeTaskList } from '@/test/fixtures.ts'
 import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
-import { cacheTuning, certificate } from '@/test/tasks.ts'
+import { cacheTuning, certificate, ranked } from '@/test/tasks.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
 // How the Tasks section reads your tasks: why none can be listed, a read that
@@ -128,7 +128,15 @@ test("a failed read is said at once, never retried behind the user's back", asyn
 test('Refresh reads the tasks again, keeping the list while it does', async () => {
   // Arrange
   const user = userEvent.setup()
-  const answers = [makeTaskList([certificate]), makeTaskList([certificate, cacheTuning])]
+  // The second read finds the cache tuning added since, and the server ranks
+  // the two: the certificate first by urgency, the cache tuning by issue.
+  const answers = [
+    makeTaskList([certificate]),
+    makeTaskList([
+      ranked(certificate, { urgency: 0, state: 0, id: 0, tag: 0, issue: 1, priority: 0 }),
+      ranked(cacheTuning, { urgency: 1, state: 1, id: 1, tag: 1, issue: 0, priority: 1 }),
+    ]),
+  ]
   const requests = fakeApi({ [tasksPath]: () => answers.shift() })
   renderWithClient(<TasksPanel />)
   await screen.findByRole('list', { name: 'Tasks' })
