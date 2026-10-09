@@ -5,6 +5,7 @@ package tui_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -177,10 +178,13 @@ func TestTheHelpNamesTheMessagingService(t *testing.T) {
 	teams.cfg.Messaging = teamsMessaging()
 
 	// Act
-	helpView := typing(t, teams.live(t, 120, 60), "?").View().Content
+	helpView := typing(t, teams.live(t, 160, 73), "?").View().Content
 
 	// Assert
-	requireScreen(t, helpView, "Review and Teams")
+	posting := listedBinding{key: "p", help: "announce to Teams"}
+	if listed := groupNamed(helpListing(t, plain(helpView)), "Teams"); !slices.Contains(listed.bindings, posting) {
+		t.Errorf("? lists no %v under the service's own heading, Teams: %v", posting, listed)
+	}
 }
 
 func TestTheSlackPaneAsksForAPullRequestFirst(t *testing.T) {

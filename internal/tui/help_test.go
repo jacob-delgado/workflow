@@ -63,12 +63,13 @@ func placedBindings() []helpGroup {
 			"copy-link         y          copy url",
 			"refresh           r          refresh",
 			"track-issue       T          track in Taskwarrior"),
-		placed("Branch and Commits",
+		placed("Branch",
 			"new-branch        b          new branch",
 			"switch-branch     s          switch branch",
 			"link-issue        i          link issue",
 			"rebase            u          rebase onto base",
-			"push              P          push",
+			"push              P          push"),
+		placed("Commits",
 			"stage             space      stage/unstage",
 			"stage-all         a          stage all",
 			"unstage-all       U          unstage all",
@@ -78,12 +79,13 @@ func placedBindings() []helpGroup {
 			"fixup             f          fix up",
 			"run-pre-commit    h          run pre-commit",
 			"set-up-lefthook   g          set up lefthook"),
-		placed("Review and Slack",
+		placed("Review",
 			"open-pull-request n          open pull request",
 			"checks            c          checks",
 			"rerun-checks      R          re-run checks",
 			"merge             M          merge",
-			"finish-branch     F          finish branch",
+			"finish-branch     F          finish branch"),
+		placed("Slack",
 			"post              p          announce to Slack",
 			"people-and-groups P          people and groups"),
 		placed("Reviews",
@@ -206,7 +208,7 @@ func openHelp(t *testing.T, overrides map[string]string) string {
 		helpKey = "?"
 	}
 
-	return plain(press(t, sized(t, tui.New(cfg, nil, tui.Deps{}), 160, 70), helpKey).View().Content)
+	return plain(press(t, sized(t, tui.New(cfg, nil, tui.Deps{}), 160, 73), helpKey).View().Content)
 }
 
 // runeColumn is the column, in runes, where text starts on line.
@@ -445,8 +447,8 @@ func TestTheWholeHelpFitsATallTerminal(t *testing.T) {
 	// Act
 	// At 120 columns the whole help, the Tasks and Reviews keys and the
 	// tagging keys, the Summary's and the Repositories' and unlink among it,
-	// needs 69 rows.
-	view := typing(t, newWorld().live(t, 120, 70), "?").View().Content
+	// each pane's keys under a heading of its own, needs 72 rows.
+	view := typing(t, newWorld().live(t, 120, 73), "?").View().Content
 
 	// Assert
 	requireScreen(t, view, "Everywhere")
@@ -457,7 +459,7 @@ func TestAHelpThatFitsThePaneOffersNoScrollKeys(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := typing(t, newWorld().live(t, 160, 70), "?").View().Content
+	view := typing(t, newWorld().live(t, 160, 73), "?").View().Content
 
 	// Assert
 	refuseScreen(t, view, "more below")

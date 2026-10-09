@@ -79,9 +79,14 @@ func TestKeyActionsNamesTheGroupsForTheForgeAndTheService(t *testing.T) {
 	listed := tui.KeyActions("merge request", "Teams", nil)
 
 	// Assert
-	got := actionNamed(t, listed, "open-pull-request")
-	if got.Help != "open merge request" || got.Group != "Review and Teams" {
-		t.Errorf("open-pull-request = %+v, want it named for the forge, under the service's group", got)
+	opening := actionNamed(t, listed, "open-pull-request")
+	if opening.Help != "open merge request" || opening.Group != reviewGroup {
+		t.Errorf("open-pull-request = %+v, want it named for the forge, under the Review pane's group", opening)
+	}
+
+	posting := actionNamed(t, listed, "post")
+	if posting.Help != "announce to Teams" || posting.Group != "Teams" {
+		t.Errorf("post = %+v, want it named for the service, under the service's pane's group", posting)
 	}
 }
 

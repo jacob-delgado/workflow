@@ -712,8 +712,10 @@ an action that does not exist, moves `jump-to-pane` — its keys are the pane
 numbers, `1`–`9`, which no one key can stand in for — or binds two actions
 that are live at the same time to one key. Each pane is a place of its own:
 an action that works on one pane and an action that works on another are never
-live at once, so they may share a key. The pane numbers work on every pane
-and while a command runs, so an action live there cannot take one.
+live at once, so they may share a key, and `?` lists each pane's actions under
+that pane's own name, so a key two panes share is listed once under each. The
+pane numbers work on every pane and while a command runs, so an action live
+there cannot take one.
 
 The actions you can rebind, grouped by where they work, are:
 
@@ -722,12 +724,13 @@ The actions you can rebind, grouped by where they work, are:
 - **Issues:** `change-status`, `comment`, `assign`, `log-work`,
   `start-work`, `search-issues`, `filter-issues`, `switch-view`, `load-more`,
   `open-link`, `copy-link`, `refresh`, `track-issue`.
-- **Branch and Commits:** `new-branch`, `switch-branch`, `link-issue`, `rebase`,
-  `push`, `stage`, `stage-all`, `unstage-all`, `discard-change`, `commit`,
-  `amend`, `fixup`, `run-pre-commit`, `set-up-lefthook`.
-- **Review and your messaging service** (named for it, Slack by default):
-  `open-pull-request`, `checks`, `rerun-checks`, `merge`, `finish-branch`,
-  `post`, `people-and-groups`.
+- **Branch:** `new-branch`, `switch-branch`, `link-issue`, `rebase`, `push`.
+- **Commits:** `stage`, `stage-all`, `unstage-all`, `discard-change`,
+  `commit`, `amend`, `fixup`, `run-pre-commit`, `set-up-lefthook`.
+- **Review:** `open-pull-request`, `checks`, `rerun-checks`, `merge`,
+  `finish-branch`.
+- **Your messaging service** (named for it, Slack by default): `post`,
+  `people-and-groups`.
 - **Reviews:** `sort-reviews`, `filter-reviews`.
 - **Tasks:** `start-stop`, `mark-done`, `add-task`, `annotate-task`,
   `modify-task`, `undo-task`, `sync-tasks`, `search-tasks`, `filter-tasks`,
