@@ -4,6 +4,7 @@ import type { Task } from '@/api/generated/types.gen.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { describedTask, makeTask, makeTaskList, taskFacet } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { firstInEveryOrder, ranked, secondInEveryOrder } from '@/test/tasks.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
 // A wait passing changes where a task stands with no write and no frame, so
@@ -51,9 +52,15 @@ function readsOf(requests: Request[]): number {
 test('the list is read again once the earliest wait still ahead has passed', async () => {
   // Arrange
   vi.useFakeTimers({ now, shouldAdvanceTime: true })
+  // As urgent as each other, the two are ranked by id in every order.
   const soon = waitingUntil(1, 'Book the room', ['book the room', '', '', '#1'], 1)
   const later = waitingUntil(2, 'Call the vendor', ['call the vendor', '', '', '#2'], 5)
-  const requests = fakeApi({ '/api/tasks': makeTaskList([later, soon]) })
+  const requests = fakeApi({
+    '/api/tasks': makeTaskList([
+      ranked(later, secondInEveryOrder),
+      ranked(soon, firstInEveryOrder),
+    ]),
+  })
   renderWithClient(<TasksPanel />)
   await screen.findByText('2 waiting')
 

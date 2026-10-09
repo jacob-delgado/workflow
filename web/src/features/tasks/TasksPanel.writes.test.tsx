@@ -6,7 +6,14 @@ import { useHealthStore } from '@/api/health.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { describedTask, makeHealth, makeTaskList, taskFacet } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { certificate, startedTokenLeak, tokenLeak } from '@/test/tasks.ts'
+import {
+  certificate,
+  firstInEveryOrder,
+  ranked,
+  secondInEveryOrder,
+  startedTokenLeak,
+  tokenLeak,
+} from '@/test/tasks.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
 type User = ReturnType<typeof userEvent.setup>
@@ -15,6 +22,14 @@ const tasksPath = '/api/tasks'
 
 const started = startedTokenLeak(new Date(Date.now() - 600_000).toISOString())
 const taskPath = `${tasksPath}/${tokenLeak.uuid}`
+
+// leakThenCertificate are the token leak and the certificate as the server
+// ranks the two: the token leak, more urgent and tracking an issue, first in
+// every order.
+const leakThenCertificate = [
+  ranked(tokenLeak, firstInEveryOrder),
+  ranked(certificate, secondInEveryOrder),
+]
 
 // refused is a problem answer, as the server gives a write it refuses.
 function refused(detail: string, status: number): Response {
@@ -235,11 +250,21 @@ test('a write whose list could not be read again reads it once more', async () =
 
 test('a write that sorts the list anew keeps the detail on the task it showed', async () => {
   // Arrange
-  // Started, the token leak is listed first, so its detail is shown; stopped,
-  // Taskwarrior lists it after the certificate.
+  // Started, the token leak is the most urgent and listed first, so its detail
+  // is shown; stopped, it loses the urgency Taskwarrior gives a started task
+  // and falls below the certificate, which the server then ranks first in
+  // every order but by ID and by issue.
   const user = userEvent.setup()
-  serveTasks(makeTaskList([started, certificate]), {
-    [`${taskPath}/stop`]: makeTaskList([certificate, tokenLeak]),
+  const startedLeak = ranked({ ...started, urgency: 8.9 }, firstInEveryOrder)
+  const stoppedLeak = ranked(
+    { ...tokenLeak, urgency: 4.9 },
+    { urgency: 1, state: 1, id: 0, tag: 1, issue: 0, priority: 1 },
+  )
+  serveTasks(makeTaskList([startedLeak, ranked(certificate, secondInEveryOrder)]), {
+    [`${taskPath}/stop`]: makeTaskList([
+      ranked(certificate, { urgency: 0, state: 0, id: 1, tag: 0, issue: 1, priority: 0 }),
+      stoppedLeak,
+    ]),
   })
   renderWithClient(<TasksPanel />)
 
@@ -258,7 +283,7 @@ test("Done takes the done task's controls with it, so focus goes to what it said
   // Arrange
   // A press of Done must never land on the next task's Done under the pointer.
   const user = userEvent.setup()
-  serveTasks(makeTaskList([tokenLeak, certificate]), {
+  serveTasks(makeTaskList(leakThenCertificate), {
     [`${taskPath}/done`]: makeTaskList([certificate]),
   })
   renderWithClient(<TasksPanel />)
@@ -277,7 +302,7 @@ test('a change Taskwarrior makes nothing of says why beside its button, and keep
   // Arrange
   const user = userEvent.setup()
   const detail = 'the task is already in that state, or is no longer pending'
-  serveTasks(makeTaskList([tokenLeak, certificate]), {
+  serveTasks(makeTaskList(leakThenCertificate), {
     [`${taskPath}/start`]: () => refused(detail, 409),
   })
   renderWithClient(<TasksPanel />)
