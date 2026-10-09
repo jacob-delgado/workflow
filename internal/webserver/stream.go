@@ -148,9 +148,9 @@ func (s *server) snapshot(view string) api.Snapshot {
 // what the frame read: the branch, its pull request and CI as the forge last
 // answered, the files still to commit, whether the pull request was announced
 // at its moment, and an announcement held for its CI. The issue stage is done
-// once the branch names an issue and not started before: an issue picked but
-// not yet branched for has no branch to read here, and is one open in its
-// work story, which draws the frame's UnstartedStages for it instead.
+// once the branch names an issue and not started before. An issue picked but
+// not yet branched for has no branch to read here; its work story draws the
+// frame's UnstartedStages instead.
 func (s *server) frameStages(branch gitrepo.Branch, read forgeRead, frame api.Snapshot) []api.Stage {
 	_, named := loop.IssueOf(branch, s.config().Jira.Project)
 	work := progress.Work{
