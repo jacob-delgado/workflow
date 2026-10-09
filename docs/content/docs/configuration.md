@@ -763,12 +763,15 @@ comment, so it must stay on a key that neither types nor edits text, such as
 
 The keys an overlay answers while one of its text fields has the cursor —
 `worktree`, `toggle-breaking`, `toggle-draft`, `next-template`, `edit-body`,
-`next-field` and `previous-field` — cannot take a key that field types or
-edits with: a character, or one of the readline keys `ctrl+a`, `ctrl+b`,
-`ctrl+d`, `ctrl+e`, `ctrl+f`, `ctrl+h`, `ctrl+k`, `ctrl+u`, `ctrl+v` and
-`ctrl+w`, or `ctrl+n` and `ctrl+p`, which step through a field's
-suggestions. Such a map is refused, since the overlay would take the edit
-for its own.
+`next-field` and `previous-field` — cannot take a key that field types,
+edits or moves its cursor with: a character; `left`, `right`, `home` and
+`end`; one of the readline keys `ctrl+a`, `ctrl+b`, `ctrl+d`, `ctrl+e`,
+`ctrl+f`, `ctrl+h`, `ctrl+k`, `ctrl+u`, `ctrl+v` and `ctrl+w`; a word key,
+`alt+left`, `ctrl+left`, `alt+b`, `alt+right`, `ctrl+right`, `alt+f`,
+`alt+backspace`, `ctrl+backspace`, `alt+delete`, `ctrl+delete` and
+`alt+d`; or `up`, `down`, `ctrl+n` and `ctrl+p`, which step through a
+field's suggestions (the mouse wheel sends `up` and `down` too). Such a
+map is refused, since the overlay would take the edit for its own.
 
 ### Keys on the web
 
