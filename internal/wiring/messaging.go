@@ -144,18 +144,20 @@ func slackAPIBase(value string) (string, error) {
 }
 
 // Keychain is the operating system's keychain as the wiring reaches it: the
-// system workflow runs on, how security is run there, and the environment
+// system workflow runs on, how security is run there, and how the account a
+// secret is kept under is found: the current user, or the environment
 // variables it reads the user's name from where the system cannot say.
 type Keychain struct {
-	GOOS   string
-	Run    keychain.Runner
-	Getenv func(name string) string
+	GOOS        string
+	Run         keychain.Runner
+	CurrentUser keychain.UserLookup
+	Getenv      func(name string) string
 }
 
 // Keychain is the keychain of the system workflow runs on, its security
-// found on the environment's PATH.
+// found on the environment's PATH, for the user running it.
 func (e Environment) Keychain() Keychain {
-	return Keychain{GOOS: runtime.GOOS, Run: e.capture, Getenv: e.Getenv}
+	return Keychain{GOOS: runtime.GOOS, Run: e.capture, CurrentUser: user.Current, Getenv: e.Getenv}
 }
 
 // SlackStore is where cfg keeps its Slack user token's credentials on the
@@ -168,9 +170,15 @@ func (e Environment) SlackStore(cfg config.Config) slackauth.Store {
 // the macOS keychain, or the configuration file. doctor, the login and every
 // post go through it, so they cannot come to look in different places.
 func (k Keychain) SlackStore(cfg config.Config) slackauth.Store {
-	item, _ := keychain.Open(k.GOOS, slackauth.KeychainService, k.Run, user.Current, k.Getenv)
+	item, _ := k.item(slackauth.KeychainService)
 
 	return slackauth.Choose(k.GOOS, cfg, item)
+}
+
+// item is the keychain item for service, and false where no keychain is
+// wired.
+func (k Keychain) item(service string) (keychain.Item, bool) {
+	return keychain.Open(k.GOOS, service, k.Run, k.CurrentUser, k.Getenv)
 }
 
 // SlackRefresher refreshes the Slack user token of the app clientID names,
