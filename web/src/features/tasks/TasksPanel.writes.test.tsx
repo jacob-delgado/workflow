@@ -108,7 +108,7 @@ const verbs: Verb[] = [
   },
   {
     name: 'Mark done',
-    shown: [tokenLeak, certificate],
+    shown: leakThenCertificate,
     act: async (user) => {
       await user.click(screen.getByRole('button', { name: 'Mark done…' }))
       await user.click(screen.getByRole('button', { name: 'Mark done' }))
