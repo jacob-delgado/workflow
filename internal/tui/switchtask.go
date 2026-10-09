@@ -130,8 +130,6 @@ type branchPicker struct {
 	send     sendState
 }
 
-var _ failable[branchPicker] = branchPicker{}
-
 var (
 	_ failable[branchPicker] = branchPicker{}
 	_ steppable              = branchPicker{}

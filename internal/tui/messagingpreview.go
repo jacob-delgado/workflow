@@ -54,8 +54,6 @@ type messagingPreview struct {
 	opened int
 }
 
-var _ failable[messagingPreview] = messagingPreview{}
-
 // destination is where this post will go, as it is shown: the configuration
 // names it, so it is drawn as text alone.
 func (p messagingPreview) destination() string {

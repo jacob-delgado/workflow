@@ -337,8 +337,6 @@ type checklist[F comparable] struct {
 	apply       func(Model, []F) (Model, tea.Cmd)
 }
 
-var _ overlay = checklist[string]{}
-
 // view draws the checklist in as many rows as fit.
 func (c checklist[F]) view(kit renderKit, _, rows int) (string, string) {
 	if len(c.choices.items) == 0 {

@@ -34,8 +34,6 @@ type checkList struct {
 	openKey string
 }
 
-var _ overlay = checkList{}
-
 var (
 	_ overlay   = checkList{}
 	_ steppable = checkList{}
@@ -357,8 +355,6 @@ type jobLogView struct {
 	back   checkList
 	scroll int
 }
-
-var _ overlay = jobLogView{}
 
 var (
 	_ overlay    = jobLogView{}

@@ -56,8 +56,6 @@ type commandRun struct {
 	showOutput bool
 }
 
-var _ overlay = commandRun{}
-
 var (
 	_ overlay   = commandRun{}
 	_ clickable = commandRun{}

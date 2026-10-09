@@ -38,8 +38,6 @@ type branchCreator struct {
 	applyKey string
 }
 
-var _ failable[branchCreator] = branchCreator{}
-
 var (
 	_ failable[branchCreator] = branchCreator{}
 	_ pasteable               = branchCreator{}

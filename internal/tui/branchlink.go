@@ -44,8 +44,6 @@ type branchLinker struct {
 	problem error
 }
 
-var _ failable[branchLinker] = branchLinker{}
-
 var (
 	_ failable[branchLinker] = branchLinker{}
 	_ pasteable              = branchLinker{}

@@ -30,8 +30,6 @@ type helpOverlay struct {
 	scroll       int
 }
 
-var _ overlay = helpOverlay{}
-
 var (
 	_ overlay       = helpOverlay{}
 	_ lightBordered = helpOverlay{}

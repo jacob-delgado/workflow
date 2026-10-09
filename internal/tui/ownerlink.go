@@ -245,8 +245,6 @@ type ownerPicker struct {
 	back   linksOwners
 }
 
-var _ overlay = ownerPicker{}
-
 var (
 	_ overlay   = ownerPicker{}
 	_ pasteable = ownerPicker{}

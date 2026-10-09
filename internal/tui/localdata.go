@@ -31,8 +31,6 @@ type localData struct {
 	err   error
 }
 
-var _ overlay = localData{}
-
 // canSeeLocalData reports that the store's files can be listed.
 func canSeeLocalData(deps Deps) bool {
 	return deps.Settings.LocalData != nil

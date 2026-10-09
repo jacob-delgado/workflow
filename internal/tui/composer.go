@@ -72,8 +72,6 @@ type commitComposer struct {
 	opened int
 }
 
-var _ overlay = commitComposer{}
-
 var (
 	_ editable  = commitComposer{}
 	_ pasteable = commitComposer{}

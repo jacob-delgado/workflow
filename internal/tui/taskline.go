@@ -39,8 +39,6 @@ type taskLine struct {
 	sending sendState
 }
 
-var _ failable[taskLine] = taskLine{}
-
 var (
 	_ failable[taskLine] = taskLine{}
 	_ pasteable          = taskLine{}

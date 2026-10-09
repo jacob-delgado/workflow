@@ -42,8 +42,6 @@ type setupForm struct {
 	send     sendState
 }
 
-var _ failable[setupForm] = setupForm{}
-
 var (
 	_ failable[setupForm] = setupForm{}
 	_ pasteable           = setupForm{}
