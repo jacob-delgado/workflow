@@ -24,10 +24,11 @@ func (m Model) handleMouse(msg tea.MouseMsg) (Model, tea.Cmd) {
 			return m.click(shape, mouse.X, mouse.Y)
 		}
 	case tea.MouseWheelMsg:
-		switch mouse.Button {
-		case tea.MouseWheelDown:
+		if mouse.Button == tea.MouseWheelDown {
 			return m.wheel(shape, mouse.X, mouse.Y, 1)
-		case tea.MouseWheelUp:
+		}
+
+		if mouse.Button == tea.MouseWheelUp {
 			return m.wheel(shape, mouse.X, mouse.Y, -1)
 		}
 	}
