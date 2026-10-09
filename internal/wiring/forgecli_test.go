@@ -4,9 +4,10 @@
 package wiring_test
 
 // The CLI transport translates a forge request into a gh/glab `api` invocation
-// and parses the reply. These drive it through wiring.Deps against a stand-in
-// gh or glab that records what it was asked to do, so both the invocation and
-// the transport's failure handling are observed without a real forge tool.
+// and parses the reply. These drive it through Environment.Deps against a
+// stand-in gh or glab that records what it was asked to do, so both the
+// invocation and the transport's failure handling are observed without a real
+// forge tool.
 
 import (
 	"errors"

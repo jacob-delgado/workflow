@@ -55,8 +55,8 @@ func recording(t *testing.T) string {
 	return record
 }
 
-// wiredTasks is the Taskwarrior seams wiring.Deps builds over cfg with PATH set
-// to path alone, so no real task program is ever run.
+// wiredTasks is the Taskwarrior seams Environment.Deps builds over cfg with
+// PATH set to path alone, so no real task program is ever run.
 func wiredTasks(t *testing.T, cfg config.Config, path string) seams.Tasks {
 	t.Helper()
 	t.Setenv("PATH", path)

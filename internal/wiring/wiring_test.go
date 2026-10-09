@@ -93,8 +93,6 @@ func write(t *testing.T, path, contents string, mode os.FileMode) {
 	}
 }
 
-// wired is the seams wiring.Deps builds over cfg and where, each service's
-// token left to be found on first use.
 // processEnvironment is the wiring's environment as this process holds it,
 // which these tests set with t.Setenv; call it after setting what it reads.
 func processEnvironment() wiring.Environment {
@@ -103,6 +101,8 @@ func processEnvironment() wiring.Environment {
 	return wiring.Environment{Home: home, Getenv: os.Getenv, StateDir: store.DefaultDir, LookPath: proc.LookPath}
 }
 
+// wired is the seams Environment.Deps builds over cfg and where in this
+// process's environment, each service's token left to be found on first use.
 func wired(t *testing.T, cfg config.Config, where wiring.Workspace, log *wiring.RequestLog) tui.Deps {
 	t.Helper()
 
