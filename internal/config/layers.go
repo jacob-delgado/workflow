@@ -232,6 +232,8 @@ func readLayer(path string) (layer, error) {
 // readTrusted reads file to its end, and closes it, once the file it opened
 // is one only the user could have written.
 func readTrusted(file *os.File) ([]byte, error) {
+	// Trade-off TRADE-16: the file was opened a moment ago, and its stat is
+	// taken not to fail.
 	info, err := file.Stat()
 	if err == nil {
 		err = refuseUntrusted(info)
@@ -285,6 +287,8 @@ func mergeLayers(home, repo layer) ([]byte, error) {
 		}
 	}
 
+	// Trade-off TRADE-13: movedSections fails only as re-encoding values just
+	// decoded would.
 	moved, err := movedSections(beneath, over)
 	if err != nil {
 		return nil, err
@@ -369,6 +373,7 @@ func targetContents(files Files, home layer, cfg Config) ([]byte, error) {
 		return nil, fmt.Errorf("%s: %w", home.path, err)
 	}
 
+	// Trade-off TRADE-13: configValue fails only as encoding a Config would.
 	full, err := configValue(cfg)
 	if err != nil {
 		return nil, err

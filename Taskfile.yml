@@ -314,7 +314,9 @@ tasks:
     cmds:
       # Statement coverage cannot see this: an `if a && b` counts as covered the
       # moment the line runs. gobco reports each condition never observed both
-      # ways, which is a list of missing test cases rather than a number to chase.
+      # ways, which is a list of missing test cases rather than a number to chase;
+      # one never evaluated, or an error arm never seen, fails unless
+      # scripts/gobco-allowlist.txt keeps it for a trade-off.
       # gobco measures a package by running its tests: the same scrub as `test`.
       - unset $(git rev-parse --local-env-vars); scripts/gobco-report.sh {{.BRANCH_COVERAGE_MIN}} {{.GO_PKGS}}
 

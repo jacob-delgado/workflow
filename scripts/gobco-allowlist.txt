@@ -1,0 +1,75 @@
+# The condition arms no test reaches that a kept trade-off keeps. The gate is
+# scripts/gobco-report.sh (task cover:branch), which fails on any condition
+# never evaluated and on any error check whose error arm was never seen,
+# unless a line here keeps it; the format and the matching are in that
+# script's header.
+#
+# ONE LINE PER ARM:
+#
+#     <file> <function> <TRADE-n> <systems> <condition>
+#
+# <function> is as the gate prints it, Type.Method for a method. <TRADE-n> is
+# the entry in TECH_DEBT.md's trade-off register that keeps the arm, and
+# scripts/check-tradeoffs.sh fails a line naming one the register does not
+# hold. <systems> is "any", or the GOOS values on which the arm goes unseen,
+# joined by commas. <condition> is the code gobco prints for it.
+#
+# Every other arm the gate names is a test to write, not a line to add. A line
+# whose arm a test has come to reach fails the gate until it is removed, so
+# this list only shrinks as tests arrive. Lines are not numbered here: they
+# drift, and the gate matches on file, function and condition.
+
+# TRADE-13: encoding the program's own types is taken not to fail, nor
+# decoding JSON the program just encoded or decoded; and a caller that only
+# passes such a failure on.
+internal/config/layers.go encodeValue TRADE-13 any err != nil
+internal/config/layers.go configValue TRADE-13 any err != nil
+internal/config/layers.go jsonValue TRADE-13 any err != nil
+internal/config/layers.go mergeLayers TRADE-13 any err != nil
+internal/config/layers.go targetContents TRADE-13 any err != nil
+internal/config/layers.go targetContents TRADE-13 any err != nil
+internal/config/save.go Create TRADE-13 any err != nil
+internal/config/save.go write TRADE-13 any err != nil
+internal/config/save.go indented TRADE-13 any err != nil
+internal/config/trust.go movedSections TRADE-13 any err != nil
+internal/config/trust.go movedSections TRADE-13 any err != nil
+internal/config/trust.go configOf TRADE-13 any err != nil
+internal/config/trust.go refuseHomeOnly TRADE-13 any err != nil
+internal/forge/client.go Client.newRequest TRADE-13 any err != nil
+internal/jira/jira.go Client.newJSONRequest TRADE-13 any err != nil
+internal/messaging/post.go Client.postJSON TRADE-13 any err != nil
+internal/slackauth/store.go saveKeychain TRADE-13 any err != nil
+internal/tui/settingsremove.go settingsForm.readWithout TRADE-13 any err != nil
+internal/tui/settingsvalues.go settingsForm.edited TRADE-13 any err != nil
+internal/tui/settingsvalues.go seed TRADE-13 any err == nil
+internal/tui/settingsvalues.go seed TRADE-13 any err != nil
+internal/webserver/config.go server.GetConfig TRADE-13 any err != nil
+internal/webserver/config.go server.writeOver TRADE-13 any err != nil
+internal/webserver/config.go configDTO TRADE-13 any err != nil
+internal/webserver/config.go configDTO TRADE-13 any err != nil
+internal/webserver/config.go fromDTO TRADE-13 any err != nil
+internal/webserver/stream.go writeSnapshot TRADE-13 any err != nil
+
+# TRADE-14: what the binary embeds — the OpenAPI contract and the web app — is
+# taken to load.
+internal/web/embed.go Assets TRADE-14 any err != nil
+internal/webserver/validator.go loadSpec TRADE-14 any err != nil
+internal/webserver/validator.go loadSpec TRADE-14 any err != nil
+internal/webserver/validator.go loadContract TRADE-14 any err != nil
+internal/webserver/validator.go loadContract TRADE-14 any err != nil
+internal/webserver/webserver.go Handler TRADE-14 any err != nil
+
+# TRADE-16: a call on a file that one just before it opened, read or made
+# fails only when the file changes between the two, and the callers that pass
+# that failure on.
+internal/config/layers.go readTrusted TRADE-16 any err == nil
+internal/store/kept.go makeKeptSchema TRADE-16 any err != nil
+internal/store/kept.go writeKeptSchema TRADE-16 any err != nil
+internal/store/store.go openCurrent TRADE-16 any err != nil
+internal/store/store.go openCurrent TRADE-16 any err != nil
+internal/store/store.go remakeDatabase TRADE-16 any err != nil
+internal/store/store.go stamp TRADE-16 any err != nil
+
+# TRADE-18: only Linux's tests write to /dev/full, so a run on macOS never
+# sees the request log fail to be written.
+internal/cli/scriptable.go closeRequestLog TRADE-18 darwin err != nil

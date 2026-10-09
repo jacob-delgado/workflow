@@ -500,8 +500,13 @@ the gate enforces.
 says a line ran; condition coverage (gobco, `task cover:branch`) says whether an
 `if a && b` was ever seen with `b` false. Its per-condition output — "condition
 `err != nil` was 8 times false but never true" — is a worklist of missing test
-cases, not a percentage to chase. gobco measures every package in this module
-that has tests. It reads a package of build-tagged twins one file at a time, so
+cases, not a percentage to chase, with one hard edge: a condition no test
+evaluated, and an error check whose error arm no test reached, fail the gate.
+The exception list is `scripts/gobco-allowlist.txt`, one line per arm a kept
+trade-off in `TECH_DEBT.md` keeps, naming it (`scripts/check-tradeoffs.sh`
+holds each name to the register); every other such arm is a test to write,
+and a line whose arm a test comes to reach fails until it goes. gobco measures
+every package in this module that has tests. It reads a package of build-tagged twins one file at a time, so
 each file the build takes must stand alone, and any package or file it cannot
 read fails the gate rather than quietly shrinking what the number covers.
 

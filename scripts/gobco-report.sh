@@ -21,6 +21,13 @@
 # The score is arms observed / arms present: every condition has two arms, and a
 # condition seen only one way scores 1 of 2.
 #
+# Beside the module's floor, AN ARM NO TEST REACHED fails the run: a condition
+# never evaluated, and an error check whose error arm was never seen, are named
+# by file, line and function, and fail unless a line of
+# scripts/gobco-allowlist.txt keeps that arm for a kept trade-off in
+# TECH_DEBT.md. Any other condition seen one way is only listed: that is the
+# worklist.
+#
 # EVERY PACKAGE WITH TESTS IS MEASURED, and there is no skip list: one without
 # tests is named in NO_TESTS below, with the reason it has none. A package
 # gobco cannot read is a hard error: a report that quietly dropped a package
@@ -140,6 +147,18 @@ if [[ -n "${named}" && $# -gt 0 ]] || [[ -z "${named}" && $# -eq 0 ]]; then
 fi
 
 readonly ratchet_slack=2
+# GOBCO_ALLOWLIST is a seam for the test harness, so it can hand the report
+# lines of its own. Unset, the only way it runs in anger, the report reads the
+# file committed beside it.
+readonly allowlist_file="${GOBCO_ALLOWLIST:-${repo_root}/scripts/gobco-allowlist.txt}"
+
+# A run over the module's roots answers for every line of the allowlist; one
+# over named packages, only for what it measured.
+whole_module=1
+if [[ -n "${named}" ]]; then
+  whole_module=0
+fi
+readonly whole_module
 
 if ! command -v gobco >/dev/null 2>&1; then
   echo "gobco not on PATH — 'mise install' provisions it (pinned in mise.toml)" >&2
@@ -210,8 +229,9 @@ for package in ${packages}; do
   files="$(twin_files "${rel}")"
 
   # gobco's per-condition output is the worklist — print it, since a percentage
-  # alone tells nobody which test to write next. Trade-off TRADE-19: what it
-  # lists stays the worklist here, not an entry in TECH_DEBT.md.
+  # alone tells nobody which test to write next. Trade-off TRADE-19: a boolean
+  # it lists as seen one way stays the worklist here, not an entry in
+  # TECH_DEBT.md; an arm no test reached fails below.
   if [[ -z "${files}" ]]; then
     gobco -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1 || unexpected="${unexpected} ${rel}"
     continue
@@ -277,14 +297,124 @@ total_percent="$(
 
 echo
 measured_int="${total_percent%%.*}"
+failed=0
 
 if [[ "${measured_int}" -lt "${floor}" ]]; then
   printf 'Condition coverage %s%% is below the %s%% floor.\n' "${total_percent}" "${floor}" >&2
   printf 'Each condition listed above was never seen both ways — that is the worklist.\n' >&2
-  exit 1
+  failed=1
+else
+  printf 'Condition coverage %s%% (floor %s%%).\n' "${total_percent}" "${floor}"
 fi
 
-printf 'Condition coverage %s%% (floor %s%%).\n' "${total_percent}" "${floor}"
+# Every condition's position, code and counts, a line each, its code on one
+# line, for the check of the arms no test reached.
+conditions="$(
+  jq -r '.[] | [(.Start // ""), ((.Code // "") | gsub("\\s+"; " ")), (.TrueCount // 0), (.FalseCount // 0)]
+    | map(tostring) | join("\t")' "${out_dir}"/*.json
+)"
+
+# An arm no test reached fails: a condition never evaluated, and an error
+# check — a name ending in err or Err compared with nil — whose error arm was
+# never seen. Each is named by its file, line and function. A line of the
+# allowlist keeps one such arm for the trade-off it names, on the systems it
+# names ("any", or GOOS values joined by commas):
+#
+#   <file> <function> <TRADE-n> <systems> <condition>
+#
+# and a line whose arm is no longer unseen fails too, so the list only shrinks
+# as tests arrive. A run over named packages misses only lines for files it
+# did not measure.
+awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="$(go env GOOS)" '
+  function enclosing(file, line,    text, number, name) {
+    name = "(no function)"
+    while (number < line && (getline text < file) > 0) {
+      number++
+      if (text ~ /^func /) name = function_name(text)
+      else if (text ~ /^(var|const|type|import)[ (]/) name = "(no function)"
+    }
+    close(file)
+    return name
+  }
+  function function_name(text,    receiver, at) {
+    sub(/^func /, "", text)
+    if (substr(text, 1, 1) != "(") return name_of(text)
+    at = index(text, ")")
+    receiver = substr(text, 2, at - 2)
+    text = substr(text, at + 1)
+    sub(/^ +/, "", text)
+    sub(/.* /, "", receiver)
+    gsub(/[*]/, "", receiver)
+    sub(/\[.*/, "", receiver)
+    return receiver "." name_of(text)
+  }
+  function name_of(text) {
+    match(text, /^[A-Za-z_][A-Za-z0-9_]*/)
+    return substr(text, 1, RLENGTH)
+  }
+  function applies(systems,    each, count, i) {
+    if (systems == "any") return 1
+    count = split(systems, each, ",")
+    for (i = 1; i <= count; i++) if (each[i] == goos) return 1
+    return 0
+  }
+  BEGIN {
+    while ((getline line < allowlist) > 0) {
+      number++
+      if (line ~ /^[ \t]*(#|$)/) continue
+      fields = split(line, field, /[ \t]+/)
+      if (field[1] == "") { for (i = 1; i < fields; i++) field[i] = field[i + 1]; fields-- }
+      if (fields < 5 || field[3] !~ /^TRADE-[1-9][0-9]*$/ || field[4] !~ /^(any|[a-z0-9]+(,[a-z0-9]+)*)$/) {
+        printf "%s:%d: want <file> <function> <TRADE-n> <systems> <condition>\n", allowlist, number > "/dev/stderr"
+        bad = 1
+        continue
+      }
+      if (!applies(field[4])) continue
+      condition = field[5]
+      for (i = 6; i <= fields; i++) condition = condition " " field[i]
+      kept++
+      key[kept] = field[1] SUBSEP field[2] SUBSEP condition
+      file[kept] = field[1]
+      text[kept] = field[1] " " field[2] " " field[3] " " field[4] " " condition
+      at[kept] = number
+      allowed[key[kept]]++
+    }
+  }
+  {
+    path = $1
+    sub(/:[0-9]+:[0-9]+$/, "", path)
+    measured[path] = 1
+    if ($3 == 0 && $4 == 0) why = "was never evaluated"
+    else if ($2 ~ /^([A-Za-z_][A-Za-z0-9_]*[.])*[A-Za-z0-9_]*[Ee]rr != nil$/ && $3 == 0) why = "was never seen true, the error'"'"'s arm"
+    else if ($2 ~ /^([A-Za-z_][A-Za-z0-9_]*[.])*[A-Za-z0-9_]*[Ee]rr == nil$/ && $4 == 0) why = "was never seen false, the error'"'"'s arm"
+    else next
+    split($1, position, ":")
+    function_at = enclosing(path, position[2] + 0)
+    arm = path SUBSEP function_at SUBSEP $2
+    unseen[arm]++
+    if (unseen[arm] <= allowed[arm]) next
+    missed[++misses] = sprintf("  %s in %s: \"%s\" %s", $1, function_at, $2, why)
+  }
+  END {
+    for (i = 1; i <= kept; i++) {
+      if (!whole && !(file[i] in measured)) continue
+      if (left[key[i]]++ < unseen[key[i]]) continue
+      printf "%s:%d: no unseen arm is left for \"%s\"; remove the line\n", allowlist, at[i], text[i] > "/dev/stderr"
+      bad = 1
+    }
+    if (misses > 0) {
+      print "Condition arms no test reached, and no trade-off keeps:" > "/dev/stderr"
+      for (i = 1; i <= misses; i++) print missed[i] > "/dev/stderr"
+      print "Each is a test to write. One a kept trade-off in TECH_DEBT.md keeps goes in" > "/dev/stderr"
+      print "the allowlist instead, a line an arm, naming that trade-off." > "/dev/stderr"
+      bad = 1
+    }
+    exit bad
+  }' <<<"${conditions}" || failed=1
+
+if ((failed)); then
+  exit 1
+fi
 
 suggested=$((measured_int - ratchet_slack))
 if [[ "${suggested}" -gt "${floor}" ]]; then

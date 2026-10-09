@@ -102,6 +102,7 @@ func Save(path string, cfg Config) error {
 // planted where the file goes cannot steer its credentials elsewhere. The
 // refusal wraps fs.ErrExist.
 func Create(path string, cfg Config) error {
+	// Trade-off TRADE-13: encode fails only as encoding a Config would.
 	encoded, err := encode(cfg)
 	if err != nil {
 		return err
@@ -112,6 +113,7 @@ func Create(path string, cfg Config) error {
 
 // write encodes the configuration into path.
 func write(path string, cfg Config) error {
+	// Trade-off TRADE-13: encode fails only as encoding a Config would.
 	encoded, err := encode(cfg)
 	if err != nil {
 		return err

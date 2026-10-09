@@ -156,6 +156,8 @@ func prepareKept(ctx context.Context, database *sql.DB) error {
 // may have made it meanwhile.
 func makeKeptSchema(ctx context.Context, database *sql.DB) error {
 	return inTransaction(ctx, database, "preparing the kept data", func(transaction *sql.Tx) error {
+		// Trade-off TRADE-16: prepareKept read this file's version a moment
+		// ago, so this read fails only when the file changes between the two.
 		state, err := readState(ctx, transaction)
 		if err != nil {
 			return err
@@ -179,6 +181,8 @@ func writeKeptSchema(ctx context.Context, transaction *sql.Tx) error {
 	}
 
 	// A PRAGMA binds no placeholder; the version is this package's own constant.
+	// Trade-off TRADE-16: the transaction that just made the tables holds the
+	// file, so the stamp fails only when the file changes underneath it.
 	_, err := transaction.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(keptSchemaVersion))
 	if err != nil {
 		return fmt.Errorf("stamping the kept data's version: %w", err)
