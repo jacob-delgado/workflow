@@ -14,17 +14,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
-// createdTask is the line add prints under rc.verbose=new-uuid, and the new
-// task's uuid within it.
-func createdTask() *regexp.Regexp {
-	return regexp.MustCompile(`Created task ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
-}
+// createdTaskLine matches the line add prints under rc.verbose=new-uuid,
+// capturing the new task's uuid within it.
+var createdTaskLine = regexp.MustCompile(`Created task ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
 
-// revertedOperations is the first line undo prints when it reverts, and how
-// many operations it reverted.
-func revertedOperations() *regexp.Regexp {
-	return regexp.MustCompile(`^The following (\d+) operations would be reverted:$`)
-}
+// revertedOperationsLine matches the first line undo prints when it reverts,
+// capturing how many operations it reverted.
+var revertedOperationsLine = regexp.MustCompile(`^The following (\d+) operations would be reverted:$`)
 
 // Add creates a task from line, in Taskwarrior's own grammar, and returns the
 // new task's uuid.
@@ -39,7 +35,7 @@ func (c Client) Add(ctx context.Context, line string) (string, error) {
 		return "", err
 	}
 
-	created := createdTask().FindSubmatch(out)
+	created := createdTaskLine.FindSubmatch(out)
 	if created == nil {
 		return "", ErrBadOutput
 	}
@@ -97,7 +93,7 @@ func (c Client) Undo(ctx context.Context) (string, error) {
 func reverted(out []byte) string {
 	firstLine, _, _ := strings.Cut(string(out), "\n")
 
-	count := revertedOperations().FindStringSubmatch(strings.TrimSpace(firstLine))
+	count := revertedOperationsLine.FindStringSubmatch(strings.TrimSpace(firstLine))
 
 	switch {
 	case count == nil:
