@@ -68,8 +68,8 @@ func (m Model) capturedKeys() ([]key.Binding, bool) {
 	}
 }
 
-// rank orders the keys a footer too narrow for all of them gives up:
-// the lowest rank goes first.
+// footerRank orders the keys a footer too narrow for all of them gives
+// up: the lowest rank goes first.
 type footerRank int
 
 // rank is how long binding holds its place in a footer too narrow for

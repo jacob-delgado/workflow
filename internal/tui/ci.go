@@ -169,8 +169,8 @@ func (s reviewState) ciSummary(kit renderKit) string {
 	return s.ciGlyph(kit) + " " + state + s.checkedAtSuffix(kit)
 }
 
-// checkedAt says when CI was last read, for a line that already says how
-// it stands.
+// checkedAtSuffix says when CI was last read, for a line that already says
+// how it stands.
 func (s reviewState) checkedAtSuffix(kit renderKit) string {
 	if s.checkedAt.IsZero() {
 		return ""
