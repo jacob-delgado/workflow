@@ -448,8 +448,10 @@ machine — while **Start** and **Stop** act at once. Each write says what it di
 once; a write that was made when the list after it could not be read still
 says what it did, and the section reads the list again, so a write that
 landed is never reported failed and made twice by a retry. A task marked
-done while the list could not be read again offers neither **Start** nor
-**Mark done…** until that read answers. A write Taskwarrior refuses says why below its button, in Taskwarrior's
+done while the list could not be read again stays in the list as last read,
+offering neither **Start** nor **Mark done…**, until the list is next
+answered, by that read or by another write, whatever the stream says of the
+task meanwhile. A write Taskwarrior refuses says why below its button, in Taskwarrior's
 own words, with your home and data directories put in fixed words and any
 line naming a server left out; a failed sync answers in fixed words only, and
 `task sync` in a terminal shows why. A write that changed nothing — **Start**
