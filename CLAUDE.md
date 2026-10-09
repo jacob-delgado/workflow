@@ -581,7 +581,9 @@ than observable, public behavior.
   plain text; that boundary stays.) **`fault` classifies** a seam's error (a
   missing resource → `not_found` 404, an unreachable upstream → `unreachable` 502)
   rather than flattening it to a generic 500; a new class of failure gets a new
-  branch there, not a bare 500. The **`detail` never leaks a secret or an internal
+  class, not a bare 500: one every surface tells alike in
+  `internal/report/classes.go`, one only the server tells in
+  `internal/webserver/faults.go`. The **`detail` never leaks a secret or an internal
   host** — tokens are redacted before an error forms, and an unreachable upstream
   is genericized through `fault` precisely because its error carries the host; a
   write's refusal may still carry the git or forge's own reason so the user can
