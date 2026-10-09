@@ -415,7 +415,8 @@ func credentialUnchecked(service, why string) (credentialLine, error) {
 
 // checkJira asks Jira who the configured token authenticates as. With no
 // jira.base_url there is no Jira to ask: the forge's issues are the tracker, and
-// the forge's own check covers them.
+// the forge's own check covers them. Doctor asks only of a configuration that
+// loaded, and loading refuses any jira.base_url the client would.
 func checkJira(
 	ctx context.Context, doer jira.Doer, process wiring.Environment, settings config.Jira,
 ) (credentialLine, error) {
@@ -436,14 +437,6 @@ func checkJira(
 	client := jira.New(doer, settings)
 
 	user, err := client.Myself(ctx)
-	// The configuration section fails an address the client cannot use, whether
-	// it is not an https URL or an http one to this machine, or it carries a
-	// login; here it only means
-	// there is no Jira to ask.
-	if errors.Is(err, config.ErrInvalidBaseURL) || errors.Is(err, config.ErrCredentialInBaseURL) {
-		return credentialUnchecked("jira", err.Error()+" — the configuration section fails it; Jira was not asked")
-	}
-
 	if err != nil {
 		return credentialFailed("jira", fmt.Sprintf("%v (token from %s)", err, source), err)
 	}
