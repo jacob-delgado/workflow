@@ -287,7 +287,8 @@ const othersMask os.FileMode = 0o077
 // can read or write, which a file holding credentials must not be.
 func SharedMode(path string) (os.FileMode, bool) {
 	// Windows keeps no such bits, and Go reports 0666 for every file there,
-	// which says nothing about who can read it.
+	// which says nothing about who can read it. Trade-off TRADE-35: no CI job
+	// takes this branch.
 	if runtime.GOOS == "windows" {
 		return 0, false
 	}

@@ -12,6 +12,8 @@ import (
 // another drive's own directory (D:logs) from somewhere other than the working
 // directory, though neither is absolute: joined onto the working directory, it
 // would name a place that is not the one asked for.
+//
+// Trade-off TRADE-35: only a Windows go test runs this, and no CI job is one.
 func TestALogWindowsReadsFromElsewhereIsNotReadFromTheWorkingDirectory(t *testing.T) {
 	t.Parallel()
 
