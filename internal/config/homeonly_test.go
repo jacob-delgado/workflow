@@ -153,6 +153,32 @@ func TestASaveRefusesToWriteAHomeOnlyKeyIntoTheRepositoryFile(t *testing.T) {
 	}
 }
 
+func TestASaveOverAHomeFileLeavesItsHomeOnlyKeysWithIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The repository's file holds only what differs from the home file, so a
+	// token's sources the configuration inherits are no setting it makes.
+	files := layeredOver(t, tokenSourcesHome, `{"jira": {"project": "OSS"}}`)
+
+	cfg, over, err := config.LoadLayersAt(files)
+	if err != nil {
+		t.Fatalf("loading: %v", err)
+	}
+
+	cfg.Jira.Project = "DOCS"
+
+	// Act
+	_, err = config.SaveLayers(files, cfg, over)
+
+	// Assert
+	written := fileContents(t, files.Repo)
+	if err != nil || !strings.Contains(written, "DOCS") || strings.Contains(written, "token_") {
+		t.Errorf("SaveLayers = %v; repository file %q; want the project saved and the token's sources left "+
+			"to the home file", err, written)
+	}
+}
+
 func TestASaveWritesAHomeOnlyKeyIntoTheHomeFile(t *testing.T) {
 	t.Parallel()
 
