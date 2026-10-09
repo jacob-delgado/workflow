@@ -208,15 +208,17 @@ func taskBranchesDTO(listing branchListing, current, project string) []api.TaskB
 			shown = workdirs.Shown(worktree.Dir, listing.home)
 		}
 
+		checkedOut := name == current
+
 		stages := listing.stages.elsewhere
-		if name == current {
+		if checkedOut {
 			stages = listing.stages.checkedOut
 		}
 
 		branches = append(branches, api.TaskBranch{
 			Name:            name,
 			IssueKey:        key.Key,
-			Current:         name == current,
+			Current:         checkedOut,
 			Stages:          stages,
 			Remote:          &remote,
 			Worktree:        &worktree.Dir,
