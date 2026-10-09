@@ -43,8 +43,8 @@ pointer also names the symbol it means.
    a third to break a tie. A finding was dropped unless it survived, and a
    severity or a citation the skeptics corrected was written as corrected.
    Findings that described one problem were then merged, keeping the richest
-   location and fix, and a problem found in several areas became one entry
-   under [Across the surfaces](#across-the-surfaces).
+   location and fix, and a problem found in several areas became one entry,
+   in a section of its own for the problems across the surfaces.
 4. **Every finding matched against the register.** A finding that only
    restated a trade-off whose reopen trigger had not fired was dropped.
 5. **The register re-judged, entry by entry.** Each trade-off was kept, with
@@ -81,43 +81,6 @@ rule. This pass found 35; they are handled privately with the maintainer, and
 nothing in this file says what they are. The entries below contain nothing
 that helps anyone misuse a credential, a terminal, a file on disk, the
 loopback server or a release.
-
-## The command line
-
-### DEBT-175 Pay down TRADE-18: commands take their working directory, home and environment from the caller
-
-Severity: low · Confidence: read · Size: L
-
-**Where.** `loadFromEnvironment` and `configHome` (`internal/cli/cli.go:402`,
-`:418`), `inputFor` (`cli.go:251`, `NO_COLOR`), `whereInit`
-(`internal/cli/config_cmd.go:141`), `connectLeniently`
-(`internal/cli/connect.go:62`), `reportRepository`
-(`internal/cli/doctor.go:157`), `repositoryFactsFor`
-(`internal/cli/doctor_json.go:111`), `completeAssignedIssues`
-(`internal/cli/scriptable.go:177`), `cleanLocalData`
-(`internal/cli/dbclean_cmd.go:185`); `run` (`internal/cli/cli_test.go:24`),
-`internal/cli/removed_workdir_test.go`.
-
-**Today.** `Execute` takes arguments and streams but no environment, so
-commands call `os.Getwd`, `os.UserHomeDir`, `os.Getenv` and `store.DefaultDir`
-themselves; six `os.Getwd` calls word the same failure. TRADE-18 keeps six of
-those Getwd arms reachable only on Linux. The same habit makes the cli tests
-change directory and set the environment, so they cannot run in parallel:
-`cli_test.go` says so, and `internal/cli` is the slowest package in `task
-check` (about 38 s under `-race`). CLAUDE.md's D principle cites
-`config.Load(workDir, homeDir)` as the pattern, which the CLI does not follow.
-
-**Fix.** Add an environment value (working directory as `func() (string,
-error)`, home, `Getenv`, state directory) to what `Execute` and
-`NewRootCmdOver` take, built from the OS in `cmd/workflow/main.go`, and read
-it through one `workingDir(cmd)` helper that wraps the failure once. Rewrite
-`removed_workdir_test.go` to inject a failing working directory, in parallel,
-with no `t.Chdir` and no macOS skip. Shrink TRADE-18 to `closeRequestLog`
-alone, cited by name, and remove the six TRADE-18 site comments.
-
-**Done when.** `rg 'os.Getwd' internal/cli` finds only the production default,
-the cli tests call `t.Parallel()`, `task cover:branch` on macOS lists none of
-the six arms, and `go test ./internal/cli` wall time drops.
 
 ## The terminal interface
 
@@ -312,26 +275,6 @@ entry and its two site comments.
 **Done when.** No `- 1) %` remains in `internal/tui` outside the helper, the
 composer, calendar and pane-switch tests pass unchanged, and TRADE-6 is gone.
 
-### DEBT-197 Pay down TRADE-12: `tui.Run` takes its input from the caller
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `Run` (`internal/tui/tui.go:178`), the `RunInterface` type and its
-call (`internal/cli/cli.go:177`, `:251`), the stand-in in
-`internal/cli/root_test.go:56`.
-
-**Today.** `Run` takes an output writer but not its input, so Bubble Tea reads
-`os.Stdin`, and the CLI passes `cmd.OutOrStdout()` but never
-`cmd.InOrStdin()`, against Cobra's own idiom. That is the only reason no test
-can drive `Run`, and the reason gobco reports `tui.go:182` as never evaluated.
-
-**Fix.** Take `in io.Reader` and pass `tea.WithInput(in)`; have the CLI pass
-`cmd.InOrStdin()`. Test a canceled context (the error wraps `context.Canceled`
-and starts "running the interface") and a quit key on an empty model. Paying
-this closes TRADE-12: delete the entry and its site comment.
-
-**Done when.** gobco no longer lists `tui.go:182` and `task check` is green.
-
 ## The gates, the build and the tests
 
 ### DEBT-239 Pay down TRADE-19: the gate fails a never-run condition or an unseen error arm
@@ -400,79 +343,6 @@ matching site comment.
 **Done when.** No entry names a function that does not exist, and the register
 is in ID order.
 
-## Across the surfaces
-
-### DEBT-295 The forge's kind and group seams are fixed at start-up though forge settings are live
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `forgeDeps` (`internal/wiring/forge.go:74`), `groupMembersSeam` and
-`isGroupSeam` (`:147`, `:169`), `useForgeSettings` (`:349`), `WebDeps`
-(`internal/cli/web.go:93`), `branchOwners`
-(`internal/webserver/people.go:227`).
-
-**Today.** `forgeDeps` decides the kind once and binds `Kind`, `GroupMembers`
-and `IsGroup` (nil unless GitLab) from it, while a web Settings save replaces
-the live settings for every connect. Switching to GitLab in Settings leaves
-`IsGroup` nil, so top-level groups are tagged as people until restart; the
-group cache is keyed by name only and survives a host change.
-`Controls.UseForgeSettings` documents the opposite.
-
-**Fix.** Decide the kind inside each closure from the live settings, as
-`gitDeps` does, and key the cache by host and kind.
-
-**Done when.** A wiring test starts with GitHub, applies GitLab settings and
-sees `IsGroup` reach the fake GitLab endpoint.
-
-### DEBT-307 The CLI imports the web server and the terminal package for logic every surface shares
-
-Severity: low · Confidence: read · Size: L
-
-**Where.** `notSetUpNote` (`internal/cli/status.go:372`), `runSummary`
-(`internal/cli/summary.go:142`, `:182`), `internal/cli/repositories.go:53`,
-`internal/cli/scriptable.go:382`, `internal/cli/doctor_requirements.go:42`;
-`FaultDetail`, `ActivityReport` and `PostLength`
-(`internal/webserver/activity.go:282`, `:149`, `:46`), `RepositoriesView`
-(`internal/webserver/repositories.go:169`), `CheckKeys`
-(`internal/tui/keycheck.go:48`).
-
-**Today.** The CLI's not-set-up wording, its summary and repositories reports
-and the summary's length come from the web server package, and its keymap
-check from the TUI. Sharing the shape and the host-free wording is intended
-(the `--json` output is the API's object); where it lives is the debt:
-surface-neutral wording and report building sit in an HTTP package already at
-its budget. (The `tui.Deps` bundle is TRADE-11.)
-
-**Fix.** Move `FaultDetail`'s wording and the report builders beside
-`internal/api` in a small report package both import, and `CheckKeys` with its
-sentinels beside `config.UI`.
-
-**Done when.** `internal/cli` imports `internal/webserver` only for serving
-`--web`.
-
-### DEBT-308 `WebDeps` copies about sixty seams one by one from `tui.Deps` to `webserver.Deps`
-
-Severity: low · Confidence: read · Size: L
-
-**Where.** `WebDeps` and the `with*` helpers (`internal/cli/web.go:70`,
-`:135`), `webserver.Deps` (`internal/webserver/webserver.go:46`),
-`TestWebDepsHandsTheServerEverySeam` and
-`TestWebDepsHandsTheServerTheLenientSearch`
-(`internal/cli/webdeps_test.go:16`, `:68`).
-
-**Today.** Each new seam is an edit in three places, split into six helpers
-only to pass funlen. The test catches a nil seam, not two same-typed seams
-wired crosswise (Stage, Unstage and Discard; Branches and RemoteBranches;
-Commit, Push, Rebase and RunHook), so each such pair needs its own test, as
-the searches did.
-
-**Fix.** Have `webserver.Deps` hold the same seam groups `tui.Deps` uses,
-narrowed per group where interface segregation asks, or build both bundles
-from one source in wiring.
-
-**Done when.** `WebDeps` is under 25 lines and a seam added to a group needs
-no edit in `internal/cli`.
-
 ## Rules this audit changes
 
 ### DEBT-324 Declare compiled regular expressions at package level
@@ -521,9 +391,12 @@ TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is true at
 TRADE-21 and TRADE-28 to two copies held to one shared case file, and each
 stays. TRADE-10, TRADE-23 and TRADE-29, the rules the web wrote a second
 time, were paid down when the server took them over, and their entries are
-gone. TRADE-6, TRADE-12, TRADE-18 and TRADE-19 are to be paid down by the
-entries above whose titles name them, and each stays here, as it was, until its
-entry is paid.
+gone. TRADE-12 was paid down when the terminal interface came to take its
+input from the caller, so a test drives it, and its entry is gone; TRADE-18
+was paid down to the one condition it now names, when every command came to
+take its working directory from its caller, and stays. TRADE-6 and TRADE-19
+are to be paid down by the entries above whose titles name them, and each
+stays here, as it was, until its entry is paid.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
@@ -662,24 +535,6 @@ or `Copy`; `internal/editor` stops returning a Bubble Tea command; or the web
 server needs to be built without importing `internal/tui` (today it also needs
 `tui.CheckKeys`).
 
-### TRADE-12 The terminal program's own start-up error goes untested
-
-`tui.Run` (`internal/tui/tui.go:146`) starts the Bubble Tea program and
-returns its error, the one condition `task cover:branch` reports as never
-evaluated. No test calls `Run`: in a developer's terminal the program would
-take over the terminal the tests run in, and with none it fails to open
-one, so a test could only ever see it fail. What the interface draws and
-does is tested through the `Model` that `Run` is given.
-
-**Decided.** 2026-09-26, in #146.
-
-**Cost.** The wording of a start-up failure ("running the interface: …")
-is never checked, and the report keeps one never-evaluated condition.
-
-**Reopen when.** `Run` comes to take its program or its input from the
-caller for another reason, so a test could drive it, or a start-up failure
-is reported with a message that does not say what went wrong.
-
 ### TRADE-13 Encoding the program's own types is taken not to fail
 
 **Decided.** Every `json.Marshal`, `MarshalIndent` or `Unmarshal` on a value
@@ -737,30 +592,27 @@ lost is read rather than checked.
 **Reopen when.** One of these failures is reported, or a change to the calls
 lets a test fail the second without the first.
 
-### TRADE-18 Conditions only Linux's tests reach
+### TRADE-18 A condition only Linux's tests reach
 
-Seven conditions are reached by tests that skip on macOS, so a report
-measured there lists them as seen one way, and CI's, measured on Linux,
-does not. Six ask whether `os.Getwd` failed, which it does on Linux once
-the working directory is removed but not on macOS, whose `getcwd` still
-names it: `connectLeniently` and `loadFromEnvironment`
-(`internal/cli/cli.go:423`, `:477`), `targetDir`
-(`internal/cli/config_cmd.go:140`), `reportRepository`
-(`internal/cli/doctor.go:136`), `repositoryFactsFor`
-(`internal/cli/doctor_json.go:110`) and `completeAssignedIssues`
-(`internal/cli/scriptable.go:179`), each reached by
-`internal/cli/removed_workdir_test.go`. The seventh, `closeRequestLog`
-(`internal/cli/scriptable.go:113`), is reached through `/dev/full`, which
-macOS lacks, by `TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
-(`internal/cli/reqlog_test.go`).
+One condition is reached by a test that skips on macOS, so a report
+measured there lists it as seen one way, and CI's, measured on Linux, does
+not. `closeRequestLog` (`internal/cli/scriptable.go`) asks whether the
+request log's file could be fully written, and says so on stderr when it
+could not. `TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
+(`internal/cli/reqlog_test.go`) reaches it by logging to `/dev/full`, every
+write to which fails as a full disk would; macOS has none, and no other file
+can be made to refuse writes from a test.
 
-**Decided.** 2026-09-26, in #146.
+**Decided.** 2026-09-26, in #146; narrowed to `closeRequestLog` alone in the
+pre-1.0 paydown, when every command came to read its working directory from
+the environment its caller hands it, so a test reaches the six `os.Getwd`
+arms this entry also kept on every system.
 
-**Cost.** `task cover:branch` on macOS reads seven arms fewer than CI does,
-and lists seven conditions a reader there could take for untested.
+**Cost.** `task cover:branch` on macOS reads one arm fewer than CI does, and
+lists one condition a reader there could take for untested.
 
-**Reopen when.** CI measures condition coverage on another system, or
-either test stops reaching its conditions on Linux.
+**Reopen when.** CI measures condition coverage on another system, or the
+test stops reaching the condition on Linux.
 
 ### TRADE-19 The rest of the condition report stays gobco's worklist
 
