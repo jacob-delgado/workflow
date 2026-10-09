@@ -18,6 +18,13 @@ import (
 // run from.
 const workdirUnread = "determining the working directory"
 
+// logOption is the option that names the request log, and relativeLog a log
+// named relatively, which is read from the working directory.
+const (
+	logOption   = "--log"
+	relativeLog = "requests.log"
+)
+
 // errDirectoryGone is a working directory that cannot be named, as a shell is
 // left standing in one when `git worktree remove` deletes the directory it is
 // in.
@@ -70,7 +77,7 @@ func TestALogNamedRelativelyFromARemovedDirectorySaysItCannotBeOpened(t *testing
 	// Act
 	// doctor opens the log before anything else reads the directory, so only
 	// the log's own reading of it can fail first.
-	printed, err := runFromARemovedDirectory(t, t.TempDir(), "--log", "requests.log", "doctor")
+	printed, err := runFromARemovedDirectory(t, t.TempDir(), logOption, relativeLog, doctorCommand)
 
 	// Assert
 	if err == nil || !strings.HasPrefix(err.Error(), "workflow: opening the request log: "+workdirUnread) {
@@ -177,5 +184,46 @@ func TestBranchCompletionFromARemovedDirectoryOffersNothing(t *testing.T) {
 	if err != nil || printed.stdout != ":4\n" {
 		t.Errorf("completion from a removed directory = %v, offering %q; want nothing offered and no failure",
 			err, printed.stdout)
+	}
+}
+
+// A command's sections, its request log and each directory it names relatively
+// must all be read from one directory, so a command reads it once: a second
+// read could find another, or none, as a shell left standing in a directory
+// `git worktree remove` deletes does.
+func TestACommandReadsTheDirectoryItWasRunFromOnce(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string][]string{
+		"doctor, logging to a file named relatively":     {logOption, relativeLog, doctorCommand},
+		"the status of two directories named relatively": {statusCommand, ".", "."},
+	}
+
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			env := environmentFor(t, place{dir: t.TempDir(), home: t.TempDir()})
+			read := env.WorkingDir
+
+			var reads atomic.Int32
+
+			env.WorkingDir = func() (string, error) {
+				reads.Add(1)
+
+				return read()
+			}
+
+			var stdout, stderr bytes.Buffer
+
+			// Act
+			_ = cli.Execute(args, &stdout, &stderr, unusedPrompt(t), env)
+
+			// Assert
+			if got := reads.Load(); got != 1 {
+				t.Errorf("%v read the working directory %d times, want once", args, got)
+			}
+		})
 	}
 }
