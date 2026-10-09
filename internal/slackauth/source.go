@@ -55,6 +55,14 @@ func (s Source) Token(ctx context.Context, expired config.Secret) (config.Secret
 		return held.AccessToken, nil
 	}
 
+	return s.renew(context.WithoutCancel(ctx), held)
+}
+
+// renew refreshes held and keeps the pair Slack gives in its place. Slack
+// spends held's refresh token as it answers, so the two run whatever becomes
+// of the caller: one who left between them would lose the only pair that
+// still works.
+func (s Source) renew(ctx context.Context, held Credentials) (config.Secret, error) {
 	renewed, err := s.Refresher.Refresh(ctx, held)
 	if err != nil {
 		return "", err
