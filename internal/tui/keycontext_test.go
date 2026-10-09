@@ -310,8 +310,28 @@ func TestTheKeyContextProbeTellsAnAnswerFromNone(t *testing.T) {
 		t.Errorf("on the Issues pane comment is %+v and commit is %+v, want both offered and answered, then neither",
 			comment, commit)
 	}
+}
 
-	if slices.Contains(probedActions(), fixedAction) {
-		t.Errorf("the probed actions include %s, which no ui.keys entry may move", fixedAction)
+// The probe moves each action a pane may answer onto its key, which no
+// ui.keys entry may do to jump-to-pane, so the help must list jump-to-pane
+// among the keys every pane takes, which the probe leaves alone.
+func TestTheHelpListsJumpToPaneAmongTheKeysEveryPaneTakes(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	listed := tui.KeyActions("pull request", "Slack", nil)
+
+	// Assert
+	group := ""
+
+	for _, action := range listed {
+		if action.Action == fixedAction {
+			group = action.Group
+		}
+	}
+
+	if !slices.Contains(keysEveryPaneTakes(), group) {
+		t.Errorf("the help lists %s in %q, want it among %v, which the probe leaves alone",
+			fixedAction, group, keysEveryPaneTakes())
 	}
 }
