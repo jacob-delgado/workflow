@@ -243,9 +243,9 @@ lists, by where it works.
 
 Every key here but the pane numbers, `1`–`9`, can be rebound with `ui.keys`;
 see [Configuration]({{< relref "/docs/configuration" >}}). A map that moves an
-action live on a pane, or while a command runs, onto a pane number, or that
-gives two actions live in one place the same key, stops workflow from starting,
-and `workflow doctor` names it.
+action live on a pane onto a pane number, or that gives two actions live in
+one place — a pane, or an open overlay — the same key, stops workflow from
+starting, and `workflow doctor` names it.
 
 ## The loop
 
