@@ -95,8 +95,8 @@ interface TaskWrites {
 // unavailable, saying why; the list shown stays, and is read once more,
 // rather than give way to a Taskwarrior that is there. A done and a track are
 // remembered too, for what the list cannot say of them until the stream
-// catches up: that the task is done, and which task tracks the issue where the
-// active context leaves it out.
+// catches up: the task done, as the done's answer describes it, and which task
+// tracks the issue where the active context leaves it out.
 export function useTaskWrites(): TaskWrites {
   const queryClient = useQueryClient()
   const write = async (send: Send): Promise<TaskList> => {
@@ -127,7 +127,9 @@ export function useTaskWrites(): TaskWrites {
     stop: (uuid) => write(() => stopTask({ path: { uuid }, throwOnError: true })),
     complete: async (uuid) => {
       const answered = await write(() => completeTask({ path: { uuid }, throwOnError: true }))
-      rememberCompleted(uuid)
+      if (answered.done !== undefined) {
+        rememberCompleted(answered.done)
+      }
 
       return answered
     },

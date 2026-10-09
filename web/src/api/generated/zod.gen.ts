@@ -772,6 +772,7 @@ export const zTaskList = z.object({
     sync_available: z.boolean(),
     said: z.string(),
     added: z.string().optional(),
+    done: zTask.optional(),
     tasks: z.array(zTask),
     facet_order: z.array(zTaskFacet)
 });
@@ -1754,7 +1755,7 @@ export const zCompleteTaskPath = z.object({
 });
 
 /**
- * The pending list, without the task.
+ * The pending list, without the task, and the task as it stands done.
  */
 export const zCompleteTaskResponse = zTaskList;
 

@@ -2624,6 +2624,9 @@ type TaskList struct {
 	// Context The name of Taskwarrior's active context, whose filter the list applies; empty for none.
 	Context string `json:"context"`
 
+	// Done The task the done this list answers marked, as Taskwarrior holds it once the write has landed, described and ranked as the event stream's linked tasks will describe it: tasks no longer holds it, and the issue's Tasks card shows it done before the stream catches up. Absent for a task linked to no issue, when the linked tasks could not be read after the write, after any other write, and on a read.
+	Done *Task `json:"done,omitempty"`
+
 	// FacetOrder Every value the list's filter offers, in the order it lists them, as the terminal's filter lists them: the states as the state order ranks them; priorities H, M, L, any other the tasks hold by name, then none; the projects and the tags the tasks hold, by name, none last; with an issue, then without. A value only a waiting task holds is offered for its state alone. A value no task holds is offered only while it is picked. Empty when Taskwarrior is not available.
 	FacetOrder []TaskFacet `json:"facet_order"`
 

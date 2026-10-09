@@ -1289,6 +1289,10 @@ export type TaskList = {
      */
     added?: string;
     /**
+     * The task the done this list answers marked, as Taskwarrior holds it once the write has landed, described and ranked as the event stream's linked tasks will describe it: tasks no longer holds it, and the issue's Tasks card shows it done before the stream catches up. Absent for a task linked to no issue, when the linked tasks could not be read after the write, after any other write, and on a read.
+     */
+    done?: Task;
+    /**
      * The pending tasks of the active context, most urgent first, waiting ones included. Empty when Taskwarrior is not available.
      */
     tasks: Array<Task>;
@@ -4352,7 +4356,7 @@ export type CompleteTaskError = CompleteTaskErrors[keyof CompleteTaskErrors];
 
 export type CompleteTaskResponses = {
     /**
-     * The pending list, without the task.
+     * The pending list, without the task, and the task as it stands done.
      */
     200: TaskList;
 };

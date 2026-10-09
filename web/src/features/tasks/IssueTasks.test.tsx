@@ -196,33 +196,56 @@ test("the track's answer takes the place of the task list the page holds", async
   expect(reads).toHaveLength(1)
 })
 
+// trackingStarted is the tracking task, started now.
+const trackingStarted = taskStanding(
+  tracking,
+  { start: new Date().toISOString() },
+  standing.started,
+)
+
 test.each([
-  [['Start task 12'], 'start', tracking, 'Started task 12.'],
-  [
-    ['Stop task 12'],
-    'stop',
-    taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
-    'Stopped task 12.',
-  ],
-  [['Mark done… task 12', 'Mark done'], 'done', tracking, 'Marked task 12 done.'],
-])('%j posts to its path and says what it did', async (buttons, verb, task, said) => {
-  // Arrange
-  const user = userEvent.setup()
-  streamLinked(task)
-  const requests = fakeApi({ [`${trackingPath}/${verb}`]: makeTaskList([]) })
-  renderWithClient(<IssueTasks issueKey={issueKey} />)
+  {
+    buttons: ['Start task 12'],
+    verb: 'start',
+    task: tracking,
+    answer: makeTaskList([trackingStarted]),
+    said: 'Started task 12.',
+  },
+  {
+    buttons: ['Stop task 12'],
+    verb: 'stop',
+    task: trackingStarted,
+    answer: makeTaskList([tracking]),
+    said: 'Stopped task 12.',
+  },
+  {
+    buttons: ['Mark done… task 12', 'Mark done'],
+    verb: 'done',
+    task: tracking,
+    answer: makeTaskList([], { done: trackingDone(new Date().toISOString()) }),
+    said: 'Marked task 12 done.',
+  },
+])(
+  '$buttons posts to its path and says what it did',
+  async ({ buttons, verb, task, answer, said }) => {
+    // Arrange
+    const user = userEvent.setup()
+    streamLinked(task)
+    const requests = fakeApi({ [`${trackingPath}/${verb}`]: answer })
+    renderWithClient(<IssueTasks issueKey={issueKey} />)
 
-  // Act
-  for (const button of buttons) {
-    await user.click(screen.getByRole('button', { name: button }))
-  }
+    // Act
+    for (const button of buttons) {
+      await user.click(screen.getByRole('button', { name: button }))
+    }
 
-  // Assert
-  expect(await screen.findByText(said)).toBeTruthy()
-  expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
-    `${trackingPath}/${verb}`,
-  ])
-})
+    // Assert
+    expect(await screen.findByText(said)).toBeTruthy()
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+      `${trackingPath}/${verb}`,
+    ])
+  },
+)
 
 test('a track whose answer names no task still takes Track away', async () => {
   // Arrange
