@@ -583,19 +583,20 @@ than observable, public behavior.
   `internal/webserver/errors.go`, never an ad-hoc envelope. (The loopback,
   same-origin and dry-run guards refuse *before* a handler runs and answer in
   plain text; that boundary stays.) **`fault` classifies** a seam's error (a
-  missing resource → `not_found` 404, an unreachable upstream → `unreachable` 502)
-  rather than flattening it to a generic 500; a new class of failure gets a new
-  class, not a bare 500: one every surface tells alike in
-  `internal/report/classes.go`, one only the server tells in
-  `internal/webserver/faults.go`. The **`detail` never leaks a secret or an internal
-  host** — tokens are redacted before an error forms, and an unreachable upstream
-  is genericized through `fault` precisely because its error carries the host; a
-  write's refusal may still carry the git or forge's own reason so the user can
-  act (the test that an unreachable forge's detail omits its host is part of the
-  change). The `type` URI points at a section of `docs/content/docs/errors.md`, so
-  add the code there when you add one to the enum. The OpenAPI spec is the source:
-  change `api/openapi.yaml`, then `task gen` (Go) and `yarn gen` (the web client)
-  so both stay generated from it.
+  missing resource → `not_found` 404, an unreachable upstream →
+  `unreachable` 502) rather than flattening it to a generic 500; a new class
+  of failure gets a new class, not a bare 500: one every surface tells alike
+  in `internal/report/classes.go`, one only the server tells in
+  `internal/webserver/faults.go`. The **`detail` never leaks a secret or an
+  internal host** — tokens are redacted before an error forms, and an
+  unreachable upstream is genericized through `fault` precisely because its
+  error carries the host; a write's refusal may still carry the git or forge's
+  own reason so the user can act (the test that an unreachable forge's detail
+  omits its host is part of the change). The `type` URI points at a section of
+  `docs/content/docs/errors.md`, so add the code there when you add one to the
+  enum. The OpenAPI spec is the source: change `api/openapi.yaml`, then
+  `task gen` (Go) and `yarn gen` (the web client) so both stay generated
+  from it.
 
 - **The web server does not sanitize on the way out**, though the store's rule
   above asks the seam that renders stored text to: the web's rendering seam is
