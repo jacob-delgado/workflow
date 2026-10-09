@@ -181,3 +181,33 @@ func TestAFindThatSucceedsClearsTheFailedFindBeforeIt(t *testing.T) {
 	refuseScreen(t, recovered.View().Content, "could not reach the forge")
 	requireScreen(t, recovered.View().Content, "#42 "+pullTitle)
 }
+
+func TestAFailedCheckStopsThePollAQueuedPostWaitsOn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A post waits on CI that is running when the interface starts and when w
+	// is pressed. By the poll held for it, the forge has stopped answering.
+	repo := newWorld()
+	repo.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}}
+	timer := &heldTimer{}
+	waiting := typing(t, timed(t, repo, timer.after), "5", "p", "w")
+	checked := len(repo.asked("ci "))
+	repo.ciErr = errForgeDown
+
+	// Act
+	timer.release(t, waiting)
+
+	// Assert
+	if asked := len(repo.asked("ci ")) - checked; asked != 1 {
+		t.Errorf("the poll due asked about CI %d times, want once", asked)
+	}
+
+	if polls := timer.waiting(); polls != 0 {
+		t.Errorf("%d polls are scheduled after a failed check, want none until the next refresh", polls)
+	}
+
+	if posts := repo.asked("post "); len(posts) != 0 {
+		t.Errorf("posted %q, want nothing posted while CI is unknown", posts)
+	}
+}
