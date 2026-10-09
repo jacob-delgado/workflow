@@ -74,14 +74,22 @@ type borders struct {
 	ellipsis                                   string
 }
 
-// glyphs returns the glyph set for a style.
+// glyphs returns the glyph set for a style, and the light one for a Style
+// outside the four, so a box is never drawn without its border.
 func glyphs(style Style) borders {
-	return map[Style]borders{
+	sets := map[Style]borders{
 		Light:      {"┌", "┐", "└", "┘", "─", "│", ellipsis},
 		Heavy:      {"┏", "┓", "┗", "┛", "━", "┃", ellipsis},
 		LightASCII: {"+", "+", "+", "+", "-", "|", asciiEllipsis},
 		HeavyASCII: {"#", "#", "#", "#", "=", "#", asciiEllipsis},
-	}[style]
+	}
+
+	set, known := sets[style]
+	if !known {
+		return sets[Light]
+	}
+
+	return set
 }
 
 // minimumSide is the smallest dimension that can hold a border on both sides.
