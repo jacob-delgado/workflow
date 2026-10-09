@@ -130,16 +130,32 @@ func TestDoctorOnlineWarnsATokenThatCannotWriteToGitLab(t *testing.T) {
 func TestDoctorOnlineSaysNothingOfAScopeItCannotRead(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	dir := forgeCLIRepository(t, gitlabSSHRemote)
-	fakeGlab(t)
+	// Each case is GitLab's answer about the token's scopes.
+	cases := map[string]string{
+		"none listed":          `{}`,
+		"an answer not parsed": `not json`,
+	}
 
-	// Act
-	output, _ := run(t, dir, "doctor", "--online")
+	for name, scopes := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if strings.Contains(output, "can read but not write") {
-		t.Errorf("doctor --online warned of scopes it could not read:\n%s", output)
+			// Arrange
+			dir := forgeCLIRepository(t, gitlabSSHRemote)
+			fakeGlabWithScopes(t, scopes)
+
+			// Act
+			output, err := run(t, dir, "doctor", "--online")
+			// Assert
+			if err != nil {
+				t.Errorf("doctor --online = %v, want a token whose scopes cannot be read to pass", err)
+			}
+
+			if row := credentialRow(output, "forge"); !strings.HasPrefix(row, "authenticates as tanuki") ||
+				strings.Contains(row, ";") {
+				t.Errorf("doctor's forge row = %q, want who the token is and nothing of its scopes:\n%s", row, output)
+			}
+		})
 	}
 }
 
