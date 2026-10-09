@@ -399,27 +399,27 @@ forge when you open it, unless it asked within the last 30 seconds, and
 
 ### Tasks
 
-Your pending Taskwarrior tasks, most urgent first unless you sort them — what the terminal's Tasks
-pane lists, in Taskwarrior's violet: those for an issue the Issues list holds
-first, then the rest, under **For my issues** and **Other tasks** when there
-are both. A waiting task is counted below rather than listed, and an active
-context says it narrows the list. Each row marks whether the task is started,
-then its id, what it is, and quietly its issue, when it is due and its
-urgency. **Sort** orders each group by urgency, state, ID, tag, issue or
-priority, as the terminal's `O` does, and sorted by tag or priority each row
-shows its tags or priority, as the filter names them: *no tag* or *no
-priority* for a task with none. **Search** keeps the tasks whose description,
-project, `+tag`, issue key or `#id` holds what you type, and the **Filter**
-chips narrow the list by state, priority, project, tag and whether a task has
-an issue, each with its count; pressing **waiting** lists the waiting tasks.
-A value picked stays on offer, at zero, once no task holds it, so it can be
-unpicked, and a project, a tag or a priority other than H, M and L that no
-task holds any longer comes last; a waiting task counts toward its state
-alone. The order and the chips stay while you visit other sections. The
-section reads Taskwarrior when you open it, when **Refresh** asks, and again
-once the earliest wait still ahead has passed, since that changes where a task
-stands with nothing written, rather than from the stream. It needs
-Taskwarrior 3.5.0 or newer, found as
+Your pending Taskwarrior tasks, most urgent first unless you sort them — what
+the terminal's Tasks pane lists, in Taskwarrior's violet: those for an issue
+the Issues list holds first, then the rest, under **For my issues** and
+**Other tasks** when there are both. A waiting task is counted below rather
+than listed, and an active context says it narrows the list. Each row marks
+whether the task is started, then its id, what it is, and quietly its issue,
+when it is due and its urgency. **Sort** orders each group by urgency, state,
+ID, tag, issue or priority, as the terminal's `O` does, and sorted by tag or
+priority each row shows its tags or priority, as the filter names them: *no
+tag* or *no priority* for a task with none. **Search** keeps the tasks whose
+description, project, `+tag`, issue key or `#id` holds what you type, and the
+**Filter** chips narrow the list by state, priority, project, tag and whether
+a task has an issue, each with its count; pressing **waiting** lists the
+waiting tasks. A value picked stays on offer, at zero, once no task holds it,
+so it can be unpicked, and a named project or tag, or a named priority other
+than H, M and L, that no task holds any longer comes last; a waiting task
+counts toward its state alone. The order and the chips stay while you visit
+other sections. The section reads Taskwarrior when you open it, when
+**Refresh** asks, and again once the earliest wait still ahead has passed,
+since that changes where a task stands with nothing written, rather than from
+the stream. It needs Taskwarrior 3.5.0 or newer, found as
 [Configuration]({{< relref "/docs/configuration#taskwarrior" >}}) describes;
 without one it says why — and, where the `task` on `PATH` is another program,
 go-task most likely, that Settings can name Taskwarrior's with

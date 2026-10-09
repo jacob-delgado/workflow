@@ -617,17 +617,16 @@ every read.
 its description, project, a tag written `+tag`, its issue key or its `#id`
 holds the text, ignoring case; `enter` keeps the search and `esc` clears it.
 `f` opens **Filter**, a checklist of every state, priority, project and tag the
-tasks hold, and whether they have an issue, each with how many tasks hold it
-(a waiting task counts only toward its state):
-values checked in one group widen the list, and the groups narrow it
-together. A value checked stays, at zero, once no task holds it, so it can be
-unchecked, and a project, a tag or a priority other than H, M and L that no
-task holds any longer comes last. Checking
-**waiting** lists the waiting tasks, each saying until
-when. The faint line above the rows names what narrows the list; the rail
-still counts every pending task, and a task the list hides still tracks its
-issue, so `T` on that issue names it and why it is hidden. A filter that
-leaves nothing says "No task matches the filters."
+tasks hold, and whether they have an issue, each with how many tasks hold it (a
+waiting task counts only toward its state): values checked in one group widen
+the list, and the groups narrow it together. A value checked stays, at zero,
+once no task holds it, so it can be unchecked, and a named project or tag, or a
+named priority other than H, M and L, that no task holds any longer comes last.
+Checking **waiting** lists the waiting tasks, each saying until when. The faint
+line above the rows names what narrows the list; the rail still counts every
+pending task, and a task the list hides still tracks its issue, so `T` on that
+issue names it and why it is hidden. A filter that leaves nothing says "No task
+matches the filters."
 
 `d` (mark done), `u` (undo) and `S` (sync) each first show a last look and
 do nothing until `enter`: marking done runs the task's hooks, Taskwarrior has
