@@ -72,21 +72,9 @@ func credentialSections() []credentialSection {
 	}
 }
 
-// movedSections are the credential sections whose address over gives a value
-// other than beneath's: the sections whose credentials beneath must not lend.
-func movedSections(beneath, over any) ([]credentialSection, error) {
-	// Trade-off TRADE-13: configOf fails only as re-encoding values just
-	// decoded would.
-	home, err := configOf(beneath)
-	if err != nil {
-		return nil, err
-	}
-
-	merged, err := configOf(mergeValues(beneath, over))
-	if err != nil {
-		return nil, err
-	}
-
+// movedSections are the credential sections whose address merged gives a
+// value other than home's: the sections whose credentials home must not lend.
+func movedSections(home, merged Config) []credentialSection {
 	var moved []credentialSection
 
 	for _, section := range credentialSections() {
@@ -95,18 +83,7 @@ func movedSections(beneath, over any) ([]credentialSection, error) {
 		}
 	}
 
-	return moved, nil
-}
-
-// configOf is value read as a configuration, unvalidated.
-func configOf(value any) (Config, error) {
-	// Trade-off TRADE-13: values decoded from JSON always encode.
-	encoded, err := encodeValue(value)
-	if err != nil {
-		return Default(), err
-	}
-
-	return decode(encoded)
+	return moved
 }
 
 // withoutCredentials is beneath with the credentials of each section in moved
@@ -154,21 +131,18 @@ func homeOnlySettings() []homeOnlySetting {
 	}
 }
 
-// refuseHomeOnly refuses contents, the repository's file at path, when it sets
-// any setting only the home directory's file may, naming each. Left empty, a
-// setting is not made, so a file written whole, which holds every key, passes.
-func refuseHomeOnly(path string, contents []byte) error {
-	// Trade-off TRADE-13: both callers hand over contents just decoded or
-	// just encoded.
-	layer, err := decode(contents)
-	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-
+// refuseHomeOnly refuses layer, the repository's file at path, when it makes
+// any setting only the home directory's file may, naming each. A setting is
+// made when the file sets it to other than what lies beneath it: the defaults
+// it is read over, or the home file a save writes it over, from which it holds
+// only what differs. Left empty, a setting is not made, so a file written
+// whole, which holds every key, passes.
+func refuseHomeOnly(path string, layer, beneath Config) error {
 	var refused []error
 
 	for _, setting := range homeOnlySettings() {
-		if setting.value(layer) != "" {
+		made := setting.value(layer)
+		if made != "" && made != setting.value(beneath) {
 			refused = append(refused, fmt.Errorf("%s: %w", setting.key, ErrHomeOnly))
 		}
 	}
