@@ -101,7 +101,7 @@ func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
 	m.review.polling = true
 	poll := ciPoll{review: m.reviewsBegun}
 
-	wait := m.messaging.pollInterval(m.cfg.UI.Notify, m.deps)
+	wait := m.messaging.pollInterval(m.cfg.UI, m.deps)
 
 	return m, tea.Batch(then, m.deps.after(wait, func(time.Time) tea.Msg { return poll }))
 }
@@ -113,9 +113,10 @@ const notifyPollInterval = 3 * time.Minute
 
 // pollInterval is how long to wait before asking about CI again. A post waiting
 // on CI wants a prompt answer, and a configured interval is always honored; a
-// bare notification, with no interval set, is content with a slower beat.
-func (s messagingState) pollInterval(notify bool, deps Deps) time.Duration {
-	if notify && !s.pending.waiting() && deps.CIInterval <= 0 {
+// bare notification, asked for in ui, with no interval set, is content with a
+// slower beat.
+func (s messagingState) pollInterval(ui config.UI, deps Deps) time.Duration {
+	if ui.Notify && !s.pending.waiting() && deps.CIInterval <= 0 {
 		return notifyPollInterval
 	}
 
