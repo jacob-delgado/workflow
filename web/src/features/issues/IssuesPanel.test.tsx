@@ -3,9 +3,18 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Issue } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeBranch, makeSnapshot, makeTask, makeTaskBranch } from '@/test/fixtures.ts'
+import {
+  describedTask,
+  makeBranch,
+  makeSnapshot,
+  makeTaskBranch,
+  standing,
+  taskFacet,
+  taskStanding,
+} from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { startedTokenLeak, tokenLeak as tokenLeakTask } from '@/test/tasks.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { IssuesPanel } from './IssuesPanel.tsx'
 
@@ -293,22 +302,48 @@ test('marks an issue in flight with the in-flight mark, beside the words', () =>
 function taskMarkRows(available: boolean) {
   const shipped: Issue = { ...setupDocs, key: 'PROJ-3', summary: 'Ship the release' }
   const untracked: Issue = { ...setupDocs, key: 'PROJ-4', summary: 'Plan the next one' }
+  const linkedFacets = [
+    taskFacet.noPriority,
+    taskFacet.noProject,
+    taskFacet.withIssue,
+    taskFacet.noTag,
+  ]
+  const unlinkedFields = { project: '', priority: '', tags: [] }
   const linked = [
-    makeTask({
-      uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
-      id: 1,
-      issue_key: 'PROJ-1',
-      start: '2026-09-28T09:00:00Z',
-      state: 'started',
-    }),
-    makeTask({ uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', id: 2, issue_key: 'PROJ-2' }),
-    makeTask({
-      uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3',
-      id: 0,
-      issue_key: 'PROJ-3',
-      status: 'completed',
-      state: 'completed',
-    }),
+    startedTokenLeak('2026-09-28T09:00:00Z'),
+    describedTask(
+      {
+        ...unlinkedFields,
+        uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
+        id: 2,
+        description: 'PROJ-2: Write the setup docs',
+        status: 'pending',
+        issue_key: 'PROJ-2',
+        issue_url: 'https://jira.example.com/browse/PROJ-2',
+      },
+      {
+        state: 'pending',
+        facets: [taskFacet.pending, ...linkedFacets],
+        searchable: ['proj-2: write the setup docs', '', 'proj-2', '#2'],
+      },
+    ),
+    describedTask(
+      {
+        ...unlinkedFields,
+        uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3',
+        id: 0,
+        description: 'PROJ-3: Ship the release',
+        status: 'completed',
+        end: '2026-09-28T10:00:00Z',
+        issue_key: 'PROJ-3',
+        issue_url: 'https://jira.example.com/browse/PROJ-3',
+      },
+      {
+        state: 'completed',
+        facets: [taskFacet.completed, ...linkedFacets],
+        searchable: ['proj-3: ship the release', '', 'proj-3'],
+      },
+    ),
   ]
   useSnapshotStore.setState({
     status: 'live',
@@ -347,15 +382,22 @@ test("marks each issue's task by shape, beside the words for it", () => {
 })
 
 test.each([
-  ['waits until a later date', { status: 'waiting', wait: '2099-01-01T00:00:00Z' }],
-  ['recurs', { status: 'recurring' }],
-] as const)('an issue whose only task %s is tracked, never done', (_, shape) => {
+  [
+    'waits until a later date',
+    taskStanding(
+      tokenLeakTask,
+      { status: 'waiting', wait: '2099-01-01T00:00:00Z' },
+      standing.waiting,
+    ),
+  ],
+  ['recurs', taskStanding(tokenLeakTask, { status: 'recurring' }, standing.recurring)],
+])('an issue whose only task %s is tracked, never done', (_, task) => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
       issues: { total: 1, start_at: 0, unavailable: [], issues: [tokenLeak] },
-      tasks: { available: true, reason: '', linked: [makeTask({ issue_key: 'PROJ-1', ...shape })] },
+      tasks: { available: true, reason: '', linked: [task] },
     }),
   })
 
