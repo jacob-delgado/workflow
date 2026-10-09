@@ -316,17 +316,15 @@ func lacksTaskrc(stderr string) bool {
 	return strings.Contains(stderr, "Cannot proceed without rc file")
 }
 
-// versionPattern is the version _version prints first: "3.5.0", perhaps
+// leadingVersion matches the version _version prints first: "3.5.0", perhaps
 // followed by the commit it was built from.
-func versionPattern() *regexp.Regexp {
-	return regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)`)
-}
+var leadingVersion = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)`)
 
 // parseVersion reads "3.5.0" or "3.5.0 (abc123)".
 func parseVersion(out []byte) ([3]int, string, error) {
 	firstLine, _, _ := strings.Cut(strings.TrimSpace(string(out)), "\n")
 
-	match := versionPattern().FindStringSubmatch(firstLine)
+	match := leadingVersion.FindStringSubmatch(firstLine)
 	if match == nil {
 		return [3]int{}, "", ErrNotTaskwarrior
 	}
