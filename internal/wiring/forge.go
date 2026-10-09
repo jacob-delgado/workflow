@@ -401,7 +401,7 @@ type ForgeAccess struct {
 func (e Environment) ReachForge(
 	ctx context.Context, settings config.Forge, repo forge.Repo, base string, httpTransport httpx.Doer,
 ) (ForgeAccess, error) {
-	transport, usingCLI := e.forgeTransport(ctx, settings, repo, base, httpTransport)
+	transport, usingCLI := e.forgeTransport(settings, repo, base, httpTransport)
 	if usingCLI {
 		program, _ := forgeProgram(repo.Kind)
 
