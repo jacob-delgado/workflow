@@ -878,7 +878,7 @@ export const stopTask = <ThrowOnError extends boolean = false>(options: Options<
 /**
  * Complete a task.
  *
- * Marks the task done, whatever context Taskwarrior has active. Answers the pending list after the write. Refused with 409 when Taskwarrior changes nothing — the task is no longer pending — and 422 when it is not available or refuses.
+ * Marks the task done, whatever context Taskwarrior has active. Answers the pending list after the write and, when the task is linked to an issue, the task as it stands done. Refused with 409 when Taskwarrior changes nothing — the task is no longer pending — and 422 when it is not available or refuses.
  */
 export const completeTask = <ThrowOnError extends boolean = false>(options: Options<CompleteTaskData, ThrowOnError>): RequestResult<CompleteTaskResponses, CompleteTaskErrors, ThrowOnError> => (options.client ?? client).post<CompleteTaskResponses, CompleteTaskErrors, ThrowOnError>({
     responseValidator: async (data) => await zCompleteTaskResponse.parseAsync(data),
