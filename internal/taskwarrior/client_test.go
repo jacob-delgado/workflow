@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
@@ -47,14 +48,16 @@ func showing() call {
 	return call{program: taskProgram, args: append(baseReadOverrides(), showWord)}
 }
 
-// The client's two reads, by name, and the runs they make that can fail.
+// The client's reads, by name, and the runs they make that can fail.
 const (
 	pendingRead = "pending"
 	linkedRead  = "linked"
+	touchedRead = "touched"
 
 	pendingContextRun = "pending's context"
 	pendingExportRun  = "pending's export"
 	linkedExportRun   = "linked's export"
+	touchedContextRun = "touched's context"
 )
 
 // The filter Pending adds to the export — status:pending alone leaves out a
@@ -69,9 +72,14 @@ const (
 // so a line made safe to show loses it, and a filter must not.
 const nonJoiner = string(rune(0x200C))
 
-// reads are the client's two reads, each reduced to its error.
+// reads are the client's reads, each reduced to its error.
 func reads() map[string]func(context.Context, taskwarrior.Client) error {
 	return map[string]func(context.Context, taskwarrior.Client) error{
+		touchedRead: func(ctx context.Context, client taskwarrior.Client) error {
+			_, err := client.Touched(ctx, time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC))
+
+			return err
+		},
 		pendingRead: func(ctx context.Context, client taskwarrior.Client) error {
 			_, err := client.Pending(ctx)
 
@@ -337,6 +345,7 @@ func TestAReadThatExitsOneIsARefusalInItsWords(t *testing.T) {
 		{name: pendingContextRun, read: pendingRead, failing: showWord},
 		{name: pendingExportRun, read: pendingRead, failing: exportWord},
 		{name: linkedExportRun, read: linkedRead, failing: exportWord},
+		{name: touchedContextRun, read: touchedRead, failing: showWord},
 	}
 
 	for _, test := range tests {
