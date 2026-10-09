@@ -246,17 +246,17 @@ export function describedTask(
 
 // taskStanding is task as the server answers it once Taskwarrior holds the
 // fields given for it — a status, a start, a wait or an end — and it reads the
-// task to stand as standing says, the first of its facets the state's. The
-// rest of what the server describes of the task stays as it was.
+// task to stand as standing says, its state's facet that one, wherever the
+// server put it. The rest of what the server describes of the task stays as
+// it was.
 export function taskStanding(
   task: Task,
   fields: Partial<Pick<TaskFields, 'status' | 'start' | 'wait' | 'end'>>,
   { state, facet }: Standing,
 ): Task {
-  return describedTask(
-    { ...task, ...fields },
-    { state, facets: [facet, ...task.facets.slice(1)], searchable: task.searchable },
-  )
+  const facets = task.facets.map((held) => (held.kind === 'state' ? facet : held))
+
+  return describedTask({ ...task, ...fields }, { state, facets, searchable: task.searchable })
 }
 
 // A contract-valid task list for tests: Taskwarrior available, holding the
