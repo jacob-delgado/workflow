@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -282,10 +283,7 @@ func taskwarriorTrouble(err error) string {
 // at, since go-task can come first on PATH and answer to task; task when the
 // error names none.
 func neverRunProgram(err error) string {
-	var neverRun taskwarrior.NeverRunError
-	if errors.As(err, &neverRun) && neverRun.Program != "" {
-		return sanitize.Line(neverRun.Program)
-	}
+	neverRun, _ := errors.AsType[taskwarrior.NeverRunError](err)
 
-	return "task"
+	return cmp.Or(sanitize.Line(neverRun.Program), "task")
 }
