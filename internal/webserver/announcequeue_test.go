@@ -33,6 +33,9 @@ const (
 	textField       = "text"
 	editedTextField = "edited_text"
 	editedText      = "Please review #42 today"
+	// whenField and whenCIPasses ask for an announcement held until CI passes.
+	whenField    = "when"
+	whenCIPasses = "ci_passes"
 	// notTheBranchesPull is why a held announcement is dropped once its pull
 	// request is not the branch's open one.
 	notTheBranchesPull = "#42 is no longer this branch's pull request"
@@ -150,7 +153,7 @@ func announceWhenGreen(t *testing.T, handler http.Handler, extra map[string]stri
 	t.Helper()
 
 	previewed := previewAnnouncement(t, handler)
-	fields := map[string]string{channelField: slackChannel, textField: previewed, "when": "ci_passes"}
+	fields := map[string]string{channelField: slackChannel, textField: previewed, whenField: whenCIPasses}
 	maps.Copy(fields, extra)
 
 	return postAnnounce(t, handler, fields)
@@ -644,7 +647,7 @@ func TestDryRunRefusesToHoldOrDropAnAnnouncement(t *testing.T) {
 	cases := map[string]struct{ method, path, body string }{
 		"holding one": {
 			method: http.MethodPost, path: announcePath, body: mustJSON(t, map[string]string{
-				channelField: slackChannel, "when": "ci_passes",
+				channelField: slackChannel, whenField: whenCIPasses,
 			}),
 		},
 		"dropping one": {method: http.MethodDelete, path: queuedPath},
