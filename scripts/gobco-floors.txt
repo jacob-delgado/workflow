@@ -1,0 +1,48 @@
+# Per-package condition coverage floors. The gate is scripts/gobco-report.sh
+# (task cover:branch), which holds the module as a whole to
+# BRANCH_COVERAGE_MIN in Taskfile.yml and each package named here to a floor
+# of its own as well.
+#
+# ONE ENTRY PER LINE:
+#
+#     <package dir>   <floor>
+#
+# the floor a whole percentage of the package's condition arms seen. Every
+# entry MUST carry a `#` comment on the line(s) DIRECTLY above it saying why
+# the package answers to a floor of its own; the gate fails an entry without
+# one, and an entry for a package a run over the whole module did not measure.
+#
+# WHY A PACKAGE GETS ONE. The module's floor is a share of every arm in it,
+# and internal/tui holds about a third of them, so a consequential package
+# can sit far below the module's figure without moving it: a credential
+# store's untested error arms disappear into the interface's. A package here
+# is one where an untested arm costs more than a wrong pixel — a credential,
+# the store on disk, the file that names them, the transport that carries
+# them — held where its own tests put it.
+#
+# Each floor is floor(measured) - 2 on the day it is set, like the module's,
+# and only ever raised: the gate prints the ratchet each package has
+# available, and a floor is raised once the coverage is already there. The
+# numbers live here and nowhere else; no document restates them.
+
+# internal/config reads, validates and saves .workflow.json, the file that
+# names every credential and which file may lend them, and refuses one
+# someone else could have written.
+internal/config 92
+
+# internal/httpx is the transport every client shares, refusing a redirect
+# that would carry a token to another host and bounding what an answer may
+# hold.
+internal/httpx 98
+
+# internal/keychain keeps a token in the OS keychain and reads it back.
+internal/keychain 98
+
+# internal/slackauth keeps the Slack user token and its refresh pair, rotates
+# them under a lock across processes, and stores them in a file or the
+# keychain.
+internal/slackauth 97
+
+# internal/store is the on-disk SQLite store: what it reads back from disk is
+# never trusted, and kept.db holds what the user decided and cannot see again.
+internal/store 89

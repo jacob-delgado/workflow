@@ -493,8 +493,10 @@ closure to set up or to check is clearer as a test of its own.
 
 **Read the coverage floors in the gates, never here** — `COVERAGE_MIN` and
 `BRANCH_COVERAGE_MIN` in `Taskfile.yml`, enforced by `scripts/coverage-gate.sh`
-and `scripts/gobco-report.sh`. A number restated in prose drifts from the number
-the gate enforces.
+and `scripts/gobco-report.sh`, and the condition floor each consequential
+package holds on its own in `scripts/gobco-floors.txt`, since one module-wide
+share lets a small package's gaps disappear into `internal/tui`'s. A number
+restated in prose drifts from the number the gate enforces.
 
 **Two coverage metrics, and the second is the useful one.** Statement coverage
 says a line ran; condition coverage (gobco, `task cover:branch`) says whether an
@@ -513,7 +515,8 @@ read fails the gate rather than quietly shrinking what the number covers.
 **Raising the floor: the ratchet is `floor(measured) − 2`.** Two points is the
 whole tolerance — enough for an incidental refactor, not enough to land a feature
 with its tests missing. A floor is raised only after the coverage is already
-there; the gate prints the available ratchet each run.
+there; the gate prints the available ratchet each run, the module's and each
+package floor's.
 
 These are minimums, not targets — aim higher where the code is consequential
 (credential handling, redaction, anything that touches a token).

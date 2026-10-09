@@ -14,7 +14,8 @@
 # unless a line of the allowlist keeps that arm for a trade-off; a line keeps
 # one arm, on the systems it names; a line whose arm a test now reaches, or
 # that is not shaped as one, fails too; and a boolean seen one way is only
-# listed.
+# listed. Each package the floors file names answers to its own floor beside
+# the module's, and a floor without a reason above it fails.
 #
 # The stand-in gobco says which package or file it measured, writes
 # GOBCO_STUB_STATS to the file after -stats, or nothing when that is empty,
@@ -25,8 +26,8 @@
 # GO_STUB_UNTESTED to the packages listed without tests; everything else
 # reaches the real go, so the untested packages checked are the module's own.
 # OUT_DIR is always a temporary directory, because the report empties the
-# directory it writes to. GOBCO_ALLOWLIST names an empty file unless a case
-# writes its own, so the repository's own lines play no part.
+# directory it writes to. GOBCO_ALLOWLIST and GOBCO_FLOORS name an empty file
+# unless a case writes its own, so the repository's own lines play no part.
 #
 # Usage:
 #   scripts/gobco-report_test.sh
@@ -87,7 +88,7 @@ readonly no_lines="${workdir}/no-lines.txt"
 expect() {
   expect_output "$1" "$2" "$5" env PATH="${workdir}/bin:${PATH}" REAL_GO="${real_go}" \
     OUT_DIR="${workdir}/out" GOBCO_STUB_STATS="$3" GO_STUB_UNTESTED="$4" \
-    GOBCO_ALLOWLIST="${GOBCO_ALLOWLIST:-${no_lines}}" \
+    GOBCO_ALLOWLIST="${GOBCO_ALLOWLIST:-${no_lines}}" GOBCO_FLOORS="${GOBCO_FLOORS:-${no_lines}}" \
     "${report}" "${@:6}"
 }
 
@@ -228,5 +229,34 @@ GOBCO_ALLOWLIST="${elsewhere}" expect pass "a line for another system, its arm s
 unnamed="$(allowlist unnamed "${fixture} reader.read any err != nil")"
 GOBCO_ALLOWLIST="${unnamed}" expect fail "an allowlist line naming no trade-off" "${seen_both_ways}" "" \
   "${unnamed}:2: want <file> <function> <TRADE-n> <systems> <condition>" --package "${buildinfo}" 50
+
+# floors writes a floors file holding the given lines, and names it.
+#   floors <name> [line...]
+floors() {
+  local file="${workdir}/floors-$1.txt"
+  shift
+  printf '%s\n' "$@" >"${file}"
+  printf '%s' "${file}"
+}
+
+# A package the floors file names answers to its own floor, though the
+# module's total stays above the module's.
+above="$(floors above "# buildinfo is consequential" "internal/buildinfo 60")"
+GOBCO_FLOORS="${above}" expect fail "a package below its own floor" "${one_way}" "" \
+  "internal/buildinfo's condition coverage 50.0% is below its 60% floor." --package "${buildinfo}" 50
+at="$(floors at "# buildinfo is consequential" "internal/buildinfo 50")"
+GOBCO_FLOORS="${at}" expect pass "a package at its own floor" "${one_way}" "" \
+  "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
+
+# Every floor says why it is there.
+unexplained="$(floors unexplained "internal/buildinfo 50")"
+GOBCO_FLOORS="${unexplained}" expect fail "a floor without a reason" "${one_way}" "" \
+  "${unexplained}:1: internal/buildinfo has no # comment above it saying why" --package "${buildinfo}" 50
+
+# A floor for a package the run measured nowhere is a floor for nothing.
+gone="$(floors gone "# a package long gone" "internal/gone 90")"
+# shellcheck disable=SC2086 # the roots are a deliberate multi-arg word list
+GOBCO_FLOORS="${gone}" expect fail "a floor for a package not measured" "${both_ways}" "" \
+  "${gone}:2: internal/gone was not measured" 50 ${go_pkgs}
 
 finish_tests
