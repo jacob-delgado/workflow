@@ -6,7 +6,15 @@ import { fakeApi } from '@/test/fakeApi.ts'
 import { makeSnapshot, makeTaskList, standing, taskStanding } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { certificate, tokenLeak, tracking, trackingDone } from '@/test/tasks.ts'
+import {
+  certificate,
+  firstInEveryOrder,
+  ranked,
+  secondInEveryOrder,
+  tokenLeak,
+  tracking,
+  trackingDone,
+} from '@/test/tasks.ts'
 import { IssueTasks } from './IssueTasks.tsx'
 import { TasksPanel } from './TasksPanel.tsx'
 
@@ -37,7 +45,9 @@ function statusSaying(text: string): HTMLElement | undefined {
 
 test("lists the issue's task with its mark, and offers to start it and mark it done", () => {
   // Arrange
-  streamLinked(tracking, tokenLeak)
+  // The stream links the token leak too, to its own issue: more urgent, with
+  // the lower id and key, it is first among the two in every order.
+  streamLinked(ranked(tracking, secondInEveryOrder), ranked(tokenLeak, firstInEveryOrder))
 
   // Act
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -177,7 +187,14 @@ test("the track's answer takes the place of the task list the page holds", async
   streamLinked()
   const requests = fakeApi({
     '/api/tasks': makeTaskList([certificate]),
-    '/api/tasks/track': makeTaskList([certificate, tracking], { added: tracking.uuid }),
+    // The certificate is more urgent, but only the new task tracks an issue.
+    '/api/tasks/track': makeTaskList(
+      [
+        ranked(certificate, { urgency: 0, state: 0, id: 0, tag: 0, issue: 1, priority: 0 }),
+        ranked(tracking, { urgency: 1, state: 1, id: 1, tag: 1, issue: 0, priority: 1 }),
+      ],
+      { added: tracking.uuid },
+    ),
   })
   renderWithClient(
     <>

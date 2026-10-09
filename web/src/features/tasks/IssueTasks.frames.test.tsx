@@ -14,7 +14,13 @@ import {
 } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { tracking, trackingDone } from '@/test/tasks.ts'
+import {
+  firstInEveryOrder,
+  ranked,
+  secondInEveryOrder,
+  tracking,
+  trackingDone,
+} from '@/test/tasks.ts'
 import { IssueTasks } from './IssueTasks.tsx'
 
 // How the issue's Tasks card keeps up with a write before the stream does:
@@ -158,9 +164,14 @@ test('a frame newer than the list no longer lists a task only the list held', as
   )
   streamLinked(tracking)
   fakeApi({
+    // Started, task 12 is first among the two in every order; task 13 is as
+    // urgent, but numbered after it.
     [`${trackingPath}/start`]: makeTaskList([
-      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
-      rotating,
+      ranked(
+        taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
+        firstInEveryOrder,
+      ),
+      ranked(rotating, secondInEveryOrder),
     ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)

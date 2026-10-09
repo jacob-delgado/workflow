@@ -4,7 +4,12 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { describedTask, makeSnapshot, standing, taskFacet, taskStanding } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { startedTokenLeak, tokenLeak as tokenLeakTask } from '@/test/tasks.ts'
+import {
+  firstInEveryOrder,
+  ranked,
+  startedTokenLeak,
+  tokenLeak as tokenLeakTask,
+} from '@/test/tasks.ts'
 import { IssuesPanel } from './IssuesPanel.tsx'
 
 // How each issue's row marks the tasks that track it: started, still to do,
@@ -42,8 +47,11 @@ function taskMarkRows(available: boolean) {
     taskFacet.noTag,
   ]
   const unlinkedFields = { project: '', priority: '', tags: [] }
+  // Each ranked as the server ranks the three: the started token leak first in
+  // every order; the other two, as urgent as each other, by id where they tie,
+  // the completed task, out of the working set, with none.
   const linked = [
-    startedTokenLeak('2026-09-28T09:00:00Z'),
+    ranked(startedTokenLeak('2026-09-28T09:00:00Z'), firstInEveryOrder),
     describedTask(
       {
         ...unlinkedFields,
@@ -53,6 +61,7 @@ function taskMarkRows(available: boolean) {
         status: 'pending',
         issue_key: 'PROJ-2',
         issue_url: 'https://jira.example.com/browse/PROJ-2',
+        ranks: { urgency: 2, state: 1, id: 1, tag: 2, issue: 1, priority: 2 },
       },
       {
         state: 'pending',
@@ -70,6 +79,7 @@ function taskMarkRows(available: boolean) {
         end: '2026-09-28T10:00:00Z',
         issue_key: 'PROJ-3',
         issue_url: 'https://jira.example.com/browse/PROJ-3',
+        ranks: { urgency: 1, state: 2, id: 2, tag: 1, issue: 2, priority: 1 },
       },
       {
         state: 'completed',

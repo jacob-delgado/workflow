@@ -3,13 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { describedTask, makeTaskList, taskFacet } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { firstInEveryOrder, ranked } from '@/test/tasks.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
 // unlinked are the fields of a task with no project or issue.
 const unlinked = { status: 'pending', project: '', issue_key: '', issue_url: '' } as const
 
 // Each task as the server describes it: its values, as it labels them, the
-// fields typed text matches, and its place in every order.
+// fields typed text matches, and its place in every order of the three.
 const urgent = describedTask(
   {
     ...unlinked,
@@ -119,7 +120,14 @@ test('sorting by priority lists the tasks by it, shows each one, and says so', a
 
 test('sorting by tag shows each task its tags', async () => {
   // Arrange
-  fakeApi({ '/api/tasks': makeTaskList([urgent, cache]) })
+  // Without the certificate the server ranks the two afresh: the cache first
+  // by tag and by priority, the token leak in every other order.
+  fakeApi({
+    '/api/tasks': makeTaskList([
+      ranked(urgent, { urgency: 0, state: 0, id: 0, tag: 1, issue: 0, priority: 1 }),
+      ranked(cache, { urgency: 1, state: 1, id: 1, tag: 0, issue: 1, priority: 0 }),
+    ]),
+  })
   renderWithClient(<TasksPanel />)
   const sort = await screen.findByRole('combobox', { name: 'Sort' })
 
@@ -164,7 +172,7 @@ test('sorting by priority shows each task its priority as the server labels it',
       facet.kind === 'priority' ? { ...facet, label: 'priority High' } : facet,
     ),
   })
-  fakeApi({ '/api/tasks': makeTaskList([labeled]) })
+  fakeApi({ '/api/tasks': makeTaskList([ranked(labeled, firstInEveryOrder)]) })
   renderWithClient(<TasksPanel />)
   const sort = await screen.findByRole('combobox', { name: 'Sort' })
 

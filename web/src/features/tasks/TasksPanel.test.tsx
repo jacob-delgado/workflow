@@ -8,7 +8,16 @@ import { FakeEventSource } from '@/test/fakeEventSource.ts'
 import { describedTask, makeSnapshot, makeTaskList, taskFacet } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { cacheTuning, certificate, retroRoom, startedTokenLeak, tokenLeak } from '@/test/tasks.ts'
+import {
+  cacheTuning,
+  certificate,
+  firstInEveryOrder,
+  ranked,
+  retroRoom,
+  secondInEveryOrder,
+  startedTokenLeak,
+  tokenLeak,
+} from '@/test/tasks.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
 const tasksPath = '/api/tasks'
@@ -31,6 +40,14 @@ const tokenLeakIssue: Issue = {
 
 // certificateDue is the certificate, due in a day and more.
 const certificateDue = { ...certificate, due: hoursFromNow(27.5) }
+
+// certificateAndCache are the certificate and the cache tuning as the server
+// ranks the two: the certificate first by urgency, and so wherever the two
+// tie, the cache tuning first by issue, since only it tracks one.
+const certificateAndCache = [
+  ranked(certificate, { urgency: 0, state: 0, id: 0, tag: 0, issue: 1, priority: 0 }),
+  ranked(cacheTuning, { urgency: 1, state: 1, id: 1, tag: 1, issue: 0, priority: 1 }),
+]
 
 // streamIssues puts a stream frame on screen whose Issues list holds the issues.
 function streamIssues(...issues: Issue[]) {
@@ -56,8 +73,17 @@ function statusSaying(text: string): HTMLElement | undefined {
 
 test('lists the tasks for your issues apart from the others, and counts those waiting', async () => {
   // Arrange
+  // The server hands the tasks over as Taskwarrior lists them, each ranked
+  // among the four; the page lists them by urgency, the waiting one apart.
   streamIssues(tokenLeakIssue)
-  fakeApi({ [tasksPath]: makeTaskList([tokenLeak, certificateDue, cacheTuning, retroRoom]) })
+  fakeApi({
+    [tasksPath]: makeTaskList([
+      ranked(retroRoom, { urgency: 3, state: 3, id: 3, tag: 3, issue: 3, priority: 3 }),
+      ranked(cacheTuning, { urgency: 2, state: 2, id: 2, tag: 2, issue: 1, priority: 2 }),
+      ranked(certificateDue, { urgency: 1, state: 1, id: 1, tag: 1, issue: 2, priority: 1 }),
+      ranked(tokenLeak, firstInEveryOrder),
+    ]),
+  })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -91,7 +117,7 @@ test('a row gives each fact after the task an element of its own', async () => {
 
 test('tasks all of one kind are one list, with no headings over it', async () => {
   // Arrange
-  fakeApi({ [tasksPath]: makeTaskList([certificate, cacheTuning]) })
+  fakeApi({ [tasksPath]: makeTaskList(certificateAndCache) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -105,7 +131,12 @@ test('tasks all of one kind are one list, with no headings over it', async () =>
 
 test('the mark beside each task is how far it has got, by shape, beside its words', async () => {
   // Arrange
-  fakeApi({ [tasksPath]: makeTaskList([startedTokenLeak(hoursFromNow(-1)), certificate]) })
+  fakeApi({
+    [tasksPath]: makeTaskList([
+      ranked(startedTokenLeak(hoursFromNow(-1)), firstInEveryOrder),
+      ranked(certificate, secondInEveryOrder),
+    ]),
+  })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -143,7 +174,7 @@ test('a task outside the working set shows no number', async () => {
 test('the first task is selected and its detail shown; choosing another shows its', async () => {
   // Arrange
   const user = userEvent.setup()
-  fakeApi({ [tasksPath]: makeTaskList([certificate, cacheTuning]) })
+  fakeApi({ [tasksPath]: makeTaskList(certificateAndCache) })
 
   // Act: list the tasks
   renderWithClient(<TasksPanel />)
@@ -321,7 +352,10 @@ test('the add line posts the typed line and lists what Taskwarrior answers', asy
   const requests = fakeApi({
     [tasksPath]: (_: URL, asked: Request) =>
       asked.method === 'POST'
-        ? makeTaskList([certificate, added], { added: added.uuid })
+        ? makeTaskList(
+            [ranked(certificate, firstInEveryOrder), ranked(added, secondInEveryOrder)],
+            { added: added.uuid },
+          )
         : makeTaskList([certificate]),
   })
   renderWithClient(<TasksPanel />)

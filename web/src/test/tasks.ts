@@ -1,10 +1,39 @@
-import type { Task } from '@/api/generated/types.gen.ts'
+import type { Task, TaskRanks } from '@/api/generated/types.gen.ts'
 import { describedTask, standing, taskFacet, taskStanding } from './fixtures.ts'
 
 // The tasks the Tasks section's and the issue's Tasks card's cases share, each
 // as the server answers it: what Taskwarrior holds of it and what the server
-// describes, written out together. Each is the only task of its list, so
-// first in every order, unless a case gives it its place.
+// describes, written out together. Each carries the ranks of the only task of
+// its list, first in every order; a case that lists several together gives
+// each its place in every order of that list with ranked, written out as the
+// server ranks it.
+
+// ranked is task at the places the server gives it in each order of the list
+// a case answers it in.
+export function ranked(task: Task, ranks: TaskRanks): Task {
+  return { ...task, ranks }
+}
+
+// firstInEveryOrder is the place of a task first in every order of its list.
+export const firstInEveryOrder: TaskRanks = {
+  urgency: 0,
+  state: 0,
+  id: 0,
+  tag: 0,
+  issue: 0,
+  priority: 0,
+}
+
+// secondInEveryOrder is the place of a task second in every order of its
+// list.
+export const secondInEveryOrder: TaskRanks = {
+  urgency: 1,
+  state: 1,
+  id: 1,
+  tag: 1,
+  issue: 1,
+  priority: 1,
+}
 
 const hour = 3_600_000
 
