@@ -315,15 +315,15 @@ for (const { of, act } of refusals) {
 const renew: Task = {
   ...tracking,
   uuid: '6a2e8b4d-0c3f-4d9e-b7a1-4f2c3d5e6b7a',
-  id: 2,
+  id: 3,
   description: 'Renew the staging certificate',
   priority: 'H',
   tags: ['ops'],
   urgency: 4.1,
   issue_key: '',
   facets: [pending, priorityH, noProject, noIssue, tagOps],
-  ranks: { urgency: 2, state: 2, id: 1, tag: 0, issue: 2, priority: 1 },
-  searchable: ['renew the staging certificate', '', '', '+ops', '#2'],
+  ranks: { urgency: 2, state: 2, id: 2, tag: 0, issue: 2, priority: 1 },
+  searchable: ['renew the staging certificate', '', '', '+ops', '#3'],
 }
 
 // rotate is another task for no issue, with renew's priority but no tag: more
@@ -331,14 +331,14 @@ const renew: Task = {
 const rotate: Task = {
   ...tracking,
   uuid: '7b3f9c5e-1d4a-4e0f-a8b2-5a3d4e6f7c8b',
-  id: 3,
+  id: 2,
   description: 'Rotate the staging database password',
   priority: 'H',
   urgency: 6.3,
   issue_key: '',
   facets: [pending, priorityH, noProject, noIssue, noTag],
-  ranks: { urgency: 1, state: 1, id: 2, tag: 2, issue: 1, priority: 0 },
-  searchable: ['rotate the staging database password', '', '', '#3'],
+  ranks: { urgency: 1, state: 1, id: 1, tag: 2, issue: 1, priority: 0 },
+  searchable: ['rotate the staging database password', '', '', '#2'],
 }
 
 // trackingAmongThree is tracking listed with renew and rotate: the most urgent,
