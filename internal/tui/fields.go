@@ -213,8 +213,9 @@ func (p statusPicker) handleFormKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cm
 }
 
 // pasted types a paste into a transition's text field while one is filled in.
+// The form closes before its move is sent, so none is open while one is out.
 func (p statusPicker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if p.send.sending || !p.form.open() || !p.form.textual() {
+	if !p.form.open() || !p.form.textual() {
 		return m, nil
 	}
 
