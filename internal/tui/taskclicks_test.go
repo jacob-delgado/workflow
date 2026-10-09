@@ -14,6 +14,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
+// nineSelected is task 9's row with the cursor on it.
+const nineSelected = "▸ ○   9 Renew the cert"
+
 func TestClickingATaskBelowTheHeadingSelectsIt(t *testing.T) {
 	t.Parallel()
 
@@ -27,7 +30,7 @@ func TestClickingATaskBelowTheHeadingSelectsIt(t *testing.T) {
 	view := click(t, model, 60, 5).View().Content
 
 	// Assert
-	requireScreen(t, view, "▸ ○   9 Renew the cert")
+	requireScreen(t, view, nineSelected)
 }
 
 func TestClickingTheHeadingKeepsTheSelection(t *testing.T) {
@@ -99,7 +102,7 @@ func TestAClickSelectsOnlyATaskDrawnOnItsRow(t *testing.T) {
 		},
 		// 9 alone on row 2, and how many wait on row 3.
 		"below the last task": {
-			world: withLooseTasksOnly, keys: []string{tasksPane}, row: 3, want: "▸ ○   9 Renew the cert",
+			world: withLooseTasksOnly, keys: []string{tasksPane}, row: 3, want: nineSelected,
 		},
 	}
 
