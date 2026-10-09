@@ -124,6 +124,9 @@ func (o hookgenOffer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
+// which names the lefthook offer.
+func (hookgenOffer) which() overlayKind { return overlayHookgenOffer }
+
 // write writes the configuration and installs lefthook.
 func (o hookgenOffer) write(m Model, generated hooks.Generated) (Model, tea.Cmd) {
 	if m.dryRun {

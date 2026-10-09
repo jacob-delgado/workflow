@@ -103,6 +103,9 @@ func (p dirPrompt) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
+// which names the directory prompt.
+func (dirPrompt) which() overlayKind { return overlayDirPrompt }
+
 // pasted types a paste into the path, as typing it would.
 func (p dirPrompt) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 	if p.looking {

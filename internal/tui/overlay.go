@@ -29,6 +29,9 @@ type overlay interface {
 	// footer is the keys that do something in it right now.
 	footer(keys keyMap) []key.Binding
 	handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
+	// which is the kind of overlay it is, which names the key context
+	// CheckKeys reads for it.
+	which() overlayKind
 }
 
 // renderKit is what an overlay draws with: the interface's glyphs and styles,
@@ -275,6 +278,9 @@ func (l lastLook) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
+// which names a last look.
+func (lastLook) which() overlayKind { return overlayLastLook }
+
 // pasted types a bracketed paste into whatever is taking text: the open
 // overlay's field, or the Issues filter. Elsewhere a paste does nothing, as an
 // unbound key does.
@@ -369,6 +375,9 @@ func (c checklist[F]) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	return m, nil
 }
+
+// which names a checklist.
+func (checklist[F]) which() overlayKind { return overlayChecklist }
 
 // toggled is the checklist with the value under the cursor picked, or unpicked
 // when it was.

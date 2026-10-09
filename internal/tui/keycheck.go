@@ -134,15 +134,134 @@ func keyContexts() []keyContext {
 // refresh to read the Slack directory again. The comment composer moves with
 // up and down and hands its body to the editor.
 func overlayContexts() []keyContext {
-	return []keyContext{
-		{"a running command", []int{groupMoving, groupEverywhere, groupRunning}, nil},
-		{
-			"a composer or preview",
-			[]int{groupEverywhere, groupComposer},
-			[]string{actionUp, actionDown, actionFirst, actionLast, actionRefresh},
-		},
-		{"the comment composer", []int{groupEverywhere, groupWriting}, []string{actionUp, actionDown, "edit-body"}},
+	return []keyContext{runningContext(), composingContext(), commentingContext()}
+}
+
+// runningContext is the keys live while a command runs.
+func runningContext() keyContext {
+	return keyContext{"a running command", []int{groupMoving, groupEverywhere, groupRunning}, nil}
+}
+
+// composingContext is the keys live in a composer or preview.
+func composingContext() keyContext {
+	return keyContext{
+		"a composer or preview",
+		[]int{groupEverywhere, groupComposer},
+		[]string{actionUp, actionDown, actionFirst, actionLast, actionRefresh},
 	}
+}
+
+// commentingContext is the keys live in the comment composer.
+func commentingContext() keyContext {
+	return keyContext{
+		"the comment composer", []int{groupEverywhere, groupWriting}, []string{actionUp, actionDown, "edit-body"},
+	}
+}
+
+// overlayKind is which overlay one is: every overlay names its own, and its
+// kind names the key context CheckKeys reads for it.
+type overlayKind int
+
+const (
+	overlayAmendPreview overlayKind = iota
+	overlayBranchCreator
+	overlayBranchLinker
+	overlayBranchPicker
+	overlayCalendar
+	overlayChecklist
+	overlayChecks
+	overlayCommandRun
+	overlayCommentComposer
+	overlayCommentPreview
+	overlayCommitComposer
+	overlayDirPrompt
+	overlayFinishPreview
+	overlayFixupPicker
+	overlayHelp
+	overlayHookgenOffer
+	overlayIssueLinker
+	overlayIssueWrite
+	overlayJobLog
+	overlayLastLook
+	overlayLocalData
+	overlayMergePicker
+	overlayMessagingPreview
+	overlayOwnerPicker
+	overlayPeople
+	overlayPRComposer
+	overlayPREditor
+	overlayQuitGuard
+	overlaySettings
+	overlaySetupForm
+	overlayStatusPicker
+	overlaySummaryPost
+	overlayTaskLine
+)
+
+// keyContext is the keys live while an overlay of the kind is open. The
+// table is a map keyed by kind so that exhaustive refuses a kind left out.
+func (k overlayKind) keyContext() keyContext {
+	running, composing, commenting := runningContext(), composingContext(), commentingContext()
+
+	return map[overlayKind]keyContext{
+		overlayAmendPreview: composing, overlayBranchCreator: composing, overlayBranchLinker: composing,
+		overlayBranchPicker: composing, overlayCalendar: composing, overlayChecklist: composing,
+		overlayChecks: composing, overlayCommandRun: running, overlayCommentComposer: commenting,
+		overlayCommentPreview: composing, overlayCommitComposer: composing, overlayDirPrompt: composing,
+		overlayFinishPreview: composing, overlayFixupPicker: composing, overlayHelp: composing,
+		overlayHookgenOffer: composing, overlayIssueLinker: composing, overlayIssueWrite: composing,
+		overlayJobLog: composing, overlayLastLook: composing, overlayLocalData: composing,
+		overlayMergePicker: composing, overlayMessagingPreview: composing, overlayOwnerPicker: composing,
+		overlayPeople: composing, overlayPRComposer: composing, overlayPREditor: composing,
+		overlayQuitGuard: composing, overlaySettings: composing, overlaySetupForm: composing,
+		overlayStatusPicker: composing, overlaySummaryPost: composing, overlayTaskLine: composing,
+	}[k]
+}
+
+// KeyContext is one keyboard surface — a pane, or an overlay while it is
+// open — by name, and every action live on it at once. CheckKeys refuses a
+// ui.keys map that binds two of its actions to one key.
+type KeyContext struct {
+	Name    string
+	Actions []string
+}
+
+// OverlayKeyContexts is the key context of every overlay, as CheckKeys
+// reads them.
+func OverlayKeyContexts() []KeyContext {
+	contexts := overlayContexts()
+	listed := make([]KeyContext, 0, len(contexts))
+
+	for _, context := range contexts {
+		listed = append(listed, context.listed())
+	}
+
+	return listed
+}
+
+// OverlayKeyContext is the open overlay's key context, as CheckKeys reads
+// it, and false when no overlay is open.
+func (m Model) OverlayKeyContext() (KeyContext, bool) {
+	if m.overlay == nil {
+		return KeyContext{}, false
+	}
+
+	return m.overlay.which().keyContext().listed(), true
+}
+
+// listed is the context by name, with every action live in it in the order
+// the keymap defines them.
+func (c keyContext) listed() KeyContext {
+	_, builder := compileKeys(unicodeGlyphs(), "pull request", "Slack", nil)
+	listed := KeyContext{Name: c.name}
+
+	for _, placed := range builder.placements {
+		if c.covers(placed) {
+			listed.Actions = append(listed.Actions, placed.action)
+		}
+	}
+
+	return listed
 }
 
 // conflicts rejects the first context in which two actions share a key.

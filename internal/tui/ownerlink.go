@@ -349,6 +349,9 @@ func (p ownerPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the owner picker.
+func (ownerPicker) which() overlayKind { return overlayOwnerPicker }
+
 // pasted types a paste into the filter, its lines joined by spaces, as typing
 // it would.
 func (p ownerPicker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {

@@ -104,6 +104,9 @@ func (p commentPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 	}
 }
 
+// which names the comment preview.
+func (commentPreview) which() overlayKind { return overlayCommentPreview }
+
 // post sends the comment.
 func (p commentPreview) post(m Model) (Model, tea.Cmd) {
 	issueKey := p.composer.issue.Key
