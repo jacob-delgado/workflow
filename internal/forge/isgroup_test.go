@@ -49,17 +49,35 @@ func TestIsGroupTellsAGitLabGroupFromAPerson(t *testing.T) {
 func TestIsGroupSaysWhyItCannotTell(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	client, _ := recordingForge(t, func(recorded) (int, string) {
-		return http.StatusBadGateway, `{"message":"502 Bad Gateway"}`
-	})
+	failing := func(recorded) (int, string) { return http.StatusBadGateway, `{"message":"502 Bad Gateway"}` }
+	noUser := gitlabKnowing(nil, nil)
 
-	// Act
-	_, err := client.On(forge.KindGitLab).IsGroup(t.Context(), "acme")
+	cases := map[string]func(recorded) (int, string){
+		"GitLab failing to look the name up as a user": failing,
+		"GitLab failing to read the group, once it knows no user by the name": func(asked recorded) (int, string) {
+			if asked.path == "/groups/acme/members" {
+				return failing(asked)
+			}
 
-	// Assert
-	if err == nil {
-		t.Error("IsGroup with GitLab failing = nil error, want the failure")
+			return noUser(asked)
+		},
+	}
+
+	for name, answer := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client, _ := recordingForge(t, answer)
+
+			// Act
+			group, err := client.On(forge.KindGitLab).IsGroup(t.Context(), "acme")
+
+			// Assert
+			if group || !errors.Is(err, forge.ErrUnexpectedStatus) {
+				t.Errorf("IsGroup with GitLab failing = %v, %v; want no group and the failure", group, err)
+			}
+		})
 	}
 }
 

@@ -4,6 +4,7 @@
 package forge_test
 
 import (
+	"fmt"
 	"io/fs"
 	"slices"
 	"strings"
@@ -13,8 +14,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
-// githubDefault is where the single GitHub template in these fixtures lives.
-const githubDefault = ".github/PULL_REQUEST_TEMPLATE.md"
+// githubDefault is where the single GitHub template in these fixtures lives,
+// and githubFeature one of a folder of them, named featureName.
+const (
+	githubDefault = ".github/PULL_REQUEST_TEMPLATE.md"
+	githubFeature = ".github/PULL_REQUEST_TEMPLATE/feature.md"
+	featureName   = "feature"
+)
 
 // file is a fixture file with the given contents.
 func file(contents string) *fstest.MapFile {
@@ -37,7 +43,7 @@ func TestGitHubTemplatesAreFoundWhereverGitHubLooks(t *testing.T) {
 	// Arrange
 	repo := fstest.MapFS{
 		githubDefault: file("## What this changes\n"),
-		".github/PULL_REQUEST_TEMPLATE/feature.md":   file("## Feature\n"),
+		githubFeature: file("## Feature\n"),
 		".github/PULL_REQUEST_TEMPLATE/bugfix.md":    file("## Bug\n"),
 		".github/PULL_REQUEST_TEMPLATE/notes.json":   file("{}"),
 		"docs/pull_request_template.md":              file("## Docs\n"),
@@ -51,7 +57,7 @@ func TestGitHubTemplatesAreFoundWhereverGitHubLooks(t *testing.T) {
 	// Assert
 	// The single template is the default and comes first; a folder of them
 	// follows, by name. Case does not matter to GitHub, so not here either.
-	want := []string{"PULL_REQUEST_TEMPLATE", "pull_request_template", "bugfix", "feature"}
+	want := []string{"PULL_REQUEST_TEMPLATE", "pull_request_template", "bugfix", featureName}
 	if got := templateNames(found); !slices.Equal(got, want) {
 		t.Fatalf("FindTemplates = %q, want %q", got, want)
 	}
@@ -114,16 +120,62 @@ func TestATemplateThatCannotBeReadIsLeftOut(t *testing.T) {
 	// A link to a file the repository does not hold is listed like a template
 	// but cannot be read; the one beside it can.
 	repo := fstest.MapFS{
-		".github/PULL_REQUEST_TEMPLATE/feature.md": file("## Feature\n"),
-		".github/PULL_REQUEST_TEMPLATE/gone.md":    {Data: []byte("nowhere.md"), Mode: fs.ModeSymlink},
+		githubFeature:                           file("## Feature\n"),
+		".github/PULL_REQUEST_TEMPLATE/gone.md": {Data: []byte("nowhere.md"), Mode: fs.ModeSymlink},
 	}
 
 	// Act
 	found := forge.FindTemplates(repo, forge.KindGitHub)
 
 	// Assert
-	if got, want := templateNames(found), []string{"feature"}; !slices.Equal(got, want) {
+	if got, want := templateNames(found), []string{featureName}; !slices.Equal(got, want) {
 		t.Errorf("FindTemplates = %q, want %q: the unreadable one left out, the other kept", got, want)
+	}
+}
+
+// breakingRepo is a repository whose file at broken opens, then breaks off
+// when it is read, as one on a failing disk or a dropped network share does.
+type breakingRepo struct {
+	fstest.MapFS
+
+	broken string
+}
+
+func (r breakingRepo) Open(name string) (fs.File, error) {
+	opened, err := r.MapFS.Open(name)
+	if err != nil {
+		return nil, fmt.Errorf("opening %s: %w", name, err)
+	}
+
+	if name == r.broken {
+		return breakingFile{File: opened}, nil
+	}
+
+	return opened, nil
+}
+
+// breakingFile is a file whose every read fails.
+type breakingFile struct {
+	fs.File
+}
+
+func (breakingFile) Read([]byte) (int, error) { return 0, errBrokeOff }
+
+func TestATemplateThatBreaksOffWhileReadIsLeftOut(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := breakingRepo{MapFS: fstest.MapFS{
+		githubFeature: file("## Feature\n"),
+		".github/PULL_REQUEST_TEMPLATE/broken.md": file("## Half of it\n"),
+	}, broken: ".github/PULL_REQUEST_TEMPLATE/broken.md"}
+
+	// Act
+	found := forge.FindTemplates(repo, forge.KindGitHub)
+
+	// Assert
+	if got, want := templateNames(found), []string{featureName}; !slices.Equal(got, want) {
+		t.Errorf("FindTemplates = %q, want %q: the one that broke off left out, the other kept", got, want)
 	}
 }
 

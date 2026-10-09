@@ -96,6 +96,31 @@ func TestCreateMergeRequestOnGitLabLeavesOutTeamMembersWhoCannotApprove(t *testi
 	}
 }
 
+func TestCreateMergeRequestOnGitLabLeavesOutMembersWhoseMembershipIsNotActive(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// An invitation not yet accepted is a membership awaiting; one GitLab
+	// says nothing of is taken as standing.
+	client, seen := recordingForge(t, gitlabKnowing(nil, map[string]string{
+		membersPath: `[{"id":1,"username":"joined","state":"active","membership_state":"active","access_level":30},` +
+			`{"id":2,"username":"invited","state":"active","membership_state":"awaiting","access_level":30},` +
+			`{"id":3,"username":"unsaid","state":"active","access_level":30}]`,
+	}))
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
+	})
+
+	// Assert
+	opened := requestTo(*seen, gitlabMergesPath)
+	if err != nil || !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(1), float64(3)}) {
+		t.Errorf("reviewer_ids = %v, %v; want the joined member's and the one GitLab said nothing of",
+			opened.body["reviewer_ids"], err)
+	}
+}
+
 func TestCreateMergeRequestOnGitLabAsksATeamsActiveMembersToReview(t *testing.T) {
 	t.Parallel()
 

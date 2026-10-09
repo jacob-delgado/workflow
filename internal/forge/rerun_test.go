@@ -108,6 +108,24 @@ func TestRerunChecksRetriesGitLabsPipeline(t *testing.T) {
 	}
 }
 
+func TestRerunChecksReportsARefusedGitLabRetry(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The token can read the merge request but not retry its pipeline.
+	client, _ := recordingForge(t, conversation(
+		map[string]string{failedMergePath: `{"iid":8,"head_pipeline":{"id":99}}`},
+		map[string]bool{"/projects/group%2Fsub%2Frepo/pipelines/99/retry": true}))
+
+	// Act
+	reran, err := client.RerunChecks(t.Context(), gitlabRepo(), forge.PullRequest{Number: 8}, "")
+
+	// Assert
+	if reran || !errors.Is(err, forge.ErrRefused) {
+		t.Errorf("RerunChecks = %v, %v; want nothing retried and ErrRefused", reran, err)
+	}
+}
+
 func TestRerunChecksReportsARefusedRerun(t *testing.T) {
 	t.Parallel()
 
