@@ -159,12 +159,6 @@ type Forge struct {
 	// Author is who the forge credential belongs to, to say who opened a pull
 	// request.
 	Author func() (string, error)
-	// GroupMembers lists a GitLab group's direct members who can review, by
-	// username, the group named by its full path, so a CODEOWNERS group can
-	// stand for its people. On GitHub, whose teams review as teams, and with
-	// no forge, it asks nothing and answers forge.ErrNotSupported. Which
-	// forge it is follows the settings in effect at each call.
-	GroupMembers func(group string) ([]string, error)
 	// IsGroup reports whether a bare CODEOWNERS name, @acme, is a top-level
 	// GitLab group rather than a user, so it is tagged as a team. On GitHub,
 	// whose teams are spelled org/team, and with no forge, it asks nothing and
