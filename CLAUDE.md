@@ -318,7 +318,7 @@ without agreement on direction.
     case is added without a branch. Package-level `var Err… = errors.New(…)`
     sentinels are exempt and stay. A compiled regular expression is the
     exception the linter itself makes: declare it once as a package-level
-    `var name = regexp.MustCompile(...)`, named for what it matches, rather
+    `var name = regexp.MustCompile(…)`, named for what it matches, rather
     than compiling it in a helper on every call. Only a pattern built from
     run-time input keeps a builder, called outside any loop.
   - **L — Liskov substitution.** An implementation honors the contract its
