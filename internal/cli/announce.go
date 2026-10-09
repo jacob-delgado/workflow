@@ -386,12 +386,9 @@ func (t announceTagging) propose(
 }
 
 // localBase is the base the branch is read to have left, or empty when the
-// branch cannot be read.
+// branch cannot be read: a read that fails is no branch, which left no base.
 func localBase(branch func() (gitrepo.Branch, error)) string {
-	current, err := branch()
-	if err != nil {
-		return ""
-	}
+	current, _ := branch()
 
 	return current.Base
 }
@@ -406,10 +403,8 @@ func (t announceTagging) missingScope(tags loop.Tags) (string, bool) {
 		return "", false
 	}
 
-	grant, err := t.Grant()
-	if err != nil {
-		return "", false
-	}
+	// A grant that cannot be read lists no scopes, so it lacks none.
+	grant, _ := t.Grant()
 
 	needed := []string{"users:read", "channels:read", "groups:read"}
 	if len(tags.Groups) > 0 {
