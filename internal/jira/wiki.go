@@ -15,6 +15,43 @@ import (
 // A NUL byte, which comment text does not carry.
 const boldSentinel = "\x00"
 
+// markdownHeading matches a Markdown heading line: its run of #s, then its text.
+var markdownHeading = regexp.MustCompile(`^(#{1,6}) (.*)$`)
+
+// unorderedItem matches a Markdown bulleted list item, capturing its text.
+var unorderedItem = regexp.MustCompile(`^[-*+] (.*)$`)
+
+// orderedItem matches a Markdown numbered list item, capturing its text.
+var orderedItem = regexp.MustCompile(`^\d+\. (.*)$`)
+
+// inlineCodeSpan matches a `code` span, capturing what is between the backticks.
+var inlineCodeSpan = regexp.MustCompile("`([^`]+)`")
+
+// linkOrImage matches a link, or — when the "!" group is present — an image. The
+// URL group allows one level of balanced parentheses, for destinations like a
+// Wikipedia "..._(disambiguation)" page.
+var linkOrImage = regexp.MustCompile(`(!?)\[([^\]]*)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)`)
+
+// strikethroughSpan matches ~~struck~~ text.
+var strikethroughSpan = regexp.MustCompile(`~~(.+?)~~`)
+
+// boldItalicSpan matches ***bold italic*** text.
+var boldItalicSpan = regexp.MustCompile(`\*\*\*(.+?)\*\*\*`)
+
+// starBoldSpan matches **bold** text.
+var starBoldSpan = regexp.MustCompile(`\*\*(.+?)\*\*`)
+
+// underscoreBoldSpan matches __bold__ only when the delimiters are flanked by a
+// non-word character (or the string's edge), so an intraword double underscore —
+// a dunder identifier — is left literal. The flanking characters are captured
+// and re-emitted around the converted span.
+var underscoreBoldSpan = regexp.MustCompile(`(^|[^\w])__(.+?)__([^\w]|$)`)
+
+// starItalicSpan matches *italic* only when the content neither opens nor closes
+// with whitespace, so a bare asterisk between spaces — multiplication, a glob —
+// is not read as emphasis.
+var starItalicSpan = regexp.MustCompile(`\*([^\s*](?:[^*]*?[^\s*])?)\*`)
+
 // WikiFromMarkdown rewrites the Markdown a comment was written in as the wiki
 // markup Jira renders: headings, emphasis, inline and fenced code, links,
 // images, and lists. Text with no Markdown comes back unchanged, so it is safe
@@ -97,7 +134,7 @@ func convertLine(line string) string {
 // item — returning the wiki prefix and the text after it, or no prefix and the
 // line unchanged.
 func blockPrefix(line string) (string, string) {
-	if match := headingRE().FindStringSubmatch(line); match != nil {
+	if match := markdownHeading.FindStringSubmatch(line); match != nil {
 		return "h" + strconv.Itoa(len(match[1])) + ". ", match[2]
 	}
 
@@ -105,11 +142,11 @@ func blockPrefix(line string) (string, string) {
 		return "bq. ", rest
 	}
 
-	if match := unorderedRE().FindStringSubmatch(line); match != nil {
+	if match := unorderedItem.FindStringSubmatch(line); match != nil {
 		return "* ", match[1]
 	}
 
-	if match := orderedRE().FindStringSubmatch(line); match != nil {
+	if match := orderedItem.FindStringSubmatch(line); match != nil {
 		return "# ", match[1]
 	}
 
@@ -122,7 +159,7 @@ func convertInline(text string) string {
 	var out strings.Builder
 
 	last := 0
-	for _, span := range inlineCodeRE().FindAllStringSubmatchIndex(text, -1) {
+	for _, span := range inlineCodeSpan.FindAllStringSubmatchIndex(text, -1) {
 		out.WriteString(convertEmphasis(text[last:span[0]]))
 		out.WriteString("{{")
 		out.WriteString(text[span[2]:span[3]])
@@ -144,7 +181,7 @@ func convertEmphasis(text string) string {
 	var out strings.Builder
 
 	last := 0
-	for _, span := range linkRE().FindAllStringSubmatchIndex(text, -1) {
+	for _, span := range linkOrImage.FindAllStringSubmatchIndex(text, -1) {
 		out.WriteString(emphasize(text[last:span[0]]))
 		writeLinkOrImage(&out, text, span)
 
@@ -180,37 +217,11 @@ func writeLinkOrImage(out *strings.Builder, text string, span []int) {
 // span. Bold is parked on a sentinel first so the italic pass does not mistake a
 // fresh single asterisk for an italic of its own.
 func emphasize(text string) string {
-	text = strikeRE().ReplaceAllString(text, "-${1}-")
-	text = boldItalicRE().ReplaceAllString(text, boldSentinel+"_${1}_"+boldSentinel)
-	text = boldStarRE().ReplaceAllString(text, boldSentinel+"${1}"+boldSentinel)
-	text = boldUnderRE().ReplaceAllString(text, "${1}"+boldSentinel+"${2}"+boldSentinel+"${3}")
-	text = italicStarRE().ReplaceAllString(text, "_${1}_")
+	text = strikethroughSpan.ReplaceAllString(text, "-${1}-")
+	text = boldItalicSpan.ReplaceAllString(text, boldSentinel+"_${1}_"+boldSentinel)
+	text = starBoldSpan.ReplaceAllString(text, boldSentinel+"${1}"+boldSentinel)
+	text = underscoreBoldSpan.ReplaceAllString(text, "${1}"+boldSentinel+"${2}"+boldSentinel+"${3}")
+	text = starItalicSpan.ReplaceAllString(text, "_${1}_")
 
 	return strings.ReplaceAll(text, boldSentinel, "*")
 }
-
-func headingRE() *regexp.Regexp    { return regexp.MustCompile(`^(#{1,6}) (.*)$`) }
-func unorderedRE() *regexp.Regexp  { return regexp.MustCompile(`^[-*+] (.*)$`) }
-func orderedRE() *regexp.Regexp    { return regexp.MustCompile(`^\d+\. (.*)$`) }
-func inlineCodeRE() *regexp.Regexp { return regexp.MustCompile("`([^`]+)`") }
-func strikeRE() *regexp.Regexp     { return regexp.MustCompile(`~~(.+?)~~`) }
-func boldItalicRE() *regexp.Regexp { return regexp.MustCompile(`\*\*\*(.+?)\*\*\*`) }
-func boldStarRE() *regexp.Regexp   { return regexp.MustCompile(`\*\*(.+?)\*\*`) }
-
-// linkRE matches a link, or — when the "!" group is present — an image. The URL
-// group allows one level of balanced parentheses, for destinations like a
-// Wikipedia "..._(disambiguation)" page.
-func linkRE() *regexp.Regexp {
-	return regexp.MustCompile(`(!?)\[([^\]]*)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)`)
-}
-
-// boldUnderRE matches __bold__ only when the delimiters are flanked by a
-// non-word character (or the string's edge), so an intraword double underscore —
-// a dunder identifier — is left literal. The flanking characters are captured
-// and re-emitted around the converted span.
-func boldUnderRE() *regexp.Regexp { return regexp.MustCompile(`(^|[^\w])__(.+?)__([^\w]|$)`) }
-
-// italicStarRE matches *italic* only when the content neither opens nor closes
-// with whitespace, so a bare asterisk between spaces — multiplication, a glob —
-// is not read as emphasis.
-func italicStarRE() *regexp.Regexp { return regexp.MustCompile(`\*([^\s*](?:[^*]*?[^\s*])?)\*`) }
