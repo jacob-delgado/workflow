@@ -112,13 +112,13 @@ so it sits below the surfaces and above `internal/loop`.
   origin remote URL. `Environment.Locate` reads it for a directory, once per
   interface.
 - The CLI builds this bundle in its root `RunE`; `--web` reuses **the same
-  bundle**, adapted to the web server's shape. That shared construction is one
-  half of why there is one implementation behind three front doors;
-  `internal/loop`, below, is the other. Before the interface or `--web` starts,
-  the CLI calls `resolveAhead`, which looks up the Jira token in advance, so a
-  token command that prompts on the terminal can be answered before either
-  takes the terminal over. A token not found then is looked for again on first
-  use, where its failure is reported.
+  bundle**, its seam groups handed over whole by `cli.WebDeps`. That shared
+  construction is one half of why there is one implementation behind three front
+  doors; `internal/loop`, below, is the other. Before the interface or `--web`
+  starts, the CLI calls `resolveAhead`, which looks up the Jira token in
+  advance, so a token command that prompts on the terminal can be answered
+  before either takes the terminal over. A token not found then is looked for
+  again on first use, where its failure is reported.
 - **Switching directory.** The Repositories pane's switch ends the running
   program with a `tui.Next` naming the directory; the CLI checks it, wires it
   through the same `connectAt` the first directory went through, refuses it if
