@@ -433,14 +433,13 @@ every reviewer and assignee the forge took, and a note names the ones it left
 off.
 
 The Review pane then follows CI while checks run, asking every twenty seconds
-by default (`timing.ci_interval`).
-`c` lists the checks and opens the selected one's page; `l` on a failed one
-shows the end of its log, where a GitHub Actions run or a GitLab job keeps
-one, and `J`/`K` or `pgdn`/`pgup` move through a log taller than the pane
-half a page at a time. `R` re-runs the failed ones, and `u` on the Branch pane rebases the branch
-onto its base; like a push,
-each first shows a last look naming what it acts on, and does nothing until
-`enter`. `e` edits the pull request's title and description. Once it is
+by default (`timing.ci_interval`). `c` lists the checks and opens the selected
+one's page; `l` on a failed one shows the end of its log, where a GitHub
+Actions run or a GitLab job keeps one, and `J`/`K` or `pgdn`/`pgup` move
+through a log taller than the pane half a page at a time. `R` re-runs the
+failed ones, and `u` on the Branch pane rebases the branch onto its base; like
+a push, each first shows a last look naming what it acts on, and does nothing
+until `enter`. `e` edits the pull request's title and description. Once it is
 green and approved, `M` previews the merge methods the repository permits and
 merges by the one you choose; once it has merged, `F` previews the three git
 commands that finish the branch — switch to the base, catch it up, delete the
