@@ -82,199 +82,6 @@ nothing in this file says what they are. The entries below contain nothing
 that helps anyone misuse a credential, a terminal, a file on disk, the
 loopback server or a release.
 
-## The terminal interface
-
-### DEBT-187 Every overlay repeats the close, step and scroll key code, and the job log skips the page keys
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `checkList.handleKey` and `jobLogView.handleKey`
-(`internal/tui/checks.go:119`, `:388`), `helpOverlay.handleKey`
-(`internal/tui/help.go:86`), `handleFormKey` (`internal/tui/fields.go:192`),
-and the other overlays; `overlayKeys` (`internal/tui/overlay.go:63`).
-
-**Today.** Fourteen overlays match the cursor keys by hand and thirty end with
-`m.overlay = c`. The help overlay pages by half a page and is scrollable and
-steppable; the job log, the overlay most likely to be long, handles only close
-and the cursor keys, so pgup and pgdn do nothing there and its footer never
-offers them.
-
-**Fix.** Make `jobLogView` scrollable and steppable like the help overlay;
-extract a helper for the shared close and cursor arms only where it does not
-need per-overlay hooks.
-
-**Done when.** A test pages a long job log with pgdn and sees it move, and the
-job log's footer offers the scroll keys.
-
-### DEBT-188 Every overlay stores its own copy of the marks and styles, and `lookAt` is bypassed
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `overlay.view` (`internal/tui/overlay.go:27`), `lookAt`
-(`internal/tui/taskactions.go:231`), `previewPush` and `previewRebase`
-(`internal/tui/branch.go:233`, `:245`), `previewRerun`
-(`internal/tui/checks.go:201`), `askToRemove`
-(`internal/tui/localdata.go:213`).
-
-**Today.** `view(width, rows)` gets no rendering context, so 25 overlay types
-carry the marks and styles, filled in 31 places with `marks: m.marks, styles:
-m.styles`. `lookAt` exists to fill a last look's, but four sites build theirs
-by hand.
-
-**Fix.** Pass a small render context to `view` and drop the fields; until
-then, move `lookAt` to `overlay.go` and use it at every last-look site.
-
-**Done when.** `grep -c 'marks: m.marks, styles: m.styles' internal/tui/*.go`
-is 0, or limited to overlays that are not last looks.
-
-### DEBT-189 `keyContexts` mirrors dispatch by hand, so the key check can miss a conflict
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** `keyContexts` and `keyContext.covers`
-(`internal/tui/keycheck.go:153`, `:135`), the Repositories context (`:177`).
-
-**Today.** `CheckKeys` decides conflicts from help groups plus a hand-kept
-`alsoLive` list of actions a pane handles outside its group. Nothing derives
-the list from the handlers, so a pane that starts answering another group's
-key lets a conflicting `ui.keys` override pass. The Repositories context
-already lists up and down, which its groups cover.
-
-**Fix.** Build the contexts from each pane's list of offers
-(`internal/tui/panes.go`); until then drop the redundant entries and add a
-test that every binding a handler matches is covered by its context.
-
-**Done when.** A test fails when a handler answers an action missing from its
-key context.
-
-### DEBT-190 `Model` is a god type: 431 methods, with every pane's behavior on one receiver
-
-Severity: low · Confidence: measured · Size: L
-
-**Where.** `Model` (`internal/tui/tui.go:36`), `settled`
-(`internal/tui/taskoffers.go:22`), `branchLoaded.apply`
-(`internal/tui/branch.go:39`), `taskIssueLine` and `branchAndPull`
-(`internal/tui/tasks.go:415`, `:428`).
-
-**Today.** `grep -c '^func (m Model)' internal/tui/*.go` sums to 431 (tasks.go
-29, detail.go 28, taskactions.go 23, review.go and commits.go 22 each), over
-about 35 fields. Pane states such as `tasksState` and `reviewQueueState` are
-mostly plain data whose behavior lives on `Model`, so any pane reads and
-writes any other's fields, and core plumbing (`settled`, which every Update
-route ends in) sits in a feature file. A reader cannot tell what a pane
-depends on. Value receivers and one package are deliberate and stay.
-
-**Fix.** Pane by pane, move behavior that reads only one pane's state onto its
-state type, with the few cross-pane facts as arguments, leaving `Model` to
-route and compose; move `settled` beside `Update`. Do not split the package.
-
-**Done when.** The method count falls well below 431 (for example under 250),
-and the Tasks, Reviews and Summary renderers have state-type receivers.
-
-### DEBT-191 Fifteen files in `internal/tui` are past the 500-line soft target, one near 800
-
-Severity: low · Confidence: measured · Size: M
-
-**Where.** `taskactions.go` (738), `tasks.go` (695), `setupform.go` (665),
-`people.go` (576), `reposwitch.go` (535), `branch.go` (520), `failure.go`
-(519), `render.go` (510), `commits.go` (510), `settingsfields.go` (508),
-`tagging.go` (506), `review.go` (503), `picker.go` (502), with `detail.go`
-(494) and `keys.go` (491) close; all under `internal/tui/`.
-
-**Today.** Most carry more than one concern: `branch.go` holds the whole
-`branchCreator` overlay; `failure.go` a 220-line error-wording catalog between
-`sendState` and the renderers; `detail.go` the Issues list's search, paging
-and footer and the shared `age()`; `picker.go` an unrelated `fixupPicker`;
-`reposwitch.go` the `dirPrompt`; `taskactions.go` the `taskLine` overlay and
-issue tracking. `taskactions.go` is 62 lines from the 800-line ceiling that
-fails the gate, so the next Tasks feature forces an unplanned split. The
-package holds 64 files under its cohesive ceiling of 80.
-
-**Fix.** Split file per concern inside the package: `branchcreator.go`,
-`errorwords.go`, `issuesearch.go`, `fixup.go`, `dirprompt.go`, `taskline.go`,
-`tasktrack.go`, `footer.go`, `setupsteps.go`, under the package's cohesive
-ceiling.
-
-**Done when.** `scripts/check-file-length.sh --list` flags none of these files.
-
-### DEBT-192 The frame keeps two copies of the border glyphs, and the ASCII focus corners disagree
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `glyphs` (`internal/tui/frame/frame.go:54`, with a
-`//nolint:exhaustive` at `:55`), `railSide`, `railHorizontal`, `railCorners`
-(`:227`, `:241`, `:305`), `top` and `ruleLine` (`:144`, `:296`).
-
-**Today.** `Render` reads glyphs from a map that leaves Light out (hence the
-nolint); `Rail` spells the same characters again as switches on two bools;
-`top` and `ruleLine` are one function. In ASCII a focused `Render` box has `#`
-corners and a focused rail pane `+` corners with `#` sides.
-
-**Fix.** One `borders` value per style (Light in the map, nolint gone), the
-rail functions taking a `borders` value, and `top` calling `ruleLine`.
-
-**Done when.** The nolint is gone and a frame test asserts a focused ASCII
-rail and a focused `Render` share corners.
-
-### DEBT-193 `layout`'s exported functions take four interchangeable ints
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `Compute`, `ComputeWithNotice`, `NoticeKeepsFocus`
-(`internal/tui/layout/layout.go:74`, `:102`, `:212`).
-
-**Today.** Each takes `(width, height, railPanes, focused int)`, so a call
-with width and height, or panes and focus, swapped compiles and fails only at
-run time.
-
-**Fix.** Take a `Terminal{Width, Height}` and a `Rail{Panes, Focused}`.
-
-**Done when.** The exported functions take named struct values and their call
-sites in `internal/tui` use them.
-
-### DEBT-194 The central applier list claims every message but names 55 of 76
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** The assertion block (`internal/tui/overlay.go:106`).
-
-**Today.** It is headed "Every message the interface waits for is an applier."
-but lists 55 types; 21 message types with an `apply` method are missing (among
-them `announcesLoaded`, `branchLinked`, `dirLooked`, `reviewersRead`,
-`tasksLoaded`), each already asserted beside its definition, and five are
-asserted in both places.
-
-**Fix.** Delete the central block and keep one `var _ applier = T{}` beside
-each definition.
-
-**Done when.** Every type with `apply(Model)` has exactly one assertion beside
-it, and `overlay.go` holds no partial list.
-
-### DEBT-196 Pay down TRADE-6: one field ring for the composers, the calendar and the pane switch
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** `commitComposer.onFieldNav` and `scopeCanComplete`
-(`internal/tui/scopesuggest.go:18`, `:30`), `prComposer.onFieldNav` and
-`baseCanComplete` (`internal/tui/prcomposer.go:380`, `:396`), the calendar's
-field keys (`internal/tui/calendar.go:229`), the type cycle
-(`internal/tui/composer.go:289`), the pane switch (`internal/tui/tui.go:294`).
-
-**Today.** TRADE-6's trigger has fired: the Summary's calendar binds both
-next-field and previous-field and cycles a focus index. The wrap arithmetic
-`(index + n - 1) % n` is now written five times, the two `onFieldNav` twins
-have diverged (one handles previous-field outside it), and the two
-`*CanComplete` checks are one function over different inputs.
-
-**Fix.** Add a small value type, `ring{at, size}` with `next()` and `prev()`,
-used by both composers, the calendar, the type cycle and the pane switch;
-replace the two checks with one `completesOnTab(textinput.Model) bool`; give
-both composers the same `onFieldNav`. Paying this closes TRADE-6: delete the
-entry and its two site comments.
-
-**Done when.** No `- 1) %` remains in `internal/tui` outside the helper, the
-composer, calendar and pane-switch tests pass unchanged, and TRADE-6 is gone.
-
 ## The gates, the build and the tests
 
 ### DEBT-239 Pay down TRADE-19: the gate fails a never-run condition or an unseen error arm
@@ -391,12 +198,13 @@ TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is true at
 TRADE-21 and TRADE-28 to two copies held to one shared case file, and each
 stays. TRADE-10, TRADE-23 and TRADE-29, the rules the web wrote a second
 time, were paid down when the server took them over, and their entries are
-gone. TRADE-12 was paid down when the terminal interface came to take its
-input from the caller, so a test drives it, and its entry is gone; TRADE-18
-was paid down to the one condition it now names, when every command came to
-take its working directory from its caller, and stays. TRADE-6 and TRADE-19
-are to be paid down by the entries above whose titles name them, and each
-stays here, as it was, until its entry is paid.
+gone. TRADE-6 was paid down when the composers, the calendar and the pane
+switch came to move around one field ring, and TRADE-12 when the terminal
+interface came to take its input from the caller, so a test drives it; their
+entries are gone. TRADE-18 was paid down to the one condition it now names,
+when every command came to take its working directory from its caller, and
+stays. TRADE-19 is to be paid down by the entry above whose title names it,
+and stays here, as it was, until that entry is paid.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
@@ -462,25 +270,6 @@ telling the systems apart.
 
 **Reopen when.** UX.md's visual system changes, or an accessibility report
 names the spine's hue.
-
-### TRADE-6 The two composers' field handling is written twice
-
-The commit and pull request composers each pair an `onFieldNav` with a
-`*CanComplete` check (`commitComposer.onFieldNav`,
-`internal/tui/scopesuggest.go:20`; `prComposer.onFieldNav`,
-`internal/tui/prcomposer.go:370`), and each blurs every field before
-focusing one (`commitComposer.focusOn`, `internal/tui/composer.go:297`;
-`prComposer.focusOn`, `internal/tui/prcomposer.go:391`). Two is not yet the
-rule of three, so they stay apart until a third composer needs them.
-
-**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
-2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
-
-**Cost.** A change to field navigation is made twice, and a third composer
-must copy the pairs or extract them then.
-
-**Reopen when.** A third overlay binds the next-field and previous-field
-keys (`keys.nextField`, `keys.prevField`), which makes it a third composer.
 
 ### TRADE-8 The web's branch floor is v8's range-based count
 
