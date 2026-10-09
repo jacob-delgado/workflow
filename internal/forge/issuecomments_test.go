@@ -179,15 +179,31 @@ func TestAGitLabNoteOfOnlyQuickActionsIsAcceptedNotFailed(t *testing.T) {
 func TestACommentTheForgeTurnsDownSaysWhy(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	client, _ := recordingForge(t, answering(http.StatusUnprocessableEntity, `{"message":"Body is too long"}`))
+	cases := map[string]struct {
+		repo   forge.Repo
+		number int
+	}{
+		"a GitHub comment": {repo: githubRepo(), number: 42},
+		"a GitLab note":    {repo: gitlabRepo(), number: 7},
+	}
 
-	// Act
-	_, err := client.CommentOnIssue(t.Context(), githubRepo(), 42, "far too long")
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if !errors.Is(err, forge.ErrRejected) || !strings.Contains(err.Error(), "Body is too long") {
-		t.Errorf("CommentOnIssue error = %v, want a rejection carrying the forge's reason", err)
+			// Arrange
+			client, _ := recordingForge(t, answering(http.StatusUnprocessableEntity, `{"message":"Body is too long"}`))
+
+			// Act
+			posted, err := client.CommentOnIssue(t.Context(), tt.repo, tt.number, "far too long")
+
+			// Assert
+			if !errors.Is(err, forge.ErrRejected) || !strings.Contains(err.Error(), "Body is too long") ||
+				posted != (forge.IssueComment{}) {
+				t.Errorf("CommentOnIssue = %+v, %v; want no comment and a rejection carrying the forge's reason",
+					posted, err)
+			}
+		})
 	}
 }
 
@@ -245,5 +261,52 @@ func TestRecentIssueCommentsReadsAGitHubThreadFromItsLastPages(t *testing.T) {
 	// Assert
 	if err != nil || len(comments) != 100 || comments[0].Body != "comment 51" || comments[99].Body != "comment 150" {
 		t.Errorf("RecentIssueComments = %d comments, %v; want 51 to 150, oldest first", len(comments), err)
+	}
+}
+
+func TestRecentIssueCommentsSaysWhyAThreadWasNotRead(t *testing.T) {
+	t.Parallel()
+
+	refusing := answering(http.StatusForbidden, githubTokenRefusal)
+	comment := func(number int) string {
+		return `{"user":{"login":"ana"},"body":"comment ` + strconv.Itoa(number) + `","created_at":"` +
+			commentWritten + `"}`
+	}
+
+	cases := map[string]struct {
+		repo          forge.Repo
+		number, total int
+		answer        func(recorded) (int, string)
+	}{
+		"GitHub's last page": {repo: githubRepo(), number: 42, total: 150, answer: refusing},
+		// The last page holds 50 of the 150, so the page before it is read
+		// for the rest of the newest hundred.
+		"GitHub's page before its last": {
+			repo: githubRepo(), number: 42, total: 150, answer: func(asked recorded) (int, string) {
+				if strings.HasPrefix(asked.query, "page=2&") {
+					return http.StatusOK, listingOf(101, 50, comment)
+				}
+
+				return refusing(asked)
+			},
+		},
+		"GitLab's notes": {repo: gitlabRepo(), number: 7, total: 3, answer: refusing},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client, _ := recordingForge(t, tt.answer)
+
+			// Act
+			comments, err := client.RecentIssueComments(t.Context(), tt.repo, tt.number, tt.total)
+
+			// Assert
+			if !errors.Is(err, forge.ErrRefused) || comments != nil {
+				t.Errorf("RecentIssueComments = %d comments, %v; want none and the refusal", len(comments), err)
+			}
+		})
 	}
 }
