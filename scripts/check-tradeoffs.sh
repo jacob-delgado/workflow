@@ -21,12 +21,18 @@
 # points at it. TECH_DEBT.md, which may quote a site comment, and the files
 # written by a generator are not read for sites.
 #
+# A condition arm no test reaches is kept by a line of
+# scripts/gobco-allowlist.txt, whose third word names the trade-off keeping
+# it; each must be one the register holds, so the condition coverage gate can
+# excuse an arm only for a trade-off on the record.
+#
 # A backlog with no register section holds no entries: it passes as long as no
 # site names one.
 set -euo pipefail
 
 readonly backlog="TECH_DEBT.md"
 readonly register_heading="## The trade-off register"
+readonly allowlist="scripts/gobco-allowlist.txt"
 
 if ! top="$(git rev-parse --show-toplevel 2>/dev/null)"; then
   echo "check-tradeoffs: not inside a git repository, so there is nothing to search." >&2
@@ -126,8 +132,23 @@ if [[ -n "${sites}" ]]; then
   done <<<"${sites}"
 fi
 
+# Every arm the allowlist keeps, as "<line> <third word>".
+arms=0
+if [[ -f "${allowlist}" ]]; then
+  while read -r line id; do
+    arms=$((arms + 1))
+    if [[ ! "${id}" =~ ^TRADE-[1-9][0-9]*$ ]]; then
+      echo "${allowlist}:${line}: names no TRADE-<number> as its third word" >&2
+      failed=1
+    elif ! grep -qxF -- "${id}" <<<"${ids}"; then
+      echo "${allowlist}:${line}: ${id} is not in ${backlog}'s trade-off register" >&2
+      failed=1
+    fi
+  done < <(awk '!/^[ \t]*(#|$)/ { print FNR, $3 }' "${allowlist}")
+fi
+
 if ((failed)); then
-  echo "check-tradeoffs: give each entry its ID and its three paragraphs, and point each site at an entry." >&2
+  echo "check-tradeoffs: give each entry its ID and its three paragraphs, and point each site and each kept arm at an entry." >&2
   exit 1
 fi
 
@@ -135,4 +156,4 @@ entries=0
 if [[ -n "${ids}" ]]; then
   entries="$(wc -l <<<"${ids}" | tr -d ' ')"
 fi
-echo "check-tradeoffs: ${entries} register entries, ${count} site comments, each naming one."
+echo "check-tradeoffs: ${entries} register entries, ${count} site comments and ${arms} kept arms, each naming one."
