@@ -11,6 +11,7 @@ package wiring_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -42,7 +43,8 @@ const (
 )
 
 // fakeSecurity is macOS's security as the keychain drives it: it keeps the
-// line each store hands it and reads the secret back.
+// line each store hands it and reads the secret back. Like the program it
+// stands in for, it is never run for a caller that has left.
 type fakeSecurity struct {
 	lock   sync.Mutex
 	kept   string
@@ -51,9 +53,13 @@ type fakeSecurity struct {
 
 // run answers security's two commands: -i, which reads a store from its
 // input, and find-generic-password, which prints the secret kept.
-func (s *fakeSecurity) run(_ context.Context, program proc.Command, input []byte) ([]byte, error) {
+func (s *fakeSecurity) run(ctx context.Context, program proc.Command, input []byte) ([]byte, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("security: %w", ctx.Err())
+	}
 
 	if program.Args[0] == "-i" {
 		line := string(input)
@@ -250,5 +256,35 @@ func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotKept) || strings.Contains(err.Error(), typedSecret) {
 		t.Errorf("Place = %v; want ErrNotKept with no secret in it", err)
+	}
+}
+
+func TestPlacingSecretsKeepsTheRenewedPairThoughItsAskerLeavesOnceSlackAnswers(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Slack spends the typed refresh token the moment it answers, so the pair
+	// it gave is then the only one that works.
+	asking, leave := context.WithCancel(t.Context())
+	t.Cleanup(leave)
+
+	slack := &slackRefreshes{answer: renewedPair}
+	answeredThenLeft := func(request *http.Request) (*http.Response, error) {
+		response, err := slack.do(request)
+
+		leave()
+
+		return response, err
+	}
+
+	security := &fakeSecurity{}
+	place := processEnvironment().PlaceSlackCredentials(asking, answeredThenLeft, onMacOS(security))
+
+	// Act
+	_, _ = place(typedInto(typedSecret, typedRefresh))
+
+	// Assert
+	if !strings.Contains(security.held(), renewedRefresh) {
+		t.Errorf("the keychain holds %q, want the renewed pair kept though its asker left", security.held())
 	}
 }
