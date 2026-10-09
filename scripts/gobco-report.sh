@@ -70,7 +70,9 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # and so no condition; the wiring and terminal tests fill and call every field.
 # internal/rlimit is a test helper, imported only by tests: the config, editor,
 # hooks, proc and wiring tests that lower a resource limit through it run it.
-readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/api api internal/seams internal/rlimit"
+# internal/ptytest is one too: the cli and tui tests that type at a terminal
+# open it through it.
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/api api internal/seams internal/rlimit internal/ptytest"
 
 # gobco type-checks the standard library from SOURCE, with the go/types compiled
 # into it: that of the Go that BUILT gobco, not the Go on PATH. One built by Go
