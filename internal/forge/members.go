@@ -12,7 +12,7 @@ import (
 )
 
 // ErrNotSupported reports a question the forge has no answer for, as GitHub
-// has no group whose members could be listed: a team reviews there as a team.
+// has no group named as a user is: it spells every team org/team.
 var ErrNotSupported = errors.New("the forge does not offer this")
 
 // gitlabActive is the state GitLab gives a member who can act, as against one
@@ -39,29 +39,6 @@ type gitlabMember struct {
 func (m gitlabMember) canReview() bool {
 	return m.State == gitlabActive && (m.MembershipState == "" || m.MembershipState == gitlabActive) &&
 		m.AccessLevel >= gitlabDeveloper
-}
-
-// GroupMembers lists the usernames of a GitLab group's direct members who can
-// review — active, and a Developer or above — the group named by its full
-// path, such as "acme/control-plane". Inherited members are left out: a
-// CODEOWNERS group means the people put in it. GitHub has no such list, so
-// there it is ErrNotSupported.
-func (c Client) GroupMembers(ctx context.Context, group string) ([]string, error) {
-	if c.kind != KindGitLab {
-		return nil, ErrNotSupported
-	}
-
-	members, err := gitlabGroupMembers(ctx, c, group)
-	if err != nil {
-		return nil, err
-	}
-
-	usernames := make([]string, 0, len(members))
-	for _, member := range members {
-		usernames = append(usernames, member.Username)
-	}
-
-	return usernames, nil
 }
 
 // IsGroup reports whether a bare CODEOWNERS name — @acme, which CODEOWNERS

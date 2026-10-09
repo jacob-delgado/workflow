@@ -74,3 +74,22 @@ func TestIsGroupAsksGitLabOnceSettingsSavedWhileRunningSwitchToIt(t *testing.T) 
 		t.Errorf("IsGroup(acme) after switching to GitLab = %v, %v; want the group GitLab knows", group, err)
 	}
 }
+
+func TestIsGroupOnGitHubTakesEveryBareNameForAPersonWithoutAsking(t *testing.T) {
+	// Arrange
+	githubCLI := installForgeCLI(t, "gh", forgeReplies{})
+	cfg, where := githubCLIWorkspace(t)
+	forgeSeams := wired(t, cfg, where, nil).Forge
+
+	// Act
+	group, err := forgeSeams.IsGroup("acme")
+
+	// Assert
+	if err != nil || group {
+		t.Errorf("IsGroup(acme) on GitHub = %v, %v; want a person, since its teams are spelled org/team", group, err)
+	}
+
+	if args := githubCLI.args(); len(args) != 0 {
+		t.Errorf("gh was called as %v, want GitHub never asked whether a name is a group", args)
+	}
+}

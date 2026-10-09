@@ -95,11 +95,10 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 				return on.client.ReviewRequests(ctx, on.repo.Kind)
 			})
 		},
-		Templates:    func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
-		Author:       func() (string, error) { return ask(connect, authorName(ctx)) },
-		GroupMembers: groupMembersSeam(ctx, setup.gitLab, connect),
-		IsGroup:      isGroupSeam(ctx, setup.gitLab, connect),
-		Kind:         ForgeKind(setup.settings(), setup.where.Remote),
+		Templates: func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
+		Author:    func() (string, error) { return ask(connect, authorName(ctx)) },
+		IsGroup:   isGroupSeam(ctx, setup.gitLab, connect),
+		Kind:      ForgeKind(setup.settings(), setup.where.Remote),
 	}
 }
 
@@ -131,21 +130,6 @@ func authorName(ctx context.Context) func(forgeConnection) (string, error) {
 		identity, err := on.client.Whoami(ctx)
 
 		return identity.Name(), err
-	}
-}
-
-// groupMembersSeam is the list-a-group's-members seam. Only GitLab has groups
-// to list; on GitHub, whose teams review as teams, and with no forge, it asks
-// nothing and answers forge.ErrNotSupported.
-func groupMembersSeam(
-	ctx context.Context, gitLab func() (forge.Repo, bool), connect func() (forgeConnection, error),
-) func(string) ([]string, error) {
-	return func(group string) ([]string, error) {
-		if _, onGitLab := gitLab(); !onGitLab {
-			return nil, forge.ErrNotSupported
-		}
-
-		return ask(connect, func(on forgeConnection) ([]string, error) { return on.client.GroupMembers(ctx, group) })
 	}
 }
 

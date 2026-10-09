@@ -22,83 +22,77 @@ const (
 	membersPath       = "/groups/acme%2Fcontrol-plane/members"
 )
 
-// memberPage is a page of GitLab members: count active ones named
-// <prefix><n>, then one blocked user.
-func memberPage(prefix string, count int) string {
+// memberPage is a page of GitLab members: count active ones whose ids run on
+// from firstID, then one blocked user.
+func memberPage(firstID, count int) string {
 	members := make([]string, 0, count+1)
 	for index := range count {
 		members = append(members,
-			fmt.Sprintf(`{"username":"%s%d","state":"active","access_level":30}`, prefix, index))
+			fmt.Sprintf(`{"id":%d,"username":"member%d","state":"active","access_level":30}`, firstID+index, index))
 	}
 
-	members = append(members, `{"username":"gone","state":"blocked"}`)
+	members = append(members, `{"id":0,"username":"gone","state":"blocked"}`)
 
 	return "[" + strings.Join(members, ",") + "]"
 }
 
-func TestGroupMembersReadsEveryPageOfAGitLabGroupsActiveMembers(t *testing.T) {
+func TestCreateMergeRequestOnGitLabAsksATeamFromEveryPageOfItsMembers(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	// The first page is full — 99 active members and a blocked one — so the
 	// second is read too.
+	knowing := gitlabKnowing(nil, nil)
 	client, seen := recordingForge(t, func(asked recorded) (int, string) {
-		if strings.Contains(asked.query, "page=1&") {
-			return http.StatusOK, memberPage("first", 99)
+		switch {
+		case asked.path == membersPath && strings.Contains(asked.query, "page=1&"):
+			return http.StatusOK, memberPage(1, 99)
+		case asked.path == membersPath:
+			return http.StatusOK, memberPage(100, 1)
 		}
 
-		return http.StatusOK, memberPage("second", 1)
+		return knowing(asked)
 	})
 
 	// Act
-	members, err := client.On(forge.KindGitLab).GroupMembers(t.Context(), groupControlPlane)
+	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
+	})
 
 	// Assert
-	if err != nil || len(members) != 100 || members[0] != "first0" || members[99] != "second0" {
-		t.Fatalf("GroupMembers = %d members (%v), %v; want the 100 active ones from both pages",
-			len(members), members, err)
+	reviewers, _ := requestTo(*seen, gitlabMergesPath).body["reviewer_ids"].([]any)
+	if err != nil || len(reviewers) != 100 || reviewers[0] != float64(1) || reviewers[99] != float64(100) {
+		t.Fatalf("reviewer_ids = %v, %v; want the 100 active members from both pages", reviewers, err)
 	}
 
-	if len(*seen) != 2 || (*seen)[0].path != membersPath {
-		t.Errorf("requests = %+v, want two pages of %s", *seen, membersPath)
+	if pages := requestsTo(*seen, membersPath); pages != 2 {
+		t.Errorf("read %d pages of %s, want two", pages, membersPath)
 	}
 }
 
-func TestGroupMembersLeavesOutMembersWhoCannotApprove(t *testing.T) {
+func TestCreateMergeRequestOnGitLabLeavesOutTeamMembersWhoCannotApprove(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	// A Guest (10), a Planner (15) and a Reporter (20) cannot approve a merge
 	// request; a Developer (30) and above can.
-	client, _ := recordingForge(t, func(recorded) (int, string) {
-		return http.StatusOK, `[{"username":"guest","state":"active","access_level":10},` +
-			`{"username":"planner","state":"active","access_level":15},` +
-			`{"username":"reporter","state":"active","access_level":20},` +
-			`{"username":"dev","state":"active","access_level":30},` +
-			`{"username":"owner","state":"active","access_level":50}]`
+	client, seen := recordingForge(t, gitlabKnowing(nil, map[string]string{
+		membersPath: `[{"id":1,"username":"guest","state":"active","access_level":10},` +
+			`{"id":2,"username":"planner","state":"active","access_level":15},` +
+			`{"id":3,"username":"reporter","state":"active","access_level":20},` +
+			`{"id":4,"username":"dev","state":"active","access_level":30},` +
+			`{"id":5,"username":"owner","state":"active","access_level":50}]`,
+	}))
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
 	})
 
-	// Act
-	members, err := client.On(forge.KindGitLab).GroupMembers(t.Context(), groupControlPlane)
-
 	// Assert
-	if err != nil || !reflect.DeepEqual(members, []string{"dev", "owner"}) {
-		t.Errorf("GroupMembers = %v, %v; want dev and owner, who can approve", members, err)
-	}
-}
-
-func TestGroupMembersIsNotOfferedOnGitHub(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	client, seen := recordingForge(t, func(recorded) (int, string) { return http.StatusOK, "[]" })
-
-	// Act
-	_, err := client.On(forge.KindGitHub).GroupMembers(t.Context(), groupControlPlane)
-
-	// Assert
-	if !errors.Is(err, forge.ErrNotSupported) || len(*seen) != 0 {
-		t.Errorf("GroupMembers = %v after %d requests, want ErrNotSupported and none", err, len(*seen))
+	opened := requestTo(*seen, gitlabMergesPath)
+	if err != nil || !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(4), float64(5)}) {
+		t.Errorf("reviewer_ids = %v, %v; want dev's and owner's, who can approve", opened.body["reviewer_ids"], err)
 	}
 }
 
