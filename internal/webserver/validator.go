@@ -16,7 +16,6 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
-	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 
 	apispec "github.com/jacob-delgado/workflow/api"
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -50,17 +49,18 @@ const switchExtension = "x-switch"
 // contract is the embedded spec, ready to check requests against and to say
 // which operation a request asks for.
 type contract struct {
-	// validate is middleware that checks each request against the spec before
-	// it reaches a handler, answering one that does not match with the house
-	// error envelope. Host validation is off: the one server is the loopback
-	// URL, and which host a client uses to reach the loopback is not the spec's
-	// concern.
-	validate func(http.Handler) http.Handler
-
-	// router routes by path alone, as the validator routes with Host
-	// validation off, so the methods it finds at a path are the ones the
-	// validator admits.
+	// router routes by path alone: Host validation is off, since the one
+	// server is the loopback URL, and which host a client uses to reach the
+	// loopback is not the spec's concern.
 	router routers.Router
+
+	// options admit only a request presenting the session, as the spec's
+	// security schemes say.
+	options openapi3filter.Options
+
+	// methods are every method an operation in the spec takes, the ones worth
+	// asking the router about when a path is asked with another.
+	methods []string
 }
 
 // loadContract loads the embedded spec and routes its paths, admitting a
@@ -75,61 +75,83 @@ func loadContract(session Session) (contract, error) {
 		return contract{}, err
 	}
 
-	router, err := gorillamux.NewRouter(&openapi3.T{Paths: doc.Paths})
+	doc.Servers = nil
+
+	router, err := gorillamux.NewRouter(doc)
 	if err != nil {
 		return contract{}, fmt.Errorf("routing the embedded OpenAPI spec: %w", err)
 	}
 
-	validate := nethttpmiddleware.OapiRequestValidatorWithOptions(doc, &nethttpmiddleware.Options{
-		Options:              openapi3filter.Options{AuthenticationFunc: session.admits},
-		DoNotValidateServers: true,
-		ErrorHandlerWithOpts: answerValidationError(router, contractMethods(doc.Paths)),
-	})
-
-	return contract{validate: validate, router: router}, nil
+	return contract{
+		router:  router,
+		options: openapi3filter.Options{AuthenticationFunc: session.admits},
+		methods: contractMethods(doc.Paths),
+	}, nil
 }
 
-// switches reports a request for an operation the spec marks as a switch: one
-// that changes what the server works with — the directory, or a first
-// configuration file set up. A request the spec routes nowhere switches
-// nothing; the validator answers it.
-func (c contract) switches(request *http.Request) bool {
-	route, _, err := c.router.FindRoute(request)
-	if err != nil {
-		return false
-	}
+// operationServer serves a request the contract admitted, told whether the
+// operation it asks for is one the spec marks as a switch: one that changes
+// what the server works with — the directory, or a first configuration file
+// set up.
+type operationServer func(writer http.ResponseWriter, request *http.Request, switches bool)
 
-	switched, _ := route.Operation.Extensions[switchExtension].(bool)
+// admit checks each request against the contract, routing it once, before
+// serve takes it; one the contract does not admit is answered here, with the
+// house error envelope.
+func (c contract) admit(serve operationServer) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		route, parameters, err := c.router.FindRoute(request)
+		if err != nil {
+			c.refuseUnrouted(writer, request, err)
 
-	return switched
-}
-
-// answerValidationError answers a request the contract rejects. A known path
-// asked with a method it declares no operation for is not allowed, and Allow
-// lists the methods it does; an unknown path is a not-found; a request that
-// presents no session of this run is unauthorized, before anything else about
-// it is checked; every other mismatch — a bad parameter, a body that does not
-// fit the schema — is a bad request. The specific validation detail stays off
-// the wire; that the request did not match the contract is what the caller
-// acts on.
-func answerValidationError(router routers.Router, methods []string) nethttpmiddleware.ErrorHandlerWithOpts {
-	return func(
-		ctx context.Context, err error, w http.ResponseWriter, request *http.Request, opts nethttpmiddleware.ErrorHandlerOpts,
-	) {
-		switch {
-		case errors.Is(err, routers.ErrMethodNotAllowed):
-			allowed := strings.Join(allowedMethods(ctx, router, methods, request), ", ")
-			w.Header().Set("Allow", allowed)
-			writeProblem(w, api.ProblemCodeMethodNotAllowed, "this endpoint does not answer that method; it answers "+allowed)
-		case opts.StatusCode == http.StatusNotFound:
-			writeProblem(w, api.ProblemCodeNotFound, "no such endpoint")
-		case opts.StatusCode == http.StatusUnauthorized:
-			w.Header().Set("WWW-Authenticate", `Bearer realm="workflow"`)
-			writeProblem(w, api.ProblemCodeUnauthorized, noSession)
-		default:
-			writeProblem(w, api.ProblemCodeBadRequest, "the request did not match the API contract")
+			return
 		}
+
+		err = openapi3filter.ValidateRequest(request.Context(), &openapi3filter.RequestValidationInput{
+			Request: request, PathParams: parameters, Route: route, Options: &c.options,
+		})
+		if err != nil {
+			refuseInvalid(writer, err)
+
+			return
+		}
+
+		switched, _ := route.Operation.Extensions[switchExtension].(bool)
+
+		serve(writer, request, switched)
+	})
+}
+
+// refuseUnrouted answers a request the contract routes nowhere. A known path
+// asked with a method it declares no operation for is not allowed, and Allow
+// lists the methods it does; an unknown path is a not-found.
+func (c contract) refuseUnrouted(writer http.ResponseWriter, request *http.Request, err error) {
+	if !errors.Is(err, routers.ErrMethodNotAllowed) {
+		writeProblem(writer, api.ProblemCodeNotFound, "no such endpoint")
+
+		return
 	}
+
+	allowed := strings.Join(allowedMethods(request.Context(), c.router, c.methods, request), ", ")
+	writer.Header().Set("Allow", allowed)
+	writeProblem(writer, api.ProblemCodeMethodNotAllowed, "this endpoint does not answer that method; it answers "+allowed)
+}
+
+// refuseInvalid answers a request routed to an operation it does not fit. One
+// that presents no session of this run is unauthorized, before anything else
+// about it is checked; every other mismatch — a bad parameter, a body that
+// does not fit the schema — is a bad request. The specific validation detail
+// stays off the wire; that the request did not match the contract is what the
+// caller acts on.
+func refuseInvalid(writer http.ResponseWriter, err error) {
+	if _, unauthorized := errors.AsType[*openapi3filter.SecurityRequirementsError](err); unauthorized {
+		writer.Header().Set("WWW-Authenticate", `Bearer realm="workflow"`)
+		writeProblem(writer, api.ProblemCodeUnauthorized, noSession)
+
+		return
+	}
+
+	writeProblem(writer, api.ProblemCodeBadRequest, "the request did not match the API contract")
 }
 
 // noSession is what a request presenting no session of this run is told.
