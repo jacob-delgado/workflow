@@ -580,10 +580,7 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 			record := filepath.Join(dir, "runs")
 			command := filepath.Join(dir, "token")
 
-			err := os.WriteFile(command, []byte("#!/bin/sh\nprintf 'x\\n' >> '"+record+"'\nprintf 'a-token\\n'\n"), 0o700)
-			if err != nil {
-				t.Fatal(err)
-			}
+			writeExecutable(t, command, "#!/bin/sh\nprintf 'x\\n' >> '"+record+"'\nprintf 'a-token\\n'\n", 0o700)
 
 			writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net", "token_command": "`+command+`"}}`)
 
@@ -594,7 +591,7 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 			}
 
 			// Act
-			_, _, err = executeRoot(t, place{dir: dir, home: dir},
+			_, _, err := executeRoot(t, place{dir: dir, home: dir},
 				func(context.Context, tui.Model, io.Reader, io.Writer) (tui.Next, error) {
 					countRuns()
 
