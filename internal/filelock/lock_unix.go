@@ -12,17 +12,22 @@ import (
 	"syscall"
 )
 
-// TryLock takes an exclusive lock on file without waiting, and reports
-// whether it holds it: false while another open file holds one.
-func TryLock(file *os.File) (bool, error) {
+// ErrHeld reports a lock another open file holds. It is declared beside
+// each platform's TryLock, since a file of build-tagged twins must stand alone
+// for the condition coverage report to read it.
+var ErrHeld = errors.New("another open file holds the lock")
+
+// TryLock takes an exclusive lock on file without waiting, and fails with
+// ErrHeld while another open file holds one.
+func TryLock(file *os.File) error {
 	err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 	if errors.Is(err, syscall.EWOULDBLOCK) {
-		return false, nil
+		return fmt.Errorf("%w: %s", ErrHeld, file.Name())
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("locking %s: %w", file.Name(), err)
+		return fmt.Errorf("locking %s: %w", file.Name(), err)
 	}
 
-	return true, nil
+	return nil
 }
