@@ -409,3 +409,87 @@ func TestLayersStandAloneWithoutAHomeDirectory(t *testing.T) {
 		t.Errorf("Layers without a home directory = %+v, want the file to stand alone", layers)
 	}
 }
+
+func TestKeepableKeepsOnlyAFailureJiraMayAnswerLater(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		baseURL string
+		status  int
+		want    bool
+	}{
+		"an address that is not one":      {baseURL: "ftp://jira.example.com", status: http.StatusOK, want: false},
+		"an address carrying a password":  {baseURL: "https://fred:pw@jira.example.com", status: http.StatusOK, want: false},
+		"a token Jira refuses for now":    {baseURL: jiraAddress, status: http.StatusUnauthorized, want: true},
+		"a Jira that fails as it answers": {baseURL: jiraAddress, status: http.StatusBadGateway, want: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			guide := guideIn(t, jiraAnswering(tt.status, `{}`, nil))
+
+			_, err := guide.Check(t.Context(), config.Jira{BaseURL: tt.baseURL, Token: typedToken})
+			if err == nil {
+				t.Fatal("Check passed, want it to fail")
+			}
+
+			// Act
+			keepable := setup.Keepable(err)
+
+			// Assert
+			if keepable != tt.want {
+				t.Errorf("Keepable(%v) = %t, want %t", err, keepable, tt.want)
+			}
+		})
+	}
+}
+
+func TestWriteOverAHomeFileItCannotReadWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		contents string
+		mode     os.FileMode
+		want     error
+	}{
+		"a home file others may write": {
+			contents: `{"jira":{"project":"HOME"}}`, mode: 0o666, want: config.ErrUntrustedFile,
+		},
+		"a home file that is no configuration": {
+			contents: `{"jira":`, mode: config.FileMode, want: config.ErrInvalid,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			guide := guideIn(t, acceptingJira())
+			home := guide.Where.Path(setup.Home)
+			writeHomeFile(t, guide, tt.contents)
+
+			// os.WriteFile leaves the mode to the umask; the case sets its own.
+			err := os.Chmod(home, tt.mode)
+			if err != nil {
+				t.Fatalf("setting the home file's mode: %v", err)
+			}
+
+			// Act
+			_, err = guide.Write(t.Context(), answered(setup.Repository))
+
+			// Assert
+			if !errors.Is(err, tt.want) {
+				t.Errorf("Write = %v, want %v", err, tt.want)
+			}
+
+			_, statErr := os.Lstat(guide.Where.Path(setup.Repository))
+			if !errors.Is(statErr, os.ErrNotExist) {
+				t.Errorf("the repository's file is there (%v), want nothing written", statErr)
+			}
+		})
+	}
+}
