@@ -4,6 +4,7 @@
 package codeowners
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"unicode"
@@ -17,12 +18,13 @@ const (
 	rubySpaces = "\t\n\v\f\r "
 )
 
-// gitLabHeader is GitLab's SectionParser::HEADER_REGEX: an optional ^, a name
-// up to the first ], approvals only straight after it and only digits and
-// whitespace, then default owners as far as a run of @, word characters, '.',
-// '-', '/' and whitespace reaches. Nothing need follow: any line it matches
-// is a header, whatever is after.
-const gitLabHeader = `^(\^)?\[(.*?)\](?:\[[` + rubySpace + `\d]*\])?([` + rubySpace + `]*[@\w.\-/` + rubySpace + `]*)`
+// gitLabSectionHeader matches what GitLab's SectionParser::HEADER_REGEX does:
+// an optional ^, a name up to the first ], approvals only straight after it and
+// only digits and whitespace, then default owners as far as a run of @, word
+// characters, '.', '-', '/' and whitespace reaches. Nothing need follow: any
+// line it matches is a header, whatever is after.
+var gitLabSectionHeader = regexp.MustCompile(
+	`^(\^)?\[(.*?)\](?:\[[` + rubySpace + `\d]*\])?([` + rubySpace + `]*[@\w.\-/` + rubySpace + `]*)`)
 
 // rubyStrip is what Ruby's String#strip takes off both ends of a line.
 const rubyStrip = "\x00" + rubySpaces
@@ -36,7 +38,7 @@ func (p *parser) readGitLab(line string) {
 		return
 	}
 
-	if match := p.header.FindStringSubmatch(line); match != nil {
+	if match := gitLabSectionHeader.FindStringSubmatch(line); match != nil {
 		p.enterSection(match[2], strings.Trim(match[3], rubyStrip))
 
 		return
