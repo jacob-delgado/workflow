@@ -139,6 +139,23 @@ test('a done whose answer describes no task offers nothing to do on it until a f
   expect(within(caughtUp).queryAllByRole('button')).toEqual([])
 })
 
+test('a done whose answer describes no task says the card shows it done once workflow next reads it', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  streamLinked(tracking)
+  fakeApi({ [`${trackingPath}/done`]: undescribedDone })
+  renderWithClient(<IssueTasks issueKey={issueKey} />)
+  await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Mark done' }))
+
+  // Assert
+  const said = 'Marked task 12 done; it shows done here once workflow next reads it.'
+  expect(await screen.findByText(said)).toBeTruthy()
+  expect(screen.getByRole('status').textContent).toBe(said)
+})
+
 test('a list answered before a done the answer could not describe offers nothing to do on the task', async () => {
   // Arrange
   // The start answered a list that holds the task, started; the done after

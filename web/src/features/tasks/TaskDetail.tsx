@@ -192,13 +192,16 @@ interface TaskVerbsProps {
   // named is what a screen reader hears after each verb, naming the task where
   // several tasks' verbs stand together.
   named?: string
+  // markedDone is what a done says, where it has more to say than that the
+  // task was marked done.
+  markedDone?: (answered: TaskList) => string
 }
 
 // TaskVerbs are the writes a button makes on one task: start it, or stop it
 // once started, and mark it done. Standing alone, for the one task the Tasks
 // section shows, they answer the terminal's s and d; where several tasks'
 // verbs stand together, named, a key could not say which task it meant.
-export function TaskVerbs({ task, teller, named }: TaskVerbsProps) {
+export function TaskVerbs({ task, teller, named, markedDone }: TaskVerbsProps) {
   const writes = useTaskWrites()
   const name = taskName(task)
   const active = isActive(task)
@@ -226,7 +229,7 @@ export function TaskVerbs({ task, teller, named }: TaskVerbsProps) {
           cost: "Taskwarrior runs the task's hooks; only Undo, while it is the last change, takes it back.",
         }}
         run={() => writes.complete(task.uuid)}
-        done={() => `Marked ${name} done.`}
+        done={markedDone ?? (() => `Marked ${name} done.`)}
         fallback={`${capitalized(name)} was not marked done. Try again, or run ${name} done in a terminal to see why.`}
         teller={teller}
       />
