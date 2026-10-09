@@ -79,21 +79,29 @@ func scanFavorite(rows *sql.Rows) (Favorite, bool, error) {
 		return Favorite{}, false, fmt.Errorf("reading a favorite directory: %w", err)
 	}
 
-	at, parseErr := time.Parse(time.RFC3339, added)
+	at, readable := addedAt(added)
 
-	return Favorite{Dir: dir, Added: at.UTC()}, parseErr == nil && plainDirectory(dir), nil
+	return Favorite{Dir: dir, Added: at}, readable && plainDirectory(dir), nil
 }
 
-// Favor marks dir a favorite, keeping when it was first marked. A disabled or
-// read-only store records nothing.
+// Favor marks dir a favorite, keeping when it was first marked. A row for dir
+// whose time does not read back is one Favorites leaves out, so its time is
+// written afresh rather than kept. A disabled or read-only store records
+// nothing.
 func (s Store) Favor(ctx context.Context, dir string, now time.Time) error {
 	if !plainDirectory(dir) {
 		return ErrNotADirectoryPath
 	}
 
 	return s.keptWithin(ctx, func(transaction *sql.Tx) error {
-		_, err := transaction.ExecContext(ctx,
-			`INSERT INTO favorite_dir (dir, added_at) VALUES (?, ?) ON CONFLICT(dir) DO NOTHING`,
+		marked, err := markedReadably(ctx, transaction, dir)
+		if err != nil || marked {
+			return err
+		}
+
+		_, err = transaction.ExecContext(ctx,
+			`INSERT INTO favorite_dir (dir, added_at) VALUES (?, ?)
+				ON CONFLICT(dir) DO UPDATE SET added_at = excluded.added_at`,
 			dir, timestamp(now))
 		if err != nil {
 			return fmt.Errorf("marking a favorite directory: %w", err)
@@ -101,6 +109,33 @@ func (s Store) Favor(ctx context.Context, dir string, now time.Time) error {
 
 		return nil
 	})
+}
+
+// markedReadably reports whether dir is already a favorite whose time reads
+// back.
+func markedReadably(ctx context.Context, transaction *sql.Tx, dir string) (bool, error) {
+	var added string
+
+	err := transaction.QueryRowContext(ctx, `SELECT added_at FROM favorite_dir WHERE dir = ?`, dir).Scan(&added)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("reading a favorite directory: %w", err)
+	}
+
+	_, readable := addedAt(added)
+
+	return readable, nil
+}
+
+// addedAt reads a favorite's time as timestamp writes it, and whether it
+// could.
+func addedAt(text string) (time.Time, bool) {
+	at, err := time.Parse(time.RFC3339, text)
+
+	return at.UTC(), err == nil
 }
 
 // Unfavor forgets dir as a favorite. A disabled or read-only store changes

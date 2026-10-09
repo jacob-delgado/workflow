@@ -10,6 +10,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/store"
 )
@@ -82,6 +83,25 @@ func TestMarkingAFavoriteAgainKeepsOneEntry(t *testing.T) {
 	}
 }
 
+func TestMarkingAFavoriteAgainKeepsWhenItWasFirstMarked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := store.New(t.TempDir(), false)
+	favor(t, kept, apiDir)
+
+	// Act
+	err := kept.Favor(t.Context(), apiDir, theTime().Add(time.Hour))
+
+	// Assert
+	favorites, readErr := kept.Favorites(t.Context())
+
+	want := []store.Favorite{{Dir: apiDir, Added: theTime()}}
+	if err != nil || readErr != nil || !slices.Equal(favorites, want) {
+		t.Errorf("after Favor = %v: Favorites = %+v, %v; want %+v", err, favorites, readErr, want)
+	}
+}
+
 func TestUnfavoringRemovesOnlyThatDirectory(t *testing.T) {
 	t.Parallel()
 
@@ -137,6 +157,29 @@ func TestAFavoriteRowOfTheWrongShapeIsNotReadBack(t *testing.T) {
 	// Assert
 	if !slices.Equal(got, []string{apiDir}) {
 		t.Errorf("Favorites = %v, want only %s", got, apiDir)
+	}
+}
+
+func TestMarkingAFavoriteOfTheWrongShapeAgainBringsItBack(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A row whose time cannot be read is left out, so it reads as never
+	// marked; marking it again must not leave it hidden.
+	dir := t.TempDir()
+	kept := store.New(dir, false)
+	favor(t, kept, apiDir)
+	execKept(t, dir, `INSERT INTO favorite_dir (dir, added_at) VALUES ('/srv/web', 'yesterday')`)
+
+	// Act
+	err := kept.Favor(t.Context(), "/srv/web", theTime())
+
+	// Assert
+	favorites, readErr := kept.Favorites(t.Context())
+
+	want := []store.Favorite{{Dir: apiDir, Added: theTime()}, {Dir: "/srv/web", Added: theTime()}}
+	if err != nil || readErr != nil || !slices.Equal(favorites, want) {
+		t.Errorf("after Favor = %v: Favorites = %+v, %v; want %+v", err, favorites, readErr, want)
 	}
 }
 
