@@ -38,14 +38,12 @@ func Version(info *debug.BuildInfo, ok bool) string {
 // to a source build's "(devel)" or the pseudo-version the toolchain synthesizes
 // for a commit that no tag names — for which the user asked to see the commit.
 func isRelease(version string) bool {
-	return version != "" && version != "(devel)" && !pseudoVersion().MatchString(version)
+	return version != "" && version != "(devel)" && !pseudoVersionTail.MatchString(version)
 }
 
-// pseudoVersion matches the timestamp-and-commit tail the toolchain builds a
-// pseudo-version from, such as v0.0.0-20260917173147-ddbb935d6c04.
-func pseudoVersion() *regexp.Regexp {
-	return regexp.MustCompile(`\d{14}-[0-9a-f]{12}`)
-}
+// pseudoVersionTail matches the timestamp-and-commit tail the toolchain builds
+// a pseudo-version from, such as v0.0.0-20260917173147-ddbb935d6c04.
+var pseudoVersionTail = regexp.MustCompile(`\d{14}-[0-9a-f]{12}`)
 
 // fromCommit builds a version from the vcs settings the toolchain records.
 func fromCommit(settings []debug.BuildSetting) string {
