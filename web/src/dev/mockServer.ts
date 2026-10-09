@@ -69,7 +69,7 @@ type Route = (asked: Asked) => unknown
 
 // Routes are the routes by method and path, as the contract names them:
 // "GET /api/issues/{key}".
-export type Routes = Record<string, Route>
+type Routes = Record<string, Route>
 
 // Where a problem's type points, as the server's do: one anchor per code.
 const problemBase = 'https://jacob-delgado.github.io/workflow/docs/errors/'

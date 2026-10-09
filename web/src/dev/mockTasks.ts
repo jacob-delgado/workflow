@@ -6,7 +6,6 @@ import type {
   TasksSummary,
 } from '@/api/generated/types.gen.ts'
 import { minute } from '@/lib/dates.ts'
-import type { Routes } from './mockServer.ts'
 
 // at is the RFC 3339 time some minutes from now — before it when negative — so
 // the mockup's ages and due dates read the same whenever it is shown.
@@ -252,10 +251,14 @@ function closedUp(task: Task, gone: TaskRanks): Task {
   return { ...task, ranks }
 }
 
-// taskRoutes are the mockup server's routes for your tasks: the list, and
-// every write on it, which answers the list as it stands; a done answers it
-// without the task, and the task as it stands done.
-export function taskRoutes(): Routes {
+// A TaskRoute answers one of the task routes the mockup's server takes, from
+// the named parts of its path.
+type TaskRoute = (asked: { params: Record<string, string> }) => TaskList
+
+// taskRoutes are the mockup server's routes for your tasks, by method and path:
+// the list, and every write on it, which answers the list as it stands; a done
+// answers it without the task, and the task as it stands done.
+export function taskRoutes(): Record<string, TaskRoute> {
   const listed = () => mockTaskList()
 
   return {
