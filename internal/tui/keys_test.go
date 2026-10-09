@@ -24,6 +24,8 @@ const (
 	applyAction         = "apply"
 	commitAction        = "commit"
 	postWhenGreenAction = "post-when-green"
+	toggleDraftAction   = "toggle-draft"
+	editBodyAction      = "edit-body"
 )
 
 // reboundRefreshKey is the key a test's ui.keys binds refresh to.
@@ -262,10 +264,18 @@ func TestCheckKeysRefusesAKeyATextFieldEditsWithWhereOneHasTheFocus(t *testing.T
 	cases := map[string]map[string]string{
 		"worktree onto delete a word":            {worktreeAction: "ctrl+w"},
 		"breaking onto back a character":         {"toggle-breaking": "ctrl+b"},
-		"draft onto the line's start":            {"toggle-draft": "ctrl+a"},
+		"draft onto the line's start":            {toggleDraftAction: "ctrl+a"},
 		"the next template onto next suggestion": {"next-template": "ctrl+n"},
-		"edit body onto previous suggestion":     {"edit-body": "ctrl+p"},
+		"edit body onto previous suggestion":     {editBodyAction: "ctrl+p"},
 		"worktree onto a letter":                 {worktreeAction: "s"},
+		"worktree onto the left arrow":           {worktreeAction: keyLeft},
+		"draft onto the right arrow":             {toggleDraftAction: keyRight},
+		"draft onto home":                        {toggleDraftAction: keyHome},
+		"edit body onto end":                     {editBodyAction: keyEnd},
+		"breaking onto the down arrow":           {"toggle-breaking": keyDown},
+		"the next template onto the up arrow":    {"next-template": keyUp},
+		"previous field onto back a word":        {"previous-field": "ctrl+left"},
+		"next field onto delete a word forward":  {"next-field": "alt+d"},
 	}
 
 	for name, rebound := range cases {
