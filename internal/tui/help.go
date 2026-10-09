@@ -100,6 +100,9 @@ func (h helpOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the help.
+func (helpOverlay) which() overlayKind { return overlayHelp }
+
 // step scrolls the key list by delta half pages, as the scroll keys and up and
 // down do.
 func (h helpOverlay) step(m Model, delta int) Model {

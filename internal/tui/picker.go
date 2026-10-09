@@ -342,6 +342,9 @@ func (p statusPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the status picker.
+func (statusPicker) which() overlayKind { return overlayStatusPicker }
+
 // click selects the transition on a clicked line.
 func (p statusPicker) click(m Model, line int) (Model, tea.Cmd) {
 	if p.send.sending || p.form.open() {

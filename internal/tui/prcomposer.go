@@ -256,6 +256,9 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the pull request composer.
+func (prComposer) which() overlayKind { return overlayPRComposer }
+
 // suggesting is the base while it has focus, the one field that completes
 // what is typed.
 func (c prComposer) suggesting() (textinput.Model, bool) {
