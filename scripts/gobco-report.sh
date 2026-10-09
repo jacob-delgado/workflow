@@ -21,12 +21,16 @@
 # The score is arms observed / arms present: every condition has two arms, and a
 # condition seen only one way scores 1 of 2.
 #
-# Beside the module's floor, AN ARM NO TEST REACHED fails the run: a condition
-# never evaluated, and an error check whose error arm was never seen, are named
-# by file, line and function, and fail unless a line of
-# scripts/gobco-allowlist.txt keeps that arm for a kept trade-off in
-# TECH_DEBT.md. Any other condition seen one way is only listed: that is the
-# worklist.
+# Beside the module's floor, two more checks fail the run:
+#
+#   - AN ARM NO TEST REACHED. A condition never evaluated, and an error check
+#     whose error arm was never seen, are named by file, line and function,
+#     and fail unless a line of scripts/gobco-allowlist.txt keeps that arm for
+#     a kept trade-off in TECH_DEBT.md. Any other condition seen one way is
+#     only listed: that is the worklist.
+#   - A PACKAGE BELOW ITS OWN FLOOR. Each package scripts/gobco-floors.txt
+#     names answers to the floor there as well as to the module's, since a
+#     small package's gaps barely move a share internal/tui dominates.
 #
 # EVERY PACKAGE WITH TESTS IS MEASURED, and there is no skip list: one without
 # tests is named in NO_TESTS below, with the reason it has none. A package
@@ -147,13 +151,14 @@ if [[ -n "${named}" && $# -gt 0 ]] || [[ -z "${named}" && $# -eq 0 ]]; then
 fi
 
 readonly ratchet_slack=2
-# GOBCO_ALLOWLIST is a seam for the test harness, so it can hand the report
-# lines of its own. Unset, the only way it runs in anger, the report reads the
-# file committed beside it.
+# GOBCO_ALLOWLIST and GOBCO_FLOORS are seams for the test harness, so it can
+# hand the report lines of its own. Unset, the only way it runs in anger, the
+# report reads the files committed beside it.
 readonly allowlist_file="${GOBCO_ALLOWLIST:-${repo_root}/scripts/gobco-allowlist.txt}"
+readonly floors_file="${GOBCO_FLOORS:-${repo_root}/scripts/gobco-floors.txt}"
 
-# A run over the module's roots answers for every line of the allowlist; one
-# over named packages, only for what it measured.
+# A run over the module's roots answers for every line of the allowlist and
+# the floors file; one over named packages, only for what it measured.
 whole_module=1
 if [[ -n "${named}" ]]; then
   whole_module=0
@@ -307,6 +312,40 @@ else
   printf 'Condition coverage %s%% (floor %s%%).\n' "${total_percent}" "${floor}"
 fi
 
+# Each package the floors file names answers to a floor of its own: one entry a
+# line, "<package dir> <floor>", under a # comment saying why. A floor for a
+# package the whole module's run did not measure fails, since it holds nothing.
+ratchets="$(
+  awk -F'\t' -v floors="${floors_file}" -v whole="${whole_module}" -v slack="${ratchet_slack}" '
+    function problem(text) {
+      printf "%s:%d: %s\n", floors, number, text > "/dev/stderr"
+      bad = 1
+    }
+    { hit[$1] = $2; arms[$1] = $3 }
+    END {
+      while ((getline line < floors) > 0) {
+        number++
+        if (line ~ /^[ \t]*#/) { explained = 1; continue }
+        if (line ~ /^[ \t]*$/) { explained = 0; continue }
+        fields = split(line, field, /[ \t]+/)
+        if (fields != 2 || field[2] !~ /^[0-9]+$/ || field[2] + 0 > 100) {
+          problem("want <package dir> <floor>, the floor a whole percentage")
+        } else if (!explained) {
+          problem(field[1] " has no # comment above it saying why")
+        } else if (!(field[1] in arms)) {
+          if (whole) problem(field[1] " was not measured; a floor for it holds nothing")
+        } else if (hit[field[1]] * 100 < field[2] * arms[field[1]]) {
+          printf "%s'"'"'s condition coverage %.1f%% is below its %d%% floor.\n", field[1], 100 * hit[field[1]] / arms[field[1]], field[2] > "/dev/stderr"
+          bad = 1
+        } else if (int(100 * hit[field[1]] / arms[field[1]]) - slack > field[2] + 0) {
+          printf "Ratchet available: raise %s'"'"'s floor in %s to %d.\n", field[1], floors, int(100 * hit[field[1]] / arms[field[1]]) - slack
+        }
+        explained = 0
+      }
+      exit bad
+    }' <<<"${summary}"
+)" || failed=1
+
 # Every condition's position, code and counts, a line each, its code on one
 # line, for the check of the arms no test reached.
 conditions="$(
@@ -419,4 +458,8 @@ fi
 suggested=$((measured_int - ratchet_slack))
 if [[ "${suggested}" -gt "${floor}" ]]; then
   printf 'Ratchet available: raise BRANCH_COVERAGE_MIN in Taskfile.yml to %s.\n' "${suggested}"
+fi
+
+if [[ -n "${ratchets}" ]]; then
+  printf '%s\n' "${ratchets}"
 fi
