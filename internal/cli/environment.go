@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -46,11 +48,35 @@ func handOver(cmd *cobra.Command, env Environment) {
 	cmd.SetContext(context.WithValue(cmd.Context(), environmentKey{}, env))
 }
 
-// environmentOf is the Environment the command cmd runs in.
+// errNoEnvironment is a command run without the environment it runs in: from
+// a tree built only to walk, or under a persistent hook of its own, which
+// keeps the root's from handing it over.
+var errNoEnvironment = errors.New("the command was run without the environment it runs in")
+
+// environmentOf is the Environment the command cmd runs in, or, when none was
+// handed over, one that answers every question with errNoEnvironment.
 func environmentOf(cmd *cobra.Command) Environment {
-	env, _ := cmd.Context().Value(environmentKey{}).(Environment)
+	env, handed := cmd.Context().Value(environmentKey{}).(Environment)
+	if !handed {
+		return noEnvironment()
+	}
 
 	return env
+}
+
+// noEnvironment is the environment of a command that has none: it names no
+// directory, home or variable, finds no program, and moves nowhere.
+func noEnvironment() Environment {
+	return Environment{
+		WorkingDir: func() (string, error) { return "", errNoEnvironment },
+		Chdir:      func(string) error { return errNoEnvironment },
+		Process: wiring.Environment{
+			Home:     "",
+			Getenv:   func(string) string { return "" },
+			StateDir: func() (string, error) { return "", errNoEnvironment },
+			LookPath: func(string) (string, error) { return "", fmt.Errorf("%w: %w", proc.ErrNotFound, errNoEnvironment) },
+		},
+	}
 }
 
 // workingDir is the directory the command cmd runs in was run from, or why it
