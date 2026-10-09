@@ -32,6 +32,9 @@ const (
 	seamTransition  = "Transition"
 	seamTransitions = "Transitions"
 	seamComment     = "Comment"
+	seamAssign      = "Assign"
+	seamAddWorklog  = "AddWorklog"
+	seamLinkPull    = "LinkPullRequest"
 	transitionClose = "close"
 )
 

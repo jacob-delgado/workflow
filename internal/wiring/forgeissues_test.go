@@ -138,6 +138,12 @@ func TestTheForgeTrackerRejectsANonNumericKey(t *testing.T) {
 		seamTransition: func() error {
 			return tracker.Transition(notANumber, jira.Transition{ID: transitionClose}, nil)
 		},
+		seamComment: func() error {
+			_, err := tracker.Comment(notANumber, "on it")
+
+			return err
+		},
+		seamAssign: func() error { return tracker.Assign(notANumber, "ana") },
 	}
 
 	for name, act := range cases {
@@ -324,5 +330,57 @@ func TestJiraAloneRefusesACommentOnAForgeNumber(t *testing.T) {
 	// Assert
 	if err == nil || len(stand.requests()) != 0 {
 		t.Errorf("Comment(42) = %v, Jira asked %v; want it refused before Jira is asked", err, stand.requests())
+	}
+}
+
+func TestTheForgeTrackerLinksNoPageForANonNumericKey(t *testing.T) {
+	// Arrange
+	// No gh to route through and no token, so only a key read before
+	// connecting can answer.
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("PATH", t.TempDir())
+
+	tracker := forgeTracker(t)
+
+	// Act
+	link := tracker.BrowseURL("PROJ-1")
+
+	// Assert
+	if link != "" {
+		t.Errorf("BrowseURL(PROJ-1) = %q, want no page for a key that names no forge issue", link)
+	}
+}
+
+func TestTheForgeTrackerReportsACommentTheForgeAnsweredBadly(t *testing.T) {
+	// Arrange
+	// The fake answers the comment's post with an unreadable body, so the
+	// forge client cannot say what was posted.
+	installForgeCLI(t, "gh", forgeReplies{comments: "{"})
+	tracker := forgeTracker(t)
+
+	// Act
+	posted, err := tracker.Comment("42", "on it")
+
+	// Assert
+	if err == nil || posted != (jira.Comment{}) {
+		t.Errorf("Comment(42) = %+v, %v; want the forge's failure surfaced and no comment", posted, err)
+	}
+}
+
+func TestTheForgeTrackerReadsAnIssueWhoseThreadCannotBeRead(t *testing.T) {
+	// Arrange
+	// The thread is the detail's alone, so a thread the forge answers badly
+	// leaves the issue read, under the forge's own count of its comments.
+	counted := strings.TrimSuffix(theBugDetail, "}") + `,"comments":2}`
+	installForgeCLI(t, "gh", forgeReplies{issue: counted, comments: "{"})
+	tracker := forgeTracker(t)
+
+	// Act
+	detail, err := tracker.Issue("42")
+
+	// Assert
+	if err != nil || detail.Issue.Key != "42" || detail.CommentTotal != 2 || len(detail.Comments) != 0 {
+		t.Errorf("Issue = %+v, %v; want issue 42 read, with no thread under its count of 2", detail, err)
 	}
 }
