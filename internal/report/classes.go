@@ -48,7 +48,7 @@ func gitFaults() []Class {
 		{
 			Causes: []error{gitrepo.ErrNotARepository},
 			Code:   api.ProblemCodeConflict,
-			Detail: "the server is not running in a git repository; start workflow --web from a repository's work tree",
+			Detail: "not a git repository; start workflow from a repository's work tree",
 		},
 		{
 			Causes: []error{gitrepo.ErrNoIdentity},
