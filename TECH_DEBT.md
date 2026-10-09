@@ -88,15 +88,17 @@ loopback server or a release.
 
 Severity: medium · Confidence: measured · Size: L
 
-**Where.** `scripts/gobco-report.sh` (`:208`), `BRANCH_COVERAGE_MIN`
-(`Taskfile.yml:78`), TRADE-19; among the gaps:
-`internal/wiring/tracker.go:107` (`jiraOnly`),
-`internal/wiring/messaging.go:198` to `:202` (`asMessagingError`),
-`internal/wiring/forge.go:98`, `internal/config/save.go:120`, `:217`, `:222`,
-`internal/setup/setup.go:164`, `internal/tui/branch.go:457`,
-`internal/tui/composer.go:307`, `internal/tui/fields.go:217`,
-`internal/tui/commentcomposer.go:70`, `internal/store/kept.go` (`:63` to
-`:234`).
+**Where.** `scripts/gobco-report.sh` (the TRADE-19 site, where it prints
+gobco's per-condition worklist), `BRANCH_COVERAGE_MIN` (`Taskfile.yml`),
+TRADE-19; among the gaps: `jiraOnly` (`internal/wiring/tracker.go`),
+`asMessagingError` (`internal/wiring/messaging.go`), `ask`'s failed connection
+(`internal/wiring/forge.go`), `Create` and `createPrivate`
+(`internal/config/save.go`), `Keepable` (`internal/setup/setup.go`),
+`branchCreator.pasted` (`internal/tui/branchcreator.go`),
+`commitComposer.pasted` (`internal/tui/composer.go`), `statusPicker.pasted`
+(`internal/tui/fields.go`), `commentDrafts.keeping`
+(`internal/tui/commentcomposer.go`), and `keptWithin` through
+`pruneSlackEntities` (`internal/store/kept.go`).
 
 **Today.** TRADE-19's triggers have fired: the measured share is 91.4% against
 a floor of 91%, already lowered from 92 in #166, and its premise is false. It
@@ -133,9 +135,9 @@ Severity: low · Confidence: read · Size: M
 **Where.** CLAUDE.md, *Design principles*, O — Open/closed; 41 non-test
 `regexp.MustCompile` calls under `internal/`, among them `trailerLine`
 (`internal/convention/convention.go:398`, called per body line), `issueKey`
-(`:55`), `setOption` and `errexitOption` (`internal/hooks/generate.go`, per
-script line), `summaryLine` (`internal/hooks/output.go:87`, per hook output
-line), `versionPattern`, `createdTask`, `revertedOperations`
+(`:55`), `errexitOption` (`internal/hooks/generate.go`, per script line),
+`summaryLine` (`internal/hooks/output.go:87`, per hook output line),
+`versionPattern`, `createdTask`, `revertedOperations`
 (`internal/taskwarrior/taskwarrior.go:315`, `write.go:19`, `:25`),
 `pseudoVersion` (`internal/buildinfo/buildinfo.go:46`).
 
@@ -300,9 +302,11 @@ its seams through the terminal's struct; a second surface that wants the
 editor must import `internal/tui`.
 
 **Reopen when.** A surface other than the terminal needs the editor, `After`
-or `Copy`; `internal/editor` stops returning a Bubble Tea command; or the web
-server needs to be built without importing `internal/tui` (today it also needs
-`tui.CheckKeys` and `tui.KeyActions`).
+or `Copy`; `internal/editor` stops returning a Bubble Tea command; or `--web`
+needs to be wired without `internal/tui`. Package `webserver` imports no
+`internal/tui` (`depguard`'s `webserver-not-terminal` rule forbids it), but
+`cli.WebDeps` still builds its seams from the `tui.Deps` the wiring returns,
+and hands it `tui.CheckKeys` and `tui.KeyActions` as functions.
 
 ### TRADE-13 Encoding the program's own types is taken not to fail
 
