@@ -145,7 +145,7 @@ func (w issueWrite) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
-// which names an issue's one-field form.
+// which names the assign or log-work form.
 func (issueWrite) which() overlayKind { return overlayIssueWrite }
 
 // pasted types a paste into the form's one field, as typing it would.
