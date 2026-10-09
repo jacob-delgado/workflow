@@ -161,10 +161,11 @@ func execute(ctx context.Context, root *cobra.Command, args []string, stdout, st
 type RunInterface func(ctx context.Context, model tui.Model, in io.Reader, out io.Writer) (tui.Next, error)
 
 // NewRootCmd builds the command tree to walk, as the reference generator
-// does: it runs no command, so it is handed no Environment to run one in. The
-// prompt is how `config init` asks for credentials; a zero one is fine.
+// does: it runs no command, so it is handed no Environment to run one in, and
+// a command run from it anyway says so. The prompt is how `config init` asks
+// for credentials; a zero one is fine.
 func NewRootCmd(prompt Prompt) *cobra.Command {
-	return NewRootCmdOver(prompt, tui.Run, WebServerAt, Environment{})
+	return NewRootCmdOver(prompt, tui.Run, WebServerAt, noEnvironment())
 }
 
 // NewRootCmdOver builds the command tree over the interface and web server a
