@@ -145,39 +145,34 @@ func Files(ctx context.Context, dir string) ([]DataFile, error) {
 }
 
 // filesOf lists one database, when its file is there, and what a clean left
-// set aside of it, when anything was.
+// set aside of it, when anything was. Each of its files is looked at in one
+// pass, so a directory that cannot be read fails the listing once.
 func filesOf(ctx context.Context, dir string, each database) ([]DataFile, error) {
-	path := filepath.Join(dir, each.name)
+	companions := companionsOf(filepath.Join(dir, each.name))
+	aside := asideOf(companions)
+
+	sizes, err := sizesOf(slices.Concat(companions, aside))
+	if err != nil {
+		return nil, err
+	}
 
 	var files []DataFile
 
-	size, present, err := sizeOf(companionsOf(path))
-	if err != nil {
-		return nil, err
-	}
-
-	if slices.Contains(present, path) {
+	if _, there := sizes[companions[0]]; there {
+		size, _ := totalOf(sizes, companions)
 		files = append(files, DataFile{Name: each.name, Kind: each.kind, Bytes: size, Holds: summarize(ctx, dir, each)})
 	}
 
-	size, present, err = sizeOf(asideOf(companionsOf(path)))
-	if err != nil {
-		return nil, err
-	}
-
-	if len(present) > 0 {
+	if size, anyThere := totalOf(sizes, aside); anyThere {
 		files = append(files, DataFile{Name: each.name + asideSuffix, Kind: each.kind, Bytes: size, Holds: nil})
 	}
 
 	return files, nil
 }
 
-// sizeOf is the size of those of paths that are there, and which those are.
-func sizeOf(paths []string) (int64, []string, error) {
-	var (
-		size    int64
-		present []string
-	)
+// sizesOf is the size of each of paths that is there, by its path.
+func sizesOf(paths []string) (map[string]int64, error) {
+	sizes := map[string]int64{}
 
 	for _, each := range paths {
 		info, err := os.Lstat(each)
@@ -186,15 +181,30 @@ func sizeOf(paths []string) (int64, []string, error) {
 		case errors.Is(err, fs.ErrNotExist):
 			continue
 		case err != nil:
-			return 0, nil, fmt.Errorf("reading the size of the store: %w", err)
+			return nil, fmt.Errorf("reading the size of the store: %w", err)
 		}
 
-		size += info.Size()
-
-		present = append(present, each)
+		sizes[each] = info.Size()
 	}
 
-	return size, present, nil
+	return sizes, nil
+}
+
+// totalOf is the size of those of paths that sizes holds, and whether it
+// holds any.
+func totalOf(sizes map[string]int64, paths []string) (int64, bool) {
+	var (
+		total    int64
+		anyThere bool
+	)
+
+	for _, each := range paths {
+		size, there := sizes[each]
+		total += size
+		anyThere = anyThere || there
+	}
+
+	return total, anyThere
 }
 
 // summarize counts what a database holds, best effort: a file that is not a
