@@ -28,9 +28,10 @@ import {
 // buttons that start or stop it and mark it done; and, while no linked task is
 // still to do and the page has not just tracked the issue, the button that
 // tracks it in Taskwarrior. It reads the stream, with the task list a write
-// last answered laid over it and what the page has just done, so a write shows
-// at once rather than a frame later. Nothing is drawn until the stream says
-// Taskwarrior has answered, as the terminal draws no Tasks block until it has.
+// last answered laid over it and each task the page has just marked done as
+// that done's answer described it, so a write shows at once rather than a
+// frame later. Nothing is drawn until the stream says Taskwarrior has
+// answered, as the terminal draws no Tasks block until it has.
 export function IssueTasks({ issueKey }: { issueKey: string }) {
   const tasks = useSnapshotStore((state) => state.snapshot?.tasks)
   const streamedAt = useSnapshotStore((state) => state.receivedAt)
@@ -50,7 +51,7 @@ export function IssueTasks({ issueKey }: { issueKey: string }) {
     listed,
     answered.answeredAt >= streamedAt,
   )
-  const linked = withDone(newest, new Set(completed.map((write) => write.uuid)), listed)
+  const linked = withDone(newest, completed, listed)
   const tracked = trackedByPage || linked.some(stillToDo)
 
   return (
@@ -92,18 +93,15 @@ function newestOf(streamed: Task[], listed: Task[], listNewer: boolean): Task[] 
   return [...byUUID.values()]
 }
 
-// withDone shows done each task the page has marked done that the stream has
-// not caught up with, which the list cannot say, since a task done leaves it —
-// unless the list holds it: a list holding it was answered after the done, as
-// an undo that brought it back answers.
-function withDone(tasks: Task[], completed: Set<string>, listed: Task[]): Task[] {
+// withDone shows each task the page has marked done that the stream has not
+// caught up with as the done's answer described it, which the list cannot
+// say, since a task done leaves it — unless the list holds it: a list holding
+// it was answered after the done, as an undo that brought it back answers.
+function withDone(tasks: Task[], completed: { done: Task }[], listed: Task[]): Task[] {
+  const done = new Map(completed.map((write) => [write.done.uuid, write.done]))
   const stillListed = new Set(listed.map((task) => task.uuid))
 
-  return tasks.map((task) =>
-    completed.has(task.uuid) && !stillListed.has(task.uuid)
-      ? { ...task, status: 'completed', state: 'completed' }
-      : task,
-  )
+  return tasks.map((task) => (stillListed.has(task.uuid) ? task : (done.get(task.uuid) ?? task)))
 }
 
 interface LinkedTaskProps {

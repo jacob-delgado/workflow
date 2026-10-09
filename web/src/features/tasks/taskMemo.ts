@@ -12,13 +12,19 @@ interface Remembered {
   frameSince: boolean
 }
 
+// RememberedDone is a task the page marked done, remembered with the task as
+// the done's answer described it.
+interface RememberedDone extends Remembered {
+  done: Task
+}
+
 // TaskMemo is what this page has just done to your tasks that the stream has
 // not yet caught up with, and a task list cannot say: the list holds pending
 // tasks alone, so a task done leaves it, and it holds none that Taskwarrior's
 // active context hides, as the task a track made can be.
 interface TaskMemo {
   // completed are the tasks the page marked done.
-  completed: Remembered[]
+  completed: RememberedDone[]
   // tracks are the tasks the page tracked issues with, by the issue's key.
   tracks: Record<string, Remembered>
 }
@@ -33,9 +39,12 @@ function remembered(uuid: string): Remembered {
   return { uuid, rememberedAt: Date.now(), frameSince: false }
 }
 
-// rememberCompleted notes that the page marked the task done.
-export function rememberCompleted(uuid: string): void {
-  useTaskMemo.setState((memo) => ({ completed: [...memo.completed, remembered(uuid)] }))
+// rememberCompleted notes that the page marked a task done, as the done's
+// answer describes it.
+export function rememberCompleted(done: Task): void {
+  useTaskMemo.setState((memo) => ({
+    completed: [...memo.completed, { ...remembered(done.uuid), done }],
+  }))
 }
 
 // rememberTrack notes that the page tracked the issue with the task.
@@ -48,7 +57,7 @@ export function rememberTrack(issueKey: string, uuid: string): void {
 // the first to land after a write can have been read before it, and the one
 // after that shows the task as Taskwarrior holds it, whatever has changed it
 // since the write.
-function aged(entry: Remembered, receivedAt: number): Remembered | undefined {
+function aged<Entry extends Remembered>(entry: Entry, receivedAt: number): Entry | undefined {
   if (entry.frameSince) {
     return undefined
   }
@@ -70,7 +79,7 @@ function caughtUp(memo: TaskMemo, linked: Task[], receivedAt: number): TaskMemo 
 
     return task !== undefined && stillToDo(task)
   }
-  const kept = (entry: Remembered) => aged(entry, receivedAt) ?? []
+  const kept = <Entry extends Remembered>(entry: Entry) => aged(entry, receivedAt) ?? []
 
   return {
     completed: memo.completed.filter(stillPending).flatMap(kept),

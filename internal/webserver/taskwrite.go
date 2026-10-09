@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -57,7 +58,9 @@ func (s *server) StopTask(_ context.Context, request api.StopTaskRequestObject) 
 	return api.StopTask200JSONResponse(list), nil
 }
 
-// CompleteTask marks the task the path names done.
+// CompleteTask marks the task the path names done, and answers the list after
+// it with the task beside it as the linked tasks describe it now, since the
+// list no longer holds it.
 func (s *server) CompleteTask(
 	_ context.Context, request api.CompleteTaskRequestObject,
 ) (api.CompleteTaskResponseObject, error) {
@@ -66,7 +69,28 @@ func (s *server) CompleteTask(
 		return problemAnswer[api.CompleteTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
+	list.Done = s.linkedTask(request.UUID)
+
 	return api.CompleteTask200JSONResponse(list), nil
+}
+
+// linkedTask is the task uuid names as the stream's linked tasks describe it,
+// read now: nil when no task linked to an issue is that one, or when the
+// linked tasks could not be read, which leaves the write as it landed.
+func (s *server) linkedTask(uuid string) *api.Task {
+	linked, err := s.deps.Tasks.Linked()
+	if err != nil {
+		return nil
+	}
+
+	known := knownTasks(linked)
+
+	index := slices.IndexFunc(known, func(task taskwarrior.Task) bool { return task.UUID == uuid })
+	if index < 0 {
+		return nil
+	}
+
+	return &s.tasksDTO(known, s.now())[index]
 }
 
 // AnnotateTask adds a note to the task the path names, refusing one with no
