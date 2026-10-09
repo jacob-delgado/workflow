@@ -124,32 +124,6 @@ chase" then names the allowlist as the exception list.
 **Done when.** The gate fails a new untested `err != nil` arm, and the
 measured share is at least two points above the floor.
 
-## The docs
-
-### DEBT-278 The trade-off register's text no longer matches the code or itself
-
-Severity: low · Confidence: read · Size: S
-
-**Where.** TRADE-18 in this file; the register's ordering (TRADE-28 between
-TRADE-23 and TRADE-24); `scripts/check-tradeoffs.sh`.
-
-**Today.** The entries this edition keeps were rewritten to `b9ab000`, but one
-left until its paydown still cites what the code no longer has. TRADE-18 names
-`targetDir` (now `whereInit`), places `connectLeniently` in `cli.go` (now
-`connect.go`) and `repositoryFactsFor` in `doctor_json.go` (now `doctor.go`),
-counts `reportRepository`, which no longer reads the working directory, among
-seven conditions that are now six, and cites lines that have all moved.
-`check-tradeoffs.sh` checks IDs, not the files and lines an entry cites, so
-nothing catches this.
-
-**Fix.** When each paydown above lands its entry is deleted; until then cite
-symbols, not lines, and sort the register by ID. Optionally have
-`check-tradeoffs.sh` check that every `file:line` an entry cites holds a
-matching site comment.
-
-**Done when.** No entry names a function that does not exist, and the register
-is in ID order.
-
 ## Rules this audit changes
 
 ### DEBT-324 Declare compiled regular expressions at package level
@@ -204,7 +178,10 @@ interface came to take its input from the caller, so a test drives it; their
 entries are gone. TRADE-18 was paid down to the one condition it now names,
 when every command came to take its working directory from its caller, and
 stays. TRADE-19 is to be paid down by the entry above whose title names it,
-and stays here, as it was, until that entry is paid.
+and stays here until that entry is paid. In the pre-1.0 paydown every entry
+that stays was checked against the code again: each names the functions and
+files it keeps rather than lines, which drift, and the register is in ID
+order.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
@@ -242,8 +219,8 @@ Tasks list, sets a `refetchInterval` that reads it again once the earliest wait
 still ahead has passed (`useTasks`). The stream's connection state (`reconnecting`,
 `stale`) is shown, so a dropped stream is visible. A configuration save checks
 the file's revision and refuses a changed file with 409; a change landing
-between that check and the write is not caught (`SaveOver`,
-`internal/config/save.go`), which is accepted for one user's local file.
+between that check and the write is not caught (`SaveLayers`,
+`internal/config/layers.go`), which is accepted for one user's local file.
 Recorded on 2026-09-24 in the audit (#140), kept on 2026-10-07 in the pre-1.0
 audit, and given the Tasks list's interval when the server took over its rules
 (DEBT-328).
@@ -258,7 +235,7 @@ reads again.
 ### TRADE-5 The progress spine's per-system hue is color-only
 
 **Decided.** On the progress spine each stage's glyph is drawn in its system's
-hue (Jira, git, forge, messaging), inside `Model.stages` in
+hue (Jira, git, forge, messaging), inside `spineView.stages` in
 `internal/tui/spine.go`. The hue only repeats what the text says: the stage's
 name, or its initial when compact, names the system, and the glyph's shape
 carries its state. The hues are part of UX.md's visual system, which the web's
@@ -307,13 +284,15 @@ anyone other than the user who pushed.
 
 ### TRADE-11 The editor seam stays in the terminal package
 
-**Decided.** `wiring.Deps` returns `tui.Deps` (`internal/wiring/wiring.go`),
-and `cli.WebDeps` narrows it to `webserver.Deps`. Three of its fields speak
+**Decided.** `Environment.Deps` returns `tui.Deps`
+(`internal/wiring/wiring.go`), and `cli.WebDeps` hands its seam groups, which
+package `seams` declares, to `webserver.Deps` whole. Three of its fields speak
 Bubble Tea: `Editor` (`EditorDeps`, whose functions take and return Bubble Tea
 messages and commands because `internal/editor` hands the terminal over
 through `tea.ExecProcess`), `After` and `Copy`. So the bundle is the
 terminal's type rather than one in package `seams`. Decided 2026-09-25 in #144
-(DEBT-71), and kept on 2026-10-07 in the pre-1.0 audit.
+(DEBT-71), kept on 2026-10-07 in the pre-1.0 audit, and rewritten when the web
+server came to take the seam groups whole in the pre-1.0 paydown.
 
 **Cost.** The wiring's output is named for one surface, and the web reaches
 its seams through the terminal's struct; a second surface that wants the
@@ -322,7 +301,7 @@ editor must import `internal/tui`.
 **Reopen when.** A surface other than the terminal needs the editor, `After`
 or `Copy`; `internal/editor` stops returning a Bubble Tea command; or the web
 server needs to be built without importing `internal/tui` (today it also needs
-`tui.CheckKeys`).
+`tui.CheckKeys` and `tui.KeyActions`).
 
 ### TRADE-13 Encoding the program's own types is taken not to fail
 
@@ -336,10 +315,11 @@ messaging, slackauth, tui and webserver); lines are not listed here because
 they drift. Decided 2026-09-26 in #146, and kept on 2026-10-07 in the pre-1.0
 audit.
 
-**Cost.** About sixteen error arms no test runs. Because `forge.newRequest`,
-`jira.newJSONRequest`, `messaging.postJSON` and `config.encodeValue` accept
-`any`, a caller passing a float, a channel or a failing marshaler would put an
-arm in play with no test behind it.
+**Cost.** About sixteen error arms no test runs. Because forge's
+`Client.newRequest`, jira's `Client.newJSONRequest`, messaging's
+`Client.postJSON` and `config.encodeValue` accept `any`, a caller passing a
+float, a channel or a failing marshaler would put an arm in play with no test
+behind it.
 
 **Reopen when.** A type encoded at one of these sites gains a float, a
 function, a channel, an interface-typed field or a `MarshalJSON` of its own;
@@ -348,9 +328,9 @@ failure is reported.
 
 ### TRADE-14 The embedded OpenAPI contract is taken to load
 
-**Decided.** `loadSpec` and `validate` (`internal/webserver/validator.go`) and
-`Handler` (`internal/webserver/webserver.go`) keep five `err != nil` arms for
-an embedded `api/openapi.yaml` that fails to load, validate or route. The
+**Decided.** `loadSpec` and `loadContract` (`internal/webserver/validator.go`)
+and `Handler` (`internal/webserver/webserver.go`) keep five `err != nil` arms
+for an embedded `api/openapi.yaml` that fails to load, validate or route. The
 document is compiled in (`api/embed.go`), so only a build-time defect trips
 them, and that defect fails every web server test first; a seam to feed a
 broken spec would only re-test kin-openapi. Decided 2026-09-26 in #146, and
@@ -405,25 +385,26 @@ test stops reaching the condition on Linux.
 
 ### TRADE-19 The rest of the condition report stays gobco's worklist
 
-Besides the conditions the entries above keep, `task cover:branch` lists
-280 seen only one way, none of them an `err != nil` or a condition that
-never ran. Six of them still check an error, spelled another way: the
-`err == nil` after a pull request's reviews read
-(`internal/forge/github.go:262`), GitLab's approvals read and re-run
-(`internal/forge/gitlab.go:106`, `:411`), a link's parse
-(`internal/messaging/post.go:344`) and a further page of issues
-(`internal/tui/issues.go:123`), none of them ever seen false, and the
-`errors.Is` asking whether the web's issue read failed for want of a
-repository (`internal/webserver/handlers.go:88`), never seen true. They
-stay out of this file: the report is their list, printed on every run,
-and CLAUDE.md already reads it as "a worklist of missing test cases, not
-a percentage to chase", so a test for one is written when the code around
-it next changes, and `BRANCH_COVERAGE_MIN` keeps the share from falling.
-By package, measured on macOS on 2026-09-27: `internal/tui` 152,
-`internal/forge` 19, `internal/testshape` 13, `internal/gitrepo` 11,
-`internal/config` and `internal/tui/frame` 10 each, `internal/cli` and
-`internal/messaging` 9 each, `internal/convention` and `internal/hooks` 8
-each, `internal/webserver` 6, `internal/buildinfo`, `internal/editor` and
+Besides the conditions the entries above keep, `task cover:branch` lists 280
+seen only one way, none of them an `err != nil` or a condition that never
+ran. Six of them still check an error, spelled another way: the `err == nil`
+after a pull request's reviews read (`githubReviewState`,
+`internal/forge/github.go`), GitLab's approvals read and re-run
+(`gitlabReviewState` and `gitlabRerun`, `internal/forge/gitlab.go`), a
+link's parse (`isWebURL`, `internal/messaging/announcement.go`) and a
+further page of issues (`issueList.settle`, `internal/tui/issues.go`), none
+of them ever seen false, and the `errors.Is` asking whether the web's issue
+read failed for want of a repository (`server.GetIssue`,
+`internal/webserver/handlers.go`), never seen true. They stay out of this
+file: the report is their list, printed on every run, and CLAUDE.md already
+reads it as "a worklist of missing test cases, not a percentage to chase",
+so a test for one is written when the code around it next changes, and
+`BRANCH_COVERAGE_MIN` keeps the share from falling. By package, measured on
+macOS on 2026-09-27: `internal/tui` 152, `internal/forge` 19,
+`internal/testshape` 13, `internal/gitrepo` 11, `internal/config` and
+`internal/tui/frame` 10 each, `internal/cli` and `internal/messaging` 9
+each, `internal/convention` and `internal/hooks` 8 each,
+`internal/webserver` 6, `internal/buildinfo`, `internal/editor` and
 `internal/store` 5 each, `internal/wiring` 4, `internal/jira` 3,
 `internal/sanitize` 2 and `internal/tui/layout` 1.
 
@@ -463,35 +444,6 @@ no case for can still differ between the two.
 **Reopen when.** The snapshot comes to carry each issue's marks for another
 reason, or the two copies are found to disagree on a case the file does not
 hold.
-
-### TRADE-28 Markdown is turned into wiki markup twice
-
-With `jira.markdown_comments` on, a comment written as Markdown is posted
-as Jira's wiki markup by `jira.WikiFromMarkdown` (`internal/jira/wiki.go`),
-and the web's comment Preview draws the same conversion from its own copy
-(`web/src/features/issues/wiki/wikiFromMarkdown.ts`). Both copies read their
-cases from one file, `internal/jira/testdata/wiki_from_markdown.json`, and
-each decodes it strictly.
-
-**Decided.** 2026-10-01, when the web gained commenting: Preview redraws
-on every keystroke, and asking the server for each one would be a write
-under the dry-run guard's rule (it refuses every non-GET) or a GET carrying
-the whole comment in its URL. Converting in the browser shows exactly what
-will be sent with no request at all. Kept in the pre-1.0 paydown, which held
-both copies to one shared case file.
-
-**Cost.** A change to how a Markdown construct converts is made twice,
-against one shared case file that fails whichever copy disagrees with it; a
-construct the file holds no case for can still convert differently.
-
-**Reopen when.** The server comes to render comments itself, or the two
-copies are found to disagree on a construct the file does not hold.
-
-**Revisited.** 2026-10-05, in #174: the web's copy now also draws a forge
-issue's thread and Preview, converting its Markdown to wiki markup for
-`WikiText` to draw. That reuses the drawing every Jira comment already has
-rather than adding a Markdown renderer, at the cost of Markdown the
-conversion does not know, such as a table, showing as text.
 
 ### TRADE-24 The combined tracker reads its settings once
 
@@ -555,6 +507,35 @@ refresh.
 **Reopen when.** Slack's rate limits are hit below the cap, or a large
 channel's first read through `users.info` is too slow to wait for; then lower
 `UserListPages`, or label members concurrently within Tier 4.
+
+### TRADE-28 Markdown is turned into wiki markup twice
+
+With `jira.markdown_comments` on, a comment written as Markdown is posted
+as Jira's wiki markup by `jira.WikiFromMarkdown` (`internal/jira/wiki.go`),
+and the web's comment Preview draws the same conversion from its own copy
+(`web/src/features/issues/wiki/wikiFromMarkdown.ts`). Both copies read their
+cases from one file, `internal/jira/testdata/wiki_from_markdown.json`, and
+each decodes it strictly.
+
+**Decided.** 2026-10-01, when the web gained commenting: Preview redraws
+on every keystroke, and asking the server for each one would be a write
+under the dry-run guard's rule (it refuses every non-GET) or a GET carrying
+the whole comment in its URL. Converting in the browser shows exactly what
+will be sent with no request at all. Kept in the pre-1.0 paydown, which held
+both copies to one shared case file.
+
+**Cost.** A change to how a Markdown construct converts is made twice,
+against one shared case file that fails whichever copy disagrees with it; a
+construct the file holds no case for can still convert differently.
+
+**Reopen when.** The server comes to render comments itself, or the two
+copies are found to disagree on a construct the file does not hold.
+
+**Revisited.** 2026-10-05, in #174: the web's copy now also draws a forge
+issue's thread and Preview, converting its Markdown to wiki markup for
+`WikiText` to draw. That reuses the drawing every Jira comment already has
+rather than adding a Markdown renderer, at the cost of Markdown the
+conversion does not know, such as a table, showing as text.
 
 ### TRADE-30 A comment is written in a box drawn inside the interface
 
