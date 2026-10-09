@@ -250,16 +250,27 @@ func TestAFavoriteIsMarkedAndForgotten(t *testing.T) {
 func TestAFavoriteIsAnAbsolutePath(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	kept := favoritesKept()
-	handler := serve(t, repositoryDeps(kept), config.Default())
+	cases := map[string]struct{ method, target, body string }{
+		"marking":    {method: http.MethodPut, target: reposPath + "/favorites", body: `{"dir":"src/web"}`},
+		"forgetting": {method: http.MethodDelete, target: reposPath + "/favorites?dir=src%2Fweb"},
+	}
 
-	// Act
-	recorder := send(t, handler, http.MethodPut, reposPath+"/favorites", `{"dir":"src/web"}`)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity || len(kept.asked) != 0 {
-		t.Errorf("status %d, store asked %v; want 422 and nothing kept", recorder.Code, kept.asked)
+			// Arrange
+			kept := favoritesKept()
+			handler := serve(t, repositoryDeps(kept), config.Default())
+
+			// Act
+			recorder := send(t, handler, tt.method, tt.target, tt.body)
+
+			// Assert
+			if recorder.Code != http.StatusUnprocessableEntity || len(kept.asked) != 0 {
+				t.Errorf("status %d, store asked %v; want 422 and nothing kept", recorder.Code, kept.asked)
+			}
+		})
 	}
 }
 
@@ -400,6 +411,8 @@ func TestAWriteFromAPageShowingAnotherDirectoryIsRefused(t *testing.T) {
 		// URL path is escaped.
 		"escaped":          {shown: "%2Fhome%2Fana%2Fsrc%2Fapi%2Fcmd", want: http.StatusOK},
 		"escaped, another": {shown: "%2Fhome%2Fjos%C3%A9", want: http.StatusConflict},
+		// One that does not unescape names no directory, so not this one.
+		"escaped badly": {shown: "%2Fhome%zz", want: http.StatusConflict},
 	}
 
 	for name, page := range cases {
