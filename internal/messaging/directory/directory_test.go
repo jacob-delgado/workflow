@@ -71,15 +71,25 @@ func directoryBodies() map[string]string {
 func startSlack(t *testing.T, bodies map[string]string) (*fakeSlack, messaging.Client) {
 	t.Helper()
 
-	slack := &fakeSlack{bodies: bodies, asked: map[string]int{}, held: map[string]*gate{}, limited: map[string]limit{}}
+	slack := newFakeSlack(bodies)
 	server := httptest.NewServer(http.HandlerFunc(slack.answer))
 	t.Cleanup(server.Close)
 
-	settings := config.Messaging{Kind: config.KindSlack, ClientID: "1234.5678", Channel: "#dev"}
-	client := messaging.New(server.Client().Do, server.URL, settings).WithToken(
-		func(context.Context, config.Secret) (config.Secret, error) { return "slack-token-for-tests", nil })
+	return slack, slackClient(server.Client().Do, server.URL)
+}
 
-	return slack, client
+// newFakeSlack is a stand-in Slack answering from bodies, asked nothing yet.
+func newFakeSlack(bodies map[string]string) *fakeSlack {
+	return &fakeSlack{bodies: bodies, asked: map[string]int{}, held: map[string]*gate{}, limited: map[string]limit{}}
+}
+
+// slackClient is a client reading with a Slack user token, through do, from
+// the Slack API at base.
+func slackClient(do messaging.Doer, base string) messaging.Client {
+	settings := config.Messaging{Kind: config.KindSlack, ClientID: "1234.5678", Channel: "#dev"}
+
+	return messaging.New(do, base, settings).WithToken(
+		func(context.Context, config.Secret) (config.Secret, error) { return "slack-token-for-tests", nil })
 }
 
 // answer counts the request, waits while its path is held, and answers from
