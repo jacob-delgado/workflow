@@ -738,7 +738,9 @@ The Tasks section's writes are `POST`s beside that read: `/api/tasks` to add a
 task, `/api/tasks/track` to track an issue, `/api/tasks/undo`,
 `/api/tasks/sync`, and `start`, `stop`, `done`, `annotations` and `modify`
 under `/api/tasks/{uuid}/`. Each answers the task list as it stands after the
-write, and a task Taskwarrior changed nothing on answers `409`.
+write, and a task Taskwarrior changed nothing on answers `409`. A `done` of a
+task linked to an issue also answers that task as it stands done, in `done`,
+since the list no longer holds it.
 
 `POST /api/runs` with `{"kind": "pre_commit"}` — or `rebase`, `amend`, or
 `fixup` with the `commit` to fix up — answers newline-delimited JSON as the
