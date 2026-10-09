@@ -149,17 +149,24 @@ func TestRunRefusesACallThatNamesNoDirectory(t *testing.T) {
 	}
 }
 
-// sealed makes dir readable but not writable for the test's end, skipping as
-// root, which writes whatever a mode says, and on Windows, whose directories
-// keep no write bit.
+// sealed makes dir readable but not writable for the test's end.
 func sealed(t *testing.T, dir string) {
 	t.Helper()
 
+	restricted(t, dir, 0o500)
+}
+
+// restricted gives dir mode for the test's end, skipping as root, which reads
+// and writes whatever a mode says, and on Windows, whose directories keep no
+// such bits.
+func restricted(t *testing.T, dir string, mode os.FileMode) {
+	t.Helper()
+
 	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
-		t.Skip("a directory's mode does not keep this user from writing into it here")
+		t.Skip("a directory's mode does not keep this user from reading or writing it here")
 	}
 
-	err := os.Chmod(dir, 0o500)
+	err := os.Chmod(dir, mode)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,5 +237,26 @@ func TestRunSaysWhyItCouldNotWriteTheReference(t *testing.T) {
 				t.Errorf("docsgen into %s exited %d saying %q, want 1 and %q", name, code, stderr.String(), tt.want)
 			}
 		})
+	}
+}
+
+func TestRunNamesADirectoryItCannotList(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Writable and searchable but not readable: it can be made and written
+	// into, but not listed for the pages an earlier run left.
+	dir := t.TempDir()
+	restricted(t, dir, 0o300)
+
+	var stderr bytes.Buffer
+
+	// Act
+	code := docsgen.Run([]string{dir}, io.Discard, &stderr)
+
+	// Assert
+	if code != 1 || !strings.Contains(stderr.String(), "reading "+dir+": ") {
+		t.Errorf("docsgen into an unlistable directory exited %d saying %q, want 1 and the directory named",
+			code, stderr.String())
 	}
 }
