@@ -110,7 +110,7 @@ func TestSortingByIssueAddsNothingToARow(t *testing.T) {
 	// Task 3 has a priority and a tag, either of which a row names when the
 	// list is sorted by it.
 	repo := withTasks()
-	changeTask(repo, trackedTaskUUID, func(task *taskwarrior.Task) { task.Priority, task.Tags = "H", []string{"api"} })
+	changeTask(repo, trackedTaskUUID, func(task *taskwarrior.Task) { task.Priority, task.Tags = "H", []string{"infra"} })
 	tasks := typing(t, repo.live(t, 140, 40), tasksPane)
 
 	// Act
