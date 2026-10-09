@@ -93,8 +93,8 @@ func TestDoctorReportsAConflictingKeyOverride(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// commit and stage-all both live on the Branch and Commits panes, so binding
-	// commit to stage-all's key is a conflict doctor should catch.
+	// commit and stage-all both live on the Commits pane, so binding commit to
+	// stage-all's key is a conflict doctor should catch.
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
 		` "messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"},`+

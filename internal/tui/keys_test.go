@@ -72,8 +72,8 @@ func TestCheckKeysRefusesTwoActionsSharingAKeyInOneContext(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// commit and stage-all both live on the Branch and Commits panes; binding
-	// commit to stage-all's key makes a press there ambiguous.
+	// commit and stage-all both live on the Commits pane; binding commit to
+	// stage-all's key makes a press there ambiguous.
 	colliding := map[string]string{"commit": "a"}
 
 	// Act

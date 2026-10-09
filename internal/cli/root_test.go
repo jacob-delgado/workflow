@@ -362,8 +362,8 @@ func TestAConflictingKeymapStopsTheInterfaceBeforeItOpens(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// commit and stage-all both live on the Branch and Commits panes, so binding
-	// commit to stage-all's key is a conflict.
+	// commit and stage-all both live on the Commits pane, so binding commit to
+	// stage-all's key is a conflict.
 	dir := t.TempDir()
 	writeFile(t, dir, `{"ui": {"keys": {"commit": "a"}}}`)
 
