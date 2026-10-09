@@ -412,7 +412,7 @@ func TestUpdateConfigRefusesAUIValueOutsideTheContract(t *testing.T) {
 // errCommitOnTaken is a keymap check's refusal, in the words the terminal
 // interface's own check uses.
 var errCommitOnTaken = errors.New(`ui.keys binds two actions to one key in the same context: ` +
-	`stage and commit both bind "space" in the Branch and Commits panes`)
+	`stage and commit both bind "space" in the Commits pane`)
 
 // refuseAMovedCommit is a keymap check that refuses a map moving commit and
 // accepts any other.

@@ -265,6 +265,9 @@ func (c commitComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 	return m, nil
 }
 
+// which names the commit composer.
+func (commitComposer) which() overlayKind { return overlayCommitComposer }
+
 // cycledType is the composer with its commit type moved one along, the way
 // the cycle key pressed goes.
 func (c commitComposer) cycledType(keys keyMap, msg tea.KeyPressMsg) commitComposer {

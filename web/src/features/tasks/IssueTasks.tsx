@@ -10,7 +10,7 @@ import { StateMark } from '@/lib/StateMark.tsx'
 import { useNow } from './ActiveTask.tsx'
 import { TaskVerbs } from './TaskDetail.tsx'
 import { useTaskMemo } from './taskMemo.ts'
-import { useAnsweredTasks, useTaskWrites } from './tasksApi.ts'
+import { useAnsweredTasks, useJustDone, useTaskWrites } from './tasksApi.ts'
 import {
   addedName,
   dueWords,
@@ -28,14 +28,17 @@ import {
 // buttons that start or stop it and mark it done; and, while no linked task is
 // still to do and the page has not just tracked the issue, the button that
 // tracks it in Taskwarrior. It reads the stream, with the task list a write
-// last answered laid over it and what the page has just done, so a write shows
-// at once rather than a frame later. Nothing is drawn until the stream says
-// Taskwarrior has answered, as the terminal draws no Tasks block until it has.
+// last answered laid over it and each task the page has just marked done as
+// that done's answer described it, so a write shows at once rather than a
+// frame later; a task just marked done that the answer could not describe
+// stands as the stream has it, with nothing to do on it, until a frame or a
+// list describes it again. Nothing is drawn until the stream says Taskwarrior
+// has answered, as the terminal draws no Tasks block until it has.
 export function IssueTasks({ issueKey }: { issueKey: string }) {
   const tasks = useSnapshotStore((state) => state.snapshot?.tasks)
   const streamedAt = useSnapshotStore((state) => state.receivedAt)
   const answered = useAnsweredTasks()
-  const completed = useTaskMemo((memo) => memo.completed)
+  const justDone = useJustDone()
   const trackedByPage = useTaskMemo((memo) => memo.tracks[issueKey] !== undefined)
   const now = useNow()
   const outcome = useOutcome()
@@ -44,13 +47,12 @@ export function IssueTasks({ issueKey }: { issueKey: string }) {
     return null
   }
 
-  const listed = linkedTo(answered.list?.tasks ?? [], issueKey)
   const newest = newestOf(
     linkedTo(tasks.linked, issueKey),
-    listed,
+    linkedTo(answered.list?.tasks ?? [], issueKey),
     answered.answeredAt >= streamedAt,
   )
-  const linked = withDone(newest, new Set(completed.map((write) => write.uuid)), listed)
+  const linked = newest.map((task) => justDone.get(task.uuid)?.done ?? task)
   const tracked = trackedByPage || linked.some(stillToDo)
 
   return (
@@ -61,7 +63,13 @@ export function IssueTasks({ issueKey }: { issueKey: string }) {
       {linked.length === 0 ? null : (
         <ul aria-labelledby="issue-tasks-heading" className="flex flex-col gap-group">
           {linked.map((task) => (
-            <LinkedTask key={task.uuid} task={task} now={now} teller={outcome} />
+            <LinkedTask
+              key={task.uuid}
+              task={task}
+              writable={stillToDo(task) && !justDone.has(task.uuid)}
+              now={now}
+              teller={outcome}
+            />
           ))}
         </ul>
       )}
@@ -92,31 +100,21 @@ function newestOf(streamed: Task[], listed: Task[], listNewer: boolean): Task[] 
   return [...byUUID.values()]
 }
 
-// withDone shows done each task the page has marked done that the stream has
-// not caught up with, which the list cannot say, since a task done leaves it —
-// unless the list holds it: a list holding it was answered after the done, as
-// an undo that brought it back answers.
-function withDone(tasks: Task[], completed: Set<string>, listed: Task[]): Task[] {
-  const stillListed = new Set(listed.map((task) => task.uuid))
-
-  return tasks.map((task) =>
-    completed.has(task.uuid) && !stillListed.has(task.uuid)
-      ? { ...task, status: 'completed', state: 'completed' }
-      : task,
-  )
-}
-
 interface LinkedTaskProps {
   task: Task
+  // writable is whether the writes on the task are offered: it is still to do,
+  // and the page has not just marked it done.
+  writable: boolean
   now: number
   teller: Teller
 }
 
 // LinkedTask is one of the issue's tasks: its mark, id and description, how it
-// stands, and — while it is still to do — the writes on it, named for it, since
+// stands, and — while it is writable — the writes on it, named for it, since
 // an issue can have several.
-function LinkedTask({ task, now, teller }: LinkedTaskProps) {
+function LinkedTask({ task, writable, now, teller }: LinkedTaskProps) {
   const number = taskNumber(task)
+  const name = taskName(task)
 
   return (
     <li className="flex flex-col gap-tight text-sm">
@@ -130,13 +128,29 @@ function LinkedTask({ task, now, teller }: LinkedTaskProps) {
         <span>{task.description}</span>
       </p>
       <Meta className="text-xs text-muted-foreground">{linkedNote(task, now)}</Meta>
-      {stillToDo(task) ? (
+      {writable ? (
         <div className="flex flex-wrap items-center gap-item">
-          <TaskVerbs task={task} teller={teller} named={taskName(task)} />
+          <TaskVerbs
+            task={task}
+            teller={teller}
+            named={name}
+            markedDone={(answered) => markedDoneWords(name, answered)}
+          />
         </div>
       ) : null}
     </li>
   )
+}
+
+// markedDoneWords is what a done from the card says, and — where its answer
+// could not describe the task, which then stands as the stream last had it —
+// that the card shows it done once workflow next reads it.
+function markedDoneWords(name: string, answered: TaskList): string {
+  const marked = `Marked ${name} done`
+
+  return answered.done === undefined
+    ? `${marked}; it shows done here once workflow next reads it.`
+    : `${marked}.`
 }
 
 // linkedNote is how a linked task stands: how long ago it was started, or its

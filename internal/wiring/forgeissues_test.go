@@ -4,8 +4,8 @@
 package wiring_test
 
 // When there is no Jira, the forge's own issues back the Issues pane. These
-// drive that tracker through wiring.Deps — its Search, Issue, Transitions and
-// Transition seams — against a stand-in gh answering the issue endpoints.
+// drive that tracker through Environment.Deps — its Search, Issue, Transitions
+// and Transition seams — against a stand-in gh answering the issue endpoints.
 
 import (
 	"errors"

@@ -204,6 +204,21 @@ func TestStylesKnowTheirHeavyCounterparts(t *testing.T) {
 	}
 }
 
+func TestAStyleOutsideTheFourDrawsTheLightBorder(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	unknown := frame.Style(42)
+
+	// Act
+	drawn := frame.Render("t", "b", 10, 3, unknown)
+
+	// Assert
+	if want := frame.Render("t", "b", 10, 3, frame.Light); drawn != want {
+		t.Errorf("Render in Style(42) =\n%s\nwant the light border's\n%s", drawn, want)
+	}
+}
+
 func TestPlainDrawsATitleLineAndNoBorder(t *testing.T) {
 	t.Parallel()
 

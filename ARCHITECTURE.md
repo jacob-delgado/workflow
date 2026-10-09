@@ -112,13 +112,13 @@ so it sits below the surfaces and above `internal/loop`.
   origin remote URL. `Environment.Locate` reads it for a directory, once per
   interface.
 - The CLI builds this bundle in its root `RunE`; `--web` reuses **the same
-  bundle**, adapted to the web server's shape. That shared construction is one
-  half of why there is one implementation behind three front doors;
-  `internal/loop`, below, is the other. Before the interface or `--web` starts,
-  the CLI calls `resolveAhead`, which looks up the Jira token in advance, so a
-  token command that prompts on the terminal can be answered before either
-  takes the terminal over. A token not found then is looked for again on first
-  use, where its failure is reported.
+  bundle**, its seam groups handed over whole by `cli.WebDeps`. That shared
+  construction is one half of why there is one implementation behind three front
+  doors; `internal/loop`, below, is the other. Before the interface or `--web`
+  starts, the CLI calls `resolveAhead`, which looks up the Jira token in
+  advance, so a token command that prompts on the terminal can be answered
+  before either takes the terminal over. A token not found then is looked for
+  again on first use, where its failure is reported.
 - **Switching directory.** The Repositories pane's switch ends the running
   program with a `tui.Next` naming the directory; the CLI checks it, wires it
   through the same `connectAt` the first directory went through, refuses it if
@@ -316,9 +316,11 @@ read:
    another build's schema made is left as it is, reads as empty, and refuses
    every write with `ErrKeptSchemaDiffers`, which names
    `workflow db-clean --all`. Trusting nothing on read stays safe here because
-   a row it cannot trust costs a question rather than a failure: a row of the
-   wrong shape is left out, and the people or group association it held reads
-   as never made, which workflow asks for again.
+   a row it cannot trust costs a choice made again rather than a failure: a
+   row of the wrong shape is left out. The people or group association it held
+   reads as never made, which workflow asks for again; a favorite directory
+   reads as never marked, which workflow never asks about, so it stays off the
+   list until you mark it again.
 
 ## The store schema
 
@@ -445,8 +447,12 @@ exist only to hold a line:
   whose `Host` is not a loopback host (closing DNS-rebinding), requires a
   state-changing request that carries an `Origin` to be same-origin (closing
   cross-origin CSRF from a co-resident page), and — under `--dry-run` —
-  refuses every write at one gate, making the whole surface read-only. There is
-  no auth scheme, by design: a single local user over loopback.
+  refuses every write at one gate, making the whole surface read-only. Every
+  API request must also present the run's session, a secret each run makes as
+  it starts and gives its page in the address it prints, so a program on the
+  machine that was never shown that address cannot drive the API. Beyond that
+  there are no accounts or logins, by design: a single local user over
+  loopback.
 - **Secrets are masked before any output** and are never written to the store;
   the token no-leak tests ship with any change that touches a credential path.
 - **Web API errors leak nothing.** Every error a handler returns is an RFC 9457

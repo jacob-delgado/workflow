@@ -88,15 +88,17 @@ loopback server or a release.
 
 Severity: medium · Confidence: measured · Size: L
 
-**Where.** `scripts/gobco-report.sh` (`:208`), `BRANCH_COVERAGE_MIN`
-(`Taskfile.yml:78`), TRADE-19; among the gaps:
-`internal/wiring/tracker.go:107` (`jiraOnly`),
-`internal/wiring/messaging.go:198` to `:202` (`asMessagingError`),
-`internal/wiring/forge.go:98`, `internal/config/save.go:120`, `:217`, `:222`,
-`internal/setup/setup.go:164`, `internal/tui/branch.go:457`,
-`internal/tui/composer.go:307`, `internal/tui/fields.go:217`,
-`internal/tui/commentcomposer.go:70`, `internal/store/kept.go` (`:63` to
-`:234`).
+**Where.** `scripts/gobco-report.sh` (the TRADE-19 site, where it prints
+gobco's per-condition worklist), `BRANCH_COVERAGE_MIN` (`Taskfile.yml`),
+TRADE-19; among the gaps: `jiraOnly` (`internal/wiring/tracker.go`),
+`asMessagingError` (`internal/wiring/messaging.go`), `ask`'s failed connection
+(`internal/wiring/forge.go`), `Create` and `createPrivate`
+(`internal/config/save.go`), `Keepable` (`internal/setup/setup.go`),
+`branchCreator.pasted` (`internal/tui/branchcreator.go`),
+`commitComposer.pasted` (`internal/tui/composer.go`), `statusPicker.pasted`
+(`internal/tui/fields.go`), `commentDrafts.keeping`
+(`internal/tui/commentcomposer.go`), and `keptWithin` through
+`pruneSlackEntities` (`internal/store/kept.go`).
 
 **Today.** TRADE-19's triggers have fired: the measured share is 91.4% against
 a floor of 91%, already lowered from 92 in #166, and its premise is false. It
@@ -124,36 +126,6 @@ chase" then names the allowlist as the exception list.
 **Done when.** The gate fails a new untested `err != nil` arm, and the
 measured share is at least two points above the floor.
 
-## Rules this audit changes
-
-### DEBT-324 Declare compiled regular expressions at package level
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** CLAUDE.md, *Design principles*, O — Open/closed; 41 non-test
-`regexp.MustCompile` calls under `internal/`, among them `trailerLine`
-(`internal/convention/convention.go:398`, called per body line), `issueKey`
-(`:55`), `setOption` and `errexitOption` (`internal/hooks/generate.go`, per
-script line), `summaryLine` (`internal/hooks/output.go:87`, per hook output
-line), `versionPattern`, `createdTask`, `revertedOperations`
-(`internal/taskwarrior/taskwarrior.go:315`, `write.go:19`, `:25`),
-`pseudoVersion` (`internal/buildinfo/buildinfo.go:46`).
-
-**Today.** The Open/closed note says `gochecknoglobals` makes a package-level
-lookup map a build failure, and authors extended that to regexps, wrapping
-each in a `func x() *regexp.Regexp` compiled on every use, some in per-line
-loops. The pinned gochecknoglobals allows `regexp.MustCompile` globals, and
-Effective Go and Google's style both declare them once.
-
-**Fix.** Add to the Open/closed note: "A compiled regular expression is the
-exception the linter itself makes: declare it once as a package-level `var
-name = regexp.MustCompile(...)` rather than compiling it in a helper on every
-call." Move every fixed pattern to a package-level var, keep the func form
-only for patterns built from run-time input, and hoist those out of loops.
-
-**Done when.** `grep -rn 'func .*\*regexp.Regexp' internal | grep -v _test`
-returns only parameterized builders and `golangci-lint run` is clean.
-
 ## The trade-off register
 
 These were chosen on purpose. They are not debt; they are listed because each
@@ -175,8 +147,9 @@ time, were paid down when the server took them over, and their entries are
 gone. TRADE-6 was paid down when the composers, the calendar and the pane
 switch came to move around one field ring, and TRADE-12 when the terminal
 interface came to take its input from the caller, so a test drives it; their
-entries are gone. TRADE-18 was paid down to the one condition it now names,
-when every command came to take its working directory from its caller, and
+entries are gone. TRADE-18 was paid down to one condition, when every command
+came to take its working directory from its caller, then widened to a second,
+when the interface came to read keys from the terminal past a piped input, and
 stays. TRADE-19 is to be paid down by the entry above whose title names it,
 and stays here until that entry is paid. In the pre-1.0 paydown every entry
 that stays was checked against the code again: each names the functions and
@@ -299,9 +272,11 @@ its seams through the terminal's struct; a second surface that wants the
 editor must import `internal/tui`.
 
 **Reopen when.** A surface other than the terminal needs the editor, `After`
-or `Copy`; `internal/editor` stops returning a Bubble Tea command; or the web
-server needs to be built without importing `internal/tui` (today it also needs
-`tui.CheckKeys` and `tui.KeyActions`).
+or `Copy`; `internal/editor` stops returning a Bubble Tea command; or `--web`
+needs to be wired without `internal/tui`. Package `webserver` imports no
+`internal/tui` (`depguard`'s `webserver-not-terminal` rule forbids it), but
+`cli.WebDeps` still builds its seams from the `tui.Deps` the wiring returns,
+and hands it `tui.CheckKeys` and `tui.KeyActions` as functions.
 
 ### TRADE-13 Encoding the program's own types is taken not to fail
 
@@ -361,27 +336,39 @@ lost is read rather than checked.
 **Reopen when.** One of these failures is reported, or a change to the calls
 lets a test fail the second without the first.
 
-### TRADE-18 A condition only Linux's tests reach
+### TRADE-18 Two conditions a test reaches where the report cannot see it
 
-One condition is reached by a test that skips on macOS, so a report
-measured there lists it as seen one way, and CI's, measured on Linux, does
-not. `closeRequestLog` (`internal/cli/scriptable.go`) asks whether the
-request log's file could be fully written, and says so on stderr when it
-could not. `TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
+Two conditions are reached by a test the condition report does not count.
+`closeRequestLog` (`internal/cli/scriptable.go`) asks whether the request
+log's file could be fully written, and says so on stderr when it could not.
+`TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
 (`internal/cli/reqlog_test.go`) reaches it by logging to `/dev/full`, every
 write to which fails as a full disk would; macOS has none, and no other file
-can be made to refuse writes from a test.
+can be made to refuse writes from a test, so a report measured there lists it
+as seen one way, and CI's, measured on Linux, does not. `keysFrom`
+(`internal/tui/tui.go`) asks whether the interface's input is a file that is
+no terminal, from which it reads no keys.
+`TestRunReadsNoKeysFromAFileThatIsNoTerminal`
+(`internal/tui/run_unix_test.go`) reaches it in a child process that has no
+terminal at all, as a test run from a developer's shell does not, and gobco
+counts only the test process, so every report lists that the input is a file
+as never true and whether it is a terminal as never asked.
 
 **Decided.** 2026-09-26, in #146; narrowed to `closeRequestLog` alone in the
 pre-1.0 paydown, when every command came to read its working directory from
 the environment its caller hands it, so a test reaches the six `os.Getwd`
-arms this entry also kept on every system.
+arms this entry also kept on every system; and widened to `keysFrom` in the
+same paydown, when the interface came to read keys from the terminal when its
+input is a file that is none (DEBT-197).
 
 **Cost.** `task cover:branch` on macOS reads one arm fewer than CI does, and
-lists one condition a reader there could take for untested.
+every report lists `keysFrom`'s condition as seen one way, though a test fails
+when either arm breaks; a reader of the report could take either for
+untested.
 
-**Reopen when.** CI measures condition coverage on another system, or the
-test stops reaching the condition on Linux.
+**Reopen when.** CI measures condition coverage on another system, a test
+stops reaching either condition, or gobco comes to count what a child process
+runs.
 
 ### TRADE-19 The rest of the condition report stays gobco's worklist
 
@@ -656,3 +643,40 @@ by a switch reads the Slack directory afresh (TRADE-26).
 
 **Reopen when.** A switch is found slow enough to notice, or the terminal is
 found left changed by one in practice.
+
+### TRADE-35 Windows-only code is built in CI but never run
+
+**Decided.** Every CI job runs on `ubuntu-latest`. The Cross-compile job
+(`cross` in `.github/workflows/ci.yml`) runs `task release:binaries` and
+`task release:verify`, which build a binary for every `RELEASE_PLATFORMS`
+target in `Taskfile.yml`, `windows/amd64` among them, so the code only a
+Windows build holds is compiled on every change, but no job runs it. Decided
+2026-10-09 by the maintainer in the pre-1.0 paydown (#232): CI stays on
+Linux, and the cost is recorded here.
+
+**Cost.** Four files are Windows-only, and two functions have a branch only
+Windows takes, each marked with this entry's ID:
+`internal/filelock/lock_windows.go` (`//go:build windows`), the `LockFileEx`
+lock `TryLock` takes, which keeps two sessions from writing the Slack
+credentials at once; `internal/fileowner/owner_other.go` (`//go:build
+!unix`, which among the release targets builds for Windows alone), whose `Of`
+knows no owner, so the configuration's trust check refuses nothing there;
+`internal/proc/pgroup/pgroup_other.go` (`//go:build !unix`), whose `Isolate`
+isolates nothing, so a canceled streamed command's children can outlive it;
+`internal/cli/environment_windows_test.go`, the test that `--log` reads a path
+Windows roots elsewhere (`\logs`, `D:logs`) where Windows does, which as a
+test file no job even compiles; the `runtime.GOOS == "windows"` branch of
+`SharedMode` in `internal/config/save.go`, which reports no file shared; and
+the `goos == "windows"` branch of `defaultEditor` in
+`internal/editor/editor.go`, which opens notepad where no editor is set and
+which no test reaches, since the package only ever passes it `runtime.GOOS`.
+A regression in any of them builds, passes every job and ships, unseen until
+a Windows user meets it. The functions that take the platform as an argument
+(`store.Dir`, `keychain.Storer`, `taskwarrior.Candidates`,
+`wiring.BrowserCommand`, `hooks.NewFailureScan` and `hooks.ExistingHooks`)
+are not part of the cost: their tests pass `windows` on Linux.
+
+**Reopen when.** A Windows-specific bug is reported, Windows-only code grows
+past the files and the branches named here, or the project adds a feature only
+Windows has, such as the job object `pgroup.Isolate` would need (FEAT-73 in
+`FEATURES.md`).

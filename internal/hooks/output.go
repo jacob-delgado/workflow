@@ -84,14 +84,12 @@ func started(jobs []Job, line string) []Job {
 
 // summaryLine matches one job in lefthook's summary: a glyph, the name, and how
 // long it took.
-func summaryLine() *regexp.Regexp {
-	return regexp.MustCompile(`^(\S+)\s+(.+?)\s+\((\d+(?:\.\d+)? seconds?)\)$`)
-}
+var summaryLine = regexp.MustCompile(`^(\S+)\s+(.+?)\s+\((\d+(?:\.\d+)? seconds?)\)$`)
 
 // reported records a job's outcome from the summary. A check mark in either of
 // lefthook's styles is a pass; its other marks are failures.
 func reported(jobs []Job, line string) []Job {
-	match := summaryLine().FindStringSubmatch(line)
+	match := summaryLine.FindStringSubmatch(line)
 	if match == nil {
 		return jobs
 	}
@@ -140,6 +138,19 @@ func filePatterns(goos string) (string, string) {
 	return drive, file
 }
 
+// shellcheckLocation matches shellcheck pointing at a place: "In file line 12:".
+var shellcheckLocation = regexp.MustCompile(`^In (\S+\.[A-Za-z0-9]+) line (\d+)():()$`)
+
+// arrowLocation matches typos and the other tools that point at a place with an
+// arrow.
+var arrowLocation = regexp.MustCompile(`^(?:╭▸|-->)\s*(\S+\.[A-Za-z0-9]+):(\d+)(?::(\d+))?()$`)
+
+// pythonTracebackFrame matches a Python traceback frame: `File "path/to/x.py",
+// line 10, in <module>`. The path must end in .py so a quoted name of the same
+// shape from another tool is not read as one; the trailing ", in …" is dropped,
+// not kept.
+var pythonTracebackFrame = regexp.MustCompile(`^File "([^"]+\.py)", line (\d+)()(?:,.*)?()$`)
+
 // locationPatterns match the ways tools point at a place in a file, each with
 // the file, line, column and message in groups 1 to 4 where the tool gives them.
 // A file part must either carry an extension or be a known extensionless name,
@@ -150,8 +161,9 @@ func filePatterns(goos string) (string, string) {
 // Windows a path opens with a drive letter — "C:\src\main.go" — whose colon
 // would be read as that separator, so a single drive prefix is allowed there,
 // and only there: on Unix an "a:b.go" would look the same and is far likelier
-// to be a false positive than a real drive. The other formats span the drive
-// already, their file part being \S+ or a quoted path.
+// to be a false positive than a real drive. Those two are built for goos; the
+// other formats span the drive already, their file part being \S+ or a quoted
+// path, and are the same on every platform.
 func locationPatterns(goos string) []*regexp.Regexp {
 	drive, file := filePatterns(goos)
 
@@ -161,32 +173,31 @@ func locationPatterns(goos string) []*regexp.Regexp {
 		// file(line,col): message, and file(line): message — MSVC, and the
 		// TypeScript compiler the web build runs.
 		regexp.MustCompile(`^(` + drive + file + `)\((\d+)(?:,(\d+))?\):?\s*(.*)$`),
-		// shellcheck: "In file line 12:".
-		regexp.MustCompile(`^In (\S+\.[A-Za-z0-9]+) line (\d+)():()$`),
-		// typos and others that point with an arrow.
-		regexp.MustCompile(`^(?:╭▸|-->)\s*(\S+\.[A-Za-z0-9]+):(\d+)(?::(\d+))?()$`),
-		// a Python traceback frame: `File "path/to/x.py", line 10, in <module>`.
-		// The path must end in .py so a quoted name of the same shape from another
-		// tool is not read as one; the trailing ", in …" is dropped, not kept.
-		regexp.MustCompile(`^File "([^"]+\.py)", line (\d+)()(?:,.*)?()$`),
+		shellcheckLocation,
+		arrowLocation,
+		pythonTracebackFrame,
 	}
 }
 
-// eslintPatterns match ESLint's "stylish" reporter, which names the file once on
-// its own line and then lists each place under it as "line:col severity message"
-// with no filename — so the file has to be carried across lines, which the
-// per-line patterns cannot do. The row keeps the error/warning word so a bare
-// "12:5 …" elsewhere is not mistaken for one. The header reuses the file rule so
-// only a plausible path opens a block. It returns the header pattern, then the
-// row. The header's extension must start with a letter, so a version banner
-// ("v1.2.3") or a decimal ("3.14") on its own line is not read as a file.
-func eslintPatterns(goos string) (*regexp.Regexp, *regexp.Regexp) {
+// eslintRow matches one place in ESLint's "stylish" reporter, listed as
+// "line:col severity message" under the header (eslintHeaderFor) that names its
+// file. It keeps the error/warning word so a bare "12:5 …" elsewhere is not
+// mistaken for one.
+var eslintRow = regexp.MustCompile(`^(\d+):(\d+)\s+(?:error|warning)\s+(.*)$`)
+
+// eslintHeaderFor builds, for the platform goos, the pattern of the line on
+// which ESLint's "stylish" reporter names a file once, above its eslintRow
+// places — so the file has to be carried across lines, which the per-line
+// patterns cannot do. It reuses the file rule so only a plausible path opens a
+// block, with a drive letter only on Windows. The extension must start with a
+// letter, so a version banner ("v1.2.3") or a decimal ("3.14") on its own line
+// is not read as a file.
+func eslintHeaderFor(goos string) *regexp.Regexp {
 	drive, _ := filePatterns(goos)
 
 	header := `(?:[^\s:]+\.[A-Za-z][A-Za-z0-9]*|(?:[^\s:]*[/\\])?(?:` + knownBasenames + `))`
 
-	return regexp.MustCompile(`^(` + drive + header + `)$`),
-		regexp.MustCompile(`^(\d+):(\d+)\s+(?:error|warning)\s+(.*)$`)
+	return regexp.MustCompile(`^(` + drive + header + `)$`)
 }
 
 // MaxPlaces is the most places a FailureScan keeps. A run folds every line of
@@ -203,7 +214,6 @@ const MaxPlaces = 1000
 type FailureScan struct {
 	patterns     []*regexp.Regexp
 	eslintHeader *regexp.Regexp
-	eslintRow    *regexp.Regexp
 	found        []Location
 	// eslintFile is the file ESLint named above the rows now arriving.
 	eslintFile string
@@ -215,10 +225,8 @@ type FailureScan struct {
 // NewFailureScan starts reading a hook's output. goos is the running platform,
 // which decides whether a Windows drive letter is read as part of a path.
 func NewFailureScan(goos string) FailureScan {
-	header, row := eslintPatterns(goos)
-
 	return FailureScan{
-		patterns: locationPatterns(goos), eslintHeader: header, eslintRow: row,
+		patterns: locationPatterns(goos), eslintHeader: eslintHeaderFor(goos),
 		found: nil, eslintFile: "", held: "",
 	}
 }
@@ -231,7 +239,7 @@ func NewFailureScan(goos string) FailureScan {
 // output, is never read against a stale filename.
 func (s FailureScan) Next(raw string) FailureScan {
 	line := strings.TrimSpace(raw)
-	row := s.eslintRow.FindStringSubmatch(line)
+	row := eslintRow.FindStringSubmatch(line)
 
 	if held := s.held; held != "" {
 		s.held = ""
@@ -276,7 +284,7 @@ func (s FailureScan) Places() []Location {
 func (s FailureScan) located(line string) FailureScan {
 	s.eslintFile = ""
 
-	location, ok := locate(s.patterns, line)
+	location, ok := s.place(line)
 	if !ok {
 		return s
 	}
@@ -298,9 +306,9 @@ func (s FailureScan) with(location Location) FailureScan {
 	return s
 }
 
-// locate reads a place from one line, if the line names one.
-func locate(patterns []*regexp.Regexp, line string) (Location, bool) {
-	for _, pattern := range patterns {
+// place reads a place from one line, if the line names one.
+func (s FailureScan) place(line string) (Location, bool) {
+	for _, pattern := range s.patterns {
 		match := pattern.FindStringSubmatch(line)
 		if match == nil {
 			continue

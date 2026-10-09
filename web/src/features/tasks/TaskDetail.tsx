@@ -11,7 +11,7 @@ import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, definitionList } from '@/lib/utils.ts'
 import { LastLook } from '@/lib/LastLook.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
-import { useTaskWrites } from './tasksApi.ts'
+import { useDoneSinceListed, useTaskWrites } from './tasksApi.ts'
 import { TaskLineForm } from './TaskLineForm.tsx'
 import { dueWords, elapsedWords, isActive, taskName, taskNumber } from './taskWords.ts'
 
@@ -29,8 +29,11 @@ interface TaskDetailProps {
 // TaskDetail is the selected task: what it is and its facts, the issue it is
 // for, the notes on it, and the writes that change it — each saying what it did
 // in the panel's outcome line, or why Taskwarrior refused it beside its control.
+// A task the page has just marked done, shown from a list answered before the
+// done, offers no start, stop or done until a list is answered after it.
 export function TaskDetail({ task, issue, teller, now }: TaskDetailProps) {
   const writes = useTaskWrites()
+  const justDone = useDoneSinceListed(task.uuid)
   const name = taskName(task)
 
   return (
@@ -40,9 +43,11 @@ export function TaskDetail({ task, issue, teller, now }: TaskDetailProps) {
       </h2>
       <TaskFacts task={task} issue={issue} now={now} />
       <IssueLinks task={task} listed={issue} />
-      <div className="flex flex-wrap items-center gap-item">
-        <TaskVerbs task={task} teller={teller} />
-      </div>
+      {justDone ? null : (
+        <div className="flex flex-wrap items-center gap-item">
+          <TaskVerbs task={task} teller={teller} />
+        </div>
+      )}
       <Annotations task={task} />
       <div className="flex flex-col gap-group">
         <TaskLineForm
@@ -187,13 +192,16 @@ interface TaskVerbsProps {
   // named is what a screen reader hears after each verb, naming the task where
   // several tasks' verbs stand together.
   named?: string
+  // markedDone is what a done says, where it has more to say than that the
+  // task was marked done.
+  markedDone?: (answered: TaskList) => string
 }
 
 // TaskVerbs are the writes a button makes on one task: start it, or stop it
 // once started, and mark it done. Standing alone, for the one task the Tasks
 // section shows, they answer the terminal's s and d; where several tasks'
 // verbs stand together, named, a key could not say which task it meant.
-export function TaskVerbs({ task, teller, named }: TaskVerbsProps) {
+export function TaskVerbs({ task, teller, named, markedDone }: TaskVerbsProps) {
   const writes = useTaskWrites()
   const name = taskName(task)
   const active = isActive(task)
@@ -221,7 +229,7 @@ export function TaskVerbs({ task, teller, named }: TaskVerbsProps) {
           cost: "Taskwarrior runs the task's hooks; only Undo, while it is the last change, takes it back.",
         }}
         run={() => writes.complete(task.uuid)}
-        done={() => `Marked ${name} done.`}
+        done={markedDone ?? (() => `Marked ${name} done.`)}
         fallback={`${capitalized(name)} was not marked done. Try again, or run ${name} done in a terminal to see why.`}
         teller={teller}
       />

@@ -12,7 +12,7 @@ import {
 } from '@/api/generated'
 import { listTasksOptions, listTasksQueryKey } from '@/api/generated/@tanstack/react-query.gen.ts'
 import type { TaskList } from '@/api/generated/types.gen.ts'
-import { rememberCompleted, rememberTrack } from './taskMemo.ts'
+import { rememberCompleted, rememberTrack, useTaskMemo, type RememberedDone } from './taskMemo.ts'
 
 // useTasks reads your pending tasks, most urgent first, or why no Taskwarrior
 // can be asked. Taskwarrior changes outside the page — a task added in a
@@ -68,9 +68,45 @@ export function useAnsweredTasks(): AnsweredTasks {
   return { list: data, answeredAt: dataUpdatedAt }
 }
 
+// useJustDone is each task the page has marked done that neither a frame nor
+// a list answered since has described again, by uuid: until one does, the
+// issue's Tasks card, which draws from the stream with the list laid over it,
+// offers nothing on the task that would start it or mark it done again,
+// whatever the stream or a list read before the done still says of it — a
+// done the server could not read the task or the list after leaves both as
+// they were.
+export function useJustDone(): ReadonlyMap<string, RememberedDone> {
+  const completed = useTaskMemo((memo) => memo.completed)
+  const { list, answeredAt } = useAnsweredTasks()
+  const listed = new Set((list?.tasks ?? []).map((task) => task.uuid))
+  const describedSince = (write: RememberedDone) =>
+    answeredAt >= write.rememberedAt && listed.has(write.uuid)
+
+  return new Map(
+    completed.filter((write) => !describedSince(write)).map((write) => [write.uuid, write]),
+  )
+}
+
+// useDoneSinceListed is whether the page has marked the task with a uuid done
+// since the task list was last answered. The Tasks section draws from the list
+// alone, so no frame says anything of what it shows: until a list is answered
+// after the done — by the read a done whose list could not be read again
+// prompts, or by any write — the task, as the list from before the done still
+// has it, offers nothing that would start it or mark it done again.
+export function useDoneSinceListed(uuid: string): boolean {
+  const doneAt = useTaskMemo((memo) => memo.doneAt[uuid])
+  const { answeredAt } = useAnsweredTasks()
+
+  return doneAt !== undefined && doneAt > answeredAt
+}
+
 // A task write's request: the SDK call, answered with the list after it. A
 // refusal throws the API error, whose message is safe to show.
 type Send = () => Promise<{ data: TaskList }>
+
+// Heard is what a write remembers of its answer before the list it answers
+// takes the cached one's place.
+type Heard = (answered: TaskList) => void
 
 // TaskWrites are the changes the page makes to your tasks, each answering the
 // list after it.
@@ -95,13 +131,18 @@ interface TaskWrites {
 // unavailable, saying why; the list shown stays, and is read once more,
 // rather than give way to a Taskwarrior that is there. A done and a track are
 // remembered too, for what the list cannot say of them until the stream
-// catches up: that the task is done, and which task tracks the issue where the
-// active context leaves it out.
+// catches up: the task done, as the done's answer describes it, and which task
+// tracks the issue where the active context leaves it out; and a done for when
+// it was made, which the list shown says nothing of until one is answered
+// after it. Each is remembered before its list is cached, so a list answered
+// since — the write's own among them — is never older than the memo, and one
+// answered before it always is.
 export function useTaskWrites(): TaskWrites {
   const queryClient = useQueryClient()
-  const write = async (send: Send): Promise<TaskList> => {
+  const write = async (send: Send, heard?: Heard): Promise<TaskList> => {
     const { data: answered } = await send()
     await queryClient.cancelQueries({ queryKey: listTasksQueryKey() })
+    heard?.(answered)
     if (answered.available) {
       queryClient.setQueryData(listTasksQueryKey(), answered)
     } else {
@@ -113,24 +154,24 @@ export function useTaskWrites(): TaskWrites {
 
   return {
     add: (line) => write(() => addTask({ body: { line }, throwOnError: true })),
-    track: async (issueKey) => {
-      const answered = await write(() =>
-        trackIssue({ body: { issue_key: issueKey }, throwOnError: true }),
-      )
-      if (answered.added !== undefined) {
-        rememberTrack(issueKey, answered.added)
-      }
-
-      return answered
-    },
+    track: (issueKey) =>
+      write(
+        () => trackIssue({ body: { issue_key: issueKey }, throwOnError: true }),
+        (answered) => {
+          if (answered.added !== undefined) {
+            rememberTrack(issueKey, answered.added)
+          }
+        },
+      ),
     start: (uuid) => write(() => startTask({ path: { uuid }, throwOnError: true })),
     stop: (uuid) => write(() => stopTask({ path: { uuid }, throwOnError: true })),
-    complete: async (uuid) => {
-      const answered = await write(() => completeTask({ path: { uuid }, throwOnError: true }))
-      rememberCompleted(uuid)
-
-      return answered
-    },
+    complete: (uuid) =>
+      write(
+        () => completeTask({ path: { uuid }, throwOnError: true }),
+        (answered) => {
+          rememberCompleted(uuid, answered.done)
+        },
+      ),
     annotate: (uuid, text) =>
       write(() => annotateTask({ path: { uuid }, body: { text }, throwOnError: true })),
     modify: (uuid, line) =>

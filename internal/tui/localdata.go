@@ -31,6 +31,8 @@ type localData struct {
 	err   error
 }
 
+var _ overlay = localData{}
+
 // canSeeLocalData reports that the store's files can be listed.
 func canSeeLocalData(deps Deps) bool {
 	return deps.Settings.LocalData != nil
@@ -163,6 +165,9 @@ func (d localData) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 }
+
+// which names Local data.
+func (localData) which() overlayKind { return overlayLocalData }
 
 // cacheNames names the cache's file, or is empty when there is none.
 func (d localData) cacheNames() string {

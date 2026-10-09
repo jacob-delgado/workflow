@@ -316,7 +316,11 @@ without agreement on direction.
     it off the value that uses it, put the behavior on the discriminant type as
     a method, or keep a `switch` and let `exhaustive` fail the build when a new
     case is added without a branch. Package-level `var Err… = errors.New(…)`
-    sentinels are exempt and stay.
+    sentinels are exempt and stay. A compiled regular expression is the
+    exception the linter itself makes: declare it once as a package-level
+    `var name = regexp.MustCompile(…)`, named for what it matches, rather
+    than compiling it in a helper on every call. Only a pattern built from
+    run-time input keeps a builder, called outside any loop.
   - **L — Liskov substitution.** An implementation honors the contract its
     callers rely on; a fake that cuts corners is a broken fake, not a shortcut.
   - **I — Interface segregation.** Depend only on what you use. Declare small
@@ -579,17 +583,20 @@ than observable, public behavior.
   `internal/webserver/errors.go`, never an ad-hoc envelope. (The loopback,
   same-origin and dry-run guards refuse *before* a handler runs and answer in
   plain text; that boundary stays.) **`fault` classifies** a seam's error (a
-  missing resource → `not_found` 404, an unreachable upstream → `unreachable` 502)
-  rather than flattening it to a generic 500; a new class of failure gets a new
-  branch there, not a bare 500. The **`detail` never leaks a secret or an internal
-  host** — tokens are redacted before an error forms, and an unreachable upstream
-  is genericized through `fault` precisely because its error carries the host; a
-  write's refusal may still carry the git or forge's own reason so the user can
-  act (the test that an unreachable forge's detail omits its host is part of the
-  change). The `type` URI points at a section of `docs/content/docs/errors.md`, so
-  add the code there when you add one to the enum. The OpenAPI spec is the source:
-  change `api/openapi.yaml`, then `task gen` (Go) and `yarn gen` (the web client)
-  so both stay generated from it.
+  missing resource → `not_found` 404, an unreachable upstream →
+  `unreachable` 502) rather than flattening it to a generic 500; a new class
+  of failure gets a new class, not a bare 500: one every surface tells alike
+  in `internal/report/classes.go`, one only the server tells in
+  `internal/webserver/faults.go`. The **`detail` never leaks a secret or an
+  internal host** — tokens are redacted before an error forms, and an
+  unreachable upstream is genericized through `fault` precisely because its
+  error carries the host; a write's refusal may still carry the git or forge's
+  own reason so the user can act (the test that an unreachable forge's detail
+  omits its host is part of the change). The `type` URI points at a section of
+  `docs/content/docs/errors.md`, so add the code there when you add one to the
+  enum. The OpenAPI spec is the source: change `api/openapi.yaml`, then
+  `task gen` (Go) and `yarn gen` (the web client) so both stay generated
+  from it.
 
 - **The web server does not sanitize on the way out**, though the store's rule
   above asks the seam that renders stored text to: the web's rendering seam is

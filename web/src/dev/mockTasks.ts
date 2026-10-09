@@ -1,4 +1,10 @@
-import type { Task, TaskFacet, TaskList, TasksSummary } from '@/api/generated/types.gen.ts'
+import type {
+  Task,
+  TaskFacet,
+  TaskList,
+  TaskRanks,
+  TasksSummary,
+} from '@/api/generated/types.gen.ts'
 import { minute } from '@/lib/dates.ts'
 
 // at is the RFC 3339 time some minutes from now — before it when negative — so
@@ -19,6 +25,7 @@ function facet(kind: TaskFacet['kind'], value: string, label: string): TaskFacet
 const isStarted = facet('state', 'started', 'started')
 const isPending = facet('state', 'pending', 'pending')
 const isWaiting = facet('state', 'waiting', 'waiting')
+const isCompleted = facet('state', 'completed', 'completed')
 const atHigh = facet('priority', 'H', 'priority H')
 const atMedium = facet('priority', 'M', 'priority M')
 const atNone = facet('priority', '', 'no priority')
@@ -133,7 +140,7 @@ const retro: Task = {
 // checked-out issue, one for another issue, one no issue tracks and one
 // waiting, most urgent first, with a sync backend to offer Sync. Dev-only, and
 // code-split out of a production build.
-export function mockTaskList(): TaskList {
+function mockTaskList(): TaskList {
   return {
     available: true,
     reason: '',
@@ -146,7 +153,7 @@ export function mockTaskList(): TaskList {
       isPending,
       isWaiting,
       facet('state', 'recurring', 'recurring'),
-      facet('state', 'completed', 'completed'),
+      isCompleted,
       facet('state', 'deleted', 'deleted'),
       facet('state', 'unknown', 'unknown'),
       atHigh,
@@ -171,4 +178,102 @@ export const mockTasksSummary: TasksSummary = {
   reason: '',
   active: redacting,
   linked: [redacting, caching],
+}
+
+// linkedDone is each task linked to an issue as the server describes it once
+// marked done, beside what it held before: its place among the linked tasks,
+// and the fields typed text matches, no longer its #id, since a done task
+// leaves Taskwarrior's working set.
+const linkedDone = new Map<string, Pick<Task, 'ranks' | 'searchable'>>([
+  [
+    redacting.uuid,
+    {
+      ranks: { urgency: 0, state: 1, id: 1, tag: 0, issue: 1, priority: 0 },
+      searchable: ['proj-412: fix token redaction', 'workflow', 'proj-412', '+jira'],
+    },
+  ],
+  [
+    caching.uuid,
+    {
+      ranks: { urgency: 1, state: 1, id: 1, tag: 1, issue: 0, priority: 1 },
+      searchable: [
+        'proj-408: cache the forge ci status between polls',
+        'workflow',
+        'proj-408',
+        '+jira',
+      ],
+    },
+  ],
+])
+
+// mockDone is what the mockup answers a done of the task uuid names with, as
+// the server does: the list without it, the places behind it closed up, and,
+// for a task linked to an issue, the task as it stands done — stopped, out of
+// the working set and completed.
+function mockDone(uuid: string): TaskList {
+  const list = mockTaskList()
+  const gone = list.tasks.find((task) => task.uuid === uuid)
+  if (gone === undefined) {
+    return list
+  }
+
+  const described = linkedDone.get(uuid)
+  const tasks = list.tasks.filter((task) => task !== gone).map((task) => closedUp(task, gone.ranks))
+  if (described === undefined) {
+    return { ...list, tasks }
+  }
+
+  const done: Task = {
+    ...gone,
+    ...described,
+    id: 0,
+    status: 'completed',
+    state: 'completed',
+    start: undefined,
+    end: at(0),
+    modified: at(0),
+    facets: gone.facets.map((held) => (held.kind === 'state' ? isCompleted : held)),
+  }
+
+  return { ...list, tasks, done }
+}
+
+// closedUp is task in a list a task at gone has left: its place in each order
+// behind that one moves up one, as the server's places among the rest are.
+function closedUp(task: Task, gone: TaskRanks): Task {
+  const ranks = { ...task.ranks }
+  for (const order of ['urgency', 'state', 'id', 'tag', 'issue', 'priority'] as const) {
+    if (ranks[order] > gone[order]) {
+      ranks[order] -= 1
+    }
+  }
+
+  return { ...task, ranks }
+}
+
+// A TaskRoute answers one of the task routes the mockup's server takes, from
+// the named parts of its path.
+type TaskRoute = (asked: { params: Record<string, string> }) => TaskList
+
+// taskRoutes are the mockup server's routes for your tasks, by method and path:
+// the list, and every write on it, which answers the list as it stands; a done
+// answers it without the task, and the task as it stands done.
+export function taskRoutes(): Record<string, TaskRoute> {
+  const listed = () => mockTaskList()
+
+  return {
+    ...Object.fromEntries(
+      [
+        'GET /api/tasks',
+        'POST /api/tasks',
+        'POST /api/tasks/track',
+        'POST /api/tasks/undo',
+        'POST /api/tasks/sync',
+        ...['start', 'stop', 'annotations', 'modify'].map(
+          (write) => `POST /api/tasks/{uuid}/${write}`,
+        ),
+      ].map((name) => [name, listed]),
+    ),
+    'POST /api/tasks/{uuid}/done': ({ params }) => mockDone(params.uuid ?? ''),
+  }
 }

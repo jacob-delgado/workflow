@@ -157,6 +157,9 @@ func (p messagingPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cm
 	}
 }
 
+// which names the announcement preview.
+func (messagingPreview) which() overlayKind { return overlayMessagingPreview }
+
 // cycleChannel moves the destination to the next configured channel, wrapping,
 // and reads who is in it when the post tags anyone.
 func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
@@ -165,7 +168,7 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 	}
 
 	current := slices.Index(p.channels, p.channel)
-	p.channel = p.channels[(current+step+len(p.channels))%len(p.channels)]
+	p.channel = p.channels[around(current, len(p.channels)).by(step)]
 
 	var readMembers tea.Cmd
 	if p.tagging.offered {

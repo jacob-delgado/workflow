@@ -12,30 +12,51 @@ interface Remembered {
   frameSince: boolean
 }
 
-// TaskMemo is what this page has just done to your tasks that the stream has
-// not yet caught up with, and a task list cannot say: the list holds pending
-// tasks alone, so a task done leaves it, and it holds none that Taskwarrior's
-// active context hides, as the task a track made can be.
+// RememberedDone is a task the page marked done, remembered with the task as
+// the done's answer described it, or undefined where the answer could not
+// describe it: the task could not be read again after the done.
+export interface RememberedDone extends Remembered {
+  done: Task | undefined
+}
+
+// TaskMemo is what this page has just done to your tasks that what it shows
+// has not yet caught up with. The stream lags a write, and a task list cannot
+// say all of it: the list holds pending tasks alone, so a task done leaves it,
+// and it holds none that Taskwarrior's active context hides, as the task a
+// track made can be.
 interface TaskMemo {
-  // completed are the tasks the page marked done.
-  completed: Remembered[]
+  // completed are the tasks the page marked done that the stream has not yet
+  // caught up with.
+  completed: RememberedDone[]
+  // doneAt is when the page last marked each task done, by uuid, by its clock
+  // in milliseconds, whatever the stream has said of the task since: the Tasks
+  // section draws from the list alone, which catches up with a done once a
+  // list is answered after it. One entry a task, so it holds no more than the
+  // tasks the page has marked done.
+  doneAt: Record<string, number>
   // tracks are the tasks the page tracked issues with, by the issue's key.
   tracks: Record<string, Remembered>
 }
 
 // The page's memo of its writes, kept outside any one component so it
 // outlives the issue's card, which is drawn anew for each issue opened. The
-// writes are its only writers, and each frame of the stream what lets go.
-export const useTaskMemo = create<TaskMemo>(() => ({ completed: [], tracks: {} }))
+// writes are its only writers, and each frame of the stream what lets go of
+// all but doneAt.
+export const useTaskMemo = create<TaskMemo>(() => ({ completed: [], doneAt: {}, tracks: {} }))
 
 // remembered is a write on the task, remembered now.
 function remembered(uuid: string): Remembered {
   return { uuid, rememberedAt: Date.now(), frameSince: false }
 }
 
-// rememberCompleted notes that the page marked the task done.
-export function rememberCompleted(uuid: string): void {
-  useTaskMemo.setState((memo) => ({ completed: [...memo.completed, remembered(uuid)] }))
+// rememberCompleted notes that the page marked the task with a uuid done, as
+// the done's answer describes it, where it could.
+export function rememberCompleted(uuid: string, done: Task | undefined): void {
+  const write = remembered(uuid)
+  useTaskMemo.setState((memo) => ({
+    completed: [...memo.completed, { ...write, done }],
+    doneAt: { ...memo.doneAt, [uuid]: write.rememberedAt },
+  }))
 }
 
 // rememberTrack notes that the page tracked the issue with the task.
@@ -48,7 +69,7 @@ export function rememberTrack(issueKey: string, uuid: string): void {
 // the first to land after a write can have been read before it, and the one
 // after that shows the task as Taskwarrior holds it, whatever has changed it
 // since the write.
-function aged(entry: Remembered, receivedAt: number): Remembered | undefined {
+function aged<Entry extends Remembered>(entry: Entry, receivedAt: number): Entry | undefined {
   if (entry.frameSince) {
     return undefined
   }
@@ -56,21 +77,25 @@ function aged(entry: Remembered, receivedAt: number): Remembered | undefined {
   return receivedAt > entry.rememberedAt ? { ...entry, frameSince: true } : entry
 }
 
-// caughtUp is the memo once a frame received at receivedAt holds the linked
-// tasks: it lets go of a task done once a frame has it done or no longer holds
+// caughtUp is the memo's stream-bound part once a frame received at receivedAt
+// holds the linked tasks: it lets go of a task done once a frame has it done or no longer holds
 // it, and of a track once a frame holds its task — and of either once the
 // second frame received since has landed, since a done or a track undone
 // before the stream read Taskwarrior again is never seen at all. A frame read
 // before the write can land after its answer, so the first that still has the
 // task as it was lets go of nothing.
-function caughtUp(memo: TaskMemo, linked: Task[], receivedAt: number): TaskMemo {
+function caughtUp(
+  memo: TaskMemo,
+  linked: Task[],
+  receivedAt: number,
+): Pick<TaskMemo, 'completed' | 'tracks'> {
   const held = new Map(linked.map((task) => [task.uuid, task]))
   const stillPending = (entry: Remembered) => {
     const task = held.get(entry.uuid)
 
     return task !== undefined && stillToDo(task)
   }
-  const kept = (entry: Remembered) => aged(entry, receivedAt) ?? []
+  const kept = <Entry extends Remembered>(entry: Entry) => aged(entry, receivedAt) ?? []
 
   return {
     completed: memo.completed.filter(stillPending).flatMap(kept),

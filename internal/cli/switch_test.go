@@ -137,6 +137,36 @@ func TestASwitchThatCannotBeMadeStaysWhereItWasAndSaysWhy(t *testing.T) {
 	}
 }
 
+// errMoveRefused is the operating system refusing to move the process.
+var errMoveRefused = errors.New("chdir: permission denied")
+
+func TestASwitchTheProcessCannotMoveForStaysWhereItWasAndSaysWhy(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The directory is there and its configuration loads, but the process
+	// cannot be moved into it.
+	start, other := twoDirectories(t)
+	ran := rootRun{nexts: []tui.Next{{Dir: other}}, env: environmentFor(t, place{dir: start, home: t.TempDir()})}
+	ran.env.Chdir = func(string) error { return errMoveRefused }
+
+	// Act
+	ran.stdout, ran.stderr, ran.err = executeRootIn(t, ran.env, ran.runInterface, ran.serveWebAt)
+
+	// Assert
+	if ran.err != nil || ran.interfaces != 2 {
+		t.Fatalf("workflow = %v, opened %d interfaces; want the first reopened", ran.err, ran.interfaces)
+	}
+
+	if spine := ran.spine(); !strings.Contains(spine, "start") {
+		t.Errorf("the reopened interface's top row = %q, want it still in start", spine)
+	}
+
+	if !strings.Contains(shown(ran.model), "could not switch to") {
+		t.Errorf("the reopened interface does not say why:\n%s", shown(ran.model))
+	}
+}
+
 func TestTheWebServerReachesAnotherDirectoryWiredAsTheFirst(t *testing.T) {
 	t.Parallel()
 

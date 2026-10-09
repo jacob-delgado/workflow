@@ -5,24 +5,31 @@ import type { ReactElement } from 'react'
 import type { Task, TasksSummary } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { makeSnapshot, makeTask, makeTaskList } from '@/test/fixtures.ts'
+import {
+  describedTask,
+  makeSnapshot,
+  makeTaskList,
+  standing,
+  taskStanding,
+} from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import {
+  firstInEveryOrder,
+  ranked,
+  secondInEveryOrder,
+  tracking,
+  trackingDone,
+} from '@/test/tasks.ts'
 import { IssueTasks } from './IssueTasks.tsx'
-import { TasksPanel } from './TasksPanel.tsx'
 
 // How the issue's Tasks card keeps up with a write before the stream does:
 // the list the write answered laid over the stream's frame, whichever is newer
-// standing, and what the page has just done remembered until a frame catches
-// up with it.
+// standing, and a track remembered until a frame catches up with it. A done
+// is IssueTasks.done.test.tsx's.
 
 const issueKey = 'PROJ-412'
 
-const tracking = makeTask({
-  description: 'PROJ-412: Redact tokens before they reach the request log',
-  issue_key: issueKey,
-  issue_url: 'https://jira.example.com/browse/PROJ-412',
-})
 const trackingPath = `/api/tasks/${tracking.uuid}`
 
 // streamTasks puts a stream frame on screen whose task summary is summary,
@@ -54,7 +61,7 @@ test('a task started from the card shows as started at once, ahead of the stream
   streamLinked(tracking)
   fakeApi({
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
     ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -94,7 +101,7 @@ test('a frame that lands after a write shows the task as the stream has it', asy
   streamLinked(tracking)
   fakeApi({
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
     ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -120,7 +127,7 @@ test('a frame newer than the list that has the task done offers Track', async ()
   streamLinked(tracking)
   fakeApi({
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
     ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -129,10 +136,7 @@ test('a frame newer than the list that has the task done offers Track', async ()
 
   // Act
   act(() => {
-    streamTasks(
-      { linked: [{ ...tracking, status: 'completed', state: 'completed' }] },
-      Date.now() + 1,
-    )
+    streamTasks({ linked: [trackingDone(new Date().toISOString())] }, Date.now() + 1)
   })
 
   // Assert
@@ -145,17 +149,29 @@ test('a frame newer than the list no longer lists a task only the list held', as
   // The start's answer holds a second task for the issue, added in a terminal;
   // the frame that lands after it holds no such task, deleted there since.
   const user = userEvent.setup()
-  const rotating = makeTask({
-    ...tracking,
-    uuid: '33333333-3333-4333-8333-333333333333',
-    id: 13,
-    description: 'PROJ-412: Rotate the leaked token',
-  })
+  const rotating = describedTask(
+    {
+      ...tracking,
+      uuid: '33333333-3333-4333-8333-333333333333',
+      id: 13,
+      description: 'PROJ-412: Rotate the leaked token',
+    },
+    {
+      state: 'pending',
+      facets: tracking.facets,
+      searchable: ['proj-412: rotate the leaked token', '', 'proj-412', '#13'],
+    },
+  )
   streamLinked(tracking)
   fakeApi({
+    // Started, task 12 is first among the two in every order; task 13 is as
+    // urgent, but numbered after it.
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
-      rotating,
+      ranked(
+        taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
+        firstInEveryOrder,
+      ),
+      ranked(rotating, secondInEveryOrder),
     ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -180,7 +196,7 @@ test("a frame that lands in the same millisecond as a write's answer leaves the 
   streamLinked(tracking)
   fakeApi({
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
     ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -194,190 +210,6 @@ test("a frame that lands in the same millisecond as a write's answer leaves the 
 
   // Assert
   expect(screen.getByRole('button', { name: 'Stop task 12' })).toBeTruthy()
-})
-
-test('a task marked done from the card shows done at once, with nothing left to do on it', async () => {
-  // Arrange
-  const user = userEvent.setup()
-  streamLinked(tracking)
-  fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
-  renderWithClient(<IssueTasks issueKey={issueKey} />)
-
-  // Act
-  await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
-  await user.click(screen.getByRole('button', { name: 'Mark done' }))
-
-  // Assert
-  await screen.findByText('Marked task 12 done.')
-  const row = screen.getByRole('listitem')
-  expect(markShape(row)).toBe(drawnMark('done'))
-  expect(row.textContent).toMatch(/completed$/)
-  expect(within(row).queryAllByRole('button')).toEqual([])
-})
-
-test('a card opened again before the stream has the done still shows the task done', async () => {
-  // Arrange
-  const user = userEvent.setup()
-  const renderShared = oneClient()
-  streamLinked(tracking)
-  fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
-  const { unmount } = renderShared(<IssueTasks issueKey={issueKey} />)
-  await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
-  await user.click(screen.getByRole('button', { name: 'Mark done' }))
-  await screen.findByText('Marked task 12 done.')
-  unmount()
-
-  // Act
-  renderShared(<IssueTasks issueKey={issueKey} />)
-
-  // Assert
-  const row = screen.getByRole('listitem')
-  expect(markShape(row)).toBe(drawnMark('done'))
-  expect(within(row).queryAllByRole('button')).toEqual([])
-})
-
-test.each([
-  [
-    'has the task done',
-    [{ ...tracking, status: 'completed' as const, state: 'completed' as const }],
-  ],
-  ['no longer holds the task', []],
-])(
-  'once a frame %s, a later frame that brings the task back offers it again',
-  async (_, caughtUp) => {
-    // Arrange
-    // Undone in a terminal after the stream caught up with the done: the later
-    // frame has the task still to do again.
-    const user = userEvent.setup()
-    streamLinked(tracking)
-    fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
-    renderWithClient(<IssueTasks issueKey={issueKey} />)
-    await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
-    await user.click(screen.getByRole('button', { name: 'Mark done' }))
-    await screen.findByText('Marked task 12 done.')
-    act(() => {
-      streamTasks({ linked: caughtUp }, Date.now() + 1)
-    })
-
-    // Act
-    act(() => {
-      streamTasks({ linked: [tracking] }, Date.now() + 2)
-    })
-
-    // Assert
-    expect(screen.getByRole('button', { name: 'Start task 12' })).toBeTruthy()
-  },
-)
-
-test('an undo that brings back a task done from the card offers it again, frame or no', async () => {
-  // Arrange
-  // The undo lands before the stream has caught up with the done, so no frame
-  // ever has the task done.
-  const user = userEvent.setup()
-  streamLinked(tracking)
-  fakeApi({
-    '/api/tasks': makeTaskList([]),
-    [`${trackingPath}/done`]: makeTaskList([]),
-    '/api/tasks/undo': makeTaskList([tracking], { said: 'reverted 1 operation' }),
-  })
-  renderWithClient(
-    <>
-      <IssueTasks issueKey={issueKey} />
-      <TasksPanel />
-    </>,
-  )
-  await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
-  await user.click(screen.getByRole('button', { name: 'Mark done' }))
-  await screen.findByText('Marked task 12 done.')
-  await user.click(screen.getByRole('button', { name: 'Undo…' }))
-  await user.click(screen.getByRole('button', { name: 'Undo' }))
-  await screen.findByText('Undone: reverted 1 operation')
-
-  // Act
-  act(() => {
-    streamTasks({ linked: [tracking] }, Date.now() + 1)
-  })
-
-  // Assert
-  expect(screen.getByRole('button', { name: 'Start task 12' })).toBeTruthy()
-})
-
-test('the first frame after a done that still has the task to do leaves it done', async () => {
-  // Arrange
-  // A frame read before the done can land after its answer.
-  const user = userEvent.setup()
-  streamLinked(tracking)
-  fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
-  renderWithClient(<IssueTasks issueKey={issueKey} />)
-  await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
-  await user.click(screen.getByRole('button', { name: 'Mark done' }))
-  await screen.findByText('Marked task 12 done.')
-
-  // Act
-  act(() => {
-    streamTasks({ linked: [tracking] }, Date.now() + 1)
-  })
-
-  // Assert
-  const row = screen.getByRole('listitem')
-  expect(markShape(row)).toBe(drawnMark('done'))
-  expect(within(row).queryAllByRole('button')).toEqual([])
-})
-
-test('a frame received in the millisecond of a done does not count toward letting it go', async () => {
-  // Arrange
-  // The frame that lands in the same millisecond as the done may have been
-  // read before it, so the frame after it is only the first to count.
-  vi.useFakeTimers({ toFake: ['Date'] })
-  const user = userEvent.setup()
-  streamLinked(tracking)
-  fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
-  renderWithClient(<IssueTasks issueKey={issueKey} />)
-  await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
-  await user.click(screen.getByRole('button', { name: 'Mark done' }))
-  await screen.findByText('Marked task 12 done.')
-  act(() => {
-    streamTasks({ linked: [tracking] })
-  })
-
-  // Act
-  act(() => {
-    streamTasks({ linked: [tracking] }, Date.now() + 1)
-  })
-
-  // Assert
-  const row = screen.getByRole('listitem')
-  expect(markShape(row)).toBe(drawnMark('done'))
-  expect(within(row).queryAllByRole('button')).toEqual([])
-})
-
-test('a done undone in a terminal before the next frame shows the task to do again two frames on', async () => {
-  // Arrange
-  // No frame ever has the task done: the first after the done may have been
-  // read before it, and the second was read after it, and holds it pending.
-  const user = userEvent.setup()
-  streamLinked(tracking)
-  fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
-  renderWithClient(<IssueTasks issueKey={issueKey} />)
-  await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
-  await user.click(screen.getByRole('button', { name: 'Mark done' }))
-  await screen.findByText('Marked task 12 done.')
-  act(() => {
-    streamTasks({ linked: [tracking] }, Date.now() + 1)
-  })
-
-  // Act
-  act(() => {
-    streamTasks({ linked: [tracking] }, Date.now() + 2)
-  })
-
-  // Assert
-  const card = screen.getByRole('region', { name: 'Tasks' })
-  const row = within(card).getByRole('listitem')
-  expect(markShape(row)).toBe(drawnMark('not-started'))
-  expect(within(row).getByRole('button', { name: 'Start task 12' })).toBeTruthy()
-  expect(within(row).getByRole('button', { name: 'Mark done… task 12' })).toBeTruthy()
-  expect(within(card).queryByRole('button', { name: 'Track in Taskwarrior' })).toBeNull()
 })
 
 test('the first frame after a track that does not hold its task still offers no Track', async () => {
@@ -453,10 +285,7 @@ test('once a frame holds the tracked task, the issue can be tracked again when i
 
   // Act
   act(() => {
-    streamTasks(
-      { linked: [{ ...tracking, status: 'completed', state: 'completed' }] },
-      Date.now() + 2,
-    )
+    streamTasks({ linked: [trackingDone(new Date().toISOString())] }, Date.now() + 2)
   })
 
   // Assert

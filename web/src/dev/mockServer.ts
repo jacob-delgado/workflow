@@ -45,7 +45,7 @@ import {
   mockTagging,
 } from './mockSlack.ts'
 import { mockSnapshot } from './mockSnapshot.ts'
-import { mockTaskList } from './mockTasks.ts'
+import { taskRoutes } from './mockTasks.ts'
 
 // The mockup's server: `task web:mockup` installs it as the page loads, in
 // place of the network and the event stream, so the page asks it as it asks
@@ -478,23 +478,4 @@ function configRoutes(): Routes {
       return read()
     },
   }
-}
-
-// taskRoutes are your tasks: the list, and every write on it, which answers
-// the list as it stands.
-function taskRoutes(): Routes {
-  const listed = () => mockTaskList()
-
-  return Object.fromEntries(
-    [
-      'GET /api/tasks',
-      'POST /api/tasks',
-      'POST /api/tasks/track',
-      'POST /api/tasks/undo',
-      'POST /api/tasks/sync',
-      ...['start', 'stop', 'done', 'annotations', 'modify'].map(
-        (write) => `POST /api/tasks/{uuid}/${write}`,
-      ),
-    ].map((name) => [name, listed]),
-  )
 }

@@ -67,8 +67,8 @@ func newFirstRun(t *testing.T, status int) *firstRun {
 	return &firstRun{where: setup.Where{WorkDir: t.TempDir(), HomeDir: t.TempDir()}, status: status}
 }
 
-// model is the session, sized and loaded, and dry run when asked.
-func (r *firstRun) model(t *testing.T, dryRun bool) tui.Model {
+// deps is the session's world, with the setup the run guides.
+func (r *firstRun) deps(t *testing.T) tui.Deps {
 	t.Helper()
 
 	working := reposWorld()
@@ -81,12 +81,30 @@ func (r *firstRun) model(t *testing.T, dryRun bool) tui.Model {
 		Write: func(request setup.Request) (setup.Written, error) { return guide.Write(t.Context(), request) },
 	}
 
-	model := tui.New(config.Default(), config.ErrNotFound, deps)
+	return deps
+}
+
+// model is the session, sized and loaded, and dry run when asked.
+func (r *firstRun) model(t *testing.T, dryRun bool) tui.Model {
+	t.Helper()
+
+	model := tui.New(config.Default(), config.ErrNotFound, r.deps(t))
 	if dryRun {
 		model = model.WithDryRun()
 	}
 
 	model = sized(t, model, 120, 40)
+
+	return drain(t, model, model.Init())
+}
+
+// keyed is the session, sized and loaded, with a ui.keys map.
+func (r *firstRun) keyed(t *testing.T, keys map[string]string) tui.Model {
+	t.Helper()
+
+	cfg := config.Default()
+	cfg.UI.Keys = keys
+	model := sized(t, tui.New(cfg, config.ErrNotFound, r.deps(t)), 120, 40)
 
 	return drain(t, model, model.Init())
 }

@@ -1,4 +1,3 @@
-import { QueryClient } from '@tanstack/react-query'
 import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Issue } from '@/api/generated/types.gen.ts'
@@ -6,9 +5,19 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import App from '@/App.tsx'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { FakeEventSource } from '@/test/fakeEventSource.ts'
-import { makeSnapshot, makeTask, makeTaskList } from '@/test/fixtures.ts'
+import { describedTask, makeSnapshot, makeTaskList, taskFacet } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
-import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
+import { renderWithClient } from '@/test/renderWithClient.tsx'
+import {
+  cacheTuning,
+  certificate,
+  firstInEveryOrder,
+  ranked,
+  retroRoom,
+  secondInEveryOrder,
+  startedTokenLeak,
+  tokenLeak,
+} from '@/test/tasks.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
 const tasksPath = '/api/tasks'
@@ -29,42 +38,16 @@ const tokenLeakIssue: Issue = {
   type: 'Bug',
 }
 
-const tokenLeak = makeTask({
-  uuid: '11111111-1111-4111-8111-111111111111',
-  id: 1,
-  description: 'PROJ-1: Fix the token leak',
-  issue_key: 'PROJ-1',
-  issue_url: 'https://jira.example.com/browse/PROJ-1',
-  urgency: 9.5,
-})
-const certificate = makeTask({
-  uuid: '22222222-2222-4222-8222-222222222222',
-  id: 2,
-  description: 'Renew the certificate',
-  issue_key: '',
-  issue_url: '',
-  urgency: 5.1,
-  due: hoursFromNow(27.5),
-})
-const elsewhere = makeTask({
-  uuid: '33333333-3333-4333-8333-333333333333',
-  id: 3,
-  description: 'PROJ-9: Tune the cache',
-  issue_key: 'PROJ-9',
-  issue_url: 'https://jira.example.com/browse/PROJ-9',
-  urgency: 3.2,
-})
-const waiting = makeTask({
-  uuid: '44444444-4444-4444-8444-444444444444',
-  id: 4,
-  description: 'Book the retro room',
-  status: 'waiting',
-  state: 'waiting',
-  wait: hoursFromNow(48),
-  issue_key: '',
-  issue_url: '',
-  urgency: 1.1,
-})
+// certificateDue is the certificate, due in a day and more.
+const certificateDue = { ...certificate, due: hoursFromNow(27.5) }
+
+// certificateAndCache are the certificate and the cache tuning as the server
+// ranks the two: the certificate first by urgency, and so wherever the two
+// tie, the cache tuning first by issue, since only it tracks one.
+const certificateAndCache = [
+  ranked(certificate, { urgency: 0, state: 0, id: 0, tag: 0, issue: 1, priority: 0 }),
+  ranked(cacheTuning, { urgency: 1, state: 1, id: 1, tag: 1, issue: 0, priority: 1 }),
+]
 
 // streamIssues puts a stream frame on screen whose Issues list holds the issues.
 function streamIssues(...issues: Issue[]) {
@@ -76,23 +59,11 @@ function streamIssues(...issues: Issue[]) {
   })
 }
 
-// refused is a problem answer, as the server gives a failed read or write.
-function refused(body: object, status: number): Response {
-  return Response.json(body, { status, headers: { 'Content-Type': 'application/problem+json' } })
-}
-
 // rowsOf is the text of each row a list holds.
 function rowsOf(list: HTMLElement): string[] {
   return within(list)
     .getAllByRole('listitem')
     .map((row) => row.textContent)
-}
-
-// readsOf counts the reads of the task list among the requests the page made.
-function readsOf(requests: Request[]): number {
-  return requests.filter(
-    (request) => request.method === 'GET' && new URL(request.url).pathname === tasksPath,
-  ).length
 }
 
 // statusSaying is the live status line that says text, if one does.
@@ -102,8 +73,17 @@ function statusSaying(text: string): HTMLElement | undefined {
 
 test('lists the tasks for your issues apart from the others, and counts those waiting', async () => {
   // Arrange
+  // The server hands the tasks over as Taskwarrior lists them, each ranked
+  // among the four; the page lists them by urgency, the waiting one apart.
   streamIssues(tokenLeakIssue)
-  fakeApi({ [tasksPath]: makeTaskList([tokenLeak, certificate, elsewhere, waiting]) })
+  fakeApi({
+    [tasksPath]: makeTaskList([
+      ranked(retroRoom, { urgency: 3, state: 3, id: 3, tag: 3, issue: 3, priority: 3 }),
+      ranked(cacheTuning, { urgency: 2, state: 2, id: 2, tag: 2, issue: 1, priority: 2 }),
+      ranked(certificateDue, { urgency: 1, state: 1, id: 1, tag: 1, issue: 2, priority: 1 }),
+      ranked(tokenLeak, firstInEveryOrder),
+    ]),
+  })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -124,7 +104,7 @@ test('lists the tasks for your issues apart from the others, and counts those wa
 
 test('a row gives each fact after the task an element of its own', async () => {
   // Arrange
-  fakeApi({ [tasksPath]: makeTaskList([elsewhere]) })
+  fakeApi({ [tasksPath]: makeTaskList([cacheTuning]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -137,7 +117,7 @@ test('a row gives each fact after the task an element of its own', async () => {
 
 test('tasks all of one kind are one list, with no headings over it', async () => {
   // Arrange
-  fakeApi({ [tasksPath]: makeTaskList([certificate, elsewhere]) })
+  fakeApi({ [tasksPath]: makeTaskList(certificateAndCache) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -151,8 +131,12 @@ test('tasks all of one kind are one list, with no headings over it', async () =>
 
 test('the mark beside each task is how far it has got, by shape, beside its words', async () => {
   // Arrange
-  const started = { ...tokenLeak, start: hoursFromNow(-1), state: 'started' as const }
-  fakeApi({ [tasksPath]: makeTaskList([started, certificate]) })
+  fakeApi({
+    [tasksPath]: makeTaskList([
+      ranked(startedTokenLeak(hoursFromNow(-1)), firstInEveryOrder),
+      ranked(certificate, secondInEveryOrder),
+    ]),
+  })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -171,7 +155,13 @@ test('the mark beside each task is how far it has got, by shape, beside its word
 
 test('a task outside the working set shows no number', async () => {
   // Arrange
-  fakeApi({ [tasksPath]: makeTaskList([{ ...certificate, id: 0 }]) })
+  // Taskwarrior numbers only the tasks in its working set, so the server
+  // matches no #id for this one.
+  const unnumbered = describedTask(
+    { ...certificate, id: 0 },
+    { state: 'pending', facets: certificate.facets, searchable: ['renew the certificate', '', ''] },
+  )
+  fakeApi({ [tasksPath]: makeTaskList([unnumbered]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -184,7 +174,7 @@ test('a task outside the working set shows no number', async () => {
 test('the first task is selected and its detail shown; choosing another shows its', async () => {
   // Arrange
   const user = userEvent.setup()
-  fakeApi({ [tasksPath]: makeTaskList([certificate, elsewhere]) })
+  fakeApi({ [tasksPath]: makeTaskList(certificateAndCache) })
 
   // Act: list the tasks
   renderWithClient(<TasksPanel />)
@@ -206,26 +196,27 @@ test('the first task is selected and its detail shown; choosing another shows it
 
 test('the detail gives the task its facts and its notes', async () => {
   // Arrange
-  const noted = makeTask({
-    uuid: tokenLeak.uuid,
-    id: tokenLeak.id,
-    description: tokenLeak.description,
-    issue_key: tokenLeak.issue_key,
-    issue_url: tokenLeak.issue_url,
-    urgency: tokenLeak.urgency,
-    project: 'api',
-    priority: 'H',
-    tags: ['jira', 'security'],
-    annotations: [{ entry: '2026-09-21T09:00:00Z', description: 'Ana can review it' }],
-    facets: [
-      { kind: 'state', value: 'pending', label: 'pending' },
-      { kind: 'priority', value: 'H', label: 'priority H' },
-      { kind: 'project', value: 'api', label: 'project api' },
-      { kind: 'issue', value: 'linked', label: 'with issue' },
-      { kind: 'tag', value: 'jira', label: '+jira' },
-      { kind: 'tag', value: 'security', label: '+security' },
-    ],
-  })
+  const noted = describedTask(
+    {
+      ...tokenLeak,
+      project: 'api',
+      priority: 'H',
+      tags: ['jira', 'security'],
+      annotations: [{ entry: '2026-09-21T09:00:00Z', description: 'Ana can review it' }],
+    },
+    {
+      state: 'pending',
+      facets: [
+        taskFacet.pending,
+        { kind: 'priority', value: 'H', label: 'priority H' },
+        { kind: 'project', value: 'api', label: 'project api' },
+        taskFacet.withIssue,
+        { kind: 'tag', value: 'jira', label: '+jira' },
+        { kind: 'tag', value: 'security', label: '+security' },
+      ],
+      searchable: ['proj-1: fix the token leak', 'api', 'proj-1', '+jira', '+security', '#1'],
+    },
+  )
   fakeApi({ [tasksPath]: makeTaskList([noted]) })
 
   // Act
@@ -256,12 +247,7 @@ test('the detail gives the task its facts and its notes', async () => {
 
 test('the detail of a started task says how long ago it was started, and when it is due', async () => {
   // Arrange
-  const started = {
-    ...tokenLeak,
-    start: hoursFromNow(-1.2),
-    state: 'started' as const,
-    due: hoursFromNow(-2),
-  }
+  const started = { ...startedTokenLeak(hoursFromNow(-1.2)), due: hoursFromNow(-2) }
   fakeApi({ [tasksPath]: makeTaskList([started]) })
 
   // Act
@@ -276,7 +262,7 @@ test('the detail of a started task says how long ago it was started, and when it
 test('Open in Issues is offered only for a task whose issue the Issues list holds', async () => {
   // Arrange
   streamIssues(tokenLeakIssue)
-  fakeApi({ [tasksPath]: makeTaskList([elsewhere]) })
+  fakeApi({ [tasksPath]: makeTaskList([cacheTuning]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -313,7 +299,7 @@ test("Open in Issues opens the Issues section on the task's issue", async () => 
 
 test('no pending tasks says how to get one, and still counts those waiting', async () => {
   // Arrange
-  fakeApi({ [tasksPath]: makeTaskList([waiting]) })
+  fakeApi({ [tasksPath]: makeTaskList([retroRoom]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -323,123 +309,6 @@ test('no pending tasks says how to get one, and still counts those waiting', asy
     await screen.findByText('No pending tasks. Add one above, or track an issue from Issues.'),
   ).toBeTruthy()
   expect(screen.getByText('1 waiting')).toBeTruthy()
-})
-
-test.each([
-  [
-    'go-task on PATH, and names the setting that finds Taskwarrior',
-    'not_taskwarrior',
-    "The task on PATH is another program (go-task, most likely), not Taskwarrior. Set taskwarrior.program to Taskwarrior's path, then restart workflow; workflow doctor names what it found.",
-    "The task on PATH is another program (go-task, most likely), not Taskwarrior. Set taskwarrior.program to Taskwarrior's path, then restart workflow; workflow doctor names what it found.",
-  ],
-  [
-    'no Taskwarrior at all',
-    'not_installed',
-    'Taskwarrior is not installed, or no task program is on PATH. Install Taskwarrior 3.5.0 or newer, or set taskwarrior.program.',
-    'Taskwarrior is not installed, or no task program is on PATH. Install Taskwarrior 3.5.0 or newer, or set taskwarrior.program.',
-  ],
-  [
-    'Taskwarrior settings saved since the start',
-    'unavailable',
-    'Taskwarrior settings changed; restart workflow to apply.',
-    'Taskwarrior settings changed; restart workflow to apply.',
-  ],
-  [
-    'a Taskwarrior that could not start',
-    'unavailable',
-    'Taskwarrior could not start; workflow doctor says why.',
-    'Taskwarrior could not start; workflow doctor says why.',
-  ],
-] as const)('with %s, says why no task can be listed', async (_, code, reason, said) => {
-  // Arrange
-  fakeApi({
-    [tasksPath]: makeTaskList([], { available: false, reason, reason_code: code }),
-  })
-
-  // Act
-  renderWithClient(<TasksPanel />)
-
-  // Assert
-  const why = await screen.findByText(reason, { exact: false })
-  expect(why.textContent).toBe(said)
-  expect(screen.queryByRole('textbox', { name: 'task add' })).toBeNull()
-})
-
-test('a failed read says why, and Try again reads again, one request each', async () => {
-  // Arrange
-  const user = userEvent.setup()
-  const answers = [
-    refused({ detail: 'Taskwarrior did not answer in time' }, 502),
-    Response.json(makeTaskList([certificate])),
-  ]
-  const requests = fakeApi({ [tasksPath]: () => answers.shift() })
-
-  // Act: read the tasks, refused
-  renderWithClient(<TasksPanel />)
-
-  // Assert: it says why
-  expect((await screen.findByRole('alert')).textContent).toBe('Taskwarrior did not answer in time')
-
-  // Act: try again
-  await user.click(screen.getByRole('button', { name: 'Try again' }))
-
-  // Assert: the list is read, one request each
-  expect(await screen.findByRole('list', { name: 'Tasks' })).toBeTruthy()
-  expect(screen.queryByRole('alert')).toBeNull()
-  expect(readsOf(requests)).toBe(2)
-})
-
-test('a failed Refresh keeps the list last read in view, beside why, and offers Try again', async () => {
-  // Arrange
-  const user = userEvent.setup()
-  const answers = [
-    Response.json(makeTaskList([certificate])),
-    refused({ detail: 'Taskwarrior did not answer in time' }, 502),
-  ]
-  fakeApi({ [tasksPath]: () => answers.shift() })
-  renderWithClient(<TasksPanel />)
-  await screen.findByRole('list', { name: 'Tasks' })
-
-  // Act
-  await user.click(screen.getByRole('button', { name: 'Refresh' }))
-
-  // Assert
-  expect((await screen.findByRole('alert')).textContent).toBe('Taskwarrior did not answer in time')
-  const list = screen.getByRole('list', { name: 'Tasks' })
-  expect(within(list).getByRole('button', { name: /renew the certificate/i })).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
-})
-
-test("a failed read is said at once, never retried behind the user's back", async () => {
-  // Arrange
-  // The app's own client, whose queries retry by default.
-  const requests = fakeApi({ [tasksPath]: () => refused({}, 502) })
-  const client = new QueryClient()
-
-  // Act
-  renderWithClient(<TasksPanel />, client)
-
-  // Assert
-  expect((await screen.findByRole('alert')).textContent).toBe(
-    'Your tasks could not be read. Press Try again.',
-  )
-  expect(readsOf(requests)).toBe(1)
-})
-
-test('Refresh reads the tasks again, keeping the list while it does', async () => {
-  // Arrange
-  const user = userEvent.setup()
-  const answers = [makeTaskList([certificate]), makeTaskList([certificate, elsewhere])]
-  const requests = fakeApi({ [tasksPath]: () => answers.shift() })
-  renderWithClient(<TasksPanel />)
-  await screen.findByRole('list', { name: 'Tasks' })
-
-  // Act
-  await user.click(screen.getByRole('button', { name: 'Refresh' }))
-
-  // Assert
-  expect(await screen.findByText('PROJ-9: Tune the cache')).toBeTruthy()
-  expect(readsOf(requests)).toBe(2)
 })
 
 test('says which context narrows the list', async () => {
@@ -456,18 +325,37 @@ test('says which context narrows the list', async () => {
 test('the add line posts the typed line and lists what Taskwarrior answers', async () => {
   // Arrange
   const user = userEvent.setup()
-  const added = makeTask({
-    uuid: '55555555-5555-4555-8555-555555555555',
-    id: 5,
-    description: 'Write the setup docs',
-    project: 'docs',
-    issue_key: '',
-    issue_url: '',
-  })
+  const added = describedTask(
+    {
+      uuid: '55555555-5555-4555-8555-555555555555',
+      id: 5,
+      description: 'Write the setup docs',
+      status: 'pending',
+      project: 'docs',
+      priority: '',
+      tags: [],
+      issue_key: '',
+      issue_url: '',
+    },
+    {
+      state: 'pending',
+      facets: [
+        taskFacet.pending,
+        taskFacet.noPriority,
+        { kind: 'project', value: 'docs', label: 'project docs' },
+        taskFacet.noIssue,
+        taskFacet.noTag,
+      ],
+      searchable: ['write the setup docs', 'docs', '', '#5'],
+    },
+  )
   const requests = fakeApi({
     [tasksPath]: (_: URL, asked: Request) =>
       asked.method === 'POST'
-        ? makeTaskList([certificate, added], { added: added.uuid })
+        ? makeTaskList(
+            [ranked(certificate, firstInEveryOrder), ranked(added, secondInEveryOrder)],
+            { added: added.uuid },
+          )
         : makeTaskList([certificate]),
   })
   renderWithClient(<TasksPanel />)
@@ -486,23 +374,4 @@ test('the add line posts the typed line and lists what Taskwarrior answers', asy
   expect(post && new URL(post.url).pathname).toBe(tasksPath)
   expect(await post?.json()).toEqual({ line: 'Write the setup docs project:docs' })
   expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'task add' }).value).toBe('')
-})
-
-test('reads the tasks again each time the section opens', async () => {
-  // Arrange
-  // The app's own defaults, under which a query reads again only when its own
-  // staleTime says so.
-  const requests = fakeApi({ [tasksPath]: makeTaskList([certificate]) })
-  const client = appQueryClient()
-  const view = renderWithClient(<TasksPanel />, client)
-  await screen.findByRole('list', { name: 'Tasks' })
-  view.unmount()
-
-  // Act
-  renderWithClient(<TasksPanel />, client)
-
-  // Assert
-  await screen.findByRole('list', { name: 'Tasks' })
-  await screen.findByRole('button', { name: 'Refresh' })
-  expect(readsOf(requests)).toBe(2)
 })

@@ -102,8 +102,9 @@ one `!12`; on GitHub, *pull request* and `#12` — as the terminal does.
 **The keyboard.** Beyond Tab, the page answers the terminal's own keys, read
 from its bindings with `ui.keys` applied, so a key you moved in the file moves
 here too. `?` opens a sheet of the actions the page has a control for, under
-the terminal's groups and in its words, with the key for each; `Escape`
-closes it. `Ctrl+K`, or `⌘K` on a Mac, opens a palette of what the section
+the terminal's groups, one for each of its panes (its Commits pane's keys,
+which work on Branch here, keep a heading of their own), and in its words,
+with the key for each; `Escape` closes it. `Ctrl+K`, or `⌘K` on a Mac, opens a palette of what the section
 you are in can do (in a Mac's text field `Ctrl+K` stays the field's own key), and of the other sections: type part of an action's
 name, choose with the arrow keys, and `Enter` runs it through its own
 button, so a push or a merge still asks first. Single keys — `c` comments,
@@ -399,29 +400,31 @@ forge when you open it, unless it asked within the last 30 seconds, and
 
 ### Tasks
 
-Your pending Taskwarrior tasks, most urgent first unless you sort them — what the terminal's Tasks
-pane lists, in Taskwarrior's violet: those for an issue the Issues list holds
-first, then the rest, under **For my issues** and **Other tasks** when there
-are both. A waiting task is counted below rather than listed, and an active
-context says it narrows the list. Each row marks whether the task is started,
-then its id, what it is, and quietly its issue, when it is due and its
-urgency. **Sort** orders each group by urgency, state, ID, tag, issue or
-priority, as the terminal's `O` does, and sorted by tag or priority each row
-shows its tags or priority, as the filter names them: *no tag* or *no
-priority* for a task with none. **Search** keeps the tasks whose description,
-project, `+tag`, issue key or `#id` holds what you type, and the **Filter**
-chips narrow the list by state, priority, project, tag and whether a task has
-an issue, each with its count; pressing **waiting** lists the waiting tasks.
-A value picked stays on offer, at zero, once no task holds it, so it can be
-unpicked; a project or tag no task holds any longer comes last. The order and
-the chips stay while you visit other sections. The section reads Taskwarrior
-when you open it, when **Refresh** asks, and again once the earliest wait
-still ahead has passed, since that changes where a task stands with nothing
-written, rather than from the stream. It needs Taskwarrior 3.5.0 or newer, found
-as [Configuration]({{< relref "/docs/configuration#taskwarrior" >}})
-describes; without one it says why — and, where the `task` on `PATH` is
-another program, go-task most likely, that Settings can name Taskwarrior's
-with `taskwarrior.program`, which applies once workflow restarts.
+Your pending Taskwarrior tasks, most urgent first unless you sort them — what
+the terminal's Tasks pane lists, in Taskwarrior's violet: those for an issue
+the Issues list holds first, then the rest, under **For my issues** and
+**Other tasks** when there are both. A waiting task is counted below rather
+than listed, and an active context says it narrows the list. Each row marks
+whether the task is started, then its id, what it is, and quietly its issue,
+when it is due and its urgency. **Sort** orders each group by urgency, state,
+ID, tag, issue or priority, as the terminal's `O` does, and sorted by tag or
+priority each row shows its tags or priority, as the filter names them: *no
+tag* or *no priority* for a task with none. **Search** keeps the tasks whose
+description, project, `+tag`, issue key or `#id` holds what you type, and the
+**Filter** chips narrow the list by state, priority, project, tag and whether
+a task has an issue, each with its count; pressing **waiting** lists the
+waiting tasks. A value picked stays on offer, at zero, once no task holds it,
+so it can be unpicked, and a named project or tag, or a named priority other
+than H, M and L, that no task holds any longer comes last; a waiting task
+counts toward its state alone. The order and the chips stay while you visit
+other sections. The section reads Taskwarrior when you open it, when
+**Refresh** asks, and again once the earliest wait still ahead has passed,
+since that changes where a task stands with nothing written, rather than from
+the stream. It needs Taskwarrior 3.5.0 or newer, found as
+[Configuration]({{< relref "/docs/configuration#taskwarrior" >}}) describes;
+without one it says why — and, where the `task` on `PATH` is another program,
+go-task most likely, that Settings can name Taskwarrior's with
+`taskwarrior.program`, which applies once workflow restarts.
 
 The line at the top adds a task from what you would type after `task add`, in
 Taskwarrior's own grammar — `project:web`, `due:friday` or `+review` among the
@@ -444,7 +447,11 @@ task's hooks, Taskwarrior has no redo, and a sync sends your tasks off the
 machine — while **Start** and **Stop** act at once. Each write says what it did, and the list redraws from Taskwarrior's answer at
 once; a write that was made when the list after it could not be read still
 says what it did, and the section reads the list again, so a write that
-landed is never reported failed and made twice by a retry. A write Taskwarrior refuses says why below its button, in Taskwarrior's
+landed is never reported failed and made twice by a retry. A task marked
+done while the list could not be read again stays in the list as last read,
+offering neither **Start** nor **Mark done…**, until the list is next
+answered, by that read or by another write, whatever the stream says of the
+task meanwhile. A write Taskwarrior refuses says why below its button, in Taskwarrior's
 own words, with your home and data directories put in fixed words and any
 line naming a server left out; a failed sync answers in fixed words only, and
 `task sync` in a terminal shows why. A write that changed nothing — **Start**
@@ -455,7 +462,10 @@ Once Taskwarrior has answered, the rest of the page shows your tasks too: the
 header carries the task you have started and how long it has run, and opens
 this section; each Issues row marks how its issue's tasks stand; and an
 issue's detail has a **Tasks** card listing each of its tasks, with **Start**
-or **Stop** and **Mark done…** on each still to do. While none is, the card offers
+or **Stop** and **Mark done…** on each still to do. A task marked done there
+shows done at once; when the task could not be read again after the done,
+it stands as last read, with neither button, and the card says it shows
+done once workflow next reads it. While none is still to do, the card offers
 **Track in Taskwarrior**, which adds the task the terminal's `T` would,
 annotated with the issue's page, and says which task now tracks it. Until
 Taskwarrior has answered, and where it could not, none of them is drawn,
@@ -736,7 +746,9 @@ The Tasks section's writes are `POST`s beside that read: `/api/tasks` to add a
 task, `/api/tasks/track` to track an issue, `/api/tasks/undo`,
 `/api/tasks/sync`, and `start`, `stop`, `done`, `annotations` and `modify`
 under `/api/tasks/{uuid}/`. Each answers the task list as it stands after the
-write, and a task Taskwarrior changed nothing on answers `409`.
+write, and a task Taskwarrior changed nothing on answers `409`. A `done` of a
+task linked to an issue also answers that task as it stands done, in `done`,
+since the list no longer holds it.
 
 `POST /api/runs` with `{"kind": "pre_commit"}` — or `rebase`, `amend`, or
 `fixup` with the `commit` to fix up — answers newline-delimited JSON as the

@@ -3,20 +3,24 @@ import userEvent from '@testing-library/user-event'
 import type { Task, TasksSummary } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { makeSnapshot, makeTask, makeTaskList } from '@/test/fixtures.ts'
+import { makeSnapshot, makeTaskList, standing, taskStanding } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import {
+  certificate,
+  firstInEveryOrder,
+  ranked,
+  secondInEveryOrder,
+  tokenLeak,
+  tracking,
+  trackingDone,
+} from '@/test/tasks.ts'
 import { IssueTasks } from './IssueTasks.tsx'
 import { TasksPanel } from './TasksPanel.tsx'
 
 const issueKey = 'PROJ-412'
 const hour = 3_600_000
 
-const tracking = makeTask({
-  description: 'PROJ-412: Redact tokens before they reach the request log',
-  issue_key: issueKey,
-  issue_url: 'https://jira.example.com/browse/PROJ-412',
-})
 const trackingPath = `/api/tasks/${tracking.uuid}`
 
 // streamTasks puts a stream frame on screen whose task summary is summary,
@@ -41,11 +45,9 @@ function statusSaying(text: string): HTMLElement | undefined {
 
 test("lists the issue's task with its mark, and offers to start it and mark it done", () => {
   // Arrange
-  streamLinked(tracking, {
-    ...tracking,
-    uuid: '99999999-9999-4999-8999-999999999999',
-    issue_key: 'PROJ-1',
-  })
+  // The stream links the token leak too, to its own issue: more urgent, with
+  // the lower id and key, it is first among the two in every order.
+  streamLinked(ranked(tracking, secondInEveryOrder), ranked(tokenLeak, firstInEveryOrder))
 
   // Act
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -63,11 +65,13 @@ test("lists the issue's task with its mark, and offers to start it and mark it d
 
 test('a started task says how long ago it was started, and offers to stop it', () => {
   // Arrange
-  streamLinked({
-    ...tracking,
-    start: new Date(Date.now() - 1.2 * hour).toISOString(),
-    state: 'started',
-  })
+  streamLinked(
+    taskStanding(
+      tracking,
+      { start: new Date(Date.now() - 1.2 * hour).toISOString() },
+      standing.started,
+    ),
+  )
 
   // Act
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -180,17 +184,17 @@ test('a track the tracker refuses says why, keeping the focus to try again', asy
 test("the track's answer takes the place of the task list the page holds", async () => {
   // Arrange
   const user = userEvent.setup()
-  const certificate = makeTask({
-    uuid: '22222222-2222-4222-8222-222222222222',
-    id: 2,
-    description: 'Renew the certificate',
-    issue_key: '',
-    issue_url: '',
-  })
   streamLinked()
   const requests = fakeApi({
     '/api/tasks': makeTaskList([certificate]),
-    '/api/tasks/track': makeTaskList([certificate, tracking], { added: tracking.uuid }),
+    // The certificate is more urgent, but only the new task tracks an issue.
+    '/api/tasks/track': makeTaskList(
+      [
+        ranked(certificate, { urgency: 0, state: 0, id: 0, tag: 0, issue: 1, priority: 0 }),
+        ranked(tracking, { urgency: 1, state: 1, id: 1, tag: 1, issue: 0, priority: 1 }),
+      ],
+      { added: tracking.uuid },
+    ),
   })
   renderWithClient(
     <>
@@ -209,33 +213,56 @@ test("the track's answer takes the place of the task list the page holds", async
   expect(reads).toHaveLength(1)
 })
 
+// trackingStarted is the tracking task, started now.
+const trackingStarted = taskStanding(
+  tracking,
+  { start: new Date().toISOString() },
+  standing.started,
+)
+
 test.each([
-  [['Start task 12'], 'start', tracking, 'Started task 12.'],
-  [
-    ['Stop task 12'],
-    'stop',
-    { ...tracking, start: new Date().toISOString(), state: 'started' as const },
-    'Stopped task 12.',
-  ],
-  [['Mark done… task 12', 'Mark done'], 'done', tracking, 'Marked task 12 done.'],
-])('%j posts to its path and says what it did', async (buttons, verb, task, said) => {
-  // Arrange
-  const user = userEvent.setup()
-  streamLinked(task)
-  const requests = fakeApi({ [`${trackingPath}/${verb}`]: makeTaskList([]) })
-  renderWithClient(<IssueTasks issueKey={issueKey} />)
+  {
+    buttons: ['Start task 12'],
+    verb: 'start',
+    task: tracking,
+    answer: makeTaskList([trackingStarted]),
+    said: 'Started task 12.',
+  },
+  {
+    buttons: ['Stop task 12'],
+    verb: 'stop',
+    task: trackingStarted,
+    answer: makeTaskList([tracking]),
+    said: 'Stopped task 12.',
+  },
+  {
+    buttons: ['Mark done… task 12', 'Mark done'],
+    verb: 'done',
+    task: tracking,
+    answer: makeTaskList([], { done: trackingDone(new Date().toISOString()) }),
+    said: 'Marked task 12 done.',
+  },
+])(
+  '$buttons posts to its path and says what it did',
+  async ({ buttons, verb, task, answer, said }) => {
+    // Arrange
+    const user = userEvent.setup()
+    streamLinked(task)
+    const requests = fakeApi({ [`${trackingPath}/${verb}`]: answer })
+    renderWithClient(<IssueTasks issueKey={issueKey} />)
 
-  // Act
-  for (const button of buttons) {
-    await user.click(screen.getByRole('button', { name: button }))
-  }
+    // Act
+    for (const button of buttons) {
+      await user.click(screen.getByRole('button', { name: button }))
+    }
 
-  // Assert
-  expect(await screen.findByText(said)).toBeTruthy()
-  expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
-    `${trackingPath}/${verb}`,
-  ])
-})
+    // Assert
+    expect(await screen.findByText(said)).toBeTruthy()
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+      `${trackingPath}/${verb}`,
+    ])
+  },
+)
 
 test('a track whose answer names no task still takes Track away', async () => {
   // Arrange
@@ -255,12 +282,7 @@ test('a track whose answer names no task still takes Track away', async () => {
 
 test('a completed task is listed done, with nothing to do, and the issue can be tracked again', () => {
   // Arrange
-  streamLinked({
-    ...tracking,
-    status: 'completed',
-    state: 'completed',
-    end: new Date().toISOString(),
-  })
+  streamLinked(trackingDone(new Date().toISOString()))
 
   // Act
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -276,12 +298,13 @@ test('a completed task is listed done, with nothing to do, and the issue can be 
 
 test('a waiting task still tracks the issue', () => {
   // Arrange
-  streamLinked({
-    ...tracking,
-    status: 'waiting',
-    state: 'waiting',
-    wait: new Date(Date.now() + hour).toISOString(),
-  })
+  streamLinked(
+    taskStanding(
+      tracking,
+      { status: 'waiting', wait: new Date(Date.now() + hour).toISOString() },
+      standing.waiting,
+    ),
+  )
 
   // Act
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -293,7 +316,9 @@ test('a waiting task still tracks the issue', () => {
 
 test("a pending task whose wait is still ahead says the server's state, waiting", () => {
   // Arrange
-  streamLinked({ ...tracking, state: 'waiting', wait: new Date(Date.now() + hour).toISOString() })
+  streamLinked(
+    taskStanding(tracking, { wait: new Date(Date.now() + hour).toISOString() }, standing.waiting),
+  )
 
   // Act
   renderWithClient(<IssueTasks issueKey={issueKey} />)

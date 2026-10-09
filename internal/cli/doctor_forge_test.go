@@ -52,10 +52,7 @@ func ghSignedOutRecording(t *testing.T) string {
 	ran := filepath.Join(t.TempDir(), "gh-ran")
 	script := "#!/bin/sh\n: >'" + ran + "'\nexit 1\n"
 
-	err = os.WriteFile(filepath.Join(dir, "gh"), []byte(script), 0o755)
-	if err != nil {
-		t.Fatalf("writing the fake gh: %v", err)
-	}
+	writeExecutable(t, filepath.Join(dir, "gh"), script, 0o755)
 
 	setVariable(t, "PATH", dir)
 

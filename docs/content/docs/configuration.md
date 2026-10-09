@@ -710,10 +710,13 @@ rebind on its own. workflow refuses to start, `workflow doctor` reports the
 problem, and Settings in `workflow --web` refuses to save it, when a map names
 an action that does not exist, moves `jump-to-pane` — its keys are the pane
 numbers, `1`–`9`, which no one key can stand in for — or binds two actions
-that are live at the same time to one key. Each pane is a place of its own:
-an action that works on one pane and an action that works on another are never
-live at once, so they may share a key. The pane numbers work on every pane
-and while a command runs, so an action live there cannot take one.
+that are live at the same time to one key. Each pane is a place of its own,
+and so is each overlay — a picker, a preview, a composer, a running command:
+an action that works in one place and an action that works only in another
+are never live at once, so they may share a key, and `?` lists each pane's
+actions under that pane's own name, so a key two panes share is listed once
+under each. The pane numbers work on every pane, so an action live on one
+cannot take one.
 
 The actions you can rebind, grouped by where they work, are:
 
@@ -722,12 +725,13 @@ The actions you can rebind, grouped by where they work, are:
 - **Issues:** `change-status`, `comment`, `assign`, `log-work`,
   `start-work`, `search-issues`, `filter-issues`, `switch-view`, `load-more`,
   `open-link`, `copy-link`, `refresh`, `track-issue`.
-- **Branch and Commits:** `new-branch`, `switch-branch`, `link-issue`, `rebase`,
-  `push`, `stage`, `stage-all`, `unstage-all`, `discard-change`, `commit`,
-  `amend`, `fixup`, `run-pre-commit`, `set-up-lefthook`.
-- **Review and your messaging service** (named for it, Slack by default):
-  `open-pull-request`, `checks`, `rerun-checks`, `merge`, `finish-branch`,
-  `post`, `people-and-groups`.
+- **Branch:** `new-branch`, `switch-branch`, `link-issue`, `rebase`, `push`.
+- **Commits:** `stage`, `stage-all`, `unstage-all`, `discard-change`,
+  `commit`, `amend`, `fixup`, `run-pre-commit`, `set-up-lefthook`.
+- **Review:** `open-pull-request`, `checks`, `rerun-checks`, `merge`,
+  `finish-branch`.
+- **Your messaging service** (named for it, Slack by default): `post`,
+  `people-and-groups`.
 - **Reviews:** `sort-reviews`, `filter-reviews`.
 - **Tasks:** `start-stop`, `mark-done`, `add-task`, `annotate-task`,
   `modify-task`, `undo-task`, `sync-tasks`, `search-tasks`, `filter-tasks`,
@@ -742,9 +746,10 @@ The actions you can rebind, grouped by where they work, are:
   `worktree` (in the branch creator), `post-when-green` (in the announcement
   preview), `unlink-issue` (in the link form, on a branch already linked),
   `remove-cache` and `remove-everything` (in Local data), `save-settings` and
-  `remove-entry` (in Settings), `link-to-slack` and `not-on-slack` (in the announcement preview
-  and in People and groups), `forget-owner` (in People and groups),
-  `show-log` (in the checks list).
+  `remove-entry` (in Settings), `link-to-slack` (in the announcement preview;
+  People and groups links the selected owner with `apply`), `not-on-slack`
+  (in the announcement preview and in People and groups), `forget-owner` (in
+  People and groups), `show-log` (in the checks list).
 - **Writing a comment** (in the comment box's normal mode): `insert`,
   `append`, `append-line`, `open-line`, `cursor-left`, `cursor-right`.
 - **While a command runs:** `stop`, `run-again`, `full-output`.
@@ -761,12 +766,15 @@ comment, so it must stay on a key that neither types nor edits text, such as
 
 The keys an overlay answers while one of its text fields has the cursor —
 `worktree`, `toggle-breaking`, `toggle-draft`, `next-template`, `edit-body`,
-`next-field` and `previous-field` — cannot take a key that field types or
-edits with: a character, or one of the readline keys `ctrl+a`, `ctrl+b`,
-`ctrl+d`, `ctrl+e`, `ctrl+f`, `ctrl+h`, `ctrl+k`, `ctrl+u`, `ctrl+v` and
-`ctrl+w`, or `ctrl+n` and `ctrl+p`, which step through a field's
-suggestions. Such a map is refused, since the overlay would take the edit
-for its own.
+`next-field` and `previous-field` — cannot take a key that field types,
+edits or moves its cursor with: a character; `left`, `right`, `home` and
+`end`; one of the readline keys `ctrl+a`, `ctrl+b`, `ctrl+d`, `ctrl+e`,
+`ctrl+f`, `ctrl+h`, `ctrl+k`, `ctrl+u`, `ctrl+v` and `ctrl+w`; a word key,
+`alt+left`, `ctrl+left`, `alt+b`, `alt+right`, `ctrl+right`, `alt+f`,
+`alt+backspace`, `ctrl+backspace`, `alt+delete`, `ctrl+delete` and
+`alt+d`; or `up`, `down`, `ctrl+n` and `ctrl+p`, which step through a
+field's suggestions (the mouse wheel sends `up` and `down` too). Such a
+map is refused, since the overlay would take the edit for its own.
 
 ### Keys on the web
 
@@ -1080,9 +1088,9 @@ running session simply makes a fresh cache on its next write.
 The store is on by default. Set `store.disabled` to keep nothing on disk; with it
 set, workflow keeps nothing you decide and works the conveniences out afresh
 each time. No announcement tags anyone, since who is whom cannot be kept: the
-terminal's ready-for-review preview lists each code owner as not linked and
-offers no link, and `workflow announce` and the web tag no one. No favorites
-are kept:
+terminal's ready-for-review preview lists each code owner it proposes as not
+linked and offers no link, and `workflow announce` and the web tag no one. No
+favorites are kept:
 
 ```json
 {

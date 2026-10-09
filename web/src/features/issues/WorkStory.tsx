@@ -129,19 +129,38 @@ function detailFor(
 ): (stage: SnapshotStage) => ReactNode[] {
   switch (place) {
     case 'not-started':
-      return (stage) => [notStartedDetail(stage.step, words.noun, snapshot.messaging)]
+      return (stage) => [notStartedDetail(stage, words.noun, snapshot.messaging)]
     case 'elsewhere':
-      return (stage) => [elsewhereDetail(stage.step, branchName, snapshot.messaging)]
+      return (stage) => [elsewhereDetail(stage, branchName, snapshot.messaging)]
     case 'on-head':
       return (stage) => onHeadDetail(stage, snapshot, words)
   }
 }
 
-// notStartedDetail is a stage's detail for an issue with no local branch yet.
-function notStartedDetail(step: Step, noun: string, messaging: Snapshot['messaging']): string {
-  switch (step) {
-    case 'issue':
+// issueDetail is the Issue stage's detail, in the words of the state the
+// server read it in: picked up once a branch names the issue, picked while it
+// is open with no branch yet, and not picked up otherwise.
+function issueDetail(state: SnapshotStage['state']): string {
+  switch (state) {
+    case 'done':
+      return 'Picked up'
+    case 'in_flight':
+      return 'Picked, not branched for yet'
+    case 'not_started':
+    case 'failed':
       return 'Not picked up yet'
+  }
+}
+
+// notStartedDetail is a stage's detail for an issue with no local branch yet.
+function notStartedDetail(
+  stage: SnapshotStage,
+  noun: string,
+  messaging: Snapshot['messaging'],
+): string {
+  switch (stage.step) {
+    case 'issue':
+      return issueDetail(stage.state)
     case 'branch':
       return 'No branch for this issue yet'
     case 'commits':
@@ -157,13 +176,13 @@ function notStartedDetail(step: Step, noun: string, messaging: Snapshot['messagi
 // is not checked out: its changes and pull request are only visible from the
 // checked-out branch.
 function elsewhereDetail(
-  step: Step,
+  stage: SnapshotStage,
   branchName: string,
   messaging: Snapshot['messaging'],
 ): ReactNode {
-  switch (step) {
+  switch (stage.step) {
     case 'issue':
-      return 'Picked up'
+      return issueDetail(stage.state)
     case 'branch':
       return <BranchName key="branch" name={branchName} />
     case 'commits':
@@ -180,7 +199,7 @@ function onHeadDetail(stage: SnapshotStage, snapshot: Snapshot, words: ForgeWord
   const { branch } = snapshot
   switch (stage.step) {
     case 'issue':
-      return [stage.state === 'done' ? 'Picked up' : 'Not picked up yet']
+      return [issueDetail(stage.state)]
     case 'branch':
       return branch.name === ''
         ? ['Not on a branch yet']
@@ -364,10 +383,11 @@ interface StoryStageProps {
 }
 
 // StoryStage is one stage of the story: the mark of how far it has come, in
-// its system's hue, on the line down to the next, and the stage itself as a
-// control that opens its section — a chevron after its title says so at rest, and
-// its description names the section for a screen reader. The first stage not
-// done is the current step: where the work is at.
+// the hue of the section it opens — red when it failed — on the line down to
+// the next, and the stage itself as a control that opens that section — a
+// chevron after its title says so at rest, and its description names the
+// section for a screen reader. The first stage not done is the current step:
+// where the work is at.
 function StoryStage({ stage, current, last, onOpen }: StoryStageProps) {
   const opens = useId()
 

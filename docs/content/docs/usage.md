@@ -74,10 +74,10 @@ what a script can rely on from them: exit codes, which stream carries what,
   that wait on your review, the longest-waiting first until `O` sorts them
   another way. `f` filters them by repository, CI state, draft or ready, and
   author — values in one of those widen the list, and the four narrow it
-  together, and a value checked stays, at zero, once no request holds it, a
-  repository or author the queue no longer holds last — and a line above the
-  queue names the sort and the filters while either is not the usual. The seventh, Tasks, is
-  your own [Taskwarrior](#track-it-in-taskwarrior) list, the eighth,
+  together, and a value checked stays, at zero, once no request holds it, and
+  goes last when it is a repository or author — and a line above the queue
+  names the sort and the filters while either is not the usual. The seventh,
+  Tasks, is your own [Taskwarrior](#track-it-in-taskwarrior) list, the eighth,
   [Summary](#summary), what you did over a day or a range of them, and the
   ninth, [Repositories](#repositories), where you work and the directories
   you keep as favorites.
@@ -243,9 +243,9 @@ lists, by where it works.
 
 Every key here but the pane numbers, `1`–`9`, can be rebound with `ui.keys`;
 see [Configuration]({{< relref "/docs/configuration" >}}). A map that moves an
-action live on a pane, or while a command runs, onto a pane number, or that
-gives two actions live in one place the same key, stops workflow from starting,
-and `workflow doctor` names it.
+action live on a pane onto a pane number, or that gives two actions live in
+one place — a pane, or an open overlay — the same key, stops workflow from
+starting, and `workflow doctor` names it.
 
 ## The loop
 
@@ -433,14 +433,13 @@ every reviewer and assignee the forge took, and a note names the ones it left
 off.
 
 The Review pane then follows CI while checks run, asking every twenty seconds
-by default (`timing.ci_interval`).
-`c` lists the checks and opens the selected one's page; `l` on a failed one
-shows the end of its log, where a GitHub Actions run or a GitLab job keeps
-one, and `J`/`K` or `pgdn`/`pgup` move through a log taller than the pane
-half a page at a time. `R` re-runs the failed ones, and `u` on the Branch pane rebases the branch
-onto its base; like a push,
-each first shows a last look naming what it acts on, and does nothing until
-`enter`. `e` edits the pull request's title and description. Once it is
+by default (`timing.ci_interval`). `c` lists the checks and opens the selected
+one's page; `l` on a failed one shows the end of its log, where a GitHub
+Actions run or a GitLab job keeps one, and `J`/`K` or `pgdn`/`pgup` move
+through a log taller than the pane half a page at a time. `R` re-runs the
+failed ones, and `u` on the Branch pane rebases the branch onto its base; like
+a push, each first shows a last look naming what it acts on, and does nothing
+until `enter`. `e` edits the pull request's title and description. Once it is
 green and approved, `M` previews the merge methods the repository permits and
 merges by the one you choose; once it has merged, `F` previews the three git
 commands that finish the branch — switch to the base, catch it up, delete the
@@ -618,16 +617,16 @@ every read.
 its description, project, a tag written `+tag`, its issue key or its `#id`
 holds the text, ignoring case; `enter` keeps the search and `esc` clears it.
 `f` opens **Filter**, a checklist of every state, priority, project and tag the
-tasks hold, and whether they have an issue, each with how many tasks hold it
-(a waiting task counts only toward its state):
-values checked in one group widen the list, and the groups narrow it
-together. A value checked stays, at zero, once no task holds it, so it can be
-unchecked; a project or tag no task holds any longer comes last. Checking
-**waiting** lists the waiting tasks, each saying until
-when. The faint line above the rows names what narrows the list; the rail
-still counts every pending task, and a task the list hides still tracks its
-issue, so `T` on that issue names it and why it is hidden. A filter that
-leaves nothing says "No task matches the filters."
+tasks hold, and whether they have an issue, each with how many tasks hold it (a
+waiting task counts only toward its state): values checked in one group widen
+the list, and the groups narrow it together. A value checked stays, at zero,
+once no task holds it, so it can be unchecked, and a named project or tag, or a
+named priority other than H, M and L, that no task holds any longer comes last.
+Checking **waiting** lists the waiting tasks, each saying until when. The faint
+line above the rows names what narrows the list; the rail still counts every
+pending task, and a task the list hides still tracks its issue, so `T` on that
+issue names it and why it is hidden. A filter that leaves nothing says "No task
+matches the filters."
 
 `d` (mark done), `u` (undo) and `S` (sync) each first show a last look and
 do nothing until `enter`: marking done runs the task's hooks, Taskwarrior has
@@ -640,6 +639,9 @@ change a task — `s`, `d`, `a`, `A`, `e`, `u` and `S` — leave the bottom row 
 do nothing until Taskwarrior answers; moving, `enter`, `o`, `y` and `r` still
 work. `T` on an issue no task tracks waits the same way, and an offer accepted,
 or a line sent, meanwhile stays open and says to try again once it answers.
+Each change reads the tasks again once it has answered; until that read
+answers, a task just marked done is still listed as it was, and `s` and `d`
+leave the bottom row and do nothing on it.
 
 **Marks on the issues.** Once Taskwarrior has answered, each Issues row carries
 a second glyph after its status: `◐` a task for the issue is started, `○` one

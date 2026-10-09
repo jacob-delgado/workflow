@@ -5,9 +5,9 @@ package wiring_test
 
 // The forge's CLI transport turns a forge request into a `gh`/`glab api`
 // invocation and parses the reply. A stand-in gh or glab installed on PATH lets
-// a black-box test drive that transport through wiring.Deps — no network, no
-// real credential — and see both what the forge answered and what the CLI was
-// asked to do.
+// a black-box test drive that transport through Environment.Deps — no network,
+// no real credential — and see both what the forge answered and what the CLI
+// was asked to do.
 
 import (
 	"os"

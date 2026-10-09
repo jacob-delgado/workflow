@@ -2324,7 +2324,8 @@ paths:
       summary: Complete a task.
       description: >-
         Marks the task done, whatever context Taskwarrior has active. Answers
-        the pending list after the write. Refused with 409 when Taskwarrior
+        the pending list after the write and, when the task is linked to an
+        issue, the task as it stands done. Refused with 409 when Taskwarrior
         changes nothing — the task is no longer pending — and 422 when it is
         not available or refuses.
       tags: [tasks]
@@ -2332,7 +2333,7 @@ paths:
         - $ref: "#/components/parameters/TaskUUID"
       responses:
         "200":
-          description: The pending list, without the task.
+          description: The pending list, without the task, and the task as it stands done.
           content:
             application/json:
               schema:
@@ -4447,6 +4448,16 @@ components:
             a track — so the page can name it even when the active context
             leaves it out of tasks. Absent after any other write, and on a
             read.
+        done:
+          description: >-
+            The task the done this list answers marked, as Taskwarrior holds
+            it once the write has landed, described and ranked as the event
+            stream's linked tasks will describe it: tasks no longer holds it,
+            and the issue's Tasks card shows it done before the stream catches
+            up. Absent for a task linked to no issue, when the linked tasks
+            could not be read after the write, after any other write, and on a
+            read.
+          allOf: [{$ref: "#/components/schemas/Task"}]
         tasks:
           type: array
           description: >-

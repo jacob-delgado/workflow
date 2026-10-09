@@ -1,8 +1,8 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ReviewFacet, ReviewQueue } from '@/api/generated/types.gen.ts'
+import type { ReviewFacet, ReviewQueue, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { makeReviewRequest } from '@/test/fixtures.ts'
+import { describedReviewRequest } from '@/test/fixtures.ts'
 import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { ReviewQueuePanel } from './ReviewQueuePanel.tsx'
 
@@ -14,16 +14,18 @@ function hoursAgo(hours: number): string {
   return new Date(Date.now() - hours * hour).toISOString()
 }
 
-// The queue the terminal's facetsWorld lists, oldest first.
+// requestNumbered is a request the terminal's facetsWorld queues: its number,
+// the fields its facets are read from and when it opened, given with those
+// facets.
 function requestNumbered(
   number: number,
-  overrides: Parameters<typeof makeReviewRequest>[0],
-): ReturnType<typeof makeReviewRequest> {
-  return makeReviewRequest({
-    number,
-    url: `https://github.com/example/pull/${String(number)}`,
-    ...overrides,
-  })
+  fields: Parameters<typeof describedReviewRequest>[0],
+  facets: ReviewFacet[],
+): ReviewRequest {
+  return describedReviewRequest(
+    { ...fields, number, url: `https://github.com/example/pull/${String(number)}` },
+    facets,
+  )
 }
 
 // offer is a value the server offers the filter, labeled as it labels it.
@@ -65,35 +67,44 @@ const queue: ReviewQueue = {
   available: true,
   facet_order: facetsWorldOrder,
   requests: [
-    requestNumbered(5, {
-      author: 'kwan',
-      repository: 'example/repo',
-      draft: true,
-      ci: 'running',
-      opened_at: hoursAgo(40),
-      facets: [exampleRepo, ciRunning, draft, byKwan],
-    }),
-    requestNumbered(12, {
-      author: 'kwan',
-      repository: 'example/other',
-      ci: 'passed',
-      opened_at: hoursAgo(26),
-      facets: [exampleOther, ciPassed, ready, byKwan],
-    }),
-    requestNumbered(3, {
-      author: 'mira',
-      repository: '',
-      ci: 'none',
-      opened_at: hoursAgo(10),
-      facets: [noRepository, ciNone, ready, byMira],
-    }),
-    requestNumbered(7, {
-      author: 'mira',
-      repository: 'example/repo',
-      ci: 'failed',
-      opened_at: hoursAgo(3),
-      facets: [exampleRepo, ciFailed, ready, byMira],
-    }),
+    requestNumbered(
+      5,
+      {
+        author: 'kwan',
+        repository: 'example/repo',
+        draft: true,
+        ci: 'running',
+        opened_at: hoursAgo(40),
+      },
+      [exampleRepo, ciRunning, draft, byKwan],
+    ),
+    requestNumbered(
+      12,
+      {
+        author: 'kwan',
+        repository: 'example/other',
+        draft: false,
+        ci: 'passed',
+        opened_at: hoursAgo(26),
+      },
+      [exampleOther, ciPassed, ready, byKwan],
+    ),
+    requestNumbered(
+      3,
+      { author: 'mira', repository: '', draft: false, ci: 'none', opened_at: hoursAgo(10) },
+      [noRepository, ciNone, ready, byMira],
+    ),
+    requestNumbered(
+      7,
+      {
+        author: 'mira',
+        repository: 'example/repo',
+        draft: false,
+        ci: 'failed',
+        opened_at: hoursAgo(3),
+      },
+      [exampleRepo, ciFailed, ready, byMira],
+    ),
   ],
 }
 
@@ -150,14 +161,19 @@ test('offers the values in the order the server offers them', async () => {
 
 test('names each value as the server labels it', async () => {
   // Arrange
-  const named = makeReviewRequest({
-    facets: [offer('author', 'kwan', 'by Kwan Lee')],
-  })
+  // Kwan's name as the forge gives it, which the page could not spell from
+  // the login.
+  const byKwanLee = offer('author', 'kwan', 'by Kwan Lee')
+  const named = requestNumbered(
+    9,
+    { author: 'kwan', repository: 'example/repo', draft: false, ci: 'passed' },
+    [exampleRepo, ciPassed, ready, byKwanLee],
+  )
   fakeApi({
     [reviewsPath]: {
       available: true,
       requests: [named],
-      facet_order: [offer('author', 'kwan', 'by Kwan Lee')],
+      facet_order: [exampleRepo, ciFailed, ciPassed, ciRunning, ciNone, draft, ready, byKwanLee],
     },
   })
 
@@ -170,7 +186,7 @@ test('names each value as the server labels it', async () => {
     within(filter)
       .getAllByRole('button')
       .map((button) => button.textContent),
-  ).toEqual(['by Kwan Lee 1'])
+  ).toEqual(['example/repo 1', 'CI passed 1', 'ready 1', 'by Kwan Lee 1'])
 })
 
 test('keeps a picked value the server no longer offers last, at zero', async () => {
@@ -286,6 +302,10 @@ test('the filter holds when the order changes', async () => {
 
 test('unpicking the only value left takes focus to Sort as the filter goes', async () => {
   // Arrange
+  // The second read finds the queue empty: the server still offers every CI
+  // state and draft or ready, which no request holds, and no author.
+  const acmeApi = offer('repository', 'acme/api', 'acme/api')
+  const always = [ciFailed, ciPassed, ciRunning, ciNone, draft, ready]
   let reads = 0
   fakeApi({
     [reviewsPath]: () => {
@@ -295,14 +315,15 @@ test('unpicking the only value left takes focus to Sort as the filter goes', asy
         ? {
             available: true,
             requests: [
-              requestNumbered(1, {
-                author: 'kwan',
-                facets: [offer('repository', 'acme/api', 'acme/api'), ciFailed, ready, byKwan],
-              }),
+              requestNumbered(
+                1,
+                { author: 'kwan', repository: 'acme/api', draft: false, ci: 'failed' },
+                [acmeApi, ciFailed, ready, byKwan],
+              ),
             ],
-            facet_order: [byKwan],
+            facet_order: [acmeApi, ...always, byKwan],
           }
-        : { available: true, requests: [], facet_order: [] }
+        : { available: true, requests: [], facet_order: always }
     },
   })
   renderWithClient(<ReviewQueuePanel />)
