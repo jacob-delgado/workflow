@@ -8,6 +8,7 @@ package cli_test
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -15,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -302,5 +304,79 @@ func TestDBCleanIsSummarizedAsRemovingTheLocalData(t *testing.T) {
 	// Assert
 	if err != nil || !strings.Contains(output, "Remove workflow's local data") {
 		t.Errorf("--help = %v, want db-clean summarized as removing workflow's local data:\n%s", err, output)
+	}
+}
+
+func TestDBCleanWithNowhereToKeepTheStoreSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No home and no $XDG_STATE_HOME leave nowhere the store could be.
+	where := place{dir: t.TempDir(), home: ""}
+
+	// Act
+	printed, err := runStreamsAt(t, where, unusedPrompt(t), "db-clean", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "finding the local data") || printed.stdout != "" {
+		t.Errorf("db-clean with no home = %v, printed %q; want it to say it found no local data to list",
+			err, printed.stdout)
+	}
+}
+
+func TestDBCleanThatCannotReadTheStoreSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows reads a path through a file as one that is not there")
+	}
+
+	// A file stands where the store's directory's parent belongs, so nothing
+	// in the store can be looked at.
+	home := t.TempDir()
+	parent := filepath.Dir(storeDirIn(t, home))
+
+	err := os.MkdirAll(filepath.Dir(parent), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(parent, []byte("not a directory\n"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	where := place{dir: t.TempDir(), home: home}
+
+	// Act
+	printed, err := runStreamsAt(t, where, unusedPrompt(t), "db-clean", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "reading the local data") || printed.stdout != "" {
+		t.Errorf("db-clean over an unreadable store = %v, printed %q; want it to say it could not read it",
+			err, printed.stdout)
+	}
+}
+
+func TestDBCleanWithNoTerminalToAskRemovesNothingAndNamesYes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	where, dir := storedHome(t)
+	ended := func(string) (string, error) { return "", io.EOF }
+
+	// Act
+	_, err := runStreamsAt(t, where, cli.Prompt{Line: ended, Secret: ended}, "db-clean")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Errorf("db-clean with nothing to answer = %v, want it to name --yes", err)
+	}
+
+	wantExit(t, err, 2)
+
+	if !present(dir, "workflow.db") {
+		t.Error("db-clean removed the cache with no answer to remove it")
 	}
 }
