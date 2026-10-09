@@ -233,7 +233,7 @@ func Handler(first World, assets fs.FS, session Session) (http.Handler, error) {
 		return nil, err
 	}
 
-	held, err := newWorlds(first, spec)
+	held, err := newWorlds(first)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +244,7 @@ func Handler(first World, assets fs.FS, session Session) (http.Handler, error) {
 	// since its paths are not in the spec, so only the /api subtree passes
 	// through the validator.
 	root := http.NewServeMux()
-	root.Handle("/api/", spec.validate(held))
+	root.Handle("/api/", spec.admit(held.serve))
 	root.Handle("/", spaHandler(assets))
 
 	return withPolicyHeaders(guardLoopback(refuseWritesInDryRun(first.Info.DryRun, root))), nil

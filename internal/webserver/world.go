@@ -41,7 +41,6 @@ type World struct {
 // shared, so a switch, which holds it alone, is refused while one runs rather
 // than leaving it unknown.
 type worlds struct {
-	spec contract
 	gate sync.RWMutex
 
 	mu      sync.RWMutex
@@ -54,8 +53,8 @@ type worlds struct {
 }
 
 // newWorlds serves first.
-func newWorlds(first World, spec contract) (*worlds, error) {
-	held := &worlds{spec: spec}
+func newWorlds(first World) (*worlds, error) {
+	held := &worlds{}
 
 	_, err := held.install(first)
 	if err != nil {
@@ -65,11 +64,11 @@ func newWorlds(first World, spec contract) (*worlds, error) {
 	return held, nil
 }
 
-// ServeHTTP hands a request to the server for the directory worked in. A
-// write holds the gate a switch waits on, and is refused when the page that
-// sent it names another directory.
-func (w *worlds) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	if !isSafeMethod(request.Method) && !w.spec.switches(request) {
+// serve hands a request the contract admitted to the server for the
+// directory worked in. A write but a switch holds the gate a switch waits on,
+// and a write is refused when the page that sent it names another directory.
+func (w *worlds) serve(writer http.ResponseWriter, request *http.Request, switches bool) {
+	if !isSafeMethod(request.Method) && !switches {
 		w.gate.RLock()
 		defer w.gate.RUnlock()
 	}
