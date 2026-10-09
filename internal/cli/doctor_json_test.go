@@ -183,6 +183,7 @@ const (
 const (
 	uncheckedStatus   = "unchecked"
 	unreachableStatus = "unreachable"
+	missingStatus     = "missing"
 )
 
 // credentialStatusIn is the status the online report gives service, or "" when
@@ -367,7 +368,7 @@ func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
 			// Assert
 			wantExit(t, err, 3)
 
-			if got := credentialStatusIn(decodeReport(t, output), tt.service); got != "missing" {
+			if got := credentialStatusIn(decodeReport(t, output), tt.service); got != missingStatus {
 				t.Errorf("the online report calls %s's absent credential %q, want missing:\n%s", tt.service, got, output)
 			}
 
