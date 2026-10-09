@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/keychain"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -190,5 +191,57 @@ func TestReadRefusesWithoutAnAccountName(t *testing.T) {
 
 	if len(runs) != 0 {
 		t.Errorf("Read ran %d programs without an account, want none", len(runs))
+	}
+}
+
+// A store or a read may be asked under a context that never ends, one detached
+// from a caller who has left, so each security run carries its own bound: one
+// waiting on a locked keychain's unlock dialog cannot hold what waits on it
+// without end.
+func TestItemBoundsEachSecurityRunByTheDefaultRunTimeout(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]func(context.Context, keychain.Item) error{
+		"a store": func(ctx context.Context, item keychain.Item) error {
+			return item.Store(ctx, "s3cret")
+		},
+		"a read": func(ctx context.Context, item keychain.Item) error {
+			_, err := item.Read(ctx)
+
+			return err
+		},
+	}
+
+	for name, use := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var (
+				deadline time.Time
+				bounded  bool
+			)
+
+			item := itemFor(t, func(ctx context.Context, _ proc.Command, _ []byte) ([]byte, error) {
+				deadline, bounded = ctx.Deadline()
+
+				return nil, nil
+			})
+			before := time.Now()
+
+			// Act
+			err := use(context.WithoutCancel(t.Context()), item)
+			after := time.Now()
+
+			// Assert
+			if err != nil || !bounded {
+				t.Fatalf("%s = %v, with security given a deadline %t; want it run under one", name, err, bounded)
+			}
+
+			if deadline.Before(before.Add(proc.DefaultRunTimeout)) || deadline.After(after.Add(proc.DefaultRunTimeout)) {
+				t.Errorf("security's deadline is %s after %s began, want %s",
+					deadline.Sub(before), name, proc.DefaultRunTimeout)
+			}
+		})
 	}
 }
