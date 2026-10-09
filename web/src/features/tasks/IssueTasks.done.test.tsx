@@ -5,7 +5,13 @@ import type { ReactElement } from 'react'
 import type { Task, TasksSummary } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { describedTask, makeSnapshot, makeTaskList } from '@/test/fixtures.ts'
+import {
+  describedTask,
+  makeSnapshot,
+  makeTaskList,
+  standing,
+  taskStanding,
+} from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { tracking, trackingDone } from '@/test/tasks.ts'
@@ -23,6 +29,10 @@ const trackingPath = `/api/tasks/${tracking.uuid}`
 // doneAnswer is what a done of the tracking task answers: the pending list,
 // which no longer holds it, and the task as it stands done.
 const doneAnswer = makeTaskList([], { done: trackingDone(new Date().toISOString()) })
+
+// undescribedDone is what a done answers when the task could not be read again
+// after it: the pending list, which no longer holds it, and no task beside it.
+const undescribedDone = makeTaskList([])
 
 // streamTasks puts a stream frame on screen whose task summary is summary,
 // landed at receivedAt — now, unless a test says otherwise.
@@ -99,24 +109,24 @@ test("a task marked done from the card shows as the done's answer describes it",
   expect(markShape(row)).toBe(drawnMark('done'))
 })
 
-test('a done whose answer describes no task shows it as the stream has it until a frame does', async () => {
+test('a done whose answer describes no task offers nothing to do on it until a frame describes it', async () => {
   // Arrange
   // The done landed, but the server could not read the task again after it.
   const user = userEvent.setup()
   streamLinked(tracking)
-  fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
+  fakeApi({ [`${trackingPath}/done`]: undescribedDone })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
 
   // Act: mark the task done
   await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
   await user.click(screen.getByRole('button', { name: 'Mark done' }))
 
-  // Assert: the task stands as the stream has it
-  await screen.findByText('Marked task 12 done.')
-  expect(markShape(screen.getByRole('listitem'))).toBe(drawnMark('not-started'))
-  expect(
-    within(screen.getByRole('listitem')).getByRole('button', { name: 'Start task 12' }),
-  ).toBeTruthy()
+  // Assert: the task stands as the stream has it, with nothing to do on it
+  await screen.findByText(/^Marked task 12 done/)
+  const row = screen.getByRole('listitem')
+  expect(markShape(row)).toBe(drawnMark('not-started'))
+  expect(within(row).queryByRole('button', { name: 'Start task 12' })).toBeNull()
+  expect(within(row).queryByRole('button', { name: 'Mark done… task 12' })).toBeNull()
 
   // Act: a frame that has the task done lands
   act(() => {
@@ -124,9 +134,44 @@ test('a done whose answer describes no task shows it as the stream has it until 
   })
 
   // Assert: the task shows done, with nothing left to do on it
+  const caughtUp = screen.getByRole('listitem')
+  expect(markShape(caughtUp)).toBe(drawnMark('done'))
+  expect(within(caughtUp).queryAllByRole('button')).toEqual([])
+})
+
+test('a list answered before a done the answer could not describe offers nothing to do on the task', async () => {
+  // Arrange
+  // The start answered a list that holds the task, started; the done after
+  // it landed, but neither the list nor the task could be read again, so the
+  // list the start answered is the newest the page holds. The clock moves on
+  // between the two, as Taskwarrior takes its time over a done.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  const user = userEvent.setup()
+  streamLinked(tracking)
+  fakeApi({
+    [`${trackingPath}/start`]: makeTaskList([
+      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
+    ]),
+    [`${trackingPath}/done`]: makeTaskList([], {
+      available: false,
+      reason:
+        'The change was made, but your tasks could not be read again: Taskwarrior did not answer in time',
+      reason_code: 'unavailable',
+    }),
+  })
+  renderWithClient(<IssueTasks issueKey={issueKey} />)
+  await user.click(screen.getByRole('button', { name: 'Start task 12' }))
+  await user.click(await screen.findByRole('button', { name: 'Mark done… task 12' }))
+  vi.setSystemTime(Date.now() + 1_000)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Mark done' }))
+
+  // Assert
+  await screen.findByText(/^Marked task 12 done/)
   const row = screen.getByRole('listitem')
-  expect(markShape(row)).toBe(drawnMark('done'))
-  expect(within(row).queryAllByRole('button')).toEqual([])
+  expect(within(row).queryByRole('button', { name: 'Stop task 12' })).toBeNull()
+  expect(within(row).queryByRole('button', { name: 'Mark done… task 12' })).toBeNull()
 })
 
 test('a card opened again before the stream has the done still shows the task done', async () => {
@@ -180,38 +225,44 @@ test.each([
   },
 )
 
-test('an undo that brings back a task done from the card offers it again, frame or no', async () => {
-  // Arrange
-  // The undo lands before the stream has caught up with the done, so no frame
-  // ever has the task done.
-  const user = userEvent.setup()
-  streamLinked(tracking)
-  fakeApi({
-    '/api/tasks': makeTaskList([]),
-    [`${trackingPath}/done`]: doneAnswer,
-    '/api/tasks/undo': makeTaskList([tracking], { said: 'reverted 1 operation' }),
-  })
-  renderWithClient(
-    <>
-      <IssueTasks issueKey={issueKey} />
-      <TasksPanel />
-    </>,
-  )
-  await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
-  await user.click(screen.getByRole('button', { name: 'Mark done' }))
-  await screen.findByText('Marked task 12 done.')
-  await user.click(screen.getByRole('button', { name: 'Undo…' }))
-  await user.click(screen.getByRole('button', { name: 'Undo' }))
-  await screen.findByText('Undone: reverted 1 operation')
+test.each([
+  ['describes the task done', doneAnswer],
+  ['could not describe the task', undescribedDone],
+])(
+  'an undo that brings back a task done from the card, whose answer %s, offers it again, frame or no',
+  async (_, answer) => {
+    // Arrange
+    // The undo lands before the stream has caught up with the done, so no
+    // frame ever has the task done.
+    const user = userEvent.setup()
+    streamLinked(tracking)
+    fakeApi({
+      '/api/tasks': makeTaskList([]),
+      [`${trackingPath}/done`]: answer,
+      '/api/tasks/undo': makeTaskList([tracking], { said: 'reverted 1 operation' }),
+    })
+    renderWithClient(
+      <>
+        <IssueTasks issueKey={issueKey} />
+        <TasksPanel />
+      </>,
+    )
+    await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
+    await user.click(screen.getByRole('button', { name: 'Mark done' }))
+    await screen.findByText(/^Marked task 12 done/)
+    await user.click(screen.getByRole('button', { name: 'Undo…' }))
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    await screen.findByText('Undone: reverted 1 operation')
 
-  // Act
-  act(() => {
-    streamTasks({ linked: [tracking] }, Date.now() + 1)
-  })
+    // Act
+    act(() => {
+      streamTasks({ linked: [tracking] }, Date.now() + 1)
+    })
 
-  // Assert
-  expect(screen.getByRole('button', { name: 'Start task 12' })).toBeTruthy()
-})
+    // Assert
+    expect(screen.getByRole('button', { name: 'Start task 12' })).toBeTruthy()
+  },
+)
 
 test('the first frame after a done that still has the task to do leaves it done', async () => {
   // Arrange
@@ -233,6 +284,26 @@ test('the first frame after a done that still has the task to do leaves it done'
   const row = screen.getByRole('listitem')
   expect(markShape(row)).toBe(drawnMark('done'))
   expect(within(row).queryAllByRole('button')).toEqual([])
+})
+
+test('the first frame after a done the answer could not describe offers nothing to do on the task', async () => {
+  // Arrange
+  // A frame read before the done can land after its answer.
+  const user = userEvent.setup()
+  streamLinked(tracking)
+  fakeApi({ [`${trackingPath}/done`]: undescribedDone })
+  renderWithClient(<IssueTasks issueKey={issueKey} />)
+  await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
+  await user.click(screen.getByRole('button', { name: 'Mark done' }))
+  await screen.findByText(/^Marked task 12 done/)
+
+  // Act
+  act(() => {
+    streamTasks({ linked: [tracking] }, Date.now() + 1)
+  })
+
+  // Assert
+  expect(within(screen.getByRole('listitem')).queryAllByRole('button')).toEqual([])
 })
 
 test('a frame received in the millisecond of a done does not count toward letting it go', async () => {
@@ -262,31 +333,37 @@ test('a frame received in the millisecond of a done does not count toward lettin
   expect(within(row).queryAllByRole('button')).toEqual([])
 })
 
-test('a done undone in a terminal before the next frame shows the task to do again two frames on', async () => {
-  // Arrange
-  // No frame ever has the task done: the first after the done may have been
-  // read before it, and the second was read after it, and holds it pending.
-  const user = userEvent.setup()
-  streamLinked(tracking)
-  fakeApi({ [`${trackingPath}/done`]: doneAnswer })
-  renderWithClient(<IssueTasks issueKey={issueKey} />)
-  await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
-  await user.click(screen.getByRole('button', { name: 'Mark done' }))
-  await screen.findByText('Marked task 12 done.')
-  act(() => {
-    streamTasks({ linked: [tracking] }, Date.now() + 1)
-  })
+test.each([
+  ['describes the task done', doneAnswer],
+  ['could not describe the task', undescribedDone],
+])(
+  'a done whose answer %s, undone in a terminal before the next frame, shows the task to do again two frames on',
+  async (_, answer) => {
+    // Arrange
+    // No frame ever has the task done: the first after the done may have been
+    // read before it, and the second was read after it, and holds it pending.
+    const user = userEvent.setup()
+    streamLinked(tracking)
+    fakeApi({ [`${trackingPath}/done`]: answer })
+    renderWithClient(<IssueTasks issueKey={issueKey} />)
+    await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
+    await user.click(screen.getByRole('button', { name: 'Mark done' }))
+    await screen.findByText(/^Marked task 12 done/)
+    act(() => {
+      streamTasks({ linked: [tracking] }, Date.now() + 1)
+    })
 
-  // Act
-  act(() => {
-    streamTasks({ linked: [tracking] }, Date.now() + 2)
-  })
+    // Act
+    act(() => {
+      streamTasks({ linked: [tracking] }, Date.now() + 2)
+    })
 
-  // Assert
-  const card = screen.getByRole('region', { name: 'Tasks' })
-  const row = within(card).getByRole('listitem')
-  expect(markShape(row)).toBe(drawnMark('not-started'))
-  expect(within(row).getByRole('button', { name: 'Start task 12' })).toBeTruthy()
-  expect(within(row).getByRole('button', { name: 'Mark done… task 12' })).toBeTruthy()
-  expect(within(card).queryByRole('button', { name: 'Track in Taskwarrior' })).toBeNull()
-})
+    // Assert
+    const card = screen.getByRole('region', { name: 'Tasks' })
+    const row = within(card).getByRole('listitem')
+    expect(markShape(row)).toBe(drawnMark('not-started'))
+    expect(within(row).getByRole('button', { name: 'Start task 12' })).toBeTruthy()
+    expect(within(row).getByRole('button', { name: 'Mark done… task 12' })).toBeTruthy()
+    expect(within(card).queryByRole('button', { name: 'Track in Taskwarrior' })).toBeNull()
+  },
+)
