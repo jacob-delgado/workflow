@@ -260,6 +260,21 @@ func withoutEnvOptions(args []string) []string {
 // its meaning as jobs; a bash or zsh script might not, and stays a script.
 const convertibleRunner = "sh"
 
+// jobListSetLine matches a `set` line whose every option a piped job list keeps
+// or does without: errexit, which the piped list does itself, and nounset and
+// xtrace, which change nothing about plain commands. A piped job list honors
+// no option, so any other `set` line — noglob, noexec, allexport, `-o
+// pipefail` — would change what the commands do once they are jobs; it is not
+// a plain command either, so a script that has one stays whole.
+var jobListSetLine = regexp.MustCompile(`^set\s+(-[eux]+|-o\s+(errexit|nounset|xtrace))$`)
+
+// errexitSetLine matches a jobListSetLine that turns errexit on: short flags
+// including -e, or the long -o errexit.
+var errexitSetLine = regexp.MustCompile(`^set\s+(-[ux]*e[eux]*|-o\s+errexit)$`)
+
+// nonJobName matches a run of what cannot be in a job name.
+var nonJobName = regexp.MustCompile(`[^a-z0-9]+`)
+
 // plainCommands reads a script's commands, reporting whether it converts to a
 // piped job list without changing what it does. It converts only a script that
 // turns errexit on itself, since the piped list stops at the first failure — a
@@ -280,8 +295,8 @@ func plainCommands(script string) ([]string, bool) {
 		switch {
 		case line == "" || strings.HasPrefix(line, "#"):
 			continue
-		case jobListOption().MatchString(line):
-			errexit = errexit || errexitOption().MatchString(line)
+		case jobListSetLine.MatchString(line):
+			errexit = errexit || errexitSetLine.MatchString(line)
 		case !plainCommand(line):
 			return nil, false
 		default:
@@ -290,22 +305,6 @@ func plainCommands(script string) ([]string, bool) {
 	}
 
 	return commands, errexit && len(commands) > 0
-}
-
-// jobListOption matches a `set` line whose every option a piped job list keeps
-// or does without: errexit, which the piped list does itself, and nounset and
-// xtrace, which change nothing about plain commands. A piped job list honors
-// no option, so any other `set` line — noglob, noexec, allexport, `-o
-// pipefail` — would change what the commands do once they are jobs; it is not
-// a plain command either, so a script that has one stays whole.
-func jobListOption() *regexp.Regexp {
-	return regexp.MustCompile(`^set\s+(-[eux]+|-o\s+(errexit|nounset|xtrace))$`)
-}
-
-// errexitOption matches a jobListOption line that turns errexit on: short flags
-// including -e, or the long -o errexit.
-func errexitOption() *regexp.Regexp {
-	return regexp.MustCompile(`^set\s+(-[ux]*e[eux]*|-o\s+errexit)$`)
 }
 
 // plainCommand reports a line that means the same run on its own as it did in
@@ -352,17 +351,12 @@ func jobName(command string) string {
 		name += "-" + words[1]
 	}
 
-	cleaned := strings.Trim(nonName().ReplaceAllString(strings.ToLower(name), "-"), "-")
+	cleaned := strings.Trim(nonJobName.ReplaceAllString(strings.ToLower(name), "-"), "-")
 	if cleaned == "" {
 		return "job"
 	}
 
 	return cleaned
-}
-
-// nonName matches what cannot be in a job name.
-func nonName() *regexp.Regexp {
-	return regexp.MustCompile(`[^a-z0-9]+`)
 }
 
 // mapping is an empty YAML mapping.
