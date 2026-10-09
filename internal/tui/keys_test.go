@@ -15,12 +15,15 @@ import (
 // Action ids that several conflict cases name, kept as constants so the table
 // does not repeat the same literal.
 const (
-	refreshAction  = "refresh"
-	mergeAction    = "merge"
-	openLinkAction = "open-link"
-	addTaskAction  = "add-task"
-	worktreeAction = "worktree"
-	editAction     = "edit"
+	refreshAction       = "refresh"
+	mergeAction         = "merge"
+	openLinkAction      = "open-link"
+	addTaskAction       = "add-task"
+	worktreeAction      = "worktree"
+	editAction          = "edit"
+	applyAction         = "apply"
+	commitAction        = "commit"
+	postWhenGreenAction = "post-when-green"
 )
 
 // reboundRefreshKey is the key a test's ui.keys binds refresh to.
@@ -187,18 +190,20 @@ func TestCheckKeysCatchesConflictsOnCrossPaneKeys(t *testing.T) {
 	}
 }
 
-func TestCheckKeysRefusesAnOverlayKeyOnAKeyLiveBesideItInAComposer(t *testing.T) {
+func TestCheckKeysRefusesAnOverlayKeyOnAnotherKeyTheSameOverlayAnswers(t *testing.T) {
 	t.Parallel()
 
-	// Only the branch creator answers worktree and only the messaging preview
-	// answers post-when-green, so each is live beside the composer's keys.
+	// Only the branch creator answers worktree and only the announcement
+	// preview answers post-when-green, so each is refused only on a key its
+	// own overlay answers.
 	cases := []struct {
 		name     string
 		override map[string]string
 		collides string
+		overlay  string
 	}{
-		{"worktree onto edit", map[string]string{worktreeAction: "e"}, editAction},
-		{"post-when-green onto verbatim", map[string]string{"post-when-green": "v"}, "verbatim"},
+		{"worktree onto apply", map[string]string{worktreeAction: "enter"}, applyAction, "the branch creator"},
+		{"post-when-green onto edit", map[string]string{postWhenGreenAction: "e"}, editAction, "the announcement preview"},
 	}
 
 	for _, testCase := range cases {
@@ -206,7 +211,7 @@ func TestCheckKeysRefusesAnOverlayKeyOnAKeyLiveBesideItInAComposer(t *testing.T)
 			t.Parallel()
 
 			// Arrange
-			rebound, collides := testCase.override, testCase.collides
+			rebound, collides, overlay := testCase.override, testCase.collides, testCase.overlay
 
 			// Act
 			err := tui.CheckKeys(rebound)
@@ -216,8 +221,34 @@ func TestCheckKeysRefusesAnOverlayKeyOnAKeyLiveBesideItInAComposer(t *testing.T)
 				t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConflict", rebound, err)
 			}
 
-			if got := err.Error(); !strings.Contains(got, collides) || !strings.Contains(got, "a composer") {
-				t.Errorf("CheckKeys error %q does not name %q in a composer", got, collides)
+			if got := err.Error(); !strings.Contains(got, collides) || !strings.Contains(got, overlay) {
+				t.Errorf("CheckKeys error %q does not name %q in %s", got, collides, overlay)
+			}
+		})
+	}
+}
+
+// Each overlay is a keyboard surface of its own: an action one answers and an
+// action only another answers are never live at once, so one key may serve
+// both. A running command answers no pane number, so its keys may take one.
+func TestCheckKeysLetsTwoOverlaysShareAKey(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]map[string]string{
+		"remove-cache in Local data onto edit in the announcement preview": {"remove-cache": "e"},
+		"post-when-green onto verbatim in the lefthook offer":              {postWhenGreenAction: "v"},
+		"stop in a running command onto a pane number":                     {"stop": "1"},
+	}
+
+	for name, rebound := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			err := tui.CheckKeys(rebound)
+			// Assert
+			if err != nil {
+				t.Errorf("CheckKeys(%v) = %v, want the two overlays' actions free to share a key", rebound, err)
 			}
 		})
 	}

@@ -125,37 +125,17 @@ func keyContexts() []keyContext {
 	return append(contexts, overlayContexts()...)
 }
 
-// overlayContexts are the keyboard surfaces an overlay opens. A running
-// command answers its own keys and the moving ones. A composer or preview
-// reads its own keys, the branch creator's worktree and the messaging
-// preview's wait for CI and channel among them, and an overlay's list reads
-// up and down, first and last, which a composer otherwise leaves out so its
-// tab can mean next-field rather than next-pane; People and groups reads
-// refresh to read the Slack directory again. The comment composer moves with
-// up and down and hands its body to the editor.
+// overlayContexts are the keyboard surfaces an overlay opens, one for each
+// kind of overlay, in the order the kinds are named.
 func overlayContexts() []keyContext {
-	return []keyContext{runningContext(), composingContext(), commentingContext()}
-}
+	contexts := overlayKeyContexts()
+	ordered := make([]keyContext, 0, len(contexts))
 
-// runningContext is the keys live while a command runs.
-func runningContext() keyContext {
-	return keyContext{"a running command", []int{groupMoving, groupEverywhere, groupRunning}, nil}
-}
-
-// composingContext is the keys live in a composer or preview.
-func composingContext() keyContext {
-	return keyContext{
-		"a composer or preview",
-		[]int{groupEverywhere, groupComposer},
-		[]string{actionUp, actionDown, actionFirst, actionLast, actionRefresh},
+	for _, kind := range slices.Sorted(maps.Keys(contexts)) {
+		ordered = append(ordered, contexts[kind])
 	}
-}
 
-// commentingContext is the keys live in the comment composer.
-func commentingContext() keyContext {
-	return keyContext{
-		"the comment composer", []int{groupEverywhere, groupWriting}, []string{actionUp, actionDown, "edit-body"},
-	}
+	return ordered
 }
 
 // overlayKind is which overlay one is: every overlay names its own, and its
@@ -198,24 +178,71 @@ const (
 	overlayTaskLine
 )
 
-// keyContext is the keys live while an overlay of the kind is open. The
-// table is a map keyed by kind so that exhaustive refuses a kind left out.
+// keyContext is the keys live while an overlay of the kind is open.
 func (k overlayKind) keyContext() keyContext {
-	running, composing, commenting := runningContext(), composingContext(), commentingContext()
+	return overlayKeyContexts()[k]
+}
 
+// overlayKeyContexts is each kind of overlay's key context: the actions its
+// handleKey answers in any of its states, an overlay taking every other key
+// as typing or as nothing. The table is a map keyed by kind so that
+// exhaustive refuses a kind left out.
+func overlayKeyContexts() map[overlayKind]keyContext {
 	return map[overlayKind]keyContext{
-		overlayAmendPreview: composing, overlayBranchCreator: composing, overlayBranchLinker: composing,
-		overlayBranchPicker: composing, overlayCalendar: composing, overlayChecklist: composing,
-		overlayChecks: composing, overlayCommandRun: running, overlayCommentComposer: commenting,
-		overlayCommentPreview: composing, overlayCommitComposer: composing, overlayDirPrompt: composing,
-		overlayFinishPreview: composing, overlayFixupPicker: composing, overlayHelp: composing,
-		overlayHookgenOffer: composing, overlayIssueLinker: composing, overlayIssueWrite: composing,
-		overlayJobLog: composing, overlayLastLook: composing, overlayLocalData: composing,
-		overlayMergePicker: composing, overlayMessagingPreview: composing, overlayOwnerPicker: composing,
-		overlayPeople: composing, overlayPRComposer: composing, overlayPREditor: composing,
-		overlayQuitGuard: composing, overlaySettings: composing, overlaySetupForm: composing,
-		overlayStatusPicker: composing, overlaySummaryPost: composing, overlayTaskLine: composing,
-	}[k]
+		overlayAmendPreview:  answering("the amend preview", "apply", "close"),
+		overlayBranchCreator: answering("the branch creator", "worktree", "apply", "close"),
+		overlayBranchLinker:  answering("the link form", "unlink-issue", "apply", "close"),
+		overlayBranchPicker:  listAnswering("the branch picker", "apply", "close"),
+		overlayCalendar: answering("the calendar", actionUp, actionDown, "cycle-type-left", "cycle-type-right",
+			"next-field", "previous-field", "toggle-option", "apply", "close"),
+		overlayChecklist:  listAnswering("a checklist", "toggle-option", "apply", "close"),
+		overlayChecks:     listAnswering("the checks list", "show-log", "apply", "close"),
+		overlayCommandRun: listAnswering("a running command", "stop", "run-again", "full-output", "apply", "close"),
+		overlayCommentComposer: answering("the comment composer", actionUp, actionDown, "cursor-left", "cursor-right",
+			"insert", "append", "append-line", "open-line", "edit-body", "apply", "close"),
+		overlayCommentPreview: answering("the comment preview", "apply", "close"),
+		overlayCommitComposer: answering("the commit composer", "next-field", "previous-field", "cycle-type-left",
+			"cycle-type-right", "toggle-breaking", "edit-body", "apply", "close"),
+		overlayDirPrompt:     answering("the directory prompt", "next-field", "apply", "close"),
+		overlayFinishPreview: answering("the finish preview", "apply", "close"),
+		overlayFixupPicker:   listAnswering("the fixup picker", "apply", "close"),
+		overlayHelp:          listAnswering("the help", "toggle-help", "quit", "close"),
+		overlayHookgenOffer:  answering("the lefthook offer", "verbatim", "apply", "close"),
+		overlayIssueLinker:   answering("the Jira link offer", "apply", "close"),
+		overlayIssueWrite:    answering("the assign or log-work form", "apply", "close"),
+		overlayJobLog:        listAnswering("a job's log", "close"),
+		overlayLastLook:      answering("a last look", "apply", "close"),
+		overlayLocalData:     answering("Local data", actionRefresh, "remove-cache", "remove-everything", "close"),
+		overlayMergePicker:   listAnswering("the merge picker", "apply", "close"),
+		overlayMessagingPreview: listAnswering("the announcement preview", "cycle-type-left", "cycle-type-right",
+			"edit", "post-when-green", "toggle-option", "link-to-slack", "not-on-slack", "apply", "close"),
+		overlayOwnerPicker: answering("the owner picker"),
+		overlayPeople: listAnswering("People and groups", "next-field", "toggle-option", actionRefresh,
+			"not-on-slack", "forget-owner", "apply", "close"),
+		overlayPRComposer: answering("the pull request composer", "next-field", "previous-field", "next-template",
+			"toggle-draft", "edit-body", "apply", "close"),
+		overlayPREditor:  answering("the pull request editor", "edit-body", "apply", "close"),
+		overlayQuitGuard: answering("the quit guard", "apply", "close"),
+		overlaySettings: listAnswering("Settings", "cycle-type-left", "cycle-type-right", "toggle-option",
+			actionRefresh, "save-settings", "remove-entry", "apply", "close"),
+		overlaySetupForm:    listAnswering("the setup form", "apply", "close"),
+		overlayStatusPicker: listAnswering("the status picker", "toggle-option", "apply", "close"),
+		overlaySummaryPost: answering("the summary's post preview", "cycle-type-left", "cycle-type-right", "edit",
+			"apply", "close"),
+		overlayTaskLine: answering("a task form", "apply", "close"),
+	}
+}
+
+// answering is an overlay's key context: interrupt, which Update reads
+// before an open overlay sees the key, and the actions the overlay answers.
+func answering(name string, actions ...string) keyContext {
+	return keyContext{name: name, groups: nil, actions: append([]string{actionInterrupt}, actions...)}
+}
+
+// listAnswering is the key context of an overlay that is a list: the cursor
+// keys, which step it, and the actions it answers.
+func listAnswering(name string, actions ...string) keyContext {
+	return answering(name, append([]string{actionUp, actionDown, actionFirst, actionLast}, actions...)...)
 }
 
 // KeyContext is one keyboard surface — a pane, or an overlay while it is

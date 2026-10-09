@@ -151,7 +151,7 @@ func (l taskLine) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
-// which names a task's one-line form.
+// which names a task form.
 func (taskLine) which() overlayKind { return overlayTaskLine }
 
 // pasted types a paste into the line, as typing it would.
