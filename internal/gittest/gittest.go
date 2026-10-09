@@ -50,16 +50,16 @@ func ClearLocalVariables() error {
 
 // Run runs git in dir with args, the developer's global and system git
 // configuration and language kept out, and returns what it wrote to standard
-// output, trimmed. When git fails, so does t, with git's own reason.
-func Run(t *testing.T, dir string, args ...string) string {
-	t.Helper()
+// output, trimmed. When git fails, so does tb, with git's own reason.
+func Run(tb testing.TB, dir string, args ...string) string {
+	tb.Helper()
 
-	output, err := proc.RunCommand(t.Context(), proc.Command{
+	output, err := proc.RunCommand(tb.Context(), proc.Command{
 		Name: "git", Args: append([]string{"-C", dir}, args...),
 		Env: []string{"GIT_CONFIG_GLOBAL=" + os.DevNull, "GIT_CONFIG_NOSYSTEM=1", "LC_ALL=C"},
 	})
 	if err != nil {
-		t.Fatalf("git %v: %v", args, err)
+		tb.Fatalf("git %v: %v", args, err)
 	}
 
 	return strings.TrimSpace(string(output))
@@ -75,8 +75,8 @@ func HookEnvironment(repo string) []string {
 
 // FilesUnder is every file below dir, keyed by its path within dir, holding
 // its contents.
-func FilesUnder(t *testing.T, dir string) map[string]string {
-	t.Helper()
+func FilesUnder(tb testing.TB, dir string) map[string]string {
+	tb.Helper()
 
 	files := map[string]string{}
 	tree := os.DirFS(dir)
@@ -96,7 +96,7 @@ func FilesUnder(t *testing.T, dir string) map[string]string {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("reading %s: %v", dir, err)
+		tb.Fatalf("reading %s: %v", dir, err)
 	}
 
 	return files
