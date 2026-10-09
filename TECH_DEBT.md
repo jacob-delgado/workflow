@@ -643,3 +643,38 @@ by a switch reads the Slack directory afresh (TRADE-26).
 
 **Reopen when.** A switch is found slow enough to notice, or the terminal is
 found left changed by one in practice.
+
+### TRADE-35 Windows-only code is built in CI but never run
+
+**Decided.** Every CI job runs on `ubuntu-latest`. The Cross-compile job
+(`cross` in `.github/workflows/ci.yml`) runs `task release:binaries` and
+`task release:verify`, which build a binary for every `RELEASE_PLATFORMS`
+target in `Taskfile.yml`, `windows/amd64` among them, so the code only a
+Windows build holds is compiled on every change, but no job runs it. Decided
+2026-10-09 by the maintainer in the pre-1.0 paydown (#232): CI stays on
+Linux, and the cost is recorded here.
+
+**Cost.** Four files are Windows-only, and one function has a branch only
+Windows takes, each marked with this entry's ID:
+`internal/filelock/lock_windows.go` (`//go:build windows`), the `LockFileEx`
+lock `TryLock` takes, which keeps two sessions from writing the Slack
+credentials at once; `internal/fileowner/owner_other.go` (`//go:build
+!unix`, which among the release targets builds for Windows alone), whose `Of`
+knows no owner, so the configuration's trust check refuses nothing there;
+`internal/proc/pgroup/pgroup_other.go` (`//go:build !unix`), whose `Isolate`
+isolates nothing, so a canceled streamed command's children can outlive it;
+`internal/cli/environment_windows_test.go`, the test that `--log` reads a path
+Windows roots elsewhere (`\logs`, `D:logs`) where Windows does, which as a
+test file no job even compiles; and the `runtime.GOOS == "windows"` branch of
+`SharedMode` in `internal/config/save.go`, which reports no file shared. A
+regression in any of them builds, passes every job and ships, unseen until a
+Windows user meets it. The functions that take the platform as an argument
+(`store.Dir`, `keychain.Storer`, `taskwarrior.Candidates`, the editor's
+default, `wiring.BrowserCommand`, `hooks.NewFailureScan` and
+`hooks.ExistingHooks`) are not part of the cost: their tests pass `windows`
+on Linux.
+
+**Reopen when.** A Windows-specific bug is reported, Windows-only code grows
+past the files and the branch named here, or the project adds a feature only
+Windows has, such as the job object `pgroup.Isolate` would need (FEAT-73 in
+`FEATURES.md`).

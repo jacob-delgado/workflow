@@ -15,6 +15,9 @@ import (
 
 // TryLock takes an exclusive lock on file's first byte without waiting, and
 // reports whether it holds it: false while another open file holds one.
+//
+// Trade-off TRADE-35: no CI job runs this; the Cross-compile job only builds
+// it.
 func TryLock(file *os.File) (bool, error) {
 	var whole windows.Overlapped
 
