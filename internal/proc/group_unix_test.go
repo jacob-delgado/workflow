@@ -48,37 +48,50 @@ func TestStartKillsTheGrandchildWhenTheRunIsCanceled(t *testing.T) {
 func TestARunEndsThoughAProcessItLeftBehindHoldsItsOutput(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// The helper exits at once, leaving a sleeper that holds the pipe open for
-	// a minute, as a hook that backgrounds a server does.
-	output, err := proc.Start(t.Context(), child(t.TempDir(), "background"))
-	if err != nil {
-		t.Fatalf("Start returned %v, want nil", err)
+	// Each helper exits at once, leaving a process behind that holds the pipe
+	// open for a minute and prints its pid, as a server a hook backgrounds
+	// does: at once, or only once the helper is gone, when the wait on the
+	// pipe pauses while that line is handed on and counts on once it has been.
+	cases := map[string]string{
+		"a process that writes before the program exits": "background",
+		"a process that writes after the program exits":  "outlived",
 	}
 
-	type ending struct {
-		lines []string
-		err   error
-	}
+	for name, mode := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	ended := make(chan ending, 1)
+			// Arrange
+			output, err := proc.Start(t.Context(), child(t.TempDir(), mode))
+			if err != nil {
+				t.Fatalf("Start returned %v, want nil", err)
+			}
 
-	// Act
-	go func() {
-		lines, err := collect(t, output)
-		ended <- ending{lines: lines, err: err}
-	}()
+			type ending struct {
+				lines []string
+				err   error
+			}
 
-	// Assert
-	select {
-	case end := <-ended:
-		t.Cleanup(func() { killAll(end.lines) })
+			ended := make(chan ending, 1)
 
-		if end.err != nil || len(end.lines) != 1 {
-			t.Errorf("the run ended with %q and %v, want the pid it printed and no failure", end.lines, end.err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("Lines stayed open and Wait blocked while the process left behind held the output")
+			// Act
+			go func() {
+				lines, err := collect(t, output)
+				ended <- ending{lines: lines, err: err}
+			}()
+
+			// Assert
+			select {
+			case end := <-ended:
+				t.Cleanup(func() { killAll(end.lines) })
+
+				if end.err != nil || len(end.lines) != 1 {
+					t.Errorf("the run ended with %q and %v, want the pid it printed and no failure", end.lines, end.err)
+				}
+			case <-time.After(10 * time.Second):
+				t.Fatal("Lines stayed open and Wait blocked while the process left behind held the output")
+			}
+		})
 	}
 }
 
