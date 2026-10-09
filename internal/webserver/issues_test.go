@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -208,21 +209,34 @@ func TestGetIssueIsUnprocessableWithoutATracker(t *testing.T) {
 func TestGetIssueIsNotFoundForAMissingIssue(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	deps := filledDeps()
-	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrNotFound }
-
-	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-404")
-
-	// Assert
-	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
-		t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
+	// Each case is how the tracker says there is no such issue: Jira's own
+	// answer, or forge issues read where no repository names a forge.
+	cases := map[string]error{
+		"not in Jira":         jira.ErrNotFound,
+		"no forge repository": forge.ErrNoRepository,
 	}
 
-	if !strings.Contains(failure.Detail, "PROJ-404") {
-		t.Errorf("detail = %q, want the specific issue key so it is the dedicated 404 path", failure.Detail)
+	for name, cause := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := filledDeps()
+			deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, cause }
+
+			// Act
+			recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-404")
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
+				t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
+			}
+
+			if !strings.Contains(failure.Detail, "PROJ-404") {
+				t.Errorf("detail = %q, want the specific issue key so it is the dedicated 404 path", failure.Detail)
+			}
+		})
 	}
 }
 

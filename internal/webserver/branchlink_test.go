@@ -65,6 +65,20 @@ func linkingDeps(record *linking, detached bool) webserver.Deps {
 	return deps
 }
 
+// linkWrite is a request to link the branch to an issue, or to forget its link.
+type linkWrite struct {
+	method, body string
+}
+
+// linkAndUnlink are a link to PROJ-7 that leaves the pull request, and an
+// unlink, by name.
+func linkAndUnlink() map[string]linkWrite {
+	return map[string]linkWrite{
+		"linking":   {method: http.MethodPut, body: `{"key":"PROJ-7","update_pull":false}`},
+		"unlinking": {method: http.MethodDelete},
+	}
+}
+
 func TestLinkingTheBranchKeepsTheLinkAndUpdatesThePullRequest(t *testing.T) {
 	t.Parallel()
 
@@ -141,19 +155,89 @@ func TestLinkingRefusesAKeyThatNamesNoIssue(t *testing.T) {
 	}
 }
 
-func TestLinkingADetachedHeadIsAConflict(t *testing.T) {
+func TestLinkingOrUnlinkingADetachedHeadIsAConflict(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range linkAndUnlink() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			record := &linking{}
+			handler := serve(t, linkingDeps(record, true), config.Default())
+
+			// Act
+			answer := send(t, handler, tt.method, "/api/branch/issue", tt.body)
+
+			// Assert
+			if answer.Code != http.StatusConflict || len(record.linked)+len(record.unlinked) != 0 {
+				t.Errorf("status %d, linked %v, unlinked %v; want 409 with no branch to link",
+					answer.Code, record.linked, record.unlinked)
+			}
+		})
+	}
+}
+
+func TestLinkingOrUnlinkingABranchGitCouldNotReadIsInternal(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range linkAndUnlink() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			record := &linking{}
+			deps := linkingDeps(record, false)
+			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+
+			// Act
+			answer := send(t, serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
+
+			// Assert
+			failure := decode[api.Problem](t, answer)
+			if answer.Code != http.StatusInternalServerError || failure.Code != api.ProblemCodeInternal ||
+				len(record.linked)+len(record.unlinked) != 0 {
+				t.Errorf("status/code %d/%s, linked %v, unlinked %v; want 500/internal and nothing changed",
+					answer.Code, failure.Code, record.linked, record.unlinked)
+			}
+		})
+	}
+}
+
+func TestThePreviewOfADetachedHeadNamesNoPullRequest(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	handler := serve(t, linkingDeps(&linking{}, true), config.Default())
+
+	// Act
+	recorder := get(t, handler, "/api/branch/issue/preview?key=%2342")
+
+	// Assert
+	preview := decode[api.BranchIssuePreview](t, recorder)
+	if recorder.Code != http.StatusOK || preview.Pull != 0 || preview.Body != "" || preview.Key != "42" {
+		t.Errorf("status %d, preview %+v; want 200 naming 42 and no pull request", recorder.Code, preview)
+	}
+}
+
+func TestLinkingWhenThePullRequestCannotBeFoundLeavesTheBranchUnlinked(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	record := &linking{}
-	handler := serve(t, linkingDeps(record, true), config.Default())
+	deps := linkingDeps(record, false)
+	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
+	}
 
 	// Act
-	answer := send(t, handler, http.MethodPut, "/api/branch/issue", `{"key":"PROJ-7","update_pull":false}`)
+	answer := send(t, serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",
+		`{"key":"PROJ-7","update_pull":true}`)
 
 	// Assert
-	if answer.Code != http.StatusConflict || len(record.linked) != 0 {
-		t.Errorf("status %d, linked %v; want 409 with no branch to link", answer.Code, record.linked)
+	if answer.Code != http.StatusBadGateway || len(record.linked)+len(record.edited) != 0 {
+		t.Errorf("status %d, linked %v, edited %v; want 502 and nothing changed",
+			answer.Code, record.linked, record.edited)
 	}
 }
 
@@ -211,14 +295,7 @@ func TestUnlinkingForgetsTheLink(t *testing.T) {
 func TestALinkGitCannotKeepIsUnprocessable(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]struct {
-		method, body string
-	}{
-		"linking":   {method: http.MethodPut, body: `{"key":"PROJ-7","update_pull":false}`},
-		"unlinking": {method: http.MethodDelete},
-	}
-
-	for name, tt := range cases {
+	for name, tt := range linkAndUnlink() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -280,14 +357,7 @@ func TestALinkNotKeptAfterThePullRequestIsEditedIsReported(t *testing.T) {
 func TestLinkingAndUnlinkingWithoutTheSeamAnswerAlike(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]struct {
-		method, body string
-	}{
-		"linking":   {method: http.MethodPut, body: `{"key":"PROJ-7","update_pull":false}`},
-		"unlinking": {method: http.MethodDelete},
-	}
-
-	for name, tt := range cases {
+	for name, tt := range linkAndUnlink() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
