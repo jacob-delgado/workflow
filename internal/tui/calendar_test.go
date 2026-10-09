@@ -180,3 +180,24 @@ func TestSpaceAgainUnmarksTheRange(t *testing.T) {
 	requireScreen(t, view, "8 Summary", "2026-09-14")
 	refuseScreen(t, view, "2026-09-14 to")
 }
+
+func TestTheCalendarRefusesARangeLongerThanAYear(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Marked on the 15th of September 2026, the range runs back a year in the
+	// year column, then a day more in the day column: 367 days.
+	busy := summaryWorld()
+	opened := typing(t, busy.live(t, 120, 40), calendarOpen()...)
+	marked := typing(t, opened, keySpace, keyTab, "k", keyShiftTab, keyLeft)
+
+	// Act
+	view := typing(t, marked, keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "Calendar", "longer than a year and a day")
+
+	if reads := busy.asked(summaryRead("git", time.Date(2025, 9, 14, 0, 0, 0, 0, time.UTC))); len(reads) != 0 {
+		t.Errorf("read %v, want nothing read for a range too long", reads)
+	}
+}
