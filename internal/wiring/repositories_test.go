@@ -280,3 +280,38 @@ func TestALockedWorktreeWhoseDirectoryIsGoneReadsAsGone(t *testing.T) {
 		t.Errorf("Worktrees = %+v, %v; want the locked one read as gone", worktrees, err)
 	}
 }
+
+func TestALockedWorktreeWhoseDirectoryIsThereReadsAsThere(t *testing.T) {
+	// Arrange
+	isolateGit(t)
+
+	root := repository(t)
+	linked := filepath.Join(t.TempDir(), "usb")
+	git(t, root, "worktree", "add", "--quiet", "-b", "usb", linked)
+	git(t, root, "worktree", "lock", linked)
+
+	repositories := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Repositories
+
+	// Act
+	worktrees, err := repositories.Worktrees()
+
+	// Assert
+	if err != nil || len(worktrees) != 2 || worktrees[1].Missing || !worktrees[1].Locked {
+		t.Errorf("Worktrees = %+v, %v; want the locked one read as there", worktrees, err)
+	}
+}
+
+func TestLocateReadsADirectoryThatIsNotThereAsItIsNamed(t *testing.T) {
+	// Arrange
+	isolateGit(t)
+
+	dir := filepath.Join(t.TempDir(), "removed")
+
+	// Act
+	where := processEnvironment().Locate(t.Context(), dir)
+
+	// Assert
+	if where.Root != dir || where.Dir != dir || where.Repository {
+		t.Errorf("Locate(%s) = %+v, want the directory as named, in no repository", dir, where)
+	}
+}

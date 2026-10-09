@@ -139,3 +139,21 @@ const jiraToken = "a-token-for-tests"
 
 // jiraAddress is a Jira base URL that no test ever reaches.
 const jiraAddress = "https://jira.example.com"
+
+func TestNoTemplatesAreReadFromARepositoryNoLongerThere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The session's repository was removed while it ran, so there is no
+	// directory left to read a template from.
+	root := filepath.Join(t.TempDir(), "removed")
+	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: githubRemote}, nil).Forge
+
+	// Act
+	found := seams.Templates()
+
+	// Assert
+	if len(found) != 0 {
+		t.Errorf("Templates = %+v, want none from a repository that is not there", found)
+	}
+}
