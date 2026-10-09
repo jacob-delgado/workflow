@@ -311,6 +311,7 @@ func TestADirectoryWithNoCredentialLeavesTaggingOut(t *testing.T) {
 	cases := map[string]func(*slackWorld){
 		"the members":     func(s *slackWorld) { s.membersErr = messaging.ErrNoCredential },
 		"the user groups": func(s *slackWorld) { s.groupsErr = messaging.ErrNoCredential },
+		"the workspace":   func(s *slackWorld) { s.workspaceErr = messaging.ErrNoCredential },
 	}
 
 	for name, arrange := range cases {
