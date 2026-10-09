@@ -193,6 +193,9 @@ func (p mergePicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the merge picker.
+func (mergePicker) which() overlayKind { return overlayMergePicker }
+
 // step moves the choice of method by delta, held within the methods, so it
 // stays on the first while they are read; nothing moves while a merge is sent.
 func (p mergePicker) step(m Model, delta int) Model {

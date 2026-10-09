@@ -115,6 +115,9 @@ func (p finishPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) 
 	return m, nil
 }
 
+// which names the finish preview.
+func (finishPreview) which() overlayKind { return overlayFinishPreview }
+
 // confirm runs the finish, or, in a dry run, says what it would do.
 func (p finishPreview) confirm(m Model) (Model, tea.Cmd) {
 	if m.dryRun {

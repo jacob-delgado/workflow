@@ -174,6 +174,9 @@ func (c branchCreator) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) 
 	return m, nil
 }
 
+// which names the branch creator.
+func (branchCreator) which() overlayKind { return overlayBranchCreator }
+
 // pasted types a paste into the branch name, which is checked as typing is.
 func (c branchCreator) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 	if c.send.sending {

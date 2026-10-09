@@ -131,6 +131,9 @@ func (c checkList) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the checks list.
+func (checkList) which() overlayKind { return overlayChecks }
+
 // step moves the choice of check by delta.
 func (c checkList) step(m Model, delta int) Model {
 	c.checks = c.checks.moved(delta)
@@ -423,6 +426,9 @@ func (v jobLogView) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	return m, nil
 }
+
+// which names a job's log.
+func (jobLogView) which() overlayKind { return overlayJobLog }
 
 // step moves delta lines down the log, as up and down do, stopping at either
 // end. The log is scrolled up from its end, so a step down the log is one

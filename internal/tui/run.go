@@ -343,6 +343,9 @@ func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names a running command.
+func (commandRun) which() overlayKind { return overlayCommandRun }
+
 // step moves the choice of place by delta. A run still going has no places yet:
 // they are found once it fails.
 func (r commandRun) step(m Model, delta int) Model {

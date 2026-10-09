@@ -257,6 +257,9 @@ func (c commentComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd
 	return c.handleNormalKey(m, msg)
 }
 
+// which names the comment composer.
+func (commentComposer) which() overlayKind { return overlayCommentComposer }
+
 // typed answers a key in insert mode: esc leaves it, its cursor stepping back
 // onto the last character typed as vim's does, and every other key types.
 // It reads esc itself, so a printable key ui.keys moved onto close still types.

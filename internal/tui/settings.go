@@ -322,6 +322,9 @@ func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names Settings.
+func (settingsForm) which() overlayKind { return overlaySettings }
+
 // changeKey moves through the settings or changes the selected one.
 func (f settingsForm) changeKey(keys keyMap, msg tea.KeyPressMsg) settingsForm {
 	if key.Matches(msg, keys.cursorKeys()...) {

@@ -276,6 +276,9 @@ func (p peopleOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) 
 	return m, nil
 }
 
+// which names People and groups.
+func (peopleOverlay) which() overlayKind { return overlayPeople }
+
 // step moves the shown tab's cursor by delta.
 func (p peopleOverlay) step(m Model, delta int) Model {
 	if p.tab == tabGroups {

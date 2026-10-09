@@ -240,6 +240,9 @@ func (c calendar) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the calendar.
+func (calendar) which() overlayKind { return overlayCalendar }
+
 // stepped is the cursor after a movement key: up and down a step in its
 // column, and, in the day column, left and right a day.
 func (c calendar) stepped(keys keyMap, msg tea.KeyPressMsg) activity.Date {

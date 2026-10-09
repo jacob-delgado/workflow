@@ -93,6 +93,9 @@ func (quitGuard) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
+// which names the quit guard.
+func (quitGuard) which() overlayKind { return overlayQuitGuard }
+
 // loadAuthor is the command that asks the forge whose credential it holds:
 // you, as the announcement and a forge issue's assignee name you.
 func (s messagingState) loadAuthor(deps Deps) tea.Cmd {

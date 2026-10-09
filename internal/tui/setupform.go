@@ -303,6 +303,9 @@ func (f setupForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the setup form.
+func (setupForm) which() overlayKind { return overlaySetupForm }
+
 // back goes to the question before, or cancels the form at the first.
 func (f setupForm) back(m Model) (Model, tea.Cmd) {
 	if f.step == stepPlace {

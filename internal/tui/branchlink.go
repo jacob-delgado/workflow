@@ -153,6 +153,9 @@ func (l branchLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
+// which names the link form.
+func (branchLinker) which() overlayKind { return overlayBranchLinker }
+
 // unlinkOn answers a key on a branch already linked, where unlink is the one
 // act offered.
 func (l branchLinker) unlinkOn(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {

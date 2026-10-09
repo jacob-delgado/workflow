@@ -100,6 +100,9 @@ func (p amendPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the amend preview.
+func (amendPreview) which() overlayKind { return overlayAmendPreview }
+
 // fixupTitle titles the pane while the fixup picker is open.
 const fixupTitle = "Fix up a commit"
 
@@ -163,6 +166,9 @@ func (p fixupPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	return m.applyFixup(chosen.Hash, chosen.Subject)
 }
+
+// which names the fixup picker.
+func (fixupPicker) which() overlayKind { return overlayFixupPicker }
 
 // step moves the choice of commit by delta.
 func (p fixupPicker) step(m Model, delta int) Model {

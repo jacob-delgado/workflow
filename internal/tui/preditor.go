@@ -98,6 +98,9 @@ func (p prEditor) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the pull request editor.
+func (prEditor) which() overlayKind { return overlayPREditor }
+
 // pasted types a paste into the title, as typing it would.
 func (p prEditor) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 	if p.send.sending {

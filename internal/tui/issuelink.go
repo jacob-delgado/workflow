@@ -90,6 +90,9 @@ func (l issueLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
+// which names the Jira link offer.
+func (issueLinker) which() overlayKind { return overlayIssueLinker }
+
 // link adds the pull request's web link to the issue.
 func (l issueLinker) link(m Model) (Model, tea.Cmd) {
 	l.send = starting()
