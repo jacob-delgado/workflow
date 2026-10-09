@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/user"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -67,7 +66,7 @@ func (k Keychain) JiraTokenKeeper(ctx context.Context) func(service, secret stri
 	}
 
 	return func(service, secret string) error {
-		item, _ := keychain.Open(k.GOOS, service, k.Run, user.Current, k.Getenv)
+		item, _ := k.item(service)
 
 		bounded, cancel := context.WithTimeout(ctx, proc.DefaultRunTimeout)
 		defer cancel()
@@ -82,7 +81,7 @@ func (k Keychain) jiraToken(ctx context.Context, settings config.Jira) (config.S
 	service := settings.KeychainService()
 	source := "the keychain item " + service
 
-	item, wired := keychain.Open(k.GOOS, service, k.Run, user.Current, k.Getenv)
+	item, wired := k.item(service)
 	if !wired {
 		return "", source, fmt.Errorf("%w: jira.keychain reads none here", keychain.ErrNotWired)
 	}

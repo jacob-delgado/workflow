@@ -15,12 +15,14 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"reflect"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/keychain"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
@@ -126,9 +128,29 @@ const (
 // keptPair is the user token's secrets the keychain already keeps.
 const keptPair = `{"client_secret":"client-secret-kept","refresh_token":"` + keptRefresh + `"}`
 
+// keychainAccount is the login name every test's keychain keeps a secret
+// under, whatever account the machine running the tests has, or none: the
+// build container runs them as a uid with no passwd entry and no $USER.
+const keychainAccount = "tester"
+
+// testUser is the user running the tests, as the keychain looks them up.
+func testUser() (*user.User, error) {
+	return &user.User{Username: keychainAccount}, nil
+}
+
+// noVariables is an environment that sets no variable.
+func noVariables(string) string {
+	return ""
+}
+
+// onMacOSRunning is the keychain macOS has, run through run, for testUser.
+func onMacOSRunning(run keychain.Runner) wiring.Keychain {
+	return wiring.Keychain{GOOS: macOS, Run: run, CurrentUser: testUser, Getenv: noVariables}
+}
+
 // onMacOS is the keychain macOS has, run through security.
 func onMacOS(security *fakeSecurity) wiring.Keychain {
-	return wiring.Keychain{GOOS: macOS, Run: security.run, Getenv: os.Getenv}
+	return onMacOSRunning(security.run)
 }
 
 func TestPlacingTypedSlackSecretsKeepsTheRenewedPairInTheKeychain(t *testing.T) {
@@ -241,7 +263,7 @@ func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
 	refusing := func(context.Context, proc.Command, []byte) ([]byte, error) { return nil, errKeychainLocked }
 	process := processEnvironment()
 
-	system := wiring.Keychain{GOOS: macOS, Run: refusing, Getenv: os.Getenv}
+	system := onMacOSRunning(refusing)
 	place := process.PlaceSlackCredentials(t.Context(), slack.do, system)
 
 	// Act

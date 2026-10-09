@@ -75,7 +75,7 @@ func (k *keychainHolding) services() []string {
 func macOSHolding(tokens map[string]string) (*keychainHolding, wiring.Keychain) {
 	held := &keychainHolding{tokens: tokens}
 
-	return held, wiring.Keychain{GOOS: macOS, Run: held.run, Getenv: os.Getenv}
+	return held, onMacOSRunning(held.run)
 }
 
 // writeConfig writes contents to a configuration file in a directory of its
@@ -210,7 +210,7 @@ func TestAnUnreadableKeychainItemIsToldWithoutWhatSecurityPrinted(t *testing.T) 
 	printed := func(context.Context, proc.Command, []byte) ([]byte, error) {
 		return nil, &proc.ExitError{Program: "security", Code: unreadableItem, Stderr: "SECRET-VALUE nearby"}
 	}
-	system := wiring.Keychain{GOOS: macOS, Run: printed, Getenv: os.Getenv}
+	system := onMacOSRunning(printed)
 
 	// Act
 	_, _, err := processEnvironment().ResolveToken(t.Context(), config.Jira{BaseURL: homeJira, Keychain: true}, system)
@@ -235,6 +235,23 @@ func TestATokenKeptOnMacOSGoesToTheItemNamed(t *testing.T) {
 	if err != nil || security.held() != secondToken || !strings.Contains(security.line(), `-s "`+secondItem+`"`) {
 		t.Errorf("keep = %v, the keychain holds the token %t in %q; want it under the item named",
 			err, security.held() == secondToken, security.line())
+	}
+}
+
+func TestATokenIsKeptUnderTheAccountTheKeychainLooksUp(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	security := &fakeSecurity{}
+	keep := onMacOS(security).JiraTokenKeeper(t.Context())
+
+	// Act
+	err := keep(secondItem, secondToken)
+
+	// Assert
+	if err != nil || !strings.Contains(security.line(), `-a "`+keychainAccount+`"`) {
+		t.Errorf("keep = %v, security handed %q; want the token kept under the account %q",
+			err, security.line(), keychainAccount)
 	}
 }
 
