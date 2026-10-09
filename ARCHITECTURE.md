@@ -80,17 +80,17 @@ plain Go form the codebase prefers: a one-method dependency is a function
 variable, not an interface.
 
 `env.Deps(ctx, cfg, where, log)` returns a `tui.Deps` bundle and a
-`resolveAhead` hook, over `env`, a `wiring.Environment`: the home directory,
-the environment's variables, the store's directory and where a program is
-found. The wiring reads none of them from the process itself; the command line
-hands them over from the `cli.Environment` that `cmd/workflow` builds from the
-operating system, beside the working directory, so each test hands a run one of
-its own and the CLI's tests run in parallel. It composes one grouped seam per external system (`Jira`,
-`Git`, `Forge`, `Messaging`, `Hooks`, `Editor`, `Store`) plus a few environment
-seams (`Clock`, `CIInterval`, `After`, `Notify`, `OpenURL`, `Copy`). Each
-grouped seam is a struct of closures that capture the context and a
-once-connected client. Jira, the messaging service and the forge each find their
-token the first time a seam asks, and a failure is retried on the next ask
+`resolveAhead` hook, over `env`, a `wiring.Environment`: the home directory, the
+environment's variables, the store's directory and where a program is found. The
+wiring reads none of them from the process itself; the command line hands them
+over from the `cli.Environment` that `cmd/workflow` builds from the operating
+system, beside the working directory, so each test hands a run one of its own
+and the CLI's tests run in parallel. It composes one grouped seam per external
+system (`Jira`, `Git`, `Forge`, `Messaging`, `Hooks`, `Editor`, `Store`) plus a
+few environment seams (`Clock`, `CIInterval`, `After`, `Notify`, `OpenURL`,
+`Copy`). Each grouped seam is a struct of closures that capture the context and
+a once-connected client. Jira, the messaging service and the forge each find
+their token the first time a seam asks, and a failure is retried on the next ask
 rather than remembered. So a command that never reaches a service never looks up
 its token, and the TUI model itself never holds a credential — which is exactly
 what lets its tests hand it canned answers with no network.
