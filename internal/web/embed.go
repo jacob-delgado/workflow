@@ -15,9 +15,6 @@ var dist embed.FS
 // fails only for an invalid path, and "dist" is a constant the embed itself
 // fails the build without, so a failure here is a build defect, which panics,
 // as regexp.MustCompile does for a pattern that cannot compile.
-//
-// Trade-off TRADE-14: the embedded app is taken to load, as the embedded
-// contract is, so no test runs the panic.
 func Assets() fs.FS {
 	sub, err := fs.Sub(dist, "dist")
 	if err != nil {
