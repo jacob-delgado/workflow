@@ -28,8 +28,9 @@ var (
 	// such a key it would quit mid-sentence and lose what was written.
 	ErrInterruptEdits = errors.New("ui.keys moves interrupt onto a key that types or edits text")
 	// ErrTextFieldKey reports an overlay's key moved onto one its focused text
-	// field edits with — a character, or a readline key such as ctrl+w. The
-	// overlay answers the key first, so the field would lose that edit.
+	// field edits or moves its cursor with — a character, an arrow, or a
+	// readline key such as ctrl+w. The overlay answers the key first, so the
+	// field would lose that edit.
 	ErrTextFieldKey = errors.New("ui.keys moves an overlay's key onto one its text field edits with")
 )
 
