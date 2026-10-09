@@ -91,11 +91,9 @@ const addressPlaceholder = "<address>"
 // Trade-off TRADE-9: a bare host name git prints, with no scheme or user@, is
 // kept as git printed it.
 func withoutAddresses(lines []string) []string {
-	address := remoteAddress()
-
 	kept := make([]string, 0, len(lines))
 	for _, line := range lines {
-		kept = append(kept, address.ReplaceAllLiteralString(line, addressPlaceholder))
+		kept = append(kept, remoteAddress.ReplaceAllLiteralString(line, addressPlaceholder))
 	}
 
 	return kept
@@ -104,9 +102,7 @@ func withoutAddresses(lines []string) []string {
 // remoteAddress matches an address as git prints a remote's: a URL, or an ssh
 // remote's scp-style user@host:path. A ref name cannot hold a colon, so a ref
 // with an at sign in it is never taken for one.
-func remoteAddress() *regexp.Regexp {
-	return regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://[^\s'"]+|[^\s'"@]+@[^\s'"@:/]+:[^\s'"]+`)
-}
+var remoteAddress = regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://[^\s'"]+|[^\s'"@]+@[^\s'"@:/]+:[^\s'"]+`)
 
 // pushUnprocessable is the 422 response for a push the server will not make.
 func pushUnprocessable(message string) api.Push422ApplicationProblemPlusJSONResponse {
