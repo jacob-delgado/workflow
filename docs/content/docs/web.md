@@ -446,7 +446,9 @@ task's hooks, Taskwarrior has no redo, and a sync sends your tasks off the
 machine — while **Start** and **Stop** act at once. Each write says what it did, and the list redraws from Taskwarrior's answer at
 once; a write that was made when the list after it could not be read still
 says what it did, and the section reads the list again, so a write that
-landed is never reported failed and made twice by a retry. A write Taskwarrior refuses says why below its button, in Taskwarrior's
+landed is never reported failed and made twice by a retry. A task marked
+done while the list could not be read again offers neither **Start** nor
+**Mark done…** until that read answers. A write Taskwarrior refuses says why below its button, in Taskwarrior's
 own words, with your home and data directories put in fixed words and any
 line naming a server left out; a failed sync answers in fixed words only, and
 `task sync` in a terminal shows why. A write that changed nothing — **Start**
@@ -457,7 +459,10 @@ Once Taskwarrior has answered, the rest of the page shows your tasks too: the
 header carries the task you have started and how long it has run, and opens
 this section; each Issues row marks how its issue's tasks stand; and an
 issue's detail has a **Tasks** card listing each of its tasks, with **Start**
-or **Stop** and **Mark done…** on each still to do. While none is, the card offers
+or **Stop** and **Mark done…** on each still to do. A task marked done there
+shows done at once; when the task could not be read again after the done,
+it stands as last read, with neither button, and the card says it shows
+done once workflow next reads it. While none is still to do, the card offers
 **Track in Taskwarrior**, which adds the task the terminal's `T` would,
 annotated with the issue's page, and says which task now tracks it. Until
 Taskwarrior has answered, and where it could not, none of them is drawn,
