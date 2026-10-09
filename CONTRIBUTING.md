@@ -113,7 +113,9 @@ unset them before running the Go tests as well. A new package or script test
 that runs git needs the same.
 
 Two Go coverage floors gate a change, both configured in `Taskfile.yml` and
-both printing the available ratchet when you clear them:
+both printing the available ratchet when you clear them; condition coverage
+also holds each package `scripts/gobco-floors.txt` names to a floor of its
+own:
 
 - **Statements** (`task test:cover`) — did this line run.
 - **Conditions** (`task cover:branch`, via [gobco](https://github.com/rillig/gobco))
