@@ -305,3 +305,21 @@ func TestFavoritesThatCannotBeReadOrChangedSayWhy(t *testing.T) {
 		t.Errorf("marked %q, want the one refused", marked)
 	}
 }
+
+func TestADirectoryNotWrittenFromItsRepositoryIsShownAsTheRoot(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A relative directory has no path from an absolute root, so where it
+	// sits within the repository cannot be told.
+	working := reposWorld()
+	working.dirs.here = seams.Place{Dir: "cmd", Root: apiRoot}
+
+	// Act
+	view := typing(t, working.live(t, 120, 40), reposKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "the repository's root")
+	requireScreen(t, spineLine(view), "api ")
+	refuseScreen(t, spineLine(view), "api/")
+}
