@@ -358,31 +358,41 @@ func (f settingsForm) chosen(keys keyMap, msg tea.KeyPressMsg, field setting) se
 	}
 }
 
-// startEditing opens a setting's field on enter: a credential's empty and
-// echoing nothing, so what is typed for it never reaches the screen.
+// startEditing opens a setting's field on enter.
 func (f settingsForm) startEditing(keys keyMap, msg tea.KeyPressMsg, field setting) settingsForm {
 	if !key.Matches(msg, keys.confirm) {
 		return f
 	}
 
-	f.editing, f.input, f.adding = true, newInput(f.editedText(field)), ""
+	f.editing, f.input, f.adding = true, f.typingInput(field), ""
 
-	switch field.kind {
-	case settingSecret:
-		f.input.EchoMode = textinput.EchoNone
-	case settingEntry:
+	return f
+}
+
+// typingInput is the field a setting is typed into: a credential's empty and
+// echoing nothing, so what is typed for it never reaches the screen. Only a
+// setting typed into asks: changeKey toggles a toggle and moves a choice.
+func (f settingsForm) typingInput(field setting) textinput.Model {
+	if field.kind == settingEntry {
 		value := f.entryValue(field)
 		if field.list.secret {
 			value = ""
 		}
 
-		f.input = field.list.input(value)
-	case settingAdd:
-		f.input.Placeholder = field.list.nameWord
-	case settingText, settingURL, settingCount, settingList, settingChoice, settingToggle:
+		return field.list.input(value)
 	}
 
-	return f
+	input := newInput(f.editedText(field))
+
+	if field.kind == settingSecret {
+		input.EchoMode = textinput.EchoNone
+	}
+
+	if field.kind == settingAdd {
+		input.Placeholder = field.list.nameWord
+	}
+
+	return input
 }
 
 // text is a setting's value as text.
