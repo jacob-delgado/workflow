@@ -159,6 +159,22 @@ func (r *reader[T]) read() error {
 func ready(open bool, err error) bool {
 	return open && err == nil
 }
+
+func (w *watcher) wait(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	if context.Background().Err() != nil {
+		return nil
+	}
+
+	if _, errParse := strconv.Atoi(w.text); errParse != nil {
+		return errParse
+	}
+
+	return w.handle(w.errorHandler != nil)
+}
 GO
 
 # condition writes the statistics of one condition at a line and column of
@@ -192,6 +208,22 @@ expect fail "an error arm no test reached" "${error_arm_unseen}" "" \
 expect fail "an error arm spelled == nil that no test reached" "${error_arm_unseen}" "" \
   "${fixture}:13:17 in ready: \"err == nil\" was never seen false, the error's arm" \
   --package "${buildinfo}" 50
+
+# An error check is any name ending in err or Err, with a capitalized or
+# numbered rest or none, or a call of a method so named, through fields and
+# calls; a name that only begins with err is no error.
+expect fail "an error arm of an Err method that no test reached" "[$(condition 17:5 'ctx.Err() != nil' 0 2)]" "" \
+  "${fixture}:17:5 in watcher.wait: \"ctx.Err() != nil\" was never seen true, the error's arm" \
+  --package "${buildinfo}" 50
+expect fail "an error arm reached through a call that no test reached" \
+  "[$(condition 21:5 'context.Background().Err() != nil' 0 2)]" "" \
+  "${fixture}:21:5 in watcher.wait: \"context.Background().Err() != nil\" was never seen true" \
+  --package "${buildinfo}" 50
+expect fail "an error arm of a name with a rest that no test reached" "[$(condition 25:42 'errParse != nil' 0 2)]" "" \
+  "${fixture}:25:42 in watcher.wait: \"errParse != nil\" was never seen true, the error's arm" \
+  --package "${buildinfo}" 50
+expect pass "a name that only begins with err" "[$(condition 29:18 'w.errorHandler != nil' 2 0)]" "" \
+  "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
 
 # So does a condition no test evaluated at all.
 expect fail "a condition never evaluated" "${never_evaluated}" "" \

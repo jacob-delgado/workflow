@@ -354,10 +354,12 @@ conditions="$(
 )"
 
 # An arm no test reached fails: a condition never evaluated, and an error
-# check — a name ending in err or Err compared with nil — whose error arm was
-# never seen. Each is named by its file, line and function. A line of the
-# allowlist keeps one such arm for the trade-off it names, on the systems it
-# names ("any", or GOOS values joined by commas):
+# check whose error arm was never seen. An error check compares with nil a
+# name ending in err or Err, perhaps with a capitalized or numbered rest
+# (err2, errParse, closeErr), or a call of a method so named (ctx.Err()),
+# either reached through fields and calls. Each is named by its file, line
+# and function. A line of the allowlist keeps one such arm for the trade-off
+# it names, on the systems it names ("any", or GOOS values joined by commas):
 #
 #   <file> <function> <TRADE-n> <systems> <condition>
 #
@@ -398,6 +400,7 @@ awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="
     return 0
   }
   BEGIN {
+    error_check = "^([A-Za-z_][A-Za-z0-9_]*([(][)])?[.])*[A-Za-z0-9_]*[Ee]rr([A-Z0-9][A-Za-z0-9_]*)?([(][)])?"
     while ((getline line < allowlist) > 0) {
       number++
       if (line ~ /^[ \t]*(#|$)/) continue
@@ -424,8 +427,8 @@ awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="
     sub(/:[0-9]+:[0-9]+$/, "", path)
     measured[path] = 1
     if ($3 == 0 && $4 == 0) why = "was never evaluated"
-    else if ($2 ~ /^([A-Za-z_][A-Za-z0-9_]*[.])*[A-Za-z0-9_]*[Ee]rr != nil$/ && $3 == 0) why = "was never seen true, the error'"'"'s arm"
-    else if ($2 ~ /^([A-Za-z_][A-Za-z0-9_]*[.])*[A-Za-z0-9_]*[Ee]rr == nil$/ && $4 == 0) why = "was never seen false, the error'"'"'s arm"
+    else if ($2 ~ (error_check " != nil$") && $3 == 0) why = "was never seen true, the error'"'"'s arm"
+    else if ($2 ~ (error_check " == nil$") && $4 == 0) why = "was never seen false, the error'"'"'s arm"
     else next
     split($1, position, ":")
     function_at = enclosing(path, position[2] + 0)
