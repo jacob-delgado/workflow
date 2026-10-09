@@ -172,7 +172,7 @@ func TestTryingAgainReadsTheLocalDataAgain(t *testing.T) {
 	// Arrange
 	repo := newWorld()
 	repo.localDataErr = errStoreUnreadable
-	refused := typing(t, repo.live(t, 120, 40), reposKey, localDataKey, "c")
+	refused := typing(t, repo.live(t, 120, 40), reposKey, localDataKey)
 	repo.mu.Lock()
 	repo.localDataErr = nil
 	repo.mu.Unlock()
@@ -181,7 +181,8 @@ func TestTryingAgainReadsTheLocalDataAgain(t *testing.T) {
 	view := typing(t, refused, "r").View().Content
 
 	// Assert
-	requireScreen(t, view, "workflow.db")
+	requireScreen(t, view, "Kept in", "workflow.db")
+	refuseScreen(t, view, errStoreUnreadable.Error(), "Remove local data")
 }
 
 func TestEscClosesLocalData(t *testing.T) {
