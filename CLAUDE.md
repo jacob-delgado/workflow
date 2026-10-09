@@ -63,6 +63,7 @@ internal/editor/      handing text and files to $EDITOR
 internal/proc/        running programs; the one place exec lives
 internal/proc/pgroup/ canceling a streamed child's whole process group (Unix)
 internal/rlimit/      lowering a resource limit around one test call (tests only)
+internal/ptytest/     a pseudo-terminal for a test to type at (tests only)
 internal/gittest/     keeping tests off the repository a hook's git environment names (tests only)
 internal/sanitize/    neutralizing terminal controls in server text
 internal/buildinfo/   which build is running, from what the Go toolchain stamps

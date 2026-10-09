@@ -1,64 +1,26 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-//go:build linux
-
 package cli_test
 
 // SecretReader reads from a terminal, which only a pseudo-terminal can stand
-// in for; Linux makes one through /dev/ptmx, so these tests are Linux's.
+// in for.
 
 import (
 	"os"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/ptytest"
 )
-
-// openTerminal is a pseudo-terminal: the side that types into it, and the
-// terminal a program reads from. Both close when the test ends.
-func openTerminal(t *testing.T) (*os.File, *os.File) {
-	t.Helper()
-
-	typing, err := os.OpenFile("/dev/ptmx", os.O_RDWR|syscall.O_NOCTTY, 0)
-	if err != nil {
-		t.Skipf("no pseudo-terminal to read from here: %v", err)
-	}
-
-	t.Cleanup(func() { _ = typing.Close() })
-
-	descriptor := int(typing.Fd())
-
-	err = unix.IoctlSetPointerInt(descriptor, unix.TIOCSPTLCK, 0)
-	if err != nil {
-		t.Fatalf("unlocking the pseudo-terminal: %v", err)
-	}
-
-	number, err := unix.IoctlGetInt(descriptor, unix.TIOCGPTN)
-	if err != nil {
-		t.Fatalf("naming the pseudo-terminal: %v", err)
-	}
-
-	terminal, err := os.OpenFile("/dev/pts/"+strconv.Itoa(number), os.O_RDWR|syscall.O_NOCTTY, 0)
-	if err != nil {
-		t.Fatalf("opening the pseudo-terminal: %v", err)
-	}
-
-	t.Cleanup(func() { _ = terminal.Close() })
-
-	return typing, terminal
-}
 
 func TestSecretReaderReadsTheLineTypedAtATerminal(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	typing, terminal := openTerminal(t)
+	typing, terminal := ptytest.Open(t)
 
 	_, err := typing.WriteString("s3cret-answer\n")
 	if err != nil {
@@ -85,7 +47,7 @@ func TestSecretReaderSaysWhyATerminalCouldNotBeRead(t *testing.T) {
 
 	// Arrange
 	// The terminal is opened for writing alone, so reading from it fails.
-	_, terminal := openTerminal(t)
+	_, terminal := ptytest.Open(t)
 
 	writeOnly, err := os.OpenFile(terminal.Name(), os.O_WRONLY|syscall.O_NOCTTY, 0)
 	if err != nil {
