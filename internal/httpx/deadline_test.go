@@ -5,6 +5,7 @@ package httpx_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -150,5 +151,59 @@ func TestACallersOwnCancelIsNotATimeout(t *testing.T) {
 	// Assert
 	if !errors.Is(err, context.Canceled) || errors.Is(err, httpx.ErrTimedOut) {
 		t.Errorf("read = %v, want the caller's cancel, not a timeout", err)
+	}
+}
+
+// errWouldNotClose is an answer's body that could not be closed.
+var errWouldNotClose = errors.New("the connection would not close")
+
+// unclosable is a body whose Close fails.
+type unclosable struct {
+	io.Reader
+}
+
+func (unclosable) Close() error { return errWouldNotClose }
+
+// unclosableAnswers is a transport whose every answer's body fails to close,
+// as a connection that cannot be shut down would.
+type unclosableAnswers struct{}
+
+var _ http.RoundTripper = unclosableAnswers{}
+
+func (unclosableAnswers) RoundTrip(*http.Request) (*http.Response, error) {
+	return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: unclosable{strings.NewReader("ok")}}, nil
+}
+
+func TestAnAnswerThatCannotBeClosedSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The client sends through Go's default transport, which hands a scheme
+	// registered on it to the transport registered for it: a scheme of this
+	// run's own, since one registers only once in a process.
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		t.Fatalf("http.DefaultTransport is a %T, not the *http.Transport a scheme registers on", http.DefaultTransport)
+	}
+
+	scheme := "unclosable" + strings.ToLower(rand.Text())
+	transport.RegisterProtocol(scheme, unclosableAnswers{})
+
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, scheme+"://answer/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := httpx.Client(clientTimeout).Do(request)
+	if err != nil {
+		t.Fatalf("asking: %v", err)
+	}
+
+	// Act
+	err = response.Body.Close()
+
+	// Assert
+	if !errors.Is(err, errWouldNotClose) || !strings.Contains(err.Error(), "closing the answer") {
+		t.Errorf("Close = %v, want why the answer could not be closed", err)
 	}
 }
