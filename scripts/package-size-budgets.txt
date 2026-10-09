@@ -87,14 +87,16 @@ internal/config 17
 internal/forge 18
 
 # internal/tui — the Bubble Tea interface, spelled one file per pane, overlay
-# and composer. Every file hangs its behavior off the one shared Model, so the
-# package cannot be split without threading that Model, and the methods on it,
-# across a package boundary Go does not allow; CLAUDE.md names it as the
-# package that must not be split to chase a number. A new pane or overlay is a
-# new file, so it answers to a ceiling: 80 is the 64 files it held when the
-# kind came in and the panes and overlays still to come, and reaching it is
-# where the package's shape is looked at again. layout/ and frame/ are already
-# the pure leaves that could leave.
+# and composer. Model routes keys and messages and composes the screen; each
+# pane's state draws itself and keeps its behavior beside it, and each overlay
+# and each message answers through the Model it is handed and hands back. So
+# the package cannot be split without carrying Model, and everything that takes
+# it, across a package boundary Go does not allow; CLAUDE.md names it as the
+# package that must not be split to chase a number. 80 is the ceiling set at 64
+# files when the kind came in; splitting the long files by concern (DEBT-190,
+# DEBT-191) brought it to 78, so the next pane or overlay or two reach it, and
+# reaching it is where the package's shape is looked at again. layout/ and
+# frame/ are already the pure leaves that could leave.
 internal/tui 80 cohesive
 
 # internal/webserver — the loopback REST surface, spelled one file per
