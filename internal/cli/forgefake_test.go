@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -211,11 +212,17 @@ func writeRepoFile(t *testing.T, repo, rel, contents string) {
 }
 
 // writeExecutable writes contents to path with mode, failing the test if it
-// cannot.
+// cannot. It holds syscall.ForkLock while the file is open: a program another
+// test starts meanwhile would inherit the open file and hold it for writing
+// until it execs, and running a script written here would then fail with
+// "text file busy" before the script ran (golang.org/issue/22315).
 func writeExecutable(t *testing.T, path, contents string, mode os.FileMode) {
 	t.Helper()
 
+	syscall.ForkLock.Lock()
 	err := os.WriteFile(path, []byte(contents), mode)
+	syscall.ForkLock.Unlock()
+
 	if err != nil {
 		t.Fatalf("writing %s: %v", path, err)
 	}
