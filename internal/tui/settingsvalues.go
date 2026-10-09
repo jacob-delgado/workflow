@@ -17,12 +17,14 @@ import (
 
 // typedValue is what text typed into a setting stands for: the text, a count,
 // or a list's entries; and false for a credential left empty, which keeps the
-// stored one.
+// stored one. Only a setting typed into whole asks: a toggle or a choice is
+// never typed into, and a collection's entry is kept by its own steps.
 func typedValue(field setting, text string) (any, bool, error) {
-	switch field.kind {
-	case settingSecret:
+	if field.kind == settingSecret {
 		return text, text != "", nil
-	case settingCount:
+	}
+
+	if field.kind == settingCount {
 		count, err := strconv.Atoi(strings.TrimSpace(text))
 		if err != nil || count < 0 {
 			return nil, false, errNotACount
@@ -30,10 +32,10 @@ func typedValue(field setting, text string) (any, bool, error) {
 
 		// A count reads back from JSON as a float64, so it is kept as one.
 		return float64(count), true, nil
-	case settingList:
+	}
+
+	if field.kind == settingList {
 		return splitList(text), true, nil
-	case settingText, settingURL, settingChoice, settingToggle, settingEntry, settingAdd:
-		return text, true, nil
 	}
 
 	return text, true, nil
