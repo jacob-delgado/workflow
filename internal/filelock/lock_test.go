@@ -6,6 +6,7 @@ package filelock_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/filelock"
@@ -83,5 +84,26 @@ func TestClosingTheFileLetsItsLockGo(t *testing.T) {
 	// Assert
 	if err != nil || !next {
 		t.Errorf("TryLock after the holder closed = %t, %v; want the lock taken", next, err)
+	}
+}
+
+func TestTryLockReportsAFileItCannotLock(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := filepath.Join(t.TempDir(), "lock")
+	file := opened(t, path)
+
+	err := file.Close()
+	if err != nil {
+		t.Fatalf("closing the file: %v", err)
+	}
+
+	// Act
+	held, err := filelock.TryLock(file)
+
+	// Assert
+	if err == nil || held || !strings.Contains(err.Error(), path) {
+		t.Errorf("TryLock on a closed file = %t, %v; want a failure naming %s", held, err, path)
 	}
 }
