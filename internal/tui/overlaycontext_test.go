@@ -194,9 +194,11 @@ func answeredIn(probes []overlayProbe) []string {
 }
 
 // An overlay's key context is what CheckKeys refuses two actions on one key
-// in, so an action it lists that no state of the overlay answers refuses a
-// map for a press the overlay never reads.
-func TestAnOverlayAnswersEveryActionItsKeyContextLists(t *testing.T) {
+// in. An action the overlay answers that its context leaves out would let a
+// map bind it onto another of the overlay's keys, leaving a press there
+// ambiguous; an action its context lists that no state of the overlay
+// answers refuses a map for a press the overlay never reads.
+func TestAnOverlayAnswersExactlyTheActionsItsKeyContextLists(t *testing.T) {
 	t.Parallel()
 
 	for name, states := range overlayStates() {
@@ -210,6 +212,12 @@ func TestAnOverlayAnswersEveryActionItsKeyContextLists(t *testing.T) {
 			for index, probe := range probes {
 				if probe.context.Name != name {
 					t.Errorf("state %d opens the overlay in %q, want %q", index, probe.context.Name, name)
+				}
+
+				for _, answered := range probe.answered {
+					if !slices.Contains(probe.context.Actions, answered) {
+						t.Errorf("state %d of %s answers %s, which its key context leaves out", index, name, answered)
+					}
 				}
 			}
 
