@@ -3,10 +3,15 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { listReviewsQueryKey } from '@/api/generated/@tanstack/react-query.gen.ts'
-import type { ReviewFacet, ReviewQueue } from '@/api/generated/types.gen.ts'
+import type { ReviewQueue } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { gitLabWords, makeHealth, makeReviewRequest } from '@/test/fixtures.ts'
+import {
+  describedReviewRequest,
+  gitLabWords,
+  makeHealth,
+  makeReviewRequest,
+} from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { ReviewQueuePanel } from './ReviewQueuePanel.tsx'
@@ -41,30 +46,34 @@ function readsOf(requests: Request[]): number {
   return requests.filter((request) => new URL(request.url).pathname === reviewsPath).length
 }
 
-// draftFacets is the facets of the fixture's request made a draft.
-const draftFacets: ReviewFacet[] = [
-  { kind: 'repository', value: 'acme/api', label: 'acme/api' },
-  { kind: 'ci', value: 'failed', label: 'CI failed' },
-  { kind: 'draft', value: 'draft', label: 'draft' },
-  { kind: 'author', value: 'ana', label: 'by ana' },
-]
-
-const waitingLongest = makeReviewRequest({ draft: true, facets: draftFacets })
-const waitingLess = makeReviewRequest({
-  number: 7,
-  url: 'https://github.com/acme/web/pull/7',
-  title: 'feat: list the review queue on the web',
-  author: 'sam',
-  repository: 'acme/web',
-  ci: 'passed',
-  opened_at: hoursAgo(5),
-  facets: [
+// waitingLongest is the fixture's request, made a draft.
+const waitingLongest = describedReviewRequest(
+  { repository: 'acme/api', ci: 'failed', draft: true, author: 'ana' },
+  [
+    { kind: 'repository', value: 'acme/api', label: 'acme/api' },
+    { kind: 'ci', value: 'failed', label: 'CI failed' },
+    { kind: 'draft', value: 'draft', label: 'draft' },
+    { kind: 'author', value: 'ana', label: 'by ana' },
+  ],
+)
+const waitingLess = describedReviewRequest(
+  {
+    number: 7,
+    url: 'https://github.com/acme/web/pull/7',
+    title: 'feat: list the review queue on the web',
+    author: 'sam',
+    repository: 'acme/web',
+    draft: false,
+    ci: 'passed',
+    opened_at: hoursAgo(5),
+  },
+  [
     { kind: 'repository', value: 'acme/web', label: 'acme/web' },
     { kind: 'ci', value: 'passed', label: 'CI passed' },
     { kind: 'draft', value: 'ready', label: 'ready' },
     { kind: 'author', value: 'sam', label: 'by sam' },
   ],
-})
+)
 
 test('the Reviews section lists requests by role and name', async () => {
   // Arrange
@@ -104,17 +113,22 @@ test('draws how CI stands on each request as its mark, beside the words', async 
   fakeApi({
     [reviewsPath]: queueOf(
       ...stands.map(({ ci, words }, index) =>
-        makeReviewRequest({
-          ci,
-          number: index + 1,
-          url: `https://github.com/acme/api/pull/${String(index + 1)}`,
-          facets: [
+        describedReviewRequest(
+          {
+            repository: 'acme/api',
+            ci,
+            draft: false,
+            author: 'ana',
+            number: index + 1,
+            url: `https://github.com/acme/api/pull/${String(index + 1)}`,
+          },
+          [
             { kind: 'repository', value: 'acme/api', label: 'acme/api' },
             { kind: 'ci', value: ci, label: words },
             { kind: 'draft', value: 'ready', label: 'ready' },
             { kind: 'author', value: 'ana', label: 'by ana' },
           ],
-        }),
+        ),
       ),
     ),
   })
@@ -131,7 +145,7 @@ test('draws how CI stands on each request as its mark, beside the words', async 
 
 test('draws a draft as the not-started mark, before the word', async () => {
   // Arrange
-  fakeApi({ [reviewsPath]: queueOf(makeReviewRequest({ draft: true, facets: draftFacets })) })
+  fakeApi({ [reviewsPath]: queueOf(waitingLongest) })
 
   // Act
   renderWithClient(<ReviewQueuePanel />)
@@ -142,7 +156,16 @@ test('draws a draft as the not-started mark, before the word', async () => {
 
 test('a request the forge names no repository for says only who asks', async () => {
   // Arrange
-  fakeApi({ [reviewsPath]: queueOf(makeReviewRequest({ repository: '' })) })
+  const nowhere = describedReviewRequest(
+    { repository: '', ci: 'failed', draft: false, author: 'ana' },
+    [
+      { kind: 'repository', value: '', label: 'no repository' },
+      { kind: 'ci', value: 'failed', label: 'CI failed' },
+      { kind: 'draft', value: 'ready', label: 'ready' },
+      { kind: 'author', value: 'ana', label: 'by ana' },
+    ],
+  )
+  fakeApi({ [reviewsPath]: queueOf(nowhere) })
 
   // Act
   renderWithClient(<ReviewQueuePanel />)

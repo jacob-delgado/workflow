@@ -4,16 +4,17 @@ import { vi } from 'vitest'
 import type { TasksSummary } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { NavRail } from '@/shell/NavRail.tsx'
-import { makeSnapshot, makeTask } from '@/test/fixtures.ts'
+import { makeSnapshot, standing, taskStanding } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
+import { certificate, tracking } from '@/test/tasks.ts'
 import { ActiveTask } from './ActiveTask.tsx'
 
-const started = makeTask({
-  description: 'PROJ-412: Redact tokens before they reach the request log',
-  issue_key: 'PROJ-412',
-  start: new Date(Date.now() - 72 * 60_000).toISOString(),
-  state: 'started',
-})
+// startedAt is task 12, tracking PROJ-412, started at start.
+function startedAt(start: string) {
+  return taskStanding(tracking, { start }, standing.started)
+}
+
+const started = startedAt(new Date(Date.now() - 72 * 60_000).toISOString())
 
 // streamTasks puts a stream frame on screen whose task summary is summary.
 function streamTasks(summary: TasksSummary) {
@@ -43,7 +44,7 @@ test('the header shows the active task, how long it has run, and opens the Tasks
 })
 
 test.each([
-  ['no task is started', { available: true, reason: '', linked: [started] }],
+  ['no task is started', { available: true, reason: '', linked: [tracking] }],
   [
     'Taskwarrior is unavailable',
     {
@@ -75,7 +76,7 @@ test('nothing is drawn before the first snapshot lands', () => {
 test('the time the task has run moves on with the clock', () => {
   // Arrange
   vi.useFakeTimers({ now: Date.parse('2026-09-28T12:00:00Z') })
-  const running = { ...started, start: '2026-09-28T10:48:00Z' }
+  const running = startedAt('2026-09-28T10:48:00Z')
   streamTasks({ available: true, reason: '', active: running, linked: [running] })
   render(<ActiveTask />)
   const chip = screen.getByRole('button', { name: /active task/i })
@@ -99,7 +100,7 @@ test('the time a task has run is counted from when the chip appears, not when th
   act(() => {
     vi.advanceTimersByTime(50_000)
   })
-  const running = { ...started, start: '2026-09-28T10:48:50Z' }
+  const running = startedAt('2026-09-28T10:48:50Z')
 
   // Act
   act(() => {
@@ -112,27 +113,21 @@ test('the time a task has run is counted from when the chip appears, not when th
 
 test('a task started in place of another is counted from when it took its place', () => {
   // Arrange
-  // Task 12 runs as the page opens; 50 seconds later task 13 has taken its
-  // place, and the stream says it has run 72 minutes.
+  // Task 12 runs as the page opens; 50 seconds later task 2 has taken its
+  // place, and the stream says it has run 72 minutes. Task 12 still tracks
+  // its issue, stopped.
   vi.useFakeTimers({ now: Date.parse('2026-09-28T12:00:00Z') })
-  const first = { ...started, start: '2026-09-28T11:00:00Z' }
+  const first = startedAt('2026-09-28T11:00:00Z')
   streamTasks({ available: true, reason: '', active: first, linked: [first] })
   render(<ActiveTask />)
   act(() => {
     vi.advanceTimersByTime(50_000)
   })
-  const second = makeTask({
-    uuid: '6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d',
-    id: 13,
-    description: 'Renew the certificate',
-    issue_key: '',
-    start: '2026-09-28T10:48:50Z',
-    state: 'started',
-  })
+  const second = taskStanding(certificate, { start: '2026-09-28T10:48:50Z' }, standing.started)
 
   // Act
   act(() => {
-    streamTasks({ available: true, reason: '', active: second, linked: [] })
+    streamTasks({ available: true, reason: '', active: second, linked: [tracking] })
   })
 
   // Assert

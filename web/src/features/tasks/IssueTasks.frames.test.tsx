@@ -5,9 +5,16 @@ import type { ReactElement } from 'react'
 import type { Task, TasksSummary } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { makeSnapshot, makeTask, makeTaskList } from '@/test/fixtures.ts'
+import {
+  describedTask,
+  makeSnapshot,
+  makeTaskList,
+  standing,
+  taskStanding,
+} from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { tracking, trackingDone } from '@/test/tasks.ts'
 import { IssueTasks } from './IssueTasks.tsx'
 import { TasksPanel } from './TasksPanel.tsx'
 
@@ -18,11 +25,6 @@ import { TasksPanel } from './TasksPanel.tsx'
 
 const issueKey = 'PROJ-412'
 
-const tracking = makeTask({
-  description: 'PROJ-412: Redact tokens before they reach the request log',
-  issue_key: issueKey,
-  issue_url: 'https://jira.example.com/browse/PROJ-412',
-})
 const trackingPath = `/api/tasks/${tracking.uuid}`
 
 // streamTasks puts a stream frame on screen whose task summary is summary,
@@ -54,7 +56,7 @@ test('a task started from the card shows as started at once, ahead of the stream
   streamLinked(tracking)
   fakeApi({
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
     ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -94,7 +96,7 @@ test('a frame that lands after a write shows the task as the stream has it', asy
   streamLinked(tracking)
   fakeApi({
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
     ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -120,7 +122,7 @@ test('a frame newer than the list that has the task done offers Track', async ()
   streamLinked(tracking)
   fakeApi({
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
     ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -129,10 +131,7 @@ test('a frame newer than the list that has the task done offers Track', async ()
 
   // Act
   act(() => {
-    streamTasks(
-      { linked: [{ ...tracking, status: 'completed', state: 'completed' }] },
-      Date.now() + 1,
-    )
+    streamTasks({ linked: [trackingDone(new Date().toISOString())] }, Date.now() + 1)
   })
 
   // Assert
@@ -145,16 +144,23 @@ test('a frame newer than the list no longer lists a task only the list held', as
   // The start's answer holds a second task for the issue, added in a terminal;
   // the frame that lands after it holds no such task, deleted there since.
   const user = userEvent.setup()
-  const rotating = makeTask({
-    ...tracking,
-    uuid: '33333333-3333-4333-8333-333333333333',
-    id: 13,
-    description: 'PROJ-412: Rotate the leaked token',
-  })
+  const rotating = describedTask(
+    {
+      ...tracking,
+      uuid: '33333333-3333-4333-8333-333333333333',
+      id: 13,
+      description: 'PROJ-412: Rotate the leaked token',
+    },
+    {
+      state: 'pending',
+      facets: tracking.facets,
+      searchable: ['proj-412: rotate the leaked token', '', 'proj-412', '#13'],
+    },
+  )
   streamLinked(tracking)
   fakeApi({
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
       rotating,
     ]),
   })
@@ -180,7 +186,7 @@ test("a frame that lands in the same millisecond as a write's answer leaves the 
   streamLinked(tracking)
   fakeApi({
     [`${trackingPath}/start`]: makeTaskList([
-      { ...tracking, start: new Date().toISOString(), state: 'started' as const },
+      taskStanding(tracking, { start: new Date().toISOString() }, standing.started),
     ]),
   })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
@@ -237,10 +243,7 @@ test('a card opened again before the stream has the done still shows the task do
 })
 
 test.each([
-  [
-    'has the task done',
-    [{ ...tracking, status: 'completed' as const, state: 'completed' as const }],
-  ],
+  ['has the task done', [trackingDone(new Date().toISOString())]],
   ['no longer holds the task', []],
 ])(
   'once a frame %s, a later frame that brings the task back offers it again',
@@ -453,10 +456,7 @@ test('once a frame holds the tracked task, the issue can be tracked again when i
 
   // Act
   act(() => {
-    streamTasks(
-      { linked: [{ ...tracking, status: 'completed', state: 'completed' }] },
-      Date.now() + 2,
-    )
+    streamTasks({ linked: [trackingDone(new Date().toISOString())] }, Date.now() + 2)
   })
 
   // Assert

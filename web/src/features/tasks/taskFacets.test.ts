@@ -1,5 +1,5 @@
 import type { Task, TaskFacet } from '@/api/generated/types.gen.ts'
-import { makeTask } from '@/test/fixtures.ts'
+import { describedTask, taskFacet } from '@/test/fixtures.ts'
 import {
   listsWaiting,
   matchesNarrowing,
@@ -14,67 +14,91 @@ import {
 // internal/taskwarrior/narrow_test.go.
 
 // The values the tasks below hold, each as the server labels it.
-const started: TaskFacet = { kind: 'state', value: 'started', label: 'started' }
-const pending: TaskFacet = { kind: 'state', value: 'pending', label: 'pending' }
-const waiting: TaskFacet = { kind: 'state', value: 'waiting', label: 'waiting' }
+const { started, pending, waiting, noPriority, noProject, withIssue, noIssue, noTag } = taskFacet
 const priorityH: TaskFacet = { kind: 'priority', value: 'H', label: 'priority H' }
 const priorityL: TaskFacet = { kind: 'priority', value: 'L', label: 'priority L' }
-const noPriority: TaskFacet = { kind: 'priority', value: '', label: 'no priority' }
 const projectApi: TaskFacet = { kind: 'project', value: 'api', label: 'project api' }
 const projectInfra: TaskFacet = { kind: 'project', value: 'infra', label: 'project infra' }
-const noProject: TaskFacet = { kind: 'project', value: '', label: 'no project' }
-const withIssue: TaskFacet = { kind: 'issue', value: 'linked', label: 'with issue' }
-const noIssue: TaskFacet = { kind: 'issue', value: 'unlinked', label: 'no issue' }
 const tagWeb: TaskFacet = { kind: 'tag', value: 'web', label: '+web' }
 const tagCi: TaskFacet = { kind: 'tag', value: 'ci', label: '+ci' }
-const noTag: TaskFacet = { kind: 'tag', value: '', label: 'no tag' }
 
 // narrowedTasks is four tasks as the server describes them: n1 started, n2 and
 // n3 pending, and n4 waiting.
 function narrowedTasks(): Task[] {
   return [
-    makeTask({
-      uuid: 'n1',
-      id: 4,
-      description: 'Fix the token leak',
-      start: '2026-10-05T12:00:00Z',
-      state: 'started',
-      priority: 'H',
-      project: 'api',
-      tags: ['web'],
-      issue_key: 'PROJ-1',
-      facets: [started, priorityH, projectApi, withIssue, tagWeb],
-      searchable: ['fix the token leak', 'api', 'proj-1', '+web', '#4'],
-    }),
-    makeTask({
-      uuid: 'n2',
-      id: 7,
-      description: 'Renew the cert',
-      project: 'infra',
-      tags: ['ci'],
-      issue_key: '',
-      facets: [pending, noPriority, projectInfra, noIssue, tagCi],
-      searchable: ['renew the cert', 'infra', '', '+ci', '#7'],
-    }),
-    makeTask({
-      uuid: 'n3',
-      id: 9,
-      description: 'Tune the cache',
-      priority: 'L',
-      issue_key: 'PROJ-2',
-      facets: [pending, priorityL, noProject, withIssue, noTag],
-      searchable: ['tune the cache', '', 'proj-2', '#9'],
-    }),
-    makeTask({
-      uuid: 'n4',
-      id: 0,
-      description: 'Book the room',
-      status: 'waiting',
-      state: 'waiting',
-      issue_key: '',
-      facets: [waiting, noPriority, noProject, noIssue, noTag],
-      searchable: ['book the room', '', ''],
-    }),
+    describedTask(
+      {
+        uuid: 'n1',
+        id: 4,
+        description: 'Fix the token leak',
+        status: 'pending',
+        start: '2026-10-05T12:00:00Z',
+        priority: 'H',
+        project: 'api',
+        tags: ['web'],
+        issue_key: 'PROJ-1',
+        issue_url: 'https://jira.example.com/browse/PROJ-1',
+      },
+      {
+        state: 'started',
+        facets: [started, priorityH, projectApi, withIssue, tagWeb],
+        searchable: ['fix the token leak', 'api', 'proj-1', '+web', '#4'],
+      },
+    ),
+    describedTask(
+      {
+        uuid: 'n2',
+        id: 7,
+        description: 'Renew the cert',
+        status: 'pending',
+        priority: '',
+        project: 'infra',
+        tags: ['ci'],
+        issue_key: '',
+        issue_url: '',
+      },
+      {
+        state: 'pending',
+        facets: [pending, noPriority, projectInfra, noIssue, tagCi],
+        searchable: ['renew the cert', 'infra', '', '+ci', '#7'],
+      },
+    ),
+    describedTask(
+      {
+        uuid: 'n3',
+        id: 9,
+        description: 'Tune the cache',
+        status: 'pending',
+        priority: 'L',
+        project: '',
+        tags: [],
+        issue_key: 'PROJ-2',
+        issue_url: 'https://jira.example.com/browse/PROJ-2',
+      },
+      {
+        state: 'pending',
+        facets: [pending, priorityL, noProject, withIssue, noTag],
+        searchable: ['tune the cache', '', 'proj-2', '#9'],
+      },
+    ),
+    describedTask(
+      {
+        uuid: 'n4',
+        id: 0,
+        description: 'Book the room',
+        status: 'waiting',
+        priority: '',
+        project: '',
+        tags: [],
+        issue_key: '',
+        issue_url: '',
+      },
+      {
+        state: 'waiting',
+        facets: [waiting, noPriority, noProject, noIssue, noTag],
+        searchable: ['book the room', '', ''],
+      },
+    ),
   ]
 }
 
@@ -123,7 +147,23 @@ test('typed text is lower-cased letter by letter, as the server lowers the field
   // Arrange
   // The server lowers İ to i alone, where JavaScript's own lower case is two
   // letters.
-  const task = makeTask({ searchable: ['istanbul office'] })
+  const task = describedTask(
+    {
+      id: 12,
+      description: 'Book the İstanbul office',
+      status: 'pending',
+      priority: '',
+      project: '',
+      tags: [],
+      issue_key: '',
+      issue_url: '',
+    },
+    {
+      state: 'pending',
+      facets: [pending, noPriority, noProject, noIssue, noTag],
+      searchable: ['book the istanbul office', '', '', '#12'],
+    },
+  )
 
   // Act
   const got = matchesNarrowing({ picked: [], text: 'İSTANBUL' }, task)
