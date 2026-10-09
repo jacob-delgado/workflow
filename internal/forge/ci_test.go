@@ -216,7 +216,7 @@ func TestGitLabCIReadsTheMergeRequestsPipeline(t *testing.T) {
 
 			// The merge request's own pipeline, not one found by commit: a
 			// commit can have pipelines that have nothing to do with the review.
-			if asked := lastRequest(t, seen); asked.path != "/projects/group%2Fsub%2Frepo/merge_requests/8" {
+			if asked := lastRequest(t, seen); asked.path != failedMergePath {
 				t.Errorf("asked %s, want the merge request itself", asked.path)
 			}
 		})
