@@ -9,7 +9,9 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
+	"testing/iotest"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 )
@@ -267,6 +269,24 @@ func TestALoadReportsAFileItCannotRead(t *testing.T) {
 	}
 }
 
+func TestALoadReportsAFileItCannotOpen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A regular file where the home directory should be: no file can be
+	// opened inside a file, whoever asks, and that is no missing file.
+	notADirectory := write(t, t.TempDir(), "{}")
+	path := filepath.Join(notADirectory, config.FileName)
+
+	// Act
+	_, _, err := config.LoadLayersAt(config.Files{Home: path})
+
+	// Assert
+	if !errors.Is(err, syscall.ENOTDIR) || !strings.Contains(err.Error(), path) {
+		t.Errorf("LoadLayersAt = %v, want the open's own failure, naming %s", err, path)
+	}
+}
+
 func TestRepoRootFindsTheEnclosingRepository(t *testing.T) {
 	t.Parallel()
 
@@ -331,6 +351,21 @@ func TestParseRejectsBadInput(t *testing.T) {
 				t.Errorf("error = %v, want ErrInvalid", err)
 			}
 		})
+	}
+}
+
+// errReadFailed is the failure of a reader that cannot be read.
+var errReadFailed = errors.New("the read failed")
+
+func TestParseReportsAReaderThatFails(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	_, err := config.Parse(iotest.ErrReader(errReadFailed))
+
+	// Assert
+	if !errors.Is(err, config.ErrInvalid) || !errors.Is(err, errReadFailed) {
+		t.Errorf("Parse = %v, want ErrInvalid wrapping the read's own failure", err)
 	}
 }
 
