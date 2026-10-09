@@ -135,3 +135,33 @@ func TestTrackAndStartWithoutAPageIsHeldBackUnderDryRun(t *testing.T) {
 		"dry run: task add jiraid:"+untrackedIssue+" jiraurl: +jira -- "+untrackedIssue+": Rotate the keys then start it")
 	requireTaskWrites(t, repo)
 }
+
+func TestAnIssueWhoseKeyIsNotOneWordIsNotTrackedWhenWorkStarts(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No task is started, and PROJ-500's key would reach Taskwarrior as a word
+	// of its own after it; the branch is named by hand, since git would refuse
+	// the one made from the key.
+	repo := withAnUntrackedIssue()
+	repo.issues[2].Key = untrackedIssue + " rc.hooks=on"
+	repo.moves = startTransitions()
+	stopTheStartedTask(repo)
+	named := typing(t, repo.live(t, 200, 40), append(append(selectTheUntrackedIssue(), "b", "ctrl+u"),
+		letters("spike")...)...)
+
+	// Act
+	// Create the branch, and back out of the status picker.
+	view := typing(t, named, keyEnter, keyEsc).View().Content
+
+	// Assert
+	// The branch is made, and the line that would track the issue does not
+	// open: why is said in its place.
+	if created := repo.asked("create spike"); len(created) != 1 {
+		t.Errorf("create calls = %q, want spike created", repo.asked("create"))
+	}
+
+	requireScreen(t, view, "not one word")
+	refuseScreen(t, view, trackAndStart)
+	requireTaskWrites(t, repo)
+}
