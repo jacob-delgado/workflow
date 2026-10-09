@@ -64,19 +64,32 @@ func TestAMarkdownAnnouncementNeutralizesAHostileValue(t *testing.T) {
 func TestAMarkdownLinkFallsBackToTextForANonWebURL(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
 	// The forge should only ever return an http(s) URL; a value with any other
-	// scheme is not trusted as a link target and is dropped to the escaped title.
-	announcement := messaging.Announcement{
-		Kind: config.KindTeams, PullRequestURL: "javascript:alert(1)", PullRequestTitle: "fix",
+	// scheme, or one that is no URL at all, is not trusted as a link target
+	// and is dropped to the escaped title.
+	cases := map[string]string{
+		"another scheme":          "javascript:alert(1)",
+		"an address not parsed":   "https://example.com/%zz",
+		"an address with no host": "https:///pull/1",
 	}
 
-	// Act
-	got := announcement.Text()
+	for name, address := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if strings.Contains(got, "javascript:") || strings.Contains(got, "](") {
-		t.Errorf("Text() = %q, want no link built for a non-web URL", got)
+			// Arrange
+			announcement := messaging.Announcement{
+				Kind: config.KindTeams, PullRequestURL: address, PullRequestTitle: "fix",
+			}
+
+			// Act
+			got := announcement.Text()
+
+			// Assert
+			if strings.Contains(got, address) || strings.Contains(got, "](") || !strings.Contains(got, "fix") {
+				t.Errorf("Text() = %q, want the title alone and no link built for %q", got, address)
+			}
+		})
 	}
 }
 
