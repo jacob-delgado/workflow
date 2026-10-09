@@ -282,3 +282,28 @@ func TestLocalDataIsUnprocessableWithNowhereToKeepIt(t *testing.T) {
 		t.Errorf("status %d, want 422 with no store directory: %s", answer.Code, answer.Body.String())
 	}
 }
+
+func TestCleaningLocalDataThatCannotBeListedAfterIsAFault(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The clean goes through; listing what is left after it does not.
+	fake := newFakeStore()
+	deps := filledDeps()
+	fake.wire(&deps)
+	deps.Settings.LocalData = func() (string, []store.DataFile, error) { return "", nil, errSeam }
+	handler := serveWith(t, deps, config.Default(), webserver.Info{Version: testVersion})
+
+	// Act
+	answer := send(t, handler, http.MethodDelete, "/api/local-data?scope=cache", "")
+
+	// Assert
+	if failure := decode[api.Problem](t, answer); answer.Code != http.StatusInternalServerError ||
+		failure.Code != api.ProblemCodeInternal {
+		t.Errorf("status/code %d/%s, want 500/internal", answer.Code, failure.Code)
+	}
+
+	if len(fake.cleaned) != 1 || fake.cleaned[0] != store.CleanCache {
+		t.Errorf("cleaned %v, want the cache cleaned before the listing failed", fake.cleaned)
+	}
+}
