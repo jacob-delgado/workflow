@@ -240,3 +240,61 @@ func TestAnnounceRefusesMentionsWhereNoOneIsTagged(t *testing.T) {
 		t.Errorf("status/detail %d/%q, posted %q; want 422 and nothing posted", recorder.Code, failure.Detail, posted)
 	}
 }
+
+func TestGetAnnouncementTagsNoOneWhenSlackHasNoCredentialToNameTheWorkspace(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fake := newFakeKept()
+	fake.workspaceErr = messaging.ErrNoCredential
+	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+
+	// Act
+	recorder := get(t, handler, "/api/announcement")
+
+	// Assert
+	if got := decode[api.Announcement](t, recorder); recorder.Code != http.StatusOK || got.Tagging != nil {
+		t.Errorf("status %d, tagging %+v; want 200 tagging no one", recorder.Code, got.Tagging)
+	}
+}
+
+func TestGetAnnouncementTagsNoOneWithNoGroupsToLinkAnOwningTeamTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// An owning team is unlinked, and the user groups it would be linked to
+	// cannot be read for want of a credential.
+	fake := newFakeKept()
+	fake.groupsErr = messaging.ErrNoCredential
+	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+
+	// Act
+	recorder := get(t, handler, "/api/announcement")
+
+	// Assert
+	if got := decode[api.Announcement](t, recorder); recorder.Code != http.StatusOK || got.Tagging != nil {
+		t.Errorf("status %d, tagging %+v; want 200 tagging no one", recorder.Code, got.Tagging)
+	}
+}
+
+func TestAnnounceRefusesMentionsInAWorkspaceSlackWillNotName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var posted string
+
+	fake := newFakeKept()
+	fake.workspaceErr = messaging.ErrNoWorkspace
+	handler := postTagged(t, fake, &posted)
+
+	// Act
+	recorder := announceWith(t, handler, []string{carla().ID}, []string{})
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+
+	refused := recorder.Code == http.StatusUnprocessableEntity && strings.Contains(failure.Detail, "tags no one")
+	if !refused || posted != "" {
+		t.Errorf("status/detail %d/%q, posted %q; want 422 and nothing posted", recorder.Code, failure.Detail, posted)
+	}
+}
