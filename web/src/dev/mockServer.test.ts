@@ -5,6 +5,7 @@ import {
   addTask,
   assignIssue,
   changeStatus,
+  completeTask,
   getActivity,
   getAnnouncement,
   getChangeDiff,
@@ -333,6 +334,21 @@ test('a configuration the mockup saves reads back, at a new revision', async () 
   // Assert
   expect(after.data.jira.base_url).toBe('https://jira.example')
   expect(after.response.headers.get('ETag')).not.toBe(before.response.headers.get('ETag'))
+})
+
+test("the mockup's done answers the task done beside a list that no longer holds it", async () => {
+  // Arrange
+  await installed()
+  const { data: listed } = await listTasks({ throwOnError: true })
+  const linked = listed.tasks.find((task) => task.issue_key === 'PROJ-408')
+
+  // Act
+  const { data } = await completeTask({ path: { uuid: linked?.uuid ?? '' }, throwOnError: true })
+
+  // Assert
+  expect(data.done).toMatchObject({ uuid: linked?.uuid, status: 'completed', state: 'completed' })
+  expect(data.tasks.map((task) => task.uuid)).not.toContain(linked?.uuid)
+  expect(data.tasks.map((task) => task.ranks.urgency).toSorted()).toEqual([0, 1, 2])
 })
 
 test('a request the mockup does not answer goes on to the network', async () => {
