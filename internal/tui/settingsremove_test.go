@@ -142,3 +142,23 @@ func TestARemovalWithNoOtherEditsReopensAsASaveDoes(t *testing.T) {
 			quits(cmd), removed.Destination().Dir, apiCmd)
 	}
 }
+
+func TestARemovalFromAConfigurationThatDoesNotHoldUpWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// What was read names a forge that is neither GitHub nor GitLab, which a
+	// file on disk may not; written without the token, it still would.
+	repo := newWorld()
+	repo.settings.Forge.Kind = "bitbucket"
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), append(toRow(tokenRow), removeKey, keyEnter)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "Remove the Jira token", "the configuration is not valid", "forge.kind is not")
+
+	if saves := repo.asked("save-settings"); len(saves) != 0 {
+		t.Errorf("saved %q, want nothing written", saves)
+	}
+}
