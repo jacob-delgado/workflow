@@ -6,7 +6,8 @@ package tui_test
 // A preview can be opened over a post waiting for CI, which goes on its own
 // once CI passes. The preview opened since is not the one that post was
 // written in, so its answer leaves the preview as it is, and the preview does
-// not post the same announcement again.
+// not post the same announcement again, nor queue one announced while it was
+// open.
 
 import (
 	"testing"
@@ -14,6 +15,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -97,4 +100,27 @@ func TestAQueuedPostsRefusalIsNotPinnedInAPreviewOpenedSince(t *testing.T) {
 	// The preview is open, with no refusal pinned under its title.
 	requireScreen(t, refused, "┏━ Announce to Slack")
 	refuseScreen(t, refused, "┃ ✗ the credential was not accepted")
+}
+
+func TestWhenCIPassesRefusesWhatWasAnnouncedWhileThePreviewWasOpen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CI is running. The preview opens while the pane's read of what was
+	// announced is out, and that read answers, before w is pressed, that an
+	// earlier session announced pull request 42.
+	repo := newWorld()
+	repo.ci = []forge.CI{{State: forge.CIRunning}}
+	pane := typing(t, repo.live(t, 120, 40), "5")
+	repo.storedAnnounces = []loop.Announced{{Pull: 42, Moment: messaging.MomentReady}}
+	reading, reread := pressed(t, pane, "r")
+	announced := deliver(t, typing(t, reading, "p"), reread)
+
+	// Act
+	view := typing(t, announced, "w").View().Content
+
+	// Assert
+	// The preview stays open on why, rather than closing on a post queued
+	// to go out a second time once CI passes.
+	requireScreen(t, view, "┏━ Announce to Slack", "this was announced while the preview was open")
 }
