@@ -11,7 +11,7 @@ import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, definitionList } from '@/lib/utils.ts'
 import { LastLook } from '@/lib/LastLook.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
-import { useJustDone, useTaskWrites } from './tasksApi.ts'
+import { useDoneSinceListed, useTaskWrites } from './tasksApi.ts'
 import { TaskLineForm } from './TaskLineForm.tsx'
 import { dueWords, elapsedWords, isActive, taskName, taskNumber } from './taskWords.ts'
 
@@ -29,11 +29,11 @@ interface TaskDetailProps {
 // TaskDetail is the selected task: what it is and its facts, the issue it is
 // for, the notes on it, and the writes that change it — each saying what it did
 // in the panel's outcome line, or why Taskwarrior refused it beside its control.
-// A task the page has just marked done, shown from a list read before the done,
-// offers no start, stop or done until a list read since describes it.
+// A task the page has just marked done, shown from a list answered before the
+// done, offers no start, stop or done until a list is answered after it.
 export function TaskDetail({ task, issue, teller, now }: TaskDetailProps) {
   const writes = useTaskWrites()
-  const justDone = useJustDone().has(task.uuid)
+  const justDone = useDoneSinceListed(task.uuid)
   const name = taskName(task)
 
   return (

@@ -70,9 +70,11 @@ export function useAnsweredTasks(): AnsweredTasks {
 
 // useJustDone is each task the page has marked done that neither a frame nor
 // a list answered since has described again, by uuid: until one does, the
-// task offers nothing that would start it or mark it done again, whatever the
-// stream or a list read before the done still says of it — a done the server
-// could not read the task or the list after leaves both as they were.
+// issue's Tasks card, which draws from the stream with the list laid over it,
+// offers nothing on the task that would start it or mark it done again,
+// whatever the stream or a list read before the done still says of it — a
+// done the server could not read the task or the list after leaves both as
+// they were.
 export function useJustDone(): ReadonlyMap<string, RememberedDone> {
   const completed = useTaskMemo((memo) => memo.completed)
   const { list, answeredAt } = useAnsweredTasks()
@@ -83,6 +85,19 @@ export function useJustDone(): ReadonlyMap<string, RememberedDone> {
   return new Map(
     completed.filter((write) => !describedSince(write)).map((write) => [write.uuid, write]),
   )
+}
+
+// useDoneSinceListed is whether the page has marked the task with a uuid done
+// since the task list was last answered. The Tasks section draws from the list
+// alone, so no frame says anything of what it shows: until a list is answered
+// after the done — by the read a done whose list could not be read again
+// prompts, or by any write — the task, as the list from before the done still
+// has it, offers nothing that would start it or mark it done again.
+export function useDoneSinceListed(uuid: string): boolean {
+  const doneAt = useTaskMemo((memo) => memo.doneAt[uuid])
+  const { answeredAt } = useAnsweredTasks()
+
+  return doneAt !== undefined && doneAt > answeredAt
 }
 
 // A task write's request: the SDK call, answered with the list after it. A
@@ -117,9 +132,11 @@ interface TaskWrites {
 // rather than give way to a Taskwarrior that is there. A done and a track are
 // remembered too, for what the list cannot say of them until the stream
 // catches up: the task done, as the done's answer describes it, and which task
-// tracks the issue where the active context leaves it out. Each is remembered
-// before its list is cached, so a list answered since — the write's own among
-// them — is never older than the memo, and one answered before it always is.
+// tracks the issue where the active context leaves it out; and a done for when
+// it was made, which the list shown says nothing of until one is answered
+// after it. Each is remembered before its list is cached, so a list answered
+// since — the write's own among them — is never older than the memo, and one
+// answered before it always is.
 export function useTaskWrites(): TaskWrites {
   const queryClient = useQueryClient()
   const write = async (send: Send, heard?: Heard): Promise<TaskList> => {

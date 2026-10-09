@@ -41,7 +41,7 @@ export function fakeApi(routes: Record<string, Answer>): Request[] {
 
 // Held is an answer a test holds back: the promise a write waits on, and how
 // to settle it once the test has seen the write's control while it runs.
-interface Held<T> {
+export interface Held<T> {
   promise: Promise<T>
   answer: (value: T) => void
   refuse: (reason: unknown) => void
