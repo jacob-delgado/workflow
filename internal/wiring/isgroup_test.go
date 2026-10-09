@@ -93,3 +93,61 @@ func TestIsGroupOnGitHubTakesEveryBareNameForAPersonWithoutAsking(t *testing.T) 
 		t.Errorf("gh was called as %v, want GitHub never asked whether a name is a group", args)
 	}
 }
+
+// failingOnceScript is a stand-in glab that knows no user named acme and fails
+// its first ask for acme's group members, then answers every later one.
+func failingOnceScript(dir string) string {
+	return "#!/bin/sh\n" + tokenLookup(dir) +
+		"for a in \"$@\"; do url=\"$a\"; done\n" +
+		"case \"$url\" in\n" +
+		"  *\"/members\"*)\n" +
+		"    if [ ! -e \"" + dir + "/failed\" ]; then : > \"" + dir + "/failed\"; printf 'boom\\n' >&2; exit 3; fi\n" +
+		"    body='[{\"username\":\"dan\",\"state\":\"active\",\"access_level\":30}]' ;;\n" +
+		"  *) body='[]' ;;\n" +
+		"esac\n" +
+		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n%s' \"$body\"\n"
+}
+
+func TestALookupThatFailedIsAskedAgain(t *testing.T) {
+	// Arrange
+	// A failure is no answer: kept, it would read the group as a person for
+	// the rest of the session.
+	glab := installForgeCLI(t, "glab", forgeReplies{})
+	write(t, filepath.Join(glab.dir, "glab"), failingOnceScript(glab.dir), 0o755)
+
+	cfg := config.Config{Forge: config.Forge{CLI: true}}
+	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitLab}
+	isGroup := wired(t, cfg, where, nil).Forge.IsGroup
+
+	_, err := isGroup("acme")
+	if err == nil {
+		t.Fatal("the first IsGroup passed, want the lookup's failure")
+	}
+
+	// Act
+	group, err := isGroup("acme")
+
+	// Assert
+	if err != nil || !group {
+		t.Errorf("IsGroup after a failed lookup = %v, %v; want GitLab asked again and the group it knows", group, err)
+	}
+}
+
+func TestIsGroupWithNoRemoteToReadTakesEveryBareNameForAPersonWithoutAsking(t *testing.T) {
+	// Arrange
+	glab := installForgeCLI(t, "glab", forgeReplies{})
+	cfg := config.Config{Forge: config.Forge{CLI: true, Kind: "gitlab"}}
+	forgeSeams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Forge
+
+	// Act
+	group, err := forgeSeams.IsGroup("acme")
+
+	// Assert
+	if err != nil || group {
+		t.Errorf("IsGroup(acme) with no remote = %v, %v; want a person, since no GitLab can be asked", group, err)
+	}
+
+	if args := glab.args(); len(args) != 0 {
+		t.Errorf("glab was called as %v, want nothing asked with no remote to name a project", args)
+	}
+}
