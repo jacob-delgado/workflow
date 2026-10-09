@@ -6,6 +6,7 @@ import type {
   TasksSummary,
 } from '@/api/generated/types.gen.ts'
 import { minute } from '@/lib/dates.ts'
+import type { Routes } from './mockServer.ts'
 
 // at is the RFC 3339 time some minutes from now — before it when negative — so
 // the mockup's ages and due dates read the same whenever it is shown.
@@ -140,7 +141,7 @@ const retro: Task = {
 // checked-out issue, one for another issue, one no issue tracks and one
 // waiting, most urgent first, with a sync backend to offer Sync. Dev-only, and
 // code-split out of a production build.
-export function mockTaskList(): TaskList {
+function mockTaskList(): TaskList {
   return {
     available: true,
     reason: '',
@@ -210,7 +211,7 @@ const linkedDone = new Map<string, Pick<Task, 'ranks' | 'searchable'>>([
 // the server does: the list without it, the places behind it closed up, and,
 // for a task linked to an issue, the task as it stands done — stopped, out of
 // the working set and completed.
-export function mockDone(uuid: string): TaskList {
+function mockDone(uuid: string): TaskList {
   const list = mockTaskList()
   const gone = list.tasks.find((task) => task.uuid === uuid)
   if (gone === undefined) {
@@ -249,4 +250,27 @@ function closedUp(task: Task, gone: TaskRanks): Task {
   }
 
   return { ...task, ranks }
+}
+
+// taskRoutes are the mockup server's routes for your tasks: the list, and
+// every write on it, which answers the list as it stands; a done answers it
+// without the task, and the task as it stands done.
+export function taskRoutes(): Routes {
+  const listed = () => mockTaskList()
+
+  return {
+    ...Object.fromEntries(
+      [
+        'GET /api/tasks',
+        'POST /api/tasks',
+        'POST /api/tasks/track',
+        'POST /api/tasks/undo',
+        'POST /api/tasks/sync',
+        ...['start', 'stop', 'annotations', 'modify'].map(
+          (write) => `POST /api/tasks/{uuid}/${write}`,
+        ),
+      ].map((name) => [name, listed]),
+    ),
+    'POST /api/tasks/{uuid}/done': ({ params }) => mockDone(params.uuid ?? ''),
+  }
 }
