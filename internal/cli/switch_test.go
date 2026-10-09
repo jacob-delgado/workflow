@@ -19,6 +19,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
 // twoDirectories are a directory to start in and one to switch to, each named
@@ -231,5 +232,50 @@ func TestTheWebServerCannotReachADirectoryWhoseConfigurationCannotBeRead(t *test
 	// Assert
 	if here := ran.workingDir(); !errors.Is(err, webserver.ErrConfigurationUnreadable) || here != start {
 		t.Errorf("Reach = %v, now in %q; want ErrConfigurationUnreadable, still in %s", err, here, start)
+	}
+}
+
+// runRootUnmoving is runRootSwitching in a process the operating system will
+// not move to another directory.
+func runRootUnmoving(t *testing.T, where place, nexts []tui.Next, args ...string) *rootRun {
+	t.Helper()
+
+	ran := rootRun{nexts: nexts, env: environmentFor(t, where)}
+	ran.env.Chdir = func(string) error { return errMoveRefused }
+
+	ran.stdout, ran.stderr, ran.err = executeRootIn(t, ran.env, ran.runInterface, ran.serveWebAt, args...)
+
+	return &ran
+}
+
+func TestTheWebServerCannotReachADirectoryNotThere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start, other := twoDirectories(t)
+	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
+
+	// Act
+	_, err := ran.deps.Reach(filepath.Join(other, "gone"))
+
+	// Assert
+	if here := ran.workingDir(); !errors.Is(err, workdirs.ErrNotFound) || here != start {
+		t.Errorf("Reach = %v, now in %q; want workdirs.ErrNotFound, still in %s", err, here, start)
+	}
+}
+
+func TestTheWebServerCannotReachADirectoryTheProcessCannotMoveTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start, other := twoDirectories(t)
+	ran := runRootUnmoving(t, place{dir: start, home: t.TempDir()}, nil, "--web")
+
+	// Act
+	_, err := ran.deps.Reach(other)
+
+	// Assert
+	if here := ran.workingDir(); !errors.Is(err, errMoveRefused) || here != start {
+		t.Errorf("Reach = %v, now in %q; want the move's failure, still in %s", err, here, start)
 	}
 }

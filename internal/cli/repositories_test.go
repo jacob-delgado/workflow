@@ -5,6 +5,7 @@ package cli_test
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -214,5 +215,65 @@ func TestRepositoriesWithAConfigurationItCannotReadFails(t *testing.T) {
 	// Assert
 	if err == nil || printed.stdout != "" {
 		t.Errorf("repositories = %v, printed %q; want an error and nothing printed", err, printed.stdout)
+	}
+}
+
+// unreadableFavorites is a repository run from a home whose favorites are
+// kept in a file that is not a database.
+func unreadableFavorites(t *testing.T) place {
+	t.Helper()
+
+	repo, _ := repoWithWorktree(t)
+	home := t.TempDir()
+	dir := storeDirIn(t, home)
+
+	err := os.MkdirAll(dir, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(filepath.Join(dir, "kept.db"), []byte("not a database\n"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return place{dir: repo, home: home}
+}
+
+func TestRepositoriesWithFavoritesItCannotReadListsTheRestAndFails(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	where := unreadableFavorites(t)
+
+	// Act
+	printed, err := runStreamsAt(t, where, unusedPrompt(t), "repositories")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "reading your favorites") {
+		t.Errorf("repositories = %v, want it to say the favorites could not be read", err)
+	}
+
+	if !strings.HasPrefix(printed.stdout, "here") || !strings.Contains(printed.stdout, where.dir) {
+		t.Errorf("repositories printed:\n%s\nwant where it works listed all the same", printed.stdout)
+	}
+}
+
+func TestRepositoriesAsJSONWithFavoritesItCannotReadPrintsTheRestAndFails(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	where := unreadableFavorites(t)
+
+	// Act
+	printed, err := runStreamsAt(t, where, unusedPrompt(t), "repositories", "--json")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "reading your favorites") {
+		t.Errorf("repositories --json = %v, want it to say the favorites could not be read", err)
+	}
+
+	if report := decodeRepositories(t, printed.stdout); report.Here.Dir != where.dir {
+		t.Errorf("repositories --json printed:\n%s\nwant where it works all the same", printed.stdout)
 	}
 }
