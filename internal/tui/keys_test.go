@@ -17,6 +17,7 @@ import (
 const (
 	refreshAction  = "refresh"
 	mergeAction    = "merge"
+	commitAction   = "commit"
 	openLinkAction = "open-link"
 	addTaskAction  = "add-task"
 	worktreeAction = "worktree"
@@ -74,7 +75,7 @@ func TestCheckKeysRefusesTwoActionsSharingAKeyInOneContext(t *testing.T) {
 	// Arrange
 	// commit and stage-all both live on the Commits pane; binding commit to
 	// stage-all's key makes a press there ambiguous.
-	colliding := map[string]string{"commit": "a"}
+	colliding := map[string]string{commitAction: "a"}
 
 	// Act
 	err := tui.CheckKeys(colliding)
