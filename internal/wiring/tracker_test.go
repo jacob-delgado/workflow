@@ -5,7 +5,7 @@ package wiring_test
 
 // With Jira configured and a repository opting into its forge's issues, the
 // Issues list draws on both: these drive that combined tracker through
-// wiring.Deps against a stand-in Jira and a stand-in gh.
+// Environment.Deps against a stand-in Jira and a stand-in gh.
 
 import (
 	"errors"
