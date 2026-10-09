@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"testing"
@@ -14,9 +15,11 @@ import (
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
-// realDir is the directory a case links to, and anaAPI where a case is.
+// realDir is the directory a case links to, absent a name nothing in a
+// case's tree is at, and anaAPI where a case is.
 const (
 	realDir = "real"
+	absent  = "gone"
 	anaAPI  = "/home/ana/src/api"
 )
 
@@ -109,9 +112,11 @@ func TestADirectoryLinkedToIsListedLikeOneInIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// A link to a file, or to nothing at all, is nowhere to work.
 	root := tree(t, []string{realDir}, []string{"file"})
 	link(t, root, realDir, "link")
 	link(t, root, "file", "filelink")
+	link(t, root, absent, "dangling")
 
 	// Act
 	listing, err := workdirs.List(root, "")
@@ -152,9 +157,11 @@ func TestADirectoryIsCheckedBeforeItIsUsed(t *testing.T) {
 		want error
 	}{
 		"a directory":     {dir: filepath.Join(root, "here"), want: nil},
-		"nothing there":   {dir: filepath.Join(root, "gone"), want: workdirs.ErrNotFound},
+		"nothing there":   {dir: filepath.Join(root, absent), want: workdirs.ErrNotFound},
 		"a file":          {dir: filepath.Join(root, "file"), want: workdirs.ErrNotADirectory},
 		"a relative path": {dir: "here", want: workdirs.ErrNotAbsolute},
+		// The operating system cannot look past a file for a directory in it.
+		"a path through a file": {dir: filepath.Join(root, "file", "here"), want: workdirs.ErrUnreadable},
 	}
 
 	for name, check := range cases {
@@ -202,6 +209,7 @@ func TestADirectoryUnderYourHomeIsShownFromIt(t *testing.T) {
 		"under it":           {home: "/home/ana", want: "~/src/api"},
 		"no home":            {home: "", want: anaAPI},
 		"a name it prefixes": {home: "/home/an", want: anaAPI},
+		"a directory above":  {home: anaAPI + "/notes", want: anaAPI},
 	}
 
 	for name, shown := range cases {
@@ -237,7 +245,8 @@ func TestTwoNamesForOneDirectoryAreTheSame(t *testing.T) {
 	}{
 		"a link and where it leads": {one: "link", other: realDir, want: true},
 		"two directories":           {one: "other", other: realDir, want: false},
-		"nothing there":             {one: "gone", other: "gone", want: false},
+		"nothing there":             {one: absent, other: absent, want: false},
+		"one of them not there":     {one: realDir, other: absent, want: false},
 	}
 
 	for name, pair := range cases {
@@ -332,6 +341,45 @@ func TestADirectoryOutsideYourHomeIsShownAsItIs(t *testing.T) {
 	// Act & Assert
 	if got := workdirs.Shown("/opt/tools", "/home/ana"); got != "/opt/tools" {
 		t.Errorf("Shown = %q, want /opt/tools", got)
+	}
+}
+
+func TestARelativeDirectoryIsShownAsItIs(t *testing.T) {
+	t.Parallel()
+
+	// Act & Assert
+	// Nothing says where a relative path starts, so it cannot be put under a
+	// home written from the root.
+	if got := workdirs.Shown(filepath.Join("src", "api"), "/home/ana"); got != filepath.Join("src", "api") {
+		t.Errorf("Shown = %q, want src/api as it was written", got)
+	}
+}
+
+func TestADirectoryThatCannotBeReadIsNotListed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
+		t.Skip("a directory's mode does not keep this user from listing it here")
+	}
+
+	root := tree(t, []string{"sealed/inside"}, nil)
+	sealed := filepath.Join(root, "sealed")
+
+	// Searchable, so it is there to check, but not readable, so not listable.
+	err := os.Chmod(sealed, 0o100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = os.Chmod(sealed, 0o700) })
+
+	// Act
+	listing, err := workdirs.List(sealed, "")
+
+	// Assert
+	if !errors.Is(err, workdirs.ErrUnreadable) || len(listing.Entries) != 0 {
+		t.Errorf("List = %v, %v; want nothing listed and ErrUnreadable", names(listing), err)
 	}
 }
 
