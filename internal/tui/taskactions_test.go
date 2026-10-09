@@ -374,7 +374,7 @@ func TestEnterOnALinkedTaskGoesToItsIssue(t *testing.T) {
 		// Task 9 is for no issue.
 		"a task for no issue": {
 			arrange: []string{tasksPane, downAction, downAction},
-			want:    []string{focused(tasksTitle), "▸ ○   9 Renew the cert"}, refuse: []string{focused(issuesPane)},
+			want:    []string{focused(tasksTitle), nineSelected}, refuse: []string{focused(issuesPane)},
 			reads: 1,
 		},
 		// Task 20 is for an issue the Issues pane does not list, so there is no

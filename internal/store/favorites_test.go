@@ -200,3 +200,29 @@ func TestOnlyAStoreThatIsOnAndWritableWrites(t *testing.T) {
 		})
 	}
 }
+
+func TestAStoreThatIsOnKeepsWhetherOrNotItWrites(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	cases := map[string]struct {
+		kept store.Store
+		want bool
+	}{
+		"on":        {kept: store.New(dir, false), want: true},
+		"read-only": {kept: store.New(dir, false).ReadOnly(), want: true},
+		"off":       {kept: store.New(dir, true), want: false},
+		"nowhere":   {kept: store.New("", false), want: false},
+	}
+
+	for name, which := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := which.kept.Keeps(); got != which.want {
+				t.Errorf("Keeps = %v, want %v", got, which.want)
+			}
+		})
+	}
+}

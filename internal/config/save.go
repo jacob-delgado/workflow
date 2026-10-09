@@ -102,22 +102,12 @@ func Save(path string, cfg Config) error {
 // planted where the file goes cannot steer its credentials elsewhere. The
 // refusal wraps fs.ErrExist.
 func Create(path string, cfg Config) error {
-	encoded, err := encode(cfg)
-	if err != nil {
-		return err
-	}
-
-	return createPrivate(path, encoded)
+	return createPrivate(path, encode(cfg))
 }
 
 // write encodes the configuration into path.
 func write(path string, cfg Config) error {
-	encoded, err := encode(cfg)
-	if err != nil {
-		return err
-	}
-
-	err = writePrivate(path, encoded)
+	err := writePrivate(path, encode(cfg))
 	if err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
@@ -126,19 +116,21 @@ func write(path string, cfg Config) error {
 }
 
 // encode is the configuration as a file holds it.
-func encode(cfg Config) ([]byte, error) {
+func encode(cfg Config) []byte {
 	return indented(cfg)
 }
 
-// indented is value as JSON a person can edit, one setting to a line.
-func indented(value any) ([]byte, error) {
-	// Trade-off TRADE-13: a Config, and values decoded from JSON, always encode.
+// indented is value, a Config or plain JSON values, as JSON a person can
+// edit, one setting to a line. Neither can fail to encode, so a failure is a
+// defect, which panics, as encodeValue's does.
+func indented(value any) []byte {
+	// Trade-off TRADE-13: a Config, and plain JSON values, always encode.
 	encoded, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("encoding configuration: %w", err)
+		panic("encoding configuration: " + err.Error())
 	}
 
-	return append(encoded, '\n'), nil
+	return append(encoded, '\n')
 }
 
 // writePrivate replaces the file at path with one only its owner can reach,

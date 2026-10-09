@@ -5,6 +5,7 @@ package forge_test
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -280,5 +281,92 @@ func TestJobLogReadsASlowLongLogToItsEnd(t *testing.T) {
 	// Assert
 	if err != nil || !strings.HasSuffix(log.Text, "\nthe real end") {
 		t.Errorf("JobLog ends %q, %v; want the log's last line", log.Text[max(0, len(log.Text)-40):], err)
+	}
+}
+
+// storageBehind is a client whose forge answers a job's log with a redirect
+// to location, and whose transport hands every other request — the one to the
+// storage — to storage, recording each address asked.
+func storageBehind(location string, storage forge.Doer) (forge.Client, *heard) {
+	asked := &heard{}
+
+	transport := func(request *http.Request) (*http.Response, error) {
+		asked.note(request)
+
+		if request.URL.Host != "api.example.com" {
+			return storage(request)
+		}
+
+		return &http.Response{
+			StatusCode: http.StatusFound,
+			Header:     http.Header{"Location": {location}},
+			Body:       http.NoBody,
+		}, nil
+	}
+
+	return forge.New(transport, "https://api.example.com", secret), asked
+}
+
+// storedLog is a storage answering with body.
+func storedLog(body io.Reader) forge.Doer {
+	return func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(body)}, nil
+	}
+}
+
+func TestJobLogRefusesARedirectToNoAddressAtAll(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Go's own client never hands such an answer on, but the transport is a
+	// seam, and one that did must not have the address guessed at.
+	client, asked := storageBehind("https://storage.example.com/%zz", storedLog(strings.NewReader("log")))
+
+	// Act
+	_, err := client.JobLog(t.Context(), githubRepo(), failedRun())
+
+	// Assert
+	if !errors.Is(err, forge.ErrInsecureLog) || len(asked.paths) != 1 {
+		t.Errorf("JobLog = %v after asking %v; want ErrInsecureLog and the storage never asked", err, asked.paths)
+	}
+}
+
+func TestJobLogKeepsTheStoragesAddressOutOfItsUnreachableError(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The storage's address is signed, so it is as much a credential as the
+	// token is.
+	unreachable := func(*http.Request) (*http.Response, error) { return nil, errBrokeOff }
+	client, _ := storageBehind("https://storage.example.com/log?signature=signed-for-this-job", unreachable)
+
+	// Act
+	_, err := client.JobLog(t.Context(), githubRepo(), failedRun())
+
+	// Assert
+	if !errors.Is(err, forge.ErrUnreachable) || !errors.Is(err, errBrokeOff) {
+		t.Errorf("JobLog = %v, want ErrUnreachable for why the storage was not reached", err)
+	}
+
+	if err != nil && (strings.Contains(err.Error(), "storage.example.com") || strings.Contains(err.Error(), "signed")) {
+		t.Errorf("JobLog = %q, want the storage's signed address left out", err)
+	}
+}
+
+func TestJobLogSaysALogThatBreaksOffWasNotRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The log's start arrives, then the connection drops: what came is no
+	// end of the log, so none of it is shown as one.
+	breaking := io.MultiReader(strings.NewReader("--- FAIL: TestRetry\n"), brokenBody{})
+	client, _ := storageBehind("https://storage.example.com/log", storedLog(breaking))
+
+	// Act
+	log, err := client.JobLog(t.Context(), githubRepo(), failedRun())
+
+	// Assert
+	if !errors.Is(err, errBrokeOff) || !strings.Contains(err.Error(), "reading the log") || log.Text != "" {
+		t.Errorf("JobLog = %+v, %v; want no log and why it broke off", log, err)
 	}
 }

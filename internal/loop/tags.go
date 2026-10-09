@@ -161,6 +161,38 @@ func (t Tags) Mentions(checkedGroupIDs []string) (messaging.Mentions, error) {
 	return messaging.NewMentions(users, checkedGroupIDs)
 }
 
+// Proposed is the tags as proposed, with no one's choice changed: the linked
+// user owners, and the groups that start checked. An ID not shaped like its
+// kind is left out, where Mentions refuses the lot: a proposal posted as it
+// stands has no one to ask about it.
+func (t Tags) Proposed() messaging.Mentions {
+	var mentions messaging.Mentions
+
+	for _, owner := range t.Owners {
+		if owner.Team || owner.State != OwnerLinked {
+			continue
+		}
+
+		user, err := messaging.ParseSlackUser(owner.Slack.ID)
+		if err == nil {
+			mentions.Users = append(mentions.Users, user)
+		}
+	}
+
+	for _, group := range t.Groups {
+		if !group.Checked {
+			continue
+		}
+
+		id, err := messaging.ParseSlackGroup(group.Slack.ID)
+		if err == nil {
+			mentions.Groups = append(mentions.Groups, id)
+		}
+	}
+
+	return mentions
+}
+
 // SameOwner reports whether two forge owner names name the same user or team:
 // both forges read them without regard to case, so a CODEOWNERS file may spell
 // an owner differently from the name a link was saved under.

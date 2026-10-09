@@ -174,13 +174,8 @@ func answered(response *http.Response, err error) (*http.Response, error) {
 // followLog asks the storage a log was redirected to for it, refusing an
 // address that is not https, and sending no token.
 func (c Client) followLog(ctx context.Context, location string) (*http.Response, error) {
-	target, err := url.Parse(location)
-	if err != nil || target.Scheme != "https" {
-		return nil, ErrInsecureLog
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
-	if err != nil {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, location, nil)
+	if err != nil || request.URL.Scheme != "https" {
 		return nil, ErrInsecureLog
 	}
 

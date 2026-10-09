@@ -235,6 +235,74 @@ func TestMentionsRefuseAGroupNotOffered(t *testing.T) {
 	}
 }
 
+// proposal is a hand-made proposal: Ana linked, Dan not, the control-plane
+// team linked to its group, which starts checked, and the API reviewers'
+// group offered unchecked.
+func proposal() loop.Tags {
+	return loop.Tags{
+		Owners: []loop.OwnerTag{
+			{Owner: ownerAna, Team: false, State: loop.OwnerLinked, Slack: slackAna()},
+			{Owner: ownerDan, Team: false, State: loop.OwnerUnlinked, Slack: loop.SlackTarget{}},
+			{Owner: controlPlaneTeam, Team: true, State: loop.OwnerLinked, Slack: controlPlanePod()},
+		},
+		Groups: []loop.GroupTag{
+			{Slack: controlPlanePod(), Checked: true, FromOwners: true},
+			{Slack: apiReviewers(), Checked: false, FromOwners: false},
+		},
+	}
+}
+
+func TestProposedTagsTheLinkedPeopleAndTheGroupsThatStartChecked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	tags := proposal()
+
+	// Act
+	mentions := tags.Proposed()
+
+	// Assert
+	if line := mentions.Line(); line != "cc <@U0ANA> <!subteam^S0CP>" {
+		t.Errorf("Proposed = %q; want Ana and the control-plane group, and neither Dan nor the API reviewers", line)
+	}
+}
+
+func TestProposedLeavesOutAnIDNotShapedLikeItsKind(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		person loop.SlackTarget
+		group  loop.SlackTarget
+		want   string
+	}{
+		"a person's": {
+			person: loop.SlackTarget{ID: "S0ANA", Label: slackAna().Label}, group: controlPlanePod(), want: "cc <!subteam^S0CP>",
+		},
+		"a group's": {
+			person: slackAna(), group: loop.SlackTarget{ID: "U0CP", Label: "control-plane-pod"}, want: "cc <@U0ANA>",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			tags := proposal()
+			tags.Owners[0].Slack = tt.person
+			tags.Groups[0].Slack = tt.group
+
+			// Act
+			mentions := tags.Proposed()
+
+			// Assert
+			if line := mentions.Line(); line != tt.want {
+				t.Errorf("Proposed = %q, want %q: the ID not shaped like its kind left out, the rest tagged", line, tt.want)
+			}
+		})
+	}
+}
+
 // tagged is a ready-for-review delivery tagging Ana and the control-plane group.
 func tagged(t *testing.T) loop.Delivery {
 	t.Helper()

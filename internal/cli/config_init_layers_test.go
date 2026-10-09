@@ -5,6 +5,8 @@ package cli_test
 
 import (
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -175,5 +177,82 @@ func TestConfigInitTemplateOverAHomeFileWarnsWhenTheLayerIsNotGitIgnored(t *test
 	// Assert
 	if err != nil || !strings.Contains(printed.stderr, "not ignored by git") {
 		t.Errorf("config init --template = %v, said:\n%s\nwant a git-ignore warning for the layer", err, printed.stderr)
+	}
+}
+
+func TestConfigInitOverAHomeFileThatDoesNotParseSaysSoAndWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string][]string{
+		"the template":     strings.Fields("config init --template"),
+		"the guided setup": strings.Fields("config init"),
+	}
+
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// The repository's file would lie over the home file, which cannot
+			// be read for what it would lie over.
+			where := homeAndRepository(t)
+			writeFile(t, where.home, `{`)
+
+			// Act
+			_, err := runStreamsAt(t, where, unusedPrompt(t), args...)
+
+			// Assert
+			home := filepath.Join(where.home, config.FileName)
+			if err == nil || !strings.Contains(err.Error(), home) {
+				t.Errorf("config init over an unreadable home file = %v, want it to name %s", err, home)
+			}
+
+			noConfigWritten(t, where.dir)
+		})
+	}
+}
+
+func TestConfigInitOverAHomeFileIntoADirectoryItCannotWriteSaysSo(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		args   []string
+		prompt func(t *testing.T) cli.Prompt
+	}{
+		"the template": {args: strings.Fields("config init --template"), prompt: unusedPrompt},
+		"the guided setup, every prompt skipped": {
+			args:   strings.Fields("config init"),
+			prompt: func(*testing.T) cli.Prompt { return scripted([]string{""}, []string{""}) },
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			if os.Geteuid() == 0 {
+				t.Skip("root writes into a directory whatever its mode, so the save would succeed")
+			}
+
+			where := homeAndRepository(t)
+
+			err := os.Chmod(where.dir, 0o500)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Cleanup(func() { _ = os.Chmod(where.dir, 0o700) })
+
+			// Act
+			_, err = runStreamsAt(t, where, tt.prompt(t), tt.args...)
+
+			// Assert
+			if !errors.Is(err, fs.ErrPermission) || !strings.Contains(err.Error(), config.FileName) {
+				t.Errorf("config init into a sealed directory = %v, want the file it could not write named", err)
+			}
+
+			noConfigWritten(t, where.dir)
+		})
 	}
 }

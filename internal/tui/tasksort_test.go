@@ -102,3 +102,21 @@ func TestSortingByTagNamesAnUntaggedTaskAsTheFilterDoes(t *testing.T) {
 	requireInOrder(t, view, "by tag", "Renew the cert", "no tag")
 	refuseScreen(t, view, "no tags")
 }
+
+func TestSortingByIssueAddsNothingToARow(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Task 3 has a priority and a tag, either of which a row names when the
+	// list is sorted by it.
+	repo := withTasks()
+	changeTask(repo, trackedTaskUUID, func(task *taskwarrior.Task) { task.Priority, task.Tags = "H", []string{"infra"} })
+	tasks := typing(t, repo.live(t, 140, 40), tasksPane)
+
+	// Act
+	// Most urgent, state, id, tag, then issue: four presses.
+	view := typing(t, tasks, sortTasksKey, sortTasksKey, sortTasksKey, sortTasksKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "by issue", "  3 "+secondIssue+": Add retries  "+secondIssue+" · 8.1")
+}

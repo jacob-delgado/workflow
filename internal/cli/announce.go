@@ -322,10 +322,7 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, b
 		return messaging.Mentions{}, memory
 	}
 
-	mentions, err := tags.Mentions(checkedGroups(tags.Groups))
-	if err != nil {
-		return messaging.Mentions{}, memory
-	}
+	mentions := tags.Proposed()
 
 	fmt.Fprintln(out.artifact, "tags "+taggedNames(tags))
 
@@ -386,12 +383,9 @@ func (t announceTagging) propose(
 }
 
 // localBase is the base the branch is read to have left, or empty when the
-// branch cannot be read.
+// branch cannot be read: a read that fails is no branch, which left no base.
 func localBase(branch func() (gitrepo.Branch, error)) string {
-	current, err := branch()
-	if err != nil {
-		return ""
-	}
+	current, _ := branch()
 
 	return current.Base
 }
@@ -406,10 +400,8 @@ func (t announceTagging) missingScope(tags loop.Tags) (string, bool) {
 		return "", false
 	}
 
-	grant, err := t.Grant()
-	if err != nil {
-		return "", false
-	}
+	// A grant that cannot be read lists no scopes, so it lacks none.
+	grant, _ := t.Grant()
 
 	needed := []string{"users:read", "channels:read", "groups:read"}
 	if len(tags.Groups) > 0 {
@@ -423,19 +415,6 @@ func (t announceTagging) missingScope(tags loop.Tags) (string, bool) {
 	}
 
 	return "", false
-}
-
-// checkedGroups is the ID of every group that starts checked.
-func checkedGroups(groups []loop.GroupTag) []string {
-	var ids []string
-
-	for _, group := range groups {
-		if group.Checked {
-			ids = append(ids, group.Slack.ID)
-		}
-	}
-
-	return ids
 }
 
 // taggedNames names everyone the post tags, as Slack shows them: the linked

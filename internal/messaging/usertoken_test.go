@@ -154,3 +154,47 @@ func TestAUserTokenWithNoSourceSendsNothing(t *testing.T) {
 		t.Errorf("Post = %v (sent %t), want no credential and nothing sent", err, sent.Load())
 	}
 }
+
+// errNoToken is a token source that could not give a token.
+var errNoToken = errors.New("the keychain would not give the token")
+
+func TestATokenSourceThatFailsSendsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var sent atomic.Bool
+
+	client := messaging.New(counting(&sent), messaging.APIBase, userCredentials()).
+		WithToken(func(context.Context, config.Secret) (config.Secret, error) { return "", errNoToken })
+
+	// Act
+	err := client.Post(t.Context(), "", message)
+
+	// Assert
+	if !errors.Is(err, errNoToken) || sent.Load() {
+		t.Errorf("Post = %v (sent %t), want why there was no token and nothing sent", err, sent.Load())
+	}
+}
+
+func TestATokenSlackCallsExpiredThatCannotBeRenewedSaysWhy(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	server, seen := slackExpiringOnce(t, `{"ok":true}`)
+	renewing := func(_ context.Context, expired config.Secret) (config.Secret, error) {
+		if expired == staleToken {
+			return "", errNoToken
+		}
+
+		return staleToken, nil
+	}
+	client := messaging.New(server.Client().Do, server.URL, userCredentials()).WithToken(renewing)
+
+	// Act
+	err := client.Post(t.Context(), "", message)
+
+	// Assert
+	if !errors.Is(err, errNoToken) || len(*seen) != 1 {
+		t.Errorf("Post = %v after %d requests, want why it was not renewed after the one", err, len(*seen))
+	}
+}

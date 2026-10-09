@@ -5,6 +5,7 @@ package forge_test
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -183,6 +184,32 @@ func TestCreatePullRequestOnGitHubStopsAtAssigneesTheForgeRefuses(t *testing.T) 
 	}
 }
 
+func TestCreatePullRequestOnGitHubReportsLabelsTheForgeRefuses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Reviewers and assignees are added, then the token may not label the
+	// pull.
+	client, seen := recordingForge(t, conversation(
+		map[string]string{githubPullsPath: githubPull43},
+		map[string]bool{githubPRIssuePath + "/labels": true}))
+
+	// Act
+	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Reviewers: []string{userAna}, Assignees: []string{userCass}, Labels: []string{labelBug},
+	})
+
+	// Assert
+	if created.Number != 43 || !errors.Is(err, forge.ErrRefused) {
+		t.Fatalf("CreatePullRequest = %+v, %v; want the pull kept and ErrRefused for the labels", created, err)
+	}
+
+	if got := requestTo(*seen, githubPRIssuePath+"/assignees"); got.method != http.MethodPost {
+		t.Errorf("assignees request = %+v, want them added before the labels were refused", got)
+	}
+}
+
 func TestCreatePullRequestOnGitHubRequestsTeamsBySlugAlongsideUsers(t *testing.T) {
 	t.Parallel()
 
@@ -229,6 +256,26 @@ func TestCreatePullRequestOnGitHubNeverRequestsATeamOfAnotherOrganization(t *tes
 	asked := requestTo(*seen, githubReviewersPath)
 	if !reflect.DeepEqual(asked.body["team_reviewers"], []any{apiSlug}) {
 		t.Errorf("team_reviewers = %v, want example's api team alone", asked.body["team_reviewers"])
+	}
+}
+
+func TestCreatePullRequestOnGitHubGivesTeamsLeftOffForOneReasonThatReasonOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, _ := recordingForge(t, conversation(map[string]string{githubPullsPath: githubPull43}, nil))
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		TeamReviewers: []string{"other-org/reviewers", "third-org/api"},
+	})
+
+	// Assert
+	message := fmt.Sprint(err)
+	if !errors.Is(err, forge.ErrTeamOfAnotherOrg) || !strings.Contains(message, "other-org/reviewers, third-org/api") ||
+		strings.Count(message, forge.ErrTeamOfAnotherOrg.Error()) != 1 {
+		t.Errorf("CreatePullRequest = %q; want both teams named, and why once", message)
 	}
 }
 

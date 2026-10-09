@@ -331,24 +331,33 @@ func (f setupForm) chooseKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 }
 
 // answer takes what was typed as the answer to the question asked now, or
-// writes the file once every question is answered.
+// writes the file once every question is answered. Only a question answered
+// by typing asks: handleKey hands a list's keys to chooseKey.
 func (f setupForm) answer(m Model) (Model, tea.Cmd) {
 	typed := strings.TrimSpace(f.input.Value())
 
-	switch f.step {
-	case stepJiraURL:
+	if f.step == stepJiraURL {
 		f.answers.Jira, f.who = config.Jira{BaseURL: typed}, ""
 		m.overlay = f.at(f.afterJiraURL())
-	case stepJiraToken:
+
+		return m, nil
+	}
+
+	if f.step == stepJiraToken {
 		f.answers.Jira.Token = config.Secret(typed)
 
 		return f.check(m)
-	case stepWebhook:
+	}
+
+	if f.step == stepWebhook {
 		f.answers.Webhook = config.Secret(typed)
 		m.overlay = f.at(stepWrite)
-	case stepWrite:
+
+		return m, nil
+	}
+
+	if f.step == stepWrite {
 		return f.write(m)
-	case stepPlace, stepCheckFailed, stepKeychain:
 	}
 
 	return m, nil

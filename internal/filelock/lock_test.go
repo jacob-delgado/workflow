@@ -4,8 +4,10 @@
 package filelock_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/filelock"
@@ -32,11 +34,10 @@ func TestTryLockTakesAFileNoOneHolds(t *testing.T) {
 	file := opened(t, filepath.Join(t.TempDir(), "lock"))
 
 	// Act
-	held, err := filelock.TryLock(file)
-
+	err := filelock.TryLock(file)
 	// Assert
-	if err != nil || !held {
-		t.Errorf("TryLock = %t, %v; want the lock taken", held, err)
+	if err != nil {
+		t.Errorf("TryLock = %v; want the lock taken", err)
 	}
 }
 
@@ -46,17 +47,17 @@ func TestTryLockLeavesALockAnotherOpenFileHolds(t *testing.T) {
 	// Arrange
 	path := filepath.Join(t.TempDir(), "lock")
 
-	held, err := filelock.TryLock(opened(t, path))
-	if err != nil || !held {
-		t.Fatalf("the first TryLock = %t, %v", held, err)
+	err := filelock.TryLock(opened(t, path))
+	if err != nil {
+		t.Fatalf("the first TryLock = %v", err)
 	}
 
 	// Act
-	again, err := filelock.TryLock(opened(t, path))
+	err = filelock.TryLock(opened(t, path))
 
 	// Assert
-	if err != nil || again {
-		t.Errorf("a second TryLock = %t, %v; want the lock left to its holder", again, err)
+	if !errors.Is(err, filelock.ErrHeld) {
+		t.Errorf("a second TryLock = %v; want %v, the lock left to its holder", err, filelock.ErrHeld)
 	}
 }
 
@@ -67,9 +68,9 @@ func TestClosingTheFileLetsItsLockGo(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "lock")
 	first := opened(t, path)
 
-	held, err := filelock.TryLock(first)
-	if err != nil || !held {
-		t.Fatalf("the first TryLock = %t, %v", held, err)
+	err := filelock.TryLock(first)
+	if err != nil {
+		t.Fatalf("the first TryLock = %v", err)
 	}
 
 	err = first.Close()
@@ -78,10 +79,30 @@ func TestClosingTheFileLetsItsLockGo(t *testing.T) {
 	}
 
 	// Act
-	next, err := filelock.TryLock(opened(t, path))
+	err = filelock.TryLock(opened(t, path))
+	// Assert
+	if err != nil {
+		t.Errorf("TryLock after the holder closed = %v; want the lock taken", err)
+	}
+}
+
+func TestTryLockReportsAFileItCannotLock(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := filepath.Join(t.TempDir(), "lock")
+	file := opened(t, path)
+
+	err := file.Close()
+	if err != nil {
+		t.Fatalf("closing the file: %v", err)
+	}
+
+	// Act
+	err = filelock.TryLock(file)
 
 	// Assert
-	if err != nil || !next {
-		t.Errorf("TryLock after the holder closed = %t, %v; want the lock taken", next, err)
+	if err == nil || errors.Is(err, filelock.ErrHeld) || !strings.Contains(err.Error(), path) {
+		t.Errorf("TryLock on a closed file = %v; want a failure other than %v, naming %s", err, filelock.ErrHeld, path)
 	}
 }

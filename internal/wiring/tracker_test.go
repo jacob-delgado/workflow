@@ -74,17 +74,41 @@ func (j *fakeJira) requests() []string {
 	return described
 }
 
+// pullURL is the pull request the tests link to an issue.
+const pullURL = "https://github.com/owner/repo/pull/7"
+
 // bothTrackers is the tracker over the stand-in Jira and the forge's issues
 // for owner/repo on github.com, through gh.
 func bothTrackers(t *testing.T, stand *fakeJira) seams.Jira {
 	t.Helper()
 
+	return trackersOver(t, stand.serve(t))
+}
+
+// trackersOver is the tracker over the Jira at baseURL and the forge's issues
+// for owner/repo on github.com, through gh.
+func trackersOver(t *testing.T, baseURL string) seams.Jira {
+	t.Helper()
+
 	cfg := config.Default()
-	cfg.Jira = config.Jira{BaseURL: stand.serve(t), Token: jiraToken}
+	cfg.Jira = config.Jira{BaseURL: baseURL, Token: jiraToken}
 	cfg.Forge = config.Forge{CLI: true, Kind: githubKind, Host: hostGitHub}
 	cfg.Issues.Forge = true
 
 	return wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: remoteGitHub}, nil).Jira
+}
+
+// unavailableJira is a Jira that answers every request with trouble of its
+// own, and its address.
+func unavailableJira(t *testing.T) string {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(server.Close)
+
+	return server.URL
 }
 
 // keysOf are the keys of the rows a search answered, in order.
@@ -287,14 +311,14 @@ func TestJiraAloneAsksNothingOfAForgeNumber(t *testing.T) {
 
 			return err
 		},
-		"Assign": func(tracker seams.Jira) error { return tracker.Assign("42", "ana") },
-		"AddWorklog": func(tracker seams.Jira) error {
+		seamAssign: func(tracker seams.Jira) error { return tracker.Assign("42", "ana") },
+		seamAddWorklog: func(tracker seams.Jira) error {
 			_, err := tracker.AddWorklog("42", "1h", "")
 
 			return err
 		},
-		"LinkPullRequest": func(tracker seams.Jira) error {
-			return tracker.LinkPullRequest("42", "https://github.com/owner/repo/pull/7", "work")
+		seamLinkPull: func(tracker seams.Jira) error {
+			return tracker.LinkPullRequest("42", pullURL, "work")
 		},
 	}
 
@@ -314,6 +338,78 @@ func TestJiraAloneAsksNothingOfAForgeNumber(t *testing.T) {
 			// Assert
 			if !errors.Is(err, jira.ErrNotFound) || len(stand.requests()) != 0 {
 				t.Errorf("%s(42) = %v, Jira asked %v; want jira.ErrNotFound before Jira is asked", name, err, stand.requests())
+			}
+		})
+	}
+}
+
+func TestOnlyAJiraIssueTakesAWorklogOrAPullRequestLink(t *testing.T) {
+	// A forge issue keeps its time and its links on its own page, so the
+	// combined tracker refuses its number before either tracker is asked.
+	cases := map[string]func(tracker seams.Jira) error{
+		seamAddWorklog: func(tracker seams.Jira) error {
+			_, err := tracker.AddWorklog("42", "1h", "")
+
+			return err
+		},
+		seamLinkPull: func(tracker seams.Jira) error {
+			return tracker.LinkPullRequest("42", pullURL, "work")
+		},
+	}
+
+	for name, ask := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			ghStub := installForgeCLI(t, "gh", forgeReplies{})
+			stand := &fakeJira{}
+			tracker := bothTrackers(t, stand)
+
+			// Act
+			err := ask(tracker)
+
+			// Assert
+			if err == nil || !strings.Contains(err.Error(), "only a Jira issue takes this") ||
+				len(stand.requests()) != 0 || len(ghStub.args()) != 0 {
+				t.Errorf("%s(42) = %v, Jira asked %v, gh asked %v; want it refused before either is asked",
+					name, err, stand.requests(), ghStub.args())
+			}
+		})
+	}
+}
+
+func TestAJiraIssuesWorklogGoesToJira(t *testing.T) {
+	// Arrange
+	installForgeCLI(t, "gh", forgeReplies{})
+
+	stand := &fakeJira{}
+	tracker := bothTrackers(t, stand)
+
+	// Act
+	_, err := tracker.AddWorklog(jiraKey, "1h", "")
+
+	// Assert
+	if err != nil || !slices.ContainsFunc(stand.requests(), func(asked string) bool {
+		return strings.HasPrefix(asked, "POST ") && strings.Contains(asked, "/issue/PROJ-1/worklog")
+	}) {
+		t.Errorf("AddWorklog(PROJ-1) = %v, Jira asked %v; want the worklog posted to Jira", err, stand.requests())
+	}
+}
+
+func TestAJiraThatCannotBeReadFailsTheList(t *testing.T) {
+	// Jira's rows are the list, the forge's only lead it, so a Jira that
+	// cannot be read fails any page of it.
+	for name, startAt := range map[string]int{"the first page": 0, "a later page": 2} {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			installForgeCLI(t, "gh", forgeReplies{search: theBugList})
+			tracker := trackersOver(t, unavailableJira(t))
+
+			// Act
+			result, err := tracker.Search(jira.AssignedToMe, startAt)
+
+			// Assert
+			if err == nil || len(result.Issues) != 0 {
+				t.Errorf("Search from %d = %v, %v; want Jira's failure and nothing listed", startAt, keysOf(result), err)
 			}
 		})
 	}

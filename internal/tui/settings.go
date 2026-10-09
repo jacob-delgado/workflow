@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -373,16 +372,9 @@ func (f settingsForm) save(m Model) (Model, tea.Cmd) {
 // checked is the edited configuration, held to the standard a file on disk
 // is, and to the keymap the interface starts on.
 func (f settingsForm) checked() (config.Config, error) {
-	edited, err := f.edited()
+	cfg, err := f.edited()
 	if err != nil {
 		return config.Config{}, err
-	}
-
-	cfg, err := config.Parse(bytes.NewReader(edited))
-	if err != nil {
-		reason := strings.TrimPrefix(err.Error(), config.ErrInvalid.Error()+": ")
-
-		return config.Config{}, fmt.Errorf("%w: %s", errSettingsInvalid, strings.ReplaceAll(reason, "\n", "; "))
 	}
 
 	err = CheckKeys(cfg.UI.Keys)

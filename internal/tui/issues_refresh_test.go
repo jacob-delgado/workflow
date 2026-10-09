@@ -134,3 +134,32 @@ func TestAClickOnTheFailureMarkPicksNothing(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "▸ ○ OPS-1 In Progress work")
 }
+
+// failsPastTheFirstPage is a search that finds the first three of five issues,
+// and fails asked for the rest, as a tracker that goes down between pages
+// does.
+func failsPastTheFirstPage() func(startAt int) (jira.SearchResult, error) {
+	issues := manyIssues(5)
+
+	return func(startAt int) (jira.SearchResult, error) {
+		if startAt > 0 {
+			return jira.SearchResult{Issues: nil, Total: 0}, jira.ErrUnreachable
+		}
+
+		return jira.SearchResult{Issues: issues[:3], Total: len(issues)}, nil
+	}
+}
+
+func TestAFailedFurtherPageKeepsTheIssuesListed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	listed := issuesScreen(t, failsPastTheFirstPage())
+
+	// Act
+	// Reaching the end of the page asks for the next one.
+	view := typing(t, listed, "j", "j").View().Content
+
+	// Assert
+	requireScreen(t, view, "OPS-1", "OPS-3", "showing 3 of 5")
+}

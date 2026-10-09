@@ -7,7 +7,6 @@ package pgroup
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
@@ -43,10 +42,9 @@ func Isolate(command *exec.Cmd) {
 			return os.ErrProcessDone
 		}
 
-		if err != nil {
-			return fmt.Errorf("killing the process group: %w", err)
-		}
-
-		return nil
+		// Any other failure is a group this user may not signal, which no
+		// test can start; it is named as the system call that failed, and a
+		// kill that worked is nil, as NewSyscallError leaves it.
+		return os.NewSyscallError("kill", err)
 	}
 }

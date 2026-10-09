@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"errors"
 	"net/http"
 	"path/filepath"
 	"slices"
@@ -303,5 +304,29 @@ func TestADefaultScopeSavedInSettingsIsSuggestedWhileNoneIsLearned(t *testing.T)
 				t.Errorf("suggested %q after saving default_scope %q, want %q", next.SuggestedScope, configuredScope, tt.want)
 			}
 		})
+	}
+}
+
+func TestACommitWhoseScopeTheStoreCannotKeepLandsAndIsNoted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var noted []error
+
+	deps := committable()
+	deps.Store.RecordScope = func(string) error { return errSeam }
+	deps.Unexpected = func(_ config.Config, err error) { noted = append(noted, err) }
+	handler := serve(t, deps, config.Default())
+
+	// Act
+	recorder := send(t, handler, http.MethodPost, "/api/commit", `{"type":"fix","scope":"cli","subject":"redact"}`)
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Errorf("status %d (%s), want the commit answered as made", recorder.Code, recorder.Body.String())
+	}
+
+	if len(noted) != 1 || !errors.Is(noted[0], errSeam) {
+		t.Errorf("noted %v, want the store's failure noted once", noted)
 	}
 }

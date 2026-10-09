@@ -136,7 +136,29 @@ func (s Store) openKept(ctx context.Context) (*sql.DB, error) {
 // prepareKept makes the schema in a fresh kept database and refuses one at
 // another version. A file already at this build's costs one read and no lock.
 func prepareKept(ctx context.Context, database *sql.DB) error {
-	state, err := readStateOnOpen(ctx, database)
+	return settleKept(
+		func() (fileState, error) { return readStateOnOpen(ctx, database) },
+		func() error { return makeKeptSchema(ctx, database) },
+	)
+}
+
+// makeKeptSchema makes the schema in one transaction, which takes the write
+// lock as it begins and settles the version again under it, since another
+// process may have made it meanwhile.
+func makeKeptSchema(ctx context.Context, database *sql.DB) error {
+	return inTransaction(ctx, database, "preparing the kept data", func(transaction *sql.Tx) error {
+		return settleKept(
+			func() (fileState, error) { return readState(ctx, transaction) },
+			func() error { return writeKeptSchema(ctx, transaction) },
+		)
+	})
+}
+
+// settleKept reads the kept file's version and acts on it: a file at this
+// build's version is ready, one at none has its schema made, and one at
+// another is refused.
+func settleKept(read func() (fileState, error), makeSchema func() error) error {
+	state, err := read()
 	if err != nil {
 		return err
 	}
@@ -145,56 +167,25 @@ func prepareKept(ctx context.Context, database *sql.DB) error {
 	case keptSchemaVersion:
 		return nil
 	case 0:
-		return makeKeptSchema(ctx, database)
+		return makeSchema()
 	default:
 		return ErrKeptSchemaDiffers
 	}
 }
 
-// makeKeptSchema makes the schema in one transaction, which takes the write
-// lock as it begins and re-reads the version under it, since another process
-// may have made it meanwhile.
-func makeKeptSchema(ctx context.Context, database *sql.DB) error {
-	return inTransaction(ctx, database, "preparing the kept data", func(transaction *sql.Tx) error {
-		state, err := readState(ctx, transaction)
-		if err != nil {
-			return err
-		}
-
-		if state.version != 0 {
-			return keptVersionCheck(state.version)
-		}
-
-		return writeKeptSchema(ctx, transaction)
-	})
-}
-
-// writeKeptSchema makes every kept table and stamps this build's version.
+// writeKeptSchema makes every kept table and stamps this build's version. A
+// PRAGMA binds no placeholder; the version is this package's own constant.
 func writeKeptSchema(ctx context.Context, transaction *sql.Tx) error {
-	for _, statement := range keptSchema() {
+	stampVersion := "PRAGMA user_version = " + strconv.Itoa(keptSchemaVersion)
+
+	for _, statement := range append(keptSchema(), stampVersion) {
 		_, err := transaction.ExecContext(ctx, statement)
 		if err != nil {
 			return fmt.Errorf("preparing the kept data: %w", err)
 		}
 	}
 
-	// A PRAGMA binds no placeholder; the version is this package's own constant.
-	_, err := transaction.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(keptSchemaVersion))
-	if err != nil {
-		return fmt.Errorf("stamping the kept data's version: %w", err)
-	}
-
 	return nil
-}
-
-// keptVersionCheck is what a file another process stamped first comes to: at
-// this build's version it is ready, at another it is refused.
-func keptVersionCheck(version int) error {
-	if version == keptSchemaVersion {
-		return nil
-	}
-
-	return ErrKeptSchemaDiffers
 }
 
 // pruneSlackEntities drops every Slack user or group nothing links to any

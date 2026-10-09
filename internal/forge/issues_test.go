@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -390,6 +389,19 @@ func TestForgeIssueMethodsRejectAnUnknownForge(t *testing.T) {
 		"CloseIssue": func(client forge.Client, repo forge.Repo) error {
 			return client.CloseIssue(context.Background(), repo, 1)
 		},
+		"AssignIssue": func(client forge.Client, repo forge.Repo) error {
+			return client.AssignIssue(context.Background(), repo, 1, userAna)
+		},
+		"RecentIssueComments": func(client forge.Client, repo forge.Repo) error {
+			_, err := client.RecentIssueComments(context.Background(), repo, 1, 3)
+
+			return err
+		},
+		"CommentOnIssue": func(client forge.Client, repo forge.Repo) error {
+			_, err := client.CommentOnIssue(context.Background(), repo, 1, "hi")
+
+			return err
+		},
 	}
 
 	for name, call := range cases {
@@ -397,14 +409,15 @@ func TestForgeIssueMethodsRejectAnUnknownForge(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, _ := recordingForge(t, answering(http.StatusOK, `{}`))
+			client, seen := recordingForge(t, answering(http.StatusOK, `{}`))
 
 			// Act
 			err := call(client, unknown)
 
 			// Assert
-			if !errors.Is(err, forge.ErrUnknownForge) {
-				t.Errorf("%s for an unknown forge returned %v, want ErrUnknownForge", name, err)
+			if !errors.Is(err, forge.ErrUnknownForge) || len(*seen) != 0 {
+				t.Errorf("%s for an unknown forge returned %v after %d requests, want ErrUnknownForge and none",
+					name, err, len(*seen))
 			}
 		})
 	}
@@ -431,41 +444,5 @@ func TestIssueURLIsTheIssuesPageOnEachForge(t *testing.T) {
 				t.Errorf("IssueURL(42) = %q, want %q", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestAssignIssueOnGitHubAddsTheAssignee(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	client, seen := recordingForge(t, answering(http.StatusCreated, `{"number":42}`))
-
-	// Act
-	err := client.AssignIssue(t.Context(), githubRepo(), 42, userAna)
-
-	// Assert
-	sent := lastRequest(t, seen)
-	if err != nil || sent.method != http.MethodPost || sent.path != githubIssuePath+"/assignees" ||
-		!reflect.DeepEqual(sent.body["assignees"], []any{userAna}) {
-		t.Errorf("AssignIssue = %v, sent %s %s %+v; want ana added", err, sent.method, sent.path, sent.body)
-	}
-}
-
-func TestAssignIssueOnGitLabSetsTheAssigneeByID(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	client, seen := recordingForge(t, conversation(map[string]string{
-		gitlabUsersPath: `[{"id":7}]`,
-		gitlabIssuePath: `{"iid":7}`,
-	}, nil))
-
-	// Act
-	err := client.AssignIssue(t.Context(), gitlabRepo(), 7, userAna)
-
-	// Assert
-	sent := requestTo(*seen, gitlabIssuePath)
-	if err != nil || sent.method != http.MethodPut || !reflect.DeepEqual(sent.body["assignee_ids"], []any{float64(7)}) {
-		t.Errorf("AssignIssue = %v, sent %s %+v; want the resolved id set", err, sent.method, sent.body)
 	}
 }

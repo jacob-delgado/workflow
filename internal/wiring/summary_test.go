@@ -97,6 +97,24 @@ func TestYourCommitsAreReadFromTheRepositoryWorkflowIsIn(t *testing.T) {
 	}
 }
 
+func TestYourCommitsInARepositoryNoLongerThereSayWhy(t *testing.T) {
+	// Arrange
+	// The session's repository was removed while it ran: git can say nothing
+	// of it now, not even which repository its worktrees share.
+	isolateGit(t)
+
+	removed := wiring.Workspace{Root: t.TempDir(), Repository: true}
+	gitSeams := wired(t, config.Default(), removed, nil).Git
+
+	// Act
+	read := gitSeams.CommitsBetween(summaryDay())
+
+	// Assert
+	if len(read) != 1 || read[0].Failed == nil {
+		t.Errorf("CommitsBetween in a repository no longer there = %+v, want why it could not be read", read)
+	}
+}
+
 // committedOn is a repository whose one commit of yours was written on the
 // day summaryDay reads, under email.
 func committedOn(t *testing.T, email string) string {

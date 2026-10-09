@@ -8,8 +8,10 @@ package cli_test
 // (fakeSlack), accepts the refresh it makes.
 
 import (
-	"io"
+	"errors"
+	"io/fs"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +19,8 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/slackauth"
+	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // slackClientID is the Slack app's client ID the login is given.
@@ -237,21 +241,34 @@ func TestSlackLoginRefusalsExitInTheirFamily(t *testing.T) {
 func TestSlackLoginWithNoTerminalSaysToRunItAtOne(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	dir := t.TempDir()
-	writeFile(t, dir, slackUserTokenFile)
-
-	closed := func(string) (string, error) { return "", io.EOF }
-
-	// Act
-	_, err := runGuided(t, dir, cli.Prompt{Line: closed, Secret: closed}, "slack", "login")
-
-	// Assert
-	if err == nil || !strings.Contains(err.Error(), "at a terminal") {
-		t.Errorf("slack login with stdin closed = %v, want it to say to run it at a terminal", err)
+	// Each case is where the input ends.
+	cases := map[string]cli.Prompt{
+		"at the client ID": {Line: answersThenEnds(), Secret: answersThenEnds()},
+		"at the refresh token": {
+			Line: answersThenEnds(slackClientID), Secret: answersThenEnds("client-secret-9999"),
+		},
 	}
 
-	wantExit(t, err, 2)
+	for name, prompt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			dir := t.TempDir()
+			path := writeFile(t, dir, slackUserTokenFile)
+
+			// Act
+			_, err := runGuided(t, dir, prompt, "slack", "login")
+
+			// Assert
+			if err == nil || !strings.Contains(err.Error(), "at a terminal") {
+				t.Errorf("slack login with stdin closed = %v, want it to say to run it at a terminal", err)
+			}
+
+			wantExit(t, err, 2)
+			unchanged(t, path, slackUserTokenFile)
+		})
+	}
 }
 
 func TestSlackLoginThatSlackRefusesLeavesTheFileAsItWas(t *testing.T) {
@@ -275,4 +292,191 @@ func TestSlackLoginThatSlackRefusesLeavesTheFileAsItWas(t *testing.T) {
 	// Assert
 	unchanged(t, path, contents)
 	wantExit(t, err, 3)
+}
+
+// slackRefreshing is a Slack that accepts a login's refresh, doing changed
+// first, and answers auth.test for ana in Acme, for a login that fails once
+// Slack has given back a new pair. It points the commands at itself until the
+// test ends.
+func slackRefreshing(t *testing.T, changed func()) {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		answer := `{"ok":true,"team":"Acme","user":"ana","team_id":"` + slackWorkspace + `"}`
+
+		if request.URL.Path == slackRefresh {
+			changed()
+
+			answer = slackRenewed
+		}
+
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(answer))
+	}))
+	t.Cleanup(server.Close)
+	setVariable(t, wiring.SlackAPIVariable, server.URL)
+}
+
+// breakFile writes what no configuration parses over the file at path.
+func breakFile(t *testing.T, path string) func() {
+	t.Helper()
+
+	return func() {
+		err := os.WriteFile(path, []byte("{"), 0o600)
+		if err != nil {
+			t.Errorf("breaking %s: %v", path, err)
+		}
+	}
+}
+
+// loginTyped is a prompt typing a login for the app slackClientID.
+func loginTyped() cli.Prompt {
+	return asking([]string{slackClientID}, typedLogin(), new([]string), new([]string))
+}
+
+func TestSlackLoginStopsWhenAnAnswerCannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	path := writeFile(t, dir, slackUserTokenFile)
+	broken := func(string) (string, error) { return "", errPromptBroke }
+
+	// Act
+	_, err := runGuided(t, dir, cli.Prompt{Line: broken, Secret: broken}, "slack", "login")
+
+	// Assert
+	if !errors.Is(err, errPromptBroke) {
+		t.Errorf("slack login = %v, want the failed read surfaced", err)
+	}
+
+	unchanged(t, path, slackUserTokenFile)
+}
+
+func TestSlackLoginWithAFileThatDoesNotParseAsksNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	path := writeFile(t, dir, `{`)
+
+	// Act
+	_, err := runGuided(t, dir, unusedPrompt(t), "slack", "login")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), path) {
+		t.Errorf("slack login = %v, want it to name the file it cannot read, %s", err, path)
+	}
+
+	wantExit(t, err, 3)
+}
+
+func TestSlackLoginThatCannotKeepThePairSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The file keeps the app's secret, so the pair is kept there; it stops
+	// parsing while Slack answers the refresh.
+	dir := t.TempDir()
+	path := writeFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
+	slackRefreshing(t, breakFile(t, path))
+
+	// Act
+	_, err := runGuided(t, dir, loginTyped(), "slack", "login")
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrNotKept) {
+		t.Errorf("slack login = %v, want slackauth.ErrNotKept", err)
+	}
+}
+
+func TestSlackLoginThatCannotNameTheAppSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The pair is kept in the home file, and the repository's file, which
+	// the app is named in, stops parsing while Slack answers the refresh.
+	where := place{dir: t.TempDir(), home: t.TempDir()}
+	writeFile(t, where.home, `{}`)
+	path := writeFile(t, where.dir, slackUserTokenFile)
+	slackRefreshing(t, breakFile(t, path))
+
+	// Act
+	_, err := runStreamsAt(t, where, loginTyped(), "slack", "login")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), path) {
+		t.Errorf("slack login = %v, want it to name the file it could not write the app into, %s", err, path)
+	}
+
+	held, readErr := os.ReadFile(filepath.Join(where.home, config.FileName))
+	if readErr != nil || !strings.Contains(string(held), "xoxe-1-next") {
+		t.Errorf("the home file holds %q (%v), want the pair Slack gave back kept there", held, readErr)
+	}
+}
+
+func TestSlackLoginThatCannotWriteTheAppsNameSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	if os.Geteuid() == 0 {
+		t.Skip("root writes into a directory whatever its mode, so the save would succeed")
+	}
+
+	// The pair is kept in the home file; the repository's file, which the app
+	// is named in, sits in a directory nothing can be written in.
+	where := place{dir: t.TempDir(), home: t.TempDir()}
+	home := writeFile(t, where.home, `{}`)
+	path := writeFile(t, where.dir, slackUserTokenFile)
+	slackRefreshing(t, func() {})
+
+	err := os.Chmod(where.dir, 0o500)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = os.Chmod(where.dir, 0o700) })
+
+	// Act
+	_, err = runStreamsAt(t, where, loginTyped(), "slack", "login")
+
+	// Assert
+	if !errors.Is(err, fs.ErrPermission) || !strings.Contains(err.Error(), path) {
+		t.Errorf("slack login = %v, want the write to %s refused", err, path)
+	}
+
+	held, readErr := os.ReadFile(home)
+	if readErr != nil || !strings.Contains(string(held), "xoxe-1-next") {
+		t.Errorf("the home file holds %q (%v), want the pair Slack gave back kept there", held, readErr)
+	}
+
+	unchanged(t, path, slackUserTokenFile)
+}
+
+func TestSlackLoginWhoseTokenSlackThenRefusesSaysSoHavingKeptIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fakeSlack(t, map[string]slackAnswer{
+		slackRefresh:  {http.StatusOK, slackRenewed},
+		slackAuthTest: {http.StatusOK, `{"ok":false,"error":"invalid_auth"}`},
+	})
+
+	dir := t.TempDir()
+	path := writeFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
+
+	// Act
+	printed, err := runStreams(t, dir, loginTyped(), "slack", "login")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "invalid_auth") || strings.Contains(printed.stderr, "Logged in") {
+		t.Errorf("slack login = %v, said %q; want Slack's refusal, not a login", err, printed.stderr)
+	}
+
+	held, readErr := os.ReadFile(path)
+	if readErr != nil || !strings.Contains(string(held), "xoxe-1-next") {
+		t.Errorf("%s holds %q (%v), want the pair Slack gave back kept", path, held, readErr)
+	}
 }

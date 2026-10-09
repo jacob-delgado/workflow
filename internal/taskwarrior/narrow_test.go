@@ -255,3 +255,32 @@ func TestATasksSearchableFieldsAreLowerCased(t *testing.T) {
 		t.Errorf("Searchable() = %q, want %q", fields, want)
 	}
 }
+
+func TestANarrowingNarrowsOnlyWithSomethingPickedOrTyped(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		narrowing taskwarrior.Narrowing
+		want      bool
+	}{
+		"nothing": {narrowing: taskwarrior.Narrowing{}, want: false},
+		"a value picked": {
+			narrowing: taskwarrior.Narrowing{
+				Picked: []taskwarrior.Facet{{Kind: taskwarrior.FacetState, Value: taskwarrior.StateWaiting.String()}},
+			},
+			want: true,
+		},
+		"text typed": {narrowing: taskwarrior.Narrowing{Text: "cert"}, want: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.narrowing.Narrows(); got != tt.want {
+				t.Errorf("Narrows() of %+v = %v, want %v", tt.narrowing, got, tt.want)
+			}
+		})
+	}
+}

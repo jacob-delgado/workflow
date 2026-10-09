@@ -76,7 +76,13 @@ vars:
   # reaches. They carry no test, since a test through internals or a refactor
   # made only to reach them is worse than the gap; the CLI's Slack paths,
   # which a fake Slack could reach, were tested instead.
-  BRANCH_COVERAGE_MIN: 91
+  #
+  # It rose 91→93 when the report stopped being a worklist alone: every
+  # condition that never ran and every error arm never seen got a test, a
+  # refactor that left no such arm, or a line of scripts/gobco-allowlist.txt
+  # naming the trade-off that keeps it, and the gate now fails a new one. The
+  # report then read 95.4%, and the floor is floor(measured) - 2.
+  BRANCH_COVERAGE_MIN: 93
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
   # container:check needs a VM of about 8 GiB: knip's parser reserves 6 GiB in
   # one allocation, and golangci-lint alone is killed for memory in the 2 GiB a
@@ -314,7 +320,9 @@ tasks:
     cmds:
       # Statement coverage cannot see this: an `if a && b` counts as covered the
       # moment the line runs. gobco reports each condition never observed both
-      # ways, which is a list of missing test cases rather than a number to chase.
+      # ways, which is a list of missing test cases rather than a number to chase;
+      # one never evaluated, or an error arm never seen, fails unless
+      # scripts/gobco-allowlist.txt keeps it for a trade-off.
       # gobco measures a package by running its tests: the same scrub as `test`.
       - unset $(git rev-parse --local-env-vars); scripts/gobco-report.sh {{.BRANCH_COVERAGE_MIN}} {{.GO_PKGS}}
 

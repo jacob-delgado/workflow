@@ -78,3 +78,21 @@ func TestDoctorUnderDryRunHoldsBackARefreshThatWouldWrite(t *testing.T) {
 		t.Errorf("the configuration file changed under --dry-run (%v)", err)
 	}
 }
+
+func TestDoctorUnderDryRunCallsASlackTokenNeverLoggedInMissing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The file keeps the app's secret but no refresh token: the login was
+	// never finished.
+	dir := t.TempDir()
+	writeFile(t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999","channel":"#dev"}}`)
+
+	// Act
+	output, _ := run(t, dir, "doctor", "--json", "--online", "--dry-run")
+
+	// Assert
+	if status := credentialStatusIn(decodeReport(t, output), messagingService); status != missingStatus {
+		t.Errorf("the Slack check under --dry-run = %q, want missing:\n%s", status, output)
+	}
+}

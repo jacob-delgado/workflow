@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
@@ -181,6 +182,29 @@ func TestCreateWorktreeNeverForwardsGitsOwnWords(t *testing.T) {
 	}
 }
 
+func TestCreateWorktreeForAnIssueJiraDoesNotHaveMakesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	called := false
+	deps := worktreeDeps()
+	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrNotFound }
+	deps.Git.CreateWorktree = func(string, string) (string, error) {
+		called = true
+
+		return "", nil
+	}
+
+	// Act
+	recorder := postWorktree(t, deps, webserver.Info{Version: testVersion})
+
+	// Assert
+	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusNotFound ||
+		failure.Code != api.ProblemCodeNotFound || called {
+		t.Errorf("status/code %d/%s, created %v; want 404/not_found and nothing made", recorder.Code, failure.Code, called)
+	}
+}
+
 func TestCreateWorktreeIsUnavailableWithoutAGitSeam(t *testing.T) {
 	t.Parallel()
 
@@ -243,6 +267,39 @@ func TestASnapshotBranchSaysWhichOtherWorktreeHasItCheckedOut(t *testing.T) {
 	want := map[string]string{testBranchName: " ", targetBranch: apiFeature + " ~/src/api-feat-x"}
 	if !maps.Equal(worktrees, want) {
 		t.Errorf("worktrees by branch = %q, want %q: the one here none, the other its own", worktrees, want)
+	}
+}
+
+func TestASnapshotBranchNamesNoWorktreeWhenTheWorktreesCannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Each branch then reads as one to check out, as it did before worktrees
+	// were read at all, whatever a read that failed gave back with its error.
+	deps := worktreeDeps()
+	deps.Git.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+		return []gitrepo.Worktree{{Dir: apiFeature, Branch: targetBranch, Head: worktreeHead}}, errWorktreeList
+	}
+	cfg := config.Default()
+	cfg.Jira.Project = testProject
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+
+	// Assert
+	named := 0
+
+	for _, branch := range snap.Branches {
+		if worktree := valueOf(branch.Worktree); worktree != "" {
+			t.Errorf("branch %s names worktree %q, want none", branch.Name, worktree)
+		}
+
+		named++
+	}
+
+	if named != 2 {
+		t.Errorf("listed %d branches, want both, the worktrees unread", named)
 	}
 }
 

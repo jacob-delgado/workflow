@@ -355,6 +355,18 @@ func TestACleanRefusesWhatIsNotAPlainFileAndRemovesNothing(t *testing.T) {
 
 			return outside
 		},
+		"a directory where a file is set aside": func(t *testing.T, dir string) string {
+			t.Helper()
+
+			aside := filepath.Join(dir, "kept.db.cleaning")
+
+			err := os.Mkdir(aside, 0o700)
+			if err != nil {
+				t.Fatalf("making the directory: %v", err)
+			}
+
+			return aside
+		},
 		"a directory in a companion's place": func(t *testing.T, dir string) string {
 			t.Helper()
 

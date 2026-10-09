@@ -161,13 +161,12 @@ func TestTwoAnnouncementsAskedAtOnceArePostedOnce(t *testing.T) {
 	}
 }
 
-// postingHeld is a server whose held announcement has been taken to post, its
-// post held open by service, and the frame that took it, which ends once the
-// post is let go.
-func postingHeld(t *testing.T) (http.Handler, *heldPost, <-chan *httptest.ResponseRecorder) {
+// postingHeld is a server over world whose held announcement has been taken
+// to post, its post held open by service, and the frame that took it, which
+// ends once the post is let go.
+func postingHeld(t *testing.T, world *forgeWorld) (http.Handler, *heldPost, <-chan *httptest.ResponseRecorder) {
 	t.Helper()
 
-	world := newForgeWorld()
 	deps := world.deps()
 	service := newHeldPost()
 	deps.Messaging.Post = service.post
@@ -218,7 +217,7 @@ func TestAnnouncingNowWhileTheHeldAnnouncementIsPostedIsAConflict(t *testing.T) 
 	t.Parallel()
 
 	// Arrange
-	handler, service, frame := postingHeld(t)
+	handler, service, frame := postingHeld(t, newForgeWorld())
 
 	// Act
 	recorder, again := whilePosting(t, service, func() *httptest.ResponseRecorder {
@@ -243,7 +242,7 @@ func TestDroppingTheHeldAnnouncementWhileItIsPostedIsAConflict(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler, service, frame := postingHeld(t)
+	handler, service, frame := postingHeld(t, newForgeWorld())
 
 	// Act
 	recorder := send(t, handler, http.MethodDelete, queuedPath, "")
@@ -263,7 +262,11 @@ func TestHoldingAnotherWhileTheHeldAnnouncementIsPostedIsAConflict(t *testing.T)
 	t.Parallel()
 
 	// Arrange
-	handler, service, frame := postingHeld(t)
+	// The CI is running again by the time the next is asked to wait for it,
+	// so it is held rather than posted at once.
+	world := newForgeWorld()
+	handler, service, frame := postingHeld(t, world)
+	world.turn(func(w *forgeWorld) { w.ci = forge.CIRunning })
 
 	// Act
 	recorder, again := whilePosting(t, service, func() *httptest.ResponseRecorder {

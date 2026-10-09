@@ -22,6 +22,9 @@ const (
 	spikePrefix = "research"
 )
 
+// entryTaken is why Settings refuses a new entry named as one listed.
+const entryTaken = "an entry of that name is already listed"
+
 // otherHeader is a second stored header, listed before storedHeader.
 const otherHeader = "A-Other"
 
@@ -105,10 +108,10 @@ func TestANewHeaderTheFormCannotTakeIsRefused(t *testing.T) {
 		want  string
 	}{
 		{"with no name", []string{keyEnter}, "an entry needs a name"},
-		{"named as a stored one", append(letters(storedHeader), keyEnter), "an entry of that name is already listed"},
+		{"named as a stored one", append(letters(storedHeader), keyEnter), entryTaken},
 		{
 			"named as a stored one in another case", append(letters(strings.ToLower(storedHeader)), keyEnter),
-			"an entry of that name is already listed",
+			entryTaken,
 		},
 		{"with no value", append(letters("X-Team"), keyEnter, keyEnter), "an entry needs a value"},
 	}
@@ -142,7 +145,7 @@ func TestAPrefixForATypeAlreadyListedInAnotherCaseIsRefused(t *testing.T) {
 	view := typing(t, repo.live(t, 120, 40), append(append(keys, letters("spike")...), keyEnter)...).View().Content
 
 	// Assert
-	requireScreen(t, view, "an entry of that name is already listed")
+	requireScreen(t, view, entryTaken)
 }
 
 func TestRemovingTheOnlyPrefixSavesNone(t *testing.T) {
@@ -288,4 +291,37 @@ func TestARefusedRemovalStaysInSettingsWithItsReason(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "permission denied", "Base URL")
 	refuseScreen(t, view, settingsToken)
+}
+
+func TestAViewIsTakenOnlyByOneNamedTheSame(t *testing.T) {
+	t.Parallel()
+
+	// A view's name is matched as typed: unlike a header's or an issue type's,
+	// one in another case is another view.
+	tests := map[string]struct {
+		typed          string
+		want, unwanted string
+	}{
+		"named as the listed one": {typed: "Board", want: entryTaken, unwanted: "Board > "},
+		"named in another case":   {typed: "board", want: "board > ", unwanted: entryTaken},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// With one view listed, the row that adds a view follows it.
+			repo := newWorld()
+			repo.settings.Jira.Views = []config.JiraView{{Name: "Board", JQL: "filter = 10001"}}
+			adding := typing(t, repo.live(t, 120, 40), append(toRow(addViewRow+1), keyEnter)...)
+
+			// Act
+			view := typing(t, adding, append(letters(test.typed), keyEnter)...).View().Content
+
+			// Assert
+			requireScreen(t, view, test.want)
+			refuseScreen(t, view, test.unwanted)
+		})
+	}
 }

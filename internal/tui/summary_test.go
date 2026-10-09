@@ -186,23 +186,35 @@ func TestAPeriodThatHasEndedIsNotReadAgainOnComingBack(t *testing.T) {
 	}
 }
 
-func TestASourceThatFailedIsReadAgainOnComingBack(t *testing.T) {
+func TestASourceNotReadInFullIsReadAgainOnComingBack(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
 	// A period that has ended is kept only once every source has said what it
-	// did there; one that failed has not, so coming back asks it again.
-	busy := summaryWorld()
-	busy.done.jiraErr = errJiraDown
-	opened := typing(t, busy.live(t, 120, 40), summaryKey)
-	busy.goStale()
+	// did there; one that failed has not, and nor has one left out as not set
+	// up, which may be set up since, so coming back asks it again.
+	cases := map[string]error{
+		"failed":     errJiraDown,
+		"not set up": fmt.Errorf("%w: %w", jira.ErrNoCredential, errTokenCommand),
+	}
 
-	// Act
-	typing(t, opened, "1", summaryKey)
+	for name, jiraErr := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if reads := busy.asked("summary jira "); len(reads) != 2 {
-		t.Errorf("Jira read %d times, want twice: it failed the first time", len(reads))
+			// Arrange
+			busy := summaryWorld()
+			busy.done.jiraErr = jiraErr
+			opened := typing(t, busy.live(t, 120, 40), summaryKey)
+			busy.goStale()
+
+			// Act
+			typing(t, opened, "1", summaryKey)
+
+			// Assert
+			if reads := busy.asked("summary jira "); len(reads) != 2 {
+				t.Errorf("Jira read %d times, want twice: it was not read the first time", len(reads))
+			}
+		})
 	}
 }
 

@@ -45,6 +45,7 @@ func TestATasksIssueLinkIsTheTrackersPage(t *testing.T) {
 		"no link for a jiraurl that is not a web address": {issueKey: testKey, jiraURL: "javascript:alert(1)"},
 		"no link for a jiraurl with no host":              {issueKey: testKey, jiraURL: "https:///browse/PROJ-412"},
 		"no link for a relative jiraurl":                  {issueKey: testKey, jiraURL: "/browse/PROJ-412"},
+		"no link for a jiraurl that does not parse":       {issueKey: testKey, jiraURL: "https://jira.example/%zz"},
 		"no link for a task naming neither":               {tracker: true},
 	}
 

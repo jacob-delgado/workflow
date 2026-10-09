@@ -9,6 +9,14 @@
 # built by another Go is refused; every package the module lists without tests
 # is named in NO_TESTS; and one that is not is refused by name.
 #
+# The arms no test reached: a condition never evaluated, and an error check's
+# error arm never seen, fail the run, naming the file, line and function,
+# unless a line of the allowlist keeps that arm for a trade-off; a line keeps
+# one arm, on the systems it names; a line whose arm a test now reaches, or
+# that is not shaped as one, fails too; and a boolean seen one way is only
+# listed. Each package the floors file names answers to its own floor beside
+# the module's, and a floor without a reason above it fails.
+#
 # The stand-in gobco says which package or file it measured, writes
 # GOBCO_STUB_STATS to the file after -stats, or nothing when that is empty,
 # ignores its other flags, and fails as gobco does on a package it cannot read
@@ -18,7 +26,8 @@
 # GO_STUB_UNTESTED to the packages listed without tests; everything else
 # reaches the real go, so the untested packages checked are the module's own.
 # OUT_DIR is always a temporary directory, because the report empties the
-# directory it writes to.
+# directory it writes to. GOBCO_ALLOWLIST and GOBCO_FLOORS name an empty file
+# unless a case writes its own, so the repository's own lines play no part.
 #
 # Usage:
 #   scripts/gobco-report_test.sh
@@ -71,11 +80,15 @@ chmod +x "${workdir}/bin/gobco" "${workdir}/bin/go"
 readonly both_ways='[{"TrueCount":1,"FalseCount":1}]'
 readonly one_way='[{"TrueCount":1,"FalseCount":0}]'
 
+readonly no_lines="${workdir}/no-lines.txt"
+: >"${no_lines}"
+
 # expect runs the report with the stand-ins, and compares its exit and output.
 #   expect <pass|fail> <name> <stats> <untested> <want in output> [arg...]
 expect() {
   expect_output "$1" "$2" "$5" env PATH="${workdir}/bin:${PATH}" REAL_GO="${real_go}" \
     OUT_DIR="${workdir}/out" GOBCO_STUB_STATS="$3" GO_STUB_UNTESTED="$4" \
+    GOBCO_ALLOWLIST="${GOBCO_ALLOWLIST:-${no_lines}}" GOBCO_FLOORS="${GOBCO_FLOORS:-${no_lines}}" \
     "${report}" "${@:6}"
 }
 
@@ -125,5 +138,157 @@ expect fail "an untested package NO_TESTS does not name" "${both_ways}" "${modul
 expect fail "no package roots" "${both_ways}" "" "usage: gobco-report.sh <floor> <package root>..." 50
 expect fail "roots and packages both" "${both_ways}" "" "usage: gobco-report.sh <floor> <package root>..." \
   --package "${module}/internal/buildinfo" 50 ./internal/...
+
+# The arms no test reached. A fixture of Go source gives the conditions a
+# file to stand in, so the report can name the function each lies in; its
+# lines are the ones the statistics below point at.
+readonly fixture="${workdir}/fixture/reader.go"
+mkdir -p "$(dirname "${fixture}")"
+cat >"${fixture}" <<'GO'
+package fixture
+
+func (r *reader[T]) read() error {
+	err := r.open()
+	if err != nil {
+		return err
+	}
+
+	return r.close()
+}
+
+func ready(open bool, err error) bool {
+	return open && err == nil
+}
+
+func (w *watcher) wait(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	if context.Background().Err() != nil {
+		return nil
+	}
+
+	if _, errParse := strconv.Atoi(w.text); errParse != nil {
+		return errParse
+	}
+
+	return w.handle(w.errorHandler != nil)
+}
+GO
+
+# condition writes the statistics of one condition at a line and column of
+# the fixture: its code, and how often it was seen true and false.
+#   condition <line:col> <code> <true count> <false count>
+condition() {
+  printf '{"Start":"%s:%s","Code":"%s","TrueCount":%s,"FalseCount":%s}' "${fixture}" "$1" "$2" "$3" "$4"
+}
+
+error_arm_unseen="[$(condition 5:5 'err != nil' 0 3),$(condition 13:17 'err == nil' 2 0)]"
+never_evaluated="[$(condition 13:9 'open' 0 0)]"
+boolean_one_way="[$(condition 13:9 'open' 4 0)]"
+seen_both_ways="[$(condition 5:5 'err != nil' 1 3),$(condition 13:17 'err == nil' 2 1)]"
+twice_unseen="[$(condition 5:5 'err != nil' 0 3),$(condition 9:9 'err != nil' 0 1)]"
+buildinfo="${module}/internal/buildinfo"
+
+# allowlist writes an allowlist holding the given lines, and names it.
+#   allowlist <name> [line...]
+allowlist() {
+  local file="${workdir}/allowlist-$1.txt"
+  shift
+  printf '%s\n' "# kept arms" "$@" >"${file}"
+  printf '%s' "${file}"
+}
+
+# An error check whose error arm no test reached fails the run, by file, line
+# and function, as does one spelled the other way round.
+expect fail "an error arm no test reached" "${error_arm_unseen}" "" \
+  "${fixture}:5:5 in reader.read: \"err != nil\" was never seen true, the error's arm" \
+  --package "${buildinfo}" 50
+expect fail "an error arm spelled == nil that no test reached" "${error_arm_unseen}" "" \
+  "${fixture}:13:17 in ready: \"err == nil\" was never seen false, the error's arm" \
+  --package "${buildinfo}" 50
+
+# An error check is any name ending in err or Err, with a capitalized or
+# numbered rest or none, or a call of a method so named, through fields and
+# calls; a name that only begins with err is no error.
+expect fail "an error arm of an Err method that no test reached" "[$(condition 17:5 'ctx.Err() != nil' 0 2)]" "" \
+  "${fixture}:17:5 in watcher.wait: \"ctx.Err() != nil\" was never seen true, the error's arm" \
+  --package "${buildinfo}" 50
+expect fail "an error arm reached through a call that no test reached" \
+  "[$(condition 21:5 'context.Background().Err() != nil' 0 2)]" "" \
+  "${fixture}:21:5 in watcher.wait: \"context.Background().Err() != nil\" was never seen true" \
+  --package "${buildinfo}" 50
+expect fail "an error arm of a name with a rest that no test reached" "[$(condition 25:42 'errParse != nil' 0 2)]" "" \
+  "${fixture}:25:42 in watcher.wait: \"errParse != nil\" was never seen true, the error's arm" \
+  --package "${buildinfo}" 50
+expect pass "a name that only begins with err" "[$(condition 29:18 'w.errorHandler != nil' 2 0)]" "" \
+  "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
+
+# So does a condition no test evaluated at all.
+expect fail "a condition never evaluated" "${never_evaluated}" "" \
+  "${fixture}:13:9 in ready: \"open\" was never evaluated" --package "${buildinfo}" 50
+
+# A boolean seen one way is the worklist's, not the gate's.
+expect pass "a boolean seen one way" "${boolean_one_way}" "" \
+  "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
+
+# A line of the allowlist keeps one arm, of the function and condition it
+# names, for the trade-off it names.
+kept="$(allowlist kept "${fixture} reader.read TRADE-1 any err != nil" \
+  "${fixture} ready TRADE-2 any err == nil")"
+GOBCO_ALLOWLIST="${kept}" expect pass "arms the allowlist keeps" "${error_arm_unseen}" "" \
+  "Condition coverage" --package "${buildinfo}" 50
+
+one="$(allowlist one "${fixture} reader.read TRADE-1 any err != nil")"
+GOBCO_ALLOWLIST="${one}" expect fail "a second arm the one line does not keep" "${twice_unseen}" "" \
+  "${fixture}:9:9 in reader.read: \"err != nil\" was never seen true" --package "${buildinfo}" 50
+
+# A line whose arm a test now reaches keeps nothing, and goes.
+GOBCO_ALLOWLIST="${kept}" expect fail "a line whose arm a test now reaches" "${seen_both_ways}" "" \
+  "${kept}:2: no unseen arm is left for \"${fixture} reader.read TRADE-1 any err != nil\"" \
+  --package "${buildinfo}" 50
+
+# A line names the systems it holds on; elsewhere it neither keeps its arm nor
+# is missed.
+elsewhere="$(allowlist elsewhere "${fixture} reader.read TRADE-1 plan9 err != nil")"
+GOBCO_ALLOWLIST="${elsewhere}" expect fail "a line for another system" "${error_arm_unseen}" "" \
+  "${fixture}:5:5 in reader.read: \"err != nil\" was never seen true" --package "${buildinfo}" 50
+GOBCO_ALLOWLIST="${elsewhere}" expect pass "a line for another system, its arm seen" "${seen_both_ways}" "" \
+  "Condition coverage" --package "${buildinfo}" 50
+
+# A line that does not name a trade-off is no line at all.
+unnamed="$(allowlist unnamed "${fixture} reader.read any err != nil")"
+GOBCO_ALLOWLIST="${unnamed}" expect fail "an allowlist line naming no trade-off" "${seen_both_ways}" "" \
+  "${unnamed}:2: want <file> <function> <TRADE-n> <systems> <condition>" --package "${buildinfo}" 50
+
+# floors writes a floors file holding the given lines, and names it.
+#   floors <name> [line...]
+floors() {
+  local file="${workdir}/floors-$1.txt"
+  shift
+  printf '%s\n' "$@" >"${file}"
+  printf '%s' "${file}"
+}
+
+# A package the floors file names answers to its own floor, though the
+# module's total stays above the module's.
+above="$(floors above "# buildinfo is consequential" "internal/buildinfo 60")"
+GOBCO_FLOORS="${above}" expect fail "a package below its own floor" "${one_way}" "" \
+  "internal/buildinfo's condition coverage 50.0% is below its 60% floor." --package "${buildinfo}" 50
+at="$(floors at "# buildinfo is consequential" "internal/buildinfo 50")"
+GOBCO_FLOORS="${at}" expect pass "a package at its own floor" "${one_way}" "" \
+  "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
+
+# Every floor says why it is there.
+unexplained="$(floors unexplained "internal/buildinfo 50")"
+GOBCO_FLOORS="${unexplained}" expect fail "a floor without a reason" "${one_way}" "" \
+  "${unexplained}:1: internal/buildinfo has no # comment above it saying why" --package "${buildinfo}" 50
+
+# A floor for a package the run measured nowhere is a floor for nothing.
+gone="$(floors gone "# a package long gone" "internal/gone 90")"
+# shellcheck disable=SC2086 # the roots are a deliberate multi-arg word list
+GOBCO_FLOORS="${gone}" expect fail "a floor for a package not measured" "${both_ways}" "" \
+  "${gone}:2: internal/gone was not measured" 50 ${go_pkgs}
 
 finish_tests

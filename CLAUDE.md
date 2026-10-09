@@ -63,6 +63,7 @@ internal/editor/      handing text and files to $EDITOR
 internal/proc/        running programs; the one place exec lives
 internal/proc/pgroup/ canceling a streamed child's whole process group (Unix)
 internal/rlimit/      lowering a resource limit around one test call (tests only)
+internal/ptytest/     a pseudo-terminal for a test to type at (tests only)
 internal/gittest/     keeping tests off the repository a hook's git environment names (tests only)
 internal/sanitize/    neutralizing terminal controls in server text
 internal/buildinfo/   which build is running, from what the Go toolchain stamps
@@ -492,22 +493,33 @@ closure to set up or to check is clearer as a test of its own.
 
 **Read the coverage floors in the gates, never here** — `COVERAGE_MIN` and
 `BRANCH_COVERAGE_MIN` in `Taskfile.yml`, enforced by `scripts/coverage-gate.sh`
-and `scripts/gobco-report.sh`. A number restated in prose drifts from the number
-the gate enforces.
+and `scripts/gobco-report.sh`, and the condition floor each consequential
+package holds on its own in `scripts/gobco-floors.txt`, since one module-wide
+share lets a small package's gaps disappear into `internal/tui`'s. A number
+restated in prose drifts from the number the gate enforces.
 
 **Two coverage metrics, and the second is the useful one.** Statement coverage
 says a line ran; condition coverage (gobco, `task cover:branch`) says whether an
 `if a && b` was ever seen with `b` false. Its per-condition output — "condition
 `err != nil` was 8 times false but never true" — is a worklist of missing test
-cases, not a percentage to chase. gobco measures every package in this module
-that has tests. It reads a package of build-tagged twins one file at a time, so
-each file the build takes must stand alone, and any package or file it cannot
-read fails the gate rather than quietly shrinking what the number covers.
+cases, not a percentage to chase, with one hard edge: a condition no test
+evaluated, and an error check whose error arm no test reached, fail the gate.
+An error check is one the gate can tell by its name: `err`, `closeErr`, `err2`,
+`errParse` or `ctx.Err()` compared with `nil`; any other condition seen one way
+stays the worklist. The exception list is `scripts/gobco-allowlist.txt`, one
+line per arm a kept trade-off in `TECH_DEBT.md` keeps, naming it
+(`scripts/check-tradeoffs.sh` holds each name to the register); every other such
+arm is a test to write, and a line whose arm a test comes to reach fails until it
+goes. gobco measures every package in this module that has tests. It reads a
+package of build-tagged twins one file at a time, so each file the build takes
+must stand alone, and any package or file it cannot read fails the gate rather
+than quietly shrinking what the number covers.
 
 **Raising the floor: the ratchet is `floor(measured) − 2`.** Two points is the
 whole tolerance — enough for an incidental refactor, not enough to land a feature
 with its tests missing. A floor is raised only after the coverage is already
-there; the gate prints the available ratchet each run.
+there; the gate prints the available ratchet each run, the module's and each
+package floor's.
 
 These are minimums, not targets — aim higher where the code is consequential
 (credential handling, redaction, anything that touches a token).

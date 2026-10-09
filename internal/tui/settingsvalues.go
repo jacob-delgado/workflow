@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -16,12 +17,14 @@ import (
 
 // typedValue is what text typed into a setting stands for: the text, a count,
 // or a list's entries; and false for a credential left empty, which keeps the
-// stored one.
+// stored one. Only a setting typed into whole asks: a toggle or a choice is
+// never typed into, and a collection's entry is kept by its own steps.
 func typedValue(field setting, text string) (any, bool, error) {
-	switch field.kind {
-	case settingSecret:
+	if field.kind == settingSecret {
 		return text, text != "", nil
-	case settingCount:
+	}
+
+	if field.kind == settingCount {
 		count, err := strconv.Atoi(strings.TrimSpace(text))
 		if err != nil || count < 0 {
 			return nil, false, errNotACount
@@ -29,10 +32,10 @@ func typedValue(field setting, text string) (any, bool, error) {
 
 		// A count reads back from JSON as a float64, so it is kept as one.
 		return float64(count), true, nil
-	case settingList:
+	}
+
+	if field.kind == settingList {
 		return splitList(text), true, nil
-	case settingText, settingURL, settingChoice, settingToggle, settingEntry, settingAdd:
-		return text, true, nil
 	}
 
 	return text, true, nil
@@ -48,9 +51,9 @@ func (f settingsForm) editedText(field setting) string {
 	return f.shown(field)
 }
 
-// edited is the configuration as read with the edits laid over it, checked
-// as a file on disk is.
-func (f settingsForm) edited() ([]byte, error) {
+// edited is the configuration as read with the edits laid over it, held to
+// the standard a file on disk is.
+func (f settingsForm) edited() (config.Config, error) {
 	values := maps.Clone(f.values)
 
 	for path, value := range f.edits {
@@ -67,10 +70,23 @@ func (f settingsForm) edited() ([]byte, error) {
 	// Trade-off TRADE-13: the configuration's JSON form always encodes.
 	edited, err := json.Marshal(values)
 	if err != nil {
-		return nil, fmt.Errorf("writing the configuration: %w", err)
+		return config.Config{}, fmt.Errorf("writing the configuration: %w", err)
 	}
 
-	return edited, nil
+	return parsed(edited)
+}
+
+// parsed is a configuration's JSON form held to the standard a file on disk
+// is, or why it falls short, on one line.
+func parsed(read []byte) (config.Config, error) {
+	cfg, err := config.Parse(bytes.NewReader(read))
+	if err != nil {
+		reason := strings.TrimPrefix(err.Error(), config.ErrInvalid.Error()+": ")
+
+		return config.Config{}, fmt.Errorf("%w: %s", errSettingsInvalid, strings.ReplaceAll(reason, "\n", "; "))
+	}
+
+	return cfg, nil
 }
 
 // seed is a configuration's JSON form, read back as values, or why it could

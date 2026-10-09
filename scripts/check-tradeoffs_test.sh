@@ -3,8 +3,9 @@
 # Tests for check-tradeoffs.sh: it passes when every register entry carries its
 # ID and its three paragraphs and every site comment names an entry, and fails,
 # naming the file and line, on a heading that is not an ID or whose ID is
-# malformed, an ID used twice, a missing or empty paragraph, and a site naming
-# an ID the register does not hold.
+# malformed, an ID used twice, a missing or empty paragraph, a site naming an
+# ID the register does not hold, and a line of the condition coverage
+# allowlist naming no ID, or one the register does not hold.
 #
 # Usage:
 #   scripts/check-tradeoffs_test.sh
@@ -107,12 +108,24 @@ site() {
   git -C "${dir}" add "${path}"
 }
 
+# allowlisted adds the condition coverage allowlist, holding a comment and
+# then the given lines.
+#   allowlisted <dir> [line...]
+allowlisted() {
+  local dir="$1"
+  shift
+  mkdir -p "${dir}/scripts"
+  printf '%s\n' "# the arms kept" "$@" >"${dir}/scripts/gobco-allowlist.txt"
+  git -C "${dir}" add scripts/gobco-allowlist.txt
+}
+
 # Every entry is complete, and every site names one of them.
 complete="${workdir}/complete"
 backlog "${complete}"
 site "${complete}" internal/tui/spine.go // 1
 site "${complete}" web/src/queryClient.ts // 1
 site "${complete}" scripts/gate.sh '#' 2
+allowlisted "${complete}" "internal/a.go read TRADE-1 any err != nil" "internal/b.go Thing.write TRADE-2 darwin err != nil"
 expect pass "a complete register, every site named" "${complete}"
 
 # A register with no entries yet, and no site pointing into it.
@@ -170,6 +183,20 @@ backlog "${unregistered}"
 site "${unregistered}" web/src/queryClient.ts // 3
 expect_named "a site naming no entry" "${unregistered}" \
   "web/src/queryClient.ts:2: TRADE-3 is not in TECH_DEBT.md's trade-off register"
+
+# An arm the allowlist keeps names a trade-off the register holds.
+unkept="${workdir}/unkept"
+backlog "${unkept}"
+allowlisted "${unkept}" "internal/a.go read TRADE-1 any err != nil" "internal/b.go write TRADE-3 any err != nil"
+expect_named "an allowlisted arm naming no entry" "${unkept}" \
+  "scripts/gobco-allowlist.txt:3: TRADE-3 is not in TECH_DEBT.md's trade-off register"
+
+# And it names one where the trade-off goes, as its third word.
+unnamed="${workdir}/unnamed-arm"
+backlog "${unnamed}"
+allowlisted "${unnamed}" "internal/a.go read any err != nil"
+expect_named "an allowlisted arm naming no trade-off" "${unnamed}" \
+  "scripts/gobco-allowlist.txt:2: names no TRADE-<number> as its third word"
 
 # An ID heading an entry outside the register section is not a register entry.
 outside="${workdir}/outside"
