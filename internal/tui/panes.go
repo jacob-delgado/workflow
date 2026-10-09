@@ -64,12 +64,18 @@ func around[T ~int](at, size T) ring[T] {
 
 // next is the place after the ring's, the first after the last.
 func (r ring[T]) next() T {
-	return (r.at + 1) % r.size
+	return r.by(1)
 }
 
 // prev is the place before the ring's, the last before the first.
 func (r ring[T]) prev() T {
-	return (r.at + r.size - 1) % r.size
+	return r.by(-1)
+}
+
+// by is the place step places on from the ring's, back for a negative step,
+// wrapping at either end.
+func (r ring[T]) by(step T) T {
+	return ((r.at+step)%r.size + r.size) % r.size
 }
 
 // paneNumbers are the digit keys that jump to each pane, "1" through the last,

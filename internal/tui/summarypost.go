@@ -123,7 +123,7 @@ func (p summaryPost) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 func (p summaryPost) cycleChannel(m Model, step int) Model {
 	if len(p.channels) > 1 {
 		current := slices.Index(p.channels, p.channel)
-		p.channel = p.channels[(current+step+len(p.channels))%len(p.channels)]
+		p.channel = p.channels[around(current, len(p.channels)).by(step)]
 		m.overlay = p
 	}
 
