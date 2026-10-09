@@ -126,36 +126,6 @@ chase" then names the allowlist as the exception list.
 **Done when.** The gate fails a new untested `err != nil` arm, and the
 measured share is at least two points above the floor.
 
-## Rules this audit changes
-
-### DEBT-324 Declare compiled regular expressions at package level
-
-Severity: low · Confidence: read · Size: M
-
-**Where.** CLAUDE.md, *Design principles*, O — Open/closed; 41 non-test
-`regexp.MustCompile` calls under `internal/`, among them `trailerLine`
-(`internal/convention/convention.go:398`, called per body line), `issueKey`
-(`:55`), `errexitOption` (`internal/hooks/generate.go`, per script line),
-`summaryLine` (`internal/hooks/output.go:87`, per hook output line),
-`versionPattern`, `createdTask`, `revertedOperations`
-(`internal/taskwarrior/taskwarrior.go:315`, `write.go:19`, `:25`),
-`pseudoVersion` (`internal/buildinfo/buildinfo.go:46`).
-
-**Today.** The Open/closed note says `gochecknoglobals` makes a package-level
-lookup map a build failure, and authors extended that to regexps, wrapping
-each in a `func x() *regexp.Regexp` compiled on every use, some in per-line
-loops. The pinned gochecknoglobals allows `regexp.MustCompile` globals, and
-Effective Go and Google's style both declare them once.
-
-**Fix.** Add to the Open/closed note: "A compiled regular expression is the
-exception the linter itself makes: declare it once as a package-level `var
-name = regexp.MustCompile(...)` rather than compiling it in a helper on every
-call." Move every fixed pattern to a package-level var, keep the func form
-only for patterns built from run-time input, and hoist those out of loops.
-
-**Done when.** `grep -rn 'func .*\*regexp.Regexp' internal | grep -v _test`
-returns only parameterized builders and `golangci-lint run` is clean.
-
 ## The trade-off register
 
 These were chosen on purpose. They are not debt; they are listed because each
