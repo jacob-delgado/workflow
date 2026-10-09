@@ -308,8 +308,9 @@ func (d *Slack) begin() (messaging.Client, *heldReads, error) {
 }
 
 // shared is what read answers for key, read once: the first to ask reads, and
-// everyone asking meanwhile waits on that read without holding the lock. A
-// failure is dropped once it is answered, so the next ask reads again.
+// everyone asking meanwhile waits on that read without holding the lock, each
+// until it answers or their own ctx ends. A failure is dropped once it is
+// answered, so the next ask reads again.
 func shared[V any](
 	ctx context.Context, directory *Slack, held map[string]*flight[V], key string,
 	read func(context.Context) (V, error),
@@ -328,7 +329,9 @@ func shared[V any](
 	directory.lock.Unlock()
 
 	if !inFlight {
-		current.value, current.err = read(ctx)
+		// Others may be waiting on this read, so it runs to its end even if
+		// the one who began it leaves; their leaving would fail it for all.
+		current.value, current.err = read(context.WithoutCancel(ctx))
 		current.answeredAt = directory.now()
 		close(current.done)
 

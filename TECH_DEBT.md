@@ -480,7 +480,8 @@ up to `messaging.UserListPages`, 20 pages, about 4,000 people) and labels
 members from it; past that cap it labels the channel's members one by one
 through `users.info` (Tier 4). Every read is shared by everyone asking at
 once, held for ten minutes or until a refresh, and never awaited under a lock.
-A session started by switching directory (TRADE-34) reads afresh. Decided
+A shared read runs to its end even if the one who began it leaves. A session
+started by switching directory (TRADE-34) reads afresh. Decided
 2026-10-01 in #165 and #166, and kept on 2026-10-07 in the pre-1.0 audit.
 
 **Cost.** A workspace under the cap holds every user's name in memory for the
