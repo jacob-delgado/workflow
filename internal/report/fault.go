@@ -77,8 +77,10 @@ func Classify(err error, classes []Class) (Fault, bool) {
 	}, false
 }
 
-// FaultDetail is a failure's detail as the web's problem words it: the same
-// sentence for the same class of failure, never naming a host or a path.
+// FaultDetail is a failure's detail in the words the shared classes
+// (SharedFaults) give it: the same sentence for the same class of failure,
+// never naming a host or a path. A surface's own classes may come before
+// them, as the web's do, and word a failure of that class differently.
 func FaultDetail(err error) string {
 	told, _ := Classify(err, SharedFaults().All())
 
