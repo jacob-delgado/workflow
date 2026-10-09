@@ -8,6 +8,7 @@ package tui_test
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
@@ -67,4 +68,53 @@ func TestAClickOnAFailedReadSelectsNothing(t *testing.T) {
 	// Assert: the click chose no task, so the first is still selected
 	requireScreen(t, view, "▸ ◐  12 "+issueKey)
 	refuseScreen(t, view, "▸ ○   9")
+}
+
+// withLooseTasksOnly is withTasks holding only task 9, linked to no issue,
+// and the task waiting: one task listed, with no heading over it.
+func withLooseTasksOnly() *world {
+	repo := withTasks()
+	repo.tasks.pending = slices.DeleteFunc(repo.tasks.pending, func(task taskwarrior.Task) bool {
+		return task.UUID != looseTaskUUID && task.UUID != waitingTaskUUID
+	})
+	repo.tasks.linked = nil
+
+	return repo
+}
+
+func TestAClickSelectsOnlyATaskDrawnOnItsRow(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		world func() *world
+		keys  []string
+		row   int
+		want  string
+	}{
+		// 12 on row 2, then 3.
+		"a task above the heading": {world: withTasks, keys: []string{tasksPane}, row: 3, want: "▸ ○   3 " + secondIssue},
+		// Sorted, the order is named on row 2, above a blank line and 12.
+		"the order's name": {
+			world: withTasks, keys: []string{tasksPane, sortTasksKey}, row: 2, want: "▸ ◐  12 " + issueKey,
+		},
+		// 9 alone on row 2, and how many wait on row 3.
+		"below the last task": {
+			world: withLooseTasksOnly, keys: []string{tasksPane}, row: 3, want: "▸ ○   9 Renew the cert",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			model := typing(t, tt.world().live(t, 120, 40), tt.keys...)
+
+			// Act
+			view := click(t, model, 60, tt.row).View().Content
+
+			// Assert
+			requireScreen(t, view, tt.want)
+		})
+	}
 }
