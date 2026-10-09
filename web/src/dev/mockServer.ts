@@ -45,7 +45,7 @@ import {
   mockTagging,
 } from './mockSlack.ts'
 import { mockSnapshot } from './mockSnapshot.ts'
-import { mockTaskList } from './mockTasks.ts'
+import { mockDone, mockTaskList } from './mockTasks.ts'
 
 // The mockup's server: `task web:mockup` installs it as the page loads, in
 // place of the network and the event stream, so the page asks it as it asks
@@ -481,20 +481,24 @@ function configRoutes(): Routes {
 }
 
 // taskRoutes are your tasks: the list, and every write on it, which answers
-// the list as it stands.
+// the list as it stands; a done answers it without the task, and the task as
+// it stands done.
 function taskRoutes(): Routes {
   const listed = () => mockTaskList()
 
-  return Object.fromEntries(
-    [
-      'GET /api/tasks',
-      'POST /api/tasks',
-      'POST /api/tasks/track',
-      'POST /api/tasks/undo',
-      'POST /api/tasks/sync',
-      ...['start', 'stop', 'done', 'annotations', 'modify'].map(
-        (write) => `POST /api/tasks/{uuid}/${write}`,
-      ),
-    ].map((name) => [name, listed]),
-  )
+  return {
+    ...Object.fromEntries(
+      [
+        'GET /api/tasks',
+        'POST /api/tasks',
+        'POST /api/tasks/track',
+        'POST /api/tasks/undo',
+        'POST /api/tasks/sync',
+        ...['start', 'stop', 'annotations', 'modify'].map(
+          (write) => `POST /api/tasks/{uuid}/${write}`,
+        ),
+      ].map((name) => [name, listed]),
+    ),
+    'POST /api/tasks/{uuid}/done': ({ params }) => mockDone(params.uuid ?? ''),
+  }
 }
