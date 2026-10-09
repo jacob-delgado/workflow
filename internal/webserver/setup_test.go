@@ -591,3 +591,38 @@ func TestSetupRefusesHomeWithoutAHomeDirectory(t *testing.T) {
 		t.Errorf("status %d, problem %+v; want 422 unprocessable", recorder.Code, failure)
 	}
 }
+
+func TestSetupWhoseWriteFailsSaysWhyByItsKind(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		failure  error
+		wantCode int
+		wantKind api.ProblemCode
+	}{
+		// Made between the look for one and the write, which never writes over it.
+		"a file made meanwhile": {failure: setup.ErrExists, wantCode: http.StatusConflict, wantKind: api.ProblemCodeConflict},
+		"a write that fails": {
+			failure: errSeam, wantCode: http.StatusInternalServerError, wantKind: api.ProblemCodeInternal,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			run := newFirstRun(t, http.StatusOK)
+			deps := run.deps(t)
+			deps.Settings.Setup.Write = func(setup.Request) (setup.Written, error) { return setup.Written{}, tt.failure }
+
+			// Act
+			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false, false))
+
+			// Assert
+			if failure := decode[api.Problem](t, recorder); recorder.Code != tt.wantCode || failure.Code != tt.wantKind {
+				t.Errorf("status/code %d/%s, want %d/%s", recorder.Code, failure.Code, tt.wantCode, tt.wantKind)
+			}
+		})
+	}
+}
