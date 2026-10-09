@@ -4,6 +4,7 @@
 package jira_test
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -146,5 +147,127 @@ func TestActivitySaysWhenThereWereMoreIssuesThanItRead(t *testing.T) {
 	// Assert
 	if err != nil || !activity.Truncated {
 		t.Errorf("Activity = %+v, %v; want it marked as having more", activity, err)
+	}
+}
+
+func TestActivitySaysWhyItCouldNotBeRead(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		failing string
+		status  int
+		want    error
+	}{
+		"who you are":            {failing: "/myself", status: http.StatusUnauthorized, want: jira.ErrUnauthorized},
+		"the issues you touched": {failing: "/search", status: http.StatusForbidden, want: jira.ErrForbidden},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
+				writer.Header().Set("Content-Type", jsonMediaType)
+
+				if strings.HasSuffix(request.URL.Path, tt.failing) {
+					writer.WriteHeader(tt.status)
+					_, _ = writer.Write([]byte(`{"errorMessages":["no"]}`))
+
+					return
+				}
+
+				_, _ = writer.Write([]byte(`{"name":"ana"}`))
+			})
+			start := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+
+			// Act
+			activity, err := client.Activity(t.Context(), start, start.Add(24*time.Hour))
+
+			// Assert
+			if !errors.Is(err, tt.want) || activity.Events != nil {
+				t.Errorf("Activity = %+v, %v; want nothing and %v", activity, err, tt.want)
+			}
+		})
+	}
+}
+
+// fullPagesJira answers who I am, ana, and every search with a full page of
+// fifty issues out of total, counting the searches.
+func fullPagesJira(t *testing.T, total int) (jira.Client, *atomic.Int32) {
+	t.Helper()
+
+	var searches atomic.Int32
+
+	issues := strings.Repeat(activityIssue+",", 49) + activityIssue
+	page := `{"total":` + strconv.Itoa(total) + `,"issues":[` + issues + `]}`
+	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", jsonMediaType)
+
+		if strings.HasSuffix(request.URL.Path, "/myself") {
+			_, _ = writer.Write([]byte(`{"name":"ana"}`))
+
+			return
+		}
+
+		searches.Add(1)
+
+		_, _ = writer.Write([]byte(page))
+	})
+
+	return client, &searches
+}
+
+func TestActivityReadsAFurtherPageOnlyWhileJiraCountsMore(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		total     int
+		searches  int32
+		truncated bool
+	}{
+		"a full page that is all Jira counts": {total: 50, searches: 1, truncated: false},
+		"more than the pages read":            {total: 120, searches: 2, truncated: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client, searches := fullPagesJira(t, tt.total)
+			start := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+
+			// Act
+			activity, err := client.Activity(t.Context(), start, start.Add(24*time.Hour))
+
+			// Assert
+			if err != nil || searches.Load() != tt.searches || activity.Truncated != tt.truncated {
+				t.Errorf("Activity searched %d times, truncated %v (%v); want %d searches, truncated %v",
+					searches.Load(), activity.Truncated, err, tt.searches, tt.truncated)
+			}
+		})
+	}
+}
+
+func TestActivityLeavesOutWhatJiraDatedInAFormItCannotRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Reported by me inside the period, and commented on by me at a time no
+	// layout reads.
+	issue := `{"key":"PROJ-7","fields":{"summary":"` + leakSummary + `",` +
+		`"created":"2026-10-02T09:00:00.000+0000","reporter":{"name":"ana"},` +
+		`"comment":{"comments":[{"author":{"name":"ana"},"created":"yesterday"}]}}}`
+	client, _ := activityJira(t, 1, issue)
+	start := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+
+	// Act
+	activity, err := client.Activity(t.Context(), start, start.Add(24*time.Hour))
+
+	// Assert
+	want := jira.Event{At: start.Add(9 * time.Hour), Kind: jira.EventCreated, Key: leakKey, Summary: leakSummary}
+	if err != nil || len(activity.Events) != 1 || activity.Events[0] != want {
+		t.Errorf("Activity = %+v, %v; want the creation alone", activity.Events, err)
 	}
 }

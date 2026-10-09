@@ -439,25 +439,42 @@ func TestMyselfReportsAnUnreadableBody(t *testing.T) {
 	}
 }
 
-func TestMyselfRejectsAnHTMLAnswer(t *testing.T) {
+func TestMyselfRejectsAnAnswerThatIsNotJSON(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// A base URL that reaches a sign-in page rather than Jira's REST API is
-	// answered 200 with HTML. Decoding that gives "invalid character '<'",
-	// which tells nobody what went wrong.
-	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = writer.Write([]byte("<!doctype html><html><body>sign in</body></html>"))
-	})
+	cases := map[string]struct {
+		contentType, body string
+	}{
+		// A base URL that reaches a sign-in page rather than Jira's REST API is
+		// answered 200 with HTML. Decoding that gives "invalid character '<'",
+		// which tells nobody what went wrong.
+		"a sign-in page": {
+			contentType: "text/html; charset=utf-8", body: "<!doctype html><html><body>sign in</body></html>",
+		},
+		// A type that cannot be read says nothing of what the body is, however
+		// much it looks like JSON.
+		"a type that cannot be read": {contentType: "application/json; charset", body: `{"name":"ana"}`},
+	}
 
-	// Act
-	_, err := client.Myself(t.Context())
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if !errors.Is(err, jira.ErrNotJSON) || !strings.Contains(err.Error(), "text/html") ||
-		!strings.Contains(err.Error(), "jira.base_url") {
-		t.Errorf("Myself returned %v, want ErrNotJSON naming what came back and what to check", err)
+			// Arrange
+			client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
+				writer.Header().Set("Content-Type", tt.contentType)
+				_, _ = writer.Write([]byte(tt.body))
+			})
+
+			// Act
+			_, err := client.Myself(t.Context())
+
+			// Assert
+			if !errors.Is(err, jira.ErrNotJSON) || !strings.Contains(err.Error(), tt.contentType) ||
+				!strings.Contains(err.Error(), "jira.base_url") {
+				t.Errorf("Myself returned %v, want ErrNotJSON naming what came back and what to check", err)
+			}
+		})
 	}
 }
 
