@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -48,9 +49,9 @@ func (f settingsForm) editedText(field setting) string {
 	return f.shown(field)
 }
 
-// edited is the configuration as read with the edits laid over it, checked
-// as a file on disk is.
-func (f settingsForm) edited() ([]byte, error) {
+// edited is the configuration as read with the edits laid over it, held to
+// the standard a file on disk is.
+func (f settingsForm) edited() (config.Config, error) {
 	values := maps.Clone(f.values)
 
 	for path, value := range f.edits {
@@ -67,10 +68,23 @@ func (f settingsForm) edited() ([]byte, error) {
 	// Trade-off TRADE-13: the configuration's JSON form always encodes.
 	edited, err := json.Marshal(values)
 	if err != nil {
-		return nil, fmt.Errorf("writing the configuration: %w", err)
+		return config.Config{}, fmt.Errorf("writing the configuration: %w", err)
 	}
 
-	return edited, nil
+	return parsed(edited)
+}
+
+// parsed is a configuration's JSON form held to the standard a file on disk
+// is, or why it falls short, on one line.
+func parsed(read []byte) (config.Config, error) {
+	cfg, err := config.Parse(bytes.NewReader(read))
+	if err != nil {
+		reason := strings.TrimPrefix(err.Error(), config.ErrInvalid.Error()+": ")
+
+		return config.Config{}, fmt.Errorf("%w: %s", errSettingsInvalid, strings.ReplaceAll(reason, "\n", "; "))
+	}
+
+	return cfg, nil
 }
 
 // seed is a configuration's JSON form, read back as values, or why it could
