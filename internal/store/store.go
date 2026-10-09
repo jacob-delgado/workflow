@@ -204,12 +204,17 @@ func (s Store) open(ctx context.Context) (*sql.DB, error) {
 
 	path := filepath.Join(s.dir, dbName)
 
-	database, err := openCurrent(ctx, path)
+	// The file is made, stamped and given its tables whatever becomes of the
+	// caller, so a stamp or a removal still fails only when the file changes
+	// underneath it, as TRADE-16 records, and never for a caller who left.
+	making := context.WithoutCancel(ctx)
+
+	database, err := openCurrent(making, path)
 	if err != nil {
 		return nil, err
 	}
 
-	err = createSchema(ctx, database)
+	err = createSchema(making, database)
 	if err != nil {
 		_ = database.Close()
 

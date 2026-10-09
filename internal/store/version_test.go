@@ -10,6 +10,7 @@ package store_test
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -272,5 +273,52 @@ func TestADiscardLeavesAProcessStillOnTheOldFileItsOwn(t *testing.T) {
 	err = held.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM scopes`).Scan(&rows)
 	if err != nil || rows != 2 {
 		t.Errorf("the other program reads %d rows (err %v), want its 2 still there on the file it holds", rows, err)
+	}
+}
+
+func TestAStoreOpenedForACallerWhoHasLeftIsStillMadeAndStamped(t *testing.T) {
+	t.Parallel()
+
+	// What the directory holds before the open, as statements run into a file
+	// at version 0; none means no file at all.
+	cases := map[string][]statement{
+		"no file yet":           nil,
+		"an older build's file": {table(`CREATE TABLE scopes (repo TEXT)`)},
+	}
+
+	for name, older := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// A live open beside it shows every table a whole file holds.
+			whole := t.TempDir()
+
+			err := store.New(whole, false).RecordScope(t.Context(), repo, recorded, theTime())
+			if err != nil {
+				t.Fatalf("keeping a scope: %v", err)
+			}
+
+			dir := t.TempDir()
+			if len(older) > 0 {
+				seedDatabaseAt(t, dir, 0, older...)
+			}
+
+			left, leave := context.WithCancel(t.Context())
+			leave()
+
+			// Act
+			_ = store.New(dir, false).RecordScope(left, repo, recorded, theTime())
+
+			// Assert
+			if got := readPragma(t, dir, "user_version"); got != currentVersion {
+				t.Errorf("the file is at version %d, want %d whatever became of its caller", got, currentVersion)
+			}
+
+			made, want := tablesIn(t, filepath.Join(dir, "workflow.db")), tablesIn(t, filepath.Join(whole, "workflow.db"))
+			if made != want {
+				t.Errorf("the file holds %d tables, want the %d a whole one does", made, want)
+			}
+		})
 	}
 }
