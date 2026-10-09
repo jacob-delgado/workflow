@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -150,12 +149,7 @@ func (f settingsForm) readWithout(removal credentialRemoval) (config.Config, err
 		return config.Config{}, fmt.Errorf("writing the configuration: %w", err)
 	}
 
-	cfg, err := config.Parse(bytes.NewReader(read))
-	if err != nil {
-		return config.Config{}, fmt.Errorf("%w: %w", errSettingsInvalid, err)
-	}
-
-	return cfg, nil
+	return parsed(read)
 }
 
 // settingsRemoved is a credential removed, with what was written, or why it
