@@ -107,15 +107,26 @@ test('a done whose answer describes no task shows it as the stream has it until 
   fakeApi({ [`${trackingPath}/done`]: makeTaskList([]) })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
 
-  // Act
+  // Act: mark the task done
   await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
   await user.click(screen.getByRole('button', { name: 'Mark done' }))
 
-  // Assert
+  // Assert: the task stands as the stream has it
   await screen.findByText('Marked task 12 done.')
+  expect(markShape(screen.getByRole('listitem'))).toBe(drawnMark('not-started'))
+  expect(
+    within(screen.getByRole('listitem')).getByRole('button', { name: 'Start task 12' }),
+  ).toBeTruthy()
+
+  // Act: a frame that has the task done lands
+  act(() => {
+    streamTasks({ linked: [trackingDone(new Date().toISOString())] }, Date.now() + 1)
+  })
+
+  // Assert: the task shows done, with nothing left to do on it
   const row = screen.getByRole('listitem')
-  expect(markShape(row)).toBe(drawnMark('not-started'))
-  expect(within(row).getByRole('button', { name: 'Start task 12' })).toBeTruthy()
+  expect(markShape(row)).toBe(drawnMark('done'))
+  expect(within(row).queryAllByRole('button')).toEqual([])
 })
 
 test('a card opened again before the stream has the done still shows the task done', async () => {
