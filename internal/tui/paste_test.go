@@ -245,3 +245,32 @@ func TestAPasteWhereNoTextIsAskedForChangesNothing(t *testing.T) {
 		})
 	}
 }
+
+func TestAPasteIsTypedIntoTheCommitsScopeOrSubject(t *testing.T) {
+	t.Parallel()
+
+	// The subject has the keyboard as the composer opens; shift+tab moves it
+	// to the scope.
+	cases := map[string]struct {
+		keys []string
+		want string
+	}{
+		"the subject": {keys: []string{"3", "c"}, want: "▸ subject > tidy"},
+		"the scope":   {keys: []string{"3", "c", keyShiftTab}, want: "▸ scope   > tidy"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			opened := typing(t, newWorld().live(t, 120, 40), tt.keys...)
+
+			// Act
+			view := pasting(t, opened, "tidy").View().Content
+
+			// Assert
+			requireScreen(t, view, tt.want)
+		})
+	}
+}
