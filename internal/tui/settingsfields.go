@@ -67,9 +67,8 @@ func (s setting) words(value string) string {
 // round.
 func (s setting) cycled(value string, step int) string {
 	at := slices.IndexFunc(s.choices, func(offered option) bool { return offered.value == value })
-	next := (max(at, 0) + step + len(s.choices)) % len(s.choices)
 
-	return s.choices[next].value
+	return s.choices[around(max(at, 0), len(s.choices)).by(step)].value
 }
 
 // settings are the settings the web's Settings edits, in its order, labels

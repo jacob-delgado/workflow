@@ -165,7 +165,7 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 	}
 
 	current := slices.Index(p.channels, p.channel)
-	p.channel = p.channels[(current+step+len(p.channels))%len(p.channels)]
+	p.channel = p.channels[around(current, len(p.channels)).by(step)]
 
 	var readMembers tea.Cmd
 	if p.tagging.offered {
