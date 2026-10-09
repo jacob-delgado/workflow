@@ -167,3 +167,28 @@ func TestReadTellsAFailureWithoutWhatSecurityPrinted(t *testing.T) {
 		t.Errorf("Read = %v, want ErrNotRead told without what security printed", err)
 	}
 }
+
+func TestReadRefusesWithoutAnAccountName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var runs []ran
+
+	item, ok := keychain.Open("darwin", slackService, answeringRunner(&runs, "stored-secret\n", nil),
+		failedLookup, userIs(""))
+	if !ok {
+		t.Fatal("Open on darwin gave no item")
+	}
+
+	// Act
+	secret, err := item.Read(t.Context())
+
+	// Assert
+	if !errors.Is(err, keychain.ErrNoAccount) || secret != "" {
+		t.Errorf("Read = %q, %v; want %v and no secret", secret, err, keychain.ErrNoAccount)
+	}
+
+	if len(runs) != 0 {
+		t.Errorf("Read ran %d programs without an account, want none", len(runs))
+	}
+}
