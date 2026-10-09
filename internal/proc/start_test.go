@@ -12,7 +12,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -24,6 +26,10 @@ import (
 // to spawn a real process with exactly the behavior a test needs, on any
 // platform, without depending on a shell.
 const helperMode = "WORKFLOW_PROC_HELPER"
+
+// helperParent names, to a helper left behind, the pid of the helper that
+// left it.
+const helperParent = "WORKFLOW_PROC_PARENT"
 
 // TestMain makes this test binary the child a test starts when helperMode is
 // set, and otherwise runs the tests. The child is dispatched here rather than
@@ -67,6 +73,25 @@ func actAsHelper(mode string) {
 		fmt.Fprintln(os.Stdout, grand.Process.Pid)
 
 		_ = grand.Wait()
+	case "long":
+		// A line past what Start will deliver, then more output the program
+		// must still be able to write.
+		fmt.Fprintln(os.Stdout, strings.Repeat("x", 2<<20))
+
+		for range 1000 {
+			fmt.Fprintln(os.Stdout, "after")
+		}
+	default:
+		actLeftBehind(mode)
+	}
+
+	os.Exit(0)
+}
+
+// actLeftBehind is the child in a mode about a process a program leaves
+// behind holding its output: the program that leaves it, or the one left.
+func actLeftBehind(mode string) {
+	switch mode {
 	case "background":
 		// Leave a sleeping copy of this binary behind holding standard output, as
 		// a hook that backgrounds a server does, print its pid, and exit at once.
@@ -79,17 +104,41 @@ func actAsHelper(mode string) {
 		_ = grand.Start()
 
 		fmt.Fprintln(os.Stdout, grand.Process.Pid)
-	case "long":
-		// A line past what Start will deliver, then more output the program
-		// must still be able to write.
-		fmt.Fprintln(os.Stdout, strings.Repeat("x", 2<<20))
+	case "outlived":
+		// Leave a copy of this binary behind holding standard output, which
+		// writes there only once this one has exited, and exit at once.
+		//nolint:noctx // this test binary re-run as the late writer below, in a helper that has no context to thread
+		late := exec.Command(os.Args[0], "-test.run=^$")
 
-		for range 1000 {
-			fmt.Fprintln(os.Stdout, "after")
-		}
+		late.Env = append(os.Environ(), helperMode+"=late", helperParent+"="+strconv.Itoa(os.Getpid()))
+		late.Stdout = os.Stdout
+
+		_ = late.Start()
+	case "late":
+		// Once the program that left this one behind has exited and been
+		// reaped, print this one's pid and hold the output, as a server a hook
+		// backgrounded does when it logs late.
+		awaitGone(os.Getenv(helperParent))
+		fmt.Fprintln(os.Stdout, os.Getpid())
+		time.Sleep(time.Minute)
+	}
+}
+
+// awaitGone waits until the process pid names has exited and been reaped.
+func awaitGone(pid string) {
+	parent, err := strconv.Atoi(pid)
+	if err != nil {
+		return
 	}
 
-	os.Exit(0)
+	process, err := os.FindProcess(parent)
+	if err != nil {
+		return
+	}
+
+	for process.Signal(syscall.Signal(0)) == nil {
+		time.Sleep(time.Millisecond)
+	}
 }
 
 // child describes a run of this test binary as the helper, in a mode. It runs
