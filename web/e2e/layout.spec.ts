@@ -212,6 +212,9 @@ for (const width of widths) {
       await page.setViewportSize({ width, height })
       await page.goto('/')
       const skip = page.getByRole('link', { name: 'Skip to content' })
+      // The page can be drawn after its load event, as the mockup's is once its
+      // server is in place, and a Tab pressed before that reaches nothing.
+      await expect(skip).toBeAttached()
 
       // Act: the first Tab
       await page.keyboard.press('Tab')
