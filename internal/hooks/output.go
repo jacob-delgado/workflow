@@ -180,18 +180,19 @@ func locationPatterns(goos string) []*regexp.Regexp {
 }
 
 // eslintRow matches one place in ESLint's "stylish" reporter, listed as
-// "line:col severity message" under the eslintHeader that names its file. It
-// keeps the error/warning word so a bare "12:5 …" elsewhere is not mistaken for
-// one.
+// "line:col severity message" under the header (eslintHeaderFor) that names its
+// file. It keeps the error/warning word so a bare "12:5 …" elsewhere is not
+// mistaken for one.
 var eslintRow = regexp.MustCompile(`^(\d+):(\d+)\s+(?:error|warning)\s+(.*)$`)
 
-// eslintHeader matches the line on which ESLint's "stylish" reporter names a
-// file once, above its eslintRow places — so the file has to be carried across
-// lines, which the per-line patterns cannot do. It reuses the file rule so only
-// a plausible path opens a block, with a drive letter only on Windows. The
-// extension must start with a letter, so a version banner ("v1.2.3") or a
-// decimal ("3.14") on its own line is not read as a file.
-func eslintHeader(goos string) *regexp.Regexp {
+// eslintHeaderFor builds, for the platform goos, the pattern of the line on
+// which ESLint's "stylish" reporter names a file once, above its eslintRow
+// places — so the file has to be carried across lines, which the per-line
+// patterns cannot do. It reuses the file rule so only a plausible path opens a
+// block, with a drive letter only on Windows. The extension must start with a
+// letter, so a version banner ("v1.2.3") or a decimal ("3.14") on its own line
+// is not read as a file.
+func eslintHeaderFor(goos string) *regexp.Regexp {
 	drive, _ := filePatterns(goos)
 
 	header := `(?:[^\s:]+\.[A-Za-z][A-Za-z0-9]*|(?:[^\s:]*[/\\])?(?:` + knownBasenames + `))`
@@ -225,7 +226,7 @@ type FailureScan struct {
 // which decides whether a Windows drive letter is read as part of a path.
 func NewFailureScan(goos string) FailureScan {
 	return FailureScan{
-		patterns: locationPatterns(goos), eslintHeader: eslintHeader(goos),
+		patterns: locationPatterns(goos), eslintHeader: eslintHeaderFor(goos),
 		found: nil, eslintFile: "", held: "",
 	}
 }
