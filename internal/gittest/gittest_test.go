@@ -4,8 +4,10 @@
 package gittest_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -122,5 +124,74 @@ func TestChangedFilesNamesWhatWasAddedRemovedOrRewritten(t *testing.T) {
 	// Assert
 	if want := []string{"added", "removed", rewritten}; !slices.Equal(changed, want) {
 		t.Errorf("ChangedFiles = %q, want %q", changed, want)
+	}
+}
+
+// failures is a test that keeps what it was told to fail with rather than
+// failing, so a helper's own failure can be checked.
+type failures struct {
+	testing.TB
+
+	said []string
+}
+
+func (f *failures) Fatalf(format string, args ...any) {
+	f.said = append(f.said, fmt.Sprintf(format, args...))
+}
+
+func TestRunFailsTheTestWithGitsOwnReason(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	test := &failures{TB: t}
+
+	// Act
+	gittest.Run(test, t.TempDir(), "no-such-command")
+
+	// Assert
+	if len(test.said) != 1 || !strings.Contains(test.said[0], "no-such-command") ||
+		!strings.Contains(test.said[0], "is not a git command") {
+		t.Errorf("Run failed the test with %q, want once, naming the command and git's reason", test.said)
+	}
+}
+
+func TestFilesUnderFailsTheTestForADirectoryThatIsNotThere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	test := &failures{TB: t}
+	dir := filepath.Join(t.TempDir(), "missing")
+
+	// Act
+	files := gittest.FilesUnder(test, dir)
+
+	// Assert
+	if len(test.said) != 1 || !strings.Contains(test.said[0], "reading "+dir) || len(files) != 0 {
+		t.Errorf("FilesUnder = %q, failing the test with %q; want nothing and the directory named", files, test.said)
+	}
+}
+
+func TestFilesUnderFailsTheTestForAFileItCannotRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
+		t.Skip("a file's mode does not keep this user from reading it here")
+	}
+
+	test := &failures{TB: t}
+	dir := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(dir, "sealed"), []byte("left behind"), 0o000)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	gittest.FilesUnder(test, dir)
+
+	// Assert
+	if len(test.said) != 1 || !strings.Contains(test.said[0], "reading what the tests left") {
+		t.Errorf("FilesUnder failed the test with %q, want once, for the file it could not read", test.said)
 	}
 }
