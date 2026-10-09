@@ -289,3 +289,36 @@ func TestARefusedRemovalStaysInSettingsWithItsReason(t *testing.T) {
 	requireScreen(t, view, "permission denied", "Base URL")
 	refuseScreen(t, view, settingsToken)
 }
+
+func TestAViewIsTakenOnlyByOneNamedTheSame(t *testing.T) {
+	t.Parallel()
+
+	// A view's name is matched as typed: unlike a header's or an issue type's,
+	// one in another case is another view.
+	tests := map[string]struct {
+		typed          string
+		want, unwanted string
+	}{
+		"named as the listed one": {typed: "Sprint", want: "an entry of that name is already listed", unwanted: "Sprint > "},
+		"named in another case":   {typed: "sprint", want: "sprint > ", unwanted: "already listed"},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// With one view listed, the row that adds a view follows it.
+			repo := newWorld()
+			repo.settings.Jira.Views = []config.JiraView{{Name: "Sprint", JQL: "sprint in openSprints()"}}
+			adding := typing(t, repo.live(t, 120, 40), append(toRow(addViewRow+1), keyEnter)...)
+
+			// Act
+			view := typing(t, adding, append(letters(test.typed), keyEnter)...).View().Content
+
+			// Assert
+			requireScreen(t, view, test.want)
+			refuseScreen(t, view, test.unwanted)
+		})
+	}
+}
