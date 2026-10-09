@@ -52,8 +52,9 @@ func TestDoneAnswersTheTaskAsTheLinkedTasksDescribeItAfterTheWrite(t *testing.T)
 		t.Errorf("done = %+v, want %s completed, holding %+v", *done, startedUUID, stood)
 	}
 
-	if calls := fake.asked(); slices.Index(calls, "linked") < slices.Index(calls, "done "+startedUUID) {
-		t.Errorf("calls = %q, want the linked tasks read after the done", calls)
+	calls := fake.asked()
+	if doneAt := slices.Index(calls, "done "+startedUUID); doneAt < 0 || !slices.Contains(calls[doneAt+1:], "linked") {
+		t.Errorf("calls = %q, want the done, then the linked tasks read after it", calls)
 	}
 }
 
