@@ -302,6 +302,30 @@ func TestARefusalKeepsWordsThatOnlyLookLikeAPlace(t *testing.T) {
 	}
 }
 
+func TestARefusalNamesYourHomeWhenTaskwarriorCannotSayWhereItsDataIs(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Asked where its data is, Taskwarrior does not answer, so the path its
+	// refusal names is written from your home rather than as the data
+	// directory.
+	fake := fakeTaskwarrior()
+	fake.fail["install"] = taskwarrior.ErrNotInstalled
+	words := "Could not open " + dataPath + "/taskchampion.sqlite3."
+	fake.fail["modify"] = fmt.Errorf("%w: %s", taskwarrior.ErrRefused, words)
+
+	// Act
+	recorder := send(t, serve(t, tasksDeps(fake), config.Default()),
+		http.MethodPost, taskPath(startedUUID, modifyWrite), `{"line":"due:xyz"}`)
+
+	// Assert
+	want := "Taskwarrior refused the command: Could not open ~/.local/share/task/taskchampion.sqlite3."
+	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusUnprocessableEntity ||
+		failure.Detail != want {
+		t.Errorf("answer = %d %+v, want 422 with detail %q", recorder.Code, failure, want)
+	}
+}
+
 func TestAnAnswerThatIsNotTaskwarriorsJSONIsHandedToUnexpected(t *testing.T) {
 	t.Parallel()
 

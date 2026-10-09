@@ -66,6 +66,22 @@ func TestTheContractRefusesWhatTheServerCannotUse(t *testing.T) {
 	}
 }
 
+func TestAWriteTheContractRoutesNowhereIsNotFound(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	handler := serve(t, filledDeps(), config.Default())
+
+	// Act
+	recorder := send(t, handler, http.MethodPost, "/api/no-such-operation", `{}`)
+
+	// Assert
+	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusNotFound ||
+		failure.Code != api.ProblemCodeNotFound {
+		t.Errorf("status/code %d/%s, want 404/not_found", recorder.Code, failure.Code)
+	}
+}
+
 // fieldsOf is the fields of the JSON object at path in the recorder's body,
 // by name, as they came over the wire.
 func fieldsOf(t *testing.T, body []byte, path ...string) map[string]json.RawMessage {

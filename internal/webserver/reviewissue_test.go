@@ -212,3 +212,80 @@ func TestACheckLogTheForgeCouldNotHandOverIsAnUpstreamFault(t *testing.T) {
 		})
 	}
 }
+
+func TestACheckLogTheForgeHasNoneOfIsUnprocessable(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]func(deps *webserver.Deps){
+		"the check keeps no log": func(deps *webserver.Deps) {
+			listed := deps.Forge.CheckStatus
+			deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
+				ci, err := listed(pull, head)
+				for index := range ci.Checks {
+					ci.Checks[index].LogAvailable = false
+				}
+
+				return ci, err
+			}
+		},
+		"no way to read a log": func(deps *webserver.Deps) { deps.Forge.JobLog = nil },
+	}
+
+	for name, change := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var read []string
+
+			deps := failingDeps(&read)
+			change(&deps)
+
+			// Act
+			answer := get(t, serve(t, deps, config.Default()), "/api/review/checks/501/log")
+
+			// Assert
+			if answer.Code != http.StatusUnprocessableEntity || len(read) != 0 {
+				t.Errorf("status %d after reading %v, want 422 and nothing read", answer.Code, read)
+			}
+		})
+	}
+}
+
+func TestACheckLogWhoseBranchOrCICannotBeReadIsNotANotFound(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		change func(deps *webserver.Deps)
+		want   int
+	}{
+		"the branch checked out": {want: http.StatusInternalServerError, change: func(deps *webserver.Deps) {
+			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+		}},
+		"the CI": {want: http.StatusBadGateway, change: func(deps *webserver.Deps) {
+			deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+				return forge.CI{}, fmt.Errorf("reading the checks: %w", forge.ErrUnreachable)
+			}
+		}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var read []string
+
+			deps := failingDeps(&read)
+			tt.change(&deps)
+
+			// Act
+			answer := get(t, serve(t, deps, config.Default()), "/api/review/checks/501/log")
+
+			// Assert
+			if answer.Code != tt.want || len(read) != 0 {
+				t.Errorf("status %d after reading %v, want %d and nothing read", answer.Code, read, tt.want)
+			}
+		})
+	}
+}
