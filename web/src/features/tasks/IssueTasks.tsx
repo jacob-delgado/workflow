@@ -114,6 +114,7 @@ interface LinkedTaskProps {
 // an issue can have several.
 function LinkedTask({ task, writable, now, teller }: LinkedTaskProps) {
   const number = taskNumber(task)
+  const name = taskName(task)
 
   return (
     <li className="flex flex-col gap-tight text-sm">
@@ -129,11 +130,27 @@ function LinkedTask({ task, writable, now, teller }: LinkedTaskProps) {
       <Meta className="text-xs text-muted-foreground">{linkedNote(task, now)}</Meta>
       {writable ? (
         <div className="flex flex-wrap items-center gap-item">
-          <TaskVerbs task={task} teller={teller} named={taskName(task)} />
+          <TaskVerbs
+            task={task}
+            teller={teller}
+            named={name}
+            markedDone={(answered) => markedDoneWords(name, answered)}
+          />
         </div>
       ) : null}
     </li>
   )
+}
+
+// markedDoneWords is what a done from the card says, and — where its answer
+// could not describe the task, which then stands as the stream last had it —
+// that the card shows it done once workflow next reads it.
+function markedDoneWords(name: string, answered: TaskList): string {
+  const marked = `Marked ${name} done`
+
+  return answered.done === undefined
+    ? `${marked}; it shows done here once workflow next reads it.`
+    : `${marked}.`
 }
 
 // linkedNote is how a linked task stands: how long ago it was started, or its
