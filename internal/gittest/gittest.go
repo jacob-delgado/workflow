@@ -9,6 +9,7 @@
 package gittest
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -36,16 +37,15 @@ func LocalVariables() []string {
 // ClearLocalVariables unsets every one of LocalVariables, for a TestMain to
 // call before any test runs: every git the tests start, theirs or the code's
 // under test, would otherwise inherit them and work on the hook's repository
-// instead of its own temporary one.
+// instead of its own temporary one. Each is unset whatever became of the
+// others, and any that could not be is reported.
 func ClearLocalVariables() error {
+	failures := make([]error, 0, len(LocalVariables()))
 	for _, name := range LocalVariables() {
-		err := os.Unsetenv(name)
-		if err != nil {
-			return fmt.Errorf("clearing %s: %w", name, err)
-		}
+		failures = append(failures, os.Unsetenv(name))
 	}
 
-	return nil
+	return errors.Join(failures...)
 }
 
 // Run runs git in dir with args, the developer's global and system git
