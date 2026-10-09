@@ -11,7 +11,6 @@
 package codeowners
 
 import (
-	"regexp"
 	"slices"
 	"strings"
 )
@@ -141,9 +140,6 @@ func (c *collector) addNew(into, names []string) []string {
 // skipped, as the forge skips it, rather than failing the whole file.
 func Parse(content string, dialect Dialect) File {
 	reading := parser{dialect: dialect, file: File{sections: []section{{name: defaultSection, rules: nil}}}}
-	if dialect == GitLab {
-		reading.header = regexp.MustCompile(gitLabHeader)
-	}
 
 	for line := range strings.SplitSeq(content, "\n") {
 		reading.read(line)
@@ -159,8 +155,6 @@ type parser struct {
 	file     File
 	current  int
 	defaults Owners
-	// header is GitLab's section header; nil on GitHub, which has none.
-	header *regexp.Regexp
 }
 
 func (p *parser) read(line string) {
