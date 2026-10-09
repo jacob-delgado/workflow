@@ -175,8 +175,9 @@ time, were paid down when the server took them over, and their entries are
 gone. TRADE-6 was paid down when the composers, the calendar and the pane
 switch came to move around one field ring, and TRADE-12 when the terminal
 interface came to take its input from the caller, so a test drives it; their
-entries are gone. TRADE-18 was paid down to the one condition it now names,
-when every command came to take its working directory from its caller, and
+entries are gone. TRADE-18 was paid down to one condition, when every command
+came to take its working directory from its caller, then widened to a second,
+when the interface came to read keys from the terminal past a piped input, and
 stays. TRADE-19 is to be paid down by the entry above whose title names it,
 and stays here until that entry is paid. In the pre-1.0 paydown every entry
 that stays was checked against the code again: each names the functions and
@@ -361,27 +362,39 @@ lost is read rather than checked.
 **Reopen when.** One of these failures is reported, or a change to the calls
 lets a test fail the second without the first.
 
-### TRADE-18 A condition only Linux's tests reach
+### TRADE-18 Two conditions a test reaches where the report cannot see it
 
-One condition is reached by a test that skips on macOS, so a report
-measured there lists it as seen one way, and CI's, measured on Linux, does
-not. `closeRequestLog` (`internal/cli/scriptable.go`) asks whether the
-request log's file could be fully written, and says so on stderr when it
-could not. `TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
+Two conditions are reached by a test the condition report does not count.
+`closeRequestLog` (`internal/cli/scriptable.go`) asks whether the request
+log's file could be fully written, and says so on stderr when it could not.
+`TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
 (`internal/cli/reqlog_test.go`) reaches it by logging to `/dev/full`, every
 write to which fails as a full disk would; macOS has none, and no other file
-can be made to refuse writes from a test.
+can be made to refuse writes from a test, so a report measured there lists it
+as seen one way, and CI's, measured on Linux, does not. `keysFrom`
+(`internal/tui/tui.go`) asks whether the interface's input is a file that is
+no terminal, from which it reads no keys.
+`TestRunReadsNoKeysFromAFileThatIsNoTerminal`
+(`internal/tui/run_unix_test.go`) reaches it in a child process that has no
+terminal at all, as a test run from a developer's shell does not, and gobco
+counts only the test process, so every report lists that the input is a file
+as never true and whether it is a terminal as never asked.
 
 **Decided.** 2026-09-26, in #146; narrowed to `closeRequestLog` alone in the
 pre-1.0 paydown, when every command came to read its working directory from
 the environment its caller hands it, so a test reaches the six `os.Getwd`
-arms this entry also kept on every system.
+arms this entry also kept on every system; and widened to `keysFrom` in the
+same paydown, when the interface came to read keys from the terminal when its
+input is a file that is none (DEBT-197).
 
 **Cost.** `task cover:branch` on macOS reads one arm fewer than CI does, and
-lists one condition a reader there could take for untested.
+every report lists `keysFrom`'s condition as seen one way, though a test fails
+when either arm breaks; a reader of the report could take either for
+untested.
 
-**Reopen when.** CI measures condition coverage on another system, or the
-test stops reaching the condition on Linux.
+**Reopen when.** CI measures condition coverage on another system, a test
+stops reaching either condition, or gobco comes to count what a child process
+runs.
 
 ### TRADE-19 The rest of the condition report stays gobco's worklist
 
