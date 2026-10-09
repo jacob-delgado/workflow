@@ -50,8 +50,10 @@ type clickable interface {
 }
 
 // steppable is an overlay that moves on up and down: through a list, or down its
-// lines. step moves it by delta, as those keys do, so the wheel moves it
-// without pressing a key that ui.keys may have moved elsewhere.
+// lines. step moves it by delta steps, as those keys do, so the wheel moves it
+// without pressing a key that ui.keys may have moved elsewhere. What one step
+// is, is the overlay's: a row of a list, a line of a job's log, half a page of
+// the help.
 type steppable interface {
 	step(m Model, delta int) Model
 }
