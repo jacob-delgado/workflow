@@ -254,19 +254,20 @@ func TestActivityLeavesOutWhatJiraDatedInAFormItCannotRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Reported by me inside the period, and commented on by me at a time no
-	// layout reads.
+	// Reported by me, and commented on by me at a time no layout reads. The
+	// period runs from the start of time, so no date it could be mistaken
+	// for falls outside it.
 	issue := `{"key":"PROJ-7","fields":{"summary":"` + leakSummary + `",` +
 		`"created":"2026-10-02T09:00:00.000+0000","reporter":{"name":"ana"},` +
 		`"comment":{"comments":[{"author":{"name":"ana"},"created":"yesterday"}]}}}`
 	client, _ := activityJira(t, 1, issue)
-	start := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+	created := time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)
 
 	// Act
-	activity, err := client.Activity(t.Context(), start, start.Add(24*time.Hour))
+	activity, err := client.Activity(t.Context(), time.Time{}, created.Add(24*time.Hour))
 
 	// Assert
-	want := jira.Event{At: start.Add(9 * time.Hour), Kind: jira.EventCreated, Key: leakKey, Summary: leakSummary}
+	want := jira.Event{At: created, Kind: jira.EventCreated, Key: leakKey, Summary: leakSummary}
 	if err != nil || len(activity.Events) != 1 || activity.Events[0] != want {
 		t.Errorf("Activity = %+v, %v; want the creation alone", activity.Events, err)
 	}
