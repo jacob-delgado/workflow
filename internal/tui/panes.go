@@ -51,8 +51,10 @@ func (p pane) label(messaging string) string {
 	return strconv.Itoa(int(p)+1) + " " + p.title(messaging)
 }
 
-// ring is a position among size places that wraps around at either end: the
-// focused pane, a composer's field or commit type, the calendar's column.
+// ring is a position among size places that wraps around at either end, the
+// one way a key that cycles through a fixed set of places steps through it:
+// on from the last comes back to the first, and back from the first to the
+// last.
 type ring[T ~int] struct {
 	at, size T
 }
