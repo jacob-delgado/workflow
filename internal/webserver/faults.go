@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/report"
 )
 
@@ -16,8 +17,21 @@ import (
 func faultClasses() []report.Class {
 	shared := report.SharedFaults()
 
-	return slices.Concat(shared.Git, branchFaults(), shared.Transport, shared.Jira, shared.Forge, shared.Messaging,
-		taskWriteFaults(), shared.Taskwarrior, shared.Directory, switchFaults(), localDataFaults(), peopleFaults())
+	return slices.Concat(repositoryFaults(), shared.Git, branchFaults(), shared.Transport, shared.Jira, shared.Forge,
+		shared.Messaging, taskWriteFaults(), shared.Taskwarrior, shared.Directory, switchFaults(), localDataFaults(),
+		peopleFaults())
+}
+
+// repositoryFaults are git's failures the server words itself: a server
+// started outside any work tree is told how to start one inside, ahead of the
+// words every surface shares.
+func repositoryFaults() []report.Class {
+	return []report.Class{
+		{
+			Causes: []error{gitrepo.ErrNotARepository}, Code: api.ProblemCodeConflict,
+			Detail: "the server is not running in a git repository; start workflow --web from a repository's work tree",
+		},
+	}
 }
 
 // branchFaults are the server's own refusals of a new branch.

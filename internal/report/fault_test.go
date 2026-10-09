@@ -12,6 +12,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
@@ -33,6 +34,24 @@ func TestAFaultsDetailIsTheProblemsWordsWithoutTheHost(t *testing.T) {
 	// Assert
 	if strings.Contains(detail, "internal.example") || !strings.Contains(detail, "could not be reached") {
 		t.Errorf("FaultDetail = %q, want the problem's words for an unreachable service, no host", detail)
+	}
+}
+
+// FaultDetail words `workflow summary --json`'s failures too, so a read made
+// outside any repository is told without the web server's words.
+func TestARepositoryReadOutsideOneIsToldForEverySurface(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	outside := fmt.Errorf("%w: /home/me", gitrepo.ErrNotARepository)
+
+	// Act
+	detail := report.FaultDetail(outside)
+
+	// Assert
+	if !strings.Contains(detail, "not a git repository") || strings.Contains(detail, "--web") ||
+		strings.Contains(detail, "server") {
+		t.Errorf("FaultDetail = %q, want it to say this is no git repository, in words for every surface", detail)
 	}
 }
 
