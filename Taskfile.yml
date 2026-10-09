@@ -76,7 +76,13 @@ vars:
   # reaches. They carry no test, since a test through internals or a refactor
   # made only to reach them is worse than the gap; the CLI's Slack paths,
   # which a fake Slack could reach, were tested instead.
-  BRANCH_COVERAGE_MIN: 91
+  #
+  # It rose 91→93 when the report stopped being a worklist alone: every
+  # condition that never ran and every error arm never seen got a test, a
+  # refactor that left no such arm, or a line of scripts/gobco-allowlist.txt
+  # naming the trade-off that keeps it, and the gate now fails a new one. The
+  # report then read 95.4%, and the floor is floor(measured) - 2.
+  BRANCH_COVERAGE_MIN: 93
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
   # container:check needs a VM of about 8 GiB: knip's parser reserves 6 GiB in
   # one allocation, and golangci-lint alone is killed for memory in the 2 GiB a
