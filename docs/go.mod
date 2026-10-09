@@ -1,5 +1,5 @@
 module github.com/jacob-delgado/workflow/docs
 
-go 1.27.1
+go 1.27.2
 
 require github.com/alex-shpak/hugo-book v0.15.0 // indirect
