@@ -119,7 +119,10 @@ both printing the available ratchet when you clear them:
 - **Conditions** (`task cover:branch`, via [gobco](https://github.com/rillig/gobco))
   — was each condition seen both ways, each operand of an `a && b` on its own.
   Its output names every condition observed only one way, which is a worklist
-  of the tests still missing. gobco measures every package in this module that
+  of the tests still missing. A condition no test evaluated, or an error check
+  whose error arm no test reached, fails it outright, unless
+  `scripts/gobco-allowlist.txt` keeps that arm for a trade-off `TECH_DEBT.md`
+  records. gobco measures every package in this module that
   has tests. It reads a package of build-tagged twins one file at a time, so
   each file the build takes must stand alone, and any package or file it cannot
   read fails the gate.

@@ -75,6 +75,8 @@ func credentialSections() []credentialSection {
 // movedSections are the credential sections whose address over gives a value
 // other than beneath's: the sections whose credentials beneath must not lend.
 func movedSections(beneath, over any) ([]credentialSection, error) {
+	// Trade-off TRADE-13: configOf fails only as re-encoding values just
+	// decoded would.
 	home, err := configOf(beneath)
 	if err != nil {
 		return nil, err
@@ -98,6 +100,7 @@ func movedSections(beneath, over any) ([]credentialSection, error) {
 
 // configOf is value read as a configuration, unvalidated.
 func configOf(value any) (Config, error) {
+	// Trade-off TRADE-13: values decoded from JSON always encode.
 	encoded, err := encodeValue(value)
 	if err != nil {
 		return Default(), err
@@ -155,6 +158,8 @@ func homeOnlySettings() []homeOnlySetting {
 // any setting only the home directory's file may, naming each. Left empty, a
 // setting is not made, so a file written whole, which holds every key, passes.
 func refuseHomeOnly(path string, contents []byte) error {
+	// Trade-off TRADE-13: both callers hand over contents just decoded or
+	// just encoded.
 	layer, err := decode(contents)
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
