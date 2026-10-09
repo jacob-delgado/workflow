@@ -6,9 +6,10 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import App from '@/App.tsx'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { FakeEventSource } from '@/test/fakeEventSource.ts'
-import { makeSnapshot, makeTask, makeTaskList } from '@/test/fixtures.ts'
+import { describedTask, makeSnapshot, makeTaskList, taskFacet } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
+import { cacheTuning, certificate, retroRoom, startedTokenLeak, tokenLeak } from '@/test/tasks.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
 const tasksPath = '/api/tasks'
@@ -29,42 +30,8 @@ const tokenLeakIssue: Issue = {
   type: 'Bug',
 }
 
-const tokenLeak = makeTask({
-  uuid: '11111111-1111-4111-8111-111111111111',
-  id: 1,
-  description: 'PROJ-1: Fix the token leak',
-  issue_key: 'PROJ-1',
-  issue_url: 'https://jira.example.com/browse/PROJ-1',
-  urgency: 9.5,
-})
-const certificate = makeTask({
-  uuid: '22222222-2222-4222-8222-222222222222',
-  id: 2,
-  description: 'Renew the certificate',
-  issue_key: '',
-  issue_url: '',
-  urgency: 5.1,
-  due: hoursFromNow(27.5),
-})
-const elsewhere = makeTask({
-  uuid: '33333333-3333-4333-8333-333333333333',
-  id: 3,
-  description: 'PROJ-9: Tune the cache',
-  issue_key: 'PROJ-9',
-  issue_url: 'https://jira.example.com/browse/PROJ-9',
-  urgency: 3.2,
-})
-const waiting = makeTask({
-  uuid: '44444444-4444-4444-8444-444444444444',
-  id: 4,
-  description: 'Book the retro room',
-  status: 'waiting',
-  state: 'waiting',
-  wait: hoursFromNow(48),
-  issue_key: '',
-  issue_url: '',
-  urgency: 1.1,
-})
+// certificateDue is the certificate, due in a day and more.
+const certificateDue = { ...certificate, due: hoursFromNow(27.5) }
 
 // streamIssues puts a stream frame on screen whose Issues list holds the issues.
 function streamIssues(...issues: Issue[]) {
@@ -103,7 +70,7 @@ function statusSaying(text: string): HTMLElement | undefined {
 test('lists the tasks for your issues apart from the others, and counts those waiting', async () => {
   // Arrange
   streamIssues(tokenLeakIssue)
-  fakeApi({ [tasksPath]: makeTaskList([tokenLeak, certificate, elsewhere, waiting]) })
+  fakeApi({ [tasksPath]: makeTaskList([tokenLeak, certificateDue, cacheTuning, retroRoom]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -124,7 +91,7 @@ test('lists the tasks for your issues apart from the others, and counts those wa
 
 test('a row gives each fact after the task an element of its own', async () => {
   // Arrange
-  fakeApi({ [tasksPath]: makeTaskList([elsewhere]) })
+  fakeApi({ [tasksPath]: makeTaskList([cacheTuning]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -137,7 +104,7 @@ test('a row gives each fact after the task an element of its own', async () => {
 
 test('tasks all of one kind are one list, with no headings over it', async () => {
   // Arrange
-  fakeApi({ [tasksPath]: makeTaskList([certificate, elsewhere]) })
+  fakeApi({ [tasksPath]: makeTaskList([certificate, cacheTuning]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -151,8 +118,7 @@ test('tasks all of one kind are one list, with no headings over it', async () =>
 
 test('the mark beside each task is how far it has got, by shape, beside its words', async () => {
   // Arrange
-  const started = { ...tokenLeak, start: hoursFromNow(-1), state: 'started' as const }
-  fakeApi({ [tasksPath]: makeTaskList([started, certificate]) })
+  fakeApi({ [tasksPath]: makeTaskList([startedTokenLeak(hoursFromNow(-1)), certificate]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -171,7 +137,13 @@ test('the mark beside each task is how far it has got, by shape, beside its word
 
 test('a task outside the working set shows no number', async () => {
   // Arrange
-  fakeApi({ [tasksPath]: makeTaskList([{ ...certificate, id: 0 }]) })
+  // Taskwarrior numbers only the tasks in its working set, so the server
+  // matches no #id for this one.
+  const unnumbered = describedTask(
+    { ...certificate, id: 0 },
+    { state: 'pending', facets: certificate.facets, searchable: ['renew the certificate', '', ''] },
+  )
+  fakeApi({ [tasksPath]: makeTaskList([unnumbered]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -184,7 +156,7 @@ test('a task outside the working set shows no number', async () => {
 test('the first task is selected and its detail shown; choosing another shows its', async () => {
   // Arrange
   const user = userEvent.setup()
-  fakeApi({ [tasksPath]: makeTaskList([certificate, elsewhere]) })
+  fakeApi({ [tasksPath]: makeTaskList([certificate, cacheTuning]) })
 
   // Act: list the tasks
   renderWithClient(<TasksPanel />)
@@ -206,26 +178,27 @@ test('the first task is selected and its detail shown; choosing another shows it
 
 test('the detail gives the task its facts and its notes', async () => {
   // Arrange
-  const noted = makeTask({
-    uuid: tokenLeak.uuid,
-    id: tokenLeak.id,
-    description: tokenLeak.description,
-    issue_key: tokenLeak.issue_key,
-    issue_url: tokenLeak.issue_url,
-    urgency: tokenLeak.urgency,
-    project: 'api',
-    priority: 'H',
-    tags: ['jira', 'security'],
-    annotations: [{ entry: '2026-09-21T09:00:00Z', description: 'Ana can review it' }],
-    facets: [
-      { kind: 'state', value: 'pending', label: 'pending' },
-      { kind: 'priority', value: 'H', label: 'priority H' },
-      { kind: 'project', value: 'api', label: 'project api' },
-      { kind: 'issue', value: 'linked', label: 'with issue' },
-      { kind: 'tag', value: 'jira', label: '+jira' },
-      { kind: 'tag', value: 'security', label: '+security' },
-    ],
-  })
+  const noted = describedTask(
+    {
+      ...tokenLeak,
+      project: 'api',
+      priority: 'H',
+      tags: ['jira', 'security'],
+      annotations: [{ entry: '2026-09-21T09:00:00Z', description: 'Ana can review it' }],
+    },
+    {
+      state: 'pending',
+      facets: [
+        taskFacet.pending,
+        { kind: 'priority', value: 'H', label: 'priority H' },
+        { kind: 'project', value: 'api', label: 'project api' },
+        taskFacet.withIssue,
+        { kind: 'tag', value: 'jira', label: '+jira' },
+        { kind: 'tag', value: 'security', label: '+security' },
+      ],
+      searchable: ['proj-1: fix the token leak', 'api', 'proj-1', '+jira', '+security', '#1'],
+    },
+  )
   fakeApi({ [tasksPath]: makeTaskList([noted]) })
 
   // Act
@@ -256,12 +229,7 @@ test('the detail gives the task its facts and its notes', async () => {
 
 test('the detail of a started task says how long ago it was started, and when it is due', async () => {
   // Arrange
-  const started = {
-    ...tokenLeak,
-    start: hoursFromNow(-1.2),
-    state: 'started' as const,
-    due: hoursFromNow(-2),
-  }
+  const started = { ...startedTokenLeak(hoursFromNow(-1.2)), due: hoursFromNow(-2) }
   fakeApi({ [tasksPath]: makeTaskList([started]) })
 
   // Act
@@ -276,7 +244,7 @@ test('the detail of a started task says how long ago it was started, and when it
 test('Open in Issues is offered only for a task whose issue the Issues list holds', async () => {
   // Arrange
   streamIssues(tokenLeakIssue)
-  fakeApi({ [tasksPath]: makeTaskList([elsewhere]) })
+  fakeApi({ [tasksPath]: makeTaskList([cacheTuning]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -313,7 +281,7 @@ test("Open in Issues opens the Issues section on the task's issue", async () => 
 
 test('no pending tasks says how to get one, and still counts those waiting', async () => {
   // Arrange
-  fakeApi({ [tasksPath]: makeTaskList([waiting]) })
+  fakeApi({ [tasksPath]: makeTaskList([retroRoom]) })
 
   // Act
   renderWithClient(<TasksPanel />)
@@ -429,7 +397,7 @@ test("a failed read is said at once, never retried behind the user's back", asyn
 test('Refresh reads the tasks again, keeping the list while it does', async () => {
   // Arrange
   const user = userEvent.setup()
-  const answers = [makeTaskList([certificate]), makeTaskList([certificate, elsewhere])]
+  const answers = [makeTaskList([certificate]), makeTaskList([certificate, cacheTuning])]
   const requests = fakeApi({ [tasksPath]: () => answers.shift() })
   renderWithClient(<TasksPanel />)
   await screen.findByRole('list', { name: 'Tasks' })
@@ -456,14 +424,30 @@ test('says which context narrows the list', async () => {
 test('the add line posts the typed line and lists what Taskwarrior answers', async () => {
   // Arrange
   const user = userEvent.setup()
-  const added = makeTask({
-    uuid: '55555555-5555-4555-8555-555555555555',
-    id: 5,
-    description: 'Write the setup docs',
-    project: 'docs',
-    issue_key: '',
-    issue_url: '',
-  })
+  const added = describedTask(
+    {
+      uuid: '55555555-5555-4555-8555-555555555555',
+      id: 5,
+      description: 'Write the setup docs',
+      status: 'pending',
+      project: 'docs',
+      priority: '',
+      tags: [],
+      issue_key: '',
+      issue_url: '',
+    },
+    {
+      state: 'pending',
+      facets: [
+        taskFacet.pending,
+        taskFacet.noPriority,
+        { kind: 'project', value: 'docs', label: 'project docs' },
+        taskFacet.noIssue,
+        taskFacet.noTag,
+      ],
+      searchable: ['write the setup docs', 'docs', '', '#5'],
+    },
+  )
   const requests = fakeApi({
     [tasksPath]: (_: URL, asked: Request) =>
       asked.method === 'POST'

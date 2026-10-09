@@ -4,32 +4,16 @@ import { vi } from 'vitest'
 import type { Task, TaskList } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { makeHealth, makeTask, makeTaskList } from '@/test/fixtures.ts'
+import { describedTask, makeHealth, makeTaskList, taskFacet } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { certificate, startedTokenLeak, tokenLeak } from '@/test/tasks.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
 type User = ReturnType<typeof userEvent.setup>
 
 const tasksPath = '/api/tasks'
 
-const tokenLeak = makeTask({
-  uuid: '11111111-1111-4111-8111-111111111111',
-  id: 1,
-  description: 'PROJ-1: Fix the token leak',
-  issue_key: 'PROJ-1',
-})
-const certificate = makeTask({
-  uuid: '22222222-2222-4222-8222-222222222222',
-  id: 2,
-  description: 'Renew the certificate',
-  issue_key: '',
-  issue_url: '',
-})
-const started: Task = {
-  ...tokenLeak,
-  start: new Date(Date.now() - 600_000).toISOString(),
-  state: 'started',
-}
+const started = startedTokenLeak(new Date(Date.now() - 600_000).toISOString())
 const taskPath = `${tasksPath}/${tokenLeak.uuid}`
 
 // refused is a problem answer, as the server gives a write it refuses.
@@ -144,7 +128,22 @@ const verbs: Verb[] = [
     },
     path: `${taskPath}/modify`,
     body: { line: 'priority:H' },
-    answered: [{ ...tokenLeak, priority: 'H' }],
+    answered: [
+      describedTask(
+        { ...tokenLeak, priority: 'H' },
+        {
+          state: 'pending',
+          facets: [
+            taskFacet.pending,
+            { kind: 'priority', value: 'H', label: 'priority H' },
+            taskFacet.noProject,
+            taskFacet.withIssue,
+            taskFacet.noTag,
+          ],
+          searchable: tokenLeak.searchable,
+        },
+      ),
+    ],
     said: 'Modified task 1.',
     after: () => factOf('Priority') === 'H',
   },

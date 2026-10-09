@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { Issue, TasksSummary } from '@/api/generated/types.gen.ts'
-import { makeTask } from '@/test/fixtures.ts'
+import { describedTask, taskFacet } from '@/test/fixtures.ts'
 import { twinCases } from '@/test/twinCases.ts'
 import {
   admits,
@@ -109,7 +109,32 @@ test.each(corpus.choices)('$name', ({ issues, picked, want }) => {
 const tasks: TasksSummary = {
   available: true,
   reason: '',
-  linked: [makeTask({ issue_key: 'PROJ-503', start: '2026-09-30T09:00:00Z', state: 'started' })],
+  linked: [
+    describedTask(
+      {
+        id: 7,
+        description: 'PROJ-503: Fix the crash',
+        status: 'pending',
+        start: '2026-09-30T09:00:00Z',
+        project: '',
+        priority: '',
+        tags: [],
+        issue_key: 'PROJ-503',
+        issue_url: 'https://jira.example.com/browse/PROJ-503',
+      },
+      {
+        state: 'started',
+        facets: [
+          taskFacet.started,
+          taskFacet.noPriority,
+          taskFacet.noProject,
+          taskFacet.withIssue,
+          taskFacet.noTag,
+        ],
+        searchable: ['proj-503: fix the crash', '', 'proj-503', '#7'],
+      },
+    ),
+  ],
 }
 
 test('marks read the branches, the linked tasks and the tracker', () => {

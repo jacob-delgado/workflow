@@ -2,7 +2,7 @@ import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { makeSnapshot, makeTask, makeTaskBranch } from '@/test/fixtures.ts'
+import { describedTask, makeSnapshot, makeTaskBranch, taskFacet } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { IssuesPanel } from './IssuesPanel.tsx'
 
@@ -51,7 +51,32 @@ const snapshot = makeSnapshot({
   tasks: {
     available: true,
     reason: '',
-    linked: [makeTask({ issue_key: 'PROJ-502', start: '2026-09-30T09:00:00Z', state: 'started' })],
+    linked: [
+      describedTask(
+        {
+          id: 7,
+          description: 'PROJ-502: Patch the leak',
+          status: 'pending',
+          start: '2026-09-30T09:00:00Z',
+          project: '',
+          priority: '',
+          tags: [],
+          issue_key: 'PROJ-502',
+          issue_url: 'https://jira.example.com/browse/PROJ-502',
+        },
+        {
+          state: 'started',
+          facets: [
+            taskFacet.started,
+            taskFacet.noPriority,
+            taskFacet.noProject,
+            taskFacet.withIssue,
+            taskFacet.noTag,
+          ],
+          searchable: ['proj-502: patch the leak', '', 'proj-502', '#7'],
+        },
+      ),
+    ],
   },
 })
 
