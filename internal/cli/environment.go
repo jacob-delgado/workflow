@@ -6,6 +6,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -64,9 +65,10 @@ func workingDir(cmd *cobra.Command) (string, error) {
 }
 
 // fromWorkingDir is path, or where it leads from the directory the command
-// cmd runs in was run from when it is relative, as a shell would read it there.
+// cmd runs in was run from when it is relative to that, as a shell would read
+// it there.
 func fromWorkingDir(cmd *cobra.Command, path string) (string, error) {
-	if filepath.IsAbs(path) {
+	if !relativeToWorkingDir(path) {
 		return path, nil
 	}
 
@@ -76,4 +78,14 @@ func fromWorkingDir(cmd *cobra.Command, path string) (string, error) {
 	}
 
 	return filepath.Join(dir, path), nil
+}
+
+// relativeToWorkingDir reports that path leads from the working directory. An
+// absolute path does not, and on Windows neither does one rooted on the
+// current drive (\logs) nor one relative to another drive's own directory
+// (D:logs): the operating system reads those from elsewhere.
+func relativeToWorkingDir(path string) bool {
+	rooted := path != "" && os.IsPathSeparator(path[0])
+
+	return !filepath.IsAbs(path) && filepath.VolumeName(path) == "" && !rooted
 }
