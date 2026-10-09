@@ -94,7 +94,7 @@ func WithIssueLine(body, issueKey, issueURL string) (string, bool) {
 // likely a count, a version or another key's number.
 func references(text, issueKey string) bool {
 	quoted := regexp.QuoteMeta(issueKey)
-	if forgeNumber().MatchString(issueKey) {
+	if wholeForgeNumber.MatchString(issueKey) {
 		return regexp.MustCompile(`(?:(?:^|[^\w&])#|/issues/)` + quoted + `\b`).MatchString(text)
 	}
 

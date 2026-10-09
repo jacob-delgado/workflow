@@ -56,23 +56,19 @@ const jiraKeyShape = `[A-Z][A-Z0-9_]+-` + forgeNumberShape
 // with no leading zero. Every rule that reads a forge number is built from it.
 const forgeNumberShape = `[1-9][0-9]*`
 
-// issueKey matches a Jira issue key in text. Only the boundary before a key is
-// matched: the greedy number already ends where the digits do, and consuming
-// the character after it would leave the next match no boundary, so the
-// PROJ-412 in UTF-8-PROJ-412 would go unseen.
-func issueKey() *regexp.Regexp {
-	return regexp.MustCompile(`(?:^|[^A-Za-z0-9])(` + jiraKeyShape + `)`)
-}
+// jiraKeyInText matches a Jira issue key in text. Only the boundary before a
+// key is matched: the greedy number already ends where the digits do, and
+// consuming the character after it would leave the next match no boundary, so
+// the PROJ-412 in UTF-8-PROJ-412 would go unseen.
+var jiraKeyInText = regexp.MustCompile(`(?:^|[^A-Za-z0-9])(` + jiraKeyShape + `)`)
 
-// scope is what a Conventional Commit scope may contain.
-func scope() *regexp.Regexp {
-	return regexp.MustCompile(`^[a-z0-9][a-z0-9._/-]*$`)
-}
+// wellFormedScope matches what a Conventional Commit scope may contain.
+var wellFormedScope = regexp.MustCompile(`^[a-z0-9][a-z0-9._/-]*$`)
 
 // ValidateScope reports what is wrong with a Conventional Commit scope, or nil
 // when it is well-formed. An empty scope is well-formed: a scope is optional.
 func ValidateScope(value string) error {
-	if trimmed := strings.TrimSpace(value); trimmed != "" && !scope().MatchString(trimmed) {
+	if trimmed := strings.TrimSpace(value); trimmed != "" && !wellFormedScope.MatchString(trimmed) {
 		return fmt.Errorf("%w: %q", ErrInvalidScope, trimmed)
 	}
 
@@ -163,11 +159,11 @@ func IssueKey(text, project string) (IssueRef, bool) {
 // link it cannot be shown or removed as.
 func RefOf(key string) (IssueRef, bool) {
 	number := strings.TrimPrefix(key, "#")
-	if forgeNumber().MatchString(number) {
+	if wholeForgeNumber.MatchString(number) {
 		return IssueRef{Key: number, Tracker: TrackerForge}, true
 	}
 
-	if wholeJiraKey().MatchString(key) {
+	if wholeJiraKey.MatchString(key) {
 		return IssueRef{Key: key, Tracker: TrackerJira}, true
 	}
 
@@ -175,9 +171,7 @@ func RefOf(key string) (IssueRef, bool) {
 }
 
 // wholeJiraKey matches a Jira key alone.
-func wholeJiraKey() *regexp.Regexp {
-	return regexp.MustCompile(`^` + jiraKeyShape + `$`)
-}
+var wholeJiraKey = regexp.MustCompile(`^` + jiraKeyShape + `$`)
 
 // IssueInText finds the issue a pull request's title or description names: a
 // Jira key where there is one, and otherwise the first forge issue it writes
@@ -188,7 +182,7 @@ func IssueInText(text, project string) (IssueRef, bool) {
 		return IssueRef{Key: key, Tracker: TrackerJira}, true
 	}
 
-	match := mentionedIssue().FindStringSubmatch(text)
+	match := mentionedIssue.FindStringSubmatch(text)
 	if match == nil {
 		return IssueRef{}, false
 	}
@@ -199,18 +193,14 @@ func IssueInText(text, project string) (IssueRef, bool) {
 // mentionedIssue matches a forge issue mentioned in text, #42, after a space,
 // punctuation or the start — not a URL's fragment, docs#42, or an HTML
 // entity, &#42;.
-func mentionedIssue() *regexp.Regexp {
-	return regexp.MustCompile(`(?:^|[\s(\[,:;])#(` + forgeNumberShape + `)\b`)
-}
+var mentionedIssue = regexp.MustCompile(`(?:^|[\s(\[,:;])#(` + forgeNumberShape + `)\b`)
 
-// forgeNumber matches a forge issue number alone.
-func forgeNumber() *regexp.Regexp {
-	return regexp.MustCompile(`^` + forgeNumberShape + `$`)
-}
+// wholeForgeNumber matches a forge issue number alone.
+var wholeForgeNumber = regexp.MustCompile(`^` + forgeNumberShape + `$`)
 
 // jiraKey finds the first Jira issue key in text, where a key's project counts.
 func jiraKey(text, project string) (string, bool) {
-	for _, match := range issueKey().FindAllStringSubmatch(text, -1) {
+	for _, match := range jiraKeyInText.FindAllStringSubmatch(text, -1) {
 		candidate, _, _ := strings.Cut(match[1], "-")
 		if acceptedProject(candidate, project) {
 			return match[1], true
@@ -233,17 +223,16 @@ func acceptedProject(candidate, configured string) bool {
 	return !standardAbbreviations()[candidate]
 }
 
-// forgeIssueKey matches a forge issue number as a branch names one: a number at
-// the start of the branch or of a path component, ending the component or before
-// a hyphen, as GitLab's own "42-fix-typo" branches are named. Anchoring it there
-// keeps a slug digit, or a token like the 256 in SHA-256, from reading as a key.
-func forgeIssueKey() *regexp.Regexp {
-	return regexp.MustCompile(`(?:^|/)(` + forgeNumberShape + `)(?:-|$)`)
-}
+// forgeNumberInBranch matches a forge issue number as a branch names one: a
+// number at the start of the branch or of a path component, ending the
+// component or before a hyphen, as GitLab's own "42-fix-typo" branches are
+// named. Anchoring it there keeps a slug digit, or a token like the 256 in
+// SHA-256, from reading as a key.
+var forgeNumberInBranch = regexp.MustCompile(`(?:^|/)(` + forgeNumberShape + `)(?:-|$)`)
 
 // forgeKey finds a forge issue number in text.
 func forgeKey(text string) (string, bool) {
-	match := forgeIssueKey().FindStringSubmatch(text)
+	match := forgeNumberInBranch.FindStringSubmatch(text)
 	if match == nil {
 		return "", false
 	}
@@ -393,7 +382,7 @@ func endsWithTrailerBlock(body string) bool {
 	last := paragraphs[len(paragraphs)-1]
 
 	for line := range strings.SplitSeq(last, "\n") {
-		if strings.TrimSpace(line) != "" && !trailerLine().MatchString(line) {
+		if strings.TrimSpace(line) != "" && !trailerLine.MatchString(line) {
 			return false
 		}
 	}
@@ -403,6 +392,4 @@ func endsWithTrailerBlock(body string) bool {
 
 // trailerLine matches a git trailer: a key of letters, digits and hyphens, a
 // colon, and a space.
-func trailerLine() *regexp.Regexp {
-	return regexp.MustCompile(`^[A-Za-z][A-Za-z0-9-]*: `)
-}
+var trailerLine = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9-]*: `)

@@ -24,16 +24,14 @@ const (
 // it, so a type one accepts is one the other reads past.
 const commitTypePattern = `[a-z][a-z0-9]*`
 
-// commitType matches a whole Conventional Commit type.
-func commitType() *regexp.Regexp {
-	return regexp.MustCompile(`^` + commitTypePattern + `$`)
-}
+// wholeCommitType matches a whole Conventional Commit type.
+var wholeCommitType = regexp.MustCompile(`^` + commitTypePattern + `$`)
 
 // ValidateType reports what is wrong with a configured commit type, or nil when
 // it is well-formed — a lowercase word usable as a subject prefix and a branch
 // segment.
 func ValidateType(value string) error {
-	if trimmed := strings.TrimSpace(value); trimmed == "" || !commitType().MatchString(trimmed) {
+	if trimmed := strings.TrimSpace(value); trimmed == "" || !wholeCommitType.MatchString(trimmed) {
 		return fmt.Errorf("%w: %q", ErrInvalidType, value)
 	}
 
