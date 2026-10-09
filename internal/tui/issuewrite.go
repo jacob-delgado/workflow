@@ -68,6 +68,8 @@ type issueWrite struct {
 	problem error
 }
 
+var _ failable[issueWrite] = issueWrite{}
+
 var (
 	_ failable[issueWrite] = issueWrite{}
 	_ pasteable            = issueWrite{}

@@ -69,6 +69,8 @@ type peopleOverlay struct {
 	opened int
 }
 
+var _ failable[peopleOverlay] = peopleOverlay{}
+
 var (
 	_ failable[peopleOverlay] = peopleOverlay{}
 	_ steppable               = peopleOverlay{}

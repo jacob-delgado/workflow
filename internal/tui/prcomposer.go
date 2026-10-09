@@ -82,6 +82,8 @@ type prComposer struct {
 	send   sendState
 }
 
+var _ failable[prComposer] = prComposer{}
+
 var (
 	_ editable             = prComposer{}
 	_ failable[prComposer] = prComposer{}

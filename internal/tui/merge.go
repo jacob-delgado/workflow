@@ -131,6 +131,8 @@ type mergePicker struct {
 	send     sendState
 }
 
+var _ failable[mergePicker] = mergePicker{}
+
 var (
 	_ failable[mergePicker] = mergePicker{}
 	_ steppable             = mergePicker{}

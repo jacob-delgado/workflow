@@ -28,6 +28,8 @@ type prEditor struct {
 	send  sendState
 }
 
+var _ failable[prEditor] = prEditor{}
+
 var (
 	_ editable           = prEditor{}
 	_ failable[prEditor] = prEditor{}

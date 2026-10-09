@@ -36,6 +36,8 @@ type dirPrompt struct {
 	opened int
 }
 
+var _ overlay = dirPrompt{}
+
 var (
 	_ overlay   = dirPrompt{}
 	_ pasteable = dirPrompt{}

@@ -199,6 +199,8 @@ type statusPicker struct {
 	form fieldForm
 }
 
+var _ failable[statusPicker] = statusPicker{}
+
 var (
 	_ failable[statusPicker] = statusPicker{}
 	_ clickable              = statusPicker{}

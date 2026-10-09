@@ -35,6 +35,8 @@ type summaryPost struct {
 	send sendState
 }
 
+var _ failable[summaryPost] = summaryPost{}
+
 var (
 	_ editable              = summaryPost{}
 	_ failable[summaryPost] = summaryPost{}

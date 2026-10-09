@@ -111,6 +111,8 @@ type fixupPicker struct {
 	commits pickList[gitrepo.Commit]
 }
 
+var _ overlay = fixupPicker{}
+
 var (
 	_ overlay   = fixupPicker{}
 	_ steppable = fixupPicker{}

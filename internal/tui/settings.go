@@ -72,6 +72,8 @@ type settingsForm struct {
 	said string
 }
 
+var _ failable[settingsForm] = settingsForm{}
+
 var (
 	_ failable[settingsForm] = settingsForm{}
 	_ pasteable              = settingsForm{}

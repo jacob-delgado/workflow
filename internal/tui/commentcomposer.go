@@ -97,6 +97,8 @@ type commentComposer struct {
 	send sendState
 }
 
+var _ overlay = commentComposer{}
+
 var (
 	_ editable  = commentComposer{}
 	_ pasteable = commentComposer{}
