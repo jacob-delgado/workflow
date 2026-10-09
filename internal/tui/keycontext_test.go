@@ -191,7 +191,7 @@ func keysEveryPaneTakes() []string {
 // paneGroups are the help groups of the keys a pane answers, each of which
 // some pane state must answer for the probe to cover it.
 func paneGroups() []string {
-	return strings.Split("Issues|Branch and Commits|Review and Slack|Reviews|Tasks|Summary|Repositories", "|")
+	return strings.Split("Issues|Branch|Commits|Review|Slack|Reviews|Tasks|Summary|Repositories", "|")
 }
 
 // probedActions is every action a pane's handler may answer: all but the keys

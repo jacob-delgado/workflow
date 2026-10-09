@@ -43,13 +43,18 @@ type keyMap struct {
 	changeStatus, comment, assign, logWork, startWork, nextView, loadMore, trackIssue key.Binding
 	searchIssues, filterIssues                                                        key.Binding
 
-	// Branch and Commits.
+	// Branch.
 	newBranch, switchBranch, linkIssue, rebase, push key.Binding
-	stage, stageAll, unstageAll, discard             key.Binding
-	commit, amend, fixup, runHooks, hookConfig       key.Binding
 
-	// Review and messaging.
-	newPullRequest, checks, rerun, merge, finish, compose, peopleAndGroups key.Binding
+	// Commits.
+	stage, stageAll, unstageAll, discard       key.Binding
+	commit, amend, fixup, runHooks, hookConfig key.Binding
+
+	// Review.
+	newPullRequest, checks, rerun, merge, finish key.Binding
+
+	// Messaging.
+	compose, peopleAndGroups key.Binding
 
 	// Tasks.
 	startStop, markDone, addTask, annotateTask, modifyTask, undoTask, syncTasks key.Binding
@@ -96,12 +101,16 @@ type keyMap struct {
 }
 
 // The help groups, in the order helpGroups names them. Every binding is created
-// into one of these, so the help cannot leave a binding out.
+// into one of these, so the help cannot leave a binding out. Each pane's keys
+// are a group of their own, as each pane is a key context of its own: a key two
+// panes share after a ui.keys remap is listed once under each.
 const (
 	groupMoving = iota
 	groupIssues
-	groupBranchCommits
-	groupReviewMessaging
+	groupBranch
+	groupCommits
+	groupReview
+	groupMessaging
 	groupReviews
 	groupTasks
 	groupSummary
@@ -206,9 +215,11 @@ func compileKeys(marks glyphs, reviewNoun, messagingService string, overrides ma
 	keys := keyMap{}
 	movingKeys(&builder, &keys, marks)
 	issueKeys(&builder, &keys)
-	branchAndCommitKeys(&builder, &keys)
-	reviewAndMessagingKeys(&builder, &keys, reviewNoun, messagingService)
-	reviewKeys(&builder, &keys)
+	branchKeys(&builder, &keys)
+	commitKeys(&builder, &keys)
+	reviewKeys(&builder, &keys, reviewNoun)
+	messagingKeys(&builder, &keys, messagingService)
+	reviewQueueKeys(&builder, &keys)
 	taskKeys(&builder, &keys)
 	summaryKeys(&builder, &keys)
 	repositoryKeys(&builder, &keys)
@@ -262,37 +273,47 @@ func issueKeys(builder *helpBuilder, into *keyMap) {
 	into.trackIssue = builder.bind(groupIssues, "track-issue", "track in Taskwarrior", "T")
 }
 
-// branchAndCommitKeys are the Branch and Commits panes' bindings.
-func branchAndCommitKeys(builder *helpBuilder, into *keyMap) {
-	into.newBranch = builder.bind(groupBranchCommits, "new-branch", "new branch", "b")
-	into.switchBranch = builder.bind(groupBranchCommits, "switch-branch", "switch branch", "s")
-	into.linkIssue = builder.bind(groupBranchCommits, "link-issue", "link issue", "i")
-	into.rebase = builder.bind(groupBranchCommits, "rebase", "rebase onto base", "u")
-	into.push = builder.bind(groupBranchCommits, "push", "push", "P")
-	into.stage = builder.bind(groupBranchCommits, "stage", "stage/unstage", "space")
-	into.stageAll = builder.bind(groupBranchCommits, "stage-all", "stage all", "a")
-	into.unstageAll = builder.bind(groupBranchCommits, "unstage-all", "unstage all", "U")
-	into.discard = builder.bind(groupBranchCommits, "discard-change", "discard", "x")
-	into.commit = builder.bind(groupBranchCommits, "commit", "commit", "c")
-	into.amend = builder.bind(groupBranchCommits, "amend", "amend", "A")
-	into.fixup = builder.bind(groupBranchCommits, "fixup", "fix up", "f")
-	into.runHooks = builder.bind(groupBranchCommits, "run-pre-commit", "run pre-commit", "h")
-	into.hookConfig = builder.bind(groupBranchCommits, "set-up-lefthook", "set up lefthook", "g")
+// branchKeys are the Branch pane's bindings.
+func branchKeys(builder *helpBuilder, into *keyMap) {
+	into.newBranch = builder.bind(groupBranch, "new-branch", "new branch", "b")
+	into.switchBranch = builder.bind(groupBranch, "switch-branch", "switch branch", "s")
+	into.linkIssue = builder.bind(groupBranch, "link-issue", "link issue", "i")
+	into.rebase = builder.bind(groupBranch, "rebase", "rebase onto base", "u")
+	into.push = builder.bind(groupBranch, "push", "push", "P")
 }
 
-// reviewAndMessagingKeys are the Review and messaging panes' bindings.
-func reviewAndMessagingKeys(builder *helpBuilder, into *keyMap, reviewNoun, messagingService string) {
-	into.newPullRequest = builder.bind(groupReviewMessaging, "open-pull-request", "open "+reviewNoun, "n")
-	into.checks = builder.bind(groupReviewMessaging, "checks", "checks", "c")
-	into.rerun = builder.bind(groupReviewMessaging, "rerun-checks", "re-run checks", "R")
-	into.merge = builder.bind(groupReviewMessaging, "merge", "merge", "M")
-	into.finish = builder.bind(groupReviewMessaging, "finish-branch", "finish branch", "F")
-	into.compose = builder.bind(groupReviewMessaging, "post", "announce to "+messagingService, "p")
-	into.peopleAndGroups = builder.bind(groupReviewMessaging, "people-and-groups", "people and groups", "P")
+// commitKeys are the Commits pane's bindings.
+func commitKeys(builder *helpBuilder, into *keyMap) {
+	into.stage = builder.bind(groupCommits, "stage", "stage/unstage", "space")
+	into.stageAll = builder.bind(groupCommits, "stage-all", "stage all", "a")
+	into.unstageAll = builder.bind(groupCommits, "unstage-all", "unstage all", "U")
+	into.discard = builder.bind(groupCommits, "discard-change", "discard", "x")
+	into.commit = builder.bind(groupCommits, "commit", "commit", "c")
+	into.amend = builder.bind(groupCommits, "amend", "amend", "A")
+	into.fixup = builder.bind(groupCommits, "fixup", "fix up", "f")
+	into.runHooks = builder.bind(groupCommits, "run-pre-commit", "run pre-commit", "h")
+	into.hookConfig = builder.bind(groupCommits, "set-up-lefthook", "set up lefthook", "g")
 }
 
-// reviewKeys are the Reviews pane's bindings.
-func reviewKeys(builder *helpBuilder, into *keyMap) {
+// reviewKeys are the Review pane's bindings, opening the pull request named
+// for the forge.
+func reviewKeys(builder *helpBuilder, into *keyMap, reviewNoun string) {
+	into.newPullRequest = builder.bind(groupReview, "open-pull-request", "open "+reviewNoun, "n")
+	into.checks = builder.bind(groupReview, "checks", "checks", "c")
+	into.rerun = builder.bind(groupReview, "rerun-checks", "re-run checks", "R")
+	into.merge = builder.bind(groupReview, "merge", "merge", "M")
+	into.finish = builder.bind(groupReview, "finish-branch", "finish branch", "F")
+}
+
+// messagingKeys are the messaging pane's bindings, announcing to the service
+// in use.
+func messagingKeys(builder *helpBuilder, into *keyMap, messagingService string) {
+	into.compose = builder.bind(groupMessaging, "post", "announce to "+messagingService, "p")
+	into.peopleAndGroups = builder.bind(groupMessaging, "people-and-groups", "people and groups", "P")
+}
+
+// reviewQueueKeys are the Reviews pane's bindings.
+func reviewQueueKeys(builder *helpBuilder, into *keyMap) {
 	into.sortReviews = builder.bind(groupReviews, "sort-reviews", "sort", "O")
 	into.filterReviews = builder.bind(groupReviews, "filter-reviews", "filter", "f")
 }
@@ -420,12 +441,13 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	return k.full
 }
 
-// helpGroups names the groups FullHelp returns, in the same order. The messaging
-// group is named for the service in use rather than a fixed "Slack".
+// helpGroups names the groups FullHelp returns, in the same order: a pane's
+// group by the pane's title, the messaging pane's for the service in use rather
+// than a fixed "Slack".
 func helpGroups(messagingService string) []string {
 	return []string{
-		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService, "Reviews", "Tasks",
-		"Summary", "Repositories", "In a composer or preview", "Writing a comment", "While a command runs", "Everywhere",
+		"Moving around", "Issues", "Branch", "Commits", "Review", messagingService, "Reviews", "Tasks", "Summary",
+		"Repositories", "In a composer or preview", "Writing a comment", "While a command runs", "Everywhere",
 	}
 }
 
