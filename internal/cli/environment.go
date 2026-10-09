@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sync"
 
 	"github.com/spf13/cobra"
 
@@ -21,7 +22,9 @@ import (
 // test hands each run one of its own.
 type Environment struct {
 	// WorkingDir is the directory the command was run from, or why the
-	// operating system cannot name it.
+	// operating system cannot name it. A command reads it once, whatever
+	// reads it after: its sections, its request log and each directory it
+	// names relatively are all read from the one directory.
 	WorkingDir func() (string, error)
 	// Chdir makes dir the process's working directory, so whatever a session
 	// switched there runs — an editor, a hook — starts there.
@@ -35,8 +38,10 @@ type environmentKey struct{}
 
 // handOver puts env in the context of the command cmd runs, which every
 // command under the root reads it from: the root does this before any
-// command's own work starts.
+// command's own work starts. The working directory is read at the first ask
+// and answered from then on as it was then.
 func handOver(cmd *cobra.Command, env Environment) {
+	env.WorkingDir = sync.OnceValues(env.WorkingDir)
 	cmd.SetContext(context.WithValue(cmd.Context(), environmentKey{}, env))
 }
 
