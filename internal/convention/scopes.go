@@ -11,9 +11,7 @@ import (
 // scopeInSubject captures the scope of a Conventional Commit subject:
 // "feat(tui): add a pane" and "feat(api)!: drop a field" both yield the
 // parenthesized scope. A subject with no scope does not match.
-func scopeInSubject() *regexp.Regexp {
-	return regexp.MustCompile(`^` + commitTypePattern + `\(([^)]+)\)!?:`)
-}
+var scopeInSubject = regexp.MustCompile(`^` + commitTypePattern + `\(([^)]+)\)!?:`)
 
 // Scopes reads the Conventional Commit scopes out of commit subjects, keeping
 // each well-formed scope once in the order it first appears, with surrounding
@@ -26,7 +24,7 @@ func Scopes(subjects []string) []string {
 	seen := map[string]bool{}
 
 	for _, subject := range subjects {
-		match := scopeInSubject().FindStringSubmatch(subject)
+		match := scopeInSubject.FindStringSubmatch(subject)
 		if match == nil {
 			continue
 		}
