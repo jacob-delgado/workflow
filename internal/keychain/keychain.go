@@ -92,7 +92,7 @@ func (i Item) Store(ctx context.Context, secret string) error {
 		return err
 	}
 
-	_, err = i.run(ctx, proc.Command{Name: "security", Args: []string{"-i"}}, []byte(line))
+	_, err = i.security(ctx, []string{"-i"}, []byte(line))
 	if err != nil {
 		return failed(ErrNotKept, err)
 	}
@@ -121,7 +121,7 @@ func (i Item) Read(ctx context.Context) (string, error) {
 
 	args := []string{"find-generic-password", "-a", account, "-s", i.service, "-w"}
 
-	output, err := i.run(ctx, proc.Command{Name: "security", Args: args}, nil)
+	output, err := i.security(ctx, args, nil)
 	if code, _, exited := proc.Failure(err); exited && code == itemNotFound {
 		return "", fmt.Errorf("%w: %s", ErrNotStored, i.service)
 	}
@@ -133,10 +133,22 @@ func (i Item) Read(ctx context.Context) (string, error) {
 	return strings.TrimRight(string(output), "\n"), nil
 }
 
+// security runs security with args, input on its standard input, bounded as
+// proc.Run bounds a quick read whatever ctx is: a store or a read may be asked
+// under a context detached from a caller who has left, and a security that
+// never answers, one waiting on a locked keychain's unlock dialog say, must not
+// hold what waits on it without end.
+func (i Item) security(ctx context.Context, args []string, input []byte) ([]byte, error) {
+	bounded, cancel := context.WithTimeout(ctx, proc.DefaultRunTimeout)
+	defer cancel()
+
+	return i.run(bounded, proc.Command{Name: "security", Args: args}, input)
+}
+
 // Storer keeps a secret under the service named, in the keychain on goos,
-// through run. It is nil where storing is not wired for goos, so a caller
-// keeps the secret elsewhere there. Storing is wired for macOS, through the
-// built-in `security`.
+// through run, bounded as Item.Store is. It is nil where storing is not wired
+// for goos, so a caller keeps the secret elsewhere there. Storing is wired for
+// macOS, through the built-in `security`.
 func Storer(
 	goos string, run Runner, currentUser UserLookup, getenv func(string) string,
 ) func(service, secret string) error {
@@ -147,12 +159,7 @@ func Storer(
 	return func(service, secret string) error {
 		item := Item{service: service, run: run, currentUser: currentUser, getenv: getenv}
 
-		// Bounded as proc.Run bounds a quick read, so a security that never
-		// answers cannot hold the caller open.
-		ctx, cancel := context.WithTimeout(context.Background(), proc.DefaultRunTimeout)
-		defer cancel()
-
-		return item.Store(ctx, secret)
+		return item.Store(context.Background(), secret)
 	}
 }
 

@@ -4,19 +4,25 @@
 package slackauth_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
 )
 
 // memory is a Store kept in memory, safe to share between goroutines, counting
-// its saves; the first failing saves fail.
+// its saves; the first failing saves fail. Like the keychain, which runs a
+// program to save, it keeps nothing for a caller that has left.
 type memory struct {
 	lock    sync.Mutex
 	held    slackauth.Credentials
@@ -32,9 +38,13 @@ func (m *memory) store() slackauth.Store {
 
 			return m.held, nil
 		},
-		func(_ context.Context, credentials slackauth.Credentials) error {
+		func(ctx context.Context, credentials slackauth.Credentials) error {
 			m.lock.Lock()
 			defer m.lock.Unlock()
+
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 
 			if m.failing > 0 {
 				m.failing--
@@ -180,5 +190,53 @@ func TestARefreshThatCannotBeKeptSaysToLogInAgain(t *testing.T) {
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotKept) || !errors.Is(err, errSaveFailed) {
 		t.Errorf("Token = %v, want ErrNotKept carrying why the save failed", err)
+	}
+}
+
+// answeredThen is do, calling then once Slack's answer has been read whole,
+// the moment the refresh token sent is spent.
+func answeredThen(do httpx.Doer, then func()) httpx.Doer {
+	return func(request *http.Request) (*http.Response, error) {
+		response, err := do(request)
+		if err != nil {
+			return nil, err
+		}
+
+		answer, err := io.ReadAll(response.Body)
+		_ = response.Body.Close()
+
+		if err != nil {
+			return nil, fmt.Errorf("reading Slack's answer: %w", err)
+		}
+
+		then()
+
+		response.Body = io.NopCloser(bytes.NewReader(answer))
+
+		return response, nil
+	}
+}
+
+func TestARefreshedPairIsKeptThoughItsAskerLeavesOnceSlackAnswers(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Slack spends the refresh token a refresh sends, so once it has answered,
+	// the pair it gave is the only one that works.
+	server, _ := fakeSlack(t, rotated)
+	held := &memory{held: pairExpiringIn(time.Minute)}
+
+	asking, leave := context.WithCancel(t.Context())
+	t.Cleanup(leave)
+
+	refresher := refresherFor(server)
+	refresher.Do = answeredThen(refresher.Do, leave)
+
+	// Act
+	_, _ = sourceOver(t, held, refresher).Token(asking, "")
+
+	// Assert
+	if held.held.RefreshToken != newRefresh || held.saves != 1 {
+		t.Errorf("kept %+v after %d saves, want the new pair kept though its asker left", held.held, held.saves)
 	}
 }

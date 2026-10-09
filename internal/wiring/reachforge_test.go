@@ -8,6 +8,7 @@ package wiring_test
 // themselves and are handed its body on standard input.
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -20,6 +21,10 @@ import (
 
 // githubAPI is the API base of github.com, which no test here ever reaches.
 const githubAPI = "https://api.github.com"
+
+// branchPulls is a read of a branch's pull requests, which the stand-in gh
+// answers.
+const branchPulls = githubAPI + "/repos/owner/repo/pulls?head=x"
 
 // errBodyGone is a request body that fails as it is read.
 var errBodyGone = errors.New("the body went away")
@@ -106,5 +111,41 @@ func TestReachingAForgeThroughItsCLIAsksForNoToken(t *testing.T) {
 
 	if lookups := ghStub.tokenLookups(); lookups != 0 {
 		t.Errorf("gh auth token ran %d times, want none: the CLI carries its own login", lookups)
+	}
+}
+
+func TestAForgeCLIRequestOutlivesTheContextItsConnectionWasMadeUnder(t *testing.T) {
+	// Arrange
+	// A connection is kept and used again, so the context it was made under
+	// may have ended by the time a later request goes through it.
+	installForgeCLI(t, "gh", forgeReplies{})
+	cfg, _ := githubCLIWorkspace(t)
+
+	connecting, connected := context.WithCancel(t.Context())
+	process := processEnvironment()
+
+	access, err := process.ReachForge(connecting, cfg.Forge, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
+	if err != nil {
+		t.Fatalf("ReachForge through gh: %v", err)
+	}
+
+	connected()
+
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, branchPulls, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	response, err := access.Doer(request)
+	// Assert
+	if err != nil {
+		t.Fatalf("Doer = %v; want the request answered under its own context", err)
+	}
+
+	_ = response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Errorf("Doer answered %d, want gh's 200", response.StatusCode)
 	}
 }

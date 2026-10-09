@@ -23,7 +23,7 @@ import (
 // The bool reports that the CLI was chosen, so the caller knows the request
 // carries its own authentication and no token is required.
 func (e Environment) forgeTransport(
-	ctx context.Context, settings config.Forge, repo forge.Repo, base string, httpTransport httpx.Doer,
+	settings config.Forge, repo forge.Repo, base string, httpTransport httpx.Doer,
 ) (forge.Doer, bool) {
 	if !settings.CLI {
 		return httpTransport, false
@@ -34,7 +34,7 @@ func (e Environment) forgeTransport(
 		return httpTransport, false
 	}
 
-	return forgeCLIDoer(ctx, e.capture, program, base, repo.Kind), true
+	return forgeCLIDoer(e.capture, program, base, repo.Kind), true
 }
 
 // cliToken stands in for the forge client's token when the CLI carries the
@@ -66,10 +66,9 @@ func forgeProgram(kind forge.Kind) (string, bool) {
 // of net/http, so the login the shell already holds — which an SSO gateway may
 // require — carries the request. The command is asked to include the response
 // headers, which parse straight back into the HTTP response the forge client
-// reads.
-func forgeCLIDoer(
-	ctx context.Context, capture forgeCapture, program, base string, kind forge.Kind,
-) forge.Doer {
+// reads. It runs under the request's own context, as net/http would: the
+// transport outlives the call that chose it, kept with its connection.
+func forgeCLIDoer(capture forgeCapture, program, base string, kind forge.Kind) forge.Doer {
 	return func(request *http.Request) (*http.Response, error) {
 		body, err := requestBody(request)
 		if err != nil {
@@ -78,7 +77,7 @@ func forgeCLIDoer(
 
 		command := proc.Command{Name: program, Args: cliArgs(request, base, kind, len(body) > 0)}
 
-		out, runErr := capture(ctx, command, body)
+		out, runErr := capture(request.Context(), command, body)
 
 		response, parseErr := http.ReadResponse(bufio.NewReader(bytes.NewReader(out)), request)
 		if parseErr != nil {

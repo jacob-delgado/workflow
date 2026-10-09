@@ -251,12 +251,17 @@ func (e Environment) PlaceSlackCredentials(
 
 		starting := keptUnlessTyped(ctx, system.SlackStore(without), cfg.Messaging)
 
-		renewed, err := e.SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(ctx, starting)
+		// Slack spends the refresh token as it answers, so the refresh and the
+		// keep run whatever becomes of the caller: one who left between them
+		// would lose the only pair that still works.
+		renewing := context.WithoutCancel(ctx)
+
+		renewed, err := e.SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(renewing, starting)
 		if err != nil {
 			return config.Config{}, asMessagingError(err)
 		}
 
-		err = system.SlackStore(without).Keep(ctx, renewed)
+		err = system.SlackStore(without).Keep(renewing, renewed)
 		if err != nil {
 			return config.Config{}, err
 		}
