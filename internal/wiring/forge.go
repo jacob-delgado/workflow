@@ -97,17 +97,16 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 		},
 		Templates: func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
 		Author:    func() (string, error) { return ask(connect, authorName(ctx)) },
-		IsGroup:   isGroupSeam(ctx, setup.gitLab, connect),
+		IsGroup:   isGroupSeam(ctx, setup.onGitLab, connect),
 		Kind:      ForgeKind(setup.settings(), setup.where.Remote),
 	}
 }
 
-// gitLab is the GitLab the remote is on under the settings in effect now, and
-// false when they put it on another forge, or on none.
-func (s forgeSetup) gitLab() (forge.Repo, bool) {
+// onGitLab reports that the settings in effect now put the remote on GitLab.
+func (s forgeSetup) onGitLab() bool {
 	repo, err := resolveRepo(s.settings(), s.where.Remote)
 
-	return repo, err == nil && repo.Kind == forge.KindGitLab
+	return err == nil && repo.Kind == forge.KindGitLab
 }
 
 // rewriteSeam is the rewrite-a-description seam, split out to keep forgeDeps
@@ -136,21 +135,22 @@ func authorName(ctx context.Context) func(forgeConnection) (string, error) {
 // isGroupSeam is the is-this-name-a-group seam. Only GitLab's CODEOWNERS
 // spells a top-level group as it spells a user; on GitHub, whose teams are
 // org/team, and with no forge, every bare name is a person, and nothing is
-// asked. What GitLab answered is kept for the session, per GitLab: the web
-// reads the owners at its preview and again at its post, and a lookup failing
-// only the second time must not turn a group into a person between them.
+// asked. What GitLab answered is kept for the session: the web reads the
+// owners at its preview and again at its post, and a lookup failing only the
+// second time must not turn a group into a person between them. The GitLab
+// asked is always the one the remote is on, whose host the workspace fixes,
+// so an answer is kept by the name alone.
 func isGroupSeam(
-	ctx context.Context, gitLab func() (forge.Repo, bool), connect func() (forgeConnection, error),
+	ctx context.Context, onGitLab func() bool, connect func() (forgeConnection, error),
 ) func(string) (bool, error) {
-	known := groupsKnown{mutex: &sync.Mutex{}, answers: map[groupName]bool{}}
+	known := groupsKnown{mutex: &sync.Mutex{}, answers: map[string]bool{}}
 
 	return func(name string) (bool, error) {
-		repo, onGitLab := gitLab()
-		if !onGitLab {
+		if !onGitLab() {
 			return false, nil
 		}
 
-		asked := groupName{host: repo.Host, kind: repo.Kind, name: strings.ToLower(name)}
+		asked := strings.ToLower(name)
 
 		group, found := known.answer(asked)
 		if found {
@@ -166,22 +166,15 @@ func isGroupSeam(
 	}
 }
 
-// groupName is a bare name as one forge reads it: on its host, by its kind,
-// in lower case, since GitLab reads names without regard to case.
-type groupName struct {
-	host string
-	kind forge.Kind
-	name string
-}
-
-// groupsKnown is what each forge answered of each bare name.
+// groupsKnown is what GitLab answered of each bare name, kept in lower case,
+// since GitLab reads names without regard to case.
 type groupsKnown struct {
 	mutex   *sync.Mutex
-	answers map[groupName]bool
+	answers map[string]bool
 }
 
 // answer is what the forge answered of name, and whether it was asked.
-func (k groupsKnown) answer(name groupName) (bool, bool) {
+func (k groupsKnown) answer(name string) (bool, bool) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 
@@ -191,7 +184,7 @@ func (k groupsKnown) answer(name groupName) (bool, bool) {
 }
 
 // keep records what the forge answered of name.
-func (k groupsKnown) keep(name groupName, group bool) {
+func (k groupsKnown) keep(name string, group bool) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 
