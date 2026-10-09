@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/sqlitefile"
@@ -57,5 +58,24 @@ func TestAPathHoldingWhatAURIMeansSomethingByNamesThatFile(t *testing.T) {
 	_, err = os.Stat(path)
 	if err != nil {
 		t.Errorf("the database is not at %s: %v", path, err)
+	}
+}
+
+func TestADatabaseThatCannotBeOpenedIsReported(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No directory "missing" is there, so no file can be made in it.
+	path := filepath.Join(t.TempDir(), "missing", "made.db")
+	database := sqlitefile.Open(path, "mode=rwc")
+
+	t.Cleanup(func() { closed(t, database) })
+
+	// Act
+	err := database.PingContext(t.Context())
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "opening the database") {
+		t.Errorf("Ping = %v, want the open that failed reported", err)
 	}
 }
