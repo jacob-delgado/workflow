@@ -27,9 +27,10 @@ var (
 	errCIFailedUnannounced = errors.New("CI failed, so nothing was announced")
 )
 
-// standing is what has been announced, and how far the messaging pane's
-// detail is scrolled. The announcements made this session are seeded at startup
-// from the store's record of earlier ones, so a restart does not forget them.
+// messagingState is what has been announced, and how far the messaging
+// pane's detail is scrolled. The announcements made this session are seeded at
+// startup from the store's record of earlier ones, so a restart does not
+// forget them.
 type messagingState struct {
 	// posted is the announcements made this session, each a pull request and the
 	// moment it marked, so one pull request can be announced at each of its
