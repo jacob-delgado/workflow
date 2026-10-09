@@ -262,3 +262,29 @@ func TestASaveOverAHomeFileValidOnlyWithItsLayerSucceeds(t *testing.T) {
 		t.Errorf("saving = %v; the repository file reads %+v, %v; want the project saved", err, saved.Jira, loadErr)
 	}
 }
+
+func TestASaveOverAHomeFileThatIsNoConfigurationWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	const repo = `{"jira": {"project": "OSS"}}`
+
+	files := config.Files{Home: write(t, t.TempDir(), `{"jira": `), Repo: write(t, t.TempDir(), repo)}
+
+	over, err := config.RevisionOfLayers(files)
+	if err != nil {
+		t.Fatalf("reading the revision: %v", err)
+	}
+
+	// Act
+	_, err = config.SaveLayers(files, savedConfig(), over)
+
+	// Assert
+	if !errors.Is(err, config.ErrInvalid) || !strings.Contains(err.Error(), files.Home) {
+		t.Errorf("SaveLayers = %v, want ErrInvalid naming the home file %s", err, files.Home)
+	}
+
+	if left := fileContents(t, files.Repo); left != repo {
+		t.Errorf("the repository file reads %q, want it left as it was", left)
+	}
+}
