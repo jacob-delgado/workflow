@@ -42,11 +42,11 @@ task = "3.53.1"
 # Gates. golangci-lint is exact-pinned twice over: the version decides what
 # the lint gate flags, so a bump is a deliberate commit that carries its fixes.
 golangci-lint = "2.14.0"
-lefthook = "2.1.14"
+lefthook = "2.1.16"
 shellcheck = "0.11.0"
 shfmt = "3.14.1"
 yamllint = "1.38.0"
-typos = "1.50.1"
+typos = "1.50.3"
 actionlint = "1.7.12"
 hadolint = "2.15.1"      # build/Dockerfile lint
 taplo = "0.10.0"         # TOML lint + format
