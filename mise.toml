@@ -37,7 +37,7 @@ go = "1.27.2"
 
 # The task runner itself, so `mise install` bootstraps everything on a clean
 # machine (laptop, container or CI runner) with no manual step.
-task = "3.53.1"
+task = "3.54.0"
 
 # Gates. golangci-lint is exact-pinned twice over: the version decides what
 # the lint gate flags, so a bump is a deliberate commit that carries its fixes.
@@ -60,7 +60,7 @@ zizmor = "1.30.1"
 # the last the web toolchain (corepack/yarn, Vite, Vitest) is tested against; 25+
 # fails the frontend build here. 24.21.0 is the latest 24.x past the age gate.
 node = "24.21.0"
-"npm:markdownlint-cli2" = "0.23.2" # Markdown lint + format
+"npm:markdownlint-cli2" = "0.23.3" # Markdown lint + format
 # Source-line counting for `task cloc`. Advisory: a report, never a gate.
 "npm:cloc" = "2.6.0-cloc"
 
@@ -71,7 +71,7 @@ jq = "1.8.2"
 
 # The documentation site (docs/). The EXTENDED build is required: the Hugo Book
 # theme compiles SCSS, which the standard build cannot do.
-hugo-extended = "0.166.0"
+hugo-extended = "0.167.0"
 
 # Backend live-reload for `task dev`: air rebuilds and restarts `workflow --web`
 # on any .go change while Vite hot-reloads the frontend. A dev convenience, never
