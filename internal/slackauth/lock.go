@@ -62,8 +62,8 @@ func waitFor(ctx context.Context, file *os.File) error {
 	defer cancel()
 
 	for {
-		held, err := filelock.TryLock(file)
-		if err != nil || held {
+		err := filelock.TryLock(file)
+		if !errors.Is(err, filelock.ErrHeld) {
 			return err
 		}
 
