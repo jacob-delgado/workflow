@@ -186,39 +186,43 @@ func (f setupForm) at(step setupStep) setupForm {
 	return f
 }
 
-// choiceCount is how many rows the list asked now has.
+// choiceCount is how many rows the list asked now has: where the file goes,
+// unless it is the list after a failed check or the keychain's. Only a list
+// asks; see isChoice.
 func (f setupForm) choiceCount() int {
 	const keychainChoices = 2
 
-	switch f.step {
-	case stepCheckFailed:
+	if f.step == stepCheckFailed {
 		return len(f.failedChoices())
-	case stepKeychain:
+	}
+
+	if f.step == stepKeychain {
 		return keychainChoices
-	case stepPlace, stepJiraURL, stepJiraToken, stepWebhook, stepWrite:
 	}
 
 	return len(f.offer.Places)
 }
 
 // chosen is the form with the row the cursor is on as the answer, on the
-// question that answer leads to.
+// question that answer leads to. Only a list asks; see isChoice.
 func (f setupForm) chosen() setupForm {
-	switch f.step {
-	case stepPlace:
+	if f.step == stepPlace {
 		// The keychain is offered first wherever it can keep the token: it
 		// keeps the token out of the file.
 		f.place = f.choice
 		f.keychain = f.keychainOffered()
 
 		return f.at(stepJiraURL)
-	case stepKeychain:
+	}
+
+	if f.step == stepKeychain {
 		f.keychain = f.choice == keychainChosen
 
 		return f.at(stepWebhook)
-	case stepCheckFailed:
+	}
+
+	if f.step == stepCheckFailed {
 		return f.afterFailedCheck()
-	case stepJiraURL, stepJiraToken, stepWebhook, stepWrite:
 	}
 
 	return f
