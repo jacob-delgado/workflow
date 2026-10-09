@@ -99,6 +99,7 @@ func chosen(getenv Getenv) string {
 // defaultEditor is what opens when none of $GIT_EDITOR, $VISUAL and $EDITOR is
 // set: vi on Unix, and notepad on Windows, where vi is not usually present.
 func defaultEditor(goos string) string {
+	// Trade-off TRADE-35: no CI job takes this branch.
 	if goos == "windows" {
 		return "notepad"
 	}
