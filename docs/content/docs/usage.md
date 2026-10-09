@@ -133,7 +133,7 @@ lists, by where it works.
 | | `1`–`9` | Jump to a pane |
 | | `j`/`k` or `↓`/`↑` | Move within a list |
 | | `home` / `end` or `G` | Jump to the first or last row of a list, or the top or bottom of a pane's detail |
-| | `J`/`K` or `pgdn`/`pgup` | Scroll the detail pane |
+| | `J`/`K` or `pgdn`/`pgup` | Scroll the detail pane, or half a page of a check's log |
 | 1 Issues | `t` | Change the selected issue's status |
 | | `c` | Comment on it |
 | | `a` | Assign it |
@@ -436,7 +436,8 @@ The Review pane then follows CI while checks run, asking every twenty seconds
 by default (`timing.ci_interval`).
 `c` lists the checks and opens the selected one's page; `l` on a failed one
 shows the end of its log, where a GitHub Actions run or a GitLab job keeps
-one. `R` re-runs the failed ones, and `u` on the Branch pane rebases the branch
+one, and `J`/`K` or `pgdn`/`pgup` move through a log taller than the pane
+half a page at a time. `R` re-runs the failed ones, and `u` on the Branch pane rebases the branch
 onto its base; like a push,
 each first shows a last look naming what it acts on, and does nothing until
 `enter`. `e` edits the pull request's title and description. Once it is
