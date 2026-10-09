@@ -58,9 +58,9 @@ func (e Environment) ResolveToken(
 }
 
 // JiraTokenKeeper keeps a Jira token typed into Settings in k, under the item
-// named, bounded as a quick read is so a security that never answers cannot
-// hold the save open; nil where workflow drives no keychain, so the file keeps
-// it.
+// named, bounded as keychain.Item.Store is so a security that never answers
+// cannot hold the save open; nil where workflow drives no keychain, so the file
+// keeps it.
 func (k Keychain) JiraTokenKeeper(ctx context.Context) func(service, secret string) error {
 	if !keychain.Wired(k.GOOS) {
 		return nil
@@ -69,10 +69,7 @@ func (k Keychain) JiraTokenKeeper(ctx context.Context) func(service, secret stri
 	return func(service, secret string) error {
 		item, _ := keychain.Open(k.GOOS, service, k.Run, user.Current, k.Getenv)
 
-		bounded, cancel := context.WithTimeout(ctx, proc.DefaultRunTimeout)
-		defer cancel()
-
-		return item.Store(bounded, secret)
+		return item.Store(ctx, secret)
 	}
 }
 
