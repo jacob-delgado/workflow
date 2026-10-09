@@ -118,6 +118,9 @@ func (p summaryPost) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the summary's post preview.
+func (summaryPost) which() overlayKind { return overlaySummaryPost }
+
 // cycleChannel moves the destination to the next configured channel,
 // wrapping.
 func (p summaryPost) cycleChannel(m Model, step int) Model {

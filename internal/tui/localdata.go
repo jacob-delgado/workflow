@@ -164,6 +164,9 @@ func (d localData) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
+// which names Local data.
+func (localData) which() overlayKind { return overlayLocalData }
+
 // cacheNames names the cache's file, or is empty when there is none.
 func (d localData) cacheNames() string {
 	return d.reaches(store.CleanCache)

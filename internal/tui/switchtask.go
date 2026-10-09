@@ -348,6 +348,9 @@ func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// which names the branch picker.
+func (branchPicker) which() overlayKind { return overlayBranchPicker }
+
 // step moves the choice of branch by delta, unless a switch is being sent.
 func (p branchPicker) step(m Model, delta int) Model {
 	if p.send.sending {
