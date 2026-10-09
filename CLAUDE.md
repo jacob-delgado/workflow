@@ -316,7 +316,11 @@ without agreement on direction.
     it off the value that uses it, put the behavior on the discriminant type as
     a method, or keep a `switch` and let `exhaustive` fail the build when a new
     case is added without a branch. Package-level `var Err… = errors.New(…)`
-    sentinels are exempt and stay.
+    sentinels are exempt and stay. A compiled regular expression is the
+    exception the linter itself makes: declare it once as a package-level
+    `var name = regexp.MustCompile(...)`, named for what it matches, rather
+    than compiling it in a helper on every call. Only a pattern built from
+    run-time input keeps a builder, called outside any loop.
   - **L — Liskov substitution.** An implementation honors the contract its
     callers rely on; a fake that cuts corners is a broken fake, not a shortcut.
   - **I — Interface segregation.** Depend only on what you use. Declare small
