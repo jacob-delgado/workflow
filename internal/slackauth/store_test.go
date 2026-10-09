@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/keychain"
@@ -123,6 +124,28 @@ func TestTheKeychainStoreKeepsThePair(t *testing.T) {
 	loaded, err := store.Load(t.Context())
 	if err != nil || loaded != pair {
 		t.Errorf("Load = %+v, %v; want the pair saved", loaded, err)
+	}
+}
+
+func TestThePairKeptWithNoExpiryReadsBackWithNone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	store := slackauth.KeychainStore(keychainHolding(t))
+	pair := startingPair()
+	pair.ExpiresAt = time.Time{}
+
+	err := store.Save(t.Context(), pair)
+	if err != nil {
+		t.Fatalf("Save = %v", err)
+	}
+
+	// Act
+	loaded, err := store.Load(t.Context())
+
+	// Assert
+	if err != nil || loaded != pair || !loaded.ExpiresAt.IsZero() {
+		t.Errorf("Load = %+v, %v; want the pair back with no expiry", loaded, err)
 	}
 }
 
@@ -283,5 +306,59 @@ func TestAHomeFileNamingATokenCommandStillKeepsThePair(t *testing.T) {
 		cfg.Jira.TokenCommand != "pass show jira" {
 		t.Errorf("Save = %v; loaded %+v (%v); want the pair kept beside the home file's token_command",
 			err, cfg.Redacted().Messaging, loadErr)
+	}
+}
+
+// notAConfiguration is a configuration file cut short, which no JSON reader
+// can read.
+const notAConfiguration = `{"messaging": {"kind": "slack", "client_secret": "s", "refresh_token": "xoxe-1-x"`
+
+func TestAFileStoreReportsAFileThatIsNoConfiguration(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := configFile(t, notAConfiguration)
+
+	// Act
+	_, err := slackauth.FileStore(config.Files{Home: path}).Load(t.Context())
+
+	// Assert
+	if err == nil || errors.Is(err, slackauth.ErrNotLoggedIn) || !strings.Contains(err.Error(), path) {
+		t.Errorf("Load = %v, want the file %s named as one it could not read, not a missing login", err, path)
+	}
+}
+
+func TestAFileStoreHoldingARefreshTokenWithoutItsSecretSaysToLogIn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := configFile(t, `{"messaging": {"kind": "slack", "client_id": "`+clientID+`", "refresh_token": "xoxe-1-x"}}`)
+
+	// Act
+	_, err := slackauth.FileStore(config.Files{Home: path}).Load(t.Context())
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrNotLoggedIn) {
+		t.Errorf("Load = %v, want %v", err, slackauth.ErrNotLoggedIn)
+	}
+}
+
+func TestAFileStoreWritesNothingOverAFileThatIsNoConfiguration(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := configFile(t, notAConfiguration)
+
+	// Act
+	err := slackauth.FileStore(config.Files{Home: path}).Save(t.Context(), pairExpiringIn(0))
+
+	// Assert
+	if !errors.Is(err, config.ErrInvalid) {
+		t.Errorf("Save = %v, want %v", err, config.ErrInvalid)
+	}
+
+	left, readErr := os.ReadFile(path)
+	if readErr != nil || string(left) != notAConfiguration {
+		t.Errorf("the file holds %q (%v), want it left as it was", left, readErr)
 	}
 }
