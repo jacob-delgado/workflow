@@ -140,7 +140,7 @@ const retro: Task = {
 // checked-out issue, one for another issue, one no issue tracks and one
 // waiting, most urgent first, with a sync backend to offer Sync. Dev-only, and
 // code-split out of a production build.
-export function mockTaskList(): TaskList {
+function mockTaskList(): TaskList {
   return {
     available: true,
     reason: '',
@@ -210,7 +210,7 @@ const linkedDone = new Map<string, Pick<Task, 'ranks' | 'searchable'>>([
 // the server does: the list without it, the places behind it closed up, and,
 // for a task linked to an issue, the task as it stands done — stopped, out of
 // the working set and completed.
-export function mockDone(uuid: string): TaskList {
+function mockDone(uuid: string): TaskList {
   const list = mockTaskList()
   const gone = list.tasks.find((task) => task.uuid === uuid)
   if (gone === undefined) {
@@ -249,4 +249,31 @@ function closedUp(task: Task, gone: TaskRanks): Task {
   }
 
   return { ...task, ranks }
+}
+
+// A TaskRoute answers one of the task routes the mockup's server takes, from
+// the named parts of its path.
+type TaskRoute = (asked: { params: Record<string, string> }) => TaskList
+
+// taskRoutes are the mockup server's routes for your tasks, by method and path:
+// the list, and every write on it, which answers the list as it stands; a done
+// answers it without the task, and the task as it stands done.
+export function taskRoutes(): Record<string, TaskRoute> {
+  const listed = () => mockTaskList()
+
+  return {
+    ...Object.fromEntries(
+      [
+        'GET /api/tasks',
+        'POST /api/tasks',
+        'POST /api/tasks/track',
+        'POST /api/tasks/undo',
+        'POST /api/tasks/sync',
+        ...['start', 'stop', 'annotations', 'modify'].map(
+          (write) => `POST /api/tasks/{uuid}/${write}`,
+        ),
+      ].map((name) => [name, listed]),
+    ),
+    'POST /api/tasks/{uuid}/done': ({ params }) => mockDone(params.uuid ?? ''),
+  }
 }
