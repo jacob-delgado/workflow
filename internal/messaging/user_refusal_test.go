@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -83,5 +84,32 @@ func TestARefusalThatBreaksOffGivesItsStatusForItsReason(t *testing.T) {
 	if !errors.Is(err, messaging.ErrPostRefused) || !strings.Contains(err.Error(), "status 400") ||
 		strings.Contains(err.Error(), "too lo") {
 		t.Errorf("Post = %v, want the refusal told by its status alone", err)
+	}
+}
+
+func TestARefusalNeverShowsAWebhookThatDoesNotParse(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Settings holding a webhook beside the user token: one that does not
+	// parse is the credential all the same, should a refusal quote it.
+	const webhook = "https://hooks.slack.com/services/T0/B0/%zz-unescaped-secret"
+
+	settings := userCredentials()
+	settings.WebhookURL = config.Secret(webhook)
+
+	server, _ := slackReceiving(t, http.StatusBadRequest, "refused, as was "+webhook)
+	client := messaging.New(server.Client().Do, server.URL, settings).WithToken(heldToken)
+
+	// Act
+	err := client.Post(t.Context(), "", message)
+
+	// Assert
+	if !errors.Is(err, messaging.ErrPostRefused) || !strings.Contains(err.Error(), "refused, as was") {
+		t.Fatalf("Post = %v, want the refusal's reason", err)
+	}
+
+	if strings.Contains(err.Error(), "unescaped-secret") {
+		t.Errorf("Post = %q, want the webhook masked", err)
 	}
 }

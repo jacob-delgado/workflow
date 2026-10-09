@@ -313,21 +313,20 @@ func (c Client) reasonIn(body io.Reader) string {
 }
 
 // webhookParts are the ways a page can quote the webhook — its address as
-// configured and as url.URL writes it, its path escaped and not, and its
-// query — longest first, so a part that holds another is masked whole. A
+// configured and, when it parses, as url.URL writes it, its path escaped and
+// not, and its query — longest first, so a part that holds another is masked
+// whole. A webhook that does not parse is the credential all the same. A
 // path of one slash is no secret, and masking it would mask every slash.
 func (c Client) webhookParts() []string {
 	revealed := c.creds.WebhookURL.Reveal()
+	parts := []string{revealed}
 
 	address, err := url.Parse(revealed)
-	if revealed == "" || err != nil {
-		return nil
+	if err == nil {
+		parts = append(parts, address.String(), address.EscapedPath(), address.Path, address.RawQuery)
 	}
 
-	parts := slices.DeleteFunc(
-		[]string{revealed, address.String(), address.EscapedPath(), address.Path, address.RawQuery},
-		func(part string) bool { return len(part) <= 1 },
-	)
+	parts = slices.DeleteFunc(parts, func(part string) bool { return len(part) <= 1 })
 	slices.SortStableFunc(parts, func(left, right string) int { return cmp.Compare(len(right), len(left)) })
 
 	return parts
