@@ -20,21 +20,11 @@
 # drift, and the gate matches on file, function and condition.
 
 # TRADE-13: encoding the program's own types is taken not to fail, nor
-# decoding JSON the program just encoded or decoded; and a caller that only
-# passes such a failure on.
+# decoding JSON the program just encoded or decoded; and, in the web server, a
+# caller that only passes such a failure on.
 internal/config/layers.go encodeValue TRADE-13 any err != nil
-internal/config/layers.go configValue TRADE-13 any err != nil
-internal/config/layers.go jsonValue TRADE-13 any err != nil
-internal/config/layers.go mergeLayers TRADE-13 any err != nil
-internal/config/layers.go targetContents TRADE-13 any err != nil
-internal/config/layers.go targetContents TRADE-13 any err != nil
-internal/config/save.go Create TRADE-13 any err != nil
-internal/config/save.go write TRADE-13 any err != nil
+internal/config/layers.go decodeBuilt TRADE-13 any err != nil
 internal/config/save.go indented TRADE-13 any err != nil
-internal/config/trust.go movedSections TRADE-13 any err != nil
-internal/config/trust.go movedSections TRADE-13 any err != nil
-internal/config/trust.go configOf TRADE-13 any err != nil
-internal/config/trust.go refuseHomeOnly TRADE-13 any err != nil
 internal/forge/client.go Client.newRequest TRADE-13 any err != nil
 internal/jira/jira.go Client.newJSONRequest TRADE-13 any err != nil
 internal/messaging/post.go Client.postJSON TRADE-13 any err != nil

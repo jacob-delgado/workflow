@@ -270,58 +270,59 @@ func parseLayers(files Files, home, repo layer) (Config, error) {
 // home file's credentials for it, and a setting only the home file may make is
 // refused.
 func mergeLayers(home, repo layer) ([]byte, error) {
-	beneath, err := layerValue(home)
+	beneath, err := decodeLayer(home)
 	if err != nil {
 		return nil, err
 	}
 
-	over, err := layerValue(repo)
+	over, err := decodeLayer(repo)
 	if err != nil {
 		return nil, err
 	}
 
-	if repo.exists {
-		err = refuseHomeOnly(repo.path, repo.contents)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Trade-off TRADE-13: movedSections fails only as re-encoding values just
-	// decoded would.
-	moved, err := movedSections(beneath, over)
+	err = refuseHomeOnly(repo.path, over.config, Default())
 	if err != nil {
 		return nil, err
 	}
 
-	return encodeValue(mergeValues(withoutCredentials(beneath, moved), over))
+	moved := movedSections(beneath.config, configOf(mergeValues(beneath.value, over.value)))
+
+	return encodeValue(mergeValues(withoutCredentials(beneath.value, moved), over.value)), nil
 }
 
-// layerValue is what file holds as a JSON value, its keys checked against the
-// configuration's, or an empty object when there is no file.
-func layerValue(file layer) (any, error) {
+// decodedLayer is one configuration file read two ways: as a configuration
+// over the defaults, and as plain JSON values.
+type decodedLayer struct {
+	config Config
+	value  any
+}
+
+// decodeLayer is what file holds, its keys checked against the
+// configuration's; with no file, the defaults and an empty object.
+func decodeLayer(file layer) (decodedLayer, error) {
 	if !file.exists {
-		return map[string]any{}, nil
+		return decodedLayer{config: Default(), value: map[string]any{}}, nil
 	}
 
-	_, err := decode(file.contents)
+	cfg, err := decode(file.contents)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", file.path, err)
+		return decodedLayer{}, fmt.Errorf("%s: %w", file.path, err)
 	}
 
-	// Trade-off TRADE-13: decode has just read these bytes as JSON.
-	return jsonValue(file.contents)
+	return decodedLayer{config: cfg, value: jsonValue(file.contents)}, nil
 }
 
-// encodeValue is value as JSON.
-func encodeValue(value any) ([]byte, error) {
-	// Trade-off TRADE-13: values decoded from JSON always encode.
+// encodeValue is value, plain JSON values or a Config, as JSON. Neither can
+// fail to encode, so a failure is a defect, which panics, as
+// regexp.MustCompile does for a pattern that cannot compile.
+func encodeValue(value any) []byte {
+	// Trade-off TRADE-13: plain JSON values and a Config always encode.
 	encoded, err := json.Marshal(value)
 	if err != nil {
-		return nil, fmt.Errorf("merging configuration: %w", err)
+		panic("encoding configuration: " + err.Error())
 	}
 
-	return encoded, nil
+	return encoded
 }
 
 // mergeValues lays over on base.
@@ -341,55 +342,42 @@ func mergeValues(base, over any) any {
 	return merged
 }
 
-// layerContents is what the file files saves to holds for cfg, refused when
-// that is the repository's file and it would make a setting only the home file
-// may.
+// layerContents is what the file files saves to holds for cfg: every setting,
+// unless it lies over a home file, when it is only what differs from that.
+// The home file is read unvalidated, since it need only be valid with its
+// layer. It is refused when that is the repository's file and it would make
+// a setting only the home file may.
 func layerContents(files Files, home layer, cfg Config) ([]byte, error) {
-	contents, err := targetContents(files, home, cfg)
+	if files.Repo == "" {
+		return encode(cfg), nil
+	}
+
+	beneath, err := decodeLayer(home)
 	if err != nil {
 		return nil, err
 	}
 
-	if files.Repo != "" {
-		err = refuseHomeOnly(files.Repo, contents)
-		if err != nil {
-			return nil, err
-		}
+	err = refuseHomeOnly(files.Repo, cfg, beneath.config)
+	if err != nil {
+		return nil, err
 	}
 
-	return contents, nil
+	if !home.exists {
+		return encode(cfg), nil
+	}
+
+	return overlay(cfg, beneath.config), nil
 }
 
-// targetContents is what the file files saves to holds for cfg: every setting,
-// unless it lies over a home file, when it is only what differs from that. The
-// home file is read unvalidated, since it need only be valid with its layer.
-func targetContents(files Files, home layer, cfg Config) ([]byte, error) {
-	if files.Repo == "" || !home.exists {
-		return encode(cfg)
-	}
-
-	beneath, err := decode(home.contents)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", home.path, err)
-	}
-
-	// Trade-off TRADE-13: configValue fails only as encoding a Config would.
-	full, err := configValue(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	base, err := configValue(beneath)
-	if err != nil {
-		return nil, err
-	}
-
-	overlay, differs := difference(full, base)
+// overlay is what a repository's file over a home file holding beneath holds
+// for cfg: only what differs from beneath.
+func overlay(cfg, beneath Config) []byte {
+	differing, differs := difference(configValue(cfg), configValue(beneath))
 	if !differs {
-		overlay = map[string]any{}
+		differing = map[string]any{}
 	}
 
-	return indented(overlay)
+	return indented(differing)
 }
 
 // difference is what full sets that base does not, key by key within objects,
@@ -413,31 +401,42 @@ func difference(full, base any) (any, bool) {
 	return differing, len(differing) > 0
 }
 
-// configValue is cfg as a JSON value, its numbers kept as written.
-func configValue(cfg Config) (any, error) {
-	// Trade-off TRADE-13: a Config always encodes.
-	encoded, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("encoding configuration: %w", err)
-	}
-
-	return jsonValue(encoded)
+// configValue is cfg as plain JSON values.
+func configValue(cfg Config) any {
+	return jsonValue(encodeValue(cfg))
 }
 
-// jsonValue decodes contents into plain JSON values, numbers kept as written
-// so one is never rounded through a float.
-func jsonValue(contents []byte) (any, error) {
+// configOf is value, plain JSON values, read as a configuration over the
+// defaults, unvalidated.
+func configOf(value any) Config {
+	cfg := Default()
+	decodeBuilt(encodeValue(value), &cfg)
+
+	return cfg
+}
+
+// jsonValue is contents, JSON already decoded once, as plain JSON values.
+func jsonValue(contents []byte) any {
+	var value any
+
+	decodeBuilt(contents, &value)
+
+	return value
+}
+
+// decodeBuilt decodes contents into target, keeping numbers as written so
+// none is rounded through a float. The contents are JSON this package encoded
+// or has already decoded, which decodes again, so a failure is a defect,
+// which panics, as encodeValue's does.
+func decodeBuilt(contents []byte, target any) {
 	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.UseNumber()
 
-	var value any
-
-	err := decoder.Decode(&value)
+	// Trade-off TRADE-13: JSON this package encoded or decoded decodes again.
+	err := decoder.Decode(target)
 	if err != nil {
-		return nil, fmt.Errorf("reading configuration: %w", err)
+		panic("reading configuration: " + err.Error())
 	}
-
-	return value, nil
 }
 
 // layersRevision is the revision of the pair: the lone file's own revision
