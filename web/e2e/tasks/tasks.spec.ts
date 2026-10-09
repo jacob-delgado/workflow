@@ -307,6 +307,10 @@ for (const { of, act } of refusals) {
   })
 }
 
+// The three tasks below are listed together, each with its place in every
+// order among them as the server's RanksOf gives it: every tie falls to the
+// more urgent.
+
 // renew is a task for no issue, with a priority and a tag, to narrow to.
 const renew: Task = {
   ...tracking,
@@ -318,21 +322,36 @@ const renew: Task = {
   urgency: 4.1,
   issue_key: '',
   facets: [pending, priorityH, noProject, noIssue, tagOps],
+  ranks: { urgency: 2, state: 2, id: 1, tag: 0, issue: 2, priority: 1 },
   searchable: ['renew the staging certificate', '', '', '+ops', '#2'],
 }
 
-// trackingAndRenew is the values tracking and renew hold, in the order the
-// server offers them.
-const trackingAndRenew = [
-  pending,
-  priorityH,
-  noPriority,
-  noProject,
-  tagOps,
-  noTag,
-  withIssue,
-  noIssue,
-]
+// rotate is another task for no issue, with renew's priority but no tag: more
+// urgent than renew, so it is listed after renew only by tag.
+const rotate: Task = {
+  ...tracking,
+  uuid: '7b3f9c5e-1d4a-4e0f-a8b2-5a3d4e6f7c8b',
+  id: 3,
+  description: 'Rotate the staging database password',
+  priority: 'H',
+  urgency: 6.3,
+  issue_key: '',
+  facets: [pending, priorityH, noProject, noIssue, noTag],
+  ranks: { urgency: 1, state: 1, id: 2, tag: 2, issue: 1, priority: 0 },
+  searchable: ['rotate the staging database password', '', '', '#3'],
+}
+
+// trackingAmongThree is tracking listed with renew and rotate: the most urgent,
+// with the lowest id and the only issue, but after renew by tag and last by
+// priority, having neither.
+const trackingAmongThree: Task = {
+  ...tracking,
+  ranks: { urgency: 0, state: 0, id: 0, tag: 1, issue: 0, priority: 2 },
+}
+
+// heldValues is the values the three tasks hold, in the order the server
+// offers them.
+const heldValues = [pending, priorityH, noPriority, noProject, tagOps, noTag, withIssue, noIssue]
 
 for (const theme of themes) {
   for (const width of widths) {
@@ -344,22 +363,27 @@ for (const theme of themes) {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.setViewportSize({ width, height })
       await streams(page, withTasks({ available: true, reason: '', linked: [tracking] }))
+      // Handed over out of tag order, so only the ranks list renew first by tag.
       await page.route('**/api/tasks', (route) =>
-        route.fulfill({ json: listOf([tracking, renew], trackingAndRenew) }),
+        route.fulfill({ json: listOf([trackingAmongThree, rotate, renew], heldValues) }),
       )
       await page.goto('/')
       await openSection(page, 'Tasks')
 
       // Act
       const narrow = page.getByRole('group', { name: 'Filter' })
-      await narrow.getByRole('button', { name: 'priority H 1' }).click()
+      await narrow.getByRole('button', { name: 'priority H 2' }).click()
       await page.getByRole('combobox', { name: 'Sort' }).selectOption('By tag')
       await page.getByRole('searchbox', { name: 'Search' }).fill('staging')
-      await expect(page.getByText('1 of 2 tasks matches, by tag.')).toBeVisible()
+      await expect(page.getByText('2 of 3 tasks match, by tag.')).toBeVisible()
 
       // Assert
+      await expect(page.getByRole('list', { name: 'Tasks' }).getByRole('button')).toHaveText([
+        /Renew the staging certificate/,
+        /Rotate the staging database password/,
+      ])
       // The chip is pressed, so the scan checks a pressed chip's contrast.
-      await expectReachableAndClean(page, { reaches: ['Sort', 'Search', 'priority H 1'] })
+      await expectReachableAndClean(page, { reaches: ['Sort', 'Search', 'priority H 2'] })
     })
   }
 }
