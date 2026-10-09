@@ -13,9 +13,10 @@ interface Remembered {
 }
 
 // RememberedDone is a task the page marked done, remembered with the task as
-// the done's answer described it.
-interface RememberedDone extends Remembered {
-  done: Task
+// the done's answer described it, or undefined where the answer could not
+// describe it: the task could not be read again after the done.
+export interface RememberedDone extends Remembered {
+  done: Task | undefined
 }
 
 // TaskMemo is what this page has just done to your tasks that the stream has
@@ -39,11 +40,11 @@ function remembered(uuid: string): Remembered {
   return { uuid, rememberedAt: Date.now(), frameSince: false }
 }
 
-// rememberCompleted notes that the page marked a task done, as the done's
-// answer describes it.
-export function rememberCompleted(done: Task): void {
+// rememberCompleted notes that the page marked the task with a uuid done, as
+// the done's answer describes it, where it could.
+export function rememberCompleted(uuid: string, done: Task | undefined): void {
   useTaskMemo.setState((memo) => ({
-    completed: [...memo.completed, { ...remembered(done.uuid), done }],
+    completed: [...memo.completed, { ...remembered(uuid), done }],
   }))
 }
 
