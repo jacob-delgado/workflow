@@ -41,12 +41,11 @@ const malformedEntry = "Malformed entry '"
 // whole — or, with no words left, the refusal alone.
 func (s *server) refusalDetail(err error) string {
 	places := s.knownPlaces()
-	address, clock := networkAddress(), clockTime()
 
 	var kept []string
 
 	for line := range strings.Lines(refusalWords(err)) {
-		if !address.MatchString(clock.ReplaceAllString(line, "$1")) && !strings.Contains(line, malformedEntry) {
+		if !networkAddress.MatchString(dateAndTime.ReplaceAllString(line, "$1")) && !strings.Contains(line, malformedEntry) {
 			kept = append(kept, places.Replace(strings.TrimRight(line, "\r\n")))
 		}
 	}
@@ -93,19 +92,15 @@ func (s *server) homeDir() string {
 // networkAddress matches what names a machine on the network: a URL, or a host
 // and port — a name, an IPv4 address or a bracketed IPv6 one before a colon
 // and a port. A clock time is neither: its hour holds no letter and no dot.
-func networkAddress() *regexp.Regexp {
-	return regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://|` +
-		`(?:[A-Za-z0-9.-]*[A-Za-z.][A-Za-z0-9.-]*|\[[0-9A-Fa-f:.]+\]):[0-9]{1,5}\b`)
-}
+var networkAddress = regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://|` +
+	`(?:[A-Za-z0-9.-]*[A-Za-z.][A-Za-z0-9.-]*|\[[0-9A-Fa-f:.]+\]):[0-9]{1,5}\b`)
 
-// clockTime matches a date and a time of day, as 2026-02-30T08:00 or
+// dateAndTime matches a date and a time of day, as 2026-02-30T08:00 or
 // tomorrowT10:00 write them, and the character before it, which is not part of
 // a host name: the T before its hour would read as a host's letter, so it is
 // taken out before networkAddress looks.
-func clockTime() *regexp.Regexp {
-	return regexp.MustCompile(`(^|[^A-Za-z0-9.-])(?:[0-9]{4}-[0-9]{2}-[0-9]{2}|[a-z]+)` +
-		`T[0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?\b`)
-}
+var dateAndTime = regexp.MustCompile(`(^|[^A-Za-z0-9.-])(?:[0-9]{4}-[0-9]{2}-[0-9]{2}|[a-z]+)` +
+	`T[0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?\b`)
 
 // refusalWords is what Taskwarrior said in refusing a command: the error's text
 // after the refusal's own.
