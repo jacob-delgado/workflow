@@ -9,11 +9,9 @@ import (
 	"strings"
 )
 
-// orderByClause finds an ORDER BY whatever its case and the whitespace around
+// orderByClause matches an ORDER BY whatever its case and the whitespace around
 // it, at the very start of a query too.
-func orderByClause() *regexp.Regexp {
-	return regexp.MustCompile(`(?i)(?:^|\s)order\s+by\s`)
-}
+var orderByClause = regexp.MustCompile(`(?i)(?:^|\s)order\s+by\s`)
 
 // ScopedToMe narrows a view's JQL to the issues assigned to whoever the
 // credential belongs to, unless the query already speaks of the assignee — a
@@ -53,7 +51,7 @@ func cutOrderBy(jql string) (string, string, bool) {
 		return "", "", false
 	}
 
-	found := orderByClause().FindAllStringIndex(outside, -1)
+	found := orderByClause.FindAllStringIndex(outside, -1)
 	if len(found) == 0 {
 		return jql, "", true
 	}
