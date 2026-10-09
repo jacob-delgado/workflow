@@ -10,6 +10,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -67,7 +70,7 @@ func (b *helpBuilder) textFieldClash() error {
 		}
 
 		for _, boundKey := range placed.binding.Keys() {
-			if editsText(boundKey) || slices.Contains(readlineKeys(), boundKey) {
+			if editsText(boundKey) || slices.Contains(textFieldKeys(), boundKey) {
 				return fmt.Errorf("%w: %s on %q", config.ErrTextFieldKey, placed.action, boundKey)
 			}
 		}
@@ -76,14 +79,26 @@ func (b *helpBuilder) textFieldClash() error {
 	return nil
 }
 
-// readlineKeys are the control keys bubbles' text input edits or moves with,
-// as a terminal's readline does — ctrl+w deletes a word, ctrl+b moves back —
-// and ctrl+n and ctrl+p, which step through a field's suggestions.
-func readlineKeys() []string {
-	return []string{
-		"ctrl+a", "ctrl+b", "ctrl+d", "ctrl+e", "ctrl+f", "ctrl+h", "ctrl+k", "ctrl+u", "ctrl+v", "ctrl+w",
-		"ctrl+n", "ctrl+p",
+// textFieldKeys are the keys bubbles' text input moves its cursor, edits and
+// steps its suggestions with, read from the key map every field uses: the
+// arrows, home and end, the readline keys such as ctrl+w, the word keys such
+// as alt+left, and up and down, which the mouse wheel sends an overlay too.
+// Tab, which accepts a suggestion, is left out: next-field takes it first.
+func textFieldKeys() []string {
+	fieldKeys := textinput.DefaultKeyMap()
+	bindings := []key.Binding{
+		fieldKeys.CharacterForward, fieldKeys.CharacterBackward, fieldKeys.WordForward, fieldKeys.WordBackward,
+		fieldKeys.DeleteWordBackward, fieldKeys.DeleteWordForward, fieldKeys.DeleteAfterCursor,
+		fieldKeys.DeleteBeforeCursor, fieldKeys.DeleteCharacterBackward, fieldKeys.DeleteCharacterForward,
+		fieldKeys.LineStart, fieldKeys.LineEnd, fieldKeys.Paste, fieldKeys.NextSuggestion, fieldKeys.PrevSuggestion,
 	}
+
+	keys := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		keys = append(keys, binding.Keys()...)
+	}
+
+	return keys
 }
 
 // unknownActions rejects an override naming an action the keymap does not define,
