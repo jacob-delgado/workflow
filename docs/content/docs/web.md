@@ -102,8 +102,9 @@ one `!12`; on GitHub, *pull request* and `#12` — as the terminal does.
 **The keyboard.** Beyond Tab, the page answers the terminal's own keys, read
 from its bindings with `ui.keys` applied, so a key you moved in the file moves
 here too. `?` opens a sheet of the actions the page has a control for, under
-the terminal's groups and in its words, with the key for each; `Escape`
-closes it. `Ctrl+K`, or `⌘K` on a Mac, opens a palette of what the section
+the terminal's groups, one for each of its panes (its Commits pane's keys,
+which work on Branch here, keep a heading of their own), and in its words,
+with the key for each; `Escape` closes it. `Ctrl+K`, or `⌘K` on a Mac, opens a palette of what the section
 you are in can do (in a Mac's text field `Ctrl+K` stays the field's own key), and of the other sections: type part of an action's
 name, choose with the arrow keys, and `Enter` runs it through its own
 button, so a push or a merge still asks first. Single keys — `c` comments,

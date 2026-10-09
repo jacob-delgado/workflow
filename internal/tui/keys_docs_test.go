@@ -25,6 +25,15 @@ const keyTableHeader = "| Where | Key | Does |"
 // reviewsGroup is the help's group for the Reviews pane.
 const reviewsGroup = "Reviews"
 
+// The help's groups for the Branch, Commits, Review and messaging panes, each
+// named for its pane, the messaging pane's for Slack.
+const (
+	branchGroup    = "Branch"
+	commitsGroup   = "Commits"
+	reviewGroup    = "Review"
+	messagingGroup = "Slack"
+)
+
 // The sentence that opens the page's action list, and the one after it.
 const (
 	actionListOpens = "The actions you can rebind, grouped by where they work, are:"
@@ -99,8 +108,10 @@ func TestTheUsagePagesKeyTablePutsEachKeyOnItsActionsRow(t *testing.T) {
 func usageSectionsOf(group string) []string {
 	numbered := map[string][]string{
 		issuesGroup:                {"1 Issues"},
-		"Branch and Commits":       {"2 Branch", "3 Commits"},
-		"Review and Slack":         {"4 Review", "5, your service"},
+		branchGroup:                {"2 Branch"},
+		commitsGroup:               {"3 Commits"},
+		reviewGroup:                {"4 Review"},
+		messagingGroup:             {"5, your service"},
 		reviewsGroup:               {"6 Reviews"},
 		tasksTitle:                 {"7 Tasks"},
 		summaryTitle:               {"8 Summary"},
@@ -352,9 +363,17 @@ func rebindableActions() []string {
 }
 
 // documentedActions reads the configuration page's action list: every
-// backticked name between the sentence that opens it and the one after it.
-// Whitespace is folded first, so rewrapping the page moves nothing.
+// backticked name in it.
 func documentedActions(t *testing.T) []string {
+	t.Helper()
+
+	return backticked(actionList(t))
+}
+
+// actionList is the configuration page's action list: the text between the
+// sentence that opens it and the one after it. Whitespace is folded first, so
+// rewrapping the page moves nothing.
+func actionList(t *testing.T) string {
 	t.Helper()
 
 	contents, err := os.ReadFile(configurationPage)
@@ -371,7 +390,7 @@ func documentedActions(t *testing.T) []string {
 		t.Fatalf("%s has no action list between %q and %q", configurationPage, actionListOpens, actionListEnds)
 	}
 
-	return backticked(list)
+	return list
 }
 
 // without is the names in from that are not in these, once each and sorted.
