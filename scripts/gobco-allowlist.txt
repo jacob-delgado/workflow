@@ -40,19 +40,17 @@ internal/webserver/config.go configDTO TRADE-13 any err != nil
 internal/webserver/config.go fromDTO TRADE-13 any err != nil
 internal/webserver/stream.go writeSnapshot TRADE-13 any err != nil
 
-# TRADE-14: what the binary embeds — the OpenAPI contract and the web app — is
-# taken to load.
-internal/web/embed.go Assets TRADE-14 any err != nil
+# TRADE-14: the embedded OpenAPI contract is taken to load.
 internal/webserver/validator.go loadSpec TRADE-14 any err != nil
 internal/webserver/validator.go loadSpec TRADE-14 any err != nil
 internal/webserver/validator.go loadContract TRADE-14 any err != nil
 internal/webserver/validator.go loadContract TRADE-14 any err != nil
 internal/webserver/webserver.go Handler TRADE-14 any err != nil
 
-# TRADE-16: a call on a file that one just before it opened, read or made
-# fails only when the file changes between the two, and the callers that pass
-# that failure on.
-internal/config/layers.go readTrusted TRADE-16 any err == nil
+# TRADE-16: opening the store at this build's schema version, removeDatabase
+# and stamp each follow a call that just read or made the same file, so fail
+# only when the file changes between the two; and the callers that pass that
+# failure on.
 internal/store/store.go openCurrent TRADE-16 any err != nil
 internal/store/store.go openCurrent TRADE-16 any err != nil
 internal/store/store.go remakeDatabase TRADE-16 any err != nil

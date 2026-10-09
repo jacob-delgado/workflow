@@ -232,8 +232,6 @@ func readLayer(path string) (layer, error) {
 // readTrusted reads file to its end, and closes it, once the file it opened
 // is one only the user could have written.
 func readTrusted(file *os.File) ([]byte, error) {
-	// Trade-off TRADE-16: the file was opened a moment ago, and its stat is
-	// taken not to fail.
 	info, err := file.Stat()
 	if err == nil {
 		err = refuseUntrusted(info)
