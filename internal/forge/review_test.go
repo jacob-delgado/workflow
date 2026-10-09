@@ -40,21 +40,44 @@ func TestFindPullRequestReadsReviewState(t *testing.T) {
 func TestFindPullRequestToleratesUnreadableReviewState(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// Only the list answers usefully; the detail and reviews reads get nothing
-	// that parses. A pull request found is better than none, so the review fields
-	// stay at their zero rather than failing the whole find.
-	routes := map[string]string{
-		githubPullsPath: `[{"number":3,"html_url":"https://x/3","title":"fix: token","draft":false}]`,
+	// A pull request found is better than none, so a read of its detail or its
+	// reviews that gets nothing that parses leaves what it would have filled in
+	// at its zero rather than failing the whole find.
+	list := `[{"number":3,"html_url":"https://x/3","title":"fix: token","draft":false}]`
+	unreadable := `{"message":"not a list"}`
+
+	cases := map[string]struct {
+		routes    map[string]string
+		mergeable forge.Mergeability
+	}{
+		"neither the detail nor the reviews": {
+			routes:    map[string]string{githubPullsPath: list, githubPullsPath + "/3/reviews": unreadable},
+			mergeable: forge.MergeUnknown,
+		},
+		"the reviews alone": {
+			routes: map[string]string{
+				githubPullsPath: list, githubPullsPath + "/3": `{"mergeable":false}`,
+				githubPullsPath + "/3/reviews": unreadable,
+			},
+			mergeable: forge.MergeConflicts,
+		},
 	}
 
-	client, _ := recordingForge(t, routing(routes))
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Act
-	found, ok, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
+			// Arrange
+			client, _ := recordingForge(t, routing(tt.routes))
 
-	// Assert
-	if err != nil || !ok || found.Approvals != 0 || found.ChangesRequested || found.Mergeable != forge.MergeUnknown {
-		t.Errorf("FindPullRequest = %+v, %v, %v; want the pull found with its review state unknown", found, ok, err)
+			// Act
+			found, ok, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
+
+			// Assert
+			if err != nil || !ok || found.Approvals != 0 || found.ChangesRequested || found.Mergeable != tt.mergeable {
+				t.Errorf("FindPullRequest = %+v, %v, %v; want the pull found, mergeable %v, its reviews unknown",
+					found, ok, err, tt.mergeable)
+			}
+		})
 	}
 }

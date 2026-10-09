@@ -5,6 +5,7 @@ package forge_test
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -77,6 +78,39 @@ func TestAdviceSaysWhyTheForgeTurnedTheTokenDown(t *testing.T) {
 			// Assert
 			if !ok || advice != tt.want {
 				t.Errorf("Advice(%v) = %q, %t\nwant %q", err, advice, ok, tt.want)
+			}
+		})
+	}
+}
+
+func TestAdviceTellsARefusalNoForgeNamedAsTheForgesUnnamed(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		err  error
+		want string
+	}{
+		"a token not accepted": {
+			err: fmt.Errorf("checking the token: %w", forge.ErrUnauthorized),
+			want: "The forge did not accept the token; it may have expired or been revoked. " +
+				"`workflow doctor --online` tests it.",
+		},
+		"a request refused": {
+			err:  fmt.Errorf("checking the token: %w", forge.ErrRefused),
+			want: "The forge refused this: the token may lack a scope this needs, or your role may not allow it.",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			advice, ok := forge.Advice(tt.err)
+
+			// Assert
+			if !ok || advice != tt.want {
+				t.Errorf("Advice(%v) = %q, %t\nwant %q", tt.err, advice, ok, tt.want)
 			}
 		})
 	}
