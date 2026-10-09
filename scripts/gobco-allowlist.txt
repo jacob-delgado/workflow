@@ -63,8 +63,6 @@ internal/webserver/webserver.go Handler TRADE-14 any err != nil
 # fails only when the file changes between the two, and the callers that pass
 # that failure on.
 internal/config/layers.go readTrusted TRADE-16 any err == nil
-internal/store/kept.go makeKeptSchema TRADE-16 any err != nil
-internal/store/kept.go writeKeptSchema TRADE-16 any err != nil
 internal/store/store.go openCurrent TRADE-16 any err != nil
 internal/store/store.go openCurrent TRADE-16 any err != nil
 internal/store/store.go remakeDatabase TRADE-16 any err != nil
