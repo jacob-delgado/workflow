@@ -322,10 +322,7 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, b
 		return messaging.Mentions{}, memory
 	}
 
-	mentions, err := tags.Mentions(checkedGroups(tags.Groups))
-	if err != nil {
-		return messaging.Mentions{}, memory
-	}
+	mentions := tags.Proposed()
 
 	fmt.Fprintln(out.artifact, "tags "+taggedNames(tags))
 
@@ -418,19 +415,6 @@ func (t announceTagging) missingScope(tags loop.Tags) (string, bool) {
 	}
 
 	return "", false
-}
-
-// checkedGroups is the ID of every group that starts checked.
-func checkedGroups(groups []loop.GroupTag) []string {
-	var ids []string
-
-	for _, group := range groups {
-		if group.Checked {
-			ids = append(ids, group.Slack.ID)
-		}
-	}
-
-	return ids
 }
 
 // taggedNames names everyone the post tags, as Slack shows them: the linked
