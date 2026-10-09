@@ -73,3 +73,19 @@ test('offers nothing to announce for a pull request closed without merging', () 
   ).toBeTruthy()
   expect(screen.queryByRole('button', { name: /^Announce to/ })).toBeNull()
 })
+
+test('never says a pull request closed without merging was announced', () => {
+  // Arrange
+  // The page reads the pull request's state itself, so even a frame that read
+  // a closed one as announced would not have it said announced.
+  announcedPull(true, 'closed')
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(screen.queryByText('Announced #42 at this point already.')).toBeNull()
+  expect(
+    screen.getByText('Open a pull request first — there is nothing to announce yet.'),
+  ).toBeTruthy()
+})
