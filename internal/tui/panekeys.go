@@ -23,11 +23,17 @@ func issueKeys(builder *helpBuilder, into *keyMap) {
 	into.trackIssue = builder.bind(group, "track-issue", "track in Taskwarrior", "T")
 }
 
-// The Branch pane's actions that ask first, named once for their bindings and
-// for CheckKeys, which keeps them off the key that confirms them.
+// Actions that ask first and that the web page binds, named once for their
+// panes and for CheckKeys, which keeps them off the key that confirms them
+// and reads the page's list: the Branch pane's push and rebase, the Review
+// pane's re-run, and the Tasks pane's mark done, undo and sync.
 const (
-	actionPush   = "push"
-	actionRebase = "rebase"
+	actionPush        = "push"
+	actionRebase      = "rebase"
+	actionRerunChecks = "rerun-checks"
+	actionMarkDone    = "mark-done"
+	actionUndoTask    = "undo-task"
+	actionSyncTasks   = "sync-tasks"
 )
 
 // branchKeys are the Branch pane's bindings.
@@ -63,7 +69,7 @@ func reviewKeys(builder *helpBuilder, into *keyMap, reviewNoun string) {
 
 	into.newPullRequest = builder.bind(group, "open-pull-request", "open "+reviewNoun, "n")
 	into.checks = builder.bind(group, "checks", "checks", "c")
-	into.rerun = builder.bind(group, "rerun-checks", "re-run checks", "R")
+	into.rerun = builder.bind(group, actionRerunChecks, "re-run checks", "R")
 	into.merge = builder.bind(group, "merge", "merge", "M")
 	into.finish = builder.bind(group, "finish-branch", "finish branch", "F")
 }
@@ -91,12 +97,12 @@ func taskKeys(builder *helpBuilder, into *keyMap) {
 	group := paneTasks.helpGroup()
 
 	into.startStop = builder.bind(group, "start-stop", "start/stop", "s")
-	into.markDone = builder.bind(group, "mark-done", "mark done", "d")
+	into.markDone = builder.bind(group, actionMarkDone, "mark done", "d")
 	into.addTask = builder.bind(group, "add-task", "add", "a")
 	into.annotateTask = builder.bind(group, "annotate-task", "annotate", "A")
 	into.modifyTask = builder.bind(group, "modify-task", "modify", "e")
-	into.undoTask = builder.bind(group, "undo-task", "undo", "u")
-	into.syncTasks = builder.bind(group, "sync-tasks", "sync", "S")
+	into.undoTask = builder.bind(group, actionUndoTask, "undo", "u")
+	into.syncTasks = builder.bind(group, actionSyncTasks, "sync", "S")
 	into.searchTasks = builder.bind(group, "search-tasks", "search", "/")
 	into.filterTasks = builder.bind(group, "filter-tasks", "filter", "f")
 	into.sortTasks = builder.bind(group, "sort-tasks", "sort", "O")
