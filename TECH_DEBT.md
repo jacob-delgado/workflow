@@ -296,8 +296,10 @@ the version into a file the open just made or read (checked in
 **Decided.** 2026-09-26, in #146; narrowed to these two calls in the pre-1.0
 paydown, which made one call of each other pair.
 
-**Cost.** Two error arms no test runs, so what each says when the race is
-lost is read rather than checked.
+**Cost.** Four error arms no test runs: `stamp`'s own check, and
+`remakeDatabase`'s check of `removeDatabase`, plus the two in `openCurrent`
+that pass them on, so what each says when the race is lost is read rather
+than checked.
 
 **Reopen when.** One of these failures is reported, or a change to the calls
 lets a test fail the second without the first.
@@ -312,13 +314,15 @@ log's file could be fully written, and says so on stderr when it could not.
 write to which fails as a full disk would; macOS has none, and no other file
 can be made to refuse writes from a test, so a report measured there lists it
 as seen one way, and CI's, measured on Linux, does not. `keysFrom`
-(`internal/tui/tui.go`) asks whether the interface's input is a file that is
-no terminal, from which it reads no keys.
-`TestRunReadsNoKeysFromAFileThatIsNoTerminal`
-(`internal/tui/run_unix_test.go`) reaches it in a child process that has no
-terminal at all, as a test run from a developer's shell does not, and gobco
-counts only the test process, so every report lists that the input is a file
-as never true and whether it is a terminal as never asked.
+(`internal/tui/tui.go`) asks whether the interface's input is a file and, if
+so, whether that file is a terminal, and reads no keys from a file that is
+none. `TestRunReadsKeysFromATerminalItIsHanded` (`internal/tui/run_test.go`)
+hands `Run` a pseudo-terminal in the test process, so the file check is seen
+both ways. Only `TestRunReadsNoKeysFromAFileThatIsNoTerminal`
+(`internal/tui/run_unix_test.go`) hands it a file that is no terminal, in a
+child process that has no terminal at all, as a test run from a developer's
+shell does not, and gobco counts only the test process, so every report
+lists the terminal check as never false.
 
 **Decided.** 2026-09-26, in #146; narrowed to `closeRequestLog` alone in the
 pre-1.0 paydown, when every command came to read its working directory from
@@ -328,8 +332,8 @@ same paydown, when the interface came to read keys from the terminal when its
 input is a file that is none (DEBT-197).
 
 **Cost.** `task cover:branch` on macOS reads one arm fewer than CI does, and
-every report lists `keysFrom`'s condition as seen one way, though a test fails
-when either arm breaks; a reader of the report could take either for
+every report lists `keysFrom`'s terminal check as never false, though a test
+fails when either arm breaks; a reader of the report could take either for
 untested.
 
 **Reopen when.** CI measures condition coverage on another system, a test
