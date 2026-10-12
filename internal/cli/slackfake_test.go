@@ -67,6 +67,8 @@ type slackAnswer struct {
 type slackFake struct {
 	lock    sync.Mutex
 	answers map[string]slackAnswer
+	// first answers the first request on a path in place of answers.
+	first   map[string]slackAnswer
 	granted string
 	asked   map[string]int
 	posted  []string
@@ -92,7 +94,7 @@ func fakeSlack(t *testing.T, changed map[string]slackAnswer) *slackFake {
 	}
 	maps.Copy(answers, changed)
 
-	slack := &slackFake{answers: answers, granted: taggingScopes, asked: map[string]int{}}
+	slack := &slackFake{answers: answers, first: map[string]slackAnswer{}, granted: taggingScopes, asked: map[string]int{}}
 	server := httptest.NewServer(http.HandlerFunc(slack.answer))
 	t.Cleanup(server.Close)
 	setVariable(t, wiring.SlackAPIVariable, server.URL)
@@ -106,6 +108,11 @@ func (s *slackFake) answer(writer http.ResponseWriter, request *http.Request) {
 	s.lock.Lock()
 	s.asked[request.URL.Path]++
 	granted := s.granted
+	answer, known := s.answers[request.URL.Path]
+
+	if first, once := s.first[request.URL.Path]; once && s.asked[request.URL.Path] == 1 {
+		answer, known = first, true
+	}
 	s.lock.Unlock()
 
 	if request.URL.Path == slackAuthTest {
@@ -125,7 +132,6 @@ func (s *slackFake) answer(writer http.ResponseWriter, request *http.Request) {
 		s.lock.Unlock()
 	}
 
-	answer, known := s.answers[request.URL.Path]
 	if !known {
 		answer = slackAnswer{http.StatusOK, `{"ok":false,"error":"unknown_method"}`}
 	}
@@ -133,6 +139,15 @@ func (s *slackFake) answer(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(answer.status)
 	_, _ = writer.Write([]byte(answer.body))
+}
+
+// answerFirst makes the fake answer the first request on path with answer,
+// and every later one as it did.
+func (s *slackFake) answerFirst(path string, answer slackAnswer) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.first[path] = answer
 }
 
 // grant makes auth.test list the token as granted scopes instead.
