@@ -5,6 +5,7 @@ package webserver_test
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"testing"
@@ -39,6 +40,82 @@ func TestServeStopsWhenTheContextIsCanceled(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Serve did not stop when the context was canceled")
 	}
+}
+
+// inFlightFor is how long a request in flight waits to learn whether Serve has
+// returned while it was still being answered. Serve cannot return before it
+// ends unless it skips the drain, so the passing path never waits on a race.
+const inFlightFor = 250 * time.Millisecond
+
+func TestServeReturnsOnlyOnceARequestInFlightIsAnswered(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	ctx, cancel := context.WithCancel(t.Context())
+	entered, returned := make(chan struct{}), make(chan struct{})
+	servedWhileReturned := make(chan bool, 1)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(entered)
+
+		select {
+		case <-returned:
+			servedWhileReturned <- true
+		case <-time.After(inFlightFor):
+			servedWhileReturned <- false
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+	listener := listen(t)
+	done := make(chan error, 1)
+
+	go func() {
+		done <- webserver.Serve(ctx, listener, handler)
+
+		close(returned)
+	}()
+
+	go askOnce(t, "http://"+listener.Addr().String()+"/")
+
+	<-entered
+
+	// Act
+	cancel()
+
+	// Assert
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("Serve returned %v, want nil on a clean shutdown", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Serve did not stop when the context was canceled")
+	}
+
+	if <-servedWhileReturned {
+		t.Error("Serve returned while a request was still being answered, want it to drain first")
+	}
+}
+
+// askOnce sends one GET to url and reads the answer whole, whatever it is: the
+// server's drain, not the answer, is what the caller looks at.
+func askOnce(t *testing.T, url string) {
+	t.Helper()
+
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	if err != nil {
+		t.Errorf("building the request: %v", err)
+
+		return
+	}
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return
+	}
+
+	_, _ = io.Copy(io.Discard, response.Body)
+	_ = response.Body.Close()
 }
 
 func TestServeReportsAListenerThatCannotAccept(t *testing.T) {
