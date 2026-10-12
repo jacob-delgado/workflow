@@ -51,23 +51,24 @@ func CheckKeys(overrides map[string]string) error {
 		return fmt.Errorf("%w: %s on %q", config.ErrInterruptEdits, actionInterrupt, moved)
 	}
 
+	err = builder.confirmClash()
+	if err != nil {
+		return err
+	}
+
 	err = builder.conflicts()
 	if err != nil {
 		return err
 	}
 
-	err = builder.textFieldClash()
-	if err != nil {
-		return err
-	}
-
-	return builder.confirmClash()
+	return builder.textFieldClash()
 }
 
 // askingActions are the actions whose press opens a last look, which apply
-// confirms. On a pane, apply is live beside each of them, so sharing its key
-// is a conflict there already; Local data's removals are answered where apply
-// is not, and only this check keeps them off its key.
+// confirms. Where apply is live beside one, sharing its key would be a
+// conflict as well, but this check comes first so the refusal says why the
+// key cannot be shared; Local data's removals are answered where apply is
+// not, and only this check keeps them off its key.
 func askingActions() []string {
 	return []string{
 		actionPush, actionRebase, "discard-change", "rerun-checks", "mark-done", "undo-task", "sync-tasks", "forget-owner",
