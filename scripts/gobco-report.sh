@@ -249,9 +249,10 @@ for package in ${packages}; do
   files="$(twin_files "${rel}")"
 
   # gobco's per-condition output is the worklist — print it, since a percentage
-  # alone tells nobody which test to write next. Trade-off TRADE-19: a boolean
-  # it lists as seen one way stays the worklist here, not an entry in
-  # TECH_DEBT.md; an arm no test reached fails below.
+  # alone tells nobody which test to write next. Trade-off TRADE-19: a
+  # condition it lists as seen one way stays the worklist here, not an entry
+  # in TECH_DEBT.md, unless it is an error check whose error arm went unseen;
+  # that, and a condition never evaluated, fail below.
   if [[ -z "${files}" ]]; then
     gobco -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1 || unexpected="${unexpected} ${rel}"
     continue

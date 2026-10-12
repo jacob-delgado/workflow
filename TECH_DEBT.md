@@ -351,38 +351,50 @@ untested.
 stops reaching either condition, or gobco comes to count what a child process
 runs.
 
-### TRADE-19 A condition the gate does not fail stays the report's worklist
+### TRADE-19 A condition seen one way stays the report's worklist
 
-`task cover:branch` fails on a condition no test evaluated and on an error check
-whose error arm no test reached, unless `scripts/gobco-allowlist.txt` keeps the
-arm for an entry here. An error check is one it can tell by its name: a name
-ending in `err` or `Err`, perhaps with a capitalized or numbered rest (`err`,
-`readErr`, `closeErr`, `err2`, `errParse`, but not `errorHandler`), or a call of
-a method so named (`ctx.Err()`), reached through fields and calls, compared with
-`nil`; and an `errors.Is` or `!errors.Is` of such a name right after
+`task cover:branch` fails on an arm no test reached of two kinds: a condition
+no test evaluated, and the error arm of an error check, each unless a line of
+`scripts/gobco-allowlist.txt` keeps it for a kept entry in this register. An
+error check is one the gate can tell by its name: a name ending in `err` or
+`Err`, perhaps with a capitalized or numbered rest (`err`, `readErr`,
+`closeErr`, `err2`, `errParse`, but not `errorHandler`), or a call of a method
+so named (`ctx.Err()`), reached through fields and calls, compared with `nil`;
+and an `errors.Is` or `!errors.Is` of such a name right after
 `<name> != nil &&`, whose error arm is its true one. Every other condition seen
-only one way, a boolean, a comparison, any other `errors.Is` or an `ok`, is
-listed by the report, by file, line and how many times it was seen each way, on
-every run, and fails nothing. They stay out of this file and out of the
-allowlist: CLAUDE.md reads that list as "a worklist of missing test cases, not a
+only one way, a boolean, a comparison, any other `errors.Is` or an `ok`, fails
+nothing: the report lists it on every run, by file, line and how many times it
+was seen each way, and it stays out of this file and out of the allowlist.
+CLAUDE.md reads that list as "a worklist of missing test cases, not a
 percentage to chase", so a test for one is written when the code around it next
-changes, and `BRANCH_COVERAGE_MIN` and the package floors in
-`scripts/gobco-floors.txt` keep the share from falling. How many there are is
-the report's to say, not this entry's.
+changes, and two floors keep the share seen from falling: `BRANCH_COVERAGE_MIN`
+in `Taskfile.yml` for the module, and `scripts/gobco-floors.txt` for each
+package it names.
 
-**Decided.** 2026-09-26, in #146, which gave every condition that never ran
-and every `err != nil` seen one way a test or an entry above, and left the
-rest to the report; narrowed in the pre-1.0 paydown (DEBT-239) to the
-conditions the gate does not fail, once it came to fail the others.
+Measured on Linux at `3a7b37d6` on 2026-10-12, as the dev user, not root: of
+6,162 conditions, 5,629 were seen both ways and 533 one way, and none never ran,
+so 11,791 of 12,324 arms were seen, 95.7% against `BRANCH_COVERAGE_MIN` 93. Of
+the 533, the allowlist keeps 30 error arms for TRADE-13, TRADE-14, TRADE-16 and
+TRADE-36 (a 31st line, TRADE-18's, holds only on macOS), and the other 503 are
+the worklist this entry keeps.
 
-**Cost.** A change that breaks one of those conditions' unseen arms fails no
-test, and the floors notice only when enough of them add up to move a share;
-an error check under a name the gate does not read, or one held in a variable
-first, is read as a boolean.
+**Decided.** 2026-09-26, in #146, which gave every condition that never ran and
+every `err != nil` seen one way a test or an entry above, and left the rest to
+the report; narrowed in the pre-1.0 paydown (DEBT-239) to the conditions the
+gate does not fail, once it came to fail the others, and again when it came to
+read an `errors.Is` right after an error check as one.
+
+**Cost.** A change that breaks one of the worklist's unseen arms fails no test,
+and the floors notice only when enough of them add up to move a share; an
+error check under a name the gate does not read, or one held in a variable
+first, is read as a boolean. The allowlist names a kept arm by its number among
+its function's conditions that read the same rather than by its line, so a
+condition added above it that reads the same moves the number on, and the gate
+fails until the line is changed to follow it.
 
 **Reopen when.** The measured figure comes within one point of
-`BRANCH_COVERAGE_MIN`, or a defect ships through a condition the report
-listed as seen only one way.
+`BRANCH_COVERAGE_MIN`, or a defect ships through a condition the report listed
+as seen only one way.
 
 ### TRADE-21 The place rules are written twice
 
