@@ -46,7 +46,7 @@ func TestAWebhookBindsADirectoryThatHasNoCredential(t *testing.T) {
 		t.Fatal("no directory seam is bound for a webhook, so a switch to a user token could not tag")
 	}
 
-	_, err := seams.UserGroups()
+	_, err := seams.UserGroups(t.Context())
 
 	// Assert
 	if !errors.Is(err, messaging.ErrNoCredential) || errors.Is(err, slackauth.ErrNotLoggedIn) {
@@ -68,7 +68,7 @@ func TestSettingsSwitchedToASlackUserTokenReadTheDirectory(t *testing.T) {
 	controls.UseMessagingSettings(userToken)
 
 	// Act
-	_, err := deps.Messaging.UserGroups()
+	_, err := deps.Messaging.UserGroups(t.Context())
 
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotLoggedIn) {
@@ -87,7 +87,7 @@ func TestSettingsSwitchedAwayFromSlackStopReadingTheDirectory(t *testing.T) {
 	controls.UseMessagingSettings(config.Messaging{Kind: config.KindTeams, WebhookURL: "https://teams.example.com/x"})
 
 	// Act
-	_, err := deps.Messaging.UserGroups()
+	_, err := deps.Messaging.UserGroups(t.Context())
 
 	// Assert
 	if !errors.Is(err, messaging.ErrNoCredential) || errors.Is(err, slackauth.ErrNotLoggedIn) {

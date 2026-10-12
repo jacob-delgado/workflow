@@ -32,7 +32,7 @@ type summarySeams struct {
 	Activity loop.ActivitySeams
 	Now      func() time.Time
 	// Post is nil when no messaging transport is set up.
-	Post func(channel, text string) error
+	Post func(ctx context.Context, channel, text string) error
 	// Messaging is where a post goes and how it is rendered.
 	Messaging config.Messaging
 	Confirm   func(question string) (bool, error)
@@ -155,7 +155,7 @@ func runSummary(ctx context.Context, out output, seams summarySeams, opts summar
 	noteLeftOut(out.notes, summary.Reads)
 
 	if opts.post {
-		err = postSummary(out, seams, text, opts.write)
+		err = postSummary(ctx, out, seams, text, opts.write)
 	}
 
 	return errors.Join(err, unread)
@@ -192,7 +192,7 @@ func noteLeftOut(notes io.Writer, reads []activity.Read) {
 // posts to the channel it is bound to, which is said as such. How long the
 // summary is against what the service takes is said beside where it goes, and
 // a summary longer than that is refused before anything is asked or sent.
-func postSummary(out output, seams summarySeams, text string, opts writeOptions) error {
+func postSummary(ctx context.Context, out output, seams summarySeams, text string, opts writeOptions) error {
 	if seams.Post == nil {
 		return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, for Slack, run "+
 			"workflow slack login — then check them with workflow doctor", errMessagingNotConfigured, config.FileName)
@@ -216,7 +216,7 @@ func postSummary(out output, seams summarySeams, text string, opts writeOptions)
 		return err
 	}
 
-	err = loop.PostSummary(seams.Post, seams.Messaging.Kind, "", text)
+	err = loop.PostSummary(ctx, seams.Post, seams.Messaging.Kind, "", text)
 	if err != nil {
 		return fmt.Errorf("posting to %s: %w", service, err)
 	}

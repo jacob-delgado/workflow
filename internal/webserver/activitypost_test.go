@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -33,8 +34,8 @@ type postedSummary struct {
 }
 
 // recordingPost is a post seam that keeps each post in posts.
-func recordingPost(posts *[]postedSummary) func(channel, text string) error {
-	return func(channel, text string) error {
+func recordingPost(posts *[]postedSummary) func(ctx context.Context, channel, text string) error {
+	return func(_ context.Context, channel, text string) error {
 		*posts = append(*posts, postedSummary{channel: channel, text: text})
 
 		return nil
@@ -164,7 +165,7 @@ func TestAFailedSummaryPostNamesNeitherTheWebhookNorTheHost(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Messaging.Post = func(string, string) error { return tt.err }
+			deps.Messaging.Post = func(context.Context, string, string) error { return tt.err }
 
 			// Act
 			recorder := postActivity(t, serve(t, deps, config.Default()), tuesdaysSummary())

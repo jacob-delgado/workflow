@@ -7,6 +7,7 @@ package webserver_test
 // whom each code owner is on Slack, and the user groups a repository tags.
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -129,9 +130,11 @@ func (f *fakeKept) wire(deps *webserver.Deps) {
 
 		return f.in(workspace)
 	}
-	deps.Messaging.Workspace = func() (string, error) { return f.workspace, f.workspaceErr }
-	deps.Messaging.ChannelMembers = func(string) ([]loop.SlackTarget, error) { return f.members, f.membersErr }
-	deps.Messaging.UserGroups = func() ([]loop.SlackTarget, error) { return f.groups, f.groupsErr }
+	deps.Messaging.Workspace = func(context.Context) (string, error) { return f.workspace, f.workspaceErr }
+	deps.Messaging.ChannelMembers = func(context.Context, string) ([]loop.SlackTarget, error) {
+		return f.members, f.membersErr
+	}
+	deps.Messaging.UserGroups = func(context.Context) ([]loop.SlackTarget, error) { return f.groups, f.groupsErr }
 }
 
 // link records whom owner is, replacing what was decided.
@@ -159,7 +162,7 @@ func keptServer(t *testing.T, fake *fakeKept, info webserver.Info) http.Handler 
 	t.Helper()
 
 	deps := filledDeps()
-	deps.Messaging.Post = func(string, string) error { return nil }
+	deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 	fake.wire(&deps)
 
 	return serveWith(t, deps, slackUserConfig(), info)

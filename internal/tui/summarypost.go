@@ -147,10 +147,11 @@ func (p summaryPost) post(m Model) (Model, tea.Cmd) {
 	p.send = starting()
 	m.overlay = p
 
-	post, kind, channel, text, to := m.deps.Messaging.Post, m.cfg.Messaging.Kind, p.channel, p.text, p.destination()
+	ctx, post, kind, channel, text := m.session, m.deps.Messaging.Post, m.cfg.Messaging.Kind, p.channel, p.text
+	to := p.destination()
 
 	return m, func() tea.Msg {
-		return summaryPosted{to: to, err: loop.PostSummary(post, kind, channel, text)}
+		return summaryPosted{to: to, err: loop.PostSummary(ctx, post, kind, channel, text)}
 	}
 }
 

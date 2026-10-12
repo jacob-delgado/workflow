@@ -8,6 +8,7 @@ package webserver_test
 // to a Slack user group.
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -23,7 +24,7 @@ func acmeOwnedServer(t *testing.T, fake *fakeKept) http.Handler {
 	t.Helper()
 
 	deps := filledDeps()
-	deps.Messaging.Post = func(string, string) error { return nil }
+	deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 	fake.wire(&deps)
 	deps.Git.CodeOwnersAt = func(string) (codeowners.File, bool, error) {
 		return codeowners.Parse("* @acme\n", codeowners.GitLab), true, nil

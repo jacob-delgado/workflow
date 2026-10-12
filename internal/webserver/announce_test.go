@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -76,7 +77,7 @@ func TestAnnounceRefusesAnAnnouncementThatChangedSinceItsPreview(t *testing.T) {
 
 	deps := filledDeps()
 	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{State: ciState}, nil }
-	deps.Messaging.Post = func(string, string) error {
+	deps.Messaging.Post = func(context.Context, string, string) error {
 		posts++
 
 		return nil
@@ -107,7 +108,7 @@ func TestAnnouncePostsTheTextItsPreviewShowed(t *testing.T) {
 	var posted string
 
 	deps := filledDeps()
-	deps.Messaging.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		posted = text
 
 		return nil
@@ -147,7 +148,7 @@ func TestAnnouncePostsThePreviewWhenTheAuthorReadFailsAfterIt(t *testing.T) {
 
 		return testAuthor, nil
 	}
-	deps.Messaging.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		posted = text
 
 		return nil
@@ -298,7 +299,7 @@ func TestAnnouncePostsToTheChosenChannel(t *testing.T) {
 	)
 
 	deps := filledDeps()
-	deps.Messaging.Post = func(channel, text string) error {
+	deps.Messaging.Post = func(_ context.Context, channel, text string) error {
 		toChannel = channel
 		posted = text
 
@@ -333,7 +334,7 @@ func TestAnnounceFallsBackToTheConfiguredChannel(t *testing.T) {
 	var toChannel string
 
 	deps := filledDeps()
-	deps.Messaging.Post = func(channel, _ string) error {
+	deps.Messaging.Post = func(_ context.Context, channel, _ string) error {
 		toChannel = channel
 
 		return nil
@@ -394,7 +395,7 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Messaging.Post = func(string, string) error {
+			deps.Messaging.Post = func(context.Context, string, string) error {
 				return fmt.Errorf("posting to https://hooks.slack.com/services/%s: %w", webhookSecret, tt.cause)
 			}
 
@@ -471,7 +472,7 @@ func TestAnnouncingIsAConflictWithoutAPullRequest(t *testing.T) {
 
 			// Arrange
 			deps := mutate(filledDeps())
-			deps.Messaging.Post = func(string, string) error { return nil }
+			deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 
 			// Act
 			recorder := doAnnounce(t, deps, config.Default(), "#dev")

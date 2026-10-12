@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -40,7 +41,7 @@ func newHeldPost() *heldPost {
 }
 
 // post records text, says it started, and waits to be let go.
-func (p *heldPost) post(_, text string) error {
+func (p *heldPost) post(_ context.Context, _, text string) error {
 	p.mu.Lock()
 	p.texts = append(p.texts, text)
 	p.mu.Unlock()
@@ -97,7 +98,7 @@ func newSlowPost() *slowPost {
 }
 
 // post records text and takes postHeld to send it.
-func (p *slowPost) post(_, text string) error {
+func (p *slowPost) post(_ context.Context, _, text string) error {
 	p.mu.Lock()
 	p.texts = append(p.texts, text)
 	p.posting++

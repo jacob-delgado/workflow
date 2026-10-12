@@ -7,6 +7,7 @@ package webserver_test
 // owners and the groups checked, each one the announcement offered.
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +29,7 @@ func postTagged(t *testing.T, fake *fakeKept, posted *string) http.Handler {
 
 	deps := filledDeps()
 	fake.wire(&deps)
-	deps.Messaging.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		*posted = text
 
 		return nil
@@ -250,7 +251,7 @@ func TestAnnounceRefusesMentionsWhereNoOneIsTagged(t *testing.T) {
 	var posted string
 
 	deps := filledDeps()
-	deps.Messaging.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		posted = text
 
 		return nil

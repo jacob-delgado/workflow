@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"slices"
 
 	"charm.land/bubbles/v2/key"
@@ -12,15 +13,15 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// readRepoGroups reads the user groups this repository tags, for the overlay
-// opened as opened.
-func readRepoGroups(deps Deps, opened int) tea.Cmd {
+// readRepoGroups reads the user groups this repository tags, in the Slack
+// workspace read under ctx, for the overlay opened as opened.
+func readRepoGroups(ctx context.Context, deps Deps, opened int) tea.Cmd {
 	read, readWorkspace := deps.Store.RepoGroups, deps.Messaging.Workspace
 
 	return func() tea.Msg {
 		var groups []loop.SlackTarget
 
-		err := inWorkspace(readWorkspace, func(workspace string) error {
+		err := inWorkspace(ctx, readWorkspace, func(workspace string) error {
 			var err error
 
 			groups, err = read(workspace)
@@ -132,13 +133,13 @@ func (p peopleOverlay) toggled(m Model) (Model, tea.Cmd) {
 		p.chosen = append(slices.Clone(p.chosen), group)
 	}
 
-	save, opened, readWorkspace := m.deps.Store.SetRepoGroups, p.opened, m.deps.Messaging.Workspace
+	ctx, save, opened, readWorkspace := m.session, m.deps.Store.SetRepoGroups, p.opened, m.deps.Messaging.Workspace
 	groups := slices.DeleteFunc(slices.Clone(p.choices.items), func(choice loop.SlackTarget) bool {
 		return !p.isChosen(choice.ID)
 	})
 
 	return p.saving(m, func() tea.Msg {
-		err := inWorkspace(readWorkspace, func(workspace string) error { return save(workspace, groups) })
+		err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return save(workspace, groups) })
 
 		return repoGroupsSaved{opened: opened, err: err}
 	})
@@ -164,7 +165,7 @@ func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
 		open = open.failed(msg.err)
 		open.repoReading = true
 
-		return m.withBeneath(open), readRepoGroups(m.deps, open.opened)
+		return m.withBeneath(open), readRepoGroups(m.session, m.deps, open.opened)
 	}
 
 	open.send = sendState{}
@@ -176,7 +177,7 @@ func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
 func (p peopleOverlay) refreshed(m Model) (Model, tea.Cmd) {
 	refresh, readGroups, readMembers := m.deps.Messaging.RefreshDirectory, m.deps.Messaging.UserGroups,
 		m.deps.Messaging.ChannelMembers
-	channel, opened := p.channel, p.opened
+	ctx, channel, opened := m.session, p.channel, p.opened
 	p.groups.reading, p.members.reading = true, true
 	m.overlay = p
 
@@ -187,8 +188,8 @@ func (p peopleOverlay) refreshed(m Model) (Model, tea.Cmd) {
 
 		again := directoryRefreshed{opened: opened, groups: directory{}, members: directory{}}
 
-		again.groups.entries, again.groups.err = readGroups()
-		again.members.entries, again.members.err = readMembers(channel)
+		again.groups.entries, again.groups.err = readGroups(ctx)
+		again.members.entries, again.members.err = readMembers(ctx, channel)
 
 		return again
 	}

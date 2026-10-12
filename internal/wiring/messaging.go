@@ -19,7 +19,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/keychain"
-	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/messaging/directory"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -81,12 +80,12 @@ type messagingSetup struct {
 // Slack directory is read through the session's directory, which answers
 // messaging.ErrNoCredential while the settings in effect have no Slack user
 // token.
-func messagingDeps(ctx context.Context, setup messagingSetup, slack *directory.Slack) seams.Messaging {
-	bound := seams.Messaging{Post: func(channel, text string) error {
+func messagingDeps(setup messagingSetup, slack *directory.Slack) seams.Messaging {
+	bound := seams.Messaging{Post: func(ctx context.Context, channel, text string) error {
 		return messagingClient(setup).Post(ctx, channel, text)
 	}}
 
-	return withDirectory(ctx, bound, slack)
+	return withDirectory(bound, slack)
 }
 
 // messagingClient builds the client a post is made with: over the webhook the
@@ -315,12 +314,12 @@ func slackUserClient(setup messagingSetup) func() (messaging.Client, error) {
 }
 
 // withDirectory is bound with the directory's reads.
-func withDirectory(ctx context.Context, bound seams.Messaging, slack *directory.Slack) seams.Messaging {
-	bound.ChannelMembers = func(channel string) ([]loop.SlackTarget, error) { return slack.ChannelMembers(ctx, channel) }
-	bound.UserGroups = func() ([]loop.SlackTarget, error) { return slack.UserGroups(ctx) }
+func withDirectory(bound seams.Messaging, slack *directory.Slack) seams.Messaging {
+	bound.ChannelMembers = slack.ChannelMembers
+	bound.UserGroups = slack.UserGroups
 	bound.RefreshDirectory = slack.Refresh
-	bound.Workspace = func() (string, error) { return slack.Workspace(ctx) }
-	bound.Grant = func() (messaging.Grant, error) { return slack.Grant(ctx) }
+	bound.Workspace = slack.Workspace
+	bound.Grant = slack.Grant
 
 	return bound
 }

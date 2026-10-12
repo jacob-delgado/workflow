@@ -5,6 +5,7 @@ package cli
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -34,7 +35,7 @@ var errMessagingNotConfigured = errors.New("no messaging transport is configured
 type announceSeams struct {
 	// Compose is what the announcement is composed from.
 	Compose loop.AnnounceSeams
-	Post    func(channel, text string) error
+	Post    func(ctx context.Context, channel, text string) error
 	Kind    forge.Kind
 	Project string
 	// Messaging is where the announcement goes and how it is rendered: the
@@ -62,8 +63,8 @@ type announceTagging struct {
 	RepoGroups   func(workspace string) ([]loop.SlackTarget, error)
 	LastGroups   func(workspace string) ([]string, bool)
 	RecordGroups func(workspace string, ids []string) error
-	Workspace    func() (string, error)
-	Grant        func() (messaging.Grant, error)
+	Workspace    func(ctx context.Context) (string, error)
+	Grant        func(ctx context.Context) (messaging.Grant, error)
 }
 
 // newAnnounceCmd builds `workflow announce`.
@@ -144,16 +145,16 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
-		seams.Post = func(channel, text string) error { return deps.Messaging.Post(channel, text) }
+		seams.Post = deps.Messaging.Post
 	}
 
-	return runAnnounce(outputOf(cmd), seams, opts)
+	return runAnnounce(cmd.Context(), outputOf(cmd), seams, opts)
 }
 
 // runAnnounce composes the announcement for the branch's pull request, previews
 // it, and announces it once confirmed, remembering it so a later run does not
-// repeat it unasked.
-func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
+// repeat it unasked. Slack is asked under ctx.
+func runAnnounce(ctx context.Context, out output, seams announceSeams, opts writeOptions) error {
 	composed, err := composeFor(seams)
 	if err != nil {
 		return err
@@ -164,7 +165,7 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 		return nil
 	}
 
-	pending := previewAnnouncement(out, seams, composed)
+	pending := previewAnnouncement(ctx, out, seams, composed)
 
 	say := announcePrompt(seams.Messaging.Service(), seams.Messaging.Target(), again, opts)
 
@@ -173,7 +174,7 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 		return unattendedAgain(err, again)
 	}
 
-	return deliverAnnouncement(out.notes, seams, pending)
+	return deliverAnnouncement(ctx, out.notes, seams, pending)
 }
 
 // composedAnnouncement is the announcement composed for the branch's pull
@@ -223,13 +224,15 @@ type pendingAnnouncement struct {
 }
 
 // previewAnnouncement prints the announcement and where it would go, then
-// whom it tags, and holds it ready to deliver.
-func previewAnnouncement(out output, seams announceSeams, composed composedAnnouncement) pendingAnnouncement {
+// whom it tags, read under ctx, and holds it ready to deliver.
+func previewAnnouncement(
+	ctx context.Context, out output, seams announceSeams, composed composedAnnouncement,
+) pendingAnnouncement {
 	text := composed.announcement.Text()
 	fmt.Fprintln(out.artifact, text)
 	fmt.Fprintln(out.artifact, "to "+seams.Messaging.Target())
 
-	mentions, memory := tagAnnouncement(out, seams, composed.announcement.Moment, composed.base)
+	mentions, memory := tagAnnouncement(ctx, out, seams, composed.announcement.Moment, composed.base)
 
 	return pendingAnnouncement{
 		delivery: loop.Delivery{Channel: seams.Messaging.Channel, Text: text, Made: composed.made(), Mentions: mentions},
@@ -237,11 +240,11 @@ func previewAnnouncement(out output, seams announceSeams, composed composedAnnou
 	}
 }
 
-// deliverAnnouncement posts pending and says where it went, and, for one
-// posted that the store could not remember, the warning every surface says,
-// then why.
-func deliverAnnouncement(notes io.Writer, seams announceSeams, pending pendingAnnouncement) error {
-	err := loop.Deliver(seams.Post, pending.memory, pending.delivery)
+// deliverAnnouncement posts pending under ctx and says where it went, and, for
+// one posted that the store could not remember, the warning every surface
+// says, then why.
+func deliverAnnouncement(ctx context.Context, notes io.Writer, seams announceSeams, pending pendingAnnouncement) error {
+	err := loop.Deliver(ctx, seams.Post, pending.memory, pending.delivery)
 
 	why, notKept := loop.NotRememberedReason(err)
 	if err != nil && !notKept {
@@ -309,13 +312,13 @@ func unattendedAgain(err error, again bool) error {
 // leaves untagged, and answers the tags with what the post remembers: the
 // groups chosen, when groups were offered. A token that lacks a scope tagging
 // needs is told the scope, and the post goes out untagged. base is the branch
-// the owners are read against.
-func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, base string) (
+// the owners are read against. Slack is asked under ctx.
+func tagAnnouncement(ctx context.Context, out output, seams announceSeams, moment messaging.Moment, base string) (
 	messaging.Mentions, loop.AnnounceMemory,
 ) {
 	memory := seams.Memory
 
-	slack, tagging := seams.Tagging.identity(out, moment)
+	slack, tagging := seams.Tagging.identity(ctx, out, moment)
 	if !tagging {
 		return messaging.Mentions{}, memory
 	}
@@ -363,23 +366,24 @@ type slackIdentity struct {
 // ready for review does, with a Slack user token and the store, and only in a
 // workspace Slack names. The grant is read first, from the auth.test that
 // answers the workspace too, so a grant that cannot be read is a workspace
-// that cannot be: the post goes out untagged, and the notes say why.
-func (t announceTagging) identity(out output, moment messaging.Moment) (slackIdentity, bool) {
+// that cannot be: the post goes out untagged, and the notes say why. Slack is
+// asked under ctx.
+func (t announceTagging) identity(ctx context.Context, out output, moment messaging.Moment) (slackIdentity, bool) {
 	if moment != messaging.MomentReady || t.Workspace == nil || t.OwnerLinks == nil {
 		return slackIdentity{}, false
 	}
 
 	var grant messaging.Grant
 
-	workspace, err := loop.TagWorkspace(func() (string, error) {
-		granted, err := t.Grant()
+	workspace, err := loop.TagWorkspace(ctx, func(ctx context.Context) (string, error) {
+		granted, err := t.Grant(ctx)
 		if err != nil {
 			return "", err
 		}
 
 		grant = granted
 
-		return t.Workspace()
+		return t.Workspace(ctx)
 	})
 	if errors.Is(err, loop.ErrUnknownWorkspace) {
 		fmt.Fprintf(out.notes, "Not tagging anyone: %v; posting untagged.\n", err)

@@ -93,7 +93,7 @@ func (e Environment) Deps(
 		Jira:         trackerDeps(ctx, cfg, jiraClient, connect),
 		Git:          e.gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
 		Forge:        forgeDeps(ctx, setup, connect),
-		Messaging:    messagingDeps(ctx, messagingSet, slack),
+		Messaging:    messagingDeps(messagingSet, slack),
 		Hooks:        e.hookDeps(ctx, where.Root),
 		Editor:       e.editorDeps(where.Root),
 		Store:        storeDeps(ctx, e.onDisk(cfg), cfg, where),

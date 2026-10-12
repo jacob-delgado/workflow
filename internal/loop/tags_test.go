@@ -417,7 +417,7 @@ func TestDeliverPostsTheMentionsAndRecordsTheGroupsChosen(t *testing.T) {
 	}
 
 	// Act
-	err := loop.Deliver(sent.post(nil), memory, tagged(t))
+	err := loop.Deliver(t.Context(), sent.post(nil), memory, tagged(t))
 
 	// Assert
 	if err != nil || !slices.Equal(sent.posted, []string{devChannel + " ready\ncc <@U0ANA> <!subteam^S0CP>"}) {
@@ -446,7 +446,7 @@ func TestAFailedPostRecordsNoGroups(t *testing.T) {
 	}
 
 	// Act
-	err := loop.Deliver(sent.post(errSeam), memory, tagged(t))
+	err := loop.Deliver(t.Context(), sent.post(errSeam), memory, tagged(t))
 
 	// Assert
 	if !errors.Is(err, errSeam) || recorded {

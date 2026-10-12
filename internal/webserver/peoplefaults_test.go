@@ -7,6 +7,7 @@ package webserver_test
 // word on the workspace, or the kept store, before a write or after one.
 
 import (
+	"context"
 	"net/http"
 	"reflect"
 	"strings"
@@ -24,7 +25,7 @@ import (
 // keptDeps is filledDeps over fake, posting nowhere, as keptServer serves it.
 func keptDeps(fake *fakeKept) webserver.Deps {
 	deps := filledDeps()
-	deps.Messaging.Post = func(string, string) error { return nil }
+	deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 	fake.wire(&deps)
 
 	return deps

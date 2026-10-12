@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -48,7 +49,7 @@ func TestTheContractRefusesWhatTheServerCannotUse(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Messaging.Post = func(string, string) error { return nil }
+			deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 			handler := serve(t, deps, config.Default())
 
 			// Act

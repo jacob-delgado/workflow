@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strings"
@@ -396,8 +397,8 @@ type deliveries struct {
 }
 
 // post is a Post seam that sends, answering with err.
-func (d *deliveries) post(err error) func(channel, text string) error {
-	return func(channel, text string) error {
+func (d *deliveries) post(err error) func(ctx context.Context, channel, text string) error {
+	return func(_ context.Context, channel, text string) error {
 		d.posted = append(d.posted, channel+" "+text)
 
 		return err
@@ -425,7 +426,7 @@ func TestDeliverRecordsTheAnnouncementOnceItIsPosted(t *testing.T) {
 	var sent deliveries
 
 	// Act
-	err := loop.Deliver(sent.post(nil), sent.memory(), merged())
+	err := loop.Deliver(t.Context(), sent.post(nil), sent.memory(), merged())
 
 	// Assert
 	if err != nil || !slices.Equal(sent.posted, []string{"#dev merged"}) ||
@@ -438,15 +439,17 @@ func TestDeliverRecordsNothingItCouldNotPost(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		post func(*deliveries) func(channel, text string) error
+		post func(*deliveries) func(ctx context.Context, channel, text string) error
 		want error
 	}{
 		"a post that fails": {
-			post: func(sent *deliveries) func(channel, text string) error { return sent.post(errSeam) },
+			post: func(sent *deliveries) func(ctx context.Context, channel, text string) error {
+				return sent.post(errSeam)
+			},
 			want: errSeam,
 		},
 		"no way to post": {
-			post: func(*deliveries) func(channel, text string) error { return nil },
+			post: func(*deliveries) func(ctx context.Context, channel, text string) error { return nil },
 			want: loop.ErrAnnounceUnavailable,
 		},
 	}
@@ -459,7 +462,7 @@ func TestDeliverRecordsNothingItCouldNotPost(t *testing.T) {
 			var sent deliveries
 
 			// Act
-			err := loop.Deliver(tt.post(&sent), sent.memory(), merged())
+			err := loop.Deliver(t.Context(), tt.post(&sent), sent.memory(), merged())
 
 			// Assert
 			if !errors.Is(err, tt.want) || len(sent.recorded) != 0 {
@@ -476,7 +479,7 @@ func TestDeliverPostsWithNothingToRememberItIn(t *testing.T) {
 	var sent deliveries
 
 	// Act
-	err := loop.Deliver(sent.post(nil), loop.AnnounceMemory{}, merged())
+	err := loop.Deliver(t.Context(), sent.post(nil), loop.AnnounceMemory{}, merged())
 
 	// Assert
 	if err != nil || len(sent.posted) != 1 {
@@ -493,7 +496,7 @@ func TestDeliverPostedButNotRememberedSaysSo(t *testing.T) {
 	forgetting := loop.AnnounceMemory{Record: func(loop.Announced) error { return errSeam }}
 
 	// Act
-	err := loop.Deliver(sent.post(nil), forgetting, merged())
+	err := loop.Deliver(t.Context(), sent.post(nil), forgetting, merged())
 
 	// Assert
 	if !errors.Is(err, loop.ErrNotRemembered) || !errors.Is(err, errSeam) || len(sent.posted) != 1 {

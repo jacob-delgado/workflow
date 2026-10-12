@@ -121,14 +121,14 @@ func TestASummaryIsPostedRenderedForItsService(t *testing.T) {
 	// Arrange
 	var posted []string
 
-	post := func(channel, text string) error {
+	post := func(_ context.Context, channel, text string) error {
 		posted = append(posted, channel+": "+text)
 
 		return nil
 	}
 
 	// Act
-	err := loop.PostSummary(post, config.KindSlack, "#team", "# 2026-10-01\n\n- committed abc1234 Fix it\n")
+	err := loop.PostSummary(t.Context(), post, config.KindSlack, "#team", "# 2026-10-01\n\n- committed abc1234 Fix it\n")
 
 	// Assert
 	want := []string{"#team: *2026-10-01*\n\n• committed abc1234 Fix it\n"}
@@ -141,7 +141,7 @@ func TestASummaryWithNoWayToPostItIsUnavailable(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	err := loop.PostSummary(nil, config.KindSlack, "#team", "# 2026-10-01\n\n- committed abc1234 Fix it\n")
+	err := loop.PostSummary(t.Context(), nil, config.KindSlack, "#team", "# 2026-10-01\n\n- committed abc1234 Fix it\n")
 
 	// Assert
 	if !errors.Is(err, loop.ErrSummaryUnavailable) {
@@ -154,14 +154,14 @@ func TestABlankSummaryIsNotPosted(t *testing.T) {
 
 	// Arrange
 	posts := 0
-	post := func(string, string) error {
+	post := func(context.Context, string, string) error {
 		posts++
 
 		return nil
 	}
 
 	// Act
-	err := loop.PostSummary(post, config.KindTeams, "", " \n\t")
+	err := loop.PostSummary(t.Context(), post, config.KindTeams, "", " \n\t")
 
 	// Assert
 	if !errors.Is(err, loop.ErrEmptySummary) || posts != 0 {
@@ -174,14 +174,14 @@ func TestASummaryTooLongForItsServiceIsNotPosted(t *testing.T) {
 
 	// Arrange
 	posts := 0
-	post := func(string, string) error {
+	post := func(context.Context, string, string) error {
 		posts++
 
 		return nil
 	}
 
 	// Act
-	err := loop.PostSummary(post, config.KindDiscord, "", "# 2026-10-01\n\n- "+strings.Repeat("x", 2500)+"\n")
+	err := loop.PostSummary(t.Context(), post, config.KindDiscord, "", "# 2026-10-01\n\n- "+strings.Repeat("x", 2500)+"\n")
 
 	// Assert
 	if !errors.Is(err, messaging.ErrTooLong) || posts != 0 {

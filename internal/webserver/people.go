@@ -29,8 +29,8 @@ var (
 
 // GetPeople lists every owner decided on this forge host, then the branch's
 // owners not decided yet.
-func (s *server) GetPeople(_ context.Context, _ api.GetPeopleRequestObject) (api.GetPeopleResponseObject, error) {
-	people, err := s.people()
+func (s *server) GetPeople(ctx context.Context, _ api.GetPeopleRequestObject) (api.GetPeopleResponseObject, error) {
+	people, err := s.people(ctx)
 	if err != nil {
 		return problemAnswer[api.GetPeopledefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 	}
@@ -41,13 +41,13 @@ func (s *server) GetPeople(_ context.Context, _ api.GetPeopleRequestObject) (api
 // LinkPerson records whom an owner is on Slack, with the label Slack's
 // directory gives the ID, or that they are not on Slack.
 func (s *server) LinkPerson(
-	_ context.Context, request api.LinkPersonRequestObject,
+	ctx context.Context, request api.LinkPersonRequestObject,
 ) (api.LinkPersonResponseObject, error) {
-	err := s.linkPerson(*request.Body)
+	err := s.linkPerson(ctx, *request.Body)
 	if err == nil {
 		var people api.People
 
-		people, err = s.people()
+		people, err = s.people(ctx)
 		if err == nil {
 			return api.LinkPerson200JSONResponse(people), nil
 		}
@@ -58,11 +58,11 @@ func (s *server) LinkPerson(
 
 // ForgetPerson drops what was decided for an owner, so they are asked again.
 func (s *server) ForgetPerson(
-	_ context.Context, request api.ForgetPersonRequestObject,
+	ctx context.Context, request api.ForgetPersonRequestObject,
 ) (api.ForgetPersonResponseObject, error) {
 	err := errNoPeopleStore
 	if s.deps.Store.ForgetOwner != nil {
-		err = s.inWorkspace(func(workspace string) error {
+		err = s.inWorkspace(ctx, func(workspace string) error {
 			return s.keptWrite(func() error { return s.deps.Store.ForgetOwner(workspace, request.Params.Owner) })
 		})
 	}
@@ -70,7 +70,7 @@ func (s *server) ForgetPerson(
 	if err == nil {
 		var people api.People
 
-		people, err = s.people()
+		people, err = s.people(ctx)
 		if err == nil {
 			return api.ForgetPerson200JSONResponse(people), nil
 		}
@@ -80,15 +80,16 @@ func (s *server) ForgetPerson(
 }
 
 // people is every decided owner, then the branch's undecided ones, users
-// before teams, each as an announcement would tag them.
-func (s *server) people() (api.People, error) {
+// before teams, each as an announcement would tag them, the Slack workspace
+// read under ctx.
+func (s *server) people(ctx context.Context) (api.People, error) {
 	if s.deps.Store.OwnerLinks == nil {
 		return api.People{}, errNoPeopleStore
 	}
 
 	var links []loop.OwnerLink
 
-	err := s.inWorkspace(func(workspace string) error {
+	err := s.inWorkspace(ctx, func(workspace string) error {
 		var err error
 
 		links, err = s.deps.Store.OwnerLinks(workspace)
@@ -159,8 +160,8 @@ func (s *server) branchOwners() codeowners.Owners {
 	return owners
 }
 
-// linkPerson checks link and records it.
-func (s *server) linkPerson(link api.PersonLink) error {
+// linkPerson checks link and records it, asking Slack under ctx.
+func (s *server) linkPerson(ctx context.Context, link api.PersonLink) error {
 	if s.deps.Store.LinkOwner == nil {
 		return errNoPeopleStore
 	}
@@ -169,15 +170,15 @@ func (s *server) linkPerson(link api.PersonLink) error {
 		return errOneOrTheOther
 	}
 
-	team, err := s.isTeam(link.Owner)
+	team, err := s.isTeam(ctx, link.Owner)
 	if err != nil {
 		return err
 	}
 
-	return s.inWorkspace(func(workspace string) error {
+	return s.inWorkspace(ctx, func(workspace string) error {
 		decision := loop.OwnerLink{Owner: link.Owner, Team: team, OnSlack: false, Slack: loop.SlackTarget{}}
 		if !link.NotOnSlack {
-			target, err := s.slackTarget(*link.SlackID, team, orZero(link.Channel))
+			target, err := s.slackTarget(ctx, *link.SlackID, team, orZero(link.Channel))
 			if err != nil {
 				return err
 			}
@@ -192,8 +193,8 @@ func (s *server) linkPerson(link api.PersonLink) error {
 // isTeam reports whether owner is a team, as People lists them: as it was
 // decided, or as the forge tells the branch's owners apart, and otherwise as
 // CODEOWNERS spells a team, with a slash.
-func (s *server) isTeam(owner string) (bool, error) {
-	people, err := s.people()
+func (s *server) isTeam(ctx context.Context, owner string) (bool, error) {
+	people, err := s.people(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -208,14 +209,14 @@ func (s *server) isTeam(owner string) (bool, error) {
 }
 
 // inWorkspace makes use of the kept associations in the Slack workspace the
-// token is for, which they are kept per, or says why it cannot be read: with
-// no Slack user token, that there is no directory to link from.
-func (s *server) inWorkspace(use func(workspace string) error) error {
+// token is for, read under ctx, which they are kept per, or says why it cannot
+// be read: with no Slack user token, that there is no directory to link from.
+func (s *server) inWorkspace(ctx context.Context, use func(workspace string) error) error {
 	if !s.taggingLive() {
 		return errNoSlackDirectory
 	}
 
-	workspace, err := loop.TagWorkspace(s.deps.Messaging.Workspace)
+	workspace, err := loop.TagWorkspace(ctx, s.deps.Messaging.Workspace)
 	if errors.Is(err, messaging.ErrNoCredential) {
 		return errNoSlackDirectory
 	}

@@ -25,12 +25,11 @@ func TestDeliverRecordsADiscordPostAnsweredNoContent(t *testing.T) {
 
 	webhook := config.Messaging{Kind: config.KindDiscord, WebhookURL: config.Secret(server.URL + "/hook")}
 	client := messaging.New(server.Client().Do, messaging.APIBase, webhook)
-	post := func(channel, text string) error { return client.Post(t.Context(), channel, text) }
 
 	var sent deliveries
 
 	// Act
-	err := loop.Deliver(post, sent.memory(), merged())
+	err := loop.Deliver(t.Context(), client.Post, sent.memory(), merged())
 
 	// Assert
 	if err != nil || !slices.Equal(sent.recorded, []loop.Announced{merged().Made}) {

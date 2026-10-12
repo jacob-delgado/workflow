@@ -182,16 +182,16 @@ type Forge struct {
 type Messaging struct {
 	// Post sends text to a channel, or to the configured default when channel is
 	// empty. A webhook ignores the channel and posts where it is bound.
-	Post func(channel, text string) error
+	Post func(ctx context.Context, channel, text string) error
 	// ChannelMembers is everyone in a channel, named as configured — by name or
 	// ID — labeled by the name Slack shows for them. The directory reads are
 	// bound whatever the settings, since Settings can switch to or from a Slack
 	// user token while workflow runs: a read answering
 	// messaging.ErrNoCredential means tagging is unavailable under the settings
 	// in effect, not that it failed. A nil read means none can be made.
-	ChannelMembers func(channel string) ([]loop.SlackTarget, error)
+	ChannelMembers func(ctx context.Context, channel string) ([]loop.SlackTarget, error)
 	// UserGroups is every user group in the Slack workspace.
-	UserGroups func() ([]loop.SlackTarget, error)
+	UserGroups func(ctx context.Context) ([]loop.SlackTarget, error)
 	// RefreshDirectory drops the directory read so far this session, so the
 	// next read asks Slack again.
 	RefreshDirectory func()
@@ -200,11 +200,11 @@ type Messaging struct {
 	// so a surface reads it before them. It answers messaging.ErrNoCredential
 	// as the directory does, and an error when Slack cannot say, when a
 	// surface tags no one and says why.
-	Workspace func() (string, error)
+	Workspace func(ctx context.Context) (string, error)
 	// Grant is the scopes Slack lists the user token as granted, held with
 	// Workspace, so a missing scope tagging needs is told without reading the
 	// directory. A grant Slack did not list lacks none.
-	Grant func() (messaging.Grant, error)
+	Grant func(ctx context.Context) (messaging.Grant, error)
 }
 
 // Store is what a surface asks of the on-disk store, bound to this repository.

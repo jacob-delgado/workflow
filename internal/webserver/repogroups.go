@@ -14,9 +14,9 @@ import (
 // GetRepoGroups lists the user groups this repository's announcements may
 // tag.
 func (s *server) GetRepoGroups(
-	_ context.Context, _ api.GetRepoGroupsRequestObject,
+	ctx context.Context, _ api.GetRepoGroupsRequestObject,
 ) (api.GetRepoGroupsResponseObject, error) {
-	groups, err := s.repoGroups()
+	groups, err := s.repoGroups(ctx)
 	if err != nil {
 		return problemAnswer[api.GetRepoGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 	}
@@ -27,13 +27,13 @@ func (s *server) GetRepoGroups(
 // SetRepoGroups replaces this repository's user groups with the ones named,
 // each labeled as the workspace's directory has it.
 func (s *server) SetRepoGroups(
-	_ context.Context, request api.SetRepoGroupsRequestObject,
+	ctx context.Context, request api.SetRepoGroupsRequestObject,
 ) (api.SetRepoGroupsResponseObject, error) {
-	err := s.setRepoGroups(request.Body.Ids)
+	err := s.setRepoGroups(ctx, request.Body.Ids)
 	if err == nil {
 		var groups api.RepoGroups
 
-		groups, err = s.repoGroups()
+		groups, err = s.repoGroups(ctx)
 		if err == nil {
 			return api.SetRepoGroups200JSONResponse(groups), nil
 		}
@@ -42,15 +42,16 @@ func (s *server) SetRepoGroups(
 	return problemAnswer[api.SetRepoGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 }
 
-// repoGroups is this repository's user groups, with its name.
-func (s *server) repoGroups() (api.RepoGroups, error) {
+// repoGroups is this repository's user groups, with its name, in the Slack
+// workspace read under ctx.
+func (s *server) repoGroups(ctx context.Context) (api.RepoGroups, error) {
 	if s.deps.Store.RepoGroups == nil {
 		return api.RepoGroups{}, errNoPeopleStore
 	}
 
 	var groups []loop.SlackTarget
 
-	err := s.inWorkspace(func(workspace string) error {
+	err := s.inWorkspace(ctx, func(workspace string) error {
 		var err error
 
 		groups, err = s.deps.Store.RepoGroups(workspace)
@@ -64,20 +65,21 @@ func (s *server) repoGroups() (api.RepoGroups, error) {
 	return api.RepoGroups{Repository: s.info.Repository, Groups: slackTargetsDTO(groups)}, nil
 }
 
-// setRepoGroups keeps ids, each once, as this repository's user groups.
-func (s *server) setRepoGroups(ids []string) error {
+// setRepoGroups keeps ids, each once, as this repository's user groups,
+// asking Slack under ctx.
+func (s *server) setRepoGroups(ctx context.Context, ids []string) error {
 	if s.deps.Store.SetRepoGroups == nil || s.deps.Store.RepoGroups == nil {
 		return errNoPeopleStore
 	}
 
-	return s.inWorkspace(func(workspace string) error {
+	return s.inWorkspace(ctx, func(workspace string) error {
 		return s.keptWrite(func() error {
 			saved, err := s.deps.Store.RepoGroups(workspace)
 			if err != nil {
 				return err
 			}
 
-			groups, err := s.labelGroups(ids, saved)
+			groups, err := s.labelGroups(ctx, ids, saved)
 			if err != nil {
 				return err
 			}
@@ -90,8 +92,8 @@ func (s *server) setRepoGroups(ids []string) error {
 // labelGroups is ids each once, labeled as saved when one already is — so a
 // group Slack no longer lists, or a token that cannot read them, keeps it —
 // and from the workspace's directory when it is new. Only a new group needs
-// the directory.
-func (s *server) labelGroups(ids []string, saved []loop.SlackTarget) ([]loop.SlackTarget, error) {
+// the directory, read under ctx.
+func (s *server) labelGroups(ctx context.Context, ids []string, saved []loop.SlackTarget) ([]loop.SlackTarget, error) {
 	groups := make([]loop.SlackTarget, 0, len(ids))
 
 	for _, groupID := range ids {
@@ -105,7 +107,7 @@ func (s *server) labelGroups(ids []string, saved []loop.SlackTarget) ([]loop.Sla
 			continue
 		}
 
-		group, err := s.slackGroup(groupID)
+		group, err := s.slackGroup(ctx, groupID)
 		if err != nil {
 			return nil, err
 		}

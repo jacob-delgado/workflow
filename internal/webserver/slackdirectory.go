@@ -17,9 +17,9 @@ import (
 // GetSlackMembers lists the people in a channel — the configured one when
 // none is named — that a code owner who is a user can be linked to.
 func (s *server) GetSlackMembers(
-	_ context.Context, request api.GetSlackMembersRequestObject,
+	ctx context.Context, request api.GetSlackMembersRequestObject,
 ) (api.GetSlackMembersResponseObject, error) {
-	members, err := s.channelMembers(orZero(request.Params.Channel))
+	members, err := s.channelMembers(ctx, orZero(request.Params.Channel))
 
 	directory, err := directoryAnswer(members, err)
 	if err != nil {
@@ -32,9 +32,9 @@ func (s *server) GetSlackMembers(
 // GetSlackGroups lists the workspace's user groups, to tag or to link a team
 // to.
 func (s *server) GetSlackGroups(
-	_ context.Context, _ api.GetSlackGroupsRequestObject,
+	ctx context.Context, _ api.GetSlackGroupsRequestObject,
 ) (api.GetSlackGroupsResponseObject, error) {
-	groups, err := s.userGroups()
+	groups, err := s.userGroups(ctx)
 
 	directory, err := directoryAnswer(groups, err)
 	if err != nil {
@@ -44,11 +44,11 @@ func (s *server) GetSlackGroups(
 	return api.GetSlackGroups200JSONResponse(directory), nil
 }
 
-// slackTarget is slackID as Slack's directory labels it: a user group for a team,
-// a member of channel otherwise.
-func (s *server) slackTarget(slackID string, team bool, channel string) (loop.SlackTarget, error) {
+// slackTarget is slackID as Slack's directory labels it, read under ctx: a
+// user group for a team, a member of channel otherwise.
+func (s *server) slackTarget(ctx context.Context, slackID string, team bool, channel string) (loop.SlackTarget, error) {
 	if team {
-		return s.slackGroup(slackID)
+		return s.slackGroup(ctx, slackID)
 	}
 
 	_, err := messaging.ParseSlackUser(slackID)
@@ -56,17 +56,18 @@ func (s *server) slackTarget(slackID string, team bool, channel string) (loop.Sl
 		return loop.SlackTarget{}, errWrongKind
 	}
 
-	return lookUp(func() ([]loop.SlackTarget, error) { return s.channelMembers(channel) }, slackID)
+	return lookUp(func() ([]loop.SlackTarget, error) { return s.channelMembers(ctx, channel) }, slackID)
 }
 
-// slackGroup is the user group the workspace lists under slackID.
-func (s *server) slackGroup(slackID string) (loop.SlackTarget, error) {
+// slackGroup is the user group the workspace lists under slackID, read under
+// ctx.
+func (s *server) slackGroup(ctx context.Context, slackID string) (loop.SlackTarget, error) {
 	_, err := messaging.ParseSlackGroup(slackID)
 	if err != nil {
 		return loop.SlackTarget{}, errWrongKind
 	}
 
-	return lookUp(s.userGroups, slackID)
+	return lookUp(func() ([]loop.SlackTarget, error) { return s.userGroups(ctx) }, slackID)
 }
 
 // taggingLive reports whether the configuration in effect posts with a Slack
@@ -76,23 +77,24 @@ func (s *server) taggingLive() bool {
 	return s.config().Messaging.Mode() == config.MessagingUser
 }
 
-// channelMembers is the people in channel, the configured one when empty.
-func (s *server) channelMembers(channel string) ([]loop.SlackTarget, error) {
+// channelMembers is the people in channel, the configured one when empty,
+// read under ctx.
+func (s *server) channelMembers(ctx context.Context, channel string) ([]loop.SlackTarget, error) {
 	if !s.taggingLive() || s.deps.Messaging.ChannelMembers == nil {
 		return nil, errNoSlackDirectory
 	}
 
-	return directoryRead(s.deps.Messaging.ChannelMembers(s.channelOr(channel)))
+	return directoryRead(s.deps.Messaging.ChannelMembers(ctx, s.channelOr(channel)))
 }
 
-// userGroups is the workspace's user groups; a workspace that has none, or
-// does not let the token read them, lists none.
-func (s *server) userGroups() ([]loop.SlackTarget, error) {
+// userGroups is the workspace's user groups, read under ctx; a workspace
+// that has none, or does not let the token read them, lists none.
+func (s *server) userGroups(ctx context.Context) ([]loop.SlackTarget, error) {
 	if !s.taggingLive() || s.deps.Messaging.UserGroups == nil {
 		return nil, errNoSlackDirectory
 	}
 
-	groups, err := directoryRead(s.deps.Messaging.UserGroups())
+	groups, err := directoryRead(s.deps.Messaging.UserGroups(ctx))
 	if errors.Is(err, messaging.ErrNoUserGroups) {
 		return nil, nil
 	}

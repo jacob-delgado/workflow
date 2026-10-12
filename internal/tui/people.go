@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -92,24 +93,26 @@ func (m Model) openPeople() (Model, tea.Cmd) {
 		reading: true, repoReading: true, channel: defaultChannel(m.cfg),
 		opened: opened,
 	}
-	people.members, readMembers = readChannelMembers(m.deps, people.channel, opened)
-	people.groups, readGroups = readUserGroups(m.deps, opened)
+	people.members, readMembers = readChannelMembers(m.session, m.deps, people.channel, opened)
+	people.groups, readGroups = readUserGroups(m.session, m.deps, opened)
 	m.overlay = people
 
-	return m, tea.Batch(m.branch.readPeople(m.deps, opened), readRepoGroups(m.deps, opened), readMembers, readGroups)
+	return m, tea.Batch(
+		m.branch.readPeople(m.session, m.deps, opened), readRepoGroups(m.session, m.deps, opened), readMembers, readGroups,
+	)
 }
 
 // readPeople reads who was decided on this forge host, and the owners of this
 // branch's changes, who may not have been asked about yet, for the overlay
-// opened as opened.
-func (s branchState) readPeople(deps Deps, opened int) tea.Cmd {
+// opened as opened. The Slack workspace is read under ctx.
+func (s branchState) readPeople(ctx context.Context, deps Deps, opened int) tea.Cmd {
 	owners := taggedOwnerSeams(deps)
 	links, base, readWorkspace := deps.Store.OwnerLinks, s.branch.BaseName(), deps.Messaging.Workspace
 
 	return func() tea.Msg {
 		var decided []loop.OwnerLink
 
-		linksErr := inWorkspace(readWorkspace, func(workspace string) error {
+		linksErr := inWorkspace(ctx, readWorkspace, func(workspace string) error {
 			var err error
 
 			decided, err = links(workspace)
@@ -304,7 +307,7 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 
 		return m, nil
 	case key.Matches(msg, m.keys.notOnSlack):
-		return p.saving(m, saveLink(m.deps, decided(selected.owner, selected.team, nil), p.opened))
+		return p.saving(m, saveLink(m.session, m.deps, decided(selected.owner, selected.team, nil), p.opened))
 	case key.Matches(msg, m.keys.forgetOwner):
 		return p.askToForget(m, selected.owner), nil
 	default:
@@ -316,14 +319,14 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 // which esc goes back to: what is forgotten was decided once and is asked again
 // rather than seen again.
 func (p peopleOverlay) askToForget(m Model, owner string) Model {
-	forget, opened, readWorkspace := m.deps.Store.ForgetOwner, p.opened, m.deps.Messaging.Workspace
+	ctx, forget, opened, readWorkspace := m.session, m.deps.Store.ForgetOwner, p.opened, m.deps.Messaging.Workspace
 
 	m.overlay = lastLook{
 		title: "Forget a person", verb: "forget", leave: escBack, back: p,
 		body: "Forget " + owner + "?\n\nThe next ready-for-review announcement asks whom they are on Slack again.",
 		proceed: func(m Model) (Model, tea.Cmd) {
 			return p.saving(m, func() tea.Msg {
-				err := inWorkspace(readWorkspace, func(workspace string) error { return forget(workspace, owner) })
+				err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return forget(workspace, owner) })
 
 				return peopleSaved{opened: opened, err: err}
 			})
@@ -362,7 +365,7 @@ func (msg peopleSaved) apply(m Model) (Model, tea.Cmd) {
 
 	open.send = sendState{}
 
-	return m.withBeneath(open), m.branch.readPeople(m.deps, open.opened)
+	return m.withBeneath(open), m.branch.readPeople(m.session, m.deps, open.opened)
 }
 
 // openedAs is the count of overlays opened when People and groups opened.

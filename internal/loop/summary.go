@@ -354,7 +354,10 @@ func ReadAll(ctx context.Context, reads []SourceRead) []activity.Read {
 // than that service takes is refused with messaging.ErrTooLong, saying how
 // long it is against what, before anything is sent, and no post at all is
 // ErrSummaryUnavailable, as Deliver and Push refuse theirs.
-func PostSummary(post func(channel, text string) error, kind config.MessagingKind, channel, text string) error {
+func PostSummary(
+	ctx context.Context, post func(ctx context.Context, channel, text string) error, kind config.MessagingKind,
+	channel, text string,
+) error {
 	if post == nil {
 		return ErrSummaryUnavailable
 	}
@@ -370,7 +373,7 @@ func PostSummary(post func(channel, text string) error, kind config.MessagingKin
 		return err
 	}
 
-	return post(channel, rendered)
+	return post(ctx, channel, rendered)
 }
 
 // SummaryLength is text's length as PostSummary would post it for kind,

@@ -21,7 +21,7 @@ import (
 // is a 409 when there is no pull request to announce; a branch or a pull
 // request that cannot be read is classified by fault.
 func (s *server) GetAnnouncement(
-	_ context.Context, request api.GetAnnouncementRequestObject,
+	ctx context.Context, request api.GetAnnouncementRequestObject,
 ) (api.GetAnnouncementResponseObject, error) {
 	announcement, pull, err := s.announcement()
 	if errors.Is(err, loop.ErrNoPullRequest) {
@@ -34,7 +34,7 @@ func (s *server) GetAnnouncement(
 
 	channel := orZero(request.Params.Channel)
 	preview := announcementDTO(announcement.Text(), s.channelOr(channel))
-	preview.Tagging = s.tagging(announcement.Moment, channel)
+	preview.Tagging = s.tagging(ctx, announcement.Moment, channel)
 
 	if s.canWaitForCI(announcement.Moment, pull) {
 		preview.CanWaitForCi = new(true)
@@ -73,26 +73,27 @@ type announcePost struct {
 // are not the ones the preview showed. A read that fails while composing it,
 // and a post that fails, are classified by fault, whose details never carry
 // the error's own text, which can name the forge or the webhook.
-func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) (api.AnnounceResponseObject, error) {
+func (s *server) Announce(ctx context.Context, request api.AnnounceRequestObject) (api.AnnounceResponseObject, error) {
 	if s.deps.Messaging.Post == nil {
 		return announceUnprocessable("announcing is not available"), nil
 	}
 
-	post, refusal := s.postFor(*request.Body)
+	post, refusal := s.postFor(ctx, *request.Body)
 	if refusal != nil {
 		return refusal, nil
 	}
 
 	if orZero(request.Body.When) == api.AnnounceRequestWhenCiPasses {
-		return s.announceWhenGreen(post), nil
+		return s.announceWhenGreen(ctx, post), nil
 	}
 
-	return s.announceNow(post), nil
+	return s.announceNow(ctx, post), nil
 }
 
 // postFor is the announcement the request asks to post — composed now, in the
-// text it was edited to, if it was — or the answer refusing it.
-func (s *server) postFor(body api.AnnounceRequest) (announcePost, api.AnnounceResponseObject) {
+// text it was edited to, if it was — or the answer refusing it. Slack is
+// asked under ctx.
+func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announcePost, api.AnnounceResponseObject) {
 	announcement, pull, err := s.announcement()
 	if errors.Is(err, loop.ErrNoPullRequest) {
 		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(s.nothingToAnnounce())
@@ -117,7 +118,7 @@ func (s *server) postFor(body api.AnnounceRequest) (announcePost, api.AnnounceRe
 		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(pull.Number))
 	}
 
-	mentions, memory, refusal := s.postMentions(body.Mentions, announcement.Moment)
+	mentions, memory, refusal := s.postMentions(ctx, body.Mentions, announcement.Moment)
 	if refusal != nil {
 		return announcePost{}, refusal
 	}
@@ -153,9 +154,9 @@ func postedText(body api.AnnounceRequest, announcement messaging.Announcement) (
 // postMentions is whom a post tags and what it remembers of the choice, or
 // the answer refusing mentions that are not the ones previewed or offered.
 func (s *server) postMentions(
-	asked *api.AnnounceMentions, moment messaging.Moment,
+	ctx context.Context, asked *api.AnnounceMentions, moment messaging.Moment,
 ) (messaging.Mentions, loop.AnnounceMemory, api.AnnounceResponseObject) {
-	mentions, memory, err := s.mentions(asked, moment)
+	mentions, memory, err := s.mentions(ctx, asked, moment)
 	if errors.Is(err, errTagsChanged) {
 		return messaging.Mentions{}, loop.AnnounceMemory{},
 			api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
@@ -172,14 +173,14 @@ func (s *server) postMentions(
 // would otherwise follow it once CI passed, and the channel would read it
 // twice. It is a 409 while the held one is being posted, and when the
 // announcement was made meanwhile; one posted that the store could not
-// remember is answered as posted, with the warning.
-func (s *server) announceNow(post announcePost) api.AnnounceResponseObject {
+// remember is answered as posted, with the warning. It is posted under ctx.
+func (s *server) announceNow(ctx context.Context, post announcePost) api.AnnounceResponseObject {
 	_, err := s.dropHeld()
 	if err != nil {
 		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
 	}
 
-	warning, err := s.deliver(post)
+	warning, err := s.deliver(ctx, post)
 	if errors.Is(err, errAnnouncedAlready) {
 		return api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(post.pull.Number))
 	}
@@ -263,13 +264,14 @@ var (
 // tagging is whom an announcement at moment proposes to tag, for its preview
 // to channel, and a scope the Slack token lacks to link an owner not yet
 // linked. It is nil without a Slack user token in the configuration in
-// effect, or one Slack has no credential for, which tagging needs.
-func (s *server) tagging(moment messaging.Moment, channel string) *api.AnnouncementTagging {
-	if !s.canReadDirectory(channel) {
+// effect, or one Slack has no credential for, which tagging needs. Slack is
+// asked under ctx.
+func (s *server) tagging(ctx context.Context, moment messaging.Moment, channel string) *api.AnnouncementTagging {
+	if !s.canReadDirectory(ctx, channel) {
 		return nil
 	}
 
-	workspace, err := loop.TagWorkspace(s.deps.Messaging.Workspace)
+	workspace, err := loop.TagWorkspace(ctx, s.deps.Messaging.Workspace)
 	if errors.Is(err, messaging.ErrNoCredential) {
 		return nil
 	}
@@ -280,7 +282,7 @@ func (s *server) tagging(moment messaging.Moment, channel string) *api.Announcem
 
 	tags, available := s.proposedTags(moment, workspace)
 
-	scope, err := s.scopeToLink(tags.Owners, channel)
+	scope, err := s.scopeToLink(ctx, tags.Owners, channel)
 	if err != nil {
 		return nil
 	}
@@ -299,13 +301,13 @@ func (s *server) tagging(moment messaging.Moment, channel string) *api.Announcem
 // in the configuration in effect, which Settings may change while the server
 // runs, and a directory that does not answer ErrNoCredential, as it does when
 // Slack holds no credential for that token. Any other failure is the
-// preview's to show.
-func (s *server) canReadDirectory(channel string) bool {
+// preview's to show. The directory is read under ctx.
+func (s *server) canReadDirectory(ctx context.Context, channel string) bool {
 	if !s.taggingLive() || s.deps.Messaging.ChannelMembers == nil {
 		return false
 	}
 
-	_, err := s.deps.Messaging.ChannelMembers(s.channelOr(channel))
+	_, err := s.deps.Messaging.ChannelMembers(ctx, s.channelOr(channel))
 
 	return !errors.Is(err, messaging.ErrNoCredential)
 }
@@ -361,11 +363,12 @@ func (s *server) proposedTags(moment messaging.Moment, workspace string) (loop.T
 // scopeToLink is a scope the Slack token lacks to read whom an unlinked owner
 // could be linked to — channel's members for a person, the user groups for a
 // team — or "" when it lacks none; and errNoSlackDirectory when there is no
-// directory to read. Any other failure is the picker's to show when it reads.
-func (s *server) scopeToLink(owners []loop.OwnerTag, channel string) (string, error) {
+// directory to read, read under ctx. Any other failure is the picker's to
+// show when it reads.
+func (s *server) scopeToLink(ctx context.Context, owners []loop.OwnerTag, channel string) (string, error) {
 	reads := map[bool]func() ([]loop.SlackTarget, error){
-		false: func() ([]loop.SlackTarget, error) { return s.channelMembers(channel) },
-		true:  s.userGroups,
+		false: func() ([]loop.SlackTarget, error) { return s.channelMembers(ctx, channel) },
+		true:  func() ([]loop.SlackTarget, error) { return s.userGroups(ctx) },
 	}
 
 	for _, team := range []bool{false, true} {
@@ -390,15 +393,15 @@ func (s *server) scopeToLink(owners []loop.OwnerTag, channel string) (string, er
 // mentions is whom a post tags — the linked user owners, and the groups
 // asked for, each one the announcement at moment offers — and what it
 // remembers of the choice: the groups chosen, when there were groups to
-// choose. No mentions asked for tags no one.
-func (s *server) mentions(asked *api.AnnounceMentions, moment messaging.Moment) (
+// choose. No mentions asked for tags no one. Slack is asked under ctx.
+func (s *server) mentions(ctx context.Context, asked *api.AnnounceMentions, moment messaging.Moment) (
 	messaging.Mentions, loop.AnnounceMemory, error,
 ) {
 	if asked == nil {
 		return messaging.Mentions{}, loop.AnnounceMemory{}, nil
 	}
 
-	tags, workspace, err := s.tagsAsPreviewed(asked.Users, moment)
+	tags, workspace, err := s.tagsAsPreviewed(ctx, asked.Users, moment)
 	if err != nil {
 		return messaging.Mentions{}, loop.AnnounceMemory{}, err
 	}
@@ -422,13 +425,15 @@ func (s *server) mentions(asked *api.AnnounceMentions, moment messaging.Moment) 
 // Slack workspace they are kept in, refused when it tags no one now — not
 // ready for review, no Slack user token in the configuration in effect, or no
 // workspace to read its links in — and when the user owners it links are not
-// previewed, the ones its preview showed.
-func (s *server) tagsAsPreviewed(previewed []string, moment messaging.Moment) (loop.Tags, string, error) {
-	if !s.canReadDirectory("") {
+// previewed, the ones its preview showed. Slack is asked under ctx.
+func (s *server) tagsAsPreviewed(
+	ctx context.Context, previewed []string, moment messaging.Moment,
+) (loop.Tags, string, error) {
+	if !s.canReadDirectory(ctx, "") {
 		return loop.Tags{}, "", errNoTags
 	}
 
-	workspace, err := loop.TagWorkspace(s.deps.Messaging.Workspace)
+	workspace, err := loop.TagWorkspace(ctx, s.deps.Messaging.Workspace)
 	if err != nil {
 		return loop.Tags{}, "", errNoTags
 	}
