@@ -129,7 +129,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 	vocab := forgeVocab(deps.Forge.Kind)
 
 	model := Model{
-		cfg: cfg, loadErr: loadErr, deps: deps, session: context.Background(),
+		cfg: cfg, loadErr: loadErr, deps: outlasting(deps), session: context.Background(),
 		keys:   newKeyMap(marks, vocab.noun, cfg.Messaging.Service(), cfg.UI.Keys),
 		styles: newStyles(true), marks: marks, vocab: vocab,
 		width: defaultWidth, height: defaultHeight,
@@ -154,10 +154,10 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 
 // WithContext is the interface asking every system outside it under ctx, its
 // session's, which New leaves unending; Run gives it one that ends when the
-// program does.
+// program does. Its end stops a read in flight, never a write.
 func (m Model) WithContext(ctx context.Context) Model {
-	// Trade-off TRADE-38: the session ends on quit; leaving a view cancels
-	// nothing it asked for.
+	// Trade-off TRADE-38: the session ends on quit, stopping its reads;
+	// leaving a view cancels nothing it asked for.
 	m.session = ctx
 
 	return m
@@ -190,7 +190,8 @@ func (m Model) WithoutColor() Model {
 // process runs on, when in is a file that is not one — and drawing on out, and
 // blocks until the user quits, or switches directory, which Next says. The
 // context cancels the program, so a caller can shut the interface down, and
-// the program's session ends when it does, stopping what it left in flight.
+// the program's session ends when it does, stopping the reads it left in
+// flight; a write goes on to its end.
 // The alternate screen and mouse mode are set declaratively in View, as v2
 // asks.
 func Run(ctx context.Context, model Model, in io.Reader, out io.Writer) (Next, error) {
