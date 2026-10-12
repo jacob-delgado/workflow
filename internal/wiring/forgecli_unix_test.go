@@ -30,15 +30,34 @@ const stopWait = 10 * time.Second
 func installSilentGH(t *testing.T) string {
 	t.Helper()
 
+	return installGHSilentAfter(t, "")
+}
+
+// installGHSilentAfter puts on PATH a gh that answers its first run with
+// reply, as the forge's HTTP response, unless reply is empty, and every run
+// after that writes to begun, then never answers; it returns that named pipe.
+// The reply holds no single quote.
+func installGHSilentAfter(t *testing.T, reply string) string {
+	t.Helper()
+
 	dir := t.TempDir()
-	begun := filepath.Join(dir, "begun")
+	begun, answered := filepath.Join(dir, "begun"), filepath.Join(dir, "answered")
 
 	err := syscall.Mkfifo(begun, 0o600)
 	if err != nil {
 		t.Fatalf("making the pipe gh says it has begun through: %v", err)
 	}
 
-	write(t, filepath.Join(dir, "gh"), "#!/bin/sh\nprintf x > '"+begun+"'\nexec sleep 600\n", 0o755)
+	answerOnce := ""
+	if reply != "" {
+		answerOnce = "if [ ! -e '" + answered + "' ]; then\n" +
+			"  : > '" + answered + "'\n" +
+			"  printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n%s' '" + reply + "'\n" +
+			"  exit 0\n" +
+			"fi\n"
+	}
+
+	write(t, filepath.Join(dir, "gh"), "#!/bin/sh\n"+answerOnce+"printf x > '"+begun+"'\nexec sleep 600\n", 0o755)
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	return begun
