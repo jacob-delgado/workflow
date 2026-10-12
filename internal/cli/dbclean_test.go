@@ -244,6 +244,10 @@ func TestDBCleanExitsAsRefusedWhenAFileCannotBeRemoved(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	if os.Geteuid() == 0 {
+		t.Skip("root renames and removes a file whatever its directory's mode, so the clean would succeed")
+	}
+
 	where, dir := storedHome(t)
 	// A directory nothing can be renamed in stands for a file another program
 	// holds open on Windows.
