@@ -39,7 +39,7 @@ async function markDoneUnread(user: User, task: Task): Promise<Held<TaskList>> {
   await user.click(await screen.findByRole('button', { name: 'Mark done…' }))
   vi.setSystemTime(Date.now() + 1_000)
   await user.click(screen.getByRole('button', { name: 'Mark done' }))
-  await screen.findByText(/^Marked task \d+ done\.$/)
+  await screen.findByText(/^Marked task \d+ done/)
 
   return reread
 }
@@ -66,6 +66,18 @@ test('a done whose list could not be read again offers no Start or Mark done on 
   // Assert
   expect(screen.queryByRole('button', { name: 'Start' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Mark done…' })).toBeNull()
+})
+
+test('a done whose list could not be read again says the task leaves the list once workflow next reads it', async () => {
+  // Arrange
+  const user = userEvent.setup()
+
+  // Act
+  await markDoneUnread(user, tokenLeak)
+
+  // Assert
+  const said = 'Marked task 1 done; it leaves this list once workflow next reads it.'
+  expect(screen.getAllByRole('status').map((line) => line.textContent)).toContain(said)
 })
 
 test.each([

@@ -45,7 +45,11 @@ export function TaskDetail({ task, issue, teller, now }: TaskDetailProps) {
       <IssueLinks task={task} listed={issue} />
       {justDone ? null : (
         <div className="flex flex-wrap items-center gap-item">
-          <TaskVerbs task={task} teller={teller} />
+          <TaskVerbs
+            task={task}
+            teller={teller}
+            markedDone={(answered) => listedDoneWords(name, answered)}
+          />
         </div>
       )}
       <Annotations task={task} />
@@ -73,6 +77,19 @@ export function TaskDetail({ task, issue, teller, now }: TaskDetailProps) {
       </div>
     </article>
   )
+}
+
+// listedDoneWords is what a done from the Tasks section says, and — where the
+// list after it could not be read, so the list as last read still holds the
+// task — that the task leaves the list once workflow next reads it. The
+// section lists the tasks still to do, so a done task leaves it rather than
+// showing done, as the issue's card shows it.
+function listedDoneWords(name: string, answered: TaskList): string {
+  const marked = `Marked ${name} done`
+
+  return answered.available
+    ? `${marked}.`
+    : `${marked}; it leaves this list once workflow next reads it.`
 }
 
 // TaskFacts are a task's facts, as the terminal's detail line has them: its
@@ -192,9 +209,9 @@ interface TaskVerbsProps {
   // named is what a screen reader hears after each verb, naming the task where
   // several tasks' verbs stand together.
   named?: string
-  // markedDone is what a done says, where it has more to say than that the
-  // task was marked done.
-  markedDone?: (answered: TaskList) => string
+  // markedDone is what a done says, from its answer: where the task stands
+  // after it is the caller's to say.
+  markedDone: (answered: TaskList) => string
 }
 
 // TaskVerbs are the writes a button makes on one task: start it, or stop it
@@ -229,7 +246,7 @@ export function TaskVerbs({ task, teller, named, markedDone }: TaskVerbsProps) {
           cost: "Taskwarrior runs the task's hooks; only Undo, while it is the last change, takes it back.",
         }}
         run={() => writes.complete(task.uuid)}
-        done={markedDone ?? (() => `Marked ${name} done.`)}
+        done={markedDone}
         fallback={`${capitalized(name)} was not marked done. Try again, or run ${name} done in a terminal to see why.`}
         teller={teller}
       />
