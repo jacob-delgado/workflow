@@ -34,6 +34,14 @@ const (
 	messagingGroup = "Slack"
 )
 
+// The paragraph of the page that names the actions that ask first, and the
+// words that open and close its list of them.
+const (
+	askingFirstOpens     = "An action that asks first"
+	askingFirstListOpens = ". So "
+	askingFirstListEnds  = " are refused on"
+)
+
 // The sentence that opens the page's action list, and the one after it.
 const (
 	actionListOpens = "The actions you can rebind, grouped by where they work, are:"
@@ -57,6 +65,55 @@ func TestTheConfigurationPageListsEveryRebindableActionAndNoOther(t *testing.T) 
 	if unbound := without(documented, rebindable); len(unbound) > 0 {
 		t.Errorf("%s lists %q, which ui.keys cannot rebind", configurationPage, unbound)
 	}
+}
+
+func TestTheConfigurationPageNamesAsAskingFirstExactlyTheActionsRefusedOnApplysKey(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	refused := refusedAsAskingFirst()
+
+	// Act
+	named := askingFirstNamed(t)
+
+	// Assert
+	slices.Sort(refused)
+	slices.Sort(named)
+
+	if !slices.Equal(named, refused) {
+		t.Errorf("%s names %q as asking first; CheckKeys refuses %q on apply's key as such", configurationPage,
+			named, refused)
+	}
+}
+
+// askingFirstNamed is the actions the configuration page names as asking
+// first, read from the list in the paragraph that says so.
+func askingFirstNamed(t *testing.T) []string {
+	t.Helper()
+
+	page, err := os.ReadFile(configurationPage)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, paragraph, found := strings.Cut(strings.Join(strings.Fields(string(page)), " "), askingFirstOpens)
+	_, list, opened := strings.Cut(paragraph, askingFirstListOpens)
+	list, _, closed := strings.Cut(list, askingFirstListEnds)
+
+	if !found || !opened || !closed {
+		t.Fatalf("%s has no paragraph opening %q whose list opens %q and ends %q", configurationPage,
+			askingFirstOpens, askingFirstListOpens, askingFirstListEnds)
+	}
+
+	var named []string
+
+	for index, part := range strings.Split(list, "`") {
+		if index%2 == 1 {
+			named = append(named, part)
+		}
+	}
+
+	return named
 }
 
 func TestTheUsagePagesKeyTablePutsEachKeyOnItsActionsRow(t *testing.T) {
