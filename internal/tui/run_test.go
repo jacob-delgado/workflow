@@ -103,6 +103,37 @@ func TestRunEndsWhenItsInputQuits(t *testing.T) {
 	}
 }
 
+// Run handles no signal itself, so ctrl+c reaches the interface as a key,
+// which quits it, rather than as an interrupt.
+func TestRunQuitsOnCtrlCTypedAsAKey(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	keys, typing := io.Pipe()
+
+	t.Cleanup(func() { _ = keys.Close() })
+
+	ended := make(chan runEnd, 1)
+
+	go func() {
+		next, err := tui.Run(t.Context(), tui.New(config.Config{}, nil, tui.Deps{}), keys, io.Discard)
+		ended <- runEnd{next: next, err: err}
+	}()
+
+	// Act
+	go func() { _, _ = typing.Write([]byte("\x03")) }()
+
+	// Assert
+	select {
+	case end := <-ended:
+		if end.err != nil || end.next.Dir != "" {
+			t.Errorf("Run reading ctrl+c = %+v, want the interface to quit cleanly, going nowhere", end)
+		}
+	case <-time.After(quitPatience):
+		t.Fatal("Run did not end once ctrl+c was typed")
+	}
+}
+
 // terminalPatience bounds a run reading keys from a terminal, so one that
 // never finds the key typed there fails the test rather than hanging it.
 const terminalPatience = 10 * time.Second
