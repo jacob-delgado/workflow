@@ -72,8 +72,8 @@ func CheckKeys(overrides map[string]string) error {
 // not, and only this check keeps them off its key.
 func askingActions() []string {
 	return []string{
-		actionPush, actionRebase, "discard-change", "rerun-checks", "mark-done", "undo-task", "sync-tasks", "forget-owner",
-		"remove-entry", "remove-cache", "remove-everything",
+		actionPush, actionRebase, "discard-change", actionRerunChecks, actionMarkDone, actionUndoTask, actionSyncTasks,
+		"forget-owner", "remove-entry", "remove-cache", "remove-everything",
 	}
 }
 
@@ -193,7 +193,7 @@ func keyContexts() []keyContext {
 // sharedSectionContexts are the key contexts of the web page's sections that
 // show more than one pane, in the order the sections are named. The page
 // answers a key with the first control on screen bound to it, so there every
-// action of each pane shown is live at once.
+// action it binds of each pane shown is live at once.
 func sharedSectionContexts() []keyContext {
 	panesIn := map[seams.PageSection][]pane{}
 	for each := range pane(paneCount) {
@@ -212,19 +212,37 @@ func sharedSectionContexts() []keyContext {
 }
 
 // shownTogether is the key context of panes the web page shows in one
-// section: each pane's own, all at once, named for the panes.
+// section: the actions of each pane's own the page binds, all at once, named
+// for the panes. An action only the terminal answers has no control there, so
+// it may share a key with the other pane's.
 func shownTogether(panes []pane) keyContext {
 	titles := make([]string, 0, len(panes))
-	together := keyContext{name: "", groups: []int{groupMoving, groupEveryPane, groupPanesAndOverlays}, actions: nil}
+	together := keyContext{name: "", groups: nil, actions: nil}
 
 	for _, each := range panes {
 		titles = append(titles, each.title("messaging"))
-		together.actions = append(together.actions, each.keyContext().actions...)
+		together.actions = append(together.actions, slices.DeleteFunc(each.keyContext().listed().Actions,
+			func(action string) bool { return !slices.Contains(WebBoundActions(), action) })...)
 	}
 
 	together.name = "the " + strings.Join(titles, " and ") + " panes, which the web page shows together"
 
 	return together
+}
+
+// WebBoundActions is the actions the --web page has a control for, by the
+// names ui.keys gives them, which are the only ones live in a section of the
+// page. web/src/features/keyboard/boundActions.ts is the page's own copy, and
+// a test holds the two to one list.
+func WebBoundActions() []string {
+	return []string{
+		actionJumpToPane, "change-status", "comment", "assign", "log-work", "search-issues", "switch-view",
+		"load-more", actionOpenLink, "track-issue", "link-issue", actionRebase, actionPush, "stage-all",
+		"unstage-all", "commit", "amend", "fixup", "run-pre-commit", "set-up-lefthook", "open-pull-request",
+		actionRerunChecks, "merge", "finish-branch", "post", "sort-reviews", "start-stop", actionMarkDone, "add-task",
+		"annotate-task", "modify-task", actionUndoTask, actionSyncTasks, "search-tasks", "sort-tasks", "earlier", "later",
+		"today", "copy-summary", "post-summary", "favorite-directory", "go-to-directory", "toggle-help",
+	}
 }
 
 // overlayContexts are the keyboard surfaces an overlay opens, one for each

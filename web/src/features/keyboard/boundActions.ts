@@ -4,7 +4,10 @@
 // control here answers to. An action a section binds registers its control
 // with useShortcut. Left out on purpose: discard-change, the terminal's x on
 // the change its cursor is on, since the page selects no change row — each
-// change carries its own Discard… button instead.
+// change carries its own Discard… button instead. The server keeps the same
+// list as tui.WebBoundActions, and a Go test holds the two to one: the key
+// check refuses a key two panes shown in one section share only when the page
+// binds both actions.
 export const boundActions: ReadonlySet<string> = new Set([
   'jump-to-pane',
   'change-status',
