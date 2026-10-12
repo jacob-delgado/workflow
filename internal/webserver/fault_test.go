@@ -5,6 +5,7 @@ package webserver_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -317,6 +318,9 @@ func TestOnlyAFailureNoClassExplainsIsHandedToUnexpected(t *testing.T) {
 	}{
 		"a failure no class explains": {cause: errSeam, wantStatus: http.StatusInternalServerError, wantHeard: 1},
 		"a failure a class explains":  {cause: jira.ErrUnreachable, wantStatus: http.StatusBadGateway, wantHeard: 0},
+		// Its asker has gone, or the server is stopping: no one reads the
+		// answer, and nothing went wrong to hear of.
+		"a read its context ended": {cause: context.Canceled, wantStatus: http.StatusInternalServerError, wantHeard: 0},
 	}
 
 	for name, tt := range cases {
