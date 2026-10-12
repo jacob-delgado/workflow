@@ -10,15 +10,16 @@ says what is wrong, where, what it costs, one way to fix it, and how to tell
 when it is fixed. [FEATURES.md](FEATURES.md) and [UX.md](UX.md) hold the
 ideas; this file holds the debts.
 
-This is the pre-1.0 audit edition: a full read of every surface at commit
-`b9ab000` on 2026-10-07, ahead of 1.0. The entries below are to be paid down
-in one PR before 1.0, the pre-1.0 paydown PR, and an entry is deleted from
-this file in the commit that pays it. Numbering continues at DEBT-162 and an
-ID is never reused: the 2026-09-24 edition's entries, DEBT-64, DEBT-65,
-DEBT-71 and DEBT-75 to DEBT-161, were paid down in #141, #144, #145 and #146.
-
-Checked against commit `b9ab000` on 2026-10-07. Line numbers drift, so every
-pointer also names the symbol it means.
+This is the pre-1.0 audit edition, and it is paid. A full read of every
+surface at commit `b9ab000` on 2026-10-07 found 167 entries, DEBT-162 to
+DEBT-328. The pre-1.0 paydown paid each one and deleted it from this file,
+in #197, #207, #208, #209, #220, #221, #227, #229, #237, #238 and #241, and
+ended, before 1.0, with the pull request that adds this paragraph. What
+remains is [the trade-off register](#the-trade-off-register): the costs
+chosen on purpose, and what would reopen each. The next audit numbers its
+entries from DEBT-329, as an ID is never reused: the 2026-09-24 edition's
+entries, DEBT-64, DEBT-65, DEBT-71 and DEBT-75 to DEBT-161, were paid down
+in #141, #144, #145 and #146.
 
 ## How this was produced
 
@@ -79,10 +80,10 @@ what each costs, and what would reopen it.
 
 They are not in this file. [SECURITY.md](SECURITY.md) asks that a security
 problem stay private until a fix has shipped, and this audit follows the same
-rule. This pass found 35; they are handled privately with the maintainer, and
-nothing in this file says what they are. The entries below contain nothing
-that helps anyone misuse a credential, a terminal, a file on disk, the
-loopback server or a release.
+rule. This pass found 35, and each was fixed and handled privately with the
+maintainer; nothing in this file says what they were. The entries below
+contain nothing that helps anyone misuse a credential, a terminal, a file on
+disk, the loopback server or a release.
 
 ## The trade-off register
 
