@@ -743,28 +743,30 @@ program does. Quitting (`q`, or `ctrl+c` from anywhere) or switching directory
 `New` hands each write seam the session's values but not its end (`outlasting`,
 `internal/tui/deps.go`), and `Model.WithLifetime`, which `tui.Run` applies with
 the context it is given, ends the writes with that context instead, and counts
-each in flight, under a name that says what it does, in the
-`lifetime.InFlight` that context carries. The command line gives it
-`whileOpen`'s (`internal/cli/cli.go`), which ends when SIGINT or SIGTERM cancels
-the command's context, until the command is done. When the last interface
-quits, workflow waits for the writes still in flight before it exits
-(`finishWrites`, `internal/cli/finishwrites.go`): it says on stderr how many it
-is finishing, and exits once none has been in flight for a tenth of a second,
-so a write that follows another (a post's record after the post) is waited for
-too. A streamed write (a commit, a push, an amend, a fixup, a rebase, a hook)
-counts until its program exits. The wait gives up after `timing.request_timeout`,
-naming each write it gave up on, and exits with status 1. A second `ctrl+c`,
-which the terminal the interface left sends as SIGINT, or SIGTERM ends every
-write's context and exits at once, with status 130. A switch does not wait: a
-write sent before one goes on in the directory left, and the quit waits for it
-too. Leaving a view cancels nothing: a late answer is dropped by its read's
-count or view, as before, and canceling per view would mean a cancel handle on
-every view's state. Decided 2026-10-09 by the maintainer in the pre-1.0 paydown,
-when each seam came to take its asker's context, for reads. On 2026-10-12, in
-review, writes were kept out of it, and the maintainer chose that a quit waits
-for them, bounded, rather than exit under them as it had: before, a write done
-in workflow's own process ended with the process, and a program a write ran
-was cut by SIGPIPE at its next output.
+each in flight, under a name that says what it does, in the `lifetime.InFlight`
+that context carries. The command line gives it `whileOpen`'s
+(`internal/cli/cli.go`), which ends when SIGINT or SIGTERM cancels the command's
+context, until the command is done. When the last interface quits, workflow
+waits for the writes still in flight before it exits (`finishWrites`,
+`internal/cli/finishwrites.go`): it says on stderr how many it is finishing, and
+exits once none has been in flight for a tenth of a second, so a write that
+follows another (a post's record after the post) is waited for too. A streamed
+write (a commit, a push, an amend, a fixup, a rebase, a hook) counts until its
+program exits, and no longer: once a quit or a switch leaves its output unread,
+the rest is read and dropped (`releasedOnExit`), so the program never blocks on
+a full pipe. The wait gives up after `timing.request_timeout`, naming each write
+it gave up on, and exits with status 1. A second `ctrl+c`, which the terminal
+the interface left sends as SIGINT, or SIGTERM ends every write's context and
+exits at once, with status 130. A switch does not wait: a write sent before one
+goes on in the directory left, and the quit waits for it too. Leaving a view
+cancels nothing: a late answer is dropped by its read's count or view, as
+before, and canceling per view would mean a cancel handle on every view's state.
+Decided 2026-10-09 by the maintainer in the pre-1.0 paydown, when each seam came
+to take its asker's context, for reads. On 2026-10-12, in review, writes were
+kept out of it, and the maintainer chose that a quit waits for them, bounded,
+rather than exit under them as it had: before, a write done in workflow's own
+process ended with the process, and a program a write ran was cut by SIGPIPE at
+its next output.
 
 **Cost.** A read for a view the user has left still spends its request to the
 tracker, the forge or Taskwarrior. Quitting cannot call off a slow write: it
