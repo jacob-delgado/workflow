@@ -85,10 +85,10 @@ func TestGetKeysListsTheSectionEachPaneIsShownIn(t *testing.T) {
 	want := []api.PaneSection{
 		api.PaneSectionIssues, api.PaneSectionBranch, api.PaneSectionBranch, api.PaneSectionReview,
 	}
-	sections := func() []string {
-		named := make([]string, 0, len(want))
+	sections := func() []seams.PageSection {
+		named := make([]seams.PageSection, 0, len(want))
 		for _, section := range want {
-			named = append(named, string(section))
+			named = append(named, seams.PageSection(section))
 		}
 
 		return named
