@@ -179,6 +179,14 @@ fi
 
 require_current_gobco
 
+# Root reads a file whatever its mode, so the tests that make one unreadable
+# to see a read fail skip under it, and leave the arms they reach unseen.
+if [[ "$(id -u)" == 0 ]]; then
+  echo "This runs as root: the tests that skip under root, which reads any file, leave the" >&2
+  echo "arms they reach unseen, so it can fail here where it passes as a user. Run it as one." >&2
+  echo >&2
+fi
+
 cd "${repo_root}"
 
 module="$(go list -m)"
