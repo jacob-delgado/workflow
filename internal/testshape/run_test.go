@@ -119,6 +119,10 @@ func TestRunReportsADirectoryItCannotList(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	if os.Geteuid() == 0 {
+		t.Skip("root lists a directory whatever its mode, so the sealed one would be listed")
+	}
+
 	dir := t.TempDir()
 	paths := write(t, dir, map[string]string{firstTest: unmarked("TestA")})
 

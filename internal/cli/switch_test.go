@@ -230,6 +230,10 @@ func TestTheWebServerCannotReachADirectoryWhoseConfigurationCannotBeRead(t *test
 	t.Parallel()
 
 	// Arrange
+	if os.Geteuid() == 0 {
+		t.Skip("root opens a file whatever its mode, so the sealed one would be read")
+	}
+
 	// A configuration file there that cannot be read would fail the switch
 	// after the process had moved; it is refused before.
 	start, other := twoDirectories(t)
