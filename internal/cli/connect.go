@@ -88,7 +88,7 @@ func connectAt(cmd *cobra.Command, dir string, requestLog *wiring.RequestLog) co
 	deps, controls := process.Deps(ctx, cfg, where, requestLog)
 
 	if dryRunRequested(cmd) {
-		deps.Store = process.ReadOnlyStore(ctx, cfg, where)
+		deps.Store = process.ReadOnlyStore(cfg, where)
 	}
 
 	return connection{

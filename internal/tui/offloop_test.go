@@ -9,6 +9,7 @@ package tui_test
 // is drawn without their answers.
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -25,10 +26,10 @@ func heldRecentSubjects(deps *tui.Deps, held *hold) {
 
 		return subjects()
 	}
-	deps.Store.LastScope = func() (string, bool) {
+	deps.Store.LastScope = func(ctx context.Context) (string, bool) {
 		held.wait()
 
-		return learned()
+		return learned(ctx)
 	}
 }
 
@@ -51,25 +52,25 @@ func heldTemplates(deps *tui.Deps, held *hold) {
 // heldScopeRecord holds the store's record of the scope a commit used.
 func heldScopeRecord(deps *tui.Deps, held *hold) {
 	record := deps.Store.RecordScope
-	deps.Store.RecordScope = func(scope string) error {
+	deps.Store.RecordScope = func(ctx context.Context, scope string) error {
 		held.wait()
 
-		return record(scope)
+		return record(ctx, scope)
 	}
 }
 
 // heldIssueCache holds the store's cache of an issue list, read and written.
 func heldIssueCache(deps *tui.Deps, held *hold) {
 	read, write := deps.Store.CachedIssues, deps.Store.CacheIssues
-	deps.Store.CachedIssues = func(jql string) ([]jira.Issue, bool) {
+	deps.Store.CachedIssues = func(ctx context.Context, jql string) ([]jira.Issue, bool) {
 		held.wait()
 
-		return read(jql)
+		return read(ctx, jql)
 	}
-	deps.Store.CacheIssues = func(jql string, issues []jira.Issue) error {
+	deps.Store.CacheIssues = func(ctx context.Context, jql string, issues []jira.Issue) error {
 		held.wait()
 
-		return write(jql, issues)
+		return write(ctx, jql, issues)
 	}
 }
 

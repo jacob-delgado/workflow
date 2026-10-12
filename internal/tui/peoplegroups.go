@@ -24,7 +24,7 @@ func readRepoGroups(ctx context.Context, deps Deps, opened int) tea.Cmd {
 		err := inWorkspace(ctx, readWorkspace, func(workspace string) error {
 			var err error
 
-			groups, err = read(workspace)
+			groups, err = read(ctx, workspace)
 
 			return err
 		})
@@ -139,7 +139,7 @@ func (p peopleOverlay) toggled(m Model) (Model, tea.Cmd) {
 	})
 
 	return p.saving(m, func() tea.Msg {
-		err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return save(workspace, groups) })
+		err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return save(ctx, workspace, groups) })
 
 		return repoGroupsSaved{opened: opened, err: err}
 	})

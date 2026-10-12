@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -197,15 +198,18 @@ func (m Model) messagingDetail(width int) string {
 // announced reports that the pull request on screen was already posted at its
 // current moment — a merge announced counts, an opening does not — this session
 // or, from the store, an earlier one, by the rule every surface reads it by.
+// What it holds was read already and is in memory, so nothing is asked and no
+// context could stop it.
 func (s messagingState) announced(review reviewState) bool {
-	posted := loop.AnnounceMemory{Recorded: func() []loop.Announced { return s.posted }}
+	posted := loop.AnnounceMemory{Recorded: func(context.Context) []loop.Announced { return s.posted }}
 
-	return posted.HoldsNow(review.pull, review.found, review.ci)
+	return posted.HoldsNow(context.Background(), review.pull, review.found, review.ci)
 }
 
 // loadAnnounces reads what was announced in an earlier session from the store, so
 // a pull request already posted opens as posted rather than being offered again.
-func loadAnnounces(deps Deps) tea.Cmd {
+// The store is read under ctx.
+func loadAnnounces(ctx context.Context, deps Deps) tea.Cmd {
 	if deps.Store.Announced == nil {
 		return nil
 	}
@@ -213,7 +217,7 @@ func loadAnnounces(deps Deps) tea.Cmd {
 	read := deps.Store.Announced
 
 	return func() tea.Msg {
-		return announcesLoaded{made: read()}
+		return announcesLoaded{made: read(ctx)}
 	}
 }
 
@@ -242,7 +246,8 @@ func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
 // of it already made or on its way.
 func (m Model) canPost() bool {
 	return m.review.pullState() != progress.NoPullRequest && m.deps.Messaging.Post != nil &&
-		m.cfg.Messaging.Mode() != config.MessagingNone && !m.messaging.announced(m.review) && !m.messaging.send.sending
+		m.cfg.Messaging.Mode() != config.MessagingNone && !m.messaging.announced(m.review) &&
+		!m.messaging.send.sending
 }
 
 // messagingKeys offers composing the post, and managing whom posts tag.
@@ -370,7 +375,7 @@ func messagingBehavior() behavior {
 		// refresh reads what was announced again, and the pull request and
 		// its CI the announcement is written from.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := loadAnnounces(m.deps)
+			read := loadAnnounces(m.session, m.deps)
 			m.messaging.loading = read != nil
 
 			return m, tea.Batch(read, loadBranch(m.deps))

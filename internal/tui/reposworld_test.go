@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -126,7 +127,7 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 		return deps
 	}
 
-	deps.Store.Favorites = func() ([]string, error) {
+	deps.Store.Favorites = func(context.Context) ([]string, error) {
 		w.record("favorites")
 
 		w.mu.Lock()
@@ -134,7 +135,7 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 
 		return append([]string(nil), dirs.favorites...), dirs.failing
 	}
-	deps.Store.Favor = func(dir string) error {
+	deps.Store.Favor = func(_ context.Context, dir string) error {
 		w.record("favor " + dir)
 
 		w.mu.Lock()
@@ -144,7 +145,7 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 
 		return dirs.failing
 	}
-	deps.Store.Unfavor = func(dir string) error {
+	deps.Store.Unfavor = func(_ context.Context, dir string) error {
 		w.record("unfavor " + dir)
 
 		return nil

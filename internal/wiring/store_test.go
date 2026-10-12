@@ -37,7 +37,7 @@ func TestTheStoreNeverHoldsARemotesCredential(t *testing.T) {
 	deps := wired(t, config.Default(), where, nil)
 
 	// Act
-	err := deps.Store.RecordScope("api")
+	err := deps.Store.RecordScope(t.Context(), "api")
 	if err != nil {
 		t.Fatalf("recording the scope: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestCachedIssuesReadBackAreSanitized(t *testing.T) {
 	deps := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil)
 
 	// Act
-	issues, found := deps.Store.CachedIssues("assigned")
+	issues, found := deps.Store.CachedIssues(t.Context(), "assigned")
 
 	// Assert
 	if !found || len(issues) != 1 {
@@ -125,13 +125,13 @@ func TestADryRunReadsWhatALiveSessionAnnounced(t *testing.T) {
 	where := wiring.Workspace{Root: t.TempDir(), Remote: "https://github.com/org/repo.git"}
 	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
 
-	err := wired(t, config.Default(), where, nil).Store.RecordAnnounce(merged)
+	err := wired(t, config.Default(), where, nil).Store.RecordAnnounce(t.Context(), merged)
 	if err != nil {
 		t.Fatalf("recording the announcement: %v", err)
 	}
 
 	// Act
-	posts := processEnvironment().ReadOnlyStore(t.Context(), config.Default(), where).Announced()
+	posts := processEnvironment().ReadOnlyStore(config.Default(), where).Announced(t.Context())
 
 	// Assert
 	if len(posts) != 1 || posts[0] != merged {
@@ -152,7 +152,7 @@ func TestAnOriginNamingNoRepositoryKeysTheStoreByTheWorkingTree(t *testing.T) {
 	noRepository := wiring.Workspace{Root: root, Remote: "https://alice:" + token + "@github.com/repo.git"}
 	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
 
-	err := wired(t, config.Default(), noRepository, nil).Store.RecordAnnounce(merged)
+	err := wired(t, config.Default(), noRepository, nil).Store.RecordAnnounce(t.Context(), merged)
 	if err != nil {
 		t.Fatalf("recording the announcement: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestAnOriginNamingNoRepositoryKeysTheStoreByTheWorkingTree(t *testing.T) {
 	// Act
 	process := processEnvironment()
 
-	posts := process.ReadOnlyStore(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}).Announced()
+	posts := process.ReadOnlyStore(config.Default(), wiring.Workspace{Root: root, Remote: ""}).Announced(t.Context())
 
 	// Assert
 	if len(posts) != 1 || posts[0] != merged {

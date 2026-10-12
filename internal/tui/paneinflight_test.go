@@ -73,10 +73,10 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			world: newWorld, pane: "5", want: "Slack ◐",
 			wrap: func(deps *tui.Deps, held *hold) {
 				read := deps.Store.Announced
-				deps.Store.Announced = func() []loop.Announced {
+				deps.Store.Announced = func(ctx context.Context) []loop.Announced {
 					held.wait()
 
-					return read()
+					return read(ctx)
 				}
 			},
 		},
@@ -117,10 +117,10 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			world: reposWorld, pane: "9", want: "Repositories ◐",
 			wrap: func(deps *tui.Deps, held *hold) {
 				read := deps.Store.Favorites
-				deps.Store.Favorites = func() ([]string, error) {
+				deps.Store.Favorites = func(ctx context.Context) ([]string, error) {
 					held.wait()
 
-					return read()
+					return read(ctx)
 				}
 			},
 		},
@@ -164,10 +164,10 @@ func TestOpeningTheRepositoriesPaneSaysItsFirstReadIsUnderWay(t *testing.T) {
 	held := newHold(t)
 	started := heldLive(t, held, reposWorld(), func(deps *tui.Deps, held *hold) {
 		read := deps.Store.Favorites
-		deps.Store.Favorites = func() ([]string, error) {
+		deps.Store.Favorites = func(ctx context.Context) ([]string, error) {
 			held.wait()
 
-			return read()
+			return read(ctx)
 		}
 	})
 	held.armed.Store(true)

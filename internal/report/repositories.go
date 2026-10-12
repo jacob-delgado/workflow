@@ -4,6 +4,7 @@
 package report
 
 import (
+	"context"
 	"path/filepath"
 	"slices"
 
@@ -18,7 +19,7 @@ import (
 // and whether a favorite can be marked or forgotten there.
 type RepositoriesView struct {
 	Repositories  seams.Repositories
-	Favorites     func() ([]string, error)
+	Favorites     func(ctx context.Context) ([]string, error)
 	FavoritesKept bool
 }
 
@@ -26,10 +27,10 @@ type RepositoriesView struct {
 // favorites, each looked at on disk now: what GET /api/repositories answers
 // and `workflow repositories --json` prints. describe words why the worktrees
 // could not be read. Favorites that cannot be read are listed as none, and
-// why is returned beside the rest.
-func (v RepositoriesView) Report(describe func(error) string) (api.Repositories, error) {
+// why is returned beside the rest. The favorites are read under ctx.
+func (v RepositoriesView) Report(ctx context.Context, describe func(error) string) (api.Repositories, error) {
 	worktrees, worktreesErr := v.worktrees(describe)
-	favorites, err := v.favorites()
+	favorites, err := v.favorites(ctx)
 
 	return api.Repositories{
 		Here:           placeDTO(v.Repositories.Here, v.Repositories.Home),
@@ -80,15 +81,15 @@ func worktreeState(worktree gitrepo.Worktree, here string) api.WorktreeState {
 	}
 }
 
-// favorites is your favorites, each with what is there now, and why they
-// could not be read when they could not.
-func (v RepositoriesView) favorites() ([]api.Favorite, error) {
+// favorites is your favorites, read under ctx, each with what is there now,
+// and why they could not be read when they could not.
+func (v RepositoriesView) favorites(ctx context.Context) ([]api.Favorite, error) {
 	favorites := []api.Favorite{}
 	if v.Favorites == nil {
 		return favorites, nil
 	}
 
-	dirs, err := v.Favorites()
+	dirs, err := v.Favorites(ctx)
 
 	for _, dir := range dirs {
 		favorites = append(favorites, v.favorite(dir))

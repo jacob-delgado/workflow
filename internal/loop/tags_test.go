@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"slices"
@@ -410,7 +411,7 @@ func TestDeliverPostsTheMentionsAndRecordsTheGroupsChosen(t *testing.T) {
 	)
 
 	memory := sent.memory()
-	memory.RecordGroups = func(ids []string) error {
+	memory.RecordGroups = func(_ context.Context, ids []string) error {
 		chosen = ids
 
 		return nil
@@ -439,7 +440,7 @@ func TestAFailedPostRecordsNoGroups(t *testing.T) {
 	)
 
 	memory := sent.memory()
-	memory.RecordGroups = func([]string) error {
+	memory.RecordGroups = func(context.Context, []string) error {
 		recorded = true
 
 		return nil

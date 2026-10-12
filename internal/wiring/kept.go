@@ -21,52 +21,52 @@ import (
 // store that keeps nothing binds none of them, and a workspace with no forge
 // host binds no owner links, so a surface offers no management that would
 // save nothing.
-func bindKept(ctx context.Context, kept store.Store, where Workspace, bound seams.Store) seams.Store {
+func bindKept(kept store.Store, where Workspace, bound seams.Store) seams.Store {
 	if !kept.Keeps() {
 		return bound
 	}
 
 	repo := repoKey(where)
 
-	bound.RepoGroups = func(workspace string) ([]loop.SlackTarget, error) {
+	bound.RepoGroups = func(ctx context.Context, workspace string) ([]loop.SlackTarget, error) {
 		groups, err := kept.RepoGroups(ctx, repo, workspace)
 
 		return fromStoreTargets(groups), err
 	}
-	bound.SetRepoGroups = func(workspace string, groups []loop.SlackTarget) error {
+	bound.SetRepoGroups = func(ctx context.Context, workspace string, groups []loop.SlackTarget) error {
 		return kept.SetRepoGroups(ctx, repo, workspace, toStoreTargets(groups), time.Now())
 	}
-	bound.LastGroups = func(workspace string) ([]string, bool) {
+	bound.LastGroups = func(ctx context.Context, workspace string) ([]string, bool) {
 		ids, chosen, _ := kept.LastGroups(ctx, repo, workspace)
 
 		return ids, chosen
 	}
-	bound.RecordGroups = func(workspace string, ids []string) error {
+	bound.RecordGroups = func(ctx context.Context, workspace string, ids []string) error {
 		return kept.RecordGroups(ctx, repo, workspace, ids, time.Now())
 	}
 
-	return bindOwnerLinks(ctx, kept, forgeHostKey(where), bindFavorites(ctx, kept, bound))
+	return bindOwnerLinks(kept, forgeHostKey(where), bindFavorites(kept, bound))
 }
 
 // bindFavorites binds the directories you marked: read wherever the store
 // keeps anything, and marked or forgotten only where it writes, so a dry run
 // lists them and offers no change it would not keep.
-func bindFavorites(ctx context.Context, kept store.Store, bound seams.Store) seams.Store {
-	bound.Favorites = readFavorites(ctx, kept)
+func bindFavorites(kept store.Store, bound seams.Store) seams.Store {
+	bound.Favorites = readFavorites(kept)
 
 	if !kept.Writes() {
 		return bound
 	}
 
-	bound.Favor = func(dir string) error { return kept.Favor(ctx, dir, time.Now()) }
-	bound.Unfavor = func(dir string) error { return kept.Unfavor(ctx, dir) }
+	bound.Favor = func(ctx context.Context, dir string) error { return kept.Favor(ctx, dir, time.Now()) }
+	bound.Unfavor = kept.Unfavor
 
 	return bound
 }
 
 // readFavorites reads the directories you marked from kept.
-func readFavorites(ctx context.Context, kept store.Store) func() ([]string, error) {
-	return func() ([]string, error) {
+func readFavorites(kept store.Store) func(context.Context) ([]string, error) {
+	return func(ctx context.Context) ([]string, error) {
 		favorites, err := kept.Favorites(ctx)
 
 		dirs := make([]string, 0, len(favorites))
@@ -80,20 +80,22 @@ func readFavorites(ctx context.Context, kept store.Store) func() ([]string, erro
 
 // bindOwnerLinks binds whom each forge owner on host is on Slack, unless there
 // is no host to key them by.
-func bindOwnerLinks(ctx context.Context, kept store.Store, host string, bound seams.Store) seams.Store {
+func bindOwnerLinks(kept store.Store, host string, bound seams.Store) seams.Store {
 	if host == "" {
 		return bound
 	}
 
-	bound.OwnerLinks = func(workspace string) ([]loop.OwnerLink, error) {
+	bound.OwnerLinks = func(ctx context.Context, workspace string) ([]loop.OwnerLink, error) {
 		links, err := kept.OwnerLinks(ctx, host, workspace)
 
 		return fromStoreLinks(links), err
 	}
-	bound.LinkOwner = func(workspace string, decision loop.OwnerLink) error {
+	bound.LinkOwner = func(ctx context.Context, workspace string, decision loop.OwnerLink) error {
 		return kept.LinkOwner(ctx, host, workspace, toStoreLink(decision), time.Now())
 	}
-	bound.ForgetOwner = func(workspace, owner string) error { return kept.ForgetOwner(ctx, host, workspace, owner) }
+	bound.ForgetOwner = func(ctx context.Context, workspace, owner string) error {
+		return kept.ForgetOwner(ctx, host, workspace, owner)
+	}
 
 	return bound
 }

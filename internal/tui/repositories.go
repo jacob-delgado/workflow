@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"slices"
@@ -85,7 +86,7 @@ func (msg repositoriesRead) apply(m Model) (Model, tea.Cmd) {
 // loadRepositories reads the worktrees, then the favorites and each one's
 // place, off the update loop: both are on disk, read again each time.
 func (m Model) loadRepositories() tea.Cmd {
-	worktrees, favorites := m.deps.Repositories.Worktrees, favoritePlaces(m.deps)
+	worktrees, favorites := m.deps.Repositories.Worktrees, favoritePlaces(m.session, m.deps)
 
 	return func() tea.Msg {
 		read := repositoriesRead{}
@@ -99,8 +100,8 @@ func (m Model) loadRepositories() tea.Cmd {
 	}
 }
 
-// favoritePlaces reads the favorites, then each one's place.
-func favoritePlaces(deps Deps) func() ([]favoritePlace, error) {
+// favoritePlaces reads the favorites, under ctx, then each one's place.
+func favoritePlaces(ctx context.Context, deps Deps) func() ([]favoritePlace, error) {
 	read, look, here := deps.Store.Favorites, deps.Repositories.Look, deps.Repositories.Here.Dir
 
 	return func() ([]favoritePlace, error) {
@@ -108,7 +109,7 @@ func favoritePlaces(deps Deps) func() ([]favoritePlace, error) {
 			return nil, nil
 		}
 
-		dirs, err := read()
+		dirs, err := read(ctx)
 		favorites := make([]favoritePlace, 0, len(dirs))
 
 		for _, dir := range dirs {
@@ -476,7 +477,9 @@ func (m Model) toggleFavorite(row repositoryRow) (Model, tea.Cmd) {
 		return m.noticed("favorites are not kept: the store is turned off"), nil
 	}
 
-	return m, func() tea.Msg { return favoriteToggled{dir: row.dir, added: !row.favorite, err: change(row.dir)} }
+	ctx := m.session
+
+	return m, func() tea.Msg { return favoriteToggled{dir: row.dir, added: !row.favorite, err: change(ctx, row.dir)} }
 }
 
 // repositoriesBehavior is the Repositories pane's behavior.

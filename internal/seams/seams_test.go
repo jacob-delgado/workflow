@@ -60,11 +60,6 @@ func notYet() []string {
 		"Forge.CheckStatus", "Forge.Rerun", "Forge.JobLog", "Forge.Merge", "Forge.MergeMethods",
 		"Forge.ReviewRequests", "Forge.Author", "Forge.IsGroup", "Forge.Activity",
 
-		"Store.LastScope", "Store.RecordScope", "Store.Announced", "Store.RecordAnnounce", "Store.CachedIssues",
-		"Store.CacheIssues", "Store.OwnerLinks", "Store.LinkOwner", "Store.ForgetOwner", "Store.RepoGroups",
-		"Store.SetRepoGroups", "Store.LastGroups", "Store.RecordGroups", "Store.Favorites", "Store.Favor",
-		"Store.Unfavor",
-
 		"Settings.Save", "Settings.LocalData",
 
 		"Setup.Check", "Setup.Write",

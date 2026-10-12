@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"path/filepath"
@@ -40,7 +41,7 @@ type scopeStore struct {
 
 // wire hands the store's seams to deps.
 func (s *scopeStore) wire(deps *webserver.Deps) {
-	deps.Store.LastScope = func() (string, bool) {
+	deps.Store.LastScope = func(context.Context) (string, bool) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
@@ -48,7 +49,7 @@ func (s *scopeStore) wire(deps *webserver.Deps) {
 
 		return s.scope, s.holds
 	}
-	deps.Store.RecordScope = func(scope string) error {
+	deps.Store.RecordScope = func(_ context.Context, scope string) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
@@ -314,7 +315,7 @@ func TestACommitWhoseScopeTheStoreCannotKeepLandsAndIsNoted(t *testing.T) {
 	var noted []error
 
 	deps := committable()
-	deps.Store.RecordScope = func(string) error { return errSeam }
+	deps.Store.RecordScope = func(context.Context, string) error { return errSeam }
 	deps.Unexpected = func(_ config.Config, err error) { noted = append(noted, err) }
 	handler := serve(t, deps, config.Default())
 

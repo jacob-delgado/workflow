@@ -186,7 +186,7 @@ func favoring(t *testing.T, here string, favorites ...string) tui.Deps {
 
 	deps := wired(t, config.Default(), processEnvironment().Locate(t.Context(), here), nil)
 	for _, favorite := range favorites {
-		err := deps.Store.Favor(favorite)
+		err := deps.Store.Favor(t.Context(), favorite)
 		if err != nil {
 			t.Fatalf("Favor(%s): %v", favorite, err)
 		}
@@ -248,7 +248,7 @@ func TestOutsideARepositoryYourFavoritesAreStillRead(t *testing.T) {
 
 	deps := wired(t, config.Default(), processEnvironment().Locate(t.Context(), t.TempDir()), nil)
 
-	err := deps.Store.Favor(favorite)
+	err := deps.Store.Favor(t.Context(), favorite)
 	if err != nil {
 		t.Fatal(err)
 	}

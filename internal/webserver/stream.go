@@ -111,7 +111,7 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 	}
 
 	review := s.reviewDTO(branch, read)
-	review.Announced = s.reviewAnnounced(read)
+	review.Announced = s.reviewAnnounced(ctx, read)
 	issues, issuesErr := s.snapshotIssues(view)
 	changes, changesErr := s.snapshotChanges()
 	commit := s.commitConvention()
@@ -133,7 +133,7 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 
 		CommitTypes:    commit.Types(),
 		SubjectLimit:   commit.SubjectLimit(),
-		SuggestedScope: s.suggestedScope(),
+		SuggestedScope: s.suggestedScope(ctx),
 
 		Tasks: s.snapshotTasks(ctx),
 		Here:  s.deps.Repositories.Here.Dir,

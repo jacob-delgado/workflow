@@ -26,14 +26,14 @@ var (
 
 // GetRepositories says where the server works, and your favorites.
 func (s *server) GetRepositories(
-	context.Context, api.GetRepositoriesRequestObject,
+	ctx context.Context, _ api.GetRepositoriesRequestObject,
 ) (api.GetRepositoriesResponseObject, error) {
-	return api.GetRepositories200JSONResponse(s.repositoriesDTO()), nil
+	return api.GetRepositories200JSONResponse(s.repositoriesDTO(ctx)), nil
 }
 
 // SwitchRepository serves the directory named from now on, answering for it.
 func (s *server) SwitchRepository(
-	_ context.Context, request api.SwitchRepositoryRequestObject,
+	ctx context.Context, request api.SwitchRepositoryRequestObject,
 ) (api.SwitchRepositoryResponseObject, error) {
 	next, err := s.worlds.switchTo(filepath.Clean(request.Body.Dir))
 
@@ -47,43 +47,45 @@ func (s *server) SwitchRepository(
 		return problemAnswer[api.SwitchRepositorydefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
-	return api.SwitchRepository200JSONResponse(next.repositoriesDTO()), nil
+	return api.SwitchRepository200JSONResponse(next.repositoriesDTO(ctx)), nil
 }
 
 // AddFavorite keeps the directory named as a favorite.
 func (s *server) AddFavorite(
-	_ context.Context, request api.AddFavoriteRequestObject,
+	ctx context.Context, request api.AddFavoriteRequestObject,
 ) (api.AddFavoriteResponseObject, error) {
-	err := s.changeFavorite(s.deps.Store.Favor, request.Body.Dir)
+	err := s.changeFavorite(ctx, s.deps.Store.Favor, request.Body.Dir)
 	if err != nil {
 		return problemAnswer[api.AddFavoritedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
-	return api.AddFavorite200JSONResponse(s.repositoriesDTO()), nil
+	return api.AddFavorite200JSONResponse(s.repositoriesDTO(ctx)), nil
 }
 
 // RemoveFavorite forgets the directory named as a favorite.
 func (s *server) RemoveFavorite(
-	_ context.Context, request api.RemoveFavoriteRequestObject,
+	ctx context.Context, request api.RemoveFavoriteRequestObject,
 ) (api.RemoveFavoriteResponseObject, error) {
-	err := s.changeFavorite(s.deps.Store.Unfavor, request.Params.Dir)
+	err := s.changeFavorite(ctx, s.deps.Store.Unfavor, request.Params.Dir)
 	if err != nil {
 		return problemAnswer[api.RemoveFavoritedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
-	return api.RemoveFavorite200JSONResponse(s.repositoriesDTO()), nil
+	return api.RemoveFavorite200JSONResponse(s.repositoriesDTO(ctx)), nil
 }
 
-// changeFavorite marks or forgets dir through change, refusing a path that is
-// not absolute and a store that keeps nothing.
-func (s *server) changeFavorite(change func(dir string) error, dir string) error {
+// changeFavorite marks or forgets dir through change under ctx, refusing a
+// path that is not absolute and a store that keeps nothing.
+func (s *server) changeFavorite(
+	ctx context.Context, change func(ctx context.Context, dir string) error, dir string,
+) error {
 	switch {
 	case change == nil:
 		return errFavoritesNotKept
 	case !filepath.IsAbs(dir):
 		return workdirs.ErrNotAbsolute
 	default:
-		return change(dir)
+		return change(ctx, dir)
 	}
 }
 
@@ -134,14 +136,14 @@ func listingDTO(dir, home string, listing workdirs.Listing) api.DirectoryListing
 
 // repositoriesDTO is where the server works and your favorites, each looked
 // at on disk now, the worktrees' failure worded by fault so no path or host
-// reaches the wire.
-func (s *server) repositoriesDTO() api.Repositories {
+// reaches the wire. The favorites are read under ctx.
+func (s *server) repositoriesDTO(ctx context.Context) api.Repositories {
 	view := report.RepositoriesView{
 		Repositories: s.deps.Repositories, Favorites: s.deps.Store.Favorites,
 		FavoritesKept: s.deps.Store.Favor != nil && !s.info.DryRun,
 	}
 
-	answer, err := view.Report(func(err error) string {
+	answer, err := view.Report(ctx, func(err error) string {
 		body := s.fault(err)
 
 		return body.Detail

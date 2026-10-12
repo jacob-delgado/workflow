@@ -65,7 +65,7 @@ func TestAnOwnerLinkIsKeyedByTheForgeHostAlone(t *testing.T) {
 	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
 
 	// Act
-	err := deps.Store.LinkOwner(workspace, anaLinked())
+	err := deps.Store.LinkOwner(t.Context(), workspace, anaLinked())
 	// Assert
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
@@ -88,13 +88,13 @@ func TestAnOwnerLinkIsSharedByEveryRepositoryOnTheHost(t *testing.T) {
 	second := wired(t, config.Default(),
 		wiring.Workspace{Root: t.TempDir(), Remote: "git@GitHub.com:other/repo.git"}, nil)
 
-	err := first.Store.LinkOwner(workspace, anaLinked())
+	err := first.Store.LinkOwner(t.Context(), workspace, anaLinked())
 	if err != nil {
 		t.Fatalf("linking ana: %v", err)
 	}
 
 	// Act
-	links, err := second.Store.OwnerLinks(workspace)
+	links, err := second.Store.OwnerLinks(t.Context(), workspace)
 
 	// Assert
 	want := []loop.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *ana()}}
@@ -110,19 +110,19 @@ func TestAForgottenOwnerIsUndecidedThroughTheSeams(t *testing.T) {
 
 	notOnSlack := loop.OwnerLink{Owner: "dan", Team: false, OnSlack: false, Slack: loop.SlackTarget{}}
 
-	err := deps.Store.LinkOwner(workspace, notOnSlack)
+	err := deps.Store.LinkOwner(t.Context(), workspace, notOnSlack)
 	if err != nil {
 		t.Fatalf("deciding dan: %v", err)
 	}
 
 	// Act
-	err = deps.Store.ForgetOwner(workspace, "dan")
+	err = deps.Store.ForgetOwner(t.Context(), workspace, "dan")
 	// Assert
 	if err != nil {
 		t.Fatalf("ForgetOwner returned %v, want nil", err)
 	}
 
-	if links, _ := deps.Store.OwnerLinks(workspace); len(links) != 0 {
+	if links, _ := deps.Store.OwnerLinks(t.Context(), workspace); len(links) != 0 {
 		t.Errorf("OwnerLinks after forgetting dan = %+v, want none", links)
 	}
 }
@@ -131,10 +131,10 @@ func TestALinkOfTheWrongShapeIsRefusedThroughTheSeams(t *testing.T) {
 	// Arrange
 	isolatedStoreDir(t)
 	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
-	group := podGroup()
+	link := loop.OwnerLink{Owner: anaOwner, Team: false, OnSlack: true, Slack: podGroup()}
 
 	// Act
-	err := deps.Store.LinkOwner(workspace, loop.OwnerLink{Owner: anaOwner, Team: false, OnSlack: true, Slack: group})
+	err := deps.Store.LinkOwner(t.Context(), workspace, link)
 
 	// Assert
 	if !errors.Is(err, store.ErrInvalidSlackID) {
@@ -148,7 +148,7 @@ func TestTheGroupsOfARepositoryAreKeyedByTheRepository(t *testing.T) {
 	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
 
 	// Act
-	err := deps.Store.SetRepoGroups(workspace, []loop.SlackTarget{podGroup()})
+	err := deps.Store.SetRepoGroups(t.Context(), workspace, []loop.SlackTarget{podGroup()})
 	// Assert
 	if err != nil {
 		t.Fatalf("SetRepoGroups returned %v, want nil", err)
@@ -169,18 +169,18 @@ func TestTheLastChoiceOfGroupsRoundTripsThroughTheSeams(t *testing.T) {
 	isolatedStoreDir(t)
 	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
 
-	err := deps.Store.SetRepoGroups(workspace, []loop.SlackTarget{podGroup()})
+	err := deps.Store.SetRepoGroups(t.Context(), workspace, []loop.SlackTarget{podGroup()})
 	if err != nil {
 		t.Fatalf("listing the group: %v", err)
 	}
 
 	// Act
-	err = deps.Store.RecordGroups(workspace, []string{podGroup().ID})
+	err = deps.Store.RecordGroups(t.Context(), workspace, []string{podGroup().ID})
 	if err != nil {
 		t.Fatalf("RecordGroups returned %v, want nil", err)
 	}
 
-	ids, chosen := deps.Store.LastGroups(workspace)
+	ids, chosen := deps.Store.LastGroups(t.Context(), workspace)
 
 	// Assert
 	if !chosen || !slices.Equal(ids, []string{podGroup().ID}) {
@@ -227,12 +227,12 @@ func TestNoForgeHostOffersNoOwnerLinks(t *testing.T) {
 func TestADryRunNeverMakesTheKeptFile(t *testing.T) {
 	// Arrange
 	dir := isolatedStoreDir(t)
-	readOnly := processEnvironment().ReadOnlyStore(t.Context(), config.Default(),
+	readOnly := processEnvironment().ReadOnlyStore(config.Default(),
 		wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote})
 
 	// Act
-	linkErr := readOnly.LinkOwner(workspace, anaLinked())
-	groupsErr := readOnly.SetRepoGroups(workspace, []loop.SlackTarget{podGroup()})
+	linkErr := readOnly.LinkOwner(t.Context(), workspace, anaLinked())
+	groupsErr := readOnly.SetRepoGroups(t.Context(), workspace, []loop.SlackTarget{podGroup()})
 
 	// Assert
 	if linkErr != nil || groupsErr != nil {

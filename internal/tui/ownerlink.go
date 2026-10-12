@@ -167,7 +167,7 @@ func saveLink(ctx context.Context, deps Deps, link loop.OwnerLink, opened int) t
 	save, readWorkspace := deps.Store.LinkOwner, deps.Messaging.Workspace
 
 	return func() tea.Msg {
-		err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return save(workspace, link) })
+		err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return save(ctx, workspace, link) })
 
 		return ownerLinked{opened: opened, link: link, err: err}
 	}

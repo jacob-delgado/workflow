@@ -56,7 +56,7 @@ func runRepositoriesCommand(cmd *cobra.Command, asJSON bool) error {
 		FavoritesKept: conn.deps.Store.Favor != nil && !dryRunRequested(cmd),
 	}
 
-	report, readErr := view.Report(func(err error) string { return err.Error() })
+	report, readErr := view.Report(cmd.Context(), func(err error) string { return err.Error() })
 	if readErr != nil {
 		readErr = fmt.Errorf("reading your favorites: %w", readErr)
 	}

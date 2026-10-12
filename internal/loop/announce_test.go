@@ -324,7 +324,7 @@ func TestComposeAnnouncementNamesNoIssueForAKeylessBranch(t *testing.T) {
 
 // remembering is a memory that recorded made in an earlier session.
 func remembering(made ...loop.Announced) loop.AnnounceMemory {
-	return loop.AnnounceMemory{Recorded: func() []loop.Announced { return made }}
+	return loop.AnnounceMemory{Recorded: func(context.Context) []loop.Announced { return made }}
 }
 
 func TestAnnounceMemoryHoldsWhatAnEarlierSessionAnnounced(t *testing.T) {
@@ -350,7 +350,7 @@ func TestAnnounceMemoryHoldsWhatAnEarlierSessionAnnounced(t *testing.T) {
 			t.Parallel()
 
 			// Act & Assert
-			if got := tt.memory.Holds(tt.made); got != tt.want {
+			if got := tt.memory.Holds(t.Context(), tt.made); got != tt.want {
 				t.Errorf("Holds(%+v) = %t, want %t", tt.made, got, tt.want)
 			}
 		})
@@ -383,7 +383,7 @@ func TestAnnounceMemoryHoldsNowOnlyAPullRequestTheLoopFollows(t *testing.T) {
 			t.Parallel()
 
 			// Act & Assert
-			if got := remembering(ready).HoldsNow(tt.pull, tt.found, tt.ci); got != tt.want {
+			if got := remembering(ready).HoldsNow(t.Context(), tt.pull, tt.found, tt.ci); got != tt.want {
 				t.Errorf("HoldsNow(%+v, %t, %+v) = %t, want %t", tt.pull, tt.found, tt.ci, got, tt.want)
 			}
 		})
@@ -407,7 +407,7 @@ func (d *deliveries) post(err error) func(ctx context.Context, channel, text str
 
 // memory records every announcement made.
 func (d *deliveries) memory() loop.AnnounceMemory {
-	return loop.AnnounceMemory{Record: func(made loop.Announced) error {
+	return loop.AnnounceMemory{Record: func(_ context.Context, made loop.Announced) error {
 		d.recorded = append(d.recorded, made)
 
 		return nil
@@ -493,7 +493,7 @@ func TestDeliverPostedButNotRememberedSaysSo(t *testing.T) {
 	// Arrange
 	var sent deliveries
 
-	forgetting := loop.AnnounceMemory{Record: func(loop.Announced) error { return errSeam }}
+	forgetting := loop.AnnounceMemory{Record: func(context.Context, loop.Announced) error { return errSeam }}
 
 	// Act
 	err := loop.Deliver(t.Context(), sent.post(nil), forgetting, merged())

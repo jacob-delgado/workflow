@@ -35,7 +35,7 @@ var (
 // returns the branch with the new commit, or, when the branch cannot be read
 // back, the branch as it stood with no head or commits named: the commit landed
 // all the same.
-func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api.CommitResponseObject, error) {
+func (s *server) Commit(ctx context.Context, request api.CommitRequestObject) (api.CommitResponseObject, error) {
 	if s.deps.Git.Commit == nil || s.deps.Git.Changes == nil || s.deps.Git.Branch == nil {
 		return commitUnprocessable("committing is not available"), nil
 	}
@@ -59,7 +59,7 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 		return s.commitFailure(err), nil
 	}
 
-	s.rememberScope(subject.Scope)
+	s.rememberScope(ctx, subject.Scope)
 
 	return api.Commit200JSONResponse(branchDTO(branch)), nil
 }
@@ -165,9 +165,9 @@ func (s *server) issueKeyOf(branch gitrepo.Branch) string {
 
 // suggestedScope is the scope a new commit opens on — the terminal composer's
 // rule: the scope last used in this repository, else commit.default_scope,
-// else none.
-func (s *server) suggestedScope() string {
-	learned, found := s.learnedScope()
+// else none. The store is read under ctx.
+func (s *server) suggestedScope(ctx context.Context) string {
+	learned, found := s.learnedScope(ctx)
 	if found {
 		return learned
 	}
@@ -178,13 +178,14 @@ func (s *server) suggestedScope() string {
 // learnedScope is the scope last used in this repository, read from the store
 // the first time it is asked for. A dry run reads nothing from the cache, only
 // kept.db, read-only, so it never reads the learned scope and suggests the
-// configured default.
-func (s *server) learnedScope() (string, bool) {
+// configured default. Every stream reads the one held, and the store's read
+// takes a failure for none, so it runs to its end whoever asked it leaves.
+func (s *server) learnedScope(ctx context.Context) (string, bool) {
 	s.scope.mu.Lock()
 	defer s.scope.mu.Unlock()
 
 	if !s.scope.read && s.deps.Store.LastScope != nil && !s.info.DryRun {
-		s.scope.value, s.scope.found = s.deps.Store.LastScope()
+		s.scope.value, s.scope.found = s.deps.Store.LastScope(context.WithoutCancel(ctx))
 	}
 
 	s.scope.read = true
@@ -197,9 +198,10 @@ func (s *server) learnedScope() (string, bool) {
 // store once for what it kept — nothing, with the store off, which leaves
 // commit.default_scope to open the form, as it does in the terminal. The record
 // comes first, so a frame reading in between caches no older scope. A store
-// that could not keep it is noted, since the commit it followed was made.
-func (s *server) rememberScope(scope string) {
-	recorded, err := loop.RememberScope(s.deps.Store.RecordScope, scope)
+// that could not keep it is noted, since the commit it followed was made. It
+// is recorded under ctx.
+func (s *server) rememberScope(ctx context.Context, scope string) {
+	recorded, err := loop.RememberScope(ctx, s.deps.Store.RecordScope, scope)
 	if err != nil {
 		s.unexpected(err)
 	}
