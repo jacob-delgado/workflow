@@ -22,7 +22,7 @@ import (
 // working day, in the server's own time zone: each source on its own, so one
 // that cannot be read is named and the rest still answer.
 func (s *server) GetActivity(
-	_ context.Context, request api.GetActivityRequestObject,
+	ctx context.Context, request api.GetActivityRequestObject,
 ) (api.GetActivityResponseObject, error) {
 	now := s.now()
 	today := activity.DateOf(now)
@@ -33,7 +33,7 @@ func (s *server) GetActivity(
 	}
 
 	start, end := period.Bounds(now.Location())
-	summary := activity.Summary{Period: period, Reads: s.activityReads(start, end)}
+	summary := activity.Summary{Period: period, Reads: s.activityReads(ctx, start, end)}
 
 	answer := report.Activity(summary, today, now.Location(), s.describe)
 	answer.PostLength = report.PostLength(s.config().Messaging, answer.Text)
@@ -116,9 +116,10 @@ func destination(channel string, settings config.Messaging) string {
 	return settings.Target()
 }
 
-// activityReads asks every source the server reaches, one after another.
-func (s *server) activityReads(start, end time.Time) []activity.Read {
-	return loop.ReadAll(loop.SummaryReads(loop.ActivitySeams{
+// activityReads asks every source the server reaches, one after another, under
+// ctx.
+func (s *server) activityReads(ctx context.Context, start, end time.Time) []activity.Read {
+	return loop.ReadAll(ctx, loop.SummaryReads(loop.ActivitySeams{
 		Commits: s.deps.Git.CommitsBetween, Touched: s.deps.Tasks.Touched,
 		Jira: s.deps.Jira.Activity, BrowseURL: s.deps.Jira.BrowseURL,
 		Forge: s.deps.Forge.Activity, ForgeKind: s.forgeKindNow(),

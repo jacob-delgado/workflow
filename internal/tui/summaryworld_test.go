@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -51,7 +52,7 @@ func (w *world) withActivity(deps tui.Deps) tui.Deps {
 
 		return []loop.RepositoryCommits{{Repository: "", Commits: done.commits, Failed: done.commitsErr}}
 	}
-	deps.Tasks.Touched = func(since time.Time) ([]taskwarrior.Task, error) {
+	deps.Tasks.Touched = func(_ context.Context, since time.Time) ([]taskwarrior.Task, error) {
 		w.record(summaryRead("tasks", since))
 
 		return done.touched, nil

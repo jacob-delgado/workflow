@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -94,10 +95,10 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			world: withTasks, pane: "7", want: "Tasks ◐",
 			wrap: func(deps *tui.Deps, held *hold) {
 				read := deps.Tasks.Pending
-				deps.Tasks.Pending = func() (taskwarrior.List, error) {
+				deps.Tasks.Pending = func(ctx context.Context) (taskwarrior.List, error) {
 					held.wait()
 
-					return read()
+					return read(ctx)
 				}
 			},
 		},

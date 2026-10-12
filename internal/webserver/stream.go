@@ -4,6 +4,7 @@
 package webserver
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -54,7 +55,7 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	interval := s.info.streamInterval()
 
 	for eventID := 1; ; eventID++ {
-		if !writeSnapshot(w, flusher, eventID, s.snapshot(view)) {
+		if !writeSnapshot(w, flusher, eventID, s.snapshot(request.Context(), view)) {
 			return
 		}
 
@@ -99,7 +100,7 @@ func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, sna
 // snapshot, so one unreachable upstream does not blank the cockpit; the forge's
 // panel keeps its last answer instead (forgeReview). A seam that fails says so
 // beside its panel, in problems, so the empty panel is not taken for an answer.
-func (s *server) snapshot(view string) api.Snapshot {
+func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 	branch, branchErr := s.frameBranch()
 	read, reviewErr := s.snapshotReview(branch, branchErr)
 
@@ -134,7 +135,7 @@ func (s *server) snapshot(view string) api.Snapshot {
 		SubjectLimit:   commit.SubjectLimit(),
 		SuggestedScope: s.suggestedScope(),
 
-		Tasks: s.snapshotTasks(),
+		Tasks: s.snapshotTasks(ctx),
 		Here:  s.deps.Repositories.Here.Dir,
 	}
 	frame.Stages = s.frameStages(branch, read, frame)

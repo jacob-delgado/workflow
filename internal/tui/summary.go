@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strconv"
@@ -126,8 +127,8 @@ func (s summaryState) readInFull() bool {
 }
 
 // read asks every source the deps reach for the period shown, each on its
-// own, so each fills in or fails as it answers.
-func (s summaryState) read(deps Deps) (summaryState, tea.Cmd) {
+// own under ctx, so each fills in or fails as it answers.
+func (s summaryState) read(ctx context.Context, deps Deps) (summaryState, tea.Cmd) {
 	s.period, s.chosen = s.shownPeriod(deps.now()), true
 	s.reading++
 	s.reads, s.complete = nil, false
@@ -141,7 +142,7 @@ func (s summaryState) read(deps Deps) (summaryState, tea.Cmd) {
 
 	for _, source := range reads {
 		s.asking = append(s.asking, source.Source)
-		commands = append(commands, func() tea.Msg { return summaryAnswered{reading: reading, read: source.Read()} })
+		commands = append(commands, func() tea.Msg { return summaryAnswered{reading: reading, read: source.Read(ctx)} })
 	}
 
 	s.complete = len(reads) == 0
@@ -153,7 +154,7 @@ func (s summaryState) read(deps Deps) (summaryState, tea.Cmd) {
 func (m Model) readSummary() (Model, tea.Cmd) {
 	var read tea.Cmd
 
-	m.summary, read = m.summary.read(m.deps)
+	m.summary, read = m.summary.read(m.session, m.deps)
 
 	return m, read
 }
@@ -229,7 +230,7 @@ func (m Model) handleSummaryKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.later):
 		m.summary, cmd = m.summary.stepped(m.deps, 1)
 	case key.Matches(msg, m.keys.today):
-		m.summary, cmd = m.summary.onToday(m.deps).read(m.deps)
+		m.summary, cmd = m.summary.onToday(m.deps).read(m.session, m.deps)
 	case key.Matches(msg, m.keys.calendar):
 		return m.openCalendar()
 	case key.Matches(msg, m.keys.refresh):

@@ -39,7 +39,7 @@ var errNotAnIssueNumber = errors.New("not a forge issue number")
 // the loop against.
 func trackerDeps(
 	ctx context.Context, cfg config.Config,
-	jiraClient func() (jira.Client, error), connect func() (forgeConnection, error),
+	jiraClient func(context.Context) (jira.Client, error), connect func(context.Context) (forgeConnection, error),
 ) seams.Jira {
 	if !cfg.Jira.Configured() {
 		return forgeIssuesDeps(ctx, connect)
@@ -56,7 +56,7 @@ func trackerDeps(
 // reads. The pane, the detail, the status change, assigning, commenting and the
 // link run unchanged; logged work and a remote link, which a forge issue has no
 // equivalent for here, are left nil so those features simply do not appear.
-func forgeIssuesDeps(ctx context.Context, connect func() (forgeConnection, error)) seams.Jira {
+func forgeIssuesDeps(ctx context.Context, connect func(context.Context) (forgeConnection, error)) seams.Jira {
 	return seams.Jira{
 		Search:        func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
 		SearchLenient: func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
@@ -71,16 +71,16 @@ func forgeIssuesDeps(ctx context.Context, connect func() (forgeConnection, error
 		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
 			return commentOnForgeIssue(ctx, connect, issueKey, text)
 		},
-		BrowseURL: func(issueKey jira.Key) string { return browseForgeIssue(connect, issueKey) },
+		BrowseURL: func(issueKey jira.Key) string { return browseForgeIssue(ctx, connect, issueKey) },
 	}
 }
 
 // commentOnForgeIssue posts text as a comment on the issue behind a tracker
 // key.
 func commentOnForgeIssue(
-	ctx context.Context, connect func() (forgeConnection, error), issueKey jira.Key, text string,
+	ctx context.Context, connect func(context.Context) (forgeConnection, error), issueKey jira.Key, text string,
 ) (jira.Comment, error) {
-	connection, number, err := connectToIssue(connect, issueKey)
+	connection, number, err := connectToIssue(ctx, connect, issueKey)
 	if err != nil {
 		return jira.Comment{}, err
 	}
@@ -100,9 +100,9 @@ func forgeComment(comment forge.IssueComment) jira.Comment {
 
 // assignForgeIssue gives the issue behind a tracker key to assignee.
 func assignForgeIssue(
-	ctx context.Context, connect func() (forgeConnection, error), issueKey jira.Key, assignee string,
+	ctx context.Context, connect func(context.Context) (forgeConnection, error), issueKey jira.Key, assignee string,
 ) error {
-	connection, number, err := connectToIssue(connect, issueKey)
+	connection, number, err := connectToIssue(ctx, connect, issueKey)
 	if err != nil {
 		return err
 	}
@@ -112,8 +112,10 @@ func assignForgeIssue(
 
 // browseForgeIssue links the issue behind a tracker key for someone to click,
 // or is empty when the key names no issue or there is no forge to link to.
-func browseForgeIssue(connect func() (forgeConnection, error), issueKey jira.Key) string {
-	connection, number, err := connectToIssue(connect, issueKey)
+func browseForgeIssue(
+	ctx context.Context, connect func(context.Context) (forgeConnection, error), issueKey jira.Key,
+) string {
+	connection, number, err := connectToIssue(ctx, connect, issueKey)
 	if err != nil {
 		return ""
 	}
@@ -122,8 +124,10 @@ func browseForgeIssue(connect func() (forgeConnection, error), issueKey jira.Key
 }
 
 // listForgeIssues reads the assigned issues and shapes them as a search result.
-func listForgeIssues(ctx context.Context, connect func() (forgeConnection, error)) (jira.SearchResult, error) {
-	issues, err := ask(connect, func(on forgeConnection) ([]forge.Issue, error) {
+func listForgeIssues(
+	ctx context.Context, connect func(context.Context) (forgeConnection, error),
+) (jira.SearchResult, error) {
+	issues, err := ask(ctx, connect, func(on forgeConnection) ([]forge.Issue, error) {
 		return on.client.AssignedIssues(ctx, on.repo)
 	})
 	if err != nil {
@@ -140,9 +144,9 @@ func listForgeIssues(ctx context.Context, connect func() (forgeConnection, error
 
 // readForgeIssue reads one issue in full and shapes it as issue detail.
 func readForgeIssue(
-	ctx context.Context, connect func() (forgeConnection, error), issueKey jira.Key,
+	ctx context.Context, connect func(context.Context) (forgeConnection, error), issueKey jira.Key,
 ) (jira.IssueDetail, error) {
-	connection, number, err := connectToIssue(connect, issueKey)
+	connection, number, err := connectToIssue(ctx, connect, issueKey)
 	if err != nil {
 		return jira.IssueDetail{}, err
 	}
@@ -186,8 +190,10 @@ func forgeThread(ctx context.Context, connection forgeConnection, number, count 
 }
 
 // closeForgeIssue closes the issue behind a tracker key.
-func closeForgeIssue(ctx context.Context, connect func() (forgeConnection, error), issueKey jira.Key) error {
-	connection, number, err := connectToIssue(connect, issueKey)
+func closeForgeIssue(
+	ctx context.Context, connect func(context.Context) (forgeConnection, error), issueKey jira.Key,
+) error {
+	connection, number, err := connectToIssue(ctx, connect, issueKey)
 	if err != nil {
 		return err
 	}
@@ -199,7 +205,9 @@ func closeForgeIssue(ctx context.Context, connect func() (forgeConnection, error
 // forge connection, the pair every single-issue call needs. The key is read
 // first, so one that names no issue is reported as such whether or not the forge
 // can be reached.
-func connectToIssue(connect func() (forgeConnection, error), issueKey jira.Key) (forgeConnection, int, error) {
+func connectToIssue(
+	ctx context.Context, connect func(context.Context) (forgeConnection, error), issueKey jira.Key,
+) (forgeConnection, int, error) {
 	number, err := strconv.Atoi(string(issueKey))
 	if err != nil {
 		// Also mark it not-found so the web API answers 404 rather than a 500: a
@@ -207,7 +215,7 @@ func connectToIssue(connect func() (forgeConnection, error), issueKey jira.Key) 
 		return forgeConnection{}, 0, fmt.Errorf("%w: %w: %q", jira.ErrNotFound, errNotAnIssueNumber, issueKey)
 	}
 
-	connection, err := connect()
+	connection, err := connect(ctx)
 	if err != nil {
 		return forgeConnection{}, 0, err
 	}

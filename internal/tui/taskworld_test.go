@@ -5,6 +5,7 @@ package tui_test
 
 import (
 	"cmp"
+	"context"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -96,35 +97,37 @@ func (w *world) taskDeps() seams.Tasks {
 	fake := w.tasks
 
 	return seams.Tasks{
-		Install: func() (taskwarrior.Install, error) { return fake.install, fake.installErr },
-		Pending: func() (taskwarrior.List, error) {
+		Install: func(context.Context) (taskwarrior.Install, error) { return fake.install, fake.installErr },
+		Pending: func(context.Context) (taskwarrior.List, error) {
 			w.record("tasks")
 
 			return taskwarrior.List{Tasks: taskwarrior.ByUrgency(fake.pending), Context: fake.context}, fake.err
 		},
-		Linked: func() ([]taskwarrior.Task, error) {
+		Linked: func(context.Context) ([]taskwarrior.Task, error) {
 			w.record("tasks linked")
 
 			return fake.linked, fake.linkedErr
 		},
-		Add: func(line string) (string, error) {
+		Add: func(_ context.Context, line string) (string, error) {
 			w.record("task add " + line)
 
 			return fake.addUUID, fake.writeErr
 		},
-		Start: func(uuid string) error { return w.taskWrite("task start " + uuid) },
-		Stop:  func(uuid string) error { return w.taskWrite("task stop " + uuid) },
-		Done:  func(uuid string) error { return w.taskWrite("task done " + uuid) },
-		Annotate: func(uuid, text string) error {
+		Start: func(_ context.Context, uuid string) error { return w.taskWrite("task start " + uuid) },
+		Stop:  func(_ context.Context, uuid string) error { return w.taskWrite("task stop " + uuid) },
+		Done:  func(_ context.Context, uuid string) error { return w.taskWrite("task done " + uuid) },
+		Annotate: func(_ context.Context, uuid, text string) error {
 			return cmp.Or(fake.annotateErr, w.taskWrite("task annotate "+uuid+" "+text))
 		},
-		Modify: func(uuid, line string) error { return w.taskWrite("task modify " + uuid + " " + line) },
-		Undo: func() (string, error) {
+		Modify: func(_ context.Context, uuid, line string) error {
+			return w.taskWrite("task modify " + uuid + " " + line)
+		},
+		Undo: func(context.Context) (string, error) {
 			w.record("task undo")
 
 			return fake.undoSaid, fake.writeErr
 		},
-		Sync: func() (string, error) {
+		Sync: func(context.Context) (string, error) {
 			w.record("task sync")
 
 			return fake.syncSaid, fake.writeErr

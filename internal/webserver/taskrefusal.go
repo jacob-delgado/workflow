@@ -4,6 +4,7 @@
 package webserver
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"regexp"
@@ -14,14 +15,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
-// taskFault is fault for what a Taskwarrior seam answered. A refusal carries
-// Taskwarrior's own words, which name what in the line it could not take, and a
-// bound that ran out is Taskwarrior's: no class can say so, since git's reads
-// time out with the same sentinel.
-func (s *server) taskFault(err error) api.Problem {
+// taskFault is fault for what a Taskwarrior seam asked under ctx answered. A
+// refusal carries Taskwarrior's own words, which name what in the line it
+// could not take, and a bound that ran out is Taskwarrior's: no class can say
+// so, since git's reads time out with the same sentinel.
+func (s *server) taskFault(ctx context.Context, err error) api.Problem {
 	switch {
 	case errors.Is(err, taskwarrior.ErrRefused):
-		return problem(api.ProblemCodeUnprocessable, s.refusalDetail(err))
+		return problem(api.ProblemCodeUnprocessable, s.refusalDetail(ctx, err))
 	case errors.Is(err, proc.ErrTimedOut):
 		return problem(api.ProblemCodeUnreachable, "Taskwarrior did not answer in time")
 	default:
@@ -39,8 +40,8 @@ const malformedEntry = "Malformed entry '"
 // read as fixed words, and each line naming a URL or a host and port, since a
 // hook's feedback can name the sync server, or quoting a taskrc line, dropped
 // whole — or, with no words left, the refusal alone.
-func (s *server) refusalDetail(err error) string {
-	places := s.knownPlaces()
+func (s *server) refusalDetail(ctx context.Context, err error) string {
+	places := s.knownPlaces(ctx)
 
 	var kept []string
 
@@ -61,11 +62,12 @@ func (s *server) refusalDetail(err error) string {
 // knownPlaces puts fixed words in place of the directories Taskwarrior's words
 // can name: its data directory, then your home, which most often holds it, so
 // a path under both reads as the data directory. One that names no place of
-// its own is left out — see namesAPlace.
-func (s *server) knownPlaces() *strings.Replacer {
+// its own is left out — see namesAPlace. Which Taskwarrior answered is asked
+// under ctx.
+func (s *server) knownPlaces(ctx context.Context) *strings.Replacer {
 	var pairs []string
 
-	install, err := s.installed()
+	install, err := s.installed(ctx)
 	if err == nil && namesAPlace(install.DataDir) {
 		pairs = append(pairs, install.DataDir, "the data directory")
 	}

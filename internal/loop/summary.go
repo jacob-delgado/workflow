@@ -4,6 +4,7 @@
 package loop
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strconv"
@@ -159,11 +160,14 @@ func Failures(err error) []error {
 	return []error{err}
 }
 
-// TasksRead is what you did to tasks from start up to end: each task touched
-// since start reads as its adding, starting, notes and completing that fall
-// in the period.
-func TasksRead(touched func(since time.Time) ([]taskwarrior.Task, error), start, end time.Time) activity.Read {
-	tasks, err := touched(start)
+// TasksRead is what you did to tasks from start up to end, asked under ctx:
+// each task touched since start reads as its adding, starting, notes and
+// completing that fall in the period.
+func TasksRead(
+	ctx context.Context, touched func(ctx context.Context, since time.Time) ([]taskwarrior.Task, error),
+	start, end time.Time,
+) activity.Read {
+	tasks, err := touched(ctx, start)
 	if err != nil {
 		return unanswered(activity.Read{Source: activity.SourceTasks}, err)
 	}
@@ -274,7 +278,7 @@ func ForgeRead(
 // A nil read is a source the Summary does not ask.
 type ActivitySeams struct {
 	Commits   func(start, end time.Time) []RepositoryCommits
-	Touched   func(since time.Time) ([]taskwarrior.Task, error)
+	Touched   func(ctx context.Context, since time.Time) ([]taskwarrior.Task, error)
 	Jira      func(start, end time.Time) (jira.Activity, error)
 	BrowseURL func(jira.Key) string
 	Forge     func(start, end time.Time) (forge.Activity, error)
@@ -282,10 +286,11 @@ type ActivitySeams struct {
 }
 
 // SourceRead is one source's read for the Summary, not yet made, so a surface
-// can make each on its own and show each as it answers.
+// can make each on its own, under the context of whatever asked, and show
+// each as it answers.
 type SourceRead struct {
 	Source activity.Source
-	Read   func() activity.Read
+	Read   func(ctx context.Context) activity.Read
 }
 
 // SummaryReads are the reads of every source the seams reach, from start up
@@ -295,25 +300,25 @@ func SummaryReads(seams ActivitySeams, start, end time.Time) []SourceRead {
 	var reads []SourceRead
 
 	if seams.Commits != nil {
-		reads = append(reads, SourceRead{activity.SourceGit, func() activity.Read {
+		reads = append(reads, SourceRead{activity.SourceGit, func(context.Context) activity.Read {
 			return CommitsRead(seams.Commits, start, end)
 		}})
 	}
 
 	if seams.Touched != nil {
-		reads = append(reads, SourceRead{activity.SourceTasks, func() activity.Read {
-			return TasksRead(seams.Touched, start, end)
+		reads = append(reads, SourceRead{activity.SourceTasks, func(ctx context.Context) activity.Read {
+			return TasksRead(ctx, seams.Touched, start, end)
 		}})
 	}
 
 	if seams.Jira != nil {
-		reads = append(reads, SourceRead{activity.SourceJira, func() activity.Read {
+		reads = append(reads, SourceRead{activity.SourceJira, func(context.Context) activity.Read {
 			return JiraRead(seams.Jira, seams.browse, start, end)
 		}})
 	}
 
 	if seams.Forge != nil {
-		reads = append(reads, SourceRead{activity.SourceForge, func() activity.Read {
+		reads = append(reads, SourceRead{activity.SourceForge, func(context.Context) activity.Read {
 			return ForgeRead(seams.Forge, seams.ForgeKind, start, end)
 		}})
 	}
@@ -330,12 +335,12 @@ func (s ActivitySeams) browse(issueKey jira.Key) string {
 	return s.BrowseURL(issueKey)
 }
 
-// ReadAll makes each read in turn, for a surface that shows the Summary once
-// every source has answered.
-func ReadAll(reads []SourceRead) []activity.Read {
+// ReadAll makes each read in turn under ctx, for a surface that shows the
+// Summary once every source has answered.
+func ReadAll(ctx context.Context, reads []SourceRead) []activity.Read {
 	made := make([]activity.Read, 0, len(reads))
 	for _, read := range reads {
-		made = append(made, read.Read())
+		made = append(made, read.Read(ctx))
 	}
 
 	return made

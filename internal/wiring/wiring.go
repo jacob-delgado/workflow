@@ -55,12 +55,12 @@ func (e Environment) Deps(
 	httpTransport := httpx.Client(requestTimeout(cfg)).Do
 	settings := &liveForge{settings: cfg.Forge}
 	setup := forgeSetup{settings: settings.current, where: where, httpTransport: httpTransport, log: log, env: e}
-	connect := connectedWith(settings.current, func(current config.Forge) (forgeConnection, error) {
-		return connectForge(ctx, setup, current)
+	connect := connectedWith(settings.current, func(asked context.Context, current config.Forge) (forgeConnection, error) {
+		return connectForge(asked, setup, current)
 	})
-	jiraClient := onceConnected(func() (jira.Client, error) {
+	jiraClient := onceConnected(func(asked context.Context) (jira.Client, error) {
 		//nolint:bodyclose // Wrap only relays the response; the jira client reads and closes its body.
-		return e.connectJira(ctx, cfg.Jira, e.Keychain(), log.Wrap("jira", httpTransport))
+		return e.connectJira(asked, cfg.Jira, e.Keychain(), log.Wrap("jira", httpTransport))
 	})
 	messagingSettings := &liveMessaging{settings: cfg.Messaging}
 	messagingSet := messagingSetup{
@@ -73,7 +73,7 @@ func (e Environment) Deps(
 	// run for it, so none can ask on the terminal once the interface holds it.
 	resolveAhead := func() {
 		if cfg.Jira.Configured() {
-			_, _ = jiraClient()
+			_, _ = jiraClient(ctx)
 		}
 	}
 
@@ -97,7 +97,7 @@ func (e Environment) Deps(
 		Hooks:        e.hookDeps(ctx, where.Root),
 		Editor:       e.editorDeps(where.Root),
 		Store:        storeDeps(ctx, e.onDisk(cfg), cfg, where),
-		Tasks:        e.taskDeps(ctx, cfg.Taskwarrior),
+		Tasks:        e.taskDeps(cfg.Taskwarrior),
 		Repositories: e.repositoriesDeps(ctx, cfg, where),
 		Settings:     e.settingsDeps(ctx, cfg.Layers(), controls),
 		Clock:        nil,

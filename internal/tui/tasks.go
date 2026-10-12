@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"time"
@@ -165,10 +166,10 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 	return m.withTaskWords().loadDetail()
 }
 
-// load is the command that asks Taskwarrior which it is, then its pending
-// tasks, then the tasks linked to issues, in one command; nil when there is no
-// task program to ask.
-func (s tasksState) load(deps Deps) tea.Cmd {
+// load is the command that asks Taskwarrior, under ctx, which it is, then its
+// pending tasks, then the tasks linked to issues, in one command; nil when
+// there is no task program to ask.
+func (s tasksState) load(ctx context.Context, deps Deps) tea.Cmd {
 	install, pending, linked := deps.Tasks.Install, deps.Tasks.Pending, deps.Tasks.Linked
 	if install == nil {
 		return nil
@@ -177,17 +178,17 @@ func (s tasksState) load(deps Deps) tea.Cmd {
 	tracked, dones := s.tracked, s.dones
 
 	return func() tea.Msg {
-		found, err := install()
+		found, err := install(ctx)
 		if err != nil {
 			return tasksLoaded{err: err, tracked: tracked, dones: dones}
 		}
 
-		list, err := pending()
+		list, err := pending(ctx)
 		if err != nil {
 			return tasksLoaded{install: found, err: err, tracked: tracked, dones: dones}
 		}
 
-		tasks, err := linked()
+		tasks, err := linked(ctx)
 
 		return tasksLoaded{install: found, pending: list, linked: tasks, err: err, tracked: tracked, dones: dones}
 	}
@@ -410,7 +411,7 @@ func tasksBehavior() behavior {
 		keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask, move: commandless(Model.moveTaskBy),
 		// refresh asks Taskwarrior again.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := m.tasks.load(m.deps)
+			read := m.tasks.load(m.session, m.deps)
 			m.tasks.loading = read != nil
 
 			return m, read

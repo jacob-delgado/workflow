@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -119,13 +120,14 @@ func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) e
 		seams.Post = deps.Messaging.Post
 	}
 
-	return runSummary(note.around(outputOf(cmd)), seams, opts)
+	return runSummary(cmd.Context(), note.around(outputOf(cmd)), seams, opts)
 }
 
-// runSummary reads every source for the period asked and prints what they
-// answered — as Markdown, or as the web's JSON — then posts it when asked.
-// A source that could not be read fails the command once the rest is out.
-func runSummary(out output, seams summarySeams, opts summaryOptions) error {
+// runSummary reads every source for the period asked under ctx and prints
+// what they answered — as Markdown, or as the web's JSON — then posts it when
+// asked. A source that could not be read fails the command once the rest is
+// out.
+func runSummary(ctx context.Context, out output, seams summarySeams, opts summaryOptions) error {
 	now := seams.Now()
 	today := activity.DateOf(now)
 
@@ -135,7 +137,7 @@ func runSummary(out output, seams summarySeams, opts summaryOptions) error {
 	}
 
 	start, end := period.Bounds(now.Location())
-	summary := activity.Summary{Period: period, Reads: readNoted(seams, start, end)}
+	summary := activity.Summary{Period: period, Reads: readNoted(ctx, seams, start, end)}
 	unread := unreadSources(summary.Reads)
 
 	if opts.asJSON {
@@ -224,15 +226,15 @@ func postSummary(out output, seams summarySeams, text string, opts writeOptions)
 	return nil
 }
 
-// readNoted makes each source's read in turn, as loop.ReadAll does, naming on
-// the note the source it is reading — the forge by its own name.
-func readNoted(seams summarySeams, start, end time.Time) []activity.Read {
+// readNoted makes each source's read in turn under ctx, as loop.ReadAll does,
+// naming on the note the source it is reading — the forge by its own name.
+func readNoted(ctx context.Context, seams summarySeams, start, end time.Time) []activity.Read {
 	reads := loop.SummaryReads(seams.Activity, start, end)
 	made := make([]activity.Read, 0, len(reads))
 
 	for _, read := range reads {
 		seams.Note.show("Reading", sourceNoun(read.Source, seams.Activity.ForgeKind))
-		made = append(made, read.Read())
+		made = append(made, read.Read(ctx))
 	}
 
 	return made

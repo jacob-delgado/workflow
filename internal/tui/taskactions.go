@@ -5,6 +5,7 @@ package tui
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"strconv"
 
@@ -135,7 +136,7 @@ func (m Model) handleTaskVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	case key.Matches(msg, m.keys.markDone):
 		act = m.markDone
 	case key.Matches(msg, m.keys.addTask):
-		act = func() (Model, tea.Cmd) { return m.openTaskLine(addTaskLine(m.deps.Tasks.Add), "") }
+		act = func() (Model, tea.Cmd) { return m.openTaskLine(addTaskLine(m.session, m.deps.Tasks.Add), "") }
 	case key.Matches(msg, m.keys.annotateTask):
 		// The line's words are added to the selected task as an annotation.
 		act = func() (Model, tea.Cmd) {
@@ -235,7 +236,7 @@ func (m Model) markDone() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = doneAsked(m.deps, task)
+	m.overlay = doneAsked(m.session, m.deps, task)
 
 	return m, nil
 }
@@ -248,7 +249,7 @@ type taskChange struct {
 
 // actOnTask sends one change of the selected task to Taskwarrior or, in a dry
 // run, says what it would send and sends nothing.
-func (m Model) actOnTask(change taskChange, write func(uuid string) error) (Model, tea.Cmd) {
+func (m Model) actOnTask(change taskChange, write func(ctx context.Context, uuid string) error) (Model, tea.Cmd) {
 	task, ok := m.currentTask()
 
 	switch {
@@ -258,24 +259,24 @@ func (m Model) actOnTask(change taskChange, write func(uuid string) error) (Mode
 		return m.noticed("dry run: would " + change.verb + " task " + taskName(task)), nil
 	}
 
-	uuid, number := task.UUID, task.ID
+	ctx, uuid, number := m.session, task.UUID, task.ID
 	m.tasks.writing = true
 
 	return m, func() tea.Msg {
-		return taskActed{verb: change.did, after: "", uuid: uuid, id: number, said: "", err: write(uuid)}
+		return taskActed{verb: change.did, after: "", uuid: uuid, id: number, said: "", err: write(ctx, uuid)}
 	}
 }
 
 // undoTasks asks, through a last look, to revert Taskwarrior's last change:
 // Taskwarrior has no redo, so an undo cannot itself be taken back.
 func (m Model) undoTasks() (Model, tea.Cmd) {
-	undo := m.deps.Tasks.Undo
+	ctx, undo := m.session, m.deps.Tasks.Undo
 
 	m.overlay = asking(lastLook{
 		title: "Undo in Taskwarrior", verb: "undo", doing: "undoing",
 		body: "Undo Taskwarrior's last change?\n\nTaskwarrior has no redo.",
 	}, "undo Taskwarrior's last change", func() tea.Msg {
-		said, err := undo()
+		said, err := undo(ctx)
 		if errors.Is(err, taskwarrior.ErrNothingChanged) {
 			return nothingToUndo{}
 		}
@@ -302,13 +303,13 @@ func (nothingToUndo) apply(m Model) (Model, tea.Cmd) {
 // syncTasks asks, through a last look, to sync Taskwarrior with its server,
 // which sends the tasks off the machine.
 func (m Model) syncTasks() (Model, tea.Cmd) {
-	sync := m.deps.Tasks.Sync
+	ctx, sync := m.session, m.deps.Tasks.Sync
 
 	m.overlay = asking(lastLook{
 		title: "Sync Taskwarrior", verb: "sync", doing: "syncing",
 		body: "Sync Taskwarrior with its server?\n\nYour tasks are sent there, and its changes taken.",
 	}, "sync Taskwarrior", func() tea.Msg {
-		said, err := sync()
+		said, err := sync(ctx)
 
 		return offerAnswered{acted: taskActed{verb: "synced", uuid: "", id: 0, said: said, err: err}, then: nil}
 	})
@@ -337,7 +338,7 @@ func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
 	m.tasks.writing = false
 
 	if msg.err != nil {
-		return m.noticedFailure(msg.err), m.tasks.load(m.deps)
+		return m.noticedFailure(msg.err), m.tasks.load(m.session, m.deps)
 	}
 
 	note := taskNote(msg.verb, msg.id, msg.uuid) + msg.after
@@ -345,7 +346,7 @@ func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
 		note += ": " + msg.said
 	}
 
-	return m.noticed(m.marks.done + " " + note), m.tasks.load(m.deps)
+	return m.noticed(m.marks.done + " " + note), m.tasks.load(m.session, m.deps)
 }
 
 // taskNote says what was done to a task: by its id, or by the start of its uuid

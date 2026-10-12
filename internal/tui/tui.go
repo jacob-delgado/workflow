@@ -234,7 +234,7 @@ func keysFrom(input io.Reader) []tea.ProgramOption {
 func (m Model) Init() tea.Cmd {
 	loads := []tea.Cmd{
 		m.searchIssues(), listIssueBranches(m.cfg, m.deps), loadBranch(m.deps), loadChanges(m.deps), findHooks(m.deps),
-		loadReviewQueue(m.deps), loadAnnounces(m.deps), m.tasks.load(m.deps),
+		loadReviewQueue(m.deps), loadAnnounces(m.deps), m.tasks.load(m.session, m.deps),
 	}
 
 	// Opened on the Repositories pane, after a switch made from it, that pane

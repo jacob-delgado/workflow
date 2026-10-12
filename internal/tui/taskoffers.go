@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strconv"
@@ -67,9 +68,9 @@ func (m Model) offerStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
 
 	switch {
 	case tracked && len(started) > 0:
-		return offerSwitch(m.deps, started, task)
+		return offerSwitch(m.session, m.deps, started, task)
 	case tracked:
-		return offerToStart(m.deps, task)
+		return offerToStart(m.session, m.deps, task)
 	case len(started) > 0:
 		return m.offerStopThenTrack(started, issue)
 	default:
@@ -117,8 +118,8 @@ func (l issueList) listedIssue(issueKey jira.Key) jira.Issue {
 	return jira.Issue{Key: issueKey}
 }
 
-// offerToStart offers to start the task that tracks an issue.
-func offerToStart(deps Deps, task taskwarrior.Task) func(Model) (Model, tea.Cmd) {
+// offerToStart offers to start the task that tracks an issue, under ctx.
+func offerToStart(ctx context.Context, deps Deps, task taskwarrior.Task) func(Model) (Model, tea.Cmd) {
 	start := deps.Tasks.Start
 
 	return offering(lastLook{
@@ -126,7 +127,7 @@ func offerToStart(deps Deps, task taskwarrior.Task) func(Model) (Model, tea.Cmd)
 		body: "Start task " + describedTask(task) + " in Taskwarrior? Its hooks run, so a timewarrior hook " +
 			"starts too.",
 	}, "start task "+taskName(task), func() taskActed {
-		return taskActed{verb: "started", uuid: task.UUID, id: shownID(task), said: "", err: start(task.UUID)}
+		return taskActed{verb: "started", uuid: task.UUID, id: shownID(task), said: "", err: start(ctx, task.UUID)}
 	})
 }
 
@@ -139,8 +140,8 @@ func (m Model) offerTrackAndStart(issue jira.Issue) func(Model) (Model, tea.Cmd)
 		Key: string(issue.Key), Summary: issue.Summary, URL: track.url, Priority: issue.Priority,
 	})
 	line := taskLine{
-		title: "Track and start " + shownKey(issue.Key), command: addCommand, write: addLine(m.deps.Tasks.Add),
-		after: track.follow(m.deps.Tasks), heldBack: track.heldBack(), tracks: issue.Key,
+		title: "Track and start " + shownKey(issue.Key), command: addCommand, write: addLine(m.session, m.deps.Tasks.Add),
+		after: track.follow(m.session, m.deps.Tasks), heldBack: track.heldBack(), tracks: issue.Key,
 	}
 
 	return func(m Model) (Model, tea.Cmd) {
@@ -153,8 +154,10 @@ func (m Model) offerTrackAndStart(issue jira.Issue) func(Model) (Model, tea.Cmd)
 }
 
 // offerSwitch offers to stop the started tasks and start the one that tracks the
-// issue work begins on.
-func offerSwitch(deps Deps, started []taskwarrior.Task, task taskwarrior.Task) func(Model) (Model, tea.Cmd) {
+// issue work begins on, under ctx.
+func offerSwitch(
+	ctx context.Context, deps Deps, started []taskwarrior.Task, task taskwarrior.Task,
+) func(Model) (Model, tea.Cmd) {
 	stop, start := deps.Tasks.Stop, deps.Tasks.Start
 
 	return offering(lastLook{
@@ -164,9 +167,9 @@ func offerSwitch(deps Deps, started []taskwarrior.Task, task taskwarrior.Task) f
 		// The task is started only once every other has stopped, so a refusal never
 		// leaves two started; tried again after the start was refused, each finds
 		// itself stopped already.
-		err := stopEach(stop, started)
+		err := stopEach(ctx, stop, started)
 		if err == nil {
-			err = start(task.UUID)
+			err = start(ctx, task.UUID)
 		}
 
 		return taskActed{
@@ -181,7 +184,7 @@ func offerSwitch(deps Deps, started []taskwarrior.Task, task taskwarrior.Task) f
 // issue and starts the new task. A dry run says it would stop them and opens the
 // line, whose own dry run says what it would add.
 func (m Model) offerStopThenTrack(started []taskwarrior.Task, issue jira.Issue) func(Model) (Model, tea.Cmd) {
-	stop, track := m.deps.Tasks.Stop, m.offerTrackAndStart(issue)
+	ctx, stop, track := m.session, m.deps.Tasks.Stop, m.offerTrackAndStart(issue)
 	look := lastLook{
 		title: "Switch the task", verb: verbSwitch, doing: "stopping",
 		body: "Stop " + eachTask(started, describedTask) + ", then track and start " + shownKey(issue.Key) + "?",
@@ -201,7 +204,8 @@ func (m Model) offerStopThenTrack(started []taskwarrior.Task, issue jira.Issue) 
 
 		return m, func() tea.Msg {
 			acted := taskActed{
-				verb: "stopped " + namesOf(started, taskName), uuid: "", id: 0, said: "", err: stopEach(stop, started),
+				verb: "stopped " + namesOf(started, taskName), uuid: "", id: 0, said: "",
+				err: stopEach(ctx, stop, started),
 			}
 
 			return offerAnswered{acted: acted, then: track}
@@ -226,12 +230,13 @@ func eachTask(tasks []taskwarrior.Task, name func(taskwarrior.Task) string) stri
 	return namesOf(tasks, func(task taskwarrior.Task) string { return "task " + name(task) })
 }
 
-// stopEach stops each task in turn, until one is refused. A stop that changed
-// nothing is taken as made: the task is not started — it was stopped since the
-// tasks were read, or by a switch tried before — which is all a stop is for.
-func stopEach(stop func(uuid string) error, tasks []taskwarrior.Task) error {
+// stopEach stops each task in turn under ctx, until one is refused. A stop that
+// changed nothing is taken as made: the task is not started — it was stopped
+// since the tasks were read, or by a switch tried before — which is all a stop
+// is for.
+func stopEach(ctx context.Context, stop func(ctx context.Context, uuid string) error, tasks []taskwarrior.Task) error {
 	for _, task := range tasks {
-		err := stop(task.UUID)
+		err := stop(ctx, task.UUID)
 		if err != nil && !errors.Is(err, taskwarrior.ErrNothingChanged) {
 			return err
 		}
@@ -250,13 +255,15 @@ func (m Model) offerAnnotate(issueKey jira.Key, pull forge.PullRequest) func(Mod
 	}
 
 	number := m.vocab.sigil + strconv.Itoa(pull.Number)
-	note, annotate := number+" "+pull.URL, m.deps.Tasks.Annotate
+	ctx, note, annotate := m.session, number+" "+pull.URL, m.deps.Tasks.Annotate
 
 	return offering(lastLook{
 		title: "Note the " + m.vocab.noun, verb: "annotate", doing: "annotating",
 		body: "Annotate task " + taskName(task) + " with " + number + " and its URL?",
 	}, "annotate task "+taskName(task)+" with "+note, func() taskActed {
-		return taskActed{verb: "annotated", uuid: task.UUID, id: shownID(task), said: "", err: annotate(task.UUID, note)}
+		return taskActed{
+			verb: "annotated", uuid: task.UUID, id: shownID(task), said: "", err: annotate(ctx, task.UUID, note),
+		}
 	})
 }
 
@@ -268,13 +275,13 @@ func (m Model) offerMarkDone(issueKey jira.Key) func(Model) (Model, tea.Cmd) {
 		return nil
 	}
 
-	return opening(doneAsked(m.deps, task))
+	return opening(doneAsked(m.session, m.deps, task))
 }
 
-// doneAsked is the last look at marking task done, asked from the Tasks pane
-// or offered once its issue is done: Taskwarrior runs the task's hooks, and
-// only an undo while it is the last change takes it back.
-func doneAsked(deps Deps, task taskwarrior.Task) lastLook {
+// doneAsked is the last look at marking task done under ctx, asked from the
+// Tasks pane or offered once its issue is done: Taskwarrior runs the task's
+// hooks, and only an undo while it is the last change takes it back.
+func doneAsked(ctx context.Context, deps Deps, task taskwarrior.Task) lastLook {
 	done := deps.Tasks.Done
 
 	return asking(lastLook{
@@ -282,7 +289,7 @@ func doneAsked(deps Deps, task taskwarrior.Task) lastLook {
 		body: "Mark task " + describedTask(task) + " done?",
 	}, "mark task "+taskName(task)+" done", func() tea.Msg {
 		return doneAnswered{answer: offerAnswered{acted: taskActed{
-			verb: "marked", after: " done", uuid: task.UUID, id: shownID(task), said: "", err: done(task.UUID),
+			verb: "marked", after: " done", uuid: task.UUID, id: shownID(task), said: "", err: done(ctx, task.UUID),
 		}, then: nil}}
 	})
 }
