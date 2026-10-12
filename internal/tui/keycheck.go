@@ -21,9 +21,16 @@ import (
 // is typed.
 const actionInterrupt = "interrupt"
 
-// CheckKeys reports whether a ui.keys override map is usable: every entry names a
-// real action that one key can trigger, and no two actions that are live at the
-// same time are bound to one key. It builds the keymap the overrides produce and
+// CheckKeys reports whether a ui.keys override map is usable. It refuses an
+// entry naming no action (config.ErrUnknownKeyAction); a move of jump-to-pane,
+// which answers a digit per pane that no one key stands in for
+// (config.ErrKeyNotRebindable); interrupt on a key that types or edits text
+// (config.ErrInterruptEdits); two actions live at the same time bound to one
+// key, on a pane, in a section of the web page that shows several panes, or in
+// an overlay (config.ErrKeyConflict); an action a text field's overlay answers
+// on a key the field edits with (config.ErrTextFieldKey); and an action whose
+// press opens a last look on a key apply has, which would confirm it
+// (config.ErrKeyConfirmsItself). It builds the keymap the overrides produce and
 // inspects it, so it checks exactly what the interface would run — the default
 // set, with no overrides, passes. The glyphs only name the arrow keys in the
 // help, which key collisions do not depend on, so a default set stands in for
