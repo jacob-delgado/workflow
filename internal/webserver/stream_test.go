@@ -411,8 +411,17 @@ type openedStream struct {
 func openStream(t *testing.T, handler http.Handler, target string) *openedStream {
 	t.Helper()
 
-	ctx, cancel := context.WithCancel(t.Context())
-	request := httptest.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	return openStreamOf(t, handler, httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, nil))
+}
+
+// openStreamOf is openStream for request, disconnected by ending a context
+// derived from its own: one derived from the server's lifetime, as Serve
+// derives each, ends when the server stops too.
+func openStreamOf(t *testing.T, handler http.Handler, request *http.Request) *openedStream {
+	t.Helper()
+
+	ctx, cancel := context.WithCancel(request.Context())
+	request = request.WithContext(ctx)
 	request.Host = loopbackHost
 	stream := &openedStream{cancel: cancel, done: make(chan struct{}), recorder: httptest.NewRecorder()}
 

@@ -179,13 +179,17 @@ func (s *server) suggestedScope(ctx context.Context) string {
 // the first time it is asked for. A dry run reads nothing from the cache, only
 // kept.db, read-only, so it never reads the learned scope and suggests the
 // configured default. Every stream reads the one held, and the store's read
-// takes a failure for none, so it runs to its end whoever asked it leaves.
+// takes a failure for none, so it runs to its end whoever asked it leaves, and
+// ends when the server stops.
 func (s *server) learnedScope(ctx context.Context) (string, bool) {
 	s.scope.mu.Lock()
 	defer s.scope.mu.Unlock()
 
 	if !s.scope.read && s.deps.Store.LastScope != nil && !s.info.DryRun {
-		s.scope.value, s.scope.found = s.deps.Store.LastScope(context.WithoutCancel(ctx))
+		shared, release := s.worlds.outliving(ctx)
+		s.scope.value, s.scope.found = s.deps.Store.LastScope(shared)
+
+		release()
 	}
 
 	s.scope.read = true
