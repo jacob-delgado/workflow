@@ -141,9 +141,11 @@ func ProposeTags(
 	return Tags{Owners: ownerTags, Groups: offeredGroups(ownerTags, repoGroups, last)}
 }
 
-// Mentions is the tags of the linked user owners and of checkedGroupIDs.
-// A team owner is tagged through its group, when that group is checked. A
-// group the tags did not offer is refused with ErrGroupNotOffered.
+// Mentions is the tags of the linked user owners and of checkedGroupIDs,
+// the groups once each and in the order the tags offer them, whatever order
+// they were checked in, so a post tags them as Proposed names them. A team
+// owner is tagged through its group, when that group is checked. A group the
+// tags did not offer is refused with ErrGroupNotOffered.
 func (t Tags) Mentions(checkedGroupIDs []string) (messaging.Mentions, error) {
 	for _, id := range checkedGroupIDs {
 		if !slices.ContainsFunc(t.Groups, func(group GroupTag) bool { return group.Slack.ID == id }) {
@@ -159,7 +161,15 @@ func (t Tags) Mentions(checkedGroupIDs []string) (messaging.Mentions, error) {
 		}
 	}
 
-	return messaging.NewMentions(users, checkedGroupIDs)
+	groups := make([]string, 0, len(checkedGroupIDs))
+
+	for _, group := range t.Groups {
+		if slices.Contains(checkedGroupIDs, group.Slack.ID) {
+			groups = append(groups, group.Slack.ID)
+		}
+	}
+
+	return messaging.NewMentions(users, groups)
 }
 
 // Proposed is the tags as a post sends them with no one's choice changed, and

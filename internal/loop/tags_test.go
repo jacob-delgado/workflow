@@ -229,6 +229,27 @@ func TestMentionsTagLinkedPeopleAndTheCheckedGroups(t *testing.T) {
 	}
 }
 
+func TestMentionsTagTheCheckedGroupsInTheOrderOffered(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	tags := loop.ProposeTags(codeOwnersOfThePR(), decided(), []loop.SlackTarget{apiReviewers()}, nil, false,
+		messaging.MomentReady)
+
+	// Act
+	mentions, err := tags.Mentions([]string{controlPlanePod().ID, apiReviewers().ID, controlPlanePod().ID})
+
+	// Assert
+	groups := make([]string, 0, len(mentions.Groups))
+	for _, group := range mentions.Groups {
+		groups = append(groups, group.String())
+	}
+
+	if want := []string{apiReviewers().ID, controlPlanePod().ID}; err != nil || !slices.Equal(groups, want) {
+		t.Errorf("Mentions groups = %v, %v; want %v, as offered, each once", groups, err, want)
+	}
+}
+
 func TestMentionsTagOnlyTheOwnersTheCallerPassed(t *testing.T) {
 	t.Parallel()
 
