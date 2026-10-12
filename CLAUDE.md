@@ -508,10 +508,13 @@ says a line ran; condition coverage (gobco, `task cover:branch`) says whether an
 `err != nil` was 8 times false but never true" — is a worklist of missing test
 cases, not a percentage to chase, with one hard edge: a condition no test
 evaluated, and an error check whose error arm no test reached, fail the gate.
-An error check is one the gate can tell by its name: `err`, `closeErr`, `err2`,
-`errParse` or `ctx.Err()` compared with `nil`; any other condition seen one way
-stays the worklist. The exception list is `scripts/gobco-allowlist.txt`, one
-line per arm a kept trade-off in `TECH_DEBT.md` keeps, naming it
+An error check is one the gate can tell by its name: a name ending in `err` or
+`Err`, perhaps with a capitalized or numbered rest (`err`, `readErr`,
+`closeErr`, `err2`, `errParse`, but not `errorHandler`), or a call of a method
+so named (`ctx.Err()`), reached through fields and calls, compared with `nil`.
+Any condition the gate does not read as an error check, seen one way, stays the
+worklist. The exception list is `scripts/gobco-allowlist.txt`, one line per arm
+a kept trade-off in `TECH_DEBT.md` keeps, naming it
 (`scripts/check-tradeoffs.sh` holds each name to the register); every other such
 arm is a test to write, and a line whose arm a test comes to reach fails until it
 goes. gobco measures every package in this module that has tests. It reads a
