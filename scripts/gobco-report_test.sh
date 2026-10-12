@@ -235,6 +235,18 @@ func remove(path string) error {
 
 	return nil
 }
+
+func (f *file) close() error {
+	if closeErr := f.handle.Close(); closeErr != nil {
+		return closeErr
+	}
+
+	if err2 := f.sync(); err2 != nil {
+		return err2
+	}
+
+	return nil
+}
 GO
 
 # condition writes the statistics of one condition at a line and column of
@@ -282,6 +294,12 @@ expect fail "an error arm reached through a call that no test reached" \
   --package "${buildinfo}" 50
 expect fail "an error arm of a name with a rest that no test reached" "[$(condition 25:42 'errParse != nil' 0 2)]" "" \
   "${fixture}:25:42 in watcher.wait: \"errParse != nil\", number 1 there, was never seen true, the error's arm" \
+  --package "${buildinfo}" 50
+expect fail "an error arm of a name with a prefix that no test reached" "[$(condition 58:35 'closeErr != nil' 0 2)]" "" \
+  "${fixture}:58:35 in file.close: \"closeErr != nil\", number 1 there, was never seen true, the error's arm" \
+  --package "${buildinfo}" 50
+expect fail "an error arm of a numbered name that no test reached" "[$(condition 62:23 'err2 != nil' 0 2)]" "" \
+  "${fixture}:62:23 in file.close: \"err2 != nil\", number 1 there, was never seen true, the error's arm" \
   --package "${buildinfo}" 50
 expect fail "an error arm in a method of a type with type parameters" "[$(condition 33:25 'err != nil' 0 2)]" "" \
   "${fixture}:33:25 in cache.get: \"err != nil\", number 1 there, was never seen true, the error's arm" \
