@@ -8,6 +8,7 @@ package wiring_test
 // in one, and keep the favorites you mark.
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -82,7 +83,7 @@ func TestLookReadsAnotherDirectoryAsAPlace(t *testing.T) {
 	repositories := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir()}, nil).Repositories
 
 	// Act
-	place, err := repositories.Look(within)
+	place, err := repositories.Look(t.Context(), within)
 
 	// Assert
 	if err != nil || place.Dir != within || place.Root != root || place.Remote.Path != "acme/api" ||
@@ -104,7 +105,7 @@ func TestADirectoryOutsideARepositoryHasNoRoot(t *testing.T) {
 	repositories := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir()}, nil).Repositories
 
 	// Act
-	place, err := repositories.Look(plain)
+	place, err := repositories.Look(t.Context(), plain)
 
 	// Assert
 	if err != nil || place.Dir != plain || place.Root != "" || place.Remote != (forge.Repo{}) {
@@ -118,7 +119,7 @@ func TestLookRefusesWhatIsNotADirectory(t *testing.T) {
 	repositories := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir()}, nil).Repositories
 
 	// Act
-	_, err := repositories.Look(filepath.Join(t.TempDir(), "gone"))
+	_, err := repositories.Look(t.Context(), filepath.Join(t.TempDir(), "gone"))
 
 	// Assert
 	if !errors.Is(err, workdirs.ErrNotFound) {
@@ -233,7 +234,7 @@ func TestTheWorktreesOfTheRepositoryHereAreListed(t *testing.T) {
 	repositories := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Repositories
 
 	// Act
-	worktrees, err := repositories.Worktrees()
+	worktrees, err := repositories.Worktrees(t.Context())
 
 	// Assert
 	if err != nil || len(worktrees) != 2 || worktrees[0].Dir != root || worktrees[1].Branch != "hotfix" {
@@ -273,11 +274,31 @@ func TestALockedWorktreeWhoseDirectoryIsGoneReadsAsGone(t *testing.T) {
 	repositories := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Repositories
 
 	// Act
-	worktrees, err := repositories.Worktrees()
+	worktrees, err := repositories.Worktrees(t.Context())
 
 	// Assert
 	if err != nil || len(worktrees) != 2 || !worktrees[1].Missing || !worktrees[1].Locked {
 		t.Errorf("Worktrees = %+v, %v; want the locked one read as gone", worktrees, err)
+	}
+}
+
+// The wiring holds no context of its own: a repositories seam runs git under
+// the context it is asked under, so one asked for a page that has left stops.
+func TestARepositoriesSeamAskedUnderAnEndedContextIsCanceled(t *testing.T) {
+	// Arrange
+	isolateGit(t)
+
+	root := repository(t)
+	repositories := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Repositories
+	ended, end := context.WithCancel(t.Context())
+	end()
+
+	// Act
+	_, err := repositories.Worktrees(ended)
+
+	// Assert
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("Worktrees under an ended context = %v, want %v", err, context.Canceled)
 	}
 }
 
@@ -293,7 +314,7 @@ func TestALockedWorktreeWhoseDirectoryIsThereReadsAsThere(t *testing.T) {
 	repositories := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Repositories
 
 	// Act
-	worktrees, err := repositories.Worktrees()
+	worktrees, err := repositories.Worktrees(t.Context())
 
 	// Assert
 	if err != nil || len(worktrees) != 2 || worktrees[1].Missing || !worktrees[1].Locked {

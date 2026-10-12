@@ -71,7 +71,7 @@ func repositoryDeps(kept *keptFavorites) webserver.Deps {
 	places := placesByDir()
 	deps.Repositories = seams.Repositories{
 		Here: apiPlace(), Home: anaHome,
-		Look: func(dir string) (seams.Place, error) {
+		Look: func(_ context.Context, dir string) (seams.Place, error) {
 			place, found := places[dir]
 			if !found {
 				return seams.Place{}, workdirs.ErrNotFound
@@ -310,10 +310,10 @@ func TestADirectoryNotThereIsRefusedWithoutItsPath(t *testing.T) {
 // reachable lets deps switch to any directory Look reads, and records each
 // switch asked.
 func reachable(deps webserver.Deps, reached *[]string) webserver.Deps {
-	deps.Reach = func(dir string) (webserver.World, error) {
+	deps.Reach = func(ctx context.Context, dir string) (webserver.World, error) {
 		*reached = append(*reached, dir)
 
-		place, err := deps.Repositories.Look(dir)
+		place, err := deps.Repositories.Look(ctx, dir)
 		if err != nil {
 			return webserver.World{}, err
 		}

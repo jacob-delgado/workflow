@@ -372,10 +372,10 @@ func (f setupForm) answer(m Model) (Model, tea.Cmd) {
 func (f setupForm) check(m Model) (Model, tea.Cmd) {
 	f.checking, f.checkErr, f.who = true, nil, ""
 	m.overlay = f
-	check, settings := m.deps.Settings.Setup.Check, f.answers.Jira
+	ctx, check, settings := m.session, m.deps.Settings.Setup.Check, f.answers.Jira
 
 	return m, func() tea.Msg {
-		who, err := check(settings)
+		who, err := check(ctx, settings)
 
 		return setupChecked{who: who, err: err}
 	}
@@ -420,11 +420,11 @@ func (f setupForm) write(m Model) (Model, tea.Cmd) {
 
 	f.send = starting()
 	m.overlay = f
-	write := m.deps.Settings.Setup.Write
+	ctx, write := m.session, m.deps.Settings.Setup.Write
 	request := setup.Request{Place: f.offer.Places[f.place].Place, Answers: f.answers, Keychain: f.keychain}
 
 	return m, func() tea.Msg {
-		written, err := write(request)
+		written, err := write(ctx, request)
 
 		return setupWritten{written: written, err: err}
 	}

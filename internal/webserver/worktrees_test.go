@@ -40,7 +40,7 @@ var errWorktreeList = errors.New("fatal: not a git repository: /home/ana/src/api
 // gone.
 func worktreeDeps() webserver.Deps {
 	deps := repositoryDeps(favoritesKept())
-	deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+	deps.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{
 			{Dir: apiRoot, Branch: prBase, Head: worktreeHead},
 			{Dir: apiFeature, Branch: "feat/x", Head: worktreeHead, Locked: true},
@@ -91,7 +91,7 @@ func TestWorktreesThatCannotBeReadSayWhyWithoutAPath(t *testing.T) {
 
 	// Arrange
 	deps := worktreeDeps()
-	deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+	deps.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 		return nil, fmt.Errorf("%w: %w", gitrepo.ErrNotARepository, errWorktreeList)
 	}
 
@@ -249,7 +249,7 @@ func TestASnapshotBranchSaysWhichOtherWorktreeHasItCheckedOut(t *testing.T) {
 	// offers a switch there instead, and needs to know where it is.
 	deps := worktreeDeps()
 	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName, targetBranch}, nil }
-	deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+	deps.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{
 			{Dir: apiRoot, Branch: testBranchName, Head: worktreeHead},
 			{Dir: apiFeature, Branch: targetBranch, Head: worktreeHead},
@@ -281,7 +281,7 @@ func TestASnapshotBranchNamesNoWorktreeWhenTheWorktreesCannotBeRead(t *testing.T
 	// were read at all, whatever a read that failed gave back with its error.
 	deps := worktreeDeps()
 	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName, targetBranch}, nil }
-	deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+	deps.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{{Dir: apiFeature, Branch: targetBranch, Head: worktreeHead}}, errWorktreeList
 	}
 	cfg := config.Default()
@@ -377,7 +377,7 @@ func TestASnapshotBranchHeldByAWorktreeThatIsGoneSaysSo(t *testing.T) {
 	// the worktree is pruned, so the page says so rather than offering either.
 	deps := worktreeDeps()
 	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName, targetBranch}, nil }
-	deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+	deps.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{
 			{Dir: apiRoot, Branch: testBranchName, Head: worktreeHead},
 			{Dir: apiGone, Branch: targetBranch, Head: worktreeHead, Missing: true},

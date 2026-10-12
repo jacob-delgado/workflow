@@ -34,8 +34,8 @@ func TestTheFirstRunIsOfferedOverIssuesAnEarlierSessionCached(t *testing.T) {
 	}
 	deps.Settings.Setup = seams.Setup{
 		Offer: func() setup.Offer { return setup.Offer{} },
-		Check: func(config.Jira) (string, error) { return "", nil },
-		Write: func(setup.Request) (setup.Written, error) { return setup.Written{}, nil },
+		Check: func(context.Context, config.Jira) (string, error) { return "", nil },
+		Write: func(context.Context, setup.Request) (setup.Written, error) { return setup.Written{}, nil },
 	}
 	model := sized(t, tui.New(config.Default(), config.ErrNotFound, deps), 120, 40)
 

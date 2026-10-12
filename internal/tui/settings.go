@@ -363,10 +363,10 @@ func (f settingsForm) save(m Model) (Model, tea.Cmd) {
 
 	f.problem, f.send = nil, starting()
 	m.overlay = f
-	write, over, path := m.deps.Settings.Save, f.over, f.path
+	ctx, write, over, path := m.session, m.deps.Settings.Save, f.over, f.path
 
 	return m, func() tea.Msg {
-		_, _, err := write(cfg, nil, over)
+		_, _, err := write(ctx, cfg, nil, over)
 
 		return settingsSaved{path: path, err: err}
 	}

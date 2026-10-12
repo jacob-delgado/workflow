@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -74,12 +75,12 @@ func (r *firstRun) deps(t *testing.T) webserver.Deps {
 		Settings: seams.Settings{
 			Setup: seams.Setup{
 				Offer: guide.Offer,
-				Check: func(settings config.Jira) (string, error) { return guide.Check(t.Context(), settings) },
-				Write: func(request setup.Request) (setup.Written, error) { return guide.Write(t.Context(), request) },
+				Check: guide.Check,
+				Write: guide.Write,
 			},
 		},
 	}
-	deps.Reach = func(dir string) (webserver.World, error) {
+	deps.Reach = func(_ context.Context, dir string) (webserver.World, error) {
 		r.reached = append(r.reached, dir)
 
 		cfg, err := config.Load(dir, r.where.HomeDir)
@@ -338,11 +339,11 @@ func TestTwoSetupsAtOnceWriteOnce(t *testing.T) {
 
 	var asked atomic.Int32
 
-	deps.Settings.Setup.Check = func(settings config.Jira) (string, error) {
+	deps.Settings.Setup.Check = func(ctx context.Context, settings config.Jira) (string, error) {
 		asked.Add(1)
 		time.Sleep(100 * time.Millisecond)
 
-		return check(settings)
+		return check(ctx, settings)
 	}
 	handler := serve(t, deps, config.Default())
 
@@ -415,9 +416,7 @@ func TestSetupRefusesTheKeychainWhereThereIsNone(t *testing.T) {
 	run := newFirstRun(t, http.StatusOK)
 	deps := run.deps(t)
 	guide := setup.Guide{Where: run.where, Doer: jira.Doer(run.jira)}
-	deps.Settings.Setup.Write = func(request setup.Request) (setup.Written, error) {
-		return guide.Write(t.Context(), request)
-	}
+	deps.Settings.Setup.Write = guide.Write
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, true, false))
@@ -473,7 +472,7 @@ func TestSetupThatCannotBeTakenUpIsNoted(t *testing.T) {
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
 	deps := run.deps(t)
-	deps.Reach = func(string) (webserver.World, error) { return webserver.World{}, errSetupUnreachable }
+	deps.Reach = func(context.Context, string) (webserver.World, error) { return webserver.World{}, errSetupUnreachable }
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false, false))
@@ -614,7 +613,9 @@ func TestSetupWhoseWriteFailsSaysWhyByItsKind(t *testing.T) {
 			// Arrange
 			run := newFirstRun(t, http.StatusOK)
 			deps := run.deps(t)
-			deps.Settings.Setup.Write = func(setup.Request) (setup.Written, error) { return setup.Written{}, tt.failure }
+			deps.Settings.Setup.Write = func(context.Context, setup.Request) (setup.Written, error) {
+				return setup.Written{}, tt.failure
+			}
 
 			// Act
 			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false, false))

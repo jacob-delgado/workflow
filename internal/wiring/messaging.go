@@ -245,9 +245,9 @@ func (e Environment) slackLockPath(configPath string) string {
 // none of them; elsewhere it answers the configuration as it was, for the
 // file to keep them.
 func (e Environment) PlaceSlackCredentials(
-	ctx context.Context, transport httpx.Doer, system Keychain,
-) func(config.Config) (config.Config, error) {
-	return func(cfg config.Config) (config.Config, error) {
+	transport httpx.Doer, system Keychain,
+) func(context.Context, config.Config) (config.Config, error) {
+	return func(ctx context.Context, cfg config.Config) (config.Config, error) {
 		if system.GOOS != "darwin" {
 			return cfg, nil
 		}

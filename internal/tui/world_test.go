@@ -356,7 +356,7 @@ func (w *world) deps() tui.Deps {
 		CIInterval: w.ciInterval,
 		After:      fakeAfter,
 		Notify:     func() { w.record("notify") },
-		OpenURL: func(url string) error {
+		OpenURL: func(_ context.Context, url string) error {
 			w.record("browse " + url)
 
 			return w.openURLErr
@@ -496,7 +496,7 @@ func (w *world) assignedAmong(jql string) jira.SearchResult {
 // hookDeps fakes lefthook.
 func (w *world) hookDeps() seams.Hooks {
 	return seams.Hooks{
-		Run: func(hook string) (proc.Output, error) {
+		Run: func(_ context.Context, hook string) (proc.Output, error) {
 			w.record("hook " + hook)
 
 			if w.runBlocks {
@@ -505,8 +505,8 @@ func (w *world) hookDeps() seams.Hooks {
 
 			return output(w.commitLines, w.commitErr), nil
 		},
-		Existing: func() ([]hooks.GitHook, bool) { return w.gitHooks, w.configured },
-		Write: func(generated hooks.Generated) error {
+		Existing: func(context.Context) ([]hooks.GitHook, bool) { return w.gitHooks, w.configured },
+		Write: func(_ context.Context, generated hooks.Generated) error {
 			w.record("write " + generated.Config)
 
 			if w.writeErr != nil {

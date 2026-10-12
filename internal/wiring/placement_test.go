@@ -165,10 +165,10 @@ func TestPlacingTypedSlackSecretsKeepsTheRenewedPairInTheKeychain(t *testing.T) 
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{}
-	place := processEnvironment().PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
+	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
-	placed, err := place(typedInto(typedSecret, typedRefresh))
+	placed, err := place(t.Context(), typedInto(typedSecret, typedRefresh))
 
 	// Assert
 	if err != nil || placed.Messaging.HoldsUserTokenSecrets() || placed.Messaging.ClientID != placedClientID {
@@ -189,10 +189,10 @@ func TestPlacingABlankTypedRefreshTokenTakesTheOneTheKeychainKeeps(t *testing.T)
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{kept: keptPair}
-	place := processEnvironment().PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
+	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
-	_, err := place(typedInto(typedSecret, ""))
+	_, err := place(t.Context(), typedInto(typedSecret, ""))
 
 	// Assert
 	if err != nil || len(slack.spent) != 1 || slack.spent[0] != keptRefresh ||
@@ -208,10 +208,10 @@ func TestPlacingSecretsSlackRefusesIsARejectionWithNoSecretInIt(t *testing.T) {
 	// Arrange
 	slack := &slackRefreshes{answer: `{"ok":false,"error":"invalid_refresh_token"}`}
 	security := &fakeSecurity{}
-	place := processEnvironment().PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
+	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
-	_, err := place(typedInto(typedSecret, typedRefresh))
+	_, err := place(t.Context(), typedInto(typedSecret, typedRefresh))
 
 	// Assert
 	if !errors.Is(err, messaging.ErrRejected) || strings.Contains(err.Error(), typedSecret) ||
@@ -229,11 +229,11 @@ func TestPlacingSlackSecretsOffMacOSLeavesThemInTheConfiguration(t *testing.T) {
 	process := processEnvironment()
 
 	system := wiring.Keychain{GOOS: noKeychainOS, Run: security.run, Getenv: os.Getenv}
-	place := process.PlaceSlackCredentials(t.Context(), slack.do, system)
+	place := process.PlaceSlackCredentials(slack.do, system)
 	typed := typedInto(typedSecret, typedRefresh)
 
 	// Act
-	placed, err := place(typed)
+	placed, err := place(t.Context(), typed)
 
 	// Assert
 	if err != nil || !reflect.DeepEqual(placed.Messaging, typed.Messaging) || len(slack.spent) != 0 {
@@ -248,10 +248,10 @@ func TestPlacingABlankTypedClientSecretTakesTheOneTheKeychainKeeps(t *testing.T)
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{kept: keptPair}
-	place := processEnvironment().PlaceSlackCredentials(t.Context(), slack.do, onMacOS(security))
+	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
-	_, err := place(typedInto("", typedRefresh))
+	_, err := place(t.Context(), typedInto("", typedRefresh))
 
 	// Assert
 	if err != nil || !strings.Contains(security.held(), "client-secret-kept") ||
@@ -270,10 +270,10 @@ func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
 	process := processEnvironment()
 
 	system := onMacOSRunning(refusing)
-	place := process.PlaceSlackCredentials(t.Context(), slack.do, system)
+	place := process.PlaceSlackCredentials(slack.do, system)
 
 	// Act
-	_, err := place(typedInto(typedSecret, typedRefresh))
+	_, err := place(t.Context(), typedInto(typedSecret, typedRefresh))
 
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotKept) || strings.Contains(err.Error(), typedSecret) {
@@ -300,10 +300,10 @@ func TestPlacingSecretsKeepsTheRenewedPairThoughItsAskerLeavesOnceSlackAnswers(t
 	}
 
 	security := &fakeSecurity{}
-	place := processEnvironment().PlaceSlackCredentials(asking, answeredThenLeft, onMacOS(security))
+	place := processEnvironment().PlaceSlackCredentials(answeredThenLeft, onMacOS(security))
 
 	// Act
-	_, _ = place(typedInto(typedSecret, typedRefresh))
+	_, _ = place(asking, typedInto(typedSecret, typedRefresh))
 
 	// Assert
 	if !strings.Contains(security.held(), renewedRefresh) {

@@ -287,7 +287,7 @@ func TestTheWebListsAndCleansTheStoreDBCleanDoes(t *testing.T) {
 
 	// Act
 	cleanErr := local.RemoveLocalData(store.CleanCache)
-	listed, files, listErr := local.LocalData()
+	listed, files, listErr := local.LocalData(t.Context())
 
 	// Assert
 	if cleanErr != nil || listErr != nil {

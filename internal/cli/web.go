@@ -109,7 +109,7 @@ func serveWeb(cmd *cobra.Command, conn connection, serveAt RunWebAt, flags rootF
 		fmt.Fprintf(cmd.ErrOrStderr(), "workflow web: configuration did not load cleanly: %v\n", conn.loadErr)
 	}
 
-	conn.controls.ResolveAhead()
+	conn.controls.ResolveAhead(cmd.Context())
 
 	world := webWorld(cmd, conn, flags.dryRun)
 	serve := serveAt(webserver.LoopbackAddr(flags.port))
@@ -117,11 +117,13 @@ func serveWeb(cmd *cobra.Command, conn connection, serveAt RunWebAt, flags rootF
 	return serve(cmd.Context(), world.Config, world.Deps, world.Info, cmd.ErrOrStderr())
 }
 
-// reachFrom wires dir as conn was wired, for the web server's switch, and
-// moves the process there only once the server can serve it: its keys are
-// ones the interface accepts and its configuration loaded cleanly.
-func reachFrom(cmd *cobra.Command, conn connection, dir string, dryRun bool) (webserver.World, error) {
-	wired, err := wireAt(cmd, conn, dir)
+// reachFrom wires dir as conn was wired, under ctx, for the web server's
+// switch, and moves the process there only once the server can serve it: its
+// keys are ones the interface accepts and its configuration loaded cleanly.
+func reachFrom(
+	ctx context.Context, cmd *cobra.Command, conn connection, dir string, dryRun bool,
+) (webserver.World, error) {
+	wired, err := wireAt(ctx, cmd, conn, dir)
 	if errors.Is(err, errKeysRefused) {
 		return webserver.World{}, fmt.Errorf("%w: %w", webserver.ErrConfigurationRefused, err)
 	}
@@ -137,7 +139,7 @@ func reachFrom(cmd *cobra.Command, conn connection, dir string, dryRun bool) (we
 		return webserver.World{}, fmt.Errorf("%w: %w", webserver.ErrConfigurationUnreadable, err)
 	}
 
-	wired.controls.ResolveAhead()
+	wired.controls.ResolveAhead(ctx)
 
 	err = moveTo(cmd, dir)
 	if err != nil {
@@ -159,8 +161,8 @@ func webWorld(cmd *cobra.Command, conn connection, dryRun bool) webserver.World 
 	deps.UseMessagingSettings = conn.controls.UseMessagingSettings
 	deps.PlaceSlackCredentials = conn.controls.PlaceSlackCredentials
 	deps.KeepJiraToken = conn.controls.KeepJiraToken
-	deps.Reach = func(dir string) (webserver.World, error) {
-		return reachFrom(cmd, conn, dir, dryRun)
+	deps.Reach = func(ctx context.Context, dir string) (webserver.World, error) {
+		return reachFrom(ctx, cmd, conn, dir, dryRun)
 	}
 
 	return webserver.World{Deps: deps, Config: conn.cfg, Info: info}

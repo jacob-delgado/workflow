@@ -17,14 +17,15 @@ import (
 
 // settingsDeps reads and changes the configuration files and the local data,
 // for the terminal's Settings and Local data. Slack user-token secrets and a
-// Jira token typed into Settings are kept where controls keep them.
-func (e Environment) settingsDeps(ctx context.Context, files config.Files, controls Controls) seams.Settings {
+// Jira token typed into Settings are kept where controls keep them, under the
+// context the save is made under.
+func (e Environment) settingsDeps(files config.Files, controls Controls) seams.Settings {
 	editor := &configEditor{files: files, place: controls.PlaceSlackCredentials, keep: controls.KeepJiraToken}
 
 	return seams.Settings{
 		Read:            editor.read,
 		Save:            editor.save,
-		LocalData:       func() (string, []store.DataFile, error) { return e.localData(ctx) },
+		LocalData:       e.localData,
 		RemoveLocalData: e.removeLocalData,
 	}
 }
@@ -32,10 +33,8 @@ func (e Environment) settingsDeps(ctx context.Context, files config.Files, contr
 // SetupDeps is the first run's seams where it runs: Jira checked over the
 // redirect-refusing client, outlined in log unless it is nil, and the token
 // kept in the keychain item for its address through storeSecret, nil where
-// none is wired.
-func SetupDeps(
-	ctx context.Context, where setup.Where, log *RequestLog, storeSecret func(service, secret string) error,
-) seams.Setup {
+// none is wired, each under the context it is asked under.
+func SetupDeps(where setup.Where, log *RequestLog, storeSecret func(service, secret string) error) seams.Setup {
 	guide := setup.Guide{
 		//nolint:bodyclose // Wrap only relays the response; the Jira client reads and closes its body.
 		Where: where, Doer: log.Wrap("jira", httpx.Client(config.DefaultRequestTimeout).Do), StoreSecret: storeSecret,
@@ -43,8 +42,8 @@ func SetupDeps(
 
 	return seams.Setup{
 		Offer: guide.Offer,
-		Check: func(settings config.Jira) (string, error) { return guide.Check(ctx, settings) },
-		Write: func(request setup.Request) (setup.Written, error) { return guide.Write(ctx, request) },
+		Check: guide.Check,
+		Write: guide.Write,
 	}
 }
 
@@ -53,8 +52,8 @@ func SetupDeps(
 // never hands a credential to the interface.
 type configEditor struct {
 	files config.Files
-	place func(config.Config) (config.Config, error)
-	keep  func(service, secret string) error
+	place func(ctx context.Context, cfg config.Config) (config.Config, error)
+	keep  func(ctx context.Context, service, secret string) error
 
 	mu   sync.Mutex
 	last config.Config
@@ -79,9 +78,9 @@ func (e *configEditor) read() (config.Config, config.Revision, error) {
 
 // save writes edited over the read at over, which must be the last one made:
 // its masked credentials stand for that read's. Each credential in removed is
-// written empty.
+// written empty. A credential is kept under ctx.
 func (e *configEditor) save(
-	edited config.Config, removed []config.Credential, over config.Revision,
+	ctx context.Context, edited config.Config, removed []config.Credential, over config.Revision,
 ) (config.Config, config.Revision, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -91,8 +90,9 @@ func (e *configEditor) save(
 	}
 
 	saved, written, err := config.SaveEdit(config.Edit{
-		Files: e.files, Read: e.last, Over: over, Edited: edited, Removed: removed, PlaceSlackCredentials: e.place,
-		KeepJiraToken: e.keep,
+		Files: e.files, Read: e.last, Over: over, Edited: edited, Removed: removed,
+		PlaceSlackCredentials: func(cfg config.Config) (config.Config, error) { return e.place(ctx, cfg) },
+		KeepJiraToken:         keepUnder(ctx, e.keep),
 	})
 	if err != nil {
 		return config.Config{}, config.Revision{}, err
@@ -101,6 +101,18 @@ func (e *configEditor) save(
 	e.last, e.over = saved, written
 
 	return saved.Redacted(), written, nil
+}
+
+// keepUnder is keep bound to ctx, as config.SaveEdit takes it, or nil where
+// no keychain keeps a Jira token and the file does.
+func keepUnder(
+	ctx context.Context, keep func(ctx context.Context, service, secret string) error,
+) func(service, secret string) error {
+	if keep == nil {
+		return nil
+	}
+
+	return func(service, secret string) error { return keep(ctx, service, secret) }
 }
 
 // localData is the store's directory and the database files in it, as

@@ -159,7 +159,7 @@ func (msg dirLooked) apply(m Model) (Model, tea.Cmd) {
 
 // look checks the path typed off the update loop, since it reads the disk.
 func (p dirPrompt) look(m Model) (Model, tea.Cmd) {
-	look := m.deps.Repositories.Look
+	ctx, look := m.session, m.deps.Repositories.Look
 	if look == nil {
 		p.note = "cannot look at directories here"
 		m.overlay = p
@@ -173,7 +173,7 @@ func (p dirPrompt) look(m Model) (Model, tea.Cmd) {
 	m.overlay = p
 
 	return m, func() tea.Msg {
-		place, err := look(dir)
+		place, err := look(ctx, dir)
 		here := place.Dir == base || workdirs.Same(place.Dir, base)
 
 		return dirLooked{dir: place.Dir, here: here, err: err, opened: opened}

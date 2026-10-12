@@ -75,21 +75,31 @@ func (s *server) reread() (config.Config, basis, error) {
 }
 
 // placeSlackCredentials is the wiring's keeping of typed Slack user-token
-// secrets, with Slack's refusal of them told apart from a refused
+// secrets, under ctx, with Slack's refusal of them told apart from a refused
 // announcement; nil when none is wired, so the file keeps them.
-func (s *server) placeSlackCredentials() func(config.Config) (config.Config, error) {
+func (s *server) placeSlackCredentials(ctx context.Context) func(config.Config) (config.Config, error) {
 	if s.deps.PlaceSlackCredentials == nil {
 		return nil
 	}
 
 	return func(incoming config.Config) (config.Config, error) {
-		placed, err := s.deps.PlaceSlackCredentials(incoming)
+		placed, err := s.deps.PlaceSlackCredentials(ctx, incoming)
 		if errors.Is(err, messaging.ErrRejected) {
 			return config.Config{}, fmt.Errorf("%w: %w", errSlackRefused, err)
 		}
 
 		return placed, err
 	}
+}
+
+// keepJiraToken is the wiring's keeping of a typed Jira token, under ctx; nil
+// when none is wired, so the file keeps it.
+func (s *server) keepJiraToken(ctx context.Context) func(service, secret string) error {
+	if s.deps.KeepJiraToken == nil {
+		return nil
+	}
+
+	return func(service, secret string) error { return s.deps.KeepJiraToken(ctx, service, secret) }
 }
 
 // adoptMessaging hands messaging settings newly in effect to every post after
@@ -121,7 +131,7 @@ var errSlackRefused = errors.New("slack refused the typed user token")
 // kept when its field comes back masked or empty. It returns the result with
 // secrets masked, and the revision it wrote as its ETag.
 func (s *server) UpdateConfig(
-	_ context.Context, request api.UpdateConfigRequestObject,
+	ctx context.Context, request api.UpdateConfigRequestObject,
 ) (api.UpdateConfigResponseObject, error) {
 	if s.setupNeeded() {
 		return api.UpdateConfig404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, noFileHere)), nil
@@ -140,12 +150,12 @@ func (s *server) UpdateConfig(
 			"If-Match names no revision of the configuration; send the ETag a read of it returned")), nil
 	}
 
-	return s.writeOver(*request.Body, over), nil
+	return s.writeOver(ctx, *request.Body, over), nil
 }
 
 // writeOver writes a configuration posted over the API over the read over, and
 // answers with what it wrote, or with why it wrote nothing.
-func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigResponseObject {
+func (s *server) writeOver(ctx context.Context, posted api.Config, over basis) api.UpdateConfigResponseObject {
 	incoming, err := fromDTO(posted)
 	if err != nil {
 		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(
@@ -158,7 +168,7 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 			"the terminal interface would not start on this keymap: "+err.Error()))
 	}
 
-	saved, written, err := s.save(posted, incoming, over)
+	saved, written, err := s.save(ctx, posted, incoming, over)
 	if detail, refused := unsavable(err); refused {
 		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
 	}
@@ -275,7 +285,9 @@ func (s *server) paneSections() []api.PaneSection {
 // read, and two reads that found no file stand for different configurations
 // when another file came and went between them. The settings heldSettings
 // names it keeps as the configuration in effect holds them, too.
-func (s *server) save(posted api.Config, incoming config.Config, over basis) (config.Config, config.Revision, error) {
+func (s *server) save(
+	ctx context.Context, posted api.Config, incoming config.Config, over basis,
+) (config.Config, config.Revision, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -291,7 +303,7 @@ func (s *server) save(posted api.Config, incoming config.Config, over basis) (co
 
 	saved, written, err := config.SaveEdit(config.Edit{
 		Files: s.files, Read: s.cfg, Over: over.file(), Edited: held, Removed: removedIn(posted),
-		PlaceSlackCredentials: s.placeSlackCredentials(), KeepJiraToken: s.deps.KeepJiraToken,
+		PlaceSlackCredentials: s.placeSlackCredentials(ctx), KeepJiraToken: s.keepJiraToken(ctx),
 	})
 	if err != nil {
 		return config.Config{}, config.Revision{}, err

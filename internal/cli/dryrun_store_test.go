@@ -86,7 +86,7 @@ func issueListKept(t *testing.T, dir string) place {
 		t.Fatalf("loading the configuration: %v", err)
 	}
 
-	deps, _ := process.Deps(t.Context(), cfg, process.Locate(t.Context(), where.dir), nil)
+	deps, _ := process.Deps(cfg, process.Locate(t.Context(), where.dir), nil)
 	// The interface keeps a view's list under the query it searches: the view's
 	// own, narrowed to the user's issues.
 	kept := []jira.Issue{{Key: "PROJ-9", Summary: keptSummary}}

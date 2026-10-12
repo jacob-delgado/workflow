@@ -39,10 +39,10 @@ func TestSetupChecksTheTokenWithoutLoggingIt(t *testing.T) {
 	var logged bytes.Buffer
 
 	where := setup.Where{WorkDir: t.TempDir(), HomeDir: t.TempDir()}
-	deps := wiring.SetupDeps(t.Context(), where, wiring.NewRequestLog(&logged, nil), nil)
+	deps := wiring.SetupDeps(where, wiring.NewRequestLog(&logged, nil), nil)
 
 	// Act
-	who, err := deps.Check(config.Jira{BaseURL: acceptingJira(t), Token: setupToken})
+	who, err := deps.Check(t.Context(), config.Jira{BaseURL: acceptingJira(t), Token: setupToken})
 
 	// Assert
 	if err != nil || who != "Fred F. User (fred)" {
@@ -61,7 +61,7 @@ func TestSetupWritesTheFileWithTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	var kept string
 
 	where := setup.Where{WorkDir: t.TempDir(), HomeDir: t.TempDir()}
-	deps := wiring.SetupDeps(t.Context(), where, nil, func(_, secret string) error {
+	deps := wiring.SetupDeps(where, nil, func(_, secret string) error {
 		kept = secret
 
 		return nil
@@ -73,7 +73,7 @@ func TestSetupWritesTheFileWithTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	}
 
 	// Act
-	written, err := deps.Write(request)
+	written, err := deps.Write(t.Context(), request)
 	if err != nil {
 		t.Fatalf("Write: %v", err)
 	}

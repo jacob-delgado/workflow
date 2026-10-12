@@ -35,7 +35,7 @@ func (s *server) GetRepositories(
 func (s *server) SwitchRepository(
 	ctx context.Context, request api.SwitchRepositoryRequestObject,
 ) (api.SwitchRepositoryResponseObject, error) {
-	next, err := s.worlds.switchTo(filepath.Clean(request.Body.Dir))
+	next, err := s.worlds.switchTo(ctx, filepath.Clean(request.Body.Dir))
 
 	switch {
 	case errors.Is(err, workdirs.ErrNotFound):

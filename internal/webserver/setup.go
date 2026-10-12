@@ -56,26 +56,26 @@ func (s *server) shownFile(path string) string {
 // takes it up where the server works. No answer carries a credential. One
 // setup runs at a time, by the server in effect once it may: a setup before it
 // may have put another in place.
-func (s *server) SetUp(_ context.Context, request api.SetUpRequestObject) (api.SetUpResponseObject, error) {
+func (s *server) SetUp(ctx context.Context, request api.SetUpRequestObject) (api.SetUpResponseObject, error) {
 	s.worlds.setups.Lock()
 	defer s.worlds.setups.Unlock()
 
 	current, _ := s.worlds.served()
 
-	return current.setUp(*request.Body), nil
+	return current.setUp(ctx, *request.Body), nil
 }
 
 // setUp is SetUp by this server: refused where a file applies, and a file
 // made since the server started — by hand, by config init, or by a setup
 // whose take-up failed — taken up rather than written over.
-func (s *server) setUp(body api.SetupRequest) api.SetUpResponseObject {
+func (s *server) setUp(ctx context.Context, body api.SetupRequest) api.SetUpResponseObject {
 	if !s.setupNeeded() {
 		return api.SetUp409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"a configuration file already applies here; edit it in Settings"))
 	}
 
 	if s.fileMade() {
-		return s.alreadyThere()
+		return s.alreadyThere(ctx)
 	}
 
 	answers := setup.Answers{
@@ -85,21 +85,21 @@ func (s *server) setUp(body api.SetupRequest) api.SetUpResponseObject {
 		Webhook: config.Secret(strings.TrimSpace(body.WebhookURL)),
 	}
 
-	who, err := s.checkTyped(answers.Jira, body.KeepUnchecked)
+	who, err := s.checkTyped(ctx, answers.Jira, body.KeepUnchecked)
 	if err != nil {
 		return checkFailure(err)
 	}
 
-	written, err := s.deps.Settings.Setup.Write(setup.Request{
+	written, err := s.deps.Settings.Setup.Write(ctx, setup.Request{
 		Place: setup.Place(body.Place), Answers: answers, Keychain: body.Keychain,
 	})
 	if err != nil {
-		return s.setupRefusal(err)
+		return s.setupRefusal(ctx, err)
 	}
 
 	return api.SetUp200JSONResponse(api.SetupResult{
 		Path: written.Path, Shown: s.shownFile(written.Path), JiraUser: who, Keychain: written.Keychain,
-		NotIgnored: written.NotIgnored, Reopened: s.takeUp(),
+		NotIgnored: written.NotIgnored, Reopened: s.takeUp(ctx),
 	})
 }
 
@@ -121,8 +121,8 @@ func (s *server) fileMade() bool {
 
 // alreadyThere takes up a file found where setup would write, which is never
 // written over, and says so.
-func (s *server) alreadyThere() api.SetUpResponseObject {
-	s.takeUp()
+func (s *server) alreadyThere(ctx context.Context) api.SetUpResponseObject {
+	s.takeUp(ctx)
 
 	return api.SetUp409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 		"a configuration file is already there; it is never written over, so edit it in Settings"))
@@ -130,12 +130,12 @@ func (s *server) alreadyThere() api.SetUpResponseObject {
 
 // checkTyped asks Jira who the token typed is: no one to ask with Jira left
 // out, and a refusal kept unchecked when asked and setup lets it be kept.
-func (s *server) checkTyped(settings config.Jira, keepUnchecked bool) (string, error) {
+func (s *server) checkTyped(ctx context.Context, settings config.Jira, keepUnchecked bool) (string, error) {
 	if settings.BaseURL == "" {
 		return "", nil
 	}
 
-	who, err := s.deps.Settings.Setup.Check(settings)
+	who, err := s.deps.Settings.Setup.Check(ctx, settings)
 	if err != nil && keepUnchecked && setup.Keepable(err) {
 		return "", nil
 	}
@@ -144,10 +144,10 @@ func (s *server) checkTyped(settings config.Jira, keepUnchecked bool) (string, e
 }
 
 // setupRefusal is why a setup wrote nothing.
-func (s *server) setupRefusal(err error) api.SetUpResponseObject {
+func (s *server) setupRefusal(ctx context.Context, err error) api.SetUpResponseObject {
 	switch {
 	case errors.Is(err, setup.ErrExists):
-		return s.alreadyThere()
+		return s.alreadyThere(ctx)
 	case errors.Is(err, setup.ErrNoKeychain):
 		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"there is no keychain here to keep the token in; keep it in the file instead"))
@@ -160,13 +160,13 @@ func (s *server) setupRefusal(err error) api.SetUpResponseObject {
 }
 
 // takeUp serves the file just written from now on, where the server works,
-// as a switch does, and reports whether it could.
-func (s *server) takeUp() bool {
+// as a switch does under ctx, and reports whether it could.
+func (s *server) takeUp(ctx context.Context) bool {
 	if s.worlds == nil {
 		return false
 	}
 
-	_, err := s.worlds.switchTo(s.deps.Repositories.Here.Dir)
+	_, err := s.worlds.switchTo(ctx, s.deps.Repositories.Here.Dir)
 	if err != nil && !errors.Is(err, errNoSwitching) {
 		s.unexpected(err)
 	}

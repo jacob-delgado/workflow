@@ -63,7 +63,7 @@ func TestSettingsSwitchedToASlackUserTokenReadTheDirectory(t *testing.T) {
 	cfg := halfLoggedIn(t)
 	userToken := cfg.Messaging
 	cfg.Messaging = config.Messaging{Kind: config.KindSlack, WebhookURL: "https://hooks.example.com/x"}
-	deps, controls := processEnvironment().Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := processEnvironment().Deps(cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	controls.UseMessagingSettings(userToken)
 
@@ -82,7 +82,7 @@ func TestSettingsSwitchedAwayFromSlackStopReadingTheDirectory(t *testing.T) {
 	// Arrange
 	process := processEnvironment()
 
-	deps, controls := process.Deps(t.Context(), halfLoggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := process.Deps(halfLoggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	controls.UseMessagingSettings(config.Messaging{Kind: config.KindTeams, WebhookURL: "https://teams.example.com/x"})
 

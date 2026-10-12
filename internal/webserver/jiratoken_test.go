@@ -8,6 +8,7 @@ package webserver_test
 // another address gets a token of its own and its file holds none.
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"os"
@@ -32,7 +33,9 @@ var errKeychainRefused = errors.New("the keychain is locked")
 
 // movedJiraServed serves a repository whose file points Jira at another
 // address than the home file's, keeping a typed token through keep.
-func movedJiraServed(t *testing.T, keep func(service, secret string) error) (http.Handler, config.Config) {
+func movedJiraServed(
+	t *testing.T, keep func(ctx context.Context, service, secret string) error,
+) (http.Handler, config.Config) {
 	t.Helper()
 
 	home := filepath.Join(t.TempDir(), config.FileName)
@@ -69,7 +72,7 @@ func TestATokenTypedForAMovedJiraIsKeptInTheKeychainForItsAddress(t *testing.T) 
 
 	// Arrange
 	kept := map[string]string{}
-	handler, cfg := movedJiraServed(t, func(service, secret string) error {
+	handler, cfg := movedJiraServed(t, func(_ context.Context, service, secret string) error {
 		kept[service] = secret
 
 		return nil
@@ -100,7 +103,7 @@ func TestATokenTheKeychainWillNotKeepIsRefusedWithoutIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler, cfg := movedJiraServed(t, func(string, string) error { return errKeychainRefused })
+	handler, cfg := movedJiraServed(t, func(context.Context, string, string) error { return errKeychainRefused })
 
 	// Act
 	saved := putConfig(t, handler, marshal(t, typingJiraToken(cfg)))

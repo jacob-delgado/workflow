@@ -73,7 +73,7 @@ func TestEveryProgramIsFoundOnTheEnvironmentsPathAlone(t *testing.T) {
 			// Arrange
 			env := nothingOnPath(t)
 			where := wiring.Workspace{Root: repository(t), Remote: "", Dir: "", Repository: true}
-			deps, _ := env.Deps(t.Context(), config.Default(), where, nil)
+			deps, _ := env.Deps(config.Default(), where, nil)
 
 			// Act
 			err := run(t, env, deps)

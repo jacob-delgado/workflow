@@ -148,7 +148,7 @@ func (m Model) openBranchPicker() (Model, tea.Cmd) {
 
 	return m, func() tea.Msg {
 		listed := lister.list(ctx)
-		listed.worktrees = lister.otherWorktrees()
+		listed.worktrees = lister.otherWorktrees(ctx)
 
 		return listed
 	}
@@ -163,7 +163,7 @@ type branchLister struct {
 	links     func(ctx context.Context) map[string]string
 	search    func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error)
 	project   string
-	worktrees func() ([]gitrepo.Worktree, error)
+	worktrees func(ctx context.Context) ([]gitrepo.Worktree, error)
 	// here is the root of the worktree this session works in.
 	here string
 }
@@ -171,13 +171,13 @@ type branchLister struct {
 // otherWorktrees is each other worktree, gone or not, by the branch it has
 // checked out: none outside a repository or when the read fails, when each
 // branch is checked out as before.
-func (l branchLister) otherWorktrees() map[string]gitrepo.Worktree {
+func (l branchLister) otherWorktrees(ctx context.Context) map[string]gitrepo.Worktree {
 	byBranch := map[string]gitrepo.Worktree{}
 	if l.worktrees == nil {
 		return byBranch
 	}
 
-	worktrees, _ := l.worktrees()
+	worktrees, _ := l.worktrees(ctx)
 	for _, worktree := range worktrees {
 		if worktree.Branch != "" && worktree.Dir != l.here {
 			byBranch[worktree.Branch] = worktree

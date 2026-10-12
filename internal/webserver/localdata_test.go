@@ -7,6 +7,7 @@ package webserver_test
 // cleans them: the cache alone, or the kept associations too.
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -39,7 +40,7 @@ func newFakeStore() *fakeStore {
 
 // wire hands the fake to deps.
 func (f *fakeStore) wire(deps *webserver.Deps) {
-	deps.Settings.LocalData = func() (string, []store.DataFile, error) { return storeDir, f.files, nil }
+	deps.Settings.LocalData = func(context.Context) (string, []store.DataFile, error) { return storeDir, f.files, nil }
 	deps.Settings.RemoveLocalData = func(scope store.CleanScope) error {
 		if f.failure != nil {
 			return f.failure
@@ -271,7 +272,7 @@ func TestLocalDataIsUnprocessableWithNowhereToKeepIt(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Settings.LocalData = func() (string, []store.DataFile, error) { return "", nil, store.ErrNoDir }
+	deps.Settings.LocalData = func(context.Context) (string, []store.DataFile, error) { return "", nil, store.ErrNoDir }
 	handler := serve(t, deps, config.Default())
 
 	// Act
@@ -291,7 +292,7 @@ func TestCleaningLocalDataThatCannotBeListedAfterIsAFault(t *testing.T) {
 	fake := newFakeStore()
 	deps := filledDeps()
 	fake.wire(&deps)
-	deps.Settings.LocalData = func() (string, []store.DataFile, error) { return "", nil, errSeam }
+	deps.Settings.LocalData = func(context.Context) (string, []store.DataFile, error) { return "", nil, errSeam }
 	handler := serveWith(t, deps, config.Default(), webserver.Info{Version: testVersion})
 
 	// Act

@@ -294,11 +294,11 @@ type Settings struct {
 	// revision it left; the session goes on with the configuration it started
 	// with.
 	Save func(
-		edited config.Config, removed []config.Credential, over config.Revision,
+		ctx context.Context, edited config.Config, removed []config.Credential, over config.Revision,
 	) (config.Config, config.Revision, error)
 	// LocalData is the store's directory and each database file in it, as
 	// workflow db-clean lists them.
-	LocalData func() (string, []store.DataFile, error)
+	LocalData func(ctx context.Context) (string, []store.DataFile, error)
 	// RemoveLocalData removes the files a clean of scope reaches.
 	RemoveLocalData func(scope store.CleanScope) error
 	// Setup sets up a first configuration file where none applies.
@@ -314,10 +314,10 @@ type Setup struct {
 	// the token.
 	Offer func() setup.Offer
 	// Check asks Jira who the token in settings authenticates as.
-	Check func(settings config.Jira) (string, error)
+	Check func(ctx context.Context, settings config.Jira) (string, error)
 	// Write writes the file a request asks for, refusing one already there
 	// with setup.ErrExists.
-	Write func(request setup.Request) (setup.Written, error)
+	Write func(ctx context.Context, request setup.Request) (setup.Written, error)
 }
 
 // Place is a directory a surface can work in, as it is now: the directory,
@@ -342,25 +342,25 @@ type Repositories struct {
 	Home string
 	// Look reads a directory as a Place, refusing one that is not an absolute
 	// path to a directory that is there with workdirs' sentinels.
-	Look func(dir string) (Place, error)
+	Look func(ctx context.Context, dir string) (Place, error)
 	// Subdirectories is the directories in one whose names start with a
 	// prefix, all of them for "".
 	Subdirectories func(dir, prefix string) (workdirs.Listing, error)
 	// Worktrees is the working trees of the repository this session works
 	// in, the main one first, read each time it is asked. Nil outside a
 	// repository.
-	Worktrees func() ([]gitrepo.Worktree, error)
+	Worktrees func(ctx context.Context) ([]gitrepo.Worktree, error)
 }
 
 // Hooks is what a surface asks of lefthook.
 type Hooks struct {
 	// Run runs one hook, streaming its output.
-	Run func(hook string) (proc.Output, error)
+	Run func(ctx context.Context, hook string) (proc.Output, error)
 	// Existing reports the hooks git would run that lefthook does not manage,
 	// and whether the repository already configures lefthook.
-	Existing func() ([]hooks.GitHook, bool)
+	Existing func(ctx context.Context) ([]hooks.GitHook, bool)
 	// Write creates a generated configuration and installs lefthook's hooks.
-	Write func(generated hooks.Generated) error
+	Write func(ctx context.Context, generated hooks.Generated) error
 }
 
 // Tasks is what a surface asks of Taskwarrior. Every function is nil when no

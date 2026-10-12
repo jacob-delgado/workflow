@@ -41,7 +41,9 @@ func heldBack(deps Deps) Deps {
 // data; both are still read.
 func heldBackSettings(deps seams.Settings) seams.Settings {
 	if deps.Save != nil {
-		deps.Save = func(config.Config, []config.Credential, config.Revision) (config.Config, config.Revision, error) {
+		deps.Save = func(
+			context.Context, config.Config, []config.Credential, config.Revision,
+		) (config.Config, config.Revision, error) {
 			return config.Config{}, config.Revision{}, errDryRun
 		}
 	}
@@ -59,7 +61,7 @@ func heldBackSettings(deps seams.Settings) seams.Settings {
 // which would store the token; Jira's check is a read, and stays.
 func heldBackSetup(deps seams.Setup) seams.Setup {
 	if deps.Write != nil {
-		deps.Write = func(setup.Request) (setup.Written, error) { return setup.Written{}, errDryRun }
+		deps.Write = func(context.Context, setup.Request) (setup.Written, error) { return setup.Written{}, errDryRun }
 	}
 
 	if offer := deps.Offer; offer != nil {
@@ -260,11 +262,11 @@ func heldBackServices(deps Deps) Deps {
 	}
 
 	if deps.Hooks.Run != nil {
-		deps.Hooks.Run = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+		deps.Hooks.Run = func(context.Context, string) (proc.Output, error) { return proc.Output{}, errDryRun }
 	}
 
 	if deps.Hooks.Write != nil {
-		deps.Hooks.Write = func(hooks.Generated) error { return errDryRun }
+		deps.Hooks.Write = func(context.Context, hooks.Generated) error { return errDryRun }
 	}
 
 	return deps
