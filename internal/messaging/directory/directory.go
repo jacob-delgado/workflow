@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/httpx"
+	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -311,8 +312,10 @@ func (d *Slack) begin() (messaging.Client, *heldReads, error) {
 // everyone asking meanwhile waits on that read without holding the lock, each
 // until it answers or their own ctx ends. The read runs on the first asker's
 // own goroutine, so that asker waits for the whole read even if its ctx ends
-// first; only the others stop waiting when theirs does. A failure is dropped
-// once it is answered, so the next ask reads again.
+// first; only the others stop waiting when theirs does. The read itself ends
+// with the lifetime the first asker's ctx carries: the web server's, or the
+// command's. A failure is dropped once it is answered, so the next ask reads
+// again.
 func shared[V any](
 	ctx context.Context, directory *Slack, held map[string]*flight[V], key string,
 	read func(context.Context) (V, error),
@@ -333,7 +336,7 @@ func shared[V any](
 	if !inFlight {
 		// Others may be waiting on this read, so it runs to its end even if
 		// the one who began it leaves; their leaving would fail it for all.
-		current.value, current.err = read(context.WithoutCancel(ctx))
+		current.value, current.err = readDetached(ctx, read)
 		current.answeredAt = directory.now()
 		close(current.done)
 
@@ -350,6 +353,15 @@ func shared[V any](
 
 		return none, fmt.Errorf("reading the Slack directory: %w", ctx.Err())
 	}
+}
+
+// readDetached is read under a context with ctx's values that goes on when
+// ctx ends, and ends with the lifetime ctx carries.
+func readDetached[V any](ctx context.Context, read func(context.Context) (V, error)) (V, error) {
+	detached, release := lifetime.Detached(ctx)
+	defer release()
+
+	return read(detached)
 }
 
 // drop removes the failed read from held, unless another has taken its place.

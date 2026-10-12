@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/lifetime"
 )
 
 // HereHeader is the header a page sends on a write naming the directory it
@@ -57,9 +58,11 @@ type worlds struct {
 	setups sync.Mutex
 }
 
-// newWorlds serves first, for as long as lifetime lasts.
-func newWorlds(lifetime context.Context, first World) (*worlds, error) {
-	held := &worlds{lifetime: lifetime}
+// newWorlds serves first, for as long as serving lasts, which is the
+// lifetime what the server detaches from a page, or starts by itself, ends
+// with.
+func newWorlds(serving context.Context, first World) (*worlds, error) {
+	held := &worlds{lifetime: lifetime.Within(serving, serving)}
 
 	_, err := held.install(first)
 	if err != nil {
@@ -70,10 +73,14 @@ func newWorlds(lifetime context.Context, first World) (*worlds, error) {
 }
 
 // serve hands a request the contract admitted to the server for the
-// directory worked in. A write runs under a context that outlasts its page,
-// and a write but a switch holds the gate a switch waits on; a write is
+// directory worked in, carrying the server's lifetime, which what the request
+// detaches from its page (a Slack directory read others share, a token's
+// refresh) still ends with. A write runs under a context that outlasts its
+// page, and a write but a switch holds the gate a switch waits on; a write is
 // refused when the page that sent it names another directory.
 func (w *worlds) serve(writer http.ResponseWriter, request *http.Request, switches bool) {
+	request = request.WithContext(lifetime.Within(request.Context(), w.lifetime))
+
 	if !isSafeMethod(request.Method) {
 		var release context.CancelFunc
 

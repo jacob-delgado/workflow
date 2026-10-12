@@ -61,6 +61,7 @@ internal/hooks/       lefthook: output, config, and generating lefthook.yml
 internal/convention/  branch names, Conventional Commits, pull request text
 internal/editor/      handing text and files to $EDITOR
 internal/proc/        running programs; the one place exec lives
+internal/lifetime/    the end work that outlasts its asker still ends with, carried in a context
 internal/proc/pgroup/ canceling a streamed child's whole process group (Unix)
 internal/rlimit/      lowering a resource limit around one test call (tests only)
 internal/ptytest/     a pseudo-terminal for a test to type at (tests only)
