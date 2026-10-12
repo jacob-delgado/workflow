@@ -419,7 +419,7 @@ func tasksBehavior() behavior {
 		loading: func(m Model) bool { return m.tasks.loading },
 		scroll:  func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
 		answers: []string{
-			"start-stop", "mark-done", "add-task", "annotate-task", "modify-task", "undo-task", "sync-tasks",
+			"start-stop", actionMarkDone, "add-task", "annotate-task", "modify-task", actionUndoTask, actionSyncTasks,
 			"search-tasks", "filter-tasks", "sort-tasks", actionOpenLink, actionCopyLink, actionRefresh,
 		},
 	}

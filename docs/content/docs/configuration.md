@@ -722,9 +722,12 @@ are never live at once, so they may share a key, and `?` lists each pane's
 actions under that pane's own name, so a key two panes share is listed once
 under each. Two panes the `--web` page shows in one section are the
 exception: its Branch section holds the Commits pane too, and the page
-answers a key with the first control on screen bound to it, so a key the
-Branch and Commits panes share is refused. The pane numbers work on every
-pane, so an action live on one cannot take one.
+answers a key with the first control on screen bound to it, so a key two of
+their actions the page binds would share is refused — `commit` on push's
+`P`, say. An action only the terminal answers, such as `discard-change` or
+`new-branch`, has no control on the page, so it may still share a key with
+the other pane's. The pane numbers work on every pane, so an action live on
+one cannot take one.
 
 The actions you can rebind, grouped by where they work, are:
 

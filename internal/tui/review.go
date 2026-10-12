@@ -354,7 +354,7 @@ func reviewBehavior() behavior {
 		loading: func(m Model) bool { return m.review.loading },
 		scroll:  func(m *Model) *int { return &m.review.scroll }, readsBranch: true,
 		answers: []string{
-			"open-pull-request", "edit", "checks", "rerun-checks", "merge", "finish-branch", actionOpenLink,
+			"open-pull-request", "edit", "checks", actionRerunChecks, "merge", "finish-branch", actionOpenLink,
 			actionCopyLink, actionRefresh,
 		},
 	}
