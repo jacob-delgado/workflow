@@ -70,6 +70,18 @@ func executing(t *testing.T, root *cobra.Command) context.CancelCauseFunc {
 	return signaled
 }
 
+// untilEnded blocks until ctx ends, or the test does: a fake interface whose
+// context an assertion found going on returns once that failure ends the
+// test, rather than holding executing's cleanup until go test times out.
+func untilEnded(ctx context.Context, t *testing.T) {
+	t.Helper()
+
+	select {
+	case <-ctx.Done():
+	case <-t.Context().Done():
+	}
+}
+
 // awaitEnd waits for the interface's context to be done, failing the test once
 // patience runs out.
 func awaitEnd(t *testing.T, done <-chan struct{}) {
@@ -122,7 +134,7 @@ func TestASignalEndsTheContextTheInterfaceRunsUnder(t *testing.T) {
 	runningUntilSignaled := func(ctx context.Context, _ tui.Model, _ io.Reader, _ io.Writer) (tui.Next, error) {
 		handed <- ctx
 
-		<-ctx.Done()
+		untilEnded(ctx, t)
 
 		return tui.Next{}, nil
 	}
@@ -162,7 +174,7 @@ func TestASignalEndsTheContextAnInterfaceLeftBeforeASwitch(t *testing.T) {
 
 		close(opened)
 
-		<-ctx.Done()
+		untilEnded(ctx, t)
 
 		return tui.Next{}, nil
 	}
