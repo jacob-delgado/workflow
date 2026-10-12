@@ -260,8 +260,8 @@ func TestStreamSnapshotDegradesWhenSeamsFail(t *testing.T) {
 	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{}, errSeam
 	}
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, errSeam }
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, errSeam
 	}
@@ -453,8 +453,10 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 	// flight, one only the remote has, a learned scope, the started task and
 	// the linked ones — and one with nothing wired at all.
 	filled := filledDeps()
-	filled.Git.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
-	filled.Git.RemoteBranches = func() ([]string, error) { return []string{testBranchName, "feat/PROJ-7-flag"}, nil }
+	filled.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	filled.Git.RemoteBranches = func(context.Context) ([]string, error) {
+		return []string{testBranchName, "feat/PROJ-7-flag"}, nil
+	}
 	filled.Store.LastScope = func(context.Context) (string, bool) { return "api", true }
 	filled.Tasks = fakeTaskwarrior().seams()
 

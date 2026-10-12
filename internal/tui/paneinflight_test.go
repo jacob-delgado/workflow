@@ -40,10 +40,10 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			world: newWorld, pane: "2", want: "Branch ◐",
 			wrap: func(deps *tui.Deps, held *hold) {
 				read := deps.Git.Branch
-				deps.Git.Branch = func() (gitrepo.Branch, error) {
+				deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
 					held.wait()
 
-					return read()
+					return read(ctx)
 				}
 			},
 		},
@@ -51,10 +51,10 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			world: newWorld, pane: "3", want: "Commits ◐",
 			wrap: func(deps *tui.Deps, held *hold) {
 				read := deps.Git.Changes
-				deps.Git.Changes = func() ([]gitrepo.Change, error) {
+				deps.Git.Changes = func(ctx context.Context) ([]gitrepo.Change, error) {
 					held.wait()
 
-					return read()
+					return read(ctx)
 				}
 			},
 		},

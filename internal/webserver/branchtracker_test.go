@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestTheBranchNamesTheTrackerItsLinkedIssueLivesIn(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Git.Branch = func() (gitrepo.Branch, error) {
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 				return gitrepo.Branch{Name: unnamedBranch, IssueLink: tt.link}, nil
 			}
 

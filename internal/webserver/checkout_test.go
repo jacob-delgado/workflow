@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -34,9 +35,9 @@ func cleanDeps(t *testing.T, switched *string) webserver.Deps {
 	t.Helper()
 
 	deps := filledDeps()
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: targetBranch}, nil }
-	deps.Git.Checkout = func(name string) error {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{Name: targetBranch}, nil }
+	deps.Git.Checkout = func(_ context.Context, name string) error {
 		*switched = name
 
 		return nil
@@ -79,7 +80,7 @@ func TestCheckoutSucceedsEvenIfTheRereadFails(t *testing.T) {
 	var switched string
 
 	deps := cleanDeps(t, &switched)
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		if switched != "" {
 			return gitrepo.Branch{}, errSeam
 		}
@@ -107,7 +108,7 @@ func TestCheckoutRefusesADirtyTree(t *testing.T) {
 	// filledDeps' Changes reports a modified file, so the tree is dirty.
 	called := false
 	deps := filledDeps()
-	deps.Git.Checkout = func(string) error {
+	deps.Git.Checkout = func(context.Context, string) error {
 		called = true
 
 		return nil
@@ -140,8 +141,8 @@ func TestCheckoutReportsAFailedSwitch(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
-	deps.Git.Checkout = func(string) error { return errSeam }
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
+	deps.Git.Checkout = func(context.Context, string) error { return errSeam }
 
 	// Act
 	recorder := doCheckout(t, deps, "nope")
@@ -180,7 +181,7 @@ func TestCheckoutIsUnavailableWithoutAGitSeam(t *testing.T) {
 
 			// Arrange
 			deps := mutate(filledDeps())
-			deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
+			deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
 
 			// Act
 			recorder := doCheckout(t, deps, targetBranch)
@@ -225,8 +226,8 @@ func TestCheckoutNeverForwardsGitsOwnWords(t *testing.T) {
 	// own words can name the remote; the detail names the branch and what to do,
 	// and never the host.
 	deps := filledDeps()
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
-	deps.Git.Checkout = func(string) error {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
+	deps.Git.Checkout = func(context.Context, string) error {
 		return fmt.Errorf("switching to %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
 			targetBranch, errSeam, gitHost)
 	}

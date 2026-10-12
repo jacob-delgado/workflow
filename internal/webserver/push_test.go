@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -41,7 +42,7 @@ func TestPushPublishesTheBranch(t *testing.T) {
 	var pushed string
 
 	deps := filledDeps()
-	deps.Git.Push = func(branch string) (proc.Output, error) {
+	deps.Git.Push = func(_ context.Context, branch string) (proc.Output, error) {
 		pushed = branch
 
 		return fakeOutput(nil, nil), nil
@@ -71,13 +72,13 @@ func TestPushSendsABranchWhoseUpstreamIsOffItsPushRemote(t *testing.T) {
 	var pushed string
 
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{
 			Name: testBranchName, Upstream: "origin/" + testBranchName, PushRemote: forkRemote,
 			Ahead: 0, Commits: []gitrepo.Commit{{Hash: testCommitHash, Subject: "feat: done"}},
 		}, nil
 	}
-	deps.Git.Push = func(branch string) (proc.Output, error) {
+	deps.Git.Push = func(_ context.Context, branch string) (proc.Output, error) {
 		pushed = branch
 
 		return fakeOutput(nil, nil), nil
@@ -119,8 +120,8 @@ func TestPushRefusesWhenThereIsNothingToPush(t *testing.T) {
 			// Arrange
 			called := false
 			deps := filledDeps()
-			deps.Git.Branch = func() (gitrepo.Branch, error) { return branch, nil }
-			deps.Git.Push = func(string) (proc.Output, error) {
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return branch, nil }
+			deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 				called = true
 
 				return fakeOutput(nil, nil), nil
@@ -144,7 +145,7 @@ func TestPushReportsAFailingPush(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Push = func(string) (proc.Output, error) {
+	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 		return fakeOutput([]string{"! [rejected] fix/PROJ-412"}, errSeam), nil
 	}
 
@@ -169,7 +170,7 @@ func TestPushReportsAFailedPushAsAFailureNotAStart(t *testing.T) {
 	// The push ran and was rejected, so the detail is the push's own output, not
 	// a push that never started.
 	deps := filledDeps()
-	deps.Git.Push = func(string) (proc.Output, error) {
+	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 		return fakeOutput([]string{"! [rejected] fix/PROJ-412"}, errSeam), nil
 	}
 
@@ -196,7 +197,7 @@ func TestPushReportsAFailedStart(t *testing.T) {
 
 			// Arrange
 			deps := openableDeps()
-			deps.Git.Push = func(string) (proc.Output, error) {
+			deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 				return proc.Output{}, fmt.Errorf("running git in %s: %w", repoPath, errSeam)
 			}
 
@@ -223,7 +224,7 @@ func TestPushReturnsThePublishedBranch(t *testing.T) {
 	reads := 0
 
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		reads++
 		if reads == 1 {
 			return before, nil
@@ -231,7 +232,7 @@ func TestPushReturnsThePublishedBranch(t *testing.T) {
 
 		return after, nil
 	}
-	deps.Git.Push = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
+	deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
 	// Act
 	recorder := doPush(t, deps)
@@ -256,7 +257,7 @@ func TestPushSucceedsEvenIfTheRereadFails(t *testing.T) {
 	reads := 0
 
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		reads++
 		if reads == 1 {
 			return before, nil
@@ -264,7 +265,7 @@ func TestPushSucceedsEvenIfTheRereadFails(t *testing.T) {
 
 		return gitrepo.Branch{}, errSeam
 	}
-	deps.Git.Push = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
+	deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
 	// Act
 	recorder := doPush(t, deps)
@@ -287,7 +288,7 @@ func TestPushIsUnavailableWithoutAGitSeam(t *testing.T) {
 	cases := map[string]func(webserver.Deps) webserver.Deps{
 		"no push seam": func(deps webserver.Deps) webserver.Deps { return deps },
 		noBranchSeam: func(deps webserver.Deps) webserver.Deps {
-			deps.Git.Push = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
+			deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 			deps.Git.Branch = nil
 
 			return deps
@@ -334,7 +335,7 @@ func TestAFailedPushKeepsGitsReasonButNotTheRemotesAddress(t *testing.T) {
 					"hint: Updates were rejected because the remote contains work that you do not",
 				}
 				deps := openableDeps()
-				deps.Git.Push = func(string) (proc.Output, error) { return fakeOutput(output, errSeam), nil }
+				deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(output, errSeam), nil }
 
 				// Act
 				recorder := send(t, serve(t, deps, config.Default()), request.method, request.path, request.body)
@@ -364,7 +365,9 @@ func TestAFailedPushKeepsARefNamedWithAnAtSign(t *testing.T) {
 	const refLine = " ! [rejected]        spike@home -> spike@home (fetch first)"
 
 	deps := filledDeps()
-	deps.Git.Push = func(string) (proc.Output, error) { return fakeOutput([]string{refLine}, errSeam), nil }
+	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
+		return fakeOutput([]string{refLine}, errSeam), nil
+	}
 
 	// Act
 	recorder := doPush(t, deps)

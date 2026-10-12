@@ -54,7 +54,7 @@ func (s *server) Commit(ctx context.Context, request api.CommitRequestObject) (a
 		return commitUnprocessable(err.Error()), nil
 	}
 
-	branch, err := s.commitStaged(conv, subject, orZero(request.Body.Body))
+	branch, err := s.commitStaged(ctx, conv, subject, orZero(request.Body.Body))
 	if err != nil {
 		return s.commitFailure(err), nil
 	}
@@ -93,12 +93,12 @@ func (s *server) commitConvention() convention.CommitConvention {
 // now carrying the commit. It holds the index from the read to the commit, so a
 // stage under way finishes first and the commit takes the whole of it.
 func (s *server) commitStaged(
-	conv convention.CommitConvention, subject convention.Subject, body string,
+	ctx context.Context, conv convention.CommitConvention, subject convention.Subject, body string,
 ) (gitrepo.Branch, error) {
 	s.indexWrites.Lock()
 	defer s.indexWrites.Unlock()
 
-	changes, err := s.deps.Git.Changes()
+	changes, err := s.deps.Git.Changes(ctx)
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
@@ -108,20 +108,20 @@ func (s *server) commitStaged(
 		return gitrepo.Branch{}, err
 	}
 
-	before := s.branchBeforeCommit()
+	before := s.branchBeforeCommit(ctx)
 
-	err = s.runCommit(conv.Message(subject, body, s.issueKeyOf(before)))
+	err = s.runCommit(ctx, conv.Message(subject, body, s.issueKeyOf(before)))
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
 
-	return s.branchAfter(withoutCommits(before)), nil
+	return s.branchAfter(ctx, withoutCommits(before)), nil
 }
 
 // branchBeforeCommit is the checked-out branch as a commit finds it, or an empty
 // one when it cannot be read: the commit goes ahead with no issue to refer to.
-func (s *server) branchBeforeCommit() gitrepo.Branch {
-	branch, err := s.deps.Git.Branch()
+func (s *server) branchBeforeCommit(ctx context.Context) gitrepo.Branch {
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return gitrepo.Branch{}
 	}
@@ -141,8 +141,8 @@ func withoutCommits(before gitrepo.Branch) gitrepo.Branch {
 
 // runCommit runs the commit, draining its output so the hooks run to completion,
 // and reports a failing commit with the output that explains why.
-func (s *server) runCommit(message string) error {
-	output, err := s.deps.Git.Commit(message)
+func (s *server) runCommit(ctx context.Context, message string) error {
+	output, err := s.deps.Git.Commit(ctx, message)
 	if err != nil {
 		return fmt.Errorf("%w: %w", errCommitNotStarted, err)
 	}

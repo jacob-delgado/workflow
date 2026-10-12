@@ -45,7 +45,7 @@ func TestCodeOwnersAreLookedForWhereTheRemotesForgeLooks(t *testing.T) {
 			gitSeams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: tt.remote, Repository: true}, nil).Git
 
 			// Act
-			file, found, err := gitSeams.CodeOwnersAt("main")
+			file, found, err := gitSeams.CodeOwnersAt(t.Context(), "main")
 
 			// Assert
 			owners := file.OwnersOf([]string{"README.md"})

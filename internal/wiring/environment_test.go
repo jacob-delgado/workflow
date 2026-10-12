@@ -36,13 +36,17 @@ type programRun func(t *testing.T, env wiring.Environment, deps tui.Deps) error
 // a run by name and a captured program.
 func programRuns() map[string]programRun {
 	return map[string]programRun{
-		"a read": func(_ *testing.T, _ wiring.Environment, deps tui.Deps) error {
-			_, err := deps.Git.Branch()
+		"a read": func(t *testing.T, _ wiring.Environment, deps tui.Deps) error {
+			t.Helper()
+
+			_, err := deps.Git.Branch(t.Context())
 
 			return err
 		},
-		"a streamed run": func(_ *testing.T, _ wiring.Environment, deps tui.Deps) error {
-			_, err := deps.Git.Amend()
+		"a streamed run": func(t *testing.T, _ wiring.Environment, deps tui.Deps) error {
+			t.Helper()
+
+			_, err := deps.Git.Amend(t.Context())
 
 			return err
 		},

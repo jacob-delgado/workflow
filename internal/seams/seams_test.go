@@ -48,11 +48,6 @@ func withoutContext() map[string]string {
 // conversion deletes its own; the list ends empty.
 func notYet() []string {
 	return []string{
-		"Git.Branch", "Git.Changes", "Git.CommitsBetween", "Git.Diff", "Git.Stage", "Git.Unstage", "Git.Discard",
-		"Git.CreateBranch", "Git.Branches", "Git.Checkout", "Git.RemoteBranches", "Git.ChangedPaths",
-		"Git.CodeOwnersAt", "Git.RecentSubjects", "Git.CreateWorktree", "Git.Fetch", "Git.Commit", "Git.Push",
-		"Git.Amend", "Git.Fixup", "Git.Rebase", "Git.Finish", "Git.IssueLinks", "Git.LinkIssue", "Git.UnlinkIssue",
-
 		"Settings.Save", "Settings.LocalData",
 
 		"Setup.Check", "Setup.Write",

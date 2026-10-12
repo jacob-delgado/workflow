@@ -5,6 +5,7 @@ package webserver_test
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -82,9 +83,13 @@ func (c *runCalls) asked() []string {
 func runDeps(calls *runCalls, output func() proc.Output) webserver.Deps {
 	deps := filledDeps()
 	deps.Hooks.Run = func(hook string) (proc.Output, error) { return calls.record("hook "+hook, output()) }
-	deps.Git.Rebase = func(base string) (proc.Output, error) { return calls.record("rebase "+base, output()) }
-	deps.Git.Amend = func() (proc.Output, error) { return calls.record("amend", output()) }
-	deps.Git.Fixup = func(hash string) (proc.Output, error) { return calls.record("fixup "+hash, output()) }
+	deps.Git.Rebase = func(_ context.Context, base string) (proc.Output, error) {
+		return calls.record("rebase "+base, output())
+	}
+	deps.Git.Amend = func(context.Context) (proc.Output, error) { return calls.record("amend", output()) }
+	deps.Git.Fixup = func(_ context.Context, hash string) (proc.Output, error) {
+		return calls.record("fixup "+hash, output())
+	}
 
 	return deps
 }

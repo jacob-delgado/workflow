@@ -91,7 +91,7 @@ func (e Environment) Deps(
 
 	deps := tui.Deps{
 		Jira:         trackerDeps(cfg, jiraClient, setup, connect),
-		Git:          e.gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
+		Git:          e.gitDeps(where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
 		Forge:        forgeDeps(setup, connect),
 		Messaging:    messagingDeps(messagingSet, slack),
 		Hooks:        e.hookDeps(ctx, where.Root),
@@ -108,7 +108,7 @@ func (e Environment) Deps(
 	}
 	// Favorites are read from the store as it is, never made, so a dry run's
 	// Summary reads them as well.
-	deps.Git.CommitsBetween = e.yourCommits(ctx, where, readFavorites(e.onDisk(cfg).ReadOnly()))
+	deps.Git.CommitsBetween = e.yourCommits(where, readFavorites(e.onDisk(cfg).ReadOnly()))
 
 	return deps, controls
 }
@@ -206,49 +206,52 @@ func requestTimeout(cfg config.Config) time.Duration {
 	return config.DefaultRequestTimeout
 }
 
-// gitDeps is what a surface asks of the repository. CODEOWNERS is read in the
-// dialect of the forge kind names at the time of the read, since Settings can
-// change the forge while workflow runs.
-func (e Environment) gitDeps(ctx context.Context, root string, kind func() forge.Kind) seams.Git {
+// gitDeps is what a surface asks of the repository, each seam asking git
+// under the context it is asked under. CODEOWNERS is read in the dialect of
+// the forge kind names at the time of the read, since Settings can change the
+// forge while workflow runs.
+func (e Environment) gitDeps(root string, kind func() forge.Kind) seams.Git {
 	repo := gitrepo.At(e.git, root)
 
 	return seams.Git{
-		Branch:         func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
-		Changes:        func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
-		Diff:           func(change gitrepo.Change) ([]string, error) { return repo.Diff(ctx, change) },
-		Stage:          func(change gitrepo.Change) error { return repo.Stage(ctx, change) },
-		Unstage:        func(change gitrepo.Change) error { return repo.Unstage(ctx, change) },
-		Discard:        func(change gitrepo.Change) error { return repo.Discard(ctx, change) },
-		CreateBranch:   func(name, start string) error { return repo.CreateBranch(ctx, name, start) },
-		Branches:       func() ([]string, error) { return repo.LocalBranches(ctx) },
-		Checkout:       func(name string) error { return repo.Checkout(ctx, name) },
-		RemoteBranches: func() ([]string, error) { return repo.RemoteBranches(ctx) },
-		ChangedPaths:   func(base string) ([]string, error) { return repo.ChangedPaths(ctx, base) },
-		CodeOwnersAt: func(base string) (codeowners.File, bool, error) {
+		Branch:         repo.ReadBranch,
+		Changes:        repo.Status,
+		Diff:           repo.Diff,
+		Stage:          repo.Stage,
+		Unstage:        repo.Unstage,
+		Discard:        repo.Discard,
+		CreateBranch:   repo.CreateBranch,
+		Branches:       repo.LocalBranches,
+		Checkout:       repo.Checkout,
+		RemoteBranches: repo.RemoteBranches,
+		ChangedPaths:   repo.ChangedPaths,
+		CodeOwnersAt: func(ctx context.Context, base string) (codeowners.File, bool, error) {
 			return repo.CodeOwnersAt(ctx, base, codeOwnersDialect(kind()))
 		},
-		RecentSubjects: func() ([]string, error) { return repo.RecentSubjects(ctx) },
-		CreateWorktree: func(name, start string) (string, error) {
-			return repo.WorktreeAdd(ctx, name, start)
+		RecentSubjects: repo.RecentSubjects,
+		CreateWorktree: repo.WorktreeAdd,
+		Fetch:          func(ctx context.Context) error { return e.streamToEnd(ctx, gitrepo.FetchCommand(root)) },
+		Commit: func(ctx context.Context, message string) (proc.Output, error) {
+			return e.commitWith(ctx, root, message)
 		},
-		Fetch:  func() error { return e.streamToEnd(ctx, gitrepo.FetchCommand(root)) },
-		Commit: func(message string) (proc.Output, error) { return e.commitWith(ctx, root, message) },
-		Amend:  func() (proc.Output, error) { return e.start(ctx, gitrepo.AmendCommand(root)) },
-		Fixup:  func(hash string) (proc.Output, error) { return e.start(ctx, gitrepo.FixupCommand(root, hash)) },
-		Push: func(branch string) (proc.Output, error) {
+		Amend: func(ctx context.Context) (proc.Output, error) { return e.start(ctx, gitrepo.AmendCommand(root)) },
+		Fixup: func(ctx context.Context, hash string) (proc.Output, error) {
+			return e.start(ctx, gitrepo.FixupCommand(root, hash))
+		},
+		Push: func(ctx context.Context, branch string) (proc.Output, error) {
 			return e.start(ctx, gitrepo.PushCommand(root, repo.PushRemote(ctx), branch))
 		},
-		Rebase: func(base string) (proc.Output, error) {
+		Rebase: func(ctx context.Context, base string) (proc.Output, error) {
 			return e.start(ctx, gitrepo.RebaseCommand(root, base))
 		},
-		Finish: func(branch, base string) error {
+		Finish: func(ctx context.Context, branch, base string) error {
 			return repo.FinishBranch(ctx, branch, base, func() error {
 				return e.streamToEnd(ctx, gitrepo.PullCommand(root))
 			})
 		},
-		IssueLinks:  func() map[string]string { return repo.IssueLinks(ctx) },
-		LinkIssue:   func(branch, issueKey string) error { return repo.SetIssueLink(ctx, branch, issueKey) },
-		UnlinkIssue: func(branch string) error { return repo.ClearIssueLink(ctx, branch) },
+		IssueLinks:  repo.IssueLinks,
+		LinkIssue:   repo.SetIssueLink,
+		UnlinkIssue: repo.ClearIssueLink,
 	}
 }
 

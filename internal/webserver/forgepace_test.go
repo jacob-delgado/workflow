@@ -44,10 +44,10 @@ func counted(deps webserver.Deps, counts *forgeCounts) webserver.Deps {
 
 // branchesInTurn is a Branch seam that answers with each branch in turn, one a
 // read, and stays on the last.
-func branchesInTurn(branches ...gitrepo.Branch) func() (gitrepo.Branch, error) {
+func branchesInTurn(branches ...gitrepo.Branch) func(context.Context) (gitrepo.Branch, error) {
 	reads := 0
 
-	return func() (gitrepo.Branch, error) {
+	return func(context.Context) (gitrepo.Branch, error) {
 		branch := branches[min(reads, len(branches)-1)]
 		reads++
 

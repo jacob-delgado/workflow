@@ -34,7 +34,7 @@ func TestStreamPanelProblemsNeverCarryTheUnreachableHost(t *testing.T) {
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, fmt.Errorf("%w: https://%s/api/v4", forge.ErrUnreachable, internalHost)
 	}
-	deps.Git.Changes = func() ([]gitrepo.Change, error) {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) {
 		return nil, fmt.Errorf("git status in /home/me/%s: %w", internalHost, errSeam)
 	}
 
@@ -132,11 +132,11 @@ type webserverDepsEdit struct {
 // apply makes each read the edit names fail with its error.
 func (e webserverDepsEdit) apply(deps webserver.Deps) webserver.Deps {
 	if e.branchErr != nil {
-		deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, e.branchErr }
+		deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, e.branchErr }
 	}
 
 	if e.changesErr != nil {
-		deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, e.changesErr }
+		deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, e.changesErr }
 	}
 
 	if e.pullErr != nil {

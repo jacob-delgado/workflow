@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -26,15 +27,18 @@ type diffState struct {
 
 // load reads the selected file's diff through the repository seam, unless it
 // is already the one loaded. A stale answer for a file no longer selected is
-// dropped when it arrives, so it is safe to call on every move.
-func (d diffState) load(read func(gitrepo.Change) ([]string, error), changes changeList) tea.Cmd {
+// dropped when it arrives, so it is safe to call on every move. git is asked
+// under ctx.
+func (d diffState) load(
+	ctx context.Context, read func(context.Context, gitrepo.Change) ([]string, error), changes changeList,
+) tea.Cmd {
 	change, ok := changes.current()
 	if read == nil || !ok || d.path == change.Path {
 		return nil
 	}
 
 	return func() tea.Msg {
-		lines, err := read(change)
+		lines, err := read(ctx, change)
 
 		return diffLoaded{path: change.Path, lines: lines, err: err}
 	}
@@ -143,9 +147,9 @@ func (m Model) discardChange(change gitrepo.Change) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would discard " + sanitize.Line(change.Path)), nil
 	}
 
-	discard := m.deps.Git.Discard
+	ctx, discard := m.session, m.deps.Git.Discard
 
-	return m, func() tea.Msg { return discarded{path: change.Path, err: discard(change)} }
+	return m, func() tea.Msg { return discarded{path: change.Path, err: discard(ctx, change)} }
 }
 
 // discarded reports how a discard went.
@@ -167,5 +171,5 @@ func (msg discarded) apply(m Model) (Model, tea.Cmd) {
 		m = m.noticed(m.marks.done + " discarded " + sanitize.Line(msg.path))
 	}
 
-	return m, loadChanges(m.deps)
+	return m, loadChanges(m.session, m.deps)
 }

@@ -24,7 +24,7 @@ import (
 // thing done at start.
 func everySource(start time.Time) loop.ActivitySeams {
 	return loop.ActivitySeams{
-		Commits: func(time.Time, time.Time) []loop.RepositoryCommits { return nil },
+		Commits: func(context.Context, time.Time, time.Time) []loop.RepositoryCommits { return nil },
 		Touched: func(context.Context, time.Time) ([]taskwarrior.Task, error) { return nil, nil },
 		Jira: func(context.Context, time.Time, time.Time) (jira.Activity, error) {
 			return jira.Activity{Events: []jira.Event{{At: start, Kind: jira.EventCreated, Key: "PROJ-1"}}}, nil

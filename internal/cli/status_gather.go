@@ -31,7 +31,7 @@ type statusFacts struct {
 // statusFromSeams reads the branch and derives the facts, or fails when the
 // branch cannot be read at all. The store is read under ctx.
 func statusFromSeams(ctx context.Context, seams statusSeams) (statusFacts, error) {
-	branch, err := seams.Branch()
+	branch, err := seams.Branch(ctx)
 	if err != nil {
 		return statusFacts{}, fmt.Errorf("reading the branch: %w", err)
 	}
@@ -55,7 +55,7 @@ func gather(ctx context.Context, seams statusSeams, branch gitrepo.Branch) statu
 
 	onFeature := branch.Name != "" && branch.Name != branch.BaseName()
 	review := gatherReview(ctx, seams, branch, onFeature)
-	changes, changesErr := seams.Changes()
+	changes, changesErr := seams.Changes(ctx)
 	facts.ci = review.ci
 	facts.notes = serviceNotes([]serviceRead{
 		{name: seams.Tracker, err: issueErr},

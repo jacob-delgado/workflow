@@ -77,7 +77,7 @@ func reviewDeps(writes *reviewWrites) webserver.Deps {
 
 		return nil
 	}
-	deps.Git.Finish = func(branch, base string) error {
+	deps.Git.Finish = func(_ context.Context, branch, base string) error {
 		writes.finishes = append(writes.finishes, branch+" onto "+base)
 
 		return nil
@@ -172,7 +172,7 @@ func TestReviewWritesAreRefusedWhenThereIsNothingToWriteTo(t *testing.T) {
 	}
 	ahead := func(deps webserver.Deps) webserver.Deps {
 		deps = merged(deps)
-		deps.Git.Branch = func() (gitrepo.Branch, error) {
+		deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 			return gitrepo.Branch{
 				Name: testBranchName, Base: testBase, Upstream: "origin/" + testBranchName, Ahead: 1,
 				PushRemote: gitrepo.DefaultRemote,
@@ -343,7 +343,7 @@ func TestAFinishGitRefusesKeepsItsWordsOff(t *testing.T) {
 
 	// Arrange
 	deps := merged(reviewDeps(&reviewWrites{}))
-	deps.Git.Finish = func(string, string) error {
+	deps.Git.Finish = func(context.Context, string, string) error {
 		return fmt.Errorf("git pull from https://%s/acme.git: %w", forgeHost, errSeam)
 	}
 
@@ -489,7 +489,7 @@ func TestReviewWritesWhoseReadsFailSayToTryAgain(t *testing.T) {
 
 	failures := map[string]func(*webserver.Deps){
 		"the branch": func(deps *webserver.Deps) {
-			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 		},
 		"the pull request": func(deps *webserver.Deps) {
 			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {

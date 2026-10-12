@@ -48,17 +48,17 @@ func (t stagingTarget) words() string {
 // moves one change, and loop's rule for all.
 type stagingDirection struct {
 	verb, act string
-	one       func(gitrepo.Change) error
-	all       func([]gitrepo.Change, func(gitrepo.Change) error) error
+	one       func(context.Context, gitrepo.Change) error
+	all       func(context.Context, []gitrepo.Change, func(context.Context, gitrepo.Change) error) error
 }
 
 // Stage takes the named change into the index — the terminal's space — or,
 // with all, every change the index does not hold yet, by the rule the
 // terminal's "stage all" follows. It answers the working tree as it now stands.
-func (s *server) Stage(_ context.Context, request api.StageRequestObject) (api.StageResponseObject, error) {
+func (s *server) Stage(ctx context.Context, request api.StageRequestObject) (api.StageResponseObject, error) {
 	direction := stagingDirection{verb: "stage", act: "staging", one: s.deps.Git.Stage, all: loop.StageAll}
 
-	target, changes, err := s.moveChanges(*request.Body, direction)
+	target, changes, err := s.moveChanges(ctx, *request.Body, direction)
 	if err != nil {
 		return problemAnswer[api.StagedefaultApplicationProblemPlusJSONResponse](
 			s.stagingProblem(err, direction, target)), nil
@@ -70,10 +70,10 @@ func (s *server) Stage(_ context.Context, request api.StageRequestObject) (api.S
 // Unstage takes the named change out of the index, leaving the work tree as it
 // is, or with all every staged change. It answers the working tree as it now
 // stands.
-func (s *server) Unstage(_ context.Context, request api.UnstageRequestObject) (api.UnstageResponseObject, error) {
+func (s *server) Unstage(ctx context.Context, request api.UnstageRequestObject) (api.UnstageResponseObject, error) {
 	direction := stagingDirection{verb: "unstage", act: "staging", one: s.deps.Git.Unstage, all: loop.UnstageAll}
 
-	target, changes, err := s.moveChanges(*request.Body, direction)
+	target, changes, err := s.moveChanges(ctx, *request.Body, direction)
 	if err != nil {
 		return problemAnswer[api.UnstagedefaultApplicationProblemPlusJSONResponse](
 			s.stagingProblem(err, direction, target)), nil
@@ -85,10 +85,10 @@ func (s *server) Unstage(_ context.Context, request api.UnstageRequestObject) (a
 // Discard drops the named change from the index and the work tree, which
 // cannot be undone — the terminal's x — found as Stage finds it. It answers the
 // working tree as it now stands.
-func (s *server) Discard(_ context.Context, request api.DiscardRequestObject) (api.DiscardResponseObject, error) {
+func (s *server) Discard(ctx context.Context, request api.DiscardRequestObject) (api.DiscardResponseObject, error) {
 	direction := stagingDirection{verb: "discard", act: "discarding", one: s.deps.Git.Discard, all: nil}
 
-	target, changes, err := s.moveChanges(api.StagingRequest{Path: &request.Body.Path, All: nil}, direction)
+	target, changes, err := s.moveChanges(ctx, api.StagingRequest{Path: &request.Body.Path, All: nil}, direction)
 	if err != nil {
 		return problemAnswer[api.DiscarddefaultApplicationProblemPlusJSONResponse](
 			s.stagingProblem(err, direction, target)), nil
@@ -103,7 +103,7 @@ func (s *server) Discard(_ context.Context, request api.DiscardRequestObject) (a
 // path — that reaches git. One request moves changes at a time, the rest
 // waiting their turn, and each reads the tree once the one before it is done.
 func (s *server) moveChanges(
-	request api.StagingRequest, direction stagingDirection,
+	ctx context.Context, request api.StagingRequest, direction stagingDirection,
 ) (stagingTarget, []gitrepo.Change, error) {
 	target := stagingTarget{path: orZero(request.Path), all: orZero(request.All)}
 
@@ -118,32 +118,32 @@ func (s *server) moveChanges(
 	s.indexWrites.Lock()
 	defer s.indexWrites.Unlock()
 
-	before, err := s.deps.Git.Changes()
+	before, err := s.deps.Git.Changes(ctx)
 	if err != nil {
 		return target, nil, fmt.Errorf("reading the changes: %w", err)
 	}
 
-	err = move(before, target, direction)
+	err = move(ctx, before, target, direction)
 	if err != nil {
 		return target, nil, err
 	}
 
-	return target, s.changesAfter(before), nil
+	return target, s.changesAfter(ctx, before), nil
 }
 
 // move hands git the target's changes in direction, from the changes read.
-func move(changes []gitrepo.Change, target stagingTarget, direction stagingDirection) error {
+func move(ctx context.Context, changes []gitrepo.Change, target stagingTarget, direction stagingDirection) error {
 	var err error
 
 	if target.all {
-		err = direction.all(changes, direction.one)
+		err = direction.all(ctx, changes, direction.one)
 	} else {
 		index := slices.IndexFunc(changes, func(change gitrepo.Change) bool { return change.Path == target.path })
 		if index < 0 {
 			return errNotAChange
 		}
 
-		err = direction.one(changes[index])
+		err = direction.one(ctx, changes[index])
 	}
 
 	if err != nil {
@@ -157,8 +157,8 @@ func move(changes []gitrepo.Change, target stagingTarget, direction stagingDirec
 // that fails does not undo the move, so the tree as read before is answered
 // rather than a completed write reported as failed; the event stream brings
 // the rest.
-func (s *server) changesAfter(before []gitrepo.Change) []gitrepo.Change {
-	after, err := s.deps.Git.Changes()
+func (s *server) changesAfter(ctx context.Context, before []gitrepo.Change) []gitrepo.Change {
+	after, err := s.deps.Git.Changes(ctx)
 	if err != nil {
 		return before
 	}
@@ -197,14 +197,14 @@ func (s *server) stagingProblem(err error, direction stagingDirection, target st
 // lists no change at is a 404, no repository a 422, and a read git could not
 // make is answered by fault, whose words never name where it is.
 func (s *server) GetChangeDiff(
-	_ context.Context, request api.GetChangeDiffRequestObject,
+	ctx context.Context, request api.GetChangeDiffRequestObject,
 ) (api.GetChangeDiffResponseObject, error) {
 	if s.deps.Git.Diff == nil || s.deps.Git.Changes == nil {
 		return api.GetChangeDiff422ApplicationProblemPlusJSONResponse(
 			problem(api.ProblemCodeUnprocessable, "reading a diff is not available")), nil
 	}
 
-	lines, err := s.diffAt(request.Params.Path)
+	lines, err := s.diffAt(ctx, request.Params.Path)
 	if errors.Is(err, errNotAChange) {
 		return api.GetChangeDiff404ApplicationProblemPlusJSONResponse(
 			problem(api.ProblemCodeNotFound, "the working tree lists no change at that path")), nil
@@ -223,8 +223,8 @@ func (s *server) GetChangeDiff(
 
 // diffAt is the diff of the change the working tree lists at path, or
 // errNotAChange.
-func (s *server) diffAt(path string) ([]string, error) {
-	changes, err := s.deps.Git.Changes()
+func (s *server) diffAt(ctx context.Context, path string) ([]string, error) {
+	changes, err := s.deps.Git.Changes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("reading the changes: %w", err)
 	}
@@ -234,5 +234,5 @@ func (s *server) diffAt(path string) ([]string, error) {
 		return nil, errNotAChange
 	}
 
-	return s.deps.Git.Diff(changes[at])
+	return s.deps.Git.Diff(ctx, changes[at])
 }

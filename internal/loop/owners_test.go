@@ -31,8 +31,10 @@ const ownersFile = "/api/ @ana @acme/control-plane\n/docs/ @Me @bo\n"
 // CODEOWNERS is ownersFile, opened by "me".
 func ownerSeams() loop.OwnerSeams {
 	return loop.OwnerSeams{
-		ChangedPaths: func(string) ([]string, error) { return []string{"api/pull.go", "docs/usage.md"}, nil },
-		CodeOwnersAt: func(string) (codeowners.File, bool, error) {
+		ChangedPaths: func(context.Context, string) ([]string, error) {
+			return []string{"api/pull.go", "docs/usage.md"}, nil
+		},
+		CodeOwnersAt: func(context.Context, string) (codeowners.File, bool, error) {
 			return codeowners.Parse(ownersFile, codeowners.GitHub), true, nil
 		},
 		Author: func(context.Context) (string, error) { return "me", nil },
@@ -61,12 +63,12 @@ func TestOwnersOfReadsTheBaseItIsGiven(t *testing.T) {
 	var diffed, read string
 
 	seams := ownerSeams()
-	seams.ChangedPaths = func(base string) ([]string, error) {
+	seams.ChangedPaths = func(_ context.Context, base string) ([]string, error) {
 		diffed = base
 
 		return nil, nil
 	}
-	seams.CodeOwnersAt = func(base string) (codeowners.File, bool, error) {
+	seams.CodeOwnersAt = func(_ context.Context, base string) (codeowners.File, bool, error) {
 		read = base
 
 		return codeowners.File{}, false, nil
@@ -87,7 +89,9 @@ func TestOwnersOfIsNobodyWithoutAFileOrSeams(t *testing.T) {
 
 	cases := map[string]func(loop.OwnerSeams) loop.OwnerSeams{
 		"no CODEOWNERS on the base": func(seams loop.OwnerSeams) loop.OwnerSeams {
-			seams.CodeOwnersAt = func(string) (codeowners.File, bool, error) { return codeowners.File{}, false, nil }
+			seams.CodeOwnersAt = func(context.Context, string) (codeowners.File, bool, error) {
+				return codeowners.File{}, false, nil
+			}
 
 			return seams
 		},
@@ -139,12 +143,14 @@ func TestOwnersOfReportsWhatItCouldNotRead(t *testing.T) {
 
 	cases := map[string]func(loop.OwnerSeams) loop.OwnerSeams{
 		"the changes": func(seams loop.OwnerSeams) loop.OwnerSeams {
-			seams.ChangedPaths = func(string) ([]string, error) { return nil, errSeam }
+			seams.ChangedPaths = func(context.Context, string) ([]string, error) { return nil, errSeam }
 
 			return seams
 		},
 		"CODEOWNERS": func(seams loop.OwnerSeams) loop.OwnerSeams {
-			seams.CodeOwnersAt = func(string) (codeowners.File, bool, error) { return codeowners.File{}, false, errSeam }
+			seams.CodeOwnersAt = func(context.Context, string) (codeowners.File, bool, error) {
+				return codeowners.File{}, false, errSeam
+			}
 
 			return seams
 		},
@@ -187,7 +193,7 @@ func TestProposedReviewersIsNobodyWhenTheOwnersCannotBeRead(t *testing.T) {
 
 	// Arrange
 	seams := ownerSeams()
-	seams.ChangedPaths = func(string) ([]string, error) { return nil, errSeam }
+	seams.ChangedPaths = func(context.Context, string) ([]string, error) { return nil, errSeam }
 
 	// Act
 	proposed := loop.ProposedReviewers(t.Context(), seams, targetBase)
@@ -219,7 +225,7 @@ func TestComposePullProposesTheCodeOwnersAsReviewers(t *testing.T) {
 
 	seams := pullSeams()
 	seams.Owners = ownerSeams()
-	seams.Owners.ChangedPaths = func(base string) ([]string, error) {
+	seams.Owners.ChangedPaths = func(_ context.Context, base string) ([]string, error) {
 		read = base
 
 		return []string{"api/pull.go"}, nil

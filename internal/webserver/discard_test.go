@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -25,7 +26,7 @@ func discarding(discarded *[]gitrepo.Change) webserver.Deps {
 	var tree staging
 
 	deps := tree.deps()
-	deps.Git.Discard = func(change gitrepo.Change) error {
+	deps.Git.Discard = func(_ context.Context, change gitrepo.Change) error {
 		*discarded = append(*discarded, change)
 
 		return nil
@@ -111,7 +112,7 @@ func TestADiscardGitRefusesNamesTheFileAndNeverTheHost(t *testing.T) {
 	var discarded []gitrepo.Change
 
 	deps := discarding(&discarded)
-	deps.Git.Discard = func(gitrepo.Change) error {
+	deps.Git.Discard = func(context.Context, gitrepo.Change) error {
 		return fmt.Errorf("discarding %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
 			editedPath, errSeam, gitHost)
 	}

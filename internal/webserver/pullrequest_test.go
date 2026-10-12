@@ -46,7 +46,7 @@ func openableDeps() webserver.Deps {
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, nil
 	}
-	deps.Git.Push = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
+	deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
 		return forge.PullRequest{Number: 7, URL: prURL, Title: "opened", Mergeable: forge.MergeClean}, nil
 	}
@@ -200,7 +200,7 @@ func TestGetPullRequestDraftDoesNotNeedPushForAPublishedBranch(t *testing.T) {
 
 	// Arrange
 	deps := openableDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return pushedBranch(), nil }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
@@ -295,14 +295,14 @@ func TestGetPullRequestDraftIsAConflictWhenNothingToOpen(t *testing.T) {
 			return deps
 		},
 		"the branch has no commits": func(deps webserver.Deps) webserver.Deps {
-			deps.Git.Branch = func() (gitrepo.Branch, error) {
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 				return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil
 			}
 
 			return deps
 		},
 		"the tree is not on a branch": func(deps webserver.Deps) webserver.Deps {
-			deps.Git.Branch = func() (gitrepo.Branch, error) {
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 				return gitrepo.Branch{Name: "", Detached: true, Commits: commit}, nil
 			}
 
@@ -338,7 +338,7 @@ func TestOpenPullRequestPushesThenOpens(t *testing.T) {
 	)
 
 	deps := openableDeps()
-	deps.Git.Push = func(string) (proc.Output, error) {
+	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 		calls = append(calls, "push")
 
 		return fakeOutput(nil, nil), nil
@@ -406,8 +406,8 @@ func TestOpenPullRequestDoesNotPushAnAlreadyPublishedBranch(t *testing.T) {
 	pushed := false
 
 	deps := openableDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
-	deps.Git.Push = func(string) (proc.Output, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 		pushed = true
 
 		return fakeOutput(nil, nil), nil
@@ -459,7 +459,7 @@ func TestOpenPullRequestReportsAFailedPush(t *testing.T) {
 
 	// Arrange
 	deps := openableDeps()
-	deps.Git.Push = func(string) (proc.Output, error) {
+	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 		return fakeOutput([]string{"! [rejected]"}, errSeam), nil
 	}
 
@@ -480,7 +480,7 @@ func TestOpenPullRequestReportsAFailedOpen(t *testing.T) {
 	opened := false
 
 	deps := openableDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return pushedBranch(), nil }
 	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
 		opened = true
 
@@ -507,7 +507,7 @@ func TestOpenPullRequestIsUnreachableAndHidesTheForgeHost(t *testing.T) {
 	// An unreachable forge carries its host in the error; the answer must be a 502
 	// whose detail does not leak that host.
 	deps := openableDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return pushedBranch(), nil }
 	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
 		return forge.PullRequest{}, fmt.Errorf("%w: https://git.internal.example", forge.ErrUnreachable)
 	}
@@ -538,7 +538,7 @@ func TestOpenPullRequestDetailOmitsAnUnknownForgesHost(t *testing.T) {
 
 	unknown := fmt.Errorf("%s — set forge.kind and forge.host: %w", host, forge.ErrUnknownForge)
 	deps := openableDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return pushedBranch(), nil }
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, unknown
 	}

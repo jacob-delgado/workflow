@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strconv"
@@ -91,7 +92,7 @@ func TestAStatusThatCannotBeReadSaysWhy(t *testing.T) {
 
 	// Arrange
 	failing := newWorld().deps()
-	failing.Git.Changes = func() ([]gitrepo.Change, error) { return nil, errLocked }
+	failing.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, errLocked }
 	model := sized(t, tui.New(completeConfig(), nil, failing), 120, 40)
 
 	// Act

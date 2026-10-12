@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -51,7 +52,7 @@ func TestCommitCommitsStagedChanges(t *testing.T) {
 	var message string
 
 	deps := filledDeps()
-	deps.Git.Commit = func(msg string) (proc.Output, error) {
+	deps.Git.Commit = func(_ context.Context, msg string) (proc.Output, error) {
 		message = msg
 
 		return fakeOutput(nil, nil), nil
@@ -79,7 +80,7 @@ func TestCommitBuildsAFullMessage(t *testing.T) {
 	var message string
 
 	deps := filledDeps()
-	deps.Git.Commit = func(msg string) (proc.Output, error) {
+	deps.Git.Commit = func(_ context.Context, msg string) (proc.Output, error) {
 		message = msg
 
 		return fakeOutput(nil, nil), nil
@@ -108,7 +109,7 @@ func TestCommitHonorsTheConfiguredConvention(t *testing.T) {
 	var message string
 
 	deps := filledDeps()
-	deps.Git.Commit = func(msg string) (proc.Output, error) {
+	deps.Git.Commit = func(_ context.Context, msg string) (proc.Output, error) {
 		message = msg
 
 		return fakeOutput(nil, nil), nil
@@ -139,7 +140,7 @@ func TestCommitRejectsATypeOutsideTheConfiguredConvention(t *testing.T) {
 	// With only hotfix and chore configured, the built-in "fix" is no longer valid.
 	called := false
 	deps := filledDeps()
-	deps.Git.Commit = func(string) (proc.Output, error) {
+	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
 		called = true
 
 		return fakeOutput(nil, nil), nil
@@ -168,8 +169,8 @@ func TestCommitRefusesWhenNothingIsStaged(t *testing.T) {
 	// Arrange
 	called := false
 	deps := filledDeps()
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
-	deps.Git.Commit = func(string) (proc.Output, error) {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
+	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
 		called = true
 
 		return fakeOutput(nil, nil), nil
@@ -198,7 +199,7 @@ func TestCommitRejectsAnInvalidMessage(t *testing.T) {
 	// Arrange
 	called := false
 	deps := filledDeps()
-	deps.Git.Commit = func(string) (proc.Output, error) {
+	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
 		called = true
 
 		return fakeOutput(nil, nil), nil
@@ -224,7 +225,7 @@ func TestCommitRejectsASubjectSpanningLines(t *testing.T) {
 	// Arrange
 	called := false
 	deps := filledDeps()
-	deps.Git.Commit = func(string) (proc.Output, error) {
+	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
 		called = true
 
 		return fakeOutput(nil, nil), nil
@@ -253,7 +254,7 @@ func TestCommitReportsAFailingCommit(t *testing.T) {
 	// Arrange
 	// A hook rejects the commit: the exit is a failure and its output explains why.
 	deps := filledDeps()
-	deps.Git.Commit = func(string) (proc.Output, error) {
+	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
 		return fakeOutput([]string{"lint: trailing whitespace"}, errSeam), nil
 	}
 
@@ -279,10 +280,10 @@ func TestCommitReportsAChangesReadFailure(t *testing.T) {
 	// The read's own words name where the repository is; the answer is the one
 	// any failure nothing more is known of gets.
 	deps := filledDeps()
-	deps.Git.Changes = func() ([]gitrepo.Change, error) {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) {
 		return nil, fmt.Errorf("reading the status of %s: %w", repoPath, errSeam)
 	}
-	deps.Git.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
+	deps.Git.Commit = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
 	// Act
 	recorder := doCommit(t, deps, `{"type":"fix","subject":"redact tokens"}`)
@@ -305,7 +306,7 @@ func TestCommitReportsAFailedStart(t *testing.T) {
 	// The commit cannot even be started, and the seam's words name where the
 	// repository is; the answer says how to see why instead.
 	deps := filledDeps()
-	deps.Git.Commit = func(string) (proc.Output, error) {
+	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
 		return proc.Output{}, fmt.Errorf("running git in %s: %w", repoPath, errSeam)
 	}
 
@@ -330,10 +331,10 @@ func TestCommitSucceedsEvenIfTheRereadFails(t *testing.T) {
 	reads := 0
 	deps := filledDeps()
 	branch := deps.Git.Branch
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
 		reads++
 		if reads == 1 {
-			return branch()
+			return branch(ctx)
 		}
 
 		return gitrepo.Branch{}, errSeam
@@ -341,7 +342,7 @@ func TestCommitSucceedsEvenIfTheRereadFails(t *testing.T) {
 
 	var message string
 
-	deps.Git.Commit = func(msg string) (proc.Output, error) {
+	deps.Git.Commit = func(_ context.Context, msg string) (proc.Output, error) {
 		message = msg
 
 		return fakeOutput(nil, nil), nil
@@ -374,8 +375,8 @@ func TestCommitLandsWithNoTrailerWhenTheBranchCannotBeRead(t *testing.T) {
 	var message string
 
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-	deps.Git.Commit = func(msg string) (proc.Output, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps.Git.Commit = func(_ context.Context, msg string) (proc.Output, error) {
 		message = msg
 
 		return fakeOutput(nil, nil), nil
@@ -401,7 +402,7 @@ func TestCommitIsUnavailableWithoutAGitSeam(t *testing.T) {
 	// means it is not available. filledDeps leaves Commit nil, so the other cases
 	// set it to isolate the seam under test.
 	withCommit := func(deps webserver.Deps) webserver.Deps {
-		deps.Git.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
+		deps.Git.Commit = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
 		return deps
 	}

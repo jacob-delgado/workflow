@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -62,13 +63,13 @@ type staging struct {
 // deps wires the recording seams over workTree.
 func (s *staging) deps() webserver.Deps {
 	deps := filledDeps()
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return workTree(), nil }
-	deps.Git.Stage = func(change gitrepo.Change) error {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return workTree(), nil }
+	deps.Git.Stage = func(_ context.Context, change gitrepo.Change) error {
 		s.staged = append(s.staged, change)
 
 		return nil
 	}
-	deps.Git.Unstage = func(change gitrepo.Change) error {
+	deps.Git.Unstage = func(_ context.Context, change gitrepo.Change) error {
 		s.unstaged = append(s.unstaged, change)
 
 		return nil
@@ -261,7 +262,7 @@ func TestStagingReportsAChangesReadFailure(t *testing.T) {
 	var tree staging
 
 	deps := tree.deps()
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, errSeam }
 
 	// Act
 	recorder := sendStaging(t, deps, stagePath, `{"path":"`+editedPath+`"}`)
@@ -296,8 +297,8 @@ func TestStagingNeverForwardsGitsOwnWords(t *testing.T) {
 			var tree staging
 
 			deps := tree.deps()
-			deps.Git.Stage = func(gitrepo.Change) error { return refused }
-			deps.Git.Unstage = func(gitrepo.Change) error { return refused }
+			deps.Git.Stage = func(context.Context, gitrepo.Change) error { return refused }
+			deps.Git.Unstage = func(context.Context, gitrepo.Change) error { return refused }
 
 			// Act
 			recorder := sendStaging(t, deps, tt.endpoint, tt.body)
@@ -325,7 +326,7 @@ func TestStagingAnswersTheTreeAsReadBeforeWhenTheRereadFails(t *testing.T) {
 
 	deps := tree.deps()
 	reads := 0
-	deps.Git.Changes = func() ([]gitrepo.Change, error) {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) {
 		reads++
 		if reads > 1 {
 			return nil, errSeam
@@ -355,7 +356,7 @@ func TestStagingAnswersTheTreeAsItNowStands(t *testing.T) {
 
 	deps := tree.deps()
 	reads := 0
-	deps.Git.Changes = func() ([]gitrepo.Change, error) {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) {
 		reads++
 
 		changes := workTree()
@@ -395,7 +396,7 @@ func TestStagingWritesWaitForEachOther(t *testing.T) {
 	var writing atomic.Int32
 
 	deps := tree.deps()
-	deps.Git.Stage = func(gitrepo.Change) error {
+	deps.Git.Stage = func(context.Context, gitrepo.Change) error {
 		defer writing.Add(-1)
 
 		if writing.Add(1) > 1 {
@@ -438,13 +439,13 @@ func TestEveryIndexWriteWaitsForAStageUnderWay(t *testing.T) {
 		"a commit": {
 			path: "/api/commit", body: `{"type":"fix","subject":"redact tokens"}`,
 			seam: func(deps *webserver.Deps, beside func() error) {
-				deps.Git.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), beside() }
+				deps.Git.Commit = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), beside() }
 			},
 		},
 		"a new branch": {
 			path: "/api/branches", body: `{"issue_key":"` + startIssue + `"}`,
 			seam: func(deps *webserver.Deps, beside func() error) {
-				deps.Git.CreateBranch = func(string, string) error { return beside() }
+				deps.Git.CreateBranch = func(context.Context, string, string) error { return beside() }
 			},
 		},
 	}
@@ -463,7 +464,7 @@ func TestEveryIndexWriteWaitsForAStageUnderWay(t *testing.T) {
 			)
 
 			deps := tree.deps()
-			deps.Git.Stage = func(gitrepo.Change) error {
+			deps.Git.Stage = func(context.Context, gitrepo.Change) error {
 				writing.Add(1)
 				close(holding)
 				time.Sleep(indexHeld)

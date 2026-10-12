@@ -77,8 +77,8 @@ func newForgeWorld() *forgeWorld {
 func (w *forgeWorld) deps() webserver.Deps {
 	deps := filledDeps()
 	checkedOut := deps.Git.Branch
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
-		branch, err := checkedOut()
+	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
+		branch, err := checkedOut(ctx)
 
 		w.mu.Lock()
 		defer w.mu.Unlock()

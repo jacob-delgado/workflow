@@ -209,9 +209,9 @@ func (c branchCreator) create(m Model) (Model, tea.Cmd) {
 	m.overlay = c
 
 	if c.willFetch(m) {
-		fetch := m.deps.Git.Fetch
+		ctx, fetch := m.session, m.deps.Git.Fetch
 
-		return m, func() tea.Msg { return fetched{name: name, err: fetch()} }
+		return m, func() tea.Msg { return fetched{name: name, err: fetch(ctx)} }
 	}
 
 	return m, c.createCommand(m, name)

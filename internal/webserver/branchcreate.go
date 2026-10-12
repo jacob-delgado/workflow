@@ -82,20 +82,22 @@ func (s *server) startRefusal(err error, key string) api.Problem {
 // branch now in effect — or, when that cannot be read back, one of the
 // created name, since the branch read before the create is the one it left.
 // The tracker is asked under ctx.
-func (s *server) startWork(ctx context.Context, issueKey string, fetch func() error) (gitrepo.Branch, error) {
+func (s *server) startWork(
+	ctx context.Context, issueKey string, fetch func(context.Context) error,
+) (gitrepo.Branch, error) {
 	name, err := s.branchNameFor(ctx, issueKey)
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
 
-	err = s.createUnlessTaken(name, errCreateRefused, fetch, func(base string) error {
-		return s.deps.Git.CreateBranch(name, base)
+	err = s.createUnlessTaken(ctx, name, errCreateRefused, fetch, func(base string) error {
+		return s.deps.Git.CreateBranch(ctx, name, base)
 	})
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
 
-	return s.branchAfter(gitrepo.Branch{Name: name}), nil
+	return s.branchAfter(ctx, gitrepo.Branch{Name: name}), nil
 }
 
 // branchNameFor is the branch the convention names for the issue, from its type
@@ -111,12 +113,12 @@ func (s *server) branchNameFor(ctx context.Context, issueKey string) (string, er
 
 // branchExists reports whether a local branch already goes by name. Without a
 // branch-list seam it cannot tell, and reads as absent so the create is tried.
-func (s *server) branchExists(name string) (bool, error) {
+func (s *server) branchExists(ctx context.Context, name string) (bool, error) {
 	if s.deps.Git.Branches == nil {
 		return false, nil
 	}
 
-	names, err := s.deps.Git.Branches()
+	names, err := s.deps.Git.Branches(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -126,8 +128,8 @@ func (s *server) branchExists(name string) (bool, error) {
 
 // currentBranchBase is the base a new branch starts from — the checked-out
 // branch's base (origin's default), or empty to branch from HEAD.
-func (s *server) currentBranchBase() string {
-	branch, err := s.deps.Git.Branch()
+func (s *server) currentBranchBase(ctx context.Context) string {
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return ""
 	}
@@ -137,7 +139,7 @@ func (s *server) currentBranchBase() string {
 
 // fetchFor is the fetch a start of work makes first: origin's, unless the
 // request asks to branch from what you have, or there is no fetch seam.
-func (s *server) fetchFor(asked *bool) func() error {
+func (s *server) fetchFor(asked *bool) func(context.Context) error {
 	if asked != nil && !*asked {
 		return nil
 	}
@@ -158,12 +160,12 @@ func createBranchUnprocessable(message string) api.CreateBranch422ApplicationPro
 // taken. A fetch that fails makes nothing and is loop.ErrFetchFailed; git
 // refusing the create is refused, wrapped in refused.
 func (s *server) createUnlessTaken(
-	name string, refused error, fetch func() error, create func(base string) error,
+	ctx context.Context, name string, refused error, fetch func(context.Context) error, create func(base string) error,
 ) error {
 	s.indexWrites.Lock()
 	defer s.indexWrites.Unlock()
 
-	exists, err := s.branchExists(name)
+	exists, err := s.branchExists(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -172,12 +174,12 @@ func (s *server) createUnlessTaken(
 		return errBranchExists
 	}
 
-	base := s.currentBranchBase()
+	base := s.currentBranchBase(ctx)
 	if base == "" {
 		fetch = nil
 	}
 
-	return loop.FetchThen(fetch, func() error {
+	return loop.FetchThen(ctx, fetch, func() error {
 		made := create(base)
 		if made != nil {
 			return fmt.Errorf("%w: creating %s: %w", refused, name, made)
@@ -204,10 +206,10 @@ func (s *server) CreateWorktree(
 
 	name, err := s.branchNameFor(ctx, key)
 	if err == nil {
-		err = s.createUnlessTaken(name, errWorktreeRefused, s.fetchFor(request.Body.Fetch), func(base string) error {
+		err = s.createUnlessTaken(ctx, name, errWorktreeRefused, s.fetchFor(request.Body.Fetch), func(base string) error {
 			var made error
 
-			dir, made = s.deps.Git.CreateWorktree(name, base)
+			dir, made = s.deps.Git.CreateWorktree(ctx, name, base)
 
 			return made
 		})

@@ -87,13 +87,15 @@ func TestGetPeopleListsTheDecidedAloneWhenTheOwnersOfTheBranchCannotBeRead(t *te
 
 	cases := map[string]func(deps *webserver.Deps){
 		"the branch git is on": func(deps *webserver.Deps) {
-			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 		},
 		"the changed paths": func(deps *webserver.Deps) {
-			deps.Git.ChangedPaths = func(string) ([]string, error) { return nil, errSeam }
+			deps.Git.ChangedPaths = func(context.Context, string) ([]string, error) { return nil, errSeam }
 		},
 		"the code owners": func(deps *webserver.Deps) {
-			deps.Git.CodeOwnersAt = func(string) (codeowners.File, bool, error) { return codeowners.File{}, false, errSeam }
+			deps.Git.CodeOwnersAt = func(context.Context, string) (codeowners.File, bool, error) {
+				return codeowners.File{}, false, errSeam
+			}
 		},
 	}
 

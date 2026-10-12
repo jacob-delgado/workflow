@@ -17,19 +17,19 @@ func (c branchCreator) createCommand(m Model, name string) tea.Cmd {
 	issue, forIssue := c.issue, c.forIssue
 
 	if c.worktree {
-		add := m.deps.Git.CreateWorktree
+		ctx, add := m.session, m.deps.Git.CreateWorktree
 
 		return func() tea.Msg {
-			path, err := add(name, base)
+			path, err := add(ctx, name, base)
 
 			return worktreeCreated{name: name, path: path, issue: issue, forIssue: forIssue, err: err}
 		}
 	}
 
-	createBranch := m.deps.Git.CreateBranch
+	ctx, createBranch := m.session, m.deps.Git.CreateBranch
 
 	return func() tea.Msg {
-		return branchCreated{name: name, issue: issue, forIssue: forIssue, err: createBranch(name, base)}
+		return branchCreated{name: name, issue: issue, forIssue: forIssue, err: createBranch(ctx, name, base)}
 	}
 }
 
@@ -80,7 +80,9 @@ func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
-	reload := tea.Batch(loadBranch(m.deps), loadChanges(m.deps), listIssueBranches(m.session, m.cfg, m.deps))
+	reload := tea.Batch(
+		loadBranch(m.session, m.deps), loadChanges(m.session, m.deps), listIssueBranches(m.session, m.cfg, m.deps),
+	)
 
 	// Set before the status picker opens, so the offer waits behind it.
 	if msg.forIssue {

@@ -24,7 +24,7 @@ func TestSnapshotListsTaskBranchesMarkingTheCheckedOutOne(t *testing.T) {
 	// Arrange
 	// filledDeps' Branch is on fix/PROJ-412, so that is the one in flight on HEAD.
 	deps := filledDeps()
-	deps.Git.Branches = func() ([]string, error) {
+	deps.Git.Branches = func(context.Context) ([]string, error) {
 		return []string{testBranchName, "feat/PROJ-500-metrics", "main"}, nil
 	}
 	cfg := config.Default()
@@ -57,7 +57,7 @@ func TestSnapshotBranchesAreEmptyWhenListingFails(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Branches = func() ([]string, error) { return nil, errSeam }
+	deps.Git.Branches = func(context.Context) ([]string, error) { return nil, errSeam }
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
@@ -73,8 +73,8 @@ func TestNoTaskBranchIsCurrentWhenTheCheckedOutBranchIsUnknown(t *testing.T) {
 
 	// The checked-out branch is unknown either because the read failed or because
 	// there is no branch seam; neither must mark a listed branch as current.
-	cases := map[string]func() (gitrepo.Branch, error){
-		"the branch read fails":   func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam },
+	cases := map[string]func(context.Context) (gitrepo.Branch, error){
+		"the branch read fails":   func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam },
 		"there is no branch seam": nil,
 	}
 
@@ -85,7 +85,7 @@ func TestNoTaskBranchIsCurrentWhenTheCheckedOutBranchIsUnknown(t *testing.T) {
 			// Arrange
 			deps := filledDeps()
 			deps.Git.Branch = branch
-			deps.Git.Branches = func() ([]string, error) { return []string{testBranchName}, nil }
+			deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName}, nil }
 			cfg := config.Default()
 			cfg.Jira.Project = testProject
 
@@ -142,8 +142,10 @@ const (
 // with fail, counting each ask.
 func scopedDeps(yours []jira.Key, fail error, asked *atomic.Int32) webserver.Deps {
 	deps := filledDeps()
-	deps.Git.Branches = func() ([]string, error) { return []string{yourLocalBranch, otherLocalBranch}, nil }
-	deps.Git.RemoteBranches = func() ([]string, error) { return []string{yourLocalBranch, yourRemoteBranch}, nil }
+	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{yourLocalBranch, otherLocalBranch}, nil }
+	deps.Git.RemoteBranches = func(context.Context) ([]string, error) {
+		return []string{yourLocalBranch, yourRemoteBranch}, nil
+	}
 	deps.Jira.SearchLenient = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
 		if strings.HasPrefix(jql, keyInYourSearch) {
 			asked.Add(1)
@@ -214,7 +216,7 @@ func TestSnapshotBranchesKeepTheCheckedOutBranchWhoseIssueIsNotYours(t *testing.
 	var asked atomic.Int32
 
 	deps := scopedDeps([]jira.Key{yourIssue}, nil, &asked)
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: otherLocalBranch}, nil }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{Name: otherLocalBranch}, nil }
 
 	// Act
 	body := streamOnce(t, serve(t, deps, scopedConfig()), "/api/events").Body.String()
@@ -275,7 +277,7 @@ func TestSnapshotBranchesAskTheTrackerAgain(t *testing.T) {
 			deps := scopedDeps([]jira.Key{yourIssue}, nil, &asked)
 			deps.Git.RemoteBranches = nil
 			frame := 0
-			deps.Git.Branches = func() ([]string, error) {
+			deps.Git.Branches = func(context.Context) ([]string, error) {
 				names := tt.branches[min(frame, len(tt.branches)-1)]
 				frame++
 
@@ -305,7 +307,7 @@ func TestSnapshotBranchesFollowTheTrackersLatestAnswer(t *testing.T) {
 	deps.Git.RemoteBranches = nil
 	frames := [][]string{{yourLocalBranch}, {otherLocalBranch}, {yourLocalBranch, otherLocalBranch}}
 	frame := 0
-	deps.Git.Branches = func() ([]string, error) {
+	deps.Git.Branches = func(context.Context) ([]string, error) {
 		names := frames[min(frame, len(frames)-1)]
 		frame++
 
@@ -384,7 +386,7 @@ func TestSnapshotBranchesCountTheIssueOfANewBranchAsYoursWhileTheTrackerIsDown(t
 		return answered(ctx, jql, startAt)
 	}
 	frame := 0
-	deps.Git.Branches = func() ([]string, error) {
+	deps.Git.Branches = func(context.Context) ([]string, error) {
 		frame++
 		if frame == 1 {
 			return []string{yourLocalBranch, otherLocalBranch}, nil
@@ -443,8 +445,8 @@ func TestSnapshotBranchesAreTheLocalOnesWhenTheRemoteCannotBeRead(t *testing.T) 
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Branches = func() ([]string, error) { return []string{yourLocalBranch}, nil }
-	deps.Git.RemoteBranches = func() ([]string, error) { return nil, errSeam }
+	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{yourLocalBranch}, nil }
+	deps.Git.RemoteBranches = func(context.Context) ([]string, error) { return nil, errSeam }
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, scopedConfig()), "/api/events").Body.String())

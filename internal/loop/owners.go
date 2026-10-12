@@ -19,8 +19,8 @@ import (
 // leaves nobody out; a nil IsGroup takes every bare name for a person, as
 // GitHub, where every team is org/team, does.
 type OwnerSeams struct {
-	ChangedPaths func(base string) ([]string, error)
-	CodeOwnersAt func(base string) (codeowners.File, bool, error)
+	ChangedPaths func(ctx context.Context, base string) ([]string, error)
+	CodeOwnersAt func(ctx context.Context, base string) (codeowners.File, bool, error)
 	Author       func(ctx context.Context) (string, error)
 	IsGroup      func(ctx context.Context, name string) (bool, error)
 }
@@ -34,12 +34,12 @@ func OwnersOf(ctx context.Context, seams OwnerSeams, base string) (codeowners.Ow
 		return codeowners.Owners{}, nil
 	}
 
-	paths, err := seams.ChangedPaths(base)
+	paths, err := seams.ChangedPaths(ctx, base)
 	if err != nil {
 		return codeowners.Owners{}, fmt.Errorf("listing the changed paths: %w", err)
 	}
 
-	file, found, err := seams.CodeOwnersAt(base)
+	file, found, err := seams.CodeOwnersAt(ctx, base)
 	if err != nil {
 		return codeowners.Owners{}, fmt.Errorf("reading CODEOWNERS: %w", err)
 	}

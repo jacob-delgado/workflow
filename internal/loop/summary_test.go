@@ -44,14 +44,14 @@ func TestYourCommitsReadAsCommitted(t *testing.T) {
 
 	// Arrange
 	start := summaryStart()
-	read := func(time.Time, time.Time) []loop.RepositoryCommits {
+	read := func(context.Context, time.Time, time.Time) []loop.RepositoryCommits {
 		return []loop.RepositoryCommits{{Commits: []gitrepo.DatedCommit{
 			{Hash: headHash, Short: headCommit, Subject: fixSubject, Authored: start},
 		}}}
 	}
 
 	// Act
-	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+	got := loop.CommitsRead(t.Context(), read, start, start.Add(24*time.Hour))
 
 	// Assert
 	want := activity.Item{At: start, Kind: activity.Committed, Ref: headCommit, Title: fixSubject}
@@ -61,8 +61,10 @@ func TestYourCommitsReadAsCommitted(t *testing.T) {
 }
 
 // twoRepositories answers a read as api's commits and web's, at start.
-func twoRepositories(start time.Time, web loop.RepositoryCommits) func(time.Time, time.Time) []loop.RepositoryCommits {
-	return func(time.Time, time.Time) []loop.RepositoryCommits {
+func twoRepositories(
+	start time.Time, web loop.RepositoryCommits,
+) func(context.Context, time.Time, time.Time) []loop.RepositoryCommits {
+	return func(context.Context, time.Time, time.Time) []loop.RepositoryCommits {
 		return []loop.RepositoryCommits{
 			{Repository: apiRepository, Commits: []gitrepo.DatedCommit{
 				{Hash: headHash, Short: headCommit, Subject: fixSubject, Authored: start},
@@ -82,7 +84,7 @@ func TestCommitsInSeveralRepositoriesAreNamedByTheirRepository(t *testing.T) {
 	}})
 
 	// Act
-	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+	got := loop.CommitsRead(t.Context(), read, start, start.Add(24*time.Hour))
 
 	// Assert
 	want := []activity.Item{
@@ -111,7 +113,7 @@ func TestACommitInTwoRepositoriesIsReadOnceFromTheFirst(t *testing.T) {
 	}})
 
 	// Act
-	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+	got := loop.CommitsRead(t.Context(), read, start, start.Add(24*time.Hour))
 
 	// Assert
 	if len(got.Items) != 1 || got.Items[0].Repository != apiRepository {
@@ -124,7 +126,7 @@ func TestCommitsWithNoHashAreNeverTakenForOneAnother(t *testing.T) {
 
 	// Arrange
 	start := summaryStart()
-	read := func(time.Time, time.Time) []loop.RepositoryCommits {
+	read := func(context.Context, time.Time, time.Time) []loop.RepositoryCommits {
 		return []loop.RepositoryCommits{{Commits: []gitrepo.DatedCommit{
 			{Short: "1111111", Subject: fixSubject, Authored: start},
 			{Short: "2222222", Subject: styleSubject, Authored: start},
@@ -132,7 +134,7 @@ func TestCommitsWithNoHashAreNeverTakenForOneAnother(t *testing.T) {
 	}
 
 	// Act
-	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+	got := loop.CommitsRead(t.Context(), read, start, start.Add(24*time.Hour))
 
 	// Assert
 	if len(got.Items) != 2 {
@@ -148,7 +150,7 @@ func TestARepositoryThatCannotBeReadIsNamedAndTheOthersStillRead(t *testing.T) {
 	read := twoRepositories(start, loop.RepositoryCommits{Repository: webRepository, Failed: errNotRead})
 
 	// Act
-	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+	got := loop.CommitsRead(t.Context(), read, start, start.Add(24*time.Hour))
 
 	// Assert
 	if !errors.Is(got.Failed, errNotRead) || !strings.Contains(got.Failed.Error(), webRepository) || len(got.Items) != 1 {
@@ -161,7 +163,7 @@ func TestEachRepositoryThatFailedIsNamedInItsOwnFailure(t *testing.T) {
 
 	// Arrange
 	start := summaryStart()
-	read := func(time.Time, time.Time) []loop.RepositoryCommits {
+	read := func(context.Context, time.Time, time.Time) []loop.RepositoryCommits {
 		return []loop.RepositoryCommits{
 			{Repository: apiRepository, Failed: errNotRead},
 			{Repository: webRepository, Failed: errNotRead},
@@ -169,7 +171,7 @@ func TestEachRepositoryThatFailedIsNamedInItsOwnFailure(t *testing.T) {
 	}
 
 	// Act
-	got := loop.CommitsRead(read, start, start.Add(24*time.Hour))
+	got := loop.CommitsRead(t.Context(), read, start, start.Add(24*time.Hour))
 
 	// Assert
 	var named []string
@@ -350,7 +352,7 @@ func TestEverySourceThatCannotBeReadIsNamedAsFailed(t *testing.T) {
 	end := start.Add(24 * time.Hour)
 	cases := map[activity.Source]func() activity.Read{
 		activity.SourceGit: func() activity.Read {
-			return loop.CommitsRead(func(time.Time, time.Time) []loop.RepositoryCommits {
+			return loop.CommitsRead(t.Context(), func(context.Context, time.Time, time.Time) []loop.RepositoryCommits {
 				return []loop.RepositoryCommits{{Failed: errNotRead}}
 			}, start, end)
 		},

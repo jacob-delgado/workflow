@@ -45,7 +45,7 @@ func (s *server) readPull(ctx context.Context, withCI bool) (pullRead, error) {
 		return pullRead{}, nil
 	}
 
-	branch, err := s.deps.Git.Branch()
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return pullRead{}, err
 	}
@@ -292,7 +292,7 @@ func (s *server) finish(ctx context.Context) (gitrepo.Branch, error) {
 	s.indexWrites.Lock()
 	defer s.indexWrites.Unlock()
 
-	err = s.deps.Git.Finish(read.branch.Name, base)
+	err = s.deps.Git.Finish(ctx, read.branch.Name, base)
 	if err != nil {
 		s.unexpected(err)
 
@@ -301,7 +301,7 @@ func (s *server) finish(ctx context.Context) (gitrepo.Branch, error) {
 
 	s.forgeAnswer.drop()
 
-	return s.branchAfter(gitrepo.Branch{Name: base}), nil
+	return s.branchAfter(ctx, gitrepo.Branch{Name: base}), nil
 }
 
 // RerunChecks asks the forge to re-run the failed CI of the branch's open pull

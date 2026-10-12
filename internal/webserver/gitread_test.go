@@ -31,13 +31,13 @@ type gitReadWrite struct {
 // and the branch list for a new branch.
 func gitReadWrites() map[string]gitReadWrite {
 	failBranch := func(deps *webserver.Deps, err error) {
-		deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, err }
+		deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, err }
 	}
 	failChanges := func(deps *webserver.Deps, err error) {
-		deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, err }
+		deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, err }
 	}
 	failBranches := func(deps *webserver.Deps, err error) {
-		deps.Git.Branches = func() ([]string, error) { return nil, err }
+		deps.Git.Branches = func(context.Context) ([]string, error) { return nil, err }
 	}
 
 	return map[string]gitReadWrite{
@@ -54,21 +54,21 @@ func gitReadWrites() map[string]gitReadWrite {
 // went ahead.
 func writesWired(ran *int) webserver.Deps {
 	deps := filledDeps()
-	deps.Git.Push = func(string) (proc.Output, error) {
+	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 		*ran++
 
 		return fakeOutput(nil, nil), nil
 	}
 	deps.Git.Commit = deps.Git.Push
-	deps.Git.Checkout = func(string) error {
+	deps.Git.Checkout = func(context.Context, string) error {
 		*ran++
 
 		return nil
 	}
 
 	checkout := deps.Git.Checkout
-	deps.Git.CreateBranch = func(name, _ string) error { return checkout(name) }
-	deps.Jira.LinkPullRequest = func(_ context.Context, _ jira.Key, url, _ string) error { return checkout(url) }
+	deps.Git.CreateBranch = func(ctx context.Context, name, _ string) error { return checkout(ctx, name) }
+	deps.Jira.LinkPullRequest = func(ctx context.Context, _ jira.Key, url, _ string) error { return checkout(ctx, url) }
 
 	return deps
 }
@@ -173,8 +173,8 @@ func TestAServerOutsideARepositoryAnswersItsReadsWithAConflict(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, readErr }
-			deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, readErr }
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, readErr }
+			deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, readErr }
 
 			// Act
 			recorder := get(t, serve(t, deps, config.Default()), path)

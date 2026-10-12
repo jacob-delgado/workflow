@@ -127,7 +127,7 @@ func TestOpenPullRequestOffersNothingForABranchNamingNoJiraIssue(t *testing.T) {
 
 			// Arrange
 			deps := followableDeps()
-			deps.Git.Branch = func() (gitrepo.Branch, error) {
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 				branch := pushedBranch()
 				branch.Name = name
 

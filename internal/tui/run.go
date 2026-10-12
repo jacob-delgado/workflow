@@ -327,7 +327,7 @@ func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case !r.done:
 		return r.stopRun(m, msg)
 	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), tea.Batch(loadChanges(m.deps), loadBranch(m.deps))
+		return m.closeOverlay(), tea.Batch(loadChanges(m.session, m.deps), loadBranch(m.session, m.deps))
 	case key.Matches(msg, m.keys.retry):
 		return m.startRun(r.kind, r.start, r.succeeded)
 	case key.Matches(msg, m.keys.confirm):
@@ -426,13 +426,13 @@ func (m Model) startPush(succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd
 		succeeded = func(done Model) (Model, tea.Cmd) {
 			done = done.closeOverlay().noticed(done.marks.done + " pushed " + name)
 
-			return done, loadBranch(done.deps)
+			return done, loadBranch(m.session, done.deps)
 		}
 	}
 
-	push := m.deps.Git.Push
+	ctx, push := m.session, m.deps.Git.Push
 
-	return m.startRun(pushRun(), func() (proc.Output, error) { return push(name) }, succeeded)
+	return m.startRun(pushRun(), func() (proc.Output, error) { return push(ctx, name) }, succeeded)
 }
 
 // pushRun is a push, which the remote can refuse.
@@ -448,14 +448,14 @@ func (m Model) startRebase() (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would rebase onto " + base), nil
 	}
 
-	rebase := m.deps.Git.Rebase
+	ctx, rebase := m.session, m.deps.Git.Rebase
 	succeeded := func(done Model) (Model, tea.Cmd) {
 		done = done.closeOverlay().noticed(done.marks.done + " rebased onto " + base)
 
-		return done, loadBranch(done.deps)
+		return done, loadBranch(ctx, done.deps)
 	}
 
-	return m.startRun(rebaseRun(), func() (proc.Output, error) { return rebase(base) }, succeeded)
+	return m.startRun(rebaseRun(), func() (proc.Output, error) { return rebase(ctx, base) }, succeeded)
 }
 
 // rebaseRun is a rebase, which a conflict stops midway for the shell to finish.

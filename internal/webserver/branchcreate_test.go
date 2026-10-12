@@ -52,7 +52,7 @@ func TestCreateBranchStartsWorkOnTheIssue(t *testing.T) {
 	var created string
 
 	deps := filledDeps()
-	deps.Git.CreateBranch = func(name, _ string) error {
+	deps.Git.CreateBranch = func(_ context.Context, name, _ string) error {
 		created = name
 
 		return nil
@@ -79,7 +79,7 @@ func TestCreateBranchBranchesFromTheBase(t *testing.T) {
 	var start string
 
 	deps := filledDeps()
-	deps.Git.CreateBranch = func(_, base string) error {
+	deps.Git.CreateBranch = func(_ context.Context, _, base string) error {
 		start = base
 
 		return nil
@@ -104,8 +104,8 @@ func TestCreateBranchRefusesWhenOneAlreadyExists(t *testing.T) {
 	// Arrange
 	called := false
 	deps := filledDeps()
-	deps.Git.Branches = func() ([]string, error) { return []string{wantBranchName(t)}, nil }
-	deps.Git.CreateBranch = func(string, string) error {
+	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{wantBranchName(t)}, nil }
+	deps.Git.CreateBranch = func(context.Context, string, string) error {
 		called = true
 
 		return nil
@@ -164,7 +164,7 @@ func TestCreateBranchSaysWhyTheIssueCouldNotBeRead(t *testing.T) {
 				return jira.IssueDetail{}, fmt.Errorf("reading https://%s/rest/api/2/issue/%s: %w",
 					jiraHost, startIssue, tt.cause)
 			}
-			deps.Git.CreateBranch = func(string, string) error { return nil }
+			deps.Git.CreateBranch = func(context.Context, string, string) error { return nil }
 
 			// Act
 			recorder := doCreateBranch(t, deps)
@@ -187,7 +187,7 @@ func TestCreateBranchReportsAFailedCreate(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.CreateBranch = func(string, string) error { return errSeam }
+	deps.Git.CreateBranch = func(context.Context, string, string) error { return errSeam }
 
 	// Act
 	recorder := doCreateBranch(t, deps)
@@ -208,14 +208,14 @@ func TestCreateBranchSucceedsEvenIfTheRereadFails(t *testing.T) {
 	created := false
 	deps := filledDeps()
 	branch := deps.Git.Branch
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
 		if created {
 			return gitrepo.Branch{}, errSeam
 		}
 
-		return branch()
+		return branch(ctx)
 	}
-	deps.Git.CreateBranch = func(string, string) error {
+	deps.Git.CreateBranch = func(context.Context, string, string) error {
 		created = true
 
 		return nil
@@ -243,8 +243,8 @@ func TestCreateBranchAnswersTheCreatedNameWhenNoBranchCanBeRead(t *testing.T) {
 	var created string
 
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-	deps.Git.CreateBranch = func(name, _ string) error {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps.Git.CreateBranch = func(_ context.Context, name, _ string) error {
 		created = name
 
 		return nil
@@ -270,7 +270,7 @@ func TestCreateBranchIsUnavailableWithoutAGitSeam(t *testing.T) {
 	// any one means it is not available. filledDeps leaves CreateBranch nil, so the
 	// other two cases set it to isolate the seam under test.
 	withCreate := func(deps webserver.Deps) webserver.Deps {
-		deps.Git.CreateBranch = func(string, string) error { return nil }
+		deps.Git.CreateBranch = func(context.Context, string, string) error { return nil }
 
 		return deps
 	}
@@ -314,7 +314,7 @@ func TestCreateBranchNeverForwardsGitsOwnWords(t *testing.T) {
 	// fetches from the remote, so git's own words can name it; the detail names
 	// the issue and what to do, and never the host.
 	deps := filledDeps()
-	deps.Git.CreateBranch = func(name, _ string) error {
+	deps.Git.CreateBranch = func(_ context.Context, name, _ string) error {
 		return fmt.Errorf("creating branch %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
 			name, errSeam, gitHost)
 	}

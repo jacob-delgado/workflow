@@ -4,6 +4,7 @@
 package wiring_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"slices"
@@ -23,6 +24,18 @@ func summaryDay() (time.Time, time.Time) {
 	start := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
 
 	return start, start.Add(24 * time.Hour)
+}
+
+// commitsOnTheDay is what read answers for summaryDay, asked under the test's
+// context.
+func commitsOnTheDay(
+	t *testing.T, read func(context.Context, time.Time, time.Time) []loop.RepositoryCommits,
+) []loop.RepositoryCommits {
+	t.Helper()
+
+	start, end := summaryDay()
+
+	return read(t.Context(), start, end)
 }
 
 func TestTheTasksYouTouchedAreReadThroughTheTaskSeam(t *testing.T) {
@@ -90,7 +103,7 @@ func TestYourCommitsAreReadFromTheRepositoryWorkflowIsIn(t *testing.T) {
 	gitSeams := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir()}, nil).Git
 
 	// Act
-	read := gitSeams.CommitsBetween(summaryDay())
+	read := commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 	// Assert
 	if len(read) != 1 || read[0].Failed == nil {
@@ -108,7 +121,7 @@ func TestYourCommitsInARepositoryNoLongerThereSayWhy(t *testing.T) {
 	gitSeams := wired(t, config.Default(), removed, nil).Git
 
 	// Act
-	read := gitSeams.CommitsBetween(summaryDay())
+	read := commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 	// Assert
 	if len(read) != 1 || read[0].Failed == nil {
@@ -144,7 +157,7 @@ func TestYourCommitsAreFoundUnderAnEmailWithAPlus(t *testing.T) {
 	gitSeams := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Git
 
 	// Act
-	read := gitSeams.CommitsBetween(summaryDay())
+	read := commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 	// Assert
 	if commits := onlyRepository(read); len(commits) != 1 || commits[0].Subject != "feat: mine" {
@@ -161,7 +174,7 @@ func TestAStashIsNotOneOfYourCommits(t *testing.T) {
 	gitSeams := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Git
 
 	// Act
-	read := gitSeams.CommitsBetween(summaryDay())
+	read := commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 	// Assert
 	if commits := onlyRepository(read); len(commits) != 1 || commits[0].Subject != "feat: mine" {
@@ -204,7 +217,7 @@ func TestYourCommitsAreReadFromEveryFavoriteThatIsARepository(t *testing.T) {
 	gitSeams := favoring(t, here, web, t.TempDir()).Git
 
 	// Act
-	read := gitSeams.CommitsBetween(summaryDay())
+	read := commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 	// Assert
 	names := make([]string, 0, len(read))
@@ -234,7 +247,7 @@ func TestAFavoriteWithinTheRepositoryYouAreInIsNotReadTwice(t *testing.T) {
 	gitSeams := favoring(t, here, within).Git
 
 	// Act
-	read := gitSeams.CommitsBetween(summaryDay())
+	read := commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 	// Assert
 	if commits := onlyRepository(read); len(commits) != 1 {
@@ -255,7 +268,7 @@ func TestOutsideARepositoryYourFavoritesAreStillRead(t *testing.T) {
 	}
 
 	// Act
-	read := deps.Git.CommitsBetween(summaryDay())
+	read := commitsOnTheDay(t, deps.Git.CommitsBetween)
 
 	// Assert
 	if commits := onlyRepository(read); len(commits) != 1 {
@@ -277,7 +290,7 @@ func TestTheNameOfARepositoryReachesTheSummaryNeutralized(t *testing.T) {
 	gitSeams := favoring(t, here, hostile).Git
 
 	// Act
-	read := gitSeams.CommitsBetween(summaryDay())
+	read := commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 	// Assert
 	if len(read) != 2 || strings.ContainsRune(read[1].Repository, '\x1b') {
@@ -294,7 +307,7 @@ func TestAWorktreeOfTheRepositoryYouAreInIsNotReadTwice(t *testing.T) {
 	gitSeams := favoring(t, here, worktree).Git
 
 	// Act
-	read := gitSeams.CommitsBetween(summaryDay())
+	read := commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 	// Assert
 	if commits := onlyRepository(read); len(commits) != 1 {
@@ -310,7 +323,7 @@ func TestADryRunsSummaryMakesNoStore(t *testing.T) {
 	gitSeams := wired(t, config.Default(), process.Locate(t.Context(), committedOn(t, "me@example.com")), nil).Git
 
 	// Act
-	gitSeams.CommitsBetween(summaryDay())
+	commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 	// Assert
 	var made []string
@@ -372,7 +385,7 @@ func TestRepositoriesThatShareANameAreToldApartByTheirDirectories(t *testing.T) 
 			gitSeams := favoring(t, committedOn(t, "me@example.com"), work, oss).Git
 
 			// Act
-			read := gitSeams.CommitsBetween(summaryDay())
+			read := commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 			// Assert
 			names := make([]string, 0, len(read))
@@ -399,7 +412,7 @@ func TestManyFavoritesAreReadInTheOrderTheyAreKept(t *testing.T) {
 	gitSeams := favoring(t, committedOn(t, "me@example.com"), favorites...).Git
 
 	// Act
-	read := gitSeams.CommitsBetween(summaryDay())
+	read := commitsOnTheDay(t, gitSeams.CommitsBetween)
 
 	// Assert
 	names := make([]string, 0, len(read))
@@ -445,7 +458,7 @@ func TestARepositoryWithinACopyOfAnotherIsNamedWithoutItsFullPath(t *testing.T) 
 	gitSeams := favoring(t, original, backup).Git
 
 	// Act
-	names := readNames(gitSeams.CommitsBetween(summaryDay()))
+	names := readNames(commitsOnTheDay(t, gitSeams.CommitsBetween))
 
 	// Assert
 	if len(names) != 2 || names[0] == names[1] || strings.HasPrefix(names[0], "/") || strings.HasPrefix(names[1], "/") {
@@ -462,7 +475,7 @@ func TestTheNameOfADirectoryNeverPassesForAForgeRepository(t *testing.T) {
 	gitSeams := favoring(t, forged, mine, other).Git
 
 	// Act
-	names := readNames(gitSeams.CommitsBetween(summaryDay()))
+	names := readNames(commitsOnTheDay(t, gitSeams.CommitsBetween))
 
 	// Assert
 	if want := []string{forgedPath, "…/" + forgedPath, "…/other/api"}; !slices.Equal(names, want) {

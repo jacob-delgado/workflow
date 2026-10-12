@@ -26,13 +26,13 @@ var errSwitchRefused = errors.New("git refused the switch")
 // alone when it cannot be read back; the event stream re-pushes the rest of the
 // state.
 func (s *server) Checkout(
-	_ context.Context, request api.CheckoutRequestObject,
+	ctx context.Context, request api.CheckoutRequestObject,
 ) (api.CheckoutResponseObject, error) {
 	if s.deps.Git.Checkout == nil || s.deps.Git.Branch == nil {
 		return unprocessable("checking out is not available"), nil
 	}
 
-	branch, err := s.switchTo(request.Body.Branch)
+	branch, err := s.switchTo(ctx, request.Body.Branch)
 
 	switch {
 	case err == nil:
@@ -50,29 +50,29 @@ func (s *server) Checkout(
 
 // switchTo refuses a dirty working tree, then checks out name and returns the
 // branch now in effect.
-func (s *server) switchTo(name string) (gitrepo.Branch, error) {
-	err := s.refuseADirtyTree()
+func (s *server) switchTo(ctx context.Context, name string) (gitrepo.Branch, error) {
+	err := s.refuseADirtyTree(ctx)
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
 
-	err = s.deps.Git.Checkout(name)
+	err = s.deps.Git.Checkout(ctx, name)
 	if err != nil {
 		return gitrepo.Branch{}, fmt.Errorf("%w: checking out %s: %w", errSwitchRefused, name, err)
 	}
 
-	return s.branchAfter(gitrepo.Branch{Name: name}), nil
+	return s.branchAfter(ctx, gitrepo.Branch{Name: name}), nil
 }
 
 // refuseADirtyTree refuses a tree that carries any change, so a switch never
 // moves uncommitted work onto another branch. A missing changes seam reads as
 // clean rather than blocking the switch.
-func (s *server) refuseADirtyTree() error {
+func (s *server) refuseADirtyTree(ctx context.Context) error {
 	if s.deps.Git.Changes == nil {
 		return nil
 	}
 
-	changes, err := s.deps.Git.Changes()
+	changes, err := s.deps.Git.Changes(ctx)
 	if err != nil {
 		return err
 	}

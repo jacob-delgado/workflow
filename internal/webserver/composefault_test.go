@@ -100,8 +100,8 @@ func TestAFailedBranchReadIsNotNothingToOpen(t *testing.T) {
 			wrote := 0
 
 			deps := openableDeps()
-			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, readErr }
-			deps.Git.Push = func(string) (proc.Output, error) {
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, readErr }
+			deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 				wrote++
 
 				return fakeOutput(nil, nil), nil

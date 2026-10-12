@@ -69,66 +69,66 @@ type Jira struct {
 
 // Git is what a surface asks of the repository.
 type Git struct {
-	Branch  func() (gitrepo.Branch, error)
-	Changes func() ([]gitrepo.Change, error)
+	Branch  func(ctx context.Context) (gitrepo.Branch, error)
+	Changes func(ctx context.Context) ([]gitrepo.Change, error)
 	// CommitsBetween is the commits you wrote from start up to end, for the
 	// Summary: in the repository workflow is in and in every favorite that is
 	// a repository, each read once.
-	CommitsBetween func(start, end time.Time) []loop.RepositoryCommits
+	CommitsBetween func(ctx context.Context, start, end time.Time) []loop.RepositoryCommits
 	// Diff reads a changed file's diff against HEAD, line by line, so it can be
 	// read before staging. Nil when there is no repository.
-	Diff    func(change gitrepo.Change) ([]string, error)
-	Stage   func(change gitrepo.Change) error
-	Unstage func(change gitrepo.Change) error
+	Diff    func(ctx context.Context, change gitrepo.Change) ([]string, error)
+	Stage   func(ctx context.Context, change gitrepo.Change) error
+	Unstage func(ctx context.Context, change gitrepo.Change) error
 	// Discard drops a change from the index and the work tree, which cannot be
 	// undone. Nil when there is no repository.
-	Discard      func(change gitrepo.Change) error
-	CreateBranch func(name, start string) error
+	Discard      func(ctx context.Context, change gitrepo.Change) error
+	CreateBranch func(ctx context.Context, name, start string) error
 	// Branches lists the local branches; Checkout switches to one. Nil when
 	// there is no repository.
-	Branches func() ([]string, error)
-	Checkout func(name string) error
+	Branches func(ctx context.Context) ([]string, error)
+	Checkout func(ctx context.Context, name string) error
 	// RemoteBranches lists the branches on the remotes by name, so the pull
 	// request's base field can complete to one. Nil when there is no repository.
-	RemoteBranches func() ([]string, error)
+	RemoteBranches func(ctx context.Context) ([]string, error)
 	// ChangedPaths lists the paths the branch changes since it left base, and
 	// CodeOwnersAt reads the CODEOWNERS file as base holds it, in the forge's
 	// dialect, reporting false when there is none: together they name the
 	// owners of a pull request's changes. Nil when there is no repository.
-	ChangedPaths func(base string) ([]string, error)
-	CodeOwnersAt func(base string) (codeowners.File, bool, error)
+	ChangedPaths func(ctx context.Context, base string) ([]string, error)
+	CodeOwnersAt func(ctx context.Context, base string) (codeowners.File, bool, error)
 	// RecentSubjects reads the subjects of recent commits, so the commit scope
 	// field can complete from the scopes already in use. Nil when there is no
 	// repository.
-	RecentSubjects func() ([]string, error)
+	RecentSubjects func(ctx context.Context) ([]string, error)
 	// CreateWorktree creates a branch in a new worktree beside the repository and
 	// returns where it put it, so a task can be started without disturbing the
 	// current checkout. Nil when there is no repository.
-	CreateWorktree func(name, start string) (string, error)
+	CreateWorktree func(ctx context.Context, name, start string) (string, error)
 	// Fetch updates origin's tracking refs, so a new branch starts from what
 	// origin holds now. Nil when there is no repository.
-	Fetch func() error
+	Fetch func(ctx context.Context) error
 	// Commit and Push stream their output, because hooks run inside both.
-	Commit func(message string) (proc.Output, error)
-	Push   func(branch string) (proc.Output, error)
+	Commit func(ctx context.Context, message string) (proc.Output, error)
+	Push   func(ctx context.Context, branch string) (proc.Output, error)
 	// Amend folds the staged changes into the last commit, keeping its message;
 	// Fixup records a fixup! of an earlier commit. Both stream their output,
 	// because hooks run inside them. Nil when there is no repository.
-	Amend func() (proc.Output, error)
-	Fixup func(hash string) (proc.Output, error)
+	Amend func(ctx context.Context) (proc.Output, error)
+	Fixup func(ctx context.Context, hash string) (proc.Output, error)
 	// Rebase replays the branch onto base and streams its output. A conflict
 	// leaves the repository mid-rebase for the shell. Nil when there is no
 	// repository.
-	Rebase func(base string) (proc.Output, error)
+	Rebase func(ctx context.Context, base string) (proc.Output, error)
 	// Finish finishes a merged branch: switch to base, fast-forward it, delete
 	// the branch. Nil when there is no repository.
-	Finish func(branch, base string) error
+	Finish func(ctx context.Context, branch, base string) error
 	// IssueLinks is every branch linked to an issue by hand, by branch name;
 	// LinkIssue links a branch to an issue, and UnlinkIssue forgets its link.
 	// Nil when there is no repository.
-	IssueLinks  func() map[string]string
-	LinkIssue   func(branch, issueKey string) error
-	UnlinkIssue func(branch string) error
+	IssueLinks  func(ctx context.Context) map[string]string
+	LinkIssue   func(ctx context.Context, branch, issueKey string) error
+	UnlinkIssue func(ctx context.Context, branch string) error
 }
 
 // Forge is what a surface asks of GitHub or GitLab.

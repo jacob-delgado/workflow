@@ -23,8 +23,8 @@ import (
 // statusSeams are what `workflow status` reads to build its line. They are
 // seams so a test can answer without a repository or a network.
 type statusSeams struct {
-	Branch      func() (gitrepo.Branch, error)
-	Changes     func() ([]gitrepo.Change, error)
+	Branch      func(ctx context.Context) (gitrepo.Branch, error)
+	Changes     func(ctx context.Context) ([]gitrepo.Change, error)
 	FindPull    func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
 	CheckStatus func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error)
 	Issue       func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)

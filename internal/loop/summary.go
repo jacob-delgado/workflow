@@ -44,8 +44,10 @@ type RepositoryCommits struct {
 // each named by its repository when there is more than one. A commit two
 // repositories share — a fork, a second clone — is read once, from the first;
 // a repository that cannot be read is named in the failure, and the others'
-// commits are still read.
-func CommitsRead(read func(start, end time.Time) []RepositoryCommits, start, end time.Time) activity.Read {
+// commits are still read. The repositories are read under ctx.
+func CommitsRead(
+	ctx context.Context, read func(ctx context.Context, start, end time.Time) []RepositoryCommits, start, end time.Time,
+) activity.Read {
 	var (
 		items    []activity.Item
 		failures []error
@@ -53,7 +55,7 @@ func CommitsRead(read func(start, end time.Time) []RepositoryCommits, start, end
 
 	seen := map[string]bool{}
 
-	for _, repository := range read(start, end) {
+	for _, repository := range read(ctx, start, end) {
 		if repository.Failed != nil {
 			failures = append(failures, repository.failure())
 		}
@@ -280,7 +282,7 @@ func ForgeRead(
 // BrowseURL links an issue — and on the forge, whose changes ForgeKind names.
 // A nil read is a source the Summary does not ask.
 type ActivitySeams struct {
-	Commits   func(start, end time.Time) []RepositoryCommits
+	Commits   func(ctx context.Context, start, end time.Time) []RepositoryCommits
 	Touched   func(ctx context.Context, since time.Time) ([]taskwarrior.Task, error)
 	Jira      func(ctx context.Context, start, end time.Time) (jira.Activity, error)
 	BrowseURL func(jira.Key) string
@@ -303,8 +305,8 @@ func SummaryReads(seams ActivitySeams, start, end time.Time) []SourceRead {
 	var reads []SourceRead
 
 	if seams.Commits != nil {
-		reads = append(reads, SourceRead{activity.SourceGit, func(context.Context) activity.Read {
-			return CommitsRead(seams.Commits, start, end)
+		reads = append(reads, SourceRead{activity.SourceGit, func(ctx context.Context) activity.Read {
+			return CommitsRead(ctx, seams.Commits, start, end)
 		}})
 	}
 

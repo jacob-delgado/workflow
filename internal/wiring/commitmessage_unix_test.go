@@ -46,7 +46,7 @@ func TestACommitWhoseMessageCannotBeWrittenWholeLeavesNothingBehind(t *testing.T
 	lift := rlimit.Lower(t, syscall.RLIMIT_FSIZE, fileSizeLimit)
 
 	// Act
-	_, err := repo.Commit(message)
+	_, err := repo.Commit(t.Context(), message)
 
 	lift()
 

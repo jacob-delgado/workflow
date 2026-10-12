@@ -29,12 +29,12 @@ func TestGetPullRequestDraftProposesTheCodeOwnersAsReviewers(t *testing.T) {
 	var read []string
 
 	deps := openableDeps()
-	deps.Git.ChangedPaths = func(base string) ([]string, error) {
+	deps.Git.ChangedPaths = func(_ context.Context, base string) ([]string, error) {
 		read = append(read, base)
 
 		return []string{"api/pull.go"}, nil
 	}
-	deps.Git.CodeOwnersAt = func(base string) (codeowners.File, bool, error) {
+	deps.Git.CodeOwnersAt = func(_ context.Context, base string) (codeowners.File, bool, error) {
 		read = append(read, base)
 
 		return codeowners.Parse("* @"+ownedUser+" @Me @"+ownedTeam, codeowners.GitHub), true, nil

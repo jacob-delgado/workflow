@@ -4,6 +4,7 @@
 package loop
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -43,15 +44,18 @@ func (PushFailedError) Unwrap() error {
 	return ErrPushFailed
 }
 
-// Push publishes branch through push, draining its output so the push runs to
-// completion. A push that ran and failed is a PushFailedError; one that could
-// not start returns the seam's own error, for the caller to word.
-func Push(push func(branch string) (proc.Output, error), branch string) error {
+// Push publishes branch through push, under ctx, draining its output so the
+// push runs to completion. A push that ran and failed is a PushFailedError;
+// one that could not start returns the seam's own error, for the caller to
+// word.
+func Push(
+	ctx context.Context, push func(ctx context.Context, branch string) (proc.Output, error), branch string,
+) error {
 	if push == nil {
 		return ErrPushUnavailable
 	}
 
-	output, err := push(branch)
+	output, err := push(ctx, branch)
 	if err != nil {
 		return err
 	}
@@ -66,23 +70,25 @@ func Push(push func(branch string) (proc.Output, error), branch string) error {
 
 // EnsurePushed publishes the branch when its remote does not have it yet, since
 // a pull request cannot open from an unpushed branch. A pushed branch is left
-// alone.
-func EnsurePushed(push func(branch string) (proc.Output, error), branch gitrepo.Branch) error {
+// alone. The push runs under ctx.
+func EnsurePushed(
+	ctx context.Context, push func(ctx context.Context, branch string) (proc.Output, error), branch gitrepo.Branch,
+) error {
 	if branch.Pushed() {
 		return nil
 	}
 
-	return Push(push, branch.Name)
+	return Push(ctx, push, branch.Name)
 }
 
 // FetchThen fetches origin, so a new branch starts from what origin holds now,
 // then makes it through create. A nil fetch — no base to refresh, or the
 // person chose to branch from what they have — makes it at once. A fetch that
 // fails makes nothing and is ErrFetchFailed, wrapping the fetch's own error
-// for a surface that may show it.
-func FetchThen(fetch func() error, create func() error) error {
+// for a surface that may show it. The fetch runs under ctx.
+func FetchThen(ctx context.Context, fetch func(ctx context.Context) error, create func() error) error {
 	if fetch != nil {
-		err := fetch()
+		err := fetch(ctx)
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrFetchFailed, err)
 		}

@@ -34,12 +34,12 @@ const pushNotStarted = "the push could not be started; push from a terminal to s
 // its output with its URLs and user@host:path addresses taken out, one that
 // cannot start a 422 saying how to see why, and a branch that cannot be read is
 // answered by fault. On success it returns the branch as published.
-func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushResponseObject, error) {
+func (s *server) Push(ctx context.Context, _ api.PushRequestObject) (api.PushResponseObject, error) {
 	if s.deps.Git.Push == nil || s.deps.Git.Branch == nil {
 		return pushUnprocessable("pushing is not available"), nil
 	}
 
-	branch, err := s.deps.Git.Branch()
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return problemAnswer[api.PushdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -49,12 +49,12 @@ func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushRespo
 			problem(api.ProblemCodeConflict, "there is nothing to push")), nil
 	}
 
-	err = loop.Push(s.deps.Git.Push, branch.Name)
+	err = loop.Push(ctx, s.deps.Git.Push, branch.Name)
 	if err != nil {
 		return pushUnprocessable(pushFailure(err)), nil
 	}
 
-	return api.Push200JSONResponse(branchDTO(s.branchAfter(branch))), nil
+	return api.Push200JSONResponse(branchDTO(s.branchAfter(ctx, branch))), nil
 }
 
 // nothingToPush reports whether the branch has nothing to send: the tree is not

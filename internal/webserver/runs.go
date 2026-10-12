@@ -59,7 +59,7 @@ type goingRun struct {
 type plannedRun struct {
 	kind      api.RunKind
 	title     string
-	start     func() (proc.Output, error)
+	start     func(ctx context.Context) (proc.Output, error)
 	succeeded string
 	refused   string
 }
@@ -82,7 +82,9 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	planned, err := s.planRun(asked)
+	ctx := request.Context()
+
+	planned, err := s.planRun(ctx, asked)
 	if err != nil {
 		writeRunRefusal(w, err)
 
@@ -100,7 +102,7 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 	s.indexWrites.Lock()
 	defer s.indexWrites.Unlock()
 
-	output, err := planned.start()
+	output, err := planned.start(ctx)
 	if err != nil {
 		writeProblem(w, api.ProblemCodeUnprocessable,
 			planned.title+" could not be started; run it from a terminal to see why")
@@ -123,9 +125,9 @@ func writeRunRefusal(w http.ResponseWriter, err error) {
 
 // planRun is the run asked for, read against the branch and the changes as
 // they stand: a rebase onto the base git names, and an amend or a fixup only of
-// a commit not yet pushed.
-func (s *server) planRun(asked api.RunRequest) (plannedRun, error) {
-	planners := map[api.RunKind]func(api.RunRequest) (plannedRun, error){
+// a commit not yet pushed. They are read under ctx.
+func (s *server) planRun(ctx context.Context, asked api.RunRequest) (plannedRun, error) {
+	planners := map[api.RunKind]func(context.Context, api.RunRequest) (plannedRun, error){
 		api.RunKindPreCommit: s.planPreCommit,
 		api.RunKindRebase:    s.planRebase,
 		api.RunKindAmend:     s.planAmend,
@@ -133,11 +135,11 @@ func (s *server) planRun(asked api.RunRequest) (plannedRun, error) {
 	}
 
 	// The contract admits only these kinds, so every request names one.
-	return planners[asked.Kind](asked)
+	return planners[asked.Kind](ctx, asked)
 }
 
 // planPreCommit runs the pre-commit hook on what is staged.
-func (s *server) planPreCommit(api.RunRequest) (plannedRun, error) {
+func (s *server) planPreCommit(context.Context, api.RunRequest) (plannedRun, error) {
 	if s.deps.Hooks.Run == nil {
 		return plannedRun{}, errRunUnavailable
 	}
@@ -146,18 +148,18 @@ func (s *server) planPreCommit(api.RunRequest) (plannedRun, error) {
 
 	return plannedRun{
 		kind: api.RunKindPreCommit, title: preCommitHook,
-		start:     func() (proc.Output, error) { return run(preCommitHook) },
+		start:     func(context.Context) (proc.Output, error) { return run(preCommitHook) },
 		succeeded: "The pre-commit hook passed.", refused: "The pre-commit hook failed.",
 	}, nil
 }
 
 // planRebase replays the checked-out branch onto its base.
-func (s *server) planRebase(api.RunRequest) (plannedRun, error) {
+func (s *server) planRebase(ctx context.Context, _ api.RunRequest) (plannedRun, error) {
 	if s.deps.Git.Rebase == nil || s.deps.Git.Branch == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
-	branch, err := s.deps.Git.Branch()
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil || !loop.CanRebase(branch) {
 		return plannedRun{}, errNothingToRebase
 	}
@@ -166,7 +168,7 @@ func (s *server) planRebase(api.RunRequest) (plannedRun, error) {
 
 	return plannedRun{
 		kind: api.RunKindRebase, title: "git rebase",
-		start:     func() (proc.Output, error) { return rebase(branch.Base) },
+		start:     func(ctx context.Context) (proc.Output, error) { return rebase(ctx, branch.Base) },
 		succeeded: "Rebased onto " + branch.BaseName() + ".",
 		refused: "The rebase stopped: resolve the conflict in a terminal, " +
 			"then go on with git rebase --continue, or undo it with git rebase --abort.",
@@ -175,12 +177,12 @@ func (s *server) planRebase(api.RunRequest) (plannedRun, error) {
 
 // planAmend folds the staged changes into the branch's last commit, which
 // must be one not yet pushed.
-func (s *server) planAmend(api.RunRequest) (plannedRun, error) {
+func (s *server) planAmend(ctx context.Context, _ api.RunRequest) (plannedRun, error) {
 	if s.deps.Git.Amend == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
-	foldable, err := s.foldable()
+	foldable, err := s.foldable(ctx)
 	if err != nil {
 		return plannedRun{}, err
 	}
@@ -195,12 +197,12 @@ func (s *server) planAmend(api.RunRequest) (plannedRun, error) {
 
 // planFixup records a fixup! of the commit asked for, which must be one not
 // yet pushed.
-func (s *server) planFixup(asked api.RunRequest) (plannedRun, error) {
+func (s *server) planFixup(ctx context.Context, asked api.RunRequest) (plannedRun, error) {
 	if s.deps.Git.Fixup == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
-	foldable, err := s.foldable()
+	foldable, err := s.foldable(ctx)
 	if err != nil {
 		return plannedRun{}, err
 	}
@@ -214,24 +216,24 @@ func (s *server) planFixup(asked api.RunRequest) (plannedRun, error) {
 
 	return plannedRun{
 		kind: api.RunKindFixup, title: "git commit --fixup",
-		start:     func() (proc.Output, error) { return fixup(chosen.Hash) },
+		start:     func(ctx context.Context) (proc.Output, error) { return fixup(ctx, chosen.Hash) },
 		succeeded: "Recorded a fixup! of " + chosen.Subject + ".", refused: "The fixup was refused.",
 	}, nil
 }
 
 // foldable is the commits staged changes can be folded into, by loop's rule,
-// or errNothingToFold.
-func (s *server) foldable() ([]gitrepo.Commit, error) {
+// or errNothingToFold, read under ctx.
+func (s *server) foldable(ctx context.Context) ([]gitrepo.Commit, error) {
 	if s.deps.Git.Branch == nil || s.deps.Git.Changes == nil {
 		return nil, errRunUnavailable
 	}
 
-	branch, err := s.deps.Git.Branch()
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return nil, errNothingToFold
 	}
 
-	changes, err := s.deps.Git.Changes()
+	changes, err := s.deps.Git.Changes(ctx)
 	if err != nil {
 		return nil, errNothingToFold
 	}

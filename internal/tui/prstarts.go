@@ -19,7 +19,7 @@ import (
 // opened, the repository's templates and the remote branches its base can
 // complete to: files and git, read off the update loop so the composer never
 // waits on them.
-func readPullRequestStarts(deps Deps, opened int) tea.Cmd {
+func readPullRequestStarts(ctx context.Context, deps Deps, opened int) tea.Cmd {
 	templates, remoteBranches := deps.Forge.Templates, deps.Git.RemoteBranches
 	if templates == nil && remoteBranches == nil {
 		return nil
@@ -34,7 +34,7 @@ func readPullRequestStarts(deps Deps, opened int) tea.Cmd {
 		if remoteBranches != nil {
 			// A failure to list is no reason to refuse the composer: its base
 			// is simply left without completions.
-			read.branches, _ = remoteBranches()
+			read.branches, _ = remoteBranches(ctx)
 		}
 
 		return read

@@ -144,7 +144,7 @@ func (s *server) branchOwners(ctx context.Context) codeowners.Owners {
 		return codeowners.Owners{}
 	}
 
-	branch, err := s.deps.Git.Branch()
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return codeowners.Owners{}
 	}

@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -43,10 +44,10 @@ func TestTheBranchOverlayShowsHowOldTheBaseIs(t *testing.T) {
 // outsideARepository has git answer, of the branch and the status, that the
 // directory is not a repository.
 func outsideARepository(deps *tui.Deps) {
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, fmt.Errorf("%w: /home/example", gitrepo.ErrNotARepository)
 	}
-	deps.Git.Changes = func() ([]gitrepo.Change, error) {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) {
 		return nil, fmt.Errorf("reading the status: %w", gitrepo.ErrNotARepository)
 	}
 }
@@ -224,7 +225,7 @@ func TestABranchThatCannotBeReadSaysSo(t *testing.T) {
 
 	// Arrange
 	deps := newWorld().deps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errNotVisible }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errNotVisible }
 	model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
 
 	// Act

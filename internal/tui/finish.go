@@ -127,10 +127,10 @@ func (p finishPreview) confirm(m Model) (Model, tea.Cmd) {
 
 	p.send = starting()
 	m.overlay = p
-	branch, base, finish := p.branch, p.base, m.deps.Git.Finish
+	ctx, branch, base, finish := m.session, p.branch, p.base, m.deps.Git.Finish
 
 	return m, func() tea.Msg {
-		return finished{branch: branch, err: finish(branch, base)}
+		return finished{branch: branch, err: finish(ctx, branch, base)}
 	}
 }
 
@@ -152,7 +152,7 @@ func (msg finished) apply(m Model) (Model, tea.Cmd) {
 
 	done := m.closeOverlay().noticed(m.marks.done + " finished " + msg.branch)
 
-	return done, loadBranch(done.deps)
+	return done, loadBranch(m.session, done.deps)
 }
 
 // failed is the preview kept open with the reason the finish failed.

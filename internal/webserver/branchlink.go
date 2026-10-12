@@ -34,7 +34,7 @@ func (s *server) LinkBranchIssue(
 			refusal(known, errNotAnIssue, errCannotLink))), nil
 	}
 
-	branch, err := s.linkableBranch()
+	branch, err := s.linkableBranch(ctx)
 	if errors.Is(err, errNoBranchToLink) {
 		return api.LinkBranchIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error())), nil
 	}
@@ -47,32 +47,32 @@ func (s *server) LinkBranchIssue(
 		return problemAnswer[api.LinkBranchIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
-	return api.LinkBranchIssue200JSONResponse(branchDTO(s.branchAfter(branch))), nil
+	return api.LinkBranchIssue200JSONResponse(branchDTO(s.branchAfter(ctx, branch))), nil
 }
 
 // UnlinkBranchIssue forgets the issue the checked-out branch was linked to.
 func (s *server) UnlinkBranchIssue(
-	_ context.Context, _ api.UnlinkBranchIssueRequestObject,
+	ctx context.Context, _ api.UnlinkBranchIssueRequestObject,
 ) (api.UnlinkBranchIssueResponseObject, error) {
 	if s.deps.Git.UnlinkIssue == nil {
 		return api.UnlinkBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			errCannotLink.Error())), nil
 	}
 
-	branch, err := s.linkableBranch()
+	branch, err := s.linkableBranch(ctx)
 	if errors.Is(err, errNoBranchToLink) {
 		return api.UnlinkBranchIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error())), nil
 	}
 
 	if err == nil {
-		err = s.deps.Git.UnlinkIssue(branch.Name)
+		err = s.deps.Git.UnlinkIssue(ctx, branch.Name)
 	}
 
 	if err != nil {
 		return problemAnswer[api.UnlinkBranchIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
-	return api.UnlinkBranchIssue200JSONResponse(branchDTO(s.branchAfter(branch))), nil
+	return api.UnlinkBranchIssue200JSONResponse(branchDTO(s.branchAfter(ctx, branch))), nil
 }
 
 // PreviewBranchIssue is what linking the checked-out branch to an issue would
@@ -112,12 +112,12 @@ func refusal(ok bool, reason, not error) string {
 
 // linkableBranch is the checked-out branch, or errNoBranchToLink when HEAD is
 // on none.
-func (s *server) linkableBranch() (gitrepo.Branch, error) {
+func (s *server) linkableBranch(ctx context.Context) (gitrepo.Branch, error) {
 	if s.deps.Git.Branch == nil {
 		return gitrepo.Branch{}, errNoBranchToLink
 	}
 
-	branch, err := s.deps.Git.Branch()
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
@@ -142,7 +142,7 @@ func (s *server) linkIssue(ctx context.Context, branch string, ref convention.Is
 		}
 	}
 
-	return s.deps.Git.LinkIssue(branch, ref.Key)
+	return s.deps.Git.LinkIssue(ctx, branch, ref.Key)
 }
 
 // namePullIssue adds the issue's line to the open pull request's description,
@@ -176,7 +176,7 @@ func (s *server) openPull(ctx context.Context) (forge.PullRequest, bool, error) 
 		return forge.PullRequest{}, false, nil
 	}
 
-	branch, err := s.linkableBranch()
+	branch, err := s.linkableBranch(ctx)
 	if errors.Is(err, errNoBranchToLink) {
 		return forge.PullRequest{}, false, nil
 	}

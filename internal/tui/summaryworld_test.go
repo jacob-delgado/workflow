@@ -43,7 +43,7 @@ func (w *world) withActivity(deps tui.Deps) tui.Deps {
 	}
 
 	done := w.done
-	deps.Git.CommitsBetween = func(start, _ time.Time) []loop.RepositoryCommits {
+	deps.Git.CommitsBetween = func(_ context.Context, start, _ time.Time) []loop.RepositoryCommits {
 		w.record(summaryRead("git", start))
 
 		if done.repositories != nil {
