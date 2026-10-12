@@ -262,8 +262,8 @@ func TestTheHelpListsEveryGroupAndScrolls(t *testing.T) {
 
 	// Assert: it starts at the first group, says there is more, and the last
 	// group is out of sight
-	requireScreen(t, short.View().Content, "┌─ Keys", "Moving around", "… more below")
-	refuseScreen(t, short.View().Content, "Everywhere")
+	requireScreen(t, short.View().Content, "┌─ Keys", movingGroup, "… more below")
+	refuseScreen(t, short.View().Content, panesAndOverlaysGroup)
 	requireScreen(t, footerLine(short.View().Content),
 		"pgup/K scroll up", "pgdn/J scroll down", "esc close", "q quit")
 
@@ -271,7 +271,7 @@ func TestTheHelpListsEveryGroupAndScrolls(t *testing.T) {
 	paged := typing(t, short, "pgdown", "pgdown", "pgdown", "pgdown", "pgdown", "pgdown")
 
 	// Assert: the group that was out of sight is in sight
-	requireScreen(t, paged.View().Content, "Everywhere")
+	requireScreen(t, paged.View().Content, panesAndOverlaysGroup)
 }
 
 func TestQQuitsFromTheHelp(t *testing.T) {

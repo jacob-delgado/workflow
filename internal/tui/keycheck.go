@@ -206,7 +206,7 @@ func sharedSectionContexts() []keyContext {
 // section: each pane's own, all at once, named for the panes.
 func shownTogether(panes []pane) keyContext {
 	titles := make([]string, 0, len(panes))
-	together := keyContext{name: "", groups: []int{groupMoving, groupEverywhere}, actions: nil}
+	together := keyContext{name: "", groups: []int{groupMoving, groupEveryPane, groupPanesAndOverlays}, actions: nil}
 
 	for _, each := range panes {
 		titles = append(titles, each.title("messaging"))

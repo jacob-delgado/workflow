@@ -152,8 +152,8 @@ type behavior struct {
 	// goes on to find its pull request and read CI: one such refresh leaves
 	// every pane it feeds fresh.
 	readsBranch bool
-	// answers are the key actions handle answers, beside the moving and
-	// everywhere keys every pane takes. With those they are the pane's key
+	// answers are the key actions handle answers, beside the moving keys and
+	// the others every pane takes. With those they are the pane's key
 	// context, in which CheckKeys refuses two actions bound to one key. handle
 	// still sees every key, so the list never turns one off.
 	answers []string
@@ -175,14 +175,14 @@ func (p pane) helpGroup() int {
 	return groupMoving + 1 + int(p)
 }
 
-// keyContext is the keys live on the pane: the moving and everywhere keys
+// keyContext is the keys live on the pane: the moving keys and the others
 // every pane takes, and the actions its handler answers. It is named for the
 // pane in a conflict CheckKeys reports, the messaging pane for no particular
 // service, since the check runs before one is chosen.
 func (p pane) keyContext() keyContext {
 	return keyContext{
 		name:    "the " + p.title("messaging") + " pane",
-		groups:  []int{groupMoving, groupEverywhere},
+		groups:  []int{groupMoving, groupEveryPane, groupPanesAndOverlays},
 		actions: behaviorOf(p).answers,
 	}
 }

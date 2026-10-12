@@ -394,13 +394,13 @@ func TestTheHelpScrollsBackUp(t *testing.T) {
 	down := typing(t, help, "j", "j")
 
 	// Assert: the first group is out of sight
-	refuseScreen(t, down.View().Content, "Moving around")
+	refuseScreen(t, down.View().Content, movingGroup)
 
 	// Act: scroll back up
 	up := typing(t, down, "k", "k")
 
 	// Assert: it is back
-	requireScreen(t, up.View().Content, "Moving around")
+	requireScreen(t, up.View().Content, movingGroup)
 }
 
 func TestAnInterfaceWithoutAClockUsesTheRealOne(t *testing.T) {

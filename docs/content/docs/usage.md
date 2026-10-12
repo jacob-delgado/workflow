@@ -234,11 +234,11 @@ lists, by where it works.
 | While a command runs | `s` | Stop it |
 | | `r` | Run it again, once it has ended |
 | | `o` | Show its full output, or every place a failed hook reported |
-| Everywhere | `enter` | Do what the bottom row names |
+| On every pane | `m` | Turn mouse capture off or on, for this session |
+| | `?` | Every key; in the help, close it |
+| | `q` | Quit, from a pane or the help |
+| On panes and in overlays | `enter` | Do what the bottom row names, wherever it names one; the help, a job's log and Local data name none |
 | | `esc` | Leave without doing it; the bottom row says how: *discard* drops what you wrote, *close* keeps it — a composer says the draft was kept — *cancel* leaves a form or a last look unsent, *back* steps out of a nested step, *skip* passes an offer up, and *stay* leaves a guard |
-| | `m` | Turn mouse capture off or on, for this session |
-| | `?` | Every key |
-| | `q` | Quit |
 | | `ctrl+c` | Quit from anywhere, even while typing or with a preview open |
 
 Every key here but the pane numbers, `1`–`9`, can be rebound with `ui.keys`;

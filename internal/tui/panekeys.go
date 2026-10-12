@@ -85,8 +85,8 @@ func reviewQueueKeys(builder *helpBuilder, into *keyMap) {
 	into.filterReviews = builder.bind(group, "filter-reviews", "filter", "f")
 }
 
-// taskKeys are the Tasks pane's bindings. m toggles the mouse everywhere, so
-// modify is e.
+// taskKeys are the Tasks pane's bindings. m toggles the mouse on every pane,
+// so modify is e.
 func taskKeys(builder *helpBuilder, into *keyMap) {
 	group := paneTasks.helpGroup()
 

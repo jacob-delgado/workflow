@@ -125,7 +125,7 @@ const listed: Omit<KeyAction, 'default'>[] = [
     keys: ['f'],
   },
   { action: 'go-to-directory', help: 'go to', group: 'Repositories', shown: 'g', keys: ['g'] },
-  { action: 'toggle-help', help: 'keys', group: 'Everywhere', shown: '?', keys: ['?'] },
+  { action: 'toggle-help', help: 'keys', group: 'On every pane', shown: '?', keys: ['?'] },
 ]
 
 export const mockKeys: KeyList = {
