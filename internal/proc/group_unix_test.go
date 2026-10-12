@@ -48,10 +48,12 @@ func TestStartKillsTheGrandchildWhenTheRunIsCanceled(t *testing.T) {
 func TestARunEndsThoughAProcessItLeftBehindHoldsItsOutput(t *testing.T) {
 	t.Parallel()
 
-	// Each helper exits at once, leaving a process behind that holds the pipe
-	// open for a minute and prints its pid, as a server a hook backgrounds
-	// does: at once, or only once the helper is gone, when the wait on the
-	// pipe pauses while that line is handed on and counts on once it has been.
+	// Each helper exits, leaving a process behind that holds the pipe open for
+	// a minute and prints its pid, as a server a hook backgrounds does: at
+	// once, or only once the helper is gone, when the wait on the pipe pauses
+	// while that line is handed on and counts on once it has been. The helper
+	// that is gone first waits to exit until the one it leaves has started,
+	// so the line comes as soon as the run has reaped it.
 	cases := map[string]string{
 		"a process that writes before the program exits": "background",
 		"a process that writes after the program exits":  "outlived",

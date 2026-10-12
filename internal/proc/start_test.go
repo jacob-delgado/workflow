@@ -31,6 +31,11 @@ const helperMode = "WORKFLOW_PROC_HELPER"
 // left it.
 const helperParent = "WORKFLOW_PROC_PARENT"
 
+// readyDescriptor is the descriptor a helper left behind says it has started
+// on: the first of the helper's ExtraFiles, after standard input, output and
+// error.
+const readyDescriptor = 3
+
 // TestMain makes this test binary the child a test starts when helperMode is
 // set, and otherwise runs the tests. The child is dispatched here rather than
 // from a test function, so it never shows up as a test that asserts nothing.
@@ -106,18 +111,32 @@ func actLeftBehind(mode string) {
 		fmt.Fprintln(os.Stdout, grand.Process.Pid)
 	case "outlived":
 		// Leave a copy of this binary behind holding standard output, which
-		// writes there only once this one has exited, and exit at once.
+		// writes there only once this one has exited, and exit once it says it
+		// has started: how long a start takes is then no part of the wait the
+		// run gives the pipe after the exit.
+		ready, readyWriter, err := os.Pipe()
+		if err != nil {
+			return
+		}
+
 		//nolint:noctx // this test binary re-run as the late writer below, in a helper that has no context to thread
 		late := exec.Command(os.Args[0], "-test.run=^$")
 
 		late.Env = append(os.Environ(), helperMode+"=late", helperParent+"="+strconv.Itoa(os.Getpid()))
 		late.Stdout = os.Stdout
+		late.ExtraFiles = []*os.File{readyWriter}
 
 		_ = late.Start()
+		_ = readyWriter.Close()
+		_, _ = ready.Read(make([]byte, 1))
 	case "late":
-		// Once the program that left this one behind has exited and been
-		// reaped, print this one's pid and hold the output, as a server a hook
-		// backgrounded does when it logs late.
+		// Say this one has started, then, once the program that left it behind
+		// has exited and been reaped, print its pid and hold the output, as a
+		// server a hook backgrounded does when it logs late.
+		started := os.NewFile(readyDescriptor, "ready")
+		_, _ = started.Write([]byte{'\n'})
+		_ = started.Close()
+
 		awaitGone(os.Getenv(helperParent))
 		fmt.Fprintln(os.Stdout, os.Getpid())
 		time.Sleep(time.Minute)
