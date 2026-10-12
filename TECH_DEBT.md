@@ -294,7 +294,11 @@ audit.
 `Client.newRequest`, jira's `Client.newJSONRequest`, messaging's
 `Client.postJSON` and `config.encodeValue` accept `any`, a caller passing a
 float, a channel or a failing marshaler would put an arm in play with no test
-behind it.
+behind it. The configuration's own encoders, `encodeValue`, `indented` and
+`decodeBuilt` (`internal/config`), panic on such a failure, as
+`regexp.MustCompile` does on a pattern that cannot compile, rather than hand
+their callers an error nothing could cause, so a failure there would now stop
+the program instead of being reported.
 
 **Reopen when.** A type encoded at one of these sites gains a float, a
 function, a channel, an interface-typed field or a `MarshalJSON` of its own;
