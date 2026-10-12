@@ -73,9 +73,15 @@ type plannedRun struct {
 func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 	var asked api.RunRequest
 
-	// The contract has checked the body against RunRequest before it reaches
-	// here, so it decodes.
-	_ = json.NewDecoder(request.Body).Decode(&asked)
+	// Trade-off TRADE-14: the contract checked the body against RunRequest
+	// before it reached here, so it decodes; one that did not would be no
+	// run to plan, and is refused as any body the server cannot read is.
+	err := json.NewDecoder(request.Body).Decode(&asked)
+	if err != nil {
+		writeRequestError(w, request, err)
+
+		return
+	}
 
 	planned, err := s.planRun(asked)
 	if err != nil {
