@@ -119,25 +119,26 @@ func TestSettledWaitsForWorkToEnd(t *testing.T) {
 }
 
 // A piece of work that follows another begins just as the first ends, and is
-// waited for too.
-func TestSettledWaitsForWorkThatFollowsWithinTheSettle(t *testing.T) {
+// waited for too, though it begins once the wait has seen nothing in flight.
+func TestSettledWaitsForWorkThatBeginsWhileItSettles(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	inFlight := lifetime.NewInFlight(200 * time.Millisecond)
-	posted := inFlight.Begin("posting a message")
+	inFlight := lifetime.NewInFlight(time.Second)
+	inFlight.Begin("posting a message")()
+
 	answered := settling(t.Context(), inFlight)
 
-	// Act: the post ends, and its record begins
-	posted()
+	time.Sleep(100 * time.Millisecond)
 
+	// Act: the post's record begins while the wait settles
 	recorded := inFlight.Begin("remembering an announcement")
 
-	// Assert: the wait goes on for the record
+	// Assert: the wait goes on for the record, past the settle
 	select {
 	case settled := <-answered:
 		t.Fatalf("Settled = %q, %v while the record was in flight, want it to wait", settled.unfinished, settled.err)
-	case <-time.After(400 * time.Millisecond):
+	case <-time.After(1500 * time.Millisecond):
 	}
 
 	// Act: the record ends
