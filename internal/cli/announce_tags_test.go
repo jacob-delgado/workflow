@@ -228,28 +228,56 @@ func TestAnnounceReadsNoDirectoryToTellItsScopes(t *testing.T) {
 func TestAnnounceWhenSlackCannotNameTheWorkspacePostsUntaggedAndSaysWhy(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	slack := fakeSlack(t, map[string]slackAnswer{slackAuthTest: {http.StatusServiceUnavailable, ""}})
-	repo := ownedRepo(t)
-	writeFile(t, repo, slackLoggedInConfig())
-	home := keptLinks(t)
+	// One auth.test answers both the scopes the token was granted and the
+	// workspace it is for. It can fail, when neither is read, though a
+	// second one asked would have answered; or name no workspace, though it
+	// lists the scopes.
+	cases := map[string]func(t *testing.T) *slackFake{
+		"an auth.test that fails": func(t *testing.T) *slackFake {
+			t.Helper()
 
-	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
-	// Assert
-	if err != nil {
-		t.Fatalf("announce --yes: %v (%+v)", err, printed)
+			slack := fakeSlack(t, nil)
+			slack.answerFirst(slackAuthTest, slackAnswer{http.StatusServiceUnavailable, ""})
+
+			return slack
+		},
+		"an auth.test that names no workspace": func(t *testing.T) *slackFake {
+			t.Helper()
+
+			return fakeSlack(t, map[string]slackAnswer{
+				slackAuthTest: {http.StatusOK, `{"ok":true,"team":"Acme","user":"ana"}`},
+			})
+		},
 	}
 
-	if !strings.Contains(printed.stderr, "can't tell which Slack workspace this token is for") ||
-		!strings.Contains(printed.stderr, "posting untagged") {
-		t.Errorf("announce said %q, want the unknown workspace named and the post said to go untagged",
-			printed.stderr)
-	}
+	for name, answering := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	if post := slack.post(t); !untagged(post) {
-		t.Errorf("announce posted %q, want it untagged", post)
+			// Arrange
+			fakeGh(t, ghResponses{pulls: openPull("Add login")})
+			slack := answering(t)
+			repo := ownedRepo(t)
+			writeFile(t, repo, slackLoggedInConfig())
+			home := keptLinks(t)
+
+			// Act
+			printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
+			// Assert
+			if err != nil {
+				t.Fatalf("announce --yes: %v (%+v)", err, printed)
+			}
+
+			if !strings.Contains(printed.stderr, "can't tell which Slack workspace this token is for") ||
+				!strings.Contains(printed.stderr, "posting untagged") {
+				t.Errorf("announce said %q, want the unknown workspace named and the post said to go untagged",
+					printed.stderr)
+			}
+
+			if post := slack.post(t); !untagged(post) {
+				t.Errorf("announce posted %q, want it untagged", post)
+			}
+		})
 	}
 }
 
