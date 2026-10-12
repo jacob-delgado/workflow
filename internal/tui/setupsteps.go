@@ -186,9 +186,9 @@ func (f setupForm) at(step setupStep) setupForm {
 	return f
 }
 
-// choiceCount is how many rows the list asked now has: where the file goes,
-// unless it is the list after a failed check or the keychain's. Only a list
-// asks; see isChoice.
+// choiceCount is how many rows the list asked now has: the choices after a
+// failed check, the keychain's two, or, for any other list, the places the
+// file can go. Only a list asks; see isChoice.
 func (f setupForm) choiceCount() int {
 	const keychainChoices = 2
 
@@ -204,7 +204,8 @@ func (f setupForm) choiceCount() int {
 }
 
 // chosen is the form with the row the cursor is on as the answer, on the
-// question that answer leads to. Only a list asks; see isChoice.
+// question that answer leads to. Only a list asks, see isChoice, so any other
+// step is left as it is.
 func (f setupForm) chosen() setupForm {
 	if f.step == stepPlace {
 		// The keychain is offered first wherever it can keep the token: it

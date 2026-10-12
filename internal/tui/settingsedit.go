@@ -369,9 +369,11 @@ func (f settingsForm) startEditing(keys keyMap, msg tea.KeyPressMsg, field setti
 	return f
 }
 
-// typingInput is the field a setting is typed into: a credential's empty and
-// echoing nothing, so what is typed for it never reaches the screen. Only a
-// setting typed into asks: changeKey toggles a toggle and moves a choice.
+// typingInput is the field a setting is typed into: a collection entry's
+// own; a credential's empty and echoing nothing, so what is typed for it
+// never reaches the screen; the adding row's with its noun as a placeholder;
+// and any other kind's holding its value as shown. Only a setting typed into
+// asks: changeKey toggles a toggle and moves a choice.
 func (f settingsForm) typingInput(field setting) textinput.Model {
 	if field.kind == settingEntry {
 		value := f.entryValue(field)
