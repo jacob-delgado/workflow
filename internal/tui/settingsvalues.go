@@ -15,10 +15,11 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
-// typedValue is what text typed into a setting stands for: the text, a count,
-// or a list's entries; and false for a credential left empty, which keeps the
-// stored one. Only a setting typed into whole asks: a toggle or a choice is
-// never typed into, and a collection's entry is kept by its own steps.
+// typedValue is what text typed into a setting stands for: a credential's
+// text, and false when it is left empty, which keeps the stored one; a
+// count's count; a list's entries; and for any other kind typed into whole,
+// the text itself. Only a setting typed into whole asks: a toggle or a choice
+// is never typed into, and a collection's entry is kept by its own steps.
 func typedValue(field setting, text string) (any, bool, error) {
 	if field.kind == settingSecret {
 		return text, text != "", nil

@@ -335,7 +335,8 @@ func (f setupForm) chooseKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // answer takes what was typed as the answer to the question asked now, or
 // writes the file once every question is answered. Only a question answered
-// by typing asks: handleKey hands a list's keys to chooseKey.
+// by typing asks: handleKey hands a list's keys to chooseKey, so any other
+// step is left as it is.
 func (f setupForm) answer(m Model) (Model, tea.Cmd) {
 	typed := strings.TrimSpace(f.input.Value())
 
