@@ -211,7 +211,8 @@ expect fail "an error arm spelled == nil that no test reached" "${error_arm_unse
 
 # An error check is any name ending in err or Err, with a capitalized or
 # numbered rest or none, or a call of a method so named, through fields and
-# calls; a name that only begins with err is no error.
+# calls; a name that only begins with err is no error, so its != nil never
+# seen true is a boolean seen one way, listed but passing.
 expect fail "an error arm of an Err method that no test reached" "[$(condition 17:5 'ctx.Err() != nil' 0 2)]" "" \
   "${fixture}:17:5 in watcher.wait: \"ctx.Err() != nil\" was never seen true, the error's arm" \
   --package "${buildinfo}" 50
@@ -222,7 +223,7 @@ expect fail "an error arm reached through a call that no test reached" \
 expect fail "an error arm of a name with a rest that no test reached" "[$(condition 25:42 'errParse != nil' 0 2)]" "" \
   "${fixture}:25:42 in watcher.wait: \"errParse != nil\" was never seen true, the error's arm" \
   --package "${buildinfo}" 50
-expect pass "a name that only begins with err" "[$(condition 29:18 'w.errorHandler != nil' 2 0)]" "" \
+expect pass "a name that only begins with err" "[$(condition 29:18 'w.errorHandler != nil' 0 2)]" "" \
   "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
 
 # So does a condition no test evaluated at all.
