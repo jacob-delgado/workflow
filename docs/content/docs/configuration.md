@@ -836,10 +836,12 @@ When yours is slower or tighter, stretch them:
 }
 ```
 
-- `request_timeout` bounds each request to a service — ten seconds unless set.
-  Raise it for an on-premises host that is slow to answer. A failed CI job's
-  log is read to its end however long that takes, so it is bounded by each
-  wait for the next part of it rather than as a whole.
+- `request_timeout` bounds each request to a service — ten seconds unless set —
+  including one `forge.cli` hands to `gh` or `glab`. Raise it for an
+  on-premises host that is slow to answer. A failed CI job's log is read to its
+  end however long that takes, so over HTTP it is bounded by each wait for the
+  next part of it rather than as a whole; `gh` and `glab` hand a log back
+  whole, so through them the bound is on the whole read.
 - `ci_interval` is how often CI is asked about while it runs — twenty seconds
   unless set — and at most how often the `--web` page's stream asks the forge
   about the branch. Lengthen it to spend less of the forge's rate limit.

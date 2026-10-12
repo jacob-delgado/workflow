@@ -19,6 +19,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // stopWait is how long a test waits for gh to be stopped before failing: a
@@ -91,7 +93,7 @@ func TestAForgeCLIRequestThatEndsStopsTheProgramCarryingIt(t *testing.T) {
 	cfg, _ := githubCLIWorkspace(t)
 	process := processEnvironment()
 
-	access, err := process.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
+	access, err := process.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, overHTTP())
 	if err != nil {
 		t.Fatalf("ReachForge through gh: %v", err)
 	}
@@ -128,5 +130,35 @@ func TestAForgeCLIRequestThatEndsStopsTheProgramCarryingIt(t *testing.T) {
 		}
 	case <-time.After(stopWait):
 		t.Fatal("gh ran on after its request ended")
+	}
+}
+
+// timing.request_timeout bounds every request the interface and the web
+// server make, one gh carries as well: a gh that never answers must not leave
+// a pane loading for as long as its asker stays.
+func TestAForgeCLIRequestIsBoundedByTheRequestTimeout(t *testing.T) {
+	// Arrange
+	begun := installSilentGH(t)
+	cfg, where := githubCLIWorkspace(t)
+	cfg.Timing.RequestTimeout = "200ms"
+	forgeSeams := wired(t, cfg, where, nil).Forge
+	answered := make(chan error, 1)
+
+	// Act
+	go func() {
+		_, _, err := forgeSeams.FindPullRequest(t.Context(), "feat/x")
+		answered <- err
+	}()
+
+	// Assert
+	awaitBegun(t, begun)
+
+	select {
+	case err := <-answered:
+		if !errors.Is(err, proc.ErrTimedOut) {
+			t.Errorf("FindPullRequest = %v, want gh stopped at the request timeout, %v", err, proc.ErrTimedOut)
+		}
+	case <-time.After(stopWait):
+		t.Fatal("gh ran on past the request timeout")
 	}
 }
