@@ -5240,7 +5240,7 @@ components:
 
     KeyList:
       type: object
-      required: [single_key_shortcuts, actions]
+      required: [single_key_shortcuts, actions, pane_sections]
       properties:
         single_key_shortcuts:
           type: boolean
@@ -5248,7 +5248,20 @@ components:
         actions:
           type: array
           items: {$ref: "#/components/schemas/KeyAction"}
+        pane_sections:
+          type: array
+          items: {$ref: "#/components/schemas/PaneSection"}
+          description: >-
+            The page's section each of the terminal's panes is shown in, in
+            the panes' order, which is the order of jump-to-pane's keys: the
+            Commits pane, the third, is part of the Branch section, so two
+            pane numbers open it. Empty where the server lists no keys.
       additionalProperties: false
+
+    PaneSection:
+      type: string
+      enum: [issues, branch, review, messaging, reviews, tasks, summary, repositories]
+      description: A section of the page that shows one or more of the terminal's panes.
 
     KeyAction:
       type: object

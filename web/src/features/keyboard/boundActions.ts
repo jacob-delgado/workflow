@@ -1,5 +1,3 @@
-import type { Section } from '@/shell/uiStore.ts'
-
 // The terminal's actions this page has a control for, by the names ui.keys
 // gives them: the ? sheet lists these, and only these, under the terminal's
 // groups. The keys come from the server; this says only which actions a
@@ -57,18 +55,3 @@ export const boundActions: ReadonlySet<string> = new Set([
 // control: the pane numbers, and the sheet.
 export const jumpAction = 'jump-to-pane'
 export const helpAction = 'toggle-help'
-
-// paneSections is the section each of the terminal's pane numbers opens, in
-// the terminal's pane order (internal/tui/panes.go): its Commits pane, the
-// third, is part of Branch here. Settings is no pane there, and has no number.
-export const paneSections: readonly Section[] = [
-  'issues',
-  'branch',
-  'branch',
-  'review',
-  'messaging',
-  'reviews',
-  'tasks',
-  'summary',
-  'repositories',
-]
