@@ -271,17 +271,24 @@ for an embedded `api/openapi.yaml` that fails to load, validate or route, and
 are compiled in (`api/embed.go`, and the `//go:embed all:dist` beside
 `Assets`), so only a build-time defect trips them, and that defect fails every
 web server test first; a seam to feed a broken spec or app would only re-test
-kin-openapi and `io/fs`. Decided 2026-09-26 in #146, kept on 2026-10-07 in the
-pre-1.0 audit, and widened to the embedded web app by the maintainer on
+kin-openapi and `io/fs`. `startRun` (`internal/webserver/runs.go`) keeps a
+seventh, for a run's request that the embedded contract admitted and that
+does not decode as `api.RunRequest`: the contract hands the server the very
+bytes it checked, and the type is generated from the same contract (`task
+gen:verify` holds the two together), so only the two disagreeing, a build
+defect again, could trip it. Decided 2026-09-26 in #146, kept on 2026-10-07
+in the pre-1.0 audit, widened to the embedded web app by the maintainer on
 2026-10-09 in the pre-1.0 paydown, when the condition coverage gate came to
-fail an arm no test reaches.
+fail an arm no test reaches, and to the run's request in the same paydown,
+when its decode came to answer a failure rather than drop it.
 
-**Cost.** Six arms no test runs; the start-up message for a broken contract,
-and the panic for an app that cannot be rooted, are read, not checked.
+**Cost.** Seven arms no test runs; the start-up message for a broken
+contract, the panic for an app that cannot be rooted, and the 400 for a run's
+request that does not decode, are read, not checked.
 
 **Reopen when.** The contract or the web app is read from anywhere but the
-binary (a file, a flag, a download), or a broken contract or app reaches a
-release.
+binary (a file, a flag, a download), a broken contract or app reaches a
+release, or a handler comes to read a body the contract has not checked.
 
 ### TRADE-16 Failures only a change between two calls can cause
 
