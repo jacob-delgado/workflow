@@ -177,10 +177,13 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 }
 
 // composedAnnouncement is the announcement composed for the branch's pull
-// request, and that pull request.
+// request, that pull request, and the branch its owners are read against: the
+// one the pull request merges into, as the forge says, or the base the branch
+// was read to have left where the forge did not say.
 type composedAnnouncement struct {
 	announcement messaging.Announcement
 	pull         forge.PullRequest
+	base         string
 }
 
 // made is what announcing it makes: the pull request at its moment.
@@ -197,13 +200,19 @@ func composeFor(seams announceSeams) (composedAnnouncement, error) {
 			errMessagingNotConfigured, config.FileName)
 	}
 
-	announcement, pull, err := loop.ComposeAnnouncement(seams.Compose, seams.Messaging, seams.Project, seams.Kind)
+	// The branch is read once, and composing is handed that read, its failure
+	// with it, so the base the tags read is the branch the announcement names.
+	compose := seams.Compose
+	branch, readErr := compose.Branch()
+	compose.Branch = func() (gitrepo.Branch, error) { return branch, readErr }
+
+	announcement, pull, err := loop.ComposeAnnouncement(compose, seams.Messaging, seams.Project, seams.Kind)
 	if errors.Is(err, loop.ErrNoPullRequest) {
 		return composedAnnouncement{}, forgeWordedError{errNoPullRequest, "there is no " + seams.Kind.Noun() +
 			" on this branch to announce; open one with `workflow pr`"}
 	}
 
-	return composedAnnouncement{announcement: announcement, pull: pull}, err
+	return composedAnnouncement{announcement: announcement, pull: pull, base: cmp.Or(pull.Base, branch.Base)}, err
 }
 
 // pendingAnnouncement is an announcement previewed and not yet sent: what
@@ -220,7 +229,7 @@ func previewAnnouncement(out output, seams announceSeams, composed composedAnnou
 	fmt.Fprintln(out.artifact, text)
 	fmt.Fprintln(out.artifact, "to "+seams.Messaging.Target())
 
-	mentions, memory := tagAnnouncement(out, seams, composed.announcement.Moment, composed.pull.Base)
+	mentions, memory := tagAnnouncement(out, seams, composed.announcement.Moment, composed.base)
 
 	return pendingAnnouncement{
 		delivery: loop.Delivery{Channel: seams.Messaging.Channel, Text: text, Made: composed.made(), Mentions: mentions},
@@ -300,7 +309,7 @@ func unattendedAgain(err error, again bool) error {
 // leaves untagged, and answers the tags with what the post remembers: the
 // groups chosen, when groups were offered. A token that lacks a scope tagging
 // needs is told the scope, and the post goes out untagged. base is the branch
-// the pull request merges into, as the forge says, or empty where it did not.
+// the owners are read against.
 func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, base string) (
 	messaging.Mentions, loop.AnnounceMemory,
 ) {
@@ -313,7 +322,7 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, b
 
 	workspace := slack.workspace
 
-	tags := seams.Tagging.propose(seams.Compose.Branch, base, moment, workspace)
+	tags := seams.Tagging.propose(base, moment, workspace)
 	if len(tags.Owners)+len(tags.Groups) == 0 {
 		return messaging.Mentions{}, memory
 	}
@@ -378,14 +387,11 @@ func (t announceTagging) identity(out output, moment messaging.Moment) (slackIde
 }
 
 // propose is whom an announcement at moment proposes to tag from what is kept
-// in workspace. The owners are those of the changes since pullBase, the
-// branch the pull request merges into, or since the base the branch is read
-// to have left when the forge did not say. The tags are a proposal, so a read
-// that fails proposes fewer rather than holding the announcement back.
-func (t announceTagging) propose(
-	branch func() (gitrepo.Branch, error), pullBase string, moment messaging.Moment, workspace string,
-) loop.Tags {
-	owners, _ := loop.OwnersOf(t.Owners, cmp.Or(pullBase, localBase(branch)))
+// in workspace, the owners those of the changes since base. The tags are a
+// proposal, so a read that fails proposes fewer rather than holding the
+// announcement back.
+func (t announceTagging) propose(base string, moment messaging.Moment, workspace string) loop.Tags {
+	owners, _ := loop.OwnersOf(t.Owners, base)
 	links, _ := t.OwnerLinks(workspace)
 
 	var (
@@ -403,14 +409,6 @@ func (t announceTagging) propose(
 	}
 
 	return loop.ProposeTags(owners, links, repoGroups, last, chosen, moment)
-}
-
-// localBase is the base the branch is read to have left, or empty when the
-// branch cannot be read: a read that fails is no branch, which left no base.
-func localBase(branch func() (gitrepo.Branch, error)) string {
-	current, _ := branch()
-
-	return current.Base
 }
 
 // missingScope is a scope the Slack token lacks to tag, as auth.test lists
