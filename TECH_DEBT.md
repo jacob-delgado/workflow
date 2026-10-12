@@ -742,46 +742,43 @@ program does. Quitting (`q`, or `ctrl+c` from anywhere) or switching directory
 (TRADE-34) therefore stops every read the program left in flight, and no write:
 `New` hands each write seam the session's values but not its end (`outlasting`,
 `internal/tui/deps.go`), and `Model.WithLifetime`, which `tui.Run` applies with
-the context it is given, ends the writes with that context instead. The command
-line gives it `whileOpen`'s (`internal/cli/cli.go`), which ends when SIGINT or
-SIGTERM cancels the command's context while an interface is open, and not when
-`Execute`'s deferred `stop` cancels that context on the way out, once the last
-interface has quit. No quit or switch cancels a write's context, then; only a
-signal does, as it ends every command, and a quit or a switch stops reads alone.
-But workflow still exits as soon as the last interface quits and waits for no
-write. A write done in workflow's own process (a post, a Jira or forge change
-over HTTP, a settings save, a record in the store) ends with the process, as on
-`main`. A program a write runs (git, Taskwarrior, lefthook, `gh`, `glab`, or the
-one that opens a link) runs on until it next writes to the output workflow no
-longer reads, and SIGPIPE ends it then; a quiet one, such as git's stage,
-unstage or discard, finishes. Git removes its index lock on SIGPIPE but cannot
-on the SIGKILL a canceled context sends, so what changed is that a stage, an
-unstage or a discard is no longer killed with git's index locked. Before the
-seams took a context, a quit did cancel a write: each write closed over the
-command's context, which that deferred `stop` canceled as `Execute` returned
-after the quit, racing the process's exit, so a write still running was often
-killed. Leaving a view cancels nothing: a late answer is dropped by its read's
+the context it is given, ends the writes with that context instead, and counts
+each in flight, under a name that says what it does, in the
+`lifetime.InFlight` that context carries. The command line gives it
+`whileOpen`'s (`internal/cli/cli.go`), which ends when SIGINT or SIGTERM cancels
+the command's context, until the command is done. When the last interface
+quits, workflow waits for the writes still in flight before it exits
+(`finishWrites`, `internal/cli/finishwrites.go`): it says on stderr how many it
+is finishing, and exits once none has been in flight for a tenth of a second,
+so a write that follows another (a post's record after the post) is waited for
+too. A streamed write (a commit, a push, an amend, a fixup, a rebase, a hook)
+counts until its program exits. The wait gives up after `timing.request_timeout`,
+naming each write it gave up on, and exits with status 1. A second `ctrl+c`,
+which the terminal the interface left sends as SIGINT, or SIGTERM ends every
+write's context and exits at once, with status 130. A switch does not wait: a
+write sent before one goes on in the directory left, and the quit waits for it
+too. Leaving a view cancels nothing: a late answer is dropped by its read's
 count or view, as before, and canceling per view would mean a cancel handle on
 every view's state. Decided 2026-10-09 by the maintainer in the pre-1.0 paydown,
 when each seam came to take its asker's context, for reads. On 2026-10-12, in
-review, writes were kept out of it. The approved outline had Ctrl+C mid-write
-behave as it did; in the interface `ctrl+c` quits, and a quit, which on `main`
-cut a write still running as above, no longer cancels it, while a signal stops
-one as before.
+review, writes were kept out of it, and the maintainer chose that a quit waits
+for them, bounded, rather than exit under them as it had: before, a write done
+in workflow's own process ended with the process, and a program a write ran
+was cut by SIGPIPE at its next output.
 
 **Cost.** A read for a view the user has left still spends its request to the
-tracker, the forge or Taskwarrior. Quitting cannot call off a slow write, and
-workflow exits once the last interface closes without waiting for one: a program
-a write starts runs on after workflow exits until it next writes output, when
-SIGPIPE ends it, so a commit whose hook prints, or a push that prints its
-summary, can be cut short there; a write made in workflow's own process (a post,
-a Jira or forge change over HTTP, a settings save, a record in the store) ends
-with the process. A signal while an interface is open cancels the write's
-context, but workflow does not wait for its program to stop either; one that
-arrives after the last interface has quit finds workflow already exiting and
-ends no write. A write a pane sent just before a switch goes on in the directory
-left, and its outcome is not shown; the switch refuses only while an
-announcement or a change to a task is in flight.
+tracker, the forge or Taskwarrior. Quitting cannot call off a slow write: it
+waits for it, up to `timing.request_timeout`. One that takes longer is given up
+on and workflow exits under it: a write in workflow's own process (a post, a
+Jira or forge change over HTTP, a settings save, a record in the store) ends
+with the process, and a program a write runs (git, Taskwarrior, lefthook, `gh`,
+`glab`) runs on until it next writes to the output workflow no longer reads,
+when SIGPIPE ends it. A signal during the wait does not wait for the programs it
+stops either. A write the interface chains on another's outcome once that
+outcome reaches it (a commit's scope, remembered once the commit is shown) is
+never begun after a quit. A write a pane sent just before a switch goes on in
+the directory left, and its outcome is not shown; the switch refuses only while
+an announcement or a change to a task is in flight.
 
 **Reopen when.** Such reads are found to crowd a rate limit, or a write is
 found left half made, or still running, after workflow exits.

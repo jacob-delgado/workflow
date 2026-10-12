@@ -132,7 +132,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 	vocab := forgeVocab(deps.Forge.Kind)
 
 	model := Model{
-		cfg: cfg, loadErr: loadErr, deps: outlasting(detached, deps), given: deps, session: context.Background(),
+		cfg: cfg, loadErr: loadErr, deps: outlasting(detached, deps, vocab.noun), given: deps, session: context.Background(),
 		keys:   newKeyMap(marks, vocab.noun, cfg.Messaging.Service(), cfg.UI.Keys),
 		styles: newStyles(true), marks: marks, vocab: vocab,
 		width: defaultWidth, height: defaultHeight,
@@ -167,15 +167,15 @@ func (m Model) WithContext(ctx context.Context) Model {
 }
 
 // WithLifetime is the interface ending every write it sends once ctx ends, and
-// not before. A write outlasts its session, so a quit or a switch never stops
-// git midway with its index locked. ctx is the program's lifetime, the context
-// Run is given: the command line's ends on SIGINT or SIGTERM, stopping a write
-// in flight as a signal stops every command, and not as workflow exits after a
-// quit. New leaves its writes unending.
+// not before, and counting it in flight, by name, in the lifetime.InFlight ctx
+// carries until it lands. A write outlasts its session, so a quit or a switch
+// never stops git midway with its index locked. ctx is the program's lifetime,
+// the context Run is given: the command line's ends on SIGINT or SIGTERM, as a
+// signal stops every command. New leaves its writes unending and uncounted.
 func (m Model) WithLifetime(ctx context.Context) Model {
 	// Trade-off TRADE-38: a quit or a switch stops reads alone; the end of the
 	// program's lifetime stops writes too.
-	m.deps = outlasting(endingWith(ctx), m.given)
+	m.deps = outlasting(endingWith(ctx), m.given, m.vocab.noun)
 
 	return m
 }
