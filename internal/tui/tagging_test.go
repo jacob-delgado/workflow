@@ -110,13 +110,14 @@ func TestSpaceTagsAnotherGroup(t *testing.T) {
 	// Act: post
 	typing(t, toggled, keyEnter)
 
-	// Assert: the post tags them too, and they are remembered as chosen
-	if got := postedText(t, tagging); !strings.HasSuffix(got, tagPod+" "+tagAPI) {
-		t.Errorf("posted %q, want it to tag the API reviewers too", got)
+	// Assert: the post tags them too, as the summary names them, and they
+	// are remembered as chosen
+	if got := postedText(t, tagging); !strings.HasSuffix(got, tagCarla+" "+tagAPI+" "+tagPod) {
+		t.Errorf("posted %q, want it to tag the API reviewers too, in the summary's order", got)
 	}
 
-	if calls := tagging.asked("record-groups "); len(calls) != 1 || calls[0] != "record-groups "+podID+","+apiID {
-		t.Errorf("recorded groups %q, want the pod and the API reviewers", calls)
+	if calls := tagging.asked("record-groups "); len(calls) != 1 || calls[0] != "record-groups "+apiID+","+podID {
+		t.Errorf("recorded groups %q, want the API reviewers and the pod", calls)
 	}
 }
 
