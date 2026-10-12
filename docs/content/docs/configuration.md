@@ -158,7 +158,7 @@ them on stderr, so there is never a question about which were read.
 | `ui.comments_shown` | no | How many of an issue's most recent comments the detail pane draws. Defaults to 5, which `0` also keeps; a negative count is refused when the file loads. |
 | `ui.keys` | no | Rebind keys: a map from an action to the single key that triggers it, e.g. `{"commit": "C"}`. The help then shows the new key. See [Rebinding keys](#rebinding-keys) for the actions. |
 | `ui.web_shortcuts` | no | Turn on the `--web` page's single-key shortcuts: the terminal's keys, `ui.keys` applied, pressed outside a text field. Defaults to `false`; `?` and the command palette work either way. See [Keys on the web](#keys-on-the-web). |
-| `timing.request_timeout` | no | How long each request to a service may take, as a Go duration such as `30s`. Defaults to ten seconds. See [Timing](#timing). |
+| `timing.request_timeout` | no | How long each request to a service may take, and how long a quit waits for the writes still in flight, as a Go duration such as `30s`. Defaults to ten seconds. See [Timing](#timing). |
 | `timing.ci_interval` | no | How often CI is asked about while it runs, and how often the `--web` page's stream asks the forge about the branch, as a Go duration such as `1m`. Defaults to twenty seconds. See [Timing](#timing). |
 | `branch.template` | no | Shape of a proposed branch name from `{prefix}`, `{key}` and `{slug}`. Must contain `{key}`. Defaults to `{prefix}/{key}-{slug}`. |
 | `branch.prefixes` | no | Map from issue type to branch prefix, e.g. `{"bug": "bugfix"}`. The type is matched without regard to case or surrounding spaces, so two types that differ only in those are refused; this replaces the built-in `{"bug": "fix"}` rather than adding to it. |
@@ -841,7 +841,9 @@ When yours is slower or tighter, stretch them:
   on-premises host that is slow to answer. A failed CI job's log is read to its
   end however long that takes, so over HTTP it is bounded by each wait for the
   next part of it rather than as a whole; `gh` and `glab` hand a log back
-  whole, so through them the bound is on the whole read.
+  whole, so through them the bound is on the whole read. It also bounds how
+  long quitting the terminal interface waits for the writes still in flight
+  (see [Limits]({{< relref "/docs/usage#limits" >}})).
 - `ci_interval` is how often CI is asked about while it runs — twenty seconds
   unless set — and at most how often the `--web` page's stream asks the forge
   about the branch. Lengthen it to spend less of the forge's rate limit.

@@ -138,17 +138,17 @@ func credentialVerdict(outcomes ...error) error {
 	return errors.Join(counted...)
 }
 
-// onlineTimeout bounds each of doctor's --online checks by the configured
-// request timeout, so a hung service does not hang doctor, or by the default
-// when none is set.
-func onlineTimeout(cfg config.Config) time.Duration {
+// requestTimeout is the configured request timeout, or the default when none
+// is set: it bounds each of doctor's --online checks, so a hung service does
+// not hang doctor, and how long a quit waits for the writes in flight.
+func requestTimeout(cfg config.Config) time.Duration {
 	return cmp.Or(cfg.RequestTimeout(), config.DefaultRequestTimeout)
 }
 
 // onlineDoer is the transport the tracker and messaging checks travel over: the
-// redirect-refusing client, bounded by onlineTimeout.
+// redirect-refusing client, bounded by requestTimeout.
 func onlineDoer(cfg config.Config) httpx.Doer {
-	return httpx.Client(onlineTimeout(cfg)).Do
+	return httpx.Client(requestTimeout(cfg)).Do
 }
 
 // serviceDoers are the online transport once per HTTP-only service, each
@@ -218,7 +218,7 @@ func checkForge(ctx context.Context, run doctorRun, remote string) (credentialLi
 
 	// One limit for the whole check, beside each request's own: finding the
 	// token, which may ask gh or glab for it, runs under this context alone.
-	timeout := onlineTimeout(run.cfg)
+	timeout := requestTimeout(run.cfg)
 	gaveUp := fmt.Errorf("%w: gave up after %s", forge.ErrUnreachable, timeout)
 
 	ctx, cancel := context.WithTimeoutCause(ctx, timeout, gaveUp)

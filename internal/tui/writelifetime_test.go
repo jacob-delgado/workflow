@@ -118,10 +118,21 @@ func syncingTasks() *world {
 	return repo
 }
 
-// writeFlow is the keys that send a write, and the start they are pressed in.
+// writeFlow is the keys that send a write, the start they are pressed in, and
+// what the write is called while it is in flight.
 type writeFlow struct {
 	start func(*testing.T) writeStart
 	keys  []string
+	name  string
+}
+
+// pullNoun is what a GitHub forge calls a pull request.
+const pullNoun = "pull request"
+
+// streamedWrites are the write seams whose program streams its output on
+// after the seam returns.
+func streamedWrites() []string {
+	return []string{"Git.Commit", "Git.Push", "Git.Amend", "Git.Fixup", "Git.Rebase", "Hooks.Run"}
 }
 
 // writeFlows is the flow that sends each write seam, by its path in tui.Deps.
@@ -129,58 +140,162 @@ func writeFlows() map[string]writeFlow {
 	scoped := append(append([]string{"3", "c", keyShiftTab}, letters("config")...), keyTab, "x", keyEnter)
 
 	return map[string]writeFlow{
-		"Jira.Transition":      {start: fromWorld(withMoves), keys: []string{"t", "j", keyEnter}},
-		"Jira.Comment":         {start: fromWorld(newWorld), keys: []string{"c", "i", "x", keyEsc, keyEnter, keyEnter}},
-		"Jira.Assign":          {start: fromWorld(newWorld), keys: []string{"a", "f", keyEnter}},
-		"Jira.AddWorklog":      {start: fromWorld(newWorld), keys: []string{"w", "2", "h", keyEnter}},
-		"Jira.LinkPullRequest": {start: fromWorld(withoutPull), keys: []string{"4", "n", keyEnter, keyEnter}},
-		"Git.Stage":            {start: fromWorld(withChanges), keys: []string{"3", "j", keySpace}},
-		"Git.Unstage":          {start: fromWorld(newWorld), keys: []string{"3", keySpace}},
-		"Git.Discard":          {start: fromWorld(withChanges), keys: []string{"3", "j", "x", keyEnter}},
-		"Git.CreateBranch":     {start: fromWorld(newWorld), keys: []string{"b", keyEnter}},
-		"Git.Checkout":         {start: fromWorld(cleanSwitcher), keys: []string{"2", "s", keyEnter}},
-		"Git.CreateWorktree":   {start: fromWorld(newWorld), keys: []string{"2", "b", keyWorktree, keyEnter}},
-		"Git.Fetch":            {start: fromWorld(newWorld), keys: []string{"b", keyEnter}},
-		"Git.Commit":           {start: fromWorld(newWorld), keys: commitKeys("x")},
-		"Git.Push":             {start: fromWorld(unpushedWorld), keys: []string{"2", "P", keyEnter}},
-		"Git.Amend":            {start: fromWorld(unpushedWorld), keys: []string{"3", "A", keyEnter}},
-		"Git.Fixup":            {start: fromWorld(unpushedWorld), keys: []string{"3", "f", keyEnter}},
-		"Git.Rebase":           {start: fromWorld(newWorld), keys: []string{"2", "u", keyEnter}},
-		"Git.Finish":           {start: fromWorld(mergedBranch), keys: []string{"4", "F", keyEnter}},
+		"Jira.Transition": {
+			start: fromWorld(withMoves), keys: []string{"t", "j", keyEnter},
+			name: "moving an issue",
+		},
+		"Jira.Comment": {
+			start: fromWorld(newWorld), keys: []string{"c", "i", "x", keyEsc, keyEnter, keyEnter},
+			name: "commenting on an issue",
+		},
+		"Jira.Assign": {
+			start: fromWorld(newWorld), keys: []string{"a", "f", keyEnter},
+			name: "assigning an issue",
+		},
+		"Jira.AddWorklog": {
+			start: fromWorld(newWorld), keys: []string{"w", "2", "h", keyEnter},
+			name: "logging work on an issue",
+		},
+		"Jira.LinkPullRequest": {
+			start: fromWorld(withoutPull), keys: []string{"4", "n", keyEnter, keyEnter},
+			name: "linking an issue to its " + pullNoun,
+		},
+		"Git.Stage": {
+			start: fromWorld(withChanges), keys: []string{"3", "j", keySpace},
+			name: "staging a change",
+		},
+		"Git.Unstage": {start: fromWorld(newWorld), keys: []string{"3", keySpace}, name: "unstaging a change"},
+		"Git.Discard": {
+			start: fromWorld(withChanges), keys: []string{"3", "j", "x", keyEnter},
+			name: "discarding a change",
+		},
+		"Git.CreateBranch": {start: fromWorld(newWorld), keys: []string{"b", keyEnter}, name: "creating a branch"},
+		"Git.Checkout": {
+			start: fromWorld(cleanSwitcher), keys: []string{"2", "s", keyEnter},
+			name: "checking out a branch",
+		},
+		"Git.CreateWorktree": {
+			start: fromWorld(newWorld), keys: []string{"2", "b", keyWorktree, keyEnter},
+			name: "adding a worktree",
+		},
+		"Git.Fetch":  {start: fromWorld(newWorld), keys: []string{"b", keyEnter}, name: "fetching"},
+		"Git.Commit": {start: fromWorld(newWorld), keys: commitKeys("x"), name: "committing"},
+		"Git.Push":   {start: fromWorld(unpushedWorld), keys: []string{"2", "P", keyEnter}, name: "pushing"},
+		"Git.Amend": {
+			start: fromWorld(unpushedWorld), keys: []string{"3", "A", keyEnter},
+			name: "amending the last commit",
+		},
+		"Git.Fixup": {
+			start: fromWorld(unpushedWorld), keys: []string{"3", "f", keyEnter},
+			name: "making a fixup commit",
+		},
+		"Git.Rebase": {start: fromWorld(newWorld), keys: []string{"2", "u", keyEnter}, name: "rebasing"},
+		"Git.Finish": {
+			start: fromWorld(mergedBranch), keys: []string{"4", "F", keyEnter},
+			name: "finishing the branch",
+		},
 		"Git.LinkIssue": {
 			start: fromWorld(func() *world { return onOffConventionBranch(false) }), keys: []string{"2", "i", keyEnter},
+			name: "linking the branch to an issue",
 		},
-		"Git.UnlinkIssue":         {start: fromWorld(linkedBranch), keys: []string{"2", "i", "u"}},
-		"Forge.CreatePullRequest": {start: fromWorld(withoutPull), keys: []string{"4", "n", keyEnter}},
-		"Forge.EditPullRequest":   {start: fromWorld(newWorld), keys: []string{"4", "e", keyEnter}},
+		"Git.UnlinkIssue": {
+			start: fromWorld(linkedBranch), keys: []string{"2", "i", "u"},
+			name: "unlinking the branch from its issue",
+		},
+		"Forge.CreatePullRequest": {
+			start: fromWorld(withoutPull), keys: []string{"4", "n", keyEnter},
+			name: "opening a " + pullNoun,
+		},
+		"Forge.EditPullRequest": {
+			start: fromWorld(newWorld), keys: []string{"4", "e", keyEnter},
+			name: "editing the " + pullNoun,
+		},
 		"Forge.RewriteDescription": {
 			start: fromWorld(func() *world { return onOffConventionBranch(true) }), keys: []string{"2", "i", keyEnter, keyEnter},
+			name: "rewriting the " + pullNoun + "'s description",
 		},
-		"Forge.Rerun":          {start: fromWorld(failedChecks), keys: []string{"4", "R", keyEnter}},
-		"Forge.Merge":          {start: fromWorld(mergeable), keys: []string{"4", "M", keyEnter}},
-		"Messaging.Post":       {start: fromWorld(newWorld), keys: []string{"5", "p", keyEnter}},
-		"Hooks.Run":            {start: fromWorld(newWorld), keys: []string{"3", "h"}},
-		"Hooks.Write":          {start: fromWorld(foldingWithHooks), keys: []string{"3", "g", keyEnter}},
-		"Store.RecordScope":    {start: fromWorld(newWorld), keys: scoped},
-		"Store.RecordAnnounce": {start: fromWorld(newWorld), keys: []string{"5", "p", keyEnter}},
-		"Store.CacheIssues":    {start: fromWorld(newWorld), keys: nil},
-		"Store.LinkOwner":      {start: fromWorld(onlyBen), keys: []string{"5", "P", "x"}},
-		"Store.ForgetOwner":    {start: fromWorld(taggingWorld), keys: []string{"5", "P", "d", keyEnter}},
-		"Store.SetRepoGroups":  {start: fromWorld(taggingWorld), keys: []string{"5", "P", keyTab, keySpace}},
-		"Store.RecordGroups":   {start: fromWorld(taggingWorld), keys: []string{"5", "p", keyEnter}},
-		"Store.Favor":          {start: fromWorld(reposWorld), keys: []string{reposKey, "f"}},
-		"Store.Unfavor":        {start: fromWorld(reposWorld), keys: []string{reposKey, "j", "f"}},
-		"Tasks.Add":            {start: fromWorld(withTasks), keys: []string{tasksPane, "a", "x", keyEnter}},
-		"Tasks.Start":          {start: fromWorld(withTasks), keys: []string{tasksPane, downAction, "s"}},
-		"Tasks.Stop":           {start: fromWorld(withTasks), keys: []string{tasksPane, "s"}},
-		"Tasks.Done":           {start: fromWorld(withTasks), keys: []string{tasksPane, downAction, "d", keyEnter}},
-		"Tasks.Annotate":       {start: fromWorld(withTasks), keys: []string{tasksPane, downAction, "A", "x", keyEnter}},
-		"Tasks.Modify":         {start: fromWorld(withTasks), keys: []string{tasksPane, downAction, "e", "x", keyEnter}},
-		"Tasks.Undo":           {start: fromWorld(syncingTasks), keys: []string{tasksPane, "u", keyEnter}},
-		"Tasks.Sync":           {start: fromWorld(syncingTasks), keys: []string{tasksPane, "S", keyEnter}},
-		"Settings.Save":        {start: fromWorld(newWorld), keys: editing(projectRow, editedProject)},
-		"Settings.Setup.Write": {start: fromFirstRun, keys: append(throughEveryQuestion(), keyEnter)},
-		"OpenURL":              {start: fromWorld(checkedCI), keys: []string{"4", "c", keyEnter}},
+		"Forge.Rerun": {
+			start: fromWorld(failedChecks), keys: []string{"4", "R", keyEnter},
+			name: "rerunning a check",
+		},
+		"Forge.Merge": {
+			start: fromWorld(mergeable), keys: []string{"4", "M", keyEnter},
+			name: "merging the " + pullNoun,
+		},
+		"Messaging.Post": {
+			start: fromWorld(newWorld), keys: []string{"5", "p", keyEnter},
+			name: "posting a message",
+		},
+		"Hooks.Run": {start: fromWorld(newWorld), keys: []string{"3", "h"}, name: "running the hooks"},
+		"Hooks.Write": {
+			start: fromWorld(foldingWithHooks), keys: []string{"3", "g", keyEnter},
+			name: "setting up lefthook",
+		},
+		"Store.RecordScope": {start: fromWorld(newWorld), keys: scoped, name: "remembering the commit scope"},
+		"Store.RecordAnnounce": {
+			start: fromWorld(newWorld), keys: []string{"5", "p", keyEnter},
+			name: "remembering an announcement",
+		},
+		"Store.CacheIssues": {start: fromWorld(newWorld), keys: nil, name: "caching the issue list"},
+		"Store.LinkOwner":   {start: fromWorld(onlyBen), keys: []string{"5", "P", "x"}, name: "linking a code owner"},
+		"Store.ForgetOwner": {
+			start: fromWorld(taggingWorld), keys: []string{"5", "P", "d", keyEnter},
+			name: "forgetting a code owner's link",
+		},
+		"Store.SetRepoGroups": {
+			start: fromWorld(taggingWorld), keys: []string{"5", "P", keyTab, keySpace},
+			name: "setting the repository's groups",
+		},
+		"Store.RecordGroups": {
+			start: fromWorld(taggingWorld), keys: []string{"5", "p", keyEnter},
+			name: "remembering the groups tagged",
+		},
+		"Store.Favor": {start: fromWorld(reposWorld), keys: []string{reposKey, "f"}, name: "adding a favorite"},
+		"Store.Unfavor": {
+			start: fromWorld(reposWorld), keys: []string{reposKey, "j", "f"},
+			name: "removing a favorite",
+		},
+		"Tasks.Add": {
+			start: fromWorld(withTasks), keys: []string{tasksPane, "a", "x", keyEnter},
+			name: "adding a task",
+		},
+		"Tasks.Start": {
+			start: fromWorld(withTasks), keys: []string{tasksPane, downAction, "s"},
+			name: "starting a task",
+		},
+		"Tasks.Stop": {start: fromWorld(withTasks), keys: []string{tasksPane, "s"}, name: "stopping a task"},
+		"Tasks.Done": {
+			start: fromWorld(withTasks), keys: []string{tasksPane, downAction, "d", keyEnter},
+			name: "marking a task done",
+		},
+		"Tasks.Annotate": {
+			start: fromWorld(withTasks), keys: []string{tasksPane, downAction, "A", "x", keyEnter},
+			name: "annotating a task",
+		},
+		"Tasks.Modify": {
+			start: fromWorld(withTasks), keys: []string{tasksPane, downAction, "e", "x", keyEnter},
+			name: "modifying a task",
+		},
+		"Tasks.Undo": {
+			start: fromWorld(syncingTasks), keys: []string{tasksPane, "u", keyEnter},
+			name: "undoing a task change",
+		},
+		"Tasks.Sync": {
+			start: fromWorld(syncingTasks), keys: []string{tasksPane, "S", keyEnter},
+			name: "syncing tasks",
+		},
+		"Settings.Save": {
+			start: fromWorld(newWorld), keys: editing(projectRow, editedProject),
+			name: "saving settings",
+		},
+		"Settings.Setup.Write": {
+			start: fromFirstRun, keys: append(throughEveryQuestion(), keyEnter),
+			name: "writing the configuration file",
+		},
+		"OpenURL": {
+			start: fromWorld(checkedCI), keys: []string{"4", "c", keyEnter},
+			name: "opening a page in the browser",
+		},
 	}
 }
 
@@ -252,7 +367,7 @@ func startRun(t *testing.T, model tui.Model, keys []string) (tui.Model, func() t
 func TestAStreamedWriteKeepsItsContextUntilItsProgramExits(t *testing.T) {
 	t.Parallel()
 
-	for _, path := range []string{"Git.Commit", "Git.Push", "Git.Amend", "Git.Fixup", "Git.Rebase", "Hooks.Run"} {
+	for _, path := range streamedWrites() {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
 
