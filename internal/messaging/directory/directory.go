@@ -309,8 +309,10 @@ func (d *Slack) begin() (messaging.Client, *heldReads, error) {
 
 // shared is what read answers for key, read once: the first to ask reads, and
 // everyone asking meanwhile waits on that read without holding the lock, each
-// until it answers or their own ctx ends. A failure is dropped once it is
-// answered, so the next ask reads again.
+// until it answers or their own ctx ends. The read runs on the first asker's
+// own goroutine, so that asker waits for the whole read even if its ctx ends
+// first; only the others stop waiting when theirs does. A failure is dropped
+// once it is answered, so the next ask reads again.
 func shared[V any](
 	ctx context.Context, directory *Slack, held map[string]*flight[V], key string,
 	read func(context.Context) (V, error),
