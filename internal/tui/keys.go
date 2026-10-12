@@ -92,7 +92,7 @@ type keyMap struct {
 	// While a command runs.
 	stopRun key.Binding
 
-	// Everywhere.
+	// On every pane, and on panes and in overlays alike.
 	toggleMouse, toggleHelp, quit, interrupt key.Binding
 
 	// full is every binding grouped for the help, accumulated as the bindings
@@ -107,12 +107,15 @@ type keyMap struct {
 // share after a ui.keys remap is listed once under each.
 const groupMoving = 0
 
-// The help groups after the panes', in the order helpGroups names them.
+// The help groups after the panes', in the order helpGroups names them: what
+// an overlay answers, and then the keys that work beyond one pane — those
+// every pane takes, and those the panes and the overlays answer alike.
 const (
 	groupComposer = groupMoving + paneCount + 1 + iota
 	groupWriting
 	groupRunning
-	groupEverywhere
+	groupEveryPane
+	groupPanesAndOverlays
 )
 
 // The shared list actions are handled on more than one pane, so each is named
@@ -220,7 +223,8 @@ func compileKeys(marks glyphs, reviewNoun, messagingService string, overrides ma
 	composerKeys(&builder, &keys, marks)
 	writingKeys(&builder, &keys, marks)
 	runningKeys(&builder, &keys)
-	everywhereKeys(&builder, &keys)
+	everyPaneKeys(&builder, &keys)
+	panesAndOverlaysKeys(&builder, &keys)
 
 	keys.full = builder.groups
 
@@ -311,14 +315,21 @@ const (
 	escStay    = "stay"
 )
 
-// everywhereKeys are the bindings every context answers to.
-func everywhereKeys(builder *helpBuilder, into *keyMap) {
-	into.confirm = builder.bind(groupEverywhere, "apply", "apply", "enter")
-	into.closeOverlay = builder.bind(groupEverywhere, "close", escClose, "esc")
-	into.toggleMouse = builder.bind(groupEverywhere, "toggle-mouse", "toggle mouse", "m")
-	into.toggleHelp = builder.bind(groupEverywhere, "toggle-help", "keys", "?")
-	into.quit = builder.bind(groupEverywhere, "quit", "quit", "q")
-	into.interrupt = builder.bind(groupEverywhere, actionInterrupt, "quit", "ctrl+c")
+// everyPaneKeys are the bindings every pane answers, which no overlay but the
+// help, closed by ? and quitting on q, takes for its own.
+func everyPaneKeys(builder *helpBuilder, into *keyMap) {
+	into.toggleMouse = builder.bind(groupEveryPane, "toggle-mouse", "toggle mouse", "m")
+	into.toggleHelp = builder.bind(groupEveryPane, "toggle-help", "keys", "?")
+	into.quit = builder.bind(groupEveryPane, "quit", "quit", "q")
+}
+
+// panesAndOverlaysKeys are the bindings the panes and the overlays answer
+// alike: apply and close wherever the bottom row offers them, and interrupt
+// anywhere, even while text is typed.
+func panesAndOverlaysKeys(builder *helpBuilder, into *keyMap) {
+	into.confirm = builder.bind(groupPanesAndOverlays, "apply", "apply", "enter")
+	into.closeOverlay = builder.bind(groupPanesAndOverlays, "close", escClose, "esc")
+	into.interrupt = builder.bind(groupPanesAndOverlays, actionInterrupt, "quit", "ctrl+c")
 }
 
 // ShortHelp is the footer's tail: enough to move around and to find the rest,
@@ -339,7 +350,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 // helpGroups names the groups FullHelp returns, in the same order: a pane's
 // group by the pane's title, the messaging pane's for the service in use.
 func helpGroups(messagingService string) []string {
-	groups := make([]string, groupEverywhere+1)
+	groups := make([]string, groupPanesAndOverlays+1)
 	groups[groupMoving] = "Moving around"
 
 	for each := range pane(paneCount) {
@@ -349,7 +360,8 @@ func helpGroups(messagingService string) []string {
 	groups[groupComposer] = "In a composer or preview"
 	groups[groupWriting] = "Writing a comment"
 	groups[groupRunning] = "While a command runs"
-	groups[groupEverywhere] = "Everywhere"
+	groups[groupEveryPane] = "On every pane"
+	groups[groupPanesAndOverlays] = "On panes and in overlays"
 
 	return groups
 }

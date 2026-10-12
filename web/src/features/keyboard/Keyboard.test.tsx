@@ -53,8 +53,8 @@ function keysWith(shortcuts: boolean, overrides: Record<string, string> = {}): K
     action('stage-all', 'stage all', 'Commits', 'a'),
     action('unstage-all', 'unstage all', 'Commits', 'U'),
     action('commit', 'commit', 'Commits', 'c'),
-    action('quit', 'quit', 'Everywhere', 'q'),
-    action('toggle-help', 'keys', 'Everywhere', '?'),
+    action('quit', 'quit', 'On every pane', 'q'),
+    action('toggle-help', 'keys', 'On every pane', '?'),
   ]
 
   return {

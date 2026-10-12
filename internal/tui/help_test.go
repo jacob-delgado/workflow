@@ -15,6 +15,14 @@ import (
 // freeKey is a key nothing is bound to.
 const freeKey = "f12"
 
+// The help groups of the keys that work beyond one pane: those that move about,
+// those every pane takes, and those the panes and the overlays answer alike.
+const (
+	movingGroup           = "Moving around"
+	everyPaneGroup        = "On every pane"
+	panesAndOverlaysGroup = "On panes and in overlays"
+)
+
 // fixedAction is the one placed action ui.keys cannot move: its keys are the
 // pane numbers, one per pane, and CheckKeys refuses an override of it.
 const fixedAction = "jump-to-pane"
@@ -39,7 +47,7 @@ type helpGroup struct {
 // action, the key shown for it and what it says it does.
 func placedBindings() []helpGroup {
 	return []helpGroup{
-		placed("Moving around",
+		placed(movingGroup,
 			"next-pane         tab        next pane",
 			"previous-pane     shift+tab  previous pane",
 			"jump-to-pane      1-9        jump to pane",
@@ -149,12 +157,13 @@ func placedBindings() []helpGroup {
 			"stop              s          stop",
 			"run-again         r          run again",
 			"full-output       o          full output"),
-		placed("Everywhere",
-			"apply             enter      apply",
-			"close             esc        close",
+		placed(everyPaneGroup,
 			"toggle-mouse      m          toggle mouse",
 			"toggle-help       ?          keys",
-			"quit              q          quit",
+			"quit              q          quit"),
+		placed(panesAndOverlaysGroup,
+			"apply             enter      apply",
+			"close             esc        close",
 			"interrupt         ctrl+c     quit"),
 	}
 }
@@ -208,7 +217,7 @@ func openHelp(t *testing.T, overrides map[string]string) string {
 		helpKey = "?"
 	}
 
-	return plain(press(t, sized(t, tui.New(cfg, nil, tui.Deps{}), 160, 73), helpKey).View().Content)
+	return plain(press(t, sized(t, tui.New(cfg, nil, tui.Deps{}), 160, 74), helpKey).View().Content)
 }
 
 // runeColumn is the column, in runes, where text starts on line.
@@ -225,14 +234,14 @@ func helpListing(t *testing.T, view string) []helpGroup {
 	t.Helper()
 
 	lines := strings.Split(view, "\n")
-	top := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "Moving around") })
+	top := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, movingGroup) })
 
 	if top < 0 {
 		t.Fatalf("the help is not on screen:\n%s", view)
 	}
 
-	_, afterFirst, _ := strings.Cut(lines[top], "Moving around")
-	left, right := runeColumn(lines[top], "Moving around"), runeColumn(lines[top], strings.TrimLeft(afterFirst, " "))
+	_, afterFirst, _ := strings.Cut(lines[top], movingGroup)
+	left, right := runeColumn(lines[top], movingGroup), runeColumn(lines[top], strings.TrimLeft(afterFirst, " "))
 
 	var columns [2][]helpGroup
 
@@ -283,7 +292,7 @@ func TestTaskKeysAreListedInTheHelpAndConflictFree(t *testing.T) {
 	// everywhere, so no key may be shown for two of them.
 	var shown []string
 
-	for _, name := range []string{"Moving around", tasksTitle, "Everywhere"} {
+	for _, name := range []string{movingGroup, tasksTitle, everyPaneGroup, panesAndOverlaysGroup} {
 		for _, binding := range groupNamed(listing, name).bindings {
 			if slices.Contains(shown, binding.key) {
 				t.Errorf("? shows %q twice among the keys live on the Tasks pane", binding.key)
@@ -346,13 +355,13 @@ func cutHelpLines(t *testing.T, view string) []string {
 	t.Helper()
 
 	lines := strings.Split(plain(view), "\n")
-	top := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "Moving around") })
+	top := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, movingGroup) })
 
 	if top < 0 {
 		t.Fatalf("the help is not on screen:\n%s", view)
 	}
 
-	left := runeColumn(lines[top], "Moving around")
+	left := runeColumn(lines[top], movingGroup)
 
 	var cut []string
 
@@ -447,11 +456,11 @@ func TestTheWholeHelpFitsATallTerminal(t *testing.T) {
 	// Act
 	// At 120 columns the whole help, the Tasks and Reviews keys and the
 	// tagging keys, the Summary's and the Repositories' and unlink among it,
-	// each pane's keys under a heading of its own, needs 72 rows.
-	view := typing(t, newWorld().live(t, 120, 73), "?").View().Content
+	// each pane's keys under a heading of its own, needs 73 rows.
+	view := typing(t, newWorld().live(t, 120, 74), "?").View().Content
 
 	// Assert
-	requireScreen(t, view, "Everywhere")
+	requireScreen(t, view, panesAndOverlaysGroup)
 	refuseScreen(t, view, "more below")
 }
 
@@ -459,7 +468,7 @@ func TestAHelpThatFitsThePaneOffersNoScrollKeys(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := typing(t, newWorld().live(t, 160, 73), "?").View().Content
+	view := typing(t, newWorld().live(t, 160, 74), "?").View().Content
 
 	// Assert
 	refuseScreen(t, view, "more below")
