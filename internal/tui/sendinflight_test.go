@@ -57,8 +57,8 @@ func heldPullRequestLink(deps *tui.Deps, held *hold) {
 // heldBranchLink keeps the branch's link, and then holds git's answer.
 func heldBranchLink(deps *tui.Deps, held *hold) {
 	link := deps.Git.LinkIssue
-	deps.Git.LinkIssue = func(branch, issueKey string) error {
-		err := link(branch, issueKey)
+	deps.Git.LinkIssue = func(ctx context.Context, branch, issueKey string) error {
+		err := link(ctx, branch, issueKey)
 
 		held.wait()
 

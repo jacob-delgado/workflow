@@ -25,13 +25,13 @@ var errBranchExists = errors.New("a branch for this issue already exists")
 // without a repository or a tracker.
 type branchSeams struct {
 	Issue        func(context.Context, jira.Key) (jira.IssueDetail, error)
-	Branches     func() ([]string, error)
-	CreateBranch func(name, start string) error
+	Branches     func(ctx context.Context) ([]string, error)
+	CreateBranch func(ctx context.Context, name, start string) error
 	// CreateWorktree creates the branch in a new worktree beside the
 	// repository instead, and says where; Fetch refreshes origin's refs first.
-	CreateWorktree func(name, start string) (string, error)
-	Fetch          func() error
-	Branch         func() (gitrepo.Branch, error)
+	CreateWorktree func(ctx context.Context, name, start string) (string, error)
+	Fetch          func(ctx context.Context) error
+	Branch         func(ctx context.Context) (gitrepo.Branch, error)
 	Naming         convention.BranchNaming
 	Confirm        func(question string) (bool, error)
 }
@@ -136,7 +136,7 @@ func runBranch(
 		return err
 	}
 
-	return plan.carryOut(out, seams)
+	return plan.carryOut(ctx, out, seams)
 }
 
 // planStart names the issue's branch and the base it would start from,
@@ -150,7 +150,7 @@ func planStart(ctx context.Context, seams branchSeams, issueKey string, start st
 
 	name := seams.Naming.Name(detail.Issue.Type, string(detail.Issue.Key), detail.Issue.Summary)
 
-	exists, err := branchNamed(seams, name)
+	exists, err := branchNamed(ctx, seams, name)
 	if err != nil {
 		return startPlan{}, err
 	}
@@ -159,7 +159,7 @@ func planStart(ctx context.Context, seams branchSeams, issueKey string, start st
 		return startPlan{}, fmt.Errorf("%w: %s; switch to it with `git switch %s`", errBranchExists, name, name)
 	}
 
-	base := currentBase(seams.Branch)
+	base := currentBase(ctx, seams.Branch)
 
 	return startPlan{
 		key: string(detail.Issue.Key), name: name, base: base,
@@ -200,20 +200,20 @@ func (p startPlan) question() string {
 // carryOut fetches when the plan asks, then creates the branch here or in a new
 // worktree, whose directory it prints alone so a script can go there. A fetch
 // that fails creates nothing, and says how to branch from what is here.
-func (p startPlan) carryOut(out output, seams branchSeams) error {
-	var fetch func() error
+func (p startPlan) carryOut(ctx context.Context, out output, seams branchSeams) error {
+	var fetch func(context.Context) error
 	if p.fetch {
 		fetch = seams.Fetch
 	}
 
 	var dir string
 
-	err := loop.FetchThen(fetch, func() error {
+	err := loop.FetchThen(ctx, fetch, func() error {
 		var made error
 		if p.worktree {
-			dir, made = seams.CreateWorktree(p.name, p.base)
+			dir, made = seams.CreateWorktree(ctx, p.name, p.base)
 		} else {
-			made = seams.CreateBranch(p.name, p.base)
+			made = seams.CreateBranch(ctx, p.name, p.base)
 		}
 
 		return made
@@ -235,8 +235,8 @@ func (p startPlan) carryOut(out output, seams branchSeams) error {
 }
 
 // branchNamed reports whether a local branch already goes by name.
-func branchNamed(seams branchSeams, name string) (bool, error) {
-	names, err := seams.Branches()
+func branchNamed(ctx context.Context, seams branchSeams, name string) (bool, error) {
+	names, err := seams.Branches(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -246,8 +246,8 @@ func branchNamed(seams branchSeams, name string) (bool, error) {
 
 // currentBase is the base a new branch starts from — the checked-out branch's
 // base (origin's default), or empty to branch from HEAD when it cannot be read.
-func currentBase(branch func() (gitrepo.Branch, error)) string {
-	current, err := branch()
+func currentBase(ctx context.Context, branch func(context.Context) (gitrepo.Branch, error)) string {
+	current, err := branch(ctx)
 	if err != nil {
 		return ""
 	}

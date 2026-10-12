@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"slices"
 	"strings"
 
@@ -16,62 +17,62 @@ import (
 // gitDeps fakes the repository.
 func (w *world) gitDeps() seams.Git {
 	deps := seams.Git{
-		Branch: func() (gitrepo.Branch, error) {
+		Branch: func(context.Context) (gitrepo.Branch, error) {
 			w.record("branch")
 
 			return w.branch, nil
 		},
-		Changes: func() ([]gitrepo.Change, error) {
+		Changes: func(context.Context) ([]gitrepo.Change, error) {
 			w.record("changes")
 
 			return slices.Clone(w.changes), w.changesErr
 		},
-		Diff: func(change gitrepo.Change) ([]string, error) {
+		Diff: func(_ context.Context, change gitrepo.Change) ([]string, error) {
 			w.record("diff " + change.Path)
 
 			return slices.Clone(w.diff), w.diffErr
 		},
-		Stage: func(change gitrepo.Change) error {
+		Stage: func(_ context.Context, change gitrepo.Change) error {
 			w.record("stage " + change.Path)
 
 			return w.stageErr
 		},
-		Unstage: func(change gitrepo.Change) error {
+		Unstage: func(_ context.Context, change gitrepo.Change) error {
 			w.record("unstage " + change.Path)
 
 			return w.stageErr
 		},
-		Discard: func(change gitrepo.Change) error {
+		Discard: func(_ context.Context, change gitrepo.Change) error {
 			w.record("discard " + change.Path)
 
 			return w.discardErr
 		},
-		CreateBranch: func(name, start string) error {
+		CreateBranch: func(_ context.Context, name, start string) error {
 			w.record("create " + name + " from " + start)
 
 			return w.createErr
 		},
-		CreateWorktree: func(name, start string) (string, error) {
+		CreateWorktree: func(_ context.Context, name, start string) (string, error) {
 			w.record("worktree " + name + " from " + start)
 
 			return "/work-" + name, w.worktreeErr
 		},
-		Branches: func() ([]string, error) {
+		Branches: func(context.Context) ([]string, error) {
 			w.record("branches")
 
 			return slices.Clone(w.branches), w.branchesErr
 		},
-		RemoteBranches: func() ([]string, error) {
+		RemoteBranches: func(context.Context) ([]string, error) {
 			w.record("remote-branches")
 
 			return slices.Clone(w.remoteBranches), w.remoteBranchesErr
 		},
-		ChangedPaths: func(base string) ([]string, error) {
+		ChangedPaths: func(_ context.Context, base string) ([]string, error) {
 			w.record("changed-paths " + base)
 
 			return []string{"README.md"}, w.changedPathsErr
 		},
-		CodeOwnersAt: func(base string) (codeowners.File, bool, error) {
+		CodeOwnersAt: func(_ context.Context, base string) (codeowners.File, bool, error) {
 			w.record("code-owners " + base)
 
 			// Every path is owned by every owner the world names.
@@ -79,23 +80,23 @@ func (w *world) gitDeps() seams.Git {
 
 			return codeowners.Parse(content, codeowners.GitHub), len(w.codeOwners) > 0, w.codeOwnersErr
 		},
-		RecentSubjects: func() ([]string, error) {
+		RecentSubjects: func(context.Context) ([]string, error) {
 			w.record("recent-subjects")
 
 			return slices.Clone(w.recentSubjects), w.recentSubjectsErr
 		},
-		Checkout: func(name string) error {
+		Checkout: func(_ context.Context, name string) error {
 			w.record("checkout " + name)
 
 			return w.checkoutErr
 		},
-		LinkIssue: func(branch, issueKey string) error {
+		LinkIssue: func(_ context.Context, branch, issueKey string) error {
 			w.record("link-issue " + branch + " " + issueKey)
 			w.branch.IssueLink = issueKey
 
 			return nil
 		},
-		UnlinkIssue: func(branch string) error {
+		UnlinkIssue: func(_ context.Context, branch string) error {
 			w.record("unlink-issue " + branch)
 
 			if w.unlinkErr != nil {
@@ -106,33 +107,33 @@ func (w *world) gitDeps() seams.Git {
 
 			return nil
 		},
-		Finish: func(branch, base string) error {
+		Finish: func(_ context.Context, branch, base string) error {
 			w.record("finish " + branch + " onto " + base)
 
 			return w.finishErr
 		},
-		Fetch: func() error {
+		Fetch: func(context.Context) error {
 			w.record("fetch")
 
 			return w.fetchErr
 		},
 		Commit: w.commit,
-		Push: func(branch string) (proc.Output, error) {
+		Push: func(_ context.Context, branch string) (proc.Output, error) {
 			w.record("push " + branch)
 
 			return output(w.pushLines, w.pushErr), nil
 		},
-		Amend: func() (proc.Output, error) {
+		Amend: func(context.Context) (proc.Output, error) {
 			w.record("amend")
 
 			return output(w.amendLines, w.amendErr), nil
 		},
-		Fixup: func(hash string) (proc.Output, error) {
+		Fixup: func(_ context.Context, hash string) (proc.Output, error) {
 			w.record("fixup " + hash)
 
 			return output(w.fixupLines, w.fixupErr), nil
 		},
-		Rebase: func(base string) (proc.Output, error) {
+		Rebase: func(_ context.Context, base string) (proc.Output, error) {
 			w.record("rebase " + base)
 
 			return output(w.rebaseLines, w.rebaseErr), nil
@@ -174,7 +175,7 @@ func (w *world) gitDeps() seams.Git {
 
 // commit records a commit and runs it: refused before it starts, hanging until
 // stopped when runs block, or finished with commitLines and commitErr.
-func (w *world) commit(message string) (proc.Output, error) {
+func (w *world) commit(_ context.Context, message string) (proc.Output, error) {
 	w.record("commit " + message)
 
 	if w.commitStartErr != nil {

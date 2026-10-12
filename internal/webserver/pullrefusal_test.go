@@ -58,7 +58,9 @@ func TestGetPullRequestDraftSaysThereIsNoWorkToPropose(t *testing.T) {
 
 	// Arrange
 	deps := openableDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
+		return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil
+	}
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")

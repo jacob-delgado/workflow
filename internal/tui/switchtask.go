@@ -158,9 +158,9 @@ func (m Model) openBranchPicker() (Model, tea.Cmd) {
 // of the issues they name are yours. A nil remote lists none there; a nil search
 // asks nothing, and a failed one answers nothing, so every issue counts.
 type branchLister struct {
-	local     func() ([]string, error)
-	remote    func() ([]string, error)
-	links     func() map[string]string
+	local     func(ctx context.Context) ([]string, error)
+	remote    func(ctx context.Context) ([]string, error)
+	links     func(ctx context.Context) map[string]string
 	search    func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error)
 	project   string
 	worktrees func() ([]gitrepo.Worktree, error)
@@ -192,17 +192,17 @@ func (l branchLister) otherWorktrees() map[string]gitrepo.Worktree {
 // tracker that could not be asked leaves every issue counted, with the reason
 // it was not.
 func (l branchLister) list(ctx context.Context) branchesListed {
-	local, err := l.local()
+	local, err := l.local(ctx)
 	if err != nil {
 		return branchesListed{err: err}
 	}
 
-	remote, err := l.remoteNames()
+	remote, err := l.remoteNames(ctx)
 	if err != nil {
 		return branchesListed{err: err}
 	}
 
-	links := l.linked()
+	links := l.linked(ctx)
 	if l.search == nil {
 		return branchesListed{local: local, remote: remote, links: links}
 	}
@@ -217,21 +217,21 @@ func (l branchLister) list(ctx context.Context) branchesListed {
 
 // linked is every branch linked to an issue by hand, or none with no
 // repository to ask.
-func (l branchLister) linked() map[string]string {
+func (l branchLister) linked(ctx context.Context) map[string]string {
 	if l.links == nil {
 		return nil
 	}
 
-	return l.links()
+	return l.links(ctx)
 }
 
 // remoteNames lists the remote's branches, or none with no repository to ask.
-func (l branchLister) remoteNames() ([]string, error) {
+func (l branchLister) remoteNames(ctx context.Context) ([]string, error) {
 	if l.remote == nil {
 		return nil, nil
 	}
 
-	return l.remote()
+	return l.remote(ctx)
 }
 
 // issueKeys is the issue each of names is for, by its link in links or its
@@ -387,14 +387,14 @@ func (p branchPicker) choose(m Model) (Model, tea.Cmd) {
 
 	p.send = starting()
 	m.overlay = p
-	read := m.deps.Git.Changes
+	ctx, read := m.session, m.deps.Git.Changes
 
 	return m, func() tea.Msg {
 		if read == nil {
 			return treeChecked{name: branch.name}
 		}
 
-		changes, err := read()
+		changes, err := read(ctx)
 
 		return treeChecked{name: branch.name, changes: changes, err: err}
 	}
@@ -428,12 +428,12 @@ func (msg treeChecked) apply(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would switch to " + msg.name), nil
 	}
 
-	checkout, name, lister := m.deps.Git.Checkout, msg.name, branchLister{links: m.deps.Git.IssueLinks}
+	ctx, checkout, name, lister := m.session, m.deps.Git.Checkout, msg.name, branchLister{links: m.deps.Git.IssueLinks}
 
 	return m, func() tea.Msg {
-		err := checkout(name)
+		err := checkout(ctx, name)
 
-		return taskSwitched{name: name, link: lister.linked()[name], err: err}
+		return taskSwitched{name: name, link: lister.linked(ctx)[name], err: err}
 	}
 }
 
@@ -460,7 +460,7 @@ func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 		m.followUp = m.offerStart(m.issues.listedIssue(jira.Key(issueKey.Key)))
 	}
 
-	return m, tea.Batch(loadBranch(m.deps), loadChanges(m.deps))
+	return m, tea.Batch(loadBranch(m.session, m.deps), loadChanges(m.session, m.deps))
 }
 
 // failed is the switcher kept open with the reason it could not switch.

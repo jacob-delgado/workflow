@@ -4,6 +4,7 @@
 package loop
 
 import (
+	"context"
 	"errors"
 	"slices"
 
@@ -31,23 +32,26 @@ func Stageable(changes []gitrepo.Change) []gitrepo.Change {
 
 // StageAll stages every Stageable change through stage, going on past a file
 // git refuses so one failure does not hold back the rest, and reports every
-// failure joined.
-func StageAll(changes []gitrepo.Change, stage func(gitrepo.Change) error) error {
-	return each(Stageable(changes), stage)
+// failure joined. Each change is staged under ctx.
+func StageAll(ctx context.Context, changes []gitrepo.Change, stage func(context.Context, gitrepo.Change) error) error {
+	return each(ctx, Stageable(changes), stage)
 }
 
 // UnstageAll takes every staged change out of the index through unstage — a
 // partly staged file's staged part too, leaving its work tree edits alone —
-// going on past a file git refuses, and reports every failure joined.
-func UnstageAll(changes []gitrepo.Change, unstage func(gitrepo.Change) error) error {
+// going on past a file git refuses, and reports every failure joined. Each
+// change is unstaged under ctx.
+func UnstageAll(
+	ctx context.Context, changes []gitrepo.Change, unstage func(context.Context, gitrepo.Change) error,
+) error {
 	staged := slices.DeleteFunc(slices.Clone(changes), func(change gitrepo.Change) bool { return !change.IsStaged() })
 
-	return each(staged, unstage)
+	return each(ctx, staged, unstage)
 }
 
 // each hands every change to act in turn, whatever the ones before it answered,
 // and joins the failures.
-func each(changes []gitrepo.Change, act func(gitrepo.Change) error) error {
+func each(ctx context.Context, changes []gitrepo.Change, act func(context.Context, gitrepo.Change) error) error {
 	if act == nil {
 		return ErrStagingUnavailable
 	}
@@ -55,7 +59,7 @@ func each(changes []gitrepo.Change, act func(gitrepo.Change) error) error {
 	failures := make([]error, 0, len(changes))
 
 	for _, change := range changes {
-		failures = append(failures, act(change))
+		failures = append(failures, act(ctx, change))
 	}
 
 	return errors.Join(failures...)

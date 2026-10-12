@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestListChangesReportsAFailure(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/changes")
@@ -63,7 +64,7 @@ func TestSnapshotChangesAreEmptyWhenTheReadFails(t *testing.T) {
 	// The failing read still hands back a change, so only the error can empty
 	// the panel.
 	deps := filledDeps()
-	deps.Git.Changes = func() ([]gitrepo.Change, error) {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) {
 		return []gitrepo.Change{{Path: "README.md", Staged: 'M'}}, errSeam
 	}
 

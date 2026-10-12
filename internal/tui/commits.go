@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strconv"
@@ -55,18 +56,18 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 	// read rather than trust loadDiff's path guard.
 	m.diff = diffState{}
 
-	return m, m.diff.load(m.deps.Git.Diff, m.changes)
+	return m, m.diff.load(m.session, m.deps.Git.Diff, m.changes)
 }
 
 // loadChanges is the command that reads the work tree's status.
-func loadChanges(deps Deps) tea.Cmd {
+func loadChanges(ctx context.Context, deps Deps) tea.Cmd {
 	read := deps.Git.Changes
 	if read == nil {
 		return nil
 	}
 
 	return func() tea.Msg {
-		changes, err := read()
+		changes, err := read(ctx)
 
 		return changesLoaded{changes: changes, err: err}
 	}
@@ -256,7 +257,7 @@ func (m Model) moveChangeBy(delta int) (Model, tea.Cmd) {
 
 	m.changes = m.changes.following(m.detailRows())
 
-	return m, m.diff.load(m.deps.Git.Diff, m.changes)
+	return m, m.diff.load(m.session, m.deps.Git.Diff, m.changes)
 }
 
 // pickChange selects the file on a clicked line of the detail.
@@ -268,7 +269,7 @@ func (m Model) pickChange(line, _ int, inRail bool) (Model, tea.Cmd) {
 
 	m.changes.selected = index
 
-	return m, m.diff.load(m.deps.Git.Diff, m.changes)
+	return m, m.diff.load(m.session, m.deps.Git.Diff, m.changes)
 }
 
 // toggleStaged stages the selected file, or unstages it if it is wholly staged.
@@ -276,7 +277,7 @@ func (m Model) toggleStaged() (Model, tea.Cmd) {
 	change, _ := m.changes.current()
 	unstage := change.IsStaged() && !change.HasUnstaged()
 
-	verb, act := "stage ", m.deps.Git.Stage
+	ctx, verb, act := m.session, "stage ", m.deps.Git.Stage
 	if unstage {
 		verb, act = "unstage ", m.deps.Git.Unstage
 	}
@@ -285,7 +286,7 @@ func (m Model) toggleStaged() (Model, tea.Cmd) {
 		return m.noticed("dry run: would " + verb + sanitize.Line(change.Path)), nil
 	}
 
-	return m, func() tea.Msg { return staged{err: act(change)} }
+	return m, func() tea.Msg { return staged{err: act(ctx, change)} }
 }
 
 // stageAll stages every file with changes not yet staged, by loop's rule, so
@@ -296,9 +297,9 @@ func (m Model) stageAll() (Model, tea.Cmd) {
 		return m.noticed("dry run: would stage " + plural(len(pending), "file")), nil
 	}
 
-	stage := m.deps.Git.Stage
+	ctx, stage := m.session, m.deps.Git.Stage
 
-	return m, func() tea.Msg { return staged{err: loop.StageAll(pending, stage)} }
+	return m, func() tea.Msg { return staged{err: loop.StageAll(ctx, pending, stage)} }
 }
 
 // unstageAll takes every staged change out of the index, by loop's rule, at
@@ -309,9 +310,9 @@ func (m Model) unstageAll() (Model, tea.Cmd) {
 		return m.noticed("dry run: would unstage " + plural(count, "file")), nil
 	}
 
-	changes, unstage := m.changes.changes, m.deps.Git.Unstage
+	ctx, changes, unstage := m.session, m.changes.changes, m.deps.Git.Unstage
 
-	return m, func() tea.Msg { return staged{err: loop.UnstageAll(changes, unstage)} }
+	return m, func() tea.Msg { return staged{err: loop.UnstageAll(ctx, changes, unstage)} }
 }
 
 // staged reports how staging went.
@@ -328,7 +329,7 @@ func (msg staged) apply(m Model) (Model, tea.Cmd) {
 		m = m.noticedFailure(msg.err)
 	}
 
-	return m, loadChanges(m.deps)
+	return m, loadChanges(m.session, m.deps)
 }
 
 // runPreCommit runs the pre-commit hook on what is staged, without committing.
@@ -357,10 +358,10 @@ func commitsBehavior() behavior {
 		// refresh reads the work tree again, and the branch and the hooks with
 		// it.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := loadChanges(m.deps)
+			read := loadChanges(m.session, m.deps)
 			m.changes.loading = read != nil
 
-			return m, tea.Batch(read, loadBranch(m.deps), findHooks(m.deps))
+			return m, tea.Batch(read, loadBranch(m.session, m.deps), findHooks(m.deps))
 		},
 		loading: func(m Model) bool { return m.changes.loading },
 		scroll:  func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,

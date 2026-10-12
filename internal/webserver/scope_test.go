@@ -81,7 +81,7 @@ func withDefaultScope(scope string) config.Config {
 // committable is filledDeps with a staged change and a commit that lands.
 func committable() webserver.Deps {
 	deps := filledDeps()
-	deps.Git.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
+	deps.Git.Commit = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
 	return deps
 }
@@ -237,7 +237,7 @@ func TestCommitRecordsTheScope(t *testing.T) {
 			tt.store.wire(&deps)
 
 			if tt.commitFails {
-				deps.Git.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, errSeam), nil }
+				deps.Git.Commit = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, errSeam), nil }
 			}
 
 			handler := serve(t, deps, withDefaultScope(configuredScope))

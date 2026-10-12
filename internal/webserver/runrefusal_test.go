@@ -7,6 +7,7 @@ package webserver_test
 // refused before any program starts.
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,23 +22,23 @@ import (
 func TestARunWithNothingToWorkOnIsRefusedBeforeItRuns(t *testing.T) {
 	t.Parallel()
 
-	onBase := func() (gitrepo.Branch, error) {
+	onBase := func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{Name: prBase, Base: testBase, Head: filledHead, PushRemote: gitrepo.DefaultRemote}, nil
 	}
-	pushed := func() (gitrepo.Branch, error) {
+	pushed := func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{
 			Name: testBranchName, Base: testBase, Upstream: gitrepo.DefaultRemote + "/" + testBranchName,
 			PushRemote: gitrepo.DefaultRemote, Commits: []gitrepo.Commit{{Hash: filledHead, Subject: testCommitSubject}},
 		}, nil
 	}
-	unstaged := func() ([]gitrepo.Change, error) {
+	unstaged := func(context.Context) ([]gitrepo.Change, error) {
 		return []gitrepo.Change{{Path: "a.go", Staged: ' ', Unstaged: 'M'}}, nil
 	}
 
 	cases := map[string]struct {
 		body    string
-		branch  func() (gitrepo.Branch, error)
-		changes func() ([]gitrepo.Change, error)
+		branch  func(context.Context) (gitrepo.Branch, error)
+		changes func(context.Context) ([]gitrepo.Change, error)
 		status  int
 		saying  string
 	}{
@@ -91,13 +92,13 @@ func TestARunWithNothingToWorkOnIsRefusedBeforeItRuns(t *testing.T) {
 func TestARunWhoseReadsFailHasNothingToWorkOn(t *testing.T) {
 	t.Parallel()
 
-	failingBranch := func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-	failingChanges := func() ([]gitrepo.Change, error) { return nil, errSeam }
+	failingBranch := func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	failingChanges := func(context.Context) ([]gitrepo.Change, error) { return nil, errSeam }
 
 	cases := map[string]struct {
 		body    string
-		branch  func() (gitrepo.Branch, error)
-		changes func() ([]gitrepo.Change, error)
+		branch  func(context.Context) (gitrepo.Branch, error)
+		changes func(context.Context) ([]gitrepo.Change, error)
 	}{
 		"a rebase whose branch cannot be read": {body: rebaseRun, branch: failingBranch},
 		"an amend whose branch cannot be read": {body: amendRun, branch: failingBranch},
@@ -202,7 +203,7 @@ func TestARunThatCannotStartKeepsGitsWordsOff(t *testing.T) {
 
 	// Arrange
 	deps := runDeps(&runCalls{}, passing)
-	deps.Git.Rebase = func(string) (proc.Output, error) {
+	deps.Git.Rebase = func(context.Context, string) (proc.Output, error) {
 		return proc.Output{}, fmt.Errorf("git -C %s rebase: %w", repoPath, errSeam)
 	}
 

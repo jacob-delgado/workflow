@@ -86,8 +86,10 @@ func TestSnapshotStagesStartNowhereOnTheBase(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: prBase, Base: testBase}, nil }
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
+		return gitrepo.Branch{Name: prBase, Base: testBase}, nil
+	}
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
 
 	// Act
 	stages := framedStages(t, deps)
@@ -129,10 +131,10 @@ func TestSnapshotReadsTheCommitsStage(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Git.Branch = func() (gitrepo.Branch, error) {
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 				return gitrepo.Branch{Name: testBranchName, Base: testBase, Head: filledHead, Commits: tt.commits}, nil
 			}
-			deps.Git.Changes = func() ([]gitrepo.Change, error) { return tt.changes, nil }
+			deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return tt.changes, nil }
 
 			// Act
 			stages := framedStages(t, deps)
@@ -336,7 +338,7 @@ func branchStagesOf(t *testing.T) (map[string][]api.Stage, []api.Stage) {
 	t.Helper()
 
 	deps := filledDeps()
-	deps.Git.Branches = func() ([]string, error) { return []string{testBranchName, elsewhereBranch}, nil }
+	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName, elsewhereBranch}, nil }
 	cfg := config.Default()
 	cfg.Jira.Project = testProject
 

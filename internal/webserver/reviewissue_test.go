@@ -25,7 +25,7 @@ const unnamedBranch = "my-thing"
 // with a pull request whose description is body.
 func reviewOn(link, body string) webserver.Deps {
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{Name: unnamedBranch, IssueLink: link}, nil
 	}
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
@@ -261,7 +261,7 @@ func TestACheckLogWhoseBranchOrCICannotBeReadIsNotANotFound(t *testing.T) {
 		want   int
 	}{
 		"the branch checked out": {want: http.StatusInternalServerError, change: func(deps *webserver.Deps) {
-			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 		}},
 		"the CI": {want: http.StatusBadGateway, change: func(deps *webserver.Deps) {
 			deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {

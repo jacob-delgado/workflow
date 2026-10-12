@@ -58,7 +58,7 @@ type prSeams struct {
 	// Compose and Options are what the pull request is composed from, and under.
 	Compose    loop.PullSeams
 	Options    loop.PullOptions
-	Push       func(branch string) (proc.Output, error)
+	Push       func(ctx context.Context, branch string) (proc.Output, error)
 	CreatePull func(context.Context, forge.NewPullRequest) (forge.PullRequest, error)
 	// LinkPull adds a pull request's link to an issue, offered once it is open.
 	// Nil — a tracker that cannot take a link — makes no offer.
@@ -281,7 +281,7 @@ func previewPull(artifact io.Writer, request forge.NewPullRequest, branch gitrep
 func openPull(
 	ctx context.Context, out output, seams prSeams, opts writeOptions, request forge.NewPullRequest, branch gitrepo.Branch,
 ) (prReport, error) {
-	err := loop.EnsurePushed(seams.Push, branch)
+	err := loop.EnsurePushed(ctx, seams.Push, branch)
 	if err != nil {
 		return prReport{}, pushFailure(branch.Name, err)
 	}

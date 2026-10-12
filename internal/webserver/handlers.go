@@ -127,8 +127,8 @@ func (s *server) browseURL(key jira.Key) string {
 
 // GetBranch returns the current branch, or an empty one when no repository is
 // configured.
-func (s *server) GetBranch(_ context.Context, _ api.GetBranchRequestObject) (api.GetBranchResponseObject, error) {
-	branch, err := s.readBranch()
+func (s *server) GetBranch(ctx context.Context, _ api.GetBranchRequestObject) (api.GetBranchResponseObject, error) {
+	branch, err := s.readBranch(ctx)
 	if err != nil {
 		return problemAnswer[api.GetBranchdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -139,20 +139,20 @@ func (s *server) GetBranch(_ context.Context, _ api.GetBranchRequestObject) (api
 // readBranch is the checked-out branch, or an empty one when no repository is
 // configured: the one read behind GET /api/branch and the event stream's frame
 // (frameBranch), which reads it once for every panel that describes it.
-func (s *server) readBranch() (gitrepo.Branch, error) {
+func (s *server) readBranch(ctx context.Context) (gitrepo.Branch, error) {
 	if s.deps.Git.Branch == nil {
 		return gitrepo.Branch{}, nil
 	}
 
-	return s.deps.Git.Branch()
+	return s.deps.Git.Branch(ctx)
 }
 
 // branchAfter re-reads the branch once a write to it has landed. A re-read
 // that fails does not undo the write, so fallback — the branch as the caller
 // knows it — is answered rather than a completed write reported as failed; the
 // event stream brings the rest.
-func (s *server) branchAfter(fallback gitrepo.Branch) gitrepo.Branch {
-	after, err := s.deps.Git.Branch()
+func (s *server) branchAfter(ctx context.Context, fallback gitrepo.Branch) gitrepo.Branch {
+	after, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return fallback
 	}
@@ -162,8 +162,10 @@ func (s *server) branchAfter(fallback gitrepo.Branch) gitrepo.Branch {
 
 // ListChanges returns the working tree's changes, or none when no repository is
 // configured.
-func (s *server) ListChanges(_ context.Context, _ api.ListChangesRequestObject) (api.ListChangesResponseObject, error) {
-	changes, err := s.readChanges()
+func (s *server) ListChanges(
+	ctx context.Context, _ api.ListChangesRequestObject,
+) (api.ListChangesResponseObject, error) {
+	changes, err := s.readChanges(ctx)
 	if err != nil {
 		return problemAnswer[api.ListChangesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -174,12 +176,12 @@ func (s *server) ListChanges(_ context.Context, _ api.ListChangesRequestObject) 
 // readChanges is the working tree's changes, or none when no repository is
 // configured: the one read behind GET /api/changes and the event stream's
 // changes panel.
-func (s *server) readChanges() ([]gitrepo.Change, error) {
+func (s *server) readChanges(ctx context.Context) ([]gitrepo.Change, error) {
 	if s.deps.Git.Changes == nil {
 		return nil, nil
 	}
 
-	return s.deps.Git.Changes()
+	return s.deps.Git.Changes(ctx)
 }
 
 // GetReview returns the branch's pull request and its CI, if one is found.
@@ -200,7 +202,7 @@ func (s *server) readReview(ctx context.Context) (api.Review, error) {
 		return api.Review{Found: false}, nil
 	}
 
-	branch, err := s.deps.Git.Branch()
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return api.Review{}, err
 	}
@@ -415,7 +417,7 @@ func (s *server) currentCheck(ctx context.Context, checkID string) (forge.Check,
 		return forge.Check{}, errNoSuchCheck
 	}
 
-	branch, err := s.deps.Git.Branch()
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return forge.Check{}, err
 	}

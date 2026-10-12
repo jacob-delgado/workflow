@@ -124,7 +124,7 @@ func (s *server) canWaitForCI(ctx context.Context, moment messaging.Moment, pull
 // an answer an interval old could wait for a CI that has finished. No CI
 // seam reads as no CI.
 func (s *server) ciNow(ctx context.Context, pull forge.PullRequest) (gitrepo.Branch, forge.CI, error) {
-	branch, err := s.readBranch()
+	branch, err := s.readBranch(ctx)
 	if err != nil {
 		return gitrepo.Branch{}, forge.CI{}, err
 	}
@@ -202,7 +202,7 @@ func (s *server) checkHeld(round int) {
 // forge, asked under ctx, say now. A read that failed says nothing of the pull
 // request, so it neither posts the announcement nor drops it.
 func (s *server) settleOnRead(ctx context.Context) {
-	branch, err := s.frameBranch()
+	branch, err := s.frameBranch(ctx)
 	if err != nil {
 		return
 	}

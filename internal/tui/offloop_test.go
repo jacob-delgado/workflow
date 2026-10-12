@@ -21,10 +21,10 @@ import (
 // learned, which the commit composer suggests from.
 func heldRecentSubjects(deps *tui.Deps, held *hold) {
 	subjects, learned := deps.Git.RecentSubjects, deps.Store.LastScope
-	deps.Git.RecentSubjects = func() ([]string, error) {
+	deps.Git.RecentSubjects = func(ctx context.Context) ([]string, error) {
 		held.wait()
 
-		return subjects()
+		return subjects(ctx)
 	}
 	deps.Store.LastScope = func(ctx context.Context) (string, bool) {
 		held.wait()
@@ -42,10 +42,10 @@ func heldTemplates(deps *tui.Deps, held *hold) {
 
 		return templates()
 	}
-	deps.Git.RemoteBranches = func() ([]string, error) {
+	deps.Git.RemoteBranches = func(ctx context.Context) ([]string, error) {
 		held.wait()
 
-		return remotes()
+		return remotes(ctx)
 	}
 }
 

@@ -96,13 +96,13 @@ func filledDeps() webserver.Deps {
 			},
 		},
 		Git: seams.Git{
-			Branch: func() (gitrepo.Branch, error) {
+			Branch: func(context.Context) (gitrepo.Branch, error) {
 				return gitrepo.Branch{
 					Name: testBranchName, Base: testBase, Ahead: 2, Head: filledHead, PushRemote: gitrepo.DefaultRemote,
 					Commits: []gitrepo.Commit{{Hash: filledHead, Subject: testCommitSubject}},
 				}, nil
 			},
-			Changes: func() ([]gitrepo.Change, error) {
+			Changes: func(context.Context) ([]gitrepo.Change, error) {
 				return []gitrepo.Change{{Path: "internal/config/config.go", Staged: 'M'}}, nil
 			},
 		},
@@ -306,7 +306,9 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 		return deps
 	}
 	noCommits := func(deps webserver.Deps) webserver.Deps {
-		deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil }
+		deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
+			return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil
+		}
 
 		return deps
 	}

@@ -81,12 +81,12 @@ func TestAnAnnouncementWhoseBranchCannotBeReadAsItIsAskedToWaitIsAFault(t *testi
 	deps := world.deps()
 	checkedOut := deps.Git.Branch
 	readable := inTurn(true, false)
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
 		if !readable() {
 			return gitrepo.Branch{}, errSeam
 		}
 
-		return checkedOut()
+		return checkedOut(ctx)
 	}
 	handler := serve(t, deps, config.Default())
 

@@ -124,39 +124,39 @@ func heldBackJira(deps seams.Jira) seams.Jira {
 // heldBackGit holds back the writes to the repository.
 func heldBackGit(deps seams.Git) seams.Git {
 	if deps.Stage != nil {
-		deps.Stage = func(gitrepo.Change) error { return errDryRun }
+		deps.Stage = func(context.Context, gitrepo.Change) error { return errDryRun }
 	}
 
 	if deps.Unstage != nil {
-		deps.Unstage = func(gitrepo.Change) error { return errDryRun }
+		deps.Unstage = func(context.Context, gitrepo.Change) error { return errDryRun }
 	}
 
 	if deps.Discard != nil {
-		deps.Discard = func(gitrepo.Change) error { return errDryRun }
+		deps.Discard = func(context.Context, gitrepo.Change) error { return errDryRun }
 	}
 
 	if deps.CreateBranch != nil {
-		deps.CreateBranch = func(string, string) error { return errDryRun }
+		deps.CreateBranch = func(context.Context, string, string) error { return errDryRun }
 	}
 
 	if deps.Checkout != nil {
-		deps.Checkout = func(string) error { return errDryRun }
+		deps.Checkout = func(context.Context, string) error { return errDryRun }
 	}
 
 	if deps.CreateWorktree != nil {
-		deps.CreateWorktree = func(string, string) (string, error) { return "", errDryRun }
+		deps.CreateWorktree = func(context.Context, string, string) (string, error) { return "", errDryRun }
 	}
 
 	if deps.Finish != nil {
-		deps.Finish = func(string, string) error { return errDryRun }
+		deps.Finish = func(context.Context, string, string) error { return errDryRun }
 	}
 
 	if deps.LinkIssue != nil {
-		deps.LinkIssue = func(string, string) error { return errDryRun }
+		deps.LinkIssue = func(context.Context, string, string) error { return errDryRun }
 	}
 
 	if deps.UnlinkIssue != nil {
-		deps.UnlinkIssue = func(string) error { return errDryRun }
+		deps.UnlinkIssue = func(context.Context, string) error { return errDryRun }
 	}
 
 	return heldBackStreams(deps)
@@ -165,23 +165,23 @@ func heldBackGit(deps seams.Git) seams.Git {
 // heldBackStreams holds back the repository writes that stream their output.
 func heldBackStreams(deps seams.Git) seams.Git {
 	if deps.Commit != nil {
-		deps.Commit = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+		deps.Commit = func(context.Context, string) (proc.Output, error) { return proc.Output{}, errDryRun }
 	}
 
 	if deps.Push != nil {
-		deps.Push = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+		deps.Push = func(context.Context, string) (proc.Output, error) { return proc.Output{}, errDryRun }
 	}
 
 	if deps.Amend != nil {
-		deps.Amend = func() (proc.Output, error) { return proc.Output{}, errDryRun }
+		deps.Amend = func(context.Context) (proc.Output, error) { return proc.Output{}, errDryRun }
 	}
 
 	if deps.Fixup != nil {
-		deps.Fixup = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+		deps.Fixup = func(context.Context, string) (proc.Output, error) { return proc.Output{}, errDryRun }
 	}
 
 	if deps.Rebase != nil {
-		deps.Rebase = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+		deps.Rebase = func(context.Context, string) (proc.Output, error) { return proc.Output{}, errDryRun }
 	}
 
 	return deps

@@ -34,7 +34,7 @@ func wednesday() time.Time { return time.Date(2026, 9, 16, 16, 0, 0, 0, time.UTC
 func activityDeps(starts *[]time.Time) webserver.Deps {
 	deps := filledDeps()
 	deps.Clock = wednesday
-	deps.Git.CommitsBetween = func(start, _ time.Time) []loop.RepositoryCommits {
+	deps.Git.CommitsBetween = func(_ context.Context, start, _ time.Time) []loop.RepositoryCommits {
 		*starts = append(*starts, start)
 
 		return []loop.RepositoryCommits{{Repository: "", Failed: nil, Commits: []gitrepo.DatedCommit{{
@@ -242,7 +242,7 @@ func TestASourceThatCannotBeReadSaysWhatToDo(t *testing.T) {
 		"git with no user.email": {
 			source: api.ActivitySourceNameGit,
 			fail: func(deps *webserver.Deps) {
-				deps.Git.CommitsBetween = func(time.Time, time.Time) []loop.RepositoryCommits {
+				deps.Git.CommitsBetween = func(context.Context, time.Time, time.Time) []loop.RepositoryCommits {
 					return []loop.RepositoryCommits{{Repository: "", Commits: nil, Failed: gitrepo.ErrNoIdentity}}
 				}
 			},
@@ -296,7 +296,7 @@ func TestASourceNotSetUpIsMarkedApartFromOneThatFailed(t *testing.T) {
 	var starts []time.Time
 
 	deps := activityDeps(&starts)
-	deps.Git.CommitsBetween = func(time.Time, time.Time) []loop.RepositoryCommits {
+	deps.Git.CommitsBetween = func(context.Context, time.Time, time.Time) []loop.RepositoryCommits {
 		return []loop.RepositoryCommits{{Repository: "", Commits: nil, Failed: gitrepo.ErrNoIdentity}}
 	}
 	deps.Jira.Activity = func(context.Context, time.Time, time.Time) (jira.Activity, error) {
@@ -358,8 +358,8 @@ func TestARepositoryThatCannotBeReadIsNamedInWhatToDo(t *testing.T) {
 
 			deps := activityDeps(&starts)
 			read := deps.Git.CommitsBetween
-			deps.Git.CommitsBetween = func(start, end time.Time) []loop.RepositoryCommits {
-				here := read(start, end)
+			deps.Git.CommitsBetween = func(ctx context.Context, start, end time.Time) []loop.RepositoryCommits {
+				here := read(ctx, start, end)
 				here[0].Repository = "acme/api"
 
 				return append(here, loop.RepositoryCommits{Repository: "acme/web", Commits: nil, Failed: failing.failed})

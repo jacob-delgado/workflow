@@ -33,18 +33,18 @@ type linking struct {
 // edit.
 func linkingDeps(record *linking, detached bool) webserver.Deps {
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{Name: unnamedBranch, Detached: detached}, nil
 	}
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 9, Title: "Speed up search", Body: "Speeds it up.\n"}, true, nil
 	}
-	deps.Git.LinkIssue = func(branch, issueKey string) error {
+	deps.Git.LinkIssue = func(_ context.Context, branch, issueKey string) error {
 		record.linked = append(record.linked, branch+" "+issueKey)
 
 		return nil
 	}
-	deps.Git.UnlinkIssue = func(branch string) error {
+	deps.Git.UnlinkIssue = func(_ context.Context, branch string) error {
 		record.unlinked = append(record.unlinked, branch)
 
 		return nil
@@ -193,7 +193,7 @@ func TestLinkingOrUnlinkingABranchGitCouldNotReadIsInternal(t *testing.T) {
 			// Arrange
 			record := &linking{}
 			deps := linkingDeps(record, false)
-			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 
 			// Act
 			answer := send(t, serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
@@ -266,7 +266,7 @@ func TestThePreviewAnswersABranchGitCouldNotRead(t *testing.T) {
 
 	// Arrange
 	deps := linkingDeps(&linking{}, false)
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, fmt.Errorf("reading HEAD in %s: %w", repoPath, errSeam)
 	}
 
@@ -307,8 +307,8 @@ func TestALinkGitCannotKeepIsUnprocessable(t *testing.T) {
 			// Arrange
 			deps := linkingDeps(&linking{}, false)
 			refused := fmt.Errorf("%w: exit status 4", gitrepo.ErrIssueLinkNotSaved)
-			deps.Git.LinkIssue = func(string, string) error { return refused }
-			deps.Git.UnlinkIssue = func(string) error { return refused }
+			deps.Git.LinkIssue = func(context.Context, string, string) error { return refused }
+			deps.Git.UnlinkIssue = func(context.Context, string) error { return refused }
 
 			// Act
 			answer := send(t, serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
@@ -347,7 +347,7 @@ func TestALinkNotKeptAfterThePullRequestIsEditedIsReported(t *testing.T) {
 	// Arrange
 	record := &linking{}
 	deps := linkingDeps(record, false)
-	deps.Git.LinkIssue = func(string, string) error { return gitrepo.ErrIssueLinkNotSaved }
+	deps.Git.LinkIssue = func(context.Context, string, string) error { return gitrepo.ErrIssueLinkNotSaved }
 
 	// Act
 	answer := send(t, serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",

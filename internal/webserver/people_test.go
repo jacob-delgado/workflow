@@ -107,8 +107,10 @@ func newFakeKept() *fakeKept {
 // wire hands the fake to deps, with the branch's changes owned by ben, carla
 // and the acme/control-plane team.
 func (f *fakeKept) wire(deps *webserver.Deps) {
-	deps.Git.ChangedPaths = func(string) ([]string, error) { return []string{"internal/api/server.go"}, nil }
-	deps.Git.CodeOwnersAt = func(string) (codeowners.File, bool, error) {
+	deps.Git.ChangedPaths = func(context.Context, string) ([]string, error) {
+		return []string{"internal/api/server.go"}, nil
+	}
+	deps.Git.CodeOwnersAt = func(context.Context, string) (codeowners.File, bool, error) {
 		return codeowners.Parse("internal/ @ben @carla @acme/control-plane\n", codeowners.GitHub), true, nil
 	}
 	deps.Store.OwnerLinks = func(_ context.Context, workspace string) ([]loop.OwnerLink, error) {

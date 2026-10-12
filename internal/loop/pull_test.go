@@ -44,7 +44,7 @@ func openable(name string) gitrepo.Branch {
 // no template, and an issue the tracker can read and link.
 func pullSeams() loop.PullSeams {
 	return loop.PullSeams{
-		Branch:    func() (gitrepo.Branch, error) { return openable(branchName), nil },
+		Branch:    func(context.Context) (gitrepo.Branch, error) { return openable(branchName), nil },
 		FindPull:  func(context.Context, string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil },
 		Templates: func() []forge.Template { return nil },
 		Issue: func(context.Context, jira.Key) (jira.IssueDetail, error) {
@@ -99,12 +99,12 @@ func TestComposePullRefusesWhatCannotBeOpened(t *testing.T) {
 			return seams
 		},
 		"a detached tree": func(seams loop.PullSeams) loop.PullSeams {
-			seams.Branch = func() (gitrepo.Branch, error) { return openable(""), nil }
+			seams.Branch = func(context.Context) (gitrepo.Branch, error) { return openable(""), nil }
 
 			return seams
 		},
 		"a branch with no commits": func(seams loop.PullSeams) loop.PullSeams {
-			seams.Branch = func() (gitrepo.Branch, error) {
+			seams.Branch = func(context.Context) (gitrepo.Branch, error) {
 				return gitrepo.Branch{Name: branchName, Base: "origin/main"}, nil
 			}
 
@@ -135,7 +135,7 @@ func TestComposePullReportsAnUnreadableBranch(t *testing.T) {
 
 	// Arrange
 	seams := pullSeams()
-	seams.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	seams.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 
 	// Act
 	_, _, err := loop.ComposePull(t.Context(), seams, options())
@@ -351,7 +351,7 @@ func TestComposePullAsksTheTrackerNothingForAKeylessBranch(t *testing.T) {
 	asked := false
 
 	seams := pullSeams()
-	seams.Branch = func() (gitrepo.Branch, error) { return openable(keylessBranch), nil }
+	seams.Branch = func(context.Context) (gitrepo.Branch, error) { return openable(keylessBranch), nil }
 	seams.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
 		asked = true
 

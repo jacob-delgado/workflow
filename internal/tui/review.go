@@ -346,7 +346,7 @@ func reviewBehavior() behavior {
 		// the find reads CI for the one it finds: so a refresh picks up a branch
 		// switched in a shell, and never reads CI for a pull request since replaced.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := loadBranch(m.deps)
+			read := loadBranch(m.session, m.deps)
 			m.review.loading = read != nil
 
 			return m, read

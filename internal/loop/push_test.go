@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strings"
@@ -29,8 +30,8 @@ func output(lines []string, waitErr error) proc.Output {
 
 // recordingPush is a push that succeeds and records each branch it was asked to
 // push.
-func recordingPush(pushed *[]string) func(string) (proc.Output, error) {
-	return func(branch string) (proc.Output, error) {
+func recordingPush(pushed *[]string) func(context.Context, string) (proc.Output, error) {
+	return func(_ context.Context, branch string) (proc.Output, error) {
 		*pushed = append(*pushed, branch)
 
 		return output([]string{"To origin"}, nil), nil
@@ -44,7 +45,7 @@ func TestPushPublishesTheBranch(t *testing.T) {
 	var pushed []string
 
 	// Act
-	err := loop.Push(recordingPush(&pushed), branchName)
+	err := loop.Push(t.Context(), recordingPush(&pushed), branchName)
 
 	// Assert
 	if err != nil || !slices.Equal(pushed, []string{branchName}) {
@@ -56,12 +57,12 @@ func TestPushCarriesTheOutputOfAFailedPush(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	push := func(string) (proc.Output, error) {
+	push := func(context.Context, string) (proc.Output, error) {
 		return output([]string{"! [rejected]", "hint: fetch first"}, errSeam), nil
 	}
 
 	// Act
-	err := loop.Push(push, branchName)
+	err := loop.Push(t.Context(), push, branchName)
 
 	// Assert
 	var failed loop.PushFailedError
@@ -81,12 +82,12 @@ func TestPushCarriesTheRemotesLinesNeutralized(t *testing.T) {
 	// Arrange
 	// A remote's hook writes the remote: lines, so they may hold anything a
 	// terminal would act on.
-	push := func(string) (proc.Output, error) {
+	push := func(context.Context, string) (proc.Output, error) {
 		return output([]string{"remote: \x1b]0;pwned\a", "! [remote rejected]"}, errSeam), nil
 	}
 
 	// Act
-	err := loop.Push(push, branchName)
+	err := loop.Push(t.Context(), push, branchName)
 
 	// Assert
 	var failed loop.PushFailedError
@@ -103,10 +104,10 @@ func TestPushReturnsAPushThatCannotStart(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	push := func(string) (proc.Output, error) { return proc.Output{}, errSeam }
+	push := func(context.Context, string) (proc.Output, error) { return proc.Output{}, errSeam }
 
 	// Act
-	err := loop.Push(push, branchName)
+	err := loop.Push(t.Context(), push, branchName)
 
 	// Assert
 	if !errors.Is(err, errSeam) || errors.Is(err, loop.ErrPushFailed) {
@@ -118,7 +119,7 @@ func TestPushWithoutAPushSeamIsUnavailable(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	err := loop.Push(nil, branchName)
+	err := loop.Push(t.Context(), nil, branchName)
 
 	// Assert
 	if !errors.Is(err, loop.ErrPushUnavailable) {
@@ -136,7 +137,7 @@ func TestEnsurePushedSkipsAPushedBranch(t *testing.T) {
 	branch.Upstream, branch.PushRemote = "origin/"+branchName, gitrepo.DefaultRemote
 
 	// Act
-	err := loop.EnsurePushed(recordingPush(&pushed), branch)
+	err := loop.EnsurePushed(t.Context(), recordingPush(&pushed), branch)
 
 	// Assert
 	if err != nil || len(pushed) != 0 {
@@ -162,7 +163,7 @@ func TestEnsurePushedPushesAnUnpublishedBranch(t *testing.T) {
 			var pushed []string
 
 			// Act
-			err := loop.EnsurePushed(recordingPush(&pushed), branch)
+			err := loop.EnsurePushed(t.Context(), recordingPush(&pushed), branch)
 
 			// Assert
 			if err != nil || !slices.Equal(pushed, []string{branchName}) {
@@ -179,13 +180,15 @@ func TestFetchThenCreatesOnlyAfterAFetchThatWent(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		fetch    func() error
+		fetch    func(context.Context) error
 		wantErr  error
 		wantMade bool
 	}{
-		"a fetch that goes":  {fetch: func() error { return nil }, wantErr: nil, wantMade: true},
-		"a fetch that fails": {fetch: func() error { return errOriginUnreachable }, wantErr: loop.ErrFetchFailed},
-		"no fetch to make":   {fetch: nil, wantErr: nil, wantMade: true},
+		"a fetch that goes": {fetch: func(context.Context) error { return nil }, wantErr: nil, wantMade: true},
+		"a fetch that fails": {
+			fetch: func(context.Context) error { return errOriginUnreachable }, wantErr: loop.ErrFetchFailed,
+		},
+		"no fetch to make": {fetch: nil, wantErr: nil, wantMade: true},
 	}
 
 	for name, tt := range cases {
@@ -196,7 +199,7 @@ func TestFetchThenCreatesOnlyAfterAFetchThatWent(t *testing.T) {
 			made := false
 
 			// Act
-			err := loop.FetchThen(tt.fetch, func() error {
+			err := loop.FetchThen(t.Context(), tt.fetch, func() error {
 				made = true
 
 				return nil

@@ -49,7 +49,7 @@ func (PullAlreadyOpenError) Unwrap() error {
 // leaves that part out of the proposal, as Owners left zero leaves out the
 // reviewers.
 type PullSeams struct {
-	Branch    func() (gitrepo.Branch, error)
+	Branch    func(ctx context.Context) (gitrepo.Branch, error)
 	FindPull  func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
 	Templates func() []forge.Template
 	Issue     func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
@@ -79,7 +79,7 @@ type PullOptions struct {
 func ComposePull(
 	ctx context.Context, seams PullSeams, opts PullOptions,
 ) (forge.NewPullRequest, gitrepo.Branch, error) {
-	branch, err := branchToOpen(seams.Branch)
+	branch, err := branchToOpen(ctx, seams.Branch)
 	if err != nil {
 		return forge.NewPullRequest{}, gitrepo.Branch{}, err
 	}
@@ -98,13 +98,14 @@ func ComposePull(
 }
 
 // branchToOpen reads the checked-out branch, refusing one that could not carry a
-// pull request: a detached tree, or a branch with no commits of its own.
-func branchToOpen(read func() (gitrepo.Branch, error)) (gitrepo.Branch, error) {
+// pull request: a detached tree, or a branch with no commits of its own. The
+// branch is read under ctx.
+func branchToOpen(ctx context.Context, read func(context.Context) (gitrepo.Branch, error)) (gitrepo.Branch, error) {
 	if read == nil {
 		return gitrepo.Branch{}, ErrNothingToOpen
 	}
 
-	branch, err := read()
+	branch, err := read(ctx)
 	if err != nil {
 		return gitrepo.Branch{}, fmt.Errorf("reading the branch: %w", err)
 	}

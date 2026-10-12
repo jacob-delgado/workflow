@@ -35,7 +35,7 @@ func openPull() forge.PullRequest {
 // an author the forge names, and an issue the tracker can read and link.
 func announceSeams() loop.AnnounceSeams {
 	return loop.AnnounceSeams{
-		Branch:   func() (gitrepo.Branch, error) { return openable(branchName), nil },
+		Branch:   func(context.Context) (gitrepo.Branch, error) { return openable(branchName), nil },
 		FindPull: func(context.Context, string) (forge.PullRequest, bool, error) { return openPull(), true, nil },
 		Author:   func(context.Context) (string, error) { return author, nil },
 		Issue: func(context.Context, jira.Key) (jira.IssueDetail, error) {
@@ -164,7 +164,7 @@ func TestComposeAnnouncementReportsWhatCannotBeRead(t *testing.T) {
 	}{
 		"the branch": {
 			mutate: func(seams loop.AnnounceSeams) loop.AnnounceSeams {
-				seams.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+				seams.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 
 				return seams
 			},
@@ -317,7 +317,7 @@ func TestComposeAnnouncementNamesNoIssueForAKeylessBranch(t *testing.T) {
 
 	// Arrange
 	seams := announceSeams()
-	seams.Branch = func() (gitrepo.Branch, error) { return openable(keylessBranch), nil }
+	seams.Branch = func(context.Context) (gitrepo.Branch, error) { return openable(keylessBranch), nil }
 
 	// Act
 	announcement, _, err := compose(t, seams)

@@ -378,7 +378,7 @@ func messagingBehavior() behavior {
 			read := loadAnnounces(m.session, m.deps)
 			m.messaging.loading = read != nil
 
-			return m, tea.Batch(read, loadBranch(m.deps))
+			return m, tea.Batch(read, loadBranch(m.session, m.deps))
 		},
 		loading: func(m Model) bool { return m.messaging.loading },
 		scroll:  func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,

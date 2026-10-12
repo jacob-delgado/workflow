@@ -36,12 +36,12 @@ func (m Model) applyAmend(subject string) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would amend " + subject), nil
 	}
 
-	amend := m.deps.Git.Amend
+	ctx, amend := m.session, m.deps.Git.Amend
 
-	return m.startRun(amendRun(), amend, func(done Model) (Model, tea.Cmd) {
+	return m.startRun(amendRun(), func() (proc.Output, error) { return amend(ctx) }, func(done Model) (Model, tea.Cmd) {
 		done = done.closeOverlay().noticed(done.marks.done + " amended " + subject)
 
-		return done, tea.Batch(loadChanges(done.deps), loadBranch(done.deps))
+		return done, tea.Batch(loadChanges(m.session, done.deps), loadBranch(m.session, done.deps))
 	})
 }
 
@@ -56,13 +56,13 @@ func (m Model) applyFixup(hash, subject string) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would fix up " + subject), nil
 	}
 
-	fixup := m.deps.Git.Fixup
+	ctx, fixup := m.session, m.deps.Git.Fixup
 
-	return m.startRun(fixupRun(), func() (proc.Output, error) { return fixup(hash) },
+	return m.startRun(fixupRun(), func() (proc.Output, error) { return fixup(ctx, hash) },
 		func(done Model) (Model, tea.Cmd) {
 			done = done.closeOverlay().noticed(done.marks.done + " recorded a fixup! of " + subject)
 
-			return done, tea.Batch(loadChanges(done.deps), loadBranch(done.deps))
+			return done, tea.Batch(loadChanges(ctx, done.deps), loadBranch(ctx, done.deps))
 		})
 }
 

@@ -127,7 +127,7 @@ func TestLinkRefusesAKeyTheBranchDoesNotName(t *testing.T) {
 			var links []linkCall
 
 			deps := writableDeps(&links, new([]jira.Transition))
-			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: tt.branch}, nil }
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{Name: tt.branch}, nil }
 
 			// Act
 			recorder := post(t, deps, config.Default(), "/api/issues/"+tt.key+"/link")
@@ -197,7 +197,7 @@ func TestLinkReportsWhatItCouldNotRead(t *testing.T) {
 	}{
 		"the branch cannot be read": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+				deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 			},
 			wantCode: http.StatusInternalServerError,
 		},

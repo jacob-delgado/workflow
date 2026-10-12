@@ -83,7 +83,7 @@ func (s *server) OpenPullRequest(
 		return openUnprocessable("a title and a base branch are required"), nil
 	}
 
-	err = loop.EnsurePushed(s.deps.Git.Push, branch)
+	err = loop.EnsurePushed(ctx, s.deps.Git.Push, branch)
 	if err != nil {
 		return openUnprocessable(pushFailure(err)), nil
 	}

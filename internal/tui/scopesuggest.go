@@ -41,7 +41,7 @@ func readScopes(ctx context.Context, deps Deps, opened int, paths []string, lear
 	}
 
 	return func() tea.Msg {
-		read := scopesRead{opened: opened, suggestions: scopeSuggestions(paths, recentSubjects)}
+		read := scopesRead{opened: opened, suggestions: scopeSuggestions(ctx, paths, recentSubjects)}
 		if lastScope == nil {
 			return read
 		}
@@ -98,7 +98,9 @@ func (l changeList) stagedPaths() []string {
 // scopeSuggestions is the scope completions for a commit: the shared directory of
 // the staged files first, then the scopes already used in recent commits, each
 // once. A missing or unreadable history contributes nothing.
-func scopeSuggestions(paths []string, recentSubjects func() ([]string, error)) []string {
+func scopeSuggestions(
+	ctx context.Context, paths []string, recentSubjects func(context.Context) ([]string, error),
+) []string {
 	var suggestions []string
 
 	seen := map[string]bool{}
@@ -111,7 +113,7 @@ func scopeSuggestions(paths []string, recentSubjects func() ([]string, error)) [
 
 	add(sharedScope(paths))
 
-	for _, scope := range recentScopes(recentSubjects) {
+	for _, scope := range recentScopes(ctx, recentSubjects) {
 		add(scope)
 	}
 
@@ -120,12 +122,12 @@ func scopeSuggestions(paths []string, recentSubjects func() ([]string, error)) [
 
 // recentScopes reads the Conventional Commit scopes from recent commit subjects,
 // or none when the repository cannot be read or has no such seam.
-func recentScopes(recentSubjects func() ([]string, error)) []string {
+func recentScopes(ctx context.Context, recentSubjects func(context.Context) ([]string, error)) []string {
 	if recentSubjects == nil {
 		return nil
 	}
 
-	subjects, err := recentSubjects()
+	subjects, err := recentSubjects(ctx)
 	if err != nil {
 		return nil
 	}

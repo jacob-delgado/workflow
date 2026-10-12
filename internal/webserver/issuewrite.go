@@ -59,7 +59,7 @@ func (s *server) LinkPullRequest(
 // branchPull is the pull request the forge has for the checked-out branch, when
 // that branch names issueKey.
 func (s *server) branchPull(ctx context.Context, issueKey jira.Key) (forge.PullRequest, error) {
-	branch, err := s.deps.Git.Branch()
+	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
 		return forge.PullRequest{}, fmt.Errorf("reading the branch: %w", err)
 	}

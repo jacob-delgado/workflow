@@ -204,8 +204,8 @@ func composeFor(ctx context.Context, seams announceSeams) (composedAnnouncement,
 	// The branch is read once, and composing is handed that read, its failure
 	// with it, so the base the tags read is the branch the announcement names.
 	compose := seams.Compose
-	branch, readErr := compose.Branch()
-	compose.Branch = func() (gitrepo.Branch, error) { return branch, readErr }
+	branch, readErr := compose.Branch(ctx)
+	compose.Branch = func(context.Context) (gitrepo.Branch, error) { return branch, readErr }
 
 	announcement, pull, err := loop.ComposeAnnouncement(ctx, compose, seams.Messaging, seams.Project, seams.Kind)
 	if errors.Is(err, loop.ErrNoPullRequest) {

@@ -90,7 +90,7 @@ func TestGetReviewReportsABranchFailure(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/review")
@@ -295,7 +295,9 @@ func TestSnapshotReviewIsNotFoundWhenTheBranchReadFails(t *testing.T) {
 	// The forge would find a pull request for any branch, so only the failed
 	// branch read can leave the review empty.
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName}, errSeam }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
+		return gitrepo.Branch{Name: testBranchName}, errSeam
+	}
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())

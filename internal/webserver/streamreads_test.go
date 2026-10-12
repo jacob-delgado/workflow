@@ -190,12 +190,12 @@ func TestStreamReadsTheBranchOncePerFrame(t *testing.T) {
 	reads := 0
 	deps := filledDeps()
 	readBranch := deps.Git.Branch
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
 		reads++
 
-		return readBranch()
+		return readBranch(ctx)
 	}
-	deps.Git.Branches = func() ([]string, error) { return []string{testBranchName}, nil }
+	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName}, nil }
 
 	// Act
 	pushed := snapshots(t, streamFrames(t, deps))
@@ -220,13 +220,13 @@ func TestStreamFrameDescribesOneBranch(t *testing.T) {
 	checkedOut := []string{"fix/PROJ-1", "fix/PROJ-2", "fix/PROJ-3"}
 	reads := 0
 	deps := filledDeps()
-	deps.Git.Branch = func() (gitrepo.Branch, error) {
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		name := checkedOut[reads%len(checkedOut)]
 		reads++
 
 		return gitrepo.Branch{Name: name, Head: testCommitHash}, nil
 	}
-	deps.Git.Branches = func() ([]string, error) { return checkedOut, nil }
+	deps.Git.Branches = func(context.Context) ([]string, error) { return checkedOut, nil }
 
 	askedAbout := ""
 	findPull := deps.Forge.FindPullRequest

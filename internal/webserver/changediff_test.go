@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -33,8 +34,8 @@ func TestChangeDiffReadsTheChangeTheTreeLists(t *testing.T) {
 	var asked []gitrepo.Change
 
 	deps := filledDeps()
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return []gitrepo.Change{renamed()}, nil }
-	deps.Git.Diff = func(change gitrepo.Change) ([]string, error) {
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return []gitrepo.Change{renamed()}, nil }
+	deps.Git.Diff = func(_ context.Context, change gitrepo.Change) ([]string, error) {
 		asked = append(asked, change)
 
 		return []string{"--- a/internal/old.go", "+++ b/internal/new.go", "+package internal"}, nil
@@ -63,7 +64,7 @@ func TestChangeDiffOfAnUnchangedFileIsNotFound(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Diff = func(gitrepo.Change) ([]string, error) { return nil, nil }
+	deps.Git.Diff = func(context.Context, gitrepo.Change) ([]string, error) { return nil, nil }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), diffOf("/etc/passwd"))
@@ -91,7 +92,7 @@ func TestChangeDiffThatGitCannotReadKeepsItsWordsOff(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Diff = func(gitrepo.Change) ([]string, error) {
+	deps.Git.Diff = func(context.Context, gitrepo.Change) ([]string, error) {
 		return nil, fmt.Errorf("reading the diff in %s: %w", repoPath, errSeam)
 	}
 
@@ -111,7 +112,7 @@ func TestChangeDiffWithNoDifferenceIsEmpty(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Diff = func(gitrepo.Change) ([]string, error) { return nil, nil }
+	deps.Git.Diff = func(context.Context, gitrepo.Change) ([]string, error) { return nil, nil }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), diffOf("internal/config/config.go"))
@@ -127,7 +128,7 @@ func TestChangeDiffWithNoTreeToReadIsNotAvailable(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Diff = func(gitrepo.Change) ([]string, error) { return nil, nil }
+	deps.Git.Diff = func(context.Context, gitrepo.Change) ([]string, error) { return nil, nil }
 	deps.Git.Changes = nil
 
 	// Act
@@ -142,8 +143,8 @@ func TestChangeDiffWhoseTreeCannotBeReadSaysToTryAgain(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Git.Diff = func(gitrepo.Change) ([]string, error) { return nil, nil }
-	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
+	deps.Git.Diff = func(context.Context, gitrepo.Change) ([]string, error) { return nil, nil }
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), diffOf("a.go"))

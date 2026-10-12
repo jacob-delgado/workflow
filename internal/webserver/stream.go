@@ -101,7 +101,7 @@ func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, sna
 // panel keeps its last answer instead (forgeReview). A seam that fails says so
 // beside its panel, in problems, so the empty panel is not taken for an answer.
 func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
-	branch, branchErr := s.frameBranch()
+	branch, branchErr := s.frameBranch(ctx)
 	read, reviewErr := s.snapshotReview(ctx, branch, branchErr)
 
 	// A queued announcement waits on what the forge says; a read that failed
@@ -113,7 +113,7 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 	review := s.reviewDTO(branch, read)
 	review.Announced = s.reviewAnnounced(ctx, read)
 	issues, issuesErr := s.snapshotIssues(ctx, view)
-	changes, changesErr := s.snapshotChanges()
+	changes, changesErr := s.snapshotChanges(ctx)
 	commit := s.commitConvention()
 
 	frame := api.Snapshot{
@@ -228,12 +228,12 @@ func stagesDTO(stages []progress.Stage) []api.Stage {
 // even when a checkout lands mid-frame. It answers an empty branch with
 // errNoBranch when no repository is configured, and with the read's error when
 // it fails.
-func (s *server) frameBranch() (gitrepo.Branch, error) {
+func (s *server) frameBranch(ctx context.Context) (gitrepo.Branch, error) {
 	if s.deps.Git.Branch == nil {
 		return gitrepo.Branch{}, errNoBranch
 	}
 
-	branch, err := s.readBranch()
+	branch, err := s.readBranch(ctx)
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
@@ -292,14 +292,14 @@ func (s *server) snapshotBranches(
 		return []api.TaskBranch{}
 	}
 
-	local, err := s.deps.Git.Branches()
+	local, err := s.deps.Git.Branches(ctx)
 	if err != nil {
 		return []api.TaskBranch{}
 	}
 
 	project := s.config().Jira.Project
 	listing := branchListing{
-		names: slices.Clone(local), remote: map[string]bool{}, links: s.issueLinks(),
+		names: slices.Clone(local), remote: map[string]bool{}, links: s.issueLinks(ctx),
 		worktrees: s.otherWorktrees(), home: s.deps.Repositories.Home,
 		stages: branchStages{
 			checkedOut: checkedOutStages,
@@ -310,7 +310,7 @@ func (s *server) snapshotBranches(
 		},
 	}
 
-	for _, name := range s.remoteBranches() {
+	for _, name := range s.remoteBranches(ctx) {
 		if !slices.Contains(local, name) {
 			listing.names = append(listing.names, name)
 			listing.remote[name] = true
@@ -347,12 +347,12 @@ func (s *server) otherWorktrees() map[string]gitrepo.Worktree {
 
 // remoteBranches lists the remote's branches, or none outside a repository or
 // when the read fails: the local ones are listed all the same.
-func (s *server) remoteBranches() []string {
+func (s *server) remoteBranches(ctx context.Context) []string {
 	if s.deps.Git.RemoteBranches == nil {
 		return nil
 	}
 
-	names, err := s.deps.Git.RemoteBranches()
+	names, err := s.deps.Git.RemoteBranches(ctx)
 	if err != nil {
 		return nil
 	}
@@ -362,12 +362,12 @@ func (s *server) remoteBranches() []string {
 
 // issueLinks is every branch linked to an issue by hand, or none when there is
 // no repository to ask.
-func (s *server) issueLinks() map[string]string {
+func (s *server) issueLinks(ctx context.Context) map[string]string {
 	if s.deps.Git.IssueLinks == nil {
 		return nil
 	}
 
-	return s.deps.Git.IssueLinks()
+	return s.deps.Git.IssueLinks(ctx)
 }
 
 // issueKeys is the issue each of names is for, by its link in links or its
@@ -404,8 +404,8 @@ func (s *server) snapshotIssues(ctx context.Context, view string) (api.IssuesPag
 
 // snapshotChanges is the working tree's changes, or none outside a repository or
 // when the read fails, with its error.
-func (s *server) snapshotChanges() (api.ChangeList, error) {
-	changes, err := s.readChanges()
+func (s *server) snapshotChanges(ctx context.Context) (api.ChangeList, error) {
+	changes, err := s.readChanges(ctx)
 	if err != nil {
 		return changesDTO(nil), err
 	}

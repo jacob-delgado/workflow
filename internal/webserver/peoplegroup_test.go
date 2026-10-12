@@ -26,7 +26,7 @@ func acmeOwnedServer(t *testing.T, fake *fakeKept) http.Handler {
 	deps := filledDeps()
 	deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 	fake.wire(&deps)
-	deps.Git.CodeOwnersAt = func(string) (codeowners.File, bool, error) {
+	deps.Git.CodeOwnersAt = func(context.Context, string) (codeowners.File, bool, error) {
 		return codeowners.Parse("* @acme\n", codeowners.GitLab), true, nil
 	}
 	deps.Forge.IsGroup = func(_ context.Context, name string) (bool, error) { return name == "acme", nil }

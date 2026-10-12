@@ -97,7 +97,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	composer.scope.Blur()
 
 	paths := m.changes.stagedPaths()
-	m.overlay = composer.withScopeSuggestions(scopeSuggestions(paths, nil))
+	m.overlay = composer.withScopeSuggestions(scopeSuggestions(m.session, paths, nil))
 
 	return m, readScopes(m.session, m.deps, opened, paths, draft.scope == "")
 }
@@ -421,9 +421,9 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would commit " + subject.String()), nil
 	}
 
-	message, commit := c.conv.Message(subject, c.body, string(c.issueKey)), m.deps.Git.Commit
+	ctx, message, commit := m.session, c.conv.Message(subject, c.body, string(c.issueKey)), m.deps.Git.Commit
 
-	return m.startRun(commitRun(), func() (proc.Output, error) { return commit(message) },
+	return m.startRun(commitRun(), func() (proc.Output, error) { return commit(ctx, message) },
 		func(done Model) (Model, tea.Cmd) {
 			done.draft = commitDraft{}
 			committed := done.marks.done + " committed " + subject.String()
@@ -438,7 +438,7 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 				return nil
 			}
 
-			return done, tea.Batch(loadChanges(done.deps), loadBranch(done.deps), remember)
+			return done, tea.Batch(loadChanges(ctx, done.deps), loadBranch(ctx, done.deps), remember)
 		})
 }
 

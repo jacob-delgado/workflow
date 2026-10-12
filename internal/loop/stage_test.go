@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -38,8 +39,8 @@ func workTree() []gitrepo.Change {
 
 // recordingStage is a stage that records each path it was asked to stage and
 // fails for the paths in refused.
-func recordingStage(staged *[]string, refused ...string) func(gitrepo.Change) error {
-	return func(change gitrepo.Change) error {
+func recordingStage(staged *[]string, refused ...string) func(context.Context, gitrepo.Change) error {
+	return func(_ context.Context, change gitrepo.Change) error {
 		*staged = append(*staged, change.Path)
 
 		if slices.Contains(refused, change.Path) {
@@ -80,7 +81,7 @@ func TestStageAllStagesEveryStageableChange(t *testing.T) {
 	var staged []string
 
 	// Act
-	err := loop.StageAll(workTree(), recordingStage(&staged))
+	err := loop.StageAll(t.Context(), workTree(), recordingStage(&staged))
 
 	// Assert
 	if want := stageablePaths(); err != nil || !slices.Equal(staged, want) {
@@ -95,7 +96,7 @@ func TestStageAllGoesOnPastAFileGitRefuses(t *testing.T) {
 	var staged []string
 
 	// Act
-	err := loop.StageAll(workTree(), recordingStage(&staged, unstagedEdit().Path))
+	err := loop.StageAll(t.Context(), workTree(), recordingStage(&staged, unstagedEdit().Path))
 
 	// Assert
 	if !errors.Is(err, errLocked) {
@@ -111,7 +112,7 @@ func TestStageAllWithoutAStageSeamIsUnavailable(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	err := loop.StageAll(workTree(), nil)
+	err := loop.StageAll(t.Context(), workTree(), nil)
 
 	// Assert
 	if !errors.Is(err, loop.ErrStagingUnavailable) {
@@ -126,7 +127,7 @@ func TestUnstageAllTakesEveryStagedChangeOut(t *testing.T) {
 	var unstaged []string
 
 	// Act
-	err := loop.UnstageAll(workTree(), recordingStage(&unstaged))
+	err := loop.UnstageAll(t.Context(), workTree(), recordingStage(&unstaged))
 
 	// Assert
 	// The wholly staged file and the staged part of the partly staged one; not
@@ -141,7 +142,7 @@ func TestUnstageAllWithoutAnUnstageSeamIsUnavailable(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	err := loop.UnstageAll(workTree(), nil)
+	err := loop.UnstageAll(t.Context(), workTree(), nil)
 
 	// Assert
 	if !errors.Is(err, loop.ErrStagingUnavailable) {

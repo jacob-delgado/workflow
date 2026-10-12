@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -35,17 +36,17 @@ type startCalls struct {
 // wire binds deps' fetch, branch and worktree creates over the calls, the
 // fetch answering fetchErr.
 func (c *startCalls) wire(deps webserver.Deps, fetchErr error) webserver.Deps {
-	deps.Git.Fetch = func() error {
+	deps.Git.Fetch = func(context.Context) error {
 		c.calls = append(c.calls, "fetch")
 
 		return fetchErr
 	}
-	deps.Git.CreateBranch = func(name, _ string) error {
+	deps.Git.CreateBranch = func(_ context.Context, name, _ string) error {
 		c.calls = append(c.calls, "branch "+name)
 
 		return nil
 	}
-	deps.Git.CreateWorktree = func(name, _ string) (string, error) {
+	deps.Git.CreateWorktree = func(_ context.Context, name, _ string) (string, error) {
 		c.calls = append(c.calls, "worktree "+name)
 
 		return "/home/dev/src/acme-" + name, nil
@@ -149,7 +150,7 @@ func TestStartWorkWithNoBaseHasNothingToFetch(t *testing.T) {
 	// Arrange
 	calls := &startCalls{}
 	deps := calls.wire(filledDeps(), errFetch)
-	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: prBase}, nil }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{Name: prBase}, nil }
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/branches",

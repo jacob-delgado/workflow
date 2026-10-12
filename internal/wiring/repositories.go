@@ -161,9 +161,9 @@ const readsAtOnce = 4
 // repository is named only when more than one is read. With none, where is
 // read regardless, so git says why there is nothing to read.
 func (e Environment) yourCommits(
-	ctx context.Context, where Workspace, favorites func(context.Context) ([]string, error),
-) func(start, end time.Time) []loop.RepositoryCommits {
-	return func(start, end time.Time) []loop.RepositoryCommits {
+	where Workspace, favorites func(context.Context) ([]string, error),
+) func(ctx context.Context, start, end time.Time) []loop.RepositoryCommits {
+	return func(ctx context.Context, start, end time.Time) []loop.RepositoryCommits {
 		repositories := e.commitRepositories(ctx, where, favorites)
 		if len(repositories) == 0 {
 			repositories = []Workspace{where}

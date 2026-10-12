@@ -4,6 +4,7 @@
 package wiring_test
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"os"
@@ -180,15 +181,32 @@ func TestTheGitSeamsStartABranchFromMain(t *testing.T) {
 	repo, _, _ := gitSeams(t)
 
 	// Act
-	err := repo.CreateBranch(featureBranch, "main")
+	err := repo.CreateBranch(t.Context(), featureBranch, "main")
 	if err != nil {
 		t.Fatalf("CreateBranch: %v", err)
 	}
 
 	// Assert
-	branch, err := repo.Branch()
+	branch, err := repo.Branch(t.Context())
 	if err != nil || branch.Name != featureBranch || branch.Base != "main" {
 		t.Errorf("Branch = %+v, %v; want %s checked out, from main", branch, err, featureBranch)
+	}
+}
+
+// The wiring holds no context of its own: a git seam runs git under the
+// context it is asked under, so one asked for a page that has left stops.
+func TestAGitSeamAskedUnderAnEndedContextIsCanceled(t *testing.T) {
+	// Arrange
+	repo, _, _ := gitSeams(t)
+	ended, end := context.WithCancel(t.Context())
+	end()
+
+	// Act
+	_, err := repo.Branch(ended)
+
+	// Assert
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("Branch under an ended context = %v, want %v", err, context.Canceled)
 	}
 }
 
@@ -200,7 +218,7 @@ func TestTheGitSeamsStageAndUnstageAChange(t *testing.T) {
 	change := onlyChange(t, repo)
 
 	// Act: stage it
-	err := repo.Stage(change)
+	err := repo.Stage(t.Context(), change)
 	if err != nil {
 		t.Fatalf("Stage: %v", err)
 	}
@@ -211,7 +229,7 @@ func TestTheGitSeamsStageAndUnstageAChange(t *testing.T) {
 	}
 
 	// Act: unstage it
-	err = repo.Unstage(change)
+	err = repo.Unstage(t.Context(), change)
 	if err != nil {
 		t.Fatalf("Unstage: %v", err)
 	}
@@ -232,17 +250,17 @@ func TestTheGitSeamsDiscardAChange(t *testing.T) {
 			write(t, filepath.Join(root, "new.go"), "package x\n", 0o600)
 
 			if stageFirst {
-				err := repo.Stage(onlyChange(t, repo))
+				err := repo.Stage(t.Context(), onlyChange(t, repo))
 				if err != nil {
 					t.Fatalf("Stage: %v", err)
 				}
 			}
 
 			// Act
-			err := repo.Discard(onlyChange(t, repo))
+			err := repo.Discard(t.Context(), onlyChange(t, repo))
 
 			// Assert
-			changes, readErr := repo.Changes()
+			changes, readErr := repo.Changes(t.Context())
 			if err != nil || readErr != nil || len(changes) != 0 {
 				t.Errorf("Discard = %v; changes after = %+v, %v; want none", err, changes, readErr)
 			}
@@ -255,13 +273,13 @@ func TestTheGitSeamsCommitWhatIsStagedAndLeaveNoMessageBehind(t *testing.T) {
 	repo, root, drafts := gitSeams(t)
 	write(t, filepath.Join(root, "new.go"), "package x\n", 0o600)
 
-	err := repo.Stage(onlyChange(t, repo))
+	err := repo.Stage(t.Context(), onlyChange(t, repo))
 	if err != nil {
 		t.Fatalf("Stage: %v", err)
 	}
 
 	// Act
-	output, err := repo.Commit("feat: add x\n\nWhy.\n")
+	output, err := repo.Commit(t.Context(), "feat: add x\n\nWhy.\n")
 	if err != nil {
 		t.Fatalf("Commit did not start: %v", err)
 	}
@@ -286,13 +304,13 @@ func TestTheGitSeamsReportAPushGitRefuses(t *testing.T) {
 	// Arrange
 	repo, _, _ := gitSeams(t)
 
-	err := repo.CreateBranch(featureBranch, "main")
+	err := repo.CreateBranch(t.Context(), featureBranch, "main")
 	if err != nil {
 		t.Fatalf("CreateBranch: %v", err)
 	}
 
 	// Act
-	push, err := repo.Push(featureBranch)
+	push, err := repo.Push(t.Context(), featureBranch)
 	if err != nil {
 		t.Fatalf("Push did not start: %v", err)
 	}
@@ -316,13 +334,13 @@ func TestTheGitSeamsFinishAMergedBranch(t *testing.T) {
 	git(t, root, "fetch", "--quiet", "origin")
 	git(t, root, "branch", "--quiet", "--set-upstream-to=origin/main", "main")
 
-	err := repo.CreateBranch(featureBranch, "main")
+	err := repo.CreateBranch(t.Context(), featureBranch, "main")
 	if err != nil {
 		t.Fatalf("CreateBranch: %v", err)
 	}
 
 	// Act
-	err = repo.Finish(featureBranch, "main")
+	err = repo.Finish(t.Context(), featureBranch, "main")
 	// Assert
 	if err != nil {
 		t.Fatalf("Finish: %v", err)
@@ -341,13 +359,13 @@ func TestAFinishWhosePullGitRefusesKeepsTheBranchAndGitsReason(t *testing.T) {
 	// Arrange
 	repo, root, _ := gitSeams(t)
 
-	err := repo.CreateBranch(featureBranch, "main")
+	err := repo.CreateBranch(t.Context(), featureBranch, "main")
 	if err != nil {
 		t.Fatalf("CreateBranch: %v", err)
 	}
 
 	// Act
-	err = repo.Finish(featureBranch, "main")
+	err = repo.Finish(t.Context(), featureBranch, "main")
 
 	// Assert
 	// main tracks nothing, so git refuses the pull. Only a run streamed
@@ -365,7 +383,7 @@ func TestAFinishWhosePullGitRefusesKeepsTheBranchAndGitsReason(t *testing.T) {
 func onlyChange(t *testing.T, repo seams.Git) gitrepo.Change {
 	t.Helper()
 
-	changes, err := repo.Changes()
+	changes, err := repo.Changes(t.Context())
 	if err != nil || len(changes) != 1 {
 		t.Fatalf("Changes = %+v, %v; want one", changes, err)
 	}
@@ -380,7 +398,7 @@ func TestACommitThatCannotWriteItsMessageSaysWhy(t *testing.T) {
 	repo := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
 
 	// Act
-	_, err := repo.Commit("feat: x\n")
+	_, err := repo.Commit(t.Context(), "feat: x\n")
 
 	// Assert
 	if !errors.Is(err, fs.ErrNotExist) || !strings.Contains(err.Error(), "writing the commit message") {
@@ -397,7 +415,7 @@ func TestACommitGitCannotRunLeavesNoMessageBehind(t *testing.T) {
 	repo := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
 
 	// Act
-	_, err := repo.Commit("feat: x\n")
+	_, err := repo.Commit(t.Context(), "feat: x\n")
 
 	// Assert
 	if !errors.Is(err, proc.ErrNotFound) || !strings.Contains(err.Error(), "starting git commit") {
@@ -417,7 +435,7 @@ func TestAFetchGitCannotRunSaysGitWasNotFound(t *testing.T) {
 	repo := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
 
 	// Act
-	err := repo.Fetch()
+	err := repo.Fetch(t.Context())
 
 	// Assert
 	if !errors.Is(err, proc.ErrNotFound) {

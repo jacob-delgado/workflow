@@ -114,7 +114,7 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 		reviewers = readReviewers(m.session, m.deps, proposed)
 	}
 
-	starts := readPullRequestStarts(m.deps, proposed.opened)
+	starts := readPullRequestStarts(m.session, m.deps, proposed.opened)
 	if listed {
 		return m, tea.Batch(starts, reviewers)
 	}

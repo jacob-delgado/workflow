@@ -44,7 +44,7 @@ const NotRememberedWarning = "Posted, but not remembered: it may be offered agai
 // FindPull means there is nothing to announce; a nil Author, Issue, BrowseURL
 // or CheckCI only makes the announcement say less.
 type AnnounceSeams struct {
-	Branch    func() (gitrepo.Branch, error)
+	Branch    func(ctx context.Context) (gitrepo.Branch, error)
 	FindPull  func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
 	Author    func(ctx context.Context) (string, error)
 	Issue     func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
@@ -132,7 +132,7 @@ func pullToAnnounce(ctx context.Context, seams AnnounceSeams) (gitrepo.Branch, f
 		return gitrepo.Branch{}, forge.PullRequest{}, ErrNoPullRequest
 	}
 
-	branch, err := seams.Branch()
+	branch, err := seams.Branch(ctx)
 	if err != nil {
 		return gitrepo.Branch{}, forge.PullRequest{}, fmt.Errorf("reading the branch: %w", err)
 	}

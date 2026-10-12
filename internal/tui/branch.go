@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"strings"
@@ -65,14 +66,14 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 }
 
 // loadBranch is the command that reads the branch.
-func loadBranch(deps Deps) tea.Cmd {
+func loadBranch(ctx context.Context, deps Deps) tea.Cmd {
 	read := deps.Git.Branch
 	if read == nil {
 		return nil
 	}
 
 	return func() tea.Msg {
-		branch, err := read()
+		branch, err := read(ctx)
 
 		return branchLoaded{branch: branch, err: err}
 	}
@@ -270,10 +271,10 @@ func branchBehavior() behavior {
 		pick:   nil,
 		// refresh reads the branch again, and the work tree with it.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := loadBranch(m.deps)
+			read := loadBranch(m.session, m.deps)
 			m.branch.loading = read != nil
 
-			return m, tea.Batch(read, loadChanges(m.deps))
+			return m, tea.Batch(read, loadChanges(m.session, m.deps))
 		},
 		loading: func(m Model) bool { return m.branch.loading },
 		scroll:  func(m *Model) *int { return &m.branch.scroll }, readsBranch: true,

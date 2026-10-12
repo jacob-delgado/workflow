@@ -169,10 +169,10 @@ func (l branchLinker) unlinkOn(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	l.send, l.problem = starting(), nil
 	m.overlay = l
-	unlink, branch, issueKey := m.deps.Git.UnlinkIssue, l.branch, l.linked
+	ctx, unlink, branch, issueKey := m.session, m.deps.Git.UnlinkIssue, l.branch, l.linked
 
 	return m, func() tea.Msg {
-		return branchUnlinked{branch: branch, issueKey: issueKey, err: unlink(branch)}
+		return branchUnlinked{branch: branch, issueKey: issueKey, err: unlink(ctx, branch)}
 	}
 }
 
@@ -194,7 +194,7 @@ func (msg branchUnlinked) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.done + " unlinked " + msg.branch + " from " + shownKey(msg.issueKey))
 
-	return m, loadBranch(m.deps)
+	return m, loadBranch(m.session, m.deps)
 }
 
 // pasted types a paste into the issue key, as typing it would.
@@ -265,7 +265,7 @@ func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 		}
 
 		if err == nil {
-			err = linkIssue(branch, string(issueKey))
+			err = linkIssue(ctx, branch, string(issueKey))
 		}
 
 		return branchLinked{branch: branch, issueKey: issueKey, pull: pull, described: described, err: err}
@@ -315,7 +315,7 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 		m.overlay = issueLinker{vocab: m.vocab, issueKey: msg.issueKey, pull: msg.pull}
 	}
 
-	return m, loadBranch(m.deps)
+	return m, loadBranch(m.session, m.deps)
 }
 
 // said is what the link did, in the words its key offered: the branch linked,
