@@ -192,7 +192,7 @@ func sweepAt(t *testing.T, state paneState) sweep {
 // which every pane's key context holds whatever its handler answers, apart by
 // a bar.
 func keysEveryPaneTakes() []string {
-	return strings.Split("Moving around|Everywhere", "|")
+	return []string{movingGroup, everyPaneGroup, panesAndOverlaysGroup}
 }
 
 // paneGroups are the help groups of the keys a pane answers, each of which

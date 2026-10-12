@@ -751,14 +751,18 @@ The actions you can rebind, grouped by where they work, are:
   `remove-cache` and `remove-everything` (in Local data), `save-settings` and
   `remove-entry` (in Settings), `link-to-slack` (in the announcement preview;
   People and groups links the selected owner with the apply key, listed under
-  Everywhere), `not-on-slack` (in the announcement preview and in People and
-  groups), `forget-owner` (in People and groups), `show-log` (in the checks
-  list).
+  On panes and in overlays), `not-on-slack` (in the announcement preview and
+  in People and groups), `forget-owner` (in People and groups), `show-log` (in
+  the checks list).
 - **Writing a comment** (in the comment box's normal mode): `insert`,
   `append`, `append-line`, `open-line`, `cursor-left`, `cursor-right`.
 - **While a command runs:** `stop`, `run-again`, `full-output`.
-- **Everywhere:** `apply`, `close`, `toggle-mouse`, `toggle-help`, `quit`,
-  `interrupt`.
+- **On every pane:** `toggle-mouse`, `toggle-help` and `quit`. No overlay
+  answers them but the help, which closes on the one and quits on the other.
+- **On panes and in overlays:** `apply` and `close`, wherever the bottom row
+  offers them: every overlay closes, and all but the help, a job's log and
+  Local data apply; the owner picker takes enter and esc as they are, not as
+  moved. And `interrupt`, anywhere, even while you type.
 
 A key is named as its terminal name: a letter (`C`), or a combination such as
 `ctrl+e` or `shift+tab`.
