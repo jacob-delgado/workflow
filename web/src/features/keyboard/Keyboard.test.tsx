@@ -1,15 +1,10 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '@/App.tsx'
-import type {
-  IssueDetail,
-  KeyAction,
-  KeyList,
-  PaneSection,
-  Snapshot,
-} from '@/api/generated/types.gen.ts'
+import type { IssueDetail, KeyAction, KeyList, Snapshot } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
+import { mockKeys } from '@/dev/mockKeys.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
@@ -26,19 +21,9 @@ function action(name: string, help: string, group: string, ...keys: string[]): K
 
 const panes = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
-// shownIn is the section each pane is shown in, as the server lists them: the
-// Commits pane, the third, in Branch.
-const shownIn: PaneSection[] = [
-  'issues',
-  'branch',
-  'branch',
-  'review',
-  'messaging',
-  'reviews',
-  'tasks',
-  'summary',
-  'repositories',
-]
+// shownIn is the section each pane is shown in, as the server lists them and
+// the mockup keeps them: the Commits pane, the third, in Branch.
+const shownIn = mockKeys.pane_sections
 
 // keysWith is the server's key list, with ui.keys' overrides applied as the
 // terminal applies them, and the shortcut setting given.
