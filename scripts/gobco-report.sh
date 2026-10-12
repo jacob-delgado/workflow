@@ -301,7 +301,10 @@ total_percent="$(
       printf "  %-40s %4d / %-4d %6.1f%%\n", $1, $2, $3, ($3 ? 100 * $2 / $3 : 0) > "/dev/stderr"
     }
     END {
-      if (arms == 0) exit 1
+      if (arms == 0) {
+        print "The packages measured hold no condition, so there is no share to hold to the floor." > "/dev/stderr"
+        exit 1
+      }
       printf "  %-40s %4d / %-4d %6.1f%%\n", "TOTAL", hit, arms, 100 * hit / arms > "/dev/stderr"
       printf "%.1f", 100 * hit / arms
     }'
@@ -341,6 +344,8 @@ ratchets="$(
           problem(field[1] " has no # comment above it saying why")
         } else if (!(field[1] in arms)) {
           if (whole) problem(field[1] " was not measured; a floor for it holds nothing")
+        } else if (arms[field[1]] == 0) {
+          problem(field[1] " has no condition to measure; a floor for it holds nothing")
         } else if (hit[field[1]] * 100 < field[2] * arms[field[1]]) {
           printf "%s'"'"'s condition coverage %.1f%% is below its %d%% floor.\n", field[1], 100 * hit[field[1]] / arms[field[1]], field[2] > "/dev/stderr"
           bad = 1
