@@ -106,3 +106,22 @@ func TestAReadBegunBeforeADoneKeepsStartAndDoneOffTheTask(t *testing.T) {
 	requireScreen(t, view, "Book the venue")
 	requireNoStartOrDone(t, view)
 }
+
+func TestADoneTaskwarriorRefusesLeavesTheTaskToMarkDoneAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Taskwarrior refuses the done, and the look that told why is closed; the
+	// read after the done is still on its way.
+	repo := withTasks()
+	repo.tasks.writeErr = hookRefused()
+	sending, send := confirmingDone(t, repo.live(t, 120, 40))
+	refused, _ := finish(t, sending, send)
+	closed := typing(t, refused, keyEsc)
+
+	// Act
+	asked := typing(t, closed, "d")
+
+	// Assert
+	requireScreen(t, asked.View().Content, completeLook, "Mark task 3 '"+secondIssue+": Add retries' done?")
+}
