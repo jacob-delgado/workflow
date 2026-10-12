@@ -228,29 +228,31 @@ func heldBackTasks(deps seams.Tasks) seams.Tasks {
 // lefthook.
 func heldBackServices(deps Deps) Deps {
 	if deps.Forge.CreatePullRequest != nil {
-		deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
+		deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
 			return forge.PullRequest{}, errDryRun
 		}
 	}
 
 	if deps.Forge.EditPullRequest != nil {
-		deps.Forge.EditPullRequest = func(forge.PullRequest, forge.PullRequestEdit) (forge.PullRequest, error) {
+		deps.Forge.EditPullRequest = func(
+			context.Context, forge.PullRequest, forge.PullRequestEdit,
+		) (forge.PullRequest, error) {
 			return forge.PullRequest{}, errDryRun
 		}
 	}
 
 	if deps.Forge.RewriteDescription != nil {
-		deps.Forge.RewriteDescription = func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
+		deps.Forge.RewriteDescription = func(context.Context, forge.PullRequest, func(string) (string, bool)) (bool, error) {
 			return false, errDryRun
 		}
 	}
 
 	if deps.Forge.Rerun != nil {
-		deps.Forge.Rerun = func(forge.PullRequest, string) (bool, error) { return false, errDryRun }
+		deps.Forge.Rerun = func(context.Context, forge.PullRequest, string) (bool, error) { return false, errDryRun }
 	}
 
 	if deps.Forge.Merge != nil {
-		deps.Forge.Merge = func(forge.PullRequest, forge.MergeMethod) error { return errDryRun }
+		deps.Forge.Merge = func(context.Context, forge.PullRequest, forge.MergeMethod) error { return errDryRun }
 	}
 
 	if deps.Messaging.Post != nil {

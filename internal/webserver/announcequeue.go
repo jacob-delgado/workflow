@@ -89,7 +89,7 @@ func (s *server) announceWhenGreen(ctx context.Context, post announcePost) api.A
 				"so announce it now"))
 	}
 
-	branch, ci, err := s.ciNow(post.pull)
+	branch, ci, err := s.ciNow(ctx, post.pull)
 	if err != nil {
 		return s.announceFault(err)
 	}
@@ -109,12 +109,12 @@ func (s *server) announceWhenGreen(ctx context.Context, post announcePost) api.A
 // canWaitForCI reports whether an announcement at moment for pull can be held
 // for its CI: it is ready for review and its CI is running now. A CI that
 // cannot be read cannot be waited on.
-func (s *server) canWaitForCI(moment messaging.Moment, pull forge.PullRequest) bool {
+func (s *server) canWaitForCI(ctx context.Context, moment messaging.Moment, pull forge.PullRequest) bool {
 	if moment != messaging.MomentReady {
 		return false
 	}
 
-	_, ci, err := s.ciNow(pull)
+	_, ci, err := s.ciNow(ctx, pull)
 
 	return err == nil && ci.State == forge.CIRunning
 }
@@ -123,7 +123,7 @@ func (s *server) canWaitForCI(moment messaging.Moment, pull forge.PullRequest) b
 // now, read fresh rather than from the stream's held answer: a hold decided on
 // an answer an interval old could wait for a CI that has finished. No CI
 // seam reads as no CI.
-func (s *server) ciNow(pull forge.PullRequest) (gitrepo.Branch, forge.CI, error) {
+func (s *server) ciNow(ctx context.Context, pull forge.PullRequest) (gitrepo.Branch, forge.CI, error) {
 	branch, err := s.readBranch()
 	if err != nil {
 		return gitrepo.Branch{}, forge.CI{}, err
@@ -133,7 +133,7 @@ func (s *server) ciNow(pull forge.PullRequest) (gitrepo.Branch, forge.CI, error)
 		return branch, forge.CI{}, nil
 	}
 
-	ci, err := s.deps.Forge.CheckStatus(pull, branch.Head)
+	ci, err := s.deps.Forge.CheckStatus(ctx, pull, branch.Head)
 
 	return branch, ci, err
 }
@@ -179,7 +179,8 @@ func (s *server) checkHeldAfter(round int) *time.Timer {
 }
 
 // checkHeld reads the CI for the announcement held in round, settles it, and
-// sets the next read while it still waits.
+// sets the next read while it still waits. No page asked for the read, so it
+// is made under the server's lifetime.
 func (s *server) checkHeld(round int) {
 	select {
 	case <-s.retired:
@@ -187,7 +188,7 @@ func (s *server) checkHeld(round int) {
 	default:
 	}
 
-	s.settleOnRead()
+	s.settleOnRead(s.worlds.lifetime)
 
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
@@ -198,15 +199,15 @@ func (s *server) checkHeld(round int) {
 }
 
 // settleOnRead settles the held announcement against what the branch and the
-// forge say now. A read that failed says nothing of the pull request, so it
-// neither posts the announcement nor drops it.
-func (s *server) settleOnRead() {
+// forge, asked under ctx, say now. A read that failed says nothing of the pull
+// request, so it neither posts the announcement nor drops it.
+func (s *server) settleOnRead(ctx context.Context) {
 	branch, err := s.frameBranch()
 	if err != nil {
 		return
 	}
 
-	read, err := s.forgeReview(branch)
+	read, err := s.forgeReview(ctx, branch)
 	if err == nil {
 		s.settleHeld(branch, read)
 	}

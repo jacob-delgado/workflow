@@ -29,13 +29,13 @@ func (m Model) checkingCI(then tea.Cmd) (Model, tea.Cmd) {
 
 // checkCI is the command that asks how CI stands on the pull request.
 func (m Model) checkCI() tea.Cmd {
-	check, pull, head := m.deps.Forge.CheckStatus, m.review.pull, m.branch.branch.Head
+	ctx, check, pull, head := m.session, m.deps.Forge.CheckStatus, m.review.pull, m.branch.branch.Head
 	if check == nil || !m.review.found || pull.State != forge.StateOpen {
 		return nil
 	}
 
 	return func() tea.Msg {
-		ci, err := check(pull, head)
+		ci, err := check(ctx, pull, head)
 
 		return ciChecked{number: pull.Number, ci: ci, err: err}
 	}

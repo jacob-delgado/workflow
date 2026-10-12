@@ -50,7 +50,7 @@ func (PullAlreadyOpenError) Unwrap() error {
 // reviewers.
 type PullSeams struct {
 	Branch    func() (gitrepo.Branch, error)
-	FindPull  func(branch string) (forge.PullRequest, bool, error)
+	FindPull  func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
 	Templates func() []forge.Template
 	Issue     func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
 	BrowseURL func(jira.Key) string
@@ -84,7 +84,7 @@ func ComposePull(
 		return forge.NewPullRequest{}, gitrepo.Branch{}, err
 	}
 
-	err = refuseAnOpenPull(seams.FindPull, branch.Name)
+	err = refuseAnOpenPull(ctx, seams.FindPull, branch.Name)
 	if err != nil {
 		return forge.NewPullRequest{}, gitrepo.Branch{}, err
 	}
@@ -119,12 +119,14 @@ func branchToOpen(read func() (gitrepo.Branch, error)) (gitrepo.Branch, error) {
 // refuseAnOpenPull refuses a branch whose pull request is open. FindPull also
 // returns a merged one, whose branch may carry new commits worth a fresh pull
 // request, so only the open state refuses.
-func refuseAnOpenPull(find func(branch string) (forge.PullRequest, bool, error), name string) error {
+func refuseAnOpenPull(
+	ctx context.Context, find func(ctx context.Context, branch string) (forge.PullRequest, bool, error), name string,
+) error {
 	if find == nil {
 		return ErrNothingToOpen
 	}
 
-	pull, found, err := find(name)
+	pull, found, err := find(ctx, name)
 	if err == nil && found && pull.IsOpen() {
 		return PullAlreadyOpenError{Pull: pull}
 	}
@@ -149,7 +151,7 @@ func draft(
 	})
 
 	base := branch.BaseName()
-	users, teams := SplitReviewers(ProposedReviewers(seams.Owners, base))
+	users, teams := SplitReviewers(ProposedReviewers(ctx, seams.Owners, base))
 
 	return forge.NewPullRequest{
 		Title: title, Body: body, Head: branch.Name, Base: base, Reviewers: users, TeamReviewers: teams,

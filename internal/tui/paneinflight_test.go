@@ -62,10 +62,10 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			world: newWorld, pane: "4", want: "Review ◐",
 			wrap: func(deps *tui.Deps, held *hold) {
 				check := deps.Forge.CheckStatus
-				deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
+				deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
 					held.wait()
 
-					return check(pull, head)
+					return check(ctx, pull, head)
 				}
 			},
 		},
@@ -84,10 +84,10 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			world: withReviews, pane: "6", want: "Reviews ◐",
 			wrap: func(deps *tui.Deps, held *hold) {
 				read := deps.Forge.ReviewRequests
-				deps.Forge.ReviewRequests = func() ([]forge.ReviewRequest, error) {
+				deps.Forge.ReviewRequests = func(ctx context.Context) ([]forge.ReviewRequest, error) {
 					held.wait()
 
-					return read()
+					return read(ctx)
 				}
 			},
 		},

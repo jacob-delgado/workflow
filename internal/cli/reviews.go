@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -24,7 +25,7 @@ const day = 24 * time.Hour
 // reviewsSeams are what `workflow reviews` reads. They are seams so a test can
 // answer without a forge or a clock.
 type reviewsSeams struct {
-	List func() ([]forge.ReviewRequest, error)
+	List func(ctx context.Context) ([]forge.ReviewRequest, error)
 	Now  func() time.Time
 	// Kind is the forge, whose own words — merge requests, each marked "!" on
 	// GitLab — the queue is told in.
@@ -77,11 +78,11 @@ func runReviewsCommand(cmd *cobra.Command, opts reviewsOptions) error {
 
 	seams := reviewsSeams{List: conn.deps.Forge.ReviewRequests, Now: time.Now, Kind: conn.deps.Forge.Kind}
 
-	return runReviews(outputOf(cmd), seams, opts)
+	return runReviews(cmd.Context(), outputOf(cmd), seams, opts)
 }
 
 // runReviews lists the reviews waiting on you, in the order opts asks for.
-func runReviews(out output, seams reviewsSeams, opts reviewsOptions) error {
+func runReviews(ctx context.Context, out output, seams reviewsSeams, opts reviewsOptions) error {
 	order, known := map[string]func([]forge.ReviewRequest) []forge.ReviewRequest{
 		"oldest": forge.OldestFirst, "newest": forge.NewestFirst, "repo": forge.ByRepository,
 	}[opts.sort]
@@ -89,7 +90,7 @@ func runReviews(out output, seams reviewsSeams, opts reviewsOptions) error {
 		return fmt.Errorf(`%w %q for "--sort" flag: %w`, errUsage, opts.sort, errUnknownSort)
 	}
 
-	answered, err := seams.List()
+	answered, err := seams.List(ctx)
 	if err != nil {
 		return fmt.Errorf("reading review requests: %w", err)
 	}

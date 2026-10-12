@@ -54,7 +54,7 @@ func gather(ctx context.Context, seams statusSeams, branch gitrepo.Branch) statu
 	}
 
 	onFeature := branch.Name != "" && branch.Name != branch.BaseName()
-	review := gatherReview(seams, branch, onFeature)
+	review := gatherReview(ctx, seams, branch, onFeature)
 	changes, changesErr := seams.Changes()
 	facts.ci = review.ci
 	facts.notes = serviceNotes([]serviceRead{
@@ -150,13 +150,13 @@ type reviewRead struct {
 // gatherReview looks for the branch's pull request, where it stands and its
 // CI, on a feature branch with a forge to ask. A read that fails reads as no
 // pull request, or no CI, with its error beside.
-func gatherReview(seams statusSeams, branch gitrepo.Branch, onFeature bool) reviewRead {
+func gatherReview(ctx context.Context, seams statusSeams, branch gitrepo.Branch, onFeature bool) reviewRead {
 	none := reviewRead{state: progress.NoPullRequest, ci: forge.CINone}
 	if !onFeature {
 		return none
 	}
 
-	pull, found, err := seams.FindPull(branch.Name)
+	pull, found, err := seams.FindPull(ctx, branch.Name)
 	if err != nil || !found {
 		none.err = err
 
@@ -169,7 +169,7 @@ func gatherReview(seams statusSeams, branch gitrepo.Branch, onFeature bool) revi
 		return reviewRead{pull: pull, found: true, state: progress.PullStateOf(pull.State), ci: forge.CINone}
 	}
 
-	status, err := seams.CheckStatus(pull, branch.Head)
+	status, err := seams.CheckStatus(ctx, pull, branch.Head)
 	if err != nil {
 		return reviewRead{pull: pull, found: true, state: progress.PullRequestOpen, ci: forge.CINone, err: err}
 	}

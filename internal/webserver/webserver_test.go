@@ -107,18 +107,18 @@ func filledDeps() webserver.Deps {
 			},
 		},
 		Forge: seams.Forge{
-			FindPullRequest: func(string) (forge.PullRequest, bool, error) {
+			FindPullRequest: func(context.Context, string) (forge.PullRequest, bool, error) {
 				pull := forge.PullRequest{Number: 42, URL: "https://x/42", Title: "redact", Mergeable: forge.MergeClean}
 
 				return pull, true, nil
 			},
-			CheckStatus: func(forge.PullRequest, string) (forge.CI, error) {
+			CheckStatus: func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 				return forge.CI{
 					State: forge.CIPassed, Total: 3, Done: 3,
 					Checks: []forge.Check{{Name: "build", State: forge.CIPassed}},
 				}, nil
 			},
-			Author: func() (string, error) { return testAuthor, nil },
+			Author: func(context.Context) (string, error) { return testAuthor, nil },
 		},
 	}
 }
@@ -299,7 +299,9 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 	t.Parallel()
 
 	nothingOpen := func(deps webserver.Deps) webserver.Deps {
-		deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+		deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+			return forge.PullRequest{}, false, nil
+		}
 
 		return deps
 	}
@@ -309,7 +311,7 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 		return deps
 	}
 	reviewersRefused := func(deps webserver.Deps) webserver.Deps {
-		deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
+		deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
 			return forge.PullRequest{Number: 7, URL: prURL, Title: prTitle}, forge.ErrRefused
 		}
 

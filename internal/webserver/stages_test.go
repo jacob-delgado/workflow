@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -221,8 +222,10 @@ func TestSnapshotReadsTheReviewStage(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return tt.pull, true, nil }
-			deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+				return tt.pull, true, nil
+			}
+			deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 				return forge.CI{State: tt.ci, Total: 1}, tt.ciErr
 			}
 
@@ -242,7 +245,9 @@ func TestSnapshotReadsTheReviewStageNotStartedWithNoPullRequest(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, nil
+	}
 
 	// Act
 	stages := framedStages(t, deps)
@@ -276,7 +281,7 @@ func TestSnapshotReadsTheAnnounceStageNotStartedForAPullRequestClosedWithoutMerg
 	// closed: there is no pull request left for the loop to announce.
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
 	deps := memory.wire(filledDeps())
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return inState(forge.StateClosed, false), true, nil
 	}
 

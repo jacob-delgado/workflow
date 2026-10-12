@@ -248,7 +248,7 @@ func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 
 	l.send = starting()
 	m.overlay = l
-	linkIssue, rewrite := m.deps.Git.LinkIssue, m.deps.Forge.RewriteDescription
+	ctx, linkIssue, rewrite := m.session, m.deps.Git.LinkIssue, m.deps.Forge.RewriteDescription
 	branch, issueKey, pull, describe := l.branch, l.chosen, l.pull, l.body != ""
 	issueURL := issueBrowseURL(m.deps, issueKey)
 
@@ -259,7 +259,7 @@ func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 		)
 
 		if describe {
-			described, err = rewrite(pull, func(body string) (string, bool) {
+			described, err = rewrite(ctx, pull, func(body string) (string, bool) {
 				return convention.WithIssueLine(body, string(issueKey), issueURL)
 			})
 		}

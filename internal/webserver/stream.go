@@ -102,7 +102,7 @@ func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, sna
 // beside its panel, in problems, so the empty panel is not taken for an answer.
 func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 	branch, branchErr := s.frameBranch()
-	read, reviewErr := s.snapshotReview(branch, branchErr)
+	read, reviewErr := s.snapshotReview(ctx, branch, branchErr)
 
 	// A queued announcement waits on what the forge says; a read that failed
 	// says nothing of the pull request, so it neither posts nor drops one.
@@ -125,7 +125,7 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 			Issues: panelProblem(issuesErr), Branch: panelProblem(branchErr),
 			Changes: panelProblem(changesErr), Review: panelProblem(reviewErr),
 		}),
-		Messaging:          s.readMessaging(),
+		Messaging:          s.readMessaging(ctx),
 		QueuedAnnouncement: s.heldStatus(),
 		Run:                s.runShown(),
 		HooksUnmanaged:     s.hooksUnmanaged(),
@@ -418,12 +418,12 @@ func (s *server) snapshotChanges() (api.ChangeList, error) {
 // can be found, or the forge has not answered for this branch at this head.
 // Its error is why the forge did not answer, or why the branch it would be
 // asked about could not be read.
-func (s *server) snapshotReview(branch gitrepo.Branch, branchErr error) (forgeRead, error) {
+func (s *server) snapshotReview(ctx context.Context, branch gitrepo.Branch, branchErr error) (forgeRead, error) {
 	if branchErr != nil {
 		return forgeRead{}, branchErr
 	}
 
-	return s.forgeReview(branch)
+	return s.forgeReview(ctx, branch)
 }
 
 // forgeInterval is how long a forge answer serves the stream:

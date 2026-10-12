@@ -8,6 +8,7 @@ package webserver_test
 // before a held one goes, decides what becomes of it.
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -55,7 +56,7 @@ func TestAnAnnouncementWhoseCIFailsAsItIsAskedToWaitIsAConflict(t *testing.T) {
 	world := newForgeWorld()
 	deps := world.deps()
 	state := inTurn(forge.CIRunning, forge.CIFailed)
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: state(), Total: 1}, nil
 	}
 

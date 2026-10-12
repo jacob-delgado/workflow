@@ -91,10 +91,10 @@ func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, offe
 func (c prComposer) create(m Model) (Model, tea.Cmd) {
 	c.send = starting()
 	m.overlay = c
-	create, request := m.deps.Forge.CreatePullRequest, c.request()
+	ctx, create, request := m.session, m.deps.Forge.CreatePullRequest, c.request()
 
 	return m, func() tea.Msg {
-		pull, err := create(request)
+		pull, err := create(ctx, request)
 
 		return pullCreated{pull: pull, err: err}
 	}
@@ -126,7 +126,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	m = m.beginReview(reviewState{pull: msg.pull, found: true, loaded: true})
 	m.prDraft = prDraft{}
 
-	cmds := tea.Batch(m.checkCI(), m.messaging.loadAuthor(m.deps))
+	cmds := tea.Batch(m.checkCI(), m.messaging.loadAuthor(m.session, m.deps))
 
 	// With a Jira issue, offer to link the pull request on it — so the team that
 	// watches Jira learns of it — and then to move it to the review status. When

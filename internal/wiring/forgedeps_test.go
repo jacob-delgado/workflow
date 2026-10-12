@@ -10,6 +10,8 @@ package wiring_test
 // names the seam and the recorded gh calls are that seam's alone.
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -30,7 +32,7 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 		{
 			seam: "FindPullRequest",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				_, found, err := forgeSeams.FindPullRequest("feat/x")
+				_, found, err := forgeSeams.FindPullRequest(t.Context(), "feat/x")
 
 				return fmt.Sprintf("found=%t", found), err
 			},
@@ -39,7 +41,7 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 		{
 			seam: "CreatePullRequest",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				created, err := forgeSeams.CreatePullRequest(forge.NewPullRequest{Title: "fix: token"})
+				created, err := forgeSeams.CreatePullRequest(t.Context(), forge.NewPullRequest{Title: "fix: token"})
 
 				return fmt.Sprintf("#%d", created.Number), err
 			},
@@ -48,7 +50,7 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 		{
 			seam: "CheckStatus",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				ci, err := forgeSeams.CheckStatus(forge.PullRequest{Number: 43}, "abc123")
+				ci, err := forgeSeams.CheckStatus(t.Context(), forge.PullRequest{Number: 43}, "abc123")
 
 				return fmt.Sprintf("%d checks", len(ci.Checks)), err
 			},
@@ -57,7 +59,7 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 		{
 			seam: "ReviewRequests",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				reviews, err := forgeSeams.ReviewRequests()
+				reviews, err := forgeSeams.ReviewRequests(t.Context())
 
 				return fmt.Sprintf("%d requests", len(reviews)), err
 			},
@@ -66,7 +68,7 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 		{
 			seam: "Author",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				return forgeSeams.Author()
+				return forgeSeams.Author(t.Context())
 			},
 			want: "octo",
 		},
@@ -94,6 +96,26 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 	}
 }
 
+// The wiring holds no context of its own: a forge seam asks the forge under
+// the context it is asked under, so one asked for a page that has left stops.
+func TestAForgeSeamAskedUnderAnEndedContextIsCanceled(t *testing.T) {
+	// Arrange
+	ghStub := installForgeCLI(t, "gh", forgeReplies{})
+	cfg, where := githubCLIWorkspace(t)
+	forgeSeams := wired(t, cfg, where, nil).Forge
+	ended, end := context.WithCancel(t.Context())
+	end()
+
+	// Act
+	_, _, err := forgeSeams.FindPullRequest(ended, "feat/x")
+
+	// Assert
+	if !errors.Is(err, context.Canceled) || ghStub.args() != nil {
+		t.Errorf("FindPullRequest under an ended context = %v, gh asked %v; want %v and nothing asked",
+			err, ghStub.args(), context.Canceled)
+	}
+}
+
 // Every write seam gets past its connect guard, hands gh its request — the
 // endpoint, the method, and the body on standard input — and returns the
 // forge's answer: a repository that allows no merge method, and a head with no
@@ -112,7 +134,7 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 		{
 			seam: "EditPullRequest",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				_, err := forgeSeams.EditPullRequest(pull, forge.PullRequestEdit{Title: "retitled"})
+				_, err := forgeSeams.EditPullRequest(t.Context(), pull, forge.PullRequestEdit{Title: "retitled"})
 
 				return "", err
 			},
@@ -122,7 +144,7 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 		{
 			seam: "RewriteDescription",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				changed, err := forgeSeams.RewriteDescription(pull, func(body string) (string, bool) {
+				changed, err := forgeSeams.RewriteDescription(t.Context(), pull, func(body string) (string, bool) {
 					return body + "Closes #42", true
 				})
 
@@ -135,7 +157,7 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 		{
 			seam: "Merge",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				return "", forgeSeams.Merge(pull, forge.MergeSquash)
+				return "", forgeSeams.Merge(t.Context(), pull, forge.MergeSquash)
 			},
 			wantArgs:  []string{"PUT", "https://api.github.com/repos/owner/repo/pulls/43/merge"},
 			wantStdin: `{"merge_method":"squash"}`,
@@ -143,7 +165,7 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 		{
 			seam: "MergeMethods",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				methods, err := forgeSeams.MergeMethods()
+				methods, err := forgeSeams.MergeMethods(t.Context())
 
 				return fmt.Sprintf("%d methods", len(methods)), err
 			},
@@ -153,7 +175,7 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 		{
 			seam: "Rerun",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				reran, err := forgeSeams.Rerun(pull, "abc123")
+				reran, err := forgeSeams.Rerun(t.Context(), pull, "abc123")
 
 				return fmt.Sprintf("reran=%t", reran), err
 			},
@@ -207,7 +229,7 @@ func TestTheTrackerAndForgeSeamsLookUpTheForgeTokenOnce(t *testing.T) {
 
 	// Act
 	_, searchErr := deps.Jira.Search(t.Context(), "", 0)
-	_, _, findErr := deps.Forge.FindPullRequest(featureBranch)
+	_, _, findErr := deps.Forge.FindPullRequest(t.Context(), featureBranch)
 
 	// Assert
 	if searchErr == nil || findErr == nil {

@@ -151,7 +151,7 @@ func TestAForgeFailureSaysWhatToDo(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{}, false, fmt.Errorf("reading https://%s/api/v3: %w", forgeHost, tt.cause)
 			}
 

@@ -30,7 +30,7 @@ func TestTheForgeCLIReadsThroughGHWithTheFullURL(t *testing.T) {
 	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
-	_, found, err := seams.FindPullRequest("feat/x")
+	_, found, err := seams.FindPullRequest(t.Context(), "feat/x")
 
 	// Assert
 	if err != nil || found {
@@ -55,7 +55,7 @@ func TestTheForgeCLISendsAWriteBodyOnStandardInput(t *testing.T) {
 	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
-	_, err := seams.CreatePullRequest(forge.NewPullRequest{Title: "fix: token"})
+	_, err := seams.CreatePullRequest(t.Context(), forge.NewPullRequest{Title: "fix: token"})
 	// Assert
 	if err != nil {
 		t.Fatalf("CreatePullRequest: %v", err)
@@ -79,7 +79,7 @@ func TestTheForgeCLITrimsTheBaseForGitLab(t *testing.T) {
 	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
-	_, _, err := seams.FindPullRequest("feat/x")
+	_, _, err := seams.FindPullRequest(t.Context(), "feat/x")
 	// Assert
 	if err != nil {
 		t.Fatalf("FindPullRequest through glab: %v", err)
@@ -106,7 +106,7 @@ func TestTheForgeCLIReportsAnUnreadableReply(t *testing.T) {
 	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
-	_, _, err := seams.FindPullRequest("feat/x")
+	_, _, err := seams.FindPullRequest(t.Context(), "feat/x")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "unreadable response") {
@@ -122,7 +122,7 @@ func TestTheForgeCLIReportsACommandFailure(t *testing.T) {
 	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
-	_, _, err := seams.FindPullRequest("feat/x")
+	_, _, err := seams.FindPullRequest(t.Context(), "feat/x")
 
 	// Assert
 	// The run's own failure is reported, not the parse of the garbage it left.
@@ -144,7 +144,7 @@ func TestTheForgeFallsBackToHTTPWhenTheCLIToolIsMissing(t *testing.T) {
 	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
-	_, _, err := seams.FindPullRequest("feat/x")
+	_, _, err := seams.FindPullRequest(t.Context(), "feat/x")
 
 	// Assert
 	// The CLI was asked for but is not installed, so HTTP is used — and HTTP
@@ -171,7 +171,7 @@ func TestTheForgeCLIKeepsARefusalsReasonWhole(t *testing.T) {
 	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
-	_, _, err := seams.FindPullRequest("feat/x")
+	_, _, err := seams.FindPullRequest(t.Context(), "feat/x")
 
 	// Assert
 	if !errors.Is(err, forge.ErrRefused) || !strings.Contains(err.Error(), "the client cannot do this") {

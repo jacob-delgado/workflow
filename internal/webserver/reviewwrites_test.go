@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -54,22 +55,24 @@ func (w *reviewWrites) sent() int {
 // and the review's write seams recording into writes.
 func reviewDeps(writes *reviewWrites) webserver.Deps {
 	deps := filledDeps()
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{
 			Number: 42, Title: pullTitle, Body: "Why: tokens leak.",
 			Mergeable: forge.MergeClean, Approvals: 1,
 		}, true, nil
 	}
-	deps.Forge.EditPullRequest = func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
+	deps.Forge.EditPullRequest = func(
+		_ context.Context, pull forge.PullRequest, edit forge.PullRequestEdit,
+	) (forge.PullRequest, error) {
 		writes.edits = append(writes.edits, edit)
 		pull.Title, pull.Body = edit.Title, edit.Body
 
 		return pull, nil
 	}
-	deps.Forge.MergeMethods = func() ([]forge.MergeMethod, error) {
+	deps.Forge.MergeMethods = func(context.Context) ([]forge.MergeMethod, error) {
 		return []forge.MergeMethod{forge.MergeSquash, forge.MergeRebase}, nil
 	}
-	deps.Forge.Merge = func(_ forge.PullRequest, method forge.MergeMethod) error {
+	deps.Forge.Merge = func(_ context.Context, _ forge.PullRequest, method forge.MergeMethod) error {
 		writes.merges = append(writes.merges, method)
 
 		return nil
@@ -79,7 +82,7 @@ func reviewDeps(writes *reviewWrites) webserver.Deps {
 
 		return nil
 	}
-	deps.Forge.Rerun = func(pull forge.PullRequest, head string) (bool, error) {
+	deps.Forge.Rerun = func(_ context.Context, pull forge.PullRequest, head string) (bool, error) {
 		writes.reruns = append(writes.reruns, fmt.Sprintf("#%d at %s", pull.Number, head))
 
 		return true, nil
@@ -90,7 +93,7 @@ func reviewDeps(writes *reviewWrites) webserver.Deps {
 
 // merged makes deps' pull request one that has merged.
 func merged(deps webserver.Deps) webserver.Deps {
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 42, Title: pullTitle, State: forge.StateMerged}, true, nil
 	}
 
@@ -99,7 +102,7 @@ func merged(deps webserver.Deps) webserver.Deps {
 
 // failedCI makes deps' CI one that failed.
 func failedCI(deps webserver.Deps) webserver.Deps {
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}, nil
 	}
 
@@ -154,12 +157,14 @@ func TestReviewWritesAreRefusedWhenThereIsNothingToWriteTo(t *testing.T) {
 	t.Parallel()
 
 	noPull := func(deps webserver.Deps) webserver.Deps {
-		deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+		deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+			return forge.PullRequest{}, false, nil
+		}
 
 		return deps
 	}
 	unapproved := func(deps webserver.Deps) webserver.Deps {
-		deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+		deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 			return forge.PullRequest{Number: 42, Mergeable: forge.MergeClean}, true, nil
 		}
 
@@ -259,7 +264,7 @@ func TestMergeOffersNothingWhenTheRepositoryPermitsNothing(t *testing.T) {
 
 	// Arrange
 	deps := reviewDeps(&reviewWrites{})
-	deps.Forge.MergeMethods = func() ([]forge.MergeMethod, error) { return nil, nil }
+	deps.Forge.MergeMethods = func(context.Context) ([]forge.MergeMethod, error) { return nil, nil }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), mergeAt)
@@ -305,7 +310,7 @@ func TestARefusedMergeNamesTheMissingScopeAndNoHost(t *testing.T) {
 
 	// Arrange
 	deps := reviewDeps(&reviewWrites{})
-	deps.Forge.Merge = func(forge.PullRequest, forge.MergeMethod) error { return refusedByForge() }
+	deps.Forge.Merge = func(context.Context, forge.PullRequest, forge.MergeMethod) error { return refusedByForge() }
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, mergeAt, bySquash)
@@ -373,7 +378,7 @@ func TestARefusedRerunNamesTheScopeAndNoHost(t *testing.T) {
 
 	// Arrange
 	deps := failedCI(reviewDeps(&reviewWrites{}))
-	deps.Forge.Rerun = func(forge.PullRequest, string) (bool, error) { return false, refusedByForge() }
+	deps.Forge.Rerun = func(context.Context, forge.PullRequest, string) (bool, error) { return false, refusedByForge() }
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, rerunAt, "")
@@ -444,7 +449,9 @@ func TestTheDraftStartsFromTheTemplateChosen(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, nil
+	}
 	deps.Forge.Templates = func() []forge.Template {
 		return []forge.Template{{Name: "feature", Body: "## Feature\n"}, {Name: bugfixTemplate, Body: "## Bug\n"}}
 	}
@@ -485,7 +492,7 @@ func TestReviewWritesWhoseReadsFailSayToTryAgain(t *testing.T) {
 			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 		},
 		"the pull request": func(deps *webserver.Deps) {
-			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{}, false, errSeam
 			}
 		},
@@ -520,7 +527,9 @@ func TestReviewWritesWithNoPullRequestHaveNothingToWriteTo(t *testing.T) {
 
 	shapes := map[string]func(*webserver.Deps){
 		"none found": func(deps *webserver.Deps) {
-			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+				return forge.PullRequest{}, false, nil
+			}
 		},
 		"no forge to ask":  func(deps *webserver.Deps) { deps.Forge.FindPullRequest = nil },
 		"no branch to ask": func(deps *webserver.Deps) { deps.Git.Branch = nil },
@@ -571,15 +580,17 @@ func TestReviewWritesTheForgeRefusesSayWhy(t *testing.T) {
 		refuse             func(*webserver.Deps)
 	}{
 		"an edit": {http.MethodPatch, pullAt, anEdit, func(d *webserver.Deps) {
-			d.Forge.EditPullRequest = func(forge.PullRequest, forge.PullRequestEdit) (forge.PullRequest, error) {
+			d.Forge.EditPullRequest = func(
+				context.Context, forge.PullRequest, forge.PullRequestEdit,
+			) (forge.PullRequest, error) {
 				return forge.PullRequest{}, refusedByForge()
 			}
 		}},
 		"the methods' read": {http.MethodGet, mergeAt, "", func(d *webserver.Deps) {
-			d.Forge.MergeMethods = func() ([]forge.MergeMethod, error) { return nil, refusedByForge() }
+			d.Forge.MergeMethods = func(context.Context) ([]forge.MergeMethod, error) { return nil, refusedByForge() }
 		}},
 		"a merge's methods": {http.MethodPost, mergeAt, bySquash, func(d *webserver.Deps) {
-			d.Forge.MergeMethods = func() ([]forge.MergeMethod, error) { return nil, refusedByForge() }
+			d.Forge.MergeMethods = func(context.Context) ([]forge.MergeMethod, error) { return nil, refusedByForge() }
 		}},
 	}
 

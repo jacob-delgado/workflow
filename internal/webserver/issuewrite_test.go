@@ -86,7 +86,7 @@ func TestLinkRecordsThePullOnTheIssue(t *testing.T) {
 	var links []linkCall
 
 	deps := writableDeps(&links, new([]jira.Transition))
-	openPull, _, _ := deps.Forge.FindPullRequest(testBranchName)
+	openPull, _, _ := deps.Forge.FindPullRequest(t.Context(), testBranchName)
 
 	// Act
 	recorder := post(t, deps, config.Default(), linkPath)
@@ -147,7 +147,9 @@ func TestLinkRefusesABranchWithNoPullRequest(t *testing.T) {
 	var links []linkCall
 
 	deps := writableDeps(&links, new([]jira.Transition))
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, nil
+	}
 
 	// Act
 	recorder := post(t, deps, config.Default(), linkPath)
@@ -201,7 +203,7 @@ func TestLinkReportsWhatItCouldNotRead(t *testing.T) {
 		},
 		"the forge cannot be reached": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+				deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 					return forge.PullRequest{}, false, fmt.Errorf("%w: https://%s", forge.ErrUnreachable, forgeHost)
 				}
 			},

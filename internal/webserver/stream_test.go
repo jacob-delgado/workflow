@@ -262,7 +262,7 @@ func TestStreamSnapshotDegradesWhenSeamsFail(t *testing.T) {
 	}
 	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, errSeam
 	}
 

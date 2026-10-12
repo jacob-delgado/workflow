@@ -235,7 +235,7 @@ func (m Model) Init() tea.Cmd {
 	loads := []tea.Cmd{
 		m.searchIssues(), listIssueBranches(m.session, m.cfg, m.deps), loadBranch(m.deps), loadChanges(m.deps),
 		findHooks(m.deps),
-		loadReviewQueue(m.deps), loadAnnounces(m.session, m.deps), m.tasks.load(m.session, m.deps),
+		loadReviewQueue(m.session, m.deps), loadAnnounces(m.session, m.deps), m.tasks.load(m.session, m.deps),
 	}
 
 	// Opened on the Repositories pane, after a switch made from it, that pane

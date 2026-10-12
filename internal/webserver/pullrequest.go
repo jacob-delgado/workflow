@@ -88,7 +88,7 @@ func (s *server) OpenPullRequest(
 		return openUnprocessable(pushFailure(err)), nil
 	}
 
-	pull, err := s.deps.Forge.CreatePullRequest(newPull)
+	pull, err := s.deps.Forge.CreatePullRequest(ctx, newPull)
 	if err != nil && !pull.Opened() {
 		return s.openFailure(err), nil
 	}

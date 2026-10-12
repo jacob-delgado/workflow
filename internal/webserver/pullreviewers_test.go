@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"net/http"
 	"slices"
 	"strings"
@@ -38,7 +39,7 @@ func TestGetPullRequestDraftProposesTheCodeOwnersAsReviewers(t *testing.T) {
 
 		return codeowners.Parse("* @"+ownedUser+" @Me @"+ownedTeam, codeowners.GitHub), true, nil
 	}
-	deps.Forge.Author = func() (string, error) { return "me", nil }
+	deps.Forge.Author = func(context.Context) (string, error) { return "me", nil }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
@@ -77,7 +78,7 @@ func TestOpenPullRequestRequestsTeamsAsTeams(t *testing.T) {
 	var request forge.NewPullRequest
 
 	deps := openableDeps()
-	deps.Forge.CreatePullRequest = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.PullRequest, error) {
 		request = newPull
 
 		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title}, nil

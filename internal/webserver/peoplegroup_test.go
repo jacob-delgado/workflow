@@ -29,7 +29,7 @@ func acmeOwnedServer(t *testing.T, fake *fakeKept) http.Handler {
 	deps.Git.CodeOwnersAt = func(string) (codeowners.File, bool, error) {
 		return codeowners.Parse("* @acme\n", codeowners.GitLab), true, nil
 	}
-	deps.Forge.IsGroup = func(name string) (bool, error) { return name == "acme", nil }
+	deps.Forge.IsGroup = func(_ context.Context, name string) (bool, error) { return name == "acme", nil }
 
 	return serveWith(t, deps, slackUserConfig(), webserver.Info{Version: testVersion})
 }

@@ -59,7 +59,7 @@ type prSeams struct {
 	Compose    loop.PullSeams
 	Options    loop.PullOptions
 	Push       func(branch string) (proc.Output, error)
-	CreatePull func(forge.NewPullRequest) (forge.PullRequest, error)
+	CreatePull func(context.Context, forge.NewPullRequest) (forge.PullRequest, error)
 	// LinkPull adds a pull request's link to an issue, offered once it is open.
 	// Nil — a tracker that cannot take a link — makes no offer.
 	LinkPull    func(ctx context.Context, issueKey jira.Key, pullURL, title string) error
@@ -286,7 +286,7 @@ func openPull(
 		return prReport{}, pushFailure(branch.Name, err)
 	}
 
-	pull, err := seams.CreatePull(request)
+	pull, err := seams.CreatePull(ctx, request)
 	if err != nil && !errors.Is(err, forge.ErrSomePeopleNotAdded) {
 		return prReport{}, fmt.Errorf("opening the %s: %w", seams.Kind.Noun(), err)
 	}

@@ -5,6 +5,7 @@ package tui_test
 
 import (
 	"cmp"
+	"context"
 	"slices"
 	"strconv"
 	"strings"
@@ -56,7 +57,7 @@ func (w *world) nextCI() forge.CI {
 func (w *world) forgeDeps() seams.Forge {
 	deps := w.forgeCalls()
 	if w.forgeGroups != nil {
-		deps.IsGroup = func(name string) (bool, error) { return slices.Contains(w.forgeGroups, name), nil }
+		deps.IsGroup = func(_ context.Context, name string) (bool, error) { return slices.Contains(w.forgeGroups, name), nil }
 	}
 
 	return deps
@@ -65,12 +66,12 @@ func (w *world) forgeDeps() seams.Forge {
 // forgeCalls is the forge's every call but its group lookup.
 func (w *world) forgeCalls() seams.Forge {
 	return seams.Forge{
-		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
+		FindPullRequest: func(_ context.Context, branch string) (forge.PullRequest, bool, error) {
 			w.record("find " + branch)
 
 			return w.pull, w.pullFound, w.pullErr
 		},
-		CreatePullRequest: func(request forge.NewPullRequest) (forge.PullRequest, error) {
+		CreatePullRequest: func(_ context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
 			call := "open " + request.Title + " " + request.Head + ">" + request.Base + " draft=" +
 				map[bool]string{false: "no", true: "yes"}[request.Draft]
 			if people := requestPeople(request); people != "" {
@@ -87,7 +88,9 @@ func (w *world) forgeCalls() seams.Forge {
 
 			return w.pull, w.reviewerErr
 		},
-		EditPullRequest: func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
+		EditPullRequest: func(
+			_ context.Context, pull forge.PullRequest, edit forge.PullRequestEdit,
+		) (forge.PullRequest, error) {
 			w.record("edit " + strconv.Itoa(pull.Number) + " " + edit.Title + "\n" + edit.Body)
 
 			if w.editPullErr != nil {
@@ -99,13 +102,15 @@ func (w *world) forgeCalls() seams.Forge {
 
 			return updated, nil
 		},
-		RewriteDescription: func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
+		RewriteDescription: func(
+			_ context.Context, pull forge.PullRequest, rewrite func(string) (string, bool),
+		) (bool, error) {
 			body, changed := rewrite(cmp.Or(w.heldDescription, pull.Body))
 			w.record("rewrite " + strconv.Itoa(pull.Number) + "\n" + body)
 
 			return changed, w.editPullErr
 		},
-		CheckStatus: func(_ forge.PullRequest, head string) (forge.CI, error) {
+		CheckStatus: func(_ context.Context, _ forge.PullRequest, head string) (forge.CI, error) {
 			w.record("ci " + head)
 
 			// The real seam answers no CI with its error, as the fake must.
@@ -116,22 +121,22 @@ func (w *world) forgeCalls() seams.Forge {
 
 			return answer, nil
 		},
-		JobLog: func(check forge.Check) (forge.JobLog, error) {
+		JobLog: func(_ context.Context, check forge.Check) (forge.JobLog, error) {
 			w.record("job-log " + check.ID)
 
 			return w.jobLog, w.jobLogErr
 		},
-		Rerun: func(_ forge.PullRequest, head string) (bool, error) {
+		Rerun: func(_ context.Context, _ forge.PullRequest, head string) (bool, error) {
 			w.record("rerun " + head)
 
 			return !w.nothingToRerun, w.rerunErr
 		},
-		Merge: func(pull forge.PullRequest, method forge.MergeMethod) error {
+		Merge: func(_ context.Context, pull forge.PullRequest, method forge.MergeMethod) error {
 			w.record("merge " + strconv.Itoa(pull.Number) + " " + string(method))
 
 			return w.mergeErr
 		},
-		MergeMethods: func() ([]forge.MergeMethod, error) {
+		MergeMethods: func(context.Context) ([]forge.MergeMethod, error) {
 			w.record("merge-methods")
 
 			if w.mergeMethods == nil && w.mergeMethodsErr == nil {
@@ -140,13 +145,13 @@ func (w *world) forgeCalls() seams.Forge {
 
 			return w.mergeMethods, w.mergeMethodsErr
 		},
-		ReviewRequests: func() ([]forge.ReviewRequest, error) {
+		ReviewRequests: func(context.Context) ([]forge.ReviewRequest, error) {
 			w.record("reviews")
 
 			return w.reviews, w.reviewsErr
 		},
 		Templates: func() []forge.Template { return w.templates },
-		Author:    func() (string, error) { return w.author, w.authorErr },
+		Author:    func(context.Context) (string, error) { return w.author, w.authorErr },
 		Kind:      w.forgeKind,
 	}
 }

@@ -267,7 +267,7 @@ func TestForgeEventsReadByTheirRepositoryAndNumber(t *testing.T) {
 
 	// Arrange
 	start := summaryStart()
-	read := func(time.Time, time.Time) (forge.Activity, error) {
+	read := func(context.Context, time.Time, time.Time) (forge.Activity, error) {
 		return forge.Activity{Events: []forge.Event{
 			{At: start, Kind: forge.EventMerged, Number: 42, Title: "Redact", URL: "https://x/42", Repository: "o/r"},
 			{At: start, Kind: forge.EventOpened, Number: 5, Title: "Lint"},
@@ -275,7 +275,7 @@ func TestForgeEventsReadByTheirRepositoryAndNumber(t *testing.T) {
 	}
 
 	// Act
-	got := loop.ForgeRead(read, forge.KindGitLab, start, start.Add(24*time.Hour))
+	got := loop.ForgeRead(t.Context(), read, forge.KindGitLab, start, start.Add(24*time.Hour))
 
 	// Assert
 	if len(got.Items) != 2 || got.Items[0].Ref != "o/r!42" || got.Items[0].Kind != activity.PullMerged ||
@@ -366,7 +366,9 @@ func TestEverySourceThatCannotBeReadIsNamedAsFailed(t *testing.T) {
 				func(jira.Key) string { return "" }, start, end)
 		},
 		activity.SourceForge: func() activity.Read {
-			return loop.ForgeRead(func(time.Time, time.Time) (forge.Activity, error) { return forge.Activity{}, errNotRead },
+			return loop.ForgeRead(t.Context(), func(context.Context, time.Time, time.Time) (forge.Activity, error) {
+				return forge.Activity{}, errNotRead
+			},
 				forge.KindGitHub, start, end)
 		},
 	}

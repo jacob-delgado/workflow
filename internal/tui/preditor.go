@@ -156,11 +156,11 @@ func (p prEditor) save(m Model) (Model, tea.Cmd) {
 
 	p.send = starting()
 	m.overlay = p
-	edit, pull := m.deps.Forge.EditPullRequest, p.pull
+	ctx, edit, pull := m.session, m.deps.Forge.EditPullRequest, p.pull
 	request := forge.PullRequestEdit{Title: title, Body: p.body}
 
 	return m, func() tea.Msg {
-		updated, err := edit(pull, request)
+		updated, err := edit(ctx, pull, request)
 
 		return pullEdited{pull: updated, err: err}
 	}

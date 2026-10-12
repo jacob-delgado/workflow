@@ -31,7 +31,7 @@ func TestStreamPanelProblemsNeverCarryTheUnreachableHost(t *testing.T) {
 	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{}, fmt.Errorf("%w: https://%s/rest/api/2/search", jira.ErrUnreachable, internalHost)
 	}
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, fmt.Errorf("%w: https://%s/api/v4", forge.ErrUnreachable, internalHost)
 	}
 	deps.Git.Changes = func() ([]gitrepo.Change, error) {
@@ -140,7 +140,7 @@ func (e webserverDepsEdit) apply(deps webserver.Deps) webserver.Deps {
 	}
 
 	if e.pullErr != nil {
-		deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+		deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 			return forge.PullRequest{}, false, e.pullErr
 		}
 	}
@@ -153,7 +153,7 @@ func TestGetReviewSaysWhyItsCICouldNotBeRead(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{}, fmt.Errorf("%w: https://%s", forge.ErrUnreachable, internalHost)
 	}
 

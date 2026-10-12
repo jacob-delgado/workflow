@@ -153,7 +153,7 @@ func TestSnapshotReadsAPullRequestClosedWithoutMergingAsNotAnnounced(t *testing.
 	// review says so as the announce stage does.
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
 	deps := memory.wire(filledDeps())
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return inState(forge.StateClosed, false), true, nil
 	}
 
@@ -174,7 +174,7 @@ func TestAnnounceRefusesAPullRequestClosedWithoutMergingAsNoneToAnnounce(t *test
 	// announce: not one announced already.
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
 	deps := memory.wire(filledDeps())
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return inState(forge.StateClosed, false), true, nil
 	}
 
@@ -226,7 +226,7 @@ func TestAnnouncedMomentFollowsTheCI(t *testing.T) {
 	// Arrange
 	memory := &announceMemory{held: []loop.Announced{{Pull: 42, Moment: messaging.MomentCIRed}}}
 	deps := memory.wire(filledDeps())
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}, nil
 	}
 

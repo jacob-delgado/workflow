@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -34,7 +35,7 @@ func ownerSeams() loop.OwnerSeams {
 		CodeOwnersAt: func(string) (codeowners.File, bool, error) {
 			return codeowners.Parse(ownersFile, codeowners.GitHub), true, nil
 		},
-		Author: func() (string, error) { return "me", nil },
+		Author: func(context.Context) (string, error) { return "me", nil },
 	}
 }
 
@@ -42,7 +43,7 @@ func TestOwnersOfNamesTheChangedPathsOwnersButTheAuthor(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	owners, err := loop.OwnersOf(ownerSeams(), targetBase)
+	owners, err := loop.OwnersOf(t.Context(), ownerSeams(), targetBase)
 	// Assert
 	if err != nil {
 		t.Fatalf("OwnersOf returned %v", err)
@@ -72,7 +73,7 @@ func TestOwnersOfReadsTheBaseItIsGiven(t *testing.T) {
 	}
 
 	// Act
-	_, err := loop.OwnersOf(seams, "release")
+	_, err := loop.OwnersOf(t.Context(), seams, "release")
 
 	// Assert
 	if err != nil || diffed != "release" || read != "release" {
@@ -107,7 +108,7 @@ func TestOwnersOfIsNobodyWithoutAFileOrSeams(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			owners, err := loop.OwnersOf(change(ownerSeams()), targetBase)
+			owners, err := loop.OwnersOf(t.Context(), change(ownerSeams()), targetBase)
 
 			// Assert
 			if err != nil || len(owners.Users)+len(owners.Teams) != 0 {
@@ -125,7 +126,7 @@ func TestOwnersOfKeepsEveryoneWithNoAuthorToLeaveOut(t *testing.T) {
 	seams.Author = nil
 
 	// Act
-	owners, err := loop.OwnersOf(seams, targetBase)
+	owners, err := loop.OwnersOf(t.Context(), seams, targetBase)
 
 	// Assert
 	if err != nil || !slices.Equal(owners.Users, []string{ownerUser, "Me", "bo"}) {
@@ -148,7 +149,7 @@ func TestOwnersOfReportsWhatItCouldNotRead(t *testing.T) {
 			return seams
 		},
 		"the author": func(seams loop.OwnerSeams) loop.OwnerSeams {
-			seams.Author = func() (string, error) { return "", errSeam }
+			seams.Author = func(context.Context) (string, error) { return "", errSeam }
 
 			return seams
 		},
@@ -159,7 +160,7 @@ func TestOwnersOfReportsWhatItCouldNotRead(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			_, err := loop.OwnersOf(change(ownerSeams()), targetBase)
+			_, err := loop.OwnersOf(t.Context(), change(ownerSeams()), targetBase)
 
 			// Assert
 			if !errors.Is(err, errSeam) {
@@ -173,7 +174,7 @@ func TestProposedReviewersListsPeopleThenTeams(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	proposed := loop.ProposedReviewers(ownerSeams(), targetBase)
+	proposed := loop.ProposedReviewers(t.Context(), ownerSeams(), targetBase)
 
 	// Assert
 	if want := []string{ownerUser, "bo", ownerTeam}; !slices.Equal(proposed, want) {
@@ -189,7 +190,7 @@ func TestProposedReviewersIsNobodyWhenTheOwnersCannotBeRead(t *testing.T) {
 	seams.ChangedPaths = func(string) ([]string, error) { return nil, errSeam }
 
 	// Act
-	proposed := loop.ProposedReviewers(seams, targetBase)
+	proposed := loop.ProposedReviewers(t.Context(), seams, targetBase)
 
 	// Assert
 	if proposed != nil {
@@ -246,10 +247,10 @@ func TestOwnersOfCountsANameTheForgeKnowsAsAGroupAmongTheTeams(t *testing.T) {
 	// GitLab spells a top-level group @bo, as it spells a user; the forge
 	// knows bo as a group and ana as a person.
 	seams := ownerSeams()
-	seams.IsGroup = func(name string) (bool, error) { return name == "bo", nil }
+	seams.IsGroup = func(_ context.Context, name string) (bool, error) { return name == "bo", nil }
 
 	// Act
-	owners, err := loop.OwnersOf(seams, targetBase)
+	owners, err := loop.OwnersOf(t.Context(), seams, targetBase)
 
 	// Assert
 	if err != nil || !slices.Equal(owners.Users, []string{ownerUser}) ||
@@ -265,7 +266,7 @@ func TestOwnersOfKeepsANameTheForgeCannotClassifyAsAPerson(t *testing.T) {
 	// The forge knows bo as a group but cannot be asked about ana: one
 	// failed lookup must not cost the announcement every other owner.
 	seams := ownerSeams()
-	seams.IsGroup = func(name string) (bool, error) {
+	seams.IsGroup = func(_ context.Context, name string) (bool, error) {
 		if name == ownerUser {
 			return false, errForgeDown
 		}
@@ -274,7 +275,7 @@ func TestOwnersOfKeepsANameTheForgeCannotClassifyAsAPerson(t *testing.T) {
 	}
 
 	// Act
-	owners, err := loop.OwnersOf(seams, targetBase)
+	owners, err := loop.OwnersOf(t.Context(), seams, targetBase)
 
 	// Assert
 	if err != nil || !slices.Equal(owners.Users, []string{ownerUser}) ||

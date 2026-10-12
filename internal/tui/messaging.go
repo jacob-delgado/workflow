@@ -99,14 +99,14 @@ func (quitGuard) which() overlayKind { return overlayQuitGuard }
 
 // loadAuthor is the command that asks the forge whose credential it holds:
 // you, as the announcement and a forge issue's assignee name you.
-func (s messagingState) loadAuthor(deps Deps) tea.Cmd {
+func (s messagingState) loadAuthor(ctx context.Context, deps Deps) tea.Cmd {
 	author := deps.Forge.Author
 	if author == nil || s.author != "" {
 		return nil
 	}
 
 	return func() tea.Msg {
-		name, err := author()
+		name, err := author(ctx)
 
 		return authorFound{name: name, err: err}
 	}

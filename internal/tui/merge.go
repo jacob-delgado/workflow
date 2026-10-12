@@ -34,10 +34,10 @@ func (m Model) startMerge() (Model, tea.Cmd) {
 	}
 
 	m.overlay = mergePicker{vocab: m.vocab, pull: m.review.pull}
-	methods := m.deps.Forge.MergeMethods
+	ctx, methods := m.session, m.deps.Forge.MergeMethods
 
 	return m, func() tea.Msg {
-		allowed, err := methods()
+		allowed, err := methods(ctx)
 
 		return mergeMethodsLoaded{methods: allowed, err: err}
 	}
@@ -98,7 +98,7 @@ func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 		merged.followUp = merged.offerMarkDone(issueKey)
 	}
 
-	return merged, merged.branch.findPull(merged.deps)
+	return merged, merged.branch.findPull(merged.session, merged.deps)
 }
 
 // failed is the preview kept open with the reason the merge was refused.
@@ -220,9 +220,9 @@ func (p mergePicker) confirm(m Model) (Model, tea.Cmd) {
 
 	p.send = starting()
 	m.overlay = p
-	pull, merge := p.pull, m.deps.Forge.Merge
+	ctx, pull, merge := m.session, p.pull, m.deps.Forge.Merge
 
 	return m, func() tea.Msg {
-		return mergeRequested{pull: pull, err: merge(pull, method)}
+		return mergeRequested{pull: pull, err: merge(ctx, pull, method)}
 	}
 }

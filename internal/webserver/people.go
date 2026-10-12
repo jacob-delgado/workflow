@@ -100,7 +100,7 @@ func (s *server) people(ctx context.Context) (api.People, error) {
 		return api.People{}, err
 	}
 
-	tags := loop.ProposeTags(peopleOwners(links, s.branchOwners()), links, nil, nil, false, messaging.MomentReady)
+	tags := loop.ProposeTags(peopleOwners(links, s.branchOwners(ctx)), links, nil, nil, false, messaging.MomentReady)
 
 	return api.People{Owners: ownerTagsDTO(tags.Owners)}, nil
 }
@@ -139,7 +139,7 @@ func peopleOwners(links []loop.OwnerLink, branchOwners codeowners.Owners) codeow
 // branchOwners is who owns the branch's changes, a bare name the forge knows
 // as a group among the teams, or nobody when they cannot be read: People
 // lists them only to be decided ahead of an announcement.
-func (s *server) branchOwners() codeowners.Owners {
+func (s *server) branchOwners(ctx context.Context) codeowners.Owners {
 	if s.deps.Git.Branch == nil {
 		return codeowners.Owners{}
 	}
@@ -152,7 +152,7 @@ func (s *server) branchOwners() codeowners.Owners {
 	seams := s.ownerSeams()
 	seams.IsGroup = s.deps.Forge.IsGroup
 
-	owners, err := loop.OwnersOf(seams, branch.Base)
+	owners, err := loop.OwnersOf(ctx, seams, branch.Base)
 	if err != nil {
 		return codeowners.Owners{}
 	}

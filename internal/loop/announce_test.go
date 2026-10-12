@@ -36,13 +36,13 @@ func openPull() forge.PullRequest {
 func announceSeams() loop.AnnounceSeams {
 	return loop.AnnounceSeams{
 		Branch:   func() (gitrepo.Branch, error) { return openable(branchName), nil },
-		FindPull: func(string) (forge.PullRequest, bool, error) { return openPull(), true, nil },
-		Author:   func() (string, error) { return author, nil },
+		FindPull: func(context.Context, string) (forge.PullRequest, bool, error) { return openPull(), true, nil },
+		Author:   func(context.Context) (string, error) { return author, nil },
 		Issue: func(context.Context, jira.Key) (jira.IssueDetail, error) {
 			return jira.IssueDetail{Issue: jira.Issue{Key: issueKey, Summary: summary}}, nil
 		},
 		BrowseURL: func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) },
-		CheckCI: func(forge.PullRequest, string) (forge.CI, error) {
+		CheckCI: func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 			return forge.CI{State: forge.CIPassed}, nil
 		},
 	}
@@ -125,14 +125,16 @@ func TestComposeAnnouncementRefusesWithoutAPullRequest(t *testing.T) {
 			return seams
 		},
 		"a branch with no pull request": func(seams loop.AnnounceSeams) loop.AnnounceSeams {
-			seams.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+			seams.FindPull = func(context.Context, string) (forge.PullRequest, bool, error) {
+				return forge.PullRequest{}, false, nil
+			}
 
 			return seams
 		},
 		"a pull request closed without merging": func(seams loop.AnnounceSeams) loop.AnnounceSeams {
 			closed := openPull()
 			closed.State = forge.StateClosed
-			seams.FindPull = func(string) (forge.PullRequest, bool, error) { return closed, true, nil }
+			seams.FindPull = func(context.Context, string) (forge.PullRequest, bool, error) { return closed, true, nil }
 
 			return seams
 		},
@@ -170,7 +172,9 @@ func TestComposeAnnouncementReportsWhatCannotBeRead(t *testing.T) {
 		},
 		"the pull request": {
 			mutate: func(seams loop.AnnounceSeams) loop.AnnounceSeams {
-				seams.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errSeam }
+				seams.FindPull = func(context.Context, string) (forge.PullRequest, bool, error) {
+					return forge.PullRequest{}, false, errSeam
+				}
 
 				return seams
 			},
@@ -200,13 +204,13 @@ func TestComposeAnnouncementNeverReadsCIForAMergedPull(t *testing.T) {
 	checked := false
 
 	seams := announceSeams()
-	seams.FindPull = func(string) (forge.PullRequest, bool, error) {
+	seams.FindPull = func(context.Context, string) (forge.PullRequest, bool, error) {
 		merged := openPull()
 		merged.State = forge.StateMerged
 
 		return merged, true, nil
 	}
-	seams.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+	seams.CheckCI = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		checked = true
 
 		return forge.CI{State: forge.CIFailed}, nil
@@ -228,7 +232,7 @@ func TestComposeAnnouncementMarksRedCI(t *testing.T) {
 	var askedHead string
 
 	seams := announceSeams()
-	seams.CheckCI = func(_ forge.PullRequest, head string) (forge.CI, error) {
+	seams.CheckCI = func(_ context.Context, _ forge.PullRequest, head string) (forge.CI, error) {
 		askedHead = head
 
 		return forge.CI{State: forge.CIFailed}, nil
@@ -246,9 +250,9 @@ func TestComposeAnnouncementMarksRedCI(t *testing.T) {
 func TestComposeAnnouncementTakesAnUnreadableCIAsReady(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]func(forge.PullRequest, string) (forge.CI, error){
+	cases := map[string]func(context.Context, forge.PullRequest, string) (forge.CI, error){
 		"no way to read CI": nil,
-		"a CI read that fails": func(forge.PullRequest, string) (forge.CI, error) {
+		"a CI read that fails": func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 			return forge.CI{State: forge.CIFailed}, errSeam
 		},
 	}
@@ -284,7 +288,7 @@ func TestComposeAnnouncementReadsWithoutWhatItCannotSay(t *testing.T) {
 			return seams
 		},
 		"a forge and a tracker that fail": func(seams loop.AnnounceSeams) loop.AnnounceSeams {
-			seams.Author = func() (string, error) { return "", errSeam }
+			seams.Author = func(context.Context) (string, error) { return "", errSeam }
 			seams.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
 			seams.BrowseURL = nil
 

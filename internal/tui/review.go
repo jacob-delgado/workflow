@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"strings"
@@ -58,14 +59,14 @@ func forgeVocab(kind forge.Kind) reviewVocab {
 }
 
 // findPull is the command that looks for the branch's open pull request.
-func (s branchState) findPull(deps Deps) tea.Cmd {
+func (s branchState) findPull(ctx context.Context, deps Deps) tea.Cmd {
 	find, branch := deps.Forge.FindPullRequest, s.branch.Name
 	if find == nil || !s.onFeatureBranch() {
 		return nil
 	}
 
 	return func() tea.Msg {
-		pull, found, err := find(branch)
+		pull, found, err := find(ctx, branch)
 
 		return pullFound{branch: branch, pull: pull, found: found, err: err}
 	}
@@ -112,7 +113,7 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m.checkingCI(m.messaging.loadAuthor(m.deps))
+	return m.checkingCI(m.messaging.loadAuthor(m.session, m.deps))
 }
 
 // rail is the pull request and its CI, in brief, or why there is none.

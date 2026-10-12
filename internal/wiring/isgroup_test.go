@@ -37,10 +37,10 @@ func TestAGroupStaysAGroupWhenALaterLookupFails(t *testing.T) {
 	cfg := config.Config{Forge: config.Forge{CLI: true}}
 	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitLab}
 	isGroup := wired(t, cfg, where, nil).Forge.IsGroup
-	_, _ = isGroup("acme")
+	_, _ = isGroup(t.Context(), "acme")
 
 	// Act
-	group, err := isGroup("acme")
+	group, err := isGroup(t.Context(), "acme")
 
 	// Assert
 	if err != nil || !group {
@@ -67,7 +67,7 @@ func TestIsGroupAsksGitLabOnceSettingsSavedWhileRunningSwitchToIt(t *testing.T) 
 	}
 
 	// Act
-	group, err := isGroup("acme")
+	group, err := isGroup(t.Context(), "acme")
 
 	// Assert
 	if err != nil || !group {
@@ -82,7 +82,7 @@ func TestIsGroupOnGitHubTakesEveryBareNameForAPersonWithoutAsking(t *testing.T) 
 	forgeSeams := wired(t, cfg, where, nil).Forge
 
 	// Act
-	group, err := forgeSeams.IsGroup("acme")
+	group, err := forgeSeams.IsGroup(t.Context(), "acme")
 
 	// Assert
 	if err != nil || group {
@@ -119,13 +119,13 @@ func TestALookupThatFailedIsAskedAgain(t *testing.T) {
 	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitLab}
 	isGroup := wired(t, cfg, where, nil).Forge.IsGroup
 
-	_, err := isGroup("acme")
+	_, err := isGroup(t.Context(), "acme")
 	if err == nil {
 		t.Fatal("the first IsGroup passed, want the lookup's failure")
 	}
 
 	// Act
-	group, err := isGroup("acme")
+	group, err := isGroup(t.Context(), "acme")
 
 	// Assert
 	if err != nil || !group {
@@ -140,7 +140,7 @@ func TestIsGroupWithNoRemoteToReadTakesEveryBareNameForAPersonWithoutAsking(t *t
 	forgeSeams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Forge
 
 	// Act
-	group, err := forgeSeams.IsGroup("acme")
+	group, err := forgeSeams.IsGroup(t.Context(), "acme")
 
 	// Assert
 	if err != nil || group {

@@ -53,10 +53,6 @@ func notYet() []string {
 		"Git.CodeOwnersAt", "Git.RecentSubjects", "Git.CreateWorktree", "Git.Fetch", "Git.Commit", "Git.Push",
 		"Git.Amend", "Git.Fixup", "Git.Rebase", "Git.Finish", "Git.IssueLinks", "Git.LinkIssue", "Git.UnlinkIssue",
 
-		"Forge.FindPullRequest", "Forge.CreatePullRequest", "Forge.EditPullRequest", "Forge.RewriteDescription",
-		"Forge.CheckStatus", "Forge.Rerun", "Forge.JobLog", "Forge.Merge", "Forge.MergeMethods",
-		"Forge.ReviewRequests", "Forge.Author", "Forge.IsGroup", "Forge.Activity",
-
 		"Settings.Save", "Settings.LocalData",
 
 		"Setup.Check", "Setup.Write",

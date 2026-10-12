@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
@@ -68,6 +69,13 @@ func (h *heldRead) tasks() seams.Tasks {
 			return taskwarrior.Install{Version: taskwarrior.MinimumVersion}, nil
 		},
 		Pending: func(ctx context.Context) (taskwarrior.List, error) { return taskwarrior.List{}, h.wait(ctx) },
+	}
+}
+
+// forge is a forge with its review requests' read held.
+func (h *heldRead) forge() seams.Forge {
+	return seams.Forge{
+		ReviewRequests: func(ctx context.Context) ([]forge.ReviewRequest, error) { return nil, h.wait(ctx) },
 	}
 }
 
@@ -160,5 +168,27 @@ func TestAnIssueSearchTheInterfaceBeganStopsWhenItsSessionEnds(t *testing.T) {
 	err := held.endedWith(t)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("the search's context ended with %v, want it canceled with the session", err)
+	}
+}
+
+func TestAForgeReadTheInterfaceBeganStopsWhenItsSessionEnds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	held := newHeldRead()
+	session, end := context.WithCancel(t.Context())
+	model := tui.New(config.Config{}, nil, tui.Deps{Forge: held.forge()}).WithContext(session)
+
+	go runEach(model.Init())
+
+	<-held.entered
+
+	// Act
+	end()
+
+	// Assert
+	err := held.endedWith(t)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("the read's context ended with %v, want it canceled with the session", err)
 	}
 }

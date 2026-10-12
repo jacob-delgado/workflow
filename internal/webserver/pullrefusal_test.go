@@ -7,6 +7,7 @@ package webserver_test
 // request that is already open, or that there is no work to propose.
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestOpenPullRequestIsAConflictWhenOneIsAlreadyOpen(t *testing.T) {
 
 			// Arrange
 			deps := openableDeps()
-			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{Number: 42, URL: prURL}, true, nil
 			}
 			handler := serveWith(t, deps, config.Default(), webserver.Info{Version: testVersion, ForgeKind: tt.kind})

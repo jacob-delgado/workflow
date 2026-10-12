@@ -9,6 +9,7 @@ package webserver_test
 // are the caller's to act on.
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -30,7 +31,7 @@ const lacksAScope = "may lack a scope this needs"
 func failingOpenDeps(err error) webserver.Deps {
 	deps := openableDeps()
 	deps.Git.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
-	deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
 		return forge.PullRequest{}, err
 	}
 
