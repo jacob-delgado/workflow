@@ -100,22 +100,16 @@ type keyMap struct {
 	full [][]key.Binding
 }
 
-// The help groups, in the order helpGroups names them. Every binding is created
-// into one of these, so the help cannot leave a binding out. Each pane's keys
-// are a group of their own, as each pane is a key context of its own: a key two
-// panes share after a ui.keys remap is listed once under each.
+// groupMoving is the help group of the keys that move about, listed first.
+// Every binding is created into a group, so the help cannot leave one out. Each
+// pane's own keys follow, a group for each pane in the panes' order
+// (pane.helpGroup), as each pane is a key context of its own: a key two panes
+// share after a ui.keys remap is listed once under each.
+const groupMoving = 0
+
+// The help groups after the panes', in the order helpGroups names them.
 const (
-	groupMoving = iota
-	groupIssues
-	groupBranch
-	groupCommits
-	groupReview
-	groupMessaging
-	groupReviews
-	groupTasks
-	groupSummary
-	groupRepositories
-	groupComposer
+	groupComposer = groupMoving + paneCount + 1 + iota
 	groupWriting
 	groupRunning
 	groupEverywhere
@@ -343,13 +337,21 @@ func (k keyMap) FullHelp() [][]key.Binding {
 }
 
 // helpGroups names the groups FullHelp returns, in the same order: a pane's
-// group by the pane's title, the messaging pane's for the service in use rather
-// than a fixed "Slack".
+// group by the pane's title, the messaging pane's for the service in use.
 func helpGroups(messagingService string) []string {
-	return []string{
-		"Moving around", "Issues", "Branch", "Commits", "Review", messagingService, "Reviews", "Tasks", "Summary",
-		"Repositories", "In a composer or preview", "Writing a comment", "While a command runs", "Everywhere",
+	groups := make([]string, groupEverywhere+1)
+	groups[groupMoving] = "Moving around"
+
+	for each := range pane(paneCount) {
+		groups[each.helpGroup()] = each.title(messagingService)
 	}
+
+	groups[groupComposer] = "In a composer or preview"
+	groups[groupWriting] = "Writing a comment"
+	groups[groupRunning] = "While a command runs"
+	groups[groupEverywhere] = "Everywhere"
+
+	return groups
 }
 
 // KeyActions is every action the help lists, in its order, with the ui.keys
