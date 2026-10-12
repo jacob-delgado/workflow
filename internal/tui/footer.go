@@ -55,8 +55,9 @@ func (m Model) footerRow(room int) string {
 }
 
 // capturedKeys is the footer of whatever has the keyboard to itself — an open
-// overlay, or the issue filter being typed — and whether anything has. The keys
-// that work everywhere else, ? among them, do not work there.
+// overlay, or an issue or task filter being typed — and whether anything has.
+// The keys every pane takes, ? among them, work there only where the overlay
+// answers them, as the help does.
 func (m Model) capturedKeys() ([]key.Binding, bool) {
 	switch {
 	case m.overlay != nil:
