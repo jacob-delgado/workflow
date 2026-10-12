@@ -103,10 +103,21 @@ func (w *worlds) serve(writer http.ResponseWriter, request *http.Request, switch
 func (w *worlds) outlivingItsPage(request *http.Request) (*http.Request, context.CancelFunc) {
 	// Trade-off TRADE-37: a write outlasts its page, and ends only with the
 	// server.
-	ctx, cancel := context.WithCancel(context.WithoutCancel(request.Context()))
+	ctx, release := w.outliving(request.Context())
+
+	return request.WithContext(ctx), release
+}
+
+// outliving is a context with ctx's values that goes on when ctx ends and ends
+// when the server stops, and the function that releases it once what it was
+// made for is done. Every request's context derives from the server's
+// lifetime, so detaching one from its page alone, never from the server, is
+// what lets Serve's drain end on a stop rather than wait out its grace.
+func (w *worlds) outliving(ctx context.Context) (context.Context, context.CancelFunc) {
+	outlives, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	stop := w.atEnd(cancel)
 
-	return request.WithContext(ctx), func() {
+	return outlives, func() {
 		stop()
 		cancel()
 	}

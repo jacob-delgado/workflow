@@ -406,7 +406,7 @@ type announcedCache struct {
 // run. Every stream and every post reads the one held, and the store's read
 // takes a failure for none, so it runs to its end whoever asked it leaves: one
 // canceled midway would be held as nothing announced, and let a post repeat
-// one made.
+// one made. It ends when the server stops, which posts nothing more.
 func (s *server) recordedAnnouncements(ctx context.Context) []loop.Announced {
 	if s.deps.Store.Announced == nil || s.info.DryRun {
 		return nil
@@ -417,8 +417,10 @@ func (s *server) recordedAnnouncements(ctx context.Context) []loop.Announced {
 
 	now := s.now()
 	if !s.announced.held || now.Sub(s.announced.readAt) >= s.forgeInterval() {
-		s.announced.made, s.announced.held, s.announced.readAt = s.deps.Store.Announced(context.WithoutCancel(ctx)), true,
-			now
+		shared, release := s.worlds.outliving(ctx)
+		s.announced.made, s.announced.held, s.announced.readAt = s.deps.Store.Announced(shared), true, now
+
+		release()
 	}
 
 	return slices.Clone(s.announced.made)

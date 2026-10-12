@@ -178,7 +178,8 @@ func (s *server) snapshotTasks(ctx context.Context) api.TasksSummary {
 // heldDetection is which Taskwarrior answers, for the stream: a search that
 // found none within taskwarriorHold stands for this one. Every stream shares
 // the search, so it runs to its end even if the page whose frame began it
-// leaves; a search canceled then would be held as none for every page.
+// leaves; a search canceled then would be held as none for every page. It ends
+// when the server stops.
 func (s *server) heldDetection(ctx context.Context) (taskwarrior.Install, error) {
 	s.detection.mu.Lock()
 	defer s.detection.mu.Unlock()
@@ -188,7 +189,10 @@ func (s *server) heldDetection(ctx context.Context) (taskwarrior.Install, error)
 		return taskwarrior.Install{}, s.detection.failed
 	}
 
-	install, err := s.installed(context.WithoutCancel(ctx))
+	shared, release := s.worlds.outliving(ctx)
+	defer release()
+
+	install, err := s.installed(shared)
 	s.detection.failed, s.detection.readAt = err, now
 
 	return install, err

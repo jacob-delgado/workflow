@@ -94,14 +94,17 @@ func sharedRead[V any](
 // passed since the last read, with why the last read failed, if it did. Every
 // stream shares the read, so it runs to its end even if the page whose frame,
 // under ctx, began it leaves: one canceled then would be held as failed for
-// every page until the interval passed.
+// every page until the interval passed. It ends when the server stops.
 func (s *server) forgeReview(ctx context.Context, branch gitrepo.Branch) (forgeRead, error) {
 	key := forgeKey{branch: branch.Name, head: branch.Head}
 
 	return sharedRead(ctx,
 		func() turn[forgeRead] { return s.forgeAnswer.serve(key, s.now(), s.forgeInterval()) },
 		func(dropped int) (forgeRead, error) {
-			read, err := s.readForge(context.WithoutCancel(ctx), branch)
+			shared, release := s.worlds.outliving(ctx)
+			defer release()
+
+			read, err := s.readForge(shared, branch)
 
 			return s.forgeAnswer.land(key, dropped, s.now(), read, err)
 		},
@@ -217,12 +220,15 @@ type heldPage struct {
 // cache, searched again once it is older than the forge's interval. Every
 // stream shares the search, so it runs to its end even if the page whose
 // frame, under ctx, began it leaves: one canceled then would be held as failed
-// for every page until the interval passed.
+// for every page until the interval passed. It ends when the server stops.
 func (s *server) frameIssues(ctx context.Context, jql string) (jira.SearchResult, error) {
 	return sharedRead(ctx,
 		func() turn[jira.SearchResult] { return s.issuesHeld.serve(jql, s.now(), s.forgeInterval()) },
 		func(dropped int) (jira.SearchResult, error) {
-			result, err := s.deps.Jira.Search(context.WithoutCancel(ctx), jql, 0)
+			shared, release := s.worlds.outliving(ctx)
+			defer release()
+
+			result, err := s.deps.Jira.Search(shared, jql, 0)
 			s.issuesHeld.land(jql, dropped, heldPage{result: result, failed: err, readAt: s.now()})
 
 			return result, err
@@ -335,7 +341,7 @@ func (c *assignedCache) yours(keys []jira.Key) map[jira.Key]bool {
 // failed ask is no failure here: the answer held stands in for it. Every
 // stream shares the ask, so it runs to its end even if the page whose frame,
 // under ctx, began it leaves: one canceled then would leave an older answer
-// standing for the next minute.
+// standing for the next minute. It ends when the server stops.
 func (s *server) yourIssues(ctx context.Context, keys []jira.Key) map[jira.Key]bool {
 	if s.deps.Jira.SearchLenient == nil {
 		return nil
@@ -346,7 +352,10 @@ func (s *server) yourIssues(ctx context.Context, keys []jira.Key) map[jira.Key]b
 	yours, _ := sharedRead(ctx,
 		func() turn[map[jira.Key]bool] { return s.assigned.serve(asked, s.now()) },
 		func(int) (map[jira.Key]bool, error) {
-			mine, err := loop.AssignedKeys(context.WithoutCancel(ctx), s.deps.Jira.SearchLenient, asked)
+			shared, release := s.worlds.outliving(ctx)
+			defer release()
+
+			mine, err := loop.AssignedKeys(shared, s.deps.Jira.SearchLenient, asked)
 
 			return s.assigned.land(asked, s.now(), mine, err), nil
 		},
@@ -419,12 +428,15 @@ type authorCache struct {
 // has given one, or why it could not say while that is held, else a fresh ask.
 // Every stream shares the ask, so it runs to its end even if the page whose
 // frame, under ctx, began it leaves: one canceled then would be held as failed
-// for every page until the interval passed.
+// for every page until the interval passed. It ends when the server stops.
 func (s *server) cachedAuthor(ctx context.Context) (string, error) {
 	return sharedRead(ctx,
 		func() turn[string] { return s.author.serve(s.now(), s.forgeInterval()) },
 		func(int) (string, error) {
-			name, err := s.deps.Forge.Author(context.WithoutCancel(ctx))
+			shared, release := s.worlds.outliving(ctx)
+			defer release()
+
+			name, err := s.deps.Forge.Author(shared)
 			if err != nil {
 				return s.author.land(s.now(), "", fmt.Errorf("reading the author: %w", err))
 			}

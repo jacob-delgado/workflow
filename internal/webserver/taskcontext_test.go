@@ -30,7 +30,13 @@ type heldCall struct {
 	release chan struct{}
 }
 
-// newHeldUntilEnded is a call held until its context ends.
+// heldPatience is how long a call held until its context ends waits before
+// giving up, so a context that never ends fails its test rather than holding
+// it open: longer than endsWithin, which the test waits for it.
+const heldPatience = 2 * endsWithin
+
+// newHeldUntilEnded is a call held until its context ends, or until patience
+// runs out.
 func newHeldUntilEnded() *heldCall {
 	return &heldCall{entered: make(chan struct{}, 1), ended: make(chan error, 1), release: nil}
 }
@@ -48,7 +54,10 @@ func (b *heldCall) wait(ctx context.Context) error {
 	if b.release != nil {
 		<-b.release
 	} else {
-		<-ctx.Done()
+		select {
+		case <-ctx.Done():
+		case <-time.After(heldPatience):
+		}
 	}
 
 	err := ctx.Err()
@@ -97,8 +106,20 @@ func asking(ctx context.Context, handler http.Handler, method, target string) <-
 func serveUntilStopped(t *testing.T, deps webserver.Deps) (http.Handler, context.CancelFunc) {
 	t.Helper()
 
+	handler, _, stop := serveForALifetime(t, deps, config.Default())
+
+	return handler, stop
+}
+
+// serveForALifetime is serve over deps and cfg for a lifetime of its own, which
+// Serve would derive each request's context from, and the function that stops
+// the server, ending it.
+func serveForALifetime(
+	t *testing.T, deps webserver.Deps, cfg config.Config,
+) (http.Handler, context.Context, context.CancelFunc) {
+	t.Helper()
+
 	lifetime, stop := context.WithCancel(t.Context())
-	cfg := config.Default()
 	session := webserver.NewSession()
 	world := webserver.World{Deps: deps, Config: cfg, Info: webserver.Info{Taskwarrior: cfg.Taskwarrior}}
 
@@ -107,7 +128,7 @@ func serveUntilStopped(t *testing.T, deps webserver.Deps) (http.Handler, context
 		t.Fatalf("building the handler: %v", err)
 	}
 
-	return presenting(t, session, handler), stop
+	return presenting(t, session, handler), lifetime, stop
 }
 
 // startPath starts the plain task.
