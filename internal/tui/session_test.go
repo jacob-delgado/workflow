@@ -302,3 +302,100 @@ func TestAStageInFlightGoesOnWhenTheSessionEnds(t *testing.T) {
 		t.Fatal("the stage never returned")
 	}
 }
+
+// A write the interface sent ends when its program does: SIGINT or SIGTERM
+// cancels the context the command runs the interface under, and stops a git
+// push or a task sync in flight as it stops every other command.
+func TestAWriteInFlightStopsWhenTheProgramIsSignaled(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	entered, ended := make(chan struct{}, 1), make(chan error, 1)
+	caching := newWorld()
+	deps := caching.deps()
+	deps.Store.CacheIssues = func(ctx context.Context, _ string, _ []jira.Issue) error {
+		entered <- struct{}{}
+
+		select {
+		case <-ctx.Done():
+			ended <- ctx.Err()
+		case <-time.After(quitPatience):
+		}
+
+		return nil
+	}
+	keys, _ := io.Pipe()
+
+	t.Cleanup(func() { _ = keys.Close() })
+
+	program, signaled := context.WithCancel(t.Context())
+
+	go func() { _, _ = tui.Run(program, tui.New(caching.cfg, nil, deps), keys, io.Discard) }()
+
+	<-entered
+
+	// Act
+	signaled()
+
+	// Assert
+	select {
+	case err := <-ended:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("the write's context ended with %v, want it canceled with the program", err)
+		}
+	case <-time.After(quitPatience):
+		t.Fatal("the write in flight went on once the program was signaled, want it stopped with the program")
+	}
+}
+
+// Quitting ends the session, never a write it sent: the write goes on while
+// the program that ran the interface does.
+func TestAWriteInFlightGoesOnWhenTheInterfaceQuits(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	asked, released := make(chan context.Context, 1), make(chan struct{})
+
+	t.Cleanup(func() { close(released) })
+
+	caching := newWorld()
+	deps := caching.deps()
+	deps.Store.CacheIssues = func(ctx context.Context, _ string, _ []jira.Issue) error {
+		select {
+		case asked <- ctx:
+		default:
+		}
+
+		<-released
+
+		return nil
+	}
+	keys, typing := io.Pipe()
+
+	t.Cleanup(func() { _ = keys.Close() })
+
+	quit := make(chan struct{})
+
+	go func() {
+		_, _ = tui.Run(t.Context(), tui.New(caching.cfg, nil, deps), keys, io.Discard)
+
+		close(quit)
+	}()
+
+	write := <-asked
+
+	// Act
+	go func() { _, _ = typing.Write([]byte("q")) }()
+
+	// Assert
+	select {
+	case <-quit:
+	case <-time.After(quitPatience):
+		t.Fatal("the interface did not quit on q")
+	}
+
+	err := write.Err()
+	if err != nil {
+		t.Errorf("the write's context ended with %v once the interface quit, want it to go on", err)
+	}
+}

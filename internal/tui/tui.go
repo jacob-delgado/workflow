@@ -39,6 +39,9 @@ type Model struct {
 	cfg     config.Config
 	loadErr error
 	deps    Deps
+	// given is deps as New was given them, a dry run's writes held back, for
+	// WithLifetime to ask again with its writes ending at its context.
+	given Deps
 	// session is the context every system outside the interface is asked
 	// under: Run's, which ends when the program does.
 	session context.Context //nolint:containedctx // tea.Cmd takes no context, so each command captures the session's
@@ -129,7 +132,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 	vocab := forgeVocab(deps.Forge.Kind)
 
 	model := Model{
-		cfg: cfg, loadErr: loadErr, deps: outlasting(deps), session: context.Background(),
+		cfg: cfg, loadErr: loadErr, deps: outlasting(detached, deps), given: deps, session: context.Background(),
 		keys:   newKeyMap(marks, vocab.noun, cfg.Messaging.Service(), cfg.UI.Keys),
 		styles: newStyles(true), marks: marks, vocab: vocab,
 		width: defaultWidth, height: defaultHeight,
@@ -163,6 +166,19 @@ func (m Model) WithContext(ctx context.Context) Model {
 	return m
 }
 
+// WithLifetime is the interface ending every write it sends once ctx ends.
+// A write outlasts its session, which a quit or a switch ends, so git is never
+// stopped midway with its index locked; ctx is the program's, which Run hands
+// it and a signal cancels, so SIGINT or SIGTERM stops a write in flight as it
+// stops every command. New leaves its writes unending.
+func (m Model) WithLifetime(ctx context.Context) Model {
+	// Trade-off TRADE-38: a quit or a switch stops reads alone; the end of the
+	// program's lifetime stops writes too.
+	m.deps = outlasting(endingWith(ctx), m.given)
+
+	return m
+}
+
 // WithDryRun is the interface holding back every write — to Jira, the forge,
 // the messaging service, Taskwarrior, git and files — and saying instead what
 // it would have done. Reads stay live, so what it says is about the real state
@@ -170,7 +186,7 @@ func (m Model) WithContext(ctx context.Context) Model {
 // and the favorites — which --dry-run binds to kept.db, read read-only, and it
 // reads nothing from the cache.
 func (m Model) WithDryRun() Model {
-	m.deps = heldBack(m.deps)
+	m.deps, m.given = heldBack(m.deps), heldBack(m.given)
 	m.dryRun = true
 
 	return m
@@ -191,7 +207,8 @@ func (m Model) WithoutColor() Model {
 // blocks until the user quits, or switches directory, which Next says. The
 // context cancels the program, so a caller can shut the interface down, and
 // the program's session ends when it does, stopping the reads it left in
-// flight; a write goes on to its end.
+// flight. A write it sent outlasts the program, but not the context: canceling
+// it stops every write still under way too.
 // The alternate screen and mouse mode are set declaratively in View, as v2
 // asks.
 func Run(ctx context.Context, model Model, in io.Reader, out io.Writer) (Next, error) {
@@ -201,7 +218,7 @@ func Run(ctx context.Context, model Model, in io.Reader, out io.Writer) (Next, e
 	options := append(keysFrom(in), tea.WithOutput(out), tea.WithContext(ctx))
 	options = append(options, model.programOptions...)
 
-	ended, err := tea.NewProgram(model.WithContext(session), options...).Run()
+	ended, err := tea.NewProgram(model.WithLifetime(ctx).WithContext(session), options...).Run()
 	if err != nil {
 		return Next{}, fmt.Errorf("running the interface: %w", err)
 	}

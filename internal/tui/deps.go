@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/hooks"
+	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
@@ -19,7 +20,8 @@ import (
 // never holds a credential, and a test can hand it canned answers without a
 // network, a repository or a subprocess. A function that does I/O is asked
 // under the session's context, which Model.WithContext sets; New has each
-// write ignore the session's end, so it goes on to its own.
+// write ignore the session's end, and Model.WithLifetime ends it with the
+// program's lifetime instead.
 //
 // A load the interface starts by itself is skipped when its function is nil, so
 // a test need only supply what it exercises. An action is only offered once the
@@ -138,107 +140,108 @@ func (d Deps) after(wait time.Duration, fire func(time.Time) tea.Msg) tea.Cmd {
 	return d.After(wait, fire)
 }
 
-// outlasting is deps with every write asked under its caller's context's
-// values but never its end: each seam that changes something outside the
-// terminal (what a dry run holds back, the store's records and a fetch), and
-// the opening of a page in the browser. The session ends when the program
-// quits or switches directory, which stops every read it left in flight; a
-// write cut off there could be left half made, git's index locked by an add
-// stopped midway, so it goes on to its end, as a web write outlasts its page.
-// A nil seam, one unavailable here, stays nil.
-func outlasting(deps Deps) Deps {
-	// Trade-off TRADE-38: the session's end stops reads alone; a write goes on
-	// to its end, past a quit.
-	deps.Jira = outlastingJira(deps.Jira)
-	deps.Git = outlastingGit(deps.Git)
-	deps.Forge = outlastingForge(deps.Forge)
-	deps.Store = outlastingStore(deps.Store)
-	deps.Tasks = outlastingTasks(deps.Tasks)
-	deps.Settings = outlastingSettings(deps.Settings)
-	deps.Messaging.Post = outlasting2(deps.Messaging.Post)
-	deps.Hooks.Run = outlastingAnswer1(deps.Hooks.Run)
-	deps.Hooks.Write = outlasting1(deps.Hooks.Write)
-	deps.OpenURL = outlasting1(deps.OpenURL)
+// outlasting is deps with every write asked under a context outlive makes
+// from its caller's, which goes on when the caller's ends: each seam that
+// changes something outside the terminal (what a dry run holds back, the
+// store's records and a fetch), and the opening of a page in the browser. The
+// session ends when the program quits or switches directory, which stops every
+// read it left in flight; a write cut off there could be left half made, git's
+// index locked by an add stopped midway, so it goes on, as a web write
+// outlasts its page, until outlive ends it. A nil seam, one unavailable here,
+// stays nil.
+func outlasting(outlive outliving, deps Deps) Deps {
+	// Trade-off TRADE-38: the session's end stops reads alone; a write goes on,
+	// past a quit, until the program's lifetime ends.
+	deps.Jira = outlastingJira(outlive, deps.Jira)
+	deps.Git = outlastingGit(outlive, deps.Git)
+	deps.Forge = outlastingForge(outlive, deps.Forge)
+	deps.Store = outlastingStore(outlive, deps.Store)
+	deps.Tasks = outlastingTasks(outlive, deps.Tasks)
+	deps.Settings = outlastingSettings(outlive, deps.Settings)
+	deps.Messaging.Post = outlasting2(outlive, deps.Messaging.Post)
+	deps.Hooks.Run = outlastingRun1(outlive, deps.Hooks.Run)
+	deps.Hooks.Write = outlasting1(outlive, deps.Hooks.Write)
+	deps.OpenURL = outlasting1(outlive, deps.OpenURL)
 
 	return deps
 }
 
 // outlastingJira is the tracker with its writes outlasting the session.
-func outlastingJira(tracker seams.Jira) seams.Jira {
-	tracker.Transition = outlasting3(tracker.Transition)
-	tracker.Comment = outlastingAnswer2(tracker.Comment)
-	tracker.Assign = outlasting2(tracker.Assign)
-	tracker.AddWorklog = outlastingAnswer3(tracker.AddWorklog)
-	tracker.LinkPullRequest = outlasting3(tracker.LinkPullRequest)
+func outlastingJira(outlive outliving, tracker seams.Jira) seams.Jira {
+	tracker.Transition = outlasting3(outlive, tracker.Transition)
+	tracker.Comment = outlastingAnswer2(outlive, tracker.Comment)
+	tracker.Assign = outlasting2(outlive, tracker.Assign)
+	tracker.AddWorklog = outlastingAnswer3(outlive, tracker.AddWorklog)
+	tracker.LinkPullRequest = outlasting3(outlive, tracker.LinkPullRequest)
 
 	return tracker
 }
 
 // outlastingGit is the repository with its writes outlasting the session.
-func outlastingGit(git seams.Git) seams.Git {
-	git.Stage = outlasting1(git.Stage)
-	git.Unstage = outlasting1(git.Unstage)
-	git.Discard = outlasting1(git.Discard)
-	git.CreateBranch = outlasting2(git.CreateBranch)
-	git.Checkout = outlasting1(git.Checkout)
-	git.CreateWorktree = outlastingAnswer2(git.CreateWorktree)
-	git.Fetch = outlasting0(git.Fetch)
-	git.Commit = outlastingAnswer1(git.Commit)
-	git.Push = outlastingAnswer1(git.Push)
-	git.Amend = outlastingAnswer0(git.Amend)
-	git.Fixup = outlastingAnswer1(git.Fixup)
-	git.Rebase = outlastingAnswer1(git.Rebase)
-	git.Finish = outlasting2(git.Finish)
-	git.LinkIssue = outlasting2(git.LinkIssue)
-	git.UnlinkIssue = outlasting1(git.UnlinkIssue)
+func outlastingGit(outlive outliving, git seams.Git) seams.Git {
+	git.Stage = outlasting1(outlive, git.Stage)
+	git.Unstage = outlasting1(outlive, git.Unstage)
+	git.Discard = outlasting1(outlive, git.Discard)
+	git.CreateBranch = outlasting2(outlive, git.CreateBranch)
+	git.Checkout = outlasting1(outlive, git.Checkout)
+	git.CreateWorktree = outlastingAnswer2(outlive, git.CreateWorktree)
+	git.Fetch = outlasting0(outlive, git.Fetch)
+	git.Commit = outlastingRun1(outlive, git.Commit)
+	git.Push = outlastingRun1(outlive, git.Push)
+	git.Amend = outlastingRun0(outlive, git.Amend)
+	git.Fixup = outlastingRun1(outlive, git.Fixup)
+	git.Rebase = outlastingRun1(outlive, git.Rebase)
+	git.Finish = outlasting2(outlive, git.Finish)
+	git.LinkIssue = outlasting2(outlive, git.LinkIssue)
+	git.UnlinkIssue = outlasting1(outlive, git.UnlinkIssue)
 
 	return git
 }
 
 // outlastingForge is the forge with its writes outlasting the session.
-func outlastingForge(forge seams.Forge) seams.Forge {
-	forge.CreatePullRequest = outlastingAnswer1(forge.CreatePullRequest)
-	forge.EditPullRequest = outlastingAnswer2(forge.EditPullRequest)
-	forge.RewriteDescription = outlastingAnswer2(forge.RewriteDescription)
-	forge.Rerun = outlastingAnswer2(forge.Rerun)
-	forge.Merge = outlasting2(forge.Merge)
+func outlastingForge(outlive outliving, forge seams.Forge) seams.Forge {
+	forge.CreatePullRequest = outlastingAnswer1(outlive, forge.CreatePullRequest)
+	forge.EditPullRequest = outlastingAnswer2(outlive, forge.EditPullRequest)
+	forge.RewriteDescription = outlastingAnswer2(outlive, forge.RewriteDescription)
+	forge.Rerun = outlastingAnswer2(outlive, forge.Rerun)
+	forge.Merge = outlasting2(outlive, forge.Merge)
 
 	return forge
 }
 
 // outlastingStore is the store with its records outlasting the session.
-func outlastingStore(store seams.Store) seams.Store {
-	store.RecordScope = outlasting1(store.RecordScope)
-	store.RecordAnnounce = outlasting1(store.RecordAnnounce)
-	store.CacheIssues = outlasting2(store.CacheIssues)
-	store.LinkOwner = outlasting2(store.LinkOwner)
-	store.ForgetOwner = outlasting2(store.ForgetOwner)
-	store.SetRepoGroups = outlasting2(store.SetRepoGroups)
-	store.RecordGroups = outlasting2(store.RecordGroups)
-	store.Favor = outlasting1(store.Favor)
-	store.Unfavor = outlasting1(store.Unfavor)
+func outlastingStore(outlive outliving, store seams.Store) seams.Store {
+	store.RecordScope = outlasting1(outlive, store.RecordScope)
+	store.RecordAnnounce = outlasting1(outlive, store.RecordAnnounce)
+	store.CacheIssues = outlasting2(outlive, store.CacheIssues)
+	store.LinkOwner = outlasting2(outlive, store.LinkOwner)
+	store.ForgetOwner = outlasting2(outlive, store.ForgetOwner)
+	store.SetRepoGroups = outlasting2(outlive, store.SetRepoGroups)
+	store.RecordGroups = outlasting2(outlive, store.RecordGroups)
+	store.Favor = outlasting1(outlive, store.Favor)
+	store.Unfavor = outlasting1(outlive, store.Unfavor)
 
 	return store
 }
 
 // outlastingTasks is Taskwarrior with its writes outlasting the session.
-func outlastingTasks(tasks seams.Tasks) seams.Tasks {
-	tasks.Add = outlastingAnswer1(tasks.Add)
-	tasks.Start = outlasting1(tasks.Start)
-	tasks.Stop = outlasting1(tasks.Stop)
-	tasks.Done = outlasting1(tasks.Done)
-	tasks.Annotate = outlasting2(tasks.Annotate)
-	tasks.Modify = outlasting2(tasks.Modify)
-	tasks.Undo = outlastingAnswer0(tasks.Undo)
-	tasks.Sync = outlastingAnswer0(tasks.Sync)
+func outlastingTasks(outlive outliving, tasks seams.Tasks) seams.Tasks {
+	tasks.Add = outlastingAnswer1(outlive, tasks.Add)
+	tasks.Start = outlasting1(outlive, tasks.Start)
+	tasks.Stop = outlasting1(outlive, tasks.Stop)
+	tasks.Done = outlasting1(outlive, tasks.Done)
+	tasks.Annotate = outlasting2(outlive, tasks.Annotate)
+	tasks.Modify = outlasting2(outlive, tasks.Modify)
+	tasks.Undo = outlastingAnswer0(outlive, tasks.Undo)
+	tasks.Sync = outlastingAnswer0(outlive, tasks.Sync)
 
 	return tasks
 }
 
 // outlastingSettings is the settings with saving them, and writing a first
 // file, outlasting the session.
-func outlastingSettings(settings seams.Settings) seams.Settings {
-	settings.Setup.Write = outlastingAnswer1(settings.Setup.Write)
+func outlastingSettings(outlive outliving, settings seams.Settings) seams.Settings {
+	settings.Setup.Write = outlastingAnswer1(outlive, settings.Setup.Write)
 
 	save := settings.Save
 	if save == nil {
@@ -248,89 +251,208 @@ func outlastingSettings(settings seams.Settings) seams.Settings {
 	settings.Save = func(
 		ctx context.Context, edited config.Config, removed []config.Credential, over config.Revision,
 	) (config.Config, config.Revision, error) {
-		return save(context.WithoutCancel(ctx), edited, removed, over)
+		outlives, release := outlive(ctx)
+		defer release()
+
+		return save(outlives, edited, removed, over)
 	}
 
 	return settings
 }
 
-// The outlasting functions below are a write of one shape asked under its
-// context's values but never its end: each is named for how many arguments
-// follow the context, and the Answer ones for a write that answers a value
-// beside its error. A nil write stays nil.
+// outliving is how a write's context outlives its caller's: the context to
+// write under, with ctx's values and not its end, and the function that
+// releases it once the write is done.
+type outliving func(ctx context.Context) (context.Context, context.CancelFunc)
 
-func outlasting0(write func(context.Context) error) func(context.Context) error {
+// detached is a write's context never ending, with nothing to release: New's,
+// until WithLifetime gives the writes an end.
+func detached(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithoutCancel(ctx), func() {}
+}
+
+// endingWith is a write's context ending when lifetime does.
+func endingWith(lifetime context.Context) outliving {
+	return func(ctx context.Context) (context.Context, context.CancelFunc) {
+		outlives, cancel := context.WithCancel(context.WithoutCancel(ctx))
+		stop := context.AfterFunc(lifetime, cancel)
+
+		return outlives, func() {
+			stop()
+			cancel()
+		}
+	}
+}
+
+// The outlasting functions below are a write of one shape asked under a
+// context outliving its caller's, released once the write returns: each is
+// named for how many arguments follow the context, the Answer ones for a write
+// that answers a value beside its error, and the Run ones for a program whose
+// output streams on after it returns, which holds its context until it exits.
+// A nil write stays nil.
+
+func outlasting0(outlive outliving, write func(context.Context) error) func(context.Context) error {
 	if write == nil {
 		return nil
 	}
 
-	return func(ctx context.Context) error { return write(context.WithoutCancel(ctx)) }
+	return func(ctx context.Context) error {
+		outlives, release := outlive(ctx)
+		defer release()
+
+		return write(outlives)
+	}
 }
 
-func outlasting1[A any](write func(context.Context, A) error) func(context.Context, A) error {
+func outlasting1[A any](outlive outliving, write func(context.Context, A) error) func(context.Context, A) error {
 	if write == nil {
 		return nil
 	}
 
-	return func(ctx context.Context, first A) error { return write(context.WithoutCancel(ctx), first) }
+	return func(ctx context.Context, first A) error {
+		outlives, release := outlive(ctx)
+		defer release()
+
+		return write(outlives, first)
+	}
 }
 
-func outlasting2[A, B any](write func(context.Context, A, B) error) func(context.Context, A, B) error {
+func outlasting2[A, B any](
+	outlive outliving, write func(context.Context, A, B) error,
+) func(context.Context, A, B) error {
 	if write == nil {
 		return nil
 	}
 
 	return func(ctx context.Context, first A, second B) error {
-		return write(context.WithoutCancel(ctx), first, second)
+		outlives, release := outlive(ctx)
+		defer release()
+
+		return write(outlives, first, second)
 	}
 }
 
-func outlasting3[A, B, C any](write func(context.Context, A, B, C) error) func(context.Context, A, B, C) error {
+func outlasting3[A, B, C any](
+	outlive outliving, write func(context.Context, A, B, C) error,
+) func(context.Context, A, B, C) error {
 	if write == nil {
 		return nil
 	}
 
 	return func(ctx context.Context, first A, second B, third C) error {
-		return write(context.WithoutCancel(ctx), first, second, third)
+		outlives, release := outlive(ctx)
+		defer release()
+
+		return write(outlives, first, second, third)
 	}
 }
 
-func outlastingAnswer0[R any](write func(context.Context) (R, error)) func(context.Context) (R, error) {
+func outlastingAnswer0[R any](
+	outlive outliving, write func(context.Context) (R, error),
+) func(context.Context) (R, error) {
 	if write == nil {
 		return nil
 	}
 
-	return func(ctx context.Context) (R, error) { return write(context.WithoutCancel(ctx)) }
+	return func(ctx context.Context) (R, error) {
+		outlives, release := outlive(ctx)
+		defer release()
+
+		return write(outlives)
+	}
 }
 
-func outlastingAnswer1[A, R any](write func(context.Context, A) (R, error)) func(context.Context, A) (R, error) {
+func outlastingAnswer1[A, R any](
+	outlive outliving, write func(context.Context, A) (R, error),
+) func(context.Context, A) (R, error) {
 	if write == nil {
 		return nil
 	}
 
-	return func(ctx context.Context, first A) (R, error) { return write(context.WithoutCancel(ctx), first) }
+	return func(ctx context.Context, first A) (R, error) {
+		outlives, release := outlive(ctx)
+		defer release()
+
+		return write(outlives, first)
+	}
 }
 
 func outlastingAnswer2[A, B, R any](
-	write func(context.Context, A, B) (R, error),
+	outlive outliving, write func(context.Context, A, B) (R, error),
 ) func(context.Context, A, B) (R, error) {
 	if write == nil {
 		return nil
 	}
 
 	return func(ctx context.Context, first A, second B) (R, error) {
-		return write(context.WithoutCancel(ctx), first, second)
+		outlives, release := outlive(ctx)
+		defer release()
+
+		return write(outlives, first, second)
 	}
 }
 
 func outlastingAnswer3[A, B, C, R any](
-	write func(context.Context, A, B, C) (R, error),
+	outlive outliving, write func(context.Context, A, B, C) (R, error),
 ) func(context.Context, A, B, C) (R, error) {
 	if write == nil {
 		return nil
 	}
 
 	return func(ctx context.Context, first A, second B, third C) (R, error) {
-		return write(context.WithoutCancel(ctx), first, second, third)
+		outlives, release := outlive(ctx)
+		defer release()
+
+		return write(outlives, first, second, third)
 	}
+}
+
+func outlastingRun0(
+	outlive outliving, run func(context.Context) (proc.Output, error),
+) func(context.Context) (proc.Output, error) {
+	if run == nil {
+		return nil
+	}
+
+	return func(ctx context.Context) (proc.Output, error) {
+		outlives, release := outlive(ctx)
+		output, err := run(outlives)
+
+		return releasedOnExit(output, err, release)
+	}
+}
+
+func outlastingRun1[A any](
+	outlive outliving, run func(context.Context, A) (proc.Output, error),
+) func(context.Context, A) (proc.Output, error) {
+	if run == nil {
+		return nil
+	}
+
+	return func(ctx context.Context, first A) (proc.Output, error) {
+		outlives, release := outlive(ctx)
+		output, err := run(outlives, first)
+
+		return releasedOnExit(output, err, release)
+	}
+}
+
+// releasedOnExit is a run's output releasing the context it was started
+// under once Wait has said how its program exited, or at once when it never
+// started: releasing it before would kill the program.
+func releasedOnExit(output proc.Output, err error, release context.CancelFunc) (proc.Output, error) {
+	if err != nil {
+		release()
+
+		return output, err
+	}
+
+	wait := output.Wait
+	output.Wait = func() error {
+		defer release()
+
+		return wait()
+	}
+
+	return output, nil
 }
