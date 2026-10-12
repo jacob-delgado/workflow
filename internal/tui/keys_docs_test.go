@@ -67,7 +67,7 @@ func TestTheConfigurationPageListsEveryRebindableActionAndNoOther(t *testing.T) 
 	}
 }
 
-func TestTheConfigurationPageNamesAsAskingFirstExactlyTheActionsRefusedOnApplysKey(t *testing.T) {
+func TestTheConfigurationPageNamesAsAskingFirstExactlyTheActionsRefusedOnTheApplyKey(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
