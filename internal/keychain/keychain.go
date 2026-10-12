@@ -137,9 +137,12 @@ func (i Item) Read(ctx context.Context) (string, error) {
 // proc.Run bounds a quick read whatever ctx is: a store or a read may be asked
 // under a context detached from a caller who has left, and a security that
 // never answers, one waiting on a locked keychain's unlock dialog say, must not
-// hold what waits on it without end.
+// hold what waits on it without end. As with proc.Run, only the bound's own
+// expiry answers to proc.ErrTimedOut, carried as the context's cause.
 func (i Item) security(ctx context.Context, args []string, input []byte) ([]byte, error) {
-	bounded, cancel := context.WithTimeout(ctx, proc.DefaultRunTimeout)
+	timedOut := fmt.Errorf("%w after %s", proc.ErrTimedOut, proc.DefaultRunTimeout)
+
+	bounded, cancel := context.WithTimeoutCause(ctx, proc.DefaultRunTimeout, timedOut)
 	defer cancel()
 
 	return i.run(bounded, proc.Command{Name: "security", Args: args}, input)
