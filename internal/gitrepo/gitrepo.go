@@ -59,10 +59,11 @@ type Repo struct {
 // readFailure names a git read that failed: outside a work tree it is
 // ErrNotARepository, whatever git wrote, and without git it is the missing
 // program; inside one it is git's own error, so a real fault still reads in
-// full. A read that timed out says so as it is, since asking git where the
-// work tree is would only wait out the same bound again.
+// full. A read that timed out, or that its asker stopped waiting on, says so
+// as it is, since asking git where the work tree is would only wait out the
+// same bound again, or be stopped the same way.
 func readFailure(ctx context.Context, run Runner, dir, what string, err error) error {
-	if errors.Is(err, proc.ErrTimedOut) {
+	if errors.Is(err, proc.ErrTimedOut) || ctx.Err() != nil {
 		return fmt.Errorf("%s: %w", what, err)
 	}
 
@@ -86,13 +87,14 @@ func requireWorkTree(ctx context.Context, run Runner, dir string) error {
 }
 
 // notInWorkTree is what a failed `rev-parse --show-toplevel` in dir says: that
-// it timed out, or that git is not on PATH, when either is so, since whether dir
-// is a repository is then unknown; ErrNotARepository otherwise, whatever git
-// wrote. A missing git is the runner's own error, unchanged, so it reads and
-// exits as any other missing program does.
+// it timed out, that its asker stopped waiting on it, or that git is not on
+// PATH, when any is so, since whether dir is a repository is then unknown;
+// ErrNotARepository otherwise, whatever git wrote. A missing git is the
+// runner's own error, unchanged, so it reads and exits as any other missing
+// program does.
 func notInWorkTree(dir string, err error) error {
 	switch {
-	case errors.Is(err, proc.ErrTimedOut):
+	case errors.Is(err, proc.ErrTimedOut), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return fmt.Errorf("finding the work tree of %s: %w", dir, err)
 	case errors.Is(err, proc.ErrNotFound):
 		return err
