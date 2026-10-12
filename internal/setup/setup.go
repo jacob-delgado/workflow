@@ -186,10 +186,13 @@ func Identify(user jira.User) string {
 }
 
 // Keep moves the token in settings into the OS keychain through store, under
-// the item for its address, so the file reads it from there rather than
-// holding the secret. An empty token is refused with ErrNoToken before store
-// is asked: kept, it would replace whatever the keychain held for the address.
-func Keep(store func(service, secret string) error, settings config.Jira) (config.Jira, error) {
+// the item for its address and under ctx, so the file reads it from there
+// rather than holding the secret. An empty token is refused with ErrNoToken
+// before store is asked: kept, it would replace whatever the keychain held for
+// the address.
+func Keep(
+	ctx context.Context, store func(ctx context.Context, service, secret string) error, settings config.Jira,
+) (config.Jira, error) {
 	if store == nil {
 		return settings, ErrNoKeychain
 	}
@@ -198,7 +201,7 @@ func Keep(store func(service, secret string) error, settings config.Jira) (confi
 		return settings, ErrNoToken
 	}
 
-	err := store(settings.KeychainService(), settings.Token.Reveal())
+	err := store(ctx, settings.KeychainService(), settings.Token.Reveal())
 	if err != nil {
 		return settings, fmt.Errorf("storing the token in the keychain: %w", err)
 	}

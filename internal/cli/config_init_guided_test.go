@@ -4,6 +4,7 @@
 package cli_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"os"
@@ -169,7 +170,7 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	var stored atomic.Value
 
 	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
-	prompt.StoreSecret = func(service, secret string) error {
+	prompt.StoreSecret = func(_ context.Context, service, secret string) error {
 		stored.Store(service + " holds " + secret)
 
 		return nil
@@ -207,7 +208,7 @@ func TestGuidedInitKeepsARepositoryFilesTokenInTheKeychainForItsAddress(t *testi
 	var stored atomic.Value
 
 	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
-	prompt.StoreSecret = func(service, secret string) error {
+	prompt.StoreSecret = func(_ context.Context, service, secret string) error {
 		stored.Store(service + " holds " + secret)
 
 		return nil
@@ -234,7 +235,7 @@ func TestGuidedInitKeepsTheTokenInTheFileWhenKeychainDeclined(t *testing.T) {
 	jiraURL := workingJira(t)
 
 	prompt := scripted([]string{jiraURL, "n"}, []string{guidedToken})
-	prompt.StoreSecret = func(string, string) error {
+	prompt.StoreSecret = func(context.Context, string, string) error {
 		t.Error("stored the token though the offer was declined")
 
 		return errPromptBroke
@@ -265,7 +266,7 @@ func TestGuidedInitReportsAKeychainFailure(t *testing.T) {
 	jiraURL := workingJira(t)
 
 	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
-	prompt.StoreSecret = func(string, string) error { return errPromptBroke }
+	prompt.StoreSecret = func(context.Context, string, string) error { return errPromptBroke }
 
 	// Act
 	_, err := runGuided(t, dir, prompt, "config", "init", "--global")
@@ -396,7 +397,7 @@ func TestGuidedInitDryRunWritesAndStoresNothing(t *testing.T) {
 	var stored atomic.Bool
 
 	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken, "https://hooks.slack.example/x"})
-	prompt.StoreSecret = func(string, string) error {
+	prompt.StoreSecret = func(context.Context, string, string) error {
 		stored.Store(true)
 
 		return nil

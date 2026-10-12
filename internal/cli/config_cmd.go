@@ -383,7 +383,7 @@ func collectJira(ctx context.Context, out io.Writer, prompt Prompt, doer jira.Do
 		return config.Jira{}, err
 	}
 
-	return keepTokenSafe(out, prompt, settings)
+	return keepTokenSafe(ctx, out, prompt, settings)
 }
 
 // checkTyped checks the address and token typed, saying how it went.
@@ -402,8 +402,9 @@ func checkTyped(ctx context.Context, out io.Writer, doer jira.Doer, settings con
 
 // keepTokenSafe offers to move the token into the OS keychain, under the item
 // for its address, so the file reads it from there rather than holding the
-// secret. It is a no-op where the keychain is not wired for the platform.
-func keepTokenSafe(out io.Writer, prompt Prompt, settings config.Jira) (config.Jira, error) {
+// secret, keeping it under ctx. It is a no-op where the keychain is not wired
+// for the platform.
+func keepTokenSafe(ctx context.Context, out io.Writer, prompt Prompt, settings config.Jira) (config.Jira, error) {
 	if prompt.StoreSecret == nil {
 		return settings, nil
 	}
@@ -413,7 +414,7 @@ func keepTokenSafe(out io.Writer, prompt Prompt, settings config.Jira) (config.J
 		return settings, err
 	}
 
-	settings, err = setup.Keep(prompt.StoreSecret, settings)
+	settings, err = setup.Keep(ctx, prompt.StoreSecret, settings)
 	if err != nil {
 		return settings, err
 	}

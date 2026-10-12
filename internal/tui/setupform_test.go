@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"os"
@@ -54,7 +55,7 @@ func (r *firstRun) jira(request *http.Request) (*http.Response, error) {
 }
 
 // keep is the fake keychain.
-func (r *firstRun) keep(_, secret string) error {
+func (r *firstRun) keep(_ context.Context, _, secret string) error {
 	r.stored = secret
 
 	return nil

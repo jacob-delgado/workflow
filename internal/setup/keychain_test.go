@@ -4,6 +4,7 @@
 package setup_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -28,14 +29,14 @@ type keychain struct {
 }
 
 // store keeps secret under service.
-func (k *keychain) store(service, secret string) error {
+func (k *keychain) store(_ context.Context, service, secret string) error {
 	k.service, k.stored = service, secret
 
 	return nil
 }
 
 // refusingKeychain is a keychain that will not store.
-func refusingKeychain(string, string) error {
+func refusingKeychain(context.Context, string, string) error {
 	return errKeychainLocked
 }
 
@@ -216,7 +217,7 @@ func TestKeepRefusesAnEmptyToken(t *testing.T) {
 	kept := &keychain{}
 
 	// Act
-	_, err := setup.Keep(kept.store, config.Jira{BaseURL: jiraAddress})
+	_, err := setup.Keep(t.Context(), kept.store, config.Jira{BaseURL: jiraAddress})
 
 	// Assert
 	if !errors.Is(err, setup.ErrNoToken) || kept.stored != "" {
@@ -232,7 +233,7 @@ func TestKeepKeepsTheTokenInTheItemForItsAddress(t *testing.T) {
 	settings := config.Jira{BaseURL: "https://jira.other.example/", Token: typedToken, TokenCommand: "pass show jira"}
 
 	// Act
-	held, err := setup.Keep(kept.store, settings)
+	held, err := setup.Keep(t.Context(), kept.store, settings)
 
 	// Assert
 	want := config.Jira{BaseURL: settings.BaseURL, Keychain: true}
@@ -253,7 +254,7 @@ func TestWriteWithAnEmptyTokenLeavesTheKeychainAlone(t *testing.T) {
 	// Arrange
 	stored := false
 	guide := guideIn(t, acceptingJira())
-	guide.StoreSecret = func(string, string) error {
+	guide.StoreSecret = func(context.Context, string, string) error {
 		stored = true
 
 		return nil

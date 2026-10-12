@@ -5,6 +5,7 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -37,10 +38,10 @@ type Prompt struct {
 	// Secret prints prompt and reads one line without echoing it, for a token;
 	// with no terminal to read it from, it answers io.EOF.
 	Secret func(prompt string) (string, error)
-	// StoreSecret saves secret in the OS keychain under the item service names.
-	// It is nil where storing is not wired for the platform, and the guided
-	// flow then keeps the token in the file.
-	StoreSecret func(service, secret string) error
+	// StoreSecret saves secret in the OS keychain under the item service names,
+	// under ctx. It is nil where storing is not wired for the platform, and the
+	// guided flow then keeps the token in the file.
+	StoreSecret func(ctx context.Context, service, secret string) error
 	// Input is standard input, read to its end for a comment's text, as `git
 	// commit -F -` reads a message, so a script never quotes it. It shares Line's
 	// reader, so nothing read for one is lost to the other. Nil reads as empty.

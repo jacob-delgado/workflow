@@ -5,13 +5,18 @@ package wiring_test
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/user"
 	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/keychain"
+	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
@@ -61,7 +66,7 @@ func TestSetupWritesTheFileWithTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	var kept string
 
 	where := setup.Where{WorkDir: t.TempDir(), HomeDir: t.TempDir()}
-	deps := wiring.SetupDeps(where, nil, func(_, secret string) error {
+	deps := wiring.SetupDeps(where, nil, func(_ context.Context, _, secret string) error {
 		kept = secret
 
 		return nil
@@ -86,5 +91,40 @@ func TestSetupWritesTheFileWithTheTokenInTheKeychainWhenChosen(t *testing.T) {
 
 	if offer := deps.Offer(); !offer.Places[1].Keychain || offer.Places[1].Path != written.Path {
 		t.Errorf("Offer = %+v, want the home file %s, the keychain offered for it", offer, written.Path)
+	}
+}
+
+// A first run's keychain write runs security under the context the write was
+// asked under, so a caller that has gone (a page whose server stopped, a
+// command a signal ended) stops it, rather than leaving it to its own bound.
+func TestSetupKeepsTheTokenUnderTheContextItsWriteIsAskedUnder(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var ranUnder error
+
+	security := func(ctx context.Context, _ proc.Command, _ []byte) ([]byte, error) {
+		ranUnder = ctx.Err()
+
+		return nil, context.Cause(ctx)
+	}
+	fred := func() (*user.User, error) { return &user.User{Username: "fred"}, nil }
+	where := setup.Where{WorkDir: t.TempDir(), HomeDir: t.TempDir()}
+	deps := wiring.SetupDeps(where, nil, keychain.Storer("darwin", security, fred, os.Getenv))
+	request := setup.Request{
+		Place:    setup.Home,
+		Answers:  setup.Answers{Jira: config.Jira{BaseURL: acceptingJira(t), Token: setupToken}},
+		Keychain: true,
+	}
+	gone, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	// Act
+	_, err := deps.Write(gone, request)
+
+	// Assert
+	if !errors.Is(ranUnder, context.Canceled) || !errors.Is(err, context.Canceled) {
+		t.Errorf("Write = %v, with security run under a context ended by %v; want security run under the "+
+			"canceled caller's context, and the write refused with it", err, ranUnder)
 	}
 }
