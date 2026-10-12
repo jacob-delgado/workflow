@@ -24,26 +24,35 @@ func (s tasksState) canOffer(deps Deps) bool {
 }
 
 // offeredTask is the task an offer would change — the one that tracks an issue —
-// and whether there is one to offer: none where no offer can be made at all.
+// and whether there is one to offer: none where no offer can be made at all, nor
+// where the task is one a done has just marked, which the list still shows as
+// the read before the done had it.
 func (m Model) offeredTask(issueKey jira.Key) (taskwarrior.Task, bool) {
 	if !m.tasks.canOffer(m.deps) {
 		return taskwarrior.Task{}, false
 	}
 
-	return m.trackingTask(issueKey)
+	task, tracked := m.trackingTask(issueKey)
+
+	return task, tracked && !m.tasks.justMarkedDone(task.UUID)
 }
 
 // offerStart offers, once work on an issue begins — its branch made, or switched
 // to — to start the task that tracks it, or, where none does, to track the issue
 // and start the new task. One task runs at a time, so every task started on
 // anything else is stopped first. Nil when there is nothing to offer: no offer
-// can be made, or the issue's own work is started already.
+// can be made, the issue's own work is started already, or the task that tracks
+// it is one a done has just marked, which the next read shows done.
 func (m Model) offerStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
 	if !m.tasks.canOffer(m.deps) || m.tasks.startedOn(issue.Key) {
 		return nil
 	}
 
 	task, tracked := m.trackingTask(issue.Key)
+	if tracked && m.tasks.justMarkedDone(task.UUID) {
+		return nil
+	}
+
 	started := m.tasks.started()
 
 	switch {
@@ -66,7 +75,7 @@ func (s tasksState) started() []taskwarrior.Task {
 
 	for _, task := range slices.Concat(s.pending, s.linked) {
 		counted := slices.ContainsFunc(started, func(each taskwarrior.Task) bool { return each.UUID == task.UUID })
-		if task.Active() && !counted {
+		if s.stillStarted(task) && !counted {
 			started = append(started, task)
 		}
 	}
@@ -77,7 +86,13 @@ func (s tasksState) started() []taskwarrior.Task {
 // startedOn reports whether any task linked to an issue is started, whether or
 // not the Tasks pane lists it: the issue's own work is running already.
 func (s tasksState) startedOn(issueKey jira.Key) bool {
-	return slices.ContainsFunc(s.linkedTo(issueKey), taskwarrior.Task.Active)
+	return slices.ContainsFunc(s.linkedTo(issueKey), s.stillStarted)
+}
+
+// stillStarted reports a task started as last read, and not one a done has
+// marked since: Taskwarrior stops a task it completes.
+func (s tasksState) stillStarted(task taskwarrior.Task) bool {
+	return task.Active() && !s.justMarkedDone(task.UUID)
 }
 
 // listedIssue is an issue as the Issues pane lists it, or, where the pane has
