@@ -134,7 +134,7 @@ func stepping(t *testing.T, model tui.Model, moved map[string]tea.KeyPressMsg, s
 // it says it is in, and every action a press of answers, asking for
 // something or leaving a screen other than a press nothing answers leaves.
 type overlayProbe struct {
-	context  tui.KeyContext
+	context  tui.ListedKeyContext
 	answered []string
 }
 
@@ -262,7 +262,7 @@ func TestAnOpenOverlaysKeyContextIsOneCheckKeysReads(t *testing.T) {
 	context, open := help.OverlayKeyContext()
 
 	// Assert
-	read := slices.ContainsFunc(tui.OverlayKeyContexts(), func(listed tui.KeyContext) bool {
+	read := slices.ContainsFunc(tui.OverlayKeyContexts(), func(listed tui.ListedKeyContext) bool {
 		return listed.Name == context.Name && slices.Equal(listed.Actions, context.Actions)
 	})
 	if !open || !read || !slices.Contains(context.Actions, "close") {

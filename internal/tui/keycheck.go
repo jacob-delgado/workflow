@@ -260,19 +260,19 @@ func listAnswering(name string, actions ...string) keyContext {
 	return answering(name, append([]string{actionUp, actionDown, actionFirst, actionLast}, actions...)...)
 }
 
-// KeyContext is one keyboard surface — a pane, or an overlay while it is
+// ListedKeyContext is one keyboard surface — a pane, or an overlay while it is
 // open — by name, and every action live on it at once. CheckKeys refuses a
 // ui.keys map that binds two of its actions to one key.
-type KeyContext struct {
+type ListedKeyContext struct {
 	Name    string
 	Actions []string
 }
 
 // OverlayKeyContexts is the key context of every overlay, as CheckKeys
 // reads them.
-func OverlayKeyContexts() []KeyContext {
+func OverlayKeyContexts() []ListedKeyContext {
 	contexts := overlayContexts()
-	listed := make([]KeyContext, 0, len(contexts))
+	listed := make([]ListedKeyContext, 0, len(contexts))
 
 	for _, context := range contexts {
 		listed = append(listed, context.listed())
@@ -283,9 +283,9 @@ func OverlayKeyContexts() []KeyContext {
 
 // OverlayKeyContext is the open overlay's key context, as CheckKeys reads
 // it, and false when no overlay is open.
-func (m Model) OverlayKeyContext() (KeyContext, bool) {
+func (m Model) OverlayKeyContext() (ListedKeyContext, bool) {
 	if m.overlay == nil {
-		return KeyContext{}, false
+		return ListedKeyContext{}, false
 	}
 
 	return m.overlay.which().keyContext().listed(), true
@@ -293,9 +293,9 @@ func (m Model) OverlayKeyContext() (KeyContext, bool) {
 
 // listed is the context by name, with every action live in it in the order
 // the keymap defines them.
-func (c keyContext) listed() KeyContext {
+func (c keyContext) listed() ListedKeyContext {
 	_, builder := compileKeys(unicodeGlyphs(), "pull request", "Slack", nil)
-	listed := KeyContext{Name: c.name}
+	listed := ListedKeyContext{Name: c.name}
 
 	for _, placed := range builder.placements {
 		if c.covers(placed) {
