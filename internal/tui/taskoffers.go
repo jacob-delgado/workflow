@@ -23,36 +23,46 @@ func (s tasksState) canOffer(deps Deps) bool {
 	return deps.Tasks.Start != nil && s.answered()
 }
 
-// offeredTask is the task an offer would change — the one that tracks an issue —
-// and whether there is one to offer: none where no offer can be made at all, nor
-// where the task is one a done has just marked, which the list still shows as
-// the read before the done had it.
+// offerable reports a task an offer may change: still to do, and not one a done
+// has just marked, which the list still shows as the read before the done had
+// it, and which the read after it shows done.
+func (s tasksState) offerable(task taskwarrior.Task) bool {
+	return stillToDo(task) && !s.justMarkedDone(task.UUID)
+}
+
+// trackedOnlyByJustDone reports that an issue is tracked, as last read, only by
+// tasks a done has just marked: the read after the done shows none tracking it,
+// so until then nothing is offered for it, not even a new track.
+func (s tasksState) trackedOnlyByJustDone(issueKey jira.Key) bool {
+	tracking := slices.DeleteFunc(s.linkedTo(issueKey), func(task taskwarrior.Task) bool { return !stillToDo(task) })
+
+	return len(tracking) > 0 && !slices.ContainsFunc(tracking, s.offerable)
+}
+
+// offeredTask is the task an offer would change — the one that tracks an issue,
+// among those an offer may change, which is the one the read after a done will
+// pick — and whether there is one to offer: none where no offer can be made at
+// all.
 func (m Model) offeredTask(issueKey jira.Key) (taskwarrior.Task, bool) {
 	if !m.tasks.canOffer(m.deps) {
 		return taskwarrior.Task{}, false
 	}
 
-	task, tracked := m.trackingTask(issueKey)
-
-	return task, tracked && !m.tasks.justMarkedDone(task.UUID)
+	return m.trackingAmong(issueKey, m.tasks.offerable)
 }
 
 // offerStart offers, once work on an issue begins — its branch made, or switched
-// to — to start the task that tracks it, or, where none does, to track the issue
-// and start the new task. One task runs at a time, so every task started on
-// anything else is stopped first. Nil when there is nothing to offer: no offer
-// can be made, the issue's own work is started already, or the task that tracks
-// it is one a done has just marked, which the next read shows done.
+// to — to start the task that tracks it, among those an offer may change, or,
+// where none does, to track the issue and start the new task. One task runs at a
+// time, so every task started on anything else is stopped first. Nil when there
+// is nothing to offer: no offer can be made, the issue's own work is started
+// already, or the only tasks that track it are ones a done has just marked.
 func (m Model) offerStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
-	if !m.tasks.canOffer(m.deps) || m.tasks.startedOn(issue.Key) {
+	if !m.tasks.canOffer(m.deps) || m.tasks.startedOn(issue.Key) || m.tasks.trackedOnlyByJustDone(issue.Key) {
 		return nil
 	}
 
-	task, tracked := m.trackingTask(issue.Key)
-	if tracked && m.tasks.justMarkedDone(task.UUID) {
-		return nil
-	}
-
+	task, tracked := m.trackingAmong(issue.Key, m.tasks.offerable)
 	started := m.tasks.started()
 
 	switch {

@@ -248,7 +248,13 @@ func (s tasksState) following(groups taskGroups, rows int) tasksState {
 // the issue's mark counts it — one the Tasks pane lists where there is one, and
 // whether any task tracks it.
 func (m Model) trackingTask(issueKey jira.Key) (taskwarrior.Task, bool) {
-	tracking := slices.DeleteFunc(m.tasks.linkedTo(issueKey), func(task taskwarrior.Task) bool { return !stillToDo(task) })
+	return m.trackingAmong(issueKey, stillToDo)
+}
+
+// trackingAmong is trackingTask among the tasks linked to an issue that
+// counts reports true of.
+func (m Model) trackingAmong(issueKey jira.Key, counts func(taskwarrior.Task) bool) (taskwarrior.Task, bool) {
+	tracking := slices.DeleteFunc(m.tasks.linkedTo(issueKey), func(task taskwarrior.Task) bool { return !counts(task) })
 	if len(tracking) == 0 {
 		return taskwarrior.Task{}, false
 	}
