@@ -239,6 +239,40 @@ func TestFixupRecordsAFixupOfTheCommitNamed(t *testing.T) {
 	}
 }
 
+// The contract reads a repeated key's last value and the decoder fails on its
+// first, so a body the contract admits can still fail to decode.
+func TestARunRequestThatDoesNotDecodeIsRefusedAndNothingRuns(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"a kind that is first a number":   `{"kind":5,"kind":"rebase"}`,
+		"a commit that is first a number": `{"kind":"fixup","commit":7,"commit":"abc123"}`,
+	}
+
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			calls := &runCalls{}
+			handler := serve(t, runDeps(calls, passing), config.Default())
+
+			// Act
+			recorder := startRun(t, handler, body)
+
+			// Assert
+			failure := assertProblem(t, recorder, http.StatusBadRequest, "could not be understood")
+			if failure.Code != api.ProblemCodeBadRequest {
+				t.Errorf("code = %q, want %q", failure.Code, api.ProblemCodeBadRequest)
+			}
+
+			if len(calls.asked()) != 0 {
+				t.Errorf("calls = %v, want nothing run", calls.asked())
+			}
+		})
+	}
+}
+
 // runRequest is the page's request to start the run body asks for.
 func runRequest(t *testing.T, body string) *http.Request {
 	t.Helper()

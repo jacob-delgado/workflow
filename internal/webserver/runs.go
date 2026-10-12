@@ -73,9 +73,8 @@ type plannedRun struct {
 func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 	var asked api.RunRequest
 
-	// Trade-off TRADE-14: the contract checked the body against RunRequest
-	// before it reached here, so it decodes; one that did not would be no
-	// run to plan, and is refused as any body the server cannot read is.
+	// A body the contract admitted can still fail to decode: the contract
+	// reads a repeated key's last value, and the decoder fails on its first.
 	err := json.NewDecoder(request.Body).Decode(&asked)
 	if err != nil {
 		writeRequestError(w, request, err)
