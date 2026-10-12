@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/lifetime"
 )
 
 // refreshAhead is how long before it expires a token is refreshed: soon enough
@@ -55,13 +56,18 @@ func (s Source) Token(ctx context.Context, expired config.Secret) (config.Secret
 		return held.AccessToken, nil
 	}
 
-	return s.renew(context.WithoutCancel(ctx), held)
+	detached, release := lifetime.Detached(ctx)
+	defer release()
+
+	return s.renew(detached, held)
 }
 
 // renew refreshes held and keeps the pair Slack gives in its place. Slack
-// spends held's refresh token as it answers, so the two run whatever becomes
-// of the caller: one who left between them would lose the only pair that
-// still works.
+// spends held's refresh token as it answers, so the two run on when the
+// caller leaves, which between them would lose the only pair that still
+// works; ctx ends only with the lifetime the caller's context carries, when
+// the web server stops or a signal ends the command, as everything does
+// then.
 func (s Source) renew(ctx context.Context, held Credentials) (config.Secret, error) {
 	renewed, err := s.Refresher.Refresh(ctx, held)
 	if err != nil {

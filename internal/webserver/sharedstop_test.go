@@ -12,9 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/messaging/directory"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
@@ -178,4 +181,70 @@ func TestServeReturnsPromptlyWithASharedReadUnderWay(t *testing.T) {
 		t.Errorf("Serve had not returned %v after the server stopped, want it within: the shared read held "+
 			"the drain", endsWithin)
 	}
+}
+
+// holdingSlack is a Slack on this machine that holds every request until it
+// ends, and a client that reads from it with a user token. entered closes
+// when the first request arrives, and ended once it has ended.
+func holdingSlack(t *testing.T) (messaging.Client, <-chan struct{}, <-chan struct{}) {
+	t.Helper()
+
+	arrived, finished := make(chan struct{}), make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		close(arrived)
+
+		select {
+		case <-request.Context().Done():
+			close(finished)
+		case <-time.After(heldPatience):
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	settings := config.Messaging{Kind: config.KindSlack, ClientID: slackApp, Channel: slackChannel}
+	client := messaging.New(server.Client().Do, server.URL, settings).WithToken(
+		func(context.Context, config.Secret) (config.Secret, error) { return "slack-token-for-tests", nil })
+
+	return client, arrived, finished
+}
+
+// A Slack directory read goes on when the page that began it leaves, for any
+// other page waiting on it, but it ends when the server stops: the request
+// that began it waits for it, and would hold the drain for the whole grace.
+func TestASlackDirectoryReadEndsWhenTheServerStops(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, entered, ended := holdingSlack(t)
+	slack := directory.New(func() (messaging.Client, error) { return client, nil }, time.Now)
+	deps := filledDeps()
+	deps.Messaging.UserGroups = slack.UserGroups
+	handler, lifetime, stop := serveForALifetime(t, deps, slackUserConfig())
+	request := httptest.NewRequestWithContext(lifetime, http.MethodGet, groupsPath, nil)
+	request.Host = loopbackHost
+	answered := make(chan struct{})
+
+	go func() {
+		defer close(answered)
+
+		handler.ServeHTTP(httptest.NewRecorder(), request)
+	}()
+
+	select {
+	case <-entered:
+	case <-time.After(endsWithin):
+		t.Fatal("no page began the Slack directory read")
+	}
+
+	// Act
+	stop()
+
+	// Assert
+	select {
+	case <-ended:
+	case <-time.After(endsWithin):
+		t.Error("the Slack directory read went on after the server stopped")
+	}
+
+	<-answered
 }
