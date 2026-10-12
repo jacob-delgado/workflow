@@ -52,9 +52,10 @@ type announceSeams struct {
 // announceTagging is what an announcement's tags are read through: the code
 // owners of the branch's changes, whom each is on Slack and the repository's
 // user groups, kept between sessions in the Slack workspace Workspace names,
-// and the Slack directory, read only to learn whether the token has the
-// scopes tagging needs. A nil ChannelMembers — no Slack user token — or
-// OwnerLinks — no store — tags no one.
+// and the scopes Grant lists the Slack token as granted, which one auth.test
+// answers with the workspace. Workspace and Grant are bound together, with a
+// Slack user token; a nil Workspace — no such token — or OwnerLinks — no
+// store — tags no one.
 type announceTagging struct {
 	Owners       loop.OwnerSeams
 	OwnerLinks   func(workspace string) ([]loop.OwnerLink, error)
@@ -305,17 +306,19 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, b
 ) {
 	memory := seams.Memory
 
-	workspace, tagging := seams.Tagging.workspace(out, moment)
+	slack, tagging := seams.Tagging.identity(out, moment)
 	if !tagging {
 		return messaging.Mentions{}, memory
 	}
+
+	workspace := slack.workspace
 
 	tags := seams.Tagging.propose(seams.Compose.Branch, base, moment, workspace)
 	if len(tags.Owners)+len(tags.Groups) == 0 {
 		return messaging.Mentions{}, memory
 	}
 
-	if scope, missing := seams.Tagging.missingScope(tags); missing {
+	if scope, missing := missingScope(slack.grant, tags); missing {
 		fmt.Fprintf(out.notes, "Not tagging anyone: the Slack token lacks the %s scope; "+
 			"add it to the Slack app, then run workflow slack login.\n", scope)
 
@@ -337,21 +340,41 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, b
 	return mentions, memory
 }
 
-// workspace is the Slack workspace an announcement at moment tags in, and
-// whether it tags anyone at all: only one ready for review does, with a Slack
-// user token and the store, and only in a workspace Slack names. When Slack
-// cannot say which, the post goes out untagged, and the notes say why.
-func (t announceTagging) workspace(out output, moment messaging.Moment) (string, bool) {
+// slackIdentity is what auth.test says of the Slack user token: the
+// workspace it is for, and the scopes it was granted.
+type slackIdentity struct {
+	workspace string
+	grant     messaging.Grant
+}
+
+// identity is the Slack workspace an announcement at moment tags in and the
+// scopes its token was granted, and whether it tags anyone at all: only one
+// ready for review does, with a Slack user token and the store, and only in a
+// workspace Slack names. The grant is read first, from the auth.test that
+// answers the workspace too, so a grant that cannot be read is a workspace
+// that cannot be: the post goes out untagged, and the notes say why.
+func (t announceTagging) identity(out output, moment messaging.Moment) (slackIdentity, bool) {
 	if moment != messaging.MomentReady || t.Workspace == nil || t.OwnerLinks == nil {
-		return "", false
+		return slackIdentity{}, false
 	}
 
-	workspace, err := loop.TagWorkspace(t.Workspace)
+	var grant messaging.Grant
+
+	workspace, err := loop.TagWorkspace(func() (string, error) {
+		granted, err := t.Grant()
+		if err != nil {
+			return "", err
+		}
+
+		grant = granted
+
+		return t.Workspace()
+	})
 	if errors.Is(err, loop.ErrUnknownWorkspace) {
 		fmt.Fprintf(out.notes, "Not tagging anyone: %v; posting untagged.\n", err)
 	}
 
-	return workspace, err == nil
+	return slackIdentity{workspace: workspace, grant: grant}, err == nil
 }
 
 // propose is whom an announcement at moment proposes to tag from what is kept
@@ -395,14 +418,7 @@ func localBase(branch func() (gitrepo.Branch, error)) string {
 // scopes, and groups usergroups:read. It reads no directory, which in a large
 // workspace is many pages, only to learn a scope; a token whose scopes Slack
 // did not list is taken to lack none.
-func (t announceTagging) missingScope(tags loop.Tags) (string, bool) {
-	if t.Grant == nil {
-		return "", false
-	}
-
-	// A grant that cannot be read lists no scopes, so it lacks none.
-	grant, _ := t.Grant()
-
+func missingScope(grant messaging.Grant, tags loop.Tags) (string, bool) {
 	needed := []string{"users:read", "channels:read", "groups:read"}
 	if len(tags.Groups) > 0 {
 		needed = append(needed, "usergroups:read")
