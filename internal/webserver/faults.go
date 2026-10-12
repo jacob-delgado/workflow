@@ -4,6 +4,7 @@
 package webserver
 
 import (
+	"context"
 	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -13,13 +14,26 @@ import (
 
 // faultClasses are the failures fault tells apart: those every surface tells
 // alike, report.SharedFaults, with the server's own placed among them where
-// they belong, the more specific first.
+// they belong, the more specific first, and a request whose context ended
+// ahead of all, whatever the seam's error wraps beside it.
 func faultClasses() []report.Class {
 	shared := report.SharedFaults()
 
-	return slices.Concat(repositoryFaults(), shared.Git, branchFaults(), shared.Transport, shared.Jira, shared.Forge,
-		shared.Messaging, taskWriteFaults(), shared.Taskwarrior, shared.Directory, switchFaults(), localDataFaults(),
-		peopleFaults())
+	return slices.Concat(endedFaults(), repositoryFaults(), shared.Git, branchFaults(), shared.Transport,
+		shared.Jira, shared.Forge, shared.Messaging, taskWriteFaults(), shared.Taskwarrior, shared.Directory,
+		switchFaults(), localDataFaults(), peopleFaults())
+}
+
+// endedFaults are a request whose context ended before it was answered: its
+// page has gone, or the server is stopping. No one reads the answer and
+// nothing failed, so it is classed, first, and never handed to Unexpected.
+func endedFaults() []report.Class {
+	return []report.Class{
+		{
+			Causes: []error{context.Canceled}, Code: api.ProblemCodeInternal,
+			Detail: "the request ended before it was answered; " + report.TryAgain,
+		},
+	}
 }
 
 // repositoryFaults are git's failures the server words itself: a server
