@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
@@ -84,6 +85,19 @@ func (h *heldRead) forge() seams.Forge {
 func (h *heldRead) git() seams.Git {
 	return seams.Git{
 		Branch: func(ctx context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, h.wait(ctx) },
+	}
+}
+
+// hooks is lefthook with its read of the hooks git runs held: a lefthook
+// that can write a configuration, so the interface reads them.
+func (h *heldRead) hooks() seams.Hooks {
+	return seams.Hooks{
+		Existing: func(ctx context.Context) ([]hooks.GitHook, bool) {
+			_ = h.wait(ctx)
+
+			return nil, false
+		},
+		Write: func(context.Context, hooks.Generated) error { return nil },
 	}
 }
 
@@ -208,6 +222,28 @@ func TestAGitReadTheInterfaceBeganStopsWhenItsSessionEnds(t *testing.T) {
 	held := newHeldRead()
 	session, end := context.WithCancel(t.Context())
 	model := tui.New(config.Config{}, nil, tui.Deps{Git: held.git()}).WithContext(session)
+
+	go runEach(model.Init())
+
+	<-held.entered
+
+	// Act
+	end()
+
+	// Assert
+	err := held.endedWith(t)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("the read's context ended with %v, want it canceled with the session", err)
+	}
+}
+
+func TestAHooksReadTheInterfaceBeganStopsWhenItsSessionEnds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	held := newHeldRead()
+	session, end := context.WithCancel(t.Context())
+	model := tui.New(config.Config{}, nil, tui.Deps{Hooks: held.hooks()}).WithContext(session)
 
 	go runEach(model.Init())
 

@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 
 	"github.com/spf13/cobra"
@@ -71,21 +72,21 @@ func connectLeniently(cmd *cobra.Command) (connection, error) {
 		return connection{}, err
 	}
 
-	conn := connectAt(cmd, dir, requestLog)
+	conn := connectAt(cmd.Context(), cmd, dir, requestLog)
 	conn.closeLog = closeLog
 
 	return conn, nil
 }
 
 // connectAt wires the directory at dir, which reads its own configuration,
-// recording each request in requestLog unless it is nil. Under --dry-run its
-// store is only read, and only when it is already on disk. It opens nothing, so
-// its close is a no-op.
-func connectAt(cmd *cobra.Command, dir string, requestLog *wiring.RequestLog) connection {
-	ctx, process := cmd.Context(), environmentOf(cmd).Process
+// recording each request in requestLog unless it is nil, and finding where dir
+// is under ctx. Under --dry-run its store is only read, and only when it is
+// already on disk. It opens nothing, so its close is a no-op.
+func connectAt(ctx context.Context, cmd *cobra.Command, dir string, requestLog *wiring.RequestLog) connection {
+	process := environmentOf(cmd).Process
 	cfg, loadErr := config.Load(dir, process.Home)
 	where := process.Locate(ctx, dir)
-	deps, controls := process.Deps(ctx, cfg, where, requestLog)
+	deps, controls := process.Deps(cfg, where, requestLog)
 
 	if dryRunRequested(cmd) {
 		deps.Store = process.ReadOnlyStore(cfg, where)
@@ -106,7 +107,7 @@ func (c connection) withSetup(cmd *cobra.Command, keychain func(service, secret 
 
 	where := setup.Where{WorkDir: c.where.Dir, HomeDir: configHome(cmd)}
 	c.keychain = keychain
-	c.deps.Settings.Setup = wiring.SetupDeps(cmd.Context(), where, c.requestLog, keychain)
+	c.deps.Settings.Setup = wiring.SetupDeps(where, c.requestLog, keychain)
 
 	return c
 }

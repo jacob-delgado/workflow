@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -51,7 +52,7 @@ func (w *world) settingsDeps() seams.Settings {
 
 			return w.settings, config.Revision{}, w.readSettingsErr
 		},
-		Save: func(
+		Save: func(_ context.Context,
 			edited config.Config, removed []config.Credential, _ config.Revision,
 		) (config.Config, config.Revision, error) {
 			if len(removed) > 0 {
@@ -72,7 +73,7 @@ func (w *world) settingsDeps() seams.Settings {
 
 			return w.settings, config.Revision{}, nil
 		},
-		LocalData: func() (string, []store.DataFile, error) {
+		LocalData: func(context.Context) (string, []store.DataFile, error) {
 			w.record("local-data")
 
 			w.mu.Lock()

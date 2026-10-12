@@ -338,9 +338,9 @@ func (m Model) runPreCommit() (Model, tea.Cmd) {
 		return m.noticed("dry run: would run the " + preCommit + " hook"), nil
 	}
 
-	run := m.deps.Hooks.Run
+	ctx, run := m.session, m.deps.Hooks.Run
 
-	return m.startRun(preCommitRun(), func() (proc.Output, error) { return run(preCommit) }, nil)
+	return m.startRun(preCommitRun(), func() (proc.Output, error) { return run(ctx, preCommit) }, nil)
 }
 
 // preCommitRun is a run of the pre-commit hook alone, which a check can fail.
@@ -361,7 +361,7 @@ func commitsBehavior() behavior {
 			read := loadChanges(m.session, m.deps)
 			m.changes.loading = read != nil
 
-			return m, tea.Batch(read, loadBranch(m.session, m.deps), findHooks(m.deps))
+			return m, tea.Batch(read, loadBranch(m.session, m.deps), findHooks(m.session, m.deps))
 		},
 		loading: func(m Model) bool { return m.changes.loading },
 		scroll:  func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,

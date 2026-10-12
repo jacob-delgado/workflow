@@ -108,7 +108,7 @@ func TestRemoveLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 
 		return nil
 	}
-	deps.Settings.LocalData = func() (string, []store.DataFile, error) { return storeDir, nil, nil }
+	deps.Settings.LocalData = func(context.Context) (string, []store.DataFile, error) { return storeDir, nil, nil }
 	deps.Settings.RemoveLocalData = func(store.CleanScope) error {
 		overlapped.Store(writing.Load())
 

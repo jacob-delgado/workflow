@@ -226,10 +226,10 @@ func TestATokenKeptOnMacOSGoesToTheItemNamed(t *testing.T) {
 
 	// Arrange
 	security := &fakeSecurity{}
-	keep := onMacOS(security).JiraTokenKeeper(t.Context())
+	keep := onMacOS(security).JiraTokenKeeper()
 
 	// Act
-	err := keep(secondItem, secondToken)
+	err := keep(t.Context(), secondItem, secondToken)
 
 	// Assert
 	if err != nil || security.held() != secondToken || !strings.Contains(security.line(), `-s "`+secondItem+`"`) {
@@ -243,10 +243,10 @@ func TestATokenIsKeptUnderTheAccountTheKeychainLooksUp(t *testing.T) {
 
 	// Arrange
 	security := &fakeSecurity{}
-	keep := onMacOS(security).JiraTokenKeeper(t.Context())
+	keep := onMacOS(security).JiraTokenKeeper()
 
 	// Act
-	err := keep(secondItem, secondToken)
+	err := keep(t.Context(), secondItem, secondToken)
 
 	// Assert
 	if err != nil || !strings.Contains(security.line(), `-a "`+keychainAccount+`"`) {
@@ -259,7 +259,7 @@ func TestNoTokenKeeperIsWiredWhereThereIsNoKeychain(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	keep := wiring.Keychain{GOOS: noKeychainOS, Run: (&fakeSecurity{}).run, Getenv: os.Getenv}.JiraTokenKeeper(t.Context())
+	keep := wiring.Keychain{GOOS: noKeychainOS, Run: (&fakeSecurity{}).run, Getenv: os.Getenv}.JiraTokenKeeper()
 
 	// Assert
 	if keep != nil {

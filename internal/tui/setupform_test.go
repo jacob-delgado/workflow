@@ -77,8 +77,8 @@ func (r *firstRun) deps(t *testing.T) tui.Deps {
 	guide := setup.Guide{Where: r.where, Doer: jira.Doer(r.jira), StoreSecret: r.keep}
 	deps.Settings.Setup = seams.Setup{
 		Offer: guide.Offer,
-		Check: func(settings config.Jira) (string, error) { return guide.Check(t.Context(), settings) },
-		Write: func(request setup.Request) (setup.Written, error) { return guide.Write(t.Context(), request) },
+		Check: guide.Check,
+		Write: guide.Write,
 	}
 
 	return deps

@@ -107,7 +107,7 @@ func processEnvironment() wiring.Environment {
 func wired(t *testing.T, cfg config.Config, where wiring.Workspace, log *wiring.RequestLog) tui.Deps {
 	t.Helper()
 
-	deps, _ := processEnvironment().Deps(t.Context(), cfg, where, log)
+	deps, _ := processEnvironment().Deps(cfg, where, log)
 
 	return deps
 }

@@ -86,7 +86,7 @@ func TestTheRepositoriesReportSaysWhichWorktreeIsWhich(t *testing.T) {
 
 	// Arrange
 	view := workingIn(nil)
-	view.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+	view.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{
 			{Dir: repo, Branch: "main", Head: "0123456789abcdef"},
 			{Dir: repo + "-feat", Branch: "feat/x", Head: "fedcba9876543210", Locked: true},
@@ -118,7 +118,7 @@ func TestWorktreesThatCannotBeReadAreNoneAndSayWhy(t *testing.T) {
 
 	// Arrange
 	view := workingIn(nil)
-	view.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) { return nil, errUnreadable }
+	view.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) { return nil, errUnreadable }
 
 	// Act
 	answer, _ := view.Report(t.Context(), worded)
@@ -140,7 +140,7 @@ func TestEachFavoriteSaysWhatIsThereNow(t *testing.T) {
 	)
 
 	view := workingIn(func(context.Context) ([]string, error) { return []string{workdir, plain, other, gone}, nil })
-	view.Repositories.Look = func(dir string) (seams.Place, error) {
+	view.Repositories.Look = func(_ context.Context, dir string) (seams.Place, error) {
 		switch dir {
 		case plain:
 			return seams.Place{Dir: plain}, nil

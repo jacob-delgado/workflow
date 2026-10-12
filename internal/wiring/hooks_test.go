@@ -46,7 +46,7 @@ func TestTheHookSeamsReadWriteAndRunLefthook(t *testing.T) {
 	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
 
 	// Act: read the hooks git runs
-	found, configured := seams.Existing()
+	found, configured := seams.Existing(t.Context())
 
 	// Assert: the one hook, and no configuration yet
 	if configured || len(found) != 1 || found[0].Name != preCommit {
@@ -54,7 +54,7 @@ func TestTheHookSeamsReadWriteAndRunLefthook(t *testing.T) {
 	}
 
 	// Act: write a configuration for it
-	err := seams.Write(hooks.Structured(found))
+	err := seams.Write(t.Context(), hooks.Structured(found))
 	if err != nil {
 		t.Fatalf("Write: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestTheHookSeamsReadWriteAndRunLefthook(t *testing.T) {
 		t.Errorf("lefthook was not installed in the repository's hooks:\n%s", installed)
 	}
 
-	if _, nowConfigured := seams.Existing(); !nowConfigured {
+	if _, nowConfigured := seams.Existing(t.Context()); !nowConfigured {
 		t.Error("Existing does not see the configuration just written")
 	}
 
@@ -74,7 +74,7 @@ func TestTheHookSeamsReadWriteAndRunLefthook(t *testing.T) {
 	write(t, filepath.Join(root, "staged.txt"), "x\n", 0o600)
 	git(t, root, "add", "staged.txt")
 
-	output, err := seams.Run(preCommit)
+	output, err := seams.Run(t.Context(), preCommit)
 	if err != nil {
 		t.Fatalf("Run did not start: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestTheHookSeamsOfferNothingOutsideARepository(t *testing.T) {
 	seams := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Hooks
 
 	// Act
-	found, configured := seams.Existing()
+	found, configured := seams.Existing(t.Context())
 
 	// Assert
 	if len(found) != 0 || configured {
@@ -114,7 +114,7 @@ func TestTheHookSeamsNeverOverwriteAConfiguration(t *testing.T) {
 	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
 
 	// Act
-	err := seams.Write(hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
+	err := seams.Write(t.Context(), hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
 
 	// Assert
 	if !errors.Is(err, fs.ErrExist) {
@@ -151,7 +151,7 @@ func TestAFailedLefthookInstallSaysWhatLefthookSaid(t *testing.T) {
 	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
 
 	// Act
-	err := seams.Write(hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
+	err := seams.Write(t.Context(), hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "no hooks path for you") {
@@ -178,7 +178,7 @@ func TestALefthookGoneBeforeTheWriteSaysItCouldNotBeInstalled(t *testing.T) {
 	}
 
 	// Act
-	err = seams.Write(hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
+	err = seams.Write(t.Context(), hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
 
 	// Assert
 	if !errors.Is(err, proc.ErrNotFound) || !strings.Contains(err.Error(), "installing lefthook") {

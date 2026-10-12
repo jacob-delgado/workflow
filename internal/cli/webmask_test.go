@@ -37,7 +37,7 @@ func TestTheWebServerMasksACredentialOfTheDirectoryItSwitchedTo(t *testing.T) {
 	switched.Jira.Token = laterToken
 
 	deps := webserver.Deps{
-		Reach: func(string) (webserver.World, error) {
+		Reach: func(context.Context, string) (webserver.World, error) {
 			return webserver.World{Deps: failingSearch(errQuotesTheLaterToken), Config: switched}, nil
 		},
 	}

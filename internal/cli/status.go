@@ -172,7 +172,7 @@ func statusesOf(
 		if err != nil {
 			status.err = err
 		} else {
-			conn := connectAt(cmd, found, requestLog)
+			conn := connectAt(cmd.Context(), cmd, found, requestLog)
 			status.facts, status.err = statusOf(cmd.Context(), conn)
 			status.ascii = conn.cfg.UI.ASCII
 		}

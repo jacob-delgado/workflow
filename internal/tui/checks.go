@@ -153,10 +153,10 @@ func (c checkList) open(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	open := m.deps.OpenURL
+	ctx, open := m.session, m.deps.OpenURL
 	m.overlay = c
 
-	return m, func() tea.Msg { return checkOpened{name: check.Name, err: open(check.URL)} }
+	return m, func() tea.Msg { return checkOpened{name: check.Name, err: open(ctx, check.URL)} }
 }
 
 // checkOpened reports how opening a check's page went.

@@ -191,7 +191,7 @@ func TestTheWebServerReachesAnotherDirectoryWiredAsTheFirst(t *testing.T) {
 	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
 
 	// Act
-	world, err := ran.deps.Reach(other)
+	world, err := ran.deps.Reach(t.Context(), other)
 
 	// Assert
 	if err != nil || world.Info.Repository != "elsewhere" || world.Deps.Repositories.Here.Dir != other ||
@@ -218,7 +218,7 @@ func TestTheWebServerCannotReachADirectoryWhoseKeysWouldBeRefused(t *testing.T) 
 	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
 
 	// Act
-	_, err = ran.deps.Reach(other)
+	_, err = ran.deps.Reach(t.Context(), other)
 
 	// Assert
 	if !errors.Is(err, webserver.ErrConfigurationRefused) {
@@ -246,7 +246,7 @@ func TestTheWebServerCannotReachADirectoryWhoseConfigurationCannotBeRead(t *test
 	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
 
 	// Act
-	_, err = ran.deps.Reach(other)
+	_, err = ran.deps.Reach(t.Context(), other)
 
 	// Assert
 	if here := ran.workingDir(); !errors.Is(err, webserver.ErrConfigurationUnreadable) || here != start {
@@ -262,7 +262,7 @@ func TestTheWebServerCannotReachADirectoryNotThere(t *testing.T) {
 	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
 
 	// Act
-	_, err := ran.deps.Reach(filepath.Join(other, "gone"))
+	_, err := ran.deps.Reach(t.Context(), filepath.Join(other, "gone"))
 
 	// Assert
 	if here := ran.workingDir(); !errors.Is(err, workdirs.ErrNotFound) || here != start {
@@ -278,7 +278,7 @@ func TestTheWebServerCannotReachADirectoryTheProcessCannotMoveTo(t *testing.T) {
 	ran := runRootUnmoving(t, place{dir: start, home: t.TempDir()}, nil, "--web")
 
 	// Act
-	_, err := ran.deps.Reach(other)
+	_, err := ran.deps.Reach(t.Context(), other)
 
 	// Assert
 	if here := ran.workingDir(); !errors.Is(err, errMoveRefused) || here != start {

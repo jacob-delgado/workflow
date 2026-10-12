@@ -91,15 +91,15 @@ type Deps struct {
 	// and saving the pair to the macOS keychain, and answering the
 	// configuration without them, or answering it unchanged where the file is
 	// where they are kept. Nil writes them into the file as they came.
-	PlaceSlackCredentials func(cfg config.Config) (config.Config, error)
+	PlaceSlackCredentials func(ctx context.Context, cfg config.Config) (config.Config, error)
 	// KeepJiraToken keeps a Jira token typed into Settings in the macOS
 	// keychain, under the item for its address, so the file saved reads it
 	// from there. Nil writes it into the file as it came.
-	KeepJiraToken func(service, secret string) error
+	KeepJiraToken func(ctx context.Context, service, secret string) error
 	// Reach wires another directory as this one was wired, for a switch; nil
 	// where switching is not offered. A setup takes the file up through it,
 	// where the server works.
-	Reach func(dir string) (World, error)
+	Reach func(ctx context.Context, dir string) (World, error)
 }
 
 // Info is the build and run facts the API reports and the server needs.

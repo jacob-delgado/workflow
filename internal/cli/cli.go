@@ -247,7 +247,7 @@ type interfaceInput struct {
 	cfg          config.Config
 	loadErr      error
 	deps         tui.Deps
-	resolveAhead func()
+	resolveAhead func(ctx context.Context)
 	dryRun       bool
 	noColorEnv   string
 	in           io.Reader
@@ -302,7 +302,7 @@ var errKeysRefused = errors.New("the configuration there binds keys workflow ref
 // configuration is one the interface can open on: a directory not there, or
 // keys the interface would refuse, leave the working directory as it was.
 func switchTo(cmd *cobra.Command, from connection, dir string) (connection, error) {
-	conn, err := wireAt(cmd, from, dir)
+	conn, err := wireAt(cmd.Context(), cmd, from, dir)
 	if err != nil {
 		return connection{}, err
 	}
@@ -310,16 +310,16 @@ func switchTo(cmd *cobra.Command, from connection, dir string) (connection, erro
 	return conn, moveTo(cmd, dir)
 }
 
-// wireAt wires dir as from was wired, to the same request log, refusing a
-// directory that is not there and keys the interface would refuse. It moves
-// nothing.
-func wireAt(cmd *cobra.Command, from connection, dir string) (connection, error) {
+// wireAt wires dir as from was wired, under ctx, to the same request log,
+// refusing a directory that is not there and keys the interface would refuse.
+// It moves nothing.
+func wireAt(ctx context.Context, cmd *cobra.Command, from connection, dir string) (connection, error) {
 	err := workdirs.Check(dir)
 	if err != nil {
 		return connection{}, err
 	}
 
-	conn := connectAt(cmd, dir, from.requestLog)
+	conn := connectAt(ctx, cmd, dir, from.requestLog)
 
 	err = tui.CheckKeys(conn.cfg.UI.Keys)
 	if err != nil {
@@ -375,7 +375,7 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 		model = model.WithoutColor()
 	}
 
-	input.resolveAhead()
+	input.resolveAhead(ctx)
 
 	return run(ctx, input.arrive(model), input.in, input.out)
 }

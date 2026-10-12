@@ -87,7 +87,7 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 	dirs := w.dirs
 	deps.Repositories = seams.Repositories{
 		Here: dirs.here, Home: anaHome,
-		Look: func(dir string) (seams.Place, error) {
+		Look: func(_ context.Context, dir string) (seams.Place, error) {
 			place, found := dirs.places[dir]
 			if !found {
 				return seams.Place{}, workdirs.ErrNotFound
@@ -118,7 +118,7 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 	}
 
 	if dirs.worktrees != nil || dirs.worktreesErr != nil {
-		deps.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) {
+		deps.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 			return dirs.worktrees, dirs.worktreesErr
 		}
 	}

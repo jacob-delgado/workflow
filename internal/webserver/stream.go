@@ -128,7 +128,7 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 		Messaging:          s.readMessaging(ctx),
 		QueuedAnnouncement: s.heldStatus(),
 		Run:                s.runShown(),
-		HooksUnmanaged:     s.hooksUnmanaged(),
+		HooksUnmanaged:     s.hooksUnmanaged(ctx),
 		UnstartedStages:    s.knownStages(progress.Work{IssueSelected: true}),
 
 		CommitTypes:    commit.Types(),
@@ -300,7 +300,7 @@ func (s *server) snapshotBranches(
 	project := s.config().Jira.Project
 	listing := branchListing{
 		names: slices.Clone(local), remote: map[string]bool{}, links: s.issueLinks(ctx),
-		worktrees: s.otherWorktrees(), home: s.deps.Repositories.Home,
+		worktrees: s.otherWorktrees(ctx), home: s.deps.Repositories.Home,
 		stages: branchStages{
 			checkedOut: checkedOutStages,
 			// A branch not checked out is known only to be named for an issue:
@@ -325,13 +325,13 @@ func (s *server) snapshotBranches(
 // otherWorktrees is each other worktree, gone or not, by the branch it has
 // checked out: none outside a repository or when the read fails, since a
 // branch then reads as one to check out, as it did before.
-func (s *server) otherWorktrees() map[string]gitrepo.Worktree {
+func (s *server) otherWorktrees(ctx context.Context) map[string]gitrepo.Worktree {
 	byBranch := map[string]gitrepo.Worktree{}
 	if s.deps.Repositories.Worktrees == nil {
 		return byBranch
 	}
 
-	worktrees, err := s.deps.Repositories.Worktrees()
+	worktrees, err := s.deps.Repositories.Worktrees(ctx)
 	if err != nil {
 		return byBranch
 	}

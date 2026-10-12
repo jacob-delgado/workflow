@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -58,10 +59,10 @@ func fileKeepingSlack(t *testing.T) config.Config {
 }
 
 // placingNothing is a PlaceSlackCredentials that fails the test if called.
-func placingNothing(t *testing.T) func(config.Config) (config.Config, error) {
+func placingNothing(t *testing.T) func(context.Context, config.Config) (config.Config, error) {
 	t.Helper()
 
-	return func(config.Config) (config.Config, error) {
+	return func(context.Context, config.Config) (config.Config, error) {
 		t.Error("the Slack secrets were placed")
 
 		return config.Config{}, errSlackSaysNo
@@ -97,7 +98,7 @@ func TestSlackSecretsSavedInSettingsArePlacedAndKeptOutOfTheFile(t *testing.T) {
 	cfg := config.Default()
 	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
 	deps := webserver.Deps{
-		PlaceSlackCredentials: func(withSecrets config.Config) (config.Config, error) {
+		PlaceSlackCredentials: func(_ context.Context, withSecrets config.Config) (config.Config, error) {
 			placed = append(placed, withSecrets)
 			withSecrets.Messaging.ClientSecret, withSecrets.Messaging.RefreshToken = "", ""
 
@@ -188,7 +189,7 @@ func TestASlackRefusalOfTypedSecretsSaysWhatToCheck(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := webserver.Deps{PlaceSlackCredentials: func(config.Config) (config.Config, error) {
+	deps := webserver.Deps{PlaceSlackCredentials: func(context.Context, config.Config) (config.Config, error) {
 		return config.Config{}, fmt.Errorf("%w: %w", messaging.ErrRejected, errSlackSaysNo)
 	}}
 	cfg := keychainKept(t)

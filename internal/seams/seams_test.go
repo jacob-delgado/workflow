@@ -44,20 +44,6 @@ func withoutContext() map[string]string {
 	}
 }
 
-// notYet are the seams that do I/O but take no context yet. Each group's
-// conversion deletes its own; the list ends empty.
-func notYet() []string {
-	return []string{
-		"Settings.Save", "Settings.LocalData",
-
-		"Setup.Check", "Setup.Write",
-
-		"Repositories.Look", "Repositories.Worktrees",
-
-		"Hooks.Run", "Hooks.Existing", "Hooks.Write",
-	}
-}
-
 // seamFields is every function field of every bundle, by its bundle and
 // field name, with whether it takes a context first.
 func seamFields() map[string]bool {
@@ -85,14 +71,14 @@ func TestEverySeamThatDoesIOTakesAContextFirst(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	exempt, pending := withoutContext(), notYet()
+	exempt := withoutContext()
 
 	// Act
 	var missing []string
 
 	for name, takes := range seamFields() {
 		_, isExempt := exempt[name]
-		if !takes && !isExempt && !slices.Contains(pending, name) {
+		if !takes && !isExempt {
 			missing = append(missing, name)
 		}
 	}
@@ -111,7 +97,7 @@ func TestEverySeamListedAsTakingNoContextTakesNone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	listed := slices.Concat(notYet(), slices.Collect(maps.Keys(withoutContext())))
+	listed := slices.Collect(maps.Keys(withoutContext()))
 	fields := seamFields()
 
 	// Act

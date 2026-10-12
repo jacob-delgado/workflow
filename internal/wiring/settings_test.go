@@ -34,7 +34,7 @@ func TestLocalDataListsTheStoresFiles(t *testing.T) {
 	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act
-	listed, files, err := deps.Settings.LocalData()
+	listed, files, err := deps.Settings.LocalData(t.Context())
 
 	// Assert
 	if err != nil || listed != dir || len(files) == 0 || files[0].Kind != store.DataCache {
@@ -65,7 +65,7 @@ func TestLocalDataWithNoStoreDirectoryIsAnError(t *testing.T) {
 	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act
-	_, _, err := deps.Settings.LocalData()
+	_, _, err := deps.Settings.LocalData(t.Context())
 
 	// Assert
 	if !errors.Is(err, store.ErrNoDir) {
@@ -102,7 +102,7 @@ func TestLocalDataThatCannotBeReadIsAnError(t *testing.T) {
 	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act
-	_, files, err := deps.Settings.LocalData()
+	_, files, err := deps.Settings.LocalData(t.Context())
 
 	// Assert
 	if err == nil || files != nil {
@@ -175,7 +175,7 @@ func TestSettingsSaveKeepsTheTokenItWasShownMasked(t *testing.T) {
 	read.Jira.Project = "OSS"
 
 	// Act
-	saved, _, err := deps.Settings.Save(read, nil, over)
+	saved, _, err := deps.Settings.Save(t.Context(), read, nil, over)
 
 	// Assert
 	onDisk, _, readErr := config.LoadLayersAt(config.Files{Home: path})
@@ -195,7 +195,7 @@ func TestSettingsSaveRemovingTheTokenWritesAFileWithNoToken(t *testing.T) {
 	read, over, _ := deps.Settings.Read()
 
 	// Act
-	_, _, err := deps.Settings.Save(read, []config.Credential{config.CredentialJiraToken}, over)
+	_, _, err := deps.Settings.Save(t.Context(), read, []config.Credential{config.CredentialJiraToken}, over)
 
 	// Assert
 	written, readErr := os.ReadFile(path)
@@ -216,7 +216,7 @@ func TestSettingsSaveRefusesAFileChangedSinceTheRead(t *testing.T) {
 	}
 
 	// Act
-	_, _, err = deps.Settings.Save(read, nil, over)
+	_, _, err = deps.Settings.Save(t.Context(), read, nil, over)
 
 	// Assert
 	if !errors.Is(err, config.ErrChangedOnDisk) {
@@ -230,7 +230,7 @@ func TestSettingsSaveRefusesARevisionItDidNotRead(t *testing.T) {
 	read, _, _ := deps.Settings.Read()
 
 	// Act
-	_, _, err := deps.Settings.Save(read, nil, config.Revision{})
+	_, _, err := deps.Settings.Save(t.Context(), read, nil, config.Revision{})
 
 	// Assert
 	if !errors.Is(err, config.ErrChangedOnDisk) {

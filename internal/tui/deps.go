@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -56,7 +57,7 @@ type Deps struct {
 	Notify func()
 	// OpenURL opens a page in the user's browser, for a check whose detail lives
 	// on the forge. Nil where there is no opener to reach.
-	OpenURL func(url string) error
+	OpenURL func(ctx context.Context, url string) error
 	// Copy puts text on the system clipboard. In production it is tea.SetClipboard,
 	// which writes it through the terminal's own OSC 52 sequence — no program, and
 	// it works over SSH. Nil where the interface cannot reach the terminal.

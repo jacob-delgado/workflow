@@ -86,12 +86,12 @@ func (msg repositoriesRead) apply(m Model) (Model, tea.Cmd) {
 // loadRepositories reads the worktrees, then the favorites and each one's
 // place, off the update loop: both are on disk, read again each time.
 func (m Model) loadRepositories() tea.Cmd {
-	worktrees, favorites := m.deps.Repositories.Worktrees, favoritePlaces(m.session, m.deps)
+	ctx, worktrees, favorites := m.session, m.deps.Repositories.Worktrees, favoritePlaces(m.session, m.deps)
 
 	return func() tea.Msg {
 		read := repositoriesRead{}
 		if worktrees != nil {
-			read.worktrees, read.worktreesErr = worktrees()
+			read.worktrees, read.worktreesErr = worktrees(ctx)
 		}
 
 		read.favorites, read.err = favorites()
@@ -115,7 +115,7 @@ func favoritePlaces(ctx context.Context, deps Deps) func() ([]favoritePlace, err
 		for _, dir := range dirs {
 			favorite := favoritePlace{dir: dir, here: dir == here || workdirs.Same(dir, here)}
 			if look != nil {
-				favorite.place, favorite.err = look(dir)
+				favorite.place, favorite.err = look(ctx, dir)
 			}
 
 			favorites = append(favorites, favorite)

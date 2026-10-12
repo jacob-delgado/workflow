@@ -317,10 +317,10 @@ func TestResolvingAheadRunsTheJiraTokenCommandOnceForEveryLaterSearch(t *testing
 	jiraStandIn := newStandInJira(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: jiraStandIn.url, TokenCommand: tokens.command}
-	deps, controls := processEnvironment().Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := processEnvironment().Deps(cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act: resolve ahead
-	controls.ResolveAhead()
+	controls.ResolveAhead(t.Context())
 
 	// Assert: the token command ran, and Jira was not asked
 	if runs, asked := tokens.runs(), jiraStandIn.requests.Load(); runs != 1 || asked != 0 {
@@ -352,8 +352,8 @@ func TestResolvingAheadRetriesAFailedJiraTokenCommandOnFirstUse(t *testing.T) {
 	tokens := newFailingTokenCommand(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: newStandInJira(t).url, TokenCommand: tokens.command}
-	deps, controls := processEnvironment().Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
-	controls.ResolveAhead()
+	deps, controls := processEnvironment().Deps(cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	controls.ResolveAhead(t.Context())
 
 	// Act
 	_, err := deps.Jira.Search(t.Context(), "assignee = currentUser()", 0)
@@ -377,10 +377,10 @@ func TestResolvingAheadLeavesTheTokenCommandOfAJiraNotInUseUnrun(t *testing.T) {
 	tokens := newTokenCommand(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{TokenCommand: tokens.command}
-	_, controls := processEnvironment().Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	_, controls := processEnvironment().Deps(cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act
-	controls.ResolveAhead()
+	controls.ResolveAhead(t.Context())
 
 	// Assert
 	if runs := tokens.runs(); runs != 0 {

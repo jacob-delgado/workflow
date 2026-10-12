@@ -184,9 +184,9 @@ func showsAnother(request *http.Request, here string) bool {
 	return err != nil || shown != here
 }
 
-// switchTo wires dir as the first directory was wired and serves it from now
-// on, refusing while a write is in flight.
-func (w *worlds) switchTo(dir string) (*server, error) {
+// switchTo wires dir as the first directory was wired, under ctx, and serves
+// it from now on, refusing while a write is in flight.
+func (w *worlds) switchTo(ctx context.Context, dir string) (*server, error) {
 	if !w.gate.TryLock() {
 		return nil, errWriteInFlight
 	}
@@ -199,7 +199,7 @@ func (w *worlds) switchTo(dir string) (*server, error) {
 		return nil, errNoSwitching
 	}
 
-	world, err := reach(dir)
+	world, err := reach(ctx, dir)
 	if err != nil {
 		return nil, err
 	}

@@ -49,9 +49,10 @@ import (
 // asks on it could not be answered. A token not found then is looked for again
 // on first use, where its failure is reported. The Slack user token is asked
 // for on every post, refreshed as it runs out.
-func (e Environment) Deps(
-	ctx context.Context, cfg config.Config, where Workspace, log *RequestLog,
-) (tui.Deps, Controls) {
+//
+// Every seam and control does its I/O under the context it is called with,
+// and none holds one of its own: what asks decides how long it waits.
+func (e Environment) Deps(cfg config.Config, where Workspace, log *RequestLog) (tui.Deps, Controls) {
 	httpTransport := httpx.Client(requestTimeout(cfg)).Do
 	settings := &liveForge{settings: cfg.Forge}
 	setup := forgeSetup{settings: settings.current, where: where, httpTransport: httpTransport, log: log, env: e}
@@ -71,7 +72,7 @@ func (e Environment) Deps(
 	// A failure here is left for first use, which looks again and reports it.
 	// The Slack user token needs no finding ahead: no command of the user's is
 	// run for it, so none can ask on the terminal once the interface holds it.
-	resolveAhead := func() {
+	resolveAhead := func(ctx context.Context) {
 		if cfg.Jira.Configured() {
 			_, _ = jiraClient(ctx)
 		}
@@ -85,8 +86,8 @@ func (e Environment) Deps(
 			slack.Refresh()
 		},
 		//nolint:bodyclose // Wrap only relays the response; the refresh reads and closes its body.
-		PlaceSlackCredentials: e.PlaceSlackCredentials(ctx, log.Wrap("slack", httpTransport), e.Keychain()),
-		KeepJiraToken:         e.Keychain().JiraTokenKeeper(ctx),
+		PlaceSlackCredentials: e.PlaceSlackCredentials(log.Wrap("slack", httpTransport), e.Keychain()),
+		KeepJiraToken:         e.Keychain().JiraTokenKeeper(),
 	}
 
 	deps := tui.Deps{
@@ -94,16 +95,16 @@ func (e Environment) Deps(
 		Git:          e.gitDeps(where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
 		Forge:        forgeDeps(setup, connect),
 		Messaging:    messagingDeps(messagingSet, slack),
-		Hooks:        e.hookDeps(ctx, where.Root),
+		Hooks:        e.hookDeps(where.Root),
 		Editor:       e.editorDeps(where.Root),
 		Store:        storeDeps(e.onDisk(cfg), cfg, where),
 		Tasks:        e.taskDeps(cfg.Taskwarrior),
-		Repositories: e.repositoriesDeps(ctx, cfg, where),
-		Settings:     e.settingsDeps(ctx, cfg.Layers(), controls),
+		Repositories: e.repositoriesDeps(cfg, where),
+		Settings:     e.settingsDeps(cfg.Layers(), controls),
 		Clock:        nil,
 		CIInterval:   cfg.CIInterval(),
 		Notify:       ringTerminal,
-		OpenURL:      func(url string) error { return e.openInBrowser(ctx, url) },
+		OpenURL:      e.openInBrowser,
 		Copy:         tea.SetClipboard,
 	}
 	// Favorites are read from the store as it is, never made, so a dry run's
@@ -115,8 +116,9 @@ func (e Environment) Deps(
 
 // Controls are what a surface asks of the wiring itself, beside the seams.
 type Controls struct {
-	// ResolveAhead finds the Jira token now, rather than on first use.
-	ResolveAhead func()
+	// ResolveAhead finds the Jira token now, under ctx, rather than on first
+	// use.
+	ResolveAhead func(ctx context.Context)
 	// UseForgeSettings applies forge settings saved while workflow runs — the
 	// web's Settings — to every forge call after it, and reports which forge the
 	// remote is on under them. The terminal's Settings applies what it saves
@@ -131,11 +133,11 @@ type Controls struct {
 	// the token once, saves the pair to the keychain, and answers the
 	// configuration without them; elsewhere the file keeps them, and it answers
 	// the configuration unchanged.
-	PlaceSlackCredentials func(cfg config.Config) (config.Config, error)
+	PlaceSlackCredentials func(ctx context.Context, cfg config.Config) (config.Config, error)
 	// KeepJiraToken keeps a Jira token typed into the web's Settings or the
 	// terminal's in the macOS keychain, under the item for its address, so the
 	// file saved reads it from there; nil elsewhere, where the file keeps it.
-	KeepJiraToken func(service, secret string) error
+	KeepJiraToken func(ctx context.Context, service, secret string) error
 }
 
 // ciFinished is a terminal bell followed by an OSC 9 desktop notification. A
@@ -420,14 +422,16 @@ func instanceKey(baseURL string) string {
 
 // hookDeps is what a surface asks of lefthook — nothing at all when lefthook
 // is not installed, so its actions are not offered.
-func (e Environment) hookDeps(ctx context.Context, root string) seams.Hooks {
+func (e Environment) hookDeps(root string) seams.Hooks {
 	if !e.Available("lefthook") {
 		return seams.Hooks{Run: nil, Existing: nil, Write: nil}
 	}
 
 	return seams.Hooks{
-		Run: func(hook string) (proc.Output, error) { return e.start(ctx, hooks.RunCommand(root, hook)) },
-		Existing: func() ([]hooks.GitHook, bool) {
+		Run: func(ctx context.Context, hook string) (proc.Output, error) {
+			return e.start(ctx, hooks.RunCommand(root, hook))
+		},
+		Existing: func(ctx context.Context) ([]hooks.GitHook, bool) {
 			dir, err := gitrepo.At(e.git, root).HooksDir(ctx)
 			if err != nil {
 				return nil, false
@@ -435,7 +439,7 @@ func (e Environment) hookDeps(ctx context.Context, root string) seams.Hooks {
 
 			return hooks.ExistingHooks(os.DirFS(dir), runtime.GOOS), hooks.HasConfig(os.DirFS(root))
 		},
-		Write: func(generated hooks.Generated) error {
+		Write: func(ctx context.Context, generated hooks.Generated) error {
 			err := hooks.Write(root, generated)
 			if err != nil {
 				return err

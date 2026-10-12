@@ -60,12 +60,12 @@ func (e Environment) ResolveToken(
 // named, bounded as keychain.Item.Store is so a security that never answers
 // cannot hold the save open; nil where workflow drives no keychain, so the file
 // keeps it.
-func (k Keychain) JiraTokenKeeper(ctx context.Context) func(service, secret string) error {
+func (k Keychain) JiraTokenKeeper() func(ctx context.Context, service, secret string) error {
 	if !keychain.Wired(k.GOOS) {
 		return nil
 	}
 
-	return func(service, secret string) error {
+	return func(ctx context.Context, service, secret string) error {
 		item, _ := k.item(service)
 
 		return item.Store(ctx, secret)

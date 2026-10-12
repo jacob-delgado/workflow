@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -43,15 +44,15 @@ func (m Model) openLocalData() (Model, tea.Cmd) {
 	m, opened := m.opening()
 	m.overlay = localData{opened: opened, reading: true}
 
-	return m, readLocalData(m.deps, opened)
+	return m, readLocalData(m.session, m.deps, opened)
 }
 
 // readLocalData lists the store's files for the overlay opened as opened.
-func readLocalData(deps Deps, opened int) tea.Cmd {
+func readLocalData(ctx context.Context, deps Deps, opened int) tea.Cmd {
 	list := deps.Settings.LocalData
 
 	return func() tea.Msg {
-		dir, files, err := list()
+		dir, files, err := list(ctx)
 
 		return localDataRead{opened: opened, dir: dir, files: files, err: err}
 	}

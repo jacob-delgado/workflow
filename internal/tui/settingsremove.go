@@ -111,7 +111,7 @@ func (f settingsForm) askToRemove(removal credentialRemoval) lastLook {
 			return keepOpenWith[lastLook](m, err), nil
 		}
 
-		write := m.deps.Settings.Save
+		ctx, write := m.session, m.deps.Settings.Save
 
 		var removed []config.Credential
 		if removal.credential != "" {
@@ -119,7 +119,7 @@ func (f settingsForm) askToRemove(removal credentialRemoval) lastLook {
 		}
 
 		return m, func() tea.Msg {
-			saved, written, err := write(cfg, removed, f.over)
+			saved, written, err := write(ctx, cfg, removed, f.over)
 
 			return settingsRemoved{form: f, removal: removal, saved: saved, over: written, err: err}
 		}

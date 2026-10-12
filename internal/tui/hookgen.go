@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -20,14 +21,14 @@ type hookgenState struct {
 }
 
 // findHooks is the command that looks for hooks lefthook does not manage.
-func findHooks(deps Deps) tea.Cmd {
+func findHooks(ctx context.Context, deps Deps) tea.Cmd {
 	existing := deps.Hooks.Existing
 	if existing == nil || deps.Hooks.Write == nil {
 		return nil
 	}
 
 	return func() tea.Msg {
-		found, configured := existing()
+		found, configured := existing(ctx)
 
 		return hooksFound{hooks: found, configured: configured}
 	}
@@ -136,17 +137,17 @@ func (o hookgenOffer) write(m Model, generated hooks.Generated) (Model, tea.Cmd)
 
 	o.send = starting()
 	m.overlay = o
-	write, existing := m.deps.Hooks.Write, m.deps.Hooks.Existing
+	ctx, write, existing := m.session, m.deps.Hooks.Write, m.deps.Hooks.Existing
 
 	return m, func() tea.Msg {
-		err := write(generated)
+		err := write(ctx, generated)
 		if err == nil {
 			return hooksWritten{err: nil, configured: true}
 		}
 
 		// lefthook.yml is written before lefthook is installed, so a failed
 		// install leaves a configuration behind.
-		_, configured := existing()
+		_, configured := existing(ctx)
 
 		return hooksWritten{err: err, configured: configured}
 	}

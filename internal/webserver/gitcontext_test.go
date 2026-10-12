@@ -58,3 +58,26 @@ func TestAStreamsBranchReadStopsWhenItsPageLeaves(t *testing.T) {
 		t.Errorf("the frame's read ended with %v, want it canceled once its page left", err)
 	}
 }
+
+func TestARepositoriesReadStopsWhenItsPageLeaves(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	held, deps := newHeldUntilEnded(), filledDeps()
+	deps.Repositories.Worktrees = func(ctx context.Context) ([]gitrepo.Worktree, error) { return nil, held.wait(ctx) }
+	ctx, leave := context.WithCancel(t.Context())
+	answered := asking(ctx, serve(t, deps, config.Default()), http.MethodGet, "/api/repositories")
+
+	<-held.entered
+
+	// Act
+	leave()
+
+	// Assert
+	err := held.endedWith(t)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("the read's context ended with %v, want it canceled once its page left", err)
+	}
+
+	<-answered
+}

@@ -7,6 +7,7 @@ package webserver_test
 // ends it, even one asked for before its program has started.
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -111,7 +112,7 @@ func TestARunStoppedBeforeItsProgramStartsEndsStopped(t *testing.T) {
 	// comes: the server has no way to stop it yet.
 	starting, release := make(chan struct{}), make(chan struct{})
 	deps := runDeps(&runCalls{}, passing)
-	deps.Hooks.Run = func(string) (proc.Output, error) {
+	deps.Hooks.Run = func(context.Context, string) (proc.Output, error) {
 		close(starting)
 		<-release
 

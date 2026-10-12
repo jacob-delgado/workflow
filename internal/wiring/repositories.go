@@ -92,12 +92,13 @@ func parsedRemote(where Workspace) (forge.Repo, bool) {
 
 // repositoriesDeps is what a surface asks of the directories it can work in:
 // where this session works, and any other directory read the same way, with
-// the configuration files that would apply there.
-func (e Environment) repositoriesDeps(ctx context.Context, cfg config.Config, where Workspace) seams.Repositories {
+// the configuration files that would apply there, each read under the context
+// it is asked under.
+func (e Environment) repositoriesDeps(cfg config.Config, where Workspace) seams.Repositories {
 	return seams.Repositories{
 		Here: placeOf(where, cfg.Layers()),
 		Home: e.Home,
-		Look: func(dir string) (seams.Place, error) {
+		Look: func(ctx context.Context, dir string) (seams.Place, error) {
 			err := workdirs.Check(dir)
 			if err != nil {
 				return seams.Place{}, err
@@ -110,7 +111,7 @@ func (e Environment) repositoriesDeps(ctx context.Context, cfg config.Config, wh
 			return placeOf(e.Locate(ctx, dir), files), nil
 		},
 		Subdirectories: workdirs.List,
-		Worktrees:      e.worktreesOf(ctx, where),
+		Worktrees:      e.worktreesOf(where),
 	}
 }
 
@@ -118,12 +119,12 @@ func (e Environment) repositoriesDeps(ctx context.Context, cfg config.Config, wh
 // nil outside one. git never marks a locked worktree prunable, as one on a
 // drive since unmounted is, so a locked one's directory is looked for, and one
 // not there reads as gone.
-func (e Environment) worktreesOf(ctx context.Context, where Workspace) func() ([]gitrepo.Worktree, error) {
+func (e Environment) worktreesOf(where Workspace) func(context.Context) ([]gitrepo.Worktree, error) {
 	if !where.Repository {
 		return nil
 	}
 
-	return func() ([]gitrepo.Worktree, error) {
+	return func(ctx context.Context) ([]gitrepo.Worktree, error) {
 		worktrees, err := gitrepo.At(e.git, where.Root).Worktrees(ctx)
 
 		for at, worktree := range worktrees {

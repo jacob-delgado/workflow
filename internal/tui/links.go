@@ -31,12 +31,12 @@ func (m Model) linkKeys(url string) []key.Binding {
 // openLink opens url in the browser, leaving the reason on screen if the opener
 // fails.
 func (m Model) openLink(url string) (Model, tea.Cmd) {
-	open := m.deps.OpenURL
+	ctx, open := m.session, m.deps.OpenURL
 	if open == nil || url == "" {
 		return m, nil
 	}
 
-	return m, func() tea.Msg { return linkOpened{err: open(url)} }
+	return m, func() tea.Msg { return linkOpened{err: open(ctx, url)} }
 }
 
 // copyLink copies url to the clipboard and says so. The clipboard write reaches

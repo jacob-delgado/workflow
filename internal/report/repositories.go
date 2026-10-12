@@ -27,9 +27,9 @@ type RepositoriesView struct {
 // favorites, each looked at on disk now: what GET /api/repositories answers
 // and `workflow repositories --json` prints. describe words why the worktrees
 // could not be read. Favorites that cannot be read are listed as none, and
-// why is returned beside the rest. The favorites are read under ctx.
+// why is returned beside the rest. Everything is read under ctx.
 func (v RepositoriesView) Report(ctx context.Context, describe func(error) string) (api.Repositories, error) {
-	worktrees, worktreesErr := v.worktrees(describe)
+	worktrees, worktreesErr := v.worktrees(ctx, describe)
 	favorites, err := v.favorites(ctx)
 
 	return api.Repositories{
@@ -41,10 +41,10 @@ func (v RepositoriesView) Report(ctx context.Context, describe func(error) strin
 	}, err
 }
 
-// worktrees is the repository's worktrees, each with what it has checked
-// out, or why they could not be read, in describe's words. Outside a
-// repository there are none.
-func (v RepositoriesView) worktrees(describe func(error) string) ([]api.Worktree, string) {
+// worktrees is the repository's worktrees, read under ctx, each with what it
+// has checked out, or why they could not be read, in describe's words. Outside
+// a repository there are none.
+func (v RepositoriesView) worktrees(ctx context.Context, describe func(error) string) ([]api.Worktree, string) {
 	repositories := v.Repositories
 
 	worktrees := []api.Worktree{}
@@ -52,7 +52,7 @@ func (v RepositoriesView) worktrees(describe func(error) string) ([]api.Worktree
 		return worktrees, ""
 	}
 
-	read, err := repositories.Worktrees()
+	read, err := repositories.Worktrees(ctx)
 	if err != nil {
 		return worktrees, describe(err)
 	}
@@ -92,18 +92,18 @@ func (v RepositoriesView) favorites(ctx context.Context) ([]api.Favorite, error)
 	dirs, err := v.Favorites(ctx)
 
 	for _, dir := range dirs {
-		favorites = append(favorites, v.favorite(dir))
+		favorites = append(favorites, v.favorite(ctx, dir))
 	}
 
 	return favorites, err
 }
 
-// favorite is the favorite dir, with what is there now.
-func (v RepositoriesView) favorite(dir string) api.Favorite {
+// favorite is the favorite dir, with what is there now, looked at under ctx.
+func (v RepositoriesView) favorite(ctx context.Context, dir string) api.Favorite {
 	repositories := v.Repositories
 	favorite := api.Favorite{Dir: dir, Shown: workdirs.Shown(dir, repositories.Home), State: api.FavoriteStateMissing}
 
-	place, lookErr := lookAt(repositories.Look, dir)
+	place, lookErr := lookAt(ctx, repositories.Look, dir)
 
 	switch {
 	case dir == repositories.Here.Dir || workdirs.Same(dir, repositories.Here.Dir):
@@ -118,14 +118,16 @@ func (v RepositoriesView) favorite(dir string) api.Favorite {
 	return favorite
 }
 
-// lookAt reads dir through look, or says it cannot be read when there is no
-// look.
-func lookAt(look func(dir string) (seams.Place, error), dir string) (seams.Place, error) {
+// lookAt reads dir through look, under ctx, or says it cannot be read when
+// there is no look.
+func lookAt(
+	ctx context.Context, look func(ctx context.Context, dir string) (seams.Place, error), dir string,
+) (seams.Place, error) {
 	if look == nil {
 		return seams.Place{}, workdirs.ErrUnreadable
 	}
 
-	return look(dir)
+	return look(ctx, dir)
 }
 
 // placeDTO is a place as the API answers it, each path also written from

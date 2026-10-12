@@ -75,7 +75,7 @@ func TestMessagingSettingsSavedWhileRunningReachTheNextPost(t *testing.T) {
 
 	// Arrange
 	cfg := halfLoggedIn(t)
-	deps, controls := processEnvironment().Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := processEnvironment().Deps(cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act
 	controls.UseMessagingSettings(config.Messaging{Kind: config.KindSlack, WebhookURL: "http://hooks.example.com/x"})

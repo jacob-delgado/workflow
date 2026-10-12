@@ -23,13 +23,15 @@ var (
 // GetHookSetup is the lefthook configuration offered for the hooks lefthook
 // does not manage, as the terminal's g offers it, or nothing offered once
 // lefthook is configured or there is no such hook.
-func (s *server) GetHookSetup(context.Context, api.GetHookSetupRequestObject) (api.GetHookSetupResponseObject, error) {
+func (s *server) GetHookSetup(
+	ctx context.Context, _ api.GetHookSetupRequestObject,
+) (api.GetHookSetupResponseObject, error) {
 	if s.deps.Hooks.Existing == nil {
 		return api.GetHookSetup422ApplicationProblemPlusJSONResponse(
 			problem(api.ProblemCodeUnprocessable, errHookSetupUnavailable.Error())), nil
 	}
 
-	found := s.unmanagedHooks()
+	found := s.unmanagedHooks(ctx)
 	setup := api.HookSetup{Offered: len(found) > 0, Hooks: unmanagedDTO(found), Config: "", Scripts: 0}
 
 	if setup.Offered {
@@ -46,14 +48,14 @@ func (s *server) GetHookSetup(context.Context, api.GetHookSetupRequestObject) (a
 // whose words stay off the wire, since they name where the repository is;
 // Unexpected hears them.
 func (s *server) SetUpHooks(
-	_ context.Context, request api.SetUpHooksRequestObject,
+	ctx context.Context, request api.SetUpHooksRequestObject,
 ) (api.SetUpHooksResponseObject, error) {
 	if s.deps.Hooks.Existing == nil || s.deps.Hooks.Write == nil {
 		return api.SetUpHooks422ApplicationProblemPlusJSONResponse(
 			problem(api.ProblemCodeUnprocessable, errHookSetupUnavailable.Error())), nil
 	}
 
-	found := s.unmanagedHooks()
+	found := s.unmanagedHooks(ctx)
 	if len(found) == 0 {
 		return api.SetUpHooks409ApplicationProblemPlusJSONResponse(
 			problem(api.ProblemCodeConflict, errNothingToSetUp.Error())), nil
@@ -64,7 +66,7 @@ func (s *server) SetUpHooks(
 		generated = hooks.Verbatim(found)
 	}
 
-	err := s.deps.Hooks.Write(generated)
+	err := s.deps.Hooks.Write(ctx, generated)
 	if err != nil {
 		// The answer leaves the cause out; the server's own log keeps it.
 		s.unexpected(err)
@@ -79,8 +81,8 @@ func (s *server) SetUpHooks(
 
 // unmanagedHooks is the hooks lefthook does not manage, or none once the
 // repository configures lefthook, as the terminal forgets them then.
-func (s *server) unmanagedHooks() []hooks.GitHook {
-	found, configured := s.deps.Hooks.Existing()
+func (s *server) unmanagedHooks(ctx context.Context) []hooks.GitHook {
+	found, configured := s.deps.Hooks.Existing(ctx)
 	if configured {
 		return nil
 	}
@@ -90,12 +92,12 @@ func (s *server) unmanagedHooks() []hooks.GitHook {
 
 // hooksUnmanaged counts the hooks a frame offers to set up lefthook for, or
 // none without a repository.
-func (s *server) hooksUnmanaged() int {
+func (s *server) hooksUnmanaged(ctx context.Context) int {
 	if s.deps.Hooks.Existing == nil {
 		return 0
 	}
 
-	return len(s.unmanagedHooks())
+	return len(s.unmanagedHooks(ctx))
 }
 
 // unmanagedDTO maps the hooks found onto the wire, each by its name and how

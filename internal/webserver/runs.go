@@ -148,7 +148,7 @@ func (s *server) planPreCommit(context.Context, api.RunRequest) (plannedRun, err
 
 	return plannedRun{
 		kind: api.RunKindPreCommit, title: preCommitHook,
-		start:     func(context.Context) (proc.Output, error) { return run(preCommitHook) },
+		start:     func(ctx context.Context) (proc.Output, error) { return run(ctx, preCommitHook) },
 		succeeded: "The pre-commit hook passed.", refused: "The pre-commit hook failed.",
 	}, nil
 }

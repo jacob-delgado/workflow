@@ -27,9 +27,9 @@ const (
 
 // GetLocalData lists the store's directory and the database files in it.
 func (s *server) GetLocalData(
-	_ context.Context, _ api.GetLocalDataRequestObject,
+	ctx context.Context, _ api.GetLocalDataRequestObject,
 ) (api.GetLocalDataResponseObject, error) {
-	data, err := s.localData()
+	data, err := s.localData(ctx)
 	if err != nil {
 		return problemAnswer[api.GetLocalDatadefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -40,7 +40,7 @@ func (s *server) GetLocalData(
 // RemoveLocalData removes the cache, or with scope all the kept file too, and
 // answers what is left.
 func (s *server) RemoveLocalData(
-	_ context.Context, request api.RemoveLocalDataRequestObject,
+	ctx context.Context, request api.RemoveLocalDataRequestObject,
 ) (api.RemoveLocalDataResponseObject, error) {
 	if s.deps.Settings.RemoveLocalData == nil {
 		return api.RemoveLocalData422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
@@ -56,7 +56,7 @@ func (s *server) RemoveLocalData(
 	if err == nil {
 		var data api.LocalData
 
-		data, err = s.localData()
+		data, err = s.localData(ctx)
 		if err == nil {
 			return api.RemoveLocalData200JSONResponse(data), nil
 		}
@@ -66,12 +66,12 @@ func (s *server) RemoveLocalData(
 }
 
 // localData reads the store's directory and files into the answer's shape.
-func (s *server) localData() (api.LocalData, error) {
+func (s *server) localData(ctx context.Context) (api.LocalData, error) {
 	if s.deps.Settings.LocalData == nil {
 		return api.LocalData{}, errNoLocalData
 	}
 
-	dir, files, err := s.deps.Settings.LocalData()
+	dir, files, err := s.deps.Settings.LocalData(ctx)
 	if err != nil {
 		return api.LocalData{}, err
 	}
