@@ -112,8 +112,9 @@ type Tags struct {
 // group is asked about again, as a team.
 //
 // The groups offered are the repository's, then any a linked owning team
-// adds. The groups linked to owning teams start checked, and so does the last
-// choice; with no last choice, only the teams' groups do.
+// adds, and none whose ID is not a group's, which no post could tag. The
+// groups linked to owning teams start checked, and so does the last choice;
+// with no last choice, only the teams' groups do.
 func ProposeTags(
 	owners codeowners.Owners, links []OwnerLink, repoGroups []SlackTarget, last []string, lastChosen bool,
 	moment messaging.Moment,
@@ -257,7 +258,8 @@ func fitsOwner(slackID string, team bool) bool {
 }
 
 // offeredGroups is repoGroups then the groups linked teams among owners add,
-// each once, checked when a team links it or last chose it.
+// each once and each with a group's ID, checked when a team links it or last
+// chose it.
 func offeredGroups(owners []OwnerTag, repoGroups []SlackTarget, last []string) []GroupTag {
 	var teamGroups []SlackTarget
 
@@ -271,7 +273,7 @@ func offeredGroups(owners []OwnerTag, repoGroups []SlackTarget, last []string) [
 
 	for _, group := range slices.Concat(repoGroups, teamGroups) {
 		sameGroup := func(offered GroupTag) bool { return offered.Slack.ID == group.ID }
-		if slices.ContainsFunc(groups, sameGroup) {
+		if !fitsOwner(group.ID, true) || slices.ContainsFunc(groups, sameGroup) {
 			continue
 		}
 
