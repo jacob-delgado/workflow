@@ -14,11 +14,12 @@ import (
 
 // Guide is setup as a form asks for it, all answers at once: where it runs,
 // the transport Jira is checked over, and the OS keychain, keeping a secret
-// under the item named, nil where none is wired.
+// under the item named, under the context it is asked under, nil where none
+// is wired.
 type Guide struct {
 	Where       Where
 	Doer        jira.Doer
-	StoreSecret func(service, secret string) error
+	StoreSecret func(ctx context.Context, service, secret string) error
 }
 
 // Destination is a place a file may go, the file it would be, and whether
@@ -76,7 +77,8 @@ func (g Guide) Check(ctx context.Context, settings config.Jira) (string, error) 
 // its address when asked. It checks nothing; a form checks the token first and
 // says how that went. Everything that can refuse the write does before the
 // keychain is touched, and the file is made before the keychain keeps the
-// token, so a write that fails leaves the keychain as it was.
+// token, so a write that fails leaves the keychain as it was. The keychain
+// keeps the token under ctx.
 func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 	if request.Place == Home && g.Where.HomeDir == "" {
 		return Written{}, ErrNoHome
@@ -112,7 +114,7 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 	}
 
 	if keychain {
-		err = g.keepInKeychain(path, request.Answers.Jira)
+		err = g.keepInKeychain(ctx, path, request.Answers.Jira)
 		if err != nil {
 			return Written{}, err
 		}
@@ -140,8 +142,8 @@ func (g Guide) keychainFor(request Request) (bool, error) {
 // address, which the file just made at path reads it from. The file goes
 // again when the keychain does not keep the token, so a failed setup leaves
 // neither behind.
-func (g Guide) keepInKeychain(path string, answered config.Jira) error {
-	_, err := Keep(g.StoreSecret, answered)
+func (g Guide) keepInKeychain(ctx context.Context, path string, answered config.Jira) error {
+	_, err := Keep(ctx, g.StoreSecret, answered)
 	if err != nil {
 		return errors.Join(err, os.Remove(path))
 	}

@@ -145,7 +145,7 @@ func setUpThroughTheInterface(t *testing.T, where place, jiraURL, logPath string
 
 	outcome := &firstRunOutcome{}
 	prompt := unusedPrompt(t)
-	prompt.StoreSecret = func(service, secret string) error {
+	prompt.StoreSecret = func(_ context.Context, service, secret string) error {
 		outcome.service, outcome.stored = service, secret
 
 		return nil
