@@ -139,12 +139,29 @@ type overlayProbe struct {
 }
 
 // probeOverlay opens the state's overlay and presses every moved key on it.
-// The screens are compared with their escapes, which is where a text field
-// draws its cursor.
 func probeOverlay(t *testing.T, state overlayState) overlayProbe {
 	t.Helper()
 
 	moved := movedKeys(t)
+	model, context := openedQuiet(t, state, moved)
+	unanswered, _ := model.Update(noKey())
+	found := overlayProbe{context: context, answered: nil}
+
+	for action, press := range moved {
+		if answers(model, press, unanswered) {
+			found.answered = append(found.answered, action)
+		}
+	}
+
+	return found
+}
+
+// openedQuiet is the state's overlay opened with every action moved, and the
+// key context it says it is in. A press nothing answers then clears any notice
+// the opening left, which a moving key would keep and any other key clear.
+func openedQuiet(t *testing.T, state overlayState, moved map[string]tea.KeyPressMsg) (tui.Model, tui.ListedKeyContext) {
+	t.Helper()
+
 	opened := stepping(t, state.start(t, moved), moved, state.steps...)
 
 	context, open := opened.OverlayKeyContext()
@@ -152,21 +169,20 @@ func probeOverlay(t *testing.T, state overlayState) overlayProbe {
 		t.Fatalf("no overlay is open after %v:\n%s", state.steps, plain(opened.View().Content))
 	}
 
-	// A press nothing answers first clears any notice the opening left, which
-	// a moving key would keep and any other key clear.
 	cleared, _ := opened.Update(noKey())
-	model := concrete(t, cleared)
-	unanswered, _ := model.Update(noKey())
-	found := overlayProbe{context: context, answered: nil}
 
-	for action, press := range moved {
-		pressed, cmd := model.Update(press)
-		if cmd != nil || pressed.View().Content != unanswered.View().Content {
-			found.answered = append(found.answered, action)
-		}
-	}
+	return concrete(t, cleared), context
+}
 
-	return found
+// answers reports that a press asks for something, or leaves a screen other
+// than unanswered, what a press nothing answers leaves. The screens are
+// compared with their escapes, which is where a text field draws its cursor,
+// and each is drawn as it is compared: a text area's copies share where it is
+// scrolled to, which the last one drawn sets.
+func answers(model tui.Model, press tea.KeyPressMsg, unanswered tea.Model) bool {
+	pressed, cmd := model.Update(press)
+
+	return cmd != nil || pressed.View().Content != unanswered.View().Content
 }
 
 // probeStates probes an overlay in each of its states.
