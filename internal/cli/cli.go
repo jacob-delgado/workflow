@@ -19,6 +19,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
@@ -112,11 +113,15 @@ SECURITY
 // each HTTP request and subprocess: a hung `doctor --online` or a slow git
 // command stops on the first Ctrl+C rather than needing a second, harder signal.
 // The interface puts the terminal in raw mode, where Ctrl+C arrives as a key
-// rather than a signal, so this does not fight Bubble Tea's own handling.
+// rather than a signal, so this does not fight Bubble Tea's own handling. Once
+// the last interface has quit, workflow waits, up to timing.request_timeout,
+// for the writes it left in flight; a Ctrl+C then, which the restored terminal
+// sends as SIGINT, or SIGTERM ends those writes and exits at once.
 func Execute(args []string, stdout, stderr io.Writer, prompt Prompt, env Environment) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	// stop cancels ctx as well as the signals' diversion, after the last
-	// interface has quit: whileOpen keeps a write it left running out of that.
+	// stop cancels ctx as well as the signals' diversion, once the last
+	// interface has quit and the writes it left in flight have landed or been
+	// given up on: whileOpen keeps a write still running out of that.
 	defer stop()
 
 	// The command tree carries no context; ctx reaches each command through
@@ -271,20 +276,25 @@ func inputFor(cmd *cobra.Command, conn connection, dryRun bool) interfaceInput {
 
 // runInterfaces opens the interface where conn is wired, and again wherever it
 // asks to switch to, until one ends by quitting. A switch that cannot be made
-// reopens the interface where it was, saying why, so it never exits.
+// reopens the interface where it was, saying why, so it never exits. Every
+// interface counts the writes it sends in one lifetime.InFlight, and once the
+// last has quit, runInterfaces waits for those still in flight to land: a
+// switch does not wait, and its writes are waited for at the quit.
 //
 // Trade-off TRADE-34: a switch ends one program and starts the next, wired
 // afresh, rather than rewiring the one running.
 func runInterfaces(cmd *cobra.Command, run RunInterface, conn connection, dryRun bool) error {
-	lifetime, closed := whileOpen(cmd.Context())
+	program, closed := whileOpen(cmd.Context())
 	defer closed()
 
+	writes := lifetime.NewInFlight(writesSettle)
+	program = lifetime.Counting(program, writes)
 	input := inputFor(cmd, conn, dryRun)
 
 	for {
-		next, err := openInterface(lifetime, run, input)
+		next, err := openInterface(program, run, input)
 		if err != nil || next.Dir == "" {
-			return err
+			return errors.Join(err, finishWrites(cmd, writes, requestTimeout(conn.cfg)))
 		}
 
 		moved, err := switchTo(cmd, conn, next.Dir)
@@ -302,12 +312,13 @@ func runInterfaces(cmd *cobra.Command, run RunInterface, conn connection, dryRun
 
 // whileOpen is the lifetime of the interfaces and of every write they send,
 // which tui.Run ends with it: ctx's values, ending when ctx does until closed
-// is called, and never after. A signal while an interface is open stops the
-// program and its writes, as it stops every command; Execute's own end, once
-// the last has quit, cancels ctx too, and must not cut a write still running.
+// is called, and never after. A signal while an interface is open, or while
+// workflow waits for its writes after the last has quit, stops the program
+// and its writes, as it stops every command; Execute's own end, once that
+// wait is over, cancels ctx too, and must not cut a write it gave up on.
 func whileOpen(ctx context.Context) (context.Context, func() bool) {
 	// Trade-off TRADE-38: a write the last interface left running goes on past
-	// its quit, and workflow exits without waiting for it.
+	// its quit, and workflow waits for it, up to timing.request_timeout.
 	lifetime, end := context.WithCancelCause(context.WithoutCancel(ctx))
 
 	return lifetime, context.AfterFunc(ctx, func() { end(context.Cause(ctx)) })
