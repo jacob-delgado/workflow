@@ -335,6 +335,11 @@ for its own address. A token the keychain will not keep saves nothing. To see
 or remove an item, use Keychain Access, or
 `security find-generic-password -s 'workflow-jira https://jira.example.com'`.
 
+workflow gives each run of `security` 30 seconds, whether it keeps a token or
+reads one. When the keychain is locked, macOS asks you to unlock it: answer
+within those 30 seconds, or the save or the read fails, and the next one asks
+again.
+
 Elsewhere workflow drives no keychain, and `jira.keychain` gives no token. On
 Linux, store the token once and point `token_command` at it by hand:
 
