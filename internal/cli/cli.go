@@ -115,6 +115,8 @@ SECURITY
 // rather than a signal, so this does not fight Bubble Tea's own handling.
 func Execute(args []string, stdout, stderr io.Writer, prompt Prompt, env Environment) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	// stop cancels ctx as well as the signals' diversion, after the last
+	// interface has quit: whileOpen keeps a write it left running out of that.
 	defer stop()
 
 	// The command tree carries no context; ctx reaches each command through
@@ -274,10 +276,13 @@ func inputFor(cmd *cobra.Command, conn connection, dryRun bool) interfaceInput {
 // Trade-off TRADE-34: a switch ends one program and starts the next, wired
 // afresh, rather than rewiring the one running.
 func runInterfaces(cmd *cobra.Command, run RunInterface, conn connection, dryRun bool) error {
+	lifetime, closed := whileOpen(cmd.Context())
+	defer closed()
+
 	input := inputFor(cmd, conn, dryRun)
 
 	for {
-		next, err := openInterface(cmd.Context(), run, input)
+		next, err := openInterface(lifetime, run, input)
 		if err != nil || next.Dir == "" {
 			return err
 		}
@@ -293,6 +298,19 @@ func runInterfaces(cmd *cobra.Command, run RunInterface, conn connection, dryRun
 		input = inputFor(cmd, conn, dryRun)
 		input.arrive = func(model tui.Model) tui.Model { return model.Arrived(next) }
 	}
+}
+
+// whileOpen is the lifetime of the interfaces and of every write they send,
+// which tui.Run ends with it: ctx's values, ending when ctx does until closed
+// is called, and never after. A signal while an interface is open stops the
+// program and its writes, as it stops every command; Execute's own end, once
+// the last has quit, cancels ctx too, and must not cut a write still running.
+func whileOpen(ctx context.Context) (context.Context, func() bool) {
+	// Trade-off TRADE-38: a write the last interface left running goes on past
+	// its quit, and workflow exits without waiting for it.
+	lifetime, end := context.WithCancelCause(context.WithoutCancel(ctx))
+
+	return lifetime, context.AfterFunc(ctx, func() { end(context.Cause(ctx)) })
 }
 
 // errKeysRefused is a directory whose ui.keys the interface would refuse.

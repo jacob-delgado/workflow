@@ -739,33 +739,41 @@ or stopping the server can.
 **Decided.** The terminal asks every system under one session context, set by
 `Model.WithContext` (`internal/tui/tui.go`), which `tui.Run` ends when the
 program does. Quitting (`q`, or `ctrl+c` from anywhere) or switching directory
-(TRADE-34) therefore stops every read the program left in flight, and no
-write: `New` hands each write seam the session's values but not its end
-(`outlasting`, `internal/tui/deps.go`), and ends it instead with the program's
-lifetime (`Model.WithLifetime`), the context `tui.Run` is given: the
-command's, which SIGINT or SIGTERM cancels. A quit or a switch stops reads
-alone; a signal stops everything, writes included, as it does on the command
-line. So a stage, a discard, a commit, a push, a change to an issue, a pull
-request or a task, a post, a settings save, a fetch, a record in the store, or
-a page opened in the browser is never cut off by a quit, as it was not before
-the session could end; one stopped midway could be left half made, git's index
-locked by an add killed while it held the lock. Leaving a view cancels
+(TRADE-34) therefore stops every read the program left in flight, and no write:
+`New` hands each write seam the session's values but not its end (`outlasting`,
+`internal/tui/deps.go`), and `Model.WithLifetime`, which `tui.Run` applies with
+the context it is given, ends the writes with that context instead. The command
+line gives it `whileOpen`'s (`internal/cli/cli.go`), which ends when SIGINT or
+SIGTERM cancels the command's context while an interface is open, and not when
+`Execute`'s deferred `stop` cancels that context on the way out, once the last
+interface has quit. Only a signal ends a write, then, as it ends every command;
+a quit or a switch stops reads alone. So a stage, a discard, a commit, a push,
+a change to an issue, a pull request or a task, a post, a settings save, a
+fetch, a record in the store, or a page opened in the browser is not cut off by
+a quit; one stopped midway could be left half made, git's index locked by an
+add killed while it held the lock. Before the seams took a context, a quit did
+cut one: each write closed over the command's context, which that deferred
+`stop` canceled as `Execute` returned after the quit, racing the process's
+exit, so a write still running was often killed. Leaving a view cancels
 nothing: a late answer is dropped by its read's count or view, as before, and
 canceling per view would mean a cancel handle on every view's state. Decided
 2026-10-09 by the maintainer in the pre-1.0 paydown, when each seam came to
-take its asker's context, for reads; on 2026-10-12 writes were kept out of it,
-as the approved outline had them ("Ctrl+C mid-write behaves as it does
-today"), still ending with the command's context, as before.
+take its asker's context, for reads. On 2026-10-12, in review, writes were kept
+out of it. The approved outline had Ctrl+C mid-write behave as it did; in the
+interface `ctrl+c` quits, and a quit, which on `main` cut a write still running
+as above, now leaves it to finish, while a signal stops one as before.
 
 **Cost.** A read for a view the user has left still spends its request to the
 tracker, the forge or Taskwarrior. Quitting cannot call off a slow write, and
-workflow exits once the interface closes without waiting for one: a program a
-write runs (git, Taskwarrior, lefthook, `gh` or `glab`) can run on after it,
-and one made over HTTP ends with the process, as before. A signal cancels the
-write's context as well, but workflow does not wait for its program to stop
-either. A write a pane sent just before a switch goes on in the directory
-left, and its outcome is not shown; the switch refuses only while an
-announcement or a change to a task is in flight.
+workflow exits once the last interface closes without waiting for one: a
+program a write runs (git, Taskwarrior, lefthook, `gh` or `glab`) runs on after
+workflow exits, and one made over HTTP ends with the process. A signal while an
+interface is open cancels the write's context, but workflow does not wait for
+its program to stop either; one that arrives after the last interface has quit
+finds workflow already exiting and ends no write. A write a pane sent just
+before a switch goes on in the directory left, and its outcome is not shown;
+the switch refuses only while an announcement or a change to a task is in
+flight.
 
 **Reopen when.** Such reads are found to crowd a rate limit, or a write is
 found left half made, or still running, after workflow exits.
