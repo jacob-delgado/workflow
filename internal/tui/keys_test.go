@@ -23,6 +23,7 @@ const (
 	editAction          = "edit"
 	applyAction         = "apply"
 	commitAction        = "commit"
+	pushAction          = "push"
 	postWhenGreenAction = "post-when-green"
 	toggleDraftAction   = "toggle-draft"
 	editBodyAction      = "edit-body"
@@ -117,13 +118,14 @@ func TestCheckKeysNamesTheMessagingPaneForNoParticularService(t *testing.T) {
 }
 
 // Each pane is a keyboard surface of its own: an action on one and an action
-// on another are never live at once, so one key may serve both.
+// on another are never live at once, on any surface that shows them apart, so
+// one key may serve both.
 func TestCheckKeysLetsTwoPanesShareAKey(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]map[string]string{
-		"merge on the Review pane onto post on the messaging pane":     {mergeAction: "p"},
-		"new-branch on the Branch pane onto stage on the Commits pane": {"new-branch": "space"},
+		"merge on the Review pane onto post on the messaging pane":        {mergeAction: "p"},
+		"sort-tasks on the Tasks pane onto new-branch on the Branch pane": {"sort-tasks": "b"},
 	}
 
 	for name, rebound := range cases {
@@ -137,6 +139,31 @@ func TestCheckKeysLetsTwoPanesShareAKey(t *testing.T) {
 				t.Errorf("CheckKeys(%v) = %v, want the two panes' actions free to share a key", rebound, err)
 			}
 		})
+	}
+}
+
+// The web page shows the Commits pane inside its Branch section and answers a
+// key with the first control on screen bound to it, so there a key the two
+// panes share would run whichever came first.
+func TestCheckKeysRefusesAKeyTwoPanesTheWebShowsTogetherShare(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// P is the Branch pane's push.
+	colliding := map[string]string{commitAction: "P"}
+
+	// Act
+	err := tui.CheckKeys(colliding)
+
+	// Assert
+	if !errors.Is(err, config.ErrKeyConflict) {
+		t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConflict", colliding, err)
+	}
+
+	for _, named := range []string{pushAction, commitAction, "the Branch and Commits panes"} {
+		if got := err.Error(); !strings.Contains(got, named) {
+			t.Errorf("CheckKeys error %q does not name %s", got, named)
+		}
 	}
 }
 
@@ -155,7 +182,7 @@ func TestCheckKeysCatchesConflictsOnCrossPaneKeys(t *testing.T) {
 	}{
 		{"rebase onto refresh, Branch pane", map[string]string{"rebase": "r"}, refreshAction},
 		{"commit onto refresh, Commits pane", map[string]string{"commit": "r"}, refreshAction},
-		{"refresh onto push, Branch pane", map[string]string{refreshAction: "P"}, "push"},
+		{"refresh onto push, Branch pane", map[string]string{refreshAction: "P"}, pushAction},
 		{"checks onto open-link, Review pane", map[string]string{"checks": "o"}, openLinkAction},
 		{"merge onto refresh, Review pane", map[string]string{mergeAction: "r"}, refreshAction},
 		{"rerun onto copy-link, Review pane", map[string]string{"rerun-checks": "y"}, "copy-link"},
