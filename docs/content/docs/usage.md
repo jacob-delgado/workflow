@@ -681,7 +681,9 @@ whose own task is already started, and nothing is offered before Taskwarrior
 has answered, or without it. Until the read after a done answers, the task
 just marked done is offered nothing — no start, no note, no done again — and
 is not counted as started, so a switch made meanwhile stops nothing on its
-account. An offer that comes while something else is being
+account. An offer for its issue goes to another task that still tracks the
+issue, where one does, and otherwise nothing is offered, not even a new track.
+An offer that comes while something else is being
 asked — the status picker after a new branch, the link and review-status offers
 after a pull request — opens once that closes. Starting a task runs
 Taskwarrior's hooks, as `task start` in a shell does, so a Timewarrior hook
