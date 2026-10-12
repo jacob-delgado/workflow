@@ -31,6 +31,12 @@ func controlPlanePod() loop.SlackTarget {
 	return loop.SlackTarget{ID: "S0CP", Label: "control-plane-pod"}
 }
 
+// podAsAUser is the control-plane pod's label on a user's ID, which no post
+// can tag as a group.
+func podAsAUser() loop.SlackTarget {
+	return loop.SlackTarget{ID: "U0CP", Label: controlPlanePod().Label}
+}
+
 // apiReviewers is a user group the repository may tag, linked to no team.
 func apiReviewers() loop.SlackTarget { return loop.SlackTarget{ID: "S0API", Label: "api-reviewers"} }
 
@@ -164,6 +170,25 @@ func TestProposeTagsPreChecksTheLastChoiceAndTheOwningTeamsGroups(t *testing.T) 
 	}
 }
 
+func TestProposeTagsOffersNoRepositoryGroupWhoseIDIsNotAGroups(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A user's ID among the repository's groups, as a store that let one
+	// through would hand it on: no post can tag it as a group.
+	repoGroups := []loop.SlackTarget{apiReviewers(), podAsAUser()}
+	last := []string{podAsAUser().ID}
+
+	// Act
+	tags := loop.ProposeTags(codeowners.Owners{}, nil, repoGroups, last, true, messaging.MomentReady)
+
+	// Assert
+	want := []loop.GroupTag{{Slack: apiReviewers(), Checked: false, FromOwners: false}}
+	if !reflect.DeepEqual(tags.Groups, want) {
+		t.Errorf("Groups = %+v, want only api-reviewers: an ID not a group's is no group to offer", tags.Groups)
+	}
+}
+
 func TestOnlyTheReadyForReviewAnnouncementTagsAnyone(t *testing.T) {
 	t.Parallel()
 
@@ -279,7 +304,7 @@ func TestProposedLeavesOutAnIDNotShapedLikeItsKind(t *testing.T) {
 			person: loop.SlackTarget{ID: "S0ANA", Label: slackAna().Label}, group: controlPlanePod(), want: "cc <!subteam^S0CP>",
 		},
 		"a group's": {
-			person: slackAna(), group: loop.SlackTarget{ID: "U0CP", Label: "control-plane-pod"}, want: "cc <@U0ANA>",
+			person: slackAna(), group: podAsAUser(), want: "cc <@U0ANA>",
 		},
 	}
 
