@@ -686,3 +686,21 @@ are not part of the cost: their tests pass `windows` on Linux.
 past the files and the branches named here, or the project adds a feature only
 Windows has, such as the job object `pgroup.Isolate` would need (FEAT-73 in
 `FEATURES.md`).
+
+### TRADE-36 The stat of a file just opened is taken not to fail
+
+**Decided.** `readTrusted` (`internal/config/layers.go`) asks `file.Stat()`
+of the configuration file `readLayer` has just opened, so the owner and mode
+it holds to `refuseUntrusted` are those of the file it goes on to read. A stat
+by path would look the file up again, and a file swapped in between would be
+checked in place of the one read. A stat of a descriptor the process holds
+open fails only for a fault no test can cause without a seam to fake the file,
+so its error arm keeps no test; it stays, so such a failure is reported rather
+than read past. Decided 2026-10-09 by the maintainer in the pre-1.0 paydown,
+when the condition coverage gate came to fail an arm no test reaches.
+
+**Cost.** One arm no test runs: what a configuration file whose stat fails
+says is read, not checked.
+
+**Reopen when.** A stat failure is reported, or the trust check moves to a
+path.
