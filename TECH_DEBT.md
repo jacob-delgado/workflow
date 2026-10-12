@@ -82,50 +82,6 @@ nothing in this file says what they are. The entries below contain nothing
 that helps anyone misuse a credential, a terminal, a file on disk, the
 loopback server or a release.
 
-## The gates, the build and the tests
-
-### DEBT-239 Pay down TRADE-19: the gate fails a never-run condition or an unseen error arm
-
-Severity: medium · Confidence: measured · Size: L
-
-**Where.** `scripts/gobco-report.sh` (the TRADE-19 site, where it prints
-gobco's per-condition worklist), `BRANCH_COVERAGE_MIN` (`Taskfile.yml`),
-TRADE-19; among the gaps: `jiraOnly` (`internal/wiring/tracker.go`),
-`asMessagingError` (`internal/wiring/messaging.go`), `ask`'s failed connection
-(`internal/wiring/forge.go`), `Create` and `createPrivate`
-(`internal/config/save.go`), `Keepable` (`internal/setup/setup.go`),
-`branchCreator.pasted` (`internal/tui/branchcreator.go`),
-`commitComposer.pasted` (`internal/tui/composer.go`), `statusPicker.pasted`
-(`internal/tui/fields.go`), `commentDrafts.keeping`
-(`internal/tui/commentcomposer.go`), and `keptWithin` through
-`pruneSlackEntities` (`internal/store/kept.go`).
-
-**Today.** TRADE-19's triggers have fired: the measured share is 91.4% against
-a floor of 91%, already lowered from 92 in #166, and its premise is false. It
-says 280 conditions are seen one way, "none of them an `err != nil` or a
-condition that never ran"; the report at `b9ab000` lists 967, 262 of them `err
-!= nil` and 73 never evaluated (36 in `internal/tui`, about 45 conditions in
-`internal/wiring` against the four it records). Among them: the guard that
-keeps a Jira-only write off a forge key, the classification of Slack
-credential failures, the paste handlers of the branch creator, the commit
-composer and a transition's text field, and replacing a comment draft. The
-worklist-only policy gives no signal when a change adds an untested error arm,
-so the share erodes one arm at a time.
-
-**Fix.** Have `gobco-report.sh` fail on any never-evaluated condition and any
-`err != nil` never seen true, unless its file and function are in a checked-in
-`scripts/gobco-allowlist.txt`, one line per arm a TRADE entry keeps, with its
-ID (checked by `check-tradeoffs.sh`). Seed it from the arms TRADE-13,
-TRADE-14, TRADE-16 and TRADE-18 keep after their paydowns, and write tests for
-the rest, starting with the never-evaluated ones. Raise `BRANCH_COVERAGE_MIN`
-to floor(measured) − 2 once paid. Rewrite TRADE-19 to cover only
-boolean-domain conditions seen one way, with counts the gate prints rather
-than prose. CLAUDE.md's "a worklist of missing test cases, not a percentage to
-chase" then names the allowlist as the exception list.
-
-**Done when.** The gate fails a new untested `err != nil` arm, and the
-measured share is at least two points above the floor.
-
 ## The trade-off register
 
 These were chosen on purpose. They are not debt; they are listed because each
@@ -150,11 +106,11 @@ interface came to take its input from the caller, so a test drives it; their
 entries are gone. TRADE-18 was paid down to one condition, when every command
 came to take its working directory from its caller, then widened to a second,
 when the interface came to read keys from the terminal past a piped input, and
-stays. TRADE-19 is to be paid down by the entry above whose title names it,
-and stays here until that entry is paid. In the pre-1.0 paydown every entry
-that stays was checked against the code again: each names the functions and
-files it keeps rather than lines, which drift, and the register is in ID
-order.
+stays. TRADE-19 was narrowed to the conditions the report lists without
+failing, when the gate came to fail an arm no test reached (DEBT-239), and
+stays. In the pre-1.0 paydown every entry that stays was checked against the
+code again: each names the functions and files it keeps rather than lines,
+which drift, and the register is in ID order.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
@@ -380,38 +336,30 @@ untested.
 stops reaching either condition, or gobco comes to count what a child process
 runs.
 
-### TRADE-19 The rest of the condition report stays gobco's worklist
+### TRADE-19 A condition the gate does not fail stays the report's worklist
 
-Besides the conditions the entries above keep, `task cover:branch` lists 280
-seen only one way, none of them an `err != nil` or a condition that never
-ran. Six of them still check an error, spelled another way: the `err == nil`
-after a pull request's reviews read (`githubReviewState`,
-`internal/forge/github.go`), GitLab's approvals read and re-run
-(`gitlabReviewState` and `gitlabRerun`, `internal/forge/gitlab.go`), a
-link's parse (`isWebURL`, `internal/messaging/announcement.go`) and a
-further page of issues (`issueList.settle`, `internal/tui/issues.go`), none
-of them ever seen false, and the `errors.Is` asking whether the web's issue
-read failed for want of a repository (`server.GetIssue`,
-`internal/webserver/handlers.go`), never seen true. They stay out of this
-file: the report is their list, printed on every run, and CLAUDE.md already
-reads it as "a worklist of missing test cases, not a percentage to chase",
-so a test for one is written when the code around it next changes, and
-`BRANCH_COVERAGE_MIN` keeps the share from falling. By package, measured on
-macOS on 2026-09-27: `internal/tui` 152, `internal/forge` 19,
-`internal/testshape` 13, `internal/gitrepo` 11, `internal/config` and
-`internal/tui/frame` 10 each, `internal/cli` and `internal/messaging` 9
-each, `internal/convention` and `internal/hooks` 8 each,
-`internal/webserver` 6, `internal/buildinfo`, `internal/editor` and
-`internal/store` 5 each, `internal/wiring` 4, `internal/jira` 3,
-`internal/sanitize` 2 and `internal/tui/layout` 1.
+`task cover:branch` fails on a condition no test evaluated and on an error
+check whose error arm no test reached, an error check being one it can tell
+by its name (`err`, `closeErr`, `err2`, `errParse` or `ctx.Err()` compared
+with `nil`), unless `scripts/gobco-allowlist.txt` keeps the arm for an entry
+here. Every other condition seen only one way, a boolean, a comparison, an
+`errors.Is` or an `ok`, is listed by the report, by file, line and how many
+times it was seen each way, on every run, and fails nothing. They stay out of
+this file and out of the allowlist: CLAUDE.md reads that list as "a worklist
+of missing test cases, not a percentage to chase", so a test for one is
+written when the code around it next changes, and `BRANCH_COVERAGE_MIN` and
+the package floors in `scripts/gobco-floors.txt` keep the share from falling.
+How many there are is the report's to say, not this entry's.
 
-**Decided.** 2026-09-26, in #146, which gave every condition that never
-ran and every `err != nil` seen one way a test or an entry above, and left
-the rest to the report.
+**Decided.** 2026-09-26, in #146, which gave every condition that never ran
+and every `err != nil` seen one way a test or an entry above, and left the
+rest to the report; narrowed in the pre-1.0 paydown (DEBT-239) to the
+conditions the gate does not fail, once it came to fail the others.
 
-**Cost.** A change that breaks one of those conditions' unseen arms fails
-no test, and the floor notices only when enough of them add up to move
-the share.
+**Cost.** A change that breaks one of those conditions' unseen arms fails no
+test, and the floors notice only when enough of them add up to move a share;
+an error check under a name the gate does not read, or one held in a variable
+first, is read as a boolean.
 
 **Reopen when.** The measured figure comes within one point of
 `BRANCH_COVERAGE_MIN`, or a defect ships through a condition the report
