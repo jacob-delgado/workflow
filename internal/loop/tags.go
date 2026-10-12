@@ -162,36 +162,68 @@ func (t Tags) Mentions(checkedGroupIDs []string) (messaging.Mentions, error) {
 	return messaging.NewMentions(users, checkedGroupIDs)
 }
 
-// Proposed is the tags as proposed, with no one's choice changed: the linked
-// user owners, and the groups that start checked. An ID not shaped like its
-// kind is left out, where Mentions refuses the lot: a proposal posted as it
-// stands has no one to ask about it.
-func (t Tags) Proposed() messaging.Mentions {
+// Proposed is the tags as a post sends them with no one's choice changed, and
+// the mentions that post carries: the linked user owners, and the groups that
+// start checked. An owner linked to an ID not shaped like its kind reads as
+// unlinked, as ProposeTags reads such a link, and a group whose ID is not a
+// group's starts unchecked, so the tags it answers name no one the mentions
+// leave out, and a surface says of that owner that it was not tagged.
+func (t Tags) Proposed() (Tags, messaging.Mentions) {
+	proposed := Tags{Owners: make([]OwnerTag, 0, len(t.Owners)), Groups: make([]GroupTag, 0, len(t.Groups))}
+
 	var mentions messaging.Mentions
 
 	for _, owner := range t.Owners {
-		if owner.Team || owner.State != OwnerLinked {
-			continue
-		}
-
-		user, err := messaging.ParseSlackUser(owner.Slack.ID)
-		if err == nil {
+		owner, user, tagged := proposedOwner(owner)
+		if tagged {
 			mentions.Users = append(mentions.Users, user)
 		}
+
+		proposed.Owners = append(proposed.Owners, owner)
 	}
 
 	for _, group := range t.Groups {
-		if !group.Checked {
-			continue
-		}
-
 		id, err := messaging.ParseSlackGroup(group.Slack.ID)
-		if err == nil {
+		group.Checked = group.Checked && err == nil
+
+		if group.Checked {
 			mentions.Groups = append(mentions.Groups, id)
 		}
+
+		proposed.Groups = append(proposed.Groups, group)
 	}
 
-	return mentions
+	return proposed, mentions
+}
+
+// proposedOwner is owner as a post sends them, and the user it tags them as,
+// when it tags them by name: a linked user does, and a linked team only
+// through its group. A link to an ID not shaped like the owner's kind reads
+// as none.
+func proposedOwner(owner OwnerTag) (OwnerTag, messaging.SlackUserID, bool) {
+	if owner.State != OwnerLinked {
+		return owner, messaging.SlackUserID{}, false
+	}
+
+	if owner.Team {
+		if !fitsOwner(owner.Slack.ID, true) {
+			return unlinkedOwner(owner), messaging.SlackUserID{}, false
+		}
+
+		return owner, messaging.SlackUserID{}, false
+	}
+
+	user, err := messaging.ParseSlackUser(owner.Slack.ID)
+	if err != nil {
+		return unlinkedOwner(owner), messaging.SlackUserID{}, false
+	}
+
+	return owner, user, true
+}
+
+// unlinkedOwner is owner with no link.
+func unlinkedOwner(owner OwnerTag) OwnerTag {
+	return OwnerTag{Owner: owner.Owner, Team: owner.Team, State: OwnerUnlinked, Slack: SlackTarget{}}
 }
 
 // SameOwner reports whether two forge owner names name the same user or team:
