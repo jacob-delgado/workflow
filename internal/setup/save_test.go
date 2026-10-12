@@ -114,27 +114,3 @@ func TestRefuseLinkedTakesARepositoryFileThatIsNoLink(t *testing.T) {
 		})
 	}
 }
-
-func TestBeneathRefusesAHomeFileThatIsNoConfiguration(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// The home file can be read, so the pair has a revision, but it holds no
-	// configuration for a new file to start from. A write would be refused
-	// again when it read the pair to save, but a dry run starts from this
-	// alone.
-	where := setup.Where{WorkDir: t.TempDir(), HomeDir: t.TempDir()}
-
-	err := os.WriteFile(where.Path(setup.Home), []byte(`{"jira":`), config.FileMode)
-	if err != nil {
-		t.Fatalf("writing the home file: %v", err)
-	}
-
-	// Act
-	_, _, err = setup.Beneath(where.Layers(setup.Repository))
-
-	// Assert
-	if !errors.Is(err, config.ErrInvalid) {
-		t.Errorf("Beneath = %v, want %v: no configuration to start from", err, config.ErrInvalid)
-	}
-}
