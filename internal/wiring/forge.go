@@ -27,16 +27,16 @@ type forgeConnection struct {
 }
 
 // forgeSetup is what connecting to the forge reads: the configuration's say, the
-// workspace whose origin names the repository, the HTTP transport every service
-// shares, and the log that records each request.
+// workspace whose origin names the repository, how its requests travel, and
+// the log that records each request.
 type forgeSetup struct {
 	// settings are the forge settings in effect now, which the web's Settings
 	// may have replaced since workflow started.
-	settings      func() config.Forge
-	where         Workspace
-	httpTransport httpx.Doer
-	log           *RequestLog
-	env           Environment
+	settings func() config.Forge
+	where    Workspace
+	requests Requests
+	log      *RequestLog
+	env      Environment
 }
 
 // forgeDeps is what a surface asks of GitHub or GitLab, each seam reaching
@@ -383,7 +383,7 @@ func connectForge(ctx context.Context, setup forgeSetup, settings config.Forge) 
 		return forgeConnection{}, fmt.Errorf("%s — set forge.kind and forge.host: %w", repo.Host, err)
 	}
 
-	access, err := setup.env.ReachForge(ctx, settings, repo, base, setup.httpTransport)
+	access, err := setup.env.ReachForge(ctx, settings, repo, base, setup.requests)
 	if err != nil {
 		return forgeConnection{}, err
 	}
@@ -407,17 +407,26 @@ type ForgeAccess struct {
 	Via string
 }
 
+// Requests is how a forge's requests travel and how long each may take: over
+// HTTP, the redirect-refusing client the caller built with
+// httpx.Client(Timeout), unless the forge's CLI carries them, when Timeout
+// bounds each run of it. A Timeout that is not positive leaves a run of the
+// CLI unbounded, as proc.CaptureWithin does.
+type Requests struct {
+	HTTP    httpx.Doer
+	Timeout time.Duration
+}
+
 // ReachForge chooses how requests reach repo's forge at base, and finds the
 // credential they carry: through the forge's CLI when forge.cli routes them
-// there, and otherwise over httpTransport, the redirect-refusing client the
-// caller built with httpx.Client. A forge reached through its CLI needs no
-// token, since the CLI signs every request with the login it already holds.
-// The commands and doctor --online both reach the forge through here, so the
-// two cannot come to reach it differently.
+// there, and otherwise over requests' HTTP client. A forge reached through
+// its CLI needs no token, since the CLI signs every request with the login it
+// already holds. The commands and doctor --online both reach the forge
+// through here, so the two cannot come to reach it differently.
 func (e Environment) ReachForge(
-	ctx context.Context, settings config.Forge, repo forge.Repo, base string, httpTransport httpx.Doer,
+	ctx context.Context, settings config.Forge, repo forge.Repo, base string, requests Requests,
 ) (ForgeAccess, error) {
-	transport, usingCLI := e.forgeTransport(settings, repo, base, httpTransport)
+	transport, usingCLI := e.forgeTransport(settings, repo, base, requests)
 	if usingCLI {
 		program, _ := forgeProgram(repo.Kind)
 

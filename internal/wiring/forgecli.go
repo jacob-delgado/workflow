@@ -11,30 +11,38 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // forgeTransport chooses how forge requests travel: through the forge's own CLI
-// when forge.cli asks for it and the tool is installed, and otherwise over HTTP.
-// The bool reports that the CLI was chosen, so the caller knows the request
-// carries its own authentication and no token is required.
+// when forge.cli asks for it and the tool is installed, each bounded by
+// requests' timeout, and otherwise over requests' HTTP client. The bool
+// reports that the CLI was chosen, so the caller knows the request carries its
+// own authentication and no token is required.
 func (e Environment) forgeTransport(
-	settings config.Forge, repo forge.Repo, base string, httpTransport httpx.Doer,
+	settings config.Forge, repo forge.Repo, base string, requests Requests,
 ) (forge.Doer, bool) {
 	if !settings.CLI {
-		return httpTransport, false
+		return requests.HTTP, false
 	}
 
 	program, ok := forgeProgram(repo.Kind)
 	if !ok || !e.Available(program) {
-		return httpTransport, false
+		return requests.HTTP, false
 	}
 
-	return forgeCLIDoer(e.capture, program, base, repo.Kind), true
+	return forgeCLIDoer(e.captureWithin(requests.Timeout), program, base, repo.Kind), true
+}
+
+// captureWithin is capture bounded by timeout.
+func (e Environment) captureWithin(timeout time.Duration) forgeCapture {
+	return func(ctx context.Context, program proc.Command, input []byte) ([]byte, error) {
+		return e.CaptureWithin(ctx, timeout, program, input)
+	}
 }
 
 // cliToken stands in for the forge client's token when the CLI carries the
@@ -66,8 +74,11 @@ func forgeProgram(kind forge.Kind) (string, bool) {
 // of net/http, so the login the shell already holds — which an SSO gateway may
 // require — carries the request. The command is asked to include the response
 // headers, which parse straight back into the HTTP response the forge client
-// reads. It runs under the request's own context, as net/http would: the
-// transport outlives the call that chose it, kept with its connection.
+// reads. It runs under the request's own context, as net/http would, and
+// capture bounds it as the HTTP client bounds a request: the transport
+// outlives the call that chose it, kept with its connection. The CLI hands
+// back its answer whole, a job log's too, so the bound is on the whole
+// request, where over HTTP a log is bounded part by part.
 func forgeCLIDoer(capture forgeCapture, program, base string, kind forge.Kind) forge.Doer {
 	return func(request *http.Request) (*http.Response, error) {
 		body, err := requestBody(request)
