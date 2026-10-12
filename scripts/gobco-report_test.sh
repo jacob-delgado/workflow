@@ -21,7 +21,8 @@
 #
 # The stand-in gobco says which package or file it measured, writes
 # GOBCO_STUB_STATS to the file after -stats, or nothing when that is empty,
-# ignores its other flags, and fails as gobco does on a package it cannot read
+# or no condition at all for the package GOBCO_STUB_EMPTY names, ignores its
+# other flags, and fails as gobco does on a package it cannot read
 # when its package or file is GOBCO_STUB_UNREADABLE. A go
 # ahead of the real one answers `go version -m`, which cannot read a script,
 # with the Go this project builds with or GO_STUB_BUILT_BY, and adds
@@ -57,9 +58,13 @@ if [[ -n "${GOBCO_STUB_UNREADABLE:-}" && "${package}" == "${GOBCO_STUB_UNREADABL
   exit 1
 fi
 echo "gobco: measured ${package}"
+stats="${GOBCO_STUB_STATS:-}"
+if [[ "${package}" == "${GOBCO_STUB_EMPTY:-}" ]]; then
+  stats='[]'
+fi
 while (($# > 0)); do
-  if [[ "$1" == "-stats" && -n "${GOBCO_STUB_STATS:-}" ]]; then
-    printf '%s\n' "${GOBCO_STUB_STATS}" >"$2"
+  if [[ "$1" == "-stats" && -n "${stats}" ]]; then
+    printf '%s\n' "${stats}" >"$2"
   fi
   shift
 done
@@ -298,6 +303,17 @@ GOBCO_FLOORS="${at}" expect pass "a package at its own floor" "${one_way}" "" \
 unexplained="$(floors unexplained "internal/buildinfo 50")"
 GOBCO_FLOORS="${unexplained}" expect fail "a floor without a reason" "${one_way}" "" \
   "${unexplained}:1: internal/buildinfo has no # comment above it saying why" --package "${buildinfo}" 50
+
+# A package that holds no condition has no share to hold to a floor.
+sanitize="${module}/internal/sanitize"
+empty="$(floors empty "# sanitize is consequential" "internal/sanitize 90")"
+GOBCO_STUB_EMPTY=./internal/sanitize GOBCO_FLOORS="${empty}" expect fail "a floor for a package with no condition" \
+  "${one_way}" "" "${empty}:2: internal/sanitize has no condition to measure; a floor for it holds nothing" \
+  --package "${buildinfo}" --package "${sanitize}" 50
+
+# Nor does a run whose packages hold none.
+expect fail "a run that measured no condition" "[]" "" \
+  "The packages measured hold no condition" --package "${buildinfo}" 50
 
 # A floors file that is not there holds no package to its floor, which must
 # not pass for one whose packages all hold to theirs.
