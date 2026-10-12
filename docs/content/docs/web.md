@@ -24,7 +24,9 @@ loopback interface alone, on port 13579 unless `--port` names another (1 to
 65535; `--port` goes only with `--web`), and refuses a write from a page
 served anywhere else, so a site open in another tab cannot drive it; nor can
 a site show the page inside one of its own. `ctrl+c` in the terminal stops
-it.
+it. Closing or reloading a page stops what the server was still reading for
+that page alone; a change the page asked for goes on to its end, unless
+`ctrl+c` stops the server first.
 
 **The session.** Each run makes a session as it starts, and only a request
 that presents it is answered, so another program or another account on the
