@@ -366,12 +366,16 @@ changes, and two floors keep the share seen from falling: `BRANCH_COVERAGE_MIN`
 in `Taskfile.yml` for the module, and `scripts/gobco-floors.txt` for each
 package it names.
 
-Measured on Linux at `f18be548` on 2026-10-12, as the dev user, not root: of
-6,163 conditions, 5,631 were seen both ways and 532 one way, and none never ran,
-so 11,794 of 12,326 arms were seen, 95.7% against `BRANCH_COVERAGE_MIN` 93. Of
-the 532, the allowlist keeps 29 error arms for TRADE-13, TRADE-14, TRADE-16 and
-TRADE-36 (a 30th line, TRADE-18's, holds only on macOS), and the other 503 are
-the worklist this entry keeps.
+Measured on Linux on 2026-10-12, as the dev user, not root, over the code as
+the commit that last wrote these figures has it: of 6,176 conditions, 5,645
+were seen both ways and 531 one way, and none never ran, so 11,821 of 12,352
+arms were seen, 95.7% against `BRANCH_COVERAGE_MIN` 93. Of the 531, the
+allowlist keeps 29 error arms for TRADE-13, TRADE-14, TRADE-16 and TRADE-36 (a
+30th line, TRADE-18's, holds only on macOS), and the other 502 are the
+worklist this entry keeps. Two runs of the same code can differ by an arm or
+two: gobco's counters are plain increments, which a package's parallel tests
+can lose (`scripts/gobco-report.sh` says so), and two runs of the same
+`internal/config` code, this one and CI's, saw 500 and 501 of its 520 arms.
 
 **Decided.** 2026-09-26, in #146, which gave every condition that never ran and
 every `err != nil` seen one way a test or an entry above, and left the rest to
