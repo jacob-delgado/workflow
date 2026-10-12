@@ -97,6 +97,43 @@ func TestServeReturnsOnlyOnceARequestInFlightIsAnswered(t *testing.T) {
 	}
 }
 
+// endsWithin is how long a context the server ends is given to be seen ended:
+// one it never ends is never seen, so the bound only has to outlast a busy
+// machine.
+const endsWithin = 2 * time.Second
+
+// An open event stream never goes idle, so a request in flight that went on
+// past the server's stop would hold the drain for the whole grace.
+func TestServeEndsTheContextOfARequestInFlightWhenItStops(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	ctx, cancel := context.WithCancel(t.Context())
+	entered, ended := make(chan struct{}), make(chan struct{})
+	handler := http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		close(entered)
+		<-request.Context().Done()
+		close(ended)
+	})
+	listener := listen(t)
+
+	go func() { _ = webserver.Serve(ctx, listener, handler) }()
+
+	go askOnce(t, "http://"+listener.Addr().String()+"/")
+
+	<-entered
+
+	// Act
+	cancel()
+
+	// Assert
+	select {
+	case <-ended:
+	case <-time.After(endsWithin):
+		t.Fatal("the request in flight's context did not end when the server stopped")
+	}
+}
+
 // askOnce sends one GET to url and reads the answer whole, whatever it is: the
 // server's drain, not the answer, is what the caller looks at.
 func askOnce(t *testing.T, url string) {

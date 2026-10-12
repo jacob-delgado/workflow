@@ -301,14 +301,18 @@ const readHeaderTimeout = 10 * time.Second
 // context is canceled before the listener is closed.
 const shutdownGrace = 5 * time.Second
 
-// Serve runs handler on listener until ctx is canceled, then drains in-flight
-// requests within shutdownGrace and returns. A clean shutdown is not an error.
-// The caller binds the listener, so it can say where the server is only once
-// the port is truly its own.
+// Serve runs handler on listener until ctx is canceled, then ends the context
+// of every request in flight, drains them within shutdownGrace and returns. A
+// clean shutdown is not an error. The caller binds the listener, so it can say
+// where the server is only once the port is truly its own.
 func Serve(ctx context.Context, listener net.Listener, handler http.Handler) error {
+	// Each request's context derives from ctx, so a request in flight, an open
+	// event stream above all, ends when the server stops rather than holding
+	// the drain for the whole grace.
 	srv := &http.Server{
 		Handler:           handler,
 		ReadHeaderTimeout: readHeaderTimeout,
+		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
 
 	// context.AfterFunc runs the shutdown on the context package's own goroutine
