@@ -96,24 +96,46 @@ that entry's reopen trigger has fired. `scripts/check-tradeoffs.sh`, in `task
 lint`, fails an entry missing its ID or one of its three fields, and a site
 comment naming an ID the register does not hold.
 
-The pre-1.0 audit re-judged every entry on 2026-10-07. TRADE-3, TRADE-4,
-TRADE-5, TRADE-8, TRADE-9, TRADE-11, TRADE-13, TRADE-14, TRADE-24, TRADE-25,
-TRADE-26 and TRADE-30 to TRADE-34 were kept and rewritten to what is true at
-`b9ab000`. TRADE-16 was paid down to the two calls it now names, and
-TRADE-21 and TRADE-28 to two copies held to one shared case file, and each
-stays. TRADE-10, TRADE-23 and TRADE-29, the rules the web wrote a second
-time, were paid down when the server took them over, and their entries are
-gone. TRADE-6 was paid down when the composers, the calendar and the pane
-switch came to move around one field ring, and TRADE-12 when the terminal
-interface came to take its input from the caller, so a test drives it; their
-entries are gone. TRADE-18 was paid down to one condition, when every command
-came to take its working directory from its caller, then widened to a second,
-when the interface came to read keys from the terminal past a piped input, and
-stays. TRADE-19 was narrowed to the conditions the report lists without
-failing, when the gate came to fail an arm no test reached (DEBT-239), and
-stays. In the pre-1.0 paydown every entry that stays was checked against the
-code again: each names the functions and files it keeps rather than lines,
-which drift, and the register is in ID order.
+The pre-1.0 audit re-judged every entry on 2026-10-07, and the pre-1.0
+paydown settled each:
+
+- **Kept.** TRADE-3, TRADE-4, TRADE-5, TRADE-8, TRADE-9, TRADE-11, TRADE-13,
+  TRADE-14, TRADE-24, TRADE-25, TRADE-26 and TRADE-30 to TRADE-34 were kept
+  and rewritten to what is true at `b9ab000`. TRADE-14 was then widened to the
+  web app the binary embeds, when the condition coverage gate came to fail an
+  arm no test reaches.
+- **Paid down, and gone.** TRADE-10, TRADE-23 and TRADE-29, the rules the web
+  wrote a second time, were paid down when the server took them over. TRADE-6
+  was paid down when the composers, the calendar and the pane switch came to
+  move around one field ring, and TRADE-12 when the terminal interface came to
+  take its input from the caller, so a test drives it. TRADE-1 was paid down
+  when the packages written a file per concern came to answer to a cohesive
+  ceiling rather than to zero headroom; TRADE-2 when every test file past 700
+  lines was split and the gate came to refuse one; TRADE-7, which the audit
+  kept, when two more packages of build-tagged twins fired its trigger and the
+  condition report came to read every package; TRADE-15 when the store came to
+  open its driver without a lookup that can fail; TRADE-17 when the keychain
+  placement of the Slack credentials came to take its platform and runner from
+  its caller, so a test reaches it; TRADE-20 when `Assets` came to panic on a
+  build defect rather than return an error, a panic TRADE-14 now keeps; and
+  TRADE-22 when the Slack refresh lock came to be one the operating system
+  holds. Their entries are gone.
+- **Paid down in part, and stays.** TRADE-16 was paid down to the two calls it
+  now names, and TRADE-21 and TRADE-28 to two copies held to one shared case
+  file. TRADE-18 was paid down to one condition, when every command came to
+  take its working directory from its caller, then widened to a second, when
+  the interface came to read keys from the terminal past a piped input.
+  TRADE-19 was narrowed to the conditions the report lists without failing,
+  when the gate came to fail an arm no test reached (DEBT-239).
+- **Added.** The paydown added TRADE-35 to TRADE-38, each decided by the
+  maintainer as it went: code only another system runs is never run in CI
+  (TRADE-35), the stat of a file just opened is taken not to fail (TRADE-36),
+  a web write outlasts its page (TRADE-37), and the terminal stops its reads
+  on quit, not on leaving a view (TRADE-38).
+
+In the pre-1.0 paydown every entry that stays was checked against the code
+again: each names the functions and files it keeps rather than lines, which
+drift, and the register is in ID order.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
 in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
