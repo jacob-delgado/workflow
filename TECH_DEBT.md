@@ -619,33 +619,43 @@ Windows build holds is compiled on every change, but no job runs it. Decided
 2026-10-09 by the maintainer in the pre-1.0 paydown (#232): CI stays on
 Linux, and the cost is recorded here.
 
-**Cost.** Five files are Windows-only, and two functions have a branch only
-Windows takes, each marked with this entry's ID:
+**Cost.** Five files are Windows-only, and four functions have a branch or a
+value only Windows takes, each marked with this entry's ID:
 `internal/filelock/lock_windows.go` (`//go:build windows`), the `LockFileEx`
 lock `TryLock` takes, which keeps two sessions from writing the Slack
-credentials at once; `internal/fileowner/owner_other.go` (`//go:build
-!unix`, which among the release targets builds for Windows alone), whose `Of`
-knows no owner, so the configuration's trust check refuses nothing there;
+credentials at once; `internal/fileowner/owner_other.go` (`//go:build !unix`,
+which among the release targets builds for Windows alone), whose `Of` knows no
+owner, so the configuration's trust check refuses nothing there;
 `internal/proc/pgroup/pgroup_other.go` (`//go:build !unix`), whose `Isolate`
 isolates nothing, so a canceled streamed command's children can outlive it;
 `internal/cli/environment_windows_test.go`, the test that `--log` reads a path
 Windows roots elsewhere (`\logs`, `D:logs`) where Windows does, which as a
-test file no job even compiles; `internal/ptytest/open_other.go`
-(`//go:build !linux && !darwin`, which among the release targets builds for
-Windows alone), whose `openPair` opens no pseudo-terminal, so the tests that
-type at a terminal (`internal/cli/prompt_terminal_test.go` and
+test file no job even compiles, and which stands for two clauses of
+`relativeToWorkingDir` in `internal/cli/environment.go`:
+`filepath.VolumeName(path) == ""`, false only for a path naming a drive, and
+`!rooted`, false only for a path rooted but not absolute, which elsewhere a
+rooted path never is, so on Linux neither is ever false and no job sees
+`--log` keep such a path off the working directory;
+`internal/ptytest/open_other.go` (`//go:build !linux && !darwin`, which among
+the release targets builds for Windows alone), whose `openPair` opens no
+pseudo-terminal, so the tests that type at a terminal
+(`internal/cli/prompt_terminal_test.go` and
 `TestRunReadsKeysFromATerminalItIsHanded` in `internal/tui/run_test.go`) skip
 there, and which no job compiles either, since only tests import the package;
 the `runtime.GOOS == "windows"` branch of `SharedMode` in
-`internal/config/save.go`, which reports no file shared; and the `goos ==
-"windows"` branch of `defaultEditor` in `internal/editor/editor.go`, which
-opens notepad where no editor is set and which no test reaches, since the
-package only ever passes it `runtime.GOOS`. A regression in any of them
-builds, passes every job and ships, unseen until a Windows user meets it. The
-functions that take the platform as an argument (`store.Dir`,
-`keychain.Storer`, `taskwarrior.Candidates`, `wiring.BrowserCommand`,
-`hooks.NewFailureScan` and `hooks.ExistingHooks`) are not part of the cost:
-their tests pass `windows` on Linux.
+`internal/config/save.go`, which reports no file shared; the
+`goos == "windows"` branch of `defaultEditor` in `internal/editor/editor.go`,
+which opens notepad where no editor is set and which no test reaches, since
+the package only ever passes it `runtime.GOOS`; and the
+`filepath.VolumeName(program)` that `probe` in
+`internal/taskwarrior/taskwarrior.go` starts a detection run from, the root of
+the drive the program is on, which is empty everywhere else, so no job sees a
+probe run from anywhere but `/`. A regression in any of them builds, passes
+every job and ships, unseen until a Windows user meets it. The functions that
+take the platform as an argument (`store.Dir`, `keychain.Storer`,
+`taskwarrior.Candidates`, `wiring.BrowserCommand`, `hooks.NewFailureScan` and
+`hooks.ExistingHooks`) are not part of the cost: their tests pass `windows` on
+Linux.
 
 **Reopen when.** A Windows-specific bug is reported, Windows-only code grows
 past the files and the branches named here, or the project adds a feature only

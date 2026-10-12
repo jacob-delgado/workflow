@@ -275,6 +275,8 @@ func relativeToWorkingDirectory(program string) bool {
 // probe is a detection run of program from the filesystem root, so a Taskfile
 // in the working directory never runs.
 func probe(program string, args ...string) proc.Command {
+	// Trade-off TRADE-35: only Windows names a volume, so no CI job runs a
+	// probe from a drive's root rather than from /.
 	return proc.Command{Dir: filepath.VolumeName(program) + string(filepath.Separator), Name: program, Args: args}
 }
 
