@@ -739,28 +739,33 @@ or stopping the server can.
 **Decided.** The terminal asks every system under one session context, set by
 `Model.WithContext` (`internal/tui/tui.go`), which `tui.Run` ends when the
 program does. Quitting (`q`, or `ctrl+c` from anywhere) or switching directory
-(TRADE-34) therefore stops every read the program left in flight, and nothing
-else. A write it sent is never stopped by the session's end: `New` hands each
-write seam the session's values but not its end (`outlasting`,
-`internal/tui/deps.go`), so a stage, a discard, a commit, a push, a change to
-an issue, a pull request or a task, a post, a settings save, a fetch, a
-record in the store, or a page opened in the browser goes on to its end, as
-it did before the session could end; one stopped midway could be left half
-made, git's index locked by an add killed while it held the lock. Leaving a
-view cancels nothing: a late answer is dropped by its read's count or view,
-as before, and canceling per view would mean a cancel handle on every view's
-state. Decided 2026-10-09 by the maintainer in the pre-1.0 paydown, when each
-seam came to take its asker's context, for reads; writes were kept out of it
-on 2026-10-12, as the approved outline had them, once its review found quitting
-cut them off.
+(TRADE-34) therefore stops every read the program left in flight, and no
+write: `New` hands each write seam the session's values but not its end
+(`outlasting`, `internal/tui/deps.go`), and ends it instead with the program's
+lifetime (`Model.WithLifetime`), the context `tui.Run` is given: the
+command's, which SIGINT or SIGTERM cancels. A quit or a switch stops reads
+alone; a signal stops everything, writes included, as it does on the command
+line. So a stage, a discard, a commit, a push, a change to an issue, a pull
+request or a task, a post, a settings save, a fetch, a record in the store, or
+a page opened in the browser is never cut off by a quit, as it was not before
+the session could end; one stopped midway could be left half made, git's index
+locked by an add killed while it held the lock. Leaving a view cancels
+nothing: a late answer is dropped by its read's count or view, as before, and
+canceling per view would mean a cancel handle on every view's state. Decided
+2026-10-09 by the maintainer in the pre-1.0 paydown, when each seam came to
+take its asker's context, for reads; on 2026-10-12 writes were kept out of it,
+as the approved outline had them ("Ctrl+C mid-write behaves as it does
+today"), still ending with the command's context, as before.
 
 **Cost.** A read for a view the user has left still spends its request to the
-tracker, the forge or Taskwarrior. Quitting cannot call off a slow write: one
-that runs a program (git, Taskwarrior, lefthook, `gh` or `glab`) runs on after
-workflow exits, and one made over HTTP ends with the process, as before. A
-write a pane sent just before a switch goes on in the directory left, and its
-outcome is not shown; the switch refuses only while an announcement or a
-change to a task is in flight.
+tracker, the forge or Taskwarrior. Quitting cannot call off a slow write, and
+workflow exits once the interface closes without waiting for one: a program a
+write runs (git, Taskwarrior, lefthook, `gh` or `glab`) can run on after it,
+and one made over HTTP ends with the process, as before. A signal cancels the
+write's context as well, but workflow does not wait for its program to stop
+either. A write a pane sent just before a switch goes on in the directory
+left, and its outcome is not shown; the switch refuses only while an
+announcement or a change to a task is in flight.
 
 **Reopen when.** Such reads are found to crowd a rate limit, or a write is
-found to hang on after workflow exits.
+found left half made, or still running, after workflow exits.
