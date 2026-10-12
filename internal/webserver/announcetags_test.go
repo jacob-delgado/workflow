@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
@@ -195,6 +196,33 @@ func TestAnnounceTagsTheLinkedOwnersAndTheGroupsChecked(t *testing.T) {
 
 	if !reflect.DeepEqual(fake.recorded, [][]string{{apiGroupID}}) {
 		t.Errorf("recorded groups %v, want the choice remembered", fake.recorded)
+	}
+}
+
+func TestAnnounceTagsTheGroupsCheckedInTheOrderOffered(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var posted string
+
+	fake := newFakeKept()
+	fake.repoGroups = []loop.SlackTarget{apiReviews(), podGroup()}
+	handler := postTagged(t, fake, &posted)
+
+	// Act
+	recorder := announceWith(t, handler, []string{carla().ID}, []string{podGroup().ID, apiGroupID})
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d (%s), want 200", recorder.Code, recorder.Body.String())
+	}
+
+	if !strings.HasSuffix(posted, "\ncc <@U0CARLA> <!subteam^S0API> <!subteam^S0POD>") {
+		t.Errorf("posted %q, want the groups tagged in the order offered, as the preview names them", posted)
+	}
+
+	if !reflect.DeepEqual(fake.recorded, [][]string{{apiGroupID, podGroup().ID}}) {
+		t.Errorf("recorded groups %v, want them in the order offered", fake.recorded)
 	}
 }
 
