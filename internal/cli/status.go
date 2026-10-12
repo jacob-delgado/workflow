@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -99,7 +100,7 @@ func statusHere(cmd *cobra.Command, asJSON bool) error {
 	}
 	defer conn.closeLog()
 
-	return runStatus(outputOf(cmd), seamsFor(conn), conn.cfg.UI.ASCII, asJSON)
+	return runStatus(cmd.Context(), outputOf(cmd), seamsFor(conn), conn.cfg.UI.ASCII, asJSON)
 }
 
 // statusAcross prints one labeled status per named directory. A directory that
@@ -172,7 +173,7 @@ func statusesOf(
 			status.err = err
 		} else {
 			conn := connectAt(cmd, found, requestLog)
-			status.facts, status.err = statusOf(conn)
+			status.facts, status.err = statusOf(cmd.Context(), conn)
 			status.ascii = conn.cfg.UI.ASCII
 		}
 
@@ -182,15 +183,15 @@ func statusesOf(
 	return statuses
 }
 
-// statusOf gathers the status of the repository a connection wired, refusing
-// one whose configuration file could not be read.
-func statusOf(conn connection) (statusFacts, error) {
+// statusOf gathers the status of the repository a connection wired under ctx,
+// refusing one whose configuration file could not be read.
+func statusOf(ctx context.Context, conn connection) (statusFacts, error) {
 	err := conn.unreadConfiguration()
 	if err != nil {
 		return statusFacts{}, err
 	}
 
-	return statusFromSeams(seamsFor(conn))
+	return statusFromSeams(ctx, seamsFor(conn))
 }
 
 // seamsFor reads the repository, forge, Jira and store a connection wired.
@@ -246,9 +247,9 @@ func repoLabels(dirs []string, home string) []string {
 
 // runStatus gathers the current state and prints it, as a line or as JSON,
 // with a note on stderr for each service that refused to answer or is not set
-// up.
-func runStatus(out output, seams statusSeams, ascii, asJSON bool) error {
-	facts, err := statusFromSeams(seams)
+// up. The store is read under ctx.
+func runStatus(ctx context.Context, out output, seams statusSeams, ascii, asJSON bool) error {
+	facts, err := statusFromSeams(ctx, seams)
 	if err != nil {
 		return err
 	}

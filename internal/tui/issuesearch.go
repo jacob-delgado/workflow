@@ -4,6 +4,8 @@
 package tui
 
 import (
+	"context"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -86,7 +88,7 @@ var _ applier = issuesLoaded{}
 // apply caches a fresh first page, then, when the answer is for the view on
 // screen, records it and asks for the selected issue in full.
 func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
-	cache := cacheIssues(m.deps, msg)
+	cache := cacheIssues(m.session, m.deps, msg)
 
 	if msg.jql != m.activeView().jql {
 		return m, cache
@@ -101,15 +103,15 @@ func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
 // cacheIssues is the command that stores a freshly-loaded first page, so a
 // later session opens on it before the tracker answers, off the update loop,
 // and says so when the store could not keep it. Only a first page is cached; a
-// failure and further pages are not.
-func cacheIssues(deps Deps, msg issuesLoaded) tea.Cmd {
+// failure and further pages are not. It is stored under ctx.
+func cacheIssues(ctx context.Context, deps Deps, msg issuesLoaded) tea.Cmd {
 	write := deps.Store.CacheIssues
 	if msg.err != nil || msg.startAt != 0 || write == nil {
 		return nil
 	}
 
 	return func() tea.Msg {
-		err := write(msg.jql, msg.found.Issues)
+		err := write(ctx, msg.jql, msg.found.Issues)
 		if err != nil {
 			return storeNotKept{notice: "the issue list was not kept for the next session: " + err.Error()}
 		}
@@ -128,7 +130,7 @@ func (m Model) seededIssues() issueList {
 		return issueList{}
 	}
 
-	return seeded(m.deps.Store.CachedIssues(m.activeView().jql))
+	return seeded(m.deps.Store.CachedIssues(m.session, m.activeView().jql))
 }
 
 // seeded is an issue list settled on what the cache held, or an empty one when
@@ -145,13 +147,13 @@ func seeded(cached []jira.Issue, held bool) issueList {
 // the update loop, so a view switched to shows its last list while its search
 // is out.
 func (m Model) readCachedIssues() tea.Cmd {
-	read, jql := m.deps.Store.CachedIssues, m.activeView().jql
+	ctx, read, jql := m.session, m.deps.Store.CachedIssues, m.activeView().jql
 	if read == nil {
 		return nil
 	}
 
 	return func() tea.Msg {
-		cached, held := read(jql)
+		cached, held := read(ctx, jql)
 
 		return cachedIssuesRead{jql: jql, list: seeded(cached, held)}
 	}

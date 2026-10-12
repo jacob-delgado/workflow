@@ -87,13 +87,13 @@ func repositoryDeps(kept *keptFavorites) webserver.Deps {
 			return workdirs.Listing{Entries: []workdirs.Entry{{Name: "api", Repository: true}, {Name: "notes"}}}, nil
 		},
 	}
-	deps.Store.Favorites = func() ([]string, error) {
+	deps.Store.Favorites = func(context.Context) ([]string, error) {
 		kept.mu.Lock()
 		defer kept.mu.Unlock()
 
 		return slices.Clone(kept.dirs), nil
 	}
-	deps.Store.Favor = func(dir string) error {
+	deps.Store.Favor = func(_ context.Context, dir string) error {
 		if kept.hold != nil {
 			close(kept.entered)
 			<-kept.hold
@@ -107,7 +107,7 @@ func repositoryDeps(kept *keptFavorites) webserver.Deps {
 
 		return nil
 	}
-	deps.Store.Unfavor = func(dir string) error {
+	deps.Store.Unfavor = func(_ context.Context, dir string) error {
 		kept.mu.Lock()
 		defer kept.mu.Unlock()
 
@@ -502,7 +502,7 @@ func TestAFavoriteInKeptDataFromAnotherBuildSaysHowToStartItFresh(t *testing.T) 
 	// Favorites came with the kept schema's second version, so a kept file an
 	// earlier build made refuses one until it is started fresh.
 	deps := repositoryDeps(favoritesKept())
-	deps.Store.Favor = func(string) error { return store.ErrKeptSchemaDiffers }
+	deps.Store.Favor = func(context.Context, string) error { return store.ErrKeptSchemaDiffers }
 	handler := serve(t, deps, config.Default())
 
 	// Act
@@ -650,7 +650,7 @@ func TestFavoritesThatCannotBeReadOrLookedAtStillAnswer(t *testing.T) {
 	// at a directory says it is missing.
 	deps := repositoryDeps(favoritesKept())
 	deps.Repositories.Look = nil
-	deps.Store.Favorites = func() ([]string, error) { return []string{webRoot}, errSeam }
+	deps.Store.Favorites = func(context.Context) ([]string, error) { return []string{webRoot}, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), reposPath)

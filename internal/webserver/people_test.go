@@ -111,21 +111,25 @@ func (f *fakeKept) wire(deps *webserver.Deps) {
 	deps.Git.CodeOwnersAt = func(string) (codeowners.File, bool, error) {
 		return codeowners.Parse("internal/ @ben @carla @acme/control-plane\n", codeowners.GitHub), true, nil
 	}
-	deps.Store.OwnerLinks = func(workspace string) ([]loop.OwnerLink, error) { return f.links, f.in(workspace) }
+	deps.Store.OwnerLinks = func(_ context.Context, workspace string) ([]loop.OwnerLink, error) {
+		return f.links, f.in(workspace)
+	}
 	deps.Store.LinkOwner = f.link
-	deps.Store.ForgetOwner = func(workspace, owner string) error {
+	deps.Store.ForgetOwner = func(_ context.Context, workspace, owner string) error {
 		f.links = f.without(owner)
 
 		return f.in(workspace)
 	}
-	deps.Store.RepoGroups = func(workspace string) ([]loop.SlackTarget, error) { return f.repoGroups, f.in(workspace) }
-	deps.Store.SetRepoGroups = func(workspace string, groups []loop.SlackTarget) error {
+	deps.Store.RepoGroups = func(_ context.Context, workspace string) ([]loop.SlackTarget, error) {
+		return f.repoGroups, f.in(workspace)
+	}
+	deps.Store.SetRepoGroups = func(_ context.Context, workspace string, groups []loop.SlackTarget) error {
 		f.repoGroups = groups
 
 		return f.in(workspace)
 	}
-	deps.Store.LastGroups = func(string) ([]string, bool) { return f.last, f.chosen }
-	deps.Store.RecordGroups = func(workspace string, ids []string) error {
+	deps.Store.LastGroups = func(context.Context, string) ([]string, bool) { return f.last, f.chosen }
+	deps.Store.RecordGroups = func(_ context.Context, workspace string, ids []string) error {
 		f.recorded = append(f.recorded, ids)
 
 		return f.in(workspace)
@@ -138,7 +142,7 @@ func (f *fakeKept) wire(deps *webserver.Deps) {
 }
 
 // link records whom owner is, replacing what was decided.
-func (f *fakeKept) link(workspace string, link loop.OwnerLink) error {
+func (f *fakeKept) link(_ context.Context, workspace string, link loop.OwnerLink) error {
 	f.links = append(f.without(link.Owner), link)
 
 	return f.in(workspace)

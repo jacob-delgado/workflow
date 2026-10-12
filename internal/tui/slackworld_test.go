@@ -141,7 +141,7 @@ func (w *world) withKept(store seams.Store) seams.Store {
 	store.OwnerLinks = w.ownerLinks
 	store.LinkOwner = w.linkOwner
 	store.ForgetOwner = w.forgetOwner
-	store.RepoGroups = func(workspace string) ([]loop.SlackTarget, error) {
+	store.RepoGroups = func(_ context.Context, workspace string) ([]loop.SlackTarget, error) {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
@@ -153,14 +153,14 @@ func (w *world) withKept(store seams.Store) seams.Store {
 		return slices.Clone(w.slack.repoGroups), nil
 	}
 	store.SetRepoGroups = w.setRepoGroups
-	store.LastGroups = func(workspace string) ([]string, bool) {
+	store.LastGroups = func(_ context.Context, workspace string) ([]string, bool) {
 		if w.otherWorkspace(workspace) != nil {
 			return nil, false
 		}
 
 		return w.slack.last, w.slack.lastChosen
 	}
-	store.RecordGroups = func(workspace string, ids []string) error {
+	store.RecordGroups = func(_ context.Context, workspace string, ids []string) error {
 		w.record("record-groups " + strings.Join(ids, ","))
 
 		return w.otherWorkspace(workspace)
@@ -180,7 +180,7 @@ func (w *world) otherWorkspace(workspace string) error {
 }
 
 // ownerLinks is what was decided so far.
-func (w *world) ownerLinks(workspace string) ([]loop.OwnerLink, error) {
+func (w *world) ownerLinks(_ context.Context, workspace string) ([]loop.OwnerLink, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -194,7 +194,7 @@ func (w *world) ownerLinks(workspace string) ([]loop.OwnerLink, error) {
 
 // linkOwner records a decision, replacing any earlier one, unless it is
 // refused.
-func (w *world) linkOwner(workspace string, link loop.OwnerLink) error {
+func (w *world) linkOwner(_ context.Context, workspace string, link loop.OwnerLink) error {
 	owner, call := link.Owner, "link-owner "+link.Owner+" nobody"
 	if link.OnSlack {
 		call = "link-owner " + owner + " " + link.Slack.ID
@@ -217,7 +217,7 @@ func (w *world) linkOwner(workspace string, link loop.OwnerLink) error {
 }
 
 // forgetOwner drops a decision, unless it is refused.
-func (w *world) forgetOwner(workspace, owner string) error {
+func (w *world) forgetOwner(_ context.Context, workspace, owner string) error {
 	w.record("forget-owner " + owner)
 
 	w.mu.Lock()
@@ -234,7 +234,7 @@ func (w *world) forgetOwner(workspace, owner string) error {
 }
 
 // setRepoGroups replaces the repository's groups, unless it is refused.
-func (w *world) setRepoGroups(workspace string, groups []loop.SlackTarget) error {
+func (w *world) setRepoGroups(_ context.Context, workspace string, groups []loop.SlackTarget) error {
 	ids := make([]string, 0, len(groups))
 	for _, group := range groups {
 		ids = append(ids, group.ID)

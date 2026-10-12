@@ -57,26 +57,28 @@ func breaksOnceWritten(deps *webserver.Deps) {
 	links, link, forget := deps.Store.OwnerLinks, deps.Store.LinkOwner, deps.Store.ForgetOwner
 	groups, setGroups := deps.Store.RepoGroups, deps.Store.SetRepoGroups
 
-	deps.Store.OwnerLinks = func(workspace string) ([]loop.OwnerLink, error) {
+	deps.Store.OwnerLinks = func(ctx context.Context, workspace string) ([]loop.OwnerLink, error) {
 		if isBroken() {
 			return nil, errSeam
 		}
 
-		return links(workspace)
+		return links(ctx, workspace)
 	}
-	deps.Store.RepoGroups = func(workspace string) ([]loop.SlackTarget, error) {
+	deps.Store.RepoGroups = func(ctx context.Context, workspace string) ([]loop.SlackTarget, error) {
 		if isBroken() {
 			return nil, errSeam
 		}
 
-		return groups(workspace)
+		return groups(ctx, workspace)
 	}
-	deps.Store.LinkOwner = func(workspace string, decided loop.OwnerLink) error {
-		return breaking(link(workspace, decided))
+	deps.Store.LinkOwner = func(ctx context.Context, workspace string, decided loop.OwnerLink) error {
+		return breaking(link(ctx, workspace, decided))
 	}
-	deps.Store.ForgetOwner = func(workspace, owner string) error { return breaking(forget(workspace, owner)) }
-	deps.Store.SetRepoGroups = func(workspace string, kept []loop.SlackTarget) error {
-		return breaking(setGroups(workspace, kept))
+	deps.Store.ForgetOwner = func(ctx context.Context, workspace, owner string) error {
+		return breaking(forget(ctx, workspace, owner))
+	}
+	deps.Store.SetRepoGroups = func(ctx context.Context, workspace string, kept []loop.SlackTarget) error {
+		return breaking(setGroups(ctx, workspace, kept))
 	}
 }
 
@@ -238,7 +240,7 @@ func TestSettingRepoGroupsTheStoreCannotReadIsAFault(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	deps := keptDeps(fake)
-	deps.Store.RepoGroups = func(string) ([]loop.SlackTarget, error) { return nil, errSeam }
+	deps.Store.RepoGroups = func(context.Context, string) ([]loop.SlackTarget, error) { return nil, errSeam }
 
 	// Act
 	recorder := send(t, serve(t, deps, slackUserConfig()), http.MethodPut, repoGroupsPath, `{"ids":["S0POD"]}`)

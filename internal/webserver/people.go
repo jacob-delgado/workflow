@@ -63,7 +63,7 @@ func (s *server) ForgetPerson(
 	err := errNoPeopleStore
 	if s.deps.Store.ForgetOwner != nil {
 		err = s.inWorkspace(ctx, func(workspace string) error {
-			return s.keptWrite(func() error { return s.deps.Store.ForgetOwner(workspace, request.Params.Owner) })
+			return s.keptWrite(func() error { return s.deps.Store.ForgetOwner(ctx, workspace, request.Params.Owner) })
 		})
 	}
 
@@ -92,7 +92,7 @@ func (s *server) people(ctx context.Context) (api.People, error) {
 	err := s.inWorkspace(ctx, func(workspace string) error {
 		var err error
 
-		links, err = s.deps.Store.OwnerLinks(workspace)
+		links, err = s.deps.Store.OwnerLinks(ctx, workspace)
 
 		return err
 	})
@@ -186,7 +186,7 @@ func (s *server) linkPerson(ctx context.Context, link api.PersonLink) error {
 			decision.OnSlack, decision.Slack = true, target
 		}
 
-		return s.keptWrite(func() error { return s.deps.Store.LinkOwner(workspace, decision) })
+		return s.keptWrite(func() error { return s.deps.Store.LinkOwner(ctx, workspace, decision) })
 	})
 }
 

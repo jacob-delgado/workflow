@@ -161,7 +161,7 @@ const readsAtOnce = 4
 // repository is named only when more than one is read. With none, where is
 // read regardless, so git says why there is nothing to read.
 func (e Environment) yourCommits(
-	ctx context.Context, where Workspace, favorites func() ([]string, error),
+	ctx context.Context, where Workspace, favorites func(context.Context) ([]string, error),
 ) func(start, end time.Time) []loop.RepositoryCommits {
 	return func(start, end time.Time) []loop.RepositoryCommits {
 		repositories := e.commitRepositories(ctx, where, favorites)
@@ -187,9 +187,9 @@ func (e Environment) yourCommits(
 // has a root of its own. A favorites list that cannot be read reads as none:
 // the Repositories pane says why, and the commits here are still yours to see.
 func (e Environment) commitRepositories(
-	ctx context.Context, where Workspace, favorites func() ([]string, error),
+	ctx context.Context, where Workspace, favorites func(context.Context) ([]string, error),
 ) []Workspace {
-	dirs, _ := favorites()
+	dirs, _ := favorites(ctx)
 	candidates := make([]Workspace, 1+len(dirs))
 	shared := make([]string, len(candidates))
 

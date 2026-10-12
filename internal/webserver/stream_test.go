@@ -453,7 +453,7 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 	filled := filledDeps()
 	filled.Git.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
 	filled.Git.RemoteBranches = func() ([]string, error) { return []string{testBranchName, "feat/PROJ-7-flag"}, nil }
-	filled.Store.LastScope = func() (string, bool) { return "api", true }
+	filled.Store.LastScope = func(context.Context) (string, bool) { return "api", true }
 	filled.Tasks = fakeTaskwarrior().seams()
 
 	cfg := config.Default()

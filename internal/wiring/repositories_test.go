@@ -153,13 +153,13 @@ func TestFavoritesAreKeptThroughTheStoreSeams(t *testing.T) {
 	kept := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir()}, nil).Store
 	favorite := t.TempDir()
 
-	err := kept.Favor(favorite)
+	err := kept.Favor(t.Context(), favorite)
 	if err != nil {
 		t.Fatalf("Favor: %v", err)
 	}
 
 	// Act
-	favorites, err := kept.Favorites()
+	favorites, err := kept.Favorites(t.Context())
 
 	// Assert
 	if err != nil || !slices.Equal(favorites, []string{favorite}) {
@@ -174,7 +174,7 @@ func TestADryRunReadsFavoritesAndKeepsNone(t *testing.T) {
 	cfg := config.Default()
 
 	// Act
-	kept := processEnvironment().ReadOnlyStore(t.Context(), cfg, wiring.Workspace{Root: t.TempDir()})
+	kept := processEnvironment().ReadOnlyStore(cfg, wiring.Workspace{Root: t.TempDir()})
 
 	// Assert
 	if kept.Favorites == nil || kept.Favor != nil || kept.Unfavor != nil {

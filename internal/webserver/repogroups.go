@@ -54,7 +54,7 @@ func (s *server) repoGroups(ctx context.Context) (api.RepoGroups, error) {
 	err := s.inWorkspace(ctx, func(workspace string) error {
 		var err error
 
-		groups, err = s.deps.Store.RepoGroups(workspace)
+		groups, err = s.deps.Store.RepoGroups(ctx, workspace)
 
 		return err
 	})
@@ -74,7 +74,7 @@ func (s *server) setRepoGroups(ctx context.Context, ids []string) error {
 
 	return s.inWorkspace(ctx, func(workspace string) error {
 		return s.keptWrite(func() error {
-			saved, err := s.deps.Store.RepoGroups(workspace)
+			saved, err := s.deps.Store.RepoGroups(ctx, workspace)
 			if err != nil {
 				return err
 			}
@@ -84,7 +84,7 @@ func (s *server) setRepoGroups(ctx context.Context, ids []string) error {
 				return err
 			}
 
-			return s.deps.Store.SetRepoGroups(workspace, groups)
+			return s.deps.Store.SetRepoGroups(ctx, workspace, groups)
 		})
 	})
 }

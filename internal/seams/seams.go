@@ -219,22 +219,22 @@ type Messaging struct {
 type Store struct {
 	// LastScope is the commit scope last used in this repository, if one was, so
 	// the composer can open on it.
-	LastScope func() (string, bool)
+	LastScope func(ctx context.Context) (string, bool)
 	// RecordScope remembers the commit scope just used in this repository,
 	// and says why it could not.
-	RecordScope func(scope string) error
+	RecordScope func(ctx context.Context, scope string) error
 	// Announced is every pull request announced in this repository in an earlier
 	// session, so a surface starts knowing what has already been posted.
-	Announced func() []loop.Announced
+	Announced func(ctx context.Context) []loop.Announced
 	// RecordAnnounce remembers that a pull request was just announced at a
 	// moment, and says why it could not: a later session would offer it again.
-	RecordAnnounce func(made loop.Announced) error
+	RecordAnnounce func(ctx context.Context, made loop.Announced) error
 	// CachedIssues is the issue list last seen for a view, so it can be shown at
 	// once before the tracker answers.
-	CachedIssues func(view string) ([]jira.Issue, bool)
+	CachedIssues func(ctx context.Context, view string) ([]jira.Issue, bool)
 	// CacheIssues remembers the issue list just seen for a view, and says why
 	// it could not.
-	CacheIssues func(view string, issues []jira.Issue) error
+	CacheIssues func(ctx context.Context, view string, issues []jira.Issue) error
 	// OwnerLinks is every forge owner decided on this repository's forge host
 	// as a Slack workspace, Messaging.Workspace, sees them: whom each is on
 	// Slack there, or that they are not on Slack there. An owner decided only
@@ -244,34 +244,34 @@ type Store struct {
 	// are nil when the store keeps nothing, and the owner ones when there is
 	// no forge host to key them by. Each refuses an empty workspace with
 	// store.ErrNoWorkspace.
-	OwnerLinks func(workspace string) ([]loop.OwnerLink, error)
+	OwnerLinks func(ctx context.Context, workspace string) ([]loop.OwnerLink, error)
 	// LinkOwner records what was decided for a forge owner on this forge
 	// host, and whether they are a person or a team: whom they are on Slack
 	// in a workspace — a user for a person, a user group for a team — or that
 	// they are not on Slack there, so they are not asked again there.
-	LinkOwner func(workspace string, decision loop.OwnerLink) error
+	LinkOwner func(ctx context.Context, workspace string, decision loop.OwnerLink) error
 	// ForgetOwner drops what was decided for a forge owner in a workspace, so
 	// they are asked again there.
-	ForgetOwner func(workspace, owner string) error
+	ForgetOwner func(ctx context.Context, workspace, owner string) error
 	// RepoGroups is the user groups of a workspace this repository may tag.
-	RepoGroups func(workspace string) ([]loop.SlackTarget, error)
+	RepoGroups func(ctx context.Context, workspace string) ([]loop.SlackTarget, error)
 	// SetRepoGroups replaces the user groups of a workspace this repository
 	// may tag.
-	SetRepoGroups func(workspace string, groups []loop.SlackTarget) error
+	SetRepoGroups func(ctx context.Context, workspace string, groups []loop.SlackTarget) error
 	// LastGroups is the group IDs of a workspace last chosen for this
 	// repository's announcement, and whether a choice was recorded at all.
-	LastGroups func(workspace string) ([]string, bool)
+	LastGroups func(ctx context.Context, workspace string) ([]string, bool)
 	// RecordGroups remembers the groups of a workspace just chosen; one not
 	// among RepoGroups, such as a group linked to an owning team, is left out
 	// of the choice.
-	RecordGroups func(workspace string, ids []string) error
+	RecordGroups func(ctx context.Context, workspace string, ids []string) error
 	// Favorites is the directories you marked, by path. It, Favor and Unfavor
 	// are nil when the store keeps nothing; a dry run keeps Favorites alone.
-	Favorites func() ([]string, error)
+	Favorites func(ctx context.Context) ([]string, error)
 	// Favor marks a directory, an absolute path, a favorite.
-	Favor func(dir string) error
+	Favor func(ctx context.Context, dir string) error
 	// Unfavor forgets a directory as a favorite.
-	Unfavor func(dir string) error
+	Unfavor func(ctx context.Context, dir string) error
 }
 
 // Settings is what a surface asks of the configuration files and the local

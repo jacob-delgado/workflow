@@ -59,10 +59,10 @@ type announceSeams struct {
 // store — tags no one.
 type announceTagging struct {
 	Owners       loop.OwnerSeams
-	OwnerLinks   func(workspace string) ([]loop.OwnerLink, error)
-	RepoGroups   func(workspace string) ([]loop.SlackTarget, error)
-	LastGroups   func(workspace string) ([]string, bool)
-	RecordGroups func(workspace string, ids []string) error
+	OwnerLinks   func(ctx context.Context, workspace string) ([]loop.OwnerLink, error)
+	RepoGroups   func(ctx context.Context, workspace string) ([]loop.SlackTarget, error)
+	LastGroups   func(ctx context.Context, workspace string) ([]string, bool)
+	RecordGroups func(ctx context.Context, workspace string, ids []string) error
 	Workspace    func(ctx context.Context) (string, error)
 	Grant        func(ctx context.Context) (messaging.Grant, error)
 }
@@ -160,7 +160,7 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, opts writ
 		return err
 	}
 
-	again := seams.Memory.Holds(composed.made())
+	again := seams.Memory.Holds(ctx, composed.made())
 	if again && !offerAgain(out.notes, seams.Kind.Sigil()+strconv.Itoa(composed.pull.Number), opts) {
 		return nil
 	}
@@ -325,7 +325,7 @@ func tagAnnouncement(ctx context.Context, out output, seams announceSeams, momen
 
 	workspace := slack.workspace
 
-	tags := seams.Tagging.propose(base, moment, workspace)
+	tags := seams.Tagging.propose(ctx, base, moment, workspace)
 	if len(tags.Owners)+len(tags.Groups) == 0 {
 		return messaging.Mentions{}, memory
 	}
@@ -348,7 +348,7 @@ func tagAnnouncement(ctx context.Context, out output, seams announceSeams, momen
 	}
 
 	if record := seams.Tagging.RecordGroups; len(tags.Groups) > 0 && record != nil {
-		memory.RecordGroups = func(ids []string) error { return record(workspace, ids) }
+		memory.RecordGroups = func(ctx context.Context, ids []string) error { return record(ctx, workspace, ids) }
 	}
 
 	return mentions, memory
@@ -395,10 +395,12 @@ func (t announceTagging) identity(ctx context.Context, out output, moment messag
 // propose is whom an announcement at moment proposes to tag from what is kept
 // in workspace, the owners those of the changes since base. The tags are a
 // proposal, so a read that fails proposes fewer rather than holding the
-// announcement back.
-func (t announceTagging) propose(base string, moment messaging.Moment, workspace string) loop.Tags {
+// announcement back. What is kept is read under ctx.
+func (t announceTagging) propose(
+	ctx context.Context, base string, moment messaging.Moment, workspace string,
+) loop.Tags {
 	owners, _ := loop.OwnersOf(t.Owners, base)
-	links, _ := t.OwnerLinks(workspace)
+	links, _ := t.OwnerLinks(ctx, workspace)
 
 	var (
 		repoGroups []loop.SlackTarget
@@ -407,11 +409,11 @@ func (t announceTagging) propose(base string, moment messaging.Moment, workspace
 	)
 
 	if t.RepoGroups != nil {
-		repoGroups, _ = t.RepoGroups(workspace)
+		repoGroups, _ = t.RepoGroups(ctx, workspace)
 	}
 
 	if t.LastGroups != nil {
-		last, chosen = t.LastGroups(workspace)
+		last, chosen = t.LastGroups(ctx, workspace)
 	}
 
 	return loop.ProposeTags(owners, links, repoGroups, last, chosen, moment)

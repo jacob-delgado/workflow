@@ -401,9 +401,12 @@ type announcedCache struct {
 }
 
 // recordedAnnouncements is every announcement the store remembers, read again
-// once the forge's interval has passed, or none without a store or under a
-// dry run.
-func (s *server) recordedAnnouncements() []loop.Announced {
+// once the forge's interval has passed, or none without a store or under a dry
+// run. Every stream and every post reads the one held, and the store's read
+// takes a failure for none, so it runs to its end whoever asked it leaves: one
+// canceled midway would be held as nothing announced, and let a post repeat
+// one made.
+func (s *server) recordedAnnouncements(ctx context.Context) []loop.Announced {
 	if s.deps.Store.Announced == nil || s.info.DryRun {
 		return nil
 	}
@@ -413,7 +416,8 @@ func (s *server) recordedAnnouncements() []loop.Announced {
 
 	now := s.now()
 	if !s.announced.held || now.Sub(s.announced.readAt) >= s.forgeInterval() {
-		s.announced.made, s.announced.held, s.announced.readAt = s.deps.Store.Announced(), true, now
+		s.announced.made, s.announced.held, s.announced.readAt = s.deps.Store.Announced(context.WithoutCancel(ctx)), true,
+			now
 	}
 
 	return slices.Clone(s.announced.made)
@@ -421,13 +425,14 @@ func (s *server) recordedAnnouncements() []loop.Announced {
 
 // recordAnnouncement remembers an announcement just made, in the store and in
 // what the next frame tells, which tells it whether the store kept it or not,
-// since it was made; it says why the store could not.
-func (s *server) recordAnnouncement(made loop.Announced) error {
+// since it was made; it says why the store could not. It is recorded under
+// ctx.
+func (s *server) recordAnnouncement(ctx context.Context, made loop.Announced) error {
 	if s.deps.Store.RecordAnnounce == nil {
 		return nil
 	}
 
-	err := s.deps.Store.RecordAnnounce(made)
+	err := s.deps.Store.RecordAnnounce(ctx, made)
 
 	s.announced.mu.Lock()
 	defer s.announced.mu.Unlock()
@@ -451,17 +456,19 @@ func (s *server) delivered(err error) (string, error) {
 	return "", err
 }
 
-// announcedAlready reports that made was announced already, from any surface.
-func (s *server) announcedAlready(made loop.Announced) bool {
-	return loop.AnnounceMemory{Recorded: s.recordedAnnouncements}.Holds(made)
+// announcedAlready reports that made was announced already, from any surface,
+// as read under ctx.
+func (s *server) announcedAlready(ctx context.Context, made loop.Announced) bool {
+	return loop.AnnounceMemory{Recorded: s.recordedAnnouncements}.Holds(ctx, made)
 }
 
 // reviewAnnounced reports that the pull request the forge read was announced
 // at the moment it is at now, by the rule the terminal and the command line
 // read it by: never for one closed without merging, which the loop does not
-// follow, so the review and the announce stage agree.
-func (s *server) reviewAnnounced(read forgeRead) bool {
-	return loop.AnnounceMemory{Recorded: s.recordedAnnouncements}.HoldsNow(read.pull, read.found, read.ci)
+// follow, so the review and the announce stage agree. What was announced is
+// read under ctx.
+func (s *server) reviewAnnounced(ctx context.Context, read forgeRead) bool {
+	return loop.AnnounceMemory{Recorded: s.recordedAnnouncements}.HoldsNow(ctx, read.pull, read.found, read.ci)
 }
 
 // errAnnouncedAlready is an announcement made already at its moment, from
@@ -477,7 +484,7 @@ func (s *server) deliver(ctx context.Context, post announcePost) (string, error)
 	s.delivering.Lock()
 	defer s.delivering.Unlock()
 
-	if s.announcedAlready(post.delivery.Made) {
+	if s.announcedAlready(ctx, post.delivery.Made) {
 		return "", errAnnouncedAlready
 	}
 

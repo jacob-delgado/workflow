@@ -96,7 +96,7 @@ func (e Environment) Deps(
 		Messaging:    messagingDeps(messagingSet, slack),
 		Hooks:        e.hookDeps(ctx, where.Root),
 		Editor:       e.editorDeps(where.Root),
-		Store:        storeDeps(ctx, e.onDisk(cfg), cfg, where),
+		Store:        storeDeps(e.onDisk(cfg), cfg, where),
 		Tasks:        e.taskDeps(cfg.Taskwarrior),
 		Repositories: e.repositoriesDeps(ctx, cfg, where),
 		Settings:     e.settingsDeps(ctx, cfg.Layers(), controls),
@@ -108,7 +108,7 @@ func (e Environment) Deps(
 	}
 	// Favorites are read from the store as it is, never made, so a dry run's
 	// Summary reads them as well.
-	deps.Git.CommitsBetween = e.yourCommits(ctx, where, readFavorites(ctx, e.onDisk(cfg).ReadOnly()))
+	deps.Git.CommitsBetween = e.yourCommits(ctx, where, readFavorites(e.onDisk(cfg).ReadOnly()))
 
 	return deps, controls
 }
@@ -316,8 +316,8 @@ func (e Environment) commitWith(ctx context.Context, root, message string) (proc
 
 // ReadOnlyStore is the store's seams for a dry run: they read what an earlier
 // session kept, when the store is already on disk, and never create or write it.
-func (e Environment) ReadOnlyStore(ctx context.Context, cfg config.Config, where Workspace) seams.Store {
-	return storeDeps(ctx, e.onDisk(cfg).ReadOnly(), cfg, where)
+func (e Environment) ReadOnlyStore(cfg config.Config, where Workspace) seams.Store {
+	return storeDeps(e.onDisk(cfg).ReadOnly(), cfg, where)
 }
 
 // onDisk is the store in the environment's state directory, as the
@@ -332,30 +332,30 @@ func (e Environment) onDisk(cfg config.Config) store.Store {
 // on what was done here before. A store with nowhere to keep its file, or one the
 // configuration disabled, no-ops through the same seams, so the interface simply
 // learns nothing.
-func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where Workspace) seams.Store {
+func storeDeps(kept store.Store, cfg config.Config, where Workspace) seams.Store {
 	repo := repoKey(where)
 	instance := instanceKey(cfg.Jira.BaseURL)
 
-	return bindKept(ctx, kept, where, seams.Store{
-		LastScope: func() (string, bool) {
+	return bindKept(kept, where, seams.Store{
+		LastScope: func(ctx context.Context) (string, bool) {
 			scope, found, _ := kept.LastScope(ctx, repo)
 
 			// The store is a file on disk: what it reads back is untrusted, so
 			// neutralize any terminal control it may carry before the composer shows it.
 			return sanitize.Line(scope), found
 		},
-		RecordScope: func(scope string) error {
+		RecordScope: func(ctx context.Context, scope string) error {
 			return kept.RecordScope(ctx, repo, sanitize.Line(scope), time.Now())
 		},
-		Announced: func() []loop.Announced {
+		Announced: func(ctx context.Context) []loop.Announced {
 			recorded, _ := kept.Announces(ctx, repo)
 
 			return knownAnnouncements(recorded)
 		},
-		RecordAnnounce: func(made loop.Announced) error {
+		RecordAnnounce: func(ctx context.Context, made loop.Announced) error {
 			return kept.RecordAnnounce(ctx, repo, store.Announce{Pull: made.Pull, Moment: int(made.Moment)}, time.Now())
 		},
-		CachedIssues: func(view string) ([]jira.Issue, bool) {
+		CachedIssues: func(ctx context.Context, view string) ([]jira.Issue, bool) {
 			cached, found, _ := kept.CachedIssues(ctx, instance, view)
 			if !found {
 				return nil, false
@@ -363,7 +363,7 @@ func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where W
 
 			return cacheableRows(fromCachedIssues(cached))
 		},
-		CacheIssues: func(view string, issues []jira.Issue) error {
+		CacheIssues: func(ctx context.Context, view string, issues []jira.Issue) error {
 			rows, keep := cacheableRows(issues)
 			if !keep {
 				return nil

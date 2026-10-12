@@ -40,13 +40,13 @@ func TestTheIssueCacheNeverKeepsAForgeRow(t *testing.T) {
 	}
 
 	// Act
-	err := deps.Store.CacheIssues("assigned", listed)
+	err := deps.Store.CacheIssues(t.Context(), "assigned", listed)
 	if err != nil {
 		t.Fatalf("caching the issues: %v", err)
 	}
 
 	// Assert
-	cached, found := deps.Store.CachedIssues("assigned")
+	cached, found := deps.Store.CachedIssues(t.Context(), "assigned")
 	if !found || len(cached) != 1 || cached[0].Key != "PROJ-1" {
 		t.Errorf("CachedIssues = %v, %v; want only PROJ-1, never the forge's #42", cached, found)
 	}
@@ -74,7 +74,7 @@ func TestAForgeRowAlreadyInTheCacheIsNotReadBack(t *testing.T) {
 	deps := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil)
 
 	// Act
-	cached, found := deps.Store.CachedIssues("assigned")
+	cached, found := deps.Store.CachedIssues(t.Context(), "assigned")
 
 	// Assert
 	if !found || len(cached) != 1 || cached[0].Key != "PROJ-2" {
@@ -90,13 +90,13 @@ func TestAListOfOnlyForgeIssuesIsNotCachedAsAnEmptyOne(t *testing.T) {
 	deps := wired(t, cachedJiraConfig(t), wiring.Workspace{Root: t.TempDir()}, nil)
 
 	// Act
-	err := deps.Store.CacheIssues("assigned", []jira.Issue{{Key: "42", Summary: "the forge's issue"}})
+	err := deps.Store.CacheIssues(t.Context(), "assigned", []jira.Issue{{Key: "42", Summary: "the forge's issue"}})
 	if err != nil {
 		t.Fatalf("caching the issues: %v", err)
 	}
 
 	// Assert
-	if cached, found := deps.Store.CachedIssues("assigned"); found {
+	if cached, found := deps.Store.CachedIssues(t.Context(), "assigned"); found {
 		t.Errorf("CachedIssues = %v, true; want nothing cached", cached)
 	}
 }
@@ -121,7 +121,7 @@ func TestACachedListOfOnlyForgeRowsReadsAsNotCached(t *testing.T) {
 	deps := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil)
 
 	// Act
-	cached, found := deps.Store.CachedIssues("assigned")
+	cached, found := deps.Store.CachedIssues(t.Context(), "assigned")
 
 	// Assert
 	if found {

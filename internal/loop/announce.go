@@ -209,26 +209,26 @@ type Announced struct {
 // it only for an announcement that offered groups to choose, since a choice
 // of none is a choice too.
 type AnnounceMemory struct {
-	Recorded     func() []Announced
-	Record       func(Announced) error
-	RecordGroups func(ids []string) error
+	Recorded     func(ctx context.Context) []Announced
+	Record       func(ctx context.Context, made Announced) error
+	RecordGroups func(ctx context.Context, ids []string) error
 }
 
-// Holds reports whether made was already announced.
-func (m AnnounceMemory) Holds(made Announced) bool {
+// Holds reports whether made was already announced, as read under ctx.
+func (m AnnounceMemory) Holds(ctx context.Context, made Announced) bool {
 	if m.Recorded == nil {
 		return false
 	}
 
-	return slices.Contains(m.Recorded(), made)
+	return slices.Contains(m.Recorded(ctx), made)
 }
 
 // HoldsNow reports that a find answered a pull request the loop follows, and
 // that it was announced at the moment it is at now, by its CI: the one rule
 // every surface reads the announce stage, and whether to say the pull request
-// was announced, by.
-func (m AnnounceMemory) HoldsNow(pull forge.PullRequest, found bool, ci forge.CI) bool {
-	return followed(pull, found) && m.Holds(Announced{Pull: pull.Number, Moment: AnnounceMoment(pull, ci)})
+// was announced, by. What was announced is read under ctx.
+func (m AnnounceMemory) HoldsNow(ctx context.Context, pull forge.PullRequest, found bool, ci forge.CI) bool {
+	return followed(pull, found) && m.Holds(ctx, Announced{Pull: pull.Number, Moment: AnnounceMoment(pull, ci)})
 }
 
 // Delivery is an announcement on its way out: the channel it goes to — empty
@@ -241,13 +241,13 @@ type Delivery struct {
 	Mentions messaging.Mentions
 }
 
-// Deliver posts the delivery, its tags on a line after the text, and, once it
-// has gone out, records what it made, so a later session knows not to make it
-// again, and the groups it tagged. A post that fails records nothing; the
-// error is the post's own, for the caller to word. A post that went out but
-// was not remembered is ErrNotRemembered, carrying why, which
-// NotRememberedReason reads: the post was made, and the caller says so with
-// NotRememberedWarning.
+// Deliver posts the delivery under ctx, its tags on a line after the text,
+// and, once it has gone out, records what it made, so a later session knows
+// not to make it again, and the groups it tagged, whether or not ctx has ended
+// since. A post that fails records nothing; the error is the post's own, for
+// the caller to word. A post that went out but was not remembered is
+// ErrNotRemembered, carrying why, which NotRememberedReason reads: the post
+// was made, and the caller says so with NotRememberedWarning.
 func Deliver(
 	ctx context.Context, post func(ctx context.Context, channel, text string) error, memory AnnounceMemory,
 	delivery Delivery,
@@ -261,17 +261,21 @@ func Deliver(
 		return err
 	}
 
+	// The post has gone out, so what it made is remembered even if its asker
+	// has left meanwhile: one not remembered is offered, and posted, again.
+	kept := context.WithoutCancel(ctx)
+
 	if memory.RecordGroups != nil {
 		// The post has gone out, which is what the caller asked for: a choice
 		// not remembered is only offered unchecked next time.
-		_ = memory.RecordGroups(delivery.groupIDs())
+		_ = memory.RecordGroups(kept, delivery.groupIDs())
 	}
 
 	if memory.Record == nil {
 		return nil
 	}
 
-	err = memory.Record(delivery.Made)
+	err = memory.Record(kept, delivery.Made)
 	if err != nil {
 		return notRememberedError{why: err}
 	}

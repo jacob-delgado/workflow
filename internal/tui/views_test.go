@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"slices"
 	"testing"
 
@@ -243,7 +244,7 @@ func TestAViewsIssuesAreCachedUnderTheScopedQuery(t *testing.T) {
 
 	var cachedUnder []string
 
-	deps.Store.CacheIssues = func(view string, _ []jira.Issue) error {
+	deps.Store.CacheIssues = func(_ context.Context, view string, _ []jira.Issue) error {
 		cachedUnder = append(cachedUnder, view)
 
 		return nil

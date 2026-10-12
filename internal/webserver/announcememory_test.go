@@ -39,7 +39,7 @@ type announceMemory struct {
 // wire binds deps' announcement memory, and a post that goes, over m.
 func (m *announceMemory) wire(deps webserver.Deps) webserver.Deps {
 	deps.Messaging.Post = func(context.Context, string, string) error { return nil }
-	deps.Store.Announced = func() []loop.Announced {
+	deps.Store.Announced = func(context.Context) []loop.Announced {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 
@@ -47,7 +47,7 @@ func (m *announceMemory) wire(deps webserver.Deps) webserver.Deps {
 
 		return slices.Concat(m.held, m.recorded)
 	}
-	deps.Store.RecordAnnounce = func(made loop.Announced) error {
+	deps.Store.RecordAnnounce = func(_ context.Context, made loop.Announced) error {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 
@@ -269,7 +269,7 @@ func TestAnnounceTheStoreCannotRememberIsMadeAndNoted(t *testing.T) {
 	// Arrange
 	memory := &announceMemory{}
 	deps := memory.wire(filledDeps())
-	deps.Store.RecordAnnounce = func(loop.Announced) error { return errStoreFull }
+	deps.Store.RecordAnnounce = func(context.Context, loop.Announced) error { return errStoreFull }
 
 	var noted []string
 
@@ -303,7 +303,7 @@ func TestAnnounceWarnsOnlyOfAPostTheStoreCannotRemember(t *testing.T) {
 
 			// Arrange
 			deps := (&announceMemory{}).wire(filledDeps())
-			deps.Store.RecordAnnounce = func(loop.Announced) error { return tt.recordErr }
+			deps.Store.RecordAnnounce = func(context.Context, loop.Announced) error { return tt.recordErr }
 
 			// Act
 			recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
@@ -326,7 +326,7 @@ func TestAHeldAnnouncementTheStoreCannotRememberWarnsSo(t *testing.T) {
 	// Arrange
 	world := newForgeWorld()
 	deps := world.deps()
-	deps.Store.RecordAnnounce = func(loop.Announced) error { return errStoreFull }
+	deps.Store.RecordAnnounce = func(context.Context, loop.Announced) error { return errStoreFull }
 	handler := serve(t, deps, config.Default())
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
@@ -358,7 +358,7 @@ func TestTheNextHoldSaysNothingOfTheLastOnesWarning(t *testing.T) {
 			// Arrange
 			world := newForgeWorld()
 			deps := world.deps()
-			deps.Store.RecordAnnounce = func(loop.Announced) error { return errStoreFull }
+			deps.Store.RecordAnnounce = func(context.Context, loop.Announced) error { return errStoreFull }
 			handler := serve(t, deps, config.Default())
 			cancelHeld(t, handler)
 			announceWhenGreen(t, handler, nil)

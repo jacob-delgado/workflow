@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strings"
@@ -246,7 +247,7 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
 	ctx, post, memory := m.session, m.deps.Messaging.Post, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
 	if record := m.deps.Store.RecordGroups; out.tags.offersGroups && record != nil {
-		memory.RecordGroups = func(ids []string) error { return record(out.tags.workspace, ids) }
+		memory.RecordGroups = func(ctx context.Context, ids []string) error { return record(ctx, out.tags.workspace, ids) }
 	}
 
 	made := loop.Announced{Pull: m.review.pull.Number, Moment: out.moment}

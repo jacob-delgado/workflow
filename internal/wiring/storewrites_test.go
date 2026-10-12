@@ -47,10 +47,10 @@ func brokenStore(t *testing.T) wiring.Workspace {
 
 func TestEveryStoreWriteReportsAStoreThatCannotKeepIt(t *testing.T) {
 	cases := map[string]func(deps seams.Store) error{
-		"a scope":     func(deps seams.Store) error { return deps.RecordScope("api") },
-		"an announce": func(deps seams.Store) error { return deps.RecordAnnounce(loop.Announced{Pull: 7}) },
+		"a scope":     func(deps seams.Store) error { return deps.RecordScope(t.Context(), "api") },
+		"an announce": func(deps seams.Store) error { return deps.RecordAnnounce(t.Context(), loop.Announced{Pull: 7}) },
 		"an issue list": func(deps seams.Store) error {
-			return deps.CacheIssues("assigned", []jira.Issue{{Key: "PROJ-9", Summary: "a"}})
+			return deps.CacheIssues(t.Context(), "assigned", []jira.Issue{{Key: "PROJ-9", Summary: "a"}})
 		},
 	}
 
@@ -82,14 +82,14 @@ func TestAnAnnouncementOfAMomentNoBuildKnowsIsNotReadBack(t *testing.T) {
 	known := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
 
 	for _, made := range []loop.Announced{known, {Pull: 7, Moment: messaging.Moment(9)}} {
-		err := deps.RecordAnnounce(made)
+		err := deps.RecordAnnounce(t.Context(), made)
 		if err != nil {
 			t.Fatalf("recording %+v: %v", made, err)
 		}
 	}
 
 	// Act
-	announced := deps.Announced()
+	announced := deps.Announced(t.Context())
 
 	// Assert
 	if !slices.Equal(announced, []loop.Announced{known}) {

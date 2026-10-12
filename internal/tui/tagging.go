@@ -103,7 +103,7 @@ func (s branchState) readTags(ctx context.Context, deps Deps, opened int) tea.Cm
 			return tagsRead{opened: opened, proposal: tagProposal{owners: found}, err: ownersErr, workspaceErr: err}
 		}
 
-		proposal, keptErr := readProposal(store, workspace)
+		proposal, keptErr := readProposal(ctx, store, workspace)
 		proposal.owners = found
 
 		return tagsRead{opened: opened, proposal: proposal, err: errors.Join(ownersErr, keptErr), workspace: workspace}
@@ -122,15 +122,15 @@ func taggedOwnerSeams(deps Deps) loop.OwnerSeams {
 
 // readProposal is what the store kept in workspace that tags are proposed
 // from: what was decided for owners, the repository's groups, and the last
-// choice.
-func readProposal(store seams.Store, workspace string) (tagProposal, error) {
+// choice, read under ctx.
+func readProposal(ctx context.Context, store seams.Store, workspace string) (tagProposal, error) {
 	var proposal tagProposal
 
-	links, linksErr := readKept(store.OwnerLinks, workspace)
-	groups, groupsErr := readKept(store.RepoGroups, workspace)
+	links, linksErr := readKept(ctx, store.OwnerLinks, workspace)
+	groups, groupsErr := readKept(ctx, store.RepoGroups, workspace)
 
 	if store.LastGroups != nil {
-		proposal.last, proposal.lastChosen = store.LastGroups(workspace)
+		proposal.last, proposal.lastChosen = store.LastGroups(ctx, workspace)
 	}
 
 	proposal.links, proposal.repoGroups = links, groups
@@ -138,14 +138,16 @@ func readProposal(store seams.Store, workspace string) (tagProposal, error) {
 	return proposal, errors.Join(linksErr, groupsErr)
 }
 
-// readKept reads a list the store keeps in workspace, or nothing when the
-// store keeps none, as a disabled one does.
-func readKept[T any](read func(workspace string) ([]T, error), workspace string) ([]T, error) {
+// readKept reads a list the store keeps in workspace under ctx, or nothing
+// when the store keeps none, as a disabled one does.
+func readKept[T any](
+	ctx context.Context, read func(ctx context.Context, workspace string) ([]T, error), workspace string,
+) ([]T, error) {
 	if read == nil {
 		return nil, nil
 	}
 
-	return read(workspace)
+	return read(ctx, workspace)
 }
 
 // tagsRead is whom the announcement proposes to tag, and why some of it could

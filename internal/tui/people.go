@@ -115,7 +115,7 @@ func (s branchState) readPeople(ctx context.Context, deps Deps, opened int) tea.
 		linksErr := inWorkspace(ctx, readWorkspace, func(workspace string) error {
 			var err error
 
-			decided, err = links(workspace)
+			decided, err = links(ctx, workspace)
 
 			return err
 		})
@@ -326,7 +326,7 @@ func (p peopleOverlay) askToForget(m Model, owner string) Model {
 		body: "Forget " + owner + "?\n\nThe next ready-for-review announcement asks whom they are on Slack again.",
 		proceed: func(m Model) (Model, tea.Cmd) {
 			return p.saving(m, func() tea.Msg {
-				err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return forget(workspace, owner) })
+				err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return forget(ctx, workspace, owner) })
 
 				return peopleSaved{opened: opened, err: err}
 			})

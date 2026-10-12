@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -28,21 +29,22 @@ type statusFacts struct {
 }
 
 // statusFromSeams reads the branch and derives the facts, or fails when the
-// branch cannot be read at all.
-func statusFromSeams(seams statusSeams) (statusFacts, error) {
+// branch cannot be read at all. The store is read under ctx.
+func statusFromSeams(ctx context.Context, seams statusSeams) (statusFacts, error) {
 	branch, err := seams.Branch()
 	if err != nil {
 		return statusFacts{}, fmt.Errorf("reading the branch: %w", err)
 	}
 
-	return gather(seams, branch), nil
+	return gather(ctx, seams, branch), nil
 }
 
 // gather reads the issue, the pull request, its CI and whether it was
 // announced, and derives the stages.
 // A service that will not answer leaves its stage not-started rather than
-// failing the whole line, and is named among the facts' notes.
-func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
+// failing the whole line, and is named among the facts' notes. Whether it was
+// announced is read under ctx.
+func gather(ctx context.Context, seams statusSeams, branch gitrepo.Branch) statusFacts {
 	issueRef, named := loop.IssueOf(branch, seams.Project)
 	facts := statusFacts{issue: issueRef.Key}
 
@@ -69,7 +71,7 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 		PullRequest:        review.state,
 		CI:                 review.ci,
 		ChangesRequested:   review.pull.ChangesRequested,
-		Announced:          seams.Memory.HoldsNow(review.pull, review.found, forge.CI{State: review.ci}),
+		Announced:          seams.Memory.HoldsNow(ctx, review.pull, review.found, forge.CI{State: review.ci}),
 	}, seams.Service)
 
 	return facts

@@ -114,7 +114,7 @@ func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announc
 	}
 
 	made := loop.Announced{Pull: pull.Number, Moment: announcement.Moment}
-	if s.announcedAlready(made) {
+	if s.announcedAlready(ctx, made) {
 		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(pull.Number))
 	}
 
@@ -280,7 +280,7 @@ func (s *server) tagging(ctx context.Context, moment messaging.Moment, channel s
 		return untagged(err)
 	}
 
-	tags, available := s.proposedTags(moment, workspace)
+	tags, available := s.proposedTags(ctx, moment, workspace)
 
 	scope, err := s.scopeToLink(ctx, tags.Owners, channel)
 	if err != nil {
@@ -339,14 +339,14 @@ func workspaceRefusal(err error) string {
 // is kept in workspace, and whether it tags anyone at all: only one ready for
 // review does, and only with the store that keeps who is whom. The tags are a
 // proposal, so a kept read that fails proposes fewer rather than holding the
-// announcement back.
-func (s *server) proposedTags(moment messaging.Moment, workspace string) (loop.Tags, bool) {
+// announcement back. What is kept is read under ctx.
+func (s *server) proposedTags(ctx context.Context, moment messaging.Moment, workspace string) (loop.Tags, bool) {
 	if moment != messaging.MomentReady || s.deps.Store.OwnerLinks == nil || s.deps.Store.RepoGroups == nil {
 		return loop.Tags{}, false
 	}
 
-	links, _ := s.deps.Store.OwnerLinks(workspace)
-	repoGroups, _ := s.deps.Store.RepoGroups(workspace)
+	links, _ := s.deps.Store.OwnerLinks(ctx, workspace)
+	repoGroups, _ := s.deps.Store.RepoGroups(ctx, workspace)
 
 	var (
 		last   []string
@@ -354,7 +354,7 @@ func (s *server) proposedTags(moment messaging.Moment, workspace string) (loop.T
 	)
 
 	if s.deps.Store.LastGroups != nil {
-		last, chosen = s.deps.Store.LastGroups(workspace)
+		last, chosen = s.deps.Store.LastGroups(ctx, workspace)
 	}
 
 	return loop.ProposeTags(s.branchOwners(), links, repoGroups, last, chosen, moment), true
@@ -413,8 +413,8 @@ func (s *server) mentions(ctx context.Context, asked *api.AnnounceMentions, mome
 
 	memory := loop.AnnounceMemory{Recorded: nil, Record: nil, RecordGroups: nil}
 	if len(tags.Groups) > 0 && s.deps.Store.RecordGroups != nil {
-		memory.RecordGroups = func(ids []string) error {
-			return s.keptWrite(func() error { return s.deps.Store.RecordGroups(workspace, ids) })
+		memory.RecordGroups = func(ctx context.Context, ids []string) error {
+			return s.keptWrite(func() error { return s.deps.Store.RecordGroups(ctx, workspace, ids) })
 		}
 	}
 
@@ -438,7 +438,7 @@ func (s *server) tagsAsPreviewed(
 		return loop.Tags{}, "", errNoTags
 	}
 
-	tags, available := s.proposedTags(moment, workspace)
+	tags, available := s.proposedTags(ctx, moment, workspace)
 	if !available {
 		return loop.Tags{}, "", errNoTags
 	}

@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -377,28 +378,28 @@ func (w *world) deps() tui.Deps {
 // here and records what a commit remembers.
 func (w *world) storeDeps() seams.Store {
 	return w.withKept(seams.Store{
-		LastScope: func() (string, bool) {
+		LastScope: func(context.Context) (string, bool) {
 			return w.learnedScope, w.learnedScope != ""
 		},
-		RecordScope: func(scope string) error {
+		RecordScope: func(_ context.Context, scope string) error {
 			w.record("scope " + scope)
 
 			return w.storeErr
 		},
-		Announced: func() []loop.Announced {
+		Announced: func(context.Context) []loop.Announced {
 			w.record("history")
 
 			return w.storedAnnounces
 		},
-		RecordAnnounce: func(made loop.Announced) error {
+		RecordAnnounce: func(_ context.Context, made loop.Announced) error {
 			w.record("announce " + strconv.Itoa(made.Pull) + " " + strconv.Itoa(int(made.Moment)))
 
 			return w.storeErr
 		},
-		CachedIssues: func(_ string) ([]jira.Issue, bool) {
+		CachedIssues: func(_ context.Context, _ string) ([]jira.Issue, bool) {
 			return w.cachedIssues, len(w.cachedIssues) > 0
 		},
-		CacheIssues: func(_ string, issues []jira.Issue) error {
+		CacheIssues: func(_ context.Context, _ string, issues []jira.Issue) error {
 			w.record("cache " + strconv.Itoa(len(issues)))
 
 			return w.storeErr

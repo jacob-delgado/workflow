@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"path"
 	"strings"
 
@@ -29,7 +30,7 @@ func (c commitComposer) withScopeSuggestions(suggestions []string) commitCompose
 // the scope suggestions from paths and the log, and, when learn is set because
 // no kept draft names a scope, the scope last used in this repository: git and
 // the store are read off the update loop, so the composer never waits on them.
-func readScopes(deps Deps, opened int, paths []string, learn bool) tea.Cmd {
+func readScopes(ctx context.Context, deps Deps, opened int, paths []string, learn bool) tea.Cmd {
 	recentSubjects, lastScope := deps.Git.RecentSubjects, deps.Store.LastScope
 	if !learn {
 		lastScope = nil
@@ -45,7 +46,7 @@ func readScopes(deps Deps, opened int, paths []string, learn bool) tea.Cmd {
 			return read
 		}
 
-		if learned, ok := lastScope(); ok {
+		if learned, ok := lastScope(ctx); ok {
 			read.learned = learned
 		}
 

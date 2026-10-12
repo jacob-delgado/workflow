@@ -99,7 +99,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	paths := m.changes.stagedPaths()
 	m.overlay = composer.withScopeSuggestions(scopeSuggestions(paths, nil))
 
-	return m, readScopes(m.deps, opened, paths, draft.scope == "")
+	return m, readScopes(m.session, m.deps, opened, paths, draft.scope == "")
 }
 
 // commitConvention is the team's commit convention: their own types, subject
@@ -428,9 +428,9 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 			done.draft = commitDraft{}
 			committed := done.marks.done + " committed " + subject.String()
 			done = done.closeOverlay().noticed(committed)
-			record := done.deps.Store.RecordScope
+			ctx, record := done.session, done.deps.Store.RecordScope
 			remember := func() tea.Msg {
-				_, err := loop.RememberScope(record, subject.Scope)
+				_, err := loop.RememberScope(ctx, record, subject.Scope)
 				if err != nil {
 					return storeNotKept{notice: committed + "; its scope was not remembered: " + err.Error()}
 				}

@@ -4,6 +4,7 @@
 package report_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -31,7 +32,7 @@ const (
 
 // workingIn is a view of the repository under home, its origin on GitHub and
 // its configuration in both files, its favorites read by favorites.
-func workingIn(favorites func() ([]string, error)) report.RepositoriesView {
+func workingIn(favorites func(context.Context) ([]string, error)) report.RepositoriesView {
 	here := seams.Place{
 		Dir: workdir, Root: repo, Remote: forge.Repo{Host: "github.com", Path: "owner/workflow", Kind: forge.KindGitHub},
 		Config: config.Files{Home: filepath.Join(home, config.FileName), Repo: filepath.Join(repo, config.FileName)},
@@ -47,7 +48,7 @@ func TestTheRepositoriesReportSaysWhereItWorksWrittenFromHome(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	answer, err := workingIn(nil).Report(worded)
+	answer, err := workingIn(nil).Report(t.Context(), worded)
 	// Assert
 	if err != nil {
 		t.Fatalf("Report = %v, want where it works", err)
@@ -72,7 +73,7 @@ func TestADirectoryOutsideARepositoryHasNoRootOrOrigin(t *testing.T) {
 	view := report.RepositoriesView{Repositories: seams.Repositories{Here: seams.Place{Dir: home}, Home: home}}
 
 	// Act
-	answer, _ := view.Report(worded)
+	answer, _ := view.Report(t.Context(), worded)
 
 	// Assert
 	if here := answer.Here; here.Shown != "~" || here.Root != "" || here.Within != "" || here.Origin != "" {
@@ -94,7 +95,7 @@ func TestTheRepositoriesReportSaysWhichWorktreeIsWhich(t *testing.T) {
 	}
 
 	// Act
-	answer, _ := view.Report(worded)
+	answer, _ := view.Report(t.Context(), worded)
 
 	// Assert
 	states := make([]api.WorktreeState, 0, len(answer.Worktrees))
@@ -120,7 +121,7 @@ func TestWorktreesThatCannotBeReadAreNoneAndSayWhy(t *testing.T) {
 	view.Repositories.Worktrees = func() ([]gitrepo.Worktree, error) { return nil, errUnreadable }
 
 	// Act
-	answer, _ := view.Report(worded)
+	answer, _ := view.Report(t.Context(), worded)
 
 	// Assert
 	if len(answer.Worktrees) != 0 || answer.WorktreesError != "worded: unreadable" {
@@ -138,7 +139,7 @@ func TestEachFavoriteSaysWhatIsThereNow(t *testing.T) {
 		gone  = "/home/dev/src/gone"
 	)
 
-	view := workingIn(func() ([]string, error) { return []string{workdir, plain, other, gone}, nil })
+	view := workingIn(func(context.Context) ([]string, error) { return []string{workdir, plain, other, gone}, nil })
 	view.Repositories.Look = func(dir string) (seams.Place, error) {
 		switch dir {
 		case plain:
@@ -151,7 +152,7 @@ func TestEachFavoriteSaysWhatIsThereNow(t *testing.T) {
 	}
 
 	// Act
-	answer, _ := view.Report(worded)
+	answer, _ := view.Report(t.Context(), worded)
 
 	// Assert
 	want := []api.Favorite{
@@ -169,10 +170,10 @@ func TestAFavoriteWithNoWayToLookAtItIsMissing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	view := workingIn(func() ([]string, error) { return []string{"/home/dev/notes"}, nil })
+	view := workingIn(func(context.Context) ([]string, error) { return []string{"/home/dev/notes"}, nil })
 
 	// Act
-	answer, _ := view.Report(worded)
+	answer, _ := view.Report(t.Context(), worded)
 
 	// Assert
 	if len(answer.Favorites) != 1 || answer.Favorites[0].State != api.FavoriteStateMissing {
@@ -184,10 +185,10 @@ func TestFavoritesThatCannotBeReadAreNoneAndTheErrorIsReturned(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	view := workingIn(func() ([]string, error) { return nil, errUnreadable })
+	view := workingIn(func(context.Context) ([]string, error) { return nil, errUnreadable })
 
 	// Act
-	answer, err := view.Report(worded)
+	answer, err := view.Report(t.Context(), worded)
 
 	// Assert
 	if !errors.Is(err, errUnreadable) || len(answer.Favorites) != 0 {
@@ -203,7 +204,7 @@ func TestAStoreThatKeepsNoFavoritesListsNone(t *testing.T) {
 	view.FavoritesKept = false
 
 	// Act
-	answer, err := view.Report(worded)
+	answer, err := view.Report(t.Context(), worded)
 
 	// Assert
 	if err != nil || answer.Favorites == nil || len(answer.Favorites) != 0 || answer.FavoritesKept {
@@ -225,11 +226,11 @@ func TestAFavoriteThatLinksToWhereItWorksIsHere(t *testing.T) {
 
 	view := report.RepositoriesView{
 		Repositories: seams.Repositories{Here: seams.Place{Dir: dir}},
-		Favorites:    func() ([]string, error) { return []string{link}, nil },
+		Favorites:    func(context.Context) ([]string, error) { return []string{link}, nil },
 	}
 
 	// Act
-	answer, _ := view.Report(worded)
+	answer, _ := view.Report(t.Context(), worded)
 
 	// Assert
 	if len(answer.Favorites) != 1 || answer.Favorites[0].State != api.FavoriteStateHere {
@@ -244,7 +245,7 @@ func TestWorkingAtTheRootOfARepositoryIsWithinNothing(t *testing.T) {
 	view := report.RepositoriesView{Repositories: seams.Repositories{Here: seams.Place{Dir: repo, Root: repo}}}
 
 	// Act
-	answer, _ := view.Report(worded)
+	answer, _ := view.Report(t.Context(), worded)
 
 	// Assert
 	if answer.Here.Root != repo || answer.Here.Within != "" {
@@ -260,7 +261,7 @@ func TestADirectoryThatCannotBeWrittenFromItsRootIsWithinNothing(t *testing.T) {
 	view := report.RepositoriesView{Repositories: seams.Repositories{Here: seams.Place{Dir: "internal", Root: repo}}}
 
 	// Act
-	answer, _ := view.Report(worded)
+	answer, _ := view.Report(t.Context(), worded)
 
 	// Assert
 	if answer.Here.Within != "" {

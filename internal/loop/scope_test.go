@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -34,14 +35,14 @@ func TestRememberScopeRecordsTheScopeAsTheSubjectWritesIt(t *testing.T) {
 			// Arrange
 			var recorded []string
 
-			record := func(scope string) error {
+			record := func(_ context.Context, scope string) error {
 				recorded = append(recorded, scope)
 
 				return nil
 			}
 
 			// Act
-			reported, err := loop.RememberScope(record, tt.scope)
+			reported, err := loop.RememberScope(t.Context(), record, tt.scope)
 
 			// Assert
 			if err != nil || !slices.Equal(recorded, tt.wantRecorded) || reported != (tt.wantRecorded != nil) {
@@ -56,7 +57,7 @@ func TestRememberScopeWithNothingToRecordIntoReportsNothingRecorded(t *testing.T
 	t.Parallel()
 
 	// Act
-	reported, err := loop.RememberScope(nil, usedScope)
+	reported, err := loop.RememberScope(t.Context(), nil, usedScope)
 
 	// Assert
 	if reported || err != nil {
@@ -68,10 +69,10 @@ func TestRememberScopeSaysWhyARecordWasNotKept(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	record := func(string) error { return errSeam }
+	record := func(context.Context, string) error { return errSeam }
 
 	// Act
-	reported, err := loop.RememberScope(record, usedScope)
+	reported, err := loop.RememberScope(t.Context(), record, usedScope)
 
 	// Assert
 	if !reported || !errors.Is(err, errSeam) {
