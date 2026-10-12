@@ -260,7 +260,7 @@ func TestTheSlackSeamRefusesAnInsecureWebhookBeforeSending(t *testing.T) {
 	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 
 	// Act
-	err := seams.Post("", "hi")
+	err := seams.Post(t.Context(), "", "hi")
 
 	// Assert
 	if !errors.Is(err, messaging.ErrInsecureWebhook) {
@@ -296,7 +296,7 @@ func TestTheMessagingSeamNeverLogsAWebhooksPath(t *testing.T) {
 			seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, requestLog).Messaging
 
 			// Act
-			_ = seams.Post("", "hi")
+			_ = seams.Post(t.Context(), "", "hi")
 
 			// Assert
 			line := logged.String()

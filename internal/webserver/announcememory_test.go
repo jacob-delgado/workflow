@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"slices"
@@ -37,7 +38,7 @@ type announceMemory struct {
 
 // wire binds deps' announcement memory, and a post that goes, over m.
 func (m *announceMemory) wire(deps webserver.Deps) webserver.Deps {
-	deps.Messaging.Post = func(string, string) error { return nil }
+	deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 	deps.Store.Announced = func() []loop.Announced {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -90,7 +91,7 @@ func TestAnnounceRefusesWhatWasAlreadyAnnounced(t *testing.T) {
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
 	deps := memory.wire(filledDeps())
 	posted := 0
-	deps.Messaging.Post = func(string, string) error {
+	deps.Messaging.Post = func(context.Context, string, string) error {
 		posted++
 
 		return nil

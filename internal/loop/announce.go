@@ -4,6 +4,7 @@
 package loop
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -247,12 +248,15 @@ type Delivery struct {
 // was not remembered is ErrNotRemembered, carrying why, which
 // NotRememberedReason reads: the post was made, and the caller says so with
 // NotRememberedWarning.
-func Deliver(post func(channel, text string) error, memory AnnounceMemory, delivery Delivery) error {
+func Deliver(
+	ctx context.Context, post func(ctx context.Context, channel, text string) error, memory AnnounceMemory,
+	delivery Delivery,
+) error {
 	if post == nil {
 		return ErrAnnounceUnavailable
 	}
 
-	err := post(delivery.Channel, delivery.textWithTags())
+	err := post(ctx, delivery.Channel, delivery.textWithTags())
 	if err != nil {
 		return err
 	}

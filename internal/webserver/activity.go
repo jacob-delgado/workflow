@@ -71,7 +71,7 @@ func dayAsked(day *openapi_types.Date) string {
 // is posted; a post that fails is classified by fault, whose details never
 // carry the error's own text, which can name the webhook.
 func (s *server) PostActivity(
-	_ context.Context, request api.PostActivityRequestObject,
+	ctx context.Context, request api.PostActivityRequestObject,
 ) (api.PostActivityResponseObject, error) {
 	body := *request.Body
 
@@ -82,7 +82,7 @@ func (s *server) PostActivity(
 
 	settings, channel := s.config().Messaging, s.channelOr(orZero(body.Channel))
 
-	err = loop.PostSummary(s.deps.Messaging.Post, settings.Kind, channel, body.Text)
+	err = loop.PostSummary(ctx, s.deps.Messaging.Post, settings.Kind, channel, body.Text)
 	if errors.Is(err, loop.ErrSummaryUnavailable) || errors.Is(err, loop.ErrEmptySummary) {
 		return activityPostRefused(err.Error()), nil
 	}

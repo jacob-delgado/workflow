@@ -62,7 +62,7 @@ func TestAUserTokenNotSetUpIsReportedBeforeAnythingIsSent(t *testing.T) {
 	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 
 	// Act
-	err := seams.Post("", "hi")
+	err := seams.Post(t.Context(), "", "hi")
 
 	// Assert
 	if !errors.Is(err, messaging.ErrNoCredential) || !errors.Is(err, slackauth.ErrNotLoggedIn) {
@@ -80,7 +80,7 @@ func TestMessagingSettingsSavedWhileRunningReachTheNextPost(t *testing.T) {
 	// Act
 	controls.UseMessagingSettings(config.Messaging{Kind: config.KindSlack, WebhookURL: "http://hooks.example.com/x"})
 
-	err := deps.Messaging.Post("", "hi")
+	err := deps.Messaging.Post(t.Context(), "", "hi")
 
 	// Assert
 	if !errors.Is(err, messaging.ErrInsecureWebhook) {

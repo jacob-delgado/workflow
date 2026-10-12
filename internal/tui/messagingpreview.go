@@ -172,7 +172,7 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 
 	var readMembers tea.Cmd
 	if p.tagging.offered {
-		p.tagging.members, readMembers = readChannelMembers(m.deps, p.channel, p.opened)
+		p.tagging.members, readMembers = readChannelMembers(m.session, m.deps, p.channel, p.opened)
 	}
 
 	m.overlay = p
@@ -244,7 +244,7 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 // one would otherwise follow it once CI passed, and the channel would read it
 // twice.
 func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
-	post, memory := m.deps.Messaging.Post, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
+	ctx, post, memory := m.session, m.deps.Messaging.Post, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
 	if record := m.deps.Store.RecordGroups; out.tags.offersGroups && record != nil {
 		memory.RecordGroups = func(ids []string) error { return record(out.tags.workspace, ids) }
 	}
@@ -254,7 +254,7 @@ func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
 	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
 	return m, func() tea.Msg {
-		return messagingPosted{made: made, to: out.to, opened: out.opened, err: loop.Deliver(post, memory, delivery)}
+		return messagingPosted{made: made, to: out.to, opened: out.opened, err: loop.Deliver(ctx, post, memory, delivery)}
 	}
 }
 
@@ -384,5 +384,5 @@ func (p messagingPreview) markNotOnSlack(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, saveLink(m.deps, decided(owner.Owner, owner.Team, nil), p.opened)
+	return m, saveLink(m.session, m.deps, decided(owner.Owner, owner.Team, nil), p.opened)
 }

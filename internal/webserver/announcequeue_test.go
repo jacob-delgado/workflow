@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -113,7 +114,7 @@ func (w *forgeWorld) deps() webserver.Deps {
 
 		return w.now
 	}
-	deps.Messaging.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 

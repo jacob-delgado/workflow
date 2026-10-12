@@ -252,7 +252,7 @@ func heldBackServices(deps Deps) Deps {
 	}
 
 	if deps.Messaging.Post != nil {
-		deps.Messaging.Post = func(string, string) error { return errDryRun }
+		deps.Messaging.Post = func(context.Context, string, string) error { return errDryRun }
 	}
 
 	if deps.Hooks.Run != nil {

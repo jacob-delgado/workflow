@@ -4,6 +4,7 @@
 package loop
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -38,15 +39,15 @@ var ErrGroupNotOffered = errors.New("that user group is not offered for this ann
 var ErrUnknownWorkspace = errors.New("can't tell which Slack workspace this token is for")
 
 // TagWorkspace is the Slack workspace tags are read and kept under, as read
-// says: messaging.ErrNoCredential when there is no Slack user token to tag
-// with, as with no read at all, and ErrUnknownWorkspace, wrapping why, when
-// Slack cannot say which it is.
-func TagWorkspace(read func() (string, error)) (string, error) {
+// says under ctx: messaging.ErrNoCredential when there is no Slack user token
+// to tag with, as with no read at all, and ErrUnknownWorkspace, wrapping why,
+// when Slack cannot say which it is.
+func TagWorkspace(ctx context.Context, read func(ctx context.Context) (string, error)) (string, error) {
 	if read == nil {
 		return "", messaging.ErrNoCredential
 	}
 
-	workspace, err := read()
+	workspace, err := read(ctx)
 
 	switch {
 	case err == nil:

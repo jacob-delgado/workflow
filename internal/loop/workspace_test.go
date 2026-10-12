@@ -8,6 +8,7 @@ package loop_test
 // a webhook does, and a workspace Slack will not name tags no one and says why.
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -19,19 +20,20 @@ func TestTagWorkspaceTellsNoTokenFromAnUnknownWorkspace(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		read          func() (string, error)
+		read          func(context.Context) (string, error)
 		wantWorkspace string
 		want          error
 	}{
 		"the workspace Slack names": {
-			read: func() (string, error) { return "T0ACME", nil }, wantWorkspace: "T0ACME", want: nil,
+			read: func(context.Context) (string, error) { return "T0ACME", nil }, wantWorkspace: "T0ACME", want: nil,
 		},
 		"no read, as with no Slack user token": {read: nil, want: messaging.ErrNoCredential},
 		"no Slack user token": {
-			read: func() (string, error) { return "", messaging.ErrNoCredential }, want: messaging.ErrNoCredential,
+			read: func(context.Context) (string, error) { return "", messaging.ErrNoCredential },
+			want: messaging.ErrNoCredential,
 		},
 		"a workspace Slack will not name": {
-			read: func() (string, error) { return "", messaging.ErrNoWorkspace }, want: loop.ErrUnknownWorkspace,
+			read: func(context.Context) (string, error) { return "", messaging.ErrNoWorkspace }, want: loop.ErrUnknownWorkspace,
 		},
 	}
 
@@ -40,7 +42,7 @@ func TestTagWorkspaceTellsNoTokenFromAnUnknownWorkspace(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			workspace, err := loop.TagWorkspace(tt.read)
+			workspace, err := loop.TagWorkspace(t.Context(), tt.read)
 
 			// Assert
 			if workspace != tt.wantWorkspace || !errors.Is(err, tt.want) || (tt.want == nil) != (err == nil) {

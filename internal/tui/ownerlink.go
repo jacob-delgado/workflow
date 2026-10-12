@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"unicode/utf8"
@@ -34,28 +35,28 @@ func (d directory) missingScope() string {
 	return ""
 }
 
-// readChannelMembers starts reading a channel's members, for linking a user owner
-// in the overlay opened as opened.
-func readChannelMembers(deps Deps, channel string, opened int) (directory, tea.Cmd) {
+// readChannelMembers starts reading a channel's members under ctx, for linking
+// a user owner in the overlay opened as opened.
+func readChannelMembers(ctx context.Context, deps Deps, channel string, opened int) (directory, tea.Cmd) {
 	read := deps.Messaging.ChannelMembers
 
 	return directory{reading: true}, func() tea.Msg {
-		found, err := read(channel)
+		found, err := read(ctx, channel)
 
 		return membersRead{opened: opened, channel: channel, found: directory{entries: found, err: err}}
 	}
 }
 
-// readUserGroups starts reading the workspace's user groups, for linking a
-// team owner, where Slack can list them.
-func readUserGroups(deps Deps, opened int) (directory, tea.Cmd) {
+// readUserGroups starts reading the workspace's user groups under ctx, for
+// linking a team owner, where Slack can list them.
+func readUserGroups(ctx context.Context, deps Deps, opened int) (directory, tea.Cmd) {
 	read := deps.Messaging.UserGroups
 	if read == nil {
 		return directory{}, nil
 	}
 
 	return directory{reading: true}, func() tea.Msg {
-		found, err := read()
+		found, err := read(ctx)
 
 		return userGroupsRead{opened: opened, found: directory{entries: found, err: err}}
 	}
@@ -160,13 +161,13 @@ func (m Model) withBeneath(changed linksOwners) Model {
 	return m
 }
 
-// saveLink saves link, whom an owner is on Slack or that they are not on it,
-// for the overlay opened as opened.
-func saveLink(deps Deps, link loop.OwnerLink, opened int) tea.Cmd {
+// saveLink saves link under ctx, whom an owner is on Slack or that they are
+// not on it, for the overlay opened as opened.
+func saveLink(ctx context.Context, deps Deps, link loop.OwnerLink, opened int) tea.Cmd {
 	save, readWorkspace := deps.Store.LinkOwner, deps.Messaging.Workspace
 
 	return func() tea.Msg {
-		err := inWorkspace(readWorkspace, func(workspace string) error { return save(workspace, link) })
+		err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return save(workspace, link) })
 
 		return ownerLinked{opened: opened, link: link, err: err}
 	}
@@ -183,10 +184,12 @@ func decided(owner string, team bool, target *loop.SlackTarget) loop.OwnerLink {
 	return link
 }
 
-// inWorkspace makes write in the Slack workspace the token is for, which every
-// kept link is made under, or says why that cannot be read.
-func inWorkspace(readWorkspace func() (string, error), write func(workspace string) error) error {
-	workspace, err := loop.TagWorkspace(readWorkspace)
+// inWorkspace makes write in the Slack workspace the token is for, read under
+// ctx, which every kept link is made under, or says why that cannot be read.
+func inWorkspace(
+	ctx context.Context, readWorkspace func(ctx context.Context) (string, error), write func(workspace string) error,
+) error {
+	workspace, err := loop.TagWorkspace(ctx, readWorkspace)
 	if err != nil {
 		return err
 	}
@@ -367,8 +370,8 @@ func (p ownerPicker) choose(m Model) (Model, tea.Cmd) {
 	m.overlay = p.back
 
 	if chosen.notOnSlack {
-		return m, saveLink(m.deps, decided(p.owner, p.team, nil), p.back.openedAs())
+		return m, saveLink(m.session, m.deps, decided(p.owner, p.team, nil), p.back.openedAs())
 	}
 
-	return m, saveLink(m.deps, decided(p.owner, p.team, &chosen.target), p.back.openedAs())
+	return m, saveLink(m.session, m.deps, decided(p.owner, p.team, &chosen.target), p.back.openedAs())
 }

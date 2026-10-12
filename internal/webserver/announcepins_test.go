@@ -7,6 +7,7 @@ package webserver_test
 // started with, and a post tags only whom its preview showed.
 
 import (
+	"context"
 	"net/http"
 	"slices"
 	"strings"
@@ -37,7 +38,7 @@ func keptOver(t *testing.T, fake *fakeKept, cfg config.Config, posted *string) h
 
 	deps := filledDeps()
 	fake.wire(&deps)
-	deps.Messaging.Post = func(_, text string) error {
+	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		*posted = text
 
 		return nil
@@ -91,7 +92,7 @@ func TestGetAnnouncementChecksTheScopeAgainstTheChannelPreviewed(t *testing.T) {
 
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
-	deps.Messaging.ChannelMembers = func(channel string) ([]loop.SlackTarget, error) {
+	deps.Messaging.ChannelMembers = func(_ context.Context, channel string) ([]loop.SlackTarget, error) {
 		asked = append(asked, channel)
 
 		return nil, &messaging.MissingScopeError{Needed: usersRead}
@@ -213,7 +214,7 @@ func TestLinkPersonChecksTheMemberInTheChannelPickedFrom(t *testing.T) {
 
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
-	deps.Messaging.ChannelMembers = func(channel string) ([]loop.SlackTarget, error) {
+	deps.Messaging.ChannelMembers = func(_ context.Context, channel string) ([]loop.SlackTarget, error) {
 		asked = append(asked, channel)
 
 		return []loop.SlackTarget{ben()}, nil

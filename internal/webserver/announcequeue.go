@@ -80,8 +80,9 @@ const (
 // announceWhenGreen holds a ready-for-review announcement until its pull
 // request's CI passes, answering 202 with it waiting; posts it at once when CI
 // has passed already; and refuses one that is not ready for review, or whose
-// pull request reports no CI to wait for.
-func (s *server) announceWhenGreen(post announcePost) api.AnnounceResponseObject {
+// pull request reports no CI to wait for. One posted at once is posted under
+// ctx.
+func (s *server) announceWhenGreen(ctx context.Context, post announcePost) api.AnnounceResponseObject {
 	if post.moment != messaging.MomentReady {
 		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"only a ready-for-review announcement waits for CI; this one announces a merge or a failed CI, "+
@@ -95,7 +96,7 @@ func (s *server) announceWhenGreen(post announcePost) api.AnnounceResponseObject
 
 	switch ci.State {
 	case forge.CIPassed:
-		return s.announceNow(post)
+		return s.announceNow(ctx, post)
 	case forge.CIRunning:
 		return s.holdAnswer(post, branch)
 	case forge.CINone, forge.CIFailed:
@@ -277,9 +278,11 @@ func (s *server) heldVerdict(branch gitrepo.Branch, read forgeRead) (string, hel
 
 // postHeld posts the announcement taken to post, and records how it went,
 // with the warning when the store could not remember it: a moment announced
-// meanwhile, from a page or a terminal, drops it unposted.
+// meanwhile, from a page or a terminal, drops it unposted. It posts under the
+// server's lifetime, whether a frame or the timer took it to post: no page
+// asked for it, and it goes once, so none leaving may stop it halfway.
 func (s *server) postHeld(post announcePost) {
-	warning, err := s.deliver(post)
+	warning, err := s.deliver(s.worlds.lifetime, post)
 
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
@@ -469,8 +472,8 @@ var errAnnouncedAlready = errors.New("announced already at this moment")
 // answering the warning to say of a post the store could not remember. The
 // check, the post and the record are one step under delivering, so two asks
 // at once — two tabs, or a held announcement and one made now — post it once,
-// and the second learns it was made.
-func (s *server) deliver(post announcePost) (string, error) {
+// and the second learns it was made. It posts under ctx.
+func (s *server) deliver(ctx context.Context, post announcePost) (string, error) {
 	s.delivering.Lock()
 	defer s.delivering.Unlock()
 
@@ -478,7 +481,7 @@ func (s *server) deliver(post announcePost) (string, error) {
 		return "", errAnnouncedAlready
 	}
 
-	return s.delivered(loop.Deliver(s.deps.Messaging.Post, post.memory, post.delivery))
+	return s.delivered(loop.Deliver(ctx, s.deps.Messaging.Post, post.memory, post.delivery))
 }
 
 // announcedBefore refuses to announce pull at a moment it was announced at

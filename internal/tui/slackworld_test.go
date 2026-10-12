@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strings"
@@ -86,7 +87,7 @@ func newSlackWorld() *slackWorld {
 // messagingDeps fakes the messaging service: posts are recorded, and with a
 // slackWorld its directory answers.
 func (w *world) messagingDeps() seams.Messaging {
-	deps := seams.Messaging{Post: func(channel, text string) error {
+	deps := seams.Messaging{Post: func(_ context.Context, channel, text string) error {
 		w.record("post " + text)
 		w.rememberChannel(channel)
 
@@ -103,7 +104,7 @@ func (w *world) messagingDeps() seams.Messaging {
 		return deps
 	}
 
-	deps.ChannelMembers = func(channel string) ([]loop.SlackTarget, error) {
+	deps.ChannelMembers = func(_ context.Context, channel string) ([]loop.SlackTarget, error) {
 		w.record("members " + channel)
 
 		if w.slack.membersErr != nil {
@@ -113,10 +114,10 @@ func (w *world) messagingDeps() seams.Messaging {
 		return slices.Clone(w.slack.members[channel]), nil
 	}
 	deps.RefreshDirectory = func() { w.record("refresh-directory") }
-	deps.Workspace = func() (string, error) { return w.slack.workspace, w.slack.workspaceErr }
+	deps.Workspace = func(context.Context) (string, error) { return w.slack.workspace, w.slack.workspaceErr }
 
 	if !w.slack.noGroups {
-		deps.UserGroups = func() ([]loop.SlackTarget, error) {
+		deps.UserGroups = func(context.Context) ([]loop.SlackTarget, error) {
 			w.record("user-groups")
 
 			if w.slack.groupsErr != nil {

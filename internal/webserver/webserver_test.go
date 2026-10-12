@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -351,7 +352,7 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 
 			// Arrange
 			deps := tt.mutate(openableDeps())
-			deps.Messaging.Post = func(string, string) error { return nil }
+			deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 			info := webserver.Info{Version: testVersion, ForgeKind: forge.KindGitLab}
 
 			// Act

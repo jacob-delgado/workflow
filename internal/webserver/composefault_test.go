@@ -7,6 +7,7 @@ package webserver_test
 // through fault, not as there being nothing to announce or open.
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -56,7 +57,7 @@ func TestAnUnreachableForgeIsNotNothingToAnnounce(t *testing.T) {
 			posted := false
 
 			deps := filledDeps()
-			deps.Messaging.Post = func(string, string) error {
+			deps.Messaging.Post = func(context.Context, string, string) error {
 				posted = true
 
 				return nil

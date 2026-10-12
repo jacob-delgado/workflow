@@ -99,7 +99,7 @@ func TestASlackAddressOnThisMachineIsAskedInsteadOfSlack(t *testing.T) {
 			seams := wired(t, loggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 
 			// Act
-			err := seams.Post("", "hi")
+			err := seams.Post(t.Context(), "", "hi")
 			// Assert
 			if err != nil {
 				t.Fatalf("Post = %v, want it accepted by the fake", err)
@@ -134,7 +134,7 @@ func TestAPostFromARepositoryFindsTheUserTokenTheHomeFileKeeps(t *testing.T) {
 	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 
 	// Act
-	err = seams.Post("", "hi")
+	err = seams.Post(t.Context(), "", "hi")
 
 	// Assert
 	if seen := slack.seen(); err != nil || len(seen) != 1 || seen[0] != "Bearer "+loggedInToken {
@@ -161,7 +161,7 @@ func TestASlackAddressInClearTextOffThisMachineSendsNothing(t *testing.T) {
 			seams := wired(t, loggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 
 			// Act
-			err := seams.Post("", "hi")
+			err := seams.Post(t.Context(), "", "hi")
 
 			// Assert
 			if !errors.Is(err, wiring.ErrSlackAPIRefused) || !strings.Contains(err.Error(), wiring.SlackAPIVariable) {
@@ -194,7 +194,7 @@ func TestAnHTTPSSlackAddressAnywhereIsAsked(t *testing.T) {
 	seams := wired(t, loggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 
 	// Act
-	err := seams.Post("", "hi")
+	err := seams.Post(t.Context(), "", "hi")
 
 	// Assert
 	if errors.Is(err, wiring.ErrSlackAPIRefused) || connections.Load() == 0 {

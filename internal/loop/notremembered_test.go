@@ -27,7 +27,7 @@ func TestNotRememberedReasonIsWhyTheStoreCouldNotRemember(t *testing.T) {
 			var sent deliveries
 
 			forgetting := loop.AnnounceMemory{Record: func(loop.Announced) error { return errSeam }}
-			err := wrap(loop.Deliver(sent.post(nil), forgetting, merged()))
+			err := wrap(loop.Deliver(t.Context(), sent.post(nil), forgetting, merged()))
 
 			// Act
 			why, notKept := loop.NotRememberedReason(err)
