@@ -618,18 +618,20 @@ by a switch reads the Slack directory afresh (TRADE-26).
 **Reopen when.** A switch is found slow enough to notice, or the terminal is
 found left changed by one in practice.
 
-### TRADE-35 Windows-only code is built in CI but never run
+### TRADE-35 Code only another system runs is never run in CI
 
 **Decided.** Every CI job runs on `ubuntu-latest`. The Cross-compile job
 (`cross` in `.github/workflows/ci.yml`) runs `task release:binaries` and
 `task release:verify`, which build a binary for every `RELEASE_PLATFORMS`
-target in `Taskfile.yml`, `windows/amd64` among them, so the code only a
-Windows build holds is compiled on every change, but no job runs it. Decided
-2026-10-09 by the maintainer in the pre-1.0 paydown (#232): CI stays on
-Linux, and the cost is recorded here.
+target in `Taskfile.yml`, `darwin/arm64` and `windows/amd64` among them, so
+the code only a macOS or a Windows binary holds is compiled on every change,
+but no job runs it, and code only those systems' tests build is not compiled
+at all. Decided 2026-10-09 by the maintainer in the pre-1.0 paydown (#232):
+CI stays on Linux, and the cost is recorded here; widened in the same paydown
+from the code only Windows runs to the code only macOS runs as well.
 
-**Cost.** Five files are Windows-only, and two functions have a branch only
-Windows takes, each marked with this entry's ID:
+**Cost.** Five files are Windows-only, one is macOS-only, and two functions
+have a branch only Windows takes, each marked with this entry's ID:
 `internal/filelock/lock_windows.go` (`//go:build windows`), the `LockFileEx`
 lock `TryLock` takes, which keeps two sessions from writing the Slack
 credentials at once; `internal/fileowner/owner_other.go` (`//go:build
@@ -644,22 +646,28 @@ test file no job even compiles; `internal/ptytest/open_other.go`
 Windows alone), whose `openPair` opens no pseudo-terminal, so the tests that
 type at a terminal (`internal/cli/prompt_terminal_test.go` and
 `TestRunReadsKeysFromATerminalItIsHanded` in `internal/tui/run_test.go`) skip
-there, and which no job compiles either, since only tests import the package;
-the `runtime.GOOS == "windows"` branch of `SharedMode` in
-`internal/config/save.go`, which reports no file shared; and the `goos ==
-"windows"` branch of `defaultEditor` in `internal/editor/editor.go`, which
-opens notepad where no editor is set and which no test reaches, since the
-package only ever passes it `runtime.GOOS`. A regression in any of them
-builds, passes every job and ships, unseen until a Windows user meets it. The
-functions that take the platform as an argument (`store.Dir`,
-`keychain.Storer`, `taskwarrior.Candidates`, `wiring.BrowserCommand`,
-`hooks.NewFailureScan` and `hooks.ExistingHooks`) are not part of the cost:
-their tests pass `windows` on Linux.
+there; `internal/ptytest/open_darwin.go` (built for macOS alone by its name),
+whose `openPair` opens a pseudo-terminal as macOS makes one, granting and
+unlocking it and naming it with `TIOCPTYGNAME`, so on macOS those same tests
+type through code no job runs; the `runtime.GOOS == "windows"` branch of
+`SharedMode` in `internal/config/save.go`, which reports no file shared; and
+the `goos == "windows"` branch of `defaultEditor` in
+`internal/editor/editor.go`, which opens notepad where no editor is set and
+which no test reaches, since the package only ever passes it `runtime.GOOS`.
+No job compiles either of ptytest's files, since only tests import the
+package. A regression in any of the others builds, passes every job and
+ships, unseen until a Windows user meets it; one in `open_darwin.go` shows
+first as a failing or skipped test on a developer's Mac. The functions that
+take the platform as an argument (`store.Dir`, `keychain.Storer`,
+`keychain.Open`, `slackauth.Choose`, `taskwarrior.Candidates`,
+`wiring.BrowserCommand`, `Environment.PlaceSlackCredentials` in
+`internal/wiring`, `hooks.NewFailureScan` and `hooks.ExistingHooks`) are not
+part of the cost: their tests pass `windows` or `darwin` on Linux.
 
-**Reopen when.** A Windows-specific bug is reported, Windows-only code grows
-past the files and the branches named here, or the project adds a feature only
-Windows has, such as the job object `pgroup.Isolate` would need (FEAT-73 in
-`FEATURES.md`).
+**Reopen when.** A Windows- or macOS-specific bug is reported, code only
+either system runs grows past the files and the branches named here, or the
+project adds a feature only Windows has, such as the job object
+`pgroup.Isolate` would need (FEAT-73 in `FEATURES.md`).
 
 ### TRADE-36 The stat of a file just opened is taken not to fail
 
