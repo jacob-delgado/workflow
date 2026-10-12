@@ -212,11 +212,10 @@ func (s *server) settleOnRead(ctx context.Context) {
 }
 
 // settleHeld settles the held announcement against what the forge read of
-// branch: posts it
-// once its CI has passed, drops it with the reason once its CI has failed or
-// its pull request is no longer the branch's open one, and otherwise keeps it
-// waiting. Only one caller can take it to post, and nothing replaces or drops
-// it while it posts, so it is never posted twice.
+// branch: posts it once its CI has passed, drops it with the reason once its
+// CI has failed or its pull request is no longer the branch's open one, and
+// otherwise keeps it waiting. Only one caller can take it to post, and nothing
+// replaces or drops it while it posts, so it is never posted twice.
 func (s *server) settleHeld(branch gitrepo.Branch, read forgeRead) {
 	s.held.mu.Lock()
 
@@ -226,7 +225,7 @@ func (s *server) settleHeld(branch gitrepo.Branch, read forgeRead) {
 		return
 	}
 
-	reason, verdict := s.heldVerdict(branch, read)
+	reason, verdict := s.verdictOn(branch, read)
 
 	switch verdict {
 	case heldKeep:
@@ -253,10 +252,10 @@ const (
 	heldPost
 )
 
-// heldVerdict is what becomes of the held announcement given what the forge
+// verdictOn is what becomes of the held announcement given what the forge
 // read of branch, and the reason when it is dropped. The caller holds the
 // lock.
-func (s *server) heldVerdict(branch gitrepo.Branch, read forgeRead) (string, heldVerdict) {
+func (s *server) verdictOn(branch gitrepo.Branch, read forgeRead) (string, heldVerdict) {
 	number := s.held.post.pull.Number
 
 	switch {
