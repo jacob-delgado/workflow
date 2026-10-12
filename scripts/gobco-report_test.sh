@@ -11,11 +11,13 @@
 #
 # The arms no test reached: a condition never evaluated, and an error check's
 # error arm never seen, fail the run, naming the file, line and function, a
-# method by its type's name whatever type parameters it takes, unless a line of the allowlist keeps that arm for a trade-off; a line keeps
-# one arm, on the systems it names; a line whose arm a test now reaches, or
-# that is not shaped as one, fails too; and a boolean seen one way is only
-# listed. Each package the floors file names answers to its own floor beside
-# the module's, and a floor without a reason above it fails.
+# method by its type's name whatever type parameters it takes, unless a line
+# of the allowlist keeps that arm for a trade-off; a line keeps one arm, on
+# the systems it names; a line whose arm a test now reaches, or that is not
+# shaped as one, fails too; and a boolean seen one way is only listed. Each
+# package the floors file names answers to its own floor beside the module's,
+# a floor without a reason above it fails, and so does a floors file that is
+# not there.
 #
 # The stand-in gobco says which package or file it measured, writes
 # GOBCO_STUB_STATS to the file after -stats, or nothing when that is empty,
@@ -296,6 +298,11 @@ GOBCO_FLOORS="${at}" expect pass "a package at its own floor" "${one_way}" "" \
 unexplained="$(floors unexplained "internal/buildinfo 50")"
 GOBCO_FLOORS="${unexplained}" expect fail "a floor without a reason" "${one_way}" "" \
   "${unexplained}:1: internal/buildinfo has no # comment above it saying why" --package "${buildinfo}" 50
+
+# A floors file that is not there holds no package to its floor, which must
+# not pass for one whose packages all hold to theirs.
+GOBCO_FLOORS="${workdir}/no-floors.txt" expect fail "a floors file that is not there" "${one_way}" "" \
+  "${workdir}/no-floors.txt is not there" --package "${buildinfo}" 50
 
 # A floor for a package the run measured nowhere is a floor for nothing.
 gone="$(floors gone "# a package long gone" "internal/gone 90")"
