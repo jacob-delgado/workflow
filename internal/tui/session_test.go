@@ -348,8 +348,9 @@ func TestAWriteInFlightStopsWhenTheProgramIsSignaled(t *testing.T) {
 	}
 }
 
-// Quitting ends the session, never a write it sent: the write goes on while
-// the program that ran the interface does.
+// Quitting ends the session, never a write it sent: the write goes on until
+// the context Run was given ends, which the command line's exit after a quit
+// does not do.
 func TestAWriteInFlightGoesOnWhenTheInterfaceQuits(t *testing.T) {
 	t.Parallel()
 

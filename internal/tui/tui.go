@@ -166,11 +166,12 @@ func (m Model) WithContext(ctx context.Context) Model {
 	return m
 }
 
-// WithLifetime is the interface ending every write it sends once ctx ends.
-// A write outlasts its session, which a quit or a switch ends, so git is never
-// stopped midway with its index locked; ctx is the program's, which Run hands
-// it and a signal cancels, so SIGINT or SIGTERM stops a write in flight as it
-// stops every command. New leaves its writes unending.
+// WithLifetime is the interface ending every write it sends once ctx ends, and
+// not before. A write outlasts its session, so a quit or a switch never stops
+// git midway with its index locked. ctx is the program's lifetime, the context
+// Run is given: the command line's ends on SIGINT or SIGTERM, stopping a write
+// in flight as a signal stops every command, and not as workflow exits after a
+// quit. New leaves its writes unending.
 func (m Model) WithLifetime(ctx context.Context) Model {
 	// Trade-off TRADE-38: a quit or a switch stops reads alone; the end of the
 	// program's lifetime stops writes too.
@@ -208,7 +209,9 @@ func (m Model) WithoutColor() Model {
 // context cancels the program, so a caller can shut the interface down, and
 // the program's session ends when it does, stopping the reads it left in
 // flight. A write it sent outlasts the program, but not the context: canceling
-// it stops every write still under way too.
+// it stops every write still under way too, even once Run has returned, so a
+// caller cancels it only to end the program's lifetime, never to tidy up after
+// a quit.
 // The alternate screen and mouse mode are set declaratively in View, as v2
 // asks.
 func Run(ctx context.Context, model Model, in io.Reader, out io.Writer) (Next, error) {
