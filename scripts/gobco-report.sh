@@ -77,15 +77,11 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # internal/api is the oapi-codegen output — generated types and server surface
 # with no logic of ours; `task gen:verify` guards it. api is package apispec: a
 # single //go:embed of the OpenAPI document, data with no branches to measure.
-# internal/seams declares only types — structs of function fields, and the
-# values they carry, such as a KeyAction or a PageSection — with no function
-# body and so no condition; the wiring and terminal tests fill and call every
-# field.
 # internal/rlimit is a test helper, imported only by tests: the config, editor,
 # hooks, proc and wiring tests that lower a resource limit through it run it.
 # internal/ptytest is one too: the cli and tui tests that type at a terminal
 # open it through it.
-readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/api api internal/seams internal/rlimit internal/ptytest"
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/api api internal/rlimit internal/ptytest"
 
 # gobco type-checks the standard library from SOURCE, with the go/types compiled
 # into it: that of the Go that BUILT gobco, not the Go on PATH. One built by Go
