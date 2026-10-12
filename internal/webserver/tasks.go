@@ -44,21 +44,22 @@ type detectionCache struct {
 // ListTasks answers your pending tasks, or why no Taskwarrior can be asked —
 // an answer about where the server runs, as the review queue's is, not a
 // missing resource.
-func (s *server) ListTasks(_ context.Context, _ api.ListTasksRequestObject) (api.ListTasksResponseObject, error) {
-	list, err := s.readTaskList("")
+func (s *server) ListTasks(ctx context.Context, _ api.ListTasksRequestObject) (api.ListTasksResponseObject, error) {
+	list, err := s.readTaskList(ctx, "")
 	if err != nil {
-		return problemAnswer[api.ListTasksdefaultApplicationProblemPlusJSONResponse](s.taskFault(err)), nil
+		return problemAnswer[api.ListTasksdefaultApplicationProblemPlusJSONResponse](s.taskFault(ctx, err)), nil
 	}
 
 	return api.ListTasks200JSONResponse(list), nil
 }
 
-// readTaskList is the list a read answers and every write ends on, so the
-// page replaces what it shows with what Taskwarrior holds now. said is what
-// undo or sync printed, or what a write has to add. The clock is read once, so
-// the tasks' states and the values the filter offers describe one moment.
-func (s *server) readTaskList(said string) (api.TaskList, error) {
-	install, err := s.unlessSettingsChanged(s.installed)
+// readTaskList is the list a read answers and every write ends on, asked under
+// ctx, so the page replaces what it shows with what Taskwarrior holds now. said
+// is what undo or sync printed, or what a write has to add. The clock is read
+// once, so the tasks' states and the values the filter offers describe one
+// moment.
+func (s *server) readTaskList(ctx context.Context, said string) (api.TaskList, error) {
+	install, err := s.unlessSettingsChanged(ctx, s.installed)
 	if err != nil {
 		code, reason := unavailableReason(err)
 
@@ -67,7 +68,7 @@ func (s *server) readTaskList(said string) (api.TaskList, error) {
 		}, nil
 	}
 
-	pending, err := s.deps.Tasks.Pending()
+	pending, err := s.deps.Tasks.Pending(ctx)
 	if err != nil {
 		return api.TaskList{}, err
 	}
@@ -83,19 +84,22 @@ func (s *server) readTaskList(said string) (api.TaskList, error) {
 // unlessSettingsChanged is the Taskwarrior find answers, or errSettingsChanged
 // without asking once the taskwarrior settings in effect are not the ones the
 // seams were bound with: whatever find would say is about the old settings.
-func (s *server) unlessSettingsChanged(find func() (taskwarrior.Install, error)) (taskwarrior.Install, error) {
+func (s *server) unlessSettingsChanged(
+	ctx context.Context, find func(context.Context) (taskwarrior.Install, error),
+) (taskwarrior.Install, error) {
 	if s.config().Taskwarrior != s.info.Taskwarrior {
 		return taskwarrior.Install{}, errSettingsChanged
 	}
 
-	return find()
+	return find(ctx)
 }
 
-// installed is the Taskwarrior that answers, or why none can be asked: with no
-// seam, the integration was turned off at start or no task program was found.
-func (s *server) installed() (taskwarrior.Install, error) {
+// installed is the Taskwarrior that answers, asked under ctx, or why none can
+// be asked: with no seam, the integration was turned off at start or no task
+// program was found.
+func (s *server) installed(ctx context.Context) (taskwarrior.Install, error) {
 	if s.deps.Tasks.Install != nil {
-		return s.deps.Tasks.Install()
+		return s.deps.Tasks.Install(ctx)
 	}
 
 	if s.info.Taskwarrior.Disabled {
@@ -146,8 +150,8 @@ func unavailableReason(err error) (api.TaskListReasonCode, string) {
 // Until Taskwarrior has answered both reads the summary is unavailable, as the
 // terminal draws no task mark until it has, so a page never takes a read that
 // failed for "no task tracks this issue" and offers to track it again.
-func (s *server) snapshotTasks() api.TasksSummary {
-	_, err := s.unlessSettingsChanged(s.heldDetection)
+func (s *server) snapshotTasks(ctx context.Context) api.TasksSummary {
+	_, err := s.unlessSettingsChanged(ctx, s.heldDetection)
 	if err != nil {
 		_, reason := unavailableReason(err)
 
@@ -158,12 +162,12 @@ func (s *server) snapshotTasks() api.TasksSummary {
 		Available: false, Reason: "Taskwarrior could not be read; workflow doctor says why.", Linked: []api.Task{},
 	}
 
-	pending, err := s.deps.Tasks.Pending()
+	pending, err := s.deps.Tasks.Pending(ctx)
 	if err != nil {
 		return unanswered
 	}
 
-	linked, err := s.deps.Tasks.Linked()
+	linked, err := s.deps.Tasks.Linked(ctx)
 	if err != nil {
 		return unanswered
 	}
@@ -172,8 +176,10 @@ func (s *server) snapshotTasks() api.TasksSummary {
 }
 
 // heldDetection is which Taskwarrior answers, for the stream: a search that
-// found none within taskwarriorHold stands for this one.
-func (s *server) heldDetection() (taskwarrior.Install, error) {
+// found none within taskwarriorHold stands for this one. Every stream shares
+// the search, so it runs to its end even if the page whose frame began it
+// leaves; a search canceled then would be held as none for every page.
+func (s *server) heldDetection(ctx context.Context) (taskwarrior.Install, error) {
 	s.detection.mu.Lock()
 	defer s.detection.mu.Unlock()
 
@@ -182,7 +188,7 @@ func (s *server) heldDetection() (taskwarrior.Install, error) {
 		return taskwarrior.Install{}, s.detection.failed
 	}
 
-	install, err := s.installed()
+	install, err := s.installed(context.WithoutCancel(ctx))
 	s.detection.failed, s.detection.readAt = err, now
 
 	return install, err

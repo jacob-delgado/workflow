@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -187,35 +188,35 @@ func heldBackStreams(deps seams.Git) seams.Git {
 // heldBackTasks holds back the writes to Taskwarrior.
 func heldBackTasks(deps seams.Tasks) seams.Tasks {
 	if deps.Add != nil {
-		deps.Add = func(string) (string, error) { return "", errDryRun }
+		deps.Add = func(context.Context, string) (string, error) { return "", errDryRun }
 	}
 
 	if deps.Start != nil {
-		deps.Start = func(string) error { return errDryRun }
+		deps.Start = func(context.Context, string) error { return errDryRun }
 	}
 
 	if deps.Stop != nil {
-		deps.Stop = func(string) error { return errDryRun }
+		deps.Stop = func(context.Context, string) error { return errDryRun }
 	}
 
 	if deps.Done != nil {
-		deps.Done = func(string) error { return errDryRun }
+		deps.Done = func(context.Context, string) error { return errDryRun }
 	}
 
 	if deps.Annotate != nil {
-		deps.Annotate = func(string, string) error { return errDryRun }
+		deps.Annotate = func(context.Context, string, string) error { return errDryRun }
 	}
 
 	if deps.Modify != nil {
-		deps.Modify = func(string, string) error { return errDryRun }
+		deps.Modify = func(context.Context, string, string) error { return errDryRun }
 	}
 
 	if deps.Undo != nil {
-		deps.Undo = func() (string, error) { return "", errDryRun }
+		deps.Undo = func(context.Context) (string, error) { return "", errDryRun }
 	}
 
 	if deps.Sync != nil {
-		deps.Sync = func() (string, error) { return "", errDryRun }
+		deps.Sync = func(context.Context) (string, error) { return "", errDryRun }
 	}
 
 	return deps

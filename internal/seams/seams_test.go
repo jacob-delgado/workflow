@@ -75,9 +75,6 @@ func notYet() []string {
 		"Repositories.Look", "Repositories.Worktrees",
 
 		"Hooks.Run", "Hooks.Existing", "Hooks.Write",
-
-		"Tasks.Install", "Tasks.Pending", "Tasks.Touched", "Tasks.Linked", "Tasks.Add", "Tasks.Start", "Tasks.Stop",
-		"Tasks.Done", "Tasks.Annotate", "Tasks.Modify", "Tasks.Undo", "Tasks.Sync",
 	}
 }
 

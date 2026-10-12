@@ -4,6 +4,7 @@
 package wiring_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -120,8 +121,8 @@ func TestAFakeTaskwarriorAnswersThroughTheSeams(t *testing.T) {
 	tasks := wiredTasks(t, config.Default(), pathWithGitAnd(t, "task", fakeTaskwarrior("3.5.0")))
 
 	// Act
-	install, installErr := tasks.Install()
-	list, pendingErr := tasks.Pending()
+	install, installErr := tasks.Install(t.Context())
+	list, pendingErr := tasks.Pending(t.Context())
 
 	// Assert
 	if installErr != nil || install.Version != "3.5.0" || install.DataDir != "/tmp" {
@@ -147,12 +148,37 @@ func TestAFakeTaskwarriorAnswersThroughTheSeams(t *testing.T) {
 	}
 }
 
+// The wiring holds no context of its own: a seam runs Taskwarrior under the
+// context it is asked under, so one asked for a page that has left stops.
+func TestATaskSeamAskedUnderAnEndedContextIsCanceled(t *testing.T) {
+	// Arrange
+	recording(t)
+
+	tasks := wiredTasks(t, config.Default(), pathWithGitAnd(t, "task", fakeTaskwarrior("3.5.0")))
+
+	_, err := tasks.Install(t.Context())
+	if err != nil {
+		t.Fatalf("finding the fake Taskwarrior: %v", err)
+	}
+
+	ended, end := context.WithCancel(t.Context())
+	end()
+
+	// Act
+	_, err = tasks.Pending(ended)
+
+	// Assert
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("Pending under an ended context = %v, want %v", err, context.Canceled)
+	}
+}
+
 func TestGoTaskOnPathIsToldApartFromTaskwarrior(t *testing.T) {
 	// Arrange
 	tasks := wiredTasks(t, config.Default(), pathWithGitAnd(t, "task", goTask))
 
 	// Act
-	_, err := tasks.Install()
+	_, err := tasks.Install(t.Context())
 
 	// Assert
 	if !errors.Is(err, taskwarrior.ErrNotTaskwarrior) {
@@ -173,7 +199,7 @@ func TestAConfiguredProgramWinsOverPath(t *testing.T) {
 	tasks := wiredTasks(t, cfg, pathWithGitAnd(t, "task", fakeTaskwarrior("3.5.0")))
 
 	// Act
-	install, err := tasks.Install()
+	install, err := tasks.Install(t.Context())
 
 	// Assert
 	if err != nil || install.Program != configured || install.Version != "3.6.0" {
@@ -194,7 +220,7 @@ func TestAConfiguredProgramIsUsedWithNoTaskOnPath(t *testing.T) {
 	tasks := wiredTasks(t, cfg, pathWithGitAnd(t, "not-task", idleScript))
 
 	// Act
-	install, err := tasks.Install()
+	install, err := tasks.Install(t.Context())
 
 	// Assert
 	if err != nil || install.Program != configured {
@@ -204,16 +230,16 @@ func TestAConfiguredProgramIsUsedWithNoTaskOnPath(t *testing.T) {
 
 func TestEveryTaskSeamSaysWhyTaskwarriorWasNotFound(t *testing.T) {
 	calls := map[string]func(seams.Tasks) error{
-		"Pending":  func(tasks seams.Tasks) error { return errorOf(tasks.Pending()) },
-		"Linked":   func(tasks seams.Tasks) error { return errorOf(tasks.Linked()) },
-		"Add":      func(tasks seams.Tasks) error { return errorOf(tasks.Add("x")) },
-		"Start":    func(tasks seams.Tasks) error { return tasks.Start(taskUUID) },
-		"Stop":     func(tasks seams.Tasks) error { return tasks.Stop(taskUUID) },
-		"Done":     func(tasks seams.Tasks) error { return tasks.Done(taskUUID) },
-		"Annotate": func(tasks seams.Tasks) error { return tasks.Annotate(taskUUID, "x") },
-		"Modify":   func(tasks seams.Tasks) error { return tasks.Modify(taskUUID, "x") },
-		"Undo":     func(tasks seams.Tasks) error { return errorOf(tasks.Undo()) },
-		"Sync":     func(tasks seams.Tasks) error { return errorOf(tasks.Sync()) },
+		"Pending":  func(tasks seams.Tasks) error { return errorOf(tasks.Pending(t.Context())) },
+		"Linked":   func(tasks seams.Tasks) error { return errorOf(tasks.Linked(t.Context())) },
+		"Add":      func(tasks seams.Tasks) error { return errorOf(tasks.Add(t.Context(), "x")) },
+		"Start":    func(tasks seams.Tasks) error { return tasks.Start(t.Context(), taskUUID) },
+		"Stop":     func(tasks seams.Tasks) error { return tasks.Stop(t.Context(), taskUUID) },
+		"Done":     func(tasks seams.Tasks) error { return tasks.Done(t.Context(), taskUUID) },
+		"Annotate": func(tasks seams.Tasks) error { return tasks.Annotate(t.Context(), taskUUID, "x") },
+		"Modify":   func(tasks seams.Tasks) error { return tasks.Modify(t.Context(), taskUUID, "x") },
+		"Undo":     func(tasks seams.Tasks) error { return errorOf(tasks.Undo(t.Context())) },
+		"Sync":     func(tasks seams.Tasks) error { return errorOf(tasks.Sync(t.Context())) },
 	}
 
 	for name, call := range calls {

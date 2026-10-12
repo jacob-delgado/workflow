@@ -32,7 +32,7 @@ func TestTheTasksYouTouchedAreReadThroughTheTaskSeam(t *testing.T) {
 	start, _ := summaryDay()
 
 	// Act
-	touched, err := tasks.Touched(start)
+	touched, err := tasks.Touched(t.Context(), start)
 
 	// Assert
 	if err != nil || len(touched) != 1 {

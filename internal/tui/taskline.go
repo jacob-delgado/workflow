@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -67,33 +68,37 @@ func sizedInput(input textinput.Model, width int) textinput.Model {
 	return input
 }
 
-// addTaskLine is a line whose words become a new task.
-func addTaskLine(add func(line string) (string, error)) taskLine {
-	return taskLine{title: "Add a task", command: addCommand, write: addLine(add)}
+// addTaskLine is a line whose words become a new task, added under ctx.
+func addTaskLine(ctx context.Context, add func(ctx context.Context, line string) (string, error)) taskLine {
+	return taskLine{title: "Add a task", command: addCommand, write: addLine(ctx, add)}
 }
 
 // openSelectedTaskLine opens a line for a command on the selected task: title
 // names it, verb is the command, did how it is told once done, and write sends
 // the line bound to the task's uuid.
-func (m Model) openSelectedTaskLine(title, verb, did string, write func(uuid, line string) error) (Model, tea.Cmd) {
+func (m Model) openSelectedTaskLine(
+	title, verb, did string, write func(ctx context.Context, uuid, line string) error,
+) (Model, tea.Cmd) {
 	task, ok := m.currentTask()
 	if !ok {
 		return m, nil
 	}
 
-	name := taskName(task)
+	ctx, name := m.session, taskName(task)
 	send := func(line string) taskLineSent {
-		return taskLineSent{verb: did, uuid: task.UUID, id: task.ID, err: write(task.UUID, line), after: nil}
+		return taskLineSent{verb: did, uuid: task.UUID, id: task.ID, err: write(ctx, task.UUID, line), after: nil}
 	}
 
 	return m.openTaskLine(taskLine{title: title + " " + name, command: "task " + name + " " + verb, write: send}, "")
 }
 
-// addLine is the write an add line sends: the line to task add, answered with
-// the new task's uuid.
-func addLine(add func(line string) (string, error)) func(line string) taskLineSent {
+// addLine is the write an add line sends under ctx: the line to task add,
+// answered with the new task's uuid.
+func addLine(
+	ctx context.Context, add func(ctx context.Context, line string) (string, error),
+) func(line string) taskLineSent {
 	return func(line string) taskLineSent {
-		uuid, err := add(line)
+		uuid, err := add(ctx, line)
 
 		return taskLineSent{verb: "added task", uuid: uuid, id: 0, err: err, after: nil}
 	}
@@ -263,5 +268,5 @@ func (msg taskLineSent) apply(m Model) (Model, tea.Cmd) {
 
 	m.tasks.writing = false
 
-	return m, m.tasks.load(m.deps)
+	return m, m.tasks.load(m.session, m.deps)
 }

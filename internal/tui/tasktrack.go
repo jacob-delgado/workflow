@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,9 +30,9 @@ type trackIssue struct {
 }
 
 // follow annotates the added task with the issue's page, then starts it when
-// asked to, in one command whose answer reads the tasks again. A failed
-// annotation keeps the task, and says how to add the page by hand.
-func (t trackIssue) follow(tasks seams.Tasks) taskFollow {
+// asked to, under ctx, in one command whose answer reads the tasks again. A
+// failed annotation keeps the task, and says how to add the page by hand.
+func (t trackIssue) follow(ctx context.Context, tasks seams.Tasks) taskFollow {
 	annotate, start := tasks.Annotate, tasks.Start
 	verb := "added task"
 
@@ -41,9 +42,9 @@ func (t trackIssue) follow(tasks seams.Tasks) taskFollow {
 
 	return func(uuid string) tea.Cmd {
 		return func() tea.Msg {
-			err := t.annotation(annotate, uuid)
+			err := t.annotation(ctx, annotate, uuid)
 			if t.thenStart {
-				err = errors.Join(err, start(uuid))
+				err = errors.Join(err, start(ctx, uuid))
 			}
 
 			return taskActed{verb: verb, uuid: uuid, id: 0, said: "", err: err}
@@ -74,12 +75,14 @@ func (t trackIssue) heldBack() string {
 
 // annotation adds the issue's page to the task, when there is one: an issue with
 // no page adds nothing, which Taskwarrior would refuse.
-func (t trackIssue) annotation(annotate func(uuid, text string) error, uuid string) error {
+func (t trackIssue) annotation(
+	ctx context.Context, annotate func(ctx context.Context, uuid, text string) error, uuid string,
+) error {
 	if t.url == "" {
 		return nil
 	}
 
-	err := annotate(uuid, t.url)
+	err := annotate(ctx, uuid, t.url)
 	if err != nil {
 		return fmt.Errorf("%w: %w", taskwarrior.ErrAnnotateFailed, err)
 	}
@@ -106,8 +109,8 @@ func (m Model) trackSelectedIssue() (Model, tea.Cmd) {
 	}
 
 	return m.openTaskLine(taskLine{
-		title: "Track " + shownKey(selected.Key), command: addCommand, write: addLine(m.deps.Tasks.Add),
-		after: track.follow(m.deps.Tasks), heldBack: track.heldBack(), tracks: selected.Key,
+		title: "Track " + shownKey(selected.Key), command: addCommand, write: addLine(m.session, m.deps.Tasks.Add),
+		after: track.follow(m.session, m.deps.Tasks), heldBack: track.heldBack(), tracks: selected.Key,
 	}, line)
 }
 

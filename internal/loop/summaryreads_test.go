@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strings"
@@ -24,7 +25,7 @@ import (
 func everySource(start time.Time) loop.ActivitySeams {
 	return loop.ActivitySeams{
 		Commits: func(time.Time, time.Time) []loop.RepositoryCommits { return nil },
-		Touched: func(time.Time) ([]taskwarrior.Task, error) { return nil, nil },
+		Touched: func(context.Context, time.Time) ([]taskwarrior.Task, error) { return nil, nil },
 		Jira: func(time.Time, time.Time) (jira.Activity, error) {
 			return jira.Activity{Events: []jira.Event{{At: start, Kind: jira.EventCreated, Key: "PROJ-1"}}}, nil
 		},
@@ -89,7 +90,7 @@ func TestReadAllMakesEachReadWithItsSeams(t *testing.T) {
 	seams.Commits, seams.Touched = nil, nil
 
 	// Act
-	reads := loop.ReadAll(loop.SummaryReads(seams, start, start.Add(24*time.Hour)))
+	reads := loop.ReadAll(t.Context(), loop.SummaryReads(seams, start, start.Add(24*time.Hour)))
 
 	// Assert
 	if len(reads) != 2 || reads[0].Items[0].URL != "https://jira.example.com/browse/PROJ-1" ||
@@ -106,7 +107,7 @@ func TestAJiraReadWithNoWayToBrowseLinksNothing(t *testing.T) {
 	seams := loop.ActivitySeams{Jira: everySource(start).Jira}
 
 	// Act
-	reads := loop.ReadAll(loop.SummaryReads(seams, start, start.Add(24*time.Hour)))
+	reads := loop.ReadAll(t.Context(), loop.SummaryReads(seams, start, start.Add(24*time.Hour)))
 
 	// Assert
 	if len(reads) != 1 || reads[0].Items[0].URL != "" {

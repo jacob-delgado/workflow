@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -189,7 +190,7 @@ func TestEverySourceTheServerReachesIsRead(t *testing.T) {
 	var starts []time.Time
 
 	deps := activityDeps(&starts)
-	deps.Tasks.Touched = func(time.Time) ([]taskwarrior.Task, error) { return nil, nil }
+	deps.Tasks.Touched = func(context.Context, time.Time) ([]taskwarrior.Task, error) { return nil, nil }
 	deps.Jira.Activity = func(start, _ time.Time) (jira.Activity, error) {
 		return jira.Activity{Events: []jira.Event{{At: start.Add(time.Hour), Kind: jira.EventMoved, Key: "PROJ-1"}}}, nil
 	}
@@ -301,7 +302,9 @@ func TestASourceNotSetUpIsMarkedApartFromOneThatFailed(t *testing.T) {
 	deps.Jira.Activity = func(time.Time, time.Time) (jira.Activity, error) {
 		return jira.Activity{}, fmt.Errorf("%w: reading the token", jira.ErrNoCredential)
 	}
-	deps.Tasks.Touched = func(time.Time) ([]taskwarrior.Task, error) { return nil, taskwarrior.ErrNotInstalled }
+	deps.Tasks.Touched = func(context.Context, time.Time) ([]taskwarrior.Task, error) {
+		return nil, taskwarrior.ErrNotInstalled
+	}
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodGet, activityPath, "")

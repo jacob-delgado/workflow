@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strings"
@@ -216,10 +217,10 @@ func TestATaskReadsAsEachThingDoneToItInThePeriod(t *testing.T) {
 		Entry: start.Add(-48 * time.Hour), Start: start.Add(time.Hour), End: start.Add(3 * time.Hour),
 		Annotations: []taskwarrior.Annotation{{Entry: start.Add(2 * time.Hour), Description: "half way"}},
 	}
-	read := func(time.Time) ([]taskwarrior.Task, error) { return []taskwarrior.Task{task}, nil }
+	read := func(context.Context, time.Time) ([]taskwarrior.Task, error) { return []taskwarrior.Task{task}, nil }
 
 	// Act
-	got := loop.TasksRead(read, start, start.Add(24*time.Hour))
+	got := loop.TasksRead(t.Context(), read, start, start.Add(24*time.Hour))
 
 	// Assert
 	// Added before the period, so not counted; a completed task has no id,
@@ -330,10 +331,10 @@ func TestAPendingTaskIsNamedByItsIDAndNotCompleted(t *testing.T) {
 		UUID: "8f1c2d3e-0000", ID: 12, Status: "pending", Description: "Write it",
 		Entry: start.Add(time.Hour), End: start.Add(2 * time.Hour),
 	}
-	read := func(time.Time) ([]taskwarrior.Task, error) { return []taskwarrior.Task{task}, nil }
+	read := func(context.Context, time.Time) ([]taskwarrior.Task, error) { return []taskwarrior.Task{task}, nil }
 
 	// Act
-	got := loop.TasksRead(read, start, start.Add(24*time.Hour))
+	got := loop.TasksRead(t.Context(), read, start, start.Add(24*time.Hour))
 
 	// Assert
 	// A pending task's end is when it stopped waiting, not when it was done.
@@ -354,7 +355,9 @@ func TestEverySourceThatCannotBeReadIsNamedAsFailed(t *testing.T) {
 			}, start, end)
 		},
 		activity.SourceTasks: func() activity.Read {
-			return loop.TasksRead(func(time.Time) ([]taskwarrior.Task, error) { return nil, errNotRead }, start, end)
+			read := func(context.Context, time.Time) ([]taskwarrior.Task, error) { return nil, errNotRead }
+
+			return loop.TasksRead(t.Context(), read, start, end)
 		},
 		activity.SourceJira: func() activity.Read {
 			return loop.JiraRead(func(time.Time, time.Time) (jira.Activity, error) { return jira.Activity{}, errNotRead },

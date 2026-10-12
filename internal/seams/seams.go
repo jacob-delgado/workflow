@@ -20,6 +20,7 @@
 package seams
 
 import (
+	"context"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/codeowners"
@@ -368,30 +369,30 @@ type Hooks struct {
 // or ErrRefused, which the surfaces word.
 type Tasks struct {
 	// Install is the Taskwarrior that answered.
-	Install func() (taskwarrior.Install, error)
+	Install func(ctx context.Context) (taskwarrior.Install, error)
 	// Pending is the pending tasks of the active context, most urgent first.
-	Pending func() (taskwarrior.List, error)
+	Pending func(ctx context.Context) (taskwarrior.List, error)
 	// Touched is every task of the active context that changed since a time,
 	// whatever its status but deleted, for the Summary.
-	Touched func(since time.Time) ([]taskwarrior.Task, error)
+	Touched func(ctx context.Context, since time.Time) ([]taskwarrior.Task, error)
 	// Linked is every task linked to an issue and not deleted, whatever the
 	// active context hides.
-	Linked func() ([]taskwarrior.Task, error)
+	Linked func(ctx context.Context) ([]taskwarrior.Task, error)
 	// Add creates a task from a line in Taskwarrior's grammar and returns its
 	// uuid.
-	Add func(line string) (string, error)
+	Add func(ctx context.Context, line string) (string, error)
 	// Start, Stop and Done change the task a uuid names.
-	Start func(uuid string) error
-	Stop  func(uuid string) error
-	Done  func(uuid string) error
+	Start func(ctx context.Context, uuid string) error
+	Stop  func(ctx context.Context, uuid string) error
+	Done  func(ctx context.Context, uuid string) error
 	// Annotate adds text to a task as an annotation.
-	Annotate func(uuid, text string) error
+	Annotate func(ctx context.Context, uuid, text string) error
 	// Modify changes a task by a line in Taskwarrior's grammar.
-	Modify func(uuid, line string) error
+	Modify func(ctx context.Context, uuid, line string) error
 	// Undo reverts Taskwarrior's last change and says how much it reverted.
-	Undo func() (string, error)
+	Undo func(ctx context.Context) (string, error)
 	// Sync syncs with the backend the taskrc names, and says what it printed.
-	Sync func() (string, error)
+	Sync func(ctx context.Context) (string, error)
 }
 
 // PageSection names a section of the --web page, one each of the terminal

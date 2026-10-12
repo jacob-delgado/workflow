@@ -78,17 +78,17 @@ func fakeTaskwarrior() *taskFake {
 // seams hands the fake to the server as its Taskwarrior.
 func (f *taskFake) seams() seams.Tasks {
 	return seams.Tasks{
-		Install:  func() (taskwarrior.Install, error) { return f.install, f.called("install") },
-		Pending:  func() (taskwarrior.List, error) { return f.pending, f.called("pending") },
-		Linked:   func() ([]taskwarrior.Task, error) { return f.linked, f.called("linked") },
-		Add:      func(line string) (string, error) { return addedUUID, f.called("add " + line) },
-		Start:    func(uuid string) error { return f.called("start " + uuid) },
-		Stop:     func(uuid string) error { return f.called("stop " + uuid) },
-		Done:     func(uuid string) error { return f.called("done " + uuid) },
-		Annotate: func(uuid, text string) error { return f.called("annotate " + uuid + " " + text) },
-		Modify:   func(uuid, line string) error { return f.called("modify " + uuid + " " + line) },
-		Undo:     func() (string, error) { return f.said, f.called("undo") },
-		Sync:     func() (string, error) { return f.said, f.called("sync") },
+		Install:  func(context.Context) (taskwarrior.Install, error) { return f.install, f.called("install") },
+		Pending:  func(context.Context) (taskwarrior.List, error) { return f.pending, f.called("pending") },
+		Linked:   func(context.Context) ([]taskwarrior.Task, error) { return f.linked, f.called("linked") },
+		Add:      func(_ context.Context, line string) (string, error) { return addedUUID, f.called("add " + line) },
+		Start:    func(_ context.Context, uuid string) error { return f.called("start " + uuid) },
+		Stop:     func(_ context.Context, uuid string) error { return f.called("stop " + uuid) },
+		Done:     func(_ context.Context, uuid string) error { return f.called("done " + uuid) },
+		Annotate: func(_ context.Context, uuid, text string) error { return f.called("annotate " + uuid + " " + text) },
+		Modify:   func(_ context.Context, uuid, line string) error { return f.called("modify " + uuid + " " + line) },
+		Undo:     func(context.Context) (string, error) { return f.said, f.called("undo") },
+		Sync:     func(context.Context) (string, error) { return f.said, f.called("sync") },
 	}
 }
 

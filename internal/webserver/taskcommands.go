@@ -15,12 +15,12 @@ import (
 
 // AddTask adds a task from a line in Taskwarrior's grammar, refusing an empty
 // line before Taskwarrior is asked.
-func (s *server) AddTask(_ context.Context, request api.AddTaskRequestObject) (api.AddTaskResponseObject, error) {
+func (s *server) AddTask(ctx context.Context, request api.AddTaskRequestObject) (api.AddTaskResponseObject, error) {
 	if blank(request.Body.Line) {
 		return api.AddTask422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, lineRequired)), nil
 	}
 
-	list, prob := s.taskCommand(addLine(s.deps.Tasks.Add, request.Body.Line), s.taskFault)
+	list, prob := s.taskCommand(ctx, addLine(s.deps.Tasks.Add, request.Body.Line), s.taskFault)
 	if prob != nil {
 		return problemAnswer[api.AddTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
@@ -36,7 +36,7 @@ func (s *server) AddTask(_ context.Context, request api.AddTaskRequestObject) (a
 // word: the rest would reach Taskwarrior as words of their own, ahead of the
 // line's --.
 func (s *server) TrackIssue(
-	_ context.Context, request api.TrackIssueRequestObject,
+	ctx context.Context, request api.TrackIssueRequestObject,
 ) (api.TrackIssueResponseObject, error) {
 	key := jira.Key(request.Body.IssueKey)
 
@@ -59,7 +59,7 @@ func (s *server) TrackIssue(
 		return trackRefused(err.Error()), nil
 	}
 
-	list, prob := s.taskCommand(write, s.taskFault)
+	list, prob := s.taskCommand(ctx, write, s.taskFault)
 	if prob != nil {
 		return problemAnswer[api.TrackIssuedefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
@@ -89,7 +89,7 @@ func (s *server) issueNotRead(key jira.Key, err error) api.TrackIssueResponseObj
 // Taskwarrior refuses an empty one. An annotation that fails leaves the task
 // added, so the write says so rather than failing. An issue whose key
 // TrackLine refuses has no write.
-func (s *server) track(issue jira.Issue) (func() (taskChange, error), error) {
+func (s *server) track(issue jira.Issue) (func(context.Context) (taskChange, error), error) {
 	page := s.browseURL(issue.Key)
 
 	line, err := taskwarrior.TrackLine(taskwarrior.IssueLink{
@@ -99,15 +99,15 @@ func (s *server) track(issue jira.Issue) (func() (taskChange, error), error) {
 		return nil, err
 	}
 
-	return func() (taskChange, error) {
-		uuid, err := s.deps.Tasks.Add(line)
+	return func(ctx context.Context) (taskChange, error) {
+		uuid, err := s.deps.Tasks.Add(ctx, line)
 		if err != nil || page == "" {
 			return taskChange{added: uuid}, err
 		}
 
-		err = s.deps.Tasks.Annotate(uuid, page)
+		err = s.deps.Tasks.Annotate(ctx, uuid, page)
 		if err != nil {
-			prob := s.taskFault(err)
+			prob := s.taskFault(ctx, err)
 
 			return taskChange{said: "created but not annotated: " + prob.Detail, added: uuid}, nil
 		}
@@ -117,8 +117,8 @@ func (s *server) track(issue jira.Issue) (func() (taskChange, error), error) {
 }
 
 // UndoTasks reverts Taskwarrior's last change, and says how much it reverted.
-func (s *server) UndoTasks(_ context.Context, _ api.UndoTasksRequestObject) (api.UndoTasksResponseObject, error) {
-	list, prob := s.taskCommand(saying(s.deps.Tasks.Undo), s.undoFault)
+func (s *server) UndoTasks(ctx context.Context, _ api.UndoTasksRequestObject) (api.UndoTasksResponseObject, error) {
+	list, prob := s.taskCommand(ctx, saying(s.deps.Tasks.Undo), s.undoFault)
 	if prob != nil {
 		return problemAnswer[api.UndoTasksdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
@@ -128,8 +128,8 @@ func (s *server) UndoTasks(_ context.Context, _ api.UndoTasksRequestObject) (api
 
 // SyncTasks syncs Taskwarrior with the backend its taskrc names, and says what
 // it printed.
-func (s *server) SyncTasks(_ context.Context, _ api.SyncTasksRequestObject) (api.SyncTasksResponseObject, error) {
-	list, prob := s.taskCommand(saying(s.deps.Tasks.Sync), s.syncFault)
+func (s *server) SyncTasks(ctx context.Context, _ api.SyncTasksRequestObject) (api.SyncTasksResponseObject, error) {
+	list, prob := s.taskCommand(ctx, saying(s.deps.Tasks.Sync), s.syncFault)
 	if prob != nil {
 		return problemAnswer[api.SyncTasksdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
@@ -145,11 +145,12 @@ type taskChange struct {
 	added string
 }
 
-// taskCommand runs a write that names no task — run is nil when there is no
-// Taskwarrior to make it — and answers the list after it with what the write
-// changed, or the problem either met, the write's as fault words it.
+// taskCommand runs a write that names no task under ctx — run is nil when
+// there is no Taskwarrior to make it — and answers the list after it with what
+// the write changed, or the problem either met, the write's as fault words it.
 func (s *server) taskCommand(
-	run func() (taskChange, error), fault func(err error) api.Problem,
+	ctx context.Context, run func(context.Context) (taskChange, error),
+	fault func(ctx context.Context, err error) api.Problem,
 ) (api.TaskList, *api.Problem) {
 	if run == nil {
 		prob := problem(api.ProblemCodeUnprocessable, notAvailable)
@@ -157,37 +158,39 @@ func (s *server) taskCommand(
 		return api.TaskList{}, &prob
 	}
 
-	change, err := run()
+	change, err := run(ctx)
 	if err != nil {
-		prob := fault(err)
+		prob := fault(ctx, err)
 
 		return api.TaskList{}, &prob
 	}
 
-	return s.taskListAfter(change), nil
+	return s.taskListAfter(ctx, change), nil
 }
 
 // addLine is the add of line, which adds the task it names, or nil when add is.
-func addLine(add func(line string) (string, error), line string) func() (taskChange, error) {
+func addLine(
+	add func(ctx context.Context, line string) (string, error), line string,
+) func(context.Context) (taskChange, error) {
 	if add == nil {
 		return nil
 	}
 
-	return func() (taskChange, error) {
-		uuid, err := add(line)
+	return func(ctx context.Context) (taskChange, error) {
+		uuid, err := add(ctx, line)
 
 		return taskChange{added: uuid}, err
 	}
 }
 
 // saying is run, a write whose change is what it said, or nil when run is.
-func saying(run func() (string, error)) func() (taskChange, error) {
+func saying(run func(context.Context) (string, error)) func(context.Context) (taskChange, error) {
 	if run == nil {
 		return nil
 	}
 
-	return func() (taskChange, error) {
-		said, err := run()
+	return func(ctx context.Context) (taskChange, error) {
+		said, err := run(ctx)
 
 		return taskChange{said: said}, err
 	}
@@ -195,20 +198,20 @@ func saying(run func() (string, error)) func() (taskChange, error) {
 
 // undoFault is taskFault for an undo, which Taskwarrior declines only when it
 // has nothing to undo.
-func (s *server) undoFault(err error) api.Problem {
+func (s *server) undoFault(ctx context.Context, err error) api.Problem {
 	if errors.Is(err, taskwarrior.ErrNothingChanged) {
 		return problem(api.ProblemCodeConflict, "Taskwarrior has nothing to undo")
 	}
 
-	return s.taskFault(err)
+	return s.taskFault(ctx, err)
 }
 
 // syncFault is taskFault for a sync, whose refusal names the sync server — an
 // internal host no answer may carry — so its detail says where to see it.
-func (s *server) syncFault(err error) api.Problem {
+func (s *server) syncFault(ctx context.Context, err error) api.Problem {
 	if errors.Is(err, taskwarrior.ErrRefused) {
 		return problem(api.ProblemCodeUnprocessable, "Taskwarrior could not sync; run task sync in a terminal to see why")
 	}
 
-	return s.taskFault(err)
+	return s.taskFault(ctx, err)
 }

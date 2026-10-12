@@ -43,10 +43,12 @@ type forgeSetup struct {
 // the forge through connect. Kind is the forge under the settings workflow
 // started with; the group seams ask which forge it is under the settings in
 // effect at each call, as connect does.
-func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConnection, error)) seams.Forge {
+func forgeDeps(
+	ctx context.Context, setup forgeSetup, connect func(context.Context) (forgeConnection, error),
+) seams.Forge {
 	return seams.Forge{
 		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
-			connection, err := connect()
+			connection, err := connect(ctx)
 			if err != nil {
 				return forge.PullRequest{}, false, err
 			}
@@ -54,49 +56,51 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 			return connection.client.FindPullRequest(ctx, connection.repo, branch)
 		},
 		CreatePullRequest: func(request forge.NewPullRequest) (forge.PullRequest, error) {
-			return ask(connect, func(on forgeConnection) (forge.PullRequest, error) {
+			return ask(ctx, connect, func(on forgeConnection) (forge.PullRequest, error) {
 				return on.client.CreatePullRequest(ctx, on.repo, request)
 			})
 		},
 		Activity: func(start, end time.Time) (forge.Activity, error) {
-			return ask(connect, func(on forgeConnection) (forge.Activity, error) {
+			return ask(ctx, connect, func(on forgeConnection) (forge.Activity, error) {
 				return on.client.Activity(ctx, on.repo.Kind, start, end)
 			})
 		},
 		EditPullRequest: func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
-			return ask(connect, func(on forgeConnection) (forge.PullRequest, error) {
+			return ask(ctx, connect, func(on forgeConnection) (forge.PullRequest, error) {
 				return on.client.EditPullRequest(ctx, on.repo, pull, edit)
 			})
 		},
 		RewriteDescription: rewriteSeam(ctx, connect),
 		CheckStatus: func(pull forge.PullRequest, head string) (forge.CI, error) {
-			return ask(connect, func(on forgeConnection) (forge.CI, error) {
+			return ask(ctx, connect, func(on forgeConnection) (forge.CI, error) {
 				return on.client.CheckStatus(ctx, on.repo, pull, head)
 			})
 		},
 		JobLog: func(check forge.Check) (forge.JobLog, error) {
-			return ask(connect, func(on forgeConnection) (forge.JobLog, error) { return on.client.JobLog(ctx, on.repo, check) })
+			return ask(ctx, connect, func(on forgeConnection) (forge.JobLog, error) {
+				return on.client.JobLog(ctx, on.repo, check)
+			})
 		},
 		Rerun: func(pull forge.PullRequest, head string) (bool, error) {
-			return ask(connect, func(on forgeConnection) (bool, error) {
+			return ask(ctx, connect, func(on forgeConnection) (bool, error) {
 				return on.client.RerunChecks(ctx, on.repo, pull, head)
 			})
 		},
 		Merge: func(pull forge.PullRequest, method forge.MergeMethod) error {
-			return tell(connect, func(on forgeConnection) error { return on.client.Merge(ctx, on.repo, pull, method) })
+			return tell(ctx, connect, func(on forgeConnection) error { return on.client.Merge(ctx, on.repo, pull, method) })
 		},
 		MergeMethods: func() ([]forge.MergeMethod, error) {
-			return ask(connect, func(on forgeConnection) ([]forge.MergeMethod, error) {
+			return ask(ctx, connect, func(on forgeConnection) ([]forge.MergeMethod, error) {
 				return on.client.MergeMethods(ctx, on.repo)
 			})
 		},
 		ReviewRequests: func() ([]forge.ReviewRequest, error) {
-			return ask(connect, func(on forgeConnection) ([]forge.ReviewRequest, error) {
+			return ask(ctx, connect, func(on forgeConnection) ([]forge.ReviewRequest, error) {
 				return on.client.ReviewRequests(ctx, on.repo.Kind)
 			})
 		},
 		Templates: func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
-		Author:    func() (string, error) { return ask(connect, authorName(ctx)) },
+		Author:    func() (string, error) { return ask(ctx, connect, authorName(ctx)) },
 		IsGroup:   isGroupSeam(ctx, setup.onGitLab, connect),
 		Kind:      ForgeKind(setup.settings(), setup.where.Remote),
 	}
@@ -113,10 +117,10 @@ func (s forgeSetup) onGitLab() bool {
 // within its length: it asks the client to rewrite the description as the
 // forge holds it.
 func rewriteSeam(
-	ctx context.Context, connect func() (forgeConnection, error),
+	ctx context.Context, connect func(context.Context) (forgeConnection, error),
 ) func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
 	return func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
-		return ask(connect, func(on forgeConnection) (bool, error) {
+		return ask(ctx, connect, func(on forgeConnection) (bool, error) {
 			return on.client.RewriteDescription(ctx, on.repo, pull, rewrite)
 		})
 	}
@@ -141,7 +145,7 @@ func authorName(ctx context.Context) func(forgeConnection) (string, error) {
 // asked is always the one the remote is on, whose host the workspace fixes,
 // so an answer is kept by the name alone.
 func isGroupSeam(
-	ctx context.Context, onGitLab func() bool, connect func() (forgeConnection, error),
+	ctx context.Context, onGitLab func() bool, connect func(context.Context) (forgeConnection, error),
 ) func(string) (bool, error) {
 	known := groupsKnown{mutex: &sync.Mutex{}, answers: map[string]bool{}}
 
@@ -157,7 +161,7 @@ func isGroupSeam(
 			return group, nil
 		}
 
-		group, err := ask(connect, func(on forgeConnection) (bool, error) { return on.client.IsGroup(ctx, name) })
+		group, err := ask(ctx, connect, func(on forgeConnection) (bool, error) { return on.client.IsGroup(ctx, name) })
 		if err == nil {
 			known.keep(asked, group)
 		}
@@ -233,15 +237,17 @@ func (e Environment) ForgeResolver(settings config.Forge) forge.Resolver {
 
 // onceConnected caches a connection once it succeeds, and retries after a
 // failure rather than remembering it: a token added, or gh signed in, in another
-// terminal is found on the next attempt instead of only on a restart.
-func onceConnected[T any](connect func() (T, error)) func() (T, error) {
+// terminal is found on the next attempt instead of only on a restart. A connect
+// its asker's context ended is a failure like any other, so the next asker
+// connects again under its own.
+func onceConnected[T any](connect func(context.Context) (T, error)) func(context.Context) (T, error) {
 	var (
 		lock   sync.Mutex
 		cached T
 		ok     bool
 	)
 
-	return func() (T, error) {
+	return func(ctx context.Context) (T, error) {
 		lock.Lock()
 		defer lock.Unlock()
 
@@ -249,7 +255,7 @@ func onceConnected[T any](connect func() (T, error)) func() (T, error) {
 			return cached, nil
 		}
 
-		connection, err := connect()
+		connection, err := connect(ctx)
 		if err != nil {
 			var none T
 
@@ -262,11 +268,13 @@ func onceConnected[T any](connect func() (T, error)) func() (T, error) {
 	}
 }
 
-// ask connects with connect, then asks the connection what question does: the
-// one shape every seam over a client found on first use takes, Jira's,
-// Taskwarrior's and the forge's alike.
-func ask[C, T any](connect func() (C, error), question func(C) (T, error)) (T, error) {
-	connection, err := connect()
+// ask connects with connect under ctx, then asks the connection what question
+// does: the one shape every seam over a client found on first use takes,
+// Jira's, Taskwarrior's and the forge's alike.
+func ask[C, T any](
+	ctx context.Context, connect func(context.Context) (C, error), question func(C) (T, error),
+) (T, error) {
+	connection, err := connect(ctx)
 	if err != nil {
 		var none T
 
@@ -276,9 +284,9 @@ func ask[C, T any](connect func() (C, error), question func(C) (T, error)) (T, e
 	return question(connection)
 }
 
-// tell connects with connect, then applies change to the connection.
-func tell[C any](connect func() (C, error), change func(C) error) error {
-	connection, err := connect()
+// tell connects with connect under ctx, then applies change to the connection.
+func tell[C any](ctx context.Context, connect func(context.Context) (C, error), change func(C) error) error {
+	connection, err := connect(ctx)
 	if err != nil {
 		return err
 	}
@@ -322,7 +330,9 @@ func useForgeSettings(live *liveForge, where Workspace) func(config.Forge) forge
 // a new one once they change — a token, host or kind saved in the web's
 // Settings reaches the next call rather than the next start. Like
 // onceConnected, it retries after a failure rather than remembering it.
-func connectedWith[T any](current func() config.Forge, connect func(config.Forge) (T, error)) func() (T, error) {
+func connectedWith[T any](
+	current func() config.Forge, connect func(context.Context, config.Forge) (T, error),
+) func(context.Context) (T, error) {
 	var (
 		lock      sync.Mutex
 		cached    T
@@ -330,7 +340,7 @@ func connectedWith[T any](current func() config.Forge, connect func(config.Forge
 		cachedFor config.Forge
 	)
 
-	return func() (T, error) {
+	return func(ctx context.Context) (T, error) {
 		lock.Lock()
 		defer lock.Unlock()
 
@@ -339,7 +349,7 @@ func connectedWith[T any](current func() config.Forge, connect func(config.Forge
 			return cached, nil
 		}
 
-		connection, err := connect(settings)
+		connection, err := connect(ctx, settings)
 		if err != nil {
 			var none T
 
