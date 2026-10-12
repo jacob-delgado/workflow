@@ -53,9 +53,11 @@ import (
 // Every seam and control does its I/O under the context it is called with,
 // and none holds one of its own: what asks decides how long it waits.
 func (e Environment) Deps(cfg config.Config, where Workspace, log *RequestLog) (tui.Deps, Controls) {
-	httpTransport := httpx.Client(requestTimeout(cfg)).Do
+	timeout := requestTimeout(cfg)
+	httpTransport := httpx.Client(timeout).Do
 	settings := &liveForge{settings: cfg.Forge}
-	setup := forgeSetup{settings: settings.current, where: where, httpTransport: httpTransport, log: log, env: e}
+	requests := Requests{HTTP: httpTransport, Timeout: timeout}
+	setup := forgeSetup{settings: settings.current, where: where, requests: requests, log: log, env: e}
 	connect := connectedWith(settings.current, func(asked context.Context, current config.Forge) (forgeConnection, error) {
 		return connectForge(asked, setup, current)
 	})

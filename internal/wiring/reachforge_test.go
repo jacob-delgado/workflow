@@ -17,6 +17,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // githubAPI is the API base of github.com, which no test here ever reaches.
@@ -28,6 +29,12 @@ const branchPulls = githubAPI + "/repos/owner/repo/pulls?head=x"
 
 // errBodyGone is a request body that fails as it is read.
 var errBodyGone = errors.New("the body went away")
+
+// overHTTP is how these tests' requests travel when no CLI carries them: over
+// the default client, unbounded.
+func overHTTP() wiring.Requests {
+	return wiring.Requests{HTTP: http.DefaultClient.Do}
+}
 
 // githubOwnerRepo is the repository remoteGitHub names, as the forge reads it.
 func githubOwnerRepo() forge.Repo {
@@ -46,7 +53,7 @@ func TestReachingAForgeOverHTTPCarriesTheTokenItFound(t *testing.T) {
 	// Act
 	process := processEnvironment()
 
-	access, err := process.ReachForge(t.Context(), config.Forge{}, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
+	access, err := process.ReachForge(t.Context(), config.Forge{}, githubOwnerRepo(), githubAPI, overHTTP())
 
 	// Assert
 	if err != nil || access.Token.Secret() != token {
@@ -65,7 +72,7 @@ func TestTheForgeCLIRunsNothingForARequestBodyItCannotRead(t *testing.T) {
 
 	process := processEnvironment()
 
-	access, err := process.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
+	access, err := process.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, overHTTP())
 	if err != nil {
 		t.Fatalf("ReachForge through gh: %v", err)
 	}
@@ -102,7 +109,7 @@ func TestReachingAForgeThroughItsCLIAsksForNoToken(t *testing.T) {
 	// Act
 	process := processEnvironment()
 
-	access, err := process.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
+	access, err := process.ReachForge(t.Context(), cfg.Forge, githubOwnerRepo(), githubAPI, overHTTP())
 
 	// Assert
 	if err != nil || access.Via != "through gh" {
@@ -124,7 +131,7 @@ func TestAForgeCLIRequestOutlivesTheContextItsConnectionWasMadeUnder(t *testing.
 	connecting, connected := context.WithCancel(t.Context())
 	process := processEnvironment()
 
-	access, err := process.ReachForge(connecting, cfg.Forge, githubOwnerRepo(), githubAPI, http.DefaultClient.Do)
+	access, err := process.ReachForge(connecting, cfg.Forge, githubOwnerRepo(), githubAPI, overHTTP())
 	if err != nil {
 		t.Fatalf("ReachForge through gh: %v", err)
 	}

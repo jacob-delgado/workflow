@@ -216,8 +216,8 @@ func checkForge(ctx context.Context, run doctorRun, remote string) (credentialLi
 			repo.Host+" is not github.com, a ghe.com tenant or gitlab.com — set forge.kind and forge.host")
 	}
 
-	// One limit for the whole check: a request through gh or glab runs under this
-	// context, which the HTTP client's own timeout does not reach.
+	// One limit for the whole check, beside each request's own: finding the
+	// token, which may ask gh or glab for it, runs under this context alone.
 	timeout := onlineTimeout(run.cfg)
 	gaveUp := fmt.Errorf("%w: gave up after %s", forge.ErrUnreachable, timeout)
 
@@ -225,8 +225,9 @@ func checkForge(ctx context.Context, run doctorRun, remote string) (credentialLi
 	defer cancel()
 
 	process := run.env.Process
+	requests := wiring.Requests{HTTP: httpx.Client(timeout).Do, Timeout: timeout}
 
-	access, err := process.ReachForge(ctx, run.cfg.Forge, repo, base, httpx.Client(timeout).Do)
+	access, err := process.ReachForge(ctx, run.cfg.Forge, repo, base, requests)
 	if err != nil {
 		return credentialMissing("forge", noForgeTokenMessage(process.Available, repo.Kind, repo.Host))
 	}
