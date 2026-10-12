@@ -131,10 +131,11 @@ func paneStates() map[string]paneState {
 }
 
 // probed is what the probe key does on a pane: whether its footer offers the
-// key, and whether a press of it answers, asking for something or leaving a
-// screen other than a press nothing answers leaves.
+// key, whether a press of it answers, asking for something or leaving a
+// screen other than a press nothing answers leaves, and whether the press
+// opens a last look.
 type probed struct {
-	offered, answered bool
+	offered, answered, asks bool
 }
 
 // probeAt moves action onto the probe key in the state's world, jumps to its
@@ -148,17 +149,19 @@ func probeAt(t *testing.T, state paneState, action string) probed {
 
 	unanswered, _ := focused.Update(unbound())
 	pressed, cmd := focused.Update(probe())
+	opened, _ := concrete(t, pressed).OverlayKeyContext()
 
 	return probed{
 		offered:  strings.Contains(footerLine(focused.View().Content), probeKey+" "),
 		answered: cmd != nil || plain(pressed.View().Content) != plain(unanswered.View().Content),
+		asks:     opened.Name == lastLookContext,
 	}
 }
 
-// sweep is every probed action a pane in a state offers in its footer, and
-// every one a press of it answers.
+// sweep is every probed action a pane in a state offers in its footer, every
+// one a press of it answers, and every one whose press opens a last look.
 type sweep struct {
-	offered, answered []string
+	offered, answered, asks []string
 }
 
 // sweepAt probes the state with each action a pane may answer.
@@ -175,6 +178,10 @@ func sweepAt(t *testing.T, state paneState) sweep {
 
 		if result.answered {
 			found.answered = append(found.answered, action)
+		}
+
+		if result.asks {
+			found.asks = append(found.asks, action)
 		}
 	}
 

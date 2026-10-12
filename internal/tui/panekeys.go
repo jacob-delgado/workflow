@@ -23,6 +23,13 @@ func issueKeys(builder *helpBuilder, into *keyMap) {
 	into.trackIssue = builder.bind(group, "track-issue", "track in Taskwarrior", "T")
 }
 
+// The Branch pane's actions that ask first, named once for their bindings and
+// for CheckKeys, which keeps them off the key that confirms them.
+const (
+	actionPush   = "push"
+	actionRebase = "rebase"
+)
+
 // branchKeys are the Branch pane's bindings.
 func branchKeys(builder *helpBuilder, into *keyMap) {
 	group := paneBranch.helpGroup()
@@ -30,8 +37,8 @@ func branchKeys(builder *helpBuilder, into *keyMap) {
 	into.newBranch = builder.bind(group, "new-branch", "new branch", "b")
 	into.switchBranch = builder.bind(group, "switch-branch", "switch branch", "s")
 	into.linkIssue = builder.bind(group, "link-issue", "link issue", "i")
-	into.rebase = builder.bind(group, "rebase", "rebase onto base", "u")
-	into.push = builder.bind(group, "push", "push", "P")
+	into.rebase = builder.bind(group, actionRebase, "rebase onto base", "u")
+	into.push = builder.bind(group, actionPush, "push", "P")
 }
 
 // commitKeys are the Commits pane's bindings.

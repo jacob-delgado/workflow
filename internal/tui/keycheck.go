@@ -49,7 +49,44 @@ func CheckKeys(overrides map[string]string) error {
 		return err
 	}
 
-	return builder.textFieldClash()
+	err = builder.textFieldClash()
+	if err != nil {
+		return err
+	}
+
+	return builder.confirmClash()
+}
+
+// askingActions are the actions whose press opens a last look, which apply
+// confirms. On a pane, apply is live beside each of them, so sharing its key
+// is a conflict there already; Local data's removals are answered where apply
+// is not, and only this check keeps them off its key.
+func askingActions() []string {
+	return []string{
+		actionPush, actionRebase, "discard-change", "rerun-checks", "mark-done", "undo-task", "sync-tasks", "forget-owner",
+		"remove-entry", "remove-cache", "remove-everything",
+	}
+}
+
+// confirmClash rejects an action that asks first on a key apply has: the
+// press that opened its last look, made again, would confirm it.
+func (b *helpBuilder) confirmClash() error {
+	confirming := b.byAction["apply"].Keys()
+
+	for _, placed := range b.placements {
+		if !slices.Contains(askingActions(), placed.action) {
+			continue
+		}
+
+		for _, boundKey := range placed.binding.Keys() {
+			if slices.Contains(confirming, boundKey) {
+				return fmt.Errorf("%w: %s on %q, which confirms its last look as apply",
+					config.ErrKeyConfirmsItself, placed.action, boundKey)
+			}
+		}
+	}
+
+	return nil
 }
 
 // textFieldActions are the actions an overlay answers before its focused text
