@@ -73,7 +73,12 @@ func actAsHelper(mode string) {
 
 		grand.Env = append(os.Environ(), helperMode+"=sleep")
 
-		_ = grand.Start()
+		err := grand.Start()
+		if err != nil {
+			complain("starting the grandchild", err)
+
+			return
+		}
 
 		fmt.Fprintln(os.Stdout, grand.Process.Pid)
 
@@ -106,7 +111,12 @@ func actLeftBehind(mode string) {
 		grand.Env = append(os.Environ(), helperMode+"=sleep")
 		grand.Stdout = os.Stdout
 
-		_ = grand.Start()
+		err := grand.Start()
+		if err != nil {
+			complain("starting the sleeper", err)
+
+			return
+		}
 
 		fmt.Fprintln(os.Stdout, grand.Process.Pid)
 	case "outlived":
@@ -116,6 +126,8 @@ func actLeftBehind(mode string) {
 		// run gives the pipe after the exit.
 		ready, readyWriter, err := os.Pipe()
 		if err != nil {
+			complain("opening the pipe the late writer says it started on", err)
+
 			return
 		}
 
@@ -123,19 +135,22 @@ func actLeftBehind(mode string) {
 		late := exec.Command(os.Args[0], "-test.run=^$")
 
 		late.Env = append(os.Environ(), helperMode+"=late", helperParent+"="+strconv.Itoa(os.Getpid()))
-		late.Stdout = os.Stdout
+		late.Stdout, late.Stderr = os.Stdout, os.Stderr
 		late.ExtraFiles = []*os.File{readyWriter}
 
-		_ = late.Start()
-		_ = readyWriter.Close()
-		_, _ = ready.Read(make([]byte, 1))
+		complain("starting the late writer", late.Start())
+		complain("closing this end of the pipe it says it started on", readyWriter.Close())
+
+		_, err = ready.Read(make([]byte, 1))
+		complain("waiting for the late writer to say it started", err)
 	case "late":
 		// Say this one has started, then, once the program that left it behind
 		// has exited and been reaped, print its pid and hold the output, as a
 		// server a hook backgrounded does when it logs late.
 		started := os.NewFile(readyDescriptor, "ready")
-		_, _ = started.Write([]byte{'\n'})
-		_ = started.Close()
+		_, err := started.Write([]byte{'\n'})
+		complain("saying it started", err)
+		complain("closing the pipe it said it started on", started.Close())
 
 		awaitGone(os.Getenv(helperParent))
 		fmt.Fprintln(os.Stdout, os.Getpid())
@@ -143,15 +158,28 @@ func actLeftBehind(mode string) {
 	}
 }
 
+// complain says on standard error, which the run reads with standard output,
+// what a step of the helper failed at, so the test that finds a line missing
+// shows why beside it. A step that did not fail says nothing.
+func complain(step string, err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "helper: %s: %v\n", step, err)
+	}
+}
+
 // awaitGone waits until the process pid names has exited and been reaped.
 func awaitGone(pid string) {
 	parent, err := strconv.Atoi(pid)
 	if err != nil {
+		complain("reading the pid of the program that left it", err)
+
 		return
 	}
 
 	process, err := os.FindProcess(parent)
 	if err != nil {
+		complain("finding the program that left it", err)
+
 		return
 	}
 
