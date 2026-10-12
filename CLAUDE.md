@@ -221,10 +221,16 @@ without agreement on direction.
 
 - **Every seam method that does I/O takes `ctx context.Context` first.** A
   surface passes the context of whatever asked — a web read its request's, the
-  command line `cmd.Context()`, the terminal its session's — and detaches there
-  what must outlive its asker (a web write, a shared read, a terminal write, a
-  post's record). The wiring never closes over a context. `internal/seams`'
-  test holds the rule and names the exceptions.
+  command line `cmd.Context()`, the terminal its session's. What must outlive
+  its asker detaches where the work is done: the web's writes and the reads its
+  streams share end when the server stops (`worlds.outliving`); the terminal's
+  writes end when a signal does (`outlasting` in `internal/tui`); the Slack
+  directory's shared read and a token's refresh end with the lifetime their
+  context carries, the server's or the command's (`internal/lifetime`); and a
+  post's record (`loop.Deliver`), the store's open, and the Slack secrets
+  Settings refreshes and keeps (`wiring.PlaceSlackCredentials`) run to their
+  end. The wiring never keeps a context past the call that handed it one.
+  `internal/seams`' test holds the rule and names the exceptions.
 
 - **Database (`internal/store`) — normalized, STRICT, and never trusted.** The
   on-disk store is SQLite through `modernc.org/sqlite` (pure Go, so `CGO_ENABLED=0`
