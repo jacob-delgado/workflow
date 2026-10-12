@@ -132,6 +132,8 @@ type forgeRows struct {
 // withForge, the forge's issues ahead of Jira's first page and Jira's own rows
 // after it. A forge that cannot be read leaves Jira's list, naming the forge
 // unavailable; a Jira that cannot be read fails the list, as it always has.
+// A first page whose ctx ended leaves the count every later page reads as it
+// was: its forge list was cut short by a page that left, not found empty.
 func (f *forgeRows) search(
 	ctx context.Context, jiraSearch, forgeList func(context.Context, string, int) (jira.SearchResult, error),
 	withForge bool, jql string, startAt int,
@@ -154,9 +156,11 @@ func (f *forgeRows) search(
 		forge = jira.SearchResult{Unavailable: []string{forgeIssuesLabel}}
 	}
 
-	f.lock.Lock()
-	f.count = len(forge.Issues)
-	f.lock.Unlock()
+	if ctx.Err() == nil {
+		f.lock.Lock()
+		f.count = len(forge.Issues)
+		f.lock.Unlock()
+	}
 
 	return jira.SearchResult{
 		Issues: append(forge.Issues, page.Issues...), Total: page.Total + len(forge.Issues),
