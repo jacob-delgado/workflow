@@ -178,7 +178,7 @@ func overlayStates() map[string][]overlayState {
 		named("a job's log",
 			stateAt(withALongLog, "4", "checks", downAction, "show-log"),
 			stateAt(withALongLog, "4", "checks", downAction, "show-log", "first")),
-		named("a last look", stateAt(unpushedWorld, "2", "push")),
+		named("a last look", stateAt(unpushedWorld, "2", pushAction)),
 		named("Local data",
 			stateAt(newWorld, reposKey, "local-data"),
 			stateAt(unreadableLocalData, reposKey, "local-data")),

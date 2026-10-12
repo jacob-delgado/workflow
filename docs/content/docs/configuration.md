@@ -715,8 +715,11 @@ and so is each overlay — a picker, a preview, a composer, a running command:
 an action that works in one place and an action that works only in another
 are never live at once, so they may share a key, and `?` lists each pane's
 actions under that pane's own name, so a key two panes share is listed once
-under each. The pane numbers work on every pane, so an action live on one
-cannot take one.
+under each. Two panes the `--web` page shows in one section are the
+exception: its Branch section holds the Commits pane too, and the page
+answers a key with the first control on screen bound to it, so a key the
+Branch and Commits panes share is refused. The pane numbers work on every
+pane, so an action live on one cannot take one.
 
 The actions you can rebind, grouped by where they work, are:
 

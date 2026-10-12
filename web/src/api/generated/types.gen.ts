@@ -1918,7 +1918,7 @@ export type KeyList = {
     single_key_shortcuts: boolean;
     actions: Array<KeyAction>;
     /**
-     * The page's section each of the terminal's panes is shown in, in the panes' order, which is the order of jump-to-pane's keys: the Commits pane, the third, is part of the Branch section, so two pane numbers open it. Empty where the server lists no keys.
+     * The page's section each of the terminal's panes is shown in, in the panes' order, which is the order of jump-to-pane's keys: the Commits pane, the third, is part of the Branch section, so two pane numbers open it. The terminal's key check reads the same list, and refuses a key two panes shown in one section share. Empty where the server lists no keys.
      */
     pane_sections: Array<PaneSection>;
 };
