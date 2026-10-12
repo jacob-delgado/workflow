@@ -384,9 +384,9 @@ awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="
     receiver = substr(text, 2, at - 2)
     text = substr(text, at + 1)
     sub(/^ +/, "", text)
+    sub(/\[.*/, "", receiver)
     sub(/.* /, "", receiver)
     gsub(/[*]/, "", receiver)
-    sub(/\[.*/, "", receiver)
     return receiver "." name_of(text)
   }
   function name_of(text) {
