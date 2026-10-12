@@ -53,10 +53,12 @@ internal/webserver/webserver.go Handler TRADE-14 any err != nil
 # TRADE-16: opening the store at this build's schema version, removeDatabase
 # and stamp each follow a call that just read or made the same file, so fail
 # only when the file changes between the two; and the callers that pass that
-# failure on.
+# failure on. removeDatabase's arm is a removal that fails for any reason but
+# the file being gone, which gobco reports as its errors.Is never false.
 internal/store/store.go openCurrent TRADE-16 any err != nil
 internal/store/store.go openCurrent TRADE-16 any err != nil
 internal/store/store.go remakeDatabase TRADE-16 any err != nil
+internal/store/store.go removeDatabase TRADE-16 any errors.Is(err, fs.ErrNotExist)
 internal/store/store.go stamp TRADE-16 any err != nil
 
 # TRADE-18: only Linux's tests write to /dev/full, so a run on macOS never
