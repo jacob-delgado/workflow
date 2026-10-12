@@ -316,6 +316,10 @@ linters:
       # handed an Environment of its own and runs in parallel.
       - path: internal/cli/interrupt_test\.go$
         linters: [paralleltest]
+      # This interface test raises SIGTERM on its own process, which every run
+      # beside it would hear too, so it runs alone.
+      - path: internal/tui/sigterm_unix_test\.go$
+        linters: [paralleltest]
       # The wiring tests run the real git and lefthook, which read their
       # configuration, TMPDIR and PATH from the environment. t.Setenv is the
       # only way to isolate those, and it panics in a parallel test.
