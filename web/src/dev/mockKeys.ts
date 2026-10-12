@@ -4,7 +4,8 @@ import type { KeyAction, KeyList } from '@/api/generated/types.gen.ts'
 // tui.PaneSections list it, and single-key shortcuts on — trimmed to the
 // actions this page binds, the only ones it reads — so the mockup's ? sheet,
 // palette and keys work with no backend. With no ui.keys, each action's
-// default key is the one it shows.
+// default key is the one it shows. A Go test holds pane_sections to
+// tui.PaneSections.
 const listed: Omit<KeyAction, 'default'>[] = [
   {
     action: 'jump-to-pane',
