@@ -1709,7 +1709,7 @@ type KeyAction struct {
 type KeyList struct {
 	Actions []KeyAction `json:"actions"`
 
-	// PaneSections The page's section each of the terminal's panes is shown in, in the panes' order, which is the order of jump-to-pane's keys: the Commits pane, the third, is part of the Branch section, so two pane numbers open it. Empty where the server lists no keys.
+	// PaneSections The page's section each of the terminal's panes is shown in, in the panes' order, which is the order of jump-to-pane's keys: the Commits pane, the third, is part of the Branch section, so two pane numbers open it. The terminal's key check reads the same list, and refuses a key two panes shown in one section share. Empty where the server lists no keys.
 	PaneSections []PaneSection `json:"pane_sections"`
 
 	// SingleKeyShortcuts Whether a single key pressed outside a text field acts (ui.web_shortcuts).

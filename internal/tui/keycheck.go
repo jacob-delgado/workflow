@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -130,14 +131,54 @@ func (c keyContext) covers(placed placement) bool {
 }
 
 // keyContexts are the sets of bindings live together, one per keyboard surface:
-// each pane's, with the actions its handler answers, and the overlays'.
+// each pane's, with the actions its handler answers; each section of the web
+// page that shows more than one pane; and the overlays'.
 func keyContexts() []keyContext {
 	contexts := make([]keyContext, 0, paneCount)
 	for each := range pane(paneCount) {
 		contexts = append(contexts, each.keyContext())
 	}
 
+	contexts = append(contexts, sharedSectionContexts()...)
+
 	return append(contexts, overlayContexts()...)
+}
+
+// sharedSectionContexts are the key contexts of the web page's sections that
+// show more than one pane, in the order the sections are named. The page
+// answers a key with the first control on screen bound to it, so there every
+// action of each pane shown is live at once.
+func sharedSectionContexts() []keyContext {
+	panesIn := map[string][]pane{}
+	for each := range pane(paneCount) {
+		panesIn[each.webSection()] = append(panesIn[each.webSection()], each)
+	}
+
+	var contexts []keyContext
+
+	for _, section := range slices.Sorted(maps.Keys(panesIn)) {
+		if shown := panesIn[section]; len(shown) > 1 {
+			contexts = append(contexts, shownTogether(shown))
+		}
+	}
+
+	return contexts
+}
+
+// shownTogether is the key context of panes the web page shows in one
+// section: each pane's own, all at once, named for the panes.
+func shownTogether(panes []pane) keyContext {
+	titles := make([]string, 0, len(panes))
+	together := keyContext{name: "", groups: []int{groupMoving, groupEverywhere}, actions: nil}
+
+	for _, each := range panes {
+		titles = append(titles, each.title("messaging"))
+		together.actions = append(together.actions, each.keyContext().actions...)
+	}
+
+	together.name = "the " + strings.Join(titles, " and ") + " panes, which the web page shows together"
+
+	return together
 }
 
 // overlayContexts are the keyboard surfaces an overlay opens, one for each

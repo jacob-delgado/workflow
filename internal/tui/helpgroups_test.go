@@ -11,8 +11,9 @@ import (
 )
 
 // Each pane is a key context of its own, so a ui.keys map may give two panes
-// the same key; ? lists each pane's keys under the pane's own heading, so the
-// key shared reads as one key on each pane rather than two on one.
+// the same key, where no surface shows them together; ? lists each pane's keys
+// under the pane's own heading, so the key shared reads as one key on each
+// pane rather than two on one.
 
 // sharedKey is the key each case moves a second pane's action onto.
 const sharedKey = "P"
@@ -25,9 +26,9 @@ func TestAKeyTwoPanesShareIsListedOnceUnderEachPanesHeading(t *testing.T) {
 		// want is, by heading, the one line ? lists on the shared key there.
 		want map[string]string
 	}{
-		"commit on the Branch pane's push key": {
-			overrides: map[string]string{commitAction: sharedKey},
-			want:      map[string]string{branchGroup: "P push", commitsGroup: "P commit"},
+		"sort-tasks on the Branch pane's push key": {
+			overrides: map[string]string{"sort-tasks": sharedKey},
+			want:      map[string]string{branchGroup: "P push", tasksTitle: "P sort"},
 		},
 		"merge on the Slack pane's people and groups key": {
 			overrides: map[string]string{mergeAction: sharedKey},
