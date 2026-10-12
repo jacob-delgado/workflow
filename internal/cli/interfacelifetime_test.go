@@ -32,6 +32,11 @@ var errSignaled = errors.New("interrupt signal received")
 // signalPatience is how long a context a signal ended has to say so.
 const signalPatience = 10 * time.Second
 
+// endingPatience is how long a context that must go on is watched for an
+// end: one canceled through context.AfterFunc ends in a goroutine of its
+// own, so a read right after the cancel can come too early to see it.
+const endingPatience = 250 * time.Millisecond
+
 // interfaceRoot is the root command where the test chose, over run, its input
 // empty and what it says discarded, to execute under a context the test makes.
 func interfaceRoot(t *testing.T, where place, run cli.RunInterface) *cobra.Command {
@@ -101,9 +106,11 @@ func TestTheInterfacesContextGoesOnPastExecutesEndAfterAQuit(t *testing.T) {
 	}
 
 	lifetime := <-handed
-	if lifetime.Err() != nil {
+	select {
+	case <-lifetime.Done():
 		t.Errorf("the interface's context ended with %v once Execute's stop ran after the quit, "+
 			"want it to go on, so a write the interface left running is not cut", context.Cause(lifetime))
+	case <-time.After(endingPatience):
 	}
 }
 
