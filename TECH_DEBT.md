@@ -301,21 +301,27 @@ function, a channel, an interface-typed field or a `MarshalJSON` of its own;
 `config.Config` and `api.Config` disagree on a field's type; or an encoding
 failure is reported.
 
-### TRADE-14 The embedded OpenAPI contract is taken to load
+### TRADE-14 What the binary embeds is taken to load
 
 **Decided.** `loadSpec` and `loadContract` (`internal/webserver/validator.go`)
 and `Handler` (`internal/webserver/webserver.go`) keep five `err != nil` arms
-for an embedded `api/openapi.yaml` that fails to load, validate or route. The
-document is compiled in (`api/embed.go`), so only a build-time defect trips
-them, and that defect fails every web server test first; a seam to feed a
-broken spec would only re-test kin-openapi. Decided 2026-09-26 in #146, and
-kept on 2026-10-07 in the pre-1.0 audit.
+for an embedded `api/openapi.yaml` that fails to load, validate or route, and
+`Assets` (`internal/web/embed.go`) keeps a sixth, which panics, for an
+`fs.Sub` that cannot root the embedded web app at its `dist` directory. Both
+are compiled in (`api/embed.go`, and the `//go:embed all:dist` beside
+`Assets`), so only a build-time defect trips them, and that defect fails every
+web server test first; a seam to feed a broken spec or app would only re-test
+kin-openapi and `io/fs`. Decided 2026-09-26 in #146, kept on 2026-10-07 in the
+pre-1.0 audit, and widened to the embedded web app by the maintainer on
+2026-10-09 in the pre-1.0 paydown, when the condition coverage gate came to
+fail an arm no test reaches.
 
-**Cost.** Five arms no test runs; the start-up message for a broken contract
-is read, not checked.
+**Cost.** Six arms no test runs; the start-up message for a broken contract,
+and the panic for an app that cannot be rooted, are read, not checked.
 
-**Reopen when.** The contract is read from anywhere but the binary (a file, a
-flag, a download), or a broken contract reaches a release.
+**Reopen when.** The contract or the web app is read from anywhere but the
+binary (a file, a flag, a download), or a broken contract or app reaches a
+release.
 
 ### TRADE-16 Failures only a change between two calls can cause
 
