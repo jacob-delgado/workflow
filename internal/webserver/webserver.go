@@ -315,17 +315,27 @@ func Serve(ctx context.Context, listener net.Listener, handler http.Handler) err
 	// when ctx is done, so the server drains without this package starting one.
 	// The shutdown uses a fresh context on purpose: ctx is already canceled —
 	// that is why we are shutting down — so reusing it would abandon the drain.
+	// srv.Serve returns the moment the shutdown begins, so a closed server waits
+	// on drained before it returns, or the process would exit mid-drain.
+	drained := make(chan struct{})
+
 	//nolint:contextcheck // the shutdown intentionally detaches from the canceled ctx
 	stop := context.AfterFunc(ctx, func() {
+		defer close(drained)
+
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 		defer cancel()
 
+		// No one is left to act on a failure: the process is ending, and
+		// what the grace did not drain ends with it.
 		_ = srv.Shutdown(shutdownCtx)
 	})
 	defer stop()
 
 	err := srv.Serve(listener)
 	if errors.Is(err, http.ErrServerClosed) {
+		<-drained
+
 		return nil
 	}
 
