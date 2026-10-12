@@ -5,6 +5,7 @@ package tui
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -294,7 +295,8 @@ func endingWith(program context.Context) outliving {
 // returns: each is named for how many arguments follow the context, the
 // Answer ones for a write that answers a value beside its error, and the Run
 // ones for a program whose output streams on after it returns, which holds
-// its context, and counts in flight, until it exits. A nil write stays nil.
+// its context, and counts in flight, until it exits, whether or not the
+// interface that asked still reads it. A nil write stays nil.
 
 func outlasting0(outlive outliving, name string, write func(context.Context) error) func(context.Context) error {
 	if write == nil {
@@ -425,7 +427,7 @@ func outlastingRun0(
 		outlives, release := outlive(ctx, name)
 		output, err := run(outlives)
 
-		return releasedOnExit(output, err, release)
+		return releasedOnExit(ctx, output, err, release)
 	}
 }
 
@@ -440,14 +442,21 @@ func outlastingRun1[A any](
 		outlives, release := outlive(ctx, name)
 		output, err := run(outlives, first)
 
-		return releasedOnExit(output, err, release)
+		return releasedOnExit(ctx, output, err, release)
 	}
 }
 
 // releasedOnExit is a run's output releasing the context it was started
 // under once Wait has said how its program exited, or at once when it never
-// started: releasing it before would kill the program.
-func releasedOnExit(output proc.Output, err error, release context.CancelFunc) (proc.Output, error) {
+// started: releasing it before would kill the program. Once asker, the
+// session that asked, ends before Wait is called, as a quit or a switch ends
+// it mid-run, the interface reads no more of the output, so it is read to
+// its end and dropped, and the program waited for: left unread, it would
+// block on a full pipe, and its write count in flight until the program's
+// lifetime ended. What it printed and how it exited reach no one then.
+func releasedOnExit(
+	asker context.Context, output proc.Output, err error, release context.CancelFunc,
+) (proc.Output, error) {
 	if err != nil {
 		release()
 
@@ -455,10 +464,18 @@ func releasedOnExit(output proc.Output, err error, release context.CancelFunc) (
 	}
 
 	wait := output.Wait
-	output.Wait = func() error {
+	output.Wait = sync.OnceValue(func() error {
 		defer release()
 
 		return wait()
+	})
+
+	left := output
+	stopReading := context.AfterFunc(asker, func() { _, _ = left.Drain() })
+	output.Wait = func() error {
+		stopReading()
+
+		return left.Wait()
 	}
 
 	return output, nil
