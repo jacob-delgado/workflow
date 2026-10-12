@@ -6,8 +6,9 @@ import { ShortcutSheet } from './ShortcutSheet.tsx'
 // The sheet lists each of the terminal's panes' actions under the pane's own
 // heading, as the terminal's ? does. Two panes no surface shows together are
 // never live at once, so a ui.keys map may give both the same key, and each
-// lists it once; the terminal refuses a map that gives one key to two panes a
-// section here shows together, as Branch shows Commits.
+// lists it once; the terminal refuses a map that gives one key to two actions
+// this page binds on panes a section here shows together, as Branch shows
+// Commits.
 
 // action is one action as the server lists it, on the key given.
 function action(name: string, help: string, group: string, key: string): KeyAction {
