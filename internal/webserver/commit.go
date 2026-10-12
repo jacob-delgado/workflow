@@ -186,15 +186,21 @@ func (s *server) learnedScope(ctx context.Context) (string, bool) {
 	defer s.scope.mu.Unlock()
 
 	if !s.scope.read && s.deps.Store.LastScope != nil && !s.info.DryRun {
-		shared, release := s.worlds.outliving(ctx)
-		s.scope.value, s.scope.found = s.deps.Store.LastScope(shared)
-
-		release()
+		s.scope.value, s.scope.found = s.readLastScope(ctx)
 	}
 
 	s.scope.read = true
 
 	return s.scope.value, s.scope.found
+}
+
+// readLastScope is the store's read of the scope last used, under a context
+// that goes on when ctx ends and ends when the server stops.
+func (s *server) readLastScope(ctx context.Context) (string, bool) {
+	shared, release := s.worlds.outliving(ctx)
+	defer release()
+
+	return s.deps.Store.LastScope(shared)
 }
 
 // rememberScope records the scope a commit just used through the loop's rule,

@@ -417,13 +417,19 @@ func (s *server) recordedAnnouncements(ctx context.Context) []loop.Announced {
 
 	now := s.now()
 	if !s.announced.held || now.Sub(s.announced.readAt) >= s.forgeInterval() {
-		shared, release := s.worlds.outliving(ctx)
-		s.announced.made, s.announced.held, s.announced.readAt = s.deps.Store.Announced(shared), true, now
-
-		release()
+		s.announced.made, s.announced.held, s.announced.readAt = s.readAnnounced(ctx), true, now
 	}
 
 	return slices.Clone(s.announced.made)
+}
+
+// readAnnounced is the store's read of what was announced, under a context
+// that goes on when ctx ends and ends when the server stops.
+func (s *server) readAnnounced(ctx context.Context) []loop.Announced {
+	shared, release := s.worlds.outliving(ctx)
+	defer release()
+
+	return s.deps.Store.Announced(shared)
 }
 
 // recordAnnouncement remembers an announcement just made, in the store and in
