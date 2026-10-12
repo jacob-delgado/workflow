@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -85,7 +86,7 @@ func TestOpenPullRequestOffersOnlyWhatApplies(t *testing.T) {
 		// offers no move rather than failing the open.
 		"the moves cannot be read": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) { return nil, errSeam }
+				deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) { return nil, errSeam }
 			},
 			cfg: reviewConfig(), want: "link " + testKey,
 		},

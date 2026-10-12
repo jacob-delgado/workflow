@@ -112,7 +112,7 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 
 	review := s.reviewDTO(branch, read)
 	review.Announced = s.reviewAnnounced(ctx, read)
-	issues, issuesErr := s.snapshotIssues(view)
+	issues, issuesErr := s.snapshotIssues(ctx, view)
 	changes, changesErr := s.snapshotChanges()
 	commit := s.commitConvention()
 
@@ -139,7 +139,7 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 		Here:  s.deps.Repositories.Here.Dir,
 	}
 	frame.Stages = s.frameStages(branch, read, frame)
-	frame.Branches = s.snapshotBranches(branch.Name, frame.Stages)
+	frame.Branches = s.snapshotBranches(ctx, branch.Name, frame.Stages)
 
 	return frame
 }
@@ -283,8 +283,11 @@ func nothingToAsk(err error) bool {
 // review panels describe only the checked-out branch. It is empty outside a
 // repository or when the local read fails, holds no branch only the remote has
 // when the remote read fails, and marks none when checkedOut is empty, as it is
-// when the branch is unknown.
-func (s *server) snapshotBranches(checkedOut string, checkedOutStages []api.Stage) []api.TaskBranch {
+// when the branch is unknown. The tracker is asked which issues are yours under
+// ctx.
+func (s *server) snapshotBranches(
+	ctx context.Context, checkedOut string, checkedOutStages []api.Stage,
+) []api.TaskBranch {
 	if s.deps.Git.Branches == nil {
 		return []api.TaskBranch{}
 	}
@@ -314,7 +317,7 @@ func (s *server) snapshotBranches(checkedOut string, checkedOutStages []api.Stag
 		}
 	}
 
-	listing.mine = s.yourIssues(issueKeys(listing.names, listing.links, project))
+	listing.mine = s.yourIssues(ctx, issueKeys(listing.names, listing.links, project))
 
 	return taskBranchesDTO(listing, checkedOut, project)
 }
@@ -384,14 +387,14 @@ func issueKeys(names []string, links map[string]string, project string) []jira.K
 // snapshotIssues is the first page of the view's issues from the issues
 // cache, or an empty page when the tracker is not configured, the search
 // fails — with its error — or a configuration save has removed the view since
-// the stream opened.
-func (s *server) snapshotIssues(view string) (api.IssuesPage, error) {
+// the stream opened. The search is made under ctx.
+func (s *server) snapshotIssues(ctx context.Context, view string) (api.IssuesPage, error) {
 	jql, known := resolveJQL(s.config(), view)
 	if s.deps.Jira.Search == nil || !known {
 		return issuesPageDTO(jira.SearchResult{}, 0), nil
 	}
 
-	result, err := s.frameIssues(jql)
+	result, err := s.frameIssues(ctx, jql)
 	if err != nil {
 		return issuesPageDTO(jira.SearchResult{}, 0), err
 	}

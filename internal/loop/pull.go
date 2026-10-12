@@ -4,6 +4,7 @@
 package loop
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -51,7 +52,7 @@ type PullSeams struct {
 	Branch    func() (gitrepo.Branch, error)
 	FindPull  func(branch string) (forge.PullRequest, bool, error)
 	Templates func() []forge.Template
-	Issue     func(jira.Key) (jira.IssueDetail, error)
+	Issue     func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
 	BrowseURL func(jira.Key) string
 	Owners    OwnerSeams
 }
@@ -75,7 +76,9 @@ type PullOptions struct {
 // PullAlreadyOpenError when an open pull request already stands for the branch.
 // A merged or closed one does not stand in the way, and neither does a forge
 // that cannot say: the open is where that forge's own answer lands.
-func ComposePull(seams PullSeams, opts PullOptions) (forge.NewPullRequest, gitrepo.Branch, error) {
+func ComposePull(
+	ctx context.Context, seams PullSeams, opts PullOptions,
+) (forge.NewPullRequest, gitrepo.Branch, error) {
 	branch, err := branchToOpen(seams.Branch)
 	if err != nil {
 		return forge.NewPullRequest{}, gitrepo.Branch{}, err
@@ -91,7 +94,7 @@ func ComposePull(seams PullSeams, opts PullOptions) (forge.NewPullRequest, gitre
 		return forge.NewPullRequest{}, gitrepo.Branch{}, err
 	}
 
-	return draft(seams, opts, branch, template), branch, nil
+	return draft(ctx, seams, opts, branch, template), branch, nil
 }
 
 // branchToOpen reads the checked-out branch, refusing one that could not carry a
@@ -129,15 +132,17 @@ func refuseAnOpenPull(find func(branch string) (forge.PullRequest, bool, error),
 	return nil
 }
 
-// draft composes the pull request for branch.
-func draft(seams PullSeams, opts PullOptions, branch gitrepo.Branch, template string) forge.NewPullRequest {
+// draft composes the pull request for branch, reading its issue under ctx.
+func draft(
+	ctx context.Context, seams PullSeams, opts PullOptions, branch gitrepo.Branch, template string,
+) forge.NewPullRequest {
 	key, _ := IssueOf(branch, opts.Project)
 	issueKey := jira.Key(key.Key)
 
 	title, body := Draft(DraftInput{
 		Subjects:     Subjects(branch.Commits),
 		IssueKey:     issueKey,
-		IssueSummary: issueSummary(seams.Issue, issueKey),
+		IssueSummary: issueSummary(ctx, seams.Issue, issueKey),
 		IssueURL:     issueURL(seams.BrowseURL, issueKey),
 		Template:     template,
 		TitleSource:  opts.TitleSource,
@@ -233,11 +238,12 @@ var (
 // whose pull request is now open, and whether there is one worth offering: the
 // status is configured, the branch names an issue, Jira offers a move to that
 // status, and the move needs no fields. A tracker that cannot be read offers
-// nothing — the pull request is already open.
+// nothing — the pull request is already open. The tracker is asked under ctx.
 func ReviewTransition(
-	transitions func(jira.Key) ([]jira.Transition, error), key jira.Key, status string,
+	ctx context.Context, transitions func(context.Context, jira.Key) ([]jira.Transition, error), key jira.Key,
+	status string,
 ) (jira.Transition, bool) {
-	move, err := FindReviewTransition(transitions, key, status)
+	move, err := FindReviewTransition(ctx, transitions, key, status)
 
 	return move, err == nil
 }
@@ -245,9 +251,11 @@ func ReviewTransition(
 // FindReviewTransition is ReviewTransition saying why there is no move: no
 // review status configured, no move Jira offers — or no issue or tracker to ask
 // — a move that asks for fields, or the tracker's own error when it cannot be
-// read. With no status configured the tracker is not asked at all.
+// read. With no status configured the tracker is not asked at all; otherwise
+// it is asked under ctx.
 func FindReviewTransition(
-	transitions func(jira.Key) ([]jira.Transition, error), key jira.Key, status string,
+	ctx context.Context, transitions func(context.Context, jira.Key) ([]jira.Transition, error), key jira.Key,
+	status string,
 ) (jira.Transition, error) {
 	if status == "" {
 		return jira.Transition{}, ErrNoReviewStatus
@@ -257,7 +265,7 @@ func FindReviewTransition(
 		return jira.Transition{}, ErrNoReviewTransition
 	}
 
-	moves, err := transitions(key)
+	moves, err := transitions(ctx, key)
 	if err != nil {
 		return jira.Transition{}, fmt.Errorf("reading the transitions of %s: %w", key, err)
 	}

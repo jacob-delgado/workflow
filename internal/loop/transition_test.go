@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -15,8 +16,8 @@ import (
 const reviewStatus = "In Review"
 
 // offering answers with the moves Jira offers, as a Transitions seam.
-func offering(moves ...jira.Transition) func(jira.Key) ([]jira.Transition, error) {
-	return func(jira.Key) ([]jira.Transition, error) { return moves, nil }
+func offering(moves ...jira.Transition) func(context.Context, jira.Key) ([]jira.Transition, error) {
+	return func(context.Context, jira.Key) ([]jira.Transition, error) { return moves, nil }
 }
 
 func TestReviewTransitionFindsTheMoveToTheReviewStatus(t *testing.T) {
@@ -29,7 +30,7 @@ func TestReviewTransitionFindsTheMoveToTheReviewStatus(t *testing.T) {
 	)
 
 	// Act
-	target, ok := loop.ReviewTransition(transitions, issueKey, reviewStatus)
+	target, ok := loop.ReviewTransition(t.Context(), transitions, issueKey, reviewStatus)
 
 	// Assert
 	if !ok || target.ID != "21" {
@@ -43,7 +44,7 @@ func TestReviewTransitionOffersNothingItCannotApply(t *testing.T) {
 	needsFields := jira.Transition{ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: "resolution"}}}
 
 	cases := map[string]struct {
-		transitions func(jira.Key) ([]jira.Transition, error)
+		transitions func(context.Context, jira.Key) ([]jira.Transition, error)
 		key         jira.Key
 		status      string
 	}{
@@ -52,7 +53,7 @@ func TestReviewTransitionOffersNothingItCannotApply(t *testing.T) {
 		},
 		"no way to read the transitions": {key: issueKey, status: reviewStatus},
 		"a read that fails": {
-			transitions: func(jira.Key) ([]jira.Transition, error) { return nil, errSeam },
+			transitions: func(context.Context, jira.Key) ([]jira.Transition, error) { return nil, errSeam },
 			key:         issueKey, status: reviewStatus,
 		},
 		"a status Jira does not offer": {
@@ -66,7 +67,7 @@ func TestReviewTransitionOffersNothingItCannotApply(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			target, ok := loop.ReviewTransition(tt.transitions, tt.key, tt.status)
+			target, ok := loop.ReviewTransition(t.Context(), tt.transitions, tt.key, tt.status)
 
 			// Assert
 			if ok {
@@ -83,14 +84,14 @@ func TestReviewTransitionAsksNothingWithoutAReviewStatus(t *testing.T) {
 	// With no review status configured there is nothing to offer, so the tracker
 	// is not asked at all; every `workflow pr` would otherwise pay a round trip.
 	asked := false
-	transitions := func(jira.Key) ([]jira.Transition, error) {
+	transitions := func(context.Context, jira.Key) ([]jira.Transition, error) {
 		asked = true
 
 		return []jira.Transition{{ID: "21", ToStatus: reviewStatus}}, nil
 	}
 
 	// Act
-	target, ok := loop.ReviewTransition(transitions, issueKey, "")
+	target, ok := loop.ReviewTransition(t.Context(), transitions, issueKey, "")
 
 	// Assert
 	if ok || asked {
@@ -104,7 +105,7 @@ func TestFindReviewTransitionSaysWhyThereIsNoMove(t *testing.T) {
 	needsFields := jira.Transition{ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: "resolution"}}}
 
 	cases := map[string]struct {
-		transitions func(jira.Key) ([]jira.Transition, error)
+		transitions func(context.Context, jira.Key) ([]jira.Transition, error)
 		key         jira.Key
 		status      string
 		want        error
@@ -118,7 +119,7 @@ func TestFindReviewTransitionSaysWhyThereIsNoMove(t *testing.T) {
 		},
 		"no way to read the transitions": {key: issueKey, status: reviewStatus, want: loop.ErrNoReviewTransition},
 		"a read that fails": {
-			transitions: func(jira.Key) ([]jira.Transition, error) { return nil, errSeam },
+			transitions: func(context.Context, jira.Key) ([]jira.Transition, error) { return nil, errSeam },
 			key:         issueKey, status: reviewStatus, want: errSeam,
 		},
 		"a status Jira does not offer": {
@@ -135,7 +136,7 @@ func TestFindReviewTransitionSaysWhyThereIsNoMove(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			target, err := loop.FindReviewTransition(tt.transitions, tt.key, tt.status)
+			target, err := loop.FindReviewTransition(t.Context(), tt.transitions, tt.key, tt.status)
 
 			// Assert
 			if !errors.Is(err, tt.want) {
@@ -152,7 +153,7 @@ func TestFindReviewTransitionFindsTheFieldlessMove(t *testing.T) {
 	transitions := offering(jira.Transition{ID: "21", ToStatus: "In review"})
 
 	// Act
-	target, err := loop.FindReviewTransition(transitions, issueKey, reviewStatus)
+	target, err := loop.FindReviewTransition(t.Context(), transitions, issueKey, reviewStatus)
 
 	// Assert
 	if err != nil || target.ID != "21" {

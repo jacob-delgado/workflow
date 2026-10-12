@@ -29,7 +29,7 @@ func (m Model) searching() Model {
 // with the branches that mark its issues in flight, which may have changed
 // since.
 func (m Model) relistIssues() tea.Cmd {
-	return tea.Batch(m.searchIssues(), listIssueBranches(m.cfg, m.deps))
+	return tea.Batch(m.searchIssues(), listIssueBranches(m.session, m.cfg, m.deps))
 }
 
 // searchPage is the command that reads one page of issues, from startAt.
@@ -39,10 +39,10 @@ func (m Model) searchPage(startAt int) tea.Cmd {
 		return nil
 	}
 
-	jql := m.activeView().jql
+	ctx, jql := m.session, m.activeView().jql
 
 	return func() tea.Msg {
-		found, err := search(jql, startAt)
+		found, err := search(ctx, jql, startAt)
 
 		return issuesLoaded{found: found, err: err, startAt: startAt, jql: jql}
 	}

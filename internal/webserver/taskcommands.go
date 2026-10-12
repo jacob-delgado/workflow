@@ -49,7 +49,7 @@ func (s *server) TrackIssue(
 		return trackRefused("no issue tracker is configured"), nil
 	}
 
-	detail, err := s.deps.Jira.Issue(key)
+	detail, err := s.deps.Jira.Issue(ctx, key)
 	if err != nil {
 		return s.issueNotRead(key, err), nil
 	}

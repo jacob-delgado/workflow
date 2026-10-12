@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strconv"
@@ -52,7 +53,7 @@ type fakeJira struct {
 func (f *fakeJira) deps(search func(startAt int) (jira.SearchResult, error)) tui.Deps {
 	return tui.Deps{Jira: seams.Jira{
 		Search: ignoreJQL(search),
-		Transitions: func(issueKey jira.Key) ([]jira.Transition, error) {
+		Transitions: func(_ context.Context, issueKey jira.Key) ([]jira.Transition, error) {
 			f.listed.Store(string(issueKey))
 
 			if f.listErr != nil {
@@ -61,7 +62,7 @@ func (f *fakeJira) deps(search func(startAt int) (jira.SearchResult, error)) tui
 
 			return f.moves, nil
 		},
-		Transition: func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error {
+		Transition: func(_ context.Context, issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error {
 			f.applies.Add(1)
 			f.applied.Store(string(issueKey) + " " + to.ID)
 			f.values.Store(values)
@@ -340,7 +341,7 @@ func TestASecondListingDoesNotReplaceTheOneOnScreen(t *testing.T) {
 	var calls atomic.Int32
 
 	deps := (&fakeJira{}).deps(twoIssues())
-	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
 		if calls.Add(1) == 1 {
 			return workflowMoves(), nil
 		}

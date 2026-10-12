@@ -106,10 +106,10 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			world: summaryWorld, pane: "8", want: "Summary ◐",
 			wrap: func(deps *tui.Deps, held *hold) {
 				read := deps.Jira.Activity
-				deps.Jira.Activity = func(start, end time.Time) (jira.Activity, error) {
+				deps.Jira.Activity = func(ctx context.Context, start, end time.Time) (jira.Activity, error) {
 					held.wait()
 
-					return read(start, end)
+					return read(ctx, start, end)
 				}
 			},
 		},

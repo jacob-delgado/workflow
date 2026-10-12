@@ -8,6 +8,7 @@ package tui_test
 // would write twice.
 
 import (
+	"context"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -19,8 +20,8 @@ import (
 // heldAssign sends the assign, and then holds Jira's answer.
 func heldAssign(deps *tui.Deps, held *hold) {
 	assign := deps.Jira.Assign
-	deps.Jira.Assign = func(key jira.Key, assignee string) error {
-		err := assign(key, assignee)
+	deps.Jira.Assign = func(ctx context.Context, key jira.Key, assignee string) error {
+		err := assign(ctx, key, assignee)
 
 		held.wait()
 
@@ -31,8 +32,8 @@ func heldAssign(deps *tui.Deps, held *hold) {
 // heldWorklog sends the work logged, and then holds Jira's answer.
 func heldWorklog(deps *tui.Deps, held *hold) {
 	add := deps.Jira.AddWorklog
-	deps.Jira.AddWorklog = func(key jira.Key, spent, comment string) (jira.Worklog, error) {
-		logged, err := add(key, spent, comment)
+	deps.Jira.AddWorklog = func(ctx context.Context, key jira.Key, spent, comment string) (jira.Worklog, error) {
+		logged, err := add(ctx, key, spent, comment)
 
 		held.wait()
 
@@ -44,8 +45,8 @@ func heldWorklog(deps *tui.Deps, held *hold) {
 // Jira's answer.
 func heldPullRequestLink(deps *tui.Deps, held *hold) {
 	link := deps.Jira.LinkPullRequest
-	deps.Jira.LinkPullRequest = func(key jira.Key, url, title string) error {
-		err := link(key, url, title)
+	deps.Jira.LinkPullRequest = func(ctx context.Context, key jira.Key, url, title string) error {
+		err := link(ctx, key, url, title)
 
 		held.wait()
 

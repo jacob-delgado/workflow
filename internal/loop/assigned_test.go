@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -36,7 +37,7 @@ type fakeTracker struct {
 	asked []searchAsked
 }
 
-func (f *fakeTracker) search(jql string, startAt int) (jira.SearchResult, error) {
+func (f *fakeTracker) search(_ context.Context, jql string, startAt int) (jira.SearchResult, error) {
 	f.asked = append(f.asked, searchAsked{jql: jql, startAt: startAt})
 	if f.err != nil {
 		return jira.SearchResult{}, f.err
@@ -81,7 +82,7 @@ func TestAssignedKeysKeepsOnlyTheKeysTheTrackerReturns(t *testing.T) {
 	tracker := &fakeTracker{pages: []jira.SearchResult{issuesFor([]jira.Key{"A", "C"}, 2)}}
 
 	// Act
-	mine, err := loop.AssignedKeys(tracker.search, []jira.Key{"B", "A", "B"})
+	mine, err := loop.AssignedKeys(t.Context(), tracker.search, []jira.Key{"B", "A", "B"})
 	if err != nil {
 		t.Fatalf("AssignedKeys returned %v, want nil", err)
 	}
@@ -105,7 +106,7 @@ func TestAssignedKeysPagesUntilTheTotalIsReached(t *testing.T) {
 	tracker := &fakeTracker{pages: []jira.SearchResult{issuesFor(keys[:50], 60), issuesFor(keys[50:], 60)}}
 
 	// Act
-	mine, err := loop.AssignedKeys(tracker.search, keys)
+	mine, err := loop.AssignedKeys(t.Context(), tracker.search, keys)
 	if err != nil {
 		t.Fatalf("AssignedKeys returned %v, want nil", err)
 	}
@@ -132,7 +133,7 @@ func TestAssignedKeysWithNoKeysAsksNothing(t *testing.T) {
 	tracker := &fakeTracker{}
 
 	// Act
-	mine, err := loop.AssignedKeys(tracker.search, nil)
+	mine, err := loop.AssignedKeys(t.Context(), tracker.search, nil)
 
 	// Assert
 	if err != nil || len(mine) != 0 || mine == nil {
@@ -151,7 +152,7 @@ func TestAssignedKeysPassesTheTrackersError(t *testing.T) {
 	tracker := &fakeTracker{err: errTrackerDown}
 
 	// Act
-	_, err := loop.AssignedKeys(tracker.search, []jira.Key{"A"})
+	_, err := loop.AssignedKeys(t.Context(), tracker.search, []jira.Key{"A"})
 
 	// Assert
 	if !errors.Is(err, errTrackerDown) || errors.Is(err, errNoMorePages) || err.Error() == errTrackerDown.Error() {
@@ -168,7 +169,7 @@ func TestAssignedKeysStopsAtAnEmptyPage(t *testing.T) {
 	tracker := &fakeTracker{pages: []jira.SearchResult{issuesFor(nil, 100)}}
 
 	// Act
-	mine, err := loop.AssignedKeys(tracker.search, []jira.Key{"A"})
+	mine, err := loop.AssignedKeys(t.Context(), tracker.search, []jira.Key{"A"})
 	if err != nil {
 		t.Fatalf("AssignedKeys returned %v, want nil", err)
 	}
@@ -194,7 +195,7 @@ func TestAssignedKeysAsksInBatchesOfAHundredKeys(t *testing.T) {
 	// Act
 	// Duplicates are asked about once, so they cannot push a key into a
 	// batch of its own.
-	mine, err := loop.AssignedKeys(tracker.search, append(slices.Clone(keys), keys[:120]...))
+	mine, err := loop.AssignedKeys(t.Context(), tracker.search, append(slices.Clone(keys), keys[:120]...))
 	if err != nil {
 		t.Fatalf("AssignedKeys returned %v, want nil", err)
 	}
@@ -222,7 +223,7 @@ func TestAssignedKeysNamesNoForgeNumberInTheQuery(t *testing.T) {
 	tracker := &fakeTracker{pages: []jira.SearchResult{issuesFor([]jira.Key{"42", jiraIssue}, 2)}}
 
 	// Act
-	mine, err := loop.AssignedKeys(tracker.search, []jira.Key{jiraIssue, "42"})
+	mine, err := loop.AssignedKeys(t.Context(), tracker.search, []jira.Key{jiraIssue, "42"})
 
 	// Assert
 	want := jira.KeysAssignedToMe([]jira.Key{jiraIssue})
@@ -242,7 +243,7 @@ func TestAssignedKeysOfForgeNumbersAloneAsksWithNoQuery(t *testing.T) {
 	tracker := &fakeTracker{pages: []jira.SearchResult{issuesFor([]jira.Key{"42"}, 1)}}
 
 	// Act
-	mine, err := loop.AssignedKeys(tracker.search, []jira.Key{"7", "42"})
+	mine, err := loop.AssignedKeys(t.Context(), tracker.search, []jira.Key{"7", "42"})
 
 	// Assert
 	if err != nil || len(tracker.asked) != 1 || tracker.asked[0].jql != jira.NoKeys {

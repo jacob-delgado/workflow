@@ -5,6 +5,7 @@ package cli
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -61,9 +62,9 @@ type prSeams struct {
 	CreatePull func(forge.NewPullRequest) (forge.PullRequest, error)
 	// LinkPull adds a pull request's link to an issue, offered once it is open.
 	// Nil — a tracker that cannot take a link — makes no offer.
-	LinkPull    func(issueKey jira.Key, pullURL, title string) error
-	Transitions func(jira.Key) ([]jira.Transition, error)
-	Transition  func(jira.Key, jira.Transition, []jira.FieldValue) error
+	LinkPull    func(ctx context.Context, issueKey jira.Key, pullURL, title string) error
+	Transitions func(context.Context, jira.Key) ([]jira.Transition, error)
+	Transition  func(context.Context, jira.Key, jira.Transition, []jira.FieldValue) error
 	// ReviewStatus is the status an issue moves to once its pull request is open,
 	// offered after opening. Empty makes no offer.
 	ReviewStatus string
@@ -154,13 +155,13 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, asJSON b
 
 	out := outputOf(cmd)
 	if !asJSON {
-		_, err = runPR(out, seams, opts)
+		_, err = runPR(cmd.Context(), out, seams, opts)
 
 		return err
 	}
 
 	// The report is the artifact, so everything else is said beside it.
-	report, err := runPR(output{artifact: out.notes, notes: out.notes}, seams, opts)
+	report, err := runPR(cmd.Context(), output{artifact: out.notes, notes: out.notes}, seams, opts)
 	if report.ready {
 		err = errors.Join(err, encodeJSON(out.artifact, report))
 	}
@@ -226,8 +227,8 @@ func openedReport(request forge.NewPullRequest, pull forge.PullRequest) prReport
 // reports what it opened and offered. A dry run says what it would do at each
 // of those steps, the offers included, and reports the pull request it would
 // open.
-func runPR(out output, seams prSeams, opts writeOptions) (prReport, error) {
-	request, branch, err := loop.ComposePull(seams.Compose, seams.Options)
+func runPR(ctx context.Context, out output, seams prSeams, opts writeOptions) (prReport, error) {
+	request, branch, err := loop.ComposePull(ctx, seams.Compose, seams.Options)
 	if err != nil {
 		return prReport{}, composeRefusal(err, seams.Kind)
 	}
@@ -248,14 +249,16 @@ func runPR(out output, seams prSeams, opts writeOptions) (prReport, error) {
 	if opts.dryRun {
 		// Nothing was opened, so each offer the open would lead to says so in its
 		// own dry-run line.
-		return followUp(out.notes, seams, openedPull{issueKey: issueKey}, opts, openedReport(request, forge.PullRequest{}))
+		return followUp(
+			ctx, out.notes, seams, openedPull{issueKey: issueKey}, opts, openedReport(request, forge.PullRequest{}),
+		)
 	}
 
 	if !proceed {
 		return prReport{}, nil
 	}
 
-	return openPull(out, seams, opts, request, branch)
+	return openPull(ctx, out, seams, opts, request, branch)
 }
 
 // previewPull prints the pull request about to be opened: its title, the
@@ -276,7 +279,7 @@ func previewPull(artifact io.Writer, request forge.NewPullRequest, branch gitrep
 // openPull pushes the branch when it needs it, opens the pull request, says
 // so, and follows up on the branch's issue.
 func openPull(
-	out output, seams prSeams, opts writeOptions, request forge.NewPullRequest, branch gitrepo.Branch,
+	ctx context.Context, out output, seams prSeams, opts writeOptions, request forge.NewPullRequest, branch gitrepo.Branch,
 ) (prReport, error) {
 	err := loop.EnsurePushed(seams.Push, branch)
 	if err != nil {
@@ -301,7 +304,7 @@ func openPull(
 
 	issueKey, _ := loop.JiraIssue(branch, seams.Options.Project)
 
-	report, err = followUp(out.notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts, report)
+	report, err = followUp(ctx, out.notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts, report)
 	if err == nil && seams.MessagingSetUp {
 		fmt.Fprintln(out.notes, "Announce it with workflow announce.")
 	}
@@ -322,15 +325,17 @@ type openedPull struct {
 // adding each offer made to report. A link that fails does not keep the move
 // from being offered, and the command still fails with it; a question nothing
 // can answer stops both.
-func followUp(notes io.Writer, seams prSeams, opened openedPull, opts writeOptions, report prReport) (prReport, error) {
-	link, linkErr := offerLink(notes, seams, opened, opts)
+func followUp(
+	ctx context.Context, notes io.Writer, seams prSeams, opened openedPull, opts writeOptions, report prReport,
+) (prReport, error) {
+	link, linkErr := offerLink(ctx, notes, seams, opened, opts)
 	report.FollowUps = append(report.FollowUps, link...)
 
 	if errors.Is(linkErr, errNoTerminal) {
 		return report, linkErr
 	}
 
-	move, moveErr := offerReviewStatus(notes, seams, opened.issueKey, opts)
+	move, moveErr := offerReviewStatus(ctx, notes, seams, opened.issueKey, opts)
 	report.FollowUps = append(report.FollowUps, move...)
 
 	return report, errors.Join(linkErr, moveErr)
@@ -341,7 +346,9 @@ func followUp(notes io.Writer, seams prSeams, opened openedPull, opts writeOptio
 // branch that names no Jira issue, or a tracker that cannot take a link — the
 // forge's own issues — is offered nothing. A failed link is said at once,
 // before the move is offered.
-func offerLink(notes io.Writer, seams prSeams, opened openedPull, opts writeOptions) ([]followUpReport, error) {
+func offerLink(
+	ctx context.Context, notes io.Writer, seams prSeams, opened openedPull, opts writeOptions,
+) ([]followUpReport, error) {
 	if seams.LinkPull == nil || opened.issueKey == "" {
 		return nil, nil
 	}
@@ -358,7 +365,7 @@ func offerLink(notes io.Writer, seams prSeams, opened openedPull, opts writeOpti
 		return []followUpReport{offer}, err
 	}
 
-	err = seams.LinkPull(opened.issueKey, opened.pull.URL, opened.pull.Title)
+	err = seams.LinkPull(ctx, opened.issueKey, opened.pull.URL, opened.pull.Title)
 	if err != nil {
 		fmt.Fprintln(notes, "Could not link "+pull+" on "+issue+".")
 
@@ -406,8 +413,10 @@ func pushFailure(name string, err error) error {
 // fields this command cannot fill, is passed over quietly — the pull request is
 // already open. Everything it says is commentary on the open, so it goes to
 // notes.
-func offerReviewStatus(notes io.Writer, seams prSeams, issueKey jira.Key, opts writeOptions) ([]followUpReport, error) {
-	target, ok := loop.ReviewTransition(seams.Transitions, issueKey, seams.ReviewStatus)
+func offerReviewStatus(
+	ctx context.Context, notes io.Writer, seams prSeams, issueKey jira.Key, opts writeOptions,
+) ([]followUpReport, error) {
+	target, ok := loop.ReviewTransition(ctx, seams.Transitions, issueKey, seams.ReviewStatus)
 	if !ok {
 		return nil, nil
 	}
@@ -423,7 +432,7 @@ func offerReviewStatus(notes io.Writer, seams prSeams, issueKey jira.Key, opts w
 		return []followUpReport{offer}, err
 	}
 
-	err = seams.Transition(issueKey, target, nil)
+	err = seams.Transition(ctx, issueKey, target, nil)
 	if err != nil {
 		return []followUpReport{offer}, fmt.Errorf("moving %s to %s: %w", issueKey, target.ToStatus, err)
 	}

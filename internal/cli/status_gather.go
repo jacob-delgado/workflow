@@ -50,7 +50,7 @@ func gather(ctx context.Context, seams statusSeams, branch gitrepo.Branch) statu
 
 	var issueErr error
 	if named {
-		facts.summary, issueErr = issueSummary(seams, issueRef.Key)
+		facts.summary, issueErr = issueSummary(ctx, seams, issueRef.Key)
 	}
 
 	onFeature := branch.Name != "" && branch.Name != branch.BaseName()
@@ -127,8 +127,8 @@ func forgeName(kind forge.Kind) string {
 
 // issueSummary is the named issue's summary, or none, with why, when Jira
 // will not answer.
-func issueSummary(seams statusSeams, issueKey string) (string, error) {
-	detail, err := seams.Issue(jira.Key(issueKey))
+func issueSummary(ctx context.Context, seams statusSeams, issueKey string) (string, error) {
+	detail, err := seams.Issue(ctx, jira.Key(issueKey))
 	if err != nil {
 		return "", err
 	}

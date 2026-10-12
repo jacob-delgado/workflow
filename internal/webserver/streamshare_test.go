@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -59,12 +60,12 @@ type countedSearch struct {
 // wire binds deps' search to the counter and its clock to clock.
 func (c *countedSearch) wire(deps webserver.Deps, clock *sharedClock) webserver.Deps {
 	search := deps.Jira.Search
-	deps.Jira.Search = func(jql string, startAt int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
 		c.mu.Lock()
 		c.asked++
 		c.mu.Unlock()
 
-		return search(jql, startAt)
+		return search(ctx, jql, startAt)
 	}
 	deps.Clock = clock.read
 
@@ -317,10 +318,10 @@ func TestASlowAuthorReadHoldsUpNoOtherStream(t *testing.T) {
 // then answers as deps' own did.
 func slowTracker(deps webserver.Deps, read *slowRead) webserver.Deps {
 	answer := deps.Jira.SearchLenient
-	deps.Jira.SearchLenient = func(jql string, startAt int) (jira.SearchResult, error) {
+	deps.Jira.SearchLenient = func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
 		read.call()
 
-		return answer(jql, startAt)
+		return answer(ctx, jql, startAt)
 	}
 
 	return deps

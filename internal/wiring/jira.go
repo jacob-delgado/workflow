@@ -21,63 +21,62 @@ import (
 var errNotAJiraKey = errors.New("not a Jira issue key")
 
 // jiraDeps is what a surface asks of Jira, each seam reaching it through
-// jiraClient, which finds the token the first time Jira is asked. It needs no
-// guard for a missing or malformed configuration: the client refuses before
-// sending anything, and the pane shows why.
-func jiraDeps(
-	ctx context.Context, settings config.Jira, jiraClient func(context.Context) (jira.Client, error),
-) seams.Jira {
+// jiraClient, which finds the token the first time Jira is asked, under the
+// context the seam is asked under. It needs no guard for a missing or
+// malformed configuration: the client refuses before sending anything, and the
+// pane shows why.
+func jiraDeps(settings config.Jira, jiraClient func(context.Context) (jira.Client, error)) seams.Jira {
 	// A link reads only the address, so it comes from a client that never sends
 	// and so never needs the token.
 	addresses := jira.New(nil, settings)
 
 	return seams.Jira{
-		Search: func(jql string, startAt int) (jira.SearchResult, error) {
+		Search: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
 			return ask(ctx, jiraClient, func(client jira.Client) (jira.SearchResult, error) {
 				return client.Search(ctx, jql, startAt)
 			})
 		},
-		SearchLenient: func(jql string, startAt int) (jira.SearchResult, error) {
+		SearchLenient: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
 			return ask(ctx, jiraClient, func(client jira.Client) (jira.SearchResult, error) {
 				return client.SearchLenient(ctx, jql, startAt)
 			})
 		},
-		Issue: func(issueKey jira.Key) (jira.IssueDetail, error) {
+		Issue: func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error) {
 			return askJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) (jira.IssueDetail, error) {
 				return client.Issue(ctx, issueKey)
 			})
 		},
-		Transitions: func(issueKey jira.Key) ([]jira.Transition, error) {
+		Transitions: func(ctx context.Context, issueKey jira.Key) ([]jira.Transition, error) {
 			return askJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) ([]jira.Transition, error) {
 				return client.Transitions(ctx, issueKey)
 			})
 		},
-		Transition: func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error {
+		Transition: func(ctx context.Context, issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error {
 			return tellJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) error {
 				return client.ApplyTransition(ctx, issueKey, to, values)
 			})
 		},
-		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
+		Comment: func(ctx context.Context, issueKey jira.Key, text string) (jira.Comment, error) {
 			return askJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) (jira.Comment, error) {
 				return client.AddComment(ctx, issueKey, text)
 			})
 		},
-		Activity: func(start, end time.Time) (jira.Activity, error) {
+		Activity: func(ctx context.Context, start, end time.Time) (jira.Activity, error) {
 			return ask(ctx, jiraClient, func(client jira.Client) (jira.Activity, error) {
 				return client.Activity(ctx, start, end)
 			})
 		},
-		Assign: func(issueKey jira.Key, assignee string) error {
+		Assign: func(ctx context.Context, issueKey jira.Key, assignee string) error {
 			return tellJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) error {
 				return client.Assign(ctx, issueKey, assignee)
 			})
 		},
-		AddWorklog: func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error) {
+		AddWorklog: func(ctx context.Context, issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error) {
 			return askJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) (jira.Worklog, error) {
 				return client.AddWorklog(ctx, issueKey, timeSpent, comment)
 			})
 		},
-		LinkPullRequest: func(issueKey jira.Key, pullURL, title string) error {
+		LinkPullRequest: func(ctx context.Context, issueKey jira.Key, pullURL, title string) error {
 			return tellJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) error {
 				return client.LinkPullRequest(ctx, issueKey, pullURL, title)
 			})

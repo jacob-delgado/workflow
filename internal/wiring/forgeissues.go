@@ -34,44 +34,52 @@ var errNotAnIssueNumber = errors.New("not a forge issue number")
 
 // trackerDeps is what backs the Issues pane: Jira, reached through jiraClient,
 // when it is configured — beside the repository's own forge issues, reached
-// through connect, when the repository asks for them — and otherwise the
-// forge's issues alone, so a project without Jira still has a tracker to run
-// the loop against.
+// through connect on the repository setup names, when the repository asks for
+// them — and otherwise the forge's issues alone, so a project without Jira
+// still has a tracker to run the loop against.
 func trackerDeps(
-	ctx context.Context, cfg config.Config,
-	jiraClient func(context.Context) (jira.Client, error), connect func(context.Context) (forgeConnection, error),
+	cfg config.Config, jiraClient func(context.Context) (jira.Client, error), setup forgeSetup,
+	connect func(context.Context) (forgeConnection, error),
 ) seams.Jira {
 	if !cfg.Jira.Configured() {
-		return forgeIssuesDeps(ctx, connect)
+		return forgeIssuesDeps(setup, connect)
 	}
 
 	if cfg.Issues.Forge {
-		return combinedTracker(cfg.Jira, jiraDeps(ctx, cfg.Jira, jiraClient), forgeIssuesDeps(ctx, connect))
+		return combinedTracker(cfg.Jira, jiraDeps(cfg.Jira, jiraClient), forgeIssuesDeps(setup, connect))
 	}
 
-	return jiraDeps(ctx, cfg.Jira, jiraClient)
+	return jiraDeps(cfg.Jira, jiraClient)
 }
 
 // forgeIssuesDeps adapts the forge's issues to the tracker seam the Issues pane
 // reads. The pane, the detail, the status change, assigning, commenting and the
 // link run unchanged; logged work and a remote link, which a forge issue has no
 // equivalent for here, are left nil so those features simply do not appear.
-func forgeIssuesDeps(ctx context.Context, connect func(context.Context) (forgeConnection, error)) seams.Jira {
+// An issue's link is built from the repository setup names, so it asks
+// nothing of the forge and needs no token.
+func forgeIssuesDeps(setup forgeSetup, connect func(context.Context) (forgeConnection, error)) seams.Jira {
 	return seams.Jira{
-		Search:        func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
-		SearchLenient: func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
-		Issue:         func(issueKey jira.Key) (jira.IssueDetail, error) { return readForgeIssue(ctx, connect, issueKey) },
-		Transitions:   func(jira.Key) ([]jira.Transition, error) { return forgeIssueTransitions(), nil },
-		Transition: func(issueKey jira.Key, _ jira.Transition, _ []jira.FieldValue) error {
+		Search: func(ctx context.Context, _ string, _ int) (jira.SearchResult, error) {
+			return listForgeIssues(ctx, connect)
+		},
+		SearchLenient: func(ctx context.Context, _ string, _ int) (jira.SearchResult, error) {
+			return listForgeIssues(ctx, connect)
+		},
+		Issue: func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error) {
+			return readForgeIssue(ctx, connect, issueKey)
+		},
+		Transitions: func(context.Context, jira.Key) ([]jira.Transition, error) { return forgeIssueTransitions(), nil },
+		Transition: func(ctx context.Context, issueKey jira.Key, _ jira.Transition, _ []jira.FieldValue) error {
 			return closeForgeIssue(ctx, connect, issueKey)
 		},
-		Assign: func(issueKey jira.Key, assignee string) error {
+		Assign: func(ctx context.Context, issueKey jira.Key, assignee string) error {
 			return assignForgeIssue(ctx, connect, issueKey, assignee)
 		},
-		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
+		Comment: func(ctx context.Context, issueKey jira.Key, text string) (jira.Comment, error) {
 			return commentOnForgeIssue(ctx, connect, issueKey, text)
 		},
-		BrowseURL: func(issueKey jira.Key) string { return browseForgeIssue(ctx, connect, issueKey) },
+		BrowseURL: func(issueKey jira.Key) string { return browseForgeIssue(setup.repo, issueKey) },
 	}
 }
 
@@ -111,16 +119,20 @@ func assignForgeIssue(
 }
 
 // browseForgeIssue links the issue behind a tracker key for someone to click,
-// or is empty when the key names no issue or there is no forge to link to.
-func browseForgeIssue(
-	ctx context.Context, connect func(context.Context) (forgeConnection, error), issueKey jira.Key,
-) string {
-	connection, number, err := connectToIssue(ctx, connect, issueKey)
+// on the repository repo names, or is empty when the key names no issue or the
+// remote names no forge to link to. It asks nothing of the forge.
+func browseForgeIssue(repo func() (forge.Repo, error), issueKey jira.Key) string {
+	number, err := strconv.Atoi(string(issueKey))
 	if err != nil {
 		return ""
 	}
 
-	return connection.repo.IssueURL(number)
+	on, err := repo()
+	if err != nil {
+		return ""
+	}
+
+	return on.IssueURL(number)
 }
 
 // listForgeIssues reads the assigned issues and shapes them as a search result.

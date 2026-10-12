@@ -98,11 +98,11 @@ func (l issueLinker) link(m Model) (Model, tea.Cmd) {
 	l.send = starting()
 	m.overlay = l
 
-	add := m.deps.Jira.LinkPullRequest
+	ctx, add := m.session, m.deps.Jira.LinkPullRequest
 	issueKey, pull := l.issueKey, l.pull
 
 	return m, func() tea.Msg {
-		return issueLinked{issueKey: issueKey, pull: pull, err: add(issueKey, pull.URL, pull.Title)}
+		return issueLinked{issueKey: issueKey, pull: pull, err: add(ctx, issueKey, pull.URL, pull.Title)}
 	}
 }
 

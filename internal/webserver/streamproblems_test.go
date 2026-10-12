@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -27,7 +28,7 @@ func TestStreamPanelProblemsNeverCarryTheUnreachableHost(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Jira.Search = func(string, int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{}, fmt.Errorf("%w: https://%s/rest/api/2/search", jira.ErrUnreachable, internalHost)
 	}
 	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {

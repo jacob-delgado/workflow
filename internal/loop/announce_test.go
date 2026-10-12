@@ -38,7 +38,7 @@ func announceSeams() loop.AnnounceSeams {
 		Branch:   func() (gitrepo.Branch, error) { return openable(branchName), nil },
 		FindPull: func(string) (forge.PullRequest, bool, error) { return openPull(), true, nil },
 		Author:   func() (string, error) { return author, nil },
-		Issue: func(jira.Key) (jira.IssueDetail, error) {
+		Issue: func(context.Context, jira.Key) (jira.IssueDetail, error) {
 			return jira.IssueDetail{Issue: jira.Issue{Key: issueKey, Summary: summary}}, nil
 		},
 		BrowseURL: func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) },
@@ -54,8 +54,10 @@ func announceConfig() config.Messaging {
 }
 
 // compose composes over seams for the tracker's project on GitLab.
-func compose(seams loop.AnnounceSeams) (messaging.Announcement, forge.PullRequest, error) {
-	return loop.ComposeAnnouncement(seams, announceConfig(), project, forge.KindGitLab)
+func compose(t *testing.T, seams loop.AnnounceSeams) (messaging.Announcement, forge.PullRequest, error) {
+	t.Helper()
+
+	return loop.ComposeAnnouncement(t.Context(), seams, announceConfig(), project, forge.KindGitLab)
 }
 
 func TestAnnounceMomentReadsMergedBeforeCI(t *testing.T) {
@@ -91,7 +93,7 @@ func TestComposeAnnouncementComposesThePullRequest(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	announcement, pull, err := compose(announceSeams())
+	announcement, pull, err := compose(t, announceSeams())
 
 	// Assert
 	if err != nil || pull.Number != 9 {
@@ -141,7 +143,7 @@ func TestComposeAnnouncementRefusesWithoutAPullRequest(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			_, _, err := compose(mutate(announceSeams()))
+			_, _, err := compose(t, mutate(announceSeams()))
 
 			// Assert
 			if !errors.Is(err, loop.ErrNoPullRequest) {
@@ -181,7 +183,7 @@ func TestComposeAnnouncementReportsWhatCannotBeRead(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			_, _, err := compose(tt.mutate(announceSeams()))
+			_, _, err := compose(t, tt.mutate(announceSeams()))
 
 			// Assert
 			if !errors.Is(err, errSeam) || errors.Is(err, loop.ErrNoPullRequest) || !strings.Contains(err.Error(), tt.names) {
@@ -211,7 +213,7 @@ func TestComposeAnnouncementNeverReadsCIForAMergedPull(t *testing.T) {
 	}
 
 	// Act
-	announcement, _, err := compose(seams)
+	announcement, _, err := compose(t, seams)
 
 	// Assert
 	if err != nil || announcement.Moment != messaging.MomentMerged || checked {
@@ -233,7 +235,7 @@ func TestComposeAnnouncementMarksRedCI(t *testing.T) {
 	}
 
 	// Act
-	announcement, _, err := compose(seams)
+	announcement, _, err := compose(t, seams)
 
 	// Assert
 	if err != nil || announcement.Moment != messaging.MomentCIRed || askedHead != headCommit {
@@ -260,7 +262,7 @@ func TestComposeAnnouncementTakesAnUnreadableCIAsReady(t *testing.T) {
 			seams.CheckCI = check
 
 			// Act
-			announcement, _, err := compose(seams)
+			announcement, _, err := compose(t, seams)
 
 			// Assert
 			if err != nil || announcement.Moment != messaging.MomentReady {
@@ -283,7 +285,7 @@ func TestComposeAnnouncementReadsWithoutWhatItCannotSay(t *testing.T) {
 		},
 		"a forge and a tracker that fail": func(seams loop.AnnounceSeams) loop.AnnounceSeams {
 			seams.Author = func() (string, error) { return "", errSeam }
-			seams.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
+			seams.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
 			seams.BrowseURL = nil
 
 			return seams
@@ -295,7 +297,7 @@ func TestComposeAnnouncementReadsWithoutWhatItCannotSay(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			announcement, _, err := compose(mutate(announceSeams()))
+			announcement, _, err := compose(t, mutate(announceSeams()))
 
 			// Assert
 			if err != nil || announcement.Author != "" || announcement.IssueSummary != "" ||
@@ -314,7 +316,7 @@ func TestComposeAnnouncementNamesNoIssueForAKeylessBranch(t *testing.T) {
 	seams.Branch = func() (gitrepo.Branch, error) { return openable(keylessBranch), nil }
 
 	// Act
-	announcement, _, err := compose(seams)
+	announcement, _, err := compose(t, seams)
 
 	// Assert
 	if err != nil || announcement.IssueKey != "" || announcement.IssueSummary != "" || announcement.IssueURL != "" {

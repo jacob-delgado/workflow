@@ -37,13 +37,13 @@ var errWorktreeRefused = errors.New("git refused the new worktree")
 // it returns the branch now in effect, or the created branch by its name alone
 // when it cannot be read back.
 func (s *server) CreateBranch(
-	_ context.Context, request api.CreateBranchRequestObject,
+	ctx context.Context, request api.CreateBranchRequestObject,
 ) (api.CreateBranchResponseObject, error) {
 	if s.deps.Git.CreateBranch == nil || s.deps.Jira.Issue == nil || s.deps.Git.Branch == nil {
 		return createBranchUnprocessable("creating a branch is not available"), nil
 	}
 
-	branch, err := s.startWork(request.Body.IssueKey, s.fetchFor(request.Body.Fetch))
+	branch, err := s.startWork(ctx, request.Body.IssueKey, s.fetchFor(request.Body.Fetch))
 	if err != nil {
 		return s.createBranchFailure(err, request.Body.IssueKey), nil
 	}
@@ -81,8 +81,9 @@ func (s *server) startRefusal(err error, key string) api.Problem {
 // fetch when there is one, refusing when one already exists, and returns the
 // branch now in effect — or, when that cannot be read back, one of the
 // created name, since the branch read before the create is the one it left.
-func (s *server) startWork(issueKey string, fetch func() error) (gitrepo.Branch, error) {
-	name, err := s.branchNameFor(issueKey)
+// The tracker is asked under ctx.
+func (s *server) startWork(ctx context.Context, issueKey string, fetch func() error) (gitrepo.Branch, error) {
+	name, err := s.branchNameFor(ctx, issueKey)
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
@@ -98,9 +99,9 @@ func (s *server) startWork(issueKey string, fetch func() error) (gitrepo.Branch,
 }
 
 // branchNameFor is the branch the convention names for the issue, from its type
-// and summary read through the tracker.
-func (s *server) branchNameFor(issueKey string) (string, error) {
-	detail, err := s.deps.Jira.Issue(jira.Key(issueKey))
+// and summary read through the tracker under ctx.
+func (s *server) branchNameFor(ctx context.Context, issueKey string) (string, error) {
+	detail, err := s.deps.Jira.Issue(ctx, jira.Key(issueKey))
 	if err != nil {
 		return "", fmt.Errorf("reading %s: %w", issueKey, err)
 	}
@@ -191,7 +192,7 @@ func (s *server) createUnlessTaken(
 // server's own checkout where it is: switching there is SwitchRepository's.
 // It is refused as CreateBranch is, and answers the worktree's directory.
 func (s *server) CreateWorktree(
-	_ context.Context, request api.CreateWorktreeRequestObject,
+	ctx context.Context, request api.CreateWorktreeRequestObject,
 ) (api.CreateWorktreeResponseObject, error) {
 	key := request.Body.IssueKey
 
@@ -201,7 +202,7 @@ func (s *server) CreateWorktree(
 
 	var dir string
 
-	name, err := s.branchNameFor(key)
+	name, err := s.branchNameFor(ctx, key)
 	if err == nil {
 		err = s.createUnlessTaken(name, errWorktreeRefused, s.fetchFor(request.Body.Fetch), func(base string) error {
 			var made error

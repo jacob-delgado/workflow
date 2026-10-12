@@ -128,7 +128,7 @@ func TestTheLenientSearchAsksJiraNotToValidateTheKeys(t *testing.T) {
 	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 	// Act
-	_, err := tracker.SearchLenient("key in (OPS-1, GONE-2)", 50)
+	_, err := tracker.SearchLenient(t.Context(), "key in (OPS-1, GONE-2)", 50)
 	if err != nil {
 		t.Fatalf("SearchLenient returned %v, want nil", err)
 	}
@@ -168,11 +168,11 @@ func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 	// Act
-	_, searchErr := seams.Search("assignee = currentUser()", 0)
-	_, issueErr := seams.Issue("OPS-1")
-	_, listErr := seams.Transitions("OPS-1")
-	moveErr := seams.Transition("OPS-1", jira.Transition{ID: "1"}, nil)
-	_, commentErr := seams.Comment("OPS-1", "hello")
+	_, searchErr := seams.Search(t.Context(), "assignee = currentUser()", 0)
+	_, issueErr := seams.Issue(t.Context(), "OPS-1")
+	_, listErr := seams.Transitions(t.Context(), "OPS-1")
+	moveErr := seams.Transition(t.Context(), "OPS-1", jira.Transition{ID: "1"}, nil)
+	_, commentErr := seams.Comment(t.Context(), "OPS-1", "hello")
 	link := seams.BrowseURL("OPS-1")
 
 	// Assert
@@ -221,7 +221,7 @@ func TestTheJiraSeamReadsNoIssueForAForgeIssueNumber(t *testing.T) {
 	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 	// Act
-	_, err := seams.Issue("42")
+	_, err := seams.Issue(t.Context(), "42")
 
 	// Assert
 	if !errors.Is(err, jira.ErrNotFound) {

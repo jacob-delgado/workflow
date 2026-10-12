@@ -27,7 +27,7 @@ type statusSeams struct {
 	Changes     func() ([]gitrepo.Change, error)
 	FindPull    func(branch string) (forge.PullRequest, bool, error)
 	CheckStatus func(pull forge.PullRequest, head string) (forge.CI, error)
-	Issue       func(issueKey jira.Key) (jira.IssueDetail, error)
+	Issue       func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
 	// Memory is what the store remembers of the announcements made here.
 	Memory loop.AnnounceMemory
 	// Project is the configured Jira project; empty falls back to the shape guard.

@@ -48,9 +48,6 @@ func withoutContext() map[string]string {
 // conversion deletes its own; the list ends empty.
 func notYet() []string {
 	return []string{
-		"Jira.Search", "Jira.SearchLenient", "Jira.Issue", "Jira.Transitions", "Jira.Transition", "Jira.Comment",
-		"Jira.Assign", "Jira.AddWorklog", "Jira.LinkPullRequest", "Jira.Activity",
-
 		"Git.Branch", "Git.Changes", "Git.CommitsBetween", "Git.Diff", "Git.Stage", "Git.Unstage", "Git.Discard",
 		"Git.CreateBranch", "Git.Branches", "Git.Checkout", "Git.RemoteBranches", "Git.ChangedPaths",
 		"Git.CodeOwnersAt", "Git.RecentSubjects", "Git.CreateWorktree", "Git.Fetch", "Git.Commit", "Git.Push",

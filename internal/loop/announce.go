@@ -47,7 +47,7 @@ type AnnounceSeams struct {
 	Branch    func() (gitrepo.Branch, error)
 	FindPull  func(branch string) (forge.PullRequest, bool, error)
 	Author    func() (string, error)
-	Issue     func(jira.Key) (jira.IssueDetail, error)
+	Issue     func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
 	BrowseURL func(jira.Key) string
 	CheckCI   func(pull forge.PullRequest, head string) (forge.CI, error)
 }
@@ -70,10 +70,11 @@ func AnnounceMoment(pull forge.PullRequest, ci forge.CI) messaging.Moment {
 // ComposeAnnouncement builds the announcement for the checked-out branch's pull
 // request — its title and link, the branch's issue, who opened it and the moment
 // it is at — rendered for the configured service and template, and returns the
-// pull request it announces. It refuses with ErrNoPullRequest when there is none,
-// and says which read failed when the branch or the pull request cannot be read.
+// pull request it announces, reading under ctx. It refuses with ErrNoPullRequest
+// when there is none, and says which read failed when the branch or the pull
+// request cannot be read.
 func ComposeAnnouncement(
-	seams AnnounceSeams, cfg config.Messaging, project string, kind forge.Kind,
+	ctx context.Context, seams AnnounceSeams, cfg config.Messaging, project string, kind forge.Kind,
 ) (messaging.Announcement, forge.PullRequest, error) {
 	branch, pull, err := pullToAnnounce(seams)
 	if err != nil {
@@ -87,7 +88,7 @@ func ComposeAnnouncement(
 		Author:       authorName(seams.Author),
 		Pull:         pull,
 		IssueKey:     issueKey,
-		IssueSummary: issueSummary(seams.Issue, issueKey),
+		IssueSummary: issueSummary(ctx, seams.Issue, issueKey),
 		IssueURL:     issueURL(seams.BrowseURL, issueKey),
 		Moment:       momentOf(seams.CheckCI, pull, branch.Head),
 	}, cfg, kind), pull, nil

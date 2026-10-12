@@ -34,7 +34,7 @@ var (
 // branch; the request names only the issue, so a caller can never have a URL of
 // its choosing recorded on the tracker.
 func (s *server) LinkPullRequest(
-	_ context.Context, request api.LinkPullRequestRequestObject,
+	ctx context.Context, request api.LinkPullRequestRequestObject,
 ) (api.LinkPullRequestResponseObject, error) {
 	if s.deps.Jira.LinkPullRequest == nil || s.deps.Git.Branch == nil || s.deps.Forge.FindPullRequest == nil {
 		return api.LinkPullRequest422ApplicationProblemPlusJSONResponse(
@@ -48,7 +48,7 @@ func (s *server) LinkPullRequest(
 		return s.linkRefusal(err, issueKey), nil
 	}
 
-	err = s.deps.Jira.LinkPullRequest(issueKey, pull.URL, pull.Title)
+	err = s.deps.Jira.LinkPullRequest(ctx, issueKey, pull.URL, pull.Title)
 	if err != nil {
 		return problemAnswer[api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -101,7 +101,7 @@ func (s *server) linkRefusal(err error, issueKey jira.Key) api.LinkPullRequestRe
 // transition: a move Jira wants fields for is ChangeStatus's, whose form on
 // the page asks for them.
 func (s *server) TransitionIssue(
-	_ context.Context, request api.TransitionIssueRequestObject,
+	ctx context.Context, request api.TransitionIssueRequestObject,
 ) (api.TransitionIssueResponseObject, error) {
 	if s.deps.Jira.Transitions == nil || s.deps.Jira.Transition == nil {
 		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(
@@ -111,12 +111,12 @@ func (s *server) TransitionIssue(
 	issueKey := jira.Key(request.Key)
 	status := s.config().Jira.ReviewStatus
 
-	move, err := loop.FindReviewTransition(s.deps.Jira.Transitions, issueKey, status)
+	move, err := loop.FindReviewTransition(ctx, s.deps.Jira.Transitions, issueKey, status)
 	if err != nil {
 		return s.transitionRefusal(err, issueKey, status), nil
 	}
 
-	err = s.deps.Jira.Transition(issueKey, move, nil)
+	err = s.deps.Jira.Transition(ctx, issueKey, move, nil)
 	if err != nil {
 		return problemAnswer[api.TransitionIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -150,7 +150,7 @@ func (s *server) transitionRefusal(err error, issueKey jira.Key, status string) 
 // terminal's c does, and answers it as its tracker stored it. Blank text is
 // refused before the tracker is asked.
 func (s *server) AddComment(
-	_ context.Context, request api.AddCommentRequestObject,
+	ctx context.Context, request api.AddCommentRequestObject,
 ) (api.AddCommentResponseObject, error) {
 	issueKey := jira.Key(request.Key)
 
@@ -161,7 +161,9 @@ func (s *server) AddComment(
 		return commentRefusal("a comment needs text"), nil
 	}
 
-	posted, err := s.deps.Jira.Comment(issueKey, loop.CommentMarkupOf(s.config().Jira, issueKey).Stored(request.Body.Text))
+	stored := loop.CommentMarkupOf(s.config().Jira, issueKey).Stored(request.Body.Text)
+
+	posted, err := s.deps.Jira.Comment(ctx, issueKey, stored)
 	if err != nil {
 		return s.commentFailure(err), nil
 	}
@@ -191,8 +193,9 @@ func commentRefusal(detail string) api.AddCommentResponseObject {
 // branch names, then to move that issue to the review status. A branch that
 // names no Jira issue is offered neither, and a tracker that cannot be read
 // offers no move — the pull request is already open either way. The list is
-// never nil, so it goes to the page as [] rather than null.
-func (s *server) followUps(branch gitrepo.Branch) []api.FollowUp {
+// never nil, so it goes to the page as [] rather than null. The tracker is asked
+// under ctx.
+func (s *server) followUps(ctx context.Context, branch gitrepo.Branch) []api.FollowUp {
 	offers := []api.FollowUp{}
 
 	issueKey, named := loop.JiraIssue(branch, s.config().Jira.Project)
@@ -208,7 +211,7 @@ func (s *server) followUps(branch gitrepo.Branch) []api.FollowUp {
 		return offers
 	}
 
-	move, ok := loop.ReviewTransition(s.deps.Jira.Transitions, issueKey, s.config().Jira.ReviewStatus)
+	move, ok := loop.ReviewTransition(ctx, s.deps.Jira.Transitions, issueKey, s.config().Jira.ReviewStatus)
 	if ok {
 		offers = append(offers, api.FollowUp{
 			Action: api.FollowUpActionTransition, IssueKey: string(issueKey), Status: &move.ToStatus,
@@ -230,14 +233,14 @@ var (
 // ListStatusChanges lists the status changes the tracker offers an issue, each
 // with the fields it needs, as the terminal's status picker lists them.
 func (s *server) ListStatusChanges(
-	_ context.Context, request api.ListStatusChangesRequestObject,
+	ctx context.Context, request api.ListStatusChangesRequestObject,
 ) (api.ListStatusChangesResponseObject, error) {
 	if s.deps.Jira.Transitions == nil {
 		return api.ListStatusChanges422ApplicationProblemPlusJSONResponse(
 			problem(api.ProblemCodeUnprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
 	}
 
-	moves, err := s.deps.Jira.Transitions(jira.Key(request.Key))
+	moves, err := s.deps.Jira.Transitions(ctx, jira.Key(request.Key))
 	if err != nil {
 		return problemAnswer[api.ListStatusChangesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -249,7 +252,7 @@ func (s *server) ListStatusChanges(
 // it gives, once each value passes the checks the terminal's field form makes.
 // The changes are read again first, so only one the tracker offers now is made.
 func (s *server) ChangeStatus(
-	_ context.Context, request api.ChangeStatusRequestObject,
+	ctx context.Context, request api.ChangeStatusRequestObject,
 ) (api.ChangeStatusResponseObject, error) {
 	if s.deps.Jira.Transitions == nil || s.deps.Jira.Transition == nil {
 		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(
@@ -258,12 +261,12 @@ func (s *server) ChangeStatus(
 
 	issueKey := jira.Key(request.Key)
 
-	move, values, err := s.statusChange(issueKey, *request.Body)
+	move, values, err := s.statusChange(ctx, issueKey, *request.Body)
 	if err != nil {
 		return s.statusChangeRefusal(err, issueKey), nil
 	}
 
-	err = s.deps.Jira.Transition(issueKey, move, values)
+	err = s.deps.Jira.Transition(ctx, issueKey, move, values)
 	if err != nil {
 		return problemAnswer[api.ChangeStatusdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -274,11 +277,12 @@ func (s *server) ChangeStatus(
 }
 
 // statusChange is the change asked for, as the tracker offers it now, with the
-// value given for each field it needs, each checked against its field.
+// value given for each field it needs, each checked against its field, asked
+// of the tracker under ctx.
 func (s *server) statusChange(
-	issueKey jira.Key, asked api.StatusChangeRequest,
+	ctx context.Context, issueKey jira.Key, asked api.StatusChangeRequest,
 ) (jira.Transition, []jira.FieldValue, error) {
-	moves, err := s.deps.Jira.Transitions(issueKey)
+	moves, err := s.deps.Jira.Transitions(ctx, issueKey)
 	if err != nil {
 		return jira.Transition{}, nil, fmt.Errorf("reading the status changes of %s: %w", issueKey, err)
 	}
@@ -372,7 +376,7 @@ func isFieldRefusal(err error) bool {
 // AssignIssue sets an issue's assignee, as the terminal's a does, refusing a
 // blank username before the tracker is asked.
 func (s *server) AssignIssue(
-	_ context.Context, request api.AssignIssueRequestObject,
+	ctx context.Context, request api.AssignIssueRequestObject,
 ) (api.AssignIssueResponseObject, error) {
 	assignee := strings.TrimSpace(request.Body.Assignee)
 
@@ -383,7 +387,7 @@ func (s *server) AssignIssue(
 		return assignRefusal("an assignee needs a username"), nil
 	}
 
-	err := s.deps.Jira.Assign(jira.Key(request.Key), assignee)
+	err := s.deps.Jira.Assign(ctx, jira.Key(request.Key), assignee)
 	if err != nil {
 		return problemAnswer[api.AssignIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -401,7 +405,7 @@ func assignRefusal(detail string) api.AssignIssueResponseObject {
 // LogWork logs time spent on a Jira issue, as the terminal's w does, with the
 // note given. A forge issue keeps no worklog, and a blank duration is refused,
 // both before Jira is asked.
-func (s *server) LogWork(_ context.Context, request api.LogWorkRequestObject) (api.LogWorkResponseObject, error) {
+func (s *server) LogWork(ctx context.Context, request api.LogWorkRequestObject) (api.LogWorkResponseObject, error) {
 	issueKey := jira.Key(request.Key)
 	spent := strings.TrimSpace(request.Body.TimeSpent)
 
@@ -414,7 +418,7 @@ func (s *server) LogWork(_ context.Context, request api.LogWorkRequestObject) (a
 		return worklogRefusal("logging work needs a duration, such as 2h or 30m"), nil
 	}
 
-	logged, err := s.deps.Jira.AddWorklog(issueKey, spent, strings.TrimSpace(orZero(request.Body.Comment)))
+	logged, err := s.deps.Jira.AddWorklog(ctx, issueKey, spent, strings.TrimSpace(orZero(request.Body.Comment)))
 	if err != nil {
 		return problemAnswer[api.LogWorkdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}

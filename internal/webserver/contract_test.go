@@ -114,7 +114,7 @@ func TestACommentWhoseDateCouldNotBeReadCarriesNone(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Jira.Issue = func(key jira.Key) (jira.IssueDetail, error) {
+	deps.Jira.Issue = func(_ context.Context, key jira.Key) (jira.IssueDetail, error) {
 		return jira.IssueDetail{
 			Issue:    jira.Issue{Key: key, Summary: testSummary},
 			Comments: []jira.Comment{{Author: testReporter, Body: "Repro'd"}}, CommentTotal: 1,

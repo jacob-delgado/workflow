@@ -66,7 +66,7 @@ func (s *server) ListViews(_ context.Context, _ api.ListViewsRequestObject) (api
 
 // ListIssues returns one page of the issues a view matches.
 func (s *server) ListIssues(
-	_ context.Context, request api.ListIssuesRequestObject,
+	ctx context.Context, request api.ListIssuesRequestObject,
 ) (api.ListIssuesResponseObject, error) {
 	startAt := 0
 	if request.Params.StartAt != nil {
@@ -87,7 +87,7 @@ func (s *server) ListIssues(
 		return api.ListIssues200JSONResponse(issuesPageDTO(jira.SearchResult{}, startAt)), nil
 	}
 
-	result, err := s.deps.Jira.Search(jql, startAt)
+	result, err := s.deps.Jira.Search(ctx, jql, startAt)
 	if err != nil {
 		return problemAnswer[api.ListIssuesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -96,13 +96,13 @@ func (s *server) ListIssues(
 }
 
 // GetIssue returns one issue in full.
-func (s *server) GetIssue(_ context.Context, request api.GetIssueRequestObject) (api.GetIssueResponseObject, error) {
+func (s *server) GetIssue(ctx context.Context, request api.GetIssueRequestObject) (api.GetIssueResponseObject, error) {
 	if s.deps.Jira.Issue == nil {
 		return problemAnswer[api.GetIssuedefaultApplicationProblemPlusJSONResponse](
 			problem(api.ProblemCodeUnprocessable, "no issue tracker is configured")), nil
 	}
 
-	detail, err := s.deps.Jira.Issue(jira.Key(request.Key))
+	detail, err := s.deps.Jira.Issue(ctx, jira.Key(request.Key))
 	if err != nil {
 		if errors.Is(err, jira.ErrNotFound) || errors.Is(err, forge.ErrNoRepository) {
 			return api.GetIssue404ApplicationProblemPlusJSONResponse(

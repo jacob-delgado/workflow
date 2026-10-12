@@ -4,6 +4,7 @@
 package webserver
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"slices"
@@ -200,12 +201,15 @@ type heldPage struct {
 }
 
 // frameIssues is the first page of the issues jql finds, from the issues
-// cache, searched again once it is older than the forge's interval.
-func (s *server) frameIssues(jql string) (jira.SearchResult, error) {
+// cache, searched again once it is older than the forge's interval. Every
+// stream shares the search, so it runs to its end even if the page whose
+// frame, under ctx, began it leaves: one canceled then would be held as failed
+// for every page until the interval passed.
+func (s *server) frameIssues(ctx context.Context, jql string) (jira.SearchResult, error) {
 	return sharedRead(
 		func() turn[jira.SearchResult] { return s.issuesHeld.serve(jql, s.now(), s.forgeInterval()) },
 		func(dropped int) (jira.SearchResult, error) {
-			result, err := s.deps.Jira.Search(jql, 0)
+			result, err := s.deps.Jira.Search(context.WithoutCancel(ctx), jql, 0)
 			s.issuesHeld.land(jql, dropped, heldPage{result: result, failed: err, readAt: s.now()})
 
 			return result, err
@@ -315,8 +319,11 @@ func (c *assignedCache) yours(keys []jira.Key) map[jira.Key]bool {
 
 // yourIssues is which of keys name your issues, from the assigned cache: nil,
 // counting every issue, with no tracker to ask or none that has answered. A
-// failed ask is no failure here: the answer held stands in for it.
-func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
+// failed ask is no failure here: the answer held stands in for it. Every
+// stream shares the ask, so it runs to its end even if the page whose frame,
+// under ctx, began it leaves: one canceled then would leave an older answer
+// standing for the next minute.
+func (s *server) yourIssues(ctx context.Context, keys []jira.Key) map[jira.Key]bool {
 	if s.deps.Jira.SearchLenient == nil {
 		return nil
 	}
@@ -326,7 +333,7 @@ func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
 	yours, _ := sharedRead(
 		func() turn[map[jira.Key]bool] { return s.assigned.serve(asked, s.now()) },
 		func(int) (map[jira.Key]bool, error) {
-			mine, err := loop.AssignedKeys(s.deps.Jira.SearchLenient, asked)
+			mine, err := loop.AssignedKeys(context.WithoutCancel(ctx), s.deps.Jira.SearchLenient, asked)
 
 			return s.assigned.land(asked, s.now(), mine, err), nil
 		},

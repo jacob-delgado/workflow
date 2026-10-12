@@ -242,7 +242,7 @@ func TestJirasEventsReadAsIssueItemsWithTheirLinks(t *testing.T) {
 
 	// Arrange
 	start := summaryStart()
-	read := func(time.Time, time.Time) (jira.Activity, error) {
+	read := func(context.Context, time.Time, time.Time) (jira.Activity, error) {
 		return jira.Activity{Truncated: true, Events: []jira.Event{
 			{At: start, Kind: jira.EventMoved, Key: issueKey, Summary: fixSubject, Detail: doneStatus},
 		}}, nil
@@ -250,7 +250,7 @@ func TestJirasEventsReadAsIssueItemsWithTheirLinks(t *testing.T) {
 	browse := func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) }
 
 	// Act
-	got := loop.JiraRead(read, browse, start, start.Add(24*time.Hour))
+	got := loop.JiraRead(t.Context(), read, browse, start, start.Add(24*time.Hour))
 
 	// Assert
 	want := activity.Item{
@@ -307,12 +307,12 @@ func TestEveryJiraEventReadsAsItsOwnKind(t *testing.T) {
 			start := summaryStart()
 			event := happened.event
 			event.At, event.Key = start, issueKey
-			read := func(time.Time, time.Time) (jira.Activity, error) {
+			read := func(context.Context, time.Time, time.Time) (jira.Activity, error) {
 				return jira.Activity{Events: []jira.Event{event}}, nil
 			}
 
 			// Act
-			got := loop.JiraRead(read, func(jira.Key) string { return "" }, start, start.Add(24*time.Hour))
+			got := loop.JiraRead(t.Context(), read, func(jira.Key) string { return "" }, start, start.Add(24*time.Hour))
 
 			// Assert
 			if len(got.Items) != 1 || got.Items[0].Kind != happened.kind || got.Items[0].Title != happened.title {
@@ -360,7 +360,9 @@ func TestEverySourceThatCannotBeReadIsNamedAsFailed(t *testing.T) {
 			return loop.TasksRead(t.Context(), read, start, end)
 		},
 		activity.SourceJira: func() activity.Read {
-			return loop.JiraRead(func(time.Time, time.Time) (jira.Activity, error) { return jira.Activity{}, errNotRead },
+			return loop.JiraRead(t.Context(), func(context.Context, time.Time, time.Time) (jira.Activity, error) {
+				return jira.Activity{}, errNotRead
+			},
 				func(jira.Key) string { return "" }, start, end)
 		},
 		activity.SourceForge: func() activity.Read {

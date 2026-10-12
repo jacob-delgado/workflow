@@ -206,7 +206,7 @@ func TestTheTrackerAndForgeSeamsLookUpTheForgeTokenOnce(t *testing.T) {
 	deps := wired(t, cfg, where, nil)
 
 	// Act
-	_, searchErr := deps.Jira.Search("", 0)
+	_, searchErr := deps.Jira.Search(t.Context(), "", 0)
 	_, _, findErr := deps.Forge.FindPullRequest(featureBranch)
 
 	// Assert

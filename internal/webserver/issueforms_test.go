@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -73,23 +74,23 @@ type issueWrites struct {
 // testKey offers a change to Blocked that needs nothing and resolveMove.
 func formDeps(writes *issueWrites) webserver.Deps {
 	deps := filledDeps()
-	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
 		return []jira.Transition{
 			{ID: "11", Name: "Block", ToStatus: blocked, ToStatusCategory: "new"},
 			resolveMove(),
 		}, nil
 	}
-	deps.Jira.Transition = func(_ jira.Key, to jira.Transition, values []jira.FieldValue) error {
+	deps.Jira.Transition = func(_ context.Context, _ jira.Key, to jira.Transition, values []jira.FieldValue) error {
 		writes.changes = append(writes.changes, statusChange{to: to, values: values})
 
 		return nil
 	}
-	deps.Jira.Assign = func(issueKey jira.Key, assignee string) error {
+	deps.Jira.Assign = func(_ context.Context, issueKey jira.Key, assignee string) error {
 		writes.assigned = append(writes.assigned, string(issueKey)+" "+assignee)
 
 		return nil
 	}
-	deps.Jira.AddWorklog = func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error) {
+	deps.Jira.AddWorklog = func(_ context.Context, issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error) {
 		writes.worklogs = append(writes.worklogs, timeSpent+" "+comment)
 		writes.worklogOn = append(writes.worklogOn, issueKey)
 
@@ -109,7 +110,7 @@ func TestStatusChangesListEachWithTheFieldsItNeeds(t *testing.T) {
 
 	// Arrange
 	deps := formDeps(&issueWrites{})
-	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
 		move := resolveMove()
 		move.Fields = append(move.Fields, jira.Field{ID: "components", Name: "Component tree"})
 
@@ -257,7 +258,7 @@ func TestAStatusChangeIsRefusedWithAFieldItCannotTake(t *testing.T) {
 			body:     `{"transition_id":"5","fields":[]}`,
 			wantInIt: "Resolve Issue needs Component tree, which only Jira's own screen can fill",
 			transform: func(deps *webserver.Deps) {
-				deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
+				deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
 					move := resolveMove()
 					move.Fields = append(move.Fields, jira.Field{ID: "components", Name: "Component tree"})
 
@@ -512,10 +513,12 @@ func TestAnIssueFormsFailureNeverCarriesTheTrackersHost(t *testing.T) {
 // change itself is what is refused.
 func failWith(deps *webserver.Deps, err error) {
 	if !strings.Contains(err.Error(), jira.ErrRejected.Error()) {
-		deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) { return nil, err }
+		deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) { return nil, err }
 	}
 
-	deps.Jira.Transition = func(jira.Key, jira.Transition, []jira.FieldValue) error { return err }
-	deps.Jira.Assign = func(jira.Key, string) error { return err }
-	deps.Jira.AddWorklog = func(jira.Key, string, string) (jira.Worklog, error) { return jira.Worklog{}, err }
+	deps.Jira.Transition = func(context.Context, jira.Key, jira.Transition, []jira.FieldValue) error { return err }
+	deps.Jira.Assign = func(context.Context, jira.Key, string) error { return err }
+	deps.Jira.AddWorklog = func(context.Context, jira.Key, string, string) (jira.Worklog, error) {
+		return jira.Worklog{}, err
+	}
 }

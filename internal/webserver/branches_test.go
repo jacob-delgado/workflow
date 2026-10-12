@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -143,7 +144,7 @@ func scopedDeps(yours []jira.Key, fail error, asked *atomic.Int32) webserver.Dep
 	deps := filledDeps()
 	deps.Git.Branches = func() ([]string, error) { return []string{yourLocalBranch, otherLocalBranch}, nil }
 	deps.Git.RemoteBranches = func() ([]string, error) { return []string{yourLocalBranch, yourRemoteBranch}, nil }
-	deps.Jira.SearchLenient = func(jql string, _ int) (jira.SearchResult, error) {
+	deps.Jira.SearchLenient = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
 		if strings.HasPrefix(jql, keyInYourSearch) {
 			asked.Add(1)
 		}
@@ -373,14 +374,14 @@ func TestSnapshotBranchesCountTheIssueOfANewBranchAsYoursWhileTheTrackerIsDown(t
 	deps := scopedDeps([]jira.Key{yourIssue}, nil, &asked)
 	deps.Git.RemoteBranches = nil
 	answered := deps.Jira.SearchLenient
-	deps.Jira.SearchLenient = func(jql string, startAt int) (jira.SearchResult, error) {
+	deps.Jira.SearchLenient = func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
 		if asked.Load() >= 1 {
 			asked.Add(1)
 
 			return jira.SearchResult{}, jira.ErrUnreachable
 		}
 
-		return answered(jql, startAt)
+		return answered(ctx, jql, startAt)
 	}
 	frame := 0
 	deps.Git.Branches = func() ([]string, error) {
@@ -414,14 +415,14 @@ func TestSnapshotBranchesKeepTheLastAnswerWhenALaterAskFails(t *testing.T) {
 
 	deps := scopedDeps([]jira.Key{yourIssue}, nil, &asked)
 	answered := deps.Jira.SearchLenient
-	deps.Jira.SearchLenient = func(jql string, startAt int) (jira.SearchResult, error) {
+	deps.Jira.SearchLenient = func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
 		if asked.Load() >= 1 {
 			asked.Add(1)
 
 			return jira.SearchResult{}, jira.ErrUnreachable
 		}
 
-		return answered(jql, startAt)
+		return answered(ctx, jql, startAt)
 	}
 
 	// Act

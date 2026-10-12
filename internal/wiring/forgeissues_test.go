@@ -45,7 +45,7 @@ func TestTheForgeTrackerListsAssignedIssuesAsSearchRows(t *testing.T) {
 	tracker := forgeTracker(t)
 
 	// Act
-	result, err := tracker.Search("", 0)
+	result, err := tracker.Search(t.Context(), "", 0)
 
 	// Assert
 	if err != nil || result.Total != 1 || len(result.Issues) != 1 {
@@ -63,7 +63,7 @@ func TestTheForgeTrackerAnswersALenientSearchAsItsSearch(t *testing.T) {
 	tracker := forgeTracker(t)
 
 	// Act
-	result, err := tracker.SearchLenient("key in (42, 7)", 0)
+	result, err := tracker.SearchLenient(t.Context(), "key in (42, 7)", 0)
 
 	// Assert
 	if err != nil || len(result.Issues) != 1 || result.Issues[0].Key != "42" {
@@ -77,7 +77,7 @@ func TestTheForgeTrackerReadsAnIssueAsDetail(t *testing.T) {
 	tracker := forgeTracker(t)
 
 	// Act
-	detail, err := tracker.Issue("42")
+	detail, err := tracker.Issue(t.Context(), "42")
 
 	// Assert
 	if err != nil || detail.Issue.Key != "42" || detail.Description != "it broke" || detail.Reporter != "ana" {
@@ -92,7 +92,7 @@ func TestTheForgeTrackerReadsAClosedIssueAsDone(t *testing.T) {
 	tracker := forgeTracker(t)
 
 	// Act
-	detail, err := tracker.Issue("42")
+	detail, err := tracker.Issue(t.Context(), "42")
 
 	// Assert
 	if err != nil || detail.Issue.Status != "Closed" || detail.Issue.StatusCategory != jira.CategoryDone {
@@ -106,7 +106,7 @@ func TestTheForgeTrackerClosesAnIssue(t *testing.T) {
 	tracker := forgeTracker(t)
 
 	// Act
-	err := tracker.Transition("42", jira.Transition{ID: transitionClose}, nil)
+	err := tracker.Transition(t.Context(), "42", jira.Transition{ID: transitionClose}, nil)
 	// Assert
 	if err != nil {
 		t.Fatalf("Transition to close: %v", err)
@@ -131,19 +131,19 @@ func TestTheForgeTrackerRejectsANonNumericKey(t *testing.T) {
 
 	cases := map[string]func() error{
 		seamIssue: func() error {
-			_, err := tracker.Issue(notANumber)
+			_, err := tracker.Issue(t.Context(), notANumber)
 
 			return err
 		},
 		seamTransition: func() error {
-			return tracker.Transition(notANumber, jira.Transition{ID: transitionClose}, nil)
+			return tracker.Transition(t.Context(), notANumber, jira.Transition{ID: transitionClose}, nil)
 		},
 		seamComment: func() error {
-			_, err := tracker.Comment(notANumber, "on it")
+			_, err := tracker.Comment(t.Context(), notANumber, "on it")
 
 			return err
 		},
-		seamAssign: func() error { return tracker.Assign(notANumber, "ana") },
+		seamAssign: func() error { return tracker.Assign(t.Context(), notANumber, "ana") },
 	}
 
 	for name, act := range cases {
@@ -173,17 +173,17 @@ func TestTheForgeTrackerReportsAForgeThatCannotBeReached(t *testing.T) {
 
 	cases := map[string]func() error{
 		seamSearch: func() error {
-			_, err := tracker.Search("", 0)
+			_, err := tracker.Search(t.Context(), "", 0)
 
 			return err
 		},
 		seamIssue: func() error {
-			_, err := tracker.Issue("42")
+			_, err := tracker.Issue(t.Context(), "42")
 
 			return err
 		},
 		seamTransition: func() error {
-			return tracker.Transition("42", jira.Transition{ID: transitionClose}, nil)
+			return tracker.Transition(t.Context(), "42", jira.Transition{ID: transitionClose}, nil)
 		},
 	}
 
@@ -208,12 +208,12 @@ func TestTheForgeTrackerReportsAForgeError(t *testing.T) {
 
 	cases := map[string]func() error{
 		seamSearch: func() error {
-			_, err := tracker.Search("", 0)
+			_, err := tracker.Search(t.Context(), "", 0)
 
 			return err
 		},
 		seamIssue: func() error {
-			_, err := tracker.Issue("42")
+			_, err := tracker.Issue(t.Context(), "42")
 
 			return err
 		},
@@ -237,7 +237,7 @@ func TestTheForgeTrackerOffersOnlyClose(t *testing.T) {
 	tracker := forgeTracker(t)
 
 	// Act
-	transitions, err := tracker.Transitions("42")
+	transitions, err := tracker.Transitions(t.Context(), "42")
 
 	// Assert
 	if err != nil || len(transitions) != 1 ||
@@ -290,7 +290,7 @@ func TestTheForgeTrackerReadsAnIssuesThread(t *testing.T) {
 	tracker := forgeTracker(t)
 
 	// Act
-	detail, err := tracker.Issue("42")
+	detail, err := tracker.Issue(t.Context(), "42")
 
 	// Assert
 	if err != nil || detail.CommentTotal != 2 || len(detail.Comments) != 2 ||
@@ -305,7 +305,7 @@ func TestTheForgeTrackerAsksForNoThreadWhenThereIsNone(t *testing.T) {
 	tracker := forgeTracker(t)
 
 	// Act
-	detail, err := tracker.Issue("42")
+	detail, err := tracker.Issue(t.Context(), "42")
 
 	// Assert
 	if err != nil || detail.CommentTotal != 0 || slices.ContainsFunc(ghStub.args(), func(arg string) bool {
@@ -325,7 +325,7 @@ func TestJiraAloneRefusesACommentOnAForgeNumber(t *testing.T) {
 	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil).Jira
 
 	// Act
-	_, err := tracker.Comment("42", "on it")
+	_, err := tracker.Comment(t.Context(), "42", "on it")
 
 	// Assert
 	if err == nil || len(stand.requests()) != 0 {
@@ -352,6 +352,42 @@ func TestTheForgeTrackerLinksNoPageForANonNumericKey(t *testing.T) {
 	}
 }
 
+// A link is built from the repository origin names, so it needs no token: an
+// issue is linked even before the forge can be reached.
+func TestTheForgeTrackerLinksAnIssueBeforeAnyTokenIsFound(t *testing.T) {
+	// Arrange
+	// No gh to route through and no token, so nothing could connect.
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("PATH", t.TempDir())
+
+	tracker := forgeTracker(t)
+
+	// Act
+	link := tracker.BrowseURL("42")
+
+	// Assert
+	if link != "https://github.com/owner/repo/issues/42" {
+		t.Errorf("BrowseURL(42) = %q, want the issue's page on the repository origin names", link)
+	}
+}
+
+func TestTheForgeTrackerLinksNoPageWhereOriginNamesNoForge(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cfg := config.Config{Forge: config.Forge{CLI: true, Kind: githubKind, Host: hostGitHub}}
+	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+
+	// Act
+	link := tracker.BrowseURL("42")
+
+	// Assert
+	if link != "" {
+		t.Errorf("BrowseURL(42) = %q, want no page with no origin to name the repository", link)
+	}
+}
+
 func TestTheForgeTrackerReportsACommentTheForgeAnsweredBadly(t *testing.T) {
 	// Arrange
 	// The fake answers the comment's post with an unreadable body, so the
@@ -360,7 +396,7 @@ func TestTheForgeTrackerReportsACommentTheForgeAnsweredBadly(t *testing.T) {
 	tracker := forgeTracker(t)
 
 	// Act
-	posted, err := tracker.Comment("42", "on it")
+	posted, err := tracker.Comment(t.Context(), "42", "on it")
 
 	// Assert
 	if err == nil || posted != (jira.Comment{}) {
@@ -377,7 +413,7 @@ func TestTheForgeTrackerReadsAnIssueWhoseThreadCannotBeRead(t *testing.T) {
 	tracker := forgeTracker(t)
 
 	// Act
-	detail, err := tracker.Issue("42")
+	detail, err := tracker.Issue(t.Context(), "42")
 
 	// Assert
 	if err != nil || detail.Issue.Key != "42" || detail.CommentTotal != 2 || len(detail.Comments) != 0 {

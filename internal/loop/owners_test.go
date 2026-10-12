@@ -225,7 +225,7 @@ func TestComposePullProposesTheCodeOwnersAsReviewers(t *testing.T) {
 	}
 
 	// Act
-	draft, _, err := loop.ComposePull(seams, options())
+	draft, _, err := loop.ComposePull(t.Context(), seams, options())
 	// Assert
 	if err != nil {
 		t.Fatalf("ComposePull returned %v", err)

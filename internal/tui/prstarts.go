@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -79,8 +80,9 @@ func (read pullRequestStartsRead) apply(m Model) (Model, tea.Cmd) {
 
 // readTitleIssue reads the composer's issue for its title, when the title is to
 // come from the issue. A failed read leaves the summary empty, so the title
-// stays the one proposed, as the command line's does.
-func readTitleIssue(deps Deps, composer prComposer) tea.Cmd {
+// stays the one proposed, as the command line's does. The tracker is asked under
+// ctx.
+func readTitleIssue(ctx context.Context, deps Deps, composer prComposer) tea.Cmd {
 	read, from := deps.Jira.Issue, composer.proposedFrom
 	if from.TitleSource != convention.TitleFromIssue || from.IssueKey == "" || read == nil {
 		return nil
@@ -91,7 +93,7 @@ func readTitleIssue(deps Deps, composer prComposer) tea.Cmd {
 	return func() tea.Msg {
 		from.IssueSummary = ""
 
-		detail, err := read(from.IssueKey)
+		detail, err := read(ctx, from.IssueKey)
 		if err == nil {
 			from.IssueSummary = detail.Issue.Summary
 		}

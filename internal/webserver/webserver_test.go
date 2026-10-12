@@ -73,7 +73,7 @@ const (
 func filledDeps() webserver.Deps {
 	return webserver.Deps{
 		Jira: seams.Jira{
-			Search: func(string, int) (jira.SearchResult, error) {
+			Search: func(context.Context, string, int) (jira.SearchResult, error) {
 				return jira.SearchResult{
 					Issues: []jira.Issue{{
 						Key: testKey, Summary: testSummary, Status: "In Progress",
@@ -82,7 +82,7 @@ func filledDeps() webserver.Deps {
 					Total: 1,
 				}, nil
 			},
-			Issue: func(key jira.Key) (jira.IssueDetail, error) {
+			Issue: func(_ context.Context, key jira.Key) (jira.IssueDetail, error) {
 				return jira.IssueDetail{
 					Issue: jira.Issue{
 						Key: key, Summary: testSummary, Status: "In Progress",
@@ -322,7 +322,7 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 	}
 	unchanged := func(deps webserver.Deps) webserver.Deps { return deps }
 	linkable := func(deps webserver.Deps) webserver.Deps {
-		deps.Jira.LinkPullRequest = func(jira.Key, string, string) error { return nil }
+		deps.Jira.LinkPullRequest = func(context.Context, jira.Key, string, string) error { return nil }
 
 		return deps
 	}
@@ -404,7 +404,7 @@ func TestAnErrorIsAnRFC9457Problem(t *testing.T) {
 	// Any failure is answered as application/problem+json with the problem's type,
 	// title and status populated — the RFC 9457 shape, not the old code+message.
 	deps := filledDeps()
-	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
+	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")

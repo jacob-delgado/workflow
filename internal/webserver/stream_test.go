@@ -126,7 +126,7 @@ func TestStreamUsesTheNamedView(t *testing.T) {
 	var gotJQL string
 
 	deps := filledDeps()
-	deps.Jira.Search = func(jql string, _ int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
 		gotJQL = jql
 
 		return jira.SearchResult{}, nil
@@ -164,7 +164,7 @@ func TestViewsDTOScopesEachViewToYou(t *testing.T) {
 			var searched string
 
 			deps := filledDeps()
-			deps.Jira.Search = func(jql string, _ int) (jira.SearchResult, error) {
+			deps.Jira.Search = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
 				searched = jql
 
 				return jira.SearchResult{}, nil
@@ -257,7 +257,9 @@ func TestStreamSnapshotDegradesWhenSeamsFail(t *testing.T) {
 	// Every read fails; the stream must still push a snapshot, with each failing
 	// panel empty rather than the whole snapshot lost, and saying why beside it.
 	deps := filledDeps()
-	deps.Jira.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, errSeam }
+	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
+		return jira.SearchResult{}, errSeam
+	}
 	deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 	deps.Git.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
 	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {

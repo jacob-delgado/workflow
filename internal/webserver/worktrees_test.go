@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -188,7 +189,9 @@ func TestCreateWorktreeForAnIssueJiraDoesNotHaveMakesNothing(t *testing.T) {
 	// Arrange
 	called := false
 	deps := worktreeDeps()
-	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrNotFound }
+	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
+		return jira.IssueDetail{}, jira.ErrNotFound
+	}
 	deps.Git.CreateWorktree = func(string, string) (string, error) {
 		called = true
 

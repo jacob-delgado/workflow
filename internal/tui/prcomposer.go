@@ -119,7 +119,7 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 		return m, tea.Batch(starts, reviewers)
 	}
 
-	return m, tea.Batch(starts, readTitleIssue(m.deps, proposed), reviewers)
+	return m, tea.Batch(starts, readTitleIssue(m.session, m.deps, proposed), reviewers)
 }
 
 // proposePullRequest is the composer filled from the branch's commits, the

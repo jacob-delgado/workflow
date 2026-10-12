@@ -21,11 +21,11 @@ import (
 // confirming. It is a 409 when there is nothing to open; a branch that cannot
 // be read is classified by fault.
 func (s *server) GetPullRequestDraft(
-	_ context.Context, request api.GetPullRequestDraftRequestObject,
+	ctx context.Context, request api.GetPullRequestDraftRequestObject,
 ) (api.GetPullRequestDraftResponseObject, error) {
 	template := orZero(request.Params.Template)
 
-	draft, branch, err := s.composePullRequest(template)
+	draft, branch, err := s.composePullRequest(ctx, template)
 	if errors.Is(err, loop.ErrNoSuchTemplate) {
 		return api.GetPullRequestDraft404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound,
 			"the repository has no pull request template of that name")), nil
@@ -67,13 +67,13 @@ func (s *server) templateNames(chosen string) ([]string, string) {
 // request down; a branch that cannot be read, and any other failed open, is
 // classified by fault.
 func (s *server) OpenPullRequest(
-	_ context.Context, request api.OpenPullRequestRequestObject,
+	ctx context.Context, request api.OpenPullRequestRequestObject,
 ) (api.OpenPullRequestResponseObject, error) {
 	if !s.canOpenPull() {
 		return openUnprocessable("opening a " + s.noun() + " is not available"), nil
 	}
 
-	_, branch, err := s.composePullRequest("")
+	_, branch, err := s.composePullRequest(ctx, "")
 	if err != nil {
 		return s.openRefusal(err), nil
 	}
@@ -99,7 +99,7 @@ func (s *server) OpenPullRequest(
 
 	// A pull that opened but whose reviewers, assignees or labels could not all
 	// be added is reported open, with a warning, rather than lost to a failure.
-	opened := api.OpenedPullRequest{Pull: pullDTO(pull), FollowUps: s.followUps(branch)}
+	opened := api.OpenedPullRequest{Pull: pullDTO(pull), FollowUps: s.followUps(ctx, branch)}
 
 	if err != nil {
 		warning := "the " + s.noun() + " opened, but its reviewers, assignees or labels could not all be added"
@@ -163,11 +163,14 @@ func (s *server) canOpenPull() bool {
 // the code owners of its changes.
 // It fails with the loop's refusal when there is nothing to open — the tree is
 // not on a branch, the branch has no commits, or a pull request is already open
-// for it — and with the read's own error when the branch cannot be read.
-func (s *server) composePullRequest(template string) (forge.NewPullRequest, gitrepo.Branch, error) {
+// for it — and with the read's own error when the branch cannot be read. The
+// tracker is asked under ctx.
+func (s *server) composePullRequest(
+	ctx context.Context, template string,
+) (forge.NewPullRequest, gitrepo.Branch, error) {
 	cfg := s.config()
 
-	draft, branch, err := loop.ComposePull(loop.PullSeams{
+	draft, branch, err := loop.ComposePull(ctx, loop.PullSeams{
 		Branch:    s.deps.Git.Branch,
 		FindPull:  s.deps.Forge.FindPullRequest,
 		Templates: s.deps.Forge.Templates,

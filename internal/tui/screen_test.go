@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -334,7 +335,7 @@ func TestPaneKeysNeedWhatTheyActOn(t *testing.T) {
 			// Arrange
 			// With nothing but a search wired, no key reaches anything outside.
 			bare := sized(t, tui.New(completeConfig(), nil, tui.Deps{Jira: seams.Jira{
-				Search: func(string, int) (jira.SearchResult, error) {
+				Search: func(context.Context, string, int) (jira.SearchResult, error) {
 					return jira.SearchResult{Issues: []jira.Issue{{Key: issueKey, Summary: issueSummary}}, Total: 1}, nil
 				},
 			}}), 120, 40)

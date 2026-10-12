@@ -57,7 +57,7 @@ func (w *world) withActivity(deps tui.Deps) tui.Deps {
 
 		return done.touched, nil
 	}
-	deps.Jira.Activity = func(start, _ time.Time) (jira.Activity, error) {
+	deps.Jira.Activity = func(_ context.Context, start, _ time.Time) (jira.Activity, error) {
 		w.record(summaryRead("jira", start))
 
 		return done.jira, done.jiraErr

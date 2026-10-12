@@ -134,8 +134,8 @@ func TestTheJiraTokenCommandRunsOnlyOnceJiraIsFirstAsked(t *testing.T) {
 	}
 
 	// Act: search Jira twice
-	_, firstErr := deps.Jira.Search("assignee = currentUser()", 0)
-	_, secondErr := deps.Jira.Search("assignee = currentUser()", 0)
+	_, firstErr := deps.Jira.Search(t.Context(), "assignee = currentUser()", 0)
+	_, secondErr := deps.Jira.Search(t.Context(), "assignee = currentUser()", 0)
 
 	// Assert: it ran once, and both searches carried what it printed
 	if firstErr != nil || secondErr != nil {
@@ -184,7 +184,7 @@ func TestAJiraTokenSourceThatGivesNoTokenIsReportedAsNoCredential(t *testing.T) 
 			tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 			// Act
-			_, err := tracker.Search("assignee = currentUser()", 0)
+			_, err := tracker.Search(t.Context(), "assignee = currentUser()", 0)
 
 			// Assert
 			if !errors.Is(err, jira.ErrNoCredential) || !strings.Contains(err.Error(), tt.want) {
@@ -205,38 +205,38 @@ func TestEveryJiraSeamReportsATokenCommandThatFails(t *testing.T) {
 
 	cases := map[string]func(tracker seams.Jira) error{
 		"Search": func(tracker seams.Jira) error {
-			_, err := tracker.Search("assignee = currentUser()", 0)
+			_, err := tracker.Search(t.Context(), "assignee = currentUser()", 0)
 
 			return err
 		},
 		"Issue": func(tracker seams.Jira) error {
-			_, err := tracker.Issue("OPS-1")
+			_, err := tracker.Issue(t.Context(), "OPS-1")
 
 			return err
 		},
 		"Transitions": func(tracker seams.Jira) error {
-			_, err := tracker.Transitions("OPS-1")
+			_, err := tracker.Transitions(t.Context(), "OPS-1")
 
 			return err
 		},
 		"Transition": func(tracker seams.Jira) error {
-			return tracker.Transition("OPS-1", jira.Transition{ID: "1"}, nil)
+			return tracker.Transition(t.Context(), "OPS-1", jira.Transition{ID: "1"}, nil)
 		},
 		"Comment": func(tracker seams.Jira) error {
-			_, err := tracker.Comment("OPS-1", "hello")
+			_, err := tracker.Comment(t.Context(), "OPS-1", "hello")
 
 			return err
 		},
 		"Assign": func(tracker seams.Jira) error {
-			return tracker.Assign("OPS-1", "someone")
+			return tracker.Assign(t.Context(), "OPS-1", "someone")
 		},
 		"AddWorklog": func(tracker seams.Jira) error {
-			_, err := tracker.AddWorklog("OPS-1", "1h", "")
+			_, err := tracker.AddWorklog(t.Context(), "OPS-1", "1h", "")
 
 			return err
 		},
 		"LinkPullRequest": func(tracker seams.Jira) error {
-			return tracker.LinkPullRequest("OPS-1", "https://github.com/owner/repo/pull/7", "fix: token")
+			return tracker.LinkPullRequest(t.Context(), "OPS-1", "https://github.com/owner/repo/pull/7", "fix: token")
 		},
 	}
 
@@ -275,7 +275,7 @@ func TestAForgeIssueNumberNeverRunsTheJiraTokenCommand(t *testing.T) {
 	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 	// Act
-	_, err := tracker.Issue("42")
+	_, err := tracker.Issue(t.Context(), "42")
 
 	// Assert
 	if !errors.Is(err, jira.ErrNotFound) {
@@ -329,7 +329,7 @@ func TestResolvingAheadRunsTheJiraTokenCommandOnceForEveryLaterSearch(t *testing
 	}
 
 	// Act: search Jira
-	_, searchErr := deps.Jira.Search("assignee = currentUser()", 0)
+	_, searchErr := deps.Jira.Search(t.Context(), "assignee = currentUser()", 0)
 
 	// Assert: the search carried the token, and the command did not run again
 	if searchErr != nil {
@@ -356,7 +356,7 @@ func TestResolvingAheadRetriesAFailedJiraTokenCommandOnFirstUse(t *testing.T) {
 	controls.ResolveAhead()
 
 	// Act
-	_, err := deps.Jira.Search("assignee = currentUser()", 0)
+	_, err := deps.Jira.Search(t.Context(), "assignee = currentUser()", 0)
 
 	// Assert
 	if !errors.Is(err, jira.ErrNoCredential) {

@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -23,7 +24,7 @@ var errBranchExists = errors.New("a branch for this issue already exists")
 // branchSeams are what `workflow branch` reads and does, so a test can answer
 // without a repository or a tracker.
 type branchSeams struct {
-	Issue        func(jira.Key) (jira.IssueDetail, error)
+	Issue        func(context.Context, jira.Key) (jira.IssueDetail, error)
 	Branches     func() ([]string, error)
 	CreateBranch func(name, start string) error
 	// CreateWorktree creates the branch in a new worktree beside the
@@ -109,15 +110,17 @@ func runBranchCommand(cmd *cobra.Command, prompt Prompt, issueKey string, opts w
 		Confirm:        func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
-	return runBranch(outputOf(cmd), seams, issueKey, opts, start)
+	return runBranch(cmd.Context(), outputOf(cmd), seams, issueKey, opts, start)
 }
 
 // runBranch names a branch for the issue, previews it, and creates it off the
 // current branch's base once confirmed — after fetching origin, or in a new
 // worktree, as start asks. A branch that already exists is refused rather than
 // recreated.
-func runBranch(out output, seams branchSeams, issueKey string, opts writeOptions, start startOptions) error {
-	plan, err := planStart(seams, issueKey, start)
+func runBranch(
+	ctx context.Context, out output, seams branchSeams, issueKey string, opts writeOptions, start startOptions,
+) error {
+	plan, err := planStart(ctx, seams, issueKey, start)
 	if err != nil {
 		return err
 	}
@@ -139,8 +142,8 @@ func runBranch(out output, seams branchSeams, issueKey string, opts writeOptions
 // planStart names the issue's branch and the base it would start from,
 // refusing a name a branch already goes by. Only a base can be refreshed, so
 // there is nothing to fetch without one.
-func planStart(seams branchSeams, issueKey string, start startOptions) (startPlan, error) {
-	detail, err := seams.Issue(jira.Key(issueKey))
+func planStart(ctx context.Context, seams branchSeams, issueKey string, start startOptions) (startPlan, error) {
+	detail, err := seams.Issue(ctx, jira.Key(issueKey))
 	if err != nil {
 		return startPlan{}, fmt.Errorf("reading issue %s: %w", issueKey, err)
 	}

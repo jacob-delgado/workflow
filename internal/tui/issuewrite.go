@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -19,13 +20,13 @@ import (
 type issueAction struct {
 	title  string
 	prompt string
-	write  func(issueKey jira.Key, value string) error
+	write  func(ctx context.Context, issueKey jira.Key, value string) error
 	done   func(issueKey jira.Key, value string) string
 	would  func(issueKey jira.Key, value string) string
 }
 
 // assignAction sets an issue's assignee.
-func assignAction(assign func(jira.Key, string) error) issueAction {
+func assignAction(assign func(context.Context, jira.Key, string) error) issueAction {
 	return issueAction{
 		title:  "Assign",
 		prompt: "assignee (username)",
@@ -39,9 +40,9 @@ func assignAction(assign func(jira.Key, string) error) issueAction {
 
 // worklogAction logs work against an issue. The note is left empty here; the
 // duration is the one thing a quick log needs.
-func worklogAction(add func(jira.Key, string, string) (jira.Worklog, error)) issueAction {
-	write := func(issueKey jira.Key, value string) error {
-		_, err := add(issueKey, value, "")
+func worklogAction(add func(context.Context, jira.Key, string, string) (jira.Worklog, error)) issueAction {
+	write := func(ctx context.Context, issueKey jira.Key, value string) error {
+		_, err := add(ctx, issueKey, value, "")
 
 		return err
 	}
@@ -180,10 +181,10 @@ func (w issueWrite) confirm(m Model) (Model, tea.Cmd) {
 
 	w.send = starting()
 	m.overlay = w
-	write, done, issueKey := w.action.write, w.action.done, w.issue.Key
+	ctx, write, done, issueKey := m.session, w.action.write, w.action.done, w.issue.Key
 
 	return m, func() tea.Msg {
-		return issueWritten{issueKey: issueKey, note: done(issueKey, value), err: write(issueKey, value)}
+		return issueWritten{issueKey: issueKey, note: done(issueKey, value), err: write(ctx, issueKey, value)}
 	}
 }
 
