@@ -157,6 +157,13 @@ readonly ratchet_slack=2
 readonly allowlist_file="${GOBCO_ALLOWLIST:-${repo_root}/scripts/gobco-allowlist.txt}"
 readonly floors_file="${GOBCO_FLOORS:-${repo_root}/scripts/gobco-floors.txt}"
 
+# A floors file that is not there would hold no package to a floor of its
+# own, and pass as one whose packages all hold to theirs.
+if [[ ! -f "${floors_file}" ]]; then
+  echo "${floors_file} is not there, so no package would be held to a floor of its own." >&2
+  exit 2
+fi
+
 # A run over the module's roots answers for every line of the allowlist and
 # the floors file; one over named packages, only for what it measured.
 whole_module=1
