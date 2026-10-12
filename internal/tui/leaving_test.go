@@ -17,7 +17,7 @@ import (
 func switchingToWeb(t *testing.T, model tui.Model) string {
 	t.Helper()
 
-	return typing(t, model, reposKey, "j", keyEnter).View().Content
+	return typing(t, model, reposKey, "j", switchDirKey).View().Content
 }
 
 // withDirectories gives repo the Repositories world's directories.

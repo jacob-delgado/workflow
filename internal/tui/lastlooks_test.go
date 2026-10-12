@@ -123,11 +123,11 @@ func TestEscOnForgetGoesBackToPeopleAndGroups(t *testing.T) {
 	refuseScreen(t, view, "Forget ben?")
 }
 
-func TestEnterOnAFavoriteAsksBeforeSwitching(t *testing.T) {
+func TestTheSwitchKeyOnAFavoriteAsksBeforeSwitching(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	asked, cmd := pressed(t, onWeb(t, reposWorld()), keyEnter)
+	asked, cmd := pressed(t, onWeb(t, reposWorld()), switchDirKey)
 
 	// Assert
 	if quits(cmd) || asked.Destination().Dir != "" {
@@ -141,7 +141,7 @@ func TestEscOnTheSwitchLookStays(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	asked := typing(t, onWeb(t, reposWorld()), keyEnter)
+	asked := typing(t, onWeb(t, reposWorld()), switchDirKey)
 
 	// Act
 	stayed, cmd := pressed(t, asked, keyEsc)

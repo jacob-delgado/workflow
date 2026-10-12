@@ -2,12 +2,13 @@
 // gives them: the ? sheet lists these, and only these, under the terminal's
 // groups. The keys come from the server; this says only which actions a
 // control here answers to. An action a section binds registers its control
-// with useShortcut. Left out on purpose: discard-change, the terminal's x on
-// the change its cursor is on, since the page selects no change row — each
-// change carries its own Discard… button instead. The server keeps the same
-// list as tui.WebBoundActions, and a Go test holds the two to one: the key
-// check refuses a key two panes shown in one section share only when the page
-// binds both actions.
+// with useShortcut. Left out on purpose, since the page selects no row: the
+// terminal's discard-change, x on the change its cursor is on, and its
+// switch-directory, s on the directory its cursor is on — each change carries
+// its own Discard… button instead, and each directory its own Switch button.
+// The server keeps the same list as tui.WebBoundActions, and a Go test holds
+// the two to one: the key check refuses a key two panes shown in one section
+// share only when the page binds both actions.
 export const boundActions: ReadonlySet<string> = new Set([
   'jump-to-pane',
   'change-status',

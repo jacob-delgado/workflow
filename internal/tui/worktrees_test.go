@@ -59,7 +59,7 @@ func TestConfirmingTheSwitchToAWorktreeLeavesForIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	opened := typing(t, worktreesWorld().live(t, 120, 40), reposKey, "j", keyEnter)
+	opened := typing(t, worktreesWorld().live(t, 120, 40), reposKey, "j", switchDirKey)
 
 	// Act
 	left, cmd := pressed(t, opened, keyEnter)
@@ -71,18 +71,18 @@ func TestConfirmingTheSwitchToAWorktreeLeavesForIt(t *testing.T) {
 	}
 }
 
-func TestEnterOnAWorktreeThatIsGoneGoesNowhere(t *testing.T) {
+func TestTheSwitchKeyOnAWorktreeThatIsGoneGoesNowhere(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	opened := typing(t, worktreesWorld().live(t, 120, 40), reposKey, "j", "j", "j")
 
 	// Act
-	stayed, cmd := pressed(t, opened, keyEnter)
+	stayed, cmd := pressed(t, opened, switchDirKey)
 
 	// Assert
 	if quits(cmd) || stayed.Destination().Dir != "" {
-		t.Errorf("enter on a worktree gone: quit %v, destination %q; want to stay",
+		t.Errorf("the switch key on a worktree gone: quit %v, destination %q; want to stay",
 			quits(cmd), stayed.Destination().Dir)
 	}
 
@@ -176,7 +176,7 @@ func TestArrivingInAnotherWorktreeListsTheWorktreesAtOnce(t *testing.T) {
 	// The command line opens the interface after a switch on the pane it was
 	// made from, before the program starts, so that pane is read with the
 	// rest rather than only when it is next looked at.
-	left, _ := pressed(t, typing(t, worktreesWorld().live(t, 120, 40), reposKey, "j"), keyEnter)
+	left, _ := pressed(t, typing(t, worktreesWorld().live(t, 120, 40), reposKey, "j", switchDirKey), keyEnter)
 	arriving := worktreesWorld()
 	arriving.dirs.here = seams.Place{Dir: apiFeature, Root: apiFeature}
 	model := sized(t, tui.New(arriving.cfg, nil, arriving.deps()).Arrived(left.Destination()), 120, 40)

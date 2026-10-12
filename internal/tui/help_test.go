@@ -119,6 +119,7 @@ func placedBindings() []helpGroup {
 			"copy-summary      Y          copy as Markdown",
 			"post-summary      p          post"),
 		placed("Repositories",
+			"switch-directory  s          switch",
 			"favorite-directory f         favorite",
 			"go-to-directory   g          go to",
 			"settings          S          settings",
