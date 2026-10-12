@@ -70,7 +70,7 @@ type Deps struct {
 	// PaneSections is the page's section each of the terminal interface's
 	// panes is shown in, in the panes' order, as the interface's key check
 	// reads it. Nil lists none.
-	PaneSections func() []string
+	PaneSections func() []seams.PageSection
 	// Unexpected hears each failure the server answers as an internal error —
 	// one no class of failure explains, or an answer that could not be
 	// written — whose cause the answer leaves out, with the configuration in

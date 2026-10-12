@@ -15,6 +15,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // actionInterrupt is the action every context answers first, even while text
@@ -194,7 +195,7 @@ func keyContexts() []keyContext {
 // answers a key with the first control on screen bound to it, so there every
 // action of each pane shown is live at once.
 func sharedSectionContexts() []keyContext {
-	panesIn := map[string][]pane{}
+	panesIn := map[seams.PageSection][]pane{}
 	for each := range pane(paneCount) {
 		panesIn[each.webSection()] = append(panesIn[each.webSection()], each)
 	}

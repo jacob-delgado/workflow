@@ -392,6 +392,11 @@ type Tasks struct {
 	Sync func() (string, error)
 }
 
+// PageSection names a section of the --web page, one each of the terminal
+// interface's panes is shown in: issues, branch, review, messaging, reviews,
+// tasks, summary or repositories.
+type PageSection string
+
 // KeyAction is one action the terminal interface binds, as its help lists it:
 // the action's name, the words the help says it in, the help group it is
 // listed under, the key the help shows, and every key that triggers it, with

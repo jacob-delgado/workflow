@@ -9,6 +9,8 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // pane is one panel in the rail.
@@ -49,8 +51,8 @@ func (p pane) title(messaging string) string {
 // webSection names the --web page's section the pane is shown in. A lookup, as
 // title is. The page shows the Commits pane inside its Branch section, so the
 // keys of both are live there at once.
-func (p pane) webSection() string {
-	sections := [paneCount]string{
+func (p pane) webSection() seams.PageSection {
+	sections := [paneCount]seams.PageSection{
 		"issues", "branch", "branch", "review", "messaging", "reviews", "tasks", "summary", "repositories",
 	}
 
@@ -60,8 +62,8 @@ func (p pane) webSection() string {
 // PaneSections is the --web page's section each pane is shown in, in the
 // panes' order, which is the order of the pane numbers: what the page opens
 // on a pane number, and where CheckKeys finds two panes' keys live at once.
-func PaneSections() []string {
-	sections := make([]string, 0, paneCount)
+func PaneSections() []seams.PageSection {
+	sections := make([]seams.PageSection, 0, paneCount)
 	for each := range pane(paneCount) {
 		sections = append(sections, each.webSection())
 	}
