@@ -4,7 +4,9 @@
 package webserver
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -115,11 +117,15 @@ func (s *server) fault(err error) api.Problem {
 }
 
 // unexpected hands a failure the answer leaves out to Unexpected, with the
-// configuration in effect, when it is wired.
+// configuration in effect, when it is wired. A failure that is only its
+// context ending, its page gone or the server stopping, is kept from it
+// wherever it is met: nothing went wrong to hear of.
 func (s *server) unexpected(err error) {
-	if s.deps.Unexpected != nil {
-		s.deps.Unexpected(s.config(), err)
+	if s.deps.Unexpected == nil || errors.Is(err, context.Canceled) {
+		return
 	}
+
+	s.deps.Unexpected(s.config(), err)
 }
 
 // faultProblem classifies a seam's error into the problem shown for it: the
