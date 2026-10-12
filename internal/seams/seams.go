@@ -40,31 +40,31 @@ import (
 
 // Jira is what a surface asks of the issue tracker.
 type Jira struct {
-	Search func(jql string, startAt int) (jira.SearchResult, error)
+	Search func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error)
 	// SearchLenient is Search for a query naming issue keys the tracker may not
 	// know — a branch's issue since deleted or hidden — which it skips rather
 	// than refusing the whole query.
-	SearchLenient func(jql string, startAt int) (jira.SearchResult, error)
-	Issue         func(issueKey jira.Key) (jira.IssueDetail, error)
-	Transitions   func(issueKey jira.Key) ([]jira.Transition, error)
-	Transition    func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
+	SearchLenient func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error)
+	Issue         func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
+	Transitions   func(ctx context.Context, issueKey jira.Key) ([]jira.Transition, error)
+	Transition    func(ctx context.Context, issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
 	// Comment posts text on an issue, in Jira or on the forge as its key says,
 	// exactly as given: what a surface converts it to first is
 	// loop.CommentMarkupOf's to decide.
-	Comment func(issueKey jira.Key, text string) (jira.Comment, error)
+	Comment func(ctx context.Context, issueKey jira.Key, text string) (jira.Comment, error)
 	// Assign sets an issue's assignee by username, in Jira or on the forge as
 	// its key says.
-	Assign func(issueKey jira.Key, assignee string) error
+	Assign func(ctx context.Context, issueKey jira.Key, assignee string) error
 	// AddWorklog logs work against an issue: a duration and an optional note.
-	AddWorklog func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error)
+	AddWorklog func(ctx context.Context, issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error)
 	// LinkPullRequest records a pull request as a web link on an issue. Nil when
 	// Jira is not configured.
-	LinkPullRequest func(issueKey jira.Key, pullURL, title string) error
+	LinkPullRequest func(ctx context.Context, issueKey jira.Key, pullURL, title string) error
 	// BrowseURL links an issue for someone to click.
 	BrowseURL func(issueKey jira.Key) string
 	// Activity is what you did to Jira issues from start up to end, for the
 	// Summary. Nil without Jira: a forge issue's is the Forge seam's.
-	Activity func(start, end time.Time) (jira.Activity, error)
+	Activity func(ctx context.Context, start, end time.Time) (jira.Activity, error)
 }
 
 // Git is what a surface asks of the repository.

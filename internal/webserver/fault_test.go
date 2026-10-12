@@ -99,7 +99,7 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 
 			// Arrange
 			deps := writableDeps(new([]linkCall), new([]jira.Transition))
-			deps.Jira.Transition = func(jira.Key, jira.Transition, []jira.FieldValue) error { return tt.err }
+			deps.Jira.Transition = func(context.Context, jira.Key, jira.Transition, []jira.FieldValue) error { return tt.err }
 
 			// Act
 			recorder := post(t, deps, reviewConfig(), movePath)
@@ -198,7 +198,9 @@ func TestARateLimitAsksTheCallerToWait(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Jira.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, tt.err }
+			deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
+				return jira.SearchResult{}, tt.err
+			}
 
 			// Act
 			recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
@@ -252,13 +254,13 @@ func TestAMissingIssueIsNotFoundBeforeARefusal(t *testing.T) {
 	}{
 		"reading the moves": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) { return nil, missing }
+				deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) { return nil, missing }
 			},
 			path: movePath,
 		},
 		"the link": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Jira.LinkPullRequest = func(jira.Key, string, string) error { return missing }
+				deps.Jira.LinkPullRequest = func(context.Context, jira.Key, string, string) error { return missing }
 			},
 			path: linkPath,
 		},
@@ -331,7 +333,7 @@ func TestOnlyAFailureNoClassExplainsIsHandedToUnexpected(t *testing.T) {
 			var heard []error
 
 			deps := filledDeps()
-			deps.Jira.Search = func(string, int) (jira.SearchResult, error) {
+			deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 				return jira.SearchResult{}, fmt.Errorf("searching: %w", tt.cause)
 			}
 			deps.Unexpected = func(_ config.Config, err error) { heard = append(heard, err) }

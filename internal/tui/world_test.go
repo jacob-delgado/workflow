@@ -410,7 +410,7 @@ func (w *world) storeDeps() seams.Store {
 // jiraDeps fakes Jira.
 func (w *world) jiraDeps() seams.Jira {
 	return seams.Jira{
-		Search: func(jql string, startAt int) (jira.SearchResult, error) {
+		Search: func(_ context.Context, jql string, startAt int) (jira.SearchResult, error) {
 			w.record("search " + jql)
 
 			issues := w.issues
@@ -425,22 +425,22 @@ func (w *world) jiraDeps() seams.Jira {
 				Issues: slices.Clone(issues[start:end]), Total: len(issues), Unavailable: w.unavailable,
 			}, nil
 		},
-		SearchLenient: func(jql string, _ int) (jira.SearchResult, error) {
+		SearchLenient: func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
 			w.record("lenient " + jql)
 
 			return w.assignedAmong(jql), nil
 		},
-		Issue: func(key jira.Key) (jira.IssueDetail, error) {
+		Issue: func(_ context.Context, key jira.Key) (jira.IssueDetail, error) {
 			w.record("issue " + string(key))
 
 			return w.detail, w.detailErr
 		},
-		Transitions: func(key jira.Key) ([]jira.Transition, error) {
+		Transitions: func(_ context.Context, key jira.Key) ([]jira.Transition, error) {
 			w.record("transitions " + string(key))
 
 			return w.moves, nil
 		},
-		Transition: func(key jira.Key, to jira.Transition, values []jira.FieldValue) error {
+		Transition: func(_ context.Context, key jira.Key, to jira.Transition, values []jira.FieldValue) error {
 			var call strings.Builder
 
 			call.WriteString("transition " + string(key) + " " + to.ID)
@@ -453,22 +453,22 @@ func (w *world) jiraDeps() seams.Jira {
 
 			return w.transitionErr
 		},
-		Comment: func(key jira.Key, text string) (jira.Comment, error) {
+		Comment: func(_ context.Context, key jira.Key, text string) (jira.Comment, error) {
 			w.record("comment " + string(key) + " " + text)
 
 			return jira.Comment{Author: "jacob", Body: text, Created: testNow()}, w.commentErr
 		},
-		Assign: func(key jira.Key, assignee string) error {
+		Assign: func(_ context.Context, key jira.Key, assignee string) error {
 			w.record("assign " + string(key) + " " + assignee)
 
 			return w.assignErr
 		},
-		AddWorklog: func(key jira.Key, timeSpent, comment string) (jira.Worklog, error) {
+		AddWorklog: func(_ context.Context, key jira.Key, timeSpent, comment string) (jira.Worklog, error) {
 			w.record("worklog " + string(key) + " " + timeSpent + " " + comment)
 
 			return jira.Worklog{ID: "1", TimeSpent: timeSpent}, w.worklogErr
 		},
-		LinkPullRequest: func(key jira.Key, pullURL, title string) error {
+		LinkPullRequest: func(_ context.Context, key jira.Key, pullURL, title string) error {
 			w.record("link " + string(key) + " " + pullURL + " " + title)
 
 			return w.linkErr

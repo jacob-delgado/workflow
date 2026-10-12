@@ -157,6 +157,7 @@ func setUpThroughTheInterface(t *testing.T, where place, jiraURL, logPath string
 			return tui.Next{}, nil
 		}
 
+		//nolint:contextcheck // tea.Model's Update takes no context: the model carries its session, as tea.Program drives it
 		return drive(t, model, firstRunKeys(jiraURL)...).Destination(), nil
 	}
 

@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -120,7 +121,7 @@ func TestTheSwitcherListsEveryIssueBranchWhenTheTrackerCannotBeAsked(t *testing.
 	repo.branches = []string{featureName, someoneElsesBranch}
 	repo.remoteBranches = []string{baseName, remoteTaskBranch}
 	deps := repo.deps()
-	deps.Jira.SearchLenient = func(string, int) (jira.SearchResult, error) {
+	deps.Jira.SearchLenient = func(context.Context, string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{}, errTrackerDown
 	}
 	model := sized(t, tui.New(repo.cfg, nil, deps), 120, 40)
@@ -144,7 +145,7 @@ func TestTheSwitcherTellsAnUnreachableTrackerInItsSentence(t *testing.T) {
 	// Arrange
 	repo := cleanSwitcher()
 	deps := repo.deps()
-	deps.Jira.SearchLenient = func(string, int) (jira.SearchResult, error) {
+	deps.Jira.SearchLenient = func(context.Context, string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{}, fmt.Errorf("%w at https://jira.corp.example: dial tcp: i/o timeout", jira.ErrUnreachable)
 	}
 	model := sized(t, tui.New(repo.cfg, nil, deps), 120, 40)

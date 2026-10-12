@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -28,7 +29,9 @@ func TestTheFirstRunIsOfferedOverIssuesAnEarlierSessionCached(t *testing.T) {
 	working := reposWorld()
 	working.cachedIssues = working.issues
 	deps := working.deps()
-	deps.Jira.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, errNoJiraAddress }
+	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
+		return jira.SearchResult{}, errNoJiraAddress
+	}
 	deps.Settings.Setup = seams.Setup{
 		Offer: func() setup.Offer { return setup.Offer{} },
 		Check: func(config.Jira) (string, error) { return "", nil },

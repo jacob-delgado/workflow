@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -108,7 +109,7 @@ func TestTrackIssueBuildsTheLineFromTheIssueAndAnnotatesIt(t *testing.T) {
 	// Arrange
 	fake := fakeTaskwarrior()
 	deps := trackableDeps(fake)
-	deps.Jira.Issue = func(key jira.Key) (jira.IssueDetail, error) {
+	deps.Jira.Issue = func(_ context.Context, key jira.Key) (jira.IssueDetail, error) {
 		return jira.IssueDetail{Issue: jira.Issue{Key: key, Summary: testSummary, Priority: "High"}}, nil
 	}
 
@@ -161,7 +162,9 @@ func TestTrackIssueOfAnUnknownIssueIs404(t *testing.T) {
 	// Arrange
 	fake := fakeTaskwarrior()
 	deps := trackableDeps(fake)
-	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrNotFound }
+	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
+		return jira.IssueDetail{}, jira.ErrNotFound
+	}
 
 	// Act
 	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, trackPath, trackBody)
@@ -195,13 +198,17 @@ func TestTrackIssueIsRefusedWithoutWhatItNeeds(t *testing.T) {
 		"a forge that will not show the repository": {
 			body: trackBody, wantStatus: http.StatusNotFound,
 			mutate: func(deps *webserver.Deps) {
-				deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, forge.ErrNoRepository }
+				deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
+					return jira.IssueDetail{}, forge.ErrNoRepository
+				}
 			},
 		},
 		"a tracker that cannot be reached": {
 			body: trackBody, wantStatus: http.StatusBadGateway,
 			mutate: func(deps *webserver.Deps) {
-				deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrUnreachable }
+				deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
+					return jira.IssueDetail{}, jira.ErrUnreachable
+				}
 			},
 		},
 		// Words after the key would reach Taskwarrior as words of their own,
@@ -209,7 +216,7 @@ func TestTrackIssueIsRefusedWithoutWhatItNeeds(t *testing.T) {
 		"a tracker key that is not one word": {
 			body: trackBody, wantStatus: http.StatusUnprocessableEntity,
 			mutate: func(deps *webserver.Deps) {
-				deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) {
+				deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
 					return jira.IssueDetail{Issue: jira.Issue{Key: testKey + " rc.hooks.location=/tmp", Summary: testSummary}}, nil
 				}
 			},

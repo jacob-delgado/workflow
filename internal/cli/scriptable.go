@@ -242,7 +242,7 @@ func completeAssignedIssues(cmd *cobra.Command, _ []string, toComplete string) (
 	// Completion runs on every <tab>, so it records nothing in a request log.
 	conn := connectAt(cmd, dir, nil)
 
-	result, err := conn.deps.Jira.Search(jira.AssignedToMe, 0)
+	result, err := conn.deps.Jira.Search(cmd.Context(), jira.AssignedToMe, 0)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

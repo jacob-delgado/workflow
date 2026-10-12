@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -22,7 +23,7 @@ var errCommentBlank = errors.New("a comment needs text on standard input")
 // commentSeams are what `workflow comment` reads and does, so a test can
 // answer without a tracker.
 type commentSeams struct {
-	Comment func(issueKey jira.Key, text string) (jira.Comment, error)
+	Comment func(ctx context.Context, issueKey jira.Key, text string) (jira.Comment, error)
 	// Markup is what a comment on an issue is written in, which decides what
 	// it is stored as.
 	Markup  func(issueKey jira.Key) loop.CommentMarkup
@@ -75,7 +76,7 @@ func runCommentCommand(cmd *cobra.Command, prompt Prompt, issueKey string, opts 
 		Confirm: func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
-	return runComment(outputOf(cmd), seams, jira.Key(issueKey), text, opts)
+	return runComment(cmd.Context(), outputOf(cmd), seams, jira.Key(issueKey), text, opts)
 }
 
 // readInput is the text on input, to its end, without the white space a
@@ -101,7 +102,9 @@ func readInput(input io.Reader) (string, error) {
 
 // runComment previews the comment as its tracker will store it, and posts it
 // once confirmed.
-func runComment(out output, seams commentSeams, issueKey jira.Key, text string, opts writeOptions) error {
+func runComment(
+	ctx context.Context, out output, seams commentSeams, issueKey jira.Key, text string, opts writeOptions,
+) error {
 	stored := seams.Markup(issueKey).Stored(text)
 	key := string(issueKey)
 
@@ -117,7 +120,7 @@ func runComment(out output, seams commentSeams, issueKey jira.Key, text string, 
 		return err
 	}
 
-	_, err = seams.Comment(issueKey, stored)
+	_, err = seams.Comment(ctx, issueKey, stored)
 	if err != nil {
 		return fmt.Errorf("commenting on %s: %w", key, err)
 	}

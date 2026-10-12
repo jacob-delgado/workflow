@@ -90,7 +90,7 @@ func (e Environment) Deps(
 	}
 
 	deps := tui.Deps{
-		Jira:         trackerDeps(ctx, cfg, jiraClient, connect),
+		Jira:         trackerDeps(cfg, jiraClient, setup, connect),
 		Git:          e.gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
 		Forge:        forgeDeps(ctx, setup, connect),
 		Messaging:    messagingDeps(messagingSet, slack),

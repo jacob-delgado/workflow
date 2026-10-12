@@ -191,7 +191,7 @@ func TestEverySourceTheServerReachesIsRead(t *testing.T) {
 
 	deps := activityDeps(&starts)
 	deps.Tasks.Touched = func(context.Context, time.Time) ([]taskwarrior.Task, error) { return nil, nil }
-	deps.Jira.Activity = func(start, _ time.Time) (jira.Activity, error) {
+	deps.Jira.Activity = func(_ context.Context, start, _ time.Time) (jira.Activity, error) {
 		return jira.Activity{Events: []jira.Event{{At: start.Add(time.Hour), Kind: jira.EventMoved, Key: "PROJ-1"}}}, nil
 	}
 	deps.Jira.BrowseURL = nil
@@ -299,7 +299,7 @@ func TestASourceNotSetUpIsMarkedApartFromOneThatFailed(t *testing.T) {
 	deps.Git.CommitsBetween = func(time.Time, time.Time) []loop.RepositoryCommits {
 		return []loop.RepositoryCommits{{Repository: "", Commits: nil, Failed: gitrepo.ErrNoIdentity}}
 	}
-	deps.Jira.Activity = func(time.Time, time.Time) (jira.Activity, error) {
+	deps.Jira.Activity = func(context.Context, time.Time, time.Time) (jira.Activity, error) {
 		return jira.Activity{}, fmt.Errorf("%w: reading the token", jira.ErrNoCredential)
 	}
 	deps.Tasks.Touched = func(context.Context, time.Time) ([]taskwarrior.Task, error) {

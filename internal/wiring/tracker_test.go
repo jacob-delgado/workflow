@@ -8,6 +8,7 @@ package wiring_test
 // Environment.Deps against a stand-in Jira and a stand-in gh.
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -127,7 +128,7 @@ func TestBothTrackersListTheFirstViewTogether(t *testing.T) {
 	tracker := bothTrackers(t, &fakeJira{})
 
 	// Act
-	result, err := tracker.Search(jira.AssignedToMe, 0)
+	result, err := tracker.Search(t.Context(), jira.AssignedToMe, 0)
 
 	// Assert
 	if err != nil || !slices.Equal(keysOf(result), []jira.Key{"42", jiraKey}) || result.Total != 4 {
@@ -142,14 +143,14 @@ func TestALaterPageAsksJiraPastItsOwnRows(t *testing.T) {
 	stand := &fakeJira{}
 	tracker := bothTrackers(t, stand)
 
-	_, err := tracker.Search(jira.AssignedToMe, 0)
+	_, err := tracker.Search(t.Context(), jira.AssignedToMe, 0)
 	if err != nil {
 		t.Fatalf("the first page: %v", err)
 	}
 
 	// Act
 	// Two rows are listed, one of them the forge's, so Jira has given one.
-	_, err = tracker.Search(jira.AssignedToMe, 2)
+	_, err = tracker.Search(t.Context(), jira.AssignedToMe, 2)
 
 	// Assert
 	asked := stand.requests()
@@ -164,7 +165,7 @@ func TestAnotherViewListsJiraAlone(t *testing.T) {
 	tracker := bothTrackers(t, &fakeJira{})
 
 	// Act
-	result, err := tracker.Search("project = TEAM", 0)
+	result, err := tracker.Search(t.Context(), "project = TEAM", 0)
 
 	// Assert
 	if err != nil || !slices.Equal(keysOf(result), []jira.Key{jiraKey}) || len(ghStub.args()) != 0 {
@@ -180,7 +181,7 @@ func TestAKeyCheckOfForgeNumbersAloneAsksOnlyTheForge(t *testing.T) {
 	tracker := bothTrackers(t, stand)
 
 	// Act
-	result, err := tracker.SearchLenient(jira.NoKeys, 0)
+	result, err := tracker.SearchLenient(t.Context(), jira.NoKeys, 0)
 
 	// Assert
 	if err != nil || !slices.Equal(keysOf(result), []jira.Key{"42"}) || len(stand.requests()) != 0 {
@@ -197,7 +198,7 @@ func TestJiraAloneIsNotAskedAKeyCheckNamingNoKey(t *testing.T) {
 	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil).Jira
 
 	// Act
-	result, err := tracker.SearchLenient(jira.NoKeys, 0)
+	result, err := tracker.SearchLenient(t.Context(), jira.NoKeys, 0)
 
 	// Assert
 	if err != nil || len(result.Issues) != 0 || len(stand.requests()) != 0 {
@@ -213,8 +214,8 @@ func TestEachKeyIsReadFromItsOwnTracker(t *testing.T) {
 	tracker := bothTrackers(t, stand)
 
 	// Act
-	forgeIssue, forgeErr := tracker.Issue("42")
-	jiraIssue, jiraErr := tracker.Issue(jiraKey)
+	forgeIssue, forgeErr := tracker.Issue(t.Context(), "42")
+	jiraIssue, jiraErr := tracker.Issue(t.Context(), jiraKey)
 
 	// Assert
 	if forgeErr != nil || forgeIssue.Description != "it broke" {
@@ -235,7 +236,7 @@ func TestAForgeThatCannotBeReadLeavesJirasIssues(t *testing.T) {
 	tracker := bothTrackers(t, &fakeJira{})
 
 	// Act
-	result, err := tracker.Search(jira.AssignedToMe, 0)
+	result, err := tracker.Search(t.Context(), jira.AssignedToMe, 0)
 
 	// Assert
 	if err != nil || !slices.Equal(keysOf(result), []jira.Key{jiraKey}) || len(result.Unavailable) != 1 {
@@ -252,7 +253,7 @@ func TestACommentOnAForgeIssueGoesToTheForgeNotJira(t *testing.T) {
 	tracker := bothTrackers(t, stand)
 
 	// Act
-	posted, err := tracker.Comment("42", "on it")
+	posted, err := tracker.Comment(t.Context(), "42", "on it")
 
 	// Assert
 	if err != nil || posted.Author != "octo" || posted.Body != "on it" || len(stand.requests()) != 0 {
@@ -273,7 +274,7 @@ func TestTheForgeTrackerLinksAndAssignsAnIssue(t *testing.T) {
 
 	// Act
 	link := tracker.BrowseURL("42")
-	err := tracker.Assign("42", "ana")
+	err := tracker.Assign(t.Context(), "42", "ana")
 
 	// Assert
 	if link != "https://github.com/owner/repo/issues/42" {
@@ -286,6 +287,29 @@ func TestTheForgeTrackerLinksAndAssignsAnIssue(t *testing.T) {
 	}
 }
 
+// The wiring holds no context of its own: a tracker seam asks Jira under the
+// context it is asked under, so one asked for a page that has left stops.
+func TestATrackerSeamAskedUnderAnEndedContextIsCanceled(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	stand := &fakeJira{}
+	cfg := config.Default()
+	cfg.Jira = config.Jira{BaseURL: stand.serve(t), Token: jiraToken}
+	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil).Jira
+	ended, end := context.WithCancel(t.Context())
+	end()
+
+	// Act
+	_, err := tracker.Search(ended, jira.AssignedToMe, 0)
+
+	// Assert
+	if !errors.Is(err, context.Canceled) || len(stand.requests()) != 0 {
+		t.Errorf("Search under an ended context = %v, Jira asked %v; want %v and nothing asked",
+			err, stand.requests(), context.Canceled)
+	}
+}
+
 func TestJiraAloneAsksNothingOfAForgeNumber(t *testing.T) {
 	t.Parallel()
 
@@ -294,31 +318,31 @@ func TestJiraAloneAsksNothingOfAForgeNumber(t *testing.T) {
 	// that names an issue refuses it as missing, before Jira is asked.
 	cases := map[string]func(tracker seams.Jira) error{
 		seamIssue: func(tracker seams.Jira) error {
-			_, err := tracker.Issue("42")
+			_, err := tracker.Issue(t.Context(), "42")
 
 			return err
 		},
 		seamTransitions: func(tracker seams.Jira) error {
-			_, err := tracker.Transitions("42")
+			_, err := tracker.Transitions(t.Context(), "42")
 
 			return err
 		},
 		seamTransition: func(tracker seams.Jira) error {
-			return tracker.Transition("42", jira.Transition{ID: "31"}, nil)
+			return tracker.Transition(t.Context(), "42", jira.Transition{ID: "31"}, nil)
 		},
 		seamComment: func(tracker seams.Jira) error {
-			_, err := tracker.Comment("42", "on it")
+			_, err := tracker.Comment(t.Context(), "42", "on it")
 
 			return err
 		},
-		seamAssign: func(tracker seams.Jira) error { return tracker.Assign("42", "ana") },
+		seamAssign: func(tracker seams.Jira) error { return tracker.Assign(t.Context(), "42", "ana") },
 		seamAddWorklog: func(tracker seams.Jira) error {
-			_, err := tracker.AddWorklog("42", "1h", "")
+			_, err := tracker.AddWorklog(t.Context(), "42", "1h", "")
 
 			return err
 		},
 		seamLinkPull: func(tracker seams.Jira) error {
-			return tracker.LinkPullRequest("42", pullURL, "work")
+			return tracker.LinkPullRequest(t.Context(), "42", pullURL, "work")
 		},
 	}
 
@@ -348,12 +372,12 @@ func TestOnlyAJiraIssueTakesAWorklogOrAPullRequestLink(t *testing.T) {
 	// combined tracker refuses its number before either tracker is asked.
 	cases := map[string]func(tracker seams.Jira) error{
 		seamAddWorklog: func(tracker seams.Jira) error {
-			_, err := tracker.AddWorklog("42", "1h", "")
+			_, err := tracker.AddWorklog(t.Context(), "42", "1h", "")
 
 			return err
 		},
 		seamLinkPull: func(tracker seams.Jira) error {
-			return tracker.LinkPullRequest("42", pullURL, "work")
+			return tracker.LinkPullRequest(t.Context(), "42", pullURL, "work")
 		},
 	}
 
@@ -385,7 +409,7 @@ func TestAJiraIssuesWorklogGoesToJira(t *testing.T) {
 	tracker := bothTrackers(t, stand)
 
 	// Act
-	_, err := tracker.AddWorklog(jiraKey, "1h", "")
+	_, err := tracker.AddWorklog(t.Context(), jiraKey, "1h", "")
 
 	// Assert
 	if err != nil || !slices.ContainsFunc(stand.requests(), func(asked string) bool {
@@ -405,7 +429,7 @@ func TestAJiraThatCannotBeReadFailsTheList(t *testing.T) {
 			tracker := trackersOver(t, unavailableJira(t))
 
 			// Act
-			result, err := tracker.Search(jira.AssignedToMe, startAt)
+			result, err := tracker.Search(t.Context(), jira.AssignedToMe, startAt)
 
 			// Assert
 			if err == nil || len(result.Issues) != 0 {

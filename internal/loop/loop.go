@@ -15,6 +15,8 @@
 package loop
 
 import (
+	"context"
+
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
@@ -30,14 +32,17 @@ func Subjects(commits []gitrepo.Commit) []string {
 	return subjects
 }
 
-// issueSummary is the issue's summary, or empty when there is no issue, no way
-// to read one, or the tracker cannot say — what it describes reads without it.
-func issueSummary(read func(jira.Key) (jira.IssueDetail, error), key jira.Key) string {
+// issueSummary is the issue's summary, read under ctx, or empty when there is
+// no issue, no way to read one, or the tracker cannot say — what it describes
+// reads without it.
+func issueSummary(
+	ctx context.Context, read func(context.Context, jira.Key) (jira.IssueDetail, error), key jira.Key,
+) string {
 	if read == nil || key == "" {
 		return ""
 	}
 
-	detail, err := read(key)
+	detail, err := read(ctx, key)
 	if err != nil {
 		return ""
 	}

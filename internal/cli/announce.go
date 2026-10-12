@@ -155,7 +155,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 // it, and announces it once confirmed, remembering it so a later run does not
 // repeat it unasked. Slack is asked under ctx.
 func runAnnounce(ctx context.Context, out output, seams announceSeams, opts writeOptions) error {
-	composed, err := composeFor(seams)
+	composed, err := composeFor(ctx, seams)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (c composedAnnouncement) made() loop.Announced {
 
 // composeFor composes the announcement seams can post, refusing where nothing
 // can post it or the branch has no pull request to announce.
-func composeFor(seams announceSeams) (composedAnnouncement, error) {
+func composeFor(ctx context.Context, seams announceSeams) (composedAnnouncement, error) {
 	if seams.Post == nil {
 		return composedAnnouncement{}, fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, "+
 			"for Slack, run workflow slack login — then check them with workflow doctor",
@@ -207,7 +207,7 @@ func composeFor(seams announceSeams) (composedAnnouncement, error) {
 	branch, readErr := compose.Branch()
 	compose.Branch = func() (gitrepo.Branch, error) { return branch, readErr }
 
-	announcement, pull, err := loop.ComposeAnnouncement(compose, seams.Messaging, seams.Project, seams.Kind)
+	announcement, pull, err := loop.ComposeAnnouncement(ctx, compose, seams.Messaging, seams.Project, seams.Kind)
 	if errors.Is(err, loop.ErrNoPullRequest) {
 		return composedAnnouncement{}, forgeWordedError{errNoPullRequest, "there is no " + seams.Kind.Noun() +
 			" on this branch to announce; open one with `workflow pr`"}

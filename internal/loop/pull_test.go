@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -46,7 +47,7 @@ func pullSeams() loop.PullSeams {
 		Branch:    func() (gitrepo.Branch, error) { return openable(branchName), nil },
 		FindPull:  func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil },
 		Templates: func() []forge.Template { return nil },
-		Issue: func(jira.Key) (jira.IssueDetail, error) {
+		Issue: func(context.Context, jira.Key) (jira.IssueDetail, error) {
 			return jira.IssueDetail{Issue: jira.Issue{Key: issueKey, Summary: summary}}, nil
 		},
 		BrowseURL: func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) },
@@ -68,7 +69,7 @@ func TestComposePullRefusesAnOpenPull(t *testing.T) {
 	}
 
 	// Act
-	_, _, err := loop.ComposePull(seams, options())
+	_, _, err := loop.ComposePull(t.Context(), seams, options())
 
 	// Assert
 	var open loop.PullAlreadyOpenError
@@ -119,7 +120,7 @@ func TestComposePullRefusesWhatCannotBeOpened(t *testing.T) {
 			seams := mutate(pullSeams())
 
 			// Act
-			_, _, err := loop.ComposePull(seams, options())
+			_, _, err := loop.ComposePull(t.Context(), seams, options())
 
 			// Assert
 			if !errors.Is(err, loop.ErrNothingToOpen) {
@@ -137,7 +138,7 @@ func TestComposePullReportsAnUnreadableBranch(t *testing.T) {
 	seams.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 
 	// Act
-	_, _, err := loop.ComposePull(seams, options())
+	_, _, err := loop.ComposePull(t.Context(), seams, options())
 
 	// Assert
 	if !errors.Is(err, errSeam) || errors.Is(err, loop.ErrNothingToOpen) || !strings.Contains(err.Error(), "branch") {
@@ -175,7 +176,7 @@ func TestComposePullComposesPastWhatDoesNotBlock(t *testing.T) {
 			seams.FindPull = find
 
 			// Act
-			request, branch, err := loop.ComposePull(seams, options())
+			request, branch, err := loop.ComposePull(t.Context(), seams, options())
 
 			// Assert
 			if err != nil || request.Head != branchName || branch.Name != branchName {
@@ -189,7 +190,7 @@ func TestComposePullDraftsFromTheBranchAndItsIssue(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	request, _, err := loop.ComposePull(pullSeams(), options())
+	request, _, err := loop.ComposePull(t.Context(), pullSeams(), options())
 	// Assert
 	if err != nil {
 		t.Fatalf("ComposePull returned %v, want nil", err)
@@ -212,7 +213,7 @@ func TestComposePullTitlesFromTheIssueWhenConfigured(t *testing.T) {
 	opts.TitleSource = convention.TitleFromIssue
 
 	// Act
-	request, _, err := loop.ComposePull(pullSeams(), opts)
+	request, _, err := loop.ComposePull(t.Context(), pullSeams(), opts)
 
 	// Assert
 	if err != nil || request.Title != issueKey+": "+summary {
@@ -230,7 +231,7 @@ func TestComposePullBodyTakesTheFirstTemplate(t *testing.T) {
 	}
 
 	// Act
-	request, _, err := loop.ComposePull(seams, options())
+	request, _, err := loop.ComposePull(t.Context(), seams, options())
 
 	// Assert
 	if err != nil || !strings.HasPrefix(request.Body, "## Why") || strings.Contains(request.Body, "## Commits") {
@@ -253,7 +254,7 @@ func TestComposePullStartsFromTheTemplateChosen(t *testing.T) {
 	opts.Template = otherTemplate
 
 	// Act
-	request, _, err := loop.ComposePull(seams, opts)
+	request, _, err := loop.ComposePull(t.Context(), seams, opts)
 
 	// Assert
 	if err != nil || !strings.HasPrefix(request.Body, "## Other") {
@@ -269,7 +270,7 @@ func TestComposePullRefusesATemplateTheRepositoryLacks(t *testing.T) {
 	opts.Template = "missing"
 
 	// Act
-	_, _, err := loop.ComposePull(pullSeams(), opts)
+	_, _, err := loop.ComposePull(t.Context(), pullSeams(), opts)
 
 	// Assert
 	if !errors.Is(err, loop.ErrNoSuchTemplate) {
@@ -294,7 +295,7 @@ func TestComposePullListsTheCommitsWithoutATemplate(t *testing.T) {
 			seams.Templates = templates
 
 			// Act
-			request, _, err := loop.ComposePull(seams, options())
+			request, _, err := loop.ComposePull(t.Context(), seams, options())
 
 			// Assert
 			if err != nil || !strings.HasPrefix(request.Body, "## Commits") {
@@ -316,7 +317,7 @@ func TestComposePullReadsWithoutWhatTheTrackerCannotSay(t *testing.T) {
 			return seams
 		},
 		"an issue read that fails": func(seams loop.PullSeams) loop.PullSeams {
-			seams.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
+			seams.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
 			seams.BrowseURL = nil
 
 			return seams
@@ -333,7 +334,7 @@ func TestComposePullReadsWithoutWhatTheTrackerCannotSay(t *testing.T) {
 			opts.TitleSource = convention.TitleFromIssue
 
 			// Act
-			request, _, err := loop.ComposePull(seams, opts)
+			request, _, err := loop.ComposePull(t.Context(), seams, opts)
 
 			// Assert
 			if err != nil || request.Title != subject || !strings.Contains(request.Body, "Jira: "+issueKey+"\n") {
@@ -351,7 +352,7 @@ func TestComposePullAsksTheTrackerNothingForAKeylessBranch(t *testing.T) {
 
 	seams := pullSeams()
 	seams.Branch = func() (gitrepo.Branch, error) { return openable(keylessBranch), nil }
-	seams.Issue = func(jira.Key) (jira.IssueDetail, error) {
+	seams.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
 		asked = true
 
 		return jira.IssueDetail{}, nil
@@ -363,7 +364,7 @@ func TestComposePullAsksTheTrackerNothingForAKeylessBranch(t *testing.T) {
 	}
 
 	// Act
-	request, _, err := loop.ComposePull(seams, options())
+	request, _, err := loop.ComposePull(t.Context(), seams, options())
 
 	// Assert
 	if err != nil || asked || strings.Contains(request.Body, "Jira:") {

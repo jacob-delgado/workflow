@@ -97,23 +97,25 @@ func keptReads(store seams.Store) seams.Store {
 // heldBackJira holds back the writes to Jira.
 func heldBackJira(deps seams.Jira) seams.Jira {
 	if deps.Transition != nil {
-		deps.Transition = func(jira.Key, jira.Transition, []jira.FieldValue) error { return errDryRun }
+		deps.Transition = func(context.Context, jira.Key, jira.Transition, []jira.FieldValue) error { return errDryRun }
 	}
 
 	if deps.Comment != nil {
-		deps.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, errDryRun }
+		deps.Comment = func(context.Context, jira.Key, string) (jira.Comment, error) { return jira.Comment{}, errDryRun }
 	}
 
 	if deps.Assign != nil {
-		deps.Assign = func(jira.Key, string) error { return errDryRun }
+		deps.Assign = func(context.Context, jira.Key, string) error { return errDryRun }
 	}
 
 	if deps.AddWorklog != nil {
-		deps.AddWorklog = func(jira.Key, string, string) (jira.Worklog, error) { return jira.Worklog{}, errDryRun }
+		deps.AddWorklog = func(context.Context, jira.Key, string, string) (jira.Worklog, error) {
+			return jira.Worklog{}, errDryRun
+		}
 	}
 
 	if deps.LinkPullRequest != nil {
-		deps.LinkPullRequest = func(jira.Key, string, string) error { return errDryRun }
+		deps.LinkPullRequest = func(context.Context, jira.Key, string, string) error { return errDryRun }
 	}
 
 	return deps

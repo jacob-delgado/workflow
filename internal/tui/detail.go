@@ -107,10 +107,10 @@ func (m Model) reloadDetail(issueKey jira.Key) (Model, tea.Cmd) {
 // read's answer is shown. Every read goes through here.
 func (m Model) readDetail() (Model, tea.Cmd) {
 	m.detailReads++
-	read, issueKey, number := m.deps.Jira.Issue, m.detail.key, m.detailReads
+	ctx, read, issueKey, number := m.session, m.deps.Jira.Issue, m.detail.key, m.detailReads
 
 	return m, func() tea.Msg {
-		detail, err := read(issueKey)
+		detail, err := read(ctx, issueKey)
 
 		return detailLoaded{key: issueKey, read: number, detail: detail, err: err}
 	}

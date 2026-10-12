@@ -4,6 +4,7 @@
 package loop
 
 import (
+	"context"
 	"fmt"
 	"slices"
 
@@ -21,15 +22,17 @@ const keysPerAsk = 100
 // named in the query, since Jira would read it as the id of an unrelated
 // issue: the forge's own issues ignore the query and answer every assigned
 // issue, alone or ahead of Jira's, so the intersection finds them all the
-// same, and keys that are all forge numbers are asked once with NoKeys.
+// same, and keys that are all forge numbers are asked once with NoKeys. Every
+// search is made under ctx.
 func AssignedKeys(
-	search func(jql string, startAt int) (jira.SearchResult, error), keys []jira.Key,
+	ctx context.Context, search func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error),
+	keys []jira.Key,
 ) (map[jira.Key]bool, error) {
 	asked := slices.Compact(slices.Sorted(slices.Values(keys)))
 	mine := make(map[jira.Key]bool)
 
 	for _, jql := range assignedQueries(asked) {
-		found, err := assignedAmong(search, jql, asked)
+		found, err := assignedAmong(ctx, search, jql, asked)
 		if err != nil {
 			return nil, err
 		}
@@ -66,14 +69,15 @@ func isForgeNumber(key jira.Key) bool {
 }
 
 // assignedAmong is which of asked, sorted, the tracker answers jql with, page
-// by page until its total is reached or a page comes back empty.
+// by page, under ctx, until its total is reached or a page comes back empty.
 func assignedAmong(
-	search func(jql string, startAt int) (jira.SearchResult, error), jql string, asked []jira.Key,
+	ctx context.Context, search func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error),
+	jql string, asked []jira.Key,
 ) ([]jira.Key, error) {
 	var found []jira.Key
 
 	for startAt := 0; ; {
-		page, err := search(jql, startAt)
+		page, err := search(ctx, jql, startAt)
 		if err != nil {
 			return nil, fmt.Errorf("asking which issues are assigned to you: %w", err)
 		}

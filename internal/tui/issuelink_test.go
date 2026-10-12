@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -125,7 +126,7 @@ func TestAFailedListingKeepsTheReviewStatusOfferOpen(t *testing.T) {
 	linking := withoutPull()
 	linking.cfg.Jira.ReviewStatus = statusInReview
 	deps := linking.deps()
-	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
 		return nil, fmt.Errorf("listing: %w", jira.ErrUnreachable)
 	}
 	model := sized(t, tui.New(linking.cfg, nil, deps), 120, 40)

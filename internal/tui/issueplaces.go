@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"slices"
 	"strings"
 
@@ -44,8 +45,8 @@ func (msg issueBranchesListed) apply(m Model) (Model, tea.Cmd) {
 }
 
 // listIssueBranches is the command that lists the local and remote branches and
-// reads the issue each names; nil with no git to ask.
-func listIssueBranches(cfg config.Config, deps Deps) tea.Cmd {
+// reads the issue each names, under ctx; nil with no git to ask.
+func listIssueBranches(ctx context.Context, cfg config.Config, deps Deps) tea.Cmd {
 	lister := branchLister{
 		local: deps.Git.Branches, remote: deps.Git.RemoteBranches, links: deps.Git.IssueLinks,
 		project: cfg.Jira.Project,
@@ -55,7 +56,7 @@ func listIssueBranches(cfg config.Config, deps Deps) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		listed := lister.list()
+		listed := lister.list(ctx)
 		if listed.err != nil {
 			return issueBranchesListed{err: listed.err}
 		}

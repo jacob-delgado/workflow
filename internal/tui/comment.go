@@ -118,10 +118,10 @@ func (p commentPreview) post(m Model) (Model, tea.Cmd) {
 
 	p.send = starting()
 	m.overlay = p
-	comment, text := m.deps.Jira.Comment, p.stored()
+	ctx, comment, text := m.session, m.deps.Jira.Comment, p.stored()
 
 	return m, func() tea.Msg {
-		_, err := comment(issueKey, text)
+		_, err := comment(ctx, issueKey, text)
 
 		return commentPosted{issueKey: issueKey, err: err}
 	}

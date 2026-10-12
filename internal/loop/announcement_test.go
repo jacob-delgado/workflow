@@ -49,7 +49,7 @@ func TestComposingAnnouncesTheFactsItsSeamsRead(t *testing.T) {
 	read.Pull, read.Moment = openPull(), messaging.MomentReady
 
 	// Act
-	composed, _, err := compose(announceSeams())
+	composed, _, err := compose(t, announceSeams())
 
 	// Assert
 	want := loop.Announcement(read, announceConfig(), forge.KindGitLab)

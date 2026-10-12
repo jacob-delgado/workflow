@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -52,7 +53,9 @@ func TestListIssuesReportsASeamFailure(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Jira.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, errSeam }
+	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
+		return jira.SearchResult{}, errSeam
+	}
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
@@ -75,7 +78,7 @@ func TestListIssuesRefusesAnUnknownView(t *testing.T) {
 	// A typo in the view must not quietly answer with the default view's issues.
 	searched := false
 	deps := filledDeps()
-	deps.Jira.Search = func(string, int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 		searched = true
 
 		return jira.SearchResult{}, nil
@@ -102,7 +105,7 @@ func TestListIssuesUsesTheNamedView(t *testing.T) {
 	var gotJQL string
 
 	deps := filledDeps()
-	deps.Jira.Search = func(jql string, _ int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
 		gotJQL = jql
 
 		return jira.SearchResult{}, nil
@@ -138,8 +141,8 @@ func TestGetIssueLinksTheIssueAndNamesItsAssignee(t *testing.T) {
 	// Arrange
 	deps := filledDeps()
 	issue := deps.Jira.Issue
-	deps.Jira.Issue = func(key jira.Key) (jira.IssueDetail, error) {
-		detail, err := issue(key)
+	deps.Jira.Issue = func(ctx context.Context, key jira.Key) (jira.IssueDetail, error) {
+		detail, err := issue(ctx, key)
 		detail.Assignee = testAuthor
 
 		return detail, err
@@ -222,7 +225,7 @@ func TestGetIssueIsNotFoundForAMissingIssue(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, cause }
+			deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, cause }
 
 			// Act
 			recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-404")
@@ -245,7 +248,9 @@ func TestGetIssueIsUnreachableWhenTheTrackerIsDown(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrUnreachable }
+	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
+		return jira.IssueDetail{}, jira.ErrUnreachable
+	}
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
@@ -262,7 +267,7 @@ func TestGetIssueReportsAFailure(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
+	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
@@ -278,7 +283,7 @@ func TestListIssuesSaysEachIssuesTrackerAndWhichCouldNotBeRead(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Jira.Search = func(string, int) (jira.SearchResult, error) {
+	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{
 			Issues:      []jira.Issue{{Key: "57", Summary: "Typo"}, {Key: testKey, Summary: "Leak"}},
 			Total:       2,

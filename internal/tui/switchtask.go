@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"strings"
@@ -143,9 +144,10 @@ func (m Model) openBranchPicker() (Model, tea.Cmd) {
 		search: m.deps.Jira.SearchLenient, project: m.cfg.Jira.Project,
 		worktrees: m.deps.Repositories.Worktrees, here: m.deps.Repositories.Here.Root,
 	}
+	ctx := m.session
 
 	return m, func() tea.Msg {
-		listed := lister.list()
+		listed := lister.list(ctx)
 		listed.worktrees = lister.otherWorktrees()
 
 		return listed
@@ -159,7 +161,7 @@ type branchLister struct {
 	local     func() ([]string, error)
 	remote    func() ([]string, error)
 	links     func() map[string]string
-	search    func(jql string, startAt int) (jira.SearchResult, error)
+	search    func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error)
 	project   string
 	worktrees func() ([]gitrepo.Worktree, error)
 	// here is the root of the worktree this session works in.
@@ -185,10 +187,11 @@ func (l branchLister) otherWorktrees() map[string]gitrepo.Worktree {
 	return byBranch
 }
 
-// list is the local branches, then the remote ones, then which issues are yours.
-// A listing git could not make is the listing's error; a tracker that could not
-// be asked leaves every issue counted, with the reason it was not.
-func (l branchLister) list() branchesListed {
+// list is the local branches, then the remote ones, then which issues are yours,
+// asked under ctx. A listing git could not make is the listing's error; a
+// tracker that could not be asked leaves every issue counted, with the reason
+// it was not.
+func (l branchLister) list(ctx context.Context) branchesListed {
 	local, err := l.local()
 	if err != nil {
 		return branchesListed{err: err}
@@ -204,7 +207,7 @@ func (l branchLister) list() branchesListed {
 		return branchesListed{local: local, remote: remote, links: links}
 	}
 
-	mine, err := loop.AssignedKeys(l.search, l.issueKeys(slices.Concat(local, remote), links))
+	mine, err := loop.AssignedKeys(ctx, l.search, l.issueKeys(slices.Concat(local, remote), links))
 	if err != nil {
 		return branchesListed{local: local, remote: remote, links: links, notAsked: err}
 	}

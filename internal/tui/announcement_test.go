@@ -36,7 +36,7 @@ func loopAnnouncement(t *testing.T, w *world) string {
 		Issue: deps.Jira.Issue, BrowseURL: deps.Jira.BrowseURL, CheckCI: deps.Forge.CheckStatus,
 	}
 
-	announcement, _, err := loop.ComposeAnnouncement(seams, w.cfg.Messaging, w.cfg.Jira.Project, w.forgeKind)
+	announcement, _, err := loop.ComposeAnnouncement(t.Context(), seams, w.cfg.Messaging, w.cfg.Jira.Project, w.forgeKind)
 	if err != nil {
 		t.Fatalf("loop composed no announcement: %v", err)
 	}

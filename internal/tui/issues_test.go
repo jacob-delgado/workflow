@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"sync/atomic"
@@ -39,8 +40,10 @@ func searching(search func(startAt int) (jira.SearchResult, error)) tui.Deps {
 
 // ignoreJQL adapts a search that does not care which view it answers to the
 // seam, which passes the active view's JQL.
-func ignoreJQL(search func(startAt int) (jira.SearchResult, error)) func(string, int) (jira.SearchResult, error) {
-	return func(_ string, startAt int) (jira.SearchResult, error) { return search(startAt) }
+func ignoreJQL(
+	search func(startAt int) (jira.SearchResult, error),
+) func(context.Context, string, int) (jira.SearchResult, error) {
+	return func(_ context.Context, _ string, startAt int) (jira.SearchResult, error) { return search(startAt) }
 }
 
 // failing is a search that fails with err.

@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -67,7 +68,7 @@ func writesWired(ran *int) webserver.Deps {
 
 	checkout := deps.Git.Checkout
 	deps.Git.CreateBranch = func(name, _ string) error { return checkout(name) }
-	deps.Jira.LinkPullRequest = func(_ jira.Key, url, _ string) error { return checkout(url) }
+	deps.Jira.LinkPullRequest = func(_ context.Context, _ jira.Key, url, _ string) error { return checkout(url) }
 
 	return deps
 }

@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -159,7 +160,7 @@ func TestCreateBranchSaysWhyTheIssueCouldNotBeRead(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) {
+			deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
 				return jira.IssueDetail{}, fmt.Errorf("reading https://%s/rest/api/2/issue/%s: %w",
 					jiraHost, startIssue, tt.cause)
 			}

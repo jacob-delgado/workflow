@@ -223,10 +223,10 @@ func (m Model) pickStatusFor(issue jira.Issue, offer statusOffer) (Model, tea.Cm
 	}
 
 	m.overlay = statusPicker{issue: issue, offer: offer}
-	list := m.deps.Jira.Transitions
+	ctx, list := m.session, m.deps.Jira.Transitions
 
 	return m, func() tea.Msg {
-		found, err := list(issue.Key)
+		found, err := list(ctx, issue.Key)
 
 		return transitionsListed{issueKey: issue.Key, found: found, err: err}
 	}
@@ -394,10 +394,10 @@ func (p statusPicker) apply(m Model, chosen jira.Transition, values []jira.Field
 
 	p.send = starting()
 	m.overlay = p
-	transition := m.deps.Jira.Transition
+	ctx, transition := m.session, m.deps.Jira.Transition
 
 	return m, func() tea.Msg {
-		return transitionApplied{issueKey: issueKey, to: chosen, err: transition(issueKey, chosen, values)}
+		return transitionApplied{issueKey: issueKey, to: chosen, err: transition(ctx, issueKey, chosen, values)}
 	}
 }
 

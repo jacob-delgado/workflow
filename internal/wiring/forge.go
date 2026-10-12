@@ -108,9 +108,15 @@ func forgeDeps(
 
 // onGitLab reports that the settings in effect now put the remote on GitLab.
 func (s forgeSetup) onGitLab() bool {
-	repo, err := resolveRepo(s.settings(), s.where.Remote)
+	repo, err := s.repo()
 
 	return err == nil && repo.Kind == forge.KindGitLab
+}
+
+// repo is the forge repository the remote points at under the settings in
+// effect now, read without a network call.
+func (s forgeSetup) repo() (forge.Repo, error) {
+	return resolveRepo(s.settings(), s.where.Remote)
 }
 
 // rewriteSeam is the rewrite-a-description seam, split out to keep forgeDeps

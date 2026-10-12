@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -43,18 +44,18 @@ type linkCall struct {
 // fields-less move to the review status. Each write records what it was asked.
 func writableDeps(links *[]linkCall, moves *[]jira.Transition) webserver.Deps {
 	deps := filledDeps()
-	deps.Jira.LinkPullRequest = func(issueKey jira.Key, pullURL, title string) error {
+	deps.Jira.LinkPullRequest = func(_ context.Context, issueKey jira.Key, pullURL, title string) error {
 		*links = append(*links, linkCall{issueKey: issueKey, url: pullURL, title: title})
 
 		return nil
 	}
-	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
 		return []jira.Transition{
 			{ID: "11", ToStatus: "Blocked"},
 			{ID: "21", ToStatus: reviewStatus},
 		}, nil
 	}
-	deps.Jira.Transition = func(_ jira.Key, to jira.Transition, _ []jira.FieldValue) error {
+	deps.Jira.Transition = func(_ context.Context, _ jira.Key, to jira.Transition, _ []jira.FieldValue) error {
 		*moves = append(*moves, to)
 
 		return nil
@@ -267,7 +268,7 @@ func TestTransitionRefusesAFormTransition(t *testing.T) {
 	var moves []jira.Transition
 
 	deps := writableDeps(new([]linkCall), &moves)
-	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
 		return []jira.Transition{{ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: "resolution"}}}}, nil
 	}
 
@@ -288,7 +289,7 @@ func TestTransitionRefusesAMoveJiraDoesNotOffer(t *testing.T) {
 	var moves []jira.Transition
 
 	deps := writableDeps(new([]linkCall), &moves)
-	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
 		return []jira.Transition{{ID: "31", ToStatus: "Done"}}, nil
 	}
 
@@ -375,19 +376,21 @@ func TestUnreachableJiraDetailOmitsItsHost(t *testing.T) {
 	}{
 		"the link": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Jira.LinkPullRequest = func(jira.Key, string, string) error { return unreachable }
+				deps.Jira.LinkPullRequest = func(context.Context, jira.Key, string, string) error { return unreachable }
 			},
 			path: linkPath,
 		},
 		"reading the moves": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) { return nil, unreachable }
+				deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) { return nil, unreachable }
 			},
 			path: movePath,
 		},
 		"the move": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Jira.Transition = func(jira.Key, jira.Transition, []jira.FieldValue) error { return unreachable }
+				deps.Jira.Transition = func(context.Context, jira.Key, jira.Transition, []jira.FieldValue) error {
+					return unreachable
+				}
 			},
 			path: movePath,
 		},
@@ -430,7 +433,7 @@ type commentCall struct {
 // asked and answers it as Jira would store it.
 func commentingDeps(comments *[]commentCall) webserver.Deps {
 	deps := filledDeps()
-	deps.Jira.Comment = func(issueKey jira.Key, text string) (jira.Comment, error) {
+	deps.Jira.Comment = func(_ context.Context, issueKey jira.Key, text string) (jira.Comment, error) {
 		*comments = append(*comments, commentCall{issueKey: issueKey, text: text})
 
 		return jira.Comment{Author: "Ana Lima", Body: text}, nil
@@ -537,7 +540,7 @@ func TestACommentJiraCannotTakeSaysWhyWithoutItsHost(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Jira.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
+			deps.Jira.Comment = func(context.Context, jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
 
 			// Act
 			recorder := postComment(t, deps, commentPath, `{"text":"hi"}`)
@@ -636,7 +639,7 @@ func TestACommentTheForgeCannotTakeSaysWhyWithoutItsHost(t *testing.T) {
 
 			// Arrange
 			deps := filledDeps()
-			deps.Jira.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
+			deps.Jira.Comment = func(context.Context, jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
 
 			// Act
 			recorder := postComment(t, deps, forgeCommentPath, `{"text":"hi"}`)

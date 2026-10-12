@@ -206,12 +206,13 @@ func taskRef(task taskwarrior.Task) string {
 	return task.UUID[:min(len(task.UUID), shortUUID)]
 }
 
-// JiraRead is what you did to Jira issues from start up to end, each linked
-// to its page as browse names it.
+// JiraRead is what you did to Jira issues from start up to end, asked under
+// ctx, each linked to its page as browse names it.
 func JiraRead(
-	read func(start, end time.Time) (jira.Activity, error), browse func(jira.Key) string, start, end time.Time,
+	ctx context.Context, read func(ctx context.Context, start, end time.Time) (jira.Activity, error),
+	browse func(jira.Key) string, start, end time.Time,
 ) activity.Read {
-	done, err := read(start, end)
+	done, err := read(ctx, start, end)
 	if err != nil {
 		return unanswered(activity.Read{Source: activity.SourceJira}, err)
 	}
@@ -279,7 +280,7 @@ func ForgeRead(
 type ActivitySeams struct {
 	Commits   func(start, end time.Time) []RepositoryCommits
 	Touched   func(ctx context.Context, since time.Time) ([]taskwarrior.Task, error)
-	Jira      func(start, end time.Time) (jira.Activity, error)
+	Jira      func(ctx context.Context, start, end time.Time) (jira.Activity, error)
 	BrowseURL func(jira.Key) string
 	Forge     func(start, end time.Time) (forge.Activity, error)
 	ForgeKind forge.Kind
@@ -312,8 +313,8 @@ func SummaryReads(seams ActivitySeams, start, end time.Time) []SourceRead {
 	}
 
 	if seams.Jira != nil {
-		reads = append(reads, SourceRead{activity.SourceJira, func(context.Context) activity.Read {
-			return JiraRead(seams.Jira, seams.browse, start, end)
+		reads = append(reads, SourceRead{activity.SourceJira, func(ctx context.Context) activity.Read {
+			return JiraRead(ctx, seams.Jira, seams.browse, start, end)
 		}})
 	}
 

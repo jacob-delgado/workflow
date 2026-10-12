@@ -4,6 +4,7 @@
 package wiring
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -36,29 +37,31 @@ func combinedTracker(settings config.Jira, jiraSide, forgeSide seams.Jira) seams
 	asked := &forgeRows{}
 
 	return seams.Jira{
-		Search: func(jql string, startAt int) (jira.SearchResult, error) {
-			return listed.search(jiraSide.Search, forgeSide.Search, jql == first, jql, startAt)
+		Search: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
+			return listed.search(ctx, jiraSide.Search, forgeSide.Search, jql == first, jql, startAt)
 		},
-		SearchLenient: func(jql string, startAt int) (jira.SearchResult, error) {
-			return asked.search(jiraSide.SearchLenient, forgeSide.Search, true, jql, startAt)
+		SearchLenient: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
+			return asked.search(ctx, jiraSide.SearchLenient, forgeSide.Search, true, jql, startAt)
 		},
 		Issue:       byTracker(jiraSide.Issue, forgeSide.Issue),
 		Transitions: byTracker(jiraSide.Transitions, forgeSide.Transitions),
-		Transition: func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error {
-			return pick(issueKey, jiraSide.Transition, forgeSide.Transition)(issueKey, to, values)
+		Transition: func(ctx context.Context, issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error {
+			return pick(issueKey, jiraSide.Transition, forgeSide.Transition)(ctx, issueKey, to, values)
 		},
-		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
-			return pick(issueKey, jiraSide.Comment, forgeSide.Comment)(issueKey, text)
+		Comment: func(ctx context.Context, issueKey jira.Key, text string) (jira.Comment, error) {
+			return pick(issueKey, jiraSide.Comment, forgeSide.Comment)(ctx, issueKey, text)
 		},
-		Assign: func(issueKey jira.Key, assignee string) error {
-			return pick(issueKey, jiraSide.Assign, forgeSide.Assign)(issueKey, assignee)
+		Assign: func(ctx context.Context, issueKey jira.Key, assignee string) error {
+			return pick(issueKey, jiraSide.Assign, forgeSide.Assign)(ctx, issueKey, assignee)
 		},
-		AddWorklog: func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error) {
-			return jiraOnly(issueKey, func() (jira.Worklog, error) { return jiraSide.AddWorklog(issueKey, timeSpent, comment) })
+		AddWorklog: func(ctx context.Context, issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error) {
+			return jiraOnly(issueKey, func() (jira.Worklog, error) {
+				return jiraSide.AddWorklog(ctx, issueKey, timeSpent, comment)
+			})
 		},
-		LinkPullRequest: func(issueKey jira.Key, pullURL, title string) error {
+		LinkPullRequest: func(ctx context.Context, issueKey jira.Key, pullURL, title string) error {
 			_, err := jiraOnly(issueKey, func() (struct{}, error) {
-				return struct{}{}, jiraSide.LinkPullRequest(issueKey, pullURL, title)
+				return struct{}{}, jiraSide.LinkPullRequest(ctx, issueKey, pullURL, title)
 			})
 
 			return err
@@ -97,8 +100,12 @@ func pick[F any](issueKey jira.Key, onJira, onForge F) F {
 }
 
 // byTracker is a one-key read that goes to the tracker the key belongs to.
-func byTracker[T any](onJira, onForge func(jira.Key) (T, error)) func(jira.Key) (T, error) {
-	return func(issueKey jira.Key) (T, error) { return pick(issueKey, onJira, onForge)(issueKey) }
+func byTracker[T any](
+	onJira, onForge func(context.Context, jira.Key) (T, error),
+) func(context.Context, jira.Key) (T, error) {
+	return func(ctx context.Context, issueKey jira.Key) (T, error) {
+		return pick(issueKey, onJira, onForge)(ctx, issueKey)
+	}
 }
 
 // jiraOnly runs ask for a Jira issue, and refuses a forge issue's key without
@@ -121,27 +128,28 @@ type forgeRows struct {
 	count int
 }
 
-// search is one page of a list: Jira's alone, or, with withForge, the forge's
-// issues ahead of Jira's first page and Jira's own rows after it. A forge that
-// cannot be read leaves Jira's list, naming the forge unavailable; a Jira that
-// cannot be read fails the list, as it always has.
+// search is one page of a list, asked under ctx: Jira's alone, or, with
+// withForge, the forge's issues ahead of Jira's first page and Jira's own rows
+// after it. A forge that cannot be read leaves Jira's list, naming the forge
+// unavailable; a Jira that cannot be read fails the list, as it always has.
 func (f *forgeRows) search(
-	jiraSearch, forgeList func(string, int) (jira.SearchResult, error), withForge bool, jql string, startAt int,
+	ctx context.Context, jiraSearch, forgeList func(context.Context, string, int) (jira.SearchResult, error),
+	withForge bool, jql string, startAt int,
 ) (jira.SearchResult, error) {
 	if !withForge {
-		return jiraSearch(jql, startAt)
+		return jiraSearch(ctx, jql, startAt)
 	}
 
 	if startAt > 0 {
-		return f.laterPage(jiraSearch, jql, startAt)
+		return f.laterPage(ctx, jiraSearch, jql, startAt)
 	}
 
-	page, err := jiraSearch(jql, 0)
+	page, err := jiraSearch(ctx, jql, 0)
 	if err != nil {
 		return jira.SearchResult{}, err
 	}
 
-	forge, forgeErr := forgeList("", 0)
+	forge, forgeErr := forgeList(ctx, "", 0)
 	if forgeErr != nil {
 		forge = jira.SearchResult{Unavailable: []string{forgeIssuesLabel}}
 	}
@@ -156,15 +164,17 @@ func (f *forgeRows) search(
 	}, nil
 }
 
-// laterPage is Jira's page past the forge rows the first page led with.
+// laterPage is Jira's page past the forge rows the first page led with,
+// asked under ctx.
 func (f *forgeRows) laterPage(
-	jiraSearch func(string, int) (jira.SearchResult, error), jql string, startAt int,
+	ctx context.Context, jiraSearch func(context.Context, string, int) (jira.SearchResult, error), jql string,
+	startAt int,
 ) (jira.SearchResult, error) {
 	f.lock.Lock()
 	count := f.count
 	f.lock.Unlock()
 
-	page, err := jiraSearch(jql, max(0, startAt-count))
+	page, err := jiraSearch(ctx, jql, max(0, startAt-count))
 	if err != nil {
 		return jira.SearchResult{}, err
 	}
