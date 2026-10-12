@@ -6,7 +6,8 @@
 // goes on when its asker leaves (a read others share, a refresh that must not
 // stop halfway) detaches from the asker through Detached, and still ends with
 // that lifetime, so a server that stops, or a command a signal ends, is never
-// held open by it.
+// held open by it. A context can carry an InFlight too, the work begun under
+// it that has not yet ended, which a process waits for before it exits.
 package lifetime
 
 import "context"
