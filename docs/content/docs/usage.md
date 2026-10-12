@@ -245,8 +245,8 @@ Every key here but the pane numbers, `1`–`9`, can be rebound with `ui.keys`;
 see [Configuration]({{< relref "/docs/configuration" >}}). A map that moves an
 action live on a pane onto a pane number, or that gives two actions live in
 one place — a pane, an open overlay, or the Branch and Commits panes, which
-the `--web` page shows together — the same key, stops workflow from
-starting, and `workflow doctor` names it.
+the `--web` page shows together, for two actions the page binds — the same
+key, stops workflow from starting, and `workflow doctor` names it.
 
 ## The loop
 
