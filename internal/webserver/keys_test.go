@@ -72,8 +72,36 @@ func TestGetKeysListsNoActionWhereNoneIsWired(t *testing.T) {
 	recorder := get(t, handler, "/api/keys")
 
 	// Assert
-	if recorder.Code != http.StatusOK || recorder.Body.String() != `{"actions":[],"single_key_shortcuts":false}`+"\n" {
+	if recorder.Code != http.StatusOK ||
+		recorder.Body.String() != `{"actions":[],"pane_sections":[],"single_key_shortcuts":false}`+"\n" {
 		t.Errorf("GET /api/keys = %d %s, want an empty list with the shortcuts off", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestGetKeysListsTheSectionEachPaneIsShownIn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	want := []api.PaneSection{
+		api.PaneSectionIssues, api.PaneSectionBranch, api.PaneSectionBranch, api.PaneSectionReview,
+	}
+	sections := func() []string {
+		named := make([]string, 0, len(want))
+		for _, section := range want {
+			named = append(named, string(section))
+		}
+
+		return named
+	}
+	handler := serve(t, webserver.Deps{KeyActions: echoKeyActions, PaneSections: sections}, config.Default())
+
+	// Act
+	recorder := get(t, handler, "/api/keys")
+
+	// Assert
+	listed := decode[api.KeyList](t, recorder)
+	if recorder.Code != http.StatusOK || !slices.Equal(listed.PaneSections, want) {
+		t.Errorf("GET /api/keys = %d with the pane sections %q, want %q", recorder.Code, listed.PaneSections, want)
 	}
 }
 

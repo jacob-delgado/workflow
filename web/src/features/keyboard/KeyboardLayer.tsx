@@ -5,7 +5,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { shortcutsHeld } from '@/lib/LastLook.tsx'
 import { sectionLabel, sectionMeta } from '@/shell/sections.ts'
 import { sections, useUiStore, type Section } from '@/shell/uiStore.ts'
-import { helpAction, jumpAction, paneSections } from './boundActions.ts'
+import { helpAction, jumpAction } from './boundActions.ts'
 import { CommandPalette, type PaletteEntry } from './CommandPalette.tsx'
 import { opensPalette, plainKey, pressable, takesTyping } from './keyNames.ts'
 import { keysOf, useKeysStore, useReadKeys } from './keysApi.ts'
@@ -20,9 +20,9 @@ function helpKeyOf(actions: KeyAction[]): string {
   return keysOf(actions, helpAction).find(pressable) ?? '?'
 }
 
-// jumpFor is the section a pane number opens, or undefined for a key that is
-// none.
-function jumpFor(actions: KeyAction[], key: string): Section | undefined {
+// jumpFor is the section a pane number opens, as the server says its pane is
+// shown in, or undefined for a key that is none.
+function jumpFor(actions: KeyAction[], paneSections: Section[], key: string): Section | undefined {
   const index = keysOf(actions, jumpAction).indexOf(key)
 
   return index < 0 ? undefined : paneSections[index]
@@ -32,8 +32,8 @@ function jumpFor(actions: KeyAction[], key: string): Section | undefined {
 // section its pane number names, or answers through the control on screen
 // bound to it. It reports whether the key did anything.
 function answerKey(key: string): boolean {
-  const { actions } = useKeysStore.getState()
-  const section = jumpFor(actions, key)
+  const { actions, paneSections } = useKeysStore.getState()
+  const section = jumpFor(actions, paneSections, key)
   if (section !== undefined) {
     useUiStore.getState().setSection(section)
 
@@ -54,7 +54,7 @@ function answerKey(key: string): boolean {
 // control on screen answers, in the terminal's words and order, then each
 // other section to go to.
 function paletteEntries(section: Section, service: string | undefined): PaletteEntry[] {
-  const { shortcuts, actions } = useKeysStore.getState()
+  const { shortcuts, actions, paneSections } = useKeysStore.getState()
   const live = liveRegistrations()
   const keyOf = (keys: string[]) => (shortcuts ? keys.find(pressable) : undefined)
   const here = sectionLabel(section, service)

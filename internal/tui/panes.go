@@ -46,6 +46,29 @@ func (p pane) title(messaging string) string {
 	return titles[p]
 }
 
+// webSection names the --web page's section the pane is shown in. A lookup, as
+// title is. The page shows the Commits pane inside its Branch section, so the
+// keys of both are live there at once.
+func (p pane) webSection() string {
+	sections := [paneCount]string{
+		"issues", "branch", "branch", "review", "messaging", "reviews", "tasks", "summary", "repositories",
+	}
+
+	return sections[p]
+}
+
+// PaneSections is the --web page's section each pane is shown in, in the
+// panes' order, which is the order of the pane numbers: what the page opens
+// on a pane number, and where CheckKeys finds two panes' keys live at once.
+func PaneSections() []string {
+	sections := make([]string, 0, paneCount)
+	for each := range pane(paneCount) {
+		sections = append(sections, each.webSection())
+	}
+
+	return sections
+}
+
 // label is the title with the number that jumps to it.
 func (p pane) label(messaging string) string {
 	return strconv.Itoa(int(p)+1) + " " + p.title(messaging)

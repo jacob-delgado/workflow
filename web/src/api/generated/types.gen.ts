@@ -1917,7 +1917,16 @@ export type KeyList = {
      */
     single_key_shortcuts: boolean;
     actions: Array<KeyAction>;
+    /**
+     * The page's section each of the terminal's panes is shown in, in the panes' order, which is the order of jump-to-pane's keys: the Commits pane, the third, is part of the Branch section, so two pane numbers open it. Empty where the server lists no keys.
+     */
+    pane_sections: Array<PaneSection>;
 };
+
+/**
+ * A section of the page that shows one or more of the terminal's panes.
+ */
+export type PaneSection = 'issues' | 'branch' | 'review' | 'messaging' | 'reviews' | 'tasks' | 'summary' | 'repositories';
 
 /**
  * One action the terminal interface binds, as its help lists it.

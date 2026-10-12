@@ -224,7 +224,8 @@ func (s *server) keymapRefusal(keys map[string]string) error {
 }
 
 // GetKeys lists the terminal interface's key actions under the ui.keys of the
-// configuration in effect, and whether the page's single-key shortcuts are on.
+// configuration in effect, whether the page's single-key shortcuts are on, and
+// the section each of the interface's panes is shown in.
 // It takes up an edit made to the file first, as a read of the configuration
 // does, so a rebinding saved by hand reaches a page that reads its keys again;
 // a file that is not valid, or cannot be read, leaves the configuration in
@@ -246,7 +247,23 @@ func (s *server) GetKeys(_ context.Context, _ api.GetKeysRequestObject) (api.Get
 		}
 	}
 
-	return api.GetKeys200JSONResponse{SingleKeyShortcuts: cfg.UI.WebShortcuts, Actions: actions}, nil
+	return api.GetKeys200JSONResponse{
+		SingleKeyShortcuts: cfg.UI.WebShortcuts, Actions: actions, PaneSections: s.paneSections(),
+	}, nil
+}
+
+// paneSections is the section each of the terminal's panes is shown in, none
+// where no list is wired.
+func (s *server) paneSections() []api.PaneSection {
+	sections := []api.PaneSection{}
+
+	if s.deps.PaneSections != nil {
+		for _, section := range s.deps.PaneSections() {
+			sections = append(sections, api.PaneSection(section))
+		}
+	}
+
+	return sections
 }
 
 // save writes incoming, what posted decoded to, over the read over, through
