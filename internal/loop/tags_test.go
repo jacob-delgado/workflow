@@ -23,6 +23,9 @@ const (
 	devChannel       = "#dev"
 )
 
+// anaTagged is the line of a post that tags Ana alone.
+const anaTagged = "cc <@U0ANA>"
+
 // slackAna is whom Ana is on Slack.
 func slackAna() loop.SlackTarget { return loop.SlackTarget{ID: "U0ANA", Label: "Ana"} }
 
@@ -240,7 +243,7 @@ func TestMentionsTagOnlyTheOwnersTheCallerPassed(t *testing.T) {
 	mentions, err := tags.Mentions(nil)
 
 	// Assert
-	if line := mentions.Line(); err != nil || line != "cc <@U0ANA>" {
+	if line := mentions.Line(); err != nil || line != anaTagged {
 		t.Errorf("Mentions = %q, %v; want Ana alone", line, err)
 	}
 }
@@ -284,27 +287,53 @@ func TestProposedTagsTheLinkedPeopleAndTheGroupsThatStartChecked(t *testing.T) {
 	tags := proposal()
 
 	// Act
-	mentions := tags.Proposed()
+	proposed, mentions := tags.Proposed()
 
 	// Assert
 	if line := mentions.Line(); line != "cc <@U0ANA> <!subteam^S0CP>" {
 		t.Errorf("Proposed = %q; want Ana and the control-plane group, and neither Dan nor the API reviewers", line)
 	}
+
+	if !reflect.DeepEqual(proposed, proposal()) {
+		t.Errorf("Proposed = %+v, want the tags as proposed: every ID is shaped like its kind", proposed)
+	}
 }
 
-func TestProposedLeavesOutAnIDNotShapedLikeItsKind(t *testing.T) {
+func TestProposedReadsAnIDNotShapedLikeItsKindAsNotTagged(t *testing.T) {
 	t.Parallel()
 
+	// Each case puts an ID of the wrong kind into the proposal, and says how
+	// the tags then read: an owner unlinked, as ProposeTags reads such a
+	// link, and a group unchecked, so the tags name no one the post leaves
+	// out.
 	tests := map[string]struct {
-		person loop.SlackTarget
-		group  loop.SlackTarget
-		want   string
+		mangle func(tags *loop.Tags)
+		reads  func(tags *loop.Tags)
+		line   string
 	}{
 		"a person's": {
-			person: loop.SlackTarget{ID: "S0ANA", Label: slackAna().Label}, group: controlPlanePod(), want: "cc <!subteam^S0CP>",
+			mangle: func(tags *loop.Tags) { tags.Owners[0].Slack = loop.SlackTarget{ID: "S0ANA", Label: slackAna().Label} },
+			reads: func(tags *loop.Tags) {
+				tags.Owners[0] = loop.OwnerTag{Owner: ownerAna, Team: false, State: loop.OwnerUnlinked, Slack: loop.SlackTarget{}}
+			},
+			line: "cc <!subteam^S0CP>",
+		},
+		"a team's, and so its group's": {
+			mangle: func(tags *loop.Tags) { tags.Owners[2].Slack, tags.Groups[0].Slack = podAsAUser(), podAsAUser() },
+			reads: func(tags *loop.Tags) {
+				tags.Owners[2] = loop.OwnerTag{
+					Owner: controlPlaneTeam, Team: true, State: loop.OwnerUnlinked, Slack: loop.SlackTarget{},
+				}
+				tags.Groups[0] = loop.GroupTag{Slack: podAsAUser(), Checked: false, FromOwners: true}
+			},
+			line: anaTagged,
 		},
 		"a group's": {
-			person: slackAna(), group: podAsAUser(), want: "cc <@U0ANA>",
+			mangle: func(tags *loop.Tags) { tags.Groups[0].Slack = podAsAUser() },
+			reads: func(tags *loop.Tags) {
+				tags.Groups[0] = loop.GroupTag{Slack: podAsAUser(), Checked: false, FromOwners: true}
+			},
+			line: anaTagged,
 		},
 	}
 
@@ -314,15 +343,23 @@ func TestProposedLeavesOutAnIDNotShapedLikeItsKind(t *testing.T) {
 
 			// Arrange
 			tags := proposal()
-			tags.Owners[0].Slack = tt.person
-			tags.Groups[0].Slack = tt.group
+			tt.mangle(&tags)
 
 			// Act
-			mentions := tags.Proposed()
+			proposed, mentions := tags.Proposed()
 
 			// Assert
-			if line := mentions.Line(); line != tt.want {
-				t.Errorf("Proposed = %q, want %q: the ID not shaped like its kind left out, the rest tagged", line, tt.want)
+			if line := mentions.Line(); line != tt.line {
+				t.Errorf("Proposed tags %q, want %q: the ID not shaped like its kind left out, the rest tagged",
+					line, tt.line)
+			}
+
+			want := proposal()
+			tt.mangle(&want)
+			tt.reads(&want)
+
+			if !reflect.DeepEqual(proposed, want) {
+				t.Errorf("Proposed = %+v, want %+v: whom the post leaves out not named as tagged", proposed, want)
 			}
 		})
 	}
