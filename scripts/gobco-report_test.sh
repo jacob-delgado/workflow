@@ -10,14 +10,14 @@
 # is named in NO_TESTS; and one that is not is refused by name.
 #
 # The arms no test reached: a condition never evaluated, and an error check's
-# error arm never seen, fail the run, naming the file, line and function, a
-# method by its type's name whatever type parameters it takes, unless a line
-# of the allowlist keeps that arm for a trade-off; a line keeps one arm, on
-# the systems it names; a line whose arm a test now reaches, or that is not
-# shaped as one, fails too; and a boolean seen one way is only listed. Each
-# package the floors file names answers to its own floor beside the module's,
-# a floor without a reason above it fails, and so does a floors file that is
-# not there.
+# error arm never seen, an errors.Is right after one among them, fail the run,
+# naming the file, line and function, a method by its type's name whatever type
+# parameters it takes, unless a line of the allowlist keeps that arm for a
+# trade-off; a line keeps one arm, on the systems it names; a line whose arm a
+# test now reaches, or that is not shaped as one, fails too; and a boolean seen
+# one way is only listed. Each package the floors file names answers to its own
+# floor beside the module's, a floor without a reason above it fails, and so
+# does a floors file that is not there.
 #
 # The stand-in gobco says which package or file it measured, writes
 # GOBCO_STUB_STATS to the file after -stats, or nothing when that is empty,
@@ -190,6 +190,23 @@ func (c *cache[K, V]) get(key K) error {
 
 	return nil
 }
+
+func remove(path string) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+
+	if err := os.Remove(path); err != nil &&
+		errors.Is(err, fs.ErrPermission) {
+		return nil
+	}
+
+	if ok := exists(path); ok && errors.Is(lastErr, fs.ErrExist) {
+		return nil
+	}
+
+	return nil
+}
 GO
 
 # condition writes the statistics of one condition at a line and column of
@@ -241,6 +258,21 @@ expect fail "an error arm of a name with a rest that no test reached" "[$(condit
 expect fail "an error arm in a method of a type with type parameters" "[$(condition 33:25 'err != nil' 0 2)]" "" \
   "${fixture}:33:25 in cache.get: \"err != nil\" was never seen true, the error's arm" \
   --package "${buildinfo}" 50
+# gobco reports a !errors.Is as the call alone, so its error arm is the
+# call's false one.
+expect fail "a !errors.Is right after an error check, its error arm unseen" \
+  "[$(condition 41:44 'errors.Is(err, fs.ErrNotExist)' 3 0)]" "" \
+  "${fixture}:41:44 in remove: \"errors.Is(err, fs.ErrNotExist)\" was never seen false, the error's arm" \
+  --package "${buildinfo}" 50
+expect pass "a !errors.Is right after an error check, its error arm seen" \
+  "[$(condition 41:44 'errors.Is(err, fs.ErrNotExist)' 0 3)]" "" \
+  "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
+expect fail "an errors.Is on the line after an error check, its error arm unseen" \
+  "[$(condition 46:3 'errors.Is(err, fs.ErrPermission)' 0 2)]" "" \
+  "${fixture}:46:3 in remove: \"errors.Is(err, fs.ErrPermission)\" was never seen true, the error's arm" \
+  --package "${buildinfo}" 50
+expect pass "an errors.Is after no error check" "[$(condition 50:31 'errors.Is(lastErr, fs.ErrExist)' 0 2)]" "" \
+  "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
 expect pass "a name that only begins with err" "[$(condition 29:18 'w.errorHandler != nil' 0 2)]" "" \
   "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
 

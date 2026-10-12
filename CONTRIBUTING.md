@@ -120,17 +120,19 @@ own:
 - **Statements** (`task test:cover`) — did this line run.
 - **Conditions** (`task cover:branch`, via [gobco](https://github.com/rillig/gobco))
   — was each condition seen both ways, each operand of an `a && b` on its own.
-  Its output names every condition observed only one way, which is a worklist
-  of the tests still missing. A condition no test evaluated, or an error check
+  Its output names every condition observed only one way, which is a worklist of
+  the tests still missing. A condition no test evaluated, or an error check
   whose error arm no test reached, fails it outright, unless
   `scripts/gobco-allowlist.txt` keeps that arm for a trade-off `TECH_DEBT.md`
   records. An error check is a name ending in `err` or `Err`, perhaps with a
   capitalized or numbered rest (`err`, `readErr`, `closeErr`, `err2`,
   `errParse`, but not `errorHandler`), or a call of a method so named
-  (`ctx.Err()`), reached through fields and calls, compared with `nil`. gobco
+  (`ctx.Err()`), reached through fields and calls, compared with `nil`; and an
+  `errors.Is` or `!errors.Is` of such a name right after `<name> != nil &&`,
+  which only an error reaches, is one whose error arm is its true one. gobco
   measures every package in this module that has tests. It reads a package of
-  build-tagged twins one file at a time, so each file the build takes must
-  stand alone, and any package or file it cannot read fails the gate.
+  build-tagged twins one file at a time, so each file the build takes must stand
+  alone, and any package or file it cannot read fails the gate.
 
 The web frontend's unit tests (`task web:test`) hold their own floor, the
 `thresholds` in `web/vitest.config.ts`.
