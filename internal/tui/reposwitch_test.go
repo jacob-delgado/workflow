@@ -37,7 +37,7 @@ func TestConfirmingTheSwitchToAFavoriteLeavesForIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	asked := typing(t, onWeb(t, reposWorld()), keyEnter)
+	asked := typing(t, onWeb(t, reposWorld()), switchDirKey)
 
 	// Act
 	left, cmd := pressed(t, asked, keyEnter)
@@ -51,35 +51,35 @@ func TestConfirmingTheSwitchToAFavoriteLeavesForIt(t *testing.T) {
 	}
 }
 
-func TestEnterWhereYouWorkGoesNowhere(t *testing.T) {
+func TestTheSwitchKeyWhereYouWorkGoesNowhere(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	opened := typing(t, reposWorld().live(t, 120, 40), reposKey)
 
 	// Act
-	stayed, cmd := pressed(t, opened, keyEnter)
+	stayed, cmd := pressed(t, opened, switchDirKey)
 
 	// Assert
 	if quits(cmd) || stayed.Destination().Dir != "" {
-		t.Errorf("enter where you work left for %q", stayed.Destination().Dir)
+		t.Errorf("the switch key where you work left for %q", stayed.Destination().Dir)
 	}
 
 	requireScreen(t, stayed.View().Content, "you already work in ~/src/api/cmd")
 }
 
-func TestEnterOnAFavoriteNoLongerThereGoesNowhere(t *testing.T) {
+func TestTheSwitchKeyOnAFavoriteNoLongerThereGoesNowhere(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	opened := typing(t, reposWorld().live(t, 120, 40), reposKey, "j", "j")
 
 	// Act
-	stayed, cmd := pressed(t, opened, keyEnter)
+	stayed, cmd := pressed(t, opened, switchDirKey)
 
 	// Assert
 	if quits(cmd) || stayed.Destination().Dir != "" {
-		t.Errorf("enter on a directory not there left for %q", stayed.Destination().Dir)
+		t.Errorf("the switch key on a directory not there left for %q", stayed.Destination().Dir)
 	}
 
 	requireScreen(t, stayed.View().Content, "~/old is not there")
@@ -96,7 +96,7 @@ func TestLeavingAsksFirstWhenACommitMessageWouldBeLost(t *testing.T) {
 	onWeb := typing(t, drafted, reposKey, "j")
 
 	// Act
-	asked, cmd := pressed(t, onWeb, keyEnter)
+	asked, cmd := pressed(t, onWeb, switchDirKey)
 
 	// Assert
 	if quits(cmd) {
@@ -112,7 +112,7 @@ func TestAskedFirstEnterLeavesAnyway(t *testing.T) {
 	// Arrange
 	working := reposWorld()
 	drafted := typing(t, working.live(t, 120, 40), append(append([]string{"3", "c"}, letters("wip")...), keyEsc)...)
-	asked := typing(t, drafted, reposKey, "j", keyEnter)
+	asked := typing(t, drafted, reposKey, "j", switchDirKey)
 
 	// Act
 	left, cmd := pressed(t, asked, keyEnter)
@@ -129,7 +129,7 @@ func TestAskedFirstEscStays(t *testing.T) {
 	// Arrange
 	working := reposWorld()
 	drafted := typing(t, working.live(t, 120, 40), append(append([]string{"3", "c"}, letters("wip")...), keyEsc)...)
-	asked := typing(t, drafted, reposKey, "j", keyEnter)
+	asked := typing(t, drafted, reposKey, "j", switchDirKey)
 
 	// Act
 	stayed, cmd := pressed(t, asked, keyEsc)
@@ -146,7 +146,7 @@ func TestArrivingSaysWhereAndKeepsTheSessionsChoices(t *testing.T) {
 	// Arrange
 	// The Summary's period is the session's, not the repository's.
 	working := reposWorld()
-	moved := typing(t, working.live(t, 120, 40), summaryKey, "[", reposKey, "j", keyEnter)
+	moved := typing(t, working.live(t, 120, 40), summaryKey, "[", reposKey, "j", switchDirKey)
 	left, _ := pressed(t, moved, keyEnter)
 	arriving := newWorld()
 	arriving.dirs = &dirsWorld{here: webPlace()}
@@ -163,7 +163,7 @@ func TestAFailedSwitchStaysAndSaysWhy(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	left, _ := pressed(t, typing(t, onWeb(t, reposWorld()), keyEnter), keyEnter)
+	left, _ := pressed(t, typing(t, onWeb(t, reposWorld()), switchDirKey), keyEnter)
 
 	// Act
 	stayed := reposWorld().live(t, 120, 40).StayedAfter(left.Destination(), errJiraDown)
@@ -354,7 +354,7 @@ func TestACommentBeingWrittenGoesWithASwitchOnlyToTheSameJira(t *testing.T) {
 			working := reposWorld()
 			drafted := typing(t, working.live(t, 120, 40),
 				append(append([]string{"c", "i"}, letters("half done")...), keyEsc, keyEsc)...)
-			left, _ := pressed(t, typing(t, drafted, reposKey, "j", keyEnter), keyEnter)
+			left, _ := pressed(t, typing(t, drafted, reposKey, "j", switchDirKey), keyEnter)
 
 			other := newWorld()
 			if arriving.jira != "" {
@@ -384,7 +384,7 @@ func TestLeavingNamesACommentOnAForgeIssueAsLost(t *testing.T) {
 	onWeb := typing(t, drafted, reposKey, "j")
 
 	// Act
-	asked, _ := pressed(t, onWeb, keyEnter)
+	asked, _ := pressed(t, onWeb, switchDirKey)
 
 	// Assert
 	requireScreen(t, asked.View().Content, "your comment on #42")

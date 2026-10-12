@@ -121,12 +121,18 @@ func summaryKeys(builder *helpBuilder, into *keyMap) {
 	into.postSummary = builder.bind(group, "post-summary", "post", "p")
 }
 
-// repositoryKeys are the Repositories pane's bindings: marking the directory
-// the cursor is on a favorite, or forgetting it, typing a directory to go to,
-// and the settings and local data.
+// actionSwitchDirectory is the Repositories pane's switch to the row under the
+// cursor, named once for its binding, the pane's answers and CheckKeys: its
+// press opens a last look, so it is kept off the key that confirms one.
+const actionSwitchDirectory = "switch-directory"
+
+// repositoryKeys are the Repositories pane's bindings: switching to the
+// directory the cursor is on, marking it a favorite or forgetting it, typing
+// a directory to go to, and the settings and local data.
 func repositoryKeys(builder *helpBuilder, into *keyMap) {
 	group := paneRepositories.helpGroup()
 
+	into.switchDir = builder.bind(group, actionSwitchDirectory, verbSwitch, "s")
 	into.favoriteDir = builder.bind(group, "favorite-directory", "favorite", "f")
 	into.goToDir = builder.bind(group, "go-to-directory", "go to", "g")
 	into.settings = builder.bind(group, "settings", "settings", "S")

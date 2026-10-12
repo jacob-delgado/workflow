@@ -47,6 +47,23 @@ func TestCheckKeysRefusesAnActionThatAsksFirstOnTheKeyThatConfirmsIt(t *testing.
 	}
 }
 
+// The Repositories pane's switch asks first, so it is kept off apply's key
+// as every action that asks is.
+func TestCheckKeysRefusesTheSwitchOnTheKeyThatConfirmsIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	rebound := map[string]string{"switch-directory": keyEnter}
+
+	// Act
+	err := tui.CheckKeys(rebound)
+
+	// Assert
+	if !errors.Is(err, config.ErrKeyConfirmsItself) {
+		t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConfirmsItself", rebound, err)
+	}
+}
+
 func TestCheckKeysRefusesAKeyATextFieldEditsWithWhereOneHasTheFocus(t *testing.T) {
 	t.Parallel()
 

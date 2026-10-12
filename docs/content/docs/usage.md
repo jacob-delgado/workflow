@@ -199,7 +199,7 @@ lists, by where it works.
 | | `p` | Post the summary to your messaging service, after a preview |
 | | `o` / `y` | Open the selected item in the browser, or copy its URL |
 | | `r` | Read the period again |
-| 9 Repositories | `enter` | Switch to the selected directory, after a last look |
+| 9 Repositories | `s` | Switch to the selected directory, after a last look |
 | | `f` | Add the selected directory to your favorites, or remove it |
 | | `g` | Type a directory to switch to; `tab` completes it |
 | | `S` | Settings: read and change the configuration the web's Settings edits; with no file, set one up |
@@ -777,7 +777,7 @@ still there is read from the disk each time the pane is opened, and they are
 not read at startup. Under `--dry-run` the pane lists them and says what `f`
 would have done; with `store.disabled` there are none to keep.
 
-`enter` switches to the worktree or directory the cursor is on — not to a
+`s` switches to the worktree or directory the cursor is on — not to a
 worktree whose directory is gone — and `g` to one you type:
 from where you work, as `../web`, or from your home after a `~`, as
 `~/src/web`. In the prompt every key types, `j` and `q` included; `tab`
@@ -785,7 +785,10 @@ completes the path from the directories there, a hidden one once you type its
 dot, typing what several share and
 naming them, and `enter` goes once the path is checked to be a directory that
 is there. Every switch, from either key, first asks "Switch to DIR?" and does
-nothing until `enter`; `esc` stays. A switch ends the interface and opens it again in that directory,
+nothing until `enter`; `esc` stays. `enter` on a row switches nothing, so a
+double press cannot ask and then switch at once; after a typed path it does
+go on, so a fast double `enter` there checks the path and switches. A switch
+ends the interface and opens it again in that directory,
 wired to it as if workflow had been started there: its repository, its forge,
 the configuration files that apply there and the store's keys all follow. A
 directory not there, or a configuration whose `ui.keys` the interface would
