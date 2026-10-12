@@ -132,7 +132,10 @@ own:
   which only an error reaches, is one whose error arm is its true one. gobco
   measures every package in this module that has tests. It reads a package of
   build-tagged twins one file at a time, so each file the build takes must stand
-  alone, and any package or file it cannot read fails the gate.
+  alone, and any package or file it cannot read fails the gate. Run it as a
+  user, not as root: root reads any file, so the tests that make one unreadable
+  skip under it, leave the arms they reach unseen, and fail the gate where it
+  passes for a user. It says so when it runs as root.
 
 The web frontend's unit tests (`task web:test`) hold their own floor, the
 `thresholds` in `web/vitest.config.ts`.

@@ -21,18 +21,21 @@
 # module's, a floor without a reason above it fails, and so do a floor for a
 # package that holds no condition and a floors file that is not there.
 #
+# A run as root says that the tests skipped under root leave arms unseen.
+#
 # The stand-in gobco says which package or file it measured, writes
-# GOBCO_STUB_STATS to the file after -stats, or nothing when that is empty,
-# or no condition at all for the package GOBCO_STUB_EMPTY names, ignores its
-# other flags, and fails as gobco does on a package it cannot read
-# when its package or file is GOBCO_STUB_UNREADABLE. A go
-# ahead of the real one answers `go version -m`, which cannot read a script,
-# with the Go this project builds with or GO_STUB_BUILT_BY, and adds
-# GO_STUB_UNTESTED to the packages listed without tests; everything else
-# reaches the real go, so the untested packages checked are the module's own.
-# OUT_DIR is always a temporary directory, because the report empties the
-# directory it writes to. GOBCO_ALLOWLIST and GOBCO_FLOORS name an empty file
-# unless a case writes its own, so the repository's own lines play no part.
+# GOBCO_STUB_STATS to the file after -stats, or nothing when that is empty, or
+# no condition at all for the package GOBCO_STUB_EMPTY names, ignores its other
+# flags, and fails as gobco does on a package it cannot read when its package
+# or file is GOBCO_STUB_UNREADABLE. A go ahead of the real one answers `go
+# version -m`, which cannot read a script, with the Go this project builds with
+# or GO_STUB_BUILT_BY, and adds GO_STUB_UNTESTED to the packages listed without
+# tests; everything else reaches the real go, so the untested packages checked
+# are the module's own. An id ahead of the real one answers `id -u` with
+# ID_STUB_UID, or a user's by default. OUT_DIR is always a temporary directory,
+# because the report empties the directory it writes to. GOBCO_ALLOWLIST and
+# GOBCO_FLOORS name an empty file unless a case writes its own, so the
+# repository's own lines play no part.
 #
 # Usage:
 #   scripts/gobco-report_test.sh
@@ -82,7 +85,15 @@ if [[ "$1" == "list" && "$3" == "{{if not"* && -n "${GO_STUB_UNTESTED:-}" ]]; th
   printf '%s\n' "${GO_STUB_UNTESTED}"
 fi
 STUB
-chmod +x "${workdir}/bin/gobco" "${workdir}/bin/go"
+cat >"${workdir}/bin/id" <<'STUB'
+#!/usr/bin/env bash
+if [[ "$*" == "-u" ]]; then
+  echo "${ID_STUB_UID:-1000}"
+  exit 0
+fi
+exec /usr/bin/id "$@"
+STUB
+chmod +x "${workdir}/bin/gobco" "${workdir}/bin/go" "${workdir}/bin/id"
 
 # Statistics for one condition seen both ways: two arms of two. And for one
 # seen only one way: one arm of two, 50%.
@@ -131,6 +142,19 @@ GOBCO_STUB_UNREADABLE=./internal/filelock/lock_unix.go expect fail "a twin gobco
 # so one built by another Go is refused before it measures anything.
 GO_STUB_BUILT_BY=go1.0 expect fail "a gobco built by another Go" "${both_ways}" "" \
   "gobco was built by go1.0" --package "${module}/internal/buildinfo" 50
+
+# Root reads any file, so the tests that make a file unreadable skip under
+# it, and the arms they reach go unseen: a run as root says so, and one as a
+# user says nothing of it.
+ID_STUB_UID=0 expect pass "a run as root" "${both_ways}" "" \
+  "This runs as root" --package "${module}/internal/buildinfo" 50
+run_case env PATH="${workdir}/bin:${PATH}" REAL_GO="${real_go}" OUT_DIR="${workdir}/out" \
+  GOBCO_STUB_STATS="${both_ways}" GOBCO_ALLOWLIST="${no_lines}" GOBCO_FLOORS="${no_lines}" \
+  "${report}" --package "${module}/internal/buildinfo" 50
+if ((case_status != 0)) || [[ "$(<"${case_output}")" == *"as root"* ]]; then
+  fail_case "a run as a user" "want it to pass saying nothing of root, got exit ${case_status}:"
+  show_output
+fi
 
 # The whole module, as the gate runs it, over the package roots Taskfile.yml's
 # GO_PKGS names: every package listed without tests is one NO_TESTS names, so
