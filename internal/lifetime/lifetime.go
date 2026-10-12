@@ -21,17 +21,22 @@ func Within(ctx, end context.Context) context.Context {
 	return context.WithValue(ctx, key{}, end)
 }
 
-// Detached is a context with ctx's values that goes on when ctx ends and ends
-// with the lifetime ctx carries, with that lifetime's cause, or never where
-// it carries none; and the function that releases it once the work is done.
+// Detached is Until(ctx, the lifetime ctx carries), or, where it carries
+// none, a context with ctx's values that never ends but on release.
 func Detached(ctx context.Context) (context.Context, context.CancelFunc) {
-	detached, cancel := context.WithCancelCause(context.WithoutCancel(ctx))
-
 	end, carried := ctx.Value(key{}).(context.Context)
 	if !carried {
-		return detached, func() { cancel(nil) }
+		return context.WithCancel(context.WithoutCancel(ctx))
 	}
 
+	return Until(ctx, end)
+}
+
+// Until is a context with ctx's values that goes on when ctx ends and ends
+// when end does, with end's cause, and the function that releases it once the
+// work it was made for is done.
+func Until(ctx, end context.Context) (context.Context, context.CancelFunc) {
+	detached, cancel := context.WithCancelCause(context.WithoutCancel(ctx))
 	stop := context.AfterFunc(end, func() { cancel(context.Cause(end)) })
 
 	return detached, func() {
