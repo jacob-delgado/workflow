@@ -758,7 +758,9 @@ The actions you can rebind, grouped by where they work, are:
   `append`, `append-line`, `open-line`, `cursor-left`, `cursor-right`.
 - **While a command runs:** `stop`, `run-again`, `full-output`.
 - **On every pane:** `toggle-mouse`, `toggle-help` and `quit`. No overlay
-  answers them but the help, which closes on the one and quits on the other.
+  answers them but the help, which closes on the key that toggles the help
+  and quits on the quit key; no overlay answers the key that toggles the
+  mouse.
 - **On panes and in overlays:** `apply` and `close`, wherever the bottom row
   offers them: every overlay closes, and all but the help, a job's log and
   Local data apply; the owner picker takes enter and esc as they are, not as
