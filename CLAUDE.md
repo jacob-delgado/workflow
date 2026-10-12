@@ -512,8 +512,8 @@ says a line ran; condition coverage (gobco, `task cover:branch`) says whether an
 `if a && b` was ever seen with `b` false. Its per-condition output — "condition
 `err != nil` was 8 times false but never true" — is a worklist of missing test
 cases, not a percentage to chase, with one hard edge: a condition no test
-evaluated, and an error check whose error arm no test reached, fail the gate.
-An error check is one the gate can tell by its name: a name ending in `err` or
+evaluated, and an error check whose error arm no test reached, fail the gate. An
+error check is one the gate can tell by its name: a name ending in `err` or
 `Err`, perhaps with a capitalized or numbered rest (`err`, `readErr`,
 `closeErr`, `err2`, `errParse`, but not `errorHandler`), or a call of a method
 so named (`ctx.Err()`), reached through fields and calls, compared with `nil`.
@@ -521,17 +521,17 @@ Any condition the gate does not read as an error check, seen one way, stays the
 worklist. The exception list is `scripts/gobco-allowlist.txt`, one line per arm
 a kept trade-off in `TECH_DEBT.md` keeps, naming it
 (`scripts/check-tradeoffs.sh` holds each name to the register); every other such
-arm is a test to write, and a line whose arm a test comes to reach fails until it
-goes. gobco measures every package in this module that has tests. It reads a
+arm is a test to write, and a line whose arm a test comes to reach fails until
+it goes. gobco measures every package in this module that has tests. It reads a
 package of build-tagged twins one file at a time, so each file the build takes
 must stand alone, and any package or file it cannot read fails the gate rather
 than quietly shrinking what the number covers.
 
 **Raising the floor: the ratchet is `floor(measured) − 2`.** Two points is the
-whole tolerance — enough for an incidental refactor, not enough to land a feature
-with its tests missing. A floor is raised only after the coverage is already
-there; the gate prints the available ratchet each run, the module's and each
-package floor's.
+whole tolerance — enough for an incidental refactor, not enough to land a
+feature with its tests missing. A floor is raised only after the coverage is
+already there; the gate prints the available ratchet each run, the module's and
+each package floor's.
 
 These are minimums, not targets — aim higher where the code is consequential
 (credential handling, redaction, anything that touches a token).
