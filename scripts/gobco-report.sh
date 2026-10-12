@@ -402,12 +402,16 @@ conditions="$(
 #
 #   <file> <function> <TRADE-n> <systems> <number> <condition>
 #
-# So a kept arm a test comes to reach cannot be traded for a new one no test
-# reaches that reads the same in the same function: the new one has a number
-# of its own. A condition added above a kept arm that reads the same moves the
-# arm's number on, and the gate fails until the line follows it. A line whose
-# arm is no longer unseen fails too, so the list only shrinks as tests arrive.
-# A run over named packages misses only lines for files it did not measure.
+# So a kept arm a test comes to reach is not traded for a new one no test
+# reaches that reads the same, added below it in the same function: the new
+# one has a number of its own. A condition that reads the same added above a
+# kept arm moves the arm's number on, and the gate fails until the line
+# follows it, with one exception it cannot see: when a test comes to reach the
+# kept arm in the same change, the new arm takes the kept one's number, the
+# line keeps it, and the gate passes. Without source lines the two cannot be
+# told apart; TRADE-19 keeps that limit. A line whose arm is no longer unseen
+# fails too, so the list only shrinks as tests arrive. A run over named
+# packages misses only lines for files it did not measure.
 LC_ALL=C awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="$(go env GOOS)" '
   # enclosing is the function file holds at line, read on from where the call
   # before left it, since the conditions come in order. It leaves that line

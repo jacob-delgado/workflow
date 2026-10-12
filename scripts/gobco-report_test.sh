@@ -14,9 +14,11 @@
 # naming the file, line and function, a method by its type's name whatever type
 # parameters it takes, and the arm's number among its function's conditions
 # that read the same, unless a line of the allowlist keeps that arm, by that
-# number, for a trade-off; a line keeps one arm, on the systems it names, and
-# no other line may keep it too; a line whose arm a test now reaches, or that
-# is not shaped as one, fails too; and a boolean seen one way is only listed.
+# number, for a trade-off (a new arm added above a kept arm a test came to
+# reach takes its number, a limit TRADE-19 keeps and a case below pins); a
+# line keeps one arm, on the systems it names, and no other line may keep it
+# too; a line whose arm a test now reaches, or that is not shaped as one,
+# fails too; and a boolean seen one way is only listed.
 # Each package the floors file names answers to its own floor beside the
 # module's, a floor without a reason above it fails, and so do a floor for a
 # package that holds no condition and a floors file that is not there.
@@ -323,14 +325,23 @@ GOBCO_ALLOWLIST="${one}" expect fail "a second arm the one line does not keep" "
 
 # A line keeps its arm by its number among the conditions of its function
 # that read the same, so a kept arm a test comes to reach is not traded for a
-# new one no test reaches that reads the same: the new one has a number of
-# its own, and the line keeps nothing.
+# new one no test reaches that reads the same below it: the new one has a
+# number of its own, and the line keeps nothing.
 traded="[$(condition 5:5 'err != nil' 1 3),$(condition 9:9 'err != nil' 0 1)]"
 GOBCO_ALLOWLIST="${one}" expect fail "a kept arm reached, and a new one that reads the same" "${traded}" "" \
   "${fixture}:9:9 in reader.read: \"err != nil\", number 2 there, was never seen true" --package "${buildinfo}" 50
 GOBCO_ALLOWLIST="${one}" expect fail "a kept arm reached, its line left" "${traded}" "" \
   "${one}:2: no unseen arm is left for \"${fixture} reader.read TRADE-1 any 1 err != nil\"" \
   --package "${buildinfo}" 50
+
+# The known limit, which TRADE-19 names: a new arm that reads the same, added
+# above a kept arm in the change in which a test comes to reach the kept one,
+# takes the kept arm's number, so the line keeps the new arm and the run
+# passes. Without source lines the gate cannot tell the two apart; this case
+# pins what it cannot catch, so a change to the matching changes the text.
+traded_above="[$(condition 5:5 'err != nil' 0 3),$(condition 9:9 'err != nil' 1 3)]"
+GOBCO_ALLOWLIST="${one}" expect pass "the known limit: a new arm added above a kept arm a test came to reach" \
+  "${traded_above}" "" "Condition coverage 75.0% (floor 50%)." --package "${buildinfo}" 50
 
 # A line names its arm's number, and only one line keeps an arm.
 unnumbered="$(allowlist unnumbered "${fixture} reader.read TRADE-1 any err != nil")"
