@@ -6,8 +6,10 @@ package keychain_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/keychain"
@@ -242,6 +244,50 @@ func TestItemBoundsEachSecurityRunByTheDefaultRunTimeout(t *testing.T) {
 				t.Errorf("security's deadline is %s after %s began, want %s",
 					deadline.Sub(before), name, proc.DefaultRunTimeout)
 			}
+		})
+	}
+}
+
+// A security run past the item's own bound answers to proc.ErrTimedOut, as one
+// proc.Run stops at its bound does, so the words for a program that did not
+// answer in time are the ones shown; a run its caller's own deadline ended
+// first does not. The runner reports a run its context ended as proc.Capture
+// does, by that context's cause.
+func TestOnlyASecurityRunPastTheItemsBoundIsTimedOut(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		callerDeadline time.Duration
+		wantTimedOut   bool
+	}{
+		"the item's bound ends it":          {callerDeadline: 2 * proc.DefaultRunTimeout, wantTimedOut: true},
+		"the caller's own deadline ends it": {callerDeadline: proc.DefaultRunTimeout / 2, wantTimedOut: false},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange
+				item := itemFor(t, func(ctx context.Context, program proc.Command, _ []byte) ([]byte, error) {
+					<-ctx.Done()
+
+					return nil, fmt.Errorf("%s: %w", program.Name, context.Cause(ctx))
+				})
+
+				ctx, cancel := context.WithTimeout(t.Context(), tt.callerDeadline)
+				defer cancel()
+
+				// Act
+				_, err := item.Read(ctx)
+
+				// Assert
+				if errors.Is(err, proc.ErrTimedOut) != tt.wantTimedOut {
+					t.Errorf("Read = %v; answering to proc.ErrTimedOut is %t, want %t",
+						err, errors.Is(err, proc.ErrTimedOut), tt.wantTimedOut)
+				}
+			})
 		})
 	}
 }
