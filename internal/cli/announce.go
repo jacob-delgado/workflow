@@ -334,7 +334,9 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, b
 		return messaging.Mentions{}, memory
 	}
 
-	mentions := tags.Proposed()
+	// The lines are read from the tags as the post sends them, so they name
+	// as tagged no one the mentions leave out.
+	tags, mentions := tags.Proposed()
 
 	fmt.Fprintln(out.artifact, "tags "+taggedNames(tags))
 
