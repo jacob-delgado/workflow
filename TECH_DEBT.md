@@ -716,3 +716,36 @@ says is read, not checked.
 
 **Reopen when.** A stat failure is reported, or the trust check moves to a
 path.
+
+### TRADE-37 A web write outlasts its page
+
+**Decided.** `worlds.serve` (`internal/webserver/world.go`) runs every write,
+any request but a GET, HEAD or OPTIONS, under a context detached from its
+request's (`worlds.outlivingItsPage`) that ends only when the server's
+lifetime, the context `Handler` is given, does. A read stops when its page
+goes; a write, a commit, a push, a post or a task started, goes on to its end,
+so a page closed or reloaded mid-write never cuts one off halfway. It is what
+`docs/content/docs/web.md` already promised a run: it goes on to its end if
+the page is closed. Decided 2026-10-09 by the maintainer in the pre-1.0
+paydown, when each seam came to take its asker's context.
+
+**Cost.** Closing a tab cannot call off a slow write; only Stop, for a run,
+or stopping the server can.
+
+**Reopen when.** A write is found to hang with no way to stop it.
+
+### TRADE-38 The terminal cancels on quit, not on leaving a view
+
+**Decided.** The terminal asks every system under one session context, set by
+`Model.WithContext` (`internal/tui/tui.go`), which `tui.Run` ends when the
+program does: quitting, or switching directory (TRADE-34), stops what the
+program left in flight. Leaving a view cancels nothing: a late answer is
+dropped by its read's count or view, as before, and cancelling per view would
+mean a cancel handle on every view's state. Decided 2026-10-09 by the
+maintainer in the pre-1.0 paydown, when each seam came to take its asker's
+context.
+
+**Cost.** A read for a view the user has left still spends its request to the
+tracker, the forge or Taskwarrior.
+
+**Reopen when.** Such reads are found to crowd a rate limit.

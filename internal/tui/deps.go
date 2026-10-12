@@ -15,8 +15,9 @@ import (
 
 // Deps is everything the interface asks of the world outside the terminal,
 // grouped by what it asks. Each is a function rather than a client, so the model
-// never holds a context or a credential, and a test can hand it canned answers
-// without a network, a repository or a subprocess.
+// never holds a credential, and a test can hand it canned answers without a
+// network, a repository or a subprocess. A function that does I/O is asked
+// under the session's context, which Model.WithContext sets.
 //
 // A load the interface starts by itself is skipped when its function is nil, so
 // a test need only supply what it exercises. An action is only offered once the

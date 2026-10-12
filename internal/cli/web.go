@@ -59,7 +59,9 @@ func WebServerAt(addr string) RunWeb {
 
 		session := webserver.NewSession()
 
-		handler, err := webserver.Handler(webserver.World{Deps: deps, Config: cfg, Info: info}, web.Assets(), session)
+		world := webserver.World{Deps: deps, Config: cfg, Info: info}
+
+		handler, err := webserver.Handler(ctx, world, web.Assets(), session)
 		if err != nil {
 			return fmt.Errorf("building the web server: %w", err)
 		}

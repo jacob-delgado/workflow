@@ -129,7 +129,7 @@ func TestHandlerRefusesAConfigurationPathItCannotRead(t *testing.T) {
 	cfg.Path = t.TempDir()
 
 	// Act
-	_, err := webserver.Handler(webserver.World{Config: cfg}, fstest.MapFS{}, webserver.NewSession())
+	_, err := webserver.Handler(t.Context(), webserver.World{Config: cfg}, fstest.MapFS{}, webserver.NewSession())
 
 	// Assert
 	if err == nil {
@@ -188,7 +188,7 @@ func TestHandlerStartsFromWhatTheProcessReadWhenTheFileHasTurnedInvalid(t *testi
 	session := webserver.NewSession()
 
 	// Act
-	handler, err := webserver.Handler(webserver.World{Config: cfg}, fstest.MapFS{}, session)
+	handler, err := webserver.Handler(t.Context(), webserver.World{Config: cfg}, fstest.MapFS{}, session)
 	// Assert
 	if err != nil {
 		t.Fatalf("Handler over a file that is not valid = %v, want it served anyway", err)

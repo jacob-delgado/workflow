@@ -33,7 +33,7 @@ func serveBare(t *testing.T, session webserver.Session) http.Handler {
 
 	world := webserver.World{Deps: filledDeps(), Config: config.Default(), Info: webserver.Info{Version: testVersion}}
 
-	handler, err := webserver.Handler(world, fstest.MapFS{}, session)
+	handler, err := webserver.Handler(t.Context(), world, fstest.MapFS{}, session)
 	if err != nil {
 		t.Fatalf("building the handler: %v", err)
 	}
@@ -136,8 +136,9 @@ func TestARefusedWriteChangesNothing(t *testing.T) {
 		return nil
 	}
 
-	handler, err := webserver.Handler(webserver.World{Deps: deps, Config: config.Default()}, fstest.MapFS{},
-		webserver.NewSession())
+	world := webserver.World{Deps: deps, Config: config.Default()}
+
+	handler, err := webserver.Handler(t.Context(), world, fstest.MapFS{}, webserver.NewSession())
 	if err != nil {
 		t.Fatalf("building the handler: %v", err)
 	}

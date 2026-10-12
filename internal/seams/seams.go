@@ -4,9 +4,11 @@
 // Package seams declares what a surface asks of each system outside the
 // process, one bundle per system. Each is a struct of plain functions over the
 // domain packages' own types, and loop's record of an announcement
-// (loop.Announced), so a surface never holds a context or a credential, and a
-// test can hand it canned answers without a network, a repository or a
-// subprocess.
+// (loop.Announced), so a surface never holds a credential, and a test can hand
+// it canned answers without a network, a repository or a subprocess. A
+// function that does I/O takes the context of whatever asked first — a web
+// request's, the command's, the terminal session's — so it stops when its
+// asker has gone; seams_test.go names those that take none, and why.
 //
 // The command line, the terminal interface and the web server all take these
 // bundles — the web server's webserver.Deps holds them whole, as cli.WebDeps

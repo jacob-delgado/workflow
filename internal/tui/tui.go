@@ -39,6 +39,9 @@ type Model struct {
 	cfg     config.Config
 	loadErr error
 	deps    Deps
+	// session is the context every system outside the interface is asked
+	// under: Run's, which ends when the program does.
+	session context.Context //nolint:containedctx // tea.Cmd takes no context, so each command captures the session's
 	keys    keyMap
 	styles  styles
 	marks   glyphs
@@ -126,7 +129,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 	vocab := forgeVocab(deps.Forge.Kind)
 
 	model := Model{
-		cfg: cfg, loadErr: loadErr, deps: deps,
+		cfg: cfg, loadErr: loadErr, deps: deps, session: context.Background(),
 		keys:   newKeyMap(marks, vocab.noun, cfg.Messaging.Service(), cfg.UI.Keys),
 		styles: newStyles(true), marks: marks, vocab: vocab,
 		width: defaultWidth, height: defaultHeight,
@@ -147,6 +150,17 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 	}
 
 	return model
+}
+
+// WithContext is the interface asking every system outside it under ctx, its
+// session's, which New leaves unending; Run gives it one that ends when the
+// program does.
+func (m Model) WithContext(ctx context.Context) Model {
+	// Trade-off TRADE-38: the session ends on quit; leaving a view cancels
+	// nothing it asked for.
+	m.session = ctx
+
+	return m
 }
 
 // WithDryRun is the interface holding back every write — to Jira, the forge,
@@ -175,13 +189,18 @@ func (m Model) WithoutColor() Model {
 // Run starts the interface, reading keys from in — or from the terminal the
 // process runs on, when in is a file that is not one — and drawing on out, and
 // blocks until the user quits, or switches directory, which Next says. The
-// context cancels the program, so a caller can shut the interface down. The
-// alternate screen and mouse mode are set declaratively in View, as v2 asks.
+// context cancels the program, so a caller can shut the interface down, and
+// the program's session ends when it does, stopping what it left in flight.
+// The alternate screen and mouse mode are set declaratively in View, as v2
+// asks.
 func Run(ctx context.Context, model Model, in io.Reader, out io.Writer) (Next, error) {
+	session, end := context.WithCancel(ctx)
+	defer end()
+
 	options := append(keysFrom(in), tea.WithOutput(out), tea.WithContext(ctx))
 	options = append(options, model.programOptions...)
 
-	ended, err := tea.NewProgram(model, options...).Run()
+	ended, err := tea.NewProgram(model.WithContext(session), options...).Run()
 	if err != nil {
 		return Next{}, fmt.Errorf("running the interface: %w", err)
 	}
